@@ -661,6 +661,37 @@
         {@render followRow("OpenPost Image Editor Bot", "BOT", "#0f766e")}
       </aside>
     </div>
+  {:else if model.platform === "telegram"}
+    <div class="telegram-page">
+      <aside class="telegram-chat-list" aria-hidden="true">
+        <header><Menu /><strong>Telegram</strong><Search /></header>
+        <div class="telegram-search">Search</div>
+        <div class="telegram-channel-row">
+          <PreviewAvatar identity={model.identity} size={46} />
+          <span
+            ><strong>{model.identity.displayName}</strong><small
+              >{model.segments[0]?.text || "Channel"}</small
+            ></span
+          >
+          <time>{model.createdAtLabel}</time>
+        </div>
+      </aside>
+      <section class="telegram-conversation">
+        <header class="telegram-channel-header">
+          <PreviewAvatar identity={model.identity} size={40} />
+          <span
+            ><h1>{model.identity.displayName}</h1>
+            <small>channel</small></span
+          >
+          <Search aria-hidden="true" />
+          <MoreHorizontal aria-hidden="true" />
+        </header>
+        <div class="telegram-messages">
+          <span class="telegram-date">Today</span>
+          <SocialPreview {model} />
+        </div>
+      </section>
+    </div>
   {:else}
     <div class="unsupported-page"><SocialPreview {model} /></div>
   {/if}
@@ -686,6 +717,150 @@
 
   .preview-page :global(svg) {
     display: block;
+  }
+
+  .telegram-page {
+    display: grid;
+    grid-template-columns: 18rem minmax(0, 1fr);
+    width: min(100%, 86rem);
+    min-height: 100dvh;
+    margin-inline: auto;
+    background: #d8e5e4;
+    color: #18242b;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .telegram-chat-list {
+    border-right: 1px solid #e0e5e7;
+    background: #fff;
+  }
+
+  .telegram-chat-list header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 4rem;
+    padding: 0 1.1rem;
+  }
+
+  .telegram-chat-list header strong {
+    flex: 1;
+    font-size: 1rem;
+  }
+
+  .telegram-chat-list header :global(svg) {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #70818b;
+  }
+
+  .telegram-search {
+    margin: 0 0.75rem 0.6rem;
+    border-radius: 1.1rem;
+    background: #f1f3f5;
+    color: #819099;
+    padding: 0.55rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .telegram-channel-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    background: #e9f3ff;
+    padding: 0.7rem;
+  }
+
+  .telegram-channel-row span {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .telegram-channel-row strong,
+  .telegram-channel-row small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .telegram-channel-row strong {
+    font-size: 0.85rem;
+  }
+
+  .telegram-channel-row small,
+  .telegram-channel-row time {
+    color: #52636b;
+    font-size: 0.72rem;
+  }
+
+  .telegram-conversation {
+    min-width: 0;
+  }
+
+  .telegram-channel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-height: 4rem;
+    border-bottom: 1px solid #e0e5e7;
+    background: #fff;
+    padding: 0.5rem 1rem;
+  }
+
+  .telegram-channel-header span {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .telegram-channel-header h1 {
+    overflow: hidden;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .telegram-channel-header small {
+    color: #52636b;
+    font-size: 0.72rem;
+  }
+
+  .telegram-channel-header > :global(svg) {
+    width: 1.2rem;
+    height: 1.2rem;
+    color: #819099;
+  }
+
+  .telegram-messages {
+    position: relative;
+    min-height: calc(100dvh - 4rem);
+    display: grid;
+    align-content: end;
+  }
+
+  .telegram-messages :global(.telegram-preview) {
+    width: 100%;
+    max-width: none;
+    min-height: calc(100dvh - 4rem);
+    align-content: start;
+    padding-top: 3rem;
+  }
+
+  .telegram-date {
+    position: absolute;
+    z-index: 1;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 1rem;
+    background: #526b78;
+    color: #fff;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.7rem;
   }
 
   .mobile-native-nav,
@@ -2767,6 +2942,18 @@
   }
 
   @media (max-width: 40rem) {
+    .telegram-page {
+      display: block;
+    }
+
+    .telegram-chat-list {
+      display: none;
+    }
+
+    .telegram-channel-header {
+      padding-inline: 0.7rem;
+    }
+
     .micro-page,
     .instagram-page,
     .youtube-page,

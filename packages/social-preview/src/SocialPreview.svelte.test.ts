@@ -48,6 +48,52 @@ describe("SocialPreview destination presentations", () => {
     await expect.element(screen.getByRole("button", { name: "Show more" })).toBeVisible();
   });
 
+  it("renders Telegram channel text with image and video attachments", async () => {
+    const model = createPreviewModel({
+      platform: "telegram",
+      identity: { displayName: "OpenPost updates", handle: "openpost" },
+      segments: [
+        {
+          id: "primary",
+          text: "The launch is live.",
+          media: [
+            {
+              id: "image",
+              kind: "image",
+              src: "/launch.png",
+              alt: "Launch artwork",
+            },
+            {
+              id: "video",
+              kind: "video",
+              src: "/launch.mp4",
+              alt: "Launch clip",
+            },
+          ],
+        },
+      ],
+    });
+    const screen = await render(SocialPreview, { model });
+
+    await expect.element(screen.getByText("The launch is live.")).toBeVisible();
+    await expect.element(screen.getByRole("img", { name: "Launch artwork" })).toBeVisible();
+    await expect.element(screen.getByLabelText("Launch clip")).toBeVisible();
+  });
+
+  it("shows a Telegram document as a file attachment", async () => {
+    const screen = await render(SocialPreview, {
+      model: createPreviewModel({
+        platform: "telegram",
+        segments: [{ id: "primary", text: "Read the guide." }],
+        media: [{ id: "guide", kind: "document", src: "/guide.pdf", alt: "Launch guide.pdf" }],
+      }),
+    });
+
+    await expect.element(screen.getByText("Launch guide.pdf")).toBeVisible();
+    await expect.element(screen.getByText("File attachment")).toBeVisible();
+    await expect.element(screen.getByText("Read the guide.")).toBeVisible();
+  });
+
   it("fails explicitly for an unsupported provider", async () => {
     const screen = await render(SocialPreview, {
       model: previewModel("unsupported"),
@@ -59,6 +105,18 @@ describe("SocialPreview destination presentations", () => {
 });
 
 describe("SocialPreviewPage destination shells", () => {
+  it("places a Telegram post inside a channel page", async () => {
+    const screen = await render(SocialPreviewPage, {
+      model: previewModel("telegram"),
+    });
+
+    await expect.element(screen.getByLabelText("Telegram page preview")).toBeVisible();
+    await expect
+      .element(screen.getByLabelText("Telegram channel message").getByText("Launch update"))
+      .toBeVisible();
+    await expect.element(screen.getByRole("heading", { name: "OpenPost" })).toBeVisible();
+  });
+
   it("renders a complete thread without OpenPost application chrome", async () => {
     const screen = await render(SocialPreviewPage, {
       model: createPreviewModel({

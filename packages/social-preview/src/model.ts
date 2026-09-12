@@ -9,6 +9,7 @@ export const previewPlatforms = [
   "youtube",
   "tiktok",
   "discord",
+  "telegram",
 ] as const;
 
 export type PreviewPlatform = (typeof previewPlatforms)[number];
@@ -147,6 +148,10 @@ export const previewCapabilities: Record<PreviewPlatform, PreviewCapability> = {
     media: ["image", "video", "document"],
     cards: ["link"],
   },
+  telegram: {
+    formats: ["post", "video"],
+    media: ["image", "video", "document"],
+  },
 };
 
 export const platformNames: Record<PreviewPlatformKey, string> = {
@@ -160,6 +165,7 @@ export const platformNames: Record<PreviewPlatformKey, string> = {
   youtube: "YouTube",
   tiktok: "TikTok",
   discord: "Discord",
+  telegram: "Telegram",
   unsupported: "Unsupported account",
 };
 

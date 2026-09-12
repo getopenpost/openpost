@@ -7,6 +7,7 @@
   import type { PreviewModel } from "./model";
   import { platformNames } from "./model";
   import TikTokPreview from "./TikTokPreview.svelte";
+  import TelegramPreview from "./TelegramPreview.svelte";
   import YouTubePreview from "./YouTubePreview.svelte";
 
   interface Props {
@@ -56,6 +57,8 @@
     <TikTokPreview {model} {compact} />
   {:else if model.platform === "discord"}
     <DiscordPreview {model} {compact} />
+  {:else if model.platform === "telegram"}
+    <TelegramPreview {model} {compact} />
   {/if}
 </div>
 

@@ -132,8 +132,8 @@ describe('project snapshot service', () => {
 		expect(result.project.schemaVersion).toBe(testRuntime.source.schemaVersion);
 		expect(result.project.schemaFamily).toBe('openpost');
 		expect(result.project.timeline?.transitions?.[0]).toMatchObject({
-			fromItemId: result.project.timeline.items[0]?.id,
-			toItemId: result.project.timeline.items[0]?.id
+			fromItemId: result.project.timeline!.items[0]?.id,
+			toItemId: result.project.timeline!.items[0]?.id
 		});
 		expect(result.warnings).toContain(
 			'Converted FreeCut schema 15 to the OpenPost project format.'

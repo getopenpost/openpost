@@ -108,7 +108,7 @@ export function synchronizeTranscriptCaptionsAfterSplit(
 		if (
 			item.type !== 'subtitle' ||
 			(sourceType !== 'transcript' && sourceType !== 'ai-captions') ||
-			item.captionSource.clipId !== leftSource.id ||
+			item.captionSource?.clipId !== leftSource.id ||
 			!item.cues
 		) {
 			nextItems.push(item);

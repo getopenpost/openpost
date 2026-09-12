@@ -35,6 +35,9 @@ function contributionValue(
 	value: number,
 	anchor: ResolvedMotionTransform
 ): number {
+	if (property === 'anchorX' || property === 'anchorY' || property === 'cornerRadius') {
+		return identityForBlend(blendForProperty(property));
+	}
 	if (['width', 'height', 'scaleX', 'scaleY'].includes(property)) {
 		return anchor[property] === 0 ? 1 : value / anchor[property];
 	}

@@ -63,14 +63,14 @@ describe('groupDopesheetProperties', () => {
 describe('buildDopesheetSegmentSpans', () => {
 	it('builds one span per consecutive pair carrying the left easing', () => {
 		const keyframes = [
-			keyframe('x', 30, 'c', 'easeOut'),
+			keyframe('x', 30, 'c', 'ease-out'),
 			keyframe('x', 10, 'a', 'linear'),
-			keyframe('x', 20, 'b', 'easeIn')
+			keyframe('x', 20, 'b', 'ease-in')
 		];
 		const spans = buildDopesheetSegmentSpans(keyframes);
 		expect(spans).toHaveLength(2);
 		expect(spans[0]).toMatchObject({ fromId: 'a', fromFrame: 10, toFrame: 20, easing: 'linear' });
-		expect(spans[1]).toMatchObject({ fromId: 'b', fromFrame: 20, toFrame: 30, easing: 'easeIn' });
+		expect(spans[1]).toMatchObject({ fromId: 'b', fromFrame: 20, toFrame: 30, easing: 'ease-in' });
 	});
 
 	it('keeps lanes separate and skips degenerate pairs', () => {

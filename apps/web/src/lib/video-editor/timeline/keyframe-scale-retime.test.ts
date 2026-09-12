@@ -89,7 +89,7 @@ describe('buildScaleRetimePreview', () => {
 		const base = {
 			keyframes,
 			selectionIds: new Set(['a']),
-			lockedProperties: new Set(),
+			lockedProperties: new Set<EditorKeyframe['property']>(),
 			anchorFrame: 10,
 			totalFrames: 100,
 			blockedRanges: []

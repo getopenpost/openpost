@@ -60,13 +60,15 @@ export function setMotionLayerEnabled(
 		let count = 0;
 		for (const itemId of new Set(itemIds)) {
 			const item = timelineStore.itemById.get(itemId);
-			const layer = item?.motionLayers?.find((entry) => entry.id === layerId);
+			const layers = item?.motionLayers;
+			if (!layers) continue;
+			const layer = layers.find((entry) => entry.id === layerId);
 			if (!layer || layer.enabled === enabled) continue;
 			timelineStore._updateItems([
 				{
 					id: itemId,
 					patch: {
-						motionLayers: item.motionLayers!.map((entry) =>
+						motionLayers: layers.map((entry) =>
 							entry.id === layerId ? { ...entry, enabled } : entry
 						)
 					}
@@ -85,13 +87,15 @@ export function renameMotionLayer(itemIds: string[], layerId: string, name: stri
 		let count = 0;
 		for (const itemId of new Set(itemIds)) {
 			const item = timelineStore.itemById.get(itemId);
-			const layer = item?.motionLayers?.find((entry) => entry.id === layerId);
+			const layers = item?.motionLayers;
+			if (!layers) continue;
+			const layer = layers.find((entry) => entry.id === layerId);
 			if (!layer || layer.name === trimmed) continue;
 			timelineStore._updateItems([
 				{
 					id: itemId,
 					patch: {
-						motionLayers: item.motionLayers!.map((entry) =>
+						motionLayers: layers.map((entry) =>
 							entry.id === layerId ? { ...entry, name: trimmed } : entry
 						)
 					}

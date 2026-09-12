@@ -168,10 +168,7 @@ func (h *DestinationOptionsHandler) registerPublishingOptions(api huma.API) {
 		if err != nil {
 			return nil, huma.Error502BadGateway("failed to authorize provider options")
 		}
-		limit := input.Limit
-		if limit <= 0 || limit > 100 {
-			limit = 25
-		}
+		limit := publishingOptionsPageLimit(input.Limit)
 
 		var page platform.PublishingOptionsPage
 		if searchProvider, ok := adapter.(platform.PublishingOptionsProvider); ok {
@@ -215,15 +212,19 @@ func (h *DestinationOptionsHandler) telegramPublishingOptions(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
-	limit := input.Limit
-	if limit <= 0 || limit > 100 {
-		limit = 25
-	}
+	limit := publishingOptionsPageLimit(input.Limit)
 	page := paginatePublishingOptions(options, input.Search, input.Cursor, limit)
 	output := &PublishingOptionsOutput{}
 	output.Body.Options = page.Options
 	output.Body.NextCursor = page.NextCursor
 	return output, nil
+}
+
+func publishingOptionsPageLimit(limit int) int {
+	if limit <= 0 || limit > 100 {
+		return 25
+	}
+	return limit
 }
 
 func (h *DestinationOptionsHandler) connectedTelegramChatOptions(ctx context.Context, account models.SocialAccount) ([]platform.DestinationOption, error) {

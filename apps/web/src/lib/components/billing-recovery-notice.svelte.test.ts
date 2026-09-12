@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { render } from 'vitest-browser-svelte';
 import { client } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
@@ -32,6 +33,7 @@ describe('BillingRecoveryNotice', () => {
 		mocks.get.mockReset();
 		mocks.post.mockReset();
 		auth.setUser({
+			...userProfileDefaults,
 			id: 'billing-user',
 			email: 'billing@example.com',
 			username: 'billing',

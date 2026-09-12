@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { CalendarDate } from '@internationalized/date';
@@ -141,6 +142,7 @@ function deferred<T>() {
 
 function user(id: string): User {
 	return {
+		...userProfileDefaults,
 		id,
 		email: `${id}@example.com`,
 		username: id,

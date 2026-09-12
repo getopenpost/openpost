@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { render } from 'vitest-browser-svelte';
 import { client, type User, type Workspace } from '$lib/api/client';
 import type { components } from '$lib/api/types';
@@ -145,6 +146,7 @@ function deferred<T>() {
 
 function user(id: string): User {
 	return {
+		...userProfileDefaults,
 		id,
 		email: `${id}@example.com`,
 		username: id,

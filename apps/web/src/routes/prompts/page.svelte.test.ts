@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
 import { promptQueryKeys, type Prompt } from '@openpost/query-catalog';
@@ -166,6 +167,7 @@ function deferred<T>() {
 
 function user(id: string): User {
 	return {
+		...userProfileDefaults,
 		id,
 		email: `${id}@example.com`,
 		username: id,

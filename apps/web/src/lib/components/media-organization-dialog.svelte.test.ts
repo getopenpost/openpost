@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { client, type User } from '$lib/api/client';
@@ -71,6 +72,7 @@ describe('media organization mutation ownership', () => {
 
 function user(id: string): User {
 	return {
+		...userProfileDefaults,
 		id,
 		email: `${id}@example.com`,
 		username: id,

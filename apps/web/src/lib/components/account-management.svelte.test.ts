@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { render } from 'vitest-browser-svelte';
 import { onlineManager, QueryClientProvider } from '@tanstack/svelte-query';
 import { client, type SocialAccount, type Workspace } from '$lib/api/client';
@@ -55,6 +56,7 @@ const account: SocialAccount = {
 };
 
 const user = {
+	...userProfileDefaults,
 	id: 'user-62',
 	email: 'founder@example.com',
 	username: 'founder',

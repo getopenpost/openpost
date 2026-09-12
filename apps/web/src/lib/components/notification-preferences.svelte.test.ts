@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { render } from 'vitest-browser-svelte';
 import { notificationQueryKeys } from '@openpost/query-catalog';
 import { client, type User } from '$lib/api/client';
@@ -464,6 +465,7 @@ function notificationSettings(
 
 function user(id: string): User {
 	return {
+		...userProfileDefaults,
 		id,
 		email: `${id}@example.com`,
 		username: id,

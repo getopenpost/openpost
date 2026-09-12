@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { render } from 'vitest-browser-svelte';
 import { readable } from 'svelte/store';
 import type { Workspace } from '$lib/api/client';
@@ -8,6 +9,7 @@ import InvitePage from './invite-page.svelte';
 import '../layout.css';
 
 const user = {
+	...userProfileDefaults,
 	id: 'invite-user',
 	email: 'invite@example.com',
 	username: 'invite-user',

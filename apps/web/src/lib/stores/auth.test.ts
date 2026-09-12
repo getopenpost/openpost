@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/query-core';
 import { client, type User } from '$lib/api/client';
+import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { authQueryKeys, type AppBootstrap } from '@openpost/query-catalog';
 import {
 	captureQueryAuthorizationIdentity,
@@ -11,21 +12,6 @@ import { createAuthStore, registerAuthQueryAuthorizationBoundary } from './auth'
 const apiMocks = {
 	post: vi.fn()
 };
-
-const userProfileDefaults = {
-	avatar_url: '',
-	composer_experience: 'specialized',
-	display_name: 'Test user',
-	password_usable: true,
-	public_profile_visible_fields: null
-} satisfies Pick<
-	User,
-	| 'avatar_url'
-	| 'composer_experience'
-	| 'display_name'
-	| 'password_usable'
-	| 'public_profile_visible_fields'
->;
 
 const auth = createAuthStore({
 	client: { GET: client.GET, POST: apiMocks.post },

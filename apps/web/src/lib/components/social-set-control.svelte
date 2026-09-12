@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { z } from 'zod';
 	import { client, type SocialAccount } from '$lib/api/client';
 	import { loadWorkspaceSocialSets } from '$lib/api/performance-cache';
 	import { openPostQueryKeys } from '@openpost/query-catalog';
@@ -49,24 +50,18 @@
 	type ResolvedSocialSetSettings = components['schemas']['ResolveSocialSetSettingsOutputBody'];
 	type SettingDefinition = components['schemas']['SettingDefinition'];
 	type DestinationOption = components['schemas']['DestinationOption'];
-	type DefaultSettings = ComposerSettings;
-	type StoredDefaultSettings = NonNullable<SocialSetAccountInput['default_settings']>;
+	type DefaultSettings = NonNullable<SocialSetAccountInput['default_settings']>;
+	const defaultSettingSchema = z.union([
+		z.string(),
+		z.number(),
+		z.boolean(),
+		z.null(),
+		z.json().transform((value) => JSON.stringify(value))
+	]);
+	const defaultSettingsSchema = z.record(z.string(), defaultSettingSchema);
 
-	function parseDefaultSettings(values?: StoredDefaultSettings): DefaultSettings {
-		return Object.fromEntries(
-			Object.entries(values ?? {}).map(([key, value]) => {
-				if (value === null) return [key, null];
-				if (String(value) === value) return [key, String(value)];
-				if (Number.isFinite(value)) return [key, Number(value)];
-				if (Boolean(value) === value) return [key, Boolean(value)];
-				if (Array.isArray(value)) {
-					if (value.every((item) => String(item) === item)) return [key, value.map(String)];
-					if (value.every(Number.isFinite)) return [key, value.map(Number)];
-					if (value.every((item) => Boolean(item) === item)) return [key, value.map(Boolean)];
-				}
-				return [key, ''];
-			})
-		);
+	function parseDefaultSettings(values?: DefaultSettings): ComposerSettings {
+		return defaultSettingsSchema.parse(values ?? {});
 	}
 
 	interface Props {
@@ -159,10 +154,12 @@
 			? (settingsResolved.settings ?? []).filter(reusableDefaultField)
 			: []
 	);
-	const settingsEditorValues = $derived({
-		...(editorSettings[settingsEditorAccountId] ?? {}),
-		...(editorSegmentSettings[settingsEditorAccountId] ?? {})
-	});
+	const settingsEditorValues = $derived(
+		parseDefaultSettings({
+			...(editorSettings[settingsEditorAccountId] ?? {}),
+			...(editorSegmentSettings[settingsEditorAccountId] ?? {})
+		})
+	);
 	const destinationLabel = $derived(
 		selectedSet?.name ||
 			(selectedAccountIds.length > 0 ? m.social_set_custom_selection() : m.social_set_select())
@@ -287,13 +284,13 @@
 		editorSettings = Object.fromEntries(
 			(set.accounts ?? []).map((account) => [
 				account.social_account_id,
-				parseDefaultSettings(account.default_settings)
+				{ ...(account.default_settings ?? {}) }
 			])
 		);
 		editorSegmentSettings = Object.fromEntries(
 			(set.accounts ?? []).map((account) => [
 				account.social_account_id,
-				parseDefaultSettings(account.default_segment_settings)
+				{ ...(account.default_segment_settings ?? {}) }
 			])
 		);
 		editorFormatDrafts = {};
@@ -393,9 +390,9 @@
 		const field = settingsEditorFields.find((candidate) => candidate.key === key);
 		if (!field) return;
 		const segment = field.scope === 'segment';
-		const current = segment
-			? (editorSegmentSettings[account.id] ?? {})
-			: (editorSettings[account.id] ?? {});
+		const current = parseDefaultSettings(
+			segment ? (editorSegmentSettings[account.id] ?? {}) : (editorSettings[account.id] ?? {})
+		);
 		const invalidated = invalidateDependentDestinationSettings(
 			settingsEditorFields.filter((candidate) => candidate.scope === field.scope),
 			current,

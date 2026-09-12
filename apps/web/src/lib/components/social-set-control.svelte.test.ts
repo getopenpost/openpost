@@ -78,7 +78,7 @@ describe('Social Set request ownership', () => {
 		const settingsDialog = screen.getByRole('dialog', { name: 'X settings' });
 		await expect.element(settingsDialog).toBeVisible();
 		await settingsDialog.getByRole('button', { name: /^(following|Who can reply)$/ }).click();
-		await screen.getByRole('option', { name: 'mentionedUsers' }).click();
+		await screen.getByRole('option', { name: 'Mentioned users', exact: true }).click();
 		await settingsDialog.getByRole('button', { name: 'Done' }).click();
 		await screen
 			.getByRole('dialog', { name: 'Manage Social Sets' })
@@ -101,6 +101,75 @@ describe('Social Set request ownership', () => {
 				]
 			}
 		});
+	});
+
+	it('preserves an API-authored embed when its Social Set is opened and renamed', async () => {
+		const existing = socialSet('workspace-a');
+		const embed = { title: 'Launch', fields: [{ name: 'Version', value: '4.30' }] };
+		existing.accounts = [
+			{
+				social_account_id: 'bot',
+				platform: 'discord',
+				display_order: 0,
+				default_output_profile: 'discord.post',
+				default_settings: { embed },
+				default_segment_settings: {}
+			}
+		];
+		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
+		installResolvedReads();
+		postMock.mockResolvedValue(
+			response({
+				account_id: 'bot',
+				output_profile: 'discord.post',
+				settings: [
+					{
+						key: 'embed',
+						label: 'Embed',
+						message_key: '',
+						type: 'json',
+						control: 'structured_editor',
+						group: 'content',
+						scope: 'destination',
+						required: false
+					}
+				]
+			} satisfies ResolvedSettings)
+		);
+		putMock.mockImplementation(() => new Promise(() => {}));
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [socialAccount('bot', 'discord', 'Test server')],
+			capabilities: [capability('discord', 'discord.post', 'Discord message')],
+			selectedSetId: existing.id,
+			onApply: vi.fn()
+		});
+		await openManager(screen);
+		await screen.getByRole('button', { name: 'Edit post settings' }).click();
+		const settings = screen.getByRole('dialog', { name: 'Discord settings' });
+		await expect
+			.element(settings.getByRole('textbox', { name: 'Title', exact: true }))
+			.toHaveValue('Launch');
+		await settings.getByRole('button', { name: 'Done' }).click();
+		const manager = screen.getByRole('dialog', { name: 'Manage Social Sets' });
+		await manager.getByRole('textbox', { name: 'Set name' }).fill('Renamed launches');
+		await manager.getByRole('button', { name: 'Save', exact: true }).click();
+		expect(putMock).toHaveBeenCalledWith(
+			'/social-sets/{id}',
+			expect.objectContaining({
+				body: expect.objectContaining({
+					name: 'Renamed launches',
+					accounts: [
+						{
+							social_account_id: 'bot',
+							default_output_profile: 'discord.post',
+							default_settings: { embed },
+							default_segment_settings: {}
+						}
+					]
+				})
+			})
+		);
 	});
 
 	it('uses account-resolved fields for bot and webhook Social Set presets', async () => {
@@ -126,6 +195,7 @@ describe('Social Set request ownership', () => {
 			(path: string, request: { body?: { social_account_id?: string } }) => {
 				if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
 				const accountId = request.body?.social_account_id;
+				if (!accountId) throw new Error('Expected an account-specific preset request');
 				return Promise.resolve(
 					response({
 						account_id: accountId,

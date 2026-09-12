@@ -18,6 +18,16 @@
 
 	const items = mobileNavigation;
 	let moreMenuOpen = $state(false);
+	let moreMenuContent = $state<HTMLDivElement | null>(null);
+
+	function focusMoreMenuOnOpen(event: Event) {
+		if (!moreMenuContent) return;
+		event.preventDefault();
+		// Floating-layer setup must not replace a keyboard choice made while opening.
+		if (!moreMenuContent.contains(moreMenuContent.ownerDocument.activeElement)) {
+			moreMenuContent.focus({ preventScroll: true });
+		}
+	}
 	const pathname = $derived(String(page.url.pathname));
 
 	function iconFor(id: (typeof items)[number]['id']): ThemeIconRole {
@@ -150,6 +160,11 @@
 					{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content
+					bind:ref={moreMenuContent}
+					onOpenAutoFocus={focusMoreMenuOnOpen}
+					onCloseAutoFocus={(event) => {
+						if (moreMenuOpen) event.preventDefault();
+					}}
 					class="mb-1 max-h-[calc(100dvh-5rem-env(safe-area-inset-bottom))] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain border-border bg-popover! p-1 before:hidden"
 					side="top"
 					align="end"

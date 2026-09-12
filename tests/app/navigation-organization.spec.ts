@@ -161,3 +161,41 @@ test("mobile menus preserve keyboard focus and expose editor creation", async ({
   await page.getByRole("menuitem", { name: "OpenPost Image Editor", exact: true }).click();
   await expect(page).toHaveURL(/\/image-editor$/);
 });
+
+test("mobile menu preserves a keyboard choice made during opening", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const auth = await registerUser(request, `nav-opening-${randomUUID()}@example.com`);
+  await createWorkspace(request, auth.token, "Keyboard workspace");
+  await authenticatePage(page, auth.token);
+  await page.goto("/publications");
+  // Send End as soon as opening gives an item focus, before later focus work can run.
+  await page.evaluate(() => {
+    const moveToLast = (event: FocusEvent) => {
+      const item = event.target as HTMLElement;
+      if (item.getAttribute("role") !== "menuitem") return;
+      document.removeEventListener("focusin", moveToLast);
+      queueMicrotask(() =>
+        item.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "End",
+            code: "End",
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+      );
+    };
+    document.addEventListener("focusin", moveToLast);
+  });
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: "More", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  await expect(page.getByRole("menuitem", { name: "Profile", exact: true })).toBeFocused();
+});

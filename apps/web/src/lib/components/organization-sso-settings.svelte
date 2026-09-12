@@ -80,7 +80,7 @@
 		requireVerifiedEmail: true,
 		jitEnabled: false,
 		providerActive: true
-	} as const;
+	};
 	const blankProviderSnapshot = JSON.stringify(blankProviderForm);
 
 	let providerID = $state(blankProviderForm.providerID);

@@ -56,11 +56,33 @@ describe('theme query transport', () => {
 			'workshop',
 			'organization-theme'
 		]);
-		expect(result.next_cursor).toBeNull();
+		expect(result.next_cursor).toBe('');
 		expect(get).toHaveBeenCalledTimes(2);
 		expect(get.mock.calls.map(([, options]) => options.params.query)).toEqual([
 			{ workspace_id: 'workspace-1', limit: 100 },
 			{ workspace_id: 'workspace-1', limit: 100, cursor: 'built-ins-done' }
 		]);
+	});
+
+	it('scopes revision reads to the selected organization', async () => {
+		const get = vi.fn();
+		get.mockResolvedValue({ data: { revision: 3 }, response: new Response(null, { status: 200 }) });
+		const api = createThemeQueryAPI({ GET: get });
+
+		await api.getThemeRevision(
+			'workspace-1',
+			'organization-1',
+			'theme-1',
+			3,
+			new AbortController().signal
+		);
+
+		expect(get).toHaveBeenCalledWith('/themes/{id}/revisions/{revision}', {
+			params: {
+				path: { id: 'theme-1', revision: 3 },
+				query: { organization_id: 'organization-1' }
+			},
+			signal: expect.any(AbortSignal)
+		});
 	});
 });

@@ -106,7 +106,7 @@ export function createThemeQueryAPI(transport: QueryTransport = client): ThemeQu
 				if (nextCursor) visitedCursors.add(nextCursor);
 				cursor = nextCursor;
 			} while (cursor);
-			return { items, next_cursor: null };
+			return { items, next_cursor: '' };
 		},
 		async getAvailableCustomTheme(workspaceId, themeId, revision, signal) {
 			const { data } = await queryGET({
@@ -162,13 +162,16 @@ export function createThemeQueryAPI(transport: QueryTransport = client): ThemeQu
 			});
 			return data ?? { items: [], next_cursor: null };
 		},
-		async getThemeRevision(workspaceId, themeId, revision, signal) {
+		async getThemeRevision(workspaceId, organizationId, themeId, revision, signal) {
 			const { data } = await queryGET({
 				signal,
 				fallback: 'Unable to load this revision',
 				request: (requestSignal) =>
 					transport.GET('/themes/{id}/revisions/{revision}', {
-						params: { path: { id: themeId, revision } },
+						params: {
+							path: { id: themeId, revision },
+							query: { organization_id: organizationId }
+						},
 						signal: requestSignal
 					})
 			});

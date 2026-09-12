@@ -46,7 +46,11 @@ export interface ThemeQueryAPI {
     revision: number,
     signal: AbortSignal,
   ): Promise<PublishedThemeCatalogItem>;
-  resolveTheme(workspaceId: string, scheme: string, signal: AbortSignal): Promise<ResolvedTheme>;
+  resolveTheme(
+    workspaceId: string,
+    scheme: ResolvedThemeScheme,
+    signal: AbortSignal,
+  ): Promise<ResolvedTheme>;
   getThemeSettings(workspaceId: string, signal: AbortSignal): Promise<ThemeSettings>;
   listThemeRevisions(
     workspaceId: string,
@@ -57,6 +61,7 @@ export interface ThemeQueryAPI {
   ): Promise<PublishedRevisionPage>;
   getThemeRevision(
     workspaceId: string,
+    organizationId: string,
     themeId: string,
     revision: number,
     signal: AbortSignal,

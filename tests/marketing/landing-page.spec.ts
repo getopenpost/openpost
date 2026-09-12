@@ -105,14 +105,23 @@ test("provider marks use the available icon area", async ({ page }) => {
   }
 });
 
-test("footer link rows stay compact on precise pointers", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"), "Coarse pointers retain 44px targets");
+test("footer link rows match the pointer target size", async ({ page }, testInfo) => {
   await page.goto("/");
   const productLinks = page.locator("footer ul").first().getByRole("link");
-  const first = await productLinks.nth(0).boundingBox();
-  const second = await productLinks.nth(1).boundingBox();
-  expect(first?.height).toBe(32);
-  expect(second?.y! - first?.y!).toBe(32);
+  await expect(productLinks.first()).toBeVisible();
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise(requestAnimationFrame);
+  });
+  const [first, second] = await productLinks.evaluateAll((links) =>
+    links.slice(0, 2).map((link) => {
+      const bounds = link.getBoundingClientRect();
+      return { y: bounds.y, height: bounds.height };
+    }),
+  );
+  const targetSize = testInfo.project.name.includes("mobile") ? 44 : 32;
+  expect(first.height).toBe(targetSize);
+  expect(second.y - first.y).toBe(targetSize);
 });
 
 test("visitors can discover publishing, AI, memes, conversations, and developer tools", async ({

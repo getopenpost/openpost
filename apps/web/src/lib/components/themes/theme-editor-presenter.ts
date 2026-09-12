@@ -326,7 +326,7 @@ export function parseThemeExternalErrorMessage(
 	locale: Locale = getLocale()
 ): string {
 	if (!(error instanceof Error)) return fallback;
-	const message = externalErrorMessages[error.message];
+	const message = Object.entries(externalErrorMessages).find(([key]) => key === error.message)?.[1];
 	return message ? message({}, { locale }) : fallback;
 }
 

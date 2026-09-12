@@ -63,7 +63,7 @@
 				{m.theme_library_starting_point()}
 				<Select.Root
 					value={themeReferenceKey(source)}
-					onValueChange={(value) => {
+					onValueChange={(value: string) => {
 						const item = items.find(
 							(candidate) => themeReferenceKey(candidate.reference) === value
 						);

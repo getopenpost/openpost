@@ -41,7 +41,7 @@ const workspace = {
 	sso_authenticated: true,
 	sso_identity_linked: true,
 	sso_required: false
-};
+} satisfies NonNullable<typeof workspaceCtx.currentWorkspace>;
 
 beforeEach(() => {
 	queryClient.clear();

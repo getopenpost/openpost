@@ -568,6 +568,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let leftSidebarFullColumn = $state(editorSettings.leftSidebarFullColumn);
 	let rightSidebarFullColumn = $state(editorSettings.rightSidebarFullColumn);
 	let theaterMode = $state(editorSettings.theaterMode);
+	const activeWorkspace = $derived.by(() => editorWorkspace.current);
 	const layoutDockActive = $derived(activeWorkspace === 'edit');
 	const layoutTheaterActive = $derived(theaterMode && layoutDockActive);
 	const leftSidebarRail = $derived(
@@ -659,7 +660,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	let textVoiceRequest = $state<TextVoiceRequest | null>(null);
-	const activeWorkspace = $derived.by(() => editorWorkspace.current);
 	const activeMotionComposition = $derived(
 		sequenceStore.activeSequence?.editorKind === 'composite-2d'
 			? sequenceStore.activeSequence
@@ -750,7 +750,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	);
 
 	function moveLeftPanelFocus(
-		event: KeyboardEvent & { currentTarget: HTMLButtonElement },
+		event: KeyboardEvent,
 		value: LeftPanel,
 		orientation: 'horizontal' | 'vertical'
 	): void {
@@ -2394,7 +2394,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					</DropdownMenu.Item>
 					{#if sentExport}
 						<DropdownMenu.Separator />
-						<DropdownMenu.Item onclick={() => void goto(sentExport.composerHref)}>
+						<DropdownMenu.Item onclick={() => sentExport && void goto(sentExport.composerHref)}>
 							{m.video_editor_open_composer()}
 						</DropdownMenu.Item>
 					{/if}
@@ -3384,7 +3384,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <MediaRecoveryDialog onedit={() => editorSession.scheduleAutosave()} />
 
 <EmbeddedSubtitlePicker
-	media={embeddedSubtitleMedia}
+	media={embeddedSubtitleMedia ?? null}
 	bind:open={embeddedSubtitlePickerOpen}
 	canvasWidth={sequenceStore.activeWidth}
 	canvasHeight={sequenceStore.activeHeight}

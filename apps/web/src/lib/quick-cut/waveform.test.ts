@@ -64,7 +64,10 @@ describe('Quick Cut waveform', () => {
 			size: 100,
 			lastModified: 10,
 			contentFingerprint: 'fingerprint',
-			audioStreams: [{ index: 0 }, { index: 1 }],
+			audioStreams: [
+				{ index: 0, codec: 'aac', sampleRate: 48_000, channels: 2 },
+				{ index: 1, codec: 'aac', sampleRate: 48_000, channels: 2 }
+			],
 			selectedAudioTrackIndices: [0]
 		};
 

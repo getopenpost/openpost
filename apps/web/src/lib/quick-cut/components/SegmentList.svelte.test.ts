@@ -21,7 +21,20 @@ const source: QuickCutSource = {
 	rotation: 0,
 	fps: 30,
 	keyframeTimestamps: [0, 2, 4],
-	keyframeState: 'known'
+	keyframeState: 'known',
+	videoStreams: [
+		{
+			index: 0,
+			codec: 'avc',
+			width: 1920,
+			height: 1080,
+			rotation: 0,
+			fps: 30,
+			keyframeTimestamps: [0, 2, 4],
+			keyframeState: 'known'
+		}
+	],
+	audioStreams: [{ index: 0, codec: 'aac', sampleRate: 48_000, channels: 2 }]
 };
 
 afterEach(async () => {
@@ -40,6 +53,7 @@ test('edits one segment cut strategy without changing the project default', asyn
 		onUpdate,
 		onMove: vi.fn(),
 		exporting: false,
+		canExportIndividually: true,
 		onPreview: vi.fn(),
 		onExport: vi.fn()
 	});
@@ -62,6 +76,7 @@ test('renders timecode inputs with shared Input primitive and preserves bindings
 		onUpdate: vi.fn(),
 		onMove: vi.fn(),
 		exporting: false,
+		canExportIndividually: true,
 		onPreview: vi.fn(),
 		onExport: vi.fn()
 	});
@@ -85,6 +100,7 @@ test('offers segment actions by right click and keyboard context menu', async ()
 		onUpdate,
 		onMove: vi.fn(),
 		exporting: false,
+		canExportIndividually: true,
 		onPreview: vi.fn(),
 		onExport: vi.fn()
 	});

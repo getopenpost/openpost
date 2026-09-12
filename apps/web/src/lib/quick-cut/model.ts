@@ -62,8 +62,6 @@ export function normalizeSegments(segments: QuickCutSegment[]): QuickCutSegment[
 		const canMerge =
 			current.sourceId === seg.sourceId &&
 			seg.start <= current.end &&
-			seg.enabled !== false &&
-			current.enabled !== false &&
 			current.cutMode === seg.cutMode;
 		if (canMerge) {
 			current = {

@@ -38,7 +38,7 @@
 		/** Let a canvas or calendar own scrolling within the remaining page height. */
 		contentLayout?: 'document' | 'fill';
 		/** Page content */
-		children: Snippet;
+		children?: Snippet;
 	}
 
 	let {
@@ -80,7 +80,7 @@
 				/>
 			{/if}
 			<div data-slot="page-mounted-content" class="min-w-0" hidden={loading}>
-				{@render children()}
+				{#if children}{@render children()}{/if}
 			</div>
 		{:else}
 			{#if loading && loadingPlaceholder.current}
@@ -92,7 +92,7 @@
 					defer={false}
 				/>
 			{:else if !loading}
-				{@render children()}
+				{#if children}{@render children()}{/if}
 			{/if}
 		{/if}
 	</div>
@@ -122,7 +122,7 @@
 					/>
 				{/if}
 				<div data-slot="page-mounted-content" class="min-w-0" hidden={loading}>
-					{@render children()}
+					{#if children}{@render children()}{/if}
 				</div>
 			{:else}
 				{#if loading && loadingPlaceholder.current}
@@ -134,7 +134,7 @@
 						defer={false}
 					/>
 				{:else if !loading}
-					{@render children()}
+					{#if children}{@render children()}{/if}
 				{/if}
 			{/if}
 		</div>

@@ -75,7 +75,7 @@
 	function detailViewIsCurrent(operation: DetailOperation) {
 		return operationScope.viewIsCurrent(operation, {
 			workspaceId: publicationWorkspaceId,
-			viewKey: publicationId,
+			viewKey: publicationId ?? '',
 			isIdentityCurrent: (identity) => auth.isIdentityCurrent(identity)
 		});
 	}
@@ -377,9 +377,9 @@
 		description={m.publication_detail_description({ status: statusLabel(publication.status) })}
 	>
 		{#snippet actions()}
-			{#if publication.status === 'failed'}
+			{#if publication?.status === 'failed'}
 				<Button variant="outline" onclick={toggleFailureDismissal}>
-					{publication.failure_dismissed_at
+					{publication?.failure_dismissed_at
 						? m.activity_restore_failed()
 						: m.activity_dismiss_failed()}
 				</Button>

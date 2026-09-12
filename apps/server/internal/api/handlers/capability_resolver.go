@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -232,14 +233,18 @@ func (h *CapabilityResolverHandler) resolveConnectorCapability(
 		return capabilities.ResolvedCapability{}, false, nil
 	}
 	if err != nil {
+		logConnectorCapabilityError("binding_lookup", account, err)
 		return capabilities.ResolvedCapability{}, false, err
 	}
 	client, entry, err := h.connectors.ClientForWorkspace(binding.InstallationID, account.WorkspaceID)
 	if err != nil {
+		logConnectorCapabilityError("client_setup", account, err)
 		return capabilities.ResolvedCapability{}, true, err
 	}
 	if entry.Manifest.CapabilityRevision != binding.CapabilityRevision {
-		return capabilities.ResolvedCapability{}, true, fmt.Errorf("connector capability revision changed")
+		err := errors.New("connector capability revision changed")
+		logConnectorCapabilityError("binding_revision", account, err)
+		return capabilities.ResolvedCapability{}, true, err
 	}
 	resolved := capabilities.ResolveCatalog(account.Platform, entry.Capabilities(), input)
 	if resolved.OutputProfile == "" {
@@ -250,10 +255,13 @@ func (h *CapabilityResolverHandler) resolveConnectorCapability(
 		Intent: firstResolvedIntent(resolved), Settings: input.Settings,
 	})
 	if err != nil {
+		logConnectorCapabilityError("remote_resolve", account, err)
 		return capabilities.ResolvedCapability{}, true, err
 	}
 	if dynamic.CapabilityRevision != binding.CapabilityRevision {
-		return capabilities.ResolvedCapability{}, true, fmt.Errorf("connector returned a stale capability revision")
+		err := errors.New("connector returned a stale capability revision")
+		logConnectorCapabilityError("remote_revision", account, err)
+		return capabilities.ResolvedCapability{}, true, err
 	}
 	for key, value := range dynamic.Constraints {
 		resolved.ActiveConstraints[key] = value
@@ -274,6 +282,19 @@ func (h *CapabilityResolverHandler) resolveConnectorCapability(
 		})
 	}
 	return resolved, true, nil
+}
+
+func logConnectorCapabilityError(stage string, account models.SocialAccount, err error) {
+	var remoteErr *connectors.HTTPError
+	httpStatus := 0
+	if errors.As(err, &remoteErr) {
+		httpStatus = remoteErr.StatusCode
+	}
+	log.Printf(
+		"connector capability resolution failed stage=%s account=%s provider=%s error_type=%T http_status=%d canceled=%t deadline=%t",
+		stage, account.ID, account.Platform, err, httpStatus,
+		errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded),
+	)
 }
 
 func connectorPublicationDecision(compatible bool) providerreadiness.Decision {

@@ -2,6 +2,7 @@ import { AnalyticsChoices } from "@/components/telemetry";
 import { SectionNav } from "@/components/section-nav";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
+import { BrandMark } from "@/components/brand-mark";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const tree = source.getPageTree();
@@ -25,7 +26,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         nav={{
           title: (
             <span className="docs-brand">
-              <img src="/assets/brand/icon.svg" width="24" height="24" alt="" />
+              <BrandMark size={24} />
               OpenPost<span className="docs-brand-label">Docs</span>
             </span>
           ),

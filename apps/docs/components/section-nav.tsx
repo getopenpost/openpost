@@ -5,6 +5,7 @@ import { useSearchContext } from "fumadocs-ui/contexts/search";
 import { useEffect, useRef } from "react";
 import { documentationSection, documentationSections } from "@/lib/sections";
 import { BookOpen, Code2, Server, Search, ArrowUpRight, Github, Bot } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 
 export function SectionNav() {
   const pathname = usePathname();
@@ -25,7 +26,7 @@ export function SectionNav() {
       </a>
       <div className="docs-topbar">
         <Link href="/" className="docs-brand">
-          <img src="/assets/brand/icon.svg" width="28" height="28" alt="" />
+          <BrandMark />
           OpenPost<span className="docs-brand-label">Docs</span>
         </Link>
         <button type="button" className="docs-search" onClick={() => setOpenSearch(true)}>

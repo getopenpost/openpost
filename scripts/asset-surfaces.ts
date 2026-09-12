@@ -25,6 +25,8 @@ export const assetSurfaceManifest = {
   ],
   docs: [
     "brand/icon.svg",
+    "brand/logo.svg",
+    "brand/logo-dark.svg",
     "brand/features/compose.svg",
     "brand/features/image-editor.svg",
     "brand/features/video-editor.svg",

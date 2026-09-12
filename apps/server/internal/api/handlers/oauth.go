@@ -422,7 +422,7 @@ var providerCatalog = []ProviderInfo{
 		DisplayName:     "Discord",
 		AuthMode:        "webhook",
 		ConnectionModes: []string{"webhook", "bot"},
-		Description:     "Incoming webhooks remain available; bot connections stay gated until configured and certified.",
+		Description:     "Post to a channel with a bot, or connect a webhook for a fixed destination.",
 		Capabilities:    []string{"Text posts", "Media attachments", "Scheduling", "Message deletion", "MCP workflows"},
 	},
 	{
@@ -438,7 +438,7 @@ var providerCatalog = []ProviderInfo{
 		DisplayName:     "Telegram",
 		AuthMode:        "bot",
 		ConnectionModes: []string{"bot"},
-		Description:     "Telegram bot connections stay gated until bot certification is complete.",
+		Description:     "Connect a bot to post in Telegram channels and groups.",
 	},
 	{
 		Platform:     "x",

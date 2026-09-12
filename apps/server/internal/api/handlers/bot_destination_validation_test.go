@@ -71,3 +71,30 @@ func TestDiscordPublicationValidationRequiresChannelWithoutProviderLookup(t *tes
 		})
 	}
 }
+
+func TestTelegramComposerCompatibilityDoesNotDuplicateReadinessGate(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.MediaAttachment)(nil))
+	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws", Name: "Test"}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.SocialAccount{ID: "account", WorkspaceID: "ws", Platform: "telegram", AccessTokenEnc: []byte("installation-reference"), IsActive: true}).Exec(t.Context())
+	require.NoError(t, err)
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	NewCapabilityResolverHandler(db, testAuthenticator{}, nil, nil).RegisterRoutes(api)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/capabilities/resolve", bytes.NewBufferString(`{"account_ids":["account"],"segments":[{"id":"segment-1","content":"Hello Telegram"}],"account_settings":{"account":{"chat_id":"-100test"}}}`))
+	req.Header.Set("Authorization", "Bearer web-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var result struct {
+		Accounts []ResolvedAccountCapability `json:"accounts"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &result))
+	require.Len(t, result.Accounts, 1)
+	require.True(t, result.Accounts[0].Compatible, "supported content must not have a permanent testing block: %s", rec.Body.String())
+	require.Empty(t, result.Accounts[0].UnavailableReason)
+	require.False(t, result.Accounts[0].ImmediateReadiness.Publishable, "compatibility must not grant publishing authorization")
+}

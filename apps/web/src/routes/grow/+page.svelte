@@ -104,30 +104,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const featuresLoading = $derived(
 		accounts.length > 0 && featuresQuery.isPending && !featuresQuery.data
 	);
-	const loading = $derived(Boolean(queryAccountID) && growthQuery.isPending && !growthQuery.data);
-	const readError = $derived.by(() => {
-		if (accountsQuery.isError && !accountsQuery.data) {
-			return queryErrorMessage(accountsQuery.error);
-		}
-		if (featuresQuery.isError && !featuresQuery.data) {
-			return queryErrorMessage(featuresQuery.error);
-		}
-		if (growthQuery.isError && !growthQuery.data && queryAccountID) {
-			return queryErrorMessage(growthQuery.error);
-		}
-		return '';
-	});
-	const backgroundReadError = $derived.by(() => {
-		if (accountsQuery.isError && accountsQuery.data) return queryErrorMessage(accountsQuery.error);
-		if (featuresQuery.isError && featuresQuery.data) return queryErrorMessage(featuresQuery.error);
-		if (growthQuery.isError && growthQuery.data) return queryErrorMessage(growthQuery.error);
-		return '';
-	});
-	const initialLoading = $derived(
-		Boolean(workspaceID) &&
-			(accountsLoading || featuresLoading || (Boolean(selectedAccountID) && loading)) &&
-			!readError
-	);
 	const selectedAccount = $derived(
 		selectedAccountID ? accounts.find((a) => a.id === selectedAccountID) : undefined
 	);
@@ -162,6 +138,30 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				? growthPollingInterval
 				: false
 	}));
+	const loading = $derived(Boolean(queryAccountID) && growthQuery.isPending && !growthQuery.data);
+	const readError = $derived.by(() => {
+		if (accountsQuery.isError && !accountsQuery.data) {
+			return queryErrorMessage(accountsQuery.error);
+		}
+		if (featuresQuery.isError && !featuresQuery.data) {
+			return queryErrorMessage(featuresQuery.error);
+		}
+		if (growthQuery.isError && !growthQuery.data && queryAccountID) {
+			return queryErrorMessage(growthQuery.error);
+		}
+		return '';
+	});
+	const backgroundReadError = $derived.by(() => {
+		if (accountsQuery.isError && accountsQuery.data) return queryErrorMessage(accountsQuery.error);
+		if (featuresQuery.isError && featuresQuery.data) return queryErrorMessage(featuresQuery.error);
+		if (growthQuery.isError && growthQuery.data) return queryErrorMessage(growthQuery.error);
+		return '';
+	});
+	const initialLoading = $derived(
+		Boolean(workspaceID) &&
+			(accountsLoading || featuresLoading || (Boolean(selectedAccountID) && loading)) &&
+			!readError
+	);
 	const showAccountSelector = $derived(eligible.length > 0);
 	const noCompatible = $derived(
 		!accountsLoading && !featuresLoading && !readError && compatible.length === 0

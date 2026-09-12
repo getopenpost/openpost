@@ -114,6 +114,33 @@
 	const operationScope = new PublicationOperationScope<AuthIdentityToken | undefined>();
 	type ActivityOperation = PublicationOperation<AuthIdentityToken | undefined>;
 
+	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const activeActivityBucket = $derived(activityBucketForTab(activeTab));
+	const searchTerm = $derived(searchQuery.trim());
+	const publicationsInfinite = createInfiniteQuery(() =>
+		activityPublicationsInfiniteQueryOptions(queryAPI, currentWorkspaceID, activeActivityBucket, {
+			limit: publicationPageSize,
+			search: searchTerm
+		})
+	);
+	const failedJobsInfinite = createInfiniteQuery(() => ({
+		...failedJobsInfiniteQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize }),
+		enabled: Boolean(currentWorkspaceID && activeActivityBucket === 'failed')
+	}));
+	// Pages stay in the Query cache under the workspace+bucket+search key, so revisits
+	// and tab switches reuse fetched pages instead of refetching page one.
+	const posts = $derived.by(() => {
+		const seen = new Set<string>();
+		const items: ActivityItem[] = [];
+		for (const page of publicationsInfinite.data?.pages ?? []) {
+			for (const publication of page.items) {
+				if (seen.has(publication.id)) continue;
+				seen.add(publication.id);
+				items.push(activityItem(publication));
+			}
+		}
+		return items;
+	});
 	const scheduledPosts = $derived(
 		posts
 			.filter((post) => activityBucket(post) === 'scheduled')
@@ -189,33 +216,6 @@
 					? failedPosts
 					: drafts
 	);
-	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
-	const activeActivityBucket = $derived(activityBucketForTab(activeTab));
-	const searchTerm = $derived(searchQuery.trim());
-	const publicationsInfinite = createInfiniteQuery(() =>
-		activityPublicationsInfiniteQueryOptions(queryAPI, currentWorkspaceID, activeActivityBucket, {
-			limit: publicationPageSize,
-			search: searchTerm
-		})
-	);
-	const failedJobsInfinite = createInfiniteQuery(() => ({
-		...failedJobsInfiniteQueryOptions(queryAPI, currentWorkspaceID, { limit: jobPageSize }),
-		enabled: Boolean(currentWorkspaceID && activeActivityBucket === 'failed')
-	}));
-	// Pages stay in the Query cache under the workspace+bucket+search key, so revisits
-	// and tab switches reuse fetched pages instead of refetching page one.
-	const posts = $derived.by(() => {
-		const seen = new Set<string>();
-		const items: ActivityItem[] = [];
-		for (const page of publicationsInfinite.data?.pages ?? []) {
-			for (const publication of page.items) {
-				if (seen.has(publication.id)) continue;
-				seen.add(publication.id);
-				items.push(activityItem(publication));
-			}
-		}
-		return items;
-	});
 	const failedJobs = $derived<JobLog[]>(
 		(failedJobsInfinite.data?.pages ?? []).flatMap((page) => page.items)
 	);

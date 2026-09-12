@@ -165,7 +165,7 @@ function captionOne(
 		};
 		const onMessage = (event: MessageEvent<SceneWorkerMessage>) => {
 			const message = event.data;
-			if (message.id !== id || message.type !== 'caption') return;
+			if (message.type !== 'caption' || message.id !== id) return;
 			cleanup();
 			if (message.error && !message.caption) {
 				reject(new Error(message.error));
@@ -223,7 +223,7 @@ function verifyOne(
 		};
 		const onMessage = (event: MessageEvent<SceneWorkerMessage>) => {
 			const message = event.data;
-			if (message.id !== id || message.type !== 'result') return;
+			if (message.type !== 'result' || message.id !== id) return;
 			cleanup();
 			if (message.reason.startsWith('error:')) {
 				reject(new Error(message.reason));

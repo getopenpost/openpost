@@ -13,7 +13,12 @@ import { ensureProResDecoderForCodec } from './prores-decoder';
 import { resolveMediaBlob } from './import.svelte';
 import { detectSceneCuts, type FrameHistogram } from './scene-detection';
 import { detectAdaptiveSceneCuts } from './scene-search/scene-analysis-client';
-import { sceneCaptionProvider, type SceneCutFramePair } from './scene-search/ai/caption-provider';
+import type { SceneAnalysisProgress } from './scene-search/types';
+import {
+	sceneCaptionProvider,
+	type CaptionModelProgress,
+	type SceneCutFramePair
+} from './scene-search/ai/caption-provider';
 import {
 	SCENE_GRID_HEIGHT,
 	SCENE_GRID_WIDTH,
@@ -30,7 +35,7 @@ const logger = createLogger('SceneScan');
 export type SceneScanMode = 'fast' | 'adaptive-lfm';
 
 export interface SceneScanProgress {
-	stage: 'detecting' | 'thumbnails' | 'loading-model' | 'verifying';
+	stage: SceneAnalysisProgress['stage'] | CaptionModelProgress['stage'];
 	percent: number;
 	completed: number;
 	total: number;

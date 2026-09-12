@@ -457,13 +457,15 @@ export async function renderImageSequenceZip(
 }
 
 export function getDirectoryPickerAvailable(): boolean {
-	return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+	return typeof window !== 'undefined' && Boolean(window.showDirectoryPicker);
 }
 
 export async function pickSequenceDirectory(): Promise<FileSystemDirectoryHandle | null> {
 	if (!getDirectoryPickerAvailable()) return null;
+	const picker = window.showDirectoryPicker;
+	if (!picker) return null;
 	try {
-		return await window.showDirectoryPicker();
+		return await picker.call(window);
 	} catch (error) {
 		if (error instanceof DOMException && error.name === 'AbortError') throw error;
 		return null;

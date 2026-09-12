@@ -191,6 +191,9 @@ describe('assessExportPreflight', () => {
 					width: 480,
 					height: 270,
 					fps: 15,
+					codec: 'gif',
+					bitrate: 0,
+					tags: ['image'],
 					animationFrameCount: 24
 				}
 			],

@@ -200,7 +200,9 @@ function parseShotTypeField(value: unknown): string | undefined {
 		'extreme close up': 'extreme close-up',
 		'extreme close-up': 'extreme close-up'
 	} satisfies Record<string, string>;
-	const normalized = aliasMap[compact] ?? normalizeShotVocabulary(compact).toLowerCase();
+	const normalized =
+		Object.entries(aliasMap).find(([alias]) => alias === compact)?.[1] ??
+		normalizeShotVocabulary(compact).toLowerCase();
 	return CANONICAL_SHOT_SIZES.find((shot) => shot === normalized);
 }
 

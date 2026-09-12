@@ -25,7 +25,9 @@ export function analyticsSourceLabelKey(
 	return source === 'external' ? 'published_elsewhere' : 'published_with_openpost';
 }
 
-export function insightHasRanking(insight: AnalyticsInsight) {
+export function insightHasRanking(
+	insight: AnalyticsInsight
+): insight is AnalyticsInsight & { value: number } {
 	return insight.status === 'available' && insight.value !== undefined;
 }
 

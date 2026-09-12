@@ -8,6 +8,7 @@ import {
 	StreamingAudioEffectChain,
 	getAudioEffectTailSeconds
 } from './audio-effects';
+import type { AudioEffect } from './audio-effects';
 
 function sine(freq: number, sampleRate = 48000, seconds = 0.4, amp = 0.5): Float32Array {
 	return Float32Array.from(
@@ -44,7 +45,7 @@ describe('audio effects rack offline', () => {
 		const left = new Float32Array(len);
 		const right = new Float32Array(len);
 		left[100] = 1;
-		const cases: Array<ReturnType<typeof createDefaultAudioEffect>> = [
+		const cases: AudioEffect[] = [
 			(() => {
 				const c = createDefaultAudioEffect('delay');
 				c.timeMs = 80;

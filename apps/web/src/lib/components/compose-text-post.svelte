@@ -3391,8 +3391,39 @@
 				!nextAccountIds.includes(upload.target.variantAccountId)
 		);
 		selectedAccountIds = nextAccountIds;
-		requestedOutputProfiles = {};
-		formatLockedByAccount = {};
+		requestedOutputProfiles = Object.fromEntries(
+			(set.accounts ?? [])
+				.filter((membership) => membership.default_output_profile)
+				.map((membership) => [membership.social_account_id, membership.default_output_profile!])
+		);
+		formatLockedByAccount = Object.fromEntries(
+			(set.accounts ?? [])
+				.filter((membership) => membership.default_output_profile)
+				.map((membership) => [membership.social_account_id, true])
+		);
+		settingsByAccount = Object.fromEntries(
+			(set.accounts ?? []).map((membership) => [
+				membership.social_account_id,
+				{
+					...parseComposerSettingsRecord(membership.default_settings ?? {}),
+					...(settingsByAccount[membership.social_account_id] ?? {})
+				}
+			])
+		);
+		segmentSettingsByPost = Object.fromEntries(
+			posts.map((post) => [
+				post.key,
+				Object.fromEntries(
+					(set.accounts ?? []).map((membership) => [
+						membership.social_account_id,
+						{
+							...parseComposerSettingsRecord(membership.default_segment_settings ?? {}),
+							...(segmentSettingsByPost[post.key]?.[membership.social_account_id] ?? {})
+						}
+					])
+				)
+			])
+		);
 		activeVariantAccountId = null;
 		scheduleAutoSave();
 		scheduleCapabilityResolve();
@@ -5422,6 +5453,7 @@
 					<SocialSetControl
 						workspaceId={selectedWorkspaceId}
 						{accounts}
+						{capabilities}
 						{selectedAccountIds}
 						customAccountIds={[...variants.keys()]}
 						{accountIssues}
@@ -5525,6 +5557,7 @@
 					<SocialSetControl
 						workspaceId={selectedWorkspaceId}
 						{accounts}
+						{capabilities}
 						{selectedAccountIds}
 						customAccountIds={[...variants.keys()]}
 						{accountIssues}

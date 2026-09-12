@@ -24,7 +24,7 @@ func TestSocialSetsPreserveMembershipOrderAndFormatDefaults(t *testing.T) {
 		"is_default":   true,
 		"accounts": []map[string]any{
 			{"social_account_id": "acc-2", "default_output_profile": "instagram.story"},
-			{"social_account_id": "acc-1", "default_output_profile": "x.thread"},
+			{"social_account_id": "acc-1", "default_output_profile": "x.thread", "default_settings": map[string]any{"reply_settings": "following"}, "default_segment_settings": map[string]any{"poll_options": "Yes\nNo"}},
 		},
 	})
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
@@ -39,6 +39,8 @@ func TestSocialSetsPreserveMembershipOrderAndFormatDefaults(t *testing.T) {
 	})
 	require.Equal(t, "instagram.story", created.Accounts[0].DefaultOutputProfile)
 	require.Equal(t, "x.thread", created.Accounts[1].DefaultOutputProfile)
+	require.Equal(t, "following", created.Accounts[1].DefaultSettings["reply_settings"])
+	require.Equal(t, "Yes\nNo", created.Accounts[1].DefaultSegmentSettings["poll_options"])
 
 	response = server.request(t, http.MethodGet, "/api/v1/social-sets?workspace_id=ws-1", nil)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
@@ -46,6 +48,112 @@ func TestSocialSetsPreserveMembershipOrderAndFormatDefaults(t *testing.T) {
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &listed))
 	require.Len(t, listed, 1)
 	require.Equal(t, created.ID, listed[0].ID)
+	require.Equal(t, created.Accounts[1].DefaultSettings, listed[0].Accounts[1].DefaultSettings)
+
+	response = server.request(t, http.MethodPut, "/api/v1/social-sets/"+created.ID, map[string]any{
+		"name": "Launch", "is_default": true,
+		"accounts": []map[string]any{{"social_account_id": "acc-1", "default_settings": map[string]any{"made_with_ai": true}}},
+	})
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var updated SocialSetResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &updated))
+	require.Equal(t, true, updated.Accounts[0].DefaultSettings["made_with_ai"])
+	require.Empty(t, updated.Accounts[0].DefaultSegmentSettings)
+}
+
+func TestSocialSetRejectsSettingsOutsideAccountAndScope(t *testing.T) {
+	server := newSocialSetsTestServer(t)
+	for _, setting := range []map[string]any{
+		{"default_settings": map[string]any{"poll_options": "Yes\nNo"}},
+		{"default_settings": map[string]any{"instagram_product_type": "STORY"}},
+		{"default_segment_settings": map[string]any{"reply_settings": "following"}},
+	} {
+		account := map[string]any{"social_account_id": "acc-1"}
+		for key, value := range setting {
+			account[key] = value
+		}
+		response := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
+			"workspace_id": "ws-1", "name": "Invalid", "accounts": []map[string]any{account},
+		})
+		require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
+func TestSocialSetDefaultsFillOnlyMissingPublicationSettings(t *testing.T) {
+	input := CreatePublicationBody{
+		SourceText: "First post",
+		Renditions: []RenditionInput{{
+			SocialAccountID: "acc-1", OutputProfile: "x.post",
+			Settings: map[string]any{"reply_settings": "mentionedUsers"},
+			Segments: []RenditionSegmentInput{{Settings: map[string]any{"poll_options": "Mine"}}},
+		}},
+	}
+	normalizePublicationCreateBody(&input)
+	applySocialSetRenditionDefaults(&input, []SocialSetAccountInput{{
+		SocialAccountID: "acc-1", DefaultOutputProfile: "x.thread",
+		DefaultSettings:        map[string]any{"reply_settings": "following", "made_with_ai": true},
+		DefaultSegmentSettings: map[string]any{"poll_options": "Default", "poll_duration_minutes": 60},
+	}})
+	require.Equal(t, "x.post", input.Renditions[0].OutputProfile)
+	require.Equal(t, "mentionedUsers", input.Renditions[0].Settings["reply_settings"])
+	require.Equal(t, true, input.Renditions[0].Settings["made_with_ai"])
+	require.Equal(t, "Mine", input.Renditions[0].Segments[0].Settings["poll_options"])
+	require.Equal(t, 60, input.Renditions[0].Segments[0].Settings["poll_duration_minutes"])
+
+	input.Renditions = []RenditionInput{{SocialAccountID: "acc-1"}}
+	applySocialSetRenditionDefaults(&input, []SocialSetAccountInput{{
+		SocialAccountID: "acc-1", DefaultOutputProfile: "x.thread",
+		DefaultSegmentSettings: map[string]any{"poll_options": "Default"},
+	}})
+	require.Equal(t, "x.thread", input.Renditions[0].OutputProfile)
+	require.True(t, input.Renditions[0].FormatLocked)
+	require.Equal(t, "Default", input.Renditions[0].Segments[0].Settings["poll_options"])
+}
+
+func TestSocialSetDefaultsSnapshotIntoNewPublicationWithoutChangingExistingDraft(t *testing.T) {
+	srv := newMCPTestServer(t)
+	ctx := context.Background()
+	for _, model := range []any{(*models.SocialSet)(nil), (*models.SocialSetAccount)(nil)} {
+		_, err := srv.db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
+		require.NoError(t, err)
+	}
+	_, err := srv.db.NewInsert().Model(&models.SocialSet{ID: "set-1", WorkspaceID: "ws-1", Name: "Saved"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.SocialSetAccount{
+		SocialSetID: "set-1", SocialAccountID: "account-1", DefaultOutputProfile: "x.post",
+		DefaultSettingsJSON:        `{"reply_settings":"following","made_with_ai":true}`,
+		DefaultSegmentSettingsJSON: `{"poll_options":"Default"}`,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	create := func(reply string) (models.Rendition, models.RenditionSegment) {
+		t.Helper()
+		input := CreatePublicationBody{
+			WorkspaceID: "ws-1", SocialSetID: "set-1", ContentProfile: models.ContentProfileShortText,
+			SourceText: "Draft", Renditions: []RenditionInput{{SocialAccountID: "account-1"}},
+		}
+		if reply != "" {
+			input.Renditions[0].Settings = map[string]any{"reply_settings": reply}
+			input.Renditions[0].Segments = []RenditionSegmentInput{{Settings: map[string]any{"poll_options": "Custom"}}}
+		}
+		created, err := srv.handler.publicationHandler().publicationApplication().Create(ctx, "user-1", input)
+		require.NoError(t, err)
+		var rendition models.Rendition
+		require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("publication_id = ?", created.ID).Scan(ctx))
+		var segment models.RenditionSegment
+		require.NoError(t, srv.db.NewSelect().Model(&segment).Where("rendition_id = ?", rendition.ID).Scan(ctx))
+		return rendition, segment
+	}
+	defaultRendition, defaultSegment := create("")
+	require.JSONEq(t, `{"reply_settings":"following","made_with_ai":true}`, defaultRendition.SettingsJSON)
+	require.JSONEq(t, `{"poll_options":"Default"}`, defaultSegment.SettingsJSON)
+	overriddenRendition, overriddenSegment := create("mentionedUsers")
+	require.JSONEq(t, `{"reply_settings":"mentionedUsers","made_with_ai":true}`, overriddenRendition.SettingsJSON)
+	require.JSONEq(t, `{"poll_options":"Custom"}`, overriddenSegment.SettingsJSON)
+	_, err = srv.db.NewUpdate().Model((*models.SocialSetAccount)(nil)).Set("default_settings_json = ?", `{"reply_settings":"verified"}`).Where("social_set_id = ?", "set-1").Exec(ctx)
+	require.NoError(t, err)
+	var unchanged models.Rendition
+	require.NoError(t, srv.db.NewSelect().Model(&unchanged).Where("id = ?", defaultRendition.ID).Scan(ctx))
+	require.JSONEq(t, defaultRendition.SettingsJSON, unchanged.SettingsJSON)
 }
 
 func TestSocialSetRejectsAnOutputProfileFromAnotherProvider(t *testing.T) {

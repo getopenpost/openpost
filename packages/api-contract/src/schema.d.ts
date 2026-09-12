@@ -12826,6 +12826,14 @@ export interface components {
         SocialSetAccountInput: {
             /** @description Optional provider-qualified default format */
             default_output_profile?: string;
+            /** @description Post settings copied into new rendition segments */
+            default_segment_settings?: {
+                [key: string]: unknown;
+            };
+            /** @description Destination settings copied into new renditions */
+            default_settings?: {
+                [key: string]: unknown;
+            };
             /** @description Connected social account ID */
             social_account_id: string;
         };
@@ -12833,6 +12841,12 @@ export interface components {
             account_avatar_url?: string;
             account_username?: string;
             default_output_profile?: string;
+            default_segment_settings?: {
+                [key: string]: unknown;
+            };
+            default_settings?: {
+                [key: string]: unknown;
+            };
             /** Format: int64 */
             display_order: number;
             platform: string;

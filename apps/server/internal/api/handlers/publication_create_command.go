@@ -41,8 +41,10 @@ func (command publicationApplication) prepareCreate(
 		return preparedPublicationCreate{}, err
 	}
 
+	var socialSetAccounts []SocialSetAccountInput
 	if input.SocialSetID != "" {
-		socialSetAccounts, err := loadSocialSetSnapshot(ctx, command.handler.db, input.WorkspaceID, input.SocialSetID)
+		var err error
+		socialSetAccounts, err = loadSocialSetSnapshot(ctx, command.handler.db, input.WorkspaceID, input.SocialSetID)
 		if err != nil {
 			return preparedPublicationCreate{}, err
 		}
@@ -51,6 +53,7 @@ func (command publicationApplication) prepareCreate(
 		}
 	}
 	normalizePublicationCreateBody(&input)
+	applySocialSetRenditionDefaults(&input, socialSetAccounts)
 
 	accountMap, err := command.handler.loadAccounts(ctx, input.WorkspaceID, renditionAccountIDs(input.Renditions))
 	if err != nil {
@@ -81,6 +84,35 @@ func (command publicationApplication) prepareCreate(
 		repostOverrideJSON: repostOverrideJSON,
 		now:                now,
 	}, nil
+}
+
+func applySocialSetRenditionDefaults(input *CreatePublicationBody, accounts []SocialSetAccountInput) {
+	defaults := make(map[string]SocialSetAccountInput, len(accounts))
+	for _, account := range accounts {
+		defaults[account.SocialAccountID] = account
+	}
+	for index := range input.Renditions {
+		rendition := &input.Renditions[index]
+		account, ok := defaults[rendition.SocialAccountID]
+		if !ok {
+			continue
+		}
+		if rendition.OutputProfile == "" && account.DefaultOutputProfile != "" {
+			rendition.OutputProfile = account.DefaultOutputProfile
+			rendition.FormatLocked = true
+		}
+		rendition.Settings = mergePublicationSettings(account.DefaultSettings, rendition.Settings)
+		if len(account.DefaultSegmentSettings) == 0 {
+			continue
+		}
+		if len(rendition.Segments) == 0 {
+			rendition.Segments = make([]RenditionSegmentInput, len(input.Segments))
+		}
+		for segmentIndex := range rendition.Segments {
+			segment := &rendition.Segments[segmentIndex]
+			segment.Settings = mergePublicationSettings(account.DefaultSegmentSettings, segment.Settings)
+		}
+	}
 }
 
 func validatePublicationCreateTiming(input CreatePublicationBody, now time.Time) error {

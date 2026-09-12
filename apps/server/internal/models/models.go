@@ -1353,16 +1353,18 @@ type SocialSet struct {
 	UpdatedAt   time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
-// SocialSetAccount stores stable membership plus an optional destination-format
-// default. It never changes renditions already snapshotted into a publication.
+// SocialSetAccount stores membership and defaults for new rendition snapshots.
+// Updates never change existing publications.
 type SocialSetAccount struct {
 	bun.BaseModel `bun:"table:social_set_accounts"`
 
-	SocialSetID          string    `bun:"social_set_id,pk" json:"social_set_id"`
-	SocialAccountID      string    `bun:"social_account_id,pk" json:"social_account_id"`
-	DisplayOrder         int       `bun:"display_order,notnull,default:0" json:"display_order"`
-	DefaultOutputProfile string    `bun:"default_output_profile,notnull,default:''" json:"default_output_profile,omitempty"`
-	CreatedAt            time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	SocialSetID                string    `bun:"social_set_id,pk" json:"social_set_id"`
+	SocialAccountID            string    `bun:"social_account_id,pk" json:"social_account_id"`
+	DisplayOrder               int       `bun:"display_order,notnull,default:0" json:"display_order"`
+	DefaultOutputProfile       string    `bun:"default_output_profile,notnull,default:''" json:"default_output_profile,omitempty"`
+	DefaultSettingsJSON        string    `bun:"default_settings_json,notnull,default:'{}'" json:"-"`
+	DefaultSegmentSettingsJSON string    `bun:"default_segment_settings_json,notnull,default:'{}'" json:"-"`
+	CreatedAt                  time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 // RepostPolicy is a workspace-owned rule that turns a published rendition into

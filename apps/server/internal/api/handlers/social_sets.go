@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -28,17 +29,21 @@ func NewSocialSetHandler(db *bun.DB, authenticator middleware.Authenticator) *So
 }
 
 type SocialSetAccountInput struct {
-	SocialAccountID      string `json:"social_account_id" doc:"Connected social account ID"`
-	DefaultOutputProfile string `json:"default_output_profile,omitempty" doc:"Optional provider-qualified default format"`
+	SocialAccountID        string         `json:"social_account_id" doc:"Connected social account ID"`
+	DefaultOutputProfile   string         `json:"default_output_profile,omitempty" doc:"Optional provider-qualified default format"`
+	DefaultSettings        map[string]any `json:"default_settings,omitempty" doc:"Destination settings copied into new renditions"`
+	DefaultSegmentSettings map[string]any `json:"default_segment_settings,omitempty" doc:"Post settings copied into new rendition segments"`
 }
 
 type SocialSetAccountResponse struct {
-	SocialAccountID      string `json:"social_account_id"`
-	Platform             string `json:"platform"`
-	AccountUsername      string `json:"account_username,omitempty"`
-	AccountAvatarURL     string `json:"account_avatar_url,omitempty"`
-	DisplayOrder         int    `json:"display_order"`
-	DefaultOutputProfile string `json:"default_output_profile,omitempty"`
+	SocialAccountID        string         `json:"social_account_id"`
+	Platform               string         `json:"platform"`
+	AccountUsername        string         `json:"account_username,omitempty"`
+	AccountAvatarURL       string         `json:"account_avatar_url,omitempty"`
+	DisplayOrder           int            `json:"display_order"`
+	DefaultOutputProfile   string         `json:"default_output_profile,omitempty"`
+	DefaultSettings        map[string]any `json:"default_settings,omitempty"`
+	DefaultSegmentSettings map[string]any `json:"default_segment_settings,omitempty"`
 }
 
 type SocialSetResponse struct {
@@ -91,13 +96,15 @@ type SocialSetListOutput struct {
 }
 
 type socialSetAccountRow struct {
-	SocialSetID          string `bun:"social_set_id"`
-	SocialAccountID      string `bun:"social_account_id"`
-	Platform             string `bun:"platform"`
-	AccountUsername      string `bun:"account_username"`
-	AccountAvatarURL     string `bun:"account_avatar_url"`
-	DisplayOrder         int    `bun:"display_order"`
-	DefaultOutputProfile string `bun:"default_output_profile"`
+	SocialSetID                string `bun:"social_set_id"`
+	SocialAccountID            string `bun:"social_account_id"`
+	Platform                   string `bun:"platform"`
+	AccountUsername            string `bun:"account_username"`
+	AccountAvatarURL           string `bun:"account_avatar_url"`
+	DisplayOrder               int    `bun:"display_order"`
+	DefaultOutputProfile       string `bun:"default_output_profile"`
+	DefaultSettingsJSON        string `bun:"default_settings_json"`
+	DefaultSegmentSettingsJSON string `bun:"default_segment_settings_json"`
 }
 
 func (h *SocialSetHandler) RegisterRoutes(api huma.API) {
@@ -322,15 +329,54 @@ func validateSocialSetAccounts(ctx context.Context, db bun.IDB, workspaceID stri
 	}
 	for _, input := range inputs {
 		profile := strings.TrimSpace(input.DefaultOutputProfile)
-		if profile == "" {
-			continue
-		}
 		account := accounts[input.SocialAccountID]
-		if _, ok := capabilities.FindOutput(account.Platform, profile); !ok {
-			return nil, huma.Error400BadRequest("default_output_profile is not supported by its account")
+		if profile != "" {
+			if _, ok := capabilities.FindOutput(account.Platform, profile); !ok {
+				return nil, huma.Error400BadRequest("default_output_profile is not supported by its account")
+			}
+		}
+		if err := validateSocialSetDefaultSettings(account.Platform, profile, input.DefaultSettings, capabilities.SettingScopeDestination); err != nil {
+			return nil, err
+		}
+		if err := validateSocialSetDefaultSettings(account.Platform, profile, input.DefaultSegmentSettings, capabilities.SettingScopeSegment); err != nil {
+			return nil, err
 		}
 	}
 	return accounts, nil
+}
+
+func validateSocialSetDefaultSettings(provider, outputProfile string, values map[string]any, scope string) error {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	encoded, err := json.Marshal(values)
+	if err != nil || len(encoded) > 16*1024 {
+		return huma.Error400BadRequest("Social Set default settings are invalid or too large")
+	}
+	allowed := map[string]struct{}{}
+	for _, capability := range capabilities.All() {
+		if capability.Provider != provider || (outputProfile != "" && capability.OutputProfile != outputProfile) {
+			continue
+		}
+		for _, field := range capability.Settings {
+			if field.Scope == scope {
+				allowed[field.Key] = struct{}{}
+			}
+		}
+	}
+	for key := range values {
+		if _, ok := allowed[key]; !ok {
+			return huma.Error400BadRequest("Social Set default setting " + key + " is not supported by its account or scope")
+		}
+	}
+	return nil
+}
+
+func decodeSocialSetDefaults(raw string) (map[string]any, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var values map[string]any
+	err := json.Unmarshal([]byte(raw), &values)
+	return values, err
 }
 
 func insertSocialSetAccounts(ctx context.Context, tx bun.Tx, setID string, inputs []SocialSetAccountInput, accounts map[string]models.SocialAccount) error {
@@ -341,7 +387,9 @@ func insertSocialSetAccounts(ctx context.Context, tx bun.Tx, setID string, input
 		row := &models.SocialSetAccount{
 			SocialSetID: setID, SocialAccountID: input.SocialAccountID,
 			DisplayOrder: position, DefaultOutputProfile: strings.TrimSpace(input.DefaultOutputProfile),
-			CreatedAt: time.Now().UTC(),
+			DefaultSettingsJSON:        mustJSON(input.DefaultSettings),
+			DefaultSegmentSettingsJSON: mustJSON(input.DefaultSegmentSettings),
+			CreatedAt:                  time.Now().UTC(),
 		}
 		if _, err := tx.NewInsert().Model(row).Exec(ctx); err != nil {
 			return err
@@ -394,7 +442,7 @@ func loadSocialSetResponses(ctx context.Context, db bun.IDB, sets []models.Socia
 	}
 	var rows []socialSetAccountRow
 	if err := db.NewSelect().TableExpr("social_set_accounts AS membership").
-		ColumnExpr("membership.social_set_id, membership.social_account_id, membership.display_order, membership.default_output_profile").
+		ColumnExpr("membership.social_set_id, membership.social_account_id, membership.display_order, membership.default_output_profile, membership.default_settings_json, membership.default_segment_settings_json").
 		ColumnExpr("account.platform, account.account_username, account.account_avatar_url").
 		Join("JOIN social_accounts AS account ON account.id = membership.social_account_id").
 		Where("membership.social_set_id IN (?)", bun.List(ids)).
@@ -405,10 +453,19 @@ func loadSocialSetResponses(ctx context.Context, db bun.IDB, sets []models.Socia
 	}
 	bySet := map[string][]SocialSetAccountResponse{}
 	for _, row := range rows {
+		defaultSettings, err := decodeSocialSetDefaults(row.DefaultSettingsJSON)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to decode Social Set settings")
+		}
+		defaultSegmentSettings, err := decodeSocialSetDefaults(row.DefaultSegmentSettingsJSON)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to decode Social Set post settings")
+		}
 		bySet[row.SocialSetID] = append(bySet[row.SocialSetID], SocialSetAccountResponse{
 			SocialAccountID: row.SocialAccountID, Platform: row.Platform,
 			AccountUsername: row.AccountUsername, AccountAvatarURL: row.AccountAvatarURL,
 			DisplayOrder: row.DisplayOrder, DefaultOutputProfile: row.DefaultOutputProfile,
+			DefaultSettings: defaultSettings, DefaultSegmentSettings: defaultSegmentSettings,
 		})
 	}
 	responses := make([]SocialSetResponse, 0, len(sets))
@@ -441,8 +498,17 @@ func loadSocialSetSnapshot(ctx context.Context, db bun.IDB, workspaceID, setID s
 	}
 	inputs := make([]SocialSetAccountInput, 0, len(rows))
 	for _, row := range rows {
+		defaultSettings, err := decodeSocialSetDefaults(row.DefaultSettingsJSON)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to decode Social Set settings")
+		}
+		defaultSegmentSettings, err := decodeSocialSetDefaults(row.DefaultSegmentSettingsJSON)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to decode Social Set post settings")
+		}
 		inputs = append(inputs, SocialSetAccountInput{
 			SocialAccountID: row.SocialAccountID, DefaultOutputProfile: row.DefaultOutputProfile,
+			DefaultSettings: defaultSettings, DefaultSegmentSettings: defaultSegmentSettings,
 		})
 	}
 	return inputs, nil

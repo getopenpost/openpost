@@ -17954,6 +17954,16 @@
 						"description": "Optional provider-qualified default format",
 						"type": "string"
 					},
+					"default_segment_settings": {
+						"additionalProperties": {},
+						"description": "Post settings copied into new rendition segments",
+						"type": "object"
+					},
+					"default_settings": {
+						"additionalProperties": {},
+						"description": "Destination settings copied into new renditions",
+						"type": "object"
+					},
 					"social_account_id": {
 						"description": "Connected social account ID",
 						"type": "string"
@@ -17973,6 +17983,14 @@
 					},
 					"default_output_profile": {
 						"type": "string"
+					},
+					"default_segment_settings": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"default_settings": {
+						"additionalProperties": {},
+						"type": "object"
 					},
 					"display_order": {
 						"format": "int64",

@@ -10,6 +10,7 @@ type SocialSet = components['schemas']['SocialSetResponse'];
 
 const getMock = vi.spyOn(client, 'GET');
 const postMock = vi.spyOn(client, 'POST');
+const putMock = vi.spyOn(client, 'PUT');
 const readWorkspaces: string[] = [];
 
 describe('Social Set request ownership', () => {
@@ -17,7 +18,77 @@ describe('Social Set request ownership', () => {
 		queryClient.clear();
 		getMock.mockReset();
 		postMock.mockReset();
+		putMock.mockReset();
 		readWorkspaces.length = 0;
+	});
+
+	it('keeps and edits account defaults when a Social Set is saved', async () => {
+		const existing = socialSet('workspace-a');
+		existing.accounts = [
+			{
+				social_account_id: 'acc-1',
+				platform: 'x',
+				display_order: 0,
+				default_output_profile: 'x.post',
+				default_settings: { reply_settings: 'following' },
+				default_segment_settings: {}
+			}
+		];
+		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
+		installResolvedReads();
+		putMock.mockImplementation(() => new Promise(() => {}) as never);
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [{ id: 'acc-1', platform: 'x', account_username: 'openpost' }] as never,
+			capabilities: [
+				{
+					provider: 'x',
+					output_profile: 'x.post',
+					label: 'Post',
+					settings: [
+						{
+							key: 'reply_settings',
+							label: 'Who can reply',
+							message_key: '',
+							group: 'conversation',
+							control: 'select',
+							type: 'select',
+							scope: 'destination',
+							required: false,
+							options: ['following', 'mentionedUsers']
+						}
+					]
+				}
+			] as never,
+			selectedSetId: existing.id,
+			onApply: vi.fn()
+		});
+		await openManager(screen);
+		await screen.getByRole('button', { name: 'Edit post settings' }).click();
+		const settingsDialog = screen.getByRole('dialog', { name: 'X settings' });
+		await expect.element(settingsDialog).toBeVisible();
+		await settingsDialog.getByRole('button', { name: /^(following|Who can reply)$/ }).click();
+		await screen.getByRole('option', { name: 'mentionedUsers' }).click();
+		await settingsDialog.getByRole('button', { name: 'Done' }).click();
+		await screen
+			.getByRole('dialog', { name: 'Manage Social Sets' })
+			.getByRole('button', { name: 'Save' })
+			.click();
+		expect(putMock).toHaveBeenCalledWith('/social-sets/{id}', {
+			params: { path: { id: existing.id } },
+			body: {
+				name: existing.name,
+				is_default: false,
+				accounts: [
+					{
+						social_account_id: 'acc-1',
+						default_output_profile: 'x.post',
+						default_settings: { reply_settings: 'mentionedUsers' },
+						default_segment_settings: {}
+					}
+				]
+			}
+		});
 	});
 
 	it('does not refresh or apply an old Social Set save in a new Workspace', async () => {

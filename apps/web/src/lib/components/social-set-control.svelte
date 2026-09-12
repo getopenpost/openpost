@@ -12,6 +12,18 @@
 	} from '$lib/query/authorization-boundary';
 	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import type { components } from '$lib/api/types';
+	import { publishingOptionsQueryOptions } from '@openpost/query-catalog';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
+	import { getLocaleTag } from '$lib/i18n';
+	import {
+		composerDestinationSettings,
+		invalidateDependentDestinationSettings,
+		loadableDestinationOptionSources,
+		mergeDestinationOptions
+	} from './compose/destination-options';
+	import type { ComposerSettingValue, ComposerSettings } from './compose/modes';
+	import DestinationSettingsDialog from './destination-settings-dialog.svelte';
+	import AppSelect from './app-select.svelte';
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from './inline-notice.svelte';
@@ -24,15 +36,25 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { ThemeIcon } from '$lib/themes/icons';
-	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
+	import {
+		formatSocialAccountLabel,
+		formatSocialAccountName,
+		getPlatformKey,
+		getPlatformName
+	} from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 
 	type SocialSet = components['schemas']['SocialSetResponse'];
 	type SocialSetAccountInput = components['schemas']['SocialSetAccountInput'];
+	type Capability = components['schemas']['Capability'];
+	type SettingDefinition = components['schemas']['SettingDefinition'];
+	type DestinationOption = components['schemas']['DestinationOption'];
+	type DefaultSettings = NonNullable<SocialSetAccountInput['default_settings']>;
 
 	interface Props {
 		workspaceId: string;
 		accounts: SocialAccount[];
+		capabilities?: Capability[];
 		selectedAccountIds?: string[];
 		customAccountIds?: string[];
 		accountIssues?: Record<string, string[]>;
@@ -48,6 +70,7 @@
 	let {
 		workspaceId,
 		accounts,
+		capabilities = [],
 		selectedAccountIds = [],
 		customAccountIds = [],
 		accountIssues = {},
@@ -68,6 +91,16 @@
 	let editorName = $state('');
 	let editorDefault = $state(false);
 	let editorAccountIds = $state<string[]>([]);
+	let editorOutputProfiles = $state<Record<string, string>>({});
+	let editorSettings = $state<Record<string, DefaultSettings>>({});
+	let editorSegmentSettings = $state<Record<string, DefaultSettings>>({});
+	let settingsEditorAccountId = $state('');
+	let settingsEditorOpen = $state(false);
+	let settingsOptions = $state<Record<string, DestinationOption[]>>({});
+	let settingsOptionCursors = $state<Record<string, string>>({});
+	let settingsOptionsLoading = $state(false);
+	let settingsOptionsError = $state('');
+	let settingsOptionsSequence = 0;
 	let saving = $state(false);
 	let deleting = $state(false);
 	let deleteOpen = $state(false);
@@ -92,6 +125,16 @@
 			.filter((account): account is SocialAccount => Boolean(account))
 	);
 	const selectedSet = $derived(sets.find((set) => set.id === selectedSetId) ?? null);
+	const settingsEditorAccount = $derived(
+		accounts.find((account) => account.id === settingsEditorAccountId) ?? null
+	);
+	const settingsEditorFields = $derived(
+		settingsEditorAccount ? settingsFields(settingsEditorAccount) : []
+	);
+	const settingsEditorValues = $derived({
+		...(editorSettings[settingsEditorAccountId] ?? {}),
+		...(editorSegmentSettings[settingsEditorAccountId] ?? {})
+	} as ComposerSettings);
 	const destinationLabel = $derived(
 		selectedSet?.name ||
 			(selectedAccountIds.length > 0 ? m.social_set_custom_selection() : m.social_set_select())
@@ -121,6 +164,12 @@
 		editorName = '';
 		editorDefault = false;
 		editorAccountIds = [];
+		editorOutputProfiles = {};
+		editorSettings = {};
+		editorSegmentSettings = {};
+		settingsEditorOpen = false;
+		settingsEditorAccountId = '';
+		settingsOptionsSequence += 1;
 		saving = false;
 		deleting = false;
 		deleteOpen = false;
@@ -189,6 +238,9 @@
 		editorName = '';
 		editorDefault = sets.length === 0;
 		editorAccountIds = accounts.map((account) => account.id);
+		editorOutputProfiles = {};
+		editorSettings = {};
+		editorSegmentSettings = {};
 	}
 
 	function startEditing(set: SocialSet) {
@@ -196,6 +248,24 @@
 		editorName = set.name;
 		editorDefault = set.is_default;
 		editorAccountIds = (set.accounts ?? []).map((account) => account.social_account_id);
+		editorOutputProfiles = Object.fromEntries(
+			(set.accounts ?? []).map((account) => [
+				account.social_account_id,
+				account.default_output_profile ?? ''
+			])
+		);
+		editorSettings = Object.fromEntries(
+			(set.accounts ?? []).map((account) => [
+				account.social_account_id,
+				{ ...(account.default_settings ?? {}) }
+			])
+		);
+		editorSegmentSettings = Object.fromEntries(
+			(set.accounts ?? []).map((account) => [
+				account.social_account_id,
+				{ ...(account.default_segment_settings ?? {}) }
+			])
+		);
 	}
 
 	function toggleEditorAccount(accountId: string) {
@@ -205,7 +275,122 @@
 	}
 
 	function editorAccounts(): SocialSetAccountInput[] {
-		return editorAccountIds.map((accountId) => ({ social_account_id: accountId }));
+		return editorAccountIds.map((accountId) => ({
+			social_account_id: accountId,
+			default_output_profile: editorOutputProfiles[accountId] || undefined,
+			default_settings: editorSettings[accountId] ?? {},
+			default_segment_settings: editorSegmentSettings[accountId] ?? {}
+		}));
+	}
+
+	function accountFormats(account: SocialAccount) {
+		const formats = [
+			{ value: '__auto__', label: m.social_set_format_auto() },
+			...capabilities
+				.filter((capability) => capability.provider === getPlatformKey(account.platform))
+				.map((capability) => ({ value: capability.output_profile, label: capability.label }))
+		];
+		const current = editorOutputProfiles[account.id];
+		if (current && !formats.some((format) => format.value === current)) {
+			formats.push({ value: current, label: current });
+		}
+		return formats;
+	}
+
+	function settingsFields(account: SocialAccount): SettingDefinition[] {
+		const provider = getPlatformKey(account.platform);
+		const profile = editorOutputProfiles[account.id] ?? '';
+		const matching = composerDestinationSettings(provider, [], capabilities, profile);
+		if (matching.length > 0) return matching.filter((field) => field.scope !== 'media_item');
+		const unique = new Map<string, SettingDefinition>();
+		for (const capability of capabilities) {
+			if (capability.provider !== provider) continue;
+			for (const field of capability.settings ?? []) {
+				if (field.scope !== 'media_item' && !unique.has(field.key)) unique.set(field.key, field);
+			}
+		}
+		return [...unique.values()];
+	}
+
+	function updateEditorSetting(key: string, value: ComposerSettingValue) {
+		const account = settingsEditorAccount;
+		if (!account) return;
+		const field = settingsEditorFields.find((candidate) => candidate.key === key);
+		if (!field) return;
+		const segment = field.scope === 'segment';
+		const current = (
+			segment ? (editorSegmentSettings[account.id] ?? {}) : (editorSettings[account.id] ?? {})
+		) as ComposerSettings;
+		const next = invalidateDependentDestinationSettings(
+			settingsEditorFields.filter((candidate) => candidate.scope === field.scope),
+			current,
+			key,
+			value
+		).values;
+		if (segment) editorSegmentSettings = { ...editorSegmentSettings, [account.id]: next };
+		else editorSettings = { ...editorSettings, [account.id]: next };
+		void loadSettingsOptions(account, true);
+	}
+
+	function openSettingsEditor(account: SocialAccount) {
+		settingsEditorAccountId = account.id;
+		settingsOptions = {};
+		settingsOptionCursors = {};
+		settingsOptionsError = '';
+		settingsEditorOpen = true;
+		void loadSettingsOptions(account);
+	}
+
+	async function loadSettingsOptions(
+		account: SocialAccount,
+		force = false,
+		onlySource = '',
+		search = '',
+		append = false
+	) {
+		const values = {
+			...(editorSettings[account.id] ?? {}),
+			...(editorSegmentSettings[account.id] ?? {})
+		};
+		let sources = loadableDestinationOptionSources(settingsFields(account), onlySource, values);
+		if (!force && !search)
+			sources = sources.filter((source) => settingsOptions[source] === undefined);
+		if (sources.length === 0) return;
+		const sequence = ++settingsOptionsSequence;
+		settingsOptionsLoading = true;
+		settingsOptionsError = '';
+		const locale = getLocaleTag();
+		const [, region = 'US'] = locale.split('-');
+		try {
+			for (const source of sources) {
+				const data = await queryClient.query(
+					publishingOptionsQueryOptions(schedulingQueryAPI, workspaceId, {
+						accountId: account.id,
+						source,
+						region,
+						locale,
+						limit: 25,
+						search,
+						cursor: append ? (settingsOptionCursors[source] ?? '') : '',
+						context: JSON.stringify(values)
+					})
+				);
+				if (sequence !== settingsOptionsSequence || settingsEditorAccountId !== account.id) return;
+				settingsOptions = {
+					...settingsOptions,
+					[source]: append
+						? mergeDestinationOptions(settingsOptions[source] ?? [], data.options ?? [])
+						: (data.options ?? [])
+				};
+				settingsOptionCursors = { ...settingsOptionCursors, [source]: data.next_cursor ?? '' };
+			}
+		} catch (cause) {
+			if (sequence === settingsOptionsSequence)
+				settingsOptionsError =
+					cause instanceof Error ? cause.message : m.compose_load_provider_options_failed();
+		} finally {
+			if (sequence === settingsOptionsSequence) settingsOptionsLoading = false;
+		}
 	}
 
 	async function saveSet() {
@@ -541,6 +726,36 @@
 										avatarUrl={account.account_avatar_url}
 									/>
 								</label>
+								{#if editorAccountIds.includes(account.id)}
+									<div
+										class="mt-2 grid gap-2 border-t pt-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+									>
+										<div class="min-w-0 space-y-1">
+											<Label for="social-set-format-{account.id}"
+												>{m.compose_format_for_account({ account: accountLabel(account) })}</Label
+											>
+											<AppSelect
+												id="social-set-format-{account.id}"
+												value={editorOutputProfiles[account.id] || '__auto__'}
+												options={accountFormats(account)}
+												onValueChange={(value) => {
+													editorOutputProfiles = {
+														...editorOutputProfiles,
+														[account.id]: value === '__auto__' ? '' : value
+													};
+												}}
+											/>
+										</div>
+										<Button
+											type="button"
+											variant="outline"
+											class="h-11"
+											onclick={() => openSettingsEditor(account)}
+										>
+											{m.social_set_edit_settings()}
+										</Button>
+									</div>
+								{/if}
 							</div>
 						{/each}
 					</fieldset>
@@ -573,6 +788,38 @@
 		</Dialog.Content>
 	</Dialog.Root>
 </div>
+
+<DestinationSettingsDialog
+	bind:open={settingsEditorOpen}
+	account={settingsEditorAccount}
+	settings={settingsEditorFields}
+	values={settingsEditorValues}
+	optionGroups={settingsOptions}
+	optionNextCursors={settingsOptionCursors}
+	optionsLoading={settingsOptionsLoading}
+	optionsError={settingsOptionsError}
+	scopeLabel={editorName.trim()}
+	formatValue={settingsEditorAccount ? (editorOutputProfiles[settingsEditorAccount.id] ?? '') : ''}
+	formatOptions={settingsEditorAccount
+		? accountFormats(settingsEditorAccount).filter((option) => option.value !== '__auto__')
+		: []}
+	onFormatChange={(value) => {
+		if (settingsEditorAccount)
+			editorOutputProfiles = { ...editorOutputProfiles, [settingsEditorAccount.id]: value };
+	}}
+	onChange={updateEditorSetting}
+	onOptionSearch={(setting, search) => {
+		if (settingsEditorAccount)
+			void loadSettingsOptions(settingsEditorAccount, true, setting.options_source ?? '', search);
+	}}
+	onOptionLoadMore={(setting) => {
+		if (settingsEditorAccount)
+			void loadSettingsOptions(settingsEditorAccount, true, setting.options_source ?? '', '', true);
+	}}
+	onRetry={() => {
+		if (settingsEditorAccount) void loadSettingsOptions(settingsEditorAccount, true);
+	}}
+/>
 
 <DestructiveConfirmDialog
 	bind:open={customAccountConfirmOpen}

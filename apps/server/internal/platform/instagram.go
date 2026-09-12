@@ -131,6 +131,7 @@ func (i *InstagramAdapter) GenerateAuthURL(state string) (string, map[string]str
 	params.Set("response_type", oauthResponseType)
 	params.Set("scope", strings.Join(instagramScopes(), ","))
 	params.Set("state", state)
+	params.Set("auth_type", "rerequest")
 	return facebookOAuthBaseURL + "/" + i.graphVersion + "/dialog/oauth?" + params.Encode(), nil
 }
 

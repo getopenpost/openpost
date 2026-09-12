@@ -61,6 +61,7 @@ func (f *FacebookAdapter) GenerateAuthURL(state string) (string, map[string]stri
 	params.Set("response_type", oauthResponseType)
 	params.Set("scope", strings.Join(facebookScopes(), ","))
 	params.Set("state", state)
+	params.Set("auth_type", "rerequest")
 	return facebookOAuthBaseURL + "/" + f.graphVersion + "/dialog/oauth?" + params.Encode(), nil
 }
 

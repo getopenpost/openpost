@@ -25,6 +25,9 @@ func TestFacebookGenerateAuthURL(t *testing.T) {
 		t.Fatalf("unexpected auth url %s", authURL)
 	}
 	query := parsed.Query()
+	if query.Get("auth_type") != "rerequest" {
+		t.Fatalf("reconnect must request declined permissions again: %s", authURL)
+	}
 	if query.Get(oauthParamClientID) != "client-id" {
 		t.Fatalf("expected client id, got %q", query.Get(oauthParamClientID))
 	}

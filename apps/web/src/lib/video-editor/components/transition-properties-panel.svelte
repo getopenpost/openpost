@@ -21,6 +21,7 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { getMaxTransitionDuration } from '$lib/video-editor/timeline/transition-planner';
 	import { transitionRegistry } from '$lib/video-editor/transitions';
+	import { defaultTransitionProperties } from '$lib/video-editor/transitions/default-properties';
 	import { localizedTransitionLabel } from '$lib/video-editor/transitions/labels';
 	import type {
 		TransitionCategory,
@@ -455,7 +456,7 @@
 					size="sm"
 					variant="ghost"
 					class="justify-start"
-					onclick={() => commit({ properties: defaultProperties(definition) })}
+					onclick={() => commit({ properties: defaultTransitionProperties(definition) })}
 				>
 					<ThemeIcon role="undo" class="size-3.5" />
 					{m.video_editor_transition_reset_parameters()}

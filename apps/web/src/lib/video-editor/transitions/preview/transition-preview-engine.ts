@@ -1,7 +1,8 @@
 /** Ported from FreeCut's MIT-licensed transition preview, using OpenPost's Canvas renderers. */
 
 import { transitionRegistry } from '../index';
-import type { FlipDirection, SlideDirection, TransitionDefinition, WipeDirection } from '../types';
+import { defaultTransitionProperties } from '../default-properties';
+import type { FlipDirection, SlideDirection, WipeDirection } from '../types';
 
 export const TRANSITION_PREVIEW_WIDTH = 160;
 export const TRANSITION_PREVIEW_HEIGHT = 90;
@@ -75,12 +76,6 @@ export function getTransitionPreviewFrames(): Promise<TransitionPreviewFrames | 
 	return framesPromise;
 }
 
-function defaultProperties(definition: TransitionDefinition): Record<string, unknown> {
-	return Object.fromEntries(
-		(definition.parameters ?? []).map((parameter) => [parameter.key, parameter.defaultValue])
-	);
-}
-
 export function transitionPosterProgress(presentationId: string): number {
 	return BRIGHT_POSTER_IDS.has(presentationId) ? 0.1 : 0.5;
 }
@@ -106,7 +101,7 @@ export function renderTransitionPreviewFrame(
 			progress,
 			direction,
 			{ width: TRANSITION_PREVIEW_WIDTH, height: TRANSITION_PREVIEW_HEIGHT },
-			defaultProperties(definition)
+			defaultTransitionProperties(definition)
 		);
 		return renderCanvas;
 	} catch {

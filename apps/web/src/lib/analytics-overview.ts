@@ -9,7 +9,7 @@ export type AnalyticsSourceLabelKey = 'published_with_openpost' | 'published_els
 
 const engagementKeys = ['likes', 'comments', 'reposts', 'quotes', 'shares', 'saves', 'clicks'];
 
-export function hasEngagementMeasurement(item: AnalyticsContent) {
+export function hasEngagementMeasurement(item: Pick<AnalyticsContent, 'metrics'>) {
 	return engagementKeys.some((metric) => metric in item.metrics);
 }
 

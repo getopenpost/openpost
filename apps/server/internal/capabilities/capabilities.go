@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/providerlimits"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 	ProviderX         = "x"
 	ProviderYouTube   = "youtube"
 
-	capabilityRevision   = "2026-09-10.1"
+	capabilityRevision   = "2026-09-12.1"
 	xMinVideoAspectRatio = "1:3"
 	xMaxVideoAspectRatio = "3:1"
 	blueskyImageMaxBytes = 2_000_000
@@ -309,7 +310,7 @@ func All() []Capability {
 	shortVideo := video
 	shortVideo.MaxDurationSeconds = 180
 	shortVideo.AspectRatios = []string{"9:16", "1:1"}
-	blueskyVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 100 * 1024 * 1024}
+	blueskyVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: providerlimits.BlueskyVideoMaxBytes, MaxDurationSeconds: providerlimits.BlueskyVideoMaxDurationSeconds}
 	xVideo := MediaConstraint{
 		MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"},
 		MinVideoAspectRatio: xMinVideoAspectRatio, MaxVideoAspectRatio: xMaxVideoAspectRatio,
@@ -375,7 +376,7 @@ func All() []Capability {
 		defaultQueued(Capability{Provider: ProviderX, Profile: models.ContentProfileLongVideo, Label: "X video", TextLimit: 25_000, Media: xVideo, Settings: xSettings(), Caveats: []string{"Text and video limits are expanded only when the connected account reports an active X subscription."}}),
 
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileShortText, Label: "Bluesky post", TextLimit: 300, Media: text, Settings: blueskySettings()}),
-		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileThread, Label: "Bluesky thread", TextLimit: 300, Media: MediaConstraint{MinCount: 0, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "video/mp4"}, MaxImageSizeBytes: blueskyImageMaxBytes}, Settings: blueskySettings()}),
+		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileThread, Label: "Bluesky thread", TextLimit: 300, Media: MediaConstraint{MinCount: 0, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "video/mp4"}, MaxImageSizeBytes: blueskyImageMaxBytes, MaxSizeBytes: providerlimits.BlueskyVideoMaxBytes, MaxDurationSeconds: providerlimits.BlueskyVideoMaxDurationSeconds}, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileLinkShare, Label: "Bluesky link", TextLimit: 300, Media: text, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileImagePost, Label: "Bluesky images", TextLimit: 300, Media: MediaConstraint{MinCount: 1, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp"}, MaxImageSizeBytes: blueskyImageMaxBytes}, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileShortVideo, Label: "Bluesky video", TextLimit: 300, Media: blueskyVideo, Settings: blueskySettings()}),

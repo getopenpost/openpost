@@ -88,6 +88,7 @@ Verify docs reader interactions against the static export with `bunx playwright 
 - A Video Editor sequence grade is one `sequenceColorGrade` adjustment item on its dedicated locked track. The timeline store keeps it over the full sequence range, and preview/export apply it once after compositing. Never treat it as an item-scoped adjustment layer.
 - Keep secrets out of code and logs. Stored provider tokens remain encrypted.
 - Provider certification identifies output profiles. Hash all of an output's authoring formats into its contract, and use the same production requirements when recording and evaluating evidence.
+- Media limits shared by the capability catalogue and provider validators belong in `apps/server/internal/providerlimits/`. Record the official source and verification date there, and test both validation boundaries against the same independently specified limits.
 - Telegram authorization comes from its verified installation for the same account, workspace, and chat. Do not require a user OAuth grant for bot-token publishing.
 
 ## Execution

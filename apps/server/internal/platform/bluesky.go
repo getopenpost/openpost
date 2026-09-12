@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/netguard"
+	"github.com/openpost/backend/internal/providerlimits"
 )
 
 type BlueskyAdapter struct {
@@ -1243,13 +1244,17 @@ func validateBlueskyMedia(media []MediaItem) []MediaValidationIssue {
 					Message:  "Bluesky supports MP4 video only.",
 				}}
 			}
-			if item.Size > 100*1024*1024 {
+			if item.Size > providerlimits.BlueskyVideoMaxBytes {
 				return []MediaValidationIssue{{
 					Provider: providerBluesky,
 					MediaID:  item.ID,
 					Severity: severityError,
-					Message:  "Bluesky video must be under 100MB.",
+					Message:  fmt.Sprintf("Bluesky video must be %d bytes or less.", providerlimits.BlueskyVideoMaxBytes),
 				}}
+			}
+			if item.DurationMS > int64(providerlimits.BlueskyVideoMaxDurationSeconds)*1000 {
+				return []MediaValidationIssue{{Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
+					Message: fmt.Sprintf("Bluesky video must be %d seconds or less.", providerlimits.BlueskyVideoMaxDurationSeconds)}}
 			}
 		}
 	}

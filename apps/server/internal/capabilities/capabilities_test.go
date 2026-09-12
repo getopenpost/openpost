@@ -5,8 +5,34 @@ import (
 	"testing"
 
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 )
+
+func TestBlueskyVideoLimitsAgreeAcrossAuthoringAndProviderValidation(t *testing.T) {
+	platform.RegisterAllMediaValidators()
+	for _, test := range []struct {
+		name     string
+		mime     string
+		size     int64
+		duration int64
+		invalid  bool
+	}{
+		{"at limits", "video/mp4", 300_000_000, 600_000, false},
+		{"over byte limit", "video/mp4", 300_000_001, 600_000, true},
+		{"over duration limit", "video/mp4", 1_000, 600_001, true},
+		{"MOV rejected", "video/quicktime", 1_000, 1_000, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for _, profile := range []string{models.ContentProfileShortVideo, models.ContentProfileThread} {
+				issues := Validate(ProviderBluesky, profile, "Caption", "", "", []MediaItem{{ID: "video-1", MimeType: test.mime, Size: test.size, DurationMS: test.duration, AnalysisStatus: "ready"}}, nil)
+				require.Equal(t, test.invalid, len(issues) > 0, "authoring profile %s: %v", profile, issues)
+			}
+			issues := platform.MediaValidators[ProviderBluesky]([]platform.MediaItem{{ID: "video-1", MimeType: test.mime, Size: test.size, DurationMS: test.duration}})
+			require.Equal(t, test.invalid, len(issues) > 0, "provider: %v", issues)
+		})
+	}
+}
 
 func TestValidateBlocksMissingMediaAnalysisForVideoProfiles(t *testing.T) {
 	issues := Validate(ProviderTikTok, models.ContentProfileShortVideo, "caption", "", "", []MediaItem{{
@@ -456,7 +482,7 @@ func TestVideoCapabilitiesUseSafeProviderSpecificLimits(t *testing.T) {
 			require.Equal(t, tt.maxBytes, capability.Media.MaxSizeBytes)
 			require.Equal(t, tt.maxDuration, capability.Media.MaxDurationSeconds)
 			require.ElementsMatch(t, tt.allowedMIMEs, capability.Media.AllowedMIMEs)
-			require.Equal(t, "2026-09-10.1", capability.CapabilityRevision)
+			require.Equal(t, "2026-09-12.1", capability.CapabilityRevision)
 		})
 	}
 }

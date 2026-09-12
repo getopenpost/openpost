@@ -25,6 +25,11 @@ func TestNewHTTPErrorKeepsOnlySafeProviderMetadata(t *testing.T) {
 	require.NotContains(t, providerErr.Error(), "token")
 }
 
+func TestProviderDiagnosticsDoNotRetainEchoedCustomerProse(t *testing.T) {
+	err := NewHTTPError(http.StatusBadRequest, nil, []byte(`{"error":{"code":100,"message":"The post Hello from Acme was rejected","fbtrace_id":"trace123"}}`))
+	require.NotContains(t, ProviderErrorDiagnostic(err), "Hello from Acme")
+}
+
 func TestNewHTTPErrorKeepsBoundedProviderDiagnostics(t *testing.T) {
 	err := NewHTTPError(
 		http.StatusBadRequest,
@@ -33,10 +38,9 @@ func TestNewHTTPErrorKeepsBoundedProviderDiagnostics(t *testing.T) {
 	)
 	var providerErr *HTTPError
 	require.ErrorAs(t, err, &providerErr)
-	require.Equal(t, "An unknown error occurred.", providerErr.Message)
 	require.Equal(t, "A1b2C3d4", providerErr.TraceID)
-	require.Equal(t, `trace_id=A1b2C3d4 message="An unknown error occurred."`, ProviderErrorDiagnostic(err))
-	require.NotContains(t, providerErr.Error(), providerErr.Message)
+	require.Equal(t, `trace_id=A1b2C3d4`, ProviderErrorDiagnostic(err))
+	require.NotContains(t, providerErr.Error(), "An unknown error occurred.")
 }
 
 func TestNewHTTPErrorDropsUnsafeProviderDiagnostics(t *testing.T) {
@@ -47,7 +51,6 @@ func TestNewHTTPErrorDropsUnsafeProviderDiagnostics(t *testing.T) {
 	)
 	var providerErr *HTTPError
 	require.ErrorAs(t, err, &providerErr)
-	require.Empty(t, providerErr.Message)
 	require.Empty(t, providerErr.TraceID)
 	require.Empty(t, ProviderErrorDiagnostic(err))
 }

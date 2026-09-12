@@ -289,7 +289,7 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 			failure := ClassifyFailure(err)
 			if failure.Retryable &&
 				(retryFailure == nil || failure.RetryAfter > retryFailure.Failure.RetryAfter) {
-				retryFailure = &RetryableError{Failure: failure}
+				retryFailure = &RetryableError{Failure: failure, Provider: rendition.Platform, RenditionID: rendition.ID}
 			}
 			log.Printf(
 				"[Publisher] Rendition %s failed (%s, status=%d, code=%s)",

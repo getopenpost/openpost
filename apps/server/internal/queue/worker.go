@@ -619,19 +619,27 @@ func (w *BackgroundWorker) recordTerminalFailure(ctx context.Context, job *model
 	if w.telemetry == nil {
 		return
 	}
+	properties := map[string]any{
+		"job_id": job.ID, "job_type": job.Type, "attempts": job.Attempts, "max_attempts": job.MaxAttempts,
+		"error_type": telemetry.ErrorType(processErr), "error_boundary": "background_job", "retryable": failure.retryable,
+	}
+	providerFailure := publisher.ClassifyFailure(processErr)
+	var directed *publisher.RetryableError
+	if errors.As(processErr, &directed) {
+		providerFailure = directed.Failure
+		properties["platform"] = directed.Provider
+		properties["rendition_id"] = directed.RenditionID
+	}
+	properties["error_kind"] = providerFailure.Kind
+	properties["error_code"] = providerFailure.Code
+	properties["error_subcode"] = providerFailure.Subcode
+	properties["provider_trace_id"] = providerFailure.TraceID
+	properties["http_status"] = providerFailure.HTTPStatus
 	captureErr := w.telemetry.CaptureException(ctx, telemetry.Exception{
 		DistinctID:  "job:" + job.ID,
 		Title:       "OpenPost " + job.Type + " job failed",
 		Description: "A durable background job reached a terminal failure",
-		Properties: map[string]any{
-			"job_id":         job.ID,
-			"job_type":       job.Type,
-			"attempts":       job.Attempts,
-			"max_attempts":   job.MaxAttempts,
-			"error_type":     telemetry.ErrorType(processErr),
-			"error_boundary": "background_job",
-			"retryable":      failure.retryable,
-		},
+		Properties:  properties,
 	})
 	if captureErr != nil {
 		log.Printf("[Worker %s] failed to enqueue terminal job telemetry: %v\n", w.workerID, captureErr)

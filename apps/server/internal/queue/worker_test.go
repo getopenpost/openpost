@@ -12,7 +12,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/telemetry"
@@ -250,4 +252,28 @@ func TestStorageDeletionRejectsTraversal(t *testing.T) {
 	worker := NewWorker(nil, "worker-test", time.Second, nil, nil, &recordingStorage{})
 	err := worker.handleStorageDelete(t.Context(), `{"keys":["../outside"]}`)
 	require.ErrorContains(t, err, "invalid key")
+}
+
+func TestProviderFailureTelemetryWaitsForTerminalAttempt(t *testing.T) {
+	db := createTestDB(t)
+	defer db.Close()
+	worker := NewWorker(db, "diagnostics-worker", time.Second, nil, nil, stubStorage{})
+	recorder := &telemetry.MemoryRecorder{}
+	worker.SetTelemetry(recorder)
+	job := &models.Job{ID: "diagnostic-job", Type: jobregistry.TypePublishPublication, Payload: `{"private":"customer prose"}`, Status: jobStatusProcessing, LockedBy: "diagnostics-worker", MaxAttempts: 2, RunAt: time.Now().UTC()}
+	_, err := db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+	providerErr := platform.NewHTTPError(503, nil, []byte(`{"error":{"code":24,"error_subcode":4279009,"message":"Hello from Acme","fbtrace_id":"trace123"}}`))
+	worker.finishFailedJob(t.Context(), job, providerErr)
+	require.Empty(t, recorder.Exceptions)
+	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", jobStatusProcessing).Set("locked_by = ?", worker.workerID).Where("id = ?", job.ID).Exec(t.Context())
+	require.NoError(t, err)
+	worker.finishFailedJob(t.Context(), job, &publisher.RetryableError{Failure: publisher.ClassifyFailure(providerErr)})
+	require.Len(t, recorder.Exceptions, 1)
+	props := recorder.Exceptions[0].Properties
+	require.Equal(t, "4279009", props["error_subcode"])
+	require.Equal(t, "24", props["error_code"])
+	require.Equal(t, 503, props["http_status"])
+	require.NotContains(t, fmt.Sprint(props), "Hello from Acme")
+	require.NotContains(t, fmt.Sprint(props), "customer prose")
 }

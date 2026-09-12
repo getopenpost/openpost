@@ -37,6 +37,8 @@ const (
 )
 
 type Failure struct {
+	Subcode    string
+	TraceID    string
 	Kind       string
 	Message    string
 	Code       string
@@ -47,7 +49,9 @@ type Failure struct {
 }
 
 type RetryableError struct {
-	Failure Failure
+	Provider    string
+	RenditionID string
+	Failure     Failure
 }
 
 func (e *RetryableError) Error() string {
@@ -133,7 +137,10 @@ func classifyProviderHTTPFailure(err error) (Failure, bool) {
 	if kind == "" {
 		return Failure{}, false
 	}
-	return failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter), true
+	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
+	failure.Subcode = providerErr.Subcode
+	failure.TraceID = providerErr.TraceID
+	return failure, true
 }
 
 func classifyFailureMessage(lower string) Failure {

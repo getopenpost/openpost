@@ -3,101 +3,46 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { z } from 'zod';
 	import ColorPicker from './color-picker.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	type EmbedField = { name: string; value: string; inline?: boolean };
-	type Embed = {
-		title?: string;
-		description?: string;
-		url?: string;
-		timestamp?: string;
-		color?: number;
-		footer?: { text: string; icon_url?: string };
-		image?: { url: string };
-		thumbnail?: { url: string };
-		author?: { name: string; url?: string; icon_url?: string };
-		fields?: EmbedField[];
-	};
+	const embedFieldSchema = z.strictObject({
+		name: z.string(),
+		value: z.string(),
+		inline: z.boolean().optional()
+	});
+	const embedSchema = z.strictObject({
+		title: z.string().optional(),
+		description: z.string().optional(),
+		url: z.string().optional(),
+		timestamp: z.string().optional(),
+		color: z.number().int().min(0).max(0xffffff).optional(),
+		footer: z.strictObject({ text: z.string(), icon_url: z.string().optional() }).optional(),
+		image: z.strictObject({ url: z.string() }).optional(),
+		thumbnail: z.strictObject({ url: z.string() }).optional(),
+		author: z
+			.strictObject({
+				name: z.string(),
+				url: z.string().optional(),
+				icon_url: z.string().optional()
+			})
+			.optional(),
+		fields: z.array(embedFieldSchema).optional()
+	});
+	type EmbedField = z.infer<typeof embedFieldSchema>;
+	type Embed = z.infer<typeof embedSchema>;
 
 	let { id, value, onChange }: { id: string; value: string; onChange: (value: string) => void } =
 		$props();
 	let editing = $state(false);
 
-	const allowedKeys = new Set([
-		'title',
-		'description',
-		'url',
-		'timestamp',
-		'color',
-		'footer',
-		'image',
-		'thumbnail',
-		'author',
-		'fields'
-	]);
-	function isRecord(value: unknown): value is Record<string, unknown> {
-		return value !== null && typeof value === 'object' && !Array.isArray(value);
-	}
-
-	function hasStringShape(
-		value: unknown,
-		required: string[],
-		optional: string[] = []
-	): value is Record<string, string> {
-		if (!isRecord(value)) return false;
-		if (Object.keys(value).some((key) => !required.includes(key) && !optional.includes(key)))
-			return false;
-		return (
-			required.every((key) => typeof value[key] === 'string') &&
-			optional.every((key) => value[key] === undefined || typeof value[key] === 'string')
-		);
-	}
-
-	function isEmbed(value: unknown): value is Embed {
-		if (!isRecord(value) || Object.keys(value).some((key) => !allowedKeys.has(key))) return false;
-		if (
-			['title', 'description', 'url', 'timestamp'].some(
-				(key) => value[key] !== undefined && typeof value[key] !== 'string'
-			)
-		)
-			return false;
-		if (
-			value.color !== undefined &&
-			(typeof value.color !== 'number' ||
-				!Number.isInteger(value.color) ||
-				value.color < 0 ||
-				value.color > 0xffffff)
-		)
-			return false;
-		if (value.footer !== undefined && !hasStringShape(value.footer, ['text'], ['icon_url']))
-			return false;
-		if (value.image !== undefined && !hasStringShape(value.image, ['url'])) return false;
-		if (value.thumbnail !== undefined && !hasStringShape(value.thumbnail, ['url'])) return false;
-		if (value.author !== undefined && !hasStringShape(value.author, ['name'], ['url', 'icon_url']))
-			return false;
-		if (value.fields !== undefined) {
-			if (!Array.isArray(value.fields)) return false;
-			if (
-				value.fields.some(
-					(field) =>
-						!isRecord(field) ||
-						Object.keys(field).some((key) => !['name', 'value', 'inline'].includes(key)) ||
-						typeof field.name !== 'string' ||
-						typeof field.value !== 'string' ||
-						(field.inline !== undefined && typeof field.inline !== 'boolean')
-				)
-			)
-				return false;
-		}
-		return true;
-	}
-
 	const parsed = $derived.by((): Embed | null => {
 		if (!value.trim()) return {};
 		try {
 			const result: unknown = JSON.parse(value);
-			return isEmbed(result) ? result : null;
+			const embed = embedSchema.safeParse(result);
+			return embed.success ? embed.data : null;
 		} catch {
 			return null;
 		}

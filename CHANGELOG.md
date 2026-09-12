@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Discord bots check Attach Files permission before sending media. If permission is missing, the error explains how to allow attachments or remove them from the post.
 - Quick Cut can reopen legacy single-source projects and keep their cuts while it refreshes media details.
 - Video Editor can reset all transition parameters to their defaults.
 - Image Editor first-edit guidance selects the largest editable text layer by its font size.

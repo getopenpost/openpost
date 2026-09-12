@@ -37,6 +37,8 @@
 				return m.video_editor_task_scene_analysis();
 			case 'transcription':
 				return m.video_editor_task_transcription();
+			case 'ai-caption':
+				return m.video_editor_task_captioning_scenes();
 			case 'voice-generation':
 				return m.video_editor_task_voice_generation();
 			case 'music-generation':

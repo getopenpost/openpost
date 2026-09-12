@@ -31,3 +31,15 @@ it('keeps mixed progress indeterminate and exposes cancellation while reporting 
 	expect(cancel).toHaveBeenCalledOnce();
 	await expect.element(screen.getByRole('status')).toHaveTextContent(/Cancelling/i);
 });
+
+it('announces local scene captioning progress', async () => {
+	mediaTasks.start({
+		id: 'scene-caption',
+		kind: 'ai-caption',
+		label: 'Interview',
+		progress: 0.5
+	});
+
+	const screen = await render(MediaTaskProgress);
+	await expect.element(screen.getByRole('status')).toHaveTextContent('Describing scenes');
+});

@@ -114,12 +114,14 @@ class EditorSession {
 		if (this.projectId && this.projectId !== projectId) {
 			try {
 				await this.flushAutosave();
+				if (this.saveLoop) await this.saveLoop;
 			} catch (error) {
 				this.loadError = error instanceof Error ? error.message : String(error);
 				return;
 			}
 		}
 		this.stopAutosaveTimers();
+		this.project = null;
 		this.projectId = projectId;
 		this.cloudRepository = cloudWorkspaceId
 			? new CloudVideoProjectRepository<Project>(cloudWorkspaceId)

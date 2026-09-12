@@ -2243,7 +2243,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							: `${m.video_editor_save_failed()}. ${m.common_retry()}`}
 					</span>
 				</Button>
-			{:else if !timelineStore.isDirty && !editorSession.projectDirty}
+			{:else if !editorSession.loading && editorSession.project && !timelineStore.isDirty && !editorSession.projectDirty}
 				<span class="hidden sm:inline"
 					>{cloudStorage ? m.video_editor_saved_cloud() : m.video_editor_saved()}</span
 				>

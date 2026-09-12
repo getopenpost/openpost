@@ -6,8 +6,10 @@ const CLOUD_SAVE_TIMEOUT_MS = 15_000;
 async function newProject(page: Page, name: string) {
   if (new URL(page.url()).pathname !== "/video-editor") await page.goto("/video-editor");
   await page.getByRole("button", { name: "New project", exact: true }).click();
-  await page.getByRole("textbox", { name: "Project name" }).fill(name);
-  await page.getByRole("textbox", { name: "Project name" }).press("Tab");
+  const title = page.getByRole("textbox", { name: "Project name" });
+  await expect(title).toHaveValue("Untitled project");
+  await title.fill(name);
+  await title.press("Tab");
   await expect(page.locator("header").getByText("Saved to OpenPost", { exact: true })).toBeVisible({
     timeout: CLOUD_SAVE_TIMEOUT_MS,
   });
@@ -78,6 +80,69 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   await newProject(page, "Text proof");
   await expect(page.locator("[data-project-summary]")).toContainText("0 clips");
   expect(errors).toEqual([]);
+});
+
+test("a new cloud project cannot edit the previous project while its document loads", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+  const auth = await registerUser(request, `editor-switch-${Date.now()}@example.com`);
+  await createWorkspace(request, auth.token, "Editor switch");
+  await authenticatePage(page, auth.token);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await newProject(page, "Previous project");
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await expect(page).toHaveURL(/\/video-editor$/u);
+  await newProject(page, "Next project");
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await expect(page).toHaveURL(/\/video-editor$/u);
+  await page.reload();
+  await page
+    .getByRole("article")
+    .filter({ hasText: "Previous project" })
+    .getByRole("button", { name: "Open" })
+    .click();
+  await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Previous project");
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await expect(page).toHaveURL(/\/video-editor$/u);
+
+  let releaseLoad!: () => void;
+  const heldLoad = new Promise<void>((resolve) => (releaseLoad = resolve));
+  let loadStarted!: () => void;
+  const started = new Promise<void>((resolve) => (loadStarted = resolve));
+  await page.route(/\/api\/v1\/video-projects\/[^/?]+\?/, async (route) => {
+    loadStarted();
+    await heldLoad;
+    await route.continue();
+  });
+
+  try {
+    await page
+      .getByRole("article")
+      .filter({ hasText: "Next project" })
+      .getByRole("button", { name: "Open" })
+      .click();
+    await started;
+    const title = page.getByRole("textbox", { name: "Project name" });
+    await expect(title).toBeDisabled();
+    await expect(title).toHaveValue("");
+    await expect(
+      page.locator("header").getByText("Saved to OpenPost", { exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    releaseLoad();
+  }
+  await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Next project");
 });
 
 async function waitForRecording(dialog: Locator): Promise<void> {

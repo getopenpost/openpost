@@ -47,7 +47,7 @@ describe('shape linkable properties', () => {
 		});
 		const resolved = resolveItemPropertyRuntime(item, item, contextFor([item]));
 		expect(resolved.trimPathStart).toBe(10);
-		expect(resolved.transform?.trimPathStart).toBeUndefined();
+		expect('trimPathStart' in (resolved.transform ?? {})).toBe(false);
 	});
 
 	it('resolves prop() references to trim props instead of throwing unknown property', () => {

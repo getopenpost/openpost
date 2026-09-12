@@ -422,5 +422,5 @@ function normalizeWordText(text: string): string {
 
 function postMain(message: MainThreadMessage): void {
 	// SAFETY: DedicatedWorkerGlobalScope exposes postMessage with same signature as Worker; self is the worker scope in this module.
-	(self as Worker).postMessage(message);
+	(self as { postMessage(message: MainThreadMessage): void }).postMessage(message);
 }

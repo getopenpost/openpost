@@ -1,5 +1,9 @@
 import { PAPER_SHADERS, paperControls } from './catalog';
-import type { GpuParamSchema, PaperGpuShaderDefinition } from '../gpu/types';
+import type { GpuParamSchema, GpuParamValues, PaperGpuShaderDefinition } from '../gpu/types';
+
+function paperPreviewParams(shaderId: string): GpuParamValues {
+	return shaderId === 'heatmap' ? { innerGlow: 1, outerGlow: 1, phase: 3 } : {};
+}
 
 const maskSource: GpuParamSchema = {
 	name: 'maskSource',
@@ -23,7 +27,7 @@ export const PAPER_GPU_EFFECTS: readonly PaperGpuShaderDefinition[] = PAPER_SHAD
 	paperShader: shader.id,
 	preview: {
 		sample: shader.category === 'logo' ? 'logo' : undefined,
-		params: shader.id === 'heatmap' ? { innerGlow: 1, outerGlow: 1, phase: 3 } : {}
+		params: paperPreviewParams(shader.id)
 	},
 	schema: [
 		...(shader.category === 'logo' ? [maskSource] : []),

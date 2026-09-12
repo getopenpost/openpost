@@ -1372,7 +1372,7 @@
 									data-marquee-selected={assetMarqueePreviewSelected('sequence', sequence.id)}
 									oncontextmenu={(event) => {
 										prepareSequenceContextSelection(sequence.id);
-										props.oncontextmenu?.(event);
+										if (props.oncontextmenu instanceof Function) props.oncontextmenu(event);
 									}}
 									draggable={editingSequenceId !== sequence.id}
 									ondragstart={(event) => startCompositionDrag(event, sequence)}
@@ -1545,7 +1545,7 @@
 									data-marquee-selected={assetMarqueePreviewSelected('media', id)}
 									oncontextmenu={(event) => {
 										prepareMediaContextSelection(id);
-										props.oncontextmenu?.(event);
+										if (props.oncontextmenu instanceof Function) props.oncontextmenu(event);
 									}}
 									draggable={entry?.status === 'ready' && !issue}
 									ondragstart={(event) =>

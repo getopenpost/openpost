@@ -1017,13 +1017,14 @@
 											></button>
 										{/if}
 									{/each}
-									{#if segmentMenu?.property === property}
+									{#if segmentMenu && segmentMenu.property === property}
+										{@const menu = segmentMenu}
 										{@const menuSpan = (spansByProperty.get(property) ?? []).find(
-											(span) => span.fromFrame === segmentMenu.fromFrame
+											(span) => span.fromFrame === menu.fromFrame
 										)}
 										{@const menuKeyframe = allKeyframes.find(
 											(keyframe) =>
-												keyframe.property === property && keyframe.frame === segmentMenu.fromFrame
+												keyframe.property === property && keyframe.frame === menu.fromFrame
 										)}
 										{#if menuSpan && menuKeyframe}
 											<KeyframeSegmentEasingPopover

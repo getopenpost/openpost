@@ -8,13 +8,39 @@ describe('workspace blob writer', () => {
 		const write = vi.fn(async () => undefined);
 		const close = vi.fn(async () => undefined);
 		const abort = vi.fn(async () => undefined);
-		const createWritable = vi.fn(async () => ({ write, close, abort }));
-		const directory = {
-			getDirectoryHandle: vi.fn(async () => directory),
-			getFileHandle: vi.fn(async () => ({ createWritable }))
+		const createWritable = vi.fn(async () =>
+			Object.assign(new WritableStream(), {
+				write,
+				close,
+				abort,
+				seek: vi.fn(async () => undefined),
+				truncate: vi.fn(async () => undefined)
+			})
+		);
+		const file: FileSystemFileHandle = {
+			kind: 'file',
+			name: 'source.mp4',
+			getFile: async () => new File([], 'source.mp4'),
+			createWritable,
+			async createSyncAccessHandle() {
+				throw new Error('Unexpected synchronous file access');
+			},
+			isSameEntry: async (other) => other === file
 		};
-		// SAFETY: in-memory directory stub implements the FileSystemDirectoryHandle surface used by openBlobWriter.
-		const root = directory as FileSystemDirectoryHandle;
+		const directory: FileSystemDirectoryHandle = {
+			kind: 'directory',
+			name: 'root',
+			getDirectoryHandle: vi.fn(async () => directory),
+			getFileHandle: vi.fn(async () => file),
+			removeEntry: vi.fn(async () => undefined),
+			resolve: vi.fn(async () => null),
+			isSameEntry: async (other) => other === directory,
+			queryPermission: async (): Promise<PermissionState> => 'granted',
+			requestPermission: async (): Promise<PermissionState> => 'granted',
+			async *entries() {},
+			async *values() {}
+		};
+		const root = directory;
 
 		const first = await openBlobWriter(root, ['media', 'same-id', 'source.mp4']);
 		const secondPending = openBlobWriter(root, ['media', 'same-id', 'source.mp4']);

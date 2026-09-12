@@ -1,4 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
+import { z } from 'zod';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { transitionRegistry } from '$lib/video-editor/transitions';
@@ -37,13 +38,14 @@ it('resets changed transition parameters through the panel', async () => {
 	});
 	const definition = transitionRegistry.getDefinition('blurDissolve');
 	const parameter = definition?.parameters?.[0];
-	if (!parameter || typeof parameter.defaultValue !== 'number') {
+	if (!parameter) {
 		throw new Error('Expected a numeric blur transition parameter');
 	}
-	const changedValue = parameter.defaultValue + 0.1;
+	const defaultValue = z.number().parse(parameter.defaultValue);
+	const changedValue = defaultValue + 0.1;
 	expect(updateTransition(id, { properties: { [parameter.key]: changedValue } })).toBe(true);
 
 	const screen = await render(TransitionPropertiesPanel, { transitionId: id, onedit: () => {} });
 	await screen.getByRole('button', { name: 'Reset effect controls' }).click();
-	expect(transitionsStore.list[0]?.properties?.[parameter.key]).toBe(parameter.defaultValue);
+	expect(transitionsStore.list[0]?.properties?.[parameter.key]).toBe(defaultValue);
 });

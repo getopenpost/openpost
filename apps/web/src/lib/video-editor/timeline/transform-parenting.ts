@@ -143,7 +143,7 @@ export function applyTransformParentBinding(
 export function worldToLocalTransform(
 	world: ResolvedTransform,
 	binding: TransformParentBinding | undefined,
-	parentWorld?: ResolvedTransform
+	parentWorld?: TransformReference
 ): ResolvedTransform {
 	if (!binding) return world;
 	const inverseChildLocalReference = invert(toMatrix(binding.childLocalReference));

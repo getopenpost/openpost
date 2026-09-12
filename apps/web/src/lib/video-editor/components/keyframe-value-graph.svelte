@@ -346,9 +346,16 @@
 		});
 		if (keyframeSelectionStore.isCut && plan.skippedUnsupported + plan.skippedBlocked > 0) return;
 		const refs = insertKeyframes(item.id, plan.inserts);
-		if (refs.length === 0) return;
+		const firstRef = refs[0];
+		if (!firstRef) return;
 		setSelection(refs.map((ref) => ref.id ?? keyframeIdentity(ref)));
-		onselect(refs[0] ?? null);
+		const firstIdentity = keyframeIdentity(firstRef);
+		const updatedItem = timelineStore.itemById.get(item.id) ?? item;
+		onselect(
+			editorKeyframes(updatedItem, property).find(
+				(keyframe) => keyframeIdentity(keyframe) === firstIdentity
+			) ?? null
+		);
 		if (keyframeSelectionStore.isCut) keyframeSelectionStore.clearClipboard();
 		onedit();
 	}
@@ -1551,9 +1558,9 @@
 		/>
 	</ContextMenu.Root>
 	{#if segmentMenu}
-		{@const keyframe = keyframes.find((candidate) => candidate.frame === segmentMenu.leftFrame)}
-		{@const endFrame = segmentSpans.find((span) => span.start.frame === segmentMenu.leftFrame)?.end
-			.frame}
+		{@const menu = segmentMenu}
+		{@const keyframe = keyframes.find((candidate) => candidate.frame === menu.leftFrame)}
+		{@const endFrame = segmentSpans.find((span) => span.start.frame === menu.leftFrame)?.end.frame}
 		{#if keyframe && endFrame !== undefined}
 			<KeyframeEasingEditor
 				{keyframe}

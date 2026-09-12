@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBlankProject } from '../project/defaults';
 import type { MediaMetadata } from '../media/types';
+import type { ProjectFontAsset } from '../project/types';
 import {
 	loadProjectFontAsset,
 	loadProjectFontAssets,
@@ -45,6 +46,11 @@ describe('project font assets', () => {
 				id: 'nested',
 				name: 'Nested',
 				tracks: [],
+				transitions: [],
+				fps: 30,
+				width: 1920,
+				height: 1080,
+				durationInFrames: 30,
 				items: [
 					{
 						id: 'caption',
@@ -142,7 +148,7 @@ describe('project font assets', () => {
 			style: 'normal' as const
 		};
 		const load = vi
-			.fn<(input: typeof asset & { blob: Blob }) => Promise<void>>()
+			.fn<(input: ProjectFontAsset & { blob: Blob }) => Promise<void>>()
 			.mockRejectedValueOnce(new Error('Font decoder unavailable'))
 			.mockResolvedValueOnce(undefined);
 		const runtime = { resolve: async () => new Blob(['font']), load };

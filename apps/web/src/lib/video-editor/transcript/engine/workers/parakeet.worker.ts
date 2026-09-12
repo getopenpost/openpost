@@ -50,6 +50,7 @@ const APPROX_FILE_BYTES = {
 	[ENCODER_INT8]: Math.round(749 * 1024 * 1024),
 	[DECODER_INT8]: Math.round(70 * 1024 * 1024)
 } satisfies Record<string, number>;
+const APPROX_FILE_BYTES_BY_NAME = new Map(Object.entries(APPROX_FILE_BYTES));
 
 type OrtModule = typeof import('onnxruntime-web');
 type OrtTensor = InstanceType<OrtModule['Tensor']>;
@@ -196,7 +197,7 @@ class DownloadProgress {
 		private readonly restarted = false
 	) {
 		for (const file of files) {
-			this.totals.set(file, APPROX_FILE_BYTES[file] ?? 0);
+			this.totals.set(file, APPROX_FILE_BYTES_BY_NAME.get(file) ?? 0);
 			this.loaded.set(file, 0);
 		}
 	}
@@ -386,9 +387,11 @@ function f32(ort: OrtModule, data: Float32Array, dims: number[]): OrtTensor {
 	return new ort.Tensor('float32', data, dims);
 }
 function i32(ort: OrtModule, values: number[], dims: number[]): OrtTensor {
-	// SAFETY: ORT Tensor constructor supports int32 backed by Int32Array; declaration lacks this overload, so narrow to the concrete signature.
-	const Tensor = ort.Tensor as new (type: 'int32', data: Int32Array, dims: number[]) => OrtTensor;
-	return new Tensor('int32', Int32Array.from(values), dims);
+	const tensor: unknown = Reflect.construct(ort.Tensor, [Int32Array.from(values), dims]);
+	if (!(tensor instanceof ort.Tensor)) {
+		throw new Error('ORT failed to construct an int32 tensor.');
+	}
+	return tensor;
 }
 function i64(ort: OrtModule, values: number[], dims: number[]): OrtTensor {
 	return new ort.Tensor('int64', BigInt64Array.from(values.map((v) => BigInt(v))), dims);
@@ -569,5 +572,5 @@ function normalizeWordText(text: string): string {
 
 function postMain(message: MainThreadMessage): void {
 	// SAFETY: DedicatedWorkerGlobalScope exposes postMessage with same signature as Worker; self is the worker scope in this module.
-	(self as Worker).postMessage(message);
+	(self as { postMessage(message: MainThreadMessage): void }).postMessage(message);
 }

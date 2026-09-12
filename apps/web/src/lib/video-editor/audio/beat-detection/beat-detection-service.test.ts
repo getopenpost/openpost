@@ -43,15 +43,21 @@ function clip(overrides: Partial<TimelineItem> = {}): TimelineItem {
 
 function mockAudioContext(): void {
 	const decodeMock = vi.fn(async () => {
-		const buffer = {
+		const channel = new Float32Array(48_000);
+		const buffer: AudioBuffer = {
 			numberOfChannels: 1,
 			length: 48_000,
 			sampleRate: 48_000,
 			duration: 1,
-			getChannelData: () => new Float32Array(48_000)
+			getChannelData: () => channel,
+			copyFromChannel: (destination, _channelNumber, startInChannel = 0) => {
+				destination.set(channel.subarray(startInChannel, startInChannel + destination.length));
+			},
+			copyToChannel: (source, _channelNumber, startInChannel = 0) => {
+				channel.set(source, startInChannel);
+			}
 		};
-		// SAFETY: test-only AudioBuffer mock - only numberOfChannels, length, sampleRate, duration and getChannelData are used
-		return buffer as AudioBuffer;
+		return buffer;
 	});
 	class MockAudioContext {
 		decodeAudioData = decodeMock;

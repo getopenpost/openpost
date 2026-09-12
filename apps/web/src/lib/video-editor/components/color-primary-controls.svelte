@@ -66,10 +66,7 @@
 
 	const topParameters = EDITOR_COLOR_PRIMARY_TOP_PARAMETERS;
 	const bottomParameters = EDITOR_COLOR_PRIMARY_BOTTOM_PARAMETERS;
-	const parameterDisplays: Record<
-		string,
-		{ scale: number; bias: number; step: number; decimals: number }
-	> = {
+	const parameterDisplays = {
 		temperature: { scale: 40, bias: 0, step: 10, decimals: 1 },
 		tint: { scale: 1, bias: 0, step: 0.1, decimals: 2 },
 		contrast: { scale: 1, bias: 0, step: 0.005, decimals: 3 },
@@ -81,8 +78,9 @@
 		saturation: { scale: 0.5, bias: 50, step: 0.5, decimals: 2 },
 		hue: { scale: 1, bias: 0, step: 0.5, decimals: 2 },
 		lumMix: { scale: 1, bias: 0, step: 0.5, decimals: 2 }
-	};
-	const parameterAccents: Record<string, string> = {
+	} satisfies Record<string, { scale: number; bias: number; step: number; decimals: number }>;
+	const parameterDisplayByName = new Map(Object.entries(parameterDisplays));
+	const parameterAccents = {
 		temperature: 'neutral',
 		contrast: 'neutral',
 		pivot: 'neutral',
@@ -91,7 +89,8 @@
 		hue: 'hue',
 		saturation: 'rgb',
 		colorBoost: 'rgb'
-	};
+	} satisfies Record<string, string>;
+	const parameterAccentByName = new Map(Object.entries(parameterAccents));
 
 	let {
 		itemId,
@@ -270,7 +269,7 @@
 	function parameterDisplay(name: string) {
 		const param = schema(name);
 		return (
-			parameterDisplays[name] ?? {
+			parameterDisplayByName.get(name) ?? {
 				scale: 1,
 				bias: 0,
 				step: Number(param?.step ?? 1),
@@ -644,7 +643,9 @@
 							oncommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
 							oncancel={() => cancelParameter(name)}
 						/>
-						<span class="parameter-accent {parameterAccents[name] ?? 'tonal'}" aria-hidden="true"
+						<span
+							class="parameter-accent {parameterAccentByName.get(name) ?? 'tonal'}"
+							aria-hidden="true"
 						></span>
 					</span>
 					<button
@@ -808,7 +809,9 @@
 							oncommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
 							oncancel={() => cancelParameter(name)}
 						/>
-						<span class="parameter-accent {parameterAccents[name] ?? 'tonal'}" aria-hidden="true"
+						<span
+							class="parameter-accent {parameterAccentByName.get(name) ?? 'tonal'}"
+							aria-hidden="true"
 						></span>
 					</span>
 					<button

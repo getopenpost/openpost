@@ -1040,7 +1040,7 @@
 						? (parentWorldOverrides?.get(item!.transformParent!.parentItemId) ??
 							(parent
 								? resolvedTransformForItem(
-										resolveAnimatedItemAt(parent!, frame, context),
+										resolveAnimatedItemAt(parent, frame, context),
 										canvasWidth,
 										canvasHeight
 									)
@@ -1050,15 +1050,21 @@
 				})()
 			: world;
 		if (hasModifiers) {
-			local = removeMotionModifiers(local, item!.motionModifiers, {
-				frame: frame - item!.from,
-				fps: timelineStore.fps,
-				frameWidth: canvasWidth,
-				frameHeight: canvasHeight
-			});
+			local = {
+				...local,
+				...removeMotionModifiers(local, item!.motionModifiers, {
+					frame: frame - item!.from,
+					fps: timelineStore.fps,
+					frameWidth: canvasWidth,
+					frameHeight: canvasHeight
+				})
+			};
 		}
 		if (hasLayers) {
-			local = removeMotionAnimationLayers(local, item!.motionLayers, frame - item!.from);
+			local = {
+				...local,
+				...removeMotionAnimationLayers(local, item!.motionLayers, frame - item!.from)
+			};
 		}
 		const result = { ...values };
 		for (const property of transformProperties) {

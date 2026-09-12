@@ -219,7 +219,7 @@ export function createDefaultAudioEffect(type: 'distortion', id?: string): Disto
 export function createDefaultAudioEffect(type: AudioEffectType, id?: string): AudioEffect;
 export function createDefaultAudioEffect(
 	type: AudioEffectType,
-	id = crypto.randomUUID()
+	id: string = crypto.randomUUID()
 ): AudioEffect {
 	const base = { id, enabled: true };
 	switch (type) {

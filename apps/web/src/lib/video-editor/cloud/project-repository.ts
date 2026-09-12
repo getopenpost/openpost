@@ -327,7 +327,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			id: conflict.id,
 			name: conflict.name,
 			document: documentFromAPI<TDocument>(conflict.document),
-			overlapTargets: conflict.overlap_targets,
+			overlapTargets: conflict.overlap_targets ?? [],
 			createdAt: conflict.created_at
 		}));
 	}

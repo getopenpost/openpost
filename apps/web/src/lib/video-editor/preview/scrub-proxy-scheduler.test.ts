@@ -10,8 +10,7 @@ import {
 import type { FilmstripFrame } from '../media/filmstrip-client';
 
 function fakeBitmap(): ImageBitmap {
-	// SAFETY: tests only assert close() on the stand-in; no pixels are read.
-	return { close: vi.fn() } as ImageBitmap;
+	return { width: 1, height: 1, close: vi.fn() };
 }
 
 function frame(index: number): FilmstripFrame {

@@ -109,8 +109,13 @@ async function generate(request: Extract<LlmWorkerRequest, { type: 'generate' }>
 			});
 		}
 		const outputs = await model.generate(generationOptions);
+		if (!('slice' in outputs)) throw new Error('Model returned no token tensor.');
 		const promptLength = inputs.input_ids.dims.at(-1);
-		const decoded = tokenizer.batch_decode(outputs.slice(null, [promptLength, null]), {
+		const outputLength = outputs.dims.at(-1);
+		if (promptLength === undefined || outputLength === undefined) {
+			throw new Error('Model returned token tensor without sequence dimensions.');
+		}
+		const decoded = tokenizer.batch_decode(outputs.slice(null, [promptLength, outputLength]), {
 			skip_special_tokens: true
 		});
 		post({ type: 'result', id: request.id, text: (decoded[0] ?? '').trim() });

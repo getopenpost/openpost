@@ -33,6 +33,11 @@ interface SnapPoint {
 	label?: CanvasSnapLabel;
 }
 
+interface SnapPoints {
+	vertical: SnapPoint[];
+	horizontal: SnapPoint[];
+}
+
 const SNAP_ENTER_SCREEN_PX = 8;
 const SNAP_EXIT_SCREEN_PX = 18;
 
@@ -60,7 +65,7 @@ function bestMatch(
 	return best;
 }
 
-function moveSnapPoints(canvasWidth: number, canvasHeight: number) {
+function moveSnapPoints(canvasWidth: number, canvasHeight: number): SnapPoints {
 	return {
 		vertical: [
 			{ pos: 0, label: 'edge' },

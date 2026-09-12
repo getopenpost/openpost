@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import { createBlankProject } from '../project/defaults';
 import { createCloudBundleRuntime } from './export-project-bundle';
 
 describe('cloud Video Project bundle export', () => {
 	it('exports the portable document and every required original', async () => {
+		const project = createBlankProject('Launch');
+		project.id = 'project-1';
+		project.timeline!.items = [
+			{
+				id: 'clip-1',
+				trackId: 'track-video-main',
+				from: 0,
+				durationInFrames: 60,
+				label: 'Clip',
+				type: 'video',
+				mediaId: 'media-1'
+			}
+		];
 		const repository = {
-			get: async () => ({
-				document: {
-					id: 'project-1',
-					name: 'Launch',
-					timeline: { items: [{ id: 'clip-1', mediaId: 'media-1' }] }
-				}
-			}),
+			get: async () => ({ document: project }),
 			listMedia: async () => [
 				{
 					id: 'media-1',

@@ -165,11 +165,7 @@ async function loadModel(): Promise<void> {
 		);
 
 		if (disposed || thisGen !== loadGeneration) {
-			// SAFETY: isRecord guard in hasDispose ensures property read is valid.
-			if (isFunction((loadedModel as LfmRawRecord).dispose)) {
-				// SAFETY: guarded by isFunction above, so dispose is callable.
-				(loadedModel as { dispose: () => void }).dispose();
-			}
+			if (hasDispose(loadedModel)) loadedModel.dispose();
 			return;
 		}
 

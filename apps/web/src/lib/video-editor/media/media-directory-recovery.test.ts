@@ -23,14 +23,40 @@ function directory(name: string, tree: TestTree): FileSystemDirectoryHandle {
 		}
 		return directory(entryName, entry);
 	});
-	// SAFETY: this test directory handle implements every member used by the directory scanner.
 	return {
 		kind: 'directory',
 		name,
+		async getDirectoryHandle() {
+			throw new Error('Unexpected directory lookup');
+		},
+		async getFileHandle() {
+			throw new Error('Unexpected file lookup');
+		},
+		async removeEntry() {
+			throw new Error('Unexpected removal');
+		},
+		async resolve() {
+			return null;
+		},
+		async isSameEntry(other) {
+			return other === this;
+		},
+		async queryPermission(): Promise<PermissionState> {
+			return 'granted';
+		},
+		async requestPermission(): Promise<PermissionState> {
+			return 'granted';
+		},
+		async *entries() {
+			for (const entry of entries) {
+				const pair: [string, FileSystemHandle] = [entry.name, entry];
+				yield pair;
+			}
+		},
 		values: async function* () {
 			for (const entry of entries) yield entry;
 		}
-	} as FileSystemDirectoryHandle;
+	};
 }
 
 function source(

@@ -407,7 +407,7 @@
 						sampleRate: decoded.sampleRate
 					});
 					for (let c = 0; c < decoded.numberOfChannels; c++) {
-						nrBuffer.copyToChannel(processed[c] ?? processed[0]!, c);
+						nrBuffer.copyToChannel(new Float32Array(processed[c] ?? processed[0]!), c);
 					}
 					bufferForPreview = nrBuffer;
 				} catch {

@@ -34,8 +34,8 @@ afterEach(() => {
 });
 
 function parseFakeWorker(worker: Worker): FakeWorker {
-	// SAFETY: Test harness installs FakeWorker as global Worker, so acquireTranscriptionWorker returns a FakeWorker instance.
-	return worker as FakeWorker;
+	if (!(worker instanceof FakeWorker)) throw new Error('Expected the test worker');
+	return worker;
 }
 
 describe('transcription worker pool unload', () => {

@@ -622,11 +622,16 @@
 							ondblclick={(event) => toggleVertex(event, index)}
 							oncontextmenu={(event) => {
 								prepareVertexContextMenu(index);
-								props.oncontextmenu?.(event);
+								if (props.oncontextmenu instanceof Function) props.oncontextmenu(event);
 							}}
 							onkeydown={(event) => {
 								vertexKeydown(event, index);
-								if (!openVertexContextMenuFromKeyboard(event)) props.onkeydown?.(event);
+								if (
+									!openVertexContextMenuFromKeyboard(event) &&
+									props.onkeydown instanceof Function
+								) {
+									props.onkeydown(event);
+								}
 							}}
 						></circle>
 					{/snippet}

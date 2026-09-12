@@ -457,9 +457,9 @@ function convertItem(value: FreeCutItem, fps: number): TimelineItem {
 			lottieColorOverrides: value.lottieColorOverrides ?? value.colorOverrides,
 			lottieSlotOverrides: value.lottieSlotOverrides ?? value.slotOverrides
 		}),
-		...(source !== undefined && { captionSource: source }),
-		...(cues !== undefined && { cues }),
-		...(effects !== undefined && { effects })
+		captionSource: source,
+		cues,
+		effects
 	};
 }
 

@@ -18,7 +18,16 @@ const preset: MotionPreset = {
 };
 
 const context: MotionPresetBuildContext = {
-	anchor: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 0.5 },
+	anchor: {
+		x: 0,
+		y: 0,
+		width: 1920,
+		height: 1080,
+		scaleX: 1,
+		scaleY: 1,
+		rotation: 0,
+		opacity: 0.5
+	},
 	durationInFrames: 60,
 	fps: 30,
 	frameWidth: 1920,

@@ -43,7 +43,7 @@ describe('timeline item clipboard', () => {
 	it('normalizes copied items to the earliest selected frame without sharing nested data', () => {
 		const source = item({
 			from: 90,
-			effects: [{ id: 'fx', type: 'brightness', enabled: true, params: { amount: 0.2 } }]
+			effects: [{ id: 'fx', type: 'brightness', enabled: true, amount: 0.2 }]
 		});
 		const clipboard = copyTimelineItems([source, item({ id: 'later', from: 150 })]);
 

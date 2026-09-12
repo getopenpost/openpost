@@ -49,7 +49,11 @@ function activeProperties(
 		if (!modifier.enabled || modifier.amplitude <= 0) continue;
 		for (const property of getActiveMotionModifierChannels(modifier)) properties.add(property);
 	}
-	for (const property of getActiveMotionLayerChannels(layers)) properties.add(property);
+	for (const property of getActiveMotionLayerChannels(layers)) {
+		if (property !== 'anchorX' && property !== 'anchorY' && property !== 'cornerRadius') {
+			properties.add(property);
+		}
+	}
 	// Position is one coupled vector lane in OpenPost. Baking either axis must
 	// sample both so an existing authored path stays visually unchanged.
 	if (properties.has('x') || properties.has('y')) {

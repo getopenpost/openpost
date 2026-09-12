@@ -22,7 +22,18 @@ function source(id = 'source-a'): QuickCutSourceMetadata {
 		keyframeState: 'known',
 		lastModified: 1,
 		contentFingerprint: 'a'.repeat(64),
-		videoStreams: [{ index: 0, codec: 'avc', width: 1920, height: 1080, rotation: 0, fps: 30 }],
+		videoStreams: [
+			{
+				index: 0,
+				codec: 'avc',
+				width: 1920,
+				height: 1080,
+				rotation: 0,
+				fps: 30,
+				keyframeTimestamps: [0, 5],
+				keyframeState: 'known'
+			}
+		],
 		audioStreams: [{ index: 0, codec: 'aac', sampleRate: 48_000, channels: 2 }]
 	};
 }
@@ -59,8 +70,7 @@ describe('quick-cut project parsing', () => {
 
 	it('keeps older projects in keep-ranges mode', () => {
 		const project = createNewProject([source()]);
-		const serialized = structuredClone(project);
-		delete serialized.removeMarkedRanges;
+		const { removeMarkedRanges: _, ...serialized } = structuredClone(project);
 
 		expect(parseProject(JSON.stringify(serialized)).removeMarkedRanges).toBe(false);
 	});

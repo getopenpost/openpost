@@ -28,7 +28,7 @@ function createWritable(overrides: Partial<StreamingFileWritable> = {}): Streami
 }
 
 function chunk(position = 0) {
-	return { position, data: new Uint8Array([1, 2, 3]) } satisfies StreamTargetChunk;
+	return { type: 'write', position, data: new Uint8Array([1, 2, 3]) } satisfies StreamTargetChunk;
 }
 
 describe('streaming writable lifecycle', () => {

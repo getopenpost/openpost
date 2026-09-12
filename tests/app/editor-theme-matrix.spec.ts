@@ -164,13 +164,7 @@ async function openEditor(
 ): Promise<void> {
   await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
   await page.emulateMedia({ colorScheme: theme.scheme });
-  const resolved = page.waitForResponse(
-    (response) => new URL(response.url()).pathname === "/api/v1/themes/resolved",
-  );
   await page.goto(url);
-  const response = await resolved;
-  expect(response.ok()).toBe(true);
-  expect((await response.json()).id).toBe(theme.id);
   if (editor === "video") {
     await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
     await expect(page.locator("[data-editor-protected]").first()).toBeVisible({

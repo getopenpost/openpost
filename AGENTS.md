@@ -52,6 +52,8 @@ Generate the media-limits guide with `scripts/sync-docs-openapi.mjs`; edit the c
 
 Verify docs reader interactions against the static export with `bunx playwright test --config tests/docs/playwright.config.ts` after `bun run build -- docs`. Use shared Fumadocs controls and SVG icons for page actions, search, and navigation.
 
+Each social network has one self-hosting integration guide. Keep shared credential setup in the integration index and link provider-specific steps to it. Use `SetupScreenshot` for expandable setup screenshots, preserve source attribution and licenses for reused portal images, and label edited example values. Capture OpenPost connection dialogs through `tests/app/product-screenshots.spec.ts` in both schemes. Generated screenshots illustrate setup, never provider approval.
+
 ## Engineering invariants
 
 - SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.

@@ -506,6 +506,24 @@ function normalizeRawHtml(source, canonical, sourcePath) {
       return `${markerPrefix}${inlineCode.length - 1}\u{e001}`;
     });
     normalized = normalized.replace(/<!--[\s\S]*?-->/gu, "");
+    normalized = normalized.replace(
+      /^import \{ SetupScreenshot \} from ["']@\/components\/setup-screenshot["'];?\s*$/gmu,
+      "",
+    );
+    normalized = normalized.replace(/<SetupScreenshot\b[^>]*\/>/gu, (component) => {
+      const node = element(parseFragment(component), "setupscreenshot");
+      const src = attribute(node, "src");
+      const alt = attribute(node, "alt");
+      const caption = attribute(node, "caption");
+      if (!src || !alt || !caption) {
+        throw new Error(`${sourcePath}: SetupScreenshot requires src, alt, and caption`);
+      }
+      const sourceUrl = attribute(node, "sourceurl");
+      const attribution = sourceUrl
+        ? ` [Screenshot from Postiz's guide](${absoluteUrl(sourceUrl, canonical)}).${attribute(node, "edited") !== undefined ? " Example values edited with AI." : ""} Portal layouts may change.`
+        : "";
+      return `![${alt}](${absoluteUrl(src, canonical)})\n\n${caption}${attribution}`;
+    });
     const supportedBlock =
       /<(p|section|div|aside|details|table|ul|ol|blockquote|figure)(?:\s[^>]*)?>[\s\S]*?<\/\1>/giu;
     let previous;

@@ -915,6 +915,55 @@ OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
   );
 });
 
+test("documentation screenshots retain instructions and attribution in Markdown downloads", async () => {
+  const directory = await fixtureDirectory();
+  const sourcePath = path.join(directory, "integration.mdx");
+  await writeFile(
+    sourcePath,
+    `# Connect a network
+
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
+<SetupScreenshot
+  src="/integrations/callback.png"
+  darkSrc="/integrations/callback-dark.png"
+  alt="Callback URL field"
+  width={960}
+  height={540}
+  caption="Enter your OpenPost callback URL."
+  sourceUrl="https://docs.postiz.com/providers/threads"
+  edited
+/>
+`,
+  );
+  await generateAgentSurface({
+    surface: "documentation",
+    outputDirectory: directory,
+    pages: [
+      {
+        sourcePath,
+        outputPath: "integration.md",
+        canonical: "https://docs.openpo.st/integration",
+        title: "Connect a network",
+        description: "Configure your provider app.",
+      },
+    ],
+    discovery: { title: "Documentation", description: "Setup guides.", links: [] },
+  });
+  const markdown = await readFile(path.join(directory, "integration.md"), "utf8");
+  assert.match(
+    markdown,
+    /!\[Callback URL field\]\(https:\/\/docs\.openpo\.st\/integrations\/callback\.png\)/u,
+  );
+  assert.match(markdown, /Enter your OpenPost callback URL\./u);
+  assert.match(
+    markdown,
+    /\[Screenshot from Postiz's guide\]\(https:\/\/docs\.postiz\.com\/providers\/threads\)/u,
+  );
+  assert.match(markdown, /Example values edited with AI\. Portal layouts may change\./u);
+  assert.doesNotMatch(markdown, /SetupScreenshot|import \{|callback-dark/u);
+});
+
 test("documentation full corpus groups selected pages with provenance and no repeated wrappers", async () => {
   const directory = await fixtureDirectory();
   const includedSource = path.join(directory, "accounts.md.source");

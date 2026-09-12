@@ -4,6 +4,8 @@ description: Create a Google OAuth client and connect a YouTube channel for vide
 icon: youtube
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 OpenPost connects a YouTube channel with Google OAuth and uploads one video per YouTube rendition. Google controls who can authorize your app and whether API uploads can be public.
 
 ## Before you start
@@ -14,21 +16,53 @@ OpenPost connects a YouTube channel with Google OAuth and uploads one video per 
 
 ## Set up Google Cloud
 
-1. Create or select a project in [Google Cloud Console](https://console.cloud.google.com/), then enable **YouTube Data API v3** in **APIs & Services → Library**.
-2. In **Google Auth Platform**, configure the OAuth consent screen, audience, app details, and authorized domains. Add your own Google account as a test user while the app is in testing. Request the YouTube scopes that the consent screen lists when you connect from OpenPost; submit for verification when Google requires it.
+1. Create or select a project in [Google Cloud Console](https://console.cloud.google.com/), then enable **YouTube Data API v3** in **APIs & Services → Library**. Enable **YouTube Analytics API** too if you will use Analytics.
+2. In **Google Auth Platform**, configure the OAuth consent screen, audience, app details, and authorized domains. Add your own Google account as a test user while the app is in testing. In **Data Access**, add the scopes below; submit for verification when Google requires it.
 3. In **Clients** (or **APIs & Services → Credentials**), create an **OAuth client ID** of type **Web application**. Add this **Authorized redirect URI**:
 
    ```text
-   https://your-domain.example/api/v1/accounts/youtube/callback
+   https://post.example.com/api/v1/accounts/youtube/callback
    ```
 
 4. Save the client and copy its **Client ID** and **Client Secret**. Keep the secret in your instance's secret store.
 
+OpenPost requests these scopes. Enter the full URLs in Google Auth Platform when configuring data access:
+
+```text
+https://www.googleapis.com/auth/userinfo.profile
+https://www.googleapis.com/auth/userinfo.email
+https://www.googleapis.com/auth/youtube.readonly
+https://www.googleapis.com/auth/yt-analytics.readonly
+https://www.googleapis.com/auth/youtube.upload
+https://www.googleapis.com/auth/youtube
+```
+
+The [YouTube Analytics API](https://developers.google.com/youtube/analytics/reference/reports/query) must be enabled before OpenPost can read channel reports.
+
 Google documents [YouTube OAuth](https://developers.google.com/youtube/v3/guides/authentication) and the [web-server OAuth client flow](https://developers.google.com/identity/protocols/oauth2/web-server).
+
+<SetupScreenshot
+  src="/assets/screenshots/integrations/google-enable-api.png"
+  alt="Google Cloud APIs and Services with Enable APIs and services highlighted"
+  width={1136}
+  height={367}
+  caption="Enable YouTube Data API v3 in the project that owns your OAuth client."
+  sourceUrl="https://docs.postiz.com/self-host/providers/youtube"
+/>
+
+<SetupScreenshot
+  src="/assets/screenshots/integrations/youtube-callback.png"
+  alt="Google OAuth web application client with the example OpenPost YouTube redirect URI"
+  width={1297}
+  height={1213}
+  caption="Add the callback under Authorized redirect URIs. Replace post.example.com with your domain."
+  sourceUrl="https://docs.postiz.com/self-host/providers/youtube"
+  edited
+/>
 
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The full array below works for a new installation; append the object to your existing array if you already configured other providers.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,12 +70,10 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The full a
     "provider": "youtube",
     "client_id": "your-google-oauth-client-id",
     "client_secret": "your-google-oauth-client-secret",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/youtube/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/youtube/callback"
   }
 ]
 ```
-
-Supply the JSON through your deployment secret store, preferably `OPENPOST_PROVIDER_APPS_FILE`. Or save the client in **Settings → Instance → Configuration → Provider apps** as an instance administrator. An environment entry takes precedence over a saved row. Restart OpenPost after either change.
 
 ## Connect and test
 

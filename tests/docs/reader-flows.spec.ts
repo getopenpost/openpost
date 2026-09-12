@@ -95,3 +95,98 @@ test("mobile anchor links leave the heading below sticky navigation", async ({ p
     )
     .toBeGreaterThanOrEqual(144);
 });
+
+const socialNetworks = [
+  "bluesky",
+  "mastodon",
+  "discord",
+  "telegram",
+  "linkedin",
+  "x",
+  "facebook",
+  "instagram",
+  "threads",
+  "youtube",
+  "tiktok",
+  "pinterest",
+];
+
+test("social integration directory opens a separate illustrated guide for every network", async ({
+  page,
+}) => {
+  await page.goto("/self-hosting/integrations");
+  const directory = page.locator(".provider-directory");
+  await expect(directory.getByRole("link")).toHaveCount(socialNetworks.length);
+  for (const network of socialNetworks) {
+    await page.goto("/self-hosting/integrations");
+    await directory.locator(`a[href$="/${network}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/integrations/${network}$`));
+    const icon = page.locator(".docs-title-icon img");
+    await expect
+      .poll(() => icon.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+    await expect(page.locator(".setup-screenshot").first()).toBeAttached();
+    for (const figure of await page.locator(".setup-screenshot").all()) {
+      await figure.scrollIntoViewIfNeeded();
+      await expect(figure.locator("figcaption")).not.toBeEmpty();
+      await expect
+        .poll(() =>
+          figure
+            .locator("img:visible")
+            .first()
+            .evaluate((image: HTMLImageElement) => image.naturalWidth),
+        )
+        .toBeGreaterThan(0);
+    }
+  }
+});
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const width of [320, 390, 1440]) {
+    test(`integration screenshots expand with the keyboard in ${scheme} at ${width}px`, async ({
+      page,
+    }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.setViewportSize({ width, height: 1000 });
+      await page.emulateMedia({
+        colorScheme: scheme,
+        reducedMotion: width === 1440 ? "no-preference" : "reduce",
+      });
+      await page.goto("/self-hosting/integrations/bluesky");
+      const screenshot = page.locator(".setup-screenshot");
+      await screenshot.scrollIntoViewIfNeeded();
+      const image = screenshot.locator("img:visible").first();
+      await expect(image).toHaveAttribute("src", new RegExp(`connect-bluesky-${scheme}\\.webp`));
+      const expand = screenshot.getByRole("button", { name: /Expand image/ });
+      await expect(expand).toBeVisible();
+      await expand.focus();
+      await page.keyboard.press("Enter");
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Minimize image" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog).not.toBeVisible();
+      await expect(expand).toBeFocused();
+      await expand.click();
+      await dialog.getByRole("button", { name: "Minimize image" }).click();
+      await expect(dialog).not.toBeVisible();
+      await expect(expand).toBeFocused();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+      expect(errors).toEqual([]);
+    });
+  }
+}
+
+test("older provider URLs resolve to the individual guides", async ({ request }) => {
+  for (const network of socialNetworks) {
+    const response = await request.get(`/providers/${network}`);
+    expect(response.ok()).toBe(true);
+    expect(new URL(response.url()).pathname).toBe(`/self-hosting/integrations/${network}`);
+  }
+  for (const group of ["meta-platforms", "bluesky-mastodon", "discord-telegram"]) {
+    const response = await request.get(`/self-hosting/integrations/${group}`);
+    expect(response.ok()).toBe(true);
+    expect(new URL(response.url()).pathname).toBe("/self-hosting/integrations");
+  }
+});

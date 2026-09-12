@@ -4,6 +4,8 @@ description: Set up X OAuth 1.0a user authentication for a self-hosted instance.
 icon: x
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 OpenPost uses X OAuth 1.0a user authentication to connect an account and publish on its behalf. Your X developer app needs the API access and user permissions for the actions you plan to use.
 
 ## Before you start
@@ -19,16 +21,25 @@ OpenPost uses X OAuth 1.0a user authentication to connect an account and publish
 3. Register this callback URL, then save the user authentication settings:
 
    ```text
-   https://your-domain.example/api/v1/accounts/x/callback
+   https://post.example.com/api/v1/accounts/x/callback
    ```
 
 4. Open **Keys and tokens** and copy the **API Key** and **API Key Secret** (the OAuth 1.0a consumer credentials). Do not use the OAuth 2.0 Client ID and Client Secret in the JSON below.
 
 X explains [developer app permissions](https://docs.x.com/fundamentals/developer-apps) and the [OAuth 1.0a flow](https://docs.x.com/fundamentals/authentication/oauth-1-0a/overview).
 
+<SetupScreenshot
+  src="/assets/screenshots/integrations/x-user-authentication.png"
+  alt="X developer portal User authentication settings with Set up highlighted"
+  width={1668}
+  height={420}
+  caption="Open user authentication settings before choosing permissions and registering the callback."
+  sourceUrl="https://docs.postiz.com/self-host/providers/x-twitter"
+/>
+
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. This complete array works for a new installation; append the object without removing your other providers if the array already exists.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,12 +47,10 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. This compl
     "provider": "x",
     "client_id": "your-x-api-key",
     "client_secret": "your-x-api-key-secret",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/x/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/x/callback"
   }
 ]
 ```
-
-Keep the JSON in a deployment secret store, preferably a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator may instead use **Settings → Instance → Configuration → Provider apps** to save an encrypted app. An environment entry overrides a matching saved row. Restart OpenPost after saving. See [self-hosted configuration](/self-hosting/configuration).
 
 ## Connect and test
 

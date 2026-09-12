@@ -1,0 +1,21 @@
+# Integration guide screenshots
+
+Portal screenshots come from [Postiz's documentation repository](https://github.com/gitroomhq/postiz-docs), revision `40d306f0315ef5533a23e9a21d99854106480ec0`, retrieved on 13 September 2026. Its MIT license is included as `POSTIZ-LICENSE.txt`. Provider names and interface designs belong to their respective owners. These are instructional examples, not evidence of an approved OpenPost application or a current portal layout.
+
+| Local asset | Upstream path under `images/providers/` | Changes |
+| --- | --- | --- |
+| linkedin-products.png | linkedin/linkedin-002.png | None |
+| linkedin-community-management.png | linkedin/linkedin-003.png | None |
+| x-user-authentication.png | x/x-003.png | None |
+| pinterest-redirect.png | pinterest/pinterest-001.png | None; upstream hides its example URL |
+| pinterest-credentials.png | pinterest/pinterest-002.png | None; upstream hides its App ID and masks the secret |
+| meta-use-cases.png | facebook/Other-app-use-cases.png | None |
+| google-enable-api.png | youtube/Enable-APIs-and-Services.png | None |
+| threads-use-case.png | threads/threads_request_api.png | None |
+| tiktok-create-app.png | tiktok/tiktok_create_app.png | Built-in Image Gen replaced the example app name with OpenPost |
+| threads-callback.png | threads/threads_api_settings.png | Built-in Image Gen replaced the app name, ID, and callback with example values |
+| youtube-callback.png | youtube/youtube-001.png | Built-in Image Gen replaced the project name, client ID, and callback with example values |
+
+Each guide attributes the source next to its screenshots. AI-edited examples also state the edit in their caption. Review all labels and URLs after regenerating an image.
+
+The OpenPost connection screenshots are separate, original captures from `tests/app/product-screenshots.spec.ts`, using deterministic example values at 2x resolution. Their PNG sources and optimized light/dark WebP versions live in `assets/screenshots/`. Regenerate them through `bun run capture:product-screenshots`. They open the actual connection dialogs without sending credentials or creating provider connections.

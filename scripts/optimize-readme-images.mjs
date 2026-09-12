@@ -23,6 +23,10 @@ const images = [
     "image-controls-detail",
     "video-preview-detail",
     "video-timeline-detail",
+    "connect-bluesky",
+    "connect-mastodon",
+    "connect-discord",
+    "connect-telegram",
   ].flatMap((name) =>
     ["light", "dark"].map((scheme) => ({
       name: `${name}-${scheme}`,

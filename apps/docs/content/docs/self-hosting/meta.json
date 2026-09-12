@@ -1,16 +1,17 @@
 {
   "title": "Self-hosting",
+  "icon": "Server",
+  "root": true,
   "pages": [
-    "---Get started---",
+    "---Install and configure---",
     "index",
     "configuration",
-    "---Connect services---",
+    "---Social accounts---",
     "integrations",
+    "---Optional services---",
     "ai",
     "email",
-    "---Maintain---",
+    "---Keep it running---",
     "maintenance"
-  ],
-  "root": true,
-  "icon": "Server"
+  ]
 }

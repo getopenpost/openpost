@@ -1,6 +1,6 @@
 ---
 title: OpenPost documentation
-description: Connect your accounts, prepare a post, and publish it from one workspace.
+description: Learn how to connect your accounts, create content, and check every post's delivery.
 icon: House
 ---
 
@@ -9,33 +9,49 @@ icon: House
     <span>
       <span className="home-quickstart-title">Publish your first post</span>
       <span className="home-quickstart-description">
-        From connecting an account to checking delivery.
+        Connect an account, write an update, and check that it arrived.
       </span>
     </span>
     <img src="/assets/brand/features/compose.svg" alt="" width="48" height="48" />
   </a>
   <div className="home-paths">
-    <a href="/self-hosting">Run OpenPost on your server</a>
-    <a href="/mcp">Connect ChatGPT, Claude, or Cursor</a>
-    <a href="/api-reference">Build with the OpenPost API</a>
+    <a href="/self-hosting">Install OpenPost on your own server</a>
+    <a href="/self-hosting/integrations">Set up a social integration</a>
+    <a href="/mcp">Connect an AI assistant</a>
+    <a href="/api-reference">Build with the API</a>
   </div>
 </section>
 
-## Write once, adjust for each account
+## Connect your accounts
 
-A **publication** holds your post and its schedule. Each connected account gets its own version, called a **rendition**. Start with shared text and media, then adjust each rendition for its destination.
+Choose a workspace, then [connect the profiles, Pages, or channels](/guides/accounts) you want to publish to. If someone has invited you to a workspace, its connected accounts may already be ready to use.
 
-You can publish now or choose a time. Open the publication to check which accounts have published and which need attention.
+On OpenPost Hosted, follow the connection steps in the app. On your own server, start with the [separate setup guide for your network](/self-hosting/integrations). Some need a developer app and approval before they can connect.
 
-- [Prepare images and video](/guides/media), from reusable media to finished exports.
-- [Review results and replies](/guides/results) after your posts go live.
-- [Share a workspace](/guides/workspaces) and give each person the access they need.
-- [Fix a connection or failed post](/guides/troubleshooting) and pick up where you left off.
+## Create and publish
 
-## Connect your own tools
+A **publication** keeps your post, destinations, and schedule together. Each destination gets its own version, called a **rendition**. Start with shared text and media, then adjust each account's version before sending it.
 
-Use the [CLI, an AI assistant, or n8n](/guides/automation) to work with OpenPost. The [API reference](/api-reference) includes authentication, request examples, and every endpoint, generated from the same contract as the app.
+- [Write a post or thread](/guides/publishing) and review each destination.
+- [Choose a publishing time](/guides/scheduling) and plan in Calendar.
+- [Upload and reuse media](/guides/media-library) across your workspace.
+- [Make an image](/guides/image-editor), [edit a video](/guides/video-editor), or [trim a clip](/guides/quick-cut).
+- [Record your screen and camera](/guides/recording) for a demo or update.
 
-## Run it yourself
+## Check what happened
 
-The [self-hosting guide](/self-hosting) covers a Docker installation, configuration, backups, and upgrades. If you use [OpenPost Hosted](https://app.openpo.st), your server is already taken care of.
+Open a publication to see which destinations published and which need attention. A failed destination does not mean the others failed too.
+
+Use [Analytics](/guides/analytics) to review the results your connected accounts provide, and [Inbox](/guides/inbox) to handle supported comments and messages. Availability depends on the provider and the permissions you granted.
+
+If something went wrong, [troubleshooting](/guides/troubleshooting) helps you find the cause before retrying.
+
+## Work with a team or automate a task
+
+[Workspace roles](/guides/workspaces) control who can view and manage your content. Use separate workspaces when accounts, media, and team access should stay apart.
+
+The [CLI and n8n guide](/guides/automation), [AI assistant guides](/mcp), and [API reference](/api-reference) cover other ways to work with the same accounts and publications. The API reference comes from OpenPost's API definition and includes request examples for every endpoint.
+
+## Run your own instance
+
+[Install with Docker Compose](/self-hosting), [configure your services](/self-hosting/configuration), and [plan backups and upgrades](/self-hosting/maintenance). The self-hosting section keeps server setup separate from the guides for everyday publishing.

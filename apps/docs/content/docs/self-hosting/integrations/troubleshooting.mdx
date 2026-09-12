@@ -1,0 +1,83 @@
+---
+title: Fix a connection
+description: Diagnose callback errors, missing accounts, app permissions, and media access during setup.
+icon: Unplug
+---
+
+Start with the last step that worked. A missing network, a rejected sign-in, and a failed post usually need different fixes.
+
+| What you see                            | Start here                                                     |
+| --------------------------------------- | -------------------------------------------------------------- |
+| The network says it needs configuration | [Check the loaded credentials](#the-network-is-not-configured) |
+| The provider rejects the redirect       | [Compare callback URLs](#the-callback-url-is-rejected)         |
+| Login works, but your Page is missing   | [Check account access](#a-page-or-account-is-missing)          |
+| Only the app owner can connect          | [Check app mode and review](#only-test-users-can-connect)      |
+| A text post works, but media fails      | [Check public media access](#media-cannot-be-downloaded)       |
+| A connected account stops working       | [Reconnect the account](#an-account-needs-reconnecting)        |
+
+## The network is not configured
+
+Open **Settings → Instance → Configuration → Provider apps** as the instance administrator. Confirm the provider and client ID belong to the app you created. For bot credentials and Pinterest, check the `OPENPOST_PROVIDER_APPS` value in your deployment's secret settings.
+
+If you changed `.env`, recreate the container with `docker compose up -d --force-recreate openpost`. Restarting the old container alone keeps its previous environment. If you saved credentials through Settings, restart OpenPost so its provider adapters load them.
+
+When several providers share the environment variable, check that you have one valid JSON array containing every entry. Also check for older provider variables that you still set. Environment credentials take precedence over matching database entries.
+
+## The callback URL is rejected
+
+Compare these three values character by character:
+
+1. The redirect URI in the provider's developer portal.
+2. The `redirect_uri` in OpenPost's provider entry.
+3. Your public `OPENPOST_APP_URL` and the callback path in the [provider guide](/self-hosting/integrations).
+
+Check `http` versus `https`, subdomains, the provider name, port numbers, and trailing slashes. The app homepage is not the callback. Do not use `localhost` or a private hostname for a public deployment.
+
+If you recently changed domains, update the provider portal and OpenPost together, restart, and start a new connection. Old sign-in tabs may still contain the previous address.
+
+## The connection expired or the window closed
+
+Start again from **Social accounts**. Stay signed in to OpenPost and keep the same workspace selected while you finish the provider's sign-in. Allow the provider window if your browser blocks popups.
+
+Do not bookmark an OAuth callback or reuse an old authorization code. The connection includes a short-lived state value that ties it to your session and workspace.
+
+## A Page or account is missing
+
+Sign in to the provider with the person who manages the destination. Being able to see a Page publicly does not grant publishing access.
+
+- For [Facebook](/self-hosting/integrations/facebook), check Page access and any Business Portfolio assignments.
+- For [Instagram](/self-hosting/integrations/instagram), check the professional account's link to a Facebook Page and your access to that Page.
+- For [LinkedIn](/self-hosting/integrations/linkedin), distinguish a personal profile from an Organization Page. They require different permissions.
+- For [YouTube](/self-hosting/integrations/youtube), choose the Google identity and channel you intend to publish to.
+
+Reconnect after correcting access. Review the provider's consent screen and include the intended destinations.
+
+## Only test users can connect
+
+Developer apps often start in a test, trial, or development mode. Check the app's current mode, allowed testers, and approval status in its developer portal.
+
+Request the access required by your provider guide before inviting other users. A client ID and secret alone do not grant public access. Self-hosting does not bypass the network's app review, API access, quotas, or account requirements.
+
+After the provider approves new permissions, reconnect the account to grant them. Existing tokens may still have the old permissions.
+
+## Media cannot be downloaded
+
+Meta platforms and some other providers fetch files from the media URL you give them. A URL that works only while you are signed in, on your Wi-Fi, or through a VPN will fail for the provider.
+
+Use a harmless test image. Open its URL from outside your network without an OpenPost session. Check that it returns the file with the right content type, over HTTPS, without a sign-in page or an expired link. Then compare its format and size with [media limits](/guides/media-limits).
+
+For TikTok URL-based transfers, also check the app's verified URL or domain settings. See the [TikTok guide](/self-hosting/integrations/tiktok).
+
+## An account needs reconnecting
+
+Passwords, account roles, app permissions, expired tokens, and revoked consent can interrupt a connection. Open the account in **Social accounts** and reconnect it. Confirm that you authorize the same destination.
+
+If you rotate an app secret, update OpenPost, restart it, and check each account that uses that app. If you rotate a Discord webhook, replace the saved connection. If you rotate a Telegram bot token, follow the bot guide's webhook setup again.
+
+Before retrying a failed publication, check whether the provider already published it. The [publishing troubleshooting guide](/guides/troubleshooting) explains how to inspect each destination's result.
+
+## Ask for help
+
+A useful report includes the provider, OpenPost version, which step failed, the visible error, and whether text and media behave differently. Include the callback's shape with your domain replaced by `post.example.com` if you need help comparing paths.
+
+Remove client secrets, access tokens, bot tokens, webhook URLs, cookies, and authorization codes from screenshots and logs before sharing them. [Open a GitHub issue](https://github.com/getopenpost/openpost/issues) when the provider setup matches its guide and the problem persists.

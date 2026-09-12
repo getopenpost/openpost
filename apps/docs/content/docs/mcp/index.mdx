@@ -12,7 +12,7 @@ https://app.openpo.st/mcp
 
 Choose `mcp:read` to review accounts and scheduled posts. Choose `mcp:full` only when the assistant needs to create, edit, schedule, or publish. OpenPost checks your workspace access on each request.
 
-## Connect your assistant
+## Choose a setup
 
 Choose its guide below. Each guide shows where to enter the server URL, how to sign in, and a first read request. Start with "List my OpenPost workspaces" so you know which workspace the assistant can see.
 
@@ -117,7 +117,7 @@ For a client not listed here, use the endpoint and authentication rules in [Tool
 
 Remote clients can use browser sign-in. OpenPost asks you to choose `mcp:read` or `mcp:full` and, optionally, bind access to one workspace. If your client cannot use OAuth, create a developer token in **Settings → Personal → Developer** and pass it in a bearer header. Do not put a token in a chat message or a committed config file.
 
-## Connect a self-hosted server
+## Self-hosted connections
 
 For a public HTTPS instance, replace `https://app.openpo.st` with your own origin and keep the `/mcp` path. Use that URL in the client guide above.
 

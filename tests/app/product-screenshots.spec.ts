@@ -1675,6 +1675,59 @@ test.describe("product screenshot capture", () => {
 
       expect(pageErrors).toEqual([]);
     });
+
+    test(`captures integration setup in ${captureScheme} mode`, async ({ page }) => {
+      await mkdir(screenshotDirectory, { recursive: true });
+      await authenticatePage(page, auth.token);
+      await page.addInitScript((scheme) => {
+        localStorage.setItem("mode-watcher-mode", scheme);
+      }, captureScheme);
+      await page.emulateMedia({ colorScheme: captureScheme, reducedMotion: "reduce" });
+      await page.route("**/api/v1/accounts/providers*", (route) =>
+        route.fulfill({
+          json: [
+            ...providerFixtures.filter(({ platform }) =>
+              ["bluesky", "mastodon"].includes(platform),
+            ),
+            ...[
+              { platform: "discord", display_name: "Discord", auth_mode: "webhook" },
+              { platform: "telegram", display_name: "Telegram", auth_mode: "bot" },
+            ].map((provider) => ({
+              ...provider,
+              configured: true,
+              status: "available",
+              readiness: connectionReadiness("healthy", true),
+            })),
+          ],
+        }),
+      );
+      await page.goto("/settings?tab=accounts");
+      await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
+      await page.addStyleTag({
+        content: `*, *::before, *::after { animation: none !important; transition: none !important; }`,
+      });
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+
+      for (const provider of ["bluesky", "mastodon", "discord", "telegram"]) {
+        await page.getByTestId(`provider-card-${provider}`).getByRole("button").click();
+        let dialog = page.getByRole("dialog");
+        await expect(dialog).toBeVisible();
+        if (provider === "mastodon") {
+          await dialog.getByRole("button", { name: "Continue to Mastodon" }).click();
+          dialog = page.getByRole("dialog").filter({ has: page.locator("#mastodon-server") });
+          await expect(dialog.locator("#mastodon-server")).toBeVisible();
+          await dialog.locator("#mastodon-server").fill("mastodon.social");
+        }
+        if (provider === "bluesky") await dialog.locator("#bluesky-handle").fill("you.bsky.social");
+        if (provider === "telegram")
+          await dialog.locator("#telegram-chat-id").fill("-1001234567890");
+        await captureDetail(dialog, `connect-${provider}-${captureScheme}.png`);
+        await page.keyboard.press("Escape");
+        await expect(dialog).not.toBeVisible();
+      }
+    });
   }
 });
 

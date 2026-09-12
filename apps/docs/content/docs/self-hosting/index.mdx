@@ -36,7 +36,7 @@ EOF
 chmod 600 .env
 ```
 
-For a public deployment, replace all three URLs with the real HTTPS origin before connecting providers. For example, set `OPENPOST_APP_URL=https://posts.example.com`, `OPENPOST_PUBLIC_URL=https://posts.example.com`, and `OPENPOST_MEDIA_URL=https://posts.example.com/media`. Keep both generated secrets stable across restarts and restores.
+For a public deployment, replace all three URLs with the real HTTPS origin before connecting providers. For example, set `OPENPOST_APP_URL=https://post.example.com`, `OPENPOST_PUBLIC_URL=https://post.example.com`, and `OPENPOST_MEDIA_URL=https://post.example.com/media`. Keep both generated secrets stable across restarts and restores.
 
 Create `docker-compose.yml`:
 

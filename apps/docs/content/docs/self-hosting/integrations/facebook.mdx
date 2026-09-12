@@ -4,6 +4,8 @@ description: Configure Meta OAuth and connect a Facebook Page to OpenPost.
 icon: facebook
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 OpenPost connects Facebook Pages, not personal timelines. A person signs in through Meta, grants Page permissions, and chooses a Page they can manage.
 
 ## Before you start
@@ -18,7 +20,7 @@ OpenPost connects Facebook Pages, not personal timelines. A person signs in thro
 2. In **Facebook Login → Settings**, add this **Valid OAuth Redirect URI**:
 
    ```text
-   https://your-domain.example/api/v1/accounts/facebook/callback
+   https://post.example.com/api/v1/accounts/facebook/callback
    ```
 
 3. Request `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_manage_engagement`, `pages_manage_posts`, and `pages_messaging`. OpenPost asks for these during connection. Complete Meta's review for the permissions and people you intend to support. If you do not use Direct messages, the app may still show a request for `pages_messaging` because OpenPost's Facebook authorization flow includes it.
@@ -26,9 +28,18 @@ OpenPost connects Facebook Pages, not personal timelines. A person signs in thro
 
 Meta's [Pages API overview](https://developers.facebook.com/docs/pages-api/) and [Facebook Login documentation](https://developers.facebook.com/docs/facebook-login/) describe Page access and OAuth configuration.
 
+<SetupScreenshot
+  src="/assets/screenshots/integrations/meta-use-cases.png"
+  alt="Meta app creation use-case picker showing Facebook Login, Pages, and Other"
+  width={1074}
+  height={996}
+  caption="Meta offers different app creation flows. Choose the flow that provides Facebook Login and the Page permissions listed above."
+  sourceUrl="https://docs.postiz.com/self-host/providers/facebook"
+/>
+
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The complete array below works for a new installation; append the object if you already configured other providers.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,12 +47,10 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The comple
     "provider": "facebook",
     "client_id": "your-meta-app-id",
     "client_secret": "your-meta-app-secret",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/facebook/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/facebook/callback"
   }
 ]
 ```
-
-Keep the JSON in a deployment secret store, preferably a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator can instead save an encrypted Facebook app in **Settings → Instance → Configuration → Provider apps**. Environment entries override matching saved rows. Restart OpenPost after either change.
 
 ## Connect and test
 

@@ -4,6 +4,8 @@ description: Connect a Page-linked Instagram professional account through Meta O
 icon: instagram
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 OpenPost uses the Instagram API with Facebook Login. It connects an Instagram Business or Creator account linked to a Facebook Page. It does not connect a personal Instagram account through Instagram-only login.
 
 ## Before you start
@@ -18,7 +20,7 @@ OpenPost uses the Instagram API with Facebook Login. It connects an Instagram Bu
 2. In **Facebook Login → Settings**, add this **Valid OAuth Redirect URI**:
 
    ```text
-   https://your-domain.example/api/v1/accounts/instagram/callback
+   https://post.example.com/api/v1/accounts/instagram/callback
    ```
 
 3. Request `business_management`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_manage_insights`, `pages_show_list`, and `pages_read_engagement`. OpenPost requests this set during consent. Obtain the permissions and review level needed for your intended users and features.
@@ -26,9 +28,18 @@ OpenPost uses the Instagram API with Facebook Login. It connects an Instagram Bu
 
 Meta's [Instagram API documentation](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/) describes the Page-linked account model and permissions. Its [Content Publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/content-publishing/) describes media requirements.
 
+<SetupScreenshot
+  src="/assets/screenshots/integrations/meta-use-cases.png"
+  alt="Meta app creation with Facebook Login among the available use cases"
+  width={1074}
+  height={996}
+  caption="Use the Page-linked Facebook Login flow for OpenPost. Your Instagram account must be linked to a Facebook Page."
+  sourceUrl="https://docs.postiz.com/self-host/providers/instagram"
+/>
+
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The complete array below works for a new installation; append the object if you already configured other providers.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,12 +47,10 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The comple
     "provider": "instagram",
     "client_id": "your-meta-app-id",
     "client_secret": "your-meta-app-secret",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/instagram/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/instagram/callback"
   }
 ]
 ```
-
-Keep the JSON in a deployment secret store, preferably a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator can instead save an encrypted Instagram app in **Settings → Instance → Configuration → Provider apps**. Environment entries override matching saved rows. Restart OpenPost after either change. You may use the same Meta app as Facebook if it has both callbacks and permission sets.
 
 ## Connect and test
 
@@ -52,5 +61,5 @@ Keep the JSON in a deployment secret store, preferably a file referenced by `OPE
 ## If it does not work
 
 - **No Instagram account appears:** Verify it is Business or Creator, linked to a Page the signed-in person can manage, and that the Page and Instagram permissions were granted. Check Business Portfolio access if applicable.
-- **Media creation fails:** Fetch the exact `OPENPOST_MEDIA_URL` from outside your network. It must be public HTTPS and return the correct file and media type.
+- **Media creation fails:** Fetch a specific uploaded file URL under `OPENPOST_MEDIA_URL` from outside your network. It must be public HTTPS and return the correct file and media type.
 - **Permission or redirect error:** Check app review, the scopes granted in consent, and the exact redirect URI. Reconnect after changing permissions.

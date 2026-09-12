@@ -295,7 +295,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "index.mdx",
     "title": "OpenPost documentation",
-    "description": "Connect your accounts, prepare a post, and publish it from one workspace.",
+    "description": "Learn how to connect your accounts, create content, and check every post's delivery.",
     "route": "/",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -328,7 +328,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "mcp/chatgpt.mdx",
     "title": "Connect ChatGPT",
-    "description": "Add OpenPost as a custom MCP app in ChatGPT.",
+    "description": "Connect OpenPost's MCP server to ChatGPT for schedule reviews and drafts.",
     "route": "/mcp/chatgpt",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -664,10 +664,10 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "self-hosting/integrations/bluesky-mastodon.mdx",
-    "title": "Bluesky and Mastodon",
-    "description": "Configure the two providers that need no static OAuth app in the common case.",
-    "route": "/self-hosting/integrations/bluesky-mastodon",
+    "page": "self-hosting/integrations/bluesky.mdx",
+    "title": "Bluesky",
+    "description": "Connect a Bluesky account with its handle and an app password.",
+    "route": "/self-hosting/integrations/bluesky",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -680,10 +680,26 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "self-hosting/integrations/discord-telegram.mdx",
-    "title": "Discord and Telegram",
-    "description": "Configure supported Discord webhooks and gated Telegram bot mode.",
-    "route": "/self-hosting/integrations/discord-telegram",
+    "page": "self-hosting/integrations/discord.mdx",
+    "title": "Discord",
+    "description": "Connect a channel webhook or an instance-owned Discord bot.",
+    "route": "/self-hosting/integrations/discord",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "self-hosting"
+    }
+  },
+  {
+    "page": "self-hosting/integrations/facebook.mdx",
+    "title": "Facebook",
+    "description": "Configure Meta OAuth and connect a Facebook Page to OpenPost.",
+    "route": "/self-hosting/integrations/facebook",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -697,9 +713,25 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "self-hosting/integrations/index.mdx",
-    "title": "Provider integrations",
-    "description": "Configure provider apps for a self-hosted OpenPost instance.",
+    "title": "Set up social integrations",
+    "description": "Choose a social network, configure its credentials, and connect your first account.",
     "route": "/self-hosting/integrations",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "self-hosting"
+    }
+  },
+  {
+    "page": "self-hosting/integrations/instagram.mdx",
+    "title": "Instagram",
+    "description": "Connect a Page-linked Instagram professional account through Meta OAuth.",
+    "route": "/self-hosting/integrations/instagram",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -714,7 +746,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "self-hosting/integrations/linkedin.mdx",
     "title": "LinkedIn",
-    "description": "Configure LinkedIn OAuth for member profiles and Organization Pages.",
+    "description": "Connect LinkedIn member profiles and, with approved access, Organization Pages.",
     "route": "/self-hosting/integrations/linkedin",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -728,10 +760,10 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "self-hosting/integrations/meta-platforms.mdx",
-    "title": "Facebook, Instagram, and Threads",
-    "description": "Configure the Meta apps used by OpenPost's three Meta integrations.",
-    "route": "/self-hosting/integrations/meta-platforms",
+    "page": "self-hosting/integrations/mastodon.mdx",
+    "title": "Mastodon",
+    "description": "Connect an account on a Mastodon server, with optional fixed app credentials.",
+    "route": "/self-hosting/integrations/mastodon",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -746,8 +778,40 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "self-hosting/integrations/pinterest.mdx",
     "title": "Pinterest",
-    "description": "Configure Pinterest for controlled development and certification.",
+    "description": "Configure a Pinterest app and understand the approval needed to connect and publish.",
     "route": "/self-hosting/integrations/pinterest",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "self-hosting"
+    }
+  },
+  {
+    "page": "self-hosting/integrations/telegram.mdx",
+    "title": "Telegram bot",
+    "description": "Connect a Telegram channel or group to your self-hosted instance.",
+    "route": "/self-hosting/integrations/telegram",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "self-hosting"
+    }
+  },
+  {
+    "page": "self-hosting/integrations/threads.mdx",
+    "title": "Threads",
+    "description": "Create a Threads API app and connect a Threads account to OpenPost.",
+    "route": "/self-hosting/integrations/threads",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -762,8 +826,24 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "self-hosting/integrations/tiktok.mdx",
     "title": "TikTok",
-    "description": "Configure TikTok Login Kit and Content Posting API access.",
+    "description": "Configure TikTok Login Kit and Content Posting API for video and photo posts.",
     "route": "/self-hosting/integrations/tiktok",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "self-hosting"
+    }
+  },
+  {
+    "page": "self-hosting/integrations/troubleshooting.mdx",
+    "title": "Fix a connection",
+    "description": "Diagnose callback errors, missing accounts, app permissions, and media access during setup.",
+    "route": "/self-hosting/integrations/troubleshooting",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -778,7 +858,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "self-hosting/integrations/x.mdx",
     "title": "X",
-    "description": "Configure an X OAuth 1.0a application.",
+    "description": "Set up X OAuth 1.0a user authentication for a self-hosted instance.",
     "route": "/self-hosting/integrations/x",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -794,7 +874,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "self-hosting/integrations/youtube.mdx",
     "title": "YouTube",
-    "description": "Configure Google OAuth and YouTube video uploads.",
+    "description": "Create a Google OAuth client and connect a YouTube channel for video uploads.",
     "route": "/self-hosting/integrations/youtube",
     "agentRepresentation": {
       "membership": "ordinary"

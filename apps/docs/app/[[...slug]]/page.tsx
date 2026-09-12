@@ -1,7 +1,7 @@
 import { OpenAPIPage } from "@/components/api-page";
 import type { OpenAPIPageProps } from "fumadocs-openapi/ui";
 import { resolveDocsSocial } from "@openpost/social-images";
-import { source } from "@/lib/source";
+import { source, documentationIcon } from "@/lib/source";
 import { openapi } from "@/lib/openapi";
 import { operationDocument } from "@/lib/api-document";
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
@@ -36,7 +36,7 @@ export default async function Page({ params }: Props) {
     <DocsPage toc={page.data.toc} full={page.data.full} tabIndex={-1}>
       <div className="docs-page-heading">
         <DocsTitle>
-          {featureMarks[page.path] && (
+          {featureMarks[page.path] ? (
             <img
               src={featureMarks[page.path]}
               alt=""
@@ -45,6 +45,10 @@ export default async function Page({ params }: Props) {
               height={36}
               className="docs-feature-mark"
             />
+          ) : (
+            <span className="docs-title-icon" aria-hidden="true">
+              {documentationIcon(page.data.icon)}
+            </span>
           )}
           <span>{page.data.title}</span>
         </DocsTitle>

@@ -4,17 +4,28 @@ description: Connect an account on a Mastodon server, with optional fixed app cr
 icon: mastodon
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 Mastodon accounts belong to individual servers. OpenPost can register an app when someone connects to a public HTTPS server. You can also configure a fixed app for a server your team uses.
 
 ## Connect a public server
 
 1. In OpenPost, choose your workspace and open **Settings → Workspace → Social accounts → Mastodon**.
-2. Enter the address of the server that hosts your account, such as `https://mastodon.social`. Do not enter your profile URL.
+2. Select **Continue to Mastodon**, then enter the address of the server that hosts your account, such as `https://mastodon.social`. Do not enter your profile URL.
 3. Continue to the server's authorization page and approve OpenPost.
-4. By default, Mastodon shows an authorization code. Copy it, return to OpenPost, paste it into **Authorization code**, and select **Connect account**.
+4. By default, Mastodon shows an authorization code. Copy it and return to OpenPost. In the Mastodon connection dialog, select **Code**, paste it into **Authorization code**, and select **Connect account**.
 5. Publish a short test post and open the resulting link from its publication details.
 
 OpenPost registers the app on that server through `POST /api/v1/apps` with `read write` scopes and keeps the client secret encrypted. The default redirect is `urn:ietf:wg:oauth:2.0:oob`, which makes Mastodon display a code instead of redirecting to a callback. See Mastodon's [app registration](https://docs.joinmastodon.org/methods/apps/) and [authorization](https://docs.joinmastodon.org/methods/oauth/) documentation.
+
+<SetupScreenshot
+  src="/assets/screenshots/connect-mastodon-light.webp"
+  darkSrc="/assets/screenshots/connect-mastodon-dark.webp"
+  alt="OpenPost connection dialog for Mastodon server address"
+  width={976}
+  height={478}
+  caption="Mastodon server address in OpenPost. Screenshot uses example values."
+/>
 
 ## Configure a fixed server app
 
@@ -27,7 +38,7 @@ Use this path if you want to preconfigure a known server or its app registration
    MASTODON_SERVERS=[{"name":"Team server","client_id":"your-client-id","client_secret":"your-client-secret","instance_url":"https://social.example"}]
    ```
 
-3. Restart OpenPost with `docker compose up -d`. The server should appear as a choice when connecting Mastodon.
+3. Recreate OpenPost with `docker compose up -d --force-recreate openpost` to load the changed environment. The server should appear as a choice when connecting Mastodon.
 
 You can instead save a Mastodon app in [Instance → Configuration → Provider apps](/self-hosting/integrations#save-your-provider-credentials). If you change `MASTODON_REDIRECT_URI`, register that exact URI on the Mastodon app too. The default out-of-band flow needs no public callback.
 

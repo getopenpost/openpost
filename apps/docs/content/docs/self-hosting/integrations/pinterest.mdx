@@ -1,10 +1,14 @@
 ---
 title: Pinterest
-description: Prepare a Pinterest app for controlled OAuth and publishing certification.
+description: Configure a Pinterest app and understand the approval needed to connect and publish.
 icon: pinterest
 ---
 
-OpenPost has Pinterest adapter paths for controlled development and certification. Pinterest is not a generally available OpenPost Hosted connection. A configured app does not by itself establish approval or enable public use.
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
+Pinterest requires more setup than the other networks. Even on a self-hosted instance, OpenPost needs a record of your app's Standard approval before a normal account connection. Publishing, discovery, and analytics also need current test evidence for each operation. Saving credentials alone will not make those actions available.
+
+This guide prepares the app. If you need an integration you can configure and use immediately, choose another network from [social integrations](/self-hosting/integrations) while you complete Pinterest approval.
 
 ## Before you start
 
@@ -18,7 +22,7 @@ OpenPost has Pinterest adapter paths for controlled development and certificatio
 2. Register this redirect URI in the app's OAuth settings:
 
    ```text
-   https://your-domain.example/api/v1/accounts/pinterest/callback
+   https://post.example.com/api/v1/accounts/pinterest/callback
    ```
 
 3. Copy the app **ID** and **Secret key**. OpenPost requests `boards:read`, `boards:write`, `pins:read`, `pins:write`, and `user_accounts:read`. Confirm the app can obtain those scopes for your test account.
@@ -26,9 +30,27 @@ OpenPost has Pinterest adapter paths for controlled development and certificatio
 
 Pinterest documents [OAuth redirect matching and scopes](https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/).
 
+<SetupScreenshot
+  src="/assets/screenshots/integrations/pinterest-redirect.png"
+  alt="Pinterest redirect URI settings with an empty Redirect link field"
+  width={817}
+  height={319}
+  caption="Add your OpenPost callback in Redirect link. The original example address is hidden."
+  sourceUrl="https://docs.postiz.com/self-host/providers/pinterest"
+/>
+
+<SetupScreenshot
+  src="/assets/screenshots/integrations/pinterest-credentials.png"
+  alt="Pinterest App id and masked App secret key fields"
+  width={814}
+  height={183}
+  caption="Copy the App ID and Secret key into your private provider configuration."
+  sourceUrl="https://docs.postiz.com/self-host/providers/pinterest"
+/>
+
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The complete array below works for a new installation; append the object if other providers are already present.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,18 +58,20 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The comple
     "provider": "pinterest",
     "client_id": "your-pinterest-app-id",
     "client_secret": "your-pinterest-secret-key",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/pinterest/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/pinterest/callback"
   }
 ]
 ```
 
-Supply the JSON through your deployment secret store, preferably `OPENPOST_PROVIDER_APPS_FILE`, then restart OpenPost. The current **Settings → Instance → Configuration → Provider apps** form does not include Pinterest; the administrator API is another way to store an encrypted Pinterest app. Environment entries take precedence over saved rows.
+## Complete approval and test publishing
 
-## Test the controlled path
-
-1. With the necessary operator controls enabled for your test subject, open **Settings → Workspace → Social accounts** and connect the Pinterest test account.
-2. Choose a board owned by that account and publish one small image Pin. Check the OpenPost result and the Pin on Pinterest. Board section targeting, video Pins, discovery, and analytics need their own tests and access evidence.
+1. Once your app has Standard access and the instance records that approval, open **Settings → Workspace → Social accounts** and connect the Pinterest account.
+2. After recording current local and live evidence for image-Pin publishing, choose a board owned by that account and publish one small image Pin. Check the OpenPost result and the Pin on Pinterest. Board section targeting, video Pins, discovery, and analytics need their own tests and access evidence.
 3. Record which app, account, scopes, and operation passed. Do not infer that a successful image Pin makes every Pinterest feature ready for public use.
+
+Trial testing uses the administrator-only `certification_test` flow, which allows a first test without previous test evidence. It still checks app configuration, trial permission, account authorization, and provider policy. Trial Pins and boards are visible only to their creator.
+
+The [operator readiness guide](https://github.com/getopenpost/openpost/blob/main/docs/reference/providers/provider-launch-matrix.md#recording-certification-evidence) explains how administrators record approval and test results through the session-authenticated API. This is currently an operator API workflow, not a switch in the workspace settings.
 
 ## If it does not work
 

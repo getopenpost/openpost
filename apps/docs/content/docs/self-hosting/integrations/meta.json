@@ -1,15 +1,24 @@
 {
-  "title": "Integrations",
+  "title": "Social integrations",
+  "icon": "Plug",
+  "defaultOpen": true,
   "pages": [
     "index",
-    "meta-platforms",
+    "---Connect directly---",
+    "bluesky",
+    "mastodon",
+    "discord",
+    "telegram",
+    "---Set up a developer app---",
     "linkedin",
     "x",
+    "facebook",
+    "instagram",
+    "threads",
     "youtube",
     "tiktok",
     "pinterest",
-    "bluesky-mastodon",
-    "discord-telegram"
-  ],
-  "icon": "Plug"
+    "---Get help---",
+    "troubleshooting"
+  ]
 }

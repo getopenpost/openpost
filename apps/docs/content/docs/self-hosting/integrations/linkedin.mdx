@@ -4,6 +4,8 @@ description: Connect LinkedIn member profiles and, with approved access, Organiz
 icon: linkedin
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 OpenPost connects a LinkedIn member through OAuth. It can also offer Organization Pages when your LinkedIn app has Community Management access and the member administers those Pages.
 
 ## Before you start
@@ -19,16 +21,35 @@ OpenPost connects a LinkedIn member through OAuth. It can also offer Organizatio
 3. In **Auth → OAuth 2.0 settings**, add this exact **Authorized redirect URL**:
 
    ```text
-   https://your-domain.example/api/v1/accounts/linkedin/callback
+   https://post.example.com/api/v1/accounts/linkedin/callback
    ```
 
-4. Check the app's approved products and scopes in **Auth**. The member used to connect a Page must have an approved `ADMINISTRATOR` role for that Page.
+4. For a member-only app using the two self-service products, set `OPENPOST_DISABLE_LINKEDIN_THREAD_REPLIES=true` in your deployment before the first connection. OpenPost otherwise requests `w_member_social_feed`, which needs additional LinkedIn approval and can cause sign-in to fail. Keep replies enabled only when your app has that permission.
+5. Check the app's approved products and scopes in **Auth**. The member used to connect a Page must have an approved `ADMINISTRATOR` role for that Page.
 
 LinkedIn describes [self-service products and permissions](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access) and [Organization roles](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-access-control-by-role).
 
+<SetupScreenshot
+  src="/assets/screenshots/integrations/linkedin-products.png"
+  alt="LinkedIn Products tab with Share on LinkedIn and Sign In with LinkedIn using OpenID Connect"
+  width={2436}
+  height={1356}
+  caption="Enable Share on LinkedIn and OpenID Connect for a personal profile. The Advertising API shown here is not required."
+  sourceUrl="https://docs.postiz.com/self-host/providers/linkedin"
+/>
+
+<SetupScreenshot
+  src="/assets/screenshots/integrations/linkedin-community-management.png"
+  alt="LinkedIn Community Management API access request"
+  width={736}
+  height={212}
+  caption="Organization Pages need Community Management access from LinkedIn."
+  sourceUrl="https://docs.postiz.com/self-host/providers/linkedin"
+/>
+
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The complete array below is copyable for a new installation; if you already have provider apps, keep their objects and append the LinkedIn object.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,14 +57,14 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The comple
     "provider": "linkedin",
     "client_id": "your-linkedin-client-id",
     "client_secret": "your-linkedin-client-secret",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/linkedin/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/linkedin/callback"
   }
 ]
 ```
 
-Store the JSON in your deployment secret store, preferably as a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator can instead save the ID, secret, and callback in **Settings → Instance → Configuration → Provider apps**. Environment entries take precedence over saved rows. Restart OpenPost after either change. See [self-hosted configuration](/self-hosting/configuration) for the instance settings.
+Store the JSON in your deployment secret store, preferably as a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator can instead save the ID, secret, and callback in **Settings → Instance → Configuration → Provider apps**. Environment entries take precedence over saved rows. Follow [saving provider credentials](/self-hosting/integrations#save-your-provider-credentials) to apply the change and reload OpenPost. See [self-hosted configuration](/self-hosting/configuration) for the instance settings.
 
-For Organization Pages, also set `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true` in the deployment environment and restart. Leave it false if your app lacks the approved Page scopes. LinkedIn child posts use comments on the first post. OpenPost requests [`w_member_social_feed`](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/network-update-social-actions) for that behavior by default. Set `OPENPOST_DISABLE_LINKEDIN_THREAD_REPLIES=true` and restart if your app has only the self-service member products.
+For Organization Pages, also set `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true` in the deployment environment and recreate the container. Leave it false if your app lacks the approved Page scopes. LinkedIn threads publish later segments as comments on the first post. Enable them only after LinkedIn approves [`w_member_social_feed`](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/network-update-social-actions), then reconnect the account.
 
 ## Connect and test
 

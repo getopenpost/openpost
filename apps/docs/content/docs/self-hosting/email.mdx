@@ -47,6 +47,6 @@ OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN=your-api-token
 
 1. Run `docker compose up -d` after editing `.env`.
 2. Invite a test address to a workspace or request a password reset for an account you control. Check both the inbox and your mail provider's delivery log.
-3. Only after delivery works, set `OPENPOST_EMAIL_VERIFICATION_REQUIRED=true` if new password accounts must verify their address, then restart again.
+3. Only after delivery works, set `OPENPOST_EMAIL_VERIFICATION_REQUIRED=true` if new password accounts must verify their address, then recreate the container again.
 
 If mail does not arrive, check `docker compose logs --tail=100 openpost`, the provider's sender verification, credentials, SMTP TLS mode, and the recipient's spam folder. An accepted send is not proof the message reached the inbox. Delivery callbacks, when configured for a supported provider, use `POST /api/v1/email/delivery/webhook` and `OPENPOST_EMAIL_DELIVERY_WEBHOOK_SECRET`.

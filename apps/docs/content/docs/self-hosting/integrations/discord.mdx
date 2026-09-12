@@ -4,6 +4,8 @@ description: Connect a channel webhook or an instance-owned Discord bot.
 icon: discord
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 Choose a webhook for one fixed channel. Choose bot mode when a workspace needs to select channels in a Discord server. Both modes can publish; the bot needs a Discord developer application and OAuth setup.
 
 ## Webhook: create it in Discord
@@ -24,18 +26,30 @@ Discord's [incoming webhook guide](https://docs.discord.com/developers/platform/
 
 Webhook posts go to the channel bound to that URL. OpenPost supports text, scheduled posts, and up to 10 files per post. It caps each file at 10 MiB; Discord may impose other limits. A webhook cannot read the channel or provide Inbox and analytics data.
 
+<SetupScreenshot
+  src="/assets/screenshots/connect-discord-light.webp"
+  darkSrc="/assets/screenshots/connect-discord-dark.webp"
+  alt="OpenPost connection dialog for Discord webhook URL"
+  width={1104}
+  height={614}
+  caption="Discord webhook URL in OpenPost. Screenshot uses example values."
+/>
+
 ## Bot: configure a Discord app
 
+Bot mode currently requires administrator approval records and publishing test evidence in OpenPost, including on self-hosted instances. Use a channel webhook if you only need to publish to one channel and do not need the bot workflow.
+
 1. In the [Discord Developer Portal](https://discord.com/developers/applications), create an application. Copy its Application ID and Client Secret, then open **Bot** and create or reset the bot token. Keep the secret and token private.
-2. Under **OAuth2**, register `https://your-domain.example/api/v1/accounts/discord/callback` as a redirect, replacing the domain with your `OPENPOST_APP_URL` host. OpenPost requests the `identify`, `guilds`, and `bot` scopes during connection.
-3. Set the instance provider app in the server environment, then restart OpenPost:
+2. Under **OAuth2**, register `https://post.example.com/api/v1/accounts/discord/callback` as a redirect, replacing the domain with your `OPENPOST_APP_URL` host. OpenPost requests the `identify`, `guilds`, and `bot` scopes during connection.
+3. Set the instance provider app in the server environment, then recreate OpenPost with `docker compose up -d --force-recreate openpost`:
 
    ```dotenv
    OPENPOST_PROVIDER_APPS=[{"provider":"discord","connection_mode":"bot","client_id":"your-application-id","client_secret":"your-client-secret","bot_token":"your-bot-token"}]
    ```
 
-4. In **Settings → Workspace → Social accounts → Discord**, choose **Connect Discord bot** and authorize it for the server. The person connecting it needs permission to manage that server. Select the server in OpenPost, then choose a channel when composing a post.
-5. Publish a short test message. If an attachment fails, check the bot's **Attach Files** permission in that channel. Channel-specific overrides can remove permissions granted at installation.
+4. As an instance administrator, complete the [provider readiness API workflow](https://github.com/getopenpost/openpost/blob/main/docs/reference/providers/provider-launch-matrix.md#recording-certification-evidence). Record the bot app's approval status before a normal connection. This is a session-authenticated administrator API workflow, not a workspace setting.
+5. Once connection readiness passes, open **Settings → Workspace → Social accounts → Discord**, choose **Connect Discord bot**, and authorize it for the server. The person connecting it needs permission to manage that server. Select the server in OpenPost, then choose a channel when composing a post.
+6. An administrator can use `certification_test` intent for the first publishing tests, then record current local and live evidence for immediate and scheduled publishing. After readiness passes, publish a short message through the normal composer. If an attachment fails, check the bot's **Attach Files** permission in that channel. Channel-specific overrides can remove permissions granted at installation.
 
 If `OPENPOST_PROVIDER_APPS` already contains other providers, add the Discord object to the existing JSON array instead of replacing it.
 

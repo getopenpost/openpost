@@ -4,6 +4,8 @@ description: Configure TikTok Login Kit and Content Posting API for video and ph
 icon: tiktok
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 OpenPost connects a TikTok account through Login Kit. Direct Post publishes through TikTok's Content Posting API; Upload sends a video to the creator's TikTok inbox for completion there.
 
 ## Before you start
@@ -18,7 +20,7 @@ OpenPost connects a TikTok account through Login Kit. Direct Post publishes thro
 2. In Login Kit, register this **Redirect URI**:
 
    ```text
-   https://your-domain.example/api/v1/accounts/tiktok/callback
+   https://post.example.com/api/v1/accounts/tiktok/callback
    ```
 
 3. In the Content Posting API settings, enable the posting modes you need. Request access to `video.publish` for Direct Post and `video.upload` for inbox upload. OpenPost also requests `user.info.basic`, `user.info.profile`, `user.info.stats`, and `video.list`. Complete the portal's URL ownership verification for media fetched by URL.
@@ -26,9 +28,19 @@ OpenPost connects a TikTok account through Login Kit. Direct Post publishes thro
 
 TikTok documents [app registration](https://developers.tiktok.com/docs/en/getting-started-create-an-app), [Direct Post setup](https://developers.tiktok.com/docs/en/content-posting-api-get-started), and [media URL verification](https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide).
 
+<SetupScreenshot
+  src="/assets/screenshots/integrations/tiktok-create-app.png"
+  alt="TikTok Connect an app dialog with OpenPost as the example app name"
+  width={1092}
+  height={1440}
+  caption="Give the TikTok developer app a name you will recognize."
+  sourceUrl="https://docs.postiz.com/self-host/providers/tiktok"
+  edited
+/>
+
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The full array below works for a new installation; append the object if your array already contains other providers.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,12 +48,10 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The full a
     "provider": "tiktok",
     "client_id": "your-tiktok-client-key",
     "client_secret": "your-tiktok-client-secret",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/tiktok/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/tiktok/callback"
   }
 ]
 ```
-
-Supply the JSON through your deployment secret store, preferably `OPENPOST_PROVIDER_APPS_FILE`. Or save the app in **Settings → Instance → Configuration → Provider apps** as an instance administrator. Environment entries take precedence over saved rows. Restart OpenPost after either change.
 
 ## Connect and test
 
@@ -52,5 +62,5 @@ Supply the JSON through your deployment secret store, preferably `OPENPOST_PROVI
 ## If it does not work
 
 - **OAuth fails:** Compare the Login Kit redirect URI with the JSON and `OPENPOST_APP_URL` exactly. Check app status and requested scopes.
-- **TikTok cannot fetch media:** Open the `OPENPOST_MEDIA_URL` result from outside your network, confirm HTTPS, and check that the URL falls under the verified domain or prefix.
+- **TikTok cannot fetch media:** Open a specific uploaded file URL under `OPENPOST_MEDIA_URL` from outside your network, confirm HTTPS, and check that the URL falls under the verified domain or prefix.
 - **Posting is denied or private:** Check Content Posting API product access, the approved `video.publish` or `video.upload` scope, account consent, and TikTok audit status. Reconnect after adding scopes.

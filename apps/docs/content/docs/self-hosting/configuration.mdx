@@ -4,15 +4,15 @@ description: Configure URLs, storage, provider apps, and optional self-hosted se
 icon: Settings2
 ---
 
-The Docker Compose example reads `.env` when the container starts. Keep deployment settings there or in your secret store. OpenPost also has **Settings → Instance → Configuration** for settings it can store encrypted in its database. Environment values, including `_FILE` secrets, take precedence over matching database settings. Restart the container after changing `.env`.
+The Docker Compose example reads `.env` when the container starts. Keep deployment settings there or in your secret store. OpenPost also has **Settings → Instance → Configuration** for settings it can store encrypted in its database. Environment values, including `_FILE` secrets, take precedence over matching database settings. Recreate the container with `docker compose up -d --force-recreate openpost` after changing `.env`. A plain restart keeps the previous environment.
 
 ## Public addresses
 
-| Setting               | What to enter                                                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `OPENPOST_APP_URL`    | The public origin users open, such as `https://posts.example.com`. OAuth callbacks derive from this value.                           |
-| `OPENPOST_PUBLIC_URL` | The public origin used for server links and Telegram's webhook. Usually the same as the app URL.                                     |
-| `OPENPOST_MEDIA_URL`  | A public URL for media, such as `https://posts.example.com/media`, or the default `/media` path when the public origin serves media. |
+| Setting               | What to enter                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENPOST_APP_URL`    | The public origin users open, such as `https://post.example.com`. OAuth callbacks derive from this value.                           |
+| `OPENPOST_PUBLIC_URL` | The public origin used for server links and Telegram's webhook. Usually the same as the app URL.                                    |
+| `OPENPOST_MEDIA_URL`  | A public URL for media, such as `https://post.example.com/media`, or the default `/media` path when the public origin serves media. |
 
 Use HTTPS for a public instance and make sure your proxy forwards API and media requests. Set these URLs before registering provider callbacks. Changing the app URL later can require updating callback URLs in provider portals and reconnecting accounts. [Provider integrations](/self-hosting/integrations) lists the callback for each provider.
 
@@ -26,21 +26,24 @@ Back up the database, media, Compose file, and secrets as one [restore set](/sel
 
 ## Provider apps
 
-For OAuth platforms, create an app in the provider's portal, register the exact callback, and save supported credentials in [Instance → Configuration → Provider apps](/self-hosting/integrations#save-your-provider-credentials) or `OPENPOST_PROVIDER_APPS`. Telegram bot credentials use `OPENPOST_PROVIDER_APPS`; the current Instance form does not accept them. Environment-defined apps are read-only in Settings and take precedence over database entries. Restart after changing environment configuration.
+For OAuth platforms, create an app in the provider's portal, register the exact callback, and save supported credentials in [Instance → Configuration → Provider apps](/self-hosting/integrations#save-your-provider-credentials) or `OPENPOST_PROVIDER_APPS`. Telegram bot credentials use `OPENPOST_PROVIDER_APPS`; the current Instance form does not accept them. Environment-defined apps are read-only in Settings and take precedence over database entries. Recreate the container after changing environment configuration.
 
-| Provider                     | Setup requirement                                                     |
-| ---------------------------- | --------------------------------------------------------------------- |
-| X                            | OAuth callback registered in the X developer app                      |
-| LinkedIn                     | LinkedIn app with the required products and permissions               |
-| Threads, Facebook, Instagram | Meta app with the required product, account type, and permissions     |
-| TikTok                       | App configured for the chosen posting product, review may be required |
-| YouTube                      | Google OAuth client with YouTube API enabled                          |
-| Mastodon                     | Automatic registration on a public server or a fixed app per server   |
-| Bluesky                      | No provider app; each user creates an app password                    |
-| Discord                      | Incoming webhook URL for a fixed channel                              |
-| Telegram                     | Instance bot token, username, webhook secret, and public HTTPS URL    |
+| Provider                     | Setup requirement                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| X                            | OAuth callback registered in the X developer app                                    |
+| LinkedIn                     | LinkedIn app with the required products and permissions                             |
+| Threads, Facebook, Instagram | Meta app with the required product, account type, and permissions                   |
+| TikTok                       | App configured for the chosen posting product, review may be required               |
+| YouTube                      | Google OAuth client with YouTube API enabled                                        |
+| Mastodon                     | Automatic registration on a public server or a fixed app per server                 |
+| Bluesky                      | No provider app; each user creates an app password                                  |
+| Discord                      | Incoming webhook URL for a fixed channel                                            |
+| Telegram                     | Instance bot credentials, public HTTPS webhook, and administrator readiness records |
+| Pinterest                    | Developer app, Standard access, and administrator readiness records                 |
 
 Provider rules and app review can change. Start with one account and test one post before adding more providers.
+
+Telegram, Pinterest, and Discord bot mode need the additional [administrator readiness workflow](/self-hosting/integrations#readiness-records-for-bot-apps-and-pinterest) before normal use. Discord webhooks do not need it.
 
 ## Useful controls
 

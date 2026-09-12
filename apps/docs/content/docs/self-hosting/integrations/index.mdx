@@ -1,33 +1,189 @@
 ---
-title: Provider integrations
-description: Configure provider apps for a self-hosted OpenPost instance.
+title: Set up social integrations
+description: Choose a social network, configure its credentials, and connect your first account.
 icon: Plug
 ---
 
-Self-hosting makes you responsible for provider applications, approval, callback URLs, and secrets. Configure one provider, restart OpenPost, connect one real account, and publish a small test post before adding more.
+Choose the network you want to connect. Each guide takes you through its setup, permissions, and a first test post.
 
-## How configuration works
+If you use [OpenPost Hosted](https://app.openpo.st), go straight to [connecting your accounts](/guides/accounts). These guides are for people running their own OpenPost server.
 
-Set legacy variables for X, LinkedIn, Threads, and Mastodon, or use the structured `OPENPOST_PROVIDER_APPS` JSON registry. The registry also supports Facebook, Instagram, TikTok, YouTube, Pinterest, Telegram, and Discord bot mode. Inject the variable through your deployment secret store so client secrets never enter shell history or Compose files.
+## Choose a social network
 
-Open **Settings → Instance → Configuration → Provider apps** when your instance administrator manages encrypted database rows. Environment values take precedence over matching database rows. Restart after changing provider configuration.
+<div className="provider-directory not-prose">
+  <a href="/self-hosting/integrations/bluesky">
+    <img src="/assets/logos/bluesky.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Bluesky</strong>
+      <small>Handle and app password</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/mastodon">
+    <img src="/assets/logos/mastodon.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Mastodon</strong>
+      <small>Connect through your server</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/discord">
+    <img src="/assets/logos/discord.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Discord</strong>
+      <small>Channel webhook or server bot</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/telegram">
+    <img src="/assets/logos/telegram.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Telegram</strong>
+      <small>Bot for a channel or group</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/linkedin">
+    <img src="/assets/logos/linkedin.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>LinkedIn</strong>
+      <small>Personal profiles and Pages</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/x">
+    <img src="/assets/logos/x.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>X</strong>
+      <small>Developer app with write access</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/facebook">
+    <img src="/assets/logos/facebook.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Facebook</strong>
+      <small>Pages you manage</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/instagram">
+    <img src="/assets/logos/instagram.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Instagram</strong>
+      <small>Professional account linked to a Page</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/threads">
+    <img src="/assets/logos/threads.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Threads</strong>
+      <small>Threads API app</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/youtube">
+    <img src="/assets/logos/youtube.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>YouTube</strong>
+      <small>Google OAuth and a YouTube channel</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/tiktok">
+    <img src="/assets/logos/tiktok.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>TikTok</strong>
+      <small>Login Kit and Content Posting API</small>
+    </span>
+  </a>
+  <a href="/self-hosting/integrations/pinterest">
+    <img src="/assets/logos/pinterest.svg" className="docs-provider-icon" alt="" />
+    <span>
+      <strong>Pinterest</strong>
+      <small>Business account and API app</small>
+    </span>
+  </a>
+</div>
 
-Provider portals: [LinkedIn Developers](https://www.linkedin.com/developers/), [X Developer Portal](https://developer.x.com/), [Google Cloud Console](https://console.cloud.google.com/), [TikTok for Developers](https://developers.tiktok.com/), [Pinterest Developers](https://developers.pinterest.com/), [Bluesky](https://bsky.app/), [Mastodon](https://docs.joinmastodon.org/client/intro/), [Discord Developer Portal](https://discord.com/developers/applications), and [Telegram BotFather](https://t.me/BotFather).
+Bluesky, Mastodon, and Discord webhooks do not need an operator-created developer app in the usual setup. Other networks need credentials for your instance. A developer app identifies your OpenPost server to the network; connecting an account lets that server publish for a particular person, Page, or channel.
 
-Every OAuth callback uses this shape:
+Pinterest, Telegram, and Discord bot mode also need [administrator readiness records](#readiness-records-for-bot-apps-and-pinterest). Read that requirement before starting their setup.
 
-```text
-https://your-domain.example/api/v1/accounts/<provider>/callback
+## Before you start
+
+- OpenPost runs at a stable public HTTPS address, such as `https://post.example.com`.
+- You can change the deployment configuration or sign in as the instance administrator.
+- You have access to the social account and any Page, business, or channel you want to manage.
+
+For networks that download your media, the media address must also work outside your network. Set the URLs in your deployment's `.env` file:
+
+```dotenv
+OPENPOST_APP_URL=https://post.example.com
+OPENPOST_PUBLIC_URL=https://post.example.com
+OPENPOST_MEDIA_URL=https://post.example.com/media
 ```
 
-Set `OPENPOST_APP_URL` to the public origin. The callback registered with the provider must match the configured URL exactly. `OPENPOST_MEDIA_URL` must be public HTTPS for providers that fetch media themselves.
+This example serves media through OpenPost. If you use a separate media host, keep its address in `OPENPOST_MEDIA_URL`. See [configuration](/self-hosting/configuration) for storage and URL options.
 
-## Guides
+## Save your provider credentials
 
-- [LinkedIn](/self-hosting/integrations/linkedin)
-- [X](/self-hosting/integrations/x)
-- [YouTube](/self-hosting/integrations/youtube)
-- [TikTok](/self-hosting/integrations/tiktok)
-- [Pinterest](/self-hosting/integrations/pinterest)
-- [Bluesky and Mastodon](/self-hosting/integrations/bluesky-mastodon)
-- [Discord and Telegram](/self-hosting/integrations/discord-telegram)
+First follow your network's guide to create its app. Then choose one of these ways to save the credentials. You configure the developer app once per instance; each workspace connects its own social accounts afterward.
+
+### Use the OpenPost settings form
+
+For X, LinkedIn, Facebook, Instagram, Threads, YouTube, TikTok, and Mastodon:
+
+1. Sign in as the instance administrator.
+2. Open **Settings → Instance → Configuration → Provider apps**.
+3. Choose the provider and enter its client ID, client secret, and redirect URI. Mastodon also needs the instance URL.
+4. Save the app and restart OpenPost.
+
+OpenPost encrypts saved secrets. Entries supplied by the environment appear as read-only. If an environment entry matches a saved app, the environment entry wins. Edit that entry in your deployment instead.
+
+### Use your deployment environment
+
+Set `OPENPOST_PROVIDER_APPS` to a JSON array. The provider guides include complete examples. For a Docker Compose installation that uses `env_file: .env`, put the JSON on one line in `.env`:
+
+```dotenv
+OPENPOST_PROVIDER_APPS='[{"provider":"linkedin","client_id":"YOUR_CLIENT_ID","client_secret":"YOUR_CLIENT_SECRET","redirect_uri":"https://post.example.com/api/v1/accounts/linkedin/callback"}]'
+```
+
+Replace the example values with your app's credentials. When adding another network, append its object to the same array. Keep **one** `OPENPOST_PROVIDER_APPS` entry; a second definition can replace the first and make existing integrations disappear.
+
+Use this method for Pinterest, Telegram, and Discord bot credentials, which the settings form does not yet expose. Bluesky passwords and Discord webhook URLs belong in the workspace connection dialog, not this registry.
+
+Keep `.env` private and out of Git. If your deployment provides a secret store, set the variable there. You can also set `OPENPOST_PROVIDER_APPS_FILE` to a mounted file containing the JSON array. Recreate the Compose service to load changed environment values:
+
+```sh
+docker compose up -d --force-recreate openpost
+```
+
+A plain `docker compose restart` does not reload changed environment variables. Keep the same database, media volumes, and encryption key when recreating the container.
+
+## Register the right callback
+
+For OAuth providers other than Mastodon's code flow, the callback has this form:
+
+```text
+https://post.example.com/api/v1/accounts/PROVIDER/callback
+```
+
+Each network's guide gives the complete path. Copy it exactly into the developer portal and your OpenPost configuration. Use your own domain; callback paths from Postiz or another scheduler will not work with OpenPost.
+
+Mastodon normally returns an authorization code that you paste back into OpenPost. Bluesky, Telegram, and Discord webhooks use their own connection steps and do not use this callback pattern.
+
+## Connect an account and check delivery
+
+1. Open **Settings → Workspace → Social accounts**.
+2. Choose the configured network and complete its connection flow.
+3. Confirm the account, Page, or channel shown in OpenPost is the one you intended.
+4. Create a small post in a format the network supports. Use the provider guide's suggested test.
+5. Open the publication to check delivery, then check the post on the network itself.
+
+A successful sign-in confirms access to the account. It does not confirm that every publishing permission, media URL, or optional feature works. Test the formats you plan to use before filling your calendar.
+
+If setup fails, use [connection troubleshooting](/self-hosting/integrations/troubleshooting). If the account connects but a post fails, start with [publishing troubleshooting](/guides/troubleshooting).
+
+## Readiness records for bot apps and Pinterest
+
+Pinterest, Telegram, and Discord bot mode currently require administrator readiness records even on a self-hosted instance. A saved credential can be valid while connection or publishing remains unavailable. Discord channel webhooks do not need this workflow.
+
+An instance administrator records the app's approval status first, connects a test account, then records the results of local and live publishing tests. The first publishing test uses `certification_test` intent so it can run before prior test evidence exists. It still requires the correct app, approval or trial permission, account authorization, and enabled runtime controls. Normal immediate and scheduled publishing each need current evidence.
+
+Use the [operator readiness guide](https://github.com/getopenpost/openpost/blob/main/docs/reference/providers/provider-launch-matrix.md#recording-certification-evidence) for the required records. While signed in as an instance administrator, open `/api/v1/docs` on your own OpenPost server to submit them through the API reference. Choose **The OpenPost instance serving this contract** as the server and leave `openpost_session` blank; the browser sends your session cookie. API tokens cannot perform these administrator operations.
+
+The provider pages explain the order for each network, including Telegram's webhook registration. These steps currently use the administrator API; there is no equivalent workspace settings form.
+
+Screenshot examples include adapted images from Postiz. See the [image credits](/assets/screenshots/integrations/SOURCES.txt) and [license](/assets/screenshots/integrations/POSTIZ-LICENSE.txt).

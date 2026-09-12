@@ -302,6 +302,73 @@ a {
   width: 2.25rem;
   height: 2.25rem;
 }
+.docs-title-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--color-fd-primary);
+}
+.docs-title-icon :is(img, svg) {
+  width: 1.8rem;
+  height: 1.8rem;
+  object-fit: contain;
+}
+.provider-directory {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 2rem;
+  margin-block: 1.5rem 2rem;
+}
+.provider-directory a {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 0.25rem;
+  border-bottom: 1px solid var(--color-fd-border);
+  color: var(--color-fd-foreground);
+  text-decoration: none;
+}
+.provider-directory a:hover {
+  color: var(--color-fd-primary);
+  background: var(--color-fd-muted);
+}
+.provider-directory img {
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
+  flex: none;
+}
+.provider-directory strong,
+.provider-directory small {
+  display: block;
+}
+.provider-directory small {
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+#nd-page .setup-screenshot {
+  margin-block: 1.5rem 2rem;
+}
+.setup-screenshot img {
+  width: auto;
+  max-width: 100%;
+  max-height: 32rem;
+  margin-inline: auto;
+  object-fit: contain;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.75rem;
+}
+#nd-page .setup-screenshot figcaption {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--color-fd-muted-foreground);
+}
+@media (max-width: 480px) {
+  .provider-directory {
+    grid-template-columns: 1fr;
+  }
+}
 .page-actions {
   display: inline-flex;
   flex-shrink: 0;
@@ -486,6 +553,37 @@ a {
 .docs-provider-icon {
   opacity: 0.7;
   flex-shrink: 0;
+}
+
+.setup-screenshot [data-rmiz-btn-zoom],
+[data-rmiz-modal] [data-rmiz-btn-unzoom] {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.5rem;
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+  pointer-events: auto;
+  cursor: zoom-in;
+}
+
+[data-rmiz-modal] [data-rmiz-btn-unzoom] {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  cursor: zoom-out;
+}
+
+[data-rmiz-btn-zoom] svg,
+[data-rmiz-btn-unzoom] svg {
+  width: 18px;
+  height: 18px;
 }
 .dark .docs-provider-icon {
   filter: invert(1);

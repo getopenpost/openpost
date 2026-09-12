@@ -17,7 +17,7 @@ OPENPOST_TEXT_GENERATION_MODEL=openai/gpt-5.6-luna
 OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-5.6-luna
 ```
 
-Run `docker compose up -d` to restart the container with the new environment.
+Run `docker compose up -d --force-recreate openpost` to recreate the container with the new environment.
 
 The text model builds publication copy from an idea. The image caption model writes suggested alt text. The shown IDs match this release's defaults; confirm that [OpenRouter still offers](https://openrouter.ai/models) them before relying on the example.
 

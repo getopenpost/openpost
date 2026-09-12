@@ -4,6 +4,8 @@ description: Connect a Bluesky account with its handle and an app password.
 icon: bluesky
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 Bluesky needs no developer app or callback URL. Each person connects their own account with a Bluesky app password. OpenPost stores the connection for the selected workspace.
 
 ## Create an app password
@@ -22,6 +24,15 @@ Bluesky lets you revoke an app password without changing your main password. See
 3. Create a short draft for the Bluesky account and publish it. Open the resulting post from its publication details to check the text and media on Bluesky.
 
 OpenPost discovers the account's Personal Data Server from its identity record, so you do not enter a server URL. A self-hosted PDS must be reachable by OpenPost over public HTTPS at its host root on port 443.
+
+<SetupScreenshot
+  src="/assets/screenshots/connect-bluesky-light.webp"
+  darkSrc="/assets/screenshots/connect-bluesky-dark.webp"
+  alt="OpenPost connection dialog for Bluesky handle and app password"
+  width={976}
+  height={662}
+  caption="Bluesky handle and app password in OpenPost. Screenshot uses example values."
+/>
 
 ## If the connection fails
 

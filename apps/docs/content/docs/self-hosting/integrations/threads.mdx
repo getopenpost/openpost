@@ -4,6 +4,8 @@ description: Create a Threads API app and connect a Threads account to OpenPost.
 icon: threads
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 OpenPost uses the Threads API and its own OAuth callback. A Threads app is configured separately from Facebook Login, even if you use the same Meta developer account.
 
 ## Before you start
@@ -18,17 +20,37 @@ OpenPost uses the Threads API and its own OAuth callback. A Threads app is confi
 2. Add this **Redirect URL** for OAuth:
 
    ```text
-   https://your-domain.example/api/v1/accounts/threads/callback
+   https://post.example.com/api/v1/accounts/threads/callback
    ```
 
 3. Configure access for `threads_basic`, `threads_content_publish`, `threads_manage_replies`, `threads_manage_insights`, and `threads_location_tagging`. OpenPost requests these during authorization. Complete Meta's review for features and users beyond the app's test roles.
-4. Copy the Threads app's **App ID** and **App Secret** from its settings. Confirm the Threads test account is eligible to authorize the app.
+4. For a development app, open **App roles → Roles**, add the Threads account as a **Threads Tester**, and send the invitation. Sign in to that Threads account, open **Settings → Account → Website permissions → Invites**, and accept it. The account must accept the invitation before it can authorize the app.
+5. Copy the Threads app's **App ID** and **App Secret** from its settings.
 
 Meta's [Threads API documentation](https://developers.facebook.com/docs/threads/) and [official Threads API collection](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api) describe setup, consent, and publishing.
 
+<SetupScreenshot
+  src="/assets/screenshots/integrations/threads-use-case.png"
+  alt="Meta app creation with Access the Threads API selected"
+  width={992}
+  height={498}
+  caption="Choose the Threads API use case."
+  sourceUrl="https://docs.postiz.com/self-host/providers/threads"
+/>
+
+<SetupScreenshot
+  src="/assets/screenshots/integrations/threads-callback.png"
+  alt="Threads API settings with OpenPost and the example OpenPost callback URL"
+  width={1737}
+  height={906}
+  caption="Register your own domain with the /api/v1/accounts/threads/callback path."
+  sourceUrl="https://docs.postiz.com/self-host/providers/threads"
+  edited
+/>
+
 ## Save the app in OpenPost
 
-Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The complete array below works for a new installation; append the object if you already configured other providers.
+Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
 
 ```json
 [
@@ -36,12 +58,10 @@ Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The comple
     "provider": "threads",
     "client_id": "your-threads-app-id",
     "client_secret": "your-threads-app-secret",
-    "redirect_uri": "https://your-domain.example/api/v1/accounts/threads/callback"
+    "redirect_uri": "https://post.example.com/api/v1/accounts/threads/callback"
   }
 ]
 ```
-
-Keep the JSON in a deployment secret store, preferably a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator can instead save an encrypted Threads app in **Settings → Instance → Configuration → Provider apps**. Environment entries override matching saved rows. Restart OpenPost after either change.
 
 ## Connect and test
 

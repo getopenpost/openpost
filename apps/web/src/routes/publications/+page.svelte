@@ -823,7 +823,7 @@
 											<SocialAccountIdentity
 												name={destinationName(destination)}
 												platform={destination.platform}
-												avatarUrl={account?.avatar_url}
+												avatarUrl={account?.account_avatar_url}
 												size="sm"
 												showPlatform={false}
 												class="gap-1.5 text-xs"

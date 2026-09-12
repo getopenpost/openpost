@@ -127,11 +127,7 @@
 	aria-valuemax={360}
 	aria-valuenow={Math.round(shownCenter)}
 	aria-valuetext={`${Math.round(shownCenter)}°`}
-	class="relative h-8 w-full touch-none overflow-hidden rounded-sm border border-[var(--video-editor-border)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] {disabled
-		? 'cursor-not-allowed opacity-50'
-		: 'cursor-crosshair'}"
-	style:background-image="linear-gradient(90deg, #ef4444, #f97316, #eab308, #22c55e, #06b6d4,
-	#3b82f6, #8b5cf6, #ec4899, #ef4444)"
+	class={`hue-band relative h-8 w-full touch-none overflow-hidden rounded-sm border border-[var(--video-editor-border)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-crosshair'}`}
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onpointerup={handlePointerUp}
@@ -159,3 +155,20 @@
 		>{m.video_editor_qualifier_hue_value({ degrees: Math.round(shownCenter) })}</span
 	>
 </button>
+
+<style>
+	.hue-band {
+		background-image: linear-gradient(
+			90deg,
+			#ef4444,
+			#f97316,
+			#eab308,
+			#22c55e,
+			#06b6d4,
+			#3b82f6,
+			#8b5cf6,
+			#ec4899,
+			#ef4444
+		);
+	}
+</style>

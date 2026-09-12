@@ -1,0 +1,45 @@
+---
+title: Telegram bot
+description: Connect a Telegram channel or group to your self-hosted instance.
+icon: telegram
+---
+
+OpenPost uses one bot owned by the instance. Each workspace connects a specific channel or group by sending a one-time command there. Telegram must be able to reach your OpenPost HTTPS webhook.
+
+## Create the bot and prepare the chat
+
+1. In Telegram, open [@BotFather](https://t.me/BotFather), send `/newbot`, and follow its prompts. Copy the bot token and note its username. Telegram's [BotFather guide](https://core.telegram.org/bots/features#creating-a-new-bot) explains this step.
+2. Add the bot to the channel or group where it should publish. For a channel, make it an administrator with permission to post messages. For a group, it must be allowed to send messages. OpenPost verifies those permissions when connecting and again before publishing.
+3. Find the chat's numeric ID. In [Telegram Web A](https://web.telegram.org/a/), open that chat and copy the number after `#` in the address, including the minus sign. Stop before any underscore. It often starts with `-100` for a channel or supergroup.
+
+## Configure OpenPost
+
+Set `OPENPOST_PUBLIC_URL` to your public HTTPS origin, such as `https://posts.example.com`. Telegram sends updates to `https://posts.example.com/api/v1/webhooks/telegram`; your reverse proxy must forward that path to OpenPost.
+
+Set `OPENPOST_PROVIDER_APPS` in the server environment. The current Instance configuration form does not accept Telegram bot credentials:
+
+```dotenv
+OPENPOST_PROVIDER_APPS=[{"provider":"telegram","bot_token":"your-bot-token","bot_username":"your_bot","webhook_secret":"a-long-random-secret"}]
+```
+
+If `OPENPOST_PROVIDER_APPS` already contains other providers, add this object to the existing JSON array instead of replacing it.
+
+Keep the token and webhook secret private. Use letters, numbers, `_`, or `-` for the webhook secret, as required by [Telegram's `secret_token` field](https://core.telegram.org/bots/api#setwebhook). Restart OpenPost with `docker compose up -d`. On startup, OpenPost registers the HTTPS webhook with Telegram. If registration fails, check `docker compose logs --tail=100 openpost` and your public URL.
+
+## Connect and test
+
+1. In OpenPost, choose the workspace and open **Settings → Workspace → Social accounts → Telegram**.
+2. Enter the numeric chat ID and generate the command. OpenPost shows a one-time `/connect` command, valid for 15 minutes.
+3. Send the command in that exact Telegram chat. Then refresh the social accounts list to confirm the chat appears.
+4. Publish a short text post to that destination and check both Telegram and the publication result. Test scheduled or media posts after the first post succeeds.
+
+The bot token stays at the instance level. Workspace accounts and publication jobs use the verified chat connection, not a copy of the bot token. A correctly configured self-hosted instance can connect and publish without a separate provider-review switch.
+
+## If the connection fails
+
+- A `503` or unavailable connection means the bot configuration or webhook readiness is missing. Check the provider app, public HTTPS URL, and startup logs.
+- An invalid chat ID needs the exact number from the target chat. Do not paste a `t.me` link or channel name.
+- The command works only once, for the chat ID entered, and expires after 15 minutes. Generate a new command if needed.
+- If the account connects but cannot publish, check that the bot still belongs to the chat and has posting permission. Telegram channel permissions differ from group permissions.
+
+Telegram's [Bot API](https://core.telegram.org/bots/api) documents webhook delivery and chat administrator rights.

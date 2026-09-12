@@ -4,9 +4,11 @@ description: Configure authentication and notification email for self-hosted ins
 icon: Mail
 ---
 
-Self-hosted mode does not require email by default. Configure a transport when you need verification codes, password resets, workspace invitations, or notifications.
+Self-hosted OpenPost can start without an email service. Add one before you depend on password resets, workspace invitations, email notifications, or required signup verification. Pick one of the transports below and use a sender address on a domain you control.
 
-### SMTP
+## SMTP
+
+Get the host, port, login, and TLS mode from your mail provider. Add them to the server `.env` file:
 
 ```dotenv
 OPENPOST_EMAIL_PROVIDER=smtp
@@ -14,16 +16,37 @@ OPENPOST_SMTP_HOST=smtp.example.com
 OPENPOST_SMTP_PORT=587
 OPENPOST_SMTP_USERNAME=mailer
 OPENPOST_SMTP_PASSWORD=replace-me
-OPENPOST_EMAIL_FROM=OpenPost <no-reply@example.com>
+OPENPOST_EMAIL_FROM="OpenPost <no-reply@example.com>"
 OPENPOST_SMTP_TLS_MODE=starttls
 ```
 
-Use port 465 with `OPENPOST_SMTP_TLS_MODE=tls` when your provider uses implicit TLS. Plaintext SMTP is rejected for non-loopback hosts.
+Use port 465 with `OPENPOST_SMTP_TLS_MODE=tls` when your provider uses implicit TLS. OpenPost rejects unencrypted SMTP to non-loopback hosts. If the provider requires a different certificate hostname, set `OPENPOST_SMTP_SERVER_NAME` to the name on the certificate.
 
-### Resend or Cloudflare Email
+## Resend
 
-Set `OPENPOST_EMAIL_PROVIDER=resend` with `OPENPOST_RESEND_API_KEY` or set `OPENPOST_EMAIL_PROVIDER=cloudflare` with `OPENPOST_CLOUDFLARE_EMAIL_ACCOUNT_ID` and `OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN`. Set `OPENPOST_EMAIL_FROM` to a verified sender.
+Verify a sending domain in [Resend](https://resend.com/docs/dashboard/domains/introduction), then create a key with [Sending access](https://resend.com/docs/dashboard/api-keys/introduction). Set a sender on the verified domain:
 
-Set `OPENPOST_EMAIL_VERIFICATION_REQUIRED=true` only when the chosen transport is ready. Delivery callbacks, when supported, use `POST /api/v1/email/delivery/webhook` and `OPENPOST_EMAIL_DELIVERY_WEBHOOK_SECRET`.
+```dotenv
+OPENPOST_EMAIL_PROVIDER=resend
+OPENPOST_EMAIL_FROM="OpenPost <no-reply@example.com>"
+OPENPOST_RESEND_API_KEY=your-resend-key
+```
 
-Restart after changing email configuration. Send a test invitation or password-reset email, then check the provider delivery log and OpenPost's delivery status.
+## Cloudflare Email Service
+
+Onboard your domain in [Cloudflare Email Sending](https://developers.cloudflare.com/email-service/get-started/send-emails/) and create an API token with Email Sending permission. OpenPost uses the Cloudflare REST API, so it needs the account ID and token:
+
+```dotenv
+OPENPOST_EMAIL_PROVIDER=cloudflare
+OPENPOST_EMAIL_FROM="OpenPost <no-reply@example.com>"
+OPENPOST_CLOUDFLARE_EMAIL_ACCOUNT_ID=your-account-id
+OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN=your-api-token
+```
+
+## Verify delivery
+
+1. Run `docker compose up -d` after editing `.env`.
+2. Invite a test address to a workspace or request a password reset for an account you control. Check both the inbox and your mail provider's delivery log.
+3. Only after delivery works, set `OPENPOST_EMAIL_VERIFICATION_REQUIRED=true` if new password accounts must verify their address, then restart again.
+
+If mail does not arrive, check `docker compose logs --tail=100 openpost`, the provider's sender verification, credentials, SMTP TLS mode, and the recipient's spam folder. An accepted send is not proof the message reached the inbox. Delivery callbacks, when configured for a supported provider, use `POST /api/v1/email/delivery/webhook` and `OPENPOST_EMAIL_DELIVERY_WEBHOOK_SECRET`.

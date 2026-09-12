@@ -4,23 +4,32 @@ description: Configure OpenRouter for post generation and media captions.
 icon: Sparkles
 ---
 
-OpenPost's self-hosted AI features use OpenRouter. Set the provider key and model values in the server environment or instance configuration, then restart OpenPost.
+OpenPost's server-side AI features use OpenRouter. They are optional. Without an OpenRouter key, people can still write, edit, schedule, and publish posts; the AI builder and automatic image captions are unavailable.
+
+## Add a key
+
+1. Create an API key in [OpenRouter](https://openrouter.ai/settings/keys). Check the account's billing and model access before inviting others to use generation.
+2. Add the key to the `.env` file used by your OpenPost container. Choose model IDs available to that key:
 
 ```dotenv
 OPENROUTER_API_KEY=your-openrouter-key
-OPENPOST_CONTENT_AI_PROVIDER=azure/eu
 OPENPOST_TEXT_GENERATION_MODEL=openai/gpt-5.6-luna
 OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-5.6-luna
 ```
 
-`OPENPOST_CONTENT_AI_PROVIDER` selects the exact OpenRouter provider for post and meme generation. `OPENPOST_TEXT_GENERATION_MODEL` builds publication copy from an idea. `OPENPOST_IMAGE_CAPTION_MODEL` generates automatic alt text. Set `OPENPOST_CONTENT_AI_REQUIRE_ZDR=true` only when the selected model and provider support zero data retention.
+Run `docker compose up -d` to restart the container with the new environment.
 
-Create a key in your [OpenRouter account](https://openrouter.ai/settings/keys). Store it server-side in `.env`, or set `OPENROUTER_API_KEY_FILE` to a readable secret file. Do not put it in a publication, prompt, log, or client-side code. If generation fails, check the provider slug, model ID, account balance, and whether the model supports the requested operation.
+The text model builds publication copy from an idea. The image caption model writes suggested alt text. The shown IDs match this release's defaults; confirm that [OpenRouter still offers](https://openrouter.ai/models) them before relying on the example.
+
+You can leave the model values unset to use OpenPost's defaults. `OPENPOST_CONTENT_AI_PROVIDER` optionally selects an exact OpenRouter provider for text and meme generation. `OPENPOST_CONTENT_AI_REQUIRE_ZDR=true` restricts those requests to zero-retention endpoints. Use it only after checking that the selected model and provider support that policy. OpenRouter [documents its per-request zero-retention behavior](https://openrouter.ai/docs/guides/features/zdr). Image captions have separate `OPENPOST_IMAGE_CAPTION_PROVIDER` and `OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR` settings when you need different routing.
+
+Keep the key on the server. You can use `OPENROUTER_API_KEY_FILE` for a mounted secret file instead of putting the value in `.env`. Do not put it in a publication, prompt, log, or browser code.
 
 ## Check the setup
 
-1. Restart OpenPost with `docker compose up -d` after updating `.env`.
-2. Open a new publication and ask the AI builder to turn a short idea into a draft. Review the generated copy before saving or publishing.
-3. Add an image with no existing alt text to the composer. OpenPost can generate a caption; review it before publishing. Existing alt text is kept.
+1. Open a new publication and ask the AI builder to turn a short idea into a draft. Review the generated copy before saving or publishing.
+2. Add an image with no existing alt text to the composer and generate a caption. Review it before publishing. Existing alt text is kept.
 
-Post generation sends your idea and selected context to the configured model. Automatic alt text sends a small JPEG thumbnail and bounded post context, not the original image. Background removal, video editing, and local transcription run in the browser and do not require this key.
+Post generation sends the idea and selected context to the configured model through OpenRouter. Automatic alt text sends a 400 px JPEG thumbnail and up to 1,000 characters of relevant post text, rather than the original image. Background removal, video editing, and local transcription run in the browser and do not require this key.
+
+If a request fails, check the container logs for an OpenRouter error, then check the key, model ID, balance, provider slug, and zero-retention setting. A text-only model may not be suitable for image captions.

@@ -4,31 +4,36 @@ description: Back up, upgrade, monitor, and recover a self-hosted instance.
 icon: ArchiveRestore
 ---
 
-Back up `data/db`, `data/media`, and the JWT and encryption secrets as one restore set. Test a restore before relying on it. A database backup without media cannot restore complete publications.
+The database holds accounts, schedules, and publication state. The media directory holds uploaded files. Back up both with the Compose file and `.env`; the latter contains the JWT and encryption secrets needed to read saved credentials. Keep backups private and off the server, and test a restore before relying on them.
+
+## Back up the SQLite setup
+
+From the directory containing `docker-compose.yml`, stop OpenPost so the SQLite copy is consistent. Record the image tag and create an archive:
+
+```sh
+docker compose stop openpost
+tar -czf "openpost-backup-$(date +%Y%m%d-%H%M%S).tar.gz" data .env docker-compose.yml
+docker compose start openpost
+```
+
+Check that the archive opens with `tar -tzf openpost-backup-YYYYMMDD-HHMMSS.tar.gz`, replacing the name with your new file. Copy it to private storage outside this server. It contains account data and secrets. If you use PostgreSQL or S3 storage, back up those services with their own consistent backup tools as well.
 
 ## Upgrade
 
-Pull the selected image, restart the service, and inspect the logs:
+Back up first. Change the `image:` value in `docker-compose.yml` to the release tag you intend to run, then pull and start it:
 
 ```sh
-docker compose pull
-docker compose up -d
-docker compose logs --tail=100 -f openpost
+docker compose pull openpost
+docker compose up -d openpost
+curl -fsS http://localhost:8080/api/v1/ready
+docker compose logs --tail=100 openpost
 ```
 
-The container applies database migrations on startup. Back up before upgrading; restoring an older image may also require restoring its database backup.
+The self-hosted `all` container applies database migrations at startup. If you need to return to the previous image, restore its matching database backup too. An older binary may not understand a newer database schema.
 
-## Back up and restore
+## Restore
 
-From the directory containing `docker-compose.yml`, stop the service while copying SQLite and media:
-
-```sh
-docker compose stop
-tar -czf "openpost-backup-$(date +%Y%m%d-%H%M%S).tar.gz" data .env docker-compose.yml
-docker compose start
-```
-
-Store the archive somewhere private and off the server. It contains credentials and your content. To restore on another server, extract it into an empty directory and run `docker compose up -d` there with the same image version used for the backup.
+On a replacement server, install Docker Compose, extract the archive into an empty directory, and check the image tag and paths in `docker-compose.yml`. Restore the same `.env` secrets. Start with `docker compose up -d`, check `/api/v1/ready`, sign in, open a saved publication with media, and inspect a scheduled post. Reconnect any provider whose external app or token was revoked since the backup.
 
 ## Check health
 
@@ -37,4 +42,4 @@ curl https://your-openpost-host.example/api/v1/health
 curl https://your-openpost-host.example/api/v1/ready
 ```
 
-For a failed post, inspect the affected rendition, fix its provider or media issue, and retry it. For a failed startup, check logs, database connectivity, writable media storage, free disk space, and secret values.
+`/health` shows that the process responds; `/ready` checks whether it can serve work with its required dependencies. Check readiness after every restart and from outside the reverse proxy. For a failed post, open the affected rendition, fix its provider or media issue, and retry it. For a failed startup, check logs, database connectivity, writable media storage, free disk space, and whether the original secret values are present.

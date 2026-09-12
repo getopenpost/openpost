@@ -4,13 +4,13 @@ description: Run OpenPost on your own server with Docker Compose.
 icon: Server
 ---
 
-This guide runs one OpenPost container with SQLite and local media storage. You do not need a separate database or queue service.
+This guide runs one OpenPost container with SQLite and local media storage. It is the shortest path for a personal or small-team instance. OpenPost runs its web and background work in the same container, so you do not need a separate queue service.
 
 ## Before you start
 
-- Install Docker with Docker Compose and keep the database and media on persistent storage.
+- Install Docker with the Compose plugin. Run the commands below on the server that will host OpenPost.
 - The published image supports `linux/amd64`. Other architectures need amd64 emulation.
-- For a public instance, prepare a domain and an HTTPS reverse proxy that forwards to port `8080`. Provider callbacks and media URLs must be reachable from outside your network.
+- For a public instance, point a domain at the server and put an HTTPS reverse proxy in front of port `8080`. Forward all app requests, including `/api/v1/` and `/media/`. Provider callbacks and media URLs must be reachable from outside your network.
 
 You can test locally first. Set the final public URLs before connecting social accounts.
 
@@ -36,7 +36,7 @@ EOF
 chmod 600 .env
 ```
 
-For a public deployment, replace all three URLs with the real HTTPS origin before connecting providers. Keep both generated secrets stable across restarts and restores.
+For a public deployment, replace all three URLs with the real HTTPS origin before connecting providers. For example, set `OPENPOST_APP_URL=https://posts.example.com`, `OPENPOST_PUBLIC_URL=https://posts.example.com`, and `OPENPOST_MEDIA_URL=https://posts.example.com/media`. Keep both generated secrets stable across restarts and restores.
 
 Create `docker-compose.yml`:
 
@@ -67,13 +67,17 @@ docker compose up -d
 curl http://localhost:8080/api/v1/ready
 ```
 
+The ready response should show `"status":"ready"` and `"database":"ok"`. It also reports storage when you use S3. If the request fails, inspect `docker compose logs --tail=100 openpost`. For a public server, check `https://your-domain.example/api/v1/ready` through the reverse proxy too.
+
 Open `http://localhost:8080` and create the first account. That account becomes the instance administrator. Create a workspace, then configure the [provider integrations](/self-hosting/integrations) you need. Once a provider is configured, connect your social account and follow the [first-post guide](/guides/quickstart).
 
-After setup, set `OPENPOST_DISABLE_REGISTRATIONS=true` in `.env` and restart if the instance should stop accepting new self-service registrations.
+After setup, set `OPENPOST_DISABLE_REGISTRATIONS=true` in `.env` and run `docker compose up -d` if the instance should stop accepting new self-service registrations. Existing accounts can still sign in.
 
 ## Production requirements
 
-Put the instance behind HTTPS and route the public origin to port 8080. OAuth callback URLs must match the public origin exactly. Back up `data/db`, `data/media`, and both secret values together. Configure provider apps in [configuration](/self-hosting/configuration).
+Keep the proxy's HTTPS certificate valid and forward the original host and scheme. OAuth callback URLs must match the public origin exactly. Use a versioned image tag for upgrades, then [back up and test a restore](/self-hosting/maintenance). Back up `data/db`, `data/media`, the Compose file, and `.env` together. The `.env` file contains secrets, so protect the backup.
+
+When several people use the instance, decide who can register and set up [email delivery](/self-hosting/email) before requiring email verification. Set up each social provider in [provider integrations](/self-hosting/integrations); Bluesky and Discord webhooks need no developer app, while OAuth providers need their own credentials and often a public callback.
 
 ## Next steps
 

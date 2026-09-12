@@ -4,15 +4,29 @@ description: Configure URLs, storage, provider apps, and optional self-hosted se
 icon: Settings2
 ---
 
-Set `OPENPOST_APP_URL`, `OPENPOST_PUBLIC_URL`, and `OPENPOST_MEDIA_URL` to the addresses users and providers can reach. Use HTTPS for production. OAuth callback URLs must match the configured public URL exactly.
+The Docker Compose example reads `.env` when the container starts. Keep deployment settings there or in your secret store. OpenPost also has **Settings → Instance → Configuration** for settings it can store encrypted in its database. Environment values, including `_FILE` secrets, take precedence over matching database settings. Restart the container after changing `.env`.
+
+## Public addresses
+
+| Setting               | What to enter                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `OPENPOST_APP_URL`    | The public origin users open, such as `https://posts.example.com`. OAuth callbacks derive from this value.                           |
+| `OPENPOST_PUBLIC_URL` | The public origin used for server links and Telegram's webhook. Usually the same as the app URL.                                     |
+| `OPENPOST_MEDIA_URL`  | A public URL for media, such as `https://posts.example.com/media`, or the default `/media` path when the public origin serves media. |
+
+Use HTTPS for a public instance and make sure your proxy forwards API and media requests. Set these URLs before registering provider callbacks. Changing the app URL later can require updating callback URLs in provider portals and reconnecting accounts. [Provider integrations](/self-hosting/integrations) lists the callback for each provider.
 
 ## Storage
 
-SQLite at `OPENPOST_DATABASE_PATH` and local files at `OPENPOST_MEDIA_PATH` are the default. Set `OPENPOST_DATABASE_URL` for PostgreSQL. Use an S3-compatible media configuration when media should live outside the container. Back up the database and media together.
+The [Compose setup](/self-hosting) stores SQLite at `/data/db/openpost.db` and media at `/data/media`. Both paths sit under the persistent `./data` bind mount. Do not put only the database on persistent storage; published media and draft attachments live in the media directory.
+
+For PostgreSQL, set `OPENPOST_DATABASE_DRIVER=postgres` and `OPENPOST_DATABASE_URL` to the connection string. For S3-compatible storage, set `OPENPOST_STORAGE_DRIVER=s3`, `OPENPOST_S3_ENDPOINT`, `OPENPOST_S3_REGION`, `OPENPOST_S3_BUCKET`, `OPENPOST_S3_ACCESS_KEY_ID`, `OPENPOST_S3_SECRET_ACCESS_KEY`, and `OPENPOST_S3_PUBLIC_BASE_URL`. Set `OPENPOST_S3_FORCE_PATH_STYLE=true` only if your object store needs it. These are deployment choices; moving an existing instance's data needs a planned migration, not just a setting change.
+
+Back up the database, media, Compose file, and secrets as one [restore set](/self-hosting/maintenance).
 
 ## Provider apps
 
-Self-hosted operators create provider apps and enter their client IDs, secrets, callback URLs, and required permissions. Environment-defined provider apps are read-only in Settings and take precedence over database entries. Restart OpenPost after changing them.
+For OAuth platforms, create an app in the provider's portal, register the exact callback, and save supported credentials in [Instance → Configuration → Provider apps](/self-hosting/integrations#save-your-provider-credentials) or `OPENPOST_PROVIDER_APPS`. Telegram bot credentials use `OPENPOST_PROVIDER_APPS`; the current Instance form does not accept them. Environment-defined apps are read-only in Settings and take precedence over database entries. Restart after changing environment configuration.
 
 | Provider                     | Setup requirement                                                     |
 | ---------------------------- | --------------------------------------------------------------------- |
@@ -21,12 +35,13 @@ Self-hosted operators create provider apps and enter their client IDs, secrets, 
 | Threads, Facebook, Instagram | Meta app with the required product, account type, and permissions     |
 | TikTok                       | App configured for the chosen posting product, review may be required |
 | YouTube                      | Google OAuth client with YouTube API enabled                          |
-| Mastodon                     | App per server, or automatic app setup on a public instance           |
-| Bluesky                      | No provider app, use an account app password                          |
-| Discord                      | Incoming webhook URL                                                  |
+| Mastodon                     | Automatic registration on a public server or a fixed app per server   |
+| Bluesky                      | No provider app; each user creates an app password                    |
+| Discord                      | Incoming webhook URL for a fixed channel                              |
+| Telegram                     | Instance bot token, username, webhook secret, and public HTTPS URL    |
 
 Provider rules and app review can change. Start with one account and test one post before adding more providers.
 
 ## Useful controls
 
-Set `OPENPOST_DISABLE_REGISTRATIONS=true` after the first administrator has created the instance. Keep `OPENPOST_JWT_SECRET` and `OPENPOST_ENCRYPTION_KEY` private and stable. Configure CORS only for origins that need API access.
+Set `OPENPOST_DISABLE_REGISTRATIONS=true` after creating the first administrator if only invited people should join. Set up mail before enabling `OPENPOST_EMAIL_VERIFICATION_REQUIRED=true`. Keep `OPENPOST_JWT_SECRET` and `OPENPOST_ENCRYPTION_KEY` private and stable: changing the encryption key without its previous key material can make saved provider credentials unreadable. Use `OPENPOST_EXTRA_CORS_ORIGINS` only for other origins that need browser API access; normal same-origin use needs no entry.

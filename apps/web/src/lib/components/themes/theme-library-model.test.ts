@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ThemeReference } from './theme-library-model';
 import {
 	builtInThemeReference,
 	builtInManifestReference,
@@ -24,8 +25,8 @@ describe('theme library references', () => {
 	});
 
 	it('does not collapse distinct published revisions into one selection', () => {
-		const third = { kind: 'custom', id: 'northstar', version: 3 };
-		const fourth = { kind: 'custom', id: 'northstar', version: 4 };
+		const third: ThemeReference = { kind: 'custom', id: 'northstar', version: 3 };
+		const fourth: ThemeReference = { kind: 'custom', id: 'northstar', version: 4 };
 		expect(sameThemeReference(third, fourth)).toBe(false);
 		expect(sameThemeFamily(third, fourth)).toBe(true);
 	});

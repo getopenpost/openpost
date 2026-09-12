@@ -43,7 +43,7 @@
 	let fontStyle: ThemeFontUploadInput['style'] = $state('normal');
 	let fontDisplay: ThemeFontUploadInput['display'] = $state('swap');
 	let licenseAcknowledged = $state(false);
-	let assetSlot: ThemeAssetSlot = $state('background-texture');
+	let assetSlot = $state<ThemeAssetSlot>('background-texture');
 	let assetAlt = $state('');
 	let deleteCandidate = $state<{ id: string; label: string } | null>(null);
 	let deleteDialogOpen = $state(false);

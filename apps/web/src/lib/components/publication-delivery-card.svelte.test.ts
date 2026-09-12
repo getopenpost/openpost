@@ -91,11 +91,11 @@ it.each([{ resolvable: true }, { resolvable: false }])(
 			...baseRendition,
 			delivery: {
 				target_key: 'x',
-				state: 'manual_resolution',
+				state: 'manual_resolution' as const,
 				current_attempt_id: 'attempt-4',
 				current_attempt_number: 4,
 				current_attempt_created_at: '2026-08-13T10:00:00Z',
-				recovery_action: 'manual_resolution'
+				recovery_action: 'manual_resolution' as const
 			}
 		};
 		const screen = resolvable

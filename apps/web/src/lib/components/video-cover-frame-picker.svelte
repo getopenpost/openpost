@@ -144,7 +144,7 @@
 			onclick={applyFrame}
 		>
 			{#if applying}
-				<ProtectedIcon icon="loading" class="size-4 animate-spin" aria-hidden="true" />
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" />
 				{m.compose_cover_frame_applying()}
 			{:else}
 				{m.compose_cover_frame_use()}
@@ -158,14 +158,14 @@
 		</p>
 	{:else if appliedTimestampMs !== null}
 		<p class="flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
-			<ProtectedIcon icon="success" class="size-3.5 text-success-foreground" aria-hidden="true" />
+			<ProtectedIcon icon="success" class="size-3.5 text-success-foreground" />
 			{m.compose_cover_frame_selected({
 				time: formatCoverFrameTimestamp(appliedTimestampMs)
 			})}
 		</p>
 	{:else if mode === 'image' && typeof value === 'string' && value}
 		<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-			<ProtectedIcon icon="success" class="size-3.5 text-success-foreground" aria-hidden="true" />
+			<ProtectedIcon icon="success" class="size-3.5 text-success-foreground" />
 			{m.compose_cover_image_selected()}
 		</p>
 	{/if}

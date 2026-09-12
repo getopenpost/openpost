@@ -5,6 +5,7 @@ import type { TimelineItem, TimelineTrack } from '../../project/types';
 import { getEditorTool } from '../registry';
 import { buildClipRefs, setClipRefSelectionProvider } from '../clip-refs';
 import { setAgentSelectionHandler } from './definitions';
+import { transitionsStore } from '../../timeline/actions/transitions.svelte';
 
 const track: TimelineTrack = {
 	id: 'v1',
@@ -20,6 +21,7 @@ const track: TimelineTrack = {
 
 beforeEach(() => {
 	commandHistory.clearHistory();
+	transitionsStore.clear();
 	timelineStore.__resetForTesting();
 	timelineStore.setAll({ tracks: [track], items: [], fps: 30 });
 	buildClipRefs();
@@ -90,5 +92,26 @@ describe('editor tool registry', () => {
 		expect(commandHistory.undoStack.length).toBeGreaterThan(before);
 		commandHistory.undo();
 		expect(timelineStore.itemById.has('a')).toBe(true);
+	});
+
+	it('uses the requested transition presentation', async () => {
+		const clips: TimelineItem[] = [0, 60].map((from, index) => ({
+			id: `clip-${index}`,
+			trackId: track.id,
+			from,
+			durationInFrames: 60,
+			label: `Clip ${index}`,
+			type: 'video',
+			mediaId: 'media-1',
+			sourceStart: 30,
+			sourceEnd: 90,
+			sourceDuration: 120,
+			sourceFps: 30
+		}));
+		timelineStore.setAll({ tracks: [track], items: clips, fps: 30 });
+		buildClipRefs();
+
+		await getEditorTool('add_transition')!.execute({ clips: ['c1', 'c2'], type: 'wipe' });
+		expect(transitionsStore.list[0]?.presentation).toBe('wipe');
 	});
 });

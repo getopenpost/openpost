@@ -160,7 +160,15 @@ const findClips = defineTool({
 		return {
 			ok: true,
 			message: m.video_editor_agent_tool_find_clips_found({ count: matches.length, summary }),
-			data: matches
+			data: matches.map(({ ref, itemId, type, label, startSeconds, endSeconds, selected }) => ({
+				ref,
+				itemId,
+				type,
+				label,
+				startSeconds,
+				endSeconds,
+				selected
+			}))
 		};
 	}
 });
@@ -197,7 +205,11 @@ const searchTranscript = defineTool({
 				query: args.query,
 				lines: lines.join('; ')
 			}),
-			data: matches
+			data: matches.map(({ itemId, timelineSeconds, snippet }) => ({
+				itemId,
+				timelineSeconds,
+				snippet
+			}))
 		};
 	}
 });
@@ -506,8 +518,11 @@ const addTransition = defineTool({
 		if (requestedType !== undefined && !isTransitionType(requestedType)) {
 			throw new Error(m.video_editor_agent_error_unknown_transition({ type: requestedType }));
 		}
-		const type: TransitionPresentation = requestedType ?? 'crossfade';
-		const id = addTransitionAction(left.id, right.id, type, durationInFrames);
+		const presentation: TransitionPresentation =
+			requestedType === 'crossfade' ? 'fade' : (requestedType ?? 'fade');
+		const id = addTransitionAction(left.id, right.id, 'crossfade', durationInFrames, {
+			presentation
+		});
 		if (!id) throw new Error(m.video_editor_agent_error_transition_failed());
 		return {
 			ok: true,

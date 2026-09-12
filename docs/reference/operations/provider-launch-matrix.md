@@ -83,7 +83,8 @@ Only an unscoped instance administrator using a signed-in browser session may ap
 - `POST /api/v1/admin/provider-readiness/certifications`
 
 To use the built-in API reference, sign in as an unscoped instance administrator
-and open `/api/v1/docs` on that same instance. Choose one of these operations,
+and open `/api/v1/docs` on that same instance. Select **The OpenPost instance
+serving this contract** in the Server menu. Choose one of these operations,
 leave the session-cookie value blank in the reference, and submit it from the
 browser. The browser sends the existing HttpOnly `openpost_session` cookie;
 there is no need to copy its value or create an API token. Cross-origin session

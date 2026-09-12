@@ -17,7 +17,7 @@
 	import EditorStart from '$lib/components/editor-start.svelte';
 	import EditorFormatButton from '$lib/components/editor-format-button.svelte';
 	import TemplatePreview from '$lib/image-editor/components/template-preview.svelte';
-	import { imageEditorQueryAPI } from '$lib/query/image-editor';
+	import { imageEditorQueryAPI, type WebImageEditorQueryData } from '$lib/query/image-editor';
 	import {
 		createGuestImageEditorDesign,
 		createGuestImageEditorDesignFromImage,
@@ -49,7 +49,7 @@
 	let deleteReturnFocus = $state<HTMLElement | null>(null);
 	const configQuery = createQuery(() => imageEditorConfigQueryOptions(imageEditorQueryAPI));
 	const templatesQuery = createQuery(() =>
-		imageEditorPublicTemplatesQueryOptions(imageEditorQueryAPI)
+		imageEditorPublicTemplatesQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI)
 	);
 	let enabled = $derived(configQuery.data?.enabled ?? true);
 	let presets = $derived<ImageEditorPreset[]>(configQuery.data?.presets ?? []);

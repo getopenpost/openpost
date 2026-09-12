@@ -20,7 +20,7 @@
 	} from '$lib/query/authorization-boundary';
 	import { createInfiniteQuery } from '@tanstack/svelte-query';
 	import { imageEditorDesignCatalogQueryOptions } from '@openpost/query-catalog';
-	import { imageEditorQueryAPI } from '$lib/query/image-editor';
+	import { imageEditorQueryAPI, type WebImageEditorQueryData } from '$lib/query/image-editor';
 	import type { ImageEditorDesignSummary } from '$lib/image-editor/types';
 	import {
 		EDITOR_CATALOG_PAGE_SIZE,
@@ -82,10 +82,14 @@
 	let activeCatalogKey = $derived(editorCatalogKey(workspaceID, querySearch));
 	let catalogWorkspaceIsCurrent = $derived(queryWorkspaceID === workspaceID);
 	const designsQuery = createInfiniteQuery(() =>
-		imageEditorDesignCatalogQueryOptions(imageEditorQueryAPI, queryWorkspaceID, {
-			search: querySearch,
-			limit: EDITOR_CATALOG_PAGE_SIZE
-		})
+		imageEditorDesignCatalogQueryOptions<WebImageEditorQueryData>(
+			imageEditorQueryAPI,
+			queryWorkspaceID,
+			{
+				search: querySearch,
+				limit: EDITOR_CATALOG_PAGE_SIZE
+			}
+		)
 	);
 	let catalog = $derived.by<CatalogView>(() => {
 		const pages = catalogWorkspaceIsCurrent ? (designsQuery.data?.pages ?? []) : [];

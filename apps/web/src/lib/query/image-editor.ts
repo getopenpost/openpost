@@ -171,7 +171,15 @@ export function createImageEditorQueryAPI(
 			return (data.templates ?? []).map((template) => {
 				const mapped = imageEditorTemplate(template);
 				if (mapped.built_in && !mapped.workspace_id) return mapped;
-				return requireImageEditorWorkspace(mapped, workspaceId);
+				if (mapped.workspace_id !== workspaceId) {
+					throw new OpenPostQueryError(
+						'This Image Editor resource is not in the selected workspace',
+						{
+							status: 404
+						}
+					);
+				}
+				return mapped;
 			});
 		},
 		async listPublicTemplates(signal): Promise<ImageEditorTemplate[]> {
@@ -262,7 +270,11 @@ export function queryImageEditorConfig() {
 
 export function queryImageEditorDesign(workspaceId: string, designId: string) {
 	return queryClient.query(
-		imageEditorDesignQueryOptions(imageEditorQueryAPI, workspaceId, designId)
+		imageEditorDesignQueryOptions<WebImageEditorQueryData>(
+			imageEditorQueryAPI,
+			workspaceId,
+			designId
+		)
 	);
 }
 
@@ -280,20 +292,30 @@ export function queryImageEditorDesigns(
 	filters: Parameters<typeof imageEditorDesignsQueryOptions>[2] = {}
 ) {
 	return queryClient.query(
-		imageEditorDesignsQueryOptions(imageEditorQueryAPI, workspaceId, filters)
+		imageEditorDesignsQueryOptions<WebImageEditorQueryData>(
+			imageEditorQueryAPI,
+			workspaceId,
+			filters
+		)
 	);
 }
 
 export function queryImageEditorTemplates(workspaceId: string) {
-	return queryClient.query(imageEditorTemplatesQueryOptions(imageEditorQueryAPI, workspaceId));
+	return queryClient.query(
+		imageEditorTemplatesQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI, workspaceId)
+	);
 }
 
 export function queryPublicImageEditorTemplates() {
-	return queryClient.query(imageEditorPublicTemplatesQueryOptions(imageEditorQueryAPI));
+	return queryClient.query(
+		imageEditorPublicTemplatesQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI)
+	);
 }
 
 export function queryImageEditorBrandKit(workspaceId: string) {
-	return queryClient.query(imageEditorBrandKitQueryOptions(imageEditorQueryAPI, workspaceId));
+	return queryClient.query(
+		imageEditorBrandKitQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI, workspaceId)
+	);
 }
 
 export function queryImageEditorRevisions(
@@ -302,7 +324,12 @@ export function queryImageEditorRevisions(
 	page: Parameters<typeof imageEditorRevisionsQueryOptions>[3] = {}
 ) {
 	return queryClient.query(
-		imageEditorRevisionsQueryOptions(imageEditorQueryAPI, workspaceId, designId, page)
+		imageEditorRevisionsQueryOptions<WebImageEditorQueryData>(
+			imageEditorQueryAPI,
+			workspaceId,
+			designId,
+			page
+		)
 	);
 }
 
@@ -312,7 +339,7 @@ export function queryImageEditorRevision(
 	revisionId: string,
 	signal?: AbortSignal
 ) {
-	const options = imageEditorRevisionQueryOptions(
+	const options = imageEditorRevisionQueryOptions<WebImageEditorQueryData>(
 		imageEditorQueryAPI,
 		workspaceId,
 		designId,

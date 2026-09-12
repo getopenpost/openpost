@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import BrandKitEditor from '$lib/image-editor/components/brand-kit-editor.svelte';
-	import { imageEditorQueryAPI } from '$lib/query/image-editor';
+	import { imageEditorQueryAPI, type WebImageEditorQueryData } from '$lib/query/image-editor';
 	import { queryClient } from '$lib/query/client';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { imageEditorBrandKitQueryOptions, imageEditorQueryKeys } from '@openpost/query-catalog';
@@ -16,7 +16,7 @@
 
 	let { workspaceID, active }: { workspaceID: string; active: boolean } = $props();
 	const brandQuery = createQuery(() => ({
-		...imageEditorBrandKitQueryOptions(imageEditorQueryAPI, workspaceID),
+		...imageEditorBrandKitQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI, workspaceID),
 		enabled: active && Boolean(workspaceID)
 	}));
 	const kit = $derived(brandQuery.data ?? null);

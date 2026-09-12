@@ -355,7 +355,9 @@ function checkPlan(requestedScope, requestedOptions) {
     }),
   ]);
   const marketing = stage("marketing types", [
-    commandStep("bunx", "turbo", "run", "check", "--filter", "@openpost/site"),
+    commandStep("bunx", "turbo", "run", "check", "--filter", "@openpost/site", {
+      env: { OPENPOST_CHECK_PREPARED: "1" },
+    }),
   ]);
   const backend = stage("backend types", [
     go("test", "-tags", "dev", "-run", "^$", "./...", { cwd: "apps/server" }),
@@ -368,7 +370,8 @@ function checkPlan(requestedScope, requestedOptions) {
   }
   if (requestedScope === "backend") return plan("check", requestedScope, [[contracts], [backend]]);
   if (requestedScope === "cli") return plan("check", requestedScope, [[contracts], [cli]]);
-  if (requestedScope === "marketing") return plan("check", requestedScope, [[marketing]]);
+  if (requestedScope === "marketing")
+    return plan("check", requestedScope, [[translations], [marketing]]);
   if (requestedScope === "docs") return plan("check", requestedScope, [[checks.docs]]);
 
   const groups = policyGroups.map((group) => group.map((name) => checks[name]));
@@ -381,7 +384,9 @@ function checkPlan(requestedScope, requestedOptions) {
   return plan("check", undefined, [
     [contracts],
     [translations],
-    [frontend, marketing, backend, cli, policy],
+    [frontend, marketing, backend, cli],
+    // Policy checks build public artifacts and rewrite Paraglide output.
+    [policy],
   ]);
 }
 

@@ -38,3 +38,10 @@ function taskPlan(command, scope) {
     return { status: 1, stderr: error.message };
   }
 }
+
+test("checks finish translation readers before policy builds regenerate translations", () => {
+  const { stdout } = taskPlan("check");
+  const stages = Object.fromEntries(JSON.parse(stdout).stages.map((stage) => [stage.label, stage]));
+  assert.ok(stages["repository policy"].phase > stages["frontend types"].phase);
+  assert.ok(stages["repository policy"].phase > stages["marketing types"].phase);
+});

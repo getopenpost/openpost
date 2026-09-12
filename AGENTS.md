@@ -57,6 +57,7 @@ Verify docs reader interactions against the static export with `bunx playwright 
 - Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `apps/server/internal/platform/`.
 - The binary roles are `all`, `web`, `worker`, and `migrate`. Self-hosted `all` auto-migrates; Hosted migrates once before starting `web` and `worker` against that schema.
 - Svelte code uses runes, the typed API client, and shared UI/page controls. Visible form fields use shared primitives.
+- Frontend checks generate Paraglide declarations before `svelte-check`; source-only generated messages can hide diagnostics behind TypeScript's file-size limit.
 - Shared `Select.Root` defaults to a scalar single selection. Pass `type="multiple"` only for array values.
 - The client-only app sets its initial scheme and canvas in `apps/web/src/app.html` before external resources load. Keep its storage key aligned with ModeWatcher; verify entry and reload with `tests/app/startup-theme.spec.ts`.
 - Reorder previews stay local to the view until drop. Commit through the owning editor or composer mutation once, preserve selection by key, and let Escape cancel without autosaving. Video Editor clip moves share visual tracks across clip kinds, retain linked audio timing, and reject locked, incompatible, or occupied targets.

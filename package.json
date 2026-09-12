@@ -16,7 +16,7 @@
     "check": "bun scripts/tasks.mjs check",
     "check:changed": "bash scripts/changed-files-check.sh",
     "check:frontend:i18n": "bun run --filter @openpost/web generate:i18n",
-    "check:frontend:types": "OPENPOST_CHECK_PREPARED=1 bunx turbo run check --filter @openpost/web",
+    "check:frontend:types": "bun run check:frontend:i18n && OPENPOST_CHECK_PREPARED=1 bunx turbo run check --filter @openpost/web",
     "check:n8n": "bun scripts/tasks.mjs check n8n-package",
     "dev": "bun scripts/tasks.mjs dev",
     "doctor": "bash scripts/dev-doctor.sh",

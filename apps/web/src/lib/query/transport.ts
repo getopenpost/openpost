@@ -4,9 +4,9 @@ import {
 	settleQueryUnauthorized
 } from './authorization-boundary';
 
-export interface QueryTransportResponse<T> {
+export interface QueryTransportResponse<T, E = unknown> {
 	data?: T | null;
-	error?: unknown;
+	error?: E;
 	response: Response;
 }
 
@@ -16,10 +16,10 @@ export interface QueryGETOptions<T> {
 	request: (signal: AbortSignal) => Promise<QueryTransportResponse<T>>;
 }
 
-export async function queryTransportRequest<T>(
+export async function queryTransportRequest<T, E>(
 	signal: AbortSignal,
-	request: (signal: AbortSignal) => Promise<QueryTransportResponse<T>>
-): Promise<QueryTransportResponse<T>> {
+	request: (signal: AbortSignal) => Promise<QueryTransportResponse<T, E>>
+): Promise<QueryTransportResponse<T, E>> {
 	const authorizationIdentity = captureQueryAuthorizationIdentity();
 	const result = await request(signal);
 	if (result.response?.status === 401) settleQueryUnauthorized(authorizationIdentity);

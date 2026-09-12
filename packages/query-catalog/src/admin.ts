@@ -14,7 +14,7 @@ export interface InstanceUsersFilters {
   readonly page: number;
   readonly perPage: number;
   readonly search?: string;
-  readonly sort: string;
+  readonly sort: NonNullable<AdminUsersQuery["sort"]>;
   readonly direction: "asc" | "desc";
 }
 
@@ -111,7 +111,7 @@ export function normalizeInstanceUsersFilters(filters: InstanceUsersFilters) {
     page: Math.max(1, Math.trunc(filters.page)),
     perPage: Math.max(1, Math.trunc(filters.perPage)),
     search: filters.search?.trim() ?? "",
-    sort: filters.sort.trim(),
+    sort: filters.sort,
     direction: filters.direction,
   } as const;
 }

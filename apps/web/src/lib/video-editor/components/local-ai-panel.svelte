@@ -128,14 +128,16 @@
 	}
 
 	function insertExpressiveTag(tag: string): void {
-		if (!scriptTextarea) return;
-		const start = scriptTextarea.selectionStart ?? text.length;
-		const end = scriptTextarea.selectionEnd ?? start;
+		const textarea = scriptTextarea;
+		if (!textarea) return;
+		const start = textarea.selectionStart ?? text.length;
+		const end = textarea.selectionEnd ?? start;
 		text = `${text.slice(0, start)}${tag}${text.slice(end)}`;
 		queueMicrotask(() => {
+			if (!textarea.isConnected) return;
 			const nextPosition = start + tag.length;
-			scriptTextarea.focus();
-			scriptTextarea.setSelectionRange(nextPosition, nextPosition);
+			textarea.focus();
+			textarea.setSelectionRange(nextPosition, nextPosition);
 		});
 	}
 

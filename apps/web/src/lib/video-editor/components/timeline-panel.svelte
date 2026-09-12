@@ -1682,6 +1682,18 @@
 		onedit();
 	}
 
+	function addContextMarkerFromMenu(): void {
+		const target = timelineContextTarget;
+		if (target?.kind !== 'space') return;
+		addContextMarker(target.frame);
+	}
+
+	function pasteAtContextSpace(): void {
+		const target = timelineContextTarget;
+		if (target?.kind !== 'space') return;
+		onpasteat(target.frame, target.trackId);
+	}
+
 	function seekAndSkim(clientX: number): void {
 		if (timelineStore.seekLocked) return;
 		const frame = frameFromClientX(clientX);
@@ -3493,7 +3505,8 @@
 				drag.beforeSnapshot.transitions
 			);
 			if (updates.length > 0) {
-				const anchorPatch = updates.find((candidate) => candidate.id === drag.id)?.patch;
+				const dragId = drag.id;
+				const anchorPatch = updates.find((candidate) => candidate.id === dragId)?.patch;
 				const hasSourceChange =
 					anchorPatch?.sourceStart !== undefined &&
 					anchorPatch.sourceStart !== (drag.original.sourceStart ?? 0);
@@ -4556,11 +4569,12 @@
 	const canUnlinkSelectedItems = $derived(
 		selectedItemIds.some((id) => timelineStore.itemById.get(id)?.linkedGroupId !== undefined)
 	);
-	const contextTrack = $derived(
-		timelineContextTarget?.kind === 'track'
-			? timelineStore.tracks.find((track) => track.id === timelineContextTarget.trackId)
-			: undefined
-	);
+	const contextTrack = $derived.by(() => {
+		const target = timelineContextTarget;
+		return target?.kind === 'track'
+			? timelineStore.tracks.find((track) => track.id === target.trackId)
+			: undefined;
+	});
 	const contextSpaceGap = $derived.by(() => {
 		if (timelineContextTarget?.kind !== 'space' || !timelineContextTarget.trackId) return null;
 		return findTrackGapAtFrame(
@@ -4583,13 +4597,12 @@
 			? emptyTrackIdsForRemoval(timelineStore.tracks, timelineStore.items, contextTrack.id)
 			: []
 	);
-	const contextTransition = $derived(
-		timelineContextTarget?.kind === 'transition'
-			? transitionsStore.list.find(
-					(transition) => transition.id === timelineContextTarget.transitionId
-				)
-			: undefined
-	);
+	const contextTransition = $derived.by(() => {
+		const target = timelineContextTarget;
+		return target?.kind === 'transition'
+			? transitionsStore.list.find((transition) => transition.id === target.transitionId)
+			: undefined;
+	});
 	const contextPrimaryItem = $derived(
 		timelineContextTarget?.kind === 'items'
 			? timelineStore.itemById.get(timelineContextTarget.primaryId)
@@ -4655,8 +4668,9 @@
 	const contextVoiceText = $derived(
 		contextPrimaryItem?.type === 'text' ? getTextItemPlainText(contextPrimaryItem).trim() : ''
 	);
-	const hasContextPrimaryEditTools = $derived(
-		contextPrimaryItem?.type === 'video' ||
+	const hasContextPrimaryEditTools = $derived.by(
+		() =>
+			contextPrimaryItem?.type === 'video' ||
 			contextPrimaryItem?.type === 'audio' ||
 			(contextPrimaryItem?.type === 'text' && contextVoiceText.length > 0) ||
 			captionConsolidationTarget !== null
@@ -4670,11 +4684,12 @@
 			(Boolean(colorPreviewStore.gradeClipboard?.length) && contextGradeTargetItemIds.length > 0)
 	);
 	const hasContextEditTools = $derived(hasContextPrimaryEditTools || hasContextGradeActions);
-	const contextMarker = $derived(
-		timelineContextTarget?.kind === 'marker'
-			? timelineStore.markers.find((marker) => marker.id === timelineContextTarget.markerId)
-			: undefined
-	);
+	const contextMarker = $derived.by(() => {
+		const target = timelineContextTarget;
+		return target?.kind === 'marker'
+			? timelineStore.markers.find((marker) => marker.id === target.markerId)
+			: undefined;
+	});
 	const contextItemsEditable = $derived.by(() => {
 		if (timelineContextTarget?.kind !== 'items') return false;
 		return timelineContextTarget.itemIds.some((id) => {
@@ -6651,7 +6666,10 @@
 				{/if}
 				{#if contextJoinableNeighbors.previous}
 					<ContextMenu.Item
-						onclick={() => joinContextNeighbor(contextJoinableNeighbors.previous.id)}
+						onclick={() => {
+							const previous = contextJoinableNeighbors.previous;
+							if (previous) joinContextNeighbor(previous.id);
+						}}
 					>
 						{m.video_editor_join_previous()}
 						<ContextMenu.Shortcut
@@ -6660,7 +6678,12 @@
 					</ContextMenu.Item>
 				{/if}
 				{#if contextJoinableNeighbors.next}
-					<ContextMenu.Item onclick={() => joinContextNeighbor(contextJoinableNeighbors.next.id)}>
+					<ContextMenu.Item
+						onclick={() => {
+							const next = contextJoinableNeighbors.next;
+							if (next) joinContextNeighbor(next.id);
+						}}
+					>
 						{m.video_editor_join_next()}
 						<ContextMenu.Shortcut
 							>{formatShortcutBinding(keyboardShortcuts.bindings.JOIN_ITEMS)}</ContextMenu.Shortcut
@@ -6875,16 +6898,13 @@
 					</ContextMenu.Item>
 					<ContextMenu.Separator />
 				{/if}
-				<ContextMenu.Item onclick={() => addContextMarker(timelineContextTarget.frame)}>
+				<ContextMenu.Item onclick={addContextMarkerFromMenu}>
 					{m.video_editor_add_marker()}
 					<ContextMenu.Shortcut
 						>{formatShortcutBinding(keyboardShortcuts.bindings.ADD_MARKER)}</ContextMenu.Shortcut
 					>
 				</ContextMenu.Item>
-				<ContextMenu.Item
-					disabled={!itemClipboardStore.hasItems}
-					onclick={() => onpasteat(timelineContextTarget.frame, timelineContextTarget.trackId)}
-				>
+				<ContextMenu.Item disabled={!itemClipboardStore.hasItems} onclick={pasteAtContextSpace}>
 					{m.video_editor_shortcuts_command_paste()}
 					<ContextMenu.Shortcut
 						>{formatShortcutBinding(keyboardShortcuts.bindings.PASTE)}</ContextMenu.Shortcut

@@ -384,16 +384,14 @@
 		motionRows.filter((r): r is MotionTimelineGroupRow => r.kind === 'group')
 	);
 	const layerEntries = $derived(motionRows.filter(isLayerRow));
-	const contextLayer = $derived(
-		compositionContextTarget?.kind === 'layer'
-			? timelineStore.itemById.get(compositionContextTarget.itemId)
-			: undefined
-	);
-	const contextGroup = $derived(
-		compositionContextTarget?.kind === 'group'
-			? trackById.get(compositionContextTarget.trackId)
-			: undefined
-	);
+	const contextLayer = $derived.by(() => {
+		const target = compositionContextTarget;
+		return target?.kind === 'layer' ? timelineStore.itemById.get(target.itemId) : undefined;
+	});
+	const contextGroup = $derived.by(() => {
+		const target = compositionContextTarget;
+		return target?.kind === 'group' ? trackById.get(target.trackId) : undefined;
+	});
 	const sidebarRows = $derived.by(() => {
 		const query = filterText.trim().toLowerCase();
 		if (!query) return motionRows;
@@ -603,9 +601,8 @@
 		const hasActive = inP !== null && outP !== null && outP > inP;
 		return { hasActive, inP, outP };
 	}
-	function handleZoomChange(value: number[]): void {
-		const next = value[0] ?? 1;
-		timelineStore._setZoomLevel(next);
+	function handleZoomChange(value: number): void {
+		timelineStore._setZoomLevel(value);
 	}
 	function handleFit(): void {
 		const span = Math.max(60, durationFrames);
@@ -972,6 +969,11 @@
 		});
 		if (ids.some((id) => selectedItemIds.has(id))) clearSelection();
 		onedit();
+	}
+	function deleteContextGroup(): void {
+		const target = compositionContextTarget;
+		if (target?.kind !== 'group') return;
+		deleteGroupAndContents(target.trackId, target.itemIds);
 	}
 	function toggleGroupCollapse(groupId: string): void {
 		updateTrackFlag(groupId, 'isCollapsed', 'TOGGLE_TRACK_GROUP');
@@ -1597,7 +1599,7 @@
 			return;
 		if (event.key === 'Escape') {
 			let handled = false;
-			if (pointerGestures?.activePointerId !== null) {
+			if (pointerGestures && pointerGestures.activePointerId !== null) {
 				pointerGestures.cancel('escape');
 				handled = true;
 			}
@@ -1797,7 +1799,7 @@
 	let kfDrag: {
 		itemId: string;
 		property: KeyframeProperty;
-		id: string;
+		id: string | undefined;
 		startFrame: number;
 		currentFrame: number;
 		startX: number;
@@ -1967,7 +1969,9 @@
 				const item = timelineStore.itemById.get(finished.itemId);
 				if (item) {
 					const kfs = editorKeyframes(item, finished.property);
-					const kf = kfs.find((candidate) => candidate.id === finished.id);
+					const kf = kfs.find((candidate) =>
+						finished.id ? candidate.id === finished.id : candidate.frame === finished.startFrame
+					);
 					if (kf) {
 						const changed = updateKeyframes(finished.itemId, [
 							{ ref: kf, frame: finished.currentFrame, value: kf.value }
@@ -2271,18 +2275,15 @@
 			</div>
 			<div class="header-right">
 				<div class="header-zoom">
-					<label class="zoom-label" for="composition-zoom-slider"
-						>{m.video_editor_composition_timeline_zoom()}</label
-					>
+					<span class="zoom-label">{m.video_editor_composition_timeline_zoom()}</span>
 					<div class="zoom-slider-wrap">
 						<Slider
-							id="composition-zoom-slider"
-							value={[zoomSlider]}
+							value={zoomSlider}
 							min={TIMELINE_ZOOM_MIN}
 							max={TIMELINE_ZOOM_MAX}
 							step={0.05}
 							onValueChange={handleZoomChange}
-							aria-label={m.video_editor_composition_timeline_zoom()}
+							ariaLabel={m.video_editor_composition_timeline_zoom()}
 						/>
 					</div>
 					<Button
@@ -3108,13 +3109,13 @@
 																	item.durationInFrames * pxPerFrame
 																)}px"
 																data-testid={`motion-layer-${item.id}-${layer.id}`}
-																aria-label={layer.name ?? layer.presetId ?? 'layer'}
+																aria-label={layer.name || layer.sourcePresetId || 'layer'}
 																onclick={() => {
 																	if (removeMotionLayerFromItems([item.id], layer.id) > 0) onedit();
 																}}
 															>
 																<span class="band-label"
-																	>{layer.name ?? layer.presetId ?? 'layer'}</span
+																	>{layer.name || layer.sourcePresetId || 'layer'}</span
 																>
 															</button>
 														{/each}
@@ -3289,14 +3290,7 @@
 						</ContextMenu.Item>
 						<ContextMenu.Separator />
 						{#if compositionContextTarget.kind === 'group'}
-							<ContextMenu.Item
-								variant="destructive"
-								onclick={() =>
-									deleteGroupAndContents(
-										compositionContextTarget.trackId,
-										compositionContextTarget.itemIds
-									)}
-							>
+							<ContextMenu.Item variant="destructive" onclick={deleteContextGroup}>
 								{m.video_editor_composition_timeline_delete_group()}
 							</ContextMenu.Item>
 						{:else}

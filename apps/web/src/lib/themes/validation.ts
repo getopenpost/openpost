@@ -624,9 +624,10 @@ export function isSafeThemeSchemeManifestValues(manifest: ThemeSchemeManifest): 
 		borderWidth >= 1 &&
 		borderWidth <= 4 &&
 		Object.values(manifest.elevation).every(isSafeShadow) &&
-		THEME_MOTION_RECIPE_KEYS.every((key) =>
-			isSafeMotionRecipe(manifest.motion[key], ...motionBounds[key])
-		) &&
+		THEME_MOTION_RECIPE_KEYS.every((key) => {
+			const [minimumOpacity, maximumDistance] = motionBounds[key];
+			return isSafeMotionRecipe(manifest.motion[key], minimumOpacity, maximumDistance);
+		}) &&
 		THEME_REDUCED_MOTION_OPTIONS.some((option) => option === manifest.motion.reducedMotion) &&
 		hasDistinctActionStates(manifest.colors) &&
 		isBoundedCssLength(shell.contentMaxWidth, 4096) &&

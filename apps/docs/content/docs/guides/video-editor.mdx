@@ -4,75 +4,75 @@ description: Build, save, and export a social video from a multitrack timeline.
 icon: Clapperboard
 ---
 
-Open [Video Editor](https://app.openpo.st/video-editor) in current Chrome or Edge to combine clips, add text or captions, adjust audio and color, and export a finished video. Signed-in projects save to your current OpenPost Workspace by default. Choose **Local-only** to keep the project in a folder on your computer. Exports have no watermark.
+Open [Video Editor](https://app.openpo.st/video-editor) in current desktop Chrome or Edge. To make a short launch video, choose a project format, import your clip, trim it on the timeline, and select **Export video**. Check the finished file in **Exports** before you attach it to a post. Exports have no watermark.
 
 Use [Quick Cut](/guides/quick-cut) when you only need to remove ranges without changing the picture or mix. Use the [Recorder](/guides/recording) to capture a screen, camera, or microphone before editing.
 
-For a first edit, create a project, import a clip, drag it to the timeline, trim it, and export. The sections below cover the extra tools and the differences between Cloud and Local-only projects.
+The editor saves signed-in projects to the current OpenPost Workspace by default. Choose **Local only** at the start if the project should stay in a folder on your computer.
 
 ## Choose where the project lives
 
-A Cloud project syncs the edit, required original Project Assets, revision history, named checkpoints, and conflict copies through OpenPost. Playhead position, selection, panel layout, previews, downloaded models, and unsaved exports stay on the device. The editor downloads originals when an edit or export needs them. **Keep available offline** stores the current revision and required originals on this device.
+Choose **Saved to OpenPost** to continue the project across devices in the current Workspace. OpenPost syncs the edit, required original Project Assets, revision history, checkpoints, and conflict copies. The editor downloads originals when it needs them. Playhead position, selection, panel layout, previews, downloaded models, and unsaved exports stay on this device. Use **Keep available offline** if you will need the current revision and its originals without a connection.
 
-A Local-only project's folder holds its project document, copied media, linked-file references, previews, transcripts, render jobs, and exports. OpenPost creates readable `projects`, `media`, `recordings`, and `exports` folders inside it. Back up this folder like other work you keep on your computer.
+Choose **Local only** if you want the project in a folder you control. Its `projects`, `media`, `recordings`, and `exports` subfolders hold the edit, copied sources, linked-file references, previews, transcripts, render jobs, and finished files. Back up this folder, especially before changing computers.
 
-The browser remembers folder permissions and editor preferences and keeps temporary caches and recovery data. It may ask you to reconnect a folder after a restart or permission change. Clearing browser data can remove those saved handles and caches, but does not delete the project folder on disk.
+If the editor asks you to reconnect a local folder after a restart or permission change, choose that same folder. Clearing browser data can remove saved folder access and temporary caches, but does not delete the folder's files.
 
-You can keep several known Local-only folders, switch between them, or forget a handle without deleting its files. Importing a Local-only project into Cloud validates its sources and can resume without deleting the local files. Cloud Trash has a 30-day grace period. Portable `.openpost.zip` bundles include the authored project and required originals, without derived caches or downloaded AI models.
+You can switch between local folders or forget a folder handle without deleting its files. Importing a local project into Cloud checks its sources and leaves the local copy in place. For a portable copy, export a `.openpost.zip` bundle; it contains the authored project and required originals, but no preview caches or downloaded AI models.
 
 ## Bring in source files
 
-Import video, audio, images, Lottie files, and supported subtitle tracks into the Media pool. A collected source is copied into the workspace. A linked source stays at its existing location and must remain available. The editor detects duplicate media, preserves technical metadata, and builds thumbnails, filmstrips, waveforms, and preview proxies in the background.
+Open **Media** and choose **Import media** to add video, audio, images, Lottie files, or supported subtitle tracks. Select an imported source to add it to the timeline. A collected source is copied into the project; a linked source stays where it is and must remain available when you edit or export. The editor checks for duplicates and builds previews in the background.
 
-Browser-undecodable ProRes sources keep a local compatibility proxy for preview. Full export still reads the original source. MKV, MKA, and WebM files can expose UTF-8, WebVTT, ASS, and SSA subtitle tracks for insertion into the timeline.
+If a ProRes file cannot play in the browser, the editor can use a local compatibility proxy for preview. Export still reads the original. MKV, MKA, and WebM sources can also expose subtitle tracks that you can insert into the timeline.
 
 ## Arrange and trim the timeline
 
-The desktop editor has a tool rail, active panel, preview, inspector, and resizable multitrack timeline. Narrow screens use a touch timeline, bottom tool dock, and contextual sheets. You can split, trim, ripple-delete, slip, slide, roll, duplicate, freeze, reverse, group, nest, and reorder clips. In and Out points can limit playback and export.
+Place clips in the order you want, then drag a clip edge to trim its start or end. Move the playhead and use **Split at playhead** to make a cut; remove the unwanted section and preview the join. Use ripple delete when you want later clips to close the gap. Set In and Out points if you only want to play or export part of the sequence.
 
-The timeline supports video, audio, image, Lottie, text, subtitle, shape, adjustment, controller, and nested composition items. Track locks, mute and solo state, snapping, markers, linked clips, multi-selection, clipboard operations, undo, redo, zoom, scrubbing, and keyboard shortcuts share one command model. Change shortcuts in Editor settings instead of relying on fixed keys.
+Keep picture, music, voice, and captions on separate tracks so you can change one without disturbing the others. Lock a track before moving nearby clips, or mute and solo tracks while checking the mix. Undo and redo work across timeline edits. If a shortcut differs from what you expect, check **Editor settings**, where shortcuts can be changed.
 
-Projects can hold reusable sequences and nested compositions. Published composition controls let one composition expose selected text, color, number, toggle, and media values to each instance.
+For repeated sections, make a sequence or nested composition and reuse it. Published composition controls let each instance change selected text, color, numbers, toggles, or media without rebuilding the composition.
 
 ## Add motion, effects, color, and audio
 
-Animate transforms, masks, effect values, text, and other supported properties with keyframes. The keyframe editor switches between Dope Sheet, Graph, and Split views in Edit and Motion. Its scoped shortcuts change views with 1, 2, and 3, add or update a key with K in Edit, move between keys with Option/Alt+[ and ], toggle auto-key with A, and fit the active view with F. You can remap or unassign every command in Editor settings. Spatial motion paths, easing presets, motion presets, parenting, links, expressions, and modifiers edit the same keyframe data. Direct canvas gestures commit once when the gesture ends so undo remains useful.
+Select a clip before adding a change. To move text across the frame, set a transform keyframe at the start, move the playhead, change the position, then play the range to check the motion. **Motion** provides Dope Sheet and Graph views for timing and easing. You can remap its shortcuts in **Editor settings**.
 
-Visual tools include crop, corner pinning, masks, blend modes, adjustment layers, transitions, caption and text styles, backgrounds, stickers, color wheels, curves, scopes, LUTs, and reusable grade and effect presets. Preview and export use the same effect and compositing rules.
+Use **Color** to adjust the look, or an adjustment layer when several clips need the same grade. Add a transition only after checking the cut without it. Preview and export use the same effect and compositing rules, so play the affected range before rendering.
 
-Audio tools include clip and track volume, fades, envelopes, meters, loudness normalization, ducking, channel routing, equalization, noise reduction, speed and pitch controls, compressor, pan, reverb, delay, chorus, flanger, and distortion. You can record a synced voiceover while the timeline plays.
+For speech over music, lower the music track, add fades around its start and end, and listen to the whole passage. Ducking and loudness controls can help keep the voice clear. You can record a synced voiceover while the timeline plays.
 
 ## Make captions or edit from a transcript
 
-Transcription runs on your device. Parakeet is the default on supported WebGPU devices; Whisper Tiny, Base, Small, and Large v3 Turbo are also available. The selected model downloads on first use and remains in the browser cache until you clear it in **Models** or clear site data.
+To caption speech, select the source clip and run transcription. It runs on your device. Parakeet is the default on supported WebGPU devices; Whisper Tiny, Base, Small, and Large v3 Turbo are alternatives. The selected model downloads on first use and stays cached until you remove it in **Models** or clear site data.
 
-Correcting a word updates the timed transcript and linked caption cue. Select timed words to remove the matching media range as one undoable ripple edit. Silence and filler tools show proposed ranges and the total time removed before they change the timeline. Quiet-section detection measures level; speech-pause detection uses the local speech model.
+Read the transcript before using it. Correcting a word updates its timed caption. You can select words to remove the matching media range, or review proposed silence and filler cuts before applying them. The editor shows how much time those cuts would remove.
 
-Caption tools can create editable caption clips, consolidate them into subtitle items, apply style presets, burn captions into video, export SRT or VTT sidecars, or add a soft subtitle track where the chosen container supports it.
+Choose whether captions should be burned into the picture or exported as an SRT or VTT sidecar. Where the output container supports it, you can add a selectable subtitle track instead. Check timing and line breaks in preview before export.
 
 ## Use optional local tools
 
-Optional local tools cover scene detection, semantic and visual search, smart framing, focus zoom suggestions, image generation, frame interpolation, upscaling, music generation, and text to speech. Each tool shows its model and download state. Large models are downloaded only when you start the related tool and can be removed from **Models**. Generated media is committed to the workspace before it is added to the timeline.
+Use local tools when a specific edit calls for them, such as scene detection to find cut points or smart framing to adapt a wide clip for a vertical post. Each tool shows the model it needs and whether it must download. Large models download when you start that tool and can be removed in **Models**. Review generated media before adding it to the timeline.
 
 ## Save and recover a project
 
-Cloud edits autosave as versioned mutation batches. Independent changes from another device rebase automatically. Overlapping changes create a named conflict copy and show **Needs attention** until you choose which result to keep. Version history records the author, named checkpoints remain until deleted, and restoring an older revision creates a new head revision. Cloud projects can move to Trash and be restored during the 30-day grace period.
+Cloud edits autosave. Check the save status before closing the tab or switching devices. If two devices change the same part of a project, OpenPost keeps a conflict copy and shows **Needs attention**. Open **History** to compare revisions and choose which work to keep. Restoring an older revision creates a new current revision; Cloud Trash keeps deleted projects recoverable for 30 days.
 
-Local-only projects retain the folder-based autosave and recovery behavior. If another tab changes the same local project, the editor protects the newer disk revision instead of overwriting it. Atomic writes and temporary-file cleanup protect project documents from interrupted saves.
+Local-only projects autosave to their folder. If the editor asks to reconnect it, grant access to the original folder before continuing. If another tab has changed the same project, the editor protects the newer disk version instead of silently overwriting it.
 
 ## Export the finished video
 
-The export dialog validates the selected range, visible or audible content, missing sources, codec support, subtitles, expected render path, duration, and estimated size before rendering. Formats include MP4, MOV, WebM, MKV, audio-only output, and PNG, JPEG, or WebP image sequences. Available video codecs depend on the container and browser.
+Choose **Export video** after checking the full sequence or your In and Out range. Pick a format and quality, then review the export check. It flags missing sources, unsupported codecs, subtitle options, and empty or invalid ranges before rendering. MP4, MOV, WebM, MKV, audio-only output, and image sequences are available when the browser and selected settings support them.
 
-An eligible unmodified source range uses packet copy, preserving encoded video and audio without a decode and re-encode cycle. Other projects use the full compositor and audio mixer. Export always reads original sources at the chosen output resolution. Long or large outputs stream through browser-managed scratch storage when needed and are committed to the workspace only after success.
+Export reads the originals at the chosen resolution. An eligible untouched range can use packet copy; edits use the compositor and audio mixer. Keep the tab open until the render finishes. A completed file appears in **Exports**, where you can download or inspect it. If the export check blocks you, restore a missing linked source or choose a supported format, then try again.
 
-Add one job, marker ranges, or fixed-duration ranges to the render queue. Jobs freeze their timeline and export settings when queued. The project queue renders one job at a time, survives reloads, resumes runnable pending work, and lets you pause, reorder, cancel, retry, or clear jobs. Finished files and image-sequence folders remain available in **Exports** until you delete them.
+For several deliverables, queue the whole video, marked ranges, or fixed-duration ranges. Each job keeps the timeline and settings it had when queued. The project renders one job at a time; pending work survives a reload. Use **Exports** to pause, reorder, cancel, or retry jobs and to find finished files.
 
 ## Add an export to a publication
 
-**Send to OpenPost** uploads the selected finished export to the current OpenPost Workspace Media library. After upload, **Open composer** opens a new composer with that exact media item attached. Project Assets stay separate from Workspace Media unless you explicitly save an asset or export there.
+Once the finished file looks right, choose **Send to OpenPost**. It uploads that export to the current Workspace Media library. Then choose **Open composer** to start a post with the exact file attached. Check the selected workspace and destination accounts before publishing. Project Assets do not enter Workspace Media unless you send or save them there.
 
-Publishing and scheduling stay in the composer. If you are signed out or have no OpenPost Workspace selected, download the export or sign in before sending.
+Publishing and scheduling happen in the composer. If **Send to OpenPost** is unavailable, select a Workspace or sign in. You can still download the export from **Exports**.
 
 ## Browser and device requirements
 

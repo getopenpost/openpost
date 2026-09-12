@@ -12,7 +12,6 @@
 		installGlobalErrorCapture
 	} from '@openpost/telemetry';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
-	import { installStaleModuleRecovery } from '../lib/stale-module-recovery';
 	import MarketingFooter from './_components/MarketingFooter.svelte';
 	import MarketingNav from './_components/MarketingNav.svelte';
 	import { structuredDataForMarketingPage } from './_structured-data';
@@ -44,11 +43,9 @@
 			revision: import.meta.env.VITE_OPENPOST_REVISION,
 			surface: 'marketing'
 		});
-		const removeModuleRecovery = installStaleModuleRecovery();
 		const removeErrorCapture = installGlobalErrorCapture();
 		return () => {
 			removeErrorCapture();
-			removeModuleRecovery();
 		};
 	});
 </script>

@@ -148,6 +148,24 @@ describe('quick-cut project parsing', () => {
 		]);
 	});
 
+	it('restores a single-source legacy project without losing its cuts', () => {
+		const parsed = parseProject(
+			JSON.stringify({
+				version: 0,
+				id: 'legacy-project',
+				name: 'Launch cut',
+				sourceFileName: 'launch.mp4',
+				sourceFileSize: 100,
+				sourceMimeType: 'video/mp4',
+				duration: 5,
+				segments: [{ id: 'opening', start: 0, end: 2, name: 'Opening', enabled: true }]
+			})
+		);
+		expect(parsed.name).toBe('Launch cut');
+		expect(parsed.sources[0]?.name).toBe('launch.mp4');
+		expect(parsed.segments).toMatchObject([{ id: 'opening', start: 0, end: 2, name: 'Opening' }]);
+	});
+
 	it('rejects invalid stream selections', () => {
 		const s = source();
 		s.selectedVideoTrackIndex = 5;

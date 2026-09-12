@@ -265,23 +265,37 @@ export function parseProject(json: string): QuickCutProject {
 					keyframeState: 'unknown',
 					lastModified: undefined,
 					contentFingerprint: undefined,
-					videoStreams: [],
-					audioStreams: []
+					// Keep the legacy video's track selectable until a fresh media probe replaces the unknown metadata.
+					videoStreams: [
+						{
+							index: 0,
+							codec: null,
+							width: 0,
+							height: 0,
+							rotation: 0,
+							fps: null,
+							keyframeTimestamps: [],
+							keyframeState: 'unknown'
+						}
+					],
+					audioStreams: [],
+					selectedVideoTrackIndex: 0,
+					selectedAudioTrackIndices: []
 				}
 			];
 			const segs = o.segments ?? [];
 			const migratedSegments: QuickCutSegment[] = segs.map((s) => {
-				const id = isString(s.id) ? s.id : crypto.randomUUID();
-				const start = isNumber(s.start) ? s.start : 0;
-				const end = isNumber(s.end) ? s.end : 0;
-				const name = isString(s.name) ? s.name : undefined;
-				const enabled = isBoolean(s.enabled) ? s.enabled : true;
+				const id = typeof s.id === 'string' ? s.id : crypto.randomUUID();
+				const start = typeof s.start === 'number' ? s.start : 0;
+				const end = typeof s.end === 'number' ? s.end : 0;
+				const name = typeof s.name === 'string' ? s.name : undefined;
+				const enabled = typeof s.enabled === 'boolean' ? s.enabled : true;
 				return { id, sourceId: legacyId, start, end, name, enabled };
 			});
 			const migrated = {
 				version: 1 as const,
-				id: isString(o.id) ? o.id : crypto.randomUUID(),
-				name: isString(o.name) ? o.name : 'Quick Cut',
+				id: typeof o.id === 'string' ? o.id : crypto.randomUUID(),
+				name: typeof o.name === 'string' ? o.name : 'Quick Cut',
 				sources: legacySources,
 				segments: migratedSegments,
 				cutMode: o.cutMode ?? 'nearestKeyframe',

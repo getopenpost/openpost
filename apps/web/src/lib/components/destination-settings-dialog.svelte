@@ -22,6 +22,8 @@
 	} from './video-cover-frame-picker.svelte';
 	import type { ComposerSettingValue } from '$lib/components/compose/modes';
 	import { settingLabel } from '$lib/setting-label';
+	import { showToast } from '$lib/toast';
+	import DiscordEmbedEditor from './discord-embed-editor.svelte';
 
 	type SettingDefinition = components['schemas']['SettingDefinition'];
 	type SettingCondition = components['schemas']['SettingCondition'];
@@ -93,6 +95,8 @@
 	let searchTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 	let uploadingSettingKey = $state('');
 	let uploadErrorBySetting = $state<Record<string, string>>({});
+	let validationKey = $state('');
+	let validationMessage = $state('');
 
 	const accountName = $derived(
 		account
@@ -190,6 +194,115 @@
 		return setting.control || setting.type;
 	}
 
+	function missingRequiredSetting(): SettingDefinition | undefined {
+		return groupedSettings
+			.flatMap((entry) => entry.settings)
+			.find((setting) => {
+				if (!setting.required || setting.unavailable_reason) return false;
+				if (
+					setting.required_policy === 'when_available' &&
+					setting.options_source &&
+					(optionGroups[setting.options_source]?.length ?? 0) === 0
+				)
+					return false;
+				const value = values[setting.key];
+				return value === undefined || value === null || String(value).trim() === '';
+			});
+	}
+
+	function optionLabel(setting: SettingDefinition, option: string): string {
+		if (setting.key === 'mention_policy') {
+			return option === 'none' ? 'No mentions' : 'Selected people or roles';
+		}
+		if (setting.key === 'graduation_strategy' && option === 'SS_PERFORMANCE') {
+			return 'Based on performance';
+		}
+		if (setting.key === 'license' && option === 'creativeCommon') {
+			return 'Creative Commons';
+		}
+		const words = option
+			.replace(/([a-z])([A-Z])/g, '$1 $2')
+			.replaceAll('_', ' ')
+			.toLowerCase();
+		return words.charAt(0).toUpperCase() + words.slice(1);
+	}
+
+	function selectedChoices(key: string, scopedValues = values): string[] {
+		const value = scopedValues[key];
+		return (Array.isArray(value) ? value.map(String) : valueAsString(key, scopedValues).split(','))
+			.map((item) => item.trim())
+			.filter(Boolean);
+	}
+
+	function toggleChoice(setting: SettingDefinition, choice: string, checked: boolean): void {
+		const current = selectedChoices(setting.key);
+		const next = checked ? [...current, choice] : current.filter((item) => item !== choice);
+		onChange(setting.key, [...new Set(next)].join(', '));
+	}
+
+	function isMultipleRemotePicker(setting: SettingDefinition): boolean {
+		return setting.key === 'mention_user_ids' || setting.key === 'mention_role_ids';
+	}
+
+	function changeRemotePicker(setting: SettingDefinition, value: string): void {
+		if (!isMultipleRemotePicker(setting)) {
+			onChange(setting.key, value === '__none__' ? '' : value);
+			return;
+		}
+		const selected = selectedChoices(setting.key);
+		if (!selected.includes(value)) onChange(setting.key, [...selected, value]);
+	}
+
+	function removeRemoteChoice(setting: SettingDefinition, value: string): void {
+		onChange(
+			setting.key,
+			selectedChoices(setting.key).filter((item) => item !== value)
+		);
+	}
+
+	function finish(): void {
+		if (formatRequired && formatOptions.length > 1 && onFormatChange) {
+			validationKey = '__format__';
+			validationMessage = m.compose_field_required({ field: m.compose_destination_format() });
+		} else {
+			const missing = missingRequiredSetting();
+			if (!missing) {
+				validationKey = '';
+				validationMessage = '';
+				open = false;
+				return;
+			}
+			validationKey = missing.key;
+			validationMessage = m.compose_destination_setting_required({
+				setting: settingLabel(missing),
+				platform: account ? getPlatformName(account.platform) : ''
+			});
+		}
+		showToast(validationMessage, 'error');
+		requestAnimationFrame(() => {
+			const target = document.getElementById(
+				validationKey === '__format__'
+					? 'destination-format'
+					: `destination-setting-${validationKey}`
+			);
+			target?.focus();
+		});
+	}
+
+	$effect(() => {
+		if (!open) {
+			validationKey = '';
+			validationMessage = '';
+		}
+	});
+
+	$effect(() => {
+		if (validationKey && validationKey !== '__format__' && valueAsString(validationKey).trim()) {
+			validationKey = '';
+			validationMessage = '';
+		}
+	});
+
 	function inputType(setting: SettingDefinition): 'number' | 'url' | 'text' {
 		if (setting.type === 'number') return 'number';
 		if (setting.type === 'url' || setting.control === 'quote_url') return 'url';
@@ -264,6 +377,9 @@
 		</Dialog.Header>
 
 		<div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+			{#if validationMessage}
+				<InlineNotice tone="error" message={validationMessage} />
+			{/if}
 			{#if optionsError}
 				<InlineNotice tone="error" message={optionsError}>
 					{#snippet actions()}
@@ -285,12 +401,17 @@
 					</h3>
 					<p class="text-xs text-muted-foreground">{m.compose_destination_format_body()}</p>
 					<AppSelect
+						id="destination-format"
 						value={formatRequired ? '' : formatValue}
 						options={formatOptions}
 						placeholder={m.compose_choose_format()}
 						ariaLabel={m.compose_destination_format()}
 						class="h-11"
-						onValueChange={onFormatChange}
+						onValueChange={(value) => {
+							validationKey = '';
+							validationMessage = '';
+							onFormatChange?.(value);
+						}}
 					/>
 				</section>
 			{/if}
@@ -312,6 +433,8 @@
 								class={control === 'poll' ||
 								setting.type === 'textarea' ||
 								setting.type === 'tags' ||
+								control === 'structured_editor' ||
+								control === 'chips' ||
 								control === 'follow_up' ||
 								control === 'cover_frame' ||
 								supportsGeneratedCover(setting)
@@ -334,7 +457,7 @@
 										<span>{settingLabel(setting)}</span>
 									</label>
 								{:else}
-									{#if control === 'cover_frame'}
+									{#if control === 'cover_frame' || control === 'structured_editor'}
 										<p class="text-sm font-medium">{settingLabel(setting)}</p>
 									{:else}
 										<label class="text-sm font-medium" for="destination-setting-{setting.key}">
@@ -354,11 +477,60 @@
 												onChange={(value) => onChange(setting.key, value)}
 											/>
 										</div>
+									{:else if control === 'structured_editor' && setting.key === 'embed'}
+										<DiscordEmbedEditor
+											id="destination-setting-{setting.key}"
+											value={valueAsString(setting.key)}
+											onChange={(value) => onChange(setting.key, value)}
+										/>
+									{:else if control === 'cover_index'}
+										{#if mediaItems.length > 0}
+											<AppSelect
+												id="destination-setting-{setting.key}"
+												value={valueAsString(setting.key) || '__none__'}
+												ariaLabel={settingLabel(setting)}
+												options={[
+													{ value: '__none__', label: m.common_none() },
+													...mediaItems.map((item, index) => ({
+														value: String(index),
+														label: item.label
+													}))
+												]}
+												onValueChange={(value) =>
+													onChange(setting.key, value === '__none__' ? '' : Number(value))}
+												class="mt-1 h-11 w-full"
+											/>
+										{:else}
+											<p class="mt-1 text-xs text-muted-foreground">{m.compose_add_media()}</p>
+										{/if}
 									{:else if control === 'remote_picker'}
 										<div class="mt-1">
+											{#if isMultipleRemotePicker(setting) && selectedChoices(setting.key).length > 0}
+												<div class="mb-2 flex flex-wrap gap-2">
+													{#each selectedChoices(setting.key) as selected (selected)}
+														{@const selectedLabel =
+															(optionGroups[setting.options_source ?? ''] ?? []).find(
+																(option) => option.value === selected
+															)?.label ?? selected}
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															class="min-h-11"
+															aria-label={m.compose_remove_tag({ tag: selectedLabel })}
+															onclick={() => removeRemoteChoice(setting, selected)}
+														>
+															{selectedLabel}
+															<ThemeIcon role="remove" class="ml-1 size-3" />
+														</Button>
+													{/each}
+												</div>
+											{/if}
 											<DestinationOptionCombobox
 												id="destination-setting-{setting.key}"
-												value={valueAsString(setting.key) || (setting.required ? '' : '__none__')}
+												value={isMultipleRemotePicker(setting)
+													? ''
+													: valueAsString(setting.key) || (setting.required ? '' : '__none__')}
 												label={settingLabel(setting)}
 												placeholder={m.compose_choose_setting({ setting: settingLabel(setting) })}
 												searchPlaceholder={m.compose_search_options()}
@@ -368,11 +540,10 @@
 												loadingLabel={m.compose_loading_provider_options()}
 												disabled={Boolean(setting.unavailable_reason)}
 												loading={optionsLoading}
-												onValueChange={(value) =>
-													onChange(setting.key, value === '__none__' ? '' : value)}
+												onValueChange={(value) => changeRemotePicker(setting, value)}
 												onSearch={(search) => updateOptionSearch(setting, search)}
 												options={[
-													...(setting.required
+													...(setting.required || isMultipleRemotePicker(setting)
 														? []
 														: [{ value: '__none__', label: m.common_none() }]),
 													...remoteOptions.map((option) => ({
@@ -393,9 +564,14 @@
 												</Button>
 											{/if}
 										</div>
+									{:else if setting.type === 'select' && !setting.options?.length && !setting.options_source}
+										<p class="mt-1 text-xs text-muted-foreground">
+											{m.compose_no_provider_options({ setting: settingLabel(setting) })}
+										</p>
 									{:else if setting.type === 'select'}
 										<AppSelect
 											id="destination-setting-{setting.key}"
+											ariaLabel={settingLabel(setting)}
 											value={valueAsString(setting.key) || (setting.required ? '' : '__none__')}
 											placeholder={m.compose_choose_setting({ setting: settingLabel(setting) })}
 											disabled={Boolean(setting.unavailable_reason)}
@@ -407,12 +583,36 @@
 													: [{ value: '__none__', label: m.common_none() }]),
 												...(setting.options ?? []).map((option) => ({
 													value: option,
-													label: option
+													label: optionLabel(setting, option)
 												}))
 											]}
 											class="mt-1 h-11 w-full"
 										/>
-									{:else if ['tags', 'language', 'chips', 'user_picker', 'media_tags'].includes(control)}
+									{:else if control === 'chips' && setting.options?.length}
+										<div
+											class="mt-2 flex flex-wrap gap-x-4 gap-y-1"
+											role="group"
+											aria-label={settingLabel(setting)}
+										>
+											{#each setting.options as choice (choice)}
+												<label class="flex min-h-11 items-center gap-2 text-sm">
+													<Checkbox
+														checked={selectedChoices(setting.key).includes(choice)}
+														onCheckedChange={(checked) => toggleChoice(setting, choice, checked)}
+													/>
+													{optionLabel(setting, choice)}
+												</label>
+											{/each}
+										</div>
+									{:else if control === 'language' && setting.key === 'language'}
+										<Input
+											id="destination-setting-{setting.key}"
+											class="mt-1 h-11"
+											value={valueAsString(setting.key)}
+											placeholder="en"
+											oninput={(event) => onChange(setting.key, event.currentTarget.value)}
+										/>
+									{:else if ['tags', 'language', 'user_picker', 'media_tags'].includes(control)}
 										<TagInput
 											id="destination-setting-{setting.key}"
 											value={valueAsString(setting.key)}
@@ -583,6 +783,7 @@
 													{:else if setting.type === 'select'}
 														<AppSelect
 															id="destination-media-{item.id}-{setting.key}"
+															ariaLabel={settingLabel(setting)}
 															value={valueAsString(setting.key, scopedValues) ||
 																(setting.required ? '' : '__none__')}
 															placeholder={m.compose_choose_setting({
@@ -672,7 +873,7 @@
 					{m.compose_delete_destination()}
 				</Button>
 			{/if}
-			<Button type="button" class="h-11 sm:h-9" onclick={() => (open = false)}>
+			<Button type="button" class="h-11 sm:h-9" onclick={finish}>
 				{m.common_done()}
 			</Button>
 		</Dialog.Footer>

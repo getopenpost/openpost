@@ -22124,6 +22124,11 @@
 				"bearerFormat": "OpenPost API token or session JWT",
 				"scheme": "bearer",
 				"type": "http"
+			},
+			"sessionCookie": {
+				"in": "cookie",
+				"name": "openpost_session",
+				"type": "apiKey"
 			}
 		}
 	},
@@ -25020,6 +25025,11 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [
+					{
+						"sessionCookie": []
+					}
+				],
 				"summary": "Append a provider approval review",
 				"tags": ["Provider Readiness"]
 			}
@@ -25109,6 +25119,11 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [
+					{
+						"sessionCookie": []
+					}
+				],
 				"summary": "Append normalized provider certification evidence",
 				"tags": ["Provider Readiness"]
 			}
@@ -25198,6 +25213,11 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [
+					{
+						"sessionCookie": []
+					}
+				],
 				"summary": "Append a provider runtime control",
 				"tags": ["Provider Readiness"]
 			}
@@ -26110,6 +26130,9 @@
 					{},
 					{
 						"bearerAuth": []
+					},
+					{
+						"sessionCookie": []
 					}
 				],
 				"summary": "Get application bootstrap state",
@@ -29639,6 +29662,9 @@
 					{},
 					{
 						"bearerAuth": []
+					},
+					{
+						"sessionCookie": []
 					}
 				],
 				"summary": "Get optional web session state",
@@ -50753,6 +50779,9 @@
 	"security": [
 		{
 			"bearerAuth": []
+		},
+		{
+			"sessionCookie": []
 		}
 	],
 	"servers": [

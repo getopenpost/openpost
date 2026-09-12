@@ -72,6 +72,7 @@ Verify docs reader interactions against the static export with `bunx playwright 
 - Mobile server, token, and Workspace persistence is one transaction boundary owned by `apps/mobile/src/lib/identity-store.ts`. Keep all three behind its queue and crash marker; a committed server change clears the server-scoped session.
 - `packages/plan-catalog` owns sellable plans, prices, and limits for marketing, signup, billing settings, and the generated Go catalog. Read `docs/development/billing-and-usage.md` before changing pricing or quota scope.
 - API, CLI, MCP, and product surfaces share terms, authorization, and workspace boundaries. For a contract change, edit its source and regenerate every consumer.
+- OpenAPI declares session-cookie authentication for browser sessions and session-only security for admin operations that reject API tokens.
 - Put Huma request size limits on `huma.Operation.MaxBodyBytes`. Do not read and replace an HTTP request body before Huma, because Huma's body-read deadline can then cancel a long-running handler after the body is already buffered.
 - External application authorization is separate from social-provider OAuth. Keep delegated client identity, consent, grants, credentials, and scope policy in `apps/server/internal/services/externalapps/`; keep durable signed delivery in `apps/server/internal/services/externalwebhooks/`.
 - AI features use maintained SDKs behind `apps/server/internal/ai/` and the shared model and configuration choices.

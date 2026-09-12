@@ -5,7 +5,10 @@ import (
 	"github.com/openpost/backend/internal/automationcatalog"
 )
 
-const bearerSecurityScheme = "bearerAuth"
+const (
+	bearerSecurityScheme        = "bearerAuth"
+	sessionCookieSecurityScheme = "sessionCookie"
+)
 
 var publicOperationIDs = map[string]struct{}{
 	"begin-login-passkey":                {},
@@ -44,6 +47,12 @@ var optionalAuthOperationIDs = map[string]struct{}{
 	"get-auth-session-state": {},
 }
 
+var sessionOnlyOperationIDs = map[string]struct{}{
+	"append-provider-approval-review": {},
+	"append-provider-runtime-control": {},
+	"append-provider-certification":   {},
+}
+
 func configureAutomationContract(config *huma.Config) {
 	if config.Components.SecuritySchemes == nil {
 		config.Components.SecuritySchemes = make(map[string]*huma.SecurityScheme)
@@ -53,7 +62,15 @@ func configureAutomationContract(config *huma.Config) {
 		Scheme:       "bearer",
 		BearerFormat: "OpenPost API token or session JWT",
 	}
-	config.Security = []map[string][]string{{bearerSecurityScheme: {}}}
+	config.Components.SecuritySchemes[sessionCookieSecurityScheme] = &huma.SecurityScheme{
+		Type: "apiKey",
+		In:   "cookie",
+		Name: "openpost_session",
+	}
+	config.Security = []map[string][]string{
+		{bearerSecurityScheme: {}},
+		{sessionCookieSecurityScheme: {}},
+	}
 	config.OnAddOperation = append(config.OnAddOperation, configureOperationContract)
 }
 
@@ -62,7 +79,11 @@ func configureOperationContract(_ *huma.OpenAPI, operation *huma.Operation) {
 		operation.Security = []map[string][]string{
 			{},
 			{bearerSecurityScheme: {}},
+			{sessionCookieSecurityScheme: {}},
 		}
+	}
+	if _, sessionOnly := sessionOnlyOperationIDs[operation.OperationID]; sessionOnly {
+		operation.Security = []map[string][]string{{sessionCookieSecurityScheme: {}}}
 	}
 	if _, public := publicOperationIDs[operation.OperationID]; public {
 		operation.Security = []map[string][]string{}

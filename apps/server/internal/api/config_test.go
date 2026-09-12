@@ -36,12 +36,23 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 	document := api.OpenAPI()
 
 	require.Equal(t, "/api/v1", document.Servers[1].URL)
-	require.Equal(t, []map[string][]string{{"bearerAuth": {}}}, document.Security)
+	require.Equal(t, []map[string][]string{{"bearerAuth": {}}, {"sessionCookie": {}}}, document.Security)
 	require.Equal(t, "http", document.Components.SecuritySchemes["bearerAuth"].Type)
 	require.Equal(t, "bearer", document.Components.SecuritySchemes["bearerAuth"].Scheme)
+	require.Equal(t, "apiKey", document.Components.SecuritySchemes["sessionCookie"].Type)
+	require.Equal(t, "cookie", document.Components.SecuritySchemes["sessionCookie"].In)
+	require.Equal(t, "openpost_session", document.Components.SecuritySchemes["sessionCookie"].Name)
 
 	listWorkspaces := operationByID(t, document, "list-workspaces")
-	require.Nil(t, listWorkspaces.Security, "authenticated operations inherit root bearer security")
+	require.Nil(t, listWorkspaces.Security, "authenticated operations inherit bearer or session cookie security")
+	for _, operationID := range []string{
+		"append-provider-approval-review",
+		"append-provider-runtime-control",
+		"append-provider-certification",
+	} {
+		require.Equal(t, []map[string][]string{{"sessionCookie": {}}},
+			operationByID(t, document, operationID).Security, operationID)
+	}
 	require.Equal(t, map[string]any{
 		"access":      "read",
 		"exposure":    "alpha",
@@ -59,7 +70,8 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 	require.Equal(t, []map[string][]string{
 		{},
 		{"bearerAuth": {}},
-	}, bootstrap.Security, "bootstrap supports anonymous and bearer-authenticated responses")
+		{"sessionCookie": {}},
+	}, bootstrap.Security, "bootstrap supports anonymous, bearer, and session-cookie responses")
 	require.ElementsMatch(t, []string{"Auth", "Workspaces"}, bootstrap.Tags)
 	require.NotContains(t, bootstrap.Extensions, "x-openpost-automation", "narrow REST tokens must not gain account identity access")
 	bootstrapResponse := bootstrap.Responses["200"].Content["application/json"].Schema
@@ -81,7 +93,8 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 	require.Equal(t, []map[string][]string{
 		{},
 		{"bearerAuth": {}},
-	}, sessionState.Security, "session state supports anonymous and bearer-authenticated responses")
+		{"sessionCookie": {}},
+	}, sessionState.Security, "session state supports anonymous, bearer, and session-cookie responses")
 	require.Contains(t, sessionState.Responses, "503")
 }
 

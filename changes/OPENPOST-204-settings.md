@@ -9,3 +9,4 @@
 - Telegram chat choices come from the account's verified bot installation, with only that connected chat selectable.
 - Telegram messages and attachments have a channel preview in the composer.
 - Account-specific settings take precedence over general provider options, including webhook accounts with no editable destination settings.
+- The API reference documents session-cookie auth for provider-readiness admin evidence; API tokens remain rejected.

@@ -82,6 +82,13 @@ Only an unscoped instance administrator using a signed-in browser session may ap
 - `POST /api/v1/admin/provider-readiness/runtime-controls`
 - `POST /api/v1/admin/provider-readiness/certifications`
 
+To use the built-in API reference, sign in as an unscoped instance administrator
+and open `/api/v1/docs` on that same instance. Choose one of these operations,
+leave the session-cookie value blank in the reference, and submit it from the
+browser. The browser sends the existing HttpOnly `openpost_session` cookie;
+there is no need to copy its value or create an API token. Cross-origin session
+requests and API-token requests remain rejected.
+
 The first test cannot require proof that the test already happened. The
 privileged `certification_test` execution intent therefore bypasses prior local
 and live evidence only. It still requires effective configuration, current

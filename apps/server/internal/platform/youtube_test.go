@@ -135,6 +135,55 @@ func TestYouTubeExchangeRefreshAndSelectChannel(t *testing.T) {
 	}
 }
 
+func TestYouTubeThumbnailRetryDoesNotUploadVideoAgain(t *testing.T) {
+	originalClient := httpClient
+	t.Cleanup(func() { httpClient = originalClient })
+	var saved ResumableMediaUploadState
+	uploads, thumbnails := 0, 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/upload/youtube/v3/videos":
+			resp := jsonResponse(req, `{}`)
+			resp.Header.Set("Location", "https://www.googleapis.com/upload/youtube/v3/videos/session")
+			return resp, nil
+		case "/upload/youtube/v3/videos/session":
+			uploads++
+			return jsonResponseWithStatus(req, http.StatusCreated, `{"id":"live-video"}`), nil
+		case "/upload/youtube/v3/thumbnails/set":
+			thumbnails++
+			if saved.ProviderMediaID != "live-video" {
+				t.Fatal("video ID must be durable before thumbnail request")
+			}
+			if thumbnails == 1 {
+				return jsonResponseWithStatus(req, http.StatusServiceUnavailable, `{"error":{"message":"Unavailable"}}`), nil
+			}
+			return jsonResponse(req, `{}`), nil
+		case "/youtube/v3/videos":
+			return jsonResponse(req, `{"items":[{"id":"live-video","processingDetails":{"processingStatus":"succeeded"},"status":{"uploadStatus":"processed"}}]}`), nil
+		default:
+			t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+			return nil, nil
+		}
+	})}
+	adapter := NewYouTubeAdapter("client", "secret", "https://app.example/callback")
+	request := func() UploadMediaRequest {
+		return UploadMediaRequest{MimeType: "video/mp4", Size: 11, Title: "Test video",
+			Settings: map[string]interface{}{"privacy": "public", "category_id": "22"},
+			OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader("video-bytes"[offset:])), nil
+			},
+			ThumbnailMimeType: "image/jpeg", ThumbnailSize: 11, ThumbnailReader: strings.NewReader("cover-bytes")}
+	}
+	checkpoint := func(state ResumableMediaUploadState) error { saved = state; return nil }
+	if _, err := adapter.UploadMediaResumable(t.Context(), "token", "channel", request(), saved, checkpoint); err == nil {
+		t.Fatal("thumbnail failure must remain visible")
+	}
+	id, err := adapter.UploadMediaResumable(t.Context(), "token", "channel", request(), saved, checkpoint)
+	if err != nil || id != "live-video" || uploads != 1 || thumbnails != 2 {
+		t.Fatalf("retry: id=%q err=%v uploads=%d thumbnails=%d", id, err, uploads, thumbnails)
+	}
+}
+
 func TestYouTubeUploadMediaWithMetadata(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

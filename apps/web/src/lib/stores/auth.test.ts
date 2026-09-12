@@ -12,6 +12,21 @@ const apiMocks = {
 	post: vi.fn()
 };
 
+const userProfileDefaults = {
+	avatar_url: '',
+	composer_experience: 'specialized',
+	display_name: 'Test user',
+	password_usable: true,
+	public_profile_visible_fields: null
+} satisfies Pick<
+	User,
+	| 'avatar_url'
+	| 'composer_experience'
+	| 'display_name'
+	| 'password_usable'
+	| 'public_profile_visible_fields'
+>;
+
 const auth = createAuthStore({
 	client: { GET: client.GET, POST: apiMocks.post },
 	getPasskeyAssertion: vi.fn(),
@@ -53,6 +68,7 @@ describe('auth recovery-code verification', () => {
 
 	it('submits the pending MFA token and authenticates after a valid recovery code', async () => {
 		const user = {
+			...userProfileDefaults,
 			id: 'user-1',
 			email: 'person@example.com',
 			username: 'person',
@@ -98,6 +114,7 @@ describe('auth recovery-code verification', () => {
 
 	it('clears authentication when the projected user becomes null', () => {
 		auth.setUser({
+			...userProfileDefaults,
 			id: 'user-null-test',
 			email: 'person@example.com',
 			username: 'person',
@@ -136,6 +153,7 @@ describe('auth recovery-code verification', () => {
 			resetWorkspaceState: vi.fn()
 		});
 		const user = {
+			...userProfileDefaults,
 			id: 'expiring-user',
 			email: 'person@example.com',
 			username: 'person',
@@ -279,6 +297,7 @@ describe('auth recovery-code verification', () => {
 		const clear = vi.fn();
 		const resetWorkspaceState = vi.fn();
 		const firstUser = {
+			...userProfileDefaults,
 			id: 'first-actor',
 			email: 'first@example.com',
 			username: 'first',
@@ -344,6 +363,7 @@ describe('auth recovery-code verification', () => {
 		const setQueriesData = vi.fn();
 		const setQueryData = vi.fn();
 		const user = {
+			...userProfileDefaults,
 			id: 'user-2',
 			email: 'next@example.com',
 			username: 'next',
@@ -423,6 +443,7 @@ describe('auth recovery-code verification', () => {
 			resetWorkspaceState
 		});
 		isolatedAuth.setUser({
+			...userProfileDefaults,
 			id: 'expired-user',
 			email: 'expired@example.com',
 			username: 'expired',
@@ -459,6 +480,7 @@ describe('auth recovery-code verification', () => {
 			resolveLogout = resolve;
 		});
 		const firstUser = {
+			...userProfileDefaults,
 			id: 'logout-first-user',
 			email: 'first@example.com',
 			username: 'first',
@@ -515,6 +537,7 @@ describe('auth recovery-code verification', () => {
 	it('still clears the same actor when their projection changes during logout', async () => {
 		const logoutResponse = deferred<void>();
 		const user = {
+			...userProfileDefaults,
 			id: 'logout-projected-user',
 			email: 'before@example.com',
 			username: 'projected',
@@ -566,6 +589,7 @@ describe('auth recovery-code verification', () => {
 			.mockResolvedValueOnce({})
 			.mockReturnValueOnce(secondResponse.promise);
 		const firstUser = {
+			...userProfileDefaults,
 			id: 'out-of-order-first',
 			email: 'first@example.com',
 			username: 'first',
@@ -627,6 +651,7 @@ describe('auth recovery-code verification', () => {
 		const firstResponse = deferred<unknown>();
 		const secondResponse = deferred<unknown>();
 		const staleUser = {
+			...userProfileDefaults,
 			id: 'superseded-session-user',
 			email: 'stale@example.com',
 			username: 'stale',
@@ -687,6 +712,7 @@ describe('auth recovery-code verification', () => {
 		const firstResponse = deferred<unknown>();
 		const retryResponse = deferred<unknown>();
 		const staleUser = {
+			...userProfileDefaults,
 			id: 'uncleared-session-user',
 			email: 'uncleared@example.com',
 			username: 'uncleared',
@@ -759,6 +785,7 @@ describe('auth recovery-code verification', () => {
 			.mockReturnValueOnce(firstResponse.promise)
 			.mockReturnValueOnce(secondResponse.promise);
 		const user = {
+			...userProfileDefaults,
 			id: 'newer-authenticated-user',
 			email: 'newer@example.com',
 			username: 'newer',
@@ -826,6 +853,7 @@ describe('auth recovery-code verification', () => {
 		const authenticatedBootstrap = {
 			authenticated: true,
 			user: {
+				...userProfileDefaults,
 				id: 'user-3',
 				email: 'third@example.com',
 				username: 'third',
@@ -916,6 +944,7 @@ describe('auth recovery-code verification', () => {
 		const resetWorkspaceState = vi.fn();
 		const setQueryData = vi.fn();
 		const user = {
+			...userProfileDefaults,
 			id: 'user-after-public-failure',
 			email: 'signed-in@example.com',
 			username: 'signed-in',
@@ -958,6 +987,7 @@ describe('auth recovery-code verification', () => {
 
 	it('keeps an authenticated shell visible when bootstrap refresh fails', async () => {
 		const user = {
+			...userProfileDefaults,
 			id: 'user-4',
 			email: 'fourth@example.com',
 			username: 'fourth',
@@ -1031,6 +1061,7 @@ describe('auth recovery-code verification', () => {
 			resetWorkspaceState: vi.fn()
 		});
 		const projectedUser = {
+			...userProfileDefaults,
 			id: 'new-user',
 			email: 'before@example.com',
 			username: 'new',
@@ -1067,6 +1098,7 @@ describe('auth recovery-code verification', () => {
 		});
 		const cache = new QueryClient();
 		const initialUser = {
+			...userProfileDefaults,
 			id: 'same-user',
 			email: 'before@example.com',
 			username: 'same',

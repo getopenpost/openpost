@@ -1,5 +1,5 @@
 import type { TimelineItem, TranscriptCaptionSource } from '../project/types';
-import type { SourceRange } from './speech-cleanup';
+import type { SourceRange } from '../timeline/actions/range-removal';
 
 export interface ResolvedTranscriptCaptionTiming {
 	sourceStartSeconds: number;
@@ -15,7 +15,7 @@ export interface CaptionFrameRange {
 
 export function resolveTranscriptCaptionTiming(
 	source: TranscriptCaptionSource,
-	sourceItem: TimelineItem | undefined,
+	sourceItem: TimelineItem | null | undefined,
 	timelineFps: number
 ): ResolvedTranscriptCaptionTiming {
 	const sourceFps =

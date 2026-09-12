@@ -27,6 +27,7 @@ interface ReplacementProbe {
 	frameRateMetrics?: VideoFrameRateMetrics;
 	codec: string;
 	audioCodec?: string;
+	audioCodecSupported?: boolean;
 	keyframeTimestamps?: number[];
 	gopInterval?: number;
 	lottieTotalFrames?: number;

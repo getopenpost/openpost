@@ -75,6 +75,38 @@ test("landing details and resources load without repeating full screenshots", as
   }
 });
 
+test("meme screenshot does not include the blurred dialog backdrop at its sides", async ({
+  page,
+}) => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto("/");
+    const image = page.getByRole("img", {
+      name: "OpenPost meme creator with editable captions and a rendered Drakeposting preview",
+    });
+    await image.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
+      .toBe(true);
+    const edgeDifference = await image.evaluate((img: HTMLImageElement) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas 2D context is unavailable");
+      context.drawImage(img, 0, 0);
+      const pixel = (x: number) => context.getImageData(x, 80, 1, 1).data;
+      const distance = (left: Uint8ClampedArray, right: Uint8ClampedArray) =>
+        Math.max(...[0, 1, 2].map((channel) => Math.abs(left[channel] - right[channel])));
+      return Math.max(
+        distance(pixel(2), pixel(100)),
+        distance(pixel(img.naturalWidth - 3), pixel(img.naturalWidth - 101)),
+      );
+    });
+    expect(edgeDifference).toBeLessThan(20);
+  }
+});
+
 test("features navigation stays on the landing page", async ({ page }, testInfo) => {
   await page.goto("/");
   if (testInfo.project.name.includes("mobile")) {

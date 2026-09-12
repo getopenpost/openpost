@@ -1440,7 +1440,7 @@ test.describe("product screenshot capture", () => {
           ),
         )
         .toBe(true);
-      await captureDetail(mediaPicker, `meme-creator-detail-${captureScheme}.png`);
+      await captureDetail(mediaPicker, `meme-creator-detail-${captureScheme}.png`, 0);
       await page.keyboard.press("Escape");
 
       await page.goto(`/publications?tab=drafts&workspace=${workspace.id}`);
@@ -1678,14 +1678,13 @@ test.describe("product screenshot capture", () => {
   }
 });
 
-async function captureDetail(element: Locator, filename: string) {
+async function captureDetail(element: Locator, filename: string, contextPadding = 20) {
   await element.scrollIntoViewIfNeeded();
   const page = element.page();
   const bounds = await element.boundingBox();
   const viewport = page.viewportSize();
   if (!bounds || !viewport) throw new Error(`Cannot frame product detail: ${filename}`);
   // Retain neighboring app surface so crops do not end at a control's edge.
-  const contextPadding = 20;
   const x = Math.max(0, bounds.x - contextPadding);
   const y = Math.max(0, bounds.y - contextPadding);
   await page.screenshot({

@@ -149,8 +149,8 @@
 					lightSrc="/assets/screenshots/meme-creator-detail-light.webp"
 					darkSrc="/assets/screenshots/meme-creator-detail-dark.webp"
 					alt="OpenPost meme creator with editable captions and a rendered Drakeposting preview"
-					width={2400}
-					height={1600}
+					width={2764}
+					height={1920}
 					loading="lazy"
 				/>
 			</div>

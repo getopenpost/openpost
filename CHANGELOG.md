@@ -4,6 +4,48 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.31.0] - 2026-09-12
+
+### Added
+
+- Social Sets can save per-account formats and reusable provider settings as defaults for new publications. Choose a format before setting presets; the available fields work across the media that format accepts. Drafts copy those defaults and keep any settings changed for that post. Settings tied to attached media stay on the post.
+
+### Fixed
+
+- Quick Cut can reopen legacy single-source projects and keep their cuts while it refreshes media details.
+- Video Editor can reset all transition parameters to their defaults.
+- Image Editor first-edit guidance selects the largest editable text layer by its font size.
+- Theme revision requests include the selected organization, so revision details load under the correct library.
+- Video Editor Composition Timeline zoom responds to the shared slider, and legacy keyframes remain draggable.
+- Video Editor agent reports the requested tool name when a plan contains an unknown tool.
+- Quick Cut re-encodes mid-stream cuts without keyframe metadata instead of labeling them lossless.
+- Quick Cut rejects saved projects with unsupported media rotations.
+- Billing recovery refreshes the correct organization's data after returning from the payment portal.
+- Video Editor shows a label while local scene captions are being generated.
+- Video Editor agent applies the transition style it reports when adding a transition.
+- Publications shows the connected account avatar beside each destination when one is available.
+- Video Editor selects the complete keyframe after pasting it into the value graph, so its controls can show the new value and easing.
+- Quick Cut's preview can be focused and toggled with a button, while retaining its context menu.
+- Image Editor color grading renders raw image data through the canvas fallback when GPU rendering is unavailable.
+- Video Editor skips motion channels it cannot render when baking keyframes.
+- Discord bot destinations require a channel before publishing or scheduling, even when account options cannot be refreshed. Incoming webhook connections keep their fixed destination.
+- Discord settings show channel-dependent mention controls and clearer embed guidance.
+- Telegram content compatibility no longer carries a permanent testing block. Account readiness remains responsible for publishing authorization.
+- Destination settings keep required choices open for correction and show a top-right error when Done is pressed without them.
+- Phone notifications fit within the screen and leave the dialog title and close button accessible.
+- Discord embeds use named fields, and mentions can include more than one person or role.
+- TikTok photo covers use attached-photo choices. Bluesky content labels use the allowed choices.
+- Settings without provider choices explain why there is no usable control.
+- Unsupported settings stay out of the main form unless they carry a saved value; their reasons remain available under Unavailable.
+- Telegram chat choices come from the account's verified bot installation, with only that connected chat selectable.
+- Telegram messages and attachments have a channel preview in the composer.
+- Account-specific settings take precedence over general provider options, including webhook accounts with no editable destination settings.
+- The API reference documents session-cookie auth for provider-readiness admin evidence; API tokens remain rejected.
+- Dither shows readable publishing errors in dark mode and visible hover feedback in the sidebar. Destructive buttons retain readable text in every state.
+- The profile menu now labels app preferences as Settings.
+- Marketing pages recover automatically when a page-module download fails during initial load, instead of remaining on an error page.
+- The landing page meme screenshot no longer shows blurred strips beside the editor.
+
 ## [4.30.3] - 2026-09-12
 
 ### Fixed

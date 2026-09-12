@@ -33,6 +33,7 @@
         "!src/**/*.fixture.svelte!",
         "!src/**/*{test-harness,test-boundary,participant-harness}.svelte!",
         "!src/**/*{test-utils,test-fixtures}.ts!",
+        "!src/**/test-fixtures/**!",
       ],
       // The graph is explicit above. Loading Vite here invokes SvelteKit from
       // the monorepo root and adds config-only warnings to the CI signal.

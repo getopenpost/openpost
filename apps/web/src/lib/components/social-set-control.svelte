@@ -49,7 +49,25 @@
 	type ResolvedSocialSetSettings = components['schemas']['ResolveSocialSetSettingsOutputBody'];
 	type SettingDefinition = components['schemas']['SettingDefinition'];
 	type DestinationOption = components['schemas']['DestinationOption'];
-	type DefaultSettings = NonNullable<SocialSetAccountInput['default_settings']>;
+	type DefaultSettings = ComposerSettings;
+	type StoredDefaultSettings = NonNullable<SocialSetAccountInput['default_settings']>;
+
+	function parseDefaultSettings(values?: StoredDefaultSettings): DefaultSettings {
+		return Object.fromEntries(
+			Object.entries(values ?? {}).map(([key, value]) => {
+				if (value === null) return [key, null];
+				if (String(value) === value) return [key, String(value)];
+				if (Number.isFinite(value)) return [key, Number(value)];
+				if (Boolean(value) === value) return [key, Boolean(value)];
+				if (Array.isArray(value)) {
+					if (value.every((item) => String(item) === item)) return [key, value.map(String)];
+					if (value.every(Number.isFinite)) return [key, value.map(Number)];
+					if (value.every((item) => Boolean(item) === item)) return [key, value.map(Boolean)];
+				}
+				return [key, ''];
+			})
+		);
+	}
 
 	interface Props {
 		workspaceId: string;
@@ -144,7 +162,7 @@
 	const settingsEditorValues = $derived({
 		...(editorSettings[settingsEditorAccountId] ?? {}),
 		...(editorSegmentSettings[settingsEditorAccountId] ?? {})
-	} as ComposerSettings);
+	});
 	const destinationLabel = $derived(
 		selectedSet?.name ||
 			(selectedAccountIds.length > 0 ? m.social_set_custom_selection() : m.social_set_select())
@@ -269,13 +287,13 @@
 		editorSettings = Object.fromEntries(
 			(set.accounts ?? []).map((account) => [
 				account.social_account_id,
-				{ ...(account.default_settings ?? {}) }
+				parseDefaultSettings(account.default_settings)
 			])
 		);
 		editorSegmentSettings = Object.fromEntries(
 			(set.accounts ?? []).map((account) => [
 				account.social_account_id,
-				{ ...(account.default_segment_settings ?? {}) }
+				parseDefaultSettings(account.default_segment_settings)
 			])
 		);
 		editorFormatDrafts = {};
@@ -321,7 +339,10 @@
 					seen.add(capability.output_profile);
 					return true;
 				})
-				.map((capability) => ({ value: capability.output_profile, label: capability.label }))
+				.map((capability) => ({
+					value: capability.output_profile,
+					label: capability.label
+				}))
 		];
 		const current = editorOutputProfiles[account.id];
 		if (current && !formats.some((format) => format.value === current)) {
@@ -342,7 +363,10 @@
 		};
 		const restored = drafts[profile || '__auto__'];
 		editorFormatDrafts = { ...editorFormatDrafts, [accountId]: drafts };
-		editorSettings = { ...editorSettings, [accountId]: { ...(restored?.destination ?? {}) } };
+		editorSettings = {
+			...editorSettings,
+			[accountId]: { ...(restored?.destination ?? {}) }
+		};
 		editorSegmentSettings = {
 			...editorSegmentSettings,
 			[accountId]: { ...(restored?.segment ?? {}) }
@@ -369,9 +393,9 @@
 		const field = settingsEditorFields.find((candidate) => candidate.key === key);
 		if (!field) return;
 		const segment = field.scope === 'segment';
-		const current = (
-			segment ? (editorSegmentSettings[account.id] ?? {}) : (editorSettings[account.id] ?? {})
-		) as ComposerSettings;
+		const current = segment
+			? (editorSegmentSettings[account.id] ?? {})
+			: (editorSettings[account.id] ?? {});
 		const invalidated = invalidateDependentDestinationSettings(
 			settingsEditorFields.filter((candidate) => candidate.scope === field.scope),
 			current,
@@ -379,7 +403,10 @@
 			value
 		);
 		if (segment)
-			editorSegmentSettings = { ...editorSegmentSettings, [account.id]: invalidated.values };
+			editorSegmentSettings = {
+				...editorSegmentSettings,
+				[account.id]: invalidated.values
+			};
 		else editorSettings = { ...editorSettings, [account.id]: invalidated.values };
 		for (const source of invalidated.optionSources) {
 			const nextOptions = { ...settingsOptions };
@@ -505,7 +532,10 @@
 						? mergeDestinationOptions(settingsOptions[source] ?? [], data.options ?? [])
 						: (data.options ?? [])
 				};
-				settingsOptionCursors = { ...settingsOptionCursors, [source]: data.next_cursor ?? '' };
+				settingsOptionCursors = {
+					...settingsOptionCursors,
+					[source]: data.next_cursor ?? ''
+				};
 			}
 		} catch (cause) {
 			if (sequence === settingsOptionsSequence)
@@ -699,7 +729,9 @@
 			<div class="flex min-h-11 items-center justify-between px-2">
 				<div>
 					<p class="text-sm font-medium">{m.compose_destinations()}</p>
-					<p class="text-xs text-muted-foreground">{m.social_set_picker_body()}</p>
+					<p class="text-xs text-muted-foreground">
+						{m.social_set_picker_body()}
+					</p>
 				</div>
 				{#if onSelectAll && onClearAll}
 					<Button
@@ -841,7 +873,9 @@
 
 					<fieldset class="space-y-2">
 						<legend class="text-sm font-medium">{m.social_set_accounts()}</legend>
-						<p class="text-xs text-muted-foreground">{m.social_set_media_settings_on_post()}</p>
+						<p class="text-xs text-muted-foreground">
+							{m.social_set_media_settings_on_post()}
+						</p>
 						{#each accounts as account (account.id)}
 							<div class="rounded-md border px-3 py-2.5">
 								<label class="flex min-h-11 items-center gap-3 text-sm">
@@ -862,11 +896,15 @@
 									>
 										<div class="min-w-0 space-y-1">
 											<Label for="social-set-format-{account.id}"
-												>{m.compose_format_for_account({ account: accountLabel(account) })}</Label
+												>{m.compose_format_for_account({
+													account: accountLabel(account)
+												})}</Label
 											>
 											<AppSelect
 												id="social-set-format-{account.id}"
-												ariaLabel={m.compose_format_for_account({ account: accountLabel(account) })}
+												ariaLabel={m.compose_format_for_account({
+													account: accountLabel(account)
+												})}
 												value={editorOutputProfiles[account.id] || '__auto__'}
 												options={accountFormats(account)}
 												onValueChange={(value) => {
@@ -888,7 +926,9 @@
 										</Button>
 									</div>
 									{#if !editorOutputProfiles[account.id]}
-										<p class="text-xs text-muted-foreground">{m.compose_choose_format()}</p>
+										<p class="text-xs text-muted-foreground">
+											{m.compose_choose_format()}
+										</p>
 									{/if}
 									{#if settingsResolveError && settingsEditorAccountId === account.id}
 										<InlineNotice tone="error" message={settingsResolveError} />

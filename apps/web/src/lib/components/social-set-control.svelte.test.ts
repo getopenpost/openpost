@@ -1,16 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import type { components } from '$lib/api/types';
-import { client } from '$lib/api/client';
+import { client, type SocialAccount } from '$lib/api/client';
 import { openPostQueryKeys } from '@openpost/query-catalog';
 import { queryClient } from '$lib/query/client';
 import SocialSetControl from './social-set-control.svelte';
 
 type SocialSet = components['schemas']['SocialSetResponse'];
+type Capability = components['schemas']['Capability'];
+type SettingDefinition = components['schemas']['SettingDefinition'];
+type ResolvedSettings = components['schemas']['ResolveSocialSetSettingsOutputBody'];
 
-const getMock = vi.spyOn(client, 'GET');
-const postMock = vi.spyOn(client, 'POST');
-const putMock = vi.spyOn(client, 'PUT');
+const getMock = vi.fn();
+const postMock = vi.fn();
+const putMock = vi.fn();
+vi.spyOn(client, 'GET').mockImplementation(getMock);
+vi.spyOn(client, 'POST').mockImplementation(postMock);
+vi.spyOn(client, 'PUT').mockImplementation(putMock);
 const readWorkspaces: string[] = [];
 
 describe('Social Set request ownership', () => {
@@ -36,18 +42,21 @@ describe('Social Set request ownership', () => {
 		];
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
 		installResolvedReads();
-		postMock.mockImplementation((path) => {
+		postMock.mockImplementation((path: string) => {
 			if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
-			return Promise.resolve(response({ account_id: 'acc-1', settings: [xReplySetting] })) as never;
+			return Promise.resolve(
+				response({
+					account_id: 'acc-1',
+					output_profile: 'x.post',
+					settings: [xReplySetting]
+				} satisfies ResolvedSettings)
+			);
 		});
-		putMock.mockImplementation(() => new Promise(() => {}) as never);
+		putMock.mockImplementation(() => new Promise(() => {}));
 		const screen = await render(SocialSetControl, {
 			workspaceId: 'workspace-a',
-			accounts: [{ id: 'acc-1', platform: 'x', account_username: 'openpost' }] as never,
-			capabilities: [
-				{ provider: 'x', output_profile: 'x.post', label: 'Post' },
-				{ provider: 'x', output_profile: 'x.video', label: 'Video' }
-			] as never,
+			accounts: [socialAccount('acc-1', 'x', 'openpost')],
+			capabilities: [capability('x', 'x.post', 'Post'), capability('x', 'x.video', 'Video')],
 			selectedSetId: existing.id,
 			onApply: vi.fn()
 		});
@@ -113,32 +122,33 @@ describe('Social Set request ownership', () => {
 		];
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
 		installResolvedReads();
-		postMock.mockImplementation((path, request: { body?: { social_account_id?: string } }) => {
-			if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
-			const accountId = request.body?.social_account_id;
-			return Promise.resolve(
-				response({
-					account_id: accountId,
-					settings: accountId === 'bot' ? [discordChannelSetting] : []
-				})
-			) as never;
-		});
-		putMock.mockImplementation(() => new Promise(() => {}) as never);
+		postMock.mockImplementation(
+			(path: string, request: { body?: { social_account_id?: string } }) => {
+				if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
+				const accountId = request.body?.social_account_id;
+				return Promise.resolve(
+					response({
+						account_id: accountId,
+						output_profile: 'discord.post',
+						settings: accountId === 'bot' ? [discordChannelSetting] : []
+					} satisfies ResolvedSettings)
+				);
+			}
+		);
+		putMock.mockImplementation(() => new Promise(() => {}));
 		const screen = await render(SocialSetControl, {
 			workspaceId: 'workspace-a',
 			accounts: [
-				{ id: 'webhook', platform: 'discord', account_username: 'fixed' },
-				{ id: 'bot', platform: 'discord', account_username: 'bot' }
-			] as never,
+				socialAccount('webhook', 'discord', 'fixed'),
+				socialAccount('bot', 'discord', 'bot')
+			],
 			capabilities: [
 				{
-					provider: 'discord',
-					output_profile: 'discord.post',
-					label: 'Discord message',
+					...capability('discord', 'discord.post', 'Discord message'),
 					settings: [discordChannelSetting]
 				},
-				{ provider: 'discord', output_profile: 'discord.post', label: 'Discord attachment' }
-			] as never,
+				capability('discord', 'discord.post', 'Discord attachment')
+			],
 			selectedSetId: existing.id,
 			onApply: vi.fn()
 		});
@@ -158,7 +168,9 @@ describe('Social Set request ownership', () => {
 		await expect
 			.element(screen.getByText('This account has no reusable post settings.'))
 			.toBeVisible();
-		const settingsDialog = screen.getByRole('dialog', { name: 'Discord settings' });
+		const settingsDialog = screen.getByRole('dialog', {
+			name: 'Discord settings'
+		});
 		await expect.element(settingsDialog).not.toBeInTheDocument();
 		await screen.getByRole('button', { name: 'Edit post settings' }).nth(1).click();
 		await expect.element(settingsDialog.getByRole('combobox', { name: 'Channel' })).toBeVisible();
@@ -209,23 +221,21 @@ describe('Social Set request ownership', () => {
 		];
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
 		installResolvedReads();
-		postMock.mockImplementation((path) => {
+		postMock.mockImplementation((path: string) => {
 			if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
 			return Promise.resolve(
 				response({
 					account_id: 'tiktok-1',
 					output_profile: 'tiktok.video',
 					settings: [tiktokPostingMethodSetting, tiktokAIGCSetting]
-				})
-			) as never;
+				} satisfies ResolvedSettings)
+			);
 		});
-		putMock.mockImplementation(() => new Promise(() => {}) as never);
+		putMock.mockImplementation(() => new Promise(() => {}));
 		const screen = await render(SocialSetControl, {
 			workspaceId: 'workspace-a',
-			accounts: [{ id: 'tiktok-1', platform: 'tiktok', account_username: 'creator' }] as never,
-			capabilities: [
-				{ provider: 'tiktok', output_profile: 'tiktok.video', label: 'TikTok video' }
-			] as never,
+			accounts: [socialAccount('tiktok-1', 'tiktok', 'creator')],
+			capabilities: [capability('tiktok', 'tiktok.video', 'TikTok video')],
 			selectedSetId: existing.id,
 			onApply: vi.fn()
 		});
@@ -246,7 +256,10 @@ describe('Social Set request ownership', () => {
 					accounts: [
 						expect.objectContaining({
 							default_output_profile: 'tiktok.video',
-							default_settings: { content_posting_method: 'DIRECT_POST', is_aigc: true }
+							default_settings: {
+								content_posting_method: 'DIRECT_POST',
+								is_aigc: true
+							}
 						})
 					]
 				})
@@ -261,8 +274,8 @@ describe('Social Set request ownership', () => {
 		installResolvedReads();
 		const screen = await render(SocialSetControl, {
 			workspaceId: 'workspace-a',
-			accounts: [{ id: 'acc-1', platform: 'x', account_username: 'openpost' }] as never,
-			capabilities: [{ provider: 'x', output_profile: 'x.post', label: 'Post' }] as never,
+			accounts: [socialAccount('acc-1', 'x', 'openpost')],
+			capabilities: [capability('x', 'x.post', 'Post')],
 			selectedSetId: existing.id,
 			onApply: vi.fn()
 		});
@@ -277,9 +290,12 @@ describe('Social Set request ownership', () => {
 	});
 
 	it('does not refresh or apply an old Social Set save in a new Workspace', async () => {
-		const save = deferred<{ data: SocialSet; error: undefined; response: Response }>();
-		// SAFETY: The deferred value matches the endpoint response used by this test.
-		postMock.mockReturnValue(save.promise as never);
+		const save = deferred<{
+			data: SocialSet;
+			error: undefined;
+			response: Response;
+		}>();
+		postMock.mockReturnValue(save.promise);
 		installResolvedReads();
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), []);
 		const onApply = vi.fn();
@@ -305,7 +321,11 @@ describe('Social Set request ownership', () => {
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-b'), [
 			socialSet('workspace-b')
 		]);
-		await screen.rerender({ workspaceId: 'workspace-b', accounts: [], onApply });
+		await screen.rerender({
+			workspaceId: 'workspace-b',
+			accounts: [],
+			onApply
+		});
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		const workspaceBReads = socialSetReadCount('workspace-b');
 
@@ -326,8 +346,7 @@ describe('Social Set request ownership', () => {
 				if (path !== '/social-sets') throw new Error(`Unexpected GET ${path}`);
 				const workspaceID = request?.params?.query?.workspace_id ?? '';
 				readWorkspaces.push(workspaceID);
-				// SAFETY: The fixture contains every response field consumed by the component.
-				return Promise.resolve(response([socialSet(workspaceID)])) as never;
+				return Promise.resolve(response([socialSet(workspaceID)]));
 			}
 		);
 	}
@@ -355,7 +374,50 @@ function socialSet(workspaceID: string): SocialSet {
 	};
 }
 
-const xReplySetting = {
+function socialAccount(id: string, platform: string, account_username: string): SocialAccount {
+	return {
+		id,
+		slug: id,
+		platform,
+		account_id: id,
+		account_username,
+		account_avatar_url: '',
+		instance_url: '',
+		is_active: true,
+		thread_replies_supported: true,
+		messaging_supported: false,
+		messages_enabled: false,
+		grant_destination_count: 1,
+		shared_grant: false
+	};
+}
+
+function capability(provider: string, output_profile: string, label: string): Capability {
+	const text = { required: false };
+	return {
+		provider,
+		output_profile,
+		label,
+		profile: output_profile,
+		capability_revision: 'test-revision',
+		content: { alt_text: text, body: text, description: text, title: text },
+		media: {
+			allowed_mimes: [],
+			max_count: 0,
+			min_count: 0,
+			requires_https_fetchable: false,
+			requires_public_url: false
+		},
+		intents: [],
+		media_shapes: [],
+		native_scheduling: false,
+		openpost_queued: true,
+		requires_app_review: false,
+		requires_public_media: false
+	};
+}
+
+const xReplySetting: SettingDefinition = {
 	key: 'reply_settings',
 	label: 'Who can reply',
 	message_key: '',
@@ -367,7 +429,7 @@ const xReplySetting = {
 	options: ['following', 'mentionedUsers']
 };
 
-const tiktokPostingMethodSetting = {
+const tiktokPostingMethodSetting: SettingDefinition = {
 	key: 'content_posting_method',
 	label: 'Posting method',
 	message_key: '',
@@ -379,7 +441,7 @@ const tiktokPostingMethodSetting = {
 	options: ['DIRECT_POST', 'UPLOAD']
 };
 
-const tiktokAIGCSetting = {
+const tiktokAIGCSetting: SettingDefinition = {
 	key: 'is_aigc',
 	label: 'AI-generated content',
 	message_key: '',
@@ -391,7 +453,7 @@ const tiktokAIGCSetting = {
 	dependencies: [{ key: 'content_posting_method', operator: 'equals', value: 'DIRECT_POST' }]
 };
 
-const discordChannelSetting = {
+const discordChannelSetting: SettingDefinition = {
 	key: 'channel_id',
 	label: 'Channel',
 	message_key: '',
@@ -404,7 +466,11 @@ const discordChannelSetting = {
 };
 
 function response<T>(data: T) {
-	return { data, error: undefined, response: new Response(null, { status: 200 }) };
+	return {
+		data,
+		error: undefined,
+		response: new Response(null, { status: 200 })
+	};
 }
 
 function deferred<T>() {

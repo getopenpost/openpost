@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { resolveBuiltInTheme } from './builtins.js';
-import type { ThemeFontFace, WebResolvedTheme } from './contracts.js';
+import type { ThemeAsset, ThemeFontFace, WebResolvedTheme } from './contracts.js';
 import type { ThemeFontPlanEntry } from './font-stage.js';
 import {
 	WebThemeRuntime,
@@ -134,7 +134,7 @@ describe('WebThemeRuntime', () => {
 			slot: 'background-texture' as const,
 			sourceUrl: '/api/v1/theme-assets/draft-paper/content?organization_id=organization-id',
 			mimeType: 'image/png'
-		};
+		} satisfies ThemeAsset;
 		const editorPreview = organizationTheme('notebook');
 		editorPreview.revision = 'draft-3';
 		editorPreview.webResourceScope = 'editor-preview';
@@ -180,8 +180,9 @@ describe('WebThemeRuntime', () => {
 			id: 'unsafe-vector',
 			slot: 'header-decoration',
 			sourceUrl: '/api/v1/theme-assets/unsafe-vector/content?organization_id=organization-id',
-			mimeType: 'image/svg+xml'
+			mimeType: 'image/png'
 		});
+		Reflect.set(selected.assets[0]!, 'mimeType', 'image/svg+xml');
 		const scope = fakeScope();
 
 		expect(await runtime.apply(selected, scope)).toBe(true);

@@ -3,6 +3,7 @@ import { resolveWorkshopTheme } from './workshop.js';
 import {
 	THEME_COLOR_TOKEN_KEYS,
 	THEME_BORDER_STYLES,
+	THEME_ASSET_MIME_TYPES,
 	THEME_CANVAS_TREATMENTS,
 	THEME_COMPONENT_RECIPE_KEYS,
 	THEME_COMPONENT_RECIPE_OPTIONS,
@@ -267,12 +268,7 @@ export function isSameOriginThemeResourceUrl(
 	}
 }
 
-const approvedThemeAssetMimeTypes = new Set([
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/avif'
-]);
+const approvedThemeAssetMimeTypes = new Set<string>(THEME_ASSET_MIME_TYPES);
 
 export type WebThemeResourceScope =
 	| { kind: 'published'; themeId: string; revision: string }

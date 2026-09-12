@@ -474,12 +474,19 @@ export const THEME_ASSET_SLOTS = [
 	'loading-illustration'
 ] as const;
 export type ThemeAssetSlot = (typeof THEME_ASSET_SLOTS)[number];
+export const THEME_ASSET_MIME_TYPES = [
+	'image/png',
+	'image/jpeg',
+	'image/webp',
+	'image/avif'
+] as const;
+export type ThemeAssetMimeType = (typeof THEME_ASSET_MIME_TYPES)[number];
 
 export interface ThemeAsset {
 	id: string;
 	slot: ThemeAssetSlot;
 	sourceUrl: string;
-	mimeType: string;
+	mimeType: ThemeAssetMimeType;
 	alt?: string;
 }
 

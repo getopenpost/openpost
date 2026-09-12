@@ -1,11 +1,13 @@
 import {
 	BUNDLED_THEME_FONT_FAMILIES,
+	THEME_ASSET_MIME_TYPES,
 	THEME_ASSET_SLOTS,
 	THEME_ICON_PACK_IDS,
 	THEME_SCHEMES,
 	THEME_TYPOGRAPHY_ROLE_KEYS,
 	isCompleteThemeSchemeManifest,
 	type ThemeAsset,
+	type ThemeAssetMimeType,
 	type ThemeAssetSlot,
 	type ThemeFontFace,
 	type ThemeIconPackId,
@@ -231,7 +233,11 @@ const themeFontFaceKeys = [
 const themeAssetKeys = ['id', 'slot', 'sourceUrl', 'mimeType'] as const;
 const identifierPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 const fontFamilyPattern = /^[a-zA-Z0-9 _.,:'-]+$/;
-const supportedAssetMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
+const supportedAssetMimeTypes = new Set<string>(THEME_ASSET_MIME_TYPES);
+
+function isThemeAssetMimeType(value: string): value is ThemeAssetMimeType {
+	return supportedAssetMimeTypes.has(value);
+}
 const bundledThemeFontFamilies = new Set<string>(BUNDLED_THEME_FONT_FAMILIES);
 
 function isThemeManifestInput(value: unknown): value is ThemeManifestInput {
@@ -447,7 +453,7 @@ function parseThemeAssets(values: unknown[]): ThemeAsset[] {
 			!isString(value.sourceUrl) ||
 			value.sourceUrl !== `asset:${value.id}` ||
 			!isString(value.mimeType) ||
-			!supportedAssetMimeTypes.has(value.mimeType) ||
+			!isThemeAssetMimeType(value.mimeType) ||
 			(value.alt !== undefined && !isString(value.alt)) ||
 			(isString(value.alt) && themeCodePointLength(value.alt) > 240) ||
 			(value.slot.endsWith('illustration') && (!isString(value.alt) || !value.alt.trim()))

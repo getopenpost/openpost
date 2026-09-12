@@ -350,8 +350,7 @@ export async function preflightExport(
 			continue;
 		}
 		if (
-			selectedVideo &&
-			selectedVideo.keyframeState === 'unknown' &&
+			(selectedVideo.keyframeState === 'unknown' || kfs.length === 0) &&
 			seg.start > KEYFRAME_TOLERANCE_SECONDS
 		) {
 			perSegment.push({
@@ -385,16 +384,17 @@ export async function preflightExport(
 			}
 		} else {
 			const snap = findSnapKeyframe(seg.start, kfs);
+			const direction = snap.direction === 'unknown' ? 'exact' : snap.direction;
 			snapInfo.push({
 				segmentId: seg.id,
 				snappedStart: snap.snapped,
 				delta: snap.delta,
-				direction: snap.direction
+				direction
 			});
 			perSegment.push({
 				segmentId: seg.id,
 				requiresTranscode: false,
-				reason: `Snaps ${snap.direction}`,
+				reason: `Snaps ${direction}`,
 				snappedStart: snap.snapped
 			});
 		}
@@ -453,9 +453,10 @@ export async function preflightExport(
 				reason = 'Selected segments have different dimensions and require re-encoding.';
 				break;
 			}
+			const selectedFps = selVideo?.fps ?? null;
 			if (
-				((selVideo?.fps ?? null) === null) !== (firstFps === null) ||
-				(selVideo?.fps !== null && firstFps !== null && Math.abs(selVideo.fps - firstFps) > 0.001)
+				(selectedFps === null) !== (firstFps === null) ||
+				(selectedFps !== null && firstFps !== null && Math.abs(selectedFps - firstFps) > 0.001)
 			) {
 				requiresTranscode = true;
 				reason = 'Selected segments use different frame rates and require re-encoding.';
@@ -1545,7 +1546,7 @@ async function exportMergedTranscode(
 	const videoSource = new EncodedVideoPacketSource(videoCodec);
 	finalOutput.addVideoTrack(videoSource, {
 		...videoTrackMetadata,
-		frameRate: firstFps > 0 ? firstFps : undefined
+		frameRate: firstFps !== null && firstFps > 0 ? firstFps : undefined
 	});
 	const audioSources: EncodedAudioPacketSource[] = [];
 	if (outputAudioTrackCount > 0) {

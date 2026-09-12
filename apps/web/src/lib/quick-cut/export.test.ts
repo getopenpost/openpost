@@ -162,8 +162,8 @@ describe('quick-cut preflight', () => {
 			name: 'audio.webm',
 			mimeType: 'audio/webm',
 			videoCodec: null,
-			width: null,
-			height: null,
+			width: 0,
+			height: 0,
 			fps: null,
 			keyframeTimestamps: [],
 			keyframeState: 'audio-only',
@@ -193,6 +193,19 @@ describe('quick-cut preflight', () => {
 		expect(preflight.perSegment[0]?.reason).toMatch(/keyframe map unavailable/i);
 	});
 
+	it('does not claim a lossless mid-stream cut when a known source has no keyframe timestamps', async () => {
+		const source = makeSource('empty-map', { keyframeTimestamps: [] });
+		const preflight = await preflightExport(
+			[source],
+			[createSegment(0.5, 1, { sourceId: source.id })],
+			'nearestKeyframe',
+			true
+		);
+
+		expect(preflight.requiresTranscode).toBe(true);
+		expect(preflight.perSegment[0]?.reason).toMatch(/keyframe map unavailable/i);
+	});
+
 	it('re-encodes video with an unavailable frame rate', async () => {
 		const source = makeSource('variable', { fps: null });
 		const preflight = await preflightExport(
@@ -211,8 +224,8 @@ describe('quick-cut preflight', () => {
 			name: 'audio.webm',
 			mimeType: 'audio/webm',
 			videoCodec: null,
-			width: null,
-			height: null,
+			width: 0,
+			height: 0,
 			fps: null,
 			keyframeTimestamps: [],
 			keyframeState: 'audio-only',

@@ -65,6 +65,13 @@
 	let panels = $state.raw<SettingsPanels>({});
 	let panelFailure = $state<{ tab: SettingsTabID; message: string } | null>(null);
 	const pendingPanels = new Set<SettingsTabID>();
+	const authState = $derived($auth);
+	const activeSettingsTab = $derived(
+		normalizeSettingsTab(
+			page.url.searchParams.get('tab') || page.url.hash.replace(/^#/, '') || null,
+			Boolean(authState.user?.is_admin)
+		)
+	);
 	const panelError = $derived(panelFailure?.tab === activeSettingsTab ? panelFailure.message : '');
 
 	$effect(() => {
@@ -83,7 +90,6 @@
 			});
 	});
 
-	const authState = $derived($auth);
 	let destructiveDialogOpen = $state(false);
 	let accountFeedback = $state<AccountManagementFeedback | null>(null);
 	let handledAccountURL = '';
@@ -104,12 +110,6 @@
 		mastodonCallbackHref: '/accounts/mastodon/callback'
 	};
 
-	const activeSettingsTab = $derived(
-		normalizeSettingsTab(
-			page.url.searchParams.get('tab') || page.url.hash.replace(/^#/, '') || null,
-			Boolean(authState.user?.is_admin)
-		)
-	);
 	const activeSettingsDestination = $derived(
 		getSettingsDestination(activeSettingsTab, {
 			workspaceName: workspaceCtx.currentWorkspace?.name

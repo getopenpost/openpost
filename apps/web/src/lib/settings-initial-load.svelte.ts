@@ -228,6 +228,6 @@ export function registerSettingsInitialLoad(
 			participant = boundary.register(id);
 			participantRevision = revision;
 		}
-		participant.update(pending);
+		participant?.update(pending);
 	};
 }

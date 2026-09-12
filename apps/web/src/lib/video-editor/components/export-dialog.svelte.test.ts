@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import '../../../routes/layout.css';
 import type { Project, SubComposition, TimelineItem, TimelineTrack } from '../project/types';
+import type { RenderExportOptions } from '../media/render-export';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import ExportDialog from './export-dialog.svelte';
@@ -72,7 +73,7 @@ describe('ExportDialog', () => {
 	it('exports another sequence at its own dimensions without navigating away from Main', async () => {
 		const project = projectFixture();
 		sequenceStore.load(project.timeline!, project.metadata);
-		const renderVideo = vi.fn(async () => ({
+		const renderVideo = vi.fn(async (_project: Project, _options: RenderExportOptions = {}) => ({
 			relPath: 'exports/portrait.webm',
 			fileName: 'portrait.webm',
 			blob: new Blob(['video'], { type: 'video/webm' })

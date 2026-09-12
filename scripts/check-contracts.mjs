@@ -14,6 +14,7 @@ const env = {
 // build artifacts, so they are expected to be absent in a clean checkout.
 const generatedPaths = [
   "apps/web/openapi.json",
+  "apps/docs/content/docs/guides/media-limits.mdx",
   "packages/api-contract/src/schema.d.ts",
   "docs/reference/cli.md",
   "packages/n8n-nodes-openpost/generated/selectedContract.ts",

@@ -116,6 +116,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "guides/media-limits.mdx",
+    "title": "Media limits",
+    "description": "Default attachment limits used by OpenPost before publishing.",
+    "route": "/guides/media-limits",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "user-guide"
+    }
+  },
+  {
     "page": "guides/media.mdx",
     "title": "Media and editors",
     "description": "Store reusable media and prepare images or video for publications.",

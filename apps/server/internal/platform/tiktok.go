@@ -645,7 +645,7 @@ func validateTikTokMedia(media []MediaItem) []MediaValidationIssue {
 			Provider: providerTikTok,
 			MediaID:  media[0].ID,
 			Severity: severityError,
-			Message:  "TikTok video publishing supports MP4 or MOV video.",
+			Message:  "TikTok video publishing supports MP4, MOV, or WebM video.",
 		}}
 	}
 	if allTikTokMediaImages(media) {
@@ -680,7 +680,7 @@ func validateTikTokMedia(media []MediaItem) []MediaValidationIssue {
 	return []MediaValidationIssue{{
 		Provider: providerTikTok,
 		Severity: severityError,
-		Message:  "TikTok publishing supports one MP4 or MOV video, or 1-35 JPEG or WebP images.",
+		Message:  "TikTok publishing supports one MP4, MOV, or WebM video, or 1-35 JPEG or WebP images.",
 	}}
 }
 
@@ -707,7 +707,7 @@ func isTikTokPhotoMime(mimeType string) bool {
 
 func isTikTokVideoMime(mimeType string) bool {
 	switch strings.ToLower(strings.TrimSpace(mimeType)) {
-	case videoTypeMP4, "video/quicktime":
+	case videoTypeMP4, "video/quicktime", "video/webm":
 		return true
 	default:
 		return false

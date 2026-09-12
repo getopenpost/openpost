@@ -243,3 +243,10 @@ func TestValidateMediaInstagramRequiresOneToTenSupportedMedia(t *testing.T) {
 		t.Fatalf("expected Instagram MIME error, got %#v", issues)
 	}
 }
+
+func TestValidateMediaTikTokAcceptsWebM(t *testing.T) {
+	RegisterAllMediaValidators()
+	if issues := ValidateMedia(providerTikTok, []MediaItem{{ID: "video", MimeType: "video/webm"}}); len(issues) != 0 {
+		t.Fatalf("WebM must be accepted: %v", issues)
+	}
+}

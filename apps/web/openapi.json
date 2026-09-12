@@ -10598,6 +10598,10 @@
 					},
 					"requires_public_url": {
 						"type": "boolean"
+					},
+					"video_exclusive": {
+						"description": "A video must be the only attachment in a segment",
+						"type": "boolean"
 					}
 				},
 				"required": [

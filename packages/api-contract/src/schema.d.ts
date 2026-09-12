@@ -9702,6 +9702,8 @@ export interface components {
             min_width?: number;
             requires_https_fetchable: boolean;
             requires_public_url: boolean;
+            /** @description A video must be the only attachment in a segment */
+            video_exclusive?: boolean;
         };
         MediaListItem: {
             /** @description Alt text */

@@ -127,6 +127,7 @@ type SettingDefinition struct {
 type SettingField = SettingDefinition
 
 type MediaConstraint struct {
+	VideoExclusive         bool     `json:"video_exclusive,omitempty" doc:"A video must be the only attachment in a segment"`
 	MinCount               int      `json:"min_count"`
 	MaxCount               int      `json:"max_count"`
 	AllowedMIMEs           []string `json:"allowed_mimes"`
@@ -345,6 +346,7 @@ func All() []Capability {
 	longVideo := video
 	longVideo.MaxDurationSeconds = 43200
 	xThreadMedia := MediaConstraint{
+		VideoExclusive:      true,
 		MinCount:            0,
 		MaxCount:            4,
 		AllowedMIMEs:        []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime"},
@@ -376,7 +378,7 @@ func All() []Capability {
 		defaultQueued(Capability{Provider: ProviderX, Profile: models.ContentProfileLongVideo, Label: "X video", TextLimit: 25_000, Media: xVideo, Settings: xSettings(), Caveats: []string{"Text and video limits are expanded only when the connected account reports an active X subscription."}}),
 
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileShortText, Label: "Bluesky post", TextLimit: 300, Media: text, Settings: blueskySettings()}),
-		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileThread, Label: "Bluesky thread", TextLimit: 300, Media: MediaConstraint{MinCount: 0, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "video/mp4"}, MaxImageSizeBytes: blueskyImageMaxBytes, MaxSizeBytes: providerlimits.BlueskyVideoMaxBytes, MaxDurationSeconds: providerlimits.BlueskyVideoMaxDurationSeconds}, Settings: blueskySettings()}),
+		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileThread, Label: "Bluesky thread", TextLimit: 300, Media: MediaConstraint{VideoExclusive: true, MinCount: 0, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "video/mp4"}, MaxImageSizeBytes: blueskyImageMaxBytes, MaxSizeBytes: providerlimits.BlueskyVideoMaxBytes, MaxDurationSeconds: providerlimits.BlueskyVideoMaxDurationSeconds}, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileLinkShare, Label: "Bluesky link", TextLimit: 300, Media: text, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileImagePost, Label: "Bluesky images", TextLimit: 300, Media: MediaConstraint{MinCount: 1, MaxCount: 4, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp"}, MaxImageSizeBytes: blueskyImageMaxBytes}, Settings: blueskySettings()}),
 		defaultQueued(Capability{Provider: ProviderBluesky, Profile: models.ContentProfileShortVideo, Label: "Bluesky video", TextLimit: 300, Media: blueskyVideo, Settings: blueskySettings()}),
@@ -525,7 +527,7 @@ func mediaShapesFor(profile string, media MediaConstraint) []string {
 	if hasVideo {
 		shapes = append(shapes, MediaShapeVideo)
 	}
-	if hasImage && hasVideo && media.MaxCount > 1 {
+	if hasImage && hasVideo && media.MaxCount > 1 && !media.VideoExclusive {
 		shapes = append(shapes, MediaShapeMixedMedia)
 	}
 	if media.MinCount == 0 {
@@ -1450,6 +1452,14 @@ func validateCapability(capability Capability, body, title, description string, 
 			Profile:  profile,
 			Field:    "media",
 		})
+	}
+	if capability.Media.VideoExclusive && len(media) > 1 {
+		for _, item := range media {
+			if strings.HasPrefix(item.MimeType, "video/") {
+				issues = append(issues, ValidationIssue{Severity: "error", Code: "video_exclusive", Message: "A video must be the only attachment in this segment.", Provider: provider, Profile: profile, Field: "media", MediaID: item.ID})
+				break
+			}
+		}
 	}
 	for _, item := range media {
 		issues = append(issues, validateMediaItem(capability, item)...)

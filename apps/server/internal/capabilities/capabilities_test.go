@@ -680,3 +680,31 @@ func requireNoIssueCode(t *testing.T, issues []ValidationIssue, code string) {
 		require.NotEqual(t, code, issue.Code)
 	}
 }
+
+func TestThreadVideoAttachmentsAgreeWithPublisher(t *testing.T) {
+	platform.RegisterAllMediaValidators()
+	for _, provider := range []string{ProviderX, ProviderBluesky} {
+		for _, test := range []struct {
+			name    string
+			mimes   []string
+			invalid bool
+		}{
+			{"video", []string{"video/mp4"}, false},
+			{"images", []string{"image/jpeg", "image/jpeg"}, false},
+			{"mixed", []string{"video/mp4", "image/jpeg"}, true},
+			{"videos", []string{"video/mp4", "video/mp4"}, true},
+		} {
+			t.Run(provider+"/"+test.name, func(t *testing.T) {
+				media := make([]MediaItem, 0, len(test.mimes))
+				providerMedia := make([]platform.MediaItem, 0, len(test.mimes))
+				for _, mime := range test.mimes {
+					media = append(media, MediaItem{ID: "media", MimeType: mime, Size: 1000, DurationMS: 1000, Width: 1080, Height: 1920, AnalysisStatus: "ready"})
+					providerMedia = append(providerMedia, platform.MediaItem{ID: "media", MimeType: mime, Size: 1000})
+				}
+				issues := Validate(provider, models.ContentProfileThread, "Caption", "", "", media, nil)
+				require.Equal(t, test.invalid, len(issues) > 0, "%v", issues)
+				require.Equal(t, test.invalid, len(platform.ValidateMedia(provider, providerMedia)) > 0)
+			})
+		}
+	}
+}

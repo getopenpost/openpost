@@ -44,6 +44,24 @@ for (const target of targets) {
   console.log(`Synced OpenAPI spec -> ${path.relative(root, target)}`);
 }
 
+const mediaLimits = spawnSync("go", ["run", "./cmd/openpost-media-limits"], {
+  cwd: path.join(root, "apps/server"),
+  encoding: "utf8",
+});
+if (mediaLimits.status !== 0) {
+  throw new Error(`Failed to generate media limits: ${mediaLimits.stderr}`);
+}
+await writeFile(
+  path.join(root, "apps/docs/content/docs/guides/media-limits.mdx"),
+  mediaLimits.stdout,
+);
+const mediaFormatter = spawnSync(
+  "bunx",
+  ["oxfmt", "--write", "apps/docs/content/docs/guides/media-limits.mdx"],
+  { cwd: root, stdio: "inherit" },
+);
+if (mediaFormatter.status !== 0) throw new Error("Failed to format media limits");
+
 const cliDocs = path.join(root, "docs", "reference", "cli.md");
 const result = spawnSync("go", ["run", "./cmd/openpost-docs", cliDocs], {
   cwd: path.join(root, "apps/cli"),

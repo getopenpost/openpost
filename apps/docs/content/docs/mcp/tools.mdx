@@ -4,9 +4,9 @@ description: Understand OpenPost MCP tools, scopes, and safe request patterns.
 icon: Wrench
 ---
 
-OpenPost advertises operations through a small MCP surface rather than one tool per HTTP endpoint. The client can search the operation catalog, inspect an operation's input and output schema, and execute a selected operation.
+OpenPost gives assistants a small set of tools. The assistant can find a supported operation, read the fields it needs, and run it. You can ask in ordinary language; you do not need to name a tool or write an API request.
 
-## Read and write access
+## Choose access
 
 Choose the narrowest scope that fits the job:
 
@@ -15,9 +15,9 @@ Choose the narrowest scope that fits the job:
 | `mcp:read` | Search and inspect read operations, query data, and review the schedule                                      |
 | `mcp:full` | Everything in `mcp:read`, plus execute write operations such as creating, editing, scheduling, or publishing |
 
-An omitted OAuth scope currently defaults to `mcp:full`; select `mcp:read` explicitly when you only need inspection. A developer token can use the same MCP scopes, or the existing `cli:full` scope. Token workspace access and MCP scope are separate: bind a token to one workspace when possible, then grant only the required scope.
+If you omit an OAuth scope, OpenPost defaults to `mcp:full`. Select `mcp:read` explicitly when you only need inspection. Developer tokens can use these MCP scopes or the broader `cli:full` scope. A token's workspace access is separate from its MCP scope; bind it to one workspace when possible.
 
-## Useful requests
+## Try a request
 
 Try these after connecting:
 
@@ -28,8 +28,8 @@ Show the connected accounts that can publish to LinkedIn.
 Draft a launch post for the selected workspace, but do not schedule or publish it.
 ```
 
-For a write-capable connection, state the boundary in the request: “Create the draft, then stop for my review.” Client confirmation is separate from OpenPost permissions and differs between clients. Verify the workspace, account, destination, timing, and final text before asking the assistant to schedule or publish.
+For a write-capable connection, say where to stop: "Create the draft, then stop for my review." A client's confirmation prompt is separate from OpenPost permissions and varies by client. Check the workspace, account, destination, time, and text before publishing.
 
-## Endpoint and troubleshooting
+## Fix a connection
 
 Use `/mcp`, not `/api/v1/mcp`. The server uses Streamable HTTP and bearer authentication. A `401` usually means the OAuth connection expired or the bearer token is wrong; reconnect the client or issue a new token. A `403` can mean the token lacks `mcp:full`, lacks the requested workspace, or the operation is unavailable for the account or plan. If a self-hosted client cannot connect, check public HTTPS, reverse-proxy POST support, and the OAuth discovery paths under `/.well-known/`.

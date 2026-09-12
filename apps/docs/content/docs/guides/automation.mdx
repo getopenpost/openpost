@@ -4,9 +4,9 @@ description: Use the CLI, MCP, or the OpenPost n8n node.
 icon: Workflow
 ---
 
-OpenPost's CLI, MCP server, and n8n node use the same workspace permissions as the web app. Create a separate, revocable token for each automation. A workspace-bound token is the safest default.
+Choose the tool that fits where your work starts. Use the CLI for shell commands, MCP for an AI assistant, or the n8n node for a workflow. Each uses OpenPost's workspace access rules. For unattended automation, create a separate token for each integration and bind it to one workspace when possible.
 
-## CLI
+## Run commands with the CLI
 
 Install the matching release binary from [GitHub Releases](https://github.com/getopenpost/openpost/releases). The CLI talks to a running OpenPost instance.
 
@@ -22,7 +22,7 @@ For a headless shell, print the verification URL and code:
 openpost auth login https://app.openpo.st --device
 ```
 
-For CI, pass an existing token through stdin:
+For CI or another unattended shell, pass a token through stdin:
 
 ```sh
 printf '%s\n' "$OPENPOST_TOKEN" | openpost auth login https://app.openpo.st --with-token
@@ -47,17 +47,17 @@ openpost post create --content "Launch note" --accounts x --schedule "tomorrow 2
 
 Use `--schedule next-slot` to use the next available workspace slot. Use `openpost post list --status scheduled` to inspect scheduled work. Use `publication create` for format-first video and link publications.
 
-## AI assistants
+## Connect an AI assistant
 
 Connect OpenPost to [Cursor](/mcp/cursor), [ChatGPT](/mcp/chatgpt), or [Claude](/mcp/claude) through MCP. Each guide covers sign-in, workspace access, a first test, and connection troubleshooting.
 
-Use `mcp:read` for inspection and reports, or `mcp:full` when the assistant needs to create, edit, schedule, or publish. The [MCP overview](/mcp) explains remote OAuth, developer tokens, and the local bridge.
+Grant `mcp:read` for inspection and reports. Grant `mcp:full` only when the assistant needs to create, edit, schedule, or publish. The [MCP overview](/mcp) explains remote sign-in, developer tokens, and the local bridge.
 
-## n8n
+## Build an n8n workflow
 
 Install `@getopenpost/n8n-nodes-openpost` from **Settings → Community nodes** in n8n. The package requires Node.js 22.22 or newer in the n8n runtime.
 
-Create an OpenPost credential in n8n with **Base URL** `https://app.openpo.st`, without `/api` or `/api/v1`, and an OpenPost API token. Use a workspace-bound `api:write` token for workflows that write.
+Create an OpenPost credential in n8n with **Base URL** `https://app.openpo.st` and an OpenPost API token. Do not add `/api` or `/api/v1` to the base URL. For a workflow that writes, use a workspace-bound `api:write` token.
 
 The node includes workspace, account, media, schedule, and publication actions. Create, Schedule, and Publish Now are separate actions. Use n8n's Schedule Trigger or Webhook node to start a workflow. Import the package's `list-workspaces` example first to verify the credential, then replace its workspace ID with yours.
 

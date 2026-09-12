@@ -4,15 +4,17 @@ description: Connect ChatGPT, Claude, Cursor, or another MCP client to OpenPost.
 icon: Bot
 ---
 
-Connect an AI assistant to review your schedule, prepare drafts, or publish through OpenPost. The connection uses [Model Context Protocol](https://modelcontextprotocol.io/) (MCP). For Hosted, use:
+Connect an AI assistant to review a schedule or prepare a publication without leaving the conversation. OpenPost uses [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) to let the assistant access only the work your account permits. Hosted clients connect to:
 
 ```text
 https://app.openpo.st/mcp
 ```
 
-Choose **read-only access** to review accounts and scheduled posts. Choose **full access** when the assistant needs to create, edit, schedule, or publish. OpenPost applies your account permissions and workspace access to every request.
+Choose `mcp:read` to review accounts and scheduled posts. Choose `mcp:full` only when the assistant needs to create, edit, schedule, or publish. OpenPost checks your workspace access on each request.
 
-## Choose a setup
+## Connect your assistant
+
+Choose its guide below. Each guide shows where to enter the server URL, how to sign in, and a first read request. Start with "List my OpenPost workspaces" so you know which workspace the assistant can see.
 
 <div className="mcp-clients not-prose">
   <a href="/mcp/chatgpt">
@@ -111,15 +113,15 @@ Choose **read-only access** to review accounts and scheduled posts. Choose **ful
   </a>
 </div>
 
-Each guide covers setup, a first request, and connection fixes. For another client, use the endpoint and authentication rules in [Tools and permissions](/mcp/tools).
+For a client not listed here, use the endpoint and authentication rules in [Tools and permissions](/mcp/tools).
 
-OAuth is the preferred setup for remote clients. OpenPost asks you to sign in and choose `mcp:read` or `mcp:full`, with an optional workspace binding. If the client does not support OAuth, create a developer token in **Settings → Personal → Developer** and pass it as a bearer header. Never paste that token into a prompt.
+Remote clients can use browser sign-in. OpenPost asks you to choose `mcp:read` or `mcp:full` and, optionally, bind access to one workspace. If your client cannot use OAuth, create a developer token in **Settings → Personal → Developer** and pass it in a bearer header. Do not put a token in a chat message or a committed config file.
 
-## Self-hosted connections
+## Connect a self-hosted server
 
 For a public HTTPS instance, replace `https://app.openpo.st` with your own origin and keep the `/mcp` path. Use that URL in the client guide above.
 
-Cloud clients cannot reach a private LAN address or `localhost`. A desktop client can use the local bridge instead. First install both commands:
+Cloud clients cannot reach a private LAN address or `localhost`. If the server is private but reachable from your computer, a desktop client can use OpenPost's local bridge. Install the CLI and bridge together:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/getopenpost/openpost/main/scripts/install-cli.sh | sh -s -- --with-mcp
@@ -146,6 +148,6 @@ Configure your desktop MCP client to launch the bridge with the same profile:
 
 The client launches `openpost-mcp`; you do not need to keep a separate terminal running. If it cannot find the command, use the full path printed by `command -v openpost-mcp`.
 
-## Check the connection
+## Check what the assistant can do
 
-Ask, “List my OpenPost workspaces,” then name the workspace you want to use. Next ask, “Review this week's schedule without changing anything.” If either request fails, use the troubleshooting steps in your client guide.
+Ask, "List my OpenPost workspaces," then name the workspace you want to use. Next ask, "Review this week's schedule without changing anything." If that succeeds and you granted `mcp:full`, try an unpublished draft before asking the assistant to schedule or publish. Inspect the result in **Publications**. If a request fails, use the troubleshooting steps in your client guide.

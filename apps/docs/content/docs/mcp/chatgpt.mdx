@@ -1,25 +1,25 @@
 ---
 title: Connect ChatGPT
-description: Add OpenPost as a custom MCP app in ChatGPT.
+description: Connect OpenPost's MCP server to ChatGPT for schedule reviews and drafts.
 icon: chatgpt
 ---
 
-ChatGPT connects to remote MCP servers as custom apps. This setup is available on web, and workspace administrators control whether custom apps and write actions are allowed. OpenAI currently describes full write-capable MCP support as rolling out for Business, Enterprise, and Edu plans; your workspace may show a different UI.
+You can connect OpenPost's remote MCP server in ChatGPT developer mode. Your account and workspace policy determine whether developer mode and custom connections are available. Start with read access to check the connection, then grant write access if you want ChatGPT to prepare or publish content.
 
-## Add the OpenPost app
+## Add OpenPost
 
-1. Open ChatGPT on the web and enable Developer mode in **Settings → Apps → Advanced settings**, if your workspace allows it.
-2. Open **Settings → Apps → Create** or the workspace's **Apps → Create** page.
-3. Enter `https://app.openpo.st/mcp` as the MCP endpoint. Let ChatGPT discover the advertised metadata and choose OAuth when asked.
-4. Scan the tools, complete OpenPost sign-in, choose the workspace and `mcp:read` or `mcp:full` scope, then create the app.
-5. Open a new chat, select the OpenPost app from the tools menu, and test a read request before enabling write actions.
+1. In ChatGPT, open **Settings → Security and login** and turn on **Developer mode** if your workspace allows it.
+2. Open [ChatGPT Plugins](https://chatgpt.com/plugins) and select the plus button. Name the connection `OpenPost`.
+3. Enter `https://app.openpo.st/mcp` as the remote MCP URL. Create the connection and review the tools it discovers.
+4. Complete OpenPost sign-in when prompted. Choose a workspace and `mcp:read` for review-only work, or `mcp:full` when ChatGPT needs to create, schedule, or publish.
+5. Start a new chat and add OpenPost from the tools menu.
 
-For a first test, ask: “List my OpenPost workspaces,” then “Review this week's scheduled publications without changing anything.” A full-scope app can create or modify content, but ChatGPT may request confirmation for write actions. Read each confirmation and check the destination, account, text, and time.
+Ask, "List my OpenPost workspaces," then name one and ask, "Review this week's scheduled publications without changing anything." For a first write, ask for an unpublished draft and inspect it in OpenPost. ChatGPT may ask you to confirm write actions. Check the account, text, and time before accepting a publish or schedule action.
 
-## Workspace and private-host limits
+## If your server is private
 
-ChatGPT needs a remote HTTPS server. It cannot connect directly to `localhost`, a private LAN address, or an on-premises host. Use a public HTTPS OpenPost URL, or OpenAI's supported Secure MCP Tunnel for a private server. The local `openpost-mcp` stdio bridge is suitable for desktop clients, but it is not a direct ChatGPT connection.
+ChatGPT web cannot reach your laptop's `localhost` or a private LAN address directly. Use a public HTTPS OpenPost URL or OpenAI's [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) for a private server. The local `openpost-mcp` bridge is for desktop MCP clients, not a direct ChatGPT web connection.
 
-If the app loses access, reconnect it from **Settings → Apps**. OAuth refresh depends on the server issuing refresh tokens. If an admin has already published the app, tool changes may require an admin to refresh and republish the app before ChatGPT sees them.
+If the connection loses access, reopen it in ChatGPT Plugins and sign in again. If OpenPost's tool list changed, refresh the connection's metadata and start a new chat. An administrator may control access to connections and write tools in a managed workspace.
 
-For current client controls and plan availability, see [OpenAI custom app documentation](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt).
+See [OpenAI's developer-mode connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt) for current ChatGPT controls.

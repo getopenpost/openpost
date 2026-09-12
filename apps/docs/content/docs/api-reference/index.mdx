@@ -1,9 +1,10 @@
 ---
 title: API reference
 description: Authenticate and call the OpenPost HTTP API.
+icon: FileCode
 ---
 
-Use the API to manage workspaces, accounts, media, and publications over HTTP. Requests and responses use JSON. The endpoint pages include required fields, response schemas, and examples in several languages.
+Use the HTTP API when your own app or script needs to read OpenPost data or manage publications. Start with a token, make one read request, then use the endpoint pages for the fields and responses of the operation you need. Requests and responses use JSON.
 
 ## Base URL
 
@@ -21,7 +22,7 @@ Create and revoke tokens in **Settings → Personal → Developer**. Choose both
 
 Copy the token when it is created. OpenPost shows it once. Set an expiry and store it in your automation's secret store. Revoke it from the same settings page when it is no longer needed.
 
-## First request
+## Try a read request
 
 Set `OPENPOST_TOKEN` in your shell to the token you created, then list the workspaces it can access. Replace the origin if you self-host:
 
@@ -31,9 +32,9 @@ curl https://app.openpo.st/api/v1/workspaces \
   -H "Accept: application/json"
 ```
 
-Use the returned workspace ID when an operation asks for one. Workspace access is checked for every private operation.
+The response lists workspaces this token can access. Use one of their IDs when an endpoint asks for a workspace ID. OpenPost checks access again on every private operation.
 
-## If a request fails
+## Understand an error
 
 | Status | What to check                                                                                                     |
 | ------ | ----------------------------------------------------------------------------------------------------------------- |
@@ -42,7 +43,7 @@ Use the returned workspace ID when an operation asks for one. Workspace access i
 | `404`  | Check the endpoint path and resource ID. Use IDs returned by the same OpenPost instance.                          |
 | `422`  | Compare the request with the endpoint schema, including required fields, formats, and allowed values.             |
 
-Read the error response before retrying. A successful request that queues a publication is not proof that the provider has published it; use the publication's destination statuses to track delivery.
+Read the error body before retrying. A successful request that queues a publication means OpenPost accepted the work; it does not mean the provider has published it. Check the publication's destination statuses for the final result.
 
 ## Find an endpoint
 

@@ -1,12 +1,12 @@
 ---
 title: Connect accounts
 description: Add and manage social accounts in a workspace.
-icon: Link
+icon: Link2
 ---
 
-Open the workspace menu, choose **Connected accounts**, then choose a provider. OpenPost sends you to that provider when the connection needs OAuth. Return to OpenPost to finish the connection and choose the destination.
+Connect a social account before creating a post for it. In the workspace you want to use, open **Settings → Workspace → Social accounts** and choose a provider. For accounts that use provider sign-in, approve access there and return to OpenPost to select the profile, Page, or channel.
 
-## What you need
+## Before you connect
 
 | Provider                                                   | Account or credential                                                |
 | ---------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -17,15 +17,15 @@ Open the workspace menu, choose **Connected accounts**, then choose a provider. 
 
 On Hosted, OpenPost manages provider applications. If you run your own server, your administrator configures them under [self-hosting](/self-hosting/configuration).
 
-Provider rules can change. OpenPost only shows actions that the connected account and granted permissions support. Instagram and Facebook require the account types and Page links required by Meta. TikTok and YouTube may require provider review before public posting.
+Instagram and Facebook require the account types and Page links set by Meta. TikTok and YouTube may require provider review before public posting. OpenPost shows the actions supported by your connected account and its granted permissions. Provider rules can change, so follow the reason shown beside an unavailable option.
 
-## After connecting
+## Turn on optional account features
 
-Open the account details panel to enable optional Analytics, Comments and replies, or Direct messages where supported. **More → Find people** is available for eligible Bluesky and Mastodon accounts. Availability depends on the provider, permissions, and your plan. Enable or disable the features you want in the account details panel.
+Select the connected account to open its details. Turn on **Analytics**, **Comments and replies**, or **Direct messages** separately if the provider and your plan support them. Some features need another provider permission. For eligible Bluesky and Mastodon accounts, **More → Find people** is also available.
 
-## Remove or reconnect
+## Reconnect or remove an account
 
-Use **Reconnect** when a provider permission or token expired. If several destinations share one authorization, disconnecting a destination leaves the other destinations connected. Removing the saved authorization disconnects every destination that uses it. Provider-side credentials remain active until you revoke them in that provider's settings.
+Use **Reconnect** if a token expired or you need to approve another permission. If several destinations share one authorization, disconnecting one leaves the others connected. Removing that authorization disconnects every destination that uses it. To revoke access at the provider too, use the provider's security settings.
 
 ## Bluesky
 

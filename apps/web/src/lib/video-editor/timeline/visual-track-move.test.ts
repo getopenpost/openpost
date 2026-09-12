@@ -3,9 +3,39 @@ import { planLinkedMoveGesture } from './edit-gesture';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 
 const tracks: TimelineTrack[] = [
-	{ id: 'upper', name: 'Visual 2', kind: 'video', order: 0, height: 64 },
-	{ id: 'lower', name: 'Visual 1', kind: 'video', order: 1, height: 96 },
-	{ id: 'audio', name: 'Audio', kind: 'audio', order: 2, height: 72 }
+	{
+		id: 'upper',
+		name: 'Visual 2',
+		kind: 'video',
+		order: 0,
+		height: 64,
+		locked: false,
+		visible: true,
+		muted: false,
+		solo: false
+	},
+	{
+		id: 'lower',
+		name: 'Visual 1',
+		kind: 'video',
+		order: 1,
+		height: 96,
+		locked: false,
+		visible: true,
+		muted: false,
+		solo: false
+	},
+	{
+		id: 'audio',
+		name: 'Audio',
+		kind: 'audio',
+		order: 2,
+		height: 72,
+		locked: false,
+		visible: true,
+		muted: false,
+		solo: false
+	}
 ];
 
 function clip(id: string, type: TimelineItem['type'], trackId = 'upper'): TimelineItem {

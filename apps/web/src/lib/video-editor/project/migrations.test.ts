@@ -19,10 +19,10 @@ describe('project migration registry', () => {
 	it('converts legacy ratio crop keys to source pixels without changing pixel graph edits', () => {
 		const project = createBlankProject();
 		project.schemaVersion = 5;
-		project.timeline.items = [
+		project.timeline!.items = [
 			{
 				id: 'video',
-				trackId: project.timeline.tracks[0]!.id,
+				trackId: project.timeline!.tracks[0]!.id,
 				from: 0,
 				durationInFrames: 30,
 				label: 'Video',
@@ -39,7 +39,7 @@ describe('project migration registry', () => {
 		const migration = getMigrationsToApply(5, 6)[0]!;
 		const migrated = migration.migrate(project);
 
-		expect(migrated.timeline.items[0]?.keyframes?.cropLeft?.values).toEqual([0, 320, 160]);
-		expect(migrated.timeline.items[0]?.keyframes?.cropSoftness?.values).toEqual([-360, 12]);
+		expect(migrated.timeline!.items[0]?.keyframes?.cropLeft?.values).toEqual([0, 320, 160]);
+		expect(migrated.timeline!.items[0]?.keyframes?.cropSoftness?.values).toEqual([-360, 12]);
 	});
 });

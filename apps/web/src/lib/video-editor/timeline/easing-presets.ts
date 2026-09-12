@@ -41,7 +41,8 @@ const EASING_BEZIER_PRESETS = {
 } satisfies Partial<Record<EasingType, BezierControlPoints>>;
 
 export function getBezierPresetForEasing(easing: EasingType): BezierControlPoints | null {
-	return EASING_BEZIER_PRESETS[easing] ? { ...EASING_BEZIER_PRESETS[easing]! } : null;
+	if (easing !== 'ease-in' && easing !== 'ease-out' && easing !== 'ease-in-out') return null;
+	return { ...EASING_BEZIER_PRESETS[easing] };
 }
 
 export function areBezierPointsEqual(a: BezierControlPoints, b: BezierControlPoints): boolean {

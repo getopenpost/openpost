@@ -61,19 +61,12 @@ function synchronizeSequenceColorGradeRanges(items: TimelineItem[]): void {
 	}
 }
 
-interface TimelineMarkerRecord {
-	id: string;
-	frame: number;
-	label?: string;
-	color: string;
-}
-
 interface TimelineState {
 	items: TimelineItem[];
 	tracks: TimelineTrack[];
 	inPoint: number | null;
 	outPoint: number | null;
-	markers: TimelineMarkerRecord[];
+	markers: TimelineMarker[];
 	selectedMarkerId: string | null;
 	settings: TimelineSettings;
 	zoomLevel: number;
@@ -459,19 +452,19 @@ export const timelineStore = {
 		state.isDirty = true;
 	},
 
-	_addMarker(marker: TimelineMarkerRecord): void {
+	_addMarker(marker: TimelineMarker): void {
 		state.markers.push(marker);
 		state.isDirty = true;
 	},
 
-	_updateMarker(id: string, patch: Partial<Omit<TimelineMarkerRecord, 'id'>>): void {
+	_updateMarker(id: string, patch: Partial<Omit<TimelineMarker, 'id'>>): void {
 		state.markers = state.markers.map((marker) =>
 			marker.id === id ? { ...marker, ...patch } : marker
 		);
 		state.isDirty = true;
 	},
 
-	_setMarkers(markers: TimelineMarkerRecord[]): void {
+	_setMarkers(markers: TimelineMarker[]): void {
 		state.markers = markers;
 		state.isDirty = true;
 	},

@@ -1415,12 +1415,12 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					<ContextMenu.Root>
 						<ContextMenu.Trigger>
 							{#snippet child({ props })}
-								<div
+								<button
 									{...props}
-									class="overflow-hidden rounded-xl bg-black shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-									tabindex="0"
-									role="application"
+									class="block w-full overflow-hidden rounded-xl bg-black shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+									type="button"
 									aria-label={m.quick_cut_preview()}
+									onclick={togglePlay}
 								>
 									<!-- svelte-ignore a11y_media_has_caption -- trim preview; captions are not part of lossless cuts -->
 									<video
@@ -1433,7 +1433,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 										onplay={() => (playing = true)}
 										onpause={() => (playing = false)}
 									></video>
-								</div>
+								</button>
 							{/snippet}
 						</ContextMenu.Trigger>
 						<ContextMenu.Content class="w-56">

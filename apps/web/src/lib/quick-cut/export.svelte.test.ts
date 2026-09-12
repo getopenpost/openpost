@@ -120,7 +120,7 @@ async function packetDigests(
 		const digests: string[] = [];
 		for await (const packet of new EncodedPacketSink(track).packets()) {
 			if (packet.timestamp + 0.001 < from || packet.timestamp >= to - 0.001) continue;
-			const digest = await crypto.subtle.digest('SHA-256', packet.data);
+			const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(packet.data));
 			digests.push(
 				Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 			);

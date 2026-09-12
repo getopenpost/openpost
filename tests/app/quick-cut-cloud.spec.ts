@@ -1,5 +1,6 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { z } from "zod";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 test("Quick Cut saves a source project to OpenPost and opens it again", async ({
@@ -9,9 +10,9 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
   test.setTimeout(240_000);
   const unique = Date.now().toString(36);
   const auth = await registerUser(request, `quick-cut-cloud-${unique}@example.com`);
-  const workspace = (await createWorkspace(request, auth.token, "Quick Cut Cloud E2E")) as {
-    id: string;
-  };
+  const workspace = z
+    .object({ id: z.string() })
+    .parse(await createWorkspace(request, auth.token, "Quick Cut Cloud E2E"));
   await authenticatePage(page, auth.token);
 
   await page.addInitScript(() => {
@@ -47,7 +48,9 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
         const response = await request.get(`/api/v1/video-projects?workspace_id=${workspace.id}`, {
           headers: { Authorization: `Bearer ${auth.token}` },
         });
-        return response.ok() ? ((await response.json()) as unknown[]).length : -response.status();
+        return response.ok()
+          ? z.array(z.unknown()).parse(await response.json()).length
+          : -response.status();
       },
       { timeout: 90_000 },
     )
@@ -60,5 +63,9 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
   await expect(page.getByText("study-sos-demo.mp4", { exact: true })).toBeVisible({
     timeout: 90_000,
   });
+  const preview = page.getByRole("button", { name: "Preview", exact: true });
+  await preview.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Saved to OpenPost");
 });

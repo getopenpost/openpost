@@ -19,6 +19,13 @@ vi.mock('$app/state', () => ({ page: testPage }));
 const postMock = vi.spyOn(client, 'POST');
 const getMock = vi.spyOn(client, 'GET');
 const putMock = vi.spyOn(client, 'PUT');
+let getPaths: string[] = [];
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- Generic API spy arguments are untyped; inspect only named fields used by these fixtures.
+function requestProperty(value: unknown, key: string): unknown {
+	if (!value || !(value instanceof Object) || !(key in value)) return undefined;
+	return value[key];
+}
 const manifest = getBuiltInTheme('workshop');
 const reference = builtInManifestReference(manifest.id, manifest.revision);
 const settings = {
@@ -45,20 +52,21 @@ const workspace = {
 
 beforeEach(() => {
 	queryClient.clear();
+	getPaths = [];
 	testPage.url = new URL('http://localhost/settings');
 	postMock.mockReset();
 	workspaceCtx.currentWorkspace = workspace;
 	workspaceCtx.workspaces = [workspace, { ...workspace, id: 'workspace-b' }];
 	getMock.mockReset();
 	putMock.mockReset();
-	getMock.mockImplementation(
-		async (path) =>
-			// SAFETY: These fixtures supply the settings, theme detail, and empty list shapes read by this component.
-			({
-				data: path === '/theme-settings' ? settings : { items: [], next_cursor: null },
-				response: new Response()
-			}) as never
-	);
+	getMock.mockImplementation(async (path) => {
+		getPaths.push(path);
+		// SAFETY: These fixtures supply the settings, theme detail, and empty list shapes read by this component.
+		return {
+			data: path === '/theme-settings' ? settings : { items: [], next_cursor: null },
+			response: new Response()
+		} as never;
+	});
 	// SAFETY: This write fixture is used only by organization theme settings.
 	putMock.mockResolvedValue({
 		data: settings,
@@ -73,7 +81,7 @@ it('loads the available catalog once for both selection and previews', async () 
 		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
 	);
 	await expect.element(screen.getByRole('button', { name: 'Test Notebook' })).toBeEnabled();
-	expect(getMock.mock.calls.filter(([path]) => path === '/themes/available')).toHaveLength(1);
+	expect(getPaths.filter((path) => path === '/themes/available')).toHaveLength(1);
 });
 
 it('invalidates sibling workspace settings when locking organization theme assignments', async () => {
@@ -96,6 +104,7 @@ it('invalidates sibling workspace settings when locking organization theme assig
 it('retries publishing with the saved draft revision after publishing fails', async () => {
 	testPage.url = new URL('http://localhost/settings?tab=appearance&theme=custom-theme');
 	let revision = 1;
+	const savedRevisions: unknown[] = [];
 	const draft = () => ({
 		summary: {
 			reference: { kind: 'custom', id: 'custom-theme', version: 1 },
@@ -116,7 +125,8 @@ it('retries publishing with the saved draft revision after publishing fails', as
 				response: new Response()
 			}) as never
 	);
-	putMock.mockImplementation(async () => {
+	putMock.mockImplementation(async (_path, ...args: unknown[]) => {
+		savedRevisions.push(requestProperty(requestProperty(args[0], 'body'), 'expected_revision'));
 		revision += 1;
 		// SAFETY: The draft endpoint returns the newly saved theme detail.
 		return { data: draft(), response: new Response() } as never;
@@ -140,7 +150,7 @@ it('retries publishing with the saved draft revision after publishing fails', as
 	await expect.element(screen.getByRole('button', { name: 'Publish', exact: true })).toBeEnabled();
 	await screen.getByRole('button', { name: 'Publish', exact: true }).click();
 	await vi.waitFor(() => expect(putMock).toHaveBeenCalledTimes(2));
-	expect(putMock.mock.calls.map(([, options]) => options?.body?.expected_revision)).toEqual([1, 2]);
+	expect(savedRevisions).toEqual([1, 2]);
 });
 
 it('keeps a failed creation open with its name available for retry', async () => {
@@ -293,15 +303,19 @@ it('loads later organization draft pages without losing the first page', async (
 		reference: { ...first.reference, id: 'second-draft' },
 		name: 'Second draft'
 	};
-	getMock.mockImplementation(async (path, options) => {
-		const summary = options?.params?.path?.id === second.reference.id ? second : first;
+	getMock.mockImplementation(async (path, ...args: unknown[]) => {
+		const params = requestProperty(args[0], 'params');
+		const summary =
+			requestProperty(requestProperty(params, 'path'), 'id') === second.reference.id
+				? second
+				: first;
 		// SAFETY: The paginated fixtures supply the list and draft detail shapes used by this test.
 		return {
 			data:
 				path === '/theme-settings'
 					? settings
 					: path === '/themes'
-						? options?.params?.query?.cursor
+						? requestProperty(requestProperty(params, 'query'), 'cursor')
 							? { items: [second], next_cursor: null }
 							: { items: [first], next_cursor: 'next' }
 						: path === '/themes/{id}'
@@ -367,6 +381,7 @@ it('preserves a newly saved organization default when locking during a slow refr
 	const held = new Promise<void>((resolve) => {
 		finish = resolve;
 	});
+	const putBodies: unknown[] = [];
 	getMock.mockImplementation(async (path) => {
 		await held;
 		// SAFETY: Held requests return settings or an empty theme page according to their route.
@@ -375,24 +390,27 @@ it('preserves a newly saved organization default when locking during a slow refr
 			response: new Response()
 		} as never;
 	});
-	putMock.mockImplementation(
-		async (_path, options) =>
-			// SAFETY: The organization mutation returns the default and lock fields accepted by that endpoint.
-			({
-				data: {
-					organization_id: 'org-a',
-					default_reference: options?.body?.default_reference,
-					assignments_locked: options?.body?.assignments_locked
-				},
-				response: new Response()
-			}) as never
-	);
+	putMock.mockImplementation(async (_path, ...args: unknown[]) => {
+		const body = requestProperty(args[0], 'body');
+		putBodies.push(body);
+		// SAFETY: The organization mutation returns the default and lock fields accepted by that endpoint.
+		return {
+			data: {
+				organization_id: 'org-a',
+				default_reference: requestProperty(body, 'default_reference'),
+				assignments_locked: requestProperty(body, 'assignments_locked')
+			},
+			response: new Response()
+		} as never;
+	});
 	try {
 		await screen.getByRole('button', { name: 'Make default', exact: true }).click();
 		await screen.getByRole('switch', { name: 'Lock workspace theme selection' }).click();
 		await screen.getByRole('button', { name: 'Lock and clear choices', exact: true }).click();
 		await vi.waitFor(() => expect(putMock).toHaveBeenCalledTimes(2));
-		expect(putMock.mock.calls[1]?.[1]?.body?.default_reference?.id).toBe('notebook');
+		expect(requestProperty(requestProperty(putBodies[1], 'default_reference'), 'id')).toBe(
+			'notebook'
+		);
 	} finally {
 		finish?.();
 	}

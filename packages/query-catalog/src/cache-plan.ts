@@ -1,6 +1,6 @@
-import type { QueryFilters } from "@tanstack/query-core";
+import type { InvalidateQueryFilters, QueryFilters } from "@tanstack/query-core";
 
 export interface QueryCachePlan {
-  readonly invalidate: readonly QueryFilters[];
+  readonly invalidate: readonly InvalidateQueryFilters[];
   readonly remove?: readonly QueryFilters[];
 }

@@ -1,10 +1,10 @@
-import type { QueryClient, QueryFilters } from '@tanstack/svelte-query';
+import type { InvalidateQueryFilters, QueryClient, QueryFilters } from '@tanstack/svelte-query';
 import { queryMutationSessionIsCurrent, type QueryMutationSession } from './authorization-boundary';
 
 export interface QueryMutationReconciliation {
 	readonly cancel?: readonly QueryFilters[];
 	readonly reconcile?: () => void;
-	readonly invalidate?: readonly QueryFilters[];
+	readonly invalidate?: readonly InvalidateQueryFilters[];
 }
 
 export async function reconcileQueryMutation(

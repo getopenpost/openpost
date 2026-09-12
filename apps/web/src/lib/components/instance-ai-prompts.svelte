@@ -364,7 +364,7 @@
 					<div class="min-w-0">
 						<div class="flex flex-wrap items-center gap-2">
 							<h2 class="text-base font-semibold">{promptLabel(selected)}</h2>
-							<Badge variant={selected.overridden ? 'default' : 'secondary'}>
+							<Badge>
 								{selected.overridden
 									? m.settings_ai_prompts_customized()
 									: m.settings_ai_prompts_built_in()}

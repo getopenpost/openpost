@@ -19,7 +19,7 @@ export interface DestinationSettingInvalidation {
 export function composerDestinationSettings(
 	provider: string,
 	resolvedSettings: SettingDefinition[],
-	catalog: Capability[],
+	catalog: readonly Pick<Capability, 'provider' | 'output_profile' | 'settings'>[],
 	outputProfile = ''
 ): SettingDefinition[] {
 	if (resolvedSettings.length > 0) return resolvedSettings;

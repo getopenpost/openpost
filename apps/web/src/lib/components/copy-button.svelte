@@ -6,7 +6,10 @@
 	import type { ButtonProps } from '$lib/components/ui/button';
 	import AsyncActionButton, { type AsyncActionState } from './async-action-button.svelte';
 
-	type Props = Omit<ButtonProps, 'children' | 'onclick' | 'href'> & {
+	type Props = Pick<
+		ButtonProps,
+		'class' | 'type' | 'title' | 'disabled' | 'variant' | 'intent' | 'size'
+	> & {
 		value: string;
 		scopeKey: string;
 		errorMessage: string;

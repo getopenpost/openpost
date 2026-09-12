@@ -54,7 +54,9 @@ describe('theme icon registry', () => {
 	});
 
 	it('drops a rejected pack request so a later activation can retry', async () => {
-		const failed = vi.fn(() => Promise.reject(new Error('chunk unavailable')));
+		const failed = vi.fn(async (): Promise<{ default: ThemeIconPack }> => {
+			throw new Error('chunk unavailable');
+		});
 		const recoveredPack = packFor('tabler');
 		const recovered = vi.fn(async () => ({ default: recoveredPack }));
 		let loader = failed;

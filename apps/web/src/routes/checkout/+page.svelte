@@ -124,7 +124,9 @@
 		await Promise.all(invalidations);
 	}
 
-	async function initializePaddleForCheckout(config: BrowserCheckoutConfig): Promise<Paddle> {
+	async function initializePaddleForCheckout(
+		config: Pick<BillingURL, 'environment' | 'client_token'>
+	): Promise<Paddle> {
 		const environment = config.environment?.trim().toLowerCase();
 		const clientToken = config.client_token?.trim();
 		if (!clientToken || (environment !== 'sandbox' && environment !== 'production')) {

@@ -452,7 +452,7 @@
 										type: layer.type,
 										state: `${layer.locked ? m.image_editor_locked_state() : ''}${layer.visible ? '' : m.image_editor_hidden_state()}`
 									})}
-									tabindex={focusedLayerID === layer.id && renamingID !== layer.id ? '0' : '-1'}
+									tabindex={focusedLayerID === layer.id && renamingID !== layer.id ? 0 : -1}
 									draggable={editor.canEdit && renamingID !== layer.id}
 									class="image-editor-layer-row group flex min-h-10 items-center gap-1 rounded-md pr-1 text-sm {editor.selectedLayerIDs.includes(
 										layer.id
@@ -497,7 +497,9 @@
 									}}
 									onkeydown={(event) => {
 										handleTreeKeydown(event, layer, items.indexOf(item));
-										if (!event.defaultPrevented) props.onkeydown?.(event);
+										if (!event.defaultPrevented && props.onkeydown instanceof Function) {
+											props.onkeydown(event);
+										}
 									}}
 								>
 									{#if item.hasChildren}

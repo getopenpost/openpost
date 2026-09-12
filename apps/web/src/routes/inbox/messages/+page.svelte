@@ -68,7 +68,7 @@
 	let selectedFallback = $state.raw<Conversation | undefined>();
 	let loadedWorkspace = $state('');
 	let appliedMessageScope = '';
-	let appliedMessageData: InfiniteData<MessagePage, string> | undefined;
+	let appliedMessageData: InfiniteData<MessagePage> | undefined;
 	let messageViewport = $state<HTMLElement>();
 	let refreshing = $state(false);
 	let sending = $state(false);

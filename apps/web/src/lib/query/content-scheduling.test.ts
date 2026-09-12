@@ -11,7 +11,8 @@ function transportWith(fetcher: typeof fetch) {
 describe('content and scheduling web query adapters', () => {
 	it('paginates a scheduling range under one abort signal', async () => {
 		const requests: Request[] = [];
-		const fetcher = vi.fn(async (request: Request) => {
+		const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+			const request = input instanceof Request ? input : new Request(input, init);
 			requests.push(request);
 			const offset = new URL(request.url).searchParams.get('offset');
 			return new Response(JSON.stringify([{ id: `publication-${offset}` }]), {
@@ -95,8 +96,8 @@ describe('content and scheduling web query adapters', () => {
 
 	it('normalizes media filters and preserves the request signal', async () => {
 		let request: Request | undefined;
-		const fetcher = vi.fn(async (nextRequest: Request) => {
-			request = nextRequest;
+		const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+			request = input instanceof Request ? input : new Request(input, init);
 			return new Response(JSON.stringify({ media: [], total: 0 }), {
 				headers: { 'Content-Type': 'application/json' }
 			});

@@ -3,7 +3,7 @@ import { getBuiltInTheme, isCompleteThemeSchemeManifest } from '$lib/themes';
 import { updateDitherAccent } from './theme-editor-accent';
 
 describe('Dither accent', () => {
-	it.each(['dither', 'dither-moss'])(
+	it.each(['dither', 'dither-moss'] as const)(
 		'keeps %s readable across the hue wheel in both schemes',
 		(id) => {
 			const original = getBuiltInTheme(id);

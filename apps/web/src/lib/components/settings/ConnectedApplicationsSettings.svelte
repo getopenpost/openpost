@@ -97,7 +97,7 @@
 							<h3 class="font-medium">{installation.application_name}</h3>
 							<div class="mt-2 flex flex-wrap gap-1.5">
 								{#each installation.scopes.split(/\s+/).filter(Boolean) as scope (scope)}
-									<Badge variant="secondary">{scope}</Badge>
+									<Badge>{scope}</Badge>
 								{/each}
 							</div>
 						</div>

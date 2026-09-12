@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
 import { themeQueryKeys } from '@openpost/query-catalog';
@@ -23,8 +24,8 @@ let getPaths: string[] = [];
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- Generic API spy arguments are untyped; inspect only named fields used by these fixtures.
 function requestProperty(value: unknown, key: string): unknown {
-	if (!value || !(value instanceof Object) || !(key in value)) return undefined;
-	return value[key];
+	const record = z.record(z.string(), z.unknown()).safeParse(value);
+	return record.success ? record.data[key] : undefined;
 }
 const manifest = getBuiltInTheme('workshop');
 const reference = builtInManifestReference(manifest.id, manifest.revision);

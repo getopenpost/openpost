@@ -44,7 +44,7 @@
 	let actionError = $state('');
 	let error = $derived(actionError || readQueryErrorMessage(applicationsQuery.error) || '');
 	let name = $state('');
-	let clientType = $state('public');
+	let clientType = $state<'public' | 'confidential'>('public');
 	let redirectURIs = $state('');
 	let selectedScopes = $state<string[]>([...scopeOptions]);
 	let createdClientID = $state('');

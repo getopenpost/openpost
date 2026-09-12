@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
@@ -12,6 +13,7 @@ import PromptsPage from './+page.svelte';
 const getMock = vi.spyOn(client, 'GET');
 const postMock = vi.spyOn(client, 'POST');
 const deleteMock = vi.spyOn(client, 'DELETE');
+let promptReadWorkspaces: string[] = [];
 
 describe('prompts page', () => {
 	beforeEach(() => {
@@ -19,6 +21,7 @@ describe('prompts page', () => {
 		getMock.mockReset();
 		postMock.mockReset();
 		deleteMock.mockReset();
+		promptReadWorkspaces = [];
 		auth.setUser(user('user-a'));
 		selectWorkspace('workspace-a');
 		queryClient.setQueryData(promptQueryKeys.categories(), ['Ideas']);
@@ -29,7 +32,8 @@ describe('prompts page', () => {
 				return response({ categories: ['Ideas'] }) as never;
 			}
 			if (path !== '/prompts') throw new Error(`Unexpected GET ${path}`);
-			const workspaceID = request?.params?.query?.workspace_id ?? '';
+			const workspaceID = requestWorkspaceID(request);
+			promptReadWorkspaces.push(workspaceID);
 			// SAFETY: The fixture contains every response field consumed by the component.
 			return response([prompt(workspaceID)]) as never;
 		});
@@ -111,12 +115,18 @@ describe('prompts page', () => {
 	});
 
 	function promptReadCount(workspaceID: string) {
-		return getMock.mock.calls.filter(
-			([path, request]) =>
-				path === '/prompts' && request?.params?.query?.workspace_id === workspaceID
-		).length;
+		return promptReadWorkspaces.filter((readWorkspaceID) => readWorkspaceID === workspaceID).length;
 	}
 });
+
+const promptReadRequest = z.object({
+	params: z.object({ query: z.object({ workspace_id: z.string() }) })
+});
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- The generic API spy provides an untyped request; parse the endpoint fields before reading them.
+function requestWorkspaceID(request: unknown): string {
+	return promptReadRequest.safeParse(request).data?.params.query.workspace_id ?? '';
+}
 
 function response<T>(data: T) {
 	return { data, error: undefined, response: new Response(null, { status: 200 }) };

@@ -10,7 +10,10 @@ function healthyReadiness(): ProviderReadinessDecision {
 	return {
 		advertisable: true,
 		connectable: true,
+		analytics_ready: true,
+		discoverable: true,
 		executable: true,
+		observable: true,
 		facts: {
 			approval: 'approved',
 			authorization: 'authorized',

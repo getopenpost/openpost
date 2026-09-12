@@ -5,17 +5,20 @@
 <script lang="ts">
 	import { Button, type ButtonProps } from '$lib/components/ui/button';
 	import type { ThemeIconRole } from '$lib/themes/contracts';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import ActionLabel, { type ActionFace } from './action-label.svelte';
 
-	type Props = Omit<ButtonProps, 'children' | 'href'> & {
-		state?: AsyncActionState;
-		label: string;
-		pendingLabel?: string;
-		successLabel?: string;
-		errorLabel?: string;
-		icon?: ThemeIconRole;
-		announce?: boolean;
-	};
+	type Props = Pick<HTMLButtonAttributes, 'class' | 'type' | 'title' | 'disabled' | 'onclick'> &
+		Pick<ButtonProps, 'variant' | 'intent' | 'size'> & {
+			'data-testid'?: string;
+			state?: AsyncActionState;
+			label: string;
+			pendingLabel?: string;
+			successLabel?: string;
+			errorLabel?: string;
+			icon?: ThemeIconRole;
+			announce?: boolean;
+		};
 	let {
 		state: actionState = 'idle',
 		label,
@@ -38,7 +41,17 @@
 	]);
 	const activeLabel = $derived(faces.find((face) => face.id === displayedState)!.label);
 
-	async function activate(event: MouseEvent & { currentTarget: EventTarget & HTMLButtonElement }) {
+	type ActionEvent = MouseEvent & {
+		currentTarget: EventTarget & (HTMLButtonElement | HTMLAnchorElement);
+	};
+	function isButtonEvent(
+		event: ActionEvent
+	): event is MouseEvent & { currentTarget: EventTarget & HTMLButtonElement } {
+		return event.currentTarget instanceof HTMLButtonElement;
+	}
+
+	async function activate(event: ActionEvent) {
+		if (!isButtonEvent(event)) return;
 		if (disabled || running || actionState === 'pending') return;
 		running = true;
 		try {

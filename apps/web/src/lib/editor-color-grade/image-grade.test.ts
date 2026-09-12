@@ -16,21 +16,20 @@ const neutralGrade = {
 
 describe('versioned still-image color grade', () => {
 	it('maps image controls to the same ordered GPU effects used by video', () => {
-		expect(
-			imageAdjustmentsToGradeEffects({
-				brightness: 0.1,
-				contrast: 0.2,
-				saturation: -0.25,
-				temperature: 0.3,
-				tint: -0.1,
-				vibrance: 0.4,
-				hue: 0.5,
-				exposure: 0.2,
-				highlights: -0.2,
-				shadows: 0.15,
-				blur: 0.6
-			})
-		).toEqual([
+		const adjustments = {
+			brightness: 0.1,
+			contrast: 0.2,
+			saturation: -0.25,
+			temperature: 0.3,
+			tint: -0.1,
+			vibrance: 0.4,
+			hue: 0.5,
+			exposure: 0.2,
+			highlights: -0.2,
+			shadows: 0.15,
+			blur: 0.6
+		};
+		expect(imageAdjustmentsToGradeEffects(adjustments)).toEqual([
 			{ effectId: 'gpu-brightness', params: { amount: 0.1 } },
 			{
 				effectId: 'gpu-exposure',

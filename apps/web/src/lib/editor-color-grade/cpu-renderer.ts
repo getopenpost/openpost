@@ -32,7 +32,17 @@ export function renderColorEffectsWithCanvas2D(
 	const context = canvas.getContext('2d', { willReadFrequently: true });
 	if (!context) return false;
 	try {
-		context.drawImage(source, 0, 0, width, height);
+		if (source instanceof ImageData) {
+			const sourceCanvas = document.createElement('canvas');
+			sourceCanvas.width = source.width;
+			sourceCanvas.height = source.height;
+			const sourceContext = sourceCanvas.getContext('2d');
+			if (!sourceContext) return false;
+			sourceContext.putImageData(source, 0, 0);
+			context.drawImage(sourceCanvas, 0, 0, width, height);
+		} else {
+			context.drawImage(source, 0, 0, width, height);
+		}
 		const frame = context.getImageData(0, 0, width, height);
 		applyColorEffectsToPixels(frame.data, effects);
 		context.putImageData(frame, 0, 0);

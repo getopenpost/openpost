@@ -58,7 +58,9 @@ function fakeAPI(): OpenPostQueryAPI {
 		listFailedJobs: vi.fn(),
 		listAccounts: vi.fn(async () => []),
 		listSocialSets: vi.fn(async (workspaceId) => [socialSetFixture(workspaceId)]),
-		getCapabilities: vi.fn(async () => capabilityCatalogFixture())
+		getCapabilities: vi.fn(async () => capabilityCatalogFixture()),
+		listWorkspaces: vi.fn(async () => []),
+		listCalendarPublications: vi.fn()
 	};
 }
 

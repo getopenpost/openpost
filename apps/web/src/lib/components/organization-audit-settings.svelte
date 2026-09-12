@@ -93,11 +93,16 @@
 					filenameScope: 'organization'
 				}
 	);
-	const reportInitialLoad = registerSettingsInitialLoad(
-		instanceWide
-			? SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceAudit
-			: SETTINGS_INITIAL_LOAD_PARTICIPANT.audit
+	const reportAuditInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.audit
 	);
+	const reportInstanceInitialLoad = registerSettingsInitialLoad(
+		SETTINGS_INITIAL_LOAD_PARTICIPANT.instanceAudit
+	);
+	const reportInitialLoad = (pending: boolean) => {
+		reportAuditInitialLoad(!instanceWide && pending);
+		reportInstanceInitialLoad(instanceWide && pending);
+	};
 	$effect(() => {
 		if (!active || error) {
 			reportInitialLoad(false);
@@ -309,7 +314,13 @@
 		error = '';
 		ownerRequired = false;
 		try {
-			const result = await queryClient.fetchQuery(queryOptions);
+			const result = instanceWide
+				? await queryClient.fetchQuery(
+						instanceAuditQueryOptions(organizationQueryAPI, instanceFilterQuery(cursor))
+					)
+				: await queryClient.fetchQuery(
+						organizationAuditQueryOptions(organizationQueryAPI, target, filterQuery(cursor))
+					);
 			if (sequence !== requestSequence) return;
 			items = append
 				? appendUniqueAuditEvents(previousItems, result.items ?? [])

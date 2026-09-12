@@ -49,7 +49,8 @@ describe('OpenPost web query API', () => {
 
 	it('forwards normalized Activity search terms', async () => {
 		const fetchMock = vi.fn(
-			async () => new Response('[]', { headers: { 'Content-Type': 'application/json' } })
+			async (_request: Request) =>
+				new Response('[]', { headers: { 'Content-Type': 'application/json' } })
 		);
 		const transport = createClient<paths>({
 			baseUrl: 'https://openpost.test/api/v1',

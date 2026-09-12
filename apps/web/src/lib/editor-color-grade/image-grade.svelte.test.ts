@@ -14,6 +14,7 @@ import {
 	editorColorGradeAdjustmentsToEffects,
 	ImageGradeRenderer
 } from './image-grade';
+import { renderColorEffectsWithCanvas2D } from './cpu-renderer';
 import { defaultEditorColorGradeAdjustments, defaultEditorColorWheels } from './model';
 
 const grade = {
@@ -71,6 +72,13 @@ async function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 }
 
 describe('shared still and video color rendering', () => {
+	it('renders ImageData through the Canvas2D fallback', () => {
+		const source = new ImageData(new Uint8ClampedArray([24, 96, 180, 255]), 1, 1);
+		const target = document.createElement('canvas');
+		expect(renderColorEffectsWithCanvas2D(target, source, 1, 1, [])).toBe(true);
+		expect([...target.getContext('2d')!.getImageData(0, 0, 1, 1).data]).toEqual([24, 96, 180, 255]);
+	});
+
 	it('keeps the Canvas2D fallback within two channel values of the GPU path', () => {
 		const source = document.createElement('canvas');
 		source.width = 2;

@@ -459,6 +459,7 @@ func (h *CapabilityResolverHandler) mergeAccountCapability(
 	segments []capabilities.ResolveSegment,
 	resolved *capabilities.ResolvedCapability,
 ) {
+	applyAccountDestinationSettings(account, settings, resolved)
 	if account.Platform == capabilities.ProviderX {
 		applyDynamicCapabilityConstraints(resolved, standardXPublishingCapabilities().Constraints, segments)
 	}

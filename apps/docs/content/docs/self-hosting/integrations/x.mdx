@@ -1,26 +1,56 @@
 ---
 title: X
-description: Configure an X OAuth 1.0a application.
+description: Set up X OAuth 1.0a user authentication for a self-hosted instance.
 icon: x
 ---
 
-Create an [X developer project and app](https://developer.x.com/en/portal/dashboard). Enable OAuth 1.0a user authentication and set the callback to:
+OpenPost uses X OAuth 1.0a user authentication to connect an account and publish on its behalf. Your X developer app needs the API access and user permissions for the actions you plan to use.
 
-```text
-https://your-domain.example/api/v1/accounts/x/callback
+## Before you start
+
+- Set `OPENPOST_APP_URL` to your instance's public HTTPS origin.
+- Have access to the [X Developer Portal](https://developer.x.com/en/portal/dashboard) and an X account for a real connection test.
+- Check your X API plan and endpoint access. A successful OAuth connection does not establish posting, analytics, or Direct Message access.
+
+## Configure the X app
+
+1. In the [developer portal](https://developer.x.com/en/portal/dashboard), create a Project and App, or open an existing App.
+2. In its user authentication settings, enable **OAuth 1.0a**. Choose **Read and write** permissions for publishing. Choose **Read, write, and Direct Messages** only if you will use OpenPost's optional Direct messages feature and your X API access supports it.
+3. Register this callback URL, then save the user authentication settings:
+
+   ```text
+   https://your-domain.example/api/v1/accounts/x/callback
+   ```
+
+4. Open **Keys and tokens** and copy the **API Key** and **API Key Secret** (the OAuth 1.0a consumer credentials). Do not use the OAuth 2.0 Client ID and Client Secret in the JSON below.
+
+X explains [developer app permissions](https://docs.x.com/fundamentals/developer-apps) and the [OAuth 1.0a flow](https://docs.x.com/fundamentals/authentication/oauth-1-0a/overview).
+
+## Save the app in OpenPost
+
+Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. This complete array works for a new installation; append the object without removing your other providers if the array already exists.
+
+```json
+[
+  {
+    "provider": "x",
+    "client_id": "your-x-api-key",
+    "client_secret": "your-x-api-key-secret",
+    "redirect_uri": "https://your-domain.example/api/v1/accounts/x/callback"
+  }
+]
 ```
 
-Add the client values to `.env`:
+Keep the JSON in a deployment secret store, preferably a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator may instead use **Settings → Instance → Configuration → Provider apps** to save an encrypted app. An environment entry overrides a matching saved row. Restart OpenPost after saving. See [self-hosted configuration](/self-hosting/configuration).
 
-```dotenv
-X_CLIENT_ID=your-client-id
-X_CLIENT_SECRET=your-client-secret
-```
+## Connect and test
 
-`TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, and `TWITTER_REDIRECT_URI` remain supported aliases, but use the `X_` names for new installs. Restart OpenPost and connect from **Settings → Workspace → Social accounts → X**.
+1. In **Settings → Workspace → Social accounts**, select **X** and authorize your account.
+2. Publish a short text test. Confirm its status in OpenPost and open the post on X.
+3. If you need media, analytics, comments, or Direct messages, test each with the same X app and account. Optional account features start disabled and need to be enabled per account.
 
-Use an app type that supports user context and the permissions needed by the actions you want. X analytics and Inbox features use the same OAuth 1.0a connection and remain subject to X API access and limits. OpenPost reads the connected account's subscription tier when available, and falls back to standard posting limits when it cannot.
+## If it does not work
 
-For local testing, register `http://localhost:8080/api/v1/accounts/x/callback` and use `OPENPOST_APP_URL=http://localhost:8080`. For a public instance, use HTTPS and never mix local and public callback URLs in the same test.
-
-If connection fails, check OAuth 1.0a is enabled, the callback matches exactly, and the app has user authentication enabled. If a connection succeeds but a post fails, inspect the X response and account tier. Reconnect after changing app permissions.
+- **OAuth fails:** Check that OAuth 1.0a is enabled and that the callback matches the configured URL exactly. Confirm you copied the API Key pair, not the OAuth 2.0 credentials.
+- **OAuth succeeds but a post fails:** Check app permission level, API plan, and the X error returned for that operation. Reconnect after changing permissions.
+- **Text or video rejected:** OpenPost uses the connected account's subscription tier when X provides it. When the tier is missing or stale, it applies standard limits until it can refresh the profile.

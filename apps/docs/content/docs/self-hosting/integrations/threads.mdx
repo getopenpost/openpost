@@ -1,0 +1,56 @@
+---
+title: Threads
+description: Create a Threads API app and connect a Threads account to OpenPost.
+icon: threads
+---
+
+OpenPost uses the Threads API and its own OAuth callback. A Threads app is configured separately from Facebook Login, even if you use the same Meta developer account.
+
+## Before you start
+
+- Set `OPENPOST_APP_URL` to your instance's public HTTPS origin. Set `OPENPOST_MEDIA_URL` to a public HTTPS address if you will publish images, videos, or carousels.
+- Have a [Meta developer account](https://developers.facebook.com/) and a Threads account for testing.
+- Check Meta's app mode, tester roles, permission access, and review requirements before inviting other users. A successful test connection does not establish production access.
+
+## Configure the Threads app
+
+1. In the [Meta for Developers dashboard](https://developers.facebook.com/apps/), create an app with the **Threads API** use case or add the Threads API product to an eligible app. Open its Threads API settings.
+2. Add this **Redirect URL** for OAuth:
+
+   ```text
+   https://your-domain.example/api/v1/accounts/threads/callback
+   ```
+
+3. Configure access for `threads_basic`, `threads_content_publish`, `threads_manage_replies`, `threads_manage_insights`, and `threads_location_tagging`. OpenPost requests these during authorization. Complete Meta's review for features and users beyond the app's test roles.
+4. Copy the Threads app's **App ID** and **App Secret** from its settings. Confirm the Threads test account is eligible to authorize the app.
+
+Meta's [Threads API documentation](https://developers.facebook.com/docs/threads/) and [official Threads API collection](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api) describe setup, consent, and publishing.
+
+## Save the app in OpenPost
+
+Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The complete array below works for a new installation; append the object if you already configured other providers.
+
+```json
+[
+  {
+    "provider": "threads",
+    "client_id": "your-threads-app-id",
+    "client_secret": "your-threads-app-secret",
+    "redirect_uri": "https://your-domain.example/api/v1/accounts/threads/callback"
+  }
+]
+```
+
+Keep the JSON in a deployment secret store, preferably a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator can instead save an encrypted Threads app in **Settings → Instance → Configuration → Provider apps**. Environment entries override matching saved rows. Restart OpenPost after either change.
+
+## Connect and test
+
+1. In **Settings → Workspace → Social accounts**, select **Threads** and complete the Threads consent flow.
+2. Publish a short text post. Confirm its status in OpenPost and open it on Threads.
+3. If you need media, publish one image next. Meta fetches media from your public HTTPS address. Test carousels and other features separately. Optional Comments and replies and Analytics start disabled per account; location tagging requires its own granted permission.
+
+## If it does not work
+
+- **OAuth fails:** Compare the Threads API redirect URL with the JSON and public `OPENPOST_APP_URL` exactly. Check the app's tester roles, mode, and permissions.
+- **Text works but media fails:** Fetch the exact public media URL from outside your network and check HTTPS, file bytes, and media type. A localhost or private URL cannot work.
+- **Replies, insights, or locations are unavailable:** Check the corresponding Threads permission and account grant. Reconnect accounts authorized before that permission was added.

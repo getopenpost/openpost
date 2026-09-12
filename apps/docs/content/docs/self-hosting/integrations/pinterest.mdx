@@ -1,32 +1,56 @@
 ---
 title: Pinterest
-description: Configure Pinterest for controlled development and certification.
+description: Prepare a Pinterest app for controlled OAuth and publishing certification.
 icon: pinterest
 ---
 
-Pinterest support remains gated. Review the [Pinterest API documentation](https://developers.pinterest.com/docs/) and request Standard API access. Do not expose it to users until your app has that access and current live certification for each operation you intend to enable.
+OpenPost has Pinterest adapter paths for controlled development and certification. Pinterest is not a generally available OpenPost Hosted connection. A configured app does not by itself establish approval or enable public use.
 
-Create a Pinterest app with the required products, then register:
+## Before you start
 
-```text
-https://your-domain.example/api/v1/accounts/pinterest/callback
-```
+- Set `OPENPOST_APP_URL` to the public HTTPS origin of your instance.
+- Have a Pinterest business account to administer a [Pinterest developer app](https://developers.pinterest.com/apps/) and a separate account and board for testing.
+- Request Pinterest **Trial** access for development, then **Standard** access before serving other users. Pinterest explains the [access tiers](https://developers.pinterest.com/docs/key-concepts/access-tiers/). OpenPost's runtime and certification controls must also permit the exact operation before production use.
 
-Configure it through `OPENPOST_PROVIDER_APPS` or the instance provider-app settings:
+## Configure the Pinterest app
+
+1. Follow Pinterest's [Connect app](https://developers.pinterest.com/docs/getting-started/connect-app/) flow, submit your app details for Trial access, and open its **Manage** page after approval.
+2. Register this redirect URI in the app's OAuth settings:
+
+   ```text
+   https://your-domain.example/api/v1/accounts/pinterest/callback
+   ```
+
+3. Copy the app **ID** and **Secret key**. OpenPost requests `boards:read`, `boards:write`, `pins:read`, `pins:write`, and `user_accounts:read`. Confirm the app can obtain those scopes for your test account.
+4. Before serving other users, apply for Standard access and complete Pinterest's review requirements, including a demonstration of the OAuth flow. Keep normal production access disabled until the intended OAuth, board, Pin, discovery, and analytics operations have current live certification.
+
+Pinterest documents [OAuth redirect matching and scopes](https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/).
+
+## Save the app in OpenPost
+
+Add this object to your existing `OPENPOST_PROVIDER_APPS` JSON array. The complete array below works for a new installation; append the object if other providers are already present.
 
 ```json
 [
   {
     "provider": "pinterest",
-    "client_id": "your-client-id",
-    "client_secret": "your-client-secret",
+    "client_id": "your-pinterest-app-id",
+    "client_secret": "your-pinterest-secret-key",
     "redirect_uri": "https://your-domain.example/api/v1/accounts/pinterest/callback"
   }
 ]
 ```
 
-Pinterest operations need board targeting. The adapter has controlled paths for image and video Pins, board sections, discovery, and analytics, but a configured credential or passing fixture is not production approval. Keep runtime controls disabled while certification is incomplete.
+Supply the JSON through your deployment secret store, preferably `OPENPOST_PROVIDER_APPS_FILE`, then restart OpenPost. The current **Settings → Instance → Configuration → Provider apps** form does not include Pinterest; the administrator API is another way to store an encrypted Pinterest app. Environment entries take precedence over saved rows.
 
-For a controlled test, use a development Pinterest account, connect through the Accounts screen, verify the selected board belongs to that account, and test one image Pin. Record the exact app, account, operation, and result. Never turn on all operations because one operation passed.
+## Test the controlled path
 
-If OAuth fails, check Standard access, redirect URI, and requested scopes. If a Pin fails, check board ownership, media format, and current Pinterest API restrictions.
+1. With the necessary operator controls enabled for your test subject, open **Settings → Workspace → Social accounts** and connect the Pinterest test account.
+2. Choose a board owned by that account and publish one small image Pin. Check the OpenPost result and the Pin on Pinterest. Board section targeting, video Pins, discovery, and analytics need their own tests and access evidence.
+3. Record which app, account, scopes, and operation passed. Do not infer that a successful image Pin makes every Pinterest feature ready for public use.
+
+## If it does not work
+
+- **Pinterest does not appear or connection is blocked:** Check the instance's provider runtime and certification controls before the OAuth details. A credential alone does not lift the gate.
+- **OAuth fails:** Confirm Trial or Standard access, requested scopes, and the exact redirect URI in both systems.
+- **Pin fails:** Confirm that the chosen board belongs to the connected account, `pins:write` is granted, and the media meets Pinterest's current requirements. Test each output type separately.

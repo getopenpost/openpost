@@ -12,26 +12,34 @@ type Publication = components['schemas']['PublicationResponse'];
 
 const getMock = vi.spyOn(client, 'GET');
 const deleteMock = vi.spyOn(client, 'DELETE');
+const draftReadWorkspaces: string[] = [];
 
 describe('sidebar draft mutation ownership', () => {
 	beforeEach(() => {
 		queryClient.clear();
 		getMock.mockReset();
 		deleteMock.mockReset();
+		draftReadWorkspaces.length = 0;
 		auth.setUser(user('user-a'));
 		selectWorkspace('workspace-a');
-		getMock.mockImplementation(async (path, request) => {
-			if (path !== '/publications') throw new Error(`Unexpected GET ${path}`);
-			const query = request?.params?.query;
-			const workspaceID = query?.workspace_id ?? '';
-			const data = query?.status === 'draft' ? [publication(workspaceID)] : [];
-			// SAFETY: The fixture contains every response field consumed by the component.
-			return {
-				data,
-				error: undefined,
-				response: new Response(null, { status: 200 })
-			} as never;
-		});
+		getMock.mockImplementation(
+			async (
+				path,
+				request: { params?: { query?: { workspace_id?: string; status?: string } } }
+			) => {
+				if (path !== '/publications') throw new Error(`Unexpected GET ${path}`);
+				const query = request?.params?.query;
+				const workspaceID = query?.workspace_id ?? '';
+				if (query?.status === 'draft') draftReadWorkspaces.push(workspaceID);
+				const data = query?.status === 'draft' ? [publication(workspaceID)] : [];
+				// SAFETY: The fixture contains every response field consumed by the component.
+				return {
+					data,
+					error: undefined,
+					response: new Response(null, { status: 200 })
+				} as never;
+			}
+		);
 	});
 
 	it('does not remove a new Workspace draft when an old delete completes', async () => {
@@ -70,12 +78,7 @@ describe('sidebar draft mutation ownership', () => {
 	});
 
 	function draftReadCount(workspaceID: string) {
-		return getMock.mock.calls.filter(
-			([path, request]) =>
-				path === '/publications' &&
-				request?.params?.query?.workspace_id === workspaceID &&
-				request.params.query.status === 'draft'
-		).length;
+		return draftReadWorkspaces.filter((readWorkspace) => readWorkspace === workspaceID).length;
 	}
 });
 
@@ -128,7 +131,7 @@ function publication(workspaceID: string): Publication {
 		random_delay_inherited: true,
 		random_delay_minutes: 0,
 		renditions: [],
-		repost_override: {},
+		repost_override: { mode: 'off' },
 		segments: [],
 		source_text: `Workspace ${workspaceID} draft`,
 		title: '',

@@ -11,6 +11,7 @@ import ScheduleSettingsTab from './ScheduleSettingsTab.svelte';
 
 const getMock = vi.spyOn(client, 'GET');
 const deleteMock = vi.spyOn(client, 'DELETE');
+const scheduleReadWorkspaces: string[] = [];
 
 describe('posting schedule mutation ownership', () => {
 	beforeEach(async () => {
@@ -18,17 +19,21 @@ describe('posting schedule mutation ownership', () => {
 		queryClient.clear();
 		getMock.mockReset();
 		deleteMock.mockReset();
+		scheduleReadWorkspaces.length = 0;
 		auth.setUser(user('user-a'));
 		selectWorkspace('workspace-a');
 		queryClient.setQueryData(schedulingQueryKeys.postingSchedules('workspace-a'), [
 			schedule('workspace-a')
 		]);
-		getMock.mockImplementation((path, request) => {
-			if (path !== '/posting-schedules') throw new Error(`Unexpected GET ${path}`);
-			const workspaceID = request?.params?.query?.workspace_id ?? '';
-			// SAFETY: The fixture contains every response field consumed by the component.
-			return Promise.resolve(response([schedule(workspaceID)])) as never;
-		});
+		getMock.mockImplementation(
+			(path, request: { params?: { query?: { workspace_id?: string } } }) => {
+				if (path !== '/posting-schedules') throw new Error(`Unexpected GET ${path}`);
+				const workspaceID = request?.params?.query?.workspace_id ?? '';
+				scheduleReadWorkspaces.push(workspaceID);
+				// SAFETY: The fixture contains every response field consumed by the component.
+				return Promise.resolve(response([schedule(workspaceID)])) as never;
+			}
+		);
 	});
 
 	it('does not refresh or report an old row deletion in a new Workspace', async () => {
@@ -61,10 +66,7 @@ describe('posting schedule mutation ownership', () => {
 	});
 
 	function scheduleReadCount(workspaceID: string) {
-		return getMock.mock.calls.filter(
-			([path, request]) =>
-				path === '/posting-schedules' && request?.params?.query?.workspace_id === workspaceID
-		).length;
+		return scheduleReadWorkspaces.filter((readWorkspace) => readWorkspace === workspaceID).length;
 	}
 });
 

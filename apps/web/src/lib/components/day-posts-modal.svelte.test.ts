@@ -15,26 +15,31 @@ type Publication = components['schemas']['PublicationResponse'];
 
 const getMock = vi.spyOn(client, 'GET');
 const deleteMock = vi.spyOn(client, 'DELETE');
+const publicationReadDays: string[] = [];
 
 describe('day posts deletion ownership', () => {
 	beforeEach(() => {
 		queryClient.clear();
 		getMock.mockReset();
 		deleteMock.mockReset();
+		publicationReadDays.length = 0;
 		auth.setUser(user('user-a'));
 		selectWorkspace('workspace-a');
 		ui.closeDayPosts();
 		ui.dayPostsDate = undefined;
-		getMock.mockImplementation(async (path, request) => {
-			if (path !== '/publications') throw new Error(`Unexpected GET ${path}`);
-			const day = request?.params?.query?.calendar_from?.slice(0, 10) ?? '';
-			// SAFETY: The fixture contains every response field consumed by the component.
-			return {
-				data: [publication(day)],
-				error: undefined,
-				response: new Response(null, { status: 200 })
-			} as never;
-		});
+		getMock.mockImplementation(
+			async (path, request: { params?: { query?: { calendar_from?: string } } }) => {
+				if (path !== '/publications') throw new Error(`Unexpected GET ${path}`);
+				const day = request?.params?.query?.calendar_from?.slice(0, 10) ?? '';
+				publicationReadDays.push(day);
+				// SAFETY: The fixture contains every response field consumed by the component.
+				return {
+					data: [publication(day)],
+					error: undefined,
+					response: new Response(null, { status: 200 })
+				} as never;
+			}
+		);
 	});
 
 	it('does not refresh a new day when an old day deletion completes', async () => {
@@ -67,10 +72,7 @@ describe('day posts deletion ownership', () => {
 	});
 
 	function publicationReadCount(day: string) {
-		return getMock.mock.calls.filter(
-			([path, request]) =>
-				path === '/publications' && request?.params?.query?.calendar_from?.startsWith(day)
-		).length;
+		return publicationReadDays.filter((readDay) => readDay === day).length;
 	}
 });
 
@@ -123,7 +125,7 @@ function publication(day: string): Publication {
 		random_delay_inherited: true,
 		random_delay_minutes: 0,
 		renditions: [],
-		repost_override: {},
+		repost_override: { mode: 'off' },
 		scheduled_at: `${day}T09:00:00Z`,
 		segments: [],
 		source_text: `Post for ${day}`,

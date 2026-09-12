@@ -10,12 +10,14 @@ type SocialSet = components['schemas']['SocialSetResponse'];
 
 const getMock = vi.spyOn(client, 'GET');
 const postMock = vi.spyOn(client, 'POST');
+const readWorkspaces: string[] = [];
 
 describe('Social Set request ownership', () => {
 	beforeEach(() => {
 		queryClient.clear();
 		getMock.mockReset();
 		postMock.mockReset();
+		readWorkspaces.length = 0;
 	});
 
 	it('does not refresh or apply an old Social Set save in a new Workspace', async () => {
@@ -61,12 +63,15 @@ describe('Social Set request ownership', () => {
 	});
 
 	function installResolvedReads() {
-		getMock.mockImplementation((path, request) => {
-			if (path !== '/social-sets') throw new Error(`Unexpected GET ${path}`);
-			const workspaceID = request?.params?.query?.workspace_id ?? '';
-			// SAFETY: The fixture contains every response field consumed by the component.
-			return Promise.resolve(response([socialSet(workspaceID)])) as never;
-		});
+		getMock.mockImplementation(
+			(path, request: { params?: { query?: { workspace_id?: string } } }) => {
+				if (path !== '/social-sets') throw new Error(`Unexpected GET ${path}`);
+				const workspaceID = request?.params?.query?.workspace_id ?? '';
+				readWorkspaces.push(workspaceID);
+				// SAFETY: The fixture contains every response field consumed by the component.
+				return Promise.resolve(response([socialSet(workspaceID)])) as never;
+			}
+		);
 	}
 
 	async function openManager(screen: Awaited<ReturnType<typeof render>>) {
@@ -76,10 +81,7 @@ describe('Social Set request ownership', () => {
 	}
 
 	function socialSetReadCount(workspaceID: string) {
-		return getMock.mock.calls.filter(
-			([path, request]) =>
-				path === '/social-sets' && request?.params?.query?.workspace_id === workspaceID
-		).length;
+		return readWorkspaces.filter((readWorkspace) => readWorkspace === workspaceID).length;
 	}
 });
 

@@ -149,22 +149,7 @@ func (h *DestinationOptionsHandler) registerPublishingOptions(api huma.API) {
 			return nil, err
 		}
 		if account.Platform == "telegram" {
-			if input.Source != "telegram_chats" {
-				return nil, huma.Error400BadRequest("unknown Telegram publishing option source")
-			}
-			options, err := h.connectedTelegramChatOptions(ctx, account)
-			if err != nil {
-				return nil, err
-			}
-			limit := input.Limit
-			if limit <= 0 || limit > 100 {
-				limit = 25
-			}
-			page := paginatePublishingOptions(options, input.Search, input.Cursor, limit)
-			output := &PublishingOptionsOutput{}
-			output.Body.Options = page.Options
-			output.Body.NextCursor = page.NextCursor
-			return output, nil
+			return h.telegramPublishingOptions(ctx, account, input)
 		}
 		adapter := h.adapterForDestinationAccount(account)
 		if adapter == nil {
@@ -220,6 +205,25 @@ func (h *DestinationOptionsHandler) registerPublishingOptions(api huma.API) {
 		output.Body.NextCursor = page.NextCursor
 		return output, nil
 	})
+}
+
+func (h *DestinationOptionsHandler) telegramPublishingOptions(ctx context.Context, account models.SocialAccount, input *PublishingOptionsInput) (*PublishingOptionsOutput, error) {
+	if input.Source != "telegram_chats" {
+		return nil, huma.Error400BadRequest("unknown Telegram publishing option source")
+	}
+	options, err := h.connectedTelegramChatOptions(ctx, account)
+	if err != nil {
+		return nil, err
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	page := paginatePublishingOptions(options, input.Search, input.Cursor, limit)
+	output := &PublishingOptionsOutput{}
+	output.Body.Options = page.Options
+	output.Body.NextCursor = page.NextCursor
+	return output, nil
 }
 
 func (h *DestinationOptionsHandler) connectedTelegramChatOptions(ctx context.Context, account models.SocialAccount) ([]platform.DestinationOption, error) {

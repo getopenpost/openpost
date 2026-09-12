@@ -165,7 +165,7 @@ export const previewDiagnostics = {
 		if (prepareMs > 0) runtime.transitionLastPrepareMs = prepareMs;
 	},
 	recordReverseWindowSkip(): void {
-		reverseWindowSkips += 1;
+		runtime.reverseWindowSkips += 1;
 	},
 	setGpuStatus(webgl2Ready: boolean, webgpuTransitionsReady: boolean): void {
 		runtime.webgl2Ready = webgl2Ready;
@@ -193,7 +193,7 @@ export const previewDiagnostics = {
 		runtime.transitionSessionActive = false;
 		runtime.transitionSessionCount = 0;
 		runtime.transitionLastPrepareMs = 0;
-		reverseWindowSkips = 0;
+		runtime.reverseWindowSkips = 0;
 	},
 	report(): string {
 		return buildPreviewDiagnosticReport(snapshot());

@@ -166,7 +166,7 @@
 		await runWrite(async () => {
 			const { data, error } = await client.PUT('/theme-assignments/{workspace_id}', {
 				params: { path: { workspace_id: targetWorkspaceID } },
-				body: { reference }
+				body: reference ? { reference } : {}
 			});
 			if (error || !data) throw new Error(m.theme_library_workspace_change_failed());
 			const queryKey = themeSettingsOptions(targetWorkspaceID).queryKey;
@@ -245,6 +245,15 @@
 	async function onCreate(input: CreateThemeInput) {
 		const session = captureQueryMutationSession();
 		const targetWorkspaceID = workspaceID;
+		const source = input.source;
+		const sourceManifest =
+			source.kind === 'custom'
+				? libraryItems.find(
+						(item) => item.reference.kind === 'custom' && item.reference.id === source.id
+					)?.manifest
+				: undefined;
+		if (source.kind === 'custom' && !sourceManifest)
+			throw new Error(m.theme_library_create_failed());
 		let created: components['schemas']['Theme'] | undefined;
 		await runWrite(
 			() =>
@@ -253,14 +262,9 @@
 						body: {
 							organization_id: organizationID,
 							name: input.name,
-							...(input.source.kind === 'built_in'
-								? { duplicate_built_in_id: input.source.id }
-								: {
-										manifest: libraryItems.find(
-											(item) =>
-												item.reference.kind === 'custom' && item.reference.id === input.source.id
-										)?.manifest
-									})
+							...(source.kind === 'built_in'
+								? { duplicate_built_in_id: source.id }
+								: { manifest: sourceManifest })
 						}
 					})
 					.then((result) => {

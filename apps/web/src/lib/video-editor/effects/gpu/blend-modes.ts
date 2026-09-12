@@ -87,7 +87,7 @@ export const BLEND_MODE_GROUPS = [
 	},
 	{ label: 'inversion', modes: ['difference', 'exclusion', 'subtract', 'divide'] },
 	{ label: 'component', modes: ['hue', 'saturation', 'color', 'luminosity'] }
-] satisfies { label: string; modes: BlendMode[] }[];
+] as const satisfies readonly { label: string; modes: readonly BlendMode[] }[];
 
 /** Every blend mode in index order; used by tests and exhaustive UI lists. */
 export const ALL_BLEND_MODES: readonly BlendMode[] = [

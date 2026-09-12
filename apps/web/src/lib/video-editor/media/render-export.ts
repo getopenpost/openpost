@@ -154,7 +154,7 @@ async function pruneStaleExportScratch(directory: FileSystemDirectoryHandle): Pr
 		for await (const [name, handle] of directory.entries()) {
 			if (handle.kind !== 'file') continue;
 			try {
-				const file = await handle.getFile();
+				const file = await (await directory.getFileHandle(name)).getFile();
 				if (file.lastModified < cutoff) await directory.removeEntry(name);
 			} catch {
 				// A concurrent export or maintenance pass may have changed this entry.

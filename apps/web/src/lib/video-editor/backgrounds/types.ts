@@ -22,7 +22,7 @@ export type BackgroundPatch = MeshBackgroundPatch &
 export const BACKGROUND_KINDS = ['mesh-gradient', 'pattern', 'shader'] as const;
 export const PATTERN_KINDS = ['dots', 'grid', 'stripes', 'checker'] as const;
 
-export const DEFAULT_MESH_BACKGROUND: ProceduralBackground = {
+export const DEFAULT_MESH_BACKGROUND: BackgroundMeshBackground = {
 	kind: 'mesh-gradient',
 	colors: ['#ff7a18', '#af002d', '#319197', '#1a1a2e'],
 	smoothness: 0.55,
@@ -32,7 +32,7 @@ export const DEFAULT_MESH_BACKGROUND: ProceduralBackground = {
 	offsetY: 0
 };
 
-export const DEFAULT_PATTERN_BACKGROUND: ProceduralBackground = {
+export const DEFAULT_PATTERN_BACKGROUND: BackgroundPatternBackground = {
 	kind: 'pattern',
 	pattern: 'dots',
 	foreground: '#ff7a18',

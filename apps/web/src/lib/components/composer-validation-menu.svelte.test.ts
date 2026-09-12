@@ -14,6 +14,7 @@ it('explains publishing blockers on the trigger and opens the affected field', a
 	const screen = await render(ComposerValidationMenu, { issues: [issue], onSelect });
 	const trigger = screen.getByRole('button', { name: /Check before publishing/ });
 	await expect.element(trigger).toHaveTextContent('Issues to review: 1');
+	await expect.element(trigger).toHaveClass('text-action-destructive-foreground');
 	await trigger.click();
 	await page.getByRole('button', { name: 'Edit: Add an image for this destination.' }).click();
 	expect(onSelect).toHaveBeenCalledWith(issue);

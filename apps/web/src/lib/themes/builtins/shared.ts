@@ -215,6 +215,7 @@ export type ColorSeed = Pick<
 	| 'sidebarInk'
 	| 'sidebarActive'
 	| 'sidebarActiveInk'
+	| 'navigationHover'
 	| 'chart1'
 	| 'chart2'
 	| 'chart3'

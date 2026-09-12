@@ -15,6 +15,10 @@ test("navigation separates work, workspace management, and personal preferences"
   await page.goto("/publications");
   await page.screenshot({ path: testInfo.outputPath("navigation-before.png") });
   await page.getByTestId("profile-menu-trigger").click();
+  await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Profile & security", exact: true })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("menuitem", { name: "Preferences", exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Editors", exact: true })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();

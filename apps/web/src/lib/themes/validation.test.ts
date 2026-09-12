@@ -51,6 +51,15 @@ describe('theme manifest value validation', () => {
 		expect(isSafeThemeSchemeManifestValues(indistinguishableStatus)).toBe(false);
 	});
 
+	it('keeps Dither error text readable on raised surfaces in both schemes', () => {
+		for (const scheme of ['light', 'dark'] as const) {
+			const colors = resolveBuiltInTheme('dither', scheme).manifest.colors;
+			expect(
+				themeColorContrastRatio(colors.danger, colors.surfaceRaised, colors.canvas)
+			).toBeGreaterThanOrEqual(4.5);
+		}
+	});
+
 	it('rejects unreadable action text in every rendered interaction state', () => {
 		const unreadableHover = resolveBuiltInTheme('workshop', 'light').manifest;
 		unreadableHover.colors.actionFocal = '#000000';

@@ -40,7 +40,7 @@
 					class={cn(
 						'min-h-9 max-w-full shrink-0 gap-1.5 [@media(pointer:coarse)]:min-h-11',
 						hasErrors
-							? 'text-destructive hover:text-destructive'
+							? 'text-action-destructive-foreground hover:text-action-destructive-foreground'
 							: 'text-warning-foreground hover:text-warning-foreground',
 						className
 					)}
@@ -64,7 +64,9 @@
 					<li
 						class={cn(
 							'rounded-md text-sm leading-5',
-							issue.severity === 'error' ? 'text-destructive' : 'text-warning-foreground'
+							issue.severity === 'error'
+								? 'text-action-destructive-foreground'
+								: 'text-warning-foreground'
 						)}
 					>
 						{#snippet issueContent()}

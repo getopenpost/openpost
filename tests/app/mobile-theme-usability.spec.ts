@@ -72,6 +72,7 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
 
   await menu.getByRole("menuitem", { name: "Profile", exact: true }).click();
   await expect(menu.getByRole("menuitem", { name: "Log out" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Settings", exact: true })).toBeVisible();
   await menu.getByRole("menuitem", { name: "Preferences", exact: true }).click();
   const preferences = page.getByRole("dialog", { name: "Preferences", exact: true });
   await expect(preferences).toHaveCSS("opacity", "1");

@@ -36,7 +36,7 @@
 		goto(resolveAppPath('/settings?tab=profile'));
 	}}
 >
-	<ThemeIcon role="user" class="size-4 text-muted-foreground" />{m.sidebar_profile_security()}
+	<ThemeIcon role="settings" class="size-4 text-muted-foreground" />{m.sidebar_settings()}
 </DropdownMenu.Item>
 <DropdownMenu.Item
 	class="min-h-9 gap-3 [@media(pointer:coarse)]:min-h-11"

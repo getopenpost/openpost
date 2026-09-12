@@ -349,12 +349,13 @@ type AccountCapabilityInput struct {
 }
 
 type AccountCapabilityResult struct {
-	Revision          string
-	Options           map[string][]DestinationOption
-	Constraints       map[string]interface{}
-	AvailableFeatures map[string]bool
-	UnavailableReason string
-	State             map[string]string
+	Revision              string
+	Options               map[string][]DestinationOption
+	CompleteOptionSources []string
+	Constraints           map[string]interface{}
+	AvailableFeatures     map[string]bool
+	UnavailableReason     string
+	State                 map[string]string
 }
 
 // AccountCapabilityProvider resolves provider state that varies per connected

@@ -4235,6 +4235,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/social-sets/resolve-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve reusable settings for a Social Set account and format */
+        post: operations["resolve-social-set-settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/social-sets/{id}": {
         parameters: {
             query?: never;
@@ -7412,8 +7429,12 @@ export interface components {
             accounts: components["schemas"]["SocialSetAccountInput"][] | null;
             /** @description Use this set when the composer opens */
             is_default?: boolean;
+            /** @description BCP 47 locale for account settings validation */
+            locale?: string;
             /** @description Social Set name */
             name: string;
+            /** @description ISO 3166-1 alpha-2 region for account settings validation */
+            region?: string;
             /** @description Target workspace ID */
             workspace_id: string;
         };
@@ -12217,6 +12238,37 @@ export interface components {
             /** @description Workspace ID */
             workspace_id: string;
         };
+        ResolveSocialSetSettingsInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ResolveSocialSetSettingsInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Selected provider-qualified format */
+            default_output_profile: string;
+            /** @description BCP 47 locale for option labels */
+            locale?: string;
+            /** @description ISO 3166-1 alpha-2 region */
+            region?: string;
+            /** @description Current destination and post preset values for account-specific options */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** @description Connected social account ID */
+            social_account_id: string;
+        };
+        ResolveSocialSetSettingsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ResolveSocialSetSettingsOutputBody.json
+             */
+            readonly $schema?: string;
+            account_id: string;
+            output_profile: string;
+            settings: components["schemas"]["SettingDefinition"][] | null;
+        };
         ResolveVideoProjectConflictInputBody: {
             /**
              * Format: uri
@@ -13705,8 +13757,12 @@ export interface components {
             accounts: components["schemas"]["SocialSetAccountInput"][] | null;
             /** @description Use this set when the composer opens */
             is_default: boolean;
+            /** @description BCP 47 locale for account settings validation */
+            locale?: string;
             /** @description Social Set name */
             name: string;
+            /** @description ISO 3166-1 alpha-2 region for account settings validation */
+            region?: string;
         };
         UpdateStatusResponse: {
             /**
@@ -30888,6 +30944,75 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "resolve-social-set-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveSocialSetSettingsInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveSocialSetSettingsOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

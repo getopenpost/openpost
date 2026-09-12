@@ -186,21 +186,9 @@ func (h *CapabilityResolverHandler) RegisterRoutes(api huma.API) {
 				Segments:               accountSegments,
 				Settings:               input.Body.Settings[account.ID],
 			}
-			resolved, connectorBacked, err := h.resolveConnectorCapability(ctx, account, resolveInput)
+			resolved, connectorBacked, err := h.resolveAccountCapability(ctx, account, input.Body.Locale, input.Body.Region, resolveInput)
 			if err != nil {
 				return nil, huma.Error502BadGateway("connector capability resolution failed")
-			}
-			if !connectorBacked {
-				resolved = capabilities.Resolve(account.Platform, resolveInput)
-				h.mergeAccountCapability(
-					ctx,
-					account,
-					input.Body.Locale,
-					input.Body.Region,
-					input.Body.Settings[account.ID],
-					accountSegments,
-					&resolved,
-				)
 			}
 			satisfyCanonicalURLRequirement(&resolved, input.Body.SourceURL, segments)
 			immediate := h.publicationReadiness(ctx, account, resolved.Capability, providerreadiness.OperationPublishImmediate, input.Body.Settings[account.ID])
@@ -218,6 +206,21 @@ func (h *CapabilityResolverHandler) RegisterRoutes(api huma.API) {
 		}
 		return output, nil
 	})
+}
+
+func (h *CapabilityResolverHandler) resolveAccountCapability(
+	ctx context.Context,
+	account models.SocialAccount,
+	locale, region string,
+	input capabilities.ResolveInput,
+) (capabilities.ResolvedCapability, bool, error) {
+	resolved, connectorBacked, err := h.resolveConnectorCapability(ctx, account, input)
+	if err != nil || connectorBacked {
+		return resolved, connectorBacked, err
+	}
+	resolved = capabilities.Resolve(account.Platform, input)
+	h.mergeAccountCapability(ctx, account, locale, region, input.Settings, input.Segments, &resolved)
+	return resolved, false, nil
 }
 
 func (h *CapabilityResolverHandler) resolveConnectorCapability(
@@ -511,6 +514,7 @@ func (h *CapabilityResolverHandler) mergeAccountCapability(
 		resolved.Compatible = false
 	}
 	resolved.DynamicOptions = map[string][]capabilities.Option{}
+	resolved.CompleteOptionSources = result.CompleteOptionSources
 	for source, options := range result.Options {
 		for _, option := range options {
 			resolved.DynamicOptions[source] = append(resolved.DynamicOptions[source], capabilities.Option{

@@ -554,6 +554,7 @@ func (t *TikTokAdapter) ResolveAccountPublishingCapabilities(ctx context.Context
 		Options: map[string][]DestinationOption{
 			"tiktok_privacy_levels": privacy,
 		},
+		CompleteOptionSources: []string{"tiktok_privacy_levels"},
 		Constraints: map[string]interface{}{
 			"max_video_duration_seconds": info.MaxVideoDurationSec,
 		},

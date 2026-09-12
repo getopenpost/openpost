@@ -37,21 +37,35 @@ describe('Social Set request ownership', () => {
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
 		installResolvedReads();
 		postMock.mockImplementation((path) => {
-			if (path !== '/capabilities/resolve') throw new Error(`Unexpected POST ${path}`);
-			return Promise.resolve(
-				response({ accounts: [{ account_id: 'acc-1', settings: [xReplySetting] }] })
-			) as never;
+			if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
+			return Promise.resolve(response({ account_id: 'acc-1', settings: [xReplySetting] })) as never;
 		});
 		putMock.mockImplementation(() => new Promise(() => {}) as never);
 		const screen = await render(SocialSetControl, {
 			workspaceId: 'workspace-a',
 			accounts: [{ id: 'acc-1', platform: 'x', account_username: 'openpost' }] as never,
-			capabilities: [{ provider: 'x', output_profile: 'x.post', label: 'Post' }] as never,
+			capabilities: [
+				{ provider: 'x', output_profile: 'x.post', label: 'Post' },
+				{ provider: 'x', output_profile: 'x.video', label: 'Video' }
+			] as never,
 			selectedSetId: existing.id,
 			onApply: vi.fn()
 		});
 		await openManager(screen);
+		await screen.getByRole('button', { name: /Format for/ }).click();
+		await screen.getByRole('option', { name: 'Video', exact: true }).click();
+		await screen.getByRole('button', { name: /Format for/ }).click();
+		await screen.getByRole('option', { name: 'Post', exact: true }).click();
 		await screen.getByRole('button', { name: 'Edit post settings' }).click();
+		expect(postMock).toHaveBeenCalledWith('/social-sets/resolve-settings', {
+			body: {
+				social_account_id: 'acc-1',
+				default_output_profile: 'x.post',
+				settings: { reply_settings: 'following' },
+				locale: expect.any(String),
+				region: expect.any(String)
+			}
+		});
 		const settingsDialog = screen.getByRole('dialog', { name: 'X settings' });
 		await expect.element(settingsDialog).toBeVisible();
 		await settingsDialog.getByRole('button', { name: /^(following|Who can reply)$/ }).click();
@@ -66,6 +80,8 @@ describe('Social Set request ownership', () => {
 			body: {
 				name: existing.name,
 				is_default: false,
+				locale: expect.any(String),
+				region: expect.any(String),
 				accounts: [
 					{
 						social_account_id: 'acc-1',
@@ -85,20 +101,25 @@ describe('Social Set request ownership', () => {
 				social_account_id: 'webhook',
 				platform: 'discord',
 				display_order: 0,
+				default_output_profile: 'discord.post',
 				default_settings: { channel_id: 'stale' }
 			},
-			{ social_account_id: 'bot', platform: 'discord', display_order: 1 }
+			{
+				social_account_id: 'bot',
+				platform: 'discord',
+				display_order: 1,
+				default_output_profile: 'discord.post'
+			}
 		];
 		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
 		installResolvedReads();
-		postMock.mockImplementation((path, request: { body?: { account_ids?: string[] } }) => {
-			if (path !== '/capabilities/resolve') throw new Error(`Unexpected POST ${path}`);
-			const accountId = request.body?.account_ids?.[0];
+		postMock.mockImplementation((path, request: { body?: { social_account_id?: string } }) => {
+			if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
+			const accountId = request.body?.social_account_id;
 			return Promise.resolve(
 				response({
-					accounts: [
-						{ account_id: accountId, settings: accountId === 'bot' ? [discordChannelSetting] : [] }
-					]
+					account_id: accountId,
+					settings: accountId === 'bot' ? [discordChannelSetting] : []
 				})
 			) as never;
 		});
@@ -112,15 +133,27 @@ describe('Social Set request ownership', () => {
 			capabilities: [
 				{
 					provider: 'discord',
-					output_profile: 'discord.message',
-					label: 'Message',
+					output_profile: 'discord.post',
+					label: 'Discord message',
 					settings: [discordChannelSetting]
-				}
+				},
+				{ provider: 'discord', output_profile: 'discord.post', label: 'Discord attachment' }
 			] as never,
 			selectedSetId: existing.id,
 			onApply: vi.fn()
 		});
 		await openManager(screen);
+		await screen
+			.getByRole('button', { name: /Format for/ })
+			.first()
+			.click();
+		await expect
+			.element(screen.getByRole('option', { name: 'Discord message', exact: true }))
+			.toBeVisible();
+		await expect
+			.element(screen.getByRole('option', { name: 'Discord attachment', exact: true }))
+			.not.toBeInTheDocument();
+		await screen.getByRole('option', { name: 'Discord message', exact: true }).click();
 		await screen.getByRole('button', { name: 'Edit post settings' }).nth(0).click();
 		await expect
 			.element(screen.getByText('This account has no reusable post settings.'))
@@ -139,22 +172,108 @@ describe('Social Set request ownership', () => {
 			body: {
 				name: existing.name,
 				is_default: false,
+				locale: expect.any(String),
+				region: expect.any(String),
 				accounts: [
 					{
 						social_account_id: 'webhook',
-						default_output_profile: undefined,
+						default_output_profile: 'discord.post',
 						default_settings: {},
 						default_segment_settings: {}
 					},
 					{
 						social_account_id: 'bot',
-						default_output_profile: undefined,
+						default_output_profile: 'discord.post',
 						default_settings: {},
 						default_segment_settings: {}
 					}
 				]
 			}
 		});
+	});
+
+	it('keeps video presets visible and removes values outside the selected format', async () => {
+		const existing = socialSet('workspace-a');
+		existing.accounts = [
+			{
+				social_account_id: 'tiktok-1',
+				platform: 'tiktok',
+				display_order: 0,
+				default_output_profile: 'tiktok.video',
+				default_settings: {
+					content_posting_method: 'DIRECT_POST',
+					is_aigc: true,
+					photo_title: 'Old photo title'
+				}
+			}
+		];
+		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
+		installResolvedReads();
+		postMock.mockImplementation((path) => {
+			if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
+			return Promise.resolve(
+				response({
+					account_id: 'tiktok-1',
+					output_profile: 'tiktok.video',
+					settings: [tiktokPostingMethodSetting, tiktokAIGCSetting]
+				})
+			) as never;
+		});
+		putMock.mockImplementation(() => new Promise(() => {}) as never);
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [{ id: 'tiktok-1', platform: 'tiktok', account_username: 'creator' }] as never,
+			capabilities: [
+				{ provider: 'tiktok', output_profile: 'tiktok.video', label: 'TikTok video' }
+			] as never,
+			selectedSetId: existing.id,
+			onApply: vi.fn()
+		});
+		await openManager(screen);
+		await screen.getByRole('button', { name: 'Edit post settings' }).click();
+		const dialog = screen.getByRole('dialog', { name: 'TikTok settings' });
+		await expect.element(dialog.getByText('AI-generated content')).toBeVisible();
+		await expect.element(dialog.getByText('Photo post title')).not.toBeInTheDocument();
+		await dialog.getByRole('button', { name: 'Done' }).click();
+		await screen
+			.getByRole('dialog', { name: 'Manage Social Sets' })
+			.getByRole('button', { name: 'Save' })
+			.click();
+		expect(putMock).toHaveBeenCalledWith(
+			'/social-sets/{id}',
+			expect.objectContaining({
+				body: expect.objectContaining({
+					accounts: [
+						expect.objectContaining({
+							default_output_profile: 'tiktok.video',
+							default_settings: { content_posting_method: 'DIRECT_POST', is_aigc: true }
+						})
+					]
+				})
+			})
+		);
+	});
+
+	it('keeps Automatic free of format-specific presets', async () => {
+		const existing = socialSet('workspace-a');
+		existing.accounts = [{ social_account_id: 'acc-1', platform: 'x', display_order: 0 }];
+		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
+		installResolvedReads();
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [{ id: 'acc-1', platform: 'x', account_username: 'openpost' }] as never,
+			capabilities: [{ provider: 'x', output_profile: 'x.post', label: 'Post' }] as never,
+			selectedSetId: existing.id,
+			onApply: vi.fn()
+		});
+		await openManager(screen);
+		await expect.element(screen.getByRole('button', { name: 'Edit post settings' })).toBeDisabled();
+		await expect.element(screen.getByText('Choose a format')).toBeVisible();
+		await screen.getByRole('button', { name: /Format for/ }).click();
+		await expect.element(screen.getByRole('option', { name: 'Post', exact: true })).toBeVisible();
+		await screen.getByRole('option', { name: 'Post', exact: true }).click();
+		await expect.element(screen.getByRole('button', { name: 'Edit post settings' })).toBeEnabled();
+		expect(postMock).not.toHaveBeenCalled();
 	});
 
 	it('does not refresh or apply an old Social Set save in a new Workspace', async () => {
@@ -177,6 +296,8 @@ describe('Social Set request ownership', () => {
 				workspace_id: 'workspace-a',
 				name: 'Workspace A set',
 				is_default: true,
+				locale: expect.any(String),
+				region: expect.any(String),
 				accounts: []
 			}
 		});
@@ -244,6 +365,30 @@ const xReplySetting = {
 	scope: 'destination',
 	required: false,
 	options: ['following', 'mentionedUsers']
+};
+
+const tiktokPostingMethodSetting = {
+	key: 'content_posting_method',
+	label: 'Posting method',
+	message_key: '',
+	group: 'distribution',
+	control: 'select',
+	type: 'select',
+	scope: 'destination',
+	required: true,
+	options: ['DIRECT_POST', 'UPLOAD']
+};
+
+const tiktokAIGCSetting = {
+	key: 'is_aigc',
+	label: 'AI-generated content',
+	message_key: '',
+	group: 'disclosure',
+	control: 'toggle',
+	type: 'boolean',
+	scope: 'destination',
+	required: false,
+	dependencies: [{ key: 'content_posting_method', operator: 'equals', value: 'DIRECT_POST' }]
 };
 
 const discordChannelSetting = {

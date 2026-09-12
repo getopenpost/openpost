@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -214,10 +215,15 @@ type ResolveInput struct {
 	Intent                 string
 	CreationPreset         string
 	RequestedOutputProfile string
+	Context                ResolveContext
 	SourceURL              string
 	Segments               []ResolveSegment
 	Settings               map[string]any
 }
+
+type ResolveContext string
+
+const ResolveContextSocialSetDefaults ResolveContext = "social_set_defaults"
 
 type ResolveSegment struct {
 	ID    string
@@ -236,6 +242,7 @@ type ResolvedCapability struct {
 	ActiveConstraints       map[string]any         `json:"active_constraints"`
 	SettingGroups           []ResolvedSettingGroup `json:"setting_groups"`
 	DynamicOptions          map[string][]Option    `json:"dynamic_options,omitempty"`
+	CompleteOptionSources   []string               `json:"-"`
 	Issues                  []ValidationIssue      `json:"issues"`
 }
 
@@ -674,6 +681,17 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 	preset := normalizeIntent(firstNonEmptyCapability(input.CreationPreset, input.Intent))
 	inputShape := resolveMediaShape(input.Segments, input.SourceURL)
 	shape := intendedMediaShape(preset, inputShape)
+	if input.Context == ResolveContextSocialSetDefaults && input.RequestedOutputProfile != "" {
+		// A preset has no post media. Select metadata from its format, then
+		// expose only fields shared by every shape of that format below.
+		if candidate, ok := bestOutputCapability(catalog, provider, input.RequestedOutputProfile, MediaShapeText); ok && len(candidate.MediaShapes) > 0 {
+			shape = candidate.MediaShapes[0]
+			if slices.Contains(candidate.MediaShapes, MediaShapeText) {
+				shape = MediaShapeText
+			}
+			inputShape = shape
+		}
+	}
 	issues := []ValidationIssue{}
 	selected := selectDestinationCapability(catalog, provider, input, shape, preset)
 	availableFormats := destinationFormats(catalog, provider, input, shape, preset)
@@ -710,6 +728,9 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 		if settingApplies(setting, intent, selected.OutputProfile, shape) {
 			activeSettings = append(activeSettings, setting)
 		}
+	}
+	if input.Context == ResolveContextSocialSetDefaults {
+		activeSettings = commonDefaultSettings(catalog, provider, selected.OutputProfile, activeSettings)
 	}
 	selected.Settings = activeSettings
 	segmentStrategy := destinationSegmentStrategy(*selected, len(input.Segments))
@@ -749,6 +770,69 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 		SettingGroups: groupSettings(activeSettings),
 		Issues:        issues,
 	}
+}
+
+func commonDefaultSettings(catalog []Capability, provider, outputProfile string, selected []SettingDefinition) []SettingDefinition {
+	common := append([]SettingDefinition(nil), selected...)
+	for _, candidate := range catalog {
+		if candidate.Provider != provider || candidate.OutputProfile != outputProfile {
+			continue
+		}
+		shapes := candidate.MediaShapes
+		if len(shapes) == 0 {
+			shapes = []string{MediaShapeText}
+		}
+		for _, shape := range shapes {
+			common = sharedDefaultSettingsForShape(common, candidate, shape)
+		}
+	}
+	return defaultSettingsWithDependencies(common)
+}
+
+func sharedDefaultSettingsForShape(common []SettingDefinition, candidate Capability, shape string) []SettingDefinition {
+	fields := common[:0]
+	for _, field := range common {
+		for _, other := range candidate.Settings {
+			if field.Key == other.Key && settingApplies(other, firstCapabilityIntent(candidate), candidate.OutputProfile, shape) && sameDefaultSetting(field, other) {
+				fields = append(fields, field)
+				break
+			}
+		}
+	}
+	return fields
+}
+
+func defaultSettingsWithDependencies(common []SettingDefinition) []SettingDefinition {
+	for {
+		keys := make(map[string]struct{}, len(common))
+		for _, field := range common {
+			keys[field.Key] = struct{}{}
+		}
+		fields := common[:0]
+		for _, field := range common {
+			valid := true
+			for _, dependency := range field.Dependencies {
+				if _, ok := keys[dependency.Key]; !ok {
+					valid = false
+					break
+				}
+			}
+			if valid {
+				fields = append(fields, field)
+			}
+		}
+		if len(fields) == len(common) {
+			return fields
+		}
+		common = fields
+	}
+}
+
+func sameDefaultSetting(left, right SettingDefinition) bool {
+	left.Intents, right.Intents = nil, nil
+	left.OutputProfiles, right.OutputProfiles = nil, nil
+	left.MediaShapes, right.MediaShapes = nil, nil
+	return reflect.DeepEqual(left, right)
 }
 
 func providerDisplayName(provider string) string {

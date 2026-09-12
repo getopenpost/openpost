@@ -338,7 +338,7 @@ func (d *DiscordBotAdapter) ResolveAccountPublishingCapabilities(ctx context.Con
 		}
 	}
 	result := AccountCapabilityResult{
-		Revision: "discord-bot-v2", Options: groups,
+		Revision: "discord-bot-v2", Options: groups, CompleteOptionSources: []string{"discord_channels"},
 		Constraints: map[string]interface{}{"text_limit": 2000, "media_max_count": 10},
 		AvailableFeatures: map[string]bool{
 			"channel_id":       len(groups["discord_channels"]) > 0,

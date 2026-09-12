@@ -161,6 +161,35 @@ func TestResolveCatalogUsesConnectorSuppliedCapabilities(t *testing.T) {
 	}
 }
 
+func TestSocialSetPresetFieldsAreCommonToEveryShapeOfSelectedOutput(t *testing.T) {
+	for _, scenario := range []struct {
+		provider string
+		output   string
+		present  []string
+		absent   []string
+	}{
+		{ProviderX, "x.thread", []string{"reply_settings", "made_with_ai"}, []string{"poll_options", "poll_duration_minutes"}},
+		{ProviderX, "x.video", []string{"reply_settings"}, []string{"poll_options"}},
+		{ProviderTikTok, "tiktok.video", []string{"duet", "stitch", "is_aigc"}, []string{"photo_title"}},
+		{ProviderFacebook, "facebook.video", []string{"video_title", "first_comment"}, []string{"text_format_preset_id"}},
+	} {
+		resolved := Resolve(scenario.provider, ResolveInput{
+			RequestedOutputProfile: scenario.output,
+			Context:                ResolveContextSocialSetDefaults,
+		})
+		fields := map[string]bool{}
+		for _, field := range resolved.Settings {
+			fields[field.Key] = true
+		}
+		for _, key := range scenario.present {
+			require.True(t, fields[key], "%s should offer %s", scenario.output, key)
+		}
+		for _, key := range scenario.absent {
+			require.False(t, fields[key], "%s should hide %s", scenario.output, key)
+		}
+	}
+}
+
 func TestResolveChoosesFormatsPerDestinationForMultiSegmentSource(t *testing.T) {
 	segments := []ResolveSegment{
 		{ID: "segment-1", Body: "First"},

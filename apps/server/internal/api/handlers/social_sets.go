@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,12 +23,35 @@ import (
 const socialSetsPath = "/social-sets"
 
 type SocialSetHandler struct {
-	db   *bun.DB
-	auth middleware.Authenticator
+	db       *bun.DB
+	auth     middleware.Authenticator
+	resolver *CapabilityResolverHandler
 }
 
 func NewSocialSetHandler(db *bun.DB, authenticator middleware.Authenticator) *SocialSetHandler {
-	return &SocialSetHandler{db: db, auth: authenticator}
+	return &SocialSetHandler{db: db, auth: authenticator, resolver: NewCapabilityResolverHandler(db, authenticator, nil, nil)}
+}
+
+func (h *SocialSetHandler) SetCapabilityResolver(resolver *CapabilityResolverHandler) {
+	h.resolver = resolver
+}
+
+type ResolveSocialSetSettingsInput struct {
+	Body struct {
+		SocialAccountID      string         `json:"social_account_id" doc:"Connected social account ID"`
+		DefaultOutputProfile string         `json:"default_output_profile" doc:"Selected provider-qualified format"`
+		Settings             map[string]any `json:"settings,omitempty" doc:"Current destination and post preset values for account-specific options"`
+		Locale               string         `json:"locale,omitempty" doc:"BCP 47 locale for option labels"`
+		Region               string         `json:"region,omitempty" doc:"ISO 3166-1 alpha-2 region"`
+	}
+}
+
+type ResolveSocialSetSettingsOutput struct {
+	Body struct {
+		AccountID     string                           `json:"account_id"`
+		OutputProfile string                           `json:"output_profile"`
+		Settings      []capabilities.SettingDefinition `json:"settings"`
+	}
 }
 
 type SocialSetAccountInput struct {
@@ -62,6 +87,8 @@ type CreateSocialSetInput struct {
 		WorkspaceID string                  `json:"workspace_id" doc:"Target workspace ID"`
 		Name        string                  `json:"name" minLength:"1" maxLength:"80" doc:"Social Set name"`
 		IsDefault   bool                    `json:"is_default,omitempty" doc:"Use this set when the composer opens"`
+		Locale      string                  `json:"locale,omitempty" doc:"BCP 47 locale for account settings validation"`
+		Region      string                  `json:"region,omitempty" doc:"ISO 3166-1 alpha-2 region for account settings validation"`
 		Accounts    []SocialSetAccountInput `json:"accounts" doc:"Ordered connected accounts"`
 	}
 }
@@ -71,6 +98,8 @@ type UpdateSocialSetInput struct {
 	Body   struct {
 		Name      string                  `json:"name" minLength:"1" maxLength:"80" doc:"Social Set name"`
 		IsDefault bool                    `json:"is_default" doc:"Use this set when the composer opens"`
+		Locale    string                  `json:"locale,omitempty" doc:"BCP 47 locale for account settings validation"`
+		Region    string                  `json:"region,omitempty" doc:"ISO 3166-1 alpha-2 region for account settings validation"`
 		Accounts  []SocialSetAccountInput `json:"accounts" doc:"Replacement ordered membership"`
 	}
 }
@@ -109,6 +138,12 @@ type socialSetAccountRow struct {
 }
 
 func (h *SocialSetHandler) RegisterRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "resolve-social-set-settings", Method: http.MethodPost, Path: socialSetsPath + "/resolve-settings",
+		Summary: "Resolve reusable settings for a Social Set account and format", Tags: []string{tagSocialSets},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)}, Errors: []int{400, 403, 502},
+		MaxBodyBytes: 32 * 1024,
+	}, h.resolveSettings)
 	huma.Register(api, huma.Operation{
 		OperationID: "list-social-sets", Method: http.MethodGet, Path: socialSetsPath,
 		Summary: "List Social Sets", Tags: []string{tagSocialSets},
@@ -164,7 +199,7 @@ func (h *SocialSetHandler) create(ctx context.Context, input *CreateSocialSetInp
 	if name == "" {
 		return nil, huma.Error400BadRequest("Social Set name is required")
 	}
-	accounts, err := validateSocialSetAccounts(ctx, h.db, input.Body.WorkspaceID, input.Body.Accounts)
+	accounts, err := h.validateSocialSetAccounts(ctx, input.Body.WorkspaceID, input.Body.Accounts, input.Body.Locale, input.Body.Region, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +250,11 @@ func (h *SocialSetHandler) update(ctx context.Context, input *UpdateSocialSetInp
 	if name == "" {
 		return nil, huma.Error400BadRequest("Social Set name is required")
 	}
-	accounts, err := validateSocialSetAccounts(ctx, h.db, set.WorkspaceID, input.Body.Accounts)
+	unchanged, err := h.unchangedSocialSetAccounts(ctx, set, input.Body.Accounts)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := h.validateSocialSetAccounts(ctx, set.WorkspaceID, input.Body.Accounts, input.Body.Locale, input.Body.Region, unchanged)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +336,96 @@ func requireSocialSetWorkspaceAccess(ctx context.Context, db *bun.DB, workspaceI
 	return nil
 }
 
-func validateSocialSetAccounts(ctx context.Context, db bun.IDB, workspaceID string, inputs []SocialSetAccountInput) (map[string]models.SocialAccount, error) {
+func (h *SocialSetHandler) resolveSettings(ctx context.Context, input *ResolveSocialSetSettingsInput) (*ResolveSocialSetSettingsOutput, error) {
+	var account models.SocialAccount
+	err := h.db.NewSelect().Model(&account).
+		Where("id = ? AND is_active = ?", strings.TrimSpace(input.Body.SocialAccountID), true).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, huma.Error400BadRequest("Social Set account is disconnected or unavailable")
+	}
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to load Social Set account")
+	}
+	if err := requireSocialSetWorkspaceAccess(ctx, h.db, account.WorkspaceID, middleware.GetUserID(ctx), false); err != nil {
+		return nil, err
+	}
+	resolved, err := h.resolvePresetCapability(ctx, account, input.Body.DefaultOutputProfile, input.Body.Settings, input.Body.Locale, input.Body.Region)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifySocialSetPresetResolution(resolved); err != nil {
+		return nil, err
+	}
+	output := &ResolveSocialSetSettingsOutput{}
+	output.Body.AccountID = account.ID
+	output.Body.OutputProfile = resolved.OutputProfile
+	output.Body.Settings = resolved.Settings
+	return output, nil
+}
+
+func (h *SocialSetHandler) resolvePresetCapability(
+	ctx context.Context, account models.SocialAccount, profile string, settings map[string]any, locale, region string,
+) (capabilities.ResolvedCapability, error) {
+	profile = strings.TrimSpace(profile)
+	if profile == "" {
+		return capabilities.ResolvedCapability{}, huma.Error400BadRequest("choose a format before setting Social Set defaults")
+	}
+	resolved, _, err := h.resolver.resolveAccountCapability(ctx, account, locale, region, capabilities.ResolveInput{
+		RequestedOutputProfile: profile,
+		Context:                capabilities.ResolveContextSocialSetDefaults,
+		Settings:               settings,
+	})
+	if err != nil {
+		return capabilities.ResolvedCapability{}, huma.Error502BadGateway("account capability resolution failed")
+	}
+	if resolved.OutputProfile != profile {
+		return capabilities.ResolvedCapability{}, huma.Error400BadRequest("default_output_profile is not supported by its account")
+	}
+	return resolved, nil
+}
+
+func verifySocialSetPresetResolution(resolved capabilities.ResolvedCapability) error {
+	for _, issue := range resolved.Issues {
+		if issue.Code == "dynamic_options_unavailable" || issue.Code == "required_dynamic_options_unavailable" {
+			return huma.Error502BadGateway("account settings could not be verified")
+		}
+	}
+	return nil
+}
+
+func sameSocialSetDefaults(previous, current SocialSetAccountInput) bool {
+	return strings.TrimSpace(previous.DefaultOutputProfile) == strings.TrimSpace(current.DefaultOutputProfile) &&
+		canonicalSocialSetSettings(previous.DefaultSettings) == canonicalSocialSetSettings(current.DefaultSettings) &&
+		canonicalSocialSetSettings(previous.DefaultSegmentSettings) == canonicalSocialSetSettings(current.DefaultSegmentSettings)
+}
+
+func (h *SocialSetHandler) unchangedSocialSetAccounts(ctx context.Context, set *models.SocialSet, inputs []SocialSetAccountInput) (map[string]bool, error) {
+	stored, err := loadSocialSetSnapshot(ctx, h.db, set.WorkspaceID, set.ID)
+	if err != nil {
+		return nil, err
+	}
+	previousByAccount := make(map[string]SocialSetAccountInput, len(stored))
+	for _, previous := range stored {
+		previousByAccount[previous.SocialAccountID] = previous
+	}
+	unchanged := map[string]bool{}
+	for _, current := range inputs {
+		previous, exists := previousByAccount[current.SocialAccountID]
+		if exists && sameSocialSetDefaults(previous, current) {
+			unchanged[current.SocialAccountID] = true
+		}
+	}
+	return unchanged, nil
+}
+
+func canonicalSocialSetSettings(settings map[string]any) string {
+	if len(settings) == 0 {
+		return "{}"
+	}
+	return mustJSON(settings)
+}
+
+func (h *SocialSetHandler) validateSocialSetAccounts(ctx context.Context, workspaceID string, inputs []SocialSetAccountInput, locale, region string, unchanged map[string]bool) (map[string]models.SocialAccount, error) {
 	ids := make([]string, 0, len(inputs))
 	seen := map[string]struct{}{}
 	for _, input := range inputs {
@@ -316,7 +444,7 @@ func validateSocialSetAccounts(ctx context.Context, db bun.IDB, workspaceID stri
 		return accounts, nil
 	}
 	var rows []models.SocialAccount
-	if err := db.NewSelect().Model(&rows).
+	if err := h.db.NewSelect().Model(&rows).
 		Where("workspace_id = ?", workspaceID).
 		Where("is_active = ?", true).
 		Where("id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
@@ -329,42 +457,79 @@ func validateSocialSetAccounts(ctx context.Context, db bun.IDB, workspaceID stri
 		accounts[account.ID] = account
 	}
 	for _, input := range inputs {
-		profile := strings.TrimSpace(input.DefaultOutputProfile)
-		account := accounts[input.SocialAccountID]
-		var selected capabilities.Capability
-		if profile != "" {
-			var ok bool
-			selected, ok = capabilities.FindOutput(account.Platform, profile)
-			if !ok {
-				return nil, huma.Error400BadRequest("default_output_profile is not supported by its account")
-			}
-		} else {
-			selected = capabilities.Resolve(account.Platform, capabilities.ResolveInput{
-				Segments: []capabilities.ResolveSegment{{ID: "social-set", Body: "Draft"}},
-			}).Capability
+		if unchanged[input.SocialAccountID] {
+			continue
 		}
-		resolved := capabilities.ResolvedCapability{Capability: selected}
-		applyAccountDestinationSettings(account, input.DefaultSettings, &resolved)
-		context := make(map[string]any, len(input.DefaultSettings)+len(input.DefaultSegmentSettings))
-		for key, value := range input.DefaultSettings {
-			context[key] = value
-		}
-		for key, value := range input.DefaultSegmentSettings {
-			context[key] = value
-		}
-		if err := validateSocialSetDefaultSettings(resolved.Capability, input.DefaultSettings, context, capabilities.SettingScopeDestination); err != nil {
-			return nil, err
-		}
-		if account.Platform == capabilities.ProviderDiscord {
-			if err := platform.ValidateDiscordEmbedPreset(input.DefaultSettings["embed"]); err != nil {
-				return nil, huma.Error400BadRequest("Social Set embed is invalid: " + err.Error())
-			}
-		}
-		if err := validateSocialSetDefaultSettings(resolved.Capability, input.DefaultSegmentSettings, context, capabilities.SettingScopeSegment); err != nil {
+		if err := h.validateSocialSetAccountDefaults(ctx, accounts[input.SocialAccountID], input, locale, region); err != nil {
 			return nil, err
 		}
 	}
 	return accounts, nil
+}
+
+func (h *SocialSetHandler) validateSocialSetAccountDefaults(ctx context.Context, account models.SocialAccount, input SocialSetAccountInput, locale, region string) error {
+	context := make(map[string]any, len(input.DefaultSettings)+len(input.DefaultSegmentSettings))
+	for key, value := range input.DefaultSettings {
+		context[key] = value
+	}
+	for key, value := range input.DefaultSegmentSettings {
+		context[key] = value
+	}
+	profile := strings.TrimSpace(input.DefaultOutputProfile)
+	if profile == "" {
+		if len(context) > 0 {
+			return huma.Error400BadRequest("choose a format before setting Social Set defaults")
+		}
+		return nil
+	}
+	resolved, err := h.resolvePresetCapability(ctx, account, profile, context, locale, region)
+	if err != nil {
+		return err
+	}
+	if len(context) > 0 {
+		if err := verifySocialSetPresetResolution(resolved); err != nil {
+			return err
+		}
+	}
+	if err := validateSocialSetDefaultSettings(resolved.Capability, input.DefaultSettings, context, capabilities.SettingScopeDestination); err != nil {
+		return err
+	}
+	if account.Platform == capabilities.ProviderDiscord {
+		if err := platform.ValidateDiscordEmbedPreset(input.DefaultSettings["embed"]); err != nil {
+			return huma.Error400BadRequest("Social Set embed is invalid: " + err.Error())
+		}
+	}
+	if err := validateSocialSetDefaultSettings(resolved.Capability, input.DefaultSegmentSettings, context, capabilities.SettingScopeSegment); err != nil {
+		return err
+	}
+	return validateSocialSetCompleteOptions(resolved, context)
+}
+
+func validateSocialSetCompleteOptions(resolved capabilities.ResolvedCapability, values map[string]any) error {
+	for _, field := range resolved.Settings {
+		if field.OptionsSource == "" || !slices.Contains(resolved.CompleteOptionSources, field.OptionsSource) {
+			continue
+		}
+		raw, exists := values[field.Key]
+		if !exists || raw == nil {
+			continue
+		}
+		value := strings.TrimSpace(fmt.Sprint(raw))
+		if value == "" {
+			continue
+		}
+		valid := false
+		for _, option := range resolved.DynamicOptions[field.OptionsSource] {
+			if option.Value == value {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return huma.Error400BadRequest(field.Label + " is not an available choice for this account")
+		}
+	}
+	return nil
 }
 
 func validateSocialSetDefaultSettings(capability capabilities.Capability, values, context map[string]any, scope string) error {

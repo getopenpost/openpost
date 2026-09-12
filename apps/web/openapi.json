@@ -5076,10 +5076,18 @@
 						"description": "Use this set when the composer opens",
 						"type": "boolean"
 					},
+					"locale": {
+						"description": "BCP 47 locale for account settings validation",
+						"type": "string"
+					},
 					"name": {
 						"description": "Social Set name",
 						"maxLength": 80,
 						"minLength": 1,
+						"type": "string"
+					},
+					"region": {
+						"description": "ISO 3166-1 alpha-2 region for account settings validation",
 						"type": "string"
 					},
 					"workspace_id": {
@@ -16455,6 +16463,71 @@
 				"required": ["workspace_id", "account_ids"],
 				"type": "object"
 			},
+			"ResolveSocialSetSettingsInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/ResolveSocialSetSettingsInputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"default_output_profile": {
+						"description": "Selected provider-qualified format",
+						"type": "string"
+					},
+					"locale": {
+						"description": "BCP 47 locale for option labels",
+						"type": "string"
+					},
+					"region": {
+						"description": "ISO 3166-1 alpha-2 region",
+						"type": "string"
+					},
+					"settings": {
+						"additionalProperties": {},
+						"description": "Current destination and post preset values for account-specific options",
+						"type": "object"
+					},
+					"social_account_id": {
+						"description": "Connected social account ID",
+						"type": "string"
+					}
+				},
+				"required": ["social_account_id", "default_output_profile"],
+				"type": "object"
+			},
+			"ResolveSocialSetSettingsOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/ResolveSocialSetSettingsOutputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"account_id": {
+						"type": "string"
+					},
+					"output_profile": {
+						"type": "string"
+					},
+					"settings": {
+						"items": {
+							"$ref": "#/components/schemas/SettingDefinition"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["account_id", "output_profile", "settings"],
+				"type": "object"
+			},
 			"ResolveVideoProjectConflictInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -20441,10 +20514,18 @@
 						"description": "Use this set when the composer opens",
 						"type": "boolean"
 					},
+					"locale": {
+						"description": "BCP 47 locale for account settings validation",
+						"type": "string"
+					},
 					"name": {
 						"description": "Social Set name",
 						"maxLength": 80,
 						"minLength": 1,
+						"type": "string"
+					},
+					"region": {
+						"description": "ISO 3166-1 alpha-2 region for account settings validation",
 						"type": "string"
 					}
 				},
@@ -43981,6 +44062,85 @@
 					"idempotency": "none",
 					"retry": "never"
 				}
+			}
+		},
+		"/social-sets/resolve-settings": {
+			"post": {
+				"operationId": "resolve-social-set-settings",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ResolveSocialSetSettingsInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ResolveSocialSetSettingsOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
+					}
+				},
+				"summary": "Resolve reusable settings for a Social Set account and format",
+				"tags": ["Social Sets"]
 			}
 		},
 		"/social-sets/{id}": {

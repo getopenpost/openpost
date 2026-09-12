@@ -46,7 +46,7 @@
 	type SocialSet = components['schemas']['SocialSetResponse'];
 	type SocialSetAccountInput = components['schemas']['SocialSetAccountInput'];
 	type Capability = components['schemas']['Capability'];
-	type ResolvedAccountCapability = components['schemas']['ResolvedAccountCapability'];
+	type ResolvedSocialSetSettings = components['schemas']['ResolveSocialSetSettingsOutputBody'];
 	type SettingDefinition = components['schemas']['SettingDefinition'];
 	type DestinationOption = components['schemas']['DestinationOption'];
 	type DefaultSettings = NonNullable<SocialSetAccountInput['default_settings']>;
@@ -94,9 +94,12 @@
 	let editorOutputProfiles = $state<Record<string, string>>({});
 	let editorSettings = $state<Record<string, DefaultSettings>>({});
 	let editorSegmentSettings = $state<Record<string, DefaultSettings>>({});
+	let editorFormatDrafts = $state<
+		Record<string, Record<string, { destination: DefaultSettings; segment: DefaultSettings }>>
+	>({});
 	let settingsEditorAccountId = $state('');
 	let settingsEditorOpen = $state(false);
-	let settingsResolved = $state<ResolvedAccountCapability | null>(null);
+	let settingsResolved = $state<ResolvedSocialSetSettings | null>(null);
 	let settingsResolveLoading = $state(false);
 	let settingsResolveError = $state('');
 	let settingsResolveInfo = $state('');
@@ -174,6 +177,7 @@
 		editorOutputProfiles = {};
 		editorSettings = {};
 		editorSegmentSettings = {};
+		editorFormatDrafts = {};
 		resetSettingsEditor();
 		saving = false;
 		deleting = false;
@@ -247,6 +251,7 @@
 		editorOutputProfiles = {};
 		editorSettings = {};
 		editorSegmentSettings = {};
+		editorFormatDrafts = {};
 	}
 
 	function startEditing(set: SocialSet) {
@@ -273,6 +278,7 @@
 				{ ...(account.default_segment_settings ?? {}) }
 			])
 		);
+		editorFormatDrafts = {};
 	}
 
 	function resetSettingsEditor() {
@@ -305,10 +311,16 @@
 	}
 
 	function accountFormats(account: SocialAccount) {
+		const seen = new Set<string>();
 		const formats = [
 			{ value: '__auto__', label: m.social_set_format_auto() },
 			...capabilities
-				.filter((capability) => capability.provider === getPlatformKey(account.platform))
+				.filter((capability) => {
+					if (capability.provider !== getPlatformKey(account.platform)) return false;
+					if (seen.has(capability.output_profile)) return false;
+					seen.add(capability.output_profile);
+					return true;
+				})
 				.map((capability) => ({ value: capability.output_profile, label: capability.label }))
 		];
 		const current = editorOutputProfiles[account.id];
@@ -316,6 +328,27 @@
 			formats.push({ value: current, label: current });
 		}
 		return formats;
+	}
+
+	function selectEditorOutputProfile(accountId: string, profile: string) {
+		const previous = editorOutputProfiles[accountId] ?? '';
+		if (previous === profile) return;
+		const drafts = {
+			...(editorFormatDrafts[accountId] ?? {}),
+			[previous || '__auto__']: {
+				destination: { ...(editorSettings[accountId] ?? {}) },
+				segment: { ...(editorSegmentSettings[accountId] ?? {}) }
+			}
+		};
+		const restored = drafts[profile || '__auto__'];
+		editorFormatDrafts = { ...editorFormatDrafts, [accountId]: drafts };
+		editorSettings = { ...editorSettings, [accountId]: { ...(restored?.destination ?? {}) } };
+		editorSegmentSettings = {
+			...editorSegmentSettings,
+			[accountId]: { ...(restored?.segment ?? {}) }
+		};
+		editorOutputProfiles = { ...editorOutputProfiles, [accountId]: profile };
+		resetSettingsEditor();
 	}
 
 	function reusableDefaultField(field: SettingDefinition): boolean {
@@ -374,14 +407,16 @@
 		const locale = getLocaleTag();
 		const [, region = 'US'] = locale.split('-');
 		const profile = editorOutputProfiles[account.id] ?? '';
-		const values = editorSettings[account.id] ?? {};
+		const values = {
+			...(editorSettings[account.id] ?? {}),
+			...(editorSegmentSettings[account.id] ?? {})
+		};
 		try {
-			const { data, error: resolveError } = await client.POST('/capabilities/resolve', {
+			const { data, error: resolveError } = await client.POST('/social-sets/resolve-settings', {
 				body: {
-					account_ids: [account.id],
-					requested_output_profiles: profile ? { [account.id]: profile } : {},
-					account_settings: { [account.id]: values },
-					segments: [{ id: 'social-set-default', content: 'Draft' }],
+					social_account_id: account.id,
+					default_output_profile: profile,
+					settings: values,
 					locale,
 					region
 				}
@@ -389,7 +424,7 @@
 			if (sequence !== settingsResolveSequence || settingsEditorAccountId !== account.id) return;
 			if (resolveError)
 				throw new Error(resolveError.detail || m.compose_load_capabilities_failed());
-			settingsResolved = data?.accounts?.find((item) => item.account_id === account.id) ?? null;
+			settingsResolved = data ?? null;
 			if (!settingsResolved) throw new Error(m.compose_load_capabilities_failed());
 			const allowed = (settingsResolved.settings ?? []).filter(reusableDefaultField);
 			const destinationKeys = new Set(
@@ -488,6 +523,8 @@
 		const name = editorName.trim();
 		const isDefault = editorDefault;
 		const accounts = editorAccounts();
+		const locale = getLocaleTag();
+		const [, region = 'US'] = locale.split('-');
 		saving = true;
 		error = '';
 		try {
@@ -498,6 +535,8 @@
 					body: {
 						name,
 						is_default: isDefault,
+						locale,
+						region,
 						accounts
 					}
 				});
@@ -513,6 +552,8 @@
 						workspace_id: view.workspaceId,
 						name,
 						is_default: isDefault,
+						locale,
+						region,
 						accounts
 					}
 				});
@@ -829,10 +870,7 @@
 												value={editorOutputProfiles[account.id] || '__auto__'}
 												options={accountFormats(account)}
 												onValueChange={(value) => {
-													editorOutputProfiles = {
-														...editorOutputProfiles,
-														[account.id]: value === '__auto__' ? '' : value
-													};
+													selectEditorOutputProfile(account.id, value === '__auto__' ? '' : value);
 												}}
 											/>
 										</div>
@@ -840,7 +878,8 @@
 											type="button"
 											variant="outline"
 											class="h-11"
-											disabled={settingsResolveLoading && settingsEditorAccountId === account.id}
+											disabled={!editorOutputProfiles[account.id] ||
+												(settingsResolveLoading && settingsEditorAccountId === account.id)}
 											onclick={() => openSettingsEditor(account)}
 										>
 											{settingsResolveLoading && settingsEditorAccountId === account.id
@@ -848,6 +887,9 @@
 												: m.social_set_edit_settings()}
 										</Button>
 									</div>
+									{#if !editorOutputProfiles[account.id]}
+										<p class="text-xs text-muted-foreground">{m.compose_choose_format()}</p>
+									{/if}
 									{#if settingsResolveError && settingsEditorAccountId === account.id}
 										<InlineNotice tone="error" message={settingsResolveError} />
 									{/if}

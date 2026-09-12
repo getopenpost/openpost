@@ -19,6 +19,7 @@ function ditherScheme(appearance: ThemeScheme, palette: 'orange' | 'moss') {
 				: `oklch(0.4 0.13 ${hue})`;
 	const signalInk = dark ? `oklch(0.12 0.015 ${hue})` : 'oklch(0.99 0.003 95)';
 	const selection = dark ? `oklch(0.28 0.045 ${hue})` : `oklch(0.92 0.035 ${hue})`;
+	const dangerFill = dark ? 'oklch(0.35 0.1 25)' : 'oklch(0.53 0.19 25)';
 	const border = dark ? `oklch(0.36 0.016 ${neutralHue})` : `oklch(0.78 0.018 ${neutralHue})`;
 	const chartColors =
 		palette === 'orange'
@@ -83,6 +84,9 @@ function ditherScheme(appearance: ThemeScheme, palette: 'orange' | 'moss') {
 				actionOrdinaryActive: sunken,
 				danger: dark ? 'oklch(0.66 0.19 25)' : 'oklch(0.53 0.19 25)',
 				dangerInk: dark ? 'oklch(0.12 0.01 50)' : 'oklch(0.99 0 0)',
+				actionDestructive: `color-mix(in oklch, ${dangerFill} 12%, transparent)`,
+				actionDestructiveHover: `color-mix(in oklch, ${dangerFill} 20%, transparent)`,
+				actionDestructiveActive: `color-mix(in oklch, ${dangerFill} 28%, transparent)`,
 				actionDestructiveInk: dark ? 'oklch(0.83 0.12 25)' : 'oklch(0.43 0.18 25)',
 				success: dark ? 'oklch(0.27 0.06 155)' : 'oklch(0.93 0.04 155)',
 				successInk: dark ? 'oklch(0.8 0.12 155)' : 'oklch(0.35 0.1 155)',

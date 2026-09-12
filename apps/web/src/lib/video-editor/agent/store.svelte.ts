@@ -1,5 +1,5 @@
 import { m } from '$lib/paraglide/messages';
-import type { LlmMessage } from './llm/types';
+import type { LlmLoadProgress, LlmMessage } from './llm/types';
 import { getAgentAdapter, planRequest, runStep, type PlannedStep } from './service';
 import { buildAgentFingerprint } from './fingerprint';
 import { localAiRuntimeRegistry } from '../local-ai/runtime-registry';
@@ -134,7 +134,7 @@ class AgentStore {
 		this.loadError = null;
 		const generation = ++this.loadGeneration;
 		try {
-			await adapter.load((progress) => {
+			await adapter.load((progress: LlmLoadProgress) => {
 				if (generation !== this.loadGeneration) return;
 				this.loadPercent = progress.percent;
 			});
@@ -162,7 +162,7 @@ class AgentStore {
 				...this.messages,
 				{
 					id: newId(),
-					role: 'assistant',
+					role: 'assistant' as const,
 					content: m.video_editor_agent_composer_disabled_storage()
 				}
 			].slice(-MAX_MESSAGES);
@@ -243,7 +243,7 @@ class AgentStore {
 					...this.messages,
 					{
 						id: newId(),
-						role: 'assistant',
+						role: 'assistant' as const,
 						content: m.video_editor_agent_error_prefix({
 							message: m.video_editor_agent_generic_error()
 						})
@@ -266,7 +266,11 @@ class AgentStore {
 			this.phase = 'idle';
 			this.messages = [
 				...this.messages,
-				{ id: newId(), role: 'assistant', content: m.video_editor_agent_project_mismatch() }
+				{
+					id: newId(),
+					role: 'assistant' as const,
+					content: m.video_editor_agent_project_mismatch()
+				}
 			].slice(-MAX_MESSAGES);
 			return;
 		}
@@ -278,7 +282,7 @@ class AgentStore {
 				this.phase = 'idle';
 				this.messages = [
 					...this.messages,
-					{ id: newId(), role: 'assistant', content: m.video_editor_agent_stale_plan() }
+					{ id: newId(), role: 'assistant' as const, content: m.video_editor_agent_stale_plan() }
 				].slice(-MAX_MESSAGES);
 				return;
 			}
@@ -288,9 +292,10 @@ class AgentStore {
 			this.plan = null;
 			this.planFingerprint = null;
 			this.phase = 'idle';
-			this.messages = [...this.messages, { id: newId(), role: 'assistant', content: stale }].slice(
-				-MAX_MESSAGES
-			);
+			this.messages = [
+				...this.messages,
+				{ id: newId(), role: 'assistant' as const, content: stale }
+			].slice(-MAX_MESSAGES);
 			return;
 		}
 		this.phase = 'running';
@@ -338,7 +343,7 @@ class AgentStore {
 		if (execution !== this.executionGeneration) return;
 		this.messages = [
 			...this.messages,
-			{ id: newId(), role: 'assistant', content: results.join('\n') }
+			{ id: newId(), role: 'assistant' as const, content: results.join('\n') }
 		].slice(-MAX_MESSAGES);
 		this.phase = 'idle';
 		this.planFingerprint = null;

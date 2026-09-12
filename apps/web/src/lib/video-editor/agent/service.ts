@@ -1,5 +1,6 @@
 import { m } from '$lib/paraglide/messages';
-import { getDefaultLlmAdapter, type LlmAdapter, type LlmMessage } from './llm/registry';
+import { getDefaultLlmAdapter } from './llm/registry';
+import type { LlmAdapter, LlmMessage } from './llm/types';
 import { buildTimelineContext } from './timeline-context';
 import { buildMessages, parsePlan } from './prompt';
 import { getEditorTool } from './registry';
@@ -114,7 +115,7 @@ export async function runStep(step: PlannedStep): Promise<StepRunResult> {
 	if (!tool)
 		return {
 			ok: false,
-			message: m.video_editor_agent_error_unknown_tool({ tool: step.tool })
+			message: m.video_editor_agent_error_unknown_tool({ type: step.tool })
 		};
 	try {
 		const result = await tool.execute(step.args);

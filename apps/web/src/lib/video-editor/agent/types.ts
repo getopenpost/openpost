@@ -5,9 +5,13 @@ export interface JsonObject {
 	[key: string]: JsonValue;
 }
 
-export interface JsonSchemaProperty extends JsonObject {
+export interface JsonSchemaProperty {
 	type?: string;
 	enum?: string[];
+	description?: string;
+	items?: JsonSchemaProperty;
+	minimum?: number;
+	maximum?: number;
 }
 
 export interface JsonSchema {

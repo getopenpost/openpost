@@ -135,6 +135,10 @@ func (b *BlueskyAdapter) ListComments(ctx context.Context, accessToken, accountI
 	var walk func(blueskyThreadNode)
 	walk = func(node blueskyThreadNode) {
 		for _, reply := range node.Replies {
+			// Blocked and not-found thread entries carry no post to show or reply to.
+			if reply.Post.URI == "" {
+				continue
+			}
 			replyRef, _ := json.Marshal(map[string]any{
 				"uri": reply.Post.URI, "cid": reply.Post.CID,
 				"_root": map[string]string{"uri": reference.URI, "cid": reference.CID},

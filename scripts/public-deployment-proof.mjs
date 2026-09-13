@@ -181,8 +181,11 @@ const nativeBoundaries = Object.freeze([
   {
     label: "documentation asset",
     name: "documentation PNG asset",
-    canonicalURL: "https://docs.openpo.st/assets/screenshots/main-dark.png",
+    canonicalURL: "https://docs.openpo.st/assets/screenshots/integrations/google-enable-api.png",
     contentType: "image/png",
+    deployment: "documentation",
+    localPath: "assets/screenshots/integrations/google-enable-api.png",
+    binary: true,
   },
 ]);
 

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { assetSurfaceManifest } from "./asset-surfaces.ts";
 
 import {
   assertCanonicalProvenance,
@@ -194,6 +195,18 @@ test("rejects HTML and external links from indexes and the full corpus", () => {
   );
 });
 
+test("asset samples belong to the surface that deploys them", () => {
+  for (const [, url] of publicSurfaceSamples().native) {
+    const { hostname, pathname } = new URL(url);
+    if (!pathname.startsWith("/assets/")) continue;
+    const surface = hostname === "docs.openpo.st" ? "docs" : "marketing";
+    assert.ok(
+      assetSurfaceManifest[surface].includes(pathname.slice("/assets/".length)),
+      `${url} is not published by ${surface}`,
+    );
+  }
+});
+
 test("the live sample plan covers every required public category and machine boundary", () => {
   const samples = publicSurfaceSamples();
   assert.deepEqual(
@@ -261,7 +274,11 @@ test("the live sample plan covers every required public category and machine bou
     ["marketing favicon", "https://openpo.st/favicon.ico", "image/x-icon"],
     ["MCP", "https://app.openpo.st/mcp", "application/json"],
     ["marketing asset", "https://openpo.st/assets/brand/logo.svg", "image/svg+xml"],
-    ["documentation asset", "https://docs.openpo.st/assets/screenshots/main-dark.png", "image/png"],
+    [
+      "documentation asset",
+      "https://docs.openpo.st/assets/screenshots/integrations/google-enable-api.png",
+      "image/png",
+    ],
   ]);
 });
 

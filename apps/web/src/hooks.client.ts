@@ -6,9 +6,10 @@ export async function init() {
 }
 
 type ErrorCaptureInstaller = () => () => void;
+let recoverChunkError: (error: Error) => void = () => {};
 
 export function initializeClientErrors(installErrorCapture: ErrorCaptureInstaller) {
-	detectStaleChunks();
+	recoverChunkError = detectStaleChunks();
 	installErrorCapture();
 }
 
@@ -29,7 +30,6 @@ export function initializeClientErrors(installErrorCapture: ErrorCaptureInstalle
  * wait for open windows to close, so an update cannot interrupt an edit or export.
  */
 function detectStaleChunks() {
-	// --- reactive: catch stale-chunk / dev-race errors and reload ---
 	const isChunkLoadError = (error: unknown): boolean => {
 		// SAFETY: narrowing unknown error to extract message for chunk-load detection; checked via typeof and existence before access
 		const raw =
@@ -55,6 +55,7 @@ function detectStaleChunks() {
 	const CHUNK_RELOAD_KEY = 'openpost:chunk-reload';
 	const MAX_RETRIES = 3;
 	const RETRY_WINDOW_MS = 15_000;
+	let retryScheduled = false;
 
 	type RetryState = { count: number; at: number };
 	function getRetryState(): RetryState {
@@ -71,10 +72,11 @@ function detectStaleChunks() {
 	}
 
 	const reloadWithBackoff = () => {
-		if (!navigator.onLine) return;
+		if (!navigator.onLine || retryScheduled) return;
 		const state = getRetryState();
 		const nextCount = state.count + 1;
 		if (nextCount > MAX_RETRIES) return;
+		retryScheduled = true;
 		try {
 			sessionStorage.setItem(
 				CHUNK_RELOAD_KEY,
@@ -118,18 +120,6 @@ function detectStaleChunks() {
 		}
 	});
 
-	// Vite emits `vite:preloadError` for failed preloads (SvelteKit route nodes).
-	// Use it as an additional signal alongside error/unhandledrejection.
-	window.addEventListener('vite:preloadError', (event) => {
-		// SAFETY: Vite attaches the rejected import to its custom `payload` field.
-		const payload = (event as Event & { payload?: unknown }).payload;
-		if (isChunkLoadError(payload)) {
-			// Let the import reject. Canceling this event resolves it as undefined,
-			// which crashes SvelteKit before the scheduled reload can recover.
-			reloadWithBackoff();
-		}
-	});
-
 	window.addEventListener('error', (event) => {
 		if (isChunkLoadError(event.error ?? event.message)) {
 			// Prevent SvelteKit from rendering +error.svelte for a transient chunk
@@ -147,9 +137,16 @@ function detectStaleChunks() {
 			reloadWithBackoff();
 		}
 	});
+
+	// Let the import reject so its caller can handle the failure. SvelteKit route
+	// failures reach handleError, while uncaught imports reach the listeners above.
+	return (error: Error) => {
+		if (isChunkLoadError(error)) reloadWithBackoff();
+	};
 }
 
 export const handleError: HandleClientError = ({ error, status }) => {
 	if (status === 404) return;
+	if (error instanceof Error) recoverChunkError(error);
 	captureClientException(error, { error_boundary: 'sveltekit', status });
 };

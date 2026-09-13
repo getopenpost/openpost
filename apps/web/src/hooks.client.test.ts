@@ -1,7 +1,7 @@
 /* oxlint-disable anti-slop/no-module-mocking, anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- This bootstrap-order regression test observes telemetry through a module spy and supplies the exact browser event/runtime fields read by the hook. */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { initializeClientErrors } from './hooks.client';
+import { handleError, initializeClientErrors } from './hooks.client';
 
 const capturedExceptions = vi.fn();
 
@@ -103,7 +103,7 @@ describe('client error initialization', () => {
 		expect(capturedExceptions).not.toHaveBeenCalled();
 	});
 
-	it('schedules recovery without converting a failed Vite import into a successful undefined result', () => {
+	it('leaves failed preloads to their caller before deciding whether to reload', () => {
 		const runtime = testRuntime();
 		vi.stubGlobal('window', runtime);
 		vi.stubGlobal('navigator', { onLine: true });
@@ -120,6 +120,28 @@ describe('client error initialization', () => {
 		runtime.dispatchEvent(event);
 
 		expect(event.defaultPrevented).toBe(false);
+		expect(runtime.setTimeout).not.toHaveBeenCalled();
+	});
+
+	it('reloads when SvelteKit reports an unhandled route chunk failure', () => {
+		const runtime = testRuntime();
+		vi.stubGlobal('window', runtime);
+		vi.stubGlobal('navigator', { onLine: true });
+		vi.stubGlobal('sessionStorage', {
+			getItem: vi.fn(() => null),
+			setItem: vi.fn(),
+			removeItem: vi.fn()
+		});
+
+		initializeClientErrors(installTestErrorCapture);
+		// SAFETY: handleError only reads error and status; the route event and message are unused here.
+		handleError({
+			error: new Error(
+				'Failed to fetch dynamically imported module: /_app/immutable/chunks/route.js'
+			),
+			status: 500
+		} as Parameters<typeof handleError>[0]);
+
 		expect(runtime.setTimeout).toHaveBeenCalledOnce();
 	});
 });

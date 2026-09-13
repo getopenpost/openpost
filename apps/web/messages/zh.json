@@ -4111,7 +4111,7 @@
 	"video_editor_project_missing": "此项目在工作区中已不存在。",
 	"video_editor_autosaved": "已本地保存",
 	"video_editor_saving": "保存中…",
-	"video_editor_save_failed": "本地保存失败",
+	"video_editor_save_failed": "保存失败",
 	"video_editor_save_cloud": "保存到 OpenPost",
 	"video_editor_export": "导出 MP4",
 	"video_editor_undo": "撤销",

@@ -4111,7 +4111,7 @@
 	"video_editor_project_missing": "Bu proje artık çalışma alanında yok.",
 	"video_editor_autosaved": "Yerel olarak kaydedildi",
 	"video_editor_saving": "Kaydediliyor…",
-	"video_editor_save_failed": "Yerel kaydetme başarısız oldu",
+	"video_editor_save_failed": "Kaydetme başarısız oldu",
 	"video_editor_save_cloud": "OpenPost'a kaydet",
 	"video_editor_export": "MP4 dışa aktar",
 	"video_editor_undo": "Geri al",

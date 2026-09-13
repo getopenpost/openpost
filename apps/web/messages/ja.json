@@ -4111,7 +4111,7 @@
 	"video_editor_project_missing": "このプロジェクトはワークスペースに存在しなくなりました。",
 	"video_editor_autosaved": "ローカルに保存済み",
 	"video_editor_saving": "保存中…",
-	"video_editor_save_failed": "ローカル保存に失敗しました",
+	"video_editor_save_failed": "保存に失敗しました",
 	"video_editor_save_cloud": "OpenPost に保存",
 	"video_editor_export": "MP4 を書き出す",
 	"video_editor_undo": "元に戻す",

@@ -4111,7 +4111,7 @@
 	"video_editor_project_missing": "Este projeto não existe mais no espaço de trabalho.",
 	"video_editor_autosaved": "Guardado localmente",
 	"video_editor_saving": "Salvando…",
-	"video_editor_save_failed": "Falha ao guardar localmente",
+	"video_editor_save_failed": "Falha ao guardar",
 	"video_editor_save_cloud": "Guardar no OpenPost",
 	"video_editor_export": "Exportar MP4",
 	"video_editor_undo": "Anular",

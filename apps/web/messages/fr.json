@@ -4111,7 +4111,7 @@
 	"video_editor_project_missing": "Ce projet n'existe plus dans l'espace de travail.",
 	"video_editor_autosaved": "Enregistré localement",
 	"video_editor_saving": "Enregistrement…",
-	"video_editor_save_failed": "Échec de l'enregistrement local",
+	"video_editor_save_failed": "Échec de l'enregistrement",
 	"video_editor_save_cloud": "Enregistrer vers OpenPost",
 	"video_editor_export": "Exporter en MP4",
 	"video_editor_undo": "Annuler",

@@ -4111,7 +4111,7 @@
 	"video_editor_project_missing": "이 프로젝트는 워크스페이스에 더 이상 없습니다.",
 	"video_editor_autosaved": "로컬에 저장됨",
 	"video_editor_saving": "저장 중…",
-	"video_editor_save_failed": "로컬 저장 실패",
+	"video_editor_save_failed": "저장 실패",
 	"video_editor_save_cloud": "OpenPost에 저장",
 	"video_editor_export": "MP4 내보내기",
 	"video_editor_undo": "실행 취소",

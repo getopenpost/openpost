@@ -411,9 +411,33 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   ).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(1);
   await page.unroute(uploadRoute);
-  await dialog.getByRole("button", { name: "Recover recording", exact: true }).click();
+  let releaseRecoveryUpload!: () => void;
+  const heldRecoveryUpload = new Promise<void>((resolve) => (releaseRecoveryUpload = resolve));
+  await page.route(uploadRoute, async (route) => {
+    await heldRecoveryUpload;
+    await route.continue();
+  });
+  let uploadResponse!: ReturnType<Page["waitForResponse"]>;
+  try {
+    const pendingUpload = page.waitForRequest(uploadRoute, { timeout: 30_000 });
+    await dialog.getByRole("button", { name: "Recover recording", exact: true }).click();
+    const uploadRequest = await pendingUpload;
+    uploadResponse = page.waitForResponse((response) => response.url() === uploadRequest.url(), {
+      timeout: 30_000,
+    });
+    await expect(
+      dialog.getByRole("button", { name: "Recover recording", exact: true }),
+    ).toBeDisabled();
+    await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(1);
+    await expect(page.locator("[data-project-summary]")).toContainText("2 clips");
+  } finally {
+    releaseRecoveryUpload();
+  }
+  expect((await uploadResponse).ok()).toBe(true);
+  await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0, {
+    timeout: 30_000,
+  });
   await expect(page.locator("[data-project-summary]")).toContainText("3 clips");
-  await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0);
 });
 
 test("editing text over a background does not leave the old lettering underneath", async ({

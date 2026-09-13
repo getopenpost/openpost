@@ -39,7 +39,9 @@ export default defineConfig({
     : "list",
   use: {
     baseURL,
-    trace: "retain-on-failure",
+    // Snapshot injection triggers script errors in sandboxed theme previews.
+    trace: { mode: "retain-on-failure", snapshots: false, screenshots: true },
+    screenshot: "only-on-failure",
   },
   webServer: [
     {

@@ -42,7 +42,7 @@ func (m *MastodonAdapter) ListComments(ctx context.Context, accessToken, account
 			})
 		}
 		comments = append(comments, Comment{
-			ID: status.ID, AuthorID: status.Account.ID, AuthorName: status.Account.DisplayName,
+			ID: status.ID, ParentID: status.InReplyToID, AuthorID: status.Account.ID, AuthorName: status.Account.DisplayName,
 			AuthorHandle: prefixHandle(status.Account.Acct), AuthorAvatarURL: status.Account.Avatar,
 			Text: mastodonPlainText(status.Content), CreatedAt: status.CreatedAt, UpdatedAt: status.EditedAt,
 			Attachments: attachments, IsOurs: status.Account.ID == accountID, CanReply: true,
@@ -139,10 +139,13 @@ func (b *BlueskyAdapter) ListComments(ctx context.Context, accessToken, accountI
 				"uri": reply.Post.URI, "cid": reply.Post.CID,
 				"_root": map[string]string{"uri": reference.URI, "cid": reference.CID},
 			})
-			parentID := ""
-			if reply.Post.Record.Reply != nil {
-				parentID = reply.Post.Record.Reply.Parent.URI
-			}
+			// Use the same encoding as the parent comment's ID so nested
+			// replies can be matched to the comment they answer.
+			parentRef, _ := json.Marshal(map[string]any{
+				"uri": node.Post.URI, "cid": node.Post.CID,
+				"_root": map[string]string{"uri": reference.URI, "cid": reference.CID},
+			})
+			parentID := string(parentRef)
 			comments = append(comments, Comment{
 				ID: string(replyRef), ParentID: parentID, ConversationID: reference.URI,
 				AuthorID: reply.Post.Author.DID, AuthorName: reply.Post.Author.DisplayName,

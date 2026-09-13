@@ -58,6 +58,7 @@
     "apps/docs": {
       "entry": [
         "app/**/{page,layout,route,sitemap}.{ts,tsx}!",
+        "content/docs/**/*.mdx!",
         "*.{mjs,ts}!",
         "scripts/**/*.{js,mjs,ts}!",
       ],
@@ -69,6 +70,8 @@
         "*.{mjs,ts}!",
         "!**/*.test.ts!",
       ],
+      // Keep its MDX compiler, but replace the plugin's non-production page roots above.
+      "fumadocs": { "entry": [] },
     },
     "packages/*": {
       "entry": ["src/index.{js,mjs,ts}!"],

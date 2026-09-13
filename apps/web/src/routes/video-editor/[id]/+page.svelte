@@ -7,7 +7,7 @@ FORM: FreeCut studio-workspace grammar, pinned by the user; seed freecut-parity-
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -208,6 +208,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	const projectId = $derived(page.params.id ?? '');
 	const cloudStorage = $derived(page.url.searchParams.get('storage') === 'cloud');
+	const displayedProject = $derived(
+		!editorSession.loading && !editorSession.loadError && editorSession.project?.id === projectId
+			? editorSession.project
+			: null
+	);
 	const gate = createWorkspaceGate();
 	let colorPickerBrandColors = $state.raw<ColorPickerPreset[]>([]);
 	let editorBrandFonts = $state.raw<EditorBrandFont[]>([]);
@@ -904,7 +909,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		voiceoverRecorder.reconcileProject(projectId);
 		const workspaceId = cloudStorage ? (workspaceCtx.currentWorkspace?.id ?? '') : '';
 		if (!projectId || (cloudStorage ? !workspaceId : gate.state !== 'ready')) return;
-		void editorSession.load(projectId, workspaceId);
+		untrack(() => void editorSession.load(projectId, workspaceId));
 		return () => {
 			editorSession.pausePlayback();
 			editorSession.stopAutosaveTimers();
@@ -1329,11 +1334,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	function activeRenderProject() {
-		if (!editorSession.project) return null;
+		if (!displayedProject) return null;
 		const activeSequence = sequenceStore.activeSequence;
 		return {
-			...editorSession.project,
-			name: activeSequence?.name ?? editorSession.project.name,
+			...displayedProject,
+			name: activeSequence?.name ?? displayedProject.name,
 			metadata: activeSequence
 				? {
 						width: activeSequence.width,
@@ -1341,7 +1346,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						fps: activeSequence.fps,
 						backgroundColor: activeSequence.backgroundColor ?? '#000000'
 					}
-				: editorSession.project.metadata,
+				: displayedProject.metadata,
 			timeline: {
 				tracks: $state.snapshot(timelineStore.tracks),
 				items: $state.snapshot(timelineStore.items),
@@ -1368,7 +1373,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		return resolveAppPath(`${path}?${query}`);
 	}
 	async function handleExport(): Promise<void> {
-		if (!editorSession.project) return;
+		if (!displayedProject) return;
 		exporting = true;
 		try {
 			editorSession.pausePlayback();
@@ -1410,12 +1415,19 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	async function retrySave(): Promise<void> {
 		try {
 			await editorSession.saveNow();
+			if (editorSession.loadError && editorSession.project?.id !== projectId) {
+				await editorSession.load(
+					projectId,
+					cloudStorage ? (workspaceCtx.currentWorkspace?.id ?? '') : ''
+				);
+			}
 		} catch {
 			showToast(m.video_editor_save_failed(), 'error');
 		}
 	}
 
 	function saveProject(): void {
+		if (!displayedProject) return;
 		void editorSession.saveNow().catch(() => showToast(m.video_editor_save_failed(), 'error'));
 	}
 
@@ -1433,7 +1445,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	async function handleSendToOpenPost(): Promise<void> {
 		const workspaceId = workspaceCtx.currentWorkspace?.id;
-		if (!workspaceId || !editorSession.project) return;
+		if (!workspaceId || !displayedProject) return;
 		sending = true;
 		sentExport = null;
 		try {
@@ -1944,6 +1956,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	function onKeydown(event: KeyboardEvent): void {
+		if (!displayedProject) return;
 		if (event.repeat || event.defaultPrevented) return;
 		// Escape leaves theater mode first and restores the persisted sidebar
 		// layout. Text entry keeps its own Escape behavior, and open dialogs win.
@@ -2139,6 +2152,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	function onGlobalShortcutCapture(event: KeyboardEvent): void {
+		if (!displayedProject) return;
 		if (
 			!sourceHoverStore.isActive &&
 			handleGlobalPlayPauseShortcut(event, keyboardShortcuts.bindings.PLAY_PAUSE, togglePlay)
@@ -2186,10 +2200,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				<ThemeIcon role="chevron-left" class="size-5" />
 			</a>
 			<EditorTitleInput
-				value={editorSession.project?.name ?? ''}
+				value={displayedProject?.name ?? ''}
 				ariaLabel={m.video_editor_project_name()}
 				class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
-				disabled={!editorSession.project}
+				disabled={!displayedProject}
 				onchange={(value) => editorSession.renameProject(value)}
 			/>
 		{/snippet}
@@ -2243,13 +2257,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							: `${m.video_editor_save_failed()}. ${m.common_retry()}`}
 					</span>
 				</Button>
-			{:else if !editorSession.loading && editorSession.project && !timelineStore.isDirty && !editorSession.projectDirty}
+			{:else if displayedProject && !timelineStore.isDirty && !editorSession.projectDirty}
 				<span class="hidden sm:inline"
 					>{cloudStorage ? m.video_editor_saved_cloud() : m.video_editor_saved()}</span
 				>
 			{/if}
 			<Button
 				type="button"
+				disabled={!displayedProject}
 				variant="outline"
 				size="icon-sm"
 				class="hidden 2xl:inline-flex 2xl:w-auto 2xl:px-2.5"
@@ -2260,10 +2275,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				<ProtectedIcon icon="editor-record" class="size-3.5" />
 				<span class="hidden lg:inline">{m.video_editor_record()}</span>
 			</Button>
-			<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
+			{#if displayedProject}
+				<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
+			{/if}
 			{#if cloudStorage}
 				<Button
 					type="button"
+					disabled={!displayedProject}
 					variant="ghost"
 					size="icon-xs"
 					class="hidden 2xl:inline-flex"
@@ -2276,6 +2294,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			{/if}
 			<Button
 				type="button"
+				disabled={!displayedProject}
 				variant="ghost"
 				size="icon-xs"
 				class="hidden 2xl:inline-flex"
@@ -2294,8 +2313,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				{/key}
 			{/if}
 			<ExportDialog
-				project={editorSession.project}
-				disabled={!editorSession.project}
+				project={displayedProject}
+				disabled={!displayedProject}
 				triggerLabel={m.video_editor_export_title()}
 				responsiveTrigger
 				compactQueueTrigger
@@ -2311,6 +2330,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<Button
 							{...props}
 							type="button"
+							disabled={!displayedProject}
 							variant="ghost"
 							size="icon-xs"
 							aria-label={m.image_editor_more_actions()}
@@ -2321,10 +2341,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content class="video-editor-theme w-52" align="end">
 					<EditorTitleInput
-						value={editorSession.project?.name ?? ''}
+						value={displayedProject?.name ?? ''}
 						ariaLabel={m.video_editor_project_name()}
 						class="mb-1 w-full"
-						disabled={!editorSession.project}
+						disabled={!displayedProject}
 						onchange={(value) => editorSession.renameProject(value)}
 						onkeydown={(event) => {
 							if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
@@ -2420,7 +2440,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">
 			<WorkspaceGatePanel {gate} />
 		</main>
-	{:else if editorSession.loading}
+	{:else if editorSession.loading || (!editorSession.loadError && !displayedProject)}
 		<main class="flex flex-1 items-center justify-center">
 			<ProtectedIcon icon="loading" class="size-5 animate-spin motion-reduce:animate-none" />
 			<span class="sr-only">{m.editors_loading()}</span>

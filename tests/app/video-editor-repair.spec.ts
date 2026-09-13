@@ -145,6 +145,149 @@ test("a new cloud project cannot edit the previous project while its document lo
   await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Next project");
 });
 
+test("switching projects hides the old editor until its pending save finishes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const auth = await registerUser(request, `editor-pending-save-${Date.now()}@example.com`);
+  await createWorkspace(request, auth.token, "Editor pending save");
+  await authenticatePage(page, auth.token);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await newProject(page, "Previous project");
+  const previousURL = page.url();
+  const previousID = new URL(previousURL).pathname.split("/").at(-1);
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await newProject(page, "Next project");
+  const nextURL = page.url();
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await page
+    .getByRole("article")
+    .filter({ hasText: "Previous project" })
+    .getByRole("button", { name: "Open" })
+    .click();
+  const title = page.getByRole("textbox", { name: "Project name" });
+  await expect(title).toHaveValue("Previous project");
+
+  let releaseSave!: () => void;
+  const heldSave = new Promise<void>((resolve) => (releaseSave = resolve));
+  let saveStarted!: () => void;
+  const started = new Promise<void>((resolve) => (saveStarted = resolve));
+  await page.route(
+    new RegExp(`/api/v1/video-projects/${previousID}/mutations(?:\\?|$)`),
+    async (route) => {
+      saveStarted();
+      await heldSave;
+      await route.continue();
+    },
+  );
+
+  await title.fill("Pending previous");
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await started;
+  try {
+    await page
+      .getByRole("article")
+      .filter({ hasText: "Next project" })
+      .getByRole("button", { name: "Open" })
+      .click();
+    await expect(page).toHaveURL(nextURL);
+    await expect(title).toBeDisabled();
+    await expect(title).toHaveValue("");
+    await expect(page.getByRole("tabpanel", { name: "Editor workspaces" })).toHaveCount(0);
+    await expect(
+      page.locator("header").getByText("Saved to OpenPost", { exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    releaseSave();
+  }
+  await expect(title).toHaveValue("Next project");
+  await page.goto(previousURL);
+  await expect(title).toHaveValue("Pending previous");
+});
+
+test("a failed save blocks the project switch until retry succeeds", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const auth = await registerUser(request, `editor-save-retry-${Date.now()}@example.com`);
+  await createWorkspace(request, auth.token, "Editor save retry");
+  await authenticatePage(page, auth.token);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await newProject(page, "Previous project");
+  const previousURL = page.url();
+  const previousID = new URL(previousURL).pathname.split("/").at(-1);
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await newProject(page, "Next project");
+  const nextURL = page.url();
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await page
+    .getByRole("article")
+    .filter({ hasText: "Previous project" })
+    .getByRole("button", { name: "Open" })
+    .click();
+  const title = page.getByRole("textbox", { name: "Project name" });
+  await expect(title).toHaveValue("Previous project");
+
+  let releaseFailure!: () => void;
+  const heldFailure = new Promise<void>((resolve) => (releaseFailure = resolve));
+  let saveStarted!: () => void;
+  const started = new Promise<void>((resolve) => (saveStarted = resolve));
+  let failOnce = true;
+  await page.route(
+    new RegExp(`/api/v1/video-projects/${previousID}/mutations(?:\\?|$)`),
+    async (route) => {
+      if (!failOnce) return route.continue();
+      failOnce = false;
+      saveStarted();
+      await heldFailure;
+      await route.fulfill({ status: 503, json: { error: "Temporary save failure" } });
+    },
+  );
+
+  await title.fill("Recovered previous");
+  await page
+    .locator("header")
+    .getByRole("link", { name: /Video Editor/u })
+    .click();
+  await started;
+  try {
+    await page
+      .getByRole("article")
+      .filter({ hasText: "Next project" })
+      .getByRole("button", { name: "Open" })
+      .click();
+    await expect(page).toHaveURL(nextURL);
+  } finally {
+    releaseFailure();
+  }
+  await expect(
+    page.getByText("Cloud Video Project save is waiting for a connection"),
+  ).toBeVisible();
+  await expect(title).toBeDisabled();
+  await expect(title).toHaveValue("");
+  await page
+    .locator("header")
+    .getByRole("button", { name: /save failed.*try again/i })
+    .click();
+  await expect(title).toHaveValue("Next project", { timeout: CLOUD_SAVE_TIMEOUT_MS });
+  await page.goto(previousURL);
+  await expect(title).toHaveValue("Recovered previous");
+});
+
 async function waitForRecording(dialog: Locator): Promise<void> {
   await expect(dialog.getByRole("button", { name: "Stop recording" })).toBeEnabled({
     timeout: 15000,

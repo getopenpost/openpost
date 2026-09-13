@@ -1,3 +1,3 @@
 ### Fixed
 
-- Prevent edits to the previous Video Editor project while a different Cloud Video Project loads, so a new project's name saves reliably.
+- Hide the previous Video Editor project while its pending save finishes, then open the next project. If the save fails, retry it without losing edits.

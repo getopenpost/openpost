@@ -112,11 +112,14 @@ class EditorSession {
 	async load(projectId: string, cloudWorkspaceId = ''): Promise<void> {
 		if (cloudWorkspaceId) registerCloudExportProject(projectId, cloudWorkspaceId);
 		if (this.projectId && this.projectId !== projectId) {
+			this.loading = true;
+			this.loadError = '';
 			try {
 				await this.flushAutosave();
 				if (this.saveLoop) await this.saveLoop;
 			} catch (error) {
 				this.loadError = error instanceof Error ? error.message : String(error);
+				this.loading = false;
 				return;
 			}
 		}

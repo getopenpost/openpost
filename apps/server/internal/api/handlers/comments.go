@@ -336,7 +336,7 @@ func (h *CommentHandler) commentAdapter(ctx context.Context, account *models.Soc
 }
 
 func (h *CommentHandler) commentProvider(account *models.SocialAccount) (platform.CommentAdapter, error) {
-	provider := h.providers[account.Platform]
+	provider := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
 	commenter, ok := provider.(platform.CommentAdapter)
 	if !ok || commenter == nil {
 		return nil, huma.NewError(http.StatusNotImplemented, fmt.Sprintf("comments are not supported for %s", account.Platform))

@@ -3537,7 +3537,7 @@ func (h *MCPHandler) commentAdapter(ctx context.Context, account *models.SocialA
 }
 
 func (h *MCPHandler) commentProvider(account *models.SocialAccount) (platform.CommentAdapter, *mcpError) {
-	provider := h.providers[account.Platform]
+	provider := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
 	commenter, ok := provider.(platform.CommentAdapter)
 	if !ok || commenter == nil {
 		return nil, &mcpError{Code: -32603, Message: fmt.Sprintf("comments are not supported for %s", account.Platform)}

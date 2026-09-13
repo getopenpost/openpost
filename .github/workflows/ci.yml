@@ -494,6 +494,7 @@ jobs:
       - name: Test the canonical application artifact
         env:
           OPENPOST_E2E_PREBUILT: "1"
+          DEBUG: pw:browser
         run: bun run test -- e2e-app
       - name: Retain application browser failure diagnostics
         if: failure()

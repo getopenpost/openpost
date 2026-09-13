@@ -90,9 +90,10 @@ for (const width of [1440, 390, 320]) {
         .include("[data-sonner-toast]")
         .analyze();
       expect(requiredAccessibility.violations).toEqual([]);
-      await dialog
-        .getByRole("button", { name: "Close", exact: true })
-        .click({ trial: true, timeout: 1500 });
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(dialog).not.toBeVisible();
+      await page.getByRole("button", { name: "Platform settings", exact: true }).click();
+      await expect(dialog).toBeVisible();
       const bounds = await dialog.boundingBox();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);

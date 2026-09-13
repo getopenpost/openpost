@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Keep Settings navigation and its Refresh action usable when a panel download fails.
 - Mobile navigation keeps the selected menu item focused when the menu finishes opening. Keyboard navigation and Back preserve that selection.
 - Hide the previous Video Editor project while its pending save finishes, then open the next project. If the save fails, retry it without losing edits.
 - Video Editor save errors use wording that applies to both local and Cloud Video Projects.

@@ -99,6 +99,7 @@ type upcomingCandidate struct {
 	ProviderAccountID   string    `bun:"provider_account_id"`
 	AccountUsername     string    `bun:"account_username"`
 	InstanceURL         string    `bun:"instance_url"`
+	CapabilityState     string    `bun:"capability_state"`
 	PublicationID       string    `bun:"publication_id"`
 	PublicationRevision int       `bun:"publication_revision"`
 	RecipientUserID     string    `bun:"recipient_user_id"`
@@ -117,6 +118,7 @@ func (s *Service) upcomingCandidates(ctx context.Context, start, end time.Time) 
 		ColumnExpr("account.account_id AS provider_account_id").
 		ColumnExpr("account.account_username AS account_username").
 		ColumnExpr("account.instance_url AS instance_url").
+		ColumnExpr("account.capability_state AS capability_state").
 		ColumnExpr("account.preflight_checked_at AS preflight_checked_at").
 		ColumnExpr("account.preflight_warned_at AS preflight_warned_at").
 		ColumnExpr("account.is_active AS is_active").
@@ -163,10 +165,7 @@ func (s *Service) checkCandidate(ctx context.Context, candidate upcomingCandidat
 }
 
 func (s *Service) provider(candidate upcomingCandidate) platform.Adapter {
-	key := candidate.Platform
-	if candidate.Platform == "mastodon" {
-		key = "mastodon:" + candidate.InstanceURL
-	}
+	key := platform.AccountProviderKey(candidate.Platform, candidate.InstanceURL, candidate.CapabilityState)
 	s.providersMu.RLock()
 	defer s.providersMu.RUnlock()
 	return s.providers[key]

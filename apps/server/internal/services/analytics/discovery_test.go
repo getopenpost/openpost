@@ -191,3 +191,31 @@ func accountContentCount(t *testing.T, db *bun.DB, accountID string) int {
 	require.NoError(t, err)
 	return count
 }
+
+func TestAccountContentDiscovererMatchesTheAccountSpecificAdapter(t *testing.T) {
+	defaultBluesky := &fakeAccountContentDiscoverer{}
+	selfHostedBluesky := &fakeAccountContentDiscoverer{}
+	discordWebhook := &fakeAccountContentDiscoverer{}
+	discordBot := &fakeAccountContentDiscoverer{}
+	service := NewService(nil, staticTokenSource{})
+	service.SetProvider("bluesky", defaultBluesky)
+	service.SetProvider("bluesky:https://pds.example.com", selfHostedBluesky)
+	service.SetProvider("discord", discordWebhook)
+	service.SetProvider("discord:bot", discordBot)
+
+	tests := []struct {
+		name    string
+		account models.SocialAccount
+		want    platform.AccountContentDiscoverer
+	}{
+		{name: "default Bluesky PDS", account: models.SocialAccount{Platform: "bluesky", InstanceURL: "https://bsky.social"}, want: defaultBluesky},
+		{name: "self-hosted Bluesky PDS", account: models.SocialAccount{Platform: "bluesky", InstanceURL: "https://PDS.example.com/"}, want: selfHostedBluesky},
+		{name: "Discord webhook", account: models.SocialAccount{Platform: "discord", CapabilityState: "{}"}, want: discordWebhook},
+		{name: "Discord bot", account: models.SocialAccount{Platform: "discord", CapabilityState: `{"connection_type":"bot"}`}, want: discordBot},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Same(t, test.want, service.accountContentDiscoverer(test.account))
+		})
+	}
+}

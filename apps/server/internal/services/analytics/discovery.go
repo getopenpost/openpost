@@ -730,10 +730,7 @@ func (s *Service) discoveryAccessToken(ctx context.Context, discoverer platform.
 }
 
 func (s *Service) accountContentDiscoverer(account models.SocialAccount) platform.AccountContentDiscoverer {
-	key := account.Platform
-	if account.Platform == "mastodon" {
-		key = "mastodon:" + account.InstanceURL
-	}
+	key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
 	s.providersMu.RLock()
 	adapter := s.providers[key]
 	s.providersMu.RUnlock()

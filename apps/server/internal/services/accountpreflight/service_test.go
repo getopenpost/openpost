@@ -151,3 +151,31 @@ func seedPreflightCandidate(t *testing.T, db *bun.DB, runAt time.Time) {
 	}).Exec(t.Context())
 	require.NoError(t, err)
 }
+
+func TestProviderMatchesTheAccountSpecificAdapter(t *testing.T) {
+	defaultBluesky := &preflightAdapter{}
+	selfHostedBluesky := &preflightAdapter{}
+	discordWebhook := &preflightAdapter{}
+	discordBot := &preflightAdapter{}
+	service := NewService(nil, preflightTokens{}, &preflightNotifications{})
+	service.SetProvider("bluesky", defaultBluesky)
+	service.SetProvider("bluesky:https://pds.example.com", selfHostedBluesky)
+	service.SetProvider("discord", discordWebhook)
+	service.SetProvider("discord:bot", discordBot)
+
+	tests := []struct {
+		name      string
+		candidate upcomingCandidate
+		want      platform.Adapter
+	}{
+		{name: "default Bluesky PDS", candidate: upcomingCandidate{Platform: "bluesky", InstanceURL: "https://bsky.social"}, want: defaultBluesky},
+		{name: "self-hosted Bluesky PDS", candidate: upcomingCandidate{Platform: "bluesky", InstanceURL: "https://PDS.example.com/"}, want: selfHostedBluesky},
+		{name: "Discord webhook", candidate: upcomingCandidate{Platform: "discord", CapabilityState: "{}"}, want: discordWebhook},
+		{name: "Discord bot", candidate: upcomingCandidate{Platform: "discord", CapabilityState: `{"connection_type":"bot"}`}, want: discordBot},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Same(t, test.want, service.provider(test.candidate))
+		})
+	}
+}

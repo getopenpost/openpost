@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [4.31.0] - 2026-09-12
+## [4.31.0] - 2026-09-13
 
 ### Added
 
@@ -12,6 +12,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Mobile navigation keeps the selected menu item focused when the menu finishes opening. Keyboard navigation and Back preserve that selection.
+- Hide the previous Video Editor project while its pending save finishes, then open the next project. If the save fails, retry it without losing edits.
+- Video Editor save errors use wording that applies to both local and Cloud Video Projects.
 - Discord bots check Attach Files permission before sending media. If permission is missing, the error explains how to allow attachments or remove them from the post.
 - Quick Cut can reopen legacy single-source projects and keep their cuts while it refreshes media details.
 - Video Editor can reset all transition parameters to their defaults.
@@ -46,6 +49,12 @@ All notable changes to this project are documented in this file.
 - The profile menu now labels app preferences as Settings.
 - Marketing pages recover automatically when a page-module download fails during initial load, instead of remaining on an error page.
 - The landing page meme screenshot no longer shows blurred strips beside the editor.
+
+### Documentation
+
+- Added separate illustrated self-hosting guides for all 12 social networks, with provider-specific setup, callback URLs, permissions, connection checks, and troubleshooting.
+- Rewrote customer, self-hosting, and AI assistant guides; reorganized navigation and added distinct page icons. Screenshots can be enlarged, and OpenPost connection screenshots follow the reader's light or dark theme.
+- Corrected LinkedIn first-connection permissions, Telegram self-hosting instructions, Pinterest approval requirements, Calendar views, and AI client setup. Older integration URLs redirect to the new guides.
 
 ## [4.30.3] - 2026-09-12
 

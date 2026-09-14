@@ -304,7 +304,7 @@ func (t *ThreadsAdapter) createCarouselContainer(ctx context.Context, accessToke
 }
 
 func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string, externalID string) ([]Comment, error) {
-	fields := "id,text,username,timestamp,hide_status"
+	fields := "id,text,username,timestamp,hide_status,is_reply_owned_by_me"
 	endpoint := "https://graph.threads.net/v1.0/" + externalID + "/replies?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, "GET", endpoint, nil, nil)
 	if err != nil {
@@ -312,11 +312,12 @@ func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string
 	}
 	var result struct {
 		Data []struct {
-			ID         string `json:"id"`
-			Text       string `json:"text"`
-			Username   string `json:"username"`
-			Timestamp  string `json:"timestamp"`
-			HideStatus string `json:"hide_status"`
+			ID               string `json:"id"`
+			Text             string `json:"text"`
+			Username         string `json:"username"`
+			Timestamp        string `json:"timestamp"`
+			HideStatus       string `json:"hide_status"`
+			IsReplyOwnedByMe bool   `json:"is_reply_owned_by_me"`
 		} `json:"data"`
 		Error struct {
 			Message string `json:"message"`
@@ -337,6 +338,7 @@ func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string
 			Text:       item.Text,
 			CreatedAt:  item.Timestamp,
 			Hidden:     strings.EqualFold(item.HideStatus, "HIDDEN"),
+			IsOurs:     item.IsReplyOwnedByMe,
 			CanReply:   true,
 			CanHide:    true,
 		})

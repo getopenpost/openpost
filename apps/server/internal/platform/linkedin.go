@@ -907,7 +907,10 @@ func (l *LinkedInAdapter) ReplyToComment(ctx context.Context, accessToken, accou
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return "", fmt.Errorf("decoding linkedin comment reply: %w", err)
 	}
-	return firstNonEmptyString(result.ID, result.CommentURN), nil
+	// Replies stay addressable as comment URNs, the same order ListComments
+	// and postComment use: LinkedIn only accepts a comment URN for nested
+	// targets and comment management.
+	return firstNonEmptyString(result.CommentURN, result.ID), nil
 }
 
 func (l *LinkedInAdapter) HideComment(context.Context, string, string, string) error {

@@ -361,7 +361,7 @@ func (y *YouTubeAdapter) ListComments(ctx context.Context, accessToken, accountI
 	if err != nil {
 		return nil, err
 	}
-	if err := youtubeAPIError(response); err != nil {
+	if err := youtubeCommentReadError(response); err != nil {
 		return nil, err
 	}
 	type youtubeComment struct {
@@ -411,6 +411,31 @@ func (y *YouTubeAdapter) ListComments(ctx context.Context, accessToken, accountI
 	}
 	sort.Slice(comments, func(a, b int) bool { return comments[a].CreatedAt > comments[b].CreatedAt })
 	return comments, nil
+}
+
+// youtubeCommentReadError keeps YouTube's 403 reasons that are not
+// authorization failures from being reported as a revoked grant: comments
+// turned off on the video, and an exhausted daily quota.
+func youtubeCommentReadError(response *youtubeHTTPResponse) error {
+	err := youtubeAPIError(response)
+	var providerErr *HTTPError
+	if response.statusCode != http.StatusForbidden || !errors.As(err, &providerErr) {
+		return err
+	}
+	reason := strings.TrimSpace(youtubeErrorReason(response.body))
+	if !safeProviderCode.MatchString(reason) {
+		return err
+	}
+	normalizedReason := strings.ToLower(reason)
+	switch {
+	case normalizedReason == "commentsdisabled":
+		providerErr.StatusCode = http.StatusNotFound
+		providerErr.Code = reason
+	case strings.Contains(normalizedReason, "quota") || strings.Contains(normalizedReason, "ratelimit") || strings.Contains(normalizedReason, "dailylimit"):
+		providerErr.StatusCode = http.StatusTooManyRequests
+		providerErr.Code = reason
+	}
+	return err
 }
 
 func (y *YouTubeAdapter) ReplyToComment(ctx context.Context, accessToken, _ string, commentID, message string) (string, error) {

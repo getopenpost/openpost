@@ -162,12 +162,14 @@ func (l *LemmyAdapter) GetProfile(ctx context.Context, accessToken string) (*Use
 	}, nil
 }
 
+// lemmyCommunity is the API v3 community object. Its canonical actor URL is
+// actor_id; ap_id only names posts and comments.
 type lemmyCommunity struct {
 	ID                      int64   `json:"id"`
 	Name                    string  `json:"name"`
 	Title                   *string `json:"title"`
 	Description             *string `json:"sidebar"`
-	ActorID                 string  `json:"ap_id"`
+	ActorID                 string  `json:"actor_id"`
 	NSFW                    bool    `json:"nsfw"`
 	PostingRestrictedToMods bool    `json:"posting_restricted_to_mods"`
 }

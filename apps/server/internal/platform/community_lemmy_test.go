@@ -83,13 +83,14 @@ func newFakeLemmy(_ *testing.T) (*httptest.Server, *string) {
 	})
 	mux.HandleFunc("/api/v3/resolve_object", func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Query().Get("q"), "mods-only") {
-			_, _ = w.Write([]byte(`{"community":{"community":{"id":8,"name":"mods-only","title":"Mods Only","ap_id":"https://remote.example/c/mods-only","posting_restricted_to_mods":true}}}`))
+			_, _ = w.Write([]byte(`{"community":{"community":{"id":8,"name":"mods-only","title":"Mods Only","actor_id":"https://remote.example/c/mods-only","posting_restricted_to_mods":true}}}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"community":{"community":{"id":7,"name":"selfhosted","title":"Selfhosted","sidebar":"Be excellent.","ap_id":"https://remote.example/c/selfhosted","posting_restricted_to_mods":false}}}`))
+		// API v3 names a community's canonical actor URL actor_id.
+		_, _ = w.Write([]byte(`{"community":{"community":{"id":7,"name":"selfhosted","title":"Selfhosted","sidebar":"Be excellent.","actor_id":"https://remote.example/c/selfhosted","posting_restricted_to_mods":false}}}`))
 	})
 	mux.HandleFunc("/api/v3/search", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"communities":[{"community":{"id":7,"name":"selfhosted","title":"Selfhosted","ap_id":"https://remote.example/c/selfhosted"}}],"comments":[],"posts":[],"persons":[],"multi_communities":[]}`))
+		_, _ = w.Write([]byte(`{"type_":"Communities","communities":[{"community":{"id":7,"name":"selfhosted","title":"Selfhosted","actor_id":"https://remote.example/c/selfhosted"}}],"comments":[],"posts":[],"users":[]}`))
 	})
 	mux.HandleFunc("/api/v3/post", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

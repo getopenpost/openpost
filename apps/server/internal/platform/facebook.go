@@ -520,7 +520,7 @@ func (f *FacebookAdapter) publishCommentReply(ctx context.Context, accessToken, 
 	return facebookPublishedID("facebook comment reply", respBody)
 }
 
-func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, _ string, externalID string) ([]Comment, error) {
+func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID string, externalID string) ([]Comment, error) {
 	fields := "id,from,message,created_time,is_hidden,can_hide,can_comment"
 	endpoint := f.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
@@ -561,6 +561,7 @@ func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, _ strin
 			Text:       item.Message,
 			CreatedAt:  item.CreatedTime,
 			Hidden:     item.IsHidden,
+			IsOurs:     pageID != "" && item.From.ID == pageID,
 			CanReply:   item.CanComment,
 			CanHide:    item.CanHide,
 			CanDelete:  true,

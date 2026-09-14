@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -98,11 +99,15 @@ func newFakeLemmy(_ *testing.T) (*httptest.Server, *string) {
 		}
 		_, _ = w.Write([]byte(`{"post_view":{"post":{"id":100,"name":"Why I self-host","ap_id":"https://remote.example/post/100"},"counts":{"comments":3,"score":9,"upvotes":10}},"community_view":{}}`))
 	})
+	// API v3 comments carry published/updated, keep the score in counts, and
+	// report the connected account's own vote as my_vote. Lemmy upvotes a
+	// comment for its author, so a positive score alone says nothing about
+	// the connected account.
 	mux.HandleFunc("/api/v3/comment/list", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"comments":[{"comment":{"id":11,"creator_id":9,"post_id":100,"content":"First!","published_at":"2026-09-01T10:00:00Z","path":"0.11","ap_id":"https://remote.example/comment/11","score":0},"creator":{"id":9,"name":"viewer","ap_id":"https://remote.example/u/viewer"}},{"comment":{"id":12,"creator_id":5,"post_id":100,"content":"Thanks","published_at":"2026-09-01T10:00:00Z","path":"0.11.12","ap_id":"https://remote.example/comment/12","score":1},"creator":{"id":5,"name":"rodrigo","ap_id":"https://home.example/u/rodrigo"}}]}`))
+		_, _ = w.Write([]byte(`{"comments":[{"comment":{"id":11,"creator_id":9,"post_id":100,"content":"First!","published":"2026-09-01T10:00:00Z","path":"0.11","ap_id":"https://remote.example/comment/11"},"creator":{"id":9,"name":"viewer","actor_id":"https://remote.example/u/viewer"},"counts":{"comment_id":11,"score":1,"upvotes":1,"downvotes":0,"child_count":1}},{"comment":{"id":12,"creator_id":5,"post_id":100,"content":"Thanks","published":"2026-09-01T10:05:00Z","updated":"2026-09-01T10:30:00Z","path":"0.11.12","ap_id":"https://remote.example/comment/12"},"creator":{"id":5,"name":"rodrigo","actor_id":"https://home.example/u/rodrigo"},"counts":{"comment_id":12,"score":2,"upvotes":2,"downvotes":0,"child_count":0},"my_vote":1}]}`))
 	})
 	mux.HandleFunc("/api/v3/comment", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"comment_view":{"comment":{"id":13,"creator_id":5,"post_id":100,"content":"Reply","published_at":"2026-09-01T10:00:00Z","path":"0.11.13","ap_id":"https://remote.example/comment/13"},"creator":{"id":5,"name":"rodrigo"}}}`))
+		_, _ = w.Write([]byte(`{"comment_view":{"comment":{"id":13,"creator_id":5,"post_id":100,"content":"Reply","published":"2026-09-01T10:00:00Z","path":"0.11.13","ap_id":"https://remote.example/comment/13"},"creator":{"id":5,"name":"rodrigo"},"counts":{"comment_id":13,"score":1,"upvotes":1,"downvotes":0,"child_count":0},"my_vote":1}}`))
 	})
 	mux.HandleFunc("/api/v3/comment/like", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"comment_view":{}}`))
@@ -114,7 +119,7 @@ func newFakeLemmy(_ *testing.T) (*httptest.Server, *string) {
 		_, _ = w.Write([]byte(`{"person_view":{"person":{"id":5,"name":"rodrigo"},"counts":{"post_count":42,"comment_count":7}}}`))
 	})
 	mux.HandleFunc("/api/v3/post/list", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"posts":[{"post":{"id":100,"name":"Why I self-host","ap_id":"https://remote.example/post/100","published_at":"2026-09-01T10:00:00Z"}}]}`))
+		_, _ = w.Write([]byte(`{"posts":[{"post":{"id":100,"name":"Why I self-host","body":"Body text","ap_id":"https://remote.example/post/100","published":"2026-09-01T10:00:00Z"},"counts":{"post_id":100,"comments":3,"score":9,"upvotes":10}}],"next_page":"Pa100"}`))
 	})
 	server := httptest.NewServer(mux)
 	return server, &version
@@ -202,7 +207,19 @@ func TestLemmyComments(t *testing.T) {
 	require.Equal(t, "lemmy:100:11", comments[1].ParentID, "nested replies link to their parent")
 	require.False(t, comments[0].IsOurs)
 	require.True(t, comments[1].IsOurs)
+	require.Equal(t, "2026-09-01T10:00:00Z", comments[0].CreatedAt)
+	require.Equal(t, "2026-09-01T10:05:00Z", comments[1].CreatedAt)
+	require.Equal(t, "2026-09-01T10:30:00Z", comments[1].UpdatedAt)
+
+	// Only my_vote reflects the connected account's like; the author's
+	// automatic upvote on comment 11 does not.
+	require.True(t, comments[0].LikeStateKnown)
+	require.False(t, comments[0].Liked)
+	require.True(t, comments[0].CanLike)
+	require.False(t, comments[0].CanUnlike)
 	require.True(t, comments[1].Liked)
+	require.False(t, comments[1].CanLike)
+	require.True(t, comments[1].CanUnlike)
 
 	replyID, err := adapter.ReplyToComment(t.Context(), "lemmy-jwt", "5", comments[0].ID, "Welcome!")
 	require.NoError(t, err)
@@ -210,6 +227,20 @@ func TestLemmyComments(t *testing.T) {
 	require.NoError(t, adapter.LikeComment(t.Context(), "lemmy-jwt", "5", comments[0].ID))
 	require.NoError(t, adapter.UnlikeComment(t.Context(), "lemmy-jwt", "5", comments[0].ID))
 	require.NoError(t, adapter.DeleteComment(t.Context(), "lemmy-jwt", "5", replyID))
+}
+
+func TestLemmyAccountContentDiscovery(t *testing.T) {
+	server, _ := newFakeLemmy(t)
+	defer server.Close()
+
+	adapter := NewLemmyAdapter(server.URL)
+	page, err := adapter.DiscoverAccountContent(t.Context(), "lemmy-jwt", AccountContentDiscoveryRequest{AccountID: "5"})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1, "posts with an API v3 publish time must not be dropped")
+	require.Equal(t, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), page.Items[0].PublishedAt)
+	require.Equal(t, "https://remote.example/post/100", page.Items[0].ExternalURL)
+	require.Equal(t, "Why I self-host", page.Items[0].Title)
+	require.Equal(t, "Pa100", page.NextCursor)
 }
 
 func TestLemmyAnalytics(t *testing.T) {

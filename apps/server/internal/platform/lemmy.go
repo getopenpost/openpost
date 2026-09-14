@@ -267,7 +267,7 @@ type lemmyPost struct {
 	Body      *string `json:"body"`
 	ActorID   string  `json:"ap_id"`
 	NSFW      bool    `json:"nsfw"`
-	Published string  `json:"published_at"`
+	Published string  `json:"published"`
 }
 
 type lemmyPostView struct {
@@ -382,22 +382,25 @@ func (l *LemmyAdapter) UploadMedia(ctx context.Context, accessToken, _ string, m
 	return imageURL, nil
 }
 
+// lemmyComment is the API v3 comment object: its timestamps are published
+// and updated, and its score lives in the view's counts.
 type lemmyComment struct {
 	ID        int64   `json:"id"`
 	PostID    int64   `json:"post_id"`
 	Content   string  `json:"content"`
-	Published string  `json:"published_at"`
-	Updated   *string `json:"updated_at"`
+	Published string  `json:"published"`
+	Updated   *string `json:"updated"`
 	Removed   bool    `json:"removed"`
 	Deleted   bool    `json:"deleted"`
 	Path      string  `json:"path"`
 	ActorID   string  `json:"ap_id"`
-	Score     int64   `json:"score"`
 }
 
 type lemmyCommentView struct {
 	Comment lemmyComment `json:"comment"`
 	Creator lemmyPerson  `json:"creator"`
+	// MyVote is the connected account's own vote: 1, -1, or absent.
+	MyVote *int64 `json:"my_vote"`
 }
 
 func (l *LemmyAdapter) EngagementSupport() EngagementSupport {
@@ -429,6 +432,9 @@ func (l *LemmyAdapter) ListComments(ctx context.Context, accessToken, accountID,
 		if parentID != "" {
 			parentID = communityCommentRef(providerLemmy, postID, parentID)
 		}
+		// The comment's score includes its author's automatic upvote, so only
+		// my_vote says whether the connected account liked it.
+		liked := view.MyVote != nil && *view.MyVote > 0
 		comments = append(comments, Comment{
 			ID:       communityCommentRef(providerLemmy, postID, strconv.FormatInt(comment.ID, 10)),
 			ParentID: parentID, ConversationID: strconv.FormatInt(postID, 10),
@@ -441,8 +447,8 @@ func (l *LemmyAdapter) ListComments(ctx context.Context, accessToken, accountID,
 			IsOurs:    strings.TrimSpace(accountID) == strconv.FormatInt(view.Creator.ID, 10),
 			CanReply:  true,
 			CanDelete: strings.TrimSpace(accountID) == strconv.FormatInt(view.Creator.ID, 10),
-			CanLike:   comment.Score <= 0, CanUnlike: comment.Score > 0,
-			Liked: comment.Score > 0, LikeStateKnown: true,
+			CanLike:   !liked, CanUnlike: liked,
+			Liked: liked, LikeStateKnown: true,
 		})
 	}
 	return comments, nil

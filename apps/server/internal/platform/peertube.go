@@ -563,18 +563,23 @@ type peertubeAccount struct {
 	DisplayName string `json:"displayName"`
 }
 
+type peertubeComment struct {
+	ID                 int64           `json:"id"`
+	URL                string          `json:"url"`
+	Text               string          `json:"text"`
+	ThreadID           int64           `json:"threadId"`
+	InReplyToCommentID *int64          `json:"inReplyToCommentId"`
+	CreatedAt          string          `json:"createdAt"`
+	UpdatedAt          string          `json:"updatedAt"`
+	IsDeleted          bool            `json:"isDeleted"`
+	TotalReplies       int64           `json:"totalReplies"`
+	Account            peertubeAccount `json:"account"`
+}
+
+// peertubeCommentNode is one node of the reply tree PeerTube returns for a
+// single thread.
 type peertubeCommentNode struct {
-	Comment struct {
-		ID                 int64           `json:"id"`
-		URL                string          `json:"url"`
-		Text               string          `json:"text"`
-		ThreadID           int64           `json:"threadId"`
-		InReplyToCommentID *int64          `json:"inReplyToCommentId"`
-		CreatedAt          string          `json:"createdAt"`
-		UpdatedAt          string          `json:"updatedAt"`
-		IsDeleted          bool            `json:"isDeleted"`
-		Account            peertubeAccount `json:"account"`
-	} `json:"comment"`
+	Comment  peertubeComment       `json:"comment"`
 	Children []peertubeCommentNode `json:"children"`
 }
 
@@ -591,10 +596,13 @@ func (p *PeerTubeAdapter) ListComments(ctx context.Context, accessToken, _ strin
 	if me, err := p.fetchMe(ctx, accessToken); err == nil {
 		ownAccount = firstNonEmptyString(me.Account.Name, me.Username)
 	}
+	// The thread list carries each thread's first comment as a plain comment.
+	// Replies are only returned by the per-thread tree endpoint.
 	var result struct {
-		Data []peertubeCommentNode `json:"data"`
+		Data []peertubeComment `json:"data"`
 	}
-	body, err := DoRequest(ctx, http.MethodGet, p.instanceURL+"/api/v1/videos/"+url.PathEscape(videoID)+"/comment-threads", nil, map[string]string{
+	query := url.Values{"count": {"100"}}
+	body, err := DoRequest(ctx, http.MethodGet, p.instanceURL+"/api/v1/videos/"+url.PathEscape(videoID)+"/comment-threads?"+query.Encode(), nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -627,9 +635,31 @@ func (p *PeerTubeAdapter) ListComments(ctx context.Context, accessToken, _ strin
 		}
 	}
 	for i := range result.Data {
-		walk(&result.Data[i], "")
+		node := peertubeCommentNode{Comment: result.Data[i]}
+		if node.Comment.TotalReplies > 0 {
+			tree, err := p.fetchCommentThread(ctx, accessToken, videoID, node.Comment.ID)
+			if err != nil {
+				return nil, err
+			}
+			node = tree
+		}
+		walk(&node, "")
 	}
 	return comments, nil
+}
+
+func (p *PeerTubeAdapter) fetchCommentThread(ctx context.Context, accessToken, videoID string, threadID int64) (peertubeCommentNode, error) {
+	body, err := DoRequest(ctx, http.MethodGet, p.instanceURL+"/api/v1/videos/"+url.PathEscape(videoID)+"/comment-threads/"+strconv.FormatInt(threadID, 10), nil, map[string]string{
+		headerAuthorization: bearerPrefix + accessToken,
+	})
+	if err != nil {
+		return peertubeCommentNode{}, fmt.Errorf("fetching peertube comment thread: %w", err)
+	}
+	var tree peertubeCommentNode
+	if err := json.Unmarshal(body, &tree); err != nil {
+		return peertubeCommentNode{}, fmt.Errorf("decoding peertube comment thread: %w", err)
+	}
+	return tree, nil
 }
 
 func (p *PeerTubeAdapter) ReplyToComment(ctx context.Context, accessToken, _ string, commentID, message string) (string, error) {

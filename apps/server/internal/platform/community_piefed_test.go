@@ -53,8 +53,15 @@ func newFakePieFed(_ *testing.T) *httptest.Server {
 		}
 		_, _ = w.Write([]byte(`{"url":"https://home.example/media/1.jpg"}`))
 	})
-	mux.HandleFunc("/api/alpha/post/list", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"posts":[{"post":{"id":200,"title":"Hello","ap_id":"https://piefed.social/post/200","published":"2026-09-01T10:00:00Z"}}]}`))
+	// PieFed filters the post list by person_id; any other parameter is
+	// accepted and ignored, which leaves the "All" feed unfiltered.
+	mux.HandleFunc("/api/alpha/post/list", func(w http.ResponseWriter, r *http.Request) {
+		own := `{"post":{"id":200,"user_id":6,"title":"Hello","ap_id":"https://piefed.social/post/200","published":"2026-09-01T10:00:00Z"}}`
+		if r.URL.Query().Get("person_id") == "6" {
+			_, _ = w.Write([]byte(`{"posts":[` + own + `],"next_page":null}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"posts":[` + own + `,{"post":{"id":201,"user_id":8,"title":"Someone else's post","ap_id":"https://piefed.social/post/201","published":"2026-09-02T10:00:00Z"}}],"next_page":"2"}`))
 	})
 	return httptest.NewServer(mux)
 }
@@ -118,6 +125,18 @@ func TestPieFedComments(t *testing.T) {
 	require.Equal(t, "piefed:200:22", replyID)
 	require.NoError(t, adapter.LikeComment(t.Context(), "piefed-jwt", "6", comments[0].ID))
 	require.NoError(t, adapter.DeleteComment(t.Context(), "piefed-jwt", "6", replyID))
+}
+
+func TestPieFedAccountContentDiscovery(t *testing.T) {
+	server := newFakePieFed(t)
+	defer server.Close()
+
+	adapter := NewPieFedAdapter(server.URL)
+	page, err := adapter.DiscoverAccountContent(t.Context(), "piefed-jwt", AccountContentDiscoveryRequest{AccountID: "6"})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1, "only the connected person's own posts are account content")
+	require.Equal(t, "https://piefed.social/post/200", page.Items[0].ExternalURL)
+	require.Empty(t, page.NextCursor)
 }
 
 func TestPieFedImageUploadAndAnalytics(t *testing.T) {

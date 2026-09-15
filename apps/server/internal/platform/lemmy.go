@@ -588,18 +588,21 @@ func (l *LemmyAdapter) DiscoverAccountContent(ctx context.Context, accessToken s
 	if err != nil || personID <= 0 {
 		return AccountContentPage{}, NewAccountContentDiscoveryError(AccountContentDiscoveryUnsupported, "invalid_account", 0)
 	}
-	params := url.Values{
-		"creator_id": {strconv.FormatInt(personID, 10)},
-		"sort":       {"New"},
-		"limit":      {"20"},
+	pageNumber := 1
+	if parsed, err := strconv.Atoi(strings.TrimSpace(input.Cursor)); err == nil && parsed > 1 {
+		pageNumber = parsed
 	}
-	if cursor := strings.TrimSpace(input.Cursor); cursor != "" {
-		params.Set("page_cursor", cursor)
+	// API v3 post listing has no creator filter and ignores unknown query
+	// parameters, so a person's own posts come from their person details.
+	params := url.Values{
+		"person_id": {strconv.FormatInt(personID, 10)},
+		"sort":      {"New"},
+		"limit":     {strconv.Itoa(lemmyAccountContentPageSize)},
+		"page":      {strconv.Itoa(pageNumber)},
 	}
 	response, err := communityJSONGet[struct {
-		Posts    []lemmyPostView `json:"posts"`
-		NextPage *string         `json:"next_page"`
-	}](ctx, l.instanceURL, "/api/v3/post/list", params, accessToken, "lemmy account content")
+		Posts []lemmyPostView `json:"posts"`
+	}](ctx, l.instanceURL, "/api/v3/user", params, accessToken, "lemmy account content")
 	if err != nil {
 		return AccountContentPage{}, socialAccountContentDiscoveryError(err)
 	}
@@ -618,11 +621,13 @@ func (l *LemmyAdapter) DiscoverAccountContent(ctx context.Context, accessToken s
 		}
 		appendCommunityAccountContent(&page, item)
 	}
-	if response.NextPage != nil && strings.TrimSpace(*response.NextPage) != "" {
-		page.NextCursor = strings.TrimSpace(*response.NextPage)
+	if len(response.Posts) >= lemmyAccountContentPageSize {
+		page.NextCursor = strconv.Itoa(pageNumber + 1)
 	}
 	return page, nil
 }
+
+const lemmyAccountContentPageSize = 20
 
 func lemmyAccountContentProfile(post lemmyPost) string {
 	if post.URL != nil && strings.TrimSpace(*post.URL) != "" {

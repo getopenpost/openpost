@@ -3,6 +3,7 @@ package platform
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -116,11 +117,18 @@ func newFakeLemmy(_ *testing.T) (*httptest.Server, *string) {
 	mux.HandleFunc("/api/v3/comment/delete", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{}`))
 	})
-	mux.HandleFunc("/api/v3/user", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"person_view":{"person":{"id":5,"name":"rodrigo"},"counts":{"post_count":42,"comment_count":7}}}`))
+	// GetPersonDetails returns the person's own posts alongside their counts.
+	mux.HandleFunc("/api/v3/user", func(w http.ResponseWriter, r *http.Request) {
+		posts := `[]`
+		if r.URL.Query().Get("person_id") == "5" {
+			posts = `[{"post":{"id":100,"creator_id":5,"name":"Why I self-host","body":"Body text","ap_id":"https://remote.example/post/100","published":"2026-09-01T10:00:00Z"},"counts":{"post_id":100,"comments":3,"score":9,"upvotes":10}}]`
+		}
+		_, _ = w.Write([]byte(`{"person_view":{"person":{"id":5,"name":"rodrigo"},"counts":{"post_count":42,"comment_count":7}},"comments":[],"posts":` + posts + `,"moderates":[]}`))
 	})
+	// GetPosts has no creator filter and ignores unknown query parameters, so
+	// it always answers with the instance feed, other people's posts included.
 	mux.HandleFunc("/api/v3/post/list", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"posts":[{"post":{"id":100,"name":"Why I self-host","body":"Body text","ap_id":"https://remote.example/post/100","published":"2026-09-01T10:00:00Z"},"counts":{"post_id":100,"comments":3,"score":9,"upvotes":10}}],"next_page":"Pa100"}`))
+		_, _ = w.Write([]byte(`{"posts":[{"post":{"id":300,"creator_id":9,"name":"Someone else's post","ap_id":"https://remote.example/post/300","published":"2026-09-02T10:00:00Z"},"counts":{"post_id":300,"comments":0,"score":1,"upvotes":1}}],"next_page":"Pa300"}`))
 	})
 	server := httptest.NewServer(mux)
 	return server, &version
@@ -237,11 +245,42 @@ func TestLemmyAccountContentDiscovery(t *testing.T) {
 	adapter := NewLemmyAdapter(server.URL)
 	page, err := adapter.DiscoverAccountContent(t.Context(), "lemmy-jwt", AccountContentDiscoveryRequest{AccountID: "5"})
 	require.NoError(t, err)
-	require.Len(t, page.Items, 1, "posts with an API v3 publish time must not be dropped")
+	require.Len(t, page.Items, 1, "only the connected person's own posts are account content")
 	require.Equal(t, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), page.Items[0].PublishedAt)
 	require.Equal(t, "https://remote.example/post/100", page.Items[0].ExternalURL)
 	require.Equal(t, "Why I self-host", page.Items[0].Title)
-	require.Equal(t, "Pa100", page.NextCursor)
+	require.Empty(t, page.NextCursor, "a short page ends discovery")
+}
+
+func TestLemmyAccountContentDiscoveryPagesThroughPersonPosts(t *testing.T) {
+	var pages []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/v3/user", r.URL.Path)
+		query := r.URL.Query()
+		require.Equal(t, "5", query.Get("person_id"))
+		require.Equal(t, "New", query.Get("sort"))
+		pages = append(pages, query.Get("page"))
+		posts := []string{}
+		if query.Get("page") == "1" {
+			for id := 1; id <= 20; id++ {
+				posts = append(posts, `{"post":{"id":`+strconv.Itoa(id)+`,"creator_id":5,"name":"Post","ap_id":"https://home.example/post/`+strconv.Itoa(id)+`","published":"2026-09-01T10:00:00Z"},"counts":{}}`)
+			}
+		}
+		_, _ = w.Write([]byte(`{"person_view":{"person":{"id":5,"name":"rodrigo"},"counts":{}},"comments":[],"posts":[` + strings.Join(posts, ",") + `],"moderates":[]}`))
+	}))
+	defer server.Close()
+
+	adapter := NewLemmyAdapter(server.URL)
+	first, err := adapter.DiscoverAccountContent(t.Context(), "lemmy-jwt", AccountContentDiscoveryRequest{AccountID: "5"})
+	require.NoError(t, err)
+	require.Len(t, first.Items, 20)
+	require.Equal(t, "2", first.NextCursor, "a full page continues on the next page")
+
+	second, err := adapter.DiscoverAccountContent(t.Context(), "lemmy-jwt", AccountContentDiscoveryRequest{AccountID: "5", Cursor: first.NextCursor})
+	require.NoError(t, err)
+	require.Empty(t, second.Items)
+	require.Empty(t, second.NextCursor)
+	require.Equal(t, []string{"1", "2"}, pages)
 }
 
 func TestLemmyAnalytics(t *testing.T) {

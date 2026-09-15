@@ -518,9 +518,12 @@ func (p *PieFedAdapter) DiscoverAccountContent(ctx context.Context, accessToken 
 	if err != nil || personID <= 0 {
 		return AccountContentPage{}, NewAccountContentDiscoveryError(AccountContentDiscoveryUnsupported, "invalid_account", 0)
 	}
+	// The post list filters by person_id; any other name is accepted and
+	// ignored, which lists the whole feed.
 	params := url.Values{
-		"creator_id": {strconv.FormatInt(personID, 10)},
-		"limit":      {"20"},
+		"person_id": {strconv.FormatInt(personID, 10)},
+		"sort":      {"New"},
+		"limit":     {"20"},
 	}
 	if cursor := strings.TrimSpace(input.Cursor); cursor != "" {
 		params.Set("page", cursor)

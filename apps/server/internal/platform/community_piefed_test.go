@@ -42,12 +42,13 @@ func newFakePieFed(_ *testing.T) *httptest.Server {
 	mux.HandleFunc("/api/alpha/comment/delete", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{}`))
 	})
+	// ImageUploadRequest requires the multipart part to be named file.
 	mux.HandleFunc("/api/alpha/upload/image", func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
 			http.Error(w, "bad upload", http.StatusBadRequest)
 			return
 		}
-		if _, _, err := r.FormFile("image"); err != nil {
+		if _, _, err := r.FormFile("file"); err != nil {
 			http.Error(w, "missing image", http.StatusBadRequest)
 			return
 		}

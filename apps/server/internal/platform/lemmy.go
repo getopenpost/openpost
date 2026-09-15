@@ -360,28 +360,25 @@ func (l *LemmyAdapter) UploadMedia(ctx context.Context, accessToken, _ string, m
 	}
 	headers := lemmyAuthHeaders(accessToken)
 	headers[headerContentType] = contentType
-	respBody, err := DoRequest(ctx, http.MethodPost, l.instanceURL+"/api/v3/image", payload, headers)
+	// Lemmy 0.19 has no /api/v3 upload route; it proxies pict-rs at
+	// /pictrs/image and serves each stored file under that path.
+	respBody, err := DoRequest(ctx, http.MethodPost, l.instanceURL+"/pictrs/image", payload, headers)
 	if err != nil {
 		return "", fmt.Errorf("lemmy image upload: %w", err)
 	}
 	var result struct {
-		ImageURL *string `json:"image_url"`
-		URL      *string `json:"url"`
+		Msg   string `json:"msg"`
+		Files []struct {
+			File string `json:"file"`
+		} `json:"files"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return "", fmt.Errorf("decoding lemmy image upload: %w", err)
 	}
-	imageURL := ""
-	if result.ImageURL != nil {
-		imageURL = strings.TrimSpace(*result.ImageURL)
+	if len(result.Files) == 0 || strings.TrimSpace(result.Files[0].File) == "" {
+		return "", fmt.Errorf("lemmy image upload returned no file: %s", strings.TrimSpace(result.Msg))
 	}
-	if imageURL == "" && result.URL != nil {
-		imageURL = strings.TrimSpace(*result.URL)
-	}
-	if imageURL == "" {
-		return "", fmt.Errorf("lemmy image upload returned no url")
-	}
-	return imageURL, nil
+	return l.instanceURL + "/pictrs/image/" + url.PathEscape(strings.TrimSpace(result.Files[0].File)), nil
 }
 
 // lemmyComment is the API v3 comment object: its timestamps are published

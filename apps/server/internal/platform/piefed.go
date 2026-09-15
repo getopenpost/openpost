@@ -322,7 +322,7 @@ func (p *PieFedAdapter) UploadMedia(ctx context.Context, accessToken, _ string, 
 	if exts, err := mime.ExtensionsByType(mimeType); err == nil && len(exts) > 0 {
 		ext = exts[0]
 	}
-	part, err := writer.CreateFormFile("image", "upload"+ext)
+	part, err := writer.CreateFormFile("file", "upload"+ext)
 	if err != nil {
 		return "", fmt.Errorf("building piefed image upload: %w", err)
 	}

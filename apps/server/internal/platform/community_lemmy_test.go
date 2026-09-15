@@ -122,6 +122,24 @@ func newFakeLemmy(_ *testing.T) (*httptest.Server, *string) {
 	mux.HandleFunc("/api/v3/post/list", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"posts":[{"post":{"id":100,"name":"Why I self-host","body":"Body text","ap_id":"https://remote.example/post/100","published":"2026-09-01T10:00:00Z"},"counts":{"post_id":100,"comments":3,"score":9,"upvotes":10}}],"next_page":"Pa100"}`))
 	})
+	// Lemmy 0.19 serves image uploads only at /pictrs/image: a logged-in
+	// multipart upload of images[] answered with pict-rs's file list. There is
+	// no /api/v3/image route on that line.
+	mux.HandleFunc("/pictrs/image", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer lemmy-jwt" {
+			http.Error(w, `{"error":"not_logged_in"}`, http.StatusUnauthorized)
+			return
+		}
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			http.Error(w, "bad upload", http.StatusBadRequest)
+			return
+		}
+		if _, _, err := r.FormFile("images[]"); err != nil {
+			http.Error(w, "missing image", http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{"msg":"ok","files":[{"file":"8f3c2b.jpeg","delete_token":"d41d8c","details":{"width":1,"height":1,"content_type":"image/jpeg","created_at":"2026-09-01T10:00:00Z"}}]}`))
+	})
 	server := httptest.NewServer(mux)
 	return server, &version
 }
@@ -259,6 +277,23 @@ func TestLemmyAnalytics(t *testing.T) {
 	account, err := adapter.FetchAccountAnalytics(t.Context(), "lemmy-jwt", AccountAnalyticsRequest{AccountID: "5"})
 	require.NoError(t, err)
 	require.Equal(t, int64(42), account[MetricPosts])
+}
+
+func TestLemmyImageUpload(t *testing.T) {
+	server, _ := newFakeLemmy(t)
+	defer server.Close()
+
+	adapter := NewLemmyAdapter(server.URL)
+	imageURL, err := adapter.UploadMedia(t.Context(), "lemmy-jwt", "5", "image/jpeg", strings.NewReader("jpeg-bytes"))
+	require.NoError(t, err)
+	require.Equal(t, server.URL+"/pictrs/image/8f3c2b.jpeg", imageURL)
+
+	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"msg":"no_files"}`))
+	}))
+	defer empty.Close()
+	_, err = NewLemmyAdapter(empty.URL).UploadMedia(t.Context(), "lemmy-jwt", "5", "image/jpeg", strings.NewReader("jpeg-bytes"))
+	require.ErrorContains(t, err, "returned no file: no_files")
 }
 
 func TestLemmyRejectsV4Instances(t *testing.T) {

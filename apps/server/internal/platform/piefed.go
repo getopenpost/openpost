@@ -432,6 +432,7 @@ func (p *PieFedAdapter) DeleteComment(ctx context.Context, accessToken, _ string
 	}
 	_, err = communityJSONPost[struct{}](ctx, p.instanceURL, "/api/alpha/comment/delete", map[string]any{
 		"comment_id": targetID,
+		"deleted":    true,
 	}, accessToken, "piefed reply deletion")
 	return err
 }

@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,8 +40,15 @@ func newFakePieFed(_ *testing.T) *httptest.Server {
 	mux.HandleFunc("/api/alpha/comment/like", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{}`))
 	})
-	mux.HandleFunc("/api/alpha/comment/delete", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{}`))
+	// DeleteCommentRequest requires both comment_id and deleted.
+	mux.HandleFunc("/api/alpha/comment/delete", func(w http.ResponseWriter, r *http.Request) {
+		var request map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request["comment_id"] == nil || request["deleted"] == nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`{"code":422,"errors":{"json":{"deleted":["Missing data for required field."]}},"status":"Unprocessable Entity"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"comment_view":{}}`))
 	})
 	// ImageUploadRequest requires the multipart part to be named file.
 	mux.HandleFunc("/api/alpha/upload/image", func(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +134,23 @@ func TestPieFedComments(t *testing.T) {
 	require.Equal(t, "piefed:200:22", replyID)
 	require.NoError(t, adapter.LikeComment(t.Context(), "piefed-jwt", "6", comments[0].ID))
 	require.NoError(t, adapter.DeleteComment(t.Context(), "piefed-jwt", "6", replyID))
+}
+
+func TestPieFedDeleteReplyMarksItDeleted(t *testing.T) {
+	var path string
+	var payload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		_, _ = w.Write([]byte(`{"comment_view":{}}`))
+	}))
+	defer server.Close()
+
+	adapter := NewPieFedAdapter(server.URL)
+	require.NoError(t, adapter.DeleteComment(t.Context(), "piefed-jwt", "6", "piefed:200:22"))
+	require.Equal(t, "/api/alpha/comment/delete", path)
+	// deleted false would restore the reply instead.
+	require.Equal(t, map[string]any{"comment_id": float64(22), "deleted": true}, payload)
 }
 
 func TestPieFedAccountContentDiscovery(t *testing.T) {

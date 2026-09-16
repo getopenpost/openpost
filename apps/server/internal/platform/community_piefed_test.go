@@ -111,6 +111,34 @@ func TestPieFedCommunitySearch(t *testing.T) {
 	require.Equal(t, "https://piefed.social/c/piefed_meta", page.Options[0].Value)
 }
 
+func TestPieFedCommentsIncludeNestedReplies(t *testing.T) {
+	// /post/replies lists top-level comments only; each reply is nested under
+	// the comment it answers.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"comments":[` +
+			`{"comment":{"id":21,"post_id":200,"body":"Nice","published":"2026-09-01T10:00:00.000000Z","ap_id":"https://piefed.social/comment/21","path":"0.21","deleted":false,"removed":false},"creator":{"id":8,"user_name":"viewer"},"replies":[` +
+			`{"comment":{"id":22,"post_id":200,"body":"Thanks","published":"2026-09-01T11:00:00.000000Z","ap_id":"https://home.example/comment/22","path":"0.21.22","deleted":false,"removed":false},"creator":{"id":6,"user_name":"rodrigo"},"replies":[` +
+			`{"comment":{"id":23,"post_id":200,"body":"Any time","published":"2026-09-01T12:00:00.000000Z","ap_id":"https://piefed.social/comment/23","path":"0.21.22.23","deleted":false,"removed":false},"creator":{"id":8,"user_name":"viewer"},"replies":[]}]}]},` +
+			`{"comment":{"id":24,"post_id":200,"body":"Bookmarked","published":"2026-09-01T13:00:00.000000Z","ap_id":"https://piefed.social/comment/24","path":"0.24","deleted":false,"removed":false},"creator":{"id":9,"user_name":"reader"},"replies":[]}` +
+			`],"next_page":null}`))
+	}))
+	defer server.Close()
+
+	adapter := NewPieFedAdapter(server.URL)
+	comments, err := adapter.ListComments(t.Context(), "piefed-jwt", "6", "200")
+	require.NoError(t, err)
+	ids := make([]string, 0, len(comments))
+	parents := make([]string, 0, len(comments))
+	for _, comment := range comments {
+		ids = append(ids, comment.ID)
+		parents = append(parents, comment.ParentID)
+	}
+	require.Equal(t, []string{"piefed:200:21", "piefed:200:22", "piefed:200:23", "piefed:200:24"}, ids)
+	require.Equal(t, []string{"", "piefed:200:21", "piefed:200:22", ""}, parents)
+	require.True(t, comments[1].IsOurs)
+	require.Equal(t, "Any time", comments[2].Text)
+}
+
 func TestPieFedComments(t *testing.T) {
 	server := newFakePieFed(t)
 	defer server.Close()

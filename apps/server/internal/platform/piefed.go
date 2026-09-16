@@ -366,6 +366,24 @@ type piefedCommentView struct {
 	Creator piefedPerson  `json:"creator"`
 }
 
+// piefedReplyView is a comment in the post replies tree. Replies to it are
+// nested under it, not listed alongside it.
+type piefedReplyView struct {
+	piefedCommentView
+	Replies []piefedReplyView `json:"replies"`
+}
+
+// flattenPieFedReplies lists every comment in the tree, each before its
+// replies.
+func flattenPieFedReplies(tree []piefedReplyView) []piefedCommentView {
+	views := make([]piefedCommentView, 0, len(tree))
+	for _, reply := range tree {
+		views = append(views, reply.piefedCommentView)
+		views = append(views, flattenPieFedReplies(reply.Replies)...)
+	}
+	return views
+}
+
 func (p *PieFedAdapter) EngagementSupport() EngagementSupport {
 	return EngagementSupport{Enabled: true, CanReply: true, CanDelete: true, CanLike: true}
 }
@@ -376,15 +394,16 @@ func (p *PieFedAdapter) ListComments(ctx context.Context, accessToken, accountID
 		return nil, fmt.Errorf("piefed comment listing requires a post id")
 	}
 	response, err := communityJSONGet[struct {
-		Comments []piefedCommentView `json:"comments"`
+		Comments []piefedReplyView `json:"comments"`
 	}](ctx, p.instanceURL, "/api/alpha/post/replies", url.Values{
 		"post_id": {strconv.FormatInt(postID, 10)},
 	}, accessToken, "piefed comment listing")
 	if err != nil {
 		return nil, err
 	}
-	comments := make([]Comment, 0, len(response.Comments))
-	for _, view := range response.Comments {
+	views := flattenPieFedReplies(response.Comments)
+	comments := make([]Comment, 0, len(views))
+	for _, view := range views {
 		comment := view.Comment
 		if comment.Deleted {
 			continue

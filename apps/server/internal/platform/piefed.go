@@ -357,6 +357,7 @@ type piefedComment struct {
 	Published string  `json:"published"`
 	Updated   *string `json:"updated"`
 	Deleted   bool    `json:"deleted"`
+	Removed   bool    `json:"removed"`
 	ActorID   string  `json:"ap_id"`
 	Path      *string `json:"path"`
 }
@@ -386,7 +387,7 @@ func (p *PieFedAdapter) ListComments(ctx context.Context, accessToken, accountID
 	comments := make([]Comment, 0, len(response.Comments))
 	for _, view := range response.Comments {
 		comment := view.Comment
-		if comment.Deleted {
+		if comment.Removed || comment.Deleted {
 			continue
 		}
 		parentID := ""

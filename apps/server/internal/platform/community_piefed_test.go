@@ -140,6 +140,28 @@ func TestPieFedAccountContentDiscovery(t *testing.T) {
 	require.Empty(t, page.NextCursor)
 }
 
+func TestPieFedCommentsSkipRemovedReplies(t *testing.T) {
+	// PieFed blanks the body of a deleted reply. It reports deleted when the
+	// author deleted it and removed (with deleted false) when a moderator did.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"comments":[` +
+			`{"comment":{"id":21,"post_id":200,"body":"Nice","published":"2026-09-01T10:00:00.000000Z","ap_id":"https://piefed.social/comment/21","path":"0.21","deleted":false,"removed":false},"creator":{"id":8,"user_name":"viewer"},"replies":[]},` +
+			`{"comment":{"id":25,"post_id":200,"body":"","published":"2026-09-01T11:00:00.000000Z","ap_id":"https://piefed.social/comment/25","path":"0.25","deleted":false,"removed":true},"creator":{"id":9,"user_name":"spammer"},"replies":[]},` +
+			`{"comment":{"id":26,"post_id":200,"body":"","published":"2026-09-01T12:00:00.000000Z","ap_id":"https://piefed.social/comment/26","path":"0.26","deleted":true,"removed":false},"creator":{"id":10,"user_name":"reader"},"replies":[]}` +
+			`],"next_page":null}`))
+	}))
+	defer server.Close()
+
+	adapter := NewPieFedAdapter(server.URL)
+	comments, err := adapter.ListComments(t.Context(), "piefed-jwt", "6", "200")
+	require.NoError(t, err)
+	ids := make([]string, 0, len(comments))
+	for _, comment := range comments {
+		ids = append(ids, comment.ID)
+	}
+	require.Equal(t, []string{"piefed:200:21"}, ids)
+}
+
 func TestPieFedImageUploadAndAnalytics(t *testing.T) {
 	server := newFakePieFed(t)
 	defer server.Close()

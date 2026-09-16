@@ -493,7 +493,7 @@ func (p *PieFedAdapter) FetchContentAnalytics(ctx context.Context, accessToken s
 					Upvotes  *int64 `json:"upvotes"`
 				} `json:"counts"`
 			} `json:"post_view"`
-		}](ctx, p.instanceURL, "/api/alpha/post", url.Values{"post_id": {strconv.FormatInt(postID, 10)}}, accessToken, "piefed content analytics")
+		}](ctx, p.instanceURL, "/api/alpha/post", url.Values{"id": {strconv.FormatInt(postID, 10)}}, accessToken, "piefed content analytics")
 		if err != nil {
 			return nil, err
 		}

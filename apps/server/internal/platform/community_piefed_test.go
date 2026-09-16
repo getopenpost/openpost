@@ -28,6 +28,12 @@ func newFakePieFed(_ *testing.T) *httptest.Server {
 			_, _ = w.Write([]byte(`{"post_view":{"post":{"id":200,"title":"Hello PieFed","body":"Body","ap_id":"https://piefed.social/post/200"}}}`))
 			return
 		}
+		// GetPostRequest requires id and excludes unknown fields.
+		if r.URL.Query().Get("id") == "" {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`{"code":422,"errors":{"query":{"id":["Missing data for required field."]}},"status":"Unprocessable Entity"}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"post_view":{"post":{"id":200,"title":"Hello","ap_id":"https://piefed.social/post/200"},"counts":{"comments":2,"upvotes":5}}}`))
 	})
 	mux.HandleFunc("/api/alpha/post/replies", func(w http.ResponseWriter, _ *http.Request) {

@@ -20,8 +20,34 @@ func newFakePieFed(_ *testing.T) *httptest.Server {
 	mux.HandleFunc("/api/alpha/resolve_object", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"community":{"community":{"id":9,"name":"piefed_meta","title":"PieFed Meta","description":"Rules here.","actor_id":"https://piefed.social/c/piefed_meta","restricted_to_mods":false}}}`))
 	})
+	meta := `{"community":{"id":9,"name":"piefed_meta","title":"PieFed Meta","actor_id":"https://piefed.social/c/piefed_meta"}}`
+	technology := `{"community":{"id":10,"name":"technology","title":"Technology","actor_id":"https://piefed.social/c/technology"}}`
+	// ListCommunitiesRequest has no search field and excludes unknown
+	// fields, so the community list is never filtered by a query.
 	mux.HandleFunc("/api/alpha/community/list", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"communities":[{"community":{"id":9,"name":"piefed_meta","title":"PieFed Meta","actor_id":"https://piefed.social/c/piefed_meta"}}]}`))
+		_, _ = w.Write([]byte(`{"communities":[` + technology + `,` + meta + `],"next_page":"2"}`))
+	})
+	// SearchRequest requires q and type_; Communities matches q against the
+	// community title and actor ID.
+	mux.HandleFunc("/api/alpha/search", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		if !query.Has("q") || query.Get("type_") == "" {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`{"code":422,"errors":{"query":{"q":["Missing data for required field."]}},"status":"Unprocessable Entity"}`))
+			return
+		}
+		communities := []string{}
+		if query.Get("type_") == "Communities" {
+			for _, community := range []struct{ match, view string }{
+				{"technology https://piefed.social/c/technology", technology},
+				{"piefed meta https://piefed.social/c/piefed_meta", meta},
+			} {
+				if strings.Contains(community.match, strings.ToLower(query.Get("q"))) {
+					communities = append(communities, community.view)
+				}
+			}
+		}
+		_, _ = w.Write([]byte(`{"type_":"` + query.Get("type_") + `","communities":[` + strings.Join(communities, ",") + `],"posts":[],"users":[],"comments":[]}`))
 	})
 	mux.HandleFunc("/api/alpha/post", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

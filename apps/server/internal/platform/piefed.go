@@ -196,11 +196,14 @@ func (p *PieFedAdapter) SearchPublishingOptions(ctx context.Context, accessToken
 	if limit <= 0 || limit > 25 {
 		limit = 10
 	}
+	// The community list has no search filter and drops unknown parameters,
+	// so the query goes through the search endpoint.
 	response, err := communityJSONGet[struct {
 		Communities []piefedCommunityView `json:"communities"`
-	}](ctx, p.instanceURL, "/api/alpha/community/list", url.Values{
-		"search": {query},
-		"limit":  {strconv.Itoa(limit)},
+	}](ctx, p.instanceURL, "/api/alpha/search", url.Values{
+		"q":     {query},
+		"type_": {"Communities"},
+		"limit": {strconv.Itoa(limit)},
 	}, accessToken, "piefed community search")
 	if err != nil {
 		return PublishingOptionsPage{}, err

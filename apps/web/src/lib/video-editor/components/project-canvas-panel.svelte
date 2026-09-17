@@ -158,7 +158,7 @@
 					type="button"
 					variant="outline"
 					size="sm"
-					class="min-h-11 lg:min-h-8"
+					class="min-h-8 lg:min-h-8 [@media(pointer:coarse)]:min-h-11"
 					onclick={swapDimensions}
 				>
 					<ThemeIcon role="swap" class="size-3.5" />
@@ -168,7 +168,7 @@
 					type="button"
 					variant="ghost"
 					size="sm"
-					class="min-h-11 lg:min-h-8"
+					class="min-h-8 lg:min-h-8 [@media(pointer:coarse)]:min-h-11"
 					onclick={resetDimensions}
 				>
 					<ThemeIcon role="undo" class="size-3.5" />

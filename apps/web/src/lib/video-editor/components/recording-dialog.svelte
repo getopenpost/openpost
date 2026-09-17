@@ -496,7 +496,7 @@
 				<div class="grid min-w-0 gap-3 sm:grid-cols-3">
 					<label
 						data-state={includeScreen ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground"
+						class="flex min-h-8 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 					>
 						<Checkbox
 							bind:checked={includeScreen}
@@ -506,7 +506,7 @@
 					</label>
 					<label
 						data-state={includeCamera ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground"
+						class="flex min-h-8 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 					>
 						<Checkbox
 							bind:checked={includeCamera}
@@ -516,7 +516,7 @@
 					</label>
 					<label
 						data-state={includeMic ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground"
+						class="flex min-h-8 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 					>
 						<Checkbox
 							bind:checked={includeMic}
@@ -544,7 +544,7 @@
 									cameraId = v;
 									preferences.set('cameraDeviceId', v);
 								}}
-								class="h-11 w-full min-w-0"
+								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 							/>
 						</div>
 					{/if}
@@ -565,7 +565,7 @@
 									micId = v;
 									preferences.set('microphoneDeviceId', v);
 								}}
-								class="h-11 w-full min-w-0"
+								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 							/>
 						</div>
 					{/if}
@@ -589,7 +589,7 @@
 									]}
 									ariaLabel={m.video_editor_export_resolution()}
 									onValueChange={setVideoResolution}
-									class="h-11 w-full min-w-0"
+									class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 								/>
 							</div>
 							<div class="flex min-w-0 flex-col gap-1 text-xs">
@@ -606,7 +606,7 @@
 										videoFrameRate = value;
 										preferences.set('videoFrameRate', selectedFrameRate());
 									}}
-									class="h-11 w-full min-w-0"
+									class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 								/>
 							</div>
 							{#if includeCamera}
@@ -621,7 +621,7 @@
 										]}
 										ariaLabel={m.video_editor_record_camera_facing()}
 										onValueChange={setCameraFacingMode}
-										class="h-11 w-full min-w-0"
+										class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 									/>
 								</div>
 							{/if}
@@ -630,7 +630,9 @@
 
 					{#if includeScreen}
 						<div class="space-y-2">
-							<label class="flex min-h-11 items-center gap-2 text-sm">
+							<label
+								class="flex min-h-8 items-center gap-2 text-sm [@media(pointer:coarse)]:min-h-11"
+							>
 								<Checkbox
 									bind:checked={includeSystemAudio}
 									onCheckedChange={(checked) =>
@@ -675,7 +677,7 @@
 										]}
 										ariaLabel={m.video_editor_record_cursor_mode()}
 										onValueChange={setCursorMode}
-										class="h-11 w-full min-w-0"
+										class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 									/>
 								</div>
 							{:else}
@@ -688,7 +690,7 @@
 
 					{#if includeMic}
 						<div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-							<label class="flex min-h-11 items-center gap-2">
+							<label class="flex min-h-8 items-center gap-2 [@media(pointer:coarse)]:min-h-11">
 								<Checkbox
 									bind:checked={noiseSuppression}
 									onCheckedChange={(checked) =>
@@ -696,7 +698,7 @@
 								/>
 								<span>{m.video_editor_voiceover_noise_suppression()}</span>
 							</label>
-							<label class="flex min-h-11 items-center gap-2">
+							<label class="flex min-h-8 items-center gap-2 [@media(pointer:coarse)]:min-h-11">
 								<Checkbox
 									bind:checked={autoGainControl}
 									onCheckedChange={(checked) =>
@@ -735,7 +737,7 @@
 										value === '10' ? 10 : value === '5' ? 5 : value === '3' ? 3 : 0
 									);
 								}}
-								class="h-11 w-full min-w-0"
+								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 							/>
 						</div>
 						<div class="flex min-w-0 flex-col gap-1 text-xs">
@@ -768,7 +770,7 @@
 										value === '30' ? 30 : value === '15' ? 15 : value === '2' ? 2 : 5
 									);
 								}}
-								class="h-11 w-full min-w-0"
+								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 							/>
 						</div>
 					</div>
@@ -821,9 +823,13 @@
 
 			<!-- Countdown / Progress -->
 			{#if requestingActive}
-				<div role="status" aria-live="polite" class="space-y-3 rounded-lg bg-muted p-4 text-center">
+				<div role="status" aria-live="polite" class="space-y-3 rounded-lg bg-muted p-3 text-center">
 					<p class="text-sm">{m.video_editor_recording_waiting()}</p>
-					<Button variant="ghost" class="min-h-11" onclick={handleCancel}>
+					<Button
+						variant="ghost"
+						class="min-h-8 [@media(pointer:coarse)]:min-h-11"
+						onclick={handleCancel}
+					>
 						{m.common_cancel()}
 					</Button>
 				</div>
@@ -912,7 +918,7 @@
 					<div class="flex flex-wrap justify-center gap-2 pt-1">
 						<Button
 							variant="destructive"
-							class="min-h-11 min-w-32"
+							class="min-h-8 min-w-32 [@media(pointer:coarse)]:min-h-11"
 							disabled={stoppingActive}
 							onclick={handleStop}
 						>
@@ -920,7 +926,7 @@
 						</Button>
 						<Button
 							variant="ghost"
-							class="min-h-11"
+							class="min-h-8 [@media(pointer:coarse)]:min-h-11"
 							disabled={stoppingActive}
 							onclick={handleCancel}
 						>
@@ -961,12 +967,16 @@
 						{/each}
 					</div>
 					<div class="mt-3 flex flex-wrap gap-2">
-						<Button class="min-h-11" disabled={captureBusy || inserting} onclick={handleRecover}>
+						<Button
+							class="min-h-8 [@media(pointer:coarse)]:min-h-11"
+							disabled={captureBusy || inserting}
+							onclick={handleRecover}
+						>
 							{m.video_editor_recover_recording()}
 						</Button>
 						<Button
 							variant="outline"
-							class="min-h-11 border-warning/50! bg-warning/10! text-warning-foreground! shadow-none! hover:bg-warning/15! hover:text-warning-foreground!"
+							class="min-h-8 border-warning/50! bg-warning/10! text-warning-foreground! shadow-none! hover:bg-warning/15! hover:text-warning-foreground! [@media(pointer:coarse)]:min-h-11"
 							disabled={inserting}
 							onclick={handleDiscardRecovery}
 						>
@@ -980,7 +990,7 @@
 			{#if !captureBusy}
 				<div class="flex flex-wrap justify-center gap-2 pt-2">
 					<Button
-						class="min-h-11 min-w-36"
+						class="min-h-8 min-w-36 [@media(pointer:coarse)]:min-h-11"
 						disabled={inserting ||
 							!hasSelection ||
 							recordingActive ||
@@ -990,7 +1000,11 @@
 					>
 						{m.video_editor_recording_start()}
 					</Button>
-					<Button variant="outline" class="min-h-11" onclick={() => handleDialogOpen(false)}>
+					<Button
+						variant="outline"
+						class="min-h-8 [@media(pointer:coarse)]:min-h-11"
+						onclick={() => handleDialogOpen(false)}
+					>
 						{m.common_close()}
 					</Button>
 				</div>

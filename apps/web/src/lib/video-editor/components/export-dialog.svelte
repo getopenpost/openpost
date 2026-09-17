@@ -708,7 +708,7 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="video-editor-theme !block max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4 text-[var(--video-editor-text)] shadow-2xl sm:max-w-md"
+		class="video-editor-theme !block max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3 text-[var(--video-editor-text)] shadow-2xl sm:max-w-md"
 		overlayProps={{ class: 'bg-scrim' }}
 		showCloseButton={!rendering}
 		onInteractOutside={(event) => {
@@ -728,7 +728,7 @@
 				<label class="text-xs text-muted-foreground">
 					{m.video_editor_sequences()}
 					<AppSelect
-						class="mt-1 h-9 w-full text-sm"
+						class="mt-1 h-8 w-full text-sm"
 						value={selectedSequenceId ?? '__main__'}
 						options={exportableSequences.map((sequence) => ({
 							value: sequence.id ?? '__main__',
@@ -782,7 +782,7 @@
 		<div class="mt-4 grid grid-cols-2 gap-3">
 			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_format()}<AppSelect
-					class="mt-1 h-9 w-full text-sm"
+					class="mt-1 h-8 w-full text-sm"
 					value={format}
 					options={formatOptions}
 					disabled={rendering}
@@ -792,7 +792,7 @@
 			{#if videoFormat}
 				<label class="text-xs text-muted-foreground"
 					>{m.video_editor_export_codec()}<AppSelect
-						class="mt-1 h-9 w-full text-sm"
+						class="mt-1 h-8 w-full text-sm"
 						value={codec}
 						disabled={rendering}
 						options={codecs.map((candidate) => ({
@@ -811,7 +811,7 @@
 					{m.video_editor_export_quality()}
 				{/if}
 				<AppSelect
-					class="mt-1 h-9 w-full text-sm"
+					class="mt-1 h-8 w-full text-sm"
 					value={quality}
 					options={qualityOptions}
 					disabled={rendering}
@@ -820,7 +820,7 @@
 			</label>
 			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_resolution()}<AppSelect
-					class="mt-1 h-9 w-full text-sm"
+					class="mt-1 h-8 w-full text-sm"
 					bind:value={resolution}
 					options={resolutionOptions}
 					disabled={rendering}
@@ -829,7 +829,7 @@
 			{#if !isSequenceFormat}
 				<label class="text-xs text-muted-foreground">
 					{m.video_editor_export_subtitles()}<AppSelect
-						class="mt-1 h-9 w-full text-sm"
+						class="mt-1 h-8 w-full text-sm"
 						value={subtitleMode}
 						options={subtitleOptions}
 						disabled={rendering}
@@ -840,7 +840,7 @@
 			{#if isSequenceFormat}
 				<label class="text-xs text-muted-foreground">
 					{m.video_editor_export_sequence_destination()}<AppSelect
-						class="mt-1 h-9 w-full text-sm"
+						class="mt-1 h-8 w-full text-sm"
 						value={sequenceDestination}
 						options={sequenceDestinationOptions}
 						disabled={rendering}
@@ -873,7 +873,7 @@
 				</p>
 			{/if}
 		{/if}
-		<label class="mt-3 flex min-h-11 items-center gap-2 text-sm">
+		<label class="mt-3 flex min-h-8 items-center gap-2 text-sm [@media(pointer:coarse)]:min-h-11">
 			<Checkbox
 				bind:checked={useRange}
 				disabled={rendering ||

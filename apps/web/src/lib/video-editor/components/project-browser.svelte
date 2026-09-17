@@ -731,7 +731,7 @@
 							>
 								<button
 									type="button"
-									class="absolute top-2 left-2 z-10 flex size-11 items-center justify-center rounded-full border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:border-[var(--video-editor-focus)] data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:opacity-100"
+									class="absolute top-2 left-2 z-10 flex size-8 items-center justify-center rounded-full border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:border-[var(--video-editor-focus)] data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:opacity-100 [@media(pointer:coarse)]:size-11"
 									data-selected={selectedIds.has(project.id)}
 									role="checkbox"
 									aria-checked={selectedIds.has(project.id)}
@@ -768,7 +768,7 @@
 											<span
 												class="flex size-full items-center justify-center text-[var(--video-editor-muted)]"
 											>
-												<ProtectedIcon icon="play" class="size-11" />
+												<ProtectedIcon icon="play" class="size-8" />
 											</span>
 										{/if}
 										<span
@@ -777,7 +777,7 @@
 											{projectAspectRatio(project)}
 										</span>
 									</span>
-									<span class="block p-4 pr-12">
+									<span class="block p-3 pr-12">
 										<span class="block truncate font-medium">{project.name}</span>
 										{#if project.description.trim()}
 											<span
@@ -930,7 +930,7 @@
 			<div class="flex items-center justify-between gap-3">
 				<button
 					type="button"
-					class="flex min-h-11 items-center gap-2 rounded-md text-sm text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
+					class="flex min-h-8 items-center gap-2 rounded-md text-sm text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 					aria-expanded={trashOpen}
 					aria-controls="video-editor-trash-list"
 					onclick={() => (trashOpen = !trashOpen)}

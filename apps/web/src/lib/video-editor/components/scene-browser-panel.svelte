@@ -140,7 +140,7 @@
 		</label>
 		<div class="flex gap-1">
 			<div
-				class="flex h-7 shrink-0 items-center rounded-md border border-[var(--video-editor-border)] p-0.5"
+				class="flex h-[25px] shrink-0 items-center rounded-md border border-[var(--video-editor-border)] p-0.5"
 				role="group"
 				aria-label={m.video_editor_scene_search_mode()}
 			>
@@ -172,7 +172,7 @@
 			>
 				<Select.Trigger
 					aria-label={m.video_editor_scene_scope_all()}
-					class="h-7 min-w-0 flex-1 justify-between rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] shadow-none"
+					class="h-[25px] min-w-0 flex-1 justify-between rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] shadow-none"
 				>
 					<span class="truncate"
 						>{sceneBrowser.scope
@@ -189,7 +189,7 @@
 			</Select.Root>
 			<button
 				type="button"
-				class="flex h-7 items-center gap-1 rounded-md border border-[var(--video-editor-border)] px-2 text-[11px] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-50"
+				class="flex h-[25px] items-center gap-1 rounded-md border border-[var(--video-editor-border)] px-2 text-[11px] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-50"
 				disabled={batchBusy || analyzableMedia.length === 0}
 				title={m.video_editor_scene_analyze()}
 				onclick={() => analyze(false)}
@@ -204,7 +204,7 @@
 			<button
 				type="button"
 				class:active={sceneBrowser.colorMode}
-				class="flex h-7 items-center rounded-md border border-[var(--video-editor-border)] px-2 text-[11px] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:border-[var(--video-editor-focus-border)] [&.active]:bg-[var(--video-editor-selection)]"
+				class="flex h-[25px] items-center rounded-md border border-[var(--video-editor-border)] px-2 text-[11px] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:border-[var(--video-editor-focus-border)] [&.active]:bg-[var(--video-editor-selection)]"
 				aria-label={sceneBrowser.colorMode
 					? m.video_editor_scene_colors_hide()
 					: m.video_editor_scene_colors()}

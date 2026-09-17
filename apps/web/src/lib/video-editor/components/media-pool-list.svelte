@@ -1061,7 +1061,7 @@
 		hidden
 	></div>
 	<div
-		class="sticky top-0 z-10 -mx-2 space-y-1.5 border-b border-border bg-card px-2 pb-2"
+		class="sticky top-0 z-10 -mx-2 space-y-1 border-b border-border bg-card px-2 pb-2"
 		data-marquee-ignore
 	>
 		<div class="flex items-center gap-1.5">
@@ -1180,7 +1180,7 @@
 				<Select.Root type="single" value={filter} onValueChange={changeFilter}>
 					<Select.Trigger
 						aria-label={m.video_editor_media_filter()}
-						class="h-7! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
+						class="h-[25px]! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
 					>
 						{filter === 'all'
 							? m.video_editor_media_filter_all()
@@ -1207,7 +1207,7 @@
 				<Select.Root type="single" value={sort} onValueChange={changeSort}>
 					<Select.Trigger
 						aria-label={m.video_editor_media_sort()}
-						class="h-7! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
+						class="h-[25px]! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
 					>
 						{sort === 'added'
 							? m.video_editor_media_sort_added()
@@ -1338,7 +1338,7 @@
 			<Button
 				size="sm"
 				variant="ghost"
-				class="h-7! shrink-0 px-2! text-[10px]!"
+				class="h-[25px]! shrink-0 px-2! text-[10px]!"
 				onclick={() => mediaRecovery.show()}
 			>
 				{m.video_editor_media_recovery_review()}
@@ -1405,7 +1405,7 @@
 									{#if editingSequenceId === sequence.id}
 										<Input
 											bind:ref={sequenceRenameInput}
-											class="h-9 min-w-0 flex-1 bg-field px-2 text-xs text-field-foreground"
+											class="h-8 min-w-0 flex-1 bg-field px-2 text-xs text-field-foreground"
 											aria-label={m.common_rename()}
 											bind:value={sequenceNameDraft}
 											onblur={() => commitSequenceRename(sequence)}
@@ -1442,7 +1442,7 @@
 													{...props}
 													variant="ghost"
 													size="icon-xs"
-													class="size-11! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7!"
+													class="size-8! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7! [@media(pointer:coarse)]:size-11!"
 													aria-label={`${m.video_editor_sequence_options()}: ${sequence.name}`}
 												>
 													<ThemeIcon role="more-horizontal" class="size-3.5" />
@@ -1639,7 +1639,7 @@
 														{...props}
 														variant="ghost"
 														size="icon-xs"
-														class="size-11! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7! {assetViewMode ===
+														class="size-8! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7! [@media(pointer:coarse)]:size-11! {assetViewMode ===
 														'grid'
 															? 'justify-self-center'
 															: ''}"

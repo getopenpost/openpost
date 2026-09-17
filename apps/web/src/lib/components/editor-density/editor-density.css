@@ -1,0 +1,22 @@
+/**
+ * Editor-density workstation scale.
+ *
+ * Same theme tokens, smaller metrics. Import once where editors mount
+ * (a slice follow-up wires this into the editor shells); every component in
+ * this directory already falls back to the literal px values when the scope
+ * class is absent, so rendering never depends on this import.
+ *
+ * Density targets (fine pointer): 22px fields, 25px menus/bars, 32px primary.
+ * Coarse pointers keep 44px targets via per-component pointer:coarse rules.
+ */
+.editor-density {
+	--editor-22: 22px;
+	--editor-25: 25px;
+	--editor-32: 32px;
+	--editor-radius: 5px;
+}
+
+/* Tabular figures everywhere a value is read at rest. */
+.editor-density-nums {
+	font-variant-numeric: tabular-nums;
+}

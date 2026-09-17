@@ -250,7 +250,7 @@
 	}}
 >
 	<Dialog.Content
-		class="video-editor-theme max-h-[min(88dvh,46rem)] w-[calc(100%_-_1rem)] max-w-3xl overflow-y-auto border-border bg-popover text-popover-foreground sm:max-w-3xl"
+		class="video-editor-theme max-h-[min(88dvh,46rem)] w-[calc(100%_-_1rem)] max-w-2xl overflow-y-auto border-border bg-popover text-popover-foreground sm:max-w-2xl"
 		showCloseButton={busyId === null}
 	>
 		<Dialog.Header>
@@ -380,7 +380,7 @@
 
 								<ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto pr-1">
 									{#each directoryPlan.entries as entry (entry.mediaId)}
-										<li class="rounded-md border border-border bg-muted p-2.5">
+										<li class="rounded-md border border-border bg-muted p-2">
 											<div class="flex items-start justify-between gap-3">
 												<div class="min-w-0">
 													<p class="truncate text-xs font-medium">{entry.fileName}</p>
@@ -422,7 +422,7 @@
 						<ul class="mt-2 space-y-1.5">
 							{#each mediaRecovery.sourceIssues as issue (issue.mediaId)}
 								<li
-									class="flex flex-col gap-2 rounded-md border border-border bg-muted p-2.5 sm:flex-row sm:items-center"
+									class="flex flex-col gap-2 rounded-md border border-border bg-muted p-2 sm:flex-row sm:items-center"
 								>
 									<div class="min-w-0 flex-1">
 										<p class="truncate text-xs font-medium">{issue.fileName}</p>
@@ -487,7 +487,7 @@
 						<ul class="mt-2 max-h-64 space-y-1.5 overflow-y-auto pr-1">
 							{#each mediaRecovery.orphanedClips as orphan (orphan.itemId)}
 								<li
-									class="flex flex-col gap-2 rounded-md border border-border bg-muted p-2.5 sm:flex-row sm:items-center"
+									class="flex flex-col gap-2 rounded-md border border-border bg-muted p-2 sm:flex-row sm:items-center"
 								>
 									<div class="min-w-0 flex-1">
 										<p class="truncate text-xs font-medium">{orphan.label}</p>

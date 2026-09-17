@@ -143,7 +143,9 @@
 						></div>
 					</div>
 					<div class="space-y-2 text-xs">
-						<label class="flex min-h-11 items-center justify-between gap-3">
+						<label
+							class="flex min-h-8 items-center justify-between gap-3 [@media(pointer:coarse)]:min-h-11"
+						>
 							<span>{m.video_editor_voiceover_noise_suppression()}</span>
 							<Checkbox
 								checked={voiceoverRecorder.noiseSuppression}
@@ -152,7 +154,9 @@
 									voiceoverRecorder.setNoiseSuppression(checked === true)}
 							/>
 						</label>
-						<label class="flex min-h-11 items-center justify-between gap-3">
+						<label
+							class="flex min-h-8 items-center justify-between gap-3 [@media(pointer:coarse)]:min-h-11"
+						>
 							<span>{m.video_editor_voiceover_auto_gain()}</span>
 							<Checkbox
 								checked={voiceoverRecorder.autoGainControl}
@@ -161,7 +165,9 @@
 									voiceoverRecorder.setAutoGainControl(checked === true)}
 							/>
 						</label>
-						<label class="flex min-h-11 items-center justify-between gap-3">
+						<label
+							class="flex min-h-8 items-center justify-between gap-3 [@media(pointer:coarse)]:min-h-11"
+						>
 							<span>{m.video_editor_voiceover_mute_timeline()}</span>
 							<Checkbox
 								checked={voiceoverRecorder.muteTimeline}
@@ -170,7 +176,9 @@
 							/>
 						</label>
 					</div>
-					<div class="flex min-h-11 items-center justify-between gap-3 text-xs">
+					<div
+						class="flex min-h-8 items-center justify-between gap-3 text-xs [@media(pointer:coarse)]:min-h-11"
+					>
 						<span>{m.video_editor_voiceover_sync_offset()}</span>
 						<div class="flex items-center gap-1">
 							<Button
@@ -219,7 +227,7 @@
 			<span class="min-w-12 text-center font-mono text-xs tabular-nums">{elapsed}</span>
 			{#if voiceoverRecorder.status === 'finalizing'}
 				<span
-					class="flex min-h-11 items-center gap-1 px-1 text-xs text-muted-foreground md:min-h-7"
+					class="flex min-h-8 items-center gap-1 px-1 text-xs text-muted-foreground md:min-h-7 [@media(pointer:coarse)]:min-h-11"
 				>
 					<ProtectedIcon icon="loading" class="size-3.5 animate-spin motion-reduce:animate-none" />
 					{m.video_editor_voiceover_saving()}

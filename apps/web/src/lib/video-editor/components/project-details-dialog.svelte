@@ -171,13 +171,17 @@
 				<Button
 					type="button"
 					variant="ghost"
-					class="min-h-11"
+					class="min-h-8 [@media(pointer:coarse)]:min-h-11"
 					disabled={saving}
 					onclick={() => (open = false)}
 				>
 					{m.common_cancel()}
 				</Button>
-				<Button type="submit" class="min-h-11" disabled={!canSave || saving}>
+				<Button
+					type="submit"
+					class="min-h-8 [@media(pointer:coarse)]:min-h-11"
+					disabled={!canSave || saving}
+				>
 					{#if saving}<ProtectedIcon
 							icon="loading"
 							class="size-4 animate-spin motion-reduce:animate-none"

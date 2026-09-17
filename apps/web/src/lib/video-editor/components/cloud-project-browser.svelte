@@ -117,7 +117,7 @@
 		<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each visible as project (project.id)}
 				<article
-					class="rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4"
+					class="rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
 				>
 					<h2 class="truncate text-sm font-semibold" title={project.name}>
 						{project.name}

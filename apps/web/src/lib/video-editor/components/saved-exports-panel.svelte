@@ -203,7 +203,7 @@
 	<div class="max-h-[50dvh] min-h-0 overflow-y-auto pr-1">
 		{#if loading && entries === null}
 			<div
-				class="flex items-center justify-center gap-2 py-10 text-sm text-[var(--video-editor-muted)]"
+				class="flex items-center justify-center gap-2 py-6 text-sm text-[var(--video-editor-muted)]"
 				role="status"
 			>
 				<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
@@ -211,7 +211,7 @@
 			</div>
 		{:else if entries?.length === 0}
 			<div
-				class="flex flex-col items-center gap-2 py-10 text-center text-sm text-[var(--video-editor-muted)]"
+				class="flex flex-col items-center gap-2 py-6 text-center text-sm text-[var(--video-editor-muted)]"
 			>
 				<ThemeIcon role="folder" class="size-6" />
 				<p class="max-w-72">{m.video_editor_saved_exports_empty()}</p>

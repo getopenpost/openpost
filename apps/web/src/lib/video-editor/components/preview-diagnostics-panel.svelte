@@ -73,7 +73,7 @@
 		class="video-editor-theme max-h-[min(36rem,calc(100dvh-4rem))] w-[min(23rem,calc(100vw-1rem))] overflow-y-auto border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-0 text-[var(--video-editor-text)]"
 	>
 		<div
-			class="flex items-start justify-between gap-4 border-b border-[var(--video-editor-border)] p-4"
+			class="flex items-start justify-between gap-4 border-b border-[var(--video-editor-border)] p-3"
 		>
 			<div>
 				<h2 class="text-sm font-medium">{m.video_editor_diagnostics_title()}</h2>
@@ -196,7 +196,7 @@
 					type="button"
 					role="switch"
 					aria-checked={previewDiagnostics.performanceOverlay}
-					class="flex min-h-11 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9"
+					class="flex min-h-8 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 [@media(pointer:coarse)]:min-h-11"
 					data-cuelume-toggle="toggle"
 					onclick={() =>
 						previewDiagnostics.setPerformanceOverlay(!previewDiagnostics.performanceOverlay)}
@@ -212,7 +212,7 @@
 					type="button"
 					role="switch"
 					aria-checked={previewDiagnostics.clipTimingOverlay}
-					class="flex min-h-11 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9"
+					class="flex min-h-8 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 [@media(pointer:coarse)]:min-h-11"
 					data-cuelume-toggle="toggle"
 					onclick={() =>
 						previewDiagnostics.setClipTimingOverlay(!previewDiagnostics.clipTimingOverlay)}
@@ -227,7 +227,7 @@
 			</div>
 		</section>
 
-		<div class="p-4">
+		<div class="p-3">
 			<div class="flex flex-wrap gap-2">
 				<Button size="sm" variant="outline" onclick={() => void copyReport()}>
 					{#if copied}<ProtectedIcon icon="success" />{:else}<ThemeIcon role="copy" />{/if}

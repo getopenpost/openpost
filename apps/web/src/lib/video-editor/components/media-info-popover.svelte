@@ -75,8 +75,7 @@
 		class="video-editor-theme max-h-[min(80vh,32rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto border-border bg-popover p-3 text-popover-foreground"
 	>
 		<div class="border-b border-border pb-2">
-			<p class="text-sm font-medium break-words">{media.fileName}</p>
-			<p class="mt-0.5 text-[10px] text-[var(--video-editor-muted)]">{media.id}</p>
+			<p class="text-sm font-medium break-words" title={media.id}>{media.fileName}</p>
 		</div>
 		<dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[11px]">
 			{#each rows as row (row.label)}

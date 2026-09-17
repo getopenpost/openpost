@@ -10,7 +10,6 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
-	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import EditorMenubar from '$lib/components/editor-menubar.svelte';
@@ -316,6 +315,13 @@
 	let backgroundError = $state('');
 	let backgroundOptimizeDialogOpen = $state(false);
 	let mobileSheet = $state<'assets' | 'layers' | 'properties' | null>(null);
+	let assetOverlayOpen = $state(false);
+	let assetOverlayTrigger = $state<HTMLButtonElement | null>(null);
+
+	function closeAssetOverlay(): void {
+		assetOverlayOpen = false;
+		assetOverlayTrigger?.focus();
+	}
 	let activeEditorWorkspace = $state<'edit' | 'color'>('edit');
 	let focusedCanvas = $state(false);
 	let copiedLayers = $state.raw<ImageEditorLayer[]>([]);
@@ -357,7 +363,6 @@
 	let mobileSelectTool = $state<ImageEditorTool>('select');
 	let mobileDrawTool = $state<ImageEditorTool>('pencil');
 	let mobileRetouchTool = $state<ImageEditorTool>('eraser');
-	let assetPanelWidth = $state(260);
 	let inspectorPanelWidth = $state(320);
 	let layersPanelHeight = $state(280);
 	let pagesPanelHeight = $state(132);
@@ -368,7 +373,7 @@
 	let meaningfulEditTracked = false;
 	let panelResize:
 		| {
-				panel: 'assets' | 'inspector' | 'layers';
+				panel: 'inspector' | 'layers';
 				startX: number;
 				startY: number;
 				startSize: number;
@@ -604,7 +609,6 @@
 			const stored = parseImageEditorLayoutPreferences(
 				localStorage.getItem('openpost-image-editor-layout-v1') || '{}'
 			);
-			assetPanelWidth = clampPanelSize(stored.assets, 220, 420, assetPanelWidth);
 			inspectorPanelWidth = clampPanelSize(stored.inspector, 280, 480, inspectorPanelWidth);
 			layersPanelHeight = clampPanelSize(stored.layers, 120, 520, layersPanelHeight);
 			pagesPanelHeight = clampPanelSize(stored.pages, 120, 320, pagesPanelHeight);
@@ -732,15 +736,9 @@
 		return Number.isFinite(value) ? Math.max(minimum, Math.min(maximum, value!)) : fallback;
 	}
 
-	function panelMaximum(panel: 'assets' | 'inspector'): number {
-		const otherPanelWidth =
-			panel === 'assets' ? (editor.rightPanelVisible ? inspectorPanelWidth : 0) : assetPanelWidth;
-		const available =
-			desktopViewportWidth - DESKTOP_TOOL_RAIL_WIDTH - MINIMUM_CANVAS_WIDTH - otherPanelWidth;
-		return Math.max(
-			panel === 'assets' ? 220 : 280,
-			Math.min(panel === 'assets' ? 420 : 480, available)
-		);
+	function panelMaximum(): number {
+		const available = desktopViewportWidth - DESKTOP_TOOL_RAIL_WIDTH - MINIMUM_CANVAS_WIDTH;
+		return Math.max(280, Math.min(480, available));
 	}
 
 	function layersPanelMaximum(): number {
@@ -764,11 +762,8 @@
 		if (window.innerWidth < 1024) return;
 		const maximumCombinedWidth =
 			desktopViewportWidth - DESKTOP_TOOL_RAIL_WIDTH - MINIMUM_CANVAS_WIDTH;
-		let overflow = assetPanelWidth + inspectorPanelWidth - maximumCombinedWidth;
+		const overflow = inspectorPanelWidth - maximumCombinedWidth;
 		if (overflow <= 0) return;
-		const assetReduction = Math.min(assetPanelWidth - 220, Math.ceil(overflow / 2));
-		assetPanelWidth -= assetReduction;
-		overflow -= assetReduction;
 		inspectorPanelWidth -= Math.min(inspectorPanelWidth - 280, overflow);
 	}
 
@@ -782,7 +777,7 @@
 		});
 	}
 
-	function startPanelResize(event: PointerEvent, panel: 'assets' | 'inspector' | 'layers'): void {
+	function startPanelResize(event: PointerEvent, panel: 'inspector' | 'layers'): void {
 		if (event.button !== 0) return;
 		const handle = event.currentTarget;
 		if (!(handle instanceof HTMLElement)) return;
@@ -792,29 +787,17 @@
 			panel,
 			startX: event.clientX,
 			startY: event.clientY,
-			startSize:
-				panel === 'assets'
-					? assetPanelWidth
-					: panel === 'inspector'
-						? inspectorPanelWidth
-						: layersPanelHeight
+			startSize: panel === 'inspector' ? inspectorPanelWidth : layersPanelHeight
 		};
 	}
 
 	function resizePanels(event: PointerEvent): void {
 		if (!panelResize) return;
-		if (panelResize.panel === 'assets') {
-			assetPanelWidth = clampPanelSize(
-				panelResize.startSize + event.clientX - panelResize.startX,
-				220,
-				panelMaximum('assets'),
-				assetPanelWidth
-			);
-		} else if (panelResize.panel === 'inspector') {
+		if (panelResize.panel === 'inspector') {
 			inspectorPanelWidth = clampPanelSize(
 				panelResize.startSize - (event.clientX - panelResize.startX),
 				280,
-				panelMaximum('inspector'),
+				panelMaximum(),
 				inspectorPanelWidth
 			);
 		} else {
@@ -838,7 +821,6 @@
 			localStorage.setItem(
 				'openpost-image-editor-layout-v1',
 				JSON.stringify({
-					assets: Math.round(assetPanelWidth),
 					inspector: Math.round(inspectorPanelWidth),
 					layers: Math.round(layersPanelHeight),
 					pages: Math.round(pagesPanelHeight)
@@ -895,11 +877,8 @@
 		guideDialogOpen = false;
 	}
 
-	function resizePanelWithKeyboard(
-		event: KeyboardEvent,
-		panel: 'assets' | 'inspector' | 'layers'
-	): void {
-		const verticalSeparator = panel === 'assets' || panel === 'inspector';
+	function resizePanelWithKeyboard(event: KeyboardEvent, panel: 'inspector' | 'layers'): void {
+		const verticalSeparator = panel === 'inspector';
 		if (
 			(verticalSeparator && event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') ||
 			(!verticalSeparator && event.key !== 'ArrowUp' && event.key !== 'ArrowDown')
@@ -914,18 +893,11 @@
 		if (!direction) return;
 		event.preventDefault();
 		const step = event.shiftKey ? 32 : 8;
-		if (panel === 'assets') {
-			assetPanelWidth = clampPanelSize(
-				assetPanelWidth + direction * step,
-				220,
-				panelMaximum('assets'),
-				assetPanelWidth
-			);
-		} else if (panel === 'inspector') {
+		if (panel === 'inspector') {
 			inspectorPanelWidth = clampPanelSize(
 				inspectorPanelWidth - direction * step,
 				280,
-				panelMaximum('inspector'),
+				panelMaximum(),
 				inspectorPanelWidth
 			);
 		} else {
@@ -3176,13 +3148,31 @@
 		data-focused={focusedCanvas}
 		data-inspector={editor.rightPanelVisible}
 		data-workspace={activeEditorWorkspace}
-		style:--image-editor-assets-width={`${assetPanelWidth}px`}
 		style:--image-editor-inspector-width={`${inspectorPanelWidth}px`}
 	>
 		<nav
 			class="hidden min-h-0 flex-col items-center gap-1 border-r bg-card py-2 lg:flex"
 			aria-label={m.image_editor_tools()}
 		>
+			<Tooltip.Root>
+				<Tooltip.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							bind:ref={assetOverlayTrigger}
+							variant={assetOverlayOpen ? 'secondary' : 'ghost'}
+							size="icon-sm"
+							onclick={() => (assetOverlayOpen = !assetOverlayOpen)}
+							aria-label={m.image_editor_add()}
+							aria-pressed={assetOverlayOpen}
+							title={m.image_editor_add()}
+						>
+							<ThemeIcon role="add" class="size-4" />
+						</Button>
+					{/snippet}
+				</Tooltip.Trigger>
+				<Tooltip.Content side="right">{m.image_editor_add()}</Tooltip.Content>
+			</Tooltip.Root>
 			{#each tools as tool (tool.key)}
 				{@const ToolIcon = commandIcons.get(tool.command.id) ?? fallbackToolGlyph}
 				{#if tool.key === 'select'}
@@ -3469,34 +3459,15 @@
 				{/if}
 			{/each}
 		</nav>
-		{#if !focusedCanvas && activeEditorWorkspace === 'edit'}
-			<aside class="relative hidden min-h-0 min-w-0 border-r bg-card lg:block">
-				<div class="size-full min-h-0 overflow-hidden"><AssetPanel {guestMode} /></div>
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -- focusable ARIA Window Splitter -->
-				<div
-					aria-label={m.image_editor_resize_asset_panel()}
-					title={m.image_editor_resize_asset_panel()}
-					role="separator"
-					tabindex="0"
-					aria-orientation="vertical"
-					aria-valuemin="220"
-					aria-valuemax={panelMaximum('assets')}
-					aria-valuenow={Math.round(assetPanelWidth)}
-					class="image-editor-resize-handle absolute inset-y-0 right-0 z-20 w-2 cursor-col-resize touch-none border-0 bg-transparent p-0 [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:-right-5 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2"
-					onpointerdown={(event) => startPanelResize(event, 'assets')}
-					onkeydown={(event) => resizePanelWithKeyboard(event, 'assets')}
-					ondblclick={() => {
-						assetPanelWidth = clampPanelSize(260, 220, panelMaximum('assets'), 260);
-						storePanelLayout();
-					}}
-				></div>
-			</aside>
-		{/if}
 		<main
 			class="relative min-h-0 min-w-0"
 			style:--image-editor-pages-height={`${pagesPanelHeight}px`}
 		>
+			{#if assetOverlayOpen && !focusedCanvas && activeEditorWorkspace === 'edit'}
+				<div class="absolute top-2 left-2 z-40 hidden lg:block">
+					<AssetPanel {guestMode} mode="overlay" onclose={closeAssetOverlay} />
+				</div>
+			{/if}
 			<div
 				class="absolute inset-0 {focusedCanvas
 					? 'bottom-0'
@@ -3541,24 +3512,8 @@
 				>
 			</div>
 			{#if !focusedCanvas}
-				<div
-					class="absolute inset-x-0 bottom-0 {editor.pagesExpanded
-						? 'lg:h-[var(--image-editor-pages-height)]'
-						: 'lg:h-9'}"
-				>
-					{#if editor.pagesExpanded}
-						<PanelResizeHandle
-							edge="top"
-							value={pagesPanelHeight}
-							minimum={120}
-							maximum={320}
-							defaultValue={132}
-							label={m.image_editor_pages()}
-							onresize={(value) => (pagesPanelHeight = value)}
-							oncommit={storePanelLayout}
-						/>
-					{/if}
-					<PageStrip onExternalFiles={placeExternalFiles} />
+				<div class="absolute inset-x-0 bottom-0">
+					<PageStrip onExternalFiles={placeExternalFiles} mode="status" />
 				</div>
 			{/if}
 		</main>
@@ -3577,13 +3532,13 @@
 					tabindex="0"
 					aria-orientation="vertical"
 					aria-valuemin="280"
-					aria-valuemax={panelMaximum('inspector')}
+					aria-valuemax={panelMaximum()}
 					aria-valuenow={Math.round(inspectorPanelWidth)}
 					class="image-editor-resize-handle absolute inset-y-0 left-0 z-20 w-2 cursor-col-resize touch-none border-0 bg-transparent p-0 [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:-left-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2"
 					onpointerdown={(event) => startPanelResize(event, 'inspector')}
 					onkeydown={(event) => resizePanelWithKeyboard(event, 'inspector')}
 					ondblclick={() => {
-						inspectorPanelWidth = clampPanelSize(320, 280, panelMaximum('inspector'), 320);
+						inspectorPanelWidth = clampPanelSize(320, 280, panelMaximum(), 320);
 						storePanelLayout();
 					}}
 				></div>
@@ -4706,13 +4661,12 @@
 		.image-editor-workspace {
 			grid-template-columns:
 				44px
-				var(--image-editor-assets-width)
 				minmax(0, 1fr)
 				var(--image-editor-inspector-width);
 		}
 
 		.image-editor-workspace[data-inspector='false'] {
-			grid-template-columns: 44px var(--image-editor-assets-width) minmax(0, 1fr);
+			grid-template-columns: 44px minmax(0, 1fr);
 		}
 
 		.image-editor-workspace[data-workspace='color'] {

@@ -384,6 +384,7 @@
 					bind:value={search}
 					class="h-7 pl-7 text-xs"
 					placeholder={m.image_editor_search_media()}
+					aria-label={m.image_editor_search_media()}
 				/>
 			</div>
 			<Tooltip.Root>

@@ -4,6 +4,7 @@
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import type {
 		TimelineItem,
 		KeyframeProperty,
@@ -70,11 +71,22 @@
 <section
 	class="flex flex-col gap-3 rounded-[10px] border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2.5"
 	aria-label={m.video_editor_background_inspector()}
-	title={m.video_editor_background_hint()}
 >
-	<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
-		{m.video_editor_backgrounds_title()}
-	</h3>
+	<div class="flex items-center gap-1">
+		<h3
+			class="flex-1 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+		>
+			{m.video_editor_backgrounds_title()}
+		</h3>
+		<button
+			type="button"
+			class="rounded p-0.5 text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)] focus-visible:outline-2 focus-visible:outline-ring"
+			aria-label={m.video_editor_background_hint()}
+			title={m.video_editor_background_hint()}
+		>
+			<ThemeIcon role="help" class="size-3" />
+		</button>
+	</div>
 
 	<AppSelect
 		value={BACKGROUND_PRESETS.find(

@@ -1063,11 +1063,8 @@
 			style:top={line.type === 'horizontal' ? `${(line.position / canvasHeight) * 100}%` : '0'}
 			data-canvas-snap-guide={line.type}
 			data-canvas-snap-position={line.position}
-		>
-			{#if line.label}
-				<title>{snapLineLabel(line.label)}</title>
-			{/if}
-		</div>
+			title={line.label ? snapLineLabel(line.label) : undefined}
+		></div>
 	{/each}
 
 	{#if activeTool === 'motion' && !isPlaying && motionPoints.length > 0}

@@ -940,7 +940,7 @@
 		context.drawImage(source, x - 4, y - 4, 9, 9, 0, 0, loupe.width, loupe.height);
 		context.strokeStyle = 'rgba(255,255,255,0.9)';
 		context.lineWidth = 1;
-		context.strokeRect(32.5, 32.5, 8, 8);
+		context.strokeRect(loupe.width / 2 - 3.5, loupe.height / 2 - 3.5, 8, 8);
 	}
 
 	function choosePickerColor(event: PointerEvent): void {

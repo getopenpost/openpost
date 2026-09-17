@@ -1157,7 +1157,9 @@
 											<ProtectedIcon icon="editor-crop" class="size-3.5" />
 											<span class="min-w-0 flex-1">{m.image_editor_crop()}</span>
 											<span class="shrink-0 font-normal text-muted-foreground tabular-nums">
-												{Math.round(cropValue('width') * 100)}%
+												{Math.round(cropValue('width') * 100)}% × {Math.round(
+													cropValue('height') * 100
+												)}%
 											</span>
 											<ThemeIcon
 												role="chevron-down"

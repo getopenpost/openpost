@@ -221,7 +221,7 @@
 				{#each sections as item (item.id)}
 					<button
 						type="button"
-						class="flex min-h-8 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
+						class="flex min-h-8 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 						data-active={section === item.id}
 						aria-current={section === item.id ? 'page' : undefined}
 						data-cuelume-toggle="tick"

@@ -45,7 +45,7 @@
 		bind:value={search}
 		placeholder={m.video_editor_paper_search()}
 		aria-label={m.video_editor_paper_search()}
-		class="h-[22px] shrink-0 text-xs"
+		class="h-[22px] shrink-0 text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
 	/>
 	{#if matching.length === 0}<p class="text-xs text-muted-foreground" role="status">
 			{m.video_editor_paper_empty()}

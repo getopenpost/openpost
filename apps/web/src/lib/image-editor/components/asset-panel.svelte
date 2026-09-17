@@ -259,7 +259,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
+					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addText()}
 				>
 					<ProtectedIcon icon="editor-text" />
@@ -268,7 +268,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
+					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
@@ -277,7 +277,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
+					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('rounded_rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" class="rounded-sm" />
@@ -286,7 +286,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
+					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('ellipse')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
@@ -295,7 +295,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="col-span-2 min-h-8 justify-start [(pointer:coarse)]:min-h-11"
+					class="col-span-2 min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('line')}
 				>
 					<ThemeIcon role="remove" />

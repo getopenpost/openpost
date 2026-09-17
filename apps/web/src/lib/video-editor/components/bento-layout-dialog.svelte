@@ -346,15 +346,14 @@
 			<Button variant="ghost" size="sm" onclick={() => (savingPreset = !savingPreset)}>
 				{m.video_editor_bento_new_preset()}
 			</Button>
+			<p class="text-[11px] leading-5 text-muted-foreground">
+				{m.video_editor_bento_motion_warning()}
+			</p>
 			<div class="flex gap-2">
 				<Button variant="ghost" onclick={() => (open = false)}>
 					{m.video_editor_bento_cancel()}
 				</Button>
-				<Button
-					disabled={eligibleIds.length < 2}
-					onclick={applyLayout}
-					title={m.video_editor_bento_motion_warning()}
-				>
+				<Button disabled={eligibleIds.length < 2} onclick={applyLayout}>
 					{m.video_editor_bento_apply()}
 				</Button>
 			</div>

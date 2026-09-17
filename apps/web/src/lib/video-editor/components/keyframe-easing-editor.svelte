@@ -421,11 +421,11 @@
 <style>
 	@media (pointer: coarse) {
 		[data-segment-menu] :global(button) {
-			min-height: 28px;
-			min-width: 28px;
+			min-height: 44px;
+			min-width: 44px;
 		}
 		[data-segment-menu] :global([role='slider']) {
-			min-height: 32px;
+			min-height: 44px;
 		}
 	}
 </style>

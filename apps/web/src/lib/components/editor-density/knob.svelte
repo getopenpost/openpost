@@ -157,7 +157,7 @@
 	title={ariaLabel}
 	style="width: {size}px; height: {size}px;"
 	class={cn(
-		'shrink-0 cursor-ns-resize touch-none rounded-full border bg-muted select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+		'shrink-0 cursor-ns-resize touch-none rounded-full border bg-muted select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11',
 		disabled && 'pointer-events-none opacity-50',
 		className
 	)}

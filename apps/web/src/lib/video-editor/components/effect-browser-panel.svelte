@@ -146,11 +146,11 @@
 		bind:value={search}
 		placeholder={m.video_editor_effects_search()}
 		aria-label={m.video_editor_effects_search()}
-		class="mb-2 h-[25px] text-xs"
+		class="mb-2 h-[25px] text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
 	/>
 	<button
 		type="button"
-		class="mb-2 flex h-[25px] w-full items-center gap-2 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-left text-[11px] text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+		class="mb-2 flex h-[25px] w-full items-center gap-2 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-left text-[11px] text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 		onclick={() => createAdjustment(m.video_editor_adjustment_layer())}
 	>
 		<span

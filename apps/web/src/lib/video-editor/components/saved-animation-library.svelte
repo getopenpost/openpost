@@ -274,6 +274,9 @@
 	}
 	button {
 		min-height: 22px;
+		@media (pointer: coarse) {
+			min-height: 44px;
+		}
 		border-radius: 0.32rem;
 		padding: 0.25rem 0.5rem;
 		font-size: 0.5625rem;

@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { mediaTasks, type MediaTask } from '$lib/video-editor/media/media-tasks.svelte';
+	import { StatusLine } from '$lib/components/editor-density';
 
 	let expanded = $state(false);
 	const tasks = $derived(mediaTasks.list);
@@ -151,41 +152,43 @@
 
 {#if tasks.length > 0}
 	<section
-		class="shrink-0 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-1"
+		class="shrink-0 bg-[var(--video-editor-panel)]"
 		aria-label={m.video_editor_background_tasks()}
 	>
 		<span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
 			{phaseAnnouncement}
 		</span>
-		<div class="flex items-center gap-2 text-[10px]">
-			<ProtectedIcon
-				icon="loading"
-				class="size-3.5 shrink-0 animate-spin text-[var(--video-editor-focus)] motion-reduce:animate-none"
-			/>
-			<button
-				type="button"
-				class="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded text-left text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7 [@media(pointer:coarse)]:min-h-11"
-				aria-expanded={expanded}
-				onclick={() => (expanded = !expanded)}
-			>
-				<ThemeIcon
-					role="chevron-right"
-					class="size-3 shrink-0 transition-transform {expanded ? 'rotate-90' : ''}"
+		<StatusLine>
+			{#snippet children()}
+				<ProtectedIcon
+					icon="loading"
+					class="size-3.5 shrink-0 animate-spin text-[var(--video-editor-focus)] motion-reduce:animate-none"
 				/>
-				<span class="truncate">
-					{tasks.length === 1
-						? stageLabel(tasks[0]!)
-						: m.video_editor_background_task_count({ count: tasks.length })}
+				<button
+					type="button"
+					class="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded text-left text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7 [@media(pointer:coarse)]:min-h-11"
+					aria-expanded={expanded}
+					onclick={() => (expanded = !expanded)}
+				>
+					<ThemeIcon
+						role="chevron-right"
+						class="size-3 shrink-0 transition-transform {expanded ? 'rotate-90' : ''}"
+					/>
+					<span class="truncate">
+						{tasks.length === 1
+							? stageLabel(tasks[0]!)
+							: m.video_editor_background_task_count({ count: tasks.length })}
+					</span>
+				</button>
+				<span class="shrink-0 text-[var(--video-editor-muted)] tabular-nums">
+					{averageProgress === null
+						? tasks.length === 1
+							? taskMeta(tasks[0]!)
+							: m.video_editor_task_working()
+						: `${Math.round(averageProgress * 100)}%`}
 				</span>
-			</button>
-			<span class="shrink-0 text-[var(--video-editor-muted)] tabular-nums">
-				{averageProgress === null
-					? tasks.length === 1
-						? taskMeta(tasks[0]!)
-						: m.video_editor_task_working()
-					: `${Math.round(averageProgress * 100)}%`}
-			</span>
-		</div>
+			{/snippet}
+		</StatusLine>
 		<ProgressMeter
 			class="mt-1.5 h-1 bg-[var(--video-editor-border)]"
 			fillClass="bg-[var(--video-editor-focus)]"

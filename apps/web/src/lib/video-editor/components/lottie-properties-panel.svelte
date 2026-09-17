@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -195,15 +196,23 @@
 	}
 </script>
 
-<section
-	class="flex flex-col gap-2"
-	aria-label={m.video_editor_lottie()}
-	title={m.video_editor_lottie_hint()}
->
+<section class="flex flex-col gap-2" aria-label={m.video_editor_lottie()}>
 	<div class="flex items-center justify-between gap-2">
-		<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
-			{m.video_editor_lottie()}
-		</h3>
+		<span class="inline-flex items-center gap-1">
+			<h3
+				class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			>
+				{m.video_editor_lottie()}
+			</h3>
+			<button
+				type="button"
+				class="rounded p-0.5 text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)] focus-visible:outline-2 focus-visible:outline-ring"
+				aria-label={m.video_editor_lottie_hint()}
+				title={m.video_editor_lottie_hint()}
+			>
+				<ThemeIcon role="help" class="size-3" />
+			</button>
+		</span>
 		<span class="text-[9px] text-[var(--video-editor-muted)] tabular-nums">
 			{item.lottieTotalFrames ?? 1}f · {(item.lottieFrameRate ?? 30).toFixed(2)} fps
 		</span>

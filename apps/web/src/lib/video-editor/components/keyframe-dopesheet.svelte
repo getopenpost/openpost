@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import { ToolbarGroup } from '$lib/components/editor-density';
 	import { Input } from '$lib/components/ui/input';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import type { KeyframeProperty, TimelineItem } from '$lib/video-editor/project/types';
@@ -772,30 +773,32 @@
 						aria-label={m.video_editor_keyframe_sheet_search()}
 					/>
 
-					<button
-						type="button"
-						class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
-						aria-label={m.video_editor_keyframe_sheet_copy()}
-						disabled={selectedIds.size === 0}
-						onclick={() => copySelection()}><ThemeIcon role="copy" class="size-3" /></button
-					>
-					<button
-						type="button"
-						class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
-						aria-label={m.video_editor_keyframe_sheet_cut()}
-						disabled={selectedIds.size === 0}
-						onclick={() => copySelection(true)}
-						><ProtectedIcon icon="editor-cut" class="size-3" /></button
-					>
-					<button
-						type="button"
-						class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
-						aria-label={keyframeSelectionStore.isCut
-							? m.video_editor_keyframe_sheet_move_clipboard()
-							: m.video_editor_keyframe_sheet_paste()}
-						disabled={!keyframeSelectionStore.clipboard}
-						onclick={pasteClipboard}><ThemeIcon role="copy" class="size-3" /></button
-					>
+					<ToolbarGroup>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35 [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_keyframe_sheet_copy()}
+							disabled={selectedIds.size === 0}
+							onclick={() => copySelection()}><ThemeIcon role="copy" class="size-3" /></button
+						>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35 [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_keyframe_sheet_cut()}
+							disabled={selectedIds.size === 0}
+							onclick={() => copySelection(true)}
+							><ProtectedIcon icon="editor-cut" class="size-3" /></button
+						>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35 [@media(pointer:coarse)]:size-11"
+							aria-label={keyframeSelectionStore.isCut
+								? m.video_editor_keyframe_sheet_move_clipboard()
+								: m.video_editor_keyframe_sheet_paste()}
+							disabled={!keyframeSelectionStore.clipboard}
+							onclick={pasteClipboard}><ThemeIcon role="copy" class="size-3" /></button
+						>
+					</ToolbarGroup>
 					{#if keyframeSelectionStore.isCut && keyframeSelectionStore.clipboard}
 						<span class="font-medium text-[oklch(0.78_0.14_65)] uppercase">
 							{m.video_editor_keyframe_sheet_cut_badge()}

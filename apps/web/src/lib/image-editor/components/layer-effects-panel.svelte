@@ -3,6 +3,7 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { Knob } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		defaultLayerEffects,
@@ -267,18 +268,21 @@
 						/>
 					</label>
 				</div>
-				<label class="grid gap-1 text-xs">
-					<span>{m.image_editor_shadow_angle()} · {Math.round(shadow.angle)}°</span>
-					<Slider
+				<div class="flex items-center gap-2">
+					<Knob
+						ariaLabel={m.image_editor_shadow_angle()}
 						value={shadow.angle}
 						min={-180}
 						max={180}
 						step={1}
+						size={28}
 						disabled={!editor.canEdit}
-						ariaLabel={m.image_editor_shadow_angle()}
 						onValueChange={(angle) => updateShadow(kind, { angle }, `${kind}-angle:${layer.id}`)}
 					/>
-				</label>
+					<span class="text-xs tabular-nums"
+						>{m.image_editor_shadow_angle()} · {Math.round(shadow.angle)}°</span
+					>
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -345,8 +349,20 @@
 							onChange={(color) => updateStroke({ color }, `stroke-color:${layer.id}`)}
 							onCommit={(color) => editor.rememberColor(color)}
 						/>
-						<label class="grid gap-1 text-xs" title={m.image_editor_border_follows_content()}>
-							<span>{m.image_editor_border_position()}</span>
+						<label class="grid gap-1 text-xs">
+							<span class="inline-flex items-center gap-1"
+								>{m.image_editor_border_position()}
+								{#if layer.type === 'image'}
+									<button
+										type="button"
+										class="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+										aria-label={m.image_editor_border_follows_content()}
+										title={m.image_editor_border_follows_content()}
+									>
+										<ThemeIcon role="help" class="size-3" />
+									</button>
+								{/if}
+							</span>
 							<AppSelect
 								value={stroke.position}
 								ariaLabel={m.image_editor_border_position()}

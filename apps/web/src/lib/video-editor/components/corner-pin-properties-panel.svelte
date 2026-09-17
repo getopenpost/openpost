@@ -54,7 +54,7 @@
 		{#if item.cornerPin}
 			<button
 				type="button"
-				class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+				class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 				aria-label={m.video_editor_corner_pin_reset()}
 				title={m.video_editor_corner_pin_reset()}
 				onclick={() => commit(undefined)}

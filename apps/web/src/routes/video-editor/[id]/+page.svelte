@@ -496,7 +496,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const minimumMotionPreviewWidth = 480;
 	const minimumProgramHeight = 180;
 	const editorHeaderHeight = 48;
-	const sourceMonitorHorizontal = $derived(sourceMediaId !== null && editorViewportWidth >= 1280);
+	const sourceMonitorHorizontal = $derived(
+		sourceMediaId !== null && editorViewportWidth >= 1280 && !sourceMonitorOverlay
+	);
 	const minimumEditCenterWidth = $derived(
 		minimumProgramWidth + (sourceMonitorHorizontal ? 300 : 0)
 	);

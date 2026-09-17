@@ -71,7 +71,7 @@
 				{#each gate.knownWorkspaces as workspace (workspace.id)}
 					{@const isActive = workspace.id === gate.activeWorkspaceId}
 					{@const isConfirming = workspace.id === confirmRemoveId}
-					{#snippet rowContent()}
+					{#snippet rowMain()}
 						<ThemeIcon
 							role="workspace"
 							class="size-3.5 shrink-0 text-[var(--video-editor-muted)]"
@@ -87,7 +87,8 @@
 								{m.video_editor_workspace_active()}
 							</span>
 						{/if}
-
+					{/snippet}
+					{#snippet rowActions()}
 						{#if isConfirming}
 							<Button
 								type="button"
@@ -132,20 +133,25 @@
 							</Button>
 						{/if}
 					{/snippet}
-					{#if !isActive && !isConfirming}
-						<button
-							type="button"
-							class="flex h-8 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
-							onclick={() => void switchWorkspace(workspace.id)}
-							aria-label={m.video_editor_workspace_switch()}
-						>
-							{@render rowContent()}
-						</button>
-					{:else}
-						<div class="flex h-8 cursor-default items-center gap-2 rounded-md px-2 py-1">
-							{@render rowContent()}
-						</div>
-					{/if}
+					<div class="flex h-8 items-center gap-1 rounded-md px-1 py-0.5">
+						{#if !isActive && !isConfirming}
+							<button
+								type="button"
+								class="flex min-w-0 flex-1 items-center gap-2 self-stretch rounded px-1 py-1 text-left hover:bg-accent"
+								onclick={() => void switchWorkspace(workspace.id)}
+								aria-label={m.video_editor_workspace_switch()}
+							>
+								{@render rowMain()}
+							</button>
+						{:else}
+							<div
+								class="flex min-w-0 flex-1 cursor-default items-center gap-2 self-stretch px-1 py-1"
+							>
+								{@render rowMain()}
+							</div>
+						{/if}
+						{@render rowActions()}
+					</div>
 				{/each}
 			</div>
 

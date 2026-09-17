@@ -551,7 +551,7 @@
 						{:else}
 							<button
 								type="button"
-								class="flex h-8 min-w-8 items-center justify-center rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 font-mono text-xs text-[var(--video-editor-muted)] transition-colors hover:border-[var(--video-editor-focus)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:bg-[var(--video-editor-control-hover)] data-[active=true]:text-[var(--video-editor-focus)] data-[assigned=true]:text-[var(--video-editor-text)] motion-reduce:transition-none"
+								class="flex h-8 min-w-8 items-center justify-center rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 font-mono text-xs text-[var(--video-editor-muted)] transition-colors hover:border-[var(--video-editor-focus)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:bg-[var(--video-editor-control-hover)] data-[active=true]:text-[var(--video-editor-focus)] data-[assigned=true]:text-[var(--video-editor-text)] motion-reduce:transition-none [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 								style:flex-grow={key.width ?? 1}
 								data-active={keyboardToken === key.token}
 								data-assigned={commandCount > 0}
@@ -575,7 +575,7 @@
 			{#each filters as item (item.id)}
 				<button
 					type="button"
-					class="min-h-6 shrink-0 rounded-md border border-[var(--video-editor-border)] px-2.5 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:text-[var(--video-editor-focus)]"
+					class="min-h-6 shrink-0 rounded-md border border-[var(--video-editor-border)] px-2.5 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[active=true]:border-[var(--video-editor-focus)] data-[active=true]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 					data-active={filter === item.id}
 					aria-pressed={filter === item.id}
 					onclick={() => (filter = item.id)}

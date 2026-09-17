@@ -26,7 +26,8 @@ export function strideMultiplier(modifiers: ScrubModifiers = {}): number {
 
 /** Whole steps for a horizontal drag distance, counted from the press pixel. */
 export function stepsFromPixels(distancePx: number, modifiers: ScrubModifiers = {}): number {
-	return Math.round((distancePx / SCRUB_PX_PER_STEP) * strideMultiplier(modifiers));
+	const raw = (distancePx / SCRUB_PX_PER_STEP) * strideMultiplier(modifiers);
+	return Math.sign(raw) * Math.round(Math.abs(raw));
 }
 
 /** Value after scrubbing `distancePx` from `startValue`. Distance 0 returns start exactly. */

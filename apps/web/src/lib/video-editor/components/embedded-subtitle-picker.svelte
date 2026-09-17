@@ -199,7 +199,7 @@
 					{#each result.tracks as track (track.trackNumber)}
 						<label
 							class={[
-								'flex min-h-10 cursor-pointer items-start gap-2.5 rounded-lg border p-2 transition-colors',
+								'flex min-h-10 cursor-pointer items-start gap-2.5 rounded-lg border p-2 transition-colors [@media(pointer:coarse)]:min-h-11',
 								selectedTrackNumber === String(track.trackNumber)
 									? 'border-[var(--video-editor-focus)] bg-[color-mix(in_oklch,var(--video-editor-focus)_10%,transparent)]'
 									: 'border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)]'

@@ -834,6 +834,9 @@
 	:global(.image-editor-context-item) {
 		display: flex;
 		min-height: 1.75rem;
+		@media (pointer: coarse) {
+			min-height: 44px;
+		}
 		cursor: default;
 		align-items: center;
 		gap: 0.5rem;

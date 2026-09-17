@@ -2,7 +2,7 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -379,24 +379,39 @@
 					>{m.video_editor_rotation()}</span
 				>
 				<div class="flex min-w-0 items-center gap-1">
-					<Slider
-						class="h-[22px] min-w-10 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
-						min={-180}
-						max={180}
-						step={1}
-						value={mixedValue('rotation') ?? 0}
-						ariaLabel={m.video_editor_rotation()}
-						onValueChange={(nextValue) => {
-							beginGesture();
-							writeLive('rotation', nextValue);
-						}}
-						onValueCommit={(nextValue) => commitGesture('rotation', nextValue)}
-						onValueCancel={cancelGesture}
-						onKeydown={(event) => event.stopPropagation()}
-					/>
-					<div class="w-[5.6rem] shrink-0">
-						{@render numberControl('rotation', '', m.video_editor_rotation(), '°', -360, 360)}
+					<div class="min-w-0 flex-1">
+						<SliderRow
+							label={m.video_editor_rotation()}
+							value={mixedValue('rotation') ?? 0}
+							min={-180}
+							max={180}
+							step={1}
+							precision={0}
+							resetValue={0}
+							onbegin={beginGesture}
+							onValueChange={(nextValue) => {
+								beginGesture();
+								writeLive('rotation', nextValue);
+							}}
+							onValueCommit={(nextValue) => commitGesture('rotation', nextValue)}
+							onValueCancel={cancelGesture}
+						/>
 					</div>
+					<button
+						type="button"
+						class:active={autoKeyEnabled('rotation')}
+						class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] transition-colors hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
+						aria-label={m.video_editor_property_auto_key({
+							property: m.video_editor_rotation()
+						})}
+						aria-pressed={autoKeyEnabled('rotation')}
+						onclick={() => toggleAutoKey('rotation')}
+					>
+						<ProtectedIcon
+							icon="editor-keyframe"
+							class={`size-2.5 ${autoKeyEnabled('rotation') ? 'fill-current' : ''}`}
+						/>
+					</button>
 					<button
 						type="button"
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
@@ -486,40 +501,23 @@
 					>{m.video_editor_clip_opacity()}</span
 				>
 				<div class="flex min-w-0 items-center gap-1">
-					<Slider
-						class="h-[22px] min-w-10 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
-						min={0}
-						max={100}
-						step={1}
-						value={(mixedValue('opacity') ?? 1) * 100}
-						ariaLabel={m.video_editor_clip_opacity()}
-						onValueChange={(nextValue) => {
-							beginGesture();
-							writeLive('opacity', nextValue / 100);
-						}}
-						onValueCommit={(nextValue) => commitGesture('opacity', nextValue / 100)}
-						onValueCancel={cancelGesture}
-						onKeydown={(event) => event.stopPropagation()}
-					/>
-					<div class="relative w-[4.5rem] shrink-0">
-						<ScrubbableNumberInput
-							ariaLabel={m.video_editor_clip_opacity()}
-							value={mixedValue('opacity') === null ? null : (mixedValue('opacity') ?? 1) * 100}
-							placeholder={m.video_editor_property_mixed()}
+					<div class="min-w-0 flex-1">
+						<SliderRow
+							label={m.video_editor_clip_opacity()}
+							value={(mixedValue('opacity') ?? 1) * 100}
 							min={0}
 							max={100}
 							step={1}
-							decimals={0}
-							class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+							precision={0}
+							resetValue={100}
 							onbegin={beginGesture}
-							onlive={(value) => writeLive('opacity', value / 100)}
-							oncommit={(value) => commitGesture('opacity', value / 100)}
-							oncancel={cancelGesture}
+							onValueChange={(nextValue) => {
+								beginGesture();
+								writeLive('opacity', nextValue / 100);
+							}}
+							onValueCommit={(nextValue) => commitGesture('opacity', nextValue / 100)}
+							onValueCancel={cancelGesture}
 						/>
-						<span
-							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
-							>%</span
-						>
 					</div>
 					<button
 						type="button"

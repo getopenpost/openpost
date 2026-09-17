@@ -15,9 +15,11 @@ describe('stepsFromPixels', () => {
 		expect(stepsFromPixels(4)).toBe(1);
 		expect(stepsFromPixels(8)).toBe(2);
 		expect(stepsFromPixels(-4)).toBe(-1);
-		// Math.round rounds halves toward +Infinity, so -6px lands on -1.
-		expect(stepsFromPixels(-6)).toBe(-1);
+		// Symmetric rounding: -6px is exactly -1.5 steps, rounding away from zero.
+		expect(stepsFromPixels(-6)).toBe(-2);
 		expect(stepsFromPixels(-7)).toBe(-2);
+		expect(stepsFromPixels(2)).toBe(1);
+		expect(stepsFromPixels(-2)).toBe(-1);
 	});
 
 	it('applies Shift x5 and Alt x0.2 stride modifiers', () => {

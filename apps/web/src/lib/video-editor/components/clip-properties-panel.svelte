@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedProperty } from '$lib/video-editor/timeline/actions/keyframes';
@@ -378,10 +379,17 @@
 					>
 						<div class="flex items-center justify-between gap-2">
 							<h4
-								class="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
-								title={m.video_editor_audio_noise_description()}
+								class="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
 							>
 								{m.video_editor_audio_noise_title()}
+								<button
+									type="button"
+									class="rounded p-0.5 text-muted-foreground normal-case hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+									aria-label={m.video_editor_audio_noise_description()}
+									title={m.video_editor_audio_noise_description()}
+								>
+									<ThemeIcon role="help" class="size-3" />
+								</button>
 							</h4>
 						</div>
 						{#if audioItem}

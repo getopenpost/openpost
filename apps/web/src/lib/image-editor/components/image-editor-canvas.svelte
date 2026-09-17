@@ -3198,7 +3198,7 @@
 		{#if cursorPoint}
 			<div
 				class="pointer-events-none absolute right-3 bottom-3 hidden rounded bg-[color-mix(in_oklch,var(--editor-canvas)_80%,transparent)] px-2 py-1 font-mono text-[10px] whitespace-nowrap text-[var(--editor-muted)] tabular-nums lg:block"
-				role="status"
+				aria-hidden="true"
 			>
 				{Math.round(cursorPoint.x)}, {Math.round(cursorPoint.y)} px · {Math.round(
 					editor.zoom * 100

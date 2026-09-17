@@ -47,7 +47,10 @@
 </script>
 
 <div
-	class={cn('flex h-[var(--editor-22,22px)] items-center gap-1.5', className)}
+	class={cn(
+		'flex h-[var(--editor-22,22px)] items-center gap-1.5 [@media(pointer:coarse)]:h-auto [@media(pointer:coarse)]:min-h-11',
+		className
+	)}
 	data-editor-slider-row
 >
 	<span class="min-w-0 flex-1 truncate text-[11px]" title={label}>{label}</span>
@@ -70,7 +73,7 @@
 			{onValueCancel}
 			{trackClass}
 			{rangeClass}
-			class="h-[var(--editor-22,22px)] md:h-[var(--editor-22,22px)]"
+			class="h-[var(--editor-22,22px)] md:h-[var(--editor-22,22px)] [@media(pointer:coarse)]:h-11"
 		/>
 	</div>
 	<ScrubField

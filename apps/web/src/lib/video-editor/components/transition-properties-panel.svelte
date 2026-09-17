@@ -3,7 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
-	import AppSelect from '$lib/components/app-select.svelte';
+	import { Disclosure as EditorDisclosure, EditorMenu } from '$lib/components/editor-density';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type {
@@ -364,34 +364,23 @@
 			</div>
 		</fieldset>
 
-		<label class="text-[10px] text-[var(--video-editor-muted)]">
-			{m.video_editor_transition_timing()}
-			<AppSelect
-				class="mt-1 h-[25px] w-full text-[11px]"
+		<div class="flex flex-col gap-1">
+			<span class="text-[10px] text-[var(--video-editor-muted)]"
+				>{m.video_editor_transition_timing()}</span
+			>
+			<EditorMenu
+				label={m.video_editor_transition_timing()}
 				value={transition.timing ?? 'linear'}
 				options={timingOptions}
-				ariaLabel={m.video_editor_transition_timing()}
-				onValueChange={(value) => commit({ timing: value as TransitionTiming })}
+				onSelect={(value) => commit({ timing: value as TransitionTiming })}
 			/>
-		</label>
+		</div>
 
 		{#if transition.timing === 'cubic-bezier'}
-			<details class="rounded border border-[var(--video-editor-border)]">
-				<summary
-					class="flex h-[25px] cursor-pointer items-center gap-1 px-1.5 text-[11px] text-[var(--video-editor-text)] [&::-webkit-details-marker]:hidden"
-				>
-					<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
-					<span class="text-[var(--video-editor-muted)]"
-						>{m.video_editor_keyframe_easing_bezier()}</span
-					>
-					<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
-						>{(transition.bezierPoints?.x1 ?? 0.25).toFixed(2)}, {(
-							transition.bezierPoints?.y1 ?? 0.1
-						).toFixed(2)}, {(transition.bezierPoints?.x2 ?? 0.25).toFixed(2)}, {(
-							transition.bezierPoints?.y2 ?? 1
-						).toFixed(2)}</span
-					>
-				</summary>
+			<EditorDisclosure
+				label={m.video_editor_keyframe_easing_bezier()}
+				summary={`${(transition.bezierPoints?.x1 ?? 0.25).toFixed(2)}, ${(transition.bezierPoints?.y1 ?? 0.1).toFixed(2)}, ${(transition.bezierPoints?.x2 ?? 0.25).toFixed(2)}, ${(transition.bezierPoints?.y2 ?? 1).toFixed(2)}`}
+			>
 				<div class="grid grid-cols-4 gap-1 border-t border-[var(--video-editor-border)] p-1">
 					{#each ['x1', 'y1', 'x2', 'y2'] as point}
 						<label class="text-[9px] text-[var(--video-editor-muted)]">
@@ -418,7 +407,7 @@
 						</label>
 					{/each}
 				</div>
-			</details>
+			</EditorDisclosure>
 		{/if}
 
 		{#if definition.hasDirection}

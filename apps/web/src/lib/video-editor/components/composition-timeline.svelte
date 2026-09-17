@@ -3000,7 +3000,7 @@
 																	}}
 																>
 																	<Select.Trigger
-																		class="h-7 min-w-24 px-2"
+																		class="h-[25px] min-w-24 px-2"
 																		aria-label={m.video_editor_keyframe_easing()}
 																		data-testid={`easing-select-${item.id}`}
 																	>

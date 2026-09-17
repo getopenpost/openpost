@@ -112,14 +112,13 @@
 	</h2>
 	{#if !activeComposite}
 		<section
-			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
+			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
 		>
 			<div class="flex items-start justify-between gap-3">
 				<div class="min-w-0">
-					<h3 class="text-sm font-medium">{m.video_editor_motion_composition_title()}</h3>
-					<p class="mt-1 text-xs leading-5 text-[var(--video-editor-muted)]">
-						{m.video_editor_motion_composition_description()}
-					</p>
+					<h3 class="text-sm font-medium" title={m.video_editor_motion_composition_description()}>
+						{m.video_editor_motion_composition_title()}
+					</h3>
 				</div>
 			</div>
 			<div class="mt-3 grid grid-cols-1 gap-2">
@@ -147,13 +146,12 @@
 	<CompositionControlsAuthoring {onedit} />
 	{#if supportsMotion}
 		<section
-			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-3"
+			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
 		>
-			<h3 class="text-sm font-medium">{m.video_editor_motion_parent_title()}</h3>
-			<p class="mt-1 text-xs leading-5 text-[var(--video-editor-muted)]">
-				{m.video_editor_motion_parent_description()}
-			</p>
-			<label class="mt-3 block text-xs font-medium" for="motion-parent-select">
+			<h3 class="text-sm font-medium" title={m.video_editor_motion_parent_description()}>
+				{m.video_editor_motion_parent_title()}
+			</h3>
+			<label class="mt-2 block text-xs font-medium" for="motion-parent-select">
 				{m.video_editor_motion_parent_label()}
 			</label>
 			<Select.Root
@@ -164,7 +162,7 @@
 				<Select.Trigger
 					id="motion-parent-select"
 					aria-label={m.video_editor_motion_parent_label()}
-					class="mt-1 h-9 w-full justify-between rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-sm shadow-none"
+					class="mt-1 h-[25px] w-full justify-between rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs shadow-none"
 				>
 					<span class="truncate"
 						>{parentCandidates.find((c) => c.id === item?.transformParent?.parentItemId)?.label ??
@@ -198,7 +196,7 @@
 			<TextMotionPanel {itemId} {itemIds} {onedit} />
 		{/if}
 	{:else}
-		<p class="p-3 text-center text-xs text-[var(--video-editor-muted)]">
+		<p class="px-2 py-1.5 text-center text-[11px] text-[var(--video-editor-muted)]" role="status">
 			{m.video_editor_motion_select_clip()}
 		</p>
 	{/if}

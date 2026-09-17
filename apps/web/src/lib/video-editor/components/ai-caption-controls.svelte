@@ -41,17 +41,11 @@
 	class="grid w-full max-w-full gap-1 overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-1.5"
 	data-testid="ai-caption-controls"
 >
-	<div class="flex items-center justify-between gap-2">
+	<div class="flex items-center justify-between gap-2" title={m.video_editor_ai_captions_hint()}>
 		<p class="text-[11px] font-medium text-[var(--video-editor-text)]">
 			{m.video_editor_ai_captions()}
 		</p>
-		<span class="text-[10px] text-[var(--video-editor-muted)]"
-			>{m.video_editor_ai_captions_hint()}</span
-		>
 	</div>
-	<p class="text-[10px] leading-tight text-[var(--video-editor-muted)]">
-		{m.video_editor_ai_captions_description()}
-	</p>
 	{#if error}
 		<p
 			class="rounded bg-[var(--video-editor-panel)] px-1.5 py-1 text-[10px] text-[var(--video-editor-danger)]"
@@ -96,7 +90,7 @@
 	{/if}
 	<Button
 		size="sm"
-		class="min-h-11 w-full"
+		class="h-8 w-full"
 		variant={busy ? 'outline' : 'secondary'}
 		disabled={!canGenerate && !busy}
 		aria-label={busy ? m.video_editor_transcribe_cancel() : m.video_editor_ai_captions_action()}

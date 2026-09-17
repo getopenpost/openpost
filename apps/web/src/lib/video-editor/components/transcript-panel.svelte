@@ -580,7 +580,7 @@
 			type="button"
 			variant={editVideoMode ? 'secondary' : 'ghost'}
 			size="sm"
-			class="h-6 px-2 text-[10px]"
+			class="h-[22px] px-2 text-[10px]"
 			disabled={sourceWords.length === 0}
 			aria-pressed={editVideoMode}
 			onclick={() => {
@@ -600,7 +600,7 @@
 					class="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
-					class="h-7 w-full min-w-0 pr-7 pl-7 text-[10px]"
+					class="h-[25px] w-full min-w-0 pr-7 pl-7 text-[10px]"
 					type="search"
 					value={searchQuery}
 					placeholder={m.video_editor_transcript_search()}
@@ -677,7 +677,7 @@
 					type="button"
 					variant={transcriptScope === 'selection' ? 'secondary' : 'ghost'}
 					size="sm"
-					class="min-h-7 px-2 text-[10px]"
+					class="min-h-[22px] px-2 text-[10px]"
 					aria-pressed={transcriptScope === 'selection'}
 					onclick={() => {
 						transcriptScope = 'selection';
@@ -690,7 +690,7 @@
 					type="button"
 					variant={transcriptScope === 'project' ? 'secondary' : 'ghost'}
 					size="sm"
-					class="min-h-7 px-2 text-[10px]"
+					class="min-h-[22px] px-2 text-[10px]"
 					aria-pressed={transcriptScope === 'project'}
 					onclick={() => {
 						transcriptScope = 'project';
@@ -700,9 +700,7 @@
 					{m.video_editor_transcript_scope_project()}
 				</Button>
 			</div>
-			<p class="text-[10px] leading-4 text-muted-foreground">
-				{m.video_editor_transcript_selection_help()}
-			</p>
+			<p class="sr-only">{m.video_editor_transcript_selection_help()}</p>
 			{#if clipboardStatus}
 				<p class="text-[10px] leading-4 text-[var(--video-editor-focus)]" aria-live="polite">
 					{clipboardStatus}
@@ -719,7 +717,7 @@
 						type="button"
 						variant="ghost"
 						size="sm"
-						class="min-h-7 px-2 text-[10px]"
+						class="min-h-[22px] px-2 text-[10px]"
 						disabled={selectedSourceWords.length === 0}
 						onclick={() => handleCopyWords(false)}
 					>
@@ -729,7 +727,7 @@
 						type="button"
 						variant="ghost"
 						size="sm"
-						class="min-h-7 px-2 text-[10px]"
+						class="min-h-[22px] px-2 text-[10px]"
 						disabled={selectedSourceWords.length === 0}
 						onclick={() => handleCopyWords(true)}
 					>
@@ -738,7 +736,7 @@
 					<Button
 						type="button"
 						size="sm"
-						class="min-h-7 px-2 text-[10px]"
+						class="min-h-[22px] px-2 text-[10px]"
 						disabled={selectedSourceWords.length === 0}
 						onclick={updateSelectedVideoWords}
 					>
@@ -761,7 +759,7 @@
 							type="button"
 							variant="ghost"
 							size="sm"
-							class="min-h-7 px-2 text-[10px]"
+							class="min-h-[22px] px-2 text-[10px]"
 							onclick={() => transcriptIgnoreStore.clear()}
 						>
 							{m.video_editor_clear_staged_words()}
@@ -769,7 +767,7 @@
 						<Button
 							type="button"
 							size="sm"
-							class="min-h-7 px-2 text-[10px]"
+							class="min-h-[22px] px-2 text-[10px]"
 							onclick={commitIgnoredVideoWords}
 						>
 							{m.video_editor_commit_staged_words()}
@@ -794,7 +792,7 @@
 							{@const wordIgnored = transcriptIgnoreStore.isIgnored(sourceWord)}
 							<button
 								type="button"
-								class={`min-h-7 rounded px-1.5 text-left text-[11px] leading-5 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${
+								class={`min-h-[22px] rounded px-1.5 text-left text-[11px] leading-5 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${
 									selectedSourceWordIds.has(sourceWord.id)
 										? 'bg-selection font-medium text-selection-foreground'
 										: activeSourceWordIndex === sourceWordIndex
@@ -952,7 +950,7 @@
 								aria-pressed={cueFlags(cue).bold}
 								onclick={() => toggleFormat(item, cue, 'bold')}
 							>
-								<ProtectedIcon icon="editor-text" class="size-3" />
+								<span class="text-[10px] leading-none font-bold" aria-hidden="true">B</span>
 							</Button>
 							<Button
 								type="button"
@@ -962,7 +960,7 @@
 								aria-pressed={cueFlags(cue).italic}
 								onclick={() => toggleFormat(item, cue, 'italic')}
 							>
-								<ProtectedIcon icon="editor-text" class="size-3" />
+								<span class="text-[10px] leading-none italic" aria-hidden="true">I</span>
 							</Button>
 							<Button
 								type="button"
@@ -972,7 +970,7 @@
 								aria-pressed={cueFlags(cue).underline}
 								onclick={() => toggleFormat(item, cue, 'underline')}
 							>
-								<ProtectedIcon icon="editor-text" class="size-3" />
+								<span class="text-[10px] leading-none underline" aria-hidden="true">U</span>
 							</Button>
 						</div>
 						{#if cue.words?.length}

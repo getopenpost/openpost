@@ -148,10 +148,9 @@
 
 {#if selectedTextItems.length > 0}
 	<section class="text-motion-panel" aria-labelledby="text-motion-title">
-		<header>
+		<header title={m.video_editor_text_motion_description()}>
 			<div>
 				<h2 id="text-motion-title">{m.video_editor_text_motion_title()}</h2>
-				<p>{m.video_editor_text_motion_description()}</p>
 			</div>
 			<span>{m.video_editor_motion_selected({ count: String(selectedTextItems.length) })}</span>
 		</header>
@@ -241,7 +240,7 @@
 									options={units.map((unit) => ({ value: unit, label: unitLabels[unit] }))}
 									ariaLabel={m.video_editor_text_motion_unit()}
 									onValueChange={(value) => commitEdit(slot, { unit: value as TextMotionUnit })}
-									class="h-7 text-xs"
+									class="h-[25px] text-xs"
 								/></label
 							>
 							<label
@@ -250,7 +249,7 @@
 									options={orders.map((order) => ({ value: order, label: orderLabels[order] }))}
 									ariaLabel={m.video_editor_text_motion_order()}
 									onValueChange={(value) => commitEdit(slot, { order: value as TextMotionOrder })}
-									class="h-7 text-xs"
+									class="h-[25px] text-xs"
 								/></label
 							>
 						</div>
@@ -298,19 +297,12 @@
 		align-items: flex-start;
 	}
 	h2,
-	h3,
-	p {
+	h3 {
 		margin: 0;
 	}
 	h2 {
 		font-size: 0.75rem;
 		font-weight: 650;
-	}
-	header p {
-		margin-top: 0.2rem;
-		color: var(--video-editor-muted);
-		font-size: 0.625rem;
-		line-height: 1.4;
 	}
 	header > span {
 		flex: none;
@@ -362,7 +354,7 @@
 		gap: 0.25rem;
 	}
 	.preset-grid button {
-		min-height: 2rem;
+		min-height: 25px;
 		overflow: hidden;
 		border: 1px solid var(--video-editor-border);
 		border-radius: 0.35rem;
@@ -385,11 +377,11 @@
 	}
 	.controls {
 		display: grid;
-		gap: 0.55rem;
+		gap: 0.375rem;
 		margin-top: 0.4rem;
 		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
-		padding: 0.55rem;
+		padding: 0.375rem;
 		background: var(--video-editor-panel);
 	}
 	.controls label {

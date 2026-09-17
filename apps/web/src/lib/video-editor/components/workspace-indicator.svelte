@@ -39,7 +39,7 @@
 					type="button"
 					variant="outline"
 					size="sm"
-					class="min-h-9 max-w-[min(15rem,48vw)] gap-2 border-border bg-card px-3 text-xs text-foreground hover:bg-card-hover max-[640px]:min-h-11"
+					class="h-8 max-w-48 gap-2 border-border bg-card px-2 text-xs text-foreground hover:bg-card-hover [@media(pointer:coarse)]:h-9"
 					aria-haspopup="dialog"
 					aria-expanded={open}
 					title={m.video_editor_workspace_folder()}
@@ -59,7 +59,7 @@
 			sideOffset={8}
 			role="dialog"
 			aria-label={m.video_editor_workspaces()}
-			class="video-editor-theme w-[min(22rem,calc(100vw-1rem))] border-border bg-popover p-2 text-popover-foreground"
+			class="video-editor-theme w-56 border-border bg-popover p-2 text-popover-foreground"
 		>
 			<p
 				class="px-2 py-1.5 text-[10px] font-medium tracking-wide text-[var(--video-editor-muted)] uppercase"
@@ -72,7 +72,19 @@
 					{@const isActive = workspace.id === gate.activeWorkspaceId}
 					{@const isConfirming = workspace.id === confirmRemoveId}
 					<div
-						class="flex min-h-10 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent max-[640px]:min-h-11"
+						class="flex h-8 items-center gap-2 rounded-md px-2 py-1 hover:bg-accent"
+						onclick={() => {
+							if (!isActive && !isConfirming) void switchWorkspace(workspace.id);
+						}}
+						onkeydown={(event) => {
+							if (!isActive && !isConfirming && (event.key === 'Enter' || event.key === ' ')) {
+								event.preventDefault();
+								void switchWorkspace(workspace.id);
+							}
+						}}
+						role={!isActive && !isConfirming ? 'button' : undefined}
+						tabindex={!isActive && !isConfirming ? 0 : undefined}
+						aria-label={!isActive && !isConfirming ? m.video_editor_workspace_switch() : undefined}
 					>
 						<ThemeIcon
 							role="workspace"
@@ -95,9 +107,12 @@
 								type="button"
 								variant="ghost"
 								size="sm"
-								class="h-8 px-2 text-xs max-[640px]:h-10"
+								class="h-8 px-2 text-xs"
 								disabled={gate.busy}
-								onclick={() => (confirmRemoveId = null)}
+								onclick={(event) => {
+									event.stopPropagation();
+									confirmRemoveId = null;
+								}}
 							>
 								{m.common_cancel()}
 							</Button>
@@ -105,33 +120,27 @@
 								type="button"
 								variant="destructive"
 								size="sm"
-								class="h-8 px-2 text-xs max-[640px]:h-10"
+								class="h-8 px-2 text-xs"
 								disabled={gate.busy}
-								onclick={() => removeWorkspace(workspace.id)}
+								onclick={(event) => {
+									event.stopPropagation();
+									void removeWorkspace(workspace.id);
+								}}
 							>
 								{m.video_editor_workspace_remove()}
 							</Button>
 						{:else}
-							{#if !isActive}
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									class="h-8 px-2 text-xs max-[640px]:h-10"
-									disabled={gate.busy}
-									onclick={() => switchWorkspace(workspace.id)}
-								>
-									{m.video_editor_workspace_switch()}
-								</Button>
-							{/if}
 							<Button
 								type="button"
 								variant="ghost"
 								size="icon-sm"
-								class="shrink-0 text-[var(--video-editor-muted)] hover:text-destructive max-[640px]:size-10"
+								class="shrink-0 text-[var(--video-editor-muted)] hover:text-destructive"
 								disabled={gate.busy}
 								aria-label={m.video_editor_workspace_remove_named({ name: workspace.name })}
-								onclick={() => (confirmRemoveId = workspace.id)}
+								onclick={(event) => {
+									event.stopPropagation();
+									confirmRemoveId = workspace.id;
+								}}
 							>
 								<ThemeIcon role="delete" class="size-3.5" />
 							</Button>
@@ -145,7 +154,7 @@
 				type="button"
 				variant="ghost"
 				size="sm"
-				class="min-h-9 w-full justify-start gap-2 px-2 text-xs max-[640px]:min-h-11"
+				class="h-8 w-full justify-start gap-2 px-2 text-xs [@media(pointer:coarse)]:h-9"
 				disabled={gate.busy}
 				onclick={addWorkspace}
 			>

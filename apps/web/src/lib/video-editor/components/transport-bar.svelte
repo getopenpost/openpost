@@ -157,7 +157,7 @@
 </script>
 
 <div
-	class="flex min-h-10 flex-wrap items-center gap-1 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-1.5 text-[var(--video-editor-text)] sm:gap-2 sm:px-3"
+	class="flex h-8 flex-nowrap items-center gap-1 overflow-x-auto border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2"
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
@@ -238,13 +238,7 @@
 					</Button>
 				{/snippet}
 			</Popover.Trigger>
-			<Popover.Content side="top" class="video-editor-theme w-56 space-y-3 p-3">
-				<div class="flex items-center justify-between gap-3">
-					<span class="text-xs font-medium">{m.video_editor_monitor_title()}</span>
-					<span class="text-[10px] tracking-wide text-muted-foreground uppercase">
-						{m.video_editor_monitor_device_only()}
-					</span>
-				</div>
+			<Popover.Content side="top" class="video-editor-theme w-56 space-y-2 p-3">
 				<div class="flex items-center gap-2">
 					<Button
 						size="icon-xs"
@@ -272,9 +266,6 @@
 							: `${monitorPercent}%`}
 					</span>
 				</div>
-				<p class="text-[10px] leading-snug text-muted-foreground">
-					{m.video_editor_monitor_preview_only_note()}
-				</p>
 			</Popover.Content>
 		</Popover.Root>
 		<Button
@@ -293,11 +284,13 @@
 		</Button>
 	</div>
 
-	<span class="rounded bg-muted px-2 py-0.5 font-mono text-xs tabular-nums">
-		{timecode} <span class="text-muted-foreground max-[359px]:hidden">/ {totalFrames}</span>
+	<span
+		class="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums"
+	>
+		{timecode} <span class="text-muted-foreground">/ {totalFrames}</span>
 	</span>
 
-	<div class="mx-auto hidden items-center gap-1 @min-[620px]:flex">
+	<div class="mx-auto hidden shrink-0 items-center gap-1 @min-[620px]:flex">
 		<Button size="xs" variant="outline" onclick={() => setInPoint(timelineStore.currentFrame)}>
 			{m.video_editor_mark_in()}
 		</Button>
@@ -338,8 +331,6 @@
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="end" side="top" class="video-editor-theme min-w-44">
-				<DropdownMenu.Label>{m.video_editor_preview_quality()}</DropdownMenu.Label>
-				<DropdownMenu.Separator />
 				<DropdownMenu.Item onclick={() => previewPlaybackSettings.setPreviewQuality('auto')}>
 					<span class="flex-1">{m.video_editor_quality_auto()}</span>
 					{#if previewPlaybackSettings.previewQuality === 'auto' && adaptiveQualityPercent < 100}

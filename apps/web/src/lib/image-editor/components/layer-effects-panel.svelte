@@ -175,7 +175,7 @@
 {#snippet shadowEditor(kind: ShadowKind, label: string)}
 	{@const shadow = shadowFor(kind)}
 	<div class="rounded-md border">
-		<div class="flex min-h-10 items-center gap-2 px-2">
+		<div class="flex min-h-8 items-center gap-2 px-2">
 			<span class="min-w-0 flex-1 text-xs font-medium">{label}</span>
 			<Button
 				variant={shadow ? 'secondary' : 'ghost'}
@@ -290,7 +290,7 @@
 			<button
 				{...props}
 				type="button"
-				class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
+				class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
 			>
 				<span class="min-w-0 flex-1">{m.image_editor_effects()}</span>
 				{#if activeEffectCount > 0}
@@ -314,14 +314,14 @@
 				disabled={!editor.canEdit}
 				onValueChange={(value) => setBlendMode(value as ImageEditorBlendMode)}
 				options={blendModes.map((mode) => ({ value: mode, label: blendLabel(mode) }))}
-				class="h-9 w-full"
+				class="h-7 w-full"
 			/>
 		</label>
 
 		{#if canUseStroke}
 			{@const stroke = currentEffects().stroke}
 			<div class="rounded-md border" data-testid="image-editor-layer-border">
-				<div class="flex min-h-10 items-center gap-2 px-2">
+				<div class="flex min-h-8 items-center gap-2 px-2">
 					<span class="min-w-0 flex-1 text-xs font-medium">{m.image_editor_border()}</span>
 					<Button
 						variant={stroke ? 'secondary' : 'ghost'}
@@ -345,12 +345,7 @@
 							onChange={(color) => updateStroke({ color }, `stroke-color:${layer.id}`)}
 							onCommit={(color) => editor.rememberColor(color)}
 						/>
-						{#if layer.type === 'image'}
-							<p class="text-xs leading-relaxed text-muted-foreground">
-								{m.image_editor_border_follows_content()}
-							</p>
-						{/if}
-						<label class="grid gap-1 text-xs">
+						<label class="grid gap-1 text-xs" title={m.image_editor_border_follows_content()}>
 							<span>{m.image_editor_border_position()}</span>
 							<AppSelect
 								value={stroke.position}
@@ -365,7 +360,7 @@
 									{ value: 'center', label: m.image_editor_border_center() },
 									{ value: 'outside', label: m.image_editor_border_outside() }
 								]}
-								class="h-9 w-full"
+								class="h-7 w-full"
 							/>
 						</label>
 						<label class="grid gap-1 text-xs">
@@ -416,7 +411,7 @@
 							{ value: 'ellipse', label: m.image_editor_mask_ellipse() },
 							{ value: 'diamond', label: m.image_editor_mask_diamond() }
 						]}
-						class="h-9 w-full"
+						class="h-7 w-full"
 					/>
 				</label>
 				{#if layer.mask}

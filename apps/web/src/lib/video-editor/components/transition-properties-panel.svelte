@@ -411,18 +411,19 @@
 		{/if}
 
 		{#if definition.hasDirection}
-			<label class="text-[10px] text-[var(--video-editor-muted)]">
-				{m.video_editor_transition_direction()}
-				<AppSelect
-					class="mt-1 h-[25px] w-full text-[11px]"
+			<div class="flex flex-col gap-1">
+				<span class="text-[10px] text-[var(--video-editor-muted)]"
+					>{m.video_editor_transition_direction()}</span
+				>
+				<EditorMenu
+					label={m.video_editor_transition_direction()}
 					value={transition.direction ?? definition.directions?.[0] ?? 'from-left'}
 					options={directionOptions.filter((option) =>
 						definition.directions?.includes(option.value as TransitionDirection)
 					)}
-					ariaLabel={m.video_editor_transition_direction()}
-					onValueChange={(value) => commit({ direction: value as TransitionDirection })}
+					onSelect={(value) => commit({ direction: value as TransitionDirection })}
 				/>
-			</label>
+			</div>
 		{/if}
 
 		{#if definition.parameters?.length}

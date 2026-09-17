@@ -110,6 +110,16 @@
 
 	let showPrimaries = $state(false);
 	let showBalance = $state(false);
+	const primariesChanged = $derived(
+		PRIMARY_SLIDER_PARAMS.filter(
+			(name) => !Object.is(parameterValue(name), Number(defaults[name] ?? 0))
+		).length
+	);
+	const balanceChanged = $derived(
+		BALANCE_SLIDER_PARAMS.filter(
+			(name) => !Object.is(parameterValue(name), Number(defaults[name] ?? 0))
+		).length
+	);
 	let wheelDrafts = $state<Record<string, { hue: number; amount: number }>>({});
 	let parameterDrafts = $state<Record<string, number>>({});
 	let wheelGrid: HTMLDivElement | null = $state(null);
@@ -487,9 +497,19 @@
 					onValueCancel={() => cancelParameter(name)}
 					onKeydown={(event) => event.stopPropagation()}
 				/>
-				<output class="w-12 shrink-0 text-right text-[var(--video-editor-muted)] tabular-nums">
-					{parameterValue(name).toFixed(sliderDecimals(name))}
-				</output>
+				<ScrubbableNumberInput
+					disabled={!controlsEnabled}
+					ariaLabel={`${gpuEffectLabel(definition)}: ${gpuParamLabel(param)}`}
+					value={parameterValue(name)}
+					min={Number(param.min)}
+					max={Number(param.max)}
+					step={Number(param.step)}
+					decimals={sliderDecimals(name)}
+					class="h-[22px] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+					onlive={(next) => updateParameter(name, next)}
+					oncommit={(next) => commitParameter(name, next)}
+					oncancel={() => cancelParameter(name)}
+				/>
 				{#if keyframe}
 					<button
 						type="button"
@@ -834,12 +854,17 @@
 	<div class="shrink-0 border-t border-[var(--video-editor-border)]">
 		<button
 			type="button"
-			class="flex h-7 w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			class="flex h-[22px] w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 			aria-expanded={showPrimaries}
 			onclick={() => (showPrimaries = !showPrimaries)}
 		>
 			{m.video_editor_color_primaries()}
-			<span aria-hidden="true">{showPrimaries ? '−' : '+'}</span>
+			<span class="flex items-center gap-1.5">
+				{#if primariesChanged > 0}
+					<span class="font-normal normal-case tabular-nums">· {primariesChanged}</span>
+				{/if}
+				<span aria-hidden="true">{showPrimaries ? '−' : '+'}</span>
+			</span>
 		</button>
 		{#if showPrimaries}
 			<div class="flex flex-col gap-1 px-2 pb-2">
@@ -850,12 +875,17 @@
 		{/if}
 		<button
 			type="button"
-			class="flex h-7 w-full items-center justify-between border-t border-[var(--video-editor-border)] px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			class="flex h-[22px] w-full items-center justify-between border-t border-[var(--video-editor-border)] px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 			aria-expanded={showBalance}
 			onclick={() => (showBalance = !showBalance)}
 		>
 			{m.video_editor_color_balance_heading()}
-			<span aria-hidden="true">{showBalance ? '−' : '+'}</span>
+			<span class="flex items-center gap-1.5">
+				{#if balanceChanged > 0}
+					<span class="font-normal normal-case tabular-nums">· {balanceChanged}</span>
+				{/if}
+				<span aria-hidden="true">{showBalance ? '−' : '+'}</span>
+			</span>
 		</button>
 		{#if showBalance}
 			<div class="flex flex-col gap-1 px-2 pb-2">

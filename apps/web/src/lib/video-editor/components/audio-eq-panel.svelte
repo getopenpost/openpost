@@ -347,7 +347,7 @@
 	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
 >
 	<summary
-		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+		class="flex min-h-[25px] cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 	>
 		<span class="font-medium text-[var(--video-editor-text)]"
 			>{title ?? m.video_editor_audio_eq_title()}</span
@@ -370,7 +370,7 @@
 					value={selectedPreset}
 					options={presetOptions}
 					ariaLabel={m.video_editor_audio_eq_preset_aria()}
-					class="mt-0.5 h-8 w-full text-xs"
+					class="mt-0.5 h-[25px] w-full text-xs"
 					onValueChange={applyPreset}
 				/>
 			</label>
@@ -378,7 +378,7 @@
 				type="button"
 				size="sm"
 				variant={enabledState === 'on' ? 'secondary' : 'outline'}
-				class="h-8 px-2 text-xs"
+				class="h-[25px] px-2 text-xs"
 				aria-pressed={enabledState === 'on'}
 				onclick={() => commit({ enabled: enabledState !== 'on' })}
 			>
@@ -400,7 +400,7 @@
 		<label class="block text-xs text-[var(--video-editor-muted)]">
 			{m.video_editor_audio_eq_output_gain()}
 			<Input
-				class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
+				class="mt-0.5 h-[25px] w-full bg-[var(--video-editor-control)] text-xs"
 				type="number"
 				min={AUDIO_EQ_GAIN_DB_MIN}
 				max={AUDIO_EQ_GAIN_DB_MAX}
@@ -417,7 +417,9 @@
 				<details
 					class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 				>
-					<summary class="flex min-h-8 cursor-pointer list-none items-center gap-2 px-2 text-xs">
+					<summary
+						class="flex min-h-[25px] cursor-pointer list-none items-center gap-2 px-2 text-xs"
+					>
 						<span class="w-14 font-medium text-[var(--video-editor-muted)]">{band.label()}</span>
 						<span class="min-w-0 flex-1 truncate text-[var(--video-editor-muted)]"
 							>{typeLabel(String(bandType))} · {Math.round(Number(value(band, 'frequencyKey')))} Hz</span
@@ -447,14 +449,14 @@
 								}))}
 								ariaLabel={m.video_editor_audio_eq_filter_aria({ band: band.label() })}
 								disabled={controlsDisabled}
-								class="mt-0.5 h-8 w-full text-xs"
+								class="mt-0.5 h-[25px] w-full text-xs"
 								onValueChange={(next) => setField(band.typeField, next)}
 							/>
 						</label>
 						<label class="text-xs text-[var(--video-editor-muted)]">
 							{m.video_editor_audio_eq_frequency()}
 							<Input
-								class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
+								class="mt-0.5 h-[25px] w-full bg-[var(--video-editor-control)] text-xs"
 								type="number"
 								min="20"
 								max="22000"
@@ -473,7 +475,7 @@
 									options={slopeOptions}
 									ariaLabel={m.video_editor_audio_eq_slope_aria({ band: band.label() })}
 									disabled={controlsDisabled}
-									class="mt-0.5 h-8 w-full text-xs"
+									class="mt-0.5 h-[25px] w-full text-xs"
 									onValueChange={(next) => setField(band.slopeField!, Number(next))}
 								/>
 							</label>
@@ -481,7 +483,7 @@
 							<label class="text-xs text-[var(--video-editor-muted)]">
 								{m.video_editor_audio_eq_gain()}
 								<Input
-									class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
+									class="mt-0.5 h-[25px] w-full bg-[var(--video-editor-control)] text-xs"
 									type="number"
 									min={AUDIO_EQ_GAIN_DB_MIN}
 									max={AUDIO_EQ_GAIN_DB_MAX}
@@ -494,7 +496,7 @@
 							<label class="text-xs text-[var(--video-editor-muted)]">
 								Q
 								<Input
-									class="mt-0.5 h-8 w-full bg-[var(--video-editor-control)] text-xs"
+									class="mt-0.5 h-[25px] w-full bg-[var(--video-editor-control)] text-xs"
 									type="number"
 									min={AUDIO_EQ_Q_MIN}
 									max={AUDIO_EQ_Q_MAX}

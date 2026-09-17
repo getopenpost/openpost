@@ -571,17 +571,17 @@
 		{@const target = eqTarget}
 		<aside
 			id="mixer-eq-panel"
-			class="absolute inset-y-0 right-0 z-20 w-full max-w-md overflow-y-auto border-l border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2 shadow-2xl"
+			class="absolute inset-y-0 right-0 z-20 w-full max-w-xs overflow-y-auto border-l border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2 shadow-2xl"
 			aria-label={eqTitle(target)}
 			data-mixer-eq-panel
 		>
-			<div class="mb-2 flex min-h-9 items-center justify-between gap-2">
+			<div class="mb-2 flex min-h-[25px] items-center justify-between gap-2">
 				<h3 class="truncate text-xs font-semibold text-[var(--video-editor-text)]">
 					{eqOwnerName(target)}
 				</h3>
 				<button
 					type="button"
-					class="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--video-editor-border)] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					class="grid size-6 shrink-0 place-items-center rounded-md border border-[var(--video-editor-border)] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-9"
 					aria-label={m.common_close()}
 					onclick={() => (eqTarget = null)}
 				>

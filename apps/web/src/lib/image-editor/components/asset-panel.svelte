@@ -24,7 +24,11 @@
 	import { m } from '$lib/paraglide/messages';
 	import { writeImageEditorMediaDrag, type ImageEditorMediaDragPayload } from '../media-drag';
 
-	let { guestMode = false }: { guestMode?: boolean } = $props();
+	let {
+		guestMode = false,
+		mode = 'dock',
+		onclose
+	}: { guestMode?: boolean; mode?: 'dock' | 'overlay'; onclose?: () => void } = $props();
 	const editor = useImageEditor();
 	let media = $state<ImageEditorMediaItem[]>([]);
 	let loading = $state(false);
@@ -36,11 +40,26 @@
 	let loadedWorkspaceID = '';
 	let dragPreview: HTMLElement | null = null;
 	let guestFileInput = $state<HTMLInputElement | null>(null);
+	let searchInput = $state<HTMLInputElement | null>(null);
+	let overlayFocused = false;
 	let tags = $state<MediaTag[]>([]);
 	let selectedTagIDs = $state.raw<string[]>([]);
 	let showUntagged = $state(false);
 	let sort = $state<'newest' | 'oldest' | 'name' | 'size' | 'recently_used'>('newest');
 
+	$effect(() => {
+		if (mode === 'overlay' && !overlayFocused && searchInput) {
+			overlayFocused = true;
+			searchInput.focus({ preventScroll: true });
+		}
+	});
+
+	function handleOverlayKeydown(event: KeyboardEvent): void {
+		if (mode === 'overlay' && event.key === 'Escape') {
+			event.stopPropagation();
+			onclose?.();
+		}
+	}
 	$effect(() => {
 		const scopeID = guestMode ? editor.id : editor.workspaceID;
 		const revision = editor.mediaLibraryRevision;
@@ -241,11 +260,29 @@
 	}
 </script>
 
-<div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+<div
+	class={mode === 'overlay'
+		? 'flex max-h-[70dvh] w-80 min-w-0 flex-col overflow-hidden rounded-xl border bg-popover shadow-xl'
+		: 'flex h-full min-h-0 min-w-0 flex-col overflow-hidden'}
+	role={mode === 'overlay' ? 'dialog' : undefined}
+	aria-modal={mode === 'overlay' ? true : undefined}
+	aria-label={mode === 'overlay' ? m.image_editor_media() : undefined}
+	onkeydown={handleOverlayKeydown}
+>
 	<div class="flex min-h-8 items-center border-b px-3">
-		<h2 class="text-sm font-medium text-foreground">
+		<h2 class="min-w-0 flex-1 text-sm font-medium text-foreground">
 			{m.image_editor_media()}
 		</h2>
+		{#if mode === 'overlay'}
+			<Button
+				variant="ghost"
+				size="icon-xs"
+				aria-label={m.common_close()}
+				onclick={() => onclose?.()}
+			>
+				<ThemeIcon role="close" class="size-3.5" />
+			</Button>
+		{/if}
 	</div>
 	{#if error}
 		<div class="m-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive" role="alert">
@@ -343,6 +380,7 @@
 					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
+					bind:ref={searchInput}
 					bind:value={search}
 					class="h-7 pl-7 text-xs"
 					placeholder={m.image_editor_search_media()}

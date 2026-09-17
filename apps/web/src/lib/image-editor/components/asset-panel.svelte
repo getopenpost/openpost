@@ -290,53 +290,53 @@
 		</div>
 	{/if}
 	<div class="min-h-0 flex-1 overflow-y-auto p-2">
-		<section class="mb-4">
-			<h3 class="mb-2 text-xs font-semibold">{m.image_editor_add()}</h3>
-			<div class="grid grid-cols-2 gap-1.5">
+		<section class="mb-3">
+			<h3 class="mb-1.5 text-xs font-semibold">{m.image_editor_add()}</h3>
+			<div class="flex gap-1" role="toolbar" aria-label={m.image_editor_add()}>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
+					size="icon-sm"
+					aria-label={m.image_editor_text()}
+					title={m.image_editor_text()}
 					onclick={() => editor.addText()}
 				>
 					<ProtectedIcon icon="editor-text" />
-					{m.image_editor_text()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
+					size="icon-sm"
+					aria-label={m.image_editor_rectangle()}
+					title={m.image_editor_rectangle()}
 					onclick={() => editor.addShape('rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
-					{m.image_editor_rectangle()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
+					size="icon-sm"
+					aria-label={m.image_editor_rounded_rectangle()}
+					title={m.image_editor_rounded_rectangle()}
 					onclick={() => editor.addShape('rounded_rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" class="rounded-sm" />
-					{m.image_editor_rounded_rectangle()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
+					size="icon-sm"
+					aria-label={m.image_editor_ellipse()}
+					title={m.image_editor_ellipse()}
 					onclick={() => editor.addShape('ellipse')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
-					{m.image_editor_ellipse()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="col-span-2 min-h-8 justify-start [@media(pointer:coarse)]:min-h-11"
+					size="icon-sm"
+					aria-label={m.image_editor_line()}
+					title={m.image_editor_line()}
 					onclick={() => editor.addShape('line')}
 				>
 					<ThemeIcon role="remove" />
-					{m.image_editor_line()}
 				</Button>
 			</div>
 		</section>

@@ -39,10 +39,6 @@
 		getSelectedTranscriptWordSlice
 	} from '$lib/video-editor/transcript/transcript-edit-model';
 	import {
-		buildCueListLayout,
-		queryCueListWindow
-	} from '$lib/video-editor/transcript/cue-list-window';
-	import {
 		createBrowserPointerGestureSessionHost,
 		type PointerGestureSessionHost
 	} from '$lib/video-editor/timeline/pointer-gesture-session';
@@ -68,17 +64,25 @@
 	const cueEntries = $derived<CueListEntry[]>(
 		subtitleItems.flatMap((item) => (item.cues ?? []).map((cue) => ({ item, cue })))
 	);
-	const cueLayout = $derived(
-		buildCueListLayout(cueEntries.map((entry) => `${entry.item.id}:${entry.cue.id}`))
-	);
-	let cueScrollTop = $state(0);
-	let cueViewportHeight = $state(384);
-	const cueWindow = $derived(queryCueListWindow(cueLayout, cueScrollTop, cueViewportHeight));
-	const visibleCueEntries = $derived(cueEntries.slice(cueWindow.startIndex, cueWindow.endIndex));
+	/** Key of the cue expanded for full editing; every other row stays single-line. */
+	let selectedCueKey: string | null = $state(null);
+	let cueListOpen = $state(false);
+	const cueCount = $derived(cueEntries.length);
+	const transcriptDurationLabel = $derived.by(() => {
+		if (cueEntries.length === 0) return '0:00';
+		const lastFrame = Math.max(...cueEntries.map((entry) => entry.cue.endFrame));
+		const totalSeconds = Math.max(0, lastFrame / timelineStore.fps);
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = Math.floor(totalSeconds % 60);
+		return `${minutes}:${String(seconds).padStart(2, '0')}`;
+	});
+
+	function cueKeyForEntry(item: TimelineItem, cue: SubtitleCue): string {
+		return `${item.id}:${cue.id}`;
+	}
 
 	/** In-flight inline edits keyed by cue id; committed to the store on blur. */
 	let draftTexts = $state<Record<string, string>>({});
-	let cueScrollEl: HTMLDivElement | null = $state(null);
 	let editVideoMode = $state(false);
 	let transcriptScope = $state<'selection' | 'project'>('selection');
 	let selectionAnchorIndex = $state(-1);
@@ -171,7 +175,6 @@
 	});
 	onMount(() => {
 		pointerGestures = createBrowserPointerGestureSessionHost();
-		if (cueScrollEl) cueViewportHeight = cueScrollEl.clientHeight || cueViewportHeight;
 		unregisterTranscriptCopy = registerTranscriptCopyHandler({
 			isActive: () => editVideoMode && selectedSourceWords.length > 0,
 			copy: handleCopyWords
@@ -530,10 +533,14 @@
 	}
 
 	function scrollCueListToKey(cueKey: string): void {
-		const index = cueEntries.findIndex((entry) => `${entry.item.id}:${entry.cue.id}` === cueKey);
-		if (index < 0 || !cueScrollEl) return;
-		const top = cueLayout.offsets[index] ?? 0;
-		cueScrollEl.scrollTop = Math.max(0, top - cueScrollEl.clientHeight / 2);
+		if (!cueEntries.some((entry) => cueKeyForEntry(entry.item, entry.cue) === cueKey)) return;
+		selectedCueKey = cueKey;
+		cueListOpen = true;
+		requestAnimationFrame(() => {
+			panelElement
+				?.querySelector<HTMLElement>(`[data-cue-key="${CSS.escape(cueKey)}"]`)
+				?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		});
 	}
 
 	function focusSearchMatch(index: number): void {
@@ -869,38 +876,49 @@
 			{m.video_editor_transcript_empty()}
 		</p>
 	{:else}
-		<!-- Windowed cue list: only the visible slice mounts, with spacers standing in
-			for the rows above and below. Keeps long episodes (600+ cues) responsive. -->
-		<div
-			bind:this={cueScrollEl}
-			class="cue-list-scroll mx-1 overflow-y-auto pr-0.5"
-			style="max-height: 24rem;"
-			onscroll={(event) => {
-				cueScrollTop = event.currentTarget.scrollTop;
-				cueViewportHeight = event.currentTarget.clientHeight || cueViewportHeight;
-			}}
+		<details
+			class="mx-1 rounded-md border border-border bg-card"
+			open={cueListOpen}
+			ontoggle={(event) => (cueListOpen = event.currentTarget.open)}
 		>
-			{#if cueWindow.beforeSize > 0}
-				<div aria-hidden="true" style="height: {cueWindow.beforeSize}px;"></div>
-			{/if}
-			<ul class="flex flex-col gap-0.5" aria-label={m.video_editor_transcript()}>
-				{#each visibleCueEntries as entry (entry.item.id + ':' + entry.cue.id)}
+			<summary
+				class="flex min-h-[25px] cursor-pointer list-none items-center gap-1.5 px-2 text-[11px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+			>
+				<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
+				<span>{m.video_editor_transcript()}</span>
+				<span class="ml-auto font-mono text-[10px] tabular-nums"
+					>{cueCount} · {transcriptDurationLabel}</span
+				>
+			</summary>
+			<ul
+				class="flex flex-col gap-0.5 border-t border-border p-1"
+				aria-label={m.video_editor_transcript()}
+			>
+				{#each cueEntries as entry (entry.item.id + ':' + entry.cue.id)}
 					{@const item = entry.item}
 					{@const cue = entry.cue}
+					{@const cueKey = cueKeyForEntry(item, cue)}
+					{@const cueSelected = selectedCueKey === cueKey}
 					{@const cueSearchIndex = searchIndexByKey.get(`${item.id}:${cue.id}`)}
 					<li
-						class="rounded bg-card p-1 {cueSearchIndex !== undefined &&
-						matchedSearchIndices.has(cueSearchIndex)
-							? 'ring-1 ring-warning-foreground/70 ring-inset'
-							: ''}"
+						data-cue-key={cueKey}
+						class="rounded bg-card p-1 {cueSelected
+							? 'ring-1 ring-ring ring-inset'
+							: cueSearchIndex !== undefined && matchedSearchIndices.has(cueSearchIndex)
+								? 'ring-1 ring-warning-foreground/70 ring-inset'
+								: ''}"
 						data-transcript-search-index={cueSearchIndex}
 					>
-						<div class="flex items-center gap-1">
+						<div class="flex min-h-[25px] items-center gap-1">
 							<Input
 								class="min-w-0 flex-1 rounded bg-field px-1 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-ring"
 								value={displayText(cue)}
 								aria-label={m.video_editor_transcript_line()}
-								onclick={() => setCurrentFrame(cue.startFrame)}
+								aria-expanded={cueSelected}
+								onclick={() => {
+									selectedCueKey = cueKey;
+									setCurrentFrame(cue.startFrame);
+								}}
 								oninput={(event) => {
 									draftTexts[cue.id] = event.currentTarget.value;
 								}}
@@ -914,136 +932,147 @@
 								variant="ghost"
 								size="icon-xs"
 								aria-label={m.video_editor_transcript_delete_line()}
-								onclick={() => deleteCue(item, cue.id)}
+								onclick={() => {
+									if (selectedCueKey === cueKey) selectedCueKey = null;
+									deleteCue(item, cue.id);
+								}}
 							>
 								<ThemeIcon role="delete" class="size-3" />
 							</Button>
 						</div>
-						<div class="mt-1 grid grid-cols-2 gap-1">
-							<label class="text-[9px] text-muted-foreground"
-								>{m.video_editor_property_start()}<Input
-									class="mt-0.5 w-full rounded bg-field px-1 py-0.5 text-[10px]"
-									type="number"
-									min="0"
-									value={cue.startFrame}
-									onblur={(event) =>
-										commitCueTiming(item, cue, event.currentTarget.valueAsNumber, cue.endFrame)}
-								/></label
-							>
-							<label class="text-[9px] text-muted-foreground"
-								>{m.video_editor_property_end()}<Input
-									class="mt-0.5 w-full rounded bg-field px-1 py-0.5 text-[10px]"
-									type="number"
-									min={cue.startFrame + 1}
-									value={cue.endFrame}
-									onblur={(event) =>
-										commitCueTiming(item, cue, cue.startFrame, event.currentTarget.valueAsNumber)}
-								/></label
-							>
-						</div>
-						<div class="mt-1 flex gap-0.5" role="group" aria-label={m.video_editor_caption_style()}>
-							<Button
-								type="button"
-								variant={cueFlags(cue).bold ? 'secondary' : 'ghost'}
-								size="icon-xs"
-								aria-label={m.video_editor_caption_bold()}
-								aria-pressed={cueFlags(cue).bold}
-								onclick={() => toggleFormat(item, cue, 'bold')}
-							>
-								<span class="text-[10px] leading-none font-bold" aria-hidden="true">B</span>
-							</Button>
-							<Button
-								type="button"
-								variant={cueFlags(cue).italic ? 'secondary' : 'ghost'}
-								size="icon-xs"
-								aria-label={m.video_editor_text_italic()}
-								aria-pressed={cueFlags(cue).italic}
-								onclick={() => toggleFormat(item, cue, 'italic')}
-							>
-								<span class="text-[10px] leading-none italic" aria-hidden="true">I</span>
-							</Button>
-							<Button
-								type="button"
-								variant={cueFlags(cue).underline ? 'secondary' : 'ghost'}
-								size="icon-xs"
-								aria-label={m.video_editor_text_underline()}
-								aria-pressed={cueFlags(cue).underline}
-								onclick={() => toggleFormat(item, cue, 'underline')}
-							>
-								<span class="text-[10px] leading-none underline" aria-hidden="true">U</span>
-							</Button>
-						</div>
-						{#if cue.words?.length}
-							<div class="mt-1 flex flex-wrap gap-1">
-								{#each cue.words as word (word.id)}
-									{@const searchIndex = searchIndexByKey.get(`${item.id}:${cue.id}:${word.id}`)}
-									<div
-										class="group rounded border border-border bg-muted p-1 {searchIndex !==
-											undefined && matchedSearchIndices.has(searchIndex)
-											? searchResult.approximate
-												? 'ring-1 ring-warning-foreground/40 ring-inset'
-												: 'ring-1 ring-warning-foreground/80 ring-inset'
-											: ''}"
-										data-transcript-search-index={searchIndex}
-									>
-										<Input
-											class="w-16 bg-transparent text-[10px] outline-none"
-											value={word.text}
-											aria-label={m.video_editor_transcript_word()}
-											onfocus={() => setCurrentFrame(word.startFrame)}
-											onblur={(event) => {
-												if (event.currentTarget.value !== word.text)
-													updateWord(item, cue, word.id, {
-														text: event.currentTarget.value
-													});
-											}}
-										/>
-										<div class="mt-0.5 flex items-center gap-0.5">
-											<Input
-												class="w-10 bg-transparent text-[8px] text-muted-foreground"
-												type="number"
-												value={word.startFrame}
-												aria-label={m.video_editor_transcript_word_start()}
-												onblur={(event) =>
-													updateWord(item, cue, word.id, {
-														startFrame: Math.max(0, event.currentTarget.valueAsNumber)
-													})}
-											/><span class="text-[8px]">-</span><Input
-												class="w-10 bg-transparent text-[8px] text-muted-foreground"
-												type="number"
-												value={word.endFrame}
-												aria-label={m.video_editor_transcript_word_end()}
-												onblur={(event) =>
-													updateWord(item, cue, word.id, {
-														endFrame: Math.max(
-															word.startFrame + 1,
-															event.currentTarget.valueAsNumber
-														)
-													})}
-											/><Button
-												type="button"
-												variant="ghost"
-												size="icon-xs"
-												class="ml-auto"
-												aria-label={m.video_editor_transcript_word_delete()}
-												onclick={(event) => {
-													event.stopPropagation();
-													deleteWord(item, cue, word.id);
-												}}
-											>
-												<ThemeIcon role="delete" class="size-3" />
-											</Button>
-										</div>
-									</div>
-								{/each}
+						{#if cueSelected}
+							<div class="mt-1 grid grid-cols-2 gap-1">
+								<label class="text-[9px] text-muted-foreground"
+									>{m.video_editor_property_start()}<Input
+										class="mt-0.5 h-[25px] w-full rounded bg-field px-1 py-0.5 text-[10px]"
+										type="number"
+										min="0"
+										value={cue.startFrame}
+										onblur={(event) =>
+											commitCueTiming(item, cue, event.currentTarget.valueAsNumber, cue.endFrame)}
+									/></label
+								>
+								<label class="text-[9px] text-muted-foreground"
+									>{m.video_editor_property_end()}<Input
+										class="mt-0.5 h-[25px] w-full rounded bg-field px-1 py-0.5 text-[10px]"
+										type="number"
+										min={cue.startFrame + 1}
+										value={cue.endFrame}
+										onblur={(event) =>
+											commitCueTiming(item, cue, cue.startFrame, event.currentTarget.valueAsNumber)}
+									/></label
+								>
 							</div>
+							<div
+								class="mt-1 flex gap-0.5"
+								role="group"
+								aria-label={m.video_editor_caption_style()}
+							>
+								<Button
+									type="button"
+									variant={cueFlags(cue).bold ? 'secondary' : 'ghost'}
+									size="icon-xs"
+									aria-label={m.video_editor_caption_bold()}
+									aria-pressed={cueFlags(cue).bold}
+									onclick={() => toggleFormat(item, cue, 'bold')}
+								>
+									<span class="text-[10px] leading-none font-bold" aria-hidden="true">B</span>
+								</Button>
+								<Button
+									type="button"
+									variant={cueFlags(cue).italic ? 'secondary' : 'ghost'}
+									size="icon-xs"
+									aria-label={m.video_editor_text_italic()}
+									aria-pressed={cueFlags(cue).italic}
+									onclick={() => toggleFormat(item, cue, 'italic')}
+								>
+									<span class="text-[10px] leading-none italic" aria-hidden="true">I</span>
+								</Button>
+								<Button
+									type="button"
+									variant={cueFlags(cue).underline ? 'secondary' : 'ghost'}
+									size="icon-xs"
+									aria-label={m.video_editor_text_underline()}
+									aria-pressed={cueFlags(cue).underline}
+									onclick={() => toggleFormat(item, cue, 'underline')}
+								>
+									<span class="text-[10px] leading-none underline" aria-hidden="true">U</span>
+								</Button>
+							</div>
+							{#if cue.words?.length}
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each cue.words as word (word.id)}
+										{@const searchIndex = searchIndexByKey.get(`${item.id}:${cue.id}:${word.id}`)}
+										<div
+											class="group rounded border border-border bg-muted p-1 {searchIndex !==
+												undefined && matchedSearchIndices.has(searchIndex)
+												? searchResult.approximate
+													? 'ring-1 ring-warning-foreground/40 ring-inset'
+													: 'ring-1 ring-warning-foreground/80 ring-inset'
+												: ''}"
+											data-transcript-search-index={searchIndex}
+										>
+											<Input
+												class="w-16 bg-transparent text-[10px] outline-none"
+												value={word.text}
+												aria-label={m.video_editor_transcript_word()}
+												onfocus={() => setCurrentFrame(word.startFrame)}
+												onblur={(event) => {
+													if (event.currentTarget.value !== word.text)
+														updateWord(item, cue, word.id, {
+															text: event.currentTarget.value
+														});
+												}}
+											/>
+											<div class="mt-0.5 flex items-center gap-0.5">
+												<Input
+													class="w-10 bg-transparent text-[8px] text-muted-foreground"
+													type="number"
+													value={word.startFrame}
+													aria-label={m.video_editor_transcript_word_start()}
+													onblur={(event) =>
+														updateWord(item, cue, word.id, {
+															startFrame: Math.max(0, event.currentTarget.valueAsNumber)
+														})}
+												/><span class="text-[8px]">-</span><Input
+													class="w-10 bg-transparent text-[8px] text-muted-foreground"
+													type="number"
+													value={word.endFrame}
+													aria-label={m.video_editor_transcript_word_end()}
+													onblur={(event) =>
+														updateWord(item, cue, word.id, {
+															endFrame: Math.max(
+																word.startFrame + 1,
+																event.currentTarget.valueAsNumber
+															)
+														})}
+												/><Button
+													type="button"
+													variant="ghost"
+													size="icon-xs"
+													class="ml-auto"
+													aria-label={m.video_editor_transcript_word_delete()}
+													onclick={(event) => {
+														event.stopPropagation();
+														deleteWord(item, cue, word.id);
+													}}
+												>
+													<ThemeIcon role="delete" class="size-3" />
+												</Button>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
 						{/if}
 					</li>
 				{/each}
+				{#if cueEntries.length === 0}
+					<li class="px-1 py-2 text-xs text-muted-foreground">
+						{m.video_editor_transcript_empty()}
+					</li>
+				{/if}
 			</ul>
-			{#if cueWindow.afterSize > 0}
-				<div aria-hidden="true" style="height: {cueWindow.afterSize}px;"></div>
-			{/if}
-		</div>
+		</details>
 	{/if}
 </div>

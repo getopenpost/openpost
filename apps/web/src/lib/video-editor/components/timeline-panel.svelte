@@ -3,6 +3,49 @@
 	playhead, drag move/trim, and zoom. Waveform rendering ported from
 	FreeCut (MIT).
 -->
+<script module lang="ts">
+	/**
+	 * Scroll-path guards for the timeline viewport. The scroll container fires
+	 * scroll events for vertical movement too, and IntersectionObserver batches
+	 * often resolve with no membership change; both used to invalidate the full
+	 * waveform/filmstrip/render pipeline on every event. These pure predicates
+	 * let the handlers skip the state write (and every downstream effect) when
+	 * nothing the pipeline reads actually changed.
+	 */
+	export interface TimelineViewportState {
+		scrollLeft: number;
+		width: number;
+	}
+
+	export function hasTimelineViewportChanged(
+		previous: TimelineViewportState,
+		scrollLeft: number,
+		width: number
+	): boolean {
+		return previous.scrollLeft !== scrollLeft || previous.width !== width;
+	}
+
+	export function applyTimelineVisibilityEntries(
+		previous: ReadonlySet<string>,
+		entries: Array<{ id: string; isIntersecting: boolean }>
+	): Set<string> | null {
+		let changed = false;
+		const next = new Set(previous);
+		for (const entry of entries) {
+			if (entry.isIntersecting) {
+				if (!next.has(entry.id)) {
+					next.add(entry.id);
+					changed = true;
+				}
+			} else if (next.has(entry.id)) {
+				next.delete(entry.id);
+				changed = true;
+			}
+		}
+		return changed ? next : null;
+	}
+</script>
+
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -991,10 +1034,9 @@
 	function updateTimelineViewport(): void {
 		timelineViewportAnimationFrame = null;
 		if (!scrollContainer) return;
-		timelineViewport = {
-			scrollLeft: scrollContainer.scrollLeft,
-			width: scrollContainer.clientWidth
-		};
+		const { scrollLeft, clientWidth } = scrollContainer;
+		if (!hasTimelineViewportChanged(timelineViewport, scrollLeft, clientWidth)) return;
+		timelineViewport = { scrollLeft, width: clientWidth };
 	}
 
 	function scheduleTimelineViewportUpdate(): void {
@@ -1008,17 +1050,17 @@
 			if (!timelineItemObserver) {
 				timelineItemObserver = new IntersectionObserver(
 					(entries) => {
-						const next = new Set(visibleTimelineItemIds);
+						const updates: Array<{ id: string; isIntersecting: boolean }> = [];
 						for (const entry of entries) {
 							const id =
 								entry.target instanceof HTMLElement
 									? entry.target.dataset.timelineItemId
 									: undefined;
 							if (!id) continue;
-							if (entry.isIntersecting) next.add(id);
-							else next.delete(id);
+							updates.push({ id, isIntersecting: entry.isIntersecting });
 						}
-						visibleTimelineItemIds = next;
+						const next = applyTimelineVisibilityEntries(visibleTimelineItemIds, updates);
+						if (next) visibleTimelineItemIds = next;
 					},
 					{
 						root: scrollContainer,

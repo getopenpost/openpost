@@ -59,6 +59,10 @@
 	import RepeatIcon from '@lucide/svelte/icons/repeat';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import RotateCwIcon from '@lucide/svelte/icons/rotate-cw';
+	import Rotate3dIcon from '@lucide/svelte/icons/rotate-3d';
+	import PenLineIcon from '@lucide/svelte/icons/pen-line';
+	import SplineIcon from '@lucide/svelte/icons/spline';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import ScanLineIcon from '@lucide/svelte/icons/scan-line';
 	import ScissorsIcon from '@lucide/svelte/icons/scissors';
 	import SendToBackIcon from '@lucide/svelte/icons/send-to-back';
@@ -137,6 +141,12 @@
 			'editor-lasso': LassoSelectIcon,
 			'editor-marquee': SquareDashedMousePointerIcon,
 			'editor-marquee-ellipse': CircleDashedIcon,
+			'editor-mask': LassoSelectIcon,
+			'editor-path': PenLineIcon,
+			'editor-corner-pin': Rotate3dIcon,
+			'editor-smooth': SplineIcon,
+			'editor-corner': SquareIcon,
+			'editor-delete': Trash2Icon,
 			'editor-pan': HandIcon,
 			'editor-snap': MagnetIcon,
 			'editor-eyedropper': PipetteIcon,

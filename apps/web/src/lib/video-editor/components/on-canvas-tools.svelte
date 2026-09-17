@@ -39,6 +39,7 @@
 		type SnapTransform
 	} from '$lib/video-editor/preview/canvas-snapping';
 	import type { AnimatedItemMotionContext } from '$lib/video-editor/timeline/animated-properties';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import PathEditorOverlay from './path-editor-overlay.svelte';
 	import MaskEditorOverlay from './mask-editor-overlay.svelte';
 	import CornerPinOverlay from './corner-pin-overlay.svelte';
@@ -966,67 +967,87 @@
 
 <div bind:this={root} class="pointer-events-none absolute inset-0 z-20" data-on-canvas-tools>
 	<div
-		class="pointer-events-auto absolute top-2 left-1/2 z-30 flex max-w-[calc(100%_-_1rem)] -translate-x-1/2 gap-0.5 overflow-x-auto rounded-md border border-white/15 bg-black/80 p-0.5 text-[10px] text-white shadow-lg backdrop-blur"
+		class="pointer-events-auto absolute top-2 left-1/2 z-30 flex h-8 max-w-[calc(100%_-_1rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-md border border-white/15 bg-black/80 p-0.5 text-white shadow-lg backdrop-blur"
 		role="toolbar"
 		aria-label={m.video_editor_canvas_tools()}
+		title={`${m.video_editor_resize_modifier_hint()} ${m.video_editor_rotation_modifier_hint()}`}
 	>
 		<button
 			type="button"
 			class:active={activeTool === 'transform'}
-			class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-			onclick={() => setTool('transform')}>{m.video_editor_canvas_tool_transform()}</button
+			class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+			aria-label={m.video_editor_canvas_tool_transform()}
+			title={m.video_editor_canvas_tool_transform()}
+			onclick={() => setTool('transform')}
+			><ProtectedIcon icon="editor-move" class="size-4" /></button
 		>
 		{#if canCrop}
 			<button
 				type="button"
 				class:active={activeTool === 'crop'}
-				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-				onclick={() => setTool('crop')}>{m.video_editor_canvas_tool_crop()}</button
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				aria-label={m.video_editor_canvas_tool_crop()}
+				title={m.video_editor_canvas_tool_crop()}
+				onclick={() => setTool('crop')}><ProtectedIcon icon="editor-crop" class="size-4" /></button
 			>
 		{/if}
 		<button
 			type="button"
 			class:active={activeTool === 'anchor'}
-			class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-			onclick={() => setTool('anchor')}>{m.video_editor_canvas_tool_anchor()}</button
+			class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+			aria-label={m.video_editor_canvas_tool_anchor()}
+			title={m.video_editor_canvas_tool_anchor()}
+			onclick={() => setTool('anchor')}><ProtectedIcon icon="editor-focus" class="size-4" /></button
 		>
 		{#if canEditText}
 			<button
 				type="button"
 				class:active={activeTool === 'text'}
-				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-				onclick={() => setTool('text')}>{m.video_editor_canvas_tool_text()}</button
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				aria-label={m.video_editor_canvas_tool_text()}
+				title={m.video_editor_canvas_tool_text()}
+				onclick={() => setTool('text')}><ProtectedIcon icon="editor-text" class="size-4" /></button
 			>
 		{/if}
 		{#if hasMotion && !isPlaying}
 			<button
 				type="button"
 				class:active={activeTool === 'motion'}
-				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-				onclick={() => setTool('motion')}>{m.video_editor_canvas_tool_motion()}</button
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				aria-label={m.video_editor_canvas_tool_motion()}
+				title={m.video_editor_canvas_tool_motion()}
+				onclick={() => setTool('motion')}
+				><ProtectedIcon icon="editor-animation" class="size-4" /></button
 			>
 		{/if}
 		{#if isMaskItem && !isPlaying}
 			<button
 				type="button"
 				class:active={activeTool === 'mask'}
-				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-				onclick={() => setTool('mask')}>{m.video_editor_canvas_tool_mask()}</button
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				aria-label={m.video_editor_canvas_tool_mask()}
+				title={m.video_editor_canvas_tool_mask()}
+				onclick={() => setTool('mask')}><ProtectedIcon icon="editor-mask" class="size-4" /></button
 			>
 		{:else if canEditPath && !isPlaying}
 			<button
 				type="button"
 				class:active={activeTool === 'path'}
-				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-				onclick={() => setTool('path')}>{m.video_editor_canvas_tool_path()}</button
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				aria-label={m.video_editor_canvas_tool_path()}
+				title={m.video_editor_canvas_tool_path()}
+				onclick={() => setTool('path')}><ProtectedIcon icon="editor-path" class="size-4" /></button
 			>
 		{/if}
 		{#if canCornerPin && !isPlaying}
 			<button
 				type="button"
 				class:active={activeTool === 'corner-pin'}
-				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.76_0.13_220)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
-				onclick={() => setTool('corner-pin')}>{m.video_editor_canvas_tool_corner_pin()}</button
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.76_0.13_220)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				aria-label={m.video_editor_canvas_tool_corner_pin()}
+				title={m.video_editor_canvas_tool_corner_pin()}
+				onclick={() => setTool('corner-pin')}
+				><ProtectedIcon icon="editor-corner-pin" class="size-4" /></button
 			>
 		{/if}
 	</div>
@@ -1044,11 +1065,7 @@
 			data-canvas-snap-position={line.position}
 		>
 			{#if line.label}
-				<span
-					class="absolute top-1 left-1 rounded-sm bg-[oklch(0.76_0.16_340)] px-1 py-0.5 text-[10px] leading-none font-semibold whitespace-nowrap text-white shadow-sm"
-				>
-					{snapLineLabel(line.label)}
-				</span>
+				<title>{snapLineLabel(line.label)}</title>
 			{/if}
 		</div>
 	{/each}
@@ -1113,7 +1130,7 @@
 						class="pointer-events-auto cursor-crosshair focus:outline-none focus-visible:stroke-[oklch(0.78_0.16_45)]"
 						cx={handlePoint.x}
 						cy={handlePoint.y}
-						r={12 / screenScale}
+						r={11 / screenScale}
 						fill="transparent"
 						stroke="transparent"
 						stroke-width="2"
@@ -1148,7 +1165,7 @@
 					class="pointer-events-auto cursor-move focus:outline-none focus-visible:stroke-white"
 					cx={point.x}
 					cy={point.y}
-					r={12 / screenScale}
+					r={11 / screenScale}
 					fill="transparent"
 					stroke="transparent"
 					stroke-width="2"
@@ -1225,40 +1242,38 @@
 				{#each TRANSFORM_HANDLES as handle}
 					<button
 						type="button"
-						class="absolute z-10 flex size-8 items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white"
+						class="absolute z-10 flex size-[22px] items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:size-8"
 						style={transformHandleStyle(handle)}
 						aria-label={transformHandleLabel(handle)}
-						title={m.video_editor_resize_modifier_hint()}
 						data-transform-handle={handle}
 						onpointerdown={(event) => startTransform(event, 'resize', handle)}
 						onkeydown={(event) => resizeKeydown(event, handle)}
 					>
 						<span
 							class="border border-black bg-[oklch(0.72_0.16_45)] shadow-[0_0_0_1px_white]"
-							class:size-3={cornerHandle(handle)}
-							class:h-2={handle === 'n' || handle === 's'}
-							class:w-5={handle === 'n' || handle === 's'}
-							class:h-5={handle === 'e' || handle === 'w'}
-							class:w-2={handle === 'e' || handle === 'w'}
+							class:size-2.5={cornerHandle(handle)}
+							class:h-2.5={handle === 'n' || handle === 's'}
+							class:w-[22px]={handle === 'n' || handle === 's'}
+							class:h-[22px]={handle === 'e' || handle === 'w'}
+							class:w-2.5={handle === 'e' || handle === 'w'}
 							class:rounded-sm={!cornerHandle(handle)}
 						></span>
 					</button>
 				{/each}
 				<button
 					type="button"
-					class="absolute left-1/2 z-10 flex size-8 -translate-1/2 cursor-crosshair items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white"
-					style:top="-32px"
+					class="absolute left-1/2 z-10 flex size-[22px] -translate-1/2 cursor-crosshair items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:size-8"
+					style:top="-22px"
 					aria-label={m.video_editor_rotate_selected()}
-					title={m.video_editor_rotation_modifier_hint()}
 					data-transform-handle="rotate"
 					onpointerdown={(event) => startTransform(event, 'rotate')}
 					onkeydown={rotationKeydown}
 				>
 					<span
-						class="pointer-events-none absolute top-1/2 left-1/2 h-8 border-l border-dashed border-[oklch(0.72_0.16_45)] shadow-[1px_0_0_black]"
+						class="pointer-events-none absolute top-1/2 left-1/2 h-[22px] border-l border-dashed border-[oklch(0.72_0.16_45)] shadow-[1px_0_0_black]"
 					></span>
 					<span
-						class="z-10 size-3 rounded-full border border-black bg-[oklch(0.72_0.16_45)] shadow-[0_0_0_1px_white]"
+						class="z-10 size-2.5 rounded-full border border-black bg-[oklch(0.72_0.16_45)] shadow-[0_0_0_1px_white]"
 					></span>
 				</button>
 			{:else if activeTool === 'crop'}
@@ -1300,7 +1315,7 @@
 				></div>
 				<button
 					type="button"
-					class="absolute flex size-9 -translate-1/2 cursor-crosshair items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white"
+					class="absolute flex size-[22px] -translate-1/2 cursor-crosshair items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:size-8"
 					style:left={`${(anchorX / width) * 100}%`}
 					style:top={`${(anchorY / height) * 100}%`}
 					aria-label={m.video_editor_anchor_handle()}
@@ -1308,7 +1323,7 @@
 					onkeydown={anchorKeydown}
 				>
 					<span
-						class="size-5 rounded-full border-2 border-black bg-[oklch(0.78_0.16_45)] shadow-[0_0_0_1px_white]"
+						class="size-2.5 rounded-full border-2 border-black bg-[oklch(0.78_0.16_45)] shadow-[0_0_0_1px_white]"
 					></span>
 				</button>
 			{/if}
@@ -1318,7 +1333,8 @@
 	{#if activeTool === 'text' && canEditText}
 		<div
 			bind:this={textEditor}
-			class="pointer-events-auto absolute z-10 flex overflow-hidden border border-[oklch(0.78_0.16_45)] bg-black/10 whitespace-pre-wrap text-white caret-[oklch(0.78_0.16_45)] shadow-[0_0_0_1px_black] focus:outline-none"
+			class="pointer-events-auto absolute z-10 flex overflow-hidden border-transparent bg-transparent whitespace-pre-wrap text-white caret-[oklch(0.78_0.16_45)] focus:outline-none"
+			title={m.video_editor_direct_text_editor()}
 			style={boxStyle}
 			style:font-family={`"${item.fontAssetId ? editorFontAssetFamily(item.fontFamily ?? 'Inter', item.fontAssetId) : loadedTextFontFamily(item.fontFamily ?? 'Inter')}", sans-serif`}
 			style:font-size={`${((item.fontSize ?? Math.max(18, height / 15)) / canvasWidth) * 100}cqw`}
@@ -1357,31 +1373,42 @@
 <style>
 	.vertical-handle {
 		top: 50%;
-		width: 1.5rem;
-		height: 2.75rem;
+		width: 22px;
+		height: 22px;
 		transform: translateY(-50%);
 		cursor: ew-resize;
 	}
 
 	.horizontal-handle {
 		left: 50%;
-		width: 2.75rem;
-		height: 1.5rem;
+		width: 22px;
+		height: 22px;
 		transform: translateX(-50%);
 		cursor: ns-resize;
 	}
 
+	@media (pointer: coarse) {
+		.vertical-handle {
+			width: 22px;
+			height: 44px;
+		}
+		.horizontal-handle {
+			width: 44px;
+			height: 22px;
+		}
+	}
+
 	.vertical-grip {
-		width: 0.5rem;
-		height: 2rem;
+		width: 8px;
+		height: 14px;
 		border: 1px solid black;
 		border-radius: 0.125rem;
 		background: oklch(0.78 0.16 45);
 	}
 
 	.horizontal-grip {
-		width: 2rem;
-		height: 0.5rem;
+		width: 14px;
+		height: 8px;
 		border: 1px solid black;
 		border-radius: 0.125rem;
 		background: oklch(0.78 0.16 45);

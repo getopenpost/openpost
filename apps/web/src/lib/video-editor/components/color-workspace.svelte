@@ -257,7 +257,7 @@
 					</h3>
 					<button
 						type="button"
-						class="color-tool h-7 [@media(pointer:coarse)]:h-11"
+						class="color-tool h-[22px] [@media(pointer:coarse)]:h-11"
 						class:bg-[var(--video-editor-primary)]={autoKey}
 						class:text-[var(--video-editor-primary-text)]={autoKey}
 						aria-pressed={autoKey}
@@ -332,7 +332,7 @@
 			{#if showPresetSave}
 				<div class="mt-1 grid grid-cols-[1fr_auto] gap-1">
 					<Input
-						class="h-7 min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs"
+						class="h-[22px] min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs [@media(pointer:coarse)]:h-11"
 						bind:value={presetName}
 						placeholder={m.video_editor_color_preset_name()}
 						aria-label={m.video_editor_color_preset_name()}
@@ -361,12 +361,13 @@
 					{#each EDITOR_COLOR_GRADE_PRESETS as preset (preset.id)}
 						<button
 							type="button"
-							class="flex h-11 min-w-20 flex-col items-start justify-between rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)] px-2 py-1 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+							class="flex h-[25px] min-w-20 shrink-0 items-center gap-1.5 rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)] px-2 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:h-11"
 							title={editorColorGradePresetLabel(preset.id)}
 							onclick={() => applyBuiltinPreset(preset.id)}
 						>
 							<span
-								class="h-1 w-full rounded-full bg-gradient-to-r from-slate-500 via-amber-300 to-sky-400"
+								class="size-2 shrink-0 rounded-full bg-gradient-to-r from-slate-500 via-amber-300 to-sky-400"
+								aria-hidden="true"
 							></span>
 							<span class="max-w-16 truncate text-[10px] font-medium"
 								>{editorColorGradePresetLabel(preset.id)}</span
@@ -379,12 +380,13 @@
 						>
 							<button
 								type="button"
-								class="flex h-11 w-full flex-col items-start justify-between rounded-sm px-2 py-1 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								class="flex h-[25px] w-full items-center gap-1.5 rounded-sm px-2 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:h-11"
 								title={preset.name}
 								onclick={() => applyPreset(preset)}
 							>
 								<span
-									class="h-1 w-full rounded-full bg-gradient-to-r from-slate-500 via-amber-300 to-sky-400"
+									class="size-2 shrink-0 rounded-full bg-gradient-to-r from-slate-500 via-amber-300 to-sky-400"
+									aria-hidden="true"
 								></span>
 								<span class="max-w-20 truncate text-[10px] font-medium">{preset.name}</span>
 							</button>
@@ -426,7 +428,7 @@
 <style>
 	.color-tool {
 		display: flex;
-		height: 1.75rem;
+		height: 1.375rem;
 		align-items: center;
 		justify-content: center;
 		gap: 0.25rem;
@@ -451,11 +453,20 @@
 	}
 	.color-icon {
 		display: flex;
-		height: 1.75rem;
-		width: 1.75rem;
+		height: 1.375rem;
+		width: 1.375rem;
 		align-items: center;
 		justify-content: center;
 		border-radius: 0.25rem;
 		border: 1px solid var(--video-editor-border);
+	}
+	@media (pointer: coarse) {
+		.color-tool,
+		.color-icon {
+			height: 2.75rem;
+		}
+		.color-icon {
+			width: 2.75rem;
+		}
 	}
 </style>

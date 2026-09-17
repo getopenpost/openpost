@@ -339,18 +339,17 @@
 				<section>
 					<details class="mt-2 rounded-md border border-border bg-muted/40">
 						<summary
-							class="flex min-h-8 cursor-pointer list-none items-center justify-between px-2 text-[10px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
+							class="flex min-h-[25px] cursor-pointer list-none items-center justify-between px-2 text-[10px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
+							title={m.video_editor_audio_fade_shape_description()}
 						>
-							<span>{m.video_editor_audio_fade_shape()}</span><span class="text-muted-foreground/70"
-								>{m.video_editor_audio_fade_shape_description()}</span
-							>
+							<span>{m.video_editor_audio_fade_shape()}</span>
 						</summary>
 						<div class="grid grid-cols-2 gap-1 border-t border-border p-2">
 							{#each [{ label: m.video_editor_audio_fade_in_curve(), field: 'audioFadeInCurve', value: audioItem.audioFadeInCurve ?? 0, min: -1, max: 1 }, { label: m.video_editor_audio_fade_out_curve(), field: 'audioFadeOutCurve', value: audioItem.audioFadeOutCurve ?? 0, min: -1, max: 1 }, { label: m.video_editor_audio_fade_in_bias(), field: 'audioFadeInCurveX', value: audioItem.audioFadeInCurveX ?? 0.52, min: 0.04, max: 0.96 }, { label: m.video_editor_audio_fade_out_bias(), field: 'audioFadeOutCurveX', value: audioItem.audioFadeOutCurveX ?? 0.52, min: 0.04, max: 0.96 }] as control (control.field)}
 								<label class="text-[10px] text-muted-foreground">
 									{control.label}
 									<Input
-										class="mt-0.5 h-8 w-full bg-field text-xs text-field-foreground"
+										class="mt-0.5 h-[25px] w-full bg-field text-xs text-field-foreground"
 										type="number"
 										min={control.min}
 										max={control.max}
@@ -378,12 +377,12 @@
 						data-testid="noise-reduction-panel"
 					>
 						<div class="flex items-center justify-between gap-2">
-							<h4 class="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+							<h4
+								class="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
+								title={m.video_editor_audio_noise_description()}
+							>
 								{m.video_editor_audio_noise_title()}
 							</h4>
-							<span class="text-[10px] text-muted-foreground/70"
-								>{m.video_editor_audio_noise_description()}</span
-							>
 						</div>
 						{#if audioItem}
 							{@const nr = resolveNoiseReductionSettings(audioItem)}
@@ -409,8 +408,12 @@
 								</span>
 							</div>
 							<div class="mt-2 space-y-1">
-								<Label for={`nr-${audioItem.id}`} class="text-[10px] text-muted-foreground"
-									>{m.video_editor_audio_noise_amount()}</Label
+								<Label
+									for={`nr-${audioItem.id}`}
+									class="text-[10px] text-muted-foreground"
+									title={m.video_editor_audio_noise_amount_hint({
+										amount: String(nrDraftAmount ?? nr.amount)
+									})}>{m.video_editor_audio_noise_amount()}</Label
 								>
 								<Slider
 									value={nrDraftAmount ?? nr.amount}
@@ -431,11 +434,6 @@
 										});
 									}}
 								/>
-								<p class="mt-1 text-[10px] leading-snug text-muted-foreground/70">
-									{m.video_editor_audio_noise_amount_hint({
-										amount: String(nrDraftAmount ?? nr.amount)
-									})}
-								</p>
 							</div>
 						{/if}
 					</div>
@@ -506,7 +504,7 @@
 							value={item.textAlign ?? 'center'}
 							options={textAlignmentOptions}
 							ariaLabel={m.video_editor_text_alignment()}
-							class="mt-0.5 h-8 w-full text-xs"
+							class="mt-0.5 h-[25px] w-full text-xs"
 							onValueChange={(textAlign) =>
 								commitText({
 									textAlign: textAlign as TimelineItem['textAlign']
@@ -519,7 +517,7 @@
 							value={item.verticalAlign ?? 'middle'}
 							options={verticalAlignmentOptions}
 							ariaLabel={m.video_editor_text_vertical_alignment()}
-							class="mt-0.5 h-8 w-full text-xs"
+							class="mt-0.5 h-[25px] w-full text-xs"
 							onValueChange={(verticalAlign) =>
 								commitText({
 									verticalAlign: verticalAlign as TimelineItem['verticalAlign']

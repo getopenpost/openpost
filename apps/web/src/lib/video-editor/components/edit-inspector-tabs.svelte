@@ -65,7 +65,7 @@
 			tabindex={value === tab ? 0 : -1}
 			data-edit-inspector-tab={tab}
 			aria-selected={value === tab}
-			class="min-h-11 shrink-0 rounded px-2.5 text-xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring aria-selected:bg-selection aria-selected:text-selection-foreground lg:min-h-8 [@media(pointer:coarse)]:min-h-11"
+			class="min-h-11 shrink-0 rounded px-2.5 text-xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring aria-selected:bg-selection aria-selected:text-selection-foreground lg:min-h-[25px] [@media(pointer:coarse)]:min-h-11"
 			onclick={() => select(tab)}
 			onkeydown={(event) => moveFocus(event, tab)}
 		>

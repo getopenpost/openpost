@@ -119,7 +119,7 @@
 	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 >
 	<summary
-		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+		class="flex min-h-[25px] cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 	>
 		<span class="font-medium text-[var(--video-editor-text)]"
 			>{m.video_editor_audio_effects_title()}</span
@@ -144,19 +144,24 @@
 					...addOptions
 				]}
 				ariaLabel={m.video_editor_audio_effects_add_aria()}
-				class="h-8 flex-1 text-xs"
+				class="h-[25px] flex-1 text-xs"
 				onValueChange={addEffect}
 			/>
 			{#if effects.length > 0}
-				<Button type="button" size="sm" variant="ghost" class="h-8 px-2 text-xs" onclick={resetAll}
-					>{m.video_editor_audio_effects_reset()}</Button
+				<Button
+					type="button"
+					size="sm"
+					variant="ghost"
+					class="h-[25px] px-2 text-xs"
+					onclick={resetAll}>{m.video_editor_audio_effects_reset()}</Button
 				>
 			{/if}
 		</div>
 
 		{#if effects.length === 0}
 			<p
-				class="rounded bg-[var(--video-editor-control)] px-2 py-2 text-xs leading-4 text-[var(--video-editor-muted)]"
+				class="truncate rounded bg-[var(--video-editor-control)] px-2 py-1 text-[11px] text-[var(--video-editor-muted)]"
+				title={m.video_editor_audio_effects_empty()}
 			>
 				{m.video_editor_audio_effects_empty()}
 			</p>
@@ -168,7 +173,7 @@
 					>
 						<details class="group/effect">
 							<summary
-								class="flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-2 py-1 text-xs"
+								class="flex min-h-[25px] cursor-pointer list-none items-center gap-1.5 px-2 py-1 text-xs"
 							>
 								<span class="shrink-0 text-[var(--video-editor-muted)]" aria-hidden="true">≡</span>
 								<span class="flex-1 truncate font-medium text-[var(--video-editor-text)]"
@@ -218,7 +223,7 @@
 										type="button"
 										size="sm"
 										variant="ghost"
-										class="h-6 px-1.5 text-xs"
+										class="h-[22px] px-1.5 text-xs"
 										disabled={index === 0}
 										aria-label={m.video_editor_audio_effects_move_up({
 											name: labelFor(effect.type)
@@ -229,7 +234,7 @@
 										type="button"
 										size="sm"
 										variant="ghost"
-										class="h-6 px-1.5 text-xs"
+										class="h-[22px] px-1.5 text-xs"
 										disabled={index === effects.length - 1}
 										aria-label={m.video_editor_audio_effects_move_down({
 											name: labelFor(effect.type)
@@ -250,7 +255,7 @@
 											>{m.video_editor_audio_effects_threshold()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.thresholdDb}
 												min={-60}
 												max={0}
@@ -265,7 +270,7 @@
 											>{m.video_editor_audio_effects_ratio()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.ratio}
 												min={1}
 												max={20}
@@ -280,7 +285,7 @@
 											>{m.video_editor_audio_effects_attack()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.attackMs}
 												min={0.1}
 												max={100}
@@ -295,7 +300,7 @@
 											>{m.video_editor_audio_effects_makeup()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.makeupGainDb}
 												min={-12}
 												max={12}
@@ -322,7 +327,7 @@
 										/>
 										<Input
 											type="number"
-											class="mt-1 h-7 text-xs"
+											class="mt-1 h-[22px] text-xs"
 											value={effect.pan}
 											min={-1}
 											max={1}
@@ -339,7 +344,7 @@
 											>{m.video_editor_audio_effects_decay()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.decaySeconds}
 												min={0.1}
 												max={6}
@@ -354,7 +359,7 @@
 											>{m.video_editor_audio_effects_wet()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.wet}
 												min={0}
 												max={1}
@@ -372,7 +377,7 @@
 											>{m.video_editor_audio_effects_time()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.timeMs}
 												min={1}
 												max={2000}
@@ -387,7 +392,7 @@
 											>{m.video_editor_audio_effects_mix()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.mix}
 												min={0}
 												max={1}
@@ -402,7 +407,7 @@
 											>{m.video_editor_audio_effects_feedback()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.feedback}
 												min={0}
 												max={0.92}
@@ -420,7 +425,7 @@
 											>{m.video_editor_audio_effects_rate()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.rateHz}
 												min={0.05}
 												max={8}
@@ -435,7 +440,7 @@
 											>{m.video_editor_audio_effects_depth()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.depthMs}
 												min={0.2}
 												max={12}
@@ -453,7 +458,7 @@
 											>{m.video_editor_audio_effects_rate()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.rateHz}
 												min={0.05}
 												max={5}
@@ -468,7 +473,7 @@
 											>{m.video_editor_audio_effects_depth()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.depthMs}
 												min={0.2}
 												max={8}
@@ -486,7 +491,7 @@
 											>{m.video_editor_audio_effects_amount()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.amount}
 												min={0}
 												max={1}
@@ -501,7 +506,7 @@
 											>{m.video_editor_audio_effects_mix()}
 											<Input
 												type="number"
-												class="mt-0.5 h-7 text-xs"
+												class="mt-0.5 h-[22px] text-xs"
 												value={effect.mix}
 												min={0}
 												max={1}

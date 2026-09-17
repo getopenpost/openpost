@@ -71,7 +71,7 @@
 		>
 			<button
 				type="button"
-				class="h-7 px-3 text-[10px] [@media(pointer:coarse)]:h-11 {colorScope === 'clip'
+				class="h-[22px] px-3 text-[10px] [@media(pointer:coarse)]:h-11 {colorScope === 'clip'
 					? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
 					: 'hover:bg-[var(--video-editor-control)]'}"
 				aria-pressed={colorScope === 'clip'}
@@ -81,7 +81,7 @@
 			</button>
 			<button
 				type="button"
-				class="h-7 border-l border-[var(--video-editor-border)] px-3 text-[10px] [@media(pointer:coarse)]:h-11 {colorScope ===
+				class="h-[22px] border-l border-[var(--video-editor-border)] px-3 text-[10px] [@media(pointer:coarse)]:h-11 {colorScope ===
 				'sequence'
 					? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
 					: 'hover:bg-[var(--video-editor-control)]'}"
@@ -96,8 +96,11 @@
 	{#key sequenceGradeItemId}
 		{#if colorScope === 'sequence' && !sequenceGradeItemId}
 			<div class="flex min-h-0 flex-1 items-center justify-center p-6 text-center">
-				<div class="max-w-72 space-y-3">
-					<p class="text-xs text-[var(--video-editor-muted)]">
+				<div class="max-w-72 space-y-2">
+					<p
+						class="truncate text-[11px] text-[var(--video-editor-muted)]"
+						title={m.video_editor_adjustment_layer_hint()}
+					>
 						{m.video_editor_adjustment_layer_hint()}
 					</p>
 					<button
@@ -145,7 +148,7 @@
 					class="flex min-h-[280px] min-w-0 flex-col overflow-hidden border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0"
 				>
 					<h3
-						class="flex h-8 shrink-0 items-center border-b border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-xs font-medium text-[var(--video-editor-text)]"
+						class="flex h-[25px] shrink-0 items-center border-b border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-xs font-medium text-[var(--video-editor-text)]"
 					>
 						{m.video_editor_effects()}
 					</h3>

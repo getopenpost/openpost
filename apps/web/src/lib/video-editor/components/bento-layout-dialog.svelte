@@ -3,7 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions-store.svelte';
 	import {
@@ -196,19 +196,19 @@
 	<Dialog.Content
 		class="video-editor-theme flex max-h-[min(92dvh,820px)] w-[calc(100%-1rem)] max-w-2xl flex-col overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl sm:max-w-2xl"
 	>
-		<Dialog.Header class="border-b border-border px-5 py-4 pr-12">
-			<Dialog.Title class="text-base">{m.video_editor_bento_title()}</Dialog.Title>
+		<Dialog.Header class="border-b border-border px-3 py-2 pr-10">
+			<Dialog.Title class="text-[13px]">{m.video_editor_bento_title()}</Dialog.Title>
 			<Dialog.Description class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_bento_description({ count: eligibleIds.length })}
 			</Dialog.Description>
 		</Dialog.Header>
 
-		<div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+		<div class="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
 			<div class="flex flex-wrap gap-1.5" aria-label={m.video_editor_bento_title()}>
 				{#each builtIns as preset (preset.id)}
 					<button
 						type="button"
-						class="min-h-9 rounded-md border border-border px-2.5 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:border-selection data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
+						class="h-[25px] rounded-md border border-border px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:border-selection data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
 						data-active={selectedKey === `builtin:${preset.id}`}
 						aria-pressed={selectedKey === `builtin:${preset.id}`}
 						onclick={() => selectBuiltIn(preset)}
@@ -220,7 +220,7 @@
 					<div class="flex items-center rounded-md border border-border">
 						<button
 							type="button"
-							class="min-h-9 rounded-l-md px-2.5 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
+							class="h-[25px] rounded-l-md px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
 							data-active={selectedKey === `custom:${preset.id}`}
 							aria-pressed={selectedKey === `custom:${preset.id}`}
 							onclick={() => selectCustom(preset)}
@@ -229,7 +229,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-9 items-center justify-center rounded-r-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring"
+							class="flex size-[25px] items-center justify-center rounded-r-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring"
 							aria-label={m.video_editor_bento_delete_preset({ name: preset.name })}
 							onclick={() => deletePreset(preset.id)}
 						>
@@ -267,21 +267,22 @@
 				{/each}
 			</div>
 
-			<div class="grid gap-3 sm:grid-cols-[1fr_auto]">
-				<section class="rounded-lg border border-border p-3" aria-labelledby="bento-order-title">
-					<h3 id="bento-order-title" class="text-xs font-medium">
+			<div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+				<section class="rounded-lg border border-border p-2" aria-labelledby="bento-order-title">
+					<h3
+						id="bento-order-title"
+						class="text-xs font-medium"
+						title={m.video_editor_bento_order_hint()}
+					>
 						{m.video_editor_bento_order()}
 					</h3>
-					<p class="mt-0.5 text-[11px] text-[var(--video-editor-muted)]">
-						{m.video_editor_bento_order_hint()}
-					</p>
-					<div class="mt-2 grid gap-1.5 sm:grid-cols-2">
+					<div class="mt-2 grid gap-1 sm:grid-cols-2">
 						{#each chainOrder as chain, index (chain[0])}
 							<div class="flex min-w-0 items-center gap-1 rounded bg-muted p-1 pl-2">
 								<span class="min-w-0 flex-1 truncate text-xs">{index + 1}. {chainName(chain)}</span>
 								<button
 									type="button"
-									class="flex size-8 items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
+									class="flex size-[22px] items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
 									disabled={index === 0}
 									aria-label={m.video_editor_bento_move_earlier({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index - 1)}
@@ -290,7 +291,7 @@
 								</button>
 								<button
 									type="button"
-									class="flex size-8 items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
+									class="flex size-[22px] items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
 									disabled={index === chainOrder.length - 1}
 									aria-label={m.video_editor_bento_move_later({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index + 1)}
@@ -305,20 +306,13 @@
 				<div class="grid grid-cols-2 content-start gap-2 sm:w-48">
 					<label class="space-y-1 text-xs">
 						<span class="text-[var(--video-editor-muted)]">{m.video_editor_bento_gap()}</span>
-						<Input type="number" min="0" max="500" bind:value={gap} class="h-9" />
+						<Input type="number" min="0" max="500" bind:value={gap} class="h-[25px]" />
 					</label>
 					<label class="space-y-1 text-xs">
 						<span class="text-[var(--video-editor-muted)]">{m.video_editor_bento_padding()}</span>
-						<Input type="number" min="0" max="500" bind:value={padding} class="h-9" />
+						<Input type="number" min="0" max="500" bind:value={padding} class="h-[25px]" />
 					</label>
 				</div>
-			</div>
-
-			<div
-				class="flex items-start gap-2 rounded-md border border-warning/25 bg-warning/8 p-3 text-xs text-warning-foreground"
-			>
-				<ProtectedIcon icon="warning" class="mt-0.5 size-4 shrink-0" />
-				<p>{m.video_editor_bento_motion_warning()}</p>
 			</div>
 
 			{#if savingPreset}
@@ -347,7 +341,7 @@
 		</div>
 
 		<Dialog.Footer
-			class="flex-row justify-between border-t border-border px-5 py-3 sm:justify-between"
+			class="flex-row justify-between border-t border-border px-3 py-2 sm:justify-between"
 		>
 			<Button variant="ghost" size="sm" onclick={() => (savingPreset = !savingPreset)}>
 				{m.video_editor_bento_new_preset()}
@@ -356,7 +350,11 @@
 				<Button variant="ghost" onclick={() => (open = false)}>
 					{m.video_editor_bento_cancel()}
 				</Button>
-				<Button disabled={eligibleIds.length < 2} onclick={applyLayout}>
+				<Button
+					disabled={eligibleIds.length < 2}
+					onclick={applyLayout}
+					title={m.video_editor_bento_motion_warning()}
+				>
 					{m.video_editor_bento_apply()}
 				</Button>
 			</div>

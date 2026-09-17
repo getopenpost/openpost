@@ -21,14 +21,15 @@
 
 {#if shader.animated}
 	{#each motion as control (control.name)}
-		<GpuParamControl
-			param={control}
-			value={control.name === 'speed' ? background.speed : background.phase}
-			effectLabel={paperLabel(shader.label)}
-			oncommit={(value) => onchange({ [control.name]: value })}
-		/>
+		<div title={m.video_editor_shader_still_hint()}>
+			<GpuParamControl
+				param={control}
+				value={control.name === 'speed' ? background.speed : background.phase}
+				effectLabel={paperLabel(shader.label)}
+				oncommit={(value) => onchange({ [control.name]: value })}
+			/>
+		</div>
 	{/each}
-	<p class="text-xs leading-relaxed text-muted-foreground">{m.video_editor_shader_still_hint()}</p>
 {/if}
 
 {#each controls as control (control.name)}

@@ -262,46 +262,56 @@
 			{m.video_editor_transition_properties()}
 		</h3>
 
-		<label class="text-[10px] text-[var(--video-editor-muted)]">
-			{m.video_editor_transition_preset()}
-			<Input
-				class="mt-1 h-8 w-full bg-[var(--video-editor-control)] text-xs"
-				type="search"
-				placeholder={m.video_editor_transition_search()}
-				aria-label={m.video_editor_transition_search()}
-				bind:value={search}
-			/>
-		</label>
-		<div class="max-h-52 overflow-y-auto rounded border border-[var(--video-editor-border)] p-1">
-			{#if !hasFilteredResults}
-				<p class="p-2 text-xs text-[var(--video-editor-muted)]">
-					{m.video_editor_transition_no_results()}
-				</p>
-			{/if}
-			{#each categories as category}
-				{@const matches = filteredDefinitions(category)}
-				{#if matches.length > 0}
-					<h4
-						class="px-1 pt-1 text-[9px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase"
-					>
-						{categoryLabel(category)}
-					</h4>
-					<div class="grid grid-cols-2 gap-1 py-1">
-						{#each matches as candidate (candidate.id)}
-							<button
-								type="button"
-								class="min-h-8 rounded px-1.5 py-1 text-left text-[10px] leading-tight hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:bg-[var(--video-editor-selection)] data-[selected=true]:text-[var(--video-editor-selection-text)]"
-								data-selected={candidate.id === definition.id}
-								aria-pressed={candidate.id === definition.id}
-								onclick={() => choosePresentation(candidate)}
+		<details class="rounded border border-[var(--video-editor-border)]">
+			<summary
+				class="flex h-[25px] cursor-pointer items-center gap-1 px-1.5 text-[11px] text-[var(--video-editor-text)] [&::-webkit-details-marker]:hidden"
+			>
+				<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
+				<span class="text-[var(--video-editor-muted)]">{m.video_editor_transition_preset()}</span>
+				<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
+					>{transitionLabel(definition)}</span
+				>
+			</summary>
+			<div class="border-t border-[var(--video-editor-border)] p-1">
+				<Input
+					class="h-[25px] w-full bg-[var(--video-editor-control)] text-[11px]"
+					type="search"
+					placeholder={m.video_editor_transition_search()}
+					aria-label={m.video_editor_transition_search()}
+					bind:value={search}
+				/>
+				<div class="max-h-44 overflow-y-auto p-1">
+					{#if !hasFilteredResults}
+						<p class="p-2 text-xs text-[var(--video-editor-muted)]">
+							{m.video_editor_transition_no_results()}
+						</p>
+					{/if}
+					{#each categories as category}
+						{@const matches = filteredDefinitions(category)}
+						{#if matches.length > 0}
+							<h4
+								class="px-1 pt-1 text-[9px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase"
 							>
-								{transitionLabel(candidate)}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			{/each}
-		</div>
+								{categoryLabel(category)}
+							</h4>
+							<div class="grid grid-cols-2 gap-1 py-1">
+								{#each matches as candidate (candidate.id)}
+									<button
+										type="button"
+										class="min-h-[25px] rounded px-1.5 py-1 text-left text-[10px] leading-tight hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:bg-[var(--video-editor-selection)] data-[selected=true]:text-[var(--video-editor-selection-text)]"
+										data-selected={candidate.id === definition.id}
+										aria-pressed={candidate.id === definition.id}
+										onclick={() => choosePresentation(candidate)}
+									>
+										{transitionLabel(candidate)}
+									</button>
+								{/each}
+							</div>
+						{/if}
+					{/each}
+				</div>
+			</div>
+		</details>
 
 		<div class="text-[10px] text-[var(--video-editor-muted)]">
 			<span class="flex justify-between">
@@ -344,7 +354,7 @@
 					<Button
 						size="sm"
 						variant={(transition.alignment ?? 0.5) === placement.value ? 'secondary' : 'outline'}
-						class="h-auto min-h-8 px-1 text-[9px] leading-tight"
+						class="h-[25px] min-h-[25px] px-1 text-[9px] leading-tight"
 						disabled={placementAvailable < transition.durationInFrames}
 						onclick={() => setPlacement(placement.value)}
 					>
@@ -357,7 +367,7 @@
 		<label class="text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_transition_timing()}
 			<AppSelect
-				class="mt-1 h-8 w-full text-xs"
+				class="mt-1 h-[25px] w-full text-[11px]"
 				value={transition.timing ?? 'linear'}
 				options={timingOptions}
 				ariaLabel={m.video_editor_transition_timing()}
@@ -366,39 +376,56 @@
 		</label>
 
 		{#if transition.timing === 'cubic-bezier'}
-			<div class="grid grid-cols-4 gap-1">
-				{#each ['x1', 'y1', 'x2', 'y2'] as point}
-					<label class="text-[9px] text-[var(--video-editor-muted)]">
-						{point}
-						<Input
-							class="mt-0.5 h-7 px-1 text-[10px]"
-							type="number"
-							min="0"
-							max="1"
-							step="0.01"
-							value={transition.bezierPoints?.[point as 'x1' | 'y1' | 'x2' | 'y2'] ??
-								(point === 'x1' ? 0.25 : point === 'y1' ? 0.1 : point === 'x2' ? 0.25 : 1)}
-							onchange={(event) =>
-								commit({
-									bezierPoints: {
-										x1: transition.bezierPoints?.x1 ?? 0.25,
-										y1: transition.bezierPoints?.y1 ?? 0.1,
-										x2: transition.bezierPoints?.x2 ?? 0.25,
-										y2: transition.bezierPoints?.y2 ?? 1,
-										[point]: Math.min(1, Math.max(0, event.currentTarget.valueAsNumber))
-									}
-								})}
-						/>
-					</label>
-				{/each}
-			</div>
+			<details class="rounded border border-[var(--video-editor-border)]">
+				<summary
+					class="flex h-[25px] cursor-pointer items-center gap-1 px-1.5 text-[11px] text-[var(--video-editor-text)] [&::-webkit-details-marker]:hidden"
+				>
+					<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
+					<span class="text-[var(--video-editor-muted)]"
+						>{m.video_editor_keyframe_easing_bezier()}</span
+					>
+					<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
+						>{(transition.bezierPoints?.x1 ?? 0.25).toFixed(2)}, {(
+							transition.bezierPoints?.y1 ?? 0.1
+						).toFixed(2)}, {(transition.bezierPoints?.x2 ?? 0.25).toFixed(2)}, {(
+							transition.bezierPoints?.y2 ?? 1
+						).toFixed(2)}</span
+					>
+				</summary>
+				<div class="grid grid-cols-4 gap-1 border-t border-[var(--video-editor-border)] p-1">
+					{#each ['x1', 'y1', 'x2', 'y2'] as point}
+						<label class="text-[9px] text-[var(--video-editor-muted)]">
+							{point}
+							<Input
+								class="mt-0.5 h-7 px-1 text-[10px]"
+								type="number"
+								min="0"
+								max="1"
+								step="0.01"
+								value={transition.bezierPoints?.[point as 'x1' | 'y1' | 'x2' | 'y2'] ??
+									(point === 'x1' ? 0.25 : point === 'y1' ? 0.1 : point === 'x2' ? 0.25 : 1)}
+								onchange={(event) =>
+									commit({
+										bezierPoints: {
+											x1: transition.bezierPoints?.x1 ?? 0.25,
+											y1: transition.bezierPoints?.y1 ?? 0.1,
+											x2: transition.bezierPoints?.x2 ?? 0.25,
+											y2: transition.bezierPoints?.y2 ?? 1,
+											[point]: Math.min(1, Math.max(0, event.currentTarget.valueAsNumber))
+										}
+									})}
+							/>
+						</label>
+					{/each}
+				</div>
+			</details>
 		{/if}
 
 		{#if definition.hasDirection}
 			<label class="text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_transition_direction()}
 				<AppSelect
-					class="mt-1 h-8 w-full text-xs"
+					class="mt-1 h-[25px] w-full text-[11px]"
 					value={transition.direction ?? definition.directions?.[0] ?? 'from-left'}
 					options={directionOptions.filter((option) =>
 						definition.directions?.includes(option.value as TransitionDirection)

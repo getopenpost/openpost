@@ -149,7 +149,7 @@
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
-				class="h-8 w-full rounded bg-[var(--video-editor-panel)] pr-8 pl-7 text-xs"
+				class="h-[22px] w-full rounded bg-[var(--video-editor-panel)] pr-8 pl-7 text-[11px]"
 				placeholder={m.video_editor_lottiefiles_search()}
 				bind:value={inputValue}
 			/>
@@ -170,7 +170,7 @@
 					<button
 						type="button"
 						class:active={category === value}
-						class="rounded px-1 py-1 text-[10px] font-medium text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[var(--video-editor-primary)] [&.active]:text-[var(--video-editor-primary-text)]"
+						class="h-[25px] rounded px-1 text-[10px] font-medium text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[var(--video-editor-primary)] [&.active]:text-[var(--video-editor-primary-text)]"
 						onclick={() => (category = value)}
 					>
 						{value === 'featured'
@@ -273,14 +273,12 @@
 								</span>
 							{/if}
 						</button>
-						<p class="mt-1 truncate px-0.5 text-[10px] font-medium" title={animation.name}>
+						<p
+							class="mt-1 truncate px-0.5 text-[10px] font-medium"
+							title={`${animation.name}${animation.author ? ` — ${animation.author}` : ''}`}
+						>
 							{animation.name}
 						</p>
-						{#if animation.author}
-							<p class="truncate px-0.5 text-[9px] text-[var(--video-editor-muted)]">
-								{m.video_editor_lottiefiles_by({ author: animation.author })}
-							</p>
-						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -289,11 +287,11 @@
 
 	{#if totalPages > 1 && status !== 'error'}
 		<div
-			class="flex items-center justify-between border-t border-[var(--video-editor-border)] px-2 py-1.5"
+			class="flex h-[25px] items-center justify-between border-t border-[var(--video-editor-border)] px-2"
 		>
 			<button
 				type="button"
-				class="rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] disabled:opacity-30"
+				class="flex size-[22px] items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] disabled:opacity-30"
 				disabled={page === 0 || status === 'loading'}
 				aria-label={m.video_editor_lottiefiles_previous()}
 				onclick={() => void loadPage(page - 1)}
@@ -305,7 +303,7 @@
 			</span>
 			<button
 				type="button"
-				class="rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] disabled:opacity-30"
+				class="flex size-[22px] items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] disabled:opacity-30"
 				disabled={page >= totalPages - 1 || status === 'loading'}
 				aria-label={m.video_editor_lottiefiles_next()}
 				onclick={() => void loadPage(page + 1)}

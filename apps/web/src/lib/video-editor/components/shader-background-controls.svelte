@@ -42,9 +42,9 @@
 		{/each}
 	</div>
 
-	{#each [{ key: 'speed', label: m.video_editor_lottie_speed(), value: background.speed, max: 3, step: 0.05 }, { key: 'phase', label: m.video_editor_shader_phase(), value: background.phase, max: 60, step: 0.1 }, { key: 'detail', label: detailLabel, value: background.detail, max: 1, step: 0.01 }] as control (control.key)}
-		<div class="space-y-2">
-			<div class="flex justify-between gap-2 text-xs">
+	{#each [{ key: 'speed', label: m.video_editor_lottie_speed(), value: background.speed, max: 3, step: 0.05, hint: m.video_editor_shader_still_hint() }, { key: 'phase', label: m.video_editor_shader_phase(), value: background.phase, max: 60, step: 0.1, hint: '' }, { key: 'detail', label: detailLabel, value: background.detail, max: 1, step: 0.01, hint: '' }] as control (control.key)}
+		<div class="space-y-1">
+			<div class="flex justify-between gap-2 text-[11px]" title={control.hint || undefined}>
 				<span>{control.label}</span>
 				<span class="text-muted-foreground tabular-nums">{control.value.toFixed(2)}</span>
 			</div>
@@ -58,7 +58,4 @@
 			/>
 		</div>
 	{/each}
-	<p class="text-xs leading-relaxed text-muted-foreground">
-		{m.video_editor_shader_still_hint()}
-	</p>
 {/if}

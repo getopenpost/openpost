@@ -146,20 +146,17 @@
 		bind:value={search}
 		placeholder={m.video_editor_effects_search()}
 		aria-label={m.video_editor_effects_search()}
-		class="mb-2"
+		class="mb-2 h-[25px] text-xs"
 	/>
-	<p class="mb-2 text-[10px] leading-4 text-[var(--video-editor-muted)]">
-		{m.video_editor_effects_add_or_drag()}
-	</p>
 	<button
 		type="button"
-		class="mb-3 flex min-h-16 w-full items-center gap-3 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 text-left text-xs text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+		class="mb-2 flex h-[25px] w-full items-center gap-2 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-left text-[11px] text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 		onclick={() => createAdjustment(m.video_editor_adjustment_layer())}
 	>
 		<span
-			class="grid size-10 place-items-center rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
+			class="grid size-6 shrink-0 place-items-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)]"
 		>
-			<ProtectedIcon icon="editor-layers" class="size-5" />
+			<ProtectedIcon icon="editor-layers" class="size-3.5" />
 		</span>
 		<span>{m.video_editor_add_adjustment_layer()}</span>
 	</button>

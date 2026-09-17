@@ -6,6 +6,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { ContextMenu } from 'bits-ui';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { m } from '$lib/paraglide/messages';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
@@ -712,53 +713,31 @@
 											<ThemeIcon role="chevron-down" class="size-3.5 shrink-0" />
 										{/if}
 										<span class="truncate">{effectLabel(effect)}</span>
-										{#if collapsedEffects.has(effect.id) && !isEffectAtDefaults(effect)}
-											<span
-												class="inline-flex size-4 shrink-0 items-center justify-center"
-												aria-label={m.video_editor_effects_modified()}
-												data-effect-modified
-											>
+										{#if collapsedEffects.has(effect.id)}
+											{#if effect.type !== 'gpu' && definition}
+												<span class="shrink-0 font-mono text-[10px]"
+													>{(draftAmounts[effect.id] ?? effect.amount).toFixed(
+														definition.step < 1 ? 2 : 0
+													)}</span
+												>{/if}
+											{#if !isEffectAtDefaults(effect)}
 												<span
-													class="size-1.5 rounded-full bg-[var(--video-editor-primary)]"
-													aria-hidden="true"
-												></span>
-											</span>
+													class="inline-flex size-4 shrink-0 items-center justify-center"
+													aria-label={m.video_editor_effects_modified()}
+													data-effect-modified
+												>
+													<span
+														class="size-1.5 rounded-full bg-[var(--video-editor-primary)]"
+														aria-hidden="true"
+													></span>
+												</span>
+											{/if}
 										{/if}
 									</button>
 									<div class="flex shrink-0 items-center">
 										<button
 											type="button"
-											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
-											disabled={index === 0}
-											aria-label={m.video_editor_effects_move_up()}
-											title={m.video_editor_effects_move_up()}
-											onclick={() => moveStackEffect(effect.id, -1)}
-										>
-											<ThemeIcon role="chevron-up" class="size-3" />
-										</button>
-										<button
-											type="button"
-											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
-											disabled={index === effects.length - 1}
-											aria-label={m.video_editor_effects_move_down()}
-											title={m.video_editor_effects_move_down()}
-											onclick={() => moveStackEffect(effect.id, 1)}
-										>
-											<ThemeIcon role="chevron-down" class="size-3" />
-										</button>
-										<button
-											type="button"
-											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-30"
-											disabled={isEffectAtDefaults(effect)}
-											aria-label={m.video_editor_effects_reset()}
-											title={m.video_editor_effects_reset()}
-											onclick={() => resetStackEffect(effect.id)}
-										>
-											<ThemeIcon role="undo" class="size-3" />
-										</button>
-										<button
-											type="button"
-											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+											class="flex size-[22px] items-center justify-center rounded hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 											aria-label={effect.enabled
 												? m.video_editor_effects_disable()
 												: m.video_editor_effects_enable()}
@@ -768,20 +747,51 @@
 											onclick={() => toggleStackEffect(effect)}
 										>
 											{#if effect.enabled}
-												<ThemeIcon role="eye" class="size-3" />
+												<ThemeIcon role="eye" class="size-3.5" />
 											{:else}
-												<ThemeIcon role="eye-off" class="size-3" />
+												<ThemeIcon role="eye-off" class="size-3.5" />
 											{/if}
 										</button>
-										<button
-											type="button"
-											class="rounded p-1 hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-											aria-label={m.video_editor_effects_remove()}
-											title={m.video_editor_effects_remove()}
-											onclick={() => removeStackEffect(effect.id)}
-										>
-											<ThemeIcon role="delete" class="size-3" />
-										</button>
+										<DropdownMenu.Root>
+											<DropdownMenu.Trigger>
+												{#snippet child({ props })}
+													<button
+														{...props}
+														type="button"
+														class="flex size-[22px] items-center justify-center rounded hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+														aria-label={effectLabel(effect)}
+														title={effectLabel(effect)}
+													>
+														<ThemeIcon role="more-horizontal" class="size-3.5" />
+													</button>
+												{/snippet}
+											</DropdownMenu.Trigger>
+											<DropdownMenu.Content class="video-editor-theme w-52" align="end">
+												<DropdownMenu.Item
+													disabled={index === 0}
+													onclick={() => moveStackEffect(effect.id, -1)}
+												>
+													{m.video_editor_effects_move_up()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													disabled={index === effects.length - 1}
+													onclick={() => moveStackEffect(effect.id, 1)}
+												>
+													{m.video_editor_effects_move_down()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Separator />
+												<DropdownMenu.Item
+													disabled={isEffectAtDefaults(effect)}
+													onclick={() => resetStackEffect(effect.id)}
+												>
+													{m.video_editor_effects_reset()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Separator />
+												<DropdownMenu.Item onclick={() => removeStackEffect(effect.id)}>
+													{m.video_editor_effects_remove()}
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
+										</DropdownMenu.Root>
 									</div>
 								</div>
 							{/snippet}
@@ -866,25 +876,28 @@
 									</button>
 								{/if}
 								{#if effect.effectId === 'gpu-lut'}
-									<button
-										type="button"
-										class="mt-1 w-full rounded border border-[var(--video-editor-border)] px-2 py-1 text-xs hover:bg-[var(--video-editor-control-hover)]"
-										title={m.video_editor_effects_lut_size_note()}
-										onclick={() => importLut(effect)}
-										>{typeof effect.params.lutName === 'string' && effect.params.lutName.length > 0
-											? effect.params.lutName
-											: m.video_editor_effects_choose_lut()}</button
-									>
-									<p class="mt-0.5 text-[10px] text-[var(--video-editor-muted)]">
-										{m.video_editor_effects_lut_size_note()}
-									</p>
-									{#if typeof effect.params.lutName === 'string' && effect.params.lutName.length > 0}
+									<div class="mt-1 flex items-center gap-1">
 										<button
 											type="button"
-											class="mt-1 w-full rounded border border-[var(--video-editor-border)] px-2 py-1 text-xs hover:bg-[var(--video-editor-control-hover)]"
-											onclick={() => resetLut(effect)}>{m.video_editor_effects_lut_reset()}</button
+											class="h-[25px] min-w-0 flex-1 truncate rounded border border-[var(--video-editor-border)] px-2 text-left text-[11px] hover:bg-[var(--video-editor-control-hover)]"
+											title={m.video_editor_effects_lut_size_note()}
+											onclick={() => importLut(effect)}
+											>{typeof effect.params.lutName === 'string' &&
+											effect.params.lutName.length > 0
+												? effect.params.lutName
+												: m.video_editor_effects_choose_lut()}</button
 										>
-									{/if}
+										{#if typeof effect.params.lutName === 'string' && effect.params.lutName.length > 0}
+											<button
+												type="button"
+												class="flex size-[22px] shrink-0 items-center justify-center rounded hover:bg-[var(--video-editor-control-hover)]"
+												aria-label={m.video_editor_effects_lut_reset()}
+												title={m.video_editor_effects_lut_reset()}
+												onclick={() => resetLut(effect)}
+												><ThemeIcon role="undo" class="size-3" /></button
+											>
+										{/if}
+									</div>
 									{#if lutStatusEffectId === effect.id && lutStatus}
 										<p class="mt-0.5 text-[10px] text-[var(--video-editor-muted)]" role="status">
 											{lutStatus}

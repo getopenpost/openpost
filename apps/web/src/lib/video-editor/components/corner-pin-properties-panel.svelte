@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import { Input } from '$lib/components/ui/input';
 	import type { TimelineItem, TimelineItemCornerPin } from '$lib/video-editor/project/types';
 	import {
@@ -43,50 +44,49 @@
 </script>
 
 <section class="flex flex-col gap-2">
-	<div class="flex items-center justify-between gap-2">
-		<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
+	<div class="flex h-[25px] items-center justify-between gap-2">
+		<h3
+			class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			title={m.video_editor_corner_pin_hint()}
+		>
 			{m.video_editor_corner_pin()}
 		</h3>
 		{#if item.cornerPin}
 			<button
 				type="button"
-				class="rounded px-1.5 py-1 text-[10px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-				onclick={() => commit(undefined)}>{m.video_editor_corner_pin_reset()}</button
+				class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+				aria-label={m.video_editor_corner_pin_reset()}
+				title={m.video_editor_corner_pin_reset()}
+				onclick={() => commit(undefined)}
+				><ProtectedIcon icon="editor-rotate-left" class="size-3.5" /></button
 			>
 		{/if}
 	</div>
-	<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
-		{m.video_editor_corner_pin_hint()}
-	</p>
 	{#each corners as corner (corner.key)}
-		<div class="grid grid-cols-[1.5rem_1fr_1fr] items-end gap-1">
-			<span class="pb-2 text-[10px] font-medium text-[var(--video-editor-text)]"
-				>{corner.label}</span
-			>
-			<label class="min-w-0 text-[9px] text-[var(--video-editor-muted)]">
-				X
-				<Input
-					type="number"
-					min="-2000"
-					max="2000"
-					step="1"
-					class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-field)] px-1.5 text-xs text-[var(--video-editor-field-text)]"
-					value={pin[corner.key][0]}
-					onchange={(event) => setCoordinate(corner.key, 0, event.currentTarget.valueAsNumber)}
-				/>
-			</label>
-			<label class="min-w-0 text-[9px] text-[var(--video-editor-muted)]">
-				Y
-				<Input
-					type="number"
-					min="-2000"
-					max="2000"
-					step="1"
-					class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-field)] px-1.5 text-xs text-[var(--video-editor-field-text)]"
-					value={pin[corner.key][1]}
-					onchange={(event) => setCoordinate(corner.key, 1, event.currentTarget.valueAsNumber)}
-				/>
-			</label>
+		<div class="grid h-[25px] grid-cols-[1.5rem_1fr_1fr] items-center gap-1">
+			<span class="text-[10px] font-medium text-[var(--video-editor-text)]">{corner.label}</span>
+			<Input
+				type="number"
+				min="-2000"
+				max="2000"
+				step="1"
+				aria-label={`${corner.label} X`}
+				title={`${corner.label} X`}
+				class="h-[25px] w-full rounded bg-[var(--video-editor-field)] px-1.5 text-[11px] text-[var(--video-editor-field-text)] tabular-nums"
+				value={pin[corner.key][0]}
+				onchange={(event) => setCoordinate(corner.key, 0, event.currentTarget.valueAsNumber)}
+			/>
+			<Input
+				type="number"
+				min="-2000"
+				max="2000"
+				step="1"
+				aria-label={`${corner.label} Y`}
+				title={`${corner.label} Y`}
+				class="h-[25px] w-full rounded bg-[var(--video-editor-field)] px-1.5 text-[11px] text-[var(--video-editor-field-text)] tabular-nums"
+				value={pin[corner.key][1]}
+				onchange={(event) => setCoordinate(corner.key, 1, event.currentTarget.valueAsNumber)}
+			/>
 		</div>
 	{/each}
 </section>

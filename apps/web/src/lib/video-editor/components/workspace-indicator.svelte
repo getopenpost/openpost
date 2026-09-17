@@ -71,21 +71,7 @@
 				{#each gate.knownWorkspaces as workspace (workspace.id)}
 					{@const isActive = workspace.id === gate.activeWorkspaceId}
 					{@const isConfirming = workspace.id === confirmRemoveId}
-					<div
-						class="flex h-8 items-center gap-2 rounded-md px-2 py-1 hover:bg-accent"
-						onclick={() => {
-							if (!isActive && !isConfirming) void switchWorkspace(workspace.id);
-						}}
-						onkeydown={(event) => {
-							if (!isActive && !isConfirming && (event.key === 'Enter' || event.key === ' ')) {
-								event.preventDefault();
-								void switchWorkspace(workspace.id);
-							}
-						}}
-						role={!isActive && !isConfirming ? 'button' : undefined}
-						tabindex={!isActive && !isConfirming ? 0 : undefined}
-						aria-label={!isActive && !isConfirming ? m.video_editor_workspace_switch() : undefined}
-					>
+					{#snippet rowContent()}
 						<ThemeIcon
 							role="workspace"
 							class="size-3.5 shrink-0 text-[var(--video-editor-muted)]"
@@ -145,7 +131,21 @@
 								<ThemeIcon role="delete" class="size-3.5" />
 							</Button>
 						{/if}
-					</div>
+					{/snippet}
+					{#if !isActive && !isConfirming}
+						<button
+							type="button"
+							class="flex h-8 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+							onclick={() => void switchWorkspace(workspace.id)}
+							aria-label={m.video_editor_workspace_switch()}
+						>
+							{@render rowContent()}
+						</button>
+					{:else}
+						<div class="flex h-8 cursor-default items-center gap-2 rounded-md px-2 py-1">
+							{@render rowContent()}
+						</div>
+					{/if}
 				{/each}
 			</div>
 

@@ -3520,13 +3520,13 @@
 				<Button
 					variant="ghost"
 					size="icon-xs"
-					class="size-11 md:size-11 lg:size-7"
+					class="size-8 md:size-8 lg:size-7 [(pointer:coarse)]:size-11"
 					onclick={() => (editor.zoom = Math.max(0.1, editor.zoom - 0.1))}
 					aria-label={m.image_editor_zoom_out()}>−</Button
 				>
 				<button
 					type="button"
-					class="min-h-11 min-w-14 rounded px-2 text-xs md:min-h-11 lg:min-h-7"
+					class="min-h-8 min-w-12 rounded px-2 text-xs md:min-h-8 lg:min-h-7 [(pointer:coarse)]:min-h-11"
 					onclick={() => editor.fitZoom()}
 					aria-label={`${m.image_editor_zoom()} ${Math.round(editor.zoom * 100)}%`}
 				>
@@ -3535,7 +3535,7 @@
 				<Button
 					variant="ghost"
 					size="icon-xs"
-					class="size-11 md:size-11 lg:size-7"
+					class="size-8 md:size-8 lg:size-7 [(pointer:coarse)]:size-11"
 					onclick={() => (editor.zoom = Math.min(4, editor.zoom + 0.1))}
 					aria-label={m.image_editor_zoom_in()}>+</Button
 				>

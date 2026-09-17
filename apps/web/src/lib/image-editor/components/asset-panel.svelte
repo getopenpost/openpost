@@ -242,7 +242,7 @@
 </script>
 
 <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-	<div class="flex min-h-10 items-center border-b px-3">
+	<div class="flex min-h-8 items-center border-b px-3">
 		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_media()}
 		</h2>
@@ -259,7 +259,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-11 justify-start"
+					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addText()}
 				>
 					<ProtectedIcon icon="editor-text" />
@@ -268,7 +268,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-11 justify-start"
+					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
@@ -277,7 +277,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-11 justify-start"
+					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('rounded_rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" class="rounded-sm" />
@@ -286,7 +286,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="min-h-11 justify-start"
+					class="min-h-8 justify-start [(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('ellipse')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
@@ -295,7 +295,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					class="col-span-2 min-h-11 justify-start"
+					class="col-span-2 min-h-8 justify-start [(pointer:coarse)]:min-h-11"
 					onclick={() => editor.addShape('line')}
 				>
 					<ThemeIcon role="remove" />
@@ -326,7 +326,7 @@
 						{ value: 'size', label: m.media_sort_size() },
 						{ value: 'recently_used', label: m.media_recently_used() }
 					]}
-					class="h-8 w-full min-w-0 text-xs"
+					class="h-7 w-full min-w-0 text-xs"
 				/>
 			</div>
 		{/if}
@@ -344,7 +344,7 @@
 				/>
 				<Input
 					bind:value={search}
-					class="h-8 pl-7 text-xs"
+					class="h-7 pl-7 text-xs"
 					placeholder={m.image_editor_search_media()}
 				/>
 			</div>

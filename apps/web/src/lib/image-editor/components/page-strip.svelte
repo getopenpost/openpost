@@ -161,11 +161,11 @@
 <svelte:window onblur={() => cancelReorder()} />
 
 <div class="flex size-full flex-col border-t bg-background/95 backdrop-blur">
-	<div class="flex h-11 items-center gap-1 border-b px-2 lg:h-9">
+	<div class="flex h-8 items-center gap-1 border-b px-2 lg:h-8 [(pointer:coarse)]:h-11">
 		<Button
 			variant="ghost"
 			size="icon-xs"
-			class="size-11 md:size-11 lg:size-7"
+			class="size-8 md:size-8 lg:size-7 [(pointer:coarse)]:size-11"
 			onclick={() => (editor.pagesExpanded = !editor.pagesExpanded)}
 			aria-label={editor.pagesExpanded
 				? m.image_editor_collapse_pages()
@@ -183,7 +183,7 @@
 			<Button
 				variant="ghost"
 				size="icon-xs"
-				class="size-11 lg:size-7"
+				class="size-8 lg:size-7 [(pointer:coarse)]:size-11"
 				aria-label={m.interaction_reorder_previous()}
 				title={m.interaction_reorder_previous()}
 				disabled={!editor.canEdit ||
@@ -193,7 +193,7 @@
 			<Button
 				variant="ghost"
 				size="icon-xs"
-				class="size-11 lg:size-7"
+				class="size-8 lg:size-7 [(pointer:coarse)]:size-11"
 				aria-label={m.interaction_reorder_next()}
 				title={m.interaction_reorder_next()}
 				disabled={!editor.canEdit ||
@@ -204,7 +204,7 @@
 			<Button
 				variant="ghost"
 				size="icon-xs"
-				class="size-11 md:size-11 lg:size-7"
+				class="size-8 md:size-8 lg:size-7 [(pointer:coarse)]:size-11"
 				onclick={() => editor.addPage()}
 				disabled={!editor.canEdit}
 			>
@@ -214,7 +214,7 @@
 			<Button
 				variant="ghost"
 				size="icon-xs"
-				class="size-11 md:size-11 lg:size-7"
+				class="size-8 md:size-8 lg:size-7 [(pointer:coarse)]:size-11"
 				onclick={() => editor.duplicatePage()}
 				disabled={!editor.canEdit}
 			>
@@ -224,7 +224,7 @@
 			<Button
 				variant="ghost"
 				size="icon-xs"
-				class="size-11 md:size-11 lg:size-7"
+				class="size-8 md:size-8 lg:size-7 [(pointer:coarse)]:size-11"
 				onclick={() => editor.deletePage()}
 				disabled={!editor.canEdit || (editor.document?.pages.length ?? 0) <= 1}
 			>

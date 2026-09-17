@@ -96,14 +96,14 @@
 	}
 </script>
 
-<div class="space-y-2 px-2.5 py-2" data-testid="speed-ramp-editor">
+<div class="space-y-1.5 px-2 py-1.5" data-testid="speed-ramp-editor">
 	<div class="flex items-center justify-between gap-2">
 		<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
 			>{m.video_editor_clip_speed_curve()}</span
 		>
 		<button
 			type="button"
-			class="inline-flex h-7 items-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-[10px] font-medium text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-35"
+			class="inline-flex h-[22px] items-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-[10px] font-medium text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-35"
 			disabled={!canAdd}
 			onclick={addPoint}
 		>
@@ -151,7 +151,7 @@
 							step="0.05"
 							value={point.speed}
 							aria-label={pointLabel(index)}
-							class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] py-1 pr-4 pl-1.5 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
+							class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] py-1 pr-4 pl-1.5 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
 							onchange={(event) =>
 								updatePoint(point.id, { speed: event.currentTarget.valueAsNumber })}
 						/>
@@ -166,12 +166,12 @@
 						ariaLabel={m.video_editor_keyframe_graph_segment_easing({
 							frame: point.sourceFrame
 						})}
-						class="h-7 min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-[9px] text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
+						class="h-[22px] min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-[9px] text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
 						onValueChange={(value) => updatePoint(point.id, { easing: value as EasingType })}
 					/>
 					<button
 						type="button"
-						class="grid size-7 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class="grid size-[22px] place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={`${m.common_delete()} ${pointLabel(index)}`}
 						onclick={() => removePoint(point.id)}
 					>

@@ -92,7 +92,7 @@
 			<Select.Trigger
 				id="transcription-model"
 				aria-label={m.video_editor_transcribe_model()}
-				class="mt-0.5 h-8 w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
+				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
 				<span class="truncate">{transcriptionModelUiLabel(model)}</span>
 			</Select.Trigger>
@@ -109,7 +109,7 @@
 			<Select.Trigger
 				id="transcription-language"
 				aria-label={m.video_editor_transcribe_language()}
-				class="mt-0.5 h-8 w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
+				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
 				<span class="truncate">{transcriptionLanguageUiLabel(language)}</span>
 			</Select.Trigger>
@@ -132,7 +132,7 @@
 			<Select.Trigger
 				id="transcription-quality"
 				aria-label={m.video_editor_transcribe_quality()}
-				class="mt-0.5 h-8 w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
+				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
 				<span class="truncate">{transcriptionQuantizationUiLabel(quantization)}</span>
 			</Select.Trigger>

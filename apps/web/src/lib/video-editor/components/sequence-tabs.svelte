@@ -88,7 +88,7 @@
 </script>
 
 <nav
-	class="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-border bg-card px-2 py-1 text-xs"
+	class="flex h-8 min-w-0 items-center gap-1 overflow-x-auto border-b border-border bg-card px-1 text-xs"
 	aria-label={m.video_editor_sequences()}
 >
 	<button

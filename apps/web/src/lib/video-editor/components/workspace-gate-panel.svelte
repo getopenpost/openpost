@@ -44,29 +44,40 @@
 	<PageLoading label={m.editors_loading()} />
 {:else if gate.state === 'unavailable'}
 	<div class="max-w-md text-center">
-		<svelte:element this={variant === 'inline' ? 'h2' : 'h1'} class="text-lg font-semibold"
+		<svelte:element this={variant === 'inline' ? 'h2' : 'h1'} class="text-sm font-semibold"
 			>{unavailableCopy.title}</svelte:element
 		>
-		<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
+		<p class="mt-2 max-w-[65ch] text-xs text-[var(--video-editor-muted)]">
 			{unavailableCopy.body}
 		</p>
-		<div class="mt-6 flex flex-wrap justify-center gap-2">
+		<div class="mt-4 flex flex-wrap justify-center gap-2">
 			<Button onclick={() => location.reload()}>{m.video_editor_gate_reload()}</Button>
 			<Button variant="outline" onclick={() => history.back()}>{m.video_editor_go_back()}</Button>
 		</div>
 	</div>
 {:else if gate.state === 'pick' || gate.state === 'reconnect'}
 	<div
-		class:inline={variant === 'inline'}
-		class="w-full max-w-md rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-8 text-center"
+		class={variant === 'inline'
+			? 'w-full border-t border-[var(--video-editor-border)] bg-transparent px-0 py-6 text-left'
+			: 'w-full max-w-md rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-5 text-center'}
 	>
-		<ThemeIcon role="workspace" class="mx-auto size-10 text-[var(--video-editor-primary)]" />
-		<svelte:element this={variant === 'inline' ? 'h2' : 'h1'} class="mt-4 text-lg font-semibold">
+		<ThemeIcon
+			role="workspace"
+			class={variant === 'inline' ? 'hidden' : 'mx-auto size-6 text-[var(--video-editor-primary)]'}
+		/>
+		<svelte:element
+			this={variant === 'inline' ? 'h2' : 'h1'}
+			class={variant === 'inline' ? 'text-base font-semibold' : 'mt-3 text-sm font-semibold'}
+		>
 			{gate.state === 'pick'
 				? m.video_editor_gate_pick_title()
 				: m.video_editor_gate_reconnect_title()}
 		</svelte:element>
-		<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
+		<p
+			class={variant === 'inline'
+				? 'mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--video-editor-muted)]'
+				: 'mx-auto mt-2 max-w-[65ch] text-xs text-[var(--video-editor-muted)]'}
+		>
 			{gate.state === 'pick'
 				? m.video_editor_gate_pick_body()
 				: m.video_editor_gate_reconnect_body({ folder: gate.workspaceName })}
@@ -74,7 +85,11 @@
 		{#if gate.error}
 			<InlineNotice tone="error" class="mt-4 text-left">{gate.error}</InlineNotice>
 		{/if}
-		<div class="gate-actions mt-6 flex flex-col items-center gap-2">
+		<div
+			class={variant === 'inline'
+				? 'mt-4 flex flex-col items-start gap-2'
+				: 'mt-4 flex flex-col items-center gap-2'}
+		>
 			{#if gate.state === 'pick'}
 				<Button
 					variant={variant === 'inline' ? 'outline' : 'default'}
@@ -104,29 +119,3 @@
 		</div>
 	</div>
 {/if}
-
-<style>
-	.inline {
-		max-width: none;
-		padding: 24px 0;
-		border-width: 1px 0 0;
-		border-radius: 0;
-		background: transparent;
-		text-align: left;
-	}
-	.inline > :global(svg) {
-		display: none;
-	}
-	.inline :global(h2) {
-		margin-top: 0;
-		font-size: 16px;
-	}
-	.inline > p {
-		max-width: 65ch;
-		line-height: 1.6;
-	}
-	.inline .gate-actions {
-		align-items: flex-start;
-		margin-top: 16px;
-	}
-</style>

@@ -102,7 +102,7 @@
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
-				class="h-8 w-full rounded bg-[var(--video-editor-panel)] pl-7 text-xs"
+				class="h-[22px] w-full rounded bg-[var(--video-editor-panel)] pl-7 text-[11px]"
 				placeholder={m.video_editor_stickers_search()}
 				bind:value={query}
 			/>
@@ -141,7 +141,7 @@
 					{#each visible as sticker (sticker.name)}
 						<button
 							type="button"
-							class="group relative flex min-h-20 cursor-grab flex-col items-center justify-center gap-1 overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5 text-center hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] active:cursor-grabbing disabled:opacity-60"
+							class="group relative flex min-h-14 cursor-grab flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1 text-center hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] active:cursor-grabbing disabled:opacity-60"
 							draggable="true"
 							disabled={Boolean(inserting)}
 							aria-label={m.video_editor_sticker_add({ name: sticker.label })}
@@ -153,7 +153,7 @@
 							<img
 								src={fluentEmojiStickerPreviewUrl(sticker)}
 								alt=""
-								class="size-11 object-contain transition-transform group-hover:scale-105"
+								class="size-8 object-contain transition-transform group-hover:scale-105"
 								loading="lazy"
 							/>
 							<span class="w-full truncate text-[9px] text-[var(--video-editor-muted)]">
@@ -181,7 +181,7 @@
 					<Button
 						variant="outline"
 						size="sm"
-						class="mt-2 w-full"
+						class="mt-2 h-[25px] w-full text-[11px]"
 						onclick={() => (visibleCount += PAGE_SIZE)}
 					>
 						{m.video_editor_stickers_more()}

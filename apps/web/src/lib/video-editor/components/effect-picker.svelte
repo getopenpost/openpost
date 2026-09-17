@@ -114,7 +114,7 @@
 								value={`${option.label} ${option.group}`}
 								data-effect-option={option.value}
 								data-checked={option.value === value}
-								class="min-h-11 gap-2"
+								class="min-h-8 gap-2"
 								onSelect={() => selectOption(option.value)}
 								onpointerenter={() => (hoveredValue = option.value)}
 								onpointerleave={() => {

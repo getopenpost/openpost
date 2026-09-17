@@ -74,11 +74,8 @@
 	class="transition-browser min-h-0 flex-1 overflow-y-auto p-2"
 	aria-label={m.video_editor_transition()}
 >
-	<p class="mb-2 text-[10px] leading-4 text-[var(--video-editor-muted)]">
-		{m.video_editor_transition_add_or_drag()}
-	</p>
 	{#each groups as group (group.category)}
-		<section class="mb-4 last:mb-0">
+		<section class="mb-2 last:mb-0">
 			<h3
 				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[var(--video-editor-muted)] uppercase"
 			>

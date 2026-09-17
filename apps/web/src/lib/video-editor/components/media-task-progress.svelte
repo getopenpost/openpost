@@ -159,35 +159,33 @@
 			{phaseAnnouncement}
 		</span>
 		<StatusLine>
-			{#snippet children()}
-				<ProtectedIcon
-					icon="loading"
-					class="size-3.5 shrink-0 animate-spin text-[var(--video-editor-focus)] motion-reduce:animate-none"
+			<ProtectedIcon
+				icon="loading"
+				class="size-3.5 shrink-0 animate-spin text-[var(--video-editor-focus)] motion-reduce:animate-none"
+			/>
+			<button
+				type="button"
+				class="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded text-left text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7 [@media(pointer:coarse)]:min-h-11"
+				aria-expanded={expanded}
+				onclick={() => (expanded = !expanded)}
+			>
+				<ThemeIcon
+					role="chevron-right"
+					class="size-3 shrink-0 transition-transform {expanded ? 'rotate-90' : ''}"
 				/>
-				<button
-					type="button"
-					class="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded text-left text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7 [@media(pointer:coarse)]:min-h-11"
-					aria-expanded={expanded}
-					onclick={() => (expanded = !expanded)}
-				>
-					<ThemeIcon
-						role="chevron-right"
-						class="size-3 shrink-0 transition-transform {expanded ? 'rotate-90' : ''}"
-					/>
-					<span class="truncate">
-						{tasks.length === 1
-							? stageLabel(tasks[0]!)
-							: m.video_editor_background_task_count({ count: tasks.length })}
-					</span>
-				</button>
-				<span class="shrink-0 text-[var(--video-editor-muted)] tabular-nums">
-					{averageProgress === null
-						? tasks.length === 1
-							? taskMeta(tasks[0]!)
-							: m.video_editor_task_working()
-						: `${Math.round(averageProgress * 100)}%`}
+				<span class="truncate">
+					{tasks.length === 1
+						? stageLabel(tasks[0]!)
+						: m.video_editor_background_task_count({ count: tasks.length })}
 				</span>
-			{/snippet}
+			</button>
+			<span class="shrink-0 text-[var(--video-editor-muted)] tabular-nums">
+				{averageProgress === null
+					? tasks.length === 1
+						? taskMeta(tasks[0]!)
+						: m.video_editor_task_working()
+					: `${Math.round(averageProgress * 100)}%`}
+			</span>
 		</StatusLine>
 		<ProgressMeter
 			class="mt-1.5 h-1 bg-[var(--video-editor-border)]"

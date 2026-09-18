@@ -6,6 +6,7 @@ import test from "node:test";
 import sharp from "sharp";
 import {
   fetchBadgeData,
+  fetchNpmDownloads,
   parseArguments,
   renderBadge,
   writeBadges,
@@ -25,6 +26,11 @@ test("fetches truthful counts and paginates every release page", async () => {
   const requests = [];
   const fetchImpl = async (url) => {
     requests.push(url);
+    if (url.includes("api.npmjs.org")) {
+      if (url.includes("n8n-nodes-openpost")) return response({ downloads: 5 });
+      if (url.includes("sdk")) return response({ downloads: 3 });
+      return response({ downloads: 2 });
+    }
     if (url.endsWith("/openpost")) return response({ stargazers_count: 42 });
     if (url.endsWith("/releases/latest")) return response({ tag_name: "v1.2.3" });
     if (new URL(url).searchParams.get("page") === "1")
@@ -39,11 +45,17 @@ test("fetches truthful counts and paginates every release page", async () => {
     fetchImpl,
   });
   assert.deepEqual(data, {
-    downloads: 12,
+    downloads: 22,
+    downloadsGithub: 12,
+    downloadsNpm: 10,
     release: "v1.2.3",
     stars: 42,
   });
   assert.ok(requests.some((url) => url.includes("/releases?per_page=100&page=2")));
+  assert.ok(
+    requests.filter((url) => url.includes("api.npmjs.org")).length === 3,
+    "every npm package contributes to the total",
+  );
   assert.ok(requests.every((url) => !url.includes("/actions/workflows/")));
 });
 
@@ -51,14 +63,48 @@ test("fails closed on API errors", async () => {
   await assert.rejects(
     () =>
       fetchBadgeData("getopenpost/openpost", {
-        fetchImpl: async () => response({}, 500),
+        fetchImpl: async (url) =>
+          url.includes("api.npmjs.org") ? response({ downloads: 0 }) : response({}, 500),
       }),
     /GitHub API request failed \(500\)/u,
   );
+  await assert.rejects(
+    () =>
+      fetchBadgeData("getopenpost/openpost", {
+        fetchImpl: async (url) => {
+          if (url.endsWith("/openpost")) return response({ stargazers_count: 1 });
+          if (url.endsWith("/releases/latest")) return response({ tag_name: "v1.0.0" });
+          if (url.includes("api.npmjs.org")) return response({}, 500);
+          return response([]);
+        },
+      }),
+    /npm downloads API request failed \(500\)/u,
+  );
+  await assert.rejects(
+    () =>
+      fetchBadgeData("getopenpost/openpost", {
+        fetchImpl: async (url) => {
+          if (url.endsWith("/openpost")) return response({ stargazers_count: 1 });
+          if (url.endsWith("/releases/latest")) return response({ tag_name: "v1.0.0" });
+          if (url.includes("api.npmjs.org")) return response({ downloads: "many" });
+          return response([]);
+        },
+      }),
+    /invalid download count/u,
+  );
+});
+
+test("counts unindexed npm packages as zero", async () => {
+  const totals = await fetchNpmDownloads(async (url) => {
+    assert.match(url, /api\.npmjs\.org\/downloads\/point\/\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}/u);
+    return response({ error: "not found" }, 404);
+  });
+  assert.deepEqual(totals, [0, 0, 0]);
 });
 
 test("excludes draft releases and rejects malformed release assets", async () => {
   const baseResponses = (releases) => async (url) => {
+    if (url.includes("api.npmjs.org")) return response({ downloads: 0 });
     if (url.endsWith("/openpost")) return response({ stargazers_count: 1 });
     if (url.endsWith("/releases/latest")) return response({ tag_name: "v1.0.0" });
     return response(releases);
@@ -70,6 +116,8 @@ test("excludes draft releases and rejects malformed release assets", async () =>
     ]),
   });
   assert.equal(data.downloads, 2);
+  assert.equal(data.downloadsGithub, 2);
+  assert.equal(data.downloadsNpm, 0);
   await assert.rejects(
     () =>
       fetchBadgeData("getopenpost/openpost", {
@@ -95,6 +143,8 @@ test("renders readable values and a real pixel texture in both schemes", async (
     const row = Array.from({ length: 24 }, (_, index) => pixel(90 + index, 22)[0]);
     assert.ok(Math.max(...row) - Math.min(...row) > 8, "dither pixels remain visibly distinct");
     assert.match(renderBadge("release", "v1<&", mode), /v1&lt;&amp;/u);
+    const breakdown = renderBadge("downloads", 22, mode, "GitHub 12 + npm 10");
+    assert.match(breakdown, /<title[^>]*>downloads: 22 \(GitHub 12 \+ npm 10\)<\/title>/u);
     const followBadge = renderBadge("follow-dev", undefined, mode);
     assert.match(followBadge, /<title[^>]*>follow: X<\/title>/u);
     assert.match(followBadge, /<path d="M18\.901 1\.153/u);
@@ -115,10 +165,17 @@ test("renders readable values and a real pixel texture in both schemes", async (
 test("writes all light and dark badge variants", async () => {
   const outputDir = await mkdtemp(join(tmpdir(), "openpost-badges-"));
   try {
-    const files = await writeBadges({ downloads: 12, release: "v1.2.3", stars: 9 }, outputDir);
+    const files = await writeBadges(
+      { downloads: 22, downloadsGithub: 12, downloadsNpm: 10, release: "v1.2.3", stars: 9 },
+      outputDir,
+    );
     assert.equal(files.length, 8);
     assert.match(await readFile(join(outputDir, "release-dark.svg"), "utf8"), /v1\.2\.3/u);
     assert.match(await readFile(join(outputDir, "follow-dev-dark.svg"), "utf8"), /follow: X/u);
+    assert.match(
+      await readFile(join(outputDir, "downloads-light.svg"), "utf8"),
+      /downloads: 22 \(GitHub 12 \+ npm 10\)/u,
+    );
   } finally {
     await rm(outputDir, { recursive: true, force: true });
   }

@@ -4,6 +4,11 @@ import { ditherThreshold } from "../apps/web/src/lib/components/dither/paint.ts"
 
 const DEFAULT_REPOSITORY = "getopenpost/openpost";
 const BADGE_NAMES = ["downloads", "release", "stars", "follow-dev"];
+const NPM_PACKAGES = ["@getopenpost/sdk", "@getopenpost/cli", "@getopenpost/n8n-nodes-openpost"];
+// The npm downloads API only serves explicit ranges, so start at the registry
+// epoch and let the API clamp to each package's first published day. One point
+// call per package returns its all-time total.
+const NPM_DOWNLOADS_SINCE = "2015-01-01";
 const X_LOGO_PATH =
   "M18.901 1.153h3.68l-8.04 9.19L24 22.847h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.83L0 1.154h7.594l5.24 6.932Zm-1.291 19.492h2.04L6.486 3.24H4.298Z";
 
@@ -71,15 +76,35 @@ async function githubJSON(url, token, fetchImpl = fetch) {
   return response.json();
 }
 
+function npmDownloadsUrl(packageName, end) {
+  return `https://api.npmjs.org/downloads/point/${NPM_DOWNLOADS_SINCE}:${end}/${encodeURIComponent(packageName)}`;
+}
+
+async function npmJSON(url, fetchImpl = fetch) {
+  const response = await fetchImpl(url, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  // A published package 404s here until the registry indexes its stats, which
+  // means zero recorded downloads rather than a failure.
+  if (response.status === 404) return { downloads: 0 };
+  if (!response.ok) throw new Error(`npm downloads API request failed (${response.status})`);
+  const body = await response.json();
+  if (!Number.isSafeInteger(body?.downloads) || body.downloads < 0) {
+    throw new Error("npm downloads API returned an invalid download count");
+  }
+  return body;
+}
+
 export async function fetchBadgeData(
   repository,
   { token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN, fetchImpl = fetch } = {},
 ) {
   const encodedRepository = repository.split("/").map(encodeURIComponent).join("/");
   const base = `https://api.github.com/repos/${encodedRepository}`;
-  const [repo, release] = await Promise.all([
+  const [repo, release, npmTotals] = await Promise.all([
     githubJSON(base, token, fetchImpl),
     githubJSON(`${base}/releases/latest`, token, fetchImpl),
+    fetchNpmDownloads(fetchImpl),
   ]);
 
   let downloads = 0;
@@ -114,11 +139,28 @@ export async function fetchBadgeData(
   if (typeof release.tag_name !== "string" || !release.tag_name) {
     throw new Error("GitHub returned an invalid latest release");
   }
+  const githubDownloads = downloads;
+  let npmDownloads = 0;
+  for (const total of npmTotals) {
+    npmDownloads += total;
+    if (!Number.isSafeInteger(npmDownloads))
+      throw new Error("npm downloads exceeded the safe integer limit");
+  }
   return {
-    downloads,
+    downloads: githubDownloads + npmDownloads,
+    downloadsGithub: githubDownloads,
+    downloadsNpm: npmDownloads,
     release: release.tag_name,
     stars: repo.stargazers_count,
   };
+}
+
+export async function fetchNpmDownloads(fetchImpl = fetch) {
+  const end = new Date().toISOString().slice(0, 10);
+  const bodies = await Promise.all(
+    NPM_PACKAGES.map((packageName) => npmJSON(npmDownloadsUrl(packageName, end), fetchImpl)),
+  );
+  return bodies.map((body) => body.downloads);
 }
 
 function escapeXML(value) {
@@ -155,11 +197,19 @@ function ditherPattern() {
   return `<pattern id="dither" width="8" height="28" patternUnits="userSpaceOnUse">${rects.join("")}</pattern>`;
 }
 
-export function renderBadge(kind, value, mode) {
+export function renderBadge(kind, value, mode, detail) {
   if (!BADGE_NAMES.includes(kind)) throw new Error(`Unknown badge: ${kind}`);
   const isFollowBadge = kind === "follow-dev";
   const label = isFollowBadge ? "follow" : kind;
   const displayValue = isFollowBadge ? "X" : String(value);
+  const titleValue =
+    typeof detail === "string" && detail && !isFollowBadge
+      ? `${displayValue} (${detail})`
+      : displayValue;
+  const description =
+    typeof detail === "string" && detail && !isFollowBadge
+      ? `OpenPost ${label} badge (${detail})`
+      : `OpenPost ${label} badge`;
   const labelWidth = textWidth(label);
   const valueWidth = isFollowBadge ? 28 : textWidth(displayValue);
   const width = labelWidth + valueWidth;
@@ -170,17 +220,23 @@ export function renderBadge(kind, value, mode) {
   const valueMarkup = isFollowBadge
     ? `<path d="${X_LOGO_PATH}" transform="translate(${valueX + 5} 5) scale(0.75)" fill="${valueInk}"/>`
     : `<text x="${valueX + valueWidth / 2}" y="14" fill="${valueInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle">${escapeXML(displayValue)}</text>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="28" viewBox="0 0 ${Math.ceil(width)} 28" role="img" aria-labelledby="title desc" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}: ${escapeXML(displayValue)}</title><desc id="desc">OpenPost ${escapeXML(label)} badge</desc><defs><clipPath id="badge-clip"><rect width="${Math.ceil(width)}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${Math.ceil(width)}" height="28" fill="${labelBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="${valueBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="url(#dither)"/></g><rect x='0.5' y='0.5' width='${Math.ceil(width) - 1}' height='27' rx='5.5' fill='none' stroke='#000' stroke-opacity='0.12'/><g fill="${labelInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="600" dominant-baseline="middle"><text x="8" y="14">${escapeXML(label)}</text></g>${valueMarkup}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="28" viewBox="0 0 ${Math.ceil(width)} 28" role="img" aria-labelledby="title desc" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}: ${escapeXML(titleValue)}</title><desc id="desc">${escapeXML(description)}</desc><defs><clipPath id="badge-clip"><rect width="${Math.ceil(width)}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${Math.ceil(width)}" height="28" fill="${labelBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="${valueBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="url(#dither)"/></g><rect x='0.5' y='0.5' width='${Math.ceil(width) - 1}' height='27' rx='5.5' fill='none' stroke='#000' stroke-opacity='0.12'/><g fill="${labelInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="600" dominant-baseline="middle"><text x="8" y="14">${escapeXML(label)}</text></g>${valueMarkup}</svg>`;
 }
 
 export async function writeBadges(data, outputDir) {
   const destination = resolve(outputDir);
   const files = [];
+  const detailFor = (kind) =>
+    kind === "downloads" &&
+    Number.isSafeInteger(data.downloadsGithub) &&
+    Number.isSafeInteger(data.downloadsNpm)
+      ? `GitHub ${data.downloadsGithub} + npm ${data.downloadsNpm}`
+      : undefined;
   for (const kind of BADGE_NAMES) {
     for (const mode of ["light", "dark"]) {
       files.push({
         path: `${destination}/${kind}-${mode}.svg`,
-        content: renderBadge(kind, data[kind], mode),
+        content: renderBadge(kind, data[kind], mode, detailFor(kind)),
       });
     }
   }

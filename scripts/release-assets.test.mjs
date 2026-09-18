@@ -51,6 +51,16 @@ test("a server-only release publishes its core assets without Android packaging"
     validateRelease(release({ assets: core.map(asset) }), { tag, notes, core: true }),
     [],
   );
+  // The parallel Android job may upload the APK before promotion runs; the
+  // core check tolerates known full-set assets it does not require yet.
+  assert.deepEqual(
+    validateRelease(release({ assets: [...core, "openpost-app-android.apk"].map(asset) }), {
+      tag,
+      notes,
+      core: true,
+    }),
+    [],
+  );
   assert.ok(
     validateRelease(release({ assets: core.map(asset) }), { tag, notes, complete: true }).length >
       0,

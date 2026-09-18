@@ -606,7 +606,9 @@ jobs:
           npm init -y >/dev/null
           npm install --ignore-scripts --no-audit --no-fund "$PACKAGE_SPEC"
           pin="$(node -p "require('./node_modules/@getopenpost/cli/package.json').openpost.releaseTag")"
-          node ./node_modules/@getopenpost/cli/bin/openpost.js version | tee version.txt
+          # The CLI prints its version to stderr, so capture both streams.
+          node ./node_modules/@getopenpost/cli/bin/openpost.js version >version.txt 2>&1
+          cat version.txt
           grep -F "${pin#v}" version.txt
 
   publish-release:

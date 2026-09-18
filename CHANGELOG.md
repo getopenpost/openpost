@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.35.3] - 2026-09-18
+
+### Fixed
+
+- Made release promotion tolerant of the parallel Android job uploading the APK early: the core asset check now only rejects files outside the full expected set.
+
 ## [4.35.2] - 2026-09-18
 
 ### Fixed

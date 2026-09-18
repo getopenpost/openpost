@@ -41,8 +41,11 @@
 /guide/quickstart /guides/quickstart 301
 /guide/what-is-openpost / 301
 /guides/automation /automate 301
+/guides/automation.md /automate.md 301
 /guides/cli /automate/cli 301
+/guides/cli.md /automate/cli.md 301
 /guides/sdk /automate/sdk 301
+/guides/sdk.md /automate/sdk.md 301
 /installation/android /guides/workspaces 301
 /installation/binary /self-hosting 301
 /installation/build-from-source /self-hosting 301

@@ -1696,6 +1696,36 @@ test.describe("product screenshot capture", () => {
         `video-timeline-detail-${captureScheme}.png`,
       );
 
+      const workspaceTabs = page.getByRole("tablist", { name: "Editor workspaces" });
+      const assetTabs = page.getByRole("tablist", { name: "Assets", exact: true });
+
+      await workspaceTabs.getByRole("tab", { name: "Color" }).click();
+      const colorWorkspace = page.getByRole("region", { name: "Color workspace" });
+      await expect(colorWorkspace).toBeVisible();
+      await capture(page, `video-color-${captureScheme}.png`, [colorWorkspace]);
+
+      await workspaceTabs.getByRole("tab", { name: "Motion" }).click();
+      const motionPanel = page.getByRole("complementary", { name: "Motion" });
+      await expect(motionPanel).toBeVisible();
+      await capture(page, `video-motion-${captureScheme}.png`, [motionPanel]);
+
+      await workspaceTabs.getByRole("tab", { name: "Edit" }).click();
+      await assetTabs.getByRole("tab", { name: "Effects", exact: true }).click();
+      const effectsBrowser = page.locator(".effect-browser");
+      await expect(effectsBrowser).toBeVisible();
+      await capture(page, `video-effects-${captureScheme}.png`, [effectsBrowser]);
+
+      await assetTabs.getByRole("tab", { name: "Transcript", exact: true }).click();
+      const transcriptPanel = page.getByRole("region", { name: "Transcript" });
+      await expect(transcriptPanel).toBeVisible();
+      await capture(page, `video-transcript-${captureScheme}.png`, [transcriptPanel]);
+
+      await page.getByRole("button", { name: "Render full video" }).click();
+      const exportDialog = page.getByRole("dialog", { name: "Export video" });
+      await expect(exportDialog).toBeVisible();
+      await capture(page, `video-export-${captureScheme}.png`, [exportDialog]);
+      await page.keyboard.press("Escape");
+
       await page.goto("/settings?tab=general");
       await expect(page.getByRole("heading", { name: "General", level: 1 })).toBeVisible();
       await expect(page.locator('[data-settings-tab="general"]')).toHaveAttribute(

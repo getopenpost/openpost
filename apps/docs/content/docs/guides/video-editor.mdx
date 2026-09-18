@@ -4,7 +4,18 @@ description: Build, save, and export a social video from a multitrack timeline.
 icon: Clapperboard
 ---
 
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
 Open [Video Editor](https://app.openpo.st/video-editor) in current desktop Chrome or Edge. To make a short launch video, choose a project format, import your clip, trim it on the timeline, and select **Export video**. Check the finished file in **Exports** before you attach it to a post. Exports have no watermark.
+
+<SetupScreenshot
+  src="/assets/screenshots/video-editor-light.webp"
+  darkSrc="/assets/screenshots/video-editor-dark.webp"
+  alt="Video Editor with a clip on the timeline, preview monitor, and properties panel"
+  width={1440}
+  height={960}
+  caption="The Video Editor: media on the left, preview in the middle, properties on the right, timeline below. Screenshot uses example media."
+/>
 
 Use [Quick Cut](/guides/quick-cut) when you only need to remove ranges without changing the picture or mix. Use the [Recorder](/guides/recording) to capture a screen, camera, or microphone before editing.
 
@@ -32,13 +43,65 @@ Place clips in the order you want, then drag a clip edge to trim its start or en
 
 Keep picture, music, voice, and captions on separate tracks so you can change one without disturbing the others. Lock a track before moving nearby clips, or mute and solo tracks while checking the mix. Undo and redo work across timeline edits. If a shortcut differs from what you expect, check **Editor settings**, where shortcuts can be changed.
 
+Example: your clip starts with 3 seconds of silence. Drag the left edge of the clip right until the silence is gone, then play the start to check the cut feels clean.
+
+<SetupScreenshot
+  src="/assets/screenshots/video-timeline-detail-light.webp"
+  darkSrc="/assets/screenshots/video-timeline-detail-dark.webp"
+  alt="Video timeline with one clip, filmstrip previews, and playhead"
+  width={1440}
+  height={960}
+  caption="A trimmed clip on the timeline with filmstrip previews. Screenshot uses example media."
+/>
+
 For repeated sections, make a sequence or nested composition and reuse it. Published composition controls let each instance change selected text, color, numbers, toggles, or media without rebuilding the composition.
 
-## Add motion, effects, color, and audio
+## Change the look with Color
 
-Select a clip before adding a change. To move text across the frame, set a transform keyframe at the start, move the playhead, change the position, then play the range to check the motion. **Motion** provides Dope Sheet and Graph views for timing and easing. You can remap its shortcuts in **Editor settings**.
+Open the **Color** workspace to adjust the selected clip. The scopes show the balance of light and color while you work. **Color Wheels** shift Temperature, Tint, and Contrast; **Curves** bend the red, green, and blue channels; saved presets like **Warm** or **Mono** apply a full look in one click. Use **Copy grade** and **Paste grade** to repeat a look on other clips, or add an **Adjustment layer** when several clips need the same grade.
 
-Use **Color** to adjust the look, or an adjustment layer when several clips need the same grade. Add a transition only after checking the cut without it. Preview and export use the same effect and compositing rules, so play the affected range before rendering.
+Example: an outdoor clip looks cold and blue. Select it, open **Color**, and choose the **Warm** preset. Compare with **Before** and **After** before you keep it.
+
+<SetupScreenshot
+  src="/assets/screenshots/video-color-light.webp"
+  darkSrc="/assets/screenshots/video-color-dark.webp"
+  alt="Color workspace with scopes, grade presets, color wheels, and curves"
+  width={1440}
+  height={960}
+  caption="The Color workspace: scopes, presets, wheels, and curves. Screenshot uses example media."
+/>
+
+## Move things with Motion
+
+Open the **Motion** workspace to animate layers with keyframes. Create a composition from the selected clips, then set a transform keyframe at the start, move the playhead, change the position, and play the range to check the movement. The Dope Sheet shows timing; the Graph view shows easing.
+
+Example: a title should slide in from the left. Select the text clip, create a composition, set a position keyframe at the start with the text off screen, move the playhead one second forward, and drag the text to its resting place.
+
+<SetupScreenshot
+  src="/assets/screenshots/video-motion-light.webp"
+  darkSrc="/assets/screenshots/video-motion-dark.webp"
+  alt="Motion workspace start screen with New composition button"
+  width={1440}
+  height={960}
+  caption="The Motion workspace before the first composition. Screenshot uses example media."
+/>
+
+## Add an effect
+
+Open **Effects** in the left panel to browse presets. Select a clip first, then click a preset to add it, or drag it onto a timeline clip. Use **Add adjustment layer** when the effect should cover everything below it. Add a transition only after checking the cut without it. Preview and export use the same effect rules, so play the affected range before rendering.
+
+Example: a vlog clip feels too clean. Select it, open **Effects**, and click **Retro TV** for a light analog texture. Turn the effect off and on to compare.
+
+<SetupScreenshot
+  src="/assets/screenshots/video-effects-light.webp"
+  darkSrc="/assets/screenshots/video-effects-dark.webp"
+  alt="Effects browser with style presets next to the preview and inspector"
+  width={1440}
+  height={960}
+  caption="The Effects browser beside the preview. Screenshot uses example media."
+/>
+
+## Mix speech and music
 
 For speech over music, lower the music track, add fades around its start and end, and listen to the whole passage. Ducking and loudness controls can help keep the voice clear. You can record a synced voiceover while the timeline plays.
 
@@ -47,6 +110,17 @@ For speech over music, lower the music track, add fades around its start and end
 To caption speech, select the source clip and run transcription. It runs on your device. Parakeet is the default on supported WebGPU devices; Whisper Tiny, Base, Small, and Large v3 Turbo are alternatives. The selected model downloads on first use and stays cached until you remove it in **Models** or clear site data.
 
 Read the transcript before using it. Correcting a word updates its timed caption. You can select words to remove the matching media range, or review proposed silence and filler cuts before applying them. The editor shows how much time those cuts would remove.
+
+Example: the speaker says "um" twelve times. Run transcription, search the transcript for "um", select those words, and remove the matching ranges in one go.
+
+<SetupScreenshot
+  src="/assets/screenshots/video-transcript-light.webp"
+  darkSrc="/assets/screenshots/video-transcript-dark.webp"
+  alt="Transcript panel before transcription with Edit video by transcript button"
+  width={1440}
+  height={960}
+  caption="The Transcript panel before the first transcription. Screenshot uses example media."
+/>
 
 Choose whether captions should be burned into the picture or exported as an SRT or VTT sidecar. Where the output container supports it, you can add a selectable subtitle track instead. Check timing and line breaks in preview before export.
 
@@ -65,6 +139,17 @@ Local-only projects autosave to their folder. If the editor asks to reconnect it
 Choose **Export video** after checking the full sequence or your In and Out range. Pick a format and quality, then review the export check. It flags missing sources, unsupported codecs, subtitle options, and empty or invalid ranges before rendering. MP4, MOV, WebM, MKV, audio-only output, and image sequences are available when the browser and selected settings support them.
 
 Export reads the originals at the chosen resolution. An eligible untouched range can use packet copy; edits use the compositor and audio mixer. Keep the tab open until the render finishes. A completed file appears in **Exports**, where you can download or inspect it. If the export check blocks you, restore a missing linked source or choose a supported format, then try again.
+
+Example: you need a draft to share with a friend. Choose the **Draft preview** preset and select **Render now**. It renders fast at a small file size, and the full-quality export can wait.
+
+<SetupScreenshot
+  src="/assets/screenshots/video-export-light.webp"
+  darkSrc="/assets/screenshots/video-export-dark.webp"
+  alt="Export video dialog with presets, format options, and render readiness check"
+  width={1440}
+  height={960}
+  caption="The Export video dialog with presets and a readiness check. Screenshot uses example media."
+/>
 
 For several deliverables, queue the whole video, marked ranges, or fixed-duration ranges. Each job keeps the timeline and settings it had when queued. The project renders one job at a time; pending work survives a reload. Use **Exports** to pause, reorder, cancel, or retry jobs and to find finished files.
 

@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.35.2] - 2026-09-18
+
+### Fixed
+
+- Pinned `devalue` to 5.9.2 to clear the Security audit advisory and aligned Expo mobile packages with the installed SDK, fixing the Android candidate check.
+- Pointed the npm CLI wrapper at the current release tag so first-time installs download checksum-verified binaries.
+
 ## [4.35.1] - 2026-09-18
 
 ### Added

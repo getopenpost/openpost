@@ -225,6 +225,41 @@ func TestPieFedAccountContentDiscovery(t *testing.T) {
 	require.Empty(t, page.NextCursor)
 }
 
+func TestPieFedCommentsReadTheAccountVote(t *testing.T) {
+	// Every PieFed comment view carries my_vote for the authenticated
+	// account: 1 for an upvote, -1 for a downvote, 0 for no vote.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"comments":[` +
+			`{"comment":{"id":21,"post_id":200,"body":"Nice","published":"2026-09-01T10:00:00.000000Z","ap_id":"https://piefed.social/comment/21","path":"0.21","deleted":false,"removed":false},"creator":{"id":8,"user_name":"viewer"},"counts":{"upvotes":3},"my_vote":0,"replies":[]},` +
+			`{"comment":{"id":22,"post_id":200,"body":"Agreed","published":"2026-09-01T11:00:00.000000Z","ap_id":"https://piefed.social/comment/22","path":"0.22","deleted":false,"removed":false},"creator":{"id":9,"user_name":"reader"},"counts":{"upvotes":1},"my_vote":1,"replies":[]},` +
+			`{"comment":{"id":23,"post_id":200,"body":"Off topic","published":"2026-09-01T12:00:00.000000Z","ap_id":"https://piefed.social/comment/23","path":"0.23","deleted":false,"removed":false},"creator":{"id":10,"user_name":"stranger"},"counts":{"upvotes":0},"my_vote":-1,"replies":[]}` +
+			`],"next_page":null}`))
+	}))
+	defer server.Close()
+
+	adapter := NewPieFedAdapter(server.URL)
+	comments, err := adapter.ListComments(t.Context(), "piefed-jwt", "6", "200")
+	require.NoError(t, err)
+	require.Len(t, comments, 3)
+	for _, comment := range comments {
+		require.True(t, comment.LikeStateKnown, "piefed reports the account vote on every reply")
+	}
+	// The author's own upvote is counted in upvotes, so only my_vote says
+	// whether the connected account liked the reply.
+	require.False(t, comments[0].Liked)
+	require.True(t, comments[0].CanLike)
+	require.False(t, comments[0].CanUnlike)
+
+	require.True(t, comments[1].Liked)
+	require.False(t, comments[1].CanLike)
+	require.True(t, comments[1].CanUnlike)
+
+	// A downvote is not a like; liking it again is still offered.
+	require.False(t, comments[2].Liked)
+	require.True(t, comments[2].CanLike)
+	require.False(t, comments[2].CanUnlike)
+}
+
 func TestPieFedCommentsSkipRemovedReplies(t *testing.T) {
 	// PieFed blanks the body of a deleted reply. It reports deleted when the
 	// author deleted it and removed (with deleted false) when a moderator did.

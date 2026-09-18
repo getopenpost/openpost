@@ -85,7 +85,8 @@ jobs:
           count="$(echo "$files" | wc -l | tr -d ' ')"
           git commit -m "chore: refresh product screenshots (${stamp}) [skip ci]"
           git push --force-with-lease origin "$branch"
-          body="$(printf 'Scheduled re-capture drifted on %s changed file(s).\n\nReview the images before merging; guides embed these shots directly.\n\n```\n%s\n```' "$count" "$files")"
+          # \140 is a backtick: literal markdown fences without tripping SC2016 (no expansion in single quotes).
+          body="$(printf 'Scheduled re-capture drifted on %s changed file(s).\n\nReview the images before merging; guides embed these shots directly.\n\n\140\140\140\n%s\n\140\140\140' "$count" "$files")"
           gh pr create \
             --base main \
             --head "$branch" \

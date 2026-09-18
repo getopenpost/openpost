@@ -67,7 +67,11 @@ try {
     if (typeof entry.OpenPost !== "function" || typeof entry.OpenPostError !== "function") {
       throw new Error("The registry-installed SDK did not export OpenPost and OpenPostError.");
     }
-    const client = new entry.OpenPost({ baseUrl: "https://example.invalid", token: "smoke" });
+    const client = new entry.OpenPost({
+      baseUrl: "https://example.invalid",
+      token: "smoke",
+      timeoutMs: 15_000,
+    });
     if (
       typeof client.publications?.create !== "function" ||
       typeof client.media?.upload !== "function"
@@ -125,15 +129,19 @@ function liveSmoke(temporaryDirectory, packageName, pin) {
 }
 
 function releaseIsDraft(tag) {
+  let state;
   try {
-    const state = capture("gh", ["release", "view", tag, "--json", "isDraft", "--jq", ".isDraft"]);
-    return state === "true";
-  } catch {
-    // Without release visibility the live proof cannot run; the tarball
-    // checks above already passed, so report and continue honestly.
-    process.stdout.write(
-      `::notice::Could not inspect release ${tag}; skipping the live binary download.\n`,
+    state = capture("gh", ["release", "view", tag, "--json", "isDraft", "--jq", ".isDraft"]);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      // No gh binary (local runs): the tarball checks above already passed,
+      // so report and continue honestly.
+      process.stdout.write(`::notice::gh is not installed; skipping the live binary download.\n`);
+      return true;
+    }
+    throw new Error(
+      `Could not inspect release ${tag} for the live download proof: ${error.message}`,
     );
-    return true;
   }
+  return state === "true";
 }

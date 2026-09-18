@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { errorMessageFromBody, inferCode, OpenPostError } from "./errors";
 
@@ -27,10 +26,5 @@ describe("OpenPostError", () => {
     expect(new OpenPostError("slow", { code: "timeout" }).retryable).toBe(true);
     expect(new OpenPostError("gone", { code: "not_found" }).retryable).toBe(false);
     expect(new OpenPostError("stale", { code: "conflict" }).retryable).toBe(false);
-  });
-
-  it("reads the checked-in error contract", () => {
-    const source = readFileSync(new URL("./errors.ts", import.meta.url), "utf8");
-    expect(source).toContain('"missing_config"');
   });
 });

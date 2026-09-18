@@ -54,6 +54,13 @@ describe("HttpClient", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("does not retry mutations on a 500", async () => {
+    const fetch = vi.fn(async () => jsonResponse({ title: "boom" }, 500));
+    const http = new HttpClient({ baseUrl: "https://example.test", token: "tok", fetch });
+    await expect(http.post("/api/v1/publications", {})).rejects.toBeInstanceOf(OpenPostError);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
   it("does not retry on a 404", async () => {
     const fetch = vi.fn(async () => jsonResponse({ detail: "missing" }, 404));
     const http = new HttpClient({ baseUrl: "https://example.test", token: "tok", fetch });

@@ -34,16 +34,46 @@ export interface PublicationMediaInput {
   media_id: string;
   role?: string;
   alt_text?: string;
+  thumbnail_timestamp_ms?: number;
+  settings?: Record<string, unknown>;
+}
+
+export interface PublicationSegmentInput {
+  id?: string;
+  body?: string;
+  title?: string;
+  description?: string;
+  url?: string;
+  settings?: Record<string, unknown>;
+  media?: PublicationMediaInput[];
+}
+
+export interface RenditionSegmentInput {
+  id?: string;
+  publication_segment_id?: string;
+  body?: string;
+  title?: string;
+  description?: string;
+  url?: string;
+  body_override?: string | null;
+  title_override?: string | null;
+  description_override?: string | null;
+  url_override?: string | null;
 }
 
 export interface RenditionInput {
   social_account_id: string;
+  target_key?: string;
   profile?: string;
+  output_profile?: string;
+  format_locked?: boolean;
+  schedule_override?: string;
   body?: string;
   title?: string;
   description?: string;
   settings?: Record<string, unknown>;
   media?: PublicationMediaInput[];
+  segments?: RenditionSegmentInput[];
 }
 
 export interface CreatePublicationInput {
@@ -60,7 +90,9 @@ export interface CreatePublicationInput {
   random_delay_minutes?: number;
   metadata?: Record<string, unknown>;
   social_account_ids?: string[];
+  social_set_id?: string;
   media?: PublicationMediaInput[];
+  segments?: PublicationSegmentInput[];
   renditions?: RenditionInput[];
 }
 
@@ -77,6 +109,8 @@ export interface UpdatePublicationInput {
   clear_schedule?: boolean;
   random_delay_minutes?: number;
   metadata?: Record<string, unknown>;
+  social_set_id?: string;
+  segments?: PublicationSegmentInput[];
   renditions?: RenditionInput[];
 }
 
@@ -152,6 +186,21 @@ export interface PublicationAction {
   revision?: number;
 }
 
+export interface PublicationEventActor {
+  type?: string;
+  id?: string;
+  label?: string;
+}
+
+export interface PublicationEventDestination {
+  rendition_id: string;
+  social_account_id: string;
+  target_key: string;
+  platform: string;
+  label: string;
+  status: string;
+}
+
 export interface PublicationEvent {
   id: string;
   workspace_id: string;
@@ -159,9 +208,15 @@ export interface PublicationEvent {
   rendition_id?: string;
   type: string;
   status: string;
-  message: string;
-  metadata: Record<string, unknown>;
-  idempotency_key?: string;
+  summary: string;
+  actor?: PublicationEventActor;
+  platform?: string;
+  revision?: number;
+  scheduled_at?: string;
+  destination?: PublicationEventDestination;
+  delivery?: Record<string, unknown>;
+  superseded?: boolean;
+  error?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -180,7 +235,19 @@ export interface ProviderInfo {
   [key: string]: unknown;
 }
 
-export interface DestinationOptions {
+export interface DestinationOption {
+  key?: string;
+  label?: string;
+  [key: string]: unknown;
+}
+
+export interface DestinationOptionGroups {
+  [group: string]: DestinationOption[];
+}
+
+export interface ProviderReadiness {
+  platform?: string;
+  status?: string;
   [key: string]: unknown;
 }
 

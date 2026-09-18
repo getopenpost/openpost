@@ -118,12 +118,20 @@ export class HttpClient {
 
   // putBytes uploads raw bytes to a storage target. External targets receive
   // only the caller-supplied headers; the API token never leaves OpenPost.
+  // Internal API targets opt into the bearer token explicitly, because the
+  // session content route requires authentication.
   async putBytes(
     url: string,
     body: Uint8Array | ArrayBuffer | Blob,
-    options: { method?: string; headers?: Record<string, string>; mimeType?: string } = {},
+    options: {
+      method?: string;
+      headers?: Record<string, string>;
+      mimeType?: string;
+      auth?: boolean;
+    } = {},
   ): Promise<void> {
     const headers: Record<string, string> = { ...(options.headers ?? {}) };
+    if (options.auth) headers["Authorization"] = `Bearer ${this.requireToken()}`;
     if (options.mimeType && !headers["Content-Type"]) headers["Content-Type"] = options.mimeType;
     let response: Response;
     try {
@@ -198,7 +206,7 @@ export class HttpClient {
       const details = parsed ?? { status: response.status, body: text.slice(0, 300) };
       const code = inferCode(response.status, parsed);
       const retryAfterMs = retryAfterMsFromHeaders(response.headers);
-      if (this.shouldRetry(response.status, attempt)) {
+      if (this.shouldRetry(response.status, attempt, method)) {
         await sleep(retryAfterMs ?? (attempt === 0 ? 400 : 1200));
         return this.request(options, attempt + 1);
       }
@@ -215,8 +223,11 @@ export class HttpClient {
     return parsed;
   }
 
-  private shouldRetry(status: number, attempt: number): boolean {
-    if (attempt >= 1) return false;
+  // Only idempotent reads are retried. Replaying a mutation (create,
+  // schedule, publish) after a 5xx or 429 could execute it twice, and not
+  // every mutation endpoint accepts an Idempotency-Key.
+  private shouldRetry(status: number, attempt: number, method: string): boolean {
+    if (method !== "GET" || attempt >= 1) return false;
     return status === 429 || status >= 500;
   }
 

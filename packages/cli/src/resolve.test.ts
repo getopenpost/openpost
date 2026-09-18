@@ -18,11 +18,11 @@ const BINARY = new Uint8Array([7, 7, 7]);
 const BINARY_HEX = createHash("sha256").update(BINARY).digest("hex");
 
 function mockFetch(routes: Record<string, Response>): typeof fetch {
-  return (async (url: string | URL | Request) => {
+  return vi.fn(async (url: string | URL | Request) => {
     const response = routes[String(url)];
     if (!response) return new Response("not found", { status: 404 });
     return response;
-  }) as typeof fetch;
+  }) as unknown as typeof fetch;
 }
 
 describe("resolve", () => {
@@ -52,7 +52,7 @@ describe("resolve", () => {
   it("downloads and verifies the release binary into the cache dir", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
     try {
-      const tag = "v0.0.0-test";
+      const tag = "v0.0.9";
       const asset = assetName("openpost-cli", assetTarget());
       const fetch = mockFetch({
         [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
@@ -66,7 +66,7 @@ describe("resolve", () => {
         cacheDir: dir,
         fetch,
       });
-      expect(resolved).toBe(path.join(dir, asset));
+      expect(resolved).toBe(path.join(dir, tag, asset));
       // A cached binary short-circuits the network entirely.
       const cached = await resolveBinaryPath({
         binary: "openpost-cli",
@@ -83,7 +83,7 @@ describe("resolve", () => {
   it("fails closed on a checksum mismatch", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
     try {
-      const tag = "v0.0.0-test";
+      const tag = "v0.0.9";
       const asset = assetName("openpost-cli", assetTarget());
       const fetch = mockFetch({
         [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
@@ -102,7 +102,7 @@ describe("resolve", () => {
   it("fails closed when the release predates checksum assets", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
     try {
-      const tag = "v0.0.0-test";
+      const tag = "v0.0.9";
       const asset = assetName("openpost-cli", assetTarget());
       const fetch = mockFetch({
         [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
@@ -116,14 +116,75 @@ describe("resolve", () => {
   });
 
   it("builds cache dirs and download URLs", () => {
-    expect(cacheDir("v1.2.3", { cacheDir: "/tmp/x" })).toBe("/tmp/x");
+    expect(cacheDir("v1.2.3", { cacheDir: "/tmp/x" })).toBe(path.join("/tmp/x", "v1.2.3"));
     expect(downloadUrl("v1.2.3", "openpost-cli-linux-amd64")).toBe(
       "https://github.com/getopenpost/openpost/releases/download/v1.2.3/openpost-cli-linux-amd64",
     );
   });
 
-  it("parses sha256sum output", () => {
-    expect(parseChecksum(`${BINARY_HEX}  openpost-cli-linux-amd64\n`)).toBe(BINARY_HEX);
-    expect(() => parseChecksum("not a checksum\n")).toThrow(/SHA-256/);
+  it("parses sha256sum output bound to the asset name", () => {
+    const asset = assetName("openpost-cli", assetTarget());
+    expect(parseChecksum(`${BINARY_HEX}  ${asset}\n`, asset)).toBe(BINARY_HEX);
+    expect(() => parseChecksum("not a checksum\n", asset)).toThrow(/SHA-256/);
+    expect(() => parseChecksum(`${BINARY_HEX}  some-other-binary\n`, asset)).toThrow(/SHA-256/);
+  });
+
+  it("rejects release tags outside the release shape", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
+    try {
+      await expect(
+        resolveBinaryPath({ binary: "openpost-cli", releaseTag: "latest", cacheDir: dir }),
+      ).rejects.toThrow(/expected a release tag/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("replaces a tampered cached binary instead of executing it", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
+    const { writeFileSync } = await import("node:fs");
+    try {
+      const tag = "v0.0.9";
+      const asset = assetName("openpost-cli", assetTarget());
+      const cached = path.join(dir, tag, asset);
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(path.dirname(cached), { recursive: true });
+      writeFileSync(cached, new Uint8Array([9, 9, 9]));
+      const fetch = mockFetch({
+        [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
+        [downloadUrl(tag, `${asset}.sha256`)]: new Response(`${BINARY_HEX}  ${asset}\n`, {
+          status: 200,
+        }),
+      });
+      const resolved = await resolveBinaryPath({
+        binary: "openpost-cli",
+        releaseTag: tag,
+        cacheDir: dir,
+        fetch,
+      });
+      expect(resolved).toBe(cached);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses oversized downloads", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
+    try {
+      const tag = "v0.0.9";
+      const asset = assetName("openpost-cli", assetTarget());
+      const fetch = mockFetch({
+        [downloadUrl(tag, asset)]: new Response(BINARY, {
+          status: 200,
+          headers: { "content-length": String(1024 * 1024 * 1024) },
+        }),
+      });
+      await expect(
+        resolveBinaryPath({ binary: "openpost-cli", releaseTag: tag, cacheDir: dir, fetch }),
+      ).rejects.toThrow(/exceeds/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

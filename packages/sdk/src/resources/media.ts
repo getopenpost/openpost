@@ -9,7 +9,16 @@ export type MediaSource =
   | "background_removal"
   | "stock_import"
   | "meme_generator"
-  | "video_editor_source";
+  | "video_editor_source"
+  | "video_editor_export";
+
+export type MediaAssetKind =
+  | "library"
+  | "brand_asset"
+  | "brand_font"
+  | "design_preview"
+  | "template_preview"
+  | "project_asset";
 
 export interface UploadMediaInput {
   workspaceId: string;
@@ -18,6 +27,14 @@ export interface UploadMediaInput {
   mimeType: string;
   altText?: string;
   source?: MediaSource;
+  assetKind?: MediaAssetKind;
+  retentionClass?: "library" | "temporary";
+  tagId?: string;
+  parentMediaId?: string;
+  designDocumentId?: string;
+  designPageId?: string;
+  projectAssetId?: string;
+  clientSha256?: string;
 }
 
 interface UploadSession {
@@ -56,9 +73,15 @@ export class Media {
       mime_type: input.mimeType,
       size,
       source: input.source ?? "upload",
-      asset_kind: "library",
-      retention_class: "library",
+      asset_kind: input.assetKind ?? "library",
+      retention_class: input.retentionClass ?? "library",
       ...(input.altText ? { alt_text: input.altText } : {}),
+      ...(input.tagId ? { tag_id: input.tagId } : {}),
+      ...(input.parentMediaId ? { parent_media_id: input.parentMediaId } : {}),
+      ...(input.designDocumentId ? { design_document_id: input.designDocumentId } : {}),
+      ...(input.designPageId ? { design_page_id: input.designPageId } : {}),
+      ...(input.projectAssetId ? { project_asset_id: input.projectAssetId } : {}),
+      ...(input.clientSha256 ? { client_sha256: input.clientSha256 } : {}),
     })) as UploadSession;
 
     if (session.deduped) {
@@ -79,6 +102,9 @@ export class Media {
       method: session.upload.method || "PUT",
       headers: session.upload.headers ?? {},
       mimeType: input.mimeType,
+      // Relative targets are OpenPost API routes behind bearer auth;
+      // absolute targets are presigned storage URLs that must not see it.
+      auth: !external,
     });
 
     // complete_url arrives as an API path; post() prefixes the base URL and

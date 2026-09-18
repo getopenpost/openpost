@@ -115,19 +115,34 @@ export class Publications {
     })) as Publication;
   }
 
+  // targetKey selects the provider subdestination. The server answers 409
+  // when an account has multiple destinations and none is given.
   async deleteRendition(
     id: string,
     accountId: string,
     expectedRevision: number,
+    targetKey?: string,
   ): Promise<PublicationAction> {
+    const params = new URLSearchParams({
+      confirm: "true",
+      expected_revision: String(expectedRevision),
+    });
+    if (targetKey) params.set("target_key", targetKey);
     return (await this.http.delete(
-      `/api/v1/publications/${encodeId(id)}/renditions/${encodeId(accountId)}?confirm=true&expected_revision=${expectedRevision}`,
+      `/api/v1/publications/${encodeId(id)}/renditions/${encodeId(accountId)}?${params}`,
     )) as PublicationAction;
   }
 
-  async retryRendition(id: string, accountId: string): Promise<PublicationAction> {
+  async retryRendition(
+    id: string,
+    accountId: string,
+    targetKey?: string,
+  ): Promise<PublicationAction> {
+    const params = new URLSearchParams();
+    if (targetKey) params.set("target_key", targetKey);
+    const suffix = params.size > 0 ? `?${params}` : "";
     return (await this.http.post(
-      `/api/v1/publications/${encodeId(id)}/renditions/${encodeId(accountId)}/retry`,
+      `/api/v1/publications/${encodeId(id)}/renditions/${encodeId(accountId)}/retry${suffix}`,
       {},
     )) as PublicationAction;
   }

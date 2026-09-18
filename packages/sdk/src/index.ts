@@ -63,11 +63,13 @@ export { HttpClient } from "./client.js";
 export type { OpenPostClientOptions } from "./client.js";
 export { OpenPostError } from "./errors.js";
 export type { OpenPostErrorCode } from "./errors.js";
+export type { PublicationSegmentInput, RenditionSegmentInput } from "./types.js";
 export { SDK_VERSION } from "./version.js";
 export type {
   ContentProfile,
   CreatePublicationInput,
-  DestinationOptions,
+  DestinationOption,
+  DestinationOptionGroups,
   Job,
   JobStatus,
   ListJobsQuery,
@@ -76,6 +78,7 @@ export type {
   MediaPage,
   MediaUploadResult,
   ProviderInfo,
+  ProviderReadiness,
   Publication,
   PublicationAction,
   PublicationEvent,
@@ -91,4 +94,4 @@ export type {
   WaitOptions,
   Workspace,
 } from "./types.js";
-export type { MediaSource, UploadMediaInput } from "./resources/media.js";
+export type { MediaAssetKind, MediaSource, UploadMediaInput } from "./resources/media.js";

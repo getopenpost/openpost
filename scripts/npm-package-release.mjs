@@ -87,14 +87,29 @@ function option(name) {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
+export const publishablePackages = {
+  "packages/sdk": "@getopenpost/sdk",
+  "packages/cli": "@getopenpost/cli",
+};
+
 function packageDirectory() {
   const value = option("--package");
-  if (!value)
-    throw new Error("usage: npm-package-release.mjs <check-version|publish> --package <dir>");
-  if (value.includes("..") || path.isAbsolute(value)) {
-    throw new Error(`Refusing to operate outside the repository: ${value}`);
+  if (!value || !Object.hasOwn(publishablePackages, value)) {
+    throw new Error(
+      `usage: npm-package-release.mjs <check-version|publish> --package ${Object.keys(publishablePackages).join("|")}`,
+    );
   }
   return value;
+}
+
+function requireExpectedManifest(directory) {
+  const manifest = currentManifest(directory);
+  if (manifest.name !== publishablePackages[directory]) {
+    throw new Error(
+      `${directory}/package.json names ${manifest.name}; refusing to publish it as ${publishablePackages[directory]}.`,
+    );
+  }
+  return manifest;
 }
 
 function git(args, options = {}) {
@@ -191,7 +206,7 @@ function output(name, value) {
 
 function publish() {
   const directory = packageDirectory();
-  const manifest = currentManifest(directory);
+  const manifest = requireExpectedManifest(directory);
   parseStableVersion(manifest.version, directory);
   const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "openpost-npm-package-"));
   try {

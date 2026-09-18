@@ -14,8 +14,9 @@ openpost publication create --help
 ## How resolution works
 
 1. `OPENPOST_CLI_BIN` (or `OPENPOST_MCP_BIN` for the proxy) points at an exact binary. Nothing is downloaded.
-2. Otherwise the wrapper downloads `openpost-cli-<os>-<arch>` from the pinned GitHub release into `~/.cache/openpost/cli/<tag>/` (override with `OPENPOST_CLI_DIR`), verifies its detached `.sha256` checksum, marks it executable, and reuses the cached copy afterwards.
-3. The child process inherits stdio, so interactive login, prompts, and TTY output behave like the native binary. Its exit code passes through unchanged.
+2. Otherwise the wrapper downloads `openpost-cli-<os>-<arch>` from a version-shaped GitHub release tag into `~/.cache/openpost/cli/<tag>/` (override the root with `OPENPOST_CLI_DIR`; the tag segment always applies), verifies its detached `.sha256` checksum, installs it atomically, and records the verified hash beside it.
+3. Every later run re-verifies the cached binary against the recorded hash before executing it. A tampered, replaced, or symlinked cache forces a fresh verified download instead of running.
+4. The child process inherits stdio, so interactive login, prompts, and TTY output behave like the native binary. Its exit code passes through unchanged.
 
 Supported targets match the release matrix: `linux-x64`, `linux-arm64`, `darwin-arm64`, `win32-x64`.
 
@@ -29,7 +30,7 @@ Supported targets match the release matrix: `linux-x64`, `linux-arm64`, `darwin-
 | `OPENPOST_MCP_BIN`              | Exact `openpost-mcp` binary path, skips download                          |
 | `OPENPOST_CLI_ALLOW_UNVERIFIED` | `1` installs from releases that predate checksum assets (not recommended) |
 
-Checksum verification fails closed: a mismatch or a missing `.sha256` asset aborts the install with a clear error. Releases that predate checksum assets need `OPENPOST_CLI_ALLOW_UNVERIFIED=1` or, better, a newer release tag.
+Checksum verification fails closed: a mismatch or a missing `.sha256` asset aborts the install with a clear error. Releases that predate checksum assets need `OPENPOST_CLI_ALLOW_UNVERIFIED=1` or, better, a newer release tag. The bypass prints a loud warning to stderr every time it is used, so check CI logs for it.
 
 ## Versioning
 

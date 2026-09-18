@@ -266,8 +266,10 @@ jobs:
             "openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"; do
             if command -v sha256sum >/dev/null 2>&1; then
               sha256sum "$asset" > "${asset}.sha256"
+              sha256sum --check "${asset}.sha256"
             else
               shasum -a 256 "$asset" > "${asset}.sha256"
+              shasum -a 256 -c "${asset}.sha256"
             fi
           done
       - name: Upload CLI and MCP binaries to the draft release
@@ -504,6 +506,8 @@ jobs:
     # Like the n8n package, the npm SDK and CLI keep their own publication
     # identity and run beside the Hosted deployment, never behind it.
     needs: promote-image
+    outputs:
+      cli_spec: ${{ steps.cli.outputs.package_spec }}
     timeout-minutes: 20
     permissions:
       contents: read
@@ -548,6 +552,35 @@ jobs:
             --package-spec "$PACKAGE_SPEC" \
             --integrity "$PACKAGE_INTEGRITY" \
             --kind cli
+
+  verify-npm-live:
+    name: Verify live CLI install from the published release
+    runs-on: ubuntu-latest
+    # Runs after publication so the pinned GitHub release is public and the
+    # wrapper's default download path is proven exactly as users hit it.
+    # Reports only: the release is already published, so a failure here
+    # opens a follow-up instead of blocking anything.
+    needs: [publish-npm, publish-release]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.19.0"
+      - name: Install the published wrapper and run its default download
+        env:
+          PACKAGE_SPEC: ${{ needs.publish-npm.outputs.cli_spec }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          cd "$work"
+          npm init -y >/dev/null
+          npm install --ignore-scripts --no-audit --no-fund "$PACKAGE_SPEC"
+          pin="$(node -p "require('./node_modules/@getopenpost/cli/package.json').openpost.releaseTag")"
+          node ./node_modules/@getopenpost/cli/bin/openpost.js version | tee version.txt
+          grep -F "${pin#v}" version.txt
 
   publish-release:
     name: Publish complete deployed release

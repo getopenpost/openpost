@@ -5,6 +5,7 @@ import {
   assessPackageVersionChange,
   assessRegistryVersion,
   compareVersions,
+  publishablePackages,
 } from "./npm-package-release.mjs";
 
 const sdkFile = "packages/sdk/package.json";
@@ -84,6 +85,13 @@ test("versions never move backwards and stay stable", () => {
       }),
     /must be a stable semantic version/u,
   );
+});
+
+test("the shared script publishes only the SDK and CLI wrapper (n8n keeps its own script)", () => {
+  assert.deepEqual(publishablePackages, {
+    "packages/sdk": "@getopenpost/sdk",
+    "packages/cli": "@getopenpost/cli",
+  });
 });
 
 test("registry reconciliation distinguishes absent, matching, and conflict", () => {

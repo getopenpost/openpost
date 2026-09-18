@@ -164,6 +164,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history: `bun run fallow` audits changed files against a base ref.
+          fetch-depth: 0
           sparse-checkout: |
             /*
             !/apps/web/static/image-editor-models/
@@ -192,6 +194,12 @@ jobs:
         run: |
           bun run lint -- marketing
           bun run check -- marketing
+      # Structural audit and complexity report. Report-only: warn-tier findings
+      # never fail this step; promotion to enforcing happens per rule with data.
+      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
+        env:
+          OPENPOST_FALLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bun run fallow
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish frontend-quality
 

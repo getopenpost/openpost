@@ -34,6 +34,10 @@ linters:
       min-occurrences: 3
     gocyclo:
       min-complexity: 15
+    gocognit:
+      # Same target posture as apps/server (see the note there): configured
+      # at 20 but not yet in linters.enable until the offender tail is fixed.
+      min-complexity: 20
     govet:
       enable:
         - atomic

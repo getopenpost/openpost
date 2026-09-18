@@ -18,7 +18,7 @@
   <a href="https://github.com/getopenpost/openpost/releases">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/downloads-dark.svg">
-      <img src="./assets/badges/downloads-light.svg" alt="Release downloads">
+      <img src="./assets/badges/downloads-light.svg" alt="Total downloads">
     </picture>
   </a>
   <a href="https://github.com/getopenpost/openpost/releases">

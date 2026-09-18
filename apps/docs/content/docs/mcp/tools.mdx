@@ -14,9 +14,9 @@ By default the server lists every operation as its own tool, so the assistant ca
 | -------- | ------------------------------------------------------------------------------------------------- |
 | `direct` | Each operation is its own tool (default)                                                          |
 | `search` | Only `search_operations`, `query_operation`, `execute_operation`, and the scheduler widget appear |
-| `both`   | Direct tools plus the search trio                                                                 |
+| `both`   | Direct tools plus `search_operations`, `query_operation`, and `execute_operation`                 |
 
-Search mode keeps the previous progressive-discovery flow: search first, then query read-only operations or execute mutations. Scopes and workspace checks behave the same in every mode; `mcp:read` connections never see or run mutations.
+Search mode keeps the previous progressive-discovery flow: search first, then query read-only operations or execute mutations. Scopes and workspace checks behave the same in every mode; `mcp:read` connections never see or run mutations. Tool names that are not listed in the current mode stay callable for clients that cached an earlier catalog, with identical authorization.
 
 ## Choose access
 

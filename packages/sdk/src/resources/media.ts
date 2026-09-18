@@ -1,4 +1,5 @@
 import { HttpClient } from "../client.js";
+import { OpenPostError } from "../errors.js";
 import type { MediaPage, MediaUploadResult } from "../types.js";
 
 export type MediaSource =
@@ -48,6 +49,43 @@ interface UploadSession {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+// parseUploadSession enforces the upload-session response contract before
+// any field is dereferenced: an empty or malformed payload becomes a typed
+// SDK error instead of a TypeError deep in the upload flow.
+function parseUploadSession(payload: unknown): UploadSession {
+  const problem = "Media upload session response did not match the API contract.";
+  if (!isRecord(payload))
+    throw new OpenPostError(problem, { code: "validation", details: payload });
+  const upload = payload["upload"];
+  const valid =
+    typeof payload["media_id"] === "string" &&
+    typeof payload["deduped"] === "boolean" &&
+    typeof payload["complete_url"] === "string" &&
+    isRecord(upload) &&
+    typeof upload["method"] === "string" &&
+    typeof upload["url"] === "string";
+  if (!valid) throw new OpenPostError(problem, { code: "validation", details: payload });
+  const headers = isRecord(upload["headers"]) ? upload["headers"] : {};
+  return {
+    media_id: payload["media_id"] as string,
+    deduped: payload["deduped"] as boolean,
+    complete_url: payload["complete_url"] as string,
+    upload: {
+      method: upload["method"] as string,
+      url: upload["url"] as string,
+      headers: Object.fromEntries(
+        Object.entries(headers).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+      ),
+    },
+  };
+}
+
 export class Media {
   constructor(private readonly http: HttpClient) {}
 
@@ -67,7 +105,7 @@ export class Media {
   // targets never receive the API token; internal targets reuse it.
   async upload(input: UploadMediaInput): Promise<MediaUploadResult> {
     const size = HttpClient.sizeOf(input.file);
-    const session = (await this.http.post("/api/v1/media/upload-session", {
+    const sessionPayload = await this.http.post("/api/v1/media/upload-session", {
       workspace_id: input.workspaceId,
       filename: input.filename,
       mime_type: input.mimeType,
@@ -82,7 +120,8 @@ export class Media {
       ...(input.designPageId ? { design_page_id: input.designPageId } : {}),
       ...(input.projectAssetId ? { project_asset_id: input.projectAssetId } : {}),
       ...(input.clientSha256 ? { client_sha256: input.clientSha256 } : {}),
-    })) as UploadSession;
+    });
+    const session = parseUploadSession(sessionPayload);
 
     if (session.deduped) {
       return {

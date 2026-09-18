@@ -7,6 +7,7 @@ export type OpenPostErrorCode =
   | "validation"
   | "rate_limited"
   | "server"
+  | "operation_failed"
   | "timeout"
   | "network";
 

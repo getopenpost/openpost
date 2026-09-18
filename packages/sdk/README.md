@@ -93,18 +93,18 @@ try {
 }
 ```
 
-| Code             | HTTP      | Retry?                  |
-| ---------------- | --------- | ----------------------- |
-| `missing_config` | —         | no, set token/workspace |
-| `unauthorized`   | 401       | no                      |
-| `forbidden`      | 403       | no                      |
-| `not_found`      | 404       | no                      |
-| `conflict`       | 409       | no, re-read first       |
-| `validation`     | 400 / 422 | no, fix the input       |
-| `rate_limited`   | 429       | yes (`retryAfterMs`)    |
-| `server`         | 5xx       | once                    |
-| `timeout`        | —         | caller decides          |
-| `network`        | —         | caller decides          |
+| Code             | HTTP      | Retry?                                  |
+| ---------------- | --------- | --------------------------------------- |
+| `missing_config` | —         | no, set token/workspace                 |
+| `unauthorized`   | 401       | no                                      |
+| `forbidden`      | 403       | no                                      |
+| `not_found`      | 404       | no                                      |
+| `conflict`       | 409       | no, re-read first                       |
+| `validation`     | 400 / 422 | no, fix the input                       |
+| `rate_limited`   | 429       | yes (`retryAfterMs`)                    |
+| `server`         | 5xx       | GET retries once; mutations never retry |
+| `timeout`        | —         | caller decides                          |
+| `network`        | —         | caller decides                          |
 
 ## Automation surface
 

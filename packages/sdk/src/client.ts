@@ -11,6 +11,9 @@ export interface OpenPostClientOptions {
   token?: string;
   timeoutMs?: number;
   fetch?: typeof fetch;
+  // Allow bearer credentials over cleartext HTTP. Default is HTTPS-only:
+  // self-hosted HTTP origins need this explicit opt-in per call site.
+  allowInsecureHttp?: boolean;
 }
 
 export type QueryValue = string | number | boolean | undefined | null;
@@ -54,6 +57,8 @@ export class HttpClient {
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
 
+  private readonly allowInsecureHttp: boolean;
+
   constructor(options: OpenPostClientOptions = {}) {
     const baseUrl =
       options.baseUrl ?? env("OPENPOST_URL") ?? env("OPENPOST_INSTANCE") ?? "https://app.openpo.st";
@@ -61,6 +66,7 @@ export class HttpClient {
     this.token = options.token ?? env("OPENPOST_TOKEN");
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.timeoutMs = options.timeoutMs ?? 60_000;
+    this.allowInsecureHttp = options.allowInsecureHttp ?? false;
   }
 
   requireToken(): string {
@@ -116,10 +122,41 @@ export class HttpClient {
     return url.toString();
   }
 
+  // Origin of the configured API. Bearer credentials are only ever sent to
+  // this origin; anything else fails closed before the token leaves.
+  private apiOrigin(): string {
+    return new URL(this.baseUrl).origin;
+  }
+
+  // requireSameOrigin keeps server-provided URLs honest: a completion or API
+  // target on another origin never receives this client's bearer token.
+  private requireSameOrigin(url: string): void {
+    if (new URL(url).origin !== this.apiOrigin()) {
+      throw new OpenPostError(
+        `Refusing to send credentials to ${new URL(url).origin}: outside the configured API origin.`,
+        { code: "missing_config" },
+      );
+    }
+  }
+
+  // requireSecureTarget rejects cleartext HTTP for credentialed requests
+  // unless the caller opted in. Self-hosted HTTP origins stay possible, but
+  // never by accident.
+  private requireSecureTarget(url: string): void {
+    const target = new URL(url);
+    if (target.protocol === "http:" && !this.allowInsecureHttp) {
+      throw new OpenPostError(
+        `Refusing to send credentials over cleartext HTTP to ${target.host}. ` +
+          `Use an HTTPS origin or pass allowInsecureHttp for self-hosted HTTP.`,
+        { code: "missing_config" },
+      );
+    }
+  }
+
   // putBytes uploads raw bytes to a storage target. External targets receive
-  // only the caller-supplied headers; the API token never leaves OpenPost.
-  // Internal API targets opt into the bearer token explicitly, because the
-  // session content route requires authentication.
+  // only the caller-supplied headers; the API token never leaves the API
+  // origin. Internal API targets opt into the bearer token explicitly,
+  // because the session content route requires authentication.
   async putBytes(
     url: string,
     body: Uint8Array | ArrayBuffer | Blob,
@@ -130,8 +167,15 @@ export class HttpClient {
       auth?: boolean;
     } = {},
   ): Promise<void> {
+    // Absolute storage targets are validated even without credentials: an
+    // http: presigned URL would otherwise carry user bytes over cleartext.
+    if (url.startsWith("http")) this.requireSecureTarget(url);
     const headers: Record<string, string> = { ...(options.headers ?? {}) };
-    if (options.auth) headers["Authorization"] = `Bearer ${this.requireToken()}`;
+    if (options.auth) {
+      this.requireSameOrigin(url);
+      this.requireSecureTarget(url);
+      headers["Authorization"] = `Bearer ${this.requireToken()}`;
+    }
     if (options.mimeType && !headers["Content-Type"]) headers["Content-Type"] = options.mimeType;
     let response: Response;
     try {
@@ -168,7 +212,11 @@ export class HttpClient {
       "User-Agent": `openpost-sdk/${SDK_VERSION}`,
       ...(options.headers ?? {}),
     };
-    if (options.auth !== false) headers["Authorization"] = `Bearer ${this.requireToken()}`;
+    if (options.auth !== false) {
+      this.requireSameOrigin(url);
+      this.requireSecureTarget(url);
+      headers["Authorization"] = `Bearer ${this.requireToken()}`;
+    }
 
     let body: BodyInit | undefined;
     if (options.rawBody !== undefined) {

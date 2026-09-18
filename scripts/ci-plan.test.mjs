@@ -98,6 +98,12 @@ test("changed files route to their CI paths", () => {
       on: ["npm"],
       off: [],
     },
+    {
+      name: "npm payload gate changes",
+      files: ["scripts/check-npm-package-build.mjs"],
+      on: ["npm"],
+      off: [],
+    },
   ];
   for (const { name, files, on, off } of cases) {
     const plan = planCI(files, manifest);

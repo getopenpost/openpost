@@ -11,6 +11,7 @@ import type {
   WaitOptions,
 } from "../types.js";
 import { OpenPostError } from "../errors.js";
+import { resolveWaitOptions } from "../wait.js";
 
 const TERMINAL_STATUSES = new Set(["published", "failed"]);
 
@@ -150,8 +151,7 @@ export class Publications {
   // wait polls the publication until it reaches a terminal status. Use it
   // after schedule or publishNow when the caller needs the outcome.
   async wait(id: string, options: WaitOptions = {}): Promise<Publication> {
-    const timeoutMs = options.timeoutMs ?? 120_000;
-    const intervalMs = options.intervalMs ?? 3_000;
+    const { timeoutMs, intervalMs } = resolveWaitOptions(options);
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const publication = await this.get(id);

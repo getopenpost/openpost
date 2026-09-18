@@ -15,11 +15,12 @@ Real versions only ever come from the release workflow's `publish-npm` job.
 
 Every publishable change under `packages/sdk/` or `packages/cli/` must increase that package's stable version. PR CI enforces this through `bun scripts/npm-package-release.mjs check-version --package <dir>` in the `npm-packages` job, which also runs each package's check, test, build, and an `npm pack --dry-run` payload inspection.
 
-The app's `v*` release workflow publishes beside the Hosted deployment, never behind it:
+The app's `v*` release workflow publishes the SDK beside the Hosted deployment, never behind it. The CLI wrapper instead publishes after the GitHub release goes public, because it installs its binaries from that release:
 
-1. `bun scripts/tasks.mjs check npm-packages` proves the exact sources.
+1. `bun scripts/tasks.mjs check npm-packages` proves the exact sources, including the payload allowlist gate.
 2. `bun scripts/npm-package-release.mjs publish --package <dir>` packs and either publishes an absent version once through trusted publishing or reconciles an existing version by tarball integrity. A version that exists with different content stops the release and requires a version increase.
-3. `bun scripts/verify-published-npm-package.mjs --kind sdk|cli` clean-installs the registry tarball, runs `npm audit signatures`, checks integrity, and loads the package. For the CLI it also proves the default release download end to end once the pinned release is public.
+3. `bun scripts/verify-published-npm-package.mjs --kind sdk|cli` clean-installs the registry tarball, runs `npm audit signatures`, checks integrity, and loads the package. For the CLI it also proves the default release download end to end.
+4. `verify-npm-live` installs the published wrapper after publication and runs its default download exactly as users hit it. Reports only: a failure here opens a follow-up instead of blocking anything already shipped.
 
 ## CLI release pin
 
@@ -27,7 +28,7 @@ The app's `v*` release workflow publishes beside the Hosted deployment, never be
 
 - The pin must name a release that ships `.sha256` checksum assets (every release after this change lands). Older releases fail closed unless `OPENPOST_CLI_ALLOW_UNVERIFIED=1` is set.
 - Bump the pin to the upcoming tag during release preparation whenever the wrapper should track a new CLI, together with the wrapper version.
-- The first release carrying checksums may still be a draft while `publish-npm` verifies; the verifier then skips the live download with a notice and the following release proves the live path.
+- The CLI publishes after `publish-release`, so the pinned release is public when the wrapper ships and the live download proof runs against it. If release inspection ever fails, verification fails closed instead of silently skipping.
 
 ## Update checks
 

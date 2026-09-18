@@ -1,6 +1,7 @@
 import type { HttpClient, QueryValue } from "../client.js";
 import type { Job, JobStatus, ListJobsQuery, WaitOptions } from "../types.js";
 import { OpenPostError } from "../errors.js";
+import { resolveWaitOptions } from "../wait.js";
 
 const TERMINAL_JOB_STATUSES: JobStatus[] = ["completed", "failed"];
 
@@ -24,17 +25,18 @@ export class Jobs {
   // wait polls a durable job until it completes or fails. Publishing actions
   // return a job_id; use this when the caller needs the final outcome.
   async wait(id: string, options: WaitOptions = {}): Promise<Job> {
-    const timeoutMs = options.timeoutMs ?? 120_000;
-    const intervalMs = options.intervalMs ?? 3_000;
+    const { timeoutMs, intervalMs } = resolveWaitOptions(options);
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const job = await this.get(id);
       if (TERMINAL_JOB_STATUSES.includes(job.status)) {
         if (job.status === "failed") {
+          // Terminal, never retryable: retrying would re-run the operation
+          // that created the job.
           throw new OpenPostError(
             `Job ${id} failed${job.last_error ? `: ${job.last_error}` : ""}`,
             {
-              code: "server",
+              code: "operation_failed",
               details: job,
             },
           );

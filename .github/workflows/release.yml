@@ -500,14 +500,12 @@ jobs:
             --integrity "$PACKAGE_INTEGRITY" \
             --n8n-version "$N8N_SMOKE_VERSION"
 
-  publish-npm:
-    name: Publish and verify npm SDK and CLI packages
+  publish-sdk:
+    name: Publish and verify npm SDK package
     runs-on: ubuntu-latest
-    # Like the n8n package, the npm SDK and CLI keep their own publication
-    # identity and run beside the Hosted deployment, never behind it.
+    # Like the n8n package, the SDK keeps its own publication identity and
+    # runs beside the Hosted deployment, never behind it.
     needs: promote-image
-    outputs:
-      cli_spec: ${{ steps.cli.outputs.package_spec }}
     timeout-minutes: 20
     permissions:
       contents: read
@@ -530,9 +528,6 @@ jobs:
       - name: Publish the SDK or reconcile the existing registry version
         id: sdk
         run: bun scripts/npm-package-release.mjs publish --package packages/sdk
-      - name: Publish the CLI wrapper or reconcile the existing registry version
-        id: cli
-        run: bun scripts/npm-package-release.mjs publish --package packages/cli
       - name: Verify the published SDK from the registry
         env:
           PACKAGE_SPEC: ${{ steps.sdk.outputs.package_spec }}
@@ -542,6 +537,38 @@ jobs:
             --package-spec "$PACKAGE_SPEC" \
             --integrity "$PACKAGE_INTEGRITY" \
             --kind sdk
+
+  publish-cli:
+    name: Publish and verify npm CLI package
+    runs-on: ubuntu-latest
+    # The wrapper installs its binaries from the public GitHub release, so
+    # unlike the SDK it publishes only after publish-release flips the draft
+    # public. A wrapper version whose binaries are unreachable must never ship.
+    needs: [promote-image, publish-release]
+    outputs:
+      cli_spec: ${{ steps.cli.outputs.package_spec }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_CLI_VERSION: "12.0.2"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.19.0"
+      - name: Install the trusted-publishing npm CLI
+        run: npm install --global "npm@${NPM_CLI_VERSION}"
+      - run: bun install --frozen-lockfile
+      - name: Check the exact package sources before publication
+        run: bun scripts/tasks.mjs check npm-packages
+      - name: Publish the CLI wrapper or reconcile the existing registry version
+        id: cli
+        run: bun scripts/npm-package-release.mjs publish --package packages/cli
       - name: Verify the published CLI wrapper from the registry
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -560,7 +587,7 @@ jobs:
     # wrapper's default download path is proven exactly as users hit it.
     # Reports only: the release is already published, so a failure here
     # opens a follow-up instead of blocking anything.
-    needs: [publish-npm, publish-release]
+    needs: [publish-cli]
     timeout-minutes: 10
     permissions:
       contents: read
@@ -570,7 +597,7 @@ jobs:
           node-version: "24.19.0"
       - name: Install the published wrapper and run its default download
         env:
-          PACKAGE_SPEC: ${{ needs.publish-npm.outputs.cli_spec }}
+          PACKAGE_SPEC: ${{ needs.publish-cli.outputs.cli_spec }}
         run: |
           set -euo pipefail
           work="$(mktemp -d)"

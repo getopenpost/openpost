@@ -1573,6 +1573,10 @@ test.describe("product screenshot capture", () => {
       });
       editorMediaFixturesEnabled = true;
       await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+      await capture(page, `image-start-${captureScheme}.png`, [
+        page.getByRole("heading", { name: "Choose a format" }),
+        page.locator("summary", { hasText: "Custom size" }),
+      ]);
       await page.getByText("Custom size", { exact: true }).first().click();
       await page.getByRole("spinbutton", { name: "Width" }).fill("1500");
       await page.getByRole("spinbutton", { name: "Height" }).fill("500");
@@ -1633,6 +1637,45 @@ test.describe("product screenshot capture", () => {
         }),
         `image-controls-detail-${captureScheme}.png`,
       );
+
+      const layersPanel = page.getByTestId("image-editor-layers");
+      await expect(layersPanel).toBeVisible();
+      await captureDetail(layersPanel, `image-layers-detail-${captureScheme}.png`);
+
+      await page.getByRole("button", { name: "Add page" }).click();
+      await expect(page.locator(".template-preview-frame img")).toHaveCount(2);
+      await captureDetail(
+        page.getByTestId("image-editor-page-strip"),
+        `image-pages-detail-${captureScheme}.png`,
+      );
+
+      await page.getByRole("button", { name: "Export", exact: true }).click();
+      const exportDialog = page.getByRole("dialog", { name: "Export design" });
+      await expect(exportDialog).toBeVisible();
+      await captureDetail(exportDialog, `image-export-detail-${captureScheme}.png`);
+      await page.keyboard.press("Escape");
+
+      // The placed logo is an image layer, so the Layer menu offers background removal.
+      await page.getByRole("menuitem", { name: "Layer" }).click();
+      const removeBackgroundItem = page.getByRole("menuitem", {
+        name: "Remove background",
+      });
+      await expect(removeBackgroundItem).toBeVisible();
+      await page.waitForTimeout(400);
+      const layerMenu = page.getByRole("menu").filter({ has: removeBackgroundItem });
+      await expect
+        .poll(() => layerMenu.evaluate((menu) => getComputedStyle(menu).opacity))
+        .toBe("1");
+      // The frosted menu is translucent by design; hide the panel behind it so
+      // the shot stays readable. The menu itself is captured pixel-honest.
+      const assetAside = page.locator("aside", {
+        has: page.getByRole("button", { name: "Upload or camera" }),
+      });
+      await assetAside.evaluate((panel) => {
+        panel.style.visibility = "hidden";
+      });
+      await captureDetail(layerMenu, `image-background-removal-detail-${captureScheme}.png`);
+      await page.keyboard.press("Escape");
 
       await installLocalVideoWorkspace(page, studySOSVideo.toString("base64"));
       await createVideoEditorProject(page, "Study SOS cut");

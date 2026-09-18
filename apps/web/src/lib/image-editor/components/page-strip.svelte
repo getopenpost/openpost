@@ -160,7 +160,10 @@
 
 <svelte:window onblur={() => cancelReorder()} />
 
-<div class="flex size-full flex-col border-t bg-background/95 backdrop-blur">
+<div
+	class="flex size-full flex-col border-t bg-background/95 backdrop-blur"
+	data-testid="image-editor-page-strip"
+>
 	<div class="flex h-11 items-center gap-1 border-b px-2 lg:h-9">
 		<Button
 			variant="ghost"

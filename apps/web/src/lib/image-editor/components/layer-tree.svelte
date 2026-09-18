@@ -384,7 +384,7 @@
 	onpointercancelcapture={(event) => finishPointerReorder(event, true)}
 />
 
-<div class="flex h-full min-h-0 flex-col">
+<div class="flex h-full min-h-0 flex-col" data-testid="image-editor-layers">
 	<div class="flex min-h-10 items-center border-b px-3">
 		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_layers()}

@@ -67,6 +67,11 @@ export function validateRelease(release, options) {
   }
 
   const expected = new Set(options.core === true ? coreReleaseAssets : expectedReleaseAssets);
+  // The core check runs while the parallel Android job may already have
+  // uploaded the APK, so unknown means outside the full set, not outside the
+  // required subset. Missing-asset enforcement below stays scoped to the
+  // required subset.
+  const known = new Set(expectedReleaseAssets);
   const seen = new Set();
   for (const asset of release.assets) {
     const name = asset?.name;
@@ -76,7 +81,7 @@ export function validateRelease(release, options) {
     }
     if (seen.has(name)) problems.push(`duplicate release asset: ${name}`);
     seen.add(name);
-    if (!expected.has(name)) problems.push(`unexpected release asset: ${name}`);
+    if (!known.has(name)) problems.push(`unexpected release asset: ${name}`);
     if (asset.state !== "uploaded" || !Number.isInteger(asset.size) || asset.size <= 0) {
       problems.push(`release asset is not completely uploaded: ${name}`);
     }

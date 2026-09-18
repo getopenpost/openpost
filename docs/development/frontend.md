@@ -6,6 +6,8 @@ This page is for contributors changing the web app or its shared marketing contr
 
 ## Expectations
 
+- Refresh canonical product screenshots when a change alters a captured surface; see [Product screenshots](screenshots.md).
+
 - Use standard Svelte 5 runes
 - Keep API calls typed
 - Preserve adapter-static output because the backend embeds the built assets

@@ -329,8 +329,8 @@
 								0}</span
 						>
 					</summary>
-					<div class="grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] p-1">
-						{#each trimPathFields as field (field.property)}
+					{#snippet shapeNumberFields(fields: StrokePathField[])}
+						{#each fields as field (field.property)}
 							<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 								{field.label}
 								<Input
@@ -344,6 +344,9 @@
 								/>
 							</label>
 						{/each}
+					{/snippet}
+					<div class="grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] p-1">
+						{@render shapeNumberFields(trimPathFields)}
 					</div>
 				</details>
 
@@ -365,20 +368,7 @@
 						>
 					</summary>
 					<div class="grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] p-1">
-						{#each taperFields as field (field.property)}
-							<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
-								{field.label}
-								<Input
-									type="number"
-									min={field.minimum}
-									max={field.maximum}
-									step="1"
-									class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
-									value={item[field.property] ?? field.defaultValue}
-									onchange={(event) => strokePathPatch(field, event.currentTarget.valueAsNumber)}
-								/>
-							</label>
-						{/each}
+						{@render shapeNumberFields(taperFields)}
 					</div>
 				</details>
 			{/if}

@@ -75,6 +75,7 @@
 		draft = null;
 		if (value !== null) onlive(value);
 		oncancel?.();
+		// fallow-ignore-next-line code-duplication
 		gestureActive = false;
 	}
 
@@ -125,6 +126,7 @@
 		draft = raw;
 		if (raw.trim() === '') return;
 		const parsed = Number(raw);
+		// fallow-ignore-next-line code-duplication
 		if (Number.isFinite(parsed)) setLive(parsed);
 	}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import TextStyleToggles from './text-style-toggles.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
@@ -334,26 +335,15 @@
 						})}
 				/>
 			</label>
-			<Button
-				type="button"
-				size="sm"
-				class="h-[22px]"
-				variant={activeItem.fontStyle === 'italic' ? 'secondary' : 'ghost'}
-				aria-pressed={activeItem.fontStyle === 'italic'}
-				onclick={() =>
+			<TextStyleToggles
+				isItalic={activeItem.fontStyle === 'italic'}
+				isUnderline={activeItem.underline ?? false}
+				ontoggleitalic={() =>
 					commitItem({
 						fontStyle: activeItem.fontStyle === 'italic' ? 'normal' : 'italic'
-					})}>{m.video_editor_text_italic()}</Button
-			>
-			<Button
-				type="button"
-				size="sm"
-				class="h-[22px]"
-				variant={activeItem.underline ? 'secondary' : 'ghost'}
-				aria-pressed={activeItem.underline ?? false}
-				onclick={() => commitItem({ underline: !activeItem.underline })}
-				>{m.video_editor_text_underline()}</Button
-			>
+					})}
+				ontoggleunderline={() => commitItem({ underline: !activeItem.underline })}
+			/>
 		</div>
 	{/if}
 </div>

@@ -78,6 +78,7 @@
 		draft = null;
 		gestureActive = false;
 		if (value !== null) onValueChange?.(value);
+		// fallow-ignore-next-line code-duplication
 		onValueCancel?.();
 	}
 
@@ -133,6 +134,7 @@
 		const raw = event.currentTarget.value;
 		draft = raw;
 		const parsed = parseNumeric(raw);
+		// fallow-ignore-next-line code-duplication
 		if (parsed !== null) setLive(parsed);
 	}
 

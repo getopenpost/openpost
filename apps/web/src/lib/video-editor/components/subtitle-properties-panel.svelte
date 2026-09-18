@@ -3,6 +3,7 @@
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import TextStyleToggles from './text-style-toggles.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import EditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import type { TimelineItem } from '../project/types';
@@ -262,29 +263,15 @@
 		>
 			{m.video_editor_caption_bold()}
 		</Button>
-		<Button
-			type="button"
-			size="sm"
-			class="h-[22px]"
-			variant={activeItem.fontStyle === 'italic' ? 'secondary' : 'ghost'}
-			aria-pressed={activeItem.fontStyle === 'italic'}
-			onclick={() =>
+		<TextStyleToggles
+			isItalic={activeItem.fontStyle === 'italic'}
+			isUnderline={activeItem.underline ?? false}
+			ontoggleitalic={() =>
 				commit({
 					fontStyle: activeItem.fontStyle === 'italic' ? 'normal' : 'italic'
 				})}
-		>
-			{m.video_editor_text_italic()}
-		</Button>
-		<Button
-			type="button"
-			size="sm"
-			class="h-[22px]"
-			variant={activeItem.underline ? 'secondary' : 'ghost'}
-			aria-pressed={activeItem.underline ?? false}
-			onclick={() => commit({ underline: !activeItem.underline })}
-		>
-			{m.video_editor_text_underline()}
-		</Button>
+			ontoggleunderline={() => commit({ underline: !activeItem.underline })}
+		/>
 	</div>
 </section>
 

@@ -162,7 +162,6 @@ export const assetSurfaceManifest = {
     "screenshots/image-canvas-detail-dark.webp",
     "screenshots/image-controls-detail-light.webp",
     "screenshots/image-controls-detail-dark.webp",
-    "screenshots/image-start-light.webp",
     "screenshots/video-preview-detail-light.webp",
     "screenshots/video-preview-detail-dark.webp",
     "screenshots/video-timeline-detail-light.webp",

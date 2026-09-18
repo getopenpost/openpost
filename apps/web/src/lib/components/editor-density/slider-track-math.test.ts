@@ -36,4 +36,12 @@ describe('sliderValueFromPointer', () => {
 			-180
 		);
 	});
+
+	it('lands the far right exactly on max when step does not divide the range', () => {
+		const bounds = { min: 0, max: 1, step: 0.3 };
+		// Usable width is 86px; the far-right press would otherwise quantize to 0.9.
+		expect(sliderValueFromPointer({ ...GEOMETRY, clientX: 193 }, bounds)).toBe(1);
+		expect(sliderValueFromPointer({ ...GEOMETRY, clientX: 200 }, bounds)).toBe(1);
+		expect(sliderValueFromPointer({ ...GEOMETRY, clientX: 100 }, bounds)).toBe(0);
+	});
 });

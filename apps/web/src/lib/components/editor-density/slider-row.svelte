@@ -65,10 +65,10 @@
 	function handleTrackPointerDown(event: PointerEvent): void {
 		if (disabled || !event.isPrimary) return;
 		if (event.pointerType === 'mouse' && event.button !== 0) return;
-		const target = event.target as HTMLElement | null;
+		const target = event.target instanceof HTMLElement ? event.target : null;
 		// Thumb drags stay on the shared Slider's native gesture.
 		if (target?.closest?.('[data-slot="slider-thumb"]')) return;
-		const container = event.currentTarget as HTMLElement | null;
+		const container = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
 		if (!container) return;
 		const next = landFromClientX(container, event.clientX);
 		if (next === null || !Number.isFinite(next)) return;
@@ -86,7 +86,7 @@
 
 	function handleTrackPointerMove(event: PointerEvent): void {
 		if (!trackDrag || event.pointerId !== trackDrag.pointerId) return;
-		const container = event.currentTarget as HTMLElement | null;
+		const container = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
 		if (!container) return;
 		const next = landFromClientX(container, event.clientX);
 		if (next === null || !Number.isFinite(next)) return;

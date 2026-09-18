@@ -79,6 +79,13 @@
 		onValueChange?.(clampValue(next, min, max));
 	}
 
+	// Snap a continuous drag value onto the step grid. Step quantizes the
+	// result; it must not scale the drag itself.
+	function quantizeToStep(raw: number): number {
+		if (!Number.isFinite(step) || step <= 0) return raw;
+		return min + Math.round((raw - min) / step) * step;
+	}
+
 	function commit(next: number): void {
 		gestureActive = false;
 		onValueCommit?.(clampValue(next, min, max));
@@ -119,7 +126,7 @@
 		drag.lastY = event.clientY;
 		if (delta === 0) return;
 		drag.moved = true;
-		setLive(value + delta * speed * step);
+		setLive(quantizeToStep(value + delta * speed));
 	}
 
 	function finishDrag(event: PointerEvent): void {
@@ -185,7 +192,7 @@
 			event.stopPropagation();
 			gestureActive = false;
 			onValueCancel?.();
-			(event.currentTarget as HTMLElement).blur();
+			if (event.currentTarget instanceof HTMLElement) event.currentTarget.blur();
 		}
 	}}
 	onkeyup={(event) => {

@@ -36,6 +36,10 @@ export function sliderValueFromPointer(
 	const { min, max, step } = bounds;
 	const usable = Math.max(1, trackWidth - thumbWidthPx);
 	const ratio = Math.min(1, Math.max(0, (clientX - trackLeft - thumbWidthPx / 2) / usable));
+	// Pinned ends bypass quantization: a step grid that does not divide the
+	// range must still land the far ends exactly on min and max.
+	if (ratio <= 0) return min;
+	if (ratio >= 1) return max;
 	const raw = min + ratio * (max - min);
 	const quantized = min + Math.round((raw - min) / step) * step;
 	return Math.min(max, Math.max(min, quantized));

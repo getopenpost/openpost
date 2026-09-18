@@ -17,6 +17,7 @@
 		managedSignupUrl,
 		managedTrialNote
 	} from '../_marketing';
+	import { getChannelStory } from '../platforms/_stories';
 	import { openTelemetryPreferences } from '@openpost/telemetry';
 
 	const groups = marketingNavigation.footerGroups;
@@ -101,7 +102,7 @@
 					class="platform-guides mt-6 text-muted-foreground"
 					aria-label="Platform publishing guides"
 				>
-					{#each platforms.filter((platform) => !['pinterest', 'telegram'].includes(platform.slug)) as platform (platform.slug)}
+					{#each platforms.filter( (platform) => getChannelStory(platform.slug) ) as platform (platform.slug)}
 						<a
 							href={resolve(`/platforms/${platform.slug}`)}
 							class="focus-ring inline-flex size-11 items-center justify-center rounded-md text-muted-foreground/75 transition-colors hover:text-primary"

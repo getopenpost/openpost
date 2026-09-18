@@ -41,7 +41,7 @@
 		<h2>Check your channels before you commit.</h2>
 		<p>
 			OpenPost Cloud posting has not completed its final live checks yet. Each channel page explains
-			the current availability and account requirements. Pinterest and Telegram are not available.
+			the current availability and account requirements.
 		</p>
 		<a href="/contact" class="focus-ring">Ask about your accounts <ArrowUpRight size={16} /></a>
 	</aside>

@@ -134,7 +134,7 @@ test("features navigation stays on the landing page", async ({ page }, testInfo)
 });
 
 test("provider marks use the available icon area", async ({ page }) => {
-  for (const platform of ["Pinterest", "Telegram"]) {
+  for (const platform of ["Pinterest"]) {
     await page.goto(`/platforms/${platform.toLowerCase()}`);
     const icon = page.locator("svg").filter({
       has: page.locator("title", { hasText: new RegExp(`^${platform}$`) }),

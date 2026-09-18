@@ -452,6 +452,37 @@ const channelStories = {
 		question: 'Does OpenPost read my Discord conversations?',
 		answer:
 			'No. The Discord connection sends messages through a channel webhook. It does not read the channel inbox. You need permission to create that connection in your Discord server.'
+	},
+	telegram: {
+		title: 'Bring your Telegram channel into the plan.',
+		intro:
+			'Share updates with your channel or group without leaving your workflow. Prepare the message here, then send it through your connected chat.',
+		angle: 'Your channel, on the calendar.',
+		example:
+			'The new collection is here. See the details and find your favourite in the shop from Friday.',
+		visual: 'calendar',
+		sections: [
+			{
+				title: 'Connect the chat you run.',
+				text: 'Add the OpenPost bot as an administrator of your channel or group, then post a one-time command inside that chat. Refresh your accounts to confirm the chat appears.'
+			},
+			{
+				title: 'Write the message once.',
+				text: 'Prepare text up to 4,096 characters, or add media with a caption up to 1,024 characters. Check the preview before scheduling.'
+			},
+			{
+				title: 'Keep channel history in view.',
+				text: 'OpenPost observes channel posts from installation onward and records reaction counts. Earlier messages are never backfilled.'
+			}
+		],
+		ideas: [
+			'A product update with a photo of what changed',
+			'An event reminder with the date and time',
+			'A short note pointing members to something new'
+		],
+		question: 'Which chats can I connect?',
+		answer:
+			'Channels and groups where the bot is an administrator with permission to post. Post the command inside that chat. A command sent anywhere else does nothing.'
 	}
 } satisfies Record<string, ChannelStory>;
 

@@ -22,6 +22,9 @@ it('binds a one-time command to the selected workspace and chat', async () => {
 		onRefresh,
 		onClose
 	});
+	await expect
+		.element(screen.getByText(/Post the command inside that chat/, { exact: false }))
+		.toBeInTheDocument();
 	await screen.getByRole('textbox', { name: 'Telegram chat ID' }).fill('-1001234567890');
 	await screen.getByRole('button', { name: 'Get connection command' }).click();
 	expect(post).toHaveBeenCalledWith('/accounts/telegram/connection-code', {
@@ -36,6 +39,9 @@ it('binds a one-time command to the selected workspace and chat', async () => {
 	await expect
 		.element(screen.getByRole('link', { name: '@openpost_test_bot' }))
 		.toHaveAttribute('href', 'https://t.me/openpost_test_bot');
+	await expect
+		.element(screen.getByText(/A command sent anywhere else does nothing/, { exact: false }))
+		.toBeInTheDocument();
 	expect(onClose).not.toHaveBeenCalled();
 	await screen.getByRole('button', { name: 'Reload accounts' }).click();
 	expect(onRefresh).toHaveBeenCalledOnce();

@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.35.0] - 2026-09-17
+
+### Fixed
+
+- The instance Discord bot now rotates its presence through all four activities every few seconds instead of sitting on one for half an hour.
+- Searching for a PieFed community when choosing a post destination now returns communities that match the search, instead of the same list of active communities whatever was typed.
+- Analytics for PieFed posts no longer fails when reading a post's votes and comment count: the post is now requested by the `id` parameter PieFed expects.
+- The inbox now collects replies to comments on PieFed posts, not only the comments made directly on the post.
+- Replies that a moderator removed from a PieFed post no longer show up in the inbox as blank comments or trigger new-engagement notifications.
+- Deleting your own reply to a PieFed post no longer fails: the request now tells PieFed to delete the reply, which it requires.
+
+### Added
+
+- Connect Telegram channels and groups through an instance-owned bot: post a one-time command inside the chat, then schedule text and media messages from OpenPost.
+- Drag video-editor sidebar content straight onto the timeline: backgrounds, stickers, stock assets, and Lottie animations now land on the hovered track at the drop frame with a live placement preview, and saved AI voice and music previews drag out as audio clips.
+
 ## [4.34.2] - 2026-09-16
 
 ### Fixed

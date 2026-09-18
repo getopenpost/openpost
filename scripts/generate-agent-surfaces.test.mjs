@@ -1516,7 +1516,6 @@ test(
         title: route.title,
         unavailablePlatform: {
           "/platforms/pinterest": "Pinterest",
-          "/platforms/telegram": "Telegram",
         }[route.path],
       });
       assert.ok(

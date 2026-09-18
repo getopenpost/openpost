@@ -953,46 +953,51 @@ const platformImplementations = [
 		slug: 'telegram',
 		name: 'Telegram',
 		short: 'telegram',
-		tag: 'Bot mode unavailable pending certification',
+		tag: 'Bot connection',
 		requiresProviderApproval: false,
-		implementationDetail: 'Bot paths exist; public connections are intentionally unavailable',
+		implementationDetail: 'Instance-owned bot connection',
 		description:
-			'Telegram bot mode is not publicly available in OpenPost. It remains blocked until the exact bot configuration and operations have current live certification.',
-		heroTitle: 'Telegram bot mode remains behind the provider readiness gate.',
+			'Connect a Telegram channel or group through an instance-owned bot, then schedule text and media messages.',
+		heroTitle: 'Send your channel update through a connected Telegram chat.',
 		preview: {
-			label: 'No public connection',
-			headline: 'Live bot certification required',
-			body: 'A configured bot token does not make Telegram available to public Hosted accounts.',
-			detail: 'Connect, publish, observation, and analytics gate separately',
-			chips: ['Unavailable', 'Instance bot', 'Live certification']
+			label: 'Telegram chat',
+			headline: 'A scheduled channel update',
+			body: 'Text and media go through the verified chat connection.',
+			detail: '4,096 characters',
+			chips: ['Bot', 'Up to 10 media', 'No backfill']
 		},
 		accountRequirement:
-			'An instance-owned Telegram bot with a secret webhook and current live evidence for each enabled operation.',
-		auth: 'Instance-owned bot; publicly unavailable',
+			'A channel or group where the instance bot is an administrator with permission to post.',
+		auth: 'One-time chat command',
 		setup: [
-			'Operators may configure the instance bot only for controlled development or certification work.',
-			'Keep public connection, publishing, observation, and analytics operations disabled without current evidence.',
-			'Use the provider readiness ledger before changing any public availability statement.'
+			'Add the instance bot as an administrator with permission to post in the channel or group.',
+			'Generate the one-time command in OpenPost and post it inside that chat.',
+			'Refresh your accounts to confirm the chat, then send a small test message.'
 		],
 		formats: [
 			{
-				name: 'Public availability',
-				text: 'Unavailable',
-				media: 'Unavailable'
+				name: 'Message',
+				text: '4,096 characters',
+				media: 'Text only'
+			},
+			{
+				name: 'Message with media',
+				text: '1,024-character caption',
+				media: 'Up to 10 media items in one group'
 			}
 		],
 		limits: [
-			'Every bot operation has an independent readiness gate',
-			'Public Hosted availability requires current exact-subject live evidence',
-			'No Telegram bot operation is advertised as available today'
+			`${PLATFORM_LIMITS.telegram.charLimit.toLocaleString()} characters`,
+			PLATFORM_LIMITS.telegram.media,
+			'Media captions allow up to 1,024 characters',
+			'Observation starts at installation; earlier messages are never backfilled'
 		],
 		limitations: [
-			'Bot credentials are instance-owned and never belong in workspace data.',
-			'An implementation path or configured token is not a readiness claim.',
-			'OpenPost exposes no public Telegram bot claim without a current certification projection.'
+			'The bot must remain an administrator with posting permission.',
+			'The connection command works once for one chat and expires after 15 minutes.',
+			'Post the command inside the destination chat. A command sent anywhere else does nothing.'
 		],
-		verification:
-			'Do not connect the bot to public accounts until every intended operation passes its readiness gate with current live evidence.',
+		verification: 'Send a test message to the exact chat and confirm it arrives before scheduling.',
 		docsUrl: 'https://docs.openpo.st/guides/accounts'
 	},
 	{
@@ -1199,7 +1204,7 @@ export const faqs = [
 		category: 'publishing',
 		question: 'Which social channels can I use?',
 		answer:
-			'OpenPost includes integrations for major social networks, but posting options depend on your account. OpenPost Cloud posting has not completed its final live checks yet. Check the channel page or contact us before relying on it for an important launch. Pinterest and Telegram are unavailable.',
+			'OpenPost includes integrations for major social networks, but posting options depend on your account. OpenPost Cloud posting has not completed its final live checks yet. Check the channel page or contact us before relying on it for an important launch.',
 		learnMore: { label: 'Check your channels', href: '/platforms' }
 	},
 	{

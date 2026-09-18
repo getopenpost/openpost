@@ -276,6 +276,50 @@ describe('account management modes', () => {
 		identityCheck.mockRestore();
 	});
 
+	it('explains the provider-specific next step before OAuth redirect', async () => {
+		queryClient.setQueryData(openPostQueryKeys.accounts(workspace.id), []);
+		queryClient.setQueryData(accountCatalogQueryKeys.providers(workspace.id), [
+			{
+				platform: 'x',
+				display_name: 'X',
+				auth_mode: 'oauth',
+				configured: true,
+				status: 'available',
+				readiness: {
+					state: 'healthy',
+					executable: true,
+					connectable: true,
+					publishable: true,
+					discoverable: true,
+					observable: true,
+					analytics_ready: true,
+					advertisable: true,
+					facts: {}
+				}
+			}
+		]);
+		const screen = await render(
+			AccountManagement,
+			{
+				workspace,
+				workspaces: [workspace],
+				links,
+				onContinue: vi.fn(),
+				onAccountsChanged: vi.fn()
+			},
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
+
+		await screen.getByTestId('provider-card-x').getByRole('button', { name: 'Connect' }).click();
+		const dialog = screen.getByRole('dialog', { name: 'Connect X' });
+		await expect.element(dialog.getByText('Here is what will happen next.')).toBeVisible();
+		await expect.element(dialog.getByText('Post to X')).toBeVisible();
+		await expect
+			.element(screen.getByText('Your password stays with the social network'))
+			.not.toBeInTheDocument();
+		await expect.element(dialog.getByRole('button', { name: 'Continue to X' })).toBeVisible();
+	});
+
 	it('does not offer provider refresh for connector accounts', async () => {
 		getMock.mockImplementation((path: string) => {
 			if (path === '/accounts') {

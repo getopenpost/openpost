@@ -1968,8 +1968,6 @@
 	"accounts_oauth_step_redirect": "OpenPost sends you to the social network.",
 	"accounts_oauth_step_approve": "The social network shows the access OpenPost is requesting.",
 	"accounts_oauth_step_return": "After you approve, you return to OpenPost.",
-	"accounts_oauth_password_title": "Your password stays with the social network",
-	"accounts_oauth_password_description": "OpenPost receives only the access you approve. You can remove its saved authorization here; provider-side access is managed in the provider’s settings.",
 	"accounts_oauth_continue": "Continue to {platform}",
 	"accounts_onboarding_progress": "Step 2 of 3",
 	"accounts_onboarding_heading": "Connect the account you publish to most",

@@ -368,6 +368,9 @@ type piefedComment struct {
 type piefedCommentView struct {
 	Comment piefedComment `json:"comment"`
 	Creator piefedPerson  `json:"creator"`
+	// MyVote is the connected account's own vote on the reply: 1 for an
+	// upvote, -1 for a downvote, 0 for none.
+	MyVote int64 `json:"my_vote"`
 }
 
 // piefedReplyView is a comment in the post replies tree. Replies to it are
@@ -418,6 +421,9 @@ func (p *PieFedAdapter) ListComments(ctx context.Context, accessToken, accountID
 				parentID = communityCommentRef(providerPieFed, postID, parent)
 			}
 		}
+		// The reply's upvote count includes its author's own upvote, so only
+		// my_vote says whether the connected account liked it.
+		liked := view.MyVote > 0
 		comments = append(comments, Comment{
 			ID:       communityCommentRef(providerPieFed, postID, strconv.FormatInt(comment.ID, 10)),
 			ParentID: parentID, ConversationID: strconv.FormatInt(postID, 10),
@@ -429,7 +435,8 @@ func (p *PieFedAdapter) ListComments(ctx context.Context, accessToken, accountID
 			IsOurs:    strings.TrimSpace(accountID) == strconv.FormatInt(view.Creator.ID, 10),
 			CanReply:  true,
 			CanDelete: strings.TrimSpace(accountID) == strconv.FormatInt(view.Creator.ID, 10),
-			CanLike:   true, CanUnlike: true,
+			CanLike:   !liked, CanUnlike: liked,
+			Liked: liked, LikeStateKnown: true,
 		})
 	}
 	return comments, nil

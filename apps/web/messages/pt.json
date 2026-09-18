@@ -1968,8 +1968,6 @@
 	"accounts_oauth_step_redirect": "O OpenPost envia-te para a rede social.",
 	"accounts_oauth_step_approve": "A rede social mostra o acesso que o OpenPost está a pedir.",
 	"accounts_oauth_step_return": "Depois de aprovares, regressas ao OpenPost.",
-	"accounts_oauth_password_title": "A tua palavra-passe fica na rede social",
-	"accounts_oauth_password_description": "O OpenPost recebe apenas o acesso que aprovas. Podes remover aqui a autorização guardada; o acesso no fornecedor é gerido nas definições do fornecedor.",
 	"accounts_oauth_continue": "Continuar para {platform}",
 	"accounts_onboarding_progress": "Passo 2 de 3",
 	"accounts_onboarding_heading": "Liga a conta onde publicas mais",

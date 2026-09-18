@@ -2068,6 +2068,9 @@
 			</Dialog.Title>
 			<Dialog.Description>{m.accounts_oauth_confirm_description()}</Dialog.Description>
 		</Dialog.Header>
+		{#if oauthConfirmProvider}
+			<p class="text-sm text-muted-foreground">{providerDescription(oauthConfirmProvider)}</p>
+		{/if}
 		<ol class="space-y-3 text-sm">
 			<li class="flex gap-3">
 				<span
@@ -2091,12 +2094,6 @@
 				<span>{m.accounts_oauth_step_return()}</span>
 			</li>
 		</ol>
-		<div
-			class="rounded-md border border-emerald-500/20 bg-emerald-500/8 p-3 text-sm text-emerald-800 dark:text-emerald-200"
-		>
-			<p class="font-medium">{m.accounts_oauth_password_title()}</p>
-			<p class="mt-1 text-xs/5">{m.accounts_oauth_password_description()}</p>
-		</div>
 		<Dialog.Footer>
 			<Dialog.Close>
 				{#snippet child({ props })}

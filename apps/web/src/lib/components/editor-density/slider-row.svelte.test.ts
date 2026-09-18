@@ -5,22 +5,22 @@ import SliderRow from './slider-row.svelte';
 
 describe('SliderRow track gestures', () => {
 	it('lands the value where the track is pressed', async () => {
-		const onValueChange = vi.fn();
+		let landed = NaN;
 		const screen = await render(SliderRow, {
 			label: 'Opacity',
 			value: 20,
 			min: 0,
 			max: 100,
 			step: 1,
-			onValueChange
+			onValueChange: (next) => {
+				landed = next;
+			}
 		});
 		const group = screen.getByRole('group', { name: 'Opacity' });
 		await expect.element(group).toBeVisible();
 		const box = group.element().getBoundingClientRect();
 		// Press well right of the thumb (value 20 sits near the left end).
 		await group.click({ position: { x: box.width * 0.8, y: box.height / 2 } });
-		expect(onValueChange).toHaveBeenCalled();
-		const landed = onValueChange.mock.calls.at(-1)?.[0] as number;
 		expect(Number.isFinite(landed)).toBe(true);
 		expect(landed).toBeGreaterThan(20);
 		expect(landed).toBeLessThanOrEqual(100);
@@ -57,7 +57,9 @@ describe('SliderRow track gestures', () => {
 		});
 		const group = screen.getByRole('group', { name: 'Opacity' });
 		await expect.element(group).toBeVisible();
-		(group.element() as HTMLElement).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+		const groupElement = group.element();
+		if (!(groupElement instanceof HTMLElement)) throw new Error('expected an HTMLElement group');
+		groupElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 		expect(onValueCommit).toHaveBeenCalledWith(100);
 	});
 });

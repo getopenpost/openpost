@@ -2,7 +2,7 @@
 
 Official n8n community node for OpenPost. The package is MIT licensed and calls the normal OpenPost `/api/v1` REST API with API tokens.
 
-> **Release status:** version 0.1.0 is the first stable package candidate. It has not yet been published to npm or accepted as an n8n verified community node. It requires Node.js 22.22 or newer.
+> **Release status:** version 0.1.0 was the first stable package candidate. The package is published to npm and requires Node.js 22.22 or newer.
 
 ## Install
 

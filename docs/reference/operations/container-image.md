@@ -1,6 +1,6 @@
 # Container image
 
-OpenPost publishes a **`linux/amd64`** container. ARM64 hosts need amd64 emulation. See [Single Binary](../installation/binary.md) and [CLI Installation](https://docs.openpo.st/guides/cli) for other download architectures.
+OpenPost publishes a **`linux/amd64`** container. ARM64 hosts need amd64 emulation. See [Single Binary](../installation/binary.md) and [CLI Installation](https://docs.openpo.st/automate/cli) for other download architectures.
 
 ## Build and security checks
 

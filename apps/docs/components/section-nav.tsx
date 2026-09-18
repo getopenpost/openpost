@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useSearchContext } from "fumadocs-ui/contexts/search";
 import { useEffect, useRef } from "react";
 import { documentationSection, documentationSections } from "@/lib/sections";
-import { BookOpen, Code2, Server, Search, ArrowUpRight, Github, Bot } from "lucide-react";
+import { BookOpen, Code2, Server, Search, ArrowUpRight, Github, Bot, Workflow } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 
 export function SectionNav() {
@@ -12,7 +12,7 @@ export function SectionNav() {
   const { setOpenSearch } = useSearchContext();
   const section = documentationSection(pathname);
   const navigation = useRef<HTMLElement>(null);
-  const sectionIcons = { guides: BookOpen, "self-hosting": Server, mcp: Bot, api: Code2 };
+  const sectionIcons = { guides: BookOpen, automate: Workflow, "self-hosting": Server, mcp: Bot, api: Code2 };
   useEffect(() => {
     const nav = navigation.current;
     const active = nav?.querySelector<HTMLElement>("[aria-current]");

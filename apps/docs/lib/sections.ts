@@ -1,5 +1,6 @@
 export const documentationSections = [
   { id: "guides", label: "Guides", href: "/" },
+  { id: "automate", label: "Automate", href: "/automate" },
   { id: "self-hosting", label: "Self-hosting", href: "/self-hosting" },
   { id: "mcp", label: "AI assistants", href: "/mcp" },
   { id: "api", label: "API reference", href: "/api-reference" },

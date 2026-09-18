@@ -1,0 +1,6 @@
+{
+  "title": "Automate",
+  "icon": "Workflow",
+  "root": true,
+  "pages": ["index", "---Tools---", "cli", "sdk", "n8n"]
+}

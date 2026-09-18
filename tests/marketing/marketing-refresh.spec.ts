@@ -176,7 +176,7 @@ test("retired pages redirect readers to their replacement @desktop", async ({ re
   for (const [oldPath, replacement] of [
     ["/features", "/#features"],
     ["/features.md", "/index.md"],
-    ["/developers", "https://docs.openpo.st/guides/automation"],
+    ["/developers", "https://docs.openpo.st/automate"],
     ["/self-hosting", "https://docs.openpo.st/self-hosting"],
   ]) {
     const response = await request.get(oldPath, { maxRedirects: 0 });

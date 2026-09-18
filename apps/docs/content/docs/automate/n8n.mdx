@@ -1,0 +1,39 @@
+---
+title: n8n workflows
+description: Run OpenPost steps on a timer or webhook with the official n8n node.
+icon: Boxes
+---
+
+Install `@getopenpost/n8n-nodes-openpost` from **Settings → Community nodes** in n8n. The package requires Node.js 22.22 or newer in the n8n runtime, and it is versioned independently from the OpenPost app. Check the [package releases](https://github.com/getopenpost/openpost/releases) when a step here differs from your installed node version.
+
+## Connect the credential
+
+Create an OpenPost credential in n8n with **Base URL** `https://app.openpo.st` and an OpenPost API token. Do not add `/api` or `/api/v1` to the base URL. For a workflow that writes, use a workspace-bound `api:write` token.
+
+If n8n runs in Docker, `localhost` means the n8n container. Use the OpenPost Compose service name or `host.docker.internal` when the services share a machine.
+
+Import the package's `list-workspaces` example first to verify the credential, then replace its workspace ID with yours. A second `create-draft` example creates a draft from each incoming item without scheduling or publishing anything.
+
+## Available actions
+
+The node exposes a curated automation surface generated from OpenPost's API definition:
+
+- Workspace: Get Many
+- Account: Get Many, Get Destination Options, Get Provider Readiness
+- Social Set: Get, Get Many
+- Posting Schedule: Get Next Available Slot
+- Media: Get Many, Upload Binary
+- Publication: Create, Get, Get Many, Update, Set Renditions, Validate, Schedule, Cancel, Publish Now, Retry Failed Renditions, Get Events
+- Job: Get
+
+Create, Schedule, and Publish Now are separate actions. Creating a publication never publishes as a hidden side effect, so start workflows with the Schedule Trigger or Webhook node and validate before publishing. This release ships no OpenPost-specific trigger.
+
+## Reliability
+
+Write actions send an `Idempotency-Key`; when left blank, the node derives one from the n8n execution ID, action, and input item index. Read actions retry transient network, `429`, `502`, `503`, and `504` failures, while write actions retry only when an idempotency key is present. Errors include the OpenPost `X-Request-ID` when the server returns it, and multiple input items keep n8n item linking with continue-on-fail support.
+
+## Next steps
+
+- Prefer a shell? Install the [CLI](/automate/cli), including from npm.
+- Calling over HTTP from code? Use the [TypeScript SDK](/automate/sdk).
+- Need an endpoint the node does not cover yet? Call it directly with the [API reference](/api-reference) using the same token.

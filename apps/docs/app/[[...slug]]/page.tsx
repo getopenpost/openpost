@@ -22,7 +22,7 @@ const featureMarks: Record<string, string> = {
   "guides/accounts.mdx": "/assets/brand/features/accounts.svg",
   "guides/recording.mdx": "/assets/brand/features/recorder.svg",
   "guides/workspaces.mdx": "/assets/brand/features/workspaces.svg",
-  "guides/automation.mdx": "/assets/brand/features/automation.svg",
+  "automate/index.mdx": "/assets/brand/features/automation.svg",
 };
 
 type Props = { params: Promise<{ slug?: string[] }> };

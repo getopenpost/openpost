@@ -115,6 +115,10 @@ Choose its guide below. Each guide shows where to enter the server URL, how to s
 
 For a client not listed here, use the endpoint and authentication rules in [Tools and permissions](/mcp/tools).
 
+## Prefer a terminal?
+
+For shell work, scripts, or CI, install the [CLI](/automate/cli) with `npm install -g @getopenpost/cli` instead of connecting an MCP client. AI coding assistants can drive it through the [`openpost-cli` skill](https://www.skills.sh/getopenpost/openpost), which carries the safe command patterns for authentication, drafting, validation, scheduling, recovery, and comment moderation.
+
 Remote clients can use browser sign-in. OpenPost asks you to choose `mcp:read` or `mcp:full` and, optionally, bind access to one workspace. If your client cannot use OAuth, create a developer token in **Settings → Personal → Developer** and pass it in a bearer header. Do not put a token in a chat message or a committed config file.
 
 ## Self-hosted connections

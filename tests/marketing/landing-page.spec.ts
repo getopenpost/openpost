@@ -213,7 +213,7 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
   }
   await expect(
     features.getByRole("link", { name: "Connect your tools", exact: true }),
-  ).toHaveAttribute("href", "https://docs.openpo.st/guides/automation");
+  ).toHaveAttribute("href", "https://docs.openpo.st/automate");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 

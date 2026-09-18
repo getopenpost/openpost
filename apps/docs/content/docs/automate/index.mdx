@@ -1,0 +1,18 @@
+---
+title: Automate
+description: Run OpenPost from scripts, shells, agents, and workflows.
+icon: Workflow
+---
+
+Choose the tool that fits where your work starts. Each uses OpenPost's workspace access rules. For unattended automation, create a separate token for each integration and bind it to one workspace when possible.
+
+- JavaScript and TypeScript scripts, CI jobs, and agents calling over HTTP: [TypeScript SDK](/automate/sdk).
+- Shell commands, scripts, and CI: [Command-line interface](/automate/cli), including the `openpost-cli` agent skill.
+- Timers and webhooks: [n8n workflows](/automate/n8n).
+- AI assistants such as ChatGPT, Claude, and Cursor: [MCP](/mcp).
+
+## Connect an AI assistant
+
+Connect OpenPost to [Cursor](/mcp/cursor), [ChatGPT](/mcp/chatgpt), or [Claude](/mcp/claude) through MCP. Each guide covers sign-in, workspace access, a first test, and connection troubleshooting.
+
+Grant `mcp:read` for inspection and reports. Grant `mcp:full` only when the assistant needs to create, edit, schedule, or publish. The [MCP overview](/mcp) explains remote sign-in, developer tokens, and the local bridge.

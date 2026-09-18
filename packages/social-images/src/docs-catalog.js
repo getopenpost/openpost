@@ -19,6 +19,70 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "automate/cli.mdx",
+    "title": "Command-line interface",
+    "description": "Install the openpost CLI, sign in, and publish from a shell or script.",
+    "route": "/automate/cli",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "user-guide"
+    }
+  },
+  {
+    "page": "automate/index.mdx",
+    "title": "Automate",
+    "description": "Run OpenPost from scripts, shells, agents, and workflows.",
+    "route": "/automate",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "user-guide"
+    }
+  },
+  {
+    "page": "automate/n8n.mdx",
+    "title": "n8n workflows",
+    "description": "Run OpenPost steps on a timer or webhook with the official n8n node.",
+    "route": "/automate/n8n",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "user-guide"
+    }
+  },
+  {
+    "page": "automate/sdk.mdx",
+    "title": "TypeScript SDK",
+    "description": "Call OpenPost from Node.js, Bun, or Workers with @getopenpost/sdk.",
+    "route": "/automate/sdk",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "user-guide"
+    }
+  },
+  {
     "page": "guides/accounts.mdx",
     "title": "Connect accounts",
     "description": "Add and manage social accounts in a workspace.",
@@ -40,38 +104,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "Analytics",
     "description": "Understand account growth and content performance using the data your providers return.",
     "route": "/guides/analytics",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/automation.mdx",
-    "title": "Automation",
-    "description": "Choose the SDK, CLI, MCP, or the OpenPost n8n node.",
-    "route": "/guides/automation",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/cli.mdx",
-    "title": "Command-line interface",
-    "description": "Install the openpost CLI, sign in, and publish from a shell or script.",
-    "route": "/guides/cli",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -249,22 +281,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "Schedule and calendar",
     "description": "Plan publication times and recover scheduled delivery.",
     "route": "/guides/scheduling",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/sdk.mdx",
-    "title": "TypeScript SDK",
-    "description": "Call OpenPost from Node.js, Bun, or Workers with @getopenpost/sdk.",
-    "route": "/guides/sdk",
     "agentRepresentation": {
       "membership": "ordinary"
     },

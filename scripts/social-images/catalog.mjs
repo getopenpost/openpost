@@ -118,7 +118,7 @@ const corpusExclusions = new Map();
 const reviewedRepresentationSizeExceptions = new Map();
 
 function corpusSection(page) {
-  if (page === "index.mdx" || page.startsWith("guides/")) {
+  if (page === "index.mdx" || page.startsWith("guides/") || page.startsWith("automate/")) {
     return "user-guide";
   }
   if (page.startsWith("api-reference/")) return "api";

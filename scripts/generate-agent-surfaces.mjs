@@ -1008,7 +1008,7 @@ export const productionProjections = {
       "https://docs.openpo.st/index.md",
       "https://docs.openpo.st/openapi.json",
       "https://docs.openpo.st/guides/publishing.md",
-      "https://docs.openpo.st/guides/automation.md",
+      "https://docs.openpo.st/automate.md",
     ],
     fragmentSources: marketingRouteManifest.map((route) => ({
       canonical: route.canonical,
@@ -1061,7 +1061,7 @@ export const productionProjections = {
             {
               title: "OpenPost developer entry point",
               description: "Choose the HTTP API, CLI, or MCP server for the job.",
-              url: "https://docs.openpo.st/guides/automation.md",
+              url: "https://docs.openpo.st/automate.md",
             },
             {
               title: "OpenAPI JSON",
@@ -1071,12 +1071,12 @@ export const productionProjections = {
             {
               title: "OpenPost CLI",
               description: "Use a terminal, script, CI job, cron job, or deploy process.",
-              url: "https://docs.openpo.st/guides/automation.md",
+              url: "https://docs.openpo.st/automate/cli.md",
             },
             {
               title: "OpenPost MCP server",
               description: "Connect an AI assistant with explicit read and change scopes.",
-              url: "https://docs.openpo.st/guides/automation.md",
+              url: "https://docs.openpo.st/mcp.md",
             },
             {
               title: "Agent-assisted publishing",

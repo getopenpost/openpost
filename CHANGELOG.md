@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.35.1] - 2026-09-18
+
+### Added
+
+- Added the official TypeScript SDK (`@getopenpost/sdk`): token-auth publications with per-account renditions, media session uploads, accounts and Social Sets reads, and job plus publication waiters with typed errors.
+- Added the npm CLI wrapper (`@getopenpost/cli`): the `openpost` and `openpost-mcp` commands install verified prebuilt binaries from the GitHub release with SHA-256 checksum enforcement.
+- Release binaries for the CLI and MCP proxy now ship detached `.sha256` checksums alongside every platform asset.
+
+### Fixed
+
+- The PeerTube category and licence pickers in the composer list the instance's catalogs again instead of coming back empty.
+- PieFed replies now show whether the connected account already liked them, so the inbox offers Unlike instead of Like on replies the account upvoted.
+
 ## [4.35.0] - 2026-09-17
 
 ### Fixed

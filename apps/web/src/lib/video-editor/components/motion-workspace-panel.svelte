@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { HintButton } from '$lib/components/editor-density';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
 	import type { AnimationPreset } from '$lib/video-editor/project/types';
@@ -115,10 +116,15 @@
 			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
 		>
 			<div class="flex items-start justify-between gap-3">
-				<div class="min-w-0">
-					<h3 class="text-sm font-medium" title={m.video_editor_motion_composition_description()}>
+				<div class="flex min-w-0 items-center gap-1">
+					<h3 class="min-w-0 flex-1 truncate text-sm font-medium">
 						{m.video_editor_motion_composition_title()}
 					</h3>
+					<HintButton
+						label={m.video_editor_motion_composition_title()}
+						hint={m.video_editor_motion_composition_description()}
+						class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+					/>
 				</div>
 			</div>
 			<div class="mt-3 grid grid-cols-1 gap-2">
@@ -148,9 +154,16 @@
 		<section
 			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
 		>
-			<h3 class="text-sm font-medium" title={m.video_editor_motion_parent_description()}>
-				{m.video_editor_motion_parent_title()}
-			</h3>
+			<div class="flex items-center gap-1">
+				<h3 class="min-w-0 flex-1 truncate text-sm font-medium">
+					{m.video_editor_motion_parent_title()}
+				</h3>
+				<HintButton
+					label={m.video_editor_motion_parent_title()}
+					hint={m.video_editor_motion_parent_description()}
+					class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+				/>
+			</div>
 			<label class="mt-2 block text-xs font-medium" for="motion-parent-select">
 				{m.video_editor_motion_parent_label()}
 			</label>

@@ -208,7 +208,7 @@
 				{#each builtIns as preset (preset.id)}
 					<button
 						type="button"
-						class="h-[25px] rounded-md border border-border px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:border-selection data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
+						class="h-[25px] rounded-md border border-border px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:border-selection data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 						data-active={selectedKey === `builtin:${preset.id}`}
 						aria-pressed={selectedKey === `builtin:${preset.id}`}
 						onclick={() => selectBuiltIn(preset)}
@@ -220,7 +220,7 @@
 					<div class="flex items-center rounded-md border border-border">
 						<button
 							type="button"
-							class="h-[25px] rounded-l-md px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
+							class="h-[25px] rounded-l-md px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 							data-active={selectedKey === `custom:${preset.id}`}
 							aria-pressed={selectedKey === `custom:${preset.id}`}
 							onclick={() => selectCustom(preset)}
@@ -229,7 +229,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-[25px] items-center justify-center rounded-r-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring"
+							class="flex size-[25px] items-center justify-center rounded-r-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:size-11"
 							aria-label={m.video_editor_bento_delete_preset({ name: preset.name })}
 							onclick={() => deletePreset(preset.id)}
 						>
@@ -282,7 +282,7 @@
 								<span class="min-w-0 flex-1 truncate text-xs">{index + 1}. {chainName(chain)}</span>
 								<button
 									type="button"
-									class="flex size-[22px] items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
+									class="flex size-[22px] items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30 [@media(pointer:coarse)]:size-11"
 									disabled={index === 0}
 									aria-label={m.video_editor_bento_move_earlier({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index - 1)}
@@ -291,7 +291,7 @@
 								</button>
 								<button
 									type="button"
-									class="flex size-[22px] items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30"
+									class="flex size-[22px] items-center justify-center rounded hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30 [@media(pointer:coarse)]:size-11"
 									disabled={index === chainOrder.length - 1}
 									aria-label={m.video_editor_bento_move_later({ name: chainName(chain) })}
 									onclick={() => moveChain(index, index + 1)}

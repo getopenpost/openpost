@@ -3,7 +3,7 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { Knob } from '$lib/components/editor-density';
+	import { HintButton, Knob } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		defaultLayerEffects,
@@ -353,14 +353,10 @@
 							<span class="inline-flex items-center gap-1"
 								>{m.image_editor_border_position()}
 								{#if layer.type === 'image'}
-									<button
-										type="button"
-										class="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-										aria-label={m.image_editor_border_follows_content()}
-										title={m.image_editor_border_follows_content()}
-									>
-										<ThemeIcon role="help" class="size-3" />
-									</button>
+									<HintButton
+										label={m.image_editor_border_follows_content()}
+										hint={m.image_editor_border_follows_content()}
+									/>
 								{/if}
 							</span>
 							<AppSelect

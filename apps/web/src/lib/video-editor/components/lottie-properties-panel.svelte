@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { HintButton } from '$lib/components/editor-density';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -204,14 +204,11 @@
 			>
 				{m.video_editor_lottie()}
 			</h3>
-			<button
-				type="button"
-				class="rounded p-0.5 text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)] focus-visible:outline-2 focus-visible:outline-ring"
-				aria-label={m.video_editor_lottie_hint()}
-				title={m.video_editor_lottie_hint()}
-			>
-				<ThemeIcon role="help" class="size-3" />
-			</button>
+			<HintButton
+				label={m.video_editor_lottie_hint()}
+				hint={m.video_editor_lottie_hint()}
+				class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+			/>
 		</span>
 		<span class="text-[9px] text-[var(--video-editor-muted)] tabular-nums">
 			{item.lottieTotalFrames ?? 1}f · {(item.lottieFrameRate ?? 30).toFixed(2)} fps

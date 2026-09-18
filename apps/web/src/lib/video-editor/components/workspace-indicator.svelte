@@ -133,7 +133,9 @@
 							</Button>
 						{/if}
 					{/snippet}
-					<div class="flex h-8 items-center gap-1 rounded-md px-1 py-0.5">
+					<div
+						class="flex h-8 items-center gap-1 rounded-md px-1 py-0.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:py-0"
+					>
 						{#if !isActive && !isConfirming}
 							<button
 								type="button"

@@ -4,7 +4,7 @@
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { HintButton } from '$lib/components/editor-density';
 	import type {
 		TimelineItem,
 		KeyframeProperty,
@@ -78,14 +78,11 @@
 		>
 			{m.video_editor_backgrounds_title()}
 		</h3>
-		<button
-			type="button"
-			class="rounded p-0.5 text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)] focus-visible:outline-2 focus-visible:outline-ring"
-			aria-label={m.video_editor_background_hint()}
-			title={m.video_editor_background_hint()}
-		>
-			<ThemeIcon role="help" class="size-3" />
-		</button>
+		<HintButton
+			label={m.video_editor_background_hint()}
+			hint={m.video_editor_background_hint()}
+			class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+		/>
 	</div>
 
 	<AppSelect

@@ -37,7 +37,7 @@ func TestFacebookGenerateAuthURL(t *testing.T) {
 	if !strings.Contains(query.Get("scope"), "pages_manage_posts") {
 		t.Fatalf("expected pages_manage_posts scope, got %q", query.Get("scope"))
 	}
-	for _, scope := range []string{"pages_manage_engagement", "pages_messaging"} {
+	for _, scope := range []string{"pages_manage_engagement", "pages_messaging", "pages_read_user_content", "pages_manage_metadata"} {
 		if !strings.Contains(query.Get("scope"), scope) {
 			t.Fatalf("expected %s scope, got %q", scope, query.Get("scope"))
 		}

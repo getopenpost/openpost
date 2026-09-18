@@ -23,7 +23,7 @@ OpenPost uses the Instagram API with Facebook Login. It connects an Instagram Bu
    https://post.example.com/api/v1/accounts/instagram/callback
    ```
 
-3. Request `business_management`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_manage_insights`, `pages_show_list`, and `pages_read_engagement`. OpenPost requests this set during consent. Obtain the permissions and review level needed for your intended users and features.
+3. Request `business_management`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_manage_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, and `pages_manage_metadata`. OpenPost requests this set during consent. `pages_read_user_content` comes from `instagram_basic`'s Page dependency chain, and `pages_manage_metadata` covers Messenger-backed messaging. Obtain the permissions and review level needed for your intended users and features.
 4. Copy **App ID** and **App Secret** from **App settings → Basic**. Confirm the Instagram professional account is linked to the Page returned for your test user.
 
 Meta's [Instagram API documentation](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/) describes the Page-linked account model and permissions. Its [Content Publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/content-publishing/) describes media requirements.

@@ -17,7 +17,9 @@ https://your-domain.com/api/v1/accounts/facebook/callback
   - `business_management`
   - `pages_show_list`
   - `pages_read_engagement`
+  - `pages_read_user_content`
   - `pages_manage_engagement`
+  - `pages_manage_metadata`
   - `pages_manage_posts`
   - `pages_messaging`
 - Public `OPENPOST_MEDIA_URL` or S3/R2 public media URL for image and video posts

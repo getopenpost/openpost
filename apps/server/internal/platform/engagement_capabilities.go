@@ -3,7 +3,7 @@ package platform
 func (f *FacebookAdapter) EngagementSupport() EngagementSupport {
 	return EngagementSupport{
 		Enabled:        true,
-		RequiredScopes: []string{"pages_read_engagement", "pages_manage_engagement"},
+		RequiredScopes: []string{"pages_read_engagement", "pages_read_user_content", "pages_manage_engagement"},
 		CanReply:       true,
 		CanHide:        true,
 		CanDelete:      true,

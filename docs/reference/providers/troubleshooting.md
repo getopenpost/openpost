@@ -88,6 +88,7 @@ OpenPost saves the error type, status, safe error code, next retry time, and the
 - Facebook connects Pages, not personal profile timelines.
 - `facebook account has no manageable pages` usually means the user has no eligible Pages, lacks full control of the Page, or the app lacks `business_management` or `pages_show_list`. Business Portfolio Pages require `business_management` for discovery.
 - Page publishing requires `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts`, often with Meta app review.
+- `Invalid Scopes: pages_read_user_content` (or `pages_manage_metadata`) during Facebook connect means the Meta app has not enabled that dependency permission. Facebook Login reports the missing dependency even though OpenPost never requested it alone: `pages_manage_engagement` depends on `pages_read_user_content`, and `pages_messaging` depends on `pages_manage_metadata`. Add both permissions to the app's use case, keep them in `Ready for testing` while in development mode, then reconnect the Facebook account.
 - Single-media posts and Stories support one JPEG, PNG, WebP, MP4, or MOV file. Multi-photo posts support 2–10 JPEG, PNG, or WebP images. Every media URL must use public HTTPS.
 
 ## Instagram
@@ -95,6 +96,7 @@ OpenPost saves the error type, status, safe error code, next retry time, and the
 - Instagram requires an Instagram Business or Creator account connected to a Facebook Page.
 - `facebook account has no connected instagram business accounts` means the authenticated Meta user has no eligible Page-backed Instagram account, lacks full control of the Page, or the app lacks required scopes. Business Portfolio Pages require `business_management` for discovery.
 - Publishing requires `instagram_basic`, `instagram_content_publish`, Page scopes, and often Meta app review.
+- `Invalid Scopes: pages_read_user_content` during Instagram connect is the same Meta dependency error as Facebook: `instagram_basic` depends on `pages_read_user_content`. Enable `pages_read_user_content` and `pages_manage_metadata` on the Meta app alongside the Instagram and Page scopes above, then reconnect.
 - Instagram does not publish text-only posts. Feed posts use one image, carousels use 2–10 JPEG, PNG, WebP, MP4, or MOV items, and Stories use one image or video. Reels use one video.
 
 ## TikTok

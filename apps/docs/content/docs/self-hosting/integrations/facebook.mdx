@@ -23,7 +23,7 @@ OpenPost connects Facebook Pages, not personal timelines. A person signs in thro
    https://post.example.com/api/v1/accounts/facebook/callback
    ```
 
-3. Request `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_manage_engagement`, `pages_manage_posts`, and `pages_messaging`. OpenPost asks for these during connection. Complete Meta's review for the permissions and people you intend to support. If you do not use Direct messages, the app may still show a request for `pages_messaging` because OpenPost's Facebook authorization flow includes it.
+3. Request `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_engagement`, `pages_manage_metadata`, `pages_manage_posts`, and `pages_messaging`. OpenPost asks for these during connection. Meta treats `pages_read_user_content` as a dependency of comment access and `pages_manage_metadata` as a dependency of Messenger access, so both must be enabled on the app even though OpenPost never requests them on their own. Complete Meta's review for the permissions and people you intend to support. If you do not use Direct messages, the app may still show a request for `pages_messaging` because OpenPost's Facebook authorization flow includes it.
 4. In **App settings → Basic**, copy the **App ID** and **App Secret**. Confirm your test user has a role on the app while it is in development mode and can manage the target Page.
 
 Meta's [Pages API overview](https://developers.facebook.com/docs/pages-api/) and [Facebook Login documentation](https://developers.facebook.com/docs/facebook-login/) describe Page access and OAuth configuration.

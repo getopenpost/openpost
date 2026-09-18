@@ -27,6 +27,8 @@ https://your-domain.com/api/v1/accounts/instagram/callback
   - `instagram_manage_insights`
   - `pages_show_list`
   - `pages_read_engagement`
+  - `pages_read_user_content`
+  - `pages_manage_metadata`
 - Public `OPENPOST_MEDIA_URL` or S3/R2 public media URL for image and Reel video posts
 
 ## Configuration

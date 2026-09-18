@@ -31,7 +31,7 @@ func TestInstagramGenerateAuthURL(t *testing.T) {
 	if !strings.Contains(query.Get("scope"), "instagram_content_publish") {
 		t.Fatalf("expected instagram_content_publish scope, got %q", query.Get("scope"))
 	}
-	for _, scope := range []string{"instagram_manage_comments", "instagram_manage_messages"} {
+	for _, scope := range []string{"instagram_manage_comments", "instagram_manage_messages", "pages_read_user_content", "pages_manage_metadata"} {
 		if !strings.Contains(query.Get("scope"), scope) {
 			t.Fatalf("expected %s scope, got %q", scope, query.Get("scope"))
 		}

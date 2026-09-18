@@ -21,8 +21,8 @@ type metaMessagingAdapter struct {
 func (f *FacebookAdapter) MessagingSupport() MessagingSupport {
 	return MessagingSupport{
 		Enabled: true, CanSend: true, RequiresOptIn: true, ReplyWindow: 24 * time.Hour,
-		RequiredScopes: []string{"pages_messaging"}, ConversationModel: "page_message",
-		Unavailable: "Facebook Page messages require pages_messaging advanced access and a Page token.",
+		RequiredScopes: []string{"pages_messaging", "pages_manage_metadata"}, ConversationModel: "page_message",
+		Unavailable: "Facebook Page messages require pages_messaging and pages_manage_metadata advanced access and a Page token.",
 	}
 }
 

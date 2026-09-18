@@ -1,0 +1,71 @@
+name: Product screenshots refresh
+
+on:
+  schedule:
+    # Weekly drift check; a human merges the resulting PR after review.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: product-screenshots-refresh
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.3.11"
+  GOTOOLCHAIN: local
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          sparse-checkout: |
+            /*
+            !/apps/web/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      - name: Re-capture product screenshots
+        run: bun run capture:product-screenshots
+      - name: Open a review PR when screenshots drifted
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git status --porcelain -- assets/screenshots | grep -q .; then
+            :
+          else
+            echo "Screenshots match the checked-in set; nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          stamp="$(date -u +%Y%m%d)"
+          branch="chore/product-screenshots-${stamp}"
+          git checkout -B "$branch"
+          git add assets/screenshots
+          files="$(git diff --cached --name-only | sort)"
+          count="$(echo "$files" | wc -l | tr -d ' ')"
+          git commit -m "chore: refresh product screenshots (${stamp}) [skip ci]"
+          git push --force-with-lease origin "$branch"
+          body="$(printf 'Scheduled re-capture drifted on %s changed file(s).\n\nReview the images before merging; guides embed these shots directly.\n\n```\n%s\n```' "$count" "$files")"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore: review refreshed product screenshots (${stamp})" \
+            --body "$body"

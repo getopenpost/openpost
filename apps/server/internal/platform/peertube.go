@@ -198,6 +198,39 @@ type peertubeChannel struct {
 	DisplayName string `json:"displayName"`
 }
 
+// peerTubeListPageSize is the largest page PeerTube's paginated lists
+// accept. Without a count they stop at 15.
+const peerTubeListPageSize = 100
+
+// listPeerTubePages reads every page of a paginated PeerTube list, which
+// answers {total, data} and is addressed by start and count.
+func listPeerTubePages[T any](ctx context.Context, endpoint, accessToken, label string) ([]T, error) {
+	var items []T
+	for start := 0; ; {
+		var page struct {
+			Total int64 `json:"total"`
+			Data  []T   `json:"data"`
+		}
+		query := url.Values{"count": {strconv.Itoa(peerTubeListPageSize)}, "start": {strconv.Itoa(start)}}
+		body, err := DoRequest(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil, map[string]string{
+			headerAuthorization: bearerPrefix + accessToken,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("listing peertube %s: %w", label, err)
+		}
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, fmt.Errorf("decoding peertube %s: %w", label, err)
+		}
+		items = append(items, page.Data...)
+		start += len(page.Data)
+		// An empty page also ends the list, so a total that overcounts
+		// cannot keep it requesting.
+		if len(page.Data) == 0 || int64(start) >= page.Total {
+			return items, nil
+		}
+	}
+}
+
 func (p *PeerTubeAdapter) listOwnChannels(ctx context.Context, accessToken string) ([]peertubeChannel, error) {
 	me, err := p.fetchMe(ctx, accessToken)
 	if err != nil {
@@ -207,19 +240,7 @@ func (p *PeerTubeAdapter) listOwnChannels(ctx context.Context, accessToken strin
 	if accountName == "" {
 		return nil, fmt.Errorf("peertube account identity is unavailable")
 	}
-	var result struct {
-		Data []peertubeChannel `json:"data"`
-	}
-	body, err := DoRequest(ctx, http.MethodGet, p.instanceURL+"/api/v1/accounts/"+url.PathEscape(accountName)+"/video-channels", nil, map[string]string{
-		headerAuthorization: bearerPrefix + accessToken,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("listing peertube channels: %w", err)
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("decoding peertube channels: %w", err)
-	}
-	return result.Data, nil
+	return listPeerTubePages[peertubeChannel](ctx, p.instanceURL+"/api/v1/accounts/"+url.PathEscape(accountName)+"/video-channels", accessToken, "channels")
 }
 
 func (p *PeerTubeAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
@@ -611,18 +632,9 @@ func (p *PeerTubeAdapter) ListComments(ctx context.Context, accessToken, _ strin
 	}
 	// The thread list carries each thread's first comment as a plain comment.
 	// Replies are only returned by the per-thread tree endpoint.
-	var result struct {
-		Data []peertubeComment `json:"data"`
-	}
-	query := url.Values{"count": {strconv.Itoa(peerTubeCommentPageSize)}}
-	body, err := DoRequest(ctx, http.MethodGet, p.instanceURL+"/api/v1/videos/"+url.PathEscape(videoID)+"/comment-threads?"+query.Encode(), nil, map[string]string{
-		headerAuthorization: bearerPrefix + accessToken,
-	})
+	threads, err := listPeerTubePages[peertubeComment](ctx, p.instanceURL+"/api/v1/videos/"+url.PathEscape(videoID)+"/comment-threads", accessToken, "comments")
 	if err != nil {
-		return nil, fmt.Errorf("fetching peertube comments: %w", err)
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("decoding peertube comments: %w", err)
+		return nil, err
 	}
 	comments := make([]Comment, 0)
 	var walk func(node *peertubeCommentNode, parentRef string)
@@ -647,8 +659,8 @@ func (p *PeerTubeAdapter) ListComments(ctx context.Context, accessToken, _ strin
 			walk(&node.Children[i], ref)
 		}
 	}
-	for i := range result.Data {
-		node := peertubeCommentNode{Comment: result.Data[i]}
+	for i := range threads {
+		node := peertubeCommentNode{Comment: threads[i]}
 		if node.Comment.TotalReplies > 0 {
 			tree, err := p.fetchCommentThread(ctx, accessToken, videoID, node.Comment.ID)
 			if err != nil {

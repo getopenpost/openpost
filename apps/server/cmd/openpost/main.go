@@ -874,6 +874,7 @@ func main() {
 
 	mcpHandler := handlers.NewMCPHandler(db, authenticator, entitlementService)
 	mcpHandler.SetServerVersion(version)
+	mcpHandler.SetToolMode(cfg.MCPToolMode)
 	mcpHandler.SetMediaStorage(storage)
 	mcpHandler.SetPublicURL(cfg.PublicURL)
 	mcpHandler.SetAllowedOrigins(cfg.CORSOrigins)

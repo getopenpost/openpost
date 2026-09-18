@@ -6,6 +6,18 @@ icon: Wrench
 
 OpenPost gives assistants a small set of tools. The assistant can find a supported operation, read the fields it needs, and run it. You can ask in ordinary language; you do not need to name a tool or write an API request.
 
+## Tool modes
+
+By default the server lists every operation as its own tool, so the assistant can call `list_workspaces` or `create_publication` directly. Self-hosted operators can switch the listing with `OPENPOST_MCP_MODE`:
+
+| Mode     | Listing                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| `direct` | Each operation is its own tool (default)                                                          |
+| `search` | Only `search_operations`, `query_operation`, `execute_operation`, and the scheduler widget appear |
+| `both`   | Direct tools plus the search trio                                                                 |
+
+Search mode keeps the previous progressive-discovery flow: search first, then query read-only operations or execute mutations. Scopes and workspace checks behave the same in every mode; `mcp:read` connections never see or run mutations.
+
 ## Choose access
 
 Choose the narrowest scope that fits the job:

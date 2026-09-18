@@ -97,6 +97,7 @@ type MCPHandler struct {
 	readiness         *providerreadiness.Service
 	serverVersion     string
 	featureGate       engagementservice.FeatureGate
+	toolMode          mcpToolMode
 }
 
 func NewMCPHandler(db *bun.DB, authenticator middleware.Authenticator, entitlement ...entitlements.Service) *MCPHandler {
@@ -459,10 +460,54 @@ func mcpScopeIsReadOnly(scope string) bool {
 	return strings.TrimSpace(scope) == apitokens.ScopeMCPRead
 }
 
-func mcpInstructions(scope string) string {
-	const base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. Call search_operations with a plain-language task to discover relevant operation names and schemas. Call query_operation only for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps. All delegated operations retain the same authorization, workspace scoping, schema validation, quota, and audit controls."
+// mcpToolMode selects which tool surface tools/list advertises. The mode is
+// process-level (OPENPOST_MCP_MODE) so the visible set never varies
+// per-connection except by caller auth scope; enforcement is identical in
+// every mode and every advertised or cached name stays callable.
+type mcpToolMode string
+
+const (
+	mcpToolModeDirect mcpToolMode = "direct"
+	mcpToolModeSearch mcpToolMode = "search"
+	mcpToolModeBoth   mcpToolMode = "both"
+)
+
+// SetToolMode selects the advertised MCP tool surface. Unknown values fall
+// back to the direct default.
+func (h *MCPHandler) SetToolMode(mode string) {
+	switch mcpToolMode(strings.ToLower(strings.TrimSpace(mode))) {
+	case mcpToolModeSearch:
+		h.toolMode = mcpToolModeSearch
+	case mcpToolModeBoth:
+		h.toolMode = mcpToolModeBoth
+	default:
+		h.toolMode = mcpToolModeDirect
+	}
+}
+
+func (h *MCPHandler) mcpActiveToolMode() mcpToolMode {
+	if h.toolMode == mcpToolModeSearch || h.toolMode == mcpToolModeBoth {
+		return h.toolMode
+	}
+	return mcpToolModeDirect
+}
+
+func (h *MCPHandler) mcpInstructions(scope string) string {
+	const shared = " All delegated operations retain the same authorization, workspace scoping, schema validation, quota, and audit controls."
+	var base string
+	switch h.mcpActiveToolMode() {
+	case mcpToolModeSearch:
+		base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. Call search_operations with a plain-language task to discover relevant operation names and schemas. Call query_operation only for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps." + shared
+	case mcpToolModeBoth:
+		base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. The listed operation tools are callable directly with their own arguments; alternatively, call search_operations with a plain-language task to discover relevant operation names and schemas, then query_operation for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps." + shared
+	default:
+		base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. The listed operation tools are callable directly with their own arguments. Call query_operation only for guaranteed read-only operations. Use render_scheduler_widget directly when a visual summary helps." + shared
+	}
 	if mcpScopeIsReadOnly(scope) {
 		return base + " This connection is read-only: mutation operations are hidden from discovery and rejected by the server."
+	}
+	if h.mcpActiveToolMode() == mcpToolModeDirect {
+		return base + " Run tools that change state or interact with external systems only after the user approves the mutation."
 	}
 	return base + " Call execute_operation only for operations that change state or interact with external systems, and only after the user approves the mutation."
 }
@@ -541,7 +586,7 @@ func (h *MCPHandler) dispatch(ctx context.Context, principal *middleware.Princip
 				"name":    "openpost",
 				"version": h.serverVersion,
 			},
-			"instructions": mcpInstructions(principal.Scope),
+			"instructions": h.mcpInstructions(principal.Scope),
 			"capabilities": map[string]any{
 				"tools":     map[string]any{"listChanged": false},
 				"prompts":   map[string]any{"listChanged": false},
@@ -551,7 +596,7 @@ func (h *MCPHandler) dispatch(ctx context.Context, principal *middleware.Princip
 	case "ping":
 		return map[string]any{}, nil
 	case "tools/list":
-		return map[string]any{"tools": mcpAdvertisedToolsForScope(principal.Scope)}, nil
+		return map[string]any{"tools": h.mcpAdvertisedToolsForScope(principal.Scope)}, nil
 	case "resources/list":
 		return h.listMCPResources(), nil
 	case "resources/read":
@@ -937,7 +982,10 @@ func mcpAdvertisedTools() []map[string]any {
 	}
 }
 
-func mcpAdvertisedToolsForScope(scope string) []map[string]any {
+// mcpSearchToolsForScope is the progressive-discovery surface: the
+// search/query/execute trio plus the scheduler widget. It is the full
+// listing in search mode and is appended to the direct listing in both mode.
+func mcpSearchToolsForScope(scope string) []map[string]any {
 	tools := mcpAdvertisedTools()
 	if !mcpScopeIsReadOnly(scope) {
 		return tools
@@ -949,6 +997,41 @@ func mcpAdvertisedToolsForScope(scope string) []map[string]any {
 		}
 	}
 	return readOnlyTools
+}
+
+// mcpDirectToolsForScope exposes the operation catalog itself: every
+// operation is callable directly with its own arguments. Read-only scopes
+// see only query-mode operations; enforcement for direct calls is identical
+// to the delegated path.
+func mcpDirectToolsForScope(scope string) []map[string]any {
+	readOnly := mcpScopeIsReadOnly(scope)
+	catalog := mcpOperationCatalog()
+	tools := make([]map[string]any, 0, len(catalog)+1)
+	for _, operation := range catalog {
+		if readOnly && operation.Mode != mcpOperationQuery {
+			continue
+		}
+		tools = append(tools, operation.Descriptor)
+	}
+	return append(tools, mcpRenderSchedulerWidgetTool())
+}
+
+func (h *MCPHandler) mcpAdvertisedToolsForScope(scope string) []map[string]any {
+	switch h.mcpActiveToolMode() {
+	case mcpToolModeSearch:
+		return mcpSearchToolsForScope(scope)
+	case mcpToolModeBoth:
+		tools := mcpDirectToolsForScope(scope)
+		for _, tool := range mcpSearchToolsForScope(scope) {
+			if tool["name"] == mcpToolRenderWidget {
+				continue
+			}
+			tools = append(tools, tool)
+		}
+		return tools
+	default:
+		return mcpDirectToolsForScope(scope)
+	}
 }
 
 type mcpOperationMode string

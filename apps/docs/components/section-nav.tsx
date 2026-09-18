@@ -12,7 +12,13 @@ export function SectionNav() {
   const { setOpenSearch } = useSearchContext();
   const section = documentationSection(pathname);
   const navigation = useRef<HTMLElement>(null);
-  const sectionIcons = { guides: BookOpen, automate: Workflow, "self-hosting": Server, mcp: Bot, api: Code2 };
+  const sectionIcons = {
+    guides: BookOpen,
+    automate: Workflow,
+    "self-hosting": Server,
+    mcp: Bot,
+    api: Code2,
+  };
   useEffect(() => {
     const nav = navigation.current;
     const active = nav?.querySelector<HTMLElement>("[aria-current]");

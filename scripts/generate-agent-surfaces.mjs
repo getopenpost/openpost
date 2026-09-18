@@ -1009,6 +1009,8 @@ export const productionProjections = {
       "https://docs.openpo.st/openapi.json",
       "https://docs.openpo.st/guides/publishing.md",
       "https://docs.openpo.st/automate.md",
+      "https://docs.openpo.st/automate/cli.md",
+      "https://docs.openpo.st/mcp.md",
     ],
     fragmentSources: marketingRouteManifest.map((route) => ({
       canonical: route.canonical,

@@ -514,11 +514,12 @@ func TestMCPToolModeInstructions(t *testing.T) {
 
 	srv := newMCPTestServer(t)
 	srv.handler.auth = mcpScopeAuthenticator{
-		"mcp-token": {UserID: "user-1", Email: "user@example.com", Scope: "mcp:full", WorkspaceID: "ws-1"},
+		"read-token": {UserID: "user-1", Email: "user@example.com", Scope: "mcp:read", WorkspaceID: "ws-1"},
+		"mcp-token":  {UserID: "user-1", Email: "user@example.com", Scope: "mcp:full", WorkspaceID: "ws-1"},
 	}
-	initialize := func(t *testing.T) string {
+	initialize := func(t *testing.T, token string) string {
 		t.Helper()
-		resp := srv.request(t, "mcp-token", map[string]any{
+		resp := srv.request(t, token, map[string]any{
 			"jsonrpc": "2.0",
 			"id":      "mode-initialize",
 			"method":  "initialize",
@@ -535,9 +536,83 @@ func TestMCPToolModeInstructions(t *testing.T) {
 		return instructions
 	}
 
-	require.Contains(t, initialize(t), "callable directly")
+	// Direct mode never names the discovery tools; search-family modes do.
+	srv.handler.SetToolMode("direct")
+	require.NotContains(t, initialize(t, "mcp-token"), mcpToolSearch)
+	require.NotContains(t, initialize(t, "mcp-token"), mcpToolExecute)
 	srv.handler.SetToolMode("search")
-	require.Contains(t, initialize(t), "search_operations")
+	require.Contains(t, initialize(t, "mcp-token"), mcpToolSearch)
+	srv.handler.SetToolMode("both")
+	require.Contains(t, initialize(t, "mcp-token"), mcpToolSearch)
+
+	// The read-only scope suffix applies in every mode.
+	for _, mode := range []string{"direct", "search", "both"} {
+		srv.handler.SetToolMode(mode)
+		require.Contains(t, initialize(t, "read-token"), "read-only", mode)
+	}
+}
+
+func TestMCPToolModeExecuteParity(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"read-token": {UserID: "user-1", Email: "user@example.com", Scope: "mcp:read", WorkspaceID: "ws-1"},
+	}
+
+	mutationCalls := []map[string]any{
+		{
+			"name": mcpToolExecute,
+			"arguments": map[string]any{
+				"operation": mcpToolCreatePub,
+				"arguments": map[string]any{"workspace_id": "ws-1"},
+			},
+		},
+		{
+			"name":      mcpToolCreatePub,
+			"arguments": map[string]any{"workspace_id": "ws-1"},
+		},
+	}
+
+	for _, mode := range []string{"direct", "search", "both"} {
+		srv.handler.SetToolMode(mode)
+		for _, call := range mutationCalls {
+			resp := srv.request(t, "read-token", map[string]any{
+				"jsonrpc": "2.0",
+				"id":      "read-parity-" + mode,
+				"method":  "tools/call",
+				"params":  call,
+			})
+			var out map[string]any
+			require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out), mode)
+			errBody, ok := out["error"].(map[string]any)
+			require.True(t, ok, "mode %s must reject read-scope call of %v", mode, call["name"])
+			require.Equal(t, float64(-32602), errBody["code"], mode)
+			require.Contains(t, errBody["message"], "mcp:read", mode)
+		}
+
+		searchResp := srv.request(t, "read-token", map[string]any{
+			"jsonrpc": "2.0",
+			"id":      "read-parity-search-" + mode,
+			"method":  "tools/call",
+			"params": map[string]any{
+				"name":      mcpToolSearch,
+				"arguments": map[string]any{"query": "create a publication"},
+			},
+		})
+		var searchOut map[string]any
+		require.NoError(t, json.Unmarshal(searchResp.Body.Bytes(), &searchOut), mode)
+		operations := searchOut["result"].(map[string]any)["structuredContent"].(map[string]any)["operations"].([]any)
+		names := make([]string, 0, len(operations))
+		for _, item := range operations {
+			name := item.(map[string]any)["name"].(string)
+			names = append(names, name)
+			operation, ok := mcpOperationByName(name)
+			require.True(t, ok, "mode %s search returned unknown operation %q", mode, name)
+			require.Equal(t, mcpOperationQuery, operation.Mode, "mode %s search must omit mutations", mode)
+		}
+		require.NotContains(t, names, mcpToolCreatePub, mode)
+	}
 }
 
 func TestMCPRejectsAudienceMismatch(t *testing.T) {

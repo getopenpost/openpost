@@ -1,0 +1,129 @@
+import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { assetName, assetTarget } from "./platform";
+import {
+  cacheDir,
+  defaultReleaseTag,
+  downloadUrl,
+  explicitBinaryPath,
+  parseChecksum,
+  releaseTag,
+  resolveBinaryPath,
+} from "./resolve";
+
+const BINARY = new Uint8Array([7, 7, 7]);
+const BINARY_HEX = createHash("sha256").update(BINARY).digest("hex");
+
+function mockFetch(routes: Record<string, Response>): typeof fetch {
+  return (async (url: string | URL | Request) => {
+    const response = routes[String(url)];
+    if (!response) return new Response("not found", { status: 404 });
+    return response;
+  }) as typeof fetch;
+}
+
+describe("resolve", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("pins a release tag in package.json", () => {
+    expect(defaultReleaseTag()).toMatch(/^v\d+\.\d+\.\d+$/);
+  });
+
+  it("prefers the OPENPOST_CLI_TAG override", () => {
+    vi.stubEnv("OPENPOST_CLI_TAG", "v9.9.9");
+    expect(releaseTag()).toBe("v9.9.9");
+  });
+
+  it("returns explicit binary paths without touching the network", async () => {
+    vi.stubEnv("OPENPOST_CLI_BIN", "/usr/local/bin/openpost");
+    expect(explicitBinaryPath("openpost-cli")).toBe("/usr/local/bin/openpost");
+    const fetch = vi.fn();
+    expect(await resolveBinaryPath({ fetch: fetch as unknown as typeof fetch })).toBe(
+      "/usr/local/bin/openpost",
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("downloads and verifies the release binary into the cache dir", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
+    try {
+      const tag = "v0.0.0-test";
+      const asset = assetName("openpost-cli", assetTarget());
+      const fetch = mockFetch({
+        [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
+        [downloadUrl(tag, `${asset}.sha256`)]: new Response(`${BINARY_HEX}  ${asset}\n`, {
+          status: 200,
+        }),
+      });
+      const resolved = await resolveBinaryPath({
+        binary: "openpost-cli",
+        releaseTag: tag,
+        cacheDir: dir,
+        fetch,
+      });
+      expect(resolved).toBe(path.join(dir, asset));
+      // A cached binary short-circuits the network entirely.
+      const cached = await resolveBinaryPath({
+        binary: "openpost-cli",
+        releaseTag: tag,
+        cacheDir: dir,
+        fetch: mockFetch({}),
+      });
+      expect(cached).toBe(resolved);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed on a checksum mismatch", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
+    try {
+      const tag = "v0.0.0-test";
+      const asset = assetName("openpost-cli", assetTarget());
+      const fetch = mockFetch({
+        [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
+        [downloadUrl(tag, `${asset}.sha256`)]: new Response(`${"0".repeat(64)}  ${asset}\n`, {
+          status: 200,
+        }),
+      });
+      await expect(
+        resolveBinaryPath({ binary: "openpost-cli", releaseTag: tag, cacheDir: dir, fetch }),
+      ).rejects.toThrow(/Checksum mismatch/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when the release predates checksum assets", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
+    try {
+      const tag = "v0.0.0-test";
+      const asset = assetName("openpost-cli", assetTarget());
+      const fetch = mockFetch({
+        [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
+      });
+      await expect(
+        resolveBinaryPath({ binary: "openpost-cli", releaseTag: tag, cacheDir: dir, fetch }),
+      ).rejects.toThrow(/Checksum verification is required/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("builds cache dirs and download URLs", () => {
+    expect(cacheDir("v1.2.3", { cacheDir: "/tmp/x" })).toBe("/tmp/x");
+    expect(downloadUrl("v1.2.3", "openpost-cli-linux-amd64")).toBe(
+      "https://github.com/getopenpost/openpost/releases/download/v1.2.3/openpost-cli-linux-amd64",
+    );
+  });
+
+  it("parses sha256sum output", () => {
+    expect(parseChecksum(`${BINARY_HEX}  openpost-cli-linux-amd64\n`)).toBe(BINARY_HEX);
+    expect(() => parseChecksum("not a checksum\n")).toThrow(/SHA-256/);
+  });
+});

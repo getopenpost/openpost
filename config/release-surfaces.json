@@ -55,6 +55,7 @@
         ".dockerignore",
         ".env.example",
         ".envrc",
+        ".fallowrc.jsonc",
         ".gitleaks.toml",
         ".oxfmtrc.json",
         "bun.lock",

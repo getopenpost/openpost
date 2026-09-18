@@ -187,6 +187,29 @@
 					/>
 				</label>
 			{/snippet}
+			{#snippet effectRangeParam(
+				label: string,
+				value: number,
+				min: number,
+				max: number,
+				step: number,
+				onNumber: (value: number) => void
+			)}
+				<label class="text-xs text-[var(--video-editor-muted)]">
+					{label}
+					<Slider
+						class="mt-1 w-full"
+						{min}
+						{max}
+						{step}
+						{value}
+						ariaLabel={label}
+						onValueChange={onNumber}
+						onKeydown={(event) => event.stopPropagation()}
+					/>
+					{@render effectNumberParam(label, value, min, max, step, onNumber)}
+				</label>
+			{/snippet}
 
 			<ul class="space-y-1" aria-label={m.video_editor_audio_effects_rack_aria()}>
 				{#each effects as effect, index (effect.id)}
@@ -307,7 +330,7 @@
 										)}
 									</div>
 								{:else if effect.type === 'pan'}
-									{@render effectNumberParam(
+									{@render effectRangeParam(
 										m.video_editor_audio_effects_pan_label(),
 										effect.pan,
 										-1,

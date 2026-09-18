@@ -2186,10 +2186,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	{/if}
 {/snippet}
 
-{#snippet sourceMonitorPanel()}
-	{#key sourceMediaId}
+{#snippet sourceMonitorPanel(mediaId: string)}
+	{#key mediaId}
 		<SourceMonitor
-			mediaId={sourceMediaId}
+			{mediaId}
 			preferredTrackId={selectedItemId
 				? timelineStore.itemById.get(selectedItemId)?.trackId
 				: undefined}
@@ -2895,7 +2895,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										class="relative flex h-[min(44%,22rem)] min-h-0 w-full shrink-0 xl:h-auto xl:w-[var(--source-monitor-width)] xl:max-w-[calc(100%_-_300px)]"
 										style:--source-monitor-width={`${effectiveSourceMonitorWidth}px`}
 									>
-										{@render sourceMonitorPanel()}
+										{@render sourceMonitorPanel(sourceMediaId)}
 										<PanelResizeHandle
 											edge="right"
 											value={effectiveSourceMonitorWidth}
@@ -2961,7 +2961,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												role="dialog"
 												aria-label={m.video_editor_source_monitor()}
 											>
-												{@render sourceMonitorPanel()}
+												{@render sourceMonitorPanel(sourceMediaId)}
 											</div>
 										{/if}
 									{/if}

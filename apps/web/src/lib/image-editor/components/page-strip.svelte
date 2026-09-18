@@ -39,6 +39,7 @@
 	}
 	const hintID = $props.id();
 	let gridOpen = $state(false);
+	const pages = $derived(editor.document?.pages ?? []);
 	const activeIndex = $derived(pages.findIndex((page) => page.id === editor.activePageID));
 	const activePageLabel = $derived(
 		activeIndex >= 0
@@ -48,7 +49,6 @@
 				})
 			: m.image_editor_pages()
 	);
-	const pages = $derived(editor.document?.pages ?? []);
 	const displayPages = $derived(
 		previewOrder ? previewOrder.flatMap((id) => pages.find((page) => page.id === id) ?? []) : pages
 	);
@@ -175,64 +175,67 @@
 
 <div class="flex size-full flex-col border-t bg-background/95 backdrop-blur">
 	{#snippet pageGrid()}
-		{#each displayPages as page, index (page.id)}
-			<button
-				animate:flip={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-				class:page-grabbed={keyboardDraggingID === page.id}
-				class:page-insertion={insertionPageID === page.id}
-				onblur={(event) => {
-					if (event.relatedTarget && keyboardDraggingID === page.id) cancelReorder();
-				}}
-				data-page-id={page.id}
-				aria-pressed={keyboardDraggingID === page.id}
-				aria-describedby={hintID}
-				type="button"
-				draggable={editor.canEdit}
-				class="flex h-16 w-24 shrink-0 flex-col overflow-hidden rounded-md border bg-card text-left {page.id ===
-				editor.activePageID
-					? 'ring-2 ring-primary'
-					: ''} {externalDropPageID === page.id ? 'bg-primary/10 ring-2 ring-primary' : ''}"
-				onclick={() => {
-					editor.activePageID = page.id;
-					editor.selectedLayerIDs = [];
-				}}
-				ondragstart={() => {
-					cancelReorder();
-					draggingID = page.id;
-				}}
-				ondragend={() => {
-					draggingID = '';
-					insertionPageID = '';
-				}}
-				ondragover={(event) => handlePageDragOver(event, page.id)}
-				ondragleave={() => (externalDropPageID = '')}
-				ondrop={(event) => handlePageDrop(event, page.id, index)}
-				onkeydown={(event) => reorderPageFromKeyboard(event, page.id, index)}
-				data-external-drop={externalDropPageID === page.id ? 'active' : undefined}
-				aria-label={m.image_editor_page_label({
-					number: index + 1,
-					name: displayPageName(page.name, index)
-				})}
-				aria-current={page.id === editor.activePageID ? 'page' : undefined}
-				aria-keyshortcuts="Space Enter ArrowLeft ArrowRight Alt+ArrowLeft Alt+ArrowRight Escape"
-				title={m.interaction_reorder_hint()}
-			>
-				<span class="min-h-0 flex-1 overflow-hidden">
-					<TemplatePreview
-						document={editor.document}
-						{page}
-						compact
-						cached
-						deferUpdates={editor.colorPreviewActive}
-						dimensionKey={`${editor.document.width_px}:${editor.document.height_px}`}
-						label={displayPageName(page.name, index)}
-					/>
-				</span>
-				<span class="w-full truncate border-t px-1.5 py-0.5 text-xs">
-					{index + 1}. {displayPageName(page.name, index)}
-				</span>
-			</button>
-		{/each}
+		{#if editor.document}
+			{@const gridDocument = editor.document}
+			{#each displayPages as page, index (page.id)}
+				<button
+					animate:flip={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+					class:page-grabbed={keyboardDraggingID === page.id}
+					class:page-insertion={insertionPageID === page.id}
+					onblur={(event) => {
+						if (event.relatedTarget && keyboardDraggingID === page.id) cancelReorder();
+					}}
+					data-page-id={page.id}
+					aria-pressed={keyboardDraggingID === page.id}
+					aria-describedby={hintID}
+					type="button"
+					draggable={editor.canEdit}
+					class="flex h-16 w-24 shrink-0 flex-col overflow-hidden rounded-md border bg-card text-left {page.id ===
+					editor.activePageID
+						? 'ring-2 ring-primary'
+						: ''} {externalDropPageID === page.id ? 'bg-primary/10 ring-2 ring-primary' : ''}"
+					onclick={() => {
+						editor.activePageID = page.id;
+						editor.selectedLayerIDs = [];
+					}}
+					ondragstart={() => {
+						cancelReorder();
+						draggingID = page.id;
+					}}
+					ondragend={() => {
+						draggingID = '';
+						insertionPageID = '';
+					}}
+					ondragover={(event) => handlePageDragOver(event, page.id)}
+					ondragleave={() => (externalDropPageID = '')}
+					ondrop={(event) => handlePageDrop(event, page.id, index)}
+					onkeydown={(event) => reorderPageFromKeyboard(event, page.id, index)}
+					data-external-drop={externalDropPageID === page.id ? 'active' : undefined}
+					aria-label={m.image_editor_page_label({
+						number: index + 1,
+						name: displayPageName(page.name, index)
+					})}
+					aria-current={page.id === editor.activePageID ? 'page' : undefined}
+					aria-keyshortcuts="Space Enter ArrowLeft ArrowRight Alt+ArrowLeft Alt+ArrowRight Escape"
+					title={m.interaction_reorder_hint()}
+				>
+					<span class="min-h-0 flex-1 overflow-hidden">
+						<TemplatePreview
+							document={gridDocument}
+							{page}
+							compact
+							cached
+							deferUpdates={editor.colorPreviewActive}
+							dimensionKey={`${gridDocument.width_px}:${gridDocument.height_px}`}
+							label={displayPageName(page.name, index)}
+						/>
+					</span>
+					<span class="w-full truncate border-t px-1.5 py-0.5 text-xs">
+						{index + 1}. {displayPageName(page.name, index)}
+					</span>
+				</button>
+			{/each}
+		{/if}
 	{/snippet}
 	{#if mode === 'strip'}
 		<div class="flex h-8 items-center gap-1 border-b px-2 lg:h-8 [@media(pointer:coarse)]:h-11">
@@ -352,7 +355,7 @@
 							variant="ghost"
 							size="icon-xs"
 							class="size-[22px] [@media(pointer:coarse)]:size-11"
-							aria-label={editor.pagesExpanded
+							aria-label={gridOpen
 								? m.image_editor_collapse_pages()
 								: m.image_editor_expand_pages()}
 						>

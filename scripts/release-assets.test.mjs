@@ -8,13 +8,21 @@ const downloads = [
   "openpost-server-darwin-arm64",
   "openpost-server-windows-amd64.exe",
   "openpost-cli-linux-amd64",
+  "openpost-cli-linux-amd64.sha256",
   "openpost-cli-linux-arm64",
+  "openpost-cli-linux-arm64.sha256",
   "openpost-cli-darwin-arm64",
+  "openpost-cli-darwin-arm64.sha256",
   "openpost-cli-windows-amd64.exe",
+  "openpost-cli-windows-amd64.exe.sha256",
   "openpost-mcp-linux-amd64",
+  "openpost-mcp-linux-amd64.sha256",
   "openpost-mcp-linux-arm64",
+  "openpost-mcp-linux-arm64.sha256",
   "openpost-mcp-darwin-arm64",
+  "openpost-mcp-darwin-arm64.sha256",
   "openpost-mcp-windows-amd64.exe",
+  "openpost-mcp-windows-amd64.exe.sha256",
   "openpost-app-android.apk",
 ];
 
@@ -41,6 +49,16 @@ test("a server-only release publishes its core assets without Android packaging"
   const core = downloads.filter((name) => name !== "openpost-app-android.apk");
   assert.deepEqual(
     validateRelease(release({ assets: core.map(asset) }), { tag, notes, core: true }),
+    [],
+  );
+  // The parallel Android job may upload the APK before promotion runs; the
+  // core check tolerates known full-set assets it does not require yet.
+  assert.deepEqual(
+    validateRelease(release({ assets: [...core, "openpost-app-android.apk"].map(asset) }), {
+      tag,
+      notes,
+      core: true,
+    }),
     [],
   );
   assert.ok(

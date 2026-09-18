@@ -33,7 +33,7 @@
 		{
 			title: 'Connect your tools',
 			icon: '/assets/brand/features/automation.svg',
-			text: 'Bring OpenPost into the tools you already use. Draft with your AI assistant or connect a workflow in n8n.',
+			text: 'Bring OpenPost into the tools you already use. Call the TypeScript SDK, install the CLI from npm, draft with your AI assistant, or connect a workflow in n8n.',
 			href: 'https://docs.openpo.st/guides/automation',
 			link: 'Connect your tools'
 		},

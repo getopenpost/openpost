@@ -1,0 +1,111 @@
+{
+  // Fallow structural analysis for OpenPost (TS/Svelte/JS side).
+  // Go is covered by golangci-lint (gocyclo + gocognit + dupl); see apps/server/.golangci.yml.
+  //
+  // Day-one posture is report-only: every finding rule is "warn" and CI runs
+  // `health --report-only` plus `audit` (warn-tier findings never fail the
+  // gate). Promote rules to "error" deliberately after inspecting real
+  // distributions; see `bun run fallow`.
+  //
+  // Knip stays in place for now (config/knip.jsonc). Fallow overlaps it on
+  // dead code; compare both before removing either.
+  "$schema": "./node_modules/fallow/schema.json",
+
+  // Manual reachability roots on top of framework auto-detection. Mirrors the
+  // entry knowledge in config/knip.jsonc, which per-workspace entries cannot
+  // express in fallow's single-root config.
+  "entry": [
+    // Repository tooling and browser suites (root project, no framework plugin).
+    "scripts/**/*.{js,mjs,ts}",
+    "tests/**/*.spec.{js,ts}",
+    "tests/**/*.test.{js,ts}",
+    // Test runners execute these directly; without this, runner-owned files
+    // read as unreachable. Trade-off: exports used only inside test files go
+    // quiet (same posture as Knip's production gate, which drops tests).
+    "**/*.test.{js,mjs,ts}",
+    "**/*.spec.{js,mjs,ts}",
+    "e2e-docs/**/*.{js,mjs,ts}",
+    "playwright*.config.ts",
+    // SvelteKit route roots and config-driven entries the plugin cannot see.
+    "apps/web/src/routes/**/+*.{js,ts,svelte}",
+    "apps/web/src/hooks.{js,ts}",
+    "apps/web/src/lib/pwa/manifest.ts",
+    "apps/web/src/lib/themes/icons/packs/*.ts",
+    // Loaded by the service worker via an importScripts string in
+    // vite.config.ts, invisible to static import analysis.
+    "apps/web/static/pwa-cache-cleanup.js",
+    "apps/marketing/src/routes/**/+*.{js,ts,svelte}",
+    "apps/marketing/functions/**/*.{js,jsx,ts,tsx}",
+    // Fumadocs content roots (MDX pages are entries, not dead files).
+    "apps/docs/content/docs/**/*.mdx",
+    "apps/docs/*.{mjs,ts}",
+    "apps/docs/scripts/**/*.{js,mjs,ts}",
+    // Published and shared library surfaces.
+    "packages/*/src/index.{js,mjs,ts}",
+    // n8n loads nodes/credentials from dist/ at runtime; the TS sources are
+    // the real entries (see the "n8n" field in that package.json).
+    "packages/n8n-nodes-openpost/nodes/**/*.ts",
+    "packages/n8n-nodes-openpost/credentials/**/*.ts",
+  ],
+
+  // Excluded from every detector. Unioned with fallow's built-in defaults.
+  "ignorePatterns": [
+    // Separate fallow project with its own lockfile and config; run it with
+    // `fallow --root apps/mobile` (wired into `bun run fallow`).
+    "apps/mobile/**",
+    // Generated: OpenAPI types and Paraglide messages. Regenerate, never edit.
+    "packages/api-contract/src/schema.d.ts",
+    "packages/n8n-nodes-openpost/generated/**",
+    "apps/web/src/lib/paraglide/**",
+    // Vendored third-party runtime (TTS) and binary model blobs.
+    "apps/web/static/moss-tts/**",
+    "apps/web/static/image-editor-models/**",
+    // Ignored reference checkouts used for audits, not shipped code.
+    "docs/references/**",
+    "references/**",
+    // Test scaffolding mirrors config/knip.jsonc project exclusions.
+    "**/*.fixture.svelte",
+    "**/test-fixtures/**",
+    "**/*test-harness*.svelte",
+    "**/*test-boundary*.svelte",
+    "**/*participant-harness*.svelte",
+    "**/*test-utils*.ts",
+    "**/*test-fixtures*.ts",
+  ],
+
+  // Consumed through config files (module path strings), never imports.
+  "ignoreDependencies": ["@inlang/plugin-message-format", "@inlang/plugin-m-function-matcher"],
+
+  // Shipped to external consumers; their API surface is used outside this graph.
+  "publicPackages": ["@getopenpost/sdk", "@getopenpost/cli", "@getopenpost/n8n-nodes-openpost"],
+
+  // Report-only rollout: warn everything actionable, disable what is either
+  // by design or not modeled yet. Promote to "error" per rule with evidence.
+  "rules": {
+    "unused-files": "warn",
+    "unused-exports": "warn",
+    "unused-types": "warn",
+    "unused-dependencies": "warn",
+    "unused-dev-dependencies": "warn",
+    "unused-optional-dependencies": "warn",
+    "unused-enum-members": "warn",
+    "unused-class-members": "warn",
+    "unresolved-imports": "warn",
+    "unlisted-dependencies": "warn",
+    // shadcn-svelte barrels re-export the same component names per component;
+    // that is the design, not duplication.
+    "duplicate-exports": "off",
+    "circular-dependencies": "warn",
+    "re-export-cycles": "warn",
+    // No architecture boundaries or rule packs modeled yet; the diagnostics
+    // suggest stating that explicitly instead of leaving zeros ambiguous.
+    "boundary-violation": "off",
+    "policy-violation": "off",
+    "stale-suppressions": "warn",
+    "type-only-dependencies": "warn",
+    "test-only-dependencies": "warn",
+    // The root workspace is build tooling, so its devDependencies backing
+    // scripts/*.mjs are correct by npm semantics; triage, do not relocate.
+    "dev-dependencies-in-production": "warn",
+  },
+}

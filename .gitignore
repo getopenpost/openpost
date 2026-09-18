@@ -68,6 +68,8 @@ playwright-report/
 blob-report/
 coverage/
 *.tsbuildinfo
+# Fallow structural-analysis cache (config stays tracked)
+.fallow/
 /openpost-image.spdx.json
 /openpost-image-trivy.json
 

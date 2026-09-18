@@ -25,6 +25,19 @@ const browserScopes = ["e2e", "e2e-app"];
 
 const checks = {
   contracts: stage("generated contracts", [bun("scripts/check-contracts.mjs")]),
+  // The payload assertions run after both builds because they inspect the
+  // built dist output that clean checkouts only produce here.
+  "npm-packages": stage("npm packages", [
+    bunTest("scripts/npm-package-release.test.mjs"),
+    commandStep("bun", "run", "check", { cwd: "packages/sdk" }),
+    commandStep("bun", "run", "test", { cwd: "packages/sdk" }),
+    commandStep("bun", "run", "build", { cwd: "packages/sdk" }),
+    commandStep("bun", "run", "check", { cwd: "packages/cli" }),
+    commandStep("bun", "run", "test", { cwd: "packages/cli" }),
+    commandStep("bun", "run", "build", { cwd: "packages/cli" }),
+    bunTest("scripts/check-npm-package-build.test.mjs"),
+    bun("scripts/check-npm-package-build.mjs"),
+  ]),
   "n8n-package": stage("n8n package", [
     bunTest("scripts/n8n-package-release.test.mjs"),
     bunTest("scripts/generate-selected-automation-contract.test.mjs"),
@@ -221,6 +234,9 @@ export function resolvePlan(requestedCommand, requestedScope, requestedOptions =
       return formatPlan(requestedCommand, requestedScope);
     case "lint":
       return lintPlan(requestedScope);
+    case "fallow":
+      if (requestedScope) throw unsupported("fallow", requestedScope, []);
+      return fallowPlan();
     case "check":
       return checkPlan(requestedScope, requestedOptions);
     case "test":
@@ -293,6 +309,47 @@ function formatPlan(requestedCommand, requestedScope) {
   if (requestedScope) return plan(requestedCommand, requestedScope, [[stages[requestedScope]]]);
   return plan(requestedCommand, undefined, [
     [oxfmt("repository format", "."), stages.backend, stages.cli],
+  ]);
+}
+
+function fallowPlan() {
+  // Structural analysis is repository-wide, not per surface, so it gets its
+  // own command instead of a lint scope. Report-only day one: every rule is
+  // "warn", so the audit gate reports new findings and passes, and health
+  // never fails with --report-only. CI pins the base through
+  // OPENPOST_FALLOW_BASE; local runs use fallow's default base.
+  const base = process.env.OPENPOST_FALLOW_BASE;
+  const auditArgs = base && !/^0+$/.test(base) ? ["audit", "--base", base] : ["audit"];
+  return plan("fallow", undefined, [
+    [
+      stage("changed-code audit", [commandStep("bunx", "fallow", ...auditArgs)]),
+      stage("complexity and hotspots", [
+        commandStep(
+          "bunx",
+          "fallow",
+          "health",
+          "--report-only",
+          "--hotspots",
+          "--targets",
+          "--file-scores",
+          "--score",
+        ),
+      ]),
+      stage("mobile audit and health", [
+        commandStep("bunx", "fallow", "--root", "apps/mobile", ...auditArgs),
+        commandStep(
+          "bunx",
+          "fallow",
+          "--root",
+          "apps/mobile",
+          "health",
+          "--report-only",
+          "--hotspots",
+          "--targets",
+          "--score",
+        ),
+      ]),
+    ],
   ]);
 }
 
@@ -709,7 +766,7 @@ function unsupported(requestedCommand, requestedScope, supported) {
 function help() {
   return [
     "Usage: bun scripts/tasks.mjs <command> [scope] [--plan]",
-    "Commands: dev, format, format:check, lint, check, test, build, verify",
+    "Commands: dev, format, format:check, lint, fallow, check, test, build, verify",
     `Surface scopes: ${surfaceScopes.join(", ")}`,
     `Browser test scopes: ${browserScopes.join(", ")}`,
     `Policy selectors: ${Object.keys(checks).join(", ")}`,

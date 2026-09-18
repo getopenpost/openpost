@@ -1,0 +1,61 @@
+{
+  "name": "@getopenpost/cli",
+  "version": "0.1.3",
+  "description": "Install and run the OpenPost CLI and MCP proxy from npm. Downloads verified release binaries from GitHub.",
+  "keywords": [
+    "cli",
+    "mcp",
+    "openpost",
+    "publishing",
+    "social-media"
+  ],
+  "homepage": "https://openpo.st",
+  "license": "MIT",
+  "author": {
+    "name": "OpenPost",
+    "email": "hello@openpo.st"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/getopenpost/openpost.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "openpost": "./bin/openpost.js",
+    "openpost-mcp": "./bin/openpost-mcp.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "bun run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "openpost": {
+    "releaseTag": "v4.35.3"
+  }
+}

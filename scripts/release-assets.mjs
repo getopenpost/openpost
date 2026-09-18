@@ -13,13 +13,17 @@ const cliTargets = [
   ["windows", "amd64", ".exe"],
 ];
 
+// CLI and MCP binaries ship detached SHA-256 checksums so the @getopenpost/cli
+// npm wrapper can verify its GitHub release download before executing it.
 export const expectedReleaseAssets = Object.freeze([
   ...serverTargets.map(
     ([os, architecture, extension]) => `openpost-server-${os}-${architecture}${extension}`,
   ),
   ...cliTargets.flatMap(([os, architecture, extension]) => [
     `openpost-cli-${os}-${architecture}${extension}`,
+    `openpost-cli-${os}-${architecture}${extension}.sha256`,
     `openpost-mcp-${os}-${architecture}${extension}`,
+    `openpost-mcp-${os}-${architecture}${extension}.sha256`,
   ]),
   "openpost-app-android.apk",
 ]);
@@ -63,6 +67,11 @@ export function validateRelease(release, options) {
   }
 
   const expected = new Set(options.core === true ? coreReleaseAssets : expectedReleaseAssets);
+  // The core check runs while the parallel Android job may already have
+  // uploaded the APK, so unknown means outside the full set, not outside the
+  // required subset. Missing-asset enforcement below stays scoped to the
+  // required subset.
+  const known = new Set(expectedReleaseAssets);
   const seen = new Set();
   for (const asset of release.assets) {
     const name = asset?.name;
@@ -72,7 +81,7 @@ export function validateRelease(release, options) {
     }
     if (seen.has(name)) problems.push(`duplicate release asset: ${name}`);
     seen.add(name);
-    if (!expected.has(name)) problems.push(`unexpected release asset: ${name}`);
+    if (!known.has(name)) problems.push(`unexpected release asset: ${name}`);
     if (asset.state !== "uploaded" || !Number.isInteger(asset.size) || asset.size <= 0) {
       problems.push(`release asset is not completely uploaded: ${name}`);
     }

@@ -325,8 +325,17 @@ func (p *PeerTubeAdapter) searchPeerTubeStaticOptions(ctx context.Context, acces
 	if err := json.Unmarshal(body, &catalog); err != nil {
 		return PublishingOptionsPage{}, fmt.Errorf("decoding peertube %s: %w", collection, err)
 	}
+	if catalog == nil {
+		return PublishingOptionsPage{}, fmt.Errorf("decoding peertube %s: expected id-to-label object", collection)
+	}
 	for id, label := range catalog {
-		entries = append(entries, peertubeCatalogEntry{ID: atoiOrZero(id), Label: label})
+		// Catalog keys are numeric ids; a nonnumeric key is a malformed
+		// catalog, not id 0 (which the upload builder treats as unset).
+		parsedID, err := strconv.Atoi(strings.TrimSpace(id))
+		if err != nil {
+			return PublishingOptionsPage{}, fmt.Errorf("decoding peertube %s: invalid catalog id %q: %w", collection, id, err)
+		}
+		entries = append(entries, peertubeCatalogEntry{ID: parsedID, Label: label})
 	}
 	// Map iteration is unordered; the picker lists catalog ids in order.
 	slices.SortFunc(entries, func(a, b peertubeCatalogEntry) int { return cmp.Compare(a.ID, b.ID) })
@@ -374,14 +383,6 @@ func (p *PeerTubeAdapter) ValidatePublishingTarget(_ context.Context, _, account
 
 func peertubeChannelForRequest(accountID string, settings map[string]interface{}) string {
 	return strings.TrimSpace(firstNonEmptyString(settingString(settings, "channel"), accountID))
-}
-
-func atoiOrZero(raw string) int {
-	value, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil {
-		return 0
-	}
-	return value
 }
 
 func peertubePrivacy(settings map[string]interface{}) (int, error) {

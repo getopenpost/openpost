@@ -45,3 +45,17 @@ test("checks finish translation readers before policy builds regenerate translat
   assert.ok(stages["repository policy"].phase > stages["frontend types"].phase);
   assert.ok(stages["repository policy"].phase > stages["marketing types"].phase);
 });
+
+test("fallow audits changed code and reports complexity without scopes", () => {
+  const result = taskPlan("fallow");
+  assert.equal(result.status, 0, result.stderr);
+  const stages = Object.fromEntries(
+    JSON.parse(result.stdout).stages.map((stage) => [stage.label, stage]),
+  );
+  assert.match(stages["changed-code audit"].commands[0], /bunx fallow audit/u);
+  assert.match(stages["complexity and hotspots"].commands[0], /--report-only/u);
+  assert.match(stages["mobile audit and health"].commands[0], /--root apps\/mobile/u);
+
+  const scoped = taskPlan("fallow", "frontend");
+  assert.notEqual(scoped.status, 0);
+});

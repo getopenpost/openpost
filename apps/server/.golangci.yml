@@ -34,6 +34,15 @@ linters:
       min-occurrences: 3
     gocyclo:
       min-complexity: 15
+    gocognit:
+      # TARGET POSTURE, NOT YET ENFORCED. Cognitive complexity complements
+      # gocyclo: branch count and nesting depth are different axes, and
+      # several //nolint:gocyclo sites stay together deliberately. Measured
+      # 2026-09-18: 162 offenders at 20 (worst: MediaHandler.RegisterRoutes
+      # at 343, main at 200), so enforcing now would mass-fail the gate.
+      # Work the tail down via triage tasks, then move gocognit into
+      # linters.enable above. Do not lower gocyclo:15 instead.
+      min-complexity: 20
     govet:
       enable:
         - atomic
@@ -79,6 +88,7 @@ linters:
           - errcheck
           - goconst
           - gocyclo
+          - gocognit
         path: _test\.go
       - linters:
           - dupl

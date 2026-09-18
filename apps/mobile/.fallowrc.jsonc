@@ -1,0 +1,33 @@
+{
+  // Fallow structural analysis for the standalone mobile app. It keeps its
+  // own lockfile outside the root bun workspaces, so the root config ignores
+  // apps/mobile/** and this project is analyzed separately with
+  // `fallow --root apps/mobile` (wired into `bun run fallow`).
+  "$schema": "../../node_modules/fallow/schema.json",
+
+  // Expo Router file-system routes are the reachability roots.
+  "entry": ["src/app/**/*.{ts,tsx}"],
+
+  "ignorePatterns": ["**/*.generated.ts"],
+
+  // Same report-only posture as the root config: warn, then promote with evidence.
+  "rules": {
+    "unused-files": "warn",
+    "unused-exports": "warn",
+    "unused-types": "warn",
+    "unused-dependencies": "warn",
+    "unused-dev-dependencies": "warn",
+    "unused-optional-dependencies": "warn",
+    "unused-enum-members": "warn",
+    "unused-class-members": "warn",
+    "unresolved-imports": "warn",
+    "unlisted-dependencies": "warn",
+    "circular-dependencies": "warn",
+    "re-export-cycles": "warn",
+    "boundary-violation": "off",
+    "policy-violation": "off",
+    "stale-suppressions": "warn",
+    "type-only-dependencies": "warn",
+    "test-only-dependencies": "warn",
+  },
+}

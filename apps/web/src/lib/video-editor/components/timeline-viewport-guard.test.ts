@@ -41,4 +41,22 @@ describe('applyTimelineVisibilityEntries', () => {
 		// The previous set is never mutated.
 		expect([...previous].sort()).toEqual(['a', 'b']);
 	});
+
+	it('ignores opposing entries for the same id within one batch', () => {
+		const previous = new Set(['a', 'b']);
+		// An add followed by a remove restores the original membership.
+		expect(
+			applyTimelineVisibilityEntries(previous, [
+				{ id: 'c', isIntersecting: true },
+				{ id: 'c', isIntersecting: false }
+			])
+		).toBeNull();
+		// A remove followed by an add also nets to no change.
+		expect(
+			applyTimelineVisibilityEntries(previous, [
+				{ id: 'a', isIntersecting: false },
+				{ id: 'a', isIntersecting: true }
+			])
+		).toBeNull();
+	});
 });

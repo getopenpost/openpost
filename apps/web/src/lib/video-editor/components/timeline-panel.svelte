@@ -29,20 +29,15 @@
 		previous: ReadonlySet<string>,
 		entries: Array<{ id: string; isIntersecting: boolean }>
 	): Set<string> | null {
-		let changed = false;
 		const next = new Set(previous);
 		for (const entry of entries) {
-			if (entry.isIntersecting) {
-				if (!next.has(entry.id)) {
-					next.add(entry.id);
-					changed = true;
-				}
-			} else if (next.has(entry.id)) {
-				next.delete(entry.id);
-				changed = true;
-			}
+			if (entry.isIntersecting) next.add(entry.id);
+			else next.delete(entry.id);
 		}
-		return changed ? next : null;
+		// One observer batch can hold opposing entries for the same target;
+		// only the final membership decides whether anything changed.
+		if (next.size === previous.size && [...next].every((id) => previous.has(id))) return null;
+		return next;
 	}
 </script>
 

@@ -28,7 +28,12 @@
 		guestMode = false,
 		mode = 'dock',
 		onclose
-	}: { guestMode?: boolean; mode?: 'dock' | 'overlay'; onclose?: () => void } = $props();
+	}: {
+		guestMode?: boolean;
+	} & (
+		| { mode?: 'dock'; onclose?: () => void }
+		| { mode: 'overlay'; onclose: () => void }
+	) = $props();
 	const editor = useImageEditor();
 	let media = $state<ImageEditorMediaItem[]>([]);
 	let loading = $state(false);

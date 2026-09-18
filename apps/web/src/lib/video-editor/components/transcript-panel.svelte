@@ -8,6 +8,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
@@ -876,20 +877,12 @@
 			{m.video_editor_transcript_empty()}
 		</p>
 	{:else}
-		<details
+		<EditorDisclosure
+			label={m.video_editor_transcript()}
+			summary={`${cueCount} · ${transcriptDurationLabel}`}
+			bind:open={cueListOpen}
 			class="mx-1 rounded-md border border-border bg-card"
-			open={cueListOpen}
-			ontoggle={(event) => (cueListOpen = event.currentTarget.open)}
 		>
-			<summary
-				class="flex min-h-[25px] cursor-pointer list-none items-center gap-1.5 px-2 text-[11px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
-			>
-				<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
-				<span>{m.video_editor_transcript()}</span>
-				<span class="ml-auto font-mono text-[10px] tabular-nums"
-					>{cueCount} · {transcriptDurationLabel}</span
-				>
-			</summary>
 			<ul
 				class="flex flex-col gap-0.5 border-t border-border p-1"
 				aria-label={m.video_editor_transcript()}
@@ -1073,6 +1066,6 @@
 					</li>
 				{/if}
 			</ul>
-		</details>
+		</EditorDisclosure>
 	{/if}
 </div>

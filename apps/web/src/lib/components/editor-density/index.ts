@@ -1,6 +1,7 @@
 import './editor-density.css';
 
 export { default as Disclosure } from './disclosure.svelte';
+export { default as HintButton } from './hint-button.svelte';
 export { default as Knob } from './knob.svelte';
 export { default as EditorMenu } from './menu.svelte';
 export { default as ScrubField } from './scrub-field.svelte';

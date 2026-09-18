@@ -338,10 +338,18 @@ func TestMCPReadOnlyScopeHidesAndRejectsMutations(t *testing.T) {
 	var toolsOut map[string]any
 	require.NoError(t, json.Unmarshal(toolsResp.Body.Bytes(), &toolsOut))
 	tools := toolsOut["result"].(map[string]any)["tools"].([]any)
-	require.Len(t, tools, 3)
+	// The default direct surface lists query operations themselves: no
+	// mutation operations and no discovery trio.
+	names := make([]string, 0, len(tools))
 	for _, item := range tools {
-		require.NotEqual(t, mcpToolExecute, item.(map[string]any)["name"])
+		names = append(names, item.(map[string]any)["name"].(string))
 	}
+	require.Contains(t, names, mcpToolWorkspaces)
+	require.Contains(t, names, mcpToolRenderWidget)
+	require.NotContains(t, names, mcpToolCreatePub)
+	require.NotContains(t, names, mcpToolExecute)
+	require.NotContains(t, names, mcpToolSearch)
+	require.NotContains(t, names, mcpToolQuery)
 
 	initializeResp := srv.request(t, "read-token", map[string]any{
 		"jsonrpc": "2.0",
@@ -419,6 +427,117 @@ func TestMCPReadOnlyScopeHidesAndRejectsMutations(t *testing.T) {
 		require.NoError(t, json.Unmarshal(mutationResp.Body.Bytes(), &mutationOut))
 		require.Contains(t, mutationOut["error"].(map[string]any)["message"], "mcp:read")
 	}
+}
+
+func TestMCPToolModes(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"read-token": {UserID: "user-1", Email: "user@example.com", Scope: "mcp:read", WorkspaceID: "ws-1"},
+		"mcp-token":  {UserID: "user-1", Email: "user@example.com", Scope: "mcp:full", WorkspaceID: "ws-1"},
+	}
+
+	listNames := func(t *testing.T, token string) []string {
+		t.Helper()
+		resp := srv.request(t, token, map[string]any{
+			"jsonrpc": "2.0",
+			"id":      "mode-tools",
+			"method":  "tools/list",
+		})
+		require.Equal(t, http.StatusOK, resp.Code)
+		var out map[string]any
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+		tools := out["result"].(map[string]any)["tools"].([]any)
+		names := make([]string, 0, len(tools))
+		for _, item := range tools {
+			names = append(names, item.(map[string]any)["name"].(string))
+		}
+		return names
+	}
+
+	// The zero value is the direct default.
+	directFull := listNames(t, "mcp-token")
+	require.Contains(t, directFull, mcpToolWorkspaces)
+	require.Contains(t, directFull, mcpToolCreatePub)
+	require.Contains(t, directFull, mcpToolRenderWidget)
+	require.NotContains(t, directFull, mcpToolSearch)
+	require.NotContains(t, directFull, mcpToolQuery)
+	require.NotContains(t, directFull, mcpToolExecute)
+
+	directRead := listNames(t, "read-token")
+	require.Contains(t, directRead, mcpToolWorkspaces)
+	require.Contains(t, directRead, mcpToolRenderWidget)
+	require.NotContains(t, directRead, mcpToolCreatePub)
+	require.NotContains(t, directRead, mcpToolSearch)
+	require.NotContains(t, directRead, mcpToolQuery)
+	require.NotContains(t, directRead, mcpToolExecute)
+
+	srv.handler.SetToolMode("search")
+	searchFull := listNames(t, "mcp-token")
+	require.Contains(t, searchFull, mcpToolSearch)
+	require.Contains(t, searchFull, mcpToolQuery)
+	require.Contains(t, searchFull, mcpToolExecute)
+	require.Contains(t, searchFull, mcpToolRenderWidget)
+	require.NotContains(t, searchFull, mcpToolWorkspaces)
+	require.NotContains(t, searchFull, mcpToolCreatePub)
+
+	searchRead := listNames(t, "read-token")
+	require.Contains(t, searchRead, mcpToolSearch)
+	require.Contains(t, searchRead, mcpToolQuery)
+	require.NotContains(t, searchRead, mcpToolExecute)
+	require.NotContains(t, searchRead, mcpToolWorkspaces)
+
+	srv.handler.SetToolMode("both")
+	bothFull := listNames(t, "mcp-token")
+	require.Contains(t, bothFull, mcpToolWorkspaces)
+	require.Contains(t, bothFull, mcpToolCreatePub)
+	require.Contains(t, bothFull, mcpToolSearch)
+	require.Contains(t, bothFull, mcpToolQuery)
+	require.Contains(t, bothFull, mcpToolExecute)
+	require.Contains(t, bothFull, mcpToolRenderWidget)
+
+	bothRead := listNames(t, "read-token")
+	require.Contains(t, bothRead, mcpToolWorkspaces)
+	require.NotContains(t, bothRead, mcpToolCreatePub)
+	require.Contains(t, bothRead, mcpToolSearch)
+	require.Contains(t, bothRead, mcpToolQuery)
+	require.NotContains(t, bothRead, mcpToolExecute)
+
+	// Unknown mode values fall back to direct.
+	srv.handler.SetToolMode("sideways")
+	require.Equal(t, directFull, listNames(t, "mcp-token"))
+}
+
+func TestMCPToolModeInstructions(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"mcp-token": {UserID: "user-1", Email: "user@example.com", Scope: "mcp:full", WorkspaceID: "ws-1"},
+	}
+	initialize := func(t *testing.T) string {
+		t.Helper()
+		resp := srv.request(t, "mcp-token", map[string]any{
+			"jsonrpc": "2.0",
+			"id":      "mode-initialize",
+			"method":  "initialize",
+			"params": map[string]any{
+				"protocolVersion": mcpProtocolVersion,
+				"capabilities":    map[string]any{},
+				"clientInfo":      map[string]any{"name": "test", "version": "1"},
+			},
+		})
+		require.Equal(t, http.StatusOK, resp.Code)
+		var out map[string]any
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+		instructions, _ := out["result"].(map[string]any)["instructions"].(string)
+		return instructions
+	}
+
+	require.Contains(t, initialize(t), "callable directly")
+	srv.handler.SetToolMode("search")
+	require.Contains(t, initialize(t), "search_operations")
 }
 
 func TestMCPRejectsAudienceMismatch(t *testing.T) {

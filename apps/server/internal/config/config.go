@@ -95,23 +95,27 @@ type Config struct {
 	DiagnosticsIngestEnabled     bool
 	DiagnosticsDiscordWebhookURL string
 	TelemetryEnabled             bool
-	PostHogProjectToken          string
-	PostHogAPIHost               string
-	PostHogBrowserHost           string
-	PostHogUIHost                string
-	TelemetryEnvironment         string
-	UpdateCheckEnabled           bool
-	OIDCIssuer                   string
-	OIDCClientID                 string
-	OIDCClientSecret             string
-	OIDCName                     string
-	OIDCScopes                   []string
-	OIDCJITEnabled               bool
-	OIDCBootstrapAllowlist       []string
-	OIDCBreakGlassEmails         []string
-	OIDCNativeCallbackURL        string
-	GoogleAuthClientID           string
-	GoogleAuthClientSecret       string
+	// MCPToolMode selects the advertised MCP tool surface: direct
+	// (operation tools listed directly, the default), search
+	// (progressive discovery via search_operations), or both.
+	MCPToolMode            string
+	PostHogProjectToken    string
+	PostHogAPIHost         string
+	PostHogBrowserHost     string
+	PostHogUIHost          string
+	TelemetryEnvironment   string
+	UpdateCheckEnabled     bool
+	OIDCIssuer             string
+	OIDCClientID           string
+	OIDCClientSecret       string
+	OIDCName               string
+	OIDCScopes             []string
+	OIDCJITEnabled         bool
+	OIDCBootstrapAllowlist []string
+	OIDCBreakGlassEmails   []string
+	OIDCNativeCallbackURL  string
+	GoogleAuthClientID     string
+	GoogleAuthClientSecret string
 
 	EmailVerificationRequired  bool
 	EmailProvider              string
@@ -292,6 +296,7 @@ func Load() *Config {
 		DiagnosticsIngestEnabled:     getEnvBoolWithAliases(false, "OPENPOST_DIAGNOSTICS_INGEST_ENABLED"),
 		DiagnosticsDiscordWebhookURL: strings.TrimSpace(getEnvDefault("OPENPOST_DIAGNOSTICS_DISCORD_WEBHOOK_URL", "")),
 		TelemetryEnabled:             getEnvBoolWithAliases(telemetryEnabledByDefault, "OPENPOST_TELEMETRY_ENABLED"),
+		MCPToolMode:                  getEnvEnum("OPENPOST_MCP_MODE", "direct", "direct", "search", "both"),
 		PostHogProjectToken:          strings.TrimSpace(getEnvDefault("OPENPOST_POSTHOG_PROJECT_TOKEN", "")),
 		PostHogAPIHost:               postHogAPIHost,
 		PostHogBrowserHost: strings.TrimRight(strings.TrimSpace(

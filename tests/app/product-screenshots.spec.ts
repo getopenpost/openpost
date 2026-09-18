@@ -1764,9 +1764,9 @@ test.describe("product screenshot capture", () => {
       await capture(page, `video-transcript-${captureScheme}.png`, [transcriptPanel]);
 
       await page.getByRole("button", { name: "Render full video" }).click();
-      const exportDialog = page.getByRole("dialog", { name: "Export video" });
-      await expect(exportDialog).toBeVisible();
-      await capture(page, `video-export-${captureScheme}.png`, [exportDialog]);
+      const exportVideoDialog = page.getByRole("dialog", { name: "Export video" });
+      await expect(exportVideoDialog).toBeVisible();
+      await capture(page, `video-export-${captureScheme}.png`, [exportVideoDialog]);
       await page.keyboard.press("Escape");
 
       await page.goto("/settings?tab=general");

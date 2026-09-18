@@ -8,16 +8,16 @@
  * - Keyboard arrows move 1 step; Shift x5; Alt x0.2.
  */
 
-export const SCRUB_PX_PER_STEP = 4;
-export const SCRUB_SHIFT_MULTIPLIER = 5;
-export const SCRUB_ALT_MULTIPLIER = 0.2;
+const SCRUB_PX_PER_STEP = 4;
+const SCRUB_SHIFT_MULTIPLIER = 5;
+const SCRUB_ALT_MULTIPLIER = 0.2;
 
 export interface ScrubModifiers {
 	shift?: boolean;
 	alt?: boolean;
 }
 
-export function strideMultiplier(modifiers: ScrubModifiers = {}): number {
+function strideMultiplier(modifiers: ScrubModifiers = {}): number {
 	let multiplier = 1;
 	if (modifiers.shift) multiplier *= SCRUB_SHIFT_MULTIPLIER;
 	if (modifiers.alt) multiplier *= SCRUB_ALT_MULTIPLIER;

@@ -9,6 +9,7 @@
 	import TemplatePreview from './template-preview.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { SelectionPoint } from '../selection';
+	import type { ImageEditorPage } from '../types';
 	import { containsExternalImageDrag, externalFiles } from '../media-drag';
 
 	let {
@@ -55,6 +56,21 @@
 	$effect(() => {
 		if (previewDocument !== editor.document) cancelReorder();
 	});
+	function selectPage(page: ImageEditorPage): void {
+		editor.activePageID = page.id;
+		editor.selectedLayerIDs = [];
+	}
+
+	function beginPageDrag(page: ImageEditorPage): void {
+		cancelReorder();
+		draggingID = page.id;
+	}
+
+	function endPageDrag(): void {
+		draggingID = '';
+		insertionPageID = '';
+	}
+
 	function cancelReorder() {
 		if (keyboardDraggingID) reorderAnnouncement = m.interaction_reorder_cancelled();
 		keyboardDraggingID = '';
@@ -194,18 +210,9 @@
 					editor.activePageID
 						? 'ring-2 ring-primary'
 						: ''} {externalDropPageID === page.id ? 'bg-primary/10 ring-2 ring-primary' : ''}"
-					onclick={() => {
-						editor.activePageID = page.id;
-						editor.selectedLayerIDs = [];
-					}}
-					ondragstart={() => {
-						cancelReorder();
-						draggingID = page.id;
-					}}
-					ondragend={() => {
-						draggingID = '';
-						insertionPageID = '';
-					}}
+					onclick={() => selectPage(page)}
+					ondragstart={() => beginPageDrag(page)}
+					ondragend={endPageDrag}
 					ondragover={(event) => handlePageDragOver(event, page.id)}
 					ondragleave={() => (externalDropPageID = '')}
 					ondrop={(event) => handlePageDrop(event, page.id, index)}

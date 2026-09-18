@@ -54,7 +54,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "guides/automation.mdx",
     "title": "Automation",
-    "description": "Choose the CLI, MCP, or the OpenPost n8n node.",
+    "description": "Choose the SDK, CLI, MCP, or the OpenPost n8n node.",
     "route": "/guides/automation",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -249,6 +249,22 @@ export const docsPageCatalog = Object.freeze([
     "title": "Schedule and calendar",
     "description": "Plan publication times and recover scheduled delivery.",
     "route": "/guides/scheduling",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "user-guide"
+    }
+  },
+  {
+    "page": "guides/sdk.mdx",
+    "title": "TypeScript SDK",
+    "description": "Call OpenPost from Node.js, Bun, or Workers with @getopenpost/sdk.",
+    "route": "/guides/sdk",
     "agentRepresentation": {
       "membership": "ordinary"
     },

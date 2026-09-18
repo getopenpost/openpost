@@ -13,13 +13,17 @@ const cliTargets = [
   ["windows", "amd64", ".exe"],
 ];
 
+// CLI and MCP binaries ship detached SHA-256 checksums so the @getopenpost/cli
+// npm wrapper can verify its GitHub release download before executing it.
 export const expectedReleaseAssets = Object.freeze([
   ...serverTargets.map(
     ([os, architecture, extension]) => `openpost-server-${os}-${architecture}${extension}`,
   ),
   ...cliTargets.flatMap(([os, architecture, extension]) => [
     `openpost-cli-${os}-${architecture}${extension}`,
+    `openpost-cli-${os}-${architecture}${extension}.sha256`,
     `openpost-mcp-${os}-${architecture}${extension}`,
+    `openpost-mcp-${os}-${architecture}${extension}.sha256`,
   ]),
   "openpost-app-android.apk",
 ]);

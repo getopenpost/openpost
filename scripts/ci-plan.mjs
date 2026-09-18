@@ -66,6 +66,18 @@ function planFiltered(files, manifest, { full = false } = {}) {
         "scripts/n8n-package-release.test.mjs",
       ],
     ),
+    npm: matches(
+      ["packages/sdk/", "packages/cli/"],
+      [
+        "bun.lock",
+        "package.json",
+        "scripts/npm-package-release.mjs",
+        "scripts/npm-package-release.test.mjs",
+        "scripts/check-npm-package-build.mjs",
+        "scripts/check-npm-package-build.test.mjs",
+        "scripts/verify-published-npm-package.mjs",
+      ],
+    ),
     security: matches(
       ["apps/server/", "apps/cli/", "apps/web/", "apps/mobile/", "packages/"],
       ["bun.lock", "package.json", "go.work", "go.work.sum"],

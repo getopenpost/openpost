@@ -1,0 +1,54 @@
+{
+  "name": "@getopenpost/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for the OpenPost API. Create publications, manage renditions, upload media, and track publishing jobs.",
+  "keywords": [
+    "openpost",
+    "publishing",
+    "scheduling",
+    "sdk",
+    "social-media"
+  ],
+  "homepage": "https://openpo.st",
+  "license": "MIT",
+  "author": {
+    "name": "OpenPost",
+    "email": "hello@openpo.st"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/getopenpost/openpost.git",
+    "directory": "packages/sdk"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "bun run build"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

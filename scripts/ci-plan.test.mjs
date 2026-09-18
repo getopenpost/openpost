@@ -80,6 +80,30 @@ test("changed files route to their CI paths", () => {
       on: ["n8n"],
       off: [],
     },
+    {
+      name: "SDK changes",
+      files: ["packages/sdk/src/index.ts"],
+      on: ["npm"],
+      off: ["n8n"],
+    },
+    {
+      name: "CLI wrapper changes",
+      files: ["packages/cli/src/resolve.ts"],
+      on: ["npm"],
+      off: ["n8n"],
+    },
+    {
+      name: "shared npm release script changes",
+      files: ["scripts/npm-package-release.mjs"],
+      on: ["npm"],
+      off: [],
+    },
+    {
+      name: "npm payload gate changes",
+      files: ["scripts/check-npm-package-build.mjs"],
+      on: ["npm"],
+      off: [],
+    },
   ];
   for (const { name, files, on, off } of cases) {
     const plan = planCI(files, manifest);
@@ -119,6 +143,7 @@ test("release tags prove the full core candidate while distributions follow the 
     documentation: false,
     cli: false,
     n8n: false,
+    npm: false,
     security: true,
     image: true,
     android: false,

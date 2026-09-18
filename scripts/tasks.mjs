@@ -25,6 +25,19 @@ const browserScopes = ["e2e", "e2e-app"];
 
 const checks = {
   contracts: stage("generated contracts", [bun("scripts/check-contracts.mjs")]),
+  // The payload assertions run after both builds because they inspect the
+  // built dist output that clean checkouts only produce here.
+  "npm-packages": stage("npm packages", [
+    bunTest("scripts/npm-package-release.test.mjs"),
+    commandStep("bun", "run", "check", { cwd: "packages/sdk" }),
+    commandStep("bun", "run", "test", { cwd: "packages/sdk" }),
+    commandStep("bun", "run", "build", { cwd: "packages/sdk" }),
+    commandStep("bun", "run", "check", { cwd: "packages/cli" }),
+    commandStep("bun", "run", "test", { cwd: "packages/cli" }),
+    commandStep("bun", "run", "build", { cwd: "packages/cli" }),
+    bunTest("scripts/check-npm-package-build.test.mjs"),
+    bun("scripts/check-npm-package-build.mjs"),
+  ]),
   "n8n-package": stage("n8n package", [
     bunTest("scripts/n8n-package-release.test.mjs"),
     bunTest("scripts/generate-selected-automation-contract.test.mjs"),

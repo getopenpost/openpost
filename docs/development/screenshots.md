@@ -31,4 +31,6 @@ but purely visual drift does not.
 
 The `Product screenshots refresh` workflow re-captures weekly and opens a
 review PR when images drift. It never commits to `main` directly. Merge its PR
-only after reviewing the images.
+only after reviewing the images. Refresh commits use the openpost-bot GitHub
+App identity, falling back to `github-actions[bot]` until the app credentials
+are configured (same pattern as the README assets workflow).

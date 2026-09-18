@@ -24,9 +24,22 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      - name: Create openpost-bot token
+        id: app-token
+        # The openpost-bot GitHub App gives automated commits the project's
+        # own bot identity. Until its app ID and private key are stored as
+        # OPENPOST_BOT_APP_ID / OPENPOST_BOT_PRIVATE_KEY, workflows fall
+        # back to the built-in token and the github-actions[bot] author below.
+        if: vars.OPENPOST_BOT_APP_ID != ''
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.OPENPOST_BOT_APP_ID }}
+          private-key: ${{ secrets.OPENPOST_BOT_PRIVATE_KEY }}
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          token: ${{ steps.app-token.outputs.token || github.token }}
           sparse-checkout: |
             /*
             !/apps/web/static/image-editor-models/
@@ -45,7 +58,8 @@ jobs:
         run: bun run capture:product-screenshots
       - name: Open a review PR when screenshots drifted
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          BOT_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           if git status --porcelain -- assets/screenshots | grep -q .; then
             :
@@ -53,8 +67,16 @@ jobs:
             echo "Screenshots match the checked-in set; nothing to do."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$BOT_SLUG" ]; then
+            bot_id="$(gh api "users/${BOT_SLUG}[bot]" --jq .id)"
+            [[ "$bot_id" =~ ^[0-9]+$ ]] || exit 1
+            git config user.name "${BOT_SLUG}[bot]"
+            git config user.email "${bot_id}+${BOT_SLUG}[bot]@users.noreply.github.com"
+            gh auth setup-git
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          fi
           stamp="$(date -u +%Y%m%d)"
           branch="chore/product-screenshots-${stamp}"
           git checkout -B "$branch"

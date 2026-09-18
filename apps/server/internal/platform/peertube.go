@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -302,34 +304,34 @@ func (p *PeerTubeAdapter) SearchPublishingOptions(ctx context.Context, accessTok
 	}
 }
 
+// peertubeCatalogEntry is one entry of a PeerTube static catalog.
+type peertubeCatalogEntry struct {
+	ID    int
+	Label string
+}
+
 func (p *PeerTubeAdapter) searchPeerTubeStaticOptions(ctx context.Context, accessToken, collection, query string, limit int) (PublishingOptionsPage, error) {
-	var result struct {
-		Data []struct {
-			ID    int    `json:"id"`
-			Label string `json:"label"`
-		} `json:"data"`
-	}
+	var entries []peertubeCatalogEntry
 	body, err := DoRequest(ctx, http.MethodGet, p.instanceURL+"/api/v1/videos/"+collection, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
 		return PublishingOptionsPage{}, fmt.Errorf("loading peertube %s: %w", collection, err)
 	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		// Older instances return a plain id-to-label map.
-		var legacy map[string]string
-		if legacyErr := json.Unmarshal(body, &legacy); legacyErr != nil {
-			return PublishingOptionsPage{}, fmt.Errorf("decoding peertube %s: %w", collection, err)
-		}
-		for id, label := range legacy {
-			result.Data = append(result.Data, struct {
-				ID    int    `json:"id"`
-				Label string `json:"label"`
-			}{ID: atoiOrZero(id), Label: label})
-		}
+	// PeerTube answers these catalogs with a plain id-to-label object, not a
+	// paginated envelope. An envelope decodes into an empty list without
+	// erroring, which left both pickers empty.
+	var catalog map[string]string
+	if err := json.Unmarshal(body, &catalog); err != nil {
+		return PublishingOptionsPage{}, fmt.Errorf("decoding peertube %s: %w", collection, err)
 	}
+	for id, label := range catalog {
+		entries = append(entries, peertubeCatalogEntry{ID: atoiOrZero(id), Label: label})
+	}
+	// Map iteration is unordered; the picker lists catalog ids in order.
+	slices.SortFunc(entries, func(a, b peertubeCatalogEntry) int { return cmp.Compare(a.ID, b.ID) })
 	page := PublishingOptionsPage{}
-	for _, item := range result.Data {
+	for _, item := range entries {
 		if query != "" && !strings.Contains(strings.ToLower(item.Label), strings.ToLower(query)) {
 			continue
 		}

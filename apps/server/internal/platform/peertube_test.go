@@ -336,6 +336,56 @@ func TestPeerTubeCommentsFetchesTruncatedReplies(t *testing.T) {
 	require.Equal(t, "peertube:video-uuid-1:16", byID["peertube:video-uuid-1:17"].ParentID)
 }
 
+func TestPeerTubeCategoryAndLicencePickers(t *testing.T) {
+	// GET /api/v1/videos/categories and /licences answer with a plain
+	// id-to-label object, not a paginated {"data":[...]} envelope.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/videos/categories":
+			_, _ = w.Write([]byte(`{"1":"Music","2":"Films","7":"Gaming","15":"Science & Technology"}`))
+		case "/api/v1/videos/licences":
+			_, _ = w.Write([]byte(`{"1":"Attribution","7":"Public Domain Dedication"}`))
+		default:
+			http.Error(w, "unexpected path", http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	adapter := NewPeerTubeAdapter(server.URL)
+	categories, err := adapter.SearchPublishingOptions(t.Context(), "atok", PublishingOptionsInput{Source: "peertube_categories"})
+	require.NoError(t, err)
+	require.Equal(t, []DestinationOption{
+		{Value: "1", Label: "Music"},
+		{Value: "2", Label: "Films"},
+		{Value: "7", Label: "Gaming"},
+		{Value: "15", Label: "Science & Technology"},
+	}, categories.Options, "categories are listed by id so the picker order is stable")
+
+	filtered, err := adapter.SearchPublishingOptions(t.Context(), "atok", PublishingOptionsInput{Source: "peertube_categories", Search: "gam"})
+	require.NoError(t, err)
+	require.Equal(t, []DestinationOption{{Value: "7", Label: "Gaming"}}, filtered.Options)
+
+	licences, err := adapter.SearchPublishingOptions(t.Context(), "atok", PublishingOptionsInput{Source: "peertube_licences"})
+	require.NoError(t, err)
+	require.Equal(t, []DestinationOption{
+		{Value: "1", Label: "Attribution"},
+		{Value: "7", Label: "Public Domain Dedication"},
+	}, licences.Options)
+}
+
+func TestPeerTubeCatalogDecodeFailureIsReported(t *testing.T) {
+	// A catalog that is not an id-to-label object is an error, not an
+	// empty picker.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`["Music","Films"]`))
+	}))
+	defer server.Close()
+
+	adapter := NewPeerTubeAdapter(server.URL)
+	_, err := adapter.SearchPublishingOptions(t.Context(), "atok", PublishingOptionsInput{Source: "peertube_categories"})
+	require.ErrorContains(t, err, "decoding peertube categories")
+}
+
 func TestPeerTubeAnalytics(t *testing.T) {
 	server, _ := newFakePeerTube(t)
 	defer server.Close()

@@ -62,14 +62,21 @@
 		);
 	}
 
+	function trackTarget(event: PointerEvent) {
+		const container = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+		if (!container) return null;
+		const target = event.target instanceof HTMLElement ? event.target : null;
+		return { container, target };
+	}
+
 	function handleTrackPointerDown(event: PointerEvent): void {
 		if (disabled || !event.isPrimary) return;
 		if (event.pointerType === 'mouse' && event.button !== 0) return;
-		const target = event.target instanceof HTMLElement ? event.target : null;
+		const resolved = trackTarget(event);
+		if (!resolved) return;
 		// Thumb drags stay on the shared Slider's native gesture.
-		if (target?.closest?.('[data-slot="slider-thumb"]')) return;
-		const container = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-		if (!container) return;
+		if (resolved.target?.closest?.('[data-slot="slider-thumb"]')) return;
+		const container = resolved.container;
 		const next = landFromClientX(container, event.clientX);
 		if (next === null || !Number.isFinite(next)) return;
 		event.preventDefault();
@@ -86,8 +93,9 @@
 
 	function handleTrackPointerMove(event: PointerEvent): void {
 		if (!trackDrag || event.pointerId !== trackDrag.pointerId) return;
-		const container = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-		if (!container) return;
+		const resolved = trackTarget(event);
+		if (!resolved) return;
+		const container = resolved.container;
 		const next = landFromClientX(container, event.clientX);
 		if (next === null || !Number.isFinite(next)) return;
 		trackDrag.lastValue = next;

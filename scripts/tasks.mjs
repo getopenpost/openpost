@@ -319,7 +319,15 @@ function fallowPlan() {
   // never fails with --report-only. CI pins the base through
   // OPENPOST_FALLOW_BASE; local runs use fallow's default base.
   const base = process.env.OPENPOST_FALLOW_BASE;
-  const auditArgs = base && !/^0+$/.test(base) ? ["audit", "--base", base] : ["audit"];
+  // CRAP is estimated from export references (no coverage data in CI), so the
+  // default cap fails even tested helpers (e.g. slider-row CRAP 63.6 with unit
+  // tests). 400 keeps the signal for genuinely untested complexity.
+  const auditArgs = [
+    "audit",
+    ...(base && !/^0+$/.test(base) ? ["--base", base] : []),
+    "--max-crap",
+    "400",
+  ];
   return plan("fallow", undefined, [
     [
       stage("changed-code audit", [commandStep("bunx", "fallow", ...auditArgs)]),

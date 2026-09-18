@@ -244,6 +244,38 @@
 			{/each}
 		{/if}
 	{/snippet}
+	{#snippet pageActionButtons(buttonClass: string)}
+		<Button
+			variant="ghost"
+			size="icon-xs"
+			class={buttonClass}
+			onclick={() => editor.addPage()}
+			disabled={!editor.canEdit}
+		>
+			<ThemeIcon role="add" />
+			<span class="sr-only">{m.image_editor_add_page()}</span>
+		</Button>
+		<Button
+			variant="ghost"
+			size="icon-xs"
+			class={buttonClass}
+			onclick={() => editor.duplicatePage()}
+			disabled={!editor.canEdit}
+		>
+			<ThemeIcon role="copy" />
+			<span class="sr-only">{m.image_editor_duplicate_page()}</span>
+		</Button>
+		<Button
+			variant="ghost"
+			size="icon-xs"
+			class={buttonClass}
+			onclick={() => editor.deletePage()}
+			disabled={!editor.canEdit || (editor.document?.pages.length ?? 0) <= 1}
+		>
+			<ThemeIcon role="delete" />
+			<span class="sr-only">{m.image_editor_delete_page()}</span>
+		</Button>
+	{/snippet}
 	{#if mode === 'strip'}
 		<div class="flex h-8 items-center gap-1 border-b px-2 lg:h-8 [@media(pointer:coarse)]:h-11">
 			<Button
@@ -285,36 +317,7 @@
 					onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
 				>
 
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					class="size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
-					onclick={() => editor.addPage()}
-					disabled={!editor.canEdit}
-				>
-					<ThemeIcon role="add" />
-					<span class="sr-only">{m.image_editor_add_page()}</span>
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					class="size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
-					onclick={() => editor.duplicatePage()}
-					disabled={!editor.canEdit}
-				>
-					<ThemeIcon role="copy" />
-					<span class="sr-only">{m.image_editor_duplicate_page()}</span>
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					class="size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
-					onclick={() => editor.deletePage()}
-					disabled={!editor.canEdit || (editor.document?.pages.length ?? 0) <= 1}
-				>
-					<ThemeIcon role="delete" />
-					<span class="sr-only">{m.image_editor_delete_page()}</span>
-				</Button>
+				{@render pageActionButtons('size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11')}
 			</div>
 		</div>
 		{#if editor.pagesExpanded && editor.document}
@@ -379,36 +382,7 @@
 						{@render pageGrid()}
 					</div>
 					<div class="mt-2 flex gap-1 border-t pt-2">
-						<Button
-							variant="ghost"
-							size="icon-xs"
-							class="size-8 [@media(pointer:coarse)]:size-11"
-							onclick={() => editor.addPage()}
-							disabled={!editor.canEdit}
-						>
-							<ThemeIcon role="add" />
-							<span class="sr-only">{m.image_editor_add_page()}</span>
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon-xs"
-							class="size-8 [@media(pointer:coarse)]:size-11"
-							onclick={() => editor.duplicatePage()}
-							disabled={!editor.canEdit}
-						>
-							<ThemeIcon role="copy" />
-							<span class="sr-only">{m.image_editor_duplicate_page()}</span>
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon-xs"
-							class="size-8 [@media(pointer:coarse)]:size-11"
-							onclick={() => editor.deletePage()}
-							disabled={!editor.canEdit || (editor.document?.pages.length ?? 0) <= 1}
-						>
-							<ThemeIcon role="delete" />
-							<span class="sr-only">{m.image_editor_delete_page()}</span>
-						</Button>
+						{@render pageActionButtons('size-8 [@media(pointer:coarse)]:size-11')}
 					</div>
 				</Popover.Content>
 			</Popover.Root>

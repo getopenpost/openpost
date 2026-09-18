@@ -2186,6 +2186,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	{/if}
 {/snippet}
 
+{#snippet sourceMonitorPanel()}
+	{#key sourceMediaId}
+		<SourceMonitor
+			mediaId={sourceMediaId}
+			preferredTrackId={selectedItemId
+				? timelineStore.itemById.get(selectedItemId)?.trackId
+				: undefined}
+			onclose={() => (sourceMediaId = null)}
+			onedit={() => editorSession.scheduleAutosave()}
+			oninserted={handleSourceInserted}
+		/>
+	{/key}
+{/snippet}
+
 <svelte:window
 	onkeydowncapture={onGlobalShortcutCapture}
 	onkeydown={onKeydown}
@@ -2881,17 +2895,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										class="relative flex h-[min(44%,22rem)] min-h-0 w-full shrink-0 xl:h-auto xl:w-[var(--source-monitor-width)] xl:max-w-[calc(100%_-_300px)]"
 										style:--source-monitor-width={`${effectiveSourceMonitorWidth}px`}
 									>
-										{#key sourceMediaId}
-											<SourceMonitor
-												mediaId={sourceMediaId}
-												preferredTrackId={selectedItemId
-													? timelineStore.itemById.get(selectedItemId)?.trackId
-													: undefined}
-												onclose={() => (sourceMediaId = null)}
-												onedit={() => editorSession.scheduleAutosave()}
-												oninserted={handleSourceInserted}
-											/>
-										{/key}
+										{@render sourceMonitorPanel()}
 										<PanelResizeHandle
 											edge="right"
 											value={effectiveSourceMonitorWidth}
@@ -2957,17 +2961,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												role="dialog"
 												aria-label={m.video_editor_source_monitor()}
 											>
-												{#key sourceMediaId}
-													<SourceMonitor
-														mediaId={sourceMediaId}
-														preferredTrackId={selectedItemId
-															? timelineStore.itemById.get(selectedItemId)?.trackId
-															: undefined}
-														onclose={() => (sourceMediaId = null)}
-														onedit={() => editorSession.scheduleAutosave()}
-														oninserted={handleSourceInserted}
-													/>
-												{/key}
+												{@render sourceMonitorPanel()}
 											</div>
 										{/if}
 									{/if}

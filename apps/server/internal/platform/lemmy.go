@@ -577,7 +577,8 @@ func (l *LemmyAdapter) AccountContentDiscoverySupport(input AnalyticsAccountCont
 	if strings.TrimSpace(input.AccountID) == "" {
 		return AccountContentDiscoverySupport{UnavailableReason: "Lemmy account content discovery requires a stable account identity."}
 	}
-	return AccountContentDiscoverySupport{Supported: true, MaxPageSize: 20}
+	// Pages are numbered at a fixed size, so the job must not ask for less.
+	return AccountContentDiscoverySupport{Supported: true, MinPageSize: lemmyAccountContentPageSize, MaxPageSize: lemmyAccountContentPageSize}
 }
 
 func (l *LemmyAdapter) DiscoverAccountContent(ctx context.Context, accessToken string, input AccountContentDiscoveryRequest) (AccountContentPage, error) {

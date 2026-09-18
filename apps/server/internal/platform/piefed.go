@@ -548,7 +548,8 @@ func (p *PieFedAdapter) AccountContentDiscoverySupport(input AnalyticsAccountCon
 	if strings.TrimSpace(input.AccountID) == "" {
 		return AccountContentDiscoverySupport{UnavailableReason: "PieFed account content discovery requires a stable account identity."}
 	}
-	return AccountContentDiscoverySupport{Supported: true, MaxPageSize: 20}
+	// Pages are numbered at a fixed size, so the job must not ask for less.
+	return AccountContentDiscoverySupport{Supported: true, MinPageSize: 20, MaxPageSize: 20}
 }
 
 func (p *PieFedAdapter) DiscoverAccountContent(ctx context.Context, accessToken string, input AccountContentDiscoveryRequest) (AccountContentPage, error) {

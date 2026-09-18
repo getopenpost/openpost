@@ -386,6 +386,32 @@ func TestPeerTubeCatalogDecodeFailureIsReported(t *testing.T) {
 	require.ErrorContains(t, err, "decoding peertube categories")
 }
 
+func TestPeerTubeCatalogNullIsReported(t *testing.T) {
+	// A JSON null body decodes without error but leaves the catalog nil;
+	// it is a malformed catalog, not an empty picker.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`null`))
+	}))
+	defer server.Close()
+
+	adapter := NewPeerTubeAdapter(server.URL)
+	_, err := adapter.SearchPublishingOptions(t.Context(), "atok", PublishingOptionsInput{Source: "peertube_licences"})
+	require.ErrorContains(t, err, "decoding peertube licences")
+}
+
+func TestPeerTubeCatalogNonnumericIDIsReported(t *testing.T) {
+	// Catalog keys are numeric ids. A nonnumeric key must not silently
+	// become id 0, which the upload builder treats as unset.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"1":"Music","invalid":"Gaming"}`))
+	}))
+	defer server.Close()
+
+	adapter := NewPeerTubeAdapter(server.URL)
+	_, err := adapter.SearchPublishingOptions(t.Context(), "atok", PublishingOptionsInput{Source: "peertube_categories"})
+	require.ErrorContains(t, err, `invalid catalog id "invalid"`)
+}
+
 func TestPeerTubeAnalytics(t *testing.T) {
 	server, _ := newFakePeerTube(t)
 	defer server.Close()

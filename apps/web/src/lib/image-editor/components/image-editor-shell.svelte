@@ -3357,22 +3357,26 @@
 						{#snippet icon()}
 							{#if shapeSlotKind === 'line'}
 								<ThemeIcon role="remove" />
+							{:else if shapeSlotKind === 'rounded_rectangle'}
+								<ProtectedIcon icon="editor-shape-rounded-rectangle" />
+							{:else if shapeSlotKind === 'ellipse'}
+								<ProtectedIcon icon="editor-shape-ellipse" />
 							{:else}
-								<ProtectedIcon icon="editor-shapes" />
+								<ProtectedIcon icon="editor-shape-rectangle" />
 							{/if}
 						{/snippet}
 						{#snippet menu()}
 							<DropdownMenu.Item onclick={() => insertShape('rectangle')}>
-								<ProtectedIcon icon="editor-shapes" />
+								<ProtectedIcon icon="editor-shape-rectangle" />
 								{m.image_editor_rectangle()}
 								<span class="ml-auto text-xs text-muted-foreground">U</span>
 							</DropdownMenu.Item>
 							<DropdownMenu.Item onclick={() => insertShape('rounded_rectangle')}>
-								<ProtectedIcon icon="editor-shapes" />
+								<ProtectedIcon icon="editor-shape-rounded-rectangle" />
 								{m.image_editor_rounded_rectangle()}
 							</DropdownMenu.Item>
 							<DropdownMenu.Item onclick={() => insertShape('ellipse')}>
-								<ProtectedIcon icon="editor-shapes" />
+								<ProtectedIcon icon="editor-shape-ellipse" />
 								{m.image_editor_ellipse()}
 							</DropdownMenu.Item>
 							<DropdownMenu.Item onclick={() => insertShape('line')}>

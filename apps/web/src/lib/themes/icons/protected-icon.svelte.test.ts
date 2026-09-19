@@ -29,6 +29,9 @@ describe('ProtectedIcon', () => {
 		'editor-record',
 		'editor-scenes',
 		'editor-shapes',
+		'editor-shape-rectangle',
+		'editor-shape-rounded-rectangle',
+		'editor-shape-ellipse',
 		'editor-stickers',
 		'editor-text',
 		'editor-transitions'
@@ -39,5 +42,17 @@ describe('ProtectedIcon', () => {
 		expect(icon).not.toBeNull();
 		expect(icon?.getAttribute('data-theme-icon')).toBeNull();
 		expect(icon?.getAttribute('data-icon-pack')).toBeNull();
+	});
+
+	it.each([
+		['editor-shape-rectangle', 'lucide-rectangle-horizontal'],
+		['editor-shape-rounded-rectangle', 'lucide-squircle'],
+		['editor-shape-ellipse', 'lucide-circle']
+	] as const)('gives %s its own recognizable glyph', async (role, glyphClass) => {
+		const screen = await render(ProtectedIcon, { icon: role });
+		const icon = screen.container.querySelector(`[data-protected-icon="${role}"]`);
+
+		expect(icon).not.toBeNull();
+		expect(icon?.classList.contains(glyphClass)).toBe(true);
 	});
 });

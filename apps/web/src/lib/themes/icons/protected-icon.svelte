@@ -21,6 +21,7 @@
 	import BringToFrontIcon from '@lucide/svelte/icons/bring-to-front';
 	import BrushIcon from '@lucide/svelte/icons/brush';
 	import CaptionsIcon from '@lucide/svelte/icons/captions';
+	import CircleIcon from '@lucide/svelte/icons/circle';
 	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
 	import ClapperboardIcon from '@lucide/svelte/icons/clapperboard';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
@@ -56,6 +57,7 @@
 	import PipetteIcon from '@lucide/svelte/icons/pipette';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import RadioIcon from '@lucide/svelte/icons/radio';
+	import RectangleHorizontalIcon from '@lucide/svelte/icons/rectangle-horizontal';
 	import RepeatIcon from '@lucide/svelte/icons/repeat';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import RotateCwIcon from '@lucide/svelte/icons/rotate-cw';
@@ -73,6 +75,7 @@
 	import SquareDashedMousePointerIcon from '@lucide/svelte/icons/square-dashed-mouse-pointer';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import StickerIcon from '@lucide/svelte/icons/sticker';
+	import SquircleIcon from '@lucide/svelte/icons/squircle';
 	import TypeIcon from '@lucide/svelte/icons/type';
 	import UngroupIcon from '@lucide/svelte/icons/ungroup';
 	import WarningIcon from '@lucide/svelte/icons/triangle-alert';
@@ -107,6 +110,9 @@
 			'editor-record': VideoIcon,
 			'editor-scenes': ClapperboardIcon,
 			'editor-shapes': ShapesIcon,
+			'editor-shape-rectangle': RectangleHorizontalIcon,
+			'editor-shape-rounded-rectangle': SquircleIcon,
+			'editor-shape-ellipse': CircleIcon,
 			'editor-stickers': StickerIcon,
 			'editor-text': TypeIcon,
 			'editor-transitions': BetweenHorizontalStartIcon,

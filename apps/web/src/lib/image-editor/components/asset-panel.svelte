@@ -314,7 +314,7 @@
 					title={m.image_editor_rectangle()}
 					onclick={() => editor.addShape('rectangle')}
 				>
-					<ProtectedIcon icon="editor-shapes" />
+					<ProtectedIcon icon="editor-shape-rectangle" />
 				</Button>
 				<Button
 					variant="outline"
@@ -323,7 +323,7 @@
 					title={m.image_editor_rounded_rectangle()}
 					onclick={() => editor.addShape('rounded_rectangle')}
 				>
-					<ProtectedIcon icon="editor-shapes" class="rounded-sm" />
+					<ProtectedIcon icon="editor-shape-rounded-rectangle" />
 				</Button>
 				<Button
 					variant="outline"
@@ -332,7 +332,7 @@
 					title={m.image_editor_ellipse()}
 					onclick={() => editor.addShape('ellipse')}
 				>
-					<ProtectedIcon icon="editor-shapes" />
+					<ProtectedIcon icon="editor-shape-ellipse" />
 				</Button>
 				<Button
 					variant="outline"

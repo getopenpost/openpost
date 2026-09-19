@@ -24,7 +24,7 @@ for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/api-reference");
     const navigation = page.getByRole("navigation", { name: "Documentation sections" });
-    const active = navigation.getByRole("link", { name: "Automate" });
+    const active = navigation.getByRole("link", { name: "API reference" });
     await expect
       .poll(async () => active.evaluate((element) => element.getBoundingClientRect().right))
       .toBeLessThanOrEqual(width);
@@ -41,16 +41,34 @@ for (const width of [320, 390]) {
   });
 }
 
-test("top navigation opens each section and groups the API under Automate", async ({ page }) => {
+test("top navigation keeps the requested section order and active state", async ({ page }) => {
   const navigation = page.getByRole("navigation", { name: "Documentation sections" });
+  await page.goto("/");
+  await expect(navigation.getByRole("link")).toHaveText([
+    "Guides",
+    "Self-hosting",
+    "AI assistants",
+    "Automate",
+    "Video Editor",
+    "Image Editor",
+    "API reference",
+  ]);
+  await expect(page.locator(".home-paths").getByRole("link")).toHaveText([
+    "Install OpenPost on your own server",
+    "Connect an AI assistant",
+    "Automate OpenPost",
+    "Edit a video",
+    "Design an image",
+    "Browse the API reference",
+  ]);
   for (const [route, section, heading] of [
     ["/", "Guides", "OpenPost documentation"],
+    ["/self-hosting", "Self-hosting", "Self-host OpenPost"],
+    ["/mcp", "AI assistants", "AI assistants"],
+    ["/automate", "Automate", "Automate"],
     ["/video-editor", "Video Editor", "Video Editor"],
     ["/image-editor", "Image Editor", "Image Editor"],
-    ["/automate", "Automate", "Automate"],
-    ["/api-reference", "Automate", "API reference"],
-    ["/mcp", "AI assistants", "AI assistants"],
-    ["/self-hosting", "Self-hosting", "Self-host OpenPost"],
+    ["/api-reference", "API reference", "API reference"],
   ] as const) {
     await page.goto(route);
     await expect(navigation.getByRole("link", { name: section })).toHaveAttribute(
@@ -61,9 +79,19 @@ test("top navigation opens each section and groups the API under Automate", asyn
   }
 });
 
-test("search filters keep product and automation sections separate", async ({ page }) => {
+test("search filters keep guides, automation, and API reference separate", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Search documentation/ }).click();
+  await expect(page.locator(".docs-search-filters").getByRole("button")).toHaveText([
+    "All docs",
+    "Guides",
+    "Self-hosting",
+    "AI assistants",
+    "Automate",
+    "Video Editor",
+    "Image Editor",
+    "API reference",
+  ]);
   await page.getByRole("textbox").fill("publication");
   await page.getByRole("button", { name: "All docs", exact: true }).focus();
   await page.keyboard.press("Tab");
@@ -78,6 +106,9 @@ test("search filters keep product and automation sections separate", async ({ pa
   await page.getByRole("button", { name: "Automate", exact: true }).click();
   await expect(page.getByRole("button", { name: /Docs Automate/ }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Docs Guides/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "API reference", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Docs API reference/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Docs Automate/ })).toHaveCount(0);
   await page.getByRole("button", { name: /Close/i }).click();
   await expect(page.getByRole("textbox")).not.toBeVisible();
 });

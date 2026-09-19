@@ -14,6 +14,7 @@ import {
   Clapperboard,
   Image as ImageIcon,
   Workflow,
+  Code2,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 
@@ -29,6 +30,7 @@ export function SectionNav() {
     automate: Workflow,
     mcp: Bot,
     "self-hosting": Server,
+    "api-reference": Code2,
   };
   useEffect(() => {
     const nav = navigation.current;

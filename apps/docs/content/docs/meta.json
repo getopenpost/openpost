@@ -2,12 +2,12 @@
   "pages": [
     "index",
     "guides",
+    "self-hosting",
+    "mcp",
+    "automate",
     "video-editor",
     "image-editor",
-    "automate",
-    "api-reference",
-    "mcp",
-    "self-hosting"
+    "api-reference"
   ],
   "defaultOpen": true
 }

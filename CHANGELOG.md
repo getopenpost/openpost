@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.36.3] - 2026-09-19
+
+### Changed
+
+- Prepared Android 0.2.37 for the current OpenPost API contract.
+
 ## [4.36.2] - 2026-09-19
 
 ### Changed

@@ -26,6 +26,8 @@
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { formatShortcutBinding } from '$lib/video-editor/settings/keyboard-shortcuts';
 	import TimelineVoiceoverControl from './timeline-voiceover-control.svelte';
+	import TimelineVoiceoverMenu from './timeline-voiceover-menu.svelte';
+	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
 	import {
 		setCurrentFrame,
 		setInPoint,
@@ -159,6 +161,7 @@
 <div
 	class="flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2 md:h-8 [@media(pointer:coarse)]:h-12"
 	data-video-transport
+	data-voiceover-active={voiceoverRecorder.sessionOpen}
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
@@ -182,6 +185,7 @@
 			<ThemeIcon role="chevron-left" />
 		</Button>
 		<Button
+			class="voiceover-secondary"
 			size="icon-xs"
 			aria-label={playing ? m.video_editor_pause() : m.video_editor_play()}
 			onclick={() =>
@@ -217,58 +221,60 @@
 		</Button>
 		<TimelineVoiceoverControl {projectId} oninserted={onvoiceoverinserted} />
 
-		<Popover.Root>
-			<Popover.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						size="icon-xs"
-						variant="ghost"
-						aria-label={m.video_editor_monitor_volume()}
-						title={previewPlaybackSettings.muted
-							? m.video_editor_monitor_muted()
-							: m.video_editor_monitor_percent({ percent: monitorPercent })}
-					>
-						{#if previewPlaybackSettings.muted || previewPlaybackSettings.volume === 0}
-							<ProtectedIcon icon="editor-volume-muted" />
-						{:else if previewPlaybackSettings.volume < 0.5}
-							<ProtectedIcon icon="editor-volume-low" />
-						{:else}
-							<ProtectedIcon icon="editor-volume-high" />
-						{/if}
-					</Button>
-				{/snippet}
-			</Popover.Trigger>
-			<Popover.Content side="top" class="video-editor-theme w-56 space-y-2 p-3">
-				<div class="flex items-center gap-2">
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label={previewPlaybackSettings.muted
-							? m.video_editor_monitor_unmute()
-							: m.video_editor_monitor_mute()}
-						onclick={() => previewPlaybackSettings.toggleMute()}
-					>
-						{#if previewPlaybackSettings.muted}<ProtectedIcon
-								icon="editor-volume-muted"
-							/>{:else}<ProtectedIcon icon="editor-volume-high" />{/if}
-					</Button>
-					<Slider
-						value={previewPlaybackSettings.muted ? 0 : previewPlaybackSettings.volume}
-						min={0}
-						max={1}
-						step={0.01}
-						ariaLabel={m.video_editor_monitor_volume()}
-						onValueChange={(value) => previewPlaybackSettings.setVolume(value)}
-					/>
-					<span class="w-9 text-right text-xs text-muted-foreground tabular-nums">
-						{previewPlaybackSettings.muted
-							? m.video_editor_monitor_mute_short()
-							: `${monitorPercent}%`}
-					</span>
-				</div>
-			</Popover.Content>
-		</Popover.Root>
+		<div class="voiceover-secondary contents">
+			<Popover.Root>
+				<Popover.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							size="icon-xs"
+							variant="ghost"
+							aria-label={m.video_editor_monitor_volume()}
+							title={previewPlaybackSettings.muted
+								? m.video_editor_monitor_muted()
+								: m.video_editor_monitor_percent({ percent: monitorPercent })}
+						>
+							{#if previewPlaybackSettings.muted || previewPlaybackSettings.volume === 0}
+								<ProtectedIcon icon="editor-volume-muted" />
+							{:else if previewPlaybackSettings.volume < 0.5}
+								<ProtectedIcon icon="editor-volume-low" />
+							{:else}
+								<ProtectedIcon icon="editor-volume-high" />
+							{/if}
+						</Button>
+					{/snippet}
+				</Popover.Trigger>
+				<Popover.Content side="top" class="video-editor-theme w-56 space-y-2 p-3">
+					<div class="flex items-center gap-2">
+						<Button
+							size="icon-xs"
+							variant="ghost"
+							aria-label={previewPlaybackSettings.muted
+								? m.video_editor_monitor_unmute()
+								: m.video_editor_monitor_mute()}
+							onclick={() => previewPlaybackSettings.toggleMute()}
+						>
+							{#if previewPlaybackSettings.muted}<ProtectedIcon
+									icon="editor-volume-muted"
+								/>{:else}<ProtectedIcon icon="editor-volume-high" />{/if}
+						</Button>
+						<Slider
+							value={previewPlaybackSettings.muted ? 0 : previewPlaybackSettings.volume}
+							min={0}
+							max={1}
+							step={0.01}
+							ariaLabel={m.video_editor_monitor_volume()}
+							onValueChange={(value) => previewPlaybackSettings.setVolume(value)}
+						/>
+						<span class="w-9 text-right text-xs text-muted-foreground tabular-nums">
+							{previewPlaybackSettings.muted
+								? m.video_editor_monitor_mute_short()
+								: `${monitorPercent}%`}
+						</span>
+					</div>
+				</Popover.Content>
+			</Popover.Root>
+		</div>
 		<Button
 			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
@@ -286,7 +292,7 @@
 	</div>
 
 	<span
-		class="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums sm:px-2"
+		class="voiceover-secondary shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums sm:px-2"
 		aria-label={`${timecode} / ${totalFrames}`}
 	>
 		{timecode}
@@ -314,7 +320,7 @@
 		{/if}
 	</div>
 
-	<div class="ml-auto flex shrink-0 items-center gap-1">
+	<div class="voiceover-secondary ml-auto flex shrink-0 items-center gap-1">
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
@@ -330,7 +336,12 @@
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end" side="top" class="video-editor-theme min-w-48">
+			<DropdownMenu.Content
+				align="end"
+				side="top"
+				class="transport-overflow video-editor-theme min-w-48"
+			>
+				<TimelineVoiceoverMenu {projectId} />
 				<DropdownMenu.Item disabled={timelineStore.seekLocked} onclick={() => setCurrentFrame(0)}>
 					<ProtectedIcon icon="editor-skip-back" />{m.video_editor_go_to_start()}
 				</DropdownMenu.Item>
@@ -509,3 +520,19 @@
 		</Button>
 	</div>
 </div>
+
+<style>
+	@container program (max-width: 799px) {
+		[data-video-transport][data-voiceover-active='true'] .voiceover-secondary {
+			display: none;
+		}
+	}
+
+	@media (pointer: coarse) {
+		:global(.transport-overflow [data-slot='dropdown-menu-item']),
+		:global(.transport-overflow [data-slot='dropdown-menu-checkbox-item']),
+		:global(.transport-overflow [data-slot='dropdown-menu-sub-trigger']) {
+			min-height: 2.75rem;
+		}
+	}
+</style>

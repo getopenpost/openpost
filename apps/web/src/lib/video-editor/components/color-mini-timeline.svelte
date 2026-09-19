@@ -695,7 +695,10 @@
 	}
 
 	@media (max-height: 600px) and (pointer: coarse) {
-		.color-mini-timeline--compact,
+		.color-mini-timeline--compact {
+			height: 2.875rem;
+		}
+
 		.color-mini-timeline--compact .compact-clip-switcher {
 			height: 2.75rem;
 		}

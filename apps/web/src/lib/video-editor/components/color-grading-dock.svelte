@@ -361,6 +361,7 @@
 		.dock-tool,
 		.scope-button {
 			height: 2.75rem;
+			min-height: 2.75rem;
 			min-width: 2.75rem;
 		}
 	}

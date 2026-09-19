@@ -82,7 +82,12 @@
 
 {#if voiceoverRecorder.supported}
 	{#if voiceoverRecorder.status === 'idle' || voiceoverRecorder.status === 'requesting'}
-		<div class="flex shrink-0 items-center gap-0.5" data-voiceover-control>
+		<div
+			class="shrink-0 items-center gap-0.5 {voiceoverRecorder.status === 'idle'
+				? 'hidden @min-[800px]/program:flex'
+				: 'flex'}"
+			data-voiceover-control
+		>
 			<Button
 				size="icon-xs"
 				variant="ghost"

@@ -19,9 +19,25 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "automate/api.mdx",
+    "page": "automate/api/authentication.mdx",
+    "title": "Authentication and workspaces",
+    "description": "Create a developer token and make your first authenticated API request.",
+    "route": "/automate/api/authentication",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/api/index.mdx",
     "title": "HTTP API",
-    "description": "Authenticate, call OpenPost over HTTP, and follow the generated API contract.",
+    "description": "Integrate OpenPost over HTTP from any language or runtime.",
     "route": "/automate/api",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -35,10 +51,122 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "automate/cli.mdx",
+    "page": "automate/api/media.mdx",
+    "title": "Media uploads",
+    "description": "Upload bytes through OpenPost's storage-safe HTTP flow.",
+    "route": "/automate/api/media",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/api/publications.mdx",
+    "title": "Publications and Renditions",
+    "description": "Create drafts, customize destinations, and run the Publication lifecycle over HTTP.",
+    "route": "/automate/api/publications",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/api/reliability.mdx",
+    "title": "Revisions, retries, and jobs",
+    "description": "Prevent duplicate writes and verify background publishing outcomes.",
+    "route": "/automate/api/reliability",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/cli/index.mdx",
     "title": "Command-line interface",
-    "description": "Install the openpost CLI, sign in, and publish from a shell or script.",
+    "description": "Control OpenPost from a shell, script, CI job, or terminal-capable agent.",
     "route": "/automate/cli",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/cli/inspect-and-recover.mdx",
+    "title": "Inspect and recover",
+    "description": "Check publishing state, diagnose an instance, and retry failed destinations.",
+    "route": "/automate/cli/inspect-and-recover",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/cli/publishing.mdx",
+    "title": "Create and publish content",
+    "description": "Create text, threads, media posts, and format-specific Publications from the CLI.",
+    "route": "/automate/cli/publishing",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/cli/scripts-and-ci.mdx",
+    "title": "Scripts and CI",
+    "description": "Use stable JSON output, explicit profiles, and secret-safe authentication in automation.",
+    "route": "/automate/cli/scripts-and-ci",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/cli/setup.mdx",
+    "title": "Install and sign in",
+    "description": "Install the CLI, create an instance profile, authenticate, and select a workspace.",
+    "route": "/automate/cli/setup",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -68,9 +196,25 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "automate/n8n.mdx",
+    "page": "automate/n8n/build-a-workflow.mdx",
+    "title": "Build a publishing workflow",
+    "description": "Turn incoming n8n items into validated and scheduled OpenPost Publications.",
+    "route": "/automate/n8n/build-a-workflow",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/n8n/index.mdx",
     "title": "n8n workflows",
-    "description": "Run OpenPost steps on a timer or webhook with the official n8n node.",
+    "description": "Build visual OpenPost workflows with the official n8n community node.",
     "route": "/automate/n8n",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -84,10 +228,122 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "automate/sdk.mdx",
+    "page": "automate/n8n/media.mdx",
+    "title": "Upload binary data",
+    "description": "Send files from an n8n item to the OpenPost media library.",
+    "route": "/automate/n8n/media",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/n8n/reliability.mdx",
+    "title": "Retries and failures",
+    "description": "Make n8n workflows safe to rerun and keep errors tied to their input items.",
+    "route": "/automate/n8n/reliability",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/n8n/setup.mdx",
+    "title": "Install and connect",
+    "description": "Install the OpenPost community node and configure a least-privilege credential.",
+    "route": "/automate/n8n/setup",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/sdk/index.mdx",
     "title": "TypeScript SDK",
-    "description": "Call OpenPost from Node.js, Bun, or Workers with @getopenpost/sdk.",
+    "description": "Build OpenPost scripts and services with @getopenpost/sdk.",
     "route": "/automate/sdk",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/sdk/media.mdx",
+    "title": "Upload media",
+    "description": "Upload files safely with the TypeScript SDK and attach them to Publications.",
+    "route": "/automate/sdk/media",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/sdk/publications.mdx",
+    "title": "Publications and Renditions",
+    "description": "Create a draft, customize destinations, validate it, and publish it with the SDK.",
+    "route": "/automate/sdk/publications",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/sdk/reliability.mdx",
+    "title": "Jobs, conflicts, and errors",
+    "description": "Make SDK automation safe to rerun and easy to diagnose.",
+    "route": "/automate/sdk/reliability",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/sdk/setup.mdx",
+    "title": "Install and connect",
+    "description": "Configure the OpenPost TypeScript SDK for Hosted or self-hosted OpenPost.",
+    "route": "/automate/sdk/setup",
     "agentRepresentation": {
       "membership": "ordinary"
     },

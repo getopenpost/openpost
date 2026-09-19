@@ -1,0 +1,42 @@
+---
+title: Revisions, retries, and jobs
+description: Prevent duplicate writes and verify background publishing outcomes.
+---
+
+## Protect writes with revisions
+
+Publication responses include a `revision`. Send that value as `expected_revision` when the operation asks for it. If someone edits the Publication first, OpenPost returns `409` instead of overwriting their change.
+
+Read the current Publication after a conflict. Compare it with your intended change, then submit a new request with the current revision.
+
+## Protect replays with idempotency keys
+
+Send a stable `Idempotency-Key` for operations that declare the header in the [API reference](/api-reference). Reuse the same key only when retrying the same logical request with the same input. OpenPost returns `409` when the key was already used with different input.
+
+Do not retry an uncertain mutation unless the operation supports idempotency or you first read the saved state.
+
+## Follow durable jobs
+
+Schedule and publish responses can include a `job_id`. Poll `GET /jobs/{id}` until it reaches `completed` or `failed`, then read the Publication for each Rendition's provider result.
+
+```sh
+curl https://app.openpo.st/api/v1/jobs/job_... \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Accept: application/json"
+```
+
+A successful queue response means OpenPost accepted the work. It does not mean every provider published the content.
+
+## Handle errors by status
+
+| Status | Action                                                                    |
+| ------ | ------------------------------------------------------------------------- |
+| `401`  | Replace the missing, invalid, expired, or revoked token                   |
+| `403`  | Check the token scope, workspace binding, account state, and plan         |
+| `404`  | Check the path, resource ID, and token visibility                         |
+| `409`  | Re-read after a revision conflict, or correct an idempotency-key mismatch |
+| `422`  | Fix the request or provider validation issues                             |
+| `429`  | Honor `Retry-After`                                                       |
+| `5xx`  | Retry safe reads with backoff; inspect state before replaying a write     |
+
+Record the response's `X-Request-ID` in integration logs. It helps trace one failed request without logging credentials or full payloads.

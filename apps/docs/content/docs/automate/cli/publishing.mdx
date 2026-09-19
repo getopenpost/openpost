@@ -1,0 +1,71 @@
+---
+title: Create and publish content
+description: Create text, threads, media posts, and format-specific Publications from the CLI.
+---
+
+## Text posts
+
+Use `post` for short text and simple scheduled posts:
+
+```sh
+openpost post create \
+  --content "The new import flow is live." \
+  --accounts x,linkedin
+```
+
+Add `--schedule "tomorrow 2pm"`, an RFC 3339 timestamp, or `--schedule next-slot`. The CLI shows the resolved time before it accepts a natural-language schedule.
+
+Omit `--accounts` to create a draft without destinations.
+
+## Threads
+
+Separate thread segments with a line containing `---`:
+
+```md
+We rebuilt the import flow.
+
+---
+
+It now checks every row before saving.
+```
+
+```sh
+openpost thread create ./thread.md --accounts x --schedule next-slot
+```
+
+## Media and provider-specific formats
+
+`--media` accepts an existing media ID or a local file path. Repeat it for multiple attachments:
+
+```sh
+openpost publication create \
+  --content-profile image_post \
+  --accounts linkedin \
+  --content "The new import flow is live." \
+  --media ./cover.png \
+  --media-alt "Product import screen with the completed file list"
+```
+
+Use `publication create` for link shares, carousels, stories, short video, and long video. Provider-specific flags include `--video-title`, `--video-description`, `--privacy`, `--tiktok-method`, and `--tiktok-privacy`.
+
+```sh
+openpost publication create \
+  --content-profile long_video \
+  --accounts youtube \
+  --video-title "Import walkthrough" \
+  --video-description "A complete walkthrough of the new flow." \
+  --privacy private \
+  --media ./walkthrough.mp4
+```
+
+Run `openpost provider readiness --json` before a new provider workflow. Use `openpost provider capabilities --provider <key> --json` before choosing a content profile or provider setting.
+
+## Validate and run the lifecycle
+
+```sh
+openpost publication validate <publication-id> --json
+openpost publication schedule <publication-id> --at "Friday 10am"
+openpost publication publish-now <publication-id>
+```
+
+Creating a Publication never publishes it as a hidden side effect. A `--schedule` on the create command creates the draft, then schedules that saved Publication.

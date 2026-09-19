@@ -1,0 +1,31 @@
+---
+title: Install and connect
+description: Install the OpenPost community node and configure a least-privilege credential.
+---
+
+## Install the node
+
+In n8n, open **Settings → Community nodes**, select **Install**, and enter:
+
+```text
+@getopenpost/n8n-nodes-openpost
+```
+
+Your n8n runtime must use Node.js 22.22 or newer.
+
+## Create an OpenPost credential
+
+Create a developer token in OpenPost under **Settings → Personal → Developer**. Use a workspace-bound `api:write` token for a workflow that creates or changes content. Name the token after the n8n workflow or instance so it is easy to revoke later.
+
+Add an **OpenPost API** credential in n8n:
+
+- **Base URL:** `https://app.openpo.st`, or the public origin of your self-hosted instance. Do not append `/api` or `/api/v1`.
+- **API Token:** the OpenPost developer token.
+
+If n8n runs in Docker, `localhost` means the n8n container. Use the OpenPost Compose service name when both services share a network, or `host.docker.internal` when OpenPost runs on the host.
+
+## Test access
+
+Import the package's `list-workspaces` example, select the OpenPost credential, and run it. The returned items show which workspaces the token can access.
+
+Do this read-only check before adding write actions. A workspace-bound token cannot write to another workspace even when a node receives its ID from earlier input.

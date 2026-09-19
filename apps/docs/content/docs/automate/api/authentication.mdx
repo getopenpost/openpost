@@ -1,0 +1,25 @@
+---
+title: Authentication and workspaces
+description: Create a developer token and make your first authenticated API request.
+---
+
+Create a developer token in **Settings → Personal → Developer**. Use `api:read` for reads or `api:write` for changes. For unattended work, create one token per integration, bind it to one workspace when possible, and set an expiry.
+
+Send the token as a bearer token:
+
+```sh
+curl https://app.openpo.st/api/v1/workspaces \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Accept: application/json"
+```
+
+Use an ID from the response whenever an operation asks for `workspace_id`. OpenPost checks scope and workspace access on every private request. Passing a different workspace ID does not expand a workspace-bound token.
+
+## Store credentials
+
+- Put tokens in your platform's secret store, not in source code or command history.
+- Keep Hosted and self-hosted tokens separate.
+- Revoke a token when the integration no longer runs.
+- Use HTTPS for every remote instance.
+
+`401` means the bearer token is missing, invalid, expired, or revoked. `403` means the token is valid but lacks a required scope or workspace, or the requested account or plan cannot run the operation.

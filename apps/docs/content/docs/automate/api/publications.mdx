@@ -1,0 +1,58 @@
+---
+title: Publications and Renditions
+description: Create drafts, customize destinations, and run the Publication lifecycle over HTTP.
+---
+
+A Publication owns the source idea, schedule, and lifecycle. A Rendition is the destination-specific version for one connected account.
+
+## Create a draft
+
+```sh
+curl https://app.openpo.st/api/v1/publications \
+  -X POST \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: release-2026-09-19-draft" \
+  --data '{
+    "workspace_id": "ws_...",
+    "title": "Launch day",
+    "content_profile": "short_text",
+    "source_text": "The new import flow is live.",
+    "social_account_ids": ["acc_linkedin", "acc_x"]
+  }'
+```
+
+Creating a Publication does not publish it. Omit `social_account_ids` for a draft without destinations. Pass `social_set_id` to initialize the destination snapshot from a Social Set.
+
+The server records raw HTTP creation as `creation_source: "api"`. The TypeScript SDK sends its own client identity and records `creation_source: "sdk"` instead.
+
+## Validate and publish
+
+Validate the saved Publication before scheduling or publishing:
+
+```sh
+curl https://app.openpo.st/api/v1/publications/pub_.../validate \
+  -X POST \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{}'
+```
+
+Send the revision from the latest Publication response when you schedule, publish, cancel, update, or replace Renditions:
+
+```sh
+curl https://app.openpo.st/api/v1/publications/pub_.../schedule \
+  -X POST \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: release-2026-09-19-schedule" \
+  --data '{"expected_revision": 3}'
+```
+
+A `409` conflict means the Publication changed after revision 3. Read it again and reconcile the newer state before another write.
+
+## Inspect each destination
+
+Read `GET /publications/{id}` after the job finishes. Check each Rendition's status, provider URL, and error fields. Use `GET /publications/{id}/events` when you need the ordered lifecycle history.
+
+Start with the [create Publication reference](/api-reference/publications/create-publication), then use the operation list to find update bodies, Rendition fields, filters, cancellation, deletion, and failed-destination retries.

@@ -1,0 +1,28 @@
+---
+title: HTTP API
+description: Integrate OpenPost over HTTP from any language or runtime.
+icon: FileCode
+---
+
+Use the HTTP API when you need raw HTTP, use a language other than JavaScript or TypeScript, or need an operation that the SDK does not cover.
+
+Hosted uses this base URL:
+
+```text
+https://app.openpo.st/api/v1
+```
+
+For self-hosting, append `/api/v1` to the public OpenPost origin.
+
+## Start here
+
+1. [Authenticate and select a workspace](/automate/api/authentication)
+2. [Create and publish content](/automate/api/publications)
+3. [Upload media](/automate/api/media)
+4. [Handle revisions, retries, and jobs](/automate/api/reliability)
+
+## Contract and reference
+
+The [API reference](/api-reference) is generated from the current OpenAPI contract. It lists every path, body, response, parameter, and required header. These guides explain common workflows and do not replace that reference.
+
+Download the contract from [`/openapi.json`](/openapi.json) to generate a client. Do not copy request or response schemas into your integration because those copies drift when the API changes.

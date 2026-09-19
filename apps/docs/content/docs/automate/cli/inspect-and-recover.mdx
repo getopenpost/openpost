@@ -1,0 +1,45 @@
+---
+title: Inspect and recover
+description: Check publishing state, diagnose an instance, and retry failed destinations.
+---
+
+Read the saved object after every write:
+
+```sh
+openpost publication view <publication-id> --json
+openpost publication events <publication-id> --json
+openpost jobs list --json
+```
+
+`scheduled`, `publishing`, and a queued job are not final provider outcomes. Inspect every Rendition. A failed Rendition includes provider error details when the provider returned them.
+
+## Retry one destination
+
+Retry only the failed account instead of republishing successful destinations:
+
+```sh
+openpost publication retry <publication-id> <account-id>
+```
+
+Read the Publication and events again after the retry. Do not assume a successful queue response means the provider accepted the post.
+
+## Check the instance
+
+```sh
+openpost instance health
+openpost auth status --json
+openpost provider readiness --json
+openpost instance diagnostics --json
+```
+
+`instance diagnostics` creates a secret-safe support snapshot. Add `--deployment docker-compose`, `--provider <key>`, or `--logs-file <path>` when those checks apply.
+
+## Give the CLI to an AI agent
+
+The `openpost-cli` agent skill teaches compatible coding assistants how to inspect context, choose a command, validate the result, and read the lifecycle afterward.
+
+```sh
+npx skills add https://github.com/getopenpost/openpost --skill openpost-cli
+```
+
+Use the skill when an assistant already has terminal access. Use [MCP](/mcp) when the assistant supports MCP and you want a direct OpenPost connection without relying on shell commands.

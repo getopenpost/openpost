@@ -1,0 +1,33 @@
+---
+title: Retries and failures
+description: Make n8n workflows safe to rerun and keep errors tied to their input items.
+---
+
+## Idempotency keys
+
+Write actions send an `Idempotency-Key`. When you leave the field blank, the node derives a key from the n8n execution ID, action, and input item index.
+
+Keep the same key only when retrying the same logical action with the same input. A different payload with a reused key can return a conflict.
+
+## Automatic retries
+
+The node retries transient network failures and `429`, `502`, `503`, and `504` responses for reads. It retries a write only when the action has an idempotency key.
+
+Revision conflicts are not transient. Read the Publication again and decide whether to keep the user's change, apply the workflow's change, or stop for review.
+
+## Multiple items
+
+The OpenPost node preserves n8n item linking. An output item stays connected to the input item that produced it. Enable continue-on-fail only when later nodes can distinguish error items and handle them safely.
+
+## Diagnose a failed item
+
+Errors include the OpenPost `X-Request-ID` when the server returns one. Store that ID with the n8n execution ID. Do not log the OpenPost token or full credential object.
+
+For a publishing failure:
+
+1. Read the job if the action returned a job ID.
+2. Read the Publication and its Renditions.
+3. Read Publication events for the provider error and attempt history.
+4. Use **Retry Failed Renditions** only after fixing the reported issue.
+
+Do not rerun the whole workflow when it would create a second draft. Resume from the saved Publication ID.

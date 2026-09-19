@@ -1,0 +1,22 @@
+---
+title: n8n workflows
+description: Build visual OpenPost workflows with the official n8n community node.
+icon: Boxes
+---
+
+Use `@getopenpost/n8n-nodes-openpost` when a timer, webhook, form, database, or another n8n node should create OpenPost content. The node calls the normal OpenPost API and follows the same workspace and Publication lifecycle rules as the web app.
+
+The package requires Node.js 22.22 or newer in the n8n runtime. Its version is independent from the OpenPost app version.
+
+## Start here
+
+1. [Install the node and create credentials](/automate/n8n/setup)
+2. [Build a draft-to-publish workflow](/automate/n8n/build-a-workflow)
+3. [Upload n8n binary data](/automate/n8n/media)
+4. [Handle retries and failures](/automate/n8n/reliability)
+
+## Available work
+
+The node can list workspaces and accounts, check provider readiness, resolve Social Sets, find the next posting slot, upload media, manage the Publication lifecycle, read lifecycle events, and inspect jobs.
+
+This package does not include an OpenPost trigger. Start with n8n's Schedule Trigger, Webhook, or another trigger. OpenPost-specific triggers will depend on the generic event and webhook API rather than an n8n-only endpoint.

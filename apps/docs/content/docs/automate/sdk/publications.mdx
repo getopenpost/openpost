@@ -1,0 +1,72 @@
+---
+title: Publications and Renditions
+description: Create a draft, customize destinations, validate it, and publish it with the SDK.
+---
+
+A Publication owns the source idea and lifecycle. A Rendition is the version for one connected account. Create a draft first, inspect it, then validate and schedule or publish it.
+
+## Create a draft
+
+```ts
+const draft = await openpost.publications.create({
+  workspace_id: openpost.workspaceId(),
+  title: "Launch day",
+  content_profile: "short_text",
+  source_text: "We just shipped the new import flow.",
+  social_account_ids: ["acc_linkedin", "acc_x"],
+});
+```
+
+Omit `social_account_ids` to keep the draft without destinations. Pass `social_set_id` to copy that Social Set's accounts and saved destination defaults into the new Publication.
+
+## Customize a destination
+
+Read the current revision before changing Renditions. Send every Rendition you want to keep because this method replaces the saved destination set.
+
+```ts
+const saved = await openpost.publications.upsertRenditions(
+  draft.id,
+  draft.revision,
+  [
+    {
+      social_account_id: "acc_linkedin",
+      body: "We shipped a faster import flow. Read the release notes:",
+      settings: { link: "https://example.com/releases/imports" },
+    },
+    {
+      social_account_id: "acc_x",
+      body: "The new import flow is live.",
+    },
+  ],
+);
+```
+
+Use `accounts.destinationOptions(accountId)` before constructing provider-specific settings. OpenPost returns a conflict when an account has multiple subdestinations and the Rendition does not include a `target_key`.
+
+## Validate and schedule
+
+```ts
+await openpost.publications.validate(saved.id, { throwOnInvalid: true });
+
+const action = await openpost.publications.schedule(saved.id, saved.revision);
+if (action.job_id) {
+  await openpost.jobs.wait(action.job_id);
+}
+```
+
+`publishNow`, `cancel`, and `remove` also take the revision you last read. This prevents a stale process from overwriting a newer edit. `retryFailed` retries failed Renditions without republishing successful ones.
+
+## Read the outcome
+
+```ts
+const result = await openpost.publications.wait(saved.id, {
+  timeoutMs: 120_000,
+  intervalMs: 2_000,
+});
+
+for (const rendition of result.renditions) {
+  console.log(rendition.platform, rendition.status, rendition.external_url);
+}
+```
+
+Do not treat a queued job as proof of provider delivery. Read the final Publication, its Renditions, or `publications.events(id)`.

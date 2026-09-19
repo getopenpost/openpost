@@ -1,0 +1,47 @@
+---
+title: Scripts and CI
+description: Use stable JSON output, explicit profiles, and secret-safe authentication in automation.
+---
+
+Use `--json` for machine-readable output. Human tables and wording may change, but JSON follows the API response shape.
+
+```sh
+publication_json=$(openpost --profile ci --json post create \
+  --content "Build $BUILD_VERSION is ready for review." \
+  --accounts company-linkedin)
+
+publication_id=$(printf '%s' "$publication_json" | jq -r '.id')
+openpost --profile ci --json publication validate "$publication_id"
+```
+
+## Configure an unattended profile
+
+Create a workspace-bound developer token for the job. Store it in the CI secret store, then pass configuration through environment variables:
+
+```sh
+export OPENPOST_INSTANCE=https://app.openpo.st
+export OPENPOST_WORKSPACE=ws_...
+export OPENPOST_TOKEN="$CI_OPENPOST_TOKEN"
+
+openpost auth status --json
+openpost workspace list --json
+```
+
+The matching flags override environment variables for one command. `OPENPOST_PROFILE` selects a saved profile.
+
+## Avoid duplicate drafts
+
+If `post create --schedule` reports that the draft was created but scheduling failed, retry the existing Publication with the command in the error. Do not rerun `post create`, because that creates another draft.
+
+Store the created Publication ID in the job output or build record. Check it before deciding whether a rerun should create new content.
+
+## Use stdin for generated content
+
+Commands that accept `--file` also accept `-` for stdin where the command help says so:
+
+```sh
+generate-release-copy | \
+  openpost publication create --file - --accounts company-linkedin
+```
+
+Use `--yes` only for a reviewed non-interactive command that needs confirmation. Destructive publication commands still require their explicit `--confirm` flag.

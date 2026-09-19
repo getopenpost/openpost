@@ -1,0 +1,5 @@
+{
+  "title": "n8n workflows",
+  "icon": "Boxes",
+  "pages": ["index", "setup", "build-a-workflow", "media", "reliability"]
+}

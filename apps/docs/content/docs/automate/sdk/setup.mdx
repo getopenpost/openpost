@@ -1,0 +1,54 @@
+---
+title: Install and connect
+description: Configure the OpenPost TypeScript SDK for Hosted or self-hosted OpenPost.
+---
+
+## Install
+
+```sh
+npm install @getopenpost/sdk
+```
+
+Create a developer token in **Settings → Personal → Developer**. For an unattended service, create a separate token, give it only the scopes it needs, bind it to one workspace when possible, and set an expiry.
+
+## Configure the client
+
+```ts
+import { OpenPost } from "@getopenpost/sdk";
+
+const openpost = new OpenPost({
+  token: process.env.OPENPOST_TOKEN,
+  workspaceId: process.env.OPENPOST_WORKSPACE_ID,
+});
+```
+
+The default origin is `https://app.openpo.st`. For self-hosting, set `baseUrl` to the OpenPost origin, without `/api/v1`:
+
+```ts
+const openpost = new OpenPost({
+  baseUrl: "https://social.example.com",
+  token: process.env.OPENPOST_TOKEN,
+  workspaceId: process.env.OPENPOST_WORKSPACE_ID,
+});
+```
+
+You can use environment variables instead of constructor options:
+
+| Variable                | Purpose                                      |
+| ----------------------- | -------------------------------------------- |
+| `OPENPOST_TOKEN`        | Developer token                              |
+| `OPENPOST_URL`          | OpenPost origin                              |
+| `OPENPOST_INSTANCE`     | Fallback name for the OpenPost origin        |
+| `OPENPOST_WORKSPACE_ID` | Default workspace ID                         |
+| `OPENPOST_WORKSPACE`    | Fallback workspace value shared with the CLI |
+
+The SDK rejects credentialed plain HTTP by default. For a local self-hosted instance, pass `allowInsecureHttp: true` only when you control the network.
+
+## Test access
+
+```ts
+const workspaces = await openpost.workspaces.list();
+console.log(workspaces.map(({ id, name }) => ({ id, name })));
+```
+
+Use an ID from this response as `workspaceId`. A workspace-bound token cannot access another workspace even if code passes its ID.

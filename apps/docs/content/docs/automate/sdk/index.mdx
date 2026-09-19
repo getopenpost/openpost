@@ -1,0 +1,25 @@
+---
+title: TypeScript SDK
+description: Build OpenPost scripts and services with @getopenpost/sdk.
+icon: Braces
+---
+
+Use `@getopenpost/sdk` for JavaScript or TypeScript services, scripts, and CI jobs. It runs on Node.js 20 or newer, Bun, and Cloudflare Workers. It has no runtime dependencies and uses the platform `fetch` implementation.
+
+The SDK covers workspaces, accounts, Social Sets, Publications, Renditions, media, and jobs. Use the [HTTP API](/automate/api) when another language or an operation outside the SDK is a better fit.
+
+## Start here
+
+1. [Install and connect](/automate/sdk/setup)
+2. [Create and publish content](/automate/sdk/publications)
+3. [Upload media](/automate/sdk/media)
+4. [Handle jobs, conflicts, and errors](/automate/sdk/reliability)
+
+## Good uses
+
+- Turn a product event into a draft from an application backend.
+- Prepare account-specific Renditions before a release.
+- Upload generated images or video and attach their media IDs.
+- Schedule content from a CI job, then wait for the durable job result.
+
+Publications created through this package report `creation_source: "sdk"`. OpenPost keeps SDK activity separate from raw API, CLI, MCP, web, and automatic posting in creation-source reports.

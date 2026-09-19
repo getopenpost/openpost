@@ -1,0 +1,52 @@
+---
+title: Jobs, conflicts, and errors
+description: Make SDK automation safe to rerun and easy to diagnose.
+---
+
+Publishing runs in durable jobs. Store the returned Publication ID and `job_id` so a later process can resume inspection without creating the content again.
+
+```ts
+const action = await openpost.publications.publishNow(
+  publication.id,
+  publication.revision,
+);
+if (action.job_id) {
+  const job = await openpost.jobs.wait(action.job_id);
+  console.log(job.status);
+}
+```
+
+`jobs.wait()` throws `operation_failed` when the job reaches a failed state. It does not rerun the action that created the job.
+
+## Handle typed errors
+
+```ts
+import { OpenPostError } from "@getopenpost/sdk";
+
+try {
+  await openpost.publications.schedule(id, revision);
+} catch (error) {
+  if (error instanceof OpenPostError && error.code === "conflict") {
+    const current = await openpost.publications.get(id);
+    // Compare current with the intended change before trying again.
+  }
+
+  if (error instanceof OpenPostError && error.code === "rate_limited") {
+    await new Promise((resolve) =>
+      setTimeout(resolve, error.retryAfterMs ?? 1_000),
+    );
+  }
+}
+```
+
+| Code               | Action                                                        |
+| ------------------ | ------------------------------------------------------------- |
+| `missing_config`   | Set the token, workspace, or instance                         |
+| `unauthorized`     | Replace an invalid, expired, or revoked token                 |
+| `forbidden`        | Check token scope, workspace binding, plan, and account state |
+| `conflict`         | Read the Publication again and reconcile its revision         |
+| `validation`       | Fix the request or provider validation issues                 |
+| `rate_limited`     | Wait for `retryAfterMs`                                       |
+| `operation_failed` | Inspect the job and Publication events                        |
+
+The SDK retries one failed `GET` for `429` and server errors. It does not retry mutations because not every write operation is idempotent. Decide whether to replay a mutation only after reading the saved object.

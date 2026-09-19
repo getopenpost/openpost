@@ -1,0 +1,36 @@
+---
+title: Build a publishing workflow
+description: Turn incoming n8n items into validated and scheduled OpenPost Publications.
+---
+
+Build the workflow in explicit steps. Creating a Publication does not schedule or publish it.
+
+## 1. Start with input
+
+Use a Schedule Trigger for a recurring workflow, a Webhook for event-driven input, or another node that returns content. Keep one intended Publication per input item.
+
+## 2. Create a draft
+
+Add an OpenPost node and choose **Publication → Create**. Map the workspace, internal title, content profile, source text, and destination accounts from the incoming item.
+
+For the first run, leave the draft unpublished. Open it in **Publications** and check the accounts, text, media, and provider settings.
+
+The package includes a `create-draft` example. Replace its placeholder workspace and account IDs before running it.
+
+## 3. Validate
+
+Add **Publication → Validate** with the created Publication ID. Stop the workflow or route the item for review when validation returns issues.
+
+Provider readiness and destination settings can change. Validation at publish time is still required even when an earlier draft was valid.
+
+## 4. Schedule or publish
+
+Add **Publication → Schedule** or **Publication → Publish Now**. Pass the revision returned by the latest create, update, or Set Renditions action.
+
+Scheduling uses the saved `scheduled_at`. Use **Posting Schedule → Get Next Available Slot** before an update when the workflow should use a workspace slot.
+
+## 5. Verify the result
+
+When the lifecycle action returns a job ID, use **Job → Get** until the job reaches a final state. Then use **Publication → Get** or **Publication → Get Events** to inspect each Rendition.
+
+Keep the Publication and job IDs in workflow output. A queued action is not proof that every provider published the content.

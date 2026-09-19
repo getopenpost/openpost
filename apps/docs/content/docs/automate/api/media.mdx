@@ -1,0 +1,44 @@
+---
+title: Media uploads
+description: Upload bytes through OpenPost's storage-safe HTTP flow.
+---
+
+Media uploads use three requests. Your integration creates an upload session, sends bytes to its storage target, then completes the session.
+
+## 1. Create a session
+
+```sh
+curl https://app.openpo.st/api/v1/media/upload-session \
+  -X POST \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: cover-2026-09-19" \
+  --data '{
+    "workspace_id": "ws_...",
+    "filename": "cover.png",
+    "mime_type": "image/png",
+    "size": 48231,
+    "alt_text": "Product import screen with the completed file list"
+  }'
+```
+
+The response includes `media_id`, `complete_url`, and an `upload` object with a method, URL, and headers.
+
+## 2. Send the bytes
+
+Use the exact method and headers from `upload`. The target may be object storage on another origin. Do not send the OpenPost bearer token to that URL.
+
+```sh
+curl "$UPLOAD_URL" \
+  -X PUT \
+  -H "Content-Type: image/png" \
+  --data-binary @cover.png
+```
+
+If the response includes other upload headers, send them too.
+
+## 3. Complete the session
+
+Call the returned `complete_url` with your OpenPost bearer token. Completion starts the normal validation and media-processing flow. Use the resulting `media_id` in Publication or Rendition media fields.
+
+The [create upload session reference](/api-reference/media/create-media-upload-session) contains the exact request and response schemas and links to completion. JavaScript and TypeScript integrations can use [`media.upload()`](/automate/sdk/media) to run all three steps.

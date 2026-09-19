@@ -5577,7 +5577,8 @@
 							variant="ghost"
 							size="icon"
 							class="size-7 rounded"
-							aria-label={m.image_editor_more_actions()}
+							aria-label={`${m.video_editor_timeline()}: ${m.image_editor_more_actions()}`}
+							title={`${m.video_editor_timeline()}: ${m.image_editor_more_actions()}`}
 						>
 							<ThemeIcon role="more-horizontal" class="size-3.5" />
 						</Button>
@@ -5647,7 +5648,8 @@
 								variant="ghost"
 								size="icon"
 								class="size-7 rounded"
-								aria-label={m.image_editor_more_actions()}
+								aria-label={`${selectedItem.label}: ${m.image_editor_more_actions()}`}
+								title={`${selectedItem.label}: ${m.image_editor_more_actions()}`}
 							>
 								<ThemeIcon role="more-horizontal" class="size-3.5" />
 							</Button>

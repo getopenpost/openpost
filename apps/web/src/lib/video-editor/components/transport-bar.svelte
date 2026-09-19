@@ -157,7 +157,7 @@
 </script>
 
 <div
-	class="flex h-8 flex-nowrap items-center gap-1 overflow-x-auto border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2"
+	class="flex h-8 flex-nowrap items-center gap-1 overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2"
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
@@ -290,7 +290,7 @@
 		{timecode} <span class="text-muted-foreground">/ {totalFrames}</span>
 	</span>
 
-	<div class="mx-auto hidden shrink-0 items-center gap-1 @min-[620px]:flex">
+	<div class="mx-auto hidden shrink-0 items-center gap-1 @min-[800px]:flex">
 		<Button size="xs" variant="outline" onclick={() => setInPoint(timelineStore.currentFrame)}>
 			{m.video_editor_mark_in()}
 		</Button>

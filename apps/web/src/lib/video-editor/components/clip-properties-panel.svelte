@@ -85,22 +85,6 @@
 		step: number;
 	}
 
-	const textPrimaryFields: NumericField[] = [
-		{
-			property: 'fontSize',
-			label: m.video_editor_property_size(),
-			min: 8,
-			max: 500,
-			step: 1
-		},
-		{
-			property: 'fontWeight',
-			label: m.video_editor_property_weight(),
-			min: 100,
-			max: 900,
-			step: 100
-		}
-	];
 	const textAdvancedFields: NumericField[] = [
 		{
 			property: 'lineHeight',
@@ -311,44 +295,6 @@
 		{#if item.type === 'text'}
 			<section aria-label={m.video_editor_tool_text()}>
 				<TextPropertiesPanel {item} {itemIds} {onedit} {oncreatevoice} {onbrowsetextstyles} />
-				<div class="mt-2 grid grid-cols-2 gap-1">
-					{#each textPrimaryFields as field (field.property)}
-						<label class="text-[10px] text-muted-foreground"
-							>{field.label}<Input
-								class="mt-0.5 w-full rounded bg-field px-1.5 py-1 text-xs text-field-foreground"
-								type="number"
-								min={field.min}
-								max={field.max}
-								step={field.step}
-								value={valueFor(item, field.property)}
-								onchange={(event) =>
-									commitNumeric(field.property, event.currentTarget.valueAsNumber)}
-							/></label
-						>
-					{/each}
-				</div>
-				<div class="mt-1 grid grid-cols-2 gap-1">
-					<ColorPicker
-						label={m.video_editor_text_color()}
-						value={item.color ?? '#ffffff'}
-						live={false}
-						onChange={(value) => commitText({ color: value })}
-					/>
-					<div class="text-[10px] text-muted-foreground">
-						<ColorPicker
-							label={m.video_editor_text_background()}
-							value={item.backgroundColor ?? '#000000'}
-							live={false}
-							onChange={(value) => commitText({ backgroundColor: value })}
-						/><button
-							type="button"
-							class="mt-0.5 w-full rounded px-1 py-1 text-[9px] text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-40"
-							disabled={!item.backgroundColor}
-							onclick={() => commitText({ backgroundColor: undefined })}
-							>{m.video_editor_text_clear_background()}</button
-						>
-					</div>
-				</div>
 				<div class="mt-1 grid grid-cols-2 gap-1">
 					<label class="text-[10px] text-muted-foreground">
 						{m.video_editor_text_alignment()}

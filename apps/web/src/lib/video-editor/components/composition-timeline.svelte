@@ -2238,7 +2238,6 @@
 				</Button>
 			</div>
 			<div class="header-center">
-				<h2 class="composition-title">{composition.name}</h2>
 				<span class="composition-meta" aria-label={m.video_editor_composition_timeline_meta()}>
 					{composition.width}×{composition.height} ·
 					<Input
@@ -2260,7 +2259,7 @@
 					{m.video_editor_composition_timeline_fps_suffix()} ·
 					<Input
 						aria-label={m.video_editor_composition_timeline_duration()}
-						class="meta-input"
+						class="meta-input meta-input-duration"
 						type="number"
 						min="1"
 						value={durationFrames}
@@ -3778,8 +3777,8 @@
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.6rem;
-		padding: 0.55rem 0.7rem;
+		gap: 0.5rem;
+		padding: 0.35rem 0.5rem;
 		border-bottom: 1px solid oklch(0.26 0.016 55);
 		background: oklch(0.17 0.01 55);
 	}
@@ -3809,14 +3808,7 @@
 		outline: 2px solid oklch(0.66 0.14 45);
 		outline-offset: 2px;
 	}
-	.composition-title {
-		margin: 0;
-		font-size: 0.78rem;
-		font-weight: 650;
-		letter-spacing: -0.01em;
-	}
 	.composition-meta {
-		margin-left: 0.5rem;
 		font-size: 0.62rem;
 		color: oklch(0.68 0.016 65);
 		display: inline-flex;
@@ -3832,6 +3824,9 @@
 		color: inherit;
 		text-align: center;
 		font-size: 0.62rem;
+	}
+	.composition-timeline :global(.meta-input-duration) {
+		width: 72px;
 	}
 	.composition-timeline :global(.meta-input:focus-visible) {
 		outline: 2px solid oklch(0.66 0.14 45);

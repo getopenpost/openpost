@@ -266,8 +266,61 @@
 	{/if}
 
 	<div class="grid grid-cols-2 gap-1.5">
+		<label class="field-label">
+			{m.video_editor_property_size()}
+			<Input
+				class="field-input"
+				type="number"
+				min="8"
+				max="500"
+				step="1"
+				value={activeItem.fontSize ?? 60}
+				onchange={(event) => commitItem({ fontSize: event.currentTarget.valueAsNumber })}
+			/>
+		</label>
+		<label class="field-label">
+			{m.video_editor_property_weight()}
+			<AppSelect
+				value={String(activeItem.fontWeight ?? 400)}
+				options={weightSelectOptions}
+				ariaLabel={m.video_editor_property_weight()}
+				class="field-select"
+				onValueChange={(fontWeight) => commitItem({ fontWeight: Number(fontWeight) })}
+			/>
+		</label>
+		<ColorPicker
+			label={m.video_editor_text_color()}
+			value={activeItem.color ?? '#ffffff'}
+			live={false}
+			onChange={(value) => commitItem({ color: value })}
+		/>
+		<div class="text-[10px] text-[var(--video-editor-muted)]">
+			<ColorPicker
+				label={m.video_editor_text_background()}
+				value={activeItem.backgroundColor ?? '#000000'}
+				live={false}
+				onChange={(value) => commitItem({ backgroundColor: value })}
+			/>
+			<button
+				type="button"
+				class="mt-0.5 w-full rounded px-1 py-1 text-[9px] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40"
+				disabled={!activeItem.backgroundColor}
+				onclick={() => commitItem({ backgroundColor: undefined })}
+			>
+				{m.video_editor_text_clear_background()}
+			</button>
+		</div>
+	</div>
+
+	<div class="text-actions">
 		{#if onbrowsetextstyles}
-			<Button type="button" size="sm" variant="outline" class="h-8" onclick={onbrowsetextstyles}>
+			<Button
+				type="button"
+				size="sm"
+				variant="outline"
+				class="h-8 min-w-0"
+				onclick={onbrowsetextstyles}
+			>
 				{m.video_editor_text_browse_styles()}
 			</Button>
 		{/if}
@@ -276,7 +329,7 @@
 				type="button"
 				size="sm"
 				variant="outline"
-				class="h-8"
+				class="h-8 min-w-0"
 				disabled={!speakableText}
 				onclick={() => oncreatevoice?.(activeItem.id, speakableText)}
 			>
@@ -399,6 +452,11 @@
 		padding: 0.125rem;
 		border-radius: 0.5rem;
 		background: var(--video-editor-control);
+	}
+	.text-actions {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+		gap: 0.375rem;
 	}
 	.layout-switch button {
 		min-width: 0;

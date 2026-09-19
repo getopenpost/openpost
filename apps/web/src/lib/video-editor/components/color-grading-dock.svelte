@@ -92,12 +92,15 @@
 		{ id: 'lut', label: m['video_editor_gpu_effect_gpu-lut'](), icon: 'editor-effects' },
 		{ id: 'effects', label: m.video_editor_effects(), icon: 'editor-layers' }
 	]);
-	const visibleEffectIds = $derived.by((): readonly string[] | undefined => {
-		if (activePalette === 'qualifier') return ['gpu-secondary-qualifier'];
-		if (activePalette === 'windows') return ['gpu-power-window'];
-		if (activePalette === 'lut') return ['gpu-lut'];
+	const dedicatedEffectId = $derived.by((): string | undefined => {
+		if (activePalette === 'qualifier') return 'gpu-secondary-qualifier';
+		if (activePalette === 'windows') return 'gpu-power-window';
+		if (activePalette === 'lut') return 'gpu-lut';
 		return undefined;
 	});
+	const visibleEffectIds = $derived(
+		dedicatedEffectId === undefined ? undefined : [dedicatedEffectId]
+	);
 
 	function setColorScope(next: 'clip' | 'sequence'): void {
 		onscopechange(next);
@@ -253,6 +256,7 @@
 									gpuOnly={colorScope === 'sequence'}
 									hiddenGpuEffectIds={['gpu-color-wheels', 'gpu-curves']}
 									visibleGpuEffectIds={visibleEffectIds}
+									dedicatedGpuEffectId={dedicatedEffectId}
 								/>
 							</div>
 						{/key}

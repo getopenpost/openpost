@@ -197,7 +197,7 @@
 		class="video-editor-theme flex max-h-[min(90vh,820px)] w-[calc(100%-1rem)] max-w-[920px] flex-col overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl sm:max-w-[920px]"
 	>
 		<Dialog.Header
-			class="flex-row items-center justify-between border-b border-border px-5 py-4 pr-12"
+			class="flex-row items-start justify-between gap-3 border-b border-border px-5 py-4 pr-12"
 		>
 			<div>
 				<Dialog.Title class="text-base">{m.video_editor_settings_title()}</Dialog.Title>
@@ -206,7 +206,7 @@
 				</Dialog.Description>
 			</div>
 			{#if section !== 'shortcuts'}
-				<Button type="button" variant="ghost" size="sm" onclick={resetSettings}>
+				<Button class="shrink-0" type="button" variant="ghost" size="sm" onclick={resetSettings}>
 					<ThemeIcon role="undo" class="size-3.5" />
 					{m.video_editor_settings_reset()}
 				</Button>
@@ -586,8 +586,10 @@
 						{/if}
 
 						<div class="divide-y divide-border rounded-lg border border-border">
-							<div class="flex items-center justify-between gap-4 p-4">
-								<div>
+							<div
+								class="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+							>
+								<div class="min-w-0">
 									<p class="text-sm font-medium">{m.video_editor_settings_generate_proxies()}</p>
 									<p class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 										{m.video_editor_settings_generate_proxies_description({
@@ -596,6 +598,7 @@
 									</p>
 								</div>
 								<Button
+									class="w-full shrink-0 sm:w-auto"
 									type="button"
 									variant="outline"
 									size="sm"
@@ -614,14 +617,17 @@
 							</div>
 
 							<div class="p-4">
-								<div class="flex items-center justify-between gap-4">
-									<div>
+								<div
+									class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+								>
+									<div class="min-w-0">
 										<p class="text-sm font-medium">{m.video_editor_settings_clear_cache()}</p>
 										<p class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 											{m.video_editor_settings_clear_cache_description({ count: media.length })}
 										</p>
 									</div>
 									<Button
+										class="w-full shrink-0 sm:w-auto"
 										type="button"
 										variant="outline"
 										size="sm"
@@ -666,8 +672,10 @@
 								{/if}
 							</div>
 
-							<div class="flex items-center justify-between gap-4 p-4">
-								<div>
+							<div
+								class="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+							>
+								<div class="min-w-0">
 									<p class="text-sm font-medium">
 										{m.video_editor_settings_regenerate_thumbnails()}
 									</p>
@@ -676,6 +684,7 @@
 									</p>
 								</div>
 								<Button
+									class="w-full shrink-0 sm:w-auto"
 									type="button"
 									variant="outline"
 									size="sm"
@@ -693,8 +702,10 @@
 								</Button>
 							</div>
 
-							<div class="flex items-center justify-between gap-4 p-4">
-								<div>
+							<div
+								class="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+							>
+								<div class="min-w-0">
 									<p class="text-sm font-medium">{m.video_editor_settings_delete_proxies()}</p>
 									<p class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 										{m.video_editor_settings_delete_proxies_description({ count: proxyCount })}
@@ -704,6 +715,7 @@
 									</p>
 								</div>
 								<Button
+									class="w-full shrink-0 sm:w-auto"
 									type="button"
 									variant="outline"
 									size="sm"

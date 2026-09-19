@@ -89,7 +89,8 @@
 		showScopes = false,
 		gpuOnly = false,
 		hiddenGpuEffectIds = [],
-		visibleGpuEffectIds
+		visibleGpuEffectIds,
+		dedicatedGpuEffectId
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
@@ -99,6 +100,7 @@
 		gpuOnly?: boolean;
 		hiddenGpuEffectIds?: readonly string[];
 		visibleGpuEffectIds?: readonly string[];
+		dedicatedGpuEffectId?: string;
 	} = $props();
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
@@ -127,6 +129,12 @@
 		resolveEditableColorTargetIds(itemId, itemIds, timelineStore.itemById, timelineStore.tracks)
 	);
 	const displayItemEditable = $derived(itemId !== null && selectedEffectItemIds.includes(itemId));
+	const dedicatedGpuEffect = $derived(
+		dedicatedGpuEffectId ? getGpuEffect(dedicatedGpuEffectId) : undefined
+	);
+	const dedicatedGpuEffectLabel = $derived(
+		dedicatedGpuEffect ? gpuEffectLabel(dedicatedGpuEffect) : dedicatedGpuEffectId
+	);
 
 	/** In-flight slider values so dragging stays smooth before the undoable commit. */
 	let draftAmounts = $state<Record<string, number>>({});
@@ -662,55 +670,57 @@
 	aria-label={m.video_editor_effects()}
 >
 	{#if showColorTools}<ColorWorkspace {itemId} {itemIds} {onedit} />{/if}
-	<div
-		class="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--video-editor-border)] px-1"
-	>
-		<EffectPicker
-			bind:value={pendingKind}
-			options={effectOptions}
-			ariaLabel={m.video_editor_effects_add()}
-			triggerLabel={m.video_editor_effects_add()}
-			searchPlaceholder={m.video_editor_effects_search()}
-			emptyLabel={m.video_editor_effects_no_results()}
-			disabled={selectedEffectItemIds.length === 0}
-			draggable={selectedEffectItemIds.length > 0}
-			dragTitle={itemId ? m.video_editor_effects_add_or_drag() : m.video_editor_effects_add()}
-			onSelect={addSelectedEffect}
-			onDragStart={startEffectDrag}
-			onDragEnd={finishEffectDrag}
-			onRemoveOption={deleteUserPreset}
-			removeOptionLabel={(name) => m.video_editor_effects_preset_delete_named({ name })}
-		/>
-		{#if effects.length > 0}
-			<button
-				type="button"
-				class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-				aria-label={m.video_editor_effects_preset_save_current()}
-				title={m.video_editor_effects_preset_save_current()}
-				aria-expanded={showPresetSave}
-				onclick={() => (showPresetSave = !showPresetSave)}
-			>
-				<ThemeIcon role="save" class="size-3.5" />
-			</button>
-			<button
-				type="button"
-				class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+	{#if !dedicatedGpuEffectId}
+		<div
+			class="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--video-editor-border)] px-1"
+		>
+			<EffectPicker
+				bind:value={pendingKind}
+				options={effectOptions}
+				ariaLabel={m.video_editor_effects_add()}
+				triggerLabel={m.video_editor_effects_add()}
+				searchPlaceholder={m.video_editor_effects_search()}
+				emptyLabel={m.video_editor_effects_no_results()}
 				disabled={selectedEffectItemIds.length === 0}
-				aria-label={allEffectsEnabled
-					? m.video_editor_effects_disable_all()
-					: m.video_editor_effects_enable_all()}
-				title={allEffectsEnabled
-					? m.video_editor_effects_disable_all()
-					: m.video_editor_effects_enable_all()}
-				onclick={toggleAllEffects}
-			>
-				{#if allEffectsEnabled}<ThemeIcon role="eye-off" class="size-3.5" />{:else}<ThemeIcon
-						role="eye"
-						class="size-3.5"
-					/>{/if}
-			</button>
-		{/if}
-	</div>
+				draggable={selectedEffectItemIds.length > 0}
+				dragTitle={itemId ? m.video_editor_effects_add_or_drag() : m.video_editor_effects_add()}
+				onSelect={addSelectedEffect}
+				onDragStart={startEffectDrag}
+				onDragEnd={finishEffectDrag}
+				onRemoveOption={deleteUserPreset}
+				removeOptionLabel={(name) => m.video_editor_effects_preset_delete_named({ name })}
+			/>
+			{#if effects.length > 0}
+				<button
+					type="button"
+					class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					aria-label={m.video_editor_effects_preset_save_current()}
+					title={m.video_editor_effects_preset_save_current()}
+					aria-expanded={showPresetSave}
+					onclick={() => (showPresetSave = !showPresetSave)}
+				>
+					<ThemeIcon role="save" class="size-3.5" />
+				</button>
+				<button
+					type="button"
+					class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					disabled={selectedEffectItemIds.length === 0}
+					aria-label={allEffectsEnabled
+						? m.video_editor_effects_disable_all()
+						: m.video_editor_effects_enable_all()}
+					title={allEffectsEnabled
+						? m.video_editor_effects_disable_all()
+						: m.video_editor_effects_enable_all()}
+					onclick={toggleAllEffects}
+				>
+					{#if allEffectsEnabled}<ThemeIcon role="eye-off" class="size-3.5" />{:else}<ThemeIcon
+							role="eye"
+							class="size-3.5"
+						/>{/if}
+				</button>
+			{/if}
+		</div>
+	{/if}
 	{#if showPresetSave}
 		<div class="flex items-center gap-1 px-1">
 			<Input
@@ -746,7 +756,24 @@
 	{#if presetStatus}<p class="px-1 text-[10px] text-[var(--video-editor-muted)]" role="status">
 			{presetStatus}
 		</p>{/if}
-	{#if !itemId || effects.length === 0}
+	{#if dedicatedGpuEffectId && effects.length === 0}
+		<div class="flex min-h-0 flex-1 items-center justify-center p-4 text-center">
+			<div class="flex max-w-64 flex-col items-center gap-2">
+				<p class="text-xs font-medium text-[var(--video-editor-text)]">
+					{dedicatedGpuEffectLabel}
+				</p>
+				<button
+					type="button"
+					class="flex min-h-8 items-center justify-center gap-1.5 rounded-md bg-[var(--video-editor-primary)] px-3 text-xs font-medium text-[var(--video-editor-primary-text)] hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+					disabled={selectedEffectItemIds.length === 0 || !dedicatedGpuEffect}
+					onclick={() => addSelectedEffect(`gpu:${dedicatedGpuEffectId}`)}
+				>
+					<ThemeIcon role="add" class="size-3.5" />
+					{m.video_editor_effects_add()} · {dedicatedGpuEffectLabel}
+				</button>
+			</div>
+		</div>
+	{:else if !itemId || effects.length === 0}
 		<p class="px-1 text-xs text-[var(--video-editor-muted)]">
 			{m.video_editor_effects_none()}
 		</p>

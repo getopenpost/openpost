@@ -779,7 +779,7 @@
 				</div>
 			</div>
 		{/if}
-		<div class="mt-4 grid grid-cols-2 gap-3">
+		<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
 			<label class="text-xs text-muted-foreground">
 				{m.video_editor_export_format()}<AppSelect
 					class="mt-1 h-8 w-full text-sm"
@@ -942,17 +942,24 @@
 		{#if progress}
 			<RenderProgress {progress} {startedAt} class="mt-3" />
 		{/if}
-		<div class="mt-4 flex justify-end gap-2">
+		<div class="mt-4 flex flex-col-reverse justify-end gap-2 sm:flex-row">
 			{#if rendering}
 				<Button variant="outline" class="w-full sm:w-auto" onclick={cancelOrClose}
 					>{m.video_editor_export_cancel()}</Button
 				>
 			{:else}
-				<Button variant="ghost" onclick={cancelOrClose}>{m.video_editor_export_cancel()}</Button>
+				<Button class="w-full sm:w-auto" variant="ghost" onclick={cancelOrClose}
+					>{m.video_editor_export_cancel()}</Button
+				>
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
-							<Button {...props} variant="outline" disabled={!canOpenQueueMenu}>
+							<Button
+								{...props}
+								class="w-full sm:w-auto"
+								variant="outline"
+								disabled={!canOpenQueueMenu}
+							>
 								<ThemeIcon role="add" />
 								{m.video_editor_queue_add()}
 								<ThemeIcon role="chevron-down" />
@@ -975,7 +982,7 @@
 						{/each}
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
-				<Button disabled={!preflight.canExport} onclick={start}
+				<Button class="w-full sm:w-auto" disabled={!preflight.canExport} onclick={start}
 					>{m.video_editor_export_start_now()}</Button
 				>
 			{/if}

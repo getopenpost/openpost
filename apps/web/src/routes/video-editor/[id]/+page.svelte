@@ -501,6 +501,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const minimumProgramHeight = 180;
 	const editorHeaderHeight = 48;
 	const minimumColorProgramHeight = 280;
+	const minimumColorDockHeight = 180;
 	const sourceMonitorHorizontal = $derived(
 		sourceMediaId !== null && editorViewportWidth >= 1280 && !sourceMonitorOverlay
 	);
@@ -562,7 +563,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	);
 	const mixerPanelMaximum = $derived(Math.max(160, Math.min(420, timelinePanelMaximum - 180)));
 	const colorDockMaximum = $derived(
-		Math.max(280, Math.min(720, editorWorkAreaHeight - minimumColorProgramHeight))
+		Math.max(
+			minimumColorDockHeight,
+			Math.min(720, editorWorkAreaHeight - minimumColorProgramHeight)
+		)
 	);
 	const colorDockMinimum = $derived(Math.min(360, colorDockMaximum));
 	const colorDockDefault = $derived(Math.min(440, colorDockMaximum));
@@ -3055,7 +3059,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									</div>
 								{/if}
 								<div
-									class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-3 {rightSidebarRail
+									class="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-2 {rightSidebarRail
 										? 'lg:hidden'
 										: ''}"
 								>
@@ -3300,9 +3304,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									{/if}
 								</div>
 							</aside>
-						{:else if activeWorkspace === 'motion'}
+						{:else if activeWorkspace === 'motion' && activeMotionComposition}
 							<div
-								class="relative flex max-h-[44dvh] min-h-0 w-full shrink-0 lg:max-h-none lg:w-[var(--motion-panel-width)]"
+								class="relative flex max-h-[32dvh] min-h-0 w-full shrink-0 lg:max-h-none lg:w-[var(--motion-panel-width)] [@media(max-height:600px)]:max-h-[22dvh]"
 								style:--motion-panel-width={`${effectiveMotionPanelWidth}px`}
 							>
 								<PanelResizeHandle
@@ -3336,7 +3340,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 					{#if activeWorkspace === 'color'}
 						<div
-							class="relative h-[56dvh] max-h-[72dvh] min-h-0 shrink-0 lg:h-[var(--color-dock-height)]"
+							class="relative h-[var(--color-dock-height)] min-h-0 shrink-0"
 							style:--color-dock-height={`${effectiveColorDockHeight}px`}
 						>
 							<PanelResizeHandle
@@ -3364,12 +3368,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							/>
 						</div>
 					{/if}
-					{#if activeWorkspace !== 'color'}
+					{#if activeWorkspace !== 'color' && !(activeWorkspace === 'motion' && !activeMotionComposition)}
 						<footer
-							class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
+							class="relative flex shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
-								? `lg:row-start-2 lg:h-auto ${leftFullColumn ? 'lg:col-start-2' : 'lg:col-start-1'} ${rightFullColumn ? 'lg:col-end-3' : 'lg:col-end-4'}`
-								: 'lg:h-[var(--timeline-height)]'}"
+								? `h-[36dvh] lg:row-start-2 lg:h-auto ${leftFullColumn ? 'lg:col-start-2' : 'lg:col-start-1'} ${rightFullColumn ? 'lg:col-end-3' : 'lg:col-end-4'}`
+								: 'h-[28dvh] lg:h-[var(--timeline-height)] [@media(max-height:600px)]:h-[22dvh]'}"
 						>
 							<PanelResizeHandle
 								edge="top"

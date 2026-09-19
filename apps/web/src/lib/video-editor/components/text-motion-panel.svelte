@@ -263,9 +263,9 @@
 				<EditorDisclosure
 					label={m.video_editor_motion_title()}
 					summary={effect ? presetLabels[effect.presetId] : undefined}
-					class="preset-browser"
+					class="mt-1.5 rounded-md border border-[var(--video-editor-border)]"
 				>
-					<div class="preset-grid">
+					<div class="preset-grid border-t border-[var(--video-editor-border)] p-1.5">
 						{#each catalog[slot] as preset}
 							{@const active = effect?.presetId === preset.id}
 							<button
@@ -317,15 +317,6 @@
 	}
 	.slot-row {
 		margin-top: 0.75rem;
-	}
-	.preset-browser {
-		margin-top: 0.4rem;
-		border: 1px solid var(--video-editor-border);
-		border-radius: 0.4rem;
-	}
-	.preset-browser .preset-grid {
-		border-top: 1px solid var(--video-editor-border);
-		padding: 0.4rem;
 	}
 	.applied-row {
 		margin-top: 0.75rem;

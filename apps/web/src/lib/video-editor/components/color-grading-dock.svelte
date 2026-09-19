@@ -97,7 +97,7 @@
 	data-sequence-grade-item-id={sequenceGradeItemId ?? undefined}
 >
 	<div
-		class="flex h-9 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--video-editor-border)] px-2 [@media(pointer:coarse)]:h-11"
+		class="flex h-[30px] shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--video-editor-border)] px-2 [@media(pointer:coarse)]:h-11"
 	>
 		<div class="flex min-w-28 shrink-0 items-center gap-1.5">
 			<span class="text-[10px] text-[var(--video-editor-muted)]">{m.video_editor_color_dock()}</span

@@ -16,7 +16,8 @@
 		effectId,
 		label,
 		badge,
-		onedit
+		onedit,
+		compact = false
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
@@ -24,6 +25,7 @@
 		label: string;
 		badge?: string;
 		onedit: () => void;
+		compact?: boolean;
 	} = $props();
 
 	const effect = $derived(
@@ -59,7 +61,9 @@
 </script>
 
 <header
-	class="flex h-8 shrink-0 items-center justify-between gap-2 border-y border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2"
+	class="flex shrink-0 items-center justify-between gap-2 border-y border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 {compact
+		? 'h-[25px]'
+		: 'h-8'}"
 >
 	<h3 class="min-w-0 truncate text-xs font-medium text-[var(--video-editor-text)]">{label}</h3>
 	<div class="flex min-w-0 items-center justify-end gap-0.5">

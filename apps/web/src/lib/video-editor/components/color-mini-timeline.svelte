@@ -417,7 +417,7 @@
 
 <section
 	class="shrink-0 overflow-hidden border-y border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] {compact
-		? 'h-[72px]'
+		? 'h-14'
 		: 'h-[212px]'}"
 	aria-label={m.video_editor_timeline_navigator()}
 	data-color-mini-timeline
@@ -425,7 +425,7 @@
 >
 	<div
 		class="flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden px-1 pt-1 {compact
-			? 'h-[72px] pb-1'
+			? 'h-14 pb-1'
 			: 'h-[92px] border-b border-[var(--video-editor-border)] pb-2'}"
 	>
 		{#each visualItems as item, index (item.id)}
@@ -434,7 +434,7 @@
 			<button
 				type="button"
 				class="group grid shrink-0 overflow-hidden rounded-[3px] border bg-[var(--timeline-track)] text-left shadow-sm transition-colors {compact
-					? 'h-16 w-24 grid-rows-[16px_1fr_14px]'
+					? 'h-12 w-[84px] grid-rows-[14px_1fr_12px]'
 					: 'h-20 w-[118px] grid-rows-[20px_1fr_16px]'} {selectedIds.has(item.id)
 					? 'border-[var(--video-editor-focus-border)] ring-1 ring-[var(--video-editor-focus)]'
 					: 'border-[var(--video-editor-border)] hover:border-[var(--video-editor-focus-border)]'}"

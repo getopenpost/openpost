@@ -14,7 +14,8 @@
 		splitLabel,
 		splitPositionLabel = splitLabel,
 		onmodechange,
-		onsplitpositionchange = () => undefined
+		onsplitpositionchange = () => undefined,
+		compact = false
 	}: {
 		mode: EditorColorComparisonMode;
 		disabled?: boolean;
@@ -27,6 +28,7 @@
 		splitPositionLabel?: string;
 		onmodechange: (mode: EditorColorComparisonMode) => void;
 		onsplitpositionchange?: (position: number) => void;
+		compact?: boolean;
 	} = $props();
 
 	const options = $derived(
@@ -54,7 +56,9 @@
 		{#each options as option, index (option.id)}
 			<button
 				type="button"
-				class="flex min-h-9 items-center justify-center gap-1 px-2 text-xs [@media(pointer:coarse)]:min-h-11"
+				class="flex items-center justify-center gap-1 [@media(pointer:coarse)]:min-h-11 {compact
+					? 'min-h-[22px] px-1.5 text-[10px]'
+					: 'min-h-9 px-2 text-xs'}"
 				class:border-l={index > 0}
 				class:border-[var(--video-editor-border,var(--border))]={index > 0}
 				class:bg-[var(--video-editor-primary,var(--secondary))]={mode === option.id}

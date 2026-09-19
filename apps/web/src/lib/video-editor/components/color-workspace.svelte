@@ -300,6 +300,7 @@
 					{/if}
 				</div>
 				<EditorColorComparison
+					{compact}
 					mode={colorPreviewStore.comparisonMode}
 					disabled={!hasGrade}
 					showSplit
@@ -464,6 +465,7 @@
 					onautobalance={() => void autoBalance()}
 					onpick={(kind) => void pick(kind)}
 					forceAutoKey={autoKey}
+					{compact}
 				/>
 			{:else if children}
 				{@render children()}

@@ -97,7 +97,8 @@
 		onedit,
 		onautobalance,
 		onpick,
-		forceAutoKey = false
+		forceAutoKey = false,
+		compact = false
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
@@ -105,6 +106,7 @@
 		onautobalance?: () => void;
 		onpick?: (kind: ColorPickerKind) => void;
 		forceAutoKey?: boolean;
+		compact?: boolean;
 	} = $props();
 
 	let showPrimaries = $state(false);
@@ -604,6 +606,7 @@
 		label={gpuEffectLabel(definition)}
 		badge="PRIMARIES"
 		{onedit}
+		{compact}
 	/>
 
 	<div
@@ -710,7 +713,7 @@
 
 	<div
 		bind:this={wheelGrid}
-		class="order-2 grid min-h-[330px] flex-1 shrink-0 grid-cols-2 items-center gap-1.5 overflow-hidden px-3 py-2 sm:min-h-[170px] sm:grid-cols-4 2xl:gap-7 2xl:px-6 2xl:py-3"
+		class="order-2 grid min-h-[330px] flex-1 shrink-0 grid-cols-2 items-center gap-1.5 overflow-hidden px-3 py-2 sm:min-h-[216px] sm:grid-cols-4 2xl:gap-7 2xl:px-6 2xl:py-3"
 	>
 		{#each wheelDescriptors as descriptor (descriptor.hue)}
 			{@const value = wheelValue(descriptor)}

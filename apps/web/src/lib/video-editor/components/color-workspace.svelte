@@ -56,6 +56,7 @@
 		onAutoKeyChange = () => undefined,
 		compact = false,
 		primaryActive = true,
+		scrollCompactBody = false,
 		children
 	}: {
 		itemId: string | null;
@@ -66,6 +67,7 @@
 		onAutoKeyChange?: (enabled: boolean) => void;
 		compact?: boolean;
 		primaryActive?: boolean;
+		scrollCompactBody?: boolean;
 		children?: Snippet;
 	} = $props();
 	let presets = $state<ColorGradePreset[]>([]);
@@ -280,7 +282,9 @@
 
 {#if isVisual}
 	<section
-		class="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--video-editor-panel)]"
+		class="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--video-editor-panel)] {scrollCompactBody
+			? 'short-scroll-workspace'
+			: ''}"
 		aria-label={m.video_editor_color_workspace()}
 	>
 		<div
@@ -479,7 +483,11 @@
 				</p>
 			{/if}
 		</div>
-		<div class="min-h-0 flex-1 overflow-hidden">
+		<div
+			class="min-h-0 flex-1 overflow-hidden {scrollCompactBody
+				? 'short-scroll-workspace-body'
+				: ''}"
+		>
 			{#if primaryActive}
 				<ColorPrimaryControls
 					{itemId}
@@ -498,6 +506,18 @@
 {/if}
 
 <style>
+	@media (max-height: 600px) {
+		.short-scroll-workspace {
+			height: auto;
+			min-height: 100%;
+			overflow: visible;
+		}
+
+		.short-scroll-workspace .short-scroll-workspace-body {
+			overflow: visible;
+		}
+	}
+
 	.color-tool {
 		display: flex;
 		height: 1.375rem;

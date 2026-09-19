@@ -90,7 +90,8 @@
 		gpuOnly = false,
 		hiddenGpuEffectIds = [],
 		visibleGpuEffectIds,
-		dedicatedGpuEffectId
+		dedicatedGpuEffectId,
+		scrollWithParent = false
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
@@ -101,6 +102,7 @@
 		hiddenGpuEffectIds?: readonly string[];
 		visibleGpuEffectIds?: readonly string[];
 		dedicatedGpuEffectId?: string;
+		scrollWithParent?: boolean;
 	} = $props();
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
@@ -670,7 +672,9 @@
 </script>
 
 <div
-	class="flex h-full min-h-0 w-full max-w-full flex-col gap-1 overflow-x-hidden"
+	class="flex h-full min-h-0 w-full max-w-full flex-col gap-1 overflow-x-hidden {scrollWithParent
+		? 'short-scroll-effects'
+		: ''}"
 	role="region"
 	aria-label={m.video_editor_effects()}
 >
@@ -797,7 +801,10 @@
 			{m.video_editor_effects_none()}
 		</p>
 	{:else}
-		<ul class="min-h-0 flex-1 overflow-y-auto" inert={selectedEffectItemIds.length === 0}>
+		<ul
+			class="min-h-0 flex-1 overflow-y-auto {scrollWithParent ? 'short-scroll-effect-list' : ''}"
+			inert={selectedEffectItemIds.length === 0}
+		>
 			{#each effects as effect, index (effect.id)}
 				{@const definition = definitionFor(effect.type)}
 				{@const gpuDefinition = effect.type === 'gpu' ? getGpuEffect(effect.effectId) : undefined}
@@ -1079,3 +1086,18 @@
 	{/if}
 </div>
 {#if itemId && showScopes}<ColorScopes {itemId} />{/if}
+
+<style>
+	@media (max-height: 600px) {
+		.short-scroll-effects {
+			height: auto;
+			min-height: 100%;
+			overflow: visible;
+		}
+
+		.short-scroll-effects .short-scroll-effect-list {
+			flex: none;
+			overflow: visible;
+		}
+	}
+</style>

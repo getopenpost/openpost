@@ -417,14 +417,43 @@
 
 <section
 	class="shrink-0 overflow-hidden border-y border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] {compact
-		? 'h-14'
+		? 'color-mini-timeline--compact h-14'
 		: 'h-[212px]'}"
 	aria-label={m.video_editor_timeline_navigator()}
 	data-color-mini-timeline
 	data-color-mini-timeline-compact={compact || undefined}
 >
+	{#if compact}
+		<div
+			class="compact-clip-switcher h-7 shrink-0 items-center gap-1 overflow-x-auto px-1 py-0.5"
+			data-color-clip-switcher
+		>
+			{#each visualItems as item, index (item.id)}
+				<button
+					type="button"
+					class="flex h-6 min-w-0 shrink-0 items-center gap-1 rounded border px-1.5 text-[10px] transition-colors {selectedIds.has(
+						item.id
+					)
+						? 'border-[var(--video-editor-focus-border)] bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]'
+						: 'border-[var(--video-editor-border)] bg-[var(--video-editor-control)] text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control-hover)]'}"
+					aria-pressed={selectedIds.has(item.id)}
+					aria-label={`${m.video_editor_select_clip()}: ${item.label}, ${formatTimelinePreviewTimecode(item.from, timelineStore.fps)}`}
+					title={item.label}
+					onclick={() => seekAndSelect(item)}
+					data-color-clip-chip={item.id}
+				>
+					<span class="font-mono font-semibold">{String(index + 1).padStart(2, '0')}</span>
+					<span class="max-w-24 truncate">{item.label}</span>
+				</button>
+			{:else}
+				<p class="px-2 text-[10px] text-[var(--video-editor-muted)]">
+					{m.video_editor_no_media()}
+				</p>
+			{/each}
+		</div>
+	{/if}
 	<div
-		class="flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden px-1 pt-1 {compact
+		class="compact-filmstrip flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden px-1 pt-1 {compact
 			? 'h-14 pb-1'
 			: 'h-[92px] border-b border-[var(--video-editor-border)] pb-2'}"
 	>
@@ -645,3 +674,23 @@
 		</div>
 	{/if}
 </section>
+
+<style>
+	.compact-clip-switcher {
+		display: none;
+	}
+
+	@media (max-height: 600px) {
+		.color-mini-timeline--compact {
+			height: 1.75rem;
+		}
+
+		.color-mini-timeline--compact .compact-filmstrip {
+			display: none;
+		}
+
+		.color-mini-timeline--compact .compact-clip-switcher {
+			display: flex;
+		}
+	}
+</style>

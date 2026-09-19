@@ -157,7 +157,7 @@
 </script>
 
 <div
-	class="flex h-8 flex-nowrap items-center gap-1 overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2"
+	class="flex h-8 flex-nowrap items-center gap-1 overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2 [@media(pointer:coarse)]:h-11"
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button

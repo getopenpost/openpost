@@ -101,6 +101,9 @@
 	const visibleEffectIds = $derived(
 		dedicatedEffectId === undefined ? undefined : [dedicatedEffectId]
 	);
+	const shortScrollablePalette = $derived(
+		activePalette !== 'primaries' && activePalette !== 'curves'
+	);
 
 	function setColorScope(next: 'clip' | 'sequence'): void {
 		onscopechange(next);
@@ -117,10 +120,10 @@
 	data-sequence-grade-item-id={colorTarget.sequenceGradeItemId ?? undefined}
 >
 	<div
-		class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-[var(--video-editor-border)] px-2 py-1 lg:h-[30px] lg:flex-nowrap lg:py-0 [@media(pointer:coarse)]:min-h-11"
+		class="color-dock-header flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-[var(--video-editor-border)] px-2 py-1 lg:h-[30px] lg:flex-nowrap lg:py-0 [@media(pointer:coarse)]:min-h-11"
 	>
 		<div
-			class="flex min-w-0 flex-1 items-center gap-1.5 lg:flex-none {eligibilityLabel
+			class="color-target-summary flex min-w-0 flex-1 items-center gap-1.5 lg:flex-none {eligibilityLabel
 				? 'max-lg:w-full max-lg:flex-none'
 				: ''}"
 		>
@@ -138,7 +141,7 @@
 				</span>
 			{/if}
 		</div>
-		<div class="order-3 w-full min-w-0 lg:order-none lg:w-auto">
+		<div class="color-palette-slot order-3 w-full min-w-0 lg:order-none lg:w-auto">
 			<ColorPaletteTabs
 				{palettes}
 				active={activePalette}
@@ -197,9 +200,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="[@media(max-height:600px)]:hidden">
-		<ColorMiniTimeline compact selectedItemIds={colorTarget.itemIds} {onselectitem} />
-	</div>
+	<ColorMiniTimeline compact selectedItemIds={colorTarget.itemIds} {onselectitem} />
 	{#key `${colorScope}:${colorTarget.itemId ?? ''}`}
 		{#if colorScope === 'sequence' && !colorTarget.sequenceGradeItemId}
 			<div class="flex min-h-0 flex-1 items-center justify-center p-4 text-center">
@@ -222,7 +223,7 @@
 			</div>
 		{:else}
 			<div
-				class="min-h-0 flex-1 overflow-hidden"
+				class="min-h-0 flex-1 overflow-hidden {shortScrollablePalette ? 'short-scroll-panel' : ''}"
 				role="tabpanel"
 				aria-label={keyframesVisible
 					? m.video_editor_keyframes()
@@ -232,6 +233,7 @@
 				<ColorWorkspace
 					compact
 					primaryActive={!keyframesVisible && activePalette === 'primaries'}
+					scrollCompactBody={shortScrollablePalette}
 					itemId={colorTarget.itemId}
 					itemIds={colorTarget.itemIds}
 					{onedit}
@@ -250,7 +252,11 @@
 						/>
 					{:else if activePalette !== 'primaries'}
 						{#key activePalette}
-							<div class="min-h-0 flex-1 overflow-hidden">
+							<div
+								class="min-h-0 flex-1 overflow-hidden {shortScrollablePalette
+									? 'short-scroll-effects'
+									: ''}"
+							>
 								<EffectsPanel
 									itemId={colorTarget.itemId}
 									itemIds={colorTarget.itemIds}
@@ -259,6 +265,7 @@
 									hiddenGpuEffectIds={['gpu-color-wheels', 'gpu-curves']}
 									visibleGpuEffectIds={visibleEffectIds}
 									dedicatedGpuEffectId={dedicatedEffectId}
+									scrollWithParent={shortScrollablePalette}
 								/>
 							</div>
 						{/key}
@@ -270,6 +277,41 @@
 </section>
 
 <style>
+	@media (max-height: 600px) {
+		.color-dock-header {
+			height: 1.875rem;
+			min-height: 1.875rem;
+			flex-wrap: nowrap;
+			padding-block: 0;
+		}
+
+		.color-target-summary {
+			display: none;
+		}
+
+		.color-palette-slot {
+			order: initial;
+			width: auto;
+			flex: 1;
+		}
+
+		.short-scroll-panel {
+			overflow-y: auto;
+		}
+
+		.short-scroll-panel .short-scroll-effects {
+			min-height: 100%;
+			overflow: visible;
+		}
+	}
+
+	@media (max-height: 600px) and (pointer: coarse) {
+		.color-dock-header {
+			height: 2.75rem;
+			min-height: 2.75rem;
+		}
+	}
+
 	.dock-tool,
 	.scope-button {
 		height: 1.375rem;

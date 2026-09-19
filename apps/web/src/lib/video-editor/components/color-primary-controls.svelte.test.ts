@@ -36,7 +36,8 @@ it('commits a scrub to the selection captured when the gesture starts', async ()
 		itemIds: ['primary', 'original-secondary'],
 		onedit: vi.fn()
 	});
-	const input = screen.getByRole('textbox', { name: 'Contrast' }).element() as HTMLInputElement;
+	const input = screen.getByRole('textbox', { name: 'Contrast' }).element();
+	if (!(input instanceof HTMLInputElement)) throw new Error('Expected Contrast input');
 	input.setPointerCapture = vi.fn();
 	input.hasPointerCapture = vi.fn(() => false);
 
@@ -98,7 +99,8 @@ it('previews only editable targets while retaining the locked sequence grade', a
 		itemIds: ['directly-locked', 'group-locked', 'sequence-grade'],
 		onedit: vi.fn()
 	});
-	const input = screen.getByRole('textbox', { name: 'Contrast' }).element() as HTMLInputElement;
+	const input = screen.getByRole('textbox', { name: 'Contrast' }).element();
+	if (!(input instanceof HTMLInputElement)) throw new Error('Expected Contrast input');
 	input.setPointerCapture = vi.fn();
 	input.hasPointerCapture = vi.fn(() => false);
 	input.dispatchEvent(

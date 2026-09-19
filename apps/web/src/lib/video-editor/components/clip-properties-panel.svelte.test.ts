@@ -55,13 +55,13 @@ it('puts selected text editing before geometry and keeps advanced geometry discl
 });
 
 it('opens active corner pin controls by default', async () => {
-	const item = {
+	const item: TimelineItem = {
 		...textItem(),
 		cornerPin: {
-			topLeft: [0, 0] as [number, number],
-			topRight: [0, 0] as [number, number],
-			bottomRight: [0, 0] as [number, number],
-			bottomLeft: [0, 0] as [number, number]
+			topLeft: [0, 0],
+			topRight: [0, 0],
+			bottomRight: [0, 0],
+			bottomLeft: [0, 0]
 		}
 	};
 	timelineStore._setItems([item]);

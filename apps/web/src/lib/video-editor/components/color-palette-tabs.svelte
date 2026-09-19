@@ -45,7 +45,9 @@
 		if (!next) return;
 		event.preventDefault();
 		onselect(next.id);
-		const tablist = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
+		const currentTarget = event.currentTarget;
+		if (!(currentTarget instanceof HTMLElement)) return;
+		const tablist = currentTarget.closest('[role="tablist"]');
 		const tab = tablist?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex];
 		tab?.focus();
 	}

@@ -1,0 +1,37 @@
+---
+title: Projects and storage
+description: Choose cloud or local storage without losing track of your originals.
+icon: FolderOpen
+---
+
+Video Editor supports projects saved to OpenPost and projects kept in a local folder. Both keep the edit non-destructive: trimming or applying an effect does not change the source file.
+
+## Saved to OpenPost
+
+A cloud project belongs to the current Workspace. OpenPost syncs:
+
+- the authored project and its revisions;
+- original Project Assets used by the timeline;
+- checkpoints and conflict copies.
+
+OpenPost does not sync playhead position, panel layout, previews, downloaded models, browser file handles, or exports you have not uploaded. The editor downloads an original when it needs it.
+
+Select **Keep available offline** if this device needs the current revision and its originals without a connection.
+
+If another device changes the same project, OpenPost preserves a conflict copy instead of choosing one edit silently. Open **History** to compare revisions. Restoring an older revision creates a new current revision. Deleted cloud projects remain in Cloud Trash for 30 days.
+
+## Local only
+
+A local project stores its work under the folder you choose. The project can contain `projects`, `media`, `recordings`, and `exports` folders for the edit, copied sources, linked-file references, previews, transcripts, render jobs, and finished files.
+
+Back up the whole folder. If the editor asks to reconnect it after a restart or permission change, choose the same folder. Clearing browser data can remove saved access to the folder and temporary caches, but it does not delete the files in that folder.
+
+You can switch folders or forget a saved folder handle without deleting its contents. If another tab has written a newer project, the editor protects the newer disk version instead of overwriting it.
+
+## Move or share a project
+
+Importing a local project into OpenPost checks its sources and leaves the local copy in place. Only originals used by the timeline need to upload.
+
+For a portable local copy, export an `.openpost.zip` bundle. It contains the authored project and required originals. Preview caches and downloaded AI models are not included.
+
+Project Assets are separate from Workspace Media. They enter the Media library only when you save or send an export there.

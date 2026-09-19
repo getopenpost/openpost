@@ -1,0 +1,31 @@
+---
+title: Quick Cut and Recorder
+description: Trim without a full edit, or capture new source files.
+icon: Scissors
+---
+
+Use the focused tool when you do not need the full timeline.
+
+## Trim with Quick Cut
+
+Open [Quick Cut](https://app.openpo.st/quick-cut) to keep selected ranges from a video or audio file.
+
+1. Add one or more sources.
+2. Set In and Out points.
+3. Add and arrange the ranges to keep.
+4. Review the export plan.
+5. Download the cuts, merge compatible cuts, or send the result to OpenPost.
+
+**Nearest keyframe** can preserve encoded video and audio packets when the source permits it. **Exact time** keeps the boundary you requested and uses precise transcoding when copying cannot represent it. The preflight explains which ranges can be copied, which need encoding, and why an output is blocked.
+
+Quick Cut blocks a result that would silently drop unsupported streams. Use Video Editor instead when you need to change pixels, speed, audio levels, transitions, captions, overlays, or effects.
+
+## Capture with Recorder
+
+Open [Recorder](https://app.openpo.st/record) for any supported combination of screen, camera, and microphone. Recorder keeps the sources as separate synchronized files, so you can position and mix them after capture.
+
+Choose the devices, resolution, frame rate, countdown, and planned length. Your browser remains in control of screen, camera, microphone, system-audio, and cursor permissions. Available choices vary by browser, operating system, and device.
+
+During capture, Recorder shows elapsed time, bytes written, free local space, and microphone level. It writes recoverable chunks to local scratch storage and stops before storage fills. Already written tracks remain available when a device or capture stream fails.
+
+From standalone Recorder, download each source. From Video Editor, select **Add to timeline** to import the synchronized files as one undoable edit.

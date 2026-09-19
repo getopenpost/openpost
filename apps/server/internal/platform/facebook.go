@@ -522,7 +522,9 @@ func (f *FacebookAdapter) publishCommentReply(ctx context.Context, accessToken, 
 
 func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID string, externalID string) ([]Comment, error) {
 	fields := "id,from,message,created_time,is_hidden,can_hide,can_comment"
-	endpoint := f.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
+	// The edge lists top-level comments oldest first and returns one page, so
+	// ask for the newest first or a busy post never shows new comments.
+	endpoint := f.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&order=reverse_chronological&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("facebook comments: %w", err)

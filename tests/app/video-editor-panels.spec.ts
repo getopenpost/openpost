@@ -59,6 +59,20 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(page.getByRole("slider", { name: "Lift color wheel", exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`color-laptop-${scheme}.png`) });
 
+    for (const label of ["Show one scope", "Show all scopes"]) {
+      const control = page.getByRole("button", { name: label, exact: true });
+      const offset = await control.evaluate((button) => {
+        const bounds = button.getBoundingClientRect();
+        const icon = button.firstElementChild!.getBoundingClientRect();
+        return {
+          x: Math.abs(bounds.x + bounds.width / 2 - icon.x - icon.width / 2),
+          y: Math.abs(bounds.y + bounds.height / 2 - icon.y - icon.height / 2),
+        };
+      });
+      expect(offset.x, `${label} icon must be horizontally centered`).toBeLessThanOrEqual(1);
+      expect(offset.y, `${label} icon must be vertically centered`).toBeLessThanOrEqual(1);
+    }
+
     const viewer = page.locator("#video-editor-program-panel");
     await expect.poll(async () => (await viewer.boundingBox())!.height).toBeGreaterThanOrEqual(280);
     for (const name of ["Lift", "Gamma", "Gain", "Offset"]) {

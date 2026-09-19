@@ -511,8 +511,13 @@
 	}
 
 	.scope-layout {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
 		height: 1.75rem;
-		min-width: 1.75rem;
+		width: 1.75rem;
+		padding: 0;
 		border-radius: 0.25rem;
 		font-size: 0.625rem;
 		font-weight: 650;
@@ -559,7 +564,7 @@
 		}
 
 		.scope-layout {
-			min-width: 2.75rem;
+			width: 2.75rem;
 			height: 2.75rem;
 		}
 	}

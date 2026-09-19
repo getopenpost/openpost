@@ -169,6 +169,9 @@
 	const editorTabID = crypto.randomUUID();
 	const DESKTOP_TOOL_RAIL_WIDTH = 56;
 	const MINIMUM_CANVAS_WIDTH = 320;
+	const LEGACY_DEFAULT_LAYERS_HEIGHT = 280;
+	const EDIT_LAYERS_USER_SIZED_KEY = 'openpost-image-editor-edit-layers-user-sized-v2';
+	const COLOR_LAYERS_HEIGHT_KEY = 'openpost-image-editor-color-layers-height-v1';
 	type SaveRequest = {
 		coverPreviewMediaID?: string;
 		recoveryReason: 'idle' | 'export' | 'close';
@@ -628,13 +631,14 @@
 				localStorage.getItem('openpost-image-editor-layout-v1') || '{}'
 			);
 			inspectorPanelWidth = clampPanelSize(stored.inspector, 280, 480, inspectorPanelWidth);
-			if (stored.layers !== undefined) {
+			const editLayersWereUserSized =
+				localStorage.getItem(EDIT_LAYERS_USER_SIZED_KEY) === '1' ||
+				(stored.layers !== undefined && stored.layers !== LEGACY_DEFAULT_LAYERS_HEIGHT);
+			if (stored.layers !== undefined && editLayersWereUserSized) {
 				layersPanelHeight = clampPanelSize(stored.layers, 120, 520, layersPanelHeight);
 				layersPanelUserSized = true;
 			}
-			const storedColorLayers = Number(
-				localStorage.getItem('openpost-image-editor-color-layers-height-v1')
-			);
+			const storedColorLayers = Number(localStorage.getItem(COLOR_LAYERS_HEIGHT_KEY));
 			if (Number.isFinite(storedColorLayers) && storedColorLayers > 0) {
 				colorLayersPanelHeight = clampPanelSize(storedColorLayers, 120, 520, 120);
 				colorLayersPanelUserSized = true;
@@ -796,14 +800,20 @@
 		const measuredHeight = inspectorElement.clientHeight;
 		if (measuredHeight <= 0) return;
 		inspectorPanelHeight = measuredHeight;
-		if (activeLayersPanelIsUserSized()) {
-			setActiveLayersPanelHeight(
-				clampPanelSize(
-					activeLayersPanelHeight(),
-					120,
-					layersPanelMaximum(),
-					activeLayersPanelHeight()
-				)
+		if (layersPanelUserSized) {
+			layersPanelHeight = clampPanelSize(
+				layersPanelHeight,
+				120,
+				layersPanelMaximum(),
+				layersPanelHeight
+			);
+		}
+		if (colorLayersPanelUserSized) {
+			colorLayersPanelHeight = clampPanelSize(
+				colorLayersPanelHeight,
+				120,
+				layersPanelMaximum(),
+				colorLayersPanelHeight
 			);
 		}
 	}
@@ -881,13 +891,12 @@
 					pages: Math.round(pagesPanelHeight)
 				})
 			);
+			if (layersPanelUserSized) localStorage.setItem(EDIT_LAYERS_USER_SIZED_KEY, '1');
+			else localStorage.removeItem(EDIT_LAYERS_USER_SIZED_KEY);
 			if (colorLayersPanelUserSized) {
-				localStorage.setItem(
-					'openpost-image-editor-color-layers-height-v1',
-					String(Math.round(colorLayersPanelHeight))
-				);
+				localStorage.setItem(COLOR_LAYERS_HEIGHT_KEY, String(Math.round(colorLayersPanelHeight)));
 			} else {
-				localStorage.removeItem('openpost-image-editor-color-layers-height-v1');
+				localStorage.removeItem(COLOR_LAYERS_HEIGHT_KEY);
 			}
 		} catch {
 			// Layout persistence is optional when browser storage is unavailable.
@@ -2771,6 +2780,10 @@
 					if (activeEditorWorkspace === 'color') {
 						editor.rightPanelVisible = true;
 						if (window.innerWidth < 1024) mobileSheet = null;
+						requestAnimationFrame(() => {
+							constrainLayersPanelHeightFromDom();
+							storePanelLayout();
+						});
 					}
 				}}
 			/>
@@ -3565,7 +3578,11 @@
 			<aside
 				class="image-editor-mobile-color min-h-0 min-w-0 overflow-hidden border-t bg-card lg:hidden"
 			>
-				<PropertiesPanel onOpenMedia={openBackgroundMediaPicker} colorWorkspace />
+				<PropertiesPanel
+					onOpenMedia={openBackgroundMediaPicker}
+					onOpenLayers={() => (mobileSheet = 'layers')}
+					colorWorkspace
+				/>
 			</aside>
 		{/if}
 	</div>
@@ -3903,14 +3920,17 @@
 		>
 			{#if mobileSheet !== 'layers'}
 				<Sheet.Close>
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						class="absolute top-0 right-1 z-20"
-						aria-label={m.common_close()}
-					>
-						<ThemeIcon role="close" />
-					</Button>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="ghost"
+							size="icon-sm"
+							class="absolute top-0 right-1 z-20"
+							aria-label={m.common_close()}
+						>
+							<ThemeIcon role="close" />
+						</Button>
+					{/snippet}
 				</Sheet.Close>
 			{/if}
 			{#if mobileSheet === 'assets'}

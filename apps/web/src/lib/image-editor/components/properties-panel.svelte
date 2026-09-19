@@ -23,8 +23,13 @@
 
 	let {
 		onOpenMedia = () => undefined,
+		onOpenLayers,
 		colorWorkspace = false
-	}: { onOpenMedia?: () => void; colorWorkspace?: boolean } = $props();
+	}: {
+		onOpenMedia?: () => void;
+		onOpenLayers?: () => void;
+		colorWorkspace?: boolean;
+	} = $props();
 
 	const editor = useImageEditor();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
@@ -241,10 +246,16 @@
 </script>
 
 <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-	<div class="border-b px-3 py-2">
-		<h2 class="text-sm font-medium text-foreground">
+	<div class="flex min-h-9 items-center gap-2 border-b px-3 {onOpenLayers ? 'py-0' : 'py-1'}">
+		<h2 class="min-w-0 flex-1 text-sm font-medium text-foreground">
 			{colorWorkspace ? m.image_editor_color() : m.image_editor_properties()}
 		</h2>
+		{#if colorWorkspace && onOpenLayers}
+			<Button variant="ghost" size="xs" onclick={onOpenLayers}>
+				<ProtectedIcon icon="editor-layers" />
+				{m.image_editor_layers()}
+			</Button>
+		{/if}
 	</div>
 	<div
 		class="image-editor-properties-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3"

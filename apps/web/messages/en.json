@@ -5259,6 +5259,7 @@
 	"video_editor_text_layout_two": "2 spans",
 	"video_editor_text_layout_three": "3 spans",
 	"video_editor_text_templates": "Templates",
+	"video_editor_text_browse_styles": "Browse styles",
 	"video_editor_text_apply_template": "Apply {name}",
 	"video_editor_text_template_scale": "Template scale",
 	"video_editor_text_span_eyebrow": "Eyebrow",

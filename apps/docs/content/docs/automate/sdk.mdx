@@ -39,12 +39,12 @@ const draft = await openpost.publications.create({
   social_account_ids: ["acc_..."],
 });
 
-await openpost.publications.upsertRenditions(draft.id, draft.revision, [
+const publication = await openpost.publications.upsertRenditions(draft.id, draft.revision, [
   { social_account_id: "acc_...", body: "We just shipped our TypeScript SDK." },
 ]);
 
-await openpost.publications.validate(draft.id, { throwOnInvalid: true });
-const action = await openpost.publications.schedule(draft.id, draft.revision);
+await openpost.publications.validate(publication.id, { throwOnInvalid: true });
+const action = await openpost.publications.schedule(publication.id, publication.revision);
 if (action.job_id) await openpost.jobs.wait(action.job_id);
 ```
 

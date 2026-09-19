@@ -512,8 +512,11 @@ test("Color palettes explain their action and landscape workspaces retain a usab
   ).toBeGreaterThanOrEqual(160);
   await page.screenshot({ path: testInfo.outputPath("motion-landscape.png") });
   await page.getByRole("button", { name: "Render full video", exact: true }).click();
-  await page.setViewportSize({ width: 320, height: 844 });
   const dialog = page.getByRole("dialog", { name: "Export video", exact: true });
+  await expect(dialog.getByRole("button", { name: "Render now", exact: true })).toBeInViewport({
+    ratio: 1,
+  });
+  await page.setViewportSize({ width: 320, height: 844 });
   await expect(dialog).toBeInViewport({ ratio: 1 });
   await expect(dialog.getByRole("button", { name: "Render now", exact: true })).toBeInViewport({
     ratio: 1,

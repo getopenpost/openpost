@@ -304,8 +304,10 @@ func (t *ThreadsAdapter) createCarouselContainer(ctx context.Context, accessToke
 }
 
 func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string, externalID string) ([]Comment, error) {
-	fields := "id,text,username,timestamp,hide_status,is_reply_owned_by_me"
-	endpoint := "https://graph.threads.net/v1.0/" + externalID + "/replies?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
+	fields := "id,text,username,timestamp,hide_status,is_reply_owned_by_me,replied_to"
+	// The replies edge holds only top-level replies. The conversation edge
+	// holds replies at every depth, each naming the post or reply it answers.
+	endpoint := "https://graph.threads.net/v1.0/" + externalID + "/conversation?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, "GET", endpoint, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("threads replies: %w", err)
@@ -318,6 +320,9 @@ func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string
 			Timestamp        string `json:"timestamp"`
 			HideStatus       string `json:"hide_status"`
 			IsReplyOwnedByMe bool   `json:"is_reply_owned_by_me"`
+			RepliedTo        struct {
+				ID string `json:"id"`
+			} `json:"replied_to"`
 		} `json:"data"`
 		Error struct {
 			Message string `json:"message"`
@@ -334,6 +339,7 @@ func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string
 	for _, item := range result.Data {
 		comments = append(comments, Comment{
 			ID:         item.ID,
+			ParentID:   item.RepliedTo.ID,
 			AuthorName: item.Username,
 			Text:       item.Text,
 			CreatedAt:  item.Timestamp,

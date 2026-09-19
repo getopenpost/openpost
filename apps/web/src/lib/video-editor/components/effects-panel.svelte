@@ -87,7 +87,8 @@
 		showColorTools = false,
 		showScopes = false,
 		gpuOnly = false,
-		hiddenGpuEffectIds = []
+		hiddenGpuEffectIds = [],
+		visibleGpuEffectIds
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
@@ -96,15 +97,23 @@
 		showScopes?: boolean;
 		gpuOnly?: boolean;
 		hiddenGpuEffectIds?: readonly string[];
+		visibleGpuEffectIds?: readonly string[];
 	} = $props();
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
 	const hiddenGpuEffects = $derived(new Set(hiddenGpuEffectIds));
+	const visibleGpuEffects = $derived(
+		visibleGpuEffectIds === undefined ? null : new Set(visibleGpuEffectIds)
+	);
+	function gpuEffectVisible(effectId: string): boolean {
+		return !hiddenGpuEffects.has(effectId) && (visibleGpuEffects?.has(effectId) ?? true);
+	}
 	const effects = $derived(
 		(item?.effects ?? []).filter(
 			(effect) =>
 				(!gpuOnly || effect.type === 'gpu') &&
-				(effect.type !== 'gpu' || !hiddenGpuEffects.has(effect.effectId))
+				(visibleGpuEffects === null || effect.type === 'gpu') &&
+				(effect.type !== 'gpu' || gpuEffectVisible(effect.effectId))
 		)
 	);
 	const allEffectsEnabled = $derived(
@@ -127,10 +136,6 @@
 	let presetStatus = $state('');
 	let lutStatus = $state('');
 	let lutStatusEffectId = $state<string | null>(null);
-
-	$effect(() => {
-		if (gpuOnly && !pendingKind.startsWith('gpu:')) pendingKind = 'gpu:gpu-brightness';
-	});
 
 	const typeLabels = $derived<Record<Exclude<ItemType, 'gpu'>, string>>({
 		brightness: m.video_editor_effects_brightness(),
@@ -165,7 +170,7 @@
 	});
 
 	const effectOptions = $derived<EffectPickerOption[]>([
-		...(gpuOnly
+		...(gpuOnly || visibleGpuEffects !== null
 			? []
 			: EFFECT_DEFINITIONS.map((definition) => ({
 					value: definition.type,
@@ -176,7 +181,7 @@
 				}))),
 		...gpuCategories.flatMap((group) =>
 			group.effects
-				.filter((definition) => !hiddenGpuEffects.has(definition.id))
+				.filter((definition) => gpuEffectVisible(definition.id))
 				.map((definition) => ({
 					value: `gpu:${definition.id}`,
 					label: gpuEffectLabel(definition),
@@ -203,6 +208,12 @@
 			}))
 	]);
 
+	$effect(() => {
+		if (!effectOptions.some((option) => option.value === pendingKind)) {
+			pendingKind = effectOptions[0]?.value ?? '';
+		}
+	});
+
 	function definitionFor(type: string) {
 		return EFFECT_DEFINITIONS.find((entry) => entry.type === type);
 	}
@@ -211,7 +222,8 @@
 		return templates.every(
 			(template) =>
 				(!gpuOnly || template.kind === 'gpu') &&
-				(template.kind !== 'gpu' || !hiddenGpuEffects.has(template.effectId))
+				(visibleGpuEffects === null || template.kind === 'gpu') &&
+				(template.kind !== 'gpu' || gpuEffectVisible(template.effectId))
 		);
 	}
 
@@ -224,7 +236,9 @@
 	function pendingEffectTemplates(kind = pendingKind): EffectTemplate[] {
 		if (kind.startsWith('gpu:')) {
 			const effectId = kind.slice(4);
-			return getGpuEffect(effectId) ? [{ kind: 'gpu', effectId }] : [];
+			return getGpuEffect(effectId) && gpuEffectVisible(effectId)
+				? [{ kind: 'gpu', effectId }]
+				: [];
 		}
 		if (kind.startsWith('preset:')) {
 			return (

@@ -61,6 +61,7 @@ for (const scheme of ["light", "dark"] as const) {
       for (const route of [
         "/automate/sdk/publications",
         "/automate/api/publications",
+        "/automate/api/media",
         "/automate/cli/publishing",
         "/automate/n8n/build-a-workflow",
       ]) {

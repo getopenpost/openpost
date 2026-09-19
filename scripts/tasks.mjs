@@ -77,6 +77,7 @@ const checks = {
     bunTest(
       "scripts/check-doc-links.test.mjs",
       "scripts/check-doc-telemetry.test.mjs",
+      "scripts/docs-automation-examples.test.mjs",
       "scripts/sync-docs-external.test.mjs",
     ),
     bun("scripts/check-doc-links.mjs"),
@@ -487,6 +488,7 @@ function testPlan(requestedScope, requestedOptions) {
     bunTest(
       "scripts/check-doc-links.test.mjs",
       "scripts/check-doc-telemetry.test.mjs",
+      "scripts/docs-automation-examples.test.mjs",
       "scripts/sync-docs-external.test.mjs",
     ),
   ]);

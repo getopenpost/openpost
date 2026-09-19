@@ -3,11 +3,11 @@ title: Media uploads
 description: Upload bytes through OpenPost's storage-safe HTTP flow.
 ---
 
-Media uploads usually use three requests. Your integration creates an upload session, sends bytes to its storage target, then completes the session. If OpenPost finds identical ready media in the workspace, it returns `deduped: true` and the returned `media_id` is ready to use without the upload and completion requests.
+Media uploads usually use three requests. Your integration creates an upload session, sends bytes to its storage target, then completes the session. If OpenPost finds identical ready media in the workspace, it returns `deduped: true` and the returned `media_id` is ready to use without the upload and completion requests. The examples use Bash, curl, and jq.
 
 ## 1. Create a session
 
-```sh
+```bash
 OPENPOST_BASE="https://app.openpo.st"
 WORKSPACE_ID="ws_..."
 
@@ -31,27 +31,52 @@ The response includes `media_id`, `deduped`, `complete_url`, and an `upload` obj
 
 ## 2. Send the bytes
 
-Use the exact method and headers from `upload`. The target may be object storage on another origin. Do not send the OpenPost bearer token to that URL.
+Use the exact method and headers from `upload`. An absolute target is external storage, so do not send the OpenPost bearer token to it. A relative target is an authenticated OpenPost endpoint.
 
-```sh
+```bash
 if [ "$DEDUPED" = "false" ]; then
   UPLOAD_METHOD="$(printf '%s' "$SESSION_JSON" | jq -r '.upload.method')"
   UPLOAD_URL="$(printf '%s' "$SESSION_JSON" | jq -r '.upload.url')"
+  UPLOAD_HEADERS=()
+  while IFS= read -r header; do
+    UPLOAD_HEADERS+=(-H "$header")
+  done < <(printf '%s' "$SESSION_JSON" | jq -r '.upload.headers | to_entries[] | "\(.key): \(.value)"')
 
-  curl "$UPLOAD_URL" \
-    -X "$UPLOAD_METHOD" \
-    -H "Content-Type: image/png" \
-    --data-binary @cover.png
+  case "$UPLOAD_URL" in
+    http://* | https://*)
+      UPLOAD_TARGET="$UPLOAD_URL"
+      UPLOAD_EXTERNAL=true
+      ;;
+    /*)
+      UPLOAD_TARGET="$OPENPOST_BASE$UPLOAD_URL"
+      UPLOAD_EXTERNAL=false
+      ;;
+    *)
+      printf 'Unsupported upload URL: %s\n' "$UPLOAD_URL" >&2
+      exit 1
+      ;;
+  esac
+
+  if [ "$UPLOAD_EXTERNAL" = "true" ]; then
+    curl "$UPLOAD_TARGET" \
+      -X "$UPLOAD_METHOD" \
+      "${UPLOAD_HEADERS[@]}" \
+      --data-binary @cover.png
+  else
+    curl "$UPLOAD_TARGET" \
+      -X "$UPLOAD_METHOD" \
+      -H "Authorization: Bearer $OPENPOST_TOKEN" \
+      "${UPLOAD_HEADERS[@]}" \
+      --data-binary @cover.png
+  fi
 fi
 ```
-
-If the response includes other upload headers, send them too.
 
 ## 3. Complete the session
 
 Complete the session with the returned `media_id`, your workspace ID, and your OpenPost bearer token. Completion starts the normal validation and media-processing flow.
 
-```sh
+```bash
 if [ "$DEDUPED" = "false" ]; then
   RESULT_JSON="$(curl "$OPENPOST_BASE/api/v1/media/upload-session/$MEDIA_ID/complete" \
     -X POST \

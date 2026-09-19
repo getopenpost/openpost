@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.36.1] - 2026-09-19
+
+### Fixed
+
+- Fixed release validation for the new Meta analytics and TikTok reconciliation paths.
+
 ## [4.36.0] - 2026-09-19
 
 ### Fixed

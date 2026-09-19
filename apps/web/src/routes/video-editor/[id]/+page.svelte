@@ -492,10 +492,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let mixerDockLayout = $state<{ baseHeight: number; height: number } | null>(null);
 	let editorViewportWidth = $state(1280);
 	let editorViewportHeight = $state(800);
+	let editorWorkAreaHeight = $state(0);
+	const showColorScopes = $derived(
+		editorSettings.value.colorScopesVisible ?? editorViewportWidth >= 1024
+	);
 	const minimumProgramWidth = 360;
 	const minimumMotionPreviewWidth = 480;
 	const minimumProgramHeight = 180;
 	const editorHeaderHeight = 48;
+	const minimumColorProgramHeight = 280;
 	const sourceMonitorHorizontal = $derived(
 		sourceMediaId !== null && editorViewportWidth >= 1280 && !sourceMonitorOverlay
 	);
@@ -557,10 +562,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	);
 	const mixerPanelMaximum = $derived(Math.max(160, Math.min(420, timelinePanelMaximum - 180)));
 	const colorDockMaximum = $derived(
-		Math.max(280, Math.min(720, editorViewportHeight - editorHeaderHeight - 220))
+		Math.max(280, Math.min(720, editorWorkAreaHeight - minimumColorProgramHeight))
 	);
-	const colorDockMinimum = $derived(Math.min(500, colorDockMaximum));
-	const colorDockDefault = $derived(Math.min(520, colorDockMaximum));
+	const colorDockMinimum = $derived(Math.min(360, colorDockMaximum));
+	const colorDockDefault = $derived(Math.min(440, colorDockMaximum));
 	const effectiveMotionPanelWidth = $derived(Math.min(motionPanelWidth, motionPanelMaximum));
 	const effectiveSourceMonitorWidth = $derived(Math.min(sourceMonitorWidth, sourceMonitorMaximum));
 	const effectiveScopesPanelWidth = $derived(Math.min(scopesPanelWidth, scopesPanelMaximum));
@@ -2534,6 +2539,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					class="flex min-h-0 w-full min-w-0 flex-1 flex-col {activeWorkspace === 'edit'
 						? 'lg:grid lg:grid-rows-[minmax(0,1fr)_var(--timeline-height)]'
 						: ''}"
+					bind:clientHeight={editorWorkAreaHeight}
 					style:--asset-browser-width={`${effectiveAssetBrowserWidth}px`}
 					style:--inspector-panel-width={`${effectiveInspectorPanelWidth}px`}
 					style:--timeline-height={`${effectiveTimelineHeight}px`}
@@ -2818,7 +2824,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											{:else if leftPanel === 'stock'}
 												<StockBrowserPanel {projectId} oninserted={handleVectorAssetInserted} />
 											{:else if leftPanel === 'text'}
-												<TextTemplateBrowser oninserted={handleVectorAssetInserted} />
+												<TextTemplateBrowser
+													selectedTextItemId={selectedIsText ? selectedItemId : null}
+													onapplied={() => editorSession.scheduleAutosave()}
+													oninserted={handleVectorAssetInserted}
+												/>
 											{:else if leftPanel === 'shapes'}
 												<ShapePanel oninserted={handleVectorAssetInserted} />
 											{:else if leftPanel === 'backgrounds'}
@@ -2946,6 +2956,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										<PreviewPlayer
 											bind:selectedItemId
 											bind:selectedItemIds
+											showTransformControls={activeWorkspace !== 'color'}
 											ondeselect={resetTimelineSelection}
 											onedit={() => editorSession.scheduleAutosave()}
 										/>
@@ -2966,7 +2977,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										{/if}
 									{/if}
 								</section>
-								{#if activeWorkspace === 'color'}
+								{#if activeWorkspace === 'color' && showColorScopes}
 									<aside
 										class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-t-0 lg:border-l"
 										style:--scopes-panel-width={`${effectiveScopesPanelWidth}px`}
@@ -3148,6 +3159,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											itemIds={selectedItemIds}
 											onedit={() => editorSession.scheduleAutosave()}
 											oncreatevoice={openTextVoice}
+											onbrowsetextstyles={() => {
+												leftPanel = 'text';
+												expandLeftSidebar();
+												mobileEditPane = 'assets';
+											}}
 										/>
 										{#if selectedIsVideo}
 											<div class="mt-3">
@@ -3319,7 +3335,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 					{#if activeWorkspace === 'color'}
 						<div
-							class="relative max-h-[72dvh] min-h-0 shrink-0 lg:h-[var(--color-dock-height)]"
+							class="relative h-[56dvh] max-h-[72dvh] min-h-0 shrink-0 lg:h-[var(--color-dock-height)]"
 							style:--color-dock-height={`${effectiveColorDockHeight}px`}
 						>
 							<PanelResizeHandle
@@ -3339,6 +3355,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								oncreateadjustment={handleAddAdjustmentLayer}
 								oncreatesequencegrade={handleCreateSequenceColorGrade}
 								onscopechange={(scope) => (colorGradeScope = scope)}
+								colorScope={colorGradeScope}
+								scopesVisible={showColorScopes}
+								ontogglescopes={() => editorSettings.set('colorScopesVisible', !showColorScopes)}
+								sequenceName={sequenceStore.activeSequence?.name ?? m.video_editor_main_sequence()}
 								onedit={() => editorSession.scheduleAutosave()}
 							/>
 						</div>

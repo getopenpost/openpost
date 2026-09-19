@@ -1,11 +1,14 @@
 <script module lang="ts">
+	import type { ProtectedIconRole } from '$lib/themes/icons';
 	export interface ColorPaletteOption<T extends string = string> {
 		id: T;
 		label: string;
+		icon?: ProtectedIconRole;
 	}
 </script>
 
 <script lang="ts" generics="T extends string">
+	import { ProtectedIcon } from '$lib/themes/icons';
 	let {
 		palettes,
 		active,
@@ -49,17 +52,23 @@
 			class:palette-tab-active={active === palette.id}
 			role="tab"
 			aria-selected={active === palette.id}
+			aria-label={palette.label}
+			title={palette.label}
 			tabindex={active === palette.id ? 0 : -1}
 			onclick={() => onselect(palette.id)}
 			onkeydown={(event) => selectFromKeyboard(event, index)}
 		>
-			{palette.label}
+			{#if palette.icon}<ProtectedIcon icon={palette.icon} class="size-3.5" />{/if}
+			<span class:sr-only={!!palette.icon && active !== palette.id}>{palette.label}</span>
 		</button>
 	{/each}
 </div>
 
 <style>
 	.palette-tab {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
 		height: 1.5625rem;
 		flex: 0 0 auto;
 		border-radius: 0.25rem;

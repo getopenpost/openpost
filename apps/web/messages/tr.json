@@ -8920,5 +8920,8 @@
 	"video_editor_paper_all": "Tüm gölgelendiriciler",
 	"video_editor_paper_empty": "Arka plan bulunamadı.",
 	"theme_editor_accent_hue": "Vurgu tonu",
-	"theme_editor_accent_hue_description": "Her iki modda Dither vurgu rengini günceller. Tek tek renkleri aşağıda ayarlayın."
+	"theme_editor_accent_hue_description": "Her iki modda Dither vurgu rengini günceller. Tek tek renkleri aşağıda ayarlayın.",
+	"video_editor_color_sequence": "Sekans",
+	"video_editor_color_clip_target": "Klip: {name}",
+	"video_editor_color_sequence_target": "Sekans: {name}"
 }

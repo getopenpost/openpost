@@ -8920,5 +8920,8 @@
 	"video_editor_paper_all": "모든 셰이더",
 	"video_editor_paper_empty": "배경을 찾을 수 없습니다.",
 	"theme_editor_accent_hue": "강조 색조",
-	"theme_editor_accent_hue_description": "두 모드의 Dither 강조 색상을 변경합니다. 아래에서 개별 색상을 조정하세요."
+	"theme_editor_accent_hue_description": "두 모드의 Dither 강조 색상을 변경합니다. 아래에서 개별 색상을 조정하세요.",
+	"video_editor_color_sequence": "시퀀스",
+	"video_editor_color_clip_target": "클립: {name}",
+	"video_editor_color_sequence_target": "시퀀스: {name}"
 }

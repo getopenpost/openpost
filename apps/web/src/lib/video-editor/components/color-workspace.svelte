@@ -267,8 +267,8 @@
 				? 'py-1'
 				: 'py-1.5'}"
 		>
-			<div class="flex items-center justify-between gap-2">
-				<div class="flex items-center gap-1">
+			<div class="flex items-center justify-between gap-2 overflow-x-auto">
+				<div class="flex shrink-0 items-center gap-1">
 					{#if !compact}
 						<h3
 							class="text-xs font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase"
@@ -292,10 +292,12 @@
 						<button
 							type="button"
 							class="color-tool h-[22px] [@media(pointer:coarse)]:h-11"
+							aria-label={m.image_editor_more_actions()}
+							title={m.image_editor_more_actions()}
 							aria-expanded={showGradeTools}
 							onclick={toggleGradeTools}
 						>
-							{m.video_editor_tools()}
+							<ThemeIcon role="more-horizontal" class="size-3.5" />
 						</button>
 					{/if}
 				</div>

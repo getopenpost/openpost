@@ -23,6 +23,16 @@ export type MediaLibraryViewMode = 'grid' | 'list';
 
 export type CaptionSearchMode = 'keyword' | 'semantic';
 
+export const COLOR_PALETTES = [
+	'primaries',
+	'curves',
+	'qualifier',
+	'windows',
+	'lut',
+	'effects'
+] as const;
+export type ColorPalette = (typeof COLOR_PALETTES)[number];
+
 // Persisted layout-dock flags port FreeCut's MIT-licensed editor layout
 // (Copyright (c) 2025 FreeCut): per-device sidebar open state and full-column
 // expansion. Theater mode is OpenPost-specific.
@@ -44,6 +54,8 @@ export interface EditorSettingsValue {
 	scopesPanelWidth: number;
 	timelineHeight: number;
 	colorDockHeight: number;
+	colorPalette: ColorPalette;
+	colorScopesVisible: boolean | null;
 	audioMixerHeight: number;
 	defaultTranscriptionModel: TranscriptionModel;
 	defaultTranscriptionLanguage: string;
@@ -73,7 +85,9 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettingsValue = {
 	sourceMonitorWidth: 480,
 	scopesPanelWidth: 360,
 	timelineHeight: 260,
-	colorDockHeight: 520,
+	colorDockHeight: 440,
+	colorPalette: 'primaries',
+	colorScopesVisible: null,
 	audioMixerHeight: 224,
 	defaultTranscriptionModel: DEFAULT_TRANSCRIPTION_MODEL,
 	defaultTranscriptionLanguage: '',
@@ -133,6 +147,10 @@ function isCaptionSearchMode(value: JsonValue | undefined): value is CaptionSear
 
 function normalizeLayoutFlag(value: JsonValue | undefined, fallback: boolean): boolean {
 	return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeColorPalette(value: JsonValue | undefined): ColorPalette {
+	return COLOR_PALETTES.find((palette) => palette === value) ?? 'primaries';
 }
 
 function isCaptionStylePresetId(value: JsonValue | undefined): value is CaptionStylePresetId {
@@ -208,7 +226,10 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 		sourceMonitorWidth: clampLayoutSize(record.sourceMonitorWidth, 480, 300, 720),
 		scopesPanelWidth: clampLayoutSize(record.scopesPanelWidth, 360, 280, 600),
 		timelineHeight: clampLayoutSize(record.timelineHeight, 260, 180, 620),
-		colorDockHeight: clampLayoutSize(record.colorDockHeight, 520, 500, 720),
+		colorDockHeight: clampLayoutSize(record.colorDockHeight, 440, 360, 720),
+		colorPalette: normalizeColorPalette(record.colorPalette),
+		colorScopesVisible:
+			typeof record.colorScopesVisible === 'boolean' ? record.colorScopesVisible : null,
 		audioMixerHeight: clampLayoutSize(record.audioMixerHeight, 224, 160, 420),
 		defaultTranscriptionModel: isTranscriptionModel(record.defaultTranscriptionModel)
 			? record.defaultTranscriptionModel

@@ -8920,5 +8920,8 @@
 	"video_editor_paper_all": "All shaders",
 	"video_editor_paper_empty": "No backgrounds found.",
 	"theme_editor_accent_hue": "Accent hue",
-	"theme_editor_accent_hue_description": "Update the Dither accent in both schemes. Adjust individual colors below."
+	"theme_editor_accent_hue_description": "Update the Dither accent in both schemes. Adjust individual colors below.",
+	"video_editor_color_sequence": "Sequence",
+	"video_editor_color_clip_target": "Clip: {name}",
+	"video_editor_color_sequence_target": "Sequence: {name}"
 }

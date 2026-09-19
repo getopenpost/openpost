@@ -133,11 +133,13 @@
 	let {
 		selectedItemId = $bindable(null),
 		selectedItemIds = $bindable([]),
+		showTransformControls = true,
 		ondeselect = () => undefined,
 		onedit
 	}: {
 		selectedItemId?: string | null;
 		selectedItemIds?: string[];
+		showTransformControls?: boolean;
 		ondeselect?: () => void;
 		onedit: () => void;
 	} = $props();
@@ -1534,7 +1536,7 @@
 							height={canvasHeight}
 							fps={timelineStore.fps}
 						/>
-						{#if selectedResolvedItems.length > 1 && !groupSelectionLocked}
+						{#if showTransformControls && selectedResolvedItems.length > 1 && !groupSelectionLocked}
 							<GroupOnCanvasTools
 								items={selectedResolvedItems}
 								{canvasWidth}
@@ -1553,7 +1555,7 @@
 									editorSettings.set('canvasSnapEnabled', !editorSettings.canvasSnapEnabled)}
 								{onedit}
 							/>
-						{:else if selectedResolved && !selectedTrackLocked}
+						{:else if selectedResolved && !selectedTrackLocked && (showTransformControls || spatialEditingSelected)}
 							{#if spatialEditingSelected && selectedItem}
 								<SpatialEffectPointOverlay
 									item={selectedResolved}

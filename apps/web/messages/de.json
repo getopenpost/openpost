@@ -8920,5 +8920,8 @@
 	"video_editor_paper_all": "Alle Shader",
 	"video_editor_paper_empty": "Keine Hintergründe gefunden.",
 	"theme_editor_accent_hue": "Akzentfarbton",
-	"theme_editor_accent_hue_description": "Ändert den Dither-Akzent in beiden Modi. Einzelne Farben lassen sich unten anpassen."
+	"theme_editor_accent_hue_description": "Ändert den Dither-Akzent in beiden Modi. Einzelne Farben lassen sich unten anpassen.",
+	"video_editor_color_sequence": "Sequenz",
+	"video_editor_color_clip_target": "Clip: {name}",
+	"video_editor_color_sequence_target": "Sequenz: {name}"
 }

@@ -8920,5 +8920,8 @@
 	"video_editor_paper_all": "すべてのシェーダー",
 	"video_editor_paper_empty": "背景が見つかりません。",
 	"theme_editor_accent_hue": "アクセントの色相",
-	"theme_editor_accent_hue_description": "両方のモードのDitherアクセントを変更します。個々の色は下で調整できます。"
+	"theme_editor_accent_hue_description": "両方のモードのDitherアクセントを変更します。個々の色は下で調整できます。",
+	"video_editor_color_sequence": "シーケンス",
+	"video_editor_color_clip_target": "クリップ: {name}",
+	"video_editor_color_sequence_target": "シーケンス: {name}"
 }

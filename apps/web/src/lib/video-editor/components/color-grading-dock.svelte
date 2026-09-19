@@ -8,9 +8,7 @@
 	import ColorPaletteTabs, { type ColorPaletteOption } from './color-palette-tabs.svelte';
 	import ColorWorkspace from './color-workspace.svelte';
 	import EffectsPanel from './effects-panel.svelte';
-
-	type ColorPalette = 'primaries' | 'curves' | 'effects' | 'keyframes';
-	type EffectsPalette = 'all' | 'qualifier' | 'windows' | 'lut';
+	import { editorSettings, type ColorPalette } from '../settings/editor-settings.svelte';
 
 	let {
 		itemId,
@@ -20,8 +18,10 @@
 		oncreateadjustment,
 		oncreatesequencegrade,
 		onscopechange = () => undefined,
+		colorScope = 'clip',
 		scopesVisible = true,
-		ontogglescopes = () => undefined
+		ontogglescopes = () => undefined,
+		sequenceName
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
@@ -30,13 +30,14 @@
 		oncreateadjustment?: () => void;
 		oncreatesequencegrade?: () => string | null;
 		onscopechange?: (scope: 'clip' | 'sequence') => void;
+		colorScope?: 'clip' | 'sequence';
 		scopesVisible?: boolean;
 		ontogglescopes?: () => void;
+		sequenceName: string;
 	} = $props();
 	let colorAutoKey = $state(false);
-	let colorScope = $state<'clip' | 'sequence'>('clip');
-	let activePalette = $state<ColorPalette>('primaries');
-	let activeEffectsPalette = $state<EffectsPalette>('all');
+	const activePalette = $derived(editorSettings.value.colorPalette);
+	let keyframesVisible = $state(false);
 	let sequenceGradeItemId = $derived<string | null>(
 		timelineStore.items.find((item) => item.type === 'adjustment' && item.sequenceColorGrade)?.id ??
 			null
@@ -53,31 +54,33 @@
 				: (clipItemIds[0] ?? null)
 	);
 	const targetLabel = $derived.by(() => {
-		if (colorScope === 'sequence') return m.video_editor_sequences();
+		if (colorScope === 'sequence')
+			return m.video_editor_color_sequence_target({ name: sequenceName });
 		if (scopedItemIds.length > 1) {
 			return m.video_editor_items_selected({ count: scopedItemIds.length });
 		}
-		return (
-			(scopedItemId && timelineStore.itemById.get(scopedItemId)?.label) ||
-			m.video_editor_select_clip()
-		);
+		return m.video_editor_color_clip_target({
+			name:
+				(scopedItemId && timelineStore.itemById.get(scopedItemId)?.label) ||
+				m.video_editor_select_clip()
+		});
 	});
 	const palettes = $derived<readonly ColorPaletteOption<ColorPalette>[]>([
-		{ id: 'primaries', label: m.video_editor_color_primaries() },
-		{ id: 'curves', label: m['video_editor_gpu_effect_gpu-curves']() },
-		{ id: 'effects', label: m.video_editor_effects() },
-		{ id: 'keyframes', label: m.video_editor_keyframes() }
-	]);
-	const effectsPalettes = $derived<readonly ColorPaletteOption<EffectsPalette>[]>([
-		{ id: 'all', label: m.common_all() },
-		{ id: 'qualifier', label: m['video_editor_gpu_effect_gpu-secondary-qualifier']() },
-		{ id: 'windows', label: m['video_editor_gpu_effect_gpu-power-window']() },
-		{ id: 'lut', label: m['video_editor_gpu_effect_gpu-lut']() }
+		{ id: 'primaries', label: m.video_editor_color_primaries(), icon: 'editor-blend' },
+		{ id: 'curves', label: m['video_editor_gpu_effect_gpu-curves'](), icon: 'editor-path' },
+		{
+			id: 'qualifier',
+			label: m['video_editor_gpu_effect_gpu-secondary-qualifier'](),
+			icon: 'editor-eyedropper'
+		},
+		{ id: 'windows', label: m['video_editor_gpu_effect_gpu-power-window'](), icon: 'editor-mask' },
+		{ id: 'lut', label: m['video_editor_gpu_effect_gpu-lut'](), icon: 'editor-effects' },
+		{ id: 'effects', label: m.video_editor_effects(), icon: 'editor-layers' }
 	]);
 	const visibleEffectIds = $derived.by((): readonly string[] | undefined => {
-		if (activeEffectsPalette === 'qualifier') return ['gpu-secondary-qualifier'];
-		if (activeEffectsPalette === 'windows') return ['gpu-power-window'];
-		if (activeEffectsPalette === 'lut') return ['gpu-lut'];
+		if (activePalette === 'qualifier') return ['gpu-secondary-qualifier'];
+		if (activePalette === 'windows') return ['gpu-power-window'];
+		if (activePalette === 'lut') return ['gpu-lut'];
 		return undefined;
 	});
 
@@ -92,29 +95,44 @@
 </script>
 
 <section
-	class="flex size-full min-h-0 shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+	class="flex size-full min-h-0 shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
 	aria-label={m.video_editor_color_dock()}
 	data-sequence-grade-item-id={sequenceGradeItemId ?? undefined}
 >
 	<div
-		class="flex h-[30px] shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--video-editor-border)] px-2 [@media(pointer:coarse)]:h-11"
+		class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-[var(--video-editor-border)] px-2 py-1 lg:h-[30px] lg:flex-nowrap lg:py-0 [@media(pointer:coarse)]:min-h-11"
 	>
-		<div class="flex min-w-28 shrink-0 items-center gap-1.5">
-			<span class="text-[10px] text-[var(--video-editor-muted)]">{m.video_editor_color_dock()}</span
-			>
+		<div class="flex min-w-0 flex-1 items-center gap-1.5 lg:flex-none">
 			<span
 				class="max-w-40 truncate text-[11px] font-medium"
 				title={targetLabel}
 				data-color-target-label>{targetLabel}</span
 			>
 		</div>
-		<ColorPaletteTabs
-			{palettes}
-			active={activePalette}
-			label={m.video_editor_color_workspace()}
-			onselect={(palette) => (activePalette = palette)}
-		/>
+		<div class="order-3 w-full min-w-0 lg:order-none lg:w-auto">
+			<ColorPaletteTabs
+				{palettes}
+				active={activePalette}
+				label={m.video_editor_color_workspace()}
+				onselect={(palette) => {
+					keyframesVisible = false;
+					editorSettings.set('colorPalette', palette);
+				}}
+			/>
+		</div>
 		<div class="ml-auto flex shrink-0 items-center gap-1">
+			<button
+				type="button"
+				class="dock-tool"
+				class:dock-tool-active={keyframesVisible}
+				aria-pressed={keyframesVisible}
+				aria-label={m.video_editor_keyframes()}
+				title={m.video_editor_keyframes()}
+				onclick={() => (keyframesVisible = !keyframesVisible)}
+			>
+				<ProtectedIcon icon="editor-keyframe" class="size-3.5" />
+				<span class="sr-only sm:not-sr-only">{m.video_editor_keyframes()}</span>
+			</button>
 			<button
 				type="button"
 				class="dock-tool"
@@ -145,7 +163,7 @@
 					aria-pressed={colorScope === 'sequence'}
 					onclick={() => setColorScope('sequence')}
 				>
-					{m.video_editor_sequences()}
+					{m.video_editor_color_sequence()}
 				</button>
 			</div>
 		</div>
@@ -175,12 +193,14 @@
 			<div
 				class="min-h-0 flex-1 overflow-hidden"
 				role="tabpanel"
-				aria-label={palettes.find((palette) => palette.id === activePalette)?.label}
+				aria-label={keyframesVisible
+					? m.video_editor_keyframes()
+					: palettes.find((palette) => palette.id === activePalette)?.label}
 				data-color-active-palette={activePalette}
 			>
 				<ColorWorkspace
 					compact
-					primaryActive={activePalette === 'primaries'}
+					primaryActive={!keyframesVisible && activePalette === 'primaries'}
 					itemId={scopedItemId}
 					itemIds={scopedItemIds}
 					{onedit}
@@ -188,23 +208,17 @@
 					autoKey={colorAutoKey}
 					onAutoKeyChange={(enabled) => (colorAutoKey = enabled)}
 				>
-					{#if activePalette === 'curves'}
+					{#if keyframesVisible}
+						<ColorKeyframePanel itemId={scopedItemId} {onedit} />
+					{:else if activePalette === 'curves'}
 						<ColorCurvesPanel
 							itemId={scopedItemId}
 							itemIds={scopedItemIds}
 							{onedit}
 							forceAutoKey={colorAutoKey}
 						/>
-					{:else if activePalette === 'effects'}
-						<div class="flex size-full min-h-0 flex-col">
-							<div class="shrink-0 border-b border-[var(--video-editor-border)] px-2 py-1">
-								<ColorPaletteTabs
-									palettes={effectsPalettes}
-									active={activeEffectsPalette}
-									label={m.video_editor_effects()}
-									onselect={(palette) => (activeEffectsPalette = palette)}
-								/>
-							</div>
+					{:else if activePalette !== 'primaries'}
+						{#key activePalette}
 							<div class="min-h-0 flex-1 overflow-hidden">
 								<EffectsPanel
 									itemId={scopedItemId}
@@ -215,9 +229,7 @@
 									visibleGpuEffectIds={visibleEffectIds}
 								/>
 							</div>
-						</div>
-					{:else if activePalette === 'keyframes'}
-						<ColorKeyframePanel itemId={scopedItemId} {onedit} />
+						{/key}
 					{/if}
 				</ColorWorkspace>
 			</div>
@@ -234,6 +246,9 @@
 		color: var(--video-editor-muted);
 	}
 	.dock-tool {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
 		border-radius: 0.25rem;
 		border: 1px solid var(--video-editor-border);
 	}

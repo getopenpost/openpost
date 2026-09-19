@@ -89,12 +89,15 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   page.on("pageerror", (error) => errors.push(error.message));
   await createShaderProject(page);
   const canvas = page.locator("canvas[data-stacked-preview]");
+  const transport = page.locator("[data-video-transport]");
   const initial = await canvas.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
-  await page.getByRole("button", { name: "Step one frame forward", exact: true }).click();
+  await transport.getByRole("button", { name: "More actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Step one frame forward", exact: true }).click();
   await expect
     .poll(() => canvas.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL()))
     .not.toBe(initial);
-  await page.getByRole("button", { name: "Go to start", exact: true }).click();
+  await transport.getByRole("button", { name: "More actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Go to start", exact: true }).click();
   await expect
     .poll(() => canvas.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL()))
     .toBe(initial);

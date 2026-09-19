@@ -4,24 +4,43 @@ import { userEvent } from 'vitest/browser';
 import Fixture from './tool-family-button.fixture.svelte';
 import '../../../routes/layout.css';
 
-it('keeps the remembered tool action separate from the visible variant menu', async () => {
+it('activates the remembered variant first, then opens its menu from the same button', async () => {
 	const onactivate = vi.fn();
 	const screen = await render(Fixture, { onactivate });
-	await screen.getByRole('button', { name: 'Pixel select', exact: true }).click();
+	const family = screen.getByRole('button', { name: 'Pixel select', exact: true });
+	await family.click();
 	expect(onactivate).toHaveBeenCalledOnce();
 	expect(screen.getByRole('menuitem', { name: 'Ellipse select' }).query()).toBeNull();
-	await screen.getByRole('button', { name: 'Pixel select, More actions' }).click();
+	await family.click();
+	expect(onactivate).toHaveBeenCalledOnce();
 	await expect.element(screen.getByRole('menuitem', { name: 'Ellipse select' })).toBeVisible();
+	await userEvent.keyboard('{Escape}');
+	await expect.element(family).toHaveFocus();
 });
 
-it('opens variants from the keyboard and the existing context-menu shortcut', async () => {
+it.each(['{ArrowDown}', '{ArrowRight}'])('opens variants with %s', async (key) => {
 	const screen = await render(Fixture, { onactivate: vi.fn() });
-	const variants = screen.getByRole('button', { name: 'Pixel select, More actions' });
-	(await variants.element()).focus();
-	await userEvent.keyboard('{Enter}');
+	const family = screen.getByRole('button', { name: 'Pixel select', exact: true });
+	(await family.element()).focus();
+	await userEvent.keyboard(key);
 	await expect.element(screen.getByRole('menuitem', { name: 'Rectangle select' })).toBeVisible();
-	await userEvent.keyboard('{Escape}');
+});
+
+it('activates an inactive family with Enter without opening its menu', async () => {
+	const onactivate = vi.fn();
+	const screen = await render(Fixture, { onactivate });
+	const family = screen.getByRole('button', { name: 'Pixel select', exact: true });
+	(await family.element()).focus();
+	await userEvent.keyboard('{Enter}');
+	expect(onactivate).toHaveBeenCalledOnce();
+	expect(screen.getByRole('menuitem', { name: 'Rectangle select' }).query()).toBeNull();
+});
+
+it('opens variants from the context-menu shortcut', async () => {
+	const screen = await render(Fixture, { onactivate: vi.fn() });
 	const family = screen.getByTestId('image-editor-tool-family');
-	(await family.element()).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+	(await family.element()).dispatchEvent(
+		new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+	);
 	await expect.element(screen.getByRole('menuitem', { name: 'Rectangle select' })).toBeVisible();
 });

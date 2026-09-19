@@ -272,7 +272,7 @@
 		<div
 			class="grid grid-cols-2 overflow-hidden rounded-md border"
 			role="group"
-			aria-label={`${m.image_editor_color()} ${m.image_editor_layers()}`}
+			aria-label={m.image_editor_color()}
 		>
 			<Button
 				type="button"
@@ -281,7 +281,7 @@
 				aria-pressed={scope === 'layer'}
 				onclick={() => setScope('layer')}
 			>
-				{m.image_editor_layer()}
+				{m.image_editor_layers()}
 			</Button>
 			<Button
 				type="button"
@@ -290,11 +290,13 @@
 				aria-pressed={scope === 'page'}
 				onclick={() => setScope('page')}
 			>
-				{m.image_editor_pages()}
+				{m.image_editor_page()}
 			</Button>
 		</div>
 		<p class="text-xs text-muted-foreground" aria-live="polite">
-			{m.image_editor_selected_count({ count: targetCount })}
+			{scope === 'page'
+				? (activePage?.name ?? m.image_editor_page())
+				: m.image_editor_selected_count({ count: targetCount })}
 		</p>
 	</div>
 

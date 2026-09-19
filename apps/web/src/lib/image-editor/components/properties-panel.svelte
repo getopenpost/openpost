@@ -3,17 +3,16 @@
 	import { defaultImageAdjustments } from '../document';
 	import { defaultTextCurve } from '../effects';
 	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import ColorPicker from '$lib/components/color-picker.svelte';
-	import ImageEditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import ImageColorWorkspace from './image-color-workspace.svelte';
 	import LayerEffectsPanel from './layer-effects-panel.svelte';
 	import PageBackgroundEditor from './page-background-editor.svelte';
+	import TextContentProperties from './text-content-properties.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
@@ -30,12 +29,11 @@
 	const editor = useImageEditor();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
 	let cropOpen = $state(false);
+	let layerActionsOpen = $state(false);
 	let transformOpen = $state(false);
 	let adjustmentsOpen = $state(false);
 	let aspectLocked = $state(true);
 	let brandColors = $derived(editor.brandKit?.colors ?? []);
-	let brandFonts = $derived(editor.brandKit?.fonts ?? []);
-	let brandTextStyles = $derived(editor.brandKit?.text_styles ?? []);
 	let mixedOpacity = $derived(
 		imageEditorMixedValue(editor.selectedLayers.map((item) => item.opacity))
 	);
@@ -61,12 +59,6 @@
 		'shadows',
 		'blur'
 	] satisfies Array<Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>>;
-	let missingFontAsset = $derived(
-		layer?.text?.font_asset_id &&
-			!brandFonts.some((font) => font.media_id === layer?.text?.font_asset_id)
-			? layer.text.font_asset_id
-			: ''
-	);
 	let applicationFeedback = $state('');
 
 	function partialApplicationMessage(result: {
@@ -279,135 +271,158 @@
 						{applicationFeedback}
 					</p>
 				{/if}
-				<section class="space-y-2">
-					<label for="layer-name" class="block text-xs font-medium"
-						>{m.image_editor_layer_name()}</label
-					>
-					<Input
-						id="layer-name"
-						value={layer.name}
-						disabled={!editor.canEdit}
-						oninput={(event) => {
-							const name = event.currentTarget.value;
-							if (name.trim()) editor.updateLayer(layer.id, { name }, `layer-name:${layer.id}`);
-						}}
-						onblur={(event) => {
-							const name = event.currentTarget.value.trim();
-							if (!name) event.currentTarget.value = layer.name;
-							else if (name !== layer.name)
-								editor.updateLayer(layer.id, { name }, `layer-name:${layer.id}`);
-						}}
-						onkeydown={(event) => {
-							if (event.key === 'Enter') event.currentTarget.blur();
-						}}
-					/>
-					<div class="grid grid-cols-2 gap-2">
-						<Button variant="outline" size="sm" onclick={() => align('horizontal')}
-							>{m.image_editor_center_x()}</Button
+				{#if layer.type === 'text' && layer.text}
+					<TextContentProperties />
+				{/if}
+				<Collapsible.Root bind:open={layerActionsOpen} class="border-t pt-2">
+					<Collapsible.Trigger>
+						{#snippet child({ props })}
+							<button
+								{...props}
+								type="button"
+								class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
+							>
+								<span class="min-w-0 flex-1">{m.image_editor_layer()}</span>
+								<span class="max-w-32 truncate text-[11px] font-normal text-muted-foreground">
+									{layer.name}
+								</span>
+								<ThemeIcon
+									role="chevron-down"
+									class={`size-3.5 transition-transform ${layerActionsOpen ? 'rotate-180' : ''}`}
+								/>
+							</button>
+						{/snippet}
+					</Collapsible.Trigger>
+					<Collapsible.Content class="space-y-2 pt-2">
+						<label for="layer-name" class="block text-xs font-medium"
+							>{m.image_editor_layer_name()}</label
 						>
-						<Button variant="outline" size="sm" onclick={() => align('vertical')}
-							>{m.image_editor_center_y()}</Button
-						>
-					</div>
-					{#if editor.selectedLayers.length > 1}
-						<div class="grid grid-cols-3 gap-1">
-							<Button variant="outline" size="xs" onclick={() => editor.alignSelected('left')}
-								>{m.image_editor_align_left()}</Button
+						<Input
+							id="layer-name"
+							value={layer.name}
+							disabled={!editor.canEdit}
+							oninput={(event) => {
+								const name = event.currentTarget.value;
+								if (name.trim()) editor.updateLayer(layer.id, { name }, `layer-name:${layer.id}`);
+							}}
+							onblur={(event) => {
+								const name = event.currentTarget.value.trim();
+								if (!name) event.currentTarget.value = layer.name;
+								else if (name !== layer.name)
+									editor.updateLayer(layer.id, { name }, `layer-name:${layer.id}`);
+							}}
+							onkeydown={(event) => {
+								if (event.key === 'Enter') event.currentTarget.blur();
+							}}
+						/>
+						<div class="grid grid-cols-2 gap-2">
+							<Button variant="outline" size="sm" onclick={() => align('horizontal')}
+								>{m.image_editor_center_x()}</Button
 							>
-							<Button variant="outline" size="xs" onclick={() => editor.alignSelected('center_x')}
-								>{m.image_editor_align_center()}</Button
-							>
-							<Button variant="outline" size="xs" onclick={() => editor.alignSelected('right')}
-								>{m.image_editor_align_right()}</Button
-							>
-							<Button variant="outline" size="xs" onclick={() => editor.alignSelected('top')}
-								>{m.image_editor_align_top()}</Button
-							>
-							<Button variant="outline" size="xs" onclick={() => editor.alignSelected('center_y')}
-								>{m.image_editor_align_middle()}</Button
-							>
-							<Button variant="outline" size="xs" onclick={() => editor.alignSelected('bottom')}
-								>{m.image_editor_align_bottom()}</Button
+							<Button variant="outline" size="sm" onclick={() => align('vertical')}
+								>{m.image_editor_center_y()}</Button
 							>
 						</div>
-						{#if editor.selectedLayers.length > 2}
-							<div class="grid grid-cols-2 gap-1">
-								<Button
-									variant="outline"
-									size="xs"
-									onclick={() => editor.distributeSelected('horizontal')}
-									>{m.image_editor_distribute_x()}</Button
+						{#if editor.selectedLayers.length > 1}
+							<div class="grid grid-cols-3 gap-1">
+								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('left')}
+									>{m.image_editor_align_left()}</Button
 								>
-								<Button
-									variant="outline"
-									size="xs"
-									onclick={() => editor.distributeSelected('vertical')}
-									>{m.image_editor_distribute_y()}</Button
+								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('center_x')}
+									>{m.image_editor_align_center()}</Button
+								>
+								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('right')}
+									>{m.image_editor_align_right()}</Button
+								>
+								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('top')}
+									>{m.image_editor_align_top()}</Button
+								>
+								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('center_y')}
+									>{m.image_editor_align_middle()}</Button
+								>
+								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('bottom')}
+									>{m.image_editor_align_bottom()}</Button
 								>
 							</div>
+							{#if editor.selectedLayers.length > 2}
+								<div class="grid grid-cols-2 gap-1">
+									<Button
+										variant="outline"
+										size="xs"
+										onclick={() => editor.distributeSelected('horizontal')}
+										>{m.image_editor_distribute_x()}</Button
+									>
+									<Button
+										variant="outline"
+										size="xs"
+										onclick={() => editor.distributeSelected('vertical')}
+										>{m.image_editor_distribute_y()}</Button
+									>
+								</div>
+							{/if}
 						{/if}
-					{/if}
-					<div class="grid grid-cols-4 gap-1">
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										variant="outline"
-										size="icon-sm"
-										onclick={() => editor.reorderLayer(layer.id, 'front')}
-										aria-label={m.image_editor_bring_front()}
-										><ProtectedIcon icon="editor-arrange-front" /></Button
-									>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>{m.image_editor_bring_front()}</Tooltip.Content>
-						</Tooltip.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										variant="outline"
-										size="icon-sm"
-										onclick={() => editor.reorderLayer(layer.id, 'back')}
-										aria-label={m.image_editor_send_back()}
-										><ProtectedIcon icon="editor-arrange-back" /></Button
-									>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>{m.image_editor_send_back()}</Tooltip.Content>
-						</Tooltip.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										variant="outline"
-										size="icon-sm"
-										onclick={() => editor.duplicateSelected()}
-										aria-label={m.image_editor_duplicate()}><ThemeIcon role="copy" /></Button
-									>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>{m.image_editor_duplicate()}</Tooltip.Content>
-						</Tooltip.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										variant="destructive"
-										size="icon-sm"
-										onclick={() => editor.deleteSelected()}
-										aria-label={m.image_editor_delete_layer()}><ThemeIcon role="delete" /></Button
-									>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>{m.image_editor_delete_layer()}</Tooltip.Content>
-						</Tooltip.Root>
-					</div>
-				</section>
+						<div class="grid grid-cols-4 gap-1">
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											variant="outline"
+											size="icon-sm"
+											onclick={() => editor.reorderLayer(layer.id, 'front')}
+											aria-label={m.image_editor_bring_front()}
+											><ProtectedIcon icon="editor-arrange-front" /></Button
+										>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content>{m.image_editor_bring_front()}</Tooltip.Content>
+							</Tooltip.Root>
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											variant="outline"
+											size="icon-sm"
+											onclick={() => editor.reorderLayer(layer.id, 'back')}
+											aria-label={m.image_editor_send_back()}
+											><ProtectedIcon icon="editor-arrange-back" /></Button
+										>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content>{m.image_editor_send_back()}</Tooltip.Content>
+							</Tooltip.Root>
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											variant="outline"
+											size="icon-sm"
+											onclick={() => editor.duplicateSelected()}
+											aria-label={m.image_editor_duplicate()}><ThemeIcon role="copy" /></Button
+										>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content>{m.image_editor_duplicate()}</Tooltip.Content>
+							</Tooltip.Root>
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											variant="destructive"
+											size="icon-sm"
+											onclick={() => editor.deleteSelected()}
+											aria-label={m.image_editor_delete_layer()}><ThemeIcon role="delete" /></Button
+										>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content>{m.image_editor_delete_layer()}</Tooltip.Content>
+							</Tooltip.Root>
+						</div>
+					</Collapsible.Content>
+				</Collapsible.Root>
 
 				<Collapsible.Root bind:open={transformOpen} class="border-t pt-2">
 					<Collapsible.Trigger>
@@ -562,133 +577,8 @@
 				{#if layer.type === 'text' && layer.text}
 					<section class="space-y-2 border-t pt-4">
 						<h3 class="text-xs font-medium text-muted-foreground">
-							{m.image_editor_text()}
+							{m.image_editor_format()}
 						</h3>
-						{#if brandTextStyles.length > 0}
-							<label class="grid gap-1 text-xs">
-								<span>{m.image_editor_text_styles()}</span>
-								<AppSelect
-									value=""
-									ariaLabel={m.image_editor_apply_text_style()}
-									disabled={!editor.canEdit || layer.locked}
-									onValueChange={(value) => {
-										const style = brandTextStyles.find((candidate) => candidate.id === value);
-										if (style) {
-											applicationFeedback = partialApplicationMessage(
-												editor.applyBrandTextStyle(style)
-											);
-										}
-									}}
-									options={brandTextStyles.map((style) => ({
-										value: style.id,
-										label: style.name
-									}))}
-									placeholder={m.image_editor_choose_text_style()}
-									class="h-7 w-full"
-								/>
-							</label>
-						{/if}
-						{#if missingFontAsset}
-							<div
-								class="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs"
-								role="alert"
-							>
-								<p>{m.image_editor_missing_brand_font()}</p>
-								<Button
-									variant="outline"
-									size="xs"
-									class="mt-2"
-									onclick={() =>
-										editor.updateLayer(layer.id, {
-											text: {
-												...layer.text!,
-												font_family: 'Geist Variable',
-												font_asset_id: undefined
-											}
-										})}
-								>
-									{m.image_editor_use_fallback_font()}
-								</Button>
-							</div>
-						{/if}
-						<Textarea
-							class="min-h-24"
-							value={layer.text.text}
-							disabled={!editor.canEdit}
-							oninput={(event) =>
-								editor.updateLayer(
-									layer.id,
-									{ text: { ...layer.text!, text: event.currentTarget.value } },
-									`text:${layer.id}`
-								)}
-						/>
-						<label class="grid gap-1 text-xs">
-							<span>{m.image_editor_font_family()}</span>
-							<ImageEditorFontPicker
-								value={layer.text.font_family}
-								disabled={!editor.canEdit}
-								{brandFonts}
-								onChange={(font) =>
-									editor.updateLayer(layer.id, {
-										text: {
-											...layer.text!,
-											font_family: font.family,
-											font_asset_id: font.assetID,
-											font_weight: font.weight ?? layer.text!.font_weight,
-											font_style: font.style ?? layer.text!.font_style
-										}
-									})}
-							/>
-						</label>
-						<div class="grid grid-cols-2 gap-2">
-							<label class="grid gap-1 text-xs">
-								<span>{m.image_editor_size()}</span>
-								<Input
-									type="number"
-									min="1"
-									value={layer.text.font_size}
-									disabled={!editor.canEdit}
-									oninput={(event) =>
-										editor.updateLayer(
-											layer.id,
-											{
-												text: {
-													...layer.text!,
-													font_size: numberValue(event, layer.text!.font_size)
-												}
-											},
-											`font-size:${layer.id}`
-										)}
-								/>
-							</label>
-							<label class="grid gap-1 text-xs">
-								<span>{m.image_editor_weight()}</span>
-								<AppSelect
-									value={String(layer.text.font_weight)}
-									ariaLabel={m.image_editor_weight()}
-									disabled={!editor.canEdit}
-									onValueChange={(value) =>
-										editor.updateLayer(layer.id, {
-											text: { ...layer.text!, font_weight: Number(value) }
-										})}
-									options={[
-										[100, m.image_editor_thin()],
-										[200, m.image_editor_extra_light()],
-										[300, m.image_editor_light()],
-										[400, m.image_editor_regular()],
-										[500, m.image_editor_medium()],
-										[600, m.image_editor_semibold()],
-										[700, m.image_editor_bold()],
-										[800, m.image_editor_extra_bold()],
-										[900, m.image_editor_black()]
-									].map(([weight, label]) => ({
-										value: String(weight),
-										label: `${weight} — ${label}`
-									}))}
-									class="h-7 w-full"
-								/>
-							</label>
-						</div>
 						<div class="grid grid-cols-2 gap-2">
 							<label class="grid gap-1 text-xs">
 								<span>{m.image_editor_style()}</span>

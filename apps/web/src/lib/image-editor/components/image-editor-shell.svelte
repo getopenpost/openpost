@@ -363,11 +363,29 @@
 	let mobileDrawTool = $state<ImageEditorTool>('pencil');
 	let mobileRetouchTool = $state<ImageEditorTool>('eraser');
 	let inspectorPanelWidth = $state(320);
-	let layersPanelHeight = $state(280);
+	let layersPanelHeight = $state(160);
+	let layersPanelUserSized = $state(false);
+	let colorLayersPanelHeight = $state(120);
+	let colorLayersPanelUserSized = $state(false);
 	let pagesPanelHeight = $state(132);
 	let inspectorElement = $state<HTMLElement>();
 	let desktopViewportWidth = $state(1280);
 	let inspectorPanelHeight = $state(680);
+	let naturalLayersPanelHeight = $derived(
+		Math.min(
+			layersPanelMaximum(),
+			Math.max(120, Math.min(280, 48 + (editor.activePage?.layers.length ?? 0) * 32))
+		)
+	);
+	let effectiveLayersPanelHeight = $derived(
+		activeEditorWorkspace === 'color'
+			? colorLayersPanelUserSized
+				? colorLayersPanelHeight
+				: 120
+			: layersPanelUserSized
+				? layersPanelHeight
+				: naturalLayersPanelHeight
+	);
 	let shortcutModifier = $state('Ctrl');
 	let meaningfulEditTracked = false;
 	let panelResize:
@@ -610,7 +628,17 @@
 				localStorage.getItem('openpost-image-editor-layout-v1') || '{}'
 			);
 			inspectorPanelWidth = clampPanelSize(stored.inspector, 280, 480, inspectorPanelWidth);
-			layersPanelHeight = clampPanelSize(stored.layers, 120, 520, layersPanelHeight);
+			if (stored.layers !== undefined) {
+				layersPanelHeight = clampPanelSize(stored.layers, 120, 520, layersPanelHeight);
+				layersPanelUserSized = true;
+			}
+			const storedColorLayers = Number(
+				localStorage.getItem('openpost-image-editor-color-layers-height-v1')
+			);
+			if (Number.isFinite(storedColorLayers) && storedColorLayers > 0) {
+				colorLayersPanelHeight = clampPanelSize(storedColorLayers, 120, 520, 120);
+				colorLayersPanelUserSized = true;
+			}
 			pagesPanelHeight = clampPanelSize(stored.pages, 120, 320, pagesPanelHeight);
 			constrainDesktopPanelWidths();
 		} catch {
@@ -742,7 +770,25 @@
 	}
 
 	function layersPanelMaximum(): number {
-		return Math.max(160, inspectorPanelHeight - 166);
+		return Math.max(120, inspectorPanelHeight - 166);
+	}
+
+	function activeLayersPanelHeight(): number {
+		return activeEditorWorkspace === 'color' ? colorLayersPanelHeight : layersPanelHeight;
+	}
+
+	function activeLayersPanelIsUserSized(): boolean {
+		return activeEditorWorkspace === 'color' ? colorLayersPanelUserSized : layersPanelUserSized;
+	}
+
+	function setActiveLayersPanelHeight(height: number, userSized = true): void {
+		if (activeEditorWorkspace === 'color') {
+			colorLayersPanelHeight = height;
+			colorLayersPanelUserSized = userSized;
+			return;
+		}
+		layersPanelHeight = height;
+		layersPanelUserSized = userSized;
 	}
 
 	function constrainLayersPanelHeightFromDom(): void {
@@ -750,12 +796,16 @@
 		const measuredHeight = inspectorElement.clientHeight;
 		if (measuredHeight <= 0) return;
 		inspectorPanelHeight = measuredHeight;
-		layersPanelHeight = clampPanelSize(
-			layersPanelHeight,
-			120,
-			layersPanelMaximum(),
-			layersPanelHeight
-		);
+		if (activeLayersPanelIsUserSized()) {
+			setActiveLayersPanelHeight(
+				clampPanelSize(
+					activeLayersPanelHeight(),
+					120,
+					layersPanelMaximum(),
+					activeLayersPanelHeight()
+				)
+			);
+		}
 	}
 
 	function constrainDesktopPanelWidths(): void {
@@ -783,11 +833,14 @@
 		if (!(handle instanceof HTMLElement)) return;
 		handle.focus();
 		event.preventDefault();
+		if (panel === 'layers' && !activeLayersPanelIsUserSized()) {
+			setActiveLayersPanelHeight(effectiveLayersPanelHeight);
+		}
 		panelResize = {
 			panel,
 			startX: event.clientX,
 			startY: event.clientY,
-			startSize: panel === 'inspector' ? inspectorPanelWidth : layersPanelHeight
+			startSize: panel === 'inspector' ? inspectorPanelWidth : activeLayersPanelHeight()
 		};
 	}
 
@@ -801,11 +854,13 @@
 				inspectorPanelWidth
 			);
 		} else {
-			layersPanelHeight = clampPanelSize(
-				panelResize.startSize + event.clientY - panelResize.startY,
-				120,
-				layersPanelMaximum(),
-				layersPanelHeight
+			setActiveLayersPanelHeight(
+				clampPanelSize(
+					panelResize.startSize + event.clientY - panelResize.startY,
+					120,
+					layersPanelMaximum(),
+					activeLayersPanelHeight()
+				)
 			);
 		}
 	}
@@ -822,10 +877,18 @@
 				'openpost-image-editor-layout-v1',
 				JSON.stringify({
 					inspector: Math.round(inspectorPanelWidth),
-					layers: Math.round(layersPanelHeight),
+					layers: layersPanelUserSized ? Math.round(layersPanelHeight) : undefined,
 					pages: Math.round(pagesPanelHeight)
 				})
 			);
+			if (colorLayersPanelUserSized) {
+				localStorage.setItem(
+					'openpost-image-editor-color-layers-height-v1',
+					String(Math.round(colorLayersPanelHeight))
+				);
+			} else {
+				localStorage.removeItem('openpost-image-editor-color-layers-height-v1');
+			}
 		} catch {
 			// Layout persistence is optional when browser storage is unavailable.
 		}
@@ -901,11 +964,16 @@
 				inspectorPanelWidth
 			);
 		} else {
-			layersPanelHeight = clampPanelSize(
-				layersPanelHeight + direction * step,
-				120,
-				layersPanelMaximum(),
-				layersPanelHeight
+			if (!activeLayersPanelIsUserSized()) {
+				setActiveLayersPanelHeight(effectiveLayersPanelHeight);
+			}
+			setActiveLayersPanelHeight(
+				clampPanelSize(
+					activeLayersPanelHeight() + direction * step,
+					120,
+					layersPanelMaximum(),
+					activeLayersPanelHeight()
+				)
 			);
 		}
 		storePanelLayout();
@@ -2702,7 +2770,7 @@
 					activeEditorWorkspace = workspace === 'color' ? 'color' : 'edit';
 					if (activeEditorWorkspace === 'color') {
 						editor.rightPanelVisible = true;
-						if (window.innerWidth < 1024) mobileSheet = 'properties';
+						if (window.innerWidth < 1024) mobileSheet = null;
 					}
 				}}
 			/>
@@ -3444,7 +3512,7 @@
 			<aside
 				bind:this={inspectorElement}
 				class="image-editor-inspector relative hidden min-h-0 min-w-0 border-l bg-card lg:grid"
-				style:--image-editor-layers-height={`${layersPanelHeight}px`}
+				style:--image-editor-layers-height={`${effectiveLayersPanelHeight}px`}
 			>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -- focusable ARIA Window Splitter -->
@@ -3476,12 +3544,12 @@
 					aria-orientation="horizontal"
 					aria-valuemin="120"
 					aria-valuemax={layersPanelMaximum()}
-					aria-valuenow={Math.round(layersPanelHeight)}
+					aria-valuenow={Math.round(effectiveLayersPanelHeight)}
 					class="image-editor-resize-handle relative z-10 cursor-row-resize touch-none border-x-0 border-y bg-background p-0"
 					onpointerdown={(event) => startPanelResize(event, 'layers')}
 					onkeydown={(event) => resizePanelWithKeyboard(event, 'layers')}
 					ondblclick={() => {
-						layersPanelHeight = clampPanelSize(280, 120, layersPanelMaximum(), 280);
+						setActiveLayersPanelHeight(activeEditorWorkspace === 'color' ? 120 : 160, false);
 						storePanelLayout();
 					}}
 				></div>
@@ -3493,15 +3561,23 @@
 				</div>
 			</aside>
 		{/if}
+		{#if activeEditorWorkspace === 'color' && !focusedCanvas}
+			<aside
+				class="image-editor-mobile-color min-h-0 min-w-0 overflow-hidden border-t bg-card lg:hidden"
+			>
+				<PropertiesPanel onOpenMedia={openBackgroundMediaPicker} colorWorkspace />
+			</aside>
+		{/if}
 	</div>
 
 	<nav
 		class="flex h-[calc(4rem+env(safe-area-inset-bottom))] shrink-0 border-t bg-background px-1 pt-1 pb-[env(safe-area-inset-bottom)] sm:hidden"
+		hidden={activeEditorWorkspace !== 'edit'}
 		aria-label={m.image_editor_tools()}
 	>
 		<Button
 			variant="ghost"
-			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
+			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
 			onclick={() => (mobileSheet = 'assets')}
 		>
 			<ThemeIcon role="layout" />
@@ -3523,7 +3599,7 @@
 						].includes(editor.activeTool)
 							? 'secondary'
 							: 'ghost'}
-						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
+						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
 						onclick={() => setTool(mobileSelectTool)}
 						aria-label={m.image_editor_select()}
 					>
@@ -3554,7 +3630,7 @@
 						variant={['text', 'pencil', 'bucket', 'gradient'].includes(editor.activeTool)
 							? 'secondary'
 							: 'ghost'}
-						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
+						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
 						onclick={() => setTool(mobileDrawTool)}
 						aria-label={m.image_editor_draw()}
 					>
@@ -3585,7 +3661,7 @@
 						variant={['crop', 'eraser', 'magic_eraser'].includes(editor.activeTool)
 							? 'secondary'
 							: 'ghost'}
-						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
+						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
 						onclick={() => setTool(mobileRetouchTool)}
 						aria-label={m.image_editor_retouch()}
 						disabled={!editor.canEdit}
@@ -3618,7 +3694,7 @@
 		</DropdownMenu.Root>
 		<Button
 			variant={mobileSheet === 'layers' ? 'secondary' : 'ghost'}
-			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
+			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
 			onclick={() => (mobileSheet = 'layers')}
 		>
 			<ProtectedIcon icon="editor-layers" />
@@ -3626,7 +3702,7 @@
 		</Button>
 		<Button
 			variant={mobileSheet === 'properties' ? 'secondary' : 'ghost'}
-			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-[10px]"
+			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
 			onclick={() => (mobileSheet = 'properties')}
 		>
 			<ThemeIcon role="controls" />
@@ -3636,11 +3712,12 @@
 
 	<nav
 		class="hidden h-[calc(4rem+env(safe-area-inset-bottom))] shrink-0 snap-x snap-mandatory overflow-x-auto overscroll-x-contain border-t bg-background px-1 pt-1 pb-[env(safe-area-inset-bottom)] sm:flex lg:hidden"
+		hidden={activeEditorWorkspace !== 'edit'}
 		aria-label={m.image_editor_tools()}
 	>
 		<Button
 			variant="ghost"
-			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 			onclick={() => (mobileSheet = 'assets')}
 		>
 			<ThemeIcon role="layout" />
@@ -3651,7 +3728,7 @@
 			{#if tool.key === 'select'}
 				<Button
 					variant={editor.activeTool === 'select' ? 'secondary' : 'ghost'}
-					class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+					class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 					onclick={() => executeEditorCommand(tool.command.id)}
 					aria-label={commandLabel(tool.command.id)}
 					aria-pressed={editor.activeTool === 'select'}
@@ -3668,7 +3745,7 @@
 							<Button
 								{...props}
 								variant={isMarqueeTool(editor.activeTool) ? 'secondary' : 'ghost'}
-								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 								aria-label={m.image_editor_pixel_select()}
 							>
 								{#if editor.activeTool === 'marquee'}
@@ -3704,7 +3781,7 @@
 							<Button
 								{...props}
 								variant={isFillTool(editor.activeTool) ? 'secondary' : 'ghost'}
-								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 								disabled={!editor.canEdit}
 								aria-label={editor.activeTool === 'gradient'
 									? m.image_editor_gradient()
@@ -3741,7 +3818,7 @@
 							<Button
 								{...props}
 								variant={isEraserTool(editor.activeTool) ? 'secondary' : 'ghost'}
-								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 								disabled={!editor.canEdit}
 								aria-label={editor.activeTool === 'magic_eraser'
 									? m.image_editor_magic_erase()
@@ -3774,7 +3851,7 @@
 			{:else}
 				<Button
 					variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
-					class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+					class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 					onclick={() => executeEditorCommand(tool.command.id)}
 					disabled={!commandEnabled(tool.command.id)}
 					title={commandDisabledReason(tool.command.id) || undefined}
@@ -3786,7 +3863,7 @@
 		{/each}
 		<Button
 			variant="ghost"
-			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 			onclick={() => (mobileSheet = 'layers')}
 		>
 			<ProtectedIcon icon="editor-layers" />
@@ -3794,7 +3871,7 @@
 		</Button>
 		<Button
 			variant="ghost"
-			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-[11px] md:h-12"
+			class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
 			onclick={() => (mobileSheet = 'properties')}
 		>
 			<ThemeIcon role="controls" />
@@ -3806,6 +3883,7 @@
 <Sheet.Root open={mobileSheet !== null} onOpenChange={(open) => !open && (mobileSheet = null)}>
 	<Sheet.Content
 		side={mobileSheet === 'layers' ? 'right' : 'bottom'}
+		showCloseButton={mobileSheet === 'layers'}
 		class={mobileSheet === 'layers'
 			? 'h-dvh! w-full! p-0 sm:max-w-sm!'
 			: 'max-h-[82dvh] w-full! rounded-t-2xl p-0'}
@@ -3820,7 +3898,21 @@
 			>
 			<Sheet.Description>{m.image_editor_editing_controls()}</Sheet.Description>
 		</Sheet.Header>
-		<div class={mobileSheet === 'layers' ? 'h-full pt-14' : 'max-h-[82dvh] overflow-y-auto pt-12'}>
+		<div
+			class={mobileSheet === 'layers' ? 'h-full pt-14' : 'relative max-h-[82dvh] overflow-y-auto'}
+		>
+			{#if mobileSheet !== 'layers'}
+				<Sheet.Close>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						class="absolute top-0 right-1 z-20"
+						aria-label={m.common_close()}
+					>
+						<ThemeIcon role="close" />
+					</Button>
+				</Sheet.Close>
+			{/if}
 			{#if mobileSheet === 'assets'}
 				<div class="h-[70dvh]"><AssetPanel {guestMode} /></div>
 			{:else if mobileSheet === 'layers'}
@@ -4574,6 +4666,10 @@
 	}
 
 	@media (max-width: 63.999rem) {
+		.image-editor-workspace[data-workspace='color'] {
+			grid-template-rows: minmax(10rem, 42%) minmax(0, 1fr);
+		}
+
 		.image-editor-theme :global(button) {
 			min-width: 2.75rem;
 			min-height: 2.75rem;

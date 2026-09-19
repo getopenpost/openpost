@@ -2333,7 +2333,7 @@
 	{#if editor.document}
 		{#if editor.activeTool === 'eyedropper'}
 			<div
-				class="absolute top-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:shrink-0"
+				class="absolute bottom-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur sm:top-3 sm:bottom-auto [&>*]:shrink-0"
 				data-testid="image-editor-eyedropper-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_eyedropper()}</span>
@@ -2390,7 +2390,7 @@
 		{/if}
 		{#if editor.activeTool === 'crop' && cropLayer}
 			<div
-				class="absolute top-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:shrink-0"
+				class="absolute bottom-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur sm:top-3 sm:bottom-auto [&>*]:shrink-0"
 				data-testid="image-editor-crop-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_crop()}</span>
@@ -2478,7 +2478,7 @@
 		{/if}
 		{#if isAreaSelectionTool() || editor.activeTool === 'pencil' || editor.activeTool === 'eraser' || editor.activeTool === 'magic_eraser' || editor.activeTool === 'bucket' || editor.activeTool === 'gradient'}
 			<div
-				class="absolute top-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:shrink-0"
+				class="absolute bottom-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur sm:top-3 sm:bottom-auto [&>*]:shrink-0"
 				data-testid="image-editor-selection-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">

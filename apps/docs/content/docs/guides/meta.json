@@ -13,19 +13,12 @@
     "---Create images and video---",
     "media",
     "media-library",
-    "image-editor",
-    "video-editor",
-    "quick-cut",
-    "recording",
     "media-limits",
     "---After publishing---",
     "results",
     "analytics",
     "inbox",
-    "---Automate and troubleshoot---",
-    "automation",
-    "sdk",
-    "cli",
+    "---Troubleshoot---",
     "troubleshooting"
   ]
 }

@@ -13,16 +13,15 @@ import type { Metadata } from "next";
 const featureMarks: Record<string, string> = {
   "guides/quickstart.mdx": "/assets/brand/features/compose.svg",
   "guides/publishing.mdx": "/assets/brand/features/compose.svg",
-  "guides/image-editor.mdx": "/assets/brand/features/image-editor.svg",
-  "guides/video-editor.mdx": "/assets/brand/features/video-editor.svg",
+  "image-editor/index.mdx": "/assets/brand/features/image-editor.svg",
+  "video-editor/index.mdx": "/assets/brand/features/video-editor.svg",
   "guides/scheduling.mdx": "/assets/brand/features/calendar.svg",
   "guides/analytics.mdx": "/assets/brand/features/analytics.svg",
   "guides/media-library.mdx": "/assets/brand/features/media.svg",
   "guides/inbox.mdx": "/assets/brand/features/inbox.svg",
   "guides/accounts.mdx": "/assets/brand/features/accounts.svg",
-  "guides/recording.mdx": "/assets/brand/features/recorder.svg",
   "guides/workspaces.mdx": "/assets/brand/features/workspaces.svg",
-  "guides/automation.mdx": "/assets/brand/features/automation.svg",
+  "automate/index.mdx": "/assets/brand/features/automation.svg",
 };
 
 type Props = { params: Promise<{ slug?: string[] }> };

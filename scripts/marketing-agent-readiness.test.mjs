@@ -71,7 +71,7 @@ test("structured data joins each page to the product, site, and real operator", 
     },
     {
       "@type": "WebPage",
-      url: "https://docs.openpo.st/guides/automation",
+      url: "https://docs.openpo.st/automate",
     },
     {
       "@type": "WebPage",

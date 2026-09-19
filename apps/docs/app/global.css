@@ -258,6 +258,11 @@ a {
   gap: 2rem;
   height: 48px;
   padding-inline: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.docs-sections::-webkit-scrollbar {
+  display: none;
 }
 .docs-sections a {
   display: inline-flex;
@@ -485,13 +490,8 @@ a {
   }
   .docs-sections {
     justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none;
     padding-inline: 0.7rem;
     gap: 1rem;
-  }
-  .docs-sections::-webkit-scrollbar {
-    display: none;
   }
   .docs-sections a {
     font-size: 0.8rem;

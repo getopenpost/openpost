@@ -525,9 +525,9 @@ test("production discovery gives agents direct interface guidance", () => {
   assert.match(marketing, /^## When to use OpenPost$/m);
   assert.match(marketing, /^## When OpenPost is not a fit$/m);
   assert.match(marketing, /https:\/\/docs\.openpo\.st\/openapi\.json/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/guides\/automation\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/automate\/index\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/automate\/cli\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpo\.st\/mcp\/index\.md/u);
   assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
 
@@ -1730,6 +1730,10 @@ test(
 
     for (const [key, title] of [
       ["user-guide", "User guide"],
+      ["video-editor", "Video Editor"],
+      ["image-editor", "Image Editor"],
+      ["automate", "Automate"],
+      ["mcp", "AI assistants"],
       ["self-hosting", "Self-hosting"],
       ["api", "API"],
     ]) {

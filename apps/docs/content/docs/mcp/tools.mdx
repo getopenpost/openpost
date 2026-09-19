@@ -16,11 +16,11 @@ Both endpoints use the same OAuth resource, scopes, workspace checks, validation
 
 Self-hosted operators can also change what `/mcp` lists with `OPENPOST_MCP_MODE`:
 
-| Mode     | Listing                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------- |
-| `direct` | Each operation is its own tool (default)                                                          |
-| `search` | The compact search, query, and execute tools plus compatible app widgets                          |
-| `both`   | Direct tools plus the compact search, query, and execute tools                                    |
+| Mode     | Listing                                                                  |
+| -------- | ------------------------------------------------------------------------ |
+| `direct` | Each operation is its own tool (default)                                 |
+| `search` | The compact search, query, and execute tools plus compatible app widgets |
+| `both`   | Direct tools plus the compact search, query, and execute tools           |
 
 `/mcp/code` always uses the compact surface, regardless of this setting. Scopes and workspace checks behave the same in every mode; `mcp:read` connections never see or run mutations. Tool names that are not listed in the current mode stay callable for clients that cached an earlier catalog, with identical authorization.
 

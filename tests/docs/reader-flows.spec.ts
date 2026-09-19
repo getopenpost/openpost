@@ -24,7 +24,7 @@ for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/api-reference");
     const navigation = page.getByRole("navigation", { name: "Documentation sections" });
-    const active = navigation.getByRole("link", { name: "API reference" });
+    const active = navigation.getByRole("link", { name: "Automate" });
     await expect
       .poll(async () => active.evaluate((element) => element.getBoundingClientRect().right))
       .toBeLessThanOrEqual(width);
@@ -36,12 +36,32 @@ for (const width of [320, 390]) {
     );
     await active.focus();
     await page.keyboard.press("Shift+Tab");
-    await expect(navigation.getByRole("link", { name: "AI assistants" })).toBeFocused();
+    await expect(navigation.getByRole("link", { name: "Image Editor" })).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
   });
 }
 
-test("search filters keep guide and API results separate", async ({ page }) => {
+test("top navigation opens each section and groups the API under Automate", async ({ page }) => {
+  const navigation = page.getByRole("navigation", { name: "Documentation sections" });
+  for (const [route, section, heading] of [
+    ["/", "Guides", "OpenPost documentation"],
+    ["/video-editor", "Video Editor", "Video Editor"],
+    ["/image-editor", "Image Editor", "Image Editor"],
+    ["/automate", "Automate", "Automate"],
+    ["/api-reference", "Automate", "API reference"],
+    ["/mcp", "AI assistants", "AI assistants"],
+    ["/self-hosting", "Self-hosting", "Self-host OpenPost"],
+  ] as const) {
+    await page.goto(route);
+    await expect(navigation.getByRole("link", { name: section })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+  }
+});
+
+test("search filters keep product and automation sections separate", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Search documentation/ }).click();
   await page.getByRole("textbox").fill("publication");
@@ -54,12 +74,28 @@ test("search filters keep guide and API results separate", async ({ page }) => {
     "true",
   );
   await expect(page.getByRole("button", { name: /Docs Guides/ }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Docs API reference/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "API reference", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Docs API reference/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Docs Automate/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Automate", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Docs Automate/ }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Docs Guides/ })).toHaveCount(0);
   await page.getByRole("button", { name: /Close/i }).click();
   await expect(page.getByRole("textbox")).not.toBeVisible();
+});
+
+test("moved guides keep their public routes", async ({ request }) => {
+  for (const [oldPath, replacement] of [
+    ["/guides/video-editor", "/video-editor"],
+    ["/guides/image-editor", "/image-editor"],
+    ["/guides/quick-cut", "/video-editor/quick-cut-and-recorder"],
+    ["/guides/recording", "/video-editor/quick-cut-and-recorder"],
+    ["/guides/automation", "/automate"],
+    ["/guides/sdk", "/automate/sdk"],
+    ["/guides/cli", "/automate/cli"],
+  ] as const) {
+    const response = await request.get(oldPath);
+    expect(response.ok(), oldPath).toBe(true);
+    expect(new URL(response.url()).pathname).toBe(replacement);
+  }
 });
 
 test("AI client picker opens every guide and renders its logo", async ({ page }) => {

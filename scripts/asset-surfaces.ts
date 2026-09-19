@@ -41,7 +41,6 @@ export const assetSurfaceManifest = {
     "brand/features/media.svg",
     "brand/features/inbox.svg",
     "brand/features/accounts.svg",
-    "brand/features/recorder.svg",
     "brand/features/automation.svg",
     "brand/features/workspaces.svg",
     "logos/linkedin.svg",

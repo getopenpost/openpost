@@ -108,6 +108,9 @@ const discoveryEntrypoints = new Map([
   ["index.mdx", "user-guide"],
   ["guides/quickstart.mdx", "user-guide"],
   ["guides/accounts.mdx", "user-guide"],
+  ["video-editor/index.mdx", "video-editor"],
+  ["image-editor/index.mdx", "image-editor"],
+  ["automate/index.mdx", "automate"],
   ["self-hosting/index.mdx", "self-hosting"],
   ["api-reference/index.mdx", "api"],
   ["mcp/index.mdx", "mcp"],
@@ -124,7 +127,7 @@ function corpusSection(page) {
   if (page.startsWith("api-reference/")) return "api";
   const topLevel = page.split("/", 1)[0];
   if (topLevel === "reference") return "api";
-  if (["self-hosting", "mcp"].includes(topLevel)) {
+  if (["video-editor", "image-editor", "automate", "self-hosting", "mcp"].includes(topLevel)) {
     return topLevel;
   }
   throw new Error(`${page}: documentation page needs a corpus section`);

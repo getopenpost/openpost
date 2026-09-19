@@ -19,6 +19,87 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "automate/api.mdx",
+    "title": "HTTP API",
+    "description": "Authenticate, call OpenPost over HTTP, and follow the generated API contract.",
+    "route": "/automate/api",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/cli.mdx",
+    "title": "Command-line interface",
+    "description": "Install the openpost CLI, sign in, and publish from a shell or script.",
+    "route": "/automate/cli",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/index.mdx",
+    "title": "Automate",
+    "description": "Run OpenPost from code, a shell, an agent, or a visual workflow.",
+    "route": "/automate",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "automate"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/n8n.mdx",
+    "title": "n8n workflows",
+    "description": "Run OpenPost steps on a timer or webhook with the official n8n node.",
+    "route": "/automate/n8n",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
+    "page": "automate/sdk.mdx",
+    "title": "TypeScript SDK",
+    "description": "Call OpenPost from Node.js, Bun, or Workers with @getopenpost/sdk.",
+    "route": "/automate/sdk",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
     "page": "guides/accounts.mdx",
     "title": "Connect accounts",
     "description": "Add and manage social accounts in a workspace.",
@@ -40,54 +121,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "Analytics",
     "description": "Understand account growth and content performance using the data your providers return.",
     "route": "/guides/analytics",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/automation.mdx",
-    "title": "Automation",
-    "description": "Choose the SDK, CLI, MCP, or the OpenPost n8n node.",
-    "route": "/guides/automation",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/cli.mdx",
-    "title": "Command-line interface",
-    "description": "Install the openpost CLI, sign in, and publish from a shell or script.",
-    "route": "/guides/cli",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/image-editor.mdx",
-    "title": "Image Editor",
-    "description": "Create reusable designs, carousel pages, and images for your posts.",
-    "route": "/guides/image-editor",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -180,22 +213,6 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "guides/quick-cut.mdx",
-    "title": "Trim with Quick Cut",
-    "description": "Keep the parts you need and export a cut without unnecessary re-encoding.",
-    "route": "/guides/quick-cut",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
     "page": "guides/quickstart.mdx",
     "title": "Quickstart",
     "description": "Connect an account and publish your first OpenPost publication.",
@@ -206,22 +223,6 @@ export const docsPageCatalog = Object.freeze([
     "agentDiscovery": {
       "membership": "primary",
       "section": "user-guide"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/recording.mdx",
-    "title": "Record screen and camera",
-    "description": "Capture your screen, camera, and microphone, then bring the recording into your edit.",
-    "route": "/guides/recording",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
     },
     "agentCorpus": {
       "membership": "included",
@@ -261,42 +262,10 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "guides/sdk.mdx",
-    "title": "TypeScript SDK",
-    "description": "Call OpenPost from Node.js, Bun, or Workers with @getopenpost/sdk.",
-    "route": "/guides/sdk",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
     "page": "guides/troubleshooting.mdx",
     "title": "Troubleshooting",
     "description": "Fix common connection, media, scheduling, and delivery problems.",
     "route": "/guides/troubleshooting",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/video-editor.mdx",
-    "title": "Video Editor",
-    "description": "Build, save, and export a social video from a multitrack timeline.",
-    "route": "/guides/video-editor",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -322,6 +291,167 @@ export const docsPageCatalog = Object.freeze([
     "agentCorpus": {
       "membership": "included",
       "section": "user-guide"
+    }
+  },
+  {
+    "page": "image-editor/color-and-effects.mdx",
+    "title": "Color and effects",
+    "description": "Crop images, adjust a layer or page, add effects, and remove backgrounds.",
+    "route": "/image-editor/color-and-effects",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/create-a-design.mdx",
+    "title": "Create a design",
+    "description": "Start from a social format, template, workspace file, or post.",
+    "route": "/image-editor/create-a-design",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/editor-layout.mdx",
+    "title": "Editor layout",
+    "description": "Find the canvas, tools, properties, layers, and page controls.",
+    "route": "/image-editor/editor-layout",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/export-and-publish.mdx",
+    "title": "Export and publish",
+    "description": "Download images, save them to Media, or attach them to a post.",
+    "route": "/image-editor/export-and-publish",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/index.mdx",
+    "title": "Image Editor",
+    "description": "Create still images and ordered carousel pages for your posts.",
+    "route": "/image-editor",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "image-editor"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/layers.mdx",
+    "title": "Layers",
+    "description": "Add, select, arrange, group, hide, and lock design elements.",
+    "route": "/image-editor/layers",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/limits.mdx",
+    "title": "Limits",
+    "description": "Check what Image Editor supports and where to use another tool.",
+    "route": "/image-editor/limits",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/pages-and-carousels.mdx",
+    "title": "Pages and carousels",
+    "description": "Create, duplicate, reorder, and export multi-page designs.",
+    "route": "/image-editor/pages-and-carousels",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/saving-and-recovery.mdx",
+    "title": "Saving and recovery",
+    "description": "Understand browser saves, workspace autosave, conflicts, and version history.",
+    "route": "/image-editor/saving-and-recovery",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
+    }
+  },
+  {
+    "page": "image-editor/templates-and-brand.mdx",
+    "title": "Templates and brand items",
+    "description": "Reuse layouts, workspace colors, and custom fonts.",
+    "route": "/image-editor/templates-and-brand",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "image-editor"
     }
   },
   {
@@ -536,7 +666,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "mcp/index.mdx",
     "title": "AI assistants",
-    "description": "Connect ChatGPT, Claude, Cursor, or another MCP client to OpenPost.",
+    "description": "Choose MCP, the OpenPost CLI skill, or direct CLI commands for an AI assistant.",
     "route": "/mcp",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1157,6 +1287,151 @@ export const docsPageCatalog = Object.freeze([
     "agentCorpus": {
       "membership": "included",
       "section": "self-hosting"
+    }
+  },
+  {
+    "page": "video-editor/browser-and-recovery.mdx",
+    "title": "Browser support and recovery",
+    "description": "Understand device limits and recover projects, sources, or exports.",
+    "route": "/video-editor/browser-and-recovery",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/color-motion-and-effects.mdx",
+    "title": "Color, motion, and effects",
+    "description": "Change the look of a clip and animate visual layers.",
+    "route": "/video-editor/color-motion-and-effects",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/export-and-publish.mdx",
+    "title": "Export and publish",
+    "description": "Check the render, save the file, and attach it to a publication.",
+    "route": "/video-editor/export-and-publish",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/index.mdx",
+    "title": "Video Editor",
+    "description": "Turn recordings and source clips into finished social videos.",
+    "route": "/video-editor",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "video-editor"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/projects-and-storage.mdx",
+    "title": "Projects and storage",
+    "description": "Choose cloud or local storage without losing track of your originals.",
+    "route": "/video-editor/projects-and-storage",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/quick-cut-and-recorder.mdx",
+    "title": "Quick Cut and Recorder",
+    "description": "Trim without a full edit, or capture new source files.",
+    "route": "/video-editor/quick-cut-and-recorder",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/start.mdx",
+    "title": "Start a project",
+    "description": "Pick a format, storage mode, and first source files.",
+    "route": "/video-editor/start",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/timeline.mdx",
+    "title": "Edit on the timeline",
+    "description": "Arrange, trim, split, and review clips without changing the originals.",
+    "route": "/video-editor/timeline",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
+    }
+  },
+  {
+    "page": "video-editor/transcript-and-audio.mdx",
+    "title": "Transcript, captions, and audio",
+    "description": "Edit spoken sections, add captions, and keep speech clear.",
+    "route": "/video-editor/transcript-and-audio",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "video-editor"
     }
   }
 ]);

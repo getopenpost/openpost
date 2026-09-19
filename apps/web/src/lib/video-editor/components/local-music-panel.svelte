@@ -256,12 +256,9 @@
 	});
 </script>
 
-<div class="flex h-full min-h-0 flex-col" data-testid="local-music-panel">
+<div class="@container flex h-full min-h-0 flex-col" data-testid="local-music-panel">
 	<div class="border-b border-[var(--video-editor-border)] px-2 py-1.5">
-		<h2 class="text-xs font-semibold text-[var(--video-editor-text)]">
-			{m.video_editor_local_music()}
-		</h2>
-		<p class="mt-0.5 text-[9px] leading-tight text-[var(--video-editor-muted)]">
+		<p class="text-[11px] leading-4 text-[var(--video-editor-muted)]">
 			{m.video_editor_local_music_description()}
 		</p>
 	</div>
@@ -303,8 +300,8 @@
 			/>
 		</div>
 
-		<div class="grid grid-cols-[1fr_7.25rem] gap-1.5">
-			<div>
+		<div class="grid grid-cols-1 gap-1.5 @min-[18rem]:grid-cols-[minmax(0,1fr)_minmax(9rem,1fr)]">
+			<div class="min-w-0">
 				<label for="local-music-duration" class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_local_music_duration()}
 				</label>
@@ -322,7 +319,7 @@
 					{durationSeconds}s
 				</span>
 			</div>
-			<div>
+			<div class="min-w-0">
 				<label for="local-music-quality" class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_local_music_quality()}
 				</label>
@@ -335,11 +332,13 @@
 					<Select.Trigger
 						id="local-music-quality"
 						aria-label={m.video_editor_local_music_quality()}
-						class="mt-0.5 h-8 w-full justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none hover:translate-y-0 hover:bg-[var(--video-editor-panel)]"
+						class="mt-0.5 h-8 w-full min-w-0 justify-between overflow-hidden rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none hover:translate-y-0 hover:bg-[var(--video-editor-panel)]"
 					>
-						{audioQuality === 'high'
-							? m.video_editor_local_music_high()
-							: m.video_editor_local_music_standard()}
+						<span class="min-w-0 truncate pr-1 text-left">
+							{audioQuality === 'high'
+								? m.video_editor_local_music_high()
+								: m.video_editor_local_music_standard()}
+						</span>
 					</Select.Trigger>
 					<Select.Content
 						class="video-editor-theme bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
@@ -352,7 +351,7 @@
 		</div>
 
 		<div
-			class="rounded border border-[oklch(0.31_0.04_55)] bg-[oklch(0.21_0.025_55)] px-1.5 py-1 text-[9px] leading-snug text-[oklch(0.73_0.035_70)]"
+			class="rounded border border-[oklch(0.31_0.04_55)] bg-[oklch(0.21_0.025_55)] px-2 py-1.5 text-[11px] leading-4 text-[oklch(0.73_0.035_70)]"
 		>
 			{m.video_editor_local_music_download_notice({ size: formatBytes(downloadBytes) })}
 		</div>

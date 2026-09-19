@@ -162,13 +162,11 @@
 				{m.video_editor_agent_generate()}
 			</button>
 		</div>
-		<p class="mt-1.5 text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
-			{#if mode === 'assistant'}
+		{#if mode === 'assistant'}
+			<p class="mt-1.5 text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
 				{m.video_editor_agent_assistant_hint()}
-			{:else}
-				{m.video_editor_agent_generate_hint()}
-			{/if}
-		</p>
+			</p>
+		{/if}
 		{#if mode === 'assistant'}
 			{#if !agentSupported}
 				<p class="mt-1 text-[11px] text-[var(--video-editor-danger)]">

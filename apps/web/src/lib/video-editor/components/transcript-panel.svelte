@@ -828,9 +828,12 @@
 							</button>
 						{/each}
 						{#if sourceWords.length === 0}
-							<p class="text-xs text-muted-foreground">
-								{m.video_editor_transcript_empty()}
-							</p>
+							<div class="space-y-1 px-1 py-2 text-muted-foreground">
+								<p class="text-xs font-medium">{m.video_editor_transcript_empty()}</p>
+								<p class="text-[11px] leading-4">
+									{m.video_editor_cleanup_transcribe_first()}
+								</p>
+							</div>
 						{/if}
 					</div>
 				{/snippet}
@@ -873,9 +876,10 @@
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
 	{:else if subtitleItems.length === 0}
-		<p class="px-1 text-xs text-muted-foreground">
-			{m.video_editor_transcript_empty()}
-		</p>
+		<div class="space-y-1 px-2 py-4 text-muted-foreground">
+			<p class="text-xs font-medium">{m.video_editor_transcript_empty()}</p>
+			<p class="text-[11px] leading-4">{m.video_editor_cleanup_transcribe_first()}</p>
+		</div>
 	{:else}
 		<EditorDisclosure
 			label={m.video_editor_transcript()}
@@ -1019,7 +1023,7 @@
 											/>
 											<div class="mt-0.5 flex items-center gap-0.5">
 												<Input
-													class="w-10 bg-transparent text-[8px] text-muted-foreground"
+													class="w-16 bg-transparent text-[11px] text-muted-foreground tabular-nums"
 													type="number"
 													value={word.startFrame}
 													aria-label={m.video_editor_transcript_word_start()}
@@ -1027,8 +1031,10 @@
 														updateWord(item, cue, word.id, {
 															startFrame: Math.max(0, event.currentTarget.valueAsNumber)
 														})}
-												/><span class="text-[8px]">-</span><Input
-													class="w-10 bg-transparent text-[8px] text-muted-foreground"
+												/>
+												<span class="text-[11px] text-muted-foreground">-</span>
+												<Input
+													class="w-16 bg-transparent text-[11px] text-muted-foreground tabular-nums"
 													type="number"
 													value={word.endFrame}
 													aria-label={m.video_editor_transcript_word_end()}
@@ -1039,7 +1045,8 @@
 																event.currentTarget.valueAsNumber
 															)
 														})}
-												/><Button
+												/>
+												<Button
 													type="button"
 													variant="ghost"
 													size="icon-xs"
@@ -1061,8 +1068,11 @@
 					</li>
 				{/each}
 				{#if cueEntries.length === 0}
-					<li class="px-1 py-2 text-xs text-muted-foreground">
-						{m.video_editor_transcript_empty()}
+					<li class="space-y-1 px-2 py-3 text-muted-foreground">
+						<p class="text-xs font-medium">{m.video_editor_transcript_empty()}</p>
+						<p class="text-[11px] leading-4">
+							{m.video_editor_cleanup_transcribe_first()}
+						</p>
 					</li>
 				{/if}
 			</ul>

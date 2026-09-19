@@ -315,10 +315,7 @@
 			aria-labelledby="local-ai-voice-tab"
 		>
 			<div class="border-b border-[var(--video-editor-border)] px-2 py-1.5">
-				<h2 class="text-xs font-semibold text-[var(--video-editor-text)]">
-					{m.video_editor_local_ai_voice()}
-				</h2>
-				<p class="mt-0.5 text-[9px] leading-tight text-[var(--video-editor-muted)]">
+				<p class="text-[11px] leading-4 text-[var(--video-editor-muted)]">
 					{m.video_editor_local_ai_voice_description()}
 				</p>
 			</div>
@@ -405,7 +402,7 @@
 					</Select.Root>
 					<span
 						id="local-ai-engine-description"
-						class="mt-0.5 block text-[9px] leading-tight text-[var(--video-editor-muted)]"
+						class="mt-1 block text-[11px] leading-4 text-[var(--video-editor-muted)]"
 						>{engineDescription}</span
 					>
 				</div>

@@ -99,6 +99,10 @@ test("mobile anchor links leave the heading below sticky navigation", async ({ p
 const socialNetworks = [
   "bluesky",
   "mastodon",
+  "pixelfed",
+  "peertube",
+  "lemmy",
+  "piefed",
   "discord",
   "telegram",
   "linkedin",

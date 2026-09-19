@@ -2,6 +2,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { resolveEditableColorTargetIds } from '$lib/video-editor/effects/color-targets';
 	import ColorMiniTimeline from './color-mini-timeline.svelte';
 	import ColorCurvesPanel from './color-curves-panel.svelte';
 	import ColorKeyframePanel from './color-keyframe-panel.svelte';
@@ -37,7 +38,7 @@
 	} = $props();
 	let colorAutoKey = $state(false);
 	const activePalette = $derived(editorSettings.value.colorPalette);
-	let keyframesVisible = $state(false);
+	const keyframesVisible = $derived(editorSettings.value.colorKeyframesVisible);
 	let sequenceGradeItemId = $derived<string | null>(
 		timelineStore.items.find((item) => item.type === 'adjustment' && item.sequenceColorGrade)?.id ??
 			null
@@ -52,6 +53,22 @@
 			: itemId && clipItemIds.includes(itemId)
 				? itemId
 				: (clipItemIds[0] ?? null)
+	);
+	const editableTargetIds = $derived(
+		resolveEditableColorTargetIds(
+			scopedItemId,
+			scopedItemIds,
+			timelineStore.itemById,
+			timelineStore.tracks
+		)
+	);
+	const eligibilityLabel = $derived(
+		scopedItemIds.length > editableTargetIds.length
+			? m.video_editor_color_editable_targets({
+					editable: editableTargetIds.length,
+					total: scopedItemIds.length
+				})
+			: null
 	);
 	const targetLabel = $derived.by(() => {
 		if (colorScope === 'sequence')
@@ -102,12 +119,24 @@
 	<div
 		class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-[var(--video-editor-border)] px-2 py-1 lg:h-[30px] lg:flex-nowrap lg:py-0 [@media(pointer:coarse)]:min-h-11"
 	>
-		<div class="flex min-w-0 flex-1 items-center gap-1.5 lg:flex-none">
+		<div
+			class="flex min-w-0 flex-1 items-center gap-1.5 lg:flex-none {eligibilityLabel
+				? 'max-lg:w-full max-lg:flex-none'
+				: ''}"
+		>
 			<span
 				class="max-w-40 truncate text-[11px] font-medium"
 				title={targetLabel}
 				data-color-target-label>{targetLabel}</span
 			>
+			{#if eligibilityLabel}
+				<span
+					class="shrink-0 text-[10px] text-[var(--video-editor-muted)]"
+					data-color-target-eligibility
+				>
+					{eligibilityLabel}
+				</span>
+			{/if}
 		</div>
 		<div class="order-3 w-full min-w-0 lg:order-none lg:w-auto">
 			<ColorPaletteTabs
@@ -115,7 +144,7 @@
 				active={activePalette}
 				label={m.video_editor_color_workspace()}
 				onselect={(palette) => {
-					keyframesVisible = false;
+					editorSettings.set('colorKeyframesVisible', false);
 					editorSettings.set('colorPalette', palette);
 				}}
 			/>
@@ -128,7 +157,7 @@
 				aria-pressed={keyframesVisible}
 				aria-label={m.video_editor_keyframes()}
 				title={m.video_editor_keyframes()}
-				onclick={() => (keyframesVisible = !keyframesVisible)}
+				onclick={() => editorSettings.set('colorKeyframesVisible', !keyframesVisible)}
 			>
 				<ProtectedIcon icon="editor-keyframe" class="size-3.5" />
 				<span class="sr-only sm:not-sr-only">{m.video_editor_keyframes()}</span>

@@ -56,6 +56,7 @@ export interface EditorSettingsValue {
 	colorDockHeight: number;
 	colorPalette: ColorPalette;
 	colorScopesVisible: boolean | null;
+	colorKeyframesVisible: boolean;
 	audioMixerHeight: number;
 	defaultTranscriptionModel: TranscriptionModel;
 	defaultTranscriptionLanguage: string;
@@ -88,6 +89,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettingsValue = {
 	colorDockHeight: 440,
 	colorPalette: 'primaries',
 	colorScopesVisible: null,
+	colorKeyframesVisible: false,
 	audioMixerHeight: 224,
 	defaultTranscriptionModel: DEFAULT_TRANSCRIPTION_MODEL,
 	defaultTranscriptionLanguage: '',
@@ -230,6 +232,7 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 		colorPalette: normalizeColorPalette(record.colorPalette),
 		colorScopesVisible:
 			typeof record.colorScopesVisible === 'boolean' ? record.colorScopesVisible : null,
+		colorKeyframesVisible: normalizeLayoutFlag(record.colorKeyframesVisible, false),
 		audioMixerHeight: clampLayoutSize(record.audioMixerHeight, 224, 160, 420),
 		defaultTranscriptionModel: isTranscriptionModel(record.defaultTranscriptionModel)
 			? record.defaultTranscriptionModel

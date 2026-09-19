@@ -279,7 +279,6 @@ export function setAnimatedGpuEffectParamsOnItems(
 		for (const itemId of uniqueItemIds) {
 			const item = editableKeyframeItem(itemId);
 			if (!item || item.type === 'audio') continue;
-			if (!isColorGradeTargetEditable(item, timelineStore.tracks)) continue;
 			const currentEffects = item.effects ?? [];
 			const effectIndex = currentEffects.findIndex(
 				(effect) => effect.type === 'gpu' && effect.effectId === effectType

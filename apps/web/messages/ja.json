@@ -8923,5 +8923,6 @@
 	"theme_editor_accent_hue_description": "両方のモードのDitherアクセントを変更します。個々の色は下で調整できます。",
 	"video_editor_color_sequence": "シーケンス",
 	"video_editor_color_clip_target": "クリップ: {name}",
-	"video_editor_color_sequence_target": "シーケンス: {name}"
+	"video_editor_color_sequence_target": "シーケンス: {name}",
+	"video_editor_color_editable_targets": "編集可能: {editable}/{total}"
 }

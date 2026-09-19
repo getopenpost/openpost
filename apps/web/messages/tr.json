@@ -8923,5 +8923,6 @@
 	"theme_editor_accent_hue_description": "Her iki modda Dither vurgu rengini günceller. Tek tek renkleri aşağıda ayarlayın.",
 	"video_editor_color_sequence": "Sekans",
 	"video_editor_color_clip_target": "Klip: {name}",
-	"video_editor_color_sequence_target": "Sekans: {name}"
+	"video_editor_color_sequence_target": "Sekans: {name}",
+	"video_editor_color_editable_targets": "Düzenlenebilir: {editable}/{total}"
 }

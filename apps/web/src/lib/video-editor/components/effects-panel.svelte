@@ -751,11 +751,7 @@
 			{m.video_editor_effects_none()}
 		</p>
 	{:else}
-		<ul
-			class="min-h-0 flex-1 overflow-y-auto"
-			inert={selectedEffectItemIds.length === 0}
-			aria-disabled={selectedEffectItemIds.length === 0}
-		>
+		<ul class="min-h-0 flex-1 overflow-y-auto" inert={selectedEffectItemIds.length === 0}>
 			{#each effects as effect, index (effect.id)}
 				{@const definition = definitionFor(effect.type)}
 				{@const gpuDefinition = effect.type === 'gpu' ? getGpuEffect(effect.effectId) : undefined}

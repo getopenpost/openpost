@@ -18,7 +18,10 @@ export function resolveVisualColorTargetIds(
 ): string[] {
 	if (!itemId) return [];
 	const requested = selectedItemIds.includes(itemId) ? selectedItemIds : [itemId];
-	return [...new Set(requested)].filter((id) => itemsById.get(id)?.type !== 'audio');
+	return [...new Set(requested)].filter((id) => {
+		const item = itemsById.get(id);
+		return item !== undefined && item.type !== 'audio';
+	});
 }
 
 export function resolveEditableColorTargetIds(

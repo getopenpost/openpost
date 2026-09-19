@@ -1264,7 +1264,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	$effect(() => {
 		colorPreviewStore.setScopeSampleItemId(
-			activeWorkspace === 'color'
+			activeWorkspace === 'color' && showColorScopes
 				? colorGradeScope === 'sequence'
 					? SEQUENCE_SCOPE_SAMPLE_ID
 					: selectedSupportsEffects

@@ -8923,5 +8923,6 @@
 	"theme_editor_accent_hue_description": "Atualiza a cor de destaque Dither nos dois modos. Ajuste as cores individuais abaixo.",
 	"video_editor_color_sequence": "Sequência",
 	"video_editor_color_clip_target": "Clipe: {name}",
-	"video_editor_color_sequence_target": "Sequência: {name}"
+	"video_editor_color_sequence_target": "Sequência: {name}",
+	"video_editor_color_editable_targets": "Editáveis: {editable}/{total}"
 }

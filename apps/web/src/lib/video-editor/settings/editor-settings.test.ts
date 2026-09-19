@@ -43,13 +43,18 @@ describe('editor-settings layout dock', () => {
 		const first = createEditorSettingsStore(storage);
 		first.set('colorPalette', 'windows');
 		first.set('colorScopesVisible', false);
+		first.set('colorKeyframesVisible', true);
 		const reopened = createEditorSettingsStore(storage);
 		expect(reopened.value.colorPalette).toBe('windows');
 		expect(reopened.value.colorScopesVisible).toBe(false);
+		expect(reopened.value.colorKeyframesVisible).toBe(true);
 		expect(
 			normalizeEditorSettings({ colorPalette: 'missing', colorScopesVisible: 'yes' }).colorPalette
 		).toBe('primaries');
 		expect(normalizeEditorSettings({ colorScopesVisible: 'yes' }).colorScopesVisible).toBeNull();
+		expect(normalizeEditorSettings({ colorKeyframesVisible: 'yes' }).colorKeyframesVisible).toBe(
+			false
+		);
 	});
 	it('restores a compact Color dock after reopening the editor', () => {
 		const storage = memoryStorage();

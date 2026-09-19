@@ -8923,5 +8923,6 @@
 	"theme_editor_accent_hue_description": "更新两种模式下的 Dither 强调色。可在下方调整各个颜色。",
 	"video_editor_color_sequence": "序列",
 	"video_editor_color_clip_target": "片段：{name}",
-	"video_editor_color_sequence_target": "序列：{name}"
+	"video_editor_color_sequence_target": "序列：{name}",
+	"video_editor_color_editable_targets": "可编辑：{editable}/{total}"
 }

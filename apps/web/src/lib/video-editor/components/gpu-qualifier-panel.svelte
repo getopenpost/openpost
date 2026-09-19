@@ -115,7 +115,7 @@
 		{@const label = param ? gpuParamLabel(param) : name}
 		<button
 			type="button"
-			class="flex h-7 min-w-0 flex-1 items-center justify-center gap-1.5 rounded border border-[var(--video-editor-border)] px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40 {active
+			class="flex h-[22px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded border border-[var(--video-editor-border)] px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40 {active
 				? 'bg-[var(--video-editor-primary)] text-[var(--video-editor-primary-text)]'
 				: 'hover:bg-[var(--video-editor-control-hover)]'}"
 			{disabled}

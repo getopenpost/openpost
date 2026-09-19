@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import { ToolbarGroup } from '$lib/components/editor-density';
 	import { Input } from '$lib/components/ui/input';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import type { KeyframeProperty, TimelineItem } from '$lib/video-editor/project/types';
@@ -748,7 +749,7 @@
 				oncontextmenucapture={prepareContextMenu}
 			>
 				<div
-					class="z-30 flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55_/_0.97)] px-1.5 text-[10px] {presentation ===
+					class="z-30 flex h-[25px] shrink-0 items-center gap-1 overflow-x-auto border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55_/_0.97)] px-1.5 text-[10px] {presentation ===
 					'side'
 						? 'w-full'
 						: 'sticky left-0 w-fit min-w-[720px] border-r'}"
@@ -766,36 +767,38 @@
 					>
 					<Input
 						type="search"
-						class="h-6 w-32 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1.5 text-xs shadow-none"
+						class="h-[22px] w-28 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1.5 text-xs shadow-none"
 						bind:value={searchQuery}
 						placeholder={m.video_editor_keyframe_sheet_search()}
 						aria-label={m.video_editor_keyframe_sheet_search()}
 					/>
 
-					<button
-						type="button"
-						class="rounded p-1 hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
-						aria-label={m.video_editor_keyframe_sheet_copy()}
-						disabled={selectedIds.size === 0}
-						onclick={() => copySelection()}><ThemeIcon role="copy" class="size-3" /></button
-					>
-					<button
-						type="button"
-						class="rounded p-1 hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
-						aria-label={m.video_editor_keyframe_sheet_cut()}
-						disabled={selectedIds.size === 0}
-						onclick={() => copySelection(true)}
-						><ProtectedIcon icon="editor-cut" class="size-3" /></button
-					>
-					<button
-						type="button"
-						class="rounded p-1 hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
-						aria-label={keyframeSelectionStore.isCut
-							? m.video_editor_keyframe_sheet_move_clipboard()
-							: m.video_editor_keyframe_sheet_paste()}
-						disabled={!keyframeSelectionStore.clipboard}
-						onclick={pasteClipboard}><ThemeIcon role="copy" class="size-3" /></button
-					>
+					<ToolbarGroup>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35 [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_keyframe_sheet_copy()}
+							disabled={selectedIds.size === 0}
+							onclick={() => copySelection()}><ThemeIcon role="copy" class="size-3" /></button
+						>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35 [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_keyframe_sheet_cut()}
+							disabled={selectedIds.size === 0}
+							onclick={() => copySelection(true)}
+							><ProtectedIcon icon="editor-cut" class="size-3" /></button
+						>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35 [@media(pointer:coarse)]:size-11"
+							aria-label={keyframeSelectionStore.isCut
+								? m.video_editor_keyframe_sheet_move_clipboard()
+								: m.video_editor_keyframe_sheet_paste()}
+							disabled={!keyframeSelectionStore.clipboard}
+							onclick={pasteClipboard}><ThemeIcon role="copy" class="size-3" /></button
+						>
+					</ToolbarGroup>
 					{#if keyframeSelectionStore.isCut && keyframeSelectionStore.clipboard}
 						<span class="font-medium text-[oklch(0.78_0.14_65)] uppercase">
 							{m.video_editor_keyframe_sheet_cut_badge()}
@@ -807,7 +810,7 @@
 							type="number"
 							min={0}
 							max={item.durationInFrames - 1}
-							class="h-5 w-14 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 font-mono text-xs shadow-none disabled:opacity-45"
+							class="h-[22px] w-14 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 font-mono text-xs shadow-none disabled:opacity-45"
 							value={selectedFrame ?? ''}
 							placeholder={selectedIds.size > 1 ? m.video_editor_keyframe_sheet_mixed() : '-'}
 							disabled={selectedFrame === undefined}
@@ -923,13 +926,14 @@
 														property: propertyLabel(property)
 													})
 												: m.video_editor_keyframe_sheet_lock({ property: propertyLabel(property) })}
+											aria-pressed={lockedProperties.has(property)}
 											onpointerdown={(event) => event.stopPropagation()}
 											onclick={() => toggleLock(property)}
 										>
 											{#if lockedProperties.has(property)}
-												<ThemeIcon role="lock" class="size-3" />
+												<ThemeIcon role="lock" class="size-3 text-[oklch(0.78_0.15_45)]" />
 											{:else}
-												<ThemeIcon role="lock" class="size-3" />
+												<ThemeIcon role="lock" class="size-3 opacity-40" />
 											{/if}
 										</button>
 										<button
@@ -1051,7 +1055,12 @@
 						data-dopesheet-marquee
 					></div>
 				{/if}
-				<p class="sr-only" aria-live="polite">{status}</p>
+				<p
+					class="min-h-[22px] shrink-0 truncate px-1.5 font-mono text-[9px] text-[oklch(0.62_0.015_55)] empty:hidden"
+					aria-live="polite"
+				>
+					{status}
+				</p>
 			</div>
 		{/snippet}
 	</ContextMenu.Trigger>

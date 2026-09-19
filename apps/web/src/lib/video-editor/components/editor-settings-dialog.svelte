@@ -221,7 +221,7 @@
 				{#each sections as item (item.id)}
 					<button
 						type="button"
-						class="flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground"
+						class="flex min-h-8 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 						data-active={section === item.id}
 						aria-current={section === item.id ? 'page' : undefined}
 						data-cuelume-toggle="tick"
@@ -233,7 +233,7 @@
 				{/each}
 			</nav>
 
-			<div class="min-h-0 flex-1 overflow-y-auto p-5">
+			<div class="min-h-0 flex-1 overflow-y-auto p-3">
 				{#if section === 'general'}
 					<section class="space-y-4" aria-labelledby="settings-general-title">
 						<div>
@@ -263,7 +263,7 @@
 										label: localeLabels[locale]
 									}))}
 									onValueChange={(value) => switchLocale(value as Locale)}
-									class="h-10 min-w-48 max-[640px]:h-11 max-[640px]:w-full"
+									class="h-8 min-w-48 max-[640px]:h-11 max-[640px]:w-full"
 								/>
 							</div>
 						</div>
@@ -375,7 +375,7 @@
 													label: soundThemeLabel(theme)
 												}))}
 												onValueChange={(value) => setSoundTheme(value as InterfaceSoundTheme)}
-												class="mt-1 h-9 w-full"
+												class="mt-1 h-8 w-full"
 											/>
 										</div>
 										<Button
@@ -472,7 +472,7 @@
 									}))}
 									onValueChange={(value) =>
 										editorSettings.set('defaultTranscriptionModel', value as TranscriptionModel)}
-									class="mt-1 h-9 w-full"
+									class="mt-1 h-8 w-full"
 								/>
 							</div>
 							<div class="text-xs text-[var(--video-editor-muted)]">
@@ -489,7 +489,7 @@
 									}))}
 									onValueChange={(value) =>
 										editorSettings.set('defaultTranscriptionLanguage', value)}
-									class="mt-1 h-9 w-full"
+									class="mt-1 h-8 w-full"
 								/>
 							</div>
 							<div class="text-xs text-[var(--video-editor-muted)]">
@@ -510,7 +510,7 @@
 											'defaultTranscriptionQuantization',
 											value as TranscriptionQuantization
 										)}
-									class="mt-1 h-9 w-full"
+									class="mt-1 h-8 w-full"
 								/>
 							</div>
 							<div class="text-xs text-[var(--video-editor-muted)] sm:col-span-2">
@@ -533,7 +533,7 @@
 									]}
 									onValueChange={(value) =>
 										editorSettings.set('captionSearchMode', value as 'keyword' | 'semantic')}
-									class="mt-1 h-9 w-full"
+									class="mt-1 h-8 w-full"
 								/>
 								<p class="mt-1 text-[11px] leading-snug">
 									{m.video_editor_settings_caption_search_mode_description()}

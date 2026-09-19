@@ -126,6 +126,7 @@ async function createImageDesign(page: Page): Promise<string> {
     timeout: 20_000,
   });
   const fileChooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("button", { name: "Upload or camera" }).click();
   await (
     await fileChooser

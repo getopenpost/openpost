@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { ProtectedIcon } from '$lib/themes/icons';
 	import type {
 		ItemTransform,
 		KeyframeProperty,
@@ -939,7 +940,7 @@
 		context.drawImage(source, x - 4, y - 4, 9, 9, 0, 0, loupe.width, loupe.height);
 		context.strokeStyle = 'rgba(255,255,255,0.9)';
 		context.lineWidth = 1;
-		context.strokeRect(32.5, 32.5, 8, 8);
+		context.strokeRect(loupe.width / 2 - 3.5, loupe.height / 2 - 3.5, 8, 8);
 	}
 
 	function choosePickerColor(event: PointerEvent): void {
@@ -1390,7 +1391,7 @@
 <svelte:window onkeydown={handleVisualNudgeShortcut} />
 
 <div
-	class="editor-protected-surface fullscreen:p-6 [container-type:size] flex min-h-0 flex-1 overflow-auto bg-[var(--canvas-pasteboard)] p-4 sm:p-5 xl:p-7"
+	class="editor-protected-surface fullscreen:p-6 [container-type:size] flex min-h-0 flex-1 overflow-auto bg-[var(--canvas-pasteboard)] p-2 sm:p-2 xl:p-3"
 	data-editor-protected="preview"
 	data-program-pasteboard
 	role="region"
@@ -1417,9 +1418,15 @@
 				>
 					{#if activeItems.length === 0}
 						<div
-							class="flex size-full min-h-48 min-w-80 items-center justify-center border border-dashed border-[oklch(0.3_0.01_55)] text-xs text-[oklch(0.65_0.015_55)]"
+							class="flex size-full items-center justify-center"
+							role="img"
+							aria-label={m.video_editor_preview_empty()}
+							title={m.video_editor_preview_empty()}
 						>
-							{m.video_editor_preview_empty()}
+							<ProtectedIcon
+								icon="media-video"
+								class="size-4 text-[oklch(0.65_0.015_55)] opacity-60"
+							/>
 						</div>
 					{:else}
 						{#if isPlaying && editorSession.transportMode === 'shuttle'}
@@ -1429,7 +1436,7 @@
 						{/if}
 						{#if preparingProxy}
 							<div
-								class="absolute top-2 right-2 z-40 flex items-center gap-2 rounded-full border border-white/10 bg-black/75 px-2.5 py-1 text-[10px] text-white shadow-lg backdrop-blur"
+								class="absolute bottom-2 left-1/2 z-40 flex h-6 max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1.5 truncate rounded border border-white/10 bg-black/75 px-2 text-[10px] whitespace-nowrap text-white shadow-lg backdrop-blur"
 								role="status"
 								aria-live="polite"
 								data-proxy-progress
@@ -1465,19 +1472,13 @@
 										aria-hidden="true"
 										data-color-before-preview
 									></canvas>
-									<span
-										class="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
-										>{m.video_editor_color_before()}</span
-									>
-									<span
-										class="absolute top-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
-										>{m.video_editor_color_after()}</span
-									>
+									<!-- split divider is self-evident; before/after pills removed (state lives in the slider tooltip) -->
 									<button
 										type="button"
 										role="slider"
-										class="absolute top-0 z-10 h-full w-3 -translate-x-1/2 cursor-ew-resize focus-visible:outline-2 focus-visible:outline-white"
+										class="absolute top-0 z-10 h-full w-[22px] -translate-x-1/2 cursor-ew-resize focus-visible:outline-2 focus-visible:outline-white"
 										style:left={`${colorPreviewStore.splitPosition * 100}%`}
+										title={m.video_editor_color_split_position()}
 										aria-label={m.video_editor_color_split_position()}
 										aria-valuemin="5"
 										aria-valuemax="95"
@@ -1489,7 +1490,7 @@
 										<span class="mx-auto block h-full w-px bg-white shadow-[0_0_0_1px_black]"
 										></span>
 										<span
-											class="absolute top-1/2 left-1/2 size-3 -translate-1/2 rounded-full border border-black bg-white"
+											class="absolute top-1/2 left-1/2 size-2.5 -translate-1/2 rounded-full border border-black bg-white"
 										></span>
 									</button>
 								{/if}
@@ -1609,7 +1610,7 @@
 										style:left={`${pickerX}px`}
 										style:top={`${pickerY}px`}
 									>
-										<canvas bind:this={pickerLoupe} width="72" height="72" class="block size-[72px]"
+										<canvas bind:this={pickerLoupe} width="40" height="40" class="block size-[40px]"
 										></canvas>
 										<span class="block px-1 py-0.5 text-center font-mono text-[10px] text-white"
 											>{colorHex(pickerColor)}</span
@@ -1620,51 +1621,29 @@
 						{/if}
 						{#if previewDiagnostics.clipTimingOverlay && diagnosticClip}
 							<div
-								class="pointer-events-none absolute top-2 left-2 z-40 max-w-[calc(100%-1rem)] rounded-md bg-black/80 px-2 py-1.5 font-mono text-[10px] leading-4 text-white/90"
+								class="pointer-events-none absolute bottom-14 left-1/2 z-40 h-6 max-w-[calc(100%-1rem)] -translate-x-1/2 truncate rounded border border-white/10 bg-black/80 px-2 font-mono text-[10px] leading-6 whitespace-nowrap text-white/90"
 								data-testid="preview-clip-diagnostics"
 							>
-								<div>
-									{diagnosticClip.id.slice(0, 8)} · {diagnosticClip.from}-{diagnosticClip.from +
-										diagnosticClip.durationInFrames}f
-								</div>
-								<div class="text-white/65">
-									{m.video_editor_diagnostics_overlay_source({
-										start: diagnosticClip.sourceStart ?? 0,
-										end: diagnosticClip.sourceEnd ?? diagnosticClip.sourceDuration ?? 0
-									})}
-									· {(diagnosticClip.speed ?? 1).toFixed(2)}x{diagnosticClip.isReversed
-										? ` · ${m.video_editor_diagnostics_overlay_reverse()}`
-										: ''}
-								</div>
+								{diagnosticClip.id.slice(0, 8)} · {diagnosticClip.from}-{diagnosticClip.from +
+									diagnosticClip.durationInFrames}f · {(diagnosticClip.speed ?? 1).toFixed(
+									2
+								)}x{diagnosticClip.isReversed
+									? ` · ${m.video_editor_diagnostics_overlay_reverse()}`
+									: ''}
 							</div>
 						{/if}
 						{#if previewDiagnostics.performanceOverlay}
 							<div
-								class="pointer-events-none absolute right-2 bottom-2 z-40 rounded-md bg-black/80 px-2 py-1.5 font-mono text-[10px] leading-4 text-white/90"
+								class="pointer-events-none absolute bottom-8 left-1/2 z-40 h-6 max-w-[calc(100%-1rem)] -translate-x-1/2 truncate rounded border border-white/10 bg-black/80 px-2 font-mono text-[10px] leading-6 whitespace-nowrap text-white/90"
 								data-testid="preview-performance-diagnostics"
 							>
-								<div>
-									{diagnosticSnapshot.samples > 0
-										? `${diagnosticSnapshot.frameTimeEmaMs.toFixed(1)} ms`
-										: m.video_editor_diagnostics_status_waiting()}
-									· {m.video_editor_diagnostics_overlay_budget({
-										value: diagnosticSnapshot.frameBudgetMs.toFixed(1)
-									})}
-								</div>
-								<div class="text-white/65">
-									{Math.round(diagnosticSnapshot.qualityScale * 100)}% · {diagnosticSnapshot.renderPath ===
-									'composited'
-										? m.video_editor_diagnostics_composited()
-										: m.video_editor_diagnostics_direct()} · {diagnosticSnapshot.renderWidth}x{diagnosticSnapshot.renderHeight}
-								</div>
-								<div class="text-white/65">
-									{m.video_editor_diagnostics_overlay_skipped({
-										count: diagnosticSnapshot.skippedFrames
-									})}
-									· {m.video_editor_diagnostics_overlay_layers({
-										count: diagnosticSnapshot.activeLayers
-									})}
-								</div>
+								{diagnosticSnapshot.samples > 0
+									? `${diagnosticSnapshot.frameTimeEmaMs.toFixed(1)} ms`
+									: m.video_editor_diagnostics_status_waiting()} · {Math.round(
+									diagnosticSnapshot.qualityScale * 100
+								)}% · {diagnosticSnapshot.renderWidth}x{diagnosticSnapshot.renderHeight} · {m.video_editor_diagnostics_overlay_layers(
+									{ count: diagnosticSnapshot.activeLayers }
+								)}
 							</div>
 						{/if}
 						<EditPreviewOverlay {canvasWidth} {canvasHeight} {urls} {proxyUrls} />
@@ -1673,10 +1652,6 @@
 			{/snippet}
 		</ContextMenu.Trigger>
 		<ContextMenu.Content class="video-editor-theme w-64">
-			<div class="px-2 py-1.5 text-[10px] text-muted-foreground">
-				{m.image_editor_select_layer_count({ count: canvasContextLayers.length })}
-			</div>
-			<ContextMenu.Separator />
 			{#each canvasContextLayers as candidate (candidate.item.id)}
 				<ContextMenu.Item
 					aria-current={candidate.item.id === selectedItemId ? 'true' : undefined}

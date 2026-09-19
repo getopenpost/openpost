@@ -24,7 +24,16 @@
 	import { m } from '$lib/paraglide/messages';
 	import { writeImageEditorMediaDrag, type ImageEditorMediaDragPayload } from '../media-drag';
 
-	let { guestMode = false }: { guestMode?: boolean } = $props();
+	let {
+		guestMode = false,
+		mode = 'dock',
+		onclose
+	}: {
+		guestMode?: boolean;
+	} & (
+		| { mode?: 'dock'; onclose?: () => void }
+		| { mode: 'overlay'; onclose: () => void }
+	) = $props();
 	const editor = useImageEditor();
 	let media = $state<ImageEditorMediaItem[]>([]);
 	let loading = $state(false);
@@ -36,11 +45,26 @@
 	let loadedWorkspaceID = '';
 	let dragPreview: HTMLElement | null = null;
 	let guestFileInput = $state<HTMLInputElement | null>(null);
+	let searchInput = $state<HTMLInputElement | null>(null);
+	let overlayFocused = false;
 	let tags = $state<MediaTag[]>([]);
 	let selectedTagIDs = $state.raw<string[]>([]);
 	let showUntagged = $state(false);
 	let sort = $state<'newest' | 'oldest' | 'name' | 'size' | 'recently_used'>('newest');
 
+	$effect(() => {
+		if (mode === 'overlay' && !overlayFocused && searchInput) {
+			overlayFocused = true;
+			searchInput.focus({ preventScroll: true });
+		}
+	});
+
+	function handleOverlayKeydown(event: KeyboardEvent): void {
+		if (mode === 'overlay' && event.key === 'Escape') {
+			event.stopPropagation();
+			onclose?.();
+		}
+	}
 	$effect(() => {
 		const scopeID = guestMode ? editor.id : editor.workspaceID;
 		const revision = editor.mediaLibraryRevision;
@@ -241,11 +265,29 @@
 	}
 </script>
 
-<div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-	<div class="flex min-h-10 items-center border-b px-3">
-		<h2 class="text-sm font-medium text-foreground">
+<div
+	class={mode === 'overlay'
+		? 'flex max-h-[70dvh] w-80 min-w-0 flex-col overflow-hidden rounded-xl border bg-popover shadow-xl'
+		: 'flex h-full min-h-0 min-w-0 flex-col overflow-hidden'}
+	role={mode === 'overlay' ? 'dialog' : undefined}
+	aria-modal={mode === 'overlay' ? true : undefined}
+	aria-label={mode === 'overlay' ? m.image_editor_media() : undefined}
+	onkeydown={handleOverlayKeydown}
+>
+	<div class="flex min-h-8 items-center border-b px-3">
+		<h2 class="min-w-0 flex-1 text-sm font-medium text-foreground">
 			{m.image_editor_media()}
 		</h2>
+		{#if mode === 'overlay'}
+			<Button
+				variant="ghost"
+				size="icon-xs"
+				aria-label={m.common_close()}
+				onclick={() => onclose?.()}
+			>
+				<ThemeIcon role="close" class="size-3.5" />
+			</Button>
+		{/if}
 	</div>
 	{#if error}
 		<div class="m-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive" role="alert">
@@ -253,53 +295,53 @@
 		</div>
 	{/if}
 	<div class="min-h-0 flex-1 overflow-y-auto p-2">
-		<section class="mb-4">
-			<h3 class="mb-2 text-xs font-semibold">{m.image_editor_add()}</h3>
-			<div class="grid grid-cols-2 gap-1.5">
+		<section class="mb-3">
+			<h3 class="mb-1.5 text-xs font-semibold">{m.image_editor_add()}</h3>
+			<div class="flex gap-1" role="toolbar" aria-label={m.image_editor_add()}>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-11 justify-start"
+					size="icon-sm"
+					aria-label={m.image_editor_text()}
+					title={m.image_editor_text()}
 					onclick={() => editor.addText()}
 				>
 					<ProtectedIcon icon="editor-text" />
-					{m.image_editor_text()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-11 justify-start"
+					size="icon-sm"
+					aria-label={m.image_editor_rectangle()}
+					title={m.image_editor_rectangle()}
 					onclick={() => editor.addShape('rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
-					{m.image_editor_rectangle()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-11 justify-start"
+					size="icon-sm"
+					aria-label={m.image_editor_rounded_rectangle()}
+					title={m.image_editor_rounded_rectangle()}
 					onclick={() => editor.addShape('rounded_rectangle')}
 				>
 					<ProtectedIcon icon="editor-shapes" class="rounded-sm" />
-					{m.image_editor_rounded_rectangle()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="min-h-11 justify-start"
+					size="icon-sm"
+					aria-label={m.image_editor_ellipse()}
+					title={m.image_editor_ellipse()}
 					onclick={() => editor.addShape('ellipse')}
 				>
 					<ProtectedIcon icon="editor-shapes" />
-					{m.image_editor_ellipse()}
 				</Button>
 				<Button
 					variant="outline"
-					size="sm"
-					class="col-span-2 min-h-11 justify-start"
+					size="icon-sm"
+					aria-label={m.image_editor_line()}
+					title={m.image_editor_line()}
 					onclick={() => editor.addShape('line')}
 				>
 					<ThemeIcon role="remove" />
-					{m.image_editor_line()}
 				</Button>
 			</div>
 		</section>
@@ -326,7 +368,7 @@
 						{ value: 'size', label: m.media_sort_size() },
 						{ value: 'recently_used', label: m.media_recently_used() }
 					]}
-					class="h-8 w-full min-w-0 text-xs"
+					class="h-7 w-full min-w-0 text-xs"
 				/>
 			</div>
 		{/if}
@@ -343,9 +385,11 @@
 					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
+					bind:ref={searchInput}
 					bind:value={search}
-					class="h-8 pl-7 text-xs"
+					class="h-7 pl-7 text-xs"
 					placeholder={m.image_editor_search_media()}
+					aria-label={m.image_editor_search_media()}
 				/>
 			</div>
 			<Tooltip.Root>

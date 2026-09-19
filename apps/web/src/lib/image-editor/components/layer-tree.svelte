@@ -385,7 +385,7 @@
 />
 
 <div class="flex h-full min-h-0 flex-col">
-	<div class="flex min-h-10 items-center border-b px-3">
+	<div class="flex min-h-8 items-center border-b px-3">
 		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_layers()}
 		</h2>
@@ -454,7 +454,7 @@
 									})}
 									tabindex={focusedLayerID === layer.id && renamingID !== layer.id ? 0 : -1}
 									draggable={editor.canEdit && renamingID !== layer.id}
-									class="image-editor-layer-row group flex min-h-10 items-center gap-1 rounded-md pr-1 text-sm {editor.selectedLayerIDs.includes(
+									class="image-editor-layer-row group flex min-h-8 items-center gap-1 rounded-md pr-1 text-sm {editor.selectedLayerIDs.includes(
 										layer.id
 									)
 										? 'bg-primary/10 text-foreground'
@@ -833,7 +833,10 @@
 
 	:global(.image-editor-context-item) {
 		display: flex;
-		min-height: 2.25rem;
+		min-height: 1.75rem;
+		@media (pointer: coarse) {
+			min-height: 44px;
+		}
 		cursor: default;
 		align-items: center;
 		gap: 0.5rem;

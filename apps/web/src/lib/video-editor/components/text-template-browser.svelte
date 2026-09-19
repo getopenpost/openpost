@@ -209,8 +209,8 @@
 	.template-name {
 		display: block;
 		overflow: hidden;
-		padding: 0.3rem 0.125rem 0.1rem;
-		font-size: 0.625rem;
+		padding: 0.2rem 0.125rem 0.1rem;
+		font-size: 0.5625rem;
 		text-align: center;
 		text-overflow: ellipsis;
 		white-space: nowrap;

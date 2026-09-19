@@ -2,6 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 // IntersectionObserver rounds fractional CSS pixels at phone widths.
 const FULLY_VISIBLE_RATIO = 0.999;
+// Gallery tiles are edge-aligned by scrollIntoViewIfNeeded, so headless
+// sub-pixel rounding can clip a fraction of a pixel. 0.99 still fails on any
+// real (whole-pixel) clipping of the 56px tiles.
+const GALLERY_VISIBLE_RATIO = 0.99;
 
 async function expectRenderedShader(page: Page) {
   await page.evaluate(async () => {
@@ -167,9 +171,9 @@ for (const scheme of ["light", "dark"] as const) {
             await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
             const tile = page.getByRole("button", { name: preset, exact: true });
             await tile.scrollIntoViewIfNeeded();
-            await expect(tile).toBeInViewport({ ratio: FULLY_VISIBLE_RATIO });
+            await expect(tile).toBeInViewport({ ratio: GALLERY_VISIBLE_RATIO });
             await expect(tile.getByText(preset, { exact: true })).toBeInViewport({
-              ratio: FULLY_VISIBLE_RATIO,
+              ratio: GALLERY_VISIBLE_RATIO,
             });
           }
         }

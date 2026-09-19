@@ -4,20 +4,24 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { useImageEditor } from '../editor.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Popover from '$lib/components/ui/popover';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import TemplatePreview from './template-preview.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { SelectionPoint } from '../selection';
+	import type { ImageEditorPage } from '../types';
 	import { containsExternalImageDrag, externalFiles } from '../media-drag';
 
 	let {
-		onExternalFiles
+		onExternalFiles,
+		mode = 'strip'
 	}: {
 		onExternalFiles?: (
 			files: File[],
 			point: SelectionPoint,
 			pageID: string
 		) => void | Promise<void>;
+		mode?: 'strip' | 'status';
 	} = $props();
 
 	const editor = useImageEditor();
@@ -35,13 +39,38 @@
 		);
 	}
 	const hintID = $props.id();
+	let gridOpen = $state(false);
 	const pages = $derived(editor.document?.pages ?? []);
+	const activeIndex = $derived(pages.findIndex((page) => page.id === editor.activePageID));
+	const activePageLabel = $derived(
+		activeIndex >= 0
+			? m.image_editor_page_label({
+					number: activeIndex + 1,
+					name: displayPageName(pages[activeIndex]?.name ?? '', activeIndex)
+				})
+			: m.image_editor_pages()
+	);
 	const displayPages = $derived(
 		previewOrder ? previewOrder.flatMap((id) => pages.find((page) => page.id === id) ?? []) : pages
 	);
 	$effect(() => {
 		if (previewDocument !== editor.document) cancelReorder();
 	});
+	function selectPage(page: ImageEditorPage): void {
+		editor.activePageID = page.id;
+		editor.selectedLayerIDs = [];
+	}
+
+	function beginPageDrag(page: ImageEditorPage): void {
+		cancelReorder();
+		draggingID = page.id;
+	}
+
+	function endPageDrag(): void {
+		draggingID = '';
+		insertionPageID = '';
+	}
+
 	function cancelReorder() {
 		if (keyboardDraggingID) reorderAnnouncement = m.interaction_reorder_cancelled();
 		keyboardDraggingID = '';
@@ -161,83 +190,9 @@
 <svelte:window onblur={() => cancelReorder()} />
 
 <div class="flex size-full flex-col border-t bg-background/95 backdrop-blur">
-	<div class="flex h-11 items-center gap-1 border-b px-2 lg:h-9">
-		<Button
-			variant="ghost"
-			size="icon-xs"
-			class="size-11 md:size-11 lg:size-7"
-			onclick={() => (editor.pagesExpanded = !editor.pagesExpanded)}
-			aria-label={editor.pagesExpanded
-				? m.image_editor_collapse_pages()
-				: m.image_editor_expand_pages()}
-		>
-			<ThemeIcon role={editor.pagesExpanded ? 'chevron-down' : 'chevron-up'} />
-		</Button>
-		<span class="sr-only text-sm font-medium text-foreground sm:not-sr-only"
-			>{m.image_editor_pages()}</span
-		>
-		<span class="hidden text-xs text-muted-foreground sm:inline"
-			>{editor.document?.pages.length ?? 0}</span
-		>
-		<div class="ml-auto flex gap-1">
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				class="size-11 lg:size-7"
-				aria-label={m.interaction_reorder_previous()}
-				title={m.interaction_reorder_previous()}
-				disabled={!editor.canEdit ||
-					pages.findIndex((page) => page.id === editor.activePageID) <= 0}
-				onclick={() => moveActivePage(-1)}><ThemeIcon role="arrow-left" /></Button
-			>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				class="size-11 lg:size-7"
-				aria-label={m.interaction_reorder_next()}
-				title={m.interaction_reorder_next()}
-				disabled={!editor.canEdit ||
-					pages.findIndex((page) => page.id === editor.activePageID) >= pages.length - 1}
-				onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
-			>
-
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				class="size-11 md:size-11 lg:size-7"
-				onclick={() => editor.addPage()}
-				disabled={!editor.canEdit}
-			>
-				<ThemeIcon role="add" />
-				<span class="sr-only">{m.image_editor_add_page()}</span>
-			</Button>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				class="size-11 md:size-11 lg:size-7"
-				onclick={() => editor.duplicatePage()}
-				disabled={!editor.canEdit}
-			>
-				<ThemeIcon role="copy" />
-				<span class="sr-only">{m.image_editor_duplicate_page()}</span>
-			</Button>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				class="size-11 md:size-11 lg:size-7"
-				onclick={() => editor.deletePage()}
-				disabled={!editor.canEdit || (editor.document?.pages.length ?? 0) <= 1}
-			>
-				<ThemeIcon role="delete" />
-				<span class="sr-only">{m.image_editor_delete_page()}</span>
-			</Button>
-		</div>
-	</div>
-	{#if editor.pagesExpanded && editor.document}
-		<div
-			bind:this={strip}
-			class="no-scrollbar flex h-24 shrink-0 items-center gap-2 overflow-x-auto px-3 py-2 lg:h-auto lg:min-h-0 lg:flex-1"
-		>
+	{#snippet pageGrid()}
+		{#if editor.document}
+			{@const gridDocument = editor.document}
 			{#each displayPages as page, index (page.id)}
 				<button
 					animate:flip={{ duration: prefersReducedMotion.current ? 0 : 200 }}
@@ -255,18 +210,9 @@
 					editor.activePageID
 						? 'ring-2 ring-primary'
 						: ''} {externalDropPageID === page.id ? 'bg-primary/10 ring-2 ring-primary' : ''}"
-					onclick={() => {
-						editor.activePageID = page.id;
-						editor.selectedLayerIDs = [];
-					}}
-					ondragstart={() => {
-						cancelReorder();
-						draggingID = page.id;
-					}}
-					ondragend={() => {
-						draggingID = '';
-						insertionPageID = '';
-					}}
+					onclick={() => selectPage(page)}
+					ondragstart={() => beginPageDrag(page)}
+					ondragend={endPageDrag}
 					ondragover={(event) => handlePageDragOver(event, page.id)}
 					ondragleave={() => (externalDropPageID = '')}
 					ondrop={(event) => handlePageDrop(event, page.id, index)}
@@ -282,12 +228,12 @@
 				>
 					<span class="min-h-0 flex-1 overflow-hidden">
 						<TemplatePreview
-							document={editor.document}
+							document={gridDocument}
 							{page}
 							compact
 							cached
 							deferUpdates={editor.colorPreviewActive}
-							dimensionKey={`${editor.document.width_px}:${editor.document.height_px}`}
+							dimensionKey={`${gridDocument.width_px}:${gridDocument.height_px}`}
 							label={displayPageName(page.name, index)}
 						/>
 					</span>
@@ -296,6 +242,150 @@
 					</span>
 				</button>
 			{/each}
+		{/if}
+	{/snippet}
+	{#snippet pageActionButtons(buttonClass: string)}
+		<Button
+			variant="ghost"
+			size="icon-xs"
+			class={buttonClass}
+			onclick={() => editor.addPage()}
+			disabled={!editor.canEdit}
+		>
+			<ThemeIcon role="add" />
+			<span class="sr-only">{m.image_editor_add_page()}</span>
+		</Button>
+		<Button
+			variant="ghost"
+			size="icon-xs"
+			class={buttonClass}
+			onclick={() => editor.duplicatePage()}
+			disabled={!editor.canEdit}
+		>
+			<ThemeIcon role="copy" />
+			<span class="sr-only">{m.image_editor_duplicate_page()}</span>
+		</Button>
+		<Button
+			variant="ghost"
+			size="icon-xs"
+			class={buttonClass}
+			onclick={() => editor.deletePage()}
+			disabled={!editor.canEdit || (editor.document?.pages.length ?? 0) <= 1}
+		>
+			<ThemeIcon role="delete" />
+			<span class="sr-only">{m.image_editor_delete_page()}</span>
+		</Button>
+	{/snippet}
+	{#if mode === 'strip'}
+		<div class="flex h-8 items-center gap-1 border-b px-2 lg:h-8 [@media(pointer:coarse)]:h-11">
+			<Button
+				variant="ghost"
+				size="icon-xs"
+				class="size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
+				onclick={() => (editor.pagesExpanded = !editor.pagesExpanded)}
+				aria-label={editor.pagesExpanded
+					? m.image_editor_collapse_pages()
+					: m.image_editor_expand_pages()}
+			>
+				<ThemeIcon role={editor.pagesExpanded ? 'chevron-down' : 'chevron-up'} />
+			</Button>
+			<span class="sr-only text-sm font-medium text-foreground sm:not-sr-only"
+				>{m.image_editor_pages()}</span
+			>
+			<span class="hidden text-xs text-muted-foreground sm:inline"
+				>{editor.document?.pages.length ?? 0}</span
+			>
+			<div class="ml-auto flex gap-1">
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
+					aria-label={m.interaction_reorder_previous()}
+					title={m.interaction_reorder_previous()}
+					disabled={!editor.canEdit ||
+						pages.findIndex((page) => page.id === editor.activePageID) <= 0}
+					onclick={() => moveActivePage(-1)}><ThemeIcon role="arrow-left" /></Button
+				>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
+					aria-label={m.interaction_reorder_next()}
+					title={m.interaction_reorder_next()}
+					disabled={!editor.canEdit ||
+						pages.findIndex((page) => page.id === editor.activePageID) >= pages.length - 1}
+					onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
+				>
+
+				{@render pageActionButtons('size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11')}
+			</div>
+		</div>
+		{#if editor.pagesExpanded && editor.document}
+			<div
+				bind:this={strip}
+				class="no-scrollbar flex h-24 shrink-0 items-center gap-2 overflow-x-auto px-3 py-2 lg:h-auto lg:min-h-0 lg:flex-1"
+			>
+				{@render pageGrid()}
+			</div>
+		{/if}
+	{:else}
+		<div
+			class="flex h-[26px] items-center gap-0.5 px-1 [@media(pointer:coarse)]:h-11"
+			data-testid="page-status-row"
+		>
+			<Button
+				variant="ghost"
+				size="icon-xs"
+				class="size-[22px] [@media(pointer:coarse)]:size-11"
+				aria-label={m.interaction_reorder_previous()}
+				title={m.interaction_reorder_previous()}
+				disabled={!editor.canEdit || activeIndex <= 0}
+				onclick={() => moveActivePage(-1)}><ThemeIcon role="arrow-left" /></Button
+			>
+			<span
+				class="min-w-0 flex-1 truncate text-center font-mono text-[11px] text-muted-foreground tabular-nums"
+				role="status"
+				title={activePageLabel}>{activeIndex + 1}/{pages.length}</span
+			>
+			<Button
+				variant="ghost"
+				size="icon-xs"
+				class="size-[22px] [@media(pointer:coarse)]:size-11"
+				aria-label={m.interaction_reorder_next()}
+				title={m.interaction_reorder_next()}
+				disabled={!editor.canEdit || activeIndex >= pages.length - 1}
+				onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
+			>
+			<Popover.Root bind:open={gridOpen}>
+				<Popover.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							type="button"
+							variant="ghost"
+							size="icon-xs"
+							class="size-[22px] [@media(pointer:coarse)]:size-11"
+							aria-label={gridOpen
+								? m.image_editor_collapse_pages()
+								: m.image_editor_expand_pages()}
+						>
+							<ThemeIcon role={gridOpen ? 'chevron-down' : 'chevron-up'} />
+						</Button>
+					{/snippet}
+				</Popover.Trigger>
+				<Popover.Content
+					align="end"
+					side="top"
+					class="max-h-[min(70vh,24rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto p-2"
+				>
+					<div bind:this={strip} class="no-scrollbar grid grid-cols-2 gap-2 overflow-y-auto">
+						{@render pageGrid()}
+					</div>
+					<div class="mt-2 flex gap-1 border-t pt-2">
+						{@render pageActionButtons('size-8 [@media(pointer:coarse)]:size-11')}
+					</div>
+				</Popover.Content>
+			</Popover.Root>
 		</div>
 	{/if}
 </div>

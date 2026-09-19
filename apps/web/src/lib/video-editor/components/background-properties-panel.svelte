@@ -4,6 +4,7 @@
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { HintButton } from '$lib/components/editor-density';
 	import type {
 		TimelineItem,
 		KeyframeProperty,
@@ -71,9 +72,18 @@
 	class="flex flex-col gap-3 rounded-[10px] border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2.5"
 	aria-label={m.video_editor_background_inspector()}
 >
-	<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
-		{m.video_editor_backgrounds_title()}
-	</h3>
+	<div class="flex items-center gap-1">
+		<h3
+			class="flex-1 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+		>
+			{m.video_editor_backgrounds_title()}
+		</h3>
+		<HintButton
+			label={m.video_editor_background_hint()}
+			hint={m.video_editor_background_hint()}
+			class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+		/>
+	</div>
 
 	<AppSelect
 		value={BACKGROUND_PRESETS.find(
@@ -145,7 +155,7 @@
 		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_background_pattern_kind()}
 			<AppSelect
-				class="mt-0.5 h-8 w-full text-xs"
+				class="mt-0.5 h-[25px] w-full text-[11px]"
 				value={bg.pattern}
 				options={[
 					{ value: 'dots', label: m.video_editor_background_pattern_dots() },
@@ -300,10 +310,4 @@
 			/>
 		</label>
 	</div>
-
-	{#if bg.kind !== 'shader'}
-		<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
-			{m.video_editor_background_hint()}
-		</p>
-	{/if}
 </section>

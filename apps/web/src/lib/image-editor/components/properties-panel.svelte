@@ -270,9 +270,6 @@
 							name: layer.name
 						})}
 					</p>
-					<p class="text-xs text-muted-foreground">
-						{m.image_editor_multi_selection_values_help()}
-					</p>
 				{/if}
 				{#if applicationFeedback}
 					<p
@@ -418,9 +415,14 @@
 							<button
 								{...props}
 								type="button"
-								class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
+								class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
 							>
 								<span class="min-w-0 flex-1">{m.image_editor_transform()}</span>
+								{#if !mixedTransforms.width.mixed && !mixedTransforms.height.mixed}
+									<span class="shrink-0 text-[11px] font-normal text-muted-foreground tabular-nums">
+										{Math.round(layer.transform.width)}×{Math.round(layer.transform.height)}
+									</span>
+								{/if}
 								<ThemeIcon
 									role="chevron-down"
 									class={`size-3.5 transition-transform ${transformOpen ? 'rotate-180' : ''}`}
@@ -471,7 +473,7 @@
 										placeholder={mixedTransforms.rotation.mixed
 											? m.image_editor_mixed_value()
 											: undefined}
-										class="h-8 w-16 px-1.5 text-right text-xs"
+										class="h-7 w-16 px-1.5 text-right text-xs"
 										disabled={!editor.canEdit}
 										oninput={(event) =>
 											updateSelectedTransform(
@@ -554,11 +556,6 @@
 				</Collapsible.Root>
 
 				{#if layer.type !== 'group'}
-					{#if editor.selectedLayers.length > 1}
-						<p class="text-xs text-muted-foreground">
-							{m.image_editor_primary_layer_properties_help({ name: layer.name })}
-						</p>
-					{/if}
 					{#key layer.id}<LayerEffectsPanel {layer} />{/key}
 				{/if}
 
@@ -587,7 +584,7 @@
 										label: style.name
 									}))}
 									placeholder={m.image_editor_choose_text_style()}
-									class="h-9 w-full"
+									class="h-7 w-full"
 								/>
 							</label>
 						{/if}
@@ -688,7 +685,7 @@
 										value: String(weight),
 										label: `${weight} — ${label}`
 									}))}
-									class="h-9 w-full"
+									class="h-7 w-full"
 								/>
 							</label>
 						</div>
@@ -710,7 +707,7 @@
 										{ value: 'normal', label: m.image_editor_normal() },
 										{ value: 'italic', label: m.image_editor_italic() }
 									]}
-									class="h-9 w-full"
+									class="h-7 w-full"
 								/>
 							</label>
 							<label class="grid gap-1 text-xs">
@@ -776,7 +773,7 @@
 									{ value: 'word', label: m.image_editor_wrap_words() },
 									{ value: 'character', label: m.image_editor_wrap_characters() }
 								]}
-								class="h-9 w-full"
+								class="h-7 w-full"
 							/>
 						</label>
 						<label class="grid gap-1 text-xs">
@@ -849,7 +846,7 @@
 										{ value: 'circle', label: m.image_editor_curve_circle() },
 										{ value: 'ellipse', label: m.image_editor_curve_ellipse() }
 									]}
-									class="h-9 w-full"
+									class="h-7 w-full"
 								/>
 							</label>
 							{#if layer.text.curve && layer.text.curve.type !== 'none'}
@@ -1021,7 +1018,7 @@
 									{ value: 'ellipse', label: m.image_editor_ellipse() },
 									{ value: 'line', label: m.image_editor_line() }
 								]}
-								class="h-9 w-full"
+								class="h-7 w-full"
 							/>
 						</label>
 						<label class="grid gap-1 text-xs">
@@ -1144,20 +1141,26 @@
 									{ value: 'contain', label: m.image_editor_contain() },
 									{ value: 'stretch', label: m.image_editor_stretch() }
 								]}
-								class="h-9 w-full"
+								class="h-7 w-full"
 							/>
 						</label>
 						<Collapsible.Root bind:open={cropOpen} class="rounded-md border">
-							<div class="flex min-h-9 items-center gap-1 px-1">
+							<div class="flex min-h-7 items-center gap-1 px-1">
 								<Collapsible.Trigger>
 									{#snippet child({ props })}
 										<button
 											{...props}
 											type="button"
 											class="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-left text-xs font-medium hover:bg-muted"
+											title={m.image_editor_crop_percent()}
 										>
 											<ProtectedIcon icon="editor-crop" class="size-3.5" />
 											<span class="min-w-0 flex-1">{m.image_editor_crop()}</span>
+											<span class="shrink-0 font-normal text-muted-foreground tabular-nums">
+												{Math.round(cropValue('width') * 100)}% × {Math.round(
+													cropValue('height') * 100
+												)}%
+											</span>
 											<ThemeIcon
 												role="chevron-down"
 												class="size-3.5 transition-transform data-[open=true]:rotate-180"
@@ -1189,7 +1192,6 @@
 								</Button>
 							</div>
 							<Collapsible.Content class="border-t p-2">
-								<p class="mb-2 text-xs text-muted-foreground">{m.image_editor_crop_percent()}</p>
 								<div class="grid grid-cols-2 gap-2">
 									{#each [['X', 'x'], ['Y', 'y'], ['W', 'width'], ['H', 'height']] as [label, key] (key)}
 										<label class="grid grid-cols-[1.25rem_1fr] items-center gap-1 text-xs">
@@ -1240,7 +1242,7 @@
 							</div>
 						</div>
 						<Collapsible.Root bind:open={adjustmentsOpen} class="rounded-md border">
-							<div class="flex min-h-9 items-center gap-1 px-1">
+							<div class="flex min-h-7 items-center gap-1 px-1">
 								<Collapsible.Trigger>
 									{#snippet child({ props })}
 										<button

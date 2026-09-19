@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppSelect from '$lib/components/app-select.svelte';
+	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -127,13 +128,26 @@
 				oncommit(next);
 			}}
 		/>
-		<output class="w-10 shrink-0 text-right text-[var(--video-editor-muted)] tabular-nums">
-			{draftNumber.toFixed(param.step < 0.1 ? 2 : param.step < 1 ? 1 : 0)}
-		</output>
+		<ScrubbableNumberInput
+			ariaLabel={`${effectLabel}: ${localizedParamLabel}`}
+			value={draftNumber}
+			min={param.min}
+			max={param.max}
+			step={param.step}
+			decimals={param.step < 0.1 ? 2 : param.step < 1 ? 1 : 0}
+			class="h-[22px] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+			onlive={(next) => {
+				draftNumber = next;
+			}}
+			oncommit={(next) => {
+				draftNumber = next;
+				oncommit(next);
+			}}
+		/>
 		{@render keyframeControls()}
 	</label>
 {:else if param.type === 'boolean'}
-	<label class="flex min-h-8 items-center justify-between gap-2 text-xs">
+	<label class="flex min-h-[25px] items-center justify-between gap-2 text-xs">
 		<span class="text-[var(--video-editor-muted)]">{localizedParamLabel}</span>
 		<Checkbox
 			checked={booleanValue}
@@ -150,7 +164,7 @@
 			{localizedParamLabel}
 		</span>
 		<AppSelect
-			class="h-8 min-w-0 flex-1 text-xs"
+			class="h-[25px] min-w-0 flex-1 text-xs"
 			value={stringValue}
 			options={localizedOptions}
 			ariaLabel={`${effectLabel}: ${localizedParamLabel}`}
@@ -158,7 +172,7 @@
 		/>
 	</label>
 {:else if param.type === 'color'}
-	<div class="flex min-h-8 items-center gap-2 text-xs">
+	<div class="flex min-h-[25px] items-center gap-2 text-xs">
 		<span
 			class="w-20 shrink-0 leading-tight break-words text-[var(--video-editor-muted)]"
 			title={localizedParamLabel}
@@ -176,7 +190,7 @@
 			}}
 		/>
 		<Input
-			class="h-7 min-w-0 flex-1 px-2 font-mono text-[10px]"
+			class="h-[22px] min-w-0 flex-1 px-2 font-mono text-[10px]"
 			value={draftColor}
 			maxlength={9}
 			spellcheck={false}
@@ -194,7 +208,7 @@
 	<label class="flex flex-col gap-1 text-xs">
 		<span class="text-[var(--video-editor-muted)]">{localizedParamLabel}</span>
 		<Input
-			class="h-8 text-xs"
+			class="h-[25px] text-xs"
 			value={draftText}
 			maxlength={param.maxLength}
 			aria-label={`${effectLabel}: ${localizedParamLabel}`}

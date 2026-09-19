@@ -443,6 +443,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 	let colorGradeScope = $state<'clip' | 'sequence'>('clip');
 	let sourceMediaId = $state<string | null>(null);
+	let sourceMonitorOverlay = $state(false);
 	$effect(() => {
 		void sourceMediaId;
 		shuttleScrubResume.cancel();
@@ -495,7 +496,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const minimumMotionPreviewWidth = 480;
 	const minimumProgramHeight = 180;
 	const editorHeaderHeight = 48;
-	const sourceMonitorHorizontal = $derived(sourceMediaId !== null && editorViewportWidth >= 1280);
+	const sourceMonitorHorizontal = $derived(
+		sourceMediaId !== null && editorViewportWidth >= 1280 && !sourceMonitorOverlay
+	);
 	const minimumEditCenterWidth = $derived(
 		minimumProgramWidth + (sourceMonitorHorizontal ? 300 : 0)
 	);
@@ -2183,6 +2186,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	{/if}
 {/snippet}
 
+{#snippet sourceMonitorPanel(mediaId: string)}
+	{#key mediaId}
+		<SourceMonitor
+			{mediaId}
+			preferredTrackId={selectedItemId
+				? timelineStore.itemById.get(selectedItemId)?.trackId
+				: undefined}
+			onclose={() => (sourceMediaId = null)}
+			onedit={() => editorSession.scheduleAutosave()}
+			oninserted={handleSourceInserted}
+		/>
+	{/key}
+{/snippet}
+
 <svelte:window
 	onkeydowncapture={onGlobalShortcutCapture}
 	onkeydown={onKeydown}
@@ -2197,7 +2214,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			<a
 				href="/video-editor"
 				aria-label={m.video_editor_title()}
-				class="flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] md:size-8 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				class="flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-9"
 			>
 				<ThemeIcon role="chevron-left" class="size-5" />
 			</a>
@@ -2332,7 +2349,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				responsiveTrigger
 				compactQueueTrigger
 				triggerVariant="default"
-				triggerClass="size-11 px-0 sm:h-8 sm:w-auto sm:min-w-0 sm:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+				triggerClass="size-8 px-0 sm:h-8 sm:w-auto sm:min-w-0 sm:px-2.5 [@media(pointer:coarse)]:size-9"
 				ondone={(result) =>
 					showToast(m.video_editor_export_done({ name: result.fileName }), 'success')}
 				onerror={(error) => showToast(error.message, 'error')}
@@ -2442,8 +2459,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	</EditorHeader>
 	{#if projectSummary}
 		<div
-			class="shrink-0 border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 py-1 text-xs text-[var(--video-editor-muted)] tabular-nums"
+			class="flex h-[25px] shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 text-[11px] whitespace-nowrap text-[var(--video-editor-muted)] tabular-nums"
 			data-project-summary
+			title={projectSummary}
 		>
 			{projectSummary}
 		</div>
@@ -2482,7 +2500,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<button
 							type="button"
 							class:active={mobileEditPane === 'assets'}
-							class="min-h-11 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
+							class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 							aria-controls="video-editor-assets-panel"
 							aria-pressed={mobileEditPane === 'assets'}
 							onclick={() => (mobileEditPane = 'assets')}
@@ -2492,7 +2510,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<button
 							type="button"
 							class:active={mobileEditPane === 'program'}
-							class="min-h-11 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
+							class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 							aria-controls="video-editor-program-panel"
 							aria-pressed={mobileEditPane === 'program'}
 							onclick={() => (mobileEditPane = 'program')}
@@ -2502,7 +2520,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<button
 							type="button"
 							class:active={mobileEditPane === 'tools'}
-							class="min-h-11 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
+							class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 							aria-controls="video-editor-tools-panel"
 							aria-pressed={mobileEditPane === 'tools'}
 							onclick={() => (mobileEditPane = 'tools')}
@@ -2669,7 +2687,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									</nav>
 									<div class="flex min-w-0 flex-1 flex-col {leftSidebarRail ? 'lg:hidden' : ''}">
 										<div
-											class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-2"
+											class="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-[var(--video-editor-border)] px-2"
 										>
 											<h2
 												class="min-w-0 truncate text-sm font-medium text-[var(--video-editor-text)]"
@@ -2738,7 +2756,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												<button
 													type="button"
 													class:active={leftPanel === option.value}
-													class="flex min-h-11 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
+													class="flex min-h-8 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 													data-left-panel-tab={option.value}
 													data-tab-orientation="horizontal"
 													role="tab"
@@ -2872,22 +2890,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										? 'flex flex-col xl:flex-row'
 										: 'flex'}"
 							>
-								{#if showSourceMonitor && sourceMediaId}
+								{#if showSourceMonitor && !sourceMonitorOverlay && sourceMediaId}
 									<div
 										class="relative flex h-[min(44%,22rem)] min-h-0 w-full shrink-0 xl:h-auto xl:w-[var(--source-monitor-width)] xl:max-w-[calc(100%_-_300px)]"
 										style:--source-monitor-width={`${effectiveSourceMonitorWidth}px`}
 									>
-										{#key sourceMediaId}
-											<SourceMonitor
-												mediaId={sourceMediaId}
-												preferredTrackId={selectedItemId
-													? timelineStore.itemById.get(selectedItemId)?.trackId
-													: undefined}
-												onclose={() => (sourceMediaId = null)}
-												onedit={() => editorSession.scheduleAutosave()}
-												oninserted={handleSourceInserted}
-											/>
-										{/key}
+										{@render sourceMonitorPanel(sourceMediaId)}
 										<PanelResizeHandle
 											edge="right"
 											value={effectiveSourceMonitorWidth}
@@ -2904,13 +2912,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								<section
 									id="video-editor-program-panel"
 									data-video-preview
-									class="fullscreen:h-screen fullscreen:w-screen [container-type:inline-size] flex min-w-0 flex-1 flex-col bg-[var(--video-editor-canvas)]"
+									class="fullscreen:h-screen fullscreen:w-screen [container-type:inline-size] relative flex min-w-0 flex-1 flex-col bg-[var(--video-editor-canvas)]"
 								>
 									{#if showSourceMonitor}
 										<div
-											class="flex h-9 shrink-0 items-center border-b border-[var(--video-editor-border)] px-3 text-xs font-medium text-[var(--video-editor-muted)]"
+											class="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--video-editor-border)] px-3 text-xs font-medium text-[var(--video-editor-muted)]"
 										>
-											{m.video_editor_program_monitor()}
+											<span class="min-w-0 flex-1 truncate">{m.video_editor_program_monitor()}</span
+											>
+											{#if sourceMediaId}
+												<Button
+													size="icon-xs"
+													variant="ghost"
+													aria-label={m.video_editor_source_monitor()}
+													title={m.video_editor_source_monitor()}
+													aria-pressed={sourceMonitorOverlay}
+													onclick={() => (sourceMonitorOverlay = !sourceMonitorOverlay)}
+												>
+													<ThemeIcon role="layout" class="size-3.5" />
+												</Button>
+											{/if}
 										</div>
 									{/if}
 									{#if activeWorkspace === 'motion' && !activeMotionComposition}
@@ -2934,6 +2955,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											theaterActive={layoutTheaterActive}
 											ontoggletheater={() => setTheaterMode(!theaterMode)}
 										/>
+										{#if showSourceMonitor && sourceMonitorOverlay && sourceMediaId}
+											<div
+												class="absolute inset-y-0 right-0 z-30 flex w-[min(30rem,85%)] flex-col border-l border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] shadow-lg"
+												role="dialog"
+												aria-label={m.video_editor_source_monitor()}
+											>
+												{@render sourceMonitorPanel(sourceMediaId)}
+											</div>
+										{/if}
 									{/if}
 								</section>
 								{#if activeWorkspace === 'color'}

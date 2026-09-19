@@ -352,7 +352,7 @@
 	>
 		<button
 			type="button"
-			class="pointer-events-auto absolute flex size-11 cursor-move touch-none items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+			class="pointer-events-auto absolute flex size-8 cursor-move touch-none items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [@media(pointer:coarse)]:size-11"
 			style:left={`${(handleCanvasPoint.x / canvasWidth) * 100}%`}
 			style:top={`${(handleCanvasPoint.y / canvasHeight) * 100}%`}
 			aria-label={m.video_editor_spatial_center_label({ effect: editingHandle.effectLabel })}

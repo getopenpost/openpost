@@ -104,18 +104,13 @@
 		</div>
 
 		<Dialog.Footer class="mt-5">
-			<Button
-				type="button"
-				variant="ghost"
-				class="h-[44px] min-h-[44px]"
-				onclick={() => (open = false)}
-			>
+			<Button type="button" variant="ghost" class="h-8 min-h-8" onclick={() => (open = false)}>
 				{m.common_cancel()}
 			</Button>
 			<Button
 				type="button"
 				variant="default"
-				class="h-[44px] min-h-[44px]"
+				class="h-8 min-h-8"
 				disabled={selectedKeyframes === 0}
 				onclick={confirm}
 			>

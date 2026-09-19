@@ -114,6 +114,8 @@ test("page-strip previews render after adding a page and remain visible across a
   await page.goto("/image-editor");
   await page.getByRole("button", { name: /Instagram square/ }).click();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+  // The page strip is a status row; page actions live in its grid popover.
+  await page.getByRole("button", { name: "Expand pages" }).click();
   await page.getByRole("button", { name: "Add page" }).click();
 
   const previews = page.locator(".template-preview-frame img");
@@ -125,7 +127,9 @@ test("page-strip previews render after adding a page and remain visible across a
       ),
     )
     .toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("image-editor-pages-desktop.png") });
+  await page.screenshot({
+    path: testInfo.outputPath("image-editor-pages-desktop.png"),
+  });
 
   await page
     .getByRole("button", { name: /Page 1/ })

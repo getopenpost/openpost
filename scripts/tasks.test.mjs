@@ -53,6 +53,7 @@ test("fallow audits changed code and reports complexity without scopes", () => {
     JSON.parse(result.stdout).stages.map((stage) => [stage.label, stage]),
   );
   assert.match(stages["changed-code audit"].commands[0], /bunx fallow audit/u);
+  assert.match(stages["changed-code audit"].commands[0], /--max-crap 400/u);
   assert.match(stages["complexity and hotspots"].commands[0], /--report-only/u);
   assert.match(stages["mobile audit and health"].commands[0], /--root apps\/mobile/u);
 

@@ -2324,7 +2324,7 @@
 			data-testid="image-editor-media-drop-target"
 		>
 			<span
-				class="max-w-[calc(100%-2rem)] rounded-full border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_90%,transparent)] px-4 py-2 text-center text-sm font-semibold text-[var(--editor-text)] shadow-xl backdrop-blur"
+				class="max-w-[calc(100%-2rem)] rounded-full border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_90%,transparent)] px-3 py-1 text-center text-xs font-semibold text-[var(--editor-text)] shadow-xl backdrop-blur"
 			>
 				{m.image_editor_drop_to_place()}
 			</span>
@@ -2333,7 +2333,7 @@
 	{#if editor.document}
 		{#if editor.activeTool === 'eyedropper'}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1.5 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
 				data-testid="image-editor-eyedropper-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_eyedropper()}</span>
@@ -2347,12 +2347,12 @@
 						{ value: 'selected_stroke', label: m.image_editor_eyedropper_selected_stroke() },
 						{ value: 'page_background', label: m.image_editor_eyedropper_page_background() }
 					]}
-					class="h-8 w-40 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
+					class="h-7 w-40 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 				/>
 				<Button
 					variant={editor.sampleAllLayers ? 'secondary' : 'ghost'}
 					size="sm"
-					class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+					class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 					aria-pressed={editor.sampleAllLayers}
 					onclick={() => (editor.sampleAllLayers = !editor.sampleAllLayers)}
 				>
@@ -2360,9 +2360,6 @@
 						? m.image_editor_sample_composite()
 						: m.image_editor_sample_active_layer()}
 				</Button>
-				<span class="hidden px-1 text-xs text-[var(--editor-muted)] xl:inline">
-					{m.image_editor_eyedropper_keyboard_help()}
-				</span>
 				{#if eyedropperPreview}
 					<span
 						class="size-6 rounded border border-white/30"
@@ -2379,7 +2376,7 @@
 		{/if}
 		{#if magicScanBusy || magicScanError}
 			<div
-				class="absolute top-3 left-1/2 z-50 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-lg border bg-background/95 px-3 py-2 text-xs shadow-lg"
+				class="absolute top-3 left-1/2 z-50 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-lg border bg-background/95 px-2 py-1 text-xs shadow-lg"
 				role="status"
 			>
 				<span>
@@ -2393,7 +2390,7 @@
 		{/if}
 		{#if editor.activeTool === 'crop' && cropLayer}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1.5 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
 				data-testid="image-editor-crop-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_crop()}</span>
@@ -2410,7 +2407,7 @@
 						{ value: String(9 / 16), label: m.image_editor_crop_story() },
 						{ value: String(16 / 9), label: m.image_editor_crop_thumbnail() }
 					]}
-					class="h-8 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
+					class="h-7 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 				/>
 				<div
 					class="flex items-center gap-1"
@@ -2420,7 +2417,7 @@
 					<Button
 						variant={cropMode === 'frame' ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 						aria-pressed={cropMode === 'frame'}
 						onclick={() => setCropMode('frame')}
 					>
@@ -2429,7 +2426,7 @@
 					<Button
 						variant={cropMode === 'content' ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 						aria-pressed={cropMode === 'content'}
 						onclick={() => setCropMode('content')}
 					>
@@ -2457,7 +2454,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
+					class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 					onclick={resetCrop}
 				>
 					{m.image_editor_reset()}
@@ -2465,14 +2462,14 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
+					class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 					onclick={cancelCrop}
 				>
 					{m.common_cancel()}
 				</Button>
 				<Button
 					size="sm"
-					class="h-8 px-2 text-xs [@media(pointer:coarse)]:h-11"
+					class="h-7 px-1.5 text-xs [@media(pointer:coarse)]:h-11"
 					onclick={applyCrop}
 				>
 					{m.image_editor_apply_crop()}
@@ -2481,7 +2478,7 @@
 		{/if}
 		{#if isAreaSelectionTool() || editor.activeTool === 'pencil' || editor.activeTool === 'eraser' || editor.activeTool === 'magic_eraser' || editor.activeTool === 'bucket' || editor.activeTool === 'gradient'}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1.5 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
 				data-testid="image-editor-selection-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">
@@ -2513,7 +2510,7 @@
 							<Button
 								variant={editor.selectionMode === mode.value ? 'secondary' : 'ghost'}
 								size="sm"
-								class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+								class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
 								aria-pressed={editor.selectionMode === mode.value}
 								onclick={() => (editor.selectionMode = mode.value as ImageEditorSelectionMode)}
 							>
@@ -2523,7 +2520,7 @@
 					</div>
 				{/if}
 				{#if editor.activeTool === 'magic_wand' || editor.activeTool === 'magic_eraser' || editor.activeTool === 'bucket'}
-					<label class="flex min-w-40 items-center gap-2 px-1 text-xs">
+					<label class="flex min-w-32 items-center gap-2 px-1 text-xs">
 						<span class="whitespace-nowrap">
 							{m.image_editor_magic_tolerance({
 								value:
@@ -2570,7 +2567,7 @@
 							? 'secondary'
 							: 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 						aria-pressed={editor.activeTool === 'bucket'
 							? editor.bucketContiguous
 							: editor.activeTool === 'magic_eraser'
@@ -2592,7 +2589,7 @@
 						<Button
 							variant={editor.sampleAllLayers ? 'secondary' : 'ghost'}
 							size="sm"
-							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+							class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							aria-pressed={editor.sampleAllLayers}
 							onclick={() => (editor.sampleAllLayers = !editor.sampleAllLayers)}
 						>
@@ -2626,13 +2623,13 @@
 								{ value: 'reflected', label: m.image_editor_gradient_reflected() },
 								{ value: 'diamond', label: m.image_editor_gradient_diamond() }
 							]}
-							class="h-8 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
+							class="h-7 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 						/>
 					</label>
 					<Button
 						variant={editor.gradientReverse ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 						aria-pressed={editor.gradientReverse}
 						onclick={() => (editor.gradientReverse = !editor.gradientReverse)}
 					>
@@ -2640,7 +2637,7 @@
 					</Button>
 				{/if}
 				{#if editor.activeTool === 'pencil' || editor.activeTool === 'eraser'}
-					<label class="flex min-w-36 items-center gap-2 px-1 text-xs">
+					<label class="flex min-w-28 items-center gap-2 px-1 text-xs">
 						<span class="whitespace-nowrap"
 							>{m.image_editor_brush_size({
 								value: editor.activeTool === 'eraser' ? editor.eraserSize : editor.pencilSize
@@ -2663,7 +2660,7 @@
 					</label>
 				{/if}
 				{#if editor.activeTool === 'pencil'}
-					<label class="flex min-w-40 items-center gap-2 px-1 text-xs">
+					<label class="flex min-w-32 items-center gap-2 px-1 text-xs">
 						<span class="whitespace-nowrap">
 							{m.image_editor_pencil_roughness({
 								value: Math.round(editor.pencilRoughness * 100)
@@ -2681,7 +2678,7 @@
 							onValueChange={(value) => (editor.pencilRoughness = value / 100)}
 						/>
 					</label>
-					<label class="flex min-w-40 items-center gap-2 px-1 text-xs">
+					<label class="flex min-w-32 items-center gap-2 px-1 text-xs">
 						<span class="whitespace-nowrap">
 							{m.image_editor_smoothing({ value: Math.round(editor.pencilSmoothing * 100) })}
 						</span>
@@ -2700,7 +2697,7 @@
 					<Button
 						variant={editor.pencilPressure ? 'secondary' : 'ghost'}
 						size="sm"
-						class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 						aria-pressed={editor.pencilPressure}
 						onclick={() => (editor.pencilPressure = !editor.pencilPressure)}
 					>
@@ -2708,7 +2705,7 @@
 					</Button>
 				{/if}
 				{#if ['pencil', 'bucket', 'gradient'].includes(editor.activeTool)}
-					<label class="flex min-w-34 items-center gap-2 px-1 text-xs">
+					<label class="flex min-w-28 items-center gap-2 px-1 text-xs">
 						<span class="whitespace-nowrap">
 							{m.image_editor_opacity({ value: Math.round(editor.paintOpacity * 100) })}
 						</span>
@@ -2727,16 +2724,13 @@
 				{/if}
 				{#if editor.pixelSelection}
 					{#if editor.floatingPixelSelection}
-						<span class="hidden px-1 text-xs text-[var(--editor-muted)] xl:inline">
-							{m.image_editor_floating_pixels_help()}
-						</span>
-						<Button size="sm" class="h-8 px-2 text-xs" onclick={commitFloatingPixels}>
+						<Button size="sm" class="h-7 px-1.5 text-xs" onclick={commitFloatingPixels}>
 							{m.common_done()}
 						</Button>
 						<Button
 							variant="outline"
 							size="sm"
-							class="h-8 px-2 text-xs"
+							class="h-7 px-1.5 text-xs"
 							onclick={() => editor.duplicateFloatingPixelSelection()}
 						>
 							{m.image_editor_duplicate()}
@@ -2744,7 +2738,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+							class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							onclick={cancelFloatingPixels}
 						>
 							{m.common_cancel()}
@@ -2753,7 +2747,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+							class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							onclick={() => commitPixelContent('promote')}
 						>
 							{m.image_editor_promote_pixels()}
@@ -2761,7 +2755,7 @@
 						<Button
 							variant="outline"
 							size="sm"
-							class="h-8 px-2 text-xs"
+							class="h-7 px-1.5 text-xs"
 							onclick={() => commitPixelContent('cut')}
 						>
 							{m.image_editor_cut_pixels()}
@@ -2769,7 +2763,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="h-8 px-2 text-xs text-red-200 hover:text-destructive"
+							class="h-7 px-1.5 text-xs text-red-200 hover:text-destructive"
 							onclick={() => commitPixelContent('delete')}
 						>
 							{m.image_editor_delete_pixels()}
@@ -2777,7 +2771,7 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							class="h-8 px-2 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+							class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
 							onclick={() => editor.clearPixelSelection()}
 						>
 							{m.image_editor_deselect_pixels()}
@@ -3001,7 +2995,7 @@
 						{#each layerPicker.layerIDs as id (id)}
 							<button
 								type="button"
-								class="flex min-h-10 w-full items-center rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+								class="flex min-h-8 w-full items-center rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
 								role="menuitem"
 								onclick={() => chooseLayerFromPicker(id)}
 							>
@@ -3203,9 +3197,12 @@
 		</div>
 		{#if cursorPoint}
 			<div
-				class="pointer-events-none absolute right-3 bottom-3 hidden rounded bg-[color-mix(in_oklch,var(--editor-canvas)_80%,transparent)] px-2 py-1 font-mono text-[10px] text-[var(--editor-muted)] lg:block"
+				class="pointer-events-none absolute right-3 bottom-3 hidden rounded bg-[color-mix(in_oklch,var(--editor-canvas)_80%,transparent)] px-2 py-1 font-mono text-[10px] whitespace-nowrap text-[var(--editor-muted)] tabular-nums lg:block"
+				aria-hidden="true"
 			>
-				{Math.round(cursorPoint.x)}, {Math.round(cursorPoint.y)} px
+				{Math.round(cursorPoint.x)}, {Math.round(cursorPoint.y)} px · {Math.round(
+					editor.zoom * 100
+				)}%
 			</div>
 		{/if}
 	{/if}

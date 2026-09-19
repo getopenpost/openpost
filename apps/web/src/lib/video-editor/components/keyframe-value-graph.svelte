@@ -1113,7 +1113,7 @@
 	data-graph-end-frame={viewport.endFrame}
 >
 	<div
-		class="flex min-h-8 flex-wrap items-center gap-1 border-b border-[oklch(0.22_0.01_50)] px-2 py-1"
+		class="flex h-8 flex-nowrap items-center gap-1 overflow-x-auto border-b border-[oklch(0.22_0.01_50)] px-2"
 	>
 		<span
 			class="mr-auto min-w-0 flex-1 truncate text-[10px] font-medium text-[oklch(0.72_0.02_55)] capitalize"
@@ -1135,7 +1135,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-7 min-h-7 min-w-7 shrink-0 rounded sm:size-6"
+			class="size-6 shrink-0 rounded"
 			aria-label={m.video_editor_zoom_out()}
 			title={m.video_editor_zoom_out()}
 			onclick={() => zoom(1.25)}
@@ -1145,7 +1145,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-7 min-h-7 min-w-7 shrink-0 rounded sm:size-6"
+			class="size-6 shrink-0 rounded"
 			aria-label={m.video_editor_zoom_in()}
 			title={m.video_editor_zoom_in()}
 			onclick={() => zoom(0.8)}
@@ -1155,7 +1155,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-7 min-h-7 min-w-7 shrink-0 rounded sm:size-6"
+			class="size-6 shrink-0 rounded"
 			aria-label={m.video_editor_keyframe_graph_fit()}
 			title={m.video_editor_keyframe_graph_fit()}
 			onclick={fitToContent}

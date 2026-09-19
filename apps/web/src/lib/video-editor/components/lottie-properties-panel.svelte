@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { HintButton } from '$lib/components/editor-density';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -197,9 +198,18 @@
 
 <section class="flex flex-col gap-2" aria-label={m.video_editor_lottie()}>
 	<div class="flex items-center justify-between gap-2">
-		<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
-			{m.video_editor_lottie()}
-		</h3>
+		<span class="inline-flex items-center gap-1">
+			<h3
+				class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			>
+				{m.video_editor_lottie()}
+			</h3>
+			<HintButton
+				label={m.video_editor_lottie_hint()}
+				hint={m.video_editor_lottie_hint()}
+				class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+			/>
+		</span>
 		<span class="text-[9px] text-[var(--video-editor-muted)] tabular-nums">
 			{item.lottieTotalFrames ?? 1}f · {(item.lottieFrameRate ?? 30).toFixed(2)} fps
 		</span>
@@ -210,7 +220,7 @@
 				<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_lottie_animation()}
 					<AppSelect
-						class="mt-0.5 h-8 w-full text-xs"
+						class="mt-0.5 h-[25px] w-full text-[11px]"
 						value={item.lottieAnimationId ?? animations[0]?.id ?? ''}
 						options={animations.map((animation) => ({ value: animation.id, label: animation.id }))}
 						ariaLabel={m.video_editor_lottie_animation()}
@@ -222,7 +232,7 @@
 				<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_lottie_theme()}
 					<AppSelect
-						class="mt-0.5 h-8 w-full text-xs"
+						class="mt-0.5 h-[25px] w-full text-[11px]"
 						value={item.lottieThemeId ?? ''}
 						options={[
 							{ value: '', label: m.video_editor_lottie_theme_none() },
@@ -243,7 +253,7 @@
 				min="0.05"
 				max="16"
 				step="0.05"
-				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.speed ?? 1}
 				onchange={(event) => setNumber('speed', event.currentTarget.valueAsNumber)}
 			/>
@@ -251,7 +261,7 @@
 		<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_lottie_repeat_mode()}
 			<AppSelect
-				class="mt-0.5 h-8 w-full text-xs"
+				class="mt-0.5 h-[25px] w-full text-[11px]"
 				value={item.lottieLoopMode ?? 'loop'}
 				options={[
 					{ value: 'loop', label: m.video_editor_lottie_loop() },
@@ -266,7 +276,7 @@
 		<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_lottie_marker()}
 			<AppSelect
-				class="mt-0.5 h-8 w-full text-xs"
+				class="mt-0.5 h-[25px] w-full text-[11px]"
 				bind:value={markerPick}
 				options={[
 					{ value: '', label: m.video_editor_lottie_marker_choose() },
@@ -288,7 +298,7 @@
 				min="0"
 				max={maxFrame}
 				step="1"
-				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.lottieSegmentStart ?? 0}
 				onchange={(event) => setNumber('lottieSegmentStart', event.currentTarget.valueAsNumber)}
 			/>
@@ -300,7 +310,7 @@
 				min="0"
 				max={maxFrame}
 				step="1"
-				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.lottieSegmentEnd ?? maxFrame}
 				onchange={(event) => setNumber('lottieSegmentEnd', event.currentTarget.valueAsNumber)}
 			/>
@@ -324,9 +334,6 @@
 			{m.video_editor_lottie_reverse()}
 		</label>
 	</div>
-	<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
-		{m.video_editor_lottie_hint()}
-	</p>
 	{#if inspectorLoading}
 		<p class="text-[10px] text-[var(--video-editor-muted)]" role="status">
 			{m.video_editor_lottie_inspecting()}
@@ -357,7 +364,7 @@
 				<label class="min-w-0 text-[9px] text-[var(--video-editor-muted)]">
 					<span class="block truncate">{layer.label}</span>
 					<Input
-						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.lottieTextOverrides?.[layer.key] ?? layer.text}
 						onchange={(event) => setText(layer, event.currentTarget.value)}
 					/>
@@ -450,7 +457,7 @@
 						<Input
 							type="number"
 							step="0.1"
-							class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 							value={typeof current === 'number' ? current : slot.value}
 							onchange={(event) => setSlot(slot, event.currentTarget.valueAsNumber)}
 						/>
@@ -460,7 +467,7 @@
 							<Input
 								type="number"
 								step="0.1"
-								class="h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+								class="h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 								aria-label={`${slot.label} X`}
 								value={vector[0]}
 								onchange={(event) => setSlot(slot, [event.currentTarget.valueAsNumber, vector[1]])}
@@ -468,7 +475,7 @@
 							<Input
 								type="number"
 								step="0.1"
-								class="h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+								class="h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 								aria-label={`${slot.label} Y`}
 								value={vector[1]}
 								onchange={(event) => setSlot(slot, [vector[0], event.currentTarget.valueAsNumber])}

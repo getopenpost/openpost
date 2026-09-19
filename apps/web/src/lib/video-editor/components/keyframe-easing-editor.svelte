@@ -398,7 +398,7 @@
 					data-testid="segment-preset-name"
 					bind:value={customPresetName}
 					placeholder={suggestedCustomPresetName(customPresets)}
-					class="h-7 w-full rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-2 text-[10px] text-white placeholder:text-[oklch(0.58_0.014_55)]"
+					class="h-[22px] w-full rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-2 text-[10px] text-white placeholder:text-[oklch(0.58_0.014_55)]"
 					onkeydown={(event) => {
 						if (event.key === 'Enter') savePreset();
 					}}
@@ -406,7 +406,7 @@
 			</label>
 			<button
 				data-testid="segment-preset-save"
-				class="h-7 rounded bg-[oklch(0.66_0.14_45)] px-2 text-[10px] font-medium text-white hover:bg-[oklch(0.72_0.16_45)] focus-visible:ring-2 focus-visible:ring-[oklch(0.85_0.15_45/0.5)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.85_0.15_45)]"
+				class="h-[22px] rounded bg-[oklch(0.66_0.14_45)] px-2 text-[10px] font-medium text-white hover:bg-[oklch(0.72_0.16_45)] focus-visible:ring-2 focus-visible:ring-[oklch(0.85_0.15_45/0.5)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.85_0.15_45)]"
 				onclick={savePreset}>{m.video_editor_keyframe_preset_save()}</button
 			>
 			{#if presetSaveError}
@@ -420,10 +420,12 @@
 
 <style>
 	@media (pointer: coarse) {
-		[data-segment-menu] :global(button),
-		[data-segment-menu] :global([role='slider']) {
+		[data-segment-menu] :global(button) {
 			min-height: 44px;
 			min-width: 44px;
+		}
+		[data-segment-menu] :global([role='slider']) {
+			min-height: 44px;
 		}
 	}
 </style>

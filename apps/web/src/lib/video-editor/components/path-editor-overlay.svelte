@@ -678,13 +678,11 @@
 	<div
 		class="absolute top-full left-1/2 mt-2 flex max-w-[min(34rem,90vw)] -translate-x-1/2 flex-col items-center gap-1"
 	>
-		<div class="rounded bg-black/85 px-2 py-1 text-[10px] whitespace-nowrap text-white shadow-lg">
-			{drawing
+		<div
+			class="flex min-h-8 max-w-[min(30rem,90vw)] flex-wrap items-center justify-center gap-0.5 rounded bg-black/85 p-0.5 text-[10px] text-white shadow-lg"
+			title={drawing
 				? m.video_editor_path_draw_hint()
 				: `${m.video_editor_path_edit_hint()} ${m.video_editor_path_selection_hint()}`}
-		</div>
-		<div
-			class="flex flex-wrap justify-center gap-1 rounded bg-black/85 p-1 text-[10px] text-white shadow-lg"
 		>
 			<button
 				type="button"
@@ -772,12 +770,12 @@
 			{/if}
 		</div>
 		{#if topologyLocked || status}
-			<p
-				class="rounded bg-black/85 px-2 py-1 text-center text-[10px] text-amber-100 shadow-lg"
+			<output
+				class="h-6 max-w-[min(20rem,80vw)] truncate rounded bg-black/85 px-2 text-center text-[10px] leading-6 text-amber-100 shadow-lg"
 				aria-live="polite"
 			>
 				{status || m.video_editor_path_topology_locked()}
-			</p>
+			</output>
 		{/if}
 	</div>
 </div>

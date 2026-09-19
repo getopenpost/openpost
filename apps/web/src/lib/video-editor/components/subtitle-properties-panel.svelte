@@ -3,6 +3,7 @@
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import TextStyleToggles from './text-style-toggles.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import EditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import type { TimelineItem } from '../project/types';
@@ -128,7 +129,7 @@
 				value={activeItem.textAlign ?? 'center'}
 				options={alignmentOptions}
 				ariaLabel={m.video_editor_text_alignment()}
-				class="mt-0.5 h-8 w-full text-xs"
+				class="mt-0.5 h-[25px] w-full text-xs"
 				onValueChange={(textAlign) => commit({ textAlign: textAlign as TimelineItem['textAlign'] })}
 			/>
 		</label>
@@ -179,10 +180,12 @@
 			class="grid grid-cols-2 gap-1"
 			role="group"
 			aria-labelledby={`caption-highlight-${activeItem.id}`}
+			title={m.video_editor_caption_highlight_karaoke_hint()}
 		>
 			<Button
 				type="button"
 				size="sm"
+				class="h-[22px]"
 				variant={karaokeMode === 'normal' ? 'secondary' : 'ghost'}
 				aria-pressed={karaokeMode === 'normal'}
 				onclick={() => commitKaraokeMode('normal')}
@@ -192,6 +195,7 @@
 			<Button
 				type="button"
 				size="sm"
+				class="h-[22px]"
 				variant={karaokeMode === 'karaoke' ? 'secondary' : 'ghost'}
 				aria-pressed={karaokeMode === 'karaoke'}
 				onclick={() => commitKaraokeMode('karaoke')}
@@ -199,9 +203,7 @@
 				{m.video_editor_caption_highlight_karaoke()}
 			</Button>
 		</div>
-		<p class="text-[10px] leading-snug text-[var(--video-editor-muted)]">
-			{m.video_editor_caption_highlight_karaoke_hint()}
-		</p>
+		<p class="sr-only">{m.video_editor_caption_highlight_karaoke_hint()}</p>
 		{#if karaokeMode === 'karaoke'}
 			<div class="grid grid-cols-2 gap-1.5">
 				<ColorPicker
@@ -226,7 +228,7 @@
 							type="button"
 							size="sm"
 							variant={activeItem.karaokeActiveBackground ? 'ghost' : 'secondary'}
-							class="h-8 px-2 text-[10px]"
+							class="h-[22px] px-2 text-[10px]"
 							onclick={() =>
 								commit(
 									{
@@ -251,6 +253,7 @@
 		<Button
 			type="button"
 			size="sm"
+			class="h-[22px]"
 			variant={(activeItem.fontWeight ?? 600) >= 700 ? 'secondary' : 'ghost'}
 			aria-pressed={(activeItem.fontWeight ?? 600) >= 700}
 			onclick={() =>
@@ -260,27 +263,15 @@
 		>
 			{m.video_editor_caption_bold()}
 		</Button>
-		<Button
-			type="button"
-			size="sm"
-			variant={activeItem.fontStyle === 'italic' ? 'secondary' : 'ghost'}
-			aria-pressed={activeItem.fontStyle === 'italic'}
-			onclick={() =>
+		<TextStyleToggles
+			isItalic={activeItem.fontStyle === 'italic'}
+			isUnderline={activeItem.underline ?? false}
+			ontoggleitalic={() =>
 				commit({
 					fontStyle: activeItem.fontStyle === 'italic' ? 'normal' : 'italic'
 				})}
-		>
-			{m.video_editor_text_italic()}
-		</Button>
-		<Button
-			type="button"
-			size="sm"
-			variant={activeItem.underline ? 'secondary' : 'ghost'}
-			aria-pressed={activeItem.underline ?? false}
-			onclick={() => commit({ underline: !activeItem.underline })}
-		>
-			{m.video_editor_text_underline()}
-		</Button>
+			ontoggleunderline={() => commit({ underline: !activeItem.underline })}
+		/>
 	</div>
 </section>
 
@@ -293,7 +284,7 @@
 	}
 	:global(.field-input) {
 		width: 100%;
-		height: 2rem;
+		height: 25px;
 		margin-top: 0.125rem;
 		border-color: var(--video-editor-border);
 		background: var(--video-editor-control);
@@ -310,8 +301,8 @@
 		scrollbar-width: thin;
 	}
 	.preset-strip > button {
-		width: 5.25rem;
-		flex: 0 0 5.25rem;
+		width: 4.5rem;
+		flex: 0 0 4.5rem;
 		border: 1px solid var(--video-editor-border);
 		border-radius: 0.5rem;
 		padding: 0.25rem;
@@ -333,7 +324,7 @@
 	}
 	.preset-preview {
 		display: grid;
-		height: 2.75rem;
+		height: 2.25rem;
 		place-items: center;
 		overflow: hidden;
 		border-radius: 0.25rem;
@@ -376,8 +367,8 @@
 	.preset-name {
 		display: block;
 		overflow: hidden;
-		padding: 0.25rem 0.125rem 0;
-		font-size: 0.5625rem;
+		padding: 0.2rem 0.125rem 0;
+		font-size: 0.5rem;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}

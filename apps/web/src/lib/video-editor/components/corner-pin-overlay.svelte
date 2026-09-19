@@ -140,9 +140,19 @@
 			<circle
 				cx={points[key][0]}
 				cy={points[key][1]}
-				r={10 / screenScale}
+				r={5 / screenScale}
 				fill="oklch(0.8 0.14 220)"
 				stroke="black"
+				stroke-width="2"
+				vector-effect="non-scaling-stroke"
+				pointer-events="none"
+			></circle>
+			<circle
+				cx={points[key][0]}
+				cy={points[key][1]}
+				r={11 / screenScale}
+				fill="transparent"
+				stroke="transparent"
 				stroke-width="2"
 				vector-effect="non-scaling-stroke"
 				class="cursor-move focus:outline-none focus-visible:stroke-white"

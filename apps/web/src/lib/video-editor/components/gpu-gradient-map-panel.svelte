@@ -103,7 +103,7 @@
 			{gpuParamLabel(presetParam)}
 		</span>
 		<AppSelect
-			class="h-8 min-w-0 flex-1 text-xs"
+			class="h-[25px] min-w-0 flex-1 text-[11px]"
 			value={preset}
 			options={presetOptions}
 			ariaLabel={`${effectLabel}: ${gpuParamLabel(presetParam)}`}

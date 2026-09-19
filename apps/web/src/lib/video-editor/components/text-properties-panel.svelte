@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import TextStyleToggles from './text-style-toggles.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
@@ -125,7 +126,7 @@
 			type="button"
 			size="sm"
 			variant="outline"
-			class="w-full"
+			class="h-8 w-full"
 			disabled={!speakableText}
 			onclick={() => oncreatevoice?.(activeItem.id, speakableText)}
 		>
@@ -197,7 +198,7 @@
 					type="button"
 					size="sm"
 					variant="outline"
-					class="h-7 min-w-0 px-1 text-xs"
+					class="h-[22px] min-w-0 px-1 text-[10px]"
 					onclick={() => commitEffectPreset(presetId as TextEffectPresetId)}
 				>
 					<span class="truncate">{effectPresetLabel(presetId as TextEffectPresetId)}</span>
@@ -215,7 +216,7 @@
 					</label>
 					<Textarea
 						id={`text-span-${activeItem.id}-${index}`}
-						class="mt-1 min-h-12 resize-y text-xs"
+						class="mt-1 min-h-9 resize-y text-xs"
 						value={span.text}
 						onchange={(event) => commitSpan(index, { text: event.currentTarget.value })}
 					></Textarea>
@@ -287,6 +288,7 @@
 							<Button
 								type="button"
 								size="sm"
+								class="h-[22px]"
 								variant={(span.fontStyle ?? activeItem.fontStyle) === 'italic'
 									? 'secondary'
 									: 'ghost'}
@@ -300,6 +302,7 @@
 							<Button
 								type="button"
 								size="sm"
+								class="h-[22px]"
 								variant={(span.underline ?? activeItem.underline) ? 'secondary' : 'ghost'}
 								aria-pressed={span.underline ?? activeItem.underline ?? false}
 								onclick={() =>
@@ -314,7 +317,7 @@
 		</div>
 	{:else}
 		<Textarea
-			class="min-h-16 w-full resize-y text-xs"
+			class="min-h-12 w-full resize-y text-xs"
 			value={activeItem.text ?? ''}
 			onchange={(event) => commitPlainText(event.currentTarget.value)}
 		></Textarea>
@@ -332,24 +335,15 @@
 						})}
 				/>
 			</label>
-			<Button
-				type="button"
-				size="sm"
-				variant={activeItem.fontStyle === 'italic' ? 'secondary' : 'ghost'}
-				aria-pressed={activeItem.fontStyle === 'italic'}
-				onclick={() =>
+			<TextStyleToggles
+				isItalic={activeItem.fontStyle === 'italic'}
+				isUnderline={activeItem.underline ?? false}
+				ontoggleitalic={() =>
 					commitItem({
 						fontStyle: activeItem.fontStyle === 'italic' ? 'normal' : 'italic'
-					})}>{m.video_editor_text_italic()}</Button
-			>
-			<Button
-				type="button"
-				size="sm"
-				variant={activeItem.underline ? 'secondary' : 'ghost'}
-				aria-pressed={activeItem.underline ?? false}
-				onclick={() => commitItem({ underline: !activeItem.underline })}
-				>{m.video_editor_text_underline()}</Button
-			>
+					})}
+				ontoggleunderline={() => commitItem({ underline: !activeItem.underline })}
+			/>
 		</div>
 	{/if}
 </div>
@@ -364,7 +358,7 @@
 	:global(.field-select) {
 		width: 100%;
 		min-width: 0;
-		height: 2rem;
+		height: 25px;
 		margin-top: 0.125rem;
 		border: 1px solid var(--video-editor-border);
 		border-radius: 0.375rem;
@@ -388,7 +382,7 @@
 	}
 	.layout-switch button {
 		min-width: 0;
-		height: 1.75rem;
+		height: 22px;
 		border-radius: 0.375rem;
 		font-size: 0.625rem;
 		color: var(--video-editor-muted);
@@ -414,8 +408,8 @@
 		scrollbar-width: thin;
 	}
 	.template-strip > button {
-		width: 6rem;
-		flex: 0 0 6rem;
+		width: 4.75rem;
+		flex: 0 0 4.75rem;
 		border: 1px solid var(--video-editor-border);
 		border-radius: 0.5rem;
 		padding: 0.25rem;
@@ -437,7 +431,7 @@
 	}
 	.template-canvas {
 		display: flex;
-		height: 3rem;
+		height: 2.25rem;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
@@ -512,8 +506,8 @@
 	.template-name {
 		display: block;
 		overflow: hidden;
-		padding: 0.25rem 0.125rem 0;
-		font-size: 0.5625rem;
+		padding: 0.2rem 0.125rem 0;
+		font-size: 0.5rem;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}

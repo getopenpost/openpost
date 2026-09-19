@@ -108,4 +108,20 @@
     // scripts/*.mjs are correct by npm semantics; triage, do not relocate.
     "dev-dependencies-in-production": "warn",
   },
+
+  "health": {
+    // Per-file ceilings for findings that are reviewed and deliberately
+    // kept whole. PageStrip grid cell (assessed 2026-09-18): the 54-line
+    // pageGrid snippet's branches (grabbed/insertion/active/drop-target
+    // states x a11y/dnd bindings) are inherent to a page grid cell;
+    // extracting the button into a child snippet relocates identical
+    // branchiness behind prop indirection for zero clarity gain.
+    "thresholdOverrides": [
+      {
+        "files": ["apps/web/src/lib/image-editor/components/page-strip.svelte"],
+        "maxCognitive": 25,
+        "reason": "Page grid cell states are inherent to the template; extraction relocates identical branchiness.",
+      },
+    ],
+  },
 }

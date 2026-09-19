@@ -731,7 +731,7 @@
 	onfocusin={handleSourceFocusIn}
 	onfocusout={handleSourceFocusOut}
 >
-	<header class="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+	<header class="flex h-8 shrink-0 items-center gap-2 border-b border-border px-3">
 		<span class="text-xs font-medium text-muted-foreground">
 			{m.video_editor_source_monitor()}
 		</span>
@@ -740,7 +740,7 @@
 		</span>
 		<button
 			type="button"
-			class="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+			class="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-9 [@media(pointer:coarse)]:min-w-9"
 			aria-label={m.video_editor_source_close()}
 			onclick={onclose}
 		>

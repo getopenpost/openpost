@@ -196,7 +196,7 @@
 		data-testid="clip-crop-section"
 	>
 		<h3
-			class="flex h-8 items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 		>
 			<ProtectedIcon icon="editor-crop" class="size-3.5 text-[var(--video-editor-muted)]" />
 			{m.video_editor_crop()}
@@ -211,7 +211,7 @@
 					>
 					<div class="flex min-w-0 items-center gap-1">
 						<Slider
-							class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+							class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 							min={control.axis === 'softness' ? -maximum : 0}
 							max={maximum}
 							step={1}
@@ -238,7 +238,7 @@
 								max={maximum}
 								step={1}
 								decimals={0}
-								class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
+								class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
 								onbegin={beginGesture}
 								onlive={(next) => writeLive(control.property, next)}
 								oncommit={(next) => commitGesture(control.property, next)}
@@ -264,7 +264,7 @@
 						</button>
 						<button
 							type="button"
-							class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 							aria-label={m.video_editor_motion_override_reset({ name: control.label() })}
 							onclick={() => reset(control.property)}
 						>

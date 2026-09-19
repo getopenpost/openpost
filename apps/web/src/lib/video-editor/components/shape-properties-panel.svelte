@@ -145,7 +145,7 @@
 	<label class="text-[10px] text-[var(--video-editor-muted)]">
 		{m.video_editor_shape_kind()}
 		<AppSelect
-			class="mt-0.5 h-8 w-full text-xs"
+			class="mt-0.5 h-[25px] w-full text-[11px]"
 			value={item.shapeType ?? 'rectangle'}
 			options={shapeTypes.map((shape) => ({ value: shape.type, label: shape.label() }))}
 			disabled={pathTopologyLocked}
@@ -184,7 +184,7 @@
 				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_fill_style()}
 					<AppSelect
-						class="mt-0.5 h-8 w-full text-xs"
+						class="mt-0.5 h-[25px] w-full text-[11px]"
 						value={item.fillType ?? 'solid'}
 						options={[
 							{ value: 'solid', label: m.video_editor_shape_fill_solid() },
@@ -223,7 +223,7 @@
 							min="-360"
 							max="360"
 							step="1"
-							class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 							value={item.gradientAngle ?? 0}
 							onchange={(event) => numberPatch('gradientAngle', event.currentTarget.valueAsNumber)}
 						/>
@@ -232,7 +232,7 @@
 						type="button"
 						variant="ghost"
 						size="icon"
-						class="size-8"
+						class="size-[22px]"
 						aria-label={m.video_editor_project_canvas_swap()}
 						title={m.video_editor_project_canvas_swap()}
 						onclick={swapGradientColors}
@@ -258,7 +258,7 @@
 						min="0"
 						max="500"
 						step="1"
-						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.strokeWidth ?? 8}
 						onchange={(event) => numberPatch('strokeWidth', event.currentTarget.valueAsNumber)}
 					/>
@@ -268,7 +268,7 @@
 				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_line_cap()}
 					<AppSelect
-						class="mt-0.5 h-8 w-full text-xs"
+						class="mt-0.5 h-[25px] w-full text-[11px]"
 						value={item.strokeLineCap ?? 'butt'}
 						options={[
 							{ value: 'butt', label: m.video_editor_shape_line_cap_butt() },
@@ -283,7 +283,7 @@
 				<label class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_shape_line_join()}
 					<AppSelect
-						class="mt-0.5 h-8 w-full text-xs"
+						class="mt-0.5 h-[25px] w-full text-[11px]"
 						value={item.strokeLineJoin ?? 'miter'}
 						options={[
 							{ value: 'miter', label: m.video_editor_shape_line_join_miter() },
@@ -304,61 +304,73 @@
 						min="1"
 						max="100"
 						step="0.5"
-						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.strokeMiterLimit ?? 4}
 						onchange={(event) => numberPatch('strokeMiterLimit', event.currentTarget.valueAsNumber)}
 					/>
 				</label>
 			{/if}
 
+			{#snippet shapeNumberFields(fields: StrokePathField[])}
+				{#each fields as field (field.property)}
+					<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
+						{field.label}
+						<Input
+							type="number"
+							min={field.minimum}
+							max={field.maximum}
+							step="1"
+							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+							value={item[field.property] ?? field.defaultValue}
+							onchange={(event) => strokePathPatch(field, event.currentTarget.valueAsNumber)}
+						/>
+					</label>
+				{/each}
+			{/snippet}
 			{#if !item.isMask}
-				<fieldset class="space-y-1.5 border-t border-[var(--video-editor-border)] pt-2">
-					<legend
-						class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+				<details
+					class="rounded border border-[var(--video-editor-border)]"
+					open={(item.trimPathStart ?? 0) !== 0 ||
+						(item.trimPathEnd ?? 100) !== 100 ||
+						(item.trimPathOffset ?? 0) !== 0}
+				>
+					<summary
+						class="flex h-[25px] cursor-pointer items-center gap-1 px-1.5 text-[11px] text-[var(--video-editor-text)] [&::-webkit-details-marker]:hidden"
 					>
-						{m.video_editor_shape_trim_paths()}
-					</legend>
-					<div class="grid grid-cols-2 gap-1">
-						{#each trimPathFields as field (field.property)}
-							<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
-								{field.label}
-								<Input
-									type="number"
-									min={field.minimum}
-									max={field.maximum}
-									step="1"
-									class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
-									value={item[field.property] ?? field.defaultValue}
-									onchange={(event) => strokePathPatch(field, event.currentTarget.valueAsNumber)}
-								/>
-							</label>
-						{/each}
+						<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
+						<span class="text-[var(--video-editor-muted)]">{m.video_editor_shape_trim_paths()}</span
+						>
+						<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
+							>{item.trimPathStart ?? 0}–{item.trimPathEnd ?? 100} · {item.trimPathOffset ??
+								0}</span
+						>
+					</summary>
+					<div class="grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] p-1">
+						{@render shapeNumberFields(trimPathFields)}
 					</div>
-				</fieldset>
+				</details>
 
-				<fieldset class="space-y-1.5 border-t border-[var(--video-editor-border)] pt-2">
-					<legend
-						class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+				<details
+					class="rounded border border-[var(--video-editor-border)]"
+					open={(item.taperStartWidth ?? 100) !== 100 ||
+						(item.taperStartLength ?? 0) !== 0 ||
+						(item.taperEndWidth ?? 100) !== 100 ||
+						(item.taperEndLength ?? 0) !== 0}
+				>
+					<summary
+						class="flex h-[25px] cursor-pointer items-center gap-1 px-1.5 text-[11px] text-[var(--video-editor-text)] [&::-webkit-details-marker]:hidden"
 					>
-						{m.video_editor_shape_taper()}
-					</legend>
-					<div class="grid grid-cols-2 gap-1">
-						{#each taperFields as field (field.property)}
-							<label class="min-w-0 text-[10px] text-[var(--video-editor-muted)]">
-								{field.label}
-								<Input
-									type="number"
-									min={field.minimum}
-									max={field.maximum}
-									step="1"
-									class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
-									value={item[field.property] ?? field.defaultValue}
-									onchange={(event) => strokePathPatch(field, event.currentTarget.valueAsNumber)}
-								/>
-							</label>
-						{/each}
+						<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
+						<span class="text-[var(--video-editor-muted)]">{m.video_editor_shape_taper()}</span>
+						<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
+							>{item.taperStartWidth ?? 100}/{item.taperStartLength ?? 0} · {item.taperEndWidth ??
+								100}/{item.taperEndLength ?? 0}</span
+						>
+					</summary>
+					<div class="grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] p-1">
+						{@render shapeNumberFields(taperFields)}
 					</div>
-				</fieldset>
+				</details>
 			{/if}
 		{/if}
 
@@ -370,7 +382,7 @@
 					min="0"
 					max="1000"
 					step="1"
-					class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+					class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 					value={item.shapeCornerRadius ?? 0}
 					onchange={(event) => numberPatch('shapeCornerRadius', event.currentTarget.valueAsNumber)}
 				/>
@@ -381,7 +393,7 @@
 			<label class="text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_shape_direction()}
 				<AppSelect
-					class="mt-0.5 h-8 w-full text-xs"
+					class="mt-0.5 h-[25px] w-full text-[11px]"
 					value={item.shapeDirection ?? 'up'}
 					options={[
 						{ value: 'up', label: m.video_editor_shape_direction_up() },
@@ -405,7 +417,7 @@
 						min="3"
 						max="64"
 						step="1"
-						class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.shapePoints ?? (item.shapeType === 'star' ? 5 : 6)}
 						onchange={(event) => numberPatch('shapePoints', event.currentTarget.valueAsNumber)}
 					/>
@@ -418,7 +430,7 @@
 							min="0.05"
 							max="0.95"
 							step="0.01"
-							class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 							value={item.shapeInnerRadius ?? 0.5}
 							onchange={(event) =>
 								numberPatch('shapeInnerRadius', event.currentTarget.valueAsNumber)}
@@ -430,7 +442,10 @@
 	{/if}
 
 	<div class="border-t border-[var(--video-editor-border)] pt-2">
-		<label class="flex items-center gap-1.5 text-[10px] text-[var(--video-editor-muted)]">
+		<label
+			class="flex items-center gap-1.5 text-[10px] text-[var(--video-editor-muted)]"
+			title={m.video_editor_shape_mask_scope()}
+		>
 			<Checkbox
 				checked={item.isMask ?? false}
 				disabled={pathTopologyLocked && !item.isMask && item.pathClosed === false}
@@ -442,13 +457,10 @@
 	</div>
 
 	{#if item.isMask}
-		<p class="text-[10px] leading-4 text-[var(--video-editor-muted)]">
-			{m.video_editor_shape_mask_scope()}
-		</p>
 		<label class="text-[10px] text-[var(--video-editor-muted)]">
 			{m.video_editor_shape_mask_type()}
 			<AppSelect
-				class="mt-0.5 h-8 w-full text-xs"
+				class="mt-0.5 h-[25px] w-full text-[11px]"
 				value={item.maskType ?? 'clip'}
 				options={[
 					{ value: 'clip', label: m.video_editor_shape_mask_clip() },
@@ -467,7 +479,7 @@
 					min="0"
 					max="100"
 					step="1"
-					class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+					class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 					value={item.maskFeather ?? 10}
 					onchange={(event) => numberPatch('maskFeather', event.currentTarget.valueAsNumber)}
 				/>
@@ -481,7 +493,7 @@
 				min="0"
 				max="100"
 				step="1"
-				class="mt-0.5 h-8 w-full rounded bg-[var(--video-editor-control)] px-1.5 text-xs"
+				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.maskOpacity ?? 100}
 				onchange={(event) => numberPatch('maskOpacity', event.currentTarget.valueAsNumber)}
 			/>
@@ -497,11 +509,11 @@
 		</label>
 
 		{#if item.shapeType === 'path'}
-			<p
-				class="rounded bg-[var(--video-editor-panel)] px-2 py-1.5 text-[10px] leading-4 text-[var(--video-editor-muted)]"
+			<span
+				class="cursor-help text-[10px] text-[var(--video-editor-muted)] underline decoration-dotted underline-offset-2"
+				title={m.video_editor_shape_mask_path_hint()}
+				aria-label={m.video_editor_shape_mask_path_hint()}>{m.video_editor_shape_mask_type()}</span
 			>
-				{m.video_editor_shape_mask_path_hint()}
-			</p>
 		{/if}
 	{/if}
 </section>

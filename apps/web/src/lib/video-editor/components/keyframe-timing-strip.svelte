@@ -106,7 +106,7 @@
 </script>
 
 <div
-	class="relative h-6 shrink-0 border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.15_0.008_55)]"
+	class="relative h-[25px] shrink-0 border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.15_0.008_55)]"
 	role="region"
 	aria-label={m.video_editor_keyframe_sheet_scale_strip_label()}
 	data-timing-strip

@@ -2,7 +2,7 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -266,7 +266,7 @@
 				{max}
 				step={1}
 				decimals={0}
-				class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-7 pl-5 text-right text-[11px] text-[var(--video-editor-text)] tabular-nums transition-colors outline-none hover:border-[var(--video-editor-focus-border)] focus:border-[var(--video-editor-focus-border)] focus:ring-1 focus:ring-[color-mix(in_oklch,var(--video-editor-focus)_35%,transparent)]"
+				class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-7 pl-5 text-right text-[11px] text-[var(--video-editor-text)] tabular-nums transition-colors outline-none hover:border-[var(--video-editor-focus-border)] focus:border-[var(--video-editor-focus-border)] focus:ring-1 focus:ring-[color-mix(in_oklch,var(--video-editor-focus)_35%,transparent)]"
 				onbegin={beginGesture}
 				onlive={(value) => writeLive(property, value)}
 				oncommit={(value) => commitGesture(property, value)}
@@ -299,7 +299,7 @@
 		data-testid="clip-transform-section"
 	>
 		<h3
-			class="flex h-8 items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 		>
 			<ProtectedIcon icon="editor-move" class="size-3.5 text-[var(--video-editor-muted)]" />
 			{m.video_editor_property_transform()}
@@ -330,7 +330,7 @@
 					</div>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_position()}
 						onclick={() => reset(() => ({ x: 0, y: 0 }))}
 					>
@@ -351,7 +351,7 @@
 					<button
 						type="button"
 						class:active={aspectLocked()}
-						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
+						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
 						aria-label={aspectLocked()
 							? m.video_editor_property_unlock_aspect()
 							: m.video_editor_property_lock_aspect()}
@@ -365,7 +365,7 @@
 					</button>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_size()}
 						onclick={resetSize}
 					>
@@ -379,27 +379,42 @@
 					>{m.video_editor_rotation()}</span
 				>
 				<div class="flex min-w-0 items-center gap-1">
-					<Slider
-						class="h-7 min-w-10 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
-						min={-180}
-						max={180}
-						step={1}
-						value={mixedValue('rotation') ?? 0}
-						ariaLabel={m.video_editor_rotation()}
-						onValueChange={(nextValue) => {
-							beginGesture();
-							writeLive('rotation', nextValue);
-						}}
-						onValueCommit={(nextValue) => commitGesture('rotation', nextValue)}
-						onValueCancel={cancelGesture}
-						onKeydown={(event) => event.stopPropagation()}
-					/>
-					<div class="w-[5.6rem] shrink-0">
-						{@render numberControl('rotation', '', m.video_editor_rotation(), '°', -360, 360)}
+					<div class="min-w-0 flex-1">
+						<SliderRow
+							label={m.video_editor_rotation()}
+							value={mixedValue('rotation') ?? 0}
+							min={-180}
+							max={180}
+							step={1}
+							precision={0}
+							resetValue={0}
+							onbegin={beginGesture}
+							onValueChange={(nextValue) => {
+								beginGesture();
+								writeLive('rotation', nextValue);
+							}}
+							onValueCommit={(nextValue) => commitGesture('rotation', nextValue)}
+							onValueCancel={cancelGesture}
+						/>
 					</div>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class:active={autoKeyEnabled('rotation')}
+						class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] transition-colors hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
+						aria-label={m.video_editor_property_auto_key({
+							property: m.video_editor_rotation()
+						})}
+						aria-pressed={autoKeyEnabled('rotation')}
+						onclick={() => toggleAutoKey('rotation')}
+					>
+						<ProtectedIcon
+							icon="editor-keyframe"
+							class={`size-2.5 ${autoKeyEnabled('rotation') ? 'fill-current' : ''}`}
+						/>
+					</button>
+					<button
+						type="button"
+						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_rotation()}
 						onclick={() => reset(() => ({ rotation: 0 }))}
 					>
@@ -433,7 +448,7 @@
 					</div>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_anchor()}
 						onclick={() =>
 							reset((item) => ({
@@ -455,7 +470,7 @@
 						type="button"
 						size="sm"
 						variant="ghost"
-						class="h-7 justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
+						class="h-[22px] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
 						aria-pressed={items.every((item) => item.transform?.flipHorizontal === true)}
 						onclick={() => toggleFlip('flipHorizontal')}>{m.video_editor_property_flip_x()}</Button
 					>
@@ -463,7 +478,7 @@
 						type="button"
 						size="sm"
 						variant="ghost"
-						class="h-7 justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
+						class="h-[22px] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
 						aria-pressed={items.every((item) => item.transform?.flipVertical === true)}
 						onclick={() => toggleFlip('flipVertical')}>{m.video_editor_property_flip_y()}</Button
 					>
@@ -476,7 +491,7 @@
 		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 	>
 		<h3
-			class="flex h-8 items-center border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			class="flex h-[25px] items-center border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
 		>
 			{m.video_editor_property_appearance()}
 		</h3>
@@ -486,40 +501,23 @@
 					>{m.video_editor_clip_opacity()}</span
 				>
 				<div class="flex min-w-0 items-center gap-1">
-					<Slider
-						class="h-7 min-w-10 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
-						min={0}
-						max={100}
-						step={1}
-						value={(mixedValue('opacity') ?? 1) * 100}
-						ariaLabel={m.video_editor_clip_opacity()}
-						onValueChange={(nextValue) => {
-							beginGesture();
-							writeLive('opacity', nextValue / 100);
-						}}
-						onValueCommit={(nextValue) => commitGesture('opacity', nextValue / 100)}
-						onValueCancel={cancelGesture}
-						onKeydown={(event) => event.stopPropagation()}
-					/>
-					<div class="relative w-[4.5rem] shrink-0">
-						<ScrubbableNumberInput
-							ariaLabel={m.video_editor_clip_opacity()}
-							value={mixedValue('opacity') === null ? null : (mixedValue('opacity') ?? 1) * 100}
-							placeholder={m.video_editor_property_mixed()}
+					<div class="min-w-0 flex-1">
+						<SliderRow
+							label={m.video_editor_clip_opacity()}
+							value={(mixedValue('opacity') ?? 1) * 100}
 							min={0}
 							max={100}
 							step={1}
-							decimals={0}
-							class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+							precision={0}
+							resetValue={100}
 							onbegin={beginGesture}
-							onlive={(value) => writeLive('opacity', value / 100)}
-							oncommit={(value) => commitGesture('opacity', value / 100)}
-							oncancel={cancelGesture}
+							onValueChange={(nextValue) => {
+								beginGesture();
+								writeLive('opacity', nextValue / 100);
+							}}
+							onValueCommit={(nextValue) => commitGesture('opacity', nextValue / 100)}
+							onValueCancel={cancelGesture}
 						/>
-						<span
-							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
-							>%</span
-						>
 					</div>
 					<button
 						type="button"
@@ -538,7 +536,7 @@
 					</button>
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_opacity()}
 						onclick={() => reset(() => ({ opacity: 1 }))}
 					>
@@ -551,7 +549,7 @@
 					>{m.video_editor_blend_mode()}</span
 				>
 				<AppSelect
-					class="h-7 min-w-0 text-xs"
+					class="h-[22px] min-w-0 text-xs"
 					value={hasShapeMask() ? 'normal' : mixedBlendMode()}
 					options={blendOptions}
 					placeholder={m.video_editor_property_mixed()}
@@ -575,7 +573,7 @@
 					)}
 					<button
 						type="button"
-						class="grid size-7 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 						aria-label={m.video_editor_property_reset_radius()}
 						onclick={() => reset(() => ({ cornerRadius: 0 }))}
 					>

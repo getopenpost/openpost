@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
 - Image Editor header actions have clearer spacing around save status and Export.
 - Editor scope icons are centered, scope labels render once, and curve handles retain their shape as panels resize. Video Color palettes name the tool they add, and compact Video and Motion layouts preserve preview space, clip navigation, and transport actions.
 - Text, audio generation, export, and settings controls fit their panels without clipped labels or unreadably small editable values.
+- Documentation code samples keep complete syntax highlighting when builds run under load.
 
 ### Changed
 

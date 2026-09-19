@@ -1,0 +1,94 @@
+name: Product screenshots refresh
+
+on:
+  schedule:
+    # Weekly drift check; a human merges the resulting PR after review.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: product-screenshots-refresh
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.3.11"
+  GOTOOLCHAIN: local
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Create openpost-bot token
+        id: app-token
+        # The openpost-bot GitHub App gives automated commits the project's
+        # own bot identity. Until its app ID and private key are stored as
+        # OPENPOST_BOT_APP_ID / OPENPOST_BOT_PRIVATE_KEY, workflows fall
+        # back to the built-in token and the github-actions[bot] author below.
+        if: vars.OPENPOST_BOT_APP_ID != ''
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.OPENPOST_BOT_APP_ID }}
+          private-key: ${{ secrets.OPENPOST_BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token || github.token }}
+          sparse-checkout: |
+            /*
+            !/apps/web/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      - name: Re-capture product screenshots
+        run: bun run capture:product-screenshots
+      - name: Open a review PR when screenshots drifted
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          BOT_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          if git status --porcelain -- assets/screenshots | grep -q .; then
+            :
+          else
+            echo "Screenshots match the checked-in set; nothing to do."
+            exit 0
+          fi
+          if [ -n "$BOT_SLUG" ]; then
+            bot_id="$(gh api "users/${BOT_SLUG}[bot]" --jq .id)"
+            [[ "$bot_id" =~ ^[0-9]+$ ]] || exit 1
+            git config user.name "${BOT_SLUG}[bot]"
+            git config user.email "${bot_id}+${BOT_SLUG}[bot]@users.noreply.github.com"
+            gh auth setup-git
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          fi
+          stamp="$(date -u +%Y%m%d)"
+          branch="chore/product-screenshots-${stamp}"
+          git checkout -B "$branch"
+          git add assets/screenshots
+          files="$(git diff --cached --name-only | sort)"
+          count="$(echo "$files" | wc -l | tr -d ' ')"
+          git commit -m "chore: refresh product screenshots (${stamp}) [skip ci]"
+          git push --force-with-lease origin "$branch"
+          # \140 is a backtick: literal markdown fences without tripping SC2016 (no expansion in single quotes).
+          body="$(printf 'Scheduled re-capture drifted on %s changed file(s).\n\nReview the images before merging; guides embed these shots directly.\n\n\140\140\140\n%s\n\140\140\140' "$count" "$files")"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore: review refreshed product screenshots (${stamp})" \
+            --body "$body"

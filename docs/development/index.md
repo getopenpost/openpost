@@ -29,6 +29,7 @@ Developer docs are separate from user-facing docs and self-hosting docs. They ca
 ## Frontend, MCP, and launch work
 
 - [Frontend](frontend.md) covers SvelteKit app conventions.
+- [Product screenshots](screenshots.md) covers refreshing canonical UI captures.
 - [MCP and ChatGPT App](mcp.md) covers tool-server and Apps SDK integration notes.
 - [Production Architecture](production-readiness.md) records shared hosted and self-hosted architecture, provider verification, and release checks.
 

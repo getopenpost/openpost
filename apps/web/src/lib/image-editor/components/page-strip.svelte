@@ -189,7 +189,10 @@
 
 <svelte:window onblur={() => cancelReorder()} />
 
-<div class="flex size-full flex-col border-t bg-background/95 backdrop-blur">
+<div
+	class="flex size-full flex-col border-t bg-background/95 backdrop-blur"
+	data-testid="image-editor-page-strip"
+>
 	{#snippet pageGrid()}
 		{#if editor.document}
 			{@const gridDocument = editor.document}

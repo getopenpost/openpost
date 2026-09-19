@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-09-19
+
+### Fixed
+
+- Video Editor browser checks now follow the explicit Quick Cut or full editor choice, so the new start flow can pass release validation.
+
 ## [5.1.0] - 2026-09-19
 
 ### Added

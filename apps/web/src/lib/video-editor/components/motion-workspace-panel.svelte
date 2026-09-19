@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { HintButton } from '$lib/components/editor-density';
+	import { Disclosure as EditorDisclosure, HintButton } from '$lib/components/editor-density';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
 	import type { AnimationPreset } from '$lib/video-editor/project/types';
@@ -215,29 +215,21 @@
 	{/if}
 
 	{#if activeComposite}
-		<details
+		<EditorDisclosure
+			label={m.video_editor_motion_canvas_settings()}
 			class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 		>
-			<summary
-				class="flex min-h-[32px] cursor-pointer list-none items-center px-2.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-			>
-				{m.video_editor_motion_canvas_settings()}
-			</summary>
 			<div class="border-t border-[var(--video-editor-border)] p-2">
 				<ProjectCanvasPanel {onedit} />
 			</div>
-		</details>
-		<details
+		</EditorDisclosure>
+		<EditorDisclosure
+			label={m.video_editor_motion_published_title({ count: publishedControlCount })}
 			class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 		>
-			<summary
-				class="flex min-h-[32px] cursor-pointer list-none items-center px-2.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-			>
-				{m.video_editor_motion_published_title({ count: publishedControlCount })}
-			</summary>
 			<div class="border-t border-[var(--video-editor-border)] p-2">
 				<CompositionControlsAuthoring {onedit} />
 			</div>
-		</details>
+		</EditorDisclosure>
 	{/if}
 </aside>

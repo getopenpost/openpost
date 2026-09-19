@@ -2,6 +2,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import { Input } from '$lib/components/ui/input';
+	import { Disclosure as EditorDisclosure, HintButton } from '$lib/components/editor-density';
 	import type { TimelineItem, TimelineItemCornerPin } from '$lib/video-editor/project/types';
 	import {
 		resolveCornerPinForSize,
@@ -12,6 +13,16 @@
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
 
 	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	let open = $state(false);
+	let openItemId = $state('');
+	$effect(() => {
+		if (item.id !== openItemId) {
+			openItemId = item.id;
+			open = item.cornerPin !== undefined;
+		} else if (item.cornerPin !== undefined) {
+			open = true;
+		}
+	});
 	const width = $derived(Math.max(1, item.transform?.width ?? item.cornerPin?.referenceWidth ?? 1));
 	const height = $derived(
 		Math.max(1, item.transform?.height ?? item.cornerPin?.referenceHeight ?? 1)
@@ -43,33 +54,32 @@
 	}
 </script>
 
-<details
+{#snippet disclosureActions()}
+	<HintButton
+		label={`${m.video_editor_corner_pin()}: ${m.video_editor_corner_pin_hint()}`}
+		hint={m.video_editor_corner_pin_hint()}
+		class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+	/>
+	{#if item.cornerPin}
+		<button
+			type="button"
+			class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+			aria-label={m.video_editor_corner_pin_reset()}
+			title={m.video_editor_corner_pin_reset()}
+			onclick={() => commit(undefined)}
+			><ProtectedIcon icon="editor-rotate-left" class="size-3.5" /></button
+		>
+	{/if}
+{/snippet}
+
+<EditorDisclosure
+	label={m.video_editor_corner_pin()}
+	summary={item.cornerPin ? m.video_editor_workspace_active() : undefined}
+	bind:open
+	actions={disclosureActions}
 	class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
-	open={item.cornerPin !== undefined}
 >
-	<summary
-		class="flex min-h-[25px] cursor-pointer list-none items-center gap-2 px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-		title={m.video_editor_corner_pin_hint()}
-	>
-		<span class="min-w-0 flex-1">{m.video_editor_corner_pin()}</span>
-		{#if item.cornerPin}
-			<span class="size-1.5 rounded-full bg-[var(--video-editor-primary)]" aria-hidden="true"
-			></span>
-		{/if}
-	</summary>
 	<div class="flex flex-col gap-2 border-t border-[var(--video-editor-border)] p-2">
-		{#if item.cornerPin}
-			<div class="flex justify-end">
-				<button
-					type="button"
-					class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
-					aria-label={m.video_editor_corner_pin_reset()}
-					title={m.video_editor_corner_pin_reset()}
-					onclick={() => commit(undefined)}
-					><ProtectedIcon icon="editor-rotate-left" class="size-3.5" /></button
-				>
-			</div>
-		{/if}
 		{#each corners as corner (corner.key)}
 			<div class="grid h-[25px] grid-cols-[1.5rem_1fr_1fr] items-center gap-1">
 				<span class="text-[10px] font-medium text-[var(--video-editor-text)]">{corner.label}</span>
@@ -98,4 +108,4 @@
 			</div>
 		{/each}
 	</div>
-</details>
+</EditorDisclosure>

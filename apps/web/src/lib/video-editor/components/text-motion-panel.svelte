@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import type {
@@ -259,10 +260,11 @@
 						</div>
 					</div>
 				{/if}
-				<details class="preset-browser">
-					<summary>
-						{effect ? presetLabels[effect.presetId] : m.video_editor_motion_title()}
-					</summary>
+				<EditorDisclosure
+					label={m.video_editor_motion_title()}
+					summary={effect ? presetLabels[effect.presetId] : undefined}
+					class="preset-browser"
+				>
 					<div class="preset-grid">
 						{#each catalog[slot] as preset}
 							{@const active = effect?.presetId === preset.id}
@@ -278,7 +280,7 @@
 							>
 						{/each}
 					</div>
-				</details>
+				</EditorDisclosure>
 			</div>
 		{/each}
 	</section>
@@ -320,20 +322,10 @@
 		margin-top: 0.4rem;
 		border: 1px solid var(--video-editor-border);
 		border-radius: 0.4rem;
-		padding: 0.35rem 0.4rem;
-	}
-	.preset-browser summary {
-		cursor: pointer;
-		color: var(--video-editor-muted);
-		font-size: 0.625rem;
-	}
-	.preset-browser summary:focus-visible {
-		border-radius: 0.25rem;
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 2px;
 	}
 	.preset-browser .preset-grid {
-		margin-top: 0.4rem;
+		border-top: 1px solid var(--video-editor-border);
+		padding: 0.4rem;
 	}
 	.applied-row {
 		margin-top: 0.75rem;
@@ -431,11 +423,6 @@
 	@media (max-width: 24rem) {
 		.preset-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-	@media (pointer: coarse) {
-		.preset-browser summary {
-			min-height: 2.75rem;
 		}
 	}
 </style>

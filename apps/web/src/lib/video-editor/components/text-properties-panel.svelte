@@ -7,6 +7,7 @@
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import EditorFontPicker from '$lib/components/editor-font-picker.svelte';
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import type { TextSpan, TextStylePresetId, TimelineItem } from '../project/types';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
@@ -299,9 +300,14 @@
 	</div>
 
 	{#if !onbrowsetextstyles}
-		<details class="text-style-browser">
-			<summary>{m.video_editor_text_browse_styles()}</summary>
-			<div class="template-strip" aria-label={m.video_editor_text_templates()}>
+		<EditorDisclosure
+			label={m.video_editor_text_browse_styles()}
+			class="rounded-md border border-[var(--video-editor-border)]"
+		>
+			<div
+				class="template-strip border-t border-[var(--video-editor-border)]"
+				aria-label={m.video_editor_text_templates()}
+			>
 				{#each TEXT_STYLE_PRESETS as preset (preset.id)}
 					{@const copy = localizedTextStylePresetCopy(preset.id)}
 					<button
@@ -320,7 +326,7 @@
 					</button>
 				{/each}
 			</div>
-		</details>
+		</EditorDisclosure>
 	{/if}
 
 	{#if activeItem.textStylePresetId}
@@ -339,9 +345,14 @@
 		</label>
 	{/if}
 
-	<details class="text-effects">
-		<summary>{m.video_editor_effects()}</summary>
-		<div class="mt-2 grid grid-cols-4 gap-1" aria-label={m.video_editor_effects()}>
+	<EditorDisclosure
+		label={m.video_editor_effects()}
+		class="rounded-md border border-[var(--video-editor-border)]"
+	>
+		<div
+			class="grid grid-cols-4 gap-1 border-t border-[var(--video-editor-border)] p-2"
+			aria-label={m.video_editor_effects()}
+		>
 			{#each ['none', 'shadow', 'outline', 'glow'] as presetId (presetId)}
 				<Button
 					type="button"
@@ -354,7 +365,7 @@
 				</Button>
 			{/each}
 		</div>
-	</details>
+	</EditorDisclosure>
 </div>
 
 <style>
@@ -407,36 +418,6 @@
 	.layout-switch button.active {
 		background: var(--video-editor-selection);
 		color: var(--video-editor-selection-text);
-	}
-	.text-effects {
-		border: 1px solid var(--video-editor-border);
-		border-radius: 0.5rem;
-		padding: 0.375rem 0.5rem;
-	}
-	.text-effects summary {
-		cursor: pointer;
-		font-size: 0.625rem;
-		color: var(--video-editor-muted);
-	}
-	.text-effects summary:focus-visible {
-		border-radius: 0.25rem;
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 2px;
-	}
-	.text-style-browser {
-		border: 1px solid var(--video-editor-border);
-		border-radius: 0.5rem;
-		padding: 0.375rem 0.5rem;
-	}
-	.text-style-browser summary {
-		cursor: pointer;
-		font-size: 0.625rem;
-		color: var(--video-editor-muted);
-	}
-	.text-style-browser summary:focus-visible {
-		border-radius: 0.25rem;
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 2px;
 	}
 	.template-strip {
 		display: flex;
@@ -574,8 +555,6 @@
 	@media (pointer: coarse) {
 		.layout-switch button,
 		.span-style summary,
-		.text-effects summary,
-		.text-style-browser summary,
 		.template-strip > button {
 			min-height: 2.75rem;
 		}

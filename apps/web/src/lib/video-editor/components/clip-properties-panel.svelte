@@ -4,7 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
-	import { HintButton } from '$lib/components/editor-density';
+	import { Disclosure as EditorDisclosure, HintButton } from '$lib/components/editor-density';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedProperty } from '$lib/video-editor/timeline/actions/keyframes';
@@ -309,10 +309,7 @@
 		{/if}
 
 		{#if item.type === 'text'}
-			<section>
-				<h3 class="mb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-					{m.video_editor_tool_text()}
-				</h3>
+			<section aria-label={m.video_editor_tool_text()}>
 				<TextPropertiesPanel {item} {itemIds} {onedit} {oncreatevoice} {onbrowsetextstyles} />
 				<div class="mt-2 grid grid-cols-2 gap-1">
 					{#each textPrimaryFields as field (field.property)}
@@ -376,12 +373,10 @@
 						/>
 					</label>
 				</div>
-				<details class="mt-2 rounded-md border border-border bg-muted/40">
-					<summary
-						class="flex min-h-[25px] cursor-pointer list-none items-center px-2 text-[10px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
-					>
-						{m.video_editor_advanced()}
-					</summary>
+				<EditorDisclosure
+					label={m.video_editor_advanced()}
+					class="mt-2 rounded-md border border-border bg-muted/40"
+				>
 					<div class="border-t border-border p-2">
 						<div class="grid grid-cols-2 gap-1">
 							{#each textAdvancedFields as field (field.property)}
@@ -414,7 +409,7 @@
 							/>
 						</div>
 					</div>
-				</details>
+				</EditorDisclosure>
 			</section>
 		{/if}
 

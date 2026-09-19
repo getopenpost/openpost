@@ -40,12 +40,44 @@ it('puts selected text editing before geometry and keeps advanced geometry discl
 	const text = screen.getByRole('textbox', { name: 'Text' }).element();
 	const transform = screen.getByRole('heading', { name: 'Transform' }).element();
 	expect(text.compareDocumentPosition(transform) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+	await expect.element(screen.getByRole('heading', { name: 'Text' })).not.toBeInTheDocument();
 
-	const cornerPin = screen.getByText('Corner pin').element().closest('details');
-	expect(cornerPin?.open).toBe(false);
+	const cornerPin = screen.container.querySelector<HTMLButtonElement>(
+		'[data-collapsible-trigger][aria-label="Corner pin"]'
+	)!;
+	expect(cornerPin.getAttribute('aria-expanded')).toBe('false');
+	expect(cornerPin.parentElement?.className).toContain('[@media(pointer:coarse)]:min-h-11');
+	cornerPin.click();
+	await expect.element(screen.getByRole('spinbutton', { name: 'TL X' })).toBeVisible();
 
 	await screen.getByRole('button', { name: 'Browse styles' }).click();
 	expect(onbrowsetextstyles).toHaveBeenCalledOnce();
+});
+
+it('opens active corner pin controls by default', async () => {
+	const item = {
+		...textItem(),
+		cornerPin: {
+			topLeft: [0, 0] as [number, number],
+			topRight: [0, 0] as [number, number],
+			bottomRight: [0, 0] as [number, number],
+			bottomLeft: [0, 0] as [number, number]
+		}
+	};
+	timelineStore._setItems([item]);
+	const screen = await render(ClipPropertiesPanel, {
+		itemId: item.id,
+		onedit: () => {}
+	});
+
+	await vi.waitFor(() => {
+		expect(
+			screen.container
+				.querySelector('[data-collapsible-trigger][aria-label="Corner pin: Active"]')
+				?.getAttribute('aria-expanded')
+		).toBe('true');
+	});
+	await expect.element(screen.getByRole('spinbutton', { name: 'TL X' })).toBeVisible();
 });
 
 it('applies a rail style to selected text without inserting another item', async () => {

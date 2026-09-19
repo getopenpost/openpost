@@ -33,7 +33,9 @@
 	class={cn('border-b first:border-t', className)}
 	data-editor-disclosure
 >
-	<div class="flex h-[var(--editor-25,25px)] items-center gap-1">
+	<div
+		class="flex min-h-[var(--editor-25,25px)] items-center gap-1 [@media(pointer:coarse)]:min-h-11"
+	>
 		<CollapsibleTrigger
 			class="flex min-w-0 flex-1 items-center gap-1.5 rounded-[var(--editor-radius,5px)] px-1 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:h-11"
 			aria-label={summary ? `${label}: ${summary}` : label}

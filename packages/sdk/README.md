@@ -20,7 +20,8 @@ const draft = await openpost.publications.create({
 });
 
 await openpost.publications.validate(draft.id, { throwOnInvalid: true });
-await openpost.publications.schedule(draft.id, draft.revision);
+const action = await openpost.publications.publishNow(draft.id, draft.revision);
+if (action.job_id) await openpost.jobs.wait(action.job_id);
 const done = await openpost.publications.wait(draft.id);
 console.log(done.status); // published
 ```
@@ -39,11 +40,14 @@ Publications are the authored record; renditions are the per-account versions. C
 
 ```ts
 // Destination-specific text plus provider settings for one account.
+const options = await openpost.accounts.destinationOptions("acc_...");
+console.dir(options, { depth: null });
+
 await openpost.publications.upsertRenditions(draft.id, draft.revision, [
   {
     social_account_id: "acc_...",
     body: "We just shipped our TypeScript SDK. Try it:",
-    settings: { link: "https://openpo.st" },
+    settings: { url: "https://openpo.st" },
   },
 ]);
 
@@ -75,9 +79,10 @@ const asset = await openpost.media.upload({
 const accounts = await openpost.accounts.list("ws_...");
 const options = await openpost.accounts.destinationOptions("acc_...");
 const sets = await openpost.socialSets.list("ws_...");
-const action = await openpost.publications.schedule(draft.id, draft.revision);
-if (action.job_id) await openpost.jobs.wait(action.job_id);
+const failedJobs = await openpost.jobs.list({ workspace_id: "ws_...", status: "failed" });
 ```
+
+Publication responses expose `creation_source`. Records created through this package use `sdk`.
 
 ## Errors
 

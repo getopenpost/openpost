@@ -22,4 +22,4 @@ The SDK covers workspaces, accounts, Social Sets, Publications, Renditions, medi
 - Upload generated images or video and attach their media IDs.
 - Schedule content from a CI job, then wait for the durable job result.
 
-Publications created through this package report `creation_source: "sdk"`. OpenPost keeps SDK activity separate from raw API, CLI, MCP, web, and automatic posting in creation-source reports.
+Publications created through this package store and return `creation_source: "sdk"`. This distinguishes SDK-created records from raw API, CLI, MCP, web, and automatic posting.

@@ -3,42 +3,66 @@ title: Media uploads
 description: Upload bytes through OpenPost's storage-safe HTTP flow.
 ---
 
-Media uploads use three requests. Your integration creates an upload session, sends bytes to its storage target, then completes the session.
+Media uploads usually use three requests. Your integration creates an upload session, sends bytes to its storage target, then completes the session. If OpenPost finds identical ready media in the workspace, it returns `deduped: true` and the returned `media_id` is ready to use without the upload and completion requests.
 
 ## 1. Create a session
 
 ```sh
-curl https://app.openpo.st/api/v1/media/upload-session \
+OPENPOST_BASE="https://app.openpo.st"
+WORKSPACE_ID="ws_..."
+
+SESSION_JSON="$(curl "$OPENPOST_BASE/api/v1/media/upload-session" \
   -X POST \
   -H "Authorization: Bearer $OPENPOST_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: cover-2026-09-19" \
-  --data '{
-    "workspace_id": "ws_...",
-    "filename": "cover.png",
-    "mime_type": "image/png",
-    "size": 48231,
-    "alt_text": "Product import screen with the completed file list"
-  }'
+  --data "$(jq -n \
+    --arg workspace_id "$WORKSPACE_ID" \
+    --arg filename "cover.png" \
+    --arg mime_type "image/png" \
+    --arg alt_text "Product import screen with the completed file list" \
+    '{workspace_id: $workspace_id, filename: $filename, mime_type: $mime_type, size: 48231, alt_text: $alt_text}')")"
+
+MEDIA_ID="$(printf '%s' "$SESSION_JSON" | jq -r '.media_id')"
+DEDUPED="$(printf '%s' "$SESSION_JSON" | jq -r '.deduped')"
 ```
 
-The response includes `media_id`, `complete_url`, and an `upload` object with a method, URL, and headers.
+The response includes `media_id`, `deduped`, `complete_url`, and an `upload` object with a method, URL, and headers. The following steps only run when `DEDUPED` is `false`.
 
 ## 2. Send the bytes
 
 Use the exact method and headers from `upload`. The target may be object storage on another origin. Do not send the OpenPost bearer token to that URL.
 
 ```sh
-curl "$UPLOAD_URL" \
-  -X PUT \
-  -H "Content-Type: image/png" \
-  --data-binary @cover.png
+if [ "$DEDUPED" = "false" ]; then
+  UPLOAD_METHOD="$(printf '%s' "$SESSION_JSON" | jq -r '.upload.method')"
+  UPLOAD_URL="$(printf '%s' "$SESSION_JSON" | jq -r '.upload.url')"
+
+  curl "$UPLOAD_URL" \
+    -X "$UPLOAD_METHOD" \
+    -H "Content-Type: image/png" \
+    --data-binary @cover.png
+fi
 ```
 
 If the response includes other upload headers, send them too.
 
 ## 3. Complete the session
 
-Call the returned `complete_url` with your OpenPost bearer token. Completion starts the normal validation and media-processing flow. Use the resulting `media_id` in Publication or Rendition media fields.
+Complete the session with the returned `media_id`, your workspace ID, and your OpenPost bearer token. Completion starts the normal validation and media-processing flow.
+
+```sh
+if [ "$DEDUPED" = "false" ]; then
+  RESULT_JSON="$(curl "$OPENPOST_BASE/api/v1/media/upload-session/$MEDIA_ID/complete" \
+    -X POST \
+    -H "Authorization: Bearer $OPENPOST_TOKEN" \
+    -H "Content-Type: application/json" \
+    --data "{\"workspace_id\":\"$WORKSPACE_ID\"}")"
+
+  MEDIA_ID="$(printf '%s' "$RESULT_JSON" | jq -r '.id')"
+fi
+```
+
+Use the completion response's `id` in Publication or Rendition media fields. When the create-session response is deduplicated, use its `media_id` instead and skip steps 2 and 3.
 
 The [create upload session reference](/api-reference/media/create-media-upload-session) contains the exact request and response schemas and links to completion. JavaScript and TypeScript integrations can use [`media.upload()`](/automate/sdk/media) to run all three steps.

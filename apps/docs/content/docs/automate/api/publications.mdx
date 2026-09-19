@@ -38,18 +38,20 @@ curl https://app.openpo.st/api/v1/publications/pub_.../validate \
   --data '{}'
 ```
 
-Send the revision from the latest Publication response when you schedule, publish, cancel, update, or replace Renditions:
+Send the revision from the latest Publication response when you schedule, publish, cancel, update, or replace Renditions. This example publishes immediately, so its job can be polled to completion:
 
 ```sh
-curl https://app.openpo.st/api/v1/publications/pub_.../schedule \
+curl https://app.openpo.st/api/v1/publications/pub_.../publish-now \
   -X POST \
   -H "Authorization: Bearer $OPENPOST_TOKEN" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: release-2026-09-19-schedule" \
+  -H "Idempotency-Key: release-2026-09-19-publish" \
   --data '{"expected_revision": 3}'
 ```
 
 A `409` conflict means the Publication changed after revision 3. Read it again and reconcile the newer state before another write.
+
+To publish later, set `scheduled_at` to a future RFC 3339 time when you create or update the Publication, then call `/schedule` with the latest revision. Do not wait synchronously for that job: it stays pending until the scheduled time.
 
 ## Inspect each destination
 

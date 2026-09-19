@@ -104,6 +104,26 @@ func TestSchedulePublication_WireFormat(t *testing.T) {
 	}
 }
 
+func TestGetPublicationDecodesCreationSource(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/publications/pub_1" {
+			t.Fatalf("path = %s, want /api/v1/publications/pub_1", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"pub_1","creation_source":"sdk"}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.GetPublication(context.Background(), "pub_1")
+	if err != nil {
+		t.Fatalf("GetPublication returned error: %v", err)
+	}
+	if got.CreationSource != PublicationCreationSourceSDK {
+		t.Fatalf("creation source = %q, want %q", got.CreationSource, PublicationCreationSourceSDK)
+	}
+}
+
 func TestPublicationMutationMethods_WireFormat(t *testing.T) {
 	requests := make(chan string, 5)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

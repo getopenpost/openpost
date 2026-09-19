@@ -36,11 +36,22 @@ const SDK_ROUTES: Array<[string, string]> = [
   ["GET", "/api/v1/jobs/{id}"],
 ];
 
-function loadContract(): { paths: Record<string, Record<string, unknown>> } {
-  const url = new URL("../../../apps/web/openapi.json", import.meta.url);
-  return JSON.parse(readFileSync(url, "utf8")) as {
-    paths: Record<string, Record<string, unknown>>;
+interface OpenApiContract {
+  paths: Record<string, Record<string, unknown>>;
+  components: {
+    schemas: Record<
+      string,
+      {
+        properties?: Record<string, { enum?: string[] }>;
+        required?: string[];
+      }
+    >;
   };
+}
+
+function loadContract(): OpenApiContract {
+  const url = new URL("../../../apps/web/openapi.json", import.meta.url);
+  return JSON.parse(readFileSync(url, "utf8")) as OpenApiContract;
 }
 
 describe("SDK route contract", () => {
@@ -52,5 +63,21 @@ describe("SDK route contract", () => {
       expect(operations, `${method} ${route}`).toBeDefined();
       expect(operations?.[method.toLowerCase()], `${method} ${route}`).toBeDefined();
     }
+  });
+
+  it("keeps the publication creation-source contract exact", () => {
+    const publication = loadContract().components.schemas.PublicationResponse;
+    expect(publication).toBeDefined();
+    if (!publication) throw new Error("PublicationResponse schema is missing");
+    expect(publication.required).toContain("creation_source");
+    expect(publication.properties?.creation_source?.enum).toEqual([
+      "web",
+      "api",
+      "sdk",
+      "mcp",
+      "cli",
+      "autopost",
+      "unknown",
+    ]);
   });
 });

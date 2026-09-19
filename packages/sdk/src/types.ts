@@ -20,6 +20,8 @@ export type PublicationStatus =
   | "published"
   | "failed";
 
+export type CreationSource = "web" | "api" | "sdk" | "mcp" | "cli" | "autopost" | "unknown";
+
 export type RenditionStatus =
   | "draft"
   | "ready"
@@ -149,6 +151,7 @@ export interface Publication {
   id: string;
   workspace_id: string;
   created_by: string;
+  creation_source: CreationSource;
   title: string;
   intent: string;
   content_profile: string;

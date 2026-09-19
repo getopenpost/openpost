@@ -17,4 +17,4 @@ Use it when work starts in a terminal. For a long-running JavaScript or TypeScri
 
 Run `openpost help` or `openpost <group> <command> --help` when this guide and an installed version differ. The installed help describes that binary.
 
-The CLI records created Publications with the CLI creation source, so OpenPost reports them separately from web, API, SDK, MCP, and automatic posting.
+The CLI stores `creation_source: "cli"` on Publications it creates. Publication responses expose that source alongside web, API, SDK, MCP, and automatic posting sources.

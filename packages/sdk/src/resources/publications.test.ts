@@ -15,6 +15,7 @@ function publication(status: string, revision = 3): Publication {
     id: "pub_1",
     workspace_id: "ws_1",
     created_by: "u_1",
+    creation_source: "sdk",
     title: "Hello",
     intent: "post",
     content_profile: "short_text",
@@ -47,6 +48,7 @@ describe("Publications", () => {
       social_account_ids: ["acc_1"],
     });
     expect(result.id).toBe("pub_1");
+    expect(result.creation_source).toBe("sdk");
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toMatchObject({ workspace_id: "ws_1", title: "Hello" });

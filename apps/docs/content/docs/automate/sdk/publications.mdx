@@ -24,11 +24,14 @@ Omit `social_account_ids` to keep the draft without destinations. Pass `social_s
 Read the current revision before changing Renditions. Send every Rendition you want to keep because this method replaces the saved destination set.
 
 ```ts
+const linkedinOptions = await openpost.accounts.destinationOptions("acc_linkedin");
+console.dir(linkedinOptions, { depth: null });
+
 const saved = await openpost.publications.upsertRenditions(draft.id, draft.revision, [
   {
     social_account_id: "acc_linkedin",
     body: "We shipped a faster import flow. Read the release notes:",
-    settings: { link: "https://example.com/releases/imports" },
+    settings: { url: "https://example.com/releases/imports" },
   },
   {
     social_account_id: "acc_x",
@@ -37,20 +40,20 @@ const saved = await openpost.publications.upsertRenditions(draft.id, draft.revis
 ]);
 ```
 
-Use `accounts.destinationOptions(accountId)` before constructing provider-specific settings. OpenPost returns a conflict when an account has multiple subdestinations and the Rendition does not include a `target_key`.
+Resolve `accounts.destinationOptions(accountId)` before constructing provider-specific settings. It returns the current keys and choices for that account. OpenPost returns a conflict when an account has multiple subdestinations and the Rendition does not include a `target_key`.
 
-## Validate and schedule
+## Validate and publish now
 
 ```ts
 await openpost.publications.validate(saved.id, { throwOnInvalid: true });
 
-const action = await openpost.publications.schedule(saved.id, saved.revision);
+const action = await openpost.publications.publishNow(saved.id, saved.revision);
 if (action.job_id) {
   await openpost.jobs.wait(action.job_id);
 }
 ```
 
-`publishNow`, `cancel`, and `remove` also take the revision you last read. This prevents a stale process from overwriting a newer edit. `retryFailed` retries failed Renditions without republishing successful ones.
+To publish later, set `scheduled_at` with `create()` or `update()`, then call `schedule()` with the latest revision. A scheduled job remains pending until that time, so do not call `jobs.wait()` in a short-lived request. `publishNow`, `schedule`, `cancel`, and `remove` take the revision you last read. This prevents a stale process from overwriting a newer edit. `retryFailed` retries failed Renditions without republishing successful ones.
 
 ## Read the outcome
 

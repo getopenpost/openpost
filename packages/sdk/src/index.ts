@@ -67,6 +67,7 @@ export type { PublicationSegmentInput, RenditionSegmentInput } from "./types.js"
 export { SDK_VERSION } from "./version.js";
 export type {
   ContentProfile,
+  CreationSource,
   CreatePublicationInput,
   DestinationOption,
   DestinationOptionGroups,

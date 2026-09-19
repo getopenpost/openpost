@@ -802,26 +802,39 @@ type PublicationSegmentInput struct {
 	Media []PublicationMediaInput `json:"media,omitempty"`
 }
 
+type PublicationCreationSource string
+
+const (
+	PublicationCreationSourceWeb      PublicationCreationSource = "web"
+	PublicationCreationSourceAPI      PublicationCreationSource = "api"
+	PublicationCreationSourceSDK      PublicationCreationSource = "sdk"
+	PublicationCreationSourceMCP      PublicationCreationSource = "mcp"
+	PublicationCreationSourceCLI      PublicationCreationSource = "cli"
+	PublicationCreationSourceAutopost PublicationCreationSource = "autopost"
+	PublicationCreationSourceUnknown  PublicationCreationSource = "unknown"
+)
+
 type Publication struct {
-	ID             string                 `json:"id"`
-	WorkspaceID    string                 `json:"workspace_id"`
-	CreatedBy      string                 `json:"created_by"`
-	Title          string                 `json:"title"`
-	Intent         string                 `json:"intent"`
-	ContentProfile string                 `json:"content_profile"`
-	SourceText     string                 `json:"source_text"`
-	SourceURL      string                 `json:"source_url,omitempty"`
-	Goal           string                 `json:"goal,omitempty"`
-	Audience       string                 `json:"audience,omitempty"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
-	Status         string                 `json:"status"`
-	Revision       int                    `json:"revision"`
-	ScheduledAt    string                 `json:"scheduled_at,omitempty"`
-	ActualRunAt    string                 `json:"actual_run_at,omitempty"`
-	CreatedAt      string                 `json:"created_at"`
-	UpdatedAt      string                 `json:"updated_at"`
-	Renditions     []Rendition            `json:"renditions"`
-	Media          []MediaSummary         `json:"media"`
+	ID             string                    `json:"id"`
+	WorkspaceID    string                    `json:"workspace_id"`
+	CreatedBy      string                    `json:"created_by"`
+	CreationSource PublicationCreationSource `json:"creation_source"`
+	Title          string                    `json:"title"`
+	Intent         string                    `json:"intent"`
+	ContentProfile string                    `json:"content_profile"`
+	SourceText     string                    `json:"source_text"`
+	SourceURL      string                    `json:"source_url,omitempty"`
+	Goal           string                    `json:"goal,omitempty"`
+	Audience       string                    `json:"audience,omitempty"`
+	Metadata       map[string]interface{}    `json:"metadata,omitempty"`
+	Status         string                    `json:"status"`
+	Revision       int                       `json:"revision"`
+	ScheduledAt    string                    `json:"scheduled_at,omitempty"`
+	ActualRunAt    string                    `json:"actual_run_at,omitempty"`
+	CreatedAt      string                    `json:"created_at"`
+	UpdatedAt      string                    `json:"updated_at"`
+	Renditions     []Rendition               `json:"renditions"`
+	Media          []MediaSummary            `json:"media"`
 }
 
 type MediaSummary struct {

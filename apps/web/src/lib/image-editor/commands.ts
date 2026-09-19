@@ -534,6 +534,17 @@ export function imageEditorCommandsForMobileGroup(
 	return IMAGE_EDITOR_COMMANDS.filter((command) => command.mobileGroup === group);
 }
 
+const COMPACT_MENU_CATEGORIES: readonly ImageEditorCommandCategory[] = [
+	'edit',
+	'layer',
+	'select',
+	'tools'
+];
+
+export function imageEditorCommandsForCompactMenu(): ImageEditorCommandDescriptor[] {
+	return COMPACT_MENU_CATEGORIES.flatMap((category) => imageEditorCommandsForCategory(category));
+}
+
 export function imageEditorCommandsForRail(): ImageEditorCommandDescriptor[] {
 	const seen = new Set<ImageEditorCommandRailSlot>();
 	return IMAGE_EDITOR_COMMANDS.filter((command) => {

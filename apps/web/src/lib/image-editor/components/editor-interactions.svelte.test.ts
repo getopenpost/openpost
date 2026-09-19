@@ -119,3 +119,17 @@ it('keeps page controls and long layer names inside a narrow viewport', async ()
 		await page.viewport(1280, 900);
 	}
 });
+
+it('uses the compact status row until pages are expanded into the ordered strip', async () => {
+	const editor = setup();
+	editor.pagesExpanded = false;
+	const screen = await render(Fixture, { editor });
+	await expect.element(screen.getByTestId('page-status-row')).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('status', { name: 'Page 1: First' }))
+		.toHaveTextContent('1/3');
+	expect(screen.container.querySelector('[data-page-id="first"]')).toBeNull();
+	await screen.getByRole('button', { name: 'Expand pages' }).click();
+	await expect.element(screen.getByRole('button', { name: /Page 1: First/ })).toBeInTheDocument();
+	expect(screen.container.querySelector('[data-testid="page-status-row"]')).toBeNull();
+});

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	duplicateImageEditorShortcuts,
 	imageEditorCommandForKeyboardEvent,
+	imageEditorCommandsForCompactMenu,
 	imageEditorCommandsForRail,
 	imageEditorShortcutLabel,
 	IMAGE_EDITOR_COMMANDS
@@ -53,5 +54,12 @@ describe('OpenPost Image Editor command registry', () => {
 	it('keeps one primary command per rail slot', () => {
 		const rail = imageEditorCommandsForRail();
 		expect(new Set(rail.map((command) => command.railSlot)).size).toBe(rail.length);
+	});
+
+	it('keeps Edit, Layer, Select, and Tools reachable from the compact menu', () => {
+		const categories = new Set(
+			imageEditorCommandsForCompactMenu().map((command) => command.category)
+		);
+		expect(categories).toEqual(new Set(['edit', 'layer', 'select', 'tools']));
 	});
 });

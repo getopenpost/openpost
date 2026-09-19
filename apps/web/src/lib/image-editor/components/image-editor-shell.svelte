@@ -3,7 +3,6 @@
 	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
-	import { ContextMenu } from 'bits-ui';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Menubar from '$lib/components/ui/menubar';
@@ -28,6 +27,7 @@
 	import LayerTree from './layer-tree.svelte';
 	import PropertiesPanel from './properties-panel.svelte';
 	import PageStrip from './page-strip.svelte';
+	import ToolFamilyButton from './tool-family-button.svelte';
 	import TemplatePreview from './template-preview.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { provideImageEditor, ImageEditorController } from '../editor.svelte';
@@ -121,6 +121,7 @@
 	import {
 		imageEditorCommand,
 		imageEditorCommandForKeyboardEvent,
+		imageEditorCommandsForCompactMenu,
 		imageEditorCommandsForCategory,
 		imageEditorCommandsForMobileGroup,
 		imageEditorCommandsForRail,
@@ -164,12 +165,8 @@
 	const editor = provideImageEditor(new ImageEditorController());
 	const backgroundRemoval = new ImageEditorBackgroundRemoval();
 	const editorTabID = crypto.randomUUID();
-	const DESKTOP_TOOL_RAIL_WIDTH = 44;
+	const DESKTOP_TOOL_RAIL_WIDTH = 56;
 	const MINIMUM_CANVAS_WIDTH = 320;
-	const TOOL_CONTEXT_MENU_CLASS =
-		'z-50 min-w-44 rounded-lg bg-popover/95 p-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur outline-none';
-	const TOOL_CONTEXT_MENU_ITEM_CLASS =
-		'flex min-h-8 cursor-default items-center gap-2 rounded-md px-2 outline-none data-highlighted:bg-muted [&>svg]:size-4 [@media(pointer:coarse)]:min-h-11';
 	type SaveRequest = {
 		coverPreviewMediaID?: string;
 		recoveryReason: 'idle' | 'export' | 'close';
@@ -436,6 +433,7 @@
 		if (!editor.document) {
 			editor.load(initial);
 			editor.setBrandKit(initialBrandKit);
+			editor.pagesExpanded = (editor.document?.pages.length ?? 0) > 1;
 			coverPreviewMediaID = initial.cover_preview_media_id ?? '';
 		}
 	}
@@ -2208,6 +2206,21 @@
 		return commandLabel(id);
 	}
 
+	type CompactCommandCategory = 'edit' | 'layer' | 'select' | 'tools';
+	const compactCommandCategories: readonly CompactCommandCategory[] = [
+		'edit',
+		'layer',
+		'select',
+		'tools'
+	];
+
+	function compactCommandCategoryLabel(category: CompactCommandCategory): string {
+		if (category === 'edit') return m.image_editor_edit();
+		if (category === 'layer') return m.image_editor_layer();
+		if (category === 'select') return m.image_editor_select();
+		return m.image_editor_tools();
+	}
+
 	async function copySelection(): Promise<void> {
 		copiedLayers = editor.pixelSelection
 			? (pixelSelectionActions?.copy() ?? [])
@@ -2561,7 +2574,7 @@
 	const commandIcons = new Map<ImageEditorCommandID, ToolGlyph>([
 		['tool_select', { kind: 'protected', role: 'editor-select' }],
 		['tool_marquee', { kind: 'protected', role: 'editor-marquee' }],
-		['tool_ellipse_marquee', { kind: 'protected', role: 'pending' }],
+		['tool_ellipse_marquee', { kind: 'protected', role: 'editor-marquee-ellipse' }],
 		['tool_lasso', { kind: 'protected', role: 'editor-lasso' }],
 		['tool_magic_wand', { kind: 'protected', role: 'editor-effects' }],
 		['tool_crop', { kind: 'protected', role: 'editor-crop' }],
@@ -2778,7 +2791,7 @@
 							</Button>
 						{/snippet}
 					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end">
+					<DropdownMenu.Content align="end" class="max-h-[calc(100dvh-1rem)] overflow-y-auto">
 						<div class="w-64 p-1 md:hidden">
 							<EditorTitleInput
 								value={editor.document?.title ?? ''}
@@ -2797,17 +2810,6 @@
 							/>
 						</div>
 						<DropdownMenu.Separator class="md:hidden" />
-						{#each imageEditorCommandsForCategory('edit').filter((command) => command.id === 'undo' || command.id === 'redo') as command (command.id)}
-							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
-							>
-								<ThemeIcon role={command.id === 'undo' ? 'undo' : 'redo'} />
-								{commandMenuLabel(command.id)}
-							</DropdownMenu.Item>
-						{/each}
-						<DropdownMenu.Separator />
 						{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
 							{#if command.separatorBefore}<DropdownMenu.Separator />{/if}
 							<DropdownMenu.Item
@@ -2819,6 +2821,25 @@
 							</DropdownMenu.Item>
 						{/each}
 						<DropdownMenu.Separator />
+						{#each compactCommandCategories as category (category)}
+							<DropdownMenu.Label>{compactCommandCategoryLabel(category)}</DropdownMenu.Label>
+							{#each imageEditorCommandsForCompactMenu().filter((command) => command.category === category) as command (command.id)}
+								{#if command.separatorBefore}<DropdownMenu.Separator />{/if}
+								<DropdownMenu.Item
+									onclick={() => executeEditorCommand(command.id)}
+									disabled={!commandEnabled(command.id)}
+									title={commandDisabledReason(command.id) || undefined}
+								>
+									{commandMenuLabel(command.id)}
+									{#if commandShortcut(command.id)}
+										<span class="ml-auto text-xs text-muted-foreground"
+											>{commandShortcut(command.id)}</span
+										>
+									{/if}
+								</DropdownMenu.Item>
+							{/each}
+							<DropdownMenu.Separator />
+						{/each}
 						<DropdownMenu.Item onclick={() => (mobileSheet = 'layers')}
 							>{m.image_editor_layers()}</DropdownMenu.Item
 						>
@@ -2843,15 +2864,6 @@
 									{commandLabel(command.id)}
 								</DropdownMenu.Item>
 							{/if}
-						{/each}
-						{#each imageEditorCommandsForCategory('layer').filter((command) => command.id === 'remove_background') as command (command.id)}
-							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
-							>
-								{commandLabel(command.id)}
-							</DropdownMenu.Item>
 						{/each}
 						<DropdownMenu.Separator />
 						{#each imageEditorCommandsForCategory('help') as command (command.id)}
@@ -2926,6 +2938,37 @@
 							{#if command.id === 'group'}<ProtectedIcon icon="editor-group" />{/if}
 							{#if command.id === 'ungroup'}<ProtectedIcon icon="editor-ungroup" />{/if}
 							{#if command.id === 'remove_background'}<ProtectedIcon icon="editor-effects" />{/if}
+							{commandLabel(command.id)}
+							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+						</Menubar.Item>
+					{/each}
+				</Menubar.Content>
+			</Menubar.Menu>
+			<Menubar.Menu value="select">
+				<Menubar.Trigger>{m.image_editor_select()}</Menubar.Trigger>
+				<Menubar.Content class="min-w-48">
+					{#each imageEditorCommandsForCategory('select') as command (command.id)}
+						{#if command.separatorBefore}<Menubar.Separator />{/if}
+						<Menubar.Item
+							onclick={() => executeEditorCommand(command.id)}
+							disabled={!commandEnabled(command.id)}
+							title={commandDisabledReason(command.id) || undefined}
+						>
+							{commandLabel(command.id)}
+							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+						</Menubar.Item>
+					{/each}
+				</Menubar.Content>
+			</Menubar.Menu>
+			<Menubar.Menu value="tools">
+				<Menubar.Trigger>{m.image_editor_tools()}</Menubar.Trigger>
+				<Menubar.Content class="min-w-52">
+					{#each imageEditorCommandsForCategory('tools') as command (command.id)}
+						<Menubar.Item
+							onclick={() => executeEditorCommand(command.id)}
+							disabled={!commandEnabled(command.id)}
+							title={commandDisabledReason(command.id) || undefined}
+						>
 							{commandLabel(command.id)}
 							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
 						</Menubar.Item>
@@ -3151,7 +3194,7 @@
 		style:--image-editor-inspector-width={`${inspectorPanelWidth}px`}
 	>
 		<nav
-			class="hidden min-h-0 flex-col items-center gap-1 border-r bg-card py-2 lg:flex"
+			class="no-scrollbar hidden min-h-0 flex-col items-center gap-1 overflow-y-auto border-r bg-card py-2 lg:flex"
 			aria-label={m.image_editor_tools()}
 		>
 			<Tooltip.Root>
@@ -3196,246 +3239,125 @@
 						<Tooltip.Content side="right">{commandTooltip(tool.command.id)}</Tooltip.Content>
 					</Tooltip.Root>
 				{:else if tool.key === 'marquee'}
-					<ContextMenu.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props: tooltipProps })}
-									<ContextMenu.Trigger>
-										{#snippet child({ props: menuProps })}
-											<Button
-												{...tooltipProps}
-												{...menuProps}
-												variant={isMarqueeTool(editor.activeTool) ? 'secondary' : 'ghost'}
-												size="icon-sm"
-												class="relative"
-												onclick={() =>
-													executeEditorCommand(
-														marqueeSlotTool === 'ellipse_marquee'
-															? 'tool_ellipse_marquee'
-															: 'tool_marquee'
-													)}
-												aria-label={commandLabel(
-													marqueeSlotTool === 'ellipse_marquee'
-														? 'tool_ellipse_marquee'
-														: 'tool_marquee'
-												)}
-												aria-pressed={isMarqueeTool(editor.activeTool)}
-											>
-												{#if marqueeSlotTool === 'marquee'}
-													<ProtectedIcon icon="editor-marquee" />
-												{:else}
-													<ProtectedIcon icon="pending" />
-												{/if}
-												{@render toolGroupIndicator()}
-											</Button>
-										{/snippet}
-									</ContextMenu.Trigger>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content side="right">
-								{commandTooltip(
-									marqueeSlotTool === 'ellipse_marquee' ? 'tool_ellipse_marquee' : 'tool_marquee'
-								)}
-							</Tooltip.Content>
-						</Tooltip.Root>
-						<ContextMenu.Portal>
-							<ContextMenu.Content class={TOOL_CONTEXT_MENU_CLASS}>
-								{#each railSlotCommands('pixel_select') as command (command.id)}
-									{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-									<ContextMenu.Item
-										class={TOOL_CONTEXT_MENU_ITEM_CLASS}
-										onclick={() => executeEditorCommand(command.id)}
-										disabled={!commandEnabled(command.id)}
+					{@const marqueeCommand =
+						marqueeSlotTool === 'ellipse_marquee' ? 'tool_ellipse_marquee' : 'tool_marquee'}
+					<ToolFamilyButton
+						label={commandLabel(marqueeCommand)}
+						active={isMarqueeTool(editor.activeTool)}
+						disabled={!commandEnabled(marqueeCommand)}
+						onclick={() => executeEditorCommand(marqueeCommand)}
+					>
+						{#snippet icon()}
+							<ProtectedIcon
+								icon={marqueeSlotTool === 'ellipse_marquee'
+									? 'editor-marquee-ellipse'
+									: 'editor-marquee'}
+							/>
+						{/snippet}
+						{#snippet menu()}
+							{#each railSlotCommands('pixel_select') as command (command.id)}
+								{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
+								<DropdownMenu.Item
+									onclick={() => executeEditorCommand(command.id)}
+									disabled={!commandEnabled(command.id)}
+								>
+									{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
+									<span class="ml-auto text-xs text-muted-foreground"
+										>{commandShortcut(command.id)}</span
 									>
-										{@render toolGlyph(CommandIcon)}
-										{commandLabel(command.id)}
-										<span class="ml-auto text-xs text-muted-foreground"
-											>{commandShortcut(command.id)}</span
-										>
-									</ContextMenu.Item>
-								{/each}
-							</ContextMenu.Content>
-						</ContextMenu.Portal>
-					</ContextMenu.Root>
+								</DropdownMenu.Item>
+							{/each}
+						{/snippet}
+					</ToolFamilyButton>
 				{:else if tool.key === 'shape'}
-					<ContextMenu.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props: tooltipProps })}
-									<ContextMenu.Trigger disabled={!commandEnabled(tool.command.id)}>
-										{#snippet child({ props: menuProps })}
-											<Button
-												{...tooltipProps}
-												{...menuProps}
-												variant="ghost"
-												size="icon-sm"
-												class="relative"
-												onclick={() => executeEditorCommand(tool.command.id)}
-												aria-label={commandLabel(tool.command.id)}
-												disabled={!commandEnabled(tool.command.id)}
-												title={commandDisabledReason(tool.command.id) || undefined}
-											>
-												{#if shapeSlotKind === 'ellipse'}
-													<ProtectedIcon icon="editor-shapes" />
-												{:else if shapeSlotKind === 'line'}
-													<ThemeIcon role="remove" />
-												{:else}
-													<ProtectedIcon icon="editor-shapes" />
-												{/if}
-												{@render toolGroupIndicator()}
-											</Button>
-										{/snippet}
-									</ContextMenu.Trigger>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content side="right">{commandTooltip(tool.command.id)}</Tooltip.Content>
-						</Tooltip.Root>
-						<ContextMenu.Portal>
-							<ContextMenu.Content class={TOOL_CONTEXT_MENU_CLASS}>
-								<ContextMenu.Item
-									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
-									onclick={() => insertShape('rectangle')}
-								>
-									<ProtectedIcon icon="editor-shapes" />
-									{m.image_editor_rectangle()}
-									<span class="ml-auto text-xs text-muted-foreground">U</span>
-								</ContextMenu.Item>
-								<ContextMenu.Item
-									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
-									onclick={() => insertShape('rounded_rectangle')}
-								>
-									<ProtectedIcon icon="editor-shapes" />
-									{m.image_editor_rounded_rectangle()}
-								</ContextMenu.Item>
-								<ContextMenu.Item
-									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
-									onclick={() => insertShape('ellipse')}
-								>
-									<ProtectedIcon icon="editor-shapes" />
-									{m.image_editor_ellipse()}
-								</ContextMenu.Item>
-								<ContextMenu.Item
-									class={TOOL_CONTEXT_MENU_ITEM_CLASS}
-									onclick={() => insertShape('line')}
-								>
-									<ThemeIcon role="remove" />
-									{m.image_editor_line()}
-								</ContextMenu.Item>
-							</ContextMenu.Content>
-						</ContextMenu.Portal>
-					</ContextMenu.Root>
+					<ToolFamilyButton
+						label={commandLabel(tool.command.id)}
+						active={editor.activeTool === 'shape'}
+						disabled={!commandEnabled(tool.command.id)}
+						onclick={() => executeEditorCommand(tool.command.id)}
+					>
+						{#snippet icon()}
+							{#if shapeSlotKind === 'line'}
+								<ThemeIcon role="remove" />
+							{:else}
+								<ProtectedIcon icon="editor-shapes" />
+							{/if}
+						{/snippet}
+						{#snippet menu()}
+							<DropdownMenu.Item onclick={() => insertShape('rectangle')}>
+								<ProtectedIcon icon="editor-shapes" />
+								{m.image_editor_rectangle()}
+								<span class="ml-auto text-xs text-muted-foreground">U</span>
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onclick={() => insertShape('rounded_rectangle')}>
+								<ProtectedIcon icon="editor-shapes" />
+								{m.image_editor_rounded_rectangle()}
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onclick={() => insertShape('ellipse')}>
+								<ProtectedIcon icon="editor-shapes" />
+								{m.image_editor_ellipse()}
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onclick={() => insertShape('line')}>
+								<ThemeIcon role="remove" />
+								{m.image_editor_line()}
+							</DropdownMenu.Item>
+						{/snippet}
+					</ToolFamilyButton>
 				{:else if tool.key === 'bucket'}
-					<ContextMenu.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props: tooltipProps })}
-									<ContextMenu.Trigger disabled={!editor.canEdit}>
-										{#snippet child({ props: menuProps })}
-											<Button
-												{...tooltipProps}
-												{...menuProps}
-												variant={isFillTool(editor.activeTool) ? 'secondary' : 'ghost'}
-												size="icon-sm"
-												class="relative"
-												onclick={() =>
-													executeEditorCommand(
-														fillSlotTool === 'gradient' ? 'tool_gradient' : 'tool_bucket'
-													)}
-												aria-label={commandLabel(
-													fillSlotTool === 'gradient' ? 'tool_gradient' : 'tool_bucket'
-												)}
-												disabled={!editor.canEdit}
-											>
-												{#if fillSlotTool === 'gradient'}
-													<ProtectedIcon icon="editor-blend" />
-												{:else}
-													<ProtectedIcon icon="editor-fill" />
-												{/if}
-												{@render toolGroupIndicator()}
-											</Button>
-										{/snippet}
-									</ContextMenu.Trigger>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content side="right">
-								{commandTooltip(fillSlotTool === 'gradient' ? 'tool_gradient' : 'tool_bucket')}
-							</Tooltip.Content>
-						</Tooltip.Root>
-						<ContextMenu.Portal>
-							<ContextMenu.Content class={TOOL_CONTEXT_MENU_CLASS}>
-								{#each railSlotCommands('fill') as command (command.id)}
-									{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-									<ContextMenu.Item
-										class={TOOL_CONTEXT_MENU_ITEM_CLASS}
-										onclick={() => executeEditorCommand(command.id)}
-										disabled={!commandEnabled(command.id)}
+					{@const fillCommand = fillSlotTool === 'gradient' ? 'tool_gradient' : 'tool_bucket'}
+					<ToolFamilyButton
+						label={commandLabel(fillCommand)}
+						active={isFillTool(editor.activeTool)}
+						disabled={!commandEnabled(fillCommand)}
+						onclick={() => executeEditorCommand(fillCommand)}
+					>
+						{#snippet icon()}
+							<ProtectedIcon icon={fillSlotTool === 'gradient' ? 'editor-blend' : 'editor-fill'} />
+						{/snippet}
+						{#snippet menu()}
+							{#each railSlotCommands('fill') as command (command.id)}
+								{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
+								<DropdownMenu.Item
+									onclick={() => executeEditorCommand(command.id)}
+									disabled={!commandEnabled(command.id)}
+								>
+									{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
+									<span class="ml-auto text-xs text-muted-foreground"
+										>{commandShortcut(command.id)}</span
 									>
-										{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-										<span class="ml-auto text-xs text-muted-foreground"
-											>{commandShortcut(command.id)}</span
-										>
-									</ContextMenu.Item>
-								{/each}
-							</ContextMenu.Content>
-						</ContextMenu.Portal>
-					</ContextMenu.Root>
+								</DropdownMenu.Item>
+							{/each}
+						{/snippet}
+					</ToolFamilyButton>
 				{:else if tool.key === 'eraser'}
-					<ContextMenu.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props: tooltipProps })}
-									<ContextMenu.Trigger disabled={!editor.canEdit}>
-										{#snippet child({ props: menuProps })}
-											<Button
-												{...tooltipProps}
-												{...menuProps}
-												variant={isEraserTool(editor.activeTool) ? 'secondary' : 'ghost'}
-												size="icon-sm"
-												class="relative"
-												onclick={() =>
-													executeEditorCommand(
-														eraserSlotTool === 'magic_eraser' ? 'tool_magic_eraser' : 'tool_eraser'
-													)}
-												aria-label={commandLabel(
-													eraserSlotTool === 'magic_eraser' ? 'tool_magic_eraser' : 'tool_eraser'
-												)}
-												disabled={!editor.canEdit}
-											>
-												{#if eraserSlotTool === 'magic_eraser'}
-													<ProtectedIcon icon="editor-effects" />
-												{:else}
-													<ProtectedIcon icon="editor-erase" />
-												{/if}
-												{@render toolGroupIndicator()}
-											</Button>
-										{/snippet}
-									</ContextMenu.Trigger>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content side="right">
-								{commandTooltip(
-									eraserSlotTool === 'magic_eraser' ? 'tool_magic_eraser' : 'tool_eraser'
-								)}
-							</Tooltip.Content>
-						</Tooltip.Root>
-						<ContextMenu.Portal>
-							<ContextMenu.Content class={TOOL_CONTEXT_MENU_CLASS}>
-								{#each railSlotCommands('erase') as command (command.id)}
-									{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-									<ContextMenu.Item
-										class={TOOL_CONTEXT_MENU_ITEM_CLASS}
-										onclick={() => executeEditorCommand(command.id)}
-										disabled={!commandEnabled(command.id)}
+					{@const eraseCommand =
+						eraserSlotTool === 'magic_eraser' ? 'tool_magic_eraser' : 'tool_eraser'}
+					<ToolFamilyButton
+						label={commandLabel(eraseCommand)}
+						active={isEraserTool(editor.activeTool)}
+						disabled={!commandEnabled(eraseCommand)}
+						onclick={() => executeEditorCommand(eraseCommand)}
+					>
+						{#snippet icon()}
+							<ProtectedIcon
+								icon={eraserSlotTool === 'magic_eraser' ? 'editor-effects' : 'editor-erase'}
+							/>
+						{/snippet}
+						{#snippet menu()}
+							{#each railSlotCommands('erase') as command (command.id)}
+								{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
+								<DropdownMenu.Item
+									onclick={() => executeEditorCommand(command.id)}
+									disabled={!commandEnabled(command.id)}
+								>
+									{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
+									<span class="ml-auto text-xs text-muted-foreground"
+										>{commandShortcut(command.id)}</span
 									>
-										{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-										<span class="ml-auto text-xs text-muted-foreground"
-											>{commandShortcut(command.id)}</span
-										>
-									</ContextMenu.Item>
-								{/each}
-							</ContextMenu.Content>
-						</ContextMenu.Portal>
-					</ContextMenu.Root>
+								</DropdownMenu.Item>
+							{/each}
+						{/snippet}
+					</ToolFamilyButton>
 				{:else}
 					<Tooltip.Root>
 						<Tooltip.Trigger>
@@ -3512,8 +3434,12 @@
 				>
 			</div>
 			{#if !focusedCanvas}
-				<div class="absolute inset-x-0 bottom-0">
-					<PageStrip onExternalFiles={placeExternalFiles} mode="status" />
+				<div
+					class="absolute inset-x-0 bottom-0 {editor.pagesExpanded
+						? 'h-[8.75rem] lg:h-[var(--image-editor-pages-height)]'
+						: 'h-11 lg:h-9'}"
+				>
+					<PageStrip onExternalFiles={placeExternalFiles} />
 				</div>
 			{/if}
 		</main>
@@ -4660,21 +4586,21 @@
 	@media (min-width: 64rem) {
 		.image-editor-workspace {
 			grid-template-columns:
-				44px
+				56px
 				minmax(0, 1fr)
 				var(--image-editor-inspector-width);
 		}
 
 		.image-editor-workspace[data-inspector='false'] {
-			grid-template-columns: 44px minmax(0, 1fr);
+			grid-template-columns: 56px minmax(0, 1fr);
 		}
 
 		.image-editor-workspace[data-workspace='color'] {
-			grid-template-columns: 44px minmax(0, 1fr) var(--image-editor-inspector-width);
+			grid-template-columns: 56px minmax(0, 1fr) var(--image-editor-inspector-width);
 		}
 
 		.image-editor-workspace[data-focused='true'] {
-			grid-template-columns: 44px minmax(0, 1fr);
+			grid-template-columns: 56px minmax(0, 1fr);
 		}
 
 		.image-editor-inspector {

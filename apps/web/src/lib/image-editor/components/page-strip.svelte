@@ -4,7 +4,6 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { useImageEditor } from '../editor.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Popover from '$lib/components/ui/popover';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import TemplatePreview from './template-preview.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -13,15 +12,13 @@
 	import { containsExternalImageDrag, externalFiles } from '../media-drag';
 
 	let {
-		onExternalFiles,
-		mode = 'strip'
+		onExternalFiles
 	}: {
 		onExternalFiles?: (
 			files: File[],
 			point: SelectionPoint,
 			pageID: string
 		) => void | Promise<void>;
-		mode?: 'strip' | 'status';
 	} = $props();
 
 	const editor = useImageEditor();
@@ -39,7 +36,6 @@
 		);
 	}
 	const hintID = $props.id();
-	let gridOpen = $state(false);
 	const pages = $derived(editor.document?.pages ?? []);
 	const activeIndex = $derived(pages.findIndex((page) => page.id === editor.activePageID));
 	const activePageLabel = $derived(
@@ -279,7 +275,7 @@
 			<span class="sr-only">{m.image_editor_delete_page()}</span>
 		</Button>
 	{/snippet}
-	{#if mode === 'strip'}
+	{#if editor.pagesExpanded}
 		<div class="flex h-8 items-center gap-1 border-b px-2 lg:h-8 [@media(pointer:coarse)]:h-11">
 			<Button
 				variant="ghost"
@@ -359,36 +355,16 @@
 				disabled={!editor.canEdit || activeIndex >= pages.length - 1}
 				onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
 			>
-			<Popover.Root bind:open={gridOpen}>
-				<Popover.Trigger>
-					{#snippet child({ props })}
-						<Button
-							{...props}
-							type="button"
-							variant="ghost"
-							size="icon-xs"
-							class="size-[22px] [@media(pointer:coarse)]:size-11"
-							aria-label={gridOpen
-								? m.image_editor_collapse_pages()
-								: m.image_editor_expand_pages()}
-						>
-							<ThemeIcon role={gridOpen ? 'chevron-down' : 'chevron-up'} />
-						</Button>
-					{/snippet}
-				</Popover.Trigger>
-				<Popover.Content
-					align="end"
-					side="top"
-					class="max-h-[min(70vh,24rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto p-2"
-				>
-					<div bind:this={strip} class="no-scrollbar grid grid-cols-2 gap-2 overflow-y-auto">
-						{@render pageGrid()}
-					</div>
-					<div class="mt-2 flex gap-1 border-t pt-2">
-						{@render pageActionButtons('size-8 [@media(pointer:coarse)]:size-11')}
-					</div>
-				</Popover.Content>
-			</Popover.Root>
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-xs"
+				class="size-[22px] [@media(pointer:coarse)]:size-11"
+				aria-label={m.image_editor_expand_pages()}
+				onclick={() => (editor.pagesExpanded = true)}
+			>
+				<ThemeIcon role="chevron-up" />
+			</Button>
 		</div>
 	{/if}
 </div>

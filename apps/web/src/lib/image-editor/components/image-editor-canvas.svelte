@@ -2333,7 +2333,7 @@
 	{#if editor.document}
 		{#if editor.activeTool === 'eyedropper'}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="absolute top-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:shrink-0"
 				data-testid="image-editor-eyedropper-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_eyedropper()}</span>
@@ -2390,7 +2390,7 @@
 		{/if}
 		{#if editor.activeTool === 'crop' && cropLayer}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="absolute top-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:shrink-0"
 				data-testid="image-editor-crop-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_crop()}</span>
@@ -2409,6 +2409,21 @@
 					]}
 					class="h-7 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 				/>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="h-7 shrink-0 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
+					onclick={cancelCrop}
+				>
+					{m.common_cancel()}
+				</Button>
+				<Button
+					size="sm"
+					class="h-7 shrink-0 px-1.5 text-xs [@media(pointer:coarse)]:h-11"
+					onclick={applyCrop}
+				>
+					{m.image_editor_apply_crop()}
+				</Button>
 				<div
 					class="flex items-center gap-1"
 					role="group"
@@ -2459,26 +2474,11 @@
 				>
 					{m.image_editor_reset()}
 				</Button>
-				<Button
-					variant="ghost"
-					size="sm"
-					class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
-					onclick={cancelCrop}
-				>
-					{m.common_cancel()}
-				</Button>
-				<Button
-					size="sm"
-					class="h-7 px-1.5 text-xs [@media(pointer:coarse)]:h-11"
-					onclick={applyCrop}
-				>
-					{m.image_editor_apply_crop()}
-				</Button>
 			</div>
 		{/if}
 		{#if isAreaSelectionTool() || editor.activeTool === 'pencil' || editor.activeTool === 'eraser' || editor.activeTool === 'magic_eraser' || editor.activeTool === 'bucket' || editor.activeTool === 'gradient'}
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:pointer-events-auto"
+				class="absolute top-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur [&>*]:shrink-0"
 				data-testid="image-editor-selection-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">

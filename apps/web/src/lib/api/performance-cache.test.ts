@@ -15,6 +15,7 @@ function publicationFixture(publicationId: string, workspaceId: string): Publica
 		created_at: '2026-01-01T00:00:00Z',
 		created_by: 'user-1',
 		creation_preset: '',
+		creation_source: 'web',
 		id: publicationId,
 		intent: 'single',
 		media: [],

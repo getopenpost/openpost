@@ -119,6 +119,7 @@ function publication(day: string): Publication {
 		created_at: `${day}T09:00:00Z`,
 		created_by: 'user-a',
 		creation_preset: 'post',
+		creation_source: 'web',
 		intent: 'post',
 		media: [],
 		metadata: {},

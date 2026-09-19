@@ -11627,7 +11627,7 @@ export interface components {
              * @description Low-cardinality channel that created the Publication
              * @enum {string}
              */
-            creation_source: "web" | "api" | "mcp" | "cli" | "autopost" | "unknown";
+            creation_source: "web" | "api" | "sdk" | "mcp" | "cli" | "autopost" | "unknown";
             failure_dismissed_at?: string;
             goal?: string;
             id: string;

@@ -39,6 +39,8 @@ func TestRESTPublicationAuthorizationCapturesBrowserAPIAndCLIActors(t *testing.T
 			principal: &middleware.Principal{UserID: "user-1", SessionID: "session-1"}},
 		{name: "api", token: "api-token", expectedOrigin: publicationauth.OriginAPI,
 			principal: &middleware.Principal{UserID: "user-1", TokenID: "token-api", ClientID: "integration-1", ClientName: "Automation", Scope: apitokens.ScopeCLI}},
+		{name: "sdk", token: "sdk-token", userAgent: "openpost-sdk/0.1.0", expectedOrigin: publicationauth.OriginSDK,
+			principal: &middleware.Principal{UserID: "user-1", TokenID: "token-sdk", ClientID: "integration-1", ClientName: "SDK app", Scope: apitokens.ScopeCLI}},
 		{name: "cli", token: "cli-token", userAgent: "openpost-cli/3.5.0", expectedOrigin: publicationauth.OriginCLI,
 			principal: &middleware.Principal{UserID: "user-1", TokenID: "token-cli", ClientID: openPostCLIClientID, ClientName: "Laptop", Scope: apitokens.ScopeCLI}},
 	}
@@ -110,6 +112,7 @@ func TestPublicationCreationSourceUsesLowCardinalityActorOrigin(t *testing.T) {
 	}{
 		{publicationauth.OriginBrowser, publicationCreationSourceWeb},
 		{publicationauth.OriginAPI, publicationCreationSourceAPI},
+		{publicationauth.OriginSDK, publicationCreationSourceSDK},
 		{publicationauth.OriginMCP, publicationCreationSourceMCP},
 		{publicationauth.OriginCLI, publicationCreationSourceCLI},
 		{publicationauth.OriginWorker, publicationCreationSourceAutopost},

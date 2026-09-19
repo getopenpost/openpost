@@ -14637,7 +14637,7 @@
 					},
 					"creation_source": {
 						"description": "Low-cardinality channel that created the Publication",
-						"enum": ["web", "api", "mcp", "cli", "autopost", "unknown"],
+						"enum": ["web", "api", "sdk", "mcp", "cli", "autopost", "unknown"],
 						"type": "string"
 					},
 					"failure_dismissed_at": {

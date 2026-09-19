@@ -8,11 +8,15 @@ import (
 	"github.com/openpost/backend/internal/services/publicationauth"
 )
 
-const openPostCLIClientID = "openpost-cli"
+const (
+	openPostCLIClientID  = "openpost-cli"
+	openPostSDKUserAgent = "openpost-sdk/"
+)
 
 const (
 	publicationCreationSourceWeb      = "web"
 	publicationCreationSourceAPI      = "api"
+	publicationCreationSourceSDK      = "sdk"
 	publicationCreationSourceMCP      = "mcp"
 	publicationCreationSourceCLI      = "cli"
 	publicationCreationSourceAutopost = "autopost"
@@ -25,6 +29,8 @@ func publicationCreationSource(ctx context.Context, fallbackUserID string) strin
 		return publicationCreationSourceWeb
 	case publicationauth.OriginAPI:
 		return publicationCreationSourceAPI
+	case publicationauth.OriginSDK:
+		return publicationCreationSourceSDK
 	case publicationauth.OriginMCP:
 		return publicationCreationSourceMCP
 	case publicationauth.OriginCLI:
@@ -60,7 +66,9 @@ func publicationAuthorizationActor(ctx context.Context, fallbackUserID string) p
 	case tokenID != "":
 		origin := publicationauth.OriginAPI
 		userAgent := strings.ToLower(strings.TrimSpace(middleware.GetUserAgent(ctx)))
-		if clientID == openPostCLIClientID || strings.HasPrefix(userAgent, openPostCLIClientID+"/") {
+		if strings.HasPrefix(userAgent, openPostSDKUserAgent) {
+			origin = publicationauth.OriginSDK
+		} else if clientID == openPostCLIClientID || strings.HasPrefix(userAgent, openPostCLIClientID+"/") {
 			origin = publicationauth.OriginCLI
 		}
 		return publicationauth.Actor{

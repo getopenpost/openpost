@@ -118,7 +118,7 @@ func validCertificationActorReceipt(receipt models.PublicationAuthorization) boo
 	switch receipt.ActorOrigin {
 	case publicationauth.OriginBrowser:
 		return receipt.ActorSessionID != "" && receipt.ActorTokenID == ""
-	case publicationauth.OriginAPI, publicationauth.OriginCLI:
+	case publicationauth.OriginAPI, publicationauth.OriginSDK, publicationauth.OriginCLI:
 		return receipt.ActorTokenID != ""
 	case publicationauth.OriginMCP:
 		return receipt.ActorSessionID != "" || receipt.ActorTokenID != ""

@@ -177,6 +177,7 @@ function publicationFixture(): Publication {
 		content_profile: '',
 		created_at: '2026-09-01T10:00:00Z',
 		created_by: 'user-1',
+		creation_source: 'web',
 		source_text: 'We shipped it.',
 		metadata: {},
 		media: [],

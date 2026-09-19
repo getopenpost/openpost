@@ -10,6 +10,7 @@ function publicationFixture(workspaceId: string): Publication {
 		created_at: '2026-01-01T00:00:00Z',
 		created_by: 'user-1',
 		creation_preset: '',
+		creation_source: 'web',
 		id: 'publication-1',
 		intent: 'single',
 		media: [],

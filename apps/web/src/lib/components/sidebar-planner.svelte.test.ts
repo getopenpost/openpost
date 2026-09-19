@@ -125,6 +125,7 @@ function publication(workspaceID: string): Publication {
 		created_at: '2026-09-01T10:00:00Z',
 		created_by: 'user-a',
 		creation_preset: 'post',
+		creation_source: 'web',
 		intent: 'post',
 		media: [],
 		metadata: {},

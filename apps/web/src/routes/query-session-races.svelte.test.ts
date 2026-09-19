@@ -391,6 +391,7 @@ function calendarPublication(id: string, title: string, scheduledAt: string) {
 		title,
 		intent: 'post',
 		creation_preset: 'post',
+		creation_source: 'web',
 		content_profile: 'post',
 		source_text: title,
 		status: 'scheduled',

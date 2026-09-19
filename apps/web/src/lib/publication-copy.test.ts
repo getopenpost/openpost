@@ -13,6 +13,7 @@ describe('publicationDraftCopy', () => {
 			title: 'Launch update',
 			intent: 'thread',
 			creation_preset: 'thread',
+			creation_source: 'web',
 			social_set_id: 'set-1',
 			content_profile: 'thread',
 			source_text: 'First post',

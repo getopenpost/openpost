@@ -10,6 +10,7 @@ type actorContextKey struct{}
 const (
 	OriginBrowser = "browser"
 	OriginAPI     = "api"
+	OriginSDK     = "sdk"
 	OriginMCP     = "mcp"
 	OriginCLI     = "cli"
 	OriginWorker  = "worker"
@@ -42,7 +43,7 @@ func (actor Actor) valid() bool {
 	switch actor.Origin {
 	case OriginBrowser:
 		return actor.UserID != "" && actor.SessionID != ""
-	case OriginAPI, OriginCLI:
+	case OriginAPI, OriginSDK, OriginCLI:
 		return actor.UserID != "" && actor.TokenID != ""
 	case OriginMCP:
 		return actor.UserID != "" && (actor.TokenID != "" || actor.SessionID != "")

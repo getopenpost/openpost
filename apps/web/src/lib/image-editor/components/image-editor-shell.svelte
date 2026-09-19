@@ -2795,7 +2795,7 @@
 				saved={editor.saveState === 'saved'}
 				savingLabel={m.common_saving()}
 				savedLabel={guestMode ? m.image_editor_public_saved_device() : m.image_editor_saved()}
-				class="max-sm:px-0"
+				class="max-sm:mr-2 max-sm:px-0"
 				testId="image-editor-save-indicator"
 			/>
 			{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
@@ -2808,7 +2808,7 @@
 				</div>
 			{/if}
 
-			<div class="flex items-center gap-1">
+			<div class="flex items-center gap-2">
 				<Button
 					variant="ghost"
 					size="icon-sm"

@@ -2778,6 +2778,7 @@
 				onvaluechange={(workspace) => {
 					activeEditorWorkspace = workspace === 'color' ? 'color' : 'edit';
 					if (activeEditorWorkspace === 'color') {
+						setTool('select');
 						editor.rightPanelVisible = true;
 						if (window.innerWidth < 1024) mobileSheet = null;
 						requestAnimationFrame(() => {
@@ -3702,7 +3703,7 @@
 		</Button>
 		<Button
 			variant={mobileSheet === 'properties' ? 'secondary' : 'ghost'}
-			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
+			class="h-12 min-w-0 flex-[1.4] flex-col gap-0 px-0 text-xs"
 			onclick={() => (mobileSheet = 'properties')}
 		>
 			<ThemeIcon role="controls" />

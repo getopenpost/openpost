@@ -450,7 +450,9 @@
 						class="size-full object-contain"
 						aria-label={`${m.video_editor_scope_live()}: ${scopeLabel(gridScope)}`}
 					></canvas>
-					<ColorScopeOverlay scope={gridScope} />
+					{#if gpuReady}
+						<ColorScopeOverlay scope={gridScope} />
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -476,7 +478,9 @@
 					aria-label={m.video_editor_scope_live()}
 				></canvas>
 			{/if}
-			<ColorScopeOverlay {scope} />
+			{#if gpuReady}
+				<ColorScopeOverlay {scope} />
+			{/if}
 		</div>
 	{/if}
 </section>

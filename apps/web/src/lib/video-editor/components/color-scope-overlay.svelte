@@ -71,10 +71,15 @@
 		{#each LUMA_GUIDES as level (level)}
 			<div
 				class="absolute right-0 left-0 border-t border-slate-400/20"
-				style:top={`${100 - level}%`}
+				style:top={level === 0 ? 'calc(100% - 1px)' : `${100 - level}%`}
 			>
 				<span
-					class="absolute left-1 -translate-y-1/2 rounded-sm bg-black/50 px-1 font-mono text-[9px] leading-4 text-slate-300/80"
+					class="absolute left-1 rounded-sm bg-black/50 px-1 font-mono text-[9px] leading-4 text-slate-300/80"
+					style:transform={level === 100
+						? 'translateY(0)'
+						: level === 0
+							? 'translateY(-100%)'
+							: 'translateY(-50%)'}
 				>
 					{level}
 				</span>

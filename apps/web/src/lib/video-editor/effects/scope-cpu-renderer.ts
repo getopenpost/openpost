@@ -89,7 +89,8 @@ function drawParade(
 		drawDensity(ctx, channel.values, 256, 128, laneWidth, height, channel.color, maximum);
 		ctx.fillStyle = 'rgba(220, 210, 200, 0.82)';
 		ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-		ctx.fillText(channel.label, 4, 10);
+		ctx.textAlign = 'center';
+		ctx.fillText(channel.label, laneWidth / 2, 12);
 		ctx.restore();
 	});
 	ctx.save();

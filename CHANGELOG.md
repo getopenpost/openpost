@@ -4,6 +4,42 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.36.0] - 2026-09-19
+
+### Fixed
+
+- Updated the archive reader used by local AI models to remove a decompression denial-of-service vulnerability.
+- Lemmy, PieFed, and PeerTube accounts with more than 250 posts or videos in the last 90 days finish their initial content discovery. The last page before the 250-item limit was rejected as oversized, so discovery failed on the same page every hour and never reached routine cycles.
+- New comments on busy Facebook posts reach the engagement inbox. Comments were read oldest first from a single page, so once a post had more comments than fit on one page, every later comment was left out.
+- Fixed Facebook and Instagram connect failing with `Invalid Scopes: pages_read_user_content`. Facebook and Instagram OAuth now request Meta's dependency permissions `pages_read_user_content` and `pages_manage_metadata` alongside comment and messaging scopes, and the Meta app setup guides list them.
+- PeerTube accounts with more than 15 channels can connect and publish to every channel; the channel list now reads every page instead of stopping at PeerTube's default page of 15.
+- PeerTube videos with more than 100 comment threads bring every thread into the inbox; older threads, and new replies on them, are no longer dropped after the first page.
+- PeerTube account content discovery finishes its cycle and picks up new videos again. It used to get stuck repeating the same page once a channel had a video older than the discovery window, spending the daily read budget on that page and never finding newer uploads.
+- Fixed Facebook video Stories and Reels failing when Meta had not finished fetching the video. OpenPost now uses Meta's hosted-file upload session, validates the credential-bearing upload host, keeps polling the accepted upload through temporary failures, and finishes only after the upload completes.
+- Fixed provider network errors retaining credential-bearing request URLs in stored or logged error text.
+- Fixed Threads posts with accents, curly punctuation, or emoji passing OpenPost's character check and then exceeding Meta's UTF-8 byte limit.
+- Fixed Facebook analytics using feed-post fields for Stories, Reels, and video posts. OpenPost now requests the metric family supported by each Graph object type.
+- Replies to replies on Threads posts reach the engagement inbox, threaded under the reply they answer. Only top-level replies were collected before, so a follower answering the account's own reply never showed up.
+- Reconcile public TikTok videos when publishing completes without a public post ID, while keeping ambiguous matches pending instead of republishing or saving a broken link.
+
+### Changed
+
+- Photo and video editors use compact workstation-density controls: smaller inspector rows, icon-first toolbars with tooltips, tighter browsers, pickers, dialogs, and canvas handles. Theme colors and behavior are unchanged.
+- Video inspector sections collapse with value summaries; the audio mixer no longer duplicates the clip EQ panel.
+- Transition and effect catalogs open as picker popovers instead of inline scrolling grids.
+- Image editor canvas bars collapse into one tool-options strip with a zoom and position status readout.
+- Timeline scrolling skips recompute and subscription churn when scroll geometry is unchanged.
+- Slider rows land the thumb where clicked with anchor-pixel scrub math behind one commit model.
+- Transcript cue list collapses into a value-reporting disclosure with a selected-cue editor.
+- Asset panel and page strip gain overlay and status modes for follow-up shell wiring.
+- MCP lists every operation as its own tool by default; set `OPENPOST_MCP_MODE=search` to keep the previous search-first flow (`both` combines them, search tool names unchanged).
+
+### Added
+
+- The image and video editor guides are now illustrated with captured product screenshots that refresh automatically when the UI drifts.
+- Added a full default MCP endpoint, a compact code-mode endpoint, secure local-file uploads, and RFC 9207 OAuth issuer metadata.
+- Track whether each Publication was created through the web app, API, TypeScript SDK, MCP, CLI, or an automatic posting flow.
+
 ## [4.35.3] - 2026-09-18
 
 ### Fixed

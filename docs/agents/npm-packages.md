@@ -28,6 +28,7 @@ The app's `v*` release workflow publishes the SDK beside the Hosted deployment, 
 
 - The pin must name a release that ships `.sha256` checksum assets (every release after this change lands). Older releases fail closed unless `OPENPOST_CLI_ALLOW_UNVERIFIED=1` is set.
 - Bump the pin to the upcoming tag during release preparation whenever the wrapper should track a new CLI, together with the wrapper version.
+- Keep `packages/cli/src/version.ts` and the lockfile aligned with the manifest version. Run the complete `bun run check -- npm-packages` gate before tagging; the version-increase check alone does not verify these values.
 - The CLI publishes after `publish-release`, so the pinned release is public when the wrapper ships and the live download proof runs against it. If release inspection ever fails, verification fails closed instead of silently skipping.
 
 ## Update checks

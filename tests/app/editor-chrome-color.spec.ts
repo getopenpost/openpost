@@ -398,7 +398,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
           await expect.poll(() => designCanvasCenterPixel(page)).toEqual(advancedPixel);
           await page.getByRole("button", { name: "Original", exact: true }).click();
           await page.getByRole("button", { name: "Show all scopes" }).click();
-          await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
+          await expect(page.locator("[data-color-scope-canvas]:visible")).toHaveCount(4);
           await page.getByRole("button", { name: "Warm", exact: true }).click();
           await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
           const gradedPixel = await designCanvasCenterPixel(page);

@@ -35,6 +35,13 @@ test.describe("touch editor discovery", () => {
     await expect(family).toBeFocused();
 
     await page.setViewportSize({ width: 320, height: 780 });
+    const propertiesLabel = page
+      .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+      .getByRole("button", { name: "Properties", exact: true })
+      .locator("span");
+    expect(
+      await propertiesLabel.evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
     const more = page
       .getByRole("banner")
       .getByRole("button", { name: "More actions", exact: true });
@@ -292,7 +299,14 @@ for (const scheme of ["light", "dark"] as const) {
     await page.screenshot({ path: testInfo.outputPath("photo-text-laptop.png") });
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
+      await page.getByRole("button", { name: "Draw", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "Foreground color", exact: true }),
+      ).toBeVisible();
       await page.locator("#image-editor-workspace-tab-color").click();
+      await expect(
+        page.getByRole("button", { name: "Foreground color", exact: true }),
+      ).toBeHidden();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
       const color = page.locator("[data-image-color-workspace]:visible");

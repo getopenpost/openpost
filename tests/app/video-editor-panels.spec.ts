@@ -397,14 +397,16 @@ for (const scheme of ["light", "dark"] as const) {
       );
     });
     await page.screenshot({ path: testInfo.outputPath(`columns-${scheme}.png`) });
-    await page.locator('[data-layout-toggle="theater"]').click();
+    async function enterTheater() {
+      await preview.getByRole("button", { name: "More actions", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Enter theater mode", exact: true }).click();
+    }
+    await enterTheater();
     await assertLayout(false, false);
     await page.keyboard.press("Escape");
     await assertLayout(true, true);
-    await page.evaluate(() => {
-      document.querySelector<HTMLButtonElement>('[data-layout-toggle="theater"]')!.click();
-      document.querySelector<HTMLElement>("[data-program-monitor]")!.focus();
-    });
+    await enterTheater();
+    await page.locator("[data-program-monitor]").focus();
     await page.evaluate(
       () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
     );

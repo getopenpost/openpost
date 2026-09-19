@@ -52,6 +52,11 @@ test("release candidate requires every independent CI job", () => {
   );
 });
 
+test("tag release candidates schedule the application browser suite", () => {
+  const browserApp = load(ci).jobs["browser-app"];
+  assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
+});
+
 test("only the image CI job can write packages", () => {
   const jobs = load(ci).jobs;
   assert.deepEqual(

@@ -519,7 +519,7 @@ jobs:
       matrix:
         shard: [1, 2]
     needs: [plan, frontend-build]
-    if: needs.plan.outputs.application == 'true' && github.ref_type != 'tag'
+    if: needs.plan.outputs.application == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

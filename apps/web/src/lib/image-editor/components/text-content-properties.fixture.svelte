@@ -53,6 +53,8 @@
 								color: '#ffffff',
 								align: 'left',
 								line_height: 1.05,
+								letter_spacing: 0,
+								stroke_width: 0,
 								shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 }
 							}
 						}

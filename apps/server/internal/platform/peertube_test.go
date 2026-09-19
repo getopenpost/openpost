@@ -153,6 +153,57 @@ func TestPeerTubeLoginAndChannelSelection(t *testing.T) {
 	require.Equal(t, server.URL, selected.InstanceURL)
 }
 
+func TestPeerTubeChannelSelectionReadsEveryChannelPage(t *testing.T) {
+	// GET /api/v1/accounts/{name}/video-channels is paginated: without a
+	// count PeerTube returns 15 channels, and it rejects a count above 100.
+	const channelCount = 105
+	var starts []string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/users/me", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"id":42,"username":"rodrigo","account":{"name":"rodrigo","displayName":"Rodrigo"}}`))
+	})
+	mux.HandleFunc("/api/v1/accounts/rodrigo/video-channels", func(w http.ResponseWriter, r *http.Request) {
+		start, count := 0, 15
+		if value := r.URL.Query().Get("start"); value != "" {
+			start, _ = strconv.Atoi(value)
+		}
+		if value := r.URL.Query().Get("count"); value != "" {
+			count, _ = strconv.Atoi(value)
+		}
+		if count > 100 {
+			http.Error(w, "Should have a number count (max: 100)", http.StatusBadRequest)
+			return
+		}
+		starts = append(starts, strconv.Itoa(start))
+		channels := make([]peertubeChannel, 0, count)
+		for id := start + 1; id <= min(start+count, channelCount); id++ {
+			channels = append(channels, peertubeChannel{ID: int64(id), Name: "channel_" + strconv.Itoa(id), DisplayName: "Channel " + strconv.Itoa(id)})
+		}
+		_ = json.NewEncoder(w).Encode(struct {
+			Total int64             `json:"total"`
+			Data  []peertubeChannel `json:"data"`
+		}{Total: channelCount, Data: channels})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	adapter := NewPeerTubeAdapter(server.URL)
+	token := &TokenResult{AccessToken: "atok"}
+	options, err := adapter.ListAccountSelections(t.Context(), token)
+	require.NoError(t, err)
+	require.Len(t, options, channelCount)
+	require.Equal(t, []string{"0", "100"}, starts, "channels must be read page by page")
+	require.Equal(t, "channel_105", options[channelCount-1].ID)
+
+	selected, err := adapter.SelectAccount(t.Context(), token, "channel_105")
+	require.NoError(t, err)
+	require.Equal(t, "channel_105", selected.AccountID)
+
+	picker, err := adapter.SearchPublishingOptions(t.Context(), "atok", PublishingOptionsInput{Source: "peertube_channels", Search: "Channel 105"})
+	require.NoError(t, err)
+	require.Equal(t, []DestinationOption{{Value: "channel_105", Label: "Channel 105"}}, picker.Options)
+}
+
 func TestPeerTubeResumableUploadAndPublish(t *testing.T) {
 	server, fake := newFakePeerTube(t)
 	defer server.Close()
@@ -334,6 +385,59 @@ func TestPeerTubeCommentsFetchesTruncatedReplies(t *testing.T) {
 		byID[item.ID] = item
 	}
 	require.Equal(t, "peertube:video-uuid-1:16", byID["peertube:video-uuid-1:17"].ParentID)
+}
+
+func TestPeerTubeCommentsReadsEveryThreadPage(t *testing.T) {
+	// GET /api/v1/videos/{id}/comment-threads is paginated with start and
+	// count (max 100); total counts threads, newest first.
+	const threadCount = 130
+	var starts []string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/videos/video-uuid-1/comment-threads", func(w http.ResponseWriter, r *http.Request) {
+		start, count := 0, 15
+		if value := r.URL.Query().Get("start"); value != "" {
+			start, _ = strconv.Atoi(value)
+		}
+		if value := r.URL.Query().Get("count"); value != "" {
+			count, _ = strconv.Atoi(value)
+		}
+		if count > 100 {
+			http.Error(w, "Should have a number count (max: 100)", http.StatusBadRequest)
+			return
+		}
+		starts = append(starts, strconv.Itoa(start))
+		threads := make([]peertubeComment, 0, count)
+		for index := start; index < min(start+count, threadCount); index++ {
+			id := int64(threadCount - index)
+			threads = append(threads, peertubeComment{ID: id, ThreadID: id, Text: "Thread " + strconv.FormatInt(id, 10), Account: peertubeAccount{Name: "viewer"}})
+		}
+		_ = json.NewEncoder(w).Encode(struct {
+			Total int64             `json:"total"`
+			Data  []peertubeComment `json:"data"`
+		}{Total: threadCount, Data: threads})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	adapter := NewPeerTubeAdapter(server.URL)
+	comments, err := adapter.ListComments(t.Context(), "token", "channel", "video-uuid-1")
+	require.NoError(t, err)
+	require.Len(t, comments, threadCount)
+	require.Equal(t, []string{"0", "100"}, starts, "threads must be read page by page")
+	require.Equal(t, "peertube:video-uuid-1:1", comments[threadCount-1].ID, "the oldest thread is listed")
+
+	for body, want := range map[string]string{"": "listing peertube comments", "not json": "decoding peertube comments"} {
+		failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if body == "" {
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			_, _ = w.Write([]byte(body))
+		}))
+		_, err := NewPeerTubeAdapter(failing.URL).ListComments(t.Context(), "token", "channel", "video-uuid-1")
+		failing.Close()
+		require.ErrorContains(t, err, want)
+	}
 }
 
 func TestPeerTubeCategoryAndLicencePickers(t *testing.T) {

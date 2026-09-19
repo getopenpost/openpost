@@ -879,31 +879,37 @@ func (p *PeerTubeAdapter) DiscoverAccountContent(ctx context.Context, accessToke
 		Status:      AccountContentDiscoveryPartial,
 		Description: "Only videos visible through the authenticated PeerTube instance are included.",
 	}}
+	reachedLowerBound := false
 	for _, video := range result.Data {
-		item, ok := p.normalizeAccountContentVideo(video, input.PublishedAfter)
+		item, ok := p.normalizeAccountContentVideo(video)
 		if !ok {
 			continue
+		}
+		// Videos come newest first, so the first one published before the
+		// window means the rest of the channel is older too.
+		if item.PublishedAt.Before(input.PublishedAfter) {
+			reachedLowerBound = true
+			break
 		}
 		page.Items = append(page.Items, item)
 		if page.BackfillWatermark.IsZero() || item.PublishedAt.Before(page.BackfillWatermark) {
 			page.BackfillWatermark = item.PublishedAt
 		}
 	}
-	if next := int64(start + len(page.Items)); next < result.Total {
+	// The cursor is an offset into the listing, so it advances by every
+	// video read, including those left out of the page.
+	if next := int64(start + len(result.Data)); !reachedLowerBound && next < result.Total {
 		page.NextCursor = strconv.FormatInt(next, 10)
 	}
 	return page, nil
 }
 
-func (p *PeerTubeAdapter) normalizeAccountContentVideo(video peertubeChannelVideo, publishedAfter time.Time) (AccountContentItem, bool) {
+func (p *PeerTubeAdapter) normalizeAccountContentVideo(video peertubeChannelVideo) (AccountContentItem, bool) {
 	publishedAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(video.PublishedAt))
 	if err != nil || publishedAt.IsZero() {
 		return AccountContentItem{}, false
 	}
 	publishedAt = publishedAt.UTC()
-	if !publishedAfter.IsZero() && publishedAt.Before(publishedAfter) {
-		return AccountContentItem{}, false
-	}
 	item := AccountContentItem{
 		ProviderContentID: p.instanceURL + "/videos/watch/" + firstNonEmptyString(video.UUID, video.ShortUUID),
 		ContentProfile:    "long_video",

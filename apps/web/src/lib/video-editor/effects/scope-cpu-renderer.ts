@@ -1,6 +1,11 @@
 import { buildScopeBins, type ScopeBins } from './scopes';
 
 export type ColorScope = 'histogram' | 'waveform' | 'parade' | 'vectorscope';
+export type ScopeGuideOwner = 'canvas' | 'external';
+
+export interface DrawCpuScopeOptions {
+	guideOwner?: ScopeGuideOwner;
+}
 
 function clear(ctx: CanvasRenderingContext2D, width: number, height: number): void {
 	ctx.fillStyle = '#0a0a0a';
@@ -63,9 +68,10 @@ function drawWaveform(
 	ctx: CanvasRenderingContext2D,
 	bins: ScopeBins,
 	width: number,
-	height: number
+	height: number,
+	guideOwner: ScopeGuideOwner
 ): void {
-	drawIreGrid(ctx, width, height);
+	if (guideOwner === 'canvas') drawIreGrid(ctx, width, height);
 	drawDensity(ctx, bins.waveform, 256, 128, width, height, [105, 239, 176], peak([bins.waveform]));
 }
 
@@ -73,9 +79,10 @@ function drawParade(
 	ctx: CanvasRenderingContext2D,
 	bins: ScopeBins,
 	width: number,
-	height: number
+	height: number,
+	guideOwner: ScopeGuideOwner
 ): void {
-	drawIreGrid(ctx, width, height);
+	if (guideOwner === 'canvas') drawIreGrid(ctx, width, height);
 	const channels = [
 		{ values: bins.parade.red, color: [255, 90, 95] as const, label: 'R' },
 		{ values: bins.parade.green, color: [90, 235, 135] as const, label: 'G' },
@@ -87,12 +94,15 @@ function drawParade(
 		ctx.save();
 		ctx.translate(index * laneWidth, 0);
 		drawDensity(ctx, channel.values, 256, 128, laneWidth, height, channel.color, maximum);
-		ctx.fillStyle = 'rgba(220, 210, 200, 0.82)';
-		ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-		ctx.textAlign = 'center';
-		ctx.fillText(channel.label, laneWidth / 2, 12);
+		if (guideOwner === 'canvas') {
+			ctx.fillStyle = 'rgba(220, 210, 200, 0.82)';
+			ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+			ctx.textAlign = 'center';
+			ctx.fillText(channel.label, laneWidth / 2, 12);
+		}
 		ctx.restore();
 	});
+	if (guideOwner === 'external') return;
 	ctx.save();
 	ctx.strokeStyle = 'rgba(170, 160, 150, 0.26)';
 	for (let lane = 1; lane < 3; lane++) {
@@ -109,9 +119,10 @@ function drawHistogram(
 	ctx: CanvasRenderingContext2D,
 	bins: ScopeBins,
 	width: number,
-	height: number
+	height: number,
+	guideOwner: ScopeGuideOwner
 ): void {
-	drawIreGrid(ctx, width, height);
+	if (guideOwner === 'canvas') drawIreGrid(ctx, width, height);
 	const channels = [
 		{ values: bins.histogram.red, color: '#ff5a5f' },
 		{ values: bins.histogram.green, color: '#5aeb87' },
@@ -188,9 +199,10 @@ function drawVectorscope(
 	ctx: CanvasRenderingContext2D,
 	bins: ScopeBins,
 	width: number,
-	height: number
+	height: number,
+	guideOwner: ScopeGuideOwner
 ): void {
-	drawVectorscopeGraticule(ctx, width, height);
+	if (guideOwner === 'canvas') drawVectorscopeGraticule(ctx, width, height);
 	drawDensity(
 		ctx,
 		bins.vectorscope,
@@ -208,12 +220,14 @@ export function drawCpuScope(
 	image: ImageData,
 	scope: ColorScope,
 	width: number,
-	height: number
+	height: number,
+	options: DrawCpuScopeOptions = {}
 ): void {
 	clear(ctx, width, height);
 	const bins = buildScopeBins(image.data, image.width, image.height);
-	if (scope === 'histogram') drawHistogram(ctx, bins, width, height);
-	else if (scope === 'waveform') drawWaveform(ctx, bins, width, height);
-	else if (scope === 'parade') drawParade(ctx, bins, width, height);
-	else drawVectorscope(ctx, bins, width, height);
+	const guideOwner = options.guideOwner ?? 'canvas';
+	if (scope === 'histogram') drawHistogram(ctx, bins, width, height, guideOwner);
+	else if (scope === 'waveform') drawWaveform(ctx, bins, width, height, guideOwner);
+	else if (scope === 'parade') drawParade(ctx, bins, width, height, guideOwner);
+	else drawVectorscope(ctx, bins, width, height, guideOwner);
 }

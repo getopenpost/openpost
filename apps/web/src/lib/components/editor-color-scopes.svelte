@@ -253,7 +253,9 @@
 		ensureCanvasSize(cpuCanvas, selectedScope);
 		const context = cpuCanvas.getContext('2d');
 		if (!context) return;
-		drawCpuScope(context, image, selectedScope, cpuCanvas.width, cpuCanvas.height);
+		drawCpuScope(context, image, selectedScope, cpuCanvas.width, cpuCanvas.height, {
+			guideOwner: 'external'
+		});
 	}
 
 	function registerGridCanvas(node: HTMLCanvasElement, index: number) {
@@ -311,7 +313,11 @@
 			if (!canvas) continue;
 			ensureCanvasSize(canvas, selectedScope);
 			const context = canvas.getContext('2d');
-			if (context) drawCpuScope(context, image, selectedScope, canvas.width, canvas.height);
+			if (context) {
+				drawCpuScope(context, image, selectedScope, canvas.width, canvas.height, {
+					guideOwner: 'external'
+				});
+			}
 		}
 	}
 
@@ -450,9 +456,7 @@
 						class="size-full object-contain"
 						aria-label={`${m.video_editor_scope_live()}: ${scopeLabel(gridScope)}`}
 					></canvas>
-					{#if gpuReady}
-						<ColorScopeOverlay scope={gridScope} />
-					{/if}
+					<ColorScopeOverlay scope={gridScope} />
 				</div>
 			{/each}
 		</div>
@@ -478,9 +482,7 @@
 					aria-label={m.video_editor_scope_live()}
 				></canvas>
 			{/if}
-			{#if gpuReady}
-				<ColorScopeOverlay {scope} />
-			{/if}
+			<ColorScopeOverlay {scope} />
 		</div>
 	{/if}
 </section>

@@ -1,15 +1,12 @@
 ---
 title: Jobs, conflicts, and errors
-description: Make SDK automation safe to rerun and easy to diagnose.
+description: Use jobs, revisions, and typed errors to rerun SDK automation safely.
 ---
 
 Publishing runs in durable jobs. Store the returned Publication ID and `job_id` so a later process can resume inspection without creating the content again.
 
 ```ts
-const action = await openpost.publications.publishNow(
-  publication.id,
-  publication.revision,
-);
+const action = await openpost.publications.publishNow(publication.id, publication.revision);
 if (action.job_id) {
   const job = await openpost.jobs.wait(action.job_id);
   console.log(job.status);
@@ -32,9 +29,7 @@ try {
   }
 
   if (error instanceof OpenPostError && error.code === "rate_limited") {
-    await new Promise((resolve) =>
-      setTimeout(resolve, error.retryAfterMs ?? 1_000),
-    );
+    await new Promise((resolve) => setTimeout(resolve, error.retryAfterMs ?? 1_000));
   }
 }
 ```

@@ -122,6 +122,7 @@ test("moved guides keep their public routes", async ({ request }) => {
     ["/guides/automation", "/automate"],
     ["/guides/sdk", "/automate/sdk"],
     ["/guides/cli", "/automate/cli"],
+    ["/mcp/tools", "/mcp/mcp-guide"],
   ] as const) {
     const response = await request.get(oldPath);
     expect(response.ok(), oldPath).toBe(true);

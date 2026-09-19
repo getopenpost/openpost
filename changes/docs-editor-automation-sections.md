@@ -1,3 +1,3 @@
 ### Changed
 
-- Split the public documentation into dedicated Video Editor, Image Editor, Automate, and AI assistant sections, with clearer guidance for the SDK, API, CLI, skills, MCP, and n8n.
+- Reorganized the public docs into Guides, Self-hosting, AI assistants, Automate, Video Editor, Image Editor, and a separate generated API reference, with focused SDK, HTTP API, CLI, MCP, skills, and n8n guides.

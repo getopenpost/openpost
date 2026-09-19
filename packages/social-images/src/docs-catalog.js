@@ -326,7 +326,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "automate/sdk/reliability.mdx",
     "title": "Jobs, conflicts, and errors",
-    "description": "Make SDK automation safe to rerun and easy to diagnose.",
+    "description": "Use jobs, revisions, and typed errors to rerun SDK automation safely.",
     "route": "/automate/sdk/reliability",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -760,6 +760,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/choose-an-agent-connection.mdx",
+    "title": "Choose an agent connection",
+    "description": "Compare MCP, the OpenPost CLI skill, and direct CLI commands.",
+    "route": "/mcp/choose-an-agent-connection",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/claude-code.mdx",
     "title": "Connect Claude Code",
     "description": "Use OpenPost from Claude Code in your terminal.",
@@ -922,7 +938,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "mcp/index.mdx",
     "title": "AI assistants",
-    "description": "Choose MCP, the OpenPost CLI skill, or direct CLI commands for an AI assistant.",
+    "description": "Choose how an AI assistant should work with OpenPost.",
     "route": "/mcp",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -930,6 +946,102 @@ export const docsPageCatalog = Object.freeze([
     "agentDiscovery": {
       "membership": "primary",
       "section": "mcp"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/mcp-guide/endpoints-and-tools.mdx",
+    "title": "Endpoints and tools",
+    "description": "Choose OpenPost's direct or compact MCP tool list.",
+    "route": "/mcp/mcp-guide/endpoints-and-tools",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/mcp-guide/index.mdx",
+    "title": "Connect with MCP",
+    "description": "Give an AI assistant access to OpenPost through MCP.",
+    "route": "/mcp/mcp-guide",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/mcp-guide/media.mdx",
+    "title": "Media and local files",
+    "description": "Give an MCP assistant existing media, a public URL, or a local file.",
+    "route": "/mcp/mcp-guide/media",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/mcp-guide/permissions-and-safety.mdx",
+    "title": "Permissions and safety",
+    "description": "Limit an MCP connection to the access an assistant needs.",
+    "route": "/mcp/mcp-guide/permissions-and-safety",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/mcp-guide/self-hosted-and-local.mdx",
+    "title": "Self-hosted and local connections",
+    "description": "Connect an MCP client to a public or private OpenPost instance.",
+    "route": "/mcp/mcp-guide/self-hosted-and-local",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/mcp-guide/use-cases.mdx",
+    "title": "MCP use cases",
+    "description": "Use MCP for schedule reviews, drafts, publishing, and delivery checks.",
+    "route": "/mcp/mcp-guide/use-cases",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
     },
     "agentCorpus": {
       "membership": "included",
@@ -985,10 +1097,58 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "mcp/tools.mdx",
-    "title": "Tools and permissions",
-    "description": "Understand OpenPost MCP tools, scopes, and safe request patterns.",
-    "route": "/mcp/tools",
+    "page": "mcp/skills/index.mdx",
+    "title": "OpenPost skills",
+    "description": "Give a compatible coding assistant OpenPost operating guidance.",
+    "route": "/mcp/skills",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/skills/install.mdx",
+    "title": "Install the OpenPost skill",
+    "description": "Install the openpost CLI and its Agent Skill.",
+    "route": "/mcp/skills/install",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/skills/openpost-cli.mdx",
+    "title": "How the CLI skill works",
+    "description": "Understand the workflow and limits of the openpost-cli skill.",
+    "route": "/mcp/skills/openpost-cli",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/skills/use-cases.mdx",
+    "title": "CLI skill use cases",
+    "description": "Use the openpost-cli skill for inspection, drafts, publishing, and recovery.",
+    "route": "/mcp/skills/use-cases",
     "agentRepresentation": {
       "membership": "ordinary"
     },

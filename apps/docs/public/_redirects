@@ -18,6 +18,8 @@
 /guides/quick-cut.md /video-editor/quick-cut-and-recorder.md 301
 /guides/recording /video-editor/quick-cut-and-recorder 301
 /guides/recording.md /video-editor/quick-cut-and-recorder.md 301
+/mcp/tools /mcp/mcp-guide 301
+/mcp/tools.md /mcp/mcp-guide/index.md 301
 /configuration /self-hosting/configuration 301
 /configuration/cors-and-urls /self-hosting/configuration 301
 /configuration/custom-connectors /self-hosting/configuration 301

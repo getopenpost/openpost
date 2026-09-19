@@ -24,21 +24,17 @@ Omit `social_account_ids` to keep the draft without destinations. Pass `social_s
 Read the current revision before changing Renditions. Send every Rendition you want to keep because this method replaces the saved destination set.
 
 ```ts
-const saved = await openpost.publications.upsertRenditions(
-  draft.id,
-  draft.revision,
-  [
-    {
-      social_account_id: "acc_linkedin",
-      body: "We shipped a faster import flow. Read the release notes:",
-      settings: { link: "https://example.com/releases/imports" },
-    },
-    {
-      social_account_id: "acc_x",
-      body: "The new import flow is live.",
-    },
-  ],
-);
+const saved = await openpost.publications.upsertRenditions(draft.id, draft.revision, [
+  {
+    social_account_id: "acc_linkedin",
+    body: "We shipped a faster import flow. Read the release notes:",
+    settings: { link: "https://example.com/releases/imports" },
+  },
+  {
+    social_account_id: "acc_x",
+    body: "The new import flow is live.",
+  },
+]);
 ```
 
 Use `accounts.destinationOptions(accountId)` before constructing provider-specific settings. OpenPost returns a conflict when an account has multiple subdestinations and the Rendition does not include a `target_key`.

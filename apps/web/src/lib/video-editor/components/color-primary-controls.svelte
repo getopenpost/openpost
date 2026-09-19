@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import EditorColorWheel from '$lib/components/editor-color-wheel.svelte';
 	import { Slider } from '$lib/components/ui/slider';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
@@ -54,7 +54,6 @@
 	const BALANCE_SLIDER_PARAMS = ['temperature', 'tint', 'saturation'] as const;
 	const MAX_DOCK_WHEEL_SIZE = 200;
 	const MIN_DOCK_WHEEL_SIZE = 48;
-	const DOCK_WHEEL_GRID_GAP_PX = 28;
 	const DOCK_WHEEL_EXTRAS_PX = 76;
 	const defaults = getGpuEffectDefaultParams(EFFECT_ID);
 	const definition = getGpuEffect(EFFECT_ID)!;
@@ -124,6 +123,7 @@
 	let parameterDrafts = $state<Record<string, number>>({});
 	let wheelGrid: HTMLDivElement | null = $state(null);
 	let wheelSize = $state(80);
+	let draftTargetItemId: string | null = null;
 
 	onMount(() => {
 		if (!wheelGrid) return;
@@ -137,10 +137,13 @@
 				(Number.parseFloat(styles.paddingTop) || 0) +
 				(Number.parseFloat(styles.paddingBottom) || 0);
 			const availableWidth = wheelGrid.clientWidth - paddingX;
-			const slotWidth =
-				(availableWidth - DOCK_WHEEL_GRID_GAP_PX * (wheelDescriptors.length - 1)) /
-				wheelDescriptors.length;
-			const slotHeight = wheelGrid.clientHeight - paddingY - DOCK_WHEEL_EXTRAS_PX;
+			const columns = availableWidth >= 640 ? wheelDescriptors.length : 2;
+			const rows = Math.ceil(wheelDescriptors.length / columns);
+			const columnGap = Number.parseFloat(styles.columnGap) || 0;
+			const rowGap = Number.parseFloat(styles.rowGap) || 0;
+			const slotWidth = (availableWidth - columnGap * (columns - 1)) / columns;
+			const slotHeight =
+				(wheelGrid.clientHeight - paddingY - rowGap * (rows - 1)) / rows - DOCK_WHEEL_EXTRAS_PX;
 			wheelSize = Math.max(
 				MIN_DOCK_WHEEL_SIZE,
 				Math.min(MAX_DOCK_WHEEL_SIZE, Math.floor(Math.min(slotWidth, slotHeight)))
@@ -151,6 +154,19 @@
 		const observer = new globalThis.ResizeObserver(updateSize);
 		observer.observe(wheelGrid);
 		return () => observer.disconnect();
+	});
+
+	onDestroy(() => {
+		if (draftTargetItemId) colorPreviewStore.clearEffectDraft(draftTargetItemId);
+	});
+
+	$effect(() => {
+		const nextItemId = itemId;
+		if (!draftTargetItemId || draftTargetItemId === nextItemId) return;
+		colorPreviewStore.clearEffectDraft(draftTargetItemId);
+		draftTargetItemId = null;
+		wheelDrafts = {};
+		parameterDrafts = {};
 	});
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
@@ -225,6 +241,7 @@
 
 	function preview(updates: Record<string, number>): void {
 		if (!itemId || !controlsEnabled) return;
+		draftTargetItemId = itemId;
 		const effectIds = targetItemIds.flatMap((id) => {
 			const effect = timelineStore.itemById
 				.get(id)
@@ -239,6 +256,7 @@
 	function commit(updates: Record<string, number>): void {
 		if (!itemId || !controlsEnabled) return;
 		colorPreviewStore.clearEffectDraft(itemId);
+		draftTargetItemId = null;
 		if (
 			setAnimatedGpuEffectParamsOnItems(
 				targetItemIds,
@@ -274,6 +292,7 @@
 	function cancelParameter(name: string): void {
 		delete parameterDrafts[name];
 		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
+		draftTargetItemId = null;
 	}
 
 	function parameterDisplay(name: string) {
@@ -457,6 +476,7 @@
 		delete parameterDrafts[descriptor.level];
 		delete wheelDrafts[descriptor.hue];
 		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
+		draftTargetItemId = null;
 	}
 
 	function ringFill(descriptor: (typeof wheelDescriptors)[number]): number {
@@ -471,7 +491,10 @@
 	}
 </script>
 
-<section class="flex h-full min-h-0 flex-col" aria-label={gpuEffectLabel(definition)}>
+<section
+	class="flex h-full min-h-0 flex-col overflow-y-auto"
+	aria-label={gpuEffectLabel(definition)}
+>
 	{#snippet sliderRow(name: string)}
 		{@const param = schema(name)}
 		{@const keyframe = sliderKeyframe(name)}
@@ -584,7 +607,7 @@
 	/>
 
 	<div
-		class="grid shrink-0 grid-cols-[auto_repeat(5,minmax(0,1fr))] items-center gap-x-1 border-b border-[var(--video-editor-border)] px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
+		class="order-3 grid shrink-0 grid-cols-[auto_repeat(5,minmax(0,1fr))] items-center gap-x-1 border-b border-[var(--video-editor-border)] px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
 	>
 		<div class="flex items-center gap-0.5 pr-1">
 			<button
@@ -687,7 +710,7 @@
 
 	<div
 		bind:this={wheelGrid}
-		class="grid min-h-0 flex-1 grid-cols-4 items-center gap-1.5 overflow-hidden px-3 py-2 2xl:gap-7 2xl:px-6 2xl:py-3"
+		class="order-2 grid min-h-[330px] flex-1 shrink-0 grid-cols-2 items-center gap-1.5 overflow-hidden px-3 py-2 sm:min-h-[170px] sm:grid-cols-4 2xl:gap-7 2xl:px-6 2xl:py-3"
 	>
 		{#each wheelDescriptors as descriptor (descriptor.hue)}
 			{@const value = wheelValue(descriptor)}
@@ -731,6 +754,7 @@
 						oncancel={() => {
 							delete wheelDrafts[descriptor.hue];
 							if (itemId) colorPreviewStore.clearEffectDraft(itemId);
+							draftTargetItemId = null;
 						}}
 					/>
 				</div>
@@ -805,7 +829,7 @@
 	</div>
 
 	<div
-		class="grid shrink-0 grid-cols-6 items-center gap-x-1 border-t border-[var(--video-editor-border)] px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
+		class="order-3 grid shrink-0 grid-cols-6 items-center gap-x-1 border-t border-[var(--video-editor-border)] px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
 	>
 		{#each bottomParameters as name (name)}
 			{@const param = schema(name)}
@@ -851,7 +875,7 @@
 		{/each}
 	</div>
 
-	<div class="shrink-0 border-t border-[var(--video-editor-border)]">
+	<div class="order-4 shrink-0 border-t border-[var(--video-editor-border)]">
 		<button
 			type="button"
 			class="flex h-[22px] w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"

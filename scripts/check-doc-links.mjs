@@ -37,6 +37,24 @@ function fumadocsPageRoute(page) {
   return `/${page}`;
 }
 
+function fumadocsMetaTarget(entry, relativeDirectory) {
+  if (
+    entry === "..." ||
+    entry === "z...a" ||
+    entry.startsWith("---") ||
+    entry.startsWith("...") ||
+    entry.startsWith("!")
+  ) {
+    return undefined;
+  }
+
+  const link = entry.match(/^(?:external:)?(?:\[[^\]]+\])?\[[^\]]+\]\(([^)]+)\)$/u);
+  if (link) return link[1];
+
+  const page = path.posix.join(relativeDirectory, entry.replace(/\.mdx?$/u, ""));
+  return fumadocsPageRoute(page);
+}
+
 export function fumadocsNavigationTargets(root) {
   const docsRoot = path.join(root, "apps/docs/content/docs");
   if (!existsSync(docsRoot)) return [];
@@ -46,9 +64,9 @@ export function fumadocsNavigationTargets(root) {
     if (existsSync(metaPath)) {
       const meta = JSON.parse(readFileSync(metaPath, "utf8"));
       for (const entry of Array.isArray(meta) ? meta : (meta.pages ?? [])) {
-        if (entry === "..." || typeof entry !== "string" || entry.startsWith("---")) continue;
-        const page = path.posix.join(relativeDirectory, entry.replace(/\.mdx?$/u, ""));
-        targets.push(fumadocsPageRoute(page));
+        if (typeof entry !== "string") continue;
+        const target = fumadocsMetaTarget(entry, relativeDirectory);
+        if (target) targets.push(target);
       }
     }
     for (const entry of readdirSync(directory, { withFileTypes: true })) {

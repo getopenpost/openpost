@@ -44,12 +44,18 @@ test("validates Fumadocs meta navigation and MDX link reachability", async () =>
   const root = await mkdtemp(path.join(os.tmpdir(), "openpost-doc-links-"));
   const docs = path.join(root, "apps/docs/content/docs");
   await mkdir(path.join(docs, "guides"), { recursive: true });
-  await writeFile(path.join(docs, "meta.json"), JSON.stringify({ pages: ["index", "guides"] }));
+  await writeFile(
+    path.join(docs, "meta.json"),
+    JSON.stringify({
+      pages: ["index", "---Guides---", "[Overview](/guides)", "...guides"],
+    }),
+  );
   await writeFile(path.join(docs, "index.mdx"), "[Quickstart](/guides/quickstart)");
   await writeFile(
     path.join(docs, "guides", "meta.json"),
-    JSON.stringify({ pages: ["quickstart"] }),
+    JSON.stringify({ pages: ["!index", "quickstart"] }),
   );
+  await writeFile(path.join(docs, "guides", "index.mdx"), "Overview");
   await writeFile(path.join(docs, "guides", "quickstart.mdx"), "Done");
 
   assert.deepEqual(fumadocsNavigationTargets(root), ["/", "/guides", "/guides/quickstart"]);

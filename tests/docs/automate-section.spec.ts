@@ -24,6 +24,23 @@ const pages = [
   ["/automate/n8n/reliability", "Retries and failures"],
 ] as const;
 
+test("Automate groups are always-visible sidebar sections", async ({ page }) => {
+  await page.goto("/automate/sdk");
+
+  const sidebar = page.locator("#nd-sidebar");
+  for (const section of ["TypeScript SDK", "HTTP API", "Command-line interface", "n8n workflows"]) {
+    await expect(sidebar.getByText(section, { exact: true })).toBeVisible();
+    await expect(sidebar.getByRole("button", { name: section, exact: true })).toHaveCount(0);
+  }
+
+  await expect(sidebar.getByRole("link", { name: "Install and connect", exact: true })).toHaveCount(
+    2,
+  );
+  await expect(sidebar.getByRole("link", { name: "Authentication and workspaces" })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Install and sign in" })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Build a publishing workflow" })).toBeVisible();
+});
+
 test("every Automate guide renders", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

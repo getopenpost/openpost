@@ -1,5 +1,5 @@
 {
   "title": "Command-line interface",
   "icon": "Terminal",
-  "pages": ["index", "setup", "publishing", "scripts-and-ci", "inspect-and-recover"]
+  "pages": ["!index", "setup", "publishing", "scripts-and-ci", "inspect-and-recover"]
 }

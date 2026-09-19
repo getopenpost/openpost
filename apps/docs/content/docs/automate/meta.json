@@ -2,5 +2,19 @@
   "title": "Automate",
   "icon": "Workflow",
   "root": true,
-  "pages": ["index", "---Build with OpenPost---", "sdk", "api", "cli", "n8n"]
+  "pages": [
+    "index",
+    "---TypeScript SDK---",
+    "[Overview](/automate/sdk)",
+    "...sdk",
+    "---HTTP API---",
+    "[Overview](/automate/api)",
+    "...api",
+    "---Command-line interface---",
+    "[Overview](/automate/cli)",
+    "...cli",
+    "---n8n workflows---",
+    "[Overview](/automate/n8n)",
+    "...n8n"
+  ]
 }

@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [5.1.2] - 2026-09-19
+
+### Fixed
+
+- Server-only releases no longer wait for an Android package that their candidate CI intentionally skips.
+
 ## [5.1.1] - 2026-09-19
 
 ### Fixed

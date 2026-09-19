@@ -1,6 +1,6 @@
 {
   "name": "@getopenpost/cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Install and run the OpenPost CLI and MCP proxy from npm. Downloads verified release binaries from GitHub.",
   "keywords": [
     "cli",
@@ -56,6 +56,6 @@
     "node": ">=20"
   },
   "openpost": {
-    "releaseTag": "v4.37.0"
+    "releaseTag": "v4.37.1"
   }
 }

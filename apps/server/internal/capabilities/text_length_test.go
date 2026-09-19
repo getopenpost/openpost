@@ -32,3 +32,23 @@ func TestTextLengthKeepsOtherProvidersAtCodePoints(t *testing.T) {
 	require.Equal(t, 3, TextLength(ProviderMastodon, "日本語"))
 	require.Equal(t, 5, TextLength(ProviderMastodon, "cafe\u0301"))
 }
+
+func TestTextLengthUsesUTF8BytesForThreads(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want int
+	}{
+		{name: "ASCII", text: "OpenPost", want: 8},
+		{name: "accented letter", text: "é", want: 2},
+		{name: "curly apostrophe", text: "’", want: 3},
+		{name: "emoji", text: "👋", want: 4},
+		{name: "ZWJ emoji", text: "👨‍👩‍👧‍👦", want: 25},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, TextLength(ProviderThreads, test.text))
+		})
+	}
+}

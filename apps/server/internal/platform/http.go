@@ -6,9 +6,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,6 +20,45 @@ import (
 
 var httpClient = newDefaultHTTPClient()
 var defaultPlatformHTTPClient = httpClient
+
+type TransportFailureKind string
+
+const (
+	TransportFailureConnection TransportFailureKind = "connection"
+	TransportFailureTimeout    TransportFailureKind = "timeout"
+	TransportFailureCanceled   TransportFailureKind = "canceled"
+)
+
+// TransportError classifies a failed provider request without retaining the
+// request URL, which may contain credentials in its query string.
+type TransportError struct {
+	Kind TransportFailureKind
+}
+
+func (e *TransportError) Error() string {
+	switch e.Kind {
+	case TransportFailureTimeout:
+		return "provider request timed out"
+	case TransportFailureCanceled:
+		return "provider request was canceled"
+	default:
+		return "provider request transport failed"
+	}
+}
+
+func sanitizeTransportError(err error) *TransportError {
+	if errors.Is(err, context.Canceled) {
+		return &TransportError{Kind: TransportFailureCanceled}
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &TransportError{Kind: TransportFailureTimeout}
+	}
+	var networkErr net.Error
+	if errors.As(err, &networkErr) && networkErr.Timeout() {
+		return &TransportError{Kind: TransportFailureTimeout}
+	}
+	return &TransportError{Kind: TransportFailureConnection}
+}
 
 func newDefaultHTTPClient() *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -70,7 +111,7 @@ func doRequestWithClient(ctx context.Context, client *http.Client, method, url s
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, sanitizeTransportError(err)
 	}
 	defer resp.Body.Close()
 

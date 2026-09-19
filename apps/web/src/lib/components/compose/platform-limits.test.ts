@@ -18,6 +18,14 @@ describe('platform-limits', () => {
 		expect(platformTextLength('mastodon', '日本語')).toBe(3);
 	});
 
+	it('uses UTF-8 bytes for Threads', () => {
+		expect(platformTextLength('threads', 'OpenPost')).toBe(8);
+		expect(platformTextLength('threads', 'é')).toBe(2);
+		expect(platformTextLength('threads', '’')).toBe(3);
+		expect(platformTextLength('threads', '👋')).toBe(4);
+		expect(platformTextLength('threads', '👨‍👩‍👧‍👦')).toBe(25);
+	});
+
 	it('does not invent a limit when no destination uses the shared text', () => {
 		expect(mostConstrainedCharacterUsage('A'.repeat(302), [])).toEqual({
 			count: 302,

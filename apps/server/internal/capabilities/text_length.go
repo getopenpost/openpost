@@ -17,8 +17,11 @@ var xURLPattern = xurls.Relaxed()
 // X normalizes text to NFC, shortens every URL to 23 characters, weights
 // selected Unicode ranges as one character, and weights the rest as two.
 func TextLength(provider, text string) int {
-	if strings.EqualFold(strings.TrimSpace(provider), ProviderX) {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case ProviderX:
 		return xWeightedTextLength(norm.NFC.String(text))
+	case ProviderThreads:
+		return len(text)
 	}
 	return utf8.RuneCountInString(text)
 }

@@ -46,37 +46,78 @@ func (f *FacebookAdapter) FetchAccountAnalytics(ctx context.Context, accessToken
 func (f *FacebookAdapter) FetchContentAnalytics(ctx context.Context, accessToken string, input ContentAnalyticsRequest) (AnalyticsValues, error) {
 	total := AnalyticsValues{}
 	for _, externalID := range uniqueNonEmpty(input.ExternalIDs) {
-		query := url.Values{
-			"fields":              {"reactions.limit(0).summary(true),comments.limit(0).summary(true),shares"},
-			oauthParamAccessToken: {accessToken},
+		edge, metrics, feedPost := facebookContentInsightRequest(input, externalID)
+		if feedPost {
+			if err := f.fetchFacebookFeedEngagement(ctx, accessToken, externalID, total); err != nil {
+				return nil, err
+			}
 		}
-		body, err := DoRequest(ctx, http.MethodGet, f.graphURL(externalID)+"?"+query.Encode(), nil, nil)
+		response, err := fetchMetaInsightsWithPeriod(ctx, f.graphURL(externalID+"/"+edge), accessToken, metrics, "lifetime")
 		if err != nil {
-			return nil, fmt.Errorf("facebook content analytics: %w", err)
+			return nil, fmt.Errorf("facebook content insights: %w", err)
 		}
-		var response struct {
-			Reactions struct {
-				Summary struct {
-					TotalCount *int64 `json:"total_count"`
-				} `json:"summary"`
-			} `json:"reactions"`
-			Comments struct {
-				Summary struct {
-					TotalCount *int64 `json:"total_count"`
-				} `json:"summary"`
-			} `json:"comments"`
-			Shares struct {
-				Count *int64 `json:"count"`
-			} `json:"shares"`
-		}
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("decoding facebook content analytics: %w", err)
-		}
-		addOptionalMetric(total, MetricLikes, response.Reactions.Summary.TotalCount)
-		addOptionalMetric(total, MetricComments, response.Comments.Summary.TotalCount)
-		addOptionalMetric(total, MetricShares, response.Shares.Count)
+		addMetaInsights(total, response)
 	}
 	return total, nil
+}
+
+func facebookContentInsightRequest(input ContentAnalyticsRequest, externalID string) (string, []string, bool) {
+	if input.Profile == "story" || input.OutputProfile == "facebook.story" {
+		return "insights", []string{
+			"page_story_impressions_by_story_id",
+			"page_story_impressions_by_story_id_unique",
+			"story_interaction",
+			"pages_fb_story_thread_lightweight_reactions",
+			"pages_fb_story_replies",
+			"pages_fb_story_shares",
+		}, false
+	}
+	if strings.Contains(externalID, "_") {
+		return "insights", []string{
+			"post_media_view",
+			"post_total_media_view_unique",
+			"post_reactions_like_total",
+			"post_clicks",
+		}, true
+	}
+	return "video_insights", []string{
+		"fb_reels_total_plays",
+		"post_video_likes_by_reaction_type",
+		"post_video_social_actions",
+	}, false
+}
+
+func (f *FacebookAdapter) fetchFacebookFeedEngagement(ctx context.Context, accessToken, externalID string, total AnalyticsValues) error {
+	query := url.Values{
+		"fields":              {"reactions.limit(0).summary(true),comments.limit(0).summary(true),shares"},
+		oauthParamAccessToken: {accessToken},
+	}
+	body, err := DoRequest(ctx, http.MethodGet, f.graphURL(externalID)+"?"+query.Encode(), nil, nil)
+	if err != nil {
+		return fmt.Errorf("facebook content analytics: %w", err)
+	}
+	var response struct {
+		Reactions struct {
+			Summary struct {
+				TotalCount *int64 `json:"total_count"`
+			} `json:"summary"`
+		} `json:"reactions"`
+		Comments struct {
+			Summary struct {
+				TotalCount *int64 `json:"total_count"`
+			} `json:"summary"`
+		} `json:"comments"`
+		Shares struct {
+			Count *int64 `json:"count"`
+		} `json:"shares"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return fmt.Errorf("decoding facebook content analytics: %w", err)
+	}
+	addOptionalMetric(total, MetricLikes, response.Reactions.Summary.TotalCount)
+	addOptionalMetric(total, MetricComments, response.Comments.Summary.TotalCount)
+	addOptionalMetric(total, MetricShares, response.Shares.Count)
+	return nil
 }
 
 func (i *InstagramAdapter) AnalyticsSupport() AnalyticsSupport {
@@ -204,7 +245,17 @@ func fetchMetaInsights(
 	accessToken string,
 	metrics []string,
 ) (metaInsightsResponse, error) {
-	response, err := requestMetaInsights(ctx, endpoint, accessToken, metrics)
+	return fetchMetaInsightsWithPeriod(ctx, endpoint, accessToken, metrics, "")
+}
+
+func fetchMetaInsightsWithPeriod(
+	ctx context.Context,
+	endpoint string,
+	accessToken string,
+	metrics []string,
+	period string,
+) (metaInsightsResponse, error) {
+	response, err := requestMetaInsights(ctx, endpoint, accessToken, metrics, period)
 	if err == nil || len(metrics) < 2 || !isBadRequest(err) {
 		return response, err
 	}
@@ -213,7 +264,7 @@ func fetchMetaInsights(
 	// metric at a time so one unsupported counter does not hide valid ones.
 	combined := metaInsightsResponse{}
 	for _, metric := range metrics {
-		item, itemErr := requestMetaInsights(ctx, endpoint, accessToken, []string{metric})
+		item, itemErr := requestMetaInsights(ctx, endpoint, accessToken, []string{metric}, period)
 		if itemErr != nil {
 			if isBadRequest(itemErr) {
 				continue
@@ -230,10 +281,14 @@ func requestMetaInsights(
 	endpoint string,
 	accessToken string,
 	metrics []string,
+	period string,
 ) (metaInsightsResponse, error) {
 	query := url.Values{
 		"metric":              {strings.Join(metrics, ",")},
 		oauthParamAccessToken: {accessToken},
+	}
+	if period != "" {
+		query.Set("period", period)
 	}
 	body, err := DoRequest(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil, nil)
 	if err != nil {
@@ -264,24 +319,30 @@ func addMetaInsights(target AnalyticsValues, response metaInsightsResponse) {
 		switch item.Name {
 		case "followers_count":
 			target[MetricFollowers] += value
-		case "views", "plays":
+		case "views", "plays", "fb_reels_total_plays":
 			target[MetricViews] += value
-		case "impressions":
+		case "impressions", "post_media_view", "page_story_impressions_by_story_id":
 			target[MetricImpressions] += value
-		case "reach":
+		case "reach", "post_total_media_view_unique", "page_story_impressions_by_story_id_unique":
 			target[MetricReach] += value
-		case "likes":
+		case "likes", "post_reactions_like_total":
 			target[MetricLikes] += value
-		case "comments", "replies":
+		case "comments", "replies", "pages_fb_story_replies":
 			target[MetricComments] += value
 		case "reposts":
 			target[MetricReposts] += value
 		case "quotes":
 			target[MetricQuotes] += value
-		case "shares":
+		case "shares", "pages_fb_story_shares":
 			target[MetricShares] += value
 		case "saved":
 			target[MetricSaves] += value
+		case "post_clicks":
+			target[MetricClicks] += value
+		case "pages_fb_story_thread_lightweight_reactions", "post_video_likes_by_reaction_type":
+			target[MetricReactions] += value
+		case "story_interaction", "post_video_social_actions":
+			target[MetricEngagements] += value
 		}
 	}
 }
@@ -299,7 +360,45 @@ func analyticsInt(raw json.RawMessage) (int64, bool) {
 		value, err := strconv.ParseInt(text, 10, 64)
 		return value, err == nil
 	}
+	var composite any
+	if json.Unmarshal(raw, &composite) == nil {
+		return analyticsCompositeTotal(composite)
+	}
 	return 0, false
+}
+
+func analyticsCompositeTotal(value any) (int64, bool) {
+	switch item := value.(type) {
+	case float64:
+		return int64(item), true
+	case string:
+		parsed, err := strconv.ParseInt(item, 10, 64)
+		return parsed, err == nil
+	case []any:
+		var total int64
+		measured := false
+		for _, child := range item {
+			value, ok := analyticsCompositeTotal(child)
+			if ok {
+				total += value
+				measured = true
+			}
+		}
+		return total, measured
+	case map[string]any:
+		var total int64
+		measured := false
+		for _, child := range item {
+			value, ok := analyticsCompositeTotal(child)
+			if ok {
+				total += value
+				measured = true
+			}
+		}
+		return total, measured
+	default:
+		return 0, false
+	}
 }
 
 func uniqueNonEmpty(values []string) []string {

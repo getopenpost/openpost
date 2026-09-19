@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -153,6 +155,162 @@ func TestFacebookPublishPhotoFromPublicURL(t *testing.T) {
 	}
 	if form.Get("url") != "https://media.example/photo.jpg" || form.Get("caption") != "Launch photo" || form.Get(oauthParamAccessToken) != "page-token" {
 		t.Fatalf("unexpected publish form: %s", form.Encode())
+	}
+}
+
+func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	for _, test := range []struct {
+		name          string
+		profile       string
+		outputProfile string
+		edge          string
+		finishIDField string
+		finishID      string
+	}{
+		{name: "reel", profile: "short_video", outputProfile: "facebook.reel", edge: "video_reels", finishIDField: "id", finishID: "reel-1"},
+		{name: "story", profile: "story", outputProfile: "facebook.story", edge: "video_stories", finishIDField: "post_id", finishID: "story-1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var calls []string
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls = append(calls, req.Method+" "+req.URL.Host+req.URL.Path)
+				switch {
+				case req.URL.Host == "graph.facebook.com" && strings.HasSuffix(req.URL.Path, "/page-1/"+test.edge):
+					body, err := io.ReadAll(req.Body)
+					if err != nil {
+						t.Fatalf("reading form: %v", err)
+					}
+					form, err := url.ParseQuery(string(body))
+					if err != nil {
+						t.Fatalf("parsing form: %v", err)
+					}
+					if form.Get("upload_phase") == "start" {
+						return jsonResponse(req, `{"video_id":"video-1","upload_url":"https://rupload.facebook.com/video-upload/v25.0/video-1"}`), nil
+					}
+					if form.Get("upload_phase") != "finish" || form.Get("video_id") != "video-1" {
+						t.Fatalf("unexpected finish form: %s", form.Encode())
+					}
+					return jsonResponse(req, fmt.Sprintf(`{"%s":"%s"}`, test.finishIDField, test.finishID)), nil
+				case req.URL.Host == "rupload.facebook.com":
+					if req.Header.Get(headerAuthorization) != "OAuth page-token" || req.Header.Get("file_url") != "https://media.example/video.mp4" {
+						t.Fatalf("unexpected rupload headers: %#v", req.Header)
+					}
+					if req.Body != nil {
+						body, err := io.ReadAll(req.Body)
+						if err != nil || len(body) != 0 {
+							t.Fatalf("rupload request must have no body, body=%q err=%v", body, err)
+						}
+					}
+					return jsonResponse(req, `{"success":true}`), nil
+				case req.URL.Host == "graph.facebook.com" && strings.HasSuffix(req.URL.Path, "/video-1"):
+					if req.URL.Query().Get("fields") != "status" || req.URL.Query().Get(oauthParamAccessToken) != "page-token" {
+						t.Fatalf("unexpected status query: %s", req.URL.RawQuery)
+					}
+					return jsonResponse(req, `{"status":{"uploading_phase":{"status":"complete"}}}`), nil
+				default:
+					t.Fatalf("unexpected request %s", req.URL.String())
+					return nil, nil
+				}
+			})}
+
+			result, err := NewFacebookAdapter("", "", "").Publish(t.Context(), "page-token", "page-1", &PublishRequest{
+				Content:          "Launch video",
+				Profile:          test.profile,
+				OutputProfile:    test.outputProfile,
+				PlatformMediaIDs: []string{"https://media.example/video.mp4"},
+				Media:            []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
+			})
+			if err != nil {
+				t.Fatalf("Publish returned error: %v", err)
+			}
+			if result.ExternalID != test.finishID {
+				t.Fatalf("expected %q, got %#v", test.finishID, result)
+			}
+			wantCalls := []string{
+				"POST graph.facebook.com/v25.0/page-1/" + test.edge,
+				"POST rupload.facebook.com/video-upload/v25.0/video-1",
+				"GET graph.facebook.com/v25.0/video-1",
+				"POST graph.facebook.com/v25.0/page-1/" + test.edge,
+			}
+			if !slices.Equal(calls, wantCalls) {
+				t.Fatalf("unexpected request order: %#v", calls)
+			}
+		})
+	}
+}
+
+func TestFacebookRejectsProviderUploadURLBeforeSendingCredentials(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	requests := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
+		return jsonResponse(req, `{"video_id":"video-1","upload_url":"https://rupload.facebook.com@evil.example/video-1"}`), nil
+	})}
+
+	_, err := NewFacebookAdapter("", "", "").Publish(t.Context(), "page-token", "page-1", &PublishRequest{
+		Profile:          "short_video",
+		OutputProfile:    "facebook.reel",
+		PlatformMediaIDs: []string{"https://media.example/video.mp4"},
+		Media:            []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid upload URL") {
+		t.Fatalf("expected invalid upload URL error, got %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("credentials were sent after invalid upload URL, requests=%d", requests)
+	}
+}
+
+func TestFacebookVideoPollKeepsExistingUploadAfterTransientFailure(t *testing.T) {
+	originalClient := httpClient
+	originalDelay := facebookVideoUploadPollDelay
+	defer func() {
+		httpClient = originalClient
+		facebookVideoUploadPollDelay = originalDelay
+	}()
+	facebookVideoUploadPollDelay = 0
+
+	statusCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case strings.HasSuffix(req.URL.Path, "/page-1/video_reels"):
+			body, _ := io.ReadAll(req.Body)
+			form, _ := url.ParseQuery(string(body))
+			if form.Get("upload_phase") == "start" {
+				return jsonResponse(req, `{"video_id":"video-1","upload_url":"https://rupload.facebook.com/video-1"}`), nil
+			}
+			return jsonResponse(req, `{"id":"reel-1"}`), nil
+		case req.URL.Host == "rupload.facebook.com":
+			return jsonResponse(req, `{"success":true}`), nil
+		case strings.HasSuffix(req.URL.Path, "/video-1"):
+			statusCalls++
+			if statusCalls == 1 {
+				return &http.Response{StatusCode: http.StatusServiceUnavailable, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"error":{"code":2}}`)), Request: req}, nil
+			}
+			return jsonResponse(req, `{"status":{"uploading_phase":{"status":"complete"}}}`), nil
+		default:
+			t.Fatalf("unexpected request %s", req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	_, err := NewFacebookAdapter("", "", "").Publish(t.Context(), "page-token", "page-1", &PublishRequest{
+		Profile:          "short_video",
+		OutputProfile:    "facebook.reel",
+		PlatformMediaIDs: []string{"https://media.example/video.mp4"},
+		Media:            []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
+	})
+	if err != nil {
+		t.Fatalf("Publish returned error: %v", err)
+	}
+	if statusCalls != 2 {
+		t.Fatalf("expected two status calls, got %d", statusCalls)
 	}
 }
 

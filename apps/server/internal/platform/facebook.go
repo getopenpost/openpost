@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -17,7 +19,11 @@ const (
 	facebookOAuthBaseURL        = "https://www.facebook.com"
 	facebookGraphBaseURL        = "https://graph.facebook.com"
 	metaBusinessManagementScope = "business_management"
+	facebookRuploadHost         = "rupload.facebook.com"
+	facebookVideoUploadMaxPolls = 60
 )
+
+var facebookVideoUploadPollDelay = 5 * time.Second
 
 type FacebookAdapter struct {
 	clientID     string
@@ -348,35 +354,9 @@ func (f *FacebookAdapter) publish(ctx context.Context, accessToken, pageID strin
 }
 
 func (f *FacebookAdapter) publishReel(ctx context.Context, accessToken, pageID string, req *PublishRequest, mediaURL string) (string, error) {
-	startResponse, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/video_reels"), map[string]string{
-		"upload_phase":        "start",
-		oauthParamAccessToken: accessToken,
-	}, nil)
-	if err != nil {
-		return "", fmt.Errorf("facebook reel upload start: %w", err)
-	}
-	var start struct {
-		VideoID   string `json:"video_id"`
-		UploadURL string `json:"upload_url"`
-	}
-	if err := json.Unmarshal(startResponse, &start); err != nil {
-		return "", fmt.Errorf("decoding facebook reel upload start: %w", err)
-	}
-	if start.VideoID == "" || start.UploadURL == "" {
-		return "", fmt.Errorf("facebook reel upload start did not return a video id and upload URL")
-	}
-	if _, err := DoRequest(ctx, http.MethodPost, start.UploadURL, nil, map[string]string{
-		headerAuthorization: "OAuth " + accessToken,
-		"file_url":          mediaURL,
-	}); err != nil {
-		return "", fmt.Errorf("facebook reel transfer: %w", err)
-	}
 	finishValues := map[string]string{
-		"upload_phase":        "finish",
-		"video_id":            start.VideoID,
-		"video_state":         "PUBLISHED",
-		"description":         strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "video_description"), req.Description, req.Content)),
-		oauthParamAccessToken: accessToken,
+		"video_state": "PUBLISHED",
+		"description": strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "video_description"), req.Description, req.Content)),
 	}
 	if title := firstNonEmptyString(settingString(req.Settings, "video_title"), req.Title); title != "" {
 		finishValues["title"] = title
@@ -384,10 +364,152 @@ func (f *FacebookAdapter) publishReel(ctx context.Context, accessToken, pageID s
 	if _, exists := req.Settings["share_to_feed"]; exists {
 		finishValues["share_to_feed"] = strconv.FormatBool(settingBool(req.Settings, "share_to_feed"))
 	}
-	if _, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/video_reels"), finishValues, nil); err != nil {
-		return "", fmt.Errorf("facebook reel publish: %w", err)
+	return f.publishHostedVideo(ctx, accessToken, pageID, "video_reels", "facebook reel", mediaURL, finishValues)
+}
+
+func (f *FacebookAdapter) publishHostedVideo(
+	ctx context.Context,
+	accessToken string,
+	pageID string,
+	edge string,
+	label string,
+	mediaURL string,
+	finishValues map[string]string,
+) (string, error) {
+	startResponse, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/"+edge), map[string]string{
+		"upload_phase":        "start",
+		oauthParamAccessToken: accessToken,
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("%s upload start: %w", label, err)
 	}
-	return start.VideoID, nil
+	var start struct {
+		VideoID   string `json:"video_id"`
+		UploadURL string `json:"upload_url"`
+	}
+	if err := json.Unmarshal(startResponse, &start); err != nil {
+		return "", fmt.Errorf("decoding %s upload start: %w", label, err)
+	}
+	if start.VideoID == "" || start.UploadURL == "" {
+		return "", fmt.Errorf("%s upload start did not return a video id and upload URL", label)
+	}
+	if err := validateFacebookUploadURL(start.UploadURL); err != nil {
+		return "", err
+	}
+	uploadResponse, err := DoRequestNoRedirect(ctx, http.MethodPost, start.UploadURL, nil, map[string]string{
+		headerAuthorization: "OAuth " + accessToken,
+		"file_url":          mediaURL,
+	})
+	if err != nil {
+		return "", fmt.Errorf("%s transfer: %w", label, err)
+	}
+	var uploaded struct {
+		Success bool `json:"success"`
+	}
+	if err := json.Unmarshal(uploadResponse, &uploaded); err != nil || !uploaded.Success {
+		return "", fmt.Errorf("%s transfer was not accepted", label)
+	}
+	if err := f.waitForFacebookVideoUpload(ctx, accessToken, start.VideoID); err != nil {
+		return "", fmt.Errorf("%s processing: %w", label, err)
+	}
+	finishValues["upload_phase"] = "finish"
+	finishValues["video_id"] = start.VideoID
+	finishValues[oauthParamAccessToken] = accessToken
+	finishResponse, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/"+edge), finishValues, nil)
+	if err != nil {
+		return "", fmt.Errorf("%s publish: %w", label, err)
+	}
+	finishedID, err := facebookPublishedID(label+" publish", finishResponse)
+	if err != nil {
+		if strings.Contains(err.Error(), "missing published id") {
+			return start.VideoID, nil
+		}
+		return "", err
+	}
+	return finishedID, nil
+}
+
+func validateFacebookUploadURL(rawURL string) error {
+	uploadURL, err := url.Parse(rawURL)
+	if err != nil || uploadURL.Scheme != "https" || uploadURL.Hostname() != facebookRuploadHost ||
+		uploadURL.Port() != "" || uploadURL.User != nil {
+		return fmt.Errorf("facebook returned an invalid upload URL")
+	}
+	return nil
+}
+
+func (f *FacebookAdapter) waitForFacebookVideoUpload(ctx context.Context, accessToken, videoID string) error {
+	for attempt := 0; attempt < facebookVideoUploadMaxPolls; attempt++ {
+		if attempt > 0 && facebookVideoUploadPollDelay > 0 {
+			timer := time.NewTimer(facebookVideoUploadPollDelay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+		query := url.Values{
+			"fields":              {"status"},
+			oauthParamAccessToken: {accessToken},
+		}
+		response, err := DoRequest(ctx, http.MethodGet, f.graphURL(videoID)+"?"+query.Encode(), nil, nil)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if isTransientFacebookVideoPollError(err) {
+				continue
+			}
+			return err
+		}
+		var statusResponse struct {
+			Status facebookVideoStatus `json:"status"`
+		}
+		if err := json.Unmarshal(response, &statusResponse); err != nil {
+			return fmt.Errorf("decoding Facebook video status: %w", err)
+		}
+		if statusResponse.Status.failed() {
+			return fmt.Errorf("facebook could not process the video")
+		}
+		if statusResponse.Status.complete() {
+			return nil
+		}
+	}
+	return fmt.Errorf("facebook timed out while processing the video")
+}
+
+type facebookVideoStatus struct {
+	VideoStatus     string             `json:"video_status"`
+	UploadingPhase  facebookVideoPhase `json:"uploading_phase"`
+	ProcessingPhase facebookVideoPhase `json:"processing_phase"`
+}
+
+type facebookVideoPhase struct {
+	Status string `json:"status"`
+	Error  struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+func (s facebookVideoStatus) failed() bool {
+	return s.UploadingPhase.Error.Message != "" || s.ProcessingPhase.Error.Message != "" ||
+		s.UploadingPhase.Status == "error" || s.ProcessingPhase.Status == "error" ||
+		s.VideoStatus == "error" || s.VideoStatus == "expired"
+}
+
+func (s facebookVideoStatus) complete() bool {
+	return s.UploadingPhase.Status == "complete" || s.VideoStatus == "ready" || s.VideoStatus == "upload_complete"
+}
+
+func isTransientFacebookVideoPollError(err error) bool {
+	var transportErr *TransportError
+	if errors.As(err, &transportErr) {
+		return transportErr.Kind != TransportFailureCanceled
+	}
+	var providerErr *HTTPError
+	return errors.As(err, &providerErr) && (providerErr.StatusCode == http.StatusRequestTimeout ||
+		providerErr.StatusCode == http.StatusTooManyRequests || providerErr.StatusCode >= http.StatusInternalServerError)
 }
 
 func (f *FacebookAdapter) publishFeedPost(ctx context.Context, accessToken, pageID string, req *PublishRequest) (string, error) {
@@ -487,13 +609,7 @@ func (f *FacebookAdapter) publishStory(ctx context.Context, accessToken, pageID 
 		return "", fmt.Errorf("facebook stories require a publicly-accessible HTTPS media URL")
 	}
 	if isVideoMime(req.Media[0].MimeType) {
-		respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/video_stories"), map[string]string{
-			"file_url": mediaURL, oauthParamAccessToken: accessToken,
-		}, nil)
-		if err != nil {
-			return "", fmt.Errorf("facebook story publish: %w", err)
-		}
-		return facebookPublishedID("facebook story publish", respBody)
+		return f.publishHostedVideo(ctx, accessToken, pageID, "video_stories", "facebook story", mediaURL, map[string]string{})
 	}
 	photoID, err := f.uploadUnpublishedPhoto(ctx, accessToken, pageID, mediaURL)
 	if err != nil {

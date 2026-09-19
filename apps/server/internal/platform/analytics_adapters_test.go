@@ -80,7 +80,7 @@ func TestAnalyticsAdaptersNormalizeProviderMetrics(t *testing.T) {
 	account, err = facebook.FetchAccountAnalytics(ctx, "token", AccountAnalyticsRequest{AccountID: "page"})
 	require.NoError(t, err)
 	require.Equal(t, int64(100), account[MetricFollowers])
-	content, err = facebook.FetchContentAnalytics(ctx, "token", ContentAnalyticsRequest{ExternalIDs: []string{"post"}})
+	content, err = facebook.FetchContentAnalytics(ctx, "token", ContentAnalyticsRequest{ExternalIDs: []string{"page_post"}})
 	require.NoError(t, err)
 	require.Equal(t, int64(9), content[MetricLikes])
 
@@ -121,6 +121,74 @@ func TestAnalyticsAdaptersNormalizeProviderMetrics(t *testing.T) {
 
 	linkedin := NewLinkedInAdapter("", "", "", false)
 	require.False(t, linkedin.AnalyticsSupport().Content)
+}
+
+func TestFacebookContentAnalyticsUsesGraphNodeSpecificInsights(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	tests := []struct {
+		name          string
+		externalID    string
+		profile       string
+		outputProfile string
+		wantPath      string
+		wantMetrics   []string
+		response      string
+		want          AnalyticsValues
+	}{
+		{
+			name: "story", externalID: "story-1", profile: "story", outputProfile: "facebook.story",
+			wantPath:    "/v25.0/story-1/insights",
+			wantMetrics: []string{"page_story_impressions_by_story_id", "page_story_impressions_by_story_id_unique", "story_interaction", "pages_fb_story_thread_lightweight_reactions", "pages_fb_story_replies", "pages_fb_story_shares"},
+			response:    `{"data":[{"name":"page_story_impressions_by_story_id","values":[{"value":100}]},{"name":"page_story_impressions_by_story_id_unique","values":[{"value":70}]},{"name":"pages_fb_story_replies","values":[{"value":4}]},{"name":"pages_fb_story_shares","values":[{"value":2}]}]}`,
+			want:        AnalyticsValues{MetricImpressions: 100, MetricReach: 70, MetricComments: 4, MetricShares: 2},
+		},
+		{
+			name: "video", externalID: "video-1", profile: "short_video", outputProfile: "facebook.reel",
+			wantPath:    "/v25.0/video-1/video_insights",
+			wantMetrics: []string{"fb_reels_total_plays", "post_video_likes_by_reaction_type", "post_video_social_actions"},
+			response:    `{"data":[{"name":"fb_reels_total_plays","values":[{"value":120}]},{"name":"post_video_likes_by_reaction_type","values":[{"value":{"LIKE":8,"LOVE":3}}]},{"name":"post_video_social_actions","values":[{"value":{"COMMENT":4,"SHARE":2}}]}]}`,
+			want:        AnalyticsValues{MetricViews: 120, MetricReactions: 11, MetricEngagements: 6},
+		},
+		{
+			name: "feed post", externalID: "page-1_post-1", profile: "short_text",
+			wantPath:    "/v25.0/page-1_post-1/insights",
+			wantMetrics: []string{"post_media_view", "post_total_media_view_unique", "post_reactions_like_total", "post_clicks"},
+			response:    `{"data":[{"name":"post_media_view","values":[{"value":90}]},{"name":"post_total_media_view_unique","values":[{"value":60}]},{"name":"post_reactions_like_total","values":[{"value":7}]},{"name":"post_clicks","values":[{"value":5}]}]}`,
+			want:        AnalyticsValues{MetricImpressions: 90, MetricReach: 60, MetricLikes: 16, MetricComments: 4, MetricShares: 2, MetricClicks: 5},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if test.name == "feed post" && req.URL.Path == "/v25.0/page-1_post-1" {
+					return jsonResponse(req, `{"reactions":{"summary":{"total_count":9}},"comments":{"summary":{"total_count":4}},"shares":{"count":2}}`), nil
+				}
+				if req.URL.Path != test.wantPath {
+					t.Fatalf("unexpected path %s", req.URL.Path)
+				}
+				if req.URL.Query().Get("period") != "lifetime" {
+					t.Fatalf("expected lifetime period, got %q", req.URL.Query().Get("period"))
+				}
+				for _, metric := range test.wantMetrics {
+					if !strings.Contains(req.URL.Query().Get("metric"), metric) {
+						t.Fatalf("missing metric %s in %s", metric, req.URL.RawQuery)
+					}
+				}
+				return jsonResponse(req, test.response), nil
+			})}
+
+			values, err := NewFacebookAdapter("", "", "").FetchContentAnalytics(t.Context(), "token", ContentAnalyticsRequest{
+				ExternalIDs: []string{test.externalID}, Profile: test.profile, OutputProfile: test.outputProfile,
+			})
+			if err != nil {
+				t.Fatalf("FetchContentAnalytics returned error: %v", err)
+			}
+			require.Equal(t, test.want, values)
+		})
+	}
 }
 
 func TestXAnalyticsUsesPublicMetricsAndKeepsMetricKindsDistinct(t *testing.T) {

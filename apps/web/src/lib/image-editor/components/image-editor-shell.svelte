@@ -3600,32 +3600,25 @@
 			<ThemeIcon role="layout" />
 			<span class="max-w-full truncate">{m.image_editor_add()}</span>
 		</Button>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger class="contents">
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant={[
-							'select',
-							'marquee',
-							'ellipse_marquee',
-							'lasso',
-							'magic_wand',
-							'eyedropper',
-							'hand'
-						].includes(editor.activeTool)
-							? 'secondary'
-							: 'ghost'}
-						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
-						onclick={() => setTool(mobileSelectTool)}
-						aria-label={m.image_editor_select()}
-					>
-						<ProtectedIcon icon="editor-select" />
-						<span class="max-w-full truncate">{m.image_editor_select()}</span>
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content side="top" align="start" class="min-w-52">
+		<ToolFamilyButton
+			label={m.image_editor_select()}
+			active={[
+				'select',
+				'marquee',
+				'ellipse_marquee',
+				'lasso',
+				'magic_wand',
+				'eyedropper',
+				'hand'
+			].includes(editor.activeTool)}
+			layout="bottom"
+			onclick={() => setTool(mobileSelectTool)}
+		>
+			{#snippet icon()}
+				<ProtectedIcon icon="editor-select" />
+				<span class="max-w-full truncate">{m.image_editor_select()}</span>
+			{/snippet}
+			{#snippet menu()}
 				{#each mobileToolCommands('select') as command (command.id)}
 					{@const Icon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 					<DropdownMenu.Item
@@ -3637,26 +3630,19 @@
 						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger class="contents">
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant={['text', 'pencil', 'bucket', 'gradient'].includes(editor.activeTool)
-							? 'secondary'
-							: 'ghost'}
-						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
-						onclick={() => setTool(mobileDrawTool)}
-						aria-label={m.image_editor_draw()}
-					>
-						<ThemeIcon role="edit" />
-						<span class="max-w-full truncate">{m.image_editor_draw()}</span>
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content side="top" align="start" class="min-w-44">
+			{/snippet}
+		</ToolFamilyButton>
+		<ToolFamilyButton
+			label={m.image_editor_draw()}
+			active={['text', 'pencil', 'bucket', 'gradient'].includes(editor.activeTool)}
+			layout="bottom"
+			onclick={() => setTool(mobileDrawTool)}
+		>
+			{#snippet icon()}
+				<ThemeIcon role="edit" />
+				<span class="max-w-full truncate">{m.image_editor_draw()}</span>
+			{/snippet}
+			{#snippet menu()}
 				{#each mobileToolCommands('draw') as command (command.id)}
 					{@const Icon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 					<DropdownMenu.Item
@@ -3668,27 +3654,20 @@
 						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger class="contents">
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant={['crop', 'eraser', 'magic_eraser'].includes(editor.activeTool)
-							? 'secondary'
-							: 'ghost'}
-						class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"
-						onclick={() => setTool(mobileRetouchTool)}
-						aria-label={m.image_editor_retouch()}
-						disabled={!editor.canEdit}
-					>
-						<ProtectedIcon icon="editor-erase" />
-						<span class="max-w-full truncate">{m.image_editor_retouch()}</span>
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content side="top" align="start" class="min-w-48">
+			{/snippet}
+		</ToolFamilyButton>
+		<ToolFamilyButton
+			label={m.image_editor_retouch()}
+			active={['crop', 'eraser', 'magic_eraser'].includes(editor.activeTool)}
+			disabled={!editor.canEdit}
+			layout="bottom"
+			onclick={() => setTool(mobileRetouchTool)}
+		>
+			{#snippet icon()}
+				<ProtectedIcon icon="editor-erase" />
+				<span class="max-w-full truncate">{m.image_editor_retouch()}</span>
+			{/snippet}
+			{#snippet menu()}
 				{#each mobileToolCommands('retouch') as command (command.id)}
 					{@const Icon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 					<DropdownMenu.Item
@@ -3707,8 +3686,8 @@
 						icon="editor-effects"
 					/>{m.image_editor_remove_background()}</DropdownMenu.Item
 				>
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
+			{/snippet}
+		</ToolFamilyButton>
 		<Button
 			variant={mobileSheet === 'layers' ? 'secondary' : 'ghost'}
 			class="h-12 min-w-0 flex-1 flex-col gap-0 px-0 text-xs"

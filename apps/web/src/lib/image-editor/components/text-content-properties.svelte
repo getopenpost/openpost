@@ -18,6 +18,30 @@
 			: ''
 	);
 	let applicationFeedback = $state('');
+	let fontWeightOptions = $derived.by(() => {
+		const options = [
+			[100, m.image_editor_thin()],
+			[200, m.image_editor_extra_light()],
+			[300, m.image_editor_light()],
+			[400, m.image_editor_regular()],
+			[500, m.image_editor_medium()],
+			[600, m.image_editor_semibold()],
+			[700, m.image_editor_bold()],
+			[800, m.image_editor_extra_bold()],
+			[900, m.image_editor_black()]
+		].map(([weight, label]) => ({ value: String(weight), label: `${weight} · ${label}` }));
+		const selectedWeight = layer?.text?.font_weight;
+		if (
+			Number.isFinite(selectedWeight) &&
+			selectedWeight! >= 1 &&
+			selectedWeight! <= 1000 &&
+			!options.some((option) => option.value === String(selectedWeight))
+		) {
+			options.push({ value: String(selectedWeight), label: String(selectedWeight) });
+			options.sort((left, right) => Number(left.value) - Number(right.value));
+		}
+		return options;
+	});
 
 	function numberValue(event: Event, fallback: number): number {
 		const value =
@@ -44,7 +68,6 @@
 
 {#if layer?.type === 'text' && layer.text}
 	<section class="space-y-2">
-		<h3 class="text-xs font-medium text-muted-foreground">{m.image_editor_text()}</h3>
 		{#if brandTextStyles.length > 0}
 			<label class="grid gap-1 text-xs">
 				<span>{m.image_editor_text_styles()}</span>
@@ -142,17 +165,7 @@
 						editor.updateLayer(layer.id, {
 							text: { ...layer.text!, font_weight: Number(value) }
 						})}
-					options={[
-						[100, m.image_editor_thin()],
-						[200, m.image_editor_extra_light()],
-						[300, m.image_editor_light()],
-						[400, m.image_editor_regular()],
-						[500, m.image_editor_medium()],
-						[600, m.image_editor_semibold()],
-						[700, m.image_editor_bold()],
-						[800, m.image_editor_extra_bold()],
-						[900, m.image_editor_black()]
-					].map(([weight, label]) => ({ value: String(weight), label: `${weight} · ${label}` }))}
+					options={fontWeightOptions}
 					class="h-7 w-full"
 				/>
 			</label>

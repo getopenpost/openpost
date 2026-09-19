@@ -8,6 +8,7 @@
 		label,
 		active,
 		disabled = false,
+		layout = 'rail',
 		onclick,
 		icon,
 		menu
@@ -15,6 +16,7 @@
 		label: string;
 		active: boolean;
 		disabled?: boolean;
+		layout?: 'rail' | 'bottom';
 		onclick: () => void;
 		icon: Snippet;
 		menu: Snippet;
@@ -52,7 +54,9 @@
 				type="button"
 				variant={active ? 'secondary' : 'ghost'}
 				size="icon-sm"
-				class="relative size-8 shrink-0 px-0 [@media(pointer:coarse)]:size-11"
+				class={layout === 'bottom'
+					? 'relative h-12 min-w-11 flex-1 flex-col gap-0 px-0 text-xs'
+					: 'relative size-8 shrink-0 px-0 [@media(pointer:coarse)]:size-11'}
 				data-testid="image-editor-tool-family"
 				aria-label={label}
 				aria-pressed={active}
@@ -72,7 +76,7 @@
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
-	<DropdownMenu.Content side="right" align="start" class="min-w-44">
+	<DropdownMenu.Content side={layout === 'bottom' ? 'top' : 'right'} align="start" class="min-w-44">
 		{@render menu()}
 	</DropdownMenu.Content>
 </DropdownMenu.Root>

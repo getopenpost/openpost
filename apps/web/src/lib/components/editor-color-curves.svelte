@@ -41,6 +41,8 @@
 
 	const SIZE = 256;
 	const SAMPLE_STEPS = 96;
+	const MARKER_RADIUS_PX = 7;
+	const POINT_HIT_SIZE_PX = 44;
 	const channelColors = {
 		master: '#e8e4dc',
 		red: '#f87171',
@@ -49,6 +51,8 @@
 	} satisfies Record<CurveChannel, string>;
 
 	let svg = $state<SVGSVGElement>();
+	let plotWidth = $state(SIZE);
+	let plotHeight = $state(SIZE);
 	let activeChannel = $state<CurveChannel>('master');
 	let selectedPointIndex = $state<number | null>(null);
 	let draft = $state<ChannelDraft>(readAllChannels({}));
@@ -66,6 +70,10 @@
 
 	const activePoints = $derived(draft[activeChannel]);
 	const activeColor = $derived(channelColors[activeChannel]);
+	const viewUnitsPerPixelX = $derived(SIZE / Math.max(1, plotWidth));
+	const viewUnitsPerPixelY = $derived(SIZE / Math.max(1, plotHeight));
+	const pointHitWidth = $derived(POINT_HIT_SIZE_PX * viewUnitsPerPixelX);
+	const pointHitHeight = $derived(POINT_HIT_SIZE_PX * viewUnitsPerPixelY);
 	const channelLabels = $derived<Record<CurveChannel, string>>({
 		master: m.video_editor_curves_master(),
 		red: m.video_editor_curves_red(),
@@ -402,6 +410,8 @@
 	</div>
 
 	<div
+		bind:clientWidth={plotWidth}
+		bind:clientHeight={plotHeight}
 		class="relative w-full overflow-hidden rounded-md border border-white/10 bg-black/55 {compact
 			? 'min-h-0 flex-1'
 			: 'aspect-square'}"
@@ -431,6 +441,7 @@
 					x2={position * SIZE}
 					y2={SIZE}
 					stroke="rgba(148,163,184,0.2)"
+					vector-effect="non-scaling-stroke"
 				/>
 				<line
 					x1="0"
@@ -438,12 +449,14 @@
 					x2={SIZE}
 					y2={position * SIZE}
 					stroke="rgba(148,163,184,0.2)"
+					vector-effect="non-scaling-stroke"
 				/>
 			{/each}
 			<path
 				d={`M 0 ${SIZE} L ${SIZE} 0`}
 				stroke="rgba(148,163,184,0.35)"
 				stroke-dasharray="4 4"
+				vector-effect="non-scaling-stroke"
 				fill="none"
 			/>
 			{#if activeChannel === 'master'}
@@ -452,6 +465,7 @@
 						d={curvePath(draft[channel])}
 						stroke={channelColors[channel]}
 						stroke-width="1.25"
+						vector-effect="non-scaling-stroke"
 						opacity="0.3"
 						fill="none"
 					/>
@@ -462,11 +476,18 @@
 					stroke={channelColors.master}
 					stroke-width="1.25"
 					stroke-dasharray="5 4"
+					vector-effect="non-scaling-stroke"
 					opacity="0.35"
 					fill="none"
 				/>
 			{/if}
-			<path d={curvePath(activePoints)} stroke={activeColor} stroke-width="2" fill="none" />
+			<path
+				d={curvePath(activePoints)}
+				stroke={activeColor}
+				stroke-width="2"
+				vector-effect="non-scaling-stroke"
+				fill="none"
+			/>
 			{#each activePoints as point, index (`${activeChannel}-${index}`)}
 				<line
 					x1={point.x * SIZE}
@@ -475,16 +496,22 @@
 					y2={(1 - point.y) * SIZE}
 					stroke={activeColor}
 					opacity="0.18"
+					vector-effect="non-scaling-stroke"
 				/>
 				<rect
-					x={Math.max(0, Math.min(SIZE - 44, point.x * SIZE - 22))}
-					y={Math.max(0, Math.min(SIZE - 44, (1 - point.y) * SIZE - 22))}
-					width="44"
-					height="44"
-					rx="22"
+					x={Math.max(0, Math.min(SIZE - pointHitWidth, point.x * SIZE - pointHitWidth / 2))}
+					y={Math.max(
+						0,
+						Math.min(SIZE - pointHitHeight, (1 - point.y) * SIZE - pointHitHeight / 2)
+					)}
+					width={pointHitWidth}
+					height={pointHitHeight}
+					rx={pointHitWidth / 2}
+					ry={pointHitHeight / 2}
 					fill="transparent"
 					stroke={selectedPointIndex === index ? '#ffffff' : 'transparent'}
 					stroke-width="2"
+					vector-effect="non-scaling-stroke"
 					class="cursor-move focus:outline-none focus-visible:stroke-[oklch(0.85_0.14_85)] focus-visible:stroke-[4px]"
 					data-curve-point={index}
 					tabindex={gpuEffect.enabled ? 0 : -1}
@@ -505,15 +532,18 @@
 					onfocus={() => (selectedPointIndex = index)}
 					onblur={commitKeyboardDraft}
 				></rect>
-				<circle
+				<ellipse
 					cx={point.x * SIZE}
 					cy={(1 - point.y) * SIZE}
-					r="7"
+					rx={MARKER_RADIUS_PX * viewUnitsPerPixelX}
+					ry={MARKER_RADIUS_PX * viewUnitsPerPixelY}
 					fill={activeColor}
 					stroke="rgba(3,7,18,0.95)"
 					stroke-width="2"
+					vector-effect="non-scaling-stroke"
 					pointer-events="none"
-				></circle>
+					data-curve-marker={index}
+				></ellipse>
 			{/each}
 		</svg>
 	</div>

@@ -5,6 +5,7 @@
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
 
 	let { projectId }: { projectId: string } = $props();
+	let settingsExpanded = $state(false);
 
 	const deviceOptions = $derived([
 		{ value: '', label: m.video_editor_voiceover_default_mic() },
@@ -21,17 +22,33 @@
 
 {#if voiceoverRecorder.supported && voiceoverRecorder.status === 'idle'}
 	<DropdownMenu.Item onclick={start}>
-		<ProtectedIcon icon="editor-record" class="text-red-400" />
+		<ProtectedIcon icon="editor-record" class="text-destructive" />
 		{m.video_editor_voiceover_record()}
 	</DropdownMenu.Item>
-	<DropdownMenu.Sub>
-		<DropdownMenu.SubTrigger>
-			<ThemeIcon role="audio" />
-			{m.video_editor_voiceover_settings()}
-		</DropdownMenu.SubTrigger>
-		<DropdownMenu.SubContent sideOffset={4} class="transport-overflow video-editor-theme min-w-56">
+	<DropdownMenu.Item
+		closeOnSelect={false}
+		aria-expanded={settingsExpanded}
+		onSelect={(event) => {
+			event.preventDefault();
+			settingsExpanded = !settingsExpanded;
+		}}
+	>
+		<ThemeIcon role="audio" />
+		{m.video_editor_voiceover_settings()}
+		<ThemeIcon
+			role="chevron-down"
+			class="ml-auto transition-transform {settingsExpanded ? 'rotate-180' : ''}"
+		/>
+	</DropdownMenu.Item>
+	{#if settingsExpanded}
+		<div
+			class="grid gap-0.5 border-l border-border/60 pl-2"
+			role="group"
+			aria-label={m.video_editor_voiceover_settings()}
+			data-voiceover-menu-settings
+		>
 			<DropdownMenu.Label>{m.video_editor_voiceover_microphone()}</DropdownMenu.Label>
-			{#each deviceOptions as device (device.value)}
+			{#each deviceOptions as device, index (`${device.value}:${index}`)}
 				<DropdownMenu.Item
 					onclick={() => voiceoverRecorder.setSelectedDeviceId(device.value || null)}
 				>
@@ -61,6 +78,12 @@
 				{m.video_editor_voiceover_mute_timeline()}
 			</DropdownMenu.CheckboxItem>
 			<DropdownMenu.Separator />
+			<DropdownMenu.Label class="flex items-center justify-between gap-3">
+				<span>{m.video_editor_voiceover_sync_offset()}</span>
+				<span class="font-mono tabular-nums">
+					{voiceoverRecorder.syncOffsetMs > 0 ? '+' : ''}{voiceoverRecorder.syncOffsetMs} ms
+				</span>
+			</DropdownMenu.Label>
 			<DropdownMenu.Item
 				onclick={() => voiceoverRecorder.setSyncOffsetMs(voiceoverRecorder.syncOffsetMs - 10)}
 			>
@@ -71,7 +94,7 @@
 			>
 				<ThemeIcon role="add" />{m.video_editor_voiceover_sync_later()}
 			</DropdownMenu.Item>
-		</DropdownMenu.SubContent>
-	</DropdownMenu.Sub>
+		</div>
+	{/if}
 	<DropdownMenu.Separator />
 {/if}

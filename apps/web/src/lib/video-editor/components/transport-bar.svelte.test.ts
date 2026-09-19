@@ -97,6 +97,17 @@ it('keeps supported voiceover commands and active stop reachable at 320px', asyn
 		await expect
 			.element(screen.getByRole('menuitem', { name: 'Voiceover settings', exact: true }))
 			.toBeVisible();
+		await screen.getByRole('menuitem', { name: 'Voiceover settings', exact: true }).click();
+		await expect.element(screen.getByText('Microphone', { exact: true })).toBeVisible();
+		await expect.element(screen.getByText('0 ms', { exact: true })).toBeVisible();
+		const voiceoverSettings = document.querySelector('[data-voiceover-menu-settings]');
+		if (!(voiceoverSettings instanceof HTMLElement)) {
+			throw new Error('Expected voiceover settings submenu');
+		}
+		const settingsBounds = voiceoverSettings.getBoundingClientRect();
+		expect(settingsBounds.left).toBeGreaterThanOrEqual(0);
+		expect(settingsBounds.right).toBeLessThanOrEqual(320);
+		await screen.getByRole('menuitem', { name: 'Voiceover settings', exact: true }).click();
 		await screen.getByRole('menuitem', { name: 'Record voiceover', exact: true }).click();
 
 		const stop = screen.getByRole('button', { name: 'Stop and save voiceover', exact: true });

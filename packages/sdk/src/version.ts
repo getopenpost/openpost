@@ -1,3 +1,3 @@
 // SDK_VERSION mirrors the package.json version. The version test fails when
 // they drift so a release never ships a stale User-Agent.
-export const SDK_VERSION = "0.1.0";
+export const SDK_VERSION = "0.2.0";

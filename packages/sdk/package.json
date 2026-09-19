@@ -1,6 +1,6 @@
 {
   "name": "@getopenpost/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Official TypeScript SDK for the OpenPost API. Create publications, manage renditions, upload media, and track publishing jobs.",
   "keywords": [
     "openpost",

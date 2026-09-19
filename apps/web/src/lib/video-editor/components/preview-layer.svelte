@@ -49,6 +49,7 @@
 		scopeCaptureDue,
 		scopeSamples
 	} from '$lib/video-editor/effects/scope-samples.svelte';
+	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { selectCuesAtFrame } from '$lib/video-editor/media/render-plan';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
 	import {
@@ -186,7 +187,11 @@
 	let renderCompositionFrame = $state<(() => void) | null>(null);
 	let lastRasterCanvas: HTMLCanvasElement | null = null;
 	let lastRasterKey = '';
-	let lastScopeAt = 0;
+	let lastScopeAt = Number.NEGATIVE_INFINITY;
+	const scopeSampleRequested = $derived(colorPreviewStore.scopeSampleItemId === item.id);
+	$effect(() => {
+		if (!scopeSampleRequested) lastScopeAt = Number.NEGATIVE_INFINITY;
+	});
 	const visualFrame = $derived(displayFrame ?? timelineStore.currentFrame);
 	const baseResolved = $derived(
 		resolveAnimatedItemAt(item, visualFrame, {
@@ -802,7 +807,7 @@
 			if (item.isReversed && !conform && !video.paused) video.pause();
 			if (!editorSession.isPlaying && !video.paused) video.pause();
 			if (!editorSession.isPlaying && audio && !audio.paused) audio.pause();
-			if (selected && !needsGpu && !deferEffects)
+			if (scopeSampleRequested && selected && !needsGpu && !deferEffects)
 				requestAnimationFrame(() => publishScopeSample(video));
 		};
 		syncVideoFrame = sync;
@@ -984,7 +989,7 @@
 		);
 		lottieRevision = untrack(() => lottieRevision) + 1;
 		onsourcechange?.();
-		if (selected && !needsGpu && !deferEffects) publishScopeSample(canvas);
+		if (scopeSampleRequested && selected && !needsGpu && !deferEffects) publishScopeSample(canvas);
 	});
 
 	$effect(() => {
@@ -1045,6 +1050,7 @@
 		const frames = animatedFrames;
 		const revision = animatedRevision;
 		const frame = visualFrame;
+		const shouldPublishScopeSample = scopeSampleRequested && selected && !needsGpu && !deferEffects;
 		if (!canvas || !frames || revision === 0) return;
 		if (canvas.width !== frames.width) canvas.width = frames.width;
 		if (canvas.height !== frames.height) canvas.height = frames.height;
@@ -1067,7 +1073,7 @@
 			context.clearRect(0, 0, canvas.width, canvas.height);
 			context.drawImage(bitmap, 0, 0);
 			onsourcechange?.();
-			if (selected && !needsGpu && !deferEffects) publishScopeSample(canvas);
+			if (shouldPublishScopeSample) publishScopeSample(canvas);
 		});
 		return () => {
 			cancelAnimationFrame(pendingRaf);
@@ -1214,7 +1220,7 @@
 			if (itemType === 'image' && image) image.style.visibility = rendered ? 'hidden' : '';
 			else if (source instanceof HTMLVideoElement || source instanceof HTMLCanvasElement)
 				source.style.visibility = rendered ? 'hidden' : '';
-			if (selected) publishScopeSample(rendered ? canvas : source);
+			if (scopeSampleRequested && selected) publishScopeSample(rendered ? canvas : source);
 		};
 		draw();
 		const offFrame = editorSession.clock.on('framechange', () => requestAnimationFrame(draw));
@@ -1235,7 +1241,14 @@
 		const image = decodedImageElement;
 		const raster = rasterCanvas;
 		const revision = rasterRevision;
-		if (!selected || needsGpu || deferEffects || item.type === 'video' || item.type === 'lottie')
+		if (
+			!scopeSampleRequested ||
+			!selected ||
+			needsGpu ||
+			deferEffects ||
+			item.type === 'video' ||
+			item.type === 'lottie'
+		)
 			return;
 		const source =
 			item.type === 'image'
@@ -1251,6 +1264,7 @@
 	});
 
 	function publishScopeSample(source: CanvasImageSource): void {
+		if (colorPreviewStore.scopeSampleItemId !== item.id) return;
 		const now = performance.now();
 		const playing = editorSession.isPlaying;
 		if (!scopeCaptureDue(lastScopeAt, now, playing)) return;

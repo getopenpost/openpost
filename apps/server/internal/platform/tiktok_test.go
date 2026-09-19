@@ -3,11 +3,13 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestTikTokGenerateAuthURL(t *testing.T) {
@@ -169,6 +171,78 @@ func TestTikTokPublishDirectVideoFromPublicURL(t *testing.T) {
 	}
 	if sourceInfo["source"] != "PULL_FROM_URL" || sourceInfo["video_url"] != "https://media.example/video.mp4" {
 		t.Fatalf("unexpected source_info: %#v", sourceInfo)
+	}
+}
+
+func TestTikTokPublishReconcilesCompletedVideoWithoutPublicID(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	createdAt := time.Now().UTC().Add(-time.Minute).Unix()
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokCreatorInfoURL:
+			return jsonResponse(req, `{"data":{"privacy_level_options":["PUBLIC_TO_EVERYONE"]},"error":{"code":"ok"}}`), nil
+		case tiktokVideoInitURL:
+			return jsonResponse(req, `{"data":{"publish_id":"publish-1"},"error":{"code":"ok"}}`), nil
+		case tiktokPublishStatusURL:
+			return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE"},"error":{"code":"ok"}}`), nil
+		case tiktokVideoListURL:
+			return jsonResponse(req, fmt.Sprintf(`{"data":{"videos":[{"id":"7511111111111111111","create_time":%d,"video_description":"Launch   video"}]},"error":{"code":"ok"}}`, createdAt)), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+	request := &PublishRequest{
+		Content: "Launch video", PlatformMediaIDs: []string{"https://media.example/video.mp4"},
+		Media:    []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
+		Settings: map[string]interface{}{"content_posting_method": "DIRECT_POST", "privacy_level": "PUBLIC_TO_EVERYONE"},
+	}
+	request.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error { return nil })
+	result, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
+	if err != nil {
+		t.Fatalf("Publish returned error: %v", err)
+	}
+	if result.ExternalID != "7511111111111111111" {
+		t.Fatalf("expected reconciled video id, got %#v", result)
+	}
+}
+
+func TestTikTokPublishKeepsAmbiguousCompletedVideoPending(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	createdAt := time.Now().UTC().Add(-time.Minute).Unix()
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokCreatorInfoURL:
+			return jsonResponse(req, `{"data":{"privacy_level_options":["PUBLIC_TO_EVERYONE"]},"error":{"code":"ok"}}`), nil
+		case tiktokVideoInitURL:
+			return jsonResponse(req, `{"data":{"publish_id":"publish-1"},"error":{"code":"ok"}}`), nil
+		case tiktokPublishStatusURL:
+			return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE"},"error":{"code":"ok"}}`), nil
+		case tiktokVideoListURL:
+			return jsonResponse(req, fmt.Sprintf(`{"data":{"videos":[{"id":"7511111111111111111","create_time":%d,"video_description":"Launch video"},{"id":"7522222222222222222","create_time":%d,"video_description":"Launch video"}]},"error":{"code":"ok"}}`, createdAt, createdAt)), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+	request := &PublishRequest{
+		Content: "Launch video", PlatformMediaIDs: []string{"https://media.example/video.mp4"},
+		Media:    []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
+		Settings: map[string]interface{}{"content_posting_method": "DIRECT_POST", "privacy_level": "PUBLIC_TO_EVERYONE"},
+	}
+	var checkpoints []PublishResult
+	request.SetWriteFence(func(PublishResult) error { return nil }, func(result PublishResult) error {
+		checkpoints = append(checkpoints, result)
+		return nil
+	})
+	_, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
+	if err == nil || !strings.Contains(err.Error(), "expected one recent exact match, found 2") {
+		t.Fatalf("expected ambiguous reconciliation error, got %v", err)
+	}
+	if len(checkpoints) != 2 || checkpoints[1].ProviderState != "published_unresolved" || checkpoints[1].RetrySafety != PublishRetryReconcileOnly {
+		t.Fatalf("expected durable unresolved checkpoint, got %#v", checkpoints)
 	}
 }
 

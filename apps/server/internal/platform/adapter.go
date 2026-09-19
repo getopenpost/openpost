@@ -194,6 +194,13 @@ type PublishReconciler interface {
 	ReconcilePublish(ctx context.Context, accessToken, accountID, providerReference string) (PublishResult, error)
 }
 
+// PublishRequestReconciler performs the same read-only reconciliation with the
+// original authorized request available for exact provider-side matching.
+// Implementations must not recreate the write.
+type PublishRequestReconciler interface {
+	ReconcilePublishRequest(ctx context.Context, accessToken, accountID string, request *PublishRequest, providerReference string) (PublishResult, error)
+}
+
 // PublishResumer continues a provider workflow from a durable stage recorded
 // before the next remote mutation. The request checkpoint must move to another
 // durable stage before each non-idempotent provider call.

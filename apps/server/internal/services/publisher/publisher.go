@@ -1857,7 +1857,12 @@ func (s *Service) publishProviderWithUsage(
 		return result, publishErr
 	}
 	var reconcile providerwrite.ReconcileFunc
-	if reconciler, ok := provider.(platform.PublishReconciler); ok {
+	if reconciler, ok := provider.(platform.PublishRequestReconciler); ok {
+		reconcile = func(reconcileCtx context.Context, reference string) (platform.PublishResult, error) {
+			requestCopy := *req
+			return reconciler.ReconcilePublishRequest(reconcileCtx, token, accountID, &requestCopy, reference)
+		}
+	} else if reconciler, ok := provider.(platform.PublishReconciler); ok {
 		reconcile = func(reconcileCtx context.Context, reference string) (platform.PublishResult, error) {
 			return reconciler.ReconcilePublish(reconcileCtx, token, accountID, reference)
 		}

@@ -636,10 +636,66 @@ func (f *FacebookAdapter) publishCommentReply(ctx context.Context, accessToken, 
 	return facebookPublishedID("facebook comment reply", respBody)
 }
 
+type facebookGraphComment struct {
+	ID          string `json:"id"`
+	Message     string `json:"message"`
+	CreatedTime string `json:"created_time"`
+	IsHidden    bool   `json:"is_hidden"`
+	CanHide     bool   `json:"can_hide"`
+	CanComment  bool   `json:"can_comment"`
+	From        struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"from"`
+	Parent struct {
+		ID string `json:"id"`
+	} `json:"parent"`
+	Comments struct {
+		Data []facebookGraphComment `json:"data"`
+	} `json:"comments"`
+}
+
+func facebookCommentFromGraph(item facebookGraphComment, pageID, parentID string) Comment {
+	if parentID == "" {
+		parentID = item.Parent.ID
+	}
+	return Comment{
+		ID:         item.ID,
+		ParentID:   parentID,
+		AuthorID:   item.From.ID,
+		AuthorName: item.From.Name,
+		Text:       item.Message,
+		CreatedAt:  item.CreatedTime,
+		Hidden:     item.IsHidden,
+		IsOurs:     pageID != "" && item.From.ID == pageID,
+		CanReply:   item.CanComment,
+		CanHide:    item.CanHide,
+		CanDelete:  true,
+	}
+}
+
+func collectFacebookComments(items []facebookGraphComment, pageID, fallbackParent string) []Comment {
+	comments := make([]Comment, 0, len(items))
+	for _, item := range items {
+		parentID := item.Parent.ID
+		if parentID == "" {
+			parentID = fallbackParent
+		}
+		comments = append(comments, facebookCommentFromGraph(item, pageID, parentID))
+		if len(item.Comments.Data) > 0 {
+			comments = append(comments, collectFacebookComments(item.Comments.Data, pageID, item.ID)...)
+		}
+	}
+	return comments
+}
+
 func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID string, externalID string) ([]Comment, error) {
-	fields := "id,from,message,created_time,is_hidden,can_hide,can_comment"
-	// The edge lists top-level comments oldest first and returns one page, so
-	// ask for the newest first or a busy post never shows new comments.
+	const facebookCommentFields = "id,from,message,created_time,is_hidden,can_hide,can_comment"
+	// The comments edge lists top-level comments only. Replies live on each
+	// comment's comments edge; expand that field so one poll also collects
+	// nested replies. Keep reverse_chronological so a busy post still shows
+	// its newest comments.
+	fields := facebookCommentFields + ",comments.order(reverse_chronological){" + facebookCommentFields + ",parent}"
 	endpoint := f.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&order=reverse_chronological&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {
@@ -647,18 +703,7 @@ func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID 
 	}
 
 	var result struct {
-		Data []struct {
-			ID          string `json:"id"`
-			Message     string `json:"message"`
-			CreatedTime string `json:"created_time"`
-			IsHidden    bool   `json:"is_hidden"`
-			CanHide     bool   `json:"can_hide"`
-			CanComment  bool   `json:"can_comment"`
-			From        struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
-			} `json:"from"`
-		} `json:"data"`
+		Data  []facebookGraphComment `json:"data"`
 		Error struct {
 			Message string `json:"message"`
 		} `json:"error"`
@@ -669,23 +714,7 @@ func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID 
 	if result.Error.Message != "" {
 		return nil, fmt.Errorf("facebook comments: %s", result.Error.Message)
 	}
-
-	comments := make([]Comment, 0, len(result.Data))
-	for _, item := range result.Data {
-		comments = append(comments, Comment{
-			ID:         item.ID,
-			AuthorID:   item.From.ID,
-			AuthorName: item.From.Name,
-			Text:       item.Message,
-			CreatedAt:  item.CreatedTime,
-			Hidden:     item.IsHidden,
-			IsOurs:     pageID != "" && item.From.ID == pageID,
-			CanReply:   item.CanComment,
-			CanHide:    item.CanHide,
-			CanDelete:  true,
-		})
-	}
-	return comments, nil
+	return collectFacebookComments(result.Data, pageID, ""), nil
 }
 
 func resolveMetaContentURL(

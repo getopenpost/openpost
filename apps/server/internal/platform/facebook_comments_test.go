@@ -70,3 +70,68 @@ func TestFacebookListCommentsReadsNewestCommentsFirst(t *testing.T) {
 	}
 	require.Contains(t, ids, "post-1_c30", "the newest comment must be collected")
 }
+
+// GET /{object-id}/comments defaults to filter=toplevel, so replies to a
+// comment are omitted unless the comments field is expanded. A follower
+// answering the Page's own reply never reaches the inbox without that
+// expansion, and ParentID must be the comment the reply answers.
+func TestFacebookListCommentsCollectsNestedReplies(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		require.True(t, strings.HasSuffix(req.URL.Path, "/page-1_post-1/comments"), req.URL.Path)
+		require.Equal(t, "reverse_chronological", req.URL.Query().Get("order"))
+		if !strings.Contains(req.URL.Query().Get("fields"), "comments") {
+			return jsonResponse(req, `{
+				"data": [
+					{"id":"post-1_c1","message":"Does it support video?","created_time":"2026-09-14T10:00:00+0000","can_comment":true,"from":{"id":"fan-1","name":"Fan"}}
+				]
+			}`), nil
+		}
+		return jsonResponse(req, `{
+			"data": [{
+				"id": "post-1_c1",
+				"message": "Does it support video?",
+				"created_time": "2026-09-14T10:00:00+0000",
+				"can_comment": true,
+				"from": {"id": "fan-1", "name": "Fan"},
+				"comments": {
+					"data": [{
+						"id": "post-1_c2",
+						"message": "Yes, up to five minutes.",
+						"created_time": "2026-09-14T10:05:00+0000",
+						"can_comment": true,
+						"from": {"id": "page-1", "name": "OpenPost Page"},
+						"parent": {"id": "post-1_c1"},
+						"comments": {
+							"data": [{
+								"id": "post-1_c3",
+								"message": "And carousels?",
+								"created_time": "2026-09-14T10:10:00+0000",
+								"can_comment": true,
+								"from": {"id": "fan-1", "name": "Fan"},
+								"parent": {"id": "post-1_c2"}
+							}]
+						}
+					}]
+				}
+			}]
+		}`), nil
+	})}
+
+	comments, err := NewFacebookAdapter("", "", "").ListComments(context.Background(), "page-token", "page-1", "page-1_post-1")
+
+	require.NoError(t, err)
+	byID := map[string]Comment{}
+	for _, comment := range comments {
+		byID[comment.ID] = comment
+	}
+	require.Len(t, byID, 3)
+	require.Empty(t, byID["post-1_c1"].ParentID, "a top-level comment answers the post")
+	require.Equal(t, "post-1_c1", byID["post-1_c2"].ParentID, "the Page reply must be threaded under the comment it answers")
+	require.Equal(t, "post-1_c2", byID["post-1_c3"].ParentID, "the follow-up must be threaded under the reply it answers")
+	require.False(t, byID["post-1_c1"].IsOurs)
+	require.True(t, byID["post-1_c2"].IsOurs)
+	require.False(t, byID["post-1_c3"].IsOurs)
+}

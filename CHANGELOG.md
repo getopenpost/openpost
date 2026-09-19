@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.37.0] - 2026-09-19
+
+### Improved
+
+- Video Color now focuses on one grading palette at a time, keeps the viewer usable on laptops, and lets you toggle scopes.
+- Video and Motion inspectors put selected content first and disclose advanced settings. Text styles can apply to existing text from the browser.
+- Image Editor tool variants are easier to find, expanded pages use the thumbnail strip, and tool options stay in one compact row instead of wrapping over the artwork. More actions keeps desktop commands available on narrow screens.
+
+### Fixed
+
+- Color edits respect locked tracks and keep their original targets when selection changes during a drag.
+- Hidden Color scopes stop sampling frames, while Auto Balance and color picking remain available.
+- Sequence grading opens its controls in an empty timeline and preserves the separate clip selection.
+- Image Editor tool families use one aligned button with an attached variant menu. Text controls appear before layer metadata, and phone Color controls keep the live canvas visible.
+- Image Editor header actions have clearer spacing around save status and Export.
+- Editor scope icons are centered, scope labels render once, and curve handles retain their shape as panels resize. Video Color palettes name the tool they add, and compact Video and Motion layouts preserve preview space, clip navigation, and transport actions.
+- Text, audio generation, export, and settings controls fit their panels without clipped labels or unreadably small editable values.
+
+### Changed
+
+- Reorganized the public docs into Guides, Self-hosting, AI assistants, Automate, Video Editor, Image Editor, and a separate generated API reference, with focused SDK, HTTP API, CLI, MCP, skills, and n8n guides.
+
 ## [4.36.3] - 2026-09-19
 
 ### Changed

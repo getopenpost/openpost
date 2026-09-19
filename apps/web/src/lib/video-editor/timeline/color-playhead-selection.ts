@@ -43,7 +43,12 @@ export function colorGradeTargetAtFrame(
 	let targetTrackOrder = Number.POSITIVE_INFINITY;
 
 	for (const item of items) {
-		if (!isColorTimelineItem(item) || !colorItemSpansFrame(item, frame)) continue;
+		if (
+			!isColorTimelineItem(item) ||
+			item.sequenceColorGrade === true ||
+			!colorItemSpansFrame(item, frame)
+		)
+			continue;
 		const track = trackById.get(item.trackId);
 		if (!track || track.isGroup || track.visible === false) continue;
 		const priority = GRADE_TYPE_PRIORITY[item.type];

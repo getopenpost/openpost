@@ -72,11 +72,13 @@ async function verifySequenceAutoBalance(page: Page, errors: string[]): Promise<
   await liftWheel.focus();
   await page.keyboard.press("ArrowRight");
   await expect(liftWheel).toHaveAttribute("aria-valuetext", /^1 degrees/);
+  await page.getByRole("tab", { name: "Curves", exact: true }).click();
   const curve = page.locator('[role="group"][aria-label="Master curve editor"]:visible');
   const initialCurvePointCount = await curve.locator("[data-curve-point]").count();
   expect(initialCurvePointCount).toBeGreaterThanOrEqual(2);
   await curve.click({ position: { x: 75, y: 35 } });
   await expect(curve.locator("[data-curve-point]")).toHaveCount(initialCurvePointCount + 1);
+  await page.getByRole("tab", { name: "Primaries", exact: true }).click();
 
   await editTab.click();
   await page.getByRole("button", { name: "Add layer" }).click();
@@ -99,9 +101,13 @@ async function verifySequenceAutoBalance(page: Page, errors: string[]): Promise<
     "Mixed",
   );
   await page
-    .getByRole("group", { name: "Color workspace Clip" })
-    .getByRole("button", { name: "Sequences" })
+    .getByRole("group", { name: "Color workspace", exact: true })
+    .getByRole("button", { name: "Sequence" })
     .click();
+  await expect(page.locator("[data-color-target-label]")).toHaveText("Sequence: Main");
+  await editTab.click();
+  await colorTab.click();
+  await expect(page.locator("[data-color-target-label]")).toHaveText("Sequence: Main");
   await page.getByRole("button", { name: "Add adjustment layer" }).click();
   await expect(page.getByRole("region", { name: "Color grading" })).toHaveAttribute(
     "data-sequence-grade-item-id",
@@ -142,6 +148,9 @@ async function createImageDesign(page: Page): Promise<string> {
     timeout: 10_000,
   });
   await page.reload();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.getByRole("tree", { name: "Layers" })).toContainText("color-source.png");
   return page.url();
 }
@@ -183,7 +192,10 @@ test("Sequence Auto Balance samples the composed frame without changing clip sel
   test.setTimeout(60_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.stack ?? String(error)));
-  const { token } = await registerUser(request, "sequence-color-sampling@example.com");
+  const { token } = await registerUser(
+    request,
+    `sequence-color-sampling-${randomUUID()}@example.com`,
+  );
   await createWorkspace(request, token, "Sequence color sampling");
   await authenticatePage(page, token);
   await createVideoProject(page, "Sequence color sampling");
@@ -194,7 +206,7 @@ test("Sequence Auto Balance samples the composed frame without changing clip sel
 test("shared editor chrome and Color workspaces fit desktop and narrow phones", async ({
   page,
   request,
-}, testInfo) => {
+}) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error).slice(0, 300)));
@@ -204,10 +216,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
     }
   });
 
-  const { token } = await registerUser(
-    request,
-    `editor-chrome-color-${testInfo.repeatEachIndex}-${testInfo.retry}@example.com`,
-  );
+  const { token } = await registerUser(request, `editor-chrome-color-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, token, "Shared editor chrome");
   await authenticatePage(page, token);
   const videoURL = await createVideoProject(page);
@@ -235,7 +244,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
       const videoWorkspaces = page.getByRole("tablist", {
         name: "Editor workspaces",
       });
-      await expect(videoWorkspaces).toBeVisible();
+      await expect(videoWorkspaces).toBeVisible({ timeout: 20_000 });
       const videoColorTab = videoWorkspaces.getByRole("tab", {
         name: "Color",
         exact: true,
@@ -251,21 +260,27 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         timeout: 20_000,
       });
       await expect(
-        page.getByRole("group", { name: "Color workspace Clip" }).getByRole("button", {
+        page.getByRole("group", { name: "Color workspace", exact: true }).getByRole("button", {
           name: "Clip",
           exact: true,
         }),
       ).toHaveAttribute("aria-pressed", "true");
       if (width === 1440) {
         await page
-          .getByRole("group", { name: "Color workspace Clip" })
-          .getByRole("button", { name: "Sequences" })
+          .getByRole("group", { name: "Color workspace", exact: true })
+          .getByRole("button", { name: "Sequence" })
           .click();
         const addSequenceGrade = page.getByRole("button", {
           name: "Add adjustment layer",
         });
         if (await addSequenceGrade.isVisible()) await addSequenceGrade.click();
         await expect(page.getByRole("region", { name: "Color workspace" })).toBeVisible();
+        await expect(page.getByRole("slider", { name: "Lift color wheel" })).toBeEnabled();
+        const scope = page.getByRole("group", { name: "Color workspace", exact: true });
+        await scope.getByRole("button", { name: "Clip", exact: true }).click();
+        await expect(page.locator("[data-color-target-label]")).toContainText("Select a clip");
+        await scope.getByRole("button", { name: "Sequence", exact: true }).click();
+        await expect(page.getByRole("slider", { name: "Lift color wheel" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Show all scopes" })).toBeVisible();
         await page.getByRole("button", { name: "Show all scopes" }).click();
         await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
@@ -286,7 +301,9 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         height: element.getBoundingClientRect().height,
       }));
       await page.goto(imageURL);
-      await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+      await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+        timeout: 20_000,
+      });
       await expect(page.getByText("Preparing canvas…", { exact: true })).toBeHidden();
       await expect
         .poll(() =>
@@ -370,7 +387,9 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
             { timeout: 10_000 },
           );
           await page.reload();
-          await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+          await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+            timeout: 20_000,
+          });
           await page.locator("#image-editor-workspace-tab-color").click();
           await expect(offset).toHaveAttribute("aria-valuetext", "0 degrees, 100 percent");
           await expect(curve.locator("[data-curve-point]")).toHaveCount(points + 1);
@@ -392,7 +411,9 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
             timeout: 10_000,
           });
           await page.reload();
-          await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+          await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+            timeout: 20_000,
+          });
           await expect.poll(() => designCanvasCenterPixel(page)).toEqual(gradedPixel);
           await page.locator("#image-editor-workspace-tab-color").click();
         }

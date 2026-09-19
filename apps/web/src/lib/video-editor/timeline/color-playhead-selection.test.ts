@@ -9,7 +9,7 @@ import {
 function item(
 	overrides: Partial<TimelineItem> & { id: string; type: TimelineItem['type'] }
 ): TimelineItem {
-	// SAFETY: tests only read id/trackId/from/durationInFrames/label/type; remaining fields are never accessed.
+	// SAFETY: selection tests omit unrelated media payloads and supply the timeline fields they read.
 	return {
 		trackId: 'track-1',
 		from: 0,
@@ -76,6 +76,17 @@ describe('colorSelectionSpansFrame', () => {
 
 describe('colorGradeTargetAtFrame', () => {
 	const tracks = [track({ id: 'track-1', order: 0 }), track({ id: 'track-2', order: 1 })];
+
+	it('keeps the sequence grade out of automatic clip selection', () => {
+		const sequenceGrade = item({
+			id: 'sequence-grade',
+			type: 'adjustment',
+			sequenceColorGrade: true
+		});
+		const adjustment = item({ id: 'clip-adjustment', type: 'adjustment' });
+		expect(colorGradeTargetAtFrame([sequenceGrade], tracks, 0)).toBeNull();
+		expect(colorGradeTargetAtFrame([sequenceGrade, adjustment], tracks, 0)?.id).toBe(adjustment.id);
+	});
 
 	it('prefers source footage over overlay types on the same frame', () => {
 		const text = item({ id: 'text', type: 'text', trackId: 'track-1' });

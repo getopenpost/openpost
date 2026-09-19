@@ -39,46 +39,44 @@
 	let colorAutoKey = $state(false);
 	const activePalette = $derived(editorSettings.value.colorPalette);
 	const keyframesVisible = $derived(editorSettings.value.colorKeyframesVisible);
-	let sequenceGradeItemId = $derived<string | null>(
-		timelineStore.items.find((item) => item.type === 'adjustment' && item.sequenceColorGrade)?.id ??
-			null
-	);
-	const clipItemIds = $derived(itemIds.length > 0 ? itemIds : itemId ? [itemId] : []);
-	const scopedItemIds = $derived(
-		colorScope === 'sequence' ? (sequenceGradeItemId ? [sequenceGradeItemId] : []) : clipItemIds
-	);
-	const scopedItemId = $derived(
-		colorScope === 'sequence'
-			? sequenceGradeItemId
-			: itemId && clipItemIds.includes(itemId)
-				? itemId
-				: (clipItemIds[0] ?? null)
-	);
+	const colorTarget = $derived.by(() => {
+		const sequenceGradeItemId =
+			timelineStore.items.find((item) => item.type === 'adjustment' && item.sequenceColorGrade)
+				?.id ?? null;
+		const clipItemIds = itemIds.length > 0 ? itemIds : itemId ? [itemId] : [];
+		const targetIds =
+			colorScope === 'sequence' ? (sequenceGradeItemId ? [sequenceGradeItemId] : []) : clipItemIds;
+		return {
+			sequenceGradeItemId,
+			itemIds: targetIds,
+			itemId: itemId && targetIds.includes(itemId) ? itemId : (targetIds[0] ?? null)
+		};
+	});
 	const editableTargetIds = $derived(
 		resolveEditableColorTargetIds(
-			scopedItemId,
-			scopedItemIds,
+			colorTarget.itemId,
+			colorTarget.itemIds,
 			timelineStore.itemById,
 			timelineStore.tracks
 		)
 	);
 	const eligibilityLabel = $derived(
-		scopedItemIds.length > editableTargetIds.length
+		colorTarget.itemIds.length > editableTargetIds.length
 			? m.video_editor_color_editable_targets({
 					editable: editableTargetIds.length,
-					total: scopedItemIds.length
+					total: colorTarget.itemIds.length
 				})
 			: null
 	);
 	const targetLabel = $derived.by(() => {
 		if (colorScope === 'sequence')
 			return m.video_editor_color_sequence_target({ name: sequenceName });
-		if (scopedItemIds.length > 1) {
-			return m.video_editor_items_selected({ count: scopedItemIds.length });
+		if (colorTarget.itemIds.length > 1) {
+			return m.video_editor_items_selected({ count: colorTarget.itemIds.length });
 		}
 		return m.video_editor_color_clip_target({
 			name:
-				(scopedItemId && timelineStore.itemById.get(scopedItemId)?.label) ||
+				(colorTarget.itemId && timelineStore.itemById.get(colorTarget.itemId)?.label) ||
 				m.video_editor_select_clip()
 		});
 	});
@@ -102,19 +100,18 @@
 	});
 
 	function setColorScope(next: 'clip' | 'sequence'): void {
-		colorScope = next;
 		onscopechange(next);
 	}
 
 	function createSequenceGrade(): void {
-		sequenceGradeItemId = oncreatesequencegrade?.() ?? null;
+		oncreatesequencegrade?.();
 	}
 </script>
 
 <section
 	class="flex size-full min-h-0 shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
 	aria-label={m.video_editor_color_dock()}
-	data-sequence-grade-item-id={sequenceGradeItemId ?? undefined}
+	data-sequence-grade-item-id={colorTarget.sequenceGradeItemId ?? undefined}
 >
 	<div
 		class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-[var(--video-editor-border)] px-2 py-1 lg:h-[30px] lg:flex-nowrap lg:py-0 [@media(pointer:coarse)]:min-h-11"
@@ -197,9 +194,9 @@
 			</div>
 		</div>
 	</div>
-	<ColorMiniTimeline compact selectedItemIds={scopedItemIds} {onselectitem} />
-	{#key `${colorScope}:${scopedItemId ?? ''}`}
-		{#if colorScope === 'sequence' && !sequenceGradeItemId}
+	<ColorMiniTimeline compact selectedItemIds={colorTarget.itemIds} {onselectitem} />
+	{#key `${colorScope}:${colorTarget.itemId ?? ''}`}
+		{#if colorScope === 'sequence' && !colorTarget.sequenceGradeItemId}
 			<div class="flex min-h-0 flex-1 items-center justify-center p-4 text-center">
 				<div class="max-w-72 space-y-2">
 					<p
@@ -230,19 +227,19 @@
 				<ColorWorkspace
 					compact
 					primaryActive={!keyframesVisible && activePalette === 'primaries'}
-					itemId={scopedItemId}
-					itemIds={scopedItemIds}
+					itemId={colorTarget.itemId}
+					itemIds={colorTarget.itemIds}
 					{onedit}
 					{oncreateadjustment}
 					autoKey={colorAutoKey}
 					onAutoKeyChange={(enabled) => (colorAutoKey = enabled)}
 				>
 					{#if keyframesVisible}
-						<ColorKeyframePanel itemId={scopedItemId} {onedit} />
+						<ColorKeyframePanel itemId={colorTarget.itemId} {onedit} />
 					{:else if activePalette === 'curves'}
 						<ColorCurvesPanel
-							itemId={scopedItemId}
-							itemIds={scopedItemIds}
+							itemId={colorTarget.itemId}
+							itemIds={colorTarget.itemIds}
 							{onedit}
 							forceAutoKey={colorAutoKey}
 						/>
@@ -250,8 +247,8 @@
 						{#key activePalette}
 							<div class="min-h-0 flex-1 overflow-hidden">
 								<EffectsPanel
-									itemId={scopedItemId}
-									itemIds={scopedItemIds}
+									itemId={colorTarget.itemId}
+									itemIds={colorTarget.itemIds}
 									{onedit}
 									gpuOnly={colorScope === 'sequence'}
 									hiddenGpuEffectIds={['gpu-color-wheels', 'gpu-curves']}

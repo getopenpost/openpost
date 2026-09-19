@@ -1306,6 +1306,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : [];
 		if (
 			workspace !== 'color' ||
+			colorGradeScope !== 'clip' ||
 			colorSelectionSpansFrame(selection, timelineStore.itemById, frame)
 		) {
 			return;

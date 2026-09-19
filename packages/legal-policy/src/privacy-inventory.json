@@ -748,6 +748,30 @@
       "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
     },
     {
+      "id": "local-image-edit-layers-user-sized",
+      "technology": "localStorage",
+      "owner": "OpenPost Image Editor",
+      "identifier_kind": "exact",
+      "identifier": "openpost-image-editor-edit-layers-user-sized-v2",
+      "purpose": "Records whether the Image Editor Edit workspace layer pane has a user-chosen height.",
+      "scope": "Application origin and public Image Editor on that origin.",
+      "duration": "Until the Edit workspace layout is reset or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
+    },
+    {
+      "id": "local-image-color-layers-height",
+      "technology": "localStorage",
+      "owner": "OpenPost Image Editor",
+      "identifier_kind": "exact",
+      "identifier": "openpost-image-editor-color-layers-height-v1",
+      "purpose": "Keeps the user-chosen Image Editor Color workspace layer pane height.",
+      "scope": "Application origin and public Image Editor on that origin.",
+      "duration": "Until the Color workspace layout is reset or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/image-editor/components/image-editor-shell.svelte"]
+    },
+    {
       "id": "local-image-view",
       "technology": "localStorage",
       "owner": "OpenPost Image Editor",

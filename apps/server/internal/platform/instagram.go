@@ -573,8 +573,42 @@ func (i *InstagramAdapter) publishCommentReply(ctx context.Context, accessToken,
 	return instagramIDFromResponse("instagram comment reply", respBody)
 }
 
+type instagramGraphComment struct {
+	ID        string `json:"id"`
+	Text      string `json:"text"`
+	Timestamp string `json:"timestamp"`
+	Username  string `json:"username"`
+	Hidden    bool   `json:"hidden"`
+	ParentID  string `json:"parent_id"`
+	Replies   struct {
+		Data []instagramGraphComment `json:"data"`
+	} `json:"replies"`
+}
+
+func instagramCommentFromGraph(item instagramGraphComment, parentID string) Comment {
+	if parentID == "" {
+		parentID = item.ParentID
+	}
+	return Comment{
+		ID:         item.ID,
+		ParentID:   parentID,
+		AuthorName: item.Username,
+		Text:       item.Text,
+		CreatedAt:  item.Timestamp,
+		Hidden:     item.Hidden,
+		CanReply:   true,
+		CanHide:    true,
+		CanDelete:  true,
+	}
+}
+
 func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, _ string, externalID string) ([]Comment, error) {
-	fields := "id,text,timestamp,username,hidden"
+	const instagramCommentFields = "id,text,timestamp,username,hidden"
+	// GET /{ig-media-id}/comments returns only top-level comments. Replies
+	// are omitted unless the replies field is expanded. Instagram attaches
+	// a reply-to-a-reply to the top-level comment, so one expansion is
+	// enough to collect the conversation.
+	fields := instagramCommentFields + ",replies{" + instagramCommentFields + ",parent_id}"
 	endpoint := i.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {
@@ -582,13 +616,7 @@ func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, _ stri
 	}
 
 	var result struct {
-		Data []struct {
-			ID        string `json:"id"`
-			Text      string `json:"text"`
-			Timestamp string `json:"timestamp"`
-			Username  string `json:"username"`
-			Hidden    bool   `json:"hidden"`
-		} `json:"data"`
+		Data  []instagramGraphComment `json:"data"`
 		Error struct {
 			Message string `json:"message"`
 		} `json:"error"`
@@ -602,16 +630,14 @@ func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, _ stri
 
 	comments := make([]Comment, 0, len(result.Data))
 	for _, item := range result.Data {
-		comments = append(comments, Comment{
-			ID:         item.ID,
-			AuthorName: item.Username,
-			Text:       item.Text,
-			CreatedAt:  item.Timestamp,
-			Hidden:     item.Hidden,
-			CanReply:   true,
-			CanHide:    true,
-			CanDelete:  true,
-		})
+		comments = append(comments, instagramCommentFromGraph(item, ""))
+		for _, reply := range item.Replies.Data {
+			parentID := reply.ParentID
+			if parentID == "" {
+				parentID = item.ID
+			}
+			comments = append(comments, instagramCommentFromGraph(reply, parentID))
+		}
 	}
 	return comments, nil
 }

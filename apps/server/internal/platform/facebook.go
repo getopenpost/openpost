@@ -692,10 +692,11 @@ func collectFacebookComments(items []facebookGraphComment, pageID, fallbackParen
 func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID string, externalID string) ([]Comment, error) {
 	const facebookCommentFields = "id,from,message,created_time,is_hidden,can_hide,can_comment"
 	// The comments edge lists top-level comments only. Replies live on each
-	// comment's comments edge; expand that field so one poll also collects
-	// nested replies. Keep reverse_chronological so a busy post still shows
-	// its newest comments.
-	fields := facebookCommentFields + ",comments.order(reverse_chronological){" + facebookCommentFields + ",parent}"
+	// comment's comments edge; nest that expansion two levels so one poll
+	// also requests a reply-to-a-reply. Keep reverse_chronological so a busy
+	// post still shows its newest comments.
+	replyFields := facebookCommentFields + ",parent"
+	fields := facebookCommentFields + ",comments.order(reverse_chronological){" + replyFields + ",comments.order(reverse_chronological){" + replyFields + "}}"
 	endpoint := f.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&order=reverse_chronological&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {

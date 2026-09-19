@@ -72,9 +72,10 @@ func TestFacebookListCommentsReadsNewestCommentsFirst(t *testing.T) {
 }
 
 // GET /{object-id}/comments defaults to filter=toplevel, so replies to a
-// comment are omitted unless the comments field is expanded. A follower
-// answering the Page's own reply never reaches the inbox without that
-// expansion, and ParentID must be the comment the reply answers.
+// comment are omitted unless the comments field is expanded. Graph only
+// returns a reply-to-a-reply when that expansion is nested; a single
+// comments substring is not enough. ParentID must be the comment the
+// reply answers.
 func TestFacebookListCommentsCollectsNestedReplies(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -82,7 +83,9 @@ func TestFacebookListCommentsCollectsNestedReplies(t *testing.T) {
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		require.True(t, strings.HasSuffix(req.URL.Path, "/page-1_post-1/comments"), req.URL.Path)
 		require.Equal(t, "reverse_chronological", req.URL.Query().Get("order"))
-		if !strings.Contains(req.URL.Query().Get("fields"), "comments") {
+		fields := req.URL.Query().Get("fields")
+		nestedComments := strings.Count(fields, "comments.order(reverse_chronological){") + strings.Count(fields, "comments{")
+		if nestedComments < 2 {
 			return jsonResponse(req, `{
 				"data": [
 					{"id":"post-1_c1","message":"Does it support video?","created_time":"2026-09-14T10:00:00+0000","can_comment":true,"from":{"id":"fan-1","name":"Fan"}}

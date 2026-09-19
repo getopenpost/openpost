@@ -50,7 +50,7 @@ import {
 	vectorKeyframesPatch
 } from '../vector-keyframes';
 import { autoKeyframeStore } from '../stores/auto-keyframe-store.svelte';
-import { isColorGradeTargetEditable, isTrackEffectivelyLocked } from '../utils/track-groups';
+import { isColorGradeTargetEditable } from '$lib/video-editor/effects/color-targets';
 import {
 	buildEffectKeyframeProperty,
 	effectKeyframeValue,
@@ -127,9 +127,14 @@ function canWriteKeyframe(item: TimelineItem, relativeFrame: number): boolean {
 		Number.isInteger(relativeFrame) &&
 		relativeFrame >= 0 &&
 		relativeFrame < item.durationInFrames &&
-		(item.sequenceColorGrade === true ||
+		((item.type === 'adjustment' && item.sequenceColorGrade === true) ||
 			!isFrameInTransitionRegion(relativeFrame, item, transitionsStore.list))
 	);
+}
+
+function editableKeyframeItem(itemId: string): TimelineItem | undefined {
+	const item = timelineStore.itemById.get(itemId);
+	return item && isColorGradeTargetEditable(item, timelineStore.tracks) ? item : undefined;
 }
 
 /** Insert or replace a keyframe at exactly `frame` as one undoable step. */
@@ -140,7 +145,7 @@ export function setKeyframe(
 	value: number
 ): boolean {
 	return execute('SET_KEYFRAME', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item || !canWriteKeyframe(item, frame)) return false;
 		const vector = vectorProxyForItem(item, property);
 		if (vector) {
@@ -180,7 +185,7 @@ export function setAnimatedProperty(
 	autoKeyEnabled: boolean
 ): boolean {
 	return execute('SET_ANIMATED_PROPERTY', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item) return false;
 		const frameIsInsideItem =
 			absoluteFrame >= item.from && absoluteFrame < item.from + item.durationInFrames;
@@ -272,7 +277,7 @@ export function setAnimatedGpuEffectParamsOnItems(
 
 		const itemUpdates: Array<{ id: string; patch: Partial<TimelineItem> }> = [];
 		for (const itemId of uniqueItemIds) {
-			const item = timelineStore.itemById.get(itemId);
+			const item = editableKeyframeItem(itemId);
 			if (!item || item.type === 'audio') continue;
 			if (!isColorGradeTargetEditable(item, timelineStore.tracks)) continue;
 			const currentEffects = item.effects ?? [];
@@ -337,7 +342,7 @@ function writeAnimatedProperties(
 	values: Partial<Record<KeyframeProperty, number>>,
 	isAutoKeyEnabled: (property: KeyframeProperty) => boolean
 ): boolean {
-	const item = timelineStore.itemById.get(itemId);
+	const item = editableKeyframeItem(itemId);
 	if (!item) return false;
 	let keyframes = item.keyframes;
 	let patch: Partial<TimelineItem> = {};
@@ -456,7 +461,7 @@ export function setPositionAtFrame(
 	y: number
 ): boolean {
 	return execute('SET_POSITION_AT_FRAME', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (
 			!item ||
 			!Number.isFinite(x) ||
@@ -491,7 +496,7 @@ export function setPositionAtFrame(
 /** Add smooth spatial handles to an existing position point. */
 export function createPositionSpatialTangents(itemId: string, absoluteFrame: number): boolean {
 	return execute('CREATE_POSITION_SPATIAL_TANGENTS', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item) return false;
 		const relativeFrame = absoluteFrame - item.from;
 		if (!canWriteKeyframe(item, relativeFrame)) return false;
@@ -517,7 +522,7 @@ export function setPositionSpatialTangents(
 	spatial: SpatialBezierTangents
 ): boolean {
 	return execute('SET_POSITION_SPATIAL_TANGENTS', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item) return false;
 		const relativeFrame = absoluteFrame - item.from;
 		if (!canWriteKeyframe(item, relativeFrame)) return false;
@@ -548,7 +553,7 @@ export function setKeyframeEasing(
 	easingConfig?: EasingConfig
 ): boolean {
 	return execute('SET_KEYFRAME_EASING', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		const vector = item ? activeVectorProxy(item, property) : null;
 		if (item && vector) {
 			const keyframes = vector.keyframes.map(cloneVectorKeyframe);
@@ -596,7 +601,7 @@ export function setKeyframeEasings(
 	}>
 ): boolean {
 	return execute('SET_KEYFRAME_EASINGS', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item || updates.length === 0) return false;
 		type EasingUpdate = (typeof updates)[number];
 		let vectorPatches: Partial<TimelineItem> = {};
@@ -664,7 +669,7 @@ export function setKeyframeEasings(
 /** Remove the keyframe at exactly `frame`; drops empty tracks. One undoable step. */
 export function removeKeyframe(itemId: string, property: KeyframeProperty, frame: number): boolean {
 	return execute('REMOVE_KEYFRAME', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		const vector = item ? activeVectorProxy(item, property) : null;
 		if (item && vector) {
 			const keyframes = vector.keyframes.filter((keyframe) => keyframe.frame !== frame);
@@ -706,7 +711,7 @@ export function removeKeyframe(itemId: string, property: KeyframeProperty, frame
 /** Move or edit several keyframes as one collision-safe undo step. */
 export function updateKeyframes(itemId: string, edits: readonly KeyframeEdit[]): boolean {
 	return execute('UPDATE_KEYFRAMES', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item || edits.length === 0) return false;
 		if (edits.some((edit) => !canWriteKeyframe(item, edit.frame) || !Number.isFinite(edit.value))) {
 			return false;
@@ -783,7 +788,7 @@ export function updateKeyframes(itemId: string, edits: readonly KeyframeEdit[]):
 /** Duplicate keyframes to explicit graph targets, preserving their easing. */
 export function duplicateKeyframes(itemId: string, edits: readonly KeyframeEdit[]): boolean {
 	return execute('DUPLICATE_KEYFRAMES', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item || edits.length === 0) return false;
 		if (edits.some((edit) => !canWriteKeyframe(item, edit.frame) || !Number.isFinite(edit.value))) {
 			return false;
@@ -842,7 +847,7 @@ export function duplicateKeyframes(itemId: string, edits: readonly KeyframeEdit[
 /** Insert or replace several clipboard keyframes as one undo step. */
 export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert[]): KeyframeRef[] {
 	return execute('INSERT_KEYFRAMES', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item || inserts.length === 0) return [];
 		if (
 			inserts.some(
@@ -1182,7 +1187,7 @@ function removeKeyframesMatchingSource(
 				else delete vectorKeyframes[property];
 			}
 			if (itemRemoved === 0) continue;
-			if (isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) {
+			if (!isColorGradeTargetEditable(item, timelineStore.tracks)) {
 				lockedItemIds.push(itemId);
 				continue;
 			}
@@ -1224,7 +1229,7 @@ export function clearKeyframesForItems(
 		for (const itemId of new Set(itemIds)) {
 			const item = timelineStore.itemById.get(itemId);
 			if (!item) continue;
-			if (isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) {
+			if (!isColorGradeTargetEditable(item, timelineStore.tracks)) {
 				if (keyframeCountForClear(item, property) > 0) lockedItemIds.push(itemId);
 				continue;
 			}
@@ -1266,7 +1271,7 @@ function clearKeyframePatch(
 /** Remove an arbitrary selection as one undo step. */
 export function removeKeyframes(itemId: string, refs: readonly KeyframeRef[]): boolean {
 	return execute('REMOVE_KEYFRAMES', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableKeyframeItem(itemId);
 		if (!item || refs.length === 0) return false;
 		const vectorRefsByProperty = groupVectorRefs(item, refs);
 		const vectorRefs = new Set([...vectorRefsByProperty.values()].flat());

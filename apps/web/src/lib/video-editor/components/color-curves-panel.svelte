@@ -8,7 +8,7 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
-	import { isColorGradeTargetEditable } from '$lib/video-editor/timeline/utils/track-groups';
+	import { resolveEditableColorTargetIds } from '$lib/video-editor/effects/color-targets';
 	import ColorEffectHeader from './color-effect-header.svelte';
 	import GpuCurvesEditor from '$lib/components/editor-color-curves.svelte';
 
@@ -46,17 +46,9 @@
 			params: getGpuEffectDefaultParams(EFFECT_ID)
 		}
 	);
-	const targetItemIds = $derived.by(() => {
-		const requested = itemId && itemIds.includes(itemId) ? itemIds : itemId ? [itemId] : [];
-		return [...new Set(requested)].filter((id) => {
-			const candidate = timelineStore.itemById.get(id);
-			return (
-				candidate !== undefined &&
-				candidate.type !== 'audio' &&
-				isColorGradeTargetEditable(candidate, timelineStore.tracks)
-			);
-		});
-	});
+	const targetItemIds = $derived(
+		resolveEditableColorTargetIds(itemId, itemIds, timelineStore.itemById, timelineStore.tracks)
+	);
 
 	function clearDraft(): void {
 		const previewTargetItemId = draftTargetItemIds[0];

@@ -22,7 +22,7 @@
 	import type { ColorPickerKind } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
-	import { isColorGradeTargetEditable } from '$lib/video-editor/timeline/utils/track-groups';
+	import { resolveEditableColorTargetIds } from '$lib/video-editor/effects/color-targets';
 	import {
 		removeKeyframe,
 		setAnimatedGpuEffectParamsOnItems,
@@ -191,17 +191,9 @@
 			params: defaults
 		}
 	);
-	const targetItemIds = $derived.by(() => {
-		const requested = itemId && itemIds.includes(itemId) ? itemIds : itemId ? [itemId] : [];
-		return [...new Set(requested)].filter((id) => {
-			const candidate = timelineStore.itemById.get(id);
-			return (
-				candidate !== undefined &&
-				candidate.type !== 'audio' &&
-				isColorGradeTargetEditable(candidate, timelineStore.tracks)
-			);
-		});
-	});
+	const targetItemIds = $derived(
+		resolveEditableColorTargetIds(itemId, itemIds, timelineStore.itemById, timelineStore.tracks)
+	);
 	const controlsEnabled = $derived(targetItemIds.length > 0 && wheelEffect?.enabled !== false);
 	const targetWheelEffects = $derived(
 		targetItemIds.map((id) =>

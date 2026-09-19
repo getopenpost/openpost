@@ -25,6 +25,7 @@ import {
 } from '$lib/video-editor/effects/gpu/types';
 import { getGpuEffect } from '$lib/video-editor/effects/gpu/registry';
 import type { EffectTemplate } from '$lib/video-editor/timeline/effect-drop';
+import type { TimelineItem } from '$lib/video-editor/project/types';
 import {
 	applyColorGradePresetToStack,
 	isColorGradeEffect,
@@ -34,11 +35,17 @@ import { removeEffectKeyframes } from '$lib/video-editor/effects/effect-keyframe
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { execute, executeAtomic } from '../commands/command-store.svelte';
 import { addAdjustmentLayer, type AddAdjustmentLayerOptions } from './items';
+import { isColorGradeTargetEditable } from '$lib/video-editor/effects/color-targets';
+
+function editableEffectItem(itemId: string): TimelineItem | undefined {
+	const item = timelineStore.itemById.get(itemId);
+	return item && isColorGradeTargetEditable(item, timelineStore.tracks) ? item : undefined;
+}
 
 /** Append a new enabled effect with its default amount. One undoable step. */
 export function addEffect(itemId: string, type: CssFilterType): boolean {
 	return execute('ADD_EFFECT', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableEffectItem(itemId);
 		if (!item) return false;
 		const definition = EFFECT_DEFINITIONS.find((entry) => entry.type === type);
 		if (!definition) return false;
@@ -62,7 +69,7 @@ export function updateEffect(
 	patch: { amount?: number; enabled?: boolean }
 ): boolean {
 	return execute('UPDATE_EFFECT', () => {
-		const effects = timelineStore.itemById.get(itemId)?.effects;
+		const effects = editableEffectItem(itemId)?.effects;
 		const index = effects?.findIndex((effect) => effect.id === effectId) ?? -1;
 		if (!effects || index === -1) return false;
 		const current = effects[index];
@@ -84,7 +91,7 @@ export function updateEffect(
 /** Append a new enabled GPU effect with its registry defaults. One undoable step. */
 export function addGpuEffect(itemId: string, effectId: string): boolean {
 	return execute('ADD_GPU_EFFECT', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableEffectItem(itemId);
 		if (!item) return false;
 		if (!getGpuEffect(effectId)) return false;
 		const next: GpuEffect = {
@@ -111,7 +118,7 @@ export function addEffectTemplates(
 		'ADD_EFFECTS',
 		() => {
 			const updates = uniqueItemIds.flatMap((itemId) => {
-				const item = timelineStore.itemById.get(itemId);
+				const item = editableEffectItem(itemId);
 				if (!item || item.type === 'audio') return [];
 				const additions = templates.flatMap((template) => {
 					const effect = createEffectFromTemplate(template);
@@ -151,7 +158,7 @@ export function addAdjustmentLayerWithEffects(
 /** Toggle one GPU effect's enabled flag. One undoable step. */
 export function setGpuEffectEnabled(itemId: string, effectId: string, enabled: boolean): boolean {
 	return execute('SET_GPU_EFFECT_ENABLED', () => {
-		const effects = timelineStore.itemById.get(itemId)?.effects;
+		const effects = editableEffectItem(itemId)?.effects;
 		const index = effects?.findIndex((effect) => effect.id === effectId) ?? -1;
 		if (!effects || index === -1) return false;
 		const current = effects[index];
@@ -172,7 +179,7 @@ export function setGpuEffectParam(
 	value: GpuParamValue
 ): boolean {
 	return execute('SET_GPU_EFFECT_PARAM', () => {
-		const effects = timelineStore.itemById.get(itemId)?.effects;
+		const effects = editableEffectItem(itemId)?.effects;
 		const index = effects?.findIndex((effect) => effect.id === effectId) ?? -1;
 		if (!effects || index === -1) return false;
 		const current = effects[index];
@@ -200,7 +207,7 @@ export function upsertGpuEffectParams(
 	updates: Record<string, GpuParamValue>
 ): boolean {
 	return execute('UPSERT_GPU_EFFECT_PARAMS', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableEffectItem(itemId);
 		const definition = getGpuEffect(effectId);
 		if (!item || !definition || Object.keys(updates).length === 0) return false;
 		const normalized: Record<string, GpuParamValue> = {};
@@ -256,7 +263,7 @@ export function upsertGpuEffectParamsOnItems(
 			normalized[name] = normalizeGpuParam(schemaParam, value);
 		}
 		const itemUpdates = uniqueItemIds.flatMap((itemId) => {
-			const item = timelineStore.itemById.get(itemId);
+			const item = editableEffectItem(itemId);
 			if (!item || item.type === 'audio') return [];
 			const effects = item.effects ?? [];
 			const index = effects.findIndex(
@@ -316,7 +323,7 @@ export function replaceColorGradeEffects(
 		)
 			return false;
 		const updates = uniqueItemIds.flatMap((itemId) => {
-			const item = timelineStore.itemById.get(itemId);
+			const item = editableEffectItem(itemId);
 			if (!item || item.type === 'audio') return [];
 			return [
 				{
@@ -334,7 +341,7 @@ export function replaceColorGradeEffects(
 /** Enable or disable every color-grade effect on one clip as one edit. */
 export function setColorGradeEnabled(itemId: string, enabled: boolean): boolean {
 	return execute('SET_COLOR_GRADE_ENABLED', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableEffectItem(itemId);
 		if (!item?.effects) return false;
 		let changed = false;
 		const effects = item.effects.map((effect) => {
@@ -355,7 +362,7 @@ export function setGpuEffectData(
 	params: Record<string, GpuParamValue>
 ): boolean {
 	return execute('SET_GPU_EFFECT_DATA', () => {
-		const effects = timelineStore.itemById.get(itemId)?.effects;
+		const effects = editableEffectItem(itemId)?.effects;
 		const index = effects?.findIndex((effect) => effect.id === effectId) ?? -1;
 		if (!effects || index === -1) return false;
 		const current = effects[index];
@@ -374,7 +381,7 @@ export function setGpuEffectData(
 /** Set the clip's compositing blend mode for the GPU pipeline. One undoable step. */
 export function setItemBlendMode(itemId: string, mode: BlendMode): boolean {
 	return execute('SET_ITEM_BLEND_MODE', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableEffectItem(itemId);
 		if (!item) return false;
 		if ((item.blendMode ?? 'normal') === mode) return false;
 		timelineStore._updateItems([{ id: itemId, patch: { blendMode: mode } }]);
@@ -385,7 +392,7 @@ export function setItemBlendMode(itemId: string, mode: BlendMode): boolean {
 /** Remove one effect by id. One undoable step. */
 export function removeEffect(itemId: string, effectId: string): boolean {
 	return execute('REMOVE_EFFECT', () => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableEffectItem(itemId);
 		const effects = item?.effects;
 		if (!effects || !effects.some((effect) => effect.id === effectId)) return false;
 		const next = effects.filter((effect) => effect.id !== effectId);
@@ -435,7 +442,7 @@ function mappedEffectTargets(
 	if (!displayEffect || visibleDisplayIndex < 0) return [];
 
 	return [...new Set([displayItemId, ...itemIds])].flatMap((itemId) => {
-		const effects = timelineStore.itemById.get(itemId)?.effects;
+		const effects = editableEffectItem(itemId)?.effects;
 		const effect = effects?.filter((candidate) => !isHiddenGpuEffect(candidate, hidden))[
 			visibleDisplayIndex
 		];
@@ -581,7 +588,7 @@ export function setAllEffectsEnabledOnItems(
 	const uniqueItemIds = Array.from(new Set(itemIds));
 	const hidden = new Set(hiddenGpuEffectIds);
 	const updates = uniqueItemIds.flatMap((itemId) => {
-		const item = timelineStore.itemById.get(itemId);
+		const item = editableEffectItem(itemId);
 		const effects = item?.effects;
 		if (
 			!item ||

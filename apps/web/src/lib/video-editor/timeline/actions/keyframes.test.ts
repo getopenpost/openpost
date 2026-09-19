@@ -138,6 +138,74 @@ describe('setKeyframe', () => {
 		expect(trackOf(getItem('a'), 'opacity').frames).toEqual([53]);
 	});
 
+	it('blocks locked Color keyframes but permits the sequence adjustment', () => {
+		const baseTrack = createDefaultTracks()[1]!;
+		timelineStore._setTracks([
+			{ ...baseTrack, id: 'locked-track', locked: true, order: 0 },
+			{
+				id: 'locked-group',
+				name: 'Locked group',
+				isGroup: true,
+				height: 48,
+				locked: true,
+				visible: true,
+				muted: false,
+				solo: false,
+				order: 1
+			},
+			{
+				...baseTrack,
+				id: 'group-child',
+				parentTrackId: 'locked-group',
+				locked: false,
+				order: 2
+			},
+			{ ...baseTrack, id: 'sequence-track', locked: true, order: 3 }
+		]);
+		timelineStore._setItems([
+			{
+				...itemWithTrack([10], [0.5]),
+				id: 'locked',
+				trackId: 'locked-track'
+			},
+			{
+				...itemWithTrack([10], [0.5]),
+				id: 'grouped',
+				trackId: 'group-child'
+			},
+			{
+				...itemWithTrack([10], [0.5]),
+				id: 'flagged-video',
+				trackId: 'locked-track',
+				sequenceColorGrade: true
+			},
+			{
+				...itemWithTrack([10], [0.5]),
+				id: 'sequence',
+				trackId: 'sequence-track',
+				type: 'adjustment',
+				sequenceColorGrade: true
+			}
+		]);
+
+		expect(setKeyframe('locked', 'opacity', 15, 0.7)).toBe(false);
+		expect(setKeyframe('grouped', 'opacity', 15, 0.7)).toBe(false);
+		expect(setKeyframe('flagged-video', 'opacity', 15, 0.7)).toBe(false);
+		expect(
+			updateKeyframes('locked', [
+				{ ref: { property: 'opacity', frame: 10 }, frame: 12, value: 0.6 }
+			])
+		).toBe(false);
+		expect(removeKeyframes('locked', [{ property: 'opacity', frame: 10 }])).toBe(false);
+		expect(setKeyframe('sequence', 'opacity', 15, 0.7)).toBe(true);
+
+		expect(trackOf(getItem('locked'), 'opacity').frames).toEqual([10]);
+		expect(trackOf(getItem('grouped'), 'opacity').frames).toEqual([10]);
+		expect(trackOf(getItem('flagged-video'), 'opacity').frames).toEqual([10]);
+		expect(trackOf(getItem('sequence'), 'opacity').frames).toEqual([10, 15]);
+		expect(commandHistory.undoStack).toHaveLength(1);
+	});
+
 	it('removes only the keyed frame and keeps the rest sorted', () => {
 		setKeyframe('a', 'opacity', 10, 0);
 		setKeyframe('a', 'opacity', 20, 0.5);

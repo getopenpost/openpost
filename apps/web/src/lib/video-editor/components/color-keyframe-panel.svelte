@@ -25,6 +25,7 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import KeyframeDopesheet from './keyframe-dopesheet.svelte';
 	import KeyframeValueGraph from './keyframe-value-graph.svelte';
+	import { isColorGradeTargetEditable } from '$lib/video-editor/effects/color-targets';
 
 	type View = 'sheet' | 'graph';
 	const MODE_STORAGE_KEY = 'timeline:keyframeEditorMode';
@@ -38,6 +39,9 @@
 	let activeProperty = $state<KeyframeProperty | null>(null);
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
+	const editable = $derived(
+		item !== undefined && isColorGradeTargetEditable(item, timelineStore.tracks)
+	);
 	const properties = $derived.by((): KeyframeProperty[] => {
 		if (!item) return [];
 		return getAnimatablePropertiesForItem(item).filter(isEffectKeyframeProperty);
@@ -111,7 +115,7 @@
 	}
 
 	function addKeyframe(property: KeyframeProperty): void {
-		if (!item) return;
+		if (!item || !editable) return;
 		const relativeFrame = Math.max(
 			0,
 			Math.min(item.durationInFrames - 1, timelineStore.currentFrame - item.from)
@@ -129,7 +133,7 @@
 	}
 
 	function deleteSelected(): void {
-		if (!item || selectedKeyframes.length === 0) return;
+		if (!item || !editable || selectedKeyframes.length === 0) return;
 		if (!removeKeyframes(item.id, selectedKeyframes)) return;
 		keyframeSelectionStore.clear();
 		onedit();
@@ -190,7 +194,7 @@
 			<button
 				type="button"
 				class="icon-button"
-				disabled={selectedKeyframes.length === 0}
+				disabled={!editable || selectedKeyframes.length === 0}
 				aria-label={m.common_delete()}
 				title={m.common_delete()}
 				onclick={deleteSelected}
@@ -233,6 +237,7 @@
 				<button
 					type="button"
 					class="icon-button"
+					disabled={!editable}
 					aria-label={m.video_editor_keyframe_sheet_add({ property: label(activeProperty) })}
 					title={m.video_editor_keyframe_sheet_add({ property: label(activeProperty) })}
 					onclick={() => addKeyframe(activeProperty!)}
@@ -240,7 +245,7 @@
 					<ThemeIcon role="add" class="size-3" />
 				</button>
 			</div>
-			<div class="min-h-0 flex-1 overflow-hidden">
+			<div class="min-h-0 flex-1 overflow-hidden" inert={!editable} aria-disabled={!editable}>
 				<KeyframeValueGraph
 					{item}
 					property={activeProperty}
@@ -252,7 +257,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="min-h-0 flex-1 overflow-hidden">
+		<div class="min-h-0 flex-1 overflow-hidden" inert={!editable} aria-disabled={!editable}>
 			<KeyframeDopesheet
 				{item}
 				availableProperties={properties}

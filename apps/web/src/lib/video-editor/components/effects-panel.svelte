@@ -79,6 +79,7 @@
 	import { emitEditorSound } from '$lib/video-editor/sounds/editor-sounds';
 	import { getSpatialPointEffectConfig } from '$lib/video-editor/effects/spatial-point-editor';
 	import { spatialEffectEditorStore } from '$lib/video-editor/preview/spatial-effect-editor.svelte';
+	import { resolveEditableColorTargetIds } from '$lib/video-editor/effects/color-targets';
 
 	let {
 		itemId,
@@ -123,8 +124,9 @@
 		item ? (resolveAnimatedEffectsAt(item, timelineStore.currentFrame) ?? []) : []
 	);
 	const selectedEffectItemIds = $derived(
-		itemId ? [...new Set([itemId, ...itemIds])].filter(Boolean) : []
+		resolveEditableColorTargetIds(itemId, itemIds, timelineStore.itemById, timelineStore.tracks)
 	);
+	const displayItemEditable = $derived(itemId !== null && selectedEffectItemIds.includes(itemId));
 
 	/** In-flight slider values so dragging stays smooth before the undoable commit. */
 	let draftAmounts = $state<Record<string, number>>({});
@@ -136,6 +138,10 @@
 	let presetStatus = $state('');
 	let lutStatus = $state('');
 	let lutStatusEffectId = $state<string | null>(null);
+	let curveDraftSourceItemId: string | null = null;
+	let curveDraftTargetItemIds: string[] = [];
+	let curveDraftPreviewItemId: string | null = null;
+	let curveDraftEffectId: string | null = null;
 
 	const typeLabels = $derived<Record<Exclude<ItemType, 'gpu'>, string>>({
 		brightness: m.video_editor_effects_brightness(),
@@ -325,7 +331,8 @@
 
 	onDestroy(() => {
 		clearEffectDragData();
-		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
+		if (curveDraftPreviewItemId) colorPreviewStore.clearEffectDraft(curveDraftPreviewItemId);
+		else if (itemId) colorPreviewStore.clearEffectDraft(itemId);
 		if (spatialEffectEditorStore.editingItemId === itemId) stopSpatialEditing();
 	});
 
@@ -353,6 +360,15 @@
 
 	function commitGpuParam(effect: GpuEffect, paramName: string, value: GpuParamValue): void {
 		if (!itemId || !item) return;
+		if (!displayItemEditable) {
+			clearCurveDraft();
+			if (
+				setGpuEffectDataOnItems(itemId, selectedEffectItemIds, effect.id, { [paramName]: value })
+			) {
+				onedit();
+			}
+			return;
+		}
 		const property = getGpuEffectKeyframeProperty(effect, paramName);
 		const encoded = property ? effectKeyframeValue(effect, paramName, value) : null;
 		const updated =
@@ -370,6 +386,11 @@
 
 	function commitGpuParams(effect: GpuEffect, updates: Record<string, GpuParamValue>): void {
 		if (!itemId || !item) return;
+		if (!displayItemEditable) {
+			clearCurveDraft();
+			if (setGpuEffectDataOnItems(itemId, selectedEffectItemIds, effect.id, updates)) onedit();
+			return;
+		}
 		const apply = (): boolean => {
 			let changed = false;
 			for (const [paramName, value] of Object.entries(updates)) {
@@ -393,21 +414,48 @@
 	}
 
 	function draftCurveParams(effect: GpuEffect, params: Record<string, GpuParamValue> | null): void {
-		if (!itemId) return;
-		if (params) {
-			colorPreviewStore.setEffectDraft(
-				itemId,
-				effect,
-				params,
-				getCompatibleGpuEffectIds(itemId, selectedEffectItemIds, effect.id)
-			);
-		} else colorPreviewStore.clearEffectDraft(itemId, effect.id);
+		if (!params) {
+			clearCurveDraft();
+			return;
+		}
+		if (!itemId || selectedEffectItemIds.length === 0) return;
+		if (!curveDraftSourceItemId) {
+			curveDraftSourceItemId = itemId;
+			curveDraftTargetItemIds = [...selectedEffectItemIds];
+			curveDraftPreviewItemId = curveDraftTargetItemIds[0] ?? null;
+			curveDraftEffectId = effect.id;
+		}
+		if (!curveDraftPreviewItemId || !curveDraftSourceItemId) return;
+		colorPreviewStore.setEffectDraft(
+			curveDraftPreviewItemId,
+			effect,
+			params,
+			getCompatibleGpuEffectIds(
+				curveDraftSourceItemId,
+				curveDraftTargetItemIds,
+				curveDraftEffectId ?? effect.id
+			),
+			[curveDraftPreviewItemId]
+		);
 	}
 
 	function commitCurveParams(effect: GpuEffect, params: Record<string, GpuParamValue>): void {
-		if (!itemId) return;
-		colorPreviewStore.clearEffectDraft(itemId, effect.id);
-		if (setGpuEffectDataOnItems(itemId, selectedEffectItemIds, effect.id, params)) onedit();
+		const sourceItemId = curveDraftSourceItemId ?? itemId;
+		const targetItemIds = curveDraftSourceItemId ? curveDraftTargetItemIds : selectedEffectItemIds;
+		const effectId = curveDraftEffectId ?? effect.id;
+		clearCurveDraft();
+		if (!sourceItemId) return;
+		if (setGpuEffectDataOnItems(sourceItemId, targetItemIds, effectId, params)) onedit();
+	}
+
+	function clearCurveDraft(): void {
+		if (curveDraftPreviewItemId) {
+			colorPreviewStore.clearEffectDraft(curveDraftPreviewItemId, curveDraftEffectId ?? undefined);
+		}
+		curveDraftSourceItemId = null;
+		curveDraftTargetItemIds = [];
+		curveDraftPreviewItemId = null;
+		curveDraftEffectId = null;
 	}
 
 	function toggleEffectKeyframe(effect: GpuEffect, paramName: string): void {
@@ -439,7 +487,7 @@
 			autoEnabled: autoKeyframeStore.isEnabled(itemId, property),
 			hasTrack: Boolean(track?.frames.length),
 			atCurrentFrame: relativeFrame !== null && Boolean(track?.frames.includes(relativeFrame)),
-			canKeyframe: relativeFrame !== null,
+			canKeyframe: displayItemEditable && relativeFrame !== null,
 			onToggleAuto: () => autoKeyframeStore.toggle(itemId, property),
 			onToggleKeyframe: () => toggleEffectKeyframe(effect, paramName)
 		};
@@ -601,6 +649,11 @@
 			stopSpatialEditing();
 		}
 	});
+
+	$effect(() => {
+		if (!curveDraftSourceItemId || curveDraftSourceItemId === itemId) return;
+		clearCurveDraft();
+	});
 </script>
 
 <div
@@ -619,8 +672,8 @@
 			triggerLabel={m.video_editor_effects_add()}
 			searchPlaceholder={m.video_editor_effects_search()}
 			emptyLabel={m.video_editor_effects_no_results()}
-			disabled={!itemId}
-			draggable={itemId !== null}
+			disabled={selectedEffectItemIds.length === 0}
+			draggable={selectedEffectItemIds.length > 0}
 			dragTitle={itemId ? m.video_editor_effects_add_or_drag() : m.video_editor_effects_add()}
 			onSelect={addSelectedEffect}
 			onDragStart={startEffectDrag}
@@ -642,6 +695,7 @@
 			<button
 				type="button"
 				class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+				disabled={selectedEffectItemIds.length === 0}
 				aria-label={allEffectsEnabled
 					? m.video_editor_effects_disable_all()
 					: m.video_editor_effects_enable_all()}
@@ -697,7 +751,11 @@
 			{m.video_editor_effects_none()}
 		</p>
 	{:else}
-		<ul class="min-h-0 flex-1 overflow-y-auto">
+		<ul
+			class="min-h-0 flex-1 overflow-y-auto"
+			inert={selectedEffectItemIds.length === 0}
+			aria-disabled={selectedEffectItemIds.length === 0}
+		>
 			{#each effects as effect, index (effect.id)}
 				{@const definition = definitionFor(effect.type)}
 				{@const gpuDefinition = effect.type === 'gpu' ? getGpuEffect(effect.effectId) : undefined}

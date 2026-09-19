@@ -31,7 +31,7 @@
 	import { replaceColorGradeEffects } from '$lib/video-editor/timeline/actions/effects';
 	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
-	import { isColorGradeTargetEditable } from '$lib/video-editor/timeline/utils/track-groups';
+	import { isColorGradeTargetEditable } from '$lib/video-editor/effects/color-targets';
 	import { resolveAnimatedEffectsAt } from '$lib/video-editor/effects/effect-keyframes';
 	import { getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
 	import {

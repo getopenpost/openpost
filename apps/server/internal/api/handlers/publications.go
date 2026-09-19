@@ -4157,6 +4157,7 @@ func publicationResponse(publication *models.Publication, media []MediaSummary) 
 		Title:                publication.Title,
 		Intent:               publicationFirstNonEmpty(publication.Intent, publishingIntentForProfile(publication.ContentProfile)),
 		CreationPreset:       publicationFirstNonEmpty(publication.CreationPreset, publication.Intent, publishingIntentForProfile(publication.ContentProfile)),
+		CreationSource:       publicationFirstNonEmpty(publication.CreationSource, publicationCreationSourceUnknown),
 		SocialSetID:          publication.SocialSetID,
 		ContentProfile:       publication.ContentProfile,
 		SourceText:           publication.SourceText,

@@ -125,6 +125,7 @@ type PublicationResponse struct {
 	Title                string                       `json:"title"`
 	Intent               string                       `json:"intent"`
 	CreationPreset       string                       `json:"creation_preset"`
+	CreationSource       string                       `json:"creation_source" enum:"web,api,mcp,cli,autopost,unknown" doc:"Low-cardinality channel that created the Publication"`
 	SocialSetID          string                       `json:"social_set_id,omitempty"`
 	ContentProfile       string                       `json:"content_profile"`
 	SourceText           string                       `json:"source_text"`

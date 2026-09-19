@@ -11623,6 +11623,11 @@ export interface components {
             created_at: string;
             created_by: string;
             creation_preset: string;
+            /**
+             * @description Low-cardinality channel that created the Publication
+             * @enum {string}
+             */
+            creation_source: "web" | "api" | "mcp" | "cli" | "autopost" | "unknown";
             failure_dismissed_at?: string;
             goal?: string;
             id: string;

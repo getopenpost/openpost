@@ -10,6 +10,32 @@ import (
 
 const openPostCLIClientID = "openpost-cli"
 
+const (
+	publicationCreationSourceWeb      = "web"
+	publicationCreationSourceAPI      = "api"
+	publicationCreationSourceMCP      = "mcp"
+	publicationCreationSourceCLI      = "cli"
+	publicationCreationSourceAutopost = "autopost"
+	publicationCreationSourceUnknown  = "unknown"
+)
+
+func publicationCreationSource(ctx context.Context, fallbackUserID string) string {
+	switch publicationAuthorizationActor(ctx, fallbackUserID).Origin {
+	case publicationauth.OriginBrowser:
+		return publicationCreationSourceWeb
+	case publicationauth.OriginAPI:
+		return publicationCreationSourceAPI
+	case publicationauth.OriginMCP:
+		return publicationCreationSourceMCP
+	case publicationauth.OriginCLI:
+		return publicationCreationSourceCLI
+	case publicationauth.OriginWorker:
+		return publicationCreationSourceAutopost
+	default:
+		return publicationCreationSourceUnknown
+	}
+}
+
 func publicationAuthorizationActor(ctx context.Context, fallbackUserID string) publicationauth.Actor {
 	if actor, ok := publicationauth.ActorFromContext(ctx); ok {
 		return actor

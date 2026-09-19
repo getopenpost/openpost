@@ -672,7 +672,7 @@ func TestMCPPublicationScheduleSemanticsMatchREST(t *testing.T) {
 		SourceText: input.SourceText, ScheduledAt: input.ScheduledAt,
 	}
 	normalizePublicationCreateBody(&body)
-	publication := publicationModelFromCreate(body, "user-1", `{"mode":"inherit"}`, now)
+	publication := publicationModelFromCreate(body, "user-1", publicationCreationSourceUnknown, `{"mode":"inherit"}`, now)
 	require.Equal(t, models.PublicationStatusDraft, publication.Status)
 	require.True(t, publication.ScheduledAt.Equal(future))
 

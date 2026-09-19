@@ -103,6 +103,27 @@ func TestMCPPublicationAuthorizationRetainsTokenAndClientIdentity(t *testing.T) 
 	require.Equal(t, principal.ClientName, receipt.ActorClientName)
 }
 
+func TestPublicationCreationSourceUsesLowCardinalityActorOrigin(t *testing.T) {
+	tests := []struct {
+		origin string
+		want   string
+	}{
+		{publicationauth.OriginBrowser, publicationCreationSourceWeb},
+		{publicationauth.OriginAPI, publicationCreationSourceAPI},
+		{publicationauth.OriginMCP, publicationCreationSourceMCP},
+		{publicationauth.OriginCLI, publicationCreationSourceCLI},
+		{publicationauth.OriginWorker, publicationCreationSourceAutopost},
+		{publicationauth.OriginLegacy, publicationCreationSourceUnknown},
+	}
+	for _, test := range tests {
+		t.Run(test.origin, func(t *testing.T) {
+			actor := publicationauth.Actor{Origin: test.origin, UserID: "user-1", SessionID: "session-1", TokenID: "token-1"}
+			ctx := publicationauth.WithActor(t.Context(), actor)
+			require.Equal(t, test.want, publicationCreationSource(ctx, "user-1"))
+		})
+	}
+}
+
 func TestAccountExportRedactsPublicationAuthorizationSecretsAndFingerprints(t *testing.T) {
 	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.APIToken)(nil))
 	now := time.Now().UTC()

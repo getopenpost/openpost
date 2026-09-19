@@ -183,7 +183,7 @@ func (commands publicationApplication) Create(
 	if err != nil {
 		return PublicationResponse{}, err
 	}
-	publication := publicationModelFromCreate(prepared.input, userID, prepared.repostOverrideJSON, prepared.now)
+	publication := publicationModelFromCreate(prepared.input, userID, publicationCreationSource(ctx, userID), prepared.repostOverrideJSON, prepared.now)
 	result, err := commands.persistCreate(ctx, publication, prepared)
 	if err != nil {
 		return PublicationResponse{}, fmt.Errorf("persist publication creation: %w", err)
@@ -202,7 +202,7 @@ func (commands publicationApplication) CreateIdempotent(
 	if err != nil {
 		return PublicationResponse{}, false, err
 	}
-	publication := publicationModelFromCreate(prepared.input, userID, prepared.repostOverrideJSON, prepared.now)
+	publication := publicationModelFromCreate(prepared.input, userID, publicationCreationSource(ctx, userID), prepared.repostOverrideJSON, prepared.now)
 	request.RequestHash, err = idempotency.Hash(prepared.input)
 	if err != nil {
 		return PublicationResponse{}, false, err
@@ -232,7 +232,7 @@ func (commands publicationApplication) CreateFromBuild(
 	if err != nil {
 		return PublicationResponse{}, err
 	}
-	publication := publicationModelFromCreate(prepared.input, userID, prepared.repostOverrideJSON, prepared.now)
+	publication := publicationModelFromCreate(prepared.input, userID, publicationCreationSource(ctx, userID), prepared.repostOverrideJSON, prepared.now)
 	request := idempotency.Request{
 		PrincipalID: "user:" + strings.TrimSpace(userID),
 		WorkspaceID: prepared.input.WorkspaceID,

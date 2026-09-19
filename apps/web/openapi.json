@@ -14635,6 +14635,11 @@
 					"creation_preset": {
 						"type": "string"
 					},
+					"creation_source": {
+						"description": "Low-cardinality channel that created the Publication",
+						"enum": ["web", "api", "mcp", "cli", "autopost", "unknown"],
+						"type": "string"
+					},
 					"failure_dismissed_at": {
 						"type": "string"
 					},
@@ -14715,6 +14720,7 @@
 					"title",
 					"intent",
 					"creation_preset",
+					"creation_source",
 					"content_profile",
 					"source_text",
 					"status",

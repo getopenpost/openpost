@@ -649,6 +649,25 @@ type MCPOAuthCode struct {
 	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
+type MCPMediaUploadTicket struct {
+	bun.BaseModel `bun:"table:mcp_media_upload_tickets"`
+
+	ID          string    `bun:",pk" json:"id"`
+	TicketHash  string    `bun:"ticket_hash,unique,notnull" json:"-"`
+	WorkspaceID string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	UserID      string    `bun:"user_id,notnull" json:"user_id"`
+	SessionID   string    `bun:"session_id,nullzero" json:"session_id,omitempty"`
+	TokenID     string    `bun:"token_id,nullzero" json:"token_id,omitempty"`
+	ClientID    string    `bun:"client_id,nullzero" json:"client_id,omitempty"`
+	Filename    string    `bun:"filename,notnull" json:"filename"`
+	MimeType    string    `bun:"mime_type,nullzero" json:"mime_type,omitempty"`
+	Size        int64     `bun:"size,notnull" json:"size"`
+	AltText     string    `bun:"alt_text,nullzero" json:"alt_text,omitempty"`
+	ExpiresAt   time.Time `bun:"expires_at,notnull" json:"expires_at"`
+	ConsumedAt  time.Time `bun:"consumed_at,nullzero" json:"consumed_at,omitempty"`
+	CreatedAt   time.Time `bun:"created_at,nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
 type CLIAuthSession struct {
 	bun.BaseModel `bun:"table:cli_auth_sessions"`
 
@@ -1321,6 +1340,7 @@ type Publication struct {
 	Title               string    `bun:",notnull" json:"title"`
 	Intent              string    `bun:"intent,notnull,default:'post'" json:"intent"`
 	CreationPreset      string    `bun:"creation_preset,notnull,default:'post'" json:"creation_preset"`
+	CreationSource      string    `bun:"creation_source,notnull,default:'unknown'" json:"creation_source"`
 	SocialSetID         string    `bun:"social_set_id,notnull,default:''" json:"social_set_id,omitempty"`
 	ContentProfile      string    `bun:"content_profile,notnull,default:'short_text'" json:"content_profile"`
 	SourceText          string    `bun:"source_text,notnull,default:''" json:"source_text"`

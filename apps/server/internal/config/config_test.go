@@ -27,6 +27,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PROXY_AUTH_SECRET",
 	"OPENPOST_PROXY_AUTH_WORKSPACE_NAME",
 	"OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED",
+	"OPENPOST_MCP_MODE",
 	"OPENPOST_EDITION",
 	"OPENPOST_APP_E2E_HOSTED_SIGNUP",
 	"OPENPOST_APP_E2E_DELIVERY_PROJECTION",
@@ -176,6 +177,26 @@ func TestLoadControlsOAuthDynamicClientRegistration(t *testing.T) {
 	t.Setenv("OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED", "true")
 
 	require.True(t, Load().OAuthDCR)
+}
+
+func TestLoadMCPMode(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "direct by default", want: MCPModeDirect},
+		{name: "direct", value: " direct ", want: MCPModeDirect},
+		{name: "search", value: "SEARCH", want: MCPModeSearch},
+		{name: "both", value: "both", want: MCPModeBoth},
+		{name: "invalid falls back to direct", value: "sideways", want: MCPModeDirect},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("OPENPOST_MCP_MODE", test.value)
+
+			require.Equal(t, test.want, Load().MCPMode)
+		})
+	}
 }
 
 func TestLoadAndValidateProxyAuthentication(t *testing.T) {

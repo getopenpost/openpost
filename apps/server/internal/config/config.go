@@ -53,6 +53,7 @@ type Config struct {
 	ProxyAuthWorkspaceName   string
 	DisableRegistrations     bool
 	OAuthDCR                 bool
+	MCPMode                  string
 	PublicProfilesEnabled    bool
 	FrontendURL              string
 	PublicURL                string
@@ -203,6 +204,10 @@ const (
 
 	StorageDriverLocal = "local"
 	StorageDriverS3    = "s3"
+
+	MCPModeDirect = "direct"
+	MCPModeSearch = "search"
+	MCPModeBoth   = "both"
 )
 
 func Load() *Config {
@@ -246,6 +251,7 @@ func Load() *Config {
 		ProxyAuthWorkspaceName:  strings.TrimSpace(getEnvDefault("OPENPOST_PROXY_AUTH_WORKSPACE_NAME", "My Workspace")),
 		DisableRegistrations:    getEnvBoolWithAliases(false, "OPENPOST_DISABLE_REGISTRATIONS"),
 		OAuthDCR:                getEnvBoolWithAliases(false, "OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED"),
+		MCPMode:                 getEnvEnum("OPENPOST_MCP_MODE", MCPModeDirect, MCPModeDirect, MCPModeSearch, MCPModeBoth),
 		PublicProfilesEnabled:   getEnvBoolWithAliases(true, "OPENPOST_PUBLIC_PROFILES_ENABLED"),
 		FrontendURL:             frontendURL,
 		PublicURL:               getEnvWithFallbacks("OPENPOST_PUBLIC_URL", "", "OPENPOST_APP_URL", "OPENPOST_FRONTEND_URL"),

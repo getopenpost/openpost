@@ -215,6 +215,9 @@ func TestMCPExposesDirectAndCodeModeEndpoints(t *testing.T) {
 	require.Contains(t, compact, mcpToolQuery)
 	require.Contains(t, compact, mcpToolExecute)
 	require.NotContains(t, compact, mcpToolCreatePub)
+
+	srv.handler.SetToolMode("both")
+	require.Equal(t, compact, listNames("/mcp/code"))
 }
 
 func TestMCPLocalMediaUploadTicketIsHiddenAndOneUse(t *testing.T) {

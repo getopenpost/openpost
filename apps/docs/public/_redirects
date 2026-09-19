@@ -7,9 +7,9 @@
 /guides/automation /automate 301
 /guides/automation.md /automate/index.md 301
 /guides/cli /automate/cli 301
-/guides/cli.md /automate/cli.md 301
+/guides/cli.md /automate/cli/index.md 301
 /guides/sdk /automate/sdk 301
-/guides/sdk.md /automate/sdk.md 301
+/guides/sdk.md /automate/sdk/index.md 301
 /guides/image-editor /image-editor 301
 /guides/image-editor.md /image-editor/index.md 301
 /guides/video-editor /video-editor 301
@@ -20,6 +20,10 @@
 /guides/recording.md /video-editor/quick-cut-and-recorder.md 301
 /mcp/tools /mcp/mcp-guide 301
 /mcp/tools.md /mcp/mcp-guide/index.md 301
+/automate/api.md /automate/api/index.md 301
+/automate/cli.md /automate/cli/index.md 301
+/automate/n8n.md /automate/n8n/index.md 301
+/automate/sdk.md /automate/sdk/index.md 301
 /configuration /self-hosting/configuration 301
 /configuration/cors-and-urls /self-hosting/configuration 301
 /configuration/custom-connectors /self-hosting/configuration 301

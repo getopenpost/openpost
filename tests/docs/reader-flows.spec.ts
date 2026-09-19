@@ -130,6 +130,21 @@ test("moved guides keep their public routes", async ({ request }) => {
   }
 });
 
+test("moved Markdown guides keep their agent-readable routes", async ({ request }) => {
+  for (const [oldPath, replacement] of [
+    ["/guides/sdk.md", "/automate/sdk/index.md"],
+    ["/guides/cli.md", "/automate/cli/index.md"],
+    ["/automate/sdk.md", "/automate/sdk/index.md"],
+    ["/automate/api.md", "/automate/api/index.md"],
+    ["/automate/cli.md", "/automate/cli/index.md"],
+    ["/automate/n8n.md", "/automate/n8n/index.md"],
+  ] as const) {
+    const response = await request.get(oldPath);
+    expect(response.ok(), oldPath).toBe(true);
+    expect(new URL(response.url()).pathname).toBe(replacement);
+  }
+});
+
 test("AI client picker opens every guide and renders its logo", async ({ page }) => {
   await page.goto("/mcp");
   const picker = page.locator(".mcp-clients");

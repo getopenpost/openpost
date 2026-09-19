@@ -103,6 +103,14 @@ func newWorkerID() string {
 	return "worker-" + uuid.NewString()
 }
 
+type mcpToolModeSetter interface {
+	SetToolMode(string)
+}
+
+func configureMCPToolMode(handler mcpToolModeSetter, cfg *config.Config) {
+	handler.SetToolMode(cfg.MCPMode)
+}
+
 //nolint:gocyclo
 func main() {
 	runtimeLogger := operationallogging.New(os.Stdout, "openpost", runningBuildRevision())
@@ -873,6 +881,7 @@ func main() {
 	handlers.NewPublicDiscoveryHandler(cfg.PublicURL, version).RegisterRoutes(e)
 
 	mcpHandler := handlers.NewMCPHandler(db, authenticator, entitlementService)
+	configureMCPToolMode(mcpHandler, cfg)
 	mcpHandler.SetServerVersion(version)
 	mcpHandler.SetMediaStorage(storage)
 	mcpHandler.SetMediaHandler(mediaHandler)

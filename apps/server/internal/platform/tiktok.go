@@ -490,7 +490,7 @@ func (t *TikTokAdapter) ReconcilePublish(ctx context.Context, accessToken, _ str
 	return result, nil
 }
 
-func (t *TikTokAdapter) ReconcilePublishRequest(ctx context.Context, accessToken, accountID string, req *PublishRequest, providerReference string) (PublishResult, error) {
+func (t *TikTokAdapter) ReconcilePublishRequest(ctx context.Context, accessToken, _ string, req *PublishRequest, providerReference string) (PublishResult, error) {
 	providerReference = strings.TrimSpace(providerReference)
 	if providerReference == "" {
 		return PublishResult{}, fmt.Errorf("tiktok publish reconciliation requires a publish id")

@@ -11,6 +11,34 @@ import (
 	"strings"
 )
 
+var metaInsightMetricByName = map[string]string{
+	"followers_count":                    MetricFollowers,
+	"views":                              MetricViews,
+	"plays":                              MetricViews,
+	"fb_reels_total_plays":               MetricViews,
+	"impressions":                        MetricImpressions,
+	"post_media_view":                    MetricImpressions,
+	"page_story_impressions_by_story_id": MetricImpressions,
+	"reach":                              MetricReach,
+	"post_total_media_view_unique":       MetricReach,
+	"page_story_impressions_by_story_id_unique": MetricReach,
+	"likes":                     MetricLikes,
+	"post_reactions_like_total": MetricLikes,
+	"comments":                  MetricComments,
+	"replies":                   MetricComments,
+	"pages_fb_story_replies":    MetricComments,
+	"reposts":                   MetricReposts,
+	"quotes":                    MetricQuotes,
+	"shares":                    MetricShares,
+	"pages_fb_story_shares":     MetricShares,
+	"saved":                     MetricSaves,
+	"post_clicks":               MetricClicks,
+	"pages_fb_story_thread_lightweight_reactions": MetricReactions,
+	"post_video_likes_by_reaction_type":           MetricReactions,
+	"story_interaction":                           MetricEngagements,
+	"post_video_social_actions":                   MetricEngagements,
+}
+
 func (f *FacebookAdapter) AnalyticsSupport() AnalyticsSupport {
 	return AnalyticsSupport{
 		Account: true,
@@ -308,6 +336,10 @@ func isBadRequest(err error) bool {
 
 func addMetaInsights(target AnalyticsValues, response metaInsightsResponse) {
 	for _, item := range response.Data {
+		metric, supported := metaInsightMetricByName[item.Name]
+		if !supported {
+			continue
+		}
 		raw := item.TotalValue.Value
 		if len(raw) == 0 && len(item.Values) > 0 {
 			raw = item.Values[len(item.Values)-1].Value
@@ -316,34 +348,7 @@ func addMetaInsights(target AnalyticsValues, response metaInsightsResponse) {
 		if !ok {
 			continue
 		}
-		switch item.Name {
-		case "followers_count":
-			target[MetricFollowers] += value
-		case "views", "plays", "fb_reels_total_plays":
-			target[MetricViews] += value
-		case "impressions", "post_media_view", "page_story_impressions_by_story_id":
-			target[MetricImpressions] += value
-		case "reach", "post_total_media_view_unique", "page_story_impressions_by_story_id_unique":
-			target[MetricReach] += value
-		case "likes", "post_reactions_like_total":
-			target[MetricLikes] += value
-		case "comments", "replies", "pages_fb_story_replies":
-			target[MetricComments] += value
-		case "reposts":
-			target[MetricReposts] += value
-		case "quotes":
-			target[MetricQuotes] += value
-		case "shares", "pages_fb_story_shares":
-			target[MetricShares] += value
-		case "saved":
-			target[MetricSaves] += value
-		case "post_clicks":
-			target[MetricClicks] += value
-		case "pages_fb_story_thread_lightweight_reactions", "post_video_likes_by_reaction_type":
-			target[MetricReactions] += value
-		case "story_interaction", "post_video_social_actions":
-			target[MetricEngagements] += value
-		}
+		target[metric] += value
 	}
 }
 

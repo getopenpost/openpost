@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { QuickCutSegment, QuickCutSource } from '../types';
+	import type { QuickCutSegment, QuickCutSource, QuickCutMarker } from '../types';
 	import { m } from '$lib/paraglide/messages';
 	import QuickCutWaveform from './QuickCutWaveform.svelte';
 	import {
@@ -18,6 +18,8 @@
 		selectedId,
 		inPoint,
 		outPoint,
+		markers = [],
+		reviewRanges = [],
 		onSeek,
 		onSelect
 	}: {
@@ -27,6 +29,8 @@
 		selectedId: string | null;
 		inPoint: { sourceId: string; time: number } | null;
 		outPoint: { sourceId: string; time: number } | null;
+		markers?: QuickCutMarker[];
+		reviewRanges?: Array<{ start: number; end: number }>;
 		onSeek: (t: number) => void;
 		onSelect: (id: string) => void;
 	} = $props();
@@ -151,7 +155,7 @@
 			</div>
 		</div>
 		<div
-			class="relative h-14 w-full overflow-hidden rounded-xl border bg-card shadow-inner"
+			class="relative h-24 w-full overflow-hidden rounded border bg-background"
 			role="group"
 			aria-label={m.quick_cut_timeline_label()}
 			onwheel={wheel}
@@ -165,6 +169,26 @@
 				type="button"
 				class="absolute inset-0 z-10 cursor-ew-resize touch-none"
 				aria-label={m.quick_cut_seek_timeline()}
+				onkeydown={(event) => {
+					if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+						event.preventDefault();
+						onSeek(
+							Math.max(
+								0,
+								Math.min(
+									duration,
+									currentTime + (event.key === 'ArrowLeft' ? -1 : 1) / (activeSource?.fps || 30)
+								)
+							)
+						);
+					} else if (event.key === 'Home') {
+						event.preventDefault();
+						onSeek(0);
+					} else if (event.key === 'End') {
+						event.preventDefault();
+						onSeek(duration);
+					}
+				}}
 				onpointerdown={pointerDown}
 				onpointermove={pointerMove}
 				onpointerup={pointerUp}
@@ -183,7 +207,7 @@
 			{#each visibleSegments as seg (seg.id)}
 				<button
 					type="button"
-					class="absolute top-2 bottom-2 z-20 rounded-md border text-left transition {selectedId ===
+					class="absolute top-0 z-20 h-4 rounded-sm border text-left transition {selectedId ===
 					seg.id
 						? 'border-primary bg-primary/20 shadow'
 						: 'border-primary/30 bg-primary/10 hover:bg-primary/15'}"
@@ -193,6 +217,22 @@
 				></button>
 			{/each}
 
+			{#each reviewRanges as range, index (index)}
+				<div
+					class="pointer-events-none absolute inset-y-0 z-[15] border-x border-destructive bg-destructive/20"
+					style={`left:${pct(range.start)}%;width:${pct(range.end) - pct(range.start)}%`}
+				></div>
+			{/each}
+			{#each markers.filter((marker) => marker.sourceId === activeSource.id && marker.time >= viewport.start && marker.time <= viewEnd) as marker (marker.id)}
+				<button
+					type="button"
+					class="absolute top-5 z-20 h-5 w-3 -translate-x-1/2 rounded-sm text-warning-foreground before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2 before:bg-warning focus-visible:outline-2 focus-visible:outline-primary [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
+					style={`left:${pct(marker.time)}%`}
+					aria-label={marker.name}
+					title={marker.name}
+					onclick={() => onSeek(marker.time)}
+				></button>
+			{/each}
 			{#if inPoint && inPoint.sourceId === activeSource.id}
 				<div
 					class="pointer-events-none absolute top-0 bottom-0 z-30 w-0.5 bg-amber-500"

@@ -46,7 +46,8 @@ export async function prepareSourceRemoval(
 					const { handle: _handle, file: _file, ...metadata } = source;
 					return metadata;
 				}),
-				segments: segments.map((segment) => ({ ...segment }))
+				segments: segments.map((segment) => ({ ...segment })),
+				markers: projectSnapshot.markers?.filter((marker) => marker.sourceId !== input.targetId)
 			}
 		: null;
 	const activeSourceId =

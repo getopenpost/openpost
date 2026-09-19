@@ -60,10 +60,12 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
   const savedProject = page.getByRole("listitem").filter({ hasText: "study-sos-demo" });
   await expect(savedProject).toBeVisible();
   await savedProject.getByRole("button", { name: "Open" }).click();
-  await expect(page.getByText("study-sos-demo.mp4", { exact: true })).toBeVisible({
+  await expect(
+    page.getByRole("button", { name: "Source 1 · study-sos-demo.mp4", exact: true }),
+  ).toBeVisible({
     timeout: 90_000,
   });
-  const preview = page.getByRole("button", { name: "Preview", exact: true });
+  const preview = page.locator(".viewer").getByRole("button", { name: "Preview", exact: true });
   await preview.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();

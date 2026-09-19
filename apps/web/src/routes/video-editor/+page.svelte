@@ -697,6 +697,7 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
+			<Button href="/quick-cut" variant="outline">{m.video_editor_quick_choice_action()}</Button>
 			<Button
 				onclick={() => void startProject()}
 				disabled={creating ||
@@ -711,7 +712,7 @@
 						icon="loading"
 						class="animate-spin motion-reduce:animate-none"
 					/>{:else}<ThemeIcon role="add" />{/if}
-				{m.editor_start_new_project()}
+				{m.video_editor_full_choice()}
 			</Button>
 		{/snippet}
 		{#if (storageMode === 'cloud' && cloudRepository) || gate.state === 'pick' || gate.state === 'ready' || gate.state === 'reconnect'}

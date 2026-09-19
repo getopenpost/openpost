@@ -4,6 +4,17 @@ selected range without re-encoding (mediabunny stream copy). UX inspired by
 LosslessCut (GPL - behavioral reference only, no code ported).
 -->
 <script lang="ts">
+	import EditorHeader from '$lib/components/editor-header.svelte';
+	import { Input } from '$lib/components/ui/input';
+	import TranscriptCutPanel from '$lib/quick-cut/components/TranscriptCutPanel.svelte';
+	import CleanupPanel from '$lib/quick-cut/components/CleanupPanel.svelte';
+	import { removeSourceRanges } from '$lib/quick-cut/range-edit';
+	import { EditorHistory } from '$lib/editor-history';
+	import { page } from '$app/state';
+	import { loadWorkspaceMediaFile } from '$lib/video-editor/media/workspace-source';
+	import { resolveAppPath } from '$lib/app-path';
+	import type { QuickCutMarker } from '$lib/quick-cut/types';
+	import type { AudioSilenceRange } from '$lib/video-editor/audio/audio-silence';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -103,7 +114,18 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let segments = $state<QuickCutSegment[]>([]);
 	let selectedId = $state<string | null>(null);
 	let cutMode = $state<CutMode>('nearestKeyframe');
-	let merge = $state(false);
+	let merge = $state(true);
+	let panel = $state<'cuts' | 'transcript' | 'cleanup' | 'markers' | 'export'>('cuts');
+	let markers = $state<QuickCutMarker[]>([]);
+	let reviewRanges = $state<AudioSilenceRange[]>([]);
+	let reviewEnd: number | null = null;
+	let sentExports = $state<Array<{ name: string; href: string }>>([]);
+	let sourceRequest = '';
+	let importingSource = $state(false);
+	const history = new EditorHistory<string>((value) => value);
+	let historyState = '';
+	let canUndo = $state(false);
+	let canRedo = $state(false);
 	let removeMarkedRanges = $state(false);
 	let loopMode = $state<LoopMode>('off');
 	let inPoint = $state<{ sourceId: string; time: number } | null>(null);
@@ -129,7 +151,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let videoSrc = $state<string>('');
 	let previewRun = $state<{
 		generation: number;
-		segmentIds: string[];
+		segments: QuickCutSegment[];
 		index: number;
 		repeat: boolean;
 	} | null>(null);
@@ -209,6 +231,32 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		untrack(() => void loadCloudProjectList(repository));
 	});
 
+	$effect(() => {
+		const source = page.url.searchParams.get('source');
+		const workspaceId = cloudWorkspaceId;
+		if (!workspaceId || !source?.startsWith('media:') || untrack(() => sourceRequest === source))
+			return;
+		sourceRequest = source;
+		const controller = new AbortController();
+		untrack(() => void importWorkspaceSource(workspaceId, source.slice(6), controller.signal));
+		return () => controller.abort();
+	});
+	async function importWorkspaceSource(
+		workspaceId: string,
+		mediaId: string,
+		signal: AbortSignal
+	): Promise<void> {
+		importingSource = true;
+		try {
+			await addFiles([await loadWorkspaceMediaFile(workspaceId, mediaId, signal)], [], signal);
+		} catch (error) {
+			if (!signal.aborted)
+				showToast(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			importingSource = false;
+		}
+	}
+
 	async function loadCloudProjectList(repository = cloudRepository): Promise<void> {
 		if (!repository) return;
 		const generation = ++cloudLoadGeneration;
@@ -246,9 +294,11 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			project = opened.project;
 			sources = opened.sources;
 			segments = opened.project.segments;
+			markers = opened.project.markers ?? [];
 			cutMode = opened.project.cutMode;
 			merge = opened.project.merge;
 			removeMarkedRanges = opened.project.removeMarkedRanges;
+			resetHistory();
 			activeSourceId = opened.sources[0]?.id ?? null;
 			selectedId = opened.project.segments[0]?.id ?? null;
 			cloudSession = opened.session;
@@ -349,18 +399,35 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				}
 			}
 		}
+		try {
+			await addFiles(files, handles);
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		}
+	}
+
+	async function addFiles(
+		files: File[],
+		handles: FileSystemFileHandle[] = [],
+		signal?: AbortSignal
+	): Promise<void> {
 		if (files.length === 0) return;
+		const imported = await Promise.all(
+			files.map((file, index) => probeSourceFile(file, handles[index]))
+		);
+		signal?.throwIfAborted();
 		for (let i = 0; i < files.length; i++) {
 			const file = files[i]!;
-			const handle = handles[i] ?? undefined;
-			const probed = await probeSourceFile(file, handle);
+			const probed = imported[i]!;
 			sources = [...sources, probed];
+			segments = [...segments, createSegment(0, probed.duration, { sourceId: probed.id })];
 			const url = URL.createObjectURL(file);
 			const next = new Map(sourceUrls);
 			next.set(probed.id, url);
 			sourceUrls = next;
 			if (!activeSourceId) activeSourceId = probed.id;
 		}
+		if (!project) resetHistory();
 		await persistSourceHandles(sources);
 		if (!project) {
 			const metas = sources.map((s) => {
@@ -464,6 +531,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		sources = removal.sources;
 		segments = removal.segments;
 		project = removal.project;
+		markers = removal.project?.markers ?? [];
+		resetHistory();
 		if (activeSourceId !== removal.activeSourceId) currentTime = 0;
 		activeSourceId = removal.activeSourceId;
 		selectedId = removal.selectedSegmentId;
@@ -563,13 +632,12 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		}
 		const seg = createSegment(inPoint.time, outPoint.time, { sourceId: inPoint.sourceId });
 		if (!validateSegmentForProject(seg)) return;
-		if (hasOverlap([...segments, seg])) {
-			showToast(m.quick_cut_overlap_error(), 'error');
-			soundPreferences.play('error');
-			return;
-		}
-		segments = [...segments, seg];
-		selectedId = seg.id;
+		segments = removeSourceRanges(segmentsForExport, seg.sourceId, [
+			{ start: 0, end: seg.start },
+			{ start: seg.end, end: activeSource?.duration ?? seg.end }
+		]);
+		removeMarkedRanges = false;
+		selectedId = segments.find((segment) => segment.sourceId === seg.sourceId)?.id ?? null;
 		inPoint = null;
 		outPoint = null;
 		if (segmentValidationToastId !== null) {
@@ -620,6 +688,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 	function changeDefaultCutMode(mode: CutMode): void {
 		cutMode = mode;
+		segments = segments.map(({ cutMode: _cutMode, ...segment }) => segment);
 		syncProject();
 	}
 
@@ -674,9 +743,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 	async function playPreviewIndex(generation: number, index: number): Promise<void> {
 		const run = previewRun;
-		if (!run || run.generation !== generation || index < 0 || index >= run.segmentIds.length)
-			return;
-		const segment = segments.find((candidate) => candidate.id === run.segmentIds[index]);
+		if (!run || run.generation !== generation || index < 0 || index >= run.segments.length) return;
+		const segment = run.segments[index];
 		if (!segment || segment.enabled === false) return;
 		run.index = index;
 		try {
@@ -716,14 +784,11 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		}
 	}
 
-	function startPreview(segmentIds: string[], repeat: boolean): void {
-		const playable = segmentIds.filter((id) => {
-			const segment = segments.find((candidate) => candidate.id === id);
-			return segment?.enabled !== false;
-		});
+	function startPreview(requested: QuickCutSegment[], repeat: boolean): void {
+		const playable = requested.filter((segment) => segment.enabled !== false);
 		if (playable.length === 0) return;
-		previewGeneration += 1;
-		previewRun = { generation: previewGeneration, segmentIds: playable, index: 0, repeat };
+		stopPreview();
+		previewRun = { generation: previewGeneration, segments: playable, index: 0, repeat };
 		void playPreviewIndex(previewGeneration, 0);
 	}
 
@@ -732,6 +797,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		previewWait?.abort();
 		previewWait = null;
 		previewRun = null;
+		reviewEnd = null;
 	}
 
 	function togglePlay(): void {
@@ -741,15 +807,12 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			stopPreview();
 			return;
 		}
-		if (loopMode === 'all' && enabledSegments.length > 0) {
-			startPreview(
-				enabledSegments.map((segment) => segment.id),
-				true
-			);
+		if (loopMode === 'all' && segmentsForExport.length > 0) {
+			startPreview(segmentsForExport, true);
 			return;
 		}
 		if (loopMode === 'segment' && selectedSegment && selectedSegment.enabled !== false) {
-			startPreview([selectedSegment.id], true);
+			startPreview([selectedSegment], true);
 			return;
 		}
 		void videoEl.play();
@@ -767,7 +830,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		const seg = segments.find((s) => s.id === id);
 		if (!seg || seg.enabled === false) return;
 		selectedId = id;
-		startPreview([id], loopMode === 'segment');
+		startPreview([seg], loopMode === 'segment');
 	}
 
 	function normalize(): void {
@@ -795,6 +858,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			showToast(m.quick_cut_send_workspace_required(), 'error');
 			return false;
 		}
+		sentExports = [];
 		exporting = true;
 		exportProgress = {
 			phase: 'preparing',
@@ -824,11 +888,21 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			});
 			for (const art of artifacts) {
 				if (destination === 'send') {
-					await sendToOpenPost({
+					const uploaded = await sendToOpenPost({
 						workspaceId: workspaceId!,
 						blob: art.scratchFile,
 						fileName: art.fileName
 					});
+					const returnId = page.url.searchParams.get('return');
+					const target = returnId ? `/publications/${encodeURIComponent(returnId)}` : '/';
+					const query = new URLSearchParams({
+						workspace_id: workspaceId!,
+						media_id: uploaded.mediaId
+					});
+					sentExports = [
+						...sentExports,
+						{ name: art.fileName, href: resolveAppPath(`${target}?${query}`) }
+					];
 				} else {
 					if (getWorkspaceRoot()) {
 						const saved = await copyScratchToWorkspace(
@@ -898,6 +972,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 	function syncProject(): void {
 		if (!project) return;
+		recordHistory();
+		project.markers = markers;
 		project.segments = segments;
 		project.cutMode = cutMode;
 		project.merge = merge;
@@ -1029,9 +1105,11 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		try {
 			const parsed = deserializeProject(text);
 			segments = parsed.segments;
+			markers = parsed.markers ?? [];
 			cutMode = parsed.cutMode;
 			merge = parsed.merge;
 			removeMarkedRanges = parsed.removeMarkedRanges;
+			resetHistory();
 			project = parsed;
 			// Sources are metadata only; need to reconnect handles
 			const { restoreSourceHandles } = await import('$lib/quick-cut/project');
@@ -1173,15 +1251,18 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	function onTimeUpdate(): void {
 		if (!videoEl) return;
 		currentTime = videoEl.currentTime;
+		if (reviewEnd !== null && currentTime >= reviewEnd) {
+			videoEl.pause();
+			reviewEnd = null;
+		}
 		const run = previewRun;
 		if (!run || run.generation !== previewGeneration) return;
-		const segmentId = run.segmentIds[run.index];
-		const segment = segments.find((candidate) => candidate.id === segmentId);
+		const segment = run.segments[run.index];
 		if (!segment || segment.sourceId !== activeSourceId) return;
 		if (currentTime < segment.end - 0.02) return;
 		videoEl.pause();
 		let nextIndex = run.index + 1;
-		if (nextIndex >= run.segmentIds.length) {
+		if (nextIndex >= run.segments.length) {
 			if (!run.repeat) {
 				stopPreview();
 				return;
@@ -1196,6 +1277,16 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			return;
 		if (event.repeat || event.defaultPrevented || editorShortcutTargetIsDisabled(event.target))
 			return;
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+			event.preventDefault();
+			restoreHistory(event.shiftKey ? 'redo' : 'undo');
+			return;
+		}
+		if (!event.metaKey && !event.ctrlKey && event.key.toLowerCase() === 'm') {
+			event.preventDefault();
+			addMarker();
+			return;
+		}
 		const action = quickCutShortcutAction(event, keyboardShortcuts.bindings);
 		if (!action) return;
 		event.preventDefault();
@@ -1215,6 +1306,87 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		else if (action === 'toggle-loop') toggleLoopMode();
 	}
 
+	function editSnapshot(): string {
+		return JSON.stringify({ segments, markers, cutMode, merge, removeMarkedRanges });
+	}
+	function resetHistory(): void {
+		history.clear();
+		historyState = editSnapshot();
+		canUndo = false;
+		canRedo = false;
+	}
+	function recordHistory(): void {
+		const next = editSnapshot();
+		if (historyState && next !== historyState)
+			history.checkpoint(m.quick_cut_title(), historyState, next);
+		historyState = next;
+		canUndo = history.canUndo;
+		canRedo = history.canRedo;
+	}
+	function restoreHistory(direction: 'undo' | 'redo'): void {
+		if (exporting) return;
+		stopPreview();
+		const next = direction === 'undo' ? history.undo(editSnapshot()) : history.redo(editSnapshot());
+		const restored = JSON.parse(next || editSnapshot());
+		segments = restored.segments;
+		markers = restored.markers;
+		cutMode = restored.cutMode;
+		merge = restored.merge;
+		removeMarkedRanges = restored.removeMarkedRanges;
+		historyState = next;
+		syncProject();
+	}
+	function removeRanges(sourceId: string, ranges: AudioSilenceRange[]): void {
+		if (exporting || ranges.length === 0) return;
+		stopPreview();
+		segments = removeSourceRanges(segmentsForExport, sourceId, ranges);
+		removeMarkedRanges = false;
+		inPoint = null;
+		outPoint = null;
+		syncProject();
+	}
+	function removeSelection(): void {
+		if (
+			!inPoint ||
+			!outPoint ||
+			inPoint.sourceId !== outPoint.sourceId ||
+			outPoint.time <= inPoint.time
+		) {
+			showToast(m.quick_cut_need_range(), 'error');
+			return;
+		}
+		removeRanges(inPoint.sourceId, [{ start: inPoint.time, end: outPoint.time }]);
+	}
+	function addMarker(): void {
+		if (!activeSource || exporting) return;
+		markers = [
+			...markers,
+			{
+				id: crypto.randomUUID(),
+				sourceId: activeSource.id,
+				time: currentTime,
+				name: m.quick_cut_marker_name({ index: markers.length + 1 })
+			}
+		];
+		panel = 'markers';
+		syncProject();
+	}
+	function previewRange(range: AudioSilenceRange): void {
+		stopPreview();
+		seekTo(Math.max(0, range.start - 0.2));
+		reviewEnd = range.end + 0.2;
+		void videoEl?.play();
+	}
+	function saveTranscript(
+		sourceId: string,
+		transcript: NonNullable<QuickCutSource['transcript']>
+	): void {
+		sources = sources.map((source) =>
+			source.id === sourceId ? { ...source, transcript } : source
+		);
+		syncProject();
+	}
+
 	onDestroy(() => {
 		stopPreview();
 		for (const url of sourceUrls.values()) URL.revokeObjectURL(url);
@@ -1227,18 +1399,67 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="flex min-h-dvh flex-col bg-background text-foreground">
-	<header class="flex items-center justify-between border-b px-3 py-2">
-		<a
-			href="/editors"
-			class="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-		>
-			<Logo class="h-5 w-auto" />
-			<span class="text-sm font-semibold">{m.quick_cut_title()}</span>
-		</a>
-		<div class="flex items-center gap-2">
+<div class="quick-cut-workspace video-editor-theme">
+	<EditorHeader>
+		{#snippet identity()}
+			<a
+				href="/video-editor"
+				class="inline-flex shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary"
+				aria-label={m.video_editor_title()}><Logo class="h-5 w-auto" /></a
+			>
+			<span class="hidden text-sm font-semibold sm:inline">{m.quick_cut_title()}</span>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger
+					>{#snippet child({ props })}<Button {...props} variant="ghost" size="sm"
+							>{m.common_file()}</Button
+						>{/snippet}</DropdownMenu.Trigger
+				>
+				<DropdownMenu.Content>
+					<DropdownMenu.Item disabled={!canUndo || exporting} onclick={() => restoreHistory('undo')}
+						>{m.video_editor_undo()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item disabled={!canRedo || exporting} onclick={() => restoreHistory('redo')}
+						>{m.video_editor_redo()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={openFiles}>{m.quick_cut_open_multiple()}</DropdownMenu.Item>
+					<DropdownMenu.Item onclick={handleImportProject}
+						>{m.quick_cut_import_project()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item disabled={!project} onclick={handleExportProject}
+						>{m.quick_cut_export_project()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			{#if sources.length > 0}
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					class="hidden sm:inline-flex"
+					aria-label={m.video_editor_undo()}
+					disabled={!canUndo || exporting}
+					onclick={() => restoreHistory('undo')}><ThemeIcon role="undo" class="size-4" /></Button
+				>
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					class="hidden sm:inline-flex"
+					aria-label={m.video_editor_redo()}
+					disabled={!canRedo || exporting}
+					onclick={() => restoreHistory('redo')}><ThemeIcon role="redo" class="size-4" /></Button
+				>
+			{/if}
+		{/snippet}
+		{#snippet workspaces()}<span
+				class="hidden max-w-64 truncate text-xs text-muted-foreground md:block"
+				>{project?.name ?? m.quick_cut_tagline()}</span
+			>{/snippet}
+		{#snippet actions()}
 			{#if project}
-				<span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground" role="status">
+				<span
+					class="shrink-0 rounded-full bg-muted px-2 py-1 text-xs whitespace-nowrap text-muted-foreground"
+					role="status"
+				>
 					{#if storageMode === 'cloud'}
 						{#if saveState === 'saving'}
 							{m.video_editor_saving()}
@@ -1265,11 +1486,12 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					>{workspaceName}</span
 				>
 			{/if}
-			<span class="hidden text-xs text-muted-foreground sm:block">{m.quick_cut_tagline()}</span>
-		</div>
-	</header>
-
-	<main class="mx-auto flex w-full max-w-6xl min-w-0 flex-1 flex-col gap-4 p-3 sm:p-4">
+			{#if sources.length > 0}<Button size="sm" onclick={() => (panel = 'export')}
+					>{m.common_export()}</Button
+				>{/if}
+		{/snippet}
+	</EditorHeader>
+	<main class="quick-cut-main">
 		{#if sources.length === 0}
 			<div
 				class="mx-auto mt-10 w-full max-w-xl min-w-0 rounded-2xl border border-dashed bg-card p-4 text-center shadow-sm sm:mt-16 sm:p-8"
@@ -1303,7 +1525,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					</div>
 				{/if}
 				<div class="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
-					<Button class="min-h-11 w-full sm:w-auto" onclick={openFiles}
+					<Button class="min-h-11 w-full sm:w-auto" disabled={importingSource} onclick={openFiles}
 						>{m.quick_cut_open_multiple()}</Button
 					>
 					<Button variant="outline" class="min-h-11 w-full sm:w-auto" onclick={handleImportProject}
@@ -1393,31 +1615,26 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					</div>
 				</section>
 			{/if}
-			<SourceBar
-				{sources}
-				{activeSourceId}
-				busy={exporting}
-				onSelect={switchActiveSource}
-				onReconnect={(id) => void reconnectSource(id)}
-				onRemove={requestSourceRemoval}
-				onAdd={() => void openFiles()}
-			/>
 
-			{#if activeSource}
-				<StreamSelector
-					source={activeSource}
-					onChange={(patch) => updateSourceStreams(activeSource.id, patch)}
+			<div class="source-strip">
+				<SourceBar
+					{sources}
+					{activeSourceId}
+					busy={exporting}
+					onSelect={switchActiveSource}
+					onReconnect={(id) => void reconnectSource(id)}
+					onRemove={requestSourceRemoval}
+					onAdd={() => void openFiles()}
 				/>
-			{/if}
-
-			<div class="grid min-w-0 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-				<div class="flex min-w-0 flex-col gap-3">
+			</div>
+			<div class="cut-workstation">
+				<div class="viewer">
 					<ContextMenu.Root>
 						<ContextMenu.Trigger>
 							{#snippet child({ props })}
 								<button
 									{...props}
-									class="block w-full overflow-hidden rounded-xl bg-black shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+									class="preview-button"
 									type="button"
 									aria-label={m.quick_cut_preview()}
 									onclick={togglePlay}
@@ -1426,7 +1643,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 									<video
 										bind:this={videoEl}
 										src={videoSrc}
-										class="block max-h-[55dvh] w-full object-contain"
+										class="preview-video"
 										playsinline
 										controls={false}
 										ontimeupdate={onTimeUpdate}
@@ -1477,190 +1694,74 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 							</ContextMenu.Item>
 						</ContextMenu.Content>
 					</ContextMenu.Root>
-
-					<TimelineBar
-						{activeSource}
-						{segments}
-						{currentTime}
-						{selectedId}
-						{inPoint}
-						{outPoint}
-						onSeek={seekTo}
-						onSelect={onSelectSegment}
-					/>
-
-					<div class="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
-						<span class="rounded bg-muted px-2 py-1 font-mono text-xs tabular-nums"
-							>{formatTimecode(currentTime)} / {formatTimecode(activeSource?.duration ?? 0)}</span
-						>
-
-						<Button size="xs" variant="outline" onclick={markIn} class="min-h-11 md:min-h-7"
-							>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)} · {m.quick_cut_in()}</Button
-						>
-						{#if inPoint}<span class="font-mono text-xs text-warning-foreground"
-								>{formatTimecode(inPoint.time)}</span
-							>{/if}
-						<Button size="xs" variant="outline" onclick={markOut} class="min-h-11 md:min-h-7"
-							>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)} · {m.quick_cut_out()}</Button
-						>
-						{#if outPoint}<span class="font-mono text-xs text-success-foreground"
-								>{formatTimecode(outPoint.time)}</span
-							>{/if}
-						<Button size="xs" onclick={addSegment} class="min-h-11 md:min-h-7"
-							>{m.quick_cut_add_segment()}</Button
-						>
-
-						<div class="ml-auto flex items-center gap-1">
+					<div class="transport">
+						<div class="flex items-center gap-1">
 							<Button
-								size="icon-xs"
+								size="icon-sm"
 								variant="ghost"
 								aria-label={m.quick_cut_frame_back()}
 								onclick={() => frameStep(-1)}
-								class="min-h-11 min-w-11 md:min-h-7 md:min-w-7">◀</Button
+								><ProtectedIcon icon="editor-skip-back" class="size-4" /></Button
 							>
 							<Button
-								size="icon-xs"
+								size="icon-sm"
+								variant="ghost"
 								aria-label={playing ? m.video_editor_pause() : m.video_editor_play()}
 								onclick={togglePlay}
-								class="min-h-11 min-w-11 md:min-h-9 md:min-w-9">{playing ? '❚❚' : '▶'}</Button
+								><ProtectedIcon icon={playing ? 'pause' : 'play'} class="size-4" /></Button
 							>
 							<Button
-								size="icon-xs"
+								size="icon-sm"
 								variant="ghost"
 								aria-label={m.quick_cut_frame_forward()}
 								onclick={() => frameStep(1)}
-								class="min-h-11 min-w-11 md:min-h-7 md:min-w-7">▶</Button
+								><ProtectedIcon icon="editor-skip-forward" class="size-4" /></Button
+							>
+						</div>
+						<span class="font-mono text-xs tabular-nums"
+							>{formatTimecode(currentTime)} / {formatTimecode(activeSource?.duration ?? 0)}</span
+						>
+						<div class="ml-auto flex items-center gap-1">
+							<Button
+								size="sm"
+								variant="ghost"
+								disabled={segmentsForExport.length === 0}
+								onclick={() => startPreview(segmentsForExport, false)}
+								>{m.quick_cut_preview_edit()}</Button
 							>
 							<Button
-								size="icon-xs"
+								size="icon-sm"
 								variant="ghost"
-								disabled={!canCaptureFrame || capturingFrame}
 								aria-label={m.quick_cut_capture_frame()}
-								title={m.quick_cut_capture_frame()}
+								disabled={!canCaptureFrame || capturingFrame}
 								onclick={() => void captureCurrentFrame('png')}
-								class="min-h-11 min-w-11 md:min-h-7 md:min-w-7"
+								><ThemeIcon role="camera" class="size-4" /></Button
 							>
-								{#if capturingFrame}<ProtectedIcon
-										icon="loading"
-										class="size-4 animate-spin motion-reduce:animate-none"
-									/>{:else}<ThemeIcon role="camera" class="size-4" />{/if}
-							</Button>
 						</div>
 					</div>
-
-					<div class="flex flex-wrap items-center gap-2">
-						<Label class="text-xs">{m.quick_cut_loop_label()}</Label>
-						<div class="flex rounded-md border bg-card p-0.5">
-							{#each [['off', m.quick_cut_loop_off()], ['segment', m.quick_cut_loop_segment()], ['all', m.quick_cut_loop_all()]] as [val, label] (val)}
-								<button
-									type="button"
-									class="min-h-9 rounded px-3 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary {loopMode ===
-									val
-										? 'bg-primary text-primary-foreground'
-										: 'text-muted-foreground hover:bg-accent'}"
-									aria-pressed={loopMode === val}
-									onclick={() => {
-										// SAFETY: val is LoopMode from the tuple above
-										loopMode = val as LoopMode;
-									}}>{label}</button
-								>
-							{/each}
-						</div>
-						<span class="text-xs text-muted-foreground">{m.quick_cut_loop_hint()}</span>
-					</div>
-
-					{#if segments.length > 0 && selectedSegment}
-						<div class="flex gap-2">
-							<Button
-								size="xs"
-								variant="secondary"
-								onclick={() => previewSegment(selectedSegment!.id)}
-								disabled={selectedSegment.enabled === false}
-								class="min-h-11 md:min-h-7">{m.quick_cut_preview_selected()}</Button
-							>
-							<Button
-								size="xs"
-								variant="ghost"
-								onclick={() => seekTo(selectedSegment!.start)}
-								class="min-h-11 md:min-h-7">{m.quick_cut_goto_start()}</Button
-							>
-						</div>
-					{/if}
 				</div>
-
-				<div class="flex min-w-0 flex-col gap-4">
-					<div class="rounded-xl border bg-card p-4 shadow-sm">
-						<h2 class="text-sm font-semibold">
-							{removeMarkedRanges
-								? m.quick_cut_remove_ranges_label()
-								: m.quick_cut_segments_label()} · {enabledSegments.length}
-						</h2>
-						<p class="mt-1 text-xs text-muted-foreground">
-							{removeMarkedRanges
-								? m.quick_cut_remove_ranges_hint({ count: segmentsForExport.length })
-								: m.quick_cut_segments_hint()}
-						</p>
-
-						<div class="mt-3 flex flex-wrap items-center gap-2">
-							<Label class="flex items-center gap-2 text-xs font-normal">
-								<Checkbox
-									checked={removeMarkedRanges}
-									onCheckedChange={(checked) => {
-										removeMarkedRanges = checked === true;
-										syncProject();
-									}}
-									aria-label={m.quick_cut_remove_marked_ranges()}
-								/>
-								{m.quick_cut_remove_marked_ranges()}
-							</Label>
-							<Label class="flex items-center gap-2 text-xs font-normal">
-								<Checkbox
-									checked={merge}
-									onCheckedChange={(checked) => {
-										merge = checked === true;
-										syncProject();
-									}}
-									aria-label={m.quick_cut_merge_label()}
-								/>
-								{m.quick_cut_merge_label()}
-							</Label>
-							<RadioGroup.Root
-								value={cutMode}
-								onValueChange={(value) => changeDefaultCutMode(value as CutMode)}
-								class="flex flex-wrap items-center gap-2"
-							>
-								<Label class="flex items-center gap-2 text-xs font-normal">
-									<RadioGroup.Item value="nearestKeyframe" id="cutMode-nearest" />
-									{m.quick_cut_cut_mode_nearest()}
-								</Label>
-								<Label class="flex items-center gap-2 text-xs font-normal">
-									<RadioGroup.Item value="exact" id="cutMode-exact" />
-									{m.quick_cut_cut_mode_exact()}
-								</Label>
-							</RadioGroup.Root>
-						</div>
-
-						{#if preflight && !preflight.eligible}
-							<p class="mt-2 rounded bg-destructive/10 px-2 py-1 text-xs text-destructive">
-								{preflight.reason}
-							</p>
-						{:else if preflight}
-							<p class="mt-2 rounded bg-muted px-2 py-1 text-xs">{preflight.reason}</p>
-						{/if}
-
-						{#if hasOverlapError}
-							<p class="mt-2 rounded bg-destructive/10 px-2 py-1 text-xs text-destructive">
-								{m.quick_cut_overlap_error()}
-							</p>
+				<aside class="cut-panel" aria-label={m.quick_cut_tools()}>
+					<div class="panel-tabs" role="group" aria-label={m.quick_cut_tools()}>
+						{#each [{ id: 'cuts', label: m.quick_cut_cuts() }, { id: 'transcript', label: m.video_editor_transcript() }, { id: 'cleanup', label: m.quick_cut_cleanup() }, { id: 'markers', label: m.quick_cut_markers() }] as tab (tab.id)}
 							<Button
-								size="xs"
-								variant="outline"
-								onclick={normalize}
-								class="mt-2 min-h-11 md:min-h-7">{m.quick_cut_normalize()}</Button
+								variant="ghost"
+								size="sm"
+								class="min-w-0 flex-1 px-2 text-xs"
+								aria-pressed={panel === tab.id}
+								onclick={() => (panel = tab.id as typeof panel)}>{tab.label}</Button
 							>
-						{/if}
-
-						<div class="mt-4">
+						{/each}
+					</div>
+					<div class="panel-content">
+						{#if panel === 'cuts'}
+							<div class="mb-3 flex items-center justify-between gap-2">
+								<h2 class="text-sm font-medium">{m.quick_cut_kept_parts()}</h2>
+								<span class="font-mono text-xs text-muted-foreground"
+									>{formatTimecode(
+										segmentsForExport.reduce((sum, segment) => sum + segment.end - segment.start, 0)
+									)}</span
+								>
+							</div>
 							<SegmentList
 								{segments}
 								{sources}
@@ -1675,129 +1776,245 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 								onPreview={previewSegment}
 								onExport={(segment) => void handleExportOne(segment)}
 							/>
-						</div>
-
-						<div class="mt-4 grid gap-2 sm:grid-cols-2">
-							<Button size="sm" variant="outline" onclick={openFiles} class="min-h-11"
-								>{m.quick_cut_open_multiple()}</Button
+							<details class="mt-4 border-t pt-3">
+								<summary class="cursor-pointer text-xs text-muted-foreground"
+									>{m.quick_cut_segment_files()}</summary
+								>
+								<div class="mt-2">
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button {...props} size="sm" variant="outline" class="min-h-11 w-full">
+													{m.quick_cut_segment_files()}
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content class="w-64" align="end">
+											<DropdownMenu.Item onclick={() => void handleImportSegments()}>
+												{m.quick_cut_import_segments()}
+											</DropdownMenu.Item>
+											<DropdownMenu.Sub>
+												<DropdownMenu.SubTrigger
+													>{m.quick_cut_export_segments()}</DropdownMenu.SubTrigger
+												>
+												<DropdownMenu.SubContent class="w-56">
+													<DropdownMenu.Item onclick={() => handleExportSegments('csv-seconds')}>
+														{m.quick_cut_format_csv_seconds()}
+													</DropdownMenu.Item>
+													<DropdownMenu.Item onclick={() => handleExportSegments('csv-timecode')}>
+														{m.quick_cut_format_csv_timecodes()}
+													</DropdownMenu.Item>
+													<DropdownMenu.Item onclick={() => handleExportSegments('tsv-timecode')}>
+														{m.quick_cut_format_tsv_timecodes()}
+													</DropdownMenu.Item>
+													<DropdownMenu.Item onclick={() => handleExportSegments('chapters')}>
+														{m.quick_cut_format_chapters()}
+													</DropdownMenu.Item>
+													<DropdownMenu.Item onclick={() => handleExportSegments('srt')}>
+														{m.quick_cut_format_srt()}
+													</DropdownMenu.Item>
+												</DropdownMenu.SubContent>
+											</DropdownMenu.Sub>
+											<DropdownMenu.Separator />
+											<DropdownMenu.Label class="max-w-60 whitespace-normal text-muted-foreground">
+												{m.quick_cut_segment_files_hint()}
+											</DropdownMenu.Label>
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
+								</div>
+							</details>
+							{#if hasOverlapError}<p role="alert" class="mt-2 text-xs text-destructive">
+									{m.quick_cut_overlap_error()}
+								</p>
+								<Button size="sm" variant="outline" onclick={normalize}
+									>{m.quick_cut_normalize()}</Button
+								>{/if}
+						{:else if panel === 'transcript' && activeSource}
+							{#key `${activeSource.id}:${activeSource.selectedAudioTrackIndices?.join(',')}`}<TranscriptCutPanel
+									source={activeSource}
+									segments={segmentsForExport}
+									{currentTime}
+									disabled={exporting}
+									onsave={saveTranscript}
+									onremove={removeRanges}
+									onseek={seekTo}
+								/>{/key}
+						{:else if panel === 'cleanup' && activeSource}
+							{#key `${activeSource.id}:${activeSource.selectedAudioTrackIndices?.join(',')}`}<CleanupPanel
+									source={activeSource}
+									disabled={exporting}
+									onapply={removeRanges}
+									onpreview={previewRange}
+									onreview={(ranges) => (reviewRanges = ranges)}
+								/>{/key}
+						{:else if panel === 'markers'}
+							<Button size="sm" variant="outline" class="mb-3 w-full" onclick={addMarker}
+								>{m.quick_cut_add_marker()}</Button
 							>
-							<DropdownMenu.Root>
-								<DropdownMenu.Trigger>
-									{#snippet child({ props })}
-										<Button {...props} size="sm" variant="outline" class="min-h-11 w-full">
-											{m.quick_cut_segment_files()}
-										</Button>
-									{/snippet}
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content class="w-64" align="end">
-									<DropdownMenu.Item onclick={() => void handleImportSegments()}>
-										{m.quick_cut_import_segments()}
-									</DropdownMenu.Item>
-									<DropdownMenu.Sub>
-										<DropdownMenu.SubTrigger
-											>{m.quick_cut_export_segments()}</DropdownMenu.SubTrigger
+							<div class="divide-y divide-border">
+								{#each markers.filter((marker) => marker.sourceId === activeSource?.id) as marker (marker.id)}
+									<div class="flex items-center gap-1 py-2">
+										<Button
+											size="sm"
+											variant="ghost"
+											class="px-1 font-mono text-xs"
+											onclick={() => seekTo(marker.time)}>{formatTimecode(marker.time)}</Button
 										>
-										<DropdownMenu.SubContent class="w-56">
-											<DropdownMenu.Item onclick={() => handleExportSegments('csv-seconds')}>
-												{m.quick_cut_format_csv_seconds()}
-											</DropdownMenu.Item>
-											<DropdownMenu.Item onclick={() => handleExportSegments('csv-timecode')}>
-												{m.quick_cut_format_csv_timecodes()}
-											</DropdownMenu.Item>
-											<DropdownMenu.Item onclick={() => handleExportSegments('tsv-timecode')}>
-												{m.quick_cut_format_tsv_timecodes()}
-											</DropdownMenu.Item>
-											<DropdownMenu.Item onclick={() => handleExportSegments('chapters')}>
-												{m.quick_cut_format_chapters()}
-											</DropdownMenu.Item>
-											<DropdownMenu.Item onclick={() => handleExportSegments('srt')}>
-												{m.quick_cut_format_srt()}
-											</DropdownMenu.Item>
-										</DropdownMenu.SubContent>
-									</DropdownMenu.Sub>
-									<DropdownMenu.Separator />
-									<DropdownMenu.Label class="max-w-60 whitespace-normal text-muted-foreground">
-										{m.quick_cut_segment_files_hint()}
-									</DropdownMenu.Label>
-								</DropdownMenu.Content>
-							</DropdownMenu.Root>
-						</div>
-						<div class="mt-2 grid gap-2 sm:grid-cols-2">
-							<Button size="sm" variant="outline" onclick={handleImportProject} class="min-h-11"
-								>{m.quick_cut_import_project()}</Button
-							>
-							<Button
-								size="sm"
-								variant="outline"
-								onclick={handleExportProject}
-								disabled={!project}
-								class="min-h-11">{m.quick_cut_export_project()}</Button
-							>
-						</div>
-						<Button
-							size="sm"
-							variant="outline"
-							onclick={handleSendToOpenPost}
-							disabled={!preflight?.eligible}
-							class="mt-2 min-h-11 w-full">{m.quick_cut_send_to_openpost()}</Button
-						>
-					</div>
-
-					<ExportPanel progress={exportProgress} cancel={cancelExport} isExporting={exporting} />
-
-					<div class="flex flex-wrap gap-2">
-						<Button
-							size="sm"
-							disabled={exporting ||
-								segmentsForExport.length === 0 ||
-								!individualPreflight?.eligible}
-							onclick={handleExportAll}
-							class="min-h-11 flex-1">{m.quick_cut_export_all()}</Button
-						>
-						{#if merge}
-							<Button
-								size="sm"
-								variant="secondary"
-								disabled={exporting || segmentsForExport.length < 2 || !mergedPreflight?.eligible}
-								onclick={handleExportMerged}
-								class="min-h-11 flex-1">{m.quick_cut_export_merged()}</Button
-							>
+										<Input
+											aria-label={m.quick_cut_marker_label()}
+											value={marker.name}
+											maxlength={100}
+											class="min-w-0"
+											onchange={(event) => {
+												markers = markers.map((item) =>
+													item.id === marker.id
+														? { ...item, name: event.currentTarget.value }
+														: item
+												);
+												syncProject();
+											}}
+										/>
+										<Button
+											size="icon-sm"
+											variant="ghost"
+											aria-label={m.common_delete()}
+											onclick={() => {
+												markers = markers.filter((item) => item.id !== marker.id);
+												syncProject();
+											}}><ThemeIcon role="delete" class="size-4" /></Button
+										>
+									</div>
+								{/each}
+							</div>
+						{:else if panel === 'export'}
+							<h2 class="mb-3 text-sm font-medium">{m.common_export()}</h2>
+							{#each sentExports as sent (sent.href)}<Button
+									href={sent.href}
+									class="mb-3 w-full"
+									variant="secondary">{m.video_editor_open_composer()}</Button
+								>{/each}
+							<div class="space-y-4">
+								<RadioGroup.Root
+									value={cutMode}
+									onValueChange={(value) => changeDefaultCutMode(value as CutMode)}
+									class="space-y-2"
+								>
+									<Label class="flex items-center gap-2 text-xs"
+										><RadioGroup.Item
+											value="nearestKeyframe"
+											id="cutMode-nearest"
+										/>{m.quick_cut_cut_mode_nearest()}</Label
+									>
+									<Label class="flex items-center gap-2 text-xs"
+										><RadioGroup.Item
+											value="exact"
+											id="cutMode-exact"
+										/>{m.quick_cut_cut_mode_exact()}</Label
+									>
+								</RadioGroup.Root>
+								<Label class="flex items-center gap-2 text-xs"
+									><Checkbox
+										checked={merge}
+										onCheckedChange={(checked) => {
+											merge = checked === true;
+											syncProject();
+										}}
+									/>{m.quick_cut_merge_label()}</Label
+								>
+								{#if preflight}<p class="text-xs text-muted-foreground" role="status">
+										{preflight.reason}
+									</p>{/if}
+								<Button
+									class="w-full"
+									disabled={exporting || !preflight?.eligible || segmentsForExport.length === 0}
+									onclick={() => (merge ? handleExportMerged() : handleExportAll())}
+									>{merge ? m.quick_cut_export_merged() : m.quick_cut_export_all()}</Button
+								>
+								<Button
+									class="w-full"
+									variant="outline"
+									disabled={exporting || !preflight?.eligible}
+									onclick={handleSendToOpenPost}>{m.quick_cut_send_to_openpost()}</Button
+								>
+								{#if activeSource}<details>
+										<summary class="cursor-pointer text-xs">{m.quick_cut_tracks()}</summary
+										><StreamSelector
+											source={activeSource}
+											onChange={(patch) => updateSourceStreams(activeSource.id, patch)}
+										/>
+									</details>{/if}
+								<details>
+									<summary class="cursor-pointer text-xs">{m.quick_cut_advanced()}</summary><Label
+										class="mt-3 flex items-start gap-2 text-xs"
+										><Checkbox
+											checked={removeMarkedRanges}
+											onCheckedChange={(checked) => {
+												removeMarkedRanges = checked === true;
+												syncProject();
+											}}
+										/>{m.quick_cut_remove_marked_ranges()}</Label
+									>
+								</details>
+							</div>
 						{/if}
 					</div>
+				</aside>
+				<div class="cut-timeline">
+					<div class="cut-actions">
+						<Button size="sm" variant="outline" onclick={markIn}
+							>{m.quick_cut_in()}<kbd class="ml-1 text-muted-foreground">I</kbd></Button
+						>
+						<Button size="sm" variant="outline" onclick={markOut}
+							>{m.quick_cut_out()}<kbd class="ml-1 text-muted-foreground">O</kbd></Button
+						>
+						<Button
+							size="sm"
+							variant="secondary"
+							disabled={!inPoint || !outPoint || exporting}
+							onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
+						>
+						<Button
+							size="sm"
+							variant="ghost"
+							disabled={!inPoint || !outPoint || exporting}
+							onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
+						>
+						<Button size="sm" variant="ghost" onclick={addMarker}
+							><ProtectedIcon
+								icon="editor-marker"
+								class="mr-1 size-3.5"
+							/>{m.quick_cut_add_marker()}</Button
+						>
+						<Button
+							size="sm"
+							class="ml-auto"
+							variant="ghost"
+							aria-pressed={loopMode !== 'off'}
+							onclick={toggleLoopMode}
+							>{m.quick_cut_loop_label()}: {loopMode === 'off'
+								? m.quick_cut_loop_off()
+								: loopMode === 'all'
+									? m.quick_cut_loop_all()
+									: m.quick_cut_loop_segment()}</Button
+						>
+					</div>
+					<TimelineBar
+						{activeSource}
+						segments={segmentsForExport}
+						{currentTime}
+						{selectedId}
+						{inPoint}
+						{outPoint}
+						{markers}
+						{reviewRanges}
+						onSeek={seekTo}
+						onSelect={onSelectSegment}
+					/>
 				</div>
 			</div>
+			<ExportPanel progress={exportProgress} cancel={cancelExport} isExporting={exporting} />
 		{/if}
 	</main>
-
-	<footer
-		class="flex flex-wrap justify-center gap-x-3 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground"
-	>
-		<span
-			><kbd>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</kbd>/<kbd
-				>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</kbd
-			>
-			{m.quick_cut_in()}/{m.quick_cut_out()}</span
-		>
-		<span
-			><kbd>{shortcutLabel(keyboardShortcuts.bindings.PLAY_PAUSE)}</kbd>
-			{m.video_editor_shortcuts_command_play_pause()}</span
-		>
-		<span
-			><kbd>{shortcutLabel(keyboardShortcuts.bindings.PREVIOUS_FRAME)}</kbd>/<kbd
-				>{shortcutLabel(keyboardShortcuts.bindings.NEXT_FRAME)}</kbd
-			>
-			{m.quick_cut_frame_back()}/{m.quick_cut_frame_forward()}</span
-		>
-		<span
-			><kbd>{shortcutLabel(keyboardShortcuts.bindings.QUICK_CUT_TOGGLE_LOOP)}</kbd>
-			{m.quick_cut_loop_label()}</span
-		>
-		<span
-			><kbd>{shortcutLabel(keyboardShortcuts.bindings.QUICK_CUT_ADD_SEGMENT)}</kbd>
-			{m.quick_cut_add_segment()}</span
-		>
-	</footer>
-
 	<DestructiveConfirmDialog
 		bind:open={sourceRemovalDialogOpen}
 		title={m.quick_cut_remove_source_title({ name: pendingSourceRemoval?.name ?? '' })}
@@ -1806,3 +2023,161 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		onConfirm={confirmSourceRemoval}
 	/>
 </div>
+
+<style>
+	.quick-cut-workspace {
+		display: flex;
+		height: 100dvh;
+		min-width: 0;
+		flex-direction: column;
+		background: var(--background);
+		color: var(--foreground);
+	}
+	.quick-cut-main {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		min-width: 0;
+		flex-direction: column;
+		overflow: auto;
+	}
+	.source-strip {
+		padding: 6px 12px;
+		border-bottom: 1px solid var(--border);
+		background: var(--card);
+	}
+	.cut-workstation {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 330px;
+		grid-template-rows: minmax(0, 1fr) auto;
+		flex: 1;
+		min-height: 0;
+	}
+	.viewer {
+		display: flex;
+		min-width: 0;
+		min-height: 0;
+		flex-direction: column;
+		overflow: hidden;
+	}
+	.viewer :global([data-context-menu-trigger]) {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+	}
+	.preview-button {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		min-height: 0;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+		background: var(--video-editor-canvas);
+		outline-offset: -2px;
+	}
+	.preview-button:focus-visible {
+		outline: 2px solid var(--primary);
+	}
+	.preview-video {
+		display: block;
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+		object-fit: contain;
+	}
+	.transport {
+		display: flex;
+		flex-shrink: 0;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		padding: 4px 12px;
+		border-top: 1px solid var(--border);
+		background: var(--card);
+	}
+	.cut-panel {
+		display: flex;
+		grid-column: 2;
+		grid-row: 1;
+		min-width: 0;
+		min-height: 0;
+		flex-direction: column;
+		border-left: 1px solid var(--border);
+		background: var(--card);
+	}
+	.panel-tabs {
+		display: flex;
+		flex-shrink: 0;
+		border-bottom: 1px solid var(--border);
+		padding: 4px;
+		gap: 1px;
+	}
+	.panel-tabs :global([aria-pressed='true']) {
+		background: var(--accent);
+		color: var(--accent-foreground);
+	}
+	.panel-content {
+		flex: 1;
+		min-height: 0;
+		overflow: auto;
+		padding: 12px;
+	}
+	.cut-timeline {
+		grid-column: 1/-1;
+		min-width: 0;
+		border-top: 1px solid var(--border);
+		padding: 8px 12px;
+		background: var(--card);
+	}
+	.cut-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px;
+		margin-bottom: 8px;
+	}
+	@media (max-width: 767px) {
+		.cut-workstation {
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: minmax(160px, 32dvh) auto minmax(260px, 1fr);
+			min-height: fit-content;
+		}
+		.viewer {
+			grid-row: 1;
+		}
+		.cut-panel {
+			grid-column: 1;
+			grid-row: 3;
+			border-left: 0;
+			border-top: 1px solid var(--border);
+			min-height: 260px;
+		}
+		.cut-timeline {
+			grid-column: 1;
+			grid-row: 2;
+			padding: 8px;
+		}
+		.panel-content {
+			max-height: 50dvh;
+		}
+		.transport {
+			gap: 4px;
+			padding: 2px 8px;
+		}
+		.transport :global(button) {
+			font-size: 11px;
+			padding-inline: 6px;
+		}
+		.source-strip {
+			padding: 4px 8px;
+		}
+	}
+	@media (pointer: coarse) {
+		.quick-cut-workspace :global(button),
+		.quick-cut-workspace :global(input),
+		.quick-cut-workspace :global(summary) {
+			min-height: 44px;
+		}
+	}
+</style>

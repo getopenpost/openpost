@@ -8,7 +8,7 @@ import {
 
 const STORAGE_KEY = 'openpost-video-editor-cleanup-settings-v1';
 
-type SilenceDetectionMode = 'signal' | 'transcript';
+type SilenceDetectionMode = 'signal' | 'speech' | 'transcript';
 
 export interface SpeechCleanupPersistedSettings {
 	fillerPreset: FillerRemovalPresetId;
@@ -64,7 +64,7 @@ const fillerSettingsSchema = z.object({
 const storedSettingsSchema = z.object({
 	fillerPreset: z.enum(FILLER_REMOVAL_PRESETS.map((preset) => preset.id)).catch('balanced'),
 	fillerSettings: fillerSettingsSchema.catch(() => fillerSettingsSchema.parse({})),
-	silenceMode: z.enum(['signal', 'transcript']).catch('signal'),
+	silenceMode: z.enum(['signal', 'speech', 'transcript']).catch('signal'),
 	minSilenceMs: boundedNumber(100, 10000, 500),
 	paddingStartMs: boundedNumber(0, 2000, 100),
 	paddingEndMs: boundedNumber(0, 2000, 100),

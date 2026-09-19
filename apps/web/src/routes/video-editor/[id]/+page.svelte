@@ -63,11 +63,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { getProject, updateProject } from '$lib/video-editor/workspace-fs/projects';
 	import { CloudVideoProjectRepository } from '$lib/video-editor/cloud/project-repository';
 	import { createCloudRecordingImportRuntime } from '$lib/video-editor/cloud/cloud-recording';
-	import { importCloudProjectAssetsFromPicker } from '$lib/video-editor/cloud/import-project-assets';
+	import {
+		importCloudProjectAssetsFromPicker,
+		importCloudProjectAssetFile
+	} from '$lib/video-editor/cloud/import-project-assets';
 	import { addSubtitleItemFromSrt } from '$lib/video-editor/transcript/captions';
 	import type { TranscriptionSelection } from '$lib/video-editor/transcript/engine/types';
 	import { transcriptionService } from '$lib/video-editor/transcript/transcription-service.svelte';
 	import { aiCaptionService } from '$lib/video-editor/transcript/ai-caption-service.svelte';
+	import { loadWorkspaceMediaFile } from '$lib/video-editor/media/workspace-source';
+	import { insertMediaAtFrame } from '$lib/video-editor/timeline/actions/insert-media';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import { formatMediaDuration } from '$lib/video-editor/media/library-view';
 	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
@@ -930,6 +935,67 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			void editorSession.flushAutosave().catch(() => undefined);
 		};
 	});
+
+	let sourceImportKey = '';
+	let sourceImportError = $state('');
+	let sourceImportBusy = $state(false);
+	$effect(() => {
+		const source = page.url.searchParams.get('source');
+		const workspaceId = workspaceCtx.currentWorkspace?.id;
+		if (!displayedProject || !cloudStorage || !workspaceId || !source?.startsWith('media:')) return;
+		const targetId = displayedProject.id;
+		const key = `${targetId}:${source}`;
+		if (untrack(() => sourceImportKey === key)) return;
+		sourceImportKey = key;
+		untrack(() => void importComposerVideo(targetId, workspaceId, source.slice(6)));
+	});
+
+	async function importComposerVideo(
+		targetId: string,
+		workspaceId: string,
+		mediaId: string
+	): Promise<void> {
+		sourceImportBusy = true;
+		sourceImportError = '';
+		const isCurrent = () => projectId === targetId && editorSession.project?.id === targetId;
+		try {
+			const sourceTag = `workspace-media:${mediaId}`;
+			let media = mediaPool.mediaList.find((candidate) => candidate.tags?.includes(sourceTag));
+			if (!media) {
+				const file = await loadWorkspaceMediaFile(workspaceId, mediaId);
+				if (!isCurrent()) return;
+				media =
+					(await importCloudProjectAssetFile({
+						projectId: targetId,
+						repository: new CloudVideoProjectRepository<Project>(workspaceId),
+						file,
+						isCurrent,
+						tags: [sourceTag],
+						onUnsupportedAudio: requestUnsupportedAudioDecision
+					})) ?? undefined;
+			}
+			if (!media || !isCurrent()) return;
+			const itemId =
+				timelineStore.items.find((item) => item.mediaId === media.id)?.id ??
+				insertMediaAtFrame(media, 0);
+			selectedItemId = itemId;
+			selectedItemIds = [itemId];
+			editorSession.scheduleAutosave();
+			await editorSession.flushAutosave();
+			if (!isCurrent()) return;
+			const url = new URL(page.url);
+			url.searchParams.delete('source');
+			await goto(`${url.pathname}${url.search}`, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: true
+			});
+		} catch (error) {
+			if (isCurrent()) sourceImportError = error instanceof Error ? error.message : String(error);
+		} finally {
+			if (isCurrent()) sourceImportBusy = false;
+		}
+	}
 
 	async function handleImport(): Promise<void> {
 		if (!projectId) return;
@@ -2476,6 +2542,24 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			{projectSummary}
 		</div>
 	{/if}
+
+	{#if sourceImportBusy}<p role="status" class="px-3 py-2 text-sm">{m.editors_loading()}</p>{/if}
+	{#if sourceImportError}<div
+			role="alert"
+			class="flex items-center gap-2 px-3 py-2 text-sm text-destructive"
+		>
+			<p>{sourceImportError}</p>
+			<Button
+				size="sm"
+				variant="outline"
+				onclick={() => {
+					const source = page.url.searchParams.get('source');
+					const workspaceId = workspaceCtx.currentWorkspace?.id;
+					if (source?.startsWith('media:') && workspaceId)
+						void importComposerVideo(projectId, workspaceId, source.slice(6));
+				}}>{m.common_retry()}</Button
+			>
+		</div>{/if}
 
 	{#if !cloudStorage && gate.state !== 'ready'}
 		<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">

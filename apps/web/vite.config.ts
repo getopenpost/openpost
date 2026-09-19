@@ -134,6 +134,7 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: ['ai-music-js', 'kokoro-js', 'phonemizer'],
 		include: [
+			'@ricky0123/vad-web/dist/models/silero',
 			'@lucide/svelte/icons/maximize',
 			'@lucide/svelte/icons/minimize',
 			'@lucide/svelte/icons/scan',

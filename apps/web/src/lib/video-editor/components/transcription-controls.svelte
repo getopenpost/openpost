@@ -39,8 +39,10 @@
 		backend,
 		fallback,
 		onstart,
-		oncancel
+		oncancel,
+		startLabel
 	}: {
+		startLabel?: string;
 		canTranscribe: boolean;
 		busy: boolean;
 		status?: TranscriptionJobStatus;
@@ -207,7 +209,7 @@
 		disabled={!canTranscribe}
 		onclick={busy ? oncancel : start}
 	>
-		{busy ? m.video_editor_transcribe_cancel() : m.video_editor_transcribe()}
+		{busy ? m.video_editor_transcribe_cancel() : (startLabel ?? m.video_editor_transcribe())}
 	</Button>
 	<LocalModelCacheControl />
 </div>

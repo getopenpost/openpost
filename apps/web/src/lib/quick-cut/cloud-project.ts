@@ -107,7 +107,8 @@ export function quickCutCloudDocument(project: QuickCutProject): QuickCutCloudDo
 		schemaVersion: 1,
 		timeline: {
 			sources: structuredClone(project.sources),
-			segments: structuredClone(project.segments)
+			segments: structuredClone(project.segments),
+			markers: project.markers ? structuredClone(project.markers) : undefined
 		},
 		settings: {
 			cutMode: project.cutMode,
@@ -130,6 +131,7 @@ export function quickCutProjectFromCloudDocument(document: QuickCutCloudDocument
 			name: document.name,
 			sources: document.timeline.sources,
 			segments: document.timeline.segments,
+			markers: document.timeline.markers,
 			cutMode: document.settings.cutMode,
 			merge: document.settings.merge,
 			removeMarkedRanges: document.settings.removeMarkedRanges,

@@ -46,7 +46,8 @@ export class TranscriptionBridge {
 		quantization: TranscriptionQuantization,
 		engine: TranscriptionEngine,
 		sourceStartSeconds = 0,
-		sourceEndSeconds?: number
+		sourceEndSeconds?: number,
+		audioTrackIndex?: number
 	): void {
 		if (this.decoder || this.engineWorker) throw new Error('Transcription job already started');
 		this.activeEngine = engine;
@@ -117,7 +118,8 @@ export class TranscriptionBridge {
 			type: 'init',
 			file,
 			sourceStartSeconds,
-			sourceEndSeconds
+			sourceEndSeconds,
+			audioTrackIndex
 		});
 	}
 

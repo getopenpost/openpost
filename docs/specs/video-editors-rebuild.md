@@ -62,7 +62,7 @@ The recorder uses `getDisplayMedia` for screen capture and `getUserMedia` for we
 
 ## Send to OpenPost
 
-After any export completes (Video Editor exports folder, Quick Cut output, finished recording): "Send to OpenPost" uploads the file via the existing media upload endpoints into the workspace Media library, with success state + "Compose" deep link reusing the existing composer attach flow. No return-token round trip; the old `/video-editor/return-tokens` contract dies with the backend deletion. Composer keeps its outbound "Edit video" handoff: it links to `/video-editor?source=media:<id>` style params; the editor imports that media file locally (download via existing media URL), edits locally, and the user sends results back manually. Composer-side error keys for return tokens are removed.
+After any export completes (Video Editor exports folder, Quick Cut output, finished recording): "Send to OpenPost" uploads the file via the existing media upload endpoints into the workspace Media library, with success state + "Compose" deep link reusing the existing composer attach flow. No return-token round trip; the old `/video-editor/return-tokens` contract dies with the backend deletion. Composer keeps its outbound "Edit video" handoff: `/video-editor/new?source=media:<id>` offers Quick Cut or Video Editor, then imports the workspace media into the selected editor. The user sends results back manually. Composer-side error keys for return tokens are removed.
 
 ## Deletions (Phase 0)
 
@@ -87,3 +87,13 @@ Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new mo
 ## Out of scope (v1)
 
 Android wrapper optimization for the full editor, real-time collaborative editing, presence, and shared cursors remain outside the initial v1 build. Mobile capture and non-destructive clip preparation feed Cloud Video Projects without claiming full timeline or export parity. Post-v1 parity work now includes three-engine local voice generation, durable editor-generated images, upscaling, frame interpolation, and a commercial-safe local ACE-Step music generator. The other applicable items stay in the active FreeCut parity backlog.
+
+## Focused Quick Cut workflow
+
+Quick Cut and Video Editor remain separate editors. `/video-editor/new` offers the choice and preserves the composer source and publication return context. The Video page exposes both editors. Quick Cut starts with each complete source retained; Remove selection, transcript word removal, and cleanup subtract from the current edit. Keep selection narrows existing kept ranges without restoring earlier removals.
+
+Quick Cut uses shared editor chrome, history, transcription controls and browser transcription engines. Its source transcript contains word timings for editing, not subtitles. Source markers and transcripts travel in local and cloud project documents. Cuts and markers support undo and redo. Track and export settings appear in the export panel.
+
+Both editors use `lib/video-editor/audio/analysis-client.ts`. Signal detection applies the existing RMS detector to compact per-window levels. Speech detection runs Silero v5 through the maintained `@ricky0123/vad-web` adapter and shared ONNX runtime. Workers decode 16-second PCM chunks and retain only compact levels or voice probabilities. Cancel terminates the worker. Quick Cut intersects removable ranges across every retained audio stream and channel, keeping speech present in any of them. Analysis only proposes ranges; users review and apply through each editor's existing mutation and export boundaries.
+
+References audited: LosslessCut (GPL-2.0, behavior only, no code copied), auto-editor (Unlicense, audio-level behavior only), ricky0123/vad (ISC adapter), and Silero VAD (MIT model). The shipped speech-model notices live in `apps/web/static/licenses/silero-vad/LICENSE`. Exact cuts remain subject to browser codec support; eligible keyframe cuts still use stream copy.

@@ -1596,12 +1596,12 @@ async function exportMergedTranscode(
 				trim: { start: seg.start, end: seg.end },
 				video: (track, n) => {
 					const idx = n - 1;
-					if (selVideo && idx === selVideoIdx) return { forceTranscode: true };
+					if (selVideo && idx === selVideoIdx) return { forceTranscode: true, codec: videoCodec };
 					return { discard: true };
 				},
 				audio: (track, n) => {
 					const idx = n - 1;
-					if (selAudioIdxSet.has(idx)) return { forceTranscode: false };
+					if (selAudioIdxSet.has(idx)) return { forceTranscode: true, codec: audioCodec };
 					return { discard: true };
 				}
 			});
@@ -1672,11 +1672,14 @@ async function exportMergedTranscode(
 			const vSink = new EncodedPacketSink(vTrack);
 			const vDec = await vTrack.getDecoderConfig();
 			let first = true;
+			const segmentDuration = seg.end - seg.start;
 			for await (const pkt of vSink.packets()) {
 				throwIfAborted(signal);
+				if (pkt.timestamp < 0 || pkt.timestamp >= segmentDuration) continue;
 				await videoSource.add(
 					pkt.clone({
 						timestamp: muxedTime + pkt.timestamp,
+						duration: Math.min(pkt.duration, segmentDuration - pkt.timestamp),
 						sequenceNumber: videoSeq++
 					}),
 					{
@@ -1702,9 +1705,12 @@ async function exportMergedTranscode(
 					let aFirst = true;
 					for await (const pkt of aSink.packets()) {
 						throwIfAborted(signal);
+						// Encoder padding must not overlap the next segment's audio.
+						if (pkt.timestamp < 0 || pkt.timestamp >= segmentDuration) continue;
 						await audioSources[ai]!.add(
 							pkt.clone({
 								timestamp: muxedTime + pkt.timestamp,
+								duration: Math.min(pkt.duration, segmentDuration - pkt.timestamp),
 								sequenceNumber: audioSeqs[ai]++
 							}),
 							{

@@ -59,6 +59,11 @@ describe('Quick Cut cloud projects', () => {
 		const project = createNewProject([source('source-1')]);
 		project.segments = [{ id: 'intro', sourceId: 'source-1', start: 0, end: 2 }];
 		project.merge = true;
+		project.markers = [{ id: 'marker', sourceId: 'source-1', time: 1, name: 'Note' }];
+		project.sources[0]!.transcript = {
+			audioTrackIndex: 0,
+			words: [{ text: 'Hello', start: 0, end: 0.5 }]
+		};
 
 		const document = quickCutCloudDocument(project);
 		expect(document).toMatchObject({

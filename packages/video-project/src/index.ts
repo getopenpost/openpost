@@ -25,6 +25,7 @@ export interface PortableQuickCutProjectDocument<TSource = unknown, TSegment = u
   timeline: {
     sources: TSource[];
     segments: TSegment[];
+    markers?: Array<{ id: string; sourceId: string; time: number; name: string }>;
   };
   settings: {
     cutMode: "nearestKeyframe" | "exact";

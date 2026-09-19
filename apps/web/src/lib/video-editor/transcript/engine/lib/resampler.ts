@@ -17,6 +17,15 @@ export function downmixToMono(channels: readonly Float32Array[]): Float32Array {
 		mono[i] = sum / channels.length;
 	}
 
+	const energies = channels.map((channel) =>
+		channel.reduce((sum, sample) => sum + sample * sample, 0)
+	);
+	const strongest = energies.indexOf(Math.max(...energies));
+	const mixedEnergy = mono.reduce((sum, sample) => sum + sample * sample, 0);
+	// Near-opposite stereo must not erase speech. Independent speakers remain mixed.
+	if (mixedEnergy * channels.length ** 2 < (energies[strongest] ?? 0) * 0.01) {
+		return channels[strongest]!.slice();
+	}
 	return mono;
 }
 

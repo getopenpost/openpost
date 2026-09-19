@@ -17,6 +17,7 @@ type DecoderWorkerMessage =
 	| {
 			type: 'init';
 			file: File;
+			audioTrackIndex?: number;
 			sourceStartSeconds?: number;
 			sourceEndSeconds?: number;
 	  };
@@ -53,7 +54,12 @@ self.onmessage = async (event: MessageEvent<DecoderWorkerMessage>) => {
 
 	if (message.type === 'init') {
 		try {
-			await run(message.file, message.sourceStartSeconds ?? 0, message.sourceEndSeconds);
+			await run(
+				message.file,
+				message.sourceStartSeconds ?? 0,
+				message.sourceEndSeconds,
+				message.audioTrackIndex
+			);
 		} catch (error) {
 			postMain({
 				type: 'error',
@@ -70,13 +76,21 @@ function awaitResume(): Promise<void> {
 	});
 }
 
-async function run(file: File, requestedStart: number, requestedEnd?: number): Promise<void> {
+async function run(
+	file: File,
+	requestedStart: number,
+	requestedEnd?: number,
+	audioTrackIndex?: number
+): Promise<void> {
 	const input = new Input({
 		formats: ALL_FORMATS,
 		source: new BlobSource(file)
 	});
 
-	const audioTrack = await input.getPrimaryAudioTrack();
+	const audioTrack =
+		audioTrackIndex === undefined
+			? await input.getPrimaryAudioTrack()
+			: (await input.getAudioTracks())[audioTrackIndex];
 	if (!audioTrack) {
 		input.dispose();
 		throw new Error('No audio track found in file');

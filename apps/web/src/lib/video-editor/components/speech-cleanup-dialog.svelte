@@ -35,7 +35,7 @@
 	} from '$lib/video-editor/transcript/filler-audio-confidence';
 
 	type CleanupMode = 'fillers' | 'silence';
-	type SilenceMode = 'signal' | 'transcript';
+	type SilenceMode = 'signal' | 'speech' | 'transcript';
 	type ReviewRange = {
 		id: string;
 		mediaId: string;
@@ -294,6 +294,7 @@
 	}
 
 	async function analyzeSilence(): Promise<void> {
+		cancelAnalysis();
 		analysisError = '';
 		if (silenceMode === 'transcript') {
 			const byMedia = detectTranscriptSilenceRanges(
@@ -331,6 +332,7 @@
 		const analysisSignature = cleanupSettingsSignature();
 		try {
 			const result = await analyzeSilenceSignal(itemIds, {
+				mode: silenceMode === 'speech' ? 'speech' : 'signal',
 				signal: controller.signal,
 				onProgress: (next) => (progress = next),
 				autoThresholds,
@@ -515,7 +517,7 @@
 				</section>
 			{:else}
 				<section class="mt-4 space-y-4" aria-label={m.video_editor_silence_review()}>
-					<div class="grid grid-cols-2 gap-1 rounded-lg border border-border p-1">
+					<div class="flex flex-wrap gap-1 rounded-lg border border-border p-1">
 						<Button
 							type="button"
 							variant={silenceMode === 'signal' ? 'secondary' : 'ghost'}
@@ -523,6 +525,13 @@
 							onclick={() => switchSilenceMode('signal')}
 							>{m.video_editor_cleanup_audio_signal()}</Button
 						>
+						<Button
+							variant={silenceMode === 'speech' ? 'secondary' : 'ghost'}
+							size="sm"
+							onclick={() => switchSilenceMode('speech')}
+						>
+							{m.editor_cleanup_speech()}
+						</Button>
 						<Button
 							type="button"
 							variant={silenceMode === 'transcript' ? 'secondary' : 'ghost'}
@@ -532,6 +541,11 @@
 							>{m.video_editor_cleanup_transcript_gaps()}</Button
 						>
 					</div>
+					{#if silenceMode !== 'transcript'}<p class="text-xs text-muted-foreground">
+							{silenceMode === 'speech'
+								? m.editor_cleanup_speech_hint()
+								: m.editor_cleanup_signal_hint()}
+						</p>{/if}
 					<div class="grid gap-3 sm:grid-cols-3">
 						<label class="text-[11px] text-[var(--video-editor-muted)]">
 							{m.video_editor_cleanup_min_silence()}

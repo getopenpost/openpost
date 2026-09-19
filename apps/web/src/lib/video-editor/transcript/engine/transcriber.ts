@@ -98,7 +98,8 @@ export class TranscriptionJob implements AsyncIterable<TranscriptSegment> {
 				this.options.quantization ?? 'hybrid',
 				this.resolved.engine,
 				this.options.sourceStartSeconds,
-				this.options.sourceEndSeconds
+				this.options.sourceEndSeconds,
+				this.options.audioTrackIndex
 			);
 		} catch (error) {
 			this.failure = error instanceof Error ? error : new Error(String(error));

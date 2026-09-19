@@ -39,6 +39,23 @@ function source(id = 'source-a'): QuickCutSourceMetadata {
 }
 
 describe('quick-cut project parsing', () => {
+	it('persists editable words and markers in portable projects', () => {
+		const project = createNewProject([source()]);
+		project.sources[0]!.transcript = {
+			audioTrackIndex: 0,
+			words: [{ text: 'Hello', start: 1, end: 1.5 }]
+		};
+		project.markers = [{ id: 'marker', sourceId: 'source-a', time: 2, name: 'Second take' }];
+		const loaded = parseProject(serializeProject(project));
+		expect(loaded.sources[0]!.transcript).toEqual({
+			audioTrackIndex: 0,
+			words: [{ text: 'Hello', start: 1, end: 1.5 }]
+		});
+		expect(loaded.markers).toEqual([
+			{ id: 'marker', sourceId: 'source-a', time: 2, name: 'Second take' }
+		]);
+	});
+
 	it('rejects rotations that the media model cannot represent', () => {
 		const project = createNewProject([source()]);
 		const malformed = {

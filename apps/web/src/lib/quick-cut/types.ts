@@ -21,35 +21,23 @@ export interface QuickCutAudioStream {
 	channels: number | null;
 }
 
-export interface QuickCutSource {
-	id: string;
-	name: string;
-	size: number;
-	mimeType: string;
-	duration: number;
-	width: number;
-	height: number;
-	videoCodec: string | null;
-	audioCodec: string | null;
-	sampleRate: number | null;
-	channels: number | null;
-	rotation: Rotation;
-	fps: number | null;
-	keyframeTimestamps: number[];
-	keyframeState: 'known' | 'unknown' | 'audio-only';
-	lastModified?: number;
-	contentFingerprint?: string;
+export interface QuickCutSource extends QuickCutSourceMetadata {
 	handle?: FileSystemFileHandle;
 	file?: File;
-	videoStreams: QuickCutVideoStream[];
-	audioStreams: QuickCutAudioStream[];
-	/** null = video disabled, undefined = auto (first video track if any) */
-	selectedVideoTrackIndex?: number | null;
-	/** undefined = auto (primary audio if any), empty array = no audio */
-	selectedAudioTrackIndices?: number[];
+}
+
+export interface QuickCutMarker {
+	id: string;
+	sourceId: string;
+	time: number;
+	name: string;
 }
 
 export interface QuickCutSourceMetadata {
+	transcript?: {
+		audioTrackIndex: number;
+		words: import('$lib/video-editor/transcript/engine/types').EngineTranscriptWord[];
+	};
 	id: string;
 	name: string;
 	size: number;
@@ -85,6 +73,7 @@ export interface QuickCutSegment {
 }
 
 export interface QuickCutProject {
+	markers?: QuickCutMarker[];
 	version: 1;
 	id: string;
 	name: string;

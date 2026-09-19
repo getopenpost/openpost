@@ -8,6 +8,7 @@ import type { MediaMetadata, RecordingCaptureMetadata } from '../media/types';
 
 export interface CloudProjectAssetImportOptions<TDocument extends object> {
 	projectId: string;
+	isCurrent?: () => boolean;
 	repository: CloudVideoProjectRepository<TDocument>;
 	onUnsupportedAudio?: (request: {
 		fileName: string;
@@ -82,7 +83,7 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 		tags: [...new Set([probe.kind, ...(options.tags ?? [])])],
 		capture: options.capture
 	};
-	mediaPool.upsert(media, 'ready');
+	if (!options.isCurrent || options.isCurrent()) mediaPool.upsert(media, 'ready');
 	return media;
 }
 

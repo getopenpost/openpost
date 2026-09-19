@@ -48,6 +48,7 @@ export interface TranscribeOptions {
 	language?: string;
 	quantization?: TranscriptionQuantization;
 	/** Optional source window. The decoder skips media outside this range. */
+	audioTrackIndex?: number;
 	sourceStartSeconds?: number;
 	sourceEndSeconds?: number;
 	signal?: AbortSignal;

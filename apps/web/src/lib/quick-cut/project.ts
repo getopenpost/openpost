@@ -17,7 +17,7 @@ import type { QuickCutSource } from './types';
 import { createHash } from './fingerprint';
 
 const MAX_SOURCES = 64;
-const MAX_SEGMENTS = 200;
+const MAX_SEGMENTS = 10000;
 const MAX_KEYFRAMES = 20000;
 const MAX_NAME_LENGTH = 100;
 const rotationSchema = z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]);
@@ -41,6 +41,26 @@ const audioStreamSchema = z.object({
 });
 
 const sourceMetaSchema = z.object({
+	transcript: z
+		.object({
+			audioTrackIndex: z.number().int().nonnegative(),
+			words: z
+				.array(
+					z
+						.object({
+							text: z.string().max(10000),
+							start: z.number().nonnegative(),
+							end: z.number().nonnegative(),
+							confidence: z.number().optional()
+						})
+						.refine(
+							(word) => word.end > word.start,
+							'Transcript word must have a positive duration'
+						)
+				)
+				.max(200000)
+		})
+		.optional(),
 	id: z.string().min(1).max(64),
 	name: z.string().min(1).max(MAX_NAME_LENGTH),
 	size: z
@@ -81,6 +101,17 @@ const segmentSchema = z.object({
 });
 
 const projectSchema = z.object({
+	markers: z
+		.array(
+			z.object({
+				id: z.string().min(1),
+				sourceId: z.string().min(1),
+				time: z.number().nonnegative(),
+				name: z.string().max(MAX_NAME_LENGTH)
+			})
+		)
+		.max(10000)
+		.optional(),
 	version: z.literal(1),
 	id: z.string().min(1),
 	name: z.string().min(1).max(MAX_NAME_LENGTH),
@@ -174,6 +205,12 @@ function normalizeSourceStreams(source: z.infer<typeof sourceMetaSchema>): Quick
 
 function validateProject(data: QuickCutProject): QuickCutProject {
 	const sourceIds = new Set(data.sources.map((s) => s.id));
+	for (const marker of data.markers ?? []) {
+		const source = data.sources.find((source) => source.id === marker.sourceId);
+		if (!source || marker.time > source.duration) throw new Error('Marker is outside its source');
+	}
+	if (new Set(data.markers?.map((marker) => marker.id)).size !== (data.markers?.length ?? 0))
+		throw new Error('Duplicate marker id');
 	for (const seg of data.segments) {
 		if (!sourceIds.has(seg.sourceId))
 			throw new Error(`Segment ${seg.id} references missing source`);

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import VideoEditorChoice from '$lib/components/video-editor-choice.svelte';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { CloudVideoProjectRepository } from '$lib/video-editor/cloud/project-repository';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -14,6 +17,8 @@
 	const gate = createWorkspaceGate();
 	let attemptedRequest = $state('');
 	let error = $state('');
+	let fullEditor = $state(false);
+	const quickHref = $derived(`/quick-cut${page.url.search}`);
 
 	const request = $derived.by(() => {
 		const name = page.url.searchParams.get('name')?.trim() || m.video_editor_project_untitled();
@@ -28,7 +33,12 @@
 	});
 
 	$effect(() => {
-		if (gate.state !== 'ready' || attemptedRequest === request.key) return;
+		if (
+			!fullEditor ||
+			(!workspaceCtx.currentWorkspace?.id && gate.state !== 'ready') ||
+			attemptedRequest === request.key
+		)
+			return;
 		attemptedRequest = request.key;
 		error = '';
 		void createAndOpen(request.name, request.source, request.returnPublicationId);
@@ -41,8 +51,13 @@
 	): Promise<void> {
 		try {
 			const project = createBlankProject(name);
-			await createProject(project);
+			const workspaceId = workspaceCtx.currentWorkspace?.id;
+			if (workspaceId) {
+				const repository = new CloudVideoProjectRepository(workspaceId);
+				await repository.createWithId(project.id, project.name, project);
+			} else await createProject(project);
 			const query = new URLSearchParams();
+			if (workspaceId) query.set('storage', 'cloud');
 			if (source) query.set('source', source);
 			if (returnPublicationId) query.set('return', returnPublicationId);
 			const target = `/video-editor/${project.id}${query.size > 0 ? `?${query}` : ''}`;
@@ -73,7 +88,9 @@
 	</header>
 
 	<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">
-		{#if gate.state !== 'ready'}
+		{#if !fullEditor}
+			<VideoEditorChoice {quickHref} onfull={() => (fullEditor = true)} />
+		{:else if !workspaceCtx.currentWorkspace?.id && gate.state !== 'ready'}
 			<WorkspaceGatePanel {gate} />
 		{:else if error}
 			<div class="w-full max-w-md">

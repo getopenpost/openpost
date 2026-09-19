@@ -3,7 +3,7 @@
  * audio thresholds), minimum-run gating, asymmetric padding, optional
  * smoothing, and automatic threshold estimation.
  *
- * Ported from FreeCut (MIT) — shared/utils/audio-silence.ts (verbatim).
+ * Adapted from FreeCut (MIT), shared/utils/audio-silence.ts.
  */
 
 export interface AudioSilenceRange {
@@ -294,4 +294,21 @@ export function detectSilentRanges(
 	}
 
 	return ranges;
+}
+
+/** Gate and pad the combined quiet intervals after intersecting channels or tracks. */
+export function applySilenceTiming(
+	ranges: readonly AudioSilenceRange[],
+	options: AudioSilenceDetectionOptions = {}
+): AudioSilenceRange[] {
+	const minimum = clampNumber(options.minSilenceMs, DEFAULT_MIN_SILENCE_MS, 1);
+	const padding = clampNumber(options.paddingMs, DEFAULT_PADDING_MS, 0);
+	const before = clampNumber(options.paddingStartMs, padding, 0);
+	const after = clampNumber(options.paddingEndMs, padding, 0);
+	const result: AudioSilenceRange[] = [];
+	for (const range of ranges) {
+		if ((range.end - range.start) * 1000 + 1e-7 < minimum) continue;
+		pushPaddedRange(result, range.start * 1000, range.end * 1000, 1000, before, after);
+	}
+	return result;
 }

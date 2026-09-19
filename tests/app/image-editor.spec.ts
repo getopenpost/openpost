@@ -1,11 +1,71 @@
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { authenticatePage, registerUser, createWorkspace } from "./helpers";
+
+test.describe("touch editor discovery", () => {
+  test.use({ hasTouch: true });
+
+  test("tool variants stay tappable and compact commands edit the selected layer", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
+    const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+    await expect(layers).toHaveCount(6);
+    const family = page.getByTestId("image-editor-tool-family").first();
+    for (const control of await family.getByRole("button").all()) {
+      const bounds = (await control.boundingBox())!;
+      expect(bounds.width).toBeGreaterThanOrEqual(44);
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+    }
+    const variants = family.getByRole("button", {
+      name: "Rectangle select, More actions",
+      exact: true,
+    });
+    await variants.focus();
+    await variants.press("Enter");
+    await page.getByRole("menuitem", { name: /Ellipse select/ }).click();
+    await expect(
+      family.getByRole("button", { name: "Ellipse select", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Select objects", exact: true }).click();
+    await family.getByRole("button", { name: "Ellipse select", exact: true }).click();
+    await expect(
+      family.getByRole("button", { name: "Ellipse select", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await page.setViewportSize({ width: 320, height: 780 });
+    const more = page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true });
+    await more.click();
+    await expect
+      .poll(async () => (await page.getByRole("menu").boundingBox())!.width)
+      .toBeGreaterThanOrEqual(264);
+    await page.getByRole("menuitem", { name: /^Duplicate/ }).click();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(layers).toHaveCount(7);
+    await page.setViewportSize({ width: 320, height: 780 });
+    await more.click();
+    await page.getByRole("menuitem", { name: /^Undo/ }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      320,
+    );
+    await page.screenshot({ path: testInfo.outputPath("photo-touch-320.png") });
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(layers).toHaveCount(6);
+  });
+});
 
 test("signed-in creators can use built-in templates in their workspace", async ({
   page,
   request,
 }) => {
-  const auth = await registerUser(request, "image-template@example.com");
+  const auth = await registerUser(request, `image-template-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, auth.token, "Image workspace");
   await authenticatePage(page, auth.token);
   await page.goto(`/image-editor/new?workspace=${workspace.id}`);
@@ -85,6 +145,9 @@ test("public image editor creates, restores, and exports a local design", async 
   await expect(saveIndicator).toContainText("Saved on this device");
 
   await page.reload();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(title).toHaveValue("Local launch design");
 
   await page.getByRole("button", { name: "Export" }).click();
@@ -114,11 +177,13 @@ test("page-strip previews render after adding a page and remain visible across a
   await page.goto("/image-editor");
   await page.getByRole("button", { name: /Instagram square/ }).click();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-  // The page strip is a status row; page actions live in its grid popover.
+  // Expanding pages uses the reserved strip so thumbnails do not cover the artwork.
   await page.getByRole("button", { name: "Expand pages" }).click();
   await page.getByRole("button", { name: "Add page" }).click();
 
-  const previews = page.locator(".template-preview-frame img");
+  const strip = page.getByTestId("image-editor-page-strip");
+  await expect(strip.getByRole("button", { name: /Page 1:/ })).toBeVisible();
+  const previews = strip.locator(".template-preview-frame img");
   await expect(previews).toHaveCount(2);
   await expect
     .poll(async () =>

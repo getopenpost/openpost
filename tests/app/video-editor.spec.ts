@@ -210,6 +210,9 @@ test("imports video and a photo, places both, and reopens the timeline", async (
     page.getByRole("banner").getByText("All changes saved locally", { exact: true }),
   ).toBeVisible();
   await page.reload();
+  await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
   for (let index = 0; index < 4; index++)
     await page.getByRole("button", { name: "Zoom out", exact: true }).last().click();

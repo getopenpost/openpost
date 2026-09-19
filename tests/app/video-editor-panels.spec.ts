@@ -44,6 +44,165 @@ async function createProject(
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
 }
 
+for (const scheme of ["light", "dark"] as const) {
+  test(`Color keeps its viewer and complete wheels usable on a laptop in ${scheme}`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await createProject(page, "Focused Color layout");
+    await page.getByRole("button", { name: "Add layer", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+    await page.getByRole("tab", { name: "Color", exact: true }).click();
+    await expect(page.getByRole("slider", { name: "Lift color wheel", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`color-laptop-${scheme}.png`) });
+
+    const viewer = page.locator("#video-editor-program-panel");
+    await expect.poll(async () => (await viewer.boundingBox())!.height).toBeGreaterThanOrEqual(280);
+    for (const name of ["Lift", "Gamma", "Gain", "Offset"]) {
+      const wheel = page.getByRole("slider", { name: `${name} color wheel`, exact: true });
+      await expect.poll(async () => (await wheel.boundingBox())!.width).toBeGreaterThanOrEqual(104);
+      const visibleFraction = await wheel.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        let top = Math.max(0, bounds.top);
+        let bottom = Math.min(innerHeight, bounds.bottom);
+        let left = Math.max(0, bounds.left);
+        let right = Math.min(innerWidth, bounds.right);
+        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor);
+          const rect = ancestor.getBoundingClientRect();
+          if (/auto|scroll|hidden|clip/.test(style.overflowY)) {
+            top = Math.max(top, rect.top);
+            bottom = Math.min(bottom, rect.bottom);
+          }
+          if (/auto|scroll|hidden|clip/.test(style.overflowX)) {
+            left = Math.max(left, rect.left);
+            right = Math.min(right, rect.right);
+          }
+        }
+        return (
+          (Math.max(0, bottom - top) * Math.max(0, right - left)) / (bounds.width * bounds.height)
+        );
+      });
+      expect(visibleFraction, `${name} wheel must not be clipped by its panel`).toBeGreaterThan(
+        0.98,
+      );
+    }
+    await expect(page.getByRole("toolbar", { name: "On-canvas editing tools" })).toBeHidden();
+    const lift = page.getByRole("slider", { name: "Lift color wheel", exact: true });
+    const originalLift = await lift.getAttribute("aria-valuetext");
+    await lift.press("ArrowRight");
+    await expect(lift).not.toHaveAttribute("aria-valuetext", originalLift!);
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
+    await expect(lift).toHaveAttribute("aria-valuetext", originalLift!);
+    await page.getByRole("tab", { name: "Curves", exact: true }).click();
+    await expect(
+      page.getByRole("group", { name: "Master curve editor", exact: true }),
+    ).toBeVisible();
+    await expect(lift).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: "Toggle auto-keyframe", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Before", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Effects", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Add effect", exact: true })).toBeVisible();
+    const keyframes = page.getByRole("button", { name: "Keyframes", exact: true });
+    await keyframes.click();
+    await expect(
+      page.getByRole("button", { name: "Toggle auto-keyframe", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await page.getByRole("tab", { name: "Color", exact: true }).click();
+    await expect(keyframes).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("tab", { name: "Primaries", exact: true }).click();
+    const scopes = page.getByRole("complementary", { name: "Scopes", exact: true });
+    const previewWidth = (await viewer.boundingBox())!.width;
+    await page.getByRole("button", { name: "Scopes", exact: true }).click();
+    await expect(scopes).toBeHidden();
+    await expect
+      .poll(async () => (await viewer.boundingBox())!.width)
+      .toBeGreaterThan(previewWidth);
+    await expect(lift).toHaveAttribute("aria-valuetext", originalLift!);
+    await page.getByRole("tab", { name: "Curves", exact: true }).click();
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await page.getByRole("tab", { name: "Color", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(scopes).toBeHidden();
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+    await expect(page.getByText("All changes saved locally", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(scopes).toBeHidden();
+    if (scheme === "light") {
+      for (const viewport of [
+        { width: 1024, height: 768 },
+        { width: 640, height: 450 },
+        { width: 390, height: 844 },
+        { width: 320, height: 844 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await page.getByRole("tab", { name: "Secondary Qualifier", exact: true }).click();
+        await expect(
+          page.getByRole("tabpanel", { name: "Secondary Qualifier", exact: true }),
+        ).toBeVisible();
+        await expect(page.getByRole("button", { name: "Add effect", exact: true })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+          viewport.width,
+        );
+        await page.screenshot({
+          path: testInfo.outputPath(`color-qualifier-${viewport.width}.png`),
+        });
+        await page.getByRole("tab", { name: "Curves", exact: true }).click();
+      }
+    }
+  });
+}
+
+test("text content is immediately editable without scrolling past transforms or templates", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await createProject(page, "Text inspector priority");
+  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+  const inspector = page.locator("#video-editor-tools-panel");
+  const content = inspector.locator("textarea");
+  await page.screenshot({ path: testInfo.outputPath("text-inspector-laptop.png") });
+  await expect(content).toBeInViewport({ ratio: 1 });
+  await content.fill("Words come first");
+  await content.press("Tab");
+  await expect(page.locator("[data-timeline-item-id]")).toContainText("Words come first");
+  await inspector.getByRole("button", { name: "Browse styles", exact: true }).click();
+  const style = page.getByRole("button", { name: "Apply Clean", exact: true });
+  await style.click();
+  await expect(style).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
+  await expect(content).toHaveValue("Words come first");
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
+  await expect(style).toHaveAttribute("aria-pressed", "false");
+});
+
 test("sidebar columns leave the preview visible and bound the timeline", async ({ page }) => {
   await createProject(page, "Panel layout");
   const preview = page.locator("#video-editor-program-panel");
@@ -229,6 +388,9 @@ for (const scheme of ["light", "dark"] as const) {
     await assertLayout(true, false);
     await rightDock.click();
     await page.reload();
+    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+      timeout: 20_000,
+    });
     await expect(rightDock).toHaveAttribute("aria-pressed", "true");
     await expect(leftDock).toHaveAttribute("aria-pressed", "true");
     expect((await assets.boundingBox())!.width).toBeCloseTo(resizedWidth, 0);

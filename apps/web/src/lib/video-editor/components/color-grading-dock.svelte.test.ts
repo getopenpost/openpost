@@ -74,10 +74,14 @@ it('keeps dedicated effect actions after adding the first qualifier', async () =
 	await addQualifier().click();
 	await vi.waitFor(() => expect(timelineStore.itemById.get('clip')?.effects).toHaveLength(1));
 	await expect.element(addQualifier()).toBeVisible();
-	await expect
-		.element(screen.getByRole('button', { name: 'Save current effects as preset' }))
-		.toBeVisible();
-	await expect.element(screen.getByRole('button', { name: 'Disable all effects' })).toBeVisible();
+	const compactAdd = addQualifier().element();
+	const savePreset = screen.getByRole('button', { name: 'Save current effects as preset' });
+	const bypass = screen.getByRole('button', { name: 'Disable all effects' });
+	expect(compactAdd.className).toContain('[@media(pointer:coarse)]:h-11');
+	await expect.element(savePreset).toBeVisible();
+	expect(savePreset.element().className).toContain('[@media(pointer:coarse)]:size-11');
+	await expect.element(bypass).toBeVisible();
+	expect(bypass.element().className).toContain('[@media(pointer:coarse)]:size-11');
 
 	await addQualifier().click();
 	await vi.waitFor(() => expect(timelineStore.itemById.get('clip')?.effects).toHaveLength(2));
@@ -117,6 +121,8 @@ it('keeps a compact clip switcher available in short viewports', async () => {
 	});
 	const secondClip = document.querySelector('[data-color-clip-chip="second"]');
 	if (!(secondClip instanceof HTMLButtonElement)) throw new Error('Expected compact clip button');
+	expect(secondClip.className).toContain('[@media(pointer:coarse)]:h-11');
+	expect(secondClip.className).toContain('[@media(pointer:coarse)]:min-w-11');
 
 	secondClip.click();
 	expect(onselectitem).toHaveBeenCalledWith('second');

@@ -681,12 +681,12 @@
 	{#if showColorTools}<ColorWorkspace {itemId} {itemIds} {onedit} />{/if}
 	{#if !dedicatedGpuEffectId || effects.length > 0}
 		<div
-			class="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--video-editor-border)] px-1"
+			class="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--video-editor-border)] px-1 [@media(pointer:coarse)]:h-12"
 		>
 			{#if dedicatedGpuEffectId}
 				<button
 					type="button"
-					class="flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40"
+					class="flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40 [@media(pointer:coarse)]:h-11"
 					disabled={selectedEffectItemIds.length === 0 || !dedicatedGpuEffect}
 					aria-label={dedicatedAddLabel}
 					title={dedicatedAddLabel}
@@ -716,7 +716,7 @@
 			{#if effects.length > 0}
 				<button
 					type="button"
-					class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 					aria-label={m.video_editor_effects_preset_save_current()}
 					title={m.video_editor_effects_preset_save_current()}
 					aria-expanded={showPresetSave}
@@ -726,7 +726,7 @@
 				</button>
 				<button
 					type="button"
-					class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					class="flex size-7 shrink-0 items-center justify-center rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 					disabled={selectedEffectItemIds.length === 0}
 					aria-label={allEffectsEnabled
 						? m.video_editor_effects_disable_all()

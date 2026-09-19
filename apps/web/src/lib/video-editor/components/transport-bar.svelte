@@ -157,11 +157,12 @@
 </script>
 
 <div
-	class="flex h-8 flex-nowrap items-center gap-1 overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2 [@media(pointer:coarse)]:h-11"
+	class="flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-0 text-[var(--video-editor-text)] sm:gap-1.5 sm:px-2 md:h-8 [@media(pointer:coarse)]:h-12"
+	data-video-transport
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
-			class="hidden @min-[800px]:inline-flex"
+			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -171,7 +172,7 @@
 			<ProtectedIcon icon="editor-skip-back" />
 		</Button>
 		<Button
-			class="hidden @min-[800px]:inline-flex"
+			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -195,7 +196,7 @@
 			{#if playing}<ProtectedIcon icon="pause" />{:else}<ProtectedIcon icon="play" />{/if}
 		</Button>
 		<Button
-			class="hidden @min-[800px]:inline-flex"
+			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -205,7 +206,7 @@
 			<ProtectedIcon icon="editor-stop" />
 		</Button>
 		<Button
-			class="hidden @min-[800px]:inline-flex"
+			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -269,7 +270,7 @@
 			</Popover.Content>
 		</Popover.Root>
 		<Button
-			class="hidden @min-[800px]:inline-flex"
+			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={savingFrame || totalFrames === 0}
@@ -285,12 +286,14 @@
 	</div>
 
 	<span
-		class="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums"
+		class="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums sm:px-2"
+		aria-label={`${timecode} / ${totalFrames}`}
 	>
-		{timecode} <span class="text-muted-foreground">/ {totalFrames}</span>
+		{timecode}
+		<span class="text-muted-foreground max-[479px]:hidden">/ {totalFrames}</span>
 	</span>
 
-	<div class="mx-auto hidden shrink-0 items-center gap-1 @min-[800px]:flex">
+	<div class="mx-auto hidden shrink-0 items-center gap-1 @min-[800px]/program:flex">
 		<Button size="xs" variant="outline" onclick={() => setInPoint(timelineStore.currentFrame)}>
 			{m.video_editor_mark_in()}
 		</Button>
@@ -312,6 +315,96 @@
 	</div>
 
 	<div class="ml-auto flex shrink-0 items-center gap-1">
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				{#snippet child({ props })}
+					<Button
+						{...props}
+						size="icon-xs"
+						variant="ghost"
+						class="@min-[800px]/program:hidden"
+						aria-label={m.image_editor_more_actions()}
+						title={m.image_editor_more_actions()}
+					>
+						<ThemeIcon role="more-horizontal" />
+					</Button>
+				{/snippet}
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="end" side="top" class="video-editor-theme min-w-48">
+				<DropdownMenu.Item disabled={timelineStore.seekLocked} onclick={() => setCurrentFrame(0)}>
+					<ProtectedIcon icon="editor-skip-back" />{m.video_editor_go_to_start()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item
+					disabled={timelineStore.seekLocked}
+					onclick={() => setCurrentFrame(timelineStore.currentFrame - 1)}
+				>
+					<ThemeIcon role="chevron-left" />{m.video_editor_step_back()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item
+					disabled={timelineStore.seekLocked}
+					onclick={() => editorSession.stopPlayback()}
+				>
+					<ProtectedIcon icon="editor-stop" />{m.video_editor_stop()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item
+					disabled={timelineStore.seekLocked}
+					onclick={() => setCurrentFrame(timelineStore.currentFrame + 1)}
+				>
+					<ThemeIcon role="chevron-right" />{m.video_editor_step_forward()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item onclick={() => setInPoint(timelineStore.currentFrame)}>
+					{m.video_editor_mark_in()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item onclick={() => setOutPoint(timelineStore.currentFrame)}>
+					{m.video_editor_mark_out()}
+				</DropdownMenu.Item>
+				{#if timelineStore.inPoint !== null || timelineStore.outPoint !== null}
+					<DropdownMenu.Item
+						onclick={() => {
+							setInPoint(null);
+							setOutPoint(null);
+						}}
+					>
+						{m.video_editor_clear_marks()}
+					</DropdownMenu.Item>
+				{/if}
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item onclick={() => previewPlaybackSettings.setZoom(-1)}>
+					{m.video_editor_preview_zoom_fit()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item
+					onclick={() =>
+						previewPlaybackSettings.setZoom(zoomPreview(previewPlaybackSettings.zoom, 'out'))}
+				>
+					<ProtectedIcon icon="editor-zoom-out" />{m.video_editor_preview_zoom_out()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item
+					onclick={() =>
+						previewPlaybackSettings.setZoom(zoomPreview(previewPlaybackSettings.zoom, 'in'))}
+				>
+					<ProtectedIcon icon="editor-zoom-in" />{m.video_editor_preview_zoom_in()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item onclick={() => previewPlaybackSettings.setPreviewQuality('auto')}>
+					{m.video_editor_preview_quality()}: {m.video_editor_quality_auto()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item onclick={() => previewPlaybackSettings.setPreviewQuality('full')}>
+					{m.video_editor_preview_quality()}: {m.video_editor_quality_full()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item
+					disabled={savingFrame || totalFrames === 0}
+					onclick={() => void saveCurrentFrame()}
+				>
+					<ThemeIcon role="camera" />{m.video_editor_save_frame()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item onclick={ontoggletheater}>
+					{#if theaterActive}<ThemeIcon role="eye-off" />{:else}<ThemeIcon role="eye" />{/if}
+					{theaterActive ? m.video_editor_exit_theater_mode() : m.video_editor_enter_theater_mode()}
+				</DropdownMenu.Item>
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
@@ -347,7 +440,7 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 		<Button
-			class="hidden @min-[800px]:inline-flex"
+			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			aria-label={m.video_editor_preview_zoom_out()}
@@ -381,7 +474,7 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 		<Button
-			class="hidden @min-[800px]:inline-flex"
+			class="hidden @min-[800px]/program:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			aria-label={m.video_editor_preview_zoom_in()}
@@ -403,6 +496,7 @@
 		<Button
 			size="icon-xs"
 			variant={theaterActive ? 'secondary' : 'ghost'}
+			class="hidden @min-[800px]/program:inline-flex"
 			aria-label={theaterActive
 				? m.video_editor_exit_theater_mode()
 				: m.video_editor_enter_theater_mode()}

@@ -307,8 +307,8 @@
 
 	@media (max-height: 600px) and (pointer: coarse) {
 		.color-dock-header {
-			height: 2.75rem;
-			min-height: 2.75rem;
+			height: 3rem;
+			min-height: 3rem;
 		}
 	}
 

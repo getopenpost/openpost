@@ -2927,7 +2927,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								<section
 									id="video-editor-program-panel"
 									data-video-preview
-									class="fullscreen:h-screen fullscreen:w-screen [container-type:inline-size] relative flex min-w-0 flex-1 flex-col bg-[var(--video-editor-canvas)]"
+									class="fullscreen:h-screen fullscreen:w-screen @container/program relative flex min-w-0 flex-1 flex-col bg-[var(--video-editor-canvas)]"
 								>
 									{#if showSourceMonitor}
 										<div

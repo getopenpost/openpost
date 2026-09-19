@@ -431,7 +431,7 @@
 			{#each visualItems as item, index (item.id)}
 				<button
 					type="button"
-					class="flex h-6 min-w-0 shrink-0 items-center gap-1 rounded border px-1.5 text-[10px] transition-colors {selectedIds.has(
+					class="flex h-6 min-w-0 shrink-0 items-center gap-1 rounded border px-1.5 text-[10px] transition-colors [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11 {selectedIds.has(
 						item.id
 					)
 						? 'border-[var(--video-editor-focus-border)] bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]'
@@ -691,6 +691,22 @@
 
 		.color-mini-timeline--compact .compact-clip-switcher {
 			display: flex;
+		}
+	}
+
+	@media (max-height: 600px) and (pointer: coarse) {
+		.color-mini-timeline--compact,
+		.color-mini-timeline--compact .compact-clip-switcher {
+			height: 2.75rem;
+		}
+
+		.color-mini-timeline--compact .compact-clip-switcher {
+			padding-block: 0;
+		}
+
+		.color-mini-timeline--compact .compact-clip-switcher button {
+			height: 2.75rem;
+			min-width: 2.75rem;
 		}
 	}
 </style>

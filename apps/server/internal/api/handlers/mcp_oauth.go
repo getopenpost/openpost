@@ -157,17 +157,18 @@ func mcpTokenPolicyError(err error) error {
 func (h *MCPOAuthHandler) authorizationServerMetadata(c echo.Context) error {
 	baseURL := requestBaseURL(c.Request(), h.publicURL)
 	metadata := map[string]any{
-		"issuer":                                baseURL,
-		"authorization_endpoint":                baseURL + "/oauth/authorize",
-		"token_endpoint":                        baseURL + "/oauth/token",
-		"revocation_endpoint":                   baseURL + "/oauth/revoke",
-		"response_types_supported":              []string{"code"},
-		"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
-		"code_challenge_methods_supported":      []string{mcpoauth.CodeChallengeMethodS256},
-		"token_endpoint_auth_methods_supported": []string{"none", "client_secret_post", "client_secret_basic"},
-		"scopes_supported":                      append([]string{mcpScopeRead, mcpScopeFull}, externalapps.SupportedScopes()...),
-		"client_id_metadata_document_supported": true,
-		"resource_indicators_supported":         true,
+		"issuer":                                         baseURL,
+		"authorization_endpoint":                         baseURL + "/oauth/authorize",
+		"token_endpoint":                                 baseURL + "/oauth/token",
+		"revocation_endpoint":                            baseURL + "/oauth/revoke",
+		"response_types_supported":                       []string{"code"},
+		"grant_types_supported":                          []string{"authorization_code", "refresh_token"},
+		"code_challenge_methods_supported":               []string{mcpoauth.CodeChallengeMethodS256},
+		"token_endpoint_auth_methods_supported":          []string{"none", "client_secret_post", "client_secret_basic"},
+		"scopes_supported":                               append([]string{mcpScopeRead, mcpScopeFull}, externalapps.SupportedScopes()...),
+		"client_id_metadata_document_supported":          true,
+		"resource_indicators_supported":                  true,
+		"authorization_response_iss_parameter_supported": true,
 	}
 	if h.externalApps != nil && h.externalApps.DynamicRegistrationEnabled() {
 		metadata["registration_endpoint"] = baseURL + "/oauth/register"

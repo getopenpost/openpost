@@ -3016,6 +3016,44 @@ func (h *MediaHandler) processUpload(ctx context.Context, workspaceID string, fi
 	return h.processUploadBytes(ctx, metadata)
 }
 
+func (h *MediaHandler) processUploadStream(
+	ctx context.Context,
+	workspaceID string,
+	filename string,
+	declaredMimeType string,
+	size int64,
+	reader io.Reader,
+	metadata mediaUploadBytesInput,
+) (map[string]interface{}, error) {
+	metadata.WorkspaceID = workspaceID
+	metadata.Filename = cleanUploadFilename(filename)
+	if metadata.Filename == "" {
+		return nil, errors.New("filename is required")
+	}
+	metadata.DeclaredMimeType = declaredMimeType
+	metadata.Size = size
+	source, assetKind, err := normalizeMediaProvenance(metadata.Source, metadata.AssetKind)
+	if err != nil {
+		return nil, err
+	}
+	metadata.TagID, err = h.resolveMediaUploadTag(ctx, workspaceID, metadata.TagID, assetKind)
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
+	metadata.RetentionClass, err = medialifecycle.NormalizeRetention(metadata.RetentionClass, assetKind, metadata.TagID != "")
+	if err != nil {
+		return nil, err
+	}
+	if err := validateStockUploadProvenance(source, metadata.StockProvenance); err != nil {
+		return nil, err
+	}
+	sizeLimit := mediaUploadSizeLimit(assetKind, metadata.Filename, metadata.DeclaredMimeType)
+	if metadata.Size > sizeLimit {
+		return nil, errors.New(mediaUploadSizeError(sizeLimit))
+	}
+	return h.processStreamUpload(ctx, metadata, source, assetKind, reader, sizeLimit)
+}
+
 //nolint:gocyclo // Streaming validation, hashing, deduplication, analysis, persistence, and usage accounting form one ordered pipeline.
 func (h *MediaHandler) processStreamUpload(
 	ctx context.Context,
@@ -3074,7 +3112,7 @@ func (h *MediaHandler) processStreamUpload(
 	}
 	if counter.count != input.Size {
 		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
-		return nil, errors.New("uploaded media size does not match multipart metadata")
+		return nil, errors.New("uploaded media size does not match declared size")
 	}
 	fileHash := hex.EncodeToString(hasher.Sum(nil))
 	if mediaSourceSupportsDeduplication(source) && assetKind == "library" {

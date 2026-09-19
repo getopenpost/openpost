@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -68,6 +69,7 @@ func newMCPTestServerWithEntitlement(t *testing.T, entitlement entitlements.Serv
 		(*models.MediaTag)(nil),
 		(*models.MediaTagAssignment)(nil),
 		(*models.MCPToolCall)(nil),
+		(*models.MCPMediaUploadTicket)(nil),
 		(*models.ProviderApp)(nil),
 		(*models.Publication)(nil),
 		(*models.PublicationAsset)(nil),
@@ -146,7 +148,11 @@ func newMCPTestServerWithEntitlement(t *testing.T, entitlement entitlements.Serv
 	handler := NewMCPHandler(db, testAuthenticator{}, entitlement)
 	ensurePermissiveProviderReadinessFixture(t, db)
 	handler.SetProviderReadiness(mcpProviderReadiness(t))
-	handler.SetMediaStorage(mediastore.NewLocalStorage(t.TempDir(), "/media"))
+	storage := mediastore.NewLocalStorage(t.TempDir(), "/media")
+	handler.SetMediaStorage(storage)
+	mediaHandler := NewMediaHandler(db, storage, nil, testAuthenticator{}, nil)
+	mediaHandler.SetEntitlement(entitlement)
+	handler.SetMediaHandler(mediaHandler)
 	handler.SetPublicURL("https://app.openpost.test")
 	handler.SetFeatureGate(alwaysEnabledMCPGate{})
 	handler.RegisterRoutes(e)
@@ -160,11 +166,15 @@ func (alwaysEnabledMCPGate) IsEffectiveEnabled(context.Context, string, string) 
 }
 
 func (s *mcpTestServer) request(t *testing.T, token string, body any) *httptest.ResponseRecorder {
+	return s.requestPath(t, "/mcp", token, body)
+}
+
+func (s *mcpTestServer) requestPath(t *testing.T, path, token string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var payload bytes.Buffer
 	require.NoError(t, json.NewEncoder(&payload).Encode(body))
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/mcp", &payload)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, &payload)
 	req.Header.Set("Content-Type", "application/json")
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -172,6 +182,91 @@ func (s *mcpTestServer) request(t *testing.T, token string, body any) *httptest.
 	rec := httptest.NewRecorder()
 	s.echo.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestMCPExposesDirectAndCodeModeEndpoints(t *testing.T) {
+	t.Parallel()
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"mcp-token": {UserID: "user-1", Scope: "mcp:full", WorkspaceID: "ws-1"},
+	}
+	listNames := func(path string) []string {
+		resp := srv.requestPath(t, path, "mcp-token", map[string]any{"jsonrpc": "2.0", "id": "tools", "method": "tools/list"})
+		require.Equal(t, http.StatusOK, resp.Code)
+		var out struct {
+			Result struct {
+				Tools []struct {
+					Name string `json:"name"`
+				} `json:"tools"`
+			} `json:"result"`
+		}
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+		names := make([]string, 0, len(out.Result.Tools))
+		for _, tool := range out.Result.Tools {
+			names = append(names, tool.Name)
+		}
+		return names
+	}
+	direct := listNames("/mcp")
+	require.Contains(t, direct, mcpToolCreatePub)
+	require.NotContains(t, direct, mcpToolSearch)
+	compact := listNames("/mcp/code")
+	require.Contains(t, compact, mcpToolSearch)
+	require.Contains(t, compact, mcpToolQuery)
+	require.Contains(t, compact, mcpToolExecute)
+	require.NotContains(t, compact, mcpToolCreatePub)
+}
+
+func TestMCPLocalMediaUploadTicketIsHiddenAndOneUse(t *testing.T) {
+	t.Parallel()
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"mcp-token": {UserID: "user-1", Scope: "mcp:full", WorkspaceID: "ws-1", SessionID: "session-1", ClientID: "client-1"},
+	}
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	require.NoError(t, err)
+	response := srv.request(t, "mcp-token", map[string]any{
+		"jsonrpc": "2.0", "id": "ticket", "method": "tools/call",
+		"params": map[string]any{"name": mcpToolCreateTicket, "arguments": map[string]any{
+			"workspace_id": "ws-1", "filename": "../profile.png", "mime_type": "image/png", "size": len(png), "alt_text": "Profile",
+		}},
+	})
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var ticketResult struct {
+		Result struct {
+			Structured map[string]any `json:"structuredContent"`
+			Meta       struct {
+				Upload struct {
+					URL     string            `json:"url"`
+					Headers map[string]string `json:"headers"`
+				} `json:"upload"`
+			} `json:"_meta"`
+		} `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &ticketResult))
+	require.NotContains(t, response.Body.String(), `"structuredContent":{"ticket"`)
+	require.Equal(t, "https://app.openpost.test/mcp/media-upload", ticketResult.Result.Meta.Upload.URL)
+	authorization := ticketResult.Result.Meta.Upload.Headers["Authorization"]
+	require.True(t, strings.HasPrefix(authorization, "Upload "))
+
+	var stored models.MCPMediaUploadTicket
+	require.NoError(t, srv.db.NewSelect().Model(&stored).Scan(t.Context()))
+	require.Equal(t, "profile.png", stored.Filename)
+	require.Equal(t, "session-1", stored.SessionID)
+	require.NotContains(t, authorization, stored.TicketHash)
+
+	upload := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/mcp/media-upload", bytes.NewReader(png))
+		req.Header.Set("Authorization", authorization)
+		req.Header.Set("Content-Type", "image/png")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		return rec
+	}
+	first := upload()
+	require.Equal(t, http.StatusCreated, first.Code, first.Body.String())
+	require.Contains(t, first.Body.String(), `"original_filename":"profile.png"`)
+	require.Equal(t, http.StatusUnauthorized, upload().Code)
 }
 
 type mcpScopeAuthenticator map[string]middleware.Principal
@@ -979,6 +1074,27 @@ func TestMCPResourcesReadRejectsUnknownResource(t *testing.T) {
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, "unknown resource", out["error"].(map[string]any)["message"])
+}
+
+func TestMCPLocalUploadWidgetContractIsAccessibleAndAppScoped(t *testing.T) {
+	t.Parallel()
+	html := mcpUploadWidgetHTML()
+	for _, required := range []string{
+		`<label for="file">Media file</label>`,
+		`<label for="alt">Alt text`,
+		`min-height:44px`,
+		`color-scheme:light dark`,
+		`role="status" aria-live="polite"`,
+		`accept="image/*,video/*"`,
+	} {
+		require.Contains(t, html, required)
+	}
+	ticketTool := mcpCreateLocalUploadTicketTool()
+	meta := ticketTool["_meta"].(map[string]any)
+	require.Equal(t, []string{"app"}, meta["ui"].(map[string]any)["visibility"])
+	renderTool := mcpRenderLocalUploadTool()
+	renderMeta := renderTool["_meta"].(map[string]any)
+	require.Equal(t, mcpUploadWidgetURI, renderMeta["ui"].(map[string]any)["resourceUri"])
 }
 
 func TestMCPPromptsGetRejectsUnknownPrompt(t *testing.T) {

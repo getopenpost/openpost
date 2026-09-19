@@ -3,7 +3,9 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,6 +71,8 @@ const (
 	mcpToolSuggestSlot    = "suggest_next_slot"
 	mcpToolUploadURL      = "upload_media_from_url"
 	mcpToolRenderWidget   = "render_scheduler_widget"
+	mcpToolRenderUpload   = "render_local_media_upload"
+	mcpToolCreateTicket   = "create_local_media_upload_ticket"
 	mcpPromptPlanPost     = "plan_social_post"
 	mcpPromptRenditions   = "adapt_platform_renditions"
 	mcpPromptReviewQueue  = "review_schedule"
@@ -77,7 +81,9 @@ const (
 	maxRemoteMediaBytes   = 50 * 1024 * 1024
 	maxMCPRequestBytes    = 2 * 1024 * 1024
 	mcpAppWidgetURI       = "ui://widget/openpost-scheduler-v1.html"
+	mcpUploadWidgetURI    = "ui://widget/openpost-local-upload-v1.html"
 	mcpAppWidgetMimeType  = "text/html;profile=mcp-app"
+	mcpMediaUploadTTL     = 10 * time.Minute
 )
 
 type MCPHandler struct {
@@ -86,6 +92,7 @@ type MCPHandler struct {
 	entitlement       entitlements.Service
 	usage             *usage.Service
 	mediaStorage      mediastore.BlobStorage
+	mediaHandler      *MediaHandler
 	mediaURLHTTP      *http.Client
 	mediaURLValidator func(context.Context, *url.URL) error
 	publicURL         string
@@ -125,6 +132,10 @@ func (h *MCPHandler) SetServerVersion(version string) {
 
 func (h *MCPHandler) SetMediaStorage(storage mediastore.BlobStorage) {
 	h.mediaStorage = storage
+}
+
+func (h *MCPHandler) SetMediaHandler(handler *MediaHandler) {
+	h.mediaHandler = handler
 }
 
 func (h *MCPHandler) SetPublicURL(publicURL string) {
@@ -175,10 +186,15 @@ func (h *MCPHandler) publicationHandler() *PublicationHandler {
 func (h *MCPHandler) RegisterRoutes(e *echo.Echo) {
 	e.POST("/mcp", h.handle)
 	e.GET("/mcp", h.handleStreamGetUnsupported)
+	e.POST("/mcp/code", h.handleCodeMode)
+	e.GET("/mcp/code", h.handleStreamGetUnsupported)
+	e.PUT("/mcp/media-upload", h.handleLocalMediaUpload)
 	e.GET("/.well-known/oauth-protected-resource", h.protectedResourceMetadata)
 	e.HEAD("/.well-known/oauth-protected-resource", h.protectedResourceMetadata)
 	e.GET("/.well-known/oauth-protected-resource/mcp", h.protectedResourceMetadata)
 	e.HEAD("/.well-known/oauth-protected-resource/mcp", h.protectedResourceMetadata)
+	e.GET("/.well-known/oauth-protected-resource/mcp/code", h.protectedResourceMetadata)
+	e.HEAD("/.well-known/oauth-protected-resource/mcp/code", h.protectedResourceMetadata)
 }
 
 type mcpRequest struct {
@@ -213,6 +229,14 @@ type mcpHTTPFailure struct {
 var errMCPInsufficientScope = errors.New("insufficient MCP scope")
 
 func (h *MCPHandler) handle(c echo.Context) error {
+	return h.handleWithMode(c, h.mcpActiveToolMode())
+}
+
+func (h *MCPHandler) handleCodeMode(c echo.Context) error {
+	return h.handleWithMode(c, mcpToolModeSearch)
+}
+
+func (h *MCPHandler) handleWithMode(c echo.Context, mode mcpToolMode) error {
 	if failure := h.mcpPreflightFailure(c.Request()); failure != nil {
 		return c.JSON(failure.status, failure.body)
 	}
@@ -238,7 +262,7 @@ func (h *MCPHandler) handle(c echo.Context) error {
 	if failure != nil {
 		return c.JSON(failure.status, failure.body)
 	}
-	return h.processMCPRequest(c, principal, req, body)
+	return h.processMCPRequest(c, principal, req, body, mode)
 }
 
 func (h *MCPHandler) mcpPreflightFailure(request *http.Request) *mcpHTTPFailure {
@@ -279,7 +303,7 @@ func readMCPRequest(c echo.Context) (mcpRequest, []byte, *mcpHTTPFailure) {
 	return req, body, nil
 }
 
-func (h *MCPHandler) processMCPRequest(c echo.Context, principal *middleware.Principal, req mcpRequest, body []byte) error {
+func (h *MCPHandler) processMCPRequest(c echo.Context, principal *middleware.Principal, req mcpRequest, body []byte, mode mcpToolMode) error {
 	if req.JSONRPC != "2.0" || req.Method == "" {
 		return c.JSON(http.StatusOK, mcpResponse{
 			JSONRPC: "2.0",
@@ -309,7 +333,7 @@ func (h *MCPHandler) processMCPRequest(c echo.Context, principal *middleware.Pri
 			return c.JSON(http.StatusOK, mcpResponse{JSONRPC: "2.0", ID: req.ID, Error: versionErr})
 		}
 	}
-	result, rpcErr := h.dispatch(c.Request().Context(), principal, req, protocolVersion)
+	result, rpcErr := h.dispatch(c.Request().Context(), principal, req, protocolVersion, mode)
 	resp := mcpResponse{JSONRPC: "2.0", ID: req.ID}
 	if rpcErr != nil {
 		resp.Error = rpcErr
@@ -492,10 +516,10 @@ func (h *MCPHandler) mcpActiveToolMode() mcpToolMode {
 	return mcpToolModeDirect
 }
 
-func (h *MCPHandler) mcpInstructions(scope string) string {
+func (h *MCPHandler) mcpInstructions(scope string, mode mcpToolMode) string {
 	const shared = " All delegated operations retain the same authorization, workspace scoping, schema validation, quota, and audit controls."
 	var base string
-	switch h.mcpActiveToolMode() {
+	switch mode {
 	case mcpToolModeSearch:
 		base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. Call search_operations with a plain-language task to discover relevant operation names and schemas. Call query_operation only for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps." + shared
 	case mcpToolModeBoth:
@@ -506,7 +530,7 @@ func (h *MCPHandler) mcpInstructions(scope string) string {
 	if mcpScopeIsReadOnly(scope) {
 		return base + " This connection is read-only: mutation operations are hidden from discovery and rejected by the server."
 	}
-	if h.mcpActiveToolMode() == mcpToolModeDirect {
+	if mode == mcpToolModeDirect {
 		return base + " Run tools that change state or interact with external systems only after the user approves the mutation."
 	}
 	return base + " Call execute_operation only for operations that change state or interact with external systems, and only after the user approves the mutation."
@@ -575,7 +599,7 @@ func (h *MCPHandler) acceptNotification(req mcpRequest) *mcpError {
 	return &mcpError{Code: -32600, Message: "notifications must use notifications/* methods"}
 }
 
-func (h *MCPHandler) dispatch(ctx context.Context, principal *middleware.Principal, req mcpRequest, protocolVersion string) (any, *mcpError) {
+func (h *MCPHandler) dispatch(ctx context.Context, principal *middleware.Principal, req mcpRequest, protocolVersion string, mode mcpToolMode) (any, *mcpError) {
 	ctx = contextWithMCPPrincipal(ctx, principal)
 	ctx = contextWithMCPWorkspaceScope(ctx, principal.WorkspaceID)
 	switch req.Method {
@@ -586,7 +610,7 @@ func (h *MCPHandler) dispatch(ctx context.Context, principal *middleware.Princip
 				"name":    "openpost",
 				"version": h.serverVersion,
 			},
-			"instructions": h.mcpInstructions(principal.Scope),
+			"instructions": h.mcpInstructions(principal.Scope, mode),
 			"capabilities": map[string]any{
 				"tools":     map[string]any{"listChanged": false},
 				"prompts":   map[string]any{"listChanged": false},
@@ -596,7 +620,7 @@ func (h *MCPHandler) dispatch(ctx context.Context, principal *middleware.Princip
 	case "ping":
 		return map[string]any{}, nil
 	case "tools/list":
-		return map[string]any{"tools": h.mcpAdvertisedToolsForScope(principal.Scope)}, nil
+		return map[string]any{"tools": h.mcpAdvertisedToolsForScope(principal.Scope, mode)}, nil
 	case "resources/list":
 		return h.listMCPResources(), nil
 	case "resources/read":
@@ -693,6 +717,13 @@ func (h *MCPHandler) listMCPResources() any {
 			"description": "Renders OpenPost workspaces, accounts, media, Publications, Renditions, schedules, and provider status in ChatGPT.",
 			"mimeType":    mcpAppWidgetMimeType,
 			"_meta":       h.mcpAppWidgetResourceMeta(),
+		}, {
+			"uri":         mcpUploadWidgetURI,
+			"name":        "openpost_local_media_upload",
+			"title":       "OpenPost local media upload",
+			"description": "Lets a person choose a local image or video and add it to an OpenPost workspace without exposing the upload credential to the model.",
+			"mimeType":    mcpAppWidgetMimeType,
+			"_meta":       h.mcpUploadWidgetResourceMeta(),
 		}},
 	}
 }
@@ -704,17 +735,50 @@ func (h *MCPHandler) readMCPResource(raw json.RawMessage) (any, *mcpError) {
 	if err := json.Unmarshal(raw, &params); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid resource params"}
 	}
-	if params.URI != mcpAppWidgetURI {
+	switch params.URI {
+	case mcpAppWidgetURI:
+		return map[string]any{
+			"contents": []map[string]any{{
+				"uri":      mcpAppWidgetURI,
+				"mimeType": mcpAppWidgetMimeType,
+				"text":     mcpAppWidgetHTML(),
+				"_meta":    h.mcpAppWidgetResourceMeta(),
+			}},
+		}, nil
+	case mcpUploadWidgetURI:
+		return map[string]any{
+			"contents": []map[string]any{{
+				"uri":      mcpUploadWidgetURI,
+				"mimeType": mcpAppWidgetMimeType,
+				"text":     mcpUploadWidgetHTML(),
+				"_meta":    h.mcpUploadWidgetResourceMeta(),
+			}},
+		}, nil
+	default:
 		return nil, &mcpError{Code: -32602, Message: "unknown resource"}
 	}
-	return map[string]any{
-		"contents": []map[string]any{{
-			"uri":      mcpAppWidgetURI,
-			"mimeType": mcpAppWidgetMimeType,
-			"text":     mcpAppWidgetHTML(),
-			"_meta":    h.mcpAppWidgetResourceMeta(),
-		}},
-	}, nil
+}
+
+func (h *MCPHandler) mcpUploadWidgetResourceMeta() map[string]any {
+	domain := mcpWidgetDomain(h.publicURL)
+	connectDomains := []string{}
+	if domain != "" {
+		connectDomains = append(connectDomains, domain)
+	}
+	standardCSP := map[string]any{"connectDomains": connectDomains, "resourceDomains": []string{}}
+	legacyCSP := map[string]any{"connect_domains": connectDomains, "resource_domains": []string{}}
+	ui := map[string]any{"prefersBorder": true, "csp": standardCSP}
+	meta := map[string]any{
+		"ui":                         ui,
+		"openai/widgetDescription":   "Choose a local file and upload it to the selected OpenPost workspace.",
+		"openai/widgetPrefersBorder": true,
+		"openai/widgetCSP":           legacyCSP,
+	}
+	if domain != "" {
+		meta["openai/widgetDomain"] = domain
+		ui["domain"] = domain
+	}
+	return meta
 }
 
 func (h *MCPHandler) mcpAppWidgetResourceMeta() map[string]any {
@@ -897,6 +961,21 @@ h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }
 </html>`
 }
 
+func mcpUploadWidgetHTML() string {
+	return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upload media to OpenPost</title>
+<style>
+:root{color-scheme:light dark;font-family:Inter,ui-sans-serif,system-ui,sans-serif}body{margin:0;padding:16px;background:Canvas;color:CanvasText}.panel{display:grid;gap:14px;padding:16px;border:1px solid color-mix(in srgb,CanvasText 18%,transparent);border-radius:12px}h1{font-size:18px;margin:0}p{margin:0;color:color-mix(in srgb,CanvasText 70%,transparent);line-height:1.45}.field{display:grid;gap:6px}label{font-size:13px;font-weight:650}input{font:inherit;min-height:44px}button{min-height:44px;border:0;border-radius:8px;padding:0 16px;background:#0f8f5f;color:#fff;font:inherit;font-weight:700;cursor:pointer}button:disabled{cursor:not-allowed;opacity:.55}.status{min-height:22px;font-size:13px}.error{color:#c2413b}.success{color:#0f8f5f}
+</style></head><body><main class="panel"><div><h1>Add local media</h1><p>Choose an image or video from this device. OpenPost validates it and adds it to your media library.</p></div><div class="field"><label for="file">Media file</label><input id="file" type="file" accept="image/*,video/*"></div><div class="field"><label for="alt">Alt text <span aria-hidden="true">(optional)</span></label><input id="alt" type="text" maxlength="2000"></div><button id="upload" type="button">Upload to OpenPost</button><div id="status" class="status" role="status" aria-live="polite"></div></main>
+<script>
+(function(){var file=document.getElementById('file'),alt=document.getElementById('alt'),button=document.getElementById('upload'),status=document.getElementById('status');
+function input(){return (window.openai&&window.openai.toolInput)||{};} function show(text,kind){status.textContent=text;status.className='status '+(kind||'');}
+button.addEventListener('click',async function(){var selected=file.files&&file.files[0],workspace=input().workspace_id;if(!selected){show('Choose a file first.','error');file.focus();return}if(!workspace){show('The upload is missing a workspace. Ask the agent to reopen it.','error');return}if(!window.openai||!window.openai.callTool){show('This MCP client does not support app tool calls.','error');return}button.disabled=true;show('Preparing secure upload…');try{var ticket=await window.openai.callTool('create_local_media_upload_ticket',{workspace_id:workspace,filename:selected.name,mime_type:selected.type||'application/octet-stream',size:selected.size,alt_text:alt.value.trim()});var upload=ticket&&ticket._meta&&ticket._meta.upload;if(!upload)throw new Error('OpenPost did not return an upload ticket');show('Uploading '+selected.name+'…');var response=await fetch(upload.url,{method:upload.method||'PUT',headers:upload.headers||{},body:selected});var result=await response.json();if(!response.ok)throw new Error(result.error||'Upload failed');show('Uploaded '+(result.original_filename||selected.name)+'.','success');if(window.openai.sendFollowUpMessage){await window.openai.sendFollowUpMessage({prompt:'Use the OpenPost media item '+result.id+' ('+(result.original_filename||selected.name)+') in this conversation.'});}}catch(error){show(error&&error.message?error.message:'Upload failed.','error')}finally{button.disabled=false}});
+}());
+</script></body></html>`
+}
+
 func mcpPromptResult(description, text string) map[string]any {
 	return map[string]any{
 		"description": description,
@@ -979,6 +1058,8 @@ func mcpAdvertisedTools() []map[string]any {
 		mcpQueryTool(),
 		mcpExecuteTool(),
 		mcpRenderSchedulerWidgetTool(),
+		mcpRenderLocalUploadTool(),
+		mcpCreateLocalUploadTicketTool(),
 	}
 }
 
@@ -992,7 +1073,7 @@ func mcpSearchToolsForScope(scope string) []map[string]any {
 	}
 	readOnlyTools := make([]map[string]any, 0, len(tools)-1)
 	for _, tool := range tools {
-		if tool["name"] != mcpToolExecute {
+		if tool["name"] != mcpToolExecute && tool["name"] != mcpToolRenderUpload && tool["name"] != mcpToolCreateTicket {
 			readOnlyTools = append(readOnlyTools, tool)
 		}
 	}
@@ -1013,17 +1094,21 @@ func mcpDirectToolsForScope(scope string) []map[string]any {
 		}
 		tools = append(tools, operation.Descriptor)
 	}
-	return append(tools, mcpRenderSchedulerWidgetTool())
+	tools = append(tools, mcpRenderSchedulerWidgetTool())
+	if !readOnly {
+		tools = append(tools, mcpRenderLocalUploadTool(), mcpCreateLocalUploadTicketTool())
+	}
+	return tools
 }
 
-func (h *MCPHandler) mcpAdvertisedToolsForScope(scope string) []map[string]any {
-	switch h.mcpActiveToolMode() {
+func (h *MCPHandler) mcpAdvertisedToolsForScope(scope string, mode mcpToolMode) []map[string]any {
+	switch mode {
 	case mcpToolModeSearch:
 		return mcpSearchToolsForScope(scope)
 	case mcpToolModeBoth:
 		tools := mcpDirectToolsForScope(scope)
 		for _, tool := range mcpSearchToolsForScope(scope) {
-			if tool["name"] == mcpToolRenderWidget {
+			if tool["name"] == mcpToolRenderWidget || tool["name"] == mcpToolRenderUpload || tool["name"] == mcpToolCreateTicket {
 				continue
 			}
 			tools = append(tools, tool)
@@ -1891,6 +1976,44 @@ func mcpRenderSchedulerWidgetTool() map[string]any {
 	}, mcpToolSafety{ReadOnly: true})
 }
 
+func mcpRenderLocalUploadTool() map[string]any {
+	return mcpToolDescriptor(map[string]any{
+		"name":        mcpToolRenderUpload,
+		"title":       "Upload local media",
+		"description": "Open a secure file picker so the user can add an image or video from their device to an OpenPost workspace. Returns the selected workspace for the upload widget.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"workspace_id": map[string]any{"type": "string", "description": "Workspace ID returned by list_workspaces."},
+			},
+			"required": []string{"workspace_id"}, "additionalProperties": false,
+		},
+	}, mcpToolSafety{ReadOnly: true})
+}
+
+func mcpCreateLocalUploadTicketTool() map[string]any {
+	tool := mcpToolDescriptor(map[string]any{
+		"name":        mcpToolCreateTicket,
+		"title":       "Prepare local media upload",
+		"description": "Create a one-use upload ticket for the local-media widget. Returns only non-secret readiness data to model context.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"workspace_id": map[string]any{"type": "string"},
+				"filename":     map[string]any{"type": "string", "minLength": 1, "maxLength": 1024},
+				"mime_type":    map[string]any{"type": "string", "maxLength": 255},
+				"size":         map[string]any{"type": "integer", "minimum": 1, "maximum": MaxMediaUploadBytes},
+				"alt_text":     map[string]any{"type": "string", "maxLength": 2000},
+			},
+			"required": []string{"workspace_id", "filename", "size"}, "additionalProperties": false,
+		},
+	}, mcpToolSafety{Destructive: true})
+	meta := tool["_meta"].(map[string]any)
+	meta["ui"] = map[string]any{"visibility": []string{"app"}}
+	meta["openai/widgetAccessible"] = true
+	return tool
+}
+
 type mcpToolSafety struct {
 	ReadOnly    bool
 	Destructive bool
@@ -1939,12 +2062,16 @@ func mcpToolDescriptor(tool map[string]any, safety mcpToolSafety) map[string]any
 		"openai/toolInvocation/invoked":  status.Invoked,
 	}
 	if mcpToolUsesAppWidget(toolName) {
+		resourceURI := mcpAppWidgetURI
+		if toolName == mcpToolRenderUpload {
+			resourceURI = mcpUploadWidgetURI
+		}
 		meta["ui"] = map[string]any{
-			"resourceUri": mcpAppWidgetURI,
+			"resourceUri": resourceURI,
 			"visibility":  []string{"model"},
 		}
-		meta["openai/outputTemplate"] = mcpAppWidgetURI
-		meta["openai/widgetAccessible"] = false
+		meta["openai/outputTemplate"] = resourceURI
+		meta["openai/widgetAccessible"] = toolName == mcpToolRenderUpload
 	}
 	tool["_meta"] = meta
 	return tool
@@ -1964,7 +2091,7 @@ func ensureMCPDescriptionStatesOutput(tool, outputSchema map[string]any) {
 }
 
 func mcpToolUsesAppWidget(toolName string) bool {
-	return toolName == mcpToolRenderWidget
+	return toolName == mcpToolRenderWidget || toolName == mcpToolRenderUpload
 }
 
 type mcpToolStatus struct {
@@ -1999,6 +2126,8 @@ var mcpToolStatuses = map[string]mcpToolStatus{
 	mcpToolSuggestSlot:    {Invoking: "Finding next slot", Invoked: "Next slot found"},
 	mcpToolUploadURL:      {Invoking: "Uploading media", Invoked: "Media uploaded"},
 	mcpToolRenderWidget:   {Invoking: "Rendering view", Invoked: "View rendered"},
+	mcpToolRenderUpload:   {Invoking: "Opening local upload", Invoked: "Local upload ready"},
+	mcpToolCreateTicket:   {Invoking: "Preparing upload", Invoked: "Upload ready"},
 }
 
 func mcpToolInvocationStatus(toolName string) mcpToolStatus {
@@ -2048,6 +2177,15 @@ func mcpToolOutputSchema(toolName string) map[string]any {
 			"workspace_id": map[string]any{"type": "string"},
 			"data":         mcpOpenObjectSchema(),
 		}, "view", "data")
+	case mcpToolRenderUpload:
+		return mcpStructuredOutputSchema(map[string]any{
+			"workspace_id": map[string]any{"type": "string"},
+		}, "workspace_id")
+	case mcpToolCreateTicket:
+		return mcpStructuredOutputSchema(map[string]any{
+			"ready":      map[string]any{"type": "boolean"},
+			"expires_at": map[string]any{"type": "string"},
+		}, "ready", "expires_at")
 	case mcpToolQuery, mcpToolExecute:
 		return mcpOpenObjectSchema()
 	default:
@@ -2371,7 +2509,7 @@ func (h *MCPHandler) callTool(ctx context.Context, principal *middleware.Princip
 }
 
 func mcpToolCallChangesState(canonicalName string) bool {
-	if canonicalName == mcpToolExecute {
+	if canonicalName == mcpToolExecute || canonicalName == mcpToolCreateTicket || canonicalName == mcpToolRenderUpload {
 		return true
 	}
 	if operation, ok := mcpOperationByName(canonicalName); ok {
@@ -2609,6 +2747,10 @@ func (h *MCPHandler) callMCPOperation(ctx context.Context, userID, operation str
 		return h.callReadOnlyWorkspaceTool(ctx, userID, operation, args)
 	case mcpToolRenderWidget:
 		return h.renderSchedulerWidget(args)
+	case mcpToolRenderUpload:
+		return h.renderLocalMediaUpload(ctx, userID, args)
+	case mcpToolCreateTicket:
+		return h.createLocalMediaUploadTicket(ctx, userID, args)
 	case mcpToolCreatePub, mcpToolListPubs, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolReplyRendition,
 		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolPubEvents, mcpToolComments,
 		mcpToolReplyComment, mcpToolHideComment, mcpToolDeleteComment, mcpToolSuggestSlot, mcpToolUploadURL:
@@ -3989,6 +4131,116 @@ func (h *MCPHandler) uploadMediaFromURL(ctx context.Context, userID string, args
 			"media": media,
 		},
 	}, nil
+}
+
+func (h *MCPHandler) renderLocalMediaUpload(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	var input struct {
+		WorkspaceID string `json:"workspace_id"`
+	}
+	if err := decodeMCPArguments(args, &input); err != nil {
+		return nil, &mcpError{Code: -32602, Message: "invalid render_local_media_upload arguments"}
+	}
+	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, input.WorkspaceID); rpcErr != nil {
+		return nil, rpcErr
+	}
+	return map[string]any{
+		"content":           []mcpContent{{Type: "text", Text: "Local media upload is ready."}},
+		"structuredContent": map[string]any{"workspace_id": input.WorkspaceID},
+	}, nil
+}
+
+func (h *MCPHandler) createLocalMediaUploadTicket(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	var input struct {
+		WorkspaceID string `json:"workspace_id"`
+		Filename    string `json:"filename"`
+		MimeType    string `json:"mime_type"`
+		Size        int64  `json:"size"`
+		AltText     string `json:"alt_text"`
+	}
+	if err := decodeMCPArguments(args, &input); err != nil {
+		return nil, &mcpError{Code: -32602, Message: "invalid create_local_media_upload_ticket arguments"}
+	}
+	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, input.WorkspaceID); rpcErr != nil {
+		return nil, rpcErr
+	}
+	filename := cleanUploadFilename(input.Filename)
+	if filename == "" {
+		return nil, &mcpError{Code: -32602, Message: "filename is required"}
+	}
+	if input.Size <= 0 {
+		return nil, &mcpError{Code: -32602, Message: "file size is invalid"}
+	}
+	sizeLimit := mediaUploadSizeLimit("library", filename, input.MimeType)
+	if input.Size > sizeLimit {
+		return nil, &mcpError{Code: -32602, Message: mediaUploadSizeError(sizeLimit)}
+	}
+	token := uuid.NewString()
+	expiresAt := time.Now().UTC().Add(mcpMediaUploadTTL)
+	ticket := &models.MCPMediaUploadTicket{
+		ID: uuid.NewString(), TicketHash: hashMCPMediaUploadTicket(token),
+		WorkspaceID: input.WorkspaceID, UserID: userID,
+		SessionID: middleware.GetSessionID(ctx), TokenID: middleware.GetTokenID(ctx), ClientID: middleware.GetClientID(ctx),
+		Filename: filename, MimeType: strings.TrimSpace(input.MimeType), Size: input.Size,
+		AltText: strings.TrimSpace(input.AltText), ExpiresAt: expiresAt,
+	}
+	if _, err := h.db.NewInsert().Model(ticket).Exec(ctx); err != nil {
+		return nil, &mcpError{Code: -32603, Message: "failed to prepare media upload"}
+	}
+	uploadURL := strings.TrimRight(h.publicURL, "/") + "/mcp/media-upload"
+	if strings.TrimSpace(h.publicURL) == "" {
+		uploadURL = "/mcp/media-upload"
+	}
+	return map[string]any{
+		"content":           []mcpContent{{Type: "text", Text: "Secure local media upload prepared."}},
+		"structuredContent": map[string]any{"ready": true, "expires_at": expiresAt.Format(time.RFC3339)},
+		"_meta": map[string]any{"upload": map[string]any{
+			"url": uploadURL, "method": http.MethodPut,
+			"headers":    map[string]string{"Authorization": "Upload " + token, "Content-Type": ticket.MimeType},
+			"expires_at": expiresAt.Format(time.RFC3339),
+		}},
+	}, nil
+}
+
+func hashMCPMediaUploadTicket(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
+}
+
+func (h *MCPHandler) handleLocalMediaUpload(c echo.Context) error {
+	if h.mediaHandler == nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{fieldError: "media upload is not configured"})
+	}
+	rawToken, ok := strings.CutPrefix(c.Request().Header.Get(echo.HeaderAuthorization), "Upload ")
+	if !ok || strings.TrimSpace(rawToken) == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{fieldError: "missing upload ticket"})
+	}
+	now := time.Now().UTC()
+	var ticket models.MCPMediaUploadTicket
+	err := h.db.NewUpdate().Model(&ticket).
+		Set("consumed_at = ?", now).
+		Where("ticket_hash = ?", hashMCPMediaUploadTicket(strings.TrimSpace(rawToken))).
+		Where("consumed_at IS NULL").
+		Where("expires_at > ?", now).
+		Returning("*").
+		Scan(c.Request().Context())
+	if errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusUnauthorized, map[string]string{fieldError: "upload ticket is invalid, expired, or already used"})
+	}
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{fieldError: "failed to validate upload ticket"})
+	}
+	if c.Request().ContentLength >= 0 && c.Request().ContentLength != ticket.Size {
+		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: "uploaded media size does not match declared size"})
+	}
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, ticket.Size+1)
+	result, uploadErr := h.mediaHandler.processUploadStream(
+		c.Request().Context(), ticket.WorkspaceID, ticket.Filename, ticket.MimeType, ticket.Size, c.Request().Body,
+		mediaUploadBytesInput{AltText: ticket.AltText},
+	)
+	if uploadErr != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: uploadErr.Error()})
+	}
+	return c.JSON(http.StatusCreated, result)
 }
 
 func (h *MCPHandler) fetchRemoteMedia(ctx context.Context, rawURL, requestedFilename string) (*url.URL, string, string, []byte, *mcpError) {

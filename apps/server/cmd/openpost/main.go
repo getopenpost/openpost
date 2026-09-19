@@ -874,8 +874,8 @@ func main() {
 
 	mcpHandler := handlers.NewMCPHandler(db, authenticator, entitlementService)
 	mcpHandler.SetServerVersion(version)
-	mcpHandler.SetToolMode(cfg.MCPToolMode)
 	mcpHandler.SetMediaStorage(storage)
+	mcpHandler.SetMediaHandler(mediaHandler)
 	mcpHandler.SetPublicURL(cfg.PublicURL)
 	mcpHandler.SetAllowedOrigins(cfg.CORSOrigins)
 	mcpHandler.SetProviderCatalog(providers, mastodonAppService != nil)

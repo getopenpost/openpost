@@ -137,6 +137,7 @@ func TestMCPOAuthAuthorizationCodeFlowIssuesUsableMCPToken(t *testing.T) {
 			require.Subset(t, metadata["scopes_supported"], []any{"mcp:read", "mcp:full"})
 			require.Contains(t, metadata["grant_types_supported"], "refresh_token")
 			require.Equal(t, true, metadata["client_id_metadata_document_supported"])
+			require.Equal(t, true, metadata["authorization_response_iss_parameter_supported"])
 
 			verifier := strings.Repeat("e", 43)
 			authorizeResp := srv.request(t, http.MethodPost, "/api/v1/mcp/oauth/authorize", map[string]any{

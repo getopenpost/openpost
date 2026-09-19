@@ -5,7 +5,8 @@ This page is for MCP implementation and protocol details. For setup-oriented use
 OpenPost exposes an authenticated MCP foundation at:
 
 ```txt
-POST /mcp
+POST /mcp       # full, directly advertised tool catalog (default)
+POST /mcp/code  # compact search/query/execute catalog
 ```
 
 The endpoint is JSON-RPC over HTTP and requires a bearer token:
@@ -18,12 +19,13 @@ OpenPost accepts MCP `ping` requests and Streamable HTTP JSON-RPC
 notifications. Notification POSTs such as `notifications/initialized` return
 HTTP `202 Accepted` with no response body.
 
-ChatGPT Apps-compatible clients can also discover and load the scheduler widget
-resource:
+ChatGPT Apps-compatible clients can also discover and load the scheduler and
+local-upload widget resources:
 
 ```txt
 resources/list
 resources/read ui://widget/openpost-scheduler-v1.html
+resources/read ui://widget/openpost-local-upload-v1.html
 ```
 
 The widget is a self-contained `text/html;profile=mcp-app` resource. The
@@ -35,8 +37,9 @@ OpenPost emits the standard MCP Apps keys under `_meta.ui` and keeps legacy
 ChatGPT aliases mirrored under `_meta["openai/..."]`. For example, widget CSP
 uses camelCase `connectDomains` and `resourceDomains` under `_meta.ui.csp`,
 while `_meta["openai/widgetCSP"]` keeps the snake_case alias expected by older
-ChatGPT clients. The render tool is model-visible only; the current widget does
-not call tools directly.
+ChatGPT clients. The scheduler render tool is model-visible. The local-upload
+widget calls an app-only ticket tool whose credential stays in result `_meta`
+and is never placed in model-visible structured content.
 
 For ChatGPT Apps and other OAuth-aware MCP clients, OpenPost also publishes
 protected-resource and authorization-server metadata:
@@ -44,20 +47,29 @@ protected-resource and authorization-server metadata:
 ```txt
 GET /.well-known/oauth-protected-resource
 GET /.well-known/oauth-protected-resource/mcp
+GET /.well-known/oauth-protected-resource/mcp/code
 GET /.well-known/oauth-authorization-server
 ```
 
 The `/mcp` protected-resource identifier deterministically maps to the metadata
 path ending in `/mcp` under RFC 9728. The root protected-resource path remains
 available because MCP authentication challenges name it explicitly. Both paths
-describe the same `https://app.openpo.st/mcp` resource on Hosted.
+describe the same `https://app.openpo.st/mcp` resource on Hosted. The compact
+endpoint shares that OAuth resource and audience. Authorization-server metadata
+advertises RFC 9207 issuer identification, and approval and denial redirects
+include the exact discovery issuer as `iss`.
 
 OpenPost also publishes its experimental MCP Server Card at
 `/.well-known/mcp/server-card.json` and `/mcp/server-card`. The card describes
 the real Streamable HTTP endpoint and supported protocol versions. OAuth details
 remain in the RFC 9728 metadata instead of a card-specific auth object.
 
-The advertised tool surface uses progressive discovery to keep model context small. `mcp:full` clients receive `search_operations`, `query_operation`, `execute_operation`, and the Apps widget renderer. `mcp:read` clients receive the same surface without `execute_operation`; search results and prompt discovery are filtered to read-only operations. `search_operations` returns
+The default `/mcp` endpoint advertises every operation directly. `/mcp/code` is
+the token-light surface: `mcp:full` clients receive `search_operations`,
+`query_operation`, `execute_operation`, and the Apps widget renderers.
+`mcp:read` clients receive the same compact surface without
+`execute_operation`; search results and prompt discovery are filtered to
+read-only operations. `search_operations` returns
 the exact input/output schema, safety annotations, and required execution tool
 for relevant OpenPost operations on demand. It returns no match for ambiguous
 mutations or tasks outside OpenPost instead of guessing. `query_operation`
@@ -68,13 +80,13 @@ validation, quota, and audit path.
 Operation documentation omits repeated OAuth and Apps metadata because those
 details already live on the four advertised descriptors.
 
-The scheduler widget remains directly advertised because its OAuth metadata and
+The Apps widgets remain directly advertised because their OAuth metadata and
 `_meta.ui.resourceUri` are needed by Apps-compatible clients to load the output
 template. Previously advertised operation names remain callable for cached
 clients. The old `search`, `query`, and `execute` aliases also remain callable
-but are not advertised. New clients should discover operations with
-`search_operations` and invoke them through the returned `query_operation` or
-`execute_operation` path. Cached direct descriptors keep their
+but are not advertised. Clients using `/mcp/code` should discover operations
+with `search_operations` and invoke them through the returned `query_operation`
+or `execute_operation` path. Cached direct descriptors keep their
 operation-specific safety annotations and do not weaken the generic tool
 boundary.
 
@@ -99,7 +111,8 @@ openpost-mcp --profile local
 ```
 
 The proxy loads the same OpenPost CLI profile and token, then forwards MCP
-JSON-RPC frames to the remote `/mcp` endpoint. It uses the MCP standard's
+JSON-RPC frames to the remote `/mcp` endpoint. Remote clients that prioritize a
+small initial context can use `/mcp/code`. The proxy uses the MCP standard's
 newline-delimited JSON framing on stdin/stdout, accepts legacy `Content-Length`
 framing from older clients, advertises both Streamable HTTP response types, and
 forwards the negotiated `MCP-Protocol-Version` on later requests.
@@ -113,6 +126,9 @@ GET /api/v1/mcp/activity?workspace_id=<workspace-id>
 
 ## Advertised tools
 
+`/mcp` advertises the discoverable operations below with their exact schemas.
+`/mcp/code` advertises this compact routing surface:
+
 - `search_operations`: accepts a plain-language capability query and returns up
   to ten matching operation definitions with their exact input/output schemas,
   safety annotations, and an `executionTool` routing field.
@@ -125,6 +141,8 @@ GET /api/v1/mcp/activity?workspace_id=<workspace-id>
   tool as a whole.
 - `render_scheduler_widget`: renders structured OpenPost scheduler data in the
   ChatGPT Apps widget and stays directly visible for UI resource discovery.
+- `render_local_media_upload`: opens a local file picker for a selected
+  workspace. Its app-only ticket tool is hidden from the model.
 
 For `mcp:read`, `tools/list` omits `execute_operation`, `search_operations` omits mutation results, and direct or cached mutation calls are rejected before dispatch. Read-only connections receive only the `review_schedule` prompt; prompts that create or adapt work require `mcp:full`.
 
@@ -191,9 +209,14 @@ boundary.
 - `delete_comment`: permanently deletes a supported provider comment.
 - `suggest_next_slot`: returns the next free configured posting slot for a workspace.
 - `upload_media_from_url`: fetches a public HTTP(S) media URL and stores it in a workspace.
+- `render_local_media_upload`: opens the MCP Apps local file picker. The widget
+  receives a one-use, ten-minute ticket bound to the workspace and authenticated
+  actor. OpenPost consumes the ticket before reading the body, sanitizes the
+  filename, and streams the file through the normal validation, quota, storage,
+  deduplication, analysis, and usage pipeline.
 
-The directly advertised `render_scheduler_widget` is intentionally outside the
-delegated operation catalog; clients call it only when they want the Apps UI.
+The directly advertised render tools are intentionally outside the delegated
+operation catalog; clients call them only when they want their Apps UI.
 
 ## Registry listing version and compatibility
 
@@ -226,15 +249,15 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Publishes MCP protected-resource metadata and returns `WWW-Authenticate` plus `_meta["mcp/www_authenticate"]` challenges for unauthenticated MCP requests.
 - Rejects untrusted browser origins, non-JSON requests, oversized request bodies, unsupported post-initialization protocol versions, and authenticated tokens with insufficient scope.
 - Supports MCP `ping` and accepts `notifications/*` messages with HTTP `202 Accepted`, which keeps standard initialization handshakes quiet.
-- Publishes OAuth authorization-server metadata for public PKCE clients, including `S256`, `mcp:read`, `mcp:full`, and client ID metadata document support.
+- Publishes OAuth authorization-server metadata for public PKCE clients, including `S256`, `mcp:read`, `mcp:full`, client ID metadata document support, and RFC 9207 issuer identification.
 - Provides a browser approval page at `/oauth/authorize` and a form-encoded `/oauth/token` code exchange that mints the requested `mcp:read` or `mcp:full` API token; omitted scope defaults to `mcp:full`.
 - Validates client metadata redirect URIs for URL-based client IDs, accepts ChatGPT fallback redirects for predefined clients, and binds OAuth-issued MCP tokens to the `/mcp` resource audience.
 - Advertises and enforces `mcp:read` and `mcp:full` OAuth scopes, with optional single-workspace session boundaries for API-token and OAuth-issued MCP clients. Read tokens never receive `execute_operation` and the server rejects cached or direct mutation calls.
 - Advertises a guaranteed read-only `query_operation` boundary separately from mutation-capable `execute_operation`, and enforces the catalog classification server-side before operation dispatch.
 - Documents every advertised and discoverable parameter with examples, uses enums for fixed values, declares required fields and unknown-field behavior explicitly, and validates both operation input and structured output against the advertised schemas.
 - Adds Apps SDK-friendly `_meta["openai/toolInvocation/invoking"]`, `_meta["openai/toolInvocation/invoked"]`, and `outputSchema` metadata to every tool descriptor.
-- Exposes a ChatGPT Apps-compatible scheduler widget resource at `ui://widget/openpost-scheduler-v1.html`.
-- Keeps data tools reusable across MCP clients and attaches widget UI metadata only to `render_scheduler_widget`.
+- Exposes ChatGPT Apps-compatible scheduler and local-upload widget resources.
+- Keeps data tools reusable across MCP clients and attaches widget UI metadata only to the two render tools. The local ticket tool is app-only.
 - Provides `openpost-mcp` for local stdio clients without duplicating server tool logic.
 - Advertises MCP prompt templates for common agentic scheduling workflows: planning a post, adapting platform renditions, and reviewing the publishing queue.
 - Validates workspace membership and account ownership before returning, creating, scheduling, canceling, or uploading data.

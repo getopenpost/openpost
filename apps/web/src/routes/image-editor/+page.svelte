@@ -473,6 +473,7 @@
 							type="button"
 							class="min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
 							onclick={() => startTemplate(template)}
+							aria-label={templateName(template)}
 							disabled={Boolean(creating)}
 						>
 							<div class="aspect-square overflow-hidden border-b">

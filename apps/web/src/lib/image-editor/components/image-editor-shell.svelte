@@ -2785,7 +2785,10 @@
 							</Button>
 						{/snippet}
 					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end" class="max-h-[calc(100dvh-1rem)] overflow-y-auto">
+					<DropdownMenu.Content
+						align="end"
+						class="max-h-[calc(100dvh-1rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto"
+					>
 						<div class="w-64 p-1 md:hidden">
 							<EditorTitleInput
 								value={editor.document?.title ?? ''}

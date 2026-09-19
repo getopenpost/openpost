@@ -154,25 +154,29 @@
 			</div>
 			<span>{m.video_editor_motion_selected({ count: String(selectedTextItems.length) })}</span>
 		</header>
+		{#if appliedBands.length > 0}
+			<div class="applied-row" data-testid="text-motion-applied">
+				<h3>{m.video_editor_text_motion_applied()}</h3>
+				<ul>
+					{#each appliedBands as band (band.slot)}
+						<li>
+							<button
+								type="button"
+								aria-label={m.video_editor_text_motion_seek_band({ name: slotLabels[band.slot] })}
+								title={m.video_editor_text_motion_seek_band({ name: slotLabels[band.slot] })}
+								onclick={() => seekToBand(band.slot)}
+								>{slotLabels[band.slot]} · {presetLabels[band.presetId]} · {band.durationFrames}f{#if band.offsetFrames}
+									· +{band.offsetFrames}f{/if}</button
+							>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 		{#each slots as slot}
 			{@const effect = activeEffect(slot)}
 			<div class="slot-row" data-slot={slot}>
 				<h3>{slotLabels[slot]}</h3>
-				<div class="preset-grid">
-					{#each catalog[slot] as preset}
-						{@const active = effect?.presetId === preset.id}
-						<button
-							type="button"
-							class:active
-							aria-pressed={active}
-							aria-label={active
-								? m.video_editor_text_motion_remove({ name: presetLabels[preset.id] })
-								: presetLabels[preset.id]}
-							onclick={() => togglePreset(slot, preset)}
-							>{presetLabels[preset.id]}{active ? ' ×' : ''}</button
-						>
-					{/each}
-				</div>
 				{#if effect}
 					<div class="controls">
 						<label
@@ -255,31 +259,28 @@
 						</div>
 					</div>
 				{/if}
-			</div>
-		{/each}
-		{#if appliedBands.length > 0}
-			<div class="applied-row" data-testid="text-motion-applied">
-				<h3>{m.video_editor_text_motion_applied()}</h3>
-				<ul>
-					{#each appliedBands as band (band.slot)}
-						<li>
+				<details class="preset-browser">
+					<summary>
+						{effect ? presetLabels[effect.presetId] : m.video_editor_motion_title()}
+					</summary>
+					<div class="preset-grid">
+						{#each catalog[slot] as preset}
+							{@const active = effect?.presetId === preset.id}
 							<button
 								type="button"
-								aria-label={m.video_editor_text_motion_seek_band({
-									name: slotLabels[band.slot]
-								})}
-								title={m.video_editor_text_motion_seek_band({
-									name: slotLabels[band.slot]
-								})}
-								onclick={() => seekToBand(band.slot)}
-								>{slotLabels[band.slot]} · {presetLabels[band.presetId]} · {band.durationFrames}f{#if band.offsetFrames}
-									· +{band.offsetFrames}f{/if}</button
+								class:active
+								aria-pressed={active}
+								aria-label={active
+									? m.video_editor_text_motion_remove({ name: presetLabels[preset.id] })
+									: presetLabels[preset.id]}
+								onclick={() => togglePreset(slot, preset)}
+								>{presetLabels[preset.id]}{active ? ' ×' : ''}</button
 							>
-						</li>
-					{/each}
-				</ul>
+						{/each}
+					</div>
+				</details>
 			</div>
-		{/if}
+		{/each}
 	</section>
 {/if}
 
@@ -314,6 +315,25 @@
 	}
 	.slot-row {
 		margin-top: 0.75rem;
+	}
+	.preset-browser {
+		margin-top: 0.4rem;
+		border: 1px solid var(--video-editor-border);
+		border-radius: 0.4rem;
+		padding: 0.35rem 0.4rem;
+	}
+	.preset-browser summary {
+		cursor: pointer;
+		color: var(--video-editor-muted);
+		font-size: 0.625rem;
+	}
+	.preset-browser summary:focus-visible {
+		border-radius: 0.25rem;
+		outline: 2px solid var(--video-editor-focus);
+		outline-offset: 2px;
+	}
+	.preset-browser .preset-grid {
+		margin-top: 0.4rem;
 	}
 	.applied-row {
 		margin-top: 0.75rem;
@@ -411,6 +431,11 @@
 	@media (max-width: 24rem) {
 		.preset-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+	@media (pointer: coarse) {
+		.preset-browser summary {
+			min-height: 2.75rem;
 		}
 	}
 </style>

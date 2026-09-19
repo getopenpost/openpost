@@ -62,6 +62,9 @@
 			].includes(item.type)
 	);
 	const activeComposite = $derived(sequenceStore.activeSequence?.editorKind === 'composite-2d');
+	const publishedControlCount = $derived(
+		sequenceStore.activeSequence?.compositionControls?.controls.length ?? 0
+	);
 	const parentCandidates = $derived(
 		timelineStore.items.filter(
 			(candidate) =>
@@ -111,46 +114,14 @@
 	<h2 class="px-1 text-xs font-medium tracking-wide text-[var(--video-editor-muted)] uppercase">
 		{m.video_editor_workspace_motion()}
 	</h2>
-	{#if !activeComposite}
-		<section
-			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
-		>
-			<div class="flex items-start justify-between gap-3">
-				<div class="flex min-w-0 items-center gap-1">
-					<h3 class="min-w-0 flex-1 truncate text-sm font-medium">
-						{m.video_editor_motion_composition_title()}
-					</h3>
-					<HintButton
-						label={m.video_editor_motion_composition_title()}
-						hint={m.video_editor_motion_composition_description()}
-						class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
-					/>
-				</div>
-			</div>
-			<div class="mt-3 grid grid-cols-1 gap-2">
-				<Button
-					size="sm"
-					variant="secondary"
-					disabled={!canCreateComposition}
-					onclick={oncreatecomposition}
-				>
-					{m.video_editor_motion_create_composition()}
-				</Button>
-				<Button size="sm" variant="secondary" onclick={createController}>
-					{m.video_editor_motion_add_controller()}
-				</Button>
-			</div>
-		</section>
-	{:else}
-		<ProjectCanvasPanel {onedit} />
-		{#if canreturncomposition}
-			<Button class="w-full" size="sm" variant="ghost" onclick={onreturncomposition}>
-				{m.video_editor_motion_return_composition()}
-			</Button>
-		{/if}
+	{#if activeComposite && canreturncomposition}
+		<Button class="w-full" size="sm" variant="ghost" onclick={onreturncomposition}>
+			{m.video_editor_motion_return_composition()}
+		</Button>
 	{/if}
-	<CompositionControlsAuthoring {onedit} />
+
 	{#if supportsMotion}
+		<ClipPropertiesPanel {itemId} {itemIds} {onedit} />
 		<section
 			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
 		>
@@ -193,7 +164,9 @@
 				<p class="mt-2 text-xs text-red-300" role="alert">{parentError}</p>
 			{/if}
 		</section>
-		<ClipPropertiesPanel {itemId} {itemIds} {onedit} />
+		{#if item?.type === 'text'}
+			<TextMotionPanel {itemId} {itemIds} {onedit} />
+		{/if}
 		<MotionPresetsPanel
 			{itemId}
 			{itemIds}
@@ -205,12 +178,66 @@
 			{ondeletepreset}
 			{onedit}
 		/>
-		{#if item?.type === 'text'}
-			<TextMotionPanel {itemId} {itemIds} {onedit} />
-		{/if}
-	{:else}
+	{:else if activeComposite}
 		<p class="px-2 py-1.5 text-center text-[11px] text-[var(--video-editor-muted)]" role="status">
 			{m.video_editor_motion_select_clip()}
 		</p>
+	{:else}
+		<section
+			class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2"
+		>
+			<div class="flex items-start justify-between gap-3">
+				<div class="flex min-w-0 items-center gap-1">
+					<h3 class="min-w-0 flex-1 truncate text-sm font-medium">
+						{m.video_editor_motion_composition_title()}
+					</h3>
+					<HintButton
+						label={m.video_editor_motion_composition_title()}
+						hint={m.video_editor_motion_composition_description()}
+						class="text-[var(--video-editor-muted)] hover:text-[var(--video-editor-ink)]"
+					/>
+				</div>
+			</div>
+			<div class="mt-3 grid grid-cols-1 gap-2">
+				<Button
+					size="sm"
+					variant="secondary"
+					disabled={!canCreateComposition}
+					onclick={oncreatecomposition}
+				>
+					{m.video_editor_motion_create_composition()}
+				</Button>
+				<Button size="sm" variant="secondary" onclick={createController}>
+					{m.video_editor_motion_add_controller()}
+				</Button>
+			</div>
+		</section>
+	{/if}
+
+	{#if activeComposite}
+		<details
+			class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+		>
+			<summary
+				class="flex min-h-[32px] cursor-pointer list-none items-center px-2.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+			>
+				{m.video_editor_motion_canvas_settings()}
+			</summary>
+			<div class="border-t border-[var(--video-editor-border)] p-2">
+				<ProjectCanvasPanel {onedit} />
+			</div>
+		</details>
+		<details
+			class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+		>
+			<summary
+				class="flex min-h-[32px] cursor-pointer list-none items-center px-2.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+			>
+				{m.video_editor_motion_published_title({ count: publishedControlCount })}
+			</summary>
+			<div class="border-t border-[var(--video-editor-border)] p-2">
+				<CompositionControlsAuthoring {onedit} />
+			</div>
+		</details>
 	{/if}
 </aside>

@@ -2,7 +2,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { HintButton } from '$lib/components/editor-density';
@@ -49,12 +48,14 @@
 		itemId,
 		itemIds = [],
 		onedit,
-		oncreatevoice
+		oncreatevoice,
+		onbrowsetextstyles
 	}: {
 		itemId: string | null;
 		itemIds?: string[];
 		onedit: () => void;
 		oncreatevoice?: (itemId: string, text: string) => void;
+		onbrowsetextstyles?: () => void;
 	} = $props();
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
 	const audioItems = $derived.by(() => {
@@ -84,7 +85,7 @@
 		step: number;
 	}
 
-	const textFields: NumericField[] = [
+	const textPrimaryFields: NumericField[] = [
 		{
 			property: 'fontSize',
 			label: m.video_editor_property_size(),
@@ -98,7 +99,9 @@
 			min: 100,
 			max: 900,
 			step: 100
-		},
+		}
+	];
+	const textAdvancedFields: NumericField[] = [
 		{
 			property: 'lineHeight',
 			label: m.video_editor_property_line_height(),
@@ -303,17 +306,116 @@
 			<p class="text-xs leading-relaxed text-muted-foreground">
 				{m.video_editor_adjustment_layer_hint()}
 			</p>
-		{:else if item.type !== 'audio'}
-			{#if item.type === 'composition'}
-				<CompositionControlOverrides {item} {onedit} />
-			{/if}
-			<ClipTransformSection itemId={item.id} {itemIds} {onedit} />
 		{/if}
 
-		<ClipCropSection itemId={item.id} {itemIds} {onedit} />
-
-		{#if item.type === 'image'}
-			<AnimatedImagePlaybackSection itemId={item.id} {itemIds} {onedit} />
+		{#if item.type === 'text'}
+			<section>
+				<h3 class="mb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+					{m.video_editor_tool_text()}
+				</h3>
+				<TextPropertiesPanel {item} {itemIds} {onedit} {oncreatevoice} {onbrowsetextstyles} />
+				<div class="mt-2 grid grid-cols-2 gap-1">
+					{#each textPrimaryFields as field (field.property)}
+						<label class="text-[10px] text-muted-foreground"
+							>{field.label}<Input
+								class="mt-0.5 w-full rounded bg-field px-1.5 py-1 text-xs text-field-foreground"
+								type="number"
+								min={field.min}
+								max={field.max}
+								step={field.step}
+								value={valueFor(item, field.property)}
+								onchange={(event) =>
+									commitNumeric(field.property, event.currentTarget.valueAsNumber)}
+							/></label
+						>
+					{/each}
+				</div>
+				<div class="mt-1 grid grid-cols-2 gap-1">
+					<ColorPicker
+						label={m.video_editor_text_color()}
+						value={item.color ?? '#ffffff'}
+						live={false}
+						onChange={(value) => commitText({ color: value })}
+					/>
+					<div class="text-[10px] text-muted-foreground">
+						<ColorPicker
+							label={m.video_editor_text_background()}
+							value={item.backgroundColor ?? '#000000'}
+							live={false}
+							onChange={(value) => commitText({ backgroundColor: value })}
+						/><button
+							type="button"
+							class="mt-0.5 w-full rounded px-1 py-1 text-[9px] text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-40"
+							disabled={!item.backgroundColor}
+							onclick={() => commitText({ backgroundColor: undefined })}
+							>{m.video_editor_text_clear_background()}</button
+						>
+					</div>
+				</div>
+				<div class="mt-1 grid grid-cols-2 gap-1">
+					<label class="text-[10px] text-muted-foreground">
+						{m.video_editor_text_alignment()}
+						<AppSelect
+							value={item.textAlign ?? 'center'}
+							options={textAlignmentOptions}
+							ariaLabel={m.video_editor_text_alignment()}
+							class="mt-0.5 h-[25px] w-full text-xs"
+							onValueChange={(textAlign) =>
+								commitText({ textAlign: textAlign as TimelineItem['textAlign'] })}
+						/>
+					</label>
+					<label class="text-[10px] text-muted-foreground">
+						{m.video_editor_text_vertical_alignment()}
+						<AppSelect
+							value={item.verticalAlign ?? 'middle'}
+							options={verticalAlignmentOptions}
+							ariaLabel={m.video_editor_text_vertical_alignment()}
+							class="mt-0.5 h-[25px] w-full text-xs"
+							onValueChange={(verticalAlign) =>
+								commitText({ verticalAlign: verticalAlign as TimelineItem['verticalAlign'] })}
+						/>
+					</label>
+				</div>
+				<details class="mt-2 rounded-md border border-border bg-muted/40">
+					<summary
+						class="flex min-h-[25px] cursor-pointer list-none items-center px-2 text-[10px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
+					>
+						{m.video_editor_advanced()}
+					</summary>
+					<div class="border-t border-border p-2">
+						<div class="grid grid-cols-2 gap-1">
+							{#each textAdvancedFields as field (field.property)}
+								<label class="text-[10px] text-muted-foreground"
+									>{field.label}<Input
+										class="mt-0.5 w-full rounded bg-field px-1.5 py-1 text-xs text-field-foreground"
+										type="number"
+										min={field.min}
+										max={field.max}
+										step={field.step}
+										value={valueFor(item, field.property)}
+										onchange={(event) =>
+											commitNumeric(field.property, event.currentTarget.valueAsNumber)}
+									/></label
+								>
+							{/each}
+						</div>
+						<div class="mt-1 grid grid-cols-2 gap-1">
+							<ColorPicker
+								label={m.video_editor_text_stroke_color()}
+								value={item.strokeColor ?? '#000000'}
+								live={false}
+								onChange={(value) => commitText({ strokeColor: value })}
+							/>
+							<ColorPicker
+								label={m.video_editor_text_shadow_color()}
+								value={item.textShadow?.color ?? '#000000'}
+								live={false}
+								onChange={commitTextShadowColor}
+							/>
+						</div>
+					</div>
+				</details>
+			</section>
 		{/if}
 
 		{#if item.type === 'shape'}
@@ -328,13 +430,37 @@
 			<LottiePropertiesPanel {item} {onedit} />
 		{/if}
 
-		{#if ['video', 'image', 'lottie', 'text', 'shape', 'subtitle', 'composition'].includes(item.type)}
-			<CornerPinPropertiesPanel {item} {onedit} />
+		{#if item.type === 'subtitle'}
+			<SubtitlePropertiesPanel
+				{item}
+				canvasWidth={editorSession.project?.metadata.width ?? 1920}
+				canvasHeight={editorSession.project?.metadata.height ?? 1080}
+				{onedit}
+			/>
+		{/if}
+
+		{#if item.type === 'composition'}
+			<CompositionControlOverrides {item} {onedit} />
+		{/if}
+
+		{#if item.type !== 'adjustment' && item.type !== 'audio'}
+			<ClipTransformSection itemId={item.id} {itemIds} {onedit} />
+		{/if}
+
+		<ClipCropSection itemId={item.id} {itemIds} {onedit} />
+
+		{#if item.type === 'image'}
+			<AnimatedImagePlaybackSection itemId={item.id} {itemIds} {onedit} />
 		{/if}
 
 		{#if item.type === 'video' || item.type === 'audio'}
-			<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
-			<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
+			{#if item.type === 'audio'}
+				<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
+				<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
+			{:else}
+				<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
+				<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
+			{/if}
 
 			{#if audioItem}
 				<section>
@@ -445,100 +571,8 @@
 			{/if}
 		{/if}
 
-		{#if item.type === 'text'}
-			<section>
-				<h3 class="mb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-					{m.video_editor_tool_text()}
-				</h3>
-				<TextPropertiesPanel {item} {itemIds} {onedit} {oncreatevoice} />
-				<div class="mt-2 grid grid-cols-2 gap-1">
-					{#each textFields as field (field.property)}
-						<label class="text-[10px] text-muted-foreground"
-							>{field.label}<Input
-								class="mt-0.5 w-full rounded bg-field px-1.5 py-1 text-xs text-field-foreground"
-								type="number"
-								min={field.min}
-								max={field.max}
-								step={field.step}
-								value={valueFor(item, field.property)}
-								onchange={(event) =>
-									commitNumeric(field.property, event.currentTarget.valueAsNumber)}
-							/></label
-						>
-					{/each}
-				</div>
-				<div class="mt-1 grid grid-cols-2 gap-1">
-					<ColorPicker
-						label={m.video_editor_text_color()}
-						value={item.color ?? '#ffffff'}
-						live={false}
-						onChange={(value) => commitText({ color: value })}
-					/>
-					<div class="text-[10px] text-muted-foreground">
-						<ColorPicker
-							label={m.video_editor_text_background()}
-							value={item.backgroundColor ?? '#000000'}
-							live={false}
-							onChange={(value) => commitText({ backgroundColor: value })}
-						/><button
-							type="button"
-							class="mt-0.5 w-full rounded px-1 py-1 text-[9px] text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-40"
-							disabled={!item.backgroundColor}
-							onclick={() => commitText({ backgroundColor: undefined })}
-							>{m.video_editor_text_clear_background()}</button
-						>
-					</div>
-					<ColorPicker
-						label={m.video_editor_text_stroke_color()}
-						value={item.strokeColor ?? '#000000'}
-						live={false}
-						onChange={(value) => commitText({ strokeColor: value })}
-					/>
-					<ColorPicker
-						label={m.video_editor_text_shadow_color()}
-						value={item.textShadow?.color ?? '#000000'}
-						live={false}
-						onChange={commitTextShadowColor}
-					/>
-				</div>
-				<div class="mt-1 grid grid-cols-2 gap-1">
-					<label class="text-[10px] text-muted-foreground">
-						{m.video_editor_text_alignment()}
-						<AppSelect
-							value={item.textAlign ?? 'center'}
-							options={textAlignmentOptions}
-							ariaLabel={m.video_editor_text_alignment()}
-							class="mt-0.5 h-[25px] w-full text-xs"
-							onValueChange={(textAlign) =>
-								commitText({
-									textAlign: textAlign as TimelineItem['textAlign']
-								})}
-						/>
-					</label>
-					<label class="text-[10px] text-muted-foreground">
-						{m.video_editor_text_vertical_alignment()}
-						<AppSelect
-							value={item.verticalAlign ?? 'middle'}
-							options={verticalAlignmentOptions}
-							ariaLabel={m.video_editor_text_vertical_alignment()}
-							class="mt-0.5 h-[25px] w-full text-xs"
-							onValueChange={(verticalAlign) =>
-								commitText({
-									verticalAlign: verticalAlign as TimelineItem['verticalAlign']
-								})}
-						/>
-					</label>
-				</div>
-			</section>
-		{/if}
-
-		{#if item.type === 'subtitle'}
-			<SubtitlePropertiesPanel
-				{item}
-				canvasWidth={editorSession.project?.metadata.width ?? 1920}
-				canvasHeight={editorSession.project?.metadata.height ?? 1080}
-				{onedit}
-			/>
+		{#if ['video', 'image', 'lottie', 'text', 'shape', 'subtitle', 'composition'].includes(item.type)}
+			<CornerPinPropertiesPanel {item} {onedit} />
 		{/if}
 	</div>
 {/if}

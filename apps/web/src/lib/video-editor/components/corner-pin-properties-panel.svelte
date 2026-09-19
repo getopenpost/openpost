@@ -43,50 +43,59 @@
 	}
 </script>
 
-<section class="flex flex-col gap-2">
-	<div class="flex h-[25px] items-center justify-between gap-2">
-		<h3
-			class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
-			title={m.video_editor_corner_pin_hint()}
-		>
-			{m.video_editor_corner_pin()}
-		</h3>
+<details
+	class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+	open={item.cornerPin !== undefined}
+>
+	<summary
+		class="flex min-h-[25px] cursor-pointer list-none items-center gap-2 px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+		title={m.video_editor_corner_pin_hint()}
+	>
+		<span class="min-w-0 flex-1">{m.video_editor_corner_pin()}</span>
 		{#if item.cornerPin}
-			<button
-				type="button"
-				class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
-				aria-label={m.video_editor_corner_pin_reset()}
-				title={m.video_editor_corner_pin_reset()}
-				onclick={() => commit(undefined)}
-				><ProtectedIcon icon="editor-rotate-left" class="size-3.5" /></button
-			>
+			<span class="size-1.5 rounded-full bg-[var(--video-editor-primary)]" aria-hidden="true"
+			></span>
 		{/if}
+	</summary>
+	<div class="flex flex-col gap-2 border-t border-[var(--video-editor-border)] p-2">
+		{#if item.cornerPin}
+			<div class="flex justify-end">
+				<button
+					type="button"
+					class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+					aria-label={m.video_editor_corner_pin_reset()}
+					title={m.video_editor_corner_pin_reset()}
+					onclick={() => commit(undefined)}
+					><ProtectedIcon icon="editor-rotate-left" class="size-3.5" /></button
+				>
+			</div>
+		{/if}
+		{#each corners as corner (corner.key)}
+			<div class="grid h-[25px] grid-cols-[1.5rem_1fr_1fr] items-center gap-1">
+				<span class="text-[10px] font-medium text-[var(--video-editor-text)]">{corner.label}</span>
+				<Input
+					type="number"
+					min="-2000"
+					max="2000"
+					step="1"
+					aria-label={`${corner.label} X`}
+					title={`${corner.label} X`}
+					class="h-[25px] w-full rounded bg-[var(--video-editor-field)] px-1.5 text-[11px] text-[var(--video-editor-field-text)] tabular-nums"
+					value={pin[corner.key][0]}
+					onchange={(event) => setCoordinate(corner.key, 0, event.currentTarget.valueAsNumber)}
+				/>
+				<Input
+					type="number"
+					min="-2000"
+					max="2000"
+					step="1"
+					aria-label={`${corner.label} Y`}
+					title={`${corner.label} Y`}
+					class="h-[25px] w-full rounded bg-[var(--video-editor-field)] px-1.5 text-[11px] text-[var(--video-editor-field-text)] tabular-nums"
+					value={pin[corner.key][1]}
+					onchange={(event) => setCoordinate(corner.key, 1, event.currentTarget.valueAsNumber)}
+				/>
+			</div>
+		{/each}
 	</div>
-	{#each corners as corner (corner.key)}
-		<div class="grid h-[25px] grid-cols-[1.5rem_1fr_1fr] items-center gap-1">
-			<span class="text-[10px] font-medium text-[var(--video-editor-text)]">{corner.label}</span>
-			<Input
-				type="number"
-				min="-2000"
-				max="2000"
-				step="1"
-				aria-label={`${corner.label} X`}
-				title={`${corner.label} X`}
-				class="h-[25px] w-full rounded bg-[var(--video-editor-field)] px-1.5 text-[11px] text-[var(--video-editor-field-text)] tabular-nums"
-				value={pin[corner.key][0]}
-				onchange={(event) => setCoordinate(corner.key, 0, event.currentTarget.valueAsNumber)}
-			/>
-			<Input
-				type="number"
-				min="-2000"
-				max="2000"
-				step="1"
-				aria-label={`${corner.label} Y`}
-				title={`${corner.label} Y`}
-				class="h-[25px] w-full rounded bg-[var(--video-editor-field)] px-1.5 text-[11px] text-[var(--video-editor-field-text)] tabular-nums"
-				value={pin[corner.key][1]}
-				onchange={(event) => setCoordinate(corner.key, 1, event.currentTarget.valueAsNumber)}
-			/>
-		</div>
-	{/each}
-</section>
+</details>

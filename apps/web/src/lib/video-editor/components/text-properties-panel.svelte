@@ -28,12 +28,14 @@
 		item,
 		itemIds = [],
 		onedit,
-		oncreatevoice
+		oncreatevoice,
+		onbrowsetextstyles
 	}: {
 		item: TimelineItem;
 		itemIds?: string[];
 		onedit: () => void;
 		oncreatevoice?: (itemId: string, text: string) => void;
+		onbrowsetextstyles?: () => void;
 	} = $props();
 	const activeItem = $derived(timelineStore.itemById.get(item.id) ?? item);
 	const selectedTextItemIds = $derived.by(() => {
@@ -121,92 +123,6 @@
 </script>
 
 <div class="space-y-2">
-	{#if oncreatevoice}
-		<Button
-			type="button"
-			size="sm"
-			variant="outline"
-			class="h-8 w-full"
-			disabled={!speakableText}
-			onclick={() => oncreatevoice?.(activeItem.id, speakableText)}
-		>
-			{m.video_editor_text_create_voice()}
-		</Button>
-	{/if}
-	<div class="space-y-1">
-		<span class="field-label">{m.video_editor_text_layout()}</span>
-		<div class="layout-switch" role="group" aria-label={m.video_editor_text_layout()}>
-			{#each [['single', m.video_editor_text_layout_single()], ['two', m.video_editor_text_layout_two()], ['three', m.video_editor_text_layout_three()]] as [value, label]}
-				<button
-					type="button"
-					class:active={layout === value}
-					aria-pressed={layout === value}
-					onclick={() => commitLayout(value as TextLayoutMode)}>{label}</button
-				>
-			{/each}
-		</div>
-	</div>
-
-	<div class="space-y-1">
-		<span id="text-template-label" class="field-label">{m.video_editor_text_templates()}</span>
-		<div class="template-strip" aria-labelledby="text-template-label">
-			{#each TEXT_STYLE_PRESETS as preset (preset.id)}
-				{@const copy = localizedTextStylePresetCopy(preset.id)}
-				<button
-					type="button"
-					class:active={activeItem.textStylePresetId === preset.id}
-					aria-label={m.video_editor_text_apply_template({
-						name: copy.label
-					})}
-					aria-pressed={activeItem.textStylePresetId === preset.id}
-					onclick={() => commitPreset(preset.id)}
-				>
-					<span class="template-canvas" data-kind={preset.previewKind} aria-hidden="true">
-						{#if copy.sample.eyebrow}<span class="eyebrow">{copy.sample.eyebrow}</span>{/if}
-						<span class="title">{copy.sample.title}</span>
-						{#if copy.sample.subtitle}<span class="subtitle">{copy.sample.subtitle}</span>{/if}
-					</span>
-					<span class="template-name">{copy.label}</span>
-				</button>
-			{/each}
-		</div>
-	</div>
-
-	{#if activeItem.textStylePresetId}
-		<label class="field-label block">
-			{m.video_editor_text_template_scale()}
-			<Input
-				class="field-input mt-0.5"
-				type="number"
-				min="0.5"
-				max="6"
-				step="0.05"
-				value={activeItem.textStyleScale ?? 1}
-				onchange={(event) =>
-					commitPreset(activeItem.textStylePresetId!, event.currentTarget.valueAsNumber)}
-			/>
-		</label>
-	{/if}
-
-	<div class="space-y-1">
-		<span id={`text-effects-${activeItem.id}`} class="field-label">
-			{m.video_editor_effects()}
-		</span>
-		<div class="grid grid-cols-4 gap-1" aria-labelledby={`text-effects-${activeItem.id}`}>
-			{#each ['none', 'shadow', 'outline', 'glow'] as presetId (presetId)}
-				<Button
-					type="button"
-					size="sm"
-					variant="outline"
-					class="h-[22px] min-w-0 px-1 text-[10px]"
-					onclick={() => commitEffectPreset(presetId as TextEffectPresetId)}
-				>
-					<span class="truncate">{effectPresetLabel(presetId as TextEffectPresetId)}</span>
-				</Button>
-			{/each}
-		</div>
-	</div>
-
 	{#if activeItem.textSpans?.length}
 		<div class="space-y-2">
 			{#each activeItem.textSpans as span, index (`${index}:${span.text}`)}
@@ -319,6 +235,7 @@
 		<Textarea
 			class="min-h-12 w-full resize-y text-xs"
 			value={activeItem.text ?? ''}
+			aria-label={m.video_editor_tool_text()}
 			onchange={(event) => commitPlainText(event.currentTarget.value)}
 		></Textarea>
 		<div class="grid grid-cols-2 gap-1.5">
@@ -346,6 +263,98 @@
 			/>
 		</div>
 	{/if}
+
+	<div class="grid grid-cols-2 gap-1.5">
+		{#if onbrowsetextstyles}
+			<Button type="button" size="sm" variant="outline" class="h-8" onclick={onbrowsetextstyles}>
+				{m.video_editor_text_browse_styles()}
+			</Button>
+		{/if}
+		{#if oncreatevoice}
+			<Button
+				type="button"
+				size="sm"
+				variant="outline"
+				class="h-8"
+				disabled={!speakableText}
+				onclick={() => oncreatevoice?.(activeItem.id, speakableText)}
+			>
+				{m.video_editor_text_create_voice()}
+			</Button>
+		{/if}
+	</div>
+
+	<div class="space-y-1">
+		<span class="field-label">{m.video_editor_text_layout()}</span>
+		<div class="layout-switch" role="group" aria-label={m.video_editor_text_layout()}>
+			{#each [['single', m.video_editor_text_layout_single()], ['two', m.video_editor_text_layout_two()], ['three', m.video_editor_text_layout_three()]] as [value, label]}
+				<button
+					type="button"
+					class:active={layout === value}
+					aria-pressed={layout === value}
+					onclick={() => commitLayout(value as TextLayoutMode)}>{label}</button
+				>
+			{/each}
+		</div>
+	</div>
+
+	{#if !onbrowsetextstyles}
+		<details class="text-style-browser">
+			<summary>{m.video_editor_text_browse_styles()}</summary>
+			<div class="template-strip" aria-label={m.video_editor_text_templates()}>
+				{#each TEXT_STYLE_PRESETS as preset (preset.id)}
+					{@const copy = localizedTextStylePresetCopy(preset.id)}
+					<button
+						type="button"
+						class:active={activeItem.textStylePresetId === preset.id}
+						aria-label={m.video_editor_text_apply_template({ name: copy.label })}
+						aria-pressed={activeItem.textStylePresetId === preset.id}
+						onclick={() => commitPreset(preset.id)}
+					>
+						<span class="template-canvas" data-kind={preset.previewKind} aria-hidden="true">
+							{#if copy.sample.eyebrow}<span class="eyebrow">{copy.sample.eyebrow}</span>{/if}
+							<span class="title">{copy.sample.title}</span>
+							{#if copy.sample.subtitle}<span class="subtitle">{copy.sample.subtitle}</span>{/if}
+						</span>
+						<span class="template-name">{copy.label}</span>
+					</button>
+				{/each}
+			</div>
+		</details>
+	{/if}
+
+	{#if activeItem.textStylePresetId}
+		<label class="field-label block">
+			{m.video_editor_text_template_scale()}
+			<Input
+				class="field-input mt-0.5"
+				type="number"
+				min="0.5"
+				max="6"
+				step="0.05"
+				value={activeItem.textStyleScale ?? 1}
+				onchange={(event) =>
+					commitPreset(activeItem.textStylePresetId!, event.currentTarget.valueAsNumber)}
+			/>
+		</label>
+	{/if}
+
+	<details class="text-effects">
+		<summary>{m.video_editor_effects()}</summary>
+		<div class="mt-2 grid grid-cols-4 gap-1" aria-label={m.video_editor_effects()}>
+			{#each ['none', 'shadow', 'outline', 'glow'] as presetId (presetId)}
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					class="h-[22px] min-w-0 px-1 text-[10px]"
+					onclick={() => commitEffectPreset(presetId as TextEffectPresetId)}
+				>
+					<span class="truncate">{effectPresetLabel(presetId as TextEffectPresetId)}</span>
+				</Button>
+			{/each}
+		</div>
+	</details>
 </div>
 
 <style>
@@ -399,11 +408,41 @@
 		background: var(--video-editor-selection);
 		color: var(--video-editor-selection-text);
 	}
+	.text-effects {
+		border: 1px solid var(--video-editor-border);
+		border-radius: 0.5rem;
+		padding: 0.375rem 0.5rem;
+	}
+	.text-effects summary {
+		cursor: pointer;
+		font-size: 0.625rem;
+		color: var(--video-editor-muted);
+	}
+	.text-effects summary:focus-visible {
+		border-radius: 0.25rem;
+		outline: 2px solid var(--video-editor-focus);
+		outline-offset: 2px;
+	}
+	.text-style-browser {
+		border: 1px solid var(--video-editor-border);
+		border-radius: 0.5rem;
+		padding: 0.375rem 0.5rem;
+	}
+	.text-style-browser summary {
+		cursor: pointer;
+		font-size: 0.625rem;
+		color: var(--video-editor-muted);
+	}
+	.text-style-browser summary:focus-visible {
+		border-radius: 0.25rem;
+		outline: 2px solid var(--video-editor-focus);
+		outline-offset: 2px;
+	}
 	.template-strip {
 		display: flex;
 		gap: 0.375rem;
 		overflow-x: auto;
-		padding: 0.125rem 0.125rem 0.375rem;
+		padding: 0.5rem 0.125rem 0.25rem;
 		scrollbar-color: var(--video-editor-border) transparent;
 		scrollbar-width: thin;
 	}
@@ -534,8 +573,10 @@
 	}
 	@media (pointer: coarse) {
 		.layout-switch button,
-		.template-strip > button,
-		.span-style summary {
+		.span-style summary,
+		.text-effects summary,
+		.text-style-browser summary,
+		.template-strip > button {
 			min-height: 2.75rem;
 		}
 	}

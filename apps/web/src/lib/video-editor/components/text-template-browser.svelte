@@ -3,6 +3,9 @@
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import { addTextItem, addTextTemplateItem } from '$lib/video-editor/timeline/actions/items';
+	import { applyTextStylePreset } from '$lib/video-editor/timeline/actions/text-layout';
+	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { TEXT_STYLE_PRESETS, type TextStylePresetLayout } from '../typography/text-style-presets';
 	import { localizedTextStylePresetCopy } from '../typography/text-style-preset-copy';
 	import {
@@ -11,7 +14,18 @@
 		writeGeneratedItemDragData
 	} from '$lib/video-editor/timeline/generated-item-drag';
 
-	let { oninserted }: { oninserted: (itemId: string) => void } = $props();
+	let {
+		oninserted,
+		selectedTextItemId = null,
+		onapplied = () => {}
+	}: {
+		oninserted: (itemId: string) => void;
+		selectedTextItemId?: string | null;
+		onapplied?: () => void;
+	} = $props();
+	const selectedTextItem = $derived(
+		selectedTextItemId ? timelineStore.itemById.get(selectedTextItemId) : undefined
+	);
 
 	const groups: Array<{ layout: TextStylePresetLayout; label: () => string }> = [
 		{ layout: 'single', label: m.video_editor_text_layout_single },
@@ -21,6 +35,27 @@
 
 	function insertPlainText(): void {
 		oninserted(addTextItem(m.video_editor_text_default_label()));
+	}
+
+	function usePreset(presetId: (typeof TEXT_STYLE_PRESETS)[number]['id']): void {
+		const copy = localizedTextStylePresetCopy(presetId);
+		if (selectedTextItem?.type === 'text') {
+			if (
+				applyTextStylePreset(
+					selectedTextItem.id,
+					presetId,
+					{
+						width: editorSession.project?.metadata.width ?? 1920,
+						height: editorSession.project?.metadata.height ?? 1080
+					},
+					1,
+					copy
+				)
+			)
+				onapplied();
+			return;
+		}
+		oninserted(addTextTemplateItem(presetId, copy));
 	}
 
 	function startDrag(
@@ -68,17 +103,26 @@
 						type="button"
 						class="template-card"
 						draggable="true"
-						onclick={() => oninserted(addTextTemplateItem(preset.id, copy))}
+						onclick={() => usePreset(preset.id)}
 						ondragstart={(event) => startDrag(event, copy.label, preset.id)}
 						ondragend={clearGeneratedItemDragData}
-						aria-label={`${m.video_editor_add_text()}: ${copy.label}`}
+						aria-label={selectedTextItem?.type === 'text'
+							? m.video_editor_text_apply_template({ name: copy.label })
+							: `${m.video_editor_add_text()}: ${copy.label}`}
+						aria-pressed={selectedTextItem?.type === 'text'
+							? selectedTextItem.textStylePresetId === preset.id
+							: undefined}
 					>
 						<span class="template-canvas" data-kind={preset.previewKind} aria-hidden="true">
 							{#if copy.sample.eyebrow}<span class="eyebrow">{copy.sample.eyebrow}</span>{/if}
 							<span class="title">{copy.sample.title}</span>
 							{#if copy.sample.subtitle}<span class="subtitle">{copy.sample.subtitle}</span>{/if}
 						</span>
-						<span class="template-name">{copy.label}</span>
+						<span class="template-name"
+							>{selectedTextItem?.type === 'text'
+								? m.video_editor_text_apply_template({ name: copy.label })
+								: copy.label}</span
+						>
 					</button>
 				{/each}
 			</div>

@@ -839,7 +839,8 @@ func (p *PeerTubeAdapter) AccountContentDiscoverySupport(input AnalyticsAccountC
 	if strings.TrimSpace(input.AccountID) == "" {
 		return AccountContentDiscoverySupport{UnavailableReason: "PeerTube account content discovery requires a channel."}
 	}
-	return AccountContentDiscoverySupport{Supported: true, MaxPageSize: 25}
+	// Every page is read at a fixed count, so the job must not ask for less.
+	return AccountContentDiscoverySupport{Supported: true, MinPageSize: 25, MaxPageSize: 25}
 }
 
 type peertubeChannelVideo struct {

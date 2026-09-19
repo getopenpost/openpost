@@ -1,4 +1,4 @@
-import type { TimelineTrack } from '../../project/types';
+import type { TimelineItem, TimelineTrack } from '../../project/types';
 
 export interface EffectiveTrackState {
 	locked: boolean;
@@ -46,6 +46,16 @@ export function isTrackEffectivelyLocked(
 ): boolean {
 	const track = tracks.find((candidate) => candidate.id === trackId);
 	return track ? effectiveTrackState(track, tracks).locked : false;
+}
+
+export function isColorGradeTargetEditable(
+	item: TimelineItem,
+	tracks: readonly TimelineTrack[]
+): boolean {
+	return (
+		(item.type === 'adjustment' && item.sequenceColorGrade === true) ||
+		!isTrackEffectivelyLocked(item.trackId, tracks)
+	);
 }
 
 /**

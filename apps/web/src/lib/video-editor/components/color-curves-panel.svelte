@@ -8,6 +8,7 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
+	import { isColorGradeTargetEditable } from '$lib/video-editor/timeline/utils/track-groups';
 	import ColorEffectHeader from './color-effect-header.svelte';
 	import GpuCurvesEditor from '$lib/components/editor-color-curves.svelte';
 
@@ -25,6 +26,8 @@
 		onedit: () => void;
 		forceAutoKey?: boolean;
 	} = $props();
+	let draftSourceItemId: string | null = null;
+	let draftTargetItemIds: string[] = [];
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
 	const storedEffect = $derived(
@@ -45,16 +48,37 @@
 	);
 	const targetItemIds = $derived.by(() => {
 		const requested = itemId && itemIds.includes(itemId) ? itemIds : itemId ? [itemId] : [];
-		return [...new Set(requested)].filter((id) => timelineStore.itemById.get(id)?.type !== 'audio');
+		return [...new Set(requested)].filter((id) => {
+			const candidate = timelineStore.itemById.get(id);
+			return (
+				candidate !== undefined &&
+				candidate.type !== 'audio' &&
+				isColorGradeTargetEditable(candidate, timelineStore.tracks)
+			);
+		});
 	});
 
+	function clearDraft(): void {
+		const previewTargetItemId = draftTargetItemIds[0];
+		if (previewTargetItemId) colorPreviewStore.clearEffectDraft(previewTargetItemId);
+		else if (itemId) colorPreviewStore.clearEffectDraft(itemId, storedEffect?.id);
+		draftSourceItemId = null;
+		draftTargetItemIds = [];
+	}
+
 	function draft(params: GpuParamValues | null): void {
-		if (!itemId) return;
 		if (!params) {
-			colorPreviewStore.clearEffectDraft(itemId, storedEffect?.id);
+			clearDraft();
 			return;
 		}
-		const effectIds = targetItemIds.flatMap((id) => {
+		if (!itemId || targetItemIds.length === 0) return;
+		if (!draftSourceItemId) {
+			draftSourceItemId = itemId;
+			draftTargetItemIds = [...targetItemIds];
+		}
+		const previewTargetItemId = draftTargetItemIds[0];
+		if (!previewTargetItemId) return;
+		const effectIds = draftTargetItemIds.flatMap((id) => {
 			const effect = timelineStore.itemById
 				.get(id)
 				?.effects?.find(
@@ -62,15 +86,22 @@
 				);
 			return effect?.type === 'gpu' ? [effect.id] : [];
 		});
-		colorPreviewStore.setEffectDraft(itemId, displayEffect, params, effectIds, targetItemIds);
+		colorPreviewStore.setEffectDraft(
+			previewTargetItemId,
+			displayEffect,
+			params,
+			effectIds,
+			draftTargetItemIds
+		);
 	}
 
 	function commit(params: GpuParamValues): void {
 		if (!itemId) return;
-		colorPreviewStore.clearEffectDraft(itemId, storedEffect?.id);
+		const commitTargetItemIds = draftSourceItemId ? draftTargetItemIds : targetItemIds;
+		clearDraft();
 		if (
 			setAnimatedGpuEffectParamsOnItems(
-				targetItemIds,
+				commitTargetItemIds,
 				EFFECT_ID,
 				timelineStore.currentFrame,
 				params,
@@ -94,6 +125,11 @@
 		{onedit}
 	/>
 	<div class="min-h-0 flex-1 overflow-auto p-2">
-		<GpuCurvesEditor compact gpuEffect={displayEffect} ondraft={draft} oncommit={commit} />
+		<GpuCurvesEditor
+			compact
+			gpuEffect={{ ...displayEffect, enabled: displayEffect.enabled && targetItemIds.length > 0 }}
+			ondraft={draft}
+			oncommit={commit}
+		/>
 	</div>
 </section>

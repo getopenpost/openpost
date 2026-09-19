@@ -538,4 +538,86 @@ describe('setAnimatedGpuEffectParamsOnItems', () => {
 		).toMatchObject({ frames: [10], values: [-0.2] });
 		expect(commandHistory.undoStack).toHaveLength(1);
 	});
+
+	it('skips effectively locked clips but permits the dedicated sequence grade', () => {
+		const baseTrack = createDefaultTracks()[1]!;
+		timelineStore._setTracks([
+			{ ...baseTrack, id: 'locked-track', locked: true, order: 0 },
+			{
+				id: 'locked-group',
+				name: 'Locked group',
+				isGroup: true,
+				height: 48,
+				locked: true,
+				visible: true,
+				muted: false,
+				solo: false,
+				order: 1
+			},
+			{
+				...baseTrack,
+				id: 'group-child',
+				parentTrackId: 'locked-group',
+				locked: false,
+				order: 2
+			},
+			{ ...baseTrack, id: 'sequence-grade-track', locked: true, order: 3 }
+		]);
+		timelineStore._setItems([
+			{
+				id: 'directly-locked',
+				trackId: 'locked-track',
+				from: 0,
+				durationInFrames: 30,
+				label: 'Directly locked',
+				type: 'video'
+			},
+			{
+				id: 'group-locked',
+				trackId: 'group-child',
+				from: 0,
+				durationInFrames: 30,
+				label: 'Group locked',
+				type: 'image'
+			},
+			{
+				id: 'flagged-video',
+				trackId: 'locked-track',
+				from: 0,
+				durationInFrames: 30,
+				label: 'Invalid sequence flag',
+				type: 'video',
+				sequenceColorGrade: true
+			},
+			{
+				id: 'sequence-grade',
+				trackId: 'sequence-grade-track',
+				from: 0,
+				durationInFrames: 30,
+				label: 'Sequence grade',
+				type: 'adjustment',
+				sequenceColorGrade: true
+			}
+		]);
+
+		expect(
+			setAnimatedGpuEffectParamsOnItems(
+				['directly-locked', 'group-locked', 'flagged-video', 'sequence-grade'],
+				'gpu-color-wheels',
+				10,
+				{ lift: 0.3 },
+				() => false
+			)
+		).toBe(true);
+
+		expect(getItem('directly-locked').effects).toBeUndefined();
+		expect(getItem('group-locked').effects).toBeUndefined();
+		expect(getItem('flagged-video').effects).toBeUndefined();
+		expect(getItem('sequence-grade').effects?.[0]).toMatchObject({
+			type: 'gpu',
+			effectId: 'gpu-color-wheels',
+			params: { lift: 0.3 }
+		});
+		expect(commandHistory.undoStack).toHaveLength(1);
+	});
 });

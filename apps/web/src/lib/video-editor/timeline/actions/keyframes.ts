@@ -50,7 +50,7 @@ import {
 	vectorKeyframesPatch
 } from '../vector-keyframes';
 import { autoKeyframeStore } from '../stores/auto-keyframe-store.svelte';
-import { isTrackEffectivelyLocked } from '../utils/track-groups';
+import { isColorGradeTargetEditable, isTrackEffectivelyLocked } from '../utils/track-groups';
 import {
 	buildEffectKeyframeProperty,
 	effectKeyframeValue,
@@ -274,6 +274,7 @@ export function setAnimatedGpuEffectParamsOnItems(
 		for (const itemId of uniqueItemIds) {
 			const item = timelineStore.itemById.get(itemId);
 			if (!item || item.type === 'audio') continue;
+			if (!isColorGradeTargetEditable(item, timelineStore.tracks)) continue;
 			const currentEffects = item.effects ?? [];
 			const effectIndex = currentEffects.findIndex(
 				(effect) => effect.type === 'gpu' && effect.effectId === effectType

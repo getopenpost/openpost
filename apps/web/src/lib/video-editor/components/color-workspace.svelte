@@ -31,6 +31,7 @@
 	import { replaceColorGradeEffects } from '$lib/video-editor/timeline/actions/effects';
 	import { setAnimatedGpuEffectParamsOnItems } from '$lib/video-editor/timeline/actions/keyframes';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
+	import { isColorGradeTargetEditable } from '$lib/video-editor/timeline/utils/track-groups';
 	import { resolveAnimatedEffectsAt } from '$lib/video-editor/effects/effect-keyframes';
 	import { getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
 	import {
@@ -78,12 +79,18 @@
 	const grade = $derived(snapshotColorGrade(item?.effects));
 	const hasGrade = $derived(hasEnabledColorGrade(item?.effects));
 	const isVisual = $derived(item?.type !== 'audio' && item !== undefined);
-	const targetItemIds = $derived.by(() => {
+	const selectedVisualItemIds = $derived.by(() => {
 		const requested = itemId && itemIds.includes(itemId) ? itemIds : itemId ? [itemId] : [];
 		return Array.from(new Set(requested)).filter(
 			(id) => timelineStore.itemById.get(id)?.type !== 'audio'
 		);
 	});
+	const editableTargetItemIds = $derived.by(() =>
+		selectedVisualItemIds.filter((id) => {
+			const candidate = timelineStore.itemById.get(id);
+			return candidate !== undefined && isColorGradeTargetEditable(candidate, timelineStore.tracks);
+		})
+	);
 	onMount(() => {
 		presets = loadColorGradePresets();
 	});
@@ -115,12 +122,16 @@
 		return Number(effect.params[name] ?? defaults[name] ?? 0);
 	}
 
-	function applyWheelParams(updates: Record<string, number>, message: string): void {
+	function applyWheelParams(
+		updates: Record<string, number>,
+		message: string,
+		targets: readonly string[] = editableTargetItemIds
+	): void {
 		if (!itemId) return;
 		status = message;
 		if (
 			setAnimatedGpuEffectParamsOnItems(
-				targetItemIds,
+				targets,
 				'gpu-color-wheels',
 				timelineStore.currentFrame,
 				updates,
@@ -133,6 +144,8 @@
 	async function autoBalance(): Promise<void> {
 		if (!itemId) return;
 		const targetItemId = itemId;
+		const targetItemIdsAtStart = [...editableTargetItemIds];
+		if (targetItemIdsAtStart.length === 0) return;
 		status = m.video_editor_color_analyzing();
 		const captured = await colorPreviewStore.requestFrameCapture(targetItemId);
 		const fallback = scopeSamples.current;
@@ -148,12 +161,14 @@
 			temperature: readWheelParam('temperature'),
 			tint: readWheelParam('tint')
 		});
-		applyWheelParams({ ...updates }, m.video_editor_color_auto_applied());
+		applyWheelParams({ ...updates }, m.video_editor_color_auto_applied(), targetItemIdsAtStart);
 	}
 
 	async function pick(kind: ColorPickerKind): Promise<void> {
 		if (!itemId) return;
 		const targetItemId = itemId;
+		const targetItemIdsAtStart = [...editableTargetItemIds];
+		if (targetItemIdsAtStart.length === 0) return;
 		status = m.video_editor_color_picker_instruction();
 		const picked = await colorPreviewStore.requestPick(targetItemId, kind);
 		if (!picked || itemId !== targetItemId) {
@@ -166,26 +181,32 @@
 				readWheelParam('temperature'),
 				readWheelParam('tint')
 			);
-			applyWheelParams({ ...correction }, m.video_editor_color_white_balance_applied());
+			applyWheelParams(
+				{ ...correction },
+				m.video_editor_color_white_balance_applied(),
+				targetItemIdsAtStart
+			);
 			return;
 		}
 		const pickedLuma = luma601(picked);
 		if (kind === 'black-point') {
 			applyWheelParams(
 				{ lift: blackPointFromPick(pickedLuma, readWheelParam('lift')) },
-				m.video_editor_color_black_point_applied()
+				m.video_editor_color_black_point_applied(),
+				targetItemIdsAtStart
 			);
 			return;
 		}
 		applyWheelParams(
 			{ gain: whitePointFromPick(pickedLuma, readWheelParam('gain')) },
-			m.video_editor_color_white_point_applied()
+			m.video_editor_color_white_point_applied(),
+			targetItemIdsAtStart
 		);
 	}
 
 	function setComparison(mode: ColorComparisonMode): void {
 		if (mode !== 'after' && !hasGrade) return;
-		colorPreviewStore.setComparisonMode(mode, targetItemIds);
+		colorPreviewStore.setComparisonMode(mode, selectedVisualItemIds);
 	}
 
 	function copyGrade(): void {
@@ -195,13 +216,13 @@
 	}
 
 	function applyGrade(effects: readonly GradeEffectSnapshot[], message: string): void {
-		if (!itemId || !replaceColorGradeEffects(targetItemIds, effects)) return;
+		if (!itemId || !replaceColorGradeEffects(editableTargetItemIds, effects)) return;
 		status = message;
 		onedit();
 	}
 
 	function pasteGrade(): void {
-		const result = pasteColorGradeToItems(targetItemIds);
+		const result = pasteColorGradeToItems(editableTargetItemIds);
 		if (!result) return;
 		status = m.video_editor_color_grade_pasted({ count: result.effectCount });
 		onedit();

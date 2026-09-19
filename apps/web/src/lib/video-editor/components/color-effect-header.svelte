@@ -9,6 +9,7 @@
 		setEffectEnabledOnItems
 	} from '$lib/video-editor/timeline/actions/effects';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { isColorGradeTargetEditable } from '$lib/video-editor/timeline/utils/track-groups';
 
 	let {
 		itemId,
@@ -40,22 +41,30 @@
 	);
 	const targetItemIds = $derived.by(() => {
 		const requested = itemId && itemIds.includes(itemId) ? itemIds : itemId ? [itemId] : [];
-		return [...new Set(requested)].filter((id) => timelineStore.itemById.get(id)?.type !== 'audio');
+		return [...new Set(requested)].filter((id) => {
+			const candidate = timelineStore.itemById.get(id);
+			return (
+				candidate !== undefined &&
+				candidate.type !== 'audio' &&
+				isColorGradeTargetEditable(candidate, timelineStore.tracks)
+			);
+		});
 	});
+	const displayItemEditable = $derived(itemId !== null && targetItemIds.includes(itemId));
 	const isDefault = $derived(!effect || isEffectAtDefaults(effect));
 
 	function reset(): void {
-		if (!itemId || !effect) return;
+		if (!itemId || !effect || !displayItemEditable) return;
 		if (resetEffectOnItems(itemId, targetItemIds, effect.id)) onedit();
 	}
 
 	function toggle(): void {
-		if (!itemId || !effect) return;
+		if (!itemId || !effect || !displayItemEditable) return;
 		if (setEffectEnabledOnItems(itemId, targetItemIds, effect.id, !effect.enabled)) onedit();
 	}
 
 	function remove(): void {
-		if (!itemId || !effect) return;
+		if (!itemId || !effect || !displayItemEditable) return;
 		if (removeEffectOnItems(itemId, targetItemIds, effect.id)) onedit();
 	}
 </script>
@@ -75,7 +84,7 @@
 		<button
 			type="button"
 			class="effect-action"
-			disabled={!effect || isDefault}
+			disabled={!displayItemEditable || !effect || isDefault}
 			title={m.video_editor_effects_reset()}
 			aria-label={m.video_editor_effects_reset()}
 			onclick={reset}
@@ -85,7 +94,7 @@
 		<button
 			type="button"
 			class="effect-action"
-			disabled={!effect}
+			disabled={!displayItemEditable || !effect}
 			title={effect?.enabled ? m.video_editor_effects_disable() : m.video_editor_effects_enable()}
 			aria-label={effect?.enabled
 				? m.video_editor_effects_disable()
@@ -101,7 +110,7 @@
 		<button
 			type="button"
 			class="effect-action"
-			disabled={!effect}
+			disabled={!displayItemEditable || !effect}
 			title={m.video_editor_effects_remove()}
 			aria-label={m.video_editor_effects_remove()}
 			onclick={remove}

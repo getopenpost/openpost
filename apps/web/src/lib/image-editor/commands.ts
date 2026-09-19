@@ -534,15 +534,18 @@ export function imageEditorCommandsForMobileGroup(
 	return IMAGE_EDITOR_COMMANDS.filter((command) => command.mobileGroup === group);
 }
 
-const COMPACT_MENU_CATEGORIES: readonly ImageEditorCommandCategory[] = [
+export const IMAGE_EDITOR_COMPACT_MENU_CATEGORIES = [
 	'edit',
 	'layer',
 	'select',
 	'tools'
-];
+] as const satisfies readonly ImageEditorCommandCategory[];
+export type ImageEditorCompactMenuCategory = (typeof IMAGE_EDITOR_COMPACT_MENU_CATEGORIES)[number];
 
 export function imageEditorCommandsForCompactMenu(): ImageEditorCommandDescriptor[] {
-	return COMPACT_MENU_CATEGORIES.flatMap((category) => imageEditorCommandsForCategory(category));
+	return IMAGE_EDITOR_COMPACT_MENU_CATEGORIES.flatMap((category) =>
+		imageEditorCommandsForCategory(category)
+	);
 }
 
 export function imageEditorCommandsForRail(): ImageEditorCommandDescriptor[] {

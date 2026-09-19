@@ -126,7 +126,9 @@
 		imageEditorCommandsForMobileGroup,
 		imageEditorCommandsForRail,
 		imageEditorShortcutLabel,
+		IMAGE_EDITOR_COMPACT_MENU_CATEGORIES,
 		IMAGE_EDITOR_COMMANDS,
+		type ImageEditorCompactMenuCategory,
 		type ImageEditorCommandDescriptor,
 		type ImageEditorCommandID
 	} from '../commands';
@@ -433,7 +435,7 @@
 		if (!editor.document) {
 			editor.load(initial);
 			editor.setBrandKit(initialBrandKit);
-			editor.pagesExpanded = (editor.document?.pages.length ?? 0) > 1;
+			editor.pagesExpanded = initial.document.pages.length > 1;
 			coverPreviewMediaID = initial.cover_preview_media_id ?? '';
 		}
 	}
@@ -2206,19 +2208,11 @@
 		return commandLabel(id);
 	}
 
-	type CompactCommandCategory = 'edit' | 'layer' | 'select' | 'tools';
-	const compactCommandCategories: readonly CompactCommandCategory[] = [
-		'edit',
-		'layer',
-		'select',
-		'tools'
-	];
-
-	function compactCommandCategoryLabel(category: CompactCommandCategory): string {
+	function compactCommandCategoryLabel(category: ImageEditorCompactMenuCategory): string {
 		if (category === 'edit') return m.image_editor_edit();
 		if (category === 'layer') return m.image_editor_layer();
 		if (category === 'select') return m.image_editor_select();
-		return m.image_editor_tools();
+		return m.image_editor_tools_menu();
 	}
 
 	async function copySelection(): Promise<void> {
@@ -2821,7 +2815,7 @@
 							</DropdownMenu.Item>
 						{/each}
 						<DropdownMenu.Separator />
-						{#each compactCommandCategories as category (category)}
+						{#each IMAGE_EDITOR_COMPACT_MENU_CATEGORIES as category (category)}
 							<DropdownMenu.Label>{compactCommandCategoryLabel(category)}</DropdownMenu.Label>
 							{#each imageEditorCommandsForCompactMenu().filter((command) => command.category === category) as command (command.id)}
 								{#if command.separatorBefore}<DropdownMenu.Separator />{/if}
@@ -2961,7 +2955,7 @@
 				</Menubar.Content>
 			</Menubar.Menu>
 			<Menubar.Menu value="tools">
-				<Menubar.Trigger>{m.image_editor_tools()}</Menubar.Trigger>
+				<Menubar.Trigger>{m.image_editor_tools_menu()}</Menubar.Trigger>
 				<Menubar.Content class="min-w-52">
 					{#each imageEditorCommandsForCategory('tools') as command (command.id)}
 						<Menubar.Item

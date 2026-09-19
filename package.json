@@ -48,7 +48,7 @@
     "@sveltejs/kit": "2.70.2",
     "@vitest/browser": "4.1.11",
     "@vitest/browser-playwright": "4.1.11",
-    "adm-zip": "0.6.0",
+    "adm-zip": "0.6.1",
     "cookie": "0.7.2",
     "devalue": "5.9.2",
     "fast-uri": "3.1.6",

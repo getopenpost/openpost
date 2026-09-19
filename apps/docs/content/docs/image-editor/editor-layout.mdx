@@ -1,0 +1,41 @@
+---
+title: Editor layout
+description: Find the canvas, tools, properties, layers, and page controls.
+---
+
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
+The editor keeps one page active at a time. The canvas is the page itself. Everything placed on it is a layer.
+
+## Desktop
+
+The desktop workspace has five main areas:
+
+1. The top bar holds the design name, save state, undo, redo, Color, and Export.
+2. The left tool rail opens media, text, shapes, paint, and other insert tools.
+3. The center canvas is where you select, move, resize, rotate, crop, and preview content.
+4. The right side contains **Layers** and **Properties**.
+5. The page strip along the bottom selects and orders pages.
+
+Use the canvas for direct changes and the Layers or Properties panels when you need exact order, values, or controls. The panels are also the keyboard-accessible alternative to dragging on the canvas.
+
+<SetupScreenshot
+  src="/assets/screenshots/image-canvas-detail-light.webp"
+  darkSrc="/assets/screenshots/image-canvas-detail-dark.webp"
+  alt="Image Editor canvas with a selected logo over a photo"
+  width={1552}
+  height={570}
+  caption="Select a layer on the canvas, then use its handles or the Properties panel."
+/>
+
+## Phone
+
+On a phone, the bottom tool rail opens one editing sheet at a time. The Layers view uses the full available height, and the page strip can collapse when you need more canvas space.
+
+You can add and transform layers, crop images, change text and shapes, reorder pages, remove backgrounds, undo, and export. Use one finger to move or transform the selected layer. Use two fingers to pan or zoom the canvas.
+
+## Move around the canvas
+
+Use the zoom controls to fit the page or inspect detail. Panning changes only your view, not the exported design. Rulers, guides, snap lines, and safe areas help with placement but do not appear in the export.
+
+Check the save state before closing the tab. Workspace designs save to OpenPost. Public designs save to this browser. See [Saving and recovery](/image-editor/saving-and-recovery) for conflicts and browser recovery.

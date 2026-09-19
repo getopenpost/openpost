@@ -163,11 +163,6 @@
 			</button>
 		</div>
 		{#if mode === 'assistant'}
-			<p class="mt-1.5 text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
-				{m.video_editor_agent_assistant_hint()}
-			</p>
-		{/if}
-		{#if mode === 'assistant'}
 			{#if !agentSupported}
 				<p class="mt-1 text-[11px] text-[var(--video-editor-danger)]">
 					{m.video_editor_agent_webgpu_required()}

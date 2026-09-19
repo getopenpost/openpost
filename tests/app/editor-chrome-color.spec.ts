@@ -141,7 +141,9 @@ async function createImageDesign(page: Page): Promise<string> {
     mimeType: "image/png",
     buffer: colorPhoto,
   });
-  await expect(page.getByRole("textbox", { name: "Layer name" })).toHaveValue("color-source.png");
+  await expect(
+    page.getByRole("treeitem", { name: "color-source.png, image", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   const saveIndicator = page.getByTestId("image-editor-save-indicator");
   await expect(saveIndicator).toHaveAttribute("data-state", "idle");
   await expect(saveIndicator).toHaveAttribute("data-state", "saved", {
@@ -351,11 +353,11 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
       await expect(page.locator("[data-image-color-workspace]:visible")).toBeVisible();
       await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(14);
       if (width === 1440) {
-        const scope = page.getByRole("group", { name: "Color Layers" });
+        const scope = page.getByRole("group", { name: "Color", exact: true });
         await page.getByRole("tree", { name: "Layers" }).getByText("color-source.png").click();
-        await scope.getByRole("button", { name: "Layer", exact: true }).click();
+        await scope.getByRole("button", { name: "Layers", exact: true }).click();
         await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(15);
-        await scope.getByRole("button", { name: "Pages" }).click();
+        await scope.getByRole("button", { name: "Page", exact: true }).click();
         if (theme.id === "workshop") {
           const originalPixel = await designCanvasCenterPixel(page);
           const offset = page.getByRole("slider", { name: "Offset color wheel" });

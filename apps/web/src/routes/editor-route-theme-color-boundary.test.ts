@@ -316,7 +316,7 @@ describe('editor route theme color boundary', () => {
 			{ name: 'project-browser', expected: [] },
 			{
 				name: 'clip-properties-panel',
-				expected: ['#000000', '#000000', '#000000', '#ffffff']
+				expected: ['#000000', '#000000']
 			},
 			{ name: 'edit-inspector-tabs', expected: [] },
 			{ name: 'sequence-tabs', expected: [] },

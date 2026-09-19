@@ -15,26 +15,24 @@ test.describe("touch editor discovery", () => {
     const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
     await expect(layers).toHaveCount(6);
     const family = page.getByTestId("image-editor-tool-family").first();
-    for (const control of await family.getByRole("button").all()) {
-      const bounds = (await control.boundingBox())!;
-      expect(bounds.width).toBeGreaterThanOrEqual(44);
-      expect(bounds.height).toBeGreaterThanOrEqual(44);
-    }
-    const variants = family.getByRole("button", {
-      name: "Rectangle select, More actions",
-      exact: true,
-    });
-    await variants.focus();
-    await variants.press("Enter");
+    expect(await family.evaluate((element) => element.tagName)).toBe("BUTTON");
+    const bounds = (await family.boundingBox())!;
+    expect(bounds.width).toBeGreaterThanOrEqual(44);
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    expect(bounds.width).toBe(bounds.height);
+    await family.focus();
+    await family.press("ArrowDown");
     await page.getByRole("menuitem", { name: /Ellipse select/ }).click();
-    await expect(
-      family.getByRole("button", { name: "Ellipse select", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(family).toHaveAttribute("aria-label", "Ellipse select");
+    await expect(family).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Select objects", exact: true }).click();
-    await family.getByRole("button", { name: "Ellipse select", exact: true }).click();
-    await expect(
-      family.getByRole("button", { name: "Ellipse select", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await family.click();
+    await expect(family).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await family.click();
+    await expect(page.getByRole("menuitem", { name: /Ellipse select/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(family).toBeFocused();
 
     await page.setViewportSize({ width: 320, height: 780 });
     const more = page
@@ -272,3 +270,48 @@ test("a large rectangular selection keeps its visible outline after a document e
   });
   expect(afterEditPixels).toBe(outlinePixels);
 });
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`Photo keeps text editing first and Color preserves the live canvas on phones in ${scheme}`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "Bold announcement", exact: true }).click();
+    const properties = page.locator(".image-editor-properties-scroll:visible");
+    await expect(properties.locator("textarea")).toBeInViewport({ ratio: 1 });
+    await expect(
+      properties.getByRole("button", { name: "Font family", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await expect(properties.getByRole("spinbutton", { name: "Size", exact: true })).toBeInViewport({
+      ratio: 1,
+    });
+    await expect(properties.getByRole("button", { name: "Weight", exact: true })).toHaveText("850");
+    await page.screenshot({ path: testInfo.outputPath("photo-text-laptop.png") });
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.locator("#image-editor-workspace-tab-color").click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
+      const color = page.locator("[data-image-color-workspace]:visible");
+      await expect(canvas).toBeInViewport({ ratio: 1 });
+      const canvasBox = (await canvas.boundingBox())!;
+      const controlsBox = (await color.boundingBox())!;
+      expect(canvasBox.height).toBeGreaterThanOrEqual(180);
+      expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
+      const lift = page.getByRole("slider", { name: "Lift color wheel", exact: true });
+      await expect(lift).toBeInViewport({ ratio: 1 });
+      await lift.press("ArrowUp");
+      const previousLift = await lift.getAttribute("aria-valuetext");
+      await lift.press("ArrowRight");
+      await expect(lift).not.toHaveAttribute("aria-valuetext", previousLift!);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      await page.screenshot({ path: testInfo.outputPath(`photo-color-${width}.png`) });
+      await page.locator("#image-editor-workspace-tab-edit").click();
+    }
+  });
+}

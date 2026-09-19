@@ -120,6 +120,13 @@ for (const scheme of ["light", "dark"] as const) {
       page.getByRole("group", { name: "Master curve editor", exact: true }),
     ).toBeVisible();
     await expect(lift).toBeHidden();
+    const curveMarker = page
+      .locator("[data-curves-editor] circle, [data-curves-editor] ellipse")
+      .nth(1);
+    const markerBox = (await curveMarker.boundingBox())!;
+    expect(Math.abs(markerBox.width - markerBox.height)).toBeLessThan(1);
+    expect(markerBox.width).toBeGreaterThanOrEqual(8);
+    expect(markerBox.width).toBeLessThanOrEqual(16);
     await expect(
       page.getByRole("button", { name: "Toggle auto-keyframe", exact: true }),
     ).toBeVisible();
@@ -178,7 +185,9 @@ for (const scheme of ["light", "dark"] as const) {
         await expect(
           page.getByRole("tabpanel", { name: "Secondary Qualifier", exact: true }),
         ).toBeVisible();
-        await expect(page.getByRole("button", { name: "Add effect", exact: true })).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "Add effect · Secondary Qualifier", exact: true }),
+        ).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
           viewport.width,
         );
@@ -203,6 +212,12 @@ test("text content is immediately editable without scrolling past transforms or 
   const content = inspector.locator("textarea");
   await page.screenshot({ path: testInfo.outputPath("text-inspector-laptop.png") });
   await expect(content).toBeInViewport({ ratio: 1 });
+  await expect(inspector.getByRole("spinbutton", { name: "Size", exact: true })).toBeInViewport({
+    ratio: 1,
+  });
+  await expect(inspector.getByRole("button", { name: "Text color", exact: true })).toBeInViewport({
+    ratio: 1,
+  });
   await content.fill("Words come first");
   await content.press("Tab");
   await expect(page.locator("[data-timeline-item-id]")).toContainText("Words come first");
@@ -439,3 +454,70 @@ for (const scheme of ["light", "dark"] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+test("Color palettes explain their action and landscape workspaces retain a usable preview", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await createProject(page, "Palette and landscape review");
+  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+  await page.getByRole("tab", { name: "Color", exact: true }).click();
+  for (const palette of ["Secondary Qualifier", "Power Window", "3D LUT"]) {
+    await page.getByRole("tab", { name: palette, exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: `Add effect · ${palette}`, exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("No effects on this clip.", { exact: true })).toBeHidden();
+  }
+  await page.getByRole("tab", { name: "Secondary Qualifier", exact: true }).click();
+  await page.getByRole("button", { name: "Add effect · Secondary Qualifier", exact: true }).click();
+  await expect(page.locator("[data-effect-id]")).toHaveCount(1);
+  await page.getByRole("button", { name: "Add effect · Secondary Qualifier", exact: true }).click();
+  await expect(page.locator("[data-effect-id]")).toHaveCount(2);
+  for (const width of [640, 390, 320]) {
+    await page.setViewportSize({ width, height: width === 640 ? 450 : 844 });
+    const program = page.locator("#video-editor-program-panel");
+    expect((await program.boundingBox())!.height).toBeGreaterThanOrEqual(190);
+    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
+      ratio: 1,
+    });
+    await expect(
+      page.getByRole("button", { name: "Enter preview fullscreen", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    const transportMenu = program.getByRole("button", { name: "More actions", exact: true });
+    await transportMenu.press("Enter");
+    await expect(
+      page.getByRole("menuitem", { name: "Step one frame forward", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(transportMenu).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width,
+    );
+    await page.screenshot({ path: testInfo.outputPath(`video-qualifier-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 640, height: 450 });
+  await page.getByRole("tab", { name: "Motion", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New composition", exact: true })).toBeVisible();
+  await expect(page.getByRole("separator", { name: "Timeline", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "New composition", exact: true }).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  const timeline = page.getByRole("region", { name: "Composition timeline", exact: true });
+  await timeline.getByRole("button", { name: "Text", exact: true }).first().click();
+  expect(
+    (await page.locator("#video-editor-program-panel").boundingBox())!.height,
+  ).toBeGreaterThanOrEqual(160);
+  await page.screenshot({ path: testInfo.outputPath("motion-landscape.png") });
+  await page.getByRole("button", { name: "Render full video", exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 844 });
+  const dialog = page.getByRole("dialog", { name: "Export video", exact: true });
+  await expect(dialog).toBeInViewport({ ratio: 1 });
+  await expect(dialog.getByRole("button", { name: "Render now", exact: true })).toBeInViewport({
+    ratio: 1,
+  });
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
+    true,
+  );
+  await page.screenshot({ path: testInfo.outputPath("video-export-320.png") });
+});

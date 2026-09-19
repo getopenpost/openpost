@@ -135,6 +135,11 @@
 	const dedicatedGpuEffectLabel = $derived(
 		dedicatedGpuEffect ? gpuEffectLabel(dedicatedGpuEffect) : dedicatedGpuEffectId
 	);
+	const dedicatedAddLabel = $derived(
+		dedicatedGpuEffectLabel
+			? `${m.video_editor_effects_add()} · ${dedicatedGpuEffectLabel}`
+			: m.video_editor_effects_add()
+	);
 
 	/** In-flight slider values so dragging stays smooth before the undoable commit. */
 	let draftAmounts = $state<Record<string, number>>({});
@@ -670,26 +675,40 @@
 	aria-label={m.video_editor_effects()}
 >
 	{#if showColorTools}<ColorWorkspace {itemId} {itemIds} {onedit} />{/if}
-	{#if !dedicatedGpuEffectId}
+	{#if !dedicatedGpuEffectId || effects.length > 0}
 		<div
 			class="flex h-8 shrink-0 items-center gap-1 border-b border-[var(--video-editor-border)] px-1"
 		>
-			<EffectPicker
-				bind:value={pendingKind}
-				options={effectOptions}
-				ariaLabel={m.video_editor_effects_add()}
-				triggerLabel={m.video_editor_effects_add()}
-				searchPlaceholder={m.video_editor_effects_search()}
-				emptyLabel={m.video_editor_effects_no_results()}
-				disabled={selectedEffectItemIds.length === 0}
-				draggable={selectedEffectItemIds.length > 0}
-				dragTitle={itemId ? m.video_editor_effects_add_or_drag() : m.video_editor_effects_add()}
-				onSelect={addSelectedEffect}
-				onDragStart={startEffectDrag}
-				onDragEnd={finishEffectDrag}
-				onRemoveOption={deleteUserPreset}
-				removeOptionLabel={(name) => m.video_editor_effects_preset_delete_named({ name })}
-			/>
+			{#if dedicatedGpuEffectId}
+				<button
+					type="button"
+					class="flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40"
+					disabled={selectedEffectItemIds.length === 0 || !dedicatedGpuEffect}
+					aria-label={dedicatedAddLabel}
+					title={dedicatedAddLabel}
+					onclick={() => addSelectedEffect(`gpu:${dedicatedGpuEffectId}`)}
+				>
+					<ThemeIcon role="add" class="size-3.5 shrink-0" />
+					<span class="truncate">{dedicatedAddLabel}</span>
+				</button>
+			{:else}
+				<EffectPicker
+					bind:value={pendingKind}
+					options={effectOptions}
+					ariaLabel={m.video_editor_effects_add()}
+					triggerLabel={m.video_editor_effects_add()}
+					searchPlaceholder={m.video_editor_effects_search()}
+					emptyLabel={m.video_editor_effects_no_results()}
+					disabled={selectedEffectItemIds.length === 0}
+					draggable={selectedEffectItemIds.length > 0}
+					dragTitle={itemId ? m.video_editor_effects_add_or_drag() : m.video_editor_effects_add()}
+					onSelect={addSelectedEffect}
+					onDragStart={startEffectDrag}
+					onDragEnd={finishEffectDrag}
+					onRemoveOption={deleteUserPreset}
+					removeOptionLabel={(name) => m.video_editor_effects_preset_delete_named({ name })}
+				/>
+			{/if}
 			{#if effects.length > 0}
 				<button
 					type="button"
@@ -769,7 +788,7 @@
 					onclick={() => addSelectedEffect(`gpu:${dedicatedGpuEffectId}`)}
 				>
 					<ThemeIcon role="add" class="size-3.5" />
-					{m.video_editor_effects_add()} · {dedicatedGpuEffectLabel}
+					{dedicatedAddLabel}
 				</button>
 			</div>
 		</div>

@@ -197,7 +197,9 @@
 			</div>
 		</div>
 	</div>
-	<ColorMiniTimeline compact selectedItemIds={colorTarget.itemIds} {onselectitem} />
+	<div class="[@media(max-height:600px)]:hidden">
+		<ColorMiniTimeline compact selectedItemIds={colorTarget.itemIds} {onselectitem} />
+	</div>
 	{#key `${colorScope}:${colorTarget.itemId ?? ''}`}
 		{#if colorScope === 'sequence' && !colorTarget.sequenceGradeItemId}
 			<div class="flex min-h-0 flex-1 items-center justify-center p-4 text-center">

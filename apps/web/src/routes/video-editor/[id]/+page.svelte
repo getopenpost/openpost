@@ -501,7 +501,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const minimumProgramHeight = 180;
 	const editorHeaderHeight = 48;
 	const minimumColorProgramHeight = 280;
-	const minimumColorDockHeight = 180;
+	const minimumColorDockHeight = 160;
 	const sourceMonitorHorizontal = $derived(
 		sourceMediaId !== null && editorViewportWidth >= 1280 && !sourceMonitorOverlay
 	);

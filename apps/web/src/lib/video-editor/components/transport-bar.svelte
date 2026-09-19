@@ -161,7 +161,7 @@
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
-			class="hidden sm:inline-flex"
+			class="hidden @min-[800px]:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -171,7 +171,7 @@
 			<ProtectedIcon icon="editor-skip-back" />
 		</Button>
 		<Button
-			class="hidden sm:inline-flex"
+			class="hidden @min-[800px]:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -195,7 +195,7 @@
 			{#if playing}<ProtectedIcon icon="pause" />{:else}<ProtectedIcon icon="play" />{/if}
 		</Button>
 		<Button
-			class="hidden sm:inline-flex"
+			class="hidden @min-[800px]:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -205,7 +205,7 @@
 			<ProtectedIcon icon="editor-stop" />
 		</Button>
 		<Button
-			class="hidden sm:inline-flex"
+			class="hidden @min-[800px]:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={timelineStore.seekLocked}
@@ -269,7 +269,7 @@
 			</Popover.Content>
 		</Popover.Root>
 		<Button
-			class="hidden sm:inline-flex"
+			class="hidden @min-[800px]:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			disabled={savingFrame || totalFrames === 0}
@@ -347,7 +347,7 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 		<Button
-			class="hidden sm:inline-flex"
+			class="hidden @min-[800px]:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			aria-label={m.video_editor_preview_zoom_out()}
@@ -381,7 +381,7 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 		<Button
-			class="hidden sm:inline-flex"
+			class="hidden @min-[800px]:inline-flex"
 			size="icon-xs"
 			variant="ghost"
 			aria-label={m.video_editor_preview_zoom_in()}

@@ -10,6 +10,18 @@ Connect an AI assistant to review a schedule or prepare a publication without le
 https://app.openpo.st/mcp
 ```
 
+This default endpoint exposes each OpenPost operation as a direct tool. Use it
+unless your MCP client has a strict tool-context limit. For a smaller initial
+tool list, use the compact endpoint instead:
+
+```text
+https://app.openpo.st/mcp/code
+```
+
+The compact endpoint exposes search, read, and write gateways, then loads the
+schema for the operation the assistant needs. It uses the same sign-in, scopes,
+workspace checks, and operation behavior as `/mcp`.
+
 Choose `mcp:read` to review accounts and scheduled posts. Choose `mcp:full` only when the assistant needs to create, edit, schedule, or publish. OpenPost checks your workspace access on each request.
 
 ## Choose a setup
@@ -113,13 +125,13 @@ Choose its guide below. Each guide shows where to enter the server URL, how to s
   </a>
 </div>
 
-For a client not listed here, use the endpoint and authentication rules in [Tools and permissions](/mcp/tools). That page also explains the server's tool modes: operations are listed directly by default, with the previous search-first flow still available.
+For a client not listed here, use the endpoint and authentication rules in [Tools and permissions](/mcp/tools). That page also explains the direct and compact tool surfaces, including which clients can upload a local file.
 
 Remote clients can use browser sign-in. OpenPost asks you to choose `mcp:read` or `mcp:full` and, optionally, bind access to one workspace. If your client cannot use OAuth, create a developer token in **Settings → Personal → Developer** and pass it in a bearer header. Do not put a token in a chat message or a committed config file.
 
 ## Self-hosted connections
 
-For a public HTTPS instance, replace `https://app.openpo.st` with your own origin and keep the `/mcp` path. Use that URL in the client guide above.
+For a public HTTPS instance, replace `https://app.openpo.st` with your own origin and keep the `/mcp` or `/mcp/code` path. Use `/mcp` unless you deliberately want the compact surface.
 
 Cloud clients cannot reach a private LAN address or `localhost`. If the server is private but reachable from your computer, a desktop client can use OpenPost's local bridge. Install the CLI and bridge together:
 

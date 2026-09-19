@@ -27,12 +27,16 @@ Bind either token to one workspace unless the client genuinely needs more. Start
 
 ## Read and mutation separation
 
-OpenPost advertises a compact MCP surface:
+OpenPost advertises each operation directly at `/mcp` by default. Clients with a strict tool-context limit can use the compact `/mcp/code` surface:
 
 - `search_operations` discovers relevant operations and returns the required execution tool;
 - `query_operation` runs guaranteed read-only operations and rejects mutations;
 - `execute_operation` runs state-changing or external operations and rejects read-only calls;
 - `render_scheduler_widget` renders a read-only scheduler summary in compatible clients.
+
+Compatible MCP Apps clients with `mcp:full` can also open
+`render_local_media_upload`. The file travels directly from the app to OpenPost
+with a one-use, ten-minute ticket that is hidden from model context.
 
 With `mcp:read`, discovery omits mutation operations and the server rejects attempts to execute them. With `mcp:full`, the server still enforces the catalog classification, while the MCP client can place an approval prompt around `execute_operation`.
 
@@ -65,6 +69,9 @@ Use the remote endpoint:
 ```text
 https://your-openpost-host.example/mcp
 ```
+
+Use `https://your-openpost-host.example/mcp/code` when the client needs the
+compact tool surface.
 
 Or use the local proxy:
 

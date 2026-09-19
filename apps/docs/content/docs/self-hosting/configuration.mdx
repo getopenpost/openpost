@@ -22,6 +22,12 @@ The [Compose setup](/self-hosting) stores SQLite at `/data/db/openpost.db` and m
 
 For PostgreSQL, set `OPENPOST_DATABASE_DRIVER=postgres` and `OPENPOST_DATABASE_URL` to the connection string. For S3-compatible storage, set `OPENPOST_STORAGE_DRIVER=s3`, `OPENPOST_S3_ENDPOINT`, `OPENPOST_S3_REGION`, `OPENPOST_S3_BUCKET`, `OPENPOST_S3_ACCESS_KEY_ID`, `OPENPOST_S3_SECRET_ACCESS_KEY`, and `OPENPOST_S3_PUBLIC_BASE_URL`. Set `OPENPOST_S3_FORCE_PATH_STYLE=true` only if your object store needs it. These are deployment choices; moving an existing instance's data needs a planned migration, not just a setting change.
 
+The MCP endpoint lists every operation directly by default. Set
+`OPENPOST_MCP_MODE=search` to make `/mcp` use the compact search, query, and
+execute surface, or `OPENPOST_MCP_MODE=both` to advertise both surfaces. The
+separate `/mcp/code` endpoint is always compact and needs no environment change.
+See [MCP tools and permissions](/mcp/tools) before changing the default.
+
 Back up the database, media, Compose file, and secrets as one [restore set](/self-hosting/maintenance).
 
 ## Provider apps

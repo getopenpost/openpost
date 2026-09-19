@@ -50,6 +50,11 @@ const done = await openpost.publications.wait(draft.id);
 
 `publishNow`, `cancel`, and `retryFailed` follow the same revision pattern. `events` lists the publication lifecycle for inspection and retries.
 
+Publications created through the official package return `creation_source: "sdk"`.
+OpenPost keeps this distinct from raw API calls, CLI commands, MCP tools, web
+actions, and automatic posting flows, so reports can show how content was
+created without storing high-cardinality client details.
+
 ## Upload media
 
 `upload` hides the session flow: it reserves the media row, PUTs the bytes to the storage target, and completes the row. External storage targets never receive your API token:

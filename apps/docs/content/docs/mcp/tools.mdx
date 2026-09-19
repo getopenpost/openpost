@@ -4,19 +4,33 @@ description: Understand OpenPost MCP tools, scopes, and safe request patterns.
 icon: Wrench
 ---
 
-OpenPost gives assistants a small set of tools. The assistant can find a supported operation, read the fields it needs, and run it. You can ask in ordinary language; you do not need to name a tool or write an API request.
+OpenPost lets assistants use the same publication operations through two tool surfaces. You can ask in ordinary language; you do not need to name a tool or write an API request.
 
 ## Tool modes
 
-By default the server lists every operation as its own tool, so the assistant can call `list_workspaces` or `create_publication` directly. Self-hosted operators can switch the listing with `OPENPOST_MCP_MODE`:
+The default `/mcp` endpoint lists every operation as its own tool, so the assistant can call `list_workspaces` or `create_publication` directly. This is the best choice for most clients.
+
+The `/mcp/code` endpoint keeps the initial tool list small. The assistant calls `search_operations`, then uses `query_operation` for a read or `execute_operation` for a change. Choose it for agents where loading every operation schema would use too much context. It does not evaluate model-written code.
+
+Both endpoints use the same OAuth resource, scopes, workspace checks, validation, and audit path. Changing the endpoint does not grant more access.
+
+Self-hosted operators can also change what `/mcp` lists with `OPENPOST_MCP_MODE`:
 
 | Mode     | Listing                                                                                           |
 | -------- | ------------------------------------------------------------------------------------------------- |
 | `direct` | Each operation is its own tool (default)                                                          |
-| `search` | Only `search_operations`, `query_operation`, `execute_operation`, and the scheduler widget appear |
-| `both`   | Direct tools plus `search_operations`, `query_operation`, and `execute_operation`                 |
+| `search` | The compact search, query, and execute tools plus compatible app widgets                          |
+| `both`   | Direct tools plus the compact search, query, and execute tools                                    |
 
-Search mode keeps the previous progressive-discovery flow: search first, then query read-only operations or execute mutations. Scopes and workspace checks behave the same in every mode; `mcp:read` connections never see or run mutations. Tool names that are not listed in the current mode stay callable for clients that cached an earlier catalog, with identical authorization.
+`/mcp/code` always uses the compact surface, regardless of this setting. Scopes and workspace checks behave the same in every mode; `mcp:read` connections never see or run mutations. Tool names that are not listed in the current mode stay callable for clients that cached an earlier catalog, with identical authorization.
+
+## Upload local media
+
+With `mcp:full`, a compatible MCP Apps client can open OpenPost's local file picker through `render_local_media_upload`. The chosen image or video goes straight from the app to OpenPost. File bytes and the one-use upload credential are not added to the model's conversation context.
+
+The upload ticket expires after ten minutes and works once. OpenPost applies the same file limits, workspace permission, quota, storage, deduplication, and media analysis checks used by normal uploads. After it succeeds, the assistant can use the returned media item in a publication.
+
+This picker needs an MCP client that supports Apps UI and app-only tool calls. In other clients, upload the file to OpenPost first and ask the assistant to use the media item, or give it a public HTTP(S) URL for `upload_media_from_url`. `mcp:read` connections cannot upload media.
 
 ## Choose access
 
@@ -44,4 +58,4 @@ For a write-capable connection, say where to stop: "Create the draft, then stop 
 
 ## Fix a connection
 
-Use `/mcp`, not `/api/v1/mcp`. The server uses Streamable HTTP and bearer authentication. A `401` usually means the OAuth connection expired or the bearer token is wrong; reconnect the client or issue a new token. A `403` can mean the token lacks `mcp:full`, lacks the requested workspace, or the operation is unavailable for the account or plan. If a self-hosted client cannot connect, check public HTTPS, reverse-proxy POST support, and the OAuth discovery paths under `/.well-known/`.
+Use `/mcp` or `/mcp/code`, not `/api/v1/mcp`. The server uses Streamable HTTP and bearer authentication. A `401` usually means the OAuth connection expired or the bearer token is wrong; reconnect the client or issue a new token. A `403` can mean the token lacks `mcp:full`, lacks the requested workspace, or the operation is unavailable for the account or plan. If a self-hosted client cannot connect, check public HTTPS, reverse-proxy POST support, and the OAuth discovery paths under `/.well-known/`.

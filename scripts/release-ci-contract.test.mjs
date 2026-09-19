@@ -133,7 +133,7 @@ test("Android keeps its own cadence across core releases", () => {
     git("add", ".");
     git("commit", "-m", "fix: server only");
     git("tag", "v4.15.1");
-    const serverOnly = runIdentityStep("v4.15.1", git("rev-parse", "HEAD"));
+    const serverOnly = runIdentityStep("v4.15.1", "v4.15.1");
     assert.equal(serverOnly.status, 0, serverOnly.stderr);
     assert.equal(serverOnly.changed, "false");
     assert.equal(
@@ -148,7 +148,7 @@ test("Android keeps its own cadence across core releases", () => {
     git("add", ".");
     git("commit", "-m", "fix(mobile): unbumped change");
     git("tag", "v4.15.2");
-    const unbumped = runIdentityStep("v4.15.2", git("rev-parse", "HEAD"));
+    const unbumped = runIdentityStep("v4.15.2", "v4.15.2");
     assert.notEqual(unbumped.status, 0);
     assert.equal(unbumped.changed, "true");
 
@@ -157,12 +157,21 @@ test("Android keeps its own cadence across core releases", () => {
     git("add", ".");
     git("commit", "-m", "feat(mobile): bumped change");
     git("tag", "v4.15.3");
-    const bumped = runIdentityStep("v4.15.3", git("rev-parse", "HEAD"));
+    const bumped = runIdentityStep("v4.15.3", "v4.15.3");
     assert.equal(bumped.status, 0, bumped.stderr);
     assert.equal(bumped.changed, "true");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("server-only releases do not require an Android CI artifact", () => {
+  const step = load(release).jobs["verify-candidate"].steps.find(
+    (step) => step.name === "Resolve artifacts from their successful CI attempts",
+  );
+  assert.equal(step.env.MOBILE_CHANGED, "${{ steps.mobile.outputs.changed }}");
+  assert.match(step.run, /android=""\nif \[\[ "\$MOBILE_CHANGED" == "true" \]\]; then/u);
+  assert.match(step.run, /prefix "android-unsigned-\$\{GITHUB_SHA\}-"/u);
 });
 
 test("external workflow actions are pinned to immutable commits", () => {

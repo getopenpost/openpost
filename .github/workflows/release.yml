@@ -110,6 +110,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
+          MOBILE_CHANGED: ${{ steps.mobile.outputs.changed }}
         shell: bash
         run: |
           image="$(bun scripts/ci-artifacts.mjs resolve \
@@ -120,10 +121,13 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --run-id "$CI_RUN_ID" \
             --prefix "frontend-public-${GITHUB_SHA}-")"
-          android="$(bun scripts/ci-artifacts.mjs resolve \
-            --repository "$GITHUB_REPOSITORY" \
-            --run-id "$CI_RUN_ID" \
-            --prefix "android-unsigned-${GITHUB_SHA}-")"
+          android=""
+          if [[ "$MOBILE_CHANGED" == "true" ]]; then
+            android="$(bun scripts/ci-artifacts.mjs resolve \
+              --repository "$GITHUB_REPOSITORY" \
+              --run-id "$CI_RUN_ID" \
+              --prefix "android-unsigned-${GITHUB_SHA}-")"
+          fi
           {
             echo "image=$image"
             echo "frontend=$frontend"

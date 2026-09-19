@@ -60,8 +60,12 @@
 /providers/facebook /self-hosting/integrations/facebook 301
 /providers/instagram /self-hosting/integrations/instagram 301
 /providers/linkedin /self-hosting/integrations/linkedin 301
+/providers/lemmy /self-hosting/integrations/lemmy 301
 /providers/mastodon /self-hosting/integrations/mastodon 301
+/providers/peertube /self-hosting/integrations/peertube 301
+/providers/piefed /self-hosting/integrations/piefed 301
 /providers/pinterest /self-hosting/integrations/pinterest 301
+/providers/pixelfed /self-hosting/integrations/pixelfed 301
 /providers/telegram /self-hosting/integrations/telegram 301
 /providers/threads /self-hosting/integrations/threads 301
 /providers/tiktok /self-hosting/integrations/tiktok 301

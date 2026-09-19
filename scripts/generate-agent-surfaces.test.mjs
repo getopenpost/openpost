@@ -178,7 +178,16 @@ async function assertArtifactSnapshot(directory, snapshot) {
 
 function deterministicAttributes(node) {
   return (node.attrs ?? [])
-    .filter(({ name }) => name !== "data-svelte-h" && !/^data-v-[0-9a-f]{8}(?:-s)?$/u.test(name))
+    .filter(
+      ({ name }) =>
+        name !== "data-svelte-h" &&
+        !/^data-v-[0-9a-f]{8}(?:-s)?$/u.test(name) &&
+        !(
+          name === "style" &&
+          node.tagName === "pre" &&
+          (documentAttribute(node, "class") ?? "").split(/\s+/u).includes("shiki")
+        ),
+    )
     .map(({ name, value }) => [name, value])
     .toSorted(([left], [right]) => left.localeCompare(right));
 }
@@ -272,7 +281,7 @@ test("semantic HTML determinism retains maintained documents and ignores only fr
     <link rel="modulepreload" href="/assets/chunks/theme.A.js">
     <link rel="modulepreload" href="/assets/cli_posting.md.A.lean.js">
     <!--12qhfyh--><!--$s1--><!--[0--><p data-v-0394ad82>Runtime scoped</p>
-    <pre class="shiki vp-code"><code><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">accounts</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: x,linkedin</span></code></pre>
+    <pre class="shiki vp-code" style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"><code><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">accounts</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: x,linkedin</span></code></pre>
     <link rel="stylesheet" href="/_next/static/chunks/A.css">
     <script src="/_next/static/chunks/A.js"></script>
     <script>self.__next_f.push([1,"A"])</script>
@@ -282,7 +291,7 @@ test("semantic HTML determinism retains maintained documents and ignores only fr
     <link rel="modulepreload" href="/assets/chunks/theme.B.js">
     <link rel="modulepreload" href="/assets/cli_posting.md.B.lean.js">
     <!--1cjcgu2--><!--$s2--><!--[7--><p data-v-a3976bdc>Runtime scoped</p>
-    <pre class="shiki vp-code"><code><span style="--shiki-light:#22863A;--shiki-dark:#85E89D">accounts: x,linkedin</span></code></pre>
+    <pre class="shiki vp-code" style="--shiki-light:#6F42C1;--shiki-dark:#E1E4E8"><code><span style="--shiki-light:#22863A;--shiki-dark:#85E89D">accounts: x,linkedin</span></code></pre>
     <link rel="stylesheet" href="/_next/static/chunks/B.css">
     <script src="/_next/static/chunks/B.js"></script>
     <script>self.__next_f.push([1,"B"])</script>

@@ -6,7 +6,7 @@ const CLOUD_SAVE_TIMEOUT_MS = 15_000;
 
 async function newProject(page: Page, name: string) {
   if (new URL(page.url()).pathname !== "/video-editor") await page.goto("/video-editor");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   const title = page.getByRole("textbox", { name: "Project name" });
   await expect(title).toHaveValue("Untitled project");
   await title.fill(name);

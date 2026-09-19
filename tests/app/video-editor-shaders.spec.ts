@@ -68,7 +68,7 @@ async function createShaderProject(
       .fill(String(resolution.height));
     await page.getByRole("button", { name: "Create", exact: true }).click();
   } else {
-    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   }
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
     timeout: 15_000,

@@ -17,7 +17,7 @@ test("background and effect catalogs compile only the active preview", async ({ 
   });
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Choose folder", exact: true }).click();
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await page.getByRole("tab", { name: "Backgrounds", exact: true }).waitFor();
   await page.evaluate(() => {
     const metrics = { compiles: 0, draws: 0, compileMs: 0 };

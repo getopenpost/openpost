@@ -18,7 +18,7 @@ test("a background moves between visual tracks with undo, cancel and persistence
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Choose folder", exact: true }).click();
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await page.getByRole("tab", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("Sunset mesh");
   await page.getByRole("button", { name: "Sunset mesh", exact: true }).click();

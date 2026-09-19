@@ -34,7 +34,7 @@ test("Video Editor creates after folder choice and recovers from cancellation", 
     });
   });
   await page.goto("/video-editor");
-  const create = page.getByRole("button", { name: "New project", exact: true });
+  const create = page.getByRole("button", { name: "Open Video Editor", exact: true });
   await create.click();
   await expect(create).toBeEnabled();
   await expect(page).toHaveURL(/\/video-editor$/);
@@ -67,7 +67,8 @@ for (const signedIn of [false, true]) {
       await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
       await expect(page.getByRole("button", { name: "Language", exact: true })).toHaveCount(1);
-      await expect(page.getByRole("button", { name: "New project", exact: true })).toBeEnabled();
+      const createName = route.startsWith("image-editor") ? "New project" : "Open Video Editor";
+      await expect(page.getByRole("button", { name: createName, exact: true })).toBeEnabled();
       for (const width of [1440, 390, 320]) {
         await page.setViewportSize({ width, height: 900 });
         for (const colorScheme of ["light", "dark"] as const) {
@@ -76,7 +77,7 @@ for (const signedIn of [false, true]) {
           await expect
             .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
             .toBe(true);
-          const create = page.getByRole("button", { name: "New project", exact: true });
+          const create = page.getByRole("button", { name: createName, exact: true });
           await create.focus();
           await expect(create).toBeFocused();
           await page.screenshot({

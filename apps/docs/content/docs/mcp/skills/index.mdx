@@ -1,0 +1,25 @@
+---
+title: OpenPost skills
+description: Give a compatible coding assistant OpenPost operating guidance.
+icon: PackageCheck
+---
+
+An Agent Skill is a set of instructions and supporting reference files that a compatible assistant can load for a task. It does not add a network connection, install a CLI, or store credentials.
+
+OpenPost currently publishes one public skill: `openpost-cli`. It teaches an assistant how to operate a running OpenPost instance through the `openpost` command.
+
+The skill covers:
+
+- checking the current instance, identity, and workspace before an action;
+- choosing between text posts, threads, and format-first Publications;
+- checking provider readiness and capabilities;
+- treating schedule, publish, retry, moderation, and deletion commands as changes;
+- verifying saved objects, jobs, Renditions, and lifecycle events after a change.
+
+Use the skill when a coding assistant supports Agent Skills and can run terminal commands. Use [MCP](/mcp/mcp-guide) instead when the assistant already has a working MCP connection. Use the [CLI directly](/automate/cli) for scripts, CI, or assistants that cannot load skills.
+
+## Continue
+
+- [Install the skill and CLI](/mcp/skills/install)
+- [Understand how the CLI skill works](/mcp/skills/openpost-cli)
+- [Try practical skill use cases](/mcp/skills/use-cases)

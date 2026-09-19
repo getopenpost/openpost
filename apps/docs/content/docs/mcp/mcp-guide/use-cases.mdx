@@ -1,0 +1,57 @@
+---
+title: MCP use cases
+description: Use MCP for schedule reviews, drafts, publishing, and delivery checks.
+icon: ListChecks
+---
+
+Name the OpenPost workspace in every task after the first connection check. Tell the assistant whether it may change data and where it must stop for review.
+
+## Review a schedule
+
+Use `mcp:read`:
+
+```text
+Review next week's scheduled Publications in the Personal workspace. Group them by destination, flag empty days and missing media, and do not change anything.
+```
+
+The assistant can inspect Publications, Renditions, connected accounts, media, and posting slots without gaining write access.
+
+## Check provider readiness
+
+Use `mcp:read` before planning work for a new destination:
+
+```text
+Check whether the Company workspace and its LinkedIn account are ready to publish an image post. Report each blocker without changing settings.
+```
+
+This prevents the assistant from drafting against an unavailable provider, disconnected account, or unsupported format.
+
+## Prepare a draft
+
+Use `mcp:full`, but stop before scheduling:
+
+```text
+Create an unpublished launch draft for the Company workspace and its connected LinkedIn account. Reuse the newest matching image in the media library. Stop after creating the draft.
+```
+
+Inspect the saved Publication in OpenPost. Check each destination Rendition before asking the assistant to schedule it.
+
+## Schedule approved work
+
+Use `mcp:full` and provide an exact time or ask for an available posting slot:
+
+```text
+Validate Publication pub_123. If it passes, schedule it in the next available Company workspace slot. Report the saved time and job state.
+```
+
+Treat `scheduled` and `queued` as intermediate states. They do not prove that a provider published the content.
+
+## Investigate a failed destination
+
+Use `mcp:read` first:
+
+```text
+Inspect Publication pub_123, its Renditions, and lifecycle events. Explain which destinations succeeded or failed and quote the saved failure reason. Do not retry anything.
+```
+
+Grant `mcp:full` only if you then want the assistant to make a correction or retry an authorized destination.

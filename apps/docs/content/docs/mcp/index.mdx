@@ -1,50 +1,30 @@
 ---
 title: AI assistants
-description: Choose MCP, the OpenPost CLI skill, or direct CLI commands for an AI assistant.
+description: Choose how an AI assistant should work with OpenPost.
 icon: Bot
 ---
 
-OpenPost can work with an AI assistant through MCP or through the `openpost` CLI. Choose one main connection for the task so the assistant has one clear instance, workspace, and permission boundary.
+OpenPost supports three ways for an AI assistant to work with your account. Use one main connection for each task so the assistant has one clear instance, workspace, and permission boundary.
 
-## Choose a connection
+| Connection           | Best for                                                                  | Start here                            |
+| -------------------- | ------------------------------------------------------------------------- | ------------------------------------- |
+| MCP                  | Chat and coding assistants with MCP support                               | [Connect with MCP](/mcp/mcp-guide)    |
+| `openpost-cli` skill | Coding assistants that support Agent Skills and can run terminal commands | [Use the OpenPost skill](/mcp/skills) |
+| Direct CLI           | Scripts, CI, and agents that can run commands but cannot load skills      | [CLI guide](/automate/cli)            |
 
-| Use                       | Choose it when                                                         | What it provides                                                                                  |
-| ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **MCP**                   | The assistant supports remote or local MCP                             | OpenPost tools, current schemas, OAuth or token access, and workspace checks without shell access |
-| **`openpost-cli` skill**  | A coding assistant supports Agent Skills and can run terminal commands | OpenPost-specific operating guidance for the installed CLI                                        |
-| **CLI without the skill** | The agent or script can run commands but cannot load Agent Skills      | Deterministic commands and JSON output through an authenticated CLI profile                       |
-
-The skill is instructions, not another API or credential. It teaches the agent when and how to run the CLI, including validation and result checks. The CLI performs the requests. MCP is a separate live connection and does not need the skill.
-
-Use MCP for assistants such as ChatGPT, Claude, Cursor, and Codex when you want to work in conversation. Use the CLI skill when a coding agent already works in your terminal or repository. Use the CLI directly for scripts, CI, or agents that do not support skills. If the assistant is writing an integration instead of operating your account, use the [TypeScript SDK](/automate/sdk) or [HTTP API](/automate/api).
-
-To install the CLI and its agent skill, follow the [CLI guide](/automate/cli#give-the-cli-to-an-ai-agent).
-
-## Connect through MCP
-
-MCP lets an assistant review a schedule or prepare a Publication without leaving the conversation. It can access only the work your account permits. Hosted clients connect to:
-
-```text
-https://app.openpo.st/mcp
-```
-
-This default endpoint exposes each OpenPost operation as a direct tool. Use it
-unless your MCP client has a strict tool-context limit. For a smaller initial
-tool list, use the compact endpoint instead:
-
-```text
-https://app.openpo.st/mcp/code
-```
-
-The compact endpoint exposes search, read, and write gateways, then loads the
-schema for the operation the assistant needs. It uses the same sign-in, scopes,
-workspace checks, and operation behavior as `/mcp`.
-
-Choose `mcp:read` to review accounts and scheduled posts. Choose `mcp:full` only when the assistant needs to create, edit, schedule, or publish. OpenPost checks your workspace access on each request.
+Read [Choose an agent connection](/mcp/choose-an-agent-connection) for the differences, limits, and cases where each option is the wrong fit.
 
 ## Choose a setup
 
-Choose its guide below. Each guide shows where to enter the server URL, how to sign in, and a first read request. Start with "List my OpenPost workspaces" so you know which workspace the assistant can see.
+Use the client guides in this section to add OpenPost through MCP. Each guide covers the client-specific configuration, sign-in, and a safe first request.
+
+Start with a read request:
+
+```text
+List my OpenPost workspaces.
+```
+
+Then name the workspace and ask the assistant to review its schedule without making changes. Grant write access only when the assistant needs to create or change OpenPost data.
 
 <div className="mcp-clients not-prose">
   <a href="/mcp/chatgpt">
@@ -84,7 +64,13 @@ Choose its guide below. Each guide shows where to enter the server URL, how to s
     <span>Codex</span>
   </a>
   <a href="/mcp/grok">
-    <img src="/clients/grok.svg" alt="" width={24} height={24} className="docs-client-monochrome" />
+    <img
+      src="/clients/grok.svg"
+      alt=""
+      width={24}
+      height={24}
+      className="docs-client-monochrome"
+    />
     <span>Grok</span>
   </a>
   <a href="/mcp/devin">
@@ -143,41 +129,4 @@ Choose its guide below. Each guide shows where to enter the server URL, how to s
   </a>
 </div>
 
-For a client not listed here, use the endpoint and authentication rules in [Tools and permissions](/mcp/tools). That page also explains the direct and compact tool surfaces, including which clients can upload a local file.
-
-Remote clients can use browser sign-in. OpenPost asks you to choose `mcp:read` or `mcp:full` and, optionally, bind access to one workspace. If your client cannot use OAuth, create a developer token in **Settings → Personal → Developer** and pass it in a bearer header. Do not put a token in a chat message or a committed config file.
-
-## Self-hosted connections
-
-For a public HTTPS instance, replace `https://app.openpo.st` with your own origin and keep the `/mcp` or `/mcp/code` path. Use `/mcp` unless you deliberately want the compact surface.
-
-Cloud clients cannot reach a private LAN address or `localhost`. If the server is private but reachable from your computer, a desktop client can use OpenPost's local bridge. Install the CLI and bridge together:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/getopenpost/openpost/main/scripts/install-cli.sh | sh -s -- --with-mcp
-```
-
-Sign in using a named profile:
-
-```sh
-openpost --profile local auth login https://your-openpost-host.example
-```
-
-Configure your desktop MCP client to launch the bridge with the same profile:
-
-```json
-{
-  "mcpServers": {
-    "openpost": {
-      "command": "openpost-mcp",
-      "args": ["--profile", "local"]
-    }
-  }
-}
-```
-
-The client launches `openpost-mcp`; you do not need to keep a separate terminal running. If it cannot find the command, use the full path printed by `command -v openpost-mcp`.
-
-## Check what the assistant can do
-
-Ask, "List my OpenPost workspaces," then name the workspace you want to use. Next ask, "Review this week's schedule without changing anything." If that succeeds and you granted `mcp:full`, try an unpublished draft before asking the assistant to schedule or publish. Inspect the result in **Publications**. If a request fails, use the troubleshooting steps in your client guide.
+If you are building an integration instead of asking an assistant to operate your account, use the [TypeScript SDK](/automate/sdk) or [HTTP API](/automate/api).

@@ -1,0 +1,35 @@
+---
+title: How the CLI skill works
+description: Understand the workflow and limits of the openpost-cli skill.
+icon: SquareTerminal
+---
+
+The `openpost-cli` skill gives an assistant OpenPost-specific operating rules. The assistant still runs the installed `openpost` CLI, which uses a saved profile or `OPENPOST_TOKEN` to reach your instance.
+
+## Before an action
+
+The skill tells the assistant to inspect the active instance, identity, and available workspaces. It uses `--json` for reads so it can parse IDs and status fields instead of scraping terminal tables.
+
+When the saved context is missing or ambiguous, the assistant should pass an explicit `--profile`, `--instance`, or `--workspace` value. It should use the stored keyring token or environment token without printing it.
+
+## Choosing the authoring command
+
+The skill distinguishes the main CLI paths:
+
+- `openpost post` handles short text, text with media, and editable text drafts.
+- `openpost thread create` reads two or more posts separated by `---` from a Markdown file.
+- `openpost publication` handles format-first work such as link shares, image posts, carousels, stories, short video, long video, and provider-specific settings.
+
+It also directs the assistant to check provider readiness and capabilities before using a new destination or format.
+
+## Changes and approval
+
+The skill treats scheduling, publishing, retries, comment moderation, account disconnection, slot generation, and deletion as changes. The assistant should run them only when your request authorizes that effect.
+
+It should default to an unpublished draft when you did not ask to schedule or publish. It should not add `--force` after a revision conflict or bypass an interactive confirmation without your authorization.
+
+## Result checks
+
+After a change, the assistant should read the saved object and current server state. For Publication work, that includes the Publication, lifecycle events, related job, and each destination Rendition.
+
+The skill does not make the assistant infallible. Read the proposed command before a destructive or public action, and inspect the result in OpenPost.

@@ -1,0 +1,39 @@
+---
+title: Choose an agent connection
+description: Compare MCP, the OpenPost CLI skill, and direct CLI commands.
+icon: GitCompareArrows
+---
+
+MCP, the `openpost-cli` skill, and direct CLI commands can reach the same OpenPost account, but they fit different agent environments.
+
+|                     | MCP                                                 | `openpost-cli` skill                     | Direct CLI                                  |
+| ------------------- | --------------------------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| The assistant needs | MCP support                                         | Agent Skills and terminal access         | Terminal access                             |
+| Connection          | Remote HTTP or local bridge                         | Installed `openpost` CLI                 | Installed `openpost` CLI                    |
+| Guidance            | Live tool schemas from OpenPost                     | Packaged OpenPost operating instructions | CLI help and your prompt                    |
+| Credentials         | MCP OAuth or token                                  | CLI profile or `OPENPOST_TOKEN`          | CLI profile or `OPENPOST_TOKEN`             |
+| Best use            | Interactive account work in a chat or coding client | OpenPost work inside a coding-agent task | Scripts, CI, and explicit command sequences |
+
+## Choose MCP
+
+Use MCP when the client supports it and you want OpenPost tools inside the conversation. The assistant receives current operation schemas from the server. You can grant read-only access or allow changes, and you can bind the connection to one workspace.
+
+Do not use MCP when the client cannot reach your OpenPost instance and cannot launch the local bridge. Do not add the CLI skill to solve an MCP connection problem. The skill does not configure or authenticate MCP.
+
+[Learn how OpenPost MCP works](/mcp/mcp-guide)
+
+## Choose the `openpost-cli` skill
+
+Use the skill when a coding assistant supports Agent Skills and already has terminal access. The skill tells the assistant how to inspect its CLI context, choose the correct authoring command, avoid unsafe retries, and verify the result.
+
+Do not use the skill when the assistant cannot run the `openpost` command. The skill contains instructions, not an API client or credentials. It is also unnecessary when the same assistant already has a working OpenPost MCP connection.
+
+[Install and use the skill](/mcp/skills)
+
+## Choose direct CLI commands
+
+Use the CLI without the skill for scripts, CI, and agents that do not support Agent Skills. Direct commands are also useful when you want an exact, repeatable command sequence and machine-readable JSON.
+
+Do not use the direct CLI when the assistant has no terminal access. For a long-lived application, use the SDK or HTTP API instead of wrapping many shell commands.
+
+[Install and use the CLI](/automate/cli)

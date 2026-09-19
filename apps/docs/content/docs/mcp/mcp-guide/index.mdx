@@ -1,0 +1,45 @@
+---
+title: Connect with MCP
+description: Give an AI assistant access to OpenPost through MCP.
+icon: Plug
+---
+
+MCP gives an AI assistant live OpenPost tools. The assistant can inspect accounts, media, Publications, Renditions, schedules, and delivery results. With write access, it can also prepare drafts, change Publications, schedule work, publish, and manage supported comments.
+
+Use MCP when your assistant supports a remote HTTP server or a local MCP command. You do not need the `openpost-cli` skill for an MCP connection.
+
+## Hosted endpoint
+
+Most clients should connect to:
+
+```text
+https://app.openpo.st/mcp
+```
+
+The client opens OpenPost sign-in through OAuth when it supports browser authentication. Choose `mcp:read` for review work. Choose `mcp:full` only when the assistant needs to create or change data.
+
+If the client cannot use OAuth, create a developer token in **Settings → Personal → Developer** and add it as a bearer token in the client's secure authentication settings. Do not paste the token into a conversation or commit it to a configuration file.
+
+## First connection check
+
+After connecting, ask:
+
+```text
+List my OpenPost workspaces.
+```
+
+Choose one of the returned workspaces, then ask:
+
+```text
+Review this week's scheduled Publications without changing anything.
+```
+
+This confirms the account, workspace, and read permissions before any write request.
+
+## Continue
+
+- [Choose the full or compact endpoint](/mcp/mcp-guide/endpoints-and-tools)
+- [Set permissions and approval rules](/mcp/mcp-guide/permissions-and-safety)
+- [Use local files or media URLs](/mcp/mcp-guide/media)
+- [Connect a self-hosted instance](/mcp/mcp-guide/self-hosted-and-local)
+- [Try practical read and write tasks](/mcp/mcp-guide/use-cases)

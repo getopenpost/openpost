@@ -1,0 +1,51 @@
+---
+title: Endpoints and tools
+description: Choose OpenPost's direct or compact MCP tool list.
+icon: Wrench
+---
+
+OpenPost offers two MCP endpoints. They use the same authentication, scopes, workspace checks, validation, and operation behavior.
+
+## Direct tools
+
+Use the default endpoint for most clients:
+
+```text
+https://app.openpo.st/mcp
+```
+
+It lists each available operation as a separate tool. An assistant can call tools such as `list_workspaces`, `list_publications`, or `create_publication` with the operation's own input schema.
+
+Choose this endpoint when the client handles a full tool catalog well. It gives the assistant the clearest tool names and schemas at the start of the session.
+
+## Compact tools
+
+Use the compact endpoint when the client has a strict tool or context limit:
+
+```text
+https://app.openpo.st/mcp/code
+```
+
+It exposes a small routing set:
+
+- `search_operations` finds matching OpenPost operations and returns their schemas and safety information.
+- `query_operation` runs only read-only operations.
+- `execute_operation` runs only operations that change state or interact with an external service.
+
+A read-only connection does not receive `execute_operation`. Search results also exclude write operations. The server rejects an operation passed through the wrong execution tool.
+
+The compact endpoint does not run model-written code. It reduces the initial tool list and still sends each request through OpenPost's typed operation handlers.
+
+## Self-hosted tool mode
+
+Self-hosted operators can set `OPENPOST_MCP_MODE` to control the catalog at `/mcp`:
+
+| Value    | `/mcp` tool list                                                    |
+| -------- | ------------------------------------------------------------------- |
+| `direct` | Individual operation tools. This is the default.                    |
+| `search` | Compact search, read, and write tools, plus compatible app widgets. |
+| `both`   | Individual operation tools and the compact tools.                   |
+
+`/mcp/code` always uses the compact list. Changing the tool list does not change permissions.
+
+Some clients cache tool definitions. Refresh the MCP server metadata or start a new session after changing endpoints or modes.

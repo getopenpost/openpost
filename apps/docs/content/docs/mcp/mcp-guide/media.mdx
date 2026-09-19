@@ -1,0 +1,27 @@
+---
+title: Media and local files
+description: Give an MCP assistant existing media, a public URL, or a local file.
+icon: Images
+---
+
+An MCP assistant can reuse media that is already in the selected OpenPost workspace. Ask it to list recent media, choose the correct item, and attach the returned media ID to a Publication.
+
+## Upload from a public URL
+
+With `mcp:full`, an assistant can use `upload_media_from_url` for a public HTTP or HTTPS URL. OpenPost rejects URLs that resolve to private, loopback, link-local, multicast, or other local network addresses.
+
+OpenPost downloads the file and applies the normal media limits, workspace permissions, quota, storage, deduplication, and analysis checks. A URL upload creates a workspace media item that the assistant can attach to a Publication.
+
+Use this path only when the media is already available at a public URL. Do not create a temporary public link for a private file when your client supports local uploads.
+
+## Upload a local file
+
+A compatible MCP Apps client can open OpenPost's file picker through `render_local_media_upload`. This requires `mcp:full`.
+
+The file travels from the app to OpenPost. Its bytes and upload credential do not enter the model's conversation context. The one-use upload ticket expires after ten minutes and is bound to the authenticated actor and selected workspace.
+
+The local picker works only in clients that support MCP Apps UI and app-only tool calls. If the client does not support it, upload the file in OpenPost first and ask the assistant to use the resulting media item.
+
+## Check the result
+
+After an upload, ask the assistant to confirm the media item's ID, type, dimensions or duration, and analysis state. Add alt text before publishing an image when the destination supports it.

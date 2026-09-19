@@ -1,0 +1,58 @@
+---
+title: Self-hosted and local connections
+description: Connect an MCP client to a public or private OpenPost instance.
+icon: Server
+---
+
+Use remote HTTP when the client can reach your OpenPost instance. Use the local bridge when a desktop client can reach the instance from your computer but the client's cloud service cannot.
+
+## Public HTTPS instance
+
+Replace the Hosted origin with your own origin and keep the MCP path:
+
+```text
+https://openpost.example.com/mcp
+```
+
+Use `/mcp/code` instead when you need the compact tool list. Your reverse proxy must serve the instance over HTTPS, preserve authorization headers, and forward POST requests to OpenPost. OAuth-aware clients also use the discovery paths under `/.well-known/`.
+
+## Private instance with a desktop client
+
+Install the CLI and `openpost-mcp` bridge:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/getopenpost/openpost/main/scripts/install-cli.sh | sh -s -- --with-mcp
+```
+
+Sign in to the instance with a named CLI profile:
+
+```sh
+openpost --profile local auth login https://openpost.internal.example
+```
+
+Configure the MCP client to launch the bridge with the same profile:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "command": "openpost-mcp",
+      "args": ["--profile", "local"]
+    }
+  }
+}
+```
+
+The bridge reads the saved CLI profile and token, then forwards MCP messages to the instance's `/mcp` endpoint. The client starts the process, so you do not need to keep a separate terminal open.
+
+If the client cannot find the command, replace `openpost-mcp` with the path returned by:
+
+```sh
+command -v openpost-mcp
+```
+
+## Cloud clients
+
+A cloud client cannot use `localhost` or a private LAN address on your computer. Give it a public HTTPS instance if the product supports remote custom MCP servers. A local bridge works only when the MCP process runs on a machine that can reach OpenPost.
+
+Use the setup page for your client to confirm its transport and configuration format. Do not configure the remote endpoint and the local bridge under the same server name.

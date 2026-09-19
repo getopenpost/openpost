@@ -1,0 +1,13 @@
+{
+  "title": "MCP",
+  "icon": "Plug",
+  "defaultOpen": true,
+  "pages": [
+    "index",
+    "endpoints-and-tools",
+    "permissions-and-safety",
+    "media",
+    "self-hosted-and-local",
+    "use-cases"
+  ]
+}

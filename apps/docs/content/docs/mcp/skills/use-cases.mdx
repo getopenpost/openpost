@@ -1,0 +1,43 @@
+---
+title: CLI skill use cases
+description: Use the openpost-cli skill for inspection, drafts, publishing, and recovery.
+icon: ListChecks
+---
+
+Tell the assistant which OpenPost instance and workspace to use. State whether it may change data. The skill helps it choose commands and verify results, but your request still defines the authorized action.
+
+## Inspect an account without changes
+
+```text
+Use the openpost-cli skill. Inspect my current OpenPost profile, list my workspaces, and show the connected accounts in the Personal workspace. Use JSON output and make no changes.
+```
+
+## Prepare a format-first draft
+
+```text
+Use the openpost-cli skill to create an unpublished LinkedIn link-share Publication in the Company workspace. Check provider readiness and capabilities first. Validate the saved Publication and stop before scheduling.
+```
+
+The assistant should choose `openpost publication`, resolve an exact account, create the draft, then run validation and read back the result.
+
+## Create a thread from a file
+
+```text
+Use the openpost-cli skill to create a draft thread from ./launch-thread.md for the Company X account. Do not schedule or publish it.
+```
+
+The skill tells the assistant to use `openpost thread create` when the Markdown file contains two or more `---`-separated posts.
+
+## Schedule approved work
+
+```text
+Use the openpost-cli skill to validate Publication pub_123 and schedule it for 2026-10-02T14:00:00+01:00. Confirm the exact workspace and accounts before the write. Report the saved time and job state.
+```
+
+## Investigate a failure
+
+```text
+Use the openpost-cli skill to inspect Publication pub_123, its Renditions, lifecycle events, and recent jobs. Explain the failure and do not retry it.
+```
+
+If you later authorize a retry, name the exact failed Rendition. The assistant should verify the new lifecycle state after the command.

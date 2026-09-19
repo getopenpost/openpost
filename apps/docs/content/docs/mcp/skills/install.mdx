@@ -1,0 +1,51 @@
+---
+title: Install the OpenPost skill
+description: Install the openpost CLI and its Agent Skill.
+icon: Download
+---
+
+The `openpost-cli` skill needs the `openpost` command. Install and authenticate the CLI before asking an assistant to use the skill.
+
+## Install the CLI
+
+Install the npm wrapper:
+
+```sh
+npm install -g @getopenpost/cli
+```
+
+Sign in and confirm the CLI context:
+
+```sh
+openpost auth login https://app.openpo.st
+openpost auth status --json
+openpost workspace list --json
+```
+
+For a self-hosted instance, replace the Hosted origin with your instance URL.
+
+## Install the skill
+
+Use the Agent Skills installer for a compatible assistant:
+
+```sh
+npx skills add https://github.com/getopenpost/openpost --skill openpost-cli
+```
+
+The skill is also published as a deterministic archive at [openpo.st/.well-known/agent-skills/openpost-cli.tar.gz](https://openpo.st/.well-known/agent-skills/openpost-cli.tar.gz) for clients that support Agent Skills discovery or archive installation.
+
+Installation controls differ by assistant. Follow the assistant's Agent Skills documentation when it does not support the `npx skills` command.
+
+## Check the setup
+
+Start a new assistant session so it can discover the skill. Ask it to use `openpost-cli` to inspect the current OpenPost context without making changes.
+
+The assistant should run commands such as:
+
+```sh
+openpost instance diagnostics --json
+openpost auth status --json
+openpost workspace list --json
+```
+
+If the `openpost` command is missing, install the CLI. If authentication is missing, sign in yourself. The skill should not install software or create credentials unless you explicitly ask for that action.

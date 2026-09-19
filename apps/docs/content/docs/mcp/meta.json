@@ -4,6 +4,9 @@
   "root": true,
   "pages": [
     "index",
+    "choose-an-agent-connection",
+    "mcp-guide",
+    "skills",
     "---Chat assistants---",
     "chatgpt",
     "claude",
@@ -21,8 +24,6 @@
     "antigravity",
     "opencode",
     "openclaw",
-    "hermes",
-    "---Reference---",
-    "tools"
+    "hermes"
   ]
 }

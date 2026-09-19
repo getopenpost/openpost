@@ -1,0 +1,6 @@
+{
+  "title": "OpenPost skills",
+  "icon": "PackageCheck",
+  "defaultOpen": true,
+  "pages": ["index", "install", "openpost-cli", "use-cases"]
+}

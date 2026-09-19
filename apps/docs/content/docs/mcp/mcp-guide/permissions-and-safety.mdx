@@ -1,0 +1,36 @@
+---
+title: Permissions and safety
+description: Limit an MCP connection to the access an assistant needs.
+icon: ShieldCheck
+---
+
+OpenPost checks the token scope and workspace access for every MCP operation. The client may add its own approval prompt, but client approval does not replace OpenPost permissions.
+
+## Choose a scope
+
+| Scope      | Access                                                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `mcp:read` | Inspect workspaces, accounts, media, Publications, schedules, readiness, comments, and lifecycle events. It cannot change OpenPost data. |
+| `mcp:full` | Includes read access and permits operations that create, edit, schedule, publish, upload, reply, or moderate.                            |
+
+OpenPost defaults an OAuth request with no scope to `mcp:full`. Select `mcp:read` explicitly for reviews and audits.
+
+Bind the connection or developer token to one workspace when the assistant does not need access to every workspace. A workspace-bound token cannot list or target another workspace.
+
+## Separate review from action
+
+Start with `mcp:read` when the task is to inspect a schedule, check readiness, find delivery failures, or suggest changes. Move to `mcp:full` only for the step that needs a write.
+
+For write tasks, tell the assistant where to stop:
+
+```text
+Create an unpublished draft for my review. Do not schedule or publish it.
+```
+
+Before publishing, check the workspace, destination accounts, text, media, and time. A scheduled or queued Publication is not published. Ask the assistant to inspect the Publication's Renditions and lifecycle events when delivery is partial or fails.
+
+## Protect credentials
+
+Use browser OAuth when the client supports it. Otherwise, store a developer token in the client's secure settings or environment. Never put an OpenPost token, provider credential, or server secret in a prompt.
+
+Recent MCP calls appear under **Settings → Personal → Developer access**. Use that activity to identify the client, tool, workspace, result, and failure reason.

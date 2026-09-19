@@ -1,0 +1,94 @@
+---
+title: TypeScript SDK
+description: Call OpenPost from Node.js, Bun, or Workers with @getopenpost/sdk.
+icon: Braces
+---
+
+Use the official SDK for JavaScript or TypeScript scripts, CI jobs, and services. It has no runtime dependencies and supports Node.js 20 and newer, Bun, and Cloudflare Workers. Use the [HTTP API](/automate/api) for other languages and the [CLI](/automate/cli) for shell work.
+
+## Install and connect
+
+```sh
+npm install @getopenpost/sdk
+```
+
+Create a token in **Settings → Personal → Developer** with the permissions your script needs, then connect:
+
+```ts
+import { OpenPost } from "@getopenpost/sdk";
+
+const openpost = new OpenPost({
+  baseUrl: "https://app.openpo.st",
+  token: process.env.OPENPOST_TOKEN,
+  workspaceId: process.env.OPENPOST_WORKSPACE_ID,
+});
+```
+
+`baseUrl` defaults to Hosted. Set it to your OpenPost origin when you self-host. The workspace default also accepts `OPENPOST_WORKSPACE`, which is shared with the CLI.
+
+## Draft, validate, and schedule
+
+A Publication owns the source idea and lifecycle. Each Rendition is the version for one connected account. Pass the revision you last read to lifecycle actions so a stale script fails with a conflict instead of overwriting a newer edit.
+
+```ts
+const draft = await openpost.publications.create({
+  workspace_id: await openpost.workspaceId(),
+  title: "Launch day",
+  content_profile: "short_text",
+  source_text: "We just shipped our TypeScript SDK.",
+  social_account_ids: ["acc_..."],
+});
+
+await openpost.publications.upsertRenditions(draft.id, draft.revision, [
+  { social_account_id: "acc_...", body: "We just shipped our TypeScript SDK." },
+]);
+
+await openpost.publications.validate(draft.id, { throwOnInvalid: true });
+const action = await openpost.publications.schedule(draft.id, draft.revision);
+if (action.job_id) await openpost.jobs.wait(action.job_id);
+```
+
+`publishNow`, `cancel`, and `retryFailed` follow the same lifecycle. `events` lists what happened to the Publication and its Renditions.
+
+Publications created through the package return `creation_source: "sdk"`. OpenPost keeps SDK usage distinct from raw API, CLI, MCP, web, and automatic posting so reports can group how content was created without storing a unique client label.
+
+## Upload media
+
+`upload` reserves the media item, sends the bytes to its storage target, and completes the item. External storage targets do not receive your OpenPost API token.
+
+```ts
+const asset = await openpost.media.upload({
+  workspaceId: "ws_...",
+  file: new Uint8Array(await Bun.file("cover.png").arrayBuffer()),
+  filename: "cover.png",
+  mimeType: "image/png",
+  altText: "Launch cover art",
+});
+```
+
+## Handle errors
+
+Every failure throws `OpenPostError` with a machine-readable `code`:
+
+```ts
+import { OpenPostError } from "@getopenpost/sdk";
+
+try {
+  await openpost.publications.schedule(id, revision);
+} catch (error) {
+  if (error instanceof OpenPostError && error.code === "conflict") {
+    // Read the Publication again and reconcile the newer revision.
+  }
+  if (error instanceof OpenPostError && error.retryable) {
+    // Rate limits, server errors, timeouts, and network failures.
+  }
+}
+```
+
+`missing_config` means the token or workspace is unset. `validation` means the input needs fixing. SDK reads retry one transient failure. Mutations do not retry unless the operation already has an idempotency guarantee.
+
+## Next steps
+
+- Need an endpoint the SDK does not cover? Use the [HTTP API](/automate/api) with the same token.
+- Want commands instead of code? Install the [CLI](/automate/cli).
+- Want an assistant to operate OpenPost in a conversation? Choose an [AI assistant connection](/mcp).

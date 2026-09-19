@@ -4,7 +4,25 @@ description: Connect ChatGPT, Claude, Cursor, or another MCP client to OpenPost.
 icon: Bot
 ---
 
-Connect an AI assistant to review a schedule or prepare a publication without leaving the conversation. OpenPost uses [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) to let the assistant access only the work your account permits. Hosted clients connect to:
+OpenPost can work with an AI assistant through MCP or through the `openpost` CLI. Choose one main connection for the task so the assistant has one clear instance, workspace, and permission boundary.
+
+## Choose a connection
+
+| Use                       | Choose it when                                                         | What it provides                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **MCP**                   | The assistant supports remote or local MCP                             | OpenPost tools, current schemas, OAuth or token access, and workspace checks without shell access |
+| **`openpost-cli` skill**  | A coding assistant supports Agent Skills and can run terminal commands | OpenPost-specific operating guidance for the installed CLI                                        |
+| **CLI without the skill** | The agent or script can run commands but cannot load Agent Skills      | Deterministic commands and JSON output through an authenticated CLI profile                       |
+
+The skill is instructions, not another API or credential. It teaches the agent when and how to run the CLI, including validation and result checks. The CLI performs the requests. MCP is a separate live connection and does not need the skill.
+
+Use MCP for assistants such as ChatGPT, Claude, Cursor, and Codex when you want to work in conversation. Use the CLI skill when a coding agent already works in your terminal or repository. Use the CLI directly for scripts, CI, or agents that do not support skills. If the assistant is writing an integration instead of operating your account, use the [TypeScript SDK](/automate/sdk) or [HTTP API](/automate/api).
+
+To install the CLI and its agent skill, follow the [CLI guide](/automate/cli#give-the-cli-to-an-ai-agent).
+
+## Connect through MCP
+
+MCP lets an assistant review a schedule or prepare a Publication without leaving the conversation. It can access only the work your account permits. Hosted clients connect to:
 
 ```text
 https://app.openpo.st/mcp

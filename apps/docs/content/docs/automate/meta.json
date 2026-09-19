@@ -1,0 +1,6 @@
+{
+  "title": "Automate",
+  "icon": "Workflow",
+  "root": true,
+  "pages": ["index", "---Build with OpenPost---", "sdk", "api", "cli", "n8n"]
+}

@@ -1,0 +1,33 @@
+---
+title: Automate
+description: Run OpenPost from code, a shell, an agent, or a visual workflow.
+icon: Workflow
+---
+
+Choose the interface that fits where the work starts. Every option uses the same OpenPost accounts, workspaces, Publications, provider checks, and publishing jobs.
+
+| Start here                              | Use when                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| [TypeScript SDK](/automate/sdk)         | You are writing JavaScript or TypeScript for Node.js, Bun, or Workers  |
+| [HTTP API](/automate/api)               | You need raw HTTP or are using another programming language            |
+| [Command-line interface](/automate/cli) | The work starts in a shell, script, CI job, or terminal-capable agent  |
+| [n8n workflows](/automate/n8n)          | You want a visual workflow started by a timer or webhook               |
+| [AI assistants](/mcp)                   | You want ChatGPT, Claude, Cursor, or another assistant to use OpenPost |
+
+## Keep automation predictable
+
+Create, validate, schedule, and publish are separate steps. Creating a Publication does not publish it. Validate before scheduling or publishing, then inspect the Publication and its Renditions for the final provider result.
+
+For unattended work, create a separate developer token for each integration. Give it only the scope it needs, bind it to one workspace when possible, set an expiry, and store it in the integration's secret store.
+
+## Start with a read
+
+Whichever interface you choose, begin by listing the workspaces the credential can access. Select the intended workspace before creating content. This catches the most common setup errors without changing anything.
+
+When a workflow writes, start by creating an unpublished draft. Add scheduling or publishing only after the draft appears in **Publications** with the expected accounts, text, media, and provider settings.
+
+## Build for retries
+
+Publishing can continue in a background job. Store returned Publication and job IDs, and read the current state instead of treating a successful request as proof that every provider published the content.
+
+Use the revision you last read when an operation asks for one. A conflict means someone changed the Publication. Read it again and reconcile the new version before retrying.

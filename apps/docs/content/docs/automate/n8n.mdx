@@ -1,0 +1,52 @@
+---
+title: n8n workflows
+description: Run OpenPost steps on a timer or webhook with the official n8n node.
+icon: Boxes
+---
+
+Use the official n8n community node for visual workflows. The package is published as `@getopenpost/n8n-nodes-openpost`, requires Node.js 22.22 or newer in the n8n runtime, and is versioned separately from the OpenPost app.
+
+## Install the node
+
+In n8n, open **Settings → Community nodes** and install:
+
+```text
+@getopenpost/n8n-nodes-openpost
+```
+
+Create an OpenPost credential with:
+
+- **Base URL:** `https://app.openpo.st`, or your self-hosted origin. Do not append `/api` or `/api/v1`.
+- **API Token:** a developer token from **Settings → Personal → Developer**. Use a workspace-bound `api:write` token for workflows that create or change data.
+
+If n8n runs in Docker, `localhost` means the n8n container. Use the OpenPost Compose service name when both services share a network, or `host.docker.internal` when OpenPost runs on the host.
+
+## Test the credential
+
+Import the package's `list-workspaces` example and select the OpenPost credential. Run it before adding write steps. The returned list shows exactly which workspaces the token can access.
+
+The `create-draft` example creates one unpublished Publication for each incoming item. Replace its placeholder workspace and account values before running it.
+
+## Available actions
+
+The node's actions are generated from OpenPost's API automation metadata:
+
+- Workspaces, accounts, destination options, and provider readiness
+- Social Sets and the next available posting slot
+- Media listing and binary upload
+- Publication create, read, update, Renditions, validate, schedule, cancel, publish, retry, and events
+- Job status
+
+Create, Schedule, and Publish Now are separate actions. Creating a Publication never publishes it. This package does not include an OpenPost trigger, so start the workflow with n8n's Schedule Trigger, Webhook, or another n8n trigger.
+
+## Handle retries
+
+Write actions send an `Idempotency-Key`. If you leave it blank, the node derives one from the n8n execution ID, action, and input item index. Reads retry transient network failures and `429`, `502`, `503`, and `504` responses. Writes retry only when an idempotency key is present.
+
+Errors include the OpenPost `X-Request-ID` when the server returns one. Multiple input items preserve n8n item linking and support continue-on-fail.
+
+## Next steps
+
+- Need an action the node does not expose? Use the [HTTP API](/automate/api).
+- Prefer code? Use the [TypeScript SDK](/automate/sdk).
+- Prefer a shell? Use the [CLI](/automate/cli).

@@ -1,0 +1,57 @@
+---
+title: HTTP API
+description: Authenticate, call OpenPost over HTTP, and follow the generated API contract.
+icon: FileCode
+---
+
+Use the HTTP API when the TypeScript SDK does not fit your language or runtime, or when you need an operation the SDK does not cover yet. For JavaScript or TypeScript, start with the [SDK](/automate/sdk).
+
+## Connect
+
+Hosted uses this base URL:
+
+```text
+https://app.openpo.st/api/v1
+```
+
+For self-hosting, append `/api/v1` to your public OpenPost origin.
+
+Create a developer token in **Settings → Personal → Developer**. Use `api:read` for reads or `api:write` for changes, and bind the token to one workspace when possible. Send it as a bearer token:
+
+```http
+Authorization: Bearer YOUR_TOKEN
+```
+
+## Make a first request
+
+List the workspaces the token can access:
+
+```sh
+curl https://app.openpo.st/api/v1/workspaces \
+  -H "Authorization: Bearer $OPENPOST_TOKEN" \
+  -H "Accept: application/json"
+```
+
+Use an ID from this response when an operation asks for `workspace_id`. OpenPost checks the token's scope and workspace access on every private request.
+
+## Use the generated contract
+
+The [API reference](/api-reference) is generated from OpenPost's current OpenAPI contract. Each operation page shows its path, body, response, authentication, and any required `Idempotency-Key` header.
+
+Generate clients from [`/openapi.json`](/openapi.json). Do not copy request or response schemas into your integration because those copies drift as the API changes.
+
+## Track the result
+
+A successful schedule or publish request can return a `job_id`. Poll that job or read the Publication until its Renditions reach a final state. A queued request means OpenPost accepted the work, not that every provider has published it.
+
+Handle errors by status and response body:
+
+| Status | Check                                                                                                   |
+| ------ | ------------------------------------------------------------------------------------------------------- |
+| `401`  | The bearer token is missing, invalid, expired, or revoked                                               |
+| `403`  | The token lacks the required scope or workspace access, or the account or plan cannot run the operation |
+| `404`  | The path or resource ID is wrong, or the resource is not visible to this token                          |
+| `409`  | The saved revision changed or an idempotency key was reused with different input                        |
+| `422`  | The request does not meet the operation or provider validation rules                                    |
+
+For JavaScript or TypeScript error types, retries, uploads, and job helpers, use the [TypeScript SDK](/automate/sdk).

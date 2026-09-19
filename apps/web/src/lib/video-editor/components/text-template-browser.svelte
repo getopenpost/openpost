@@ -5,6 +5,7 @@
 	import { addTextItem, addTextTemplateItem } from '$lib/video-editor/timeline/actions/items';
 	import { applyTextStylePreset } from '$lib/video-editor/timeline/actions/text-layout';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { TEXT_STYLE_PRESETS, type TextStylePresetLayout } from '../typography/text-style-presets';
 	import { localizedTextStylePresetCopy } from '../typography/text-style-preset-copy';
@@ -26,6 +27,11 @@
 	const selectedTextItem = $derived(
 		selectedTextItemId ? timelineStore.itemById.get(selectedTextItemId) : undefined
 	);
+	const selectedTextItemLocked = $derived(
+		selectedTextItem
+			? isTrackEffectivelyLocked(selectedTextItem.trackId, timelineStore.tracks)
+			: false
+	);
 
 	const groups: Array<{ layout: TextStylePresetLayout; label: () => string }> = [
 		{ layout: 'single', label: m.video_editor_text_layout_single },
@@ -40,6 +46,7 @@
 	function usePreset(presetId: (typeof TEXT_STYLE_PRESETS)[number]['id']): void {
 		const copy = localizedTextStylePresetCopy(presetId);
 		if (selectedTextItem?.type === 'text') {
+			if (selectedTextItemLocked) return;
 			if (
 				applyTextStylePreset(
 					selectedTextItem.id,
@@ -112,6 +119,7 @@
 						aria-pressed={selectedTextItem?.type === 'text'
 							? selectedTextItem.textStylePresetId === preset.id
 							: undefined}
+						disabled={selectedTextItemLocked}
 					>
 						<span class="template-canvas" data-kind={preset.previewKind} aria-hidden="true">
 							{#if copy.sample.eyebrow}<span class="eyebrow">{copy.sample.eyebrow}</span>{/if}

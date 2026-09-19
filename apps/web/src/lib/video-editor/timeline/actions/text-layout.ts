@@ -24,6 +24,7 @@ import {
 import { buildTextItemLabelFromText } from '../../typography/text-item-spans';
 import { execute } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
+import { isTrackEffectivelyLocked } from '../utils/track-groups';
 
 export type TextEffectPresetId = 'none' | 'shadow' | 'outline' | 'glow';
 
@@ -191,7 +192,7 @@ export function applyTextStylePreset(
 	copyOverride?: TextStylePresetCopy
 ): boolean {
 	const item = currentTextItem(itemId);
-	if (!item) return false;
+	if (!item || isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) return false;
 	if (item.textStylePresetId === presetId) {
 		commitTextPatch(
 			itemId,

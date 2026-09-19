@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem } from '$lib/video-editor/project/types';
+import { createDefaultTracks } from '$lib/video-editor/project/defaults';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import ClipPropertiesPanel from './clip-properties-panel.svelte';
 import TextTemplateBrowser from './text-template-browser.svelte';
@@ -8,7 +9,7 @@ import TextTemplateBrowser from './text-template-browser.svelte';
 function textItem(): TimelineItem {
 	return {
 		id: 'text-1',
-		trackId: 'track-visual-main',
+		trackId: 'track-video-main',
 		from: 0,
 		durationInFrames: 90,
 		label: 'Launch title',
@@ -50,6 +51,7 @@ it('puts selected text editing before geometry and keeps advanced geometry discl
 it('applies a rail style to selected text without inserting another item', async () => {
 	const item = textItem();
 	timelineStore._setItems([item]);
+	timelineStore._setTracks(createDefaultTracks());
 	const oninserted = vi.fn();
 	const onapplied = vi.fn();
 	const screen = await render(TextTemplateBrowser, {
@@ -64,4 +66,27 @@ it('applies a rail style to selected text without inserting another item', async
 	expect(timelineStore.itemById.get(item.id)?.textStylePresetId).toBe('clean-title');
 	expect(oninserted).not.toHaveBeenCalled();
 	expect(onapplied).toHaveBeenCalledOnce();
+});
+
+it('does not apply a rail style when the selected text track is locked', async () => {
+	const item = textItem();
+	timelineStore._setItems([item]);
+	timelineStore._setTracks(
+		createDefaultTracks().map((track) =>
+			track.id === item.trackId ? { ...track, locked: true } : track
+		)
+	);
+	const oninserted = vi.fn();
+	const onapplied = vi.fn();
+	const screen = await render(TextTemplateBrowser, {
+		oninserted,
+		selectedTextItemId: item.id,
+		onapplied
+	});
+
+	const preset = screen.getByRole('button', { name: 'Apply Clean' });
+	await expect.element(preset).toBeDisabled();
+	expect(timelineStore.itemById.get(item.id)?.textStylePresetId).toBeUndefined();
+	expect(oninserted).not.toHaveBeenCalled();
+	expect(onapplied).not.toHaveBeenCalled();
 });

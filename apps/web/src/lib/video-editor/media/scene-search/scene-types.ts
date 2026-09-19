@@ -1,8 +1,6 @@
 // Ported from FreeCut (MIT).
 export type VerificationModel = 'gemma' | 'lfm';
 
-export const SCENE_DETECTOR_VERSION = 2;
-
 export type SceneDetectionMethod = 'histogram' | 'adaptive';
 
 export interface AdaptiveSceneCutMetrics {

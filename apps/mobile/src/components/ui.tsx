@@ -1,8 +1,6 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useRef } from "react";
 import {
-  AccessibilityInfo,
   ActivityIndicator,
-  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -29,7 +27,6 @@ import {
   cardPresentation,
   emptyStatePresentation,
   inputPresentation,
-  loadingStatePresentation,
   NATIVE_CONTROL_METRICS,
   sidebarDecorationWidth,
   themeAssetFor,
@@ -309,98 +306,6 @@ export function ThemeAsset({
   );
 }
 
-export function LoadingState({ label }: { label?: string }) {
-  const theme = useNativeTheme();
-  const illustration = themeAssetFor(theme, "loading-illustration");
-  const presentation = loadingStatePresentation(theme.manifest);
-  const reduceMotion = useReduceMotion();
-  const [opacity] = useState(() => new Animated.Value(1));
-
-  useEffect(() => {
-    opacity.stopAnimation();
-    opacity.setValue(1);
-    if (presentation.kind === "spinner" || reduceMotion || presentation.animationDuration === 0) {
-      return;
-    }
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          duration: presentation.animationDuration,
-          toValue: 0.42,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          duration: presentation.animationDuration,
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity, presentation.animationDuration, presentation.kind, reduceMotion]);
-
-  return (
-    <View
-      accessible
-      accessibilityLabel={label ?? "Loading"}
-      accessibilityLiveRegion="polite"
-      accessibilityRole="progressbar"
-      style={[
-        styles.state,
-        {
-          gap: theme.manifest.spacing.medium,
-          padding: theme.manifest.spacing.large,
-        },
-      ]}
-    >
-      {illustration ? (
-        <ThemeAsset slot="loading-illustration" style={styles.stateIllustration} />
-      ) : null}
-      {presentation.kind === "spinner" ? (
-        <ActivityIndicator color={theme.manifest.colors.primary} />
-      ) : presentation.kind === "pulse" ? (
-        <Animated.View
-          importantForAccessibility="no-hide-descendants"
-          style={[
-            styles.loadingPulse,
-            {
-              backgroundColor: theme.manifest.colors.primaryContainer,
-              borderRadius: theme.manifest.shape.full,
-              opacity,
-            },
-          ]}
-        />
-      ) : (
-        <Animated.View
-          importantForAccessibility="no-hide-descendants"
-          style={[styles.loadingSkeleton, { gap: theme.manifest.spacing.small, opacity }]}
-        >
-          <View
-            style={[
-              styles.skeletonLine,
-              {
-                backgroundColor: theme.manifest.colors.surfaceContainerHigh,
-                borderRadius: theme.manifest.shape.small,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.skeletonBlock,
-              {
-                backgroundColor: theme.manifest.colors.surfaceContainerHigh,
-                borderRadius: theme.manifest.shape.medium,
-              },
-            ]}
-          />
-        </Animated.View>
-      )}
-      {label ? <BodyText>{label}</BodyText> : null}
-    </View>
-  );
-}
-
 export function EmptyState({ body, title }: { body?: string; title: string }) {
   const theme = useNativeTheme();
   const presentation = emptyStatePresentation(theme.manifest);
@@ -596,21 +501,3 @@ const styles = StyleSheet.create({
     width: 72,
   },
 });
-
-function useReduceMotion(): boolean {
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let current = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (current) setReduceMotion(enabled);
-    });
-    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    return () => {
-      current = false;
-      subscription.remove();
-    };
-  }, []);
-
-  return reduceMotion;
-}

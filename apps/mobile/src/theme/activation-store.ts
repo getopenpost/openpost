@@ -117,26 +117,10 @@ export function isNativeThemeSessionCurrent(sessionIdentity: string): boolean {
   return activationStore.isCurrentSession(sessionIdentity);
 }
 
-export function getNativeThemeSessionScope(): number {
-  return activationStore.get().sessionScope;
-}
-
 export function beginNativeThemeWorkspaceTransition(workspaceId: string): void {
   activationStore.beginWorkspaceTransition(workspaceId);
 }
 
 export function cancelNativeThemeWorkspaceTransition(workspaceId: string): void {
   activationStore.cancelWorkspaceTransition(workspaceId);
-}
-
-export function stageNativeThemeActivation(
-  contract: NativeResolvedThemeContract,
-  resources: NativeStagedThemeResources | null,
-  sessionScope: number,
-): boolean {
-  return activationStore.stage(contract, resources, sessionScope);
-}
-
-export function clearNativeThemeActivation(): void {
-  activationStore.clear();
 }

@@ -3,6 +3,7 @@ import {
 	SHORTCUT_PRESET_SCHEMA,
 	browserShortcutConflict,
 	createShortcutImportReview,
+	createShortcutMatcher,
 	createShortcutPreset,
 	DEFAULT_EDITOR_SHORTCUTS,
 	EDITOR_SHORTCUT_DEFINITIONS,
@@ -122,5 +123,13 @@ describe('keyboard shortcuts', () => {
 		expect(preset.overrides.EXPAND_LEFT_SIDEBAR).toBe('alt+left');
 		expect(resolveEditorShortcuts(preset.overrides).EXPAND_LEFT_SIDEBAR).toBe('alt+left');
 		expect(sanitizeShortcutOverrides({ TOGGLE_RIGHT_SIDEBAR: '' }).TOGGLE_RIGHT_SIDEBAR).toBe('');
+	});
+
+	it('ignores already-handled events before matching', () => {
+		const bindings = resolveEditorShortcuts({});
+		// SAFETY: synthetic keydown exercising only the already-handled guard;
+		// the disabled-target path needs DOM and is covered by browser suites.
+		const event = { defaultPrevented: true } as KeyboardEvent;
+		expect(createShortcutMatcher(event, bindings)).toBeNull();
 	});
 });

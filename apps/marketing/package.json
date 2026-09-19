@@ -9,8 +9,6 @@
 		"check": "if [ \"${OPENPOST_CHECK_PREPARED:-0}\" != 1 ]; then bun run --cwd ../web generate:i18n; fi && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && bun scripts/sync-static-404.mjs --check"
 	},
 	"dependencies": {
-		"@fontsource-variable/geist": "^5.2.8",
-		"@fontsource-variable/manrope": "^5.2.8",
 		"@lucide/svelte": "^0.577.0",
 		"@openpost/changelog": "workspace:*",
 		"@openpost/legal-policy": "workspace:*",
@@ -24,12 +22,9 @@
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "^2.10.0",
-		"@posthog/rollup-plugin": "1.4.7",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.2",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
-		"@tailwindcss/forms": "^0.5.11",
-		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.1.18",
 		"svelte": "^5.51.0",
 		"svelte-check": "^4.4.2",

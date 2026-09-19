@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { assetSurfaceManifest } from "./asset-surfaces.ts";
+import { optionValue } from "./cli-option.mjs";
 import {
   assetSourceDirectory,
   assetTargetDirectories,
@@ -139,16 +140,6 @@ export async function moveAssetDirectory(
     await cp(sourceDirectory, destinationDirectory, { recursive: true });
     await rm(sourceDirectory, { recursive: true, force: true });
   }
-}
-
-function optionValue(name) {
-  const index = process.argv.indexOf(name);
-  if (index === -1) return undefined;
-  const value = process.argv[index + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`${name} requires a value`);
-  }
-  return value;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

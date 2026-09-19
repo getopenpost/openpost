@@ -1,18 +1,21 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { extname, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parse } from "svelte/compiler";
 import ts from "typescript";
 
+import {
+  isQueryAdapter,
+  lineAt,
+  mobileQueryAdapters,
+  sourceExtensions,
+  sourceFiles,
+  webQueryAdapterPrefix,
+} from "./check-query-shared.mjs";
+
 const sourceRoots = ["apps/web/src", "apps/mobile/src"];
-const sourceExtensions = new Set([".svelte", ".ts", ".tsx"]);
 const rawFetchMutationMethods = new Set(["DELETE", "PATCH", "POST", "PUT"]);
-const webQueryAdapterPrefix = "apps/web/src/lib/query/";
-const mobileQueryAdapters = new Set([
-  "apps/mobile/src/lib/app-bootstrap.ts",
-  "apps/mobile/src/lib/query-api.ts",
-]);
 
 const imperativeReadAllowlist = [
   {
@@ -159,33 +162,8 @@ const pairingReadAllowlist = [
   },
 ];
 
-function sourceFiles(directory) {
-  const files = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name.startsWith(".")) continue;
-      files.push(...sourceFiles(path));
-      continue;
-    }
-    if (entry.isFile() && sourceExtensions.has(extname(entry.name))) files.push(path);
-  }
-  return files;
-}
-
-function lineAt(source, index) {
-  return source.slice(0, index).split("\n").length;
-}
-
 function allowlistKey(file, endpoint) {
   return `${file}\0${endpoint}`;
-}
-
-function isQueryAdapter(repoPath) {
-  const isTest = /\.test\.[jt]sx?$/u.test(repoPath);
-  return (
-    !isTest && (repoPath.startsWith(webQueryAdapterPrefix) || mobileQueryAdapters.has(repoPath))
-  );
 }
 
 function directCentralBoundaryNames(sourceFile) {

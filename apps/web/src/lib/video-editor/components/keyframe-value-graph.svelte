@@ -969,6 +969,7 @@
 	}
 	function bezierPresetLocalizedLabel(value: string): string {
 		switch (value) {
+			// fallow-ignore-next-line code-duplication
 			case 'soft':
 				return m.video_editor_keyframe_bezier_soft();
 			case 'overshoot':

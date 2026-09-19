@@ -1,11 +1,3 @@
-export type PublicationStatus =
-  | "draft"
-  | "ready"
-  | "scheduled"
-  | "publishing"
-  | "published"
-  | "failed";
-
 export const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
   ready: "Ready",

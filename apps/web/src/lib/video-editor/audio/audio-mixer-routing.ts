@@ -150,10 +150,6 @@ export class AudioMixerRouting {
 		return [...this.tracks.keys()];
 	}
 
-	attachmentCount(trackId: string): number {
-		return this.tracks.get(trackId)?.attachments ?? 0;
-	}
-
 	dispose(): void {
 		for (const track of this.tracks.values()) {
 			track.input.disconnect();

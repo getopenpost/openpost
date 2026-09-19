@@ -1,4 +1,4 @@
-import { createContext, useContext, type PropsWithChildren } from "react";
+import { createContext, useContext } from "react";
 
 import type { NativeThemeScheme } from "./contract";
 
@@ -27,17 +27,6 @@ export interface NativeThemeSettingsController {
 }
 
 const NativeThemeSettingsContext = createContext<NativeThemeSettingsController | null>(null);
-
-export function NativeThemeSettingsProvider({
-  children,
-  value,
-}: PropsWithChildren<{ value: NativeThemeSettingsController | null }>) {
-  return (
-    <NativeThemeSettingsContext.Provider value={value}>
-      {children}
-    </NativeThemeSettingsContext.Provider>
-  );
-}
 
 export function useNativeThemeSettings(): NativeThemeSettingsController | null {
   return useContext(NativeThemeSettingsContext);

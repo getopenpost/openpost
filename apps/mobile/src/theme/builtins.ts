@@ -11,7 +11,6 @@ import {
 } from "./builtins.generated";
 import { deepFreeze } from "./freeze";
 
-export { BUILTIN_ICON_ROLE_MAPS } from "./icon-packs";
 export { validateNativeThemeManifest } from "./validation";
 
 export const BUILTIN_THEME_IDS = GENERATED_BUILTIN_THEME_IDS;

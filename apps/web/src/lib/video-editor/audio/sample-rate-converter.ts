@@ -190,7 +190,3 @@ export function downmixToOutputChannels(
 		out.push(source[c]?.slice() ?? new Float32Array(source[0]!.length));
 	return out;
 }
-
-export function ensureStereo(channels: Float32Array[]): Float32Array[] {
-	return downmixToOutputChannels(channels, 2);
-}

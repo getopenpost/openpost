@@ -3,13 +3,7 @@
  * features/keyframes/components/dopesheet-editor/easings-dev-presets.ts.
  * Tension maps to stiffness and friction maps to damping.
  */
-import type {
-	BezierControlPoints,
-	EasingConfig,
-	EasingType,
-	SpringParameters
-} from '$lib/video-editor/project/types';
-import { getBezierPresetForEasing } from './easing-presets';
+import type { BezierControlPoints, SpringParameters } from '$lib/video-editor/project/types';
 
 export type EasingPreset =
 	| { name: string; type: 'Easing'; bezier: BezierControlPoints; spring?: never }
@@ -79,67 +73,4 @@ export function presetDirection(name: string): EasingDirection {
 	if (lower === 'in' || lower.startsWith('in ')) return 'in';
 	if (lower === 'out' || lower.startsWith('out ') || lower.endsWith(' out')) return 'out';
 	return 'other';
-}
-
-export function presetToEasing(preset: EasingPreset) {
-	if (preset.type === 'Spring') {
-		return {
-			easing: 'spring' as const,
-			easingConfig: { type: 'spring' as const, spring: { ...preset.spring } }
-		} satisfies { easing: EasingType; easingConfig: EasingConfig };
-	}
-	return {
-		easing: 'cubic-bezier' as const,
-		easingConfig: {
-			type: 'cubic-bezier' as const,
-			bezier: { ...preset.bezier }
-		}
-	} satisfies { easing: EasingType; easingConfig: EasingConfig };
-}
-
-export function effectiveBezier(
-	easing: EasingType,
-	config: EasingConfig | undefined
-): BezierControlPoints {
-	if (config?.type === 'cubic-bezier' && config.bezier) return { ...config.bezier };
-	const preset = getBezierPresetForEasing(easing);
-	if (preset) return preset;
-	return { x1: 0, y1: 0, x2: 1, y2: 1 };
-}
-
-const EPS = 1e-4;
-function near(a: number, b: number): boolean {
-	return Math.abs(a - b) < EPS;
-}
-
-export function presetMatchesEasing(
-	preset: EasingPreset,
-	easing: EasingType,
-	config: EasingConfig | undefined
-): boolean {
-	if (easing === 'hold') return false;
-	if (preset.type === 'Spring') {
-		if (config?.type !== 'spring' || !config.spring) return false;
-		const s = config.spring;
-		return (
-			near(preset.spring.tension, s.tension) &&
-			near(preset.spring.friction, s.friction) &&
-			near(preset.spring.mass, s.mass)
-		);
-	}
-	if (config?.type === 'spring') return false;
-	const b = effectiveBezier(easing, config);
-	return (
-		near(preset.bezier.x1, b.x1) &&
-		near(preset.bezier.y1, b.y1) &&
-		near(preset.bezier.x2, b.x2) &&
-		near(preset.bezier.y2, b.y2)
-	);
-}
-
-export function findMatchingPreset(
-	easing: EasingType,
-	config: EasingConfig | undefined
-): EasingPreset | null {
-	return EASINGS_DEV_PRESETS.find((preset) => presetMatchesEasing(preset, easing, config)) ?? null;
 }

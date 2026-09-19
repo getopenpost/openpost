@@ -1,6 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { sourceFiles } from "./check-query-shared.mjs";
 
 const sourceRoots = ["apps/web", "apps/marketing"];
 const nativeControlPattern = /<(input|select|textarea)\b/gu;
@@ -13,18 +15,13 @@ const primitiveImplementations = new Set([
   "apps/web/src/lib/components/ui/calendar/calendar-year-select.svelte",
 ]);
 
+const svelteExtensions = new Set([".svelte"]);
+
 function svelteFiles(directory) {
-  const files = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-      files.push(...svelteFiles(path));
-    } else if (entry.isFile() && entry.name.endsWith(".svelte")) {
-      files.push(path);
-    }
-  }
-  return files;
+  return sourceFiles(directory, {
+    extensions: svelteExtensions,
+    skipDirectoryNames: ["node_modules"],
+  });
 }
 
 export function findNativeFormControlViolations(repoRoot) {

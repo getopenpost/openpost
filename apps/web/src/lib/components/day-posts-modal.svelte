@@ -18,6 +18,7 @@
 	} from '$lib/query/authorization-boundary';
 	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { activityBucketForStatus } from '$lib/publication-invalidation';
+	import { mediaUsageStatusLabel } from '$lib/media-presentation';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import type { components } from '$lib/api/types';
 	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
@@ -228,26 +229,7 @@
 	}
 
 	function statusLabel(status: string) {
-		switch (status.toLowerCase()) {
-			case 'published':
-				return m.activity_status_published();
-			case 'failed':
-				return m.activity_status_failed();
-			case 'scheduled':
-				return m.activity_status_scheduled();
-			case 'publishing':
-				return m.activity_status_publishing();
-			case 'completed':
-				return m.activity_status_completed();
-			case 'processing':
-				return m.activity_status_processing();
-			case 'pending':
-				return m.activity_status_pending();
-			case 'draft':
-				return m.activity_status_draft();
-			default:
-				return status;
-		}
+		return mediaUsageStatusLabel(status);
 	}
 
 	function handleNewPost() {

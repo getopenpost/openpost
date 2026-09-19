@@ -57,10 +57,7 @@
 		closeAllGapsOnTrack,
 		closeGapAtPosition,
 		setCurrentFrame,
-		removeMarker,
-		selectMarker as selectMarkerAction,
 		splitItemsAtFrame,
-		updateMarker,
 		joinItems,
 		linkItems,
 		unlinkItems
@@ -78,8 +75,7 @@
 		DEFAULT_MARKER_COLOR,
 		MARKER_PRESET_COLORS,
 		markerAfter,
-		markerBefore,
-		markerDisplayName
+		markerBefore
 	} from '$lib/video-editor/timeline/markers';
 	import { shuttleScrubResume } from '$lib/video-editor/preview/shuttle-scrub-resume.svelte';
 	import {
@@ -95,39 +91,14 @@
 		timelineZoomToSlider,
 		type TimelineZoomAnchor
 	} from '$lib/video-editor/timeline/zoom';
-	import {
-		getWaveform,
-		cachedWaveform,
-		subscribeWaveform
-	} from '$lib/video-editor/media/waveform-client';
-	import type { WaveformData } from '$lib/video-editor/media/waveform-client';
-	import { planTimelineWaveformDemand } from '$lib/video-editor/timeline/waveform-demand';
-	import {
-		TIMELINE_WAVEFORM_HEIGHT,
-		mappedTimelineWaveformSourceBoundaries,
-		planTimelineWaveformRenderWindow,
-		waveformPolyline
-	} from '$lib/video-editor/timeline/waveform-render-window';
-	import { peaksForMappedWindow, peaksForWindow } from '$lib/video-editor/media/peaks';
-	import { dbToLinearGain, linearGainToDb } from '$lib/video-editor/media/clip-fades';
+	import { TIMELINE_WAVEFORM_HEIGHT } from '$lib/video-editor/timeline/waveform-render-window';
 	import {
 		AUDIO_VOLUME_DB_MAX,
 		AUDIO_VOLUME_DB_MIN,
-		audioVolumeDbFromDrag,
 		audioVolumeLinePercent,
 		audioVolumeWaveformScale,
-		clampAudioVolumeDb,
 		formatAudioVolumeDb
 	} from '$lib/video-editor/timeline/audio-volume-line';
-	import { filmstripCache, type FilmstripFrame } from '$lib/video-editor/media/filmstrip-client';
-	import {
-		animatedImageCache,
-		type AnimatedImageFrames
-	} from '$lib/video-editor/media/animated-image-client';
-	import {
-		computeAnimatedImageTiles,
-		isAnimatedImageMedia
-	} from '$lib/video-editor/media/animated-image-plan';
 	import FilmstripTile from './filmstrip-tile.svelte';
 	import MarkerListPopover from './marker-list-popover.svelte';
 	import TimelineFadeHandles from './timeline-fade-handles.svelte';
@@ -136,27 +107,20 @@
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import {
-		editorShortcutTargetIsDisabled,
-		eventMatchesShortcut,
+		createShortcutMatcher,
 		formatShortcutBinding,
 		type EditorShortcutId
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { type KeyframeEditorMode } from '$lib/video-editor/timeline/keyframe-shortcuts';
+	import TimelineKeyframesPanel from './timeline-keyframes-panel.svelte';
+	import { isAnimatedImageMedia } from '$lib/video-editor/media/animated-image-plan';
 	import {
-		adjacentKeyframe,
-		keyframeShortcutScopeActive,
-		type KeyframeEditorMode
-	} from '$lib/video-editor/timeline/keyframe-shortcuts';
-	import KeyframeDopesheet from './keyframe-dopesheet.svelte';
-	import PropertyRuntimePanel from './property-runtime-panel.svelte';
-	import KeyframeValueGraph from './keyframe-value-graph.svelte';
-	import {
-		computeFilmstripTiles,
-		visibleFilmstripTargetIndices
-	} from '$lib/video-editor/media/filmstrip-plan';
-	import {
-		hasVariableSpeed,
-		timelineOffsetToSourceFrame
-	} from '$lib/video-editor/timeline/source-time-map';
+		FILMSTRIP_OVERSCAN_PX,
+		FILMSTRIP_TILE_WIDTH_PX,
+		TimelineMediaTiles
+	} from './timeline-media-tiles.svelte';
+	import { TimelineMarkerControls } from './timeline-markers.svelte';
+	import { TimelineAudioVolume } from './timeline-audio-volume.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import { getTextItemPlainText } from '$lib/video-editor/typography/text-item-spans';
 	import { hasColorGrade } from '$lib/video-editor/effects/color-grade';
@@ -179,50 +143,23 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import {
-		activeValueAt,
-		keyframeClearOptions,
-		setKeyframe,
-		setKeyframeEasing
-	} from '$lib/video-editor/timeline/actions/keyframes';
+	import { keyframeClearOptions } from '$lib/video-editor/timeline/actions/keyframes';
 	import type { KeyframeClearProperty } from '$lib/video-editor/timeline/actions/keyframes';
 	import type {
-		EasingConfig,
-		EasingType,
 		KeyframeProperty,
 		TimelineItem,
 		TimelineMarker,
 		TimelineTransition
 	} from '$lib/video-editor/project/types';
-	import {
-		getAnimatablePropertiesForItem,
-		resolvePreExpressionItemAt
-	} from '$lib/video-editor/timeline/animated-properties';
-	import { editorKeyframes, editorPropertyLabel } from '$lib/video-editor/timeline/keyframe-editor';
+	import { getAnimatablePropertiesForItem } from '$lib/video-editor/timeline/animated-properties';
+	import { editorPropertyLabel } from '$lib/video-editor/timeline/keyframe-editor';
 	import { pathVertexSelectionStore } from '$lib/video-editor/timeline/stores/path-vertex-selection-store.svelte';
 	import { visiblePathVertexProperties } from '$lib/video-editor/timeline/path-vertex-visibility';
-	import {
-		isPathVertexKeyframeProperty,
-		pathVertexPropertyValue
-	} from '$lib/video-editor/timeline/path-vertex-keyframes';
-	import {
-		effectPropertyBaseValue,
-		effectPropertyLabel
-	} from '$lib/video-editor/effects/effect-keyframes';
+	import { effectPropertyLabel } from '$lib/video-editor/effects/effect-keyframes';
 	import {
 		canJoinMultipleItems,
 		joinableItemNeighbors
 	} from '$lib/video-editor/timeline/join-items';
-	import { BEZIER_PRESETS, buildEasingConfig } from '$lib/video-editor/timeline/easing-presets';
-	import {
-		easingConfigFromPreset,
-		loadCustomEasingPresets,
-		presetFromEasing,
-		saveCustomEasingPresets,
-		suggestedCustomPresetName,
-		upsertCustomEasingPreset,
-		type CustomEasingPreset
-	} from '$lib/video-editor/timeline/custom-easing-presets';
 	import {
 		isRateStretchableType,
 		planCanvasNudge,
@@ -512,12 +449,48 @@
 	let mixerHeight = $state(editorSettings.audioMixerHeight);
 	let beatPanelOpen = $state(false);
 	let keyframesOpen = $state(false);
+	let keyframesPanel = $state<{
+		addKeyframeAtPlayhead: (property: KeyframeProperty) => void;
+		handleKeyframeEditorShortcut: (
+			event: KeyboardEvent,
+			matches: (...ids: EditorShortcutId[]) => boolean
+		) => boolean;
+		fitActiveKeyframeView: () => void;
+		setPendingKeyframeProperty: (value: string) => void;
+		setKeyframeEditorMode: (value: string) => void;
+	}>();
 	let lastTimelinePointerScreenX: number | null = null;
 	let queuedTimelineZoom: { level: number; scrollLeft: number } | null = null;
 	let timelineZoomAnimationFrame: number | null = null;
 	let hoverPreviewAnimationFrame: number | null = null;
 	let pendingHoverPreviewClientX: number | null = null;
+	const TRACK_HEADER_WIDTH = 180;
 	const audioSkimController = createTimelineAudioSkimController();
+	const tiles = new TimelineMediaTiles({
+		viewport: () => timelineViewport,
+		pxPerFrame: () => pxPerFrame,
+		fps: () => fps,
+		visibleItemIds: () => visibleTimelineItemIds,
+		frameToPx: (frame: number) => frameToPx(frame),
+		headerWidth: TRACK_HEADER_WIDTH
+	});
+	const markers = new TimelineMarkerControls({
+		onClearSelection: () => {
+			selectedItemId = null;
+			selectedItemIds = [];
+			selectedTransitionId = null;
+		},
+		setCurrentFrame: (frame: number) => setCurrentFrame(frame),
+		frameFromClientX: (clientX: number) => frameFromClientX(clientX),
+		clearHoverPreview: () => clearHoverPreview(),
+		onedit: () => onedit()
+	});
+	const selectedMarker = $derived(markers.selectedMarker);
+	$effect(() => markers.syncDraft());
+	const audio = new TimelineAudioVolume({
+		isEditToolActive: () => activeEditTool !== null,
+		onedit: () => onedit()
+	});
 	let audioSkimStopTimer: ReturnType<typeof setTimeout> | null = null;
 	let rulerScrub: {
 		pointerId: number;
@@ -561,117 +534,6 @@
 		bodyCursor: string;
 		bodyUserSelect: string;
 	} | null = null;
-	let markerDrag: {
-		pointerId: number;
-		markerId: string;
-		beforeSnapshot: TimelineSnapshot;
-		changed: boolean;
-		bodyCursor: string;
-		bodyUserSelect: string;
-	} | null = null;
-	let audioVolumeDrag = $state.raw<{
-		pointerId: number;
-		itemId: string;
-		startClientY: number;
-		latestClientY: number;
-		startDb: number;
-		rowHeight: number;
-		beforeSnapshot: TimelineSnapshot;
-		target: HTMLButtonElement;
-		animationFrame: number | null;
-		activated: boolean;
-	} | null>(null);
-	let markerLabelDraft = $state('');
-	let markerLabelDraftId = '';
-	const selectedMarker = $derived(
-		timelineStore.markers.find((marker) => marker.id === timelineStore.selectedMarkerId) ?? null
-	);
-	const waveforms = $state<Record<string, { data: WaveformData | null; failed: boolean }>>({});
-	const waveformUnsubscribers = new Map<string, () => void>();
-	const waveformRenderCache = new Map<
-		string,
-		{
-			peaks: Float32Array;
-			loadedSamples: number;
-			isComplete: boolean;
-			key: string;
-			value: {
-				points: string;
-				leftPx: number;
-				widthPx: number;
-				clipWidthPx: number;
-			};
-		}
-	>();
-	const waveformItemRangeIndex = $derived(
-		buildTimelineItemRangeIndex(
-			timelineStore.items.filter(
-				(item) => (item.type === 'video' || item.type === 'audio') && Boolean(item.mediaId)
-			)
-		)
-	);
-	let waveformDemandTimer: ReturnType<typeof setTimeout> | null = null;
-	let previousWaveformScrollLeft = 0;
-	const WAVEFORM_DEMAND_DELAY_MS = 90;
-
-	function clearWaveformDemandTimer(): void {
-		if (waveformDemandTimer === null) return;
-		clearTimeout(waveformDemandTimer);
-		waveformDemandTimer = null;
-	}
-
-	function clearWaveformSubscriptions(): void {
-		for (const unsubscribe of waveformUnsubscribers.values()) unsubscribe();
-		waveformUnsubscribers.clear();
-		waveformRenderCache.clear();
-		for (const mediaId of Object.keys(waveforms)) delete waveforms[mediaId];
-	}
-
-	function reconcileWaveformDemand(mediaIds: readonly string[]): void {
-		const neededMediaIds = new Set(mediaIds);
-		for (const [mediaId, unsubscribe] of waveformUnsubscribers) {
-			if (neededMediaIds.has(mediaId)) continue;
-			unsubscribe();
-			waveformUnsubscribers.delete(mediaId);
-			delete waveforms[mediaId];
-		}
-
-		for (const mediaId of mediaIds) {
-			const media = mediaPool.get(mediaId);
-			const hasAudio =
-				media?.audioCodecSupported !== false &&
-				(media?.tags.includes('audio') || Boolean(media?.audioCodec));
-			if (!media || !hasAudio || waveformUnsubscribers.has(mediaId)) continue;
-			waveforms[mediaId] = { data: null, failed: false };
-			waveformUnsubscribers.set(
-				mediaId,
-				subscribeWaveform(mediaId, (data) => {
-					waveforms[mediaId] = { data, failed: false };
-				})
-			);
-			void getWaveform(media)
-				.then((data) => {
-					if (!waveformUnsubscribers.has(mediaId)) return;
-					waveforms[mediaId] = { data, failed: false };
-				})
-				.catch(() => {
-					if (!waveformUnsubscribers.has(mediaId)) return;
-					waveforms[mediaId] = { data: null, failed: true };
-				});
-		}
-	}
-
-	$effect(() => {
-		const marker = selectedMarker;
-		if (!marker) {
-			markerLabelDraftId = '';
-			markerLabelDraft = '';
-			return;
-		}
-		if (marker.id === markerLabelDraftId) return;
-		markerLabelDraftId = marker.id;
-		markerLabelDraft = marker.label ?? '';
-	});
 
 	$effect(() => {
 		const offPlay = editorSession.clock.on('play', clearHoverPreview);
@@ -692,9 +554,7 @@
 
 	$effect(() => {
 		const itemIds = new Set(timelineStore.items.map((item) => item.id));
-		for (const itemId of waveformRenderCache.keys()) {
-			if (!itemIds.has(itemId)) waveformRenderCache.delete(itemId);
-		}
+		tiles.pruneWaveformRenderCache(itemIds);
 		const existingIds = selectedItemIds.filter((id) => itemIds.has(id));
 		if (existingIds.length !== selectedItemIds.length) selectedItemIds = existingIds;
 		if (selectedItemId && !itemIds.has(selectedItemId)) {
@@ -711,113 +571,8 @@
 		}
 	});
 
-	$effect(() => {
-		clearWaveformDemandTimer();
-		if (!editorSettings.showWaveforms) {
-			clearWaveformSubscriptions();
-			return;
-		}
-		const currentScrollLeft = timelineViewport.scrollLeft;
-		const mediaIds = planTimelineWaveformDemand({
-			itemIndex: waveformItemRangeIndex,
-			scrollLeft: currentScrollLeft,
-			previousScrollLeft: previousWaveformScrollLeft,
-			viewportWidth: timelineViewport.width,
-			headerWidth: TRACK_HEADER_WIDTH,
-			pixelsPerFrame: pxPerFrame
-		});
-		previousWaveformScrollLeft = currentScrollLeft;
-		if (timelineViewport.width <= TRACK_HEADER_WIDTH) return;
-		waveformDemandTimer = setTimeout(() => {
-			waveformDemandTimer = null;
-			reconcileWaveformDemand(mediaIds);
-		}, WAVEFORM_DEMAND_DELAY_MS);
-		return clearWaveformDemandTimer;
-	});
+	$effect(() => tiles.syncWaveformDemand());
 
-	function timelineWaveform(item: TimelineItem): {
-		points: string;
-		leftPx: number;
-		widthPx: number;
-		clipWidthPx: number;
-	} | null {
-		if (!item.mediaId) return null;
-		const entry = waveforms[item.mediaId];
-		const data = entry?.data ?? cachedWaveform(item.mediaId);
-		if (!data) return null;
-		const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : fps;
-		const sourceStart = item.sourceStart ?? 0;
-		const sourceEnd =
-			item.sourceEnd ?? sourceStart + (item.durationInFrames / fps) * (item.speed ?? 1) * sourceFps;
-		const variableSpeed = hasVariableSpeed(item);
-		const window = planTimelineWaveformRenderWindow({
-			clipFromFrame: item.from,
-			clipDurationFrames: item.durationInFrames,
-			sourceStartFrame: sourceStart,
-			sourceEndFrame: sourceEnd,
-			pixelsPerFrame: pxPerFrame,
-			scrollLeft: timelineViewport.scrollLeft,
-			viewportWidth: timelineViewport.width,
-			headerWidth: TRACK_HEADER_WIDTH,
-			reversed: item.isReversed === true
-		});
-		if (!window) return null;
-		const renderKey = [
-			window.leftPx,
-			window.widthPx,
-			window.startSourceFrame,
-			window.endSourceFrame,
-			sourceFps,
-			window.reverseColumns,
-			...(variableSpeed
-				? (item.speedRamp ?? []).flatMap((point) => [point.sourceFrame, point.speed, point.easing])
-				: [])
-		].join(':');
-		const cached = waveformRenderCache.get(item.id);
-		if (
-			cached?.peaks === data.peaks &&
-			cached.loadedSamples === data.loadedSamples &&
-			cached.isComplete === data.isComplete &&
-			cached.key === renderKey
-		)
-			return cached.value;
-		const columns = variableSpeed
-			? peaksForMappedWindow(
-					data,
-					mappedTimelineWaveformSourceBoundaries({
-						window,
-						clipDurationFrames: item.durationInFrames,
-						sourceFrameAtTimelineOffset: (timelineOffset) =>
-							timelineOffsetToSourceFrame(item, timelineOffset, fps) + (item.isReversed ? 1 : 0)
-					}),
-					sourceFps
-				)
-			: peaksForWindow(
-					data,
-					window.startSourceFrame,
-					window.endSourceFrame,
-					sourceFps,
-					window.widthPx
-				);
-		const value = {
-			points: waveformPolyline(
-				columns,
-				TIMELINE_WAVEFORM_HEIGHT,
-				variableSpeed ? false : window.reverseColumns
-			),
-			leftPx: window.leftPx,
-			widthPx: window.widthPx,
-			clipWidthPx: window.clipWidthPx
-		};
-		waveformRenderCache.set(item.id, {
-			peaks: data.peaks,
-			loadedSamples: data.loadedSamples,
-			isComplete: data.isComplete,
-			key: renderKey,
-			value
-		});
-		return value;
-	}
 	type TimelineDragKind =
 		| 'move'
 		| 'track-push'
@@ -1021,10 +776,6 @@
 
 	// Reactive filmstrip state per video mediaId; frames stream in from the
 	// extraction worker and tiles render as they arrive.
-	const filmstrips = $state<Record<string, { frames: FilmstripFrame[]; failed: boolean }>>({});
-	const filmstripUnsubscribers = new Map<string, () => void>();
-	const FILMSTRIP_TILE_WIDTH_PX = 96;
-	const FILMSTRIP_OVERSCAN_PX = FILMSTRIP_TILE_WIDTH_PX * 2;
 
 	function updateTimelineViewport(): void {
 		timelineViewportAnimationFrame = null;
@@ -1077,227 +828,18 @@
 
 	// Reactive animated-image (GIF/WebP) state per mediaId; frames stream in
 	// from the extraction worker and tiles render as they arrive.
-	const animatedImages = $state<
-		Record<string, { frames: AnimatedImageFrames | null; failed: boolean }>
-	>({});
-	const animatedImageUnsubscribers = new Map<string, () => void>();
 
 	$effect(() => {
-		if (!editorSettings.showFilmstrips || !editorSettings.extractFilmstrips) {
-			for (const [, unsubscribe] of animatedImageUnsubscribers) {
-				unsubscribe();
-			}
-			animatedImageUnsubscribers.clear();
-			for (const mediaId of Object.keys(animatedImages)) delete animatedImages[mediaId];
-			return;
-		}
-		const visibleAnimatedMedia = new Map<string, NonNullable<ReturnType<typeof mediaPool.get>>>();
-		for (const itemId of visibleTimelineItemIds) {
-			const item = timelineStore.itemById.get(itemId);
-			if (!item) continue;
-			if (item.type !== 'image' || !item.mediaId) continue;
-			const media = mediaPool.get(item.mediaId);
-			if (!isAnimatedImageMedia(media)) continue;
-			// SAFETY: isAnimatedImageMedia just proved the entry exists.
-			visibleAnimatedMedia.set(item.mediaId, media!);
-		}
-		for (const [mediaId, unsubscribe] of animatedImageUnsubscribers) {
-			if (visibleAnimatedMedia.has(mediaId)) continue;
-			unsubscribe();
-			animatedImageUnsubscribers.delete(mediaId);
-			delete animatedImages[mediaId];
-		}
-		for (const [mediaId, media] of visibleAnimatedMedia) {
-			if (!animatedImageUnsubscribers.has(mediaId)) {
-				animatedImages[mediaId] = { frames: null, failed: false };
-				animatedImageUnsubscribers.set(
-					mediaId,
-					animatedImageCache.subscribe(mediaId, (frames) => {
-						animatedImages[mediaId] = { frames, failed: false };
-					})
-				);
-			}
-			void animatedImageCache.getAnimatedImage(media).catch(() => {
-				if (!animatedImageUnsubscribers.has(mediaId)) return;
-				animatedImages[mediaId] = { frames: null, failed: true };
-			});
-		}
+		tiles.syncAnimatedImages();
 	});
-
-	function animatedImageTilesFor(item: {
-		from: number;
-		mediaId?: string;
-		speed?: number;
-		isReversed?: boolean;
-		durationInFrames: number;
-	}): ReturnType<typeof computeAnimatedImageTiles> | null {
-		if (!item.mediaId) return null;
-		const entry = animatedImages[item.mediaId];
-		const framesData = entry?.frames;
-		if (entry?.failed || !framesData?.isComplete) return null;
-		const clipWidth = frameToPx(item.durationInFrames);
-		if (!(clipWidth > 0)) return null;
-		const clipLeft = TRACK_HEADER_WIDTH + frameToPx(item.from);
-		const viewportStart = timelineViewport.scrollLeft + TRACK_HEADER_WIDTH;
-		const viewportEnd = timelineViewport.scrollLeft + timelineViewport.width;
-		const visibleStartPx = Math.max(0, viewportStart - clipLeft - FILMSTRIP_OVERSCAN_PX);
-		const visibleEndPx = Math.min(clipWidth, viewportEnd - clipLeft + FILMSTRIP_OVERSCAN_PX);
-		return computeAnimatedImageTiles({
-			cumulativeDelaysMs: framesData.cumulativeDelaysMs,
-			totalDurationMs: framesData.totalDurationMs,
-			clipSpanSeconds: item.durationInFrames / fps,
-			speed: item.speed ?? 1,
-			reversed: item.isReversed === true,
-			clipWidthPx: clipWidth,
-			tileWidthPx: FILMSTRIP_TILE_WIDTH_PX,
-			visibleStartPx,
-			visibleEndPx
-		});
-	}
-
-	function animatedImageBitmapFor(
-		mediaId: string | undefined,
-		index: number
-	): ImageBitmap | undefined {
-		if (!mediaId) return undefined;
-		return animatedImages[mediaId]?.frames?.frames[index];
-	}
 
 	$effect(() => {
-		if (!editorSettings.showFilmstrips) {
-			for (const [mediaId, unsubscribe] of filmstripUnsubscribers) {
-				unsubscribe();
-				filmstripCache.abort(mediaId);
-			}
-			filmstripUnsubscribers.clear();
-			for (const mediaId of Object.keys(filmstrips)) delete filmstrips[mediaId];
-			return;
-		}
-		if (timelineViewport.width <= 0) return;
-		const visibleTargets = new Map<string, Set<number>>();
-		const visibleMedia = new Map<string, NonNullable<ReturnType<typeof mediaPool.get>>>();
-		const viewportStart = timelineViewport.scrollLeft + TRACK_HEADER_WIDTH;
-		const viewportEnd = timelineViewport.scrollLeft + timelineViewport.width;
-		for (const itemId of visibleTimelineItemIds) {
-			const item = timelineStore.itemById.get(itemId);
-			if (!item) continue;
-			if (item.type !== 'video' || !item.mediaId) continue;
-			const mediaId = item.mediaId;
-			const media = mediaPool.get(mediaId);
-			if (!media?.tags.includes('video')) continue;
-			const clipLeft = TRACK_HEADER_WIDTH + frameToPx(item.from);
-			const clipWidth = frameToPx(item.durationInFrames);
-			const visibleStartPx = Math.max(0, viewportStart - clipLeft - FILMSTRIP_OVERSCAN_PX);
-			const visibleEndPx = Math.min(clipWidth, viewportEnd - clipLeft + FILMSTRIP_OVERSCAN_PX);
-			if (visibleEndPx <= visibleStartPx) continue;
-			const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : Math.max(1, fps);
-			const sourceStartSeconds = (item.sourceStart ?? 0) / sourceFps;
-			const clipSpanSeconds =
-				item.sourceEnd !== undefined
-					? Math.max(0, item.sourceEnd - (item.sourceStart ?? 0)) / sourceFps
-					: (item.durationInFrames / fps) * (item.speed ?? 1);
-			const sourceSecondAtTimelineRatio = hasVariableSpeed(item)
-				? (ratio: number) =>
-						timelineOffsetToSourceFrame(item, ratio * item.durationInFrames, fps) / sourceFps
-				: undefined;
-			const targets = visibleFilmstripTargetIndices({
-				sourceStartSeconds,
-				clipSpanSeconds,
-				clipWidthPx: clipWidth,
-				visibleStartPx,
-				visibleEndPx,
-				tileWidthPx: FILMSTRIP_TILE_WIDTH_PX,
-				totalSourceFrames: Math.max(1, Math.ceil(media.duration)),
-				reversed: item.isReversed,
-				sourceSecondAtTimelineRatio
-			});
-			if (targets.length === 0) continue;
-			visibleMedia.set(mediaId, media);
-			const merged = visibleTargets.get(mediaId) ?? new Set<number>();
-			for (const target of targets) merged.add(target);
-			visibleTargets.set(mediaId, merged);
-		}
-		for (const [mediaId, unsubscribe] of filmstripUnsubscribers) {
-			if (visibleMedia.has(mediaId)) continue;
-			unsubscribe();
-			filmstripUnsubscribers.delete(mediaId);
-			filmstripCache.abort(mediaId);
-			delete filmstrips[mediaId];
-		}
-		for (const [mediaId, media] of visibleMedia) {
-			if (!filmstripUnsubscribers.has(mediaId)) {
-				filmstrips[mediaId] = { frames: [], failed: false };
-				filmstripUnsubscribers.set(
-					mediaId,
-					filmstripCache.subscribe(mediaId, (filmstrip) => {
-						filmstrips[mediaId] = {
-							frames: filmstrip.frames.map((frame) => ({ ...frame })),
-							failed: false
-						};
-					})
-				);
-			}
-			filmstripCache
-				.getFilmstrip(media, {
-					targetFrameIndices: [...(visibleTargets.get(mediaId) ?? [])],
-					allowExtraction: editorSettings.extractFilmstrips
-				})
-				.catch((error: Error) => {
-					if (error instanceof DOMException && error.name === 'AbortError') return;
-					if (!filmstripUnsubscribers.has(mediaId)) return;
-					filmstrips[mediaId] = {
-						frames: filmstrips[mediaId]?.frames ?? [],
-						failed: true
-					};
-				});
-		}
+		tiles.syncFilmstrips();
 	});
-
-	function filmstripTilesFor(item: TimelineItem): ReturnType<typeof computeFilmstripTiles> | null {
-		if (!item.mediaId) return null;
-		const entry = filmstrips[item.mediaId];
-		if (!entry || entry.failed || entry.frames.length === 0) return null;
-		const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : Math.max(1, fps);
-		const startSeconds = (item.sourceStart ?? 0) / sourceFps;
-		const spanSeconds =
-			item.sourceEnd !== undefined
-				? Math.max(0, item.sourceEnd - (item.sourceStart ?? 0)) / sourceFps
-				: (item.durationInFrames / fps) * (item.speed ?? 1);
-		if (!(spanSeconds > 0)) return null;
-		const clipWidth = frameToPx(item.durationInFrames);
-		const clipLeft = TRACK_HEADER_WIDTH + frameToPx(item.from);
-		const viewportStart = timelineViewport.scrollLeft + TRACK_HEADER_WIDTH;
-		const viewportEnd = timelineViewport.scrollLeft + timelineViewport.width;
-		const visibleStartPx = Math.max(0, viewportStart - clipLeft - FILMSTRIP_OVERSCAN_PX);
-		const visibleEndPx = Math.min(clipWidth, viewportEnd - clipLeft + FILMSTRIP_OVERSCAN_PX);
-		if (visibleEndPx <= visibleStartPx) return null;
-		return computeFilmstripTiles(
-			entry.frames,
-			startSeconds,
-			spanSeconds,
-			clipWidth,
-			item.isReversed,
-			{
-				tileWidthPx: FILMSTRIP_TILE_WIDTH_PX,
-				visibleStartPx,
-				visibleEndPx,
-				sourceSecondAtTimelineRatio: hasVariableSpeed(item)
-					? (ratio: number) =>
-							timelineOffsetToSourceFrame(item, ratio * item.durationInFrames, fps) / sourceFps
-					: undefined
-			}
-		);
-	}
-
-	function filmstripBitmapFor(mediaId: string | undefined, index: number): ImageBitmap | undefined {
-		if (!mediaId) return undefined;
-		return filmstrips[mediaId]?.frames.find((frame) => frame.index === index)?.bitmap;
-	}
 
 	const fps = $derived(editorSession.fps);
 	const zoom = $derived(timelineStore.zoomLevel);
 	const pxPerFrame = $derived(timelinePixelsPerFrame(zoom));
-	const TRACK_HEADER_WIDTH = 180;
 	const DRAG_THRESHOLD_PIXELS = 3;
 	const EMPTY_TIMELINE_ITEM_RANGE_INDEX = buildTimelineItemRangeIndex([]);
 	const timelineWidth = $derived(
@@ -1724,7 +1266,7 @@
 		if (markerId) {
 			const marker = timelineStore.markers.find((candidate) => candidate.id === markerId);
 			if (!marker) return;
-			selectMarker(marker);
+			markers.selectMarker(marker);
 			timelineContextTarget = { kind: 'marker', markerId };
 			return;
 		}
@@ -1993,162 +1535,9 @@
 		onedit();
 	}
 
-	function markerName(marker: TimelineMarker): string {
-		const ordered = [...timelineStore.markers].sort(
-			(left, right) => left.frame - right.frame || left.id.localeCompare(right.id)
-		);
-		const index = Math.max(
-			0,
-			ordered.findIndex((candidate) => candidate.id === marker.id)
-		);
-		return markerDisplayName(marker, index, (number) => m.video_editor_marker_number({ number }));
-	}
-
-	function markerColorForInput(color: string): string {
-		return /^#[0-9a-f]{6}$/i.test(color) ? color : '#d97746';
-	}
-
-	function selectMarker(marker: TimelineMarker): void {
-		if (!selectMarkerAction(marker.id)) return;
-		selectedItemId = null;
-		selectedItemIds = [];
-		selectedTransitionId = null;
-	}
-
-	function addMarkerAtPlayhead(): void {
-		const id = addMarker(timelineStore.currentFrame);
-		timelineStore._setSelectedMarkerId(id);
-		selectedItemId = null;
-		selectedItemIds = [];
-		selectedTransitionId = null;
-		onedit();
-	}
-
 	function jumpToMarker(marker: TimelineMarker | undefined): void {
 		if (!marker) return;
-		selectMarker(marker);
-	}
-
-	function deleteTimelineMarker(markerId: string): void {
-		if (!timelineStore.markers.some((marker) => marker.id === markerId)) return;
-		removeMarker(markerId);
-		onedit();
-	}
-
-	function commitMarkerPatch(
-		marker: TimelineMarker,
-		patch: Partial<{ frame: number; label: string; color: string }>
-	): void {
-		const changed =
-			(patch.frame !== undefined && patch.frame !== marker.frame) ||
-			(patch.label !== undefined && patch.label !== (marker.label ?? '')) ||
-			(patch.color !== undefined && patch.color !== marker.color);
-		if (!changed) return;
-		if (patch.frame !== undefined) setCurrentFrame(patch.frame);
-		if (updateMarker(marker.id, patch)) onedit();
-	}
-
-	function applyMarkerDrag(clientX: number): void {
-		if (!markerDrag) return;
-		const frame = frameFromClientX(clientX);
-		if (frame === undefined) return;
-		const marker = timelineStore.markers.find((candidate) => candidate.id === markerDrag?.markerId);
-		if (!marker || marker.frame === frame) return;
-		timelineStore.setAll({
-			markers: timelineStore.markers.map((candidate) =>
-				candidate.id === marker.id ? { ...candidate, frame } : candidate
-			)
-		});
-		setCurrentFrame(frame);
-		markerDrag.changed = true;
-	}
-
-	function moveMarkerDrag(event: PointerEvent): void {
-		if (!markerDrag || event.pointerId !== markerDrag.pointerId) return;
-		event.preventDefault();
-		applyMarkerDrag(event.clientX);
-	}
-
-	function cleanupMarkerDrag(): void {
-		if (!markerDrag) return;
-		document.body.style.cursor = markerDrag.bodyCursor;
-		document.body.style.userSelect = markerDrag.bodyUserSelect;
-		window.removeEventListener('pointermove', moveMarkerDrag);
-		window.removeEventListener('pointerup', finishMarkerDrag);
-		window.removeEventListener('pointercancel', cancelMarkerDrag);
-		window.removeEventListener('keydown', onMarkerDragKeydown);
-		markerDrag = null;
-	}
-
-	function completeMarkerDrag(cancelled: boolean): void {
-		if (!markerDrag) return;
-		const beforeSnapshot = markerDrag.beforeSnapshot;
-		const changed = markerDrag.changed;
-		if (cancelled && changed) restoreSnapshot(beforeSnapshot);
-		if (!cancelled && changed) timelineStore._setMarkers([...timelineStore.markers]);
-		cleanupMarkerDrag();
-		if (!cancelled && changed) {
-			commandHistory.addUndoEntry({ type: 'MOVE_MARKER' }, beforeSnapshot);
-			onedit();
-		}
-	}
-
-	function finishMarkerDrag(event: PointerEvent): void {
-		if (!markerDrag || event.pointerId !== markerDrag.pointerId) return;
-		event.preventDefault();
-		completeMarkerDrag(false);
-	}
-
-	function cancelMarkerDrag(event?: PointerEvent): void {
-		if (event && markerDrag && event.pointerId !== markerDrag.pointerId) return;
-		completeMarkerDrag(true);
-	}
-
-	function onMarkerDragKeydown(event: KeyboardEvent): void {
-		if (event.key !== 'Escape') return;
-		event.preventDefault();
-		completeMarkerDrag(true);
-	}
-
-	function startMarkerDrag(event: PointerEvent, marker: TimelineMarker): void {
-		shuttleScrubResume.cancel();
-		if (event.button !== 0 || markerDrag) return;
-		clearHoverPreview();
-		event.preventDefault();
-		event.stopPropagation();
-		editorSession.pausePlayback();
-		selectMarker(marker);
-		markerDrag = {
-			pointerId: event.pointerId,
-			markerId: marker.id,
-			beforeSnapshot: captureSnapshot(),
-			changed: false,
-			bodyCursor: document.body.style.cursor,
-			bodyUserSelect: document.body.style.userSelect
-		};
-		document.body.style.cursor = 'grabbing';
-		document.body.style.userSelect = 'none';
-		window.addEventListener('pointermove', moveMarkerDrag);
-		window.addEventListener('pointerup', finishMarkerDrag);
-		window.addEventListener('pointercancel', cancelMarkerDrag);
-		window.addEventListener('keydown', onMarkerDragKeydown);
-	}
-
-	function onMarkerKeydown(event: KeyboardEvent, marker: TimelineMarker): void {
-		if (event.key === 'Delete' || event.key === 'Backspace') {
-			event.preventDefault();
-			deleteTimelineMarker(marker.id);
-			return;
-		}
-		let frame: number | null = null;
-		if (event.key === 'ArrowLeft') frame = marker.frame - (event.shiftKey ? 10 : 1);
-		else if (event.key === 'ArrowRight') frame = marker.frame + (event.shiftKey ? 10 : 1);
-		else if (event.key === 'Home') frame = 0;
-		else if (event.key === 'End') frame = timelineStore.maxItemEndFrame;
-		else return;
-		event.preventDefault();
-		event.stopPropagation();
-		commitMarkerPatch(marker, { frame: Math.max(0, frame) });
+		markers.selectMarker(marker);
 	}
 
 	function clearEffectDropPreview(): void {
@@ -3464,12 +2853,9 @@
 
 	function onPanelKeydown(event: KeyboardEvent): void {
 		if (handleAccessibleMediaPlacementKey(event)) return;
-		if (event.defaultPrevented) return;
-		if (editorShortcutTargetIsDisabled(event.target)) return;
-		const bindings = keyboardShortcuts.bindings;
-		const matches = (...ids: EditorShortcutId[]) =>
-			ids.some((id) => eventMatchesShortcut(event, bindings[id]));
-		if (handleKeyframeEditorShortcut(event, matches)) return;
+		const matches = createShortcutMatcher(event, keyboardShortcuts.bindings);
+		if (!matches) return;
+		if (keyframesPanel?.handleKeyframeEditorShortcut(event, matches) ?? false) return;
 		if (matches('ZOOM_IN')) {
 			event.preventDefault();
 			zoomBy(TIMELINE_ZOOM_STEP);
@@ -3539,157 +2925,6 @@
 
 	function isRateStretchKind(kind: TimelineDragKind): boolean {
 		return kind === 'rate-stretch' || kind === 'rate-stretch-start' || kind === 'rate-stretch-end';
-	}
-
-	function audioVolumeDb(item: TimelineItem): number {
-		return linearGainToDb(item.volume ?? 1);
-	}
-
-	function applyAudioVolumeFrame(clientY: number): void {
-		if (!audioVolumeDrag) return;
-		const pointerDeltaY = clientY - audioVolumeDrag.startClientY;
-		if (!audioVolumeDrag.activated && Math.abs(pointerDeltaY) < 4) return;
-		audioVolumeDrag.activated = true;
-		const nextDb = audioVolumeDbFromDrag({
-			startDb: audioVolumeDrag.startDb,
-			pointerDeltaY,
-			height: audioVolumeDrag.rowHeight
-		});
-		timelineStore._updateItems([
-			{ id: audioVolumeDrag.itemId, patch: { volume: dbToLinearGain(nextDb) } }
-		]);
-	}
-
-	function removeAudioVolumeListeners(completed: NonNullable<typeof audioVolumeDrag>): void {
-		window.removeEventListener('pointermove', onAudioVolumePointerMove);
-		window.removeEventListener('pointerup', onAudioVolumePointerUp);
-		window.removeEventListener('pointercancel', onAudioVolumePointerCancel);
-		window.removeEventListener('keydown', onAudioVolumeKeydown);
-		completed.target.removeEventListener('lostpointercapture', onAudioVolumeLostPointerCapture);
-	}
-
-	function finishAudioVolumeDrag(cancelled: boolean): void {
-		if (!audioVolumeDrag) return;
-		const completed = audioVolumeDrag;
-		if (completed.animationFrame !== null) cancelAnimationFrame(completed.animationFrame);
-		if (!cancelled) applyAudioVolumeFrame(completed.latestClientY);
-		audioVolumeDrag = null;
-		removeAudioVolumeListeners(completed);
-		if (completed.target.hasPointerCapture(completed.pointerId)) {
-			completed.target.releasePointerCapture(completed.pointerId);
-		}
-		if (cancelled) {
-			restoreSnapshot(completed.beforeSnapshot);
-			return;
-		}
-		if (!snapshotsEqual(completed.beforeSnapshot, captureSnapshot())) {
-			commandHistory.addUndoEntry({ type: 'ADJUST_CLIP_VOLUME' }, completed.beforeSnapshot);
-			onedit();
-		}
-	}
-
-	function onAudioVolumePointerMove(event: PointerEvent): void {
-		if (!audioVolumeDrag || event.pointerId !== audioVolumeDrag.pointerId) return;
-		audioVolumeDrag.latestClientY = event.clientY;
-		if (audioVolumeDrag.animationFrame !== null) return;
-		audioVolumeDrag.animationFrame = requestAnimationFrame(() => {
-			if (!audioVolumeDrag) return;
-			audioVolumeDrag.animationFrame = null;
-			applyAudioVolumeFrame(audioVolumeDrag.latestClientY);
-		});
-	}
-
-	function onAudioVolumePointerUp(event: PointerEvent): void {
-		if (!audioVolumeDrag || event.pointerId !== audioVolumeDrag.pointerId) return;
-		audioVolumeDrag.latestClientY = event.clientY;
-		finishAudioVolumeDrag(false);
-	}
-
-	function onAudioVolumePointerCancel(event: PointerEvent): void {
-		if (audioVolumeDrag?.pointerId === event.pointerId) finishAudioVolumeDrag(true);
-	}
-
-	function onAudioVolumeLostPointerCapture(event: PointerEvent): void {
-		if (audioVolumeDrag?.pointerId === event.pointerId) finishAudioVolumeDrag(true);
-	}
-
-	function onAudioVolumeKeydown(event: KeyboardEvent): void {
-		if (event.key !== 'Escape' || !audioVolumeDrag) return;
-		event.preventDefault();
-		finishAudioVolumeDrag(true);
-	}
-
-	function startAudioVolumeDrag(
-		event: PointerEvent & { currentTarget: HTMLButtonElement },
-		item: TimelineItem
-	): void {
-		if (
-			event.button !== 0 ||
-			item.type !== 'audio' ||
-			activeEditTool !== null ||
-			isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)
-		)
-			return;
-		event.preventDefault();
-		event.stopPropagation();
-		shuttleScrubResume.cancel();
-		const target = event.currentTarget;
-		const rowHeight = target.parentElement?.getBoundingClientRect().height ?? 56;
-		audioVolumeDrag = {
-			pointerId: event.pointerId,
-			itemId: item.id,
-			startClientY: event.clientY,
-			latestClientY: event.clientY,
-			startDb: audioVolumeDb(item),
-			rowHeight,
-			beforeSnapshot: captureSnapshot(),
-			target,
-			animationFrame: null,
-			activated: false
-		};
-		try {
-			target.setPointerCapture(event.pointerId);
-		} catch {
-			// Synthetic pointer events and older browsers may not own an active capture.
-			// Window listeners still preserve the complete gesture lifecycle.
-		}
-		target.addEventListener('lostpointercapture', onAudioVolumeLostPointerCapture);
-		window.addEventListener('pointermove', onAudioVolumePointerMove);
-		window.addEventListener('pointerup', onAudioVolumePointerUp);
-		window.addEventListener('pointercancel', onAudioVolumePointerCancel);
-		window.addEventListener('keydown', onAudioVolumeKeydown);
-	}
-
-	function setAudioVolumeFromTimeline(item: TimelineItem, nextDb: number): void {
-		const before = captureSnapshot();
-		const nextGain = dbToLinearGain(clampAudioVolumeDb(nextDb));
-		timelineStore._updateItems([{ id: item.id, patch: { volume: nextGain } }]);
-		if (!snapshotsEqual(before, captureSnapshot())) {
-			commandHistory.addUndoEntry({ type: 'ADJUST_CLIP_VOLUME' }, before);
-			onedit();
-		}
-	}
-
-	function adjustAudioVolumeWithKeyboard(event: KeyboardEvent, item: TimelineItem): void {
-		const current = timelineStore.itemById.get(item.id);
-		if (!current || current.type !== 'audio') return;
-		if (event.key === 'Home') {
-			event.preventDefault();
-			setAudioVolumeFromTimeline(current, AUDIO_VOLUME_DB_MIN);
-			return;
-		}
-		if (event.key === 'End') {
-			event.preventDefault();
-			setAudioVolumeFromTimeline(current, AUDIO_VOLUME_DB_MAX);
-			return;
-		}
-		if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-		event.preventDefault();
-		const step = event.shiftKey ? 3 : 0.5;
-		setAudioVolumeFromTimeline(
-			current,
-			audioVolumeDb(current) + (event.key === 'ArrowUp' ? step : -step)
-		);
 	}
 
 	function rateStretchHandle(kind: TimelineDragKind): 'start' | 'end' {
@@ -4649,12 +3884,12 @@
 		clearHoverPreview();
 		editPreviewStore.clear();
 		if (drag) finishDrag(true);
-		if (audioVolumeDrag) finishAudioVolumeDrag(true);
+		audio.finishAudioVolumeDrag(true);
 		if (transitionResize) finishTransitionResize(true);
 		if (marquee) finishMarquee();
 		if (rulerScrub) cancelRulerScrub();
 		if (trackHeightResize) completeTrackHeightResize(true);
-		if (markerDrag) completeMarkerDrag(true);
+		markers.completeMarkerDrag(true);
 		if (audioSkimStopTimer) clearTimeout(audioSkimStopTimer);
 		if (timelineZoomAnimationFrame !== null) cancelAnimationFrame(timelineZoomAnimationFrame);
 		if (timelineViewportAnimationFrame !== null)
@@ -4662,9 +3897,7 @@
 		audioSkimController.dispose();
 		clearEffectDropPreview();
 		clearEffectDragData();
-		for (const unsubscribe of filmstripUnsubscribers.values()) unsubscribe();
-		clearWaveformDemandTimer();
-		clearWaveformSubscriptions();
+		tiles.dispose();
 		timelineItemObserver?.disconnect();
 		timelineItemObserver = null;
 	});
@@ -4797,7 +4030,7 @@
 				transitionResize ||
 				marquee ||
 				trackHeightResize ||
-				markerDrag ||
+				markers.markerDrag ||
 				mediaDropPreview ||
 				effectDropTargetIds.length > 0 ||
 				transitionDropPreview ||
@@ -4895,20 +4128,10 @@
 
 	let pendingKeyframeProperty = $state<KeyframeProperty>('opacity');
 	let keyframeEditorMode = $state<KeyframeEditorMode>('dopesheet');
-	let keyframeShortcutPointerInside = $state(false);
-	let keyframeGraphFitRequest = $state(0);
 	let selectedKeyframe = $state<{
 		property: KeyframeProperty;
 		frame: number;
 	} | null>(null);
-	let customEasingPresets = $state<CustomEasingPreset[]>([]);
-	let selectedCustomPresetName = $state('');
-	let customPresetName = $state('');
-	let presetSelectionKey = '';
-	const BEZIER_KEYS = ['x1', 'y1', 'x2', 'y2'] satisfies Array<'x1' | 'y1' | 'x2' | 'y2'>;
-	const SPRING_KEYS = ['tension', 'friction', 'mass'] satisfies Array<
-		'tension' | 'friction' | 'mass'
-	>;
 
 	const selectedItem = $derived(
 		selectedItemId ? timelineStore.itemById.get(selectedItemId) : undefined
@@ -5198,107 +4421,13 @@
 		{ value: 'graph', label: m.video_editor_keyframe_view_graph() },
 		{ value: 'split', label: m.video_editor_keyframe_view_split() }
 	]);
-	const easingOptions = $derived([
-		{ value: 'linear', label: m.video_editor_keyframe_easing_linear() },
-		{ value: 'hold', label: m.video_editor_keyframe_easing_hold() },
-		{ value: 'ease-in', label: m.video_editor_keyframe_easing_in() },
-		{ value: 'ease-out', label: m.video_editor_keyframe_easing_out() },
-		{ value: 'ease-in-out', label: m.video_editor_keyframe_easing_in_out() },
-		{ value: 'cubic-bezier', label: m.video_editor_keyframe_easing_bezier() },
-		{ value: 'spring', label: m.video_editor_keyframe_easing_spring() }
-	]);
-	function bezierPresetLabel(value: string): string {
-		switch (value) {
-			case 'soft':
-				return m.video_editor_keyframe_bezier_soft();
-			case 'ease-out':
-				return m.video_editor_keyframe_easing_out();
-			case 'ease-in':
-				return m.video_editor_keyframe_easing_in();
-			case 'ease-in-out':
-				return m.video_editor_keyframe_easing_in_out();
-			case 'overshoot':
-				return m.video_editor_keyframe_bezier_overshoot();
-			case 'snap':
-				return m.video_editor_keyframe_bezier_snap();
-			case 'out-cubic':
-				return m.video_editor_keyframe_bezier_out_cubic();
-			case 'out-quart':
-				return m.video_editor_keyframe_bezier_out_quart();
-			case 'out-quint':
-				return m.video_editor_keyframe_bezier_out_quint();
-			case 'out-expo':
-				return m.video_editor_keyframe_bezier_out_expo();
-			case 'out-circ':
-				return m.video_editor_keyframe_bezier_out_circ();
-			case 'in-out-cubic':
-				return m.video_editor_keyframe_bezier_in_out_cubic();
-			case 'in-out-quart':
-				return m.video_editor_keyframe_bezier_in_out_quart();
-			case 'in-out-expo':
-				return m.video_editor_keyframe_bezier_in_out_expo();
-			case 'in-cubic':
-				return m.video_editor_keyframe_bezier_in_cubic();
-			case 'in-quart':
-				return m.video_editor_keyframe_bezier_in_quart();
-			case 'in-expo':
-				return m.video_editor_keyframe_bezier_in_expo();
-			default:
-				return value;
-		}
-	}
-	const bezierOptions = $derived([
-		{ value: '', label: m.video_editor_keyframe_bezier_custom() },
-		...BEZIER_PRESETS.map((preset) => ({
-			value: preset.value,
-			label: bezierPresetLabel(preset.value)
-		}))
-	]);
-	const selectedEditorKeyframes = $derived(
-		selectedItem && selectedKeyframe ? editorKeyframes(selectedItem, selectedKeyframe.property) : []
-	);
-	const selectedKeyframeIndex = $derived(
-		selectedKeyframe
-			? selectedEditorKeyframes.findIndex((keyframe) => keyframe.frame === selectedKeyframe?.frame)
-			: -1
-	);
-	const selectedEditorKeyframe = $derived(selectedEditorKeyframes[selectedKeyframeIndex]);
-	const selectedEasing = $derived(
-		selectedKeyframeIndex >= 0 ? (selectedEditorKeyframe?.easing ?? 'linear') : 'linear'
-	);
-	const selectedEasingConfig = $derived(
-		selectedKeyframeIndex >= 0 ? selectedEditorKeyframe?.easingConfig : undefined
-	);
-	const pendingEditorKeyframes = $derived(
-		selectedItem ? editorKeyframes(selectedItem, pendingKeyframeProperty) : []
-	);
-	const customPresetOptions = $derived([
-		{ value: '', label: m.video_editor_keyframe_custom_presets() },
-		...customEasingPresets
-			.filter((preset) =>
-				selectedEasing === 'spring' ? preset.type === 'Spring' : preset.type === 'Easing'
-			)
-			.map((preset) => ({ value: preset.name, label: preset.name }))
-	]);
-	const suggestedPresetName = $derived(suggestedCustomPresetName(customEasingPresets));
 
 	onMount(() => {
-		customEasingPresets = loadCustomEasingPresets();
 		updateTimelineViewport();
 		if (!scrollContainer) return;
 		const observer = new ResizeObserver(scheduleTimelineViewportUpdate);
 		observer.observe(scrollContainer);
 		return () => observer.disconnect();
-	});
-
-	$effect(() => {
-		const nextKey = selectedKeyframe
-			? `${selectedKeyframe.property}:${selectedKeyframe.frame}`
-			: '';
-		if (nextKey === presetSelectionKey) return;
-		presetSelectionKey = nextKey;
-		selectedCustomPresetName = '';
-		customPresetName = '';
 	});
 
 	function keyframeLabel(property: KeyframeProperty): string {
@@ -5320,220 +4449,6 @@
 		if (clearableKeyframeCount === 0) return;
 		clearKeyframesDialogOpen = true;
 	}
-
-	function addKeyframeAtPlayhead(property: KeyframeProperty): void {
-		const item = selectedItem;
-		if (!item) return;
-		if (
-			timelineStore.currentFrame < item.from ||
-			timelineStore.currentFrame >= item.from + item.durationInFrames
-		)
-			return;
-		const frame = timelineStore.currentFrame - item.from;
-		const resolved = resolvePreExpressionItemAt(item, timelineStore.currentFrame);
-		const transformValue = transformKeyframeValue(resolved, property);
-		const pathValue = isPathVertexKeyframeProperty(property)
-			? pathVertexPropertyValue(resolved.pathVertices, property)
-			: undefined;
-		const value =
-			transformValue ??
-			pathValue ??
-			activeValueAt(item, property, timelineStore.currentFrame) ??
-			effectPropertyBaseValue(item, property) ??
-			(property === 'opacity' || property === 'volume' ? 1 : 0);
-		if (setKeyframe(item.id, property, frame, value)) onedit();
-	}
-
-	function transformKeyframeValue(
-		item: TimelineItem,
-		property: KeyframeProperty
-	): number | undefined {
-		switch (property) {
-			case 'x':
-			case 'y':
-			case 'width':
-			case 'height':
-			case 'scaleX':
-			case 'scaleY':
-			case 'anchorX':
-			case 'anchorY':
-			case 'rotation':
-			case 'opacity':
-			case 'cornerRadius':
-				return item.transform?.[property];
-			default:
-				return undefined;
-		}
-	}
-
-	function commitEasing(easing: EasingType, config?: EasingConfig): void {
-		if (!selectedItem || !selectedKeyframe) return;
-		if (
-			setKeyframeEasing(
-				selectedItem.id,
-				selectedKeyframe.property,
-				selectedKeyframe.frame,
-				easing,
-				config ?? buildEasingConfig(easing, selectedEasingConfig)
-			)
-		)
-			onedit();
-	}
-
-	function commitBezier(key: 'x1' | 'y1' | 'x2' | 'y2', value: number): void {
-		const bezier = {
-			x1: 0.42,
-			y1: 0,
-			x2: 0.58,
-			y2: 1,
-			...selectedEasingConfig?.bezier,
-			[key]: value
-		};
-		commitEasing('cubic-bezier', { type: 'cubic-bezier', bezier });
-	}
-
-	function commitSpring(key: 'tension' | 'friction' | 'mass', value: number): void {
-		const spring = {
-			tension: 170,
-			friction: 26,
-			mass: 1,
-			...selectedEasingConfig?.spring,
-			[key]: value
-		};
-		commitEasing('spring', { type: 'spring', spring });
-	}
-
-	function easingFromValue(value: string): EasingType {
-		switch (value) {
-			case 'hold':
-			case 'ease-in':
-			case 'ease-out':
-			case 'ease-in-out':
-			case 'cubic-bezier':
-			case 'spring':
-				return value;
-			default:
-				return 'linear';
-		}
-	}
-
-	function setPendingKeyframeProperty(value: string): void {
-		const property = availableKeyframeProperties.find((candidate) => candidate === value);
-		if (property) pendingKeyframeProperty = property;
-	}
-
-	function setKeyframeEditorMode(value: string): void {
-		if (value === 'graph' || value === 'dopesheet' || value === 'split') {
-			keyframeEditorMode = value;
-		}
-	}
-
-	function fitKeyframeDopesheet(): void {
-		if (!scrollContainer || !selectedItem) return;
-		const frames = pendingEditorKeyframes.map((keyframe) => selectedItem.from + keyframe.frame);
-		const first = frames.length > 0 ? Math.min(...frames) : selectedItem.from;
-		const last =
-			frames.length > 0
-				? Math.max(...frames)
-				: selectedItem.from + selectedItem.durationInFrames - 1;
-		const span = Math.max(fps, last - first + 1);
-		const center = (first + last) / 2;
-		const start = Math.max(0, center - span / 2);
-		const availableWidth = Math.max(1, scrollContainer.clientWidth - TRACK_HEADER_WIDTH - 50);
-		const level = clampTimelineZoom(availableWidth / (span * timelinePixelsPerFrame(1)));
-		const targetScrollLeft = Math.max(
-			0,
-			TRACK_HEADER_WIDTH + start * timelinePixelsPerFrame(level) - 24
-		);
-		timelineStore._setZoomLevel(level);
-		queueMicrotask(() => {
-			if (scrollContainer) scrollContainer.scrollLeft = targetScrollLeft;
-		});
-	}
-
-	function fitActiveKeyframeView(): void {
-		if (keyframeEditorMode !== 'graph') fitKeyframeDopesheet();
-		if (keyframeEditorMode !== 'dopesheet') keyframeGraphFitRequest += 1;
-	}
-
-	function handleKeyframeEditorShortcut(
-		event: KeyboardEvent,
-		matches: (...ids: EditorShortcutId[]) => boolean
-	): boolean {
-		if (
-			!keyframesOpen ||
-			!selectedItem ||
-			!keyframeShortcutScopeActive(event.target, keyframeShortcutPointerInside)
-		)
-			return false;
-		let handled = true;
-		if (matches('KEYFRAME_EDITOR_GRAPH')) keyframeEditorMode = 'graph';
-		else if (matches('KEYFRAME_EDITOR_DOPESHEET')) keyframeEditorMode = 'dopesheet';
-		else if (matches('KEYFRAME_EDITOR_SPLIT')) keyframeEditorMode = 'split';
-		else if (matches('EDIT_KEYFRAME_ADD')) addKeyframeAtPlayhead(pendingKeyframeProperty);
-		else if (matches('KEYFRAME_PREVIOUS', 'KEYFRAME_NEXT')) {
-			const keyframe = adjacentKeyframe(
-				pendingEditorKeyframes,
-				timelineStore.currentFrame - selectedItem.from,
-				matches('KEYFRAME_PREVIOUS') ? 'previous' : 'next'
-			);
-			if (keyframe) {
-				selectedKeyframe = { property: keyframe.property, frame: keyframe.frame };
-				setCurrentFrame(selectedItem.from + keyframe.frame);
-			}
-		} else if (matches('KEYFRAME_TOGGLE_AUTO')) {
-			const enabled = autoKeyframeStore.toggle(selectedItem.id, pendingKeyframeProperty);
-			emitEditorSound(enabled ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
-		} else if (matches('KEYFRAME_FIT')) fitActiveKeyframeView();
-		else handled = false;
-		if (handled) event.preventDefault();
-		return handled;
-	}
-
-	function applyBezierPreset(value: string): void {
-		const preset = BEZIER_PRESETS.find((candidate) => candidate.value === value);
-		if (preset)
-			commitEasing('cubic-bezier', {
-				type: 'cubic-bezier',
-				bezier: preset.points
-			});
-	}
-
-	function applyCustomPreset(value: string): void {
-		const preset = customEasingPresets.find((candidate) => candidate.name === value);
-		if (!preset) return;
-		const config = easingConfigFromPreset(preset);
-		selectedCustomPresetName = preset.name;
-		customPresetName = preset.name;
-		commitEasing(config.type, config);
-	}
-
-	function saveCustomPreset(): void {
-		const preset = presetFromEasing(customPresetName, selectedEasingConfig);
-		if (!preset) return;
-		customEasingPresets = upsertCustomEasingPreset(customEasingPresets, preset);
-		saveCustomEasingPresets(customEasingPresets);
-		selectedCustomPresetName = preset.name;
-		customPresetName = preset.name;
-	}
-
-	function deleteCustomPreset(): void {
-		if (!selectedCustomPresetName) return;
-		customEasingPresets = customEasingPresets.filter(
-			(preset) => preset.name !== selectedCustomPresetName
-		);
-		saveCustomEasingPresets(customEasingPresets);
-		selectedCustomPresetName = '';
-		customPresetName = '';
-	}
-
-	function bezierValue(key: 'x1' | 'y1' | 'x2' | 'y2'): number {
-		return selectedEasingConfig?.bezier?.[key] ?? { x1: 0.42, y1: 0, x2: 0.58, y2: 1 }[key];
-	}
-
-	function springValue(key: 'tension' | 'friction' | 'mass'): number {
-		return selectedEasingConfig?.spring?.[key] ?? { tension: 170, friction: 26, mass: 1 }[key];
-	}
 </script>
 
 <svelte:window onkeydown={onPanelKeydown} />
@@ -5548,11 +4463,11 @@
 				class="size-7 rounded"
 				aria-label={m.video_editor_add_marker()}
 				title={`${m.video_editor_add_marker()} (M)`}
-				onclick={addMarkerAtPlayhead}
+				onclick={() => markers.addMarkerAtPlayhead()}
 			>
 				<ProtectedIcon icon="editor-marker" class="size-3.5" />
 			</Button>
-			<MarkerListPopover {onedit} onselect={selectMarker} />
+			<MarkerListPopover {onedit} onselect={(marker) => markers.selectMarker(marker)} />
 			<Button
 				variant="ghost"
 				size="icon"
@@ -5710,12 +4625,12 @@
 						value={pendingKeyframeProperty}
 						options={keyframePropertyOptions}
 						ariaLabel={m.video_editor_keyframe_property()}
-						onValueChange={setPendingKeyframeProperty}
+						onValueChange={(value) => keyframesPanel?.setPendingKeyframeProperty(value)}
 					/>
 					<button
 						type="button"
 						class="flex items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
-						onclick={() => addKeyframeAtPlayhead(pendingKeyframeProperty)}
+						onclick={() => keyframesPanel?.addKeyframeAtPlayhead(pendingKeyframeProperty)}
 						><ProtectedIcon icon="editor-keyframe" class="size-2.5 fill-current" />
 						{m.video_editor_keyframe_add()}</button
 					>
@@ -5750,7 +4665,7 @@
 						value={keyframeEditorMode}
 						options={keyframeViewOptions}
 						ariaLabel={m.video_editor_keyframe_view()}
-						onValueChange={setKeyframeEditorMode}
+						onValueChange={(value) => keyframesPanel?.setKeyframeEditorMode(value)}
 					/>
 				{/if}
 			{/if}
@@ -5883,19 +4798,22 @@
 				<ProtectedIcon icon="editor-marker" class="size-3.5" />
 			</span>
 			<span class="shrink-0 font-medium text-[var(--video-editor-text)]"
-				>{markerName(selectedMarker)}</span
+				>{markers.markerName(selectedMarker)}</span
 			>
 			<label class="flex items-center gap-1 text-[var(--video-editor-muted)]">
 				{m.video_editor_marker_label()}
 				<Input
 					class="h-7 w-44 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
-					value={markerLabelDraft}
-					oninput={(event) => (markerLabelDraft = event.currentTarget.value)}
-					onblur={() => commitMarkerPatch(selectedMarker, { label: markerLabelDraft.trim() })}
+					value={markers.markerLabelDraft}
+					oninput={(event) => (markers.markerLabelDraft = event.currentTarget.value)}
+					onblur={() =>
+						markers.commitMarkerPatch(selectedMarker, {
+							label: markers.markerLabelDraft.trim()
+						})}
 					onkeydown={(event) => {
 						if (event.key === 'Enter') event.currentTarget.blur();
 						if (event.key === 'Escape') {
-							markerLabelDraft = selectedMarker.label ?? '';
+							markers.markerLabelDraft = selectedMarker.label ?? '';
 							event.currentTarget.blur();
 						}
 					}}
@@ -5913,7 +4831,7 @@
 					onchange={(event) => {
 						const frame = Number(event.currentTarget.value);
 						if (Number.isFinite(frame)) {
-							commitMarkerPatch(selectedMarker, {
+							markers.commitMarkerPatch(selectedMarker, {
 								frame: Math.max(0, Math.round(frame))
 							});
 						}
@@ -5944,11 +4862,11 @@
 					<div class="flex items-center gap-2 px-1 pb-2 text-xs text-[var(--video-editor-muted)]">
 						<ColorPicker
 							label={m.video_editor_marker_color()}
-							value={markerColorForInput(selectedMarker.color)}
+							value={markers.markerColorForInput(selectedMarker.color)}
 							variant="swatch"
 							live={false}
 							onChange={(value) =>
-								commitMarkerPatch(selectedMarker, {
+								markers.commitMarkerPatch(selectedMarker, {
 									color: value
 								})}
 						/>
@@ -5965,7 +4883,7 @@
 								class="grid size-6 place-items-center rounded focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:size-11"
 								aria-label={m.video_editor_marker_color_choice({ number: index + 1 })}
 								aria-pressed={selectedMarker.color.toLowerCase() === color.toLowerCase()}
-								onclick={() => commitMarkerPatch(selectedMarker, { color })}
+								onclick={() => markers.commitMarkerPatch(selectedMarker, { color })}
 							>
 								<span
 									class="size-4 rounded-full border border-black/30 {selectedMarker.color.toLowerCase() ===
@@ -5983,7 +4901,8 @@
 						size="sm"
 						class="mt-2 h-7 w-full justify-center text-xs"
 						disabled={selectedMarker.color.toLowerCase() === DEFAULT_MARKER_COLOR}
-						onclick={() => commitMarkerPatch(selectedMarker, { color: DEFAULT_MARKER_COLOR })}
+						onclick={() =>
+							markers.commitMarkerPatch(selectedMarker, { color: DEFAULT_MARKER_COLOR })}
 					>
 						{m.video_editor_marker_reset_color()}
 					</Button>
@@ -5995,7 +4914,7 @@
 				class="ml-auto size-7 rounded text-red-300 hover:bg-red-500/15 hover:text-red-200"
 				aria-label={m.video_editor_delete_marker()}
 				title={`${m.video_editor_delete_marker()} (Shift+M)`}
-				onclick={() => deleteTimelineMarker(selectedMarker.id)}
+				onclick={() => markers.deleteTimelineMarker(selectedMarker.id)}
 			>
 				<ThemeIcon role="delete" class="size-3.5" />
 			</Button>
@@ -6106,17 +5025,17 @@
 									type="button"
 									class="pointer-events-auto absolute top-0 flex h-6 w-5 -translate-x-1/2 cursor-grab items-start justify-center pt-0.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white active:cursor-grabbing [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
 									style="left:{timelineX(marker.frame)}px"
-									aria-label={`${markerName(marker)}, ${m.video_editor_marker_frame_value({ frame: marker.frame })}`}
+									aria-label={`${markers.markerName(marker)}, ${m.video_editor_marker_frame_value({ frame: marker.frame })}`}
 									aria-pressed={timelineStore.selectedMarkerId === marker.id}
-									title={`${markerName(marker)} · ${m.video_editor_marker_frame_value({ frame: marker.frame })} · ${m.video_editor_marker_keyboard()}`}
+									title={`${markers.markerName(marker)} · ${m.video_editor_marker_frame_value({ frame: marker.frame })} · ${m.video_editor_marker_keyboard()}`}
 									data-timeline-marker={marker.id}
 									data-marquee-ignore
-									onpointerdown={(event) => startMarkerDrag(event, marker)}
+									onpointerdown={(event) => markers.startMarkerDrag(event, marker)}
 									ondblclick={(event) => {
 										event.stopPropagation();
-										deleteTimelineMarker(marker.id);
+										markers.deleteTimelineMarker(marker.id);
 									}}
-									onkeydown={(event) => onMarkerKeydown(event, marker)}
+									onkeydown={(event) => markers.onMarkerKeydown(event, marker)}
 								>
 									<span
 										class="block h-0 w-0 border-r-[6px] border-l-[6px] border-r-transparent border-l-transparent drop-shadow-sm {timelineStore.selectedMarkerId ===
@@ -6492,7 +5411,7 @@
 														: startDrag(event, item.id, activeEditTool ?? 'move')}
 											>
 												{#if editorSettings.showFilmstrips && item.type === 'video'}
-													{@const filmstripTiles = filmstripTilesFor(displayItem)}
+													{@const filmstripTiles = tiles.filmstripTilesFor(displayItem)}
 													{#if filmstripTiles}
 														<div
 															class="pointer-events-none absolute inset-x-0 bottom-0 h-8 overflow-hidden"
@@ -6500,7 +5419,7 @@
 														>
 															{#each filmstripTiles as tile (tile.slot)}
 																<FilmstripTile
-																	bitmap={filmstripBitmapFor(item.mediaId, tile.index)}
+																	bitmap={tiles.filmstripBitmapFor(item.mediaId, tile.index)}
 																	url={tile.url}
 																	style="left:{tile.x}px;width:{tile.width}px"
 																/>
@@ -6509,7 +5428,7 @@
 													{/if}
 												{/if}
 												{#if editorSettings.showFilmstrips && item.type === 'image' && item.mediaId && isAnimatedImageMedia(mediaPool.get(item.mediaId))}
-													{@const animationTiles = animatedImageTilesFor(displayItem)}
+													{@const animationTiles = tiles.animatedImageTilesFor(displayItem)}
 													{#if animationTiles}
 														<div
 															class="pointer-events-none absolute inset-x-0 bottom-0 h-8 overflow-hidden"
@@ -6517,7 +5436,7 @@
 														>
 															{#each animationTiles as tile (tile.slot)}
 																<FilmstripTile
-																	bitmap={animatedImageBitmapFor(item.mediaId, tile.index)}
+																	bitmap={tiles.animatedImageBitmapFor(item.mediaId, tile.index)}
 																	url={null}
 																	style="left:{tile.x}px;width:{tile.width}px"
 																/>
@@ -6526,13 +5445,13 @@
 													{/if}
 												{/if}
 												{#if editorSettings.showWaveforms}
-													{@const waveform = timelineWaveform(displayItem)}
+													{@const waveform = tiles.timelineWaveform(displayItem)}
 													{#if waveform}
 														<svg
 															class="pointer-events-none absolute bottom-0 h-10 origin-center"
 															style="left:{waveform.leftPx}px;width:{waveform.widthPx}px;transform:scaleY({displayItem.type ===
 															'audio'
-																? audioVolumeWaveformScale(audioVolumeDb(displayItem))
+																? audioVolumeWaveformScale(audio.audioVolumeDb(displayItem))
 																: 1})"
 															viewBox="0 0 {waveform.widthPx} {TIMELINE_WAVEFORM_HEIGHT}"
 															preserveAspectRatio="none"
@@ -6577,7 +5496,7 @@
 												{onedit}
 											/>
 											{#if displayItem.type === 'audio' && selectedItemIds.includes(item.id) && activeEditTool === null}
-												{@const volumeDb = audioVolumeDb(displayItem)}
+												{@const volumeDb = audio.audioVolumeDb(displayItem)}
 												<button
 													type="button"
 													role="slider"
@@ -6588,18 +5507,18 @@
 													aria-valuemax={AUDIO_VOLUME_DB_MAX}
 													aria-valuenow={volumeDb}
 													aria-valuetext={formatAudioVolumeDb(volumeDb)}
-													onpointerdown={(event) => startAudioVolumeDrag(event, item)}
-													onkeydown={(event) => adjustAudioVolumeWithKeyboard(event, item)}
+													onpointerdown={(event) => audio.startAudioVolumeDrag(event, item)}
+													onkeydown={(event) => audio.adjustAudioVolumeWithKeyboard(event, item)}
 													ondblclick={(event) => {
 														event.preventDefault();
 														event.stopPropagation();
-														setAudioVolumeFromTimeline(item, 0);
+														audio.setAudioVolumeFromTimeline(item, 0);
 													}}
 												>
 													<span
 														class="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/75 shadow-[0_0_0_1px_rgb(0_0_0_/_0.25)]"
 													></span>
-													{#if audioVolumeDrag?.itemId === item.id}
+													{#if audio.audioVolumeDrag?.itemId === item.id}
 														<span
 															class="pointer-events-none absolute right-1 bottom-full mb-1 rounded bg-black/90 px-1.5 py-0.5 font-mono text-xs text-white shadow-lg"
 															data-audio-volume-readout
@@ -6757,140 +5676,23 @@
 
 						<!-- Keyframe dopesheet for the selected clip -->
 						{#if selectedItem && keyframesOpen}
-							<div
-								class="relative bg-[var(--timeline-track)]"
-								role="group"
-								aria-label={m.video_editor_keyframe_view()}
-								data-keyframe-shortcuts
-								onpointerenter={() => (keyframeShortcutPointerInside = true)}
-								onpointerleave={() => (keyframeShortcutPointerInside = false)}
-							>
-								{#if keyframeEditorMode !== 'graph'}
-									<KeyframeDopesheet
-										item={selectedItem}
-										availableProperties={availableKeyframeProperties}
-										currentFrame={timelineStore.currentFrame}
-										pixelsPerFrame={pxPerFrame}
-										{timelineWidth}
-										{timelineX}
-										onscrub={setCurrentFrame}
-										onselect={(keyframe) =>
-											(selectedKeyframe = keyframe
-												? { property: keyframe.property, frame: keyframe.frame }
-												: null)}
-										onactiveproperty={(property) => (pendingKeyframeProperty = property)}
-										{onedit}
-									/>
-								{/if}
-								<PropertyRuntimePanel
-									item={selectedItem}
-									items={timelineStore.items}
-									availableProperties={availableKeyframeProperties}
-									currentFrame={timelineStore.currentFrame}
-									fps={timelineStore.fps}
-									{onedit}
-								/>
-								{#if selectedKeyframe && selectedKeyframeIndex >= 0}
-									<div
-										class="flex min-h-10 flex-wrap items-center gap-2 border-t border-[var(--video-editor-border)] px-2 py-1 text-xs"
-									>
-										<span class="font-medium capitalize"
-											>{keyframeLabel(selectedKeyframe.property)}</span
-										>
-										<label class="flex items-center gap-1">
-											{m.video_editor_keyframe_easing()}
-											<AppSelect
-												class="h-7 w-28 text-xs"
-												value={selectedEasing}
-												options={easingOptions}
-												onValueChange={(value) => commitEasing(easingFromValue(value))}
-											/>
-										</label>
-										{#if selectedEasing === 'cubic-bezier'}
-											<AppSelect
-												class="h-7 w-32 text-xs"
-												value=""
-												options={bezierOptions}
-												ariaLabel={m.video_editor_keyframe_bezier_preset()}
-												onValueChange={applyBezierPreset}
-											/>
-											{#each BEZIER_KEYS as key (key)}<label
-													>{key}<Input
-														class="ml-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
-														type="number"
-														step="0.01"
-														min={key === 'x1' || key === 'x2' ? 0 : -2}
-														max={key === 'x1' || key === 'x2' ? 1 : 3}
-														value={bezierValue(key)}
-														onchange={(event) =>
-															commitBezier(key, event.currentTarget.valueAsNumber)}
-													/></label
-												>{/each}
-										{:else if selectedEasing === 'spring'}
-											{#each SPRING_KEYS as key (key)}<label
-													>{key}<Input
-														class="ml-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
-														type="number"
-														step={key === 'tension' || key === 'friction' ? 1 : 0.1}
-														min={key === 'tension' || key === 'friction' ? 1 : 0.1}
-														max={key === 'tension' ? 1000 : key === 'friction' ? 100 : 10}
-														value={springValue(key)}
-														onchange={(event) =>
-															commitSpring(key, event.currentTarget.valueAsNumber)}
-													/></label
-												>{/each}
-										{/if}
-										{#if selectedEasing === 'cubic-bezier' || selectedEasing === 'spring'}
-											<div
-												class="flex items-center gap-1 border-l border-[var(--video-editor-border)] pl-2"
-											>
-												<AppSelect
-													class="h-7 w-32 text-xs"
-													value={selectedCustomPresetName}
-													options={customPresetOptions}
-													ariaLabel={m.video_editor_keyframe_custom_presets()}
-													onValueChange={applyCustomPreset}
-												/>
-												<Input
-													class="h-7 w-28 rounded bg-[var(--video-editor-field)] px-1 text-[var(--video-editor-field-text)]"
-													value={customPresetName}
-													placeholder={suggestedPresetName}
-													aria-label={m.video_editor_keyframe_preset_name()}
-													oninput={(event) => (customPresetName = event.currentTarget.value)}
-												/>
-												<button
-													type="button"
-													class="h-7 rounded border border-[var(--video-editor-border)] px-2 font-medium hover:bg-[var(--video-editor-control-hover)] disabled:opacity-35 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
-													disabled={!customPresetName.trim()}
-													onclick={saveCustomPreset}>{m.video_editor_keyframe_preset_save()}</button
-												>
-												{#if selectedCustomPresetName}
-													<button
-														type="button"
-														class="h-7 rounded px-2 text-[oklch(0.72_0.1_28)] hover:bg-[oklch(0.3_0.08_28_/_0.22)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
-														onclick={deleteCustomPreset}
-														>{m.video_editor_keyframe_preset_delete()}</button
-													>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								{/if}
-								{#if keyframeEditorMode !== 'dopesheet'}
-									<KeyframeValueGraph
-										item={selectedItem}
-										property={pendingKeyframeProperty}
-										currentFrame={timelineStore.currentFrame}
-										onscrub={setCurrentFrame}
-										onselect={(keyframe) =>
-											(selectedKeyframe = keyframe
-												? { property: keyframe.property, frame: keyframe.frame }
-												: null)}
-										{onedit}
-										fitRequest={keyframeGraphFitRequest}
-									/>
-								{/if}
-							</div>
+							<TimelineKeyframesPanel
+								bind:this={keyframesPanel}
+								{selectedItem}
+								{keyframesOpen}
+								bind:selectedKeyframe
+								bind:keyframeEditorMode
+								bind:pendingKeyframeProperty
+								{availableKeyframeProperties}
+								{keyframeLabel}
+								{pxPerFrame}
+								{timelineWidth}
+								{timelineX}
+								{scrollContainer}
+								trackHeaderWidth={TRACK_HEADER_WIDTH}
+								{setCurrentFrame}
+								{onedit}
+							/>
 						{/if}
 
 						{#if activeSnapTarget}
@@ -7208,8 +6010,8 @@
 					>
 				</ContextMenu.Item>
 			{:else if contextMarker}
-				<ContextMenu.Item onclick={() => selectMarker(contextMarker)}>
-					{markerName(contextMarker)} · {m.video_editor_marker_frame_value({
+				<ContextMenu.Item onclick={() => markers.selectMarker(contextMarker)}>
+					{markers.markerName(contextMarker)} · {m.video_editor_marker_frame_value({
 						frame: contextMarker.frame
 					})}
 				</ContextMenu.Item>
@@ -7217,7 +6019,7 @@
 					<ContextMenu.SubTrigger>{m.video_editor_marker_color()}</ContextMenu.SubTrigger>
 					<ContextMenu.SubContent class="video-editor-theme w-44">
 						{#each MARKER_PRESET_COLORS as color, index (color)}
-							<ContextMenu.Item onclick={() => commitMarkerPatch(contextMarker, { color })}>
+							<ContextMenu.Item onclick={() => markers.commitMarkerPatch(contextMarker, { color })}>
 								<span
 									class="size-3 rounded-full border border-black/30"
 									style={`background:${color}`}
@@ -7228,7 +6030,8 @@
 						<ContextMenu.Separator />
 						<ContextMenu.Item
 							disabled={contextMarker.color.toLowerCase() === DEFAULT_MARKER_COLOR}
-							onclick={() => commitMarkerPatch(contextMarker, { color: DEFAULT_MARKER_COLOR })}
+							onclick={() =>
+								markers.commitMarkerPatch(contextMarker, { color: DEFAULT_MARKER_COLOR })}
 						>
 							{m.video_editor_marker_reset_color()}
 						</ContextMenu.Item>
@@ -7237,7 +6040,7 @@
 				<ContextMenu.Separator />
 				<ContextMenu.Item
 					variant="destructive"
-					onclick={() => deleteTimelineMarker(contextMarker.id)}
+					onclick={() => markers.deleteTimelineMarker(contextMarker.id)}
 				>
 					{m.video_editor_delete_marker()}
 				</ContextMenu.Item>

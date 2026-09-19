@@ -248,10 +248,6 @@ export class BeatAnalyzer {
 	static mapBeatToFrame(timeSeconds: number, fps: number): number {
 		return Math.max(0, Math.round(timeSeconds * fps));
 	}
-
-	static beatColor(isDownbeat: boolean): string {
-		return isDownbeat ? DOWNBEAT_MARKER_COLOR : BEAT_MARKER_COLOR;
-	}
 }
 
 export function createBeatAnalyzer(config?: Partial<BeatDetectionConfig>): BeatAnalyzer {

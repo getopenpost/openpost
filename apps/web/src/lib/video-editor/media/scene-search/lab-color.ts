@@ -66,18 +66,6 @@ export function rgbToLab(r: number, g: number, b: number): LabColor {
 }
 
 /**
- * Simple Euclidean distance in Lab (∆E 76). Cheap, approximate -
- * values below ~2 are visually indistinguishable, 2–10 is a subtle
- * change, 10+ is obviously different.
- */
-export function deltaE76(a: LabColor, b: LabColor): number {
-	const dL = a.l - b.l;
-	const dA = a.a - b.a;
-	const dB = a.b - b.b;
-	return Math.sqrt(dL * dL + dA * dA + dB * dB);
-}
-
-/**
  * CIEDE 2000 - industry-standard perceptual distance. Corrects for
  * known issues with ∆E 76 (hue non-linearity, blue/purple cluster
  * distortion). More expensive but still cheap enough to run per

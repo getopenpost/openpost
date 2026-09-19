@@ -164,9 +164,3 @@ export async function updateMediaTagItems(
 	});
 	return data.count;
 }
-
-export function toggleMediaTagSelection(selectedIds: string[], tagId: string): string[] {
-	return selectedIds.includes(tagId)
-		? selectedIds.filter((id) => id !== tagId)
-		: [...selectedIds, tagId];
-}

@@ -15,15 +15,10 @@ import {
 import { queryActorScopeIsCurrent, type WorkspaceQueryScope } from "./query-session";
 
 export {
-  capturePublicationDetailRequestContext,
   capturePublicationListCacheContext,
-  reconcilePublicationDetailResponse,
   requirePublicationWorkspace,
 } from "@openpost/query-catalog";
-export type {
-  PublicationDetailRequestContext,
-  PublicationListCacheContext,
-} from "@openpost/query-catalog";
+export type { PublicationListCacheContext } from "@openpost/query-catalog";
 
 export type Publication = components["schemas"]["PublicationResponse"];
 

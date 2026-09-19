@@ -61,12 +61,6 @@ export function api(): Api {
   return rebuild();
 }
 
-export function apiUrl(path: string): string {
-  const server = getServer();
-  if (!server) throw new Error("No server configured");
-  return `${server.baseUrl}${path}`;
-}
-
 export function captureApiRequestIdentity(): ApiRequestIdentity {
   return {
     serverBaseUrl: getServer()?.baseUrl ?? "",

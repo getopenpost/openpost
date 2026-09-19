@@ -12,6 +12,7 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { OpenPostFabricAdapter, type ImageEditorPixelGrid } from '../fabric-adapter';
 	import { useImageEditor } from '../editor.svelte';
+	import CanvasLayerPicker from './canvas-layer-picker.svelte';
 	import PaintColorControls from './paint-color-controls.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { startImageEditorMetric } from '../telemetry';
@@ -40,13 +41,7 @@
 	} from '../media-drag';
 	import { imageEditorDocumentPoint, panForZoomAnchor } from '../viewport';
 	import { ImageEditorMagicScan, MAXIMUM_MAGIC_SCAN_PIXELS } from '../magic-scan';
-	import {
-		applyImageEditorCropWindow,
-		imageEditorCropWindowForAspect,
-		normalizeImageEditorCropWindow,
-		resetImageEditorCrop,
-		type ImageEditorCropWindow
-	} from '../crop';
+	import { ImageEditorCropSession, type CropHandle } from '../crop-session.svelte';
 	import type { ImageEditorLayer } from '../types';
 
 	let {
@@ -149,6 +144,15 @@
 		value: number;
 	} | null>(null);
 	let canvasAnnouncement = $state('');
+	const crop = new ImageEditorCropSession({
+		editor,
+		adapter: () => adapter,
+		documentPoint,
+		capturePointer,
+		announce: (message) => {
+			canvasAnnouncement = message;
+		}
+	});
 	let selectionOverlay = $state<HTMLCanvasElement>();
 	let magicPulseTimer: ReturnType<typeof setTimeout> | undefined;
 	let eyedropperFrame: number | undefined;
@@ -156,13 +160,15 @@
 	let eyedropperPointerID = -1;
 	let stylusPointerID = -1;
 	let mediaDropActive = $state(false);
-	let layerPicker = $state.raw<{ point: SelectionPoint; layerIDs: string[] } | null>(null);
-	let layerCycleGesture = $state.raw<{
-		pointerID: number;
-		clientX: number;
-		clientY: number;
-		layerIDs: string[];
-	} | null>(null);
+	let layerPickerRef:
+		| {
+				open: (event: MouseEvent) => void;
+				cycleStart: (event: PointerEvent) => void;
+				cycleFinish: (event: PointerEvent) => void;
+				cycleCancel: () => void;
+				dismiss: () => boolean;
+		  }
+		| undefined = $state();
 	let magicScanBusy = $state(false);
 	let magicScanProgress = $state(0);
 	let magicScanError = $state('');
@@ -176,34 +182,10 @@
 		handle: FloatingTransformHandle;
 		point: SelectionPoint;
 	} | null>(null);
-	const FULL_CROP_WINDOW: ImageEditorCropWindow = { x: 0, y: 0, width: 1, height: 1 };
-	let cropWindow = $state.raw<ImageEditorCropWindow>({ ...FULL_CROP_WINDOW });
-	let cropSourceWindow = $state.raw<ImageEditorCropWindow>({ ...FULL_CROP_WINDOW });
-	let cropAspect = $state('free');
-	let cropMode = $state<'frame' | 'content'>('frame');
-	let cropRotationDelta = $state(0);
-	let cropFlipX = $state(false);
-	let cropFlipY = $state(false);
-	let cropBaseLayer = $state.raw<ImageEditorLayer | null>(null);
-	let cropGesture = $state.raw<{
-		pointerID: number;
-		handle: CropHandle;
-		start: SelectionPoint;
-		origin: ImageEditorCropWindow;
-		sourceOrigin: ImageEditorCropWindow;
-	} | null>(null);
 	let mediaDragDepth = 0;
 	let panStart = { x: 0, y: 0, panX: 0, panY: 0 };
 	const touchPointers = new SvelteMap<number, { x: number; y: number }>();
 	let pinchStart = { distance: 0, zoom: 1, centerX: 0, centerY: 0, panX: 0, panY: 0 };
-	type CropHandle = 'move' | 'content' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
-
-	let cropLayer = $derived(
-		editor.activeTool === 'crop'
-			? (editor.selectedLayers.find((layer) => layer.type === 'image' && !layer.locked) ?? null)
-			: null
-	);
-	let cropPreviewLayer = $derived.by(() => createCropPreviewLayer());
 
 	function attachCanvas(node: HTMLCanvasElement) {
 		canvasElement = node;
@@ -379,11 +361,11 @@
 	});
 
 	$effect(() => {
-		const sessionID = cropBaseLayer?.id;
-		const activeID = cropLayer?.id;
+		const sessionID = crop.baseLayer?.id;
+		const activeID = crop.layer?.id;
 		if (!sessionID || (editor.activeTool === 'crop' && activeID === sessionID)) return;
 		adapter?.previewImageLayer(sessionID);
-		resetCropSessionState();
+		crop.resetSession();
 	});
 
 	$effect(() => {
@@ -751,395 +733,6 @@
 		return () => registerPixelSelectionActions?.(null);
 	});
 
-	function cropSessionLayer(): ImageEditorLayer | null {
-		if (!cropLayer?.image) return null;
-		return cropBaseLayer?.id === cropLayer.id ? cropBaseLayer : cropLayer;
-	}
-
-	function ensureCropSession(): ImageEditorLayer | null {
-		if (!cropLayer?.image) return null;
-		if (cropBaseLayer?.id === cropLayer.id) return cropBaseLayer;
-		if (cropBaseLayer) adapter?.previewImageLayer(cropBaseLayer.id);
-		resetCropSessionState();
-		cropBaseLayer = structuredClone(cropLayer);
-		return cropBaseLayer;
-	}
-
-	function normalizeRotation(rotation: number): number {
-		const normalized = ((((rotation + 180) % 360) + 360) % 360) - 180;
-		return Object.is(normalized, -0) ? 0 : normalized;
-	}
-
-	function createCropPreviewLayer(): ImageEditorLayer | null {
-		const base = cropSessionLayer();
-		if (!base?.image) return null;
-		const result = applyImageEditorCropWindow(base, cropWindow, cropSourceWindow);
-		return {
-			...structuredClone(base),
-			transform: {
-				...result.transform,
-				rotation: normalizeRotation(base.transform.rotation + cropRotationDelta),
-				flip_x: base.transform.flip_x !== cropFlipX,
-				flip_y: base.transform.flip_y !== cropFlipY
-			},
-			image: { ...structuredClone(base.image), crop: result.crop }
-		};
-	}
-
-	function previewCrop(): void {
-		const preview = createCropPreviewLayer();
-		if (preview) adapter?.previewImageLayer(preview.id, preview);
-	}
-
-	function resetCropSessionState(): void {
-		cropGesture = null;
-		cropWindow = { ...FULL_CROP_WINDOW };
-		cropSourceWindow = { ...FULL_CROP_WINDOW };
-		cropAspect = 'free';
-		cropMode = 'frame';
-		cropRotationDelta = 0;
-		cropFlipX = false;
-		cropFlipY = false;
-		cropBaseLayer = null;
-	}
-
-	function cropPointDelta(start: SelectionPoint, current: SelectionPoint): SelectionPoint {
-		const base = cropSessionLayer();
-		const preview = createCropPreviewLayer();
-		if (!base || !preview) return { x: 0, y: 0 };
-		const deltaX = current.x - start.x;
-		const deltaY = current.y - start.y;
-		const radians = (-preview.transform.rotation * Math.PI) / 180;
-		return {
-			x:
-				(deltaX * Math.cos(radians) - deltaY * Math.sin(radians)) /
-				Math.max(1, base.transform.width),
-			y:
-				(deltaX * Math.sin(radians) + deltaY * Math.cos(radians)) /
-				Math.max(1, base.transform.height)
-		};
-	}
-
-	function updateCropWindow(
-		origin: ImageEditorCropWindow,
-		handle: CropHandle,
-		delta: SelectionPoint
-	): ImageEditorCropWindow {
-		if (handle === 'move') {
-			return {
-				...origin,
-				x: Math.max(0, Math.min(1 - origin.width, origin.x + delta.x)),
-				y: Math.max(0, Math.min(1 - origin.height, origin.y + delta.y))
-			};
-		}
-		let left = origin.x;
-		let top = origin.y;
-		let right = origin.x + origin.width;
-		let bottom = origin.y + origin.height;
-		if (handle.includes('w')) left += delta.x;
-		if (handle.includes('e')) right += delta.x;
-		if (handle.includes('n')) top += delta.y;
-		if (handle.includes('s')) bottom += delta.y;
-		const minimum = 0.005;
-		left = Math.max(0, Math.min(right - minimum, left));
-		top = Math.max(0, Math.min(bottom - minimum, top));
-		right = Math.min(1, Math.max(left + minimum, right));
-		bottom = Math.min(1, Math.max(top + minimum, bottom));
-		return normalizeImageEditorCropWindow({
-			x: left,
-			y: top,
-			width: right - left,
-			height: bottom - top
-		});
-	}
-
-	function snapCropWindow(
-		window: ImageEditorCropWindow,
-		handle: Exclude<CropHandle, 'content'>,
-		event: Pick<PointerEvent, 'ctrlKey' | 'metaKey'>
-	): ImageEditorCropWindow {
-		const base = cropSessionLayer();
-		if (!base || !editor.snappingEnabled || event.ctrlKey || event.metaKey) {
-			adapter?.clearSnappingGuides();
-			return window;
-		}
-		const result = applyImageEditorCropWindow(base, window, window);
-		const rotation = normalizeRotation(base.transform.rotation + cropRotationDelta);
-		const quarterTurns = Math.round(rotation / 90);
-		if (Math.abs(rotation - quarterTurns * 90) > 0.01) {
-			adapter?.clearSnappingGuides();
-			return window;
-		}
-		const transform = { ...result.transform, rotation };
-		const local = {
-			x: handle.includes('w') ? 0 : handle.includes('e') ? transform.width : transform.width / 2,
-			y: handle.includes('n') ? 0 : handle.includes('s') ? transform.height : transform.height / 2
-		};
-		const radians = (rotation * Math.PI) / 180;
-		const center = {
-			x: transform.x + transform.width / 2,
-			y: transform.y + transform.height / 2
-		};
-		const point = {
-			x:
-				center.x +
-				(local.x - transform.width / 2) * Math.cos(radians) -
-				(local.y - transform.height / 2) * Math.sin(radians),
-			y:
-				center.y +
-				(local.x - transform.width / 2) * Math.sin(radians) +
-				(local.y - transform.height / 2) * Math.cos(radians)
-		};
-		const rotatedSide = Math.abs(quarterTurns) % 2 === 1;
-		const axes =
-			handle === 'move' || handle.length === 2
-				? 'both'
-				: handle === 'e' || handle === 'w'
-					? rotatedSide
-						? 'y'
-						: 'x'
-					: rotatedSide
-						? 'x'
-						: 'y';
-		const snapped = adapter?.snapDocumentPoint(point, {
-			axes,
-			excludeLayerIDs: [base.id]
-		});
-		if (!snapped || (snapped.guideX === null && snapped.guideY === null)) return window;
-		const worldDelta = {
-			x: snapped.point.x - point.x,
-			y: snapped.point.y - point.y
-		};
-		const localDelta = {
-			x:
-				(worldDelta.x * Math.cos(-radians) - worldDelta.y * Math.sin(-radians)) /
-				Math.max(1, base.transform.width),
-			y:
-				(worldDelta.x * Math.sin(-radians) + worldDelta.y * Math.cos(-radians)) /
-				Math.max(1, base.transform.height)
-		};
-		return updateCropWindow(window, handle, localDelta);
-	}
-
-	function sourceWindowForFrame(
-		originFrame: ImageEditorCropWindow,
-		originSource: ImageEditorCropWindow,
-		nextFrame: ImageEditorCropWindow
-	): ImageEditorCropWindow {
-		return {
-			x: Math.max(0, Math.min(1 - nextFrame.width, nextFrame.x + originSource.x - originFrame.x)),
-			y: Math.max(0, Math.min(1 - nextFrame.height, nextFrame.y + originSource.y - originFrame.y)),
-			width: nextFrame.width,
-			height: nextFrame.height
-		};
-	}
-
-	function moveCropSource(
-		origin: ImageEditorCropWindow,
-		delta: SelectionPoint
-	): ImageEditorCropWindow {
-		const preview = createCropPreviewLayer();
-		const horizontal = preview?.transform.flip_x ? delta.x : -delta.x;
-		const vertical = preview?.transform.flip_y ? delta.y : -delta.y;
-		return {
-			...origin,
-			x: Math.max(0, Math.min(1 - origin.width, origin.x + horizontal)),
-			y: Math.max(0, Math.min(1 - origin.height, origin.y + vertical))
-		};
-	}
-
-	function startCrop(event: PointerEvent, handle: CropHandle): void {
-		const point = documentPoint(event, 'allow');
-		if (!point || !ensureCropSession() || event.button !== 0) return;
-		event.preventDefault();
-		event.stopPropagation();
-		cropGesture = {
-			pointerID: event.pointerId,
-			handle,
-			start: point,
-			origin: { ...cropWindow },
-			sourceOrigin: { ...cropSourceWindow }
-		};
-		capturePointer(event.currentTarget, event.pointerId);
-	}
-
-	function moveCrop(event: PointerEvent): void {
-		if (!cropGesture || cropGesture.pointerID !== event.pointerId || !cropSessionLayer()) return;
-		const point = documentPoint(event, 'allow');
-		if (!point) return;
-		const delta = cropPointDelta(cropGesture.start, point);
-		if (cropGesture.handle === 'content') {
-			adapter?.clearSnappingGuides();
-			cropSourceWindow = moveCropSource(cropGesture.sourceOrigin, delta);
-		} else {
-			const unsnappedWindow = updateCropWindow(cropGesture.origin, cropGesture.handle, delta);
-			const nextWindow = snapCropWindow(unsnappedWindow, cropGesture.handle, event);
-			cropSourceWindow = sourceWindowForFrame(
-				cropGesture.origin,
-				cropGesture.sourceOrigin,
-				nextWindow
-			);
-			cropWindow = nextWindow;
-			cropAspect = 'free';
-		}
-		previewCrop();
-		event.preventDefault();
-		event.stopPropagation();
-	}
-
-	function stopCrop(event: PointerEvent): void {
-		if (!cropGesture || cropGesture.pointerID !== event.pointerId) return;
-		cropGesture = null;
-		adapter?.clearSnappingGuides();
-		if (
-			event.currentTarget instanceof HTMLElement &&
-			event.currentTarget.hasPointerCapture(event.pointerId)
-		) {
-			event.currentTarget.releasePointerCapture(event.pointerId);
-		}
-		event.preventDefault();
-		event.stopPropagation();
-	}
-
-	function nudgeCrop(event: KeyboardEvent, handle: CropHandle): void {
-		const base = ensureCropSession();
-		if (!base || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
-		event.preventDefault();
-		event.stopPropagation();
-		const pixels = event.shiftKey ? 10 : 1;
-		const delta = {
-			x:
-				event.key === 'ArrowLeft'
-					? -pixels / Math.max(1, base.transform.width)
-					: event.key === 'ArrowRight'
-						? pixels / Math.max(1, base.transform.width)
-						: 0,
-			y:
-				event.key === 'ArrowUp'
-					? -pixels / Math.max(1, base.transform.height)
-					: event.key === 'ArrowDown'
-						? pixels / Math.max(1, base.transform.height)
-						: 0
-		};
-		if (handle === 'content') {
-			cropSourceWindow = moveCropSource(cropSourceWindow, delta);
-		} else {
-			const nextWindow = updateCropWindow(cropWindow, handle, delta);
-			cropSourceWindow = sourceWindowForFrame(cropWindow, cropSourceWindow, nextWindow);
-			cropWindow = nextWindow;
-			cropAspect = 'free';
-		}
-		previewCrop();
-	}
-
-	function setCropAspect(value: string): void {
-		cropAspect = value;
-		const base = ensureCropSession();
-		if (!base?.image || value === 'free') return;
-		const aspect =
-			value === 'original'
-				? base.image.source_width / Math.max(1, base.image.source_height)
-				: Number(value);
-		const nextWindow = imageEditorCropWindowForAspect(base.transform, aspect);
-		cropSourceWindow = sourceWindowForFrame(cropWindow, cropSourceWindow, nextWindow);
-		cropWindow = nextWindow;
-		previewCrop();
-	}
-
-	function setCropMode(mode: 'frame' | 'content'): void {
-		if (!ensureCropSession()) return;
-		cropMode = mode;
-		canvasAnnouncement =
-			mode === 'frame'
-				? m.image_editor_crop_frame_mode_help()
-				: m.image_editor_crop_content_mode_help();
-	}
-
-	function rotateCrop(delta: -90 | 90): void {
-		if (!ensureCropSession()) return;
-		cropRotationDelta = normalizeRotation(cropRotationDelta + delta);
-		previewCrop();
-		canvasAnnouncement =
-			delta < 0 ? m.image_editor_crop_rotated_left() : m.image_editor_crop_rotated_right();
-	}
-
-	const cropOrientationControls: { label: string; action: () => void; icon: ProtectedIconRole }[] =
-		[
-			{
-				label: m.image_editor_crop_rotate_left(),
-				action: () => rotateCrop(-90),
-				icon: 'editor-rotate-left'
-			},
-			{
-				label: m.image_editor_crop_rotate_right(),
-				action: () => rotateCrop(90),
-				icon: 'editor-rotate-right'
-			},
-			{
-				label: m.image_editor_crop_flip_horizontal(),
-				action: () => flipCrop('x'),
-				icon: 'editor-flip-horizontal'
-			},
-			{
-				label: m.image_editor_crop_flip_vertical(),
-				action: () => flipCrop('y'),
-				icon: 'editor-flip-vertical'
-			}
-		];
-
-	function flipCrop(axis: 'x' | 'y'): void {
-		if (!ensureCropSession()) return;
-		if (axis === 'x') cropFlipX = !cropFlipX;
-		else cropFlipY = !cropFlipY;
-		previewCrop();
-		canvasAnnouncement =
-			axis === 'x'
-				? m.image_editor_crop_flipped_horizontal()
-				: m.image_editor_crop_flipped_vertical();
-	}
-
-	function applyCrop(): void {
-		const preview = createCropPreviewLayer();
-		if (!preview?.image) return;
-		canvasAnnouncement = m.image_editor_crop_applied_dimensions({
-			width: Math.max(1, Math.round(preview.transform.width)),
-			height: Math.max(1, Math.round(preview.transform.height))
-		});
-		editor.applyImageCropState(preview.id, {
-			transform: preview.transform,
-			crop: preview.image.crop
-		});
-		resetCropSessionState();
-		editor.activeTool = 'select';
-	}
-
-	function cancelCrop(): void {
-		const id = cropBaseLayer?.id ?? cropLayer?.id;
-		if (id) adapter?.previewImageLayer(id);
-		resetCropSessionState();
-		canvasAnnouncement = m.image_editor_crop_cancelled();
-		editor.activeTool = 'select';
-	}
-
-	function resetCrop(): void {
-		if (!cropLayer?.image) return;
-		const reset = resetImageEditorCrop(cropLayer);
-		cropBaseLayer = {
-			...structuredClone(cropLayer),
-			transform: reset.transform,
-			image: { ...structuredClone(cropLayer.image), crop: reset.crop }
-		};
-		cropWindow = { ...FULL_CROP_WINDOW };
-		cropSourceWindow = { ...FULL_CROP_WINDOW };
-		cropAspect = 'free';
-		cropMode = 'frame';
-		cropRotationDelta = 0;
-		cropFlipX = false;
-		cropFlipY = false;
-		previewCrop();
-		canvasAnnouncement = m.image_editor_crop_reset_pending();
-	}
-
 	function erasableTargetID(point: SelectionPoint): string | null {
 		const selectedID = editor.selectedLayerIDs.at(-1);
 		const selected = editor.activePage?.layers.find((layer) => layer.id === selectedID);
@@ -1315,59 +908,6 @@
 		if (!hitID) return [];
 		editor.selectLayer(hitID);
 		return [hitID];
-	}
-
-	function openLayerPicker(event: MouseEvent): void {
-		if (editor.activeTool !== 'select' || !adapter) return;
-		const point = documentPoint(event, 'reject');
-		if (!point) return;
-		const layerIDs = adapter.layerIDsAtPoint(point);
-		if (layerIDs.length === 0) return;
-		event.preventDefault();
-		event.stopPropagation();
-		layerPicker = { point, layerIDs };
-		canvasAnnouncement = m.image_editor_select_layer_count({ count: layerIDs.length });
-	}
-
-	function layerPickerName(id: string): string {
-		return editor.activePage?.layers.find((layer) => layer.id === id)?.name ?? id;
-	}
-
-	function chooseLayerFromPicker(id: string): void {
-		editor.selectLayer(id);
-		layerPicker = null;
-		canvasAnnouncement = m.image_editor_layer_selected({ name: layerPickerName(id) });
-	}
-
-	function startLayerCycle(event: PointerEvent): void {
-		if (!event.altKey || event.button !== 0 || editor.activeTool !== 'select' || !adapter) return;
-		const point = documentPoint(event, 'reject');
-		if (!point) return;
-		const layerIDs = adapter.layerIDsAtPoint(point);
-		if (layerIDs.length < 2) return;
-		layerCycleGesture = {
-			pointerID: event.pointerId,
-			clientX: event.clientX,
-			clientY: event.clientY,
-			layerIDs
-		};
-	}
-
-	function finishLayerCycle(event: PointerEvent): void {
-		const gesture = layerCycleGesture;
-		layerCycleGesture = null;
-		if (
-			!gesture ||
-			gesture.pointerID !== event.pointerId ||
-			Math.hypot(event.clientX - gesture.clientX, event.clientY - gesture.clientY) > 5
-		)
-			return;
-		const current = gesture.layerIDs.findIndex((id) => editor.selectedLayerIDs.includes(id));
-		const nextID = gesture.layerIDs[(current + 1) % gesture.layerIDs.length];
-		editor.selectLayer(nextID);
-		canvasAnnouncement = m.image_editor_layer_cycled({ name: layerPickerName(nextID) });
-		event.preventDefault();
-		event.stopPropagation();
 	}
 
 	function sampledPixels(point: SelectionPoint): {
@@ -2183,8 +1723,7 @@
 	}
 
 	function handleCanvasKeydown(event: KeyboardEvent): void {
-		if (event.key === 'Escape' && layerPicker) {
-			layerPicker = null;
+		if (event.key === 'Escape' && (layerPickerRef?.dismiss() ?? false)) {
 			event.preventDefault();
 			return;
 		}
@@ -2262,12 +1801,12 @@
 		if (editor.activeTool === 'crop' && !editableTarget(event.target)) {
 			if (event.key === 'Escape') {
 				event.preventDefault();
-				cancelCrop();
+				crop.cancel();
 				return;
 			}
 			if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
 				event.preventDefault();
-				applyCrop();
+				crop.apply();
 				return;
 			}
 		}
@@ -2388,16 +1927,16 @@
 				{/if}
 			</div>
 		{/if}
-		{#if editor.activeTool === 'crop' && cropLayer}
+		{#if editor.activeTool === 'crop' && crop.layer}
 			<div
 				class="absolute bottom-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur sm:top-3 sm:bottom-auto [&>*]:shrink-0"
 				data-testid="image-editor-crop-options"
 			>
 				<span class="hidden px-1 text-xs font-medium sm:inline">{m.image_editor_crop()}</span>
 				<AppSelect
-					value={cropAspect}
+					value={crop.aspect}
 					ariaLabel={m.image_editor_crop_aspect()}
-					onValueChange={setCropAspect}
+					onValueChange={crop.setAspect}
 					options={[
 						{ value: 'free', label: m.image_editor_crop_free() },
 						{ value: 'original', label: m.image_editor_crop_original() },
@@ -2413,14 +1952,14 @@
 					variant="ghost"
 					size="sm"
 					class="h-7 shrink-0 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
-					onclick={cancelCrop}
+					onclick={crop.cancel}
 				>
 					{m.common_cancel()}
 				</Button>
 				<Button
 					size="sm"
 					class="h-7 shrink-0 px-1.5 text-xs [@media(pointer:coarse)]:h-11"
-					onclick={applyCrop}
+					onclick={crop.apply}
 				>
 					{m.image_editor_apply_crop()}
 				</Button>
@@ -2430,20 +1969,20 @@
 					aria-label={m.image_editor_crop_interaction_mode()}
 				>
 					<Button
-						variant={cropMode === 'frame' ? 'secondary' : 'ghost'}
+						variant={crop.mode === 'frame' ? 'secondary' : 'ghost'}
 						size="sm"
 						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
-						aria-pressed={cropMode === 'frame'}
-						onclick={() => setCropMode('frame')}
+						aria-pressed={crop.mode === 'frame'}
+						onclick={() => crop.setMode('frame')}
 					>
 						{m.image_editor_crop_frame_mode()}
 					</Button>
 					<Button
-						variant={cropMode === 'content' ? 'secondary' : 'ghost'}
+						variant={crop.mode === 'content' ? 'secondary' : 'ghost'}
 						size="sm"
 						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
-						aria-pressed={cropMode === 'content'}
-						onclick={() => setCropMode('content')}
+						aria-pressed={crop.mode === 'content'}
+						onclick={() => crop.setMode('content')}
 					>
 						{m.image_editor_crop_content_mode()}
 					</Button>
@@ -2453,7 +1992,7 @@
 					role="group"
 					aria-label={m.image_editor_crop_orientation()}
 				>
-					{#each cropOrientationControls as control (control.label)}
+					{#each crop.orientationControls as control (control.label)}
 						<Button
 							variant="ghost"
 							size="icon"
@@ -2470,7 +2009,7 @@
 					variant="ghost"
 					size="sm"
 					class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
-					onclick={resetCrop}
+					onclick={crop.reset}
 				>
 					{m.image_editor_reset()}
 				</Button>
@@ -2786,7 +2325,7 @@
 		>
 			<div
 				{@attach attachStage}
-				class="fabric-stage relative shadow-2xl ring-1 ring-black/30"
+				class="fabric-stage pasteboard-checker relative shadow-2xl ring-1 ring-black/30"
 				role="region"
 				aria-label={m.image_editor_design_canvas()}
 				data-testid="image-editor-stage"
@@ -2794,10 +2333,10 @@
 				style:height={`${editor.document.height_px * editor.zoom}px`}
 				style:--image-editor-zoom={editor.zoom}
 				style:--image-editor-pencil-color={editor.paintColor}
-				onpointerdown={startLayerCycle}
-				onpointerup={finishLayerCycle}
-				onpointercancel={() => (layerCycleGesture = null)}
-				oncontextmenu={openLayerPicker}
+				onpointerdown={(event) => layerPickerRef?.cycleStart(event)}
+				onpointerup={(event) => layerPickerRef?.cycleFinish(event)}
+				onpointercancel={() => layerPickerRef?.cycleCancel()}
+				oncontextmenu={(event) => layerPickerRef?.open(event)}
 			>
 				{#if editor.showRulers}
 					<div
@@ -2980,54 +2519,38 @@
 						{/each}
 					</div>
 				{/if}
-				{#if layerPicker}
-					<div
-						class="absolute z-50 max-w-64 min-w-44 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl"
-						style:left={`${Math.min(editor.document.width_px - 180 / editor.zoom, layerPicker.point.x) * editor.zoom}px`}
-						style:top={`${Math.min(editor.document.height_px - 48 / editor.zoom, layerPicker.point.y) * editor.zoom}px`}
-						role="menu"
-						aria-label={m.image_editor_select_layer()}
-						data-testid="image-editor-layer-picker"
-					>
-						<p class="px-2 py-1 text-xs font-medium text-muted-foreground">
-							{m.image_editor_select_layer()}
-						</p>
-						{#each layerPicker.layerIDs as id (id)}
-							<button
-								type="button"
-								class="flex min-h-8 w-full items-center rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-								role="menuitem"
-								onclick={() => chooseLayerFromPicker(id)}
-							>
-								<span class="min-w-0 flex-1 truncate">{layerPickerName(id)}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-				{#if editor.activeTool === 'crop' && cropPreviewLayer}
+				<CanvasLayerPicker
+					bind:this={layerPickerRef}
+					adapter={() => adapter}
+					{documentPoint}
+					announce={(message) => {
+						canvasAnnouncement = message;
+					}}
+				/>
+				{#if editor.activeTool === 'crop' && crop.preview}
 					<div class="pointer-events-none absolute inset-0 z-25 overflow-hidden">
 						<div
 							class="image-editor-crop-frame pointer-events-auto absolute touch-none border-2 border-[var(--canvas-handle)] shadow-[0_0_0_9999px_rgb(0_0_0/0.58)]"
-							class:cursor-move={cropMode === 'frame'}
-							class:cursor-grabbing={cropMode === 'content'}
+							class:cursor-move={crop.mode === 'frame'}
+							class:cursor-grabbing={crop.mode === 'content'}
 							role="group"
 							aria-label={m.image_editor_crop_frame()}
-							data-mode={cropMode}
-							style:left={`${cropPreviewLayer.transform.x * editor.zoom}px`}
-							style:top={`${cropPreviewLayer.transform.y * editor.zoom}px`}
-							style:width={`${cropPreviewLayer.transform.width * editor.zoom}px`}
-							style:height={`${cropPreviewLayer.transform.height * editor.zoom}px`}
-							style:transform={`rotate(${cropPreviewLayer.transform.rotation}deg)`}
+							data-mode={crop.mode}
+							style:left={`${crop.preview.transform.x * editor.zoom}px`}
+							style:top={`${crop.preview.transform.y * editor.zoom}px`}
+							style:width={`${crop.preview.transform.width * editor.zoom}px`}
+							style:height={`${crop.preview.transform.height * editor.zoom}px`}
+							style:transform={`rotate(${crop.preview.transform.rotation}deg)`}
 							style:transform-origin="top left"
 							onpointerdown={(event) => {
 								if (event.target instanceof Element && event.target.closest('[data-crop-handle]')) {
 									return;
 								}
-								startCrop(event, cropMode === 'content' ? 'content' : 'move');
+								crop.start(event, crop.mode === 'content' ? 'content' : 'move');
 							}}
-							onpointermove={moveCrop}
-							onpointerup={stopCrop}
-							onpointercancel={stopCrop}
+							onpointermove={crop.move}
+							onpointerup={crop.stop}
+							onpointercancel={crop.stop}
 						>
 							<span
 								class="pointer-events-none absolute inset-x-0 top-1/3 border-t border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
@@ -3044,24 +2567,25 @@
 							<button
 								type="button"
 								class="absolute inset-6 border-0 bg-transparent"
-								class:cursor-move={cropMode === 'frame'}
-								class:cursor-grabbing={cropMode === 'content'}
-								aria-label={cropMode === 'content'
+								class:cursor-move={crop.mode === 'frame'}
+								class:cursor-grabbing={crop.mode === 'content'}
+								aria-label={crop.mode === 'content'
 									? m.image_editor_crop_move_image()
 									: m.image_editor_crop_move()}
 								onpointerdown={(event) =>
-									startCrop(event, cropMode === 'content' ? 'content' : 'move')}
-								onkeydown={(event) => nudgeCrop(event, cropMode === 'content' ? 'content' : 'move')}
+									crop.start(event, crop.mode === 'content' ? 'content' : 'move')}
+								onkeydown={(event) =>
+									crop.nudge(event, crop.mode === 'content' ? 'content' : 'move')}
 							></button>
-							{#if cropMode === 'frame'}
+							{#if crop.mode === 'frame'}
 								{#each [{ handle: 'nw', label: m.image_editor_crop_handle_nw(), class: '-top-[22px] -left-[22px] cursor-nwse-resize' }, { handle: 'n', label: m.image_editor_crop_handle_n(), class: '-top-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'ne', label: m.image_editor_crop_handle_ne(), class: '-top-[22px] -right-[22px] cursor-nesw-resize' }, { handle: 'e', label: m.image_editor_crop_handle_e(), class: 'top-1/2 -right-[22px] -translate-y-1/2 cursor-ew-resize' }, { handle: 'se', label: m.image_editor_crop_handle_se(), class: '-right-[22px] -bottom-[22px] cursor-nwse-resize' }, { handle: 's', label: m.image_editor_crop_handle_s(), class: '-bottom-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'sw', label: m.image_editor_crop_handle_sw(), class: '-bottom-[22px] -left-[22px] cursor-nesw-resize' }, { handle: 'w', label: m.image_editor_crop_handle_w(), class: 'top-1/2 -left-[22px] -translate-y-1/2 cursor-ew-resize' }] as handle (handle.handle)}
 									<button
 										type="button"
 										class={`image-editor-crop-handle absolute z-10 size-11 border-0 bg-transparent ${handle.class}`}
 										data-crop-handle={handle.handle}
 										aria-label={handle.label}
-										onpointerdown={(event) => startCrop(event, handle.handle as CropHandle)}
-										onkeydown={(event) => nudgeCrop(event, handle.handle as CropHandle)}
+										onpointerdown={(event) => crop.start(event, handle.handle as CropHandle)}
+										onkeydown={(event) => crop.nudge(event, handle.handle as CropHandle)}
 									>
 										<span
 											class="pointer-events-none absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--canvas-pasteboard)] bg-[var(--canvas-handle)] shadow"
@@ -3231,27 +2755,6 @@
 </div>
 
 <style>
-	.fabric-stage {
-		--image-editor-checker-light: color-mix(
-			in oklch,
-			var(--canvas-pasteboard) 82%,
-			var(--canvas-grid)
-		);
-		--image-editor-checker-dark: var(--canvas-grid);
-		background-color: var(--image-editor-checker-light);
-		background-image:
-			linear-gradient(45deg, var(--image-editor-checker-dark) 25%, transparent 25%),
-			linear-gradient(-45deg, var(--image-editor-checker-dark) 25%, transparent 25%),
-			linear-gradient(45deg, transparent 75%, var(--image-editor-checker-dark) 75%),
-			linear-gradient(-45deg, transparent 75%, var(--image-editor-checker-dark) 75%);
-		background-position:
-			0 0,
-			0 8px,
-			8px -8px,
-			-8px 0;
-		background-size: 16px 16px;
-	}
-
 	.fabric-stage :global(.canvas-container) {
 		transform: scale(var(--image-editor-zoom));
 		transform-origin: top left;

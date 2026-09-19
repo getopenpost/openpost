@@ -354,3 +354,33 @@ export function timelineNavigatorResize(args: {
 		thumbWidth: metrics.thumbWidth
 	};
 }
+
+export interface FitKeyframeSpanArgs {
+	/** Absolute frame numbers to fit; falls back to the full item range when empty. */
+	frames: number[];
+	fallbackFrom: number;
+	fallbackTo: number;
+	fps: number;
+	availableWidth: number;
+	/** Scroll offset the fitted span starts from (track header width or zero). */
+	scrollBase: number;
+}
+
+/**
+ * Zoom level and scroll position that fit a keyframe span into the available
+ * width. Pure span math shared by the composition timeline and the keyframe
+ * panel; zoom application and scroller writes stay with the callers.
+ */
+export function fitKeyframeSpanToViewport(args: FitKeyframeSpanArgs) {
+	const first = args.frames.length > 0 ? Math.min(...args.frames) : args.fallbackFrom;
+	const last = args.frames.length > 0 ? Math.max(...args.frames) : args.fallbackTo;
+	const span = Math.max(args.fps, last - first + 1);
+	const center = (first + last) / 2;
+	const start = Math.max(0, center - span / 2);
+	const level = clampTimelineZoom(args.availableWidth / (span * timelinePixelsPerFrame(1)));
+	const targetScrollLeft = Math.max(
+		0,
+		args.scrollBase + start * timelinePixelsPerFrame(level) - 24
+	);
+	return { level, targetScrollLeft };
+}

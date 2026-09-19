@@ -2,6 +2,8 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { optionValue } from "./cli-option.mjs";
+
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptDirectory, "..");
 export const defaultRoutesDirectory = path.join(repositoryRoot, "apps/web/src/routes");
@@ -61,16 +63,6 @@ export async function writeAppRouteManifest({
   await mkdir(path.dirname(manifestPath), { recursive: true });
   await writeFile(manifestPath, serializeAppRouteManifest(routes));
   return routes;
-}
-
-function optionValue(name) {
-  const index = process.argv.indexOf(name);
-  if (index === -1) return undefined;
-  const value = process.argv[index + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`${name} requires a path`);
-  }
-  return value;
 }
 
 async function run() {

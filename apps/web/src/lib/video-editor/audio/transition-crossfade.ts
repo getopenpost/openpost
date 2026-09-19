@@ -253,18 +253,3 @@ export function audioCrossfadeGainAtFrame(
 	}
 	return gain;
 }
-
-/**
- * Apply the crossfade multiplicatively to a single gain value at `frame`.
- * This is the preview path (per-frame HTMLMediaElement volume).
- */
-export function applyAudioCrossfadeToGain(
-	baseGain: number,
-	item: TimelineItem,
-	frame: number,
-	transitions: TimelineTransition[],
-	itemsById: Map<string, TimelineItem>
-): number {
-	const crossfade = audioCrossfadeGainAtFrame(item, frame, transitions, itemsById);
-	return baseGain * crossfade;
-}

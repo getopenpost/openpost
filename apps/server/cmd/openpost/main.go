@@ -147,21 +147,10 @@ func main() {
 	})
 	defer closeDiagnostics(diagnosticsReporter)
 	if command.checkConfig {
-		if err := cfg.ValidateRuntime(); err != nil {
-			fatalWithDiagnostics(diagnosticsReporter, err)
-		}
-		config.Init()
-		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{
-			"status":          "ok",
-			"edition":         cfg.Edition,
-			"database_driver": cfg.DatabaseDriver,
-			"storage_driver":  cfg.StorageDriver,
-		}); err != nil {
-			fatalWithDiagnostics(diagnosticsReporter, err)
-		}
+		runCheckConfigCommand(cfg, diagnosticsReporter)
 		return
 	}
-	config.Init()
+
 	if err := cfg.ValidateEncryptionKeyring(); err != nil {
 		fatalWithDiagnostics(diagnosticsReporter, err)
 	}
@@ -174,88 +163,28 @@ func main() {
 		}
 	}
 
-	db, err := database.InitDBWithDriverAndRole(
-		cfg.DatabaseDriver,
-		cfg.DatabaseDSN(),
-		string(command.role),
-	)
-	if err != nil {
-		diagnosticsReporter.ReportStartupFailureSync("db_init", diagnostics.CodeStartupFailed)
-		fatalWithDiagnostics(diagnosticsReporter, err)
-	}
-	closeDatabase := func() {
-		if closeErr := db.Close(); closeErr != nil {
-			log.Printf("database shutdown failed: %v", closeErr)
-		}
-	}
-	if command.role.autoMigrates() {
-		if err := database.CreateSchemaLocked(context.Background(), db, cfg.DatabaseDriver, cfg.DatabaseDSN()); err != nil {
-			diagnosticsReporter.ReportStartupFailureSync("db_migrate", diagnostics.CodeStartupFailed)
-			fatalfWithDiagnostics(diagnosticsReporter, "database schema initialization failed: %v", err)
-		}
-	} else if err := database.RequireCurrentSchema(context.Background(), db); err != nil {
-		fatalWithDiagnostics(diagnosticsReporter, err)
-	}
+	db, closeDatabase := openApplicationDatabase(cfg, command, diagnosticsReporter)
+
 	if command.role == processRoleMigrate {
-		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{
-			"status":          "migrated",
-			"database_driver": cfg.DatabaseDriver,
-		}); err != nil {
-			fatalWithDiagnostics(diagnosticsReporter, err)
-		}
+		reportMigrationStatus(cfg, diagnosticsReporter)
 		closeDatabase()
 		return
 	}
 
 	if command.grantAdminEmail != "" {
-		result, grantErr := grantInstanceAdmin(context.Background(), db, command.grantAdminEmail)
-		if grantErr != nil {
-			closeDatabase()
-			fatalWithDiagnostics(diagnosticsReporter, grantErr)
-		}
-		if err := json.NewEncoder(os.Stdout).Encode(struct {
-			Status string `json:"status"`
-			grantAdminResult
-		}{Status: "granted", grantAdminResult: result}); err != nil {
-			closeDatabase()
-			fatalWithDiagnostics(diagnosticsReporter, err)
-		}
+		runGrantAdminCommand(db, command.grantAdminEmail, closeDatabase, diagnosticsReporter)
 		closeDatabase()
 		return
 	}
 
-	var tokenEncryptor *crypto.TokenEncryptor
-	if cfg.EncryptionKeyID == "" {
-		tokenEncryptor = crypto.NewTokenEncryptor(cfg.EncryptionKey)
-	} else {
-		tokenEncryptor, err = crypto.NewTokenEncryptorWithKeyring(
-			cfg.EncryptionKeyID,
-			cfg.EncryptionKey,
-			cfg.EncryptionPreviousKeys,
-		)
-		if err != nil {
-			closeDatabase()
-			fatalfWithDiagnostics(diagnosticsReporter, "invalid encryption keyring configuration: %v", err)
-		}
-	}
+	tokenEncryptor := buildTokenEncryptor(cfg, closeDatabase, diagnosticsReporter)
+
 	if command.rotateEncryptionKey {
-		rotationCtx, cancelRotation := context.WithTimeout(context.Background(), encryptionRotationTimeout)
-		result, rotationErr := encryptionrotation.Rotate(rotationCtx, db, tokenEncryptor)
-		cancelRotation()
-		if rotationErr != nil {
-			closeDatabase()
-			fatalfWithDiagnostics(diagnosticsReporter, "encryption key rotation failed: %v", rotationErr)
-		}
-		if err := json.NewEncoder(os.Stdout).Encode(struct {
-			Status string `json:"status"`
-			encryptionrotation.Result
-		}{Status: "rotated", Result: result}); err != nil {
-			closeDatabase()
-			fatalWithDiagnostics(diagnosticsReporter, err)
-		}
+		runKeyRotationCommand(db, tokenEncryptor, closeDatabase, diagnosticsReporter)
 		closeDatabase()
 		return
 	}
+
 	instanceSettingsService := instancesettings.NewService(db, tokenEncryptor, cfg)
 	aiPromptService := aiprompts.NewService(db, tokenEncryptor)
 	if err := instanceSettingsService.ApplyStored(context.Background(), cfg); err != nil {
@@ -1079,6 +1008,105 @@ func main() {
 		return
 	}
 	log.Printf("OpenPost %s process stopped", command.role)
+}
+
+func runCheckConfigCommand(cfg *config.Config, diagnosticsReporter *diagnostics.Reporter) {
+	if err := cfg.ValidateRuntime(); err != nil {
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
+	config.Init()
+	if err := json.NewEncoder(os.Stdout).Encode(map[string]string{
+		"status":          "ok",
+		"edition":         cfg.Edition,
+		"database_driver": cfg.DatabaseDriver,
+		"storage_driver":  cfg.StorageDriver,
+	}); err != nil {
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
+}
+
+func openApplicationDatabase(cfg *config.Config, command processCommand, diagnosticsReporter *diagnostics.Reporter) (*bun.DB, func()) {
+	db, err := database.InitDBWithDriverAndRole(
+		cfg.DatabaseDriver,
+		cfg.DatabaseDSN(),
+		string(command.role),
+	)
+	if err != nil {
+		diagnosticsReporter.ReportStartupFailureSync("db_init", diagnostics.CodeStartupFailed)
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
+	closeDatabase := func() {
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("database shutdown failed: %v", closeErr)
+		}
+	}
+
+	if command.role.autoMigrates() {
+		if err := database.CreateSchemaLocked(context.Background(), db, cfg.DatabaseDriver, cfg.DatabaseDSN()); err != nil {
+			diagnosticsReporter.ReportStartupFailureSync("db_migrate", diagnostics.CodeStartupFailed)
+			fatalfWithDiagnostics(diagnosticsReporter, "database schema initialization failed: %v", err)
+		}
+	} else if err := database.RequireCurrentSchema(context.Background(), db); err != nil {
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
+	return db, closeDatabase
+}
+
+func reportMigrationStatus(cfg *config.Config, diagnosticsReporter *diagnostics.Reporter) {
+	if err := json.NewEncoder(os.Stdout).Encode(map[string]string{
+		"status":          "migrated",
+		"database_driver": cfg.DatabaseDriver,
+	}); err != nil {
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
+}
+
+func runGrantAdminCommand(db *bun.DB, email string, closeDatabase func(), diagnosticsReporter *diagnostics.Reporter) {
+	result, grantErr := grantInstanceAdmin(context.Background(), db, email)
+	if grantErr != nil {
+		closeDatabase()
+		fatalWithDiagnostics(diagnosticsReporter, grantErr)
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(struct {
+		Status string `json:"status"`
+		grantAdminResult
+	}{Status: "granted", grantAdminResult: result}); err != nil {
+		closeDatabase()
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
+}
+
+func buildTokenEncryptor(cfg *config.Config, closeDatabase func(), diagnosticsReporter *diagnostics.Reporter) *crypto.TokenEncryptor {
+	if cfg.EncryptionKeyID == "" {
+		return crypto.NewTokenEncryptor(cfg.EncryptionKey)
+	}
+	tokenEncryptor, err := crypto.NewTokenEncryptorWithKeyring(
+		cfg.EncryptionKeyID,
+		cfg.EncryptionKey,
+		cfg.EncryptionPreviousKeys,
+	)
+	if err != nil {
+		closeDatabase()
+		fatalfWithDiagnostics(diagnosticsReporter, "invalid encryption keyring configuration: %v", err)
+	}
+	return tokenEncryptor
+}
+
+func runKeyRotationCommand(db *bun.DB, tokenEncryptor *crypto.TokenEncryptor, closeDatabase func(), diagnosticsReporter *diagnostics.Reporter) {
+	rotationCtx, cancelRotation := context.WithTimeout(context.Background(), encryptionRotationTimeout)
+	result, rotationErr := encryptionrotation.Rotate(rotationCtx, db, tokenEncryptor)
+	cancelRotation()
+	if rotationErr != nil {
+		closeDatabase()
+		fatalfWithDiagnostics(diagnosticsReporter, "encryption key rotation failed: %v", rotationErr)
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(struct {
+		Status string `json:"status"`
+		encryptionrotation.Result
+	}{Status: "rotated", Result: result}); err != nil {
+		closeDatabase()
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
 }
 
 func closeTelemetry(recorder telemetry.Recorder) {

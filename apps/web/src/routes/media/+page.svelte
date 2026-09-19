@@ -37,15 +37,15 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Select from '$lib/components/ui/select';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import MediaInspectorDialog from '$lib/components/media-inspector-dialog.svelte';
+	import MediaFilterDialog from '$lib/components/media-filter-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import {
 		MediaBatchDeletionRejected,
@@ -56,29 +56,28 @@
 	import MediaUploadDialog from '$lib/components/media-upload-dialog.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MediaOrganizationDialog from '$lib/components/media-organization-dialog.svelte';
-	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
-	import MediaTagPicker from '$lib/components/media-tag-picker.svelte';
 	import { createMediaTag, updateMediaTagItems, type MediaTag } from '$lib/media-tags';
+	import {
+		canDeleteMedia,
+		errorMessage,
+		formatSize,
+		formatVideoDuration,
+		isAudio,
+		isImage,
+		isVideo,
+		type MediaItem,
+		type MediaUsage,
+		mediaSourceLabel,
+		mediaUsageKindLabel,
+		mediaUsageStatusLabel,
+		normalizeMediaItem,
+		normalizeMediaUsage,
+		usageSummaryLabel
+	} from '$lib/media-presentation';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import type { components } from '$lib/api/types';
-
-	type MediaListResponseItem = components['schemas']['MediaListItem'];
-	type MediaUsageResponseItem = components['schemas']['MediaUsageItem'];
-
-	interface MediaItem extends Omit<MediaListResponseItem, 'tags'> {
-		tags: string[];
-	}
-
-	interface MediaUsage {
-		kind: string;
-		id: string;
-		label: string;
-		content: string;
-		status: string;
-		scheduled_at: string;
-	}
 
 	type OwnedMediaRoute =
 		| `/image-editor/new?${string}`
@@ -231,25 +230,6 @@
 		return mediaMutationViewIsCurrent(context);
 	}
 
-	function normalizeMediaItem(item: MediaListResponseItem): MediaItem {
-		return { ...item, tags: item.tags ?? [] };
-	}
-
-	function normalizeMediaUsage(item: MediaUsageResponseItem): MediaUsage {
-		return {
-			kind: item.kind,
-			id: item.id,
-			label: item.label,
-			content: item.content ?? '',
-			status: item.status ?? '',
-			scheduled_at: item.scheduled_at ?? ''
-		};
-	}
-
-	function errorMessage(cause: unknown, fallback: string): string {
-		return cause instanceof Error && cause.message ? cause.message : fallback;
-	}
-
 	function resolveOwnedMediaRoute(route: OwnedMediaRoute): ReturnType<typeof resolve> {
 		// SAFETY: Every route is constrained to an owned destination of the Media page.
 		return resolve(route as '/');
@@ -285,34 +265,6 @@
 				: m.media_delete_batch_body_many({ count: request.ids.length });
 		}
 		return m.media_delete_body();
-	}
-
-	function usageSummaryLabel(count: number) {
-		return count === 1 ? m.media_usage_summary_one() : m.media_usage_summary_many({ count });
-	}
-
-	function mediaUsageStatusLabel(status: string) {
-		switch (status.toLowerCase()) {
-			case 'published':
-			case 'success':
-				return m.activity_status_published();
-			case 'failed':
-				return m.activity_status_failed();
-			case 'scheduled':
-				return m.activity_status_scheduled();
-			case 'publishing':
-				return m.activity_status_publishing();
-			case 'completed':
-				return m.activity_status_completed();
-			case 'processing':
-				return m.activity_status_processing();
-			case 'pending':
-				return m.activity_status_pending();
-			case 'draft':
-				return m.activity_status_draft();
-			default:
-				return status;
-		}
 	}
 
 	function mediaViewKey(workspaceID = selectedWorkspaceId) {
@@ -1129,23 +1081,6 @@
 		detailSaving = false;
 	}
 
-	function formatSize(bytes: number): string {
-		if (bytes < 1024) return bytes + ' B';
-		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-	}
-
-	function formatVideoDuration(milliseconds: number): string {
-		if (!Number.isFinite(milliseconds) || milliseconds <= 0) return '—';
-		const totalSeconds = Math.round(milliseconds / 1000);
-		const hours = Math.floor(totalSeconds / 3600);
-		const minutes = Math.floor((totalSeconds % 3600) / 60);
-		const seconds = totalSeconds % 60;
-		return hours > 0
-			? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-			: `${minutes}:${String(seconds).padStart(2, '0')}`;
-	}
-
 	function formatDate(dateStr: string): string {
 		const date = new Date(dateStr);
 		return date.toLocaleDateString(getLocaleTag(), {
@@ -1153,62 +1088,6 @@
 			day: 'numeric',
 			timeZone: workspaceCtx.settings.timezone || 'UTC'
 		});
-	}
-
-	function isImage(mimeType: string): boolean {
-		return mimeType.startsWith('image/');
-	}
-
-	function isVideo(mimeType: string): boolean {
-		return mimeType.startsWith('video/');
-	}
-
-	function isAudio(mimeType: string): boolean {
-		return mimeType.startsWith('audio/');
-	}
-
-	function mediaSourceLabel(value: string): string {
-		switch (value) {
-			case 'camera':
-				return m.media_camera();
-			case 'image_editor_export':
-				return m.media_image_editor_exports();
-			case 'image_editor_edit':
-				return m.media_image_editor_edits();
-			case 'background_removal':
-				return m.media_background_removal();
-			case 'meme_generator':
-				return m.media_picker_meme();
-			default:
-				return m.media_uploads();
-		}
-	}
-
-	function mediaUsageKindLabel(value: string): string {
-		switch (value) {
-			case 'publication':
-				return m.media_usage_post();
-			case 'design':
-				return m.media_usage_design();
-			case 'design_preview':
-				return m.media_usage_design_preview();
-			case 'design_page_export':
-				return m.media_usage_design_page_export();
-			case 'template':
-				return m.media_usage_template();
-			case 'template_preview':
-				return m.media_usage_template_preview();
-			case 'brand_asset':
-				return m.media_usage_brand_asset();
-			case 'brand_font':
-				return m.media_usage_brand_font();
-			default:
-				return value.replaceAll('_', ' ');
-		}
-	}
-
-	function canDeleteMedia(media: MediaItem): boolean {
-		return media.can_delete ?? media.usage_count === 0;
 	}
 
 	function extensionForMime(mimeType: string): string {
@@ -2052,143 +1931,34 @@
 	{/if}
 </PageContainer>
 
-<Dialog.Root bind:open={filterDialogOpen}>
-	<Dialog.Content class="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-xl">
-		<Dialog.Header>
-			<Dialog.Title>{m.media_filters()}</Dialog.Title>
-			<Dialog.Description>{m.media_filters_body()}</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4 py-2 sm:grid-cols-2">
-			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_filter_usage()}</span>
-				<AppSelect
-					bind:value={filter}
-					options={[
-						{ value: 'all', label: m.media_filter_all() },
-						{ value: 'unused', label: m.media_filter_unused() },
-						{ value: 'favorites', label: m.media_filter_favorites() }
-					]}
-					class="h-11 w-full"
-				/>
-			</label>
-			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_type()}</span>
-				<AppSelect
-					bind:value={mediaType}
-					ariaLabel={m.media_type()}
-					options={[
-						{ value: 'all', label: m.media_all_types() },
-						{ value: 'image', label: m.media_images() },
-						{ value: 'video', label: m.media_videos() },
-						{ value: 'audio', label: m.media_audio() }
-					]}
-					class="h-11 w-full"
-				/>
-			</label>
-			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_source()}</span>
-				<AppSelect
-					bind:value={source}
-					options={[
-						{ value: 'all', label: m.media_all_sources() },
-						{ value: 'upload', label: m.media_uploads() },
-						{ value: 'camera', label: m.media_camera() },
-						{ value: 'image_editor_export', label: m.media_image_editor_exports() },
-						{ value: 'image_editor_edit', label: m.media_image_editor_edits() },
-						{ value: 'background_removal', label: m.media_background_removal() }
-					]}
-					class="h-11 w-full"
-				/>
-			</label>
-			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_aspect_ratio()}</span>
-				<AppSelect
-					bind:value={aspect}
-					options={[
-						{ value: 'all', label: m.media_any_aspect() },
-						{ value: 'square', label: m.media_square() },
-						{ value: 'portrait', label: m.media_portrait() },
-						{ value: 'landscape', label: m.media_landscape() }
-					]}
-					class="h-11 w-full"
-				/>
-			</label>
-		</div>
-		{#if lifecycleView !== 'trash'}
-			<div class="space-y-2 border-t pt-4">
-				<p class="text-sm font-medium">{m.media_tags()}</p>
-				<MediaTagFilter
-					{tags}
-					selectedIds={selectedTagIDs}
-					untagged={showUntagged}
-					canEdit={mediaCanEdit}
-					onChange={(tagIDs, untagged) => {
-						selectedTagIDs = tagIDs;
-						showUntagged = untagged;
-					}}
-					onManage={() => {
-						filterDialogOpen = false;
-						organizationDialogOpen = true;
-					}}
-				/>
-			</div>
-		{/if}
-		<details class="border-y py-1">
-			<summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium">
-				{m.media_dimensions_date()}
-			</summary>
-			<div class="grid gap-3 pb-3 sm:grid-cols-2">
-				<div class="grid grid-cols-2 gap-2">
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_min_width()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={minWidth} />
-					</label>
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_min_height()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={minHeight} />
-					</label>
-				</div>
-				<div class="grid grid-cols-2 gap-2">
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_max_width()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={maxWidth} />
-					</label>
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_max_height()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={maxHeight} />
-					</label>
-				</div>
-				<div class="grid grid-cols-2 gap-2 sm:col-span-2">
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_from()}</span>
-						<Input class="h-11 min-w-0 px-2" type="date" bind:value={dateFrom} />
-					</label>
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_to()}</span>
-						<Input class="h-11 min-w-0 px-2" type="date" bind:value={dateTo} />
-					</label>
-				</div>
-			</div>
-		</details>
-		{#if mediaCanEdit}
-			<Button
-				variant="ghost"
-				class="justify-start"
-				onclick={() => {
-					filterDialogOpen = false;
-					organizationDialogOpen = true;
-				}}
-			>
-				<ThemeIcon role="tag" />
-				{m.media_manage_organization()}
-			</Button>
-		{/if}
-		<Dialog.Footer>
-			<Button variant="ghost" onclick={resetAssetFilters}>{m.media_clear()}</Button>
-			<Button onclick={applyAssetFilters}>{m.media_apply_filters()}</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<MediaFilterDialog
+	bind:open={filterDialogOpen}
+	bind:filter
+	bind:mediaType
+	bind:source
+	bind:aspect
+	bind:minWidth
+	bind:minHeight
+	bind:maxWidth
+	bind:maxHeight
+	bind:dateFrom
+	bind:dateTo
+	bind:selectedTagIDs
+	bind:showUntagged
+	{tags}
+	{lifecycleView}
+	canEdit={mediaCanEdit}
+	onTagsChange={(tagIDs, untagged) => {
+		selectedTagIDs = tagIDs;
+		showUntagged = untagged;
+	}}
+	onManageTags={() => {
+		filterDialogOpen = false;
+		organizationDialogOpen = true;
+	}}
+	onReset={resetAssetFilters}
+	onApply={applyAssetFilters}
+/>
 
 <Dialog.Root bind:open={selectionOrganizationDialogOpen}>
 	<Dialog.Content class="sm:max-w-md">
@@ -2253,307 +2023,35 @@
 	onUploaded={handleLibraryUploaded}
 />
 
-<!-- Usage Dialog -->
-<Dialog.Root open={usageDialogOpen} onOpenChange={handleUsageDialogOpenChange}>
-	<Dialog.Content class="max-h-[min(860px,calc(100dvh-2rem))] overflow-y-auto sm:max-w-3xl sm:p-6">
-		<Dialog.Header class="border-b pr-10 pb-4">
-			<Dialog.Title>{selectedMedia?.original_filename || m.media_details()}</Dialog.Title>
-			<Dialog.Description>
-				{#if selectedMedia}
-					{usageSummaryLabel(selectedMedia.usage_count)}
-				{/if}
-			</Dialog.Description>
-		</Dialog.Header>
-		{#if deletionBlockedByUsage}
-			<InlineNotice tone="info" message={m.media_delete_active_work_body()} />
-		{/if}
-
-		{#if selectedMedia}
-			<div class="grid items-start gap-6 py-2 md:grid-cols-[18rem_minmax(0,1fr)]">
-				<figure
-					class="overflow-hidden rounded-xl bg-muted/20 ring-1 ring-foreground/10 md:sticky md:top-0"
-				>
-					{#if isImage(selectedMedia.mime_type)}
-						<img
-							src={getAuthenticatedMediaURL(selectedMedia.thumbnail_url || selectedMedia.url)}
-							alt={selectedMedia.alt_text || selectedMedia.original_filename}
-							class="aspect-[4/3] size-full object-contain"
-						/>
-					{:else if isVideo(selectedMedia.mime_type)}
-						<video
-							src={getAuthenticatedMediaURL(selectedMedia.url)}
-							class="aspect-[4/3] size-full object-contain"
-							controls
-							muted
-							playsinline
-						></video>
-					{:else if isAudio(selectedMedia.mime_type)}
-						<div class="flex aspect-[4/3] flex-col items-center justify-center gap-4 p-5">
-							<ProtectedIcon icon="media-audio" class="size-12 text-muted-foreground" />
-							<audio src={getAuthenticatedMediaURL(selectedMedia.url)} class="w-full" controls
-							></audio>
-						</div>
-					{/if}
-					<figcaption class="border-t px-3 py-2 text-xs text-muted-foreground">
-						{selectedMedia.width || '—'} × {selectedMedia.height || '—'} ·
-						{formatSize(selectedMedia.size)}
-					</figcaption>
-				</figure>
-				<div class="min-w-0 space-y-5">
-					<dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-						<div>
-							<dt class="text-xs text-muted-foreground">{m.media_type()}</dt>
-							<dd class="mt-0.5 break-words">{selectedMedia.mime_type}</dd>
-						</div>
-						<div>
-							<dt class="text-xs text-muted-foreground">{m.media_source()}</dt>
-							<dd class="mt-0.5">{mediaSourceLabel(selectedMedia.source)}</dd>
-						</div>
-						<div>
-							<dt class="text-xs text-muted-foreground">{m.media_created()}</dt>
-							<dd class="mt-0.5">{formatDate(selectedMedia.created_at)}</dd>
-						</div>
-						{#if selectedMedia.design_document_id}
-							<div>
-								<dt class="text-xs text-muted-foreground">{m.media_design()}</dt>
-								<dd class="mt-0.5">
-									<a
-										href={resolve(`/image-editor/${selectedMedia.design_document_id}` as '/')}
-										class="font-medium text-primary hover:underline"
-									>
-										{m.media_open_design()}
-									</a>
-								</dd>
-							</div>
-						{/if}
-						{#if selectedMedia.parent_media_id}
-							<div class="sm:col-span-2">
-								<dt class="text-xs text-muted-foreground">{m.media_original()}</dt>
-								<dd class="mt-0.5 font-mono text-xs break-all">
-									{selectedMedia.parent_media_id}
-								</dd>
-							</div>
-						{/if}
-						{#if isVideo(selectedMedia.mime_type)}
-							<div>
-								<dt class="text-xs text-muted-foreground">{m.media_duration()}</dt>
-								<dd class="mt-0.5">{formatVideoDuration(selectedMedia.duration_ms)}</dd>
-							</div>
-							<div>
-								<dt class="text-xs text-muted-foreground">{m.media_video_format()}</dt>
-								<dd class="mt-0.5">
-									{[
-										selectedMedia.container_format,
-										selectedMedia.video_codec,
-										selectedMedia.audio_codec
-									]
-										.filter(Boolean)
-										.join(' · ') || '—'}
-								</dd>
-							</div>
-							{#if selectedMedia.processing_status === 'failed' || selectedMedia.analysis_status === 'failed'}
-								<div class="sm:col-span-2">
-									<InlineNotice
-										tone="error"
-										message={selectedMedia.analysis_error || m.media_video_processing_failed()}
-									>
-										{#snippet actions()}
-											{#if mediaCanEdit}
-												<Button
-													type="button"
-													variant="outline"
-													size="sm"
-													onclick={() => retryVideoAnalysis(selectedMedia!)}
-												>
-													{m.common_retry()}
-												</Button>
-											{/if}
-										{/snippet}
-									</InlineNotice>
-								</div>
-							{/if}
-						{/if}
-						<div class="sm:col-span-2">
-							<dt class="text-xs text-muted-foreground">{m.media_tags()}</dt>
-							<dd class="mt-1.5 flex flex-wrap items-center gap-1.5">
-								{#each selectedMedia.tags as tagID (tagID)}
-									{@const tag = tags.find((item) => item.id === tagID)}
-									{#if tag}
-										<span class="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium"
-											>#{tag.name}</span
-										>
-									{/if}
-								{/each}
-								{#if mediaCanEdit}
-									<MediaTagPicker
-										{tags}
-										selectedIds={selectedMedia.tags}
-										canEdit
-										onToggle={(tagID, selected) =>
-											toggleMediaTag(selectedMedia!.id, tagID, selected)}
-										onCreate={(name) => createAndAssignTag(selectedMedia!.id, name)}
-									/>
-								{/if}
-							</dd>
-						</div>
-					</dl>
-					<div class="space-y-2">
-						<label for="media-detail-alt-text" class="block text-sm font-medium">
-							{m.media_alt_text()}
-						</label>
-						<Textarea
-							id="media-detail-alt-text"
-							class="min-h-24 p-3 font-normal"
-							bind:value={detailAltText}
-							placeholder={m.media_alt_placeholder()}
-							disabled={!mediaCanEdit || detailSaving}
-						/>
-						{#if mediaCanEdit && detailAltText.trim() !== selectedMedia.alt_text}
-							<Button
-								size="sm"
-								variant="outline"
-								onclick={saveDetailAltText}
-								disabled={detailSaving}
-							>
-								{#if detailSaving}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
-								{m.media_save_alt()}
-							</Button>
-						{/if}
-					</div>
-				</div>
-			</div>
-			<div class="flex flex-wrap gap-2 border-y py-3">
-				{#if isImage(selectedMedia.mime_type) && mediaCanEdit && imageEditorEnabled}
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => openMediaInImageEditor(selectedMedia!)}
-					>
-						<ThemeIcon role="appearance" />
-						{m.media_edit_image_editor()}
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => openMediaInImageEditor(selectedMedia!, 'remove-background')}
-					>
-						<ThemeIcon role="image" />
-						{m.image_editor_remove_background()}
-					</Button>
-				{/if}
-				{#if isVideo(selectedMedia.mime_type) && mediaCanEdit}
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => openMediaInVideoEditor(selectedMedia!)}
-					>
-						<ThemeIcon role="video" />
-						{m.media_edit_video_editor()}
-					</Button>
-				{/if}
-				{#if mediaCanEdit}
-					<Button variant="outline" size="sm" onclick={() => requestRenameMedia(selectedMedia!)}>
-						<ThemeIcon role="edit" />
-						{m.common_rename()}
-					</Button>
-					<Button variant="outline" size="sm" onclick={() => duplicateMedia(selectedMedia!)}>
-						<ThemeIcon role="layout" />
-						{m.image_editor_duplicate()}
-					</Button>
-				{/if}
-				<Button variant="outline" size="sm" onclick={() => downloadMedia(selectedMedia!)}>
-					<ThemeIcon role="download" />
-					{m.image_editor_download()}
-				</Button>
-				{#if mediaCanEdit}
-					<Button
-						variant="destructive"
-						size="sm"
-						onclick={() => requestDeleteMedia(selectedMedia!)}
-					>
-						<ThemeIcon role="delete" />
-						{m.common_delete()}
-					</Button>
-				{/if}
-				{#if mediaCanEdit && !canDeleteMedia(selectedMedia)}
-					<p class="basis-full text-xs text-muted-foreground">
-						{m.media_delete_blocked()}
-					</p>
-				{/if}
-			</div>
-		{/if}
-
-		<div class="space-y-2 py-4">
-			<h3 class="text-sm font-semibold">{m.media_used_by()}</h3>
-			{#if usageLoading && !usageDataReady}
-				<div class="py-4">
-					<PageLoading layout="list" label={m.common_loading()} items={3} />
-				</div>
-			{:else if usageError && !usageDataReady}
-				<InlineNotice tone="error" message={usageError}>
-					{#snippet actions()}
-						<Button
-							variant="outline"
-							size="sm"
-							onclick={() => selectedMedia && showUsage(selectedMedia)}
-						>
-							{m.common_retry()}
-						</Button>
-					{/snippet}
-				</InlineNotice>
-			{:else}
-				{#if usageLoading}
-					<span class="sr-only" role="status">{m.common_loading()}</span>
-				{/if}
-				{#if usageError}
-					<InlineNotice tone="error" message={usageError}>
-						{#snippet actions()}
-							<Button
-								variant="outline"
-								size="sm"
-								onclick={() => selectedMedia && showUsage(selectedMedia)}
-							>
-								{m.common_retry()}
-							</Button>
-						{/snippet}
-					</InlineNotice>
-				{/if}
-				{#if mediaUsage.length === 0}
-					<p class="py-8 text-center text-sm text-muted-foreground">
-						{m.media_usage_empty()}
-					</p>
-				{:else}
-					{#each mediaUsage as usage (`${usage.kind}-${usage.id}`)}
-						<div class="rounded-lg border p-3">
-							<p class="line-clamp-2 text-sm font-medium">{usage.label || usage.content}</p>
-							<p class="mt-1 text-xs text-muted-foreground">{mediaUsageKindLabel(usage.kind)}</p>
-							<div class="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
-								{#if usage.status}
-									<span class="rounded-full bg-muted px-2 py-0.5 text-xs">
-										{mediaUsageStatusLabel(usage.status)}
-									</span>
-								{/if}
-								{#if usage.scheduled_at}
-									<span
-										>{new Date(usage.scheduled_at).toLocaleString(getLocaleTag(), {
-											timeZone: workspaceCtx.settings.timezone || 'UTC'
-										})}</span
-									>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				{/if}
-			{/if}
-		</div>
-
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => handleUsageDialogOpenChange(false)}
-				>{m.common_close()}</Button
-			>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<MediaInspectorDialog
+	open={usageDialogOpen}
+	onOpenChange={handleUsageDialogOpenChange}
+	media={selectedMedia}
+	deletionBlocked={deletionBlockedByUsage}
+	canEdit={mediaCanEdit}
+	editorEnabled={imageEditorEnabled}
+	timeZone={workspaceCtx.settings.timezone || 'UTC'}
+	{formatDate}
+	{tags}
+	usages={mediaUsage}
+	usagesLoading={usageLoading}
+	usagesReady={usageDataReady}
+	usagesError={usageError}
+	bind:altText={detailAltText}
+	altSaving={detailSaving}
+	onClose={() => handleUsageDialogOpenChange(false)}
+	onRetryAnalysis={retryVideoAnalysis}
+	onToggleTag={toggleMediaTag}
+	onCreateTag={createAndAssignTag}
+	onSaveAlt={saveDetailAltText}
+	onEditImage={openMediaInImageEditor}
+	onEditVideo={openMediaInVideoEditor}
+	onRename={requestRenameMedia}
+	onDuplicate={duplicateMedia}
+	onDownload={downloadMedia}
+	onDelete={requestDeleteMedia}
+	onShowUsage={showUsage}
+/>
 
 <RenameDialog
 	bind:open={renameDialogOpen}

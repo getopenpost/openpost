@@ -45,15 +45,6 @@ export function getBezierPresetForEasing(easing: EasingType): BezierControlPoint
 	return { ...EASING_BEZIER_PRESETS[easing] };
 }
 
-export function areBezierPointsEqual(a: BezierControlPoints, b: BezierControlPoints): boolean {
-	return a.x1 === b.x1 && a.y1 === b.y1 && a.x2 === b.x2 && a.y2 === b.y2;
-}
-
-export function findMatchingBezierPreset(points: BezierControlPoints): string | null {
-	const match = BEZIER_PRESETS.find((preset) => areBezierPointsEqual(preset.points, points));
-	return match?.value ?? null;
-}
-
 export function clampBezierValue(key: keyof BezierControlPoints, value: number): number {
 	if (key === 'x1' || key === 'x2') return Math.max(0, Math.min(1, value));
 	return Math.max(-2, Math.min(3, value));

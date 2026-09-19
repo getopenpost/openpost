@@ -140,35 +140,6 @@ function hannWindowPeriodic(size: number): Float64Array {
 
 const HANN = hannWindowPeriodic(FRAME_SIZE);
 
-export function hannReconstructWithGainOne(
-	channels: Float32Array[],
-	sampleRate: number
-): Float32Array[] {
-	if (channels.length === 0 || (channels[0]?.length ?? 0) === 0)
-		return channels.map((c) => c.slice());
-	const pad = NOISE_REDUCTION_HOP_SIZE;
-	const padded = channels.map((ch) => {
-		const p = new Float32Array(ch.length + pad);
-		p.set(ch, pad);
-		return p;
-	});
-	const proc = new StreamingNoiseReduction(
-		channels.length,
-		sampleRate,
-		{
-			enabled: true,
-			amount: 0
-		},
-		{ unityGain: true }
-	);
-	const outPadded = proc.process(
-		padded.map((c) => c.slice()),
-		true
-	);
-	const len = channels[0]!.length;
-	return outPadded.map((ch) => ch.slice(pad, pad + len));
-}
-
 function throwIfAborted(signal?: AbortSignal): void {
 	if (signal?.aborted) throw new DOMException('Noise reduction cancelled.', 'AbortError');
 }

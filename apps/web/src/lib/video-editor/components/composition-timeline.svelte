@@ -14,9 +14,8 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
+		createShortcutMatcher,
 		editorDeleteModeForEvent,
-		editorShortcutTargetIsDisabled,
-		eventMatchesShortcut,
 		type EditorShortcutId
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
@@ -40,6 +39,7 @@
 	} from '$lib/video-editor/timeline/pointer-gesture-session';
 	import {
 		buildTimelineItemRangeIndex,
+		fitKeyframeSpanToViewport,
 		queryTimelineItemRange
 	} from '$lib/video-editor/timeline/timeline-viewport';
 	import {
@@ -633,15 +633,14 @@
 	}
 	function fitMotionKeyframes(item: TimelineItem, property: KeyframeProperty): void {
 		if (!scrollEl) return;
-		const frames = editorKeyframes(item, property).map((keyframe) => item.from + keyframe.frame);
-		const first = frames.length > 0 ? Math.min(...frames) : item.from;
-		const last = frames.length > 0 ? Math.max(...frames) : item.from + item.durationInFrames - 1;
-		const span = Math.max(fps, last - first + 1);
-		const center = (first + last) / 2;
-		const start = Math.max(0, center - span / 2);
-		const availableWidth = Math.max(1, scrollEl.clientWidth - 220 - 50);
-		const level = clampTimelineZoom(availableWidth / (span * timelinePixelsPerFrame(1)));
-		const targetScrollLeft = Math.max(0, start * timelinePixelsPerFrame(level) - 24);
+		const { level, targetScrollLeft } = fitKeyframeSpanToViewport({
+			frames: editorKeyframes(item, property).map((keyframe) => item.from + keyframe.frame),
+			fallbackFrom: item.from,
+			fallbackTo: item.from + item.durationInFrames - 1,
+			fps,
+			availableWidth: Math.max(1, scrollEl.clientWidth - 220 - 50),
+			scrollBase: 0
+		});
 		timelineStore._setZoomLevel(level);
 		queueMicrotask(() => {
 			if (scrollEl) scrollEl.scrollLeft = targetScrollLeft;
@@ -1586,11 +1585,8 @@
 		});
 	}
 	function handleKeydown(event: KeyboardEvent): void {
-		if (event.defaultPrevented) return;
-		if (editorShortcutTargetIsDisabled(event.target)) return;
-		const bindings = keyboardShortcuts.bindings;
-		const matches = (...ids: EditorShortcutId[]) =>
-			ids.some((id) => eventMatchesShortcut(event, bindings[id]));
+		const matches = createShortcutMatcher(event, keyboardShortcuts.bindings);
+		if (!matches) return;
 		if (handleKeyframeShortcut(event, matches)) return;
 		if (
 			event.key !== 'Escape' &&
@@ -1640,7 +1636,7 @@
 			clearSelection();
 			return;
 		}
-		if (editorDeleteModeForEvent(event, bindings) && selectedItemIds.size > 0) {
+		if (editorDeleteModeForEvent(event, keyboardShortcuts.bindings) && selectedItemIds.size > 0) {
 			event.preventDefault();
 			removeSelected();
 			return;

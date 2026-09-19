@@ -148,13 +148,6 @@ export function isRateStretchableType(item: TimelineItem): boolean {
 }
 
 /**
- * Looping-media stretch cap, ported from FreeCut (MIT) `LOOPING_MEDIA_MAX_DURATION`
- * (10 minutes at 30fps). Guards future GIF-duration extension; the looping path
- * below keeps duration fixed and only changes speed.
- */
-export const LOOPING_RATE_STRETCH_MAX_DURATION_FRAMES = 30 * 60 * 10;
-
-/**
  * Speed-from-pixels for looping media, ported from FreeCut (MIT)
  * `getLoopingMediaStretchPreviewSpeed`: left = faster, right = slower.
  */

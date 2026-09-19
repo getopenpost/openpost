@@ -299,15 +299,6 @@ export function parseColorQuery(query: string): ParsedColorQuery {
 }
 
 /**
- * Return the color families (with Lab coordinates) that the query
- * explicitly asks to match by palette. Empty array means no color-aware
- * ranking for this query.
- */
-export function extractQueryColors(query: string): ColorFamilyDefinition[] {
-	return parseColorQuery(query).colors;
-}
-
-/**
  * Find the best palette match for each query color, pick the overall
  * closest one, and return the boost + metadata. `null` means no
  * meaningful match (palette empty, or all ∆E ≥ 30).

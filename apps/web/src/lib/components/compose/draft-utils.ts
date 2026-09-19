@@ -159,3 +159,61 @@ export function getDraftSnapshot(posts: PostItem[]): string {
 export function hasAnyContent(posts: PostItem[]): boolean {
 	return posts.some((p) => p.content.trim().length > 0 || p.mediaIds.length > 0);
 }
+
+export function arraysEqual(left: string[], right: string[]): boolean {
+	if (left.length !== right.length) return false;
+	return left.every((value, index) => value === right[index]);
+}
+export function makeVariantRecord(sourcePosts: PostItem[]): Record<string, VariantPost> {
+	return Object.fromEntries(
+		sourcePosts.map((post) => [
+			post.key,
+			{
+				content: post.content,
+				mediaIds: [...post.mediaIds],
+				contentInherited: true,
+				mediaInherited: true
+			}
+		])
+	);
+}
+export function normalizeVariantRecord(
+	record: Record<string, VariantPost> | undefined,
+	sourcePosts: PostItem[]
+): Record<string, VariantPost> {
+	return Object.fromEntries(
+		sourcePosts.map((post) => {
+			const value = record?.[post.key];
+			return [
+				post.key,
+				{
+					content: value?.content ?? post.content,
+					mediaIds: value?.mediaIds ? [...value.mediaIds] : [...post.mediaIds],
+					contentInherited: value?.contentInherited ?? false,
+					mediaInherited: value?.mediaInherited ?? false
+				}
+			];
+		})
+	);
+}
+export function variantPostEquals(
+	left: VariantPost | undefined,
+	right: VariantPost,
+	fallback: PostItem
+): boolean {
+	return (
+		(left?.content ?? fallback.content) === right.content &&
+		arraysEqual(left?.mediaIds ?? fallback.mediaIds, right.mediaIds) &&
+		(left?.contentInherited ?? false) === (right.contentInherited ?? false) &&
+		(left?.mediaInherited ?? false) === (right.mediaInherited ?? false)
+	);
+}
+
+export function variantRecordEquals(
+	left: Record<string, VariantPost> | undefined,
+	right: Record<string, VariantPost>,
+	sourcePosts: PostItem[]
+): boolean {
+	if (Object.keys(left ?? {}).length !== Object.keys(right).length) return false;
+	return sourcePosts.every((post) => variantPostEquals(left?.[post.key], right[post.key], post));
+}

@@ -163,21 +163,6 @@ export async function uploadMediaFile({
 	}
 }
 
-export function isSupportedMediaFile(file: File): boolean {
-	return (
-		file.type.startsWith('image/') ||
-		file.type.startsWith('video/') ||
-		file.type.startsWith('audio/') ||
-		[
-			'application/pdf',
-			'application/msword',
-			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-			'application/vnd.ms-powerpoint',
-			'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-		].includes(file.type)
-	);
-}
-
 export function shouldUseMultipartFallback(error: Error): boolean {
 	if (!(error instanceof UploadRequestError)) {
 		return false;

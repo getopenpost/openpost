@@ -7,7 +7,7 @@ import {
   type NativeTabIconRole,
 } from "./native-tab-icon-selection";
 
-export { NATIVE_TAB_ICON_ROLES, type NativeTabIconRole } from "./native-tab-icon-selection";
+export type { NativeTabIconRole } from "./native-tab-icon-selection";
 
 export function resolveNativeThemeNavigationIcon(
   manifest: NativeThemeManifest,

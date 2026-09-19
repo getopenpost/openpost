@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { assetSurfaceManifest } from "./asset-surfaces.ts";
+import { reportProblems } from "./report-problems.mjs";
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -237,12 +238,7 @@ export async function assetSizeReport(manifest = assetSurfaceManifest, root = re
 
 async function main() {
   const problems = await validateAssetSurfaceManifest();
-  if (problems.length > 0) {
-    console.error(
-      `Asset surface manifest check failed:\n${problems.map((problem) => `- ${problem}`).join("\n")}`,
-    );
-    process.exit(1);
-  }
+  reportProblems("Asset surface manifest check failed", problems);
   const report = await assetSizeReport();
   if (report.copiedBytes >= report.previousCopiedBytes) {
     console.error("Per-surface asset copies do not reduce shipped bytes.");

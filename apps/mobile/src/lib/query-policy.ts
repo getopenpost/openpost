@@ -17,7 +17,6 @@ export {
   publicationRefreshKeys,
   shouldRetryQuery,
   type PublicationRefreshRequest,
-  type QueryPage,
 };
 
 export type PublicationActivity = ActivityPublicationBucket;

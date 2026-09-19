@@ -77,6 +77,10 @@
 	import ComposerPublishActions from './composer-publish-actions.svelte';
 	import ComposerAIActionButton from './composer-ai-action-button.svelte';
 	import ComposerDeliveryFeedback from './composer-delivery-feedback.svelte';
+	import ComposerDestinationTabs from './composer-destination-tabs.svelte';
+	import ComposerVariantToolbar from './composer-variant-toolbar.svelte';
+	import ComposerCharCounter from './composer-char-counter.svelte';
+	import ComposerMediaGrid from './composer-media-grid.svelte';
 	import SaveIndicator from './save-indicator.svelte';
 	import ComposerScheduleDialog from './composer-schedule-dialog.svelte';
 	import ComposerRepostControl from './composer-repost-control.svelte';
@@ -99,13 +103,14 @@
 		makeEmptyPost,
 		getDraftSnapshot,
 		hasAnyContent,
-		type VariantPost
+		type VariantPost,
+		arraysEqual,
+		makeVariantRecord,
+		normalizeVariantRecord,
+		variantRecordEquals
 	} from './compose/draft-utils';
-	import {
-		mostConstrainedCharacterUsage,
-		platformTextLength,
-		uniquePlatformLimits
-	} from './compose/platform-limits';
+	import { platformTextLength, uniquePlatformLimits } from './compose/platform-limits';
+	import { readinessStateMessage } from './account-presentation';
 	import { editorAccountIdAfterVariantLoad } from './compose/editor-target';
 	import { isActionableAccountIssue } from './compose/account-attention';
 	import {
@@ -126,7 +131,8 @@
 		workspaceClock,
 		workspaceDateKeyFromISO,
 		workspaceScheduleFromISO,
-		workspaceScheduleToISO
+		workspaceScheduleToISO,
+		parseScheduleDateParam
 	} from './compose/schedule-timezone';
 	import {
 		buildPublicationPayload,
@@ -941,14 +947,6 @@
 		return uniquePlatformLimits(editorLimitAccounts, resolvedCapabilities);
 	});
 
-	function editorCharacterUsage(value: string): { count: number; limit: number } {
-		const usage = mostConstrainedCharacterUsage(value, editorPlatformLimits);
-		if (usage.limit === null) {
-			throw new Error('Editor character usage requires at least one destination limit');
-		}
-		return usage;
-	}
-
 	const effectiveRandomDelayMinutes = $derived.by(() => {
 		if (randomDelayOverride === 'default') return workspaceCtx.settings.random_delay_minutes;
 		const value = Number(randomDelayOverride);
@@ -977,30 +975,6 @@
 	// --------------------------------------------------------------------------
 	// Helpers
 	// --------------------------------------------------------------------------
-	function getCharCounterColor(count: number, max: number): string {
-		const pct = count / max;
-		if (pct >= 1) return 'text-red-500';
-		if (pct >= 0.8) return 'text-amber-500';
-		return 'text-muted-foreground';
-	}
-
-	function parseScheduleDateParam(value: string | null): CalendarDate | undefined {
-		const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-		if (!match) return undefined;
-		const year = Number(match[1]);
-		const month = Number(match[2]);
-		const day = Number(match[3]);
-		const parsed = new Date(year, month - 1, day);
-		if (
-			parsed.getFullYear() !== year ||
-			parsed.getMonth() + 1 !== month ||
-			parsed.getDate() !== day
-		) {
-			return undefined;
-		}
-		return new CalendarDate(year, month, day);
-	}
-
 	function applyInitialScheduleDate(dateParam: string | null, timeParam: string | null) {
 		const date = parseScheduleDateParam(dateParam);
 		if (!date) return;
@@ -1167,12 +1141,6 @@
 			error = cause instanceof Error ? cause.message : m.analytics_repurpose_failed();
 		}
 	}
-
-	function arraysEqual(left: string[], right: string[]): boolean {
-		if (left.length !== right.length) return false;
-		return left.every((value, index) => value === right[index]);
-	}
-
 	function sanitizeSelectedAccounts(validAccounts: SocialAccount[]) {
 		const validIds = new Set(validAccounts.map((account) => account.id));
 		const nextSelectedIds = selectedAccountIds.filter((id) => validIds.has(id));
@@ -1209,13 +1177,6 @@
 				accountId !== null && (!nextSelectedIdSet.has(accountId) || !nextVariants.has(accountId))
 			);
 		});
-	}
-
-	function getCharCounterStrokeColor(count: number, max: number): string {
-		const pct = count / max;
-		if (pct >= 1) return '#ef4444';
-		if (pct >= 0.8) return '#f59e0b';
-		return 'currentColor';
 	}
 
 	function autoResize(el: HTMLTextAreaElement) {
@@ -1264,11 +1225,6 @@
 			selectedWorkspaceId
 		});
 	}
-
-	function segmentID(publicationID: string, index: number): string {
-		return `legacy-segment:${publicationID}:${index}`;
-	}
-
 	function settingsForAccount(account: SocialAccount): ComposerSettings {
 		return normalizeSettings(account, settingsByAccount[account.id] ?? {}, 'destination');
 	}
@@ -1612,32 +1568,7 @@
 		account: SocialAccount,
 		presentation: ProviderReadinessPresentation
 	): string {
-		const platform = getPlatformName(account.platform);
-		switch (presentation.state) {
-			case 'unsupported':
-				return m.provider_readiness_unsupported({ platform });
-			case 'disabled':
-				return m.provider_readiness_disabled({ platform });
-			case 'needs_configuration':
-				return m.provider_readiness_needs_configuration({ platform });
-			case 'reconnect_required':
-				return m.provider_readiness_reconnect_required({ platform });
-			case 'degraded':
-				return m.provider_readiness_degraded({ platform });
-			case 'approval_required':
-				return m.provider_readiness_approval_required({ platform });
-			case 'trial_only':
-				return m.provider_readiness_trial_only({ platform });
-			case 'policy_restricted':
-				return m.provider_readiness_policy_restricted({ platform });
-			case 'certification_required':
-				return m.provider_readiness_certification_required({ platform });
-			case 'expired_proof':
-				return m.provider_readiness_expired_proof({ platform });
-			case 'healthy':
-			default:
-				return '';
-		}
+		return readinessStateMessage(presentation.state, getPlatformName(account.platform));
 	}
 
 	function accountReadinessMessages(account: SocialAccount): string[] {
@@ -1801,7 +1732,7 @@
 			},
 			media: publicationMedia(posts[0]?.mediaIds ?? []),
 			segments: posts.map((post, index) => ({
-				id: segmentID(targetPublicationID, index),
+				id: `legacy-segment:${targetPublicationID}:${index}`,
 				content: post.content,
 				url: index === 0 ? linkUrl : '',
 				media: publicationMedia(post.mediaIds),
@@ -2250,59 +2181,6 @@
 			Array.from(variants.entries()).map(([accountId, values]) => [accountId, values])
 		);
 	}
-
-	function makeVariantRecord(sourcePosts: PostItem[]): Record<string, VariantPost> {
-		return Object.fromEntries(
-			sourcePosts.map((post) => [
-				post.key,
-				{
-					content: post.content,
-					mediaIds: [...post.mediaIds],
-					contentInherited: true,
-					mediaInherited: true
-				}
-			])
-		);
-	}
-
-	function normalizeVariantRecord(
-		record: Record<string, VariantPost> | undefined,
-		sourcePosts: PostItem[]
-	): Record<string, VariantPost> {
-		return Object.fromEntries(
-			sourcePosts.map((post) => {
-				const value = record?.[post.key];
-				return [
-					post.key,
-					{
-						content: value?.content ?? post.content,
-						mediaIds: value?.mediaIds ? [...value.mediaIds] : [...post.mediaIds],
-						contentInherited: value?.contentInherited ?? false,
-						mediaInherited: value?.mediaInherited ?? false
-					}
-				];
-			})
-		);
-	}
-
-	function variantRecordEquals(
-		left: Record<string, VariantPost> | undefined,
-		right: Record<string, VariantPost>,
-		sourcePosts: PostItem[]
-	): boolean {
-		if (Object.keys(left ?? {}).length !== Object.keys(right).length) return false;
-		return sourcePosts.every((post) => {
-			const leftValue = left?.[post.key];
-			const rightValue = right[post.key];
-			return (
-				(leftValue?.content ?? post.content) === rightValue.content &&
-				arraysEqual(leftValue?.mediaIds ?? post.mediaIds, rightValue.mediaIds) &&
-				(leftValue?.contentInherited ?? false) === (rightValue.contentInherited ?? false) &&
-				(leftValue?.mediaInherited ?? false) === (rightValue.mediaInherited ?? false)
-			);
-		});
-	}
-
 	function getEditorContentForPost(post: PostItem): string {
 		if (!activeVariantAccountId) return post.content;
 		return getVariantContent(activeVariantAccountId, post.key) ?? post.content;
@@ -5163,17 +5041,7 @@
 	}
 
 	function inheritedVariantRecord(): Record<string, VariantPost> {
-		return Object.fromEntries(
-			posts.map((post) => [
-				post.key,
-				{
-					content: post.content,
-					mediaIds: [...post.mediaIds],
-					contentInherited: true,
-					mediaInherited: true
-				}
-			])
-		);
+		return makeVariantRecord(posts);
 	}
 
 	function applyDestinationAction() {
@@ -5801,133 +5669,29 @@
 			<div class="mx-auto w-full max-w-2xl px-3 py-4 md:px-6 md:py-6">
 				{#if selectedAccounts.length > 0}
 					<section class="mb-5" aria-label={m.compose_destination_tabs()}>
-						<div
-							class="destination-tabs-scrollbar flex gap-1 overflow-x-auto border-b pb-px"
-							role="tablist"
-							aria-label={m.compose_destination_tabs()}
-						>
-							<button
-								type="button"
-								role="tab"
-								aria-selected={!activeVariantAccountId}
-								class="min-h-11 shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
-								class:border-foreground={!activeVariantAccountId}
-								class:border-transparent={Boolean(activeVariantAccountId)}
-								class:text-muted-foreground={Boolean(activeVariantAccountId)}
-								onclick={() => activateVariantTab(null)}
-							>
-								{m.compose_all_channels()}
-							</button>
-							{#each selectedAccounts as account (account.id)}
-								{@const issueCount = accountIssueMessages(account).length}
-								<button
-									id="composer-destination-{account.id}"
-									type="button"
-									role="tab"
-									aria-selected={activeVariantAccountId === account.id}
-									class="flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
-									class:border-foreground={activeVariantAccountId === account.id}
-									class:border-transparent={activeVariantAccountId !== account.id}
-									class:text-muted-foreground={activeVariantAccountId !== account.id}
-									onclick={() => activateVariantTab(account.id)}
-								>
-									<SocialAccountIdentity
-										class="max-w-52"
-										name={accountLabel(account)}
-										platform={account.platform}
-										avatarUrl={account.account_avatar_url}
-										size="sm"
-										compactOnMobile
-										showPlatform={false}
-									/>
-									{#if issueCount > 0}
-										<span
-											class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"
-											>{issueCount}</span
-										>
-									{/if}
-								</button>
-							{/each}
-						</div>
+						<ComposerDestinationTabs
+							accounts={selectedAccounts}
+							activeAccountId={activeVariantAccountId}
+							onActivate={activateVariantTab}
+							{accountLabel}
+							issueCountFor={(account) => accountIssueMessages(account).length}
+						/>
 
 						{#if activeVariantAccount}
-							<div class="flex flex-wrap items-center gap-2 border-b py-3">
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									class="h-11 md:h-9"
-									onclick={() => openAccountPreview(activeVariantAccount!)}
-								>
-									{m.compose_preview()}
-								</Button>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									class="h-11 md:h-9"
-									onclick={() => openDestinationSettings(activeVariantAccount!)}
-								>
-									{m.compose_platform_settings()}
-								</Button>
-								<DropdownMenu.Root>
-									<DropdownMenu.Trigger>
-										{#snippet child({ props })}
-											<Button
-												{...props}
-												type="button"
-												variant="ghost"
-												size="icon"
-												class="size-11 md:size-9"
-												aria-label={m.sidebar_more()}
-											>
-												<ThemeIcon role="more-horizontal" class="size-4" />
-											</Button>
-										{/snippet}
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content class="w-56" align="start">
-										{#if variantHasContentOverride(activeVariantAccount.id)}
-											<DropdownMenu.Item
-												onclick={() => resetVariantField(activeVariantAccount!.id, 'content')}
-											>
-												{m.compose_reset_field()}
-											</DropdownMenu.Item>
-										{/if}
-										{#if variantHasMediaOverride(activeVariantAccount.id)}
-											<DropdownMenu.Item
-												onclick={() => resetVariantField(activeVariantAccount!.id, 'media')}
-											>
-												{m.compose_reset_media()}
-											</DropdownMenu.Item>
-										{/if}
-										{#if activeVariantIsUnsynced}
-											<DropdownMenu.Item onclick={() => resyncAccount(activeVariantAccount!.id)}>
-												{m.compose_reset_destination()}
-											</DropdownMenu.Item>
-										{/if}
-										{#if selectedAccounts.length > 1}
-											<DropdownMenu.Separator />
-											<DropdownMenu.Item
-												disabled={hasPendingPasteMediaUploads}
-												onclick={() => openDestinationAction('media')}
-											>
-												{m.compose_apply_media()}
-											</DropdownMenu.Item>
-											<DropdownMenu.Item
-												disabled={hasPendingPasteMediaUploads}
-												onclick={() => openDestinationAction('copy')}
-											>
-												{m.compose_copy_rendition()}
-											</DropdownMenu.Item>
-										{/if}
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
-							</div>
-							{#if resolvedCapabilities[activeVariantAccount.id]?.segment_strategy === 'join' && posts.length > 1}
-								<p class="pt-2 text-xs text-muted-foreground">
-									{m.compose_segments_joined({ count: posts.length })}
-								</p>
-							{/if}
+							<ComposerVariantToolbar
+								hasContentOverride={variantHasContentOverride(activeVariantAccount.id)}
+								hasMediaOverride={variantHasMediaOverride(activeVariantAccount.id)}
+								isUnsynced={activeVariantIsUnsynced}
+								uploadsPending={hasPendingPasteMediaUploads}
+								multiAccount={selectedAccounts.length > 1}
+								segmentStrategy={resolvedCapabilities[activeVariantAccount.id]?.segment_strategy}
+								postCount={posts.length}
+								onPreview={() => openAccountPreview(activeVariantAccount!)}
+								onSettings={() => openDestinationSettings(activeVariantAccount!)}
+								onResetField={(field) => resetVariantField(activeVariantAccount!.id, field)}
+								onResync={() => resyncAccount(activeVariantAccount!.id)}
+								onDestinationAction={openDestinationAction}
+							/>
 						{/if}
 					</section>
 				{/if}
@@ -6106,228 +5870,18 @@
 											</div>
 										{/if}
 
-										<!-- Media grid -->
-										{#if editorMediaCount > 0}
-											<div class="mb-3 {editorMediaCount === 1 ? '' : 'grid grid-cols-2 gap-1.5'}">
-												{#each editorMediaIds as mediaId, mi (mediaId)}
-													{@const isFirstOfThree = editorMediaCount === 3 && mi === 0}
-													<div
-														tabindex="-1"
-														data-composer-media-id={mediaId}
-														class="group/media relative overflow-hidden rounded-lg {isFirstOfThree
-															? 'col-span-2'
-															: ''}"
-													>
-														{#if isVideoMedia(mediaId)}
-															<video
-																src={getAuthenticatedMediaByID(mediaId)}
-																class="{editorMediaCount === 1
-																	? 'aspect-video'
-																	: 'aspect-square'} w-full object-cover"
-																controls
-																muted
-																playsinline
-															></video>
-														{:else}
-															<img
-																src={getAuthenticatedMediaByID(mediaId)}
-																alt={mediaAltTexts.get(mediaId) || ''}
-																class="{editorMediaCount === 1
-																	? 'aspect-video'
-																	: 'aspect-square'} w-full object-cover"
-															/>
-														{/if}
-														<div
-															class="absolute top-2 right-2 flex items-center gap-1 opacity-100 md:opacity-0 md:transition-opacity md:group-focus-within/media:opacity-100 md:group-hover/media:opacity-100"
-															data-testid="composer-media-actions"
-														>
-															<button
-																type="button"
-																class={[
-																	'flex size-11 items-center justify-center rounded-md bg-black/75 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-black/90 md:size-7',
-																	mediaAltTexts.get(mediaId)
-																		? 'ring-2 ring-primary/80 ring-offset-1 ring-offset-transparent'
-																		: ''
-																]}
-																aria-label={captioningMediaIds.has(mediaId)
-																	? m.compose_alt_text_generating()
-																	: mediaAltTexts.get(mediaId)
-																		? m.media_alt_text()
-																		: m.media_add_alt_text()}
-																title={captioningMediaIds.has(mediaId)
-																	? m.compose_alt_text_generating()
-																	: mediaAltTexts.get(mediaId)
-																		? m.media_alt_text()
-																		: m.media_add_alt_text()}
-																onclick={(e) => {
-																	e.stopPropagation();
-																	editingAltMediaId =
-																		editingAltMediaId === mediaId ? null : mediaId;
-																}}
-															>
-																{#if captioningMediaIds.has(mediaId)}
-																	<ProtectedIcon
-																		icon="loading"
-																		class="size-4 animate-spin md:size-3.5"
-																	/>
-																{:else}
-																	<ProtectedIcon icon="editor-text" class="size-4 md:size-3.5" />
-																{/if}
-															</button>
-															<button
-																type="button"
-																class="flex size-11 items-center justify-center rounded-md bg-black/75 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-red-600 md:size-7"
-																aria-label={m.compose_remove_media()}
-																title={m.compose_remove_media()}
-																onclick={(e) => {
-																	e.stopPropagation();
-																	removeMedia(i, mi);
-																}}
-															>
-																<ThemeIcon role="close" class="size-4 md:size-3.5" />
-															</button>
-														</div>
-														{#if editingAltMediaId === mediaId}
-															<div
-																class="absolute inset-x-0 bottom-0 bg-black/70 p-2 backdrop-blur-sm"
-															>
-																<Textarea
-																	value={mediaAltTexts.get(mediaId) || ''}
-																	unstyled
-																	oninput={(e) =>
-																		setMediaAltText(
-																			mediaId,
-																			(e.target as HTMLTextAreaElement).value
-																		)}
-																	placeholder={m.compose_alt_text_placeholder()}
-																	rows={2}
-																	class="w-full resize-none rounded bg-white/10 px-2 py-2 text-base text-white placeholder:text-white/60 focus:ring-2 focus:ring-white/70 focus:outline-none md:py-1 md:text-xs"
-																	aria-label={m.media_alt_text()}
-																/>
-																{#if captioningMediaIds.has(mediaId)}
-																	<p class="mt-1 text-xs text-white/80" aria-live="polite">
-																		{m.compose_alt_text_generating()}
-																	</p>
-																{/if}
-																<div class="mt-1 flex justify-end gap-1">
-																	<button
-																		type="button"
-																		class="text-xs text-white/70 hover:text-white"
-																		onclick={() => (editingAltMediaId = null)}
-																		>{m.common_done()}</button
-																	>
-																</div>
-															</div>
-														{/if}
-													</div>
-												{/each}
-												{#each pendingMediaUploads as upload, uploadIndex (upload.id)}
-													{@const mediaIndex = editorMediaIds.length + uploadIndex}
-													<div
-														class="relative overflow-hidden rounded-lg {editorMediaCount === 3 &&
-														mediaIndex === 0
-															? 'col-span-2'
-															: ''}"
-														data-testid="composer-paste-upload"
-														data-status={upload.status}
-														role="group"
-														aria-label={upload.file.name}
-														aria-busy={upload.status === 'queued' || upload.status === 'uploading'}
-													>
-														<img
-															src={upload.previewURL}
-															alt=""
-															class="{editorMediaCount === 1
-																? 'aspect-video'
-																: 'aspect-square'} w-full object-cover"
-														/>
-														<div
-															class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 p-3 text-center text-white"
-														>
-															<p
-																class="max-w-full truncate text-xs font-semibold"
-																title={upload.file.name}
-															>
-																{upload.file.name}
-															</p>
-															{#if upload.status === 'uploading'}
-																<ProtectedIcon icon="loading" class="size-5 animate-spin" />
-																<p class="text-xs font-medium">
-																	{upload.file.name}: {m.media_upload_action()}
-																	{#if upload.progress !== null}
-																		{Math.round(upload.progress * 100)}%
-																	{/if}
-																</p>
-																{#if upload.progress !== null}
-																	<div
-																		class="h-1.5 w-full max-w-36 overflow-hidden rounded-full bg-white/25"
-																		role="progressbar"
-																		aria-label={`${m.media_upload_action()}: ${upload.file.name}`}
-																		aria-valuemin="0"
-																		aria-valuemax="100"
-																		aria-valuenow={Math.round(upload.progress * 100)}
-																	>
-																		<div
-																			class="h-full rounded-full bg-white transition-[width]"
-																			style:width={`${Math.round(upload.progress * 100)}%`}
-																		></div>
-																	</div>
-																{/if}
-																<button
-																	type="button"
-																	class="rounded-md bg-black/65 px-3 py-1.5 text-xs font-medium hover:bg-black/85 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-																	onclick={() => pasteMediaUploadQueue.cancel(upload.id)}
-																	aria-label={`${m.common_cancel()}: ${upload.file.name}`}
-																>
-																	{m.common_cancel()}
-																</button>
-															{:else if upload.status === 'queued'}
-																<ProtectedIcon icon="loading" class="size-5 animate-spin" />
-																<p class="text-xs font-medium">
-																	{upload.file.name}: {m.media_upload_ready()}
-																</p>
-																<button
-																	type="button"
-																	class="rounded-md bg-black/65 px-3 py-1.5 text-xs font-medium hover:bg-black/85 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-																	onclick={() => pasteMediaUploadQueue.remove(upload.id)}
-																	aria-label={`${m.common_cancel()}: ${upload.file.name}`}
-																>
-																	{m.common_cancel()}
-																</button>
-															{:else}
-																<p
-																	class="line-clamp-3 text-xs font-medium"
-																	role={upload.status === 'failed' ? 'alert' : 'status'}
-																>
-																	{upload.file.name}: {upload.status === 'failed'
-																		? upload.error || m.compose_upload_failed()
-																		: m.media_upload_ready()}
-																</p>
-																<div class="flex flex-wrap justify-center gap-2">
-																	<button
-																		type="button"
-																		class="flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none"
-																		onclick={() => pasteMediaUploadQueue.retry(upload.id)}
-																		aria-label={`${m.common_retry()}: ${upload.file.name}`}
-																	>
-																		<ThemeIcon role="refresh" class="size-3.5" />
-																		{m.common_retry()}
-																	</button>
-																	<button
-																		type="button"
-																		class="rounded-md bg-black/65 px-3 py-1.5 text-xs font-medium hover:bg-black/85 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-																		onclick={() => pasteMediaUploadQueue.remove(upload.id)}
-																		aria-label={m.media_upload_remove({ name: upload.file.name })}
-																	>
-																		{m.compose_remove_media()}
-																	</button>
-																</div>
-															{/if}
-														</div>
-													</div>
-												{/each}
-											</div>
-										{/if}
+										<ComposerMediaGrid
+											mediaIds={editorMediaIds}
+											mediaCount={editorMediaCount}
+											altTexts={mediaAltTexts}
+											captioningIds={captioningMediaIds}
+											bind:editingAltMediaId
+											pendingUploads={pendingMediaUploads}
+											queue={pasteMediaUploadQueue}
+											{isVideoMedia}
+											onRemoveMedia={(mi) => removeMedia(i, mi)}
+											onAltText={setMediaAltText}
+										/>
 
 										<!-- Bottom bar -->
 										<div
@@ -6354,80 +5908,10 @@
 												<ThemeIcon role="image" class="h-3.5 w-3.5" />
 											</button>
 
-											{#if editorPlatformLimits.length > 0}
-												<Tooltip.Root>
-													<Tooltip.Trigger>
-														{#snippet child({ props })}
-															{@const editorUsage = editorCharacterUsage(
-																getEditorContentForPost(post)
-															)}
-															<div {...props} class="flex cursor-default items-center gap-1.5">
-																<svg
-																	class="h-4 w-4 {getCharCounterColor(
-																		editorUsage.count,
-																		editorUsage.limit
-																	)}"
-																	viewBox="0 0 20 20"
-																>
-																	<circle
-																		cx="10"
-																		cy="10"
-																		r="8"
-																		fill="none"
-																		stroke="currentColor"
-																		stroke-width="2.5"
-																		opacity="0.15"
-																	/>
-																	<circle
-																		cx="10"
-																		cy="10"
-																		r="8"
-																		fill="none"
-																		stroke={getCharCounterStrokeColor(
-																			editorUsage.count,
-																			editorUsage.limit
-																		)}
-																		stroke-width="2.5"
-																		stroke-linecap="round"
-																		stroke-dasharray={50.27}
-																		stroke-dashoffset={50.27 *
-																			Math.max(0, 1 - editorUsage.count / editorUsage.limit)}
-																		transform="rotate(-90 10 10)"
-																	/>
-																</svg>
-																<span class="text-xs text-muted-foreground tabular-nums"
-																	>{editorUsage.count}/{editorUsage.limit}</span
-																>
-															</div>
-														{/snippet}
-													</Tooltip.Trigger>
-													<Tooltip.Content>
-														<div class="space-y-1">
-															<p class="text-xs font-medium text-muted-foreground">
-																{m.compose_character_limits()}
-															</p>
-															{#each editorPlatformLimits as pl (pl.key)}
-																{@const platformCount = platformTextLength(
-																	pl.key,
-																	getEditorContentForPost(post)
-																)}
-																<div class="flex items-center justify-between gap-2 text-xs">
-																	<div class="flex items-center gap-1.5">
-																		<PlatformIcon platform={pl.key} class="h-3 w-3" /><span
-																			>{pl.platform}</span
-																		>
-																	</div>
-																	<span
-																		class="tabular-nums {platformCount > pl.limit
-																			? 'text-red-500'
-																			: 'text-muted-foreground'}">{platformCount}/{pl.limit}</span
-																	>
-																</div>
-															{/each}
-														</div>
-													</Tooltip.Content>
-												</Tooltip.Root>
-											{/if}
+											<ComposerCharCounter
+												content={getEditorContentForPost(post)}
+												limits={editorPlatformLimits}
+											/>
 
 											<button
 												type="button"

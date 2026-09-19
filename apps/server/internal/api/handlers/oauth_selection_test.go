@@ -309,3 +309,32 @@ func oauthSelectionRequest(t *testing.T, e *echo.Echo, method, path string, body
 	e.ServeHTTP(rec, req)
 	return rec
 }
+
+func TestNormalizeAccountSelectionIDs(t *testing.T) {
+	newInput := func(id string, ids ...string) *CompleteAccountSelectionInput {
+		input := &CompleteAccountSelectionInput{}
+		input.Body.SelectionID = id
+		input.Body.SelectionIDs = ids
+		return input
+	}
+	t.Run("merges legacy and plural IDs", func(t *testing.T) {
+		got, err := normalizeAccountSelectionIDs(newInput("b", "a", "b", " ", "a"))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []string{"a", "b"}
+		if len(got) != len(want) {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("got %v, want %v", got, want)
+			}
+		}
+	})
+	t.Run("rejects empty selections", func(t *testing.T) {
+		if _, err := normalizeAccountSelectionIDs(newInput("", " ", "")); err == nil {
+			t.Fatal("expected an error for empty selections")
+		}
+	})
+}

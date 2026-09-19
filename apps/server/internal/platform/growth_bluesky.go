@@ -79,6 +79,45 @@ func (b *BlueskyAdapter) DiscoverGrowthCandidates(ctx context.Context, input Gro
 		}
 	}
 
+	seeds := selectBlueskyGrowthSeeds(viewerFollows)
+	builders := make(map[string]*candidateBuilder)
+	if err := b.expandBlueskyGrowthBuilders(ctx, input.AccessToken, input.ViewerID, seeds, viewerFollowingSet, builders); err != nil {
+		return nil, err
+	}
+
+	suggestions, err := b.fetchBlueskySuggestions(ctx, input.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+	mergeBlueskyGrowthSuggestions(suggestions, input.ViewerID, viewerFollowingSet, builders)
+
+	rankedList := rankBlueskyGrowthBuilders(builders)
+
+	// Select up to maxFinalists after ranking.
+	finalCount := len(rankedList)
+	if finalCount > blueskyGrowthMaxFinalists {
+		finalCount = blueskyGrowthMaxFinalists
+	}
+	selected := rankedList[:finalCount]
+	if len(selected) == 0 {
+		return []GrowthCandidate{}, nil
+	}
+
+	enriched, err := b.enrichBlueskyGrowthCandidates(ctx, input.AccessToken, selected)
+	if err != nil {
+		return nil, err
+	}
+
+	return finalizeBlueskyGrowthCandidates(selected, enriched, limit), nil
+}
+
+type blueskyRankedCandidate struct {
+	did   string
+	b     *candidateBuilder
+	score int
+}
+
+func selectBlueskyGrowthSeeds(viewerFollows []blueskyGrowthProfile) []blueskyGrowthProfile {
 	seeds := make([]blueskyGrowthProfile, 0, blueskyGrowthMaxSeeds)
 	for i := 0; i < len(viewerFollows) && len(seeds) < blueskyGrowthMaxSeeds; i++ {
 		p := viewerFollows[i]
@@ -87,73 +126,71 @@ func (b *BlueskyAdapter) DiscoverGrowthCandidates(ctx context.Context, input Gro
 		}
 		seeds = append(seeds, p)
 	}
+	return seeds
+}
 
-	builders := make(map[string]*candidateBuilder)
-
-	// Track seed lookup for mutual examples.
-	seedByDID := make(map[string]blueskyGrowthProfile, len(seeds))
-	for _, s := range seeds {
-		seedByDID[s.DID] = s
-	}
-
+func (b *BlueskyAdapter) expandBlueskyGrowthBuilders(ctx context.Context, accessToken, viewerID string, seeds []blueskyGrowthProfile, viewerFollowingSet map[string]struct{}, builders map[string]*candidateBuilder) error {
 	for _, seed := range seeds {
-		follows, err := b.fetchBlueskyFollows(ctx, input.AccessToken, seed.DID)
+		follows, err := b.fetchBlueskyFollows(ctx, accessToken, seed.DID)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for _, cand := range follows {
-			if cand.DID == "" || cand.Handle == "" {
-				continue
-			}
-			if cand.DID == input.ViewerID {
-				continue
-			}
-			if _, already := viewerFollowingSet[cand.DID]; already {
-				continue
-			}
-			if isBlueskyViewerBlockedOrMuted(cand.Viewer) {
-				continue
-			}
-			if isBlueskyDeactivated(cand) {
-				continue
-			}
-			mutualProfile := GrowthMutualProfile{
-				RemoteID:    seed.DID,
-				Handle:      seed.Handle,
-				DisplayName: seed.DisplayName,
-				AvatarURL:   seed.Avatar,
-			}
-			if existing, ok := builders[cand.DID]; ok {
-				if _, seen := existing.mutualSeeds[seed.DID]; !seen {
-					existing.mutualSeeds[seed.DID] = struct{}{}
-					existing.sampledCount++
-					if len(existing.sampledMutuals) < 3 {
-						existing.sampledMutuals = append(existing.sampledMutuals, mutualProfile)
-					}
-				}
-				existing.signals["friends_of_friends"] = struct{}{}
-				continue
-			}
-			bldr := &candidateBuilder{
-				profile:        cand,
-				sampledMutuals: []GrowthMutualProfile{mutualProfile},
-				sampledCount:   1,
-				mutualSeeds:    map[string]struct{}{seed.DID: {}},
-				signals:        map[string]struct{}{"friends_of_friends": {}},
-			}
-			builders[cand.DID] = bldr
+			accumulateBlueskyGrowthCandidate(builders, viewerFollowingSet, viewerID, seed, cand)
 		}
 	}
+	return nil
+}
 
-	suggestions, err := b.fetchBlueskySuggestions(ctx, input.AccessToken)
-	if err != nil {
-		return nil, err
+func accumulateBlueskyGrowthCandidate(builders map[string]*candidateBuilder, viewerFollowingSet map[string]struct{}, viewerID string, seed, cand blueskyGrowthProfile) {
+	if cand.DID == "" || cand.Handle == "" {
+		return
 	}
+	if cand.DID == viewerID {
+		return
+	}
+	if _, already := viewerFollowingSet[cand.DID]; already {
+		return
+	}
+	if isBlueskyViewerBlockedOrMuted(cand.Viewer) {
+		return
+	}
+	if isBlueskyDeactivated(cand) {
+		return
+	}
+	mutualProfile := GrowthMutualProfile{
+		RemoteID:    seed.DID,
+		Handle:      seed.Handle,
+		DisplayName: seed.DisplayName,
+		AvatarURL:   seed.Avatar,
+	}
+	if existing, ok := builders[cand.DID]; ok {
+		if _, seen := existing.mutualSeeds[seed.DID]; !seen {
+			existing.mutualSeeds[seed.DID] = struct{}{}
+			existing.sampledCount++
+			if len(existing.sampledMutuals) < 3 {
+				existing.sampledMutuals = append(existing.sampledMutuals, mutualProfile)
+			}
+		}
+		existing.signals["friends_of_friends"] = struct{}{}
+		return
+	}
+	bldr := &candidateBuilder{
+		profile:        cand,
+		sampledMutuals: []GrowthMutualProfile{mutualProfile},
+		sampledCount:   1,
+		mutualSeeds:    map[string]struct{}{seed.DID: {}},
+		signals:        map[string]struct{}{"friends_of_friends": {}},
+	}
+	builders[cand.DID] = bldr
+}
+
+func mergeBlueskyGrowthSuggestions(suggestions []blueskyGrowthProfile, viewerID string, viewerFollowingSet map[string]struct{}, builders map[string]*candidateBuilder) {
 	for _, cand := range suggestions {
 		if cand.DID == "" || cand.Handle == "" {
 			continue
 		}
-		if cand.DID == input.ViewerID {
+		if cand.DID == viewerID {
 			continue
 		}
 		if _, already := viewerFollowingSet[cand.DID]; already {
@@ -182,40 +219,29 @@ func (b *BlueskyAdapter) DiscoverGrowthCandidates(ctx context.Context, input Gro
 			signals:     map[string]struct{}{"suggestion": {}},
 		}
 	}
+}
 
-	// Preliminary rank: sampled mutual evidence + suggestion signal.
-	type ranked struct {
-		did   string
-		b     *candidateBuilder
-		score int
-	}
-	rankedList := make([]ranked, 0, len(builders))
+func rankBlueskyGrowthBuilders(builders map[string]*candidateBuilder) []blueskyRankedCandidate {
+	rankedList := make([]blueskyRankedCandidate, 0, len(builders))
 	for did, bldr := range builders {
 		score := bldr.sampledCount * 10
 		if _, ok := bldr.signals["suggestion"]; ok {
 			score += 5
 		}
 		// slight deterministic tie-breaker: handle alphabetical
-		rankedList = append(rankedList, ranked{did: did, b: bldr, score: score})
+		rankedList = append(rankedList, blueskyRankedCandidate{did: did, b: bldr, score: score})
 	}
+
 	sort.Slice(rankedList, func(i, j int) bool {
 		if rankedList[i].score != rankedList[j].score {
 			return rankedList[i].score > rankedList[j].score
 		}
 		return rankedList[i].did < rankedList[j].did
 	})
+	return rankedList
+}
 
-	// Select up to maxFinalists after ranking.
-	finalCount := len(rankedList)
-	if finalCount > blueskyGrowthMaxFinalists {
-		finalCount = blueskyGrowthMaxFinalists
-	}
-	selected := rankedList[:finalCount]
-	if len(selected) == 0 {
-		return []GrowthCandidate{}, nil
-	}
-
-	// Enrich via getProfiles in batches of 25.
+func (b *BlueskyAdapter) enrichBlueskyGrowthCandidates(ctx context.Context, accessToken string, selected []blueskyRankedCandidate) (map[string]blueskyGrowthProfile, error) {
 	dids := make([]string, 0, len(selected))
 	for _, r := range selected {
 		dids = append(dids, r.did)
@@ -227,7 +253,7 @@ func (b *BlueskyAdapter) DiscoverGrowthCandidates(ctx context.Context, input Gro
 			end = len(dids)
 		}
 		batch := dids[i:end]
-		profiles, err := b.fetchBlueskyProfiles(ctx, input.AccessToken, batch)
+		profiles, err := b.fetchBlueskyProfiles(ctx, accessToken, batch)
 		if err != nil {
 			return nil, err
 		}
@@ -235,85 +261,91 @@ func (b *BlueskyAdapter) DiscoverGrowthCandidates(ctx context.Context, input Gro
 			enriched[p.DID] = p
 		}
 	}
+	return enriched, nil
+}
 
-	// Build final candidates preserving ranking order.
+func finalizeBlueskyGrowthCandidates(selected []blueskyRankedCandidate, enriched map[string]blueskyGrowthProfile, limit int) []GrowthCandidate {
 	candidates := make([]GrowthCandidate, 0, len(selected))
 	for _, r := range selected {
-		bldr := r.b
-		profile := bldr.profile
-		if ep, ok := enriched[r.did]; ok {
-			profile = ep
-		}
-		followersCount := 0
-		if profile.FollowersCount != nil {
-			followersCount = *profile.FollowersCount
-		}
-		followingCount := 0
-		if profile.FollowsCount != nil {
-			followingCount = *profile.FollowsCount
-		}
-
-		mutualCount := bldr.sampledCount
-		mutuals := bldr.sampledMutuals
-		exact := false
-		if kf := parseKnownFollowers(profile.Viewer); kf != nil {
-			mutualCount = kf.Count
-			exact = true
-			mutuals = make([]GrowthMutualProfile, 0, len(kf.Followers))
-			for _, f := range kf.Followers {
-				if len(mutuals) >= 3 {
-					break
-				}
-				if f.DID == "" {
-					continue
-				}
-				mutuals = append(mutuals, GrowthMutualProfile{
-					RemoteID:    f.DID,
-					Handle:      f.Handle,
-					DisplayName: f.DisplayName,
-					AvatarURL:   f.Avatar,
-				})
-			}
-		}
-
-		// Extract viewer relations for enriched profile.
-		viewerFollowing, viewerFollowedBy := parseViewerFollowState(profile.Viewer)
-
-		signals := make([]string, 0, len(bldr.signals))
-		for s := range bldr.signals {
-			signals = append(signals, s)
-		}
-		sort.Strings(signals)
-
-		profileURL := ""
-		if profile.Handle != "" {
-			profileURL = "https://bsky.app/profile/" + profile.Handle
-		} else if profile.DID != "" {
-			profileURL = "https://bsky.app/profile/" + profile.DID
-		}
-
-		candidates = append(candidates, GrowthCandidate{
-			RemoteID:       profile.DID,
-			Handle:         profile.Handle,
-			DisplayName:    profile.DisplayName,
-			Bio:            profile.Description,
-			AvatarURL:      profile.Avatar,
-			ProfileURL:     profileURL,
-			FollowersCount: followersCount,
-			FollowingCount: followingCount,
-			MutualCount:    mutualCount,
-			Mutuals:        mutuals,
-			MutualsExact:   exact,
-			FollowedBy:     viewerFollowedBy,
-			Following:      viewerFollowing,
-			Signals:        signals,
-		})
+		candidates = append(candidates, buildBlueskyGrowthCandidate(r, enriched))
 	}
 
 	if len(candidates) > limit {
 		candidates = candidates[:limit]
 	}
-	return candidates, nil
+	return candidates
+}
+
+func buildBlueskyGrowthCandidate(r blueskyRankedCandidate, enriched map[string]blueskyGrowthProfile) GrowthCandidate {
+	bldr := r.b
+	profile := bldr.profile
+	if ep, ok := enriched[r.did]; ok {
+		profile = ep
+	}
+	followersCount := 0
+	if profile.FollowersCount != nil {
+		followersCount = *profile.FollowersCount
+	}
+	followingCount := 0
+	if profile.FollowsCount != nil {
+		followingCount = *profile.FollowsCount
+	}
+
+	mutualCount := bldr.sampledCount
+	mutuals := bldr.sampledMutuals
+	exact := false
+	if kf := parseKnownFollowers(profile.Viewer); kf != nil {
+		mutualCount = kf.Count
+		exact = true
+		mutuals = make([]GrowthMutualProfile, 0, len(kf.Followers))
+		for _, f := range kf.Followers {
+			if len(mutuals) >= 3 {
+				break
+			}
+			if f.DID == "" {
+				continue
+			}
+			mutuals = append(mutuals, GrowthMutualProfile{
+				RemoteID:    f.DID,
+				Handle:      f.Handle,
+				DisplayName: f.DisplayName,
+				AvatarURL:   f.Avatar,
+			})
+		}
+	}
+
+	// Extract viewer relations for enriched profile.
+	viewerFollowing, viewerFollowedBy := parseViewerFollowState(profile.Viewer)
+
+	signals := make([]string, 0, len(bldr.signals))
+	for s := range bldr.signals {
+		signals = append(signals, s)
+	}
+	sort.Strings(signals)
+
+	profileURL := ""
+	if profile.Handle != "" {
+		profileURL = "https://bsky.app/profile/" + profile.Handle
+	} else if profile.DID != "" {
+		profileURL = "https://bsky.app/profile/" + profile.DID
+	}
+
+	return GrowthCandidate{
+		RemoteID:       profile.DID,
+		Handle:         profile.Handle,
+		DisplayName:    profile.DisplayName,
+		Bio:            profile.Description,
+		AvatarURL:      profile.Avatar,
+		ProfileURL:     profileURL,
+		FollowersCount: followersCount,
+		FollowingCount: followingCount,
+		MutualCount:    mutualCount,
+		Mutuals:        mutuals,
+		MutualsExact:   exact,
+		FollowedBy:     viewerFollowedBy,
+		Following:      viewerFollowing,
+		Signals:        signals,
+	}
 }
 
 func (b *BlueskyAdapter) FollowGrowthCandidate(ctx context.Context, accessToken, viewerID, candidateID string) (GrowthFollowResult, error) {

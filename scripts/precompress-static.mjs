@@ -4,6 +4,8 @@ import { promisify } from "node:util";
 import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { optionValue } from "./cli-option.mjs";
+
 const brotli = promisify(brotliCompress);
 const gzipFile = promisify(gzip);
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -59,16 +61,6 @@ export async function precompressDirectory(publicDirectory = defaultPublicDirect
     brotliBytes,
     gzipBytes,
   };
-}
-
-function optionValue(name) {
-  const index = process.argv.indexOf(name);
-  if (index === -1) return undefined;
-  const value = process.argv[index + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`${name} requires a path`);
-  }
-  return value;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

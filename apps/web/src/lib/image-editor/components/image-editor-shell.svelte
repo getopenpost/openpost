@@ -17,6 +17,8 @@
 	import EditorWorkspaceTabs from '$lib/components/editor-workspace-tabs.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
+	import ImageEditorGuideDialog from './image-editor-guide-dialog.svelte';
+	import ImageEditorResizeDialog from './image-editor-resize-dialog.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -281,7 +283,6 @@
 	let projectFileInput = $state<HTMLInputElement | null>(null);
 	let toolPreferencesReady = $state(false);
 	let guideDialogOpen = $state(false);
-	let guideAxis = $state<'horizontal' | 'vertical'>('vertical');
 	let overlayWasOpen = false;
 	let overlayReturnFocus: HTMLElement | null = null;
 
@@ -311,7 +312,6 @@
 		}
 		overlayWasOpen = overlayOpen;
 	});
-	let guidePosition = $state(0);
 	let backgroundBusy = $state(false);
 	let backgroundProgress = $state('');
 	let backgroundError = $state('');
@@ -354,10 +354,6 @@
 	let templateCategory = $state<string>(m.image_editor_workspace_category());
 	let templateTargetID = $state('new');
 	let workspaceTemplates = $state<ImageEditorTemplate[]>([]);
-	let resizeWidth = $state(1080);
-	let resizeHeight = $state(1080);
-	let resizeMode = $state<'scale' | 'preserve'>('scale');
-	let resizeError = $state('');
 	let marqueeSlotTool = $state<'marquee' | 'ellipse_marquee'>('marquee');
 	let fillSlotTool = $state<'bucket' | 'gradient'>('bucket');
 	let eraserSlotTool = $state<'eraser' | 'magic_eraser'>('eraser');
@@ -936,17 +932,6 @@
 		else if (option === 'grid') editor.showGrid = enabled;
 		else editor.snapToGrid = enabled;
 		storeViewPreferences();
-	}
-
-	function openGuideDialog(): void {
-		guideAxis = 'vertical';
-		guidePosition = Math.round((editor.document?.width_px ?? 0) / 2);
-		guideDialogOpen = true;
-	}
-
-	function addNumericGuide(): void {
-		editor.addGuide(guideAxis, guidePosition);
-		guideDialogOpen = false;
 	}
 
 	function resizePanelWithKeyboard(event: KeyboardEvent, panel: 'inspector' | 'layers'): void {
@@ -1727,51 +1712,6 @@
 		}
 	}
 
-	function openResizeDialog(): void {
-		if (!editor.document) return;
-		resizeWidth = editor.document.width_px;
-		resizeHeight = editor.document.height_px;
-		resizeMode = 'scale';
-		resizeError = '';
-		resizeDialogOpen = true;
-	}
-
-	function resizeDocument(): void {
-		if (!editor.document) return;
-		if (
-			resizeWidth < 64 ||
-			resizeHeight < 64 ||
-			resizeWidth > 4096 ||
-			resizeHeight > 4096 ||
-			resizeWidth * resizeHeight > 25_000_000
-		) {
-			resizeError = m.image_editor_resize_limits();
-			return;
-		}
-		const previousWidth = editor.document.width_px;
-		const previousHeight = editor.document.height_px;
-		editor.mutate('Resize design', (document) => {
-			if (resizeMode === 'scale') {
-				const scaleX = resizeWidth / previousWidth;
-				const scaleY = resizeHeight / previousHeight;
-				for (const page of document.pages) {
-					for (const layer of page.layers) {
-						layer.transform.x *= scaleX;
-						layer.transform.y *= scaleY;
-						layer.transform.width *= scaleX;
-						layer.transform.height *= scaleY;
-						if (layer.text) layer.text.font_size *= Math.min(scaleX, scaleY);
-					}
-				}
-			}
-			document.width_px = resizeWidth;
-			document.height_px = resizeHeight;
-			document.preset_key = 'custom';
-		});
-		editor.fitZoom();
-		resizeDialogOpen = false;
-	}
-
 	function setTool(tool: ImageEditorTool): void {
 		if (editor.floatingPixelSelection) editor.commitFloatingPixelSelection();
 		if (tool === 'shape') {
@@ -2071,7 +2011,7 @@
 		version_history: () => void openHistory(),
 		create_checkpoint: () => (checkpointDialogOpen = true),
 		save_template: () => void openTemplateDialog(),
-		resize_design: openResizeDialog,
+		resize_design: () => (resizeDialogOpen = true),
 		export_project: () => void exportProject(),
 		import_project: () => projectFileInput?.click(),
 		export_design: () => openExport('download'),
@@ -2104,7 +2044,7 @@
 		toggle_grid: () => setViewOption('grid', !editor.showGrid),
 		toggle_snap_grid: () => setViewOption('snapToGrid', !editor.snapToGrid),
 		clear_guides: () => editor.clearGuides(),
-		add_guide: openGuideDialog,
+		add_guide: () => (guideDialogOpen = true),
 		open_help: () => (helpDialogOpen = true),
 		tool_select: () => setTool('select'),
 		tool_marquee: () => setTool('marquee'),
@@ -4244,91 +4184,9 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-<Dialog.Root bind:open={resizeDialogOpen}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>{m.image_editor_resize_design()}</Dialog.Title>
-			<Dialog.Description>{m.image_editor_resize_body()}</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4">
-			<div class="grid grid-cols-2 gap-3">
-				<label class="grid gap-1.5 text-sm">
-					<span class="font-medium">{m.image_editor_width()}</span>
-					<Input type="number" min="64" max="4096" bind:value={resizeWidth} />
-				</label>
-				<label class="grid gap-1.5 text-sm">
-					<span class="font-medium">{m.image_editor_height()}</span>
-					<Input type="number" min="64" max="4096" bind:value={resizeHeight} />
-				</label>
-			</div>
-			<RadioGroup.Root bind:value={resizeMode}>
-				<label
-					class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
-				>
-					<RadioGroup.Item value="scale" aria-label={m.image_editor_scale_content()} />
-					<span>{m.image_editor_scale_content()}</span>
-				</label>
-				<label
-					class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
-				>
-					<RadioGroup.Item value="preserve" aria-label={m.image_editor_preserve_content()} />
-					<span>{m.image_editor_preserve_content()}</span>
-				</label>
-			</RadioGroup.Root>
-			{#if resizeError}
-				<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-					{resizeError}
-				</p>
-			{/if}
-		</div>
-		<Dialog.Footer>
-			<Button variant="ghost" onclick={() => (resizeDialogOpen = false)}>{m.common_cancel()}</Button
-			>
-			<Button onclick={resizeDocument}>{m.image_editor_resize()}</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<ImageEditorResizeDialog bind:open={resizeDialogOpen} />
 
-<Dialog.Root bind:open={guideDialogOpen}>
-	<Dialog.Content class="sm:max-w-sm">
-		<Dialog.Header>
-			<Dialog.Title>{m.image_editor_add_guide()}</Dialog.Title>
-			<Dialog.Description>{m.image_editor_guide_position()}</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4">
-			<RadioGroup.Root bind:value={guideAxis} class="grid grid-cols-2 gap-2">
-				<label
-					class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
-				>
-					<RadioGroup.Item value="horizontal" aria-label={m.image_editor_horizontal()} />
-					{m.image_editor_horizontal()}
-				</label>
-				<label
-					class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
-				>
-					<RadioGroup.Item value="vertical" aria-label={m.image_editor_vertical()} />
-					{m.image_editor_vertical()}
-				</label>
-			</RadioGroup.Root>
-			<label class="grid gap-1.5 text-sm">
-				<span class="font-medium">{m.image_editor_guide_position()}</span>
-				<Input
-					type="number"
-					min="0"
-					max={guideAxis === 'horizontal' ? editor.document?.height_px : editor.document?.width_px}
-					bind:value={guidePosition}
-					onkeydown={(event) => {
-						if (event.key === 'Enter') addNumericGuide();
-					}}
-				/>
-			</label>
-		</div>
-		<Dialog.Footer>
-			<Button variant="ghost" onclick={() => (guideDialogOpen = false)}>{m.common_cancel()}</Button>
-			<Button onclick={addNumericGuide}>{m.image_editor_add_guide()}</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<ImageEditorGuideDialog bind:open={guideDialogOpen} />
 
 <Dialog.Root bind:open={exportDialogOpen}>
 	<Dialog.Content class="sm:max-w-lg">

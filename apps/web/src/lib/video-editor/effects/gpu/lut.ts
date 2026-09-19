@@ -244,12 +244,6 @@ export function createIdentityLutData(size: number): Uint8Array {
 	return data;
 }
 
-/** Backward-compatible wrapper: parse and pack a .cube file into base64, preserving full fidelity up to 129. */
-export function encodeCubeLut(text: string): EncodedCubeLut {
-	const parsed = parseCubeLut(text);
-	return { size: parsed.size, data: encodeLutData(parsed.data) };
-}
-
 export const lut: GpuShaderDefinition = {
 	id: 'gpu-lut',
 	label: '3D LUT',

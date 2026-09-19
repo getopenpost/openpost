@@ -13,7 +13,6 @@ export * from "./protected-icons";
 export * from "./resource-stage";
 export {
   NATIVE_CONTROL_METRICS,
-  NATIVE_MIN_TOUCH_TARGET,
   actionPresentation,
   appearanceLayoutPresentation,
   buttonRadius,
@@ -25,14 +24,6 @@ export {
   sidebarDecorationWidth,
   themeAssetFor,
   themePreviewPresentation,
-  type NativeCardPresentation,
-  type NativeAppearanceLayoutPresentation,
-  type NativeEmptyStatePresentation,
-  type NativeInputPresentation,
-  type NativeLoadingStatePresentation,
-  type NativeNavigationPresentation,
-  type NativeResolvedThemeAsset,
-  type NativeThemePreviewPresentation,
 } from "./presentation";
 export * from "./runtime";
 export * from "./settings-context";

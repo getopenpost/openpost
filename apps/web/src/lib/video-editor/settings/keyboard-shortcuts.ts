@@ -695,6 +695,21 @@ export function editorShortcutTargetIsDisabled(target: EventTarget | null): bool
 	return Boolean(target.closest('input, textarea, select, button, a, [contenteditable="true"]'));
 }
 
+/**
+ * Shared keydown prelude for editor surfaces: ignore already-handled events
+ * and disabled targets, then match pressed keys against the live bindings.
+ * Returns null when the event must not drive shortcuts.
+ */
+export function createShortcutMatcher(
+	event: KeyboardEvent,
+	bindings: EditorShortcutBindingMap
+): ((...ids: EditorShortcutId[]) => boolean) | null {
+	if (event.defaultPrevented) return null;
+	if (editorShortcutTargetIsDisabled(event.target)) return null;
+	return (...ids: EditorShortcutId[]) =>
+		ids.some((id) => eventMatchesShortcut(event, bindings[id]));
+}
+
 function editorPlaybackTargetIsDisabled(target: EventTarget | null): boolean {
 	return (
 		target instanceof HTMLElement &&

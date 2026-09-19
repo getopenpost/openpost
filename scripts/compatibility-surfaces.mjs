@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { reportProblems } from "./report-problems.mjs";
+
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const requiredCompatibilityEntryIDs = [
@@ -442,12 +444,7 @@ export function validateCompatibilityRegistry(registry, openapi, now = new Date(
 function main() {
   const { registry, openapi } = readCompatibilityInputs();
   const problems = validateCompatibilityRegistry(registry, openapi);
-  if (problems.length > 0) {
-    console.error(
-      `Compatibility retirement check failed:\n${problems.map((problem) => `- ${problem}`).join("\n")}`,
-    );
-    process.exit(1);
-  }
+  reportProblems("Compatibility retirement check failed", problems);
   const counts = Object.groupBy(registry.entries, (entry) => entry.status);
   console.log(
     `Compatibility registry is valid: ${registry.entries.length} entries (${counts.retained?.length ?? 0} retained, ${counts.deprecated?.length ?? 0} deprecated, ${counts.removed?.length ?? 0} removed).`,

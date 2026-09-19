@@ -435,11 +435,6 @@ export function getAudioEffects(source?: TimelineItem | null): AudioEffect[] {
 	return normalizeAudioEffects(source.audioEffects);
 }
 
-export function cloneAudioEffects(effects: AudioEffect[] | undefined): AudioEffect[] | undefined {
-	if (!effects || effects.length === 0) return undefined;
-	return normalizeAudioEffects(structuredClone(effects));
-}
-
 export function isAudioEffectActive(effect: AudioEffect): boolean {
 	if (!effect.enabled) return false;
 	switch (effect.type) {
@@ -463,18 +458,6 @@ export function isAudioEffectActive(effect: AudioEffect): boolean {
 export function hasActiveAudioEffects(effects: AudioEffect[] | undefined): boolean {
 	if (!effects || effects.length === 0) return false;
 	return effects.some(isAudioEffectActive);
-}
-
-export function areAudioEffectsEqual(
-	left: AudioEffect[] | undefined,
-	right: AudioEffect[] | undefined
-): boolean {
-	const a = left ?? [];
-	const b = right ?? [];
-	if (a.length !== b.length) return false;
-	for (let i = 0; i < a.length; i++)
-		if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) return false;
-	return true;
 }
 
 export function reorderAudioEffects(

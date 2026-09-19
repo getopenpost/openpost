@@ -2,6 +2,7 @@ import { CalendarDate } from '@internationalized/date';
 import { describe, expect, it } from 'vitest';
 import {
 	isFutureSchedule,
+	parseScheduleDateParam,
 	workspaceClock,
 	workspaceScheduleFromISO,
 	workspaceScheduleMoveToDate,
@@ -68,5 +69,17 @@ describe('workspaceScheduleToISO', () => {
 
 		expect(moved).toBe('2026-07-20T08:00:00.000Z');
 		expect(isFutureSchedule(moved!, Date.parse('2026-07-20T12:00:00.000Z'))).toBe(false);
+	});
+});
+
+describe('parseScheduleDateParam', () => {
+	it('parses valid dates', () => {
+		expect(parseScheduleDateParam('2026-07-20')).toEqual(new CalendarDate(2026, 7, 20));
+	});
+
+	it('rejects invalid input', () => {
+		expect(parseScheduleDateParam(null)).toBeUndefined();
+		expect(parseScheduleDateParam('tomorrow')).toBeUndefined();
+		expect(parseScheduleDateParam('2026-02-30')).toBeUndefined();
 	});
 });

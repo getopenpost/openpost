@@ -18,27 +18,7 @@ import {
   type PublicationFreshness,
 } from "./query-policy";
 
-export type WorkspaceSummary = {
-  id: string;
-  name?: string | null;
-};
-
 export type PublicationListItem = Publication;
-
-export type AccountSummary = {
-  id: string;
-  platform: string;
-  slug?: string | null;
-  account_username?: string | null;
-  is_active: boolean;
-};
-
-export type SocialSetSummary = {
-  id: string;
-  name?: string | null;
-  is_default?: boolean | null;
-  accounts?: { social_account_id: string }[] | null;
-};
 
 export function workspacesOptions() {
   return queryOptions({

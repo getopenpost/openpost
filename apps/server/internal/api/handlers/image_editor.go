@@ -2069,67 +2069,94 @@ func validateImageEditorPayload(payload ImageEditorDocumentPayload) error {
 	pageIDs := make(map[string]struct{}, len(payload.Pages))
 	layerIDs := make(map[string]struct{})
 	for _, page := range payload.Pages {
-		if strings.TrimSpace(page.ID) == "" {
-			return fmt.Errorf("every OpenPost Image Editor page requires an ID")
-		}
-		if _, exists := pageIDs[page.ID]; exists {
-			return fmt.Errorf("image editor page IDs must be unique")
-		}
-		pageIDs[page.ID] = struct{}{}
-		if len(page.Layers) > imageEditorMaxLayersPerPage {
-			return fmt.Errorf("an OpenPost Image Editor page cannot contain more than %d layers", imageEditorMaxLayersPerPage)
-		}
-		if err := validateImageEditorPageBackground(page); err != nil {
+		if err := validateImageEditorPage(payload, page, pageIDs, layerIDs); err != nil {
 			return err
 		}
-		if err := validateImageEditorPageColorGrade(page); err != nil {
-			return err
+	}
+	return nil
+}
+
+func validateImageEditorPage(payload ImageEditorDocumentPayload, page ImageEditorPagePayload, pageIDs, layerIDs map[string]struct{}) error {
+	if strings.TrimSpace(page.ID) == "" {
+		return fmt.Errorf("every OpenPost Image Editor page requires an ID")
+	}
+	if _, exists := pageIDs[page.ID]; exists {
+		return fmt.Errorf("image editor page IDs must be unique")
+	}
+	pageIDs[page.ID] = struct{}{}
+	if len(page.Layers) > imageEditorMaxLayersPerPage {
+		return fmt.Errorf("an OpenPost Image Editor page cannot contain more than %d layers", imageEditorMaxLayersPerPage)
+	}
+	if err := validateImageEditorPageBackground(page); err != nil {
+		return err
+	}
+	if err := validateImageEditorPageColorGrade(page); err != nil {
+		return err
+	}
+	if err := validateImageEditorPageGuides(payload, page); err != nil {
+		return err
+	}
+
+	pageLayerIDs, parents, err := collectImageEditorPageLayers(page, layerIDs)
+	if err != nil {
+		return err
+	}
+	return validateImageEditorLayerHierarchy(parents, pageLayerIDs)
+}
+
+func validateImageEditorPageGuides(payload ImageEditorDocumentPayload, page ImageEditorPagePayload) error {
+	if page.Guides != nil {
+		if len(page.Guides.Horizontal) > 100 || len(page.Guides.Vertical) > 100 {
+			return fmt.Errorf("image editor pages cannot contain more than 100 guides per axis")
 		}
-		if page.Guides != nil {
-			if len(page.Guides.Horizontal) > 100 || len(page.Guides.Vertical) > 100 {
-				return fmt.Errorf("image editor pages cannot contain more than 100 guides per axis")
-			}
-			for _, value := range page.Guides.Horizontal {
-				if !finiteImageEditorNumber(value) || value < 0 || value > float64(payload.HeightPX) {
-					return fmt.Errorf("image editor horizontal guides must remain inside the page")
-				}
-			}
-			for _, value := range page.Guides.Vertical {
-				if !finiteImageEditorNumber(value) || value < 0 || value > float64(payload.WidthPX) {
-					return fmt.Errorf("image editor vertical guides must remain inside the page")
-				}
+		for _, value := range page.Guides.Horizontal {
+			if !finiteImageEditorNumber(value) || value < 0 || value > float64(payload.HeightPX) {
+				return fmt.Errorf("image editor horizontal guides must remain inside the page")
 			}
 		}
-		pageLayerIDs := make(map[string]struct{}, len(page.Layers))
-		parents := make(map[string]string, len(page.Layers))
-		for _, layer := range page.Layers {
-			if strings.TrimSpace(layer.ID) == "" {
-				return fmt.Errorf("every OpenPost Image Editor layer requires an ID")
-			}
-			if _, exists := layerIDs[layer.ID]; exists {
-				return fmt.Errorf("image editor layer IDs must be unique across the document")
-			}
-			layerIDs[layer.ID] = struct{}{}
-			pageLayerIDs[layer.ID] = struct{}{}
-			parents[layer.ID] = layer.ParentID
-			if err := validateImageEditorLayer(layer); err != nil {
-				return err
+		for _, value := range page.Guides.Vertical {
+			if !finiteImageEditorNumber(value) || value < 0 || value > float64(payload.WidthPX) {
+				return fmt.Errorf("image editor vertical guides must remain inside the page")
 			}
 		}
-		for id, parentID := range parents {
-			if parentID == "" {
-				continue
+	}
+	return nil
+}
+
+func collectImageEditorPageLayers(page ImageEditorPagePayload, layerIDs map[string]struct{}) (map[string]struct{}, map[string]string, error) {
+	pageLayerIDs := make(map[string]struct{}, len(page.Layers))
+	parents := make(map[string]string, len(page.Layers))
+	for _, layer := range page.Layers {
+		if strings.TrimSpace(layer.ID) == "" {
+			return nil, nil, fmt.Errorf("every OpenPost Image Editor layer requires an ID")
+		}
+		if _, exists := layerIDs[layer.ID]; exists {
+			return nil, nil, fmt.Errorf("image editor layer IDs must be unique across the document")
+		}
+		layerIDs[layer.ID] = struct{}{}
+		pageLayerIDs[layer.ID] = struct{}{}
+		parents[layer.ID] = layer.ParentID
+		if err := validateImageEditorLayer(layer); err != nil {
+			return nil, nil, err
+		}
+	}
+	return pageLayerIDs, parents, nil
+}
+
+func validateImageEditorLayerHierarchy(parents map[string]string, pageLayerIDs map[string]struct{}) error {
+	for id, parentID := range parents {
+		if parentID == "" {
+			continue
+		}
+		if _, exists := pageLayerIDs[parentID]; !exists {
+			return fmt.Errorf("image editor layer %s references a missing parent", id)
+		}
+		seen := map[string]bool{id: true}
+		for current := parentID; current != ""; current = parents[current] {
+			if seen[current] {
+				return fmt.Errorf("image editor layer hierarchy cannot contain cycles")
 			}
-			if _, exists := pageLayerIDs[parentID]; !exists {
-				return fmt.Errorf("image editor layer %s references a missing parent", id)
-			}
-			seen := map[string]bool{id: true}
-			for current := parentID; current != ""; current = parents[current] {
-				if seen[current] {
-					return fmt.Errorf("image editor layer hierarchy cannot contain cycles")
-				}
-				seen[current] = true
-			}
+			seen[current] = true
 		}
 	}
 	return nil
@@ -2230,6 +2257,26 @@ func validateImageImageEditorBackground(background *ImageEditorPageBackground) e
 
 //nolint:gocyclo // Layer-specific validation is centralized so every write path enforces identical limits.
 func validateImageEditorLayer(layer ImageEditorLayer) error {
+	if err := validateImageEditorBaseLayer(layer); err != nil {
+		return err
+	}
+	switch layer.Type {
+	case "text":
+		return validateImageEditorTextLayer(layer)
+	case "image":
+		return validateImageEditorImageLayer(layer)
+	case "shape":
+		return validateImageEditorShapeLayer(layer)
+	case "paint":
+		return validateImageEditorPaintLayer(layer)
+	case "group":
+		return validateImageEditorGroupLayer(layer)
+	default:
+		return fmt.Errorf("unsupported OpenPost Image Editor layer type")
+	}
+}
+
+func validateImageEditorBaseLayer(layer ImageEditorLayer) error {
 	if !finiteImageEditorNumber(layer.Opacity) || layer.Opacity < 0 || layer.Opacity > 1 {
 		return fmt.Errorf("image editor layer opacity must be between 0 and 1")
 	}
@@ -2248,6 +2295,10 @@ func validateImageEditorLayer(layer ImageEditorLayer) error {
 	if layer.Transform.Width < 0 || layer.Transform.Height < 0 {
 		return fmt.Errorf("image editor layer dimensions cannot be negative")
 	}
+	return validateImageEditorLayerOverlays(layer)
+}
+
+func validateImageEditorLayerOverlays(layer ImageEditorLayer) error {
 	if layer.Mask != nil {
 		if !oneOfImageEditorString(layer.Mask.Shape, "rectangle", "rounded_rectangle", "circle", "ellipse", "diamond") ||
 			!finiteImageEditorNumber(layer.Mask.Inset) ||
@@ -2265,167 +2316,210 @@ func validateImageEditorLayer(layer ImageEditorLayer) error {
 			return err
 		}
 	}
-	if layer.Effects != nil {
-		if !oneOfImageEditorString(layer.Effects.BlendMode, "normal", "multiply", "screen", "overlay", "darken", "lighten", "soft_light") {
-			return fmt.Errorf("image editor layer blend mode is invalid")
-		}
-		if err := validateImageEditorShadowEffect(layer.Effects.DropShadow); err != nil {
-			return err
-		}
-		if err := validateImageEditorShadowEffect(layer.Effects.InnerShadow); err != nil {
-			return err
-		}
-		if err := validateImageEditorStrokeEffect(layer.Effects.Stroke); err != nil {
-			return err
+	return validateImageEditorLayerEffects(layer)
+}
+
+func validateImageEditorLayerEffects(layer ImageEditorLayer) error {
+	if !oneOfImageEditorString(layer.Effects.BlendMode, "normal", "multiply", "screen", "overlay", "darken", "lighten", "soft_light") {
+		return fmt.Errorf("image editor layer blend mode is invalid")
+	}
+	if err := validateImageEditorShadowEffect(layer.Effects.DropShadow); err != nil {
+		return err
+	}
+	if err := validateImageEditorShadowEffect(layer.Effects.InnerShadow); err != nil {
+		return err
+	}
+	return validateImageEditorStrokeEffect(layer.Effects.Stroke)
+}
+
+func validateImageEditorTextLayer(layer ImageEditorLayer) error {
+	if layer.Text == nil || layer.Image != nil || layer.Shape != nil || layer.Paint != nil {
+		return fmt.Errorf("text layers require only text properties")
+	}
+	if !imageEditorTextContentValid(layer.Text) {
+		return fmt.Errorf("text layer properties are invalid")
+	}
+	if !imageEditorHexColor.MatchString(layer.Text.Color) {
+		return fmt.Errorf("text colors must use hexadecimal values")
+	}
+	if !imageEditorTextEffectsValid(layer.Text) {
+		return fmt.Errorf("text effects are invalid")
+	}
+	if layer.Text.Curve != nil && !imageEditorTextCurveValid(layer.Text.Curve) {
+		return fmt.Errorf("text curve is invalid")
+	}
+	return nil
+}
+
+func imageEditorTextContentValid(text *ImageEditorTextValue) bool {
+	return text.FontSize > 0 &&
+		finiteImageEditorNumber(text.FontSize) &&
+		text.FontWeight >= 100 &&
+		text.FontWeight <= 900 &&
+		oneOfImageEditorString(text.FontStyle, "normal", "italic") &&
+		(text.Wrap == "" || oneOfImageEditorString(text.Wrap, "word", "character")) &&
+		oneOfImageEditorString(text.Align, "left", "center", "right", "justify") &&
+		text.LineHeight > 0 &&
+		finiteImageEditorNumber(text.LineHeight) &&
+		finiteImageEditorNumber(text.LetterSpacing) &&
+		text.StrokeWidth >= 0 &&
+		finiteImageEditorNumber(text.StrokeWidth) &&
+		len([]rune(text.Text)) <= 20_000
+}
+
+func imageEditorTextEffectsValid(text *ImageEditorTextValue) bool {
+	return (text.HighlightColor == "" || imageEditorHexColor.MatchString(text.HighlightColor)) &&
+		(text.StrokeColor == "" || imageEditorHexColor.MatchString(text.StrokeColor)) &&
+		imageEditorHexColor.MatchString(text.Shadow.Color) &&
+		finiteImageEditorNumber(text.Shadow.Blur) &&
+		finiteImageEditorNumber(text.Shadow.OffsetX) &&
+		finiteImageEditorNumber(text.Shadow.OffsetY) &&
+		text.Shadow.Blur >= 0 &&
+		text.Shadow.Blur <= 100
+}
+
+func imageEditorTextCurveValid(curve *ImageEditorTextCurve) bool {
+	return oneOfImageEditorString(curve.Type, "none", "arc_up", "arc_down", "wave", "circle", "ellipse") &&
+		finiteImageEditorNumber(curve.Strength) &&
+		curve.Strength >= 0.05 &&
+		curve.Strength <= 1 &&
+		finiteImageEditorNumber(curve.Offset) &&
+		curve.Offset >= -1 &&
+		curve.Offset <= 1
+}
+
+func validateImageEditorImageLayer(layer ImageEditorLayer) error {
+	if layer.Image == nil || layer.Text != nil || layer.Shape != nil || layer.Paint != nil || strings.TrimSpace(layer.Image.MediaID) == "" {
+		return fmt.Errorf("image layers require only image properties and a media ID")
+	}
+	crop := layer.Image.Crop
+	if !imageEditorCropValid(layer.Image.Fit, crop) {
+		return fmt.Errorf("image crop must stay within normalized image bounds")
+	}
+	adjustments := layer.Image.Adjustments
+	if err := validateImageEditorColorTools(adjustments.Wheels, adjustments.Curves); err != nil {
+		return err
+	}
+	if layer.Image.ColorGradeVersion != 0 && layer.Image.ColorGradeVersion != imageEditorColorGradeVersion {
+		return fmt.Errorf("unsupported image editor layer color grade version")
+	}
+	if !imageEditorAdjustmentsValid(adjustments) {
+		return fmt.Errorf("image adjustments must be between -1 and 1")
+	}
+	if !finiteImageEditorNumber(adjustments.Blur) || adjustments.Blur < 0 || adjustments.Blur > 1 {
+		return fmt.Errorf("image blur must be between 0 and 1")
+	}
+	return nil
+}
+
+func imageEditorCropValid(fit string, crop ImageEditorCrop) bool {
+	return oneOfImageEditorString(fit, "cover", "contain", "stretch") &&
+		finiteImageEditorNumber(crop.X) &&
+		finiteImageEditorNumber(crop.Y) &&
+		finiteImageEditorNumber(crop.Width) &&
+		finiteImageEditorNumber(crop.Height) &&
+		crop.X >= 0 &&
+		crop.Y >= 0 &&
+		crop.Width > 0 &&
+		crop.Height > 0 &&
+		crop.X+crop.Width <= 1.000001 &&
+		crop.Y+crop.Height <= 1.000001
+}
+
+func imageEditorAdjustmentsValid(adjustments ImageEditorImageAdjustments) bool {
+	for _, value := range []float64{
+		adjustments.Brightness,
+		adjustments.Contrast,
+		adjustments.Saturation,
+		adjustments.Temperature,
+		adjustments.Tint,
+		adjustments.Vibrance,
+		adjustments.Hue,
+		adjustments.Exposure,
+		adjustments.Highlights,
+		adjustments.Shadows,
+	} {
+		if !finiteImageEditorNumber(value) || value < -1 || value > 1 {
+			return false
 		}
 	}
-	switch layer.Type {
-	case "text":
-		if layer.Text == nil || layer.Image != nil || layer.Shape != nil || layer.Paint != nil {
-			return fmt.Errorf("text layers require only text properties")
-		}
-		if layer.Text.FontSize <= 0 ||
-			!finiteImageEditorNumber(layer.Text.FontSize) ||
-			layer.Text.FontWeight < 100 ||
-			layer.Text.FontWeight > 900 ||
-			!oneOfImageEditorString(layer.Text.FontStyle, "normal", "italic") ||
-			(layer.Text.Wrap != "" && !oneOfImageEditorString(layer.Text.Wrap, "word", "character")) ||
-			!oneOfImageEditorString(layer.Text.Align, "left", "center", "right", "justify") ||
-			layer.Text.LineHeight <= 0 ||
-			!finiteImageEditorNumber(layer.Text.LineHeight) ||
-			!finiteImageEditorNumber(layer.Text.LetterSpacing) ||
-			layer.Text.StrokeWidth < 0 ||
-			!finiteImageEditorNumber(layer.Text.StrokeWidth) ||
-			len([]rune(layer.Text.Text)) > 20_000 {
-			return fmt.Errorf("text layer properties are invalid")
-		}
-		if !imageEditorHexColor.MatchString(layer.Text.Color) {
-			return fmt.Errorf("text colors must use hexadecimal values")
-		}
-		if (layer.Text.HighlightColor != "" && !imageEditorHexColor.MatchString(layer.Text.HighlightColor)) ||
-			(layer.Text.StrokeColor != "" && !imageEditorHexColor.MatchString(layer.Text.StrokeColor)) ||
-			!imageEditorHexColor.MatchString(layer.Text.Shadow.Color) ||
-			!finiteImageEditorNumber(layer.Text.Shadow.Blur) ||
-			!finiteImageEditorNumber(layer.Text.Shadow.OffsetX) ||
-			!finiteImageEditorNumber(layer.Text.Shadow.OffsetY) ||
-			layer.Text.Shadow.Blur < 0 ||
-			layer.Text.Shadow.Blur > 100 {
-			return fmt.Errorf("text effects are invalid")
-		}
-		if layer.Text.Curve != nil &&
-			(!oneOfImageEditorString(layer.Text.Curve.Type, "none", "arc_up", "arc_down", "wave", "circle", "ellipse") ||
-				!finiteImageEditorNumber(layer.Text.Curve.Strength) ||
-				layer.Text.Curve.Strength < 0.05 ||
-				layer.Text.Curve.Strength > 1 ||
-				!finiteImageEditorNumber(layer.Text.Curve.Offset) ||
-				layer.Text.Curve.Offset < -1 ||
-				layer.Text.Curve.Offset > 1) {
-			return fmt.Errorf("text curve is invalid")
-		}
-	case "image":
-		if layer.Image == nil || layer.Text != nil || layer.Shape != nil || layer.Paint != nil || strings.TrimSpace(layer.Image.MediaID) == "" {
-			return fmt.Errorf("image layers require only image properties and a media ID")
-		}
-		crop := layer.Image.Crop
-		if !oneOfImageEditorString(layer.Image.Fit, "cover", "contain", "stretch") ||
-			!finiteImageEditorNumber(crop.X) ||
-			!finiteImageEditorNumber(crop.Y) ||
-			!finiteImageEditorNumber(crop.Width) ||
-			!finiteImageEditorNumber(crop.Height) ||
-			crop.X < 0 ||
-			crop.Y < 0 ||
-			crop.Width <= 0 ||
-			crop.Height <= 0 ||
-			crop.X+crop.Width > 1.000001 ||
-			crop.Y+crop.Height > 1.000001 {
-			return fmt.Errorf("image crop must stay within normalized image bounds")
-		}
-		adjustments := layer.Image.Adjustments
-		if err := validateImageEditorColorTools(adjustments.Wheels, adjustments.Curves); err != nil {
+	return true
+}
+
+func validateImageEditorShapeLayer(layer ImageEditorLayer) error {
+	if layer.Shape == nil || layer.Text != nil || layer.Image != nil || layer.Paint != nil {
+		return fmt.Errorf("shape layers require only shape properties")
+	}
+	if !oneOfImageEditorString(layer.Shape.Kind, "rectangle", "rounded_rectangle", "ellipse", "line") ||
+		layer.Shape.StrokeWidth < 0 ||
+		layer.Shape.Radius < 0 ||
+		!finiteImageEditorNumber(layer.Shape.StrokeWidth) ||
+		!finiteImageEditorNumber(layer.Shape.Radius) {
+		return fmt.Errorf("shape layer properties are invalid")
+	}
+	if !imageEditorHexColor.MatchString(layer.Shape.Fill) || !imageEditorHexColor.MatchString(layer.Shape.Stroke) {
+		return fmt.Errorf("shape colors must use hexadecimal values")
+	}
+	return nil
+}
+
+func validateImageEditorPaintLayer(layer ImageEditorLayer) error {
+	if layer.Paint == nil || layer.Text != nil || layer.Image != nil || layer.Shape != nil {
+		return fmt.Errorf("paint layers require only paint properties")
+	}
+	if !paintPropertiesValid(layer.Paint) {
+		return fmt.Errorf("paint layer properties are invalid")
+	}
+	if err := validatePaintGeometry(layer.Paint); err != nil {
+		return err
+	}
+	if layer.Paint.Kind == "gradient" {
+		if err := validateImageEditorGradient(layer.Paint.Gradient); err != nil {
 			return err
 		}
-		if layer.Image.ColorGradeVersion != 0 && layer.Image.ColorGradeVersion != imageEditorColorGradeVersion {
-			return fmt.Errorf("unsupported image editor layer color grade version")
+	} else if layer.Paint.Gradient != nil {
+		return fmt.Errorf("only gradient paint layers can include gradient properties")
+	}
+	return nil
+}
+
+func paintPropertiesValid(paint *ImageEditorPaintValue) bool {
+	return oneOfImageEditorString(paint.Kind, "stroke", "fill", "gradient") &&
+		imageEditorHexColor.MatchString(paint.Color) &&
+		finiteImageEditorNumber(paint.Size) &&
+		paint.Size > 0 &&
+		paint.Size <= 512 &&
+		finiteImageEditorNumber(paint.Opacity) &&
+		paint.Opacity >= 0 &&
+		paint.Opacity <= 1 &&
+		finiteImageEditorNumber(paint.SourceWidth) &&
+		finiteImageEditorNumber(paint.SourceHeight) &&
+		paint.SourceWidth > 0 &&
+		paint.SourceHeight > 0 &&
+		len(paint.Points) <= 100_000 &&
+		len(paint.Spans) <= 250_000
+}
+
+func validatePaintGeometry(paint *ImageEditorPaintValue) error {
+	for _, point := range paint.Points {
+		if !finiteImageEditorNumber(point.X) || !finiteImageEditorNumber(point.Y) {
+			return fmt.Errorf("paint layer points must be finite")
 		}
-		for _, value := range []float64{
-			adjustments.Brightness,
-			adjustments.Contrast,
-			adjustments.Saturation,
-			adjustments.Temperature,
-			adjustments.Tint,
-			adjustments.Vibrance,
-			adjustments.Hue,
-			adjustments.Exposure,
-			adjustments.Highlights,
-			adjustments.Shadows,
-		} {
-			if !finiteImageEditorNumber(value) || value < -1 || value > 1 {
-				return fmt.Errorf("image adjustments must be between -1 and 1")
-			}
+	}
+	for _, span := range paint.Spans {
+		if !finiteImageEditorNumber(span.X) ||
+			!finiteImageEditorNumber(span.Y) ||
+			!finiteImageEditorNumber(span.Width) ||
+			span.Width <= 0 {
+			return fmt.Errorf("paint layer spans are invalid")
 		}
-		if !finiteImageEditorNumber(adjustments.Blur) || adjustments.Blur < 0 || adjustments.Blur > 1 {
-			return fmt.Errorf("image blur must be between 0 and 1")
-		}
-	case "shape":
-		if layer.Shape == nil || layer.Text != nil || layer.Image != nil || layer.Paint != nil {
-			return fmt.Errorf("shape layers require only shape properties")
-		}
-		if !oneOfImageEditorString(layer.Shape.Kind, "rectangle", "rounded_rectangle", "ellipse", "line") ||
-			layer.Shape.StrokeWidth < 0 ||
-			layer.Shape.Radius < 0 ||
-			!finiteImageEditorNumber(layer.Shape.StrokeWidth) ||
-			!finiteImageEditorNumber(layer.Shape.Radius) {
-			return fmt.Errorf("shape layer properties are invalid")
-		}
-		if !imageEditorHexColor.MatchString(layer.Shape.Fill) || !imageEditorHexColor.MatchString(layer.Shape.Stroke) {
-			return fmt.Errorf("shape colors must use hexadecimal values")
-		}
-	case "paint":
-		if layer.Paint == nil || layer.Text != nil || layer.Image != nil || layer.Shape != nil {
-			return fmt.Errorf("paint layers require only paint properties")
-		}
-		if !oneOfImageEditorString(layer.Paint.Kind, "stroke", "fill", "gradient") ||
-			!imageEditorHexColor.MatchString(layer.Paint.Color) ||
-			!finiteImageEditorNumber(layer.Paint.Size) ||
-			layer.Paint.Size <= 0 ||
-			layer.Paint.Size > 512 ||
-			!finiteImageEditorNumber(layer.Paint.Opacity) ||
-			layer.Paint.Opacity < 0 ||
-			layer.Paint.Opacity > 1 ||
-			!finiteImageEditorNumber(layer.Paint.SourceWidth) ||
-			!finiteImageEditorNumber(layer.Paint.SourceHeight) ||
-			layer.Paint.SourceWidth <= 0 ||
-			layer.Paint.SourceHeight <= 0 ||
-			len(layer.Paint.Points) > 100_000 ||
-			len(layer.Paint.Spans) > 250_000 {
-			return fmt.Errorf("paint layer properties are invalid")
-		}
-		for _, point := range layer.Paint.Points {
-			if !finiteImageEditorNumber(point.X) || !finiteImageEditorNumber(point.Y) {
-				return fmt.Errorf("paint layer points must be finite")
-			}
-		}
-		for _, span := range layer.Paint.Spans {
-			if !finiteImageEditorNumber(span.X) ||
-				!finiteImageEditorNumber(span.Y) ||
-				!finiteImageEditorNumber(span.Width) ||
-				span.Width <= 0 {
-				return fmt.Errorf("paint layer spans are invalid")
-			}
-		}
-		if layer.Paint.Kind == "gradient" {
-			if err := validateImageEditorGradient(layer.Paint.Gradient); err != nil {
-				return err
-			}
-		} else if layer.Paint.Gradient != nil {
-			return fmt.Errorf("only gradient paint layers can include gradient properties")
-		}
-	case "group":
-		if layer.Text != nil || layer.Image != nil || layer.Shape != nil || layer.Paint != nil || layer.Effects != nil || layer.Mask != nil || layer.EraseMask != nil {
-			return fmt.Errorf("group layers cannot contain visual properties")
-		}
-	default:
-		return fmt.Errorf("unsupported OpenPost Image Editor layer type")
+	}
+	return nil
+}
+
+func validateImageEditorGroupLayer(layer ImageEditorLayer) error {
+	if layer.Text != nil || layer.Image != nil || layer.Shape != nil || layer.Paint != nil || layer.Effects != nil || layer.Mask != nil || layer.EraseMask != nil {
+		return fmt.Errorf("group layers cannot contain visual properties")
 	}
 	return nil
 }

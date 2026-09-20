@@ -288,7 +288,7 @@
 		<h2 class="min-w-0 flex-1 text-sm font-medium text-foreground">
 			{m.image_editor_media()}
 		</h2>
-		{#if mode === 'overlay'}
+		{#if onclose}
 			<Button variant="ghost" size="xs" onclick={() => onclose?.()}>
 				{m.common_done()}
 			</Button>
@@ -409,7 +409,7 @@
 			>
 				<ThemeIcon role="check" class="size-3.5 text-success-foreground" />
 				<span class="min-w-0 flex-1 truncate">{addedMessage}</span>
-				{#if mode === 'overlay'}
+				{#if onclose}
 					<Button variant="ghost" size="xs" onclick={() => onclose?.()}>{m.common_done()}</Button>
 				{/if}
 			</div>

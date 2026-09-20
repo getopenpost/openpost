@@ -3246,7 +3246,10 @@
 							bind:ref={assetOverlayTrigger}
 							variant={assetOverlayOpen ? 'secondary' : 'ghost'}
 							size="icon-sm"
-							onclick={() => (assetOverlayOpen = !assetOverlayOpen)}
+							onclick={() => {
+								if (assetOverlayOpen) closeAssetOverlay();
+								else assetOverlayOpen = true;
+							}}
 							aria-label={m.image_editor_add()}
 							aria-pressed={assetOverlayOpen}
 							title={m.image_editor_add()}
@@ -3843,7 +3846,14 @@
 	</nav>
 </div>
 
-<Sheet.Root open={mobileSheet !== null} onOpenChange={(open) => !open && (mobileSheet = null)}>
+<Sheet.Root
+	open={mobileSheet !== null}
+	onOpenChange={(open) => {
+		if (open) return;
+		mobileSheet = null;
+		editor.backgroundImagePickerActive = false;
+	}}
+>
 	<Sheet.Content
 		side={mobileSheet === 'layers' ? 'right' : 'bottom'}
 		showCloseButton={mobileSheet === 'layers'}

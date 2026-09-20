@@ -335,27 +335,45 @@ func youtubeCommentAsEngagement(comment youtubeComment, accountID, videoID strin
 	}
 }
 
+// listYouTubeCommentReplies reads comments.list for one top-level comment.
+// maxResults is 100; later pages use nextPageToken as pageToken
+// (https://developers.google.com/youtube/v3/docs/comments/list). Bound the
+// loop so a huge thread cannot hang a poll.
 func listYouTubeCommentReplies(ctx context.Context, accessToken, parentID string) ([]youtubeComment, error) {
 	query := url.Values{
 		"part": {"snippet"}, "parentId": {parentID}, "maxResults": {"100"},
 		"textFormat": {"plainText"},
 	}
-	response, err := doYouTubeRequest(ctx, http.MethodGet, youtubeAPIBaseURL+"/comments?"+query.Encode(), nil, map[string]string{
-		headerAuthorization: bearerPrefix + accessToken,
-	})
-	if err != nil {
-		return nil, err
+	const maxPages = 20
+	replies := make([]youtubeComment, 0)
+	pageToken := ""
+	for page := 0; page < maxPages; page++ {
+		if pageToken != "" {
+			query.Set("pageToken", pageToken)
+		}
+		response, err := doYouTubeRequest(ctx, http.MethodGet, youtubeAPIBaseURL+"/comments?"+query.Encode(), nil, map[string]string{
+			headerAuthorization: bearerPrefix + accessToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := youtubeCommentReadError(response); err != nil {
+			return nil, err
+		}
+		var result struct {
+			Items         []youtubeComment `json:"items"`
+			NextPageToken string           `json:"nextPageToken"`
+		}
+		if err := json.Unmarshal(response.body, &result); err != nil {
+			return nil, fmt.Errorf("decoding YouTube comment replies: %w", err)
+		}
+		replies = append(replies, result.Items...)
+		if result.NextPageToken == "" || result.NextPageToken == pageToken {
+			return replies, nil
+		}
+		pageToken = result.NextPageToken
 	}
-	if err := youtubeCommentReadError(response); err != nil {
-		return nil, err
-	}
-	var result struct {
-		Items []youtubeComment `json:"items"`
-	}
-	if err := json.Unmarshal(response.body, &result); err != nil {
-		return nil, fmt.Errorf("decoding YouTube comment replies: %w", err)
-	}
-	return result.Items, nil
+	return replies, nil
 }
 
 func (y *YouTubeAdapter) ListComments(ctx context.Context, accessToken, accountID, externalID string) ([]Comment, error) {

@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "画像にラスタライズ",
+	"image_editor_merge_down": "下のレイヤーと結合",
+	"image_editor_merge_selected": "選択したレイヤーを結合",
+	"image_editor_flatten_page": "ページを統合",
+	"image_editor_raster_help": "ページ内のピクセルを画像化します。テキストと図形は画像になります。取り消すと編集可能なレイヤーに戻ります。",
+	"image_editor_raster_requirements": "同じグループ内の、表示中でロックされていない隣接レイヤーを選択してください。描画モードは通常が必要です。ページの統合には全レイヤーのロック解除が必要です。",
+	"image_editor_raster_busy": "画像を作成中…",
+	"image_editor_raster_stale": "デザインが変更されました。何も置き換えていません。もう一度お試しください。",
+	"image_editor_raster_done": "画像を作成しました。取り消すと編集可能なレイヤーに戻ります。",
 	"video_editor_gap": "ギャップ",
 	"video_editor_close_gap": "ギャップを閉じる",
 	"video_editor_track_close_all_gaps": "すべてのギャップを閉じる",

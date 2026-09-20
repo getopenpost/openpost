@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "In Bild rastern",
+	"image_editor_merge_down": "Mit unterer Ebene zusammenführen",
+	"image_editor_merge_selected": "Auswahl zusammenführen",
+	"image_editor_flatten_page": "Seite reduzieren",
+	"image_editor_raster_help": "Rastert die Pixel innerhalb der Seite. Text und Formen werden zu Bildern. Rückgängig stellt die bearbeitbaren Ebenen wieder her.",
+	"image_editor_raster_requirements": "Wähle sichtbare, entsperrte, benachbarte Ebenen derselben Gruppe mit Mischmodus Normal. Zum Reduzieren müssen alle Ebenen entsperrt sein.",
+	"image_editor_raster_busy": "Bild wird erstellt…",
+	"image_editor_raster_stale": "Das Design wurde geändert. Nichts wurde ersetzt. Versuche es erneut.",
+	"image_editor_raster_done": "Bild erstellt. Rückgängig stellt die bearbeitbaren Ebenen wieder her.",
 	"video_editor_gap": "Lücke",
 	"video_editor_close_gap": "Lücke schließen",
 	"video_editor_track_close_all_gaps": "Alle Lücken schließen",

@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "Görüntüye rasterleştir",
+	"image_editor_merge_down": "Alttakiyle birleştir",
+	"image_editor_merge_selected": "Seçilenleri birleştir",
+	"image_editor_flatten_page": "Sayfayı düzleştir",
+	"image_editor_raster_help": "Sayfa içindeki pikselleri sabitler. Metin ve şekiller görüntüye dönüşür. Geri al, düzenlenebilir katmanları geri getirir.",
+	"image_editor_raster_requirements": "Aynı grupta Normal karışım kullanan görünür, kilitsiz ve bitişik katmanları seçin. Düzleştirmek için tüm katmanların kilidini açın.",
+	"image_editor_raster_busy": "Görüntü oluşturuluyor…",
+	"image_editor_raster_stale": "Tasarım değişti. Hiçbir şey değiştirilmedi. Tekrar deneyin.",
+	"image_editor_raster_done": "Görüntü oluşturuldu. Geri al, düzenlenebilir katmanları geri getirir.",
 	"video_editor_gap": "Boşluk",
 	"video_editor_close_gap": "Boşluğu kapat",
 	"video_editor_track_close_all_gaps": "Tüm boşlukları kapat",

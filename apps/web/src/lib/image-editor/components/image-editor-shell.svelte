@@ -10,6 +10,13 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
 	import AppToast from '$lib/components/app-toast.svelte';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import {
+		prepareRasterOperation,
+		rasterRenderDocument,
+		type ImageEditorRasterOperation
+	} from '../raster-operations';
+	import { renderImageEditorPage } from '../static-renderer';
 	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import EditorMenubar from '$lib/components/editor-menubar.svelte';
 	import EditorHeader from '$lib/components/editor-header.svelte';
@@ -316,6 +323,9 @@
 	let backgroundBusy = $state(false);
 	let backgroundProgress = $state('');
 	let backgroundError = $state('');
+	let rasterBusy = $state(false);
+	let rasterError = $state('');
+	let rasterAbort: AbortController | null = null;
 	let backgroundOptimizeDialogOpen = $state(false);
 	let mobileSheet = $state<'assets' | 'layers' | 'properties' | null>(null);
 	let assetOverlayOpen = $state(false);
@@ -728,6 +738,7 @@
 		window.addEventListener('beforeunload', beforeUnload);
 		return () => {
 			editorViewActive = false;
+			rasterAbort?.abort();
 			unsubscribe();
 			clearTimeout(saveTimer);
 			clearTimeout(previewTimer);
@@ -2038,6 +2049,10 @@
 				: editor.duplicateSelected(),
 		group: () => editor.groupSelected(),
 		ungroup: () => editor.ungroupSelected(),
+		rasterize: () => void bakeLayers('rasterize'),
+		merge_down: () => void bakeLayers('merge_down'),
+		merge_selected: () => void bakeLayers('merge_selected'),
+		flatten_page: () => void bakeLayers('flatten_page'),
 		remove_background: () => void removeBackground(),
 		select_all: () => editor.selectAll(),
 		deselect: () => (editor.pixelSelection ? editor.clearPixelSelection() : editor.selectLayer('')),
@@ -2080,6 +2095,15 @@
 	} satisfies Record<ImageEditorCommandID, () => void>;
 
 	function commandEnabled(id: ImageEditorCommandID): boolean {
+		if (isRasterCommand(id))
+			return Boolean(
+				editor.canEdit &&
+				!rasterBusy &&
+				!editor.floatingPixelSelection &&
+				!editor.colorPreviewActive &&
+				editor.document &&
+				prepareRasterOperation(editor.document, editor.activePageID, editor.selectedLayerIDs, id)
+			);
 		const availability = imageEditorCommand(id).availability;
 		if (availability === 'always') return true;
 		if (availability === 'editable') return editor.canEdit;
@@ -2112,6 +2136,8 @@
 	}
 
 	function commandDisabledReason(id: ImageEditorCommandID): string {
+		if (isRasterCommand(id))
+			return rasterBusy ? m.image_editor_raster_busy() : m.image_editor_raster_requirements();
 		const availability = imageEditorCommand(id).availability;
 		if (availability === 'undo') return m.image_editor_nothing_to_undo();
 		if (availability === 'redo') return m.image_editor_nothing_to_redo();
@@ -2168,6 +2194,10 @@
 			duplicate: m.image_editor_duplicate(),
 			group: m.image_editor_group(),
 			ungroup: m.image_editor_ungroup(),
+			rasterize: m.image_editor_rasterize(),
+			merge_down: m.image_editor_merge_down(),
+			merge_selected: m.image_editor_merge_selected(),
+			flatten_page: m.image_editor_flatten_page(),
 			remove_background: m.image_editor_remove_background(),
 			select_all: m.image_editor_select_all(),
 			deselect: m.image_editor_deselect(),
@@ -2347,6 +2377,62 @@
 				?.layers.push(...structuredClone(copies));
 		});
 		editor.selectedLayerIDs = copies.map((layer) => layer.id);
+	}
+
+	function isRasterCommand(id: ImageEditorCommandID): id is ImageEditorRasterOperation {
+		return (
+			id === 'rasterize' || id === 'merge_down' || id === 'merge_selected' || id === 'flatten_page'
+		);
+	}
+
+	async function bakeLayers(kind: ImageEditorRasterOperation): Promise<void> {
+		if (!editor.document || !commandEnabled(kind)) return;
+		const plan = prepareRasterOperation(
+			editor.document,
+			editor.activePageID,
+			editor.selectedLayerIDs,
+			kind
+		);
+		if (!plan) return;
+		const designID = editor.id;
+		const workspaceID = editor.workspaceID;
+		const abort = new AbortController();
+		rasterAbort = abort;
+		rasterBusy = true;
+		rasterError = '';
+		try {
+			const snapshot = rasterRenderDocument(plan);
+			const rendered = await renderImageEditorPage(snapshot, snapshot.pages[0], 0, abort.signal);
+			if (!editorViewActive || editor.id !== designID || editor.document !== plan.sourceDocument)
+				throw new Error(m.image_editor_raster_stale());
+			const file = new File([rendered.blob], rendered.filename, { type: 'image/png' });
+			const media = guestMode
+				? await storeGuestImageEditorMedia(designID, file)
+				: await uploadMediaFile({
+						workspaceId: workspaceID,
+						file,
+						source: 'image_editor_edit',
+						designDocumentId: designID,
+						designPageId: plan.pageID,
+						retentionClass: 'library',
+						signal: abort.signal
+					});
+			abort.signal.throwIfAborted();
+			if (
+				!editorViewActive ||
+				editor.id !== designID ||
+				!editor.commitRasterOperation(plan, media.id, commandLabel(kind))
+			)
+				throw new Error(m.image_editor_raster_stale());
+			editor.refreshMediaLibrary();
+			statusAnnouncement = m.image_editor_raster_done();
+		} catch (cause) {
+			if (!abort.signal.aborted)
+				rasterError = cause instanceof Error ? cause.message : m.image_editor_page_render_failed();
+		} finally {
+			rasterBusy = false;
+			rasterAbort = null;
+		}
 	}
 
 	async function removeBackground(optimizeLarge = false): Promise<void> {
@@ -2998,6 +3084,10 @@
 							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
 						</Menubar.Item>
 					{/each}
+					<Menubar.Separator />
+					<p class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">
+						{m.image_editor_raster_help()}
+					</p>
 				</Menubar.Content>
 			</Menubar.Menu>
 			<Menubar.Menu value="select">
@@ -3172,6 +3262,22 @@
 				{m.common_dismiss()}
 			</Button>
 		</div>
+	{/if}
+	{#if rasterBusy}
+		<InlineNotice message={m.image_editor_raster_busy()} class="rounded-none border-x-0 border-t-0">
+			{#snippet actions()}<Button variant="ghost" size="xs" onclick={() => rasterAbort?.abort()}
+					>{m.common_cancel()}</Button
+				>{/snippet}
+		</InlineNotice>
+	{/if}
+	{#if rasterError}
+		<InlineNotice
+			tone="error"
+			message={rasterError}
+			onDismiss={() => (rasterError = '')}
+			dismissLabel={m.common_dismiss()}
+			class="rounded-none border-x-0 border-t-0"
+		/>
 	{/if}
 	{#if backgroundError}
 		<div

@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "Rasterize to image",
+	"image_editor_merge_down": "Merge down",
+	"image_editor_merge_selected": "Merge selected",
+	"image_editor_flatten_page": "Flatten page",
+	"image_editor_raster_help": "Bakes pixels inside the page. Text and shapes become images. Undo restores the editable layers.",
+	"image_editor_raster_requirements": "Choose visible, unlocked adjacent layers in one group with Normal blending. Flatten requires all layers unlocked.",
+	"image_editor_raster_busy": "Creating image…",
+	"image_editor_raster_stale": "The design changed. Nothing was replaced. Try again.",
+	"image_editor_raster_done": "Image created. Undo restores the editable layers.",
 	"video_editor_gap": "Gap",
 	"video_editor_close_gap": "Close gap",
 	"video_editor_track_close_all_gaps": "Close all gaps",

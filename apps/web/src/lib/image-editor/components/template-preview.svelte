@@ -32,6 +32,7 @@
 	let visible = $state(false);
 	let lastRenderedPage: ImageEditorPage | null = null;
 	let lastRenderedDimensionKey = '';
+	const previewOwner = {};
 
 	function observePreview(node: HTMLElement): () => void {
 		if (!cached) return () => undefined;
@@ -106,7 +107,7 @@
 		const nextDocument = untrack(() => document);
 		const controller = new AbortController();
 		renderError = false;
-		void queueImageEditorPreview(nextDocument, nextPage, controller.signal)
+		void queueImageEditorPreview(nextDocument, nextPage, controller.signal, previewOwner)
 			.then((blob) => {
 				if (controller.signal.aborted) return;
 				const previousURL = imageURL;

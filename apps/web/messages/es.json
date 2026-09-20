@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "Rasterizar a imagen",
+	"image_editor_merge_down": "Combinar hacia abajo",
+	"image_editor_merge_selected": "Combinar seleccionadas",
+	"image_editor_flatten_page": "Acoplar página",
+	"image_editor_raster_help": "Fija los píxeles dentro de la página. El texto y las formas se convierten en imágenes. Deshacer restaura las capas editables.",
+	"image_editor_raster_requirements": "Elige capas visibles, desbloqueadas y contiguas del mismo grupo con fusión Normal. Para acoplar, desbloquea todas las capas.",
+	"image_editor_raster_busy": "Creando imagen…",
+	"image_editor_raster_stale": "El diseño cambió. No se reemplazó nada. Inténtalo de nuevo.",
+	"image_editor_raster_done": "Imagen creada. Deshacer restaura las capas editables.",
 	"video_editor_gap": "Hueco",
 	"video_editor_close_gap": "Cerrar hueco",
 	"video_editor_track_close_all_gaps": "Cerrar todos los huecos",

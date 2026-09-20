@@ -13,6 +13,10 @@ export type ImageEditorCommandID =
 	| 'duplicate'
 	| 'group'
 	| 'ungroup'
+	| 'rasterize'
+	| 'merge_down'
+	| 'merge_selected'
+	| 'flatten_page'
 	| 'remove_background'
 	| 'select_all'
 	| 'deselect'
@@ -226,6 +230,23 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		separatorBefore: true,
 		menuOrder: 30
 	},
+	{
+		id: 'rasterize',
+		category: 'layer',
+		shortcuts: [],
+		availability: 'editable',
+		separatorBefore: true,
+		menuOrder: 40
+	},
+	{ id: 'merge_down', category: 'layer', shortcuts: [], availability: 'editable', menuOrder: 50 },
+	{
+		id: 'merge_selected',
+		category: 'layer',
+		shortcuts: [],
+		availability: 'editable',
+		menuOrder: 60
+	},
+	{ id: 'flatten_page', category: 'layer', shortcuts: [], availability: 'editable', menuOrder: 70 },
 	{
 		id: 'select_all',
 		category: 'select',

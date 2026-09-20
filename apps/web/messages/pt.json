@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "Rasterizar para imagem",
+	"image_editor_merge_down": "Unir à camada abaixo",
+	"image_editor_merge_selected": "Unir selecionadas",
+	"image_editor_flatten_page": "Achatar página",
+	"image_editor_raster_help": "Fixa os píxeis dentro da página. Texto e formas tornam-se imagens. Anular restaura as camadas editáveis.",
+	"image_editor_raster_requirements": "Escolha camadas visíveis, desbloqueadas e adjacentes no mesmo grupo, com mistura Normal. Para achatar, desbloqueie todas as camadas.",
+	"image_editor_raster_busy": "A criar imagem…",
+	"image_editor_raster_stale": "O design mudou. Nada foi substituído. Tente novamente.",
+	"image_editor_raster_done": "Imagem criada. Anular restaura as camadas editáveis.",
 	"video_editor_gap": "Intervalo",
 	"video_editor_close_gap": "Fechar intervalo",
 	"video_editor_track_close_all_gaps": "Fechar todos os intervalos",

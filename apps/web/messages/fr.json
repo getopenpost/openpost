@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "Pixelliser en image",
+	"image_editor_merge_down": "Fusionner avec le calque inférieur",
+	"image_editor_merge_selected": "Fusionner la sélection",
+	"image_editor_flatten_page": "Aplatir la page",
+	"image_editor_raster_help": "Fige les pixels dans la page. Le texte et les formes deviennent des images. Annuler restaure les calques modifiables.",
+	"image_editor_raster_requirements": "Choisissez des calques visibles, déverrouillés et adjacents du même groupe en mode Normal. Aplatir exige de déverrouiller tous les calques.",
+	"image_editor_raster_busy": "Création de l’image…",
+	"image_editor_raster_stale": "Le document a changé. Rien n’a été remplacé. Réessayez.",
+	"image_editor_raster_done": "Image créée. Annuler restaure les calques modifiables.",
 	"video_editor_gap": "Espace",
 	"video_editor_close_gap": "Fermer l’espace",
 	"video_editor_track_close_all_gaps": "Fermer tous les espaces",

@@ -19,6 +19,7 @@ import {
 	type ImageEditorCropWindow
 } from './crop';
 import { ImageEditorHistory } from './history';
+import { rasterResultLayer, type ImageEditorRasterPlan } from './raster-operations';
 import {
 	combinePixelMasks,
 	intersectPixelMasks,
@@ -1402,6 +1403,40 @@ export class ImageEditorController {
 			page.layers.splice(selectedIndex >= 0 ? selectedIndex + 1 : page.layers.length, 0, layer);
 		});
 		this.selectedLayerIDs = [layer.id];
+	}
+
+	commitRasterOperation(plan: ImageEditorRasterPlan, mediaID: string, label: string): boolean {
+		if (
+			!this.canEdit ||
+			!mediaID ||
+			this.document !== plan.sourceDocument ||
+			this.activePageID !== plan.pageID ||
+			this.floatingPixelSelection ||
+			this.colorPreviewActive
+		)
+			return false;
+		const result = rasterResultLayer(plan, mediaID);
+		const removed = new Set(plan.sourceIDs);
+		this.mutate(label, (document) => {
+			const page = document.pages.find((page) => page.id === plan.pageID)!;
+			const anchor = page.layers.findIndex((layer) => layer.id === plan.anchorID);
+			const insertion = page.layers
+				.slice(0, anchor)
+				.filter((layer) => !removed.has(layer.id)).length;
+			page.layers = page.layers.filter((layer) => !removed.has(layer.id));
+			page.layers.splice(insertion, 0, result);
+			if (plan.kind === 'flatten_page') {
+				page.background = { type: 'transparent', opacity: 1 };
+				page.background_color = '#00000000';
+				delete page.color_grade;
+				delete page.color_grade_version;
+			}
+			this.recalculateAllGroupBounds(page);
+		});
+		this.selectedLayerIDs = [result.id];
+		this.selectionAnchorID = result.id;
+		this.pixelSelection = null;
+		return true;
 	}
 
 	addImage(

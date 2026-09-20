@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "이미지로 래스터화",
+	"image_editor_merge_down": "아래 레이어와 병합",
+	"image_editor_merge_selected": "선택 레이어 병합",
+	"image_editor_flatten_page": "페이지 병합",
+	"image_editor_raster_help": "페이지 안의 픽셀을 이미지로 만듭니다. 텍스트와 도형이 이미지가 됩니다. 실행 취소하면 편집 가능한 레이어가 복원됩니다.",
+	"image_editor_raster_requirements": "같은 그룹에서 표시되고 잠금 해제된 인접 레이어를 선택하세요. 혼합 모드는 보통이어야 합니다. 페이지 병합에는 모든 레이어의 잠금 해제가 필요합니다.",
+	"image_editor_raster_busy": "이미지 생성 중…",
+	"image_editor_raster_stale": "디자인이 변경되었습니다. 아무것도 바꾸지 않았습니다. 다시 시도하세요.",
+	"image_editor_raster_done": "이미지를 만들었습니다. 실행 취소하면 편집 가능한 레이어가 복원됩니다.",
 	"video_editor_gap": "간격",
 	"video_editor_close_gap": "간격 닫기",
 	"video_editor_track_close_all_gaps": "모든 간격 닫기",

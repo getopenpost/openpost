@@ -1,4 +1,13 @@
 {
+	"image_editor_rasterize": "栅格化为图像",
+	"image_editor_merge_down": "向下合并",
+	"image_editor_merge_selected": "合并所选图层",
+	"image_editor_flatten_page": "拼合页面",
+	"image_editor_raster_help": "将页面内的像素固化。文字和形状将变为图像。撤销可恢复可编辑图层。",
+	"image_editor_raster_requirements": "请选择同组中可见、未锁定且相邻的图层，混合模式须为正常。拼合页面需要解锁所有图层。",
+	"image_editor_raster_busy": "正在创建图像…",
+	"image_editor_raster_stale": "设计已更改。未替换任何内容。请重试。",
+	"image_editor_raster_done": "图像已创建。撤销可恢复可编辑图层。",
 	"video_editor_gap": "间隙",
 	"video_editor_close_gap": "关闭间隙",
 	"video_editor_track_close_all_gaps": "关闭所有间隙",

@@ -244,6 +244,9 @@ test("landing CTAs keep shared action colors beneath the Dither texture", async 
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
     await page.goto("/");
     const cta = page.getByRole("link", { name: "Start your free trial", exact: true }).first();
+    await expect
+      .poll(() => cta.evaluate((element) => getComputedStyle(element, "::before").maskImage))
+      .toContain("svg");
     const colors = await cta.evaluate((element) => {
       const button = getComputedStyle(element);
       const root = getComputedStyle(document.documentElement);
@@ -255,11 +258,9 @@ test("landing CTAs keep shared action colors beneath the Dither texture", async 
       return {
         backgroundColor: button.backgroundColor,
         sharedActionColor,
-        texture: button.backgroundImage,
       };
     });
     expect(colors.backgroundColor).toBe(colors.sharedActionColor);
-    expect(colors.texture).toContain("svg");
   }
 });
 

@@ -3,6 +3,7 @@ import { audioDurationSeconds, concatenateFloat32, createFloat32WavBlob } from '
 import { updateDownloadProgress, type DownloadProgressCache } from '../download-progress';
 import { sanitizeAiOutputFileNameSegment } from '../output-file-name';
 import type { GeneratedAudio, LocalGenerationProgress } from '../types';
+import { ensureKokoroPhonemizer } from './kokoro-phonemizer';
 import { chunkTextForKokoro } from './kokoro-text';
 import { validateTtsGenerateRequest } from './validation';
 import { localAiRuntimeRegistry } from '../runtime-registry';
@@ -138,7 +139,11 @@ class KokoroTtsService {
 	): Promise<KokoroRuntime> {
 		if (this.runtimePromise) return this.runtimePromise;
 		const downloads: DownloadProgressCache = new Map();
-		this.runtimePromise = Promise.all([this.getModule(), this.resolveBackend()])
+		this.runtimePromise = Promise.all([
+			this.getModule(),
+			this.resolveBackend(),
+			ensureKokoroPhonemizer()
+		])
 			.then(async ([module, backend]) => {
 				onProgress?.({
 					stage: 'downloading',

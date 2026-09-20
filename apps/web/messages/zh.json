@@ -4507,6 +4507,7 @@
 	"video_editor_queue_description": "渲染基于冻结的项目快照逐一执行。",
 	"video_editor_queue_add": "添加到队列",
 	"video_editor_queue_add_current": "添加当前范围",
+	"video_editor_queue_add_failed": "无法添加渲染任务。请保存项目后重试。",
 	"video_editor_queue_segments": "分割为片段",
 	"video_editor_queue_per_marker": "每个标记一个片段",
 	"video_editor_queue_fixed_seconds": "每 {seconds} 秒一段",

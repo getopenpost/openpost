@@ -4502,6 +4502,7 @@
 	"video_editor_queue_description": "Renderings laufen nacheinander aus unveränderlichen Projekt-Snapshots.",
 	"video_editor_queue_add": "Zur Warteschlange hinzufügen",
 	"video_editor_queue_add_current": "Aktuellen Bereich hinzufügen",
+	"video_editor_queue_add_failed": "Das Rendering konnte nicht hinzugefügt werden. Speichere das Projekt und versuche es erneut.",
 	"video_editor_queue_segments": "In Segmente aufteilen",
 	"video_editor_queue_per_marker": "Ein Segment pro Marker",
 	"video_editor_queue_fixed_seconds": "Alle {seconds} Sekunden",

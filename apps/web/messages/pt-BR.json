@@ -4507,6 +4507,7 @@
 	"video_editor_queue_description": "As renderizações são executadas uma de cada vez a partir de cópias fixas do projeto.",
 	"video_editor_queue_add": "Adicionar à fila",
 	"video_editor_queue_add_current": "Adicionar intervalo atual",
+	"video_editor_queue_add_failed": "Não foi possível adicionar a renderização. Salve o projeto e tente novamente.",
 	"video_editor_queue_segments": "Dividir em segmentos",
 	"video_editor_queue_per_marker": "Um segmento por marcador",
 	"video_editor_queue_fixed_seconds": "A cada {seconds} segundos",

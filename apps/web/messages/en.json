@@ -4543,6 +4543,7 @@
 	"video_editor_queue_description": "Renders run one at a time from frozen project snapshots.",
 	"video_editor_queue_add": "Add to queue",
 	"video_editor_queue_add_current": "Add current range",
+	"video_editor_queue_add_failed": "The render could not be added. Save the project, then try again.",
 	"video_editor_queue_segments": "Split into segments",
 	"video_editor_queue_per_marker": "One segment per marker",
 	"video_editor_queue_fixed_seconds": "Every {seconds} seconds",

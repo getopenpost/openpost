@@ -35,7 +35,7 @@
 		rangesFromMarkers,
 		type RenderQueueRange
 	} from '../export/render-queue-job';
-	import { renderQueueStore } from '../export/render-queue-store';
+	import { renderQueueStore, type RenderQueueJob } from '../export/render-queue-store';
 	import {
 		applyExportPreset,
 		EXPORT_PRESETS,
@@ -131,6 +131,7 @@
 		getDirectoryPickerAvailable() ? 'directory' : 'zip'
 	);
 	let progress = $state<RenderExportProgress | null>(null);
+	let queueSubmissionError = $state<string | null>(null);
 	let startedAt = $state<number | undefined>();
 	let controller: AbortController | null = null;
 	let codecProbeVersion = 0;
@@ -436,6 +437,7 @@
 		resolution = 'source';
 		useRange = false;
 		codecFallback = null;
+		queueSubmissionError = null;
 		open = true;
 	}
 
@@ -460,9 +462,20 @@
 		};
 	}
 
+	function submitQueueJobs(buildJobs: () => RenderQueueJob[]): void {
+		queueSubmissionError = null;
+		try {
+			renderQueueStore.enqueue(buildJobs());
+			open = false;
+		} catch (cause) {
+			queueSubmissionError = m.video_editor_queue_add_failed();
+			onerror(cause instanceof Error ? cause : new Error(String(cause)));
+		}
+	}
+
 	function enqueueCurrent(): void {
 		if (!exportProject || !exportTimeline || !preflight.canExport) return;
-		renderQueueStore.enqueue([
+		submitQueueJobs(() => [
 			buildRenderQueueJob({
 				project: exportProject,
 				settings: queueSettings(),
@@ -476,7 +489,6 @@
 				busAudioEq: exportTimeline.busAudioEq
 			})
 		]);
-		open = false;
 	}
 
 	function enqueueSegments(
@@ -514,7 +526,7 @@
 			);
 			return;
 		}
-		renderQueueStore.enqueue(
+		submitQueueJobs(() =>
 			buildSegmentRenderQueueJobs({
 				project: selectedProject,
 				settings,
@@ -531,7 +543,6 @@
 					`${selectedProject.name} - ${m.video_editor_queue_part({ number: index + 1 })}`
 			})
 		);
-		open = false;
 	}
 
 	function enqueueMarkerSegments(): void {
@@ -947,6 +958,9 @@
 			</div>
 		</div>
 		<footer class="shrink-0 border-t border-[var(--video-editor-border)] p-3" data-export-actions>
+			{#if queueSubmissionError}
+				<p class="mb-3 text-xs text-destructive" role="alert">{queueSubmissionError}</p>
+			{/if}
 			{#if progress}
 				<RenderProgress {progress} {startedAt} class="mb-3" />
 			{/if}

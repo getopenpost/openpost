@@ -14,7 +14,11 @@ import type {
 } from './render-queue-store';
 
 function cloneTimeline<T>(value: T): T {
-	return structuredClone(value);
+	// Queue snapshots are persisted as JSON. The JSON round trip also unwraps
+	// Svelte's deeply proxied editor state before it reaches the queue.
+	const serialized = JSON.stringify(value);
+	// SAFETY: JSON serialization preserves the queue snapshot's persisted document shape.
+	return JSON.parse(serialized) as T;
 }
 
 export interface RenderQueueRange {

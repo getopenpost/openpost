@@ -1,3 +1,4 @@
+import { get } from 'svelte/store';
 import { describe, expect, it } from 'vitest';
 import type { ExportPreflightResult } from '../media/export-preflight';
 import type {
@@ -8,11 +9,13 @@ import type {
 	TimelineTrack
 } from '../project/types';
 import {
+	buildRenderQueueJob,
 	buildSegmentRenderQueueJobs,
 	captureRenderSnapshot,
 	rangesFromFixedDuration,
 	rangesFromMarkers
 } from './render-queue-job';
+import { createRenderQueueStore } from './render-queue-store';
 
 const track: TimelineTrack = {
 	id: 'video-track',
@@ -84,6 +87,46 @@ describe('captureRenderSnapshot', () => {
 		expect(snapshot.compositions[0]?.items[0]?.label).toBe('Original title');
 		expect(snapshot.masterVolumeDb).toBe(-3);
 		expect(snapshot.masterMuted).toBe(true);
+	});
+
+	it('captures proxied editor state before enqueueing the current range', () => {
+		const liveTrack = new Proxy(track, {});
+		const liveComposition = new Proxy(
+			{
+				...composition,
+				tracks: new Proxy([liveTrack], {}),
+				items: new Proxy([new Proxy(nestedItem, {})], {})
+			},
+			{}
+		);
+		const queue = createRenderQueueStore();
+
+		queue.enqueue([
+			buildRenderQueueJob({
+				project,
+				settings: {
+					format: 'mp4',
+					codec: 'avc',
+					quality: 'standard',
+					width: 1920,
+					height: 1080,
+					subtitleMode: 'burn'
+				},
+				preflight,
+				tracks: new Proxy([liveTrack], {}),
+				items: new Proxy([], {}),
+				transitions: new Proxy([], {}),
+				compositions: new Proxy([liveComposition], {})
+			})
+		]);
+
+		expect(get(queue).jobs).toHaveLength(1);
+		expect(get(queue).jobs[0]).toMatchObject({
+			name: 'Project',
+			status: 'queued',
+			settings: { range: { startFrame: 0, endFrame: 300 } },
+			snapshot: { tracks: [track], compositions: [composition] }
+		});
 	});
 });
 

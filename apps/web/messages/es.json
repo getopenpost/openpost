@@ -4507,6 +4507,7 @@
 	"video_editor_queue_description": "Los renders ejecutan uno a la vez de instantáneas congeladas del proyecto.",
 	"video_editor_queue_add": "Añadir a la cola",
 	"video_editor_queue_add_current": "Añadir rango actual",
+	"video_editor_queue_add_failed": "No se pudo añadir el renderizado. Guarda el proyecto e inténtalo de nuevo.",
 	"video_editor_queue_segments": "Dividir en segmentos",
 	"video_editor_queue_per_marker": "Un segmento por marcador",
 	"video_editor_queue_fixed_seconds": "Cada {seconds} segundos",

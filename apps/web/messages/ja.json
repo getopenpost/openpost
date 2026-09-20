@@ -4507,6 +4507,7 @@
 	"video_editor_queue_description": "レンダリングはプロジェクトの固定スナップショットから1件ずつ実行されます。",
 	"video_editor_queue_add": "キューに追加",
 	"video_editor_queue_add_current": "現在の範囲を追加",
+	"video_editor_queue_add_failed": "レンダーを追加できませんでした。プロジェクトを保存して、もう一度お試しください。",
 	"video_editor_queue_segments": "セグメントに分割",
 	"video_editor_queue_per_marker": "マーカーごとに1セグメント",
 	"video_editor_queue_fixed_seconds": "{seconds} 秒ごと",

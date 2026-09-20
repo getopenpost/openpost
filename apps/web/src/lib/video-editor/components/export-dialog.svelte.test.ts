@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { get } from 'svelte/store';
 import '../../../routes/layout.css';
 import type { Project, SubComposition, TimelineItem, TimelineTrack } from '../project/types';
 import type { RenderExportOptions } from '../media/render-export';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+import { renderQueueStore } from '../export/render-queue-store';
 import ExportDialog from './export-dialog.svelte';
 
 const tracks: TimelineTrack[] = [
@@ -67,9 +69,65 @@ function projectFixture(): Project {
 beforeEach(() => {
 	timelineStore.__resetForTesting();
 	sequenceStore.reset();
+	renderQueueStore.clearAll();
 });
 
 describe('ExportDialog', () => {
+	it('adds the current range to the render queue', async () => {
+		const project = projectFixture();
+		sequenceStore.load(project.timeline!, project.metadata);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await screen.getByRole('button', { name: 'Add to queue' }).click();
+		await screen.getByRole('menuitem', { name: 'Add current range' }).click();
+
+		await vi.waitFor(() => expect(get(renderQueueStore).jobs).toHaveLength(1));
+		expect(get(renderQueueStore).jobs[0]).toMatchObject({
+			projectId: project.id,
+			name: project.name,
+			status: 'queued',
+			settings: { range: { startFrame: 0, endFrame: 120 } }
+		});
+		await expect.element(screen.getByRole('button', { name: 'Exports (1)' })).toBeVisible();
+	});
+
+	it('keeps the dialog open with a recovery step when queue submission fails', async () => {
+		const project = projectFixture();
+		Object.defineProperty(project.timeline!.items[0]!, 'unsupported', {
+			value: 1n,
+			enumerable: true
+		});
+		sequenceStore.load(project.timeline!, project.metadata);
+		const onerror = vi.fn();
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror,
+			probeCodec: vi.fn(async () => true)
+		});
+
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await screen.getByRole('button', { name: 'Add to queue' }).click();
+		await screen.getByRole('menuitem', { name: 'Add current range' }).click();
+
+		await expect
+			.element(
+				screen
+					.getByRole('alert')
+					.getByText('The render could not be added. Save the project, then try again.')
+			)
+			.toBeVisible();
+		expect(get(renderQueueStore).jobs).toHaveLength(0);
+		expect(onerror).toHaveBeenCalledOnce();
+		await expect.element(screen.getByRole('heading', { name: 'Export video' })).toBeVisible();
+	});
+
 	it('exports another sequence at its own dimensions without navigating away from Main', async () => {
 		const project = projectFixture();
 		sequenceStore.load(project.timeline!, project.metadata);

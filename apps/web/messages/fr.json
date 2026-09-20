@@ -4507,6 +4507,7 @@
 	"video_editor_queue_description": "Les rendus s'exécutent un par un à partir d'instantanés figés du projet.",
 	"video_editor_queue_add": "Ajouter à la file",
 	"video_editor_queue_add_current": "Ajouter la plage actuelle",
+	"video_editor_queue_add_failed": "Le rendu n’a pas pu être ajouté. Enregistrez le projet, puis réessayez.",
 	"video_editor_queue_segments": "Diviser en segments",
 	"video_editor_queue_per_marker": "Un segment par marqueur",
 	"video_editor_queue_fixed_seconds": "Toutes les {seconds} secondes",

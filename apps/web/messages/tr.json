@@ -4507,6 +4507,7 @@
 	"video_editor_queue_description": "Render'lar dondurulmuş proje anlık görüntülerinden teker teker çalışır.",
 	"video_editor_queue_add": "Kuyruğa ekle",
 	"video_editor_queue_add_current": "Geçerli aralığı ekle",
+	"video_editor_queue_add_failed": "İşleme kuyruğa eklenemedi. Projeyi kaydedip tekrar deneyin.",
 	"video_editor_queue_segments": "Bölütlere ayır",
 	"video_editor_queue_per_marker": "İşaretçi başına bir bölüm",
 	"video_editor_queue_fixed_seconds": "Her {seconds} saniyede bir",

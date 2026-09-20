@@ -4507,6 +4507,7 @@
 	"video_editor_queue_description": "렌더링은 고정된 프로젝트 스냅샷에서 한 번에 하나씩 실행됩니다.",
 	"video_editor_queue_add": "대기열에 추가",
 	"video_editor_queue_add_current": "현재 범위 추가",
+	"video_editor_queue_add_failed": "렌더링을 추가할 수 없습니다. 프로젝트를 저장한 다음 다시 시도하세요.",
 	"video_editor_queue_segments": "세그먼트로 분할",
 	"video_editor_queue_per_marker": "마커당 한 세그먼트",
 	"video_editor_queue_fixed_seconds": "{seconds}초마다",

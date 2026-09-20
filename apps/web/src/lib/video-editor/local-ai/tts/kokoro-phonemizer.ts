@@ -1,29 +1,18 @@
 import { list_voices, phonemize } from 'phonemizer';
+import { z } from 'zod';
 
 let readiness: Promise<void> | null = null;
 
-interface PhonemizerVoice {
-	languages: Array<{ name: string }>;
-}
-
-function isPhonemizerVoice(value: unknown): value is PhonemizerVoice {
-	if (!value || typeof value !== 'object' || !('languages' in value)) return false;
-	const { languages } = value as { languages: unknown };
-	return (
-		Array.isArray(languages) &&
-		languages.every(
-			(language) =>
-				Boolean(language) &&
-				typeof language === 'object' &&
-				'name' in language &&
-				typeof language.name === 'string'
-		)
-	);
-}
+const voiceSchema = z.object({ languages: z.array(z.object({ name: z.string() })) });
 
 async function verifyRuntime(): Promise<void> {
 	const voiceResult: unknown = await list_voices('en-us');
-	const voices = Array.isArray(voiceResult) ? voiceResult.filter(isPhonemizerVoice) : [];
+	const voices = Array.isArray(voiceResult)
+		? voiceResult.flatMap((voice) => {
+				const parsed = voiceSchema.safeParse(voice);
+				return parsed.success ? [parsed.data] : [];
+			})
+		: [];
 	const hasAmericanEnglish = voices.some((voice) =>
 		voice.languages.some((language) => language.name.toLowerCase() === 'en-us')
 	);

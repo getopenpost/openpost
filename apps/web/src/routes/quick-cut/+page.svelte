@@ -459,6 +459,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			items.map(async (item) => {
 				const handle = await item.getAsFileSystemHandle?.();
 				if (handle?.kind === 'file') {
+					// SAFETY: File System Access handles with kind=file expose getFile().
 					const fileHandle = handle as FileSystemFileHandle;
 					return { file: await fileHandle.getFile(), handle: fileHandle };
 				}
@@ -472,9 +473,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		);
 		if (accepted.length === 0) return;
 		try {
-			const handles = accepted.every((item) => item.handle !== undefined)
-				? accepted.map((item) => item.handle as FileSystemFileHandle)
-				: [];
+			const fileHandles = accepted.flatMap((item) => (item.handle ? [item.handle] : []));
+			const handles = fileHandles.length === accepted.length ? fileHandles : [];
 			await addFiles(
 				accepted.map((item) => item.file),
 				handles

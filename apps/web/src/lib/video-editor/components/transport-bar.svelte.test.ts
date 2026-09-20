@@ -73,7 +73,8 @@ it('keeps preview menus inside the fullscreen surface', async () => {
 	await screen.getByRole('button', { name: /Preview zoom:/ }).click();
 	const zoomOption = screen.getByRole('menuitem', { name: '50%', exact: true }).element();
 	expect(zoomOption.closest('[data-video-preview]')).toBe(preview);
-	(zoomOption as HTMLElement).click();
+	if (!(zoomOption instanceof HTMLElement)) throw new Error('Expected an HTML menu item');
+	zoomOption.click();
 	await expect.element(screen.getByRole('button', { name: 'Preview zoom: 50%' })).toBeVisible();
 });
 

@@ -22,12 +22,20 @@ it('keeps a 44px play target inside the narrow transport bar', async () => {
 		expect(transport.getBoundingClientRect().height).toBeGreaterThanOrEqual(
 			play.getBoundingClientRect().height + 2
 		);
-		const more = screen.getByRole('button', { name: 'More actions', exact: true });
+		const more = screen.getByRole('button', {
+			name: 'More actions',
+			exact: true
+		});
 		await expect.element(more).toBeVisible();
 		more.element().focus();
 		await userEvent.keyboard('{Enter}');
 		await expect
-			.element(screen.getByRole('menuitem', { name: 'Step one frame forward', exact: true }))
+			.element(
+				screen.getByRole('menuitem', {
+					name: 'Step one frame forward',
+					exact: true
+				})
+			)
 			.toBeVisible();
 		await expect.element(screen.getByRole('menuitem', { name: 'Fit', exact: true })).toBeVisible();
 		await userEvent.keyboard('{Escape}');
@@ -65,7 +73,7 @@ it('keeps preview menus inside the fullscreen surface', async () => {
 	await screen.getByRole('button', { name: /Preview zoom:/ }).click();
 	const zoomOption = screen.getByRole('menuitem', { name: '50%', exact: true }).element();
 	expect(zoomOption.closest('[data-video-preview]')).toBe(preview);
-	zoomOption.click();
+	(zoomOption as HTMLElement).click();
 	await expect.element(screen.getByRole('button', { name: 'Preview zoom: 50%' })).toBeVisible();
 });
 
@@ -127,7 +135,10 @@ it('keeps supported voiceover commands and active stop reachable at 320px', asyn
 
 	try {
 		const screen = await render(Fixture, { width: 320 });
-		const more = screen.getByRole('button', { name: 'More actions', exact: true });
+		const more = screen.getByRole('button', {
+			name: 'More actions',
+			exact: true
+		});
 		const fullscreen = screen.getByRole('button', {
 			name: 'Enter preview fullscreen',
 			exact: true
@@ -142,7 +153,12 @@ it('keeps supported voiceover commands and active stop reachable at 320px', asyn
 
 		await more.click();
 		await expect
-			.element(screen.getByRole('menuitem', { name: 'Voiceover settings', exact: true }))
+			.element(
+				screen.getByRole('menuitem', {
+					name: 'Voiceover settings',
+					exact: true
+				})
+			)
 			.toBeVisible();
 		await screen.getByRole('menuitem', { name: 'Voiceover settings', exact: true }).click();
 		await expect.element(screen.getByText('Microphone', { exact: true })).toBeVisible();
@@ -157,7 +173,10 @@ it('keeps supported voiceover commands and active stop reachable at 320px', asyn
 		await screen.getByRole('menuitem', { name: 'Voiceover settings', exact: true }).click();
 		await screen.getByRole('menuitem', { name: 'Record voiceover', exact: true }).click();
 
-		const stop = screen.getByRole('button', { name: 'Stop and save voiceover', exact: true });
+		const stop = screen.getByRole('button', {
+			name: 'Stop and save voiceover',
+			exact: true
+		});
 		await expect.element(stop).toBeVisible();
 		const stopBounds = stop.element().getBoundingClientRect();
 		expect(stopBounds.left).toBeGreaterThanOrEqual(0);

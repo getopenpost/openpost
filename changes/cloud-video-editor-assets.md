@@ -1,3 +1,3 @@
 ### Fixed
 
-- Saved URL imports, stock media, stickers, generated speech, and generated music to Cloud Video Projects without asking for a local workspace folder.
+- Saved URL imports, stock media, stickers, Lottie animations, captured frames, freeze frames, generated audio, and processed video to Cloud Video Projects without asking for a local workspace folder.

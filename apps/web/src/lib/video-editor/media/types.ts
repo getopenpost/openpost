@@ -113,6 +113,9 @@ export interface ProjectAssetImportOptions {
 	tags?: string[];
 	attribution?: MediaAttribution;
 	duration?: number;
+	width?: number;
+	height?: number;
+	capture?: RecordingCaptureMetadata;
 	onUnsupportedAudio?: (request: {
 		fileName: string;
 		codec: string;

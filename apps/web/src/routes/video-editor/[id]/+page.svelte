@@ -951,7 +951,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	});
 
 	$effect(() => {
-		voiceoverRecorder.reconcileProject(projectId);
+		voiceoverRecorder.reconcileProject(
+			projectId,
+			cloudStorage ? importCloudEditorProjectAsset : undefined
+		);
 		const workspaceId = cloudStorage ? (workspaceCtx.currentWorkspace?.id ?? '') : '';
 		if (!projectId || (cloudStorage ? !workspaceId : gate.state !== 'ready')) return;
 		untrack(() => void editorSession.load(projectId, workspaceId));
@@ -1058,6 +1061,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				tags: options.tags,
 				attribution: options.attribution,
 				duration: options.duration,
+				width: options.width,
+				height: options.height,
+				capture: options.capture,
 				onUnsupportedAudio: options.onUnsupportedAudio
 			});
 		} catch (error) {
@@ -1141,7 +1147,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			const result = await insertFreezeFrame({
 				projectId,
 				itemId,
-				playheadFrame: timelineStore.currentFrame
+				playheadFrame: timelineStore.currentFrame,
+				importAsset: cloudStorage ? importCloudEditorProjectAsset : undefined
 			});
 			if (!result.ok) {
 				const message =
@@ -3050,7 +3057,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											{:else if leftPanel === 'transitions'}
 												<TransitionBrowserPanel onapply={handleApplyTransition} />
 											{:else if leftPanel === 'lottie'}
-												<LottieBrowserPanel {projectId} oninserted={handleVectorAssetInserted} />
+												<LottieBrowserPanel
+													{projectId}
+													oninserted={handleVectorAssetInserted}
+													importProjectAsset={cloudStorage
+														? importCloudEditorProjectAsset
+														: undefined}
+												/>
 											{:else if leftPanel === 'transcript'}
 												<TranscriptPanel
 													itemIds={selectedLeftPanelItemIds}
@@ -3155,6 +3168,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										{/key}
 										<TransportBar
 											{projectId}
+											importProjectAsset={cloudStorage ? importCloudEditorProjectAsset : undefined}
 											onvoiceoverinserted={handleVoiceoverInserted}
 											theaterActive={layoutTheaterActive}
 											ontoggletheater={() => setTheaterMode(!theaterMode)}
@@ -3608,6 +3622,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												canvasWidth={renderProject?.metadata.width ?? 1920}
 												canvasHeight={renderProject?.metadata.height ?? 1080}
 												{projectId}
+												importProjectAsset={cloudStorage
+													? importCloudEditorProjectAsset
+													: undefined}
 												onedit={() => editorSession.scheduleAutosave()}
 												onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
 												onreverseitems={handleReverseItems}

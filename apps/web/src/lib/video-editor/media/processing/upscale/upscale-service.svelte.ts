@@ -3,7 +3,8 @@ import { localAiRuntimeRegistry } from '../../../local-ai/runtime-registry';
 import { importGeneratedVideo, rollbackNewGeneratedMedia } from '../../import.svelte';
 import { mediaTaskId, mediaTasks } from '../../media-tasks.svelte';
 import { resolveMediaBlob } from '../../resolve-media-blob';
-import type { MediaMetadata } from '../../types';
+import type { MediaMetadata, ProjectAssetImporter } from '../../types';
+import { mediaPool } from '../../pool.svelte';
 import { gpuMediaJobScheduler } from '../gpu-media-job-scheduler';
 import { abortable } from '../abortable';
 import type { UpscaleWorkerRequest, UpscaleWorkerResponse } from '../workers/upscale-worker';
@@ -25,6 +26,7 @@ interface UpscaleJob {
 	media: MediaMetadata;
 	projectId: string;
 	variant: UpscaleVariant;
+	importAsset?: ProjectAssetImporter;
 	taskId: string;
 	taskRevision: number;
 	cancelled: boolean;
@@ -105,7 +107,8 @@ export class UpscaleService {
 	generate(
 		media: MediaMetadata,
 		projectId: string,
-		variant: UpscaleVariant
+		variant: UpscaleVariant,
+		importAsset?: ProjectAssetImporter
 	): Promise<MediaMetadata> {
 		if (!this.canUpscaleMedia(media)) {
 			return Promise.reject(
@@ -124,6 +127,7 @@ export class UpscaleService {
 				media,
 				projectId,
 				variant,
+				importAsset,
 				taskId,
 				taskRevision: 0,
 				cancelled: false,
@@ -306,12 +310,19 @@ export class UpscaleService {
 					upscaledFileName(job.media.fileName, message.result.width, message.result.height),
 					{ type: 'video/mp4' }
 				);
-				const imported = await this.dependencies.importVideo(file, {
-					projectId: job.projectId,
-					tags: [UPSCALED_MEDIA_TAG, `upscale-${job.variant}`]
-				});
+				const imported = job.importAsset
+					? await job.importAsset(file, {
+							projectId: job.projectId,
+							tags: ['video', UPSCALED_MEDIA_TAG, `upscale-${job.variant}`]
+						})
+					: await this.dependencies.importVideo(file, {
+							projectId: job.projectId,
+							tags: [UPSCALED_MEDIA_TAG, `upscale-${job.variant}`]
+						});
+				if (!imported) throw new Error('The upscaled video import was cancelled.');
 				if (job.cancelled) {
-					await this.dependencies.rollbackImport(job.projectId, imported.id);
+					if (job.importAsset) mediaPool.remove(imported.id);
+					else await this.dependencies.rollbackImport(job.projectId, imported.id);
 					throw abortError();
 				}
 				this.settle(job, imported);

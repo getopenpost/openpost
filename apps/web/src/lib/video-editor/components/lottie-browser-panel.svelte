@@ -16,6 +16,7 @@
 	} from '$lib/video-editor/lottie/lottiefiles-api';
 	import { clearLottieDragData, writeLottieDragData } from '$lib/video-editor/lottie/lottie-drag';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 
 	const PAGE_SIZE = 24;
 	const categories: LottieBrowseCategory[] = ['featured', 'popular', 'recent'];
@@ -24,12 +25,14 @@
 		oninserted?: (itemId: string) => void;
 		fetchAnimations?: typeof fetchLottieAnimations;
 		importAnimation?: typeof importRemoteLottie;
+		importProjectAsset?: ProjectAssetImporter;
 	};
 	let {
 		projectId,
 		oninserted,
 		fetchAnimations = fetchLottieAnimations,
-		importAnimation = importRemoteLottie
+		importAnimation = importRemoteLottie,
+		importProjectAsset
 	}: LottieBrowserPanelProps = $props();
 	let category = $state<LottieBrowseCategory>('featured');
 	let inputValue = $state('');
@@ -116,7 +119,8 @@
 					projectId,
 					url: animation.lottieUrl,
 					fileName: animation.name,
-					attribution: lottieFilesAttribution(animation)
+					attribution: lottieFilesAttribution(animation),
+					importAsset: importProjectAsset
 				}));
 			importedMediaIds = { ...importedMediaIds, [animation.id]: mediaId };
 			const media = mediaPool.get(mediaId);

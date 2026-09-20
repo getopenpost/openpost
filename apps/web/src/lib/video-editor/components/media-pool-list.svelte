@@ -709,7 +709,12 @@
 
 	async function upscaleMedia(media: MediaMetadata, variant: UpscaleVariant): Promise<void> {
 		try {
-			const generated = await upscaleService.generate(media, projectId, variant);
+			const generated = await upscaleService.generate(
+				media,
+				projectId,
+				variant,
+				importProjectAsset
+			);
 			showToast(m.video_editor_media_upscale_done({ name: generated.fileName }), 'success');
 		} catch (error) {
 			processFailure(media, error instanceof Error ? error : new Error(String(error)));
@@ -721,7 +726,12 @@
 		factor: InterpolationFactor
 	): Promise<void> {
 		try {
-			const generated = await frameInterpolationService.generate(media, projectId, factor);
+			const generated = await frameInterpolationService.generate(
+				media,
+				projectId,
+				factor,
+				importProjectAsset
+			);
 			showToast(m.video_editor_media_interpolate_done({ name: generated.fileName }), 'success');
 		} catch (error) {
 			processFailure(media, error instanceof Error ? error : new Error(String(error)));

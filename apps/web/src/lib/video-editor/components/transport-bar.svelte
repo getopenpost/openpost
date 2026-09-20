@@ -33,14 +33,17 @@
 		setInPoint,
 		setOutPoint
 	} from '$lib/video-editor/timeline/actions/items';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 
 	let {
 		projectId,
+		importProjectAsset,
 		onvoiceoverinserted = () => {},
 		theaterActive = false,
 		ontoggletheater = () => {}
 	}: {
 		projectId: string;
+		importProjectAsset?: ProjectAssetImporter;
 		onvoiceoverinserted?: (itemId: string) => void;
 		theaterActive?: boolean;
 		ontoggletheater?: () => void;
@@ -128,7 +131,8 @@
 					projectId: project.id,
 					width: project.metadata.width,
 					height: project.metadata.height,
-					tags: ['frame-capture']
+					tags: ['frame-capture'],
+					importAsset: importProjectAsset
 				});
 			} catch (error) {
 				toast.error(

@@ -8,6 +8,7 @@ import {
 import { importGeneratedImage, rollbackNewGeneratedMedia } from './import.svelte';
 import { mediaPool } from './pool.svelte';
 import { extractFreezeFrame } from './freeze-frame';
+import type { ProjectAssetImporter } from './types';
 
 export type InsertFreezeFrameResult =
 	| { ok: true; itemId: string }
@@ -17,6 +18,7 @@ export async function insertFreezeFrame(options: {
 	projectId: string;
 	itemId: string;
 	playheadFrame: number;
+	importAsset?: ProjectAssetImporter;
 }): Promise<InsertFreezeFrameResult> {
 	const item = timelineStore.itemById.get(options.itemId);
 	const blocked = freezeFrameBlockReason(item, options.playheadFrame);
@@ -38,7 +40,8 @@ export async function insertFreezeFrame(options: {
 		projectId: options.projectId,
 		width: extracted.width,
 		height: extracted.height,
-		tags: ['freeze-frame']
+		tags: ['freeze-frame'],
+		importAsset: options.importAsset
 	});
 
 	const freezeFrameId = commitFreezeFrame({
@@ -50,6 +53,7 @@ export async function insertFreezeFrame(options: {
 	});
 	if (freezeFrameId) return { ok: true, itemId: freezeFrameId };
 
-	await rollbackNewGeneratedMedia(options.projectId, generated.id);
+	if (options.importAsset) mediaPool.remove(generated.id);
+	else await rollbackNewGeneratedMedia(options.projectId, generated.id);
 	return { ok: false, reason: 'source-changed' };
 }

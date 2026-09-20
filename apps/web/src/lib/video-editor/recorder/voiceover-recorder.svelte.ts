@@ -4,6 +4,7 @@ import { importRecordedAudio } from '../media/import.svelte';
 import { insertVoiceoverOnNewTrack } from '../local-ai/insert-generated-audio';
 import { previewPlaybackSettings } from '../preview/playback-settings.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+import type { ProjectAssetImporter } from '../media/types';
 import {
 	MicRecorder,
 	createBestEffortAudioContext,
@@ -165,6 +166,7 @@ class VoiceoverRecorderController {
 	private monitorGeneration = 0;
 	private sessionGeneration = 0;
 	private sessionProjectId: string | null = null;
+	private projectAssetImporter: ProjectAssetImporter | undefined;
 	private elapsedTimer: ReturnType<typeof setInterval> | null = null;
 	private clockUnsubscribers: Array<() => void> = [];
 	private suppressClockEvents = false;
@@ -266,8 +268,9 @@ class VoiceoverRecorderController {
 		return () => this.insertionListeners.delete(listener);
 	}
 
-	reconcileProject(projectId: string): void {
+	reconcileProject(projectId: string, importAsset?: ProjectAssetImporter): void {
 		if (this.sessionProjectId && this.sessionProjectId !== projectId) this.cancel();
+		this.projectAssetImporter = importAsset;
 	}
 
 	async refreshDevices(): Promise<void> {
@@ -455,7 +458,8 @@ class VoiceoverRecorderController {
 			const media = await dependencies.importAudio(file, {
 				projectId,
 				duration,
-				tags: ['voiceover']
+				tags: ['voiceover'],
+				...(this.projectAssetImporter && { importAsset: this.projectAssetImporter })
 			});
 			if (generation !== this.sessionGeneration || editorSession.project?.id !== projectId) {
 				return null;
@@ -570,6 +574,7 @@ class VoiceoverRecorderController {
 		this.cancel();
 		this.stopMonitor();
 		state.error = null;
+		this.projectAssetImporter = undefined;
 		dependencies = productionDependencies;
 	}
 

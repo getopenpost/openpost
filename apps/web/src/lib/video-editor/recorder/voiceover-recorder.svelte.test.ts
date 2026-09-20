@@ -98,6 +98,8 @@ describe('voiceoverRecorder', () => {
 	});
 
 	it('keeps capture and transport in lockstep, then inserts one synced take', async () => {
+		const importProjectAsset = vi.fn();
+		voiceoverRecorder.reconcileProject('project-1', importProjectAsset);
 		const startPlayback = vi.spyOn(editorSession, 'startPlayback').mockImplementation(() => {});
 		const pausePlayback = vi.spyOn(editorSession, 'pausePlayback').mockImplementation(() => {});
 		const scheduleAutosave = vi
@@ -142,7 +144,12 @@ describe('voiceoverRecorder', () => {
 		expect(itemId).toBe('voiceover-item');
 		expect(mocks.importRecordedAudio).toHaveBeenCalledWith(
 			expect.objectContaining({ name: expect.stringMatching(/^voiceover-.*\.webm$/) }),
-			{ projectId: 'project-1', duration: 1.5, tags: ['voiceover'] }
+			{
+				projectId: 'project-1',
+				duration: 1.5,
+				tags: ['voiceover'],
+				importAsset: importProjectAsset
+			}
 		);
 		expect(mocks.insertVoiceover).toHaveBeenCalledWith(recordedMedia, 48, 'Voiceover');
 		expect(inserted).toHaveBeenCalledWith('voiceover-item');

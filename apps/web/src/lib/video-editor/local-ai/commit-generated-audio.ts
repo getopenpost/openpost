@@ -1,4 +1,4 @@
-import { importGeneratedAudio } from '../media/import.svelte';
+import { importGeneratedAudio, rollbackNewGeneratedMedia } from '../media/import.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import type { MediaMetadata, ProjectAssetImporter } from '../media/types';
 import {
@@ -32,6 +32,7 @@ export async function commitGeneratedAudio(
 	dependencies: CommitGeneratedAudioDependencies = defaultDependencies
 ): Promise<{ media: MediaMetadata; itemId?: string }> {
 	let media = options.existingMediaId ? mediaPool.get(options.existingMediaId) : undefined;
+	let imported = false;
 	if (options.existingMediaId && !media) {
 		throw new Error('The saved generated audio is no longer in the media pool.');
 	}
@@ -43,16 +44,28 @@ export async function commitGeneratedAudio(
 				tags: options.tags
 			})) ?? undefined;
 		if (!media) throw new Error('The generated audio import was cancelled.');
+		imported = true;
 	}
-	media ??= await importGeneratedAudio(generated.file, {
-		projectId: options.projectId,
-		duration: generated.duration,
-		tags: options.tags
-	});
-	const itemId = options.sourceTextItemId
-		? dependencies.insertForText(media, options.sourceTextItemId)
-		: options.insertAtFrame === undefined
-			? undefined
-			: dependencies.insertOnTrack(media, options.insertAtFrame);
-	return { media, itemId };
+	if (!media) {
+		media = await importGeneratedAudio(generated.file, {
+			projectId: options.projectId,
+			duration: generated.duration,
+			tags: options.tags
+		});
+		imported = true;
+	}
+	try {
+		const itemId = options.sourceTextItemId
+			? dependencies.insertForText(media, options.sourceTextItemId)
+			: options.insertAtFrame === undefined
+				? undefined
+				: dependencies.insertOnTrack(media, options.insertAtFrame);
+		return { media, itemId };
+	} catch (error) {
+		if (imported) {
+			if (options.importAsset) mediaPool.remove(media.id);
+			else await rollbackNewGeneratedMedia(options.projectId, media.id);
+		}
+		throw error;
+	}
 }

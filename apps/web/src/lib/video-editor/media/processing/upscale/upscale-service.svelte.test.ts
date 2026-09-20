@@ -85,7 +85,8 @@ describe('UpscaleService lifecycle', () => {
 			removeScratch: vi.fn(async () => undefined)
 		};
 		const service = new UpscaleService(dependencies);
-		const firstPromise = service.generate(media('first'), 'project', 'liveAction');
+		const importAsset = vi.fn(async (file: File) => generated(file));
+		const firstPromise = service.generate(media('first'), 'project', 'liveAction', importAsset);
 		const secondPromise = service.generate(media('second'), 'project', 'animation');
 
 		await vi.waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
@@ -111,7 +112,14 @@ describe('UpscaleService lifecycle', () => {
 		});
 
 		await expect(firstPromise).resolves.toMatchObject({ width: 128, height: 72 });
-		expect(importVideo).toHaveBeenCalledOnce();
+		expect(importAsset).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'first (128x72).mp4' }),
+			expect.objectContaining({
+				projectId: 'project',
+				tags: ['video', 'upscaled', 'upscale-liveAction']
+			})
+		);
+		expect(importVideo).not.toHaveBeenCalled();
 		await vi.waitFor(() => expect(worker.requests).toHaveLength(2));
 		const secondRequest = worker.requests[1]!;
 		expect(secondRequest).toMatchObject({ type: 'upscale', variant: 'animation' });

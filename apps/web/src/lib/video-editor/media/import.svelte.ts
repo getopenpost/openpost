@@ -20,7 +20,7 @@ import {
 } from '../workspace-fs/paths';
 import { associateMediaWithProject, removeMediaFromProject } from '../workspace-fs/project-media';
 import { createMedia, deleteMedia } from '../workspace-fs/media';
-import type { MediaAttribution, MediaMetadata } from './types';
+import type { MediaAttribution, MediaMetadata, ProjectAssetImporter } from './types';
 import { probeMediaFile } from './probe-client';
 import { mediaPool } from './pool.svelte';
 import { reconcileSystemAudioWithProbe } from './recording-capture-schema';
@@ -73,6 +73,7 @@ export interface GeneratedImageImportOptions {
 	width?: number;
 	height?: number;
 	tags?: string[];
+	importAsset?: ProjectAssetImporter;
 }
 
 export interface GeneratedAudioImportOptions {
@@ -80,12 +81,14 @@ export interface GeneratedAudioImportOptions {
 	duration: number;
 	tags?: string[];
 	capture?: import('./types').RecordingCaptureMetadata;
+	importAsset?: ProjectAssetImporter;
 }
 
 export interface GeneratedVideoImportOptions {
 	projectId: string;
 	tags?: string[];
 	capture?: import('./types').RecordingCaptureMetadata;
+	importAsset?: ProjectAssetImporter;
 }
 
 export type RecordedAudioImportOptions = GeneratedAudioImportOptions;
@@ -309,6 +312,7 @@ export async function importRemoteLottie(options: {
 	url: string;
 	fileName: string;
 	attribution: MediaAttribution;
+	importAsset?: ProjectAssetImporter;
 }): Promise<string> {
 	const source = new URL(options.url);
 	if (source.protocol !== 'https:' || source.hostname !== 'assets-v2.lottiefiles.com') {
@@ -332,6 +336,15 @@ export async function importRemoteLottie(options: {
 		type: 'application/zip',
 		lastModified: Date.now()
 	});
+	if (options.importAsset) {
+		const media = await options.importAsset(file, {
+			projectId: options.projectId,
+			attribution: options.attribution,
+			tags: ['lottie']
+		});
+		if (!media) throw new MediaImportCancelledError();
+		return media.id;
+	}
 	return importCopiedFile(file, {
 		projectId: options.projectId,
 		attribution: options.attribution
@@ -345,13 +358,23 @@ export async function importGeneratedImage(
 	file: File,
 	options: GeneratedImageImportOptions
 ): Promise<MediaMetadata> {
-	const root = requireWorkspaceRoot();
 	const resolvedFile = fileWithInferredMediaType(file);
 	if (!resolvedFile.type.startsWith('image/')) {
 		throw new Error(
 			`Generated file must be an image. Received "${resolvedFile.type || 'unknown'}".`
 		);
 	}
+	if (options.importAsset) {
+		const media = await options.importAsset(resolvedFile, {
+			projectId: options.projectId,
+			tags: ['image', ...(options.tags ?? [])],
+			width: options.width,
+			height: options.height
+		});
+		if (!media) throw new MediaImportCancelledError();
+		return media;
+	}
+	const root = requireWorkspaceRoot();
 	const probe = await probeMediaFile(resolvedFile);
 	if (probe.kind !== 'image' || !(probe.width > 0) || !(probe.height > 0)) {
 		throw new Error('The generated file does not contain a usable image.');
@@ -404,6 +427,15 @@ export async function importGeneratedVideo(
 	file: File,
 	options: GeneratedVideoImportOptions
 ): Promise<MediaMetadata> {
+	if (options.importAsset) {
+		const media = await options.importAsset(file, {
+			projectId: options.projectId,
+			tags: ['video', ...(options.tags ?? [])],
+			capture: options.capture
+		});
+		if (!media) throw new MediaImportCancelledError();
+		return media;
+	}
 	const root = requireWorkspaceRoot();
 	const id = crypto.randomUUID();
 	const fileName = sanitizeWorkspaceFileName(file.name);
@@ -468,6 +500,16 @@ async function importWorkspaceAudio(
 	baseTags: string[],
 	probe?: { audioCodec?: string; bitrate?: number }
 ): Promise<MediaMetadata> {
+	if (options.importAsset) {
+		const media = await options.importAsset(file, {
+			projectId: options.projectId,
+			duration: options.duration,
+			tags: ['audio', ...baseTags, ...(options.tags ?? [])],
+			capture: options.capture
+		});
+		if (!media) throw new MediaImportCancelledError();
+		return media;
+	}
 	const root = requireWorkspaceRoot();
 	const id = crypto.randomUUID();
 	const fileName = sanitizeWorkspaceFileName(file.name);

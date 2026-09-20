@@ -3,7 +3,8 @@ import { localAiRuntimeRegistry } from '../../../local-ai/runtime-registry';
 import { importGeneratedVideo, rollbackNewGeneratedMedia } from '../../import.svelte';
 import { mediaTaskId, mediaTasks } from '../../media-tasks.svelte';
 import { resolveMediaBlob } from '../../resolve-media-blob';
-import type { MediaMetadata } from '../../types';
+import type { MediaMetadata, ProjectAssetImporter } from '../../types';
+import { mediaPool } from '../../pool.svelte';
 import { gpuMediaJobScheduler } from '../gpu-media-job-scheduler';
 import { abortable } from '../abortable';
 import type {
@@ -27,6 +28,7 @@ interface InterpolationJob {
 	media: MediaMetadata;
 	projectId: string;
 	factor: InterpolationFactor;
+	importAsset?: ProjectAssetImporter;
 	taskId: string;
 	taskRevision: number;
 	cancelled: boolean;
@@ -111,7 +113,8 @@ export class FrameInterpolationService {
 	generate(
 		media: MediaMetadata,
 		projectId: string,
-		factor: InterpolationFactor
+		factor: InterpolationFactor,
+		importAsset?: ProjectAssetImporter
 	): Promise<MediaMetadata> {
 		if (!this.canInterpolateMedia(media) || !isSupportedInterpolationFactor(factor)) {
 			return Promise.reject(
@@ -130,6 +133,7 @@ export class FrameInterpolationService {
 				media,
 				projectId,
 				factor,
+				importAsset,
 				taskId,
 				taskRevision: 0,
 				cancelled: false,
@@ -321,12 +325,19 @@ export class FrameInterpolationService {
 					interpolatedFileName(job.media.fileName, message.result.outputFps),
 					{ type: 'video/mp4' }
 				);
-				const imported = await this.dependencies.importVideo(file, {
-					projectId: job.projectId,
-					tags: [INTERPOLATED_MEDIA_TAG, `interpolation-${job.factor}x`]
-				});
+				const imported = job.importAsset
+					? await job.importAsset(file, {
+							projectId: job.projectId,
+							tags: ['video', INTERPOLATED_MEDIA_TAG, `interpolation-${job.factor}x`]
+						})
+					: await this.dependencies.importVideo(file, {
+							projectId: job.projectId,
+							tags: [INTERPOLATED_MEDIA_TAG, `interpolation-${job.factor}x`]
+						});
+				if (!imported) throw new Error('The interpolated video import was cancelled.');
 				if (job.cancelled) {
-					await this.dependencies.rollbackImport(job.projectId, imported.id);
+					if (job.importAsset) mediaPool.remove(imported.id);
+					else await this.dependencies.rollbackImport(job.projectId, imported.id);
 					throw abortError();
 				}
 				this.settle(job, imported);

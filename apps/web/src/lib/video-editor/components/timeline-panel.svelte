@@ -354,6 +354,8 @@
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { SceneScanMode } from '$lib/video-editor/media/scene-scan';
 	import { canExtractEmbeddedSubtitles } from '$lib/video-editor/media/embedded-subtitle-service';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import { showToast } from '$lib/toast';
 
 	let {
 		onedit,
@@ -386,6 +388,7 @@
 		canvasWidth = 1920,
 		canvasHeight = 1080,
 		projectId = null,
+		importProjectAsset,
 		selectedItemId = $bindable(null),
 		selectedItemIds = $bindable([]),
 		selectedTransitionId = $bindable(null)
@@ -420,6 +423,7 @@
 		canvasWidth?: number;
 		canvasHeight?: number;
 		projectId?: string | null;
+		importProjectAsset?: ProjectAssetImporter;
 		selectedItemId?: string | null;
 		selectedItemIds?: string[];
 		selectedTransitionId?: string | null;
@@ -2037,14 +2041,19 @@
 				tags: ['stock', payload.provider],
 				insertAtFrame: from,
 				label: payload.label,
-				exactTrackId: trackId
+				exactTrackId: trackId,
+				importAsset: importProjectAsset
 			});
 			selectedItemId = committed.itemId;
 			selectedItemIds = [committed.itemId];
 			clearStockDragData();
 			onedit();
-		} catch {
+		} catch (error) {
 			emitEditorSound('error', editorSession.clock.isPlaying);
+			showToast(
+				error instanceof Error ? error.message : 'The stock asset could not be added.',
+				'error'
+			);
 		} finally {
 			stockDropPending = false;
 		}
@@ -2067,14 +2076,19 @@
 				tags: ['sticker', 'fluent-emoji'],
 				insertAtFrame: from,
 				label,
-				exactTrackId: trackId
+				exactTrackId: trackId,
+				importAsset: importProjectAsset
 			});
 			selectedItemId = committed.itemId;
 			selectedItemIds = [committed.itemId];
 			clearStickerDragData();
 			onedit();
-		} catch {
+		} catch (error) {
 			emitEditorSound('error', editorSession.clock.isPlaying);
+			showToast(
+				error instanceof Error ? error.message : m.video_editor_sticker_add_failed(),
+				'error'
+			);
 		} finally {
 			stickerDropPending = false;
 		}
@@ -2161,7 +2175,8 @@
 								sourceId: payload.id,
 								license: LOTTIEFILES_LICENSE,
 								licenseUrl: LOTTIEFILES_LICENSE_URL
-							}
+							},
+					importAsset: importProjectAsset
 				}));
 			const media = mediaPool.get(mediaId);
 			if (!media) throw new Error('The imported animation did not reach the media pool.');
@@ -2173,8 +2188,12 @@
 			selectedItemIds = [itemId];
 			clearLottieDragData();
 			onedit();
-		} catch {
+		} catch (error) {
 			emitEditorSound('error', editorSession.clock.isPlaying);
+			showToast(
+				error instanceof Error ? error.message : m.video_editor_lottiefiles_import_error(),
+				'error'
+			);
 		} finally {
 			lottieDropPending = false;
 		}

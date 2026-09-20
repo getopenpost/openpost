@@ -465,6 +465,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 					storageType: 'cloud',
 					remoteUrl: item.url,
 					offlineUrl: offlineMediaURL(this.workspaceId, id, asset.stable_media_id),
+					contentHash: asset.sha256 || undefined,
 					fileName: item.original_filename,
 					fileSize: item.size,
 					mimeType: item.mime_type,
@@ -475,6 +476,9 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 					codec: item.video_codec ?? item.container_format ?? '',
 					bitrate: item.bit_rate,
 					audioCodec: item.audio_codec,
+					// The server's media tags are library tag IDs, not the editor's semantic tags.
+					// Attribution, capture details, and extended browser probe results have no
+					// Project Asset contract fields, so only contract-owned metadata is restored.
 					tags: [mediaKind]
 				});
 			}

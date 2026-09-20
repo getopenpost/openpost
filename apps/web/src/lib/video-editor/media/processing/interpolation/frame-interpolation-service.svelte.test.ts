@@ -93,9 +93,10 @@ afterEach(() => mediaTasks.reset());
 describe('FrameInterpolationService lifecycle', () => {
 	it('reports model download bytes, imports the result, and removes scratch output', async () => {
 		const importVideo = vi.fn(async (file: File) => generated(file));
+		const importAsset = vi.fn(async (file: File) => generated(file));
 		const removeScratch = vi.fn(async () => undefined);
 		const service = new FrameInterpolationService(dependencies({ importVideo, removeScratch }));
-		const resultPromise = service.generate(media('source'), 'project', 4);
+		const resultPromise = service.generate(media('source'), 'project', 4, importAsset);
 
 		await vi.waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
 		const worker = FakeWorker.instances[0]!;
@@ -136,8 +137,14 @@ describe('FrameInterpolationService lifecycle', () => {
 		});
 
 		await expect(resultPromise).resolves.toMatchObject({ fps: 96 });
-		expect(importVideo).toHaveBeenCalledOnce();
-		expect(importVideo.mock.calls[0]?.[0].name).toBe('source (96fps).mp4');
+		expect(importAsset).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'source (96fps).mp4' }),
+			expect.objectContaining({
+				projectId: 'project',
+				tags: ['video', 'interpolated', 'interpolation-4x']
+			})
+		);
+		expect(importVideo).not.toHaveBeenCalled();
 		expect(removeScratch).toHaveBeenCalledWith(request.jobId);
 		expect(mediaTasks.get(mediaTaskId('frame-interpolation', 'source'))).toBeUndefined();
 	});

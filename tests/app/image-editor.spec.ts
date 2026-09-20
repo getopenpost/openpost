@@ -563,8 +563,37 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
 
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.setViewportSize({ width: 390, height: 800 });
-  await expect(page.getByTestId("image-editor-selection-options")).toBeVisible();
+  const mobileOptions = page.getByTestId("image-editor-selection-options");
+  await expect(mobileOptions).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  const mobileBounds = await surface.boundingBox();
+  expect(mobileBounds).not.toBeNull();
+  if (!mobileBounds) return;
+  await page.mouse.click(
+    mobileBounds.x + mobileBounds.width * 0.2,
+    mobileBounds.y + mobileBounds.height * 0.2,
+  );
+  const done = mobileOptions.getByRole("button", { name: "Done", exact: true });
+  const cancel = mobileOptions.getByRole("button", { name: "Cancel", exact: true });
+  await expect(done).toBeDisabled();
+  await expect(cancel).toBeVisible();
+  await cancel.click();
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+
+  for (const [x, y] of [
+    [0.2, 0.2],
+    [0.75, 0.25],
+    [0.45, 0.7],
+  ] as const) {
+    await page.mouse.click(
+      mobileBounds.x + mobileBounds.width * x,
+      mobileBounds.y + mobileBounds.height * y,
+    );
+  }
+  await expect(done).toBeEnabled();
+  await done.click();
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+  await expect(overlay).toHaveAttribute("data-active", "true");
   await page.screenshot({ path: testInfo.outputPath("selection-refinement-phone-dark.png") });
 });
 

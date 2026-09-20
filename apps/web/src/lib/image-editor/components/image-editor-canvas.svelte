@@ -2154,6 +2154,24 @@
 				class="absolute bottom-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur sm:top-3 sm:bottom-auto [&>*]:shrink-0"
 				data-testid="image-editor-selection-options"
 			>
+				{#if editor.activeTool === 'polygonal_lasso' && polygonalSelection}
+					<Button
+						size="sm"
+						class="h-7 px-1.5 text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+						disabled={polygonalSelection.points.length < 3}
+						onclick={finishPolygonalSelection}
+					>
+						{m.common_done()}
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+						onclick={() => (polygonalSelection = null)}
+					>
+						{m.common_cancel()}
+					</Button>
+				{/if}
 				<span class="hidden px-1 text-xs font-medium sm:inline">
 					{editor.activeTool === 'marquee'
 						? m.image_editor_rectangle_select()

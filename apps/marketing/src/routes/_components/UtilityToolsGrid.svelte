@@ -32,7 +32,7 @@
 		'linkedin-text-formatter': { icon: MessageSquareText, action: 'Clean the copy' },
 		'best-time-to-post-calculator': { icon: Clock3, action: 'Plan the week' },
 		'utm-link-builder': { icon: Link2, action: 'Build the link' }
-	} satisfies Record<MarketingToolSlug, { icon: typeof FileText; action: string }>;
+	};
 
 	const visibleTools = $derived(
 		slugs
@@ -43,7 +43,10 @@
 
 <div class="utility-grid">
 	{#each visibleTools as tool (tool.slug)}
-		{@const detail = details[tool.slug]}
+		{@const detail = details[tool.slug as keyof typeof details] ?? {
+			icon: Images,
+			action: 'Open tool'
+		}}
 		{@const Icon = detail.icon}
 		<a
 			href={resolve(`/tools/${tool.slug}`)}

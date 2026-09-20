@@ -1,4 +1,5 @@
 import { planCatalog, purchaseTerms, selfHostedDeployment } from '@openpost/plan-catalog';
+import { mediaTools } from '@openpost/social-images';
 import { PLATFORM_LIMITS } from '../../../web/src/lib/platform-limits';
 import publicClaimManifest from '../../../../config/provider-certification/public-claims.json';
 
@@ -1101,6 +1102,7 @@ export const landingPlatforms = landingPlatformSlugs.map((slug) => {
 });
 
 export const tools = [
+	...mediaTools,
 	{
 		slug: 'social-media-video-editor',
 		name: 'Social media video editor',
@@ -1150,6 +1152,12 @@ export const tools = [
 ] as const;
 
 export type MarketingToolSlug = (typeof tools)[number]['slug'];
+
+export function getToolCategory(slug: MarketingToolSlug) {
+	if (slug === 'social-media-video-editor') return 'Video';
+	if (slug === 'social-media-image-editor') return 'Images';
+	return mediaTools.find((tool) => tool.slug === slug)?.category ?? 'Writing & planning';
+}
 
 export const faqs = [
 	{

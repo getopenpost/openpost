@@ -478,6 +478,7 @@ function testPlan(requestedScope, requestedOptions) {
     commandStep("bunx", "turbo", "run", "test:server", "--filter", "@openpost/web"),
   ]);
   const marketing = stage("marketing tests", [
+    commandStep("bun", "run", "test", { cwd: "apps/marketing" }),
     bunTest(
       "scripts/check-marketing-route-manifest.test.mjs",
       "scripts/marketing-agent-readiness.test.mjs",

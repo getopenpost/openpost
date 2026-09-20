@@ -88,6 +88,9 @@ test("frontend asset materialization targets only generated surface trees", () =
     "/work/openpost/apps/web/.svelte-kit/output/client",
     "/work/openpost/apps/web/build",
   ]);
+  assert.deepEqual(frontendAssetOutputDirectories("marketing", "/work/openpost"), [
+    "/work/openpost/apps/marketing/dist",
+  ]);
   assert.throws(() => frontendAssetOutputDirectories("android", "/work/openpost"));
 });
 

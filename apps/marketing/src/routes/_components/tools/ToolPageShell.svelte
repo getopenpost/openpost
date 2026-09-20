@@ -8,12 +8,22 @@
 		managedSignupUrl,
 		managedTrialNote,
 		tools,
+		getToolCategory,
 		type MarketingToolSlug
 	} from '../../_marketing';
 	import { toolArticles } from '../../tools/_articles';
 	let { slug, children }: { slug: MarketingToolSlug; children: Snippet } = $props();
 	const article = $derived(toolArticles[slug]);
-	const related = $derived(tools.filter((tool) => tool.slug !== slug).slice(0, 4));
+	const related = $derived(
+		tools
+			.filter((tool) => tool.slug !== slug)
+			.toSorted(
+				(left, right) =>
+					Number(getToolCategory(right.slug) === getToolCategory(slug)) -
+					Number(getToolCategory(left.slug) === getToolCategory(slug))
+			)
+			.slice(0, 4)
+	);
 </script>
 
 <section class="tool-page marketing-shell">

@@ -53,6 +53,22 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 	return {
 		'@context': 'https://schema.org',
 		'@graph': [
+			...(entry.kind === 'tool'
+				? [
+						{
+							'@id': `${entry.canonical}#tool`,
+							'@type': 'WebApplication',
+							name: entry.socialTitle,
+							url: entry.canonical,
+							description: entry.description,
+							applicationCategory: 'MultimediaApplication',
+							operatingSystem: 'Web',
+							isAccessibleForFree: true,
+							offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+							publisher: { '@id': operatorId }
+						}
+					]
+				: []),
 			{
 				'@id': websiteId,
 				'@type': 'WebSite',

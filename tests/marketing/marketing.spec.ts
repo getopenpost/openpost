@@ -65,7 +65,7 @@ test("free tools directory links every working tool @desktop", async ({ page }) 
 
   await page.goto("/tools");
   await expect(
-    page.getByRole("heading", { name: "A few tools. On the house.", level: 1 }),
+    page.getByRole("heading", { name: "Free tools. Ready when you are.", level: 1 }),
   ).toBeVisible();
   const main = page.getByRole("main");
   for (const slug of toolSlugs) {

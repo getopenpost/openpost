@@ -1,4 +1,5 @@
 import type { MarketingToolSlug } from '../_marketing';
+import { mediaArticles } from './_media-articles';
 
 type ToolArticle = {
 	title: string;
@@ -10,6 +11,7 @@ type ToolArticle = {
 };
 
 export const toolArticles = {
+	...mediaArticles,
 	'multi-platform-character-counter': {
 		title: 'Social media character counter',
 		description: 'Paste your post. See how it fits on each channel.',

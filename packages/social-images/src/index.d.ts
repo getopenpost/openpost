@@ -106,3 +106,39 @@ export interface MarketingGuide {
   next: { label: string; href: string };
 }
 export const marketingGuides: MarketingGuide[];
+export type ImageToolFormat = "png" | "jpeg" | "webp";
+export type ImageConversionSlug =
+  | "png-to-jpg"
+  | "png-to-webp"
+  | "jpg-to-png"
+  | "jpg-to-webp"
+  | "webp-to-png"
+  | "webp-to-jpg";
+export type MediaToolSlug =
+  | ImageConversionSlug
+  | "background-remover"
+  | "image-color-picker"
+  | "paste-image"
+  | "logo-maker"
+  | "quick-cut"
+  | "image-converter";
+export interface MediaTool {
+  slug: MediaToolSlug;
+  name: string;
+  title: string;
+  description: string;
+  category: "Images" | "Video" | "Convert";
+}
+export interface ImageConversion extends MediaTool {
+  slug: ImageConversionSlug;
+  input: ImageToolFormat;
+  output: ImageToolFormat;
+}
+export const mediaTools: readonly MediaTool[];
+export const imageConversions: readonly ImageConversion[];
+export const imageFormats: readonly {
+  id: ImageToolFormat;
+  name: string;
+  extension: string;
+  mime: string;
+}[];

@@ -1,92 +1,214 @@
 <script lang="ts">
+	import { ArrowRight, Search, ShieldCheck } from '@lucide/svelte';
+	import { Input } from '$lib/components/ui/input';
+	import { Button } from '$lib/components/ui/button';
 	import HeroAccent from '../_components/HeroAccent.svelte';
-	import { LockKeyhole } from '@lucide/svelte';
-	import EditorToolsShowcase from '../_components/EditorToolsShowcase.svelte';
-	import UtilityToolsGrid from '../_components/UtilityToolsGrid.svelte';
-	import type { MarketingToolSlug } from '../_marketing';
+	import { tools, getToolCategory } from '../_marketing';
 
-	const utilityToolSlugs = [
-		'post-preview-generator',
-		'multi-platform-character-counter',
-		'thread-splitter',
-		'utm-link-builder',
-		'linkedin-text-formatter',
-		'best-time-to-post-calculator',
-		'fediverse-handle-checker'
-	] as const satisfies readonly MarketingToolSlug[];
+	const categories = ['All tools', 'Images', 'Video', 'Convert', 'Writing & planning'] as const;
+	type Category = (typeof categories)[number];
+	let category = $state<Category>('All tools');
+	let query = $state('');
+	const filtered = $derived(
+		tools.filter(
+			(tool) =>
+				(category === 'All tools' || getToolCategory(tool.slug) === category) &&
+				`${tool.name} ${tool.slug.replaceAll('-', ' ')} ${tool.description}`
+					.toLowerCase()
+					.includes(query.trim().toLowerCase())
+		)
+	);
 </script>
 
-<section class="tools-hero border-b" aria-labelledby="tools-title">
-	<div class="marketing-shell py-16 sm:py-24">
-		<h1
-			id="tools-title"
-			class="max-w-4xl text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance sm:text-6xl"
-		>
-			A few tools.<br /><HeroAccent>On the house.</HeroAccent>
-		</h1>
-		<p class="marketing-copy mt-6">
-			Edit an image, trim a video, tidy a post, or check a link. Free tools for the small jobs
-			between an idea and hitting publish.
+<section class="tools-directory marketing-shell" aria-labelledby="tools-title">
+	<header>
+		<h1 id="tools-title">Free tools.<br /><HeroAccent>Ready when you are.</HeroAccent></h1>
+		<p class="intro">
+			Remove a background, pick a color, convert a file, or make your next post. Open a tool and get
+			straight to work.
 		</p>
-		<p class="mt-5 inline-flex items-start gap-2 text-sm leading-6 text-muted-foreground">
-			<LockKeyhole class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-			No account required. Each tool explains where your work is saved.
+		<p class="privacy">
+			<ShieldCheck size={18} aria-hidden="true" /> No account required. Image tools run on your device,
+			with no watermark or paid download.
 		</p>
-	</div>
-</section>
-
-<section class="section-pad" aria-labelledby="media-tools-title">
-	<div class="marketing-shell">
-		<div class="section-intro">
-			<h2 id="media-tools-title">Make the media.</h2>
-			<p>Use the same editors as OpenPost, without an account or a watermark.</p>
+	</header>
+	<div class="directory-controls">
+		<div class="search-field">
+			<Search size={18} aria-hidden="true" /><Input
+				aria-label="Search free tools"
+				type="search"
+				bind:value={query}
+				placeholder="Search tools, formats, or tasks"
+			/>
 		</div>
-		<div class="mt-8">
-			<EditorToolsShowcase />
+		<div class="categories" aria-label="Filter tools by category">
+			{#each categories as item (item)}
+				<Button
+					variant={category === item ? 'secondary' : 'ghost'}
+					aria-pressed={category === item}
+					onclick={() => (category = item)}>{item}</Button
+				>
+			{/each}
 		</div>
-
-		<section class="mt-20 sm:mt-28" aria-labelledby="utility-tools-title">
-			<div class="section-intro">
-				<h2 id="utility-tools-title">Finish the details.</h2>
-				<p>Check the copy, preview the post, plan the time, and track the link.</p>
-			</div>
-			<div class="mt-8">
-				<UtilityToolsGrid slugs={utilityToolSlugs} />
-			</div>
-		</section>
 	</div>
+	<p class="result-count" role="status">
+		{filtered.length}
+		{filtered.length === 1 ? 'tool' : 'tools'}
+	</p>
+	{#each categories.slice(1) as group (group)}
+		{@const entries = filtered.filter((tool) => getToolCategory(tool.slug) === group)}
+		{#if entries.length}
+			<section class="tool-group" aria-label={group}>
+				<h2>{group === 'Convert' ? 'Image converters' : group}</h2>
+				<div class="tool-list">
+					{#each entries as tool (tool.slug)}
+						<a class="tool-row focus-ring" href={`/tools/${tool.slug}`}>
+							<span
+								><h3>{tool.name}</h3>
+								<p>{tool.description}</p></span
+							><ArrowRight size={20} aria-hidden="true" />
+						</a>
+					{/each}
+				</div>
+			</section>
+		{/if}
+	{/each}
+	{#if !filtered.length}
+		<div class="empty">
+			<h2>No tools match that search.</h2>
+			<p>Try a format such as PNG, or choose another category.</p>
+			<Button
+				variant="outline"
+				onclick={() => {
+					query = '';
+					category = 'All tools';
+				}}>Show all tools</Button
+			>
+		</div>
+	{/if}
 </section>
 
 <style>
-	.tools-hero {
-		background: var(--marketing-section);
+	.tools-directory {
+		padding-block: 48px 80px;
 	}
-
-	.section-intro {
-		display: grid;
-		gap: 0.75rem;
-		padding-bottom: 1.25rem;
-		border-bottom: 1px solid var(--border);
+	header {
+		max-width: 800px;
+		padding-bottom: 36px;
 	}
-
-	.section-intro h2 {
-		font-size: clamp(1.8rem, 3vw, 2.6rem);
-		font-weight: 650;
-		line-height: 1.05;
-		letter-spacing: -0.03em;
+	h1 {
+		font-size: clamp(2.5rem, 5vw, 4rem);
+		line-height: 1.08;
+		letter-spacing: -0.035em;
+		font-weight: 600;
 	}
-
-	.section-intro p {
-		max-width: 42rem;
+	.intro {
+		margin-top: 24px;
+		max-width: 62ch;
 		color: var(--muted-foreground);
-		font-size: 0.95rem;
+		font-size: 18px;
 		line-height: 1.6;
 	}
-
-	@media (min-width: 48rem) {
-		.section-intro {
-			grid-template-columns: minmax(12rem, 0.55fr) minmax(0, 1.45fr);
-			align-items: end;
+	.privacy {
+		display: flex;
+		align-items: start;
+		gap: 8px;
+		margin-top: 20px;
+		color: var(--muted-foreground);
+		font-size: 14px;
+		line-height: 1.6;
+	}
+	.privacy :global(svg) {
+		flex-shrink: 0;
+		margin-top: 2px;
+	}
+	.directory-controls {
+		border-block: 1px solid var(--border);
+		padding-block: 20px;
+		display: grid;
+		gap: 16px;
+	}
+	.search-field {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		max-width: 520px;
+	}
+	.search-field :global(svg) {
+		flex-shrink: 0;
+		color: var(--muted-foreground);
+	}
+	.categories {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+	.result-count {
+		margin-block: 16px 28px;
+		font-size: 13px;
+		color: var(--muted-foreground);
+	}
+	.tool-group {
+		display: grid;
+		gap: 12px;
+		margin-bottom: 44px;
+	}
+	.tool-group > h2 {
+		font-size: 23px;
+		letter-spacing: -0.02em;
+		font-weight: 600;
+		padding-top: 16px;
+	}
+	.tool-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 24px;
+		border-bottom: 1px solid var(--border);
+		padding: 20px 12px;
+		border-radius: 4px;
+	}
+	.tool-row:hover {
+		background: var(--marketing-section);
+	}
+	.tool-row h3 {
+		font-size: 17px;
+		font-weight: 600;
+	}
+	.tool-row p {
+		max-width: 68ch;
+		margin-top: 6px;
+		font-size: 14px;
+		line-height: 1.6;
+		color: var(--muted-foreground);
+	}
+	.tool-row :global(svg) {
+		flex-shrink: 0;
+	}
+	.empty {
+		padding-block: 32px;
+	}
+	.empty h2 {
+		font-size: 22px;
+		font-weight: 600;
+	}
+	.empty p {
+		margin-block: 12px 24px;
+		color: var(--muted-foreground);
+	}
+	@media (min-width: 768px) {
+		.tool-group {
+			grid-template-columns: minmax(160px, 0.3fr) minmax(0, 1fr);
+			gap: 32px;
+		}
+	}
+	@media (max-width: 389px) {
+		h1 {
+			font-size: 2.25rem;
+		}
+		.tool-row {
+			padding-inline: 0;
+			gap: 12px;
 		}
 	}
 </style>

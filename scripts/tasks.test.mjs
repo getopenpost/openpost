@@ -41,11 +41,20 @@ test("unknown scopes fail with the supported interface", () => {
   assert.match(result.stderr, /supported test scopes/u);
 });
 
-function taskPlan(command, scope) {
+function taskPlan(command, scope, environment = {}) {
+  const previous = Object.fromEntries(
+    Object.keys(environment).map((name) => [name, process.env[name]]),
+  );
   try {
+    Object.assign(process.env, environment);
     return { status: 0, stdout: JSON.stringify(publicPlan(resolvePlan(command, scope))) };
   } catch (error) {
     return { status: 1, stderr: error.message };
+  } finally {
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
   }
 }
 
@@ -65,7 +74,26 @@ test("fallow audits changed code and reports complexity without scopes", () => {
   assert.match(stages["changed-code audit"].commands[0], /bunx fallow audit/u);
   assert.match(stages["changed-code audit"].commands[0], /--max-crap 400/u);
   assert.match(stages["complexity and hotspots"].commands[0], /--report-only/u);
+  assert.match(stages["complexity and hotspots"].commands[0], /--hotspots/u);
+  assert.match(stages["complexity and hotspots"].commands[0], /--targets/u);
   assert.match(stages["mobile audit and health"].commands[0], /--root apps\/mobile/u);
+
+  const ciResult = taskPlan("fallow", undefined, { OPENPOST_FALLOW_CI: "1" });
+  assert.equal(ciResult.status, 0, ciResult.stderr);
+  const ciStages = Object.fromEntries(
+    JSON.parse(ciResult.stdout).stages.map((stage) => [stage.label, stage]),
+  );
+  assert.match(ciStages["changed-code audit"].commands[0], /bunx fallow audit/u);
+  assert.doesNotMatch(ciStages["complexity and hotspots"].commands[0], /--hotspots|--targets/u);
+  assert.match(
+    ciStages["complexity and hotspots"].commands[0],
+    /--complexity .*--file-scores .*--score/u,
+  );
+  assert.doesNotMatch(ciStages["mobile audit and health"].commands[1], /--hotspots|--targets/u);
+  assert.match(
+    ciStages["mobile audit and health"].commands[1],
+    /--complexity .*--file-scores .*--score/u,
+  );
 
   const scoped = taskPlan("fallow", "frontend");
   assert.notEqual(scoped.status, 0);

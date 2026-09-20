@@ -200,6 +200,8 @@ jobs:
       - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
         env:
           OPENPOST_FALLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          # Hotspots need historical numstat blobs, which defeats this checkout's blobless clone.
+          OPENPOST_FALLOW_CI: "1"
         run: bun run fallow
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish frontend-quality

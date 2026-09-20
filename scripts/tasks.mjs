@@ -320,6 +320,7 @@ function fallowPlan() {
   // never fails with --report-only. CI pins the base through
   // OPENPOST_FALLOW_BASE; local runs use fallow's default base.
   const base = process.env.OPENPOST_FALLOW_BASE;
+  const historyArgs = process.env.OPENPOST_FALLOW_CI === "1" ? [] : ["--hotspots", "--targets"];
   // CRAP is estimated from export references (no coverage data in CI), so the
   // default cap fails even tested helpers (e.g. slider-row CRAP 63.6 with unit
   // tests). 400 keeps the signal for genuinely untested complexity.
@@ -338,8 +339,8 @@ function fallowPlan() {
           "fallow",
           "health",
           "--report-only",
-          "--hotspots",
-          "--targets",
+          "--complexity",
+          ...historyArgs,
           "--file-scores",
           "--score",
         ),
@@ -353,8 +354,9 @@ function fallowPlan() {
           "apps/mobile",
           "health",
           "--report-only",
-          "--hotspots",
-          "--targets",
+          "--complexity",
+          ...historyArgs,
+          "--file-scores",
           "--score",
         ),
       ]),

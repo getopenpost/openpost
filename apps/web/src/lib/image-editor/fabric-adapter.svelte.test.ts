@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { OpenPostFabricAdapter } from './fabric-adapter';
+import {
+	imageEditorCollectiveTransform,
+	transformImageEditorCollectiveMember
+} from './collective-transform';
 import type {
 	ImageEditorDocument,
 	ImageEditorGradientType,
 	ImageEditorLayer,
 	ImageEditorPage
 } from './types';
+
+function adapterInternals<T extends object>(adapter: OpenPostFabricAdapter): T {
+	// SAFETY: named test contracts expose only the adapter members exercised by each focused test.
+	return adapter as T;
+}
 
 function renderLayer(
 	id: string,
@@ -134,6 +143,58 @@ async function freshRenderDigest(page: ImageEditorPage, selectedIDs: string[]): 
 }
 
 describe('OpenPost Image Editor Fabric reconciliation', () => {
+	it('uses the same member geometry for numeric and pointer selection rotation', async () => {
+		interface ActiveSelectionFixture {
+			angle: number;
+			set(updates: { angle: number }): void;
+			setCoords(): void;
+		}
+		interface CollectiveTransformAdapterInternals {
+			canvas: { getActiveObject(): ActiveSelectionFixture };
+			transformEntries(target: ActiveSelectionFixture): Array<{
+				id: string;
+				transform: ImageEditorLayer['transform'];
+			}>;
+		}
+		const page = pageFixture([
+			renderLayer('one', 10, 10, 80, 80),
+			renderLayer('two', 210, 10, 80, 80)
+		]);
+		const document = documentFixture(page);
+		const mounted = await mountAdapter(document, page);
+		try {
+			mounted.adapter.setSelection(['one', 'two']);
+			await settleCanvas();
+			const internals = adapterInternals<CollectiveTransformAdapterInternals>(mounted.adapter);
+			const activeSelection = internals.canvas.getActiveObject();
+			activeSelection.set({ angle: 90 });
+			activeSelection.setCoords();
+			const pointerTransforms = new Map(
+				internals
+					.transformEntries(activeSelection)
+					.map((entry) => [entry.id, entry.transform] as const)
+			);
+			const selection = imageEditorCollectiveTransform(
+				page.layers.map((layer) => layer.transform)
+			)!;
+
+			for (const layer of page.layers) {
+				const numeric = transformImageEditorCollectiveMember(
+					layer.transform,
+					selection,
+					'rotation',
+					90
+				);
+				const pointer = pointerTransforms.get(layer.id)!;
+				expect(numeric.x).toBeCloseTo(pointer.x);
+				expect(numeric.y).toBeCloseTo(pointer.y);
+				expect(numeric.rotation).toBeCloseTo(pointer.rotation);
+			}
+		} finally {
+			mounted.adapter.dispose();
+		}
+	});
+
 	it('matches a fresh render after aligning a live multi-layer selection', async () => {
 		const previousPage = pageFixture([
 			renderLayer('one', 24, 28, 80, 56),
@@ -146,6 +207,51 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 				...layer.transform,
 				x: 336 - layer.transform.width
 			};
+		}
+		const previousDocument = documentFixture(previousPage);
+		const nextDocument = documentFixture(nextPage);
+		const selectedIDs = nextPage.layers.map((layer) => layer.id);
+		const mounted = await mountAdapter(previousDocument, previousPage);
+		try {
+			mounted.adapter.setSelection(selectedIDs);
+			await settleCanvas();
+			await mounted.adapter.sync(nextDocument, nextPage);
+			await settleCanvas();
+
+			expect(pixelDigest(mounted.canvas)).toBe(await freshRenderDigest(nextPage, selectedIDs));
+		} finally {
+			mounted.adapter.dispose();
+		}
+	});
+
+	it('matches a fresh render after a collective numeric resize and rotation', async () => {
+		const previousPage = pageFixture([
+			renderLayer('one', 24, 28, 80, 56),
+			renderLayer('two', 120, 70, 112, 72, 'ellipse')
+		]);
+		const nextPage = structuredClone(previousPage);
+		const initialSelection = imageEditorCollectiveTransform(
+			nextPage.layers.map((layer) => layer.transform)
+		)!;
+		for (const layer of nextPage.layers) {
+			layer.transform = transformImageEditorCollectiveMember(
+				layer.transform,
+				initialSelection,
+				'width',
+				initialSelection.width * 1.5,
+				true
+			);
+		}
+		const resizedSelection = imageEditorCollectiveTransform(
+			nextPage.layers.map((layer) => layer.transform)
+		)!;
+		for (const layer of nextPage.layers) {
+			layer.transform = transformImageEditorCollectiveMember(
+				layer.transform,
+				resizedSelection,
+				'rotation',
+				30
+			);
 		}
 		const previousDocument = documentFixture(previousPage);
 		const nextDocument = documentFixture(nextPage);

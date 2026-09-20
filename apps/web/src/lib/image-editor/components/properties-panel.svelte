@@ -39,18 +39,10 @@
 	let adjustmentsOpen = $state(false);
 	let aspectLocked = $state(true);
 	let brandColors = $derived(editor.brandKit?.colors ?? []);
+	let selectedTransform = $derived(editor.selectedTransform);
 	let mixedOpacity = $derived(
 		imageEditorMixedValue(editor.selectedLayers.map((item) => item.opacity))
 	);
-	let mixedTransforms = $derived({
-		x: imageEditorMixedValue(editor.selectedLayers.map((item) => item.transform.x)),
-		y: imageEditorMixedValue(editor.selectedLayers.map((item) => item.transform.y)),
-		width: imageEditorMixedValue(editor.selectedLayers.map((item) => item.transform.width)),
-		height: imageEditorMixedValue(editor.selectedLayers.map((item) => item.transform.height)),
-		rotation: imageEditorMixedValue(editor.selectedLayers.map((item) => item.transform.rotation)),
-		flip_x: imageEditorMixedValue(editor.selectedLayers.map((item) => item.transform.flip_x)),
-		flip_y: imageEditorMixedValue(editor.selectedLayers.map((item) => item.transform.flip_y))
-	});
 	const imageAdjustmentKeys = [
 		'brightness',
 		'contrast',
@@ -106,8 +98,8 @@
 	}
 
 	function updateNumericTransform(key: 'x' | 'y' | 'width' | 'height', event: Event): void {
-		if (!layer) return;
-		const value = numberValue(event, layer.transform[key]);
+		if (!layer || !selectedTransform) return;
+		const value = numberValue(event, selectedTransform[key]);
 		if (editor.selectedLayers.length > 1) {
 			applicationFeedback = partialApplicationMessage(
 				editor.updateSelectedTransform(key, value, aspectLocked)
@@ -133,7 +125,7 @@
 		key: 'rotation' | 'flip_x' | 'flip_y',
 		value: number | boolean
 	): void {
-		if (!layer) return;
+		if (!layer || !selectedTransform) return;
 		if (editor.selectedLayers.length > 1) {
 			applicationFeedback = partialApplicationMessage(editor.updateSelectedTransform(key, value));
 			return;
@@ -413,9 +405,9 @@
 								class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
 							>
 								<span class="min-w-0 flex-1">{m.image_editor_transform()}</span>
-								{#if !mixedTransforms.width.mixed && !mixedTransforms.height.mixed}
+								{#if selectedTransform}
 									<span class="shrink-0 text-[11px] font-normal text-muted-foreground tabular-nums">
-										{Math.round(layer.transform.width)}×{Math.round(layer.transform.height)}
+										{Math.round(selectedTransform.width)}×{Math.round(selectedTransform.height)}
 									</span>
 								{/if}
 								<ThemeIcon
@@ -475,16 +467,14 @@
 						{/if}
 						<div class="grid grid-cols-2 gap-2">
 							{#each [['X', 'x'], ['Y', 'y'], ['W', 'width'], ['H', 'height']] as [label, key] (key)}
-								{@const mixed = mixedTransforms[key as 'x' | 'y' | 'width' | 'height']}
 								<label class="grid grid-cols-[1.5rem_1fr] items-center">
 									<span class="text-xs text-muted-foreground">{label}</span>
 									<Input
 										type="number"
 										min={key === 'width' || key === 'height' ? 1 : undefined}
-										value={mixed.mixed
-											? ''
-											: Math.round(layer.transform[key as keyof typeof layer.transform] as number)}
-										placeholder={mixed.mixed ? m.image_editor_mixed_value() : undefined}
+										value={Math.round(
+											selectedTransform?.[key as 'x' | 'y' | 'width' | 'height'] ?? 0
+										)}
 										disabled={!editor.canEdit}
 										oninput={(event) =>
 											updateNumericTransform(key as 'x' | 'y' | 'width' | 'height', event)}
@@ -509,18 +499,13 @@
 										type="number"
 										min="-180"
 										max="180"
-										value={mixedTransforms.rotation.mixed
-											? ''
-											: Math.round(layer.transform.rotation)}
-										placeholder={mixedTransforms.rotation.mixed
-											? m.image_editor_mixed_value()
-											: undefined}
+										value={Math.round(selectedTransform?.rotation ?? 0)}
 										class="h-7 w-16 px-1.5 text-right text-xs"
 										disabled={!editor.canEdit}
 										oninput={(event) =>
 											updateSelectedTransform(
 												'rotation',
-												numberValue(event, layer.transform.rotation)
+												numberValue(event, selectedTransform?.rotation ?? 0)
 											)}
 									/>
 									<Button
@@ -536,7 +521,7 @@
 								</div>
 							</div>
 							<Slider
-								value={layer.transform.rotation}
+								value={selectedTransform?.rotation ?? 0}
 								min={-180}
 								max={180}
 								step={1}
@@ -547,29 +532,19 @@
 						</div>
 						<div class="grid grid-cols-2 gap-2">
 							<Button
-								variant={!mixedTransforms.flip_x.mixed && layer.transform.flip_x
-									? 'secondary'
-									: 'outline'}
+								variant={selectedTransform?.flip_x ? 'secondary' : 'outline'}
 								size="sm"
 								onclick={() =>
-									updateSelectedTransform(
-										'flip_x',
-										mixedTransforms.flip_x.mixed ? true : !layer.transform.flip_x
-									)}
+									updateSelectedTransform('flip_x', !(selectedTransform?.flip_x ?? false))}
 							>
 								<ProtectedIcon icon="editor-flip-horizontal" />
 								{m.image_editor_flip_x()}
 							</Button>
 							<Button
-								variant={!mixedTransforms.flip_y.mixed && layer.transform.flip_y
-									? 'secondary'
-									: 'outline'}
+								variant={selectedTransform?.flip_y ? 'secondary' : 'outline'}
 								size="sm"
 								onclick={() =>
-									updateSelectedTransform(
-										'flip_y',
-										mixedTransforms.flip_y.mixed ? true : !layer.transform.flip_y
-									)}
+									updateSelectedTransform('flip_y', !(selectedTransform?.flip_y ?? false))}
 							>
 								<ProtectedIcon icon="editor-flip-vertical" />
 								{m.image_editor_flip_y()}

@@ -80,6 +80,30 @@ it('opens Transform and exposes alignment for a multi-layer selection', async ()
 		.toHaveAttribute('aria-expanded', 'true');
 	await expect.element(screen.getByRole('button', { name: 'Left' })).toBeVisible();
 	await expect.element(screen.getByRole('button', { name: 'Right' })).toBeVisible();
+	const x = screen.getByLabelText('X', { exact: true });
+	const width = screen.getByLabelText('W', { exact: true });
+	await expect.element(x).toHaveValue(0);
+	await expect.element(screen.getByLabelText('Y', { exact: true })).toHaveValue(0);
+	await expect.element(width).toHaveValue(300);
+	await expect.element(screen.getByLabelText('H', { exact: true })).toHaveValue(100);
+
+	await x.fill('50');
+	await expect.element(x).toHaveValue(50);
+	expect(editor.activePage?.layers.find((layer) => layer.id === 'One')?.transform.x).toBe(50);
+	expect(editor.activePage?.layers.find((layer) => layer.id === 'Two')?.transform.x).toBe(250);
+
+	await width.fill('600');
+	await expect.element(width).toHaveValue(600);
+	expect(editor.activePage?.layers.find((layer) => layer.id === 'One')?.transform).toMatchObject({
+		x: 50,
+		width: 200,
+		height: 200
+	});
+	expect(editor.activePage?.layers.find((layer) => layer.id === 'Two')?.transform).toMatchObject({
+		x: 450,
+		width: 200,
+		height: 200
+	});
 });
 
 it('targets selected images first and keeps advanced color tools behind a disclosure', async () => {

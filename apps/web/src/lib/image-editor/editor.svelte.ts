@@ -18,6 +18,12 @@ import {
 	resetImageEditorCrop,
 	type ImageEditorCropWindow
 } from './crop';
+import {
+	imageEditorCollectiveTransform,
+	normalizeImageEditorRotation,
+	transformImageEditorCollectiveMember,
+	type ImageEditorCollectiveTransformKey
+} from './collective-transform';
 import { ImageEditorHistory } from './history';
 import { rasterResultLayer, type ImageEditorRasterPlan } from './raster-operations';
 import {
@@ -63,10 +69,6 @@ import {
 const IMAGE_EDITOR_CONTEXT = Symbol('openpost-image-editor-editor');
 enablePatches();
 const imageEditorImmer = new Immer({ autoFreeze: false });
-
-function normalizeEditorRotation(value: number): number {
-	return ((((value + 180) % 360) + 360) % 360) - 180;
-}
 
 interface FloatingPixelSelectionState {
 	mode: 'promote' | 'cut';
@@ -299,6 +301,14 @@ export class ImageEditorController {
 	get selectedLayers(): ImageEditorLayer[] {
 		const selected = new SvelteSet(this.selectedLayerIDs);
 		return this.activePage?.layers.filter((layer) => selected.has(layer.id)) ?? [];
+	}
+
+	get selectedTransform(): ImageEditorLayer['transform'] | null {
+		const roots = this.selectedRootLayers();
+		const layers = this.activePage?.layers ?? [];
+		const editableRoots = roots.filter((layer) => !this.layerIsEffectivelyLocked(layer, layers));
+		const transformRoots = editableRoots.length > 0 ? editableRoots : roots;
+		return imageEditorCollectiveTransform(transformRoots.map((layer) => layer.transform));
 	}
 
 	get canUndo(): boolean {
@@ -773,7 +783,7 @@ export class ImageEditorController {
 			layer.transform.y = transform.b * x + transform.d * y + transform.f;
 			layer.transform.width = Math.max(1, layer.transform.width * safeScaleX);
 			layer.transform.height = Math.max(1, layer.transform.height * safeScaleY);
-			layer.transform.rotation = normalizeEditorRotation(
+			layer.transform.rotation = normalizeImageEditorRotation(
 				layer.transform.rotation + rotationDegrees
 			);
 		}
@@ -1619,23 +1629,29 @@ export class ImageEditorController {
 	}
 
 	updateSelectedTransform(
-		key: 'x' | 'y' | 'width' | 'height' | 'rotation' | 'flip_x' | 'flip_y',
+		key: ImageEditorCollectiveTransformKey,
 		value: number | boolean,
 		preserveAspect = false
 	): ImageEditorPartialApplicationResult {
 		const roots = this.selectedRootLayers();
+		const layers = this.activePage?.layers ?? [];
+		const editableRoots = roots.filter((layer) => !this.layerIsEffectivelyLocked(layer, layers));
 		const result: ImageEditorPartialApplicationResult = {
-			applied: roots.filter((layer) => !layer.locked).length,
-			skippedLocked: roots.filter((layer) => layer.locked).length,
+			applied: editableRoots.length,
+			skippedLocked: roots.length - editableRoots.length,
 			skippedUnsupported: 0
 		};
-		const ids = new SvelteSet(roots.filter((layer) => !layer.locked).map((layer) => layer.id));
+		const ids = new SvelteSet(editableRoots.map((layer) => layer.id));
+		const selection = imageEditorCollectiveTransform(editableRoots.map((layer) => layer.transform));
+		const affectedIDs = this.idsWithDescendants([...ids]);
 		this.mutate(
 			m.image_editor_transform_layers(),
 			(document) => {
 				const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 				if (!page) return;
-				for (const layer of page.layers.filter((candidate) => ids.has(candidate.id))) {
+				if (editableRoots.length <= 1) {
+					const layer = page.layers.find((candidate) => ids.has(candidate.id));
+					if (!layer) return;
 					let updates: Partial<ImageEditorLayer['transform']> = {
 						[key]: value
 					};
@@ -1653,6 +1669,19 @@ export class ImageEditorController {
 						}
 					}
 					this.applyTransformToLayer(page, layer, updates);
+					this.recalculateAllGroupBounds(page);
+					return;
+				}
+				if (!selection) return;
+				for (const layer of page.layers) {
+					if (!affectedIDs.has(layer.id)) continue;
+					layer.transform = transformImageEditorCollectiveMember(
+						layer.transform,
+						selection,
+						key,
+						value,
+						preserveAspect
+					);
 				}
 				this.recalculateAllGroupBounds(page);
 			},
@@ -2349,7 +2378,9 @@ export class ImageEditorController {
 			child.transform.y = next.y + relativeX * Math.sin(radians) + relativeY * Math.cos(radians);
 			child.transform.width *= scaleX;
 			child.transform.height *= scaleY;
-			child.transform.rotation = normalizeEditorRotation(child.transform.rotation + rotationDelta);
+			child.transform.rotation = normalizeImageEditorRotation(
+				child.transform.rotation + rotationDelta
+			);
 			if (updates.flip_x !== undefined && updates.flip_x !== previous.flip_x) {
 				child.transform.flip_x = !child.transform.flip_x;
 			}

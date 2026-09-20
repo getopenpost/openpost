@@ -442,7 +442,7 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(editor.selectedLayerIDs).toEqual(['back']);
 	});
 
-	it('applies absolute mixed transforms to unlocked selected roots with partial feedback', () => {
+	it('resizes unlocked selected roots as one bounding box with partial feedback', () => {
 		const editor = new ImageEditorController();
 		const initial = response();
 		initial.document.pages[0].layers[1].locked = true;
@@ -451,7 +451,7 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		editor.selectLayer('middle', 'toggle');
 		editor.selectLayer('front', 'toggle');
 
-		const result = editor.updateSelectedTransform('width', 160, true);
+		const result = editor.updateSelectedTransform('width', 560, true);
 
 		expect(result).toEqual({
 			applied: 2,
@@ -465,10 +465,140 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(editor.activePage?.layers.find((item) => item.id === 'middle')?.transform.width).toBe(
 			80
 		);
-		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform.width).toBe(
-			160
-		);
+		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
+			x: 410,
+			width: 160,
+			height: 160
+		});
 		expect(editor.undoLabel).toBe('Transform layers');
+
+		editor.undo();
+		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
+			x: 10,
+			width: 80,
+			height: 80
+		});
+		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
+			x: 210,
+			width: 80,
+			height: 80
+		});
+	});
+
+	it('moves, rotates, and flips selected roots around one bounding box', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.selectLayer('back');
+		editor.selectLayer('front', 'toggle');
+
+		editor.updateSelectedTransform('x', 100);
+		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform.x).toBe(100);
+		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform.x).toBe(300);
+
+		editor.updateSelectedTransform('rotation', 90);
+		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
+			x: 200,
+			y: -90,
+			rotation: 90
+		});
+		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
+			x: 200,
+			y: 110,
+			rotation: 90
+		});
+
+		editor.undo();
+		editor.updateSelectedTransform('flip_x', true);
+		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
+			x: 300,
+			flip_x: true
+		});
+		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
+			x: 100,
+			flip_x: true
+		});
+	});
+
+	it('preserves member rotation differences during a collective rotation', () => {
+		const editor = new ImageEditorController();
+		const initial = response();
+		initial.document.pages[0].layers[0].transform.rotation = -15;
+		initial.document.pages[0].layers[2].transform.rotation = 30;
+		editor.load(initial);
+		editor.selectLayer('back');
+		editor.selectLayer('front', 'toggle');
+
+		editor.updateSelectedTransform('rotation', 45);
+
+		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform.rotation).toBe(
+			45
+		);
+		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform.rotation).toBe(
+			90
+		);
+	});
+
+	it('keeps single-root transform behavior unchanged', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.selectLayer('back');
+
+		editor.updateSelectedTransform('width', 160, true);
+		editor.updateSelectedTransform('rotation', 30);
+		editor.updateSelectedTransform('flip_x', true);
+
+		expect(editor.selectedLayers[0].transform).toMatchObject({
+			x: 10,
+			y: 10,
+			width: 160,
+			height: 160,
+			rotation: 30,
+			flip_x: true
+		});
+	});
+
+	it('transforms selected groups and their descendants with the collective geometry', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.selectLayer('middle');
+		editor.selectLayer('front', 'toggle');
+		editor.groupSelected();
+		const groupID = editor.selectedLayerIDs[0];
+		editor.selectLayer('back', 'toggle');
+
+		editor.updateSelectedTransform('width', 560, true);
+
+		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
+			x: 10,
+			width: 160,
+			height: 160
+		});
+		expect(editor.activePage?.layers.find((item) => item.id === 'middle')?.transform).toMatchObject(
+			{
+				x: 210,
+				width: 160,
+				height: 160
+			}
+		);
+		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
+			x: 410,
+			width: 160,
+			height: 160
+		});
+		expect(editor.activePage?.layers.find((item) => item.id === groupID)?.transform).toMatchObject({
+			x: 210,
+			width: 360,
+			height: 160
+		});
+
+		editor.updateLayer(groupID, { locked: true });
+		editor.selectLayer('middle');
+		const lockedX = editor.selectedLayers[0].transform.x;
+		expect(editor.updateSelectedTransform('x', 999)).toMatchObject({
+			applied: 0,
+			skippedLocked: 1
+		});
+		expect(editor.selectedLayers[0].transform.x).toBe(lockedX);
 	});
 
 	it('adds persistent pencil and bucket paint layers above the active layer', () => {

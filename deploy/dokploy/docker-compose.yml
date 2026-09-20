@@ -3,7 +3,6 @@
 services:
   openpost:
     image: ghcr.io/getopenpost/openpost:latest
-    platform: linux/amd64
     restart: unless-stopped
     stop_grace_period: 15s
     expose:

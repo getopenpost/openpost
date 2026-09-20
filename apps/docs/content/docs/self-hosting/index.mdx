@@ -9,7 +9,7 @@ This guide runs one OpenPost container with SQLite and local media storage. It i
 ## Before you start
 
 - Install Docker with the Compose plugin. Run the commands below on the server that will host OpenPost.
-- The published image supports `linux/amd64`. Other architectures need amd64 emulation.
+- The published image supports `linux/amd64` and `linux/arm64`. Docker selects the native image for the host.
 - For a public instance, point a domain at the server and put an HTTPS reverse proxy in front of port `8080`. Forward all app requests, including `/api/v1/` and `/media/`. Provider callbacks and media URLs must be reachable from outside your network.
 
 You can test locally first. Set the final public URLs before connecting social accounts.
@@ -44,7 +44,6 @@ Create `docker-compose.yml`:
 services:
   openpost:
     image: ghcr.io/getopenpost/openpost:latest
-    platform: linux/amd64
     container_name: openpost
     restart: unless-stopped
     env_file: .env

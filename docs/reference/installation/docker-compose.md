@@ -8,7 +8,7 @@ Docker Compose is the recommended installation path for long-running OpenPost de
 - Docker Compose
 - A writable persistent volume or bind mount for `/data`
 
-The published image and maintained Dockerfile support `linux/amd64` only. On another host architecture, use amd64 emulation. A native image requires a downstream Dockerfile/source change and complete runtime validation. See [Container Image Support and Assurance](../operations/container-image.md).
+The published image and maintained Dockerfile support `linux/amd64` and `linux/arm64`. Docker selects the native image for the host. See [Container Image Support and Assurance](../operations/container-image.md).
 
 ## Create `docker-compose.yml`
 
@@ -16,7 +16,6 @@ The published image and maintained Dockerfile support `linux/amd64` only. On ano
 services:
   openpost:
     image: ghcr.io/getopenpost/openpost:latest
-    platform: linux/amd64
     container_name: openpost
     restart: unless-stopped
     stop_grace_period: 15s

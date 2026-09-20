@@ -18,6 +18,7 @@ import { load } from "js-yaml";
 
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 const release = readFileSync(".github/workflows/release.yml", "utf8");
+const releaseScript = readFileSync("scripts/release.mjs", "utf8");
 const workflows = readdirSync(".github/workflows", { withFileTypes: true })
   .filter((entry) => entry.isFile() && /\.(?:ya?ml)$/u.test(entry.name))
   .map((entry) => ({
@@ -57,13 +58,56 @@ test("tag release candidates schedule the application browser suite", () => {
   assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
 });
 
-test("only the image CI job can write packages", () => {
+test("container candidates run and publish on native amd64 and arm64 runners", () => {
+  const jobs = load(ci).jobs;
+  const image = jobs.image;
+  assert.deepEqual(image.strategy.matrix.include, [
+    { arch: "amd64", runner: "ubuntu-latest" },
+    { arch: "arm64", runner: "ubuntu-24.04-arm" },
+  ]);
+  assert.equal(image["runs-on"], "${{ matrix.runner }}");
+  const build = workflowStepScript(ci, "image", "Build the candidate once");
+  assert.match(build, /--platform "linux\/\$\{\{ matrix\.arch \}\}"/u);
+  assert.match(build, /smoke-production-image\.sh[^\n]+"\$\{\{ matrix\.arch \}\}"/u);
+  const publish = workflowStepScript(
+    ci,
+    "image",
+    "Publish the validated candidate and record its digest",
+  );
+  assert.match(publish, /imagetools inspect --raw/u);
+  assert.match(publish, /platform\.architecture == \$architecture/u);
+
+  const index = jobs["image-index"];
+  assert.deepEqual(index.needs, ["plan", "image"]);
+  const resolve = workflowStepScript(
+    ci,
+    "image-index",
+    "Resolve the successful platform artifacts",
+  );
+  assert.match(resolve, /image-platform-digest-\$\{GITHUB_SHA\}-amd64-/u);
+  assert.match(resolve, /image-platform-digest-\$\{GITHUB_SHA\}-arm64-/u);
+  assert.match(
+    workflowStepScript(ci, "image-index", "Publish the multi-architecture candidate"),
+    /imagetools create/u,
+  );
+});
+
+test("the exhaustive local image check uses the host's supported architecture", () => {
+  assert.match(releaseScript, /\{ arm64: "arm64", x64: "amd64" \}\[process\.arch\]/u);
+  assert.match(releaseScript, /`linux\/\$\{imageArchitecture\}`/u);
+  assert.match(
+    releaseScript,
+    /smoke-production-image\.sh", image, revision, "", imageArchitecture/u,
+  );
+});
+
+test("only container image CI jobs can write packages", () => {
   const jobs = load(ci).jobs;
   assert.deepEqual(
     Object.entries(jobs)
       .filter(([, job]) => job.permissions?.packages === "write")
       .map(([id]) => id),
-    ["image"],
+    ["image", "image-index"],
   );
 });
 
@@ -242,12 +286,14 @@ for (const [job, step, prefixes] of [
 
 // Four workflow subprocesses share CPU with the parallel release checks.
 test(
-  "image promotion requires the downloaded digest and matching OCI identity",
+  "image promotion requires both tested platform digests and matching OCI identity",
   { timeout: 30_000 },
   () => {
     const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-image-"));
     const revision = "a".repeat(40);
     const digest = `sha256:${"b".repeat(64)}`;
+    const amd64Digest = `sha256:${"c".repeat(64)}`;
+    const arm64Digest = `sha256:${"d".repeat(64)}`;
     try {
       mkdirSync(path.join(directory, "bin"));
       mkdirSync(path.join(directory, "tested-image"));
@@ -257,7 +303,10 @@ test(
         docker: `#!/bin/sh
 case "$1" in
   login) cat >/dev/null ;;
-  pull) printf '%s' "$2" > pulled-image ;;
+  buildx)
+    [ "$2" = imagetools ] && [ "$3" = inspect ] && [ "$4" = --raw ] || exit 1
+    printf '{"manifests":[{"digest":"%s","platform":{"os":"linux","architecture":"amd64"}},{"digest":"%s","platform":{"os":"linux","architecture":"arm64"}}]}' "$TEST_INDEX_AMD64_DIGEST" "$TEST_INDEX_ARM64_DIGEST" ;;
+  pull) printf '%s\n' "$4" >> pulled-images ;;
   inspect)
     case "$3" in
       *image.version*) printf '%s' "$TEST_IMAGE_VERSION" ;;
@@ -272,13 +321,23 @@ esac
         writeFileSync(file, command);
         chmodSync(file, 0o755);
       }
-      for (const [imageDigest, imageVersion, imageRevision, succeeds] of [
-        [digest, "v4.0.0", revision, true],
-        [digest, "v3.9.0", revision, false],
-        [digest, "v4.0.0", "c".repeat(40), false],
-        ["latest", "v4.0.0", revision, false],
+      for (const [imageDigest, testedArm64Digest, imageVersion, imageRevision, succeeds] of [
+        [digest, arm64Digest, "v4.0.0", revision, true],
+        [digest, arm64Digest, "v3.9.0", revision, false],
+        [digest, arm64Digest, "v4.0.0", "e".repeat(40), false],
+        [digest, `sha256:${"f".repeat(64)}`, "v4.0.0", revision, false],
+        ["latest", arm64Digest, "v4.0.0", revision, false],
       ]) {
         writeFileSync(path.join(directory, "tested-image/image-digest.txt"), `${imageDigest}\n`);
+        writeFileSync(
+          path.join(directory, "tested-image/image-linux-amd64-digest.txt"),
+          `${amd64Digest}\n`,
+        );
+        writeFileSync(
+          path.join(directory, "tested-image/image-linux-arm64-digest.txt"),
+          `${testedArm64Digest}\n`,
+        );
+        rmSync(path.join(directory, "pulled-images"), { force: true });
         const output = path.join(directory, "output");
         writeFileSync(output, "");
         const result = spawnSync(
@@ -308,6 +367,8 @@ esac
               GITHUB_OUTPUT: output,
               TEST_IMAGE_VERSION: imageVersion,
               TEST_IMAGE_REVISION: imageRevision,
+              TEST_INDEX_AMD64_DIGEST: amd64Digest,
+              TEST_INDEX_ARM64_DIGEST: arm64Digest,
             },
           },
         );
@@ -315,8 +376,8 @@ esac
         assert.equal(readFileSync(output, "utf8"), succeeds ? `digest=${digest}\n` : "");
         if (succeeds)
           assert.equal(
-            readFileSync(path.join(directory, "pulled-image"), "utf8"),
-            `ghcr.io/getopenpost/openpost@${digest}`,
+            readFileSync(path.join(directory, "pulled-images"), "utf8"),
+            `ghcr.io/getopenpost/openpost@${amd64Digest}\nghcr.io/getopenpost/openpost@${arm64Digest}\n`,
           );
       }
     } finally {

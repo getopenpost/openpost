@@ -2,13 +2,12 @@
 
 Use `docker run` when you are an operator doing a quick test. For persistent long-running installs, prefer [Docker Compose](docker-compose.md).
 
-The published image supports `linux/amd64` only. The explicit `--platform` below prevents the host architecture from being mistaken for published support. See [Container Image Support and Assurance](../operations/container-image.md).
+The published image supports `linux/amd64` and `linux/arm64`. Docker selects the native image for the host. See [Container Image Support and Assurance](../operations/container-image.md).
 
 ```bash
 docker volume create openpost_data
 
 docker run -d \
-  --platform linux/amd64 \
   --name openpost \
   --restart unless-stopped \
   -p 8080:8080 \

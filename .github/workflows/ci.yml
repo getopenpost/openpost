@@ -863,10 +863,16 @@ jobs:
           retention-days: 14
 
   image:
-    name: Production image
+    name: Production image (linux/${{ matrix.arch }})
     needs: [plan, frontend-build]
     if: needs.plan.outputs.image == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-latest }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
     permissions:
       contents: read
       packages: write
@@ -913,26 +919,26 @@ jobs:
       - name: Build the candidate once
         shell: bash
         run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
-          docker buildx build --load --platform linux/amd64 --build-context frontend_artifact=apps/server/cmd/openpost/public --file deploy/docker/Dockerfile --tag "$image" --build-arg VERSION="${{ steps.version.outputs.version }}" --build-arg COMMIT="$GITHUB_SHA" --cache-from type=gha,scope=openpost-production --cache-to type=gha,mode=max,scope=openpost-production .
-          scripts/smoke-production-image.sh "$image" "$GITHUB_SHA" "${{ steps.version.outputs.version }}"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}-${{ matrix.arch }}"
+          docker buildx build --load --platform "linux/${{ matrix.arch }}" --build-context frontend_artifact=apps/server/cmd/openpost/public --file deploy/docker/Dockerfile --tag "$image" --build-arg VERSION="${{ steps.version.outputs.version }}" --build-arg COMMIT="$GITHUB_SHA" --cache-from type=gha,scope="openpost-production-${{ matrix.arch }}" --cache-to type=gha,mode=max,scope="openpost-production-${{ matrix.arch }}" .
+          scripts/smoke-production-image.sh "$image" "$GITHUB_SHA" "${{ steps.version.outputs.version }}" "${{ matrix.arch }}"
       - name: Generate the final-image SPDX SBOM
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}-${{ matrix.arch }}
           scan-type: image
           scanners: vuln
           format: spdx-json
-          output: openpost-image.spdx.json
+          output: openpost-image-${{ matrix.arch }}.spdx.json
           version: v0.70.0
       - name: Record the full final-image vulnerability report
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}-${{ matrix.arch }}
           scan-type: image
           scanners: vuln
           format: json
-          output: openpost-image-trivy.json
+          output: openpost-image-${{ matrix.arch }}-trivy.json
           severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
           ignore-unfixed: false
           exit-code: 0
@@ -940,16 +946,16 @@ jobs:
       - name: Retain image scan reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: image-diagnostics-${{ github.sha }}-${{ github.run_attempt }}
+          name: image-diagnostics-${{ github.sha }}-${{ matrix.arch }}-${{ github.run_attempt }}
           path: |
-            openpost-image.spdx.json
-            openpost-image-trivy.json
+            openpost-image-${{ matrix.arch }}.spdx.json
+            openpost-image-${{ matrix.arch }}-trivy.json
           if-no-files-found: error
           retention-days: 14
       - name: Block fixable high-severity vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}-${{ matrix.arch }}
           scan-type: image
           scanners: vuln
           format: table
@@ -962,19 +968,110 @@ jobs:
         id: publish
         shell: bash
         run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}-${{ matrix.arch }}"
           docker push "$image"
-          repository="${image%:sha-*}"
-          digest_ref="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" | awk -v prefix="${repository}@" 'index($0, prefix) == 1 { print; exit }')"
-          digest="${digest_ref#*@}"
+          raw_manifest="$(docker buildx imagetools inspect --raw "$image")"
+          if jq -e 'has("manifests")' <<< "$raw_manifest" >/dev/null; then
+            digest="$(jq -r --arg architecture "${{ matrix.arch }}" '
+              [.manifests[] | select(.platform.os == "linux" and .platform.architecture == $architecture)]
+              | if length == 1 then .[0].digest else empty end
+            ' <<< "$raw_manifest")"
+          else
+            digest="$(docker buildx imagetools inspect "$image" | awk '$1 == "Digest:" { print $2; exit }')"
+          fi
           [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Published candidate did not resolve to a registry digest." >&2; exit 1; }
-          printf '%s\n' "$digest" > image-digest.txt
-      - name: Retain tested image digest
+          printf '%s\n' "$digest" > "image-linux-${{ matrix.arch }}-digest.txt"
+      - name: Retain tested platform digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: github.event_name == 'push'
         with:
+          name: image-platform-digest-${{ github.sha }}-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: image-linux-${{ matrix.arch }}-digest.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  image-index:
+    name: Production image index
+    needs: [plan, image]
+    if: needs.plan.outputs.image == 'true' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Resolve the successful platform artifacts
+        id: platform-artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          amd64="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "image-platform-digest-${GITHUB_SHA}-amd64-")"
+          arm64="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "image-platform-digest-${GITHUB_SHA}-arm64-")"
+          {
+            echo "amd64=$amd64"
+            echo "arm64=$arm64"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ steps.platform-artifacts.outputs.amd64 }}
+          path: tested-platforms
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ steps.platform-artifacts.outputs.arm64 }}
+          path: tested-platforms
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the multi-architecture candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          amd64_digest="$(cat tested-platforms/image-linux-amd64-digest.txt)"
+          arm64_digest="$(cat tested-platforms/image-linux-arm64-digest.txt)"
+          for digest in "$amd64_digest" "$arm64_digest"; do
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || {
+              echo "Invalid tested platform digest: $digest" >&2
+              exit 1
+            }
+          done
+          candidate="${repository}:sha-${GITHUB_SHA}"
+          docker buildx imagetools create \
+            --tag "$candidate" \
+            "${repository}@${amd64_digest}" \
+            "${repository}@${arm64_digest}"
+          digest="$(docker buildx imagetools inspect "$candidate" | awk '$1 == "Digest:" { print $2; exit }')"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || {
+            echo "Published candidate index did not resolve to a registry digest." >&2
+            exit 1
+          }
+          docker buildx imagetools inspect --raw "$candidate" | jq -e \
+            --arg amd64 "$amd64_digest" \
+            --arg arm64 "$arm64_digest" '
+              [.manifests[] | select(.platform.os == "linux")] as $linux
+              | ($linux | length) == 2
+              and any($linux[]; .platform.architecture == "amd64" and .digest == $amd64)
+              and any($linux[]; .platform.architecture == "arm64" and .digest == $arm64)
+            ' >/dev/null
+          printf '%s\n' "$digest" > image-digest.txt
+          cp tested-platforms/image-linux-amd64-digest.txt .
+          cp tested-platforms/image-linux-arm64-digest.txt .
+      - name: Retain tested image index
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
           name: image-digest-${{ github.sha }}-${{ github.run_attempt }}
-          path: image-digest.txt
+          path: |
+            image-digest.txt
+            image-linux-amd64-digest.txt
+            image-linux-arm64-digest.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -1002,6 +1099,7 @@ jobs:
         cli,
         android,
         image,
+        image-index,
       ]
     runs-on: ubuntu-latest
     permissions:

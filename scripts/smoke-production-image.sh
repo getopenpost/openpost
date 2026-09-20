@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image="${1:?usage: smoke-production-image.sh IMAGE [EXPECTED_COMMIT [EXPECTED_VERSION]]}"
+image="${1:?usage: smoke-production-image.sh IMAGE [EXPECTED_COMMIT [EXPECTED_VERSION [EXPECTED_ARCHITECTURE]]]}"
 expected_commit="${2:-}"
 expected_version="${3:-}"
+expected_architecture="${4:-amd64}"
 container="openpost-smoke-${RANDOM}-$$"
 port="${OPENPOST_SMOKE_PORT:-18080}"
 database_volume="openpost-smoke-db-${RANDOM}-$$"
@@ -14,8 +15,6 @@ smoke_environment=(
   --env "OPENPOST_JWT_SECRET=${smoke_jwt_secret}"
   --env "OPENPOST_ENCRYPTION_KEY=${smoke_encryption_key}"
 )
-
-expected_architecture=amd64
 
 cleanup() {
   docker rm -f "$container" >/dev/null 2>&1 || true

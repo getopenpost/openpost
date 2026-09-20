@@ -3,7 +3,6 @@
 services:
   openpost:
     image: ghcr.io/getopenpost/openpost:latest
-    platform: linux/amd64
     restart: unless-stopped
     stop_grace_period: 15s
     ports:
@@ -58,6 +57,7 @@ x-casaos:
   category: Productivity
   architectures:
     - amd64
+    - arm64
   version: "4.31.1"
   update_at: "2026-09-13"
   release_notes:

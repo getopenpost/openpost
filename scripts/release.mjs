@@ -213,13 +213,17 @@ async function checkFull() {
 
   const revision = git(["rev-parse", "HEAD"]);
   const image = `openpost-release-check:${fingerprint.slice(0, 12)}`;
+  const imageArchitecture = { arm64: "arm64", x64: "amd64" }[process.arch];
+  if (!imageArchitecture) {
+    throw new Error(`release image checks do not support host architecture ${process.arch}`);
+  }
   try {
     run(
       [
         "docker",
         "build",
         "--platform",
-        "linux/amd64",
+        `linux/${imageArchitecture}`,
         "--build-context",
         "frontend_artifact=apps/server/cmd/openpost/public",
         "--file",
@@ -234,7 +238,7 @@ async function checkFull() {
       ],
       { DOCKER_BUILDKIT: "1" },
     );
-    run(["scripts/smoke-production-image.sh", image, revision]);
+    run(["scripts/smoke-production-image.sh", image, revision, "", imageArchitecture]);
   } finally {
     runOptional(["docker", "image", "rm", image]);
     pruneDockerBuildCache();

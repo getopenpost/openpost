@@ -28,12 +28,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Runtime stage.
 FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS runtime
 
-ARG TARGETARCH
-RUN test "${TARGETARCH}" = "amd64" || { \
-      echo "OpenPost's published container supports linux/amd64 only; received ${TARGETARCH:-unknown}." >&2; \
-      exit 1; \
-    }
-
 ARG VERSION=dev
 ARG COMMIT=unknown
 LABEL org.opencontainers.image.title="OpenPost" \

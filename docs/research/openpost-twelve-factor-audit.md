@@ -274,8 +274,9 @@ Gaps:
   branch during a documentation build. The same OpenPost revision can produce
   different documentation as that external branch moves, or fail without the
   network.
-- The Docker image is intentionally `linux/amd64` only. This is a supported
-  product constraint, but it narrows runtime portability and must stay explicit.
+- At the time of this audit, the Docker image supported only `linux/amd64`.
+  Current releases publish native `linux/amd64` and `linux/arm64` images under
+  one multi-architecture tag.
 
 Recommended action:
 

@@ -26,7 +26,7 @@ Use the release you intend to run instead of copying the example tag unchanged. 
 
 Define the sops placeholders referenced by the module, including the JWT secret and encryption key. It writes them as `0400` files under `/run/secrets/openpost_*` and passes the matching `*_FILE` settings to the container. Keep provider, AI, email, and storage credentials in the same secret boundary.
 
-The image supports `linux/amd64`. Other architectures need amd64 emulation.
+The image supports `linux/amd64` and `linux/arm64`. Podman selects the native image for the host.
 
 ## Operate
 

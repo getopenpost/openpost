@@ -8,11 +8,11 @@ Use `docker run` for a local trial. Use [Docker Compose](/self-hosting) for a la
 
 ## Try it
 
-Create `.env` with the URLs and secrets from the [Compose setup](/self-hosting#install-with-docker-compose), then run the published `linux/amd64` image:
+Create `.env` with the URLs and secrets from the [Compose setup](/self-hosting#install-with-docker-compose), then run the published image. Docker selects `linux/amd64` or `linux/arm64` for the host:
 
 ```sh
 docker volume create openpost_data
-docker run -d --platform linux/amd64 --name openpost --restart unless-stopped \
+docker run -d --name openpost --restart unless-stopped \
   -p 8080:8080 --mount source=openpost_data,target=/data --env-file .env \
   -e OPENPOST_DATABASE_PATH=/data/db/openpost.db \
   -e OPENPOST_MEDIA_PATH=/data/media \

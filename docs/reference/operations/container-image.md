@@ -1,24 +1,24 @@
 # Container image
 
-OpenPost publishes a **`linux/amd64`** container. ARM64 hosts need amd64 emulation. See [Single Binary](../installation/binary.md) and [CLI Installation](https://openpo.st/docs/automate/cli) for other download architectures.
+OpenPost publishes one multi-architecture container for **`linux/amd64`** and **`linux/arm64`**. Docker selects the native image for the host architecture.
 
 ## Build and security checks
 
 The [Dockerfile](https://github.com/getopenpost/openpost/blob/main/deploy/docker/Dockerfile) owns the pinned Go and Alpine images, runtime packages, and container health check. CI supplies the frontend it already built and tested, so the image embeds the same files.
 
-Before publishing an image, CI:
+Before publishing an image, CI runs these checks on native AMD64 and ARM64 Linux runners:
 
 - starts OpenPost with a fresh persistent database and checks health and readiness before and after a restart;
 - exercises SQLite, FFmpeg, and FFprobe inside the image;
 - checks the OCI version and revision labels against the running server;
-- generates an SPDX software bill of materials and a full vulnerability report;
+- generates an SPDX software bill of materials and a full vulnerability report for each architecture;
 - blocks fixable high and critical vulnerabilities.
 
-Scan reports remain in the GitHub Actions run for 14 days. They include lower-severity and unfixed findings. A passing scan does not mean an image has no vulnerabilities.
+Scan reports remain in the GitHub Actions run for 14 days. They include lower-severity and unfixed findings. CI combines the two tested platform digests into the published image only after both pass. A passing scan does not mean an image has no vulnerabilities.
 
 ## Releases
 
-Tag CI builds the release image with the tag and full Git SHA. The release workflow downloads its registry digest from that successful CI run, checks its OCI labels, and promotes that digest without rebuilding. Production must report the same tag and SHA at `/api/v1/version` and pass `/api/v1/ready`.
+Tag CI builds both release images with the tag and full Git SHA. The release workflow downloads the multi-architecture index and both platform digests from that successful CI run, checks each image's OCI labels, and promotes the index without rebuilding. Production must report the same tag and SHA at `/api/v1/version` and pass `/api/v1/ready`.
 
 GitHub release assets contain installable binaries and the signed Android APK. Internal build metadata and scan reports stay in Actions.
 

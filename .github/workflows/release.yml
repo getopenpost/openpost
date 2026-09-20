@@ -33,6 +33,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Require a release-valid Android identity
         id: mobile
         shell: bash
@@ -141,14 +142,33 @@ jobs:
           IMAGE_ARTIFACT: ${{ steps.artifacts.outputs.image }}
         shell: bash
         run: |
+          set -euo pipefail
           gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$IMAGE_ARTIFACT" --dir tested-image
           digest="$(cat tested-image/image-digest.txt)"
-          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          amd64_digest="$(cat tested-image/image-linux-amd64-digest.txt)"
+          arm64_digest="$(cat tested-image/image-linux-arm64-digest.txt)"
+          for tested_digest in "$digest" "$amd64_digest" "$arm64_digest"; do
+            [[ "$tested_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          done
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-          image="${REGISTRY}/${IMAGE_NAME,,}@${digest}"
-          docker pull "$image"
-          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")" == "$GITHUB_REF_NAME" ]]
-          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" == "$GITHUB_SHA" ]]
+          repository="${REGISTRY}/$(printf '%s' "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
+          image="${repository}@${digest}"
+          docker buildx imagetools inspect --raw "$image" | jq -e \
+            --arg amd64 "$amd64_digest" \
+            --arg arm64 "$arm64_digest" '
+              [.manifests[] | select(.platform.os == "linux")] as $linux
+              | ($linux | length) == 2
+              and any($linux[]; .platform.architecture == "amd64" and .digest == $amd64)
+              and any($linux[]; .platform.architecture == "arm64" and .digest == $arm64)
+            ' >/dev/null
+          for architecture in amd64 arm64; do
+            platform_digest_variable="${architecture}_digest"
+            platform_digest="${!platform_digest_variable}"
+            platform_image="${repository}@${platform_digest}"
+            docker pull --platform "linux/${architecture}" "$platform_image"
+            [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$platform_image")" == "$GITHUB_REF_NAME" ]]
+            [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$platform_image")" == "$GITHUB_SHA" ]]
+          done
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
   prepare-draft:

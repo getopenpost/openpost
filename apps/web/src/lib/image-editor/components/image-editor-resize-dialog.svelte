@@ -5,6 +5,8 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { m } from '$lib/paraglide/messages';
 	import { useImageEditor } from '../editor.svelte';
+	import { resizeImageEditorDocument, type ImageEditorResizeMode } from '../resize';
+	import { IMAGE_EDITOR_LIMITS } from '../types';
 
 	interface Props {
 		open: boolean;
@@ -16,43 +18,42 @@
 
 	let width = $state(1080);
 	let height = $state(1080);
-	let mode = $state<'scale' | 'preserve'>('scale');
+	let mode = $state<ImageEditorResizeMode>('fit');
 	let error = $state('');
 
 	$effect.pre(() => {
 		if (open && editor.document) {
 			width = editor.document.width_px;
 			height = editor.document.height_px;
-			mode = 'scale';
+			mode = 'fit';
 			error = '';
 		}
 	});
 
 	function resize(): void {
 		if (!editor.document) return;
-		if (width < 64 || height < 64 || width > 4096 || height > 4096 || width * height > 25_000_000) {
+		if (
+			!Number.isFinite(width) ||
+			!Number.isFinite(height) ||
+			width < IMAGE_EDITOR_LIMITS.minDimension ||
+			height < IMAGE_EDITOR_LIMITS.minDimension ||
+			width > IMAGE_EDITOR_LIMITS.maxDimension ||
+			height > IMAGE_EDITOR_LIMITS.maxDimension ||
+			width * height > IMAGE_EDITOR_LIMITS.maxPixels
+		) {
 			error = m.image_editor_resize_limits();
 			return;
 		}
-		const previousWidth = editor.document.width_px;
-		const previousHeight = editor.document.height_px;
-		editor.mutate('Resize design', (document) => {
-			if (mode === 'scale') {
-				const scaleX = width / previousWidth;
-				const scaleY = height / previousHeight;
-				for (const page of document.pages) {
-					for (const layer of page.layers) {
-						layer.transform.x *= scaleX;
-						layer.transform.y *= scaleY;
-						layer.transform.width *= scaleX;
-						layer.transform.height *= scaleY;
-						if (layer.text) layer.text.font_size *= Math.min(scaleX, scaleY);
-					}
-				}
-			}
-			document.width_px = width;
-			document.height_px = height;
-			document.preset_key = 'custom';
+		if (width === editor.document.width_px && height === editor.document.height_px) {
+			open = false;
+			return;
+		}
+		const resized = resizeImageEditorDocument(editor.document, { width, height, mode });
+		editor.mutate(m.image_editor_resize_design(), (document) => {
+			document.width_px = resized.width_px;
+			document.height_px = resized.height_px;
+			document.preset_key = resized.preset_key;
+			document.pages = resized.pages;
 		});
 		editor.fitZoom();
 		open = false;
@@ -76,18 +77,50 @@
 					<Input type="number" min="64" max="4096" bind:value={height} />
 				</label>
 			</div>
-			<RadioGroup.Root bind:value={mode}>
+			<RadioGroup.Root bind:value={mode} class="grid gap-2">
 				<label
-					class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
+					class="grid min-h-14 cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2 rounded-lg border p-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
 				>
-					<RadioGroup.Item value="scale" aria-label={m.image_editor_scale_content()} />
-					<span>{m.image_editor_scale_content()}</span>
+					<RadioGroup.Item value="fit" class="mt-0.5" />
+					<span class="grid gap-0.5">
+						<span class="font-medium">{m.image_editor_resize_fit()}</span>
+						<span class="text-xs text-muted-foreground">
+							{m.image_editor_resize_fit_description()}
+						</span>
+					</span>
 				</label>
 				<label
-					class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
+					class="grid min-h-14 cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2 rounded-lg border p-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
 				>
-					<RadioGroup.Item value="preserve" aria-label={m.image_editor_preserve_content()} />
-					<span>{m.image_editor_preserve_content()}</span>
+					<RadioGroup.Item value="fill" class="mt-0.5" />
+					<span class="grid gap-0.5">
+						<span class="font-medium">{m.image_editor_resize_fill()}</span>
+						<span class="text-xs text-muted-foreground">
+							{m.image_editor_resize_fill_description()}
+						</span>
+					</span>
+				</label>
+				<label
+					class="grid min-h-14 cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2 rounded-lg border p-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
+				>
+					<RadioGroup.Item value="preserve" class="mt-0.5" />
+					<span class="grid gap-0.5">
+						<span class="font-medium">{m.image_editor_resize_keep_size()}</span>
+						<span class="text-xs text-muted-foreground">
+							{m.image_editor_resize_keep_size_description()}
+						</span>
+					</span>
+				</label>
+				<label
+					class="grid min-h-14 cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2 rounded-lg border p-3 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
+				>
+					<RadioGroup.Item value="stretch" class="mt-0.5" />
+					<span class="grid gap-0.5">
+						<span class="font-medium">{m.image_editor_resize_stretch()}</span>
+						<span class="text-xs text-muted-foreground">
+							{m.image_editor_resize_stretch_description()}
+						</span>
+					</span>
 				</label>
 			</RadioGroup.Root>
 			{#if error}

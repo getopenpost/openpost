@@ -149,7 +149,7 @@ test("guest camera capture adds a local image without workspace writes", async (
   const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
   await expect(layers).toHaveCount(1);
   await expect(layers.first()).toContainText("camera-");
-  await expect(page.getByRole("status")).toContainText("Added camera-");
+  await expect(page.getByText(/^Added camera-/)).toBeVisible();
   expect(workspaceWrites).toEqual([]);
 });
 

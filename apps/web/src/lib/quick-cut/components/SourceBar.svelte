@@ -39,7 +39,11 @@
 	}
 </script>
 
-<div class="flex min-w-0 flex-wrap gap-2" role="group" aria-label={m.quick_cut_sources_label()}>
+<div
+	class="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto"
+	role="group"
+	aria-label={m.quick_cut_sources_label()}
+>
 	{#each sources as source, index (source.id)}
 		<ContextMenu.Root>
 			<ContextMenu.Trigger>
@@ -50,7 +54,7 @@
 				>
 					<button
 						type="button"
-						class="flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-full border px-3 py-1 text-xs {activeSourceId ===
+						class="flex h-8 max-w-full min-w-0 items-center gap-2 rounded-md border px-2.5 text-xs [@media(pointer:coarse)]:h-11 {activeSourceId ===
 						source.id
 							? 'border-primary bg-primary text-primary-foreground'
 							: 'bg-card hover:bg-accent'}"
@@ -72,7 +76,7 @@
 							variant="outline"
 							disabled={busy}
 							onclick={() => onReconnect(source.id)}
-							class="min-h-11"
+							class="h-8 [@media(pointer:coarse)]:h-11"
 						>
 							{m.quick_cut_reconnect()}
 						</Button>
@@ -96,7 +100,13 @@
 			</ContextMenu.Content>
 		</ContextMenu.Root>
 	{/each}
-	<Button size="xs" variant="outline" disabled={busy} onclick={onAdd} class="min-h-11">
+	<Button
+		size="xs"
+		variant="outline"
+		disabled={busy}
+		onclick={onAdd}
+		class="h-8 shrink-0 [@media(pointer:coarse)]:h-11"
+	>
 		{m.quick_cut_add_source()}
 	</Button>
 </div>

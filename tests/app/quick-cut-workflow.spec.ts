@@ -88,6 +88,22 @@ test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edit
   expect(duration).toBeCloseTo(5, 1);
 });
 
+test("guest Quick Cut keeps unsaved local work explicit", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() =>
+    Object.defineProperty(window, "showOpenFilePicker", { configurable: true, value: undefined }),
+  );
+  await page.goto("/quick-cut");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Open videos", exact: true }).click();
+  await (await chooser).setFiles(fixture);
+  await expect(page.locator("video")).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("Local only");
+  await expect(page).toHaveURL(/\/quick-cut$/u);
+  await page.getByRole("button", { name: "Zoom in timeline" }).click();
+  await expect(page.getByRole("button", { name: "Reset timeline zoom" })).toHaveText("200%");
+});
+
 test("video creation offers both editors and imports composer media into either one", async ({
   page,
   request,

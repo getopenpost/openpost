@@ -42,6 +42,22 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
 
   await expect((await cloudCreatePromise).ok()).toBe(true);
   await expect(page.getByRole("status")).toContainText("Saved to OpenPost");
+  await expect(page).toHaveURL(/\/quick-cut\?project=[^&]+&storage=cloud$/u);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Source 1 · study-sos-demo.mp4", exact: true }),
+  ).toBeVisible({ timeout: 90_000 });
+  const projectName = page.getByRole("textbox", { name: "Project name" });
+  const renameResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname.endsWith("/mutations"),
+  );
+  await projectName.fill("Launch trim");
+  await expect((await renameResponse).ok()).toBe(true);
+  await expect(page.getByRole("status")).toContainText("Saved to OpenPost");
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Launch trim");
   await expect
     .poll(
       async () => {
@@ -57,7 +73,7 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
     .toBe(1);
 
   await page.goto("/quick-cut");
-  const savedProject = page.getByRole("listitem").filter({ hasText: "study-sos-demo" });
+  const savedProject = page.getByRole("listitem").filter({ hasText: "Launch trim" });
   await expect(savedProject).toBeVisible();
   await savedProject.getByRole("button", { name: "Open" }).click();
   await expect(

@@ -479,6 +479,29 @@ export async function loadProjectFromWorkspace(id: string): Promise<QuickCutProj
 	}
 }
 
+export async function loadProjectSessionFromWorkspace(
+	id: string
+): Promise<{ project: QuickCutProject; sources: QuickCutSource[] } | null> {
+	const project = await loadProjectFromWorkspace(id);
+	if (!project) return null;
+	const handles = await restoreSourceHandles(project.sources);
+	const sources = await Promise.all(
+		project.sources.map(async (metadata) => {
+			const handle = handles.get(metadata.id) ?? undefined;
+			let file: File | undefined;
+			if (handle) {
+				try {
+					file = await handle.getFile();
+				} catch {
+					file = undefined;
+				}
+			}
+			return { ...metadata, handle, file };
+		})
+	);
+	return { project, sources };
+}
+
 export async function deleteProjectFromWorkspace(id: string): Promise<void> {
 	const root = requireWorkspaceRoot();
 	await removeEntry(root, quickCutProjectPath(id));

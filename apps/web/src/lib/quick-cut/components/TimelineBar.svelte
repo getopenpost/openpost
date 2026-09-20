@@ -3,12 +3,12 @@
 	import { m } from '$lib/paraglide/messages';
 	import QuickCutWaveform from './QuickCutWaveform.svelte';
 	import {
-		clampTimelineViewport,
 		panTimelineViewport,
 		revealTimelineTime,
 		timelineTimeAtFraction,
 		visibleTimelineDuration,
-		zoomTimelineViewport
+		zoomTimelineViewport,
+		type TimelineViewport
 	} from '../timeline-viewport';
 
 	let {
@@ -20,6 +20,8 @@
 		outPoint,
 		markers = [],
 		reviewRanges = [],
+		viewport,
+		onViewportChange,
 		onSeek,
 		onSelect
 	}: {
@@ -31,15 +33,15 @@
 		outPoint: { sourceId: string; time: number } | null;
 		markers?: QuickCutMarker[];
 		reviewRanges?: Array<{ start: number; end: number }>;
+		viewport: TimelineViewport;
+		onViewportChange: (viewport: TimelineViewport) => void;
 		onSeek: (t: number) => void;
 		onSelect: (id: string) => void;
 	} = $props();
 
 	const duration = $derived(activeSource?.duration ?? 0);
-	let viewport = $state({ start: 0, zoom: 1 });
 	const visibleDuration = $derived(visibleTimelineDuration(duration, viewport.zoom));
 	const viewEnd = $derived(Math.min(duration, viewport.start + visibleDuration));
-	const zoomPercent = $derived(Math.round(viewport.zoom * 100));
 	const visibleKeyframes = $derived(
 		(activeSource?.keyframeTimestamps ?? []).filter(
 			(time) => time >= viewport.start && time <= viewEnd
@@ -47,18 +49,10 @@
 	);
 
 	$effect(() => {
-		resetViewport(activeSource?.id);
-	});
-
-	function resetViewport(_sourceId: string | undefined): void {
-		viewport = { start: 0, zoom: 1 };
-	}
-
-	$effect(() => {
 		if (viewport.zoom <= 1) return;
 		const nextViewport = revealTimelineTime(viewport, duration, currentTime);
 		if (nextViewport.start !== viewport.start || nextViewport.zoom !== viewport.zoom) {
-			viewport = nextViewport;
+			onViewportChange(nextViewport);
 		}
 	});
 
@@ -111,49 +105,16 @@
 		event.preventDefault();
 		if (event.ctrlKey || event.metaKey) {
 			const nextZoom = viewport.zoom * Math.exp(-event.deltaY * 0.002);
-			viewport = zoomTimelineViewport(viewport, duration, nextZoom, pointerFraction(event));
+			onViewportChange(zoomTimelineViewport(viewport, duration, nextZoom, pointerFraction(event)));
 			return;
 		}
 		const width = event.currentTarget instanceof HTMLElement ? event.currentTarget.clientWidth : 0;
-		viewport = panTimelineViewport(viewport, duration, event.deltaX + event.deltaY, width);
-	}
-
-	function zoomBy(multiplier: number): void {
-		viewport = zoomTimelineViewport(viewport, duration, viewport.zoom * multiplier, 0.5);
+		onViewportChange(panTimelineViewport(viewport, duration, event.deltaX + event.deltaY, width));
 	}
 </script>
 
-<div class="min-w-0 space-y-2">
+<div class="min-w-0 space-y-1.5">
 	{#if activeSource}
-		<div class="flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
-			<span class="min-w-0 truncate"
-				>{m.quick_cut_source_label({ index: 1 })} · {activeSource.name} · {activeSource.width}×{activeSource.height}</span
-			>
-			<div class="flex shrink-0 items-center gap-1">
-				<button
-					type="button"
-					class="flex size-7 items-center justify-center rounded border hover:bg-accent disabled:opacity-40"
-					aria-label={m.quick_cut_zoom_out()}
-					disabled={viewport.zoom <= 1}
-					onclick={() => zoomBy(0.5)}>−</button
-				>
-				<button
-					type="button"
-					class="min-h-7 rounded px-1.5 font-mono tabular-nums hover:bg-accent"
-					aria-label={m.quick_cut_zoom_reset()}
-					onclick={() => (viewport = clampTimelineViewport({ start: 0, zoom: 1 }, duration))}
-					>{zoomPercent}%</button
-				>
-				<button
-					type="button"
-					class="flex size-7 items-center justify-center rounded border hover:bg-accent disabled:opacity-40"
-					aria-label={m.quick_cut_zoom_in()}
-					disabled={viewport.zoom >= 32}
-					onclick={() => zoomBy(2)}>+</button
-				>
-				<span class="ml-1 font-mono tabular-nums">{activeSource.duration.toFixed(1)}s</span>
-			</div>
-		</div>
 		<div
 			class="relative h-24 w-full overflow-hidden rounded border bg-background"
 			role="group"

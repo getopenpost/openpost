@@ -34,6 +34,10 @@ interface FileSystemFileHandle {
 	requestPermission?: (options: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;
 }
 
+interface DataTransferItem {
+	getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
+}
+
 interface FileSystemDirectoryHandle {
 	values: () => AsyncIterableIterator<FileSystemHandle>;
 	queryPermission: (options: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;

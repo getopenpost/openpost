@@ -57,17 +57,14 @@ test('decodes and draws the selected audio stream progressively', async () => {
 		selectedId: null,
 		inPoint: null,
 		outPoint: null,
+		viewport: { start: 0, zoom: 1 },
+		onViewportChange: vi.fn(),
 		onSeek,
 		onSelect: vi.fn()
 	});
 	await vi.waitFor(() => expect(screen.container.querySelector('canvas')).not.toBeNull());
 	const canvas = screen.container.querySelector('canvas')!;
 	await vi.waitFor(() => expect(canvas.width).toBeGreaterThan(1));
-
-	await screen.getByRole('button', { name: 'Zoom in timeline' }).click();
-	await expect
-		.element(screen.getByRole('button', { name: 'Reset timeline zoom' }))
-		.toHaveTextContent('200%');
 
 	await screen.getByRole('button', { name: 'Seek in timeline' }).click();
 	expect(onSeek).toHaveBeenCalledOnce();

@@ -5,12 +5,16 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 -->
 <script lang="ts">
 	import EditorHeader from '$lib/components/editor-header.svelte';
+	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
+	import SaveIndicator from '$lib/components/save-indicator.svelte';
+	import { ToolbarGroup } from '$lib/components/editor-density';
 	import { Input } from '$lib/components/ui/input';
 	import TranscriptCutPanel from '$lib/quick-cut/components/TranscriptCutPanel.svelte';
 	import CleanupPanel from '$lib/quick-cut/components/CleanupPanel.svelte';
 	import { removeSourceRanges } from '$lib/quick-cut/range-edit';
 	import { EditorHistory } from '$lib/editor-history';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { loadWorkspaceMediaFile } from '$lib/video-editor/media/workspace-source';
 	import { resolveAppPath } from '$lib/app-path';
 	import type { QuickCutMarker } from '$lib/quick-cut/types';
@@ -22,7 +26,6 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Label } from '$lib/components/ui/label';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import Logo from '$lib/components/Logo.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { dismissToast, showToast } from '$lib/toast';
 	import { onDestroy, tick, untrack } from 'svelte';
@@ -59,6 +62,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import type { PreflightResult, QuickCutExportProgress } from '$lib/quick-cut/export';
 	import {
 		createNewProject,
+		loadProjectSessionFromWorkspace,
 		saveProjectToWorkspace,
 		serializeProject,
 		deserializeProject,
@@ -78,6 +82,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import { sendToOpenPost } from '$lib/video-editor/send-to-openpost';
 	import {
 		editorShortcutTargetIsDisabled,
+		eventMatchesShortcut,
 		formatShortcutBinding,
 		handleGlobalPlayPauseShortcut
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
@@ -107,6 +112,11 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		CloudVideoProjectConflictError,
 		type CloudVideoProject
 	} from '$lib/video-editor/cloud/project-repository';
+	import {
+		clampTimelineViewport,
+		zoomTimelineViewport,
+		type TimelineViewport
+	} from '$lib/quick-cut/timeline-viewport';
 
 	let sources = $state<QuickCutSource[]>([]);
 	let sourceUrls = $state<Map<string, string>>(new Map());
@@ -147,6 +157,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let cloudConflictId = $state<string | null>(null);
 	let cloudConflictWorking = $state(false);
 	let cloudLoadGeneration = 0;
+	let routeProjectRequest = '';
+	let lastSavedProjectId = $state<string | null>(null);
 	let workspaceName = $state<string | null>(null);
 	let videoSrc = $state<string>('');
 	let previewRun = $state<{
@@ -164,12 +176,14 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let segmentValidationToastId: string | number | null = null;
 	let pendingSourceRemoval = $state<QuickCutSource | null>(null);
 	let capturingFrame = $state(false);
+	let timelineViewport = $state<TimelineViewport>({ start: 0, zoom: 1 });
 	const cloudWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const cloudRepository = $derived(
 		cloudWorkspaceId ? quickCutCloudRepository(cloudWorkspaceId) : null
 	);
 
 	const activeSource = $derived(sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? null);
+	const activeSourceDuration = $derived(activeSource?.duration ?? 0);
 	const canCaptureFrame = $derived(
 		Boolean(
 			activeSource &&
@@ -232,6 +246,23 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	});
 
 	$effect(() => {
+		const projectId = page.url.searchParams.get('project') ?? '';
+		const requestedStorage = page.url.searchParams.get('storage') === 'local' ? 'local' : 'cloud';
+		const repository = cloudRepository;
+		const requestKey = `${requestedStorage}:${projectId}`;
+		if (!projectId || project?.id === projectId || routeProjectRequest === requestKey) return;
+		if (requestedStorage === 'cloud') {
+			if (!repository) return;
+			routeProjectRequest = requestKey;
+			untrack(() => void openCloudProjectById(repository, projectId));
+			return;
+		}
+		if (!getWorkspaceRoot()) return;
+		routeProjectRequest = requestKey;
+		untrack(() => void openLocalProject(projectId));
+	});
+
+	$effect(() => {
 		const source = page.url.searchParams.get('source');
 		const workspaceId = cloudWorkspaceId;
 		if (!workspaceId || !source?.startsWith('media:') || untrack(() => sourceRequest === source))
@@ -281,14 +312,14 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		if (project) syncProject();
 	}
 
-	async function openCloudProject(
-		cloudProject: CloudVideoProject<QuickCutCloudDocument>
+	async function openCloudProjectById(
+		repository: NonNullable<typeof cloudRepository>,
+		projectId: string
 	): Promise<void> {
-		const repository = cloudRepository;
 		if (!repository || cloudOpeningId) return;
-		cloudOpeningId = cloudProject.id;
+		cloudOpeningId = projectId;
 		try {
-			const opened = await loadQuickCutCloudProject(repository, cloudProject.id);
+			const opened = await loadQuickCutCloudProject(repository, projectId);
 			stopPreview();
 			clearSourceUrls();
 			project = opened.project;
@@ -302,6 +333,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			activeSourceId = opened.sources[0]?.id ?? null;
 			selectedId = opened.project.segments[0]?.id ?? null;
 			cloudSession = opened.session;
+			lastSavedProjectId = opened.project.id;
 			storageMode = 'cloud';
 			storageModeChosen = true;
 			for (const source of opened.sources) {
@@ -310,11 +342,63 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				next.set(source.id, URL.createObjectURL(source.file));
 				sourceUrls = next;
 			}
+			await writeProjectURL(opened.project.id, 'cloud');
 		} catch (error) {
 			showToast(error instanceof Error ? error.message : String(error), 'error');
 		} finally {
 			cloudOpeningId = null;
 		}
+	}
+
+	async function openCloudProject(
+		cloudProject: CloudVideoProject<QuickCutCloudDocument>
+	): Promise<void> {
+		const repository = cloudRepository;
+		if (!repository) return;
+		await openCloudProjectById(repository, cloudProject.id);
+	}
+
+	async function openLocalProject(projectId: string): Promise<void> {
+		const session = await loadProjectSessionFromWorkspace(projectId);
+		if (!session) {
+			showToast(m.quick_cut_save_failed(), 'error');
+			return;
+		}
+		clearSourceUrls();
+		for (const source of session.sources) {
+			if (source.file) {
+				const next = new Map(sourceUrls);
+				next.set(source.id, URL.createObjectURL(source.file));
+				sourceUrls = next;
+			}
+		}
+		project = session.project;
+		sources = session.sources;
+		segments = session.project.segments;
+		markers = session.project.markers ?? [];
+		cutMode = session.project.cutMode;
+		merge = session.project.merge;
+		removeMarkedRanges = session.project.removeMarkedRanges;
+		activeSourceId = session.sources[0]?.id ?? null;
+		selectedId = session.project.segments[0]?.id ?? null;
+		storageMode = 'local';
+		storageModeChosen = true;
+		lastSavedProjectId = session.project.id;
+		resetHistory();
+	}
+
+	async function writeProjectURL(projectId: string, mode: 'cloud' | 'local'): Promise<void> {
+		const url = new URL(page.url);
+		if (url.searchParams.get('project') === projectId && url.searchParams.get('storage') === mode)
+			return;
+		url.searchParams.set('project', projectId);
+		url.searchParams.set('storage', mode);
+		url.searchParams.delete('source');
+		await goto(resolveAppPath(`${url.pathname}${url.search}`), {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
 	}
 
 	async function resolveCloudConflict(resolution: 'keep_current' | 'use_conflict'): Promise<void> {
@@ -343,6 +427,61 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			videoSrc = '';
 		}
 	});
+
+	$effect(() => {
+		void activeSourceId;
+		timelineViewport = { start: 0, zoom: 1 };
+	});
+
+	function zoomTimeline(multiplier: number): void {
+		timelineViewport = zoomTimelineViewport(
+			timelineViewport,
+			activeSourceDuration,
+			timelineViewport.zoom * multiplier,
+			0.5
+		);
+	}
+
+	function resetTimelineZoom(): void {
+		timelineViewport = clampTimelineViewport({ start: 0, zoom: 1 }, activeSourceDuration);
+	}
+
+	function renameProject(value: string): void {
+		if (!project || project.name === value) return;
+		project.name = value;
+		syncProject();
+	}
+
+	async function dropFiles(event: DragEvent): Promise<void> {
+		event.preventDefault();
+		const items = [...(event.dataTransfer?.items ?? [])].filter((item) => item.kind === 'file');
+		const dropped = await Promise.all(
+			items.map(async (item) => {
+				const handle = await item.getAsFileSystemHandle?.();
+				if (handle?.kind === 'file') {
+					return { file: await handle.getFile(), handle: handle as FileSystemFileHandle };
+				}
+				const file = item.getAsFile();
+				return file ? { file, handle: undefined } : null;
+			})
+		);
+		const accepted = dropped.filter(
+			(item): item is { file: File; handle: FileSystemFileHandle | undefined } =>
+				Boolean(item?.file.type.startsWith('video/') || item?.file.type.startsWith('audio/'))
+		);
+		if (accepted.length === 0) return;
+		try {
+			const handles = accepted.every((item) => item.handle !== undefined)
+				? accepted.map((item) => item.handle as FileSystemFileHandle)
+				: [];
+			await addFiles(
+				accepted.map((item) => item.file),
+				handles
+			);
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		}
+	}
 
 	function pickViaInput(): Promise<File[] | null> {
 		return new Promise((resolve) => {
@@ -999,12 +1138,15 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						toSave,
 						sourcesToSave
 					);
+					await writeProjectURL(toSave.id, 'cloud');
 					return;
 				}
 				await saveProjectToWorkspace(toSave);
+				await writeProjectURL(toSave.id, 'local');
 			})
 			.then(() => {
 				if (revision !== saveRevision) return;
+				lastSavedProjectId = toSave.id;
 				saveState = 'saved';
 				setTimeout(() => {
 					if (revision === saveRevision && saveState === 'saved') saveState = 'idle';
@@ -1277,17 +1419,48 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			return;
 		if (event.repeat || event.defaultPrevented || editorShortcutTargetIsDisabled(event.target))
 			return;
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+		const bindings = keyboardShortcuts.bindings;
+		if (eventMatchesShortcut(event, bindings.UNDO)) {
 			event.preventDefault();
-			restoreHistory(event.shiftKey ? 'redo' : 'undo');
+			restoreHistory('undo');
 			return;
 		}
-		if (!event.metaKey && !event.ctrlKey && event.key.toLowerCase() === 'm') {
+		if (eventMatchesShortcut(event, bindings.REDO)) {
+			event.preventDefault();
+			restoreHistory('redo');
+			return;
+		}
+		if (eventMatchesShortcut(event, bindings.ADD_MARKER)) {
 			event.preventDefault();
 			addMarker();
 			return;
 		}
-		const action = quickCutShortcutAction(event, keyboardShortcuts.bindings);
+		if (eventMatchesShortcut(event, bindings.SAVE)) {
+			event.preventDefault();
+			syncProject();
+			return;
+		}
+		if (eventMatchesShortcut(event, bindings.EXPORT) && sources.length > 0) {
+			event.preventDefault();
+			panel = 'export';
+			return;
+		}
+		if (eventMatchesShortcut(event, bindings.ZOOM_IN)) {
+			event.preventDefault();
+			zoomTimeline(2);
+			return;
+		}
+		if (eventMatchesShortcut(event, bindings.ZOOM_OUT)) {
+			event.preventDefault();
+			zoomTimeline(0.5);
+			return;
+		}
+		if (eventMatchesShortcut(event, bindings.ZOOM_TO_FIT)) {
+			event.preventDefault();
+			resetTimelineZoom();
+			return;
+		}
+		const action = quickCutShortcutAction(event, bindings);
 		if (!action) return;
 		event.preventDefault();
 		event.stopPropagation();
@@ -1404,33 +1577,46 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		{#snippet identity()}
 			<a
 				href="/video-editor"
-				class="inline-flex shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary"
-				aria-label={m.video_editor_title()}><Logo class="h-5 w-auto" /></a
+				class="inline-flex size-8 shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary"
+				aria-label={m.video_editor_title()}><ThemeIcon role="chevron-left" class="size-5" /></a
 			>
-			<span class="hidden text-sm font-semibold sm:inline">{m.quick_cut_title()}</span>
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger
-					>{#snippet child({ props })}<Button {...props} variant="ghost" size="sm"
-							>{m.common_file()}</Button
-						>{/snippet}</DropdownMenu.Trigger
-				>
-				<DropdownMenu.Content>
-					<DropdownMenu.Item disabled={!canUndo || exporting} onclick={() => restoreHistory('undo')}
-						>{m.video_editor_undo()}</DropdownMenu.Item
+			{#if project}
+				<EditorTitleInput
+					value={project.name}
+					ariaLabel={m.video_editor_project_name()}
+					class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
+					disabled={exporting}
+					onchange={renameProject}
+				/>
+			{/if}
+		{/snippet}
+		{#snippet workspaces()}{/snippet}
+		{#snippet actions()}
+			{#if project}
+				{#if storageMode === 'cloud' || workspaceName !== null}
+					<SaveIndicator
+						saving={saveState === 'saving'}
+						saved={saveState !== 'saving' &&
+							saveState !== 'error' &&
+							lastSavedProjectId === project.id}
+						savingLabel={m.video_editor_saving()}
+						savedLabel={storageMode === 'cloud'
+							? m.video_editor_saved_cloud()
+							: m.image_editor_public_saved_device()}
+					/>
+				{:else}
+					<span class="hidden text-xs text-muted-foreground sm:block" role="status">
+						{m.video_editor_local_only()}
+					</span>
+				{/if}
+				{#if saveState === 'error'}
+					<span class="hidden text-destructive sm:inline" role="status"
+						>{m.compose_needs_attention()}</span
 					>
-					<DropdownMenu.Item disabled={!canRedo || exporting} onclick={() => restoreHistory('redo')}
-						>{m.video_editor_redo()}</DropdownMenu.Item
-					>
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item onclick={openFiles}>{m.quick_cut_open_multiple()}</DropdownMenu.Item>
-					<DropdownMenu.Item onclick={handleImportProject}
-						>{m.quick_cut_import_project()}</DropdownMenu.Item
-					>
-					<DropdownMenu.Item disabled={!project} onclick={handleExportProject}
-						>{m.quick_cut_export_project()}</DropdownMenu.Item
-					>
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
+				{/if}
+			{:else if workspaceName}
+				<span class="hidden text-xs text-muted-foreground sm:block">{workspaceName}</span>
+			{/if}
 			{#if sources.length > 0}
 				<Button
 					size="icon-sm"
@@ -1449,52 +1635,65 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					onclick={() => restoreHistory('redo')}><ThemeIcon role="redo" class="size-4" /></Button
 				>
 			{/if}
-		{/snippet}
-		{#snippet workspaces()}<span
-				class="hidden max-w-64 truncate text-xs text-muted-foreground md:block"
-				>{project?.name ?? m.quick_cut_tagline()}</span
-			>{/snippet}
-		{#snippet actions()}
-			{#if project}
-				<span
-					class="shrink-0 rounded-full bg-muted px-2 py-1 text-xs whitespace-nowrap text-muted-foreground"
-					role="status"
-				>
-					{#if storageMode === 'cloud'}
-						{#if saveState === 'saving'}
-							{m.video_editor_saving()}
-						{:else if saveState === 'error'}
-							{m.compose_needs_attention()}
-						{:else if cloudSession}
-							{m.video_editor_saved_cloud()}
-						{:else}
-							{m.video_editor_saving()}
-						{/if}
-					{:else}
-						{m.video_editor_local_only()}
-						{#if saveState === 'saving'}
-							· {m.common_loading()}
-						{:else if saveState === 'saved'}
-							· {m.quick_cut_saved()}
-						{:else if saveState === 'error'}
-							· {m.quick_cut_save_failed()}
-						{/if}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="ghost"
+							size="icon-sm"
+							aria-label={m.image_editor_more_actions()}
+						>
+							<ThemeIcon role="more-horizontal" />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					{#if project}
+						<div class="w-64 p-1 md:hidden">
+							<EditorTitleInput
+								value={project.name}
+								ariaLabel={m.video_editor_project_name()}
+								disabled={exporting}
+								onchange={renameProject}
+								onkeydown={(event) => {
+									if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
+								}}
+							/>
+						</div>
 					{/if}
-				</span>
-			{:else if workspaceName}
-				<span class="hidden rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground sm:block"
-					>{workspaceName}</span
-				>
+					<DropdownMenu.Item disabled={!canUndo || exporting} onclick={() => restoreHistory('undo')}
+						>{m.video_editor_undo()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item disabled={!canRedo || exporting} onclick={() => restoreHistory('redo')}
+						>{m.video_editor_redo()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={openFiles}>{m.quick_cut_open_multiple()}</DropdownMenu.Item>
+					<DropdownMenu.Item onclick={handleImportProject}
+						>{m.quick_cut_import_project()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item disabled={!project} onclick={handleExportProject}
+						>{m.quick_cut_export_project()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			{#if sources.length > 0}
+				<Button size="sm" onclick={() => (panel = 'export')}>
+					<ThemeIcon role="download" class="size-3.5" />
+					<span class="hidden sm:inline">{m.common_export()}</span>
+				</Button>
 			{/if}
-			{#if sources.length > 0}<Button size="sm" onclick={() => (panel = 'export')}
-					>{m.common_export()}</Button
-				>{/if}
 		{/snippet}
 	</EditorHeader>
 	<main class="quick-cut-main">
 		{#if sources.length === 0}
 			<div
 				class="mx-auto mt-10 w-full max-w-xl min-w-0 rounded-2xl border border-dashed bg-card p-4 text-center shadow-sm sm:mt-16 sm:p-8"
+				role="region"
+				aria-label={m.quick_cut_empty_title()}
+				ondragover={(event) => event.preventDefault()}
+				ondrop={dropFiles}
 			>
 				<h1 class="text-lg font-semibold">{m.quick_cut_empty_title()}</h1>
 				<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
@@ -1616,6 +1815,73 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				</section>
 			{/if}
 
+			<div class="quick-cut-toolbar">
+				<ToolbarGroup
+					ariaLabel={m.quick_cut_tools()}
+					class="min-w-0 overflow-x-auto border-0 bg-transparent"
+				>
+					<Button size="sm" variant="outline" onclick={markIn}>
+						{m.quick_cut_in()}<kbd class="text-muted-foreground"
+							>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</kbd
+						>
+					</Button>
+					<Button size="sm" variant="outline" onclick={markOut}>
+						{m.quick_cut_out()}<kbd class="text-muted-foreground"
+							>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</kbd
+						>
+					</Button>
+					<Button
+						size="sm"
+						variant="secondary"
+						disabled={!inPoint || !outPoint || exporting}
+						onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
+					>
+					<Button
+						size="sm"
+						variant="ghost"
+						disabled={!inPoint || !outPoint || exporting}
+						onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
+					>
+					<Button size="sm" variant="ghost" onclick={addMarker}>
+						<ProtectedIcon icon="editor-marker" class="size-3.5" />
+						{m.quick_cut_add_marker()}
+					</Button>
+				</ToolbarGroup>
+				<ToolbarGroup class="ml-auto shrink-0 border-0 bg-transparent">
+					<Button
+						size="sm"
+						variant="ghost"
+						aria-pressed={loopMode !== 'off'}
+						onclick={toggleLoopMode}
+					>
+						{m.quick_cut_loop_label()}: {loopMode === 'off'
+							? m.quick_cut_loop_off()
+							: loopMode === 'all'
+								? m.quick_cut_loop_all()
+								: m.quick_cut_loop_segment()}
+					</Button>
+					<Button
+						size="icon-sm"
+						variant="outline"
+						aria-label={m.quick_cut_zoom_out()}
+						disabled={timelineViewport.zoom <= 1}
+						onclick={() => zoomTimeline(0.5)}>−</Button
+					>
+					<Button
+						size="sm"
+						variant="ghost"
+						aria-label={m.quick_cut_zoom_reset()}
+						onclick={resetTimelineZoom}>{Math.round(timelineViewport.zoom * 100)}%</Button
+					>
+					<Button
+						size="icon-sm"
+						variant="outline"
+						aria-label={m.quick_cut_zoom_in()}
+						disabled={timelineViewport.zoom >= 32}
+						onclick={() => zoomTimeline(2)}>+</Button
+					>
+				</ToolbarGroup>
+			</div>
 			<div class="source-strip">
 				<SourceBar
 					{sources}
@@ -1960,44 +2226,6 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					</div>
 				</aside>
 				<div class="cut-timeline">
-					<div class="cut-actions">
-						<Button size="sm" variant="outline" onclick={markIn}
-							>{m.quick_cut_in()}<kbd class="ml-1 text-muted-foreground">I</kbd></Button
-						>
-						<Button size="sm" variant="outline" onclick={markOut}
-							>{m.quick_cut_out()}<kbd class="ml-1 text-muted-foreground">O</kbd></Button
-						>
-						<Button
-							size="sm"
-							variant="secondary"
-							disabled={!inPoint || !outPoint || exporting}
-							onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
-						>
-						<Button
-							size="sm"
-							variant="ghost"
-							disabled={!inPoint || !outPoint || exporting}
-							onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
-						>
-						<Button size="sm" variant="ghost" onclick={addMarker}
-							><ProtectedIcon
-								icon="editor-marker"
-								class="mr-1 size-3.5"
-							/>{m.quick_cut_add_marker()}</Button
-						>
-						<Button
-							size="sm"
-							class="ml-auto"
-							variant="ghost"
-							aria-pressed={loopMode !== 'off'}
-							onclick={toggleLoopMode}
-							>{m.quick_cut_loop_label()}: {loopMode === 'off'
-								? m.quick_cut_loop_off()
-								: loopMode === 'all'
-									? m.quick_cut_loop_all()
-									: m.quick_cut_loop_segment()}</Button
-						>
-					</div>
 					<TimelineBar
 						{activeSource}
 						segments={segmentsForExport}
@@ -2007,6 +2235,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						{outPoint}
 						{markers}
 						{reviewRanges}
+						viewport={timelineViewport}
+						onViewportChange={(viewport) => (timelineViewport = viewport)}
 						onSeek={seekTo}
 						onSelect={onSelectSegment}
 					/>
@@ -2042,7 +2272,16 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		overflow: auto;
 	}
 	.source-strip {
-		padding: 6px 12px;
+		padding: 4px 8px;
+		border-bottom: 1px solid var(--border);
+		background: var(--card);
+	}
+	.quick-cut-toolbar {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		gap: 8px;
+		padding: 4px 8px;
 		border-bottom: 1px solid var(--border);
 		background: var(--card);
 	}
@@ -2127,17 +2366,13 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		grid-column: 1/-1;
 		min-width: 0;
 		border-top: 1px solid var(--border);
-		padding: 8px 12px;
+		padding: 6px 8px;
 		background: var(--card);
 	}
-	.cut-actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 4px;
-		margin-bottom: 8px;
-	}
 	@media (max-width: 767px) {
+		.quick-cut-toolbar {
+			overflow-x: auto;
+		}
 		.cut-workstation {
 			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: minmax(160px, 32dvh) auto minmax(260px, 1fr);

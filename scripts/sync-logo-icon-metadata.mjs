@@ -111,6 +111,16 @@ async function generateMetadata() {
   }
 }
 
+if (process.argv.includes("--check-catalog")) {
+  const installed = await readInstalledCatalog();
+  const metadata = JSON.parse(await readFile(outputPath, "utf8"));
+  if (JSON.stringify(Object.keys(metadata).sort()) !== JSON.stringify(installed)) {
+    throw new Error("Logo icon catalog changed. Update the pinned Lucide metadata.");
+  }
+  console.log(`Logo metadata covers all ${installed.length} installed Lucide icons.`);
+  process.exit(0);
+}
+
 const generated = await generateMetadata();
 if (checkOnly) {
   const existing = await readFile(outputPath, "utf8").catch(() => "");

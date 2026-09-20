@@ -4,6 +4,10 @@ import { logoIconMetadata } from './logo-maker-core';
 import lucideMetadata from './logo-icon-metadata.json';
 
 type IconModule = { default: typeof Rocket };
+const searchMetadataBySlug: Record<
+	string,
+	{ tags: string[]; categories: string[]; aliases: string[] }
+> = lucideMetadata;
 const modules = import.meta.glob<IconModule>(
 	'../../../../../../node_modules/@lucide/svelte/dist/icons/*.svelte'
 );
@@ -14,16 +18,7 @@ export const logoIcons = Object.entries(modules)
 		const slug = path.slice(path.lastIndexOf('/') + 1, -'.svelte'.length);
 		const value = slug.replace(/-([a-z0-9])/g, (_, letter: string) => letter.toUpperCase());
 		const metadata = Object.entries(logoIconMetadata).find(([key]) => key === value)?.[1];
-		const searchMetadata = (
-			lucideMetadata as Record<
-				string,
-				{
-					tags: string[];
-					categories: string[];
-					aliases: string[];
-				}
-			>
-		)[slug];
+		const searchMetadata = searchMetadataBySlug[slug];
 		const label =
 			metadata?.[0] ?? slug.replace(/-/g, ' ').replace(/^./, (letter) => letter.toUpperCase());
 		return {

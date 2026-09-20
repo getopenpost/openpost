@@ -7,6 +7,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import {
@@ -371,13 +372,13 @@
 									design.icon = icon.value;
 									markChanged();
 								}}
-								>{#await icon.load()}<span
-										class="size-5 animate-pulse rounded bg-muted"
-										aria-hidden="true"
-									></span>{:then module}{@const Icon = module.default}<Icon
+								>{#await icon.load()}<Skeleton
 										class="size-5"
 										aria-hidden="true"
-									/>{:catch}<span class="text-xs">Retry</span>{/await}</button
+									/>{:then module}{@const Icon = module.default}<Icon
+										class="size-5"
+										aria-hidden="true"
+									/>{:catch}<span class="text-xs">Failed</span>{/await}</button
 							>{:else}<p class="col-span-5 py-3 text-sm text-muted-foreground">
 								No icons match.
 							</p>{/each}

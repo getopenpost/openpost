@@ -73,8 +73,8 @@ const guides: ToolGuides = {
 	'paste-image': {
 		steps: [
 			'Copy an image or screenshot, then paste it on this page.',
-			'Choose PNG, JPEG, or WebP and check the preview.',
-			'Download your image as a file.'
+			'The full-resolution PNG downloads automatically.',
+			'Use the preview to download again or choose JPEG or WebP instead.'
 		],
 		sections: [
 			{

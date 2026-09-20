@@ -19,8 +19,13 @@
 
 	let {
 		inputFormat,
-		outputFormat = 'png'
-	}: { inputFormat?: LocalImageFormat; outputFormat?: LocalImageFormat } = $props();
+		outputFormat = 'png',
+		autoDownload = false
+	}: {
+		inputFormat?: LocalImageFormat;
+		outputFormat?: LocalImageFormat;
+		autoDownload?: boolean;
+	} = $props();
 
 	let bitmap = $state<ImageBitmap | null>(null);
 	let fileName = $state('image');
@@ -37,6 +42,7 @@
 	let loadVersion = 0;
 	let outputVersion = 0;
 	let encodeTail: Promise<void> = Promise.resolve();
+	let automaticDownloadPending = false;
 
 	const effectiveInputLabel = $derived(
 		inputFormat ? inputFormat.toUpperCase().replace('JPEG', 'JPG') : 'PNG, JPEG, or WebP'
@@ -52,6 +58,7 @@
 		previewURL.clear();
 		preview = '';
 		outputBlob = null;
+		automaticDownloadPending = false;
 		width = 0;
 		height = 0;
 		error = '';
@@ -79,6 +86,7 @@
 			width = next.width;
 			height = next.height;
 			fileName = file.name.replace(/\.[^.]+$/, '') || 'image';
+			automaticDownloadPending = autoDownload;
 			status = `${file.name} loaded. Creating the ${outputFormat.toUpperCase()} preview.`;
 		} catch (reason) {
 			if (version === loadVersion) error = localImageMessage(reason);
@@ -92,18 +100,22 @@
 		busy = true;
 		error = '';
 		try {
-			const url = URL.createObjectURL(outputBlob);
-			const link = document.createElement('a');
-			link.href = url;
-			link.download = `${fileName}.${outputFormat === 'jpeg' ? 'jpg' : outputFormat}`;
-			link.click();
-			setTimeout(() => URL.revokeObjectURL(url), 30_000);
-			status = `Downloaded ${link.download} at ${width} by ${height} pixels.`;
+			downloadBlob(outputBlob);
 		} catch (reason) {
 			error = localImageMessage(reason);
 		} finally {
 			busy = false;
 		}
+	}
+
+	function downloadBlob(blob: Blob): void {
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `${fileName}.${outputFormat === 'jpeg' ? 'jpg' : outputFormat}`;
+		link.click();
+		setTimeout(() => URL.revokeObjectURL(url), 30_000);
+		status = `Downloaded ${link.download} at ${width} by ${height} pixels.`;
 	}
 
 	async function copyPNG(): Promise<void> {
@@ -151,6 +163,10 @@
 						outputBlob = blob;
 						preview = previewURL.set(blob).url;
 						status = `${outputFormat.toUpperCase()} preview ready at ${width} by ${height} pixels.`;
+						if (automaticDownloadPending) {
+							automaticDownloadPending = false;
+							downloadBlob(blob);
+						}
 					})
 					.catch((reason) => {
 						if (version === outputVersion) error = localImageMessage(reason);

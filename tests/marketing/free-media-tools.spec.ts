@@ -62,14 +62,14 @@ test("clipboard image becomes a downloadable original-size file", async ({ page 
   await dismissTelemetryConsent(page);
   await page.getByRole("button", { name: /Drop, paste, or choose/ }).waitFor();
   const bytes = [...(await sampleImage())];
+  const pending = page.waitForEvent("download");
   await page.evaluate((bytes) => {
     const clipboardData = new DataTransfer();
     clipboardData.items.add(new File([new Uint8Array(bytes)], "pasted.png", { type: "image/png" }));
     window.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true }));
   }, bytes);
-  const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download PNG", exact: true }).click();
   const downloaded = await pending;
+  expect(downloaded.suggestedFilename()).toBe("pasted.png");
   expect(await sharp(await readFile((await downloaded.path())!)).metadata()).toMatchObject({
     width: 32,
     height: 16,

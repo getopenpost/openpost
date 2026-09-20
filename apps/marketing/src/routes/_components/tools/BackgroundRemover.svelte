@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { Check, Clipboard, Download, LoaderCircle, RotateCcw, Sparkles, X } from '@lucide/svelte';
+	import { Check, Clipboard, Download, LoaderCircle, RotateCcw, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Slider } from '$lib/components/ui/slider';
 	import {
 		BACKGROUND_REMOVAL_MAX_INPUT_BYTES,
 		BACKGROUND_REMOVAL_MAX_OUTPUT_DIMENSION,
@@ -10,6 +9,7 @@
 		ImageEditorBackgroundRemoval,
 		type BackgroundRemovalProgress
 	} from '$lib/image-editor/background-removal';
+	import BeforeAfterImage from './BeforeAfterImage.svelte';
 	import LocalImageDropZone from './LocalImageDropZone.svelte';
 
 	type ToolPhase = 'empty' | 'ready' | 'processing' | 'complete' | 'error';
@@ -105,6 +105,7 @@
 		sourceFile = file;
 		sourceUrl = URL.createObjectURL(file);
 		phase = 'ready';
+		await removeBackground();
 	}
 
 	async function removeBackground() {
@@ -195,16 +196,20 @@
 				>
 			</div>
 
-			<div class="preview checkerboard" class:is-processing={phase === 'processing'}>
-				<img src={sourceUrl} alt="Original upload" />
+			<div class="preview" class:is-processing={phase === 'processing'}>
 				{#if resultUrl}
-					<div
-						class="result-layer checkerboard"
-						style={`clip-path: inset(0 ${100 - comparison}% 0 0)`}
-					>
-						<img src={resultUrl} alt="Background removed" />
-					</div>
-					<div class="comparison-line" style={`left: ${comparison}%`} aria-hidden="true"></div>
+					<BeforeAfterImage
+						before={sourceUrl}
+						after={resultUrl}
+						beforeAlt="Original upload"
+						afterAlt="Background removed"
+						beforeLabel="Original"
+						afterLabel="Removed"
+						bind:value={comparison}
+						ariaLabel="Compare original and result"
+					/>
+				{:else}
+					<img src={sourceUrl} alt="Original upload" />
 				{/if}
 
 				{#if phase === 'processing'}
@@ -220,19 +225,6 @@
 				{/if}
 			</div>
 
-			{#if resultUrl}
-				<label class="comparison-control">
-					<span>Original</span>
-					<Slider
-						bind:value={comparison}
-						min={0}
-						max={100}
-						ariaLabel="Compare original and result"
-					/>
-					<span>Result</span>
-				</label>
-			{/if}
-
 			<div class="actions">
 				{#if phase === 'complete'}
 					<Button onclick={download}><Download data-icon="inline-start" /> Download PNG</Button>
@@ -247,10 +239,6 @@
 					</Button>
 					<Button variant="ghost" onclick={() => void removeBackground()}
 						><RotateCcw data-icon="inline-start" /> Try again</Button
-					>
-				{:else if phase !== 'processing'}
-					<Button onclick={() => void removeBackground()}
-						><Sparkles data-icon="inline-start" /> Remove background</Button
 					>
 				{/if}
 			</div>
@@ -279,8 +267,7 @@
 		gap: 16px;
 	}
 	.workspace-bar,
-	.actions,
-	.comparison-control {
+	.actions {
 		display: flex;
 		align-items: center;
 	}
@@ -319,23 +306,7 @@
 		border: 1px solid var(--border);
 		border-radius: 10px;
 	}
-	.checkerboard {
-		background-color: var(--background);
-		background-image:
-			linear-gradient(45deg, var(--muted) 25%, transparent 25%),
-			linear-gradient(-45deg, var(--muted) 25%, transparent 25%),
-			linear-gradient(45deg, transparent 75%, var(--muted) 75%),
-			linear-gradient(-45deg, transparent 75%, var(--muted) 75%);
-		background-position:
-			0 0,
-			0 10px,
-			10px -10px,
-			-10px 0;
-		background-size: 20px 20px;
-	}
-	.preview > img,
-	.result-layer,
-	.result-layer img {
+	.preview > img {
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
@@ -343,21 +314,8 @@
 	.preview > img {
 		max-height: 620px;
 	}
-	.result-layer {
-		position: absolute;
-		inset: 0;
-	}
-	.result-layer img {
-		position: absolute;
-		inset: 0;
-	}
-	.comparison-line {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: 2px;
-		background: white;
-		box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
+	.preview :global(.comparison) {
+		width: 100%;
 	}
 	.is-processing > img {
 		opacity: 0.5;
@@ -399,14 +357,6 @@
 		border-radius: inherit;
 		background: var(--primary);
 		transition: width 160ms ease;
-	}
-	.comparison-control {
-		gap: 12px;
-		font-size: 12px;
-		color: var(--muted-foreground);
-	}
-	.comparison-control :global([data-slot='slider-root']) {
-		width: 100%;
 	}
 	.actions {
 		flex-wrap: wrap;
@@ -455,9 +405,6 @@
 		.icon-button {
 			width: 44px;
 			height: 44px;
-		}
-		.comparison-control :global([data-slot='slider-root']) {
-			min-height: 44px;
 		}
 	}
 </style>

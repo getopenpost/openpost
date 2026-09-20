@@ -41,7 +41,7 @@ export const mediaTools = [
     name: "Paste image to download",
     title: "Paste an image and download PNG, JPEG, or WebP - OpenPost",
     description:
-      "Turn a clipboard image into a file. Paste, choose a format, and download at full resolution. Free, with no account or upload.",
+      "Turn a clipboard image into a file. Paste and download a full-resolution PNG automatically. Free, with no account or upload.",
     category: "Images",
   },
   {

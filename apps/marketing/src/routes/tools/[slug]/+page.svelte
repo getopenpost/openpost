@@ -69,6 +69,7 @@
 			{#key slug}<module.default
 					inputFormat={conversion?.input}
 					outputFormat={conversion?.output}
+					autoDownload={slug === 'paste-image'}
 				/>{/key}
 		{:catch}{@render failedTool()}{/await}
 	{/if}

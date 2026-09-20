@@ -688,7 +688,8 @@ export async function buildPublicProofChecks({
         kind: "artifact",
         name: `${surface.key} unknown Markdown 404`,
         canonicalURL: `${surface.origin}/openpost-proof-unknown-90.md`,
-        contentType: "text/markdown; charset=utf-8",
+        contentType:
+          surface.key === "marketing" ? "text/html; charset=utf-8" : "text/markdown; charset=utf-8",
         status: 404,
       },
     );

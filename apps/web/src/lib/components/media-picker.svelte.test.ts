@@ -201,6 +201,26 @@ describe('MediaPicker meme source', () => {
 			.toBeVisible();
 	});
 
+	it('opens camera-first pickers directly on the camera source', async () => {
+		const screen = await render(MediaPicker, {
+			props: {
+				open: true,
+				workspaceId: 'workspace-1',
+				accept: ['image/*'],
+				maxSelection: 1,
+				multiple: false,
+				showCreate: false,
+				initialMode: 'camera',
+				services,
+				onConfirm: vi.fn()
+			}
+		});
+
+		await expect
+			.element(screen.getByRole('tab', { name: m.media_camera() }))
+			.toHaveAttribute('aria-selected', 'true');
+	});
+
 	it('keeps Meme hidden when the renderer is not configured', async () => {
 		mocks.listTemplates.mockResolvedValue(templateResult(false));
 		const screen = await renderPicker(true);

@@ -65,6 +65,13 @@
 		'blur'
 	] satisfies Array<Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>>;
 	let applicationFeedback = $state('');
+	let previousSelectionCount = 0;
+
+	$effect(() => {
+		const selectionCount = editor.selectedLayers.length;
+		if (selectionCount > 1 && previousSelectionCount <= 1) transformOpen = true;
+		previousSelectionCount = selectionCount;
+	});
 
 	function partialApplicationMessage(result: {
 		applied: number;
@@ -334,44 +341,6 @@
 								>{m.image_editor_center_y()}</Button
 							>
 						</div>
-						{#if editor.selectedLayers.length > 1}
-							<div class="grid grid-cols-3 gap-1">
-								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('left')}
-									>{m.image_editor_align_left()}</Button
-								>
-								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('center_x')}
-									>{m.image_editor_align_center()}</Button
-								>
-								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('right')}
-									>{m.image_editor_align_right()}</Button
-								>
-								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('top')}
-									>{m.image_editor_align_top()}</Button
-								>
-								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('center_y')}
-									>{m.image_editor_align_middle()}</Button
-								>
-								<Button variant="outline" size="xs" onclick={() => editor.alignSelected('bottom')}
-									>{m.image_editor_align_bottom()}</Button
-								>
-							</div>
-							{#if editor.selectedLayers.length > 2}
-								<div class="grid grid-cols-2 gap-1">
-									<Button
-										variant="outline"
-										size="xs"
-										onclick={() => editor.distributeSelected('horizontal')}
-										>{m.image_editor_distribute_x()}</Button
-									>
-									<Button
-										variant="outline"
-										size="xs"
-										onclick={() => editor.distributeSelected('vertical')}
-										>{m.image_editor_distribute_y()}</Button
-									>
-								</div>
-							{/if}
-						{/if}
 						<div class="grid grid-cols-4 gap-1">
 							<Tooltip.Root>
 								<Tooltip.Trigger>
@@ -457,6 +426,53 @@
 						{/snippet}
 					</Collapsible.Trigger>
 					<Collapsible.Content class="space-y-2 pt-2">
+						{#if editor.selectedLayers.length > 1}
+							<div class="space-y-1.5 rounded-md border bg-muted/20 p-2">
+								<p class="text-xs font-medium">{m.image_editor_transform_layers()}</p>
+								<div class="grid grid-cols-3 gap-1">
+									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('left')}
+										>{m.image_editor_align_left()}</Button
+									>
+									<Button
+										variant="outline"
+										size="xs"
+										onclick={() => editor.alignSelected('center_x')}
+										>{m.image_editor_align_center()}</Button
+									>
+									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('right')}
+										>{m.image_editor_align_right()}</Button
+									>
+									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('top')}
+										>{m.image_editor_align_top()}</Button
+									>
+									<Button
+										variant="outline"
+										size="xs"
+										onclick={() => editor.alignSelected('center_y')}
+										>{m.image_editor_align_middle()}</Button
+									>
+									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('bottom')}
+										>{m.image_editor_align_bottom()}</Button
+									>
+								</div>
+								{#if editor.selectedLayers.length > 2}
+									<div class="grid grid-cols-2 gap-1">
+										<Button
+											variant="outline"
+											size="xs"
+											onclick={() => editor.distributeSelected('horizontal')}
+											>{m.image_editor_distribute_x()}</Button
+										>
+										<Button
+											variant="outline"
+											size="xs"
+											onclick={() => editor.distributeSelected('vertical')}
+											>{m.image_editor_distribute_y()}</Button
+										>
+									</div>
+								{/if}
+							</div>
+						{/if}
 						<div class="grid grid-cols-2 gap-2">
 							{#each [['X', 'x'], ['Y', 'y'], ['W', 'width'], ['H', 'height']] as [label, key] (key)}
 								{@const mixed = mixedTransforms[key as 'x' | 'y' | 'width' | 'height']}

@@ -4,6 +4,7 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { useImageEditor } from '../editor.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import TemplatePreview from './template-preview.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -29,6 +30,9 @@
 	let previewDocument = $state.raw<typeof editor.document>(null);
 	let reorderAnnouncement = $state('');
 	let insertionPageID = $state('');
+	let editingPageID = $state('');
+	let pageNameDraft = $state('');
+	let pageNameInput = $state<HTMLInputElement | null>(null);
 	let strip = $state<HTMLDivElement>();
 	function focusPage(id: string) {
 		void tick().then(() =>
@@ -76,6 +80,31 @@
 
 	function displayPageName(name: string, index: number): string {
 		return /^Page \d+$/.test(name) ? m.image_editor_default_page_name({ number: index + 1 }) : name;
+	}
+
+	function beginRenamePage(): void {
+		const page = pages.find((candidate) => candidate.id === editor.activePageID);
+		if (!page || !editor.canEdit) return;
+		editingPageID = page.id;
+		pageNameDraft = displayPageName(page.name, activeIndex);
+		void tick().then(() => {
+			pageNameInput?.focus();
+			pageNameInput?.select();
+		});
+	}
+
+	function finishRenamePage(commit: boolean): void {
+		const pageID = editingPageID;
+		const name = pageNameDraft.trim();
+		editingPageID = '';
+		if (!commit || !pageID || !name) return;
+		const page = pages.find((candidate) => candidate.id === pageID);
+		if (!page || page.name === name) return;
+		editor.mutate(m.image_editor_rename_page(), (document) => {
+			const target = document.pages.find((candidate) => candidate.id === pageID);
+			if (target) target.name = name;
+		});
+		focusPage(pageID);
 	}
 
 	function commitPageMove(pageID: string, target: number, announcement: 'moved' | 'dropped'): void {
@@ -201,7 +230,6 @@
 						if (event.relatedTarget && keyboardDraggingID === page.id) cancelReorder();
 					}}
 					data-page-id={page.id}
-					aria-pressed={keyboardDraggingID === page.id}
 					aria-describedby={hintID}
 					type="button"
 					draggable={editor.canEdit}
@@ -294,7 +322,37 @@
 			<span class="hidden text-xs text-muted-foreground sm:inline"
 				>{editor.document?.pages.length ?? 0}</span
 			>
+			{#if editingPageID === editor.activePageID}
+				<Input
+					bind:ref={pageNameInput}
+					bind:value={pageNameDraft}
+					class="ml-1 h-7 min-w-28 flex-1 text-xs sm:max-w-52"
+					aria-label={m.image_editor_page_name()}
+					maxlength={120}
+					onblur={() => finishRenamePage(true)}
+					onkeydown={(event) => {
+						event.stopPropagation();
+						if (event.key === 'Enter') event.currentTarget.blur();
+						if (event.key === 'Escape') {
+							event.preventDefault();
+							finishRenamePage(false);
+							focusPage(editor.activePageID);
+						}
+					}}
+				/>
+			{/if}
 			<div class="ml-auto flex gap-1">
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
+					aria-label={m.image_editor_rename_page()}
+					title={m.image_editor_rename_page()}
+					disabled={!editor.canEdit || activeIndex < 0 || Boolean(editingPageID)}
+					onclick={beginRenamePage}
+				>
+					<ThemeIcon role="edit" />
+				</Button>
 				<Button
 					variant="ghost"
 					size="icon-xs"

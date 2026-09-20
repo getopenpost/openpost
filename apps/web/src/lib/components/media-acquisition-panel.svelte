@@ -399,8 +399,8 @@
 		resolve?.(file);
 	}
 
-	function uploadStage(stage: QueueItem['stage']): string {
-		switch (stage) {
+	function uploadStage(item: Pick<QueueItem, 'file' | 'stage'>): string {
+		switch (item.stage) {
 			case 'ready':
 				return m.media_upload_ready();
 			case 'inspecting':
@@ -410,7 +410,7 @@
 			case 'compressing':
 				return m.video_upload_compressing();
 			case 'uploading':
-				return m.video_upload_uploading();
+				return isVideoFile(item.file) ? m.video_upload_uploading() : m.media_uploading();
 			case 'finalizing':
 				return m.video_upload_finalizing();
 			case 'processing':
@@ -543,9 +543,7 @@
 										aria-live="polite"
 										aria-atomic="true"
 									>
-										{item.status === 'success'
-											? m.media_upload_complete()
-											: uploadStage(item.stage)}
+										{item.status === 'success' ? m.media_upload_complete() : uploadStage(item)}
 										{#if item.status === 'uploading' && !item.progressIndeterminate}
 											<span aria-hidden="true"> · {Math.round(item.progress * 100)}%</span>
 										{/if}
@@ -555,7 +553,7 @@
 									<ProgressMeter
 										class="mt-2"
 										fraction={item.progressIndeterminate ? null : item.progress}
-										label={`${item.file.name}: ${uploadStage(item.stage)}`}
+										label={`${item.file.name}: ${uploadStage(item)}`}
 										phase={item.stage}
 									/>
 								{/if}

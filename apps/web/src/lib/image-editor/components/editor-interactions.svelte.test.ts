@@ -133,3 +133,22 @@ it('uses the compact status row until pages are expanded into the ordered strip'
 	await expect.element(screen.getByRole('button', { name: /Page 1: First/ })).toBeInTheDocument();
 	expect(screen.container.querySelector('[data-testid="page-status-row"]')).toBeNull();
 });
+
+it('exposes the current page and renames it inline', async () => {
+	const editor = setup();
+	const screen = await render(Fixture, { editor });
+	const first = screen.getByRole('button', { name: /Page 1: First/ });
+	const second = screen.getByRole('button', { name: /Page 2: Second/ });
+
+	await expect.element(first).toHaveAttribute('aria-current', 'page');
+	await expect.element(second).not.toHaveAttribute('aria-current');
+	await screen.getByRole('button', { name: 'Rename page' }).click();
+	const name = screen.getByRole('textbox', { name: 'Page name' });
+	await name.fill('Launch cover');
+	await userEvent.keyboard('{Enter}');
+
+	await expect.element(screen.getByRole('button', { name: /Page 1: Launch cover/ })).toBeVisible();
+	expect(editor.activePage?.name).toBe('Launch cover');
+	editor.undo();
+	expect(editor.activePage?.name).toBe('First');
+});

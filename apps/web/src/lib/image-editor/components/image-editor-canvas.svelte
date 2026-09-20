@@ -1890,17 +1890,33 @@
 					]}
 					class="h-7 w-40 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 				/>
-				<Button
-					variant={editor.sampleAllLayers ? 'secondary' : 'ghost'}
-					size="sm"
-					class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
-					aria-pressed={editor.sampleAllLayers}
-					onclick={() => (editor.sampleAllLayers = !editor.sampleAllLayers)}
+				<div
+					class="flex items-center gap-0.5"
+					role="group"
+					aria-label={m.image_editor_sample_from()}
 				>
-					{editor.sampleAllLayers
-						? m.image_editor_sample_composite()
-						: m.image_editor_sample_active_layer()}
-				</Button>
+					<span class="px-1 text-xs text-[var(--editor-muted)]">
+						{m.image_editor_sample_from()}
+					</span>
+					<Button
+						variant={!editor.sampleAllLayers ? 'secondary' : 'ghost'}
+						size="sm"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+						aria-pressed={!editor.sampleAllLayers}
+						onclick={() => (editor.sampleAllLayers = false)}
+					>
+						{m.image_editor_sample_active_layer()}
+					</Button>
+					<Button
+						variant={editor.sampleAllLayers ? 'secondary' : 'ghost'}
+						size="sm"
+						class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+						aria-pressed={editor.sampleAllLayers}
+						onclick={() => (editor.sampleAllLayers = true)}
+					>
+						{m.image_editor_sample_composite()}
+					</Button>
+				</div>
 				{#if eyedropperPreview}
 					<span
 						class="size-6 rounded border border-white/30"
@@ -2247,7 +2263,10 @@
 				{/if}
 				{#if ['pencil', 'bucket', 'gradient'].includes(editor.activeTool)}
 					<label class="flex min-w-28 items-center gap-2 px-1 text-xs">
-						<span class="whitespace-nowrap">
+						<span
+							class="whitespace-nowrap"
+							class:text-warning-foreground={editor.paintOpacity < 0.25}
+						>
 							{m.image_editor_opacity({ value: Math.round(editor.paintOpacity * 100) })}
 						</span>
 						<Slider
@@ -2262,6 +2281,16 @@
 							onValueChange={(value) => (editor.paintOpacity = value / 100)}
 						/>
 					</label>
+					{#if editor.paintOpacity !== 1}
+						<Button
+							variant="ghost"
+							size="sm"
+							class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)]"
+							onclick={() => (editor.paintOpacity = 1)}
+						>
+							{m.image_editor_reset()}
+						</Button>
+					{/if}
 				{/if}
 				{#if editor.pixelSelection}
 					{#if editor.floatingPixelSelection}

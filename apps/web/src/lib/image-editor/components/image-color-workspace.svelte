@@ -11,6 +11,8 @@
 	} from '$lib/editor-color-grade/model';
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Collapsible from '$lib/components/ui/collapsible';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import EditorColorSlider from '$lib/components/editor-color-slider.svelte';
 	import EditorColorComparison from '$lib/components/editor-color-comparison.svelte';
 	import {
@@ -41,7 +43,10 @@
 	];
 
 	const editor = useImageEditor();
-	let scope = $state<ColorScope>('page');
+	let scope = $state<ColorScope>(
+		editor.selectedLayers.some((layer) => layer.type === 'image' && layer.image) ? 'layer' : 'page'
+	);
+	let advancedOpen = $state(false);
 	const imageAdjustmentKeys = [...EDITOR_COLOR_ADJUSTMENT_KEYS, 'blur'] satisfies Array<
 		Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>
 	>;
@@ -314,70 +319,6 @@
 			{m.image_editor_command_requires_selection()}
 		</p>
 	{:else}
-		<section class="grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-4">
-			{#each EDITOR_COLOR_WHEELS as descriptor (descriptor.hue)}
-				<div class="min-w-0 space-y-2">
-					<div class="flex items-center justify-between text-xs">
-						<span>{wheelLabels[descriptor.level]}</span>
-						<Button
-							size="xs"
-							variant="ghost"
-							disabled={!editor.canEdit}
-							aria-label={`${m.image_editor_reset()} ${wheelLabels[descriptor.level]}`}
-							onclick={() => {
-								const defaults = defaultEditorColorWheels();
-								previewTools('wheels', {
-									[descriptor.hue]: defaults[descriptor.hue],
-									[descriptor.amount]: defaults[descriptor.amount],
-									[descriptor.level]: defaults[descriptor.level]
-								});
-								finishTools();
-							}}>{m.image_editor_reset()}</Button
-						>
-					</div>
-					<div class="relative mx-auto aspect-square w-full max-w-32">
-						<EditorColorWheel
-							label={wheelLabels[descriptor.level]}
-							value={{ hue: wheels[descriptor.hue], amount: wheels[descriptor.amount] }}
-							disabled={!editor.canEdit}
-							mixed={wheelMixed(descriptor.hue, descriptor.amount)}
-							onpreview={(value) =>
-								previewTools('wheels', {
-									[descriptor.hue]: value.hue,
-									[descriptor.amount]: value.amount
-								})}
-							oncommit={(value) => {
-								previewTools('wheels', {
-									[descriptor.hue]: value.hue,
-									[descriptor.amount]: value.amount
-								});
-								finishTools();
-							}}
-							oncancel={cancelTools}
-						/>
-					</div>
-					<EditorColorSlider
-						hideLabel
-						label={wheelLabels[descriptor.level]}
-						value={wheelMixed(descriptor.level, descriptor.level) ? null : wheels[descriptor.level]}
-						min={descriptor.ring.min}
-						max={descriptor.ring.max}
-						step={0.01}
-						defaultValue={defaultEditorColorWheels()[descriptor.level]}
-						decimals={2}
-						disabled={!editor.canEdit}
-						resetLabel={m.image_editor_reset()}
-						mixedLabel={m.image_editor_mixed_value()}
-						onpreview={(value) => previewTools('wheels', { [descriptor.level]: value })}
-						oncommit={(value) => {
-							previewTools('wheels', { [descriptor.level]: value });
-							finishTools();
-						}}
-						oncancel={cancelTools}
-					/>
-				</div>
-			{/each}
-		</section>
 		<section class="space-y-2">
 			<h3 class="text-xs font-medium">{m.image_editor_quick_looks()}</h3>
 			<div class="grid grid-cols-3 gap-1">
@@ -394,34 +335,6 @@
 					</Button>
 				{/each}
 			</div>
-		</section>
-
-		<section
-			class="video-editor-theme h-60 min-w-0 overflow-hidden rounded-md border"
-			aria-label={m.video_editor_scopes()}
-		>
-			<EditorColorScopes
-				itemId={activePage?.id ?? null}
-				sample={editor.colorScopeSample}
-				embedded
-			/>
-		</section>
-
-		<section class="video-editor-theme min-w-0 border-t pt-4">
-			<fieldset disabled={!editor.canEdit}>
-				<EditorColorCurves
-					gpuEffect={curves}
-					ondraft={(params) => {
-						if (params) previewTools('curves', params);
-						else cancelTools();
-					}}
-					oncommit={(params) => {
-						previewTools('curves', params);
-						finishTools();
-					}}
-					compact
-				/>
-			</fieldset>
 		</section>
 
 		{#each adjustmentGroups.filter((group) => scope === 'layer' || group.pageSupported) as group (group.label)}
@@ -455,5 +368,119 @@
 				{/each}
 			</section>
 		{/each}
+
+		<Collapsible.Root bind:open={advancedOpen} class="border-t pt-2">
+			<Collapsible.Trigger>
+				{#snippet child({ props })}
+					<button
+						{...props}
+						type="button"
+						class="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
+					>
+						<span class="min-w-0 flex-1">{m.video_editor_advanced()}</span>
+						<ThemeIcon
+							role="chevron-down"
+							class={`size-3.5 transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
+						/>
+					</button>
+				{/snippet}
+			</Collapsible.Trigger>
+			<Collapsible.Content class="space-y-5 pt-3">
+				<section class="grid grid-cols-2 gap-x-4 gap-y-3">
+					{#each EDITOR_COLOR_WHEELS as descriptor (descriptor.hue)}
+						<div class="min-w-0 space-y-2">
+							<div class="flex items-center justify-between text-xs">
+								<span>{wheelLabels[descriptor.level]}</span>
+								<Button
+									size="xs"
+									variant="ghost"
+									disabled={!editor.canEdit}
+									aria-label={`${m.image_editor_reset()} ${wheelLabels[descriptor.level]}`}
+									onclick={() => {
+										const defaults = defaultEditorColorWheels();
+										previewTools('wheels', {
+											[descriptor.hue]: defaults[descriptor.hue],
+											[descriptor.amount]: defaults[descriptor.amount],
+											[descriptor.level]: defaults[descriptor.level]
+										});
+										finishTools();
+									}}>{m.image_editor_reset()}</Button
+								>
+							</div>
+							<div class="relative mx-auto aspect-square w-full max-w-32">
+								<EditorColorWheel
+									label={wheelLabels[descriptor.level]}
+									value={{ hue: wheels[descriptor.hue], amount: wheels[descriptor.amount] }}
+									disabled={!editor.canEdit}
+									mixed={wheelMixed(descriptor.hue, descriptor.amount)}
+									onpreview={(value) =>
+										previewTools('wheels', {
+											[descriptor.hue]: value.hue,
+											[descriptor.amount]: value.amount
+										})}
+									oncommit={(value) => {
+										previewTools('wheels', {
+											[descriptor.hue]: value.hue,
+											[descriptor.amount]: value.amount
+										});
+										finishTools();
+									}}
+									oncancel={cancelTools}
+								/>
+							</div>
+							<EditorColorSlider
+								hideLabel
+								label={wheelLabels[descriptor.level]}
+								value={wheelMixed(descriptor.level, descriptor.level)
+									? null
+									: wheels[descriptor.level]}
+								min={descriptor.ring.min}
+								max={descriptor.ring.max}
+								step={0.01}
+								defaultValue={defaultEditorColorWheels()[descriptor.level]}
+								decimals={2}
+								disabled={!editor.canEdit}
+								resetLabel={m.image_editor_reset()}
+								mixedLabel={m.image_editor_mixed_value()}
+								onpreview={(value) => previewTools('wheels', { [descriptor.level]: value })}
+								oncommit={(value) => {
+									previewTools('wheels', { [descriptor.level]: value });
+									finishTools();
+								}}
+								oncancel={cancelTools}
+							/>
+						</div>
+					{/each}
+				</section>
+
+				<section
+					class="video-editor-theme h-60 min-w-0 overflow-hidden rounded-md border"
+					aria-label={m.video_editor_scopes()}
+				>
+					<EditorColorScopes
+						itemId={activePage?.id ?? null}
+						sample={editor.colorScopeSample}
+						embedded
+					/>
+				</section>
+
+				<section class="video-editor-theme min-w-0 border-t pt-4">
+					<fieldset disabled={!editor.canEdit}>
+						<EditorColorCurves
+							gpuEffect={curves}
+							ondraft={(params) => {
+								if (params) previewTools('curves', params);
+								else cancelTools();
+							}}
+							oncommit={(params) => {
+								previewTools('curves', params);
+								finishTools();
+							}}
+							compact
+						/>
+					</fieldset>
+				</section>
+			</Collapsible.Content>
+		</Collapsible.Root>
 	{/if}
 </div>

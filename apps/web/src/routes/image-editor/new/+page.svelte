@@ -53,8 +53,9 @@
 	let error = $state('');
 	let enabled = $state(true);
 	let presets = $state<ImageEditorPreset[]>([]);
-	let templates = $state<ImageEditorTemplate[]>([]);
+	let templates = $state.raw<ImageEditorTemplate[]>([]);
 	let showAllTemplates = $state(false);
+	let templateSearch = $state('');
 	let customWidth = $state(1080);
 	let customHeight = $state(1080);
 	let creationSequence = 0;
@@ -76,9 +77,26 @@
 		'builtin-linkedin-insight'
 	]);
 	let featuredTemplates = $derived(
-		templates.filter((template) => featuredTemplateIDs.has(template.id))
+		templates.filter((template) => template.built_in && featuredTemplateIDs.has(template.id))
 	);
-	let visibleTemplates = $derived(showAllTemplates ? templates : featuredTemplates);
+	let normalizedTemplateSearch = $derived(templateSearch.trim().toLocaleLowerCase());
+	let workspaceTemplates = $derived(
+		templates.filter(
+			(template) => !template.built_in && templateMatchesSearch(template, normalizedTemplateSearch)
+		)
+	);
+	let starterTemplates = $derived(
+		templates.filter(
+			(template) => template.built_in && templateMatchesSearch(template, normalizedTemplateSearch)
+		)
+	);
+	let visibleStarterTemplates = $derived(
+		normalizedTemplateSearch || showAllTemplates
+			? starterTemplates
+			: featuredTemplates.filter((template) =>
+					templateMatchesSearch(template, normalizedTemplateSearch)
+				)
+	);
 	let usableContent = $derived(
 		configReady &&
 			(!enabled || (Boolean(workspaceID) && templatesReady && templatesWorkspaceID === workspaceID))
@@ -359,6 +377,11 @@
 				return template.name;
 		}
 	}
+
+	function templateMatchesSearch(template: ImageEditorTemplate, query: string): boolean {
+		if (!query) return true;
+		return `${templateName(template)} ${template.category}`.toLocaleLowerCase().includes(query);
+	}
 </script>
 
 <svelte:head><title>{m.image_editor_new_design()} · {m.image_editor_title()}</title></svelte:head>
@@ -499,54 +522,92 @@
 					</div>
 				</section>
 			</details>
-			<section class="mt-8" aria-labelledby="templates-heading">
+			<section class="mt-8 space-y-7" aria-labelledby="templates-heading">
 				<div class="mb-3">
 					<h2 id="templates-heading" class="text-base font-semibold">
-						{m.image_editor_starter_templates()}
+						{m.image_editor_templates()}
 					</h2>
-					<p class="mt-0.5 text-sm text-muted-foreground">
-						{m.image_editor_starter_templates_body()}
+					<div class="relative mt-3 max-w-sm">
+						<ThemeIcon
+							role="search"
+							class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+						/>
+						<Input
+							bind:value={templateSearch}
+							class="pl-9"
+							placeholder={m.image_editor_search_templates()}
+							aria-label={m.image_editor_search_templates()}
+						/>
+					</div>
+				</div>
+				{#if workspaceTemplates.length > 0}
+					<section aria-labelledby="workspace-templates-heading">
+						<h3 id="workspace-templates-heading" class="text-sm font-semibold">
+							{m.image_editor_workspace_templates()}
+						</h3>
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{m.image_editor_workspace_templates_body()}
+						</p>
+						<div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+							{#each workspaceTemplates as template (template.id)}
+								{@render templateCard(template)}
+							{/each}
+						</div>
+					</section>
+				{/if}
+				{#if visibleStarterTemplates.length > 0}
+					<section aria-labelledby="starter-templates-heading">
+						<h3 id="starter-templates-heading" class="text-sm font-semibold">
+							{m.image_editor_starter_templates()}
+						</h3>
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{m.image_editor_starter_templates_body()}
+						</p>
+						<div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+							{#each visibleStarterTemplates as template (template.id)}
+								{@render templateCard(template)}
+							{/each}
+						</div>
+						{#if !normalizedTemplateSearch && starterTemplates.length > featuredTemplates.length}
+							<Button
+								class="mt-4"
+								variant="outline"
+								onclick={() => (showAllTemplates = !showAllTemplates)}
+							>
+								{showAllTemplates
+									? m.image_editor_show_fewer_templates()
+									: m.image_editor_show_all_templates({ count: starterTemplates.length })}
+							</Button>
+						{/if}
+					</section>
+				{/if}
+				{#if normalizedTemplateSearch && workspaceTemplates.length === 0 && visibleStarterTemplates.length === 0}
+					<p class="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+						{m.image_editor_no_templates_found()}
 					</p>
-				</div>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-					{#each visibleTemplates as template (template.id)}
-						<button
-							type="button"
-							class="rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/2 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:outline-none"
-							onclick={() => createTemplate(template)}
-							disabled={Boolean(creating)}
-						>
-							<div class="mb-3 aspect-[4/3] overflow-hidden rounded-lg border">
-								<TemplatePreview
-									document={template.document}
-									label={templateName(template)}
-									compact
-								/>
-							</div>
-							<div class="flex items-center gap-2">
-								<span class="min-w-0 flex-1 truncate text-sm font-medium"
-									>{templateName(template)}</span
-								>
-								{#if creating === template.id}<ProtectedIcon
-										icon="loading"
-										class="size-4 animate-spin"
-									/>{/if}
-							</div>
-						</button>
-					{/each}
-				</div>
-				{#if templates.length > featuredTemplates.length}
-					<Button
-						class="mt-4"
-						variant="outline"
-						onclick={() => (showAllTemplates = !showAllTemplates)}
-					>
-						{showAllTemplates
-							? m.image_editor_show_fewer_templates()
-							: m.image_editor_show_all_templates({ count: templates.length })}
-					</Button>
 				{/if}
 			</section>
 		{/if}
 	</EditorStart>
 </div>
+
+{#snippet templateCard(template: ImageEditorTemplate)}
+	<button
+		type="button"
+		aria-label={templateName(template)}
+		class="rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/2 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:outline-none"
+		onclick={() => createTemplate(template)}
+		disabled={Boolean(creating)}
+	>
+		<div class="mb-3 aspect-[4/3] overflow-hidden rounded-lg border">
+			<TemplatePreview document={template.document} label={templateName(template)} compact />
+		</div>
+		<div class="flex items-center gap-2">
+			<span class="min-w-0 flex-1 truncate text-sm font-medium">{templateName(template)}</span>
+			{#if creating === template.id}<ProtectedIcon
+					icon="loading"
+					class="size-4 animate-spin motion-reduce:animate-none"
+				/>{/if}
+		</div>
+	</button>
+{/snippet}

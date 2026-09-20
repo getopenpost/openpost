@@ -81,7 +81,7 @@
 		enableMeme?: boolean;
 		desktopSize?: 'default' | 'compact';
 		presentation?: 'dialog' | 'sheet';
-		initialMode?: 'library' | 'upload' | 'stock' | 'meme';
+		initialMode?: 'library' | 'upload' | 'camera' | 'stock' | 'meme';
 		memeInitialIdea?: string;
 		memeInitialCandidate?: MemeSuggestionCandidate;
 		memeInitialPreview?: string;

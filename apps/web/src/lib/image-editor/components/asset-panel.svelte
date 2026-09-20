@@ -40,8 +40,10 @@
 	let error = $state('');
 	let search = $state('');
 	let pickerOpen = $state(false);
+	let pickerInitialMode = $state<'library' | 'upload' | 'camera' | 'stock'>('upload');
 	let stockOpen = $state(false);
 	let replaceMode = $state(false);
+	let addedMessage = $state('');
 	let loadedWorkspaceID = '';
 	let dragPreview: HTMLElement | null = null;
 	let guestFileInput = $state<HTMLInputElement | null>(null);
@@ -142,6 +144,7 @@
 	function addMedia(item: ImageEditorMediaItem, replace = replaceMode): void {
 		if (editor.backgroundImagePickerActive) {
 			editor.setPageBackgroundImage(item.id);
+			addedMessage = m.image_editor_media_added({ name: item.original_filename });
 			return;
 		}
 		const selected = editor.selectedLayers[0];
@@ -156,6 +159,7 @@
 				}
 			});
 			replaceMode = false;
+			addedMessage = m.image_editor_media_added({ name: item.original_filename });
 			return;
 		}
 		editor.addImage({
@@ -164,6 +168,12 @@
 			height: item.height,
 			name: item.original_filename
 		});
+		addedMessage = m.image_editor_media_added({ name: item.original_filename });
+	}
+
+	function openPicker(mode: typeof pickerInitialMode): void {
+		pickerInitialMode = mode;
+		pickerOpen = true;
 	}
 
 	function startMediaDrag(
@@ -279,6 +289,9 @@
 			{m.image_editor_media()}
 		</h2>
 		{#if mode === 'overlay'}
+			<Button variant="ghost" size="xs" onclick={() => onclose?.()}>
+				{m.common_done()}
+			</Button>
 			<Button
 				variant="ghost"
 				size="icon-xs"
@@ -345,6 +358,62 @@
 				</Button>
 			</div>
 		</section>
+		{#if !guestMode}
+			<section class="mb-3 space-y-1.5">
+				<h3 class="text-xs font-semibold">{m.media_source()}</h3>
+				<div class="grid grid-cols-4 gap-1" role="toolbar" aria-label={m.media_source()}>
+					<Button
+						variant="secondary"
+						size="xs"
+						class="min-w-0 px-1"
+						onclick={() => searchInput?.focus()}
+					>
+						<ThemeIcon role="media" />
+						<span class="truncate">{m.image_editor_workspace_category()}</span>
+					</Button>
+					<Button
+						variant="outline"
+						size="xs"
+						class="min-w-0 px-1"
+						onclick={() => openPicker('upload')}
+					>
+						<ThemeIcon role="upload" />
+						<span class="truncate">{m.media_upload_device()}</span>
+					</Button>
+					<Button
+						variant="outline"
+						size="xs"
+						class="min-w-0 px-1"
+						onclick={() => openPicker('stock')}
+					>
+						<ThemeIcon role="image" />
+						<span class="truncate">{m.stock_media()}</span>
+					</Button>
+					<Button
+						variant="outline"
+						size="xs"
+						class="min-w-0 px-1"
+						onclick={() => openPicker('camera')}
+					>
+						<ThemeIcon role="camera" />
+						<span class="truncate">{m.media_camera()}</span>
+					</Button>
+				</div>
+			</section>
+		{/if}
+		{#if addedMessage}
+			<div
+				class="mb-3 flex items-center gap-2 rounded-md border bg-muted/30 px-2.5 py-2 text-xs"
+				role="status"
+				aria-live="polite"
+			>
+				<ThemeIcon role="check" class="size-3.5 text-success-foreground" />
+				<span class="min-w-0 flex-1 truncate">{addedMessage}</span>
+				{#if mode === 'overlay'}
+					<Button variant="ghost" size="xs" onclick={() => onclose?.()}>{m.common_done()}</Button>
+				{/if}
+			</div>
+		{/if}
 		{#if !guestMode}
 			<div class="mb-2 space-y-2">
 				<div class="overflow-x-auto pb-1">
@@ -417,16 +486,16 @@
 			class="sr-only !size-px !p-0"
 			onchange={uploadGuestMedia}
 		/>
-		<Button
-			variant="outline"
-			size="sm"
-			class="mb-2 w-full"
-			onclick={() => (guestMode ? guestFileInput?.click() : (pickerOpen = true))}
-		>
-			<ThemeIcon role="upload" />
-			{m.image_editor_upload_camera()}
-		</Button>
 		{#if guestMode}
+			<Button
+				variant="outline"
+				size="sm"
+				class="mb-2 w-full"
+				onclick={() => guestFileInput?.click()}
+			>
+				<ThemeIcon role="upload" />
+				{m.media_upload_device()}
+			</Button>
 			<Button
 				variant={stockOpen ? 'secondary' : 'outline'}
 				size="sm"
@@ -567,7 +636,7 @@
 		showCreate={false}
 		presentation="dialog"
 		desktopSize="default"
-		initialMode="upload"
+		initialMode={pickerInitialMode}
 		autoConfirmUploads
 		title={m.image_editor_add_image()}
 		onConfirm={async (ids) => {
@@ -587,6 +656,7 @@
 				});
 				replaceMode = false;
 			} else editor.addImage({ id });
+			if (!item) addedMessage = m.image_editor_media_added({ name: m.image_editor_image() });
 		}}
 	/>
 {/if}

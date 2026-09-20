@@ -2,6 +2,7 @@ import { strToU8, zipSync } from 'fflate';
 import type { ImageEditorDocument, ImageEditorPage } from './types';
 import { OpenPostFabricAdapter } from './fabric-adapter';
 import { m } from '$lib/paraglide/messages';
+import { imageEditorArchiveFilename, imageEditorPageFilename } from './export-names';
 
 export interface ImageEditorRenderedPage {
 	page: ImageEditorPage;
@@ -79,7 +80,12 @@ export async function renderImageEditorPage(
 		signal?.throwIfAborted();
 		return {
 			page,
-			filename: `${sanitizeFilename(imageEditorDocument.title)}-page-${String(pageIndex + 1).padStart(2, '0')}.${extensionForFormat(format)}`,
+			filename: imageEditorPageFilename(
+				imageEditorDocument.title,
+				page.name,
+				pageIndex,
+				extensionForFormat(format)
+			),
 			blob
 		};
 	} finally {
@@ -155,7 +161,7 @@ export async function downloadRenderedPages(
 	});
 	downloadBlob(
 		new Blob([zipped.slice().buffer], { type: 'application/zip' }),
-		`${sanitizeFilename(title)}.zip`
+		imageEditorArchiveFilename(title)
 	);
 }
 
@@ -166,16 +172,6 @@ function downloadBlob(blob: Blob, filename: string): void {
 	link.download = filename;
 	link.click();
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function sanitizeFilename(value: string): string {
-	return (
-		value
-			.toLowerCase()
-			.trim()
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-|-$/g, '') || 'openpost-design'
-	);
 }
 
 function extensionForFormat(format: string): string {

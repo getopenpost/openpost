@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [5.2.1] - 2026-09-20
+
 ### Changed
 
 - Moved the public documentation to `openpo.st/docs` and kept old documentation links working through direct redirects.
@@ -33,6 +35,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Keep dialog close buttons in their intended position when using the Dither theme, and fit the free-tools heading on narrow phones.
+- Link directly to canonical documentation Markdown files from the public agent guide.
 - Use the same ordered dither gradients across marketing, application controls, and documentation. Button hover and keyboard focus now lift pixel density, and chart fills keep square pixels at every height without changing values or series colors.
 - Saved URL imports, stock media, stickers, Lottie animations, captured frames, freeze frames, generated audio, and processed video to Cloud Video Projects without asking for a local workspace folder.
 - Kept preview menus usable in fullscreen, placed backgrounds below visual overlays, and exposed keyframe and Pen controls in compact workspaces.

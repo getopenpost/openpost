@@ -66,6 +66,50 @@ test.describe("touch editor discovery", () => {
   });
 });
 
+test("desktop Image Editor uses the compact rail and closes Add when another tool is chosen", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+
+  const tools = page.getByRole("navigation", {
+    name: "OpenPost Image Editor tools",
+    exact: true,
+  });
+  await expect(tools).toBeVisible();
+  await expect.poll(async () => (await tools.boundingBox())?.width).toBe(44);
+
+  const add = tools.getByRole("button", { name: "Add", exact: true });
+  await add.click();
+  await expect(add).toHaveAttribute("aria-pressed", "true");
+
+  const select = tools.getByRole("button", { name: "Select objects", exact: true });
+  await select.click();
+  await expect(add).toHaveAttribute("aria-pressed", "false");
+  await expect(select).toBeFocused();
+});
+
+test("Image Editor keeps Export as the rightmost visible header action", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+
+  const header = page.getByRole("banner");
+  const exportButton = header.getByRole("button", { name: "Export", exact: true });
+  const exportBox = await exportButton.boundingBox();
+  expect(exportBox).not.toBeNull();
+
+  for (const button of [
+    header.getByRole("button", { name: "More actions", exact: true }),
+    header.getByRole("button", { name: "Save to OpenPost", exact: true }),
+  ]) {
+    await expect(button).toBeVisible();
+    const box = await button.boundingBox();
+    if (box) expect(exportBox!.x).toBeGreaterThan(box.x);
+  }
+});
+
 test("signed-in creators can use built-in templates in their workspace", async ({
   page,
   request,

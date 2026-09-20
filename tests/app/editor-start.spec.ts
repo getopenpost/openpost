@@ -12,6 +12,21 @@ test("Image Editor starts a blank project from the primary action", async ({ pag
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
 });
 
+test("signed-in Image Editor names the workspace-backed start action", async ({
+  page,
+  request,
+}) => {
+  const auth = await registerUser(request, `editor-start-label-${randomUUID()}@example.com`);
+  await createWorkspace(request, auth.token, "Editor start label");
+  await authenticatePage(page, auth.token);
+
+  await page.goto("/image-editor");
+
+  await expect(
+    page.getByRole("link", { name: "Open workspace OpenPost Image Editor", exact: true }),
+  ).toHaveAttribute("href", "/image-editor/new");
+});
+
 test("Video Editor creates after folder choice and recovers from cancellation", async ({
   page,
 }) => {

@@ -1723,6 +1723,7 @@
 			!editor.selectedLayers.some((layer) => layer.type === 'image' && !layer.locked)
 		)
 			return;
+		assetOverlayOpen = false;
 		editor.activeTool = tool;
 		if (
 			[
@@ -1755,6 +1756,7 @@
 	}
 
 	function insertShape(kind: typeof shapeSlotKind): void {
+		assetOverlayOpen = false;
 		shapeSlotKind = kind;
 		editor.addShape(kind);
 		editor.activeTool = 'select';
@@ -2769,18 +2771,6 @@
 						? m.image_editor_redo_named({ name: editor.redoLabel })
 						: m.image_editor_redo()}><ThemeIcon role="redo" /></Button
 				>
-				<Button
-					variant="default"
-					size="sm"
-					class="size-11 px-0 sm:h-8 sm:w-auto sm:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
-					aria-label={returnToken ? m.image_editor_attach() : m.image_editor_export()}
-					onclick={() => openExport(returnToken && editor.canEdit ? 'attach' : 'download')}
-				>
-					<ThemeIcon role="download" class="size-3.5" />
-					<span class="hidden sm:inline"
-						>{#if returnToken}{m.image_editor_attach()}{:else}{m.image_editor_export()}{/if}</span
-					>
-				</Button>
 				{#if !guestMode}
 					<Button
 						variant="ghost"
@@ -2903,6 +2893,18 @@
 						{m.image_editor_public_save_openpost()}
 					</Button>
 				{/if}
+				<Button
+					variant="default"
+					size="sm"
+					class="size-11 px-0 sm:h-8 sm:w-auto sm:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+					aria-label={returnToken ? m.image_editor_attach() : m.image_editor_export()}
+					onclick={() => openExport(returnToken && editor.canEdit ? 'attach' : 'download')}
+				>
+					<ThemeIcon role="download" class="size-3.5" />
+					<span class="hidden sm:inline"
+						>{#if returnToken}{m.image_editor_attach()}{:else}{m.image_editor_export()}{/if}</span
+					>
+				</Button>
 			</div>
 		{/snippet}
 	</EditorHeader>
@@ -4541,21 +4543,21 @@
 	@media (min-width: 64rem) {
 		.image-editor-workspace {
 			grid-template-columns:
-				56px
+				44px
 				minmax(0, 1fr)
 				var(--image-editor-inspector-width);
 		}
 
 		.image-editor-workspace[data-inspector='false'] {
-			grid-template-columns: 56px minmax(0, 1fr);
+			grid-template-columns: 44px minmax(0, 1fr);
 		}
 
 		.image-editor-workspace[data-workspace='color'] {
-			grid-template-columns: 56px minmax(0, 1fr) var(--image-editor-inspector-width);
+			grid-template-columns: 44px minmax(0, 1fr) var(--image-editor-inspector-width);
 		}
 
 		.image-editor-workspace[data-focused='true'] {
-			grid-template-columns: 56px minmax(0, 1fr);
+			grid-template-columns: 44px minmax(0, 1fr);
 		}
 
 		.image-editor-inspector {

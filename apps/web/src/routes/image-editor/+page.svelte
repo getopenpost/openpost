@@ -283,7 +283,7 @@
 		{#snippet utility()}
 			{#if authState.isAuthenticated}
 				<Button href="/image-editor/new" variant="ghost" size="sm"
-					>{m.image_editor_workspace_category()}</Button
+					>{m.image_editor_public_workspace()}</Button
 				>
 			{:else}
 				<Button href="/login?redirect=%2Fimage-editor" variant="ghost" size="sm"

@@ -1538,6 +1538,13 @@
 		return true;
 	}
 
+	function finishPolygonalSelectionFromDoubleClick(event: MouseEvent): void {
+		if (editor.activeTool !== 'polygonal_lasso' || !polygonalSelection) return;
+		finishPolygonalSelection();
+		event.preventDefault();
+		event.stopPropagation();
+	}
+
 	function cancelAreaSelection(event: PointerEvent): void {
 		const cancelledTool = selectionGesture?.tool;
 		if (selectionGesture?.pointerID === event.pointerId) {
@@ -2629,6 +2636,7 @@
 						data-testid="image-editor-selection-surface"
 						aria-hidden="true"
 						onpointerdown={startPan}
+						ondblclick={finishPolygonalSelectionFromDoubleClick}
 						onpointermove={movePan}
 						onpointerup={stopPan}
 						onpointercancel={cancelPointer}

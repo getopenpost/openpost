@@ -538,6 +538,22 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
   await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
   await expect(overlay).toHaveAttribute("data-active", "true");
 
+  await page.keyboard.press("ControlOrMeta+D");
+  await page.mouse.click(
+    resumedBounds.x + resumedBounds.width * 0.25,
+    resumedBounds.y + resumedBounds.height * 0.25,
+  );
+  await page.mouse.click(
+    resumedBounds.x + resumedBounds.width * 0.7,
+    resumedBounds.y + resumedBounds.height * 0.3,
+  );
+  await page.mouse.dblclick(
+    resumedBounds.x + resumedBounds.width * 0.45,
+    resumedBounds.y + resumedBounds.height * 0.75,
+  );
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+  await expect(overlay).toHaveAttribute("data-active", "true");
+
   for (const action of ["Grow by 1 px", "Shrink by 1 px", "Invert selection"]) {
     await page.getByRole("button", { name: "Refine selection", exact: true }).click();
     await page.getByRole("menuitem", { name: action, exact: true }).click();

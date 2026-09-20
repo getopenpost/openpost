@@ -47,6 +47,27 @@ it('shows secondary transport controls when the Program container is wide', asyn
 	expect(screen.getByRole('button', { name: 'More actions', exact: true }).query()).toBeNull();
 });
 
+it('keeps preview menus inside the fullscreen surface', async () => {
+	let fullscreenTarget: Element | null = null;
+	Object.defineProperty(document, 'fullscreenElement', {
+		configurable: true,
+		get: () => fullscreenTarget
+	});
+	const screen = await render(Fixture, { width: 900 });
+	const preview = document.querySelector<HTMLElement>('[data-video-preview]');
+	if (!preview) throw new Error('Expected preview surface');
+	preview.requestFullscreen = vi.fn(async () => {
+		fullscreenTarget = preview;
+		document.dispatchEvent(new Event('fullscreenchange'));
+	});
+
+	await screen.getByRole('button', { name: 'Enter preview fullscreen', exact: true }).click();
+	await screen.getByRole('button', { name: /Preview zoom:/ }).click();
+	const zoomOption = screen.getByRole('menuitem', { name: '50%', exact: true }).element();
+	expect(zoomOption.closest('[data-video-preview]')).toBe(preview);
+	await userEvent.keyboard('{Escape}');
+});
+
 it('keeps supported voiceover commands and active stop reachable at 320px', async () => {
 	const recorder = {
 		start: vi.fn(async () => undefined),

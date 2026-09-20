@@ -485,9 +485,32 @@ export function findShortcutConflicts(
 ): EditorShortcutId[] {
 	const normalized = normalizeShortcutBinding(binding);
 	if (!normalized || !hasShortcutPrimaryToken(normalized)) return [];
+	const currentScope = currentId ? shortcutConflictScope(currentId) : null;
 	return EDITOR_SHORTCUT_DEFINITIONS.map(({ id }) => id).filter(
-		(id) => id !== currentId && normalizeShortcutBinding(bindings[id]) === normalized
+		(id) =>
+			id !== currentId &&
+			(currentScope === null || shortcutConflictScope(id) === currentScope) &&
+			normalizeShortcutBinding(bindings[id]) === normalized
 	);
+}
+
+type ShortcutConflictScope =
+	| 'editor'
+	| 'quick-cut'
+	| 'composition'
+	| 'graph'
+	| 'keyframe'
+	| 'track'
+	| 'canvas';
+
+function shortcutConflictScope(id: EditorShortcutId): ShortcutConflictScope {
+	if (id.startsWith('QUICK_CUT_')) return 'quick-cut';
+	if (id.startsWith('COMPOSITION_')) return 'composition';
+	if (id.startsWith('GRAPH_')) return 'graph';
+	if (id.startsWith('KEYFRAME_') || id === 'EDIT_KEYFRAME_ADD') return 'keyframe';
+	if (id.startsWith('TRACK_')) return 'track';
+	if (id.startsWith('NUDGE_')) return 'canvas';
+	return 'editor';
 }
 
 export function browserShortcutConflict(binding: string): BrowserShortcutConflict | null {
@@ -667,18 +690,20 @@ export function createShortcutImportReview(
 		current[id] === next[id] ? [] : [{ id, from: current[id], to: next[id] }]
 	);
 	const idsByBinding = (bindings: EditorShortcutBindingMap) => {
-		const result = new Map<string, EditorShortcutId[]>();
+		const result = new Map<string, { binding: string; ids: EditorShortcutId[] }>();
 		for (const { id } of EDITOR_SHORTCUT_DEFINITIONS) {
 			const binding = normalizeShortcutBinding(bindings[id]);
 			if (!binding) continue;
-			result.set(binding, [...(result.get(binding) ?? []), id]);
+			const key = `${shortcutConflictScope(id)}\0${binding}`;
+			const current = result.get(key);
+			result.set(key, { binding, ids: [...(current?.ids ?? []), id] });
 		}
 		return result;
 	};
 	const currentIdsByBinding = idsByBinding(current);
-	const conflicts = [...idsByBinding(next).entries()].flatMap(([binding, ids]) => {
+	const conflicts = [...idsByBinding(next).entries()].flatMap(([key, { binding, ids }]) => {
 		if (ids.length < 2) return [];
-		const previous = currentIdsByBinding.get(binding) ?? [];
+		const previous = currentIdsByBinding.get(key)?.ids ?? [];
 		return previous.length === ids.length && previous.every((id, index) => id === ids[index])
 			? []
 			: [{ binding, ids }];

@@ -35,7 +35,8 @@ export function addBackgroundItem(
 			from,
 			durationInFrames,
 			label,
-			preferredTrackId: placement.preferredTrackId
+			preferredTrackId: placement.preferredTrackId,
+			stacking: 'bottom'
 		});
 		timelineStore._addItem({
 			id,

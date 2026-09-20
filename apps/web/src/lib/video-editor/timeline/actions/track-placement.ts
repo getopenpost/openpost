@@ -11,6 +11,7 @@ export function ensureOpenTrackForRange(options: {
 	label: string;
 	preferredTrackId?: string;
 	ignoredItemIds?: ReadonlySet<string>;
+	stacking?: 'top' | 'bottom';
 }): TimelineTrack {
 	const plan = planOpenTrackForRange({
 		...options,

@@ -53,6 +53,13 @@ describe('keyboard shortcuts', () => {
 		});
 	});
 
+	it('does not report intentional shortcuts from different editor surfaces as conflicts', () => {
+		const bindings = resolveEditorShortcuts();
+		for (const { id } of EDITOR_SHORTCUT_DEFINITIONS) {
+			expect(findShortcutConflicts(bindings, bindings[id], id), id).toEqual([]);
+		}
+	});
+
 	it('rejects malformed presets instead of partially applying them', () => {
 		expect(() => parseShortcutPreset({ schema: SHORTCUT_PRESET_SCHEMA, overrides: [] })).toThrow(
 			'Invalid shortcut preset'

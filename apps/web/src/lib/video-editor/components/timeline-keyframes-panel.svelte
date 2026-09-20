@@ -424,6 +424,20 @@
 			{onedit}
 		/>
 	{/if}
+	{#if keyframeEditorMode !== 'dopesheet'}
+		<KeyframeValueGraph
+			item={selectedItem}
+			property={pendingKeyframeProperty}
+			currentFrame={timelineStore.currentFrame}
+			onscrub={setCurrentFrame}
+			onselect={(keyframe) =>
+				(selectedKeyframe = keyframe
+					? { property: keyframe.property, frame: keyframe.frame }
+					: null)}
+			{onedit}
+			fitRequest={keyframeGraphFitRequest}
+		/>
+	{/if}
 	<PropertyRuntimePanel
 		item={selectedItem}
 		items={timelineStore.items}
@@ -510,19 +524,5 @@
 				</div>
 			{/if}
 		</div>
-	{/if}
-	{#if keyframeEditorMode !== 'dopesheet'}
-		<KeyframeValueGraph
-			item={selectedItem}
-			property={pendingKeyframeProperty}
-			currentFrame={timelineStore.currentFrame}
-			onscrub={setCurrentFrame}
-			onselect={(keyframe) =>
-				(selectedKeyframe = keyframe
-					? { property: keyframe.property, frame: keyframe.frame }
-					: null)}
-			{onedit}
-			fitRequest={keyframeGraphFitRequest}
-		/>
 	{/if}
 </div>

@@ -4,6 +4,6 @@
 	let { width }: { width: number } = $props();
 </script>
 
-<div class="@container/program" style:width={`${width}px`}>
+<div class="@container/program" style:width={`${width}px`} data-video-preview>
 	<TransportBar projectId="transport-test" />
 </div>

@@ -5972,9 +5972,13 @@
 				<ContextMenu.Item disabled={!contextItemsEditable} onclick={onsplitselection}>
 					{m.video_editor_shortcuts_command_split()}
 					<ContextMenu.Shortcut
-						>{formatShortcutBinding(
-							keyboardShortcuts.bindings.SPLIT_AT_PLAYHEAD
-						)}</ContextMenu.Shortcut
+						>{[
+							keyboardShortcuts.bindings.SPLIT_AT_PLAYHEAD,
+							keyboardShortcuts.bindings.SPLIT_AT_PLAYHEAD_ALT
+						]
+							.filter(Boolean)
+							.map((binding) => formatShortcutBinding(binding))
+							.join(' / ')}</ContextMenu.Shortcut
 					>
 				</ContextMenu.Item>
 				{#if canLinkSelectedItems}

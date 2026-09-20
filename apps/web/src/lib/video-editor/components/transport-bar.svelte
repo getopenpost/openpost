@@ -62,6 +62,7 @@
 			: m.video_editor_quality_full()
 	);
 	let fullscreen = $state(false);
+	let fullscreenPortalTarget = $state<HTMLElement | null>(null);
 	let savingFrame = $state(false);
 
 	const timecode = $derived.by(() => {
@@ -151,7 +152,9 @@
 
 	onMount(() => {
 		const syncFullscreen = () => {
-			fullscreen = document.fullscreenElement === previewElement();
+			const preview = previewElement();
+			fullscreen = document.fullscreenElement === preview;
+			fullscreenPortalTarget = fullscreen ? preview : null;
 		};
 		document.addEventListener('fullscreenchange', syncFullscreen);
 		return () => document.removeEventListener('fullscreenchange', syncFullscreen);
@@ -434,7 +437,12 @@
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end" side="top" class="video-editor-theme min-w-44">
+			<DropdownMenu.Content
+				align="end"
+				side="top"
+				class="video-editor-theme min-w-44"
+				portalProps={fullscreenPortalTarget ? { to: fullscreenPortalTarget } : undefined}
+			>
 				<DropdownMenu.Item onclick={() => previewPlaybackSettings.setPreviewQuality('auto')}>
 					<span class="flex-1">{m.video_editor_quality_auto()}</span>
 					{#if previewPlaybackSettings.previewQuality === 'auto' && adaptiveQualityPercent < 100}
@@ -474,7 +482,12 @@
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end" side="top" class="video-editor-theme min-w-28">
+			<DropdownMenu.Content
+				align="end"
+				side="top"
+				class="video-editor-theme min-w-28"
+				portalProps={fullscreenPortalTarget ? { to: fullscreenPortalTarget } : undefined}
+			>
 				{#each PREVIEW_ZOOM_PRESETS as preset (preset)}
 					<DropdownMenu.Item onclick={() => previewPlaybackSettings.setZoom(preset)}>
 						<span class:font-semibold={previewPlaybackSettings.zoom === preset}>

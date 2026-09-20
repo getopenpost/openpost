@@ -55,14 +55,16 @@ export function planOpenTrackForRange(options: {
 	label: string;
 	preferredTrackId?: string;
 	ignoredItemIds?: ReadonlySet<string>;
+	stacking?: 'top' | 'bottom';
 	createId: () => string;
 }): OpenTrackPlan {
 	const ignoredItemIds = options.ignoredItemIds ?? new Set<string>();
 	const compatible = options.tracks
 		.filter((track) => !track.isGroup && track.kind === options.kind && !track.locked)
-		.toSorted((left, right) =>
-			options.kind === 'video' ? left.order - right.order : right.order - left.order
-		);
+		.toSorted((left, right) => {
+			if (options.kind === 'audio') return right.order - left.order;
+			return options.stacking === 'bottom' ? right.order - left.order : left.order - right.order;
+		});
 	const preferred = options.preferredTrackId
 		? compatible.find((track) => track.id === options.preferredTrackId)
 		: undefined;
@@ -96,7 +98,7 @@ export function planOpenTrackForRange(options: {
 			solo: false,
 			volume: 1,
 			order:
-				options.kind === 'video'
+				options.kind === 'video' && options.stacking !== 'bottom'
 					? (orders.length > 0 ? Math.min(...orders) : 0) - 1
 					: (orders.length > 0 ? Math.max(...orders) : -1) + 1
 		}

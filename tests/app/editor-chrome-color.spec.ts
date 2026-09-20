@@ -351,15 +351,17 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         "color",
       );
       await expect(page.locator("[data-image-color-workspace]:visible")).toBeVisible();
-      await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(14);
+      await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(10);
+      await expect(page.getByRole("button", { name: "Advanced", exact: true })).toBeVisible();
       if (width === 1440) {
         const scope = page.getByRole("group", { name: "Color", exact: true });
         await page.getByRole("tree", { name: "Layers" }).getByText("color-source.png").click();
         await scope.getByRole("button", { name: "Layers", exact: true }).click();
-        await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(15);
+        await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(11);
         await scope.getByRole("button", { name: "Page", exact: true }).click();
         if (theme.id === "workshop") {
           await page.getByRole("button", { name: "Advanced", exact: true }).click();
+          await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(14);
           const originalPixel = await designCanvasCenterPixel(page);
           const offset = page.getByRole("slider", { name: "Offset color wheel" });
           await offset.press("End");

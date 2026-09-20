@@ -29,13 +29,21 @@ test("composes both builds and keeps control files at the deployment root", asyn
   const marketing = path.join(root, "marketing");
   const docs = path.join(root, "documentation");
   const output = path.join(root, "output");
-  await Promise.all([mkdir(marketing), mkdir(docs)]);
+  await Promise.all([mkdir(path.join(marketing, "tools"), { recursive: true }), mkdir(docs)]);
   await Promise.all([
     writeFile(path.join(marketing, "index.html"), "marketing"),
-    writeFile(path.join(marketing, "_headers"), "/\n  Vary: Accept\n"),
+    writeFile(path.join(marketing, "index.md"), "marketing Markdown"),
+    writeFile(path.join(marketing, "tools/example.md"), "tool Markdown"),
+    writeFile(
+      path.join(marketing, "_headers"),
+      "/\n  Vary: Accept\n/*.md\n  Content-Type: text/markdown; charset=utf-8\n  Vary: Accept\n",
+    ),
     writeFile(path.join(marketing, "_redirects"), "/features /#features 301\n"),
     writeFile(path.join(docs, "index.html"), "documentation"),
-    writeFile(path.join(docs, "_headers"), "/api/search\n  Content-Type: application/json\n"),
+    writeFile(
+      path.join(docs, "_headers"),
+      "/*.md\n  Content-Type: text/markdown; charset=utf-8\n  Vary: Accept\n  Cache-Control: public, max-age=60\n/api/search\n  Content-Type: application/json\n/docs/*\n  Vary: Accept\n",
+    ),
     writeFile(path.join(docs, "_redirects"), "/usage /guides/quickstart 301\n"),
   ]);
 
@@ -47,7 +55,16 @@ test("composes both builds and keeps control files at the deployment root", asyn
 
   assert.equal(await readFile(path.join(output, "index.html"), "utf8"), "marketing");
   assert.equal(await readFile(path.join(output, "docs/index.html"), "utf8"), "documentation");
-  assert.match(await readFile(path.join(output, "_headers"), "utf8"), /\/docs\/api\/search/u);
+  const headers = await readFile(path.join(output, "_headers"), "utf8");
+  assert.match(headers, /\/docs\/api\/search/u);
+  assert.doesNotMatch(headers, /^\/\*\.md$/mu);
+  assert.match(headers, /^\/index\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
+  assert.match(headers, /^\/tools\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
+  assert.match(
+    headers,
+    /\/docs\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8\n  Cache-Control: public, max-age=60/u,
+  );
+  assert.doesNotMatch(headers, /\/docs\/\*\.md\n(?:  .+\n)*  Vary: Accept/u);
   assert.match(
     await readFile(path.join(output, "_redirects"), "utf8"),
     /\/docs\/usage \/docs\/guides\/quickstart 301/u,

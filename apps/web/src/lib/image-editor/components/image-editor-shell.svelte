@@ -2736,7 +2736,7 @@
 				saving={editor.saveState === 'saving'}
 				saved={editor.saveState === 'saved'}
 				savingLabel={m.common_saving()}
-				savedLabel={guestMode ? m.image_editor_public_saved_device() : m.image_editor_saved()}
+				savedLabel={guestMode ? m.image_editor_public_saved_device() : m.video_editor_saved_cloud()}
 				class="max-sm:mr-2 max-sm:px-0"
 				testId="image-editor-save-indicator"
 			/>

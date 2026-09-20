@@ -15,6 +15,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { Button } from '$lib/components/ui/button';
 	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
 	import EditorHeader from '$lib/components/editor-header.svelte';
+	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
@@ -2372,9 +2373,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			</div>
 		{/snippet}
 		{#snippet actions()}
-			{#if editorSession.saving}
-				<span class="hidden sm:inline">{m.video_editor_saving()}</span>
-			{:else if editorSession.saveError}
+			{#if editorSession.saveError}
 				<Button
 					type="button"
 					variant="ghost"
@@ -2393,10 +2392,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							: `${m.video_editor_save_failed()}. ${m.common_retry()}`}
 					</span>
 				</Button>
-			{:else if displayedProject && !timelineStore.isDirty && !editorSession.projectDirty}
-				<span class="hidden sm:inline"
-					>{cloudStorage ? m.video_editor_saved_cloud() : m.video_editor_saved()}</span
-				>
+			{:else}
+				<SaveIndicator
+					saving={editorSession.saving}
+					saved={Boolean(displayedProject && !timelineStore.isDirty && !editorSession.projectDirty)}
+					savingLabel={m.video_editor_saving()}
+					savedLabel={cloudStorage
+						? m.video_editor_saved_cloud()
+						: m.image_editor_public_saved_device()}
+					class="max-sm:px-0"
+				/>
 			{/if}
 			<Button
 				type="button"

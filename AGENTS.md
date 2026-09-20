@@ -27,7 +27,7 @@ Load only the branch the task needs:
 | Go HTTP or OpenAPI work                                                 | `huma`; for TypeScript consumers, also use `openapi-typescript`                                     |
 | Server-state reads, cache keys, invalidation, or loading boundaries     | `docs/specs/server-state-query-migration.md`                                                        |
 | Deployment, runtime configuration, release workflows, or revision proof | `docs/agents/deployable-inventory.md`                                                               |
-| n8n package release                                                     | `docs/agents/n8n-package-release.md`                                                                |
+| n8n package release or package-only recovery                            | `docs/agents/n8n-package-release.md`                                                                |
 | Video Editor, Quick Cut, or Recorder                                    | `docs/specs/video-editors-rebuild.md` and the relevant rows in `docs/specs/freecut-parity-audit.md` |
 
 For reference implementations, read `docs/references/README.md` before inspecting a checkout. Use `postiz` or `shoutrrr` for publishing and durable automation, `miniPaint` for the Image Editor, and the named video references for recording or editing. Keep reference checkouts shallow and Git-ignored. Audit source and license before porting code; OpenPost's architecture, security, accessibility, provider rules, and product language remain authoritative.

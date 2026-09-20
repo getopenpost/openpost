@@ -1,6 +1,13 @@
 name: Build and Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Publish an independent package without rebuilding the app
+        required: true
+        type: choice
+        options: [n8n]
   push:
     tags:
       - "v*"
@@ -15,6 +22,7 @@ permissions: {}
 jobs:
   verify-candidate:
     name: Verify exact release candidate
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -481,6 +489,7 @@ jobs:
 
   publish-n8n:
     name: Publish and verify n8n package
+    if: "!cancelled() && (needs.promote-image.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'n8n'))"
     runs-on: ubuntu-latest
     # The n8n package keeps its own publication identity and runs beside the
     # Hosted deployment, never behind it: an npm failure must not delay or

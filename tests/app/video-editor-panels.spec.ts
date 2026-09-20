@@ -123,8 +123,13 @@ for (const scheme of ["light", "dark"] as const) {
     const curveMarker = page
       .locator("[data-curves-editor] circle, [data-curves-editor] ellipse")
       .nth(1);
+    await expect
+      .poll(async () => {
+        const box = await curveMarker.boundingBox();
+        return box ? Math.abs(box.width - box.height) : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThan(1);
     const markerBox = (await curveMarker.boundingBox())!;
-    expect(Math.abs(markerBox.width - markerBox.height)).toBeLessThan(1);
     expect(markerBox.width).toBeGreaterThanOrEqual(8);
     expect(markerBox.width).toBeLessThanOrEqual(16);
     await expect(

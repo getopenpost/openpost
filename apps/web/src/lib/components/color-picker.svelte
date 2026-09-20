@@ -21,6 +21,8 @@
 		variant = 'field',
 		triggerClass = '',
 		live = true,
+		opacity = 100,
+		onOpacityChange,
 		onChange,
 		onCommit
 	}: {
@@ -34,6 +36,8 @@
 		variant?: 'field' | 'swatch';
 		triggerClass?: string;
 		live?: boolean;
+		opacity?: number;
+		onOpacityChange?: (value: number) => void;
 		onChange: (value: string) => void;
 		onCommit?: (value: string) => void;
 	} = $props();
@@ -127,6 +131,7 @@
 					<span
 						class="w-10 shrink-0 border-r border-input"
 						style:background-color={swatchColor ?? normalizeHex(value)}
+						style:opacity={opacity / 100}
 					></span>
 					<span class="min-w-0 flex-1 self-center truncate px-2 font-mono uppercase"
 						>{normalizeHex(value)}</span
@@ -135,6 +140,7 @@
 					<span
 						class="size-full rounded-sm ring-1 ring-foreground/15"
 						style:background-color={swatchColor ?? normalizeHex(value)}
+						style:opacity={opacity / 100}
 					></span>
 				{/if}
 			</button>
@@ -298,6 +304,32 @@
 						/>
 					</div>
 				{/each}
+			</div>
+		{/if}
+		{#if onOpacityChange}
+			<div class="space-y-2">
+				<p class="text-xs font-medium">{m.theme_editor_opacity()}</p>
+				<div class="grid grid-cols-[1fr_4rem] items-center gap-2">
+					<Slider
+						value={opacity}
+						min={0}
+						max={100}
+						step={1}
+						ariaLabel={m.theme_editor_opacity()}
+						onValueChange={onOpacityChange}
+					/>
+					<Input
+						type="number"
+						min={0}
+						max={100}
+						value={opacity}
+						aria-label={`${m.theme_editor_opacity()} (%)`}
+						onchange={(event) => {
+							const next = numericValue(event);
+							if (Number.isFinite(next)) onOpacityChange?.(Math.max(0, Math.min(100, next)));
+						}}
+					/>
+				</div>
 			</div>
 		{/if}
 	</Popover.Content>

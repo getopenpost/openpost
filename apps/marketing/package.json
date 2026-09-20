@@ -12,15 +12,16 @@
 	"dependencies": {
 		"@lucide/svelte": "^0.577.0",
 		"@openpost/changelog": "workspace:*",
+		"@openpost/dither": "workspace:*",
 		"@openpost/legal-policy": "workspace:*",
 		"@openpost/plan-catalog": "workspace:*",
 		"@openpost/social-images": "workspace:*",
 		"@openpost/social-preview": "workspace:*",
 		"@openpost/telemetry": "workspace:*",
+		"fuse.js": "^7.5.0",
 		"medium-zoom": "^1.1.0",
 		"mode-watcher": "^1.1.0",
-		"rough-notation": "^0.5.1",
-		"@openpost/dither": "workspace:*"
+		"rough-notation": "^0.5.1"
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "^2.10.0",

@@ -4,6 +4,23 @@ import ColorPicker from './color-picker.svelte';
 import '../../routes/layout.css';
 
 describe('shared color picker', () => {
+	it('changes optional opacity without rewriting the color', async () => {
+		const onChange = vi.fn();
+		const onOpacityChange = vi.fn();
+		const screen = await render(ColorPicker, {
+			label: 'Logo color',
+			value: '#112233',
+			opacity: 100,
+			onChange,
+			onOpacityChange
+		});
+		await screen.getByRole('button', { name: 'Logo color' }).click();
+		const opacity = screen.getByRole('spinbutton', { name: 'Opacity (%)' });
+		await opacity.fill('50');
+		await screen.getByRole('button', { name: 'rgb', exact: true }).click();
+		expect(onOpacityChange).toHaveBeenCalledWith(50);
+		expect(onChange).not.toHaveBeenCalled();
+	});
 	it('offers brand colors and commits a preset without the browser picker', async () => {
 		const onChange = vi.fn();
 		const onCommit = vi.fn();

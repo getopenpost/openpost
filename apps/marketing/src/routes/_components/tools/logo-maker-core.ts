@@ -1,6 +1,13 @@
 export type LogoBackground =
-	| { kind: 'solid'; color: string }
-	| { kind: 'gradient'; from: string; to: string; angle: number }
+	| { kind: 'solid'; color: string; opacity?: number }
+	| {
+			kind: 'gradient';
+			from: string;
+			to: string;
+			angle: number;
+			fromOpacity?: number;
+			toOpacity?: number;
+	  }
 	| { kind: 'transparent' };
 
 // Icons render through @lucide/svelte, which retains Lucide's ISC license in the installed package.
@@ -71,11 +78,13 @@ export const logoIconMetadata = {
 	wifi: ['Wi-Fi', 'wireless signal internet']
 } as const;
 
-export type LogoIconName = keyof typeof logoIconMetadata;
+export type LogoIconName = string;
 
 export interface LogoDesign {
 	icon: LogoIconName;
 	iconColor: string;
+	iconOpacity?: number;
+	fillOpacity?: number;
 	fillColor: string;
 	iconSize: number;
 	rotation: number;

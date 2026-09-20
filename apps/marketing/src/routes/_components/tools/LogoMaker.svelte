@@ -1,75 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import {
-		Activity,
-		Airplay,
-		Anchor,
-		Aperture,
-		Award,
-		Banana,
-		Banknote,
-		Bell,
-		Bike,
-		Bird,
-		BookOpen,
-		Bot,
-		Box,
-		BriefcaseBusiness,
-		Brush,
-		Building2,
-		Camera,
-		Car,
-		Cat,
-		ChefHat,
-		Check,
-		Clipboard,
-		Cloud,
-		Code2,
-		Coffee,
-		Compass,
-		Crown,
-		Diamond,
-		Dog,
-		Download,
-		Dumbbell,
-		Earth,
-		Feather,
-		Flame,
-		Flower2,
-		Gamepad2,
-		Gem,
-		Globe,
-		Headphones,
-		Heart,
-		House,
-		KeyRound,
-		Languages,
-		Leaf,
-		Lightbulb,
-		Mail,
-		MapPin,
-		Mic2,
-		Moon,
-		Mountain,
-		Music2,
-		Orbit,
-		Palette,
-		PawPrint,
-		Plane,
-		Rocket,
-		Search,
-		ShieldCheck,
-		ShoppingBag,
-		Smile,
-		Sparkles,
-		Sun,
-		TreePine,
-		Trophy,
-		Utensils,
-		Waves,
-		Wifi,
-		Zap
-	} from '@lucide/svelte';
+	import { Check, Clipboard, Download, Rocket, Search } from '@lucide/svelte';
+	import { logoIcons, searchLogoIcons, LOGO_ICON_BATCH_SIZE } from './logo-icons';
 	import { browser } from '$app/environment';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -79,89 +11,13 @@
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import {
 		exportSizes,
-		logoIconMetadata,
 		logoPresets,
 		serializeLogoSvg,
 		type ExportSize,
-		type LogoDesign,
-		type LogoIconName
+		type LogoDesign
 	} from './logo-maker-core';
 
 	type ExportState = 'idle' | 'working' | 'done' | 'failed';
-	const iconComponents = {
-		rocket: Rocket,
-		sparkles: Sparkles,
-		heart: Heart,
-		leaf: Leaf,
-		mountain: Mountain,
-		camera: Camera,
-		coffee: Coffee,
-		lightbulb: Lightbulb,
-		zap: Zap,
-		globe: Globe,
-		activity: Activity,
-		airplay: Airplay,
-		anchor: Anchor,
-		aperture: Aperture,
-		award: Award,
-		banana: Banana,
-		banknote: Banknote,
-		bell: Bell,
-		bike: Bike,
-		bird: Bird,
-		bookOpen: BookOpen,
-		bot: Bot,
-		box: Box,
-		briefcaseBusiness: BriefcaseBusiness,
-		brush: Brush,
-		building2: Building2,
-		car: Car,
-		cat: Cat,
-		chefHat: ChefHat,
-		cloud: Cloud,
-		code2: Code2,
-		compass: Compass,
-		crown: Crown,
-		diamond: Diamond,
-		dog: Dog,
-		dumbbell: Dumbbell,
-		earth: Earth,
-		feather: Feather,
-		flame: Flame,
-		flower2: Flower2,
-		gamepad2: Gamepad2,
-		gem: Gem,
-		headphones: Headphones,
-		house: House,
-		keyRound: KeyRound,
-		languages: Languages,
-		mail: Mail,
-		mapPin: MapPin,
-		mic2: Mic2,
-		moon: Moon,
-		music2: Music2,
-		orbit: Orbit,
-		palette: Palette,
-		pawPrint: PawPrint,
-		plane: Plane,
-		shieldCheck: ShieldCheck,
-		shoppingBag: ShoppingBag,
-		smile: Smile,
-		sun: Sun,
-		treePine: TreePine,
-		trophy: Trophy,
-		utensils: Utensils,
-		waves: Waves,
-		wifi: Wifi
-	} as const;
-	function isLogoIconName(value: string): value is LogoIconName {
-		return Object.hasOwn(iconComponents, value);
-	}
-	const iconOptions = Object.keys(logoIconMetadata).map((value) => {
-		if (!isLogoIconName(value)) throw new Error(`Missing logo icon: ${value}`);
-		const [label, keywords] = logoIconMetadata[value];
-		return { value, label, keywords, component: iconComponents[value] };
-	});
 	const sizeOptions = exportSizes.map((size) => ({
 		value: String(size),
 		label: `${size} × ${size} px`
@@ -188,12 +44,40 @@
 	let previewElement = $state<SVGSVGElement>();
 	let generation = 0;
 	const activeUrls = new Set<string>();
-	const matchingIcons = $derived(
-		iconOptions.filter((icon) =>
-			`${icon.label} ${icon.keywords}`.toLowerCase().includes(iconSearch.trim().toLowerCase())
-		)
-	);
-	const SelectedIcon = $derived(iconComponents[design.icon]);
+	const matchingIcons = $derived(searchLogoIcons(iconSearch));
+	let visibleCount = $state(LOGO_ICON_BATCH_SIZE);
+	let iconList = $state<HTMLDivElement>();
+	let SelectedIcon = $state.raw<typeof Rocket>(Rocket);
+	let loadedIcon = $state('rocket');
+	let iconError = $state('');
+	let retryIcon = $state(0);
+	const iconReady = $derived(loadedIcon === design.icon);
+	$effect(() => {
+		const matches = matchingIcons;
+		visibleCount = Math.min(LOGO_ICON_BATCH_SIZE, matches.length);
+		if (iconList) iconList.scrollTop = 0;
+	});
+	$effect(() => {
+		const name = design.icon;
+		const attempt = retryIcon;
+		let current = true;
+		iconError = '';
+		const icon = logoIcons.find((item) => item.value === name);
+		if (icon)
+			void icon
+				.load()
+				.then((module) => {
+					if (!current) return;
+					SelectedIcon = module.default;
+					loadedIcon = name;
+				})
+				.catch(() => {
+					if (current) iconError = `Could not load this icon. Try again. (${attempt + 1})`;
+				});
+		return () => {
+			current = false;
+		};
+	});
 	const iconDimension = $derived(((100 - design.padding * 2) * design.iconSize) / 100);
 	const iconOffset = $derived((100 - iconDimension) / 2);
 	const gradient = $derived.by(() => {
@@ -235,6 +119,7 @@
 		markChanged();
 	}
 	function currentSvg(): string {
+		if (!iconReady) throw new Error('Wait for the selected icon to load.');
 		if (!previewElement) throw new Error('Logo preview is unavailable.');
 		return serializeLogoSvg(previewElement, exportSize);
 	}
@@ -347,17 +232,18 @@
 							exportSize = nextSize;
 							markChanged();
 						}}
-					/><Button type="button" variant="outline" onclick={downloadSvg}
+					/><Button type="button" variant="outline" onclick={downloadSvg} disabled={!iconReady}
 						><Download data-icon="inline-start" />SVG</Button
 					><Button
 						type="button"
 						onclick={() => exportPng('download')}
-						disabled={exportState === 'working'}><Download data-icon="inline-start" />PNG</Button
+						disabled={exportState === 'working' || !iconReady}
+						><Download data-icon="inline-start" />PNG</Button
 					>{#if canCopyPng}<Button
 							type="button"
 							variant="outline"
 							onclick={() => exportPng('copy')}
-							disabled={exportState === 'working'}
+							disabled={exportState === 'working' || !iconReady}
 							>{#if exportState === 'done' && statusMessage === 'PNG copied.'}<Check
 									data-icon="inline-start"
 								/>{:else}<Clipboard data-icon="inline-start" />{/if}Copy PNG</Button
@@ -380,9 +266,13 @@
 								y1={`${50 - gradient.y}%`}
 								x2={`${50 + gradient.x}%`}
 								y2={`${50 + gradient.y}%`}
-								><stop stop-color={design.background.from} /><stop
+								><stop
+									stop-color={design.background.from}
+									stop-opacity={(design.background.fromOpacity ?? 100) / 100}
+								/><stop
 									offset="1"
 									stop-color={design.background.to}
+									stop-opacity={(design.background.toOpacity ?? 100) / 100}
 								/></linearGradient
 							>{/if}{#if design.shadow}<filter
 								id="logo-shadow"
@@ -403,6 +293,9 @@
 							width="100"
 							height="100"
 							rx={design.cornerRadius}
+							fill-opacity={design.background.kind === 'solid'
+								? (design.background.opacity ?? 100) / 100
+								: 1}
 							fill={design.background.kind === 'solid'
 								? design.background.color
 								: 'url(#logo-background)'}
@@ -412,6 +305,8 @@
 						y={iconOffset}
 						size={iconDimension}
 						color={design.iconColor}
+						stroke-opacity={(design.iconOpacity ?? 100) / 100}
+						fill-opacity={(design.fillOpacity ?? 100) / 100}
 						fill={design.fillColor}
 						strokeWidth={design.strokeWidth}
 						transform={`rotate(${design.rotation} 50 50)`}
@@ -450,12 +345,21 @@
 							aria-hidden="true"
 						/><Input
 							bind:value={iconSearch}
-							placeholder="Search 64 icons"
+							placeholder={`Search ${logoIcons.length.toLocaleString()} Lucide icons`}
 							class="h-11 pl-9"
 						/></label
 					>
-					<div class="mt-2 grid max-h-44 grid-cols-5 gap-2 overflow-y-auto pr-1">
-						{#each matchingIcons as icon (icon.value)}{@const Icon = icon.component}<button
+					<div
+						bind:this={iconList}
+						aria-label="Icon collection"
+						class="mt-2 grid max-h-44 grid-cols-5 gap-2 overflow-y-auto pr-1"
+						onscroll={(event) => {
+							const node = event.currentTarget;
+							if (node.scrollHeight - node.scrollTop - node.clientHeight < 100)
+								visibleCount = Math.min(matchingIcons.length, visibleCount + LOGO_ICON_BATCH_SIZE);
+						}}
+					>
+						{#each matchingIcons.slice(0, visibleCount) as icon (icon.value)}<button
 								type="button"
 								class="focus-ring grid min-h-11 place-items-center rounded-md border bg-background hover:bg-muted"
 								class:border-primary={design.icon === icon.value}
@@ -466,16 +370,47 @@
 								onclick={() => {
 									design.icon = icon.value;
 									markChanged();
-								}}><Icon class="size-5" aria-hidden="true" /></button
+								}}
+								>{#await icon.load()}<span
+										class="size-5 animate-pulse rounded bg-muted"
+										aria-hidden="true"
+									></span>{:then module}{@const Icon = module.default}<Icon
+										class="size-5"
+										aria-hidden="true"
+									/>{:catch}<span class="text-xs">Retry</span>{/await}</button
 							>{:else}<p class="col-span-5 py-3 text-sm text-muted-foreground">
 								No icons match.
 							</p>{/each}
 					</div>
+					<p class="mt-2 text-xs text-muted-foreground" aria-live="polite">
+						{matchingIcons.length.toLocaleString()} icons{#if visibleCount < matchingIcons.length}
+							· Scroll for more{/if}
+					</p>
+					{#if visibleCount < matchingIcons.length}<Button
+							type="button"
+							variant="ghost"
+							class="mt-1 w-full"
+							onclick={() =>
+								(visibleCount = Math.min(
+									matchingIcons.length,
+									visibleCount + LOGO_ICON_BATCH_SIZE
+								))}>Load more icons</Button
+						>{/if}
+					{#if iconError}<p role="alert" class="text-sm text-destructive">{iconError}</p>
+						<Button type="button" variant="outline" onclick={() => retryIcon++}>Retry icon</Button
+						>{:else if !iconReady}<p role="status" class="text-sm text-muted-foreground">
+							Loading selected icon…
+						</p>{/if}
 				</fieldset>
 				<div class="grid grid-cols-2 gap-3">
 					<ColorPicker
 						label="Icon color"
 						value={design.iconColor}
+						opacity={design.iconOpacity ?? 100}
+						onOpacityChange={(value) => {
+							design.iconOpacity = value;
+							markChanged();
+						}}
 						{brandColors}
 						onChange={(value) => {
 							design.iconColor = value;
@@ -484,6 +419,11 @@
 					/><ColorPicker
 						label="Icon fill"
 						value={design.fillColor === 'none' ? '#FFFFFF' : design.fillColor}
+						opacity={design.fillOpacity ?? 100}
+						onOpacityChange={(value) => {
+							design.fillOpacity = value;
+							markChanged();
+						}}
 						swatchColor={design.fillColor === 'none' ? 'transparent' : design.fillColor}
 						{brandColors}
 						onChange={(value) => {
@@ -547,6 +487,11 @@
 							<ColorPicker
 								label="Background color"
 								value={design.background.color}
+								opacity={design.background.opacity ?? 100}
+								onOpacityChange={(value) => {
+									if (design.background.kind === 'solid') design.background.opacity = value;
+									markChanged();
+								}}
 								{brandColors}
 								onChange={(value) => setBackgroundColor('color', value)}
 							/>
@@ -556,11 +501,21 @@
 							<ColorPicker
 								label="Gradient start"
 								value={design.background.from}
+								opacity={design.background.fromOpacity ?? 100}
+								onOpacityChange={(value) => {
+									if (design.background.kind === 'gradient') design.background.fromOpacity = value;
+									markChanged();
+								}}
 								{brandColors}
 								onChange={(value) => setBackgroundColor('from', value)}
 							/><ColorPicker
 								label="Gradient end"
 								value={design.background.to}
+								opacity={design.background.toOpacity ?? 100}
+								onOpacityChange={(value) => {
+									if (design.background.kind === 'gradient') design.background.toOpacity = value;
+									markChanged();
+								}}
 								{brandColors}
 								onChange={(value) => setBackgroundColor('to', value)}
 							/>

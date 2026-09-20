@@ -32,6 +32,22 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await newProject(page, "Text proof");
+  const header = page.getByRole("banner");
+  const controls = [
+    header.getByRole("button", { name: "Undo", exact: true }),
+    header.getByRole("button", { name: "Redo", exact: true }),
+    header.getByRole("button", { name: "Record screen", exact: true }),
+    header.getByRole("button", { name: "More actions", exact: true }),
+    header.getByRole("button", { name: "Export", exact: true }),
+  ];
+  let previousRight = 0;
+  for (const control of controls) {
+    await expect(control).toBeInViewport();
+    const bounds = await control.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(previousRight);
+    previousRight = bounds!.x + bounds!.width;
+  }
   const url = page.url();
   await page.getByRole("button", { name: "Add layer", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();

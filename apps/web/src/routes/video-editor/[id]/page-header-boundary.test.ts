@@ -42,25 +42,6 @@ describe('OpenPost Video Editor project header boundary', () => {
 		expect(source).toContain('historyOpen = true');
 	});
 
-	it('keeps undo, redo, secondary actions, and overflow before the rightmost Export action', async () => {
-		const source = await readFile(pagePath, 'utf8');
-		const savingStatus = source.indexOf('{#if editorSession.saving}');
-		const undo = source.indexOf('aria-label={m.video_editor_undo()}');
-		const redo = source.indexOf('aria-label={m.video_editor_redo()}');
-		const record = source.indexOf('aria-label={m.video_editor_record_screen()}');
-		const overflow = source.indexOf('aria-label={m.image_editor_more_actions()}');
-		const exportAction = source.indexOf('triggerLabel={m.common_export()}');
-
-		for (const position of [savingStatus, undo, redo, record, overflow, exportAction]) {
-			expect(position).toBeGreaterThan(-1);
-		}
-		expect(savingStatus).toBeLessThan(undo);
-		expect(undo).toBeLessThan(redo);
-		expect(redo).toBeLessThan(record);
-		expect(record).toBeLessThan(overflow);
-		expect(overflow).toBeLessThan(exportAction);
-	});
-
 	it('keeps the remaining menubar actions reachable without the menubar', async () => {
 		const source = await readFile(pagePath, 'utf8');
 

@@ -133,7 +133,7 @@ async function createImageDesign(page: Page): Promise<string> {
   });
   const fileChooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByRole("button", { name: "Upload or camera" }).click();
+  await page.getByRole("button", { name: "Device", exact: true }).click();
   await (
     await fileChooser
   ).setFiles({
@@ -475,7 +475,7 @@ test.describe("touch editor headers", () => {
         const home = header.getByRole("button", { name: /Image Editor/u });
         await expect(home).toHaveCount(1);
         await home.click();
-        await expect(page).toHaveURL(/\/editors$/u);
+        await expect(page).toHaveURL(/\/image-editor$/u);
       }
     }
   });

@@ -1669,7 +1669,7 @@ test.describe("product screenshot capture", () => {
       // The frosted menu is translucent by design; hide the panel behind it so
       // the shot stays readable. The menu itself is captured pixel-honest.
       const assetAside = page.locator("aside", {
-        has: page.getByRole("button", { name: "Upload or camera" }),
+        has: page.getByRole("button", { name: "Device", exact: true }),
       });
       await assetAside.evaluate((panel) => {
         panel.style.visibility = "hidden";

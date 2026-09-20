@@ -359,6 +359,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(15);
         await scope.getByRole("button", { name: "Page", exact: true }).click();
         if (theme.id === "workshop") {
+          await page.getByRole("button", { name: "Advanced", exact: true }).click();
           const originalPixel = await designCanvasCenterPixel(page);
           const offset = page.getByRole("slider", { name: "Offset color wheel" });
           await offset.press("End");
@@ -393,6 +394,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
             timeout: 20_000,
           });
           await page.locator("#image-editor-workspace-tab-color").click();
+          await page.getByRole("button", { name: "Advanced", exact: true }).click();
           await expect(offset).toHaveAttribute("aria-valuetext", "0 degrees, 100 percent");
           await expect(curve.locator("[data-curve-point]")).toHaveCount(points + 1);
           await expect.poll(() => designCanvasCenterPixel(page)).toEqual(advancedPixel);

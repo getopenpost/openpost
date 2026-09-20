@@ -359,7 +359,10 @@ for (const scheme of ["light", "dark"] as const) {
       const controlsBox = (await color.boundingBox())!;
       expect(canvasBox.height).toBeGreaterThanOrEqual(180);
       expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
+      const advanced = color.getByRole("button", { name: "Advanced", exact: true });
+      if ((await advanced.getAttribute("aria-expanded")) !== "true") await advanced.click();
       const lift = page.getByRole("slider", { name: "Lift color wheel", exact: true });
+      await lift.scrollIntoViewIfNeeded();
       await expect(lift).toBeInViewport({ ratio: 1 });
       await lift.press("ArrowUp");
       const previousLift = await lift.getAttribute("aria-valuetext");

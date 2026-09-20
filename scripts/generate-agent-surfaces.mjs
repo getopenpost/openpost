@@ -182,6 +182,21 @@ function documentationHTMLArtifact(page) {
   return route === "/" ? "index.html" : `${route.replace(/^\//u, "")}.html`;
 }
 
+function documentationMarkdownArtifact(page) {
+  return page.replace(/\.mdx?$/u, ".md");
+}
+
+function documentationMarkdownURL(route) {
+  const entry = docsSocialEntries.find(
+    (candidate) =>
+      candidate.route === route && candidate.agentRepresentation.membership === "ordinary",
+  );
+  if (!entry) {
+    throw new Error(`unknown documentation agent route ${route}`);
+  }
+  return new URL(documentationMarkdownArtifact(entry.page), `${docsSiteUrl}/`).href;
+}
+
 const documentationDiscoverySections = [
   ["user-guide", "User guide", "Create, schedule, publish, and review work in the OpenPost app."],
   ["video-editor", "Video Editor", "Create, edit, export, and publish video."],
@@ -1030,12 +1045,12 @@ export const productionProjections = {
       "https://openpo.st/docs/openapi.json",
     ],
     knownArtifactURLs: [
-      "https://openpo.st/docs/index.md",
+      documentationMarkdownURL("/"),
       "https://openpo.st/docs/openapi.json",
-      "https://openpo.st/docs/guides/publishing.md",
-      "https://openpo.st/docs/automate/index.md",
-      "https://openpo.st/docs/automate/cli.md",
-      "https://openpo.st/docs/mcp/index.md",
+      documentationMarkdownURL("/guides/publishing"),
+      documentationMarkdownURL("/automate"),
+      documentationMarkdownURL("/automate/cli"),
+      documentationMarkdownURL("/mcp"),
     ],
     fragmentSources: marketingRouteManifest.map((route) => ({
       canonical: route.canonical,
@@ -1075,7 +1090,7 @@ export const productionProjections = {
         {
           title: "OpenPost documentation",
           description: "Read the user, self-hosting, and API documentation.",
-          url: "https://openpo.st/docs/index.md",
+          url: documentationMarkdownURL("/"),
           classification: "primary",
         },
       ],
@@ -1088,7 +1103,7 @@ export const productionProjections = {
             {
               title: "OpenPost developer entry point",
               description: "Choose the HTTP API, CLI, or MCP server for the job.",
-              url: "https://openpo.st/docs/automate/index.md",
+              url: documentationMarkdownURL("/automate"),
             },
             {
               title: "OpenAPI JSON",
@@ -1098,17 +1113,17 @@ export const productionProjections = {
             {
               title: "OpenPost CLI",
               description: "Use a terminal, script, CI job, cron job, or deploy process.",
-              url: "https://openpo.st/docs/automate/cli.md",
+              url: documentationMarkdownURL("/automate/cli"),
             },
             {
               title: "OpenPost MCP server",
               description: "Connect an AI assistant with explicit read and change scopes.",
-              url: "https://openpo.st/docs/mcp/index.md",
+              url: documentationMarkdownURL("/mcp"),
             },
             {
               title: "Agent-assisted publishing",
               description: "Follow the human-reviewed workflow for agent-prepared publishing work.",
-              url: "https://openpo.st/docs/guides/publishing.md",
+              url: documentationMarkdownURL("/guides/publishing"),
             },
           ],
         },
@@ -1153,7 +1168,7 @@ export const productionProjections = {
           "apps/docs/out",
           documentationHTMLArtifact(entry.page),
         ),
-        outputPath: entry.page.replace(/\.mdx?$/u, ".md"),
+        outputPath: documentationMarkdownArtifact(entry.page),
         page: entry.page,
         route: entry.route,
         catalog: entry,
@@ -1201,7 +1216,7 @@ export const productionProjections = {
           .map((entry) => ({
             title: "OpenPost documentation home",
             description: entry.description,
-            url: new URL(entry.page.replace(/\.mdx?$/u, ".md"), `${docsSiteUrl}/`).href,
+            url: new URL(documentationMarkdownArtifact(entry.page), `${docsSiteUrl}/`).href,
             classification: entry.agentDiscovery.membership,
           })),
         {
@@ -1231,7 +1246,7 @@ export const productionProjections = {
             .map((entry) => ({
               title: entry.socialTitle,
               description: entry.description,
-              url: new URL(entry.page.replace(/\.mdx?$/u, ".md"), `${docsSiteUrl}/`).href,
+              url: new URL(documentationMarkdownArtifact(entry.page), `${docsSiteUrl}/`).href,
             })),
           ...(key === "api"
             ? [

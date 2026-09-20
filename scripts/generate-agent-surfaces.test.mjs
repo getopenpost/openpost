@@ -526,8 +526,19 @@ test("production discovery gives agents direct interface guidance", () => {
   assert.match(marketing, /^## When OpenPost is not a fit$/m);
   assert.match(marketing, /https:\/\/openpo\.st\/docs\/openapi\.json/u);
   assert.match(marketing, /https:\/\/openpo\.st\/docs\/automate\/index\.md/u);
-  assert.match(marketing, /https:\/\/openpo\.st\/docs\/automate\/cli\.md/u);
+  assert.match(marketing, /https:\/\/openpo\.st\/docs\/automate\/cli\/index\.md/u);
+  assert.doesNotMatch(marketing, /https:\/\/openpo\.st\/docs\/automate\/cli\.md/u);
   assert.match(marketing, /https:\/\/openpo\.st\/docs\/mcp\/index\.md/u);
+  assert.ok(
+    productionProjections.marketing.knownArtifactURLs.includes(
+      "https://openpo.st/docs/automate/cli/index.md",
+    ),
+  );
+  assert.ok(
+    !productionProjections.marketing.knownArtifactURLs.includes(
+      "https://openpo.st/docs/automate/cli.md",
+    ),
+  );
   assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
 

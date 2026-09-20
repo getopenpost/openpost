@@ -11,7 +11,7 @@ async function newProject(page: Page, name: string) {
   await expect(title).toHaveValue("Untitled project");
   await title.fill(name);
   await title.press("Tab");
-  await expect(page.locator("header").getByText("Saved to OpenPost", { exact: true })).toBeVisible({
+  await expect(page.locator("header").getByRole("status")).toHaveAttribute("data-state", "saved", {
     timeout: CLOUD_SAVE_TIMEOUT_MS,
   });
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
@@ -66,7 +66,7 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await expect(page.getByRole("img", { name: "A launch with spaces", exact: true })).toBeVisible();
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.locator("header").getByText("Saved to OpenPost", { exact: true })).toBeVisible({
+  await expect(page.locator("header").getByRole("status")).toHaveAttribute("data-state", "saved", {
     timeout: CLOUD_SAVE_TIMEOUT_MS,
   });
   await page
@@ -154,7 +154,7 @@ test("a new cloud project cannot edit the previous project while its document lo
     await expect(title).toBeDisabled();
     await expect(title).toHaveValue("");
     await expect(
-      page.locator("header").getByText("Saved to OpenPost", { exact: true }),
+      page.locator("header").getByRole("status").filter({ hasText: "Saved to OpenPost" }),
     ).toHaveCount(0);
   } finally {
     releaseLoad();
@@ -222,7 +222,7 @@ test("switching projects hides the old editor until its pending save finishes", 
     await expect(title).toHaveValue("");
     await expect(page.getByRole("tabpanel", { name: "Editor workspaces" })).toHaveCount(0);
     await expect(
-      page.locator("header").getByText("Saved to OpenPost", { exact: true }),
+      page.locator("header").getByRole("status").filter({ hasText: "Saved to OpenPost" }),
     ).toHaveCount(0);
   } finally {
     releaseSave();

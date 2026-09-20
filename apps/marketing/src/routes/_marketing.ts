@@ -12,16 +12,16 @@ type PublicProviderClaim = {
 export const appUrl = 'https://app.openpo.st';
 export const managedSignupUrl = `${appUrl}/register?plan=founder&billing_period=monthly`;
 export const billingSettingsUrl = `${appUrl}/settings?tab=billing#billing`;
-export const userDocsUrl = 'https://docs.openpo.st/guides/quickstart';
-export const selfHostingDocsUrl = 'https://docs.openpo.st/self-hosting/';
+export const userDocsUrl = 'https://openpo.st/docs/guides/quickstart';
+export const selfHostingDocsUrl = 'https://openpo.st/docs/self-hosting/';
 export const developerDocsUrl =
 	'https://github.com/getopenpost/openpost/blob/main/docs/development/index.md';
-export const apiGuideUrl = 'https://docs.openpo.st/api-reference';
-export const openApiUrl = 'https://docs.openpo.st/openapi.json';
-export const cliDocsUrl = 'https://docs.openpo.st/automate/cli';
-export const mcpDocsUrl = 'https://docs.openpo.st/mcp';
-export const apiTokenDocsUrl = 'https://docs.openpo.st/api-reference';
-export const agentPublishingDocsUrl = 'https://docs.openpo.st/automate';
+export const apiGuideUrl = 'https://openpo.st/docs/api-reference';
+export const openApiUrl = 'https://openpo.st/docs/openapi.json';
+export const cliDocsUrl = 'https://openpo.st/docs/automate/cli';
+export const mcpDocsUrl = 'https://openpo.st/docs/mcp';
+export const apiTokenDocsUrl = 'https://openpo.st/docs/api-reference';
+export const agentPublishingDocsUrl = 'https://openpo.st/docs/automate';
 export const docsUrl = userDocsUrl;
 export const githubUrl = 'https://github.com/getopenpost/openpost';
 export const siteUrl = 'https://openpo.st';
@@ -270,7 +270,7 @@ const platformImplementations = [
 			'Polls, quote posts, and other format settings remain subject to the account API tier.'
 		],
 		verification: 'Check OAuth, account limits, and each post type you plan to use.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'mastodon',
@@ -321,7 +321,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Check the server rules and publish one media test before you rely on a new server.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'pixelfed',
@@ -372,7 +372,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Check the server rules and publish one photo test before you rely on a new server.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'peertube',
@@ -417,7 +417,7 @@ const platformImplementations = [
 			'One adapter registration is maintained per PeerTube instance.'
 		],
 		verification: 'Upload one test video and confirm it finishes transcoding before scheduling.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'lemmy',
@@ -467,7 +467,7 @@ const platformImplementations = [
 			'Removed remote posts are reported, never reposted automatically.'
 		],
 		verification: 'Post one test discussion and confirm it is visible in the target community.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'piefed',
@@ -517,7 +517,7 @@ const platformImplementations = [
 			'Removed remote posts are reported, never reposted automatically.'
 		],
 		verification: 'Post one test discussion and confirm it is visible in the target community.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'bluesky',
@@ -573,7 +573,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Text and image posts work in OpenPost. Test video with the account before a scheduled campaign.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'linkedin',
@@ -630,7 +630,7 @@ const platformImplementations = [
 		],
 		verification:
 			'OAuth success alone does not prove every publishing permission; test the formats your team will schedule.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'threads',
@@ -686,7 +686,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Verify that Meta can fetch the exact production media URL before scheduling media-heavy work.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'facebook',
@@ -742,7 +742,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not plan a launch around this integration until Page selection and every required format pass a live test.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'instagram',
@@ -798,7 +798,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Test each planned format—feed, carousel, Story, and Reel—because one successful format does not prove the others.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'tiktok',
@@ -850,7 +850,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not use it for real posts until TikTok approves the app and your posting test works.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'youtube',
@@ -901,7 +901,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Confirm upload, processing completion, thumbnail, playlist, and final privacy on the production channel.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'pinterest',
@@ -947,7 +947,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not connect or publish for public accounts until Standard access and every readiness gate pass with current live evidence.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'telegram',
@@ -998,7 +998,7 @@ const platformImplementations = [
 			'Post the command inside the destination chat. A command sent anywhere else does nothing.'
 		],
 		verification: 'Send a test message to the exact chat and confirm it arrives before scheduling.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
 		slug: 'discord',
@@ -1050,7 +1050,7 @@ const platformImplementations = [
 		],
 		verification:
 			'Test the exact webhook and file type before you rely on it for scheduled messages.',
-		docsUrl: 'https://docs.openpo.st/guides/accounts'
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	}
 ] as const;
 
@@ -1215,7 +1215,7 @@ export const faqs = [
 			'OpenPost shows which account failed and what went wrong. Review the error and retry the accounts that can be retried, without publishing the successful ones again.',
 		learnMore: {
 			label: 'Help with scheduled posts',
-			href: 'https://docs.openpo.st/guides/scheduling'
+			href: 'https://openpo.st/docs/guides/scheduling'
 		}
 	},
 	{
@@ -1224,7 +1224,7 @@ export const faqs = [
 		question: 'Can I see how my posts perform?',
 		answer:
 			'Yes. See account growth and post results when your social network provides them. Available numbers, comments, and replies vary by connected account.',
-		learnMore: { label: 'Learn about results', href: 'https://docs.openpo.st/guides/results' }
+		learnMore: { label: 'Learn about results', href: 'https://openpo.st/docs/guides/results' }
 	},
 	{
 		id: 'extra-charges',

@@ -31,9 +31,19 @@
         },
         {
           "key": "documentation",
-          "hostname": "docs.openpo.st",
+          "hostname": "openpo.st",
+          "path_prefix": "/docs",
           "pages_base_header_rules": 3,
           "route_source": "docsPageCatalog"
+        }
+      ],
+      "redirects": [
+        {
+          "key": "retired-documentation-host",
+          "hostname": "docs.openpo.st",
+          "target_hostname": "openpo.st",
+          "target_path_prefix": "/docs",
+          "surface": "documentation"
         }
       ]
     },
@@ -51,7 +61,8 @@
         {
           "key": "legacy-documentation",
           "hostname": "docs.openpost.social",
-          "target_hostname": "docs.openpo.st",
+          "target_hostname": "openpo.st",
+          "target_path_prefix": "/docs",
           "surface": "documentation"
         },
         {

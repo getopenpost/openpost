@@ -79,7 +79,7 @@ test("landing details and resources load without repeating full screenshots", as
   for (const path of [
     "/tools",
     "/guides",
-    "https://docs.openpo.st/guides/quickstart",
+    "https://openpo.st/docs/guides/quickstart",
     "/platforms",
   ]) {
     await expect(resources.locator(`a[href="${path}"]`)).toBeVisible();
@@ -194,7 +194,7 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
     await link.scrollIntoViewIfNeeded();
     await link.focus();
     await expect(link).toBeFocused();
-    await expect(link).toHaveAttribute("href", /^https:\/\/docs\.openpo\.st\//);
+    await expect(link).toHaveAttribute("href", /^https:\/\/openpo\.st\/docs(?:\/|$)/);
   }
   for (const image of await features.locator(".visual img").all()) {
     await image.scrollIntoViewIfNeeded();
@@ -213,7 +213,7 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
   }
   await expect(
     features.getByRole("link", { name: "Connect your tools", exact: true }),
-  ).toHaveAttribute("href", "https://docs.openpo.st/automate");
+  ).toHaveAttribute("href", "https://openpo.st/docs/automate");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 

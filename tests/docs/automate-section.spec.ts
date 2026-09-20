@@ -25,7 +25,7 @@ const pages = [
 ] as const;
 
 test("Automate groups are always-visible sidebar sections", async ({ page }) => {
-  await page.goto("/automate/sdk");
+  await page.goto("/docs/automate/sdk");
 
   const sidebar = page.locator("#nd-sidebar");
   for (const section of ["TypeScript SDK", "HTTP API", "Command-line interface", "n8n workflows"]) {
@@ -46,7 +46,7 @@ test("every Automate guide renders", async ({ page }) => {
   page.on("pageerror", (error) => errors.push(error.message));
 
   for (const [route, heading] of pages) {
-    await page.goto(route);
+    await page.goto(`/docs${route}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await expect(page.locator("#nd-page")).not.toContainText("Page not found");
   }
@@ -56,9 +56,9 @@ test("every Automate guide renders", async ({ page }) => {
 
 test("Automate guide links resolve", async ({ page, request }) => {
   for (const [route] of pages) {
-    await page.goto(route);
+    await page.goto(`/docs${route}`);
     const links = await page
-      .locator('main a[href^="/automate/"], main a[href^="/api-reference"]')
+      .locator('main a[href^="/docs/automate/"], main a[href^="/docs/api-reference"]')
       .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href")!));
     for (const href of new Set(links)) {
       const response = await request.get(href);
@@ -82,7 +82,7 @@ for (const scheme of ["light", "dark"] as const) {
         "/automate/cli/publishing",
         "/automate/n8n/build-a-workflow",
       ]) {
-        await page.goto(route);
+        await page.goto(`/docs${route}`);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
       }
 

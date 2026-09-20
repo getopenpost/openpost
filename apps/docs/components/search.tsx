@@ -3,6 +3,7 @@ import { useDocsSearch } from "fumadocs-core/search/client";
 import { staticClient } from "fumadocs-core/search/client/orama-static";
 import { useState } from "react";
 import { documentationSections } from "@/lib/sections";
+import { docsPath } from "@openpost/social-images";
 import {
   SearchDialog,
   SearchDialogContent,
@@ -18,7 +19,9 @@ import {
 
 export default function Search(props: SharedProps) {
   const [tag, setTag] = useState<string>();
-  const { search, setSearch, query } = useDocsSearch({ client: staticClient({ tag }) });
+  const { search, setSearch, query } = useDocsSearch({
+    client: staticClient({ tag, from: docsPath("/api/search") }),
+  });
   return (
     <SearchDialog {...props} search={search} onSearchChange={setSearch} isLoading={query.isLoading}>
       <SearchDialogOverlay />

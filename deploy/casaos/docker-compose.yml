@@ -46,7 +46,7 @@ x-casaos:
   index: /
   port_map: "8080"
   scheme: http
-  icon: https://docs.openpo.st/assets/brand/icon.svg
+  icon: https://openpo.st/docs/assets/brand/icon.svg
   title:
     en_US: OpenPost
   tagline:
@@ -65,4 +65,4 @@ x-casaos:
   website: https://openpo.st
   repo: https://github.com/getopenpost/openpost
   support: https://github.com/getopenpost/openpost/issues
-  docs: https://docs.openpo.st/self-hosting/casaos
+  docs: https://openpo.st/docs/self-hosting/casaos

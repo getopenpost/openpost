@@ -65,7 +65,7 @@ assert.deepEqual(apiCatalog, {
 			],
 			'service-doc': [
 				{
-					href: 'https://docs.openpo.st/api-reference',
+					href: 'https://openpo.st/docs/api-reference',
 					type: 'text/html'
 				}
 			],
@@ -86,7 +86,7 @@ assert.deepEqual(apiCatalog, {
 			],
 			'service-doc': [
 				{
-					href: 'https://docs.openpo.st/mcp',
+					href: 'https://openpo.st/docs/mcp',
 					type: 'text/html'
 				}
 			]

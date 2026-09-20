@@ -6,42 +6,42 @@
 			title: 'Your media library',
 			icon: '/assets/brand/features/media.svg',
 			text: 'Keep templates, brand assets, and fonts ready to reuse. Find files with tags, collections, and favorites. Draft alt text with AI.',
-			href: 'https://docs.openpo.st/guides/media',
+			href: 'https://openpo.st/docs/guides/media',
 			link: 'Organize your media'
 		},
 		{
 			title: 'Grow your network',
 			icon: '/assets/brand/features/grow.svg',
 			text: 'Find people to follow on Bluesky and Mastodon. Review recommendations and mutual connections, then choose who to follow.',
-			href: 'https://docs.openpo.st/guides/results',
+			href: 'https://openpo.st/docs/guides/results',
 			link: 'Explore Grow'
 		},
 		{
 			title: 'Auto repost',
 			icon: '/assets/brand/features/repost.svg',
 			text: 'Give a post another turn. Set delays and engagement rules, with overrides for individual posts.',
-			href: 'https://docs.openpo.st/guides/scheduling',
+			href: 'https://openpo.st/docs/guides/scheduling',
 			link: 'Set repost rules'
 		},
 		{
 			title: 'Inbox and DMs',
 			icon: '/assets/brand/features/inbox.svg',
 			text: 'Follow conversations and reply to comments and messages from supported connected accounts.',
-			href: 'https://docs.openpo.st/guides/results',
+			href: 'https://openpo.st/docs/guides/results',
 			link: 'See inbox support'
 		},
 		{
 			title: 'Connect your tools',
 			icon: '/assets/brand/features/automation.svg',
 			text: 'Bring OpenPost into the tools you already use. Call the TypeScript SDK, install the CLI from npm, draft with your AI assistant, or connect a workflow in n8n.',
-			href: 'https://docs.openpo.st/automate',
+			href: 'https://openpo.st/docs/automate',
 			link: 'Connect your tools'
 		},
 		{
 			title: 'Teams and security',
 			icon: '/assets/brand/features/workspaces.svg',
 			text: 'Separate workspaces and member roles. Sign in with passkeys or two-factor authentication and manage active sessions.',
-			href: 'https://docs.openpo.st/guides/workspaces',
+			href: 'https://openpo.st/docs/guides/workspaces',
 			link: 'Explore account security'
 		}
 	];
@@ -67,7 +67,7 @@
 				Pick a time or use your next free posting slot. Plan the week in your calendar, stagger
 				channels, and get a reminder when the queue runs low.
 			</p>
-			<a class="focus-ring" href="https://docs.openpo.st/guides/scheduling"
+			<a class="focus-ring" href="https://openpo.st/docs/guides/scheduling" data-sveltekit-reload
 				>Plan your publishing <ArrowUpRight size={17} /></a
 			>
 		</div>
@@ -98,8 +98,10 @@
 					Explore ideas and compare directions. Use Social Sets to choose an account group, build
 					drafts for each channel, and review every version.
 				</p>
-				<a class="focus-ring" href="https://docs.openpo.st/guides/publishing#build-with-ai"
-					>Explore AI writing <ArrowUpRight size={17} /></a
+				<a
+					class="focus-ring"
+					href="https://openpo.st/docs/guides/publishing#build-with-ai"
+					data-sveltekit-reload>Explore AI writing <ArrowUpRight size={17} /></a
 				>
 			</div>
 			<ol class="idea-steps" aria-label="Build with AI">
@@ -140,8 +142,10 @@
 					Pick a template, write the captions, and swap in your images. Save the result to Media or
 					attach it to your post.
 				</p>
-				<a class="focus-ring" href="https://docs.openpo.st/guides/media#add-media-to-a-post"
-					>Make a meme <ArrowUpRight size={17} /></a
+				<a
+					class="focus-ring"
+					href="https://openpo.st/docs/guides/media#add-media-to-a-post"
+					data-sveltekit-reload>Make a meme <ArrowUpRight size={17} /></a
 				>
 			</div>
 			<div class="visual lilac">
@@ -171,7 +175,7 @@
 				Follow views, reach, engagement, and audience changes. Compare posts using the metrics your
 				connected platforms provide, then repurpose a post into a fresh draft.
 			</p>
-			<a class="focus-ring" href="https://docs.openpo.st/guides/results"
+			<a class="focus-ring" href="https://openpo.st/docs/guides/results" data-sveltekit-reload
 				>Explore analytics <ArrowUpRight size={17} /></a
 			>
 		</div>
@@ -195,7 +199,9 @@
 					>
 				</h3>
 				<p>{feature.text}</p>
-				<a class="focus-ring" href={feature.href}>{feature.link} <ArrowUpRight size={16} /></a>
+				<a class="focus-ring" href={feature.href} data-sveltekit-reload
+					>{feature.link} <ArrowUpRight size={16} /></a
+				>
 			</article>
 		{/each}
 	</div>

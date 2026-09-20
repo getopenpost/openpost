@@ -7,7 +7,7 @@
     "url": "https://github.com/getopenpost/openpost",
     "source": "github"
   },
-  "websiteUrl": "https://docs.openpo.st/mcp/",
+  "websiteUrl": "https://openpo.st/docs/mcp/",
   "remotes": [
     {
       "type": "streamable-http",

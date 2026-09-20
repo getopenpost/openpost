@@ -20,7 +20,7 @@ every active row.
 | --- | --- |
 | Repository | <https://github.com/getopenpost/openpost> |
 | Product | <https://openpo.st> |
-| Documentation | <https://docs.openpo.st> |
+| Documentation | <https://openpo.st/docs> |
 | Hosted service | <https://app.openpo.st> |
 | Supported networks | Bluesky, LinkedIn, Mastodon, Threads, and X |
 | Install methods | Docker Compose, GHCR container, a single Go binary, or the Android APK from each GitHub release |

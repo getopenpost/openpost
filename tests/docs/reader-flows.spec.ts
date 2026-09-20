@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("page options provide working document and assistant links", async ({ page }) => {
-  await page.goto("/mcp/cursor");
+  await page.goto("/docs/mcp/cursor");
   const trigger = page.getByRole("button", { name: "Open page options" });
   await trigger.click();
   const chatGPT = page.getByRole("link", { name: "Open in ChatGPT" });
@@ -22,7 +22,7 @@ test("page options provide working document and assistant links", async ({ page 
 for (const width of [320, 390]) {
   test(`mobile navigation stays accessible at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
-    await page.goto("/api-reference");
+    await page.goto("/docs/api-reference");
     const navigation = page.getByRole("navigation", { name: "Documentation sections" });
     const active = navigation.getByRole("link", { name: "API reference" });
     await expect
@@ -43,7 +43,7 @@ for (const width of [320, 390]) {
 
 test("top navigation keeps the requested section order and active state", async ({ page }) => {
   const navigation = page.getByRole("navigation", { name: "Documentation sections" });
-  await page.goto("/");
+  await page.goto("/docs/");
   await expect(navigation.getByRole("link")).toHaveText([
     "Guides",
     "Self-hosting",
@@ -70,7 +70,7 @@ test("top navigation keeps the requested section order and active state", async 
     ["/image-editor", "Image Editor", "Image Editor"],
     ["/api-reference", "API reference", "API reference"],
   ] as const) {
-    await page.goto(route);
+    await page.goto(`/docs${route}`);
     await expect(navigation.getByRole("link", { name: section })).toHaveAttribute(
       "aria-current",
       "page",
@@ -80,7 +80,7 @@ test("top navigation keeps the requested section order and active state", async 
 });
 
 test("search filters keep guides, automation, and API reference separate", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/docs/");
   await page.getByRole("button", { name: /Search documentation/ }).click();
   await expect(page.locator(".docs-search-filters").getByRole("button")).toHaveText([
     "All docs",
@@ -124,9 +124,9 @@ test("moved guides keep their public routes", async ({ request }) => {
     ["/guides/cli", "/automate/cli"],
     ["/mcp/tools", "/mcp/mcp-guide"],
   ] as const) {
-    const response = await request.get(oldPath);
+    const response = await request.get(`/docs${oldPath}`);
     expect(response.ok(), oldPath).toBe(true);
-    expect(new URL(response.url()).pathname).toBe(replacement);
+    expect(new URL(response.url()).pathname).toBe(`/docs${replacement}`);
   }
 });
 
@@ -139,14 +139,14 @@ test("moved Markdown guides keep their agent-readable routes", async ({ request 
     ["/automate/cli.md", "/automate/cli/index.md"],
     ["/automate/n8n.md", "/automate/n8n/index.md"],
   ] as const) {
-    const response = await request.get(oldPath);
+    const response = await request.get(`/docs${oldPath}`);
     expect(response.ok(), oldPath).toBe(true);
-    expect(new URL(response.url()).pathname).toBe(replacement);
+    expect(new URL(response.url()).pathname).toBe(`/docs${replacement}`);
   }
 });
 
 test("AI client picker opens every guide and renders its logo", async ({ page }) => {
-  await page.goto("/mcp");
+  await page.goto("/docs/mcp");
   const picker = page.locator(".mcp-clients");
   await expect(picker.getByRole("link")).toHaveCount(16);
   const clients = await picker
@@ -155,7 +155,7 @@ test("AI client picker opens every guide and renders its logo", async ({ page })
       links.map((link) => ({ href: link.getAttribute("href")!, name: link.textContent!.trim() })),
     );
   for (const client of clients) {
-    await page.goto("/mcp");
+    await page.goto("/docs/mcp");
     const link = picker.getByRole("link", { name: client.name, exact: true });
     await expect
       .poll(() => link.locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth))
@@ -169,7 +169,7 @@ test("AI client picker opens every guide and renders its logo", async ({ page })
 
 test("mobile anchor links leave the heading below sticky navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/mcp");
+  await page.goto("/docs/mcp");
   await page.locator("#choose-a-setup").getByRole("link", { name: "Choose a setup" }).click();
   await expect(page).toHaveURL(/#choose-a-setup$/);
   await expect
@@ -201,13 +201,13 @@ const socialNetworks = [
 test("social integration directory opens a separate illustrated guide for every network", async ({
   page,
 }) => {
-  await page.goto("/self-hosting/integrations");
+  await page.goto("/docs/self-hosting/integrations");
   await expect(page.getByRole("link", { name: "Image credits" })).toHaveCount(0);
   await expect(page.locator("main")).not.toContainText("images from Postiz");
   const directory = page.locator(".provider-directory");
   await expect(directory.getByRole("link")).toHaveCount(socialNetworks.length);
   for (const network of socialNetworks) {
-    await page.goto("/self-hosting/integrations");
+    await page.goto("/docs/self-hosting/integrations");
     await directory.locator(`a[href$="/${network}"]`).click();
     await expect(page).toHaveURL(new RegExp(`/integrations/${network}$`));
     const icon = page.locator(".docs-title-icon img");
@@ -244,7 +244,7 @@ for (const scheme of ["light", "dark"] as const) {
         colorScheme: scheme,
         reducedMotion: width === 1440 ? "no-preference" : "reduce",
       });
-      await page.goto("/self-hosting/integrations/bluesky");
+      await page.goto("/docs/self-hosting/integrations/bluesky");
       const screenshot = page.locator(".setup-screenshot");
       await screenshot.scrollIntoViewIfNeeded();
       const image = screenshot.locator("img:visible").first();
@@ -271,13 +271,13 @@ for (const scheme of ["light", "dark"] as const) {
 
 test("older provider URLs resolve to the individual guides", async ({ request }) => {
   for (const network of socialNetworks) {
-    const response = await request.get(`/providers/${network}`);
+    const response = await request.get(`/docs/providers/${network}`);
     expect(response.ok()).toBe(true);
-    expect(new URL(response.url()).pathname).toBe(`/self-hosting/integrations/${network}`);
+    expect(new URL(response.url()).pathname).toBe(`/docs/self-hosting/integrations/${network}`);
   }
   for (const group of ["meta-platforms", "bluesky-mastodon", "discord-telegram"]) {
-    const response = await request.get(`/self-hosting/integrations/${group}`);
+    const response = await request.get(`/docs/self-hosting/integrations/${group}`);
     expect(response.ok()).toBe(true);
-    expect(new URL(response.url()).pathname).toBe("/self-hosting/integrations");
+    expect(new URL(response.url()).pathname).toBe("/docs/self-hosting/integrations");
   }
 });

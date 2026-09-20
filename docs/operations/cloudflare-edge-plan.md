@@ -1,17 +1,18 @@
 # Cloudflare public edge plan
 
 The public-surface operator owns the optional edge-selected Markdown rules for
-`openpo.st` and `docs.openpo.st`. The explicit `.md` files remain the
-primary interface. A normal marketing or documentation build generates those
-files and never reads Cloudflare credentials or changes a zone.
+marketing at `openpo.st` and documentation under `openpo.st/docs`. The explicit
+`.md` files remain the primary interface. The composed public-site build
+generates those files and never reads Cloudflare credentials or changes a zone.
 
 ## Repository contract
 
 `deploy/cloudflare/edge-plan.json` records two owned zones. The canonical `openpo.st`
 zone owns Markdown negotiation, transforms, response headers, and cache
-variation for `openpo.st` and `docs.openpo.st`. The legacy `openpost.social`
-zone owns only reviewed redirects to the matching marketing, documentation,
-application, media, and telemetry hosts. The file
+variation for both public path namespaces. It also redirects the retired docs
+hostname directly to `/docs`. The legacy `openpost.social` zone owns only
+reviewed redirects to the matching marketing, documentation, application,
+media, and telemetry destinations. The file
 also records execution order, credential names, and Cloudflare Free limits.
 `scripts/cloudflare-edge-plan.mjs` derives every eligible path from
 `marketingRouteManifest` and `docsPageCatalog`. Run:
@@ -54,7 +55,8 @@ characters. The generated plan uses this Cloudflare execution order:
 
 Cloudflare evaluates cache variance from the origin response. The public builds
 therefore generate `Vary: Accept` for every catalogue-owned canonical HTML path
-and the explicit `/*.md` artifacts in their Pages `_headers` files. The response
+and the explicit `/*.md` or `/docs/*.md` artifacts in the composed Pages
+`_headers` file. The response
 transform keeps the selected client response explicit; it does not replace the
 origin header required by the Cache Rule.
 
@@ -172,35 +174,31 @@ not exist before apply, rollback restores an empty phase entry point. Inspect
 again and retain the before, after, rollback, command output, and
 exact repository revision in the private operator record.
 
-## Repository layout migration
+## Public-site deployment
 
-Before pushing the revision that moves applications under `apps/`, update the
-Cloudflare Pages build settings with explicit deployment authorization. Both
-projects must build from the repository root:
+The `openpost-marketing` Pages project owns the whole public origin. Its Git
+integration builds from the repository root with these settings:
 
-| Pages project        | Build command                | Output directory      |
-| -------------------- | ---------------------------- | --------------------- |
-| `openpost-marketing` | `bun run build -- marketing` | `apps/marketing/dist` |
-| `openpost-docs`      | `bun run build -- docs`      | `apps/docs/out`       |
+| Pages project        | Build command                  | Output directory   |
+| -------------------- | ------------------------------ | ------------------ |
+| `openpost-marketing` | `bun run build -- public-site` | `dist/public-site` |
 
-Replace any path filters that still mention `marketing-site/`, `docs-site/`, or
-`frontend/` with their `apps/marketing/`, `apps/docs/`, or `apps/web/` equivalents.
-Keep shared package, asset, and build-script triggers. These settings live outside
-Git; moving repository files does not update them. After publishing, run the
-revision and live-content proof below.
+The build keeps the marketing and docs frameworks separate, then composes their
+static outputs. It rejects a marketing `/docs` collision and writes one root
+`_headers` and `_redirects` file. The old docs project is not a deployment
+owner after cutover. Keep its last successful deployment available only for the
+rollback window, with automatic production builds disabled.
 
 ## Explicit surface deployment proof
 
-The marketing and documentation Pages projects use the repository's Git-backed
-delivery. Let that integration build the reviewed `main` revision. Do not upload
-a second local build over it. After both production deployments finish, run the
-two local production builds and save the read-only Pages deployment lists:
+The public Pages project uses repository Git-backed delivery. Let that
+integration build the reviewed `main` revision. Do not upload a second local
+build over it. After the production deployment finishes, build the same composed
+artifact locally and save the read-only Pages deployment list:
 
 ```sh
-bun run build -- marketing
-bun run build -- docs
+bun run build -- public-site
 bunx wrangler pages deployment list --project-name openpost-marketing --environment production --json > /tmp/openpost-marketing-deployments.json
-bunx wrangler pages deployment list --project-name openpost-docs --environment production --json > /tmp/openpost-docs-deployments.json
 
 reviewed_revision="$(git rev-parse HEAD)"
 reviewed_source="${reviewed_revision:0:7}"
@@ -209,20 +207,10 @@ marketing_deployment_id="$(
     'map(select(.Source == $source))[0].Id' \
     /tmp/openpost-marketing-deployments.json
 )"
-documentation_deployment_id="$(
-  jq -r --arg source "$reviewed_source" \
-    'map(select(.Source == $source))[0].Id' \
-    /tmp/openpost-docs-deployments.json
-)"
-
 curl --fail --silent --show-error \
   --header "Authorization: Bearer $OPENPOST_CLOUDFLARE_PAGES_API_TOKEN" \
   "https://api.cloudflare.com/client/v4/accounts/$OPENPOST_CLOUDFLARE_ACCOUNT_ID/pages/projects/openpost-marketing/deployments/$marketing_deployment_id" \
   > /tmp/openpost-marketing-deployment.json
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $OPENPOST_CLOUDFLARE_PAGES_API_TOKEN" \
-  "https://api.cloudflare.com/client/v4/accounts/$OPENPOST_CLOUDFLARE_ACCOUNT_ID/pages/projects/openpost-docs/deployments/$documentation_deployment_id" \
-  > /tmp/openpost-docs-deployment.json
 ```
 
 The list output contains only an abbreviated source reference. The deployment
@@ -231,7 +219,7 @@ source state, branch, environment, and final deployment stage. Keep the API
 token and all response files outside the repository.
 
 Record a separate 24-hour AI Crawl Control observation with `observed_at`,
-`window_start`, `window_end`, `window_hours: 24`, the two hostnames, request and
+`window_start`, `window_end`, `window_hours: 24`, the `openpo.st` hostname, request and
 response-status counts, the data source, method, next owner, and next review.
 Cloudflare exposes the dashboard data through its
 [GraphQL Analytics API](https://developers.cloudflare.com/ai-crawl-control/reference/graphql-api/).
@@ -241,18 +229,17 @@ timestamps must span exactly 24 hours, both host-count and response-status
 totals must equal the request count, and `observed_at` cannot precede the window
 end.
 
-Then bind the reviewed revision to both Pages deployments and the live hosts:
+Then bind the reviewed revision to the composed deployment and live host:
 
 ```sh
 bun scripts/public-deployment-proof.mjs prove \
   --revision "$(git rev-parse HEAD)" \
-  --marketing-deployment /tmp/openpost-marketing-deployment.json \
-  --documentation-deployment /tmp/openpost-docs-deployment.json \
+  --public-site-deployment /tmp/openpost-marketing-deployment.json \
   --ai-crawl-snapshot /secure/operator-evidence/ai-crawl-24h.json \
   --output /secure/operator-evidence/public-agent-surfaces.json
 ```
 
-Run the command from the clean reviewed commit after both public builds. It
+Run the command from the clean reviewed commit after the public-site build. It
 rejects a different or modified local checkout and any deployment detail that
 does not report the same full commit hash, a clean `main` source, production,
 and a successful final stage. The command is read-only apart from its output

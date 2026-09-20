@@ -36,7 +36,7 @@
 			controls you have.
 		</p>
 		<div class="actions">
-			<Button href="https://docs.openpo.st/guides/workspaces" size="lg"
+			<Button href="https://openpo.st/docs/guides/workspaces" size="lg" data-sveltekit-reload
 				>Protect your account <ArrowUpRight data-icon="inline-end" /></Button
 			><a class="focus-ring" href={resolve('/trust')}>See how we handle your data</a>
 		</div>

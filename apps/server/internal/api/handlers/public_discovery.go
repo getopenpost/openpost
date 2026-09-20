@@ -111,7 +111,7 @@ func (h *PublicDiscoveryHandler) apiCatalog(c echo.Context) error {
 				},
 				"service-doc": []any{
 					map[string]any{
-						"href": "https://docs.openpo.st/development/api-reference",
+						"href": "https://openpo.st/docs/development/api-reference",
 						"type": "text/html",
 					},
 				},
@@ -129,7 +129,7 @@ func (h *PublicDiscoveryHandler) apiCatalog(c echo.Context) error {
 				},
 				"service-doc": []any{
 					map[string]any{
-						"href": "https://docs.openpo.st/mcp/",
+						"href": "https://openpo.st/docs/mcp/",
 						"type": "text/html",
 					},
 				},

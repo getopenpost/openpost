@@ -48,7 +48,7 @@
   ·
   <a href="#self-host"><strong>Self-host</strong></a>
   ·
-  <a href="https://docs.openpo.st"><strong>Docs</strong></a>
+  <a href="https://openpo.st/docs"><strong>Docs</strong></a>
 </p>
 
 <p align="center">
@@ -92,21 +92,21 @@
 
 ## What you can do
 
-- <img src="./assets/brand/features/accounts.svg" alt="" width="24" height="24" align="top"> **[Connect accounts](https://docs.openpo.st/guides/accounts).** Manage your social connections in one workspace. Each provider keeps its own capabilities and publishing limits.
-- <img src="./assets/brand/features/compose.svg" alt="" width="24" height="24" align="top"> **[Compose for each platform](https://docs.openpo.st/guides/publishing).** Write posts and threads, then adjust the text and media for each account. Preview each version before publishing. Save account groups as Social Sets to reuse them.
-- <img src="./assets/brand/features/image-editor.svg" alt="" width="24" height="24" align="top"> **[Image editor](https://docs.openpo.st/image-editor).** Design images and multi-page carousels with layers, templates, and custom fonts. Remove backgrounds in your browser. Export individual pages or the full carousel, or attach them to your post.
-- <img src="./assets/brand/features/video-editor.svg" alt="" width="24" height="24" align="top"> **[Video editor](https://docs.openpo.st/video-editor).** Trim and arrange clips on a multitrack timeline. Add captions, transitions, effects, and audio. Cut footage by selecting words in its transcript.
-- <img src="./assets/brand/features/recorder.svg" alt="" width="24" height="24" align="top"> **[Recorder](https://docs.openpo.st/video-editor/quick-cut-and-recorder).** Capture your screen, camera, and microphone, then bring the recording into your video edit.
-- <img src="./assets/brand/features/calendar.svg" alt="" width="24" height="24" align="top"> **[Calendar and queues](https://docs.openpo.st/guides/scheduling).** Choose a publishing time or the next free slot in a queue. Plan your posts in the calendar, stagger publishing across accounts, and get reminders when your queue runs low.
+- <img src="./assets/brand/features/accounts.svg" alt="" width="24" height="24" align="top"> **[Connect accounts](https://openpo.st/docs/guides/accounts).** Manage your social connections in one workspace. Each provider keeps its own capabilities and publishing limits.
+- <img src="./assets/brand/features/compose.svg" alt="" width="24" height="24" align="top"> **[Compose for each platform](https://openpo.st/docs/guides/publishing).** Write posts and threads, then adjust the text and media for each account. Preview each version before publishing. Save account groups as Social Sets to reuse them.
+- <img src="./assets/brand/features/image-editor.svg" alt="" width="24" height="24" align="top"> **[Image editor](https://openpo.st/docs/image-editor).** Design images and multi-page carousels with layers, templates, and custom fonts. Remove backgrounds in your browser. Export individual pages or the full carousel, or attach them to your post.
+- <img src="./assets/brand/features/video-editor.svg" alt="" width="24" height="24" align="top"> **[Video editor](https://openpo.st/docs/video-editor).** Trim and arrange clips on a multitrack timeline. Add captions, transitions, effects, and audio. Cut footage by selecting words in its transcript.
+- <img src="./assets/brand/features/recorder.svg" alt="" width="24" height="24" align="top"> **[Recorder](https://openpo.st/docs/video-editor/quick-cut-and-recorder).** Capture your screen, camera, and microphone, then bring the recording into your video edit.
+- <img src="./assets/brand/features/calendar.svg" alt="" width="24" height="24" align="top"> **[Calendar and queues](https://openpo.st/docs/guides/scheduling).** Choose a publishing time or the next free slot in a queue. Plan your posts in the calendar, stagger publishing across accounts, and get reminders when your queue runs low.
 - <img src="./assets/brand/features/repost.svg" alt="" width="24" height="24" align="top"> **Auto repost.** Set delays and engagement rules for native reposts on supported networks. Override the defaults for individual posts.
-- <img src="./assets/brand/features/media.svg" alt="" width="24" height="24" align="top"> **[Media library](https://docs.openpo.st/guides/media-library).** Keep reusable images, videos, fonts, and brand assets in your workspace. Organize files with tags, collections, and favorites. Attach saved media without uploading it again.
-- <img src="./assets/brand/features/memes.svg" alt="" width="24" height="24" align="top"> **[Meme maker](https://docs.openpo.st/guides/media-library#add-media-to-a-post).** Pick a template, edit its captions, and replace its images. Save the result to your media library or attach it to a post.
-- <img src="./assets/brand/features/inbox.svg" alt="" width="24" height="24" align="top"> **[Inbox and messages](https://docs.openpo.st/guides/inbox).** Read and reply to supported comments and direct messages without switching between social apps.
-- <img src="./assets/brand/features/analytics.svg" alt="" width="24" height="24" align="top"> **[Analytics and repurposing](https://docs.openpo.st/guides/analytics).** Compare post results and track audience changes across your accounts. Use a previous post as the starting point for a new draft.
+- <img src="./assets/brand/features/media.svg" alt="" width="24" height="24" align="top"> **[Media library](https://openpo.st/docs/guides/media-library).** Keep reusable images, videos, fonts, and brand assets in your workspace. Organize files with tags, collections, and favorites. Attach saved media without uploading it again.
+- <img src="./assets/brand/features/memes.svg" alt="" width="24" height="24" align="top"> **[Meme maker](https://openpo.st/docs/guides/media-library#add-media-to-a-post).** Pick a template, edit its captions, and replace its images. Save the result to your media library or attach it to a post.
+- <img src="./assets/brand/features/inbox.svg" alt="" width="24" height="24" align="top"> **[Inbox and messages](https://openpo.st/docs/guides/inbox).** Read and reply to supported comments and direct messages without switching between social apps.
+- <img src="./assets/brand/features/analytics.svg" alt="" width="24" height="24" align="top"> **[Analytics and repurposing](https://openpo.st/docs/guides/analytics).** Compare post results and track audience changes across your accounts. Use a previous post as the starting point for a new draft.
 - <img src="./assets/brand/features/grow.svg" alt="" width="24" height="24" align="top"> **Find people.** Find accounts to follow on Bluesky and Mastodon. Review the suggestions and choose who to follow.
-- <img src="./assets/brand/features/ideas.svg" alt="" width="24" height="24" align="top"> **AI writing and ideas.** Generate ideas, compare draft directions, and adapt posts for your selected platforms. You review the result before publishing. AI writing is optional. [Self-hosted AI setup](https://docs.openpo.st/self-hosting/ai).
-- <img src="./assets/brand/features/automation.svg" alt="" width="24" height="24" align="top"> **[API, SDK, CLI, MCP, and n8n](https://docs.openpo.st/automate).** Create drafts, schedule posts, and check publishing results from your scripts, agents, or n8n workflows. Install the [TypeScript SDK](https://www.npmjs.com/package/@getopenpost/sdk) or the [CLI](https://www.npmjs.com/package/@getopenpost/cli) from npm. See the [API reference](https://docs.openpo.st/api-reference) for endpoints.
-- <img src="./assets/brand/features/workspaces.svg" alt="" width="24" height="24" align="top"> **[Teams and workspaces](https://docs.openpo.st/guides/workspaces).** Keep brands and clients in separate workspaces and control who can edit them. Protect your account with passkeys, two-factor authentication, and session controls.
+- <img src="./assets/brand/features/ideas.svg" alt="" width="24" height="24" align="top"> **AI writing and ideas.** Generate ideas, compare draft directions, and adapt posts for your selected platforms. You review the result before publishing. AI writing is optional. [Self-hosted AI setup](https://openpo.st/docs/self-hosting/ai).
+- <img src="./assets/brand/features/automation.svg" alt="" width="24" height="24" align="top"> **[API, SDK, CLI, MCP, and n8n](https://openpo.st/docs/automate).** Create drafts, schedule posts, and check publishing results from your scripts, agents, or n8n workflows. Install the [TypeScript SDK](https://www.npmjs.com/package/@getopenpost/sdk) or the [CLI](https://www.npmjs.com/package/@getopenpost/cli) from npm. See the [API reference](https://openpo.st/docs/api-reference) for endpoints.
+- <img src="./assets/brand/features/workspaces.svg" alt="" width="24" height="24" align="top"> **[Teams and workspaces](https://openpo.st/docs/guides/workspaces).** Keep brands and clients in separate workspaces and control who can edit them. Protect your account with passkeys, two-factor authentication, and session controls.
 
 ## Get started
 
@@ -127,14 +127,14 @@ Use OpenPost to create and schedule posts without running your own server.
 
 Run OpenPost with Docker Compose. The default setup uses one container with SQLite and local media storage.
 
-<a href="https://docs.openpo.st/self-hosting/">
+<a href="https://openpo.st/docs/self-hosting/">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./assets/buttons/self-host-dark.svg">
     <img src="./assets/buttons/self-host-light.svg" alt="Get started with self-hosting" height="36">
   </picture>
 </a>
 
-[Configure integrations](https://docs.openpo.st/self-hosting/integrations) · [Backups and upgrades](https://docs.openpo.st/self-hosting/maintenance)
+[Configure integrations](https://openpo.st/docs/self-hosting/integrations) · [Backups and upgrades](https://openpo.st/docs/self-hosting/maintenance)
 
 ## Supported platforms
 
@@ -161,13 +161,13 @@ OpenPost has integrations for Instagram, Facebook, LinkedIn, X, TikTok, YouTube,
 
 Posting formats, inbox features, and analytics vary by platform. Some integrations require provider app approval or publicly reachable media URLs.
 
-[Connect accounts](https://docs.openpo.st/guides/accounts) · [Integration requirements](https://docs.openpo.st/self-hosting/integrations)
+[Connect accounts](https://openpo.st/docs/guides/accounts) · [Integration requirements](https://openpo.st/docs/self-hosting/integrations)
 
 ## Contributing
 
 Report bugs, improve the docs, or send a pull request. For larger changes, open an issue first so we can agree on the approach.
 
-OpenPost uses Go, SvelteKit, and Expo, with a Devenv development environment. Start with the [contributing guide](./.github/CONTRIBUTING.md) and [development setup](https://docs.openpo.st/development/setup).
+OpenPost uses Go, SvelteKit, and Expo, with a Devenv development environment. Start with the [contributing guide](./.github/CONTRIBUTING.md) and [development setup](https://openpo.st/docs/development/setup).
 
 <a href="https://github.com/getopenpost/openpost/issues">
   <picture>

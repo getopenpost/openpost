@@ -79,7 +79,7 @@
 		<section class="channel-faq" aria-labelledby="channel-questions">
 			<div>
 				<h2 id="channel-questions">A little more about<br />{platform.name}.</h2>
-				<a href={platform.docsUrl} class="focus-ring text-link"
+				<a href={platform.docsUrl} class="focus-ring text-link" data-sveltekit-reload
 					>Help with connecting accounts <ArrowRight size={16} /></a
 				>
 			</div>

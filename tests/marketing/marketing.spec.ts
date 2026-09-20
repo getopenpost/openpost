@@ -12,7 +12,7 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   ).toHaveAttribute("href", "https://app.openpo.st/register?plan=founder&billing_period=monthly");
   await expect(
     page.getByRole("link", { name: "Help centre", exact: true }).first(),
-  ).toHaveAttribute("href", "https://docs.openpo.st/guides/quickstart");
+  ).toHaveAttribute("href", "https://openpo.st/docs/guides/quickstart");
 });
 
 test("landing header shows the live GitHub star link beside the wordmark", async ({ page }) => {
@@ -123,7 +123,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   await expect(selfHosted).toContainText("no software fee");
   await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(
     "href",
-    "https://docs.openpo.st/self-hosting",
+    "https://openpo.st/docs/self-hosting",
   );
   await page.getByText("Trial and billing details").click();
   await expect(page.getByText("Paddle is the Merchant of Record", { exact: false })).toBeVisible();

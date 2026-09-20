@@ -62,7 +62,7 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.deepEqual(software.sameAs, ["https://github.com/getopenpost/openpost"]);
   assert.deepEqual(software.softwareHelp, {
     "@type": "WebPage",
-    url: "https://docs.openpo.st/guides/quickstart",
+    url: "https://openpo.st/docs/guides/quickstart",
   });
   assert.deepEqual(software.subjectOf, [
     {
@@ -71,7 +71,7 @@ test("structured data joins each page to the product, site, and real operator", 
     },
     {
       "@type": "WebPage",
-      url: "https://docs.openpo.st/automate",
+      url: "https://openpo.st/docs/automate",
     },
     {
       "@type": "WebPage",
@@ -99,7 +99,7 @@ test("structured data joins each page to the product, site, and real operator", 
 
 test("platform guides link to maintained account documentation", async () => {
   for (const platform of platforms) {
-    assert.equal(platform.docsUrl, "https://docs.openpo.st/guides/accounts");
+    assert.equal(platform.docsUrl, "https://openpo.st/docs/guides/accounts");
   }
   await readFile(new URL("../apps/docs/content/docs/guides/accounts.mdx", import.meta.url));
 });

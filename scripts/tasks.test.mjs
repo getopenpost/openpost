@@ -25,6 +25,16 @@ test("verification finishes format and lint before starting tests", () => {
   assert.ok(stages["production builds"].phase > stages.tests.phase);
 });
 
+test("public site builds marketing and docs before composing their outputs", () => {
+  const result = taskPlan("build", "public-site");
+  assert.equal(result.status, 0, result.stderr);
+  const stages = Object.fromEntries(
+    JSON.parse(result.stdout).stages.map((stage) => [stage.label, stage]),
+  );
+  assert.equal(stages["marketing build"].phase, stages["documentation build"].phase);
+  assert.ok(stages["public site composition"].phase > stages["documentation build"].phase);
+});
+
 test("unknown scopes fail with the supported interface", () => {
   const result = taskPlan("test", "unknown");
   assert.notEqual(result.status, 0);

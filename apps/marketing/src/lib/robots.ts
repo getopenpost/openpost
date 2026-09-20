@@ -8,6 +8,7 @@ export function renderPublicRobots() {
 		'Allow: /',
 		'',
 		'Sitemap: https://openpo.st/sitemap.xml',
+		'Sitemap: https://openpo.st/docs/sitemap.xml',
 		''
 	].join('\n');
 }

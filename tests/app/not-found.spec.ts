@@ -45,7 +45,7 @@ test("unknown documents return 404 with a complete recovery page", async ({ page
   await expect(page.getByRole("link", { name: "Media" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Documentation" })).toHaveAttribute(
     "href",
-    "https://docs.openpo.st/usage/",
+    "https://openpo.st/docs/usage/",
   );
   await expect(page.getByRole("link", { name: "Contact support" })).toHaveCount(0);
 

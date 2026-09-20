@@ -9,9 +9,13 @@ export const documentationSections = [
 ] as const;
 
 export function documentationSection(pathname: string) {
+  const localPath = pathname.startsWith(docsBasePath)
+    ? pathname.slice(docsBasePath.length) || "/"
+    : pathname;
   return (
     documentationSections.find(
-      ({ href }) => href !== "/" && (pathname === href || pathname.startsWith(`${href}/`)),
+      ({ href }) => href !== "/" && (localPath === href || localPath.startsWith(`${href}/`)),
     ) ?? documentationSections[0]
   );
 }
+import { docsBasePath } from "@openpost/social-images";

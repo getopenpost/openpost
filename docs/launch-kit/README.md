@@ -46,7 +46,7 @@ Self-hosted OpenPost has no software subscription. The operator remains responsi
 
 ## Product documentation
 
-- [Agent-assisted publishing](https://docs.openpo.st/usage/agent-assisted-publishing)
-- [MCP connection and safety](https://docs.openpo.st/mcp/)
-- [Launch verification matrix](https://docs.openpo.st/operations/provider-launch-matrix)
-- [Supported platforms and limits](https://docs.openpo.st/providers/)
+- [Agent-assisted publishing](https://openpo.st/docs/usage/agent-assisted-publishing)
+- [MCP connection and safety](https://openpo.st/docs/mcp/)
+- [Launch verification matrix](https://openpo.st/docs/operations/provider-launch-matrix)
+- [Supported platforms and limits](https://openpo.st/docs/providers/)

@@ -42,20 +42,22 @@ test("assigns canonical behavior and legacy redirects to their owning zones", ()
   assert.equal(plan.zones[0].zone_id_env, "OPENPOST_CLOUDFLARE_CANONICAL_ZONE_ID");
   assert.deepEqual(
     plan.zones[0].surfaces.map(({ hostname }) => hostname),
-    ["openpo.st", "docs.openpo.st"],
+    ["openpo.st", "openpo.st"],
   );
   for (const phase of plan.phases.map(({ phase }) => phase)) {
     const expressions = plan.zones[0].rules[phase].map(({ expression }) => expression).join("\n");
     assert.match(expressions, /http\.host eq "openpo\.st"/u);
-    assert.match(expressions, /http\.host eq "docs\.openpo\.st"/u);
+    if (phase === "http_request_dynamic_redirect") {
+      assert.match(expressions, /http\.host eq "docs\.openpo\.st"/u);
+    }
   }
   assert.equal(plan.zones[1].zone_id_env, "OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID");
   assert.equal(plan.zones[1].rules.http_request_transform.length, 0);
   const legacy = plan.zones[1].rules.http_request_dynamic_redirect;
-  assert.equal(legacy.length, 7);
+  assert.equal(legacy.length, 8);
   assert.ok(legacy.every((rule) => rule.action_parameters.from_value.preserve_query_string));
   assert.match(JSON.stringify(legacy), /https:\/\/openpo\.st/u);
-  assert.match(JSON.stringify(legacy), /https:\/\/docs\.openpo\.st/u);
+  assert.match(JSON.stringify(legacy), /https:\/\/openpo\.st\/docs/u);
   assert.match(JSON.stringify(legacy), /https:\/\/app\.openpo\.st/u);
   assert.match(JSON.stringify(legacy), /https:\/\/media\.openpo\.st/u);
   assert.match(JSON.stringify(legacy), /https:\/\/cool\.openpo\.st/u);
@@ -119,7 +121,10 @@ test("renders ordered exact Markdown selection rules from canonical catalogues",
   });
 
   const docs = surfacePlan(plan, "documentation");
-  assert.match(docs.rules.http_request_dynamic_redirect[0].expression, /"\/usage"/u);
+  assert.match(docs.rules.http_request_dynamic_redirect[0].expression, /"\/docs\/usage"/u);
+  assert.deepEqual(docs.rules.http_request_transform[0].action_parameters.uri.path, {
+    value: "/docs/index.md",
+  });
   assert.ok(
     docs.rules.http_request_transform.some(
       (rule) =>
@@ -128,7 +133,10 @@ test("renders ordered exact Markdown selection rules from canonical catalogues",
   );
   for (const surface of [marketing, docs]) {
     assert.deepEqual(surface.origin_headers.canonical_html_paths, surface.canonical_routes);
-    assert.equal(surface.origin_headers.markdown_pattern, "/*.md");
+    assert.equal(
+      surface.origin_headers.markdown_pattern,
+      surface.key === "documentation" ? "/docs/*.md" : "/*.md",
+    );
     assert.equal(surface.origin_headers.vary, "Accept");
     const cache = surface.rules.http_request_cache_settings[0];
     assert.match(cache.expression, /http\.request\.method in \{"GET" "HEAD"\}/u);

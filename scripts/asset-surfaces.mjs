@@ -70,7 +70,7 @@ async function listFiles(directory, { sourceTree = false } = {}) {
 export function directAssetReferences(contents) {
   const references = new Set();
   const patterns = [
-    /(?:^|[^A-Za-z0-9_./-])\/assets\/([A-Za-z0-9_.@/-]+\.[A-Za-z0-9]+)(?=[?#"'`\s),}:]|$)/gmu,
+    /(?:^|[^A-Za-z0-9_./-])\/(?:docs\/)?assets\/([A-Za-z0-9_.@/-]+\.[A-Za-z0-9]+)(?=[?#"'`\s),}:]|$)/gmu,
     /\$\{[^}]+\}assets\/([A-Za-z0-9_.@/-]+\.[A-Za-z0-9]+)(?=[?#"'`\s),}:]|$)/gmu,
   ];
   for (const pattern of patterns) {

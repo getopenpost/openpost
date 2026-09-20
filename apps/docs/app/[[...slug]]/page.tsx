@@ -1,6 +1,6 @@
 import { OpenAPIPage } from "@/components/api-page";
 import type { OpenAPIPageProps } from "fumadocs-openapi/ui";
-import { docsSocialImageUrlForRoute } from "@openpost/social-images";
+import { docsPath, docsSiteUrl, docsSocialImageUrlForRoute } from "@openpost/social-images";
 import { source, documentationIcon } from "@/lib/source";
 import { openapi } from "@/lib/openapi";
 import { operationDocument } from "@/lib/api-document";
@@ -11,17 +11,17 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 const featureMarks: Record<string, string> = {
-  "guides/quickstart.mdx": "/assets/brand/features/compose.svg",
-  "guides/publishing.mdx": "/assets/brand/features/compose.svg",
-  "image-editor/index.mdx": "/assets/brand/features/image-editor.svg",
-  "video-editor/index.mdx": "/assets/brand/features/video-editor.svg",
-  "guides/scheduling.mdx": "/assets/brand/features/calendar.svg",
-  "guides/analytics.mdx": "/assets/brand/features/analytics.svg",
-  "guides/media-library.mdx": "/assets/brand/features/media.svg",
-  "guides/inbox.mdx": "/assets/brand/features/inbox.svg",
-  "guides/accounts.mdx": "/assets/brand/features/accounts.svg",
-  "guides/workspaces.mdx": "/assets/brand/features/workspaces.svg",
-  "automate/index.mdx": "/assets/brand/features/automation.svg",
+  "guides/quickstart.mdx": docsPath("/assets/brand/features/compose.svg"),
+  "guides/publishing.mdx": docsPath("/assets/brand/features/compose.svg"),
+  "image-editor/index.mdx": docsPath("/assets/brand/features/image-editor.svg"),
+  "video-editor/index.mdx": docsPath("/assets/brand/features/video-editor.svg"),
+  "guides/scheduling.mdx": docsPath("/assets/brand/features/calendar.svg"),
+  "guides/analytics.mdx": docsPath("/assets/brand/features/analytics.svg"),
+  "guides/media-library.mdx": docsPath("/assets/brand/features/media.svg"),
+  "guides/inbox.mdx": docsPath("/assets/brand/features/inbox.svg"),
+  "guides/accounts.mdx": docsPath("/assets/brand/features/accounts.svg"),
+  "guides/workspaces.mdx": docsPath("/assets/brand/features/workspaces.svg"),
+  "automate/index.mdx": docsPath("/assets/brand/features/automation.svg"),
 };
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -91,7 +91,7 @@ export default async function Page({ params }: Props) {
       </DocsBody>
       <div className="docs-page-help">
         <span>Need a hand?</span>
-        <a href="/guides/troubleshooting">Troubleshooting</a>
+        <a href={docsPath("/guides/troubleshooting")}>Troubleshooting</a>
         <a href="https://github.com/getopenpost/openpost/issues">Report an issue</a>
       </div>
     </DocsPage>
@@ -105,7 +105,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!page) notFound();
   const title = page.data.title;
   const description = page.data.description;
-  const canonical = `https://docs.openpo.st${page.url}`;
+  const canonical = page.url === "/" ? docsSiteUrl : `${docsSiteUrl}${page.url}`;
   const image = docsSocialImageUrlForRoute(page.url);
   return {
     title,

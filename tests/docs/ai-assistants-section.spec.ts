@@ -20,7 +20,7 @@ test("every AI assistant overview, MCP, and skill guide renders", async ({ page 
   page.on("pageerror", (error) => errors.push(error.message));
 
   for (const [route, heading] of pages) {
-    await page.goto(route);
+    await page.goto(`/docs${route}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await expect(page.locator("#nd-page")).not.toContainText("Page not found");
   }
@@ -29,7 +29,7 @@ test("every AI assistant overview, MCP, and skill guide renders", async ({ page 
 });
 
 test("the AI assistant overview reaches every focused guide", async ({ page, request }) => {
-  await page.goto("/mcp");
+  await page.goto("/docs/mcp");
   const sectionLinks = [
     "/mcp/choose-an-agent-connection",
     "/mcp/mcp-guide",
@@ -40,8 +40,9 @@ test("the AI assistant overview reaches every focused guide", async ({ page, req
   ];
 
   for (const href of sectionLinks) {
-    await expect(page.locator(`main a[href="${href}"]`).first()).toBeVisible();
-    const response = await request.get(href);
+    const docsHref = `/docs${href}`;
+    await expect(page.locator(`main a[href="${docsHref}"]`).first()).toBeVisible();
+    const response = await request.get(docsHref);
     expect(response.ok(), href).toBe(true);
   }
 });
@@ -60,7 +61,7 @@ for (const scheme of ["light", "dark"] as const) {
         "/mcp/mcp-guide/endpoints-and-tools",
         "/mcp/skills/install",
       ]) {
-        await page.goto(route);
+        await page.goto(`/docs${route}`);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), route).toBe(width);
       }
 

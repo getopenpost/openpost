@@ -9,12 +9,12 @@ export class OpenPostApi implements ICredentialType {
   name = "openPostApi";
   displayName = "OpenPost API";
   icon = "file:openpost.svg" as const;
-  documentationUrl = "https://docs.openpo.st/development/api-tokens";
+  documentationUrl = "https://openpo.st/docs/development/api-tokens";
   genericAuth = true;
   supportedNodes = ["openPost"];
   httpRequestNode = {
     name: "OpenPost API",
-    docsUrl: "https://docs.openpo.st/development/api-tokens",
+    docsUrl: "https://openpo.st/docs/development/api-tokens",
     apiBaseUrlPlaceholder: "https://app.openpo.st/api/v1",
   };
 

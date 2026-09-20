@@ -3,4 +3,4 @@ User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
 
-Sitemap: https://docs.openpo.st/sitemap.xml
+Sitemap: https://openpo.st/docs/sitemap.xml

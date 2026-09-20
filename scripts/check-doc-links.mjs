@@ -101,15 +101,21 @@ export function localDocumentationCandidates(root, sourceFile, rawTarget) {
   if (!localTarget) return [];
 
   const sourcePath = path.join(root, sourceFile);
+  const docsMountedTarget =
+    sourceFile.startsWith("apps/docs/") && localTarget.startsWith("/docs")
+      ? localTarget.slice("/docs".length) || "/"
+      : localTarget;
   const bases =
-    localTarget.startsWith("/") && sourceFile.startsWith("apps/docs/")
+    docsMountedTarget.startsWith("/") && sourceFile.startsWith("apps/docs/")
       ? [
-          path.join(root, "apps/docs", localTarget),
-          path.join(root, "apps/docs/content/docs", localTarget),
-          path.join(root, "apps/docs/public", localTarget),
-          ...(localTarget === "/openapi.json" ? [path.join(root, "apps/web/openapi.json")] : []),
+          path.join(root, "apps/docs", docsMountedTarget),
+          path.join(root, "apps/docs/content/docs", docsMountedTarget),
+          path.join(root, "apps/docs/public", docsMountedTarget),
+          ...(docsMountedTarget === "/openapi.json"
+            ? [path.join(root, "apps/web/openapi.json")]
+            : []),
         ]
-      : [path.resolve(path.dirname(sourcePath), localTarget)];
+      : [path.resolve(path.dirname(sourcePath), docsMountedTarget)];
   return bases.flatMap((base) => [
     base,
     `${base}.md`,

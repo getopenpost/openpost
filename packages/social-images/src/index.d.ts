@@ -70,7 +70,9 @@ export interface DocumentationPageEntry extends SocialEntry {
 }
 
 export const marketingSiteUrl: "https://openpo.st";
-export const docsSiteUrl: "https://docs.openpo.st";
+export const docsBasePath: "/docs";
+export const docsSiteUrl: "https://openpo.st/docs";
+export function docsPath(pathname?: string): string;
 export function docsSocialImageKey(route: string): string;
 export function docsSocialImageUrlForRoute(route: string): string;
 export const marketingRouteManifest: readonly MarketingRouteEntry[];

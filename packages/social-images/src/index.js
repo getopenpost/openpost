@@ -6,13 +6,24 @@ import { docsRouteFromPage } from "./docs-route.js";
 export { docsRouteFromPage } from "./docs-route.js";
 
 export const marketingSiteUrl = "https://openpo.st";
-export const docsSiteUrl = "https://docs.openpo.st";
+export const docsBasePath = "/docs";
+export const docsSiteUrl = `${marketingSiteUrl}${docsBasePath}`;
+
+export function docsPath(pathname = "/") {
+  const normalized = pathname === "/" ? "" : `/${pathname.replace(/^\/+/, "")}`;
+  return `${docsBasePath}${normalized}`;
+}
 
 export function docsSocialImageKey(route) {
-  const normalized =
-    !route || route === "/"
+  const routeWithoutBase = route?.startsWith(`${docsBasePath}/`)
+    ? route.slice(docsBasePath.length)
+    : route === docsBasePath
       ? "/"
-      : `/${route
+      : route;
+  const normalized =
+    !routeWithoutBase || routeWithoutBase === "/"
+      ? "/"
+      : `/${routeWithoutBase
           .split("?")[0]
           .split("#")[0]
           .replace(/^\/+|\/+$/g, "")}`;

@@ -18,7 +18,7 @@ export const marketingErrorRecovery = {
 		{
 			label: 'Open the help centre',
 			description: 'Get help with OpenPost.',
-			href: 'https://docs.openpo.st/guides/quickstart'
+			href: 'https://openpo.st/docs/guides/quickstart'
 		}
 	],
 	support: [

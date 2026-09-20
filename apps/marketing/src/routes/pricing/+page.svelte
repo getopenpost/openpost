@@ -39,7 +39,7 @@
 				provider API use.
 			</p>
 		</div>
-		<a class="focus-ring" href="https://docs.openpo.st/self-hosting"
+		<a class="focus-ring" href="https://openpo.st/docs/self-hosting" data-sveltekit-reload
 			>Review self-hosting <ArrowRight aria-hidden="true" /></a
 		>
 	</div>

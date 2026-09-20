@@ -21,14 +21,14 @@ test("every Image Editor guide renders and its section links resolve", async ({
   page.on("pageerror", (error) => errors.push(error.message));
 
   for (const [route, heading] of pages) {
-    await page.goto(route);
+    await page.goto(`/docs${route}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await expect(page.locator("#nd-page")).not.toContainText("Page not found");
   }
 
-  await page.goto("/image-editor");
+  await page.goto("/docs/image-editor");
   const links = await page
-    .locator('main a[href^="/image-editor/"]')
+    .locator('main a[href^="/docs/image-editor/"]')
     .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href")!));
   for (const href of new Set(links)) {
     const response = await request.get(href);
@@ -44,7 +44,7 @@ for (const scheme of ["light", "dark"] as const) {
       page.on("pageerror", (error) => errors.push(error.message));
       await page.setViewportSize({ width, height: 960 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.goto("/image-editor");
+      await page.goto("/docs/image-editor");
 
       const figure = page.locator(".setup-screenshot");
       await figure.scrollIntoViewIfNeeded();

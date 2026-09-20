@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import { Providers } from "@/components/providers";
 import "@fontsource-variable/geist";
 import "./global.css";
+import { docsPath, docsSiteUrl, docsSocialImageUrlForRoute } from "@openpost/social-images";
 
-const docsSocialImagePath = "/og/home.png";
+const docsSocialImagePath = docsSocialImageUrlForRoute("/");
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://docs.openpo.st"),
+  metadataBase: new URL(docsSiteUrl),
   title: { template: "%s | OpenPost Docs", default: "OpenPost Docs" },
   description:
     "Connect your accounts, publish your first post, and keep your content moving with OpenPost.",
-  icons: { icon: "/assets/brand/icon.svg" },
+  icons: { icon: docsPath("/assets/brand/icon.svg") },
   openGraph: {
     siteName: "OpenPost Docs",
     type: "website",
@@ -36,8 +37,10 @@ export const metadata: Metadata = {
     ],
   },
   other: {
-    "integration-screenshot-sources": "/assets/screenshots/integrations/SOURCES.txt",
-    "integration-screenshot-license": "/assets/screenshots/integrations/POSTIZ-LICENSE.txt",
+    "integration-screenshot-sources": docsPath("/assets/screenshots/integrations/SOURCES.txt"),
+    "integration-screenshot-license": docsPath(
+      "/assets/screenshots/integrations/POSTIZ-LICENSE.txt",
+    ),
   },
 };
 

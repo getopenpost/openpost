@@ -47,7 +47,11 @@
 				<span>Write</span><span>Edit</span><span>Publish</span>
 			</div>
 		</a>
-		<a href="https://docs.openpo.st/guides/quickstart" class="developers focus-ring">
+		<a
+			href="https://openpo.st/docs/guides/quickstart"
+			class="developers focus-ring"
+			data-sveltekit-reload
+		>
 			<div class="card-heading">
 				<h3>A little help</h3>
 				<ArrowUpRight size={24} />

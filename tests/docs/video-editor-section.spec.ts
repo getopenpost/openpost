@@ -20,14 +20,14 @@ test("every Video Editor guide renders and its section links resolve", async ({
   page.on("pageerror", (error) => errors.push(error.message));
 
   for (const [route, heading] of pages) {
-    await page.goto(route);
+    await page.goto(`/docs${route}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await expect(page.locator("#nd-page")).not.toContainText("Page not found");
   }
 
-  await page.goto("/video-editor");
+  await page.goto("/docs/video-editor");
   const links = await page
-    .locator('main a[href^="/video-editor/"]')
+    .locator('main a[href^="/docs/video-editor/"]')
     .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href")!));
   for (const href of new Set(links)) {
     const response = await request.get(href);
@@ -43,7 +43,7 @@ for (const scheme of ["light", "dark"] as const) {
       page.on("pageerror", (error) => errors.push(error.message));
       await page.setViewportSize({ width, height: 960 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.goto("/video-editor");
+      await page.goto("/docs/video-editor");
 
       const figure = page.locator(".setup-screenshot");
       await figure.scrollIntoViewIfNeeded();

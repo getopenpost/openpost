@@ -37,7 +37,9 @@
 				The help centre covers your first post, editing images and videos, and planning your
 				schedule.
 			</p>
-			<a href={docsUrl} class="focus-ring">Open the help centre <ArrowUpRight size={16} /></a>
+			<a href={docsUrl} class="focus-ring" data-sveltekit-reload
+				>Open the help centre <ArrowUpRight size={16} /></a
+			>
 		</div>
 		<div>
 			<h2>Found a security issue?</h2>

@@ -753,7 +753,7 @@
 {/if}
 
 <a
-	href="https://docs.openpo.st/development/api-tokens"
+	href="https://openpo.st/docs/development/api-tokens"
 	target="_blank"
 	rel="noreferrer"
 	class="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary hover:underline"

@@ -1,7 +1,7 @@
 # Production Checklist
 
 Use this page before putting a real OpenPost instance behind a public domain.
-It is operator-facing: product usage lives in [User Docs](https://docs.openpo.st/guides/quickstart), while code
+It is operator-facing: product usage lives in [User Docs](https://openpo.st/docs/guides/quickstart), while code
 changes live in [Developer Docs](../../development/index.md).
 
 ## Baseline

@@ -268,7 +268,7 @@ async function drawBrand(context, surface) {
   context.fillStyle = palette.muted;
   setFont(context, 18, 400);
   context.textAlign = "right";
-  context.fillText(surface === "docs" ? "docs.openpo.st" : "openpo.st", 1122, 103);
+  context.fillText(surface === "docs" ? "openpo.st/docs" : "openpo.st", 1122, 103);
   context.textAlign = "left";
 }
 

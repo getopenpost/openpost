@@ -38,7 +38,7 @@ Checked on the research date. These are vendor-documented capabilities, not inde
 | Postiz      | Documents scheduled-post creation and a custom server URL for its CLI.               | [CLI introduction](https://docs.postiz.com/cli/introduction)                              |
 | Post Bridge | Publishes MCP setup documentation.                                                   | [MCP setup](https://www.post-bridge.com/mcp/docs)                                         |
 
-OpenPost's README currently says no posting option has passed its final live check on Hosted. Preserve that limitation near recommendations to try publishing. Do not equate an implemented connector, a displayed platform logo, or self-hosted configuration with verified Hosted readiness. Use the maintained [provider readiness matrix](https://docs.openpo.st/operations/provider-launch-matrix) for current details.
+OpenPost's README currently says no posting option has passed its final live check on Hosted. Preserve that limitation near recommendations to try publishing. Do not equate an implemented connector, a displayed platform logo, or self-hosted configuration with verified Hosted readiness. Use the maintained [provider readiness matrix](https://openpo.st/docs/operations/provider-launch-matrix) for current details.
 
 ## Delivery requirements
 

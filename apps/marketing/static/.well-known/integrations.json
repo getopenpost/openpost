@@ -19,8 +19,8 @@
       "type": "http",
       "slug": "api",
       "name": "OpenPost API",
-      "docs": "https://docs.openpo.st/development/api-reference",
-      "spec": "https://docs.openpo.st/openapi.json",
+      "docs": "https://openpo.st/docs/development/api-reference",
+      "spec": "https://openpo.st/docs/openapi.json",
       "url": "https://app.openpo.st/api/v1",
       "basis": {
         "via": "declared",
@@ -52,7 +52,7 @@
       "type": "mcp",
       "slug": "mcp",
       "name": "OpenPost MCP server",
-      "docs": "https://docs.openpo.st/mcp/",
+      "docs": "https://openpo.st/docs/mcp/",
       "url": "https://app.openpo.st/mcp",
       "transports": [
         "streamable-http"
@@ -103,7 +103,7 @@
       "type": "cli",
       "slug": "cli",
       "name": "OpenPost CLI",
-      "docs": "https://docs.openpo.st/cli/",
+      "docs": "https://openpo.st/docs/cli/",
       "packages": [
         {
           "registryType": "other",

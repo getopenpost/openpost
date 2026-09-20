@@ -106,6 +106,7 @@ apps/marketing/.vite/
 apps/marketing/public/assets/
 apps/marketing/static/assets/
 apps/marketing/static/og/
+/dist/public-site/
 
 # Local reference checkouts
 /references/

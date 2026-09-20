@@ -127,16 +127,16 @@ test("origin Vary headers compact dense route namespaces before the Pages limit"
     "",
   ].join("\n");
   const pages = [
-    { canonical: "https://docs.openpo.st/" },
+    { canonical: "https://openpo.st/docs/" },
     ...Array.from({ length: 100 }, (_, index) => ({
-      canonical: `https://docs.openpo.st/usage/page-${index}`,
+      canonical: `https://openpo.st/docs/usage/page-${index}`,
     })),
   ];
 
   const rendered = renderOriginVaryHeaders(base, pages);
 
-  assert.match(rendered, /(?:^|\n)\/usage\/\*\n  Vary: Accept\n/u);
-  assert.doesNotMatch(rendered, /\/usage\/page-0\n/u);
+  assert.match(rendered, /(?:^|\n)\/docs\/\*\n  Vary: Accept\n/u);
+  assert.doesNotMatch(rendered, /\/docs\/usage\/page-0\n/u);
   for (const page of pages) {
     assert.equal(headerRuleHas(rendered, new URL(page.canonical).pathname, "Vary: Accept"), true);
   }
@@ -524,10 +524,10 @@ test("production discovery gives agents direct interface guidance", () => {
 
   assert.match(marketing, /^## When to use OpenPost$/m);
   assert.match(marketing, /^## When OpenPost is not a fit$/m);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/openapi\.json/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/automate\/index\.md/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/automate\/cli\.md/u);
-  assert.match(marketing, /https:\/\/docs\.openpo\.st\/mcp\/index\.md/u);
+  assert.match(marketing, /https:\/\/openpo\.st\/docs\/openapi\.json/u);
+  assert.match(marketing, /https:\/\/openpo\.st\/docs\/automate\/index\.md/u);
+  assert.match(marketing, /https:\/\/openpo\.st\/docs\/automate\/cli\.md/u);
+  assert.match(marketing, /https:\/\/openpo\.st\/docs\/mcp\/index\.md/u);
   assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
 
@@ -593,7 +593,7 @@ test("documentation size exceptions require reviewed canonical metadata", async 
   const page = {
     sourcePath,
     outputPath: "large.md",
-    canonical: "https://docs.openpo.st/self-hosting/large-guide",
+    canonical: "https://openpo.st/docs/self-hosting/large-guide",
     title: "Large guide",
     description: "A deliberately large reviewed guide.",
   };
@@ -753,7 +753,7 @@ services:
       {
         sourcePath,
         outputPath: "index.md",
-        canonical: "https://docs.openpo.st/",
+        canonical: "https://openpo.st/docs/",
         title: "OpenPost Documentation",
         description: "OpenPost product and operating documentation.",
       },
@@ -765,7 +765,7 @@ services:
         {
           title: "Documentation home",
           description: "Start with OpenPost documentation.",
-          url: "https://docs.openpo.st/index.md",
+          url: "https://openpo.st/docs/index.md",
         },
       ],
     },
@@ -776,9 +776,9 @@ services:
   assert.match(markdown, /^# OpenPost$/m);
   assert.match(markdown, /^Publish everywhere\.$/m);
   assert.match(markdown, /^## Clear outcomes$/m);
-  assert.match(markdown, /\[Read the user guide\]\(https:\/\/docs\.openpo\.st\/usage\/\)/);
+  assert.match(markdown, /\[Read the user guide\]\(https:\/\/openpo\.st\/docs\/usage\/\)/);
   assert.match(markdown, /^> \*\*Hosted service plans\*\*$/m);
-  assert.match(markdown, /\[User docs\]\(https:\/\/docs\.openpo\.st\/usage\/\)/);
+  assert.match(markdown, /\[User docs\]\(https:\/\/openpo\.st\/docs\/usage\/\)/);
   assert.match(markdown, /^  openpost:\n    image: ghcr\.io\/getopenpost\/openpost:latest$/m);
 });
 
@@ -796,7 +796,7 @@ test("documentation projection keeps one canonical heading for an ordinary sourc
       {
         sourcePath,
         outputPath: "accounts.md",
-        canonical: "https://docs.openpo.st/usage/accounts",
+        canonical: "https://openpo.st/docs/usage/accounts",
         title: "Accounts",
         description: "Connect social accounts to OpenPost.",
       },
@@ -833,7 +833,7 @@ test("documentation projection expands controlled includes from the owning sourc
       {
         sourcePath,
         outputPath: "installation.md",
-        canonical: "https://docs.openpo.st/installation/module",
+        canonical: "https://openpo.st/docs/installation/module",
         title: "Installation",
         description: "Install OpenPost with a reviewed module.",
       },
@@ -886,7 +886,7 @@ OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
       {
         sourcePath,
         outputPath: "providers.md",
-        canonical: "https://docs.openpo.st/providers/",
+        canonical: "https://openpo.st/docs/providers/",
         title: "Providers",
         description: "Review provider requirements and outcomes.",
       },
@@ -952,7 +952,7 @@ import { SetupScreenshot } from "@/components/setup-screenshot";
       {
         sourcePath,
         outputPath: "integration.md",
-        canonical: "https://docs.openpo.st/integration",
+        canonical: "https://openpo.st/docs/integration",
         title: "Connect a network",
         description: "Configure your provider app.",
       },
@@ -962,7 +962,7 @@ import { SetupScreenshot } from "@/components/setup-screenshot";
   const markdown = await readFile(path.join(directory, "integration.md"), "utf8");
   assert.match(
     markdown,
-    /!\[Callback URL field\]\(https:\/\/docs\.openpo\.st\/integrations\/callback\.png\)/u,
+    /!\[Callback URL field\]\(https:\/\/openpo\.st\/docs\/integrations\/callback\.png\)/u,
   );
   assert.match(markdown, /Enter your OpenPost callback URL\./u);
   assert.match(
@@ -979,12 +979,12 @@ test("documentation full corpus groups selected pages with provenance and no rep
   const excludedSource = path.join(directory, "notices.md.source");
   await writeFile(
     includedSource,
-    "# Accounts\n\nConnect a destination. See [Review](https://docs.openpo.st/usage/accounts#review) or [watch a video](https://youtu.be/example).\n\n![Dashboard](https://docs.openpo.st/assets/screenshots/main-dark.png)\n\n## Review\n\nCheck access.\n",
+    "# Accounts\n\nConnect a destination. See [Review](https://openpo.st/docs/usage/accounts#review) or [watch a video](https://youtu.be/example).\n\n![Dashboard](https://openpo.st/docs/assets/screenshots/main-dark.png)\n\n## Review\n\nCheck access.\n",
   );
   await writeFile(excludedSource, "# Notices\n\nLegal notice body must stay separate.\n");
   const page = (overrides) => ({
     outputPath: path.basename(overrides.page),
-    canonical: `https://docs.openpo.st/${overrides.page.replace(/\.md$/u, "")}`,
+    canonical: `https://openpo.st/docs/${overrides.page.replace(/\.md$/u, "")}`,
     title: overrides.title,
     description: `${overrides.title} documentation.`,
     ...overrides,
@@ -1030,15 +1030,15 @@ test("documentation full corpus groups selected pages with provenance and no rep
   assert.match(corpus, /^### Accounts$/m);
   assert.match(
     corpus,
-    /^Source: \[https:\/\/docs\.openpo\.st\/accounts\.md\]\(https:\/\/docs\.openpo\.st\/accounts\.md\)$/m,
+    /^Source: \[https:\/\/openpo\.st\/docs\/accounts\.md\]\(https:\/\/openpo\.st\/docs\/accounts\.md\)$/m,
   );
   assert.match(
     corpus,
-    /See \[Review\]\(https:\/\/docs\.openpo\.st\/accounts\.md#review\) or watch a video\./u,
+    /See \[Review\]\(https:\/\/openpo\.st\/docs\/accounts\.md#review\) or watch a video\./u,
   );
   assert.match(
     corpus,
-    /!\[Dashboard\]\(https:\/\/docs\.openpo\.st\/assets\/screenshots\/main-dark\.png\)/u,
+    /!\[Dashboard\]\(https:\/\/openpo\.st\/docs\/assets\/screenshots\/main-dark\.png\)/u,
   );
   assert.doesNotMatch(corpus, /youtu\.be/u);
   assert.match(corpus, /^#### Review$/m);
@@ -1057,7 +1057,7 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
     pages.push({
       sourcePath,
       outputPath: `large-${index}.md`,
-      canonical: `https://docs.openpo.st/self-hosting/large-${index}`,
+      canonical: `https://openpo.st/docs/self-hosting/large-${index}`,
       title: `Large ${index}`,
       description: `Large documentation page ${index}.`,
       catalog: {
@@ -1101,7 +1101,7 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
       {
         sourcePath: exactSource,
         outputPath: "exact.md",
-        canonical: "https://docs.openpo.st/self-hosting/exact-boundary",
+        canonical: "https://openpo.st/docs/self-hosting/exact-boundary",
         title: "Exact boundary",
         description: "Exact corpus boundary fixture.",
         catalog: {
@@ -1167,7 +1167,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
       pages: ["first.md", "second.md"].map((outputPath) => ({
         sourcePath: docsSource,
         outputPath,
-        canonical: "https://docs.openpo.st/guide",
+        canonical: "https://openpo.st/docs/guide",
         title: "Public guide",
         description: "One maintained page.",
       })),
@@ -1177,7 +1177,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [],
       },
     }),
-    /duplicate canonical route: https:\/\/docs\.openpo\.st\/guide/u,
+    /duplicate canonical route: https:\/\/openpo\.st\/docs\/guide/u,
   );
   await assert.rejects(
     generateAgentSurface({
@@ -1202,7 +1202,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [
           {
             ...base.discovery.links[0],
-            url: "https://docs.openpo.st/does-not-exist.md",
+            url: "https://openpo.st/docs/does-not-exist.md",
           },
         ],
       },
@@ -1264,7 +1264,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         {
           sourcePath: docsSource,
           outputPath: "guide.md",
-          canonical: "https://docs.openpo.st/guide",
+          canonical: "https://openpo.st/docs/guide",
           title: "Public guide",
           description: "Useful public instructions.",
         },
@@ -1275,7 +1275,7 @@ test("projection validation rejects unsafe or incomplete production contracts", 
         links: [],
       },
     }),
-    /https:\/\/docs\.openpo\.st\/guide: generated representation contains serialized application state/u,
+    /https:\/\/openpo\.st\/docs\/guide: generated representation contains serialized application state/u,
   );
 
   await writeFile(
@@ -1294,15 +1294,15 @@ test("projection validation rejects unsafe or incomplete production contracts", 
     htmlPath,
     marketingHTML.replace(
       '<a href="/features">See the features</a>',
-      '<a href="https://docs.openpo.st/does-not-exist">Missing docs page</a>',
+      '<a href="https://openpo.st/docs/does-not-exist">Missing docs page</a>',
     ),
   );
   await assert.rejects(
     generateAgentSurface({
       ...base,
-      knownCanonicalURLs: [...base.knownCanonicalURLs, "https://docs.openpo.st/usage/"],
+      knownCanonicalURLs: [...base.knownCanonicalURLs, "https://openpo.st/docs/usage/"],
     }),
-    /https:\/\/openpo\.st\/: broken internal link.*docs\.openpo\.st\/does-not-exist/u,
+    /https:\/\/openpo\.st\/: broken internal link.*openpo\.st\/docs\/does-not-exist/u,
   );
 
   await writeFile(
@@ -1460,8 +1460,8 @@ test(
       },
       {
         directory: path.join(root, "apps/docs/out"),
-        canonical: "https://docs.openpo.st",
-        discoveryTarget: "https://docs.openpo.st/index.md",
+        canonical: "https://openpo.st/docs",
+        discoveryTarget: "https://openpo.st/docs/index.md",
       },
     ]) {
       const markdown = await readFile(path.join(production.directory, "index.md"), "utf8");
@@ -1701,16 +1701,16 @@ test(
       });
       assert.ok(
         html.includes(
-          `rel="alternate" type="text/markdown" href="${new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href}"`,
+          `rel="alternate" type="text/markdown" href="${new URL(entry.page.replace(/\.mdx$/, ".md"), "https://openpo.st/docs/").href}"`,
         ),
       );
       assert.match(
         html,
-        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpo\.st\/llms-full\.txt"/u,
+        /rel="alternate" type="text\/plain" href="https:\/\/openpo\.st\/docs\/llms-full\.txt"/u,
       );
       assert.match(
         html,
-        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpo\.st\/llms\.txt"/u,
+        /rel="alternate" type="text\/plain" href="https:\/\/openpo\.st\/docs\/llms\.txt"/u,
       );
       assert.ok(markdown.includes(`\nTitle: ${entry.socialTitle}\n`));
       assert.ok(markdown.includes(`\nDescription: ${entry.description}\n`));
@@ -1742,14 +1742,14 @@ test(
       assert.ok(entry);
       assert.ok(
         docsDiscovery.includes(
-          new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href,
+          new URL(entry.page.replace(/\.mdx$/, ".md"), "https://openpo.st/docs/").href,
         ),
       );
     }
-    assert.match(docsDiscovery, /\[OpenAPI JSON\]\(https:\/\/docs\.openpo\.st\/openapi\.json\)/u);
+    assert.match(docsDiscovery, /\[OpenAPI JSON\]\(https:\/\/openpo\.st\/docs\/openapi\.json\)/u);
     assert.match(
       docsDiscovery,
-      /\[OpenPost documentation full corpus\]\(https:\/\/docs\.openpo\.st\/llms-full\.txt\)/u,
+      /\[OpenPost documentation full corpus\]\(https:\/\/openpo\.st\/docs\/llms-full\.txt\)/u,
     );
     assert.ok(Buffer.byteLength(docsCorpus, "utf8") < 1024 * 1024);
     assert.match(docsCorpus, /OpenPost convenience artifact/u);
@@ -1764,7 +1764,7 @@ test(
       /^### (?:Privacy Policy|Terms of Service|Refund Policy|Changelog)$/m,
     );
     for (const entry of docsSocialEntries) {
-      const artifact = new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href;
+      const artifact = new URL(entry.page.replace(/\.mdx$/, ".md"), "https://openpo.st/docs/").href;
       const provenance = `Source: [${artifact}](${artifact})`;
       if (entry.agentCorpus.membership === "included") {
         assert.ok(docsCorpus.includes(provenance), `${entry.page} is missing from llms-full.txt`);
@@ -1781,7 +1781,7 @@ test(
     )) {
       assert.equal(
         docsDiscovery.includes(
-          `(${new URL(entry.page.replace(/\.mdx$/, ".md"), "https://docs.openpo.st/").href})`,
+          `(${new URL(entry.page.replace(/\.mdx$/, ".md"), "https://openpo.st/docs/").href})`,
         ),
         false,
       );
@@ -1792,12 +1792,10 @@ test(
       [...docsSitemap.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]).toSorted(),
       docsHTML
         .filter((file) => !["404.html", "_not-found.html", "_not-found/index.html"].includes(file))
-        .map(
-          (file) =>
-            new URL(
-              file === "index.html" ? "/" : file.replace(/\.html$/, ""),
-              "https://docs.openpo.st/",
-            ).href,
+        .map((file) =>
+          file === "index.html"
+            ? "https://openpo.st/docs"
+            : new URL(file.replace(/\.html$/, ""), "https://openpo.st/docs/").href,
         )
         .toSorted(),
     );

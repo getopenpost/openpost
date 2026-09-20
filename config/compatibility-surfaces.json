@@ -19,6 +19,7 @@
       "owner": "public-surface-operators",
       "status": "retained",
       "hostnames": [
+        "docs.openpo.st",
         "openpost.social",
         "docs.openpost.social",
         "app.openpost.social",
@@ -30,7 +31,7 @@
         "status": "available",
         "operations": [
           "https://openpo.st",
-          "https://docs.openpo.st",
+          "https://openpo.st/docs",
           "https://app.openpo.st",
           "https://media.openpo.st",
           "https://cool.openpo.st"
@@ -46,6 +47,7 @@
       "removal": { "earliest_on": null, "removal_version": null },
       "telemetry": {
         "hostnames": [
+          "docs.openpo.st",
           "openpost.social",
           "docs.openpost.social",
           "app.openpost.social",

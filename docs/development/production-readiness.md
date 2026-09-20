@@ -7,7 +7,7 @@ OpenPost uses one product core for the Hosted service and self-hosted deployment
 - **OpenPost** is the product name.
 - The official operated product is the **Hosted service**.
 - `openpo.st` is the marketing site.
-- `docs.openpo.st` is the docs site.
+- `openpo.st/docs` is the docs site.
 - `app.openpo.st` is the Hosted service.
 - The self-hosted server uses the same AGPL application code.
 
@@ -125,5 +125,5 @@ This content covers public product and operating information only. Do not add au
 2. Run `bun run doctor` before broad or release work.
 3. Run scoped root checks while editing, then `bun run verify`.
 4. For visible changes, run the related app, docs, or marketing browser suite at desktop and phone widths.
-5. Before a public campaign, complete the [Launch Verification Matrix](https://docs.openpo.st/self-hosting/maintenance) for each account and format.
+5. Before a public campaign, complete the [Launch Verification Matrix](https://openpo.st/docs/self-hosting/maintenance) for each account and format.
 6. For a production release, follow [Releases and Versioning](releases.md) and verify the workflow, release, deployed revision, and public readiness.

@@ -57,7 +57,8 @@ for (const file of files) {
     problems.push(`${outputPath}: still references the retired social image renderer`);
   }
 
-  const imageFile = path.join(dist, new URL(imageUrl).pathname.slice(1));
+  const imagePath = new URL(imageUrl).pathname.replace(/^\/docs\//u, "");
+  const imageFile = path.join(dist, imagePath);
   try {
     const png = await readFile(imageFile);
     if (!png.subarray(1, 4).equals(Buffer.from("PNG"))) {

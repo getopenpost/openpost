@@ -104,7 +104,7 @@ export const marketingGuides = [
     sources: [
       {
         label: "OpenPost provider readiness",
-        href: "https://docs.openpo.st/self-hosting/maintenance",
+        href: "https://openpo.st/docs/self-hosting/maintenance",
       },
       {
         label: "Buffer scheduling documentation",

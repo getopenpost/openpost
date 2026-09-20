@@ -27,10 +27,10 @@ const generatedVaryHeaderMarker = "# OpenPost canonical Vary rules (generated)";
 const privateRoutePattern =
   /^\/(?:login|register|onboarding|checkout|organizations|workspaces|publications|renditions|media|settings|billing|oauth|api)(?:[/.?#]|$)/iu;
 const privateApplicationOrigins = new Set(["https://app.openpo.st"]);
-const publicContentOrigins = new Set(["https://openpo.st", "https://docs.openpo.st"]);
+const publicContentOrigins = new Set(["https://openpo.st"]);
 const productionArtifactURLs = new Set([
   "https://openpo.st/index.md",
-  "https://docs.openpo.st/index.md",
+  "https://openpo.st/docs/index.md",
 ]);
 const ignoredMarketingTags = new Set([
   "audio",
@@ -233,6 +233,13 @@ function headMetadata(document) {
 function absoluteUrl(value, canonical) {
   if (!value || value.startsWith("#")) return `${canonical.replace(/\/$/u, "")}${value ?? ""}`;
   if (/^(?:mailto:|tel:)/u.test(value)) return value;
+  if (
+    value.startsWith("/") &&
+    !value.startsWith("/docs/") &&
+    (canonical === docsSiteUrl || canonical.startsWith(`${docsSiteUrl}/`))
+  ) {
+    return `${docsSiteUrl}${value}`;
+  }
   return new URL(value, canonical).href;
 }
 
@@ -669,8 +676,18 @@ function demoteCorpusHeadings(source) {
   );
 }
 
+function artifactBaseURL(page) {
+  return page.catalog?.kind === "docs" || page.canonical.startsWith(`${docsSiteUrl}/`)
+    ? `${docsSiteUrl}/`
+    : `${marketingSiteUrl}/`;
+}
+
+function artifactURL(page) {
+  return new URL(page.outputPath, artifactBaseURL(page)).href;
+}
+
 function corpusArtifactURL(page) {
-  return new URL(page.outputPath, new URL(page.canonical).origin + "/").href;
+  return artifactURL(page);
 }
 
 function corpusLinks(markdown, page, artifactsByCanonical) {
@@ -683,7 +700,10 @@ function corpusLinks(markdown, page, artifactsByCanonical) {
         if (artifact) return `${imageMarker}[${label}](${artifact}${url.hash})`;
         const intentionalNative =
           publicContentOrigins.has(url.origin) &&
-          (url.pathname.startsWith("/assets/") || url.pathname === "/openapi.json");
+          (url.pathname.startsWith("/assets/") ||
+            url.pathname.startsWith("/docs/assets/") ||
+            url.pathname === "/openapi.json" ||
+            url.pathname === "/docs/openapi.json");
         if (intentionalNative) return `${imageMarker}[${label}](${url.href})`;
         return label;
       },
@@ -772,11 +792,7 @@ function validateDiscovery(projection, generatedPages) {
     );
     throw new Error(`duplicate canonical route: ${duplicate.canonical}`);
   }
-  const artifactURLs = new Set(
-    generatedPages.map(
-      (page) => new URL(page.outputPath, new URL(page.canonical).origin + "/").href,
-    ),
-  );
+  const artifactURLs = new Set(generatedPages.map(artifactURL));
   const discoveryLinks = [
     ...projection.discovery.links,
     ...(projection.discovery.sections ?? []).flatMap((section) => section.links),
@@ -818,6 +834,7 @@ function validateRepresentationLinks(
   canonical,
   knownCanonicalURLs = [],
   knownFragmentsByCanonical = new Map(),
+  knownCanonicalPrefixes = [],
 ) {
   const known = new Set(knownCanonicalURLs.map(normalizedPublicURL));
   for (const match of markdownLinks(markdown)) {
@@ -826,9 +843,12 @@ function validateRepresentationLinks(
       throw new Error(`${canonical}: generated representation exposes private link ${url.href}`);
     }
     if (!publicContentOrigins.has(url.origin)) continue;
-    if (url.pathname.startsWith("/assets/")) continue;
+    if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/docs/assets/")) continue;
     if (knownCanonicalURLs.length === 0) continue;
-    if (!known.has(normalizedPublicURL(url.href))) {
+    if (
+      !known.has(normalizedPublicURL(url.href)) &&
+      !knownCanonicalPrefixes.some((prefix) => url.href.startsWith(prefix))
+    ) {
       throw new Error(`${canonical}: broken internal link ${url.href}`);
     }
     const targetFragments = knownFragmentsByCanonical.get(normalizedPublicURL(url.href));
@@ -876,7 +896,8 @@ function validateHTMLDiscovery(source, page) {
   const document = parse(source);
   const head = element(document, "head");
   const links = descendants(head).filter((node) => node.tagName === "link");
-  const markdownURL = new URL(page.outputPath, new URL(page.canonical).origin + "/").href;
+  const markdownURL = artifactURL(page);
+  const discoveryPath = new URL("llms.txt", artifactBaseURL(page)).pathname;
   const hasMarkdown = links.some(
     (link) =>
       attribute(link, "rel") === "alternate" &&
@@ -887,7 +908,7 @@ function validateHTMLDiscovery(source, page) {
     (link) =>
       attribute(link, "rel") === "alternate" &&
       attribute(link, "type") === "text/plain" &&
-      new URL(attribute(link, "href"), page.canonical).pathname === "/llms.txt",
+      new URL(attribute(link, "href"), page.canonical).pathname === discoveryPath,
   );
   if (!hasMarkdown || !hasDiscovery) {
     throw new Error(`${page.canonical}: canonical HTML is missing Agent-readable discovery links`);
@@ -945,6 +966,7 @@ export async function generateAgentSurface(projection) {
       generated.canonical,
       projection.knownCanonicalURLs,
       knownFragmentsByCanonical,
+      projection.knownCanonicalPrefixes,
     );
     generatedPages.push(generated);
   }
@@ -1005,15 +1027,15 @@ export const productionProjections = {
     knownCanonicalURLs: [
       ...marketingRouteManifest.map((entry) => entry.canonical),
       ...docsSocialEntries.map((entry) => entry.canonical),
-      "https://docs.openpo.st/openapi.json",
+      "https://openpo.st/docs/openapi.json",
     ],
     knownArtifactURLs: [
-      "https://docs.openpo.st/index.md",
-      "https://docs.openpo.st/openapi.json",
-      "https://docs.openpo.st/guides/publishing.md",
-      "https://docs.openpo.st/automate/index.md",
-      "https://docs.openpo.st/automate/cli.md",
-      "https://docs.openpo.st/mcp/index.md",
+      "https://openpo.st/docs/index.md",
+      "https://openpo.st/docs/openapi.json",
+      "https://openpo.st/docs/guides/publishing.md",
+      "https://openpo.st/docs/automate/index.md",
+      "https://openpo.st/docs/automate/cli.md",
+      "https://openpo.st/docs/mcp/index.md",
     ],
     fragmentSources: marketingRouteManifest.map((route) => ({
       canonical: route.canonical,
@@ -1053,7 +1075,7 @@ export const productionProjections = {
         {
           title: "OpenPost documentation",
           description: "Read the user, self-hosting, and API documentation.",
-          url: "https://docs.openpo.st/index.md",
+          url: "https://openpo.st/docs/index.md",
           classification: "primary",
         },
       ],
@@ -1066,27 +1088,27 @@ export const productionProjections = {
             {
               title: "OpenPost developer entry point",
               description: "Choose the HTTP API, CLI, or MCP server for the job.",
-              url: "https://docs.openpo.st/automate/index.md",
+              url: "https://openpo.st/docs/automate/index.md",
             },
             {
               title: "OpenAPI JSON",
               description: "Use the authoritative OpenAPI 3.1 HTTP API contract.",
-              url: "https://docs.openpo.st/openapi.json",
+              url: "https://openpo.st/docs/openapi.json",
             },
             {
               title: "OpenPost CLI",
               description: "Use a terminal, script, CI job, cron job, or deploy process.",
-              url: "https://docs.openpo.st/automate/cli.md",
+              url: "https://openpo.st/docs/automate/cli.md",
             },
             {
               title: "OpenPost MCP server",
               description: "Connect an AI assistant with explicit read and change scopes.",
-              url: "https://docs.openpo.st/mcp/index.md",
+              url: "https://openpo.st/docs/mcp/index.md",
             },
             {
               title: "Agent-assisted publishing",
               description: "Follow the human-reviewed workflow for agent-prepared publishing work.",
-              url: "https://docs.openpo.st/guides/publishing.md",
+              url: "https://openpo.st/docs/guides/publishing.md",
             },
           ],
         },
@@ -1142,14 +1164,15 @@ export const productionProjections = {
     knownCanonicalURLs: [
       ...docsSocialEntries.map((entry) => entry.canonical),
       ...marketingRouteManifest.map((entry) => entry.canonical),
-      "https://docs.openpo.st/openapi.json",
+      "https://openpo.st/docs/openapi.json",
       // Generated by public-agent-discovery during the marketing build and linked from the CLI guide.
       "https://openpo.st/.well-known/agent-skills/openpost-cli.tar.gz",
     ],
+    knownCanonicalPrefixes: ["https://openpo.st/docs/api-reference/"],
     knownArtifactURLs: [
       "https://openpo.st/index.md",
-      "https://docs.openpo.st/openapi.json",
-      "https://docs.openpo.st/llms-full.txt",
+      "https://openpo.st/docs/openapi.json",
+      "https://openpo.st/docs/llms-full.txt",
     ],
     fragmentSources: docsSocialEntries.map((entry) => ({
       canonical: entry.canonical,
@@ -1191,7 +1214,7 @@ export const productionProjections = {
           title: "OpenPost documentation full corpus",
           description:
             "Read the selected public documentation as one bounded OpenPost convenience artifact.",
-          url: "https://docs.openpo.st/llms-full.txt",
+          url: "https://openpo.st/docs/llms-full.txt",
           classification: "optional",
         },
       ],
@@ -1215,7 +1238,7 @@ export const productionProjections = {
                 {
                   title: "OpenAPI JSON",
                   description: "Use the authoritative machine-readable HTTP API contract.",
-                  url: "https://docs.openpo.st/openapi.json",
+                  url: "https://openpo.st/docs/openapi.json",
                 },
               ]
             : []),

@@ -7,8 +7,8 @@ This file tells agents and machine clients how a user grants access to OpenPost.
 - Register or sign in: https://app.openpo.st/register
 - API base: https://app.openpo.st/api/v1
 - MCP endpoint: https://app.openpo.st/mcp
-- OpenAPI contract: https://docs.openpo.st/openapi.json
-- Authentication guide: https://docs.openpo.st/api-reference
+- OpenAPI contract: https://openpo.st/docs/openapi.json
+- Authentication guide: https://openpo.st/docs/api-reference
 
 ## MCP OAuth
 

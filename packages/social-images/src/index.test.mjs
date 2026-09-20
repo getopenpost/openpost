@@ -46,7 +46,7 @@ test("every social entry is unique and uses its published static image", () => {
   for (const entry of docsSocialEntries) {
     assert.ok(!seen.has(`id:${entry.id}`), `duplicate social entry id:${entry.id}`);
     seen.add(`id:${entry.id}`);
-    assertStaticImageUrl(entry, entry.id, `https://docs.openpo.st/og/${entry.key}.png`);
+    assertStaticImageUrl(entry, entry.id, `https://openpo.st/docs/og/${entry.key}.png`);
     images.add(entry.imageUrl);
     assert.match(entry.imageAlt, /OpenPost documentation social preview\.$/u);
     const page = pages.get(entry.page);
@@ -66,7 +66,7 @@ test("every social entry is unique and uses its published static image", () => {
   assert.equal(docsSocialImageKey("/guides/quickstart?source=test"), "guides--quickstart");
   assert.equal(
     docsSocialImageUrlForRoute("/api-reference/accounts/list-accounts"),
-    "https://docs.openpo.st/og/api-reference--accounts--list-accounts.png",
+    "https://openpo.st/docs/og/api-reference--accounts--list-accounts.png",
   );
   assertUniqueDocumentationRoutes(docsPageCatalog);
   assert.throws(

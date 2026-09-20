@@ -524,8 +524,9 @@ function testPlan(requestedScope, requestedOptions) {
 }
 
 function buildPlan(requestedScope) {
-  if (requestedScope && !surfaceScopes.includes(requestedScope)) {
-    throw unsupported("build", requestedScope, surfaceScopes);
+  const buildScopes = [...surfaceScopes, "public-site"];
+  if (requestedScope && !buildScopes.includes(requestedScope)) {
+    throw unsupported("build", requestedScope, buildScopes);
   }
   const prepareDocs = stage("documentation inputs", [
     bun("scripts/sync-docs-external.mjs"),
@@ -544,8 +545,14 @@ function buildPlan(requestedScope) {
   const docs = stage("documentation build", [
     commandStep("bunx", "turbo", "run", "build", "--filter", "@openpost/docs"),
   ]);
+  const composePublicSite = stage("public site composition", [
+    bun("scripts/compose-public-site.mjs"),
+  ]);
   const byScope = { frontend, backend, cli, marketing, docs };
   if (requestedScope === "docs") return plan("build", requestedScope, [[prepareDocs], [docs]]);
+  if (requestedScope === "public-site") {
+    return plan("build", requestedScope, [[prepareDocs], [marketing, docs], [composePublicSite]]);
+  }
   if (requestedScope) return plan("build", requestedScope, [[byScope[requestedScope]]]);
   return plan("build", undefined, [
     [prepareDocs],

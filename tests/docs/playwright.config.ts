@@ -18,7 +18,7 @@ export default defineConfig({
   webServer: {
     cwd: root,
     command:
-      "cd apps/docs && bunx wrangler pages dev out --compatibility-date 2026-08-06 --port 4175",
+      "bun run build -- public-site && bunx wrangler pages dev dist/public-site --compatibility-date 2026-08-06 --port 4175",
     url: baseURL,
     timeout: 60_000,
   },

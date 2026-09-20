@@ -4,6 +4,7 @@ import path from "node:path";
 const withMDX = createMDX();
 export default withMDX({
   output: "export",
+  basePath: "/docs",
   agentRules: false,
   images: { unoptimized: true },
   turbopack: { root: path.resolve("../..") },

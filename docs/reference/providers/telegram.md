@@ -6,7 +6,7 @@ description: Understand Telegram bot mode's implemented boundary and why it has 
 
 This page is for operators reviewing Telegram bot mode's certification boundary.
 
-Telegram bot mode is implemented in OpenPost, but it has no current Hosted service certification claim. The repository contains connection, publishing, observation, and analytics paths, but a configured bot or passing fixture test is not a Hosted service availability claim. Self-hosted operators follow the [Telegram bot integration guide](https://docs.openpo.st/self-hosting/integrations/telegram) instead.
+Telegram bot mode is implemented in OpenPost, but it has no current Hosted service certification claim. The repository contains connection, publishing, observation, and analytics paths, but a configured bot or passing fixture test is not a Hosted service availability claim. Self-hosted operators follow the [Telegram bot integration guide](https://openpo.st/docs/self-hosting/integrations/telegram) instead.
 
 Do not advertise or enable public Telegram bot operations unless the exact bot, destination, operation, policy mode, runtime controls, and current live evidence pass the [Provider Readiness and Launch Gate](../operations/provider-launch-matrix.md).
 

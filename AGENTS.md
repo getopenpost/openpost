@@ -48,6 +48,8 @@ Install marketing module-download recovery in the client `init` hook, before hyd
 
 Public documentation uses Fumadocs in `apps/docs/`, with authored MDX under `content/docs/` and a static export in `out/`. Keep customer guides, self-hosting, and the generated API reference separate. Engineering documentation belongs in `docs/development/`; operator reference details belong in `docs/reference/`. Generate API operation pages from `apps/web/openapi.json` on every docs build, never edit generated MDX.
 
+The public Cloudflare site composes marketing at `/` and documentation at `/docs` through `bun run build -- public-site`; `openpost-marketing` publishes `dist/public-site`. Keep docs base-path aware, reject output collisions, and keep the retired docs host only as a direct path-and-query-preserving redirect.
+
 Generate the media-limits guide with `scripts/sync-docs-openapi.mjs`; edit the capability catalogue or `apps/server/cmd/openpost-media-limits`, never the generated MDX.
 
 Verify docs reader interactions against the static export with `bunx playwright test --config tests/docs/playwright.config.ts` after `bun run build -- docs`. Use shared Fumadocs controls and SVG icons for page actions, search, and navigation.

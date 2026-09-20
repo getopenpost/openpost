@@ -114,6 +114,6 @@ A platform can offer a feature while OpenPost still marks its implementation mis
 
 Social network API rules, access, request limits, and app review can change. Check that network's docs if a feature stops working.
 
-See [Analytics](https://docs.openpo.st/guides/quickstart) for collection timing, metric definitions, reconnect requirements, and provider-specific coverage. See [Accounts](https://docs.openpo.st/guides/quickstart), [Engagement, Inbox, and Notifications](https://docs.openpo.st/guides/quickstart), and [Grow](https://docs.openpo.st/guides/quickstart) for the per-account optional feature model.
+See [Analytics](https://openpo.st/docs/guides/quickstart) for collection timing, metric definitions, reconnect requirements, and provider-specific coverage. See [Accounts](https://openpo.st/docs/guides/quickstart), [Engagement, Inbox, and Notifications](https://openpo.st/docs/guides/quickstart), and [Grow](https://openpo.st/docs/guides/quickstart) for the per-account optional feature model.
 
-Native auto reposts are currently available for X, Mastodon, Bluesky, and LinkedIn. OpenPost reposts only within the source network; it never turns a repost into a copied post on another network. See [Auto Reposts](https://docs.openpo.st/guides/quickstart) for rule and account-access details.
+Native auto reposts are currently available for X, Mastodon, Bluesky, and LinkedIn. OpenPost reposts only within the source network; it never turns a repost into a copied post on another network. See [Auto Reposts](https://openpo.st/docs/guides/quickstart) for rule and account-access details.

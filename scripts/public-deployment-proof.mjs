@@ -33,7 +33,7 @@ const nativeBoundaries = Object.freeze([
   {
     label: "OpenAPI",
     name: "OpenAPI JSON",
-    canonicalURL: "https://docs.openpo.st/openapi.json",
+    canonicalURL: "https://openpo.st/docs/openapi.json",
     contentType: "application/json",
     deployment: "documentation",
     localPath: "openapi.json",
@@ -134,7 +134,7 @@ const nativeBoundaries = Object.freeze([
   {
     label: "documentation robots",
     name: "documentation crawler policy",
-    canonicalURL: "https://docs.openpo.st/robots.txt",
+    canonicalURL: "https://openpo.st/docs/robots.txt",
     contentType: "text/plain; charset=utf-8",
     deployment: "documentation",
     localPath: "robots.txt",
@@ -190,7 +190,7 @@ const nativeBoundaries = Object.freeze([
   {
     label: "documentation social image",
     name: "documentation social preview image",
-    canonicalURL: "https://docs.openpo.st/og/home.png",
+    canonicalURL: "https://openpo.st/docs/og/home.png",
     contentType: "image/png",
     deployment: "documentation",
     localPath: "og/home.png",
@@ -199,7 +199,7 @@ const nativeBoundaries = Object.freeze([
   {
     label: "documentation asset",
     name: "documentation PNG asset",
-    canonicalURL: "https://docs.openpo.st/assets/screenshots/integrations/google-enable-api.png",
+    canonicalURL: "https://openpo.st/docs/assets/screenshots/integrations/google-enable-api.png",
     contentType: "image/png",
     deployment: "documentation",
     localPath: "assets/screenshots/integrations/google-enable-api.png",
@@ -312,12 +312,12 @@ export function validateAICrawlSnapshot(snapshot) {
   if (observed < end) {
     throw new Error("AI Crawl Control snapshot cannot be observed before its window ends");
   }
-  const expectedHosts = ["docs.openpo.st", "openpo.st"];
+  const expectedHosts = ["openpo.st"];
   if (
     !Array.isArray(snapshot.scope) ||
     JSON.stringify([...snapshot.scope].sort()) !== JSON.stringify(expectedHosts)
   ) {
-    throw new Error("AI Crawl Control snapshot must cover both public hosts exactly");
+    throw new Error("AI Crawl Control snapshot must cover the public host exactly");
   }
   if (!Number.isInteger(snapshot.requests) || snapshot.requests < 0) {
     throw new Error("AI Crawl Control snapshot requests must be a non-negative integer");
@@ -327,7 +327,7 @@ export function validateAICrawlSnapshot(snapshot) {
   if (
     JSON.stringify(Object.keys(snapshot.requests_by_host).sort()) !== JSON.stringify(expectedHosts)
   ) {
-    throw new Error("AI Crawl Control snapshot host counts must cover both public hosts exactly");
+    throw new Error("AI Crawl Control snapshot host counts must cover the public host exactly");
   }
   for (const [name, counts] of [
     ["response_statuses", snapshot.response_statuses],
@@ -530,9 +530,9 @@ export function validateMachineLinks(indexName, markdown, knownMarkdownURLs) {
     }
     url.hash = "";
     const intentionalNative =
-      target === "https://docs.openpo.st/openapi.json" ||
-      (["https://openpo.st", "https://docs.openpo.st"].includes(url.origin) &&
-        url.pathname.startsWith("/assets/"));
+      target === "https://openpo.st/docs/openapi.json" ||
+      (url.origin === "https://openpo.st" &&
+        (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/docs/assets/")));
     if (intentionalNative) continue;
     if (!knownMarkdownURLs.has(url.href)) {
       throw new Error(`${indexName} contains a non-resolving or non-machine link ${target}`);
@@ -543,14 +543,11 @@ export function validateMachineLinks(indexName, markdown, knownMarkdownURLs) {
 export async function buildPublicProofChecks({
   rootDirectory = repositoryRoot,
   revision,
-  marketingDeployments,
-  documentationDeployments,
+  publicSiteDeployments,
 }) {
-  const marketingDeployment = deploymentForRevision(marketingDeployments, revision);
-  const documentationDeployment = deploymentForRevision(documentationDeployments, revision);
+  const publicSiteDeployment = deploymentForRevision(publicSiteDeployments, revision);
   const samples = publicSurfaceSamples();
-  const marketingDirectory = path.join(rootDirectory, "apps/marketing/dist");
-  const documentationDirectory = path.join(rootDirectory, "apps/docs/out");
+  const publicSiteDirectory = path.join(rootDirectory, "dist/public-site");
   const checks = [];
   const knownMarkdownURLs = new Set();
 
@@ -558,8 +555,9 @@ export async function buildPublicProofChecks({
     {
       key: "marketing",
       origin: "https://openpo.st",
-      directory: marketingDirectory,
-      deployment: marketingDeployment,
+      directory: publicSiteDirectory,
+      artifactPrefix: "",
+      deployment: publicSiteDeployment,
       routes: marketingRouteManifest
         .filter(({ agentRepresentation }) => Boolean(agentRepresentation))
         .map(({ path: route, canonical }) => ({ route, canonical })),
@@ -567,14 +565,15 @@ export async function buildPublicProofChecks({
     },
     {
       key: "documentation",
-      origin: "https://docs.openpo.st",
-      directory: documentationDirectory,
-      deployment: documentationDeployment,
+      origin: "https://openpo.st/docs",
+      directory: publicSiteDirectory,
+      artifactPrefix: "docs",
+      deployment: publicSiteDeployment,
       routes: docsPageCatalog
         .filter(({ agentRepresentation }) => agentRepresentation.membership === "ordinary")
         .map(({ route }) => ({
           route,
-          canonical: route === "/" ? "https://docs.openpo.st" : `https://docs.openpo.st${route}`,
+          canonical: route === "/" ? "https://openpo.st/docs" : `https://openpo.st/docs${route}`,
         })),
       samples: samples.documentation,
     },
@@ -583,8 +582,9 @@ export async function buildPublicProofChecks({
   for (const surface of surfaces) {
     for (const { route, canonical } of surface.routes) {
       const relativePath = markdownOutputForRoute(route, surface.key);
+      const deployedPath = path.posix.join(surface.artifactPrefix, relativePath);
       const canonicalURL = `${surface.origin}/${relativePath}`;
-      const expectedBody = await localArtifact(surface.directory, relativePath);
+      const expectedBody = await localArtifact(surface.directory, deployedPath);
       const provenance = assertCanonicalProvenance(expectedBody, canonical, relativePath);
       knownMarkdownURLs.add(canonicalURL);
       const sample = sampleByRoute(surface.samples, route);
@@ -592,7 +592,7 @@ export async function buildPublicProofChecks({
         kind: "artifact",
         name: sample ? `${surface.key} ${sample.category} Markdown` : `${surface.key} Markdown`,
         canonicalURL,
-        deploymentURL: deploymentURL(surface.deployment, relativePath),
+        deploymentURL: deploymentURL(surface.deployment, deployedPath),
         contentType: "text/markdown; charset=utf-8",
         expectedBody,
         queryIsolation: Boolean(sample),
@@ -601,12 +601,12 @@ export async function buildPublicProofChecks({
     }
   }
 
-  const marketingIndex = await localArtifact(marketingDirectory, "llms.txt");
-  const documentationIndex = await localArtifact(documentationDirectory, "llms.txt");
-  knownMarkdownURLs.add("https://docs.openpo.st/llms-full.txt");
+  const marketingIndex = await localArtifact(publicSiteDirectory, "llms.txt");
+  const documentationIndex = await localArtifact(publicSiteDirectory, "docs/llms.txt");
+  knownMarkdownURLs.add("https://openpo.st/docs/llms-full.txt");
   validateMachineLinks("marketing llms.txt", marketingIndex, knownMarkdownURLs);
   validateMachineLinks("documentation llms.txt", documentationIndex, knownMarkdownURLs);
-  const documentationCorpus = await localArtifact(documentationDirectory, "llms-full.txt");
+  const documentationCorpus = await localArtifact(publicSiteDirectory, "docs/llms-full.txt");
   validateMachineLinks("documentation llms-full.txt", documentationCorpus, knownMarkdownURLs);
 
   for (const [surface, relativePath, contentType, expectedBody] of [
@@ -618,7 +618,10 @@ export async function buildPublicProofChecks({
       kind: "artifact",
       name: `${surface.key} ${relativePath}`,
       canonicalURL: `${surface.origin}/${relativePath}`,
-      deploymentURL: deploymentURL(surface.deployment, relativePath),
+      deploymentURL: deploymentURL(
+        surface.deployment,
+        path.posix.join(surface.artifactPrefix, relativePath),
+      ),
       contentType,
       expectedBody,
       queryIsolation: true,
@@ -637,7 +640,7 @@ export async function buildPublicProofChecks({
           `rel="alternate" type="text/markdown" href="${surface.origin}/${markdownPath}"`,
           `href="${surface.origin}/llms.txt"`,
           ...(surface.key === "documentation"
-            ? [`href="https://docs.openpo.st/llms-full.txt"`]
+            ? [`href="https://openpo.st/docs/llms-full.txt"`]
             : []),
         ],
       });
@@ -655,25 +658,18 @@ export async function buildPublicProofChecks({
   }
 
   for (const boundary of nativeBoundaries) {
-    const deployment =
-      boundary.deployment === "marketing"
-        ? marketingDeployment
-        : boundary.deployment === "documentation"
-          ? documentationDeployment
-          : undefined;
-    const directory =
-      boundary.deployment === "marketing"
-        ? marketingDirectory
-        : boundary.deployment === "documentation"
-          ? documentationDirectory
-          : undefined;
+    const deployedPath =
+      boundary.deployment === "documentation"
+        ? path.posix.join("docs", boundary.localPath)
+        : boundary.localPath;
+    const deployment = boundary.deployment ? publicSiteDeployment : undefined;
     checks.push({
       kind: "artifact",
       ...boundary,
-      ...(deployment ? { deploymentURL: deploymentURL(deployment, boundary.localPath) } : {}),
+      ...(deployment ? { deploymentURL: deploymentURL(deployment, deployedPath) } : {}),
       ...(boundary.localPath
         ? {
-            expectedBody: await localArtifact(directory, boundary.localPath, boundary.binary),
+            expectedBody: await localArtifact(publicSiteDirectory, deployedPath, boundary.binary),
           }
         : {}),
     });
@@ -709,13 +705,27 @@ export async function buildPublicProofChecks({
     {
       kind: "redirect",
       name: "documentation canonical redirect",
-      url: "https://docs.openpo.st/mcp/cursor/?openpost_proof=redirect",
+      url: "https://openpo.st/docs/mcp/cursor/?openpost_proof=redirect",
       status: 308,
-      location: "/mcp/cursor?openpost_proof=redirect",
+      location: "/docs/mcp/cursor?openpost_proof=redirect",
+    },
+    {
+      kind: "redirect",
+      name: "retired documentation host redirect",
+      url: "https://docs.openpo.st/guides/quickstart?openpost_proof=redirect",
+      status: 308,
+      location: "https://openpo.st/docs/guides/quickstart?openpost_proof=redirect",
+    },
+    {
+      kind: "redirect",
+      name: "legacy documentation host redirect",
+      url: "https://docs.openpost.social/guides/quickstart?openpost_proof=redirect",
+      status: 308,
+      location: "https://openpo.st/docs/guides/quickstart?openpost_proof=redirect",
     },
   );
 
-  return { checks, marketingDeployment, documentationDeployment };
+  return { checks, publicSiteDeployment };
 }
 
 function requiredOption(name) {
@@ -738,7 +748,7 @@ function deploymentEvidence(deployment) {
 async function main() {
   if (process.argv[2] !== "prove") {
     throw new Error(
-      "usage: public-deployment-proof.mjs prove --revision SHA --marketing-deployment FILE --documentation-deployment FILE --ai-crawl-snapshot FILE --output FILE",
+      "usage: public-deployment-proof.mjs prove --revision SHA --public-site-deployment FILE --ai-crawl-snapshot FILE --output FILE",
     );
   }
   const revision = requiredOption("--revision");
@@ -753,18 +763,15 @@ async function main() {
     status: statusOutput.trim(),
   };
   assertLocalRevision(localRevision, revision);
-  const [marketingDeployments, documentationDeployments, aiCrawlSnapshot] = await Promise.all(
-    [
-      requiredOption("--marketing-deployment"),
-      requiredOption("--documentation-deployment"),
-      requiredOption("--ai-crawl-snapshot"),
-    ].map(async (file) => JSON.parse(await readFile(path.resolve(file), "utf8"))),
+  const [publicSiteDeployments, aiCrawlSnapshot] = await Promise.all(
+    [requiredOption("--public-site-deployment"), requiredOption("--ai-crawl-snapshot")].map(
+      async (file) => JSON.parse(await readFile(path.resolve(file), "utf8")),
+    ),
   );
   validateAICrawlSnapshot(aiCrawlSnapshot);
-  const { checks, marketingDeployment, documentationDeployment } = await buildPublicProofChecks({
+  const { checks, publicSiteDeployment } = await buildPublicProofChecks({
     revision,
-    marketingDeployments,
-    documentationDeployments,
+    publicSiteDeployments,
   });
   const results = await proveHTTPContract({ checks });
   const exactArtifacts = results.filter(
@@ -775,15 +782,13 @@ async function main() {
     reviewed_revision: revision,
     generated_at: new Date().toISOString(),
     local_build: {
-      marketing: "bun run build -- marketing",
-      documentation: "bun run build -- docs",
+      public_site: "bun run build -- public-site",
       head_revision: localRevision.head,
       tracked_tree_clean: true,
       generated_artifacts_verified: true,
     },
     deployment_artifact_acceptance: {
-      marketing: deploymentEvidence(marketingDeployment),
-      documentation: deploymentEvidence(documentationDeployment),
+      public_site: deploymentEvidence(publicSiteDeployment),
       exact_local_deployment_canonical_artifacts: exactArtifacts,
     },
     live_response_behavior: {

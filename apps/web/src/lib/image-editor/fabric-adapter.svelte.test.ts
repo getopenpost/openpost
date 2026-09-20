@@ -143,10 +143,13 @@ async function freshRenderDigest(page: ImageEditorPage, selectedIDs: string[]): 
 }
 
 describe('OpenPost Image Editor Fabric reconciliation', () => {
-	it('uses the same member geometry for numeric and pointer selection rotation', async () => {
+	it.each([
+		{ key: 'rotation' as const, value: 45, selectionUpdates: { angle: 15 } },
+		{ key: 'flip_x' as const, value: true, selectionUpdates: { flipX: true } }
+	])('matches pointer $key geometry for unequal rotated and flipped members', async (testCase) => {
 		interface ActiveSelectionFixture {
 			angle: number;
-			set(updates: { angle: number }): void;
+			set(updates: { angle?: number; flipX?: boolean }): void;
 			setCoords(): void;
 		}
 		interface CollectiveTransformAdapterInternals {
@@ -157,8 +160,30 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 			}>;
 		}
 		const page = pageFixture([
-			renderLayer('one', 10, 10, 80, 80),
-			renderLayer('two', 210, 10, 80, 80)
+			{
+				...renderLayer('one', 10, 20, 80, 40),
+				transform: {
+					x: 10,
+					y: 20,
+					width: 80,
+					height: 40,
+					rotation: 30,
+					flip_x: false,
+					flip_y: true
+				}
+			},
+			{
+				...renderLayer('two', 200, 100, 120, 60, 'ellipse'),
+				transform: {
+					x: 200,
+					y: 100,
+					width: 120,
+					height: 60,
+					rotation: -15,
+					flip_x: true,
+					flip_y: false
+				}
+			}
 		]);
 		const document = documentFixture(page);
 		const mounted = await mountAdapter(document, page);
@@ -167,7 +192,7 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 			await settleCanvas();
 			const internals = adapterInternals<CollectiveTransformAdapterInternals>(mounted.adapter);
 			const activeSelection = internals.canvas.getActiveObject();
-			activeSelection.set({ angle: 90 });
+			activeSelection.set(testCase.selectionUpdates);
 			activeSelection.setCoords();
 			const pointerTransforms = new Map(
 				internals
@@ -182,13 +207,103 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 				const numeric = transformImageEditorCollectiveMember(
 					layer.transform,
 					selection,
-					'rotation',
-					90
+					testCase.key,
+					testCase.value
 				);
 				const pointer = pointerTransforms.get(layer.id)!;
 				expect(numeric.x).toBeCloseTo(pointer.x);
 				expect(numeric.y).toBeCloseTo(pointer.y);
+				expect(numeric.width).toBeCloseTo(pointer.width);
+				expect(numeric.height).toBeCloseTo(pointer.height);
 				expect(numeric.rotation).toBeCloseTo(pointer.rotation);
+				expect(numeric.flip_x).toBe(pointer.flip_x);
+				expect(numeric.flip_y).toBe(pointer.flip_y);
+			}
+		} finally {
+			mounted.adapter.dispose();
+		}
+	});
+
+	it('matches pointer geometry for a non-uniform numeric selection resize', async () => {
+		interface ActiveSelectionFixture {
+			left: number;
+			top: number;
+			set(updates: { left: number; top: number; scaleX: number; scaleY: number }): void;
+			setCoords(): void;
+			getBoundingRect(): { left: number; top: number; width: number; height: number };
+		}
+		interface CollectiveTransformAdapterInternals {
+			canvas: { getActiveObject(): ActiveSelectionFixture };
+			transformEntries(target: ActiveSelectionFixture): Array<{
+				id: string;
+				transform: ImageEditorLayer['transform'];
+			}>;
+		}
+		const page = pageFixture([
+			{
+				...renderLayer('one', 10, 20, 80, 40),
+				transform: {
+					x: 10,
+					y: 20,
+					width: 80,
+					height: 40,
+					rotation: 30,
+					flip_x: false,
+					flip_y: false
+				}
+			},
+			{
+				...renderLayer('two', 200, 100, 120, 60, 'ellipse'),
+				transform: {
+					x: 200,
+					y: 100,
+					width: 120,
+					height: 60,
+					rotation: -15,
+					flip_x: false,
+					flip_y: false
+				}
+			}
+		]);
+		const mounted = await mountAdapter(documentFixture(page), page);
+		try {
+			mounted.adapter.setSelection(['one', 'two']);
+			await settleCanvas();
+			const internals = adapterInternals<CollectiveTransformAdapterInternals>(mounted.adapter);
+			const activeSelection = internals.canvas.getActiveObject();
+			const bounds = activeSelection.getBoundingRect();
+			const scaleX = 1.4;
+			activeSelection.set({
+				left: bounds.left + (bounds.width * scaleX) / 2,
+				top: bounds.top + bounds.height / 2,
+				scaleX,
+				scaleY: 1
+			});
+			activeSelection.setCoords();
+			const pointerTransforms = new Map(
+				internals
+					.transformEntries(activeSelection)
+					.map((entry) => [entry.id, entry.transform] as const)
+			);
+			const selection = imageEditorCollectiveTransform(
+				page.layers.map((layer) => layer.transform)
+			)!;
+			for (const layer of page.layers) {
+				const numeric = transformImageEditorCollectiveMember(
+					layer.transform,
+					selection,
+					'width',
+					selection.width * scaleX,
+					false
+				);
+				const pointer = pointerTransforms.get(layer.id)!;
+				expect(numeric.x).toBeCloseTo(pointer.x);
+				expect(numeric.y).toBeCloseTo(pointer.y);
+				expect(numeric.width).toBeCloseTo(pointer.width);
+				expect(numeric.height).toBeCloseTo(pointer.height);
+				expect(numeric.rotation).toBeCloseTo(pointer.rotation);
+				expect(numeric.flip_x).toBe(pointer.flip_x);
+				expect(numeric.flip_y).toBe(pointer.flip_y);
 			}
 		} finally {
 			mounted.adapter.dispose();

@@ -496,26 +496,28 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform.x).toBe(300);
 
 		editor.updateSelectedTransform('rotation', 90);
-		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
-			x: 200,
-			y: -90,
-			rotation: 90
-		});
-		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
-			x: 200,
-			y: 110,
-			rotation: 90
-		});
+		const rotatedBack = editor.activePage?.layers.find((item) => item.id === 'back')?.transform;
+		const rotatedFront = editor.activePage?.layers.find((item) => item.id === 'front')?.transform;
+		expect(rotatedBack?.x).toBeCloseTo(200);
+		expect(rotatedBack?.y).toBeCloseTo(-90);
+		expect(rotatedBack?.rotation).toBeCloseTo(90);
+		expect(rotatedFront?.x).toBeCloseTo(200);
+		expect(rotatedFront?.y).toBeCloseTo(110);
+		expect(rotatedFront?.rotation).toBeCloseTo(90);
 
 		editor.undo();
 		editor.updateSelectedTransform('flip_x', true);
 		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
 			x: 300,
-			flip_x: true
+			rotation: 180,
+			flip_x: false,
+			flip_y: true
 		});
 		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
 			x: 100,
-			flip_x: true
+			rotation: 180,
+			flip_x: false,
+			flip_y: true
 		});
 	});
 
@@ -530,12 +532,12 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 
 		editor.updateSelectedTransform('rotation', 45);
 
-		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform.rotation).toBe(
-			45
-		);
-		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform.rotation).toBe(
-			90
-		);
+		expect(
+			editor.activePage?.layers.find((item) => item.id === 'back')?.transform.rotation
+		).toBeCloseTo(45);
+		expect(
+			editor.activePage?.layers.find((item) => item.id === 'front')?.transform.rotation
+		).toBeCloseTo(90);
 	});
 
 	it('keeps single-root transform behavior unchanged', () => {

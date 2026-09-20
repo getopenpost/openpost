@@ -34,7 +34,7 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { canExtractEmbeddedSubtitles } from '$lib/video-editor/media/embedded-subtitle-service';
-	import type { MediaMetadata } from '$lib/video-editor/media/types';
+	import type { MediaMetadata, ProjectAssetImporter } from '$lib/video-editor/media/types';
 	import { readBlob } from '$lib/video-editor/workspace-fs/fs-primitives';
 	import { requireWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 	import { mediaThumbnailPath } from '$lib/video-editor/workspace-fs/paths';
@@ -109,6 +109,7 @@
 		onrecord = undefined,
 		onstock = undefined,
 		onUnsupportedAudio,
+		importProjectAsset,
 		deleteProjectMedia = deleteMediaFromProject,
 		generateMediaProxy = getAutomaticProxy,
 		requestSourceAccess = requestMediaSourceAccess,
@@ -123,6 +124,7 @@
 		onrecord?: () => void;
 		onstock?: () => void;
 		onUnsupportedAudio?: (request: UnsupportedAudioImportRequest) => Promise<'import' | 'cancel'>;
+		importProjectAsset?: ProjectAssetImporter;
 		deleteProjectMedia?: typeof deleteMediaFromProject;
 		generateMediaProxy?: typeof getAutomaticProxy;
 		requestSourceAccess?: typeof requestMediaSourceAccess;
@@ -481,7 +483,8 @@
 			id = await importMediaFromUrl(url, {
 				projectId,
 				storageMode: 'copy',
-				onUnsupportedAudio
+				onUnsupportedAudio,
+				importAsset: importProjectAsset
 			});
 		} catch (error) {
 			if (error instanceof MediaImportCancelledError) return;

@@ -34,6 +34,7 @@
 	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
 	import type { LocalGenerationProgress } from '$lib/video-editor/local-ai/types';
 	import type { AudioQuality } from 'ai-music-js';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 
 	type GenerateMusic = (options: GenerateLocalMusicOptions) => Promise<GeneratedMusic>;
 	type CommitAudio = typeof commitGeneratedAudio;
@@ -45,7 +46,8 @@
 		generateMusic = generateLocalMusic,
 		commitAudio = commitGeneratedAudio,
 		inspectStorage = inspectMusicGenerationStorage,
-		supported
+		supported,
+		importProjectAsset
 	}: {
 		projectId: string;
 		oninserted: (itemId: string) => void;
@@ -53,6 +55,7 @@
 		commitAudio?: CommitAudio;
 		inspectStorage?: InspectStorage;
 		supported?: boolean;
+		importProjectAsset?: ProjectAssetImporter;
 	} = $props();
 
 	interface Generation {
@@ -212,6 +215,7 @@
 			const options: CommitGeneratedAudioOptions = {
 				projectId,
 				tags: musicGenerationTags(generation.result),
+				importAsset: importProjectAsset,
 				existingMediaId: generation.mediaId,
 				...(insert && { insertAtFrame: timelineStore.currentFrame })
 			};

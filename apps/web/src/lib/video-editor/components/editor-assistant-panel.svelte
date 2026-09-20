@@ -15,6 +15,7 @@
 		inspectAgentStorage,
 		type AgentStorageStatus
 	} from '$lib/video-editor/agent/storage';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 
 	let {
 		projectId,
@@ -24,7 +25,8 @@
 		onopenfillers,
 		selectedIds = [],
 		onautosave,
-		textVoiceRequest = null
+		textVoiceRequest = null,
+		importProjectAsset
 	}: {
 		projectId: string;
 		oninserted: (itemId: string) => void;
@@ -34,6 +36,7 @@
 		selectedIds?: string[];
 		onautosave: () => void;
 		textVoiceRequest?: TextVoiceRequest | null;
+		importProjectAsset?: ProjectAssetImporter;
 	} = $props();
 
 	let mode = $state<'assistant' | 'generate'>('assistant');
@@ -231,7 +234,7 @@
 				aria-labelledby="generate-tab"
 				class="h-full min-h-0 overflow-y-auto"
 			>
-				<LocalAiPanel {projectId} {oninserted} {textVoiceRequest} />
+				<LocalAiPanel {projectId} {oninserted} {textVoiceRequest} {importProjectAsset} />
 			</div>
 		{/if}
 	</div>

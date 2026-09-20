@@ -42,6 +42,7 @@
 	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
 	import LocalMusicPanel from './local-music-panel.svelte';
 	import { transcriptionLanguageUiLabel } from '$lib/video-editor/transcript/engine/model-i18n';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 
 	type GenerateSpeech = (options: LocalTtsGenerateOptions) => Promise<GeneratedAudio>;
 	type CommitAudio = typeof commitGeneratedAudio;
@@ -52,7 +53,8 @@
 		generateSpeech = generateLocalSpeech,
 		commitAudio = commitGeneratedAudio,
 		supported,
-		textVoiceRequest = null
+		textVoiceRequest = null,
+		importProjectAsset
 	}: {
 		projectId: string;
 		oninserted: (itemId: string) => void;
@@ -60,6 +62,7 @@
 		commitAudio?: CommitAudio;
 		supported?: boolean;
 		textVoiceRequest?: TextVoiceRequest | null;
+		importProjectAsset?: ProjectAssetImporter;
 	} = $props();
 
 	interface Generation {
@@ -231,6 +234,7 @@
 			const options: CommitGeneratedAudioOptions = {
 				projectId,
 				tags: localTtsTags(generation.engine, generation.voice),
+				importAsset: importProjectAsset,
 				existingMediaId: generation.mediaId,
 				...(insert &&
 					(generation.sourceTextItemId
@@ -615,7 +619,7 @@
 			role="tabpanel"
 			aria-labelledby="local-ai-music-tab"
 		>
-			<LocalMusicPanel {projectId} {oninserted} />
+			<LocalMusicPanel {projectId} {oninserted} {importProjectAsset} />
 		</div>
 	{/if}
 </div>

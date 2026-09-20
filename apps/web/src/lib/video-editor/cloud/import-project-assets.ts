@@ -4,7 +4,7 @@ import { hashBlob } from '../project-bundle/bundle-utils';
 import { fileWithInferredMediaType, prepareMediaImportFile } from '../media/media-file-types';
 import { probeMediaFile } from '../media/probe-client';
 import { mediaPool } from '../media/pool.svelte';
-import type { MediaMetadata, RecordingCaptureMetadata } from '../media/types';
+import type { MediaAttribution, MediaMetadata, RecordingCaptureMetadata } from '../media/types';
 
 export interface CloudProjectAssetImportOptions<TDocument extends object> {
 	projectId: string;
@@ -21,6 +21,8 @@ export interface CloudProjectAssetFileOptions<
 > extends CloudProjectAssetImportOptions<TDocument> {
 	file: File;
 	tags?: string[];
+	attribution?: MediaAttribution;
+	duration?: number;
 	capture?: RecordingCaptureMetadata;
 }
 
@@ -31,7 +33,10 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 	let file = await prepareMediaImportFile(source);
 	const probe = await probeMediaFile(file);
 	if (probe.mimeType && probe.mimeType !== file.type) {
-		file = new File([file], file.name, { type: probe.mimeType, lastModified: file.lastModified });
+		file = new File([file], file.name, {
+			type: probe.mimeType,
+			lastModified: file.lastModified
+		});
 	}
 	if (probe.audioCodecSupported === false) {
 		const decision = await options.onUnsupportedAudio?.({
@@ -67,7 +72,7 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 		fileName: file.name,
 		fileSize: file.size,
 		mimeType: file.type || 'application/octet-stream',
-		duration: probe.durationSeconds,
+		duration: options.duration ?? probe.durationSeconds,
 		width: probe.width,
 		height: probe.height,
 		fps: probe.fps,
@@ -80,6 +85,7 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 		keyframeTimestamps: probe.keyframeTimestamps,
 		gopInterval: probe.gopInterval,
 		animationFrameCount: probe.animationFrameCount,
+		attribution: options.attribution,
 		tags: [...new Set([probe.kind, ...(options.tags ?? [])])],
 		capture: options.capture
 	};

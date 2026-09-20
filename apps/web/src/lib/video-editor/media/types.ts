@@ -107,3 +107,20 @@ export interface MediaMetadata {
 	tags: string[];
 	capture?: RecordingCaptureMetadata;
 }
+
+export interface ProjectAssetImportOptions {
+	projectId: string;
+	tags?: string[];
+	attribution?: MediaAttribution;
+	duration?: number;
+	onUnsupportedAudio?: (request: {
+		fileName: string;
+		codec: string;
+	}) => Promise<'import' | 'cancel'>;
+}
+
+/** Persist source bytes through the storage boundary owned by the active project. */
+export type ProjectAssetImporter = (
+	file: File,
+	options: ProjectAssetImportOptions
+) => Promise<MediaMetadata | null>;

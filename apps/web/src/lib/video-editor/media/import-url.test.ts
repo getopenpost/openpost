@@ -1,7 +1,44 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fetchRemoteMediaFile, MAX_REMOTE_MEDIA_BYTES } from './import-url';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fetchRemoteMediaFile, importMediaFromUrl, MAX_REMOTE_MEDIA_BYTES } from './import-url';
 
 describe('remote media import', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it('routes a downloaded file through the project asset importer', async () => {
+		const file = new File(['image'], 'launch.png', { type: 'image/png' });
+		const importAsset = vi.fn(async () => ({
+			id: 'cloud-media-1',
+			storageType: 'cloud' as const,
+			remoteUrl: '/media/cloud-media-1',
+			fileName: file.name,
+			fileSize: file.size,
+			mimeType: file.type,
+			duration: 0,
+			width: 1,
+			height: 1,
+			fps: 0,
+			codec: '',
+			bitrate: 0,
+			tags: ['image']
+		}));
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(file, { headers: { 'content-type': file.type } }))
+		);
+
+		const mediaId = await importMediaFromUrl('https://cdn.example/launch.png', {
+			projectId: 'cloud-project-1',
+			storageMode: 'copy',
+			importAsset
+		});
+
+		expect(mediaId).toBe('cloud-media-1');
+		expect(importAsset).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'launch.png', type: 'image/png' }),
+			expect.objectContaining({ projectId: 'cloud-project-1' })
+		);
+	});
+
 	it('downloads without credentials and derives a safe redirected filename', async () => {
 		const fetcher = vi.fn(async () => {
 			const response = new Response(new Blob(['image'], { type: 'image/png' }), {
@@ -11,7 +48,9 @@ describe('remote media import', () => {
 					'content-type': 'image/png'
 				}
 			});
-			Object.defineProperty(response, 'url', { value: 'https://cdn.example/final' });
+			Object.defineProperty(response, 'url', {
+				value: 'https://cdn.example/final'
+			});
 			return response;
 		});
 
@@ -21,7 +60,10 @@ describe('remote media import', () => {
 		expect(file.type).toBe('image/png');
 		expect(fetcher).toHaveBeenCalledWith(
 			new URL('https://example.test/download?id=1'),
-			expect.objectContaining({ credentials: 'omit', referrerPolicy: 'no-referrer' })
+			expect.objectContaining({
+				credentials: 'omit',
+				referrerPolicy: 'no-referrer'
+			})
 		);
 	});
 
@@ -30,7 +72,9 @@ describe('remote media import', () => {
 			'https://example.test/download',
 			async () =>
 				new Response(new Blob(['audio'], { type: 'audio/mpeg' }), {
-					headers: { 'content-disposition': 'attachment; filename=voice-note.mp3' }
+					headers: {
+						'content-disposition': 'attachment; filename=voice-note.mp3'
+					}
 				})
 		);
 
@@ -45,7 +89,10 @@ describe('remote media import', () => {
 		await expect(
 			fetchRemoteMediaFile(
 				'https://example.test/watch',
-				async () => new Response('<html></html>', { headers: { 'content-type': 'text/html' } })
+				async () =>
+					new Response('<html></html>', {
+						headers: { 'content-type': 'text/html' }
+					})
 			)
 		).rejects.toThrow(/web page/);
 		await expect(

@@ -8,16 +8,19 @@
 	import { commitImportedAsset } from '$lib/video-editor/media/commit-imported-asset';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { clearStockDragData, writeStockDragData } from '$lib/video-editor/media/stock-drag';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 
 	let {
 		projectId,
 		oninserted,
 		commitAsset = commitImportedAsset,
+		importProjectAsset,
 		services
 	}: {
 		projectId: string;
 		oninserted: (itemId: string) => void;
 		commitAsset?: typeof commitImportedAsset;
+		importProjectAsset?: ProjectAssetImporter;
 		services?: ComponentProps<typeof StockMediaBrowser>['services'];
 	} = $props();
 
@@ -36,7 +39,8 @@
 			attribution: stockAttribution(asset),
 			tags: ['stock', asset.provider],
 			insertAtFrame: timelineStore.currentFrame,
-			label: asset.title || file.name
+			label: asset.title || file.name,
+			importAsset: importProjectAsset
 		});
 		oninserted(committed.itemId);
 		showToast(m.video_editor_stock_added({ name: asset.title || file.name }), 'success');

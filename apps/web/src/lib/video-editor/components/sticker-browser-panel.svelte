@@ -21,18 +21,21 @@
 		clearStickerDragData,
 		writeStickerDragData
 	} from '$lib/video-editor/stickers/sticker-drag';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 
 	const PAGE_SIZE = 60;
 	let {
 		projectId,
 		oninserted,
 		loadCatalog = loadFluentEmojiCatalog,
-		commitAsset = commitImportedAsset
+		commitAsset = commitImportedAsset,
+		importProjectAsset
 	}: {
 		projectId: string;
 		oninserted: (itemId: string) => void;
 		loadCatalog?: typeof loadFluentEmojiCatalog;
 		commitAsset?: typeof commitImportedAsset;
+		importProjectAsset?: ProjectAssetImporter;
 	} = $props();
 	let catalog = $state<FluentEmojiCatalog | null>(null);
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
@@ -78,7 +81,8 @@
 				attribution: fluentEmojiAttribution(sticker),
 				tags: ['sticker', 'fluent-emoji'],
 				insertAtFrame: timelineStore.currentFrame,
-				label: sticker.label
+				label: sticker.label,
+				importAsset: importProjectAsset
 			});
 			oninserted(committed.itemId);
 			showToast(m.video_editor_sticker_added({ name: sticker.label }), 'success');

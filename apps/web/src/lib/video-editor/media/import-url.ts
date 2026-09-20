@@ -1,5 +1,6 @@
 import { sanitizeWorkspaceFileName } from '../workspace-fs/paths';
-import { importFile, type ImportOptions } from './import.svelte';
+import { importFile, MediaImportCancelledError, type ImportOptions } from './import.svelte';
+import type { ProjectAssetImporter } from './types';
 
 export const MAX_REMOTE_MEDIA_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -128,8 +129,16 @@ export async function fetchRemoteMediaFile(
 	);
 }
 
-export async function importMediaFromUrl(value: string, options: ImportOptions): Promise<string> {
+export async function importMediaFromUrl(
+	value: string,
+	options: ImportOptions & { importAsset?: ProjectAssetImporter }
+): Promise<string> {
 	const file = await fetchRemoteMediaFile(value);
+	if (options.importAsset) {
+		const media = await options.importAsset(file, options);
+		if (!media) throw new MediaImportCancelledError();
+		return media.id;
+	}
 	// SAFETY: importFile only reads name, kind, and getFile from this copy-only handle.
 	const handle = {
 		kind: 'file',

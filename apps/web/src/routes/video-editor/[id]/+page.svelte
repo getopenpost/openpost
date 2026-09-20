@@ -74,6 +74,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { loadWorkspaceMediaFile } from '$lib/video-editor/media/workspace-source';
 	import { insertMediaAtFrame } from '$lib/video-editor/timeline/actions/insert-media';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
+	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 	import { formatMediaDuration } from '$lib/video-editor/media/library-view';
 	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
 	import { mediaRecovery } from '$lib/video-editor/media/media-recovery.svelte';
@@ -1018,6 +1019,31 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			showToast(err instanceof Error ? err.message : String(err), 'error');
 		}
 	}
+
+	const importCloudEditorProjectAsset: ProjectAssetImporter = async (file, options) => {
+		const workspaceId = workspaceCtx.currentWorkspace?.id;
+		if (!workspaceId) {
+			throw new Error('Open this Cloud project from a Workspace, then try adding the asset again.');
+		}
+		try {
+			return await importCloudProjectAssetFile({
+				projectId: options.projectId,
+				repository: new CloudVideoProjectRepository<Project>(workspaceId),
+				file,
+				tags: options.tags,
+				attribution: options.attribution,
+				duration: options.duration,
+				onUnsupportedAudio: options.onUnsupportedAudio
+			});
+		} catch (error) {
+			if (error instanceof Error && error.message.startsWith('Workspace root is not set')) {
+				throw new Error(
+					'The asset could not be saved to this Cloud project. Reload and try again.'
+				);
+			}
+			throw error;
+		}
+	};
 
 	function requestUnsupportedAudioDecision(
 		request: UnsupportedAudioImportRequest
@@ -2931,11 +2957,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													onsourceopen={(mediaId) => (sourceMediaId = mediaId)}
 													onextractsubtitles={openEmbeddedSubtitlePicker}
 													onimport={handleImport}
+													importProjectAsset={cloudStorage
+														? importCloudEditorProjectAsset
+														: undefined}
 												/>
 											{:else if leftPanel === 'media'}
 												<SceneBrowserPanel />
 											{:else if leftPanel === 'stock'}
-												<StockBrowserPanel {projectId} oninserted={handleVectorAssetInserted} />
+												<StockBrowserPanel
+													{projectId}
+													oninserted={handleVectorAssetInserted}
+													importProjectAsset={cloudStorage
+														? importCloudEditorProjectAsset
+														: undefined}
+												/>
 											{:else if leftPanel === 'text'}
 												<TextTemplateBrowser
 													selectedTextItemId={selectedIsText ? selectedItemId : null}
@@ -2947,7 +2982,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											{:else if leftPanel === 'backgrounds'}
 												<BackgroundPanel oninserted={handleVectorAssetInserted} />
 											{:else if leftPanel === 'stickers'}
-												<StickerBrowserPanel {projectId} oninserted={handleVectorAssetInserted} />
+												<StickerBrowserPanel
+													{projectId}
+													oninserted={handleVectorAssetInserted}
+													importProjectAsset={cloudStorage
+														? importCloudEditorProjectAsset
+														: undefined}
+												/>
 											{:else if leftPanel === 'effects'}
 												<EffectBrowserPanel
 													selectedItemIds={selectedLeftPanelItemIds}
@@ -2978,6 +3019,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													selectedIds={selectedLeftPanelItemIds}
 													onautosave={() => editorSession.scheduleAutosave()}
 													{textVoiceRequest}
+													importProjectAsset={cloudStorage
+														? importCloudEditorProjectAsset
+														: undefined}
 												/>
 											{/if}
 										</div>

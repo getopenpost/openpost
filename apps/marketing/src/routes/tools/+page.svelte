@@ -211,4 +211,9 @@
 			gap: 12px;
 		}
 	}
+	@media (max-width: 340px) {
+		h1 {
+			font-size: 1.9rem;
+		}
+	}
 </style>

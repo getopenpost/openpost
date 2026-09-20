@@ -73,6 +73,13 @@ test("free tools directory links every working tool @desktop", async ({ page }) 
   }
 
   await page.setViewportSize({ width: 320, height: 720 });
+  await expect
+    .poll(() =>
+      page
+        .getByRole("heading", { name: "Free tools. Ready when you are.", level: 1 })
+        .evaluate((heading) => heading.scrollWidth <= heading.clientWidth),
+    )
+    .toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

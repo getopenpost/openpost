@@ -10,7 +10,12 @@ import {
 	snapImageEditorPoint,
 	snapImageEditorResize
 } from './fabric-adapter';
-import type { ImageEditorDocument, ImageEditorLayer, ImageEditorPage } from './types';
+import type {
+	ImageEditorDocument,
+	ImageEditorGradientValue,
+	ImageEditorLayer,
+	ImageEditorPage
+} from './types';
 
 // SAFETY: the adapter constructor only stores this element; tests that mount Fabric use browser tests.
 const TEST_CANVAS = {} as HTMLCanvasElement;
@@ -258,6 +263,17 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 	});
 
 	it('detaches an active selection before applying document coordinates to its children', async () => {
+		interface SelectionLayerObjectFixture {
+			left: number;
+			top: number;
+			width: number;
+			height: number;
+			set(updates: Partial<SelectionLayerObjectFixture>): void;
+			setCoords(): void;
+		}
+		class ActiveSelectionFixture {
+			constructor(..._arguments: unknown[]) {}
+		}
 		const previous = {
 			...imageLayer(200, 100),
 			id: 'shape',
@@ -280,12 +296,12 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 		const document = documentFixture(previousPage);
 		let selectionAttached = true;
 		let updatedWhileAttached = false;
-		const object = {
+		const object: SelectionLayerObjectFixture = {
 			left: previous.transform.x,
 			top: previous.transform.y,
 			width: previous.transform.width,
 			height: previous.transform.height,
-			set(updates: Record<string, unknown>) {
+			set(updates) {
 				if ('left' in updates && selectionAttached) updatedWhileAttached = true;
 				Object.assign(this, updates);
 			},
@@ -314,14 +330,14 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 			onTextChange: () => undefined
 		});
 		const internals = adapterInternals<{
-			fabric: { ActiveSelection: new () => object };
+			fabric: { ActiveSelection: typeof ActiveSelectionFixture };
 			canvas: typeof canvas;
 			objectByLayerID: Map<string, typeof object>;
 			layerSnapshots: Map<string, ImageEditorLayer>;
 			decorationsByLayerID: Map<string, never[]>;
 			desiredSelectionIDs: string[];
 		}>(adapter);
-		internals.fabric = { ActiveSelection: class {} as never };
+		internals.fabric = { ActiveSelection: ActiveSelectionFixture };
 		internals.canvas = canvas;
 		internals.objectByLayerID = new Map([[previous.id, object]]);
 		internals.layerSnapshots = new Map([[previous.id, previous]]);
@@ -335,6 +351,14 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 	});
 
 	it('keeps a line at its document position when its endpoints change', () => {
+		interface PositionedLineObjectFixture {
+			left: number;
+			top: number;
+			x2?: number;
+			y2?: number;
+			set(updates: Partial<PositionedLineObjectFixture>): void;
+			setCoords(): void;
+		}
 		const previous: ImageEditorLayer = {
 			...imageLayer(302, 8),
 			id: 'line',
@@ -357,10 +381,10 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 			...previous,
 			shape: { ...previous.shape!, stroke_width: 10 }
 		};
-		const object = {
+		const object: PositionedLineObjectFixture = {
 			left: previous.transform.x,
 			top: previous.transform.y,
-			set(updates: Record<string, unknown>) {
+			set(updates) {
 				Object.assign(this, updates);
 				if ('x2' in updates || 'y2' in updates) {
 					this.left = 0;
@@ -391,6 +415,13 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 	});
 
 	it('renders edited multiline curved text as one readable path', () => {
+		interface CurvedTextObjectFixture {
+			text: string;
+			set(updates: Partial<CurvedTextObjectFixture>): void;
+			setCoords(): void;
+			enterEditing(): void;
+			initDimensions(): void;
+		}
 		const previous: ImageEditorLayer = {
 			...imageLayer(600, 180),
 			id: 'text',
@@ -415,9 +446,9 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 			...previous,
 			text: { ...previous.text!, text: 'Photo audit\nOlá, world!' }
 		};
-		const object = {
+		const object: CurvedTextObjectFixture = {
 			text: previous.text!.text,
-			set(updates: Record<string, unknown>) {
+			set(updates) {
 				Object.assign(this, updates);
 			},
 			setCoords() {},
@@ -443,6 +474,88 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 		internals.updateObject(object, previous, next);
 
 		expect(object.text).toBe('Photo audit Olá, world!');
+	});
+});
+
+describe('OpenPost Image Editor gradient bitmap budget', () => {
+	function buildDiamondBitmap(staticCanvas: boolean) {
+		let pixels = new Uint8ClampedArray();
+		const bitmap = {
+			width: 0,
+			height: 0,
+			getContext: () => ({
+				createImageData(width: number, height: number) {
+					return { data: new Uint8ClampedArray(width * height * 4), width, height };
+				},
+				putImageData(image: { data: Uint8ClampedArray }) {
+					pixels = image.data;
+				}
+			})
+		};
+		const canvas = {
+			ownerDocument: { createElement: () => bitmap }
+		};
+		const page = pageFixture();
+		const document = {
+			...documentFixture(page),
+			width_px: 2048,
+			height_px: 1
+		};
+		const gradient: ImageEditorGradientValue = {
+			type: 'diamond',
+			start: { x: 1024, y: 0.5 },
+			end: { x: 2048, y: 0.5 },
+			reverse: false,
+			stops: [
+				{ offset: 0, color: '#f97316' },
+				{ offset: 1, color: '#7c3aed' }
+			]
+		};
+		const adapter = new OpenPostFabricAdapter({
+			// SAFETY: The bitmap builder reads only ownerDocument from the canvas fixture.
+			canvas: canvas as HTMLCanvasElement,
+			document,
+			page,
+			readOnly: staticCanvas,
+			staticCanvas,
+			onSelection: () => undefined,
+			onTransform: () => undefined,
+			onTextChange: () => undefined
+		});
+		const internals = adapterInternals<{
+			createGradientBitmap(
+				width: number,
+				height: number,
+				value: ImageEditorGradientValue
+			): typeof bitmap | null;
+		}>(adapter);
+
+		return {
+			bitmap: internals.createGradientBitmap(document.width_px, document.height_px, gradient),
+			pixels: () => pixels
+		};
+	}
+
+	it('bounds the interactive Diamond backing bitmap while preserving its colors', () => {
+		const result = buildDiamondBitmap(false);
+
+		expect(result.bitmap).toMatchObject({ width: 1024, height: 1 });
+		const pixels = result.pixels();
+		const left = Array.from(pixels.slice(0, 4));
+		const center = Array.from(pixels.slice(512 * 4, 513 * 4));
+		expect(left[2]).toBeGreaterThan(left[0]);
+		expect(center[0]).toBeGreaterThan(center[2]);
+	});
+
+	it('keeps the static export Diamond bitmap at full resolution', () => {
+		const result = buildDiamondBitmap(true);
+
+		expect(result.bitmap).toMatchObject({ width: 2048, height: 1 });
+		const pixels = result.pixels();
+		const left = Array.from(pixels.slice(0, 4));
+		const center = Array.from(pixels.slice(1024 * 4, 1025 * 4));
+		expect(left[2]).toBeGreaterThan(left[0]);
+		expect(center[0]).toBeGreaterThan(center[2]);
 	});
 });
 

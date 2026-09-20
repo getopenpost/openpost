@@ -145,6 +145,7 @@ interface FabricAdapterOptions {
 
 const SNAP_SCREEN_PX = 10;
 const ROTATION_SNAP_ANGLE = 15;
+const MAX_INTERACTIVE_DIAMOND_BITMAP_DIMENSION = 1024;
 
 export interface ImageEditorSnapBounds {
 	left: number;
@@ -1544,13 +1545,35 @@ export class OpenPostFabricAdapter {
 		height: number,
 		gradient: ImageEditorGradientValue
 	): HTMLCanvasElement | null {
+		const bitmapScale = this.staticMode
+			? this.renderScale
+			: Math.min(1, MAX_INTERACTIVE_DIAMOND_BITMAP_DIMENSION / Math.max(width, height));
+		const bitmapWidth = Math.max(1, Math.round(width * bitmapScale));
+		const bitmapHeight = Math.max(1, Math.round(height * bitmapScale));
 		const canvas = this.element.ownerDocument?.createElement('canvas');
 		if (!canvas) return null;
-		canvas.width = width;
-		canvas.height = height;
+		canvas.width = bitmapWidth;
+		canvas.height = bitmapHeight;
 		const context = canvas.getContext('2d');
 		if (!context) return null;
-		paintImageEditorCanvasGradient(context, gradient, width, height);
+		const scaleX = bitmapWidth / Math.max(1, width);
+		const scaleY = bitmapHeight / Math.max(1, height);
+		paintImageEditorCanvasGradient(
+			context,
+			{
+				...gradient,
+				start: {
+					x: gradient.start.x * scaleX,
+					y: gradient.start.y * scaleY
+				},
+				end: {
+					x: gradient.end.x * scaleX,
+					y: gradient.end.y * scaleY
+				}
+			},
+			bitmapWidth,
+			bitmapHeight
+		);
 		return canvas;
 	}
 

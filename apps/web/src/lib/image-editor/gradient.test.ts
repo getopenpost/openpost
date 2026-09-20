@@ -80,14 +80,15 @@ describe('OpenPost Image Editor gradients', () => {
 		const context = {
 			createImageData: () => ({ data: pixels, width: 3, height: 3 }),
 			putImageData: () => undefined
-		} as unknown as CanvasRenderingContext2D;
+		};
 		const value = {
 			...gradient('diamond'),
 			start: { x: 1.5, y: 1.5 },
 			end: { x: 2.5, y: 1.5 }
 		};
 
-		paintImageEditorCanvasGradient(context, value, 3, 3);
+		// SAFETY: Diamond painting uses only the two canvas methods supplied by this focused fixture.
+		paintImageEditorCanvasGradient(context as CanvasRenderingContext2D, value, 3, 3);
 
 		const rgbaAt = (x: number, y: number) =>
 			Array.from(pixels.slice((y * 3 + x) * 4, (y * 3 + x + 1) * 4));

@@ -7,7 +7,7 @@ import type {
 	ImageEditorPage
 } from './types';
 
-function shapeLayer(
+function renderLayer(
 	id: string,
 	x: number,
 	y: number,
@@ -120,9 +120,9 @@ async function freshRenderDigest(page: ImageEditorPage, selectedIDs: string[]): 
 describe('OpenPost Image Editor Fabric reconciliation', () => {
 	it('matches a fresh render after aligning a live multi-layer selection', async () => {
 		const previousPage = pageFixture([
-			shapeLayer('one', 24, 28, 80, 56),
-			shapeLayer('two', 120, 70, 112, 72, 'ellipse'),
-			shapeLayer('three', 60, 150, 128, 48)
+			renderLayer('one', 24, 28, 80, 56),
+			renderLayer('two', 120, 70, 112, 72, 'ellipse'),
+			renderLayer('three', 60, 150, 128, 48)
 		]);
 		const nextPage = structuredClone(previousPage);
 		for (const layer of nextPage.layers) {
@@ -148,7 +148,7 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 	});
 
 	it('matches a fresh render after changing a line stroke', async () => {
-		const previousPage = pageFixture([shapeLayer('line', 96, 112, 168, 8, 'line', 0)]);
+		const previousPage = pageFixture([renderLayer('line', 96, 112, 168, 8, 'line', 0)]);
 		const nextPage = structuredClone(previousPage);
 		nextPage.layers[0].shape!.stroke_width = 10;
 		const previousDocument = documentFixture(previousPage);

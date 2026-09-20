@@ -439,14 +439,32 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let lastTabSelectionKey = tabSelectionKey(sequenceStore.activeSequenceId);
 
 	function handleTabSwitchSelection(): void {
-		stashTabSelection(tabSelectionMemory, lastTabSelectionKey, selectedItemIds);
-		lastTabSelectionKey = tabSelectionKey(sequenceStore.activeSequenceId);
-		selectedTransitionId = null;
+		const activeSelectionKey = tabSelectionKey(sequenceStore.activeSequenceId);
 		const validIds = new Set(timelineStore.items.map((item) => item.id));
+		if (activeSelectionKey === lastTabSelectionKey) {
+			const validSelection = selectedItemIds.filter((id) => validIds.has(id));
+			selectedItemIds = validSelection;
+			selectedItemId =
+				selectedItemId && validIds.has(selectedItemId)
+					? selectedItemId
+					: (validSelection[0] ?? null);
+			selectedTransitionId = null;
+			return;
+		}
+		stashTabSelection(tabSelectionMemory, lastTabSelectionKey, selectedItemIds);
+		lastTabSelectionKey = activeSelectionKey;
+		selectedTransitionId = null;
 		const restored = restoreTabSelection(tabSelectionMemory, lastTabSelectionKey, validIds);
 		selectedItemIds = restored;
 		selectedItemId = restored[0] ?? null;
 	}
+	let lastActiveTimelineKey = sequenceStore.activeTimelineKey;
+	$effect(() => {
+		const activeTimelineKey = sequenceStore.activeTimelineKey;
+		if (activeTimelineKey === lastActiveTimelineKey) return;
+		lastActiveTimelineKey = activeTimelineKey;
+		untrack(handleTabSwitchSelection);
+	});
 	let colorGradeScope = $state<'clip' | 'sequence'>('clip');
 	let sourceMediaId = $state<string | null>(null);
 	let sourceMonitorOverlay = $state(false);
@@ -486,6 +504,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| { iconKind: 'theme'; icon: ThemeIconRole }
 	);
 	let leftPanel = $state<LeftPanel>('media');
+	let stockPanelMounted = $state(false);
+	let assistantPanelMounted = $state(false);
+	$effect(() => {
+		if (leftPanel === 'stock') stockPanelMounted = true;
+		if (leftPanel === 'ai') assistantPanelMounted = true;
+	});
 	let mediaPanelView = $state<'project' | 'scenes'>('project');
 	let mobileEditPane = $state<'assets' | 'program' | 'tools'>('program');
 	let assetBrowserWidth = $state(editorSettings.assetBrowserWidth);
@@ -1183,7 +1207,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		editorSession.pausePlayback();
 		if (!switchSequence(sequenceId)) return false;
 		editorSession.syncTimelineClock();
-		resetTimelineSelection();
+		handleTabSwitchSelection();
 		return true;
 	}
 
@@ -1273,10 +1297,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		}
 		sequenceStore.promoteToTab(compositionId);
 		motionReturnStack = [];
-		editorSession.pausePlayback();
-		if (!switchSequence(compositionId)) return;
-		editorSession.syncTimelineClock();
-		resetTimelineSelection();
+		switchEditorSequence(compositionId);
 	}
 
 	function handleCreateMotionComposition(): void {
@@ -1290,10 +1311,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		);
 		if (!compositionId) return;
 		motionReturnStack = [...motionReturnStack, parentSequenceId];
-		editorSession.pausePlayback();
-		if (!switchSequence(compositionId)) return;
-		editorSession.syncTimelineClock();
-		resetTimelineSelection();
+		if (!switchEditorSequence(compositionId)) return;
 		editorSession.scheduleAutosave();
 		showToast(m.video_editor_compound_created(), 'success');
 	}
@@ -1345,11 +1363,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		shuttleScrubResume.cancel();
 		const parentSequenceId = motionReturnStack.at(-1);
 		if (parentSequenceId === undefined && motionReturnStack.length === 0) return;
-		editorSession.pausePlayback();
-		if (!switchSequence(parentSequenceId ?? null)) return;
+		if (!switchEditorSequence(parentSequenceId ?? null)) return;
 		motionReturnStack = motionReturnStack.slice(0, -1);
-		editorSession.syncTimelineClock();
-		resetTimelineSelection();
 	}
 
 	function handleSelectItem(itemId: string | null): void {
@@ -2949,11 +2964,51 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											role="tabpanel"
 											aria-label={leftPanelHeading}
 										>
+											{#if stockPanelMounted}
+												<div
+													class="contents"
+													hidden={leftPanel !== 'stock'}
+													inert={leftPanel !== 'stock'}
+												>
+													<StockBrowserPanel
+														{projectId}
+														oninserted={handleVectorAssetInserted}
+														importProjectAsset={cloudStorage
+															? importCloudEditorProjectAsset
+															: undefined}
+													/>
+												</div>
+											{/if}
+											{#if assistantPanelMounted}
+												<div
+													class="contents"
+													hidden={leftPanel !== 'ai'}
+													inert={leftPanel !== 'ai'}
+												>
+													<EditorAssistantPanel
+														{projectId}
+														oninserted={handleGeneratedAudioInserted}
+														onselectitems={(ids) => {
+															selectedItemIds = ids;
+															selectedItemId = ids[0] ?? null;
+															selectedTransitionId = null;
+														}}
+														onopensilence={(ids) => openAgentSpeechCleanup('silence', ids)}
+														onopenfillers={(ids) => openAgentSpeechCleanup('fillers', ids)}
+														selectedIds={selectedLeftPanelItemIds}
+														onautosave={() => editorSession.scheduleAutosave()}
+														{textVoiceRequest}
+														importProjectAsset={cloudStorage
+															? importCloudEditorProjectAsset
+															: undefined}
+													/>
+												</div>
+											{/if}
 											{#if leftPanel === 'media' && mediaPanelView === 'project'}
 												<MediaPoolList
 													{projectId}
 													onUnsupportedAudio={requestUnsupportedAudioDecision}
-													onsequenceopen={resetTimelineSelection}
+													onsequenceopen={handleTabSwitchSelection}
 													onsourceopen={(mediaId) => (sourceMediaId = mediaId)}
 													onextractsubtitles={openEmbeddedSubtitlePicker}
 													onimport={handleImport}
@@ -2963,14 +3018,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												/>
 											{:else if leftPanel === 'media'}
 												<SceneBrowserPanel />
-											{:else if leftPanel === 'stock'}
-												<StockBrowserPanel
-													{projectId}
-													oninserted={handleVectorAssetInserted}
-													importProjectAsset={cloudStorage
-														? importCloudEditorProjectAsset
-														: undefined}
-												/>
 											{:else if leftPanel === 'text'}
 												<TextTemplateBrowser
 													selectedTextItemId={selectedIsText ? selectedItemId : null}
@@ -3004,24 +3051,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													itemIds={selectedLeftPanelItemIds}
 													showHeading={false}
 													onedit={() => editorSession.scheduleAutosave()}
-												/>
-											{:else}
-												<EditorAssistantPanel
-													{projectId}
-													oninserted={handleGeneratedAudioInserted}
-													onselectitems={(ids) => {
-														selectedItemIds = ids;
-														selectedItemId = ids[0] ?? null;
-														selectedTransitionId = null;
-													}}
-													onopensilence={(ids) => openAgentSpeechCleanup('silence', ids)}
-													onopenfillers={(ids) => openAgentSpeechCleanup('fillers', ids)}
-													selectedIds={selectedLeftPanelItemIds}
-													onautosave={() => editorSession.scheduleAutosave()}
-													{textVoiceRequest}
-													importProjectAsset={cloudStorage
-														? importCloudEditorProjectAsset
-														: undefined}
 												/>
 											{/if}
 										</div>
@@ -3110,13 +3139,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											oncreate={handleCreateEmptyMotionComposition}
 										/>
 									{:else}
-										<PreviewPlayer
-											bind:selectedItemId
-											bind:selectedItemIds
-											showTransformControls={activeWorkspace !== 'color'}
-											ondeselect={resetTimelineSelection}
-											onedit={() => editorSession.scheduleAutosave()}
-										/>
+										{#key sequenceStore.activeTimelineKey}
+											<PreviewPlayer
+												bind:selectedItemId
+												bind:selectedItemIds
+												showTransformControls={activeWorkspace !== 'color'}
+												ondeselect={resetTimelineSelection}
+												onedit={() => editorSession.scheduleAutosave()}
+											/>
+										{/key}
 										<TransportBar
 											{projectId}
 											onvoiceoverinserted={handleVoiceoverInserted}
@@ -3551,49 +3582,54 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										data-motion-timeline-empty
 										aria-hidden="true"
 									></div>
-								{:else if sequenceStore.activeSequence?.editorKind === 'composite-2d'}
-									<CompositionTimeline
-										{selectedItemId}
-										onedit={() => editorSession.scheduleAutosave()}
-										onselectitem={handleSelectItem}
-										oncompositionchange={switchMotionComposition}
-									/>
 								{:else}
-									<TimelinePanel
-										bind:selectedItemId
-										bind:selectedItemIds
-										bind:selectedTransitionId
-										freezeFramePending={freezingItemId !== null}
-										sceneScanPending={scanningScenes}
-										{transcriptionPendingItemIds}
-										{aiCaptionPendingItemIds}
-										canvasWidth={renderProject?.metadata.width ?? 1920}
-										canvasHeight={renderProject?.metadata.height ?? 1080}
-										{projectId}
-										onedit={() => editorSession.scheduleAutosave()}
-										onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
-										onreverseitems={handleReverseItems}
-										onsplitscenes={(itemId, mode) => void handleAutoSplitScenes(itemId, mode)}
-										ontranscribecaptions={handleDefaultCaptions}
-										onaicaptions={(itemId) => void handleAiCaptions(itemId)}
-										onextractsubtitles={openEmbeddedSubtitlesForItem}
-										onopenspeechcleanup={openAgentSpeechCleanup}
-										oncreatevoice={openTextVoice}
-										oncreatecompound={createCompoundForItems}
-										ondissolvecompound={dissolveCompoundItem}
-										oncopygrade={handleCopyColorGrade}
-										onpastegrade={handlePasteColorGrade}
-										oncopyselection={() => copyTimelineSelection(false)}
-										oncutselection={() => copyTimelineSelection(true)}
-										onpasteat={(frame, trackId) => pasteTimelineClipboard(frame, trackId)}
-										onsplitselection={handleSplit}
-										ondeleteselection={() => handleDelete(false)}
-										onrippledeleteselection={() => handleDelete(true)}
-										onmixerlayoutchange={handleMixerLayoutChange}
-										mixerMaximum={mixerPanelMaximum}
-										onopencomposition={handleOpenSequence}
-										ontransitionbreak={() => showToast(m.video_editor_transition_removed(), 'info')}
-									/>
+									{#key sequenceStore.activeTimelineKey}
+										{#if sequenceStore.activeSequence?.editorKind === 'composite-2d'}
+											<CompositionTimeline
+												{selectedItemId}
+												onedit={() => editorSession.scheduleAutosave()}
+												onselectitem={handleSelectItem}
+												oncompositionchange={switchMotionComposition}
+											/>
+										{:else}
+											<TimelinePanel
+												bind:selectedItemId
+												bind:selectedItemIds
+												bind:selectedTransitionId
+												freezeFramePending={freezingItemId !== null}
+												sceneScanPending={scanningScenes}
+												{transcriptionPendingItemIds}
+												{aiCaptionPendingItemIds}
+												canvasWidth={renderProject?.metadata.width ?? 1920}
+												canvasHeight={renderProject?.metadata.height ?? 1080}
+												{projectId}
+												onedit={() => editorSession.scheduleAutosave()}
+												onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
+												onreverseitems={handleReverseItems}
+												onsplitscenes={(itemId, mode) => void handleAutoSplitScenes(itemId, mode)}
+												ontranscribecaptions={handleDefaultCaptions}
+												onaicaptions={(itemId) => void handleAiCaptions(itemId)}
+												onextractsubtitles={openEmbeddedSubtitlesForItem}
+												onopenspeechcleanup={openAgentSpeechCleanup}
+												oncreatevoice={openTextVoice}
+												oncreatecompound={createCompoundForItems}
+												ondissolvecompound={dissolveCompoundItem}
+												oncopygrade={handleCopyColorGrade}
+												onpastegrade={handlePasteColorGrade}
+												oncopyselection={() => copyTimelineSelection(false)}
+												oncutselection={() => copyTimelineSelection(true)}
+												onpasteat={(frame, trackId) => pasteTimelineClipboard(frame, trackId)}
+												onsplitselection={handleSplit}
+												ondeleteselection={() => handleDelete(false)}
+												onrippledeleteselection={() => handleDelete(true)}
+												onmixerlayoutchange={handleMixerLayoutChange}
+												mixerMaximum={mixerPanelMaximum}
+												onopencomposition={handleOpenSequence}
+												ontransitionbreak={() =>
+													showToast(m.video_editor_transition_removed(), 'info')}
+											/>
+										{/if}
+									{/key}
 								{/if}
 							</div>
 						</footer>

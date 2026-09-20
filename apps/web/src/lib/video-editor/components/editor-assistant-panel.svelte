@@ -40,6 +40,7 @@
 	} = $props();
 
 	let mode = $state<'assistant' | 'generate'>('assistant');
+	let generatePanelMounted = $state(false);
 	let assistantTab: HTMLButtonElement | undefined = $state(undefined);
 	let generateTab: HTMLButtonElement | undefined = $state(undefined);
 	let storage = $state<AgentStorageStatus | null>(null);
@@ -80,6 +81,10 @@
 		if (!textVoiceRequest || textVoiceRequest.id === handledTextVoiceRequestId) return;
 		handledTextVoiceRequestId = textVoiceRequest.id;
 		mode = 'generate';
+	});
+
+	$effect(() => {
+		if (mode === 'generate') generatePanelMounted = true;
 	});
 
 	$effect(() => {
@@ -214,25 +219,28 @@
 	</div>
 
 	<div class="min-h-0 flex-1 overflow-hidden">
-		{#if mode === 'assistant'}
-			<div
-				role="tabpanel"
-				id="assistant-panel"
-				aria-labelledby="assistant-tab"
-				class="h-full min-h-0"
-			>
-				<AgentChatPanel
-					{projectId}
-					storageSufficient={storage ? storage.sufficient : true}
-					storageUnknown={storage ? storage.sizeStatus === 'unknown' : false}
-				/>
-			</div>
-		{:else}
+		<div
+			role="tabpanel"
+			id="assistant-panel"
+			aria-labelledby="assistant-tab"
+			class="h-full min-h-0"
+			hidden={mode !== 'assistant'}
+			inert={mode !== 'assistant'}
+		>
+			<AgentChatPanel
+				{projectId}
+				storageSufficient={storage ? storage.sufficient : true}
+				storageUnknown={storage ? storage.sizeStatus === 'unknown' : false}
+			/>
+		</div>
+		{#if generatePanelMounted}
 			<div
 				role="tabpanel"
 				id="generate-panel"
 				aria-labelledby="generate-tab"
 				class="h-full min-h-0 overflow-y-auto"
+				hidden={mode !== 'generate'}
+				inert={mode !== 'generate'}
 			>
 				<LocalAiPanel {projectId} {oninserted} {textVoiceRequest} {importProjectAsset} />
 			</div>

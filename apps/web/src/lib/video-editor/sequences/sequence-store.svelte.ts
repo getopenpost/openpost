@@ -31,6 +31,7 @@ const state = $state<{
 	compositions: SubComposition[];
 	topLevelSequenceIds: string[];
 	activeSequenceId: string | null;
+	activeTimelineRevision: number;
 	rootTimeline: ProjectTimeline;
 	rootResolution: ProjectResolution;
 	sequenceViewById: Record<string, SequenceViewState>;
@@ -38,6 +39,7 @@ const state = $state<{
 	compositions: [],
 	topLevelSequenceIds: [],
 	activeSequenceId: null,
+	activeTimelineRevision: 0,
 	rootTimeline: createEmptyTimeline(),
 	rootResolution: { width: 1920, height: 1080, fps: 30 },
 	sequenceViewById: {}
@@ -175,6 +177,13 @@ export const sequenceStore = {
 	get activeSequenceId(): string | null {
 		return state.activeSequenceId;
 	},
+	/**
+	 * Identity for stateful views bound to the active timeline document.
+	 * A sequence switch is a session boundary even when item ids overlap.
+	 */
+	get activeTimelineKey(): string {
+		return `${state.activeSequenceId ?? 'root'}:${state.activeTimelineRevision}`;
+	},
 	get activeSequence(): SubComposition | undefined {
 		return state.activeSequenceId
 			? state.compositions.find((composition) => composition.id === state.activeSequenceId)
@@ -228,6 +237,7 @@ export const sequenceStore = {
 			topLevelSequenceIds: undefined
 		});
 		applyTimeline(state.rootTimeline, rootResolution.fps);
+		state.activeTimelineRevision += 1;
 	},
 	switchTo(sequenceId: string | null): boolean {
 		if (sequenceId === state.activeSequenceId) return true;
@@ -236,10 +246,11 @@ export const sequenceStore = {
 			: undefined;
 		if (sequenceId && !target) return false;
 		flushActive();
-		state.activeSequenceId = sequenceId;
 		if (target)
 			applyTimeline(sequenceTimeline(target, state.sequenceViewById[target.id]), target.fps);
 		else applyTimeline(state.rootTimeline, state.rootResolution.fps);
+		state.activeSequenceId = sequenceId;
+		state.activeTimelineRevision += 1;
 		return true;
 	},
 	flushActive,
@@ -290,6 +301,7 @@ export const sequenceStore = {
 		} else {
 			applyTimeline(state.rootTimeline, state.rootResolution.fps);
 		}
+		state.activeTimelineRevision += 1;
 		return true;
 	},
 	promoteToTab(id: string): boolean {
@@ -416,6 +428,7 @@ export const sequenceStore = {
 		state.compositions = [];
 		state.topLevelSequenceIds = [];
 		state.activeSequenceId = null;
+		state.activeTimelineRevision = 0;
 		state.rootTimeline = createEmptyTimeline();
 		state.rootResolution = { width: 1920, height: 1080, fps: 30 };
 		state.sequenceViewById = {};

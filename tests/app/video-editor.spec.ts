@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
@@ -39,12 +40,20 @@ async function createProject(
     await page.getByRole("button", { name: "Local only" }).click();
   }
   await page.getByRole("button", { name: "Choose folder" }).click();
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-  await page.getByRole("button", { name: "Custom project" }).click();
-  await page.getByRole("textbox", { name: "Project name" }).fill(name);
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  const projects = page.getByRole("heading", { name: "Projects" });
+  const openEditor = page.getByRole("button", { name: "Open Video Editor", exact: true });
+  await expect(projects.or(openEditor)).toBeVisible();
+  if (await projects.isVisible()) {
+    await page.getByRole("button", { name: "Custom project" }).click();
+    await page.getByRole("textbox", { name: "Project name" }).fill(name);
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+  } else {
+    await openEditor.click();
+  }
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+  const projectName = page.getByRole("textbox", { name: "Project name" });
+  if ((await projectName.inputValue()) !== name) await projectName.fill(name);
 }
 
 async function addTextItem(page: Page): Promise<void> {
@@ -57,6 +66,93 @@ async function addTextItem(page: Page): Promise<void> {
 
 async function openHeaderMoreMenu(page: Page): Promise<void> {
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
+}
+
+async function seedDistinctSequences(page: Page): Promise<void> {
+  const projectId = new URL(page.url()).pathname.split("/").at(-1);
+  if (!projectId) throw new Error("Video project id is missing from the editor URL");
+  await page.evaluate(
+    async ({ id }) => {
+      const root = await navigator.storage.getDirectory();
+      const projects = await root.getDirectoryHandle("projects");
+      const directory = await projects.getDirectoryHandle(id);
+      const handle = await directory.getFileHandle("project.json");
+      const project = JSON.parse(await (await handle.getFile()).text());
+      const tracks = project.timeline.tracks;
+      const videoTrack = tracks.find((track: { kind: string }) => track.kind === "video");
+      if (!videoTrack) throw new Error("Video project has no visual track");
+      const textItem = (id: string, text: string) => ({
+        id,
+        type: "text",
+        trackId: videoTrack.id,
+        from: 0,
+        durationInFrames: 150,
+        label: text,
+        text,
+        fontSize: 96,
+        color: "#ffffff",
+        transform: { x: 960, y: 540, width: 1000, height: 240, opacity: 1 },
+      });
+      const composition = (
+        id: string,
+        name: string,
+        items: Array<Record<string, unknown>>,
+        editorKind = "sequence",
+      ) => ({
+        id,
+        name,
+        editorKind,
+        items,
+        tracks,
+        transitions: [],
+        fps: project.metadata.fps,
+        width: project.metadata.width,
+        height: project.metadata.height,
+        durationInFrames: 150,
+      });
+      const compoundId = "switch-proof-compound";
+      project.timeline = {
+        ...project.timeline,
+        items: [textItem("switch-proof-main", "Main slate")],
+        compositions: [
+          composition("switch-proof-alpha", "Alpha sequence", [
+            textItem("switch-proof-alpha-item", "Alpha slate"),
+          ]),
+          composition("switch-proof-beta", "Beta sequence", [
+            {
+              id: "switch-proof-beta-wrapper",
+              type: "composition",
+              trackId: videoTrack.id,
+              from: 0,
+              durationInFrames: 150,
+              label: "Nested compound",
+              compositionId: compoundId,
+              compositionWidth: project.metadata.width,
+              compositionHeight: project.metadata.height,
+              sourceStart: 0,
+              sourceEnd: 150,
+              sourceDuration: 150,
+              sourceFps: project.metadata.fps,
+              speed: 1,
+              transform: { x: 0, y: 0, rotation: 0, opacity: 1 },
+            },
+          ]),
+          composition(compoundId, "Nested compound", [
+            textItem("switch-proof-compound-item", "Compound slate"),
+          ]),
+        ],
+        topLevelSequenceIds: ["switch-proof-alpha", "switch-proof-beta"],
+      };
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(project));
+      await writable.close();
+    },
+    { id: projectId },
+  );
+  await page.reload();
+  await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 test("Video Editor quick export saves an MP4 in the workspace", async ({ page }) => {
@@ -105,6 +201,136 @@ test("Video Editor opens the full export dialog from a live project", async ({ p
 
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("button", { name: "Render now" })).toBeEnabled();
+});
+
+test("sequence switches synchronize tracks, preview, and selection", async ({ page, request }) => {
+  const auth = await registerUser(request, `sequence-switch-${randomUUID()}@example.com`);
+  await createWorkspace(request, auth.token, "Sequence switch synchronization");
+  await authenticatePage(page, auth.token);
+  await createProject(page, "Sequence switch synchronization", { selectLocalProjects: true });
+  await seedDistinctSequences(page);
+
+  const expectTimeline = async (itemId: string, previewText: string) => {
+    await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
+    await expect(page.locator(`[data-timeline-item-id="${itemId}"]`)).toBeVisible();
+    await expect(page.locator(`[data-preview-item="${itemId}"]`)).toBeVisible();
+    await expect(
+      page.getByRole("application", { name: "Program" }).getByRole("img", {
+        name: previewText,
+      }),
+    ).toBeVisible();
+  };
+  const inspectorHeading = page.locator("#video-editor-tools-panel h2");
+
+  await expectTimeline("switch-proof-main", "Main slate");
+  await page.locator('[data-timeline-item-id="switch-proof-main"] button').first().click();
+  await expect(inspectorHeading).toHaveText("Main slate");
+
+  await page.getByRole("button", { name: "Alpha sequence", exact: true }).click();
+  await expectTimeline("switch-proof-alpha-item", "Alpha slate");
+  await expect(inspectorHeading).toHaveText("Edit");
+  await page.locator('[data-timeline-item-id="switch-proof-alpha-item"] button').first().click();
+  await expect(inspectorHeading).toHaveText("Alpha slate");
+
+  await page.getByRole("button", { name: "Beta sequence", exact: true }).click();
+  await expect(page.locator('[data-timeline-item-id="switch-proof-beta-wrapper"]')).toBeVisible();
+  await expect(page.locator('[data-preview-item="switch-proof-beta-wrapper"]')).toBeVisible();
+  await expect(inspectorHeading).toHaveText("Edit");
+  await page
+    .locator('[data-timeline-item-id="switch-proof-beta-wrapper"]')
+    .getByRole("button", { name: /^Nested compound\. Drag to move/u })
+    .dblclick();
+  await expect(page.getByRole("button", { name: "Nested compound", exact: true })).toBeVisible();
+  await expectTimeline("switch-proof-compound-item", "Compound slate");
+  await expect(inspectorHeading).toHaveText("Edit");
+
+  await page.getByRole("button", { name: "Alpha sequence", exact: true }).click();
+  await expectTimeline("switch-proof-alpha-item", "Alpha slate");
+  await expect(inspectorHeading).toHaveText("Alpha slate");
+  await page.getByRole("button", { name: "Main", exact: true }).click();
+  await expectTimeline("switch-proof-main", "Main slate");
+  await expect(inspectorHeading).toHaveText("Main slate");
+});
+
+test("Stock and Create keep working state while another tool is open", async ({
+  page,
+  request,
+}) => {
+  let providerRequests = 0;
+  await page.route("**/api/v1/stock-media/providers", (route) => {
+    providerRequests += 1;
+    return route.fulfill({
+      json: {
+        providers: [
+          {
+            key: "pexels",
+            name: "Pexels",
+            provider_url: "https://www.pexels.com",
+            photos: true,
+            videos: true,
+            audio: false,
+            photo_filters: ["orientation", "size", "color", "locale"],
+            video_filters: ["orientation", "size", "locale"],
+            attribution: "Photos and videos provided by Pexels",
+          },
+        ],
+      },
+    });
+  });
+  await page.route("**/api/v1/stock-media/search**", (route) =>
+    route.fulfill({ status: 503, json: { detail: "Stock search test failure" } }),
+  );
+  const auth = await registerUser(request, `stateful-tools-${randomUUID()}@example.com`);
+  await createWorkspace(request, auth.token, "Stateful tools");
+  await authenticatePage(page, auth.token);
+  await createProject(page, "Stateful tools", { selectLocalProjects: true });
+  await page.setViewportSize({ width: 1280, height: 500 });
+  expect(providerRequests).toBe(0);
+  const leftPanelTab = (value: string) => page.locator(`[data-left-panel-tab="${value}"]:visible`);
+
+  await leftPanelTab("stock").click();
+  await expect.poll(() => providerRequests).toBe(1);
+  const query = page.getByRole("textbox", { name: "Search stock media", exact: true });
+  await query.fill("Lisbon rooftops");
+  await page.getByRole("button", { name: "Type", exact: true }).click();
+  await page.getByRole("option", { name: "Videos", exact: true }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("Stock search test failure", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  const stockPanel = page.locator('#video-editor-left-tool-panel div[aria-label="Stock"]');
+  await stockPanel.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  const stockScrollTop = await stockPanel.evaluate((element) => element.scrollTop);
+  expect(stockScrollTop).toBeGreaterThan(0);
+  await leftPanelTab("media").click();
+  await expect(query).toBeHidden();
+  await leftPanelTab("stock").click();
+  expect(await stockPanel.evaluate((element) => element.scrollTop)).toBe(stockScrollTop);
+  expect(providerRequests).toBe(1);
+  await expect(query).toHaveValue("Lisbon rooftops");
+  await expect(page.getByRole("button", { name: "Type", exact: true })).toContainText("Videos");
+  await expect(page.getByText("Stock search test failure", { exact: true })).toBeVisible();
+
+  await leftPanelTab("ai").click();
+  await page.getByRole("tab", { name: "Generate", exact: true }).click();
+  const script = page.locator("#local-ai-script");
+  await script.fill("Keep this generated speech draft");
+  await page.getByTestId("local-ai-panel").evaluate((element) => {
+    element.dataset.persistenceProbe = "mounted";
+  });
+  await page.getByRole("tab", { name: "Assistant", exact: true }).click();
+  await expect(page.getByTestId("local-ai-panel")).toBeHidden();
+  await page.getByRole("tab", { name: "Generate", exact: true }).click();
+  await expect(page.getByTestId("local-ai-panel")).toHaveAttribute(
+    "data-persistence-probe",
+    "mounted",
+  );
+  await expect(script).toHaveValue("Keep this generated speech draft");
+  await leftPanelTab("media").click();
+  await expect(page.getByTestId("editor-assistant-panel")).toBeHidden();
+  await leftPanelTab("ai").click();
+  await expect(script).toHaveValue("Keep this generated speech draft");
 });
 
 test("Video Editor project library and shell fit narrow screens", async ({ page }) => {

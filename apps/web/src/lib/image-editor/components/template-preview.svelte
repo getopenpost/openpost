@@ -32,7 +32,7 @@
 	let visible = $state(false);
 	let lastRenderedPage: ImageEditorPage | null = null;
 	let lastRenderedDimensionKey = '';
-	const previewOwner = Symbol('image-preview');
+	const previewKey = Symbol('image-preview');
 
 	function observePreview(node: HTMLElement): () => void {
 		if (!cached) return () => undefined;
@@ -107,7 +107,7 @@
 		const nextDocument = untrack(() => document);
 		const controller = new AbortController();
 		renderError = false;
-		void queueImageEditorPreview(nextDocument, nextPage, controller.signal, previewOwner)
+		void queueImageEditorPreview(nextDocument, nextPage, controller.signal, previewKey)
 			.then((blob) => {
 				if (controller.signal.aborted) return;
 				const previousURL = imageURL;
@@ -116,8 +116,12 @@
 				lastRenderedDimensionKey = nextDimensionKey;
 				if (previousURL) URL.revokeObjectURL(previousURL);
 			})
-			.catch(() => {
-				if (!controller.signal.aborted) renderError = true;
+			.catch((cause: unknown) => {
+				if (
+					!controller.signal.aborted &&
+					!(cause instanceof DOMException && cause.name === 'AbortError')
+				)
+					renderError = true;
 			});
 		return () => controller.abort();
 	});

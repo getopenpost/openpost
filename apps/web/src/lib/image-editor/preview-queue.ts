@@ -13,14 +13,14 @@ export function createImageEditorPreviewQueue(
 	document: ImageEditorDocument,
 	page: ImageEditorPage,
 	signal: AbortSignal,
-	owner?: ImageEditorPage | symbol
+	previewKey: symbol
 ) => Promise<Blob> {
 	let activePreviews = 0;
 	const pendingPreviews: Array<{
 		document: ImageEditorDocument;
 		page: ImageEditorPage;
 		signal: AbortSignal;
-		owner: ImageEditorPage | symbol;
+		previewKey: symbol;
 		removeAbortListener: () => void;
 		resolve: (blob: Blob) => void;
 		reject: (error: Error) => void;
@@ -49,7 +49,7 @@ export function createImageEditorPreviewQueue(
 		}
 	}
 
-	return (document, page, signal, owner = page) =>
+	return (document, page, signal, previewKey) =>
 		new Promise((resolve, reject) => {
 			if (signal.aborted) {
 				reject(new DOMException('Preview canceled', 'AbortError'));
@@ -57,7 +57,7 @@ export function createImageEditorPreviewQueue(
 			}
 			for (let index = pendingPreviews.length - 1; index >= 0; index--) {
 				const pending = pendingPreviews[index];
-				if (pending.owner !== owner) continue;
+				if (pending.previewKey !== previewKey) continue;
 				pendingPreviews.splice(index, 1);
 				pending.removeAbortListener();
 				pending.reject(new DOMException('Preview superseded', 'AbortError'));
@@ -72,7 +72,7 @@ export function createImageEditorPreviewQueue(
 				document,
 				page,
 				signal,
-				owner,
+				previewKey,
 				resolve,
 				reject,
 				removeAbortListener: () => signal.removeEventListener('abort', cancel)

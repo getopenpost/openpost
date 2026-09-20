@@ -65,7 +65,9 @@ describe('Image Editor page preview queue', () => {
 		};
 		const queue = createImageEditorPreviewQueue(render);
 		const signals = pages.map(() => new AbortController());
-		const jobs = pages.map((page, index) => queue(document, page, signals[index].signal));
+		const jobs = pages.map((page, index) =>
+			queue(document, page, signals[index].signal, Symbol(page.id))
+		);
 		expect(render).toHaveBeenCalledTimes(2);
 		signals[2].abort();
 		const canceled = jobs[2].catch(() => undefined);

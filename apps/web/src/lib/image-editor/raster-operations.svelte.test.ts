@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ImageEditorController } from './editor.svelte';
 import { defaultTransform } from './document';
 import { defaultLayerEffects } from './effects';
@@ -67,6 +67,35 @@ async function pixels(document: ImageEditorDocument): Promise<Uint8ClampedArray>
 	return context.getImageData(0, 0, canvas.width, canvas.height).data;
 }
 describe('raster operations through the real renderer', () => {
+	it('lets cancellation interrupt alpha scanning before encoding a replacement', async () => {
+		const document = fixture();
+		document.height_px = 512;
+		const plan = prepareRasterOperation(document, 'page', ['blue'], 'rasterize')!;
+		const snapshot = rasterRenderDocument(plan);
+		const rendered = await renderImageEditorPage(snapshot, snapshot.pages[0], 0);
+		const abort = new AbortController();
+		const readPixels = CanvasRenderingContext2D.prototype.getImageData;
+		const scan = vi
+			.spyOn(CanvasRenderingContext2D.prototype, 'getImageData')
+			.mockImplementation(function (
+				this: CanvasRenderingContext2D,
+				...args: Parameters<typeof readPixels>
+			) {
+				const result = readPixels.apply(this, args);
+				setTimeout(() => abort.abort(), 0);
+				return result;
+			});
+		const encode = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob');
+		try {
+			await expect(cropRasterResult(plan, rendered.blob, abort.signal)).rejects.toMatchObject({
+				name: 'AbortError'
+			});
+			expect(encode).not.toHaveBeenCalled();
+		} finally {
+			scan.mockRestore();
+			encode.mockRestore();
+		}
+	});
 	it.each(['rasterize', 'merge_down', 'merge_selected', 'flatten_page'] as const)(
 		'preserves masked, rotated, overlapping pixels through %s and undo',
 		async (kind) => {

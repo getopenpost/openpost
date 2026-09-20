@@ -53,8 +53,8 @@ for (const storage of ["guest", "cloud"] as const) {
       .getByRole("button", { name: "More actions", exact: true })
       .click();
     const bakeHelp = page.getByText("Bakes pixels inside the page.", { exact: false });
-    await bakeHelp.scrollIntoViewIfNeeded();
-    await expect(bakeHelp).toBeInViewport();
+    await bakeHelp.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    await expect(bakeHelp).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       390,
     );
@@ -69,8 +69,8 @@ for (const storage of ["guest", "cloud"] as const) {
     await expect(
       page.getByRole("menuitem", { name: "Rasterize to image", exact: true }),
     ).toBeVisible();
-    await bakeHelp.scrollIntoViewIfNeeded();
-    await expect(bakeHelp).toBeInViewport();
+    await bakeHelp.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    await expect(bakeHelp).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       320,
     );

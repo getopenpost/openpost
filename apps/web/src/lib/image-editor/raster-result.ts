@@ -1,6 +1,8 @@
 import { m } from '$lib/paraglide/messages';
 import type { ImageEditorRasterBounds, ImageEditorRasterPlan } from './raster-operations';
 
+const ALPHA_SCAN_ROWS = 128;
+
 /** Keep original handles while extending them to include rotated pixels and effects. */
 export async function cropRasterResult(
 	plan: ImageEditorRasterPlan,
@@ -17,20 +19,26 @@ export async function cropRasterResult(
 		canvas.height = bitmap.height;
 		const context = canvas.getContext('2d')!;
 		context.drawImage(bitmap, 0, 0);
-		const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
 		let left = plan.bounds.x;
 		let top = plan.bounds.y;
 		let right = left + plan.bounds.width;
 		let bottom = top + plan.bounds.height;
-		for (let y = 0; y < canvas.height; y++) {
-			for (let x = 0; x < canvas.width; x++) {
-				if (pixels[(y * canvas.width + x) * 4 + 3] === 0) continue;
-				left = Math.min(left, x);
-				top = Math.min(top, y);
-				right = Math.max(right, x + 1);
-				bottom = Math.max(bottom, y + 1);
+		for (let startY = 0; startY < canvas.height; startY += ALPHA_SCAN_ROWS) {
+			await new Promise<void>((resolve) => setTimeout(resolve, 0));
+			signal?.throwIfAborted();
+			const rows = Math.min(ALPHA_SCAN_ROWS, canvas.height - startY);
+			const pixels = context.getImageData(0, startY, canvas.width, rows).data;
+			for (let row = 0; row < rows; row++) {
+				for (let x = 0; x < canvas.width; x++) {
+					if (pixels[(row * canvas.width + x) * 4 + 3] === 0) continue;
+					left = Math.min(left, x);
+					top = Math.min(top, startY + row);
+					right = Math.max(right, x + 1);
+					bottom = Math.max(bottom, startY + row + 1);
+				}
 			}
 		}
+		signal?.throwIfAborted();
 		const bounds = { x: left, y: top, width: right - left, height: bottom - top };
 		canvas.width = bounds.width;
 		canvas.height = bounds.height;

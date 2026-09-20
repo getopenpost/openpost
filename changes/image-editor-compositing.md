@@ -5,4 +5,5 @@
 
 ### Changed
 
+- Numeric multi-layer transforms preserve the arrangement of the selection instead of assigning identical coordinates to each layer.
 - Keep only the newest pending thumbnail render for each preview, without interrupting running work or mixing different preview instances.

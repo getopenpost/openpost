@@ -1,8 +1,14 @@
 /* Palette and contrast belong to the host; pixel geometry and interaction are shared. */
+@layer components {
+  :where([data-theme-button="dither"]) [data-dither-button],
+  [data-dither-button="always"],
+  [data-dither-panel] {
+    position: relative;
+  }
+}
 :where([data-theme-button="dither"]) [data-dither-button],
 [data-dither-button="always"] {
   --dither-enabled: 1;
-  position: relative;
   isolation: isolate;
 }
 :where([data-theme-button="dither"])
@@ -31,7 +37,6 @@
   display: none;
 }
 [data-dither-panel] {
-  position: relative;
   isolation: isolate;
 }
 [data-dither-panel]::before {

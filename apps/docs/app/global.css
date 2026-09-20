@@ -33,13 +33,13 @@
   --color-fd-card: #1c1916;
   --color-fd-card-foreground: #edeae6;
   --color-fd-border: #37312b;
-  --color-fd-primary: #eea369;
+  --color-fd-primary: #fd975d;
   --color-fd-primary-foreground: #21150b;
   --color-fd-secondary: #211e1b;
   --color-fd-secondary-foreground: #edeae6;
   --color-fd-accent: #302820;
   --color-fd-accent-foreground: #edeae6;
-  --color-fd-ring: #eea369;
+  --color-fd-ring: #fd975d;
 }
 body {
   font-family: var(--font-sans);

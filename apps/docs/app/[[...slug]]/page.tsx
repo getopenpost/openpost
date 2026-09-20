@@ -57,17 +57,15 @@ export default async function Page({ params }: Props) {
               Copy page
             </MarkdownCopyButton>
           )}
-          <ViewOptionsPopover
-            aria-label="Open page options"
-            markdownUrl={page.data._openapi ? undefined : `/${page.path.replace(/\.mdx?$/, ".md")}`}
-            githubUrl={
-              page.data._openapi
-                ? undefined
-                : `https://github.com/getopenpost/openpost/edit/main/apps/docs/content/docs/${page.path}`
-            }
-          >
-            Ask AI
-          </ViewOptionsPopover>
+          {!page.data._openapi && (
+            <ViewOptionsPopover
+              aria-label="Open page options"
+              markdownUrl={`/${page.path.replace(/\.mdx?$/, ".md")}`}
+              githubUrl={`https://github.com/getopenpost/openpost/edit/main/apps/docs/content/docs/${page.path}`}
+            >
+              Ask AI
+            </ViewOptionsPopover>
+          )}
         </div>
       </div>
       <DocsDescription>{page.data.description}</DocsDescription>
@@ -81,7 +79,9 @@ export default async function Page({ params }: Props) {
                 <OpenAPIPage
                   {...props}
                   preloaded={{
-                    docs: { openpost: operationDocument(schema.bundled, props.operations ?? []) },
+                    docs: {
+                      openpost: operationDocument(schema.bundled, props.operations ?? []),
+                    },
                   }}
                 />
               );

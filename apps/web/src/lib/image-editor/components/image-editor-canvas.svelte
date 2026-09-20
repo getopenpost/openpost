@@ -87,6 +87,7 @@
 		current: SelectionPoint;
 		mode: ImageEditorSelectionMode;
 		targetLayerIDs: string[];
+		pageID: string;
 	}
 
 	const editor = useImageEditor();
@@ -755,7 +756,12 @@
 	};
 
 	$effect(() => {
-		if (editor.activeTool !== 'polygonal_lasso') polygonalSelection = null;
+		if (
+			editor.activeTool !== 'polygonal_lasso' ||
+			(polygonalSelection && polygonalSelection.pageID !== editor.activePageID)
+		) {
+			polygonalSelection = null;
+		}
 	});
 
 	$effect(() => {
@@ -1123,7 +1129,8 @@
 					points: [point],
 					current: point,
 					mode,
-					targetLayerIDs: selectedID && selected && !selected.locked ? [selectedID] : []
+					targetLayerIDs: selectedID && selected && !selected.locked ? [selectedID] : [],
+					pageID: editor.activePageID
 				};
 			} else if (event.detail >= 2) {
 				finishPolygonalSelection();
@@ -1516,7 +1523,13 @@
 		const selection = polygonalSelection;
 		const document = editor.document;
 		polygonalSelection = null;
-		if (!selection || !document || selection.points.length < 3) return false;
+		if (
+			!selection ||
+			!document ||
+			selection.pageID !== editor.activePageID ||
+			selection.points.length < 3
+		)
+			return false;
 		editor.applyPixelSelection(
 			polygonPixelMask(document.width_px, document.height_px, selection.points),
 			selection.targetLayerIDs,
@@ -1812,11 +1825,14 @@
 				event.stopImmediatePropagation();
 				return;
 			}
-			if (event.key === 'Backspace' && polygonalSelection.points.length > 1) {
-				polygonalSelection = {
-					...polygonalSelection,
-					points: polygonalSelection.points.slice(0, -1)
-				};
+			if (event.key === 'Backspace') {
+				polygonalSelection =
+					polygonalSelection.points.length > 1
+						? {
+								...polygonalSelection,
+								points: polygonalSelection.points.slice(0, -1)
+							}
+						: null;
 				event.preventDefault();
 				event.stopImmediatePropagation();
 				return;

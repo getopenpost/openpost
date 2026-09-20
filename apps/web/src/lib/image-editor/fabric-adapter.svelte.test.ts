@@ -124,6 +124,23 @@ function pixelAtRatio(canvas: HTMLCanvasElement, x: number, y: number): number[]
 	return pixelAt(canvas, Math.round((canvas.width - 1) * x), Math.round((canvas.height - 1) * y));
 }
 
+function binaryAlpha(image: ImageData): Uint8Array {
+	const mask = new Uint8Array(image.width * image.height);
+	for (let index = 0; index < mask.length; index++) {
+		if (image.data[index * 4 + 3]) mask[index] = 1;
+	}
+	return mask;
+}
+
+function differingPixels(left: Uint8Array, right: Uint8Array): number {
+	if (left.length !== right.length) return Math.max(left.length, right.length);
+	let count = 0;
+	for (let index = 0; index < left.length; index++) {
+		if (left[index] !== right[index]) count += 1;
+	}
+	return count;
+}
+
 function expectPixelsClose(actual: number[], expected: number[], tolerance = 4): void {
 	for (let channel = 0; channel < 4; channel++) {
 		expect(Math.abs(actual[channel] - expected[channel])).toBeLessThanOrEqual(tolerance);
@@ -219,6 +236,44 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 				expect(numeric.flip_x).toBe(pointer.flip_x);
 				expect(numeric.flip_y).toBe(pointer.flip_y);
 			}
+		} finally {
+			mounted.adapter.dispose();
+		}
+	});
+
+	it('loads the exact rendered alpha of a rotated, outlined, masked layer', async () => {
+		const layer = renderLayer('outlined-mask', 96, 52, 132, 88, 'rectangle', 24);
+		layer.transform.rotation = 31;
+		layer.mask = { shape: 'diamond', inset: 8, radius: 0 };
+		layer.erase_mask = {
+			source_width: 132,
+			source_height: 88,
+			strokes: [
+				{
+					size: 18,
+					points: [
+						{ x: 34, y: 20 },
+						{ x: 98, y: 68 }
+					]
+				}
+			],
+			spans: []
+		};
+		const page = pageFixture([layer]);
+		const document = documentFixture(page);
+		const mounted = await mountAdapter(document, page);
+		try {
+			await settleCanvas();
+			const isolated = mounted.adapter.rasterizeLayerIDs([layer.id]);
+			expect(isolated).not.toBeNull();
+
+			const selection = mounted.adapter.layerAlphaPixelMask(
+				layer.id,
+				document.width_px,
+				document.height_px
+			);
+			expect(selection).not.toBeNull();
+			expect(differingPixels(selection!, binaryAlpha(isolated!))).toBe(0);
 		} finally {
 			mounted.adapter.dispose();
 		}

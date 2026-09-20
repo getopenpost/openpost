@@ -16,7 +16,6 @@ import {
 	pixelMaskToSpans,
 	pointInPolygon,
 	polygonIntersectsBounds,
-	projectAlphaMaskToDocument,
 	rectanglePixelMask,
 	strokePixelMask,
 	smoothSelectionPoints,
@@ -94,22 +93,6 @@ describe('OpenPost Image Editor selection composition', () => {
 			0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0
 		]);
 		expect([...invertPixelMask(point)]).toEqual([...point].map((value) => (value ? 0 : 1)));
-	});
-
-	it('projects nonzero transformed layer alpha into a binary document selection', () => {
-		const mask = projectAlphaMaskToDocument({
-			alpha: new Uint8Array([255, 0, 0, 128]),
-			sourceWidth: 2,
-			sourceHeight: 2,
-			localWidth: 2,
-			localHeight: 2,
-			documentWidth: 4,
-			documentHeight: 4,
-			bounds: { x: 1, y: 1, width: 2, height: 2 },
-			documentToLocal: { a: 1, b: 0, c: 0, d: 1, e: -2, f: -2 }
-		});
-
-		expect([...mask]).toEqual([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]);
 	});
 
 	it('flood-selects contiguous pixels using 0-255 tolerance', () => {

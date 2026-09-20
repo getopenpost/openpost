@@ -27,7 +27,6 @@ import {
 	colorsWithinTolerance,
 	pixelMaskToSpans,
 	polygonIntersectsBounds,
-	projectAlphaMaskToDocument,
 	type SelectionBounds,
 	type SelectionPoint
 } from './selection';
@@ -986,28 +985,14 @@ export class OpenPostFabricAdapter {
 		documentWidth: number,
 		documentHeight: number
 	): Uint8Array | null {
-		if (!this.fabric) return null;
-		const object = this.objectByLayerID.get(id);
-		if (!object) return null;
-		const decomposition = this.fabric.util.qrDecompose(object.calcTransformMatrix());
-		const source = this.selectionAlphaMask(
-			object,
-			Math.max(Math.abs(decomposition.scaleX), Math.abs(decomposition.scaleY)),
-			documentWidth * documentHeight
-		);
-		if (!source) return null;
-		const [a, b, c, d, e, f] = this.fabric.util.invertTransform(object.calcTransformMatrix());
-		return projectAlphaMaskToDocument({
-			alpha: source.alpha,
-			sourceWidth: source.width,
-			sourceHeight: source.height,
-			localWidth: Math.max(1, object.width ?? 1),
-			localHeight: Math.max(1, object.height ?? 1),
-			documentWidth,
-			documentHeight,
-			bounds: this.objectBounds(object),
-			documentToLocal: { a, b, c, d, e, f }
-		});
+		const rendered = this.rasterizeLayerIDs([id]);
+		if (!rendered || rendered.width !== documentWidth || rendered.height !== documentHeight)
+			return null;
+		const mask = new Uint8Array(documentWidth * documentHeight);
+		for (let index = 0; index < mask.length; index++) {
+			if (rendered.data[index * 4 + 3]) mask[index] = 1;
+		}
+		return mask;
 	}
 
 	rasterizeLayerAtPoint(
@@ -2409,20 +2394,6 @@ export class OpenPostFabricAdapter {
 		const result = this.rasterizedObjectAlpha(object, scale);
 		if (result) this.alphaHitMasks.set(id, result);
 		return result;
-	}
-
-	private selectionAlphaMask(
-		object: FabricObject,
-		displayScale: number,
-		maximumPixels: number
-	): ImageEditorAlphaHitMask | null {
-		const sourceWidth = Math.max(1, Math.ceil(object.width ?? 1));
-		const sourceHeight = Math.max(1, Math.ceil(object.height ?? 1));
-		const pixelBudgetScale = Math.sqrt(
-			Math.max(1, maximumPixels) / Math.max(1, sourceWidth * sourceHeight)
-		);
-		const multiplier = Math.max(0.01, Math.min(Math.max(0.01, displayScale), pixelBudgetScale));
-		return this.rasterizedObjectAlpha(object, multiplier);
 	}
 
 	private rasterizedObjectAlpha(

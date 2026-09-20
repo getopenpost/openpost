@@ -497,9 +497,42 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
   const bounds = await surface.boundingBox();
   expect(bounds).not.toBeNull();
   if (!bounds) return;
-  await page.mouse.click(bounds.x + bounds.width * 0.25, bounds.y + bounds.height * 0.25);
-  await page.mouse.click(bounds.x + bounds.width * 0.7, bounds.y + bounds.height * 0.3);
-  await page.mouse.click(bounds.x + bounds.width * 0.45, bounds.y + bounds.height * 0.75);
+
+  const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+  const layerCount = await layers.count();
+  await page.mouse.click(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2);
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
+  await page.keyboard.press("Backspace");
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+  await expect(layers).toHaveCount(layerCount);
+
+  await page.mouse.click(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2);
+  await page.mouse.click(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.4);
+  await page.getByRole("button", { name: "Expand pages" }).click();
+  await page.getByRole("button", { name: "Add page" }).click();
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await expect(overlay).toHaveAttribute("data-active", "false");
+  await page
+    .getByTestId("image-editor-page-strip")
+    .getByRole("button", { name: /Page 1:/ })
+    .click();
+  await page.getByRole("button", { name: "Collapse pages" }).click();
+  const resumedBounds = await surface.boundingBox();
+  expect(resumedBounds).not.toBeNull();
+  if (!resumedBounds) return;
+  await page.mouse.click(
+    resumedBounds.x + resumedBounds.width * 0.25,
+    resumedBounds.y + resumedBounds.height * 0.25,
+  );
+  await page.mouse.click(
+    resumedBounds.x + resumedBounds.width * 0.7,
+    resumedBounds.y + resumedBounds.height * 0.3,
+  );
+  await page.mouse.click(
+    resumedBounds.x + resumedBounds.width * 0.45,
+    resumedBounds.y + resumedBounds.height * 0.75,
+  );
   await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);

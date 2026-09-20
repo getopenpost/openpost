@@ -27,18 +27,6 @@ export interface PixelMaskAffineTransform {
 	f: number;
 }
 
-export interface AlphaMaskProjection {
-	alpha: Uint8Array;
-	sourceWidth: number;
-	sourceHeight: number;
-	localWidth: number;
-	localHeight: number;
-	documentWidth: number;
-	documentHeight: number;
-	bounds: SelectionBounds;
-	documentToLocal: PixelMaskAffineTransform;
-}
-
 export function transformPixelMask(
 	mask: Uint8Array,
 	width: number,
@@ -71,55 +59,6 @@ export function transformPixelMask(
 			const sourceY = Math.floor((-transform.b * targetX + transform.a * targetY) / determinant);
 			if (sourceX < 0 || sourceY < 0 || sourceX >= width || sourceY >= height) continue;
 			if (mask[sourceY * width + sourceX]) result[y * width + x] = 1;
-		}
-	}
-	return result;
-}
-
-export function projectAlphaMaskToDocument(projection: AlphaMaskProjection): Uint8Array {
-	const {
-		alpha,
-		sourceWidth,
-		sourceHeight,
-		localWidth,
-		localHeight,
-		documentWidth,
-		documentHeight,
-		bounds,
-		documentToLocal
-	} = projection;
-	const result = new Uint8Array(Math.max(0, documentWidth) * Math.max(0, documentHeight));
-	if (
-		sourceWidth <= 0 ||
-		sourceHeight <= 0 ||
-		localWidth <= 0 ||
-		localHeight <= 0 ||
-		alpha.length !== sourceWidth * sourceHeight
-	) {
-		return result;
-	}
-	const startX = clampInteger(Math.floor(bounds.x), 0, documentWidth);
-	const endX = clampInteger(Math.ceil(bounds.x + bounds.width), 0, documentWidth);
-	const startY = clampInteger(Math.floor(bounds.y), 0, documentHeight);
-	const endY = clampInteger(Math.ceil(bounds.y + bounds.height), 0, documentHeight);
-	for (let y = startY; y < endY; y++) {
-		for (let x = startX; x < endX; x++) {
-			const documentX = x + 0.5;
-			const documentY = y + 0.5;
-			const localX =
-				documentToLocal.a * documentX +
-				documentToLocal.c * documentY +
-				documentToLocal.e +
-				localWidth / 2;
-			const localY =
-				documentToLocal.b * documentX +
-				documentToLocal.d * documentY +
-				documentToLocal.f +
-				localHeight / 2;
-			if (localX < 0 || localY < 0 || localX >= localWidth || localY >= localHeight) continue;
-			const sourceX = Math.min(sourceWidth - 1, Math.floor((localX / localWidth) * sourceWidth));
-			const sourceY = Math.min(sourceHeight - 1, Math.floor((localY / localHeight) * sourceHeight));
-			if (alpha[sourceY * sourceWidth + sourceX]) result[y * documentWidth + x] = 1;
 		}
 	}
 	return result;

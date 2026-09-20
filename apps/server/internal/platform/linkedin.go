@@ -15,10 +15,12 @@ import (
 	"time"
 )
 
-const defaultLinkedInVersionLagMonths = 1
-const linkedInVideoAvailabilityPolls = 30
-const linkedInDocumentAvailabilityPolls = 30
-const linkedInOrganizationLogoProjection = "(localizedName,vanityName,logoV2(original,original~:playableStreams))"
+const (
+	defaultLinkedInVersionLagMonths    = 1
+	linkedInVideoAvailabilityPolls     = 30
+	linkedInDocumentAvailabilityPolls  = 30
+	linkedInOrganizationLogoProjection = "(localizedName,vanityName,logoV2(original,original~:playableStreams))"
+)
 
 func linkedInAPIVersion() string {
 	if version := os.Getenv("LINKEDIN_API_VERSION"); version != "" {
@@ -837,45 +839,82 @@ func (l *LinkedInAdapter) postComment(ctx context.Context, accessToken, actorURN
 	return firstNonEmptyString(result.CommentURN, result.ID), nil
 }
 
-func (l *LinkedInAdapter) ListComments(ctx context.Context, accessToken, accountID string, externalID string) ([]Comment, error) {
-	apiVersion := linkedInAPIVersion()
-	endpoint := "https://api.linkedin.com/rest/socialActions/" + url.QueryEscape(externalID) + "/comments"
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, linkedinHeaders(accessToken, apiVersion))
+type linkedinGraphComment struct {
+	ID            string `json:"id"`
+	CommentURN    string `json:"commentUrn"`
+	Actor         string `json:"actor"`
+	ParentComment string `json:"parentComment"`
+	Created       struct {
+		Time int64 `json:"time"`
+	} `json:"created"`
+	Message struct {
+		Text string `json:"text"`
+	} `json:"message"`
+	CommentsSummary struct {
+		TotalFirstLevelComments int `json:"totalFirstLevelComments"`
+	} `json:"commentsSummary"`
+}
+
+func linkedInCommentFromGraph(item linkedinGraphComment, actorURN, parentID string) Comment {
+	id := firstNonEmptyString(item.CommentURN, item.ID)
+	isOurs := actorURN != "" && item.Actor == actorURN
+	if parentID == "" {
+		parentID = item.ParentComment
+	}
+	return Comment{
+		ID:        id,
+		ParentID:  parentID,
+		AuthorID:  item.Actor,
+		Text:      item.Message.Text,
+		CreatedAt: linkedInTimestamp(item.Created.Time),
+		CanReply:  true,
+		CanDelete: isOurs,
+		IsOurs:    isOurs,
+	}
+}
+
+func fetchLinkedInComments(ctx context.Context, accessToken, objectURN string) ([]linkedinGraphComment, error) {
+	endpoint := "https://api.linkedin.com/rest/socialActions/" + url.QueryEscape(objectURN) + "/comments"
+	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, linkedinHeaders(accessToken, linkedInAPIVersion()))
 	if err != nil {
 		return nil, fmt.Errorf("linkedin comments: %w", err)
 	}
-
 	var result struct {
-		Elements []struct {
-			ID         string `json:"id"`
-			CommentURN string `json:"commentUrn"`
-			Actor      string `json:"actor"`
-			Created    struct {
-				Time int64 `json:"time"`
-			} `json:"created"`
-			Message struct {
-				Text string `json:"text"`
-			} `json:"message"`
-		} `json:"elements"`
+		Elements []linkedinGraphComment `json:"elements"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("decoding linkedin comments: %w", err)
 	}
+	return result.Elements, nil
+}
 
-	comments := make([]Comment, 0, len(result.Elements))
+func (l *LinkedInAdapter) ListComments(ctx context.Context, accessToken, accountID string, externalID string) ([]Comment, error) {
+	items, err := fetchLinkedInComments(ctx, accessToken, externalID)
+	if err != nil {
+		return nil, err
+	}
+
+	comments := make([]Comment, 0, len(items))
 	actorURN := linkedInAuthorURN(accountID)
-	for _, item := range result.Elements {
-		id := firstNonEmptyString(item.CommentURN, item.ID)
-		isOurs := actorURN != "" && item.Actor == actorURN
-		comments = append(comments, Comment{
-			ID:        id,
-			AuthorID:  item.Actor,
-			Text:      item.Message.Text,
-			CreatedAt: linkedInTimestamp(item.Created.Time),
-			CanReply:  true,
-			CanDelete: isOurs,
-			IsOurs:    isOurs,
-		})
+	for _, item := range items {
+		comment := linkedInCommentFromGraph(item, actorURN, "")
+		comments = append(comments, comment)
+		if item.CommentsSummary.TotalFirstLevelComments <= 0 {
+			continue
+		}
+		// Nested replies are a separate comments edge on the comment URN,
+		// not included in GET /socialActions/{shareUrn}/comments.
+		replies, err := fetchLinkedInComments(ctx, accessToken, comment.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, reply := range replies {
+			parentID := reply.ParentComment
+			if parentID == "" {
+				parentID = comment.ID
+			}
+			comments = append(comments, linkedInCommentFromGraph(reply, actorURN, parentID))
+		}
 	}
 	return comments, nil
 }

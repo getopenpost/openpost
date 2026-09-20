@@ -267,15 +267,17 @@
 				{/snippet}
 			</InlineNotice>
 		{/if}
-		<ImageEditorShell
-			initial={design}
-			{returnToken}
-			{backgroundModelBaseURL}
-			{initialAction}
-			{readOnlyReason}
-			initialBrandKit={brandKit}
-			{guestMode}
-			onSaveToOpenPost={saveToOpenPost}
-		/>
+		{#key design.id}
+			<ImageEditorShell
+				initial={design}
+				{returnToken}
+				{backgroundModelBaseURL}
+				{initialAction}
+				{readOnlyReason}
+				initialBrandKit={brandKit}
+				{guestMode}
+				onSaveToOpenPost={saveToOpenPost}
+			/>
+		{/key}
 	</div>
 {/if}

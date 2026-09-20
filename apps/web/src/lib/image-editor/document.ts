@@ -103,7 +103,9 @@ export function blankImageEditorDocument(preset: ImageEditorPreset): ImageEditor
 }
 
 export function cloneImageEditorDocument(document: ImageEditorDocument): ImageEditorDocument {
-	const clone = structuredClone(document);
+	// Persisted documents contain JSON data. Serialization also unwraps reactive
+	// template/cache values before they enter the immutable editor history.
+	const clone = JSON.parse(JSON.stringify(document)) as ImageEditorDocument;
 	clone.export_defaults = {
 		...clone.export_defaults,
 		matte_color: clone.export_defaults.matte_color || '#ffffff'
@@ -160,7 +162,7 @@ export function imageEditorPageBackground(
 	page: Pick<ImageEditorPage, 'background' | 'background_color'>
 ): ImageEditorPageBackground {
 	if (!page.background) return defaultImageEditorPageBackground(page.background_color || '#ffffff');
-	const background = structuredClone(page.background);
+	const background = JSON.parse(JSON.stringify(page.background)) as ImageEditorPageBackground;
 	if (background.type === 'transparent') {
 		return { type: 'transparent', opacity: 0 };
 	}
@@ -572,7 +574,7 @@ export function migrateImageEditorDocument(
 			};
 		}
 		// SAFETY: Required display members use the compatible document contract checked above.
-		const document = structuredClone(raw) as ImageEditorDocument;
+		const document = JSON.parse(JSON.stringify(raw)) as ImageEditorDocument;
 		return {
 			document,
 			readOnly: true,

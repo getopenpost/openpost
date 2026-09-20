@@ -878,6 +878,7 @@
 	): void {
 		if (event.key === 'Delete' || event.key === 'Backspace') {
 			event.preventDefault();
+			event.stopPropagation();
 			editor.removeGuide(axis, index);
 			return;
 		}
@@ -887,6 +888,7 @@
 				: event.key === 'ArrowLeft' || event.key === 'ArrowRight';
 		if (!relevant) return;
 		event.preventDefault();
+		event.stopPropagation();
 		const direction = event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1;
 		editor.updateGuide(axis, index, value + direction * (event.shiftKey ? 10 : 1));
 	}

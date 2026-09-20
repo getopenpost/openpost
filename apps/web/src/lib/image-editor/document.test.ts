@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	blankImageEditorDocument,
+	cloneImageEditorDocument,
 	cloneImageEditorPage,
 	defaultTransform,
 	migrateImageEditorDocument,
 	imageEditorPageHasTransparency,
+	imageEditorPageBackground,
 	validateImageEditorDocument
 } from './document';
 import { IMAGE_EDITOR_LIMITS, type ImageEditorLayer, type ImageEditorPreset } from './types';
@@ -32,6 +34,20 @@ function group(id: string, parentID?: string): ImageEditorLayer {
 }
 
 describe('OpenPost Image Editor document contracts', () => {
+	it('opens and snapshots reactive template documents without sharing authored state', () => {
+		const original = blankImageEditorDocument(preset);
+		const reactive = new Proxy(original, {});
+		original.pages[0].background = new Proxy({ type: 'solid', color: '#ffffff', opacity: 1 }, {});
+		expect(imageEditorPageBackground(original.pages[0])).toEqual({
+			type: 'solid',
+			color: '#ffffff',
+			opacity: 1
+		});
+		const copy = cloneImageEditorDocument(reactive);
+		copy.pages[0].name = 'Edited copy';
+		expect(original.pages[0].name).not.toBe('Edited copy');
+		expect(migrateImageEditorDocument(reactive).readOnly).toBe(false);
+	});
 	it('creates a valid document for a preset', () => {
 		const document = blankImageEditorDocument(preset);
 		expect(validateImageEditorDocument(document)).toEqual([]);

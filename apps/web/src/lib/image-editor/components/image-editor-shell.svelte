@@ -224,6 +224,7 @@
 	let conflictServerRevision = $state<number | null>(null);
 	let conflictPreservedCopy = $state.raw<ImageEditorDocumentResponse | null>(null);
 	let recoveryError = $state('');
+	let recoveredDocument: ImageEditorDocumentResponse['document'] | null = null;
 	let concurrentTabWarning = $state('');
 	let missingMedia = $state.raw<Array<{ mediaID: string; layerID?: string }>>([]);
 	let initialMissingMediaLoaded = false;
@@ -322,6 +323,7 @@
 
 	function closeAssetOverlay(): void {
 		assetOverlayOpen = false;
+		editor.backgroundImagePickerActive = false;
 		assetOverlayTrigger?.focus();
 	}
 	let activeEditorWorkspace = $state<'edit' | 'color'>('edit');
@@ -679,13 +681,16 @@
 			// commit so recovery/export can never retain the source hole without its pixels.
 			if (editor.floatingPixelSelection) return;
 			if (editor.document && !guestMode) {
+				const recoveryDocument = editor.document;
 				void storeLocalImageEditorRecovery({
 					design_id: editor.id,
 					workspace_id: editor.workspaceID,
 					revision: editor.revision,
-					document: editor.document
+					document: recoveryDocument
 				})
 					.then(() => {
+						if (!editorViewActive || editor.document !== recoveryDocument) return;
+						recoveredDocument = recoveryDocument;
 						recoveryError = '';
 						if (editor.saveState === 'idle') {
 							editor.saveState = 'local';
@@ -693,6 +698,7 @@
 						}
 					})
 					.catch((cause) => {
+						if (!editorViewActive || editor.document !== recoveryDocument) return;
 						recoveryError =
 							cause instanceof DOMException && cause.name === 'QuotaExceededError'
 								? m.image_editor_recovery_quota_exhausted()
@@ -715,7 +721,7 @@
 			}
 		})();
 		const beforeUnload = (event: BeforeUnloadEvent) => {
-			if (editor.saveState === 'idle' || editor.saveState === 'saving') {
+			if (editor.canEdit && editor.saveState !== 'saved') {
 				event.preventDefault();
 			}
 		};
@@ -990,6 +996,7 @@
 			return;
 		}
 		editor.document = local.document;
+		recoveredDocument = local.document;
 		editor.saveState = 'local';
 		editor.saveMessage = m.image_editor_recovered_local();
 		statusAnnouncement = m.image_editor_recovered_announcement();
@@ -1133,8 +1140,11 @@
 				openConflictRecovery();
 			} else if (!navigator.onLine) {
 				editor.saveState = 'offline';
-				editor.saveMessage = m.image_editor_saved_locally();
-				statusAnnouncement = m.image_editor_offline_saved();
+				editor.saveMessage =
+					recoveredDocument === submittedDocument
+						? m.image_editor_saved_locally()
+						: m.image_editor_unsaved_changes();
+				statusAnnouncement = editor.saveMessage;
 			} else {
 				editor.saveState = 'error';
 				editor.saveMessage = cause instanceof Error ? cause.message : m.image_editor_save_failed();
@@ -1488,7 +1498,7 @@
 				return;
 			}
 		}
-		await goto(resolveAppPath('/image-editor'));
+		await goto(resolveAppPath(guestMode ? '/image-editor' : '/editors'));
 	}
 
 	async function openHistory(): Promise<void> {
@@ -1725,6 +1735,7 @@
 			return;
 		assetOverlayOpen = false;
 		editor.activeTool = tool;
+		editor.backgroundImagePickerActive = false;
 		if (
 			[
 				'select',
@@ -1757,6 +1768,7 @@
 
 	function insertShape(kind: typeof shapeSlotKind): void {
 		assetOverlayOpen = false;
+		editor.backgroundImagePickerActive = false;
 		shapeSlotKind = kind;
 		editor.addShape(kind);
 		editor.activeTool = 'select';
@@ -1766,6 +1778,7 @@
 		editor.backgroundImagePickerActive = true;
 		editor.leftPanel = 'media';
 		if (window.innerWidth < 1024) mobileSheet = 'assets';
+		else assetOverlayOpen = true;
 	}
 
 	async function placeExternalFiles(
@@ -1963,7 +1976,7 @@
 	}
 
 	function handleShortcut(event: KeyboardEvent): void {
-		if (overlayWasOpen || editableTarget(event.target)) return;
+		if (event.defaultPrevented || overlayWasOpen || editableTarget(event.target)) return;
 		const key = event.key.toLowerCase();
 		if (
 			editor.pixelSelection &&
@@ -2337,7 +2350,7 @@
 	}
 
 	async function removeBackground(optimizeLarge = false): Promise<void> {
-		const layer = editor.selectedLayers[0];
+		const layer = editor.selectedLayers.find((candidate) => candidate.image && !candidate.locked);
 		if (!layer?.image || backgroundBusy) return;
 		backgroundBusy = true;
 		const finishMetric = startImageEditorMetric('background_removal');
@@ -2365,7 +2378,10 @@
 				source = await optimizeBackgroundSource(source);
 			}
 			const result = await backgroundRemoval.remove(source, backgroundModelBaseURL, (progress) => {
-				backgroundProgress = `${progress.stage} ${Math.round(progress.progress * 100)}%`;
+				const phase = progress.stage.startsWith('fetch:')
+					? m.video_editor_transcribe_downloading()
+					: m.image_editor_background_removing();
+				backgroundProgress = `${phase} ${Math.round(progress.progress * 100)}%`;
 			});
 			backgroundProgress = m.image_editor_background_saving();
 			const file = new File([result], `${layer.name || 'image'}-no-background.png`, {
@@ -2642,6 +2658,8 @@
 	}
 </script>
 
+<svelte:head><title>{editor.document?.title ?? initial.document.title}</title></svelte:head>
+
 {#snippet toolGlyph(glyph: ToolGlyph)}
 	{#if glyph.kind === 'theme'}
 		<ThemeIcon role={glyph.role} />
@@ -2742,11 +2760,11 @@
 			/>
 			{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
 				<div
-					class="hidden max-w-52 min-w-0 items-center gap-1.5 truncate px-2 text-xs text-muted-foreground sm:flex"
+					class="flex max-w-52 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground max-sm:max-w-32"
 					title={editor.saveMessage}
 				>
 					<span class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>
-					<span class="truncate">{editor.saveMessage}</span>
+					<span role="status" class="line-clamp-2">{editor.saveMessage}</span>
 				</div>
 			{/if}
 
@@ -2757,6 +2775,7 @@
 					class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
 					onclick={undoEditor}
 					disabled={!editor.canUndo}
+					title={commandMenuLabel('undo')}
 					aria-label={editor.undoLabel
 						? m.image_editor_undo_named({ name: editor.undoLabel })
 						: m.image_editor_undo()}><ThemeIcon role="undo" /></Button
@@ -2767,6 +2786,7 @@
 					class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
 					onclick={redoEditor}
 					disabled={!editor.canRedo}
+					title={commandMenuLabel('redo')}
 					aria-label={editor.redoLabel
 						? m.image_editor_redo_named({ name: editor.redoLabel })
 						: m.image_editor_redo()}><ThemeIcon role="redo" /></Button
@@ -3860,7 +3880,15 @@
 				</Sheet.Close>
 			{/if}
 			{#if mobileSheet === 'assets'}
-				<div class="h-[70dvh]"><AssetPanel {guestMode} /></div>
+				<div class="h-[70dvh]">
+					<AssetPanel
+						{guestMode}
+						onclose={() => {
+							mobileSheet = null;
+							editor.backgroundImagePickerActive = false;
+						}}
+					/>
+				</div>
 			{:else if mobileSheet === 'layers'}
 				<LayerTree />
 			{:else if mobileSheet === 'properties'}

@@ -148,7 +148,10 @@ jobs:
           amd64_digest="$(cat tested-image/image-linux-amd64-digest.txt)"
           arm64_digest="$(cat tested-image/image-linux-arm64-digest.txt)"
           for tested_digest in "$digest" "$amd64_digest" "$arm64_digest"; do
-            [[ "$tested_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            if [[ ! "$tested_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "Tested image artifact contains an invalid digest: $tested_digest" >&2
+              exit 1
+            fi
           done
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
           repository="${REGISTRY}/$(printf '%s' "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
@@ -166,8 +169,12 @@ jobs:
             platform_digest="${!platform_digest_variable}"
             platform_image="${repository}@${platform_digest}"
             docker pull --platform "linux/${architecture}" "$platform_image"
-            [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$platform_image")" == "$GITHUB_REF_NAME" ]]
-            [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$platform_image")" == "$GITHUB_SHA" ]]
+            image_version="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$platform_image")"
+            image_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$platform_image")"
+            if [[ "$image_version" != "$GITHUB_REF_NAME" || "$image_revision" != "$GITHUB_SHA" ]]; then
+              echo "Tested linux/${architecture} image identity does not match ${GITHUB_REF_NAME} at ${GITHUB_SHA}." >&2
+              exit 1
+            fi
           done
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 

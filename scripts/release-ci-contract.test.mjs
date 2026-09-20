@@ -383,7 +383,11 @@ esac
             },
           },
         );
-        assert.equal(result.status === 0, succeeds, result.stderr);
+        assert.equal(
+          result.status === 0,
+          succeeds,
+          `${result.stderr}\nimage=${imageDigest} arm64=${testedArm64Digest} version=${imageVersion} revision=${imageRevision}`,
+        );
         assert.equal(readFileSync(output, "utf8"), succeeds ? `digest=${digest}\n` : "");
         if (succeeds)
           assert.equal(

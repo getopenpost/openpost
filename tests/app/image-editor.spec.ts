@@ -593,6 +593,7 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
   const mobileOptions = page.getByTestId("image-editor-selection-options");
   await expect(mobileOptions).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.keyboard.press("ControlOrMeta+0");
   const mobileBounds = await surface.boundingBox();
   expect(mobileBounds).not.toBeNull();
   if (!mobileBounds) return;

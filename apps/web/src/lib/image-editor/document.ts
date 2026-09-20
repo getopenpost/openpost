@@ -103,7 +103,7 @@ export function blankImageEditorDocument(preset: ImageEditorPreset): ImageEditor
 }
 
 export function cloneImageEditorDocument(document: ImageEditorDocument): ImageEditorDocument {
-	// Persisted documents contain JSON data. Serialization also unwraps reactive
+	// SAFETY: Persisted documents contain JSON data. Serialization also unwraps reactive
 	// template/cache values before they enter the immutable editor history.
 	const clone = JSON.parse(JSON.stringify(document)) as ImageEditorDocument;
 	clone.export_defaults = {
@@ -162,6 +162,7 @@ export function imageEditorPageBackground(
 	page: Pick<ImageEditorPage, 'background' | 'background_color'>
 ): ImageEditorPageBackground {
 	if (!page.background) return defaultImageEditorPageBackground(page.background_color || '#ffffff');
+	// SAFETY: A typed, persisted background contains only JSON values; serialization unwraps proxies.
 	const background = JSON.parse(JSON.stringify(page.background)) as ImageEditorPageBackground;
 	if (background.type === 'transparent') {
 		return { type: 'transparent', opacity: 0 };

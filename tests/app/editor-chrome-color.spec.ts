@@ -475,7 +475,7 @@ test.describe("touch editor headers", () => {
         const home = header.getByRole("button", { name: /Image Editor/u });
         await expect(home).toHaveCount(1);
         await home.click();
-        await expect(page).toHaveURL(/\/image-editor$/u);
+        await expect(page).toHaveURL(/\/editors$/u);
       }
     }
   });

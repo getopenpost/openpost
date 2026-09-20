@@ -2359,6 +2359,30 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			{/if}
 			<Button
 				type="button"
+				variant="ghost"
+				size="icon-sm"
+				class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+				disabled={!commandHistory.canUndo}
+				aria-label={m.video_editor_undo()}
+				title={m.video_editor_undo()}
+				onclick={undoProject}
+			>
+				<ThemeIcon role="undo" />
+			</Button>
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-sm"
+				class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+				disabled={!commandHistory.canRedo}
+				aria-label={m.video_editor_redo()}
+				title={m.video_editor_redo()}
+				onclick={redoProject}
+			>
+				<ThemeIcon role="redo" />
+			</Button>
+			<Button
+				type="button"
 				disabled={!displayedProject}
 				variant="outline"
 				size="icon-sm"
@@ -2418,18 +2442,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					/>
 				{/key}
 			{/if}
-			<ExportDialog
-				project={displayedProject}
-				disabled={!displayedProject}
-				triggerLabel={m.video_editor_export_title()}
-				responsiveTrigger
-				compactQueueTrigger
-				triggerVariant="default"
-				triggerClass="size-8 px-0 sm:h-8 sm:w-auto sm:min-w-0 sm:px-2.5 [@media(pointer:coarse)]:size-9"
-				ondone={(result) =>
-					showToast(m.video_editor_export_done({ name: result.fileName }), 'success')}
-				onerror={(error) => showToast(error.message, 'error')}
-			/>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
@@ -2531,6 +2543,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					</DropdownMenu.Item>
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
+			<ExportDialog
+				project={displayedProject}
+				disabled={!displayedProject}
+				triggerLabel={m.common_export()}
+				responsiveTrigger
+				compactQueueTrigger
+				triggerVariant="default"
+				triggerClass="size-8 px-0 sm:h-8 sm:w-auto sm:min-w-0 sm:px-2.5 [@media(pointer:coarse)]:size-9"
+				ondone={(result) =>
+					showToast(m.video_editor_export_done({ name: result.fileName }), 'success')}
+				onerror={(error) => showToast(error.message, 'error')}
+			/>
 		{/snippet}
 	</EditorHeader>
 	{#if projectSummary}

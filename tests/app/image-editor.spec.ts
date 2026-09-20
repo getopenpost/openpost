@@ -97,6 +97,33 @@ test("desktop Image Editor uses the compact rail and closes Add when another too
   await expect(select).toBeFocused();
 });
 
+test("macOS trackpad pinch zoom responds without repeated long gestures", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+
+  const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
+  const zoom = page.getByRole("button", { name: /^Zoom \d+%$/ });
+  const zoomPercent = async () => Number.parseInt((await zoom.textContent()) ?? "", 10);
+  await expect(canvas).toBeVisible();
+  await zoom.click();
+  await page.waitForTimeout(250);
+  const before = await zoomPercent();
+  const bounds = (await canvas.boundingBox())!;
+
+  await canvas.dispatchEvent("wheel", {
+    bubbles: true,
+    cancelable: true,
+    clientX: bounds.x + bounds.width / 2,
+    clientY: bounds.y + bounds.height / 2,
+    ctrlKey: true,
+    deltaMode: 0,
+    deltaY: -20,
+  });
+
+  await expect.poll(zoomPercent).toBeGreaterThanOrEqual(Math.round(before * 1.045));
+});
+
 test("guest camera capture adds a local image without workspace writes", async ({ page }) => {
   const workspaceWrites: string[] = [];
   page.on("request", (request) => {

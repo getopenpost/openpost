@@ -95,6 +95,7 @@
 	const GRID_BACKGROUND_IMAGE =
 		'linear-gradient(to right, rgb(249 115 22 / 0.22) 1px, transparent 1px), linear-gradient(to bottom, rgb(249 115 22 / 0.22) 1px, transparent 1px)';
 	const SELECTION_OUTLINE_TILE_SIZE = 512;
+	const PINCH_ZOOM_SENSITIVITY = 0.0025;
 	let canvasElement = $state<HTMLCanvasElement>();
 	let viewport = $state<HTMLDivElement>();
 	let stageElement = $state<HTMLDivElement>();
@@ -1570,7 +1571,10 @@
 			event.preventDefault();
 			const currentZoom = editor.zoom;
 			const boundedDelta = Math.max(-60, Math.min(60, event.deltaY));
-			const nextZoom = Math.max(0.1, Math.min(4, currentZoom * Math.exp(-boundedDelta * 0.001)));
+			const nextZoom = Math.max(
+				0.1,
+				Math.min(4, currentZoom * Math.exp(-boundedDelta * PINCH_ZOOM_SENSITIVITY))
+			);
 			const bounds = viewport?.getBoundingClientRect();
 			if (bounds) {
 				const anchorX = event.clientX - (bounds.left + bounds.width / 2);

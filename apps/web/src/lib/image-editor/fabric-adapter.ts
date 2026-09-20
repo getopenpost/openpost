@@ -1485,7 +1485,7 @@ export class OpenPostFabricAdapter {
 			setFabricRenderer(object, (context: CanvasRenderingContext2D) => {
 				context.save();
 				context.translate(-width / 2, -height / 2);
-				if (gradientBitmap) context.drawImage(gradientBitmap, 0, 0);
+				if (gradientBitmap) context.drawImage(gradientBitmap, 0, 0, width, height);
 				else paintImageEditorCanvasGradient(context, gradient, width, height);
 				context.restore();
 			});

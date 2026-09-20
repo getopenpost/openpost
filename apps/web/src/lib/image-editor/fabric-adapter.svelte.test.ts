@@ -52,27 +52,33 @@ function pageFixture(layers: ImageEditorLayer[] = []): ImageEditorPage {
 	};
 }
 
-function documentFixture(page: ImageEditorPage): ImageEditorDocument {
+function documentFixture(page: ImageEditorPage, width = 360, height = 240): ImageEditorDocument {
 	return {
 		schema_version: 1,
 		title: 'Fabric regression',
 		preset_key: 'custom',
-		width_px: 360,
-		height_px: 240,
+		width_px: width,
+		height_px: height,
 		brand_kit_revision: 0,
 		export_defaults: { format: 'png', quality: 0.92, matte_color: '#ffffff' },
 		pages: [page]
 	};
 }
 
-async function mountAdapter(document: ImageEditorDocument, page: ImageEditorPage) {
+async function mountAdapter(
+	document: ImageEditorDocument,
+	page: ImageEditorPage,
+	options: { staticCanvas?: boolean; renderScale?: number } = {}
+) {
 	const canvas = window.document.createElement('canvas');
 	window.document.body.append(canvas);
 	const adapter = new OpenPostFabricAdapter({
 		canvas,
 		document,
 		page,
-		readOnly: false,
+		readOnly: Boolean(options.staticCanvas),
+		staticCanvas: options.staticCanvas,
+		renderScale: options.renderScale,
 		onSelection: () => undefined,
 		onTransform: () => undefined,
 		onTextChange: () => undefined
@@ -103,6 +109,16 @@ function pixelAt(canvas: HTMLCanvasElement, x: number, y: number): number[] {
 	const context = canvas.getContext('2d');
 	if (!context) throw new Error('Canvas context is unavailable.');
 	return Array.from(context.getImageData(x, y, 1, 1).data);
+}
+
+function pixelAtRatio(canvas: HTMLCanvasElement, x: number, y: number): number[] {
+	return pixelAt(canvas, Math.round((canvas.width - 1) * x), Math.round((canvas.height - 1) * y));
+}
+
+function expectPixelsClose(actual: number[], expected: number[], tolerance = 4): void {
+	for (let channel = 0; channel < 4; channel++) {
+		expect(Math.abs(actual[channel] - expected[channel])).toBeLessThanOrEqual(tolerance);
+	}
 }
 
 async function freshRenderDigest(page: ImageEditorPage, selectedIDs: string[]): Promise<number> {
@@ -203,4 +219,55 @@ describe('OpenPost Image Editor page gradient rendering', () => {
 			}
 		}
 	);
+
+	it('scales a capped Diamond bitmap across interactive and static preview canvases', async () => {
+		const width = 2048;
+		const height = 1024;
+		const page = pageFixture();
+		page.background = {
+			type: 'gradient',
+			opacity: 1,
+			gradient: {
+				type: 'diamond',
+				start: { x: width / 2, y: height / 2 },
+				end: { x: width, y: height / 2 },
+				reverse: false,
+				stops: [
+					{ offset: 0, color: '#f97316' },
+					{ offset: 1, color: '#7c3aed' }
+				]
+			}
+		};
+		const document = documentFixture(page, width, height);
+		const interactive = await mountAdapter(document, page);
+		const exported = await mountAdapter(document, page, { staticCanvas: true });
+		const staticPreview = await mountAdapter(document, page, {
+			staticCanvas: true,
+			renderScale: 0.25
+		});
+		try {
+			await settleCanvas();
+			expect(interactive.canvas).toMatchObject({ width, height });
+			expect(exported.canvas).toMatchObject({ width, height });
+			expect(staticPreview.canvas).toMatchObject({ width: 512, height: 256 });
+
+			for (const point of [
+				{ x: 0.5, y: 0.5 },
+				{ x: 0.9, y: 0.5 },
+				{ x: 0.5, y: 0.9 }
+			]) {
+				const exportPixel = pixelAtRatio(exported.canvas, point.x, point.y);
+				const interactivePixel = pixelAtRatio(interactive.canvas, point.x, point.y);
+				const previewPixel = pixelAtRatio(staticPreview.canvas, point.x, point.y);
+				expect(interactivePixel[3]).toBe(255);
+				expect(previewPixel[3]).toBe(255);
+				expectPixelsClose(interactivePixel, exportPixel);
+				expectPixelsClose(previewPixel, exportPixel);
+			}
+		} finally {
+			interactive.adapter.dispose();
+			exported.adapter.dispose();
+			staticPreview.adapter.dispose();
+		}
+	});
 });

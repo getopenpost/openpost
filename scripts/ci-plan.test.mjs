@@ -131,7 +131,7 @@ test("main candidates always run the complete matrix", () => {
   assert.equal(plan.cache_contract, false);
 });
 
-test("release tags prove the full core candidate while distributions follow the tag diff", () => {
+test("release tags prove the full core candidate while distributions follow the supplied diff", () => {
   const serverOnly = planCI(["apps/server/internal/api/handlers/foo.go"], manifest, {
     release: true,
   });

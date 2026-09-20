@@ -56,6 +56,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BEFORE_SHA: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [[ "$EVENT_NAME" == pull_request ]]; then
             bun scripts/ci-plan.mjs --base "$BASE_SHA" --head "$GITHUB_SHA"
@@ -63,9 +64,9 @@ jobs:
             # Release candidates prove the full core product on their own tag.
             # A green path-filtered main run is development feedback, not proof:
             # it may have been canceled or skipped gates this candidate inherits.
-            # Distributions (Android, n8n, marketing, docs) follow the tag diff.
+            # Distributions follow changes since the last published stable release.
             tag_name="${GITHUB_REF#refs/tags/}"
-            previous_tag="$(git tag --list 'v*' --sort=-v:refname | grep -vx "$tag_name" | head -n 1)"
+            previous_tag="$(bun scripts/published-release-tag.mjs --exclude "$tag_name")"
             [[ -n "$previous_tag" ]]
             bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
           elif [[ "$BEFORE_SHA" =~ ^0+$ || -z "$BEFORE_SHA" ]]; then

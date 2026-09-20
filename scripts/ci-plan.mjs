@@ -19,8 +19,8 @@ export function planCI(files, manifest, { full = false, release = false } = {}) 
     // Release candidates must prove the full core product on their own tag.
     // A green path-filtered main run is not proof: it may have been canceled
     // or skipped the backend/security gates that this candidate inherits.
-    // Core gates therefore always run; distributions follow the tag diff so a
-    // server-only release neither builds nor waits for Android/n8n packaging.
+    // Core gates therefore always run; distributions follow the supplied
+    // published-release diff so a server-only release skips Android/n8n packaging.
     const filtered = planFiltered(files, manifest);
     return {
       ...filtered,
@@ -160,7 +160,7 @@ function main() {
       .join("\n");
     appendFileSync(
       summary,
-      `## CI surface plan\n\n${release ? `Release candidate: core gates forced, distributions from ${files.length} changed path(s) since the previous tag.` : full ? "Full main candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
+      `## CI surface plan\n\n${release ? `Release candidate: core gates forced, distributions from ${files.length} changed path(s) since the last published stable release.` : full ? "Full main candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
     );
   }
 }

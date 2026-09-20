@@ -36,18 +36,14 @@ jobs:
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Require a release-valid Android identity
         id: mobile
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           # Android keeps its own cadence. A server-only release keeps the
           # released identity; only a release that changes a mobile surface
           # must advance it.
-          previous_tag=""
-          while IFS= read -r tag; do
-            if [[ "$tag" != "$GITHUB_REF_NAME" ]]; then
-              previous_tag="$tag"
-              break
-            fi
-          done < <(git tag --list 'v*' --sort=-v:refname)
+          previous_tag="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
           [[ -n "$previous_tag" ]]
           git show "$previous_tag:apps/mobile/app.json" > previous-release-app.json
           if git diff --quiet --find-renames=40% "$previous_tag" "$GITHUB_SHA" -- apps/mobile packages/api-contract packages/query-catalog apps/web/openapi.json; then

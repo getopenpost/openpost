@@ -16,6 +16,10 @@ import path from "node:path";
 import test from "node:test";
 import { load } from "js-yaml";
 
+import { planCI } from "./ci-plan.mjs";
+import { selectPublishedStableRelease } from "./published-release-tag.mjs";
+import { readReleaseSurfaceManifest } from "./release-surfaces.mjs";
+
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 const release = readFileSync(".github/workflows/release.yml", "utf8");
 const releaseScript = readFileSync("scripts/release.mjs", "utf8");
@@ -56,6 +60,59 @@ test("release candidate requires every independent CI job", () => {
 test("tag release candidates schedule the application browser suite", () => {
   const browserApp = load(ci).jobs["browser-app"];
   assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
+});
+
+test("failed tags do not hide distribution changes from the next candidate", () => {
+  const baseline = selectPublishedStableRelease(
+    [
+      [
+        {
+          tag_name: "v5.2.1",
+          draft: false,
+          prerelease: false,
+          published_at: "2026-09-20T12:00:00Z",
+        },
+        {
+          tag_name: "v5.2.0",
+          draft: true,
+          prerelease: false,
+          published_at: null,
+        },
+        {
+          tag_name: "v5.1.2",
+          draft: false,
+          prerelease: false,
+          published_at: "2026-09-19T12:00:00Z",
+        },
+      ],
+    ],
+    "v5.2.1",
+  );
+  assert.equal(baseline, "v5.1.2");
+
+  const plan = planCI(
+    ["apps/mobile/src/release-fix.ts", "apps/marketing/src/routes/tools/+page.svelte"],
+    readReleaseSurfaceManifest(),
+    { release: true },
+  );
+  assert.equal(plan.android, true);
+  assert.equal(plan.marketing, true);
+
+  const planStep = workflowStepScript(
+    ci,
+    "plan",
+    "Plan from the fail-closed release surface registry",
+  );
+  assert.match(planStep, /published-release-tag\.mjs --exclude "\$tag_name"/u);
+  assert.doesNotMatch(planStep, /git tag --list/u);
+
+  const identityStep = workflowStepScript(
+    release,
+    "verify-candidate",
+    "Require a release-valid Android identity",
+  );
+  assert.match(identityStep, /published-release-tag\.mjs --exclude "\$GITHUB_REF_NAME"/u);
+  assert.match(releaseScript, /checkReleaseMobileIdentity\(publishedStableReleaseTag\(\)\)/u);
 });
 
 test("the marketing build checks out its canonical immutable frontend assets", () => {
@@ -127,10 +184,21 @@ test("Android keeps its own cadence across core releases", () => {
   try {
     mkdirSync(path.join(directory, "apps/mobile"), { recursive: true });
     mkdirSync(path.join(directory, "scripts"));
+    mkdirSync(path.join(directory, "bin"));
     copyFileSync(
       "scripts/mobile-release.mjs",
       path.join(directory, "scripts", "mobile-release.mjs"),
     );
+    copyFileSync(
+      "scripts/published-release-tag.mjs",
+      path.join(directory, "scripts", "published-release-tag.mjs"),
+    );
+    const gh = path.join(directory, "bin/gh");
+    writeFileSync(
+      gh,
+      '#!/bin/sh\nprintf \'[[{"tag_name":"v4.15.0","draft":false,"prerelease":false,"published_at":"2026-09-01T00:00:00Z"}]]\\n\'\n',
+    );
+    chmodSync(gh, 0o755);
     const git = (...args) => {
       const result = spawnSync("git", args, { cwd: directory, encoding: "utf8" });
       assert.equal(result.status, 0, result.stderr);
@@ -159,6 +227,7 @@ test("Android keeps its own cadence across core releases", () => {
           encoding: "utf8",
           env: {
             ...process.env,
+            PATH: `${directory}/bin:${process.env.PATH}`,
             GITHUB_REF_NAME: ref,
             GITHUB_SHA: sha,
             GITHUB_OUTPUT: output,
@@ -206,6 +275,11 @@ test("Android keeps its own cadence across core releases", () => {
     const unbumped = runIdentityStep("v4.15.2", "v4.15.2");
     assert.notEqual(unbumped.status, 0);
     assert.equal(unbumped.changed, "true");
+    assert.equal(
+      JSON.parse(readFileSync(path.join(directory, "previous-release-app.json"), "utf8")).expo
+        .android.versionCode,
+      3,
+    );
 
     // A mobile change with a bumped identity releases again.
     writeMobileIdentity(directory, "0.2.2", 4);
@@ -240,7 +314,7 @@ test("external workflow actions are pinned to immutable commits", () => {
       externalActions += 1;
       assert.match(
         target,
-        /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.\/-]+)?@[a-f0-9]{40}$/u,
+        /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_./-]+)?@[a-f0-9]{40}$/u,
         `${workflow.name} has a mutable action reference: ${target}`,
       );
     }

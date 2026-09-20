@@ -64,6 +64,7 @@ for (const localCommits of [0, 2]) {
         "mobile-release.mjs",
         "release-command-environment.mjs",
         "release-lifecycle.mjs",
+        "published-release-tag.mjs",
         "release-surfaces.mjs",
         "prepare-release-changelog.mjs",
         "merge-changelog-fragments.mjs",
@@ -103,6 +104,7 @@ for (const localCommits of [0, 2]) {
         else if (command.startsWith("git show")) stdout = JSON.stringify({ expo: { version: "0.2.0", android: { versionCode: 2 } } });
         else if (command.startsWith("gh repo view")) stdout = "WRITE";
         else if (command.startsWith("gh secret list")) stdout = "DEPLOY_WEBHOOK_SECRET";
+        else if (command.startsWith("gh api --paginate --slurp")) stdout = JSON.stringify([[{ tag_name: "v1.0.0", draft: false, prerelease: false, published_at: "2026-01-01T00:00:00Z" }]]);
         else if (command === "bun scripts/next-release-version.mjs v1.0.0") stdout = "v1.0.1";
         else if (command === "bun scripts/check-changelog.mjs") return spawn(argv);
         else if (command === "bun scripts/prepare-release-changelog.mjs v1.0.1") return spawn(argv);

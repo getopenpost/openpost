@@ -8,6 +8,7 @@ import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
 import { changelogFragmentEntries } from "./changelog-fragments.mjs";
 import { releaseCommandEnvironment } from "./release-command-environment.mjs";
 import { requireConventionalCommitMessage, selectWorkflowRun } from "./release-lifecycle.mjs";
+import { publishedStableReleaseTag } from "./published-release-tag.mjs";
 import {
   changedReleasePaths,
   maintainedReleasePaths,
@@ -140,12 +141,12 @@ function checkReleaseContracts() {
   run(["bun", "run", "check", "--", "provider-certification"]);
 }
 
-async function checkReleaseMobileIdentity(latestTag) {
+async function checkReleaseMobileIdentity(previousReleaseTag) {
   const previousPath =
-    git(["ls-tree", "--name-only", latestTag, "apps/mobile/app.json"]).trim().length > 0
+    git(["ls-tree", "--name-only", previousReleaseTag, "apps/mobile/app.json"]).trim().length > 0
       ? "apps/mobile/app.json"
       : "mobile/app.json";
-  const previousConfig = git(["show", `${latestTag}:${previousPath}`]);
+  const previousConfig = git(["show", `${previousReleaseTag}:${previousPath}`]);
   const previousFile = path.join(
     root,
     ".devenv",
@@ -154,7 +155,13 @@ async function checkReleaseMobileIdentity(latestTag) {
   );
   await Bun.write(previousFile, previousConfig);
   try {
-    const changed = git(["diff", "--name-only", latestTag, "--", ...mobileReleasePaths]).trim();
+    const changed = git([
+      "diff",
+      "--name-only",
+      previousReleaseTag,
+      "--",
+      ...mobileReleasePaths,
+    ]).trim();
     run([
       "bun",
       "scripts/mobile-release.mjs",
@@ -295,7 +302,7 @@ async function prepare(commitMessage) {
   // work, not to release preparation.
   run(["bun", "scripts/check-changelog.mjs"]);
   checkReleaseContracts();
-  await checkReleaseMobileIdentity(latestTag);
+  await checkReleaseMobileIdentity(publishedStableReleaseTag());
 
   // Preparation owns exactly two paths: the changelog and its fragments.
   // Product screenshots refresh deliberately with public imagery changes, not

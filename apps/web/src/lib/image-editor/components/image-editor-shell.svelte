@@ -2760,7 +2760,7 @@
 			/>
 			{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
 				<div
-					class="flex max-w-52 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground max-sm:max-w-32"
+					class="hidden max-w-52 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground sm:flex"
 					title={editor.saveMessage}
 				>
 					<span class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>
@@ -2795,7 +2795,7 @@
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						class="size-11 md:size-8 [@media(pointer:coarse)]:size-11"
+						class="hidden size-11 sm:inline-flex md:size-8 [@media(pointer:coarse)]:size-11"
 						aria-label={m.feedback_open()}
 						title={m.feedback_open()}
 						onclick={() => ui.openFeedback()}
@@ -2875,6 +2875,12 @@
 						<DropdownMenu.Item onclick={() => (mobileSheet = 'properties')}
 							>{m.image_editor_properties()}</DropdownMenu.Item
 						>
+						{#if !guestMode}
+							<DropdownMenu.Item class="sm:hidden" onclick={() => ui.openFeedback()}>
+								<ThemeIcon role="feedback" />
+								{m.feedback_open()}
+							</DropdownMenu.Item>
+						{/if}
 						<DropdownMenu.Separator />
 						{#each imageEditorCommandsForCategory('view') as command (command.id)}
 							{#if command.menuKind === 'checkbox' || command.id === 'focus_canvas'}
@@ -2928,6 +2934,15 @@
 			</div>
 		{/snippet}
 	</EditorHeader>
+	{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
+		<div
+			class="flex shrink-0 items-center gap-2 border-b bg-muted px-3 py-2 text-xs sm:hidden"
+			role="status"
+		>
+			<span class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>
+			<span>{editor.saveMessage}</span>
+		</div>
+	{/if}
 	<div class="hidden shrink-0 border-b bg-card px-3 lg:block">
 		<EditorMenubar class="ml-1" ariaLabel={m.image_editor_menus()}>
 			<Menubar.Menu value="file">

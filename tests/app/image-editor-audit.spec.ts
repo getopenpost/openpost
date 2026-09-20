@@ -6,6 +6,8 @@ import { authenticatePage, registerUser, createWorkspace } from "./helpers";
 test("editor audit controls fit desktop and phone widths in both schemes", async ({
   page,
 }, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/image-editor");
   await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
@@ -14,6 +16,9 @@ test("editor audit controls fit desktop and phone widths in both schemes", async
     for (const width of [1369, 390, 320]) {
       await page.setViewportSize({ width, height: 800 });
       await expect(page.getByRole("button", { name: "Export", exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "OpenPost Image Editor", exact: true }),
+      ).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         width,
       );
@@ -22,6 +27,7 @@ test("editor audit controls fit desktop and phone widths in both schemes", async
       });
     }
   }
+  expect(errors).toEqual([]);
 });
 
 test("workspace template opens immediately with its pages and editable title", async ({
@@ -103,7 +109,13 @@ test("failed cloud and recovery saves stay visible and protect unsaved work", as
     }),
   ).toBe(true);
   await page.setViewportSize({ width: 320, height: 800 });
-  await expect(page.getByRole("banner").getByText("Save unavailable for this test")).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Save unavailable for this test" }).last(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "OpenPost Image Editor", exact: true }),
+  ).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Export", exact: true })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await page.screenshot({ path: testInfo.outputPath("save-error-320.png") });
 });

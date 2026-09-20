@@ -4,6 +4,7 @@ import type {
 	ImageEditorLayer,
 	ImageEditorPaintPoint
 } from './types';
+import { IMAGE_EDITOR_LIMITS } from './types';
 
 export type ImageEditorResizeMode = 'preserve' | 'fit' | 'fill' | 'stretch';
 
@@ -22,10 +23,6 @@ interface ResizeGeometry {
 	targetCenterX: number;
 	targetCenterY: number;
 }
-
-const MAX_EFFECT_BLUR = 100;
-const MAX_EFFECT_DISTANCE = 500;
-const MAX_EFFECT_STROKE = 500;
 
 export function resizeImageEditorDocument(
 	document: ImageEditorDocument,
@@ -132,7 +129,10 @@ function resizeLayer(layer: ImageEditorLayer, geometry: ResizeGeometry): ImageEd
 		if (layer.effects.stroke) {
 			effects.stroke = {
 				...layer.effects.stroke,
-				width: Math.min(MAX_EFFECT_STROKE, layer.effects.stroke.width * styleScale)
+				width: Math.min(
+					IMAGE_EDITOR_LIMITS.maxEffectStroke,
+					layer.effects.stroke.width * styleScale
+				)
 			};
 		}
 		resized.effects = effects;
@@ -153,8 +153,8 @@ function resizeEffectShadow<T extends { blur: number; distance: number }>(
 ): T {
 	return {
 		...shadow,
-		blur: Math.min(MAX_EFFECT_BLUR, shadow.blur * scale),
-		distance: Math.min(MAX_EFFECT_DISTANCE, shadow.distance * scale)
+		blur: Math.min(IMAGE_EDITOR_LIMITS.maxEffectBlur, shadow.blur * scale),
+		distance: Math.min(IMAGE_EDITOR_LIMITS.maxEffectDistance, shadow.distance * scale)
 	};
 }
 

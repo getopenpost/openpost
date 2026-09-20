@@ -8,6 +8,9 @@ export const IMAGE_EDITOR_LIMITS = {
 	maxPixels: 25_000_000,
 	maxPages: 35,
 	maxLayersPerPage: 500,
+	maxEffectBlur: 100,
+	maxEffectDistance: 500,
+	maxEffectStroke: 500,
 	maxDocumentBytes: 10 * 1024 * 1024
 } as const;
 

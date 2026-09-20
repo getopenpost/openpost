@@ -37,7 +37,10 @@ describe('OpenPost Image Editor document contracts', () => {
 	it('opens and snapshots reactive template documents without sharing authored state', () => {
 		const original = blankImageEditorDocument(preset);
 		const reactive = new Proxy(original, {});
-		original.pages[0].background = new Proxy({ type: 'solid', color: '#ffffff', opacity: 1 }, {});
+		original.pages[0].background = new Proxy(
+			{ type: 'solid' as const, color: '#ffffff', opacity: 1 },
+			{}
+		);
 		expect(imageEditorPageBackground(original.pages[0])).toEqual({
 			type: 'solid',
 			color: '#ffffff',

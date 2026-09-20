@@ -498,11 +498,11 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 						shadow.opacity < 0 ||
 						shadow.opacity > 1 ||
 						shadow.blur < 0 ||
-						shadow.blur > 100 ||
+						shadow.blur > IMAGE_EDITOR_LIMITS.maxEffectBlur ||
 						shadow.angle < -360 ||
 						shadow.angle > 360 ||
 						shadow.distance < 0 ||
-						shadow.distance > 500
+						shadow.distance > IMAGE_EDITOR_LIMITS.maxEffectDistance
 					) {
 						errors.push(`${layer.name} has an invalid shadow effect.`);
 						break;
@@ -517,7 +517,7 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 						stroke.opacity > 1 ||
 						!Number.isFinite(stroke.width) ||
 						stroke.width <= 0 ||
-						stroke.width > 500 ||
+						stroke.width > IMAGE_EDITOR_LIMITS.maxEffectStroke ||
 						!['inside', 'center', 'outside'].includes(stroke.position))
 				) {
 					errors.push(`${layer.name} has an invalid stroke effect.`);

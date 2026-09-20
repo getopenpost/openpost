@@ -560,8 +560,8 @@ export class OpenPostFabricAdapter {
 		const activeObject = interactiveCanvas?.getActiveObject();
 		if (
 			activeObject &&
-			!activeObject.__imageEditorLayerID &&
-			isFabricObjectCollection(activeObject)
+			isFabricObjectCollection(activeObject) &&
+			!activeObject.__imageEditorLayerID
 		) {
 			interactiveCanvas?.discardActiveObject();
 		}

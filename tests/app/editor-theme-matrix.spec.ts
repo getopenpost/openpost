@@ -262,7 +262,7 @@ async function reviewVideoPanelStates(
   await captureVideoState(page, theme, "settings");
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Render full video" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
   await expect(page.getByRole("button", { name: "Render now" })).toBeEnabled();
   await captureVideoState(page, theme, "export");
   await page.keyboard.press("Escape");

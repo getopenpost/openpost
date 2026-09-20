@@ -511,7 +511,7 @@ test("Color palettes explain their action and landscape workspaces retain a usab
     (await page.locator("#video-editor-program-panel").boundingBox())!.height,
   ).toBeGreaterThanOrEqual(160);
   await page.screenshot({ path: testInfo.outputPath("motion-landscape.png") });
-  await page.getByRole("button", { name: "Render full video", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Export video", exact: true });
   await expect(dialog.getByRole("button", { name: "Render now", exact: true })).toBeInViewport({
     ratio: 1,

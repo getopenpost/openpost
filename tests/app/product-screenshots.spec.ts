@@ -1763,7 +1763,7 @@ test.describe("product screenshot capture", () => {
       await expect(transcriptPanel).toBeVisible();
       await capture(page, `video-transcript-${captureScheme}.png`, [transcriptPanel]);
 
-      await page.getByRole("button", { name: "Render full video" }).click();
+      await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
       const exportVideoDialog = page.getByRole("dialog", { name: "Export video" });
       await expect(exportVideoDialog).toBeVisible();
       await capture(page, `video-export-${captureScheme}.png`, [exportVideoDialog]);

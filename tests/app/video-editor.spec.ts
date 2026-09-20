@@ -197,7 +197,7 @@ test("Video Editor opens the full export dialog from a live project", async ({ p
   await createProject(page, "Full export dialog proof");
   await addTextItem(page);
 
-  await page.getByRole("button", { name: "Render full video" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
 
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("button", { name: "Render now" })).toBeEnabled();

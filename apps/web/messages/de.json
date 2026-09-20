@@ -2009,6 +2009,7 @@
 	"accounts_callback_composer_selection_success": "Composer ready. The requested destination is selected.",
 	"accounts_oauth_cancelled": "Connection cancelled. Choose a destination to try again.",
 	"accounts_oauth_failed": "OpenPost could not connect that destination. Check the provider setup and try again.",
+	"accounts_oauth_facebook_no_pages": "Facebook did not share any manageable Pages. Create a Page, request Page access, or check the Facebook app permissions, then try again.",
 	"accounts_oauth_confirm_title": "Connect {platform}",
 	"accounts_oauth_confirm_description": "Here is what will happen next.",
 	"accounts_oauth_step_redirect": "OpenPost sends you to the social network.",

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	continuationHrefForNormalizedConnection,
-	interpretAccountManagementURL
+	interpretAccountManagementURL,
+	presentAccountManagementFeedback
 } from './account-management-route';
 
 describe('account management route URL interpretation', () => {
@@ -38,6 +39,25 @@ describe('account management route URL interpretation', () => {
 			feedback: null,
 			workspaceID: '',
 			cleanHref: '/settings?tab=accounts#accounts'
+		});
+	});
+
+	it('shows an actionable error when Facebook returns no manageable Pages', () => {
+		const state = interpretAccountManagementURL(
+			new URL(
+				'https://openpost.test/settings?tab=accounts&oauth_status=failed&oauth_reason=facebook_no_pages&workspace_id=workspace-62'
+			)
+		);
+
+		expect(state).toEqual({
+			feedback: { kind: 'facebook_no_pages' },
+			workspaceID: 'workspace-62',
+			cleanHref: '/settings?tab=accounts'
+		});
+		expect(presentAccountManagementFeedback(state.feedback)).toEqual({
+			tone: 'error',
+			message:
+				'Facebook did not share any manageable Pages. Create a Page, request Page access, or check the Facebook app permissions, then try again.'
 		});
 	});
 });

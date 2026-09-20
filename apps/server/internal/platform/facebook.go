@@ -25,6 +25,9 @@ const (
 
 var facebookVideoUploadPollDelay = 5 * time.Second
 
+// ErrNoFacebookPages reports that Meta returned no Page the user can publish to.
+var ErrNoFacebookPages = errors.New("facebook account has no manageable pages")
+
 type FacebookAdapter struct {
 	clientID     string
 	clientSecret string
@@ -305,7 +308,7 @@ func (f *FacebookAdapter) listPages(ctx context.Context, token *TokenResult) ([]
 		return nil, fmt.Errorf("facebook pages: %w", err)
 	}
 	if len(pages) == 0 {
-		return nil, fmt.Errorf("OpenPost could not find any Facebook Pages this profile can manage; create a Page or give this profile full control of one, then try again")
+		return nil, ErrNoFacebookPages
 	}
 	return pages, nil
 }

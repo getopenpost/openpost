@@ -111,6 +111,25 @@ func TestOAuthCallbackAccountSelectionRedirectsExposeFinalLocationHeader(t *test
 	}
 }
 
+func TestFacebookOAuthCallbackExplainsMissingManageablePages(t *testing.T) {
+	t.Parallel()
+
+	e, state, _ := newOAuthCallbackRedirectTestServer(t, "facebook", &selectionTestAdapter{
+		listErr: platform.ErrNoFacebookPages,
+	})
+
+	rec := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/facebook/callback?code=provider-code&state="+url.QueryEscape(state), nil, false)
+	result := rec.Result()
+	t.Cleanup(func() { _ = result.Body.Close() })
+
+	require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode)
+	require.Equal(
+		t,
+		"https://app.openpost.test/settings?oauth_reason=facebook_no_pages&oauth_status=failed&tab=accounts&workspace_id=ws-1",
+		result.Header.Get("Location"),
+	)
+}
+
 func TestOAuthCallbackReauthorizationOfInactiveDestinationReturnsToAccounts(t *testing.T) {
 	t.Parallel()
 

@@ -4,7 +4,10 @@ import type {
 } from '$lib/account-management';
 import { m } from '$lib/paraglide/messages';
 
-export type AccountManagementURLFeedback = { kind: 'oauth_cancelled' } | { kind: 'oauth_failed' };
+export type AccountManagementURLFeedback =
+	| { kind: 'oauth_cancelled' }
+	| { kind: 'oauth_failed' }
+	| { kind: 'facebook_no_pages' };
 
 export interface AccountManagementURLState {
 	feedback: AccountManagementURLFeedback | null;
@@ -15,16 +18,20 @@ export interface AccountManagementURLState {
 export function interpretAccountManagementURL(url: URL): AccountManagementURLState {
 	const params = new URLSearchParams(url.searchParams);
 	const oauthStatus = params.get('oauth_status');
+	const oauthReason = params.get('oauth_reason');
 	const hasLegacyError = params.has('error');
 	const workspaceID = params.get('workspace_id') ?? '';
 	let feedback: AccountManagementURLFeedback | null = null;
 
-	if (oauthStatus === 'cancelled') feedback = { kind: 'oauth_cancelled' };
+	if (oauthStatus === 'failed' && oauthReason === 'facebook_no_pages') {
+		feedback = { kind: 'facebook_no_pages' };
+	} else if (oauthStatus === 'cancelled') feedback = { kind: 'oauth_cancelled' };
 	else if (oauthStatus) feedback = { kind: 'oauth_failed' };
 	else if (hasLegacyError) feedback = { kind: 'oauth_failed' };
 
 	if (feedback) {
 		params.delete('oauth_status');
+		params.delete('oauth_reason');
 		params.delete('workspace_id');
 		params.delete('error');
 	}
@@ -43,6 +50,9 @@ export function presentAccountManagementFeedback(
 	if (!value) return null;
 	if (value.kind === 'oauth_cancelled') {
 		return { tone: 'info', message: m.accounts_oauth_cancelled() };
+	}
+	if (value.kind === 'facebook_no_pages') {
+		return { tone: 'error', message: m.accounts_oauth_facebook_no_pages() };
 	}
 	return { tone: 'error', message: m.accounts_oauth_failed() };
 }

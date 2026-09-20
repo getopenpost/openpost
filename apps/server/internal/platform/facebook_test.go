@@ -120,6 +120,25 @@ func TestFacebookExchangeAndSelectPage(t *testing.T) {
 	}
 }
 
+func TestFacebookReportsNoManageablePages(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v25.0/me/accounts" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+		}
+		return jsonResponse(req, `{"data":[]}`), nil
+	})}
+
+	adapter := NewFacebookAdapter("client-id", "client-secret", "https://app.example/callback")
+	_, err := adapter.ListAccountSelections(context.Background(), &TokenResult{AccessToken: "user-token"})
+	if !errors.Is(err, ErrNoFacebookPages) {
+		t.Fatalf("expected ErrNoFacebookPages, got %v", err)
+	}
+}
+
 func TestFacebookPublishPhotoFromPublicURL(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

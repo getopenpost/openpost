@@ -38,6 +38,7 @@ import (
 
 const mastodonProvider = "mastodon"
 const pixelfedProvider = "pixelfed"
+const oauthFailureReasonFacebookNoPages = "facebook_no_pages"
 
 // isCompatOAuthProvider reports providers that connect through the dynamic
 // Fediverse instance OAuth flow (per-instance app registration plus
@@ -1357,7 +1358,14 @@ func (h *OAuthHandler) redirectWithError(msg string, workspaceIDs ...string) (*h
 	if strings.EqualFold(msg, "access_denied") || strings.EqualFold(msg, "cancelled") {
 		status = "cancelled"
 	}
+	return h.redirectWithOAuthFeedback(status, "", workspaceIDs...)
+}
+
+func (h *OAuthHandler) redirectWithOAuthFeedback(status, reason string, workspaceIDs ...string) (*huma.StreamResponse, error) {
 	query := url.Values{"tab": {"accounts"}, "oauth_status": {status}}
+	if reason != "" {
+		query.Set("oauth_reason", reason)
+	}
 	if len(workspaceIDs) > 0 && strings.TrimSpace(workspaceIDs[0]) != "" {
 		query.Set("workspace_id", workspaceIDs[0])
 	}
@@ -1399,6 +1407,9 @@ func (h *OAuthHandler) saveAccountSelectionAndRedirect(
 	options, err := selector.ListAccountSelections(ctx, tokenResp)
 	if err != nil {
 		log.Printf("[Callback] Failed to list selectable accounts: platform=%s error=%v", platformName, err)
+		if errors.Is(err, platform.ErrNoFacebookPages) {
+			return h.redirectWithOAuthFeedback("failed", oauthFailureReasonFacebookNoPages, workspaceID)
+		}
 		return h.redirectWithError(fmt.Sprintf("failed to list selectable accounts: %s", err.Error()), workspaceID)
 	}
 	if len(options) == 0 {

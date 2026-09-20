@@ -698,13 +698,17 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Require a package version increase for publishable changes
         env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+          if [[ "$EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/* ]]; then
+            BASE_SHA="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
+          elif [[ "$BASE_SHA" =~ ^0+$ ]]; then
             echo "Initial repository push has no version base."
-          else
-            bun scripts/n8n-package-release.mjs check-version --base "$BASE_SHA" --head "$GITHUB_SHA"
+            exit 0
           fi
+          bun scripts/n8n-package-release.mjs check-version --base "$BASE_SHA" --head "$GITHUB_SHA"
       - name: Check, test, lint, build, and load the package
         run: bun run check:n8n
       - name: Inspect the exact npm payload

@@ -77,6 +77,21 @@ test("tag release candidates schedule the application browser suite", () => {
   assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
 });
 
+test("tag n8n version checks use the last published release as their base", () => {
+  const step = load(ci).jobs.n8n.steps.find(
+    (step) => step.name === "Require a package version increase for publishable changes",
+  );
+  assert.equal(step.env.EVENT_NAME, "${{ github.event_name }}");
+  assert.equal(step.env.GH_TOKEN, "${{ github.token }}");
+  assert.equal(
+    step.env.BASE_SHA,
+    "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}",
+  );
+  assert.match(step.run, /GITHUB_REF.*refs\/tags/u);
+  assert.match(step.run, /published-release-tag\.mjs --exclude "\$GITHUB_REF_NAME"/u);
+  assert.match(step.run, /check-version --base "\$BASE_SHA" --head "\$GITHUB_SHA"/u);
+});
+
 test("failed tags do not hide distribution changes from the next candidate", () => {
   const baseline = selectPublishedStableRelease(
     [

@@ -31,6 +31,7 @@ import {
 	type SelectionBounds,
 	type SelectionPoint
 } from './selection';
+import { imageEditorTransformFromCenterDecomposition } from './collective-transform';
 
 type FabricModule = typeof import('fabric');
 type FabricCanvas = InstanceType<FabricModule['Canvas']>;
@@ -1311,19 +1312,14 @@ export class OpenPostFabricAdapter {
 				)
 				.map((object) => {
 					const decomposition = this.fabric!.util.qrDecompose(object.calcTransformMatrix());
-					const width = Math.max(1, (object.width ?? 1) * Math.abs(decomposition.scaleX));
-					const height = Math.max(1, (object.height ?? 1) * Math.abs(decomposition.scaleY));
 					return {
 						id: object.__imageEditorLayerID,
-						transform: {
-							x: decomposition.translateX - width / 2,
-							y: decomposition.translateY - height / 2,
-							width,
-							height,
-							rotation: decomposition.angle,
-							flip_x: decomposition.scaleX < 0,
-							flip_y: decomposition.scaleY < 0
-						}
+						transform: imageEditorTransformFromCenterDecomposition(
+							object.width ?? 1,
+							object.height ?? 1,
+							decomposition,
+							object.strokeWidth ?? 0
+						)
 					};
 				});
 		}

@@ -310,6 +310,117 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 		}
 	});
 
+	it('persists a rotated mixed selection without changing its rendered pixels', async () => {
+		interface ActiveSelectionFixture {
+			set(updates: { angle: number }): void;
+			setCoords(): void;
+		}
+		interface PersistenceAdapterInternals {
+			canvas: {
+				getActiveObject(): ActiveSelectionFixture;
+				discardActiveObject(): void;
+				requestRenderAll(): void;
+			};
+			transformEntries(target: ActiveSelectionFixture): Array<{
+				id: string;
+				transform: ImageEditorLayer['transform'];
+			}>;
+		}
+		const page = pageFixture([
+			{
+				...renderLayer('one', 10, 20, 80, 40, 'rectangle', 6),
+				transform: {
+					x: 10,
+					y: 20,
+					width: 80,
+					height: 40,
+					rotation: 30,
+					flip_x: false,
+					flip_y: true
+				}
+			},
+			{
+				...renderLayer('two', 200, 100, 120, 60, 'ellipse'),
+				transform: {
+					x: 200,
+					y: 100,
+					width: 120,
+					height: 60,
+					rotation: -15,
+					flip_x: true,
+					flip_y: false
+				}
+			}
+		]);
+		const mounted = await mountAdapter(documentFixture(page), page);
+		try {
+			mounted.adapter.setSelection(['one', 'two']);
+			await settleCanvas();
+			const internals = adapterInternals<PersistenceAdapterInternals>(mounted.adapter);
+			const activeSelection = internals.canvas.getActiveObject();
+			activeSelection.set({ angle: 27 });
+			activeSelection.setCoords();
+			const entries = internals.transformEntries(activeSelection);
+			const nextPage = structuredClone(page);
+			for (const entry of entries) {
+				const layer = nextPage.layers.find((candidate) => candidate.id === entry.id);
+				if (layer) layer.transform = entry.transform;
+			}
+
+			internals.canvas.discardActiveObject();
+			internals.canvas.requestRenderAll();
+			await settleCanvas();
+			const liveDigest = pixelDigest(mounted.canvas);
+
+			expect(await freshRenderDigest(nextPage, [])).toBe(liveDigest);
+		} finally {
+			mounted.adapter.dispose();
+		}
+	});
+
+	it('keeps rendered pixels unchanged after a zero-delta collective numeric edit', async () => {
+		const page = pageFixture([
+			{
+				...renderLayer('one', 10, 20, 80, 40, 'rectangle', 6),
+				transform: {
+					x: 10,
+					y: 20,
+					width: 80,
+					height: 40,
+					rotation: 30,
+					flip_x: false,
+					flip_y: true
+				}
+			},
+			{
+				...renderLayer('two', 200, 100, 120, 60, 'ellipse'),
+				transform: {
+					x: 200,
+					y: 100,
+					width: 120,
+					height: 60,
+					rotation: -15,
+					flip_x: true,
+					flip_y: false
+				}
+			}
+		]);
+		const nextPage = structuredClone(page);
+		const selection = imageEditorCollectiveTransform(
+			nextPage.layers.map((layer) => layer.transform)
+		)!;
+		for (const layer of nextPage.layers) {
+			layer.transform = transformImageEditorCollectiveMember(
+				layer.transform,
+				selection,
+				'width',
+				selection.width
+			);
+		}
+
+		expect(await freshRenderDigest(nextPage, [])).toBe(await freshRenderDigest(page, []));
+	});
+
 	it('matches a fresh render after aligning a live multi-layer selection', async () => {
 		const previousPage = pageFixture([
 			renderLayer('one', 24, 28, 80, 56),

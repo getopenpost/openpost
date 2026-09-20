@@ -525,23 +525,25 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		editor.updateSelectedTransform('rotation', 90);
 		const rotatedBack = editor.activePage?.layers.find((item) => item.id === 'back')?.transform;
 		const rotatedFront = editor.activePage?.layers.find((item) => item.id === 'front')?.transform;
-		expect(rotatedBack?.x).toBeCloseTo(200);
+		expect(rotatedBack?.x).toBeCloseTo(280);
 		expect(rotatedBack?.y).toBeCloseTo(-90);
 		expect(rotatedBack?.rotation).toBeCloseTo(90);
-		expect(rotatedFront?.x).toBeCloseTo(200);
+		expect(rotatedFront?.x).toBeCloseTo(280);
 		expect(rotatedFront?.y).toBeCloseTo(110);
 		expect(rotatedFront?.rotation).toBeCloseTo(90);
 
 		editor.undo();
 		editor.updateSelectedTransform('flip_x', true);
 		expect(editor.activePage?.layers.find((item) => item.id === 'back')?.transform).toMatchObject({
-			x: 300,
+			x: 380,
+			y: 90,
 			rotation: 180,
 			flip_x: false,
 			flip_y: true
 		});
 		expect(editor.activePage?.layers.find((item) => item.id === 'front')?.transform).toMatchObject({
-			x: 100,
+			x: 180,
+			y: 90,
 			rotation: 180,
 			flip_x: false,
 			flip_y: true
@@ -567,10 +569,49 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		).toBeCloseTo(90);
 	});
 
+	it.each([{ key: 'x' as const }, { key: 'width' as const }])(
+		'keeps rotated member transforms exact when collective $key is unchanged',
+		({ key }) => {
+			const editor = new ImageEditorController();
+			const initial = response();
+			initial.document.pages[0].layers[0].transform = {
+				x: 10,
+				y: 20,
+				width: 80,
+				height: 40,
+				rotation: 30,
+				flip_x: false,
+				flip_y: true
+			};
+			initial.document.pages[0].layers[2].transform = {
+				x: 200,
+				y: 100,
+				width: 120,
+				height: 60,
+				rotation: -15,
+				flip_x: true,
+				flip_y: false
+			};
+			editor.load(initial);
+			editor.selectLayer('back');
+			editor.selectLayer('front', 'toggle');
+			const before = structuredClone(editor.selectedLayers.map((item) => item.transform));
+			const selectedTransform = editor.selectedTransform!;
+
+			editor.updateSelectedTransform(key, selectedTransform[key]);
+
+			expect(editor.selectedLayers.map((item) => item.transform)).toEqual(before);
+			expect(editor.canUndo).toBe(false);
+		}
+	);
+
 	it('keeps single-root transform behavior unchanged', () => {
 		const editor = new ImageEditorController();
-		editor.load(response());
+		const initial = response();
+		initial.document.pages[0].layers[0].transform.rotation = 30;
+		editor.load(initial);
 		editor.selectLayer('back');
+		expect(editor.selectedTransform).toBe(editor.selectedLayers[0].transform);
 
 		editor.updateSelectedTransform('width', 160, true);
 		editor.updateSelectedTransform('rotation', 30);

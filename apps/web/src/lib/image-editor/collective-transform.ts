@@ -6,6 +6,13 @@ interface ImageEditorTransformPoint {
 	x: number;
 	y: number;
 }
+interface ImageEditorTransformDecomposition {
+	angle: number;
+	scaleX: number;
+	scaleY: number;
+	translateX: number;
+	translateY: number;
+}
 export type ImageEditorCollectiveTransformKey =
 	| 'x'
 	| 'y'
@@ -76,17 +83,38 @@ function matrixTransform(
 	const scaleX = Math.hypot(combined[0], combined[1]);
 	const scaleY =
 		scaleX > Number.EPSILON ? (combined[0] * combined[3] - combined[2] * combined[1]) / scaleX : 0;
-	const width = Math.max(1, transform.width * Math.abs(scaleX));
-	const height = Math.max(1, transform.height * Math.abs(scaleY));
+	return imageEditorTransformFromCenterDecomposition(transform.width, transform.height, {
+		angle: (Math.atan2(combined[1], combined[0]) * 180) / Math.PI,
+		scaleX,
+		scaleY,
+		translateX: combined[4],
+		translateY: combined[5]
+	});
+}
+
+export function imageEditorTransformFromCenterDecomposition(
+	sourceWidth: number,
+	sourceHeight: number,
+	decomposition: ImageEditorTransformDecomposition,
+	originStrokeWidth = 0
+): ImageEditorTransform {
+	const width = Math.max(1, sourceWidth * Math.abs(decomposition.scaleX));
+	const height = Math.max(1, sourceHeight * Math.abs(decomposition.scaleY));
+	const originWidth = width + originStrokeWidth;
+	const originHeight = height + originStrokeWidth;
+	const radians = (decomposition.angle * Math.PI) / 180;
+	const centerOffsetX =
+		(originWidth / 2) * Math.cos(radians) - (originHeight / 2) * Math.sin(radians);
+	const centerOffsetY =
+		(originWidth / 2) * Math.sin(radians) + (originHeight / 2) * Math.cos(radians);
 	return {
-		...transform,
-		x: combined[4] - width / 2,
-		y: combined[5] - height / 2,
+		x: decomposition.translateX - centerOffsetX,
+		y: decomposition.translateY - centerOffsetY,
 		width,
 		height,
-		rotation: (Math.atan2(combined[1], combined[0]) * 180) / Math.PI,
-		flip_x: scaleX < 0,
-		flip_y: scaleY < 0
+		rotation: decomposition.angle,
+		flip_x: decomposition.scaleX < 0,
+		flip_y: decomposition.scaleY < 0
 	};
 }
 
@@ -130,6 +158,7 @@ export function transformImageEditorCollectiveMember(
 ): ImageEditorTransform {
 	if (key === 'x' || key === 'y') {
 		const delta = Number(value) - selection[key];
+		if (delta === 0) return { ...transform };
 		return matrixTransform(
 			transform,
 			key === 'x' ? [1, 0, 0, 1, delta, 0] : [1, 0, 0, 1, 0, delta]
@@ -139,6 +168,7 @@ export function transformImageEditorCollectiveMember(
 	if (key === 'width' || key === 'height') {
 		const targetSize = Math.max(1, Number(value));
 		const scale = targetSize / Math.max(1, selection[key]);
+		if (scale === 1) return { ...transform };
 		const scaleX = key === 'width' || preserveAspect ? scale : 1;
 		const scaleY = key === 'height' || preserveAspect ? scale : 1;
 		return matrixTransform(transform, matrixAround(selection.x, selection.y, scaleX, 0, 0, scaleY));
@@ -149,6 +179,7 @@ export function transformImageEditorCollectiveMember(
 
 	if (key === 'rotation') {
 		const rotationDelta = normalizeImageEditorRotation(Number(value) - selection.rotation);
+		if (rotationDelta === 0) return { ...transform };
 		const radians = (rotationDelta * Math.PI) / 180;
 		return matrixTransform(
 			transform,

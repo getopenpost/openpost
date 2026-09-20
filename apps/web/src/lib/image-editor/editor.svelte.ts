@@ -315,6 +315,7 @@ export class ImageEditorController {
 		const layers = this.activePage?.layers ?? [];
 		const editableRoots = roots.filter((layer) => !this.layerIsEffectivelyLocked(layer, layers));
 		const transformRoots = editableRoots.length > 0 ? editableRoots : roots;
+		if (transformRoots.length === 1) return transformRoots[0].transform;
 		return imageEditorCollectiveTransform(transformRoots.map((layer) => layer.transform));
 	}
 
@@ -1672,6 +1673,18 @@ export class ImageEditorController {
 		const ids = new SvelteSet(editableRoots.map((layer) => layer.id));
 		const selection = imageEditorCollectiveTransform(editableRoots.map((layer) => layer.transform));
 		const affectedIDs = this.idsWithDescendants([...ids]);
+		if (editableRoots.length > 1 && selection) {
+			const numericValue = Number(value);
+			const unchanged =
+				key === 'width' || key === 'height'
+					? Math.max(1, numericValue) === selection[key]
+					: key === 'rotation'
+						? normalizeImageEditorRotation(numericValue - selection.rotation) === 0
+						: key === 'x' || key === 'y'
+							? numericValue === selection[key]
+							: Boolean(value) === selection[key];
+			if (unchanged) return result;
+		}
 		this.mutate(
 			m.image_editor_transform_layers(),
 			(document) => {

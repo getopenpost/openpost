@@ -4,8 +4,6 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [5.2.0] - 2026-09-20
-
 ### Changed
 
 - Moved the public documentation to `openpo.st/docs` and kept old documentation links working through direct redirects.

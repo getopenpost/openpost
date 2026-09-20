@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
@@ -85,7 +85,8 @@
 	import {
 		downloadRenderedPages,
 		renderImageEditorPages,
-		renderImageEditorPreview
+		renderImageEditorPreview,
+		type ImageEditorRenderedPage
 	} from '../static-renderer';
 	import { imageEditorExportBudget } from '../export-budget';
 	import {
@@ -107,6 +108,7 @@
 	import { ImageEditorBackgroundRemoval } from '../background-removal';
 	import type {
 		ImageEditorBrandKit,
+		ImageEditorDocument,
 		ImageEditorDocumentResponse,
 		ImageEditorLayer,
 		ImageEditorRevisionResponse,
@@ -127,6 +129,7 @@
 	import type { ThemeIconRole } from '$lib/themes/contracts.js';
 	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
 	import { m } from '$lib/paraglide/messages';
+	import { getLocaleTag } from '$lib/i18n';
 	import { startImageEditorMetric } from '../telemetry';
 	import {
 		imageEditorCommand,
@@ -182,6 +185,7 @@
 	const LEGACY_DEFAULT_LAYERS_HEIGHT = 280;
 	const EDIT_LAYERS_USER_SIZED_KEY = 'openpost-image-editor-edit-layers-user-sized-v2';
 	const COLOR_LAYERS_HEIGHT_KEY = 'openpost-image-editor-color-layers-height-v1';
+	const EXPORT_PREVIEW_DEBOUNCE_MS = 250;
 	type SaveRequest = {
 		coverPreviewMediaID?: string;
 		recoveryReason: 'idle' | 'export' | 'close';
@@ -249,6 +253,20 @@
 	let exportSuccessfulByPage = $state.raw<Record<string, string>>({});
 	let exportResumeLedger = $state.raw<ImageEditorExportResumeLedger>({});
 	let exportAbort: AbortController | null = null;
+	let exportPreview = $state.raw<{
+		document: ImageEditorDocument;
+		pageIDsKey: string;
+		pages: ImageEditorRenderedPage[];
+		objectURL: string;
+		totalBytes: number;
+	} | null>(null);
+	let exportPreviewBusy = $state(false);
+	let exportPreviewError = $state('');
+	let exportPreviewProgress = $state('');
+	let exportPreviewGeneration = 0;
+	let exportPreviewTimer: ReturnType<typeof setTimeout> | undefined;
+	let exportPreviewTask: Promise<void> | null = null;
+	let exportPreviewAbort: AbortController | null = null;
 	let externalDropBusy = $state(false);
 	let externalDropProgress = $state('');
 	let externalDropError = $state('');
@@ -428,6 +446,141 @@
 				)
 			: null
 	);
+
+	function exportPageIDsKey(pageIDs: readonly string[]): string {
+		return pageIDs.join('\u0000');
+	}
+
+	function clearEncodedExportPreview(): void {
+		if (exportPreview) URL.revokeObjectURL(exportPreview.objectURL);
+		exportPreview = null;
+	}
+
+	async function prepareEncodedExportPreview(
+		document: ImageEditorDocument,
+		pageIDs: string[],
+		pageIDsKey: string,
+		generation: number,
+		controller: AbortController
+	): Promise<void> {
+		try {
+			const pages = await renderImageEditorPages(
+				document,
+				pageIDs,
+				(done, total) => {
+					if (generation !== exportPreviewGeneration) return;
+					exportPreviewProgress = m.image_editor_export_preview_encoding_progress({
+						done,
+						total
+					});
+				},
+				controller.signal
+			);
+			controller.signal.throwIfAborted();
+			if (generation !== exportPreviewGeneration || pages.length === 0) return;
+			const objectURL = URL.createObjectURL(pages[0].blob);
+			if (generation !== exportPreviewGeneration || controller.signal.aborted) {
+				URL.revokeObjectURL(objectURL);
+				return;
+			}
+			clearEncodedExportPreview();
+			exportPreview = {
+				document,
+				pageIDsKey,
+				pages,
+				objectURL,
+				totalBytes: pages.reduce((total, page) => total + page.blob.size, 0)
+			};
+		} catch (cause) {
+			if (
+				generation !== exportPreviewGeneration ||
+				(cause instanceof DOMException && cause.name === 'AbortError')
+			)
+				return;
+			exportPreviewError =
+				cause instanceof Error && cause.message
+					? cause.message
+					: m.image_editor_export_preview_failed();
+		} finally {
+			if (generation === exportPreviewGeneration) {
+				exportPreviewBusy = false;
+				exportPreviewProgress = '';
+			}
+		}
+	}
+
+	async function queueEncodedExportPreview(
+		document: ImageEditorDocument,
+		pageIDs: string[],
+		pageIDsKey: string,
+		generation: number
+	): Promise<void> {
+		if (exportPreviewTask) await exportPreviewTask.catch(() => undefined);
+		if (generation !== exportPreviewGeneration || !editorViewActive) return;
+		const controller = new AbortController();
+		exportPreviewAbort = controller;
+		const task = prepareEncodedExportPreview(document, pageIDs, pageIDsKey, generation, controller);
+		exportPreviewTask = task;
+		try {
+			await task;
+		} finally {
+			if (exportPreviewTask === task) exportPreviewTask = null;
+			if (exportPreviewAbort === controller) exportPreviewAbort = null;
+		}
+	}
+
+	function restartEncodedExportPreview(
+		document: ImageEditorDocument | null,
+		pageIDs: string[],
+		allowed: boolean
+	): void {
+		exportPreviewGeneration++;
+		const generation = exportPreviewGeneration;
+		if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
+		exportPreviewTimer = undefined;
+		exportPreviewAbort?.abort();
+		clearEncodedExportPreview();
+		exportPreviewError = '';
+		exportPreviewProgress = '';
+		exportPreviewBusy = false;
+		if (!exportDialogOpen || !document || !allowed || pageIDs.length === 0) return;
+
+		exportPreviewBusy = true;
+		exportPreviewProgress = m.image_editor_export_preview_encoding();
+		const pageIDsKey = exportPageIDsKey(pageIDs);
+		exportPreviewTimer = setTimeout(() => {
+			exportPreviewTimer = undefined;
+			void queueEncodedExportPreview(document, pageIDs, pageIDsKey, generation);
+		}, EXPORT_PREVIEW_DEBOUNCE_MS);
+	}
+
+	$effect(() => {
+		const document = editor.document;
+		const pageIDs = exportPages.map((page) => page.id);
+		const allowed = exportBudget?.allowed ?? false;
+		const open = exportDialogOpen;
+		untrack(() => restartEncodedExportPreview(open ? document : null, pageIDs, allowed));
+	});
+
+	function retryEncodedExportPreview(): void {
+		const document = editor.document;
+		const pageIDs = exportPages.map((page) => page.id);
+		restartEncodedExportPreview(document, pageIDs, exportBudget?.allowed ?? false);
+	}
+
+	function preparedExportPages(
+		document: ImageEditorDocument,
+		pageIDs: readonly string[]
+	): ImageEditorRenderedPage[] | null {
+		return exportPreview?.document === document &&
+			exportPreview.pageIDsKey === exportPageIDsKey(pageIDs)
+			? exportPreview.pages
+			: null;
+	}
+
+	function formattedExportBytes(bytes: number): string {
+		return new Intl.NumberFormat(getLocaleTag()).format(bytes);
+	}
 
 	$effect(() => {
 		if (!toolPreferencesReady) return;
@@ -740,9 +893,13 @@
 		return () => {
 			editorViewActive = false;
 			rasterAbort?.abort();
+			exportPreviewGeneration++;
 			unsubscribe();
 			clearTimeout(saveTimer);
 			clearTimeout(previewTimer);
+			if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
+			exportPreviewAbort?.abort();
+			clearEncodedExportPreview();
 			backgroundRemoval.dispose();
 			designChannel?.close();
 			window.removeEventListener('beforeunload', beforeUnload);
@@ -2538,6 +2695,14 @@
 			exportError = m.image_editor_export_budget_exceeded();
 			return;
 		}
+		const pageIDs = exportAllPages
+			? editor.document.pages.map((page) => page.id)
+			: [editor.activePageID];
+		const preparedPages = preparedExportPages(editor.document, pageIDs);
+		if (!preparedPages) {
+			exportError = m.image_editor_export_preview_required();
+			return;
+		}
 		const view = captureEditorMutationView();
 		exportBusy = true;
 		const controller = new AbortController();
@@ -2551,22 +2716,13 @@
 			if (!saved && exportMode !== 'download') {
 				throw new Error(m.image_editor_export_save_first());
 			}
-			const pageIDs = exportAllPages
-				? editor.document.pages.map((page) => page.id)
-				: [editor.activePageID];
 			if (exportMode !== 'download') loadExportResumeLedger();
 			const pagesToRender =
 				exportMode === 'download'
 					? pageIDs
 					: pageIDs.filter((pageID) => !exportSuccessfulByPage[pageID]);
-			const rendered = await renderImageEditorPages(
-				editor.document,
-				pagesToRender,
-				(done, total) => {
-					exportProgress = m.image_editor_rendering_progress({ done, total });
-				},
-				controller.signal
-			);
+			const rendered = preparedPages.filter((page) => pagesToRender.includes(page.page.id));
+			controller.signal.throwIfAborted();
 			if (!editorMutationViewIsCurrent(view)) return;
 			if (exportMode === 'download') {
 				await downloadRenderedPages(rendered, editor.document.title);
@@ -4361,12 +4517,53 @@
 <ImageEditorGuideDialog bind:open={guideDialogOpen} />
 
 <Dialog.Root bind:open={exportDialogOpen}>
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content class="sm:max-w-2xl">
 		<Dialog.Header>
 			<Dialog.Title>{m.image_editor_export_design()}</Dialog.Title>
 			<Dialog.Description>{m.image_editor_export_body()}</Dialog.Description>
 		</Dialog.Header>
 		<div class="space-y-4">
+			<section
+				class="overflow-hidden rounded-xl border bg-muted/20"
+				aria-labelledby="export-preview-title"
+			>
+				<div class="flex min-h-11 items-center justify-between gap-3 border-b px-3 py-2">
+					<h3 id="export-preview-title" class="text-sm font-medium">
+						{m.image_editor_export_preview()}
+					</h3>
+					{#if exportPreview}
+						<p class="text-xs text-muted-foreground tabular-nums">
+							{m.image_editor_export_preview_bytes({
+								bytes: formattedExportBytes(exportPreview.totalBytes)
+							})}
+						</p>
+					{/if}
+				</div>
+				<div class="grid min-h-32 place-items-center p-3 sm:min-h-52">
+					{#if exportPreviewBusy}
+						<div
+							class="grid justify-items-center gap-2 text-sm text-muted-foreground"
+							role="status"
+						>
+							<ProtectedIcon icon="loading" class="size-5 animate-spin" />
+							<span>{exportPreviewProgress || m.image_editor_export_preview_encoding()}</span>
+						</div>
+					{:else if exportPreviewError}
+						<div class="grid max-w-sm justify-items-center gap-3 text-center">
+							<p class="text-sm text-destructive" role="alert">{exportPreviewError}</p>
+							<Button variant="outline" size="sm" onclick={retryEncodedExportPreview}>
+								{m.image_editor_export_preview_retry()}
+							</Button>
+						</div>
+					{:else if exportPreview}
+						<img
+							src={exportPreview.objectURL}
+							alt={m.image_editor_export_preview_alt()}
+							class="max-h-36 max-w-full rounded-md object-contain sm:max-h-56"
+						/>
+					{/if}
+				</div>
+			</section>
 			<div class="rounded-xl border bg-muted/35 p-3">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<div>
@@ -4560,7 +4757,11 @@
 			</Button>
 			<Button
 				onclick={exportDesign}
-				disabled={exportBusy || !editor.document || !exportBudget?.allowed}
+				disabled={exportBusy ||
+					exportPreviewBusy ||
+					!exportPreview ||
+					!editor.document ||
+					!exportBudget?.allowed}
 			>
 				{#if exportBusy}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
 				{exportMode === 'download'

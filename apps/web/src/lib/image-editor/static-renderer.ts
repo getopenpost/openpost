@@ -54,7 +54,10 @@ export async function renderImageEditorPage(
 		staticCanvas: true,
 		onSelection() {},
 		onTransform() {},
-		onTextChange() {}
+		onTextChange() {},
+		onMissingMedia() {
+			throw new Error(m.image_editor_export_missing_media());
+		}
 	});
 	try {
 		await adapter.mount();
@@ -107,9 +110,12 @@ function flattenCanvas(source: HTMLCanvasElement, matteColor: string): HTMLCanva
 
 export async function renderImageEditorPreview(
 	imageEditorDocument: ImageEditorDocument,
-	page: ImageEditorPage
+	page: ImageEditorPage,
+	signal?: AbortSignal
 ): Promise<Blob> {
+	signal?.throwIfAborted();
 	await globalThis.document.fonts?.ready;
+	signal?.throwIfAborted();
 	const canvas = globalThis.document.createElement('canvas');
 	const renderScale = Math.min(
 		1,
@@ -127,8 +133,10 @@ export async function renderImageEditorPreview(
 		onTextChange() {}
 	});
 	try {
+		signal?.throwIfAborted();
 		await adapter.mount();
-		return await new Promise<Blob>((resolve, reject) => {
+		signal?.throwIfAborted();
+		const blob = await new Promise<Blob>((resolve, reject) => {
 			canvas.toBlob(
 				(result) =>
 					result ? resolve(result) : reject(new Error(m.image_editor_page_render_failed())),
@@ -136,6 +144,8 @@ export async function renderImageEditorPreview(
 				0.82
 			);
 		});
+		signal?.throwIfAborted();
+		return blob;
 	} finally {
 		adapter.dispose();
 	}

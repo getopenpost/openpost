@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { authenticatePage, registerUser, createWorkspace } from "./helpers";
 
 test.describe("touch editor discovery", () => {
@@ -284,6 +285,88 @@ test("public image editor creates, restores, and exports a local design", async 
 
   expect(workspaceWrites).toEqual([]);
   expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
+});
+
+test("Image Editor previews and downloads the same encoded PNG, JPEG, and WebP bytes", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: /Instagram square/ }).click();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  for (const format of ["PNG", "JPEG", "WebP"] as const) {
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Export design" });
+    await dialog.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("option", { name: format, exact: true }).click();
+
+    const preview = dialog.getByRole("img", { name: "Encoded export preview" });
+    await expect(preview).toBeVisible();
+    await expect(dialog.getByText(/^[\d,.]+ bytes$/)).toBeVisible();
+    await expect
+      .poll(() =>
+        preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight]),
+      )
+      .toEqual([1080, 1080]);
+
+    const previewResult = await preview.evaluate(async (image: HTMLImageElement) => {
+      const response = await fetch(image.src);
+      const blob = await response.blob();
+      return {
+        bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+        type: blob.type,
+      };
+    });
+    const exactByteLabel = await dialog.getByText(/^[\d,.]+ bytes$/).textContent();
+    expect(Number(exactByteLabel?.replace(/\D/g, ""))).toBe(previewResult.bytes.length);
+    expect(previewResult.type).toBe(
+      format === "PNG" ? "image/png" : format === "JPEG" ? "image/jpeg" : "image/webp",
+    );
+    const downloadEvent = page.waitForEvent("download");
+    await dialog.getByRole("button", { name: "Download", exact: true }).click();
+    const download = await downloadEvent;
+    const downloadPath = await download.path();
+    expect(downloadPath).not.toBeNull();
+    expect(Array.from(await readFile(downloadPath!))).toEqual(previewResult.bytes);
+    expect(download.suggestedFilename()).toMatch(
+      format === "PNG" ? /\.png$/ : format === "JPEG" ? /\.jpg$/ : /\.webp$/,
+    );
+  }
+
+  await expect(page.getByLabel("Notifications alt+T")).not.toContainText("Export downloaded.", {
+    timeout: 10_000,
+  });
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Export design" });
+  for (const format of ["PNG", "JPEG", "WebP"] as const) {
+    await dialog.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("option", { name: format, exact: true }).click();
+  }
+  const latestPreview = dialog.getByRole("img", { name: "Encoded export preview" });
+  await expect(latestPreview).toBeVisible();
+  expect(
+    await latestPreview.evaluate(async (image: HTMLImageElement) =>
+      (await fetch(image.src)).headers.get("content-type"),
+    ),
+  ).toBe("image/webp");
+  for (const { width, colorScheme } of [
+    { width: 320, colorScheme: "dark" as const },
+    { width: 390, colorScheme: "light" as const },
+  ]) {
+    await page.setViewportSize({ width, height: 780 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("img", { name: "Encoded export preview" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`encoded-export-${width}-${colorScheme}.png`),
+    });
+  }
 });
 
 test("page-strip previews render after adding a page and remain visible across a page switch", async ({

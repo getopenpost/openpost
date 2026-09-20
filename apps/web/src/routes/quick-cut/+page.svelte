@@ -4,9 +4,13 @@ selected range without re-encoding (mediabunny stream copy). UX inspired by
 LosslessCut (GPL - behavioral reference only, no code ported).
 -->
 <script lang="ts">
+	import { createVideoScrubber } from '$lib/video-editor/preview/video-scrubber';
 	import EditorHeader from '$lib/components/editor-header.svelte';
 	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
-	import SaveIndicator from '$lib/components/save-indicator.svelte';
+	import ProjectStorageStatus from '$lib/components/project-storage-status.svelte';
+	import EditorStart from '$lib/components/editor-start.svelte';
+	import WorkspaceGatePanel from '$lib/video-editor/components/workspace-gate-panel.svelte';
+	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
 	import { ToolbarGroup } from '$lib/components/editor-density';
 	import { Input } from '$lib/components/ui/input';
 	import TranscriptCutPanel from '$lib/quick-cut/components/TranscriptCutPanel.svelte';
@@ -62,6 +66,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import type { PreflightResult, QuickCutExportProgress } from '$lib/quick-cut/export';
 	import {
 		createNewProject,
+		listProjectsFromWorkspace,
 		loadProjectSessionFromWorkspace,
 		saveProjectToWorkspace,
 		serializeProject,
@@ -152,13 +157,41 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let cloudSession = $state.raw<QuickCutCloudSession | null>(null);
 	let cloudProjects = $state.raw<Array<CloudVideoProject<QuickCutCloudDocument>>>([]);
 	let cloudLoading = $state(false);
-	let cloudOpeningId = $state<string | null>(null);
+	let openingProjectId = $state<string | null>(null);
 	let cloudError = $state('');
 	let cloudConflictId = $state<string | null>(null);
 	let cloudConflictWorking = $state(false);
 	let cloudLoadGeneration = 0;
 	let routeProjectRequest = '';
+	let disposed = false;
 	let lastSavedProjectId = $state<string | null>(null);
+	const localGate = createWorkspaceGate();
+	let localProjects = $state<QuickCutProject[]>([]);
+	let localProjectError = $state('');
+	$effect(() => {
+		const ready = localGate.state === 'ready';
+		void localGate.workspaceRevision;
+		let cancelled = false;
+		localProjects = [];
+		localProjectError = '';
+		if (ready)
+			void listProjectsFromWorkspace()
+				.then((items) => {
+					if (!cancelled) {
+						localProjects = items.projects;
+						localProjectError = items.failures.length
+							? `${m.video_editor_project_load_failed()} ${items.failures.join(', ')}`
+							: '';
+					}
+				})
+				.catch((error) => {
+					if (!cancelled) localProjectError = String(error);
+				});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	let workspaceName = $state<string | null>(null);
 	let videoSrc = $state<string>('');
 	let previewRun = $state<{
@@ -257,7 +290,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			untrack(() => void openCloudProjectById(repository, projectId));
 			return;
 		}
-		if (!getWorkspaceRoot()) return;
+		if (localGate.state !== 'ready') return;
 		routeProjectRequest = requestKey;
 		untrack(() => void openLocalProject(projectId));
 	});
@@ -306,6 +339,48 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		}
 	}
 
+	async function closeProject(event: MouseEvent): Promise<void> {
+		event.preventDefault();
+		if (
+			project &&
+			storageMode === 'local' &&
+			!getWorkspaceRoot() &&
+			!window.confirm(m.theme_editor_discard_title())
+		)
+			return;
+		await saveQueue;
+		if (saveState === 'error') return;
+		stopPreview();
+		clearSourceUrls();
+		sources = [];
+		segments = [];
+		markers = [];
+		project = null;
+		removeMarkedRanges = false;
+		panel = 'cuts';
+		cloudSession = null;
+		activeSourceId = null;
+		selectedId = null;
+		inPoint = null;
+		outPoint = null;
+		currentTime = 0;
+		routeProjectRequest = '';
+		resetHistory();
+		await goto(resolveAppPath('/quick-cut'));
+		void loadCloudProjectList();
+		if (localGate.state === 'ready') {
+			try {
+				const result = await listProjectsFromWorkspace();
+				localProjects = result.projects;
+				localProjectError = result.failures.length
+					? `${m.video_editor_project_load_failed()} ${result.failures.join(', ')}`
+					: '';
+			} catch (error) {
+				localProjectError = String(error);
+			}
+		}
+	}
+
 	function chooseStorage(mode: 'cloud' | 'local'): void {
 		storageModeChosen = true;
 		storageMode = mode;
@@ -316,10 +391,11 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		repository: NonNullable<typeof cloudRepository>,
 		projectId: string
 	): Promise<void> {
-		if (!repository || cloudOpeningId) return;
-		cloudOpeningId = projectId;
+		if (!repository || openingProjectId) return;
+		openingProjectId = projectId;
 		try {
 			const opened = await loadQuickCutCloudProject(repository, projectId);
+			if (disposed || repository !== cloudRepository) return;
 			stopPreview();
 			clearSourceUrls();
 			project = opened.project;
@@ -346,7 +422,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		} catch (error) {
 			showToast(error instanceof Error ? error.message : String(error), 'error');
 		} finally {
-			cloudOpeningId = null;
+			openingProjectId = null;
 		}
 	}
 
@@ -359,32 +435,45 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	}
 
 	async function openLocalProject(projectId: string): Promise<void> {
-		const session = await loadProjectSessionFromWorkspace(projectId);
-		if (!session) {
-			showToast(m.quick_cut_save_failed(), 'error');
-			return;
-		}
-		clearSourceUrls();
-		for (const source of session.sources) {
-			if (source.file) {
-				const next = new Map(sourceUrls);
-				next.set(source.id, URL.createObjectURL(source.file));
-				sourceUrls = next;
+		if (openingProjectId) return;
+		openingProjectId = projectId;
+		try {
+			const root = getWorkspaceRoot();
+			const session = await loadProjectSessionFromWorkspace(projectId);
+			if (disposed || root !== getWorkspaceRoot()) return;
+			if (!session) {
+				showToast(m.quick_cut_save_failed(), 'error');
+				return;
 			}
+			stopPreview();
+			cloudSession = null;
+			clearSourceUrls();
+			for (const source of session.sources) {
+				if (source.file) {
+					const next = new Map(sourceUrls);
+					next.set(source.id, URL.createObjectURL(source.file));
+					sourceUrls = next;
+				}
+			}
+			project = session.project;
+			sources = session.sources;
+			segments = session.project.segments;
+			markers = session.project.markers ?? [];
+			cutMode = session.project.cutMode;
+			merge = session.project.merge;
+			removeMarkedRanges = session.project.removeMarkedRanges;
+			activeSourceId = session.sources[0]?.id ?? null;
+			selectedId = session.project.segments[0]?.id ?? null;
+			storageMode = 'local';
+			storageModeChosen = true;
+			lastSavedProjectId = session.project.id;
+			resetHistory();
+			await writeProjectURL(projectId, 'local');
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			openingProjectId = null;
 		}
-		project = session.project;
-		sources = session.sources;
-		segments = session.project.segments;
-		markers = session.project.markers ?? [];
-		cutMode = session.project.cutMode;
-		merge = session.project.merge;
-		removeMarkedRanges = session.project.removeMarkedRanges;
-		activeSourceId = session.sources[0]?.id ?? null;
-		selectedId = session.project.segments[0]?.id ?? null;
-		storageMode = 'local';
-		storageModeChosen = true;
-		lastSavedProjectId = session.project.id;
-		resetHistory();
 	}
 
 	async function writeProjectURL(projectId: string, mode: 'cloud' | 'local'): Promise<void> {
@@ -501,6 +590,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	}
 
 	async function openFiles(): Promise<void> {
+		if (openingProjectId) return;
 		let handles: FileSystemFileHandle[] = [];
 		let files: File[] = [];
 		if (!window.showOpenFilePicker) {
@@ -689,9 +779,22 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		};
 	}
 
+	let scrubber: ReturnType<typeof createVideoScrubber> | undefined;
+	$effect(() => {
+		const element = videoEl;
+		void videoSrc;
+		if (!element) return;
+		const controller = createVideoScrubber(element);
+		scrubber = controller;
+		return () => {
+			controller.destroy();
+			if (scrubber === controller) scrubber = undefined;
+		};
+	});
 	function seekTo(seconds: number): void {
 		if (!videoEl) return;
-		videoEl.currentTime = Math.min(Math.max(0, seconds), activeSource?.duration ?? 0);
+		currentTime = Math.min(Math.max(0, seconds), activeSource?.duration ?? 0);
+		scrubber?.seek(currentTime);
 	}
 
 	function frameStep(deltaFrames: number): void {
@@ -745,6 +848,15 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		}
 	}
 
+	const selectionReady = $derived(
+		Boolean(
+			inPoint &&
+			outPoint &&
+			inPoint.sourceId === activeSourceId &&
+			outPoint.sourceId === activeSourceId &&
+			outPoint.time > inPoint.time
+		)
+	);
 	function markIn(): void {
 		if (!activeSource) return;
 		inPoint = { sourceId: activeSource.id, time: currentTime };
@@ -1236,6 +1348,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	}
 
 	async function handleImportProject(): Promise<void> {
+		if (openingProjectId) return;
 		const input = document.createElement('input');
 		input.type = 'file';
 		input.accept = '.json,.llc.json,application/json';
@@ -1393,7 +1506,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 	function onTimeUpdate(): void {
 		if (!videoEl) return;
-		currentTime = videoEl.currentTime;
+		if (!scrubber?.pending) currentTime = videoEl.currentTime;
 		if (reviewEnd !== null && currentTime >= reviewEnd) {
 			videoEl.pause();
 			reviewEnd = null;
@@ -1562,6 +1675,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	}
 
 	onDestroy(() => {
+		disposed = true;
 		stopPreview();
 		for (const url of sourceUrls.values()) URL.revokeObjectURL(url);
 	});
@@ -1574,216 +1688,221 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 <svelte:window onkeydown={onKeydown} />
 
 <div class="quick-cut-workspace video-editor-theme">
-	<EditorHeader>
-		{#snippet identity()}
-			<a
-				href="/video-editor"
-				class="inline-flex size-8 shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary"
-				aria-label={m.video_editor_title()}><ThemeIcon role="chevron-left" class="size-5" /></a
-			>
-			{#if project}
-				<EditorTitleInput
-					value={project.name}
-					ariaLabel={m.video_editor_project_name()}
-					class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
-					disabled={exporting}
-					onchange={renameProject}
-				/>
-			{/if}
-		{/snippet}
-		{#snippet workspaces()}{/snippet}
-		{#snippet actions()}
-			{#if project}
-				{#if storageMode === 'cloud' || workspaceName !== null}
-					<SaveIndicator
-						saving={saveState === 'saving'}
-						saved={saveState !== 'saving' &&
-							saveState !== 'error' &&
-							lastSavedProjectId === project.id}
-						savingLabel={m.video_editor_saving()}
-						savedLabel={storageMode === 'cloud'
-							? m.video_editor_saved_cloud()
-							: m.image_editor_public_saved_device()}
+	{#if sources.length > 0}
+		<EditorHeader>
+			{#snippet identity()}
+				<a
+					href="/quick-cut"
+					onclick={closeProject}
+					class="inline-flex size-8 shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary"
+					aria-label={m.quick_cut_title()}><ThemeIcon role="chevron-left" class="size-5" /></a
+				>
+				{#if project}
+					<EditorTitleInput
+						value={project.name}
+						ariaLabel={m.video_editor_project_name()}
+						class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
+						disabled={exporting}
+						onchange={renameProject}
 					/>
-				{:else}
-					<span class="hidden text-xs text-muted-foreground sm:block" role="status">
-						{m.video_editor_local_only()}
-					</span>
 				{/if}
-				{#if saveState === 'error'}
-					<span class="hidden text-destructive sm:inline" role="status"
-						>{m.compose_needs_attention()}</span
+			{/snippet}
+			{#snippet workspaces()}{/snippet}
+			{#snippet actions()}
+				{#if project}
+					<span role="status" aria-live="polite"
+						><ProjectStorageStatus
+							storage={storageMode}
+							syncStatus={saveState === 'error'
+								? 'needs_attention'
+								: saveState === 'saving'
+									? 'saving'
+									: lastSavedProjectId === project.id
+										? 'synced'
+										: 'pending'}
+						/></span
+					>
+				{:else if workspaceName}
+					<span class="hidden text-xs text-muted-foreground sm:block">{workspaceName}</span>
+				{/if}
+				{#if sources.length > 0}
+					<Button
+						size="icon-sm"
+						variant="ghost"
+						class="hidden sm:inline-flex"
+						aria-label={m.video_editor_undo()}
+						disabled={!canUndo || exporting}
+						onclick={() => restoreHistory('undo')}><ThemeIcon role="undo" class="size-4" /></Button
+					>
+					<Button
+						size="icon-sm"
+						variant="ghost"
+						class="hidden sm:inline-flex"
+						aria-label={m.video_editor_redo()}
+						disabled={!canRedo || exporting}
+						onclick={() => restoreHistory('redo')}><ThemeIcon role="redo" class="size-4" /></Button
 					>
 				{/if}
-			{:else if workspaceName}
-				<span class="hidden text-xs text-muted-foreground sm:block">{workspaceName}</span>
-			{/if}
-			{#if sources.length > 0}
-				<Button
-					size="icon-sm"
-					variant="ghost"
-					class="hidden sm:inline-flex"
-					aria-label={m.video_editor_undo()}
-					disabled={!canUndo || exporting}
-					onclick={() => restoreHistory('undo')}><ThemeIcon role="undo" class="size-4" /></Button
-				>
-				<Button
-					size="icon-sm"
-					variant="ghost"
-					class="hidden sm:inline-flex"
-					aria-label={m.video_editor_redo()}
-					disabled={!canRedo || exporting}
-					onclick={() => restoreHistory('redo')}><ThemeIcon role="redo" class="size-4" /></Button
-				>
-			{/if}
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger>
-					{#snippet child({ props })}
-						<Button
-							{...props}
-							variant="ghost"
-							size="icon-sm"
-							aria-label={m.image_editor_more_actions()}
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="icon-sm"
+								aria-label={m.image_editor_more_actions()}
+							>
+								<ThemeIcon role="more-horizontal" />
+							</Button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content align="end">
+						{#if project}
+							<div class="w-64 p-1 md:hidden">
+								<EditorTitleInput
+									value={project.name}
+									ariaLabel={m.video_editor_project_name()}
+									disabled={exporting}
+									onchange={renameProject}
+									onkeydown={(event) => {
+										if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
+									}}
+								/>
+							</div>
+						{/if}
+						<DropdownMenu.Item
+							disabled={!canUndo || exporting}
+							onclick={() => restoreHistory('undo')}>{m.video_editor_undo()}</DropdownMenu.Item
 						>
-							<ThemeIcon role="more-horizontal" />
-						</Button>
-					{/snippet}
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="end">
-					{#if project}
-						<div class="w-64 p-1 md:hidden">
-							<EditorTitleInput
-								value={project.name}
-								ariaLabel={m.video_editor_project_name()}
-								disabled={exporting}
-								onchange={renameProject}
-								onkeydown={(event) => {
-									if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
-								}}
-							/>
-						</div>
-					{/if}
-					<DropdownMenu.Item disabled={!canUndo || exporting} onclick={() => restoreHistory('undo')}
-						>{m.video_editor_undo()}</DropdownMenu.Item
-					>
-					<DropdownMenu.Item disabled={!canRedo || exporting} onclick={() => restoreHistory('redo')}
-						>{m.video_editor_redo()}</DropdownMenu.Item
-					>
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item onclick={openFiles}>{m.quick_cut_open_multiple()}</DropdownMenu.Item>
-					<DropdownMenu.Item onclick={handleImportProject}
-						>{m.quick_cut_import_project()}</DropdownMenu.Item
-					>
-					<DropdownMenu.Item disabled={!project} onclick={handleExportProject}
-						>{m.quick_cut_export_project()}</DropdownMenu.Item
-					>
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
-			{#if sources.length > 0}
-				<Button size="sm" onclick={() => (panel = 'export')}>
-					<ThemeIcon role="download" class="size-3.5" />
-					<span class="hidden sm:inline">{m.common_export()}</span>
-				</Button>
-			{/if}
-		{/snippet}
-	</EditorHeader>
+						<DropdownMenu.Item
+							disabled={!canRedo || exporting}
+							onclick={() => restoreHistory('redo')}>{m.video_editor_redo()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Separator />
+						<DropdownMenu.Item onclick={openFiles}>{m.quick_cut_open_multiple()}</DropdownMenu.Item>
+						<DropdownMenu.Item onclick={handleImportProject}
+							>{m.quick_cut_import_project()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Item disabled={!project} onclick={handleExportProject}
+							>{m.quick_cut_export_project()}</DropdownMenu.Item
+						>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
+				{#if sources.length > 0}
+					<Button size="sm" onclick={() => (panel = 'export')}>
+						<ThemeIcon role="download" class="size-3.5" />
+						<span class="hidden sm:inline">{m.common_export()}</span>
+					</Button>
+				{/if}
+			{/snippet}
+		</EditorHeader>
+	{/if}
 	<main class="quick-cut-main">
 		{#if sources.length === 0}
-			<div
-				class="mx-auto mt-10 w-full max-w-xl min-w-0 rounded-2xl border border-dashed bg-card p-4 text-center shadow-sm sm:mt-16 sm:p-8"
-				role="region"
-				aria-label={m.quick_cut_empty_title()}
-				ondragover={(event) => event.preventDefault()}
-				ondrop={dropFiles}
+			<EditorStart
+				kind="quick-cut"
+				title={m.quick_cut_title()}
+				description={m.quick_cut_empty_body()}
 			>
-				<h1 class="text-lg font-semibold">{m.quick_cut_empty_title()}</h1>
-				<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-					{m.quick_cut_empty_body()}
-				</p>
-				{#if cloudWorkspaceId}
-					<div
-						class="mx-auto mt-5 flex w-fit max-w-full flex-wrap justify-center rounded-lg border bg-muted/40 p-1"
-						role="group"
-						aria-label={m.video_editor_storage()}
+				{#snippet actions()}
+					<Button disabled={importingSource || openingProjectId !== null} onclick={openFiles}
+						><ThemeIcon role="add" />{m.quick_cut_open_multiple()}</Button
 					>
-						<Button
+					<Button
+						variant="outline"
+						disabled={openingProjectId !== null}
+						onclick={handleImportProject}>{m.quick_cut_import_project()}</Button
+					>
+				{/snippet}
+				<div
+					class="mb-6 flex flex-wrap items-center gap-2"
+					role="group"
+					aria-label={m.editor_storage_destination()}
+				>
+					<span class="text-xs text-muted-foreground">{m.editor_storage_destination()}</span>
+					{#if cloudWorkspaceId}<Button
+							size="sm"
 							variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
-							size="sm"
 							aria-pressed={storageMode === 'cloud'}
-							onclick={() => chooseStorage('cloud')}
-						>
-							{m.video_editor_saved_cloud()}
-						</Button>
-						<Button
-							variant={storageMode === 'local' ? 'secondary' : 'ghost'}
-							size="sm"
-							aria-pressed={storageMode === 'local'}
-							onclick={() => chooseStorage('local')}
-						>
-							{m.video_editor_local_only()}
-						</Button>
-					</div>
-				{/if}
-				<div class="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
-					<Button class="min-h-11 w-full sm:w-auto" disabled={importingSource} onclick={openFiles}
-						>{m.quick_cut_open_multiple()}</Button
-					>
-					<Button variant="outline" class="min-h-11 w-full sm:w-auto" onclick={handleImportProject}
-						>{m.quick_cut_import_project()}</Button
+							onclick={() => chooseStorage('cloud')}>{m.video_editor_saved_cloud()}</Button
+						>{/if}
+					<Button
+						size="sm"
+						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
+						aria-pressed={storageMode === 'local'}
+						onclick={() => chooseStorage('local')}>{m.video_editor_local_only()}</Button
 					>
 				</div>
-				{#if storageMode === 'local'}
-					<p class="mt-4 text-xs text-muted-foreground">{m.quick_cut_workspace_hint()}</p>
-				{:else}
-					<p class="mt-4 text-xs text-muted-foreground">
-						{m.video_editor_cloud_projects_description()}
-					</p>
-				{/if}
-				{#if storageMode === 'cloud' && cloudWorkspaceId}
-					<div class="mt-6 border-t pt-5 text-left">
-						<div class="flex items-center justify-between gap-3">
-							<h2 class="text-sm font-semibold">{m.video_editor_cloud_projects()}</h2>
-							<Button
+				<section
+					class="border-t pt-6"
+					aria-label={m.video_editor_projects_title()}
+					ondragover={(event) => event.preventDefault()}
+					ondrop={dropFiles}
+				>
+					<div class="mb-4 flex items-center justify-between gap-3">
+						<h2 class="text-base font-semibold">{m.video_editor_projects_title()}</h2>
+						{#if cloudWorkspaceId}<Button
 								variant="ghost"
 								size="sm"
 								disabled={cloudLoading}
-								onclick={() => void loadCloudProjectList()}
-							>
-								{cloudError ? m.common_retry() : m.common_refresh()}
-							</Button>
-						</div>
-						{#if cloudError}
-							<p class="mt-3 text-sm text-destructive" role="alert">{cloudError}</p>
-						{:else if cloudLoading}
-							<p class="mt-3 text-sm text-muted-foreground" role="status">
-								{m.video_editor_cloud_projects_loading()}
-							</p>
-						{:else if cloudProjects.length > 0}
-							<ul class="mt-3 grid gap-2 sm:grid-cols-2" role="list">
-								{#each cloudProjects as cloudProject (cloudProject.id)}
-									<li class="flex items-center justify-between gap-3 rounded-lg border p-3">
-										<span class="min-w-0 truncate text-sm" title={cloudProject.name}>
-											{cloudProject.name}
-										</span>
-										<Button
-											variant="outline"
-											size="sm"
-											disabled={cloudOpeningId !== null}
-											onclick={() => void openCloudProject(cloudProject)}
-										>
-											{m.video_editor_project_open()}
-										</Button>
-									</li>
-								{/each}
-							</ul>
-						{:else}
-							<p class="mt-3 text-sm text-muted-foreground">
-								{m.video_editor_projects_empty()}
-							</p>
-						{/if}
+								onclick={() => void loadCloudProjectList()}>{m.common_refresh()}</Button
+							>{/if}
 					</div>
-				{/if}
-			</div>
+					{#if cloudError}<p role="alert" class="mb-3 text-sm text-destructive">
+							{cloudError}
+						</p>{/if}
+					{#if localProjectError}<p role="alert" class="mb-3 text-sm text-destructive">
+							{localProjectError}
+						</p>{/if}
+					{#if cloudLoading}<p role="status" class="text-sm text-muted-foreground">
+							{m.video_editor_cloud_projects_loading()}
+						</p>{/if}
+					<ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list">
+						{#each cloudProjects as item (item.id)}
+							<li>
+								<button
+									type="button"
+									class="w-full rounded-lg border bg-card p-4 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+									disabled={openingProjectId !== null}
+									onclick={() => void openCloudProject(item)}
+								>
+									<span class="mb-2 block truncate text-sm font-medium">{item.name}</span>
+									<ProjectStorageStatus
+										storage="cloud"
+										syncStatus={item.syncStatus}
+										reason={item.attentionReason}
+									/>
+								</button>
+							</li>
+						{/each}
+						{#each localProjects as item (item.id)}
+							<li>
+								<button
+									type="button"
+									class="w-full rounded-lg border bg-card p-4 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+									disabled={openingProjectId !== null}
+									onclick={() => void openLocalProject(item.id)}
+								>
+									<span class="mb-2 block truncate text-sm font-medium">{item.name}</span
+									><ProjectStorageStatus storage="local" />
+								</button>
+							</li>
+						{/each}
+					</ul>
+					{#if !cloudLoading && !cloudProjects.length && !localProjects.length}<p
+							class="py-6 text-sm text-muted-foreground"
+						>
+							{m.video_editor_projects_empty()}
+						</p>{/if}
+				</section>
+				{#if localGate.state === 'unavailable'}
+					<div class="mt-6 border-t pt-4">
+						<p class="max-w-xl text-sm text-muted-foreground">{m.quick_cut_workspace_hint()}</p>
+					</div>
+				{:else if localGate.state !== 'ready'}<div class="mt-6 border-t pt-4">
+						<WorkspaceGatePanel gate={localGate} variant="inline" />
+					</div>{/if}
+			</EditorStart>
 		{:else}
 			{#if cloudConflictId}
 				<section
@@ -1819,7 +1938,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			<div class="quick-cut-toolbar">
 				<ToolbarGroup
 					ariaLabel={m.quick_cut_tools()}
-					class="min-w-0 overflow-x-auto border-0 bg-transparent"
+					class="h-auto min-w-0 flex-wrap border-0 bg-transparent"
 				>
 					<Button size="sm" variant="outline" onclick={markIn}>
 						{m.quick_cut_in()}<kbd class="text-muted-foreground"
@@ -1834,55 +1953,30 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					<Button
 						size="sm"
 						variant="secondary"
-						disabled={!inPoint || !outPoint || exporting}
+						disabled={!selectionReady || exporting}
 						onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
 					>
 					<Button
 						size="sm"
-						variant="ghost"
-						disabled={!inPoint || !outPoint || exporting}
+						variant={selectionReady ? 'default' : 'ghost'}
+						disabled={!selectionReady || exporting}
 						onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
-					>
-					<Button size="sm" variant="ghost" onclick={addMarker}>
-						<ProtectedIcon icon="editor-marker" class="size-3.5" />
-						{m.quick_cut_add_marker()}
-					</Button>
-				</ToolbarGroup>
-				<ToolbarGroup class="ml-auto shrink-0 border-0 bg-transparent">
-					<Button
-						size="sm"
-						variant="ghost"
-						aria-pressed={loopMode !== 'off'}
-						onclick={toggleLoopMode}
-					>
-						{m.quick_cut_loop_label()}: {loopMode === 'off'
-							? m.quick_cut_loop_off()
-							: loopMode === 'all'
-								? m.quick_cut_loop_all()
-								: m.quick_cut_loop_segment()}
-					</Button>
-					<Button
-						size="icon-sm"
-						variant="outline"
-						aria-label={m.quick_cut_zoom_out()}
-						disabled={timelineViewport.zoom <= 1}
-						onclick={() => zoomTimeline(0.5)}>−</Button
-					>
-					<Button
-						size="sm"
-						variant="ghost"
-						aria-label={m.quick_cut_zoom_reset()}
-						onclick={resetTimelineZoom}>{Math.round(timelineViewport.zoom * 100)}%</Button
-					>
-					<Button
-						size="icon-sm"
-						variant="outline"
-						aria-label={m.quick_cut_zoom_in()}
-						disabled={timelineViewport.zoom >= 32}
-						onclick={() => zoomTimeline(2)}>+</Button
 					>
 				</ToolbarGroup>
 			</div>
+			<div
+				class="flex min-h-7 shrink-0 flex-wrap items-center gap-x-3 border-b px-3 py-1 text-xs text-muted-foreground"
+				role="status"
+			>
+				{#if selectionReady && inPoint && outPoint}
+					<span class="font-mono whitespace-nowrap tabular-nums"
+						>{formatTimecode(inPoint.time)} → {formatTimecode(outPoint.time)}</span
+					>
+					<span>{m.quick_cut_selection_ready()}</span>
+				{:else if inPoint}<span>{m.quick_cut_selection_end()}</span>
+				{:else}<span>{m.quick_cut_selection_start()}</span>{/if}
+			</div>
+
 			<div class="source-strip">
 				<SourceBar
 					{sources}
@@ -2241,6 +2335,46 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						onSeek={seekTo}
 						onSelect={onSelectSegment}
 					/>
+					<ToolbarGroup class="ml-auto h-auto shrink-0 border-0 bg-transparent">
+						<Button
+							size="icon-sm"
+							variant="ghost"
+							aria-label={m.quick_cut_add_marker()}
+							onclick={addMarker}><ProtectedIcon icon="editor-marker" class="size-3.5" /></Button
+						>
+						<Button
+							size="sm"
+							variant="ghost"
+							aria-pressed={loopMode !== 'off'}
+							onclick={toggleLoopMode}
+						>
+							{m.quick_cut_loop_label()}: {loopMode === 'off'
+								? m.quick_cut_loop_off()
+								: loopMode === 'all'
+									? m.quick_cut_loop_all()
+									: m.quick_cut_loop_segment()}
+						</Button>
+						<Button
+							size="icon-sm"
+							variant="outline"
+							aria-label={m.quick_cut_zoom_out()}
+							disabled={timelineViewport.zoom <= 1}
+							onclick={() => zoomTimeline(0.5)}>−</Button
+						>
+						<Button
+							size="sm"
+							variant="ghost"
+							aria-label={m.quick_cut_zoom_reset()}
+							onclick={resetTimelineZoom}>{Math.round(timelineViewport.zoom * 100)}%</Button
+						>
+						<Button
+							size="icon-sm"
+							variant="outline"
+							aria-label={m.quick_cut_zoom_in()}
+							disabled={timelineViewport.zoom >= 32}
+							onclick={() => zoomTimeline(2)}>+</Button
+						>
+					</ToolbarGroup>
 				</div>
 			</div>
 			<ExportPanel progress={exportProgress} cancel={cancelExport} isExporting={exporting} />
@@ -2273,12 +2407,14 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		overflow: auto;
 	}
 	.source-strip {
+		flex-shrink: 0;
 		padding: 4px 8px;
 		border-bottom: 1px solid var(--border);
 		background: var(--card);
 	}
 	.quick-cut-toolbar {
 		display: flex;
+		flex-shrink: 0;
 		min-width: 0;
 		align-items: center;
 		gap: 8px;

@@ -58,6 +58,7 @@ test('edits one segment cut strategy without changing the project default', asyn
 		onExport: vi.fn()
 	});
 
+	await screen.getByText('More options', { exact: true }).click();
 	const strategy = screen.getByRole('button', { name: 'Cut mode 1' });
 	await expect.element(strategy).toHaveTextContent('Project mode: Nearest keyframe (lossless)');
 	await strategy.click();
@@ -81,10 +82,10 @@ test('renders timecode inputs with shared Input primitive and preserves bindings
 		onExport: vi.fn()
 	});
 
-	await expect.element(screen.getByRole('textbox', { name: 'In 1' })).toBeVisible();
-	await expect.element(screen.getByRole('textbox', { name: 'Out 1' })).toBeVisible();
-	await expect.element(screen.getByRole('textbox', { name: 'In 1' })).toHaveValue('00:01.25');
-	await expect.element(screen.getByRole('textbox', { name: 'Out 1' })).toHaveValue('00:03.50');
+	await expect.element(screen.getByRole('textbox', { name: 'Mark in 1' })).toBeVisible();
+	await expect.element(screen.getByRole('textbox', { name: 'Mark out 1' })).toBeVisible();
+	await expect.element(screen.getByRole('textbox', { name: 'Mark in 1' })).toHaveValue('00:01.25');
+	await expect.element(screen.getByRole('textbox', { name: 'Mark out 1' })).toHaveValue('00:03.50');
 });
 
 test('offers segment actions by right click and keyboard context menu', async () => {
@@ -123,4 +124,29 @@ test('offers segment actions by right click and keyboard context menu', async ()
 	await expect.element(screen.getByRole('menuitem', { name: 'Remove segment' })).toBeVisible();
 	await screen.getByRole('menuitem', { name: 'Remove segment' }).click();
 	expect(onRemove).toHaveBeenCalledWith('range');
+});
+
+test('keeps range timestamps on one line in a narrow cuts panel', async () => {
+	await page.viewport(330, 800);
+	const screen = await render(SegmentList, {
+		segments: [
+			createSegment(1.25, 3.5, { id: 'range', sourceId: source.id }),
+			createSegment(5, 7, { id: 'second', sourceId: source.id })
+		],
+		sources: [source],
+		selectedId: null,
+		defaultCutMode: 'nearestKeyframe',
+		onSelect: vi.fn(),
+		onRemove: vi.fn(),
+		onUpdate: vi.fn(),
+		onMove: vi.fn(),
+		exporting: false,
+		canExportIndividually: true,
+		onPreview: vi.fn(),
+		onExport: vi.fn()
+	});
+	const range = screen.getByText(/00:01.25 → 00:03.50/).element();
+	const bounds = range.getBoundingClientRect();
+	expect(bounds.height).toBeLessThanOrEqual(parseFloat(getComputedStyle(range).lineHeight) + 1);
+	expect(bounds.right).toBeLessThanOrEqual(330);
 });

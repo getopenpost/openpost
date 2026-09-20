@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "빠르게 자를까요, 전체 편집을 할까요?",
 	"video_editor_quick_choice_hint": "Quick Cut에서 녹화 길이를 줄이고 쉼을 삭제하거나 대본으로 편집하세요. 여러 트랙, 제목, 효과, 자막에는 비디오 편집기를 사용하세요.",
 	"video_editor_full_choice": "비디오 편집기 열기",
-	"video_editor_quick_choice_action": "Quick Cut 열기"
+	"video_editor_quick_choice_action": "Quick Cut 열기",
+	"editor_storage_online": "온라인",
+	"editor_storage_pending": "동기화 대기 중",
+	"editor_storage_destination": "새 프로젝트 저장 위치",
+	"editor_more_options": "추가 옵션",
+	"quick_cut_selection_start": "재생 헤드를 이동하고 I로 시작점을 표시하세요.",
+	"quick_cut_selection_end": "O로 끝점을 표시하세요.",
+	"quick_cut_selection_ready": "선택 영역만 남기거나 편집에서 제거하세요."
 }

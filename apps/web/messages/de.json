@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "Schnelle Schnitte oder vollständiger Schnitt?",
 	"video_editor_quick_choice_hint": "Kürze Aufnahmen, entferne Pausen oder schneide anhand des Transkripts in Quick Cut. Nutze den Video-Editor für mehrere Spuren, Titel, Effekte und Untertitel.",
 	"video_editor_full_choice": "Video-Editor öffnen",
-	"video_editor_quick_choice_action": "Quick Cut öffnen"
+	"video_editor_quick_choice_action": "Quick Cut öffnen",
+	"editor_storage_online": "Online",
+	"editor_storage_pending": "Synchronisierung ausstehend",
+	"editor_storage_destination": "Neue Projekte speichern in",
+	"editor_more_options": "Weitere Optionen",
+	"quick_cut_selection_start": "Bewege den Abspielkopf und markiere den Anfang mit I.",
+	"quick_cut_selection_end": "Markiere das Ende mit O.",
+	"quick_cut_selection_ready": "Behalte nur diese Auswahl oder entferne sie aus dem Schnitt."
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ProjectStorageStatus from '$lib/components/project-storage-status.svelte';
 	import { projectPresetName } from '$lib/video-editor/project/preset-label';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -779,6 +780,7 @@
 									</span>
 									<span class="block p-3 pr-12">
 										<span class="block truncate font-medium">{project.name}</span>
+										<ProjectStorageStatus storage="local" />
 										{#if project.description.trim()}
 											<span
 												class="mt-1 line-clamp-2 block text-xs text-[var(--video-editor-muted)]"

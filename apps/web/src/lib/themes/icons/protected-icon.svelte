@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CloudIcon from '@lucide/svelte/icons/cloud';
 	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
 	import ScanIcon from '@lucide/svelte/icons/scan';
@@ -165,6 +166,7 @@
 			'editor-solo': RadioIcon,
 			'editor-stop': SquareIcon,
 			'editor-paint': BrushIcon,
+			cloud: CloudIcon,
 			pending: CircleDashedIcon,
 			error: ErrorIcon,
 			info: InfoIcon,

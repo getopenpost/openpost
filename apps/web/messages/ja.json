@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "手早くカットしますか？本格的に編集しますか？",
 	"video_editor_quick_choice_hint": "Quick Cutでは録画のトリミング、間の削除、文字起こしによる編集ができます。複数トラック、タイトル、エフェクト、字幕には動画エディターを使います。",
 	"video_editor_full_choice": "動画エディターを開く",
-	"video_editor_quick_choice_action": "Quick Cutを開く"
+	"video_editor_quick_choice_action": "Quick Cutを開く",
+	"editor_storage_online": "オンライン",
+	"editor_storage_pending": "同期待ち",
+	"editor_storage_destination": "新規プロジェクトの保存先",
+	"editor_more_options": "その他の設定",
+	"quick_cut_selection_start": "再生ヘッドを移動し、Iで開始点を設定します。",
+	"quick_cut_selection_end": "Oで終了点を設定します。",
+	"quick_cut_selection_ready": "選択範囲だけを残すか、編集から削除します。"
 }

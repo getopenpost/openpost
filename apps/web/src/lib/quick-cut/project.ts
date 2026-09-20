@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
 	readJson,
+	readDirectoryFiles,
 	writeJsonAtomic,
 	removeEntry
 } from '$lib/video-editor/workspace-fs/fs-primitives';
@@ -465,6 +466,29 @@ export async function saveProjectToWorkspace(project: QuickCutProject): Promise<
 	const root = requireWorkspaceRoot();
 	project.updatedAt = Date.now();
 	await writeJsonAtomic(root, quickCutProjectPath(project.id), project);
+}
+
+export async function listProjectsFromWorkspace(): Promise<{
+	projects: QuickCutProject[];
+	failures: string[];
+}> {
+	const root = getWorkspaceRoot();
+	if (!root) return { projects: [], failures: [] };
+	const files = await readDirectoryFiles(
+		root,
+		['quick-cut', 'projects'],
+		(entry) => entry.kind === 'file' && entry.name.endsWith('.json')
+	);
+	const results = await Promise.allSettled(
+		files.map(async ({ blob }) => parseProject(await blob.text()))
+	);
+	const projects: QuickCutProject[] = [];
+	const failures: string[] = [];
+	results.forEach((result, index) => {
+		if (result.status === 'fulfilled') projects.push(result.value);
+		else failures.push(files[index].name);
+	});
+	return { projects: projects.sort((a, b) => b.updatedAt - a.updatedAt), failures };
 }
 
 export async function loadProjectFromWorkspace(id: string): Promise<QuickCutProject | null> {

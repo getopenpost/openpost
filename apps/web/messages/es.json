@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "¿Cortes rápidos o edición completa?",
 	"video_editor_quick_choice_hint": "Recorta una grabación, elimina pausas o edita mediante la transcripción en Quick Cut. Usa el Editor de Vídeo para varias pistas, títulos, efectos y subtítulos.",
 	"video_editor_full_choice": "Abrir Editor de Vídeo",
-	"video_editor_quick_choice_action": "Abrir Quick Cut"
+	"video_editor_quick_choice_action": "Abrir Quick Cut",
+	"editor_storage_online": "En línea",
+	"editor_storage_pending": "Esperando sincronización",
+	"editor_storage_destination": "Guardar nuevos proyectos en",
+	"editor_more_options": "Más opciones",
+	"quick_cut_selection_start": "Mueve el cursor y marca el inicio con I.",
+	"quick_cut_selection_end": "Marca el final con O.",
+	"quick_cut_selection_ready": "Conserva solo esta selección o elimínala de la edición."
 }

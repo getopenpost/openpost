@@ -668,9 +668,11 @@
 	>
 		{#snippet utility()}
 			{#if cloudWorkspaceId}
+				<span class="text-xs text-muted-foreground">{m.editor_storage_destination()}</span>
 				<div
 					class="flex rounded-lg border border-[var(--video-editor-border)] p-0.5"
-					aria-label={m.video_editor_projects_title()}
+					role="group"
+					aria-label={m.editor_storage_destination()}
 				>
 					<Button
 						variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
@@ -738,7 +740,7 @@
 			</section>
 		{/if}
 
-		{#if storageMode === 'cloud' && cloudRepository}
+		{#if cloudRepository}
 			<CloudProjectBrowser
 				projects={cloudProjects}
 				trashedProjects={cloudTrashedProjects}
@@ -757,41 +759,45 @@
 				ontoggleoffline={toggleCloudProjectOffline}
 				onrefresh={loadCloudProjects}
 			/>
-		{:else if gate.state !== 'ready'}
-			<WorkspaceGatePanel {gate} variant="inline" />
-		{:else if gate.state === 'ready'}
-			<ProjectBrowser
-				projects={projectCatalog.projects}
-				thumbnailUrls={projectCatalog.thumbnailUrls}
-				{trashedProjects}
-				loading={projectCatalog.loading}
-				error={projectCatalog.error}
-				{trashError}
-				{trashBusyId}
-				{emptyingTrash}
-				{creating}
-				{importing}
-				{duplicatingId}
-				{exportingId}
-				{exportingKind}
-				{bundleProgress}
-				{bundleOperation}
-				{bundleCanceling}
-				oncreate={handleCreateProject}
-				onimportjson={handleImportJson}
-				onimportbundle={handleImportBundle}
-				onopen={openProject}
-				onupdate={handleUpdateProject}
-				onduplicate={handleDuplicate}
-				onexportjson={handleExportJson}
-				onexportbundle={handleExportBundle}
-				oncancelbundle={handleCancelBundle}
-				ondelete={handleDelete}
-				ondeletebatch={handleDeleteBatch}
-				onrestore={handleRestore}
-				onpurge={handlePurge}
-				onemptytrash={handleEmptyTrash}
-			/>
 		{/if}
+		<section class="mt-8 border-t pt-6" aria-label={m.video_editor_local_only()}>
+			<h2 class="mb-3 text-base font-semibold">{m.video_editor_local_only()}</h2>
+			{#if gate.state !== 'ready'}
+				<WorkspaceGatePanel {gate} variant="inline" />
+			{:else if gate.state === 'ready'}
+				<ProjectBrowser
+					projects={projectCatalog.projects}
+					thumbnailUrls={projectCatalog.thumbnailUrls}
+					{trashedProjects}
+					loading={projectCatalog.loading}
+					error={projectCatalog.error}
+					{trashError}
+					{trashBusyId}
+					{emptyingTrash}
+					{creating}
+					{importing}
+					{duplicatingId}
+					{exportingId}
+					{exportingKind}
+					{bundleProgress}
+					{bundleOperation}
+					{bundleCanceling}
+					oncreate={handleCreateProject}
+					onimportjson={handleImportJson}
+					onimportbundle={handleImportBundle}
+					onopen={openProject}
+					onupdate={handleUpdateProject}
+					onduplicate={handleDuplicate}
+					onexportjson={handleExportJson}
+					onexportbundle={handleExportBundle}
+					oncancelbundle={handleCancelBundle}
+					ondelete={handleDelete}
+					ondeletebatch={handleDeleteBatch}
+					onrestore={handleRestore}
+					onpurge={handlePurge}
+					onemptytrash={handleEmptyTrash}
+				/>
+			{/if}
+		</section>
 	</EditorStart>
 </div>

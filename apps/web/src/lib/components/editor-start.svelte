@@ -13,7 +13,7 @@
 		children,
 		heading = $bindable()
 	}: {
-		kind: 'image' | 'video';
+		kind: 'image' | 'video' | 'quick-cut';
 		title: string;
 		description: string;
 		actions: Snippet;
@@ -42,6 +42,11 @@
 				href="/video-editor"
 				aria-current={kind === 'video' ? 'page' : undefined}
 				class="editor-link">{m.editor_start_video_title()}</a
+			>
+			<a
+				href="/quick-cut"
+				aria-current={kind === 'quick-cut' ? 'page' : undefined}
+				class="editor-link">{m.quick_cut_title()}</a
 			>
 		</nav>
 		<div class="ml-auto flex flex-wrap items-center gap-2">

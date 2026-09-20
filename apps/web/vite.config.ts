@@ -162,6 +162,7 @@ export default defineConfig({
 			'@lucide/svelte/icons/clipboard-paste',
 			'@lucide/svelte/icons/columns-2',
 			'@lucide/svelte/icons/copy',
+			'@lucide/svelte/icons/cloud',
 			'@lucide/svelte/icons/diamond-minus',
 			'@lucide/svelte/icons/eye',
 			'@lucide/svelte/icons/external-link',

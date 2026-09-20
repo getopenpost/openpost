@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "Hızlı kesim mi, kapsamlı düzenleme mi?",
 	"video_editor_quick_choice_hint": "Quick Cut ile kaydı kısaltın, duraklamaları kaldırın veya döküm üzerinden düzenleyin. Birden fazla parça, başlık, efekt ve altyazı için Video Düzenleyici’yi kullanın.",
 	"video_editor_full_choice": "Video Düzenleyici’yi aç",
-	"video_editor_quick_choice_action": "Quick Cut’ı aç"
+	"video_editor_quick_choice_action": "Quick Cut’ı aç",
+	"editor_storage_online": "Çevrimiçi",
+	"editor_storage_pending": "Senkronizasyon bekleniyor",
+	"editor_storage_destination": "Yeni projelerin kayıt yeri",
+	"editor_more_options": "Diğer seçenekler",
+	"quick_cut_selection_start": "Oynatma başlığını taşıyıp I ile başlangıcı işaretleyin.",
+	"quick_cut_selection_end": "O ile bitişi işaretleyin.",
+	"quick_cut_selection_ready": "Yalnızca bu seçimi tutun veya düzenlemeden kaldırın."
 }

@@ -70,7 +70,7 @@
 	}
 </script>
 
-<ul class="flex flex-col gap-2" role="list" aria-label={m.quick_cut_segments_label()}>
+<ul class="flex flex-col gap-1" role="list" aria-label={m.quick_cut_segments_label()}>
 	{#each segments as seg, index (seg.id)}
 		{@const src = sourceById.get(seg.sourceId)}
 		<li>
@@ -84,34 +84,24 @@
 						oncontextmenucapture={() => onSelect(seg.id)}
 						onkeydowncapture={openContextMenuFromKeyboard}
 					>
-						<div class="flex min-w-0 items-start gap-3">
+						<div class="flex min-w-0 items-center gap-2">
 							<button
 								type="button"
-								class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted px-2 font-mono text-xs font-medium tabular-nums hover:bg-accent {selectedId ===
-								seg.id
-									? 'bg-primary text-primary-foreground'
-									: ''}"
+								class="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
 								aria-pressed={selectedId === seg.id}
 								aria-label={`${m.quick_cut_segment()} ${index + 1}`}
 								onclick={() => onSelect(seg.id)}
 							>
-								#{index + 1}
+								<span
+									class="flex size-6 shrink-0 items-center justify-center rounded font-mono text-xs {selectedId ===
+									seg.id
+										? 'bg-primary text-primary-foreground'
+										: 'bg-muted'}">{index + 1}</span
+								>
+								<span class="min-w-0 truncate text-xs font-medium" title={src?.name}
+									>{seg.name || src?.name}</span
+								>
 							</button>
-
-							<div class="min-w-0 flex-1">
-								{#if src}
-									<p class="truncate text-xs font-medium text-muted-foreground">
-										{m.quick_cut_source_label({
-											index: sources.findIndex((s) => s.id === seg.sourceId) + 1
-										})} · {src.name}
-									</p>
-								{/if}
-								<p class="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
-									{formatTimecode(seg.start)} → {formatTimecode(seg.end)} · {(
-										seg.end - seg.start
-									).toFixed(2)}s
-								</p>
-							</div>
 
 							<div class="flex shrink-0 items-center gap-1">
 								{#if segments.length > 1}
@@ -121,7 +111,7 @@
 										aria-label={m.quick_cut_move_up()}
 										disabled={index === 0}
 										onclick={() => onMove(index, index - 1)}
-										class="min-h-9 min-w-9"
+										class="h-6 w-6 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 									>
 										<ThemeIcon role="chevron-up" class="size-4" />
 									</Button>
@@ -131,7 +121,7 @@
 										aria-label={m.quick_cut_move_down()}
 										disabled={index === segments.length - 1}
 										onclick={() => onMove(index, index + 1)}
-										class="min-h-9 min-w-9"
+										class="h-6 w-6 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 									>
 										<ThemeIcon role="chevron-down" class="size-4" />
 									</Button>
@@ -141,51 +131,21 @@
 									variant="ghost"
 									aria-label={m.quick_cut_remove_segment()}
 									onclick={() => onRemove(seg.id)}
-									class="min-h-9 min-w-9 text-muted-foreground hover:text-destructive"
+									class="h-6 w-6 text-muted-foreground hover:text-destructive [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 								>
 									<ThemeIcon role="delete" class="size-4" />
 								</Button>
 							</div>
 						</div>
 
+						<p
+							class="mt-1 flex justify-between gap-2 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+						>
+							<span>{formatTimecode(seg.start)} → {formatTimecode(seg.end)}</span><span
+								>{(seg.end - seg.start).toFixed(2)}s</span
+							>
+						</p>
 						{#if selectedId === seg.id}
-							<div class="grid min-w-0 gap-3 sm:grid-cols-2">
-								<label class="flex flex-col gap-1 text-xs">
-									<span class="sr-only">{m.quick_cut_segment_name()} {index + 1}</span>
-									<Input
-										type="text"
-										value={seg.name ?? ''}
-										placeholder={m.quick_cut_segment_name_placeholder()}
-										aria-label={`${m.quick_cut_segment_name()} ${index + 1}`}
-										onchange={(event) =>
-											onUpdate(seg.id, { name: event.currentTarget.value.trim() || undefined })}
-										class="h-11 min-h-11 min-w-0 text-sm md:h-9 md:min-h-9"
-									/>
-								</label>
-								<label class="flex min-w-0 flex-col gap-1 text-xs">
-									<span class="text-muted-foreground">{m.quick_cut_cut_mode()}</span>
-									<AppSelect
-										value={seg.cutMode ?? ''}
-										ariaLabel={`${m.quick_cut_cut_mode()} ${index + 1}`}
-										options={[
-											{
-												value: '',
-												label: m.quick_cut_cut_mode_project({
-													mode:
-														defaultCutMode === 'exact'
-															? m.quick_cut_cut_mode_exact()
-															: m.quick_cut_cut_mode_nearest()
-												})
-											},
-											{ value: 'nearestKeyframe', label: m.quick_cut_cut_mode_nearest() },
-											{ value: 'exact', label: m.quick_cut_cut_mode_exact() }
-										]}
-										onValueChange={(value) => onUpdate(seg.id, { cutMode: parseCutMode(value) })}
-										class="h-11 w-full min-w-0 text-xs md:h-9"
-									/>
-								</label>
-							</div>
-
 							<div class="grid min-w-0 grid-cols-2 gap-3">
 								<label class="flex min-w-0 flex-col gap-1 text-xs">
 									<span class="text-muted-foreground">{m.quick_cut_in()}</span>
@@ -196,7 +156,7 @@
 										aria-label={`${m.quick_cut_in()} ${index + 1}`}
 										onchange={(e) =>
 											commitTime(seg.id, 'start', e.currentTarget.value, seg.sourceId)}
-										class="h-11 min-h-11 min-w-0 font-mono text-sm tabular-nums md:h-9 md:min-h-9"
+										class="h-7 min-h-7 min-w-0 font-mono text-xs tabular-nums [@media(pointer:coarse)]:min-h-11"
 									/>
 								</label>
 								<label class="flex min-w-0 flex-col gap-1 text-xs">
@@ -207,18 +167,18 @@
 										value={formatTimecode(seg.end)}
 										aria-label={`${m.quick_cut_out()} ${index + 1}`}
 										onchange={(e) => commitTime(seg.id, 'end', e.currentTarget.value, seg.sourceId)}
-										class="h-11 min-h-11 min-w-0 font-mono text-sm tabular-nums md:h-9 md:min-h-9"
+										class="h-7 min-h-7 min-w-0 font-mono text-xs tabular-nums [@media(pointer:coarse)]:min-h-11"
 									/>
 								</label>
 							</div>
 
-							<div class="flex items-center justify-end gap-2 border-t pt-3">
+							<div class="flex items-center justify-end gap-2">
 								<Button
 									size="xs"
 									variant="ghost"
 									disabled={seg.enabled === false}
 									onclick={() => onPreview(seg.id)}
-									class="min-h-11 gap-1.5 md:min-h-9"
+									class="h-7 min-h-7 gap-1.5 [@media(pointer:coarse)]:min-h-11"
 								>
 									<ProtectedIcon icon="play" class="size-3.5" />
 									{m.quick_cut_preview()}
@@ -227,12 +187,53 @@
 									size="xs"
 									disabled={exporting || seg.enabled === false || !canExportIndividually}
 									onclick={() => onExport(seg)}
-									class="min-h-11 gap-1.5 md:min-h-9"
+									class="h-7 min-h-7 gap-1.5 [@media(pointer:coarse)]:min-h-11"
 								>
 									<ThemeIcon role="download" class="size-3.5" />
 									{m.quick_cut_export()}
 								</Button>
 							</div>
+							<details class="border-t pt-2">
+								<summary class="cursor-pointer text-xs text-muted-foreground"
+									>{m.editor_more_options()}</summary
+								>
+								<div class="mt-2 grid min-w-0 gap-2">
+									<label class="flex flex-col gap-1 text-xs">
+										<span class="sr-only">{m.quick_cut_segment_name()} {index + 1}</span>
+										<Input
+											type="text"
+											value={seg.name ?? ''}
+											placeholder={m.quick_cut_segment_name_placeholder()}
+											aria-label={`${m.quick_cut_segment_name()} ${index + 1}`}
+											onchange={(event) =>
+												onUpdate(seg.id, { name: event.currentTarget.value.trim() || undefined })}
+											class="h-7 min-h-7 min-w-0 text-xs [@media(pointer:coarse)]:min-h-11"
+										/>
+									</label>
+									<label class="flex min-w-0 flex-col gap-1 text-xs">
+										<span class="text-muted-foreground">{m.quick_cut_cut_mode()}</span>
+										<AppSelect
+											value={seg.cutMode ?? ''}
+											ariaLabel={`${m.quick_cut_cut_mode()} ${index + 1}`}
+											options={[
+												{
+													value: '',
+													label: m.quick_cut_cut_mode_project({
+														mode:
+															defaultCutMode === 'exact'
+																? m.quick_cut_cut_mode_exact()
+																: m.quick_cut_cut_mode_nearest()
+													})
+												},
+												{ value: 'nearestKeyframe', label: m.quick_cut_cut_mode_nearest() },
+												{ value: 'exact', label: m.quick_cut_cut_mode_exact() }
+											]}
+											onValueChange={(value) => onUpdate(seg.id, { cutMode: parseCutMode(value) })}
+											class="h-7 w-full min-w-0 text-xs [@media(pointer:coarse)]:min-h-11"
+										/>
+									</label>
+								</div>
+							</details>
 						{/if}
 					</div>
 				</ContextMenu.Trigger>

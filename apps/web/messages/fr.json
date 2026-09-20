@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "Coupes rapides ou montage complet ?",
 	"video_editor_quick_choice_hint": "Raccourcissez un enregistrement, supprimez les pauses ou montez par transcription dans Quick Cut. Utilisez l’Éditeur Vidéo pour plusieurs pistes, titres, effets et sous-titres.",
 	"video_editor_full_choice": "Ouvrir l’Éditeur Vidéo",
-	"video_editor_quick_choice_action": "Ouvrir Quick Cut"
+	"video_editor_quick_choice_action": "Ouvrir Quick Cut",
+	"editor_storage_online": "En ligne",
+	"editor_storage_pending": "En attente de synchronisation",
+	"editor_storage_destination": "Enregistrer les nouveaux projets dans",
+	"editor_more_options": "Plus d’options",
+	"quick_cut_selection_start": "Déplacez la tête de lecture et marquez le début avec I.",
+	"quick_cut_selection_end": "Marquez la fin avec O.",
+	"quick_cut_selection_ready": "Gardez uniquement cette sélection ou retirez-la du montage."
 }

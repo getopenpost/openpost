@@ -39,10 +39,33 @@ test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edit
   await (await chooser).setFiles(fixture);
   await expect(page.locator("video")).toBeVisible();
   await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+
+  // The playhead follows pointer input without waiting for a slow decoder.
+  const timeline = page.getByRole("button", { name: "Seek in timeline", exact: true });
+  const bounds = await timeline.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(bounds!.x + 2, bounds!.y + bounds!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds!.x + bounds!.width * 0.7, bounds!.y + bounds!.height / 2, {
+    steps: 40,
+  });
+  await page.mouse.up();
+  await expect
+    .poll(() =>
+      page.locator("video").evaluate((video) => {
+        if (!(video instanceof HTMLVideoElement)) throw new Error("Video element expected");
+        const media = video;
+        return Math.abs(media.currentTime - media.duration * 0.7);
+      }),
+    )
+    .toBeLessThan(0.1);
   await seek(page, 2);
   await page.getByRole("button", { name: /^Mark in/ }).click();
   await seek(page, 3);
   await page.getByRole("button", { name: /^Mark out/ }).click();
+  await expect(
+    page.getByText("Keep only this selection, or remove it from your edit.", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Remove selection", exact: true }).click();
   await expect(page.getByRole("button", { name: "Segment 2", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
@@ -94,11 +117,18 @@ test("guest Quick Cut keeps unsaved local work explicit", async ({ page }) => {
     Object.defineProperty(window, "showOpenFilePicker", { configurable: true, value: undefined }),
   );
   await page.goto("/quick-cut");
+  await expect(page.getByRole("button", { name: "Open videos", exact: true })).toBeVisible();
+  await expect(
+    page.getByText(
+      "Projects are saved in the workspace folder when one is chosen. Otherwise import/export works via files.",
+      { exact: true },
+    ),
+  ).toBeVisible({ timeout: 3000 });
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Open videos", exact: true }).click();
   await (await chooser).setFiles(fixture);
   await expect(page.locator("video")).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("Local only");
+  await expect(page.getByRole("img", { name: "Local only · Unsaved changes" })).toBeVisible();
   await expect(page).toHaveURL(/\/quick-cut$/u);
   await page.getByRole("button", { name: "Zoom in timeline" }).click();
   await expect(page.getByRole("button", { name: "Reset timeline zoom" })).toHaveText("200%");
@@ -137,3 +167,100 @@ test("video creation offers both editors and imports composer media into either 
     page.getByRole("button", { name: new RegExp(`media-${media.id}`) }).first(),
   ).toBeVisible({ timeout: 90_000 });
 });
+
+test("local Quick Cut library survives a corrupt project and reopens after reload", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: () => navigator.storage.getDirectory(),
+    });
+  });
+  await page.goto("/quick-cut");
+  await page.getByRole("button", { name: "Choose folder", exact: true }).click();
+  await page.evaluate(() =>
+    Object.defineProperty(window, "showOpenFilePicker", { configurable: true, value: undefined }),
+  );
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Open videos", exact: true }).click();
+  await (await chooser).setFiles(fixture);
+  await expect(page).toHaveURL(/project=.+&storage=local/);
+  const savedURL = page.url();
+  await expect(page.getByRole("img", { name: "Local only", exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    const cuts = await root.getDirectoryHandle("quick-cut");
+    const projects = await cuts.getDirectoryHandle("projects");
+    const broken = await projects.getFileHandle("broken.json", { create: true });
+    const writer = await broken.createWritable();
+    await writer.write("invalid JSON");
+    await writer.close();
+  });
+  await page.goto("/quick-cut");
+  await expect(page.getByRole("alert").filter({ hasText: "broken.json" })).toBeVisible();
+  await page
+    .getByRole("button")
+    .filter({ has: page.getByRole("img", { name: "Local only", exact: true }) })
+    .click();
+  await expect(page).toHaveURL(savedURL);
+  await expect(page.locator("video")).toBeVisible();
+  await page.reload();
+  await expect(page.locator("video")).toBeVisible();
+});
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`Quick Cut keeps cuts readable on desktop and phones in ${scheme}`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.addInitScript((mode) => {
+      localStorage.setItem("mode-watcher-mode", mode);
+      Object.defineProperty(window, "showOpenFilePicker", { configurable: true, value: undefined });
+    }, scheme);
+    await page.goto("/quick-cut");
+    await expect(page.getByRole("button", { name: "Open videos", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`start-${scheme}.png`) });
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Open videos", exact: true }).click();
+    await (await chooser).setFiles(fixture);
+    await expect(page.locator("video")).toBeVisible();
+    await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+    await seek(page, 1);
+    await page.getByRole("button", { name: /^Mark in/ }).click();
+    await seek(page, 5);
+    await page.getByRole("button", { name: /^Mark out/ }).click();
+    await page.getByRole("button", { name: "Keep selection", exact: true }).click();
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.locator("video")).toBeVisible();
+      await expect(page.getByRole("textbox", { name: "Mark in 1" })).toBeVisible();
+      const markIn = page.getByRole("button", { name: /^Mark in/ });
+      const toolbar = page.getByRole("toolbar").filter({ has: markIn });
+      await toolbar.scrollIntoViewIfNeeded();
+      const toolbarBounds = await toolbar.boundingBox();
+      const buttonBounds = await markIn.boundingBox();
+      expect(toolbarBounds!.height).toBeGreaterThanOrEqual(buttonBounds!.height);
+      const visibleToolbar = await toolbar.locator("..").boundingBox();
+      expect(visibleToolbar!.height).toBeGreaterThanOrEqual(buttonBounds!.height);
+      const range = page.getByText("00:01.00 → 00:05.00", { exact: true });
+      const bounds = await range.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.height).toBeLessThan(20);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      await page.screenshot({
+        path: testInfo.outputPath(`workspace-${scheme}-${width}.png`),
+        fullPage: true,
+      });
+      await page.getByRole("textbox", { name: "Mark out 1" }).scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(`cuts-${scheme}-${width}.png`),
+        fullPage: true,
+      });
+    }
+  });
+}

@@ -72,6 +72,7 @@ export const PROTECTED_ICON_ROLES = [
 	'editor-solo',
 	'editor-stop',
 	'editor-paint',
+	'cloud',
 	'pending',
 	'error',
 	'info',

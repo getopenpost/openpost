@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "Quick cuts or a full edit?",
 	"video_editor_quick_choice_hint": "Trim a recording, remove pauses, or edit by transcript in Quick Cut. Use Video Editor for multiple tracks, titles, effects, and subtitles.",
 	"video_editor_full_choice": "Open Video Editor",
-	"video_editor_quick_choice_action": "Open Quick Cut"
+	"video_editor_quick_choice_action": "Open Quick Cut",
+	"editor_storage_online": "Online",
+	"editor_storage_pending": "Waiting to sync",
+	"editor_storage_destination": "Save new projects to",
+	"editor_more_options": "More options",
+	"quick_cut_selection_start": "Move the playhead and mark the start with I.",
+	"quick_cut_selection_end": "Mark the end with O.",
+	"quick_cut_selection_ready": "Keep only this selection, or remove it from your edit."
 }

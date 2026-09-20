@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ProjectStorageStatus from '$lib/components/project-storage-status.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
@@ -67,13 +68,6 @@
 			busyProjectId = null;
 		}
 	}
-
-	function syncStatus(project: CloudVideoProject<Project>): string {
-		if (project.syncStatus === 'needs_attention' && project.attentionReason) {
-			return `${m.compose_needs_attention()}: ${project.attentionReason}`;
-		}
-		return project.syncStatus.replaceAll('_', ' ');
-	}
 </script>
 
 <section class="w-full" aria-labelledby="cloud-video-projects-title">
@@ -122,14 +116,12 @@
 					<h2 class="truncate text-sm font-semibold" title={project.name}>
 						{project.name}
 					</h2>
-					<p class="mt-1 text-xs text-[var(--video-editor-muted)] first-letter:uppercase">
-						{syncStatus(project)}
-					</p>
-					{#if offlineProjectIds.includes(project.id)}
-						<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
-							{m.video_editor_available_offline()}
-						</p>
-					{/if}
+					<ProjectStorageStatus
+						storage="cloud"
+						syncStatus={project.syncStatus}
+						offline={offlineProjectIds.includes(project.id)}
+						reason={project.attentionReason}
+					/>
 					<div class="mt-4 flex flex-wrap justify-between gap-2">
 						<Button size="sm" onclick={() => void onopen(project)}
 							>{m.video_editor_project_open()}</Button
@@ -187,13 +179,16 @@
 	{/if}
 
 	{#if localProjects.length > 0}
-		<section
+		<details
 			class="mt-8 border-t border-[var(--video-editor-border)] pt-4"
 			aria-labelledby="cloud-video-local-import-title"
 		>
-			<h2 id="cloud-video-local-import-title" class="text-sm font-semibold">
+			<summary
+				id="cloud-video-local-import-title"
+				class="cursor-pointer py-2 text-sm font-semibold"
+			>
 				{m.video_editor_cloud_title()}
-			</h2>
+			</summary>
 			<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_cloud_description()}
 			</p>
@@ -220,7 +215,7 @@
 					</li>
 				{/each}
 			</ul>
-		</section>
+		</details>
 	{/if}
 
 	{#if trashedProjects.length > 0}

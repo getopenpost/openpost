@@ -9013,5 +9013,12 @@
 	"video_editor_quick_choice": "快速剪切还是完整编辑？",
 	"video_editor_quick_choice_hint": "使用 Quick Cut 修剪录制内容、删除停顿或通过转录编辑。多轨道、标题、特效和字幕请使用视频编辑器。",
 	"video_editor_full_choice": "打开视频编辑器",
-	"video_editor_quick_choice_action": "打开 Quick Cut"
+	"video_editor_quick_choice_action": "打开 Quick Cut",
+	"editor_storage_online": "在线",
+	"editor_storage_pending": "等待同步",
+	"editor_storage_destination": "新项目保存位置",
+	"editor_more_options": "更多选项",
+	"quick_cut_selection_start": "移动播放头，按 I 标记起点。",
+	"quick_cut_selection_end": "按 O 标记终点。",
+	"quick_cut_selection_ready": "仅保留此选区，或从编辑中移除。"
 }

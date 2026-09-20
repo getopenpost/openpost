@@ -589,11 +589,24 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
   await page.screenshot({ path: testInfo.outputPath("selection-refinement-desktop.png") });
 
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-  await page.setViewportSize({ width: 390, height: 800 });
+  const mobileViewport = { width: 390, height: 800 };
+  await page.setViewportSize(mobileViewport);
   const mobileOptions = page.getByTestId("image-editor-selection-options");
   await expect(mobileOptions).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.keyboard.press("ControlOrMeta+0");
+  await expect
+    .poll(async () => {
+      const bounds = await surface.boundingBox();
+      return Boolean(
+        bounds &&
+        bounds.x >= 0 &&
+        bounds.y >= 0 &&
+        bounds.x + bounds.width <= mobileViewport.width &&
+        bounds.y + bounds.height <= mobileViewport.height,
+      );
+    })
+    .toBe(true);
   const mobileBounds = await surface.boundingBox();
   expect(mobileBounds).not.toBeNull();
   if (!mobileBounds) return;
@@ -601,6 +614,7 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
     mobileBounds.x + mobileBounds.width * 0.2,
     mobileBounds.y + mobileBounds.height * 0.2,
   );
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
   const done = mobileOptions.getByRole("button", { name: "Done", exact: true });
   const cancel = mobileOptions.getByRole("button", { name: "Cancel", exact: true });
   await expect(done).toBeDisabled();

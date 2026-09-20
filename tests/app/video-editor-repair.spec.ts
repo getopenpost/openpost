@@ -30,7 +30,7 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   page.on("console", (message) => {
     if (message.type() === "error") console.log(message.text());
   });
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 1600, height: 900 });
   await newProject(page, "Text proof");
   const header = page.getByRole("banner");
   const controls = [
@@ -48,6 +48,7 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
     expect(bounds!.x).toBeGreaterThanOrEqual(previousRight);
     previousRight = bounds!.x + bounds!.width;
   }
+  await expect(header.getByRole("button").last()).toHaveAccessibleName("Export");
   const url = page.url();
   await page.getByRole("button", { name: "Add layer", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
@@ -153,9 +154,7 @@ test("a new cloud project cannot edit the previous project while its document lo
     const title = page.getByRole("textbox", { name: "Project name" });
     await expect(title).toBeDisabled();
     await expect(title).toHaveValue("");
-    await expect(
-      page.locator("header").getByRole("status").filter({ hasText: "Saved to OpenPost" }),
-    ).toHaveCount(0);
+    await expect(page.locator("header [role=status][data-state=saved]")).toHaveCount(0);
   } finally {
     releaseLoad();
   }
@@ -221,9 +220,7 @@ test("switching projects hides the old editor until its pending save finishes", 
     await expect(title).toBeDisabled();
     await expect(title).toHaveValue("");
     await expect(page.getByRole("tabpanel", { name: "Editor workspaces" })).toHaveCount(0);
-    await expect(
-      page.locator("header").getByRole("status").filter({ hasText: "Saved to OpenPost" }),
-    ).toHaveCount(0);
+    await expect(page.locator("header [role=status][data-state=saved]")).toHaveCount(0);
   } finally {
     releaseSave();
   }
@@ -398,7 +395,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
   await expect(page.locator("[data-project-summary]")).toContainText("1 clip");
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.locator("header").getByText(/saved/i)).toBeVisible({
+  await expect(page.locator("header").getByRole("status")).toHaveAttribute("data-state", "saved", {
     timeout: 15000,
   });
   await page.locator("header").getByRole("button", { name: "More actions" }).click();

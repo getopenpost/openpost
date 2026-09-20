@@ -693,12 +693,15 @@
 	});
 </script>
 
+{#if project}
+	<RenderQueuePanel projectId={project.id} compactTrigger={compactQueueTrigger} />
+{/if}
 <Button
 	size="sm"
 	variant={triggerVariant}
 	class={triggerClass}
 	{disabled}
-	aria-label={m.video_editor_export_render()}
+	aria-label={triggerLabel ?? m.video_editor_export_render()}
 	onclick={openExportDialog}
 >
 	{#if responsiveTrigger}
@@ -713,10 +716,6 @@
 		{m.video_editor_export_render()}
 	{/if}
 </Button>
-{#if project}
-	<RenderQueuePanel projectId={project.id} compactTrigger={compactQueueTrigger} />
-{/if}
-
 <Dialog.Root bind:open>
 	<Dialog.Content
 		class="video-editor-theme !flex max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-0 text-[var(--video-editor-text)] shadow-2xl sm:max-w-md"

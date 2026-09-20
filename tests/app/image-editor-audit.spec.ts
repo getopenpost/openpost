@@ -141,6 +141,43 @@ test("desktop page background Image opens a visible chooser", async ({ page }) =
   ).toHaveAttribute("aria-pressed", "true");
 });
 
+test("a background uploaded from a filtered library remains a background", async ({
+  page,
+  request,
+}) => {
+  const auth = await registerUser(request, `image-background-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Background audit");
+  await authenticatePage(page, auth.token);
+  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+  const id = new URL(page.url()).pathname.split("/").at(-1)!;
+  await page.getByRole("button", { name: "Image", exact: true }).click();
+  const library = page.getByRole("dialog", { name: "Media", exact: true });
+  await library.getByRole("textbox", { name: "Search media" }).fill("no-matching-audit-media");
+  await library.getByRole("button", { name: "Search media", exact: true }).click();
+  await library.getByRole("button", { name: "Device", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Add an image", exact: true });
+  await picker
+    .locator('input[type="file"]')
+    .setInputFiles("tests/app/fixtures/product-screenshots/lisbon-tram.png");
+  await picker.getByRole("button", { name: "Upload 1 file", exact: true }).click();
+  await expect(picker).not.toBeVisible();
+  await expect
+    .poll(async () => {
+      const design = await (
+        await request.get(`/api/v1/image-editor/designs/${id}`, {
+          headers: { Authorization: `Bearer ${auth.token}` },
+        })
+      ).json();
+      return {
+        background: design.document.pages[0].background.type,
+        layers: design.document.pages[0].layers.length,
+      };
+    })
+    .toEqual({ background: "image", layers: 0 });
+});
+
 test("portable import edits only the imported design and updates the tab title", async ({
   page,
   request,

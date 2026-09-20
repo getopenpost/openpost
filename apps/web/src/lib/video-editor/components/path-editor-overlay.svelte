@@ -679,7 +679,7 @@
 		class="absolute top-full left-1/2 mt-2 flex max-w-[min(34rem,90vw)] -translate-x-1/2 flex-col items-center gap-1"
 	>
 		<div
-			class="flex min-h-8 max-w-[min(30rem,90vw)] flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded bg-black/85 p-0.5 text-[10px] text-white shadow-lg"
+			class="flex min-h-8 max-w-[min(30rem,90vw)] flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded bg-black/85 p-0.5 text-[10px] text-white shadow-lg [&>button]:shrink-0 [&>button]:whitespace-nowrap"
 			title={drawing
 				? m.video_editor_path_draw_hint()
 				: `${m.video_editor_path_edit_hint()} ${m.video_editor_path_selection_hint()}`}

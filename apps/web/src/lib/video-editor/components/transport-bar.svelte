@@ -343,6 +343,7 @@
 				align="end"
 				side="top"
 				class="transport-overflow video-editor-theme min-w-48"
+				portalProps={fullscreenPortalTarget ? { to: fullscreenPortalTarget } : undefined}
 			>
 				<TimelineVoiceoverMenu {projectId} />
 				<DropdownMenu.Item disabled={timelineStore.seekLocked} onclick={() => setCurrentFrame(0)}>

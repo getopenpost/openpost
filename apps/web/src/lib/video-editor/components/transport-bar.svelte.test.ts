@@ -65,7 +65,33 @@ it('keeps preview menus inside the fullscreen surface', async () => {
 	await screen.getByRole('button', { name: /Preview zoom:/ }).click();
 	const zoomOption = screen.getByRole('menuitem', { name: '50%', exact: true }).element();
 	expect(zoomOption.closest('[data-video-preview]')).toBe(preview);
-	await userEvent.keyboard('{Escape}');
+	zoomOption.click();
+	await expect.element(screen.getByRole('button', { name: 'Preview zoom: 50%' })).toBeVisible();
+});
+
+it('keeps the compact fullscreen overflow inside the preview surface', async () => {
+	let fullscreenTarget: Element | null = null;
+	Object.defineProperty(document, 'fullscreenElement', {
+		configurable: true,
+		get: () => fullscreenTarget
+	});
+	await page.viewport(320, 450);
+	try {
+		const screen = await render(Fixture, { width: 320 });
+		const preview = document.querySelector<HTMLElement>('[data-video-preview]');
+		if (!preview) throw new Error('Expected preview surface');
+		preview.requestFullscreen = vi.fn(async () => {
+			fullscreenTarget = preview;
+			document.dispatchEvent(new Event('fullscreenchange'));
+		});
+
+		await screen.getByRole('button', { name: 'Enter preview fullscreen', exact: true }).click();
+		await screen.getByRole('button', { name: 'More actions', exact: true }).click();
+		const qualityOption = screen.getByRole('menuitem', { name: /Preview quality: Full/ }).element();
+		expect(qualityOption.closest('[data-video-preview]')).toBe(preview);
+	} finally {
+		await page.viewport(1280, 900);
+	}
 });
 
 it('keeps supported voiceover commands and active stop reachable at 320px', async () => {

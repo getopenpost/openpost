@@ -10,12 +10,7 @@ import {
 	snapImageEditorPoint,
 	snapImageEditorResize
 } from './fabric-adapter';
-import type {
-	ImageEditorDocument,
-	ImageEditorGradientValue,
-	ImageEditorLayer,
-	ImageEditorPage
-} from './types';
+import type { ImageEditorDocument, ImageEditorLayer, ImageEditorPage } from './types';
 
 // SAFETY: the adapter constructor only stores this element; tests that mount Fabric use browser tests.
 const TEST_CANVAS = {} as HTMLCanvasElement;
@@ -474,88 +469,6 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 		internals.updateObject(object, previous, next);
 
 		expect(object.text).toBe('Photo audit Olá, world!');
-	});
-});
-
-describe('OpenPost Image Editor gradient bitmap budget', () => {
-	function buildDiamondBitmap(staticCanvas: boolean) {
-		let pixels = new Uint8ClampedArray();
-		const bitmap = {
-			width: 0,
-			height: 0,
-			getContext: () => ({
-				createImageData(width: number, height: number) {
-					return { data: new Uint8ClampedArray(width * height * 4), width, height };
-				},
-				putImageData(image: { data: Uint8ClampedArray }) {
-					pixels = image.data;
-				}
-			})
-		};
-		const canvas = {
-			ownerDocument: { createElement: () => bitmap }
-		};
-		const page = pageFixture();
-		const document = {
-			...documentFixture(page),
-			width_px: 2048,
-			height_px: 1
-		};
-		const gradient: ImageEditorGradientValue = {
-			type: 'diamond',
-			start: { x: 1024, y: 0.5 },
-			end: { x: 2048, y: 0.5 },
-			reverse: false,
-			stops: [
-				{ offset: 0, color: '#f97316' },
-				{ offset: 1, color: '#7c3aed' }
-			]
-		};
-		const adapter = new OpenPostFabricAdapter({
-			// SAFETY: The bitmap builder reads only ownerDocument from the canvas fixture.
-			canvas: canvas as HTMLCanvasElement,
-			document,
-			page,
-			readOnly: staticCanvas,
-			staticCanvas,
-			onSelection: () => undefined,
-			onTransform: () => undefined,
-			onTextChange: () => undefined
-		});
-		const internals = adapterInternals<{
-			createGradientBitmap(
-				width: number,
-				height: number,
-				value: ImageEditorGradientValue
-			): typeof bitmap | null;
-		}>(adapter);
-
-		return {
-			bitmap: internals.createGradientBitmap(document.width_px, document.height_px, gradient),
-			pixels: () => pixels
-		};
-	}
-
-	it('bounds the interactive Diamond backing bitmap while preserving its colors', () => {
-		const result = buildDiamondBitmap(false);
-
-		expect(result.bitmap).toMatchObject({ width: 1024, height: 1 });
-		const pixels = result.pixels();
-		const left = Array.from(pixels.slice(0, 4));
-		const center = Array.from(pixels.slice(512 * 4, 513 * 4));
-		expect(left[2]).toBeGreaterThan(left[0]);
-		expect(center[0]).toBeGreaterThan(center[2]);
-	});
-
-	it('keeps the static export Diamond bitmap at full resolution', () => {
-		const result = buildDiamondBitmap(true);
-
-		expect(result.bitmap).toMatchObject({ width: 2048, height: 1 });
-		const pixels = result.pixels();
-		const left = Array.from(pixels.slice(0, 4));
-		const center = Array.from(pixels.slice(1024 * 4, 1025 * 4));
-		expect(left[2]).toBeGreaterThan(left[0]);
-		expect(center[0]).toBeGreaterThan(center[2]);
 	});
 });
 

@@ -2763,7 +2763,7 @@
 					class="hidden max-w-52 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground sm:flex"
 					title={editor.saveMessage}
 				>
-					<span class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>
+					<span class="size-1.5 shrink-0 rounded-full bg-warning-foreground"></span>
 					<span role="status" class="line-clamp-2">{editor.saveMessage}</span>
 				</div>
 			{/if}
@@ -2939,7 +2939,7 @@
 			class="flex shrink-0 items-center gap-2 border-b bg-muted px-3 py-2 text-xs sm:hidden"
 			role="status"
 		>
-			<span class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>
+			<span class="size-1.5 shrink-0 rounded-full bg-warning-foreground"></span>
 			<span>{editor.saveMessage}</span>
 		</div>
 	{/if}
@@ -3107,7 +3107,7 @@
 	{/if}
 	{#if recoveryError || concurrentTabWarning}
 		<div
-			class="flex flex-wrap items-center justify-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs"
+			class="flex flex-wrap items-center justify-center gap-2 border-b bg-warning px-3 py-2 text-xs text-warning-foreground"
 			role="alert"
 		>
 			<span>{recoveryError || concurrentTabWarning}</span>

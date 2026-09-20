@@ -31,7 +31,7 @@ type RepurposeRange struct {
 
 type RepurposeProvenance struct {
 	Reference   ContentReference `json:"reference"`
-	Origin      string           `json:"origin" enum:"openpost,external"`
+	Origin      string           `json:"origin" enum:"openpost"`
 	Platform    string           `json:"platform"`
 	PublishedAt time.Time        `json:"published_at"`
 }
@@ -113,55 +113,11 @@ func (s *Service) resolveRepurposeReference(
 	reference ContentReference,
 	days int,
 ) (string, string, string, string, time.Time, []string, repurposeSnapshot, error) {
-	switch strings.TrimSpace(reference.Type) {
-	case string(platform.AccountContentOriginExternal):
-		if strings.TrimSpace(reference.AccountContentID) == "" || reference.PublicationID != "" || reference.RenditionID != "" {
-			return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, ErrInvalidRepurposeReference
-		}
-		return s.resolveExternalRepurposeSource(ctx, workspaceID, reference.AccountContentID, days)
-	case string(platform.AccountContentOriginOpenPost):
-		if strings.TrimSpace(reference.PublicationID) == "" || strings.TrimSpace(reference.RenditionID) == "" || reference.AccountContentID != "" {
-			return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, ErrInvalidRepurposeReference
-		}
-		return s.resolveManagedRepurposeSource(ctx, workspaceID, reference, days)
-	default:
+	if strings.TrimSpace(reference.Type) != string(platform.AccountContentOriginOpenPost) ||
+		strings.TrimSpace(reference.PublicationID) == "" || strings.TrimSpace(reference.RenditionID) == "" {
 		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, ErrInvalidRepurposeReference
 	}
-}
-
-func (s *Service) resolveExternalRepurposeSource(
-	ctx context.Context,
-	workspaceID, accountContentID string,
-	days int,
-) (string, string, string, string, time.Time, []string, repurposeSnapshot, error) {
-	var content models.AccountContent
-	if err := s.db.NewSelect().Model(&content).
-		Where("id = ? AND workspace_id = ?", strings.TrimSpace(accountContentID), workspaceID).
-		Scan(ctx); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, ErrRepurposeSourceNotFound
-		}
-		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, fmt.Errorf("load external repurpose source: %w", err)
-	}
-	if content.Origin != string(platform.AccountContentOriginExternal) {
-		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, ErrRepurposeSourceNotFound
-	}
-	if !content.ProviderUnavailableAt.IsZero() {
-		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, ErrRepurposeSourceUnavailable
-	}
-	var stored []models.AnalyticsAccountContentSnapshot
-	if err := s.db.NewSelect().Model(&stored).
-		Where("workspace_id = ? AND account_content_id = ?", workspaceID, content.ID).
-		Order("captured_at DESC").Limit(50).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return "", "", "", "", time.Time{}, nil, repurposeSnapshot{}, fmt.Errorf("load external repurpose evidence: %w", err)
-	}
-	snapshots := make([]repurposeSnapshot, 0, len(stored))
-	for _, item := range stored {
-		snapshots = append(snapshots, repurposeSnapshot{MetricsJSON: item.MetricsJSON, MetricMetadataJSON: item.MetricMetadataJSON, CapturedAt: item.CapturedAt, Platform: content.Platform})
-	}
-	selected := selectRepurposeSnapshot(snapshots, s.now().AddDate(0, 0, -days), s.now())
-	return content.Title, firstNonEmptyAnalyticsText(content.Text, content.Title), content.ContentProfile,
-		content.Platform, content.PublishedAt, []string{content.SocialAccountID}, selected, nil
+	return s.resolveManagedRepurposeSource(ctx, workspaceID, reference, days)
 }
 
 func (s *Service) resolveManagedRepurposeSource(
@@ -283,6 +239,17 @@ func repurposeEvidenceScope(metadata platform.AnalyticsMetricMetadata, rangeStar
 		return "requested_range"
 	default:
 		return ""
+	}
+}
+
+func validAccountContentProfile(profile string) bool {
+	switch profile {
+	case models.ContentProfileShortText, models.ContentProfileThread, models.ContentProfileLinkShare,
+		models.ContentProfileImagePost, models.ContentProfileCarousel, models.ContentProfileStory,
+		models.ContentProfileShortVideo, models.ContentProfileLongVideo:
+		return true
+	default:
+		return false
 	}
 }
 

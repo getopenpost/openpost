@@ -865,13 +865,6 @@ func classifyJobContinuation(processErr error) (classifiedJobFailure, bool) {
 			preserveAttempts: true,
 		}, true
 	}
-	if retryAfter, continuation := analyticsservice.IsDiscoveryContinuation(processErr); continuation {
-		return classifiedJobFailure{
-			retryable: true, retryAfter: retryAfter,
-			message:          "Account content discovery will continue from its committed cursor.",
-			preserveAttempts: true,
-		}, true
-	}
 	return classifiedJobFailure{}, false
 }
 

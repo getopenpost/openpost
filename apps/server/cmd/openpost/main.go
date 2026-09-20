@@ -544,13 +544,7 @@ func main() {
 	analyticsService := analyticsservice.NewService(db, tokenManager)
 	analyticsService.SetCursorSigningKey(cfg.JWTSecret)
 	analyticsService.SetProviderReadiness(providerReadinessService)
-	analyticsService.SetDiscoveryPolicy("x", analyticsservice.DiscoveryPolicy{
-		ProviderConcurrency: 1,
-		ReadRequestsPerDay:  cfg.XAccountHistoryReadRequestsPerDay,
-		PageSize:            platform.AccountContentMaxPageSize,
-	})
 	if telegramConnectionService != nil {
-		telegramConnectionService.SetAccountContentStore(analyticsService)
 		analyticsService.SetExternalSource(capabilities.ProviderTelegram, telegramConnectionService)
 	}
 	repostService := repostservice.NewService(db, tokenManager)
@@ -580,15 +574,6 @@ func main() {
 		growthService.SetProvider(name, adapter)
 		accountPreflightService.SetProvider(name, adapter)
 	}
-	for _, source := range cfg.AnalyticsSources {
-		adapter, err := analyticsservice.NewExternalAnalyticsAdapter(source.Platform, source.BaseURL, source.BearerToken)
-		if err != nil {
-			fatalfWithDiagnostics(diagnosticsReporter, "failed to initialize external analytics source for %s: %v", source.Platform, err)
-		}
-		analyticsService.SetExternalSource(source.Platform, adapter)
-		log.Printf("Registered external analytics source: %s", source.Platform)
-	}
-
 	storage, err := mediastore.New(context.Background(), mediastore.Config{
 		Driver:    cfg.StorageDriver,
 		LocalPath: cfg.MediaPath,

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,8 @@ const (
 	tiktokContentInitURL    = "https://open.tiktokapis.com/v2/post/publish/content/init/"
 	tiktokPublishStatusURL  = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
 	tiktokTitleMaxUnits     = 2200
+	tiktokVideoListURL      = "https://open.tiktokapis.com/v2/video/list/?fields=id,create_time,title,video_description,share_url,like_count,comment_count,share_count,view_count"
+	tiktokReconcileListSize = 20
 	tiktokMaxChunkSize      = 64 * 1024 * 1024
 	tiktokReconcileWindow   = 2 * time.Hour
 )
@@ -675,8 +678,17 @@ func tiktokCanResolvePublishedVideo(req *PublishRequest) bool {
 	return err == nil && postingMethod != "UPLOAD" && settingString(req.Settings, "privacy_level") == "PUBLIC_TO_EVERYONE"
 }
 
+type tiktokReconcileVideo struct {
+	ID               string `json:"id"`
+	CreateTime       int64  `json:"create_time"`
+	Title            string `json:"title"`
+	VideoDescription string `json:"video_description"`
+}
+
+var tiktokVideoIDPattern = regexp.MustCompile(`^[0-9]{1,32}$`)
+
 func (t *TikTokAdapter) resolvePublishedVideoID(ctx context.Context, accessToken string, req *PublishRequest, now time.Time) (string, error) {
-	body, err := DoJSON(ctx, http.MethodPost, tiktokVideoListURL, map[string]any{"max_count": tiktokDiscoveryPageSize}, map[string]string{
+	body, err := DoJSON(ctx, http.MethodPost, tiktokVideoListURL, map[string]any{"max_count": tiktokReconcileListSize}, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
@@ -684,7 +696,7 @@ func (t *TikTokAdapter) resolvePublishedVideoID(ctx context.Context, accessToken
 	}
 	var response struct {
 		Data struct {
-			Videos []tiktokDiscoveryVideo `json:"videos"`
+			Videos []tiktokReconcileVideo `json:"videos"`
 		} `json:"data"`
 		Error tiktokAPIError `json:"error"`
 	}

@@ -54,8 +54,6 @@ type ProviderReadinessItem struct {
 
 type ProviderReadinessAccount struct {
 	SocialAccountID string                      `json:"social_account_id"`
-	Discovery       *providerreadiness.Decision `json:"discovery,omitempty"`
-	Observation     *providerreadiness.Decision `json:"observation,omitempty"`
 	Analytics       *providerreadiness.Decision `json:"analytics,omitempty"`
 }
 
@@ -134,25 +132,13 @@ func (h *ProviderReadinessHandler) buildProviderReadiness(
 	item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(connection.Blockers)...)
 	for _, account := range accounts {
 		accountReadiness := ProviderReadinessAccount{SocialAccountID: account.ID}
-		if provider == capabilities.ProviderPinterest {
-			discovery := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationDiscover, providerreadiness.ExecutionIntentProduction)
+		if provider == capabilities.ProviderPinterest || provider == capabilities.ProviderTelegram {
 			analytics := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationAnalytics, providerreadiness.ExecutionIntentProduction)
-			accountReadiness.Discovery = &discovery
 			accountReadiness.Analytics = &analytics
-			decisions = append(decisions, discovery, analytics)
-			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(discovery.Blockers)...)
+			decisions = append(decisions, analytics)
 			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(analytics.Blockers)...)
 		}
-		if provider == capabilities.ProviderTelegram {
-			observation := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationObservation, providerreadiness.ExecutionIntentProduction)
-			analytics := h.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationAnalytics, providerreadiness.ExecutionIntentProduction)
-			accountReadiness.Observation = &observation
-			accountReadiness.Analytics = &analytics
-			decisions = append(decisions, observation, analytics)
-			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(observation.Blockers)...)
-			item.BlockingIssues = append(item.BlockingIssues, readinessBlockerCodes(analytics.Blockers)...)
-		}
-		if accountReadiness.Discovery != nil || accountReadiness.Observation != nil || accountReadiness.Analytics != nil {
+		if accountReadiness.Analytics != nil {
 			item.Accounts = append(item.Accounts, accountReadiness)
 		}
 		for _, capability := range capabilities.All() {

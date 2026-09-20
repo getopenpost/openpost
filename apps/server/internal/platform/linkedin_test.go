@@ -98,45 +98,6 @@ func TestLinkedInOrganizationSelectionUsesOrganizationURN(t *testing.T) {
 	}
 }
 
-func TestLinkedInAccountHistoryRejectsUncertifiedMemberIdentityWithoutAProviderCall(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	calls := 0
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		calls++
-		t.Fatalf("uncertified member identity reached provider: %s", req.URL)
-		return nil, nil
-	})}
-	adapter := NewLinkedInAdapter("", "", "", false, true)
-	support := adapter.AccountContentDiscoverySupport(AnalyticsAccountContext{
-		AccountID: "urn:li:person:7", CapabilityState: map[string]string{"linkedin_account_type": "person"},
-	})
-	if support.Supported || !strings.Contains(support.UnavailableReason, "not certified") {
-		t.Fatalf("member discovery must fail closed: %#v", support)
-	}
-	_, err := adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{
-		AccountID: "urn:li:person:7", CapabilityState: map[string]string{"linkedin_account_type": "person"}, PageSize: 10,
-	})
-	var discoveryErr *AccountContentDiscoveryError
-	if !errors.As(err, &discoveryErr) || discoveryErr.Status != AccountContentDiscoveryUnsupported {
-		t.Fatalf("unexpected member discovery result: %#v, %v", discoveryErr, err)
-	}
-	if calls != 0 {
-		t.Fatalf("expected zero provider calls, got %d", calls)
-	}
-
-	_, err = adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{
-		AccountID: "urn:li:organization:42", CapabilityState: map[string]string{"linkedin_account_type": "organization"}, PageSize: 10,
-	})
-	if !errors.As(err, &discoveryErr) || discoveryErr.Status != AccountContentDiscoveryPermissionRequired {
-		t.Fatalf("organization without certified read scope must require permission: %#v, %v", discoveryErr, err)
-	}
-	if calls != 0 {
-		t.Fatalf("missing organization permission reached provider, calls=%d", calls)
-	}
-}
-
 func TestLinkedInUploadDocumentInitializesUploadsAndWaitsForAvailability(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

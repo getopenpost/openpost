@@ -3,12 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type { components } from '$lib/api/types';
 
 import {
-	analyticsSourceLabelKey,
 	appendAnalyticsContentPage,
 	hasEngagementMeasurement,
-	hasLimitedAccountHistory,
 	insightHasRanking,
-	isBuildingAccountHistory,
 	measuredMetricKeys
 } from './analytics-overview';
 
@@ -16,7 +13,7 @@ type AnalyticsContent = components['schemas']['ContentOverview'];
 type AnalyticsInsight = components['schemas']['Insight'];
 type AnalyticsOverview = components['schemas']['Overview'];
 
-function externalContent(id: string): AnalyticsContent {
+function managedContent(id: string): AnalyticsContent {
 	return {
 		account_id: 'account-1',
 		content_profile: 'short_text',
@@ -27,9 +24,10 @@ function externalContent(id: string): AnalyticsContent {
 		metric_metadata: {},
 		metrics: { likes: 1 },
 		platform: 'x',
+		publication_id: `publication-${id}`,
 		published_at: '2026-08-31T12:00:00Z',
-		reference: { type: 'external', account_content_id: id },
-		source: 'external',
+		reference: { type: 'openpost', publication_id: `publication-${id}`, rendition_id: id },
+		rendition_id: id,
 		stale: false,
 		status: 'ok',
 		title: id,
@@ -58,10 +56,8 @@ function overview(content: AnalyticsContent[], insightValue: number): AnalyticsO
 	return {
 		generated_at: '2026-08-31T12:00:00Z',
 		range_days: 30,
-		source: 'all',
 		account_growth_scope: 'account_wide',
 		accounts: [],
-		coverage: [],
 		follower_series: [],
 		trends: { followers: [], engagement: [], views: [] },
 		publications: [],
@@ -112,15 +108,10 @@ describe('analytics overview helpers', () => {
 		).toEqual(['report_views', 'average_view_percentage']);
 	});
 
-	it('keeps managed and external source labels explicit', () => {
-		expect(analyticsSourceLabelKey('openpost')).toBe('published_with_openpost');
-		expect(analyticsSourceLabelKey('external')).toBe('published_elsewhere');
-	});
-
 	it('does not let a later content page replace server-owned insights or aggregates', () => {
-		const current = overview([externalContent('first')], 12);
+		const current = overview([managedContent('first')], 12);
 		current.content_next_cursor = 'next';
-		const nextPage = overview([externalContent('second')], 999);
+		const nextPage = overview([managedContent('second')], 999);
 		nextPage.summary.published = 999;
 
 		const merged = appendAnalyticsContentPage(current, nextPage);
@@ -129,44 +120,6 @@ describe('analytics overview helpers', () => {
 		expect(merged.content_next_cursor).toBeUndefined();
 		expect(merged.insights).toEqual([engagementInsight(12)]);
 		expect(merged.summary.published).toBe(2);
-	});
-
-	it('distinguishes building, capped partial, and unsupported account history', () => {
-		expect(
-			isBuildingAccountHistory({
-				account_id: 'account-1',
-				platform: 'youtube',
-				status: 'partial',
-				initial_items_discovered: 40
-			})
-		).toBe(true);
-		expect(
-			isBuildingAccountHistory({
-				account_id: 'account-1',
-				platform: 'youtube',
-				status: 'partial',
-				initial_items_discovered: 250,
-				initial_completed_at: '2026-08-31T12:00:00Z',
-				description: 'Initial discovery stopped after the 250-item account history limit.'
-			})
-		).toBe(false);
-		expect(
-			hasLimitedAccountHistory({
-				account_id: 'account-1',
-				platform: 'youtube',
-				status: 'partial',
-				initial_items_discovered: 250,
-				initial_completed_at: '2026-08-31T12:00:00Z'
-			})
-		).toBe(true);
-		expect(
-			hasLimitedAccountHistory({
-				account_id: 'account-2',
-				platform: 'discord',
-				status: 'unsupported',
-				initial_items_discovered: 0
-			})
-		).toBe(true);
 	});
 
 	it('does not treat an insufficient low sample as a ranking', () => {

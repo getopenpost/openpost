@@ -5585,27 +5585,6 @@ export interface components {
             /** Format: int64 */
             workspaces: number;
         };
-        AccountDiscoveryCoverage: {
-            account_id: string;
-            /** Format: date-time */
-            backfill_watermark?: string;
-            description?: string;
-            failure_code?: string;
-            failure_message?: string;
-            /** Format: date-time */
-            initial_completed_at?: string;
-            /** Format: int64 */
-            initial_items_discovered: number;
-            /** Format: date-time */
-            last_attempted_at?: string;
-            /** Format: date-time */
-            last_success_at?: string;
-            /** Format: date-time */
-            next_eligible_at?: string;
-            platform: string;
-            /** @enum {string} */
-            status: "complete" | "partial" | "permission_required" | "rate_limited" | "cost_limited" | "unsupported" | "failed";
-        };
         AccountExport: {
             /**
              * Format: uri
@@ -7053,20 +7032,14 @@ export interface components {
             published_at: string;
             reference: components["schemas"]["ContentReference"];
             rendition_id?: string;
-            /** @enum {string} */
-            source: "openpost" | "external";
             stale: boolean;
             status: string;
             title: string;
             username: string;
         };
         ContentReference: {
-            account_content_id: string;
-            /** @enum {string} */
-            type: "external";
-        } | {
-            publication_id: string;
-            rendition_id: string;
+            publication_id?: string;
+            rendition_id?: string;
             /** @enum {string} */
             type: "openpost";
         };
@@ -9553,8 +9526,6 @@ export interface components {
             /** Format: date-time */
             published_at: string;
             reference: components["schemas"]["ContentReference"];
-            /** @enum {string} */
-            source: "openpost" | "external";
             title: string;
             username: string;
         };
@@ -10884,7 +10855,6 @@ export interface components {
             content_next_cursor?: string;
             /** Format: int64 */
             content_total: number;
-            coverage: components["schemas"]["AccountDiscoveryCoverage"][] | null;
             follower_series: components["schemas"]["SeriesPoint"][] | null;
             /** Format: date-time */
             generated_at: string;
@@ -10897,8 +10867,6 @@ export interface components {
             publications: components["schemas"]["PublicationOverview"][] | null;
             /** Format: int64 */
             range_days: number;
-            /** @enum {string} */
-            source: "all" | "openpost" | "external";
             summary: components["schemas"]["Summary"];
             trends: components["schemas"]["TrendSeries"];
         };
@@ -11397,8 +11365,6 @@ export interface components {
         };
         ProviderReadinessAccount: {
             analytics?: components["schemas"]["Decision"];
-            discovery?: components["schemas"]["Decision"];
-            observation?: components["schemas"]["Decision"];
             social_account_id: string;
         };
         ProviderReadinessItem: {
@@ -12389,7 +12355,7 @@ export interface components {
         };
         RepurposeProvenance: {
             /** @enum {string} */
-            origin: "openpost" | "external";
+            origin: "openpost";
             platform: string;
             /** Format: date-time */
             published_at: string;
@@ -17611,8 +17577,6 @@ export interface operations {
                 days?: number;
                 /** @description Optional social account ID used to filter results and content totals */
                 account_id?: string;
-                /** @description Content source filter; account growth remains account-wide */
-                source?: "all" | "openpost" | "external";
                 /** @description Stored result ordering */
                 sort?: "engagement" | "views" | "newest";
                 /** @description Opaque source-bound content cursor */

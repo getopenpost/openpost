@@ -29,7 +29,6 @@ const (
 	pinterestMediaPollMaxDelay           = 16 * time.Second
 	pinterestPinReconcileDelay           = 30 * time.Second
 	pinterestPinReferencePrefix          = "pin1:"
-	pinterestDiscoveryPageSize           = 1
 	pinterestAnalyticsMaxWindow          = 90 * 24 * time.Hour
 	pinterestAnalyticsSource             = "pinterest_analytics_api"
 )
@@ -1297,101 +1296,6 @@ func validatePinterestMedia(media []MediaItem) []MediaValidationIssue {
 		issues = append(issues, MediaValidationIssue{Provider: providerPinterest, Severity: severityError, Message: "Pinterest supports at most five images."})
 	}
 	return issues
-}
-
-func (p *PinterestAdapter) AccountContentDiscoverySupport(AnalyticsAccountContext) AccountContentDiscoverySupport {
-	return AccountContentDiscoverySupport{
-		Supported: true, RequiredScopes: []string{"pins:read"}, MaxPageSize: pinterestDiscoveryPageSize,
-	}
-}
-
-type pinterestPin struct {
-	ID          string `json:"id"`
-	CreatedAt   string `json:"created_at"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Media       struct {
-		MediaType string `json:"media_type"`
-	} `json:"media"`
-}
-
-func (p *PinterestAdapter) DiscoverAccountContent(ctx context.Context, accessToken string, input AccountContentDiscoveryRequest) (AccountContentPage, error) {
-	pageSize := min(max(1, input.PageSize), pinterestDiscoveryPageSize)
-	query := url.Values{"page_size": {strconv.Itoa(pageSize)}, "pin_filter": {"ORGANIC"}}
-	if bookmark := strings.TrimSpace(input.Cursor); bookmark != "" {
-		query.Set("bookmark", bookmark)
-	}
-	response, err := pinterestGetPage[pinterestPin](ctx, accessToken, pinterestAPIBaseURL+"/pins?"+query.Encode(), "Pins")
-	if err != nil {
-		return AccountContentPage{}, err
-	}
-	page := AccountContentPage{Coverage: AccountContentCoverage{
-		Status: AccountContentDiscoveryComplete, Description: "Pins in the requested account history window are complete.",
-	}}
-	reachedLowerBound := false
-	seen := map[string]struct{}{}
-	for _, pin := range response.Items {
-		publishedAt, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(pin.CreatedAt))
-		if parseErr != nil || (!input.PublishedAfter.IsZero() && publishedAt.Before(input.PublishedAfter)) {
-			reachedLowerBound = reachedLowerBound || parseErr == nil
-			continue
-		}
-		if _, duplicate := seen[pin.ID]; duplicate {
-			continue
-		}
-		seen[pin.ID] = struct{}{}
-		item, normalizeErr := NormalizeAccountContentItem(providerPinterest, AccountContentItem{
-			ProviderContentID: pin.ID, ContentProfile: pinterestPinContentProfile(pin.Media.MediaType),
-			Title: pin.Title, Text: pin.Description, ExternalURL: pinterestPinURL(pin.ID), PublishedAt: publishedAt,
-			Origin: AccountContentOriginExternal, OriginConfidence: AccountContentOriginConfidenceExact,
-		})
-		if normalizeErr != nil {
-			continue
-		}
-		page.Items = append(page.Items, item)
-		if page.BackfillWatermark.IsZero() || publishedAt.Before(page.BackfillWatermark) {
-			page.BackfillWatermark = publishedAt
-		}
-	}
-	if reachedLowerBound || response.Bookmark == "" || response.Bookmark == input.Cursor {
-		return page, nil
-	}
-	page.NextCursor = response.Bookmark
-	page.Coverage.Status = AccountContentDiscoveryPartial
-	page.Coverage.Description = "More Pins remain within the requested account history window."
-	return page, nil
-}
-
-func pinterestPinContentProfile(mediaType string) string {
-	switch strings.ToLower(strings.TrimSpace(mediaType)) {
-	case "video":
-		return "short_video"
-	case "multiple_images", "multiple_image", "carousel":
-		return "carousel"
-	default:
-		return "image_post"
-	}
-}
-
-func (p *PinterestAdapter) FetchAccountContentBatchMeasurements(
-	ctx context.Context,
-	accessToken string,
-	input AccountContentBatchMeasurementRequest,
-) (AccountContentBatchMeasurements, error) {
-	result := AccountContentBatchMeasurements{}
-	for _, id := range uniqueNonEmpty(input.ProviderContentIDs) {
-		if !pinterestProviderID.MatchString(id) {
-			continue
-		}
-		measurements, err := p.fetchPinterestAnalytics(
-			ctx, accessToken, pinterestAPIBaseURL+"/pins/"+url.PathEscape(id)+"/analytics", input.PeriodStart, input.PeriodEnd,
-		)
-		if err != nil {
-			return nil, err
-		}
-		result[id] = measurements
-	}
-	return result, nil
 }
 
 type pinterestBoard struct {

@@ -1,7 +1,7 @@
 <!--
 THESIS: Analytics explains stored account and content measurements without hiding provider limits.
 OWN-WORLD: It uses OpenPost's flat borders, compact controls, and provider marks.
-STORY: Read exact totals, verify evidence, then inspect managed and external content in one list.
+STORY: Read exact totals, verify evidence, then inspect published content in one list.
 FIRST VIEWPORT: The reporting window, refresh action, metric ledger, and unified follower trend are visible without scrolling.
 FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
@@ -46,12 +46,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import { analyticsMetricLabel } from '$lib/analytics-metric-label';
 	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import {
-		analyticsSourceLabelKey,
 		appendAnalyticsContentPage,
 		hasEngagementMeasurement,
-		hasLimitedAccountHistory,
 		insightHasRanking,
-		isBuildingAccountHistory,
 		type AnalyticsSortMode
 	} from '$lib/analytics-overview';
 	import { allFeatureEffectiveDisabled, collectiveDisabledReason } from '$lib/feature-disabled';
@@ -60,11 +57,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	type AnalyticsAccount = components['schemas']['AccountOverview'];
 	type AnalyticsContent = components['schemas']['ContentOverview'];
 	type AnalyticsInsight = components['schemas']['Insight'];
-	type AccountDiscoveryCoverage = components['schemas']['AccountDiscoveryCoverage'];
 	type AnalyticsMetricMetadata = components['schemas']['AnalyticsMetricMetadata'];
 	type MetricSummary = components['schemas']['MetricSummary'];
 	type RangeDays = 7 | 30 | 90;
-	type ContentSource = 'all' | 'openpost' | 'external';
 	type ChartMetric = 'followers' | 'engagement' | 'views';
 
 	let rangeDays = $state<RangeDays>(30);
@@ -72,7 +67,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	let selectedAccountWorkspaceID = $state('');
 	let chartMetric = $state<ChartMetric>('views');
 	let sortMode = $state<AnalyticsSortMode>('engagement');
-	let sourceFilter = $state<ContentSource>('all');
 	let expandedContentID = $state('');
 	let refreshing = $state(false);
 	let refreshSequence = 0;
@@ -88,7 +82,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		analyticsOverviewQueryOptions(analyticsQueryAPI, currentWorkspaceID, {
 			days: rangeDays,
 			accountId: queryAccountID === 'all' ? undefined : queryAccountID,
-			source: sourceFilter,
 			sort: sortMode,
 			limit: 50
 		})
@@ -124,9 +117,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	);
 	const contentItems = $derived(overview?.content ?? []);
 	const analyticsInsights = $derived(overview?.insights ?? []);
-	const accountCoverage = $derived(overview?.coverage ?? []);
-	const buildingCoverage = $derived(accountCoverage.filter(isBuildingAccountHistory));
-	const hasLimitedCoverage = $derived(accountCoverage.some(hasLimitedAccountHistory));
 	const selectedAccount = $derived(
 		queryAccountID === 'all'
 			? undefined
@@ -521,45 +511,12 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		return '';
 	}
 
-	function coverageStatusLabel(coverage: AccountDiscoveryCoverage) {
-		if (isBuildingAccountHistory(coverage)) return m.analytics_history_building();
-		switch (coverage.status) {
-			case 'complete':
-				return m.analytics_history_complete();
-			case 'partial':
-				return m.analytics_history_partial();
-			case 'permission_required':
-				return m.analytics_history_permission_required();
-			case 'rate_limited':
-				return m.analytics_history_rate_limited();
-			case 'cost_limited':
-				return m.analytics_history_cost_limited();
-			case 'unsupported':
-				return m.analytics_history_unsupported();
-			default:
-				return m.analytics_history_failed();
-		}
-	}
-
-	function coverageAccount(coverage: AccountDiscoveryCoverage) {
-		const account = accounts.find((candidate) => candidate.id === coverage.account_id);
-		return account ? accountLabel(account) : getPlatformName(coverage.platform);
-	}
-
 	function contentIdentity(item: AnalyticsContent) {
-		return item.reference.type === 'external'
-			? `external:${item.reference.account_content_id ?? ''}`
-			: `openpost:${item.reference.rendition_id ?? ''}`;
+		return `openpost:${item.reference.rendition_id ?? ''}`;
 	}
 
 	function contentLabel(item: AnalyticsContent) {
 		return item.title || item.excerpt || m.analytics_untitled_publication();
-	}
-
-	function sourceLabel(source: AnalyticsContent['source']) {
-		return analyticsSourceLabelKey(source) === 'published_elsewhere'
-			? m.analytics_source_published_elsewhere()
-			: m.analytics_source_published_with_openpost();
 	}
 
 	function insightTitle(insight: AnalyticsInsight) {
@@ -888,72 +845,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</div>
 			</section>
 
-			{#if accountCoverage.length}
-				<section
-					class="overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
-					aria-labelledby="analytics-history-heading"
-					data-testid="analytics-history-coverage"
-				>
-					<div class="border-b border-border px-4 py-3">
-						<h2 id="analytics-history-heading" class="text-sm font-semibold">
-							{buildingCoverage.length
-								? m.analytics_history_building()
-								: m.analytics_history_title()}
-						</h2>
-						<p class="mt-1 text-xs leading-5 text-muted-foreground">
-							{m.analytics_history_description()}
-						</p>
-					</div>
-					<div class="grid gap-px bg-border sm:grid-cols-2 md:grid-cols-3">
-						{#each accountCoverage as coverage (coverage.account_id)}
-							<article
-								class="min-w-0 bg-card px-4 py-3"
-								data-testid={`analytics-coverage-${coverage.account_id}`}
-							>
-								<div class="flex min-w-0 items-center gap-2">
-									<PlatformIcon platform={coverage.platform} class="size-4 shrink-0" />
-									<p class="min-w-0 truncate text-sm font-medium">
-										{coverageAccount(coverage)}
-									</p>
-								</div>
-								<p class="mt-2 text-xs font-medium">{coverageStatusLabel(coverage)}</p>
-								{#if coverage.description}
-									<p class="mt-1 text-xs leading-5 text-muted-foreground">
-										{coverage.description}
-									</p>
-								{/if}
-								<div class="mt-2 space-y-0.5 text-xs leading-5 text-muted-foreground">
-									{#if coverage.initial_items_discovered > 0 || isBuildingAccountHistory(coverage)}
-										<p>
-											{m.analytics_history_items({ count: coverage.initial_items_discovered })}
-										</p>
-									{/if}
-									{#if coverage.backfill_watermark}
-										<p>
-											{m.analytics_history_since({
-												date: formatDate(coverage.backfill_watermark)
-											})}
-										</p>
-									{/if}
-									{#if coverage.last_success_at}
-										<p>
-											{m.analytics_history_last_success({
-												date: formatDateTime(coverage.last_success_at)
-											})}
-										</p>
-									{/if}
-									{#if hasLimitedAccountHistory(coverage)}
-										<p class="font-medium text-foreground">
-											{m.analytics_history_limited_note()}
-										</p>
-									{/if}
-								</div>
-							</article>
-						{/each}
-					</div>
-				</section>
-			{/if}
-
 			{#if !hasMeasurements}
 				<InlineNotice tone="info" message={m.analytics_waiting_description()} />
 			{/if}
@@ -1179,7 +1070,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 												/>
 												<span>{getPlatformName(insight.content.platform)}</span>
 											</p>
-											<p>{sourceLabel(insight.content.source)}</p>
 										</div>
 									{/if}
 									{#if insightCaveat(insight)}
@@ -1207,27 +1097,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						</p>
 					</div>
 					<div class="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
-						<div
-							class="flex min-w-0 items-center rounded-md border border-border p-0.5"
-							role="group"
-							aria-label={m.analytics_source_filter_label()}
-						>
-							{#each ['all', 'openpost', 'external'] as source (source)}
-								<Button
-									size="sm"
-									variant={sourceFilter === source ? 'secondary' : 'ghost'}
-									class="min-w-0 flex-1 border-transparent sm:flex-none"
-									aria-pressed={sourceFilter === source}
-									onclick={() => (sourceFilter = source as ContentSource)}
-								>
-									{source === 'all'
-										? m.analytics_source_all()
-										: source === 'openpost'
-											? m.analytics_source_openpost()
-											: m.analytics_source_external()}
-								</Button>
-							{/each}
-						</div>
 						<Select.Root
 							type="single"
 							value={sortMode}
@@ -1277,7 +1146,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								<article data-testid="analytics-content-row">
 									<div class="analytics-content-grid grid min-w-0 gap-4 px-4 py-4">
 										<div class="min-w-0">
-											{#if item.reference.type === 'openpost' && item.reference.publication_id}
+											{#if item.reference.publication_id}
 												<a
 													href={resolve('/publications/[id]', {
 														id: item.reference.publication_id
@@ -1303,14 +1172,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											</span>
 											<span class="min-w-0">
 												<span class="block truncate text-xs">{renditionName(item)}</span>
-												<span
-													class="block truncate text-xs text-muted-foreground"
-													title={sourceLabel(item.source)}
-													data-testid={`analytics-source-${id}`}
-													>{item.source === 'external'
-														? m.analytics_source_external()
-														: m.analytics_source_openpost()}</span
-												>
 											</span>
 										</div>
 										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
@@ -1462,9 +1323,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 									total: overview?.content_total ?? contentItems.length
 								})}
 							</p>
-							{#if hasLimitedCoverage}
-								<p>{m.analytics_history_limited_note()}</p>
-							{/if}
 						</div>
 						{#if overview?.content_next_cursor}
 							<Button variant="outline" onclick={loadMoreContent} disabled={loadingMore}>

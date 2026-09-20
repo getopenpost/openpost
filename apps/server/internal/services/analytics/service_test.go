@@ -47,20 +47,16 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestOverviewCursorCannotCrossWorkspaceAccountSortSourceRevisionOrSignature(t *testing.T) {
+func TestOverviewCursorCannotCrossWorkspaceAccountSortRevisionOrSignature(t *testing.T) {
 	service := NewService(nil, nil)
-	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "all", Sort: "newest", Limit: 1})
+	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1})
 	cursor := service.encodeOverviewNextCursor("workspace-a", 0, 1, 2, options, 30, "revision-a", time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC))
 	options.AccountID = "account-b"
 	options.Cursor = cursor
 	_, err := service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
 
-	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "external", Sort: "newest", Limit: 1, Cursor: cursor})
-	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
-	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
-
-	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "all", Sort: "newest", Limit: 1, Cursor: cursor})
+	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1, Cursor: cursor})
 	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-b")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
 

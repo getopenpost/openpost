@@ -3,10 +3,8 @@ package platform
 import (
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -254,51 +252,6 @@ func TestLemmyComments(t *testing.T) {
 	require.NoError(t, adapter.LikeComment(t.Context(), "lemmy-jwt", "5", comments[0].ID))
 	require.NoError(t, adapter.UnlikeComment(t.Context(), "lemmy-jwt", "5", comments[0].ID))
 	require.NoError(t, adapter.DeleteComment(t.Context(), "lemmy-jwt", "5", replyID))
-}
-
-func TestLemmyAccountContentDiscovery(t *testing.T) {
-	server, _ := newFakeLemmy(t)
-	defer server.Close()
-
-	adapter := NewLemmyAdapter(server.URL)
-	page, err := adapter.DiscoverAccountContent(t.Context(), "lemmy-jwt", AccountContentDiscoveryRequest{AccountID: "5"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 1, "only the connected person's own posts are account content")
-	require.Equal(t, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), page.Items[0].PublishedAt)
-	require.Equal(t, "https://remote.example/post/100", page.Items[0].ExternalURL)
-	require.Equal(t, "Why I self-host", page.Items[0].Title)
-	require.Empty(t, page.NextCursor, "a short page ends discovery")
-}
-
-func TestLemmyAccountContentDiscoveryPagesThroughPersonPosts(t *testing.T) {
-	var pages []string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/api/v3/user", r.URL.Path)
-		query := r.URL.Query()
-		require.Equal(t, "5", query.Get("person_id"))
-		require.Equal(t, "New", query.Get("sort"))
-		pages = append(pages, query.Get("page"))
-		posts := []string{}
-		if query.Get("page") == "1" {
-			for id := 1; id <= 20; id++ {
-				posts = append(posts, `{"post":{"id":`+strconv.Itoa(id)+`,"creator_id":5,"name":"Post","ap_id":"https://home.example/post/`+strconv.Itoa(id)+`","published":"2026-09-01T10:00:00Z"},"counts":{}}`)
-			}
-		}
-		_, _ = w.Write([]byte(`{"person_view":{"person":{"id":5,"name":"rodrigo"},"counts":{}},"comments":[],"posts":[` + strings.Join(posts, ",") + `],"moderates":[]}`))
-	}))
-	defer server.Close()
-
-	adapter := NewLemmyAdapter(server.URL)
-	first, err := adapter.DiscoverAccountContent(t.Context(), "lemmy-jwt", AccountContentDiscoveryRequest{AccountID: "5"})
-	require.NoError(t, err)
-	require.Len(t, first.Items, 20)
-	require.Equal(t, "2", first.NextCursor, "a full page continues on the next page")
-
-	second, err := adapter.DiscoverAccountContent(t.Context(), "lemmy-jwt", AccountContentDiscoveryRequest{AccountID: "5", Cursor: first.NextCursor})
-	require.NoError(t, err)
-	require.Empty(t, second.Items)
-	require.Empty(t, second.NextCursor)
-	require.Equal(t, []string{"1", "2"}, pages)
 }
 
 func TestLemmyAnalytics(t *testing.T) {

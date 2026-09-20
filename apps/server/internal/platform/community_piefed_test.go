@@ -213,18 +213,6 @@ func TestPieFedDeleteReplyMarksItDeleted(t *testing.T) {
 	require.Equal(t, map[string]any{"comment_id": float64(22), "deleted": true}, payload)
 }
 
-func TestPieFedAccountContentDiscovery(t *testing.T) {
-	server := newFakePieFed(t)
-	defer server.Close()
-
-	adapter := NewPieFedAdapter(server.URL)
-	page, err := adapter.DiscoverAccountContent(t.Context(), "piefed-jwt", AccountContentDiscoveryRequest{AccountID: "6"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 1, "only the connected person's own posts are account content")
-	require.Equal(t, "https://piefed.social/post/200", page.Items[0].ExternalURL)
-	require.Empty(t, page.NextCursor)
-}
-
 func TestPieFedCommentsReadTheAccountVote(t *testing.T) {
 	// Every PieFed comment view carries my_vote for the authenticated
 	// account: 1 for an upvote, -1 for a downvote, 0 for no vote.

@@ -19,7 +19,6 @@ import (
 )
 
 var httpClient = newDefaultHTTPClient()
-var defaultPlatformHTTPClient = httpClient
 
 type TransportFailureKind string
 

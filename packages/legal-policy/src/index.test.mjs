@@ -137,7 +137,7 @@ test("managed data has an owned purpose, retention rule, and deletion trigger", 
 test("analytics disclosures match the rendered privacy page and stay consent-gated", () => {
   const analytics = privacyInventory.managed_retention.find(({ id }) => id === "analytics-usage");
   assert.ok(analytics);
-  assert.match(analytics.includes, /bounded titles and text.*published outside OpenPost/u);
+  assert.match(analytics.includes, /content published through OpenPost/u);
   assert.match(
     analytics.exceptions,
     /do not retain raw provider responses, remote media bytes, access tokens, bot tokens, or webhook secrets/u,
@@ -147,13 +147,10 @@ test("analytics disclosures match the rendered privacy page and stay consent-gat
     `${repositoryRoot}apps/marketing/src/routes/privacy/+page.svelte`,
     "utf8",
   );
+  assert.match(policy, /posts published through\s+OpenPost/u);
   assert.match(
     policy,
-    /bounded titles and text for eligible content published\s+outside OpenPost/u,
-  );
-  assert.match(
-    policy,
-    /do not contain raw platform replies, remote media, access tokens, bot tokens,\s+webhook secrets/u,
+    /do not contain\s+raw platform replies,\s+remote media, access tokens, bot tokens,\s+webhook secrets/u,
   );
   assert.match(policy, /We do not send post content[\s\S]*telemetry properties/u);
 

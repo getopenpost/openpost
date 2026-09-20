@@ -573,67 +573,6 @@ func (l *LemmyAdapter) FetchContentAnalytics(ctx context.Context, accessToken st
 	return total, nil
 }
 
-func (l *LemmyAdapter) AccountContentDiscoverySupport(input AnalyticsAccountContext) AccountContentDiscoverySupport {
-	if strings.TrimSpace(input.AccountID) == "" {
-		return AccountContentDiscoverySupport{UnavailableReason: "Lemmy account content discovery requires a stable account identity."}
-	}
-	// Pages are numbered at a fixed size, so the job must not ask for less.
-	return AccountContentDiscoverySupport{Supported: true, MinPageSize: lemmyAccountContentPageSize, MaxPageSize: lemmyAccountContentPageSize}
-}
-
-func (l *LemmyAdapter) DiscoverAccountContent(ctx context.Context, accessToken string, input AccountContentDiscoveryRequest) (AccountContentPage, error) {
-	personID, err := strconv.ParseInt(strings.TrimSpace(input.AccountID), 10, 64)
-	if err != nil || personID <= 0 {
-		return AccountContentPage{}, NewAccountContentDiscoveryError(AccountContentDiscoveryUnsupported, "invalid_account", 0)
-	}
-	pageNumber := 1
-	if parsed, err := strconv.Atoi(strings.TrimSpace(input.Cursor)); err == nil && parsed > 1 {
-		pageNumber = parsed
-	}
-	// API v3 post listing has no creator filter and ignores unknown query
-	// parameters, so a person's own posts come from their person details.
-	params := url.Values{
-		"person_id": {strconv.FormatInt(personID, 10)},
-		"sort":      {"New"},
-		"limit":     {strconv.Itoa(lemmyAccountContentPageSize)},
-		"page":      {strconv.Itoa(pageNumber)},
-	}
-	response, err := communityJSONGet[struct {
-		Posts []lemmyPostView `json:"posts"`
-	}](ctx, l.instanceURL, "/api/v3/user", params, accessToken, "lemmy account content")
-	if err != nil {
-		return AccountContentPage{}, socialAccountContentDiscoveryError(err)
-	}
-	page := AccountContentPage{Coverage: AccountContentCoverage{
-		Status:      AccountContentDiscoveryPartial,
-		Description: "Only posts visible through the authenticated Lemmy instance are included.",
-	}}
-	for _, view := range response.Posts {
-		post := view.Post
-		item, ok := normalizeCommunityAccountContent(
-			providerLemmy, l.instanceURL, post.ID, lemmyAccountContentProfile(post), post.Name,
-			post.Body, post.ActorID, post.Published, input.PublishedAfter,
-		)
-		if !ok {
-			continue
-		}
-		appendCommunityAccountContent(&page, item)
-	}
-	if len(response.Posts) >= lemmyAccountContentPageSize {
-		page.NextCursor = strconv.Itoa(pageNumber + 1)
-	}
-	return page, nil
-}
-
-const lemmyAccountContentPageSize = 20
-
-func lemmyAccountContentProfile(post lemmyPost) string {
-	if post.URL != nil && strings.TrimSpace(*post.URL) != "" {
-		return "link_share"
-	}
-	return "short_text"
-}
-
 func stringValue(value *string) string {
 	if value == nil {
 		return ""

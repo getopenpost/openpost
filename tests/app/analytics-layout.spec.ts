@@ -70,7 +70,6 @@ for (const [themeID, scheme] of [
           route.fulfill({
             json: {
               range_days: 30,
-              source: "all",
               content_total: content.length,
               summary: {
                 followers: {
@@ -214,17 +213,7 @@ for (const [themeID, scheme] of [
         ).toBeVisible();
         await details.click();
         await expect(details).toHaveAttribute("aria-expanded", "false");
-        const source = page.getByRole("group", { name: "Content source" });
-        const filtered = page.waitForRequest(
-          (req) =>
-            req.url().includes("/analytics?") &&
-            new URL(req.url()).searchParams.get("source") === "external",
-        );
-        await source.getByRole("button", { name: "Elsewhere", exact: true }).click();
-        await filtered;
-        await expect(
-          source.getByRole("button", { name: "Elsewhere", exact: true }),
-        ).toHaveAttribute("aria-pressed", "true");
+        await expect(page.getByRole("group", { name: "Content source" })).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
           true,
         );

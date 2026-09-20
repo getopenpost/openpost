@@ -23,12 +23,6 @@ type MastodonServerConfig struct {
 	InstanceURL  string `json:"instance_url"`
 }
 
-type AnalyticsSourceConfig struct {
-	Platform    string `json:"platform"`
-	BaseURL     string `json:"base_url"`
-	BearerToken string `json:"bearer_token"`
-}
-
 // defaultDiagnosticsReceiverURL is the official OpenPost diagnostics
 // receiver. Instances report here unless the operator overrides
 // OPENPOST_DIAGNOSTICS_RECEIVER_URL or disables reporting with
@@ -130,15 +124,14 @@ type Config struct {
 	SMTPTLSMode    string
 	SMTPServerName string
 
-	TwitterClientID                   string
-	TwitterClientSecret               string
-	TwitterRedirectURI                string
-	XMonthlyBudgetMicrousd            int64
-	XPostCreateCostMicrousd           int64
-	XPostCreateWithURLCostMicrousd    int64
-	XEngagementDailyReadBudget        int
-	XAccountHistoryReadRequestsPerDay int
-	ProviderUsageRetentionDays        int
+	TwitterClientID                string
+	TwitterClientSecret            string
+	TwitterRedirectURI             string
+	XMonthlyBudgetMicrousd         int64
+	XPostCreateCostMicrousd        int64
+	XPostCreateWithURLCostMicrousd int64
+	XEngagementDailyReadBudget     int
+	ProviderUsageRetentionDays     int
 
 	MastodonRedirectURI string
 	MastodonServers     []MastodonServerConfig
@@ -155,7 +148,6 @@ type Config struct {
 	ThreadsRedirectURI  string
 
 	ProviderApps                  []platform.AppConfig
-	AnalyticsSources              []AnalyticsSourceConfig
 	ConnectorsFile                string
 	DisabledProviders             []string
 	ProviderCertificationEnforced bool
@@ -185,7 +177,6 @@ type Config struct {
 	PaddleAgencyMonthlyPriceID  string
 	PaddleAgencyAnnualPriceID   string
 
-	analyticsSourcesParseErr error
 	encryptionKeyringLoadErr error
 }
 
@@ -335,15 +326,14 @@ func Load() *Config {
 		SMTPTLSMode:    getEnvEnum("OPENPOST_SMTP_TLS_MODE", "starttls", "starttls", "tls", "none"),
 		SMTPServerName: getEnvDefault("OPENPOST_SMTP_SERVER_NAME", ""),
 
-		TwitterClientID:                   getEnvWithFallbacks("X_CLIENT_ID", "", "TWITTER_CLIENT_ID"),
-		TwitterClientSecret:               getEnvWithFallbacks("X_CLIENT_SECRET", "", "TWITTER_CLIENT_SECRET"),
-		TwitterRedirectURI:                oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", frontendURL, "/api/v1/accounts/x/callback"),
-		XMonthlyBudgetMicrousd:            getEnvInt64("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", 5_000_000),
-		XPostCreateCostMicrousd:           getEnvInt64("OPENPOST_X_POST_CREATE_COST_MICROUSD", 15_000),
-		XPostCreateWithURLCostMicrousd:    getEnvInt64("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", 200_000),
-		XEngagementDailyReadBudget:        getEnvInt("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", 12),
-		XAccountHistoryReadRequestsPerDay: getEnvInt("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY", 0),
-		ProviderUsageRetentionDays:        getEnvInt("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", 180),
+		TwitterClientID:                getEnvWithFallbacks("X_CLIENT_ID", "", "TWITTER_CLIENT_ID"),
+		TwitterClientSecret:            getEnvWithFallbacks("X_CLIENT_SECRET", "", "TWITTER_CLIENT_SECRET"),
+		TwitterRedirectURI:             oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", frontendURL, "/api/v1/accounts/x/callback"),
+		XMonthlyBudgetMicrousd:         getEnvInt64("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", 5_000_000),
+		XPostCreateCostMicrousd:        getEnvInt64("OPENPOST_X_POST_CREATE_COST_MICROUSD", 15_000),
+		XPostCreateWithURLCostMicrousd: getEnvInt64("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", 200_000),
+		XEngagementDailyReadBudget:     getEnvInt("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", 12),
+		ProviderUsageRetentionDays:     getEnvInt("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", 180),
 
 		// Mastodon's OOB flow uses a special URI scheme rather than a
 		// real callback URL, so we don't derive from FrontendURL here.
@@ -416,7 +406,6 @@ func finalizeLoadedConfig(cfg *Config, encryptionKeyIDErr error) {
 			cfg.ProviderApps = mergeProviderApps(cfg.ProviderApps, defaultProviderAppConfig(cfg, apps)...)
 		}
 	}
-	loadAnalyticsSources(cfg)
 	loadPreviousEncryptionKeys(cfg)
 	mediaSigningKey, mediaSigningKeyErr := getEncryptionKeyringEnvDefault("OPENPOST_MEDIA_SIGNING_KEY", cfg.EncryptionKey)
 	cfg.MediaSigningKey = mediaSigningKey
@@ -620,30 +609,6 @@ func parseStringList(raw string) []string {
 	return values
 }
 
-func normalizeAnalyticsSources(sources []AnalyticsSourceConfig) []AnalyticsSourceConfig {
-	normalized := make([]AnalyticsSourceConfig, 0, len(sources))
-	for _, source := range sources {
-		source.Platform = strings.ToLower(strings.TrimSpace(source.Platform))
-		source.BaseURL = strings.TrimRight(strings.TrimSpace(source.BaseURL), "/")
-		source.BearerToken = strings.TrimSpace(source.BearerToken)
-		normalized = append(normalized, source)
-	}
-	return normalized
-}
-
-func loadAnalyticsSources(cfg *Config) {
-	raw := getEnvDefault("OPENPOST_ANALYTICS_SOURCES", "")
-	if raw == "" {
-		return
-	}
-	var sources []AnalyticsSourceConfig
-	if err := json.Unmarshal([]byte(raw), &sources); err != nil {
-		cfg.analyticsSourcesParseErr = fmt.Errorf("OPENPOST_ANALYTICS_SOURCES must be valid JSON: %w", err)
-		return
-	}
-	cfg.AnalyticsSources = normalizeAnalyticsSources(sources)
-}
-
 func loadPreviousEncryptionKeys(cfg *Config) {
 	raw, err := getEncryptionKeyringEnvDefault("OPENPOST_ENCRYPTION_PREVIOUS_KEYS", "")
 	if err != nil {
@@ -710,9 +675,6 @@ func (c *Config) ValidateRuntime() error {
 	if err := c.ValidateManagedSettings(); err != nil {
 		return err
 	}
-	if err := c.validateAnalyticsSources(); err != nil {
-		return err
-	}
 	if err := c.validateProxyAuthentication(); err != nil {
 		return err
 	}
@@ -721,9 +683,6 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if _, err := platform.NormalizeDiscordPresenceStreamURL(c.DiscordPresenceStreamURL); err != nil {
 		return fmt.Errorf("OPENPOST_DISCORD_PRESENCE_STREAM_URL: %w", err)
-	}
-	if c.XAccountHistoryReadRequestsPerDay < 0 {
-		return fmt.Errorf("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")
 	}
 	if c.Edition != EditionCloud {
 		return nil
@@ -855,48 +814,6 @@ func validateEncryptionKeyID(keyID string) error {
 		return fmt.Errorf("key IDs may contain only letters, numbers, periods, underscores, and hyphens")
 	}
 	return nil
-}
-
-func (c *Config) validateAnalyticsSources() error {
-	if c.analyticsSourcesParseErr != nil {
-		return c.analyticsSourcesParseErr
-	}
-	if len(c.AnalyticsSources) == 0 {
-		return nil
-	}
-	invalid := make([]string, 0, len(c.AnalyticsSources))
-	seenPlatforms := make(map[string]struct{}, len(c.AnalyticsSources))
-	for _, source := range c.AnalyticsSources {
-		invalid = append(invalid, analyticsSourceValidationIssues(source, seenPlatforms)...)
-	}
-	if len(invalid) == 0 {
-		return nil
-	}
-	sort.Strings(invalid)
-	return fmt.Errorf("OPENPOST_ANALYTICS_SOURCES invalid: %s", strings.Join(invalid, ", "))
-}
-
-func analyticsSourceValidationIssues(source AnalyticsSourceConfig, seenPlatforms map[string]struct{}) []string {
-	platformName := strings.TrimSpace(source.Platform)
-	invalid := make([]string, 0, 3)
-	if platformName == "" {
-		invalid = append(invalid, "platform is required")
-	} else if _, exists := seenPlatforms[platformName]; exists {
-		invalid = append(invalid, fmt.Sprintf("duplicate platform %q", platformName))
-	} else {
-		seenPlatforms[platformName] = struct{}{}
-	}
-	if strings.TrimSpace(source.BearerToken) == "" {
-		invalid = append(invalid, fmt.Sprintf("platform %q requires bearer_token", platformName))
-	}
-	parsed, err := url.Parse(strings.TrimSpace(source.BaseURL))
-	if err != nil || parsed == nil || !parsed.IsAbs() || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return append(invalid, fmt.Sprintf("platform %q requires an absolute http(s) URL", platformName))
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		invalid = append(invalid, fmt.Sprintf("platform %q base_url must not include credentials, query, or fragment", platformName))
-	}
-	return invalid
 }
 
 func (c *Config) missingCloudTelemetryConfig() []string {

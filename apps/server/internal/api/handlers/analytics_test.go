@@ -40,7 +40,7 @@ func (analyticsHandlerTokenSource) GetValidAccessToken(context.Context, string) 
 	return "token", nil
 }
 
-func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
+func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
 	db := createHandlerTestDB(
 		t,
 		(*models.WorkspaceMember)(nil),
@@ -49,9 +49,6 @@ func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
 		(*models.Rendition)(nil),
 		(*models.AnalyticsAccountSnapshot)(nil),
 		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AnalyticsAccountContentSnapshot)(nil),
-		(*models.AccountContent)(nil),
-		(*models.AccountContentDiscoveryState)(nil),
 		(*models.AnalyticsSyncState)(nil),
 	)
 	ctx := t.Context()
@@ -63,11 +60,17 @@ func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
 		AccountID: "channel-1", AccountUsername: "person", AccessTokenEnc: []byte("encrypted"), IsActive: true, CreatedAt: now,
 	}).Exec(ctx)
 	require.NoError(t, err)
-	contents := []models.AccountContent{
-		{ID: "external-1", WorkspaceID: "ws-1", SocialAccountID: "account-1", Platform: "youtube", ProviderContentID: "video-1", ContentProfile: models.ContentProfileLongVideo, Text: "one", PublishedAt: now.Add(-time.Hour), Origin: string(platform.AccountContentOriginExternal), OriginConfidence: string(platform.AccountContentOriginConfidenceExact), FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now},
-		{ID: "external-2", WorkspaceID: "ws-1", SocialAccountID: "account-1", Platform: "youtube", ProviderContentID: "video-2", ContentProfile: models.ContentProfileLongVideo, Text: "two", PublishedAt: now.Add(-2 * time.Hour), Origin: string(platform.AccountContentOriginExternal), OriginConfidence: string(platform.AccountContentOriginConfidenceExact), FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now},
+	_, err = db.NewInsert().Model(&models.Publication{
+		ID: "publication-1", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "Launch",
+		Intent: "post", ContentProfile: models.ContentProfileShortText, SourceText: "Launch",
+		Status: models.PublicationStatusPublished, ActualRunAt: now.Add(-time.Hour), CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	renditions := []models.Rendition{
+		{ID: "rendition-1", PublicationID: "publication-1", TargetKey: "post", SocialAccountID: "account-1", Platform: "youtube", Profile: "short_video", Status: models.RenditionStatusPublished, CreatedAt: now, UpdatedAt: now},
+		{ID: "rendition-2", PublicationID: "publication-1", TargetKey: "post", SocialAccountID: "account-1", Platform: "youtube", Profile: "short_video", Status: models.RenditionStatusPublished, CreatedAt: now, UpdatedAt: now},
 	}
-	_, err = db.NewInsert().Model(&contents).Exec(ctx)
+	_, err = db.NewInsert().Model(&renditions).Exec(ctx)
 	require.NoError(t, err)
 
 	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
@@ -75,52 +78,33 @@ func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
 
-	firstRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1", nil)
-	firstRequest.Header.Set("Authorization", "Bearer web-token")
-	firstResponse := httptest.NewRecorder()
-	e.ServeHTTP(firstResponse, firstRequest)
+	get := func(query string) *httptest.ResponseRecorder {
+		request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics"+query, nil)
+		request.Header.Set("Authorization", "Bearer web-token")
+		response := httptest.NewRecorder()
+		e.ServeHTTP(response, request)
+		return response
+	}
+
+	firstResponse := get("?workspace_id=ws-1&days=30&limit=1")
 	require.Equal(t, http.StatusOK, firstResponse.Code, firstResponse.Body.String())
 	var first analyticsservice.Overview
 	require.NoError(t, json.Unmarshal(firstResponse.Body.Bytes(), &first))
 	require.NotEmpty(t, first.ContentNextCursor)
+	require.Len(t, first.Content, 1)
 
-	mismatchRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=all&limit=1&cursor="+first.ContentNextCursor, nil)
-	mismatchRequest.Header.Set("Authorization", "Bearer web-token")
-	mismatchResponse := httptest.NewRecorder()
-	e.ServeHTTP(mismatchResponse, mismatchRequest)
+	mismatchResponse := get("?workspace_id=ws-1&days=30&limit=1&account_id=account-2&cursor=" + first.ContentNextCursor)
 	require.Equal(t, http.StatusBadRequest, mismatchResponse.Code, mismatchResponse.Body.String())
 
-	inserted := contents[0]
-	inserted.ID, inserted.ProviderContentID, inserted.Text = "external-3", "video-3", "inserted"
-	inserted.PublishedAt = now.Add(-30 * time.Minute)
+	inserted := renditions[0]
+	inserted.ID = "rendition-3"
 	_, err = db.NewInsert().Model(&inserted).Exec(ctx)
 	require.NoError(t, err)
-	insertedRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1&cursor="+first.ContentNextCursor, nil)
-	insertedRequest.Header.Set("Authorization", "Bearer web-token")
-	insertedResponse := httptest.NewRecorder()
-	e.ServeHTTP(insertedResponse, insertedRequest)
+	insertedResponse := get("?workspace_id=ws-1&days=30&limit=1&cursor=" + first.ContentNextCursor)
 	require.Equal(t, http.StatusBadRequest, insertedResponse.Code, insertedResponse.Body.String())
 
-	freshRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1", nil)
-	freshRequest.Header.Set("Authorization", "Bearer web-token")
-	freshResponse := httptest.NewRecorder()
-	e.ServeHTTP(freshResponse, freshRequest)
-	require.Equal(t, http.StatusOK, freshResponse.Code)
-	var fresh analyticsservice.Overview
-	require.NoError(t, json.Unmarshal(freshResponse.Body.Bytes(), &fresh))
-	_, err = db.NewUpdate().Model((*models.AccountContent)(nil)).Set("published_at = ?", now.Add(time.Minute)).Where("id = ?", "external-2").Exec(ctx)
-	require.NoError(t, err)
-	reorderedRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1&cursor="+fresh.ContentNextCursor, nil)
-	reorderedRequest.Header.Set("Authorization", "Bearer web-token")
-	reorderedResponse := httptest.NewRecorder()
-	e.ServeHTTP(reorderedResponse, reorderedRequest)
-	require.Equal(t, http.StatusBadRequest, reorderedResponse.Code, reorderedResponse.Body.String())
-
-	tampered := fresh.ContentNextCursor[:len(fresh.ContentNextCursor)-1] + "x"
-	tamperedRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30&source=external&limit=1&cursor="+tampered, nil)
-	tamperedRequest.Header.Set("Authorization", "Bearer web-token")
-	tamperedResponse := httptest.NewRecorder()
-	e.ServeHTTP(tamperedResponse, tamperedRequest)
+	tampered := first.ContentNextCursor[:len(first.ContentNextCursor)-1] + "x"
+	tamperedResponse := get("?workspace_id=ws-1&days=30&limit=1&cursor=" + tampered)
 	require.Equal(t, http.StatusBadRequest, tamperedResponse.Code, tamperedResponse.Body.String())
 }
 
@@ -132,8 +116,6 @@ func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
 		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AnalyticsAccountContentSnapshot)(nil),
-		(*models.AccountContent)(nil),
 	)
 	ctx := t.Context()
 	now := time.Now().UTC()
@@ -146,14 +128,16 @@ func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped
 	}
 	_, err = db.NewInsert().Model(&account).Exec(ctx)
 	require.NoError(t, err)
-	content := models.AccountContent{
-		ID: "external-1", WorkspaceID: "ws-1", SocialAccountID: account.ID, Platform: account.Platform,
-		ProviderContentID: "provider-secret", ContentProfile: models.ContentProfileShortText,
-		Title: "A useful lesson", Text: "Stored source text", PublishedAt: now.Add(-time.Hour),
-		Origin: string(platform.AccountContentOriginExternal), OriginConfidence: string(platform.AccountContentOriginConfidenceExact),
-		FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
-	}
-	_, err = db.NewInsert().Model(&content).Exec(ctx)
+	_, err = db.NewInsert().Model(&models.Publication{
+		ID: "publication-1", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "A useful lesson",
+		Intent: "post", ContentProfile: models.ContentProfileShortText, SourceText: "Stored source text",
+		Status: models.PublicationStatusPublished, ActualRunAt: now.Add(-time.Hour), CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Rendition{
+		ID: "rendition-1", PublicationID: "publication-1", TargetKey: "post", SocialAccountID: account.ID,
+		Platform: account.Platform, Profile: "short_text", Status: models.RenditionStatusPublished, CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
 	require.NoError(t, err)
 	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
 	e := echo.New()
@@ -168,15 +152,15 @@ func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped
 		e.ServeHTTP(response, request)
 		return response
 	}
-	body := `{"workspace_id":"ws-1","reference":{"type":"external","account_content_id":"external-1"},"range":{"days":30}}`
+	body := `{"workspace_id":"ws-1","reference":{"type":"openpost","publication_id":"publication-1","rendition_id":"rendition-1"},"range":{"days":30}}`
 	require.Equal(t, http.StatusForbidden, invoke(body).Code, "viewers cannot prepare repurpose state")
 	_, err = db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleEditor).
 		Where("workspace_id = ? AND user_id = ?", "ws-1", "user-1").Exec(ctx)
 	require.NoError(t, err)
 
-	forged := `{"workspace_id":"ws-1","reference":{"type":"external","account_content_id":"forged-provider-secret"},"range":{"days":30}}`
+	forged := `{"workspace_id":"ws-1","reference":{"type":"openpost","publication_id":"publication-1","rendition_id":"forged-rendition"},"range":{"days":30}}`
 	require.Equal(t, http.StatusNotFound, invoke(forged).Code)
-	crossWorkspace := `{"workspace_id":"another-workspace","reference":{"type":"external","account_content_id":"external-1"},"range":{"days":30}}`
+	crossWorkspace := `{"workspace_id":"another-workspace","reference":{"type":"openpost","publication_id":"publication-1","rendition_id":"rendition-1"},"range":{"days":30}}`
 	require.Equal(t, http.StatusForbidden, invoke(crossWorkspace).Code)
 
 	response := invoke(body)
@@ -185,7 +169,6 @@ func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &handoff))
 	require.Equal(t, "Stored source text", handoff.SourceText)
 	require.NotEmpty(t, handoff.HandoffID)
-	require.NotContains(t, response.Body.String(), "provider-secret")
 }
 
 func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
@@ -197,9 +180,6 @@ func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
 		(*models.Rendition)(nil),
 		(*models.AnalyticsAccountSnapshot)(nil),
 		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AnalyticsAccountContentSnapshot)(nil),
-		(*models.AccountContent)(nil),
-		(*models.AccountContentDiscoveryState)(nil),
 		(*models.AnalyticsSyncState)(nil),
 		(*models.Job)(nil),
 	)

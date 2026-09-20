@@ -281,64 +281,6 @@
 				],
 				"type": "object"
 			},
-			"AccountDiscoveryCoverage": {
-				"additionalProperties": false,
-				"properties": {
-					"account_id": {
-						"type": "string"
-					},
-					"backfill_watermark": {
-						"format": "date-time",
-						"type": "string"
-					},
-					"description": {
-						"type": "string"
-					},
-					"failure_code": {
-						"type": "string"
-					},
-					"failure_message": {
-						"type": "string"
-					},
-					"initial_completed_at": {
-						"format": "date-time",
-						"type": "string"
-					},
-					"initial_items_discovered": {
-						"format": "int64",
-						"type": "integer"
-					},
-					"last_attempted_at": {
-						"format": "date-time",
-						"type": "string"
-					},
-					"last_success_at": {
-						"format": "date-time",
-						"type": "string"
-					},
-					"next_eligible_at": {
-						"format": "date-time",
-						"type": "string"
-					},
-					"platform": {
-						"type": "string"
-					},
-					"status": {
-						"enum": [
-							"complete",
-							"partial",
-							"permission_required",
-							"rate_limited",
-							"cost_limited",
-							"unsupported",
-							"failed"
-						],
-						"type": "string"
-					}
-				},
-				"required": ["account_id", "platform", "status", "initial_items_discovered"],
-				"type": "object"
-			},
 			"AccountExport": {
 				"additionalProperties": false,
 				"properties": {
@@ -3890,10 +3832,6 @@
 					"rendition_id": {
 						"type": "string"
 					},
-					"source": {
-						"enum": ["openpost", "external"],
-						"type": "string"
-					},
 					"stale": {
 						"type": "boolean"
 					},
@@ -3909,7 +3847,6 @@
 				},
 				"required": [
 					"reference",
-					"source",
 					"title",
 					"excerpt",
 					"content_profile",
@@ -3928,45 +3865,21 @@
 				"type": "object"
 			},
 			"ContentReference": {
-				"discriminator": {
-					"propertyName": "type"
-				},
-				"oneOf": [
-					{
-						"additionalProperties": false,
-						"properties": {
-							"account_content_id": {
-								"minLength": 1,
-								"type": "string"
-							},
-							"type": {
-								"enum": ["external"],
-								"type": "string"
-							}
-						},
-						"required": ["type", "account_content_id"],
-						"type": "object"
+				"additionalProperties": false,
+				"properties": {
+					"publication_id": {
+						"type": "string"
 					},
-					{
-						"additionalProperties": false,
-						"properties": {
-							"publication_id": {
-								"minLength": 1,
-								"type": "string"
-							},
-							"rendition_id": {
-								"minLength": 1,
-								"type": "string"
-							},
-							"type": {
-								"enum": ["openpost"],
-								"type": "string"
-							}
-						},
-						"required": ["type", "publication_id", "rendition_id"],
-						"type": "object"
+					"rendition_id": {
+						"type": "string"
+					},
+					"type": {
+						"enum": ["openpost"],
+						"type": "string"
 					}
-				]
+				},
+				"required": ["type"],
+				"type": "object"
 			},
 			"Conversation": {
 				"additionalProperties": false,
@@ -9845,10 +9758,6 @@
 					"reference": {
 						"$ref": "#/components/schemas/ContentReference"
 					},
-					"source": {
-						"enum": ["openpost", "external"],
-						"type": "string"
-					},
 					"title": {
 						"type": "string"
 					},
@@ -9858,7 +9767,6 @@
 				},
 				"required": [
 					"reference",
-					"source",
 					"title",
 					"excerpt",
 					"platform",
@@ -12882,12 +12790,6 @@
 						"format": "int64",
 						"type": "integer"
 					},
-					"coverage": {
-						"items": {
-							"$ref": "#/components/schemas/AccountDiscoveryCoverage"
-						},
-						"type": ["array", "null"]
-					},
 					"follower_series": {
 						"items": {
 							"$ref": "#/components/schemas/SeriesPoint"
@@ -12925,10 +12827,6 @@
 						"format": "int64",
 						"type": "integer"
 					},
-					"source": {
-						"enum": ["all", "openpost", "external"],
-						"type": "string"
-					},
 					"summary": {
 						"$ref": "#/components/schemas/Summary"
 					},
@@ -12945,9 +12843,7 @@
 					"trends",
 					"publications",
 					"content",
-					"coverage",
 					"insights",
-					"source",
 					"account_growth_scope",
 					"publication_total",
 					"content_total"
@@ -14047,12 +13943,6 @@
 				"additionalProperties": false,
 				"properties": {
 					"analytics": {
-						"$ref": "#/components/schemas/Decision"
-					},
-					"discovery": {
-						"$ref": "#/components/schemas/Decision"
-					},
-					"observation": {
 						"$ref": "#/components/schemas/Decision"
 					},
 					"social_account_id": {
@@ -16336,7 +16226,7 @@
 				"additionalProperties": false,
 				"properties": {
 					"origin": {
-						"enum": ["openpost", "external"],
+						"enum": ["openpost"],
 						"type": "string"
 					},
 					"platform": {
@@ -26314,18 +26204,6 @@
 						"name": "account_id",
 						"schema": {
 							"description": "Optional social account ID used to filter results and content totals",
-							"type": "string"
-						}
-					},
-					{
-						"description": "Content source filter; account growth remains account-wide",
-						"explode": false,
-						"in": "query",
-						"name": "source",
-						"schema": {
-							"default": "all",
-							"description": "Content source filter; account growth remains account-wide",
-							"enum": ["all", "openpost", "external"],
 							"type": "string"
 						}
 					},

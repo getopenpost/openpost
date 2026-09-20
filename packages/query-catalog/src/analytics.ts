@@ -5,13 +5,11 @@ import { openPostQueryPolicy, queryStaleTime } from "./policies";
 
 export type AnalyticsOverview = components["schemas"]["Overview"];
 export type AnalyticsRangeDays = 7 | 30 | 90;
-export type AnalyticsSource = "all" | "openpost" | "external";
 export type AnalyticsSort = "engagement" | "views" | "newest";
 
 export interface AnalyticsFilters {
   readonly days: AnalyticsRangeDays;
   readonly accountId?: string;
-  readonly source?: AnalyticsSource;
   readonly sort?: AnalyticsSort;
   readonly limit?: number;
 }
@@ -55,7 +53,6 @@ export function normalizeAnalyticsFilters(filters: AnalyticsFilters) {
   return {
     days: filters.days,
     accountId: filters.accountId?.trim() ?? "",
-    source: filters.source ?? "all",
     sort: filters.sort ?? "engagement",
     limit: filters.limit ?? 50,
   } as const;

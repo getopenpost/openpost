@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // Community posting is one publishing experience shared by Lemmy, PieFed,
@@ -312,37 +311,4 @@ func splitCommunityCommentRef(provider, ref string) (int64, int64, error) {
 		return 0, 0, fmt.Errorf("%s reply reference is invalid", provider)
 	}
 	return postID, commentID, nil
-}
-
-func normalizeCommunityAccountContent(provider, instanceURL string, id int64, profile, title string, body *string, actorID, published string, publishedAfter time.Time) (AccountContentItem, bool) {
-	publishedAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(published))
-	if err != nil || publishedAt.IsZero() {
-		return AccountContentItem{}, false
-	}
-	publishedAt = publishedAt.UTC()
-	actorID = strings.TrimSpace(actorID)
-	if actorID == "" || (!publishedAfter.IsZero() && publishedAt.Before(publishedAfter)) {
-		return AccountContentItem{}, false
-	}
-	item := AccountContentItem{
-		ProviderContentID: strings.TrimRight(instanceURL, "/") + "/post/" + strconv.FormatInt(id, 10),
-		ContentProfile:    profile,
-		Title:             title,
-		ExternalURL:       actorID,
-		PublishedAt:       publishedAt,
-		Origin:            AccountContentOriginExternal,
-		OriginConfidence:  AccountContentOriginConfidenceExact,
-	}
-	if body != nil {
-		item.Text = strings.TrimSpace(*body)
-	}
-	normalized, err := NormalizeAccountContentItem(provider, item)
-	return normalized, err == nil
-}
-
-func appendCommunityAccountContent(page *AccountContentPage, item AccountContentItem) {
-	page.Items = append(page.Items, item)
-	if page.BackfillWatermark.IsZero() || item.PublishedAt.Before(page.BackfillWatermark) {
-		page.BackfillWatermark = item.PublishedAt
-	}
 }

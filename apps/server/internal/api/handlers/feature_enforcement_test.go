@@ -74,7 +74,6 @@ func newFeatureEnforcementDB(t *testing.T) *bun.DB {
 		(*models.AnalyticsSyncState)(nil),
 		(*models.AnalyticsAccountSnapshot)(nil),
 		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AccountContentDiscoveryState)(nil),
 		(*models.GrowthRecommendation)(nil),
 		(*models.GrowthSyncState)(nil),
 		(*models.ProviderWriteAttempt)(nil),

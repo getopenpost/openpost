@@ -11,10 +11,10 @@ function repurposeHandoff(id: string): RepurposeHandoff {
 		destination_account_ids: ['account-1'],
 		range: { days: 30 },
 		provenance: {
-			origin: 'external',
+			origin: 'openpost',
 			platform: 'x',
 			published_at: '2026-09-08T12:00:00Z',
-			reference: { type: 'external', account_content_id: 'content-1' }
+			reference: { type: 'openpost', publication_id: 'publication-1', rendition_id: 'rendition-1' }
 		},
 		evidence: []
 	};

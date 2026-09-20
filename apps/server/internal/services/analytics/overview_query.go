@@ -137,7 +137,7 @@ func (s *Service) decodeSignedOverviewCursor(workspaceID string, options Overvie
 	}
 	var cursor overviewCursor
 	if json.Unmarshal(decoded, &cursor) != nil || cursor.Offset < 0 || cursor.WorkspaceID != workspaceID ||
-		cursor.AccountID != options.AccountID || cursor.Source != options.Source || cursor.Sort != options.Sort || cursor.Days != days ||
+		cursor.AccountID != options.AccountID || cursor.Sort != options.Sort || cursor.Days != days ||
 		cursor.Revision == "" || cursor.RangeEnd.IsZero() {
 		return overviewCursor{}, ErrInvalidOverviewCursor
 	}
@@ -160,7 +160,7 @@ func (s *Service) encodeOverviewNextCursor(workspaceID string, offset, pageSize,
 	if nextOffset >= total {
 		return ""
 	}
-	next, _ := json.Marshal(overviewCursor{WorkspaceID: workspaceID, Offset: nextOffset, AccountID: options.AccountID, Source: options.Source, Sort: options.Sort, Days: days, Revision: populationRevision, RangeEnd: rangeEnd.UTC()})
+	next, _ := json.Marshal(overviewCursor{WorkspaceID: workspaceID, Offset: nextOffset, AccountID: options.AccountID, Sort: options.Sort, Days: days, Revision: populationRevision, RangeEnd: rangeEnd.UTC()})
 	signature := hmac.New(sha256.New, s.cursorSigningKey)
 	_, _ = signature.Write(next)
 	return base64.RawURLEncoding.EncodeToString(next) + "." + base64.RawURLEncoding.EncodeToString(signature.Sum(nil))

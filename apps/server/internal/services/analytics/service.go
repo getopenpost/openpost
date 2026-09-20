@@ -45,16 +45,15 @@ type FeatureGate interface {
 }
 
 type Service struct {
-	db                *bun.DB
-	tokenSource       TokenSource
-	providersMu       sync.RWMutex
-	providers         map[string]platform.Adapter
-	sources           map[string]platform.AnalyticsAdapter
-	now               func() time.Time
-	featureGate       FeatureGate
-	readiness         *providerreadiness.Service
-	discoveryPolicies map[string]DiscoveryPolicy
-	cursorSigningKey  []byte
+	db               *bun.DB
+	tokenSource      TokenSource
+	providersMu      sync.RWMutex
+	providers        map[string]platform.Adapter
+	sources          map[string]platform.AnalyticsAdapter
+	now              func() time.Time
+	featureGate      FeatureGate
+	readiness        *providerreadiness.Service
+	cursorSigningKey []byte
 }
 
 func NewService(db *bun.DB, tokenSource TokenSource) *Service {
@@ -64,13 +63,12 @@ func NewService(db *bun.DB, tokenSource TokenSource) *Service {
 		cursorSigningKey = fallback[:]
 	}
 	return &Service{
-		db:                db,
-		tokenSource:       tokenSource,
-		providers:         make(map[string]platform.Adapter),
-		sources:           make(map[string]platform.AnalyticsAdapter),
-		now:               func() time.Time { return time.Now().UTC() },
-		discoveryPolicies: make(map[string]DiscoveryPolicy),
-		cursorSigningKey:  cursorSigningKey,
+		db:               db,
+		tokenSource:      tokenSource,
+		providers:        make(map[string]platform.Adapter),
+		sources:          make(map[string]platform.AnalyticsAdapter),
+		now:              func() time.Time { return time.Now().UTC() },
+		cursorSigningKey: cursorSigningKey,
 	}
 }
 
@@ -88,6 +86,10 @@ func (s *Service) SetProvider(name string, adapter platform.Adapter) {
 	s.providers[name] = adapter
 }
 
+// SetExternalSource registers the analytics adapter for a platform that has
+// no OAuth provider adapter. Telegram is bot-based, so its connection service
+// serves account analytics (member counts) through this side channel. There
+// is no generic external-source registry: operator-configured sources are gone.
 func (s *Service) SetExternalSource(platformName string, adapter platform.AnalyticsAdapter) {
 	s.providersMu.Lock()
 	defer s.providersMu.Unlock()
@@ -102,7 +104,7 @@ func (s *Service) SetProviderReadiness(readiness *providerreadiness.Service) {
 	s.readiness = readiness
 }
 
-func (s *Service) isProviderOperationEnabled(ctx context.Context, account models.SocialAccount, operation providerreadiness.Operation) bool {
+func (s *Service) isProviderOperationEnabled(ctx context.Context, account models.SocialAccount) bool {
 	requiresReadiness := account.Platform == capabilities.ProviderPinterest || account.Platform == capabilities.ProviderTelegram ||
 		(account.Platform == capabilities.ProviderDiscord && platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState) == capabilities.ProviderDiscord+":"+platform.ConnectionModeBot)
 	if !requiresReadiness {
@@ -111,17 +113,8 @@ func (s *Service) isProviderOperationEnabled(ctx context.Context, account models
 	if s.readiness == nil {
 		return false
 	}
-	decision := s.readiness.DecideAccountOperation(ctx, account, operation, providerreadiness.ExecutionIntentProduction)
-	switch operation {
-	case providerreadiness.OperationDiscover:
-		return decision.Discoverable
-	case providerreadiness.OperationObservation:
-		return decision.Observable
-	case providerreadiness.OperationAnalytics:
-		return decision.AnalyticsReady
-	default:
-		return false
-	}
+	decision := s.readiness.DecideAccountOperation(ctx, account, providerreadiness.OperationAnalytics, providerreadiness.ExecutionIntentProduction)
+	return decision.AnalyticsReady
 }
 
 func (s *Service) isAnalyticsEnabled(ctx context.Context, accountID string) bool {
@@ -166,12 +159,6 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 			return fmt.Errorf("decode analytics rendition job")
 		}
 		return s.syncRendition(ctx, input.RenditionID)
-	case jobregistry.TypeAccountContentDiscovery:
-		input, err := jobregistry.DecodeAccountContentDiscoveryPayload(payload)
-		if err != nil {
-			return err
-		}
-		return s.handleAccountContentDiscovery(ctx, input)
 	default:
 		return fmt.Errorf("unsupported analytics job type %q", jobType)
 	}
@@ -217,11 +204,6 @@ func (s *Service) enqueueWorkspace(ctx context.Context, workspaceID string, forc
 	if err != nil {
 		return queued, err
 	}
-	discoveryJobs, err := s.reconsiderAccountContentAccounts(ctx, accounts, now)
-	queued += discoveryJobs
-	if err != nil {
-		return queued, err
-	}
 	renditions, err := s.listAnalyticsRenditions(ctx, workspaceID, force, now)
 	if err != nil {
 		return queued, err
@@ -259,7 +241,7 @@ func (s *Service) enqueueAccountJob(ctx context.Context, account models.SocialAc
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+	if !s.isProviderOperationEnabled(ctx, account) {
 		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
@@ -348,7 +330,7 @@ func (s *Service) enqueueRenditionJob(
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+	if !s.isProviderOperationEnabled(ctx, account) {
 		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
@@ -398,7 +380,7 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+	if !s.isProviderOperationEnabled(ctx, account) {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
@@ -450,7 +432,7 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+	if !s.isProviderOperationEnabled(ctx, account) {
 		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)

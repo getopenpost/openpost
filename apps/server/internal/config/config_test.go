@@ -115,7 +115,6 @@ var configTestEnvKeys = []string{
 	"OPENPOST_X_MONTHLY_BUDGET_MICROUSD",
 	"OPENPOST_X_POST_CREATE_COST_MICROUSD",
 	"OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD",
-	"OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY",
 	"OPENPOST_PROVIDER_USAGE_RETENTION_DAYS",
 	"MASTODON_REDIRECT_URI",
 	"MASTODON_SERVERS",
@@ -128,7 +127,6 @@ var configTestEnvKeys = []string{
 	"THREADS_CLIENT_SECRET",
 	"THREADS_REDIRECT_URI",
 	"OPENPOST_PROVIDER_APPS",
-	"OPENPOST_ANALYTICS_SOURCES",
 	"OPENPOST_CONNECTORS_FILE",
 	"OPENPOST_PROVIDER_CERTIFICATION_ENFORCED",
 	"OPENPOST_STORAGE_DRIVER",
@@ -329,16 +327,6 @@ func TestMediaSigningKeyCanRemainStableAcrossEncryptionRotation(t *testing.T) {
 	require.NotEqual(t, cfg.EncryptionKey, cfg.MediaSigningKey)
 }
 
-func TestValidateRuntimeRejectsMalformedAnalyticsSourcesJSON(t *testing.T) {
-	t.Setenv("OPENPOST_ANALYTICS_SOURCES_FILE", writeEnvFile(t, "analytics-sources", `[{`))
-
-	err := Load().ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_ANALYTICS_SOURCES")
-	require.ErrorContains(t, err, "valid JSON")
-}
-
 func TestLoadSupportsHostedAndSelfHostedProviderBotContracts(t *testing.T) {
 	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_PROVIDER_APPS", `[
@@ -446,12 +434,6 @@ func TestValidateRuntimeRejectsNegativeProviderCostConfiguration(t *testing.T) {
 	require.ErrorContains(t, err, "OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD >= 0")
 	require.ErrorContains(t, err, "OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET >= 0")
 	require.ErrorContains(t, err, "OPENPOST_PROVIDER_USAGE_RETENTION_DAYS >= 0")
-}
-
-func TestValidateRuntimeRejectsNegativeXAccountHistoryReadBudget(t *testing.T) {
-	cfg := &Config{Edition: EditionSelfHost, XAccountHistoryReadRequestsPerDay: -1}
-	err := cfg.ValidateRuntime()
-	require.ErrorContains(t, err, "OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")
 }
 
 func TestValidateRuntimeRejectsCloudMissingS3Primitives(t *testing.T) {

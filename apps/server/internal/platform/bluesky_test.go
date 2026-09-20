@@ -382,36 +382,6 @@ func TestResolveBlueskyComposerReferencesUsesCompleteHandlesAndByteFacets(t *tes
 
 // The adapter reached through a bluesky:<pds> key must build content identities
 // on the same base the account stores, or discovery cannot match its renditions.
-func TestBlueskyProviderKeyAdapterSharesAccountContentIdentity(t *testing.T) {
-	const instanceURL = "https://pds.example"
-	const did = "did:plc:selfhostedexample000000"
-	const uri = "at://" + did + "/app.bsky.feed.post/3kabcdefghi"
-
-	providers := map[string]Adapter{
-		providerBluesky: NewBlueskyAdapter(""),
-		AccountProviderKey(providerBluesky, instanceURL, ""): NewBlueskyAdapter(instanceURL),
-	}
-	adapter, ok := providers[AccountProviderKey(providerBluesky, instanceURL, "")].(*BlueskyAdapter)
-	require.True(t, ok)
-
-	originalClient := httpClient
-	t.Cleanup(func() { httpClient = originalClient })
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		require.Equal(t, "pds.example", req.URL.Host)
-		body := `{"feed":[{"post":{"uri":"` + uri + `","author":{"did":"` + did + `"},` +
-			`"record":{"text":"hello","createdAt":"2026-01-02T03:04:05Z"}}}]}`
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
-	})}
-
-	page, err := adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{AccountID: did, PageSize: 10})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 1)
-
-	want, ok := CanonicalSocialAccountContentID(providerBluesky, instanceURL, did, uri)
-	require.True(t, ok)
-	require.Equal(t, want, page.Items[0].ProviderContentID)
-}
-
 func TestBlueskyUnrepostOnlyIgnoresMissingRecord(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

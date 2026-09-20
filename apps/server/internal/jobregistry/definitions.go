@@ -16,7 +16,6 @@ const (
 	TypeAnalyticsSweep          = "analytics_sweep"
 	TypeAnalyticsAccount        = "analytics_account_sync"
 	TypeAnalyticsRendition      = "analytics_rendition_sync"
-	TypeAccountContentDiscovery = "account_content_discovery"
 	TypeBillingWebhook          = "billing_paddle_webhook"
 	TypeEngagementSweep         = "engagement_sweep"
 	TypeMessagingSweep          = "messaging_sweep"
@@ -119,12 +118,6 @@ var definitions = map[string]Definition{
 		"Analytics collection failed. OpenPost will retry when the failure is temporary.", ""),
 	TypeAnalyticsRendition: providerReadDefinition(TypeAnalyticsRendition, 3, ExecuteAnalytics, RecoveryRequeue,
 		"Analytics collection failed. OpenPost will retry when the failure is temporary.", ""),
-	TypeAccountContentDiscovery: {
-		Type: TypeAccountContentDiscovery, DefaultMaxAttempts: 3,
-		Execution: ExecuteAnalytics, Failure: FailureProviderRead, Recovery: RecoveryRequeue,
-		FailureMessage: "Account content discovery failed. OpenPost will retry when the failure is temporary.",
-		identity:       accountContentDiscoveryIdentity,
-	},
 	TypeBillingWebhook: definition(TypeBillingWebhook, 8, ExecuteBilling, FailureDefault, RecoveryRequeue),
 	TypeEngagementSweep: providerReadDefinition(TypeEngagementSweep, 5, ExecuteEngagement, RecoverySupersedeSweep,
 		"Engagement collection failed. OpenPost will retry when the failure is temporary.",

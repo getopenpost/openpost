@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -532,61 +531,6 @@ func TestPeerTubeAnalytics(t *testing.T) {
 	require.Equal(t, int64(4), content[MetricLikes])
 	_, hasDislikes := content["dislikes"]
 	require.False(t, hasDislikes, "dislikes must not be relabelled")
-}
-
-func TestPeerTubeAccountContentDiscoveryCursorReachesTheEnd(t *testing.T) {
-	// GET /api/v1/video-channels/{handle}/videos pages by start and count and
-	// sorts by -publishedAt. The last three of 30 videos predate the window,
-	// and one video in the window has no usable publish time.
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-	now := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
-	const videoCount = 30
-	var starts []string
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		require.Equal(t, "/api/v1/video-channels/demos/videos", req.URL.Path)
-		require.Equal(t, "-publishedAt", req.URL.Query().Get("sort"))
-		start, _ := strconv.Atoi(req.URL.Query().Get("start"))
-		count, _ := strconv.Atoi(req.URL.Query().Get("count"))
-		starts = append(starts, strconv.Itoa(start))
-		videos := make([]peertubeChannelVideo, 0, count)
-		for index := start; index < min(start+count, videoCount); index++ {
-			publishedAt := now.Add(-time.Duration(index) * time.Hour)
-			if index >= videoCount-3 {
-				publishedAt = now.Add(-100 * 24 * time.Hour)
-			}
-			video := peertubeChannelVideo{UUID: "uuid-" + strconv.Itoa(index), Name: "Video " + strconv.Itoa(index), PublishedAt: publishedAt.Format(time.RFC3339)}
-			if index == 3 {
-				video.PublishedAt = ""
-			}
-			videos = append(videos, video)
-		}
-		body, err := json.Marshal(struct {
-			Total int64                  `json:"total"`
-			Data  []peertubeChannelVideo `json:"data"`
-		}{Total: videoCount, Data: videos})
-		require.NoError(t, err)
-		return jsonResponse(req, string(body)), nil
-	})}
-
-	adapter := NewPeerTubeAdapter("https://tube.example")
-	request := AccountContentDiscoveryRequest{AccountID: "demos", PageSize: 25, PublishedAfter: now.Add(-90 * 24 * time.Hour)}
-	var items []AccountContentItem
-	for calls := 0; ; calls++ {
-		require.Less(t, calls, 5, "discovery must reach the end of the channel instead of repeating a cursor; requested starts %v", starts)
-		page, err := adapter.DiscoverAccountContent(t.Context(), "token", request)
-		require.NoError(t, err)
-		items = append(items, page.Items...)
-		if page.NextCursor == "" {
-			break
-		}
-		request.Cursor = page.NextCursor
-	}
-	require.Equal(t, []string{"0", "25"}, starts, "the offset counts every video read, including one left out")
-	require.Len(t, items, videoCount-4)
-	for _, item := range items {
-		require.False(t, item.PublishedAt.Before(request.PublishedAfter))
-	}
 }
 
 func TestPeerTubeValidation(t *testing.T) {

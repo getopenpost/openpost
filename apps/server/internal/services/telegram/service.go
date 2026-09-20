@@ -18,7 +18,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/botingress"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/uptrace/bun"
@@ -38,19 +37,13 @@ type ReadinessGate interface {
 	DecideAccountOperation(context.Context, models.SocialAccount, providerreadiness.Operation, providerreadiness.ExecutionIntent) providerreadiness.Decision
 }
 
-type AccountContentStore interface {
-	UpsertAccountContent(context.Context, string, platform.AccountContentItem) (*models.AccountContent, error)
-	RecordAccountContentObservation(context.Context, string, string, string, string, platform.AnalyticsMeasurements, time.Time) error
-}
-
 type Service struct {
-	db                  *bun.DB
-	api                 BotAPI
-	botUsername         string
-	webhookSecret       string
-	accountContentStore AccountContentStore
-	readiness           ReadinessGate
-	now                 func() time.Time
+	db            *bun.DB
+	api           BotAPI
+	botUsername   string
+	webhookSecret string
+	readiness     ReadinessGate
+	now           func() time.Time
 }
 
 func NewService(db *bun.DB, api BotAPI, botUsername, webhookSecret string) *Service {
@@ -60,10 +53,6 @@ func NewService(db *bun.DB, api BotAPI, botUsername, webhookSecret string) *Serv
 		webhookSecret: strings.TrimSpace(webhookSecret),
 		now:           func() time.Time { return time.Now().UTC() },
 	}
-}
-
-func (service *Service) SetAccountContentStore(store AccountContentStore) {
-	service.accountContentStore = store
 }
 
 func (service *Service) SetProviderReadiness(readiness ReadinessGate) {
@@ -185,7 +174,10 @@ func (service *Service) Process(ctx context.Context, event models.BotIngressEven
 		}
 		return service.recordMembership(ctx, event)
 	case "telegram.channel_post", "telegram.reaction_count":
-		return service.processObservation(ctx, event)
+		// Channel activity is accepted so Telegram stops retrying delivery,
+		// but OpenPost no longer keeps inventory for posts published
+		// outside OpenPost.
+		return nil
 	case "telegram.connection_requested":
 		if event.WorkspaceID == "" || !service.OperationReady(ctx, providerreadiness.OperationConnect) {
 			return ErrProviderUnavailable
@@ -228,110 +220,6 @@ func (service *Service) Process(ctx context.Context, event models.BotIngressEven
 	}
 	installedAt = service.coverageStart(ctx, chatID, chat.Type, installedAt)
 	return service.saveConnection(ctx, event.WorkspaceID, chat, installedAt, now)
-}
-
-func (service *Service) processObservation(ctx context.Context, event models.BotIngressEvent) error {
-	var connection models.TelegramConnection
-	if err := service.db.NewSelect().Model(&connection).
-		Where("chat_id = ? AND chat_type = ?", strings.TrimSpace(event.SubjectReference), "channel").Scan(ctx); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		return ErrPersistenceFailed
-	}
-	var account models.SocialAccount
-	if err := service.db.NewSelect().Model(&account).
-		Where("id = ? AND is_active = ?", connection.SocialAccountID, true).Scan(ctx); err != nil {
-		return ErrPersistenceFailed
-	}
-	if strings.TrimSpace(event.ID) != "" {
-		if _, err := service.db.NewUpdate().Model((*models.BotIngressEvent)(nil)).
-			Set("workspace_id = ?", account.WorkspaceID).Set("social_account_id = ?", account.ID).
-			Where("id = ?", event.ID).Exec(ctx); err != nil {
-			return ErrPersistenceFailed
-		}
-	}
-	if service.readiness == nil || !service.readiness.DecideAccountOperation(
-		ctx, account, providerreadiness.OperationObservation, providerreadiness.ExecutionIntentProduction,
-	).Observable {
-		return ErrProviderUnavailable
-	}
-	if event.OccurredAt.Before(connection.CoverageStartedAt) {
-		return nil
-	}
-	if service.accountContentStore == nil {
-		return ErrProviderUnavailable
-	}
-	switch event.Kind {
-	case "telegram.channel_post":
-		return service.importChannelPost(ctx, account, event)
-	case "telegram.reaction_count":
-		return service.recordReactionCount(ctx, account, event)
-	default:
-		return ErrInvalidUpdate
-	}
-}
-
-func (service *Service) importChannelPost(ctx context.Context, account models.SocialAccount, event models.BotIngressEvent) error {
-	messageID := strings.TrimSpace(event.ParentReference)
-	if _, err := strconv.ParseInt(messageID, 10, 64); err != nil {
-		return ErrInvalidUpdate
-	}
-	item := platform.AccountContentItem{
-		ProviderContentID: messageID, ContentProfile: event.ContentProfile, Text: event.ContentText,
-		PublishedAt: event.OccurredAt.UTC(), Origin: platform.AccountContentOriginExternal,
-		OriginConfidence: platform.AccountContentOriginConfidenceExact,
-	}
-	var rendition models.Rendition
-	if err := service.db.NewSelect().Model(&rendition).
-		Where("social_account_id = ? AND platform = ? AND external_id = ?", account.ID, capabilities.ProviderTelegram, messageID).
-		Scan(ctx); err == nil {
-		item.RenditionID = rendition.ID
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return ErrPersistenceFailed
-	}
-	content, err := service.accountContentStore.UpsertAccountContent(ctx, account.ID, item)
-	if err != nil {
-		return ErrPersistenceFailed
-	}
-	if content != nil {
-		if _, err := service.db.NewUpdate().Model((*models.AccountContentObservation)(nil)).
-			Set("account_content_id = ?", content.ID).
-			Where("social_account_id = ? AND provider_content_id = ? AND account_content_id IS NULL", account.ID, messageID).Exec(ctx); err != nil {
-			return ErrPersistenceFailed
-		}
-	}
-	return nil
-}
-
-func (service *Service) recordReactionCount(ctx context.Context, account models.SocialAccount, event models.BotIngressEvent) error {
-	var values platform.AnalyticsValues
-	if err := json.Unmarshal([]byte(event.MetricsJSON), &values); err != nil {
-		return ErrInvalidUpdate
-	}
-	reactionCount, measured := values[platform.MetricReactions]
-	if len(values) != 1 || !measured || reactionCount < 0 {
-		return ErrInvalidUpdate
-	}
-	measurement := platform.AnalyticsMeasurements{
-		platform.MetricReactions: {
-			Value: reactionCount,
-			AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
-				Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal,
-				Source: capabilities.ProviderTelegram,
-			},
-		},
-	}
-	// Telegram may redeliver semantically identical counts under a new update
-	// ID. The provider observation identity coalesces the message/time pair.
-	observationID := "reaction_count:" + event.SubjectReference + ":" + event.ParentReference + ":" +
-		event.OccurredAt.UTC().Format(time.RFC3339) + ":" + strconv.FormatInt(reactionCount, 10)
-	if err := service.accountContentStore.RecordAccountContentObservation(
-		ctx, account.ID, observationID, event.ParentReference, "reaction_count", measurement, event.OccurredAt,
-	); err != nil {
-		return ErrPersistenceFailed
-	}
-	return nil
 }
 
 //nolint:gocyclo // Membership transition validation and bounded persistence stay at one provider boundary.
@@ -507,20 +395,6 @@ func (service *Service) saveConnection(ctx context.Context, workspaceID string, 
 			Set("coverage_started_at = EXCLUDED.coverage_started_at").
 			Set("coverage_kind = EXCLUDED.coverage_kind").
 			Set("permissions_verified_at = EXCLUDED.permissions_verified_at").Exec(txCtx); err != nil {
-			return ErrPersistenceFailed
-		}
-		coverage := &models.AccountContentDiscoveryState{
-			ID: uuid.NewString(), WorkspaceID: workspaceID, SocialAccountID: account.ID,
-			Platform: capabilities.ProviderTelegram, Status: string(platform.AccountContentDiscoveryPartial),
-			CoverageStatus: string(platform.AccountContentDiscoveryPartial), CoverageDescription: CoverageDescription,
-			BackfillWatermark: installedAt, LastSuccessAt: now, NextEligibleAt: time.Time{}, CreatedAt: now, UpdatedAt: now,
-		}
-		if _, err := tx.NewInsert().Model(coverage).
-			On("CONFLICT (social_account_id) DO UPDATE").
-			Set("status = EXCLUDED.status").Set("coverage_status = EXCLUDED.coverage_status").
-			Set("coverage_description = EXCLUDED.coverage_description").
-			Set("backfill_watermark = EXCLUDED.backfill_watermark").
-			Set("last_success_at = EXCLUDED.last_success_at").Set("updated_at = EXCLUDED.updated_at").Exec(txCtx); err != nil {
 			return ErrPersistenceFailed
 		}
 		return nil

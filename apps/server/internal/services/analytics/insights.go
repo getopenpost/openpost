@@ -43,7 +43,6 @@ type InsightPeriod struct {
 
 type InsightContentEvidence struct {
 	Reference   ContentReference `json:"reference"`
-	Source      string           `json:"source" enum:"openpost,external"`
 	Title       string           `json:"title"`
 	Excerpt     string           `json:"excerpt"`
 	Platform    string           `json:"platform"`
@@ -89,8 +88,7 @@ func buildOverviewInsights(content []ContentOverview, accounts []AccountOverview
 }
 
 // loadStoredInsightContent prevents mutable sync-state values from becoming
-// evidence. Inventory rows already carry account-content snapshots; managed
-// rows are replaced with their latest immutable rendition snapshot.
+// evidence. Rows are replaced with their latest immutable rendition snapshot.
 func (s *Service) loadStoredInsightContent(
 	ctx context.Context,
 	workspaceID string,
@@ -98,8 +96,7 @@ func (s *Service) loadStoredInsightContent(
 ) ([]ContentOverview, error) {
 	renditionIDs := make([]string, 0, len(content))
 	for _, item := range content {
-		if item.Reference.Type == string(platform.AccountContentOriginOpenPost) &&
-			!item.insightSnapshotBacked && item.Reference.RenditionID != "" {
+		if item.Reference.RenditionID != "" {
 			renditionIDs = append(renditionIDs, item.Reference.RenditionID)
 		}
 	}
@@ -122,10 +119,6 @@ func (s *Service) loadStoredInsightContent(
 
 	stored := make([]ContentOverview, 0, len(content))
 	for _, item := range content {
-		if item.insightSnapshotBacked {
-			stored = append(stored, item)
-			continue
-		}
 		item.Metrics = platform.AnalyticsValues{}
 		item.MetricMetadata = map[string]platform.AnalyticsMetricMetadata{}
 		item.CollectedAt = time.Time{}
@@ -416,7 +409,7 @@ func sortMeasuredEngagement(measured []measuredEngagementContent, descending boo
 
 func insightContentEvidence(content ContentOverview) *InsightContentEvidence {
 	return &InsightContentEvidence{
-		Reference: content.Reference, Source: content.Source, Title: content.Title, Excerpt: content.Excerpt,
+		Reference: content.Reference, Title: content.Title, Excerpt: content.Excerpt,
 		Platform: content.Platform, AccountID: content.AccountID, Username: content.Username,
 		PublishedAt: content.PublishedAt, CollectedAt: content.CollectedAt,
 	}

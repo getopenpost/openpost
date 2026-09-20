@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { managedService } from '@openpost/legal-policy';
 	import { ExternalLink, Mail, ShieldCheck } from '@lucide/svelte';
+	import HeroAccent from '../_components/HeroAccent.svelte';
 
 	type Provider = (typeof managedService.providers)[number];
 	type HumanAccessKey = keyof typeof managedService.human_access;
@@ -62,28 +63,28 @@
 <header class="border-b py-14 sm:py-20">
 	<div class="marketing-shell grid gap-8 lg:grid-cols-[1fr_18rem] lg:items-end">
 		<div class="max-w-4xl">
-			<h1 class="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-				Where your data goes.
-			</h1>
-			<p class="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+			<h1 class="marketing-title">Where your <HeroAccent>data goes.</HeroAccent></h1>
+			<p class="marketing-copy">
 				See where OpenPost Cloud stores your data, which services help run it, and who can access
 				it.
 			</p>
-			<p class="mt-3 max-w-3xl text-lg leading-8 text-muted-foreground">
+			<p class="marketing-copy">
 				The details below cover app.openpo.st and are reviewed regularly. They describe our
 				practices, not a security certification.
 			</p>
 		</div>
-		<dl class="border-y py-4 text-sm">
-			<div class="flex items-baseline justify-between gap-4 py-2">
-				<dt class="text-muted-foreground">Reviewed</dt>
-				<dd class="font-medium">{formatDate(managedService.reviewed_on)}</dd>
-			</div>
-			<div class="flex items-baseline justify-between gap-4 py-2">
-				<dt class="text-muted-foreground">Review due</dt>
-				<dd class="font-medium">{formatDate(managedService.next_review_on)}</dd>
-			</div>
-		</dl>
+		<aside class="trust-note">
+			<dl class="text-sm">
+				<div class="flex items-baseline justify-between gap-4 py-2">
+					<dt>Reviewed</dt>
+					<dd class="font-medium">{formatDate(managedService.reviewed_on)}</dd>
+				</div>
+				<div class="flex items-baseline justify-between gap-4 py-2">
+					<dt>Review due</dt>
+					<dd class="font-medium">{formatDate(managedService.next_review_on)}</dd>
+				</div>
+			</dl>
+		</aside>
 	</div>
 </header>
 
@@ -300,3 +301,12 @@
 		</div>
 	</div>
 </section>
+
+<style>
+	.trust-note {
+		background: var(--marketing-mint);
+		color: var(--marketing-mint-ink);
+		padding: 1.5rem;
+		border-radius: 1rem;
+	}
+</style>

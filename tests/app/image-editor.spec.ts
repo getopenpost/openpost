@@ -36,7 +36,10 @@ test.describe("touch editor discovery", () => {
 
     await page.setViewportSize({ width: 320, height: 780 });
     const propertiesLabel = page
-      .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+      .getByRole("navigation", {
+        name: "OpenPost Image Editor tools",
+        exact: true,
+      })
       .getByRole("button", { name: "Properties", exact: true })
       .locator("span");
     expect(
@@ -84,10 +87,70 @@ test("desktop Image Editor uses the compact rail and closes Add when another too
   await add.click();
   await expect(add).toHaveAttribute("aria-pressed", "true");
 
-  const select = tools.getByRole("button", { name: "Select objects", exact: true });
+  const select = tools.getByRole("button", {
+    name: "Select objects",
+    exact: true,
+  });
   await select.click();
   await expect(add).toHaveAttribute("aria-pressed", "false");
   await expect(select).toBeFocused();
+});
+
+test("guest camera capture adds a local image without workspace writes", async ({ page }) => {
+  const workspaceWrites: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      (request.url().includes("/api/v1/media") ||
+        request.url().includes("/api/v1/image-editor/designs"))
+    ) {
+      workspaceWrites.push(`${request.method()} ${request.url()}`);
+    }
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        enumerateDevices: async () => [],
+        getUserMedia: async () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height = 240;
+          const context = canvas.getContext("2d")!;
+          context.fillStyle = "#12a2c5";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          return canvas.captureStream(5);
+        },
+      },
+    });
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+
+  await page
+    .getByRole("navigation", {
+      name: "OpenPost Image Editor tools",
+      exact: true,
+    })
+    .getByRole("button", { name: "Add", exact: true })
+    .click();
+  const sources = page.getByRole("toolbar", { name: "Source", exact: true });
+  await expect(sources.getByRole("button", { name: "Device", exact: true })).toBeVisible();
+  await expect(sources.getByRole("button", { name: "Stock media", exact: true })).toBeVisible();
+  await expect(sources.getByRole("button", { name: "Camera", exact: true })).toBeVisible();
+  await expect(sources.getByRole("button", { name: "Workspace", exact: true })).toHaveCount(0);
+
+  await sources.getByRole("button", { name: "Camera", exact: true }).click();
+  await page.getByRole("button", { name: "Take photo", exact: true }).click();
+  await page.getByRole("button", { name: "Use photo", exact: true }).click();
+
+  const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+  await expect(layers).toHaveCount(1);
+  await expect(layers.first()).toContainText("camera-");
+  await expect(page.getByRole("status")).toContainText("Added camera-");
+  expect(workspaceWrites).toEqual([]);
 });
 
 test("Image Editor keeps Export as the rightmost visible header action", async ({ page }) => {
@@ -96,7 +159,10 @@ test("Image Editor keeps Export as the rightmost visible header action", async (
   await page.getByRole("button", { name: "New project", exact: true }).click();
 
   const header = page.getByRole("banner");
-  const exportButton = header.getByRole("button", { name: "Export", exact: true });
+  const exportButton = header.getByRole("button", {
+    name: "Export",
+    exact: true,
+  });
   const exportBox = await exportButton.boundingBox();
   expect(exportBox).not.toBeNull();
 
@@ -340,7 +406,9 @@ for (const scheme of ["light", "dark"] as const) {
       ratio: 1,
     });
     await expect(properties.getByRole("button", { name: "Weight", exact: true })).toHaveText("850");
-    await page.screenshot({ path: testInfo.outputPath("photo-text-laptop.png") });
+    await page.screenshot({
+      path: testInfo.outputPath("photo-text-laptop.png"),
+    });
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
       await page.getByRole("button", { name: "Draw", exact: true }).click();
@@ -352,7 +420,10 @@ for (const scheme of ["light", "dark"] as const) {
         page.getByRole("button", { name: "Foreground color", exact: true }),
       ).toBeHidden();
       await expect(page.getByRole("dialog")).toHaveCount(0);
-      const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
+      const canvas = page.getByRole("application", {
+        name: "Design canvas",
+        exact: true,
+      });
       const color = page.locator("[data-image-color-workspace]:visible");
       await expect(canvas).toBeInViewport({ ratio: 1 });
       const canvasBox = (await canvas.boundingBox())!;
@@ -371,7 +442,9 @@ for (const scheme of ["light", "dark"] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         width,
       );
-      await page.screenshot({ path: testInfo.outputPath(`photo-color-${width}.png`) });
+      await page.screenshot({
+        path: testInfo.outputPath(`photo-color-${width}.png`),
+      });
       await page.locator("#image-editor-workspace-tab-edit").click();
     }
   });

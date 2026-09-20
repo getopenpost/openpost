@@ -15,6 +15,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import MediaPicker from '$lib/components/media-picker.svelte';
 	import MediaPreviewImage from '$lib/components/media-preview-image.svelte';
+	import CameraCapture from '$lib/components/camera-capture.svelte';
 	import StockMediaBrowser from '$lib/components/stock-media-browser.svelte';
 	import { uploadMediaFile } from '$lib/media-upload-client';
 	import { listMediaTags, type MediaTag } from '$lib/media-tags';
@@ -41,7 +42,7 @@
 	let search = $state('');
 	let pickerOpen = $state(false);
 	let pickerInitialMode = $state<'library' | 'upload' | 'camera' | 'stock'>('upload');
-	let stockOpen = $state(false);
+	let guestSource = $state<'library' | 'stock' | 'camera'>('library');
 	let replaceMode = $state(false);
 	let addedMessage = $state('');
 	let loadedWorkspaceID = '';
@@ -144,6 +145,7 @@
 	function addMedia(item: ImageEditorMediaItem, replace = replaceMode): void {
 		if (editor.backgroundImagePickerActive) {
 			editor.setPageBackgroundImage(item.id);
+			editor.backgroundImagePickerActive = false;
 			addedMessage = m.image_editor_media_added({ name: item.original_filename });
 			return;
 		}
@@ -225,6 +227,21 @@
 		}
 	}
 
+	async function captureGuestPhoto(file: File): Promise<void> {
+		loading = true;
+		error = '';
+		try {
+			const item = await storeGuestImageEditorMedia(editor.id, file);
+			media = [item, ...media];
+			addMedia(item);
+			guestSource = 'library';
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.image_editor_search_failed();
+		} finally {
+			loading = false;
+		}
+	}
+
 	function stockProvenance(asset: StockAsset): StockMediaProvenance {
 		return {
 			provider: asset.provider,
@@ -266,7 +283,7 @@
 				if (item) addMedia(item);
 				else editor.addImage({ id: uploaded.id, name: uploaded.original_filename });
 			}
-			stockOpen = false;
+			guestSource = 'library';
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.stock_media_download_failed();
 		} finally {
@@ -358,10 +375,14 @@
 				</Button>
 			</div>
 		</section>
-		{#if !guestMode}
-			<section class="mb-3 space-y-1.5">
-				<h3 class="text-xs font-semibold">{m.media_source()}</h3>
-				<div class="grid grid-cols-4 gap-1" role="toolbar" aria-label={m.media_source()}>
+		<section class="mb-3 space-y-1.5">
+			<h3 class="text-xs font-semibold">{m.media_source()}</h3>
+			<div
+				class={guestMode ? 'grid grid-cols-3 gap-1' : 'grid grid-cols-4 gap-1'}
+				role="toolbar"
+				aria-label={m.media_source()}
+			>
+				{#if !guestMode}
 					<Button
 						variant="secondary"
 						size="xs"
@@ -371,36 +392,41 @@
 						<ThemeIcon role="media" />
 						<span class="truncate">{m.image_editor_workspace_category()}</span>
 					</Button>
-					<Button
-						variant="outline"
-						size="xs"
-						class="min-w-0 px-1"
-						onclick={() => openPicker('upload')}
-					>
-						<ThemeIcon role="upload" />
-						<span class="truncate">{m.media_upload_device()}</span>
-					</Button>
-					<Button
-						variant="outline"
-						size="xs"
-						class="min-w-0 px-1"
-						onclick={() => openPicker('stock')}
-					>
-						<ThemeIcon role="image" />
-						<span class="truncate">{m.stock_media()}</span>
-					</Button>
-					<Button
-						variant="outline"
-						size="xs"
-						class="min-w-0 px-1"
-						onclick={() => openPicker('camera')}
-					>
-						<ThemeIcon role="camera" />
-						<span class="truncate">{m.media_camera()}</span>
-					</Button>
-				</div>
-			</section>
-		{/if}
+				{/if}
+				<Button
+					variant={guestMode && guestSource === 'library' ? 'secondary' : 'outline'}
+					size="xs"
+					class="min-w-0 px-1"
+					onclick={() => {
+						if (guestMode) {
+							guestSource = 'library';
+							guestFileInput?.click();
+						} else openPicker('upload');
+					}}
+				>
+					<ThemeIcon role="upload" />
+					<span class="truncate">{m.media_upload_device()}</span>
+				</Button>
+				<Button
+					variant={guestMode && guestSource === 'stock' ? 'secondary' : 'outline'}
+					size="xs"
+					class="min-w-0 px-1"
+					onclick={() => (guestMode ? (guestSource = 'stock') : openPicker('stock'))}
+				>
+					<ThemeIcon role="image" />
+					<span class="truncate">{m.stock_media()}</span>
+				</Button>
+				<Button
+					variant={guestMode && guestSource === 'camera' ? 'secondary' : 'outline'}
+					size="xs"
+					class="min-w-0 px-1"
+					onclick={() => (guestMode ? (guestSource = 'camera') : openPicker('camera'))}
+				>
+					<ThemeIcon role="camera" />
+					<span class="truncate">{m.media_camera()}</span>
+				</Button>
+			</div>
+		</section>
 		{#if addedMessage}
 			<div
 				class="mb-3 flex items-center gap-2 rounded-md border bg-muted/30 px-2.5 py-2 text-xs"
@@ -414,70 +440,6 @@
 				{/if}
 			</div>
 		{/if}
-		{#if !guestMode}
-			<div class="mb-2 space-y-2">
-				<div class="overflow-x-auto pb-1">
-					<MediaTagFilter
-						{tags}
-						selectedIds={selectedTagIDs}
-						untagged={showUntagged}
-						onChange={changeTagFilters}
-					/>
-				</div>
-				<AppSelect
-					value={sort}
-					onValueChange={(value) => {
-						sort = value as typeof sort;
-						void searchMedia();
-					}}
-					options={[
-						{ value: 'newest', label: m.media_sort_newest() },
-						{ value: 'oldest', label: m.media_sort_oldest() },
-						{ value: 'name', label: m.media_sort_name() },
-						{ value: 'size', label: m.media_sort_size() },
-						{ value: 'recently_used', label: m.media_recently_used() }
-					]}
-					class="h-7 w-full min-w-0 text-xs"
-				/>
-			</div>
-		{/if}
-		<form
-			class="mb-2 flex gap-1"
-			onsubmit={(event) => {
-				event.preventDefault();
-				void searchMedia();
-			}}
-		>
-			<div class="relative min-w-0 flex-1">
-				<ThemeIcon
-					role="search"
-					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
-				/>
-				<Input
-					bind:ref={searchInput}
-					bind:value={search}
-					class="h-7 pl-7 text-xs"
-					placeholder={m.image_editor_search_media()}
-					aria-label={m.image_editor_search_media()}
-				/>
-			</div>
-			<Tooltip.Root>
-				<Tooltip.Trigger>
-					{#snippet child({ props })}
-						<Button
-							{...props}
-							variant="outline"
-							size="icon-sm"
-							type="submit"
-							aria-label={m.image_editor_search_media()}
-						>
-							<ThemeIcon role="search" />
-						</Button>
-					{/snippet}
-				</Tooltip.Trigger>
-				<Tooltip.Content>{m.image_editor_search_media()}</Tooltip.Content>
-			</Tooltip.Root>
-		</form>
 		<Input
 			bind:ref={guestFileInput}
 			type="file"
@@ -486,30 +448,80 @@
 			class="sr-only !size-px !p-0"
 			onchange={uploadGuestMedia}
 		/>
-		{#if guestMode}
-			<Button
-				variant="outline"
-				size="sm"
-				class="mb-2 w-full"
-				onclick={() => guestFileInput?.click()}
-			>
-				<ThemeIcon role="upload" />
-				{m.media_upload_device()}
-			</Button>
-			<Button
-				variant={stockOpen ? 'secondary' : 'outline'}
-				size="sm"
-				class="mb-3 w-full"
-				onclick={() => (stockOpen = !stockOpen)}
-			>
-				<ThemeIcon role="image" />
-				{stockOpen ? m.common_close() : m.stock_media()}
-			</Button>
-			{#if stockOpen}
-				<div class="mb-4 rounded-lg border bg-card p-2">
-					<StockMediaBrowser accept="photo" compact onSelect={addStockMedia} />
+		{#if !guestMode || guestSource === 'library'}
+			{#if !guestMode}
+				<div class="mb-2 space-y-2">
+					<div class="overflow-x-auto pb-1">
+						<MediaTagFilter
+							{tags}
+							selectedIds={selectedTagIDs}
+							untagged={showUntagged}
+							onChange={changeTagFilters}
+						/>
+					</div>
+					<AppSelect
+						value={sort}
+						onValueChange={(value) => {
+							sort = value as typeof sort;
+							void searchMedia();
+						}}
+						options={[
+							{ value: 'newest', label: m.media_sort_newest() },
+							{ value: 'oldest', label: m.media_sort_oldest() },
+							{ value: 'name', label: m.media_sort_name() },
+							{ value: 'size', label: m.media_sort_size() },
+							{ value: 'recently_used', label: m.media_recently_used() }
+						]}
+						class="h-7 w-full min-w-0 text-xs"
+					/>
 				</div>
 			{/if}
+			<form
+				class="mb-2 flex gap-1"
+				onsubmit={(event) => {
+					event.preventDefault();
+					void searchMedia();
+				}}
+			>
+				<div class="relative min-w-0 flex-1">
+					<ThemeIcon
+						role="search"
+						class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input
+						bind:ref={searchInput}
+						bind:value={search}
+						class="h-7 pl-7 text-xs"
+						placeholder={m.image_editor_search_media()}
+						aria-label={m.image_editor_search_media()}
+					/>
+				</div>
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="outline"
+								size="icon-sm"
+								type="submit"
+								aria-label={m.image_editor_search_media()}
+							>
+								<ThemeIcon role="search" />
+							</Button>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content>{m.image_editor_search_media()}</Tooltip.Content>
+				</Tooltip.Root>
+			</form>
+		{/if}
+		{#if guestMode && guestSource === 'stock'}
+			<div class="mb-4 rounded-lg border bg-card p-2">
+				<StockMediaBrowser accept="photo" compact onSelect={addStockMedia} />
+			</div>
+		{:else if guestMode && guestSource === 'camera'}
+			<div class="mb-4">
+				<CameraCapture onCapture={captureGuestPhoto} />
+			</div>
 		{/if}
 		{#if editor.backgroundImagePickerActive}
 			<div
@@ -537,12 +549,12 @@
 			</Button>
 		{/if}
 
-		{#if loading}
+		{#if (!guestMode || guestSource === 'library') && loading}
 			<div class="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
 				<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />
 				{m.common_loading()}
 			</div>
-		{:else}
+		{:else if !guestMode || guestSource === 'library'}
 			<section>
 				<h3 class="mb-2 text-xs font-semibold">{m.image_editor_all_media()}</h3>
 				{#if media.length > 0}
@@ -642,6 +654,14 @@
 		onConfirm={async (ids) => {
 			const id = ids[0];
 			if (!id) return;
+			if (editor.backgroundImagePickerActive) {
+				editor.setPageBackgroundImage(id);
+				editor.backgroundImagePickerActive = false;
+				addedMessage = m.image_editor_media_added({ name: m.image_editor_image() });
+				editor.refreshMediaLibrary();
+				await loadAll();
+				return;
+			}
 			editor.refreshMediaLibrary();
 			await loadAll();
 			const item = media.find((entry) => entry.id === id);

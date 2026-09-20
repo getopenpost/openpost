@@ -296,6 +296,11 @@
 					{m.image_editor_gradient_reverse()}
 				</Button>
 			</div>
+			{#if background.gradient.type === 'angle'}
+				<p class="text-xs leading-relaxed text-muted-foreground">
+					{m.image_editor_gradient_angle_seam_help()}
+				</p>
+			{/if}
 			<label class="grid gap-1 text-xs">
 				<span>
 					{m.image_editor_gradient_direction({

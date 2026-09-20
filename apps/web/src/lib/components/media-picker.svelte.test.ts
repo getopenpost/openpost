@@ -201,6 +201,25 @@ describe('MediaPicker meme source', () => {
 			.toBeVisible();
 	});
 
+	it('describes the limits for an image-only upload', async () => {
+		const screen = await render(MediaPicker, {
+			props: {
+				open: true,
+				workspaceId: 'workspace-1',
+				accept: ['image/*'],
+				maxSelection: 1,
+				multiple: false,
+				showCreate: false,
+				initialMode: 'upload',
+				services,
+				onConfirm: vi.fn()
+			}
+		});
+
+		await expect.element(screen.getByText('Maximum: 1 · Images up to 50 MB')).toBeVisible();
+		await expect.element(screen.getByText(/video up to/i)).not.toBeInTheDocument();
+	});
+
 	it('opens camera-first pickers directly on the camera source', async () => {
 		const screen = await render(MediaPicker, {
 			props: {

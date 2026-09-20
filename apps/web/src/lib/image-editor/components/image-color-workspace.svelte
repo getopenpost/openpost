@@ -11,8 +11,7 @@
 	} from '$lib/editor-color-grade/model';
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Collapsible from '$lib/components/ui/collapsible';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { Disclosure } from '$lib/components/editor-density';
 	import EditorColorSlider from '$lib/components/editor-color-slider.svelte';
 	import EditorColorComparison from '$lib/components/editor-color-comparison.svelte';
 	import {
@@ -369,23 +368,8 @@
 			</section>
 		{/each}
 
-		<Collapsible.Root bind:open={advancedOpen} class="border-t pt-2">
-			<Collapsible.Trigger>
-				{#snippet child({ props })}
-					<button
-						{...props}
-						type="button"
-						class="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
-					>
-						<span class="min-w-0 flex-1">{m.video_editor_advanced()}</span>
-						<ThemeIcon
-							role="chevron-down"
-							class={`size-3.5 transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
-						/>
-					</button>
-				{/snippet}
-			</Collapsible.Trigger>
-			<Collapsible.Content class="space-y-5 pt-3">
+		<Disclosure label={m.video_editor_advanced()} bind:open={advancedOpen} class="border-t">
+			<div class="space-y-5 pt-3">
 				<section class="grid grid-cols-2 gap-x-4 gap-y-3">
 					{#each EDITOR_COLOR_WHEELS as descriptor (descriptor.hue)}
 						<div class="min-w-0 space-y-2">
@@ -480,7 +464,7 @@
 						/>
 					</fieldset>
 				</section>
-			</Collapsible.Content>
-		</Collapsible.Root>
+			</div>
+		</Disclosure>
 	{/if}
 </div>

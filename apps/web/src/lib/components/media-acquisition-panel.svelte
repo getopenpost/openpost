@@ -84,6 +84,7 @@
 	const stockAccept = $derived(
 		acceptsKind('image') && acceptsKind('video') ? 'both' : acceptsKind('video') ? 'video' : 'photo'
 	);
+	const uploadLimits = $derived(uploadLimitMessage());
 
 	function initialize(): () => void {
 		untrack(() => {
@@ -100,8 +101,24 @@
 
 	function acceptsKind(kind: 'image' | 'video' | 'audio'): boolean {
 		return accept.some(
-			(candidate) => candidate === `${kind}/*` || candidate.startsWith(`${kind}/`)
+			(candidate) =>
+				candidate === '*/*' || candidate === `${kind}/*` || candidate.startsWith(`${kind}/`)
 		);
+	}
+
+	function uploadLimitMessage(): string {
+		const images = acceptsKind('image');
+		const videos = acceptsKind('video');
+		const audio = acceptsKind('audio');
+		const input = { maximum: maxFiles };
+		if (images && videos && audio) return m.media_upload_limits_all(input);
+		if (images && videos) return m.media_upload_limits_images_videos(input);
+		if (images && audio) return m.media_upload_limits_images_audio(input);
+		if (videos && audio) return m.media_upload_limits_videos_audio(input);
+		if (images) return m.media_upload_limits_images(input);
+		if (videos) return m.media_upload_limits_videos(input);
+		if (audio) return m.media_upload_limits_audio(input);
+		return m.media_upload_limits_files(input);
 	}
 
 	function handlePaste(event: ClipboardEvent): void {
@@ -457,7 +474,7 @@
 				{m.media_upload_drop_body()}
 			</span>
 			<span class="mt-4 rounded-full bg-muted/60 px-3 py-1 text-xs text-muted-foreground">
-				{m.media_upload_limits_accurate()}
+				{uploadLimits}
 			</span>
 		</button>
 		<Input

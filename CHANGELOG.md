@@ -4,6 +4,61 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-09-20
+
+### Changed
+
+- Moved the public documentation to `openpo.st/docs` and kept old documentation links working through direct redirects.
+- Replace the marketing Free tools card's decorative icons with direct links to the image editor, video editor, thread splitter, and character counter.
+- The free-tools directory now has search and categories for images, video, converters, and writing and planning.
+- Background removal preserves original image dimensions by applying the estimated mask to the original pixels. Device memory limits still apply.
+- Aligned the Image Editor, Video Editor, and Quick Cut headers, save status, history controls, and Export placement.
+- Made Quick Cut projects reload from their project URL and moved its editing and timeline controls into a compact toolbar.
+- Numeric multi-layer transforms preserve the arrangement of the selection instead of assigning identical coordinates to each layer.
+- Keep only the newest pending thumbnail render for each preview, without interrupting running work or mixing different preview instances.
+- Refine Image Editor pixel selections by growing, shrinking, or inverting them, load a layer's visible alpha as a binary selection, and draw precise click-by-click polygonal selections.
+- Put alignment controls in Transform and basic color adjustments before advanced controls, with selected images as the initial Color target.
+- Add page naming and named exports, clear eyedropper scope, brush-opacity reset, direct media sources, and Added/Done feedback.
+- Separate searchable workspace templates from starters and return cloud designs to the project browser.
+- Preserve proportions when resizing with Fit or Fill, with Keep size and explicit Stretch options.
+- The logo maker offers the full installed Lucide collection, loaded in batches as you scroll. Search matches Lucide names, aliases, tags, categories, and minor spelling mistakes.
+- Logo colors include opacity controls for outlines, fills, solid backgrounds, and gradient stops. PNG and SVG exports preserve transparency.
+
+### Added
+
+- Publish native `linux/amd64` and `linux/arm64` container images under one multi-architecture OpenPost tag.
+- Free browser tools for background removal, image colors and palettes, clipboard-image downloads, icon-based logos, and PNG/JPEG/WebP conversion. Image processing stays on the device, with no account or watermark. Supported conversion pairs have their own searchable pages and format guidance.
+- Quick Cut has its own free-tool page, separate from the full Video Editor.
+- Rasterize a layer or group, merge adjacent layers, or flatten a page into an image with one undo step. These commands bake the pixels inside the page and keep source media unchanged.
+- Prevent merges that would change backdrop-dependent blending, and reject completed renders when the design has changed.
+- Preview the encoded PNG, JPEG, or WebP output and exact byte count before exporting an Image Editor design.
+
+### Fixed
+
+- Use the same ordered dither gradients across marketing, application controls, and documentation. Button hover and keyboard focus now lift pixel density, and chart fills keep square pixels at every height without changing values or series colors.
+- Saved URL imports, stock media, stickers, Lottie animations, captured frames, freeze frames, generated audio, and processed video to Cloud Video Projects without asking for a local workspace folder.
+- Kept preview menus usable in fullscreen, placed backgrounds below visual overlays, and exposed keyframe and Pen controls in compact workspaces.
+- Distinguished real shortcut conflicts from intentional per-surface bindings and showed every active Split shortcut consistently.
+- Waited for Kokoro pronunciation data before loading the speech model so its English voices initialize reliably.
+- Keep Export as the rightmost Video Editor header action, after the export queue, with a matching accessible label.
+- Fixed Video Editor render queue submissions from live projects and kept the Export dialog open with a recovery step when a render cannot be queued.
+- Keep the Video Editor timeline, preview, and selection synchronized when switching sequences or opening compounds.
+- Preserve Stock search state and in-progress Create audio work when moving between editor tools.
+- Collect nested Facebook Page comment replies into the engagement inbox, threaded under the comment they answer.
+- Explain when Facebook returns no manageable Pages instead of showing a generic provider setup error.
+- Reuse the previewed bytes for downloads, Media, and composer attachments, and stop full-resolution exports when source media is missing or unreadable.
+- Keep multi-layer alignment previews, crop rotation, curved text, lines, and centered page gradients in sync with saved Image Editor designs.
+- Render Diamond page backgrounds as diamond gradients in the canvas and exported images.
+- Image Editor layer outlines now follow text glyphs instead of the text box, update while typing, and disappear at zero width. Alpha-based outlines keep layer opacity separate from edge coverage.
+- Make Image Editor trackpad pinch zoom 2.5 times more responsive.
+- Keep imported Image Editor projects isolated from the previously open design, update the browser title after renaming, and open workspace templates without reloading.
+- Isolate guide keyboard actions from selected layers, open the background image picker directly, and keep unsaved-work warnings visible when cloud and local recovery fail.
+- Use readable background-removal progress and correct image-upload wording.
+- Collect Instagram comment replies into the engagement inbox, threaded under the comment they answer.
+- Collect nested LinkedIn comment replies into the engagement inbox, threaded under the comment they answer.
+- Reject release container artifacts with invalid digests or mismatched version and revision labels on either supported architecture.
+- Collect every YouTube comment-thread reply into the engagement inbox, not only the subset returned on commentThreads.list.
+
 ## [5.1.2] - 2026-09-19
 
 ### Fixed

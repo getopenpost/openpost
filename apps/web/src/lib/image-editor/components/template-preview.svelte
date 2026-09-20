@@ -32,7 +32,7 @@
 	let visible = $state(false);
 	let lastRenderedPage: ImageEditorPage | null = null;
 	let lastRenderedDimensionKey = '';
-	const previewOwner = {};
+	const previewOwner = Symbol('image-preview');
 
 	function observePreview(node: HTMLElement): () => void {
 		if (!cached) return () => undefined;

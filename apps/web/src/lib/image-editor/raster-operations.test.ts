@@ -68,6 +68,8 @@ describe('explicit raster operations', () => {
 		expect(editor.commitRasterOperation(plan, 'media', 'Merge selected')).toBe(true);
 		expect(editor.activePage!.layers.map((item) => item.name)).toEqual(['group', 'b', 'c']);
 		expect(editor.activePage!.layers[1].parent_id).toBe('group');
+		expect(editor.activePage!.layers[1].transform.width).toBe(20);
+		expect(editor.activePage!.layers[0].transform.width).toBe(20);
 	});
 	it('refuses non-adjacent, locked, hidden, and backdrop-dependent selections', () => {
 		const editor = fixture();
@@ -89,6 +91,19 @@ describe('explicit raster operations', () => {
 		editor.updateLayer('back', { name: 'Changed' });
 		expect(editor.commitRasterOperation(plan, 'media', 'Rasterize')).toBe(false);
 		expect(editor.activePage!.layers).toHaveLength(3);
+		editor.load({
+			id: 'other-design',
+			workspace_id: '',
+			created_by_id: '',
+			revision: 1,
+			can_edit: true,
+			created_at: '',
+			updated_at: '',
+			document: fixture().document!
+		});
+		expect(editor.commitRasterOperation(plan, 'media', 'Rasterize')).toBe(false);
+		expect(editor.id).toBe('other-design');
+		expect(editor.activePage!.layers.map((layer) => layer.id)).toEqual(['back', 'middle', 'front']);
 		const group = { ...layer('group'), type: 'group' as const, shape: undefined };
 		const nested = fixture([group, { ...layer('child', 'group'), locked: true }]);
 		expect(prepareRasterOperation(nested.document!, 'page', ['group'], 'rasterize')).toBeNull();

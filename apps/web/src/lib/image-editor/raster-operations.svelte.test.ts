@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ImageEditorController } from './editor.svelte';
 import { defaultTransform } from './document';
+import { defaultLayerEffects } from './effects';
 import { defaultEditorColorGradeAdjustments } from '$lib/editor-color-grade/model';
 import { prepareRasterOperation, rasterRenderDocument } from './raster-operations';
 import { renderImageEditorPage } from './static-renderer';
+import { cropRasterResult } from './raster-result';
 import { registerLocalImageEditorMedia, releaseLocalImageEditorMedia } from './local-media-url';
 import type { ImageEditorDocument, ImageEditorLayer } from './types';
 
@@ -17,7 +19,21 @@ function fixture(): ImageEditorDocument {
 		opacity: 0.7,
 		transform: { ...defaultTransform(50, 40, x, 20), rotation: 10 },
 		shape: { kind: 'rectangle', fill, stroke: '#000000', stroke_width: 2, radius: 0 },
-		mask: { shape: 'ellipse', inset: 1, radius: 0 }
+		mask: { shape: 'ellipse', inset: 1, radius: 0 },
+		erase_mask: {
+			source_width: 50,
+			source_height: 40,
+			spans: [],
+			strokes: [
+				{
+					points: [
+						{ x: 20, y: 15 },
+						{ x: 30, y: 25 }
+					],
+					size: 5
+				}
+			]
+		}
 	});
 	return {
 		schema_version: 1,
@@ -51,10 +67,14 @@ async function pixels(document: ImageEditorDocument): Promise<Uint8ClampedArray>
 	return context.getImageData(0, 0, canvas.width, canvas.height).data;
 }
 describe('raster operations through the real renderer', () => {
-	it.each(['merge_selected', 'flatten_page'] as const)(
+	it.each(['rasterize', 'merge_down', 'merge_selected', 'flatten_page'] as const)(
 		'preserves masked, rotated, overlapping pixels through %s and undo',
 		async (kind) => {
 			const editor = new ImageEditorController();
+			const document = fixture();
+			if (kind === 'flatten_page') {
+				document.pages[0].layers[1].effects = { ...defaultLayerEffects(), blend_mode: 'multiply' };
+			}
 			editor.load({
 				id: 'pixel-design',
 				workspace_id: '',
@@ -63,16 +83,23 @@ describe('raster operations through the real renderer', () => {
 				can_edit: true,
 				created_at: '',
 				updated_at: '',
-				document: fixture()
+				document
 			});
 			const original = await pixels(editor.document!);
-			const plan = prepareRasterOperation(editor.document!, 'page', ['red', 'blue'], kind)!;
+			const selectedIDs =
+				kind === 'rasterize' || kind === 'merge_down' ? ['blue'] : ['red', 'blue'];
+			const plan = prepareRasterOperation(editor.document!, 'page', selectedIDs, kind)!;
 			const snapshot = rasterRenderDocument(plan);
 			const rendered = await renderImageEditorPage(snapshot, snapshot.pages[0], 0);
+			const raster = await cropRasterResult(plan, rendered.blob);
 			const mediaID = `local_media_${crypto.randomUUID()}`;
-			registerLocalImageEditorMedia(mediaID, rendered.blob);
+			registerLocalImageEditorMedia(mediaID, raster.blob);
 			try {
-				expect(editor.commitRasterOperation(plan, mediaID, 'Bake')).toBe(true);
+				expect(editor.commitRasterOperation(plan, mediaID, 'Bake', raster.bounds)).toBe(true);
+				if (kind === 'merge_selected') {
+					expect(editor.selectedLayers[0].transform.width).toBeLessThan(100);
+					expect(editor.selectedLayers[0].transform.x).toBeGreaterThan(0);
+				}
 				const baked = await pixels(editor.document!);
 				expect(baked.length).toBe(original.length);
 				let maximumDifference = 0;

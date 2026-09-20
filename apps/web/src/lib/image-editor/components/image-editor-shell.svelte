@@ -17,6 +17,7 @@
 		type ImageEditorRasterOperation
 	} from '../raster-operations';
 	import { renderImageEditorPage } from '../static-renderer';
+	import { cropRasterResult } from '../raster-result';
 	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import EditorMenubar from '$lib/components/editor-menubar.svelte';
 	import EditorHeader from '$lib/components/editor-header.svelte';
@@ -2137,7 +2138,11 @@
 
 	function commandDisabledReason(id: ImageEditorCommandID): string {
 		if (isRasterCommand(id))
-			return rasterBusy ? m.image_editor_raster_busy() : m.image_editor_raster_requirements();
+			return commandEnabled(id)
+				? m.image_editor_raster_help()
+				: rasterBusy
+					? m.image_editor_raster_busy()
+					: m.image_editor_raster_requirements();
 		const availability = imageEditorCommand(id).availability;
 		if (availability === 'undo') return m.image_editor_nothing_to_undo();
 		if (availability === 'redo') return m.image_editor_nothing_to_redo();
@@ -2403,9 +2408,10 @@
 		try {
 			const snapshot = rasterRenderDocument(plan);
 			const rendered = await renderImageEditorPage(snapshot, snapshot.pages[0], 0, abort.signal);
+			const raster = await cropRasterResult(plan, rendered.blob, abort.signal);
 			if (!editorViewActive || editor.id !== designID || editor.document !== plan.sourceDocument)
 				throw new Error(m.image_editor_raster_stale());
-			const file = new File([rendered.blob], rendered.filename, { type: 'image/png' });
+			const file = new File([raster.blob], rendered.filename, { type: 'image/png' });
 			const media = guestMode
 				? await storeGuestImageEditorMedia(designID, file)
 				: await uploadMediaFile({
@@ -2421,7 +2427,7 @@
 			if (
 				!editorViewActive ||
 				editor.id !== designID ||
-				!editor.commitRasterOperation(plan, media.id, commandLabel(kind))
+				!editor.commitRasterOperation(plan, media.id, commandLabel(kind), raster.bounds)
 			)
 				throw new Error(m.image_editor_raster_stale());
 			editor.refreshMediaLibrary();
@@ -2953,6 +2959,11 @@
 									{/if}
 								</DropdownMenu.Item>
 							{/each}
+							{#if category === 'layer'}
+								<p class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">
+									{m.image_editor_raster_help()}
+								</p>
+							{/if}
 							<DropdownMenu.Separator />
 						{/each}
 						<DropdownMenu.Item onclick={() => (mobileSheet = 'layers')}

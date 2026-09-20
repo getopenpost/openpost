@@ -25,7 +25,11 @@ import {
 	type ImageEditorCollectiveTransformKey
 } from './collective-transform';
 import { ImageEditorHistory } from './history';
-import { rasterResultLayer, type ImageEditorRasterPlan } from './raster-operations';
+import {
+	rasterResultLayer,
+	type ImageEditorRasterPlan,
+	type ImageEditorRasterBounds
+} from './raster-operations';
 import {
 	combinePixelMasks,
 	intersectPixelMasks,
@@ -1415,7 +1419,12 @@ export class ImageEditorController {
 		this.selectedLayerIDs = [layer.id];
 	}
 
-	commitRasterOperation(plan: ImageEditorRasterPlan, mediaID: string, label: string): boolean {
+	commitRasterOperation(
+		plan: ImageEditorRasterPlan,
+		mediaID: string,
+		label: string,
+		bounds: ImageEditorRasterBounds = plan.bounds
+	): boolean {
 		if (
 			!this.canEdit ||
 			!mediaID ||
@@ -1425,7 +1434,7 @@ export class ImageEditorController {
 			this.colorPreviewActive
 		)
 			return false;
-		const result = rasterResultLayer(plan, mediaID);
+		const result = rasterResultLayer(plan, mediaID, bounds);
 		const removed = new Set(plan.sourceIDs);
 		this.mutate(label, (document) => {
 			const page = document.pages.find((page) => page.id === plan.pageID)!;

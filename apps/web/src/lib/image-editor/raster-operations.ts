@@ -21,6 +21,14 @@ export interface ImageEditorRasterPlan {
 	anchorID: string;
 	parentID?: string;
 	name: string;
+	bounds: ImageEditorRasterBounds;
+}
+
+export interface ImageEditorRasterBounds {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
 }
 
 /** An isolated bake cannot reproduce blends that depend on an unselected backdrop. */
@@ -87,6 +95,28 @@ export function prepareRasterOperation(
 		return null;
 	if (!sourceLayers.some((layer) => layer.type !== 'group')) return null;
 	const sourceIDs = sourceLayers.map((layer) => layer.id);
+	const x =
+		kind === 'flatten_page'
+			? 0
+			: Math.max(0, Math.floor(Math.min(...roots.map((layer) => layer.transform.x))));
+	const y =
+		kind === 'flatten_page'
+			? 0
+			: Math.max(0, Math.floor(Math.min(...roots.map((layer) => layer.transform.y))));
+	const right =
+		kind === 'flatten_page'
+			? document.width_px
+			: Math.min(
+					document.width_px,
+					Math.ceil(Math.max(...roots.map((layer) => layer.transform.x + layer.transform.width)))
+				);
+	const bottom =
+		kind === 'flatten_page'
+			? document.height_px
+			: Math.min(
+					document.height_px,
+					Math.ceil(Math.max(...roots.map((layer) => layer.transform.y + layer.transform.height)))
+				);
 	return {
 		sourceDocument: document,
 		pageID,
@@ -94,7 +124,13 @@ export function prepareRasterOperation(
 		sourceIDs,
 		anchorID: roots.at(-1)!.id,
 		parentID: kind === 'flatten_page' ? undefined : roots[0].parent_id,
-		name: kind === 'flatten_page' ? page.name : roots.at(-1)!.name
+		name: kind === 'flatten_page' ? page.name : roots.at(-1)!.name,
+		bounds: {
+			x: Math.min(x, document.width_px - 1),
+			y: Math.min(y, document.height_px - 1),
+			width: Math.max(1, right - x),
+			height: Math.max(1, bottom - y)
+		}
 	};
 }
 
@@ -117,8 +153,12 @@ export function rasterRenderDocument(plan: ImageEditorRasterPlan): ImageEditorDo
 	return renderDocument;
 }
 
-export function rasterResultLayer(plan: ImageEditorRasterPlan, mediaID: string): ImageEditorLayer {
-	const { width_px: width, height_px: height } = plan.sourceDocument;
+export function rasterResultLayer(
+	plan: ImageEditorRasterPlan,
+	mediaID: string,
+	bounds = plan.bounds
+): ImageEditorLayer {
+	const { x, y, width, height } = bounds;
 	return {
 		id: imageEditorID('layer'),
 		type: 'image',
@@ -128,7 +168,7 @@ export function rasterResultLayer(plan: ImageEditorRasterPlan, mediaID: string):
 		locked: false,
 		opacity: 1,
 		effects: defaultLayerEffects(),
-		transform: defaultTransform(width, height),
+		transform: defaultTransform(width, height, x, y),
 		image: {
 			media_id: mediaID,
 			source_width: width,

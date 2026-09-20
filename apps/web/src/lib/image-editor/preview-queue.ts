@@ -13,14 +13,14 @@ export function createImageEditorPreviewQueue(
 	document: ImageEditorDocument,
 	page: ImageEditorPage,
 	signal: AbortSignal,
-	owner?: object
+	owner?: ImageEditorPage | symbol
 ) => Promise<Blob> {
 	let activePreviews = 0;
 	const pendingPreviews: Array<{
 		document: ImageEditorDocument;
 		page: ImageEditorPage;
 		signal: AbortSignal;
-		owner: object;
+		owner: ImageEditorPage | symbol;
 		removeAbortListener: () => void;
 		resolve: (blob: Blob) => void;
 		reject: (error: Error) => void;

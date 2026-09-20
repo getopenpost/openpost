@@ -24,9 +24,9 @@ describe('Image Editor page preview queue', () => {
 		const render = vi.fn(() => new Promise<Blob>((resolve) => releases.push(resolve)));
 		const queue = createImageEditorPreviewQueue(render);
 		const signal = new AbortController().signal;
-		const owner = {};
+		const owner = Symbol('preview');
 		const first = queue(document, page, signal, owner);
-		const other = queue(document, page, signal, {});
+		const other = queue(document, page, signal, Symbol('other-preview'));
 		const old = queue(document, { ...page, name: 'Old' }, signal, owner);
 		const rejected = expect(old).rejects.toMatchObject({ name: 'AbortError' });
 		const newestPage = { ...page, name: 'Newest' };

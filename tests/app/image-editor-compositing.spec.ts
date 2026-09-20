@@ -46,6 +46,20 @@ for (const storage of ["guest", "cloud"] as const) {
     await page.reload();
     await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
     await expect(layers).toHaveCount(1);
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    const bakeHelp = page.getByText("Bakes pixels inside the page.", { exact: false });
+    await bakeHelp.scrollIntoViewIfNeeded();
+    await expect(bakeHelp).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      390,
+    );
+    await page.screenshot({ path: testInfo.outputPath(`${storage}-compositing-390.png`) });
+    await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 320, height: 800 });
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
     await page
@@ -55,6 +69,8 @@ for (const storage of ["guest", "cloud"] as const) {
     await expect(
       page.getByRole("menuitem", { name: "Rasterize to image", exact: true }),
     ).toBeVisible();
+    await bakeHelp.scrollIntoViewIfNeeded();
+    await expect(bakeHelp).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       320,
     );

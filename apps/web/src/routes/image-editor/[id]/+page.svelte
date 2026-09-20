@@ -213,7 +213,11 @@
 	}
 </script>
 
-<svelte:head><title>{design?.document.title ?? m.image_editor_title()}</title></svelte:head>
+<svelte:head>
+	{#if loading || migrationBusy || error || !design}
+		<title>{m.image_editor_title()}</title>
+	{/if}
+</svelte:head>
 
 {#if loading || migrationBusy}
 	<div class="flex h-dvh items-center justify-center bg-background text-foreground">

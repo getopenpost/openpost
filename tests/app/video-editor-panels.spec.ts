@@ -163,7 +163,10 @@ for (const scheme of ["light", "dark"] as const) {
       .getByRole("button", { name: "More actions", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "Save", exact: true }).click();
-    await expect(page.getByText("All changes saved locally", { exact: true })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute(
+      "data-state",
+      "saved",
+    );
     await page.reload();
     await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
       timeout: 20_000,

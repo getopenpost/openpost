@@ -22,8 +22,8 @@ test("a background moves between visual tracks with undo, cancel and persistence
   await page.getByRole("tab", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("Sunset mesh");
   await page.getByRole("button", { name: "Sunset mesh", exact: true }).click();
-  const source = page.locator('[data-track="track-video-overlay"]');
-  const destination = page.locator('[data-track="track-video-main"]');
+  const source = page.locator('[data-track="track-video-main"]');
+  const destination = page.locator('[data-track="track-video-overlay"]');
   const clip = page.locator("[data-timeline-item-id]");
   await expect(source.locator("[data-timeline-item-id]")).toHaveCount(1);
   const start = await clip.boundingBox();
@@ -50,7 +50,7 @@ test("a background moves between visual tracks with undo, cancel and persistence
   await page.mouse.up();
   await expect(destination.locator("[data-timeline-item-id]")).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByText("All changes saved locally", { exact: true })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
   await page.reload();
   await expect(destination.locator("[data-timeline-item-id]")).toHaveCount(1);
 });

@@ -432,9 +432,7 @@ test("imports video and a photo, places both, and reopens the timeline", async (
   }
   await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(
-    page.getByRole("banner").getByText("All changes saved locally", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
   await page.reload();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
     timeout: 20_000,

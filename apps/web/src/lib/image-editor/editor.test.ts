@@ -61,6 +61,33 @@ function response(): ImageEditorDocumentResponse {
 }
 
 describe('OpenPost Image Editor editor layer interactions', () => {
+	it('refines the active pixel selection without mutating the document or target layers', () => {
+		const editor = new ImageEditorController();
+		const initial = response();
+		initial.document.width_px = 5;
+		initial.document.height_px = 5;
+		editor.load(initial);
+		const document = editor.document;
+		const mask = new Uint8Array(25);
+		mask[12] = 1;
+		editor.pixelSelection = {
+			width: 5,
+			height: 5,
+			data: mask,
+			targetLayerIDs: ['front']
+		};
+
+		expect(editor.refinePixelSelection('expand')).toBe(true);
+		expect(editor.pixelSelection?.data.reduce((total, value) => total + value, 0)).toBe(9);
+		expect(editor.pixelSelection?.targetLayerIDs).toEqual(['front']);
+		expect(editor.document).toBe(document);
+
+		expect(editor.refinePixelSelection('contract')).toBe(true);
+		expect(editor.pixelSelection?.data.reduce((total, value) => total + value, 0)).toBe(1);
+		expect(editor.refinePixelSelection('invert')).toBe(true);
+		expect(editor.pixelSelection?.data.reduce((total, value) => total + value, 0)).toBe(24);
+	});
+
 	it('adds a line with a visible stroke', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());

@@ -32,7 +32,10 @@ import {
 } from './raster-operations';
 import {
 	combinePixelMasks,
+	contractPixelMask,
+	expandPixelMask,
 	intersectPixelMasks,
+	invertPixelMask,
 	pixelMaskBounds,
 	pixelMaskTransformAround,
 	pixelSpansToMask,
@@ -670,6 +673,21 @@ export class ImageEditorController {
 		this.pixelSelection = null;
 	}
 
+	refinePixelSelection(operation: 'expand' | 'contract' | 'invert', amount = 1): boolean {
+		const selection = this.pixelSelection;
+		if (!selection || this.floatingPixelSelection) return false;
+		const data =
+			operation === 'invert'
+				? invertPixelMask(selection.data)
+				: operation === 'expand'
+					? expandPixelMask(selection.data, selection.width, selection.height, amount)
+					: contractPixelMask(selection.data, selection.width, selection.height, amount);
+		this.pixelSelection = pixelMaskBounds(data, selection.width, selection.height)
+			? { ...selection, data }
+			: null;
+		return true;
+	}
+
 	beginFloatingPixelSelection(
 		mode: 'promote' | 'cut',
 		projections: Array<{
@@ -1052,6 +1070,7 @@ export class ImageEditorController {
 				'marquee',
 				'ellipse_marquee',
 				'lasso',
+				'polygonal_lasso',
 				'magic_wand',
 				'pencil',
 				'eraser',

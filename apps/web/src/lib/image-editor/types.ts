@@ -20,6 +20,7 @@ export type ImageEditorSelectionTool =
 	| 'marquee'
 	| 'ellipse_marquee'
 	| 'lasso'
+	| 'polygonal_lasso'
 	| 'magic_wand';
 export type ImageEditorSelectionMode = 'replace' | 'add' | 'subtract' | 'intersect' | 'toggle';
 export type ImageEditorGradientType = 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond';

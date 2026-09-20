@@ -6,6 +6,7 @@
 	} from '$lib/editor-color-grade/scopes';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Slider } from '$lib/components/ui/slider';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
@@ -62,13 +63,15 @@
 		copy(): ImageEditorLayer[];
 		begin(mode: 'promote' | 'cut'): boolean;
 		delete(): boolean;
+		loadLayerAlpha(): boolean;
 	}
 
 	type AreaSelectionTool = Extract<
 		ImageEditorSelectionTool,
-		'marquee' | 'ellipse_marquee' | 'lasso'
+		'marquee' | 'ellipse_marquee' | 'lasso' | 'polygonal_lasso'
 	>;
-	type CanvasGestureTool = AreaSelectionTool | 'select' | 'pencil' | 'eraser' | 'gradient';
+	type DragAreaSelectionTool = Exclude<AreaSelectionTool, 'polygonal_lasso'>;
+	type CanvasGestureTool = DragAreaSelectionTool | 'select' | 'pencil' | 'eraser' | 'gradient';
 	interface SelectionGesture {
 		tool: CanvasGestureTool;
 		pointerID: number;
@@ -78,6 +81,12 @@
 		mode: ImageEditorSelectionMode;
 		targetLayerID?: string;
 		originalSelection?: Uint8Array;
+	}
+	interface PolygonalSelection {
+		points: SelectionPoint[];
+		current: SelectionPoint;
+		mode: ImageEditorSelectionMode;
+		targetLayerIDs: string[];
 	}
 
 	const editor = useImageEditor();
@@ -127,6 +136,7 @@
 	let lastAutoEditingLayerID = '';
 	let panning = $state(false);
 	let selectionGesture = $state<SelectionGesture | null>(null);
+	let polygonalSelection = $state<PolygonalSelection | null>(null);
 	let magicPulse = $state<SelectionPoint | null>(null);
 	let eyedropperPreview = $state.raw<{
 		point: SelectionPoint;
@@ -444,11 +454,15 @@
 
 	function isAreaSelectionTool(tool = editor.activeTool): tool is AreaSelectionTool | 'magic_wand' {
 		return (
-			tool === 'marquee' || tool === 'ellipse_marquee' || tool === 'lasso' || tool === 'magic_wand'
+			tool === 'marquee' ||
+			tool === 'ellipse_marquee' ||
+			tool === 'lasso' ||
+			tool === 'polygonal_lasso' ||
+			tool === 'magic_wand'
 		);
 	}
 
-	function isDragSelectionTool(tool = editor.activeTool): tool is AreaSelectionTool {
+	function isDragSelectionTool(tool = editor.activeTool): tool is DragAreaSelectionTool {
 		return tool === 'marquee' || tool === 'ellipse_marquee' || tool === 'lasso';
 	}
 
@@ -594,6 +608,17 @@
 		return changed;
 	}
 
+	function loadSelectedLayerAlpha(): boolean {
+		const document = editor.document;
+		const id = editor.selectedLayerIDs.at(-1);
+		const layer = editor.activePage?.layers.find((candidate) => candidate.id === id);
+		if (!document || !id || !layer || layer.locked || !adapter) return false;
+		const mask = adapter.layerAlphaPixelMask(id, document.width_px, document.height_px);
+		if (!mask) return false;
+		editor.applyPixelSelection(mask, [id], 'replace');
+		return true;
+	}
+
 	function commitFloatingPixels(): boolean {
 		const changed = editor.commitFloatingPixelSelection();
 		if (changed) canvasAnnouncement = m.image_editor_selected_pixels_applied();
@@ -725,8 +750,13 @@
 	const pixelSelectionActions: PixelSelectionActions = {
 		copy: () => editor.extractPixelSelectionLayers(pixelContentProjections()),
 		begin: (mode) => commitPixelContent(mode),
-		delete: () => commitPixelContent('delete')
+		delete: () => commitPixelContent('delete'),
+		loadLayerAlpha: loadSelectedLayerAlpha
 	};
+
+	$effect(() => {
+		if (editor.activeTool !== 'polygonal_lasso') polygonalSelection = null;
+	});
 
 	$effect(() => {
 		registerPixelSelectionActions?.(pixelSelectionActions);
@@ -1085,6 +1115,29 @@
 		const mode = isAreaSelectionTool(tool)
 			? selectionModeForEvent(event, tool)
 			: editor.selectionMode;
+		if (tool === 'polygonal_lasso') {
+			if (!polygonalSelection) {
+				const selectedID = editor.selectedLayerIDs.at(-1);
+				const selected = editor.activePage?.layers.find((layer) => layer.id === selectedID);
+				polygonalSelection = {
+					points: [point],
+					current: point,
+					mode,
+					targetLayerIDs: selectedID && selected && !selected.locked ? [selectedID] : []
+				};
+			} else if (event.detail >= 2) {
+				finishPolygonalSelection();
+			} else {
+				polygonalSelection = {
+					...polygonalSelection,
+					points: [...polygonalSelection.points, point],
+					current: point
+				};
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			return true;
+		}
 		if (
 			tool === 'eyedropper' ||
 			(event.altKey && ['pencil', 'bucket', 'gradient'].includes(tool))
@@ -1459,6 +1512,19 @@
 		return true;
 	}
 
+	function finishPolygonalSelection(): boolean {
+		const selection = polygonalSelection;
+		const document = editor.document;
+		polygonalSelection = null;
+		if (!selection || !document || selection.points.length < 3) return false;
+		editor.applyPixelSelection(
+			polygonPixelMask(document.width_px, document.height_px, selection.points),
+			selection.targetLayerIDs,
+			selection.mode
+		);
+		return true;
+	}
+
 	function cancelAreaSelection(event: PointerEvent): void {
 		const cancelledTool = selectionGesture?.tool;
 		if (selectionGesture?.pointerID === event.pointerId) {
@@ -1629,6 +1695,10 @@
 
 	function movePan(event: PointerEvent): void {
 		cursorPoint = documentPoint(event);
+		if (polygonalSelection && editor.activeTool === 'polygonal_lasso') {
+			const point = documentPoint(event, 'clamp');
+			if (point) polygonalSelection = { ...polygonalSelection, current: point };
+		}
 		if (editor.activeTool === 'pencil' || editor.activeTool === 'eraser') {
 			brushPreview = documentPoint(event);
 		}
@@ -1728,6 +1798,29 @@
 		if (event.key === 'Escape' && (layerPickerRef?.dismiss() ?? false)) {
 			event.preventDefault();
 			return;
+		}
+		if (polygonalSelection && !editableTarget(event.target)) {
+			if (event.key === 'Enter') {
+				finishPolygonalSelection();
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				return;
+			}
+			if (event.key === 'Escape') {
+				polygonalSelection = null;
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				return;
+			}
+			if (event.key === 'Backspace' && polygonalSelection.points.length > 1) {
+				polygonalSelection = {
+					...polygonalSelection,
+					points: polygonalSelection.points.slice(0, -1)
+				};
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				return;
+			}
 		}
 		const insideEyedropperOptions =
 			event.target instanceof Element &&
@@ -2045,18 +2138,25 @@
 							? m.image_editor_ellipse_select()
 							: editor.activeTool === 'lasso'
 								? m.image_editor_lasso_select()
-								: editor.activeTool === 'magic_wand'
-									? m.image_editor_magic_select()
-									: editor.activeTool === 'pencil'
-										? m.image_editor_pencil()
-										: editor.activeTool === 'eraser'
-											? m.image_editor_erase()
-											: editor.activeTool === 'magic_eraser'
-												? m.image_editor_magic_erase()
-												: editor.activeTool === 'gradient'
-													? m.image_editor_gradient()
-													: m.image_editor_paint_bucket()}
+								: editor.activeTool === 'polygonal_lasso'
+									? m.image_editor_polygonal_lasso_select()
+									: editor.activeTool === 'magic_wand'
+										? m.image_editor_magic_select()
+										: editor.activeTool === 'pencil'
+											? m.image_editor_pencil()
+											: editor.activeTool === 'eraser'
+												? m.image_editor_erase()
+												: editor.activeTool === 'magic_eraser'
+													? m.image_editor_magic_erase()
+													: editor.activeTool === 'gradient'
+														? m.image_editor_gradient()
+														: m.image_editor_paint_bucket()}
 				</span>
+				{#if editor.activeTool === 'polygonal_lasso'}
+					<span class="hidden max-w-80 px-1 text-xs text-[var(--editor-muted)] xl:inline">
+						{m.image_editor_polygonal_lasso_help()}
+					</span>
+				{/if}
 				{#if isAreaSelectionTool()}
 					<div
 						class="flex items-center gap-0.5"
@@ -2075,6 +2175,33 @@
 							</Button>
 						{/each}
 					</div>
+					{#if editor.pixelSelection && !editor.floatingPixelSelection}
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<Button
+										{...props}
+										variant="ghost"
+										size="sm"
+										class="h-7 border-l border-[var(--editor-border)] px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
+									>
+										{m.image_editor_selection_refine()}
+									</Button>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content align="center" class="min-w-44">
+								<DropdownMenu.Item onclick={() => editor.refinePixelSelection('expand')}>
+									{m.image_editor_selection_expand()}
+								</DropdownMenu.Item>
+								<DropdownMenu.Item onclick={() => editor.refinePixelSelection('contract')}>
+									{m.image_editor_selection_contract()}
+								</DropdownMenu.Item>
+								<DropdownMenu.Item onclick={() => editor.refinePixelSelection('invert')}>
+									{m.image_editor_selection_invert()}
+								</DropdownMenu.Item>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+					{/if}
 				{/if}
 				{#if editor.activeTool === 'magic_wand' || editor.activeTool === 'magic_eraser' || editor.activeTool === 'bucket'}
 					<label class="flex min-w-32 items-center gap-2 px-1 text-xs">
@@ -2732,6 +2859,30 @@
 								points={lassoPoints(selectionGesture)}
 							/>
 						{/if}
+					</svg>
+				{/if}
+				{#if polygonalSelection}
+					<svg
+						class="pointer-events-none absolute inset-0 z-20 size-full overflow-visible"
+						viewBox={`0 0 ${editor.document.width_px} ${editor.document.height_px}`}
+						data-testid="image-editor-polygonal-lasso-preview"
+						aria-hidden="true"
+					>
+						<polyline
+							class="image-editor-selection-outline"
+							fill="none"
+							points={[...polygonalSelection.points, polygonalSelection.current]
+								.map((point) => `${point.x},${point.y}`)
+								.join(' ')}
+						/>
+						{#each polygonalSelection.points as point, index (index)}
+							<circle
+								class="image-editor-gradient-preview-point"
+								cx={point.x}
+								cy={point.y}
+								r={4 / Math.max(editor.zoom, 0.1)}
+							/>
+						{/each}
 					</svg>
 				{/if}
 				{#if magicPulse}

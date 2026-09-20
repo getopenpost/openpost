@@ -20,6 +20,10 @@ export type ImageEditorCommandID =
 	| 'remove_background'
 	| 'select_all'
 	| 'deselect'
+	| 'selection_invert'
+	| 'selection_expand'
+	| 'selection_contract'
+	| 'selection_from_layer_alpha'
 	| 'copy'
 	| 'cut'
 	| 'paste'
@@ -40,6 +44,7 @@ export type ImageEditorCommandID =
 	| 'tool_marquee'
 	| 'tool_ellipse_marquee'
 	| 'tool_lasso'
+	| 'tool_polygonal_lasso'
 	| 'tool_magic_wand'
 	| 'tool_crop'
 	| 'tool_eyedropper'
@@ -69,6 +74,8 @@ export type ImageEditorCommandAvailability =
 	| 'undo'
 	| 'redo'
 	| 'selection'
+	| 'pixel_selection'
+	| 'layer_selection'
 	| 'multi_selection'
 	| 'group_selection'
 	| 'clipboard'
@@ -262,6 +269,36 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		menuOrder: 20
 	},
 	{
+		id: 'selection_invert',
+		category: 'select',
+		shortcuts: [{ key: 'i', primary: true, shift: true }],
+		availability: 'pixel_selection',
+		separatorBefore: true,
+		menuOrder: 30
+	},
+	{
+		id: 'selection_expand',
+		category: 'select',
+		shortcuts: [],
+		availability: 'pixel_selection',
+		menuOrder: 40
+	},
+	{
+		id: 'selection_contract',
+		category: 'select',
+		shortcuts: [],
+		availability: 'pixel_selection',
+		menuOrder: 50
+	},
+	{
+		id: 'selection_from_layer_alpha',
+		category: 'select',
+		shortcuts: [],
+		availability: 'layer_selection',
+		separatorBefore: true,
+		menuOrder: 60
+	},
+	{
 		id: 'copy',
 		category: 'edit',
 		shortcuts: [{ key: 'c', primary: true }],
@@ -418,6 +455,15 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		shortcuts: [{ key: 'l' }],
 		availability: 'editable',
 		tool: 'lasso',
+		mobileGroup: 'select',
+		railSlot: 'lasso'
+	},
+	{
+		id: 'tool_polygonal_lasso',
+		category: 'tools',
+		shortcuts: [{ key: 'l', shift: true }],
+		availability: 'editable',
+		tool: 'polygonal_lasso',
 		mobileGroup: 'select',
 		railSlot: 'lasso'
 	},

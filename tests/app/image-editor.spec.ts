@@ -471,6 +471,54 @@ test("a large rectangular selection keeps its visible outline after a document e
   expect(afterEditPixels).toBe(outlinePixels);
 });
 
+test("selection refinement loads layer alpha and closes a keyboard-accessible polygonal lasso", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+
+  const layer = page
+    .getByRole("tree", { name: "Layers", exact: true })
+    .getByRole("treeitem")
+    .first();
+  await layer.click();
+  await page.getByRole("menubar").getByRole("menuitem", { name: "Select", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Select layer alpha", exact: true }).click();
+  const overlay = page.getByTestId("image-editor-pixel-selection");
+  await expect(overlay).toHaveAttribute("data-active", "true");
+
+  await page.keyboard.press("ControlOrMeta+D");
+  await expect(overlay).toHaveAttribute("data-active", "false");
+  await page.keyboard.press("Shift+L");
+  await expect(page.getByText("Polygonal lasso", { exact: true })).toBeVisible();
+  const surface = page.getByTestId("image-editor-selection-surface");
+  const bounds = await surface.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (!bounds) return;
+  await page.mouse.click(bounds.x + bounds.width * 0.25, bounds.y + bounds.height * 0.25);
+  await page.mouse.click(bounds.x + bounds.width * 0.7, bounds.y + bounds.height * 0.3);
+  await page.mouse.click(bounds.x + bounds.width * 0.45, bounds.y + bounds.height * 0.75);
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+  await expect(overlay).toHaveAttribute("data-active", "true");
+
+  for (const action of ["Grow by 1 px", "Shrink by 1 px", "Invert selection"]) {
+    await page.getByRole("button", { name: "Refine selection", exact: true }).click();
+    await page.getByRole("menuitem", { name: action, exact: true }).click();
+    await expect(overlay).toHaveAttribute("data-active", "true");
+  }
+  await page.screenshot({ path: testInfo.outputPath("selection-refinement-desktop.png") });
+
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 800 });
+  await expect(page.getByTestId("image-editor-selection-options")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: testInfo.outputPath("selection-refinement-phone-dark.png") });
+});
+
 for (const scheme of ["light", "dark"] as const) {
   test(`Photo keeps text editing first and Color preserves the live canvas on phones in ${scheme}`, async ({
     page,

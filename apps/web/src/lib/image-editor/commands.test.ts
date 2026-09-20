@@ -37,6 +37,9 @@ describe('OpenPost Image Editor command registry', () => {
 		expect(imageEditorCommandForKeyboardEvent(key('g', { ctrlKey: true, shiftKey: true }))).toBe(
 			'ungroup'
 		);
+		expect(imageEditorCommandForKeyboardEvent(key('l', { shiftKey: true }))).toBe(
+			'tool_polygonal_lasso'
+		);
 	});
 
 	it('formats the same primary shortcut used by menus and help', () => {
@@ -61,5 +64,20 @@ describe('OpenPost Image Editor command registry', () => {
 			imageEditorCommandsForCompactMenu().map((command) => command.category)
 		);
 		expect(categories).toEqual(new Set(['edit', 'layer', 'select', 'tools']));
+	});
+
+	it('keeps pixel-selection refinement and layer alpha in the Select menu', () => {
+		expect(
+			IMAGE_EDITOR_COMMANDS.filter((command) => command.category === 'select').map(
+				(command) => command.id
+			)
+		).toEqual([
+			'select_all',
+			'deselect',
+			'selection_invert',
+			'selection_expand',
+			'selection_contract',
+			'selection_from_layer_alpha'
+		]);
 	});
 });

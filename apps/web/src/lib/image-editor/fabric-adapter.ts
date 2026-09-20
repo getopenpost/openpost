@@ -27,6 +27,7 @@ import {
 	colorsWithinTolerance,
 	pixelMaskToSpans,
 	polygonIntersectsBounds,
+	projectAlphaMaskToDocument,
 	type SelectionBounds,
 	type SelectionPoint
 } from './selection';
@@ -977,6 +978,35 @@ export class OpenPostFabricAdapter {
 			if ((pixels[index * 4 + 3] ?? 0) >= 8) data[index] = 1;
 		}
 		return { width, height, data };
+	}
+
+	layerAlphaPixelMask(
+		id: string,
+		documentWidth: number,
+		documentHeight: number
+	): Uint8Array | null {
+		if (!this.fabric) return null;
+		const object = this.objectByLayerID.get(id);
+		if (!object) return null;
+		const decomposition = this.fabric.util.qrDecompose(object.calcTransformMatrix());
+		const source = this.selectionAlphaMask(
+			object,
+			Math.max(Math.abs(decomposition.scaleX), Math.abs(decomposition.scaleY)),
+			documentWidth * documentHeight
+		);
+		if (!source) return null;
+		const [a, b, c, d, e, f] = this.fabric.util.invertTransform(object.calcTransformMatrix());
+		return projectAlphaMaskToDocument({
+			alpha: source.alpha,
+			sourceWidth: source.width,
+			sourceHeight: source.height,
+			localWidth: Math.max(1, object.width ?? 1),
+			localHeight: Math.max(1, object.height ?? 1),
+			documentWidth,
+			documentHeight,
+			bounds: this.objectBounds(object),
+			documentToLocal: { a, b, c, d, e, f }
+		});
 	}
 
 	rasterizeLayerAtPoint(
@@ -2294,6 +2324,7 @@ export class OpenPostFabricAdapter {
 			'marquee',
 			'ellipse_marquee',
 			'lasso',
+			'polygonal_lasso',
 			'magic_wand',
 			'pencil',
 			'eraser',
@@ -2379,11 +2410,34 @@ export class OpenPostFabricAdapter {
 			1,
 			Math.sqrt(MAXIMUM_ALPHA_HIT_MASK_PIXELS / Math.max(1, sourceWidth * sourceHeight))
 		);
+		const result = this.rasterizedObjectAlpha(object, scale);
+		if (result) this.alphaHitMasks.set(id, result);
+		return result;
+	}
+
+	private selectionAlphaMask(
+		object: FabricObject,
+		displayScale: number,
+		maximumPixels: number
+	): ImageEditorAlphaHitMask | null {
+		const sourceWidth = Math.max(1, Math.ceil(object.width ?? 1));
+		const sourceHeight = Math.max(1, Math.ceil(object.height ?? 1));
+		const pixelBudgetScale = Math.sqrt(
+			Math.max(1, maximumPixels) / Math.max(1, sourceWidth * sourceHeight)
+		);
+		const multiplier = Math.max(0.01, Math.min(Math.max(0.01, displayScale), pixelBudgetScale));
+		return this.rasterizedObjectAlpha(object, multiplier);
+	}
+
+	private rasterizedObjectAlpha(
+		object: FabricObject,
+		multiplier: number
+	): ImageEditorAlphaHitMask | null {
 		const canvas = object.toCanvasElement({
 			withoutTransform: true,
 			withoutShadow: true,
 			enableRetinaScaling: false,
-			multiplier: scale
+			multiplier
 		});
 		const context = canvas.getContext('2d', { willReadFrequently: true });
 		if (!context || canvas.width <= 0 || canvas.height <= 0) return null;
@@ -2391,9 +2445,7 @@ export class OpenPostFabricAdapter {
 			const rgba = context.getImageData(0, 0, canvas.width, canvas.height).data;
 			const alpha = new Uint8Array(canvas.width * canvas.height);
 			for (let index = 0; index < alpha.length; index++) alpha[index] = rgba[index * 4 + 3] ?? 0;
-			const result = { width: canvas.width, height: canvas.height, alpha };
-			this.alphaHitMasks.set(id, result);
-			return result;
+			return { width: canvas.width, height: canvas.height, alpha };
 		} catch {
 			return null;
 		}

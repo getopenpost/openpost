@@ -27,6 +27,18 @@ export interface PixelMaskAffineTransform {
 	f: number;
 }
 
+export interface AlphaMaskProjection {
+	alpha: Uint8Array;
+	sourceWidth: number;
+	sourceHeight: number;
+	localWidth: number;
+	localHeight: number;
+	documentWidth: number;
+	documentHeight: number;
+	bounds: SelectionBounds;
+	documentToLocal: PixelMaskAffineTransform;
+}
+
 export function transformPixelMask(
 	mask: Uint8Array,
 	width: number,
@@ -59,6 +71,55 @@ export function transformPixelMask(
 			const sourceY = Math.floor((-transform.b * targetX + transform.a * targetY) / determinant);
 			if (sourceX < 0 || sourceY < 0 || sourceX >= width || sourceY >= height) continue;
 			if (mask[sourceY * width + sourceX]) result[y * width + x] = 1;
+		}
+	}
+	return result;
+}
+
+export function projectAlphaMaskToDocument(projection: AlphaMaskProjection): Uint8Array {
+	const {
+		alpha,
+		sourceWidth,
+		sourceHeight,
+		localWidth,
+		localHeight,
+		documentWidth,
+		documentHeight,
+		bounds,
+		documentToLocal
+	} = projection;
+	const result = new Uint8Array(Math.max(0, documentWidth) * Math.max(0, documentHeight));
+	if (
+		sourceWidth <= 0 ||
+		sourceHeight <= 0 ||
+		localWidth <= 0 ||
+		localHeight <= 0 ||
+		alpha.length !== sourceWidth * sourceHeight
+	) {
+		return result;
+	}
+	const startX = clampInteger(Math.floor(bounds.x), 0, documentWidth);
+	const endX = clampInteger(Math.ceil(bounds.x + bounds.width), 0, documentWidth);
+	const startY = clampInteger(Math.floor(bounds.y), 0, documentHeight);
+	const endY = clampInteger(Math.ceil(bounds.y + bounds.height), 0, documentHeight);
+	for (let y = startY; y < endY; y++) {
+		for (let x = startX; x < endX; x++) {
+			const documentX = x + 0.5;
+			const documentY = y + 0.5;
+			const localX =
+				documentToLocal.a * documentX +
+				documentToLocal.c * documentY +
+				documentToLocal.e +
+				localWidth / 2;
+			const localY =
+				documentToLocal.b * documentX +
+				documentToLocal.d * documentY +
+				documentToLocal.f +
+				localHeight / 2;
+			if (localX < 0 || localY < 0 || localX >= localWidth || localY >= localHeight) continue;
+			const sourceX = Math.min(sourceWidth - 1, Math.floor((localX / localWidth) * sourceWidth));
+			const sourceY = Math.min(sourceHeight - 1, Math.floor((localY / localHeight) * sourceHeight));
+			if (alpha[sourceY * sourceWidth + sourceX]) result[y * documentWidth + x] = 1;
 		}
 	}
 	return result;
@@ -462,6 +523,30 @@ export function combinePixelMasks(
 	return combined;
 }
 
+export function invertPixelMask(mask: Uint8Array): Uint8Array {
+	const inverted = new Uint8Array(mask.length);
+	for (let index = 0; index < mask.length; index++) inverted[index] = mask[index] ? 0 : 1;
+	return inverted;
+}
+
+export function expandPixelMask(
+	mask: Uint8Array,
+	width: number,
+	height: number,
+	amount = 1
+): Uint8Array {
+	return morphPixelMask(mask, width, height, amount, 'expand');
+}
+
+export function contractPixelMask(
+	mask: Uint8Array,
+	width: number,
+	height: number,
+	amount = 1
+): Uint8Array {
+	return morphPixelMask(mask, width, height, amount, 'contract');
+}
+
 export function intersectPixelMasks(left: Uint8Array, right: Uint8Array): Uint8Array {
 	const result = new Uint8Array(Math.min(left.length, right.length));
 	for (let index = 0; index < result.length; index++) {
@@ -555,6 +640,47 @@ export function colorsWithinTolerance(
 
 function clampInteger(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+
+function morphPixelMask(
+	mask: Uint8Array,
+	width: number,
+	height: number,
+	amount: number,
+	operation: 'expand' | 'contract'
+): Uint8Array {
+	const expectedLength = Math.max(0, width) * Math.max(0, height);
+	if (mask.length !== expectedLength || width <= 0 || height <= 0)
+		return new Uint8Array(expectedLength);
+	let current = mask.slice();
+	const iterations = Math.max(0, Math.trunc(amount));
+	for (let iteration = 0; iteration < iterations; iteration++) {
+		const horizontal = new Uint8Array(current.length);
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				const index = y * width + x;
+				const center = Boolean(current[index]);
+				const left = x > 0 && Boolean(current[index - 1]);
+				const right = x + 1 < width && Boolean(current[index + 1]);
+				const selected = operation === 'expand' ? left || center || right : left && center && right;
+				horizontal[index] = selected ? 1 : 0;
+			}
+		}
+		const next = new Uint8Array(current.length);
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				const index = y * width + x;
+				const center = Boolean(horizontal[index]);
+				const above = y > 0 && Boolean(horizontal[index - width]);
+				const below = y + 1 < height && Boolean(horizontal[index + width]);
+				const selected =
+					operation === 'expand' ? above || center || below : above && center && below;
+				next[index] = selected ? 1 : 0;
+			}
+		}
+		current = next;
+	}
+	return current;
 }
 
 function pixelNoise(x: number, y: number): number {

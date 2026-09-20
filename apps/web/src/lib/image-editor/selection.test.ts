@@ -3,7 +3,10 @@ import {
 	boundsIntersect,
 	combinePixelMasks,
 	colorsWithinTolerance,
+	contractPixelMask,
 	ellipsePixelMask,
+	expandPixelMask,
+	invertPixelMask,
 	magicPixelMask,
 	mergeSelectionIDs,
 	normalizeSelectionBounds,
@@ -13,6 +16,7 @@ import {
 	pixelMaskToSpans,
 	pointInPolygon,
 	polygonIntersectsBounds,
+	projectAlphaMaskToDocument,
 	rectanglePixelMask,
 	strokePixelMask,
 	smoothSelectionPoints,
@@ -77,6 +81,35 @@ describe('OpenPost Image Editor selection composition', () => {
 			ellipse.reduce((total, value) => total + value, 0)
 		);
 		expect(pixelMaskBounds(ellipse, 8, 8)).toEqual({ x: 2, y: 2, width: 4, height: 4 });
+	});
+
+	it('grows, shrinks, and inverts a binary pixel selection at the page boundary', () => {
+		const point = rectanglePixelMask(5, 5, { x: 2, y: 2, width: 1, height: 1 });
+		expect([...expandPixelMask(point, 5, 5, 1)]).toEqual([
+			0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0
+		]);
+
+		const full = new Uint8Array(25).fill(1);
+		expect([...contractPixelMask(full, 5, 5, 1)]).toEqual([
+			0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0
+		]);
+		expect([...invertPixelMask(point)]).toEqual([...point].map((value) => (value ? 0 : 1)));
+	});
+
+	it('projects nonzero transformed layer alpha into a binary document selection', () => {
+		const mask = projectAlphaMaskToDocument({
+			alpha: new Uint8Array([255, 0, 0, 128]),
+			sourceWidth: 2,
+			sourceHeight: 2,
+			localWidth: 2,
+			localHeight: 2,
+			documentWidth: 4,
+			documentHeight: 4,
+			bounds: { x: 1, y: 1, width: 2, height: 2 },
+			documentToLocal: { a: 1, b: 0, c: 0, d: 1, e: -2, f: -2 }
+		});
+
+		expect([...mask]).toEqual([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]);
 	});
 
 	it('flood-selects contiguous pixels using 0-255 tolerance', () => {

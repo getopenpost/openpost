@@ -200,6 +200,7 @@
 		copy(): ImageEditorLayer[];
 		begin(mode: 'promote' | 'cut'): boolean;
 		delete(): boolean;
+		loadLayerAlpha(): boolean;
 	};
 	type ExternalImportRequest = {
 		id: string;
@@ -386,6 +387,7 @@
 	let templateTargetID = $state('new');
 	let workspaceTemplates = $state<ImageEditorTemplate[]>([]);
 	let marqueeSlotTool = $state<'marquee' | 'ellipse_marquee'>('marquee');
+	let lassoSlotTool = $state<'lasso' | 'polygonal_lasso'>('lasso');
 	let fillSlotTool = $state<'bucket' | 'gradient'>('bucket');
 	let eraserSlotTool = $state<'eraser' | 'magic_eraser'>('eraser');
 	let shapeSlotKind = $state<'rectangle' | 'rounded_rectangle' | 'ellipse' | 'line'>('rectangle');
@@ -1911,6 +1913,7 @@
 				'marquee',
 				'ellipse_marquee',
 				'lasso',
+				'polygonal_lasso',
 				'magic_wand',
 				'eyedropper',
 				'hand'
@@ -1921,6 +1924,7 @@
 		if (['text', 'pencil', 'bucket', 'gradient'].includes(tool)) mobileDrawTool = tool;
 		if (['crop', 'eraser', 'magic_eraser'].includes(tool)) mobileRetouchTool = tool;
 		if (isMarqueeTool(tool)) marqueeSlotTool = tool;
+		if (isLassoTool(tool)) lassoSlotTool = tool;
 		if (isFillTool(tool)) fillSlotTool = tool;
 		if (isEraserTool(tool)) eraserSlotTool = tool;
 		if (tool === 'text') {
@@ -2214,6 +2218,10 @@
 		remove_background: () => void removeBackground(),
 		select_all: () => editor.selectAll(),
 		deselect: () => (editor.pixelSelection ? editor.clearPixelSelection() : editor.selectLayer('')),
+		selection_invert: () => editor.refinePixelSelection('invert'),
+		selection_expand: () => editor.refinePixelSelection('expand'),
+		selection_contract: () => editor.refinePixelSelection('contract'),
+		selection_from_layer_alpha: () => pixelSelectionActions?.loadLayerAlpha(),
 		copy: () => void copySelection(),
 		cut: () => void cutSelection(),
 		paste: () => void pasteSelection(),
@@ -2238,6 +2246,7 @@
 		tool_marquee: () => setTool('marquee'),
 		tool_ellipse_marquee: () => setTool('ellipse_marquee'),
 		tool_lasso: () => setTool('lasso'),
+		tool_polygonal_lasso: () => setTool('polygonal_lasso'),
 		tool_magic_wand: () => setTool('magic_wand'),
 		tool_crop: () => setTool('crop'),
 		tool_eyedropper: () => setTool('eyedropper'),
@@ -2269,6 +2278,12 @@
 		if (availability === 'redo') return editor.canRedo;
 		if (availability === 'selection') {
 			return Boolean(editor.pixelSelection || editor.selectedLayerIDs.length > 0);
+		}
+		if (availability === 'pixel_selection') {
+			return Boolean(editor.pixelSelection && !editor.floatingPixelSelection);
+		}
+		if (availability === 'layer_selection') {
+			return editor.selectedLayers.length === 1 && !editor.selectedLayers[0].locked;
 		}
 		if (availability === 'multi_selection') return editor.selectedLayers.length >= 2;
 		if (availability === 'group_selection') {
@@ -2304,6 +2319,10 @@
 		if (availability === 'undo') return m.image_editor_nothing_to_undo();
 		if (availability === 'redo') return m.image_editor_nothing_to_redo();
 		if (availability === 'selection') return m.image_editor_command_requires_selection();
+		if (availability === 'pixel_selection')
+			return m.image_editor_command_requires_pixel_selection();
+		if (availability === 'layer_selection')
+			return m.image_editor_command_requires_layer_selection();
 		if (availability === 'multi_selection')
 			return m.image_editor_command_requires_multiple_layers();
 		if (availability === 'group_selection') return m.image_editor_command_requires_group();
@@ -2363,6 +2382,10 @@
 			remove_background: m.image_editor_remove_background(),
 			select_all: m.image_editor_select_all(),
 			deselect: m.image_editor_deselect(),
+			selection_invert: m.image_editor_selection_invert(),
+			selection_expand: m.image_editor_selection_expand(),
+			selection_contract: m.image_editor_selection_contract(),
+			selection_from_layer_alpha: m.image_editor_selection_from_layer_alpha(),
 			copy: m.common_copy(),
 			cut: m.image_editor_cut(),
 			paste: m.image_editor_paste(),
@@ -2383,6 +2406,7 @@
 			tool_marquee: m.image_editor_rectangle_select(),
 			tool_ellipse_marquee: m.image_editor_ellipse_select(),
 			tool_lasso: m.image_editor_lasso_select(),
+			tool_polygonal_lasso: m.image_editor_polygonal_lasso_select(),
 			tool_magic_wand: m.image_editor_magic_select(),
 			tool_crop: m.image_editor_crop(),
 			tool_eyedropper: m.image_editor_eyedropper(),
@@ -2853,6 +2877,7 @@
 		['tool_marquee', { kind: 'protected', role: 'editor-marquee' }],
 		['tool_ellipse_marquee', { kind: 'protected', role: 'editor-marquee-ellipse' }],
 		['tool_lasso', { kind: 'protected', role: 'editor-lasso' }],
+		['tool_polygonal_lasso', { kind: 'protected', role: 'editor-lasso' }],
 		['tool_magic_wand', { kind: 'protected', role: 'editor-effects' }],
 		['tool_crop', { kind: 'protected', role: 'editor-crop' }],
 		['tool_eyedropper', { kind: 'protected', role: 'editor-eyedropper' }],
@@ -2891,6 +2916,12 @@
 		tool: ImageEditorTool
 	): tool is Extract<ImageEditorTool, 'marquee' | 'ellipse_marquee'> {
 		return tool === 'marquee' || tool === 'ellipse_marquee';
+	}
+
+	function isLassoTool(
+		tool: ImageEditorTool
+	): tool is Extract<ImageEditorTool, 'lasso' | 'polygonal_lasso'> {
+		return tool === 'lasso' || tool === 'polygonal_lasso';
 	}
 
 	function isFillTool(
@@ -3601,6 +3632,30 @@
 							{/each}
 						{/snippet}
 					</ToolFamilyButton>
+				{:else if tool.key === 'lasso'}
+					{@const lassoCommand =
+						lassoSlotTool === 'polygonal_lasso' ? 'tool_polygonal_lasso' : 'tool_lasso'}
+					<ToolFamilyButton
+						label={commandLabel(lassoCommand)}
+						active={isLassoTool(editor.activeTool)}
+						disabled={!commandEnabled(lassoCommand)}
+						onclick={() => executeEditorCommand(lassoCommand)}
+					>
+						{#snippet icon()}<ProtectedIcon icon="editor-lasso" />{/snippet}
+						{#snippet menu()}
+							{#each railSlotCommands('lasso') as command (command.id)}
+								<DropdownMenu.Item
+									onclick={() => executeEditorCommand(command.id)}
+									disabled={!commandEnabled(command.id)}
+								>
+									<ProtectedIcon icon="editor-lasso" />{commandLabel(command.id)}
+									<span class="ml-auto text-xs text-muted-foreground"
+										>{commandShortcut(command.id)}</span
+									>
+								</DropdownMenu.Item>
+							{/each}
+						{/snippet}
+					</ToolFamilyButton>
 				{:else if tool.key === 'shape'}
 					<ToolFamilyButton
 						label={commandLabel(tool.command.id)}
@@ -3865,6 +3920,7 @@
 				'marquee',
 				'ellipse_marquee',
 				'lasso',
+				'polygonal_lasso',
 				'magic_wand',
 				'eyedropper',
 				'hand'
@@ -4024,6 +4080,36 @@
 							>
 								{@render toolGlyph(CommandIcon)}
 								{commandLabel(command.id)}
+							</DropdownMenu.Item>
+						{/each}
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
+			{:else if tool.key === 'lasso'}
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant={isLassoTool(editor.activeTool) ? 'secondary' : 'ghost'}
+								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
+								aria-label={lassoSlotTool === 'polygonal_lasso'
+									? m.image_editor_polygonal_lasso_select()
+									: m.image_editor_lasso_select()}
+							>
+								<ProtectedIcon icon="editor-lasso" />
+								{m.image_editor_lasso_select()}
+								{@render toolGroupIndicator()}
+							</Button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content side="top" align="start" class="min-w-52">
+						{#each railSlotCommands('lasso') as command (command.id)}
+							<DropdownMenu.Item
+								onclick={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								<ProtectedIcon icon="editor-lasso" />{commandLabel(command.id)}
 							</DropdownMenu.Item>
 						{/each}
 					</DropdownMenu.Content>

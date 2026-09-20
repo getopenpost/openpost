@@ -309,6 +309,73 @@ func (y *YouTubeAdapter) EngagementSupport() EngagementSupport {
 	}
 }
 
+type youtubeComment struct {
+	ID      string `json:"id"`
+	Snippet struct {
+		AuthorDisplayName     string `json:"authorDisplayName"`
+		AuthorProfileImageURL string `json:"authorProfileImageUrl"`
+		AuthorChannelID       struct {
+			Value string `json:"value"`
+		} `json:"authorChannelId"`
+		TextDisplay      string `json:"textDisplay"`
+		PublishedAt      string `json:"publishedAt"`
+		ParentID         string `json:"parentId"`
+		ModerationStatus string `json:"moderationStatus"`
+	} `json:"snippet"`
+}
+
+func youtubeCommentAsEngagement(comment youtubeComment, accountID, videoID string) Comment {
+	ours := comment.Snippet.AuthorChannelID.Value == accountID
+	return Comment{
+		ID: comment.ID, ParentID: comment.Snippet.ParentID, ConversationID: videoID,
+		AuthorID: comment.Snippet.AuthorChannelID.Value, AuthorName: comment.Snippet.AuthorDisplayName,
+		AuthorAvatarURL: comment.Snippet.AuthorProfileImageURL, Text: comment.Snippet.TextDisplay,
+		CreatedAt: comment.Snippet.PublishedAt, IsOurs: ours, Hidden: comment.Snippet.ModerationStatus == "rejected",
+		CanReply: true, CanHide: true, CanDelete: ours,
+	}
+}
+
+// listYouTubeCommentReplies reads comments.list for one top-level comment.
+// maxResults is 100; later pages use nextPageToken as pageToken
+// (https://developers.google.com/youtube/v3/docs/comments/list). Bound the
+// loop so a huge thread cannot hang a poll.
+func listYouTubeCommentReplies(ctx context.Context, accessToken, parentID string) ([]youtubeComment, error) {
+	query := url.Values{
+		"part": {"snippet"}, "parentId": {parentID}, "maxResults": {"100"},
+		"textFormat": {"plainText"},
+	}
+	const maxPages = 20
+	replies := make([]youtubeComment, 0)
+	pageToken := ""
+	for page := 0; page < maxPages; page++ {
+		if pageToken != "" {
+			query.Set("pageToken", pageToken)
+		}
+		response, err := doYouTubeRequest(ctx, http.MethodGet, youtubeAPIBaseURL+"/comments?"+query.Encode(), nil, map[string]string{
+			headerAuthorization: bearerPrefix + accessToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := youtubeCommentReadError(response); err != nil {
+			return nil, err
+		}
+		var result struct {
+			Items         []youtubeComment `json:"items"`
+			NextPageToken string           `json:"nextPageToken"`
+		}
+		if err := json.Unmarshal(response.body, &result); err != nil {
+			return nil, fmt.Errorf("decoding YouTube comment replies: %w", err)
+		}
+		replies = append(replies, result.Items...)
+		if result.NextPageToken == "" || result.NextPageToken == pageToken {
+			return replies, nil
+		}
+		pageToken = result.NextPageToken
+	}
+	return replies, nil
+}
+
 func (y *YouTubeAdapter) ListComments(ctx context.Context, accessToken, accountID, externalID string) ([]Comment, error) {
 	query := url.Values{
 		"part": {"snippet,replies"}, "videoId": {externalID}, "maxResults": {"100"},
@@ -323,25 +390,12 @@ func (y *YouTubeAdapter) ListComments(ctx context.Context, accessToken, accountI
 	if err := youtubeCommentReadError(response); err != nil {
 		return nil, err
 	}
-	type youtubeComment struct {
-		ID      string `json:"id"`
-		Snippet struct {
-			AuthorDisplayName     string `json:"authorDisplayName"`
-			AuthorProfileImageURL string `json:"authorProfileImageUrl"`
-			AuthorChannelID       struct {
-				Value string `json:"value"`
-			} `json:"authorChannelId"`
-			TextDisplay      string `json:"textDisplay"`
-			PublishedAt      string `json:"publishedAt"`
-			ParentID         string `json:"parentId"`
-			ModerationStatus string `json:"moderationStatus"`
-		} `json:"snippet"`
-	}
 	var result struct {
 		Items []struct {
 			ID      string `json:"id"`
 			Snippet struct {
 				TopLevelComment youtubeComment `json:"topLevelComment"`
+				TotalReplyCount int            `json:"totalReplyCount"`
 			} `json:"snippet"`
 			Replies struct {
 				Comments []youtubeComment `json:"comments"`
@@ -352,20 +406,19 @@ func (y *YouTubeAdapter) ListComments(ctx context.Context, accessToken, accountI
 		return nil, fmt.Errorf("decoding YouTube comments: %w", err)
 	}
 	comments := make([]Comment, 0)
-	appendComment := func(comment youtubeComment) {
-		ours := comment.Snippet.AuthorChannelID.Value == accountID
-		comments = append(comments, Comment{
-			ID: comment.ID, ParentID: comment.Snippet.ParentID, ConversationID: externalID,
-			AuthorID: comment.Snippet.AuthorChannelID.Value, AuthorName: comment.Snippet.AuthorDisplayName,
-			AuthorAvatarURL: comment.Snippet.AuthorProfileImageURL, Text: comment.Snippet.TextDisplay,
-			CreatedAt: comment.Snippet.PublishedAt, IsOurs: ours, Hidden: comment.Snippet.ModerationStatus == "rejected",
-			CanReply: true, CanHide: true, CanDelete: ours,
-		})
-	}
 	for _, thread := range result.Items {
-		appendComment(thread.Snippet.TopLevelComment)
-		for _, reply := range thread.Replies.Comments {
-			appendComment(reply)
+		comments = append(comments, youtubeCommentAsEngagement(thread.Snippet.TopLevelComment, accountID, externalID))
+		replies := thread.Replies.Comments
+		// replies.comments is a subset unless its length equals totalReplyCount.
+		if parentID := thread.Snippet.TopLevelComment.ID; thread.Snippet.TotalReplyCount > len(replies) && parentID != "" {
+			full, err := listYouTubeCommentReplies(ctx, accessToken, parentID)
+			if err != nil {
+				return nil, err
+			}
+			replies = full
+		}
+		for _, reply := range replies {
+			comments = append(comments, youtubeCommentAsEngagement(reply, accountID, externalID))
 		}
 	}
 	sort.Slice(comments, func(a, b int) bool { return comments[a].CreatedAt > comments[b].CreatedAt })

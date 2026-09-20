@@ -459,7 +459,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			items.map(async (item) => {
 				const handle = await item.getAsFileSystemHandle?.();
 				if (handle?.kind === 'file') {
-					return { file: await handle.getFile(), handle: handle as FileSystemFileHandle };
+					const fileHandle = handle as FileSystemFileHandle;
+					return { file: await fileHandle.getFile(), handle: fileHandle };
 				}
 				const file = item.getAsFile();
 				return file ? { file, handle: undefined } : null;

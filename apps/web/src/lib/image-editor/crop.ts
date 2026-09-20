@@ -14,6 +14,26 @@ export interface ImageEditorCropApplication {
 
 const MINIMUM_CROP_FRACTION = 0.005;
 
+export function rotateImageEditorTransformAroundCenter(
+	transform: ImageEditorTransform,
+	rotation: number
+): ImageEditorTransform {
+	const currentRadians = (transform.rotation * Math.PI) / 180;
+	const nextRadians = (rotation * Math.PI) / 180;
+	const halfWidth = transform.width / 2;
+	const halfHeight = transform.height / 2;
+	const centerX =
+		transform.x + halfWidth * Math.cos(currentRadians) - halfHeight * Math.sin(currentRadians);
+	const centerY =
+		transform.y + halfWidth * Math.sin(currentRadians) + halfHeight * Math.cos(currentRadians);
+	return {
+		...transform,
+		x: centerX - halfWidth * Math.cos(nextRadians) + halfHeight * Math.sin(nextRadians),
+		y: centerY - halfWidth * Math.sin(nextRadians) - halfHeight * Math.cos(nextRadians),
+		rotation
+	};
+}
+
 export function normalizeImageEditorCropWindow(
 	window: ImageEditorCropWindow,
 	minimum = MINIMUM_CROP_FRACTION

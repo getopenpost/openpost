@@ -7,6 +7,7 @@ import {
 	imageEditorCropWindowForAspect,
 	normalizeImageEditorCropWindow,
 	resetImageEditorCrop,
+	rotateImageEditorTransformAroundCenter,
 	type ImageEditorCropWindow
 } from './crop';
 import type { SelectionPoint } from './selection';
@@ -16,7 +17,12 @@ export type CropHandle = 'move' | 'content' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw
 
 export type CropInteractionMode = 'frame' | 'content';
 
-const FULL_CROP_WINDOW: ImageEditorCropWindow = { x: 0, y: 0, width: 1, height: 1 };
+const FULL_CROP_WINDOW: ImageEditorCropWindow = {
+	x: 0,
+	y: 0,
+	width: 1,
+	height: 1
+};
 
 function normalizeRotation(rotation: number): number {
 	const normalized = ((((rotation + 180) % 360) + 360) % 360) - 180;
@@ -324,11 +330,14 @@ export class ImageEditorCropSession {
 		const base = this.sessionLayer();
 		if (!base?.image) return null;
 		const result = applyImageEditorCropWindow(base, this.window, this.sourceWindow);
+		const transform = rotateImageEditorTransformAroundCenter(
+			result.transform,
+			normalizeRotation(base.transform.rotation + this.rotationDelta)
+		);
 		return {
 			...structuredClone(base),
 			transform: {
-				...result.transform,
-				rotation: normalizeRotation(base.transform.rotation + this.rotationDelta),
+				...transform,
 				flip_x: base.transform.flip_x !== this.flipX,
 				flip_y: base.transform.flip_y !== this.flipY
 			},

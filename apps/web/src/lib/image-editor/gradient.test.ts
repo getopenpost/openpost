@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { gradientColorAt, gradientRatioAtPoint, normalizedGradientStops } from './gradient';
+import {
+	gradientColorAt,
+	gradientRatioAtPoint,
+	normalizedGradientStops,
+	paintImageEditorCanvasGradient,
+	retargetImageEditorGradient
+} from './gradient';
 import type { ImageEditorGradientValue } from './types';
 
 function gradient(type: ImageEditorGradientValue['type']): ImageEditorGradientValue {
@@ -41,5 +47,52 @@ describe('OpenPost Image Editor gradients', () => {
 
 	it('interpolates gradient colors with alpha preserved', () => {
 		expect(gradientColorAt(gradient('linear'), { x: 50, y: 0 })).toBe('#808080ff');
+	});
+
+	it.each(['radial', 'angle', 'reflected', 'diamond'] as const)(
+		'centers %s geometry when changing from a linear gradient',
+		(type) => {
+			const result = retargetImageEditorGradient(gradient('linear'), type, 100, 80);
+
+			expect(result.start).toEqual({ x: 50, y: 40 });
+			expect(result.end).toEqual({ x: 100, y: 40 });
+		}
+	);
+
+	it('expands centered geometry back across the page for a linear gradient', () => {
+		const result = retargetImageEditorGradient(
+			{
+				...gradient('reflected'),
+				start: { x: 50, y: 40 },
+				end: { x: 100, y: 40 }
+			},
+			'linear',
+			100,
+			80
+		);
+
+		expect(result.start).toEqual({ x: 0, y: 40 });
+		expect(result.end).toEqual({ x: 100, y: 40 });
+	});
+
+	it('paints diamond gradients from the center instead of falling back to linear', () => {
+		const pixels = new Uint8ClampedArray(3 * 3 * 4);
+		const context = {
+			createImageData: () => ({ data: pixels, width: 3, height: 3 }),
+			putImageData: () => undefined
+		} as unknown as CanvasRenderingContext2D;
+		const value = {
+			...gradient('diamond'),
+			start: { x: 1.5, y: 1.5 },
+			end: { x: 2.5, y: 1.5 }
+		};
+
+		paintImageEditorCanvasGradient(context, value, 3, 3);
+
+		const rgbaAt = (x: number, y: number) =>
+			Array.from(pixels.slice((y * 3 + x) * 4, (y * 3 + x + 1) * 4));
+		expect(rgbaAt(1, 1)).toEqual([0, 0, 0, 255]);
+		expect(rgbaAt(2, 1)).toEqual([255, 255, 255, 255]);
+		expect(rgbaAt(1, 2)).toEqual([255, 255, 255, 255]);
 	});
 });

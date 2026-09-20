@@ -1120,7 +1120,7 @@ export class ImageEditorController {
 				kind,
 				fill: '#f97316',
 				stroke: '#c2410c',
-				stroke_width: 0,
+				stroke_width: kind === 'line' ? 4 : 0,
 				radius: kind === 'rounded_rectangle' ? 32 : 0
 			},
 			effects: defaultLayerEffects()

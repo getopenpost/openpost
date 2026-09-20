@@ -2,6 +2,7 @@ import { hasEditorColorGrade } from '$lib/editor-color-grade/model';
 import { getAuthenticatedMediaURL } from '$lib/media-url';
 import type {
 	ImageEditorDocument,
+	ImageEditorGradientValue,
 	ImageEditorImageAdjustments,
 	ImageEditorLayer,
 	ImageEditorPage,
@@ -13,7 +14,11 @@ import {
 	imageEditorPageBackground
 } from './document';
 import { createTextCurvePath, shadowColor, shadowOffset, textCurveStartOffset } from './effects';
-import { createImageEditorCanvasGradient, gradientColorAt } from './gradient';
+import {
+	createImageEditorCanvasGradient,
+	gradientColorAt,
+	paintImageEditorCanvasGradient
+} from './gradient';
 import { ImageGradeRenderer, type ImageGradeBackend } from '$lib/editor-color-grade/image-grade';
 import { IMAGE_COLOR_GRADE_VERSION } from '$lib/editor-color-grade/model';
 import { createGpuCompositor } from '$lib/video-editor/effects/gpu/compositor';
@@ -551,6 +556,15 @@ export class OpenPostFabricAdapter {
 		this.document = document;
 		this.page = page;
 		this.syncing = true;
+		const interactiveCanvas = this.interactiveCanvas();
+		const activeObject = interactiveCanvas?.getActiveObject();
+		if (
+			activeObject &&
+			!activeObject.__imageEditorLayerID &&
+			isFabricObjectCollection(activeObject)
+		) {
+			interactiveCanvas?.discardActiveObject();
+		}
 		const nextLayerIDs = new Set(nextLayerByID.keys());
 		try {
 			if (backgroundChanged) {
@@ -1453,6 +1467,8 @@ export class OpenPostFabricAdapter {
 		const height = this.document.height_px;
 		if (background.type === 'gradient' && background.gradient) {
 			const gradient = structuredClone(background.gradient);
+			const gradientBitmap =
+				gradient.type === 'diamond' ? this.createGradientBitmap(width, height, gradient) : null;
 			const object: FabricObject = new this.fabric.FabricObject({
 				left: 0,
 				top: 0,
@@ -1468,8 +1484,8 @@ export class OpenPostFabricAdapter {
 			setFabricRenderer(object, (context: CanvasRenderingContext2D) => {
 				context.save();
 				context.translate(-width / 2, -height / 2);
-				context.fillStyle = createImageEditorCanvasGradient(context, gradient);
-				context.fillRect(0, 0, width, height);
+				if (gradientBitmap) context.drawImage(gradientBitmap, 0, 0);
+				else paintImageEditorCanvasGradient(context, gradient, width, height);
 				context.restore();
 			});
 			return object;
@@ -1523,6 +1539,21 @@ export class OpenPostFabricAdapter {
 		return object;
 	}
 
+	private createGradientBitmap(
+		width: number,
+		height: number,
+		gradient: ImageEditorGradientValue
+	): HTMLCanvasElement | null {
+		const canvas = this.element.ownerDocument?.createElement('canvas');
+		if (!canvas) return null;
+		canvas.width = width;
+		canvas.height = height;
+		const context = canvas.getContext('2d');
+		if (!context) return null;
+		paintImageEditorCanvasGradient(context, gradient, width, height);
+		return canvas;
+	}
+
 	private async createObject(layer: ImageEditorLayer): Promise<FabricObject | null> {
 		if (!this.fabric) return null;
 		const options = this.baseObjectOptions(layer);
@@ -1565,7 +1596,7 @@ export class OpenPostFabricAdapter {
 					stroke: '',
 					visible: false
 				});
-				object = new this.fabric.IText(layer.text.text.replaceAll('\n', ' '), {
+				object = new this.fabric.IText(curvedTextContent(layer.text.text), {
 					...textOptions,
 					path,
 					pathAlign: 'center',
@@ -1818,7 +1849,7 @@ export class OpenPostFabricAdapter {
 				left: layer.transform.x,
 				top: layer.transform.y,
 				width: layer.transform.width,
-				text: layer.text.text,
+				text: layer.text.curve ? curvedTextContent(layer.text.text) : layer.text.text,
 				fontFamily: layer.text.font_family,
 				fontWeight: layer.text.font_weight,
 				fontStyle: layer.text.font_style,
@@ -1857,6 +1888,7 @@ export class OpenPostFabricAdapter {
 				});
 			} else if (layer.shape.kind === 'line') {
 				object.set({ x2: layer.transform.width, y2: 0 });
+				object.set({ left: layer.transform.x, top: layer.transform.y });
 			}
 		} else {
 			object.set({
@@ -2767,6 +2799,10 @@ function colorWithOpacity(color: string, opacity: number): string {
 	const blue = Number.parseInt(match[1].slice(4, 6), 16);
 	const colorOpacity = match[2] ? Number.parseInt(match[2], 16) / 255 : 1;
 	return `rgba(${red}, ${green}, ${blue}, ${clamp(opacity * colorOpacity, 0, 1)})`;
+}
+
+function curvedTextContent(text: string): string {
+	return text.replace(/\r\n?|\n/g, ' ');
 }
 
 export function computeImageGeometry(

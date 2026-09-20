@@ -61,6 +61,18 @@ function response(): ImageEditorDocumentResponse {
 }
 
 describe('OpenPost Image Editor editor layer interactions', () => {
+	it('adds a line with a visible stroke', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+
+		editor.addShape('line');
+
+		expect(editor.selectedLayers[0].shape).toMatchObject({
+			kind: 'line',
+			stroke_width: 4
+		});
+	});
+
 	it('adds, moves, removes, and undoes page guides as document mutations', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());

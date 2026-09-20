@@ -256,6 +256,194 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 		expect(internals.objectByLayerID.get(layer.id)).toBe(object);
 		expect(canvas.backgroundColor).toBe('rgba(18, 52, 86, 1)');
 	});
+
+	it('detaches an active selection before applying document coordinates to its children', async () => {
+		const previous = {
+			...imageLayer(200, 100),
+			id: 'shape',
+			type: 'shape' as const,
+			image: undefined,
+			shape: {
+				kind: 'rectangle' as const,
+				fill: '#ffffff',
+				stroke: '#000000',
+				stroke_width: 0,
+				radius: 0
+			}
+		};
+		const next = {
+			...previous,
+			transform: { ...previous.transform, x: 300 }
+		};
+		const previousPage = pageFixture([previous]);
+		const nextPage = pageFixture([next]);
+		const document = documentFixture(previousPage);
+		let selectionAttached = true;
+		let updatedWhileAttached = false;
+		const object = {
+			left: previous.transform.x,
+			top: previous.transform.y,
+			width: previous.transform.width,
+			height: previous.transform.height,
+			set(updates: Record<string, unknown>) {
+				if ('left' in updates && selectionAttached) updatedWhileAttached = true;
+				Object.assign(this, updates);
+			},
+			setCoords() {}
+		};
+		const canvas = {
+			backgroundColor: previousPage.background_color,
+			getActiveObject: () => ({ getObjects: () => [object] }),
+			discardActiveObject() {
+				selectionAttached = false;
+			},
+			setActiveObject() {
+				selectionAttached = true;
+			},
+			moveObjectTo() {},
+			remove() {},
+			requestRenderAll() {}
+		};
+		const adapter = new OpenPostFabricAdapter({
+			canvas: TEST_CANVAS,
+			document,
+			page: previousPage,
+			readOnly: false,
+			onSelection: () => undefined,
+			onTransform: () => undefined,
+			onTextChange: () => undefined
+		});
+		const internals = adapterInternals<{
+			fabric: { ActiveSelection: new () => object };
+			canvas: typeof canvas;
+			objectByLayerID: Map<string, typeof object>;
+			layerSnapshots: Map<string, ImageEditorLayer>;
+			decorationsByLayerID: Map<string, never[]>;
+			desiredSelectionIDs: string[];
+		}>(adapter);
+		internals.fabric = { ActiveSelection: class {} as never };
+		internals.canvas = canvas;
+		internals.objectByLayerID = new Map([[previous.id, object]]);
+		internals.layerSnapshots = new Map([[previous.id, previous]]);
+		internals.decorationsByLayerID = new Map();
+		internals.desiredSelectionIDs = [previous.id];
+
+		await adapter.sync({ ...document, pages: [nextPage] }, nextPage);
+
+		expect(updatedWhileAttached).toBe(false);
+		expect(object.left).toBe(300);
+	});
+
+	it('keeps a line at its document position when its endpoints change', () => {
+		const previous: ImageEditorLayer = {
+			...imageLayer(302, 8),
+			id: 'line',
+			type: 'shape',
+			image: undefined,
+			transform: {
+				...imageLayer(302, 8).transform,
+				x: 389,
+				y: 389
+			},
+			shape: {
+				kind: 'line',
+				fill: '#f97316',
+				stroke: '#c2410c',
+				stroke_width: 0,
+				radius: 0
+			}
+		};
+		const next = {
+			...previous,
+			shape: { ...previous.shape!, stroke_width: 10 }
+		};
+		const object = {
+			left: previous.transform.x,
+			top: previous.transform.y,
+			set(updates: Record<string, unknown>) {
+				Object.assign(this, updates);
+				if ('x2' in updates || 'y2' in updates) {
+					this.left = 0;
+					this.top = 0;
+				}
+			},
+			setCoords() {}
+		};
+		const page = pageFixture([next]);
+		const adapter = new OpenPostFabricAdapter({
+			canvas: TEST_CANVAS,
+			document: documentFixture(page),
+			page,
+			readOnly: false,
+			onSelection: () => undefined,
+			onTransform: () => undefined,
+			onTextChange: () => undefined
+		});
+		const internals = adapterInternals<{
+			fabric: object;
+			updateObject(target: typeof object, before: ImageEditorLayer, after: ImageEditorLayer): void;
+		}>(adapter);
+		internals.fabric = {};
+
+		internals.updateObject(object, previous, next);
+
+		expect(object).toMatchObject({ left: 389, top: 389 });
+	});
+
+	it('renders edited multiline curved text as one readable path', () => {
+		const previous: ImageEditorLayer = {
+			...imageLayer(600, 180),
+			id: 'text',
+			type: 'text',
+			image: undefined,
+			text: {
+				text: 'Photo audit',
+				font_family: 'Playfair Display Variable',
+				font_weight: 400,
+				font_style: 'normal',
+				font_size: 64,
+				color: '#111111',
+				align: 'center',
+				line_height: 1.1,
+				letter_spacing: 0,
+				stroke_width: 0,
+				shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 },
+				curve: { type: 'arc_up', strength: 0.65, offset: 0, reverse: false }
+			}
+		};
+		const next = {
+			...previous,
+			text: { ...previous.text!, text: 'Photo audit\nOlá, world!' }
+		};
+		const object = {
+			text: previous.text!.text,
+			set(updates: Record<string, unknown>) {
+				Object.assign(this, updates);
+			},
+			setCoords() {},
+			enterEditing() {},
+			initDimensions() {}
+		};
+		const page = pageFixture([next]);
+		const adapter = new OpenPostFabricAdapter({
+			canvas: TEST_CANVAS,
+			document: documentFixture(page),
+			page,
+			readOnly: false,
+			onSelection: () => undefined,
+			onTransform: () => undefined,
+			onTextChange: () => undefined
+		});
+		const internals = adapterInternals<{
+			fabric: object;
+			updateObject(target: typeof object, before: ImageEditorLayer, after: ImageEditorLayer): void;
+		}>(adapter);
+		internals.fabric = {};
+
+		internals.updateObject(object, previous, next);
+
+		expect(object.text).toBe('Photo audit Olá, world!');
+	});
 });
 
 describe('OpenPost Image Editor rotation gestures', () => {

@@ -50,8 +50,14 @@ export function createImageEditorCanvasGradient(
 	} else if (gradient.type === 'reflected') {
 		canvasGradient = context.createLinearGradient(start.x - deltaX, start.y - deltaY, end.x, end.y);
 		const reflected = [
-			...stops.map((stop) => ({ offset: (1 - stop.offset) / 2, color: stop.color })),
-			...stops.map((stop) => ({ offset: 0.5 + stop.offset / 2, color: stop.color }))
+			...stops.map((stop) => ({
+				offset: (1 - stop.offset) / 2,
+				color: stop.color
+			})),
+			...stops.map((stop) => ({
+				offset: 0.5 + stop.offset / 2,
+				color: stop.color
+			}))
 		].sort((left, right) => left.offset - right.offset);
 		for (const stop of reflected) canvasGradient.addColorStop(stop.offset, stop.color);
 		return canvasGradient;
@@ -61,6 +67,79 @@ export function createImageEditorCanvasGradient(
 
 	for (const stop of stops) canvasGradient.addColorStop(stop.offset, stop.color);
 	return canvasGradient;
+}
+
+export function retargetImageEditorGradient(
+	gradient: ImageEditorGradientValue,
+	type: ImageEditorGradientValue['type'],
+	width: number,
+	height: number
+): ImageEditorGradientValue {
+	const angle = Math.atan2(gradient.end.y - gradient.start.y, gradient.end.x - gradient.start.x);
+	return orientImageEditorGradient({ ...gradient, type }, width, height, angle);
+}
+
+export function orientImageEditorGradient(
+	gradient: ImageEditorGradientValue,
+	width: number,
+	height: number,
+	angle: number
+): ImageEditorGradientValue {
+	const center = { x: width / 2, y: height / 2 };
+	const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+	const radius = distanceToBounds(center, direction, width, height);
+	const centered = gradient.type !== 'linear';
+	return {
+		...gradient,
+		start: centered
+			? center
+			: {
+					x: center.x - direction.x * radius,
+					y: center.y - direction.y * radius
+				},
+		end: {
+			x: center.x + direction.x * radius,
+			y: center.y + direction.y * radius
+		}
+	};
+}
+
+export function paintImageEditorCanvasGradient(
+	context: CanvasRenderingContext2D,
+	gradient: ImageEditorGradientValue,
+	width: number,
+	height: number
+): void {
+	if (gradient.type !== 'diamond') {
+		context.fillStyle = createImageEditorCanvasGradient(context, gradient);
+		context.fillRect(0, 0, width, height);
+		return;
+	}
+
+	const image = context.createImageData(width, height);
+	const palette = createGradientPalette(gradient);
+	const end = safeGradientEnd(gradient.start, gradient.end);
+	const deltaX = end.x - gradient.start.x;
+	const deltaY = end.y - gradient.start.y;
+	const length = Math.max(1, Math.hypot(deltaX, deltaY));
+	const cosine = deltaX / length;
+	const sine = deltaY / length;
+	for (let y = 0; y < height; y++) {
+		const relativeY = y + 0.5 - gradient.start.y;
+		for (let x = 0; x < width; x++) {
+			const relativeX = x + 0.5 - gradient.start.x;
+			const rotatedX = relativeX * cosine + relativeY * sine;
+			const rotatedY = -relativeX * sine + relativeY * cosine;
+			const ratio = clamp((Math.abs(rotatedX) + Math.abs(rotatedY)) / length, 0, 1);
+			const paletteIndex = Math.round(ratio * (GRADIENT_PALETTE_SIZE - 1)) * 4;
+			const pixelIndex = (y * width + x) * 4;
+			image.data[pixelIndex] = palette[paletteIndex];
+			image.data[pixelIndex + 1] = palette[paletteIndex + 1];
+			image.data[pixelIndex + 2] = palette[paletteIndex + 2];
+			image.data[pixelIndex + 3] = palette[paletteIndex + 3];
+		}
+	}
+	context.putImageData(image, 0, 0);
 }
 
 export function gradientRatioAtPoint(
@@ -116,6 +195,38 @@ function safeGradientEnd(
 	end: ImageEditorPaintPoint
 ): ImageEditorPaintPoint {
 	return Math.hypot(end.x - start.x, end.y - start.y) < 0.5 ? { x: start.x + 1, y: start.y } : end;
+}
+
+const GRADIENT_PALETTE_SIZE = 1025;
+
+function createGradientPalette(gradient: ImageEditorGradientValue): Uint8ClampedArray {
+	const palette = new Uint8ClampedArray(GRADIENT_PALETTE_SIZE * 4);
+	for (let index = 0; index < GRADIENT_PALETTE_SIZE; index++) {
+		const ratio = index / (GRADIENT_PALETTE_SIZE - 1);
+		const color = parseHex(
+			gradientColorAt(gradient, {
+				x: gradient.start.x + (gradient.end.x - gradient.start.x) * ratio,
+				y: gradient.start.y + (gradient.end.y - gradient.start.y) * ratio
+			})
+		) ?? [0, 0, 0, 255];
+		palette.set(color, index * 4);
+	}
+	return palette;
+}
+
+function distanceToBounds(
+	center: ImageEditorPaintPoint,
+	direction: ImageEditorPaintPoint,
+	width: number,
+	height: number
+): number {
+	const distances = [
+		direction.x > Number.EPSILON ? (width - center.x) / direction.x : Number.POSITIVE_INFINITY,
+		direction.x < -Number.EPSILON ? -center.x / direction.x : Number.POSITIVE_INFINITY,
+		direction.y > Number.EPSILON ? (height - center.y) / direction.y : Number.POSITIVE_INFINITY,
+		direction.y < -Number.EPSILON ? -center.y / direction.y : Number.POSITIVE_INFINITY
+	].filter((value) => Number.isFinite(value) && value > 0);
+	return Math.max(1, Math.min(...distances));
 }
 
 function interpolateHex(left: string, right: string, ratio: number): string {

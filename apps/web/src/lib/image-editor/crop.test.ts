@@ -3,7 +3,8 @@ import {
 	applyImageEditorCropWindow,
 	imageEditorCropWindowForAspect,
 	normalizeImageEditorCropWindow,
-	resetImageEditorCrop
+	resetImageEditorCrop,
+	rotateImageEditorTransformAroundCenter
 } from './crop';
 import type { ImageEditorLayer } from './types';
 
@@ -67,7 +68,12 @@ describe('OpenPost Image Editor interactive crop geometry', () => {
 		});
 
 		expect(result.crop).toEqual({ x: 0.25, y: 0.25, width: 0.5, height: 0.5 });
-		expect(result.transform).toMatchObject({ x: 200, y: 250, width: 200, height: 100 });
+		expect(result.transform).toMatchObject({
+			x: 200,
+			y: 250,
+			width: 200,
+			height: 100
+		});
 	});
 
 	it('repositions source pixels without moving the outer crop frame', () => {
@@ -78,7 +84,12 @@ describe('OpenPost Image Editor interactive crop geometry', () => {
 		);
 
 		expect(result.crop).toEqual({ x: 0.4, y: 0, width: 0.5, height: 1 });
-		expect(result.transform).toMatchObject({ x: 200, y: 200, width: 200, height: 200 });
+		expect(result.transform).toMatchObject({
+			x: 200,
+			y: 200,
+			width: 200,
+			height: 200
+		});
 	});
 
 	it('rotates the crop offset with the image and maps flipped source coordinates', () => {
@@ -89,7 +100,12 @@ describe('OpenPost Image Editor interactive crop geometry', () => {
 			height: 0.5
 		});
 
-		expect(result.crop).toMatchObject({ x: 0.4, y: 0.25, width: 0.5, height: 0.5 });
+		expect(result.crop).toMatchObject({
+			x: 0.4,
+			y: 0.25,
+			width: 0.5,
+			height: 0.5
+		});
 		expect(result.transform.x).toBeCloseTo(50);
 		expect(result.transform.y).toBeCloseTo(240);
 	});
@@ -105,12 +121,41 @@ describe('OpenPost Image Editor interactive crop geometry', () => {
 
 	it('restores the full source and expands the transform after an earlier crop', () => {
 		const cropped = layer();
-		cropped.transform = { ...cropped.transform, x: 200, y: 250, width: 200, height: 100 };
+		cropped.transform = {
+			...cropped.transform,
+			x: 200,
+			y: 250,
+			width: 200,
+			height: 100
+		};
 		cropped.image!.crop = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
 
 		const result = resetImageEditorCrop(cropped);
 
 		expect(result.crop).toEqual({ x: 0, y: 0, width: 1, height: 1 });
-		expect(result.transform).toMatchObject({ x: 100, y: 200, width: 400, height: 200 });
+		expect(result.transform).toMatchObject({
+			x: 100,
+			y: 200,
+			width: 400,
+			height: 200
+		});
+	});
+
+	it('rotates a crop frame around its visual center', () => {
+		const transform = layer({
+			x: 120,
+			y: 340,
+			width: 600,
+			height: 477
+		}).transform;
+		const rotated = rotateImageEditorTransformAroundCenter(transform, 90);
+
+		expect(rotated).toMatchObject({
+			x: 658.5,
+			y: 278.5,
+			width: 600,
+			height: 477,
+			rotation: 90
+		});
 	});
 });

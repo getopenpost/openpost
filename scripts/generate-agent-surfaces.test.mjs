@@ -1488,7 +1488,12 @@ test(
     );
     assert.deepEqual(
       await filesWithSuffix(marketingDirectory, ".md"),
-      ["auth.md", ...expectedMarketingMarkdown].toSorted(),
+      [
+        "auth.md",
+        "image-editor-models/LICENSE.md",
+        "image-editor-models/README.md",
+        ...expectedMarketingMarkdown,
+      ].toSorted(),
       "every manifest-owned marketing route and the auth discovery file must have one Markdown artifact and no stale alias",
     );
     assert.deepEqual(

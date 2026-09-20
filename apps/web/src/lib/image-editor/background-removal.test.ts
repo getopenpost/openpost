@@ -32,6 +32,7 @@ describe('OpenPost Image Editor background removal', () => {
 		const createImageBitmap = vi.fn();
 		vi.stubGlobal('createImageBitmap', createImageBitmap);
 
+		// SAFETY: the size guard reads Blob.size and rejects before using any other Blob behavior.
 		await expect(
 			prepareBackgroundRemovalInput({ size: BACKGROUND_REMOVAL_MAX_INPUT_BYTES + 1 } as Blob)
 		).rejects.toThrow('smaller than 25 MB');

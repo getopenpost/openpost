@@ -58,6 +58,17 @@ test("tag release candidates schedule the application browser suite", () => {
   assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
 });
 
+test("the marketing build checks out its canonical immutable frontend assets", () => {
+  const checkout = load(ci).jobs["marketing-build"].steps.find((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  );
+  assert.ok(checkout);
+  assert.doesNotMatch(
+    checkout.with?.["sparse-checkout"] ?? "",
+    /!\/apps\/web\/static\/image-editor-models\//u,
+  );
+});
+
 test("container candidates run and publish on native amd64 and arm64 runners", () => {
   const jobs = load(ci).jobs;
   const image = jobs.image;

@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { Canvas, IText } from 'fabric';
+import { page as browserPage } from 'vitest/browser';
+import { renderImageEditorPage } from './static-renderer';
 import { OpenPostFabricAdapter } from './fabric-adapter';
 import {
 	imageEditorCollectiveTransform,
@@ -285,7 +288,12 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 			top: number;
 			set(updates: { left: number; top: number; scaleX: number; scaleY: number }): void;
 			setCoords(): void;
-			getBoundingRect(): { left: number; top: number; width: number; height: number };
+			getBoundingRect(): {
+				left: number;
+				top: number;
+				width: number;
+				height: number;
+			};
 		}
 		interface CollectiveTransformAdapterInternals {
 			canvas: { getActiveObject(): ActiveSelectionFixture };
@@ -562,6 +570,174 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 			await settleCanvas();
 
 			expect(pixelDigest(mounted.canvas)).toBe(await freshRenderDigest(nextPage, []));
+		} finally {
+			mounted.adapter.dispose();
+		}
+	});
+});
+
+describe('OpenPost Image Editor text layer outlines', () => {
+	function textLayer(): ImageEditorLayer {
+		return {
+			...renderLayer('text', 40, 40, 260, 100),
+			type: 'text',
+			shape: undefined,
+			text: {
+				text: 'HI',
+				font_family: 'Arial',
+				font_weight: 700,
+				font_style: 'normal',
+				font_size: 80,
+				color: '#000000',
+				align: 'left',
+				line_height: 1.1,
+				letter_spacing: 0,
+				stroke_width: 0,
+				shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 }
+			},
+			effects: {
+				blend_mode: 'normal',
+				stroke: { color: '#ff0000', opacity: 1, width: 4, position: 'outside' }
+			}
+		};
+	}
+
+	it.each(['inside', 'center', 'outside'] as const)(
+		'outlines glyphs, not the text box, with a %s stroke',
+		async (position) => {
+			const layer = textLayer();
+			layer.effects!.stroke!.position = position;
+			const page = pageFixture([layer]);
+			const document = documentFixture(page);
+			const mounted = await mountAdapter(document, page, {
+				staticCanvas: true
+			});
+			try {
+				await settleCanvas();
+				await browserPage.screenshot({
+					element: mounted.canvas,
+					path: `../../../../../test-results/text-outline-${position}.png`
+				});
+				const pixels = mounted.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;
+				let glyphOutline = 0;
+				let emptyBoxOutline = 0;
+				for (let y = 0; y < 240; y++)
+					for (let x = 0; x < 360; x++) {
+						const index = (y * 360 + x) * 4;
+						if (pixels[index] > 150 && pixels[index + 1] < 100 && pixels[index + 2] < 100) {
+							if (x < 180) glyphOutline++;
+							if (x > 220) emptyBoxOutline++;
+						}
+					}
+				expect(emptyBoxOutline).toBe(0);
+				expect(glyphOutline).toBeGreaterThan(100);
+				const exported = await renderImageEditorPage(document, page, 0);
+				const bitmap = await createImageBitmap(exported.blob);
+				try {
+					const decoded = window.document.createElement('canvas');
+					decoded.width = bitmap.width;
+					decoded.height = bitmap.height;
+					decoded.getContext('2d')!.drawImage(bitmap, 0, 0);
+					expect(pixelDigest(decoded)).toBe(pixelDigest(mounted.canvas));
+				} finally {
+					bitmap.close();
+				}
+			} finally {
+				mounted.adapter.dispose();
+			}
+		}
+	);
+
+	it('renders a zero-width outline exactly like no outline', async () => {
+		const layer = textLayer();
+		layer.effects!.stroke!.width = 0;
+		const page = pageFixture([layer]);
+		const mounted = await mountAdapter(documentFixture(page), page, {
+			staticCanvas: true
+		});
+		const plainPage = structuredClone(page);
+		delete plainPage.layers[0].effects!.stroke;
+		const plain = await mountAdapter(documentFixture(plainPage), plainPage, {
+			staticCanvas: true
+		});
+		try {
+			expect(pixelDigest(mounted.canvas)).toBe(pixelDigest(plain.canvas));
+		} finally {
+			mounted.adapter.dispose();
+			plain.adapter.dispose();
+		}
+	});
+
+	it('keeps an outside outline out of translucent glyph interiors', async () => {
+		const layer = textLayer();
+		layer.opacity = 0.5;
+		const page = pageFixture([layer]);
+		const mounted = await mountAdapter(documentFixture(page), page, { staticCanvas: true });
+		const plainPage = structuredClone(page);
+		delete plainPage.layers[0].effects!.stroke;
+		const plain = await mountAdapter(documentFixture(plainPage), plainPage, { staticCanvas: true });
+		try {
+			const withoutOutline = plain.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;
+			const withOutline = mounted.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;
+			await browserPage.screenshot({
+				element: mounted.canvas,
+				path: '../../../../../test-results/text-outline-translucent.png'
+			});
+			await browserPage.screenshot({
+				element: plain.canvas,
+				path: '../../../../../test-results/text-plain-translucent.png'
+			});
+			let darkest = 255;
+			for (let i = 0; i < withoutOutline.length; i += 4)
+				darkest = Math.min(darkest, withoutOutline[i]);
+			let glyphPixels = 0;
+			const interiorOffsets = Array.from({ length: 7 }, (_, y) =>
+				Array.from({ length: 7 }, (_, x) => ((y - 3) * 360 + x - 3) * 4)
+			).flat();
+			for (let i = 0; i < withoutOutline.length; i += 4) {
+				if (interiorOffsets.some((offset) => withoutOutline[i + offset] > darkest + 1)) continue;
+				glyphPixels++;
+				expect(Array.from(withOutline.slice(i, i + 4))).toEqual(
+					Array.from(withoutOutline.slice(i, i + 4))
+				);
+			}
+			expect(glyphPixels).toBeGreaterThan(100);
+		} finally {
+			mounted.adapter.dispose();
+			plain.adapter.dispose();
+		}
+	});
+
+	it('refreshes the outline while typing and keeps it below later layers', async () => {
+		const page = pageFixture([textLayer(), renderLayer('cover', 50, 50, 40, 80)]);
+		const mounted = await mountAdapter(documentFixture(page), page);
+		try {
+			const { canvas, objectByLayerID } = adapterInternals<{
+				canvas: Canvas;
+				objectByLayerID: Map<string, IText>;
+			}>(mounted.adapter);
+			const target = objectByLayerID.get('text')!;
+			canvas.setActiveObject(target);
+			target.enterEditing();
+			target.set({ text: 'HELLO\nTHERE' });
+			target.initDimensions();
+			target.selectionStart = 5;
+			target.selectionEnd = 5;
+			canvas.fire('text:changed', { target });
+			expect(target.isEditing).toBe(true);
+			expect(target.selectionStart).toBe(5);
+			target.exitEditing();
+			canvas.discardActiveObject();
+			await settleCanvas();
+			const updated = structuredClone(page);
+			updated.layers[0].text!.text = 'HELLO\nTHERE';
+			const fresh = await mountAdapter(documentFixture(updated), updated);
+			try {
+				await settleCanvas();
+				expect(pixelDigest(mounted.canvas)).toBe(pixelDigest(fresh.canvas));
+			} finally {
+				fresh.adapter.dispose();
+			}
 		} finally {
 			mounted.adapter.dispose();
 		}

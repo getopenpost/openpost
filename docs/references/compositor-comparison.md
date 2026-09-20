@@ -11,6 +11,16 @@ Reviewed 2026-09-20. This is a source comparison and a proposal for improvements
 
 Compositor complements miniPaint. Use miniPaint for browser-oriented tools and Compositor for mask semantics, transform sessions, raster editing, and rendering correctness. Neither is an architectural replacement for OpenPost.
 
+## Follow-up: Compositor 1.1
+
+Reviewed commit [`cdd8eb6a075e0c746cce551365d1e8a03ef7e9a0`](https://github.com/robbietilton/Compositor/commit/cdd8eb6a075e0c746cce551365d1e8a03ef7e9a0) against OpenPost after its collective-transform, compositing, selection-refinement, and encoded-export work. The proposals below describe the earlier baseline, not a current missing-feature checklist.
+
+The commit adds editable text and paragraph boxes, tracking and leading, line shapes, non-destructive layer effects, a bounded effects-preview cache, and folded distortion. OpenPost already has editable text with wrapping and spacing, lines, layer outlines, drop and inner shadows, and shared preview/export rendering. Its browser renderer cannot use the native Metal implementation.
+
+The useful immediate correction is alpha-aware text outlines. OpenPost's layer outline followed the text box instead of the glyphs. Text now uses the existing alpha-outline renderer for inside, center, and outside strokes. Canvas text changes also rebuild decorations without resetting the caret, preserve layer order, and treat zero-width outlines as absent. Real Chromium canvas regressions cover these behaviors. No Compositor source was copied.
+
+Native folded distortion and additional effect types are not part of this change. They require separate browser rendering and document-contract work. The native preview cache is a reference for future measured performance work, not evidence of a browser speedup.
+
 ## Recommended order
 
 First prove project identity, selection transforms, crop geometry, and preview/export agreement. Those foundations matter more than another filter. Then add the missing compositing operations, improve interactive previews, and extend retouching. Large renderer changes need measured browser evidence.

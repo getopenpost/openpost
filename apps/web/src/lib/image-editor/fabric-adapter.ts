@@ -1329,6 +1329,13 @@ export class OpenPostFabricAdapter {
 		const layerID = target?.__imageEditorLayerID;
 		if (!layerID || this.syncing || !target || !isEditableFabricText(target)) return;
 		this.onTextChange(layerID, target.text);
+		const layer = this.page.layers.find((candidate) => candidate.id === layerID);
+		if (layer && (layer.effects?.stroke || layer.effects?.inner_shadow)) {
+			// Canvas-origin edits are accepted without a document render to preserve the caret.
+			this.refreshDecorations(layer, target);
+			this.syncObjectOrder();
+			this.canvas?.requestRenderAll();
+		}
 	}
 
 	private snapBypassed(event: Event | undefined): boolean {
@@ -2101,8 +2108,8 @@ export class OpenPostFabricAdapter {
 		object: FabricObject,
 		effect: NonNullable<NonNullable<ImageEditorLayer['effects']>['stroke']>
 	): FabricObject | null {
-		if (!this.fabric || layer.shape?.kind === 'line') return null;
-		if (layer.type === 'image' || layer.type === 'paint') {
+		if (!this.fabric || layer.shape?.kind === 'line' || effect.width <= 0) return null;
+		if (layer.type === 'image' || layer.type === 'paint' || layer.type === 'text') {
 			return this.createAlphaStrokeDecoration(layer, object, effect);
 		}
 		const width = Math.max(1, object.width ?? layer.transform.width);
@@ -2162,7 +2169,10 @@ export class OpenPostFabricAdapter {
 			Math.max(0.0001, Math.abs((object.scaleX ?? 1) * (object.scaleY ?? 1)))
 		);
 		let source: HTMLCanvasElement;
+		const opacity = object.opacity;
 		try {
+			// Layer opacity belongs to the decoration, not the alpha used to find its edge.
+			object.set({ opacity: 1 });
 			source = object.toCanvasElement({
 				multiplier,
 				withoutTransform: true,
@@ -2171,6 +2181,8 @@ export class OpenPostFabricAdapter {
 			});
 		} catch {
 			return null;
+		} finally {
+			object.set({ opacity });
 		}
 		const bitmap = createAlphaStrokeBitmap(
 			source,

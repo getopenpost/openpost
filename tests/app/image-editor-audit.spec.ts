@@ -51,6 +51,11 @@ test("workspace template opens immediately with its pages and editable title", a
       },
     })
   ).json();
+  source.document.pages.push({
+    ...structuredClone(source.document.pages[0]),
+    id: randomUUID(),
+    name: "Second page",
+  });
   const templateResponse = await request.post("/api/v1/image-editor/templates", {
     headers,
     data: {
@@ -72,6 +77,7 @@ test("workspace template opens immediately with its pages and editable title", a
     .catch((error) => {
       throw new Error(`${error.message}\nBrowser errors: ${errors.join("\n")}`);
     });
+  await expect(page.getByText("1/2", { exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "Design title" }).fill("Opened template");
   await expect(page).toHaveTitle("Opened template");
 });

@@ -61,6 +61,7 @@
 </script>
 
 <script lang="ts">
+	import { ditherSurface } from '@openpost/dither';
 	let {
 		class: className,
 		variant = 'default',
@@ -100,6 +101,8 @@
 	<a
 		bind:this={ref}
 		data-slot="button"
+		data-dither-button
+		use:ditherSurface={{ kind: 'button', interactive: true }}
 		data-action-intent={resolvedIntent}
 		data-cuelume-toggle={hasActionFeedback ? 'release' : undefined}
 		class={cn(buttonVariants({ variant: resolvedVariant, size }), className)}
@@ -115,6 +118,8 @@
 	<button
 		bind:this={ref}
 		data-slot="button"
+		data-dither-button
+		use:ditherSurface={{ kind: 'button', interactive: true }}
 		data-action-intent={resolvedIntent}
 		data-cuelume-toggle={hasActionFeedback ? 'release' : undefined}
 		class={cn(buttonVariants({ variant: resolvedVariant, size }), className)}

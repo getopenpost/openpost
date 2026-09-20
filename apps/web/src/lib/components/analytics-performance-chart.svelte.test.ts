@@ -50,6 +50,20 @@ describe('AnalyticsPerformanceChart', () => {
 			for (const [index, bar] of bars.entries()) {
 				expect(getComputedStyle(bar).maskImage).toContain('data:image/svg+xml');
 				expect(geometry(bar)).toEqual(original[index]);
+				const encoded = getComputedStyle(bar).maskImage.split(',')[1].replace(/"\)$/, '');
+				const svg = new DOMParser().parseFromString(
+					decodeURIComponent(encoded),
+					'image/svg+xml'
+				).documentElement;
+				expect(Number(svg.getAttribute('height'))).toBeGreaterThanOrEqual(
+					bar.getBoundingClientRect().height
+				);
+				expect(Number(svg.getAttribute('height'))).toBeLessThan(
+					bar.getBoundingClientRect().height + 2
+				);
+				for (const cell of svg.querySelectorAll('rect')) {
+					expect(cell.getAttribute('width')).toBe(cell.getAttribute('height'));
+				}
 			}
 			expect(original[0].height / original[1].height).toBeCloseTo(2);
 			expect(original[0].y + original[0].height).toBeCloseTo(original[1].y);

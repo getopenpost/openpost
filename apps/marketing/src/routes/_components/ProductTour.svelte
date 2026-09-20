@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ditherSurface } from '@openpost/dither';
 	import { onMount } from 'svelte';
 	import ProductScreenshot from './ProductScreenshot.svelte';
 	import Pause from '@lucide/svelte/icons/pause';
@@ -115,6 +116,8 @@
 </script>
 
 <div
+	data-dither-panel
+	use:ditherSurface
 	class="product-tour"
 	role="region"
 	aria-label="OpenPost screenshot tour"
@@ -185,8 +188,6 @@
 		border: 1px solid var(--border);
 		border-radius: 16px;
 		background: var(--card);
-		background-image: var(--marketing-dither-pattern);
-		background-size: 32px 32px;
 	}
 	.view-picker {
 		display: grid;

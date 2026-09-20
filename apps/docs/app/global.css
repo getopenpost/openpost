@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@openpost/dither/style.css";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @import "fumadocs-openapi/css/preset.css";
@@ -246,8 +247,11 @@ a {
   background: var(--color-fd-muted);
 }
 .docs-open-app {
-  background: var(--color-fd-primary);
+  background: color-mix(in srgb, var(--color-fd-primary) 60%, var(--color-fd-foreground));
   color: var(--color-fd-primary-foreground);
+}
+.dark .docs-open-app {
+  background: var(--color-fd-primary);
 }
 .docs-header-actions a:hover {
   filter: brightness(0.94);

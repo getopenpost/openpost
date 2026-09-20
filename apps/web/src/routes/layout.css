@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@openpost/dither/style.css';
 @import 'tw-animate-css';
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/geist-mono';
@@ -1014,57 +1015,6 @@
 		box-shadow: none;
 	}
 
-	[data-theme-button='dither']
-		[data-slot='button']:where(
-			[data-action-intent='focal'],
-			[data-action-intent='primary'],
-			[data-action-intent='ordinary']
-		):where(:not(:disabled, [aria-disabled='true']))::before {
-		position: absolute;
-		z-index: -1;
-		inset: 0;
-		border-radius: inherit;
-		background-image: linear-gradient(
-			110deg,
-			color-mix(in srgb, currentColor 40%, transparent),
-			currentColor 45%,
-			color-mix(in srgb, currentColor 40%, transparent)
-		);
-		background-size: 240% 100%;
-		background-position: 100% 0;
-		content: '';
-		opacity: 0.14;
-		mask-image: var(--theme-dither-mask);
-		mask-size: 8px 100%;
-		mask-repeat: repeat-x;
-		mask-position: 0 0;
-		pointer-events: none;
-		transition:
-			opacity var(--theme-motion-hover-duration) var(--theme-motion-hover-easing),
-			background-position var(--theme-duration-slow) var(--theme-motion-hover-easing),
-			mask-position var(--theme-duration-slow) steps(4, end);
-	}
-
-	[data-theme-button='dither'] [data-slot='button']:focus-visible::before {
-		opacity: 0.18;
-		background-position: 0 0;
-		mask-position: 2px 0;
-	}
-
-	@media (hover: hover) {
-		[data-theme-button='dither'] [data-slot='button']:hover::before {
-			opacity: 0.18;
-			background-position: 0 0;
-			mask-position: 2px 0;
-		}
-	}
-
-	[data-theme-button='dither'] [data-slot='button']:active::before {
-		opacity: var(--theme-dither-max-opacity);
-		background-position: 50% 0;
-		mask-position: 4px 0;
-	}
-
 	[data-theme-card='dither'] [data-slot='card'] {
 		position: relative;
 		isolation: isolate;
@@ -1083,15 +1033,16 @@
 		content: '';
 		opacity: 0.1;
 		mask-image: var(--theme-dither-mask);
-		mask-size: 8px 2rem;
+		mask-size: 8px 64px;
 		mask-repeat: repeat-x;
 		mask-position: bottom;
 		pointer-events: none;
 	}
 
 	[data-theme-decoration='dither'] :is([data-chart-fill], [data-preview-chart-series]) {
-		mask-image: var(--theme-dither-mask);
-		mask-size: 8px 100%;
+		--dither-enabled: 1;
+		mask-image: var(--dither-mask, var(--theme-dither-mask));
+		mask-size: var(--dither-mask-size, 8px 64px);
 		mask-repeat: repeat-x;
 		mask-origin: fill-box;
 		mask-clip: fill-box;
@@ -1156,15 +1107,17 @@
 		background: var(--action-focal-foreground);
 		content: '';
 		opacity: var(--theme-dither-max-opacity);
-		mask-image: var(--theme-dither-mask);
-		mask-size: 8px 100%;
+		mask-image: var(--dither-mask, var(--theme-dither-mask));
+		mask-size: 8px 64px;
+		mask-position: center;
 		mask-repeat: repeat-x;
 		pointer-events: none;
 	}
 
 	[data-theme-decoration='dither'] [data-slot='skeleton']::after {
-		mask-image: var(--theme-dither-mask);
-		mask-size: 8px 100%;
+		mask-image: var(--dither-mask, var(--theme-dither-mask));
+		mask-size: 8px 64px;
+		mask-position: center;
 		mask-repeat: repeat-x;
 	}
 

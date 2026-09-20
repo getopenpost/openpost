@@ -249,7 +249,7 @@ Ordered Bayer textures sit behind button labels, along card bottoms, inside char
 
 Shared empty states place an original static SVG wave field in a 120px by 64px symbol area behind a solid 40px icon tile. The field is decorative and hidden from assistive technology. Progress meters use the theme's small corner radius, while loading previews use the real Skeleton and ProgressMeter components. Existing reduced-motion behavior stays intact.
 
-The shared SVG mask and Bayer thresholds live in `apps/web/src/lib/components/dither/paint.ts`. Preserve the Dither Kit attribution in the adjacent `NOTICE.md`. The wave field adds no continuous rendering loop.
+`@openpost/dither` owns the Bayer thresholds, native-resolution SVG masks, and DOM lifecycle for Svelte and React. Every surface uses 2 CSS pixel cells. Buttons raise density and opacity on hover, keyboard focus, and press; animation stops when settled and snaps with reduced motion. Preserve the Dither Kit source attribution in the package `NOTICE.md`. Marketing panels and the documentation app link share this renderer while retaining their palettes.
 
 Dither buttons ease their pixel gradient on hover, keyboard focus, and press. Chart inspection emphasizes the selected day while preserving solid value boundaries and readable series labels. Tooltips stay within the visible chart viewport and dismiss with Escape. Motion uses the shared theme timings and reduced-motion rules.
 

@@ -363,11 +363,6 @@
 		backdrop-filter: blur(18px) saturate(140%);
 	}
 
-	:global(.nav-cta) {
-		background-image: var(--marketing-dither-pattern);
-		background-size: 32px 32px;
-	}
-
 	/* The shadcn Content ships md:w-auto; the destinations panel needs a real width. */
 	:global(.platform-menu.platform-menu) {
 		width: min(46rem, calc(100vw - 2rem));

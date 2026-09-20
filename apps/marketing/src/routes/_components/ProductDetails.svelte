@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ditherSurface } from '@openpost/dither';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import ThemeImage from './ThemeImage.svelte';
 	const editors = [
@@ -43,7 +44,7 @@
 	<div class="editors">
 		{#each editors as editor (editor.icon)}
 			<article class="editor">
-				<div class="composition {editor.tone} {editor.icon}">
+				<div data-dither-panel use:ditherSurface class="composition {editor.tone} {editor.icon}">
 					<ThemeImage
 						class="base"
 						lightSrc={editor.baseLight}
@@ -123,8 +124,6 @@
 		border-radius: 14px;
 		aspect-ratio: 1.45;
 		isolation: isolate;
-		background-image: var(--marketing-dither-pattern);
-		background-size: 32px 32px;
 	}
 	.lilac {
 		background-color: var(--marketing-lilac);

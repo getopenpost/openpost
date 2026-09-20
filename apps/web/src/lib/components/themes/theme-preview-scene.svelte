@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ditherSurface } from '@openpost/dither';
 	import Logo from '$lib/components/Logo.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -443,6 +444,7 @@
 											class="min-w-0 flex-1 rounded-t-[var(--theme-radius-sm,var(--radius))]"
 											style={`height: ${height}%; background-color: var(--chart-${(index % 5) + 1})`}
 											data-preview-chart-series
+											use:ditherSurface
 										></div>
 									{/each}
 								</div>

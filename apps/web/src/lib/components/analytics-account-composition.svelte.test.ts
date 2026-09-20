@@ -63,10 +63,16 @@ describe('AnalyticsAccountComposition', () => {
 		});
 		try {
 			await runtime.apply(resolveBuiltInTheme('dither', 'light'), figure);
+			const texture = figure.querySelector('[data-dither-ring]');
+			if (!(texture instanceof SVGElement)) throw new Error('Audience chart is unavailable');
+			expect(getComputedStyle(texture).maskImage).toContain('data:image/svg+xml');
 			expect(rings.map((ring) => getComputedStyle(ring).maskImage)).toEqual(Array(5).fill('none'));
+
 			expect(geometry()).toEqual(original);
 			expect(new Set(rings.map((ring) => getComputedStyle(ring).stroke)).size).toBe(5);
 			await runtime.apply(resolveBuiltInTheme('workshop', 'dark'), figure);
+			expect(getComputedStyle(texture).maskImage).toBe('none');
+			expect(rings.map((ring) => getComputedStyle(ring).maskImage)).toEqual(Array(5).fill('none'));
 			expect(geometry()).toEqual(original);
 			await expect.element(screen.getByText('100', { exact: true })).toBeVisible();
 		} finally {

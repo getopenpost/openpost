@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ditherSurface } from '@openpost/dither';
 	import type { components } from '$lib/api/types';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -50,7 +51,13 @@
 >
 	{#if total > 0}
 		<div class="relative mx-auto size-40 sm:mx-0" data-testid="analytics-composition-chart">
-			<svg viewBox="0 0 128 128" class="size-full" aria-hidden="true">
+			<svg
+				use:ditherSurface
+				data-dither-ring
+				viewBox="0 0 128 128"
+				class="size-full"
+				aria-hidden="true"
+			>
 				{#each slices as slice (slice.account?.id ?? 'other')}
 					<g
 						fill="none"
@@ -60,13 +67,6 @@
 						transform="rotate(-90 64 64)"
 					>
 						<circle data-chart-ring cx={center} cy={center} r={radius} stroke={slice.color} />
-						<circle
-							class="ring-texture"
-							cx={center}
-							cy={center}
-							r={radius}
-							stroke="var(--background)"
-						/>
 					</g>
 				{/each}
 			</svg>
@@ -104,21 +104,16 @@
 </figure>
 
 <style>
-	.ring-texture {
-		display: none;
-	}
-	:global([data-theme-decoration='dither']) .ring-texture {
-		display: block;
-		opacity: 0.22;
-		mask-image: var(--theme-dither-mask);
-		mask-size: 8px 100%;
+	:global([data-theme-decoration='dither']) [data-dither-ring] {
+		mask-image: var(--dither-mask);
+		mask-size: var(--dither-mask-size);
 		mask-repeat: repeat-x;
-		mask-origin: stroke-box;
-		mask-clip: stroke-box;
+		mask-origin: border-box;
+		mask-clip: border-box;
 	}
 	@media (forced-colors: active) {
-		:global([data-theme-decoration='dither']) .ring-texture {
-			display: none;
+		:global([data-theme-decoration='dither']) [data-dither-ring] {
+			mask-image: none;
 		}
 	}
 </style>

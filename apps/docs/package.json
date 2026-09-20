@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
+    "@openpost/dither": "workspace:*",
     "@openpost/social-images": "workspace:*",
     "@openpost/telemetry": "workspace:*",
     "@scalar/json-magic": "0.13.3",

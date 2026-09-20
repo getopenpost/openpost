@@ -206,6 +206,7 @@
 					{#each points as point, index (point.date)}
 						<g
 							class="analytics-day"
+							data-dither-interaction
 							data-chart-active={activeDate ? activeDate === point.date : undefined}
 							role="button"
 							tabindex="0"
@@ -234,6 +235,7 @@
 							{#each negativeSegments(point) as segment (`negative-${segment.item.key}`)}
 								<ChartBar
 									x={x(index)}
+									direction="up"
 									y={y(segment.start)}
 									width={barWidth}
 									height={Math.max(1, y(segment.end) - y(segment.start))}

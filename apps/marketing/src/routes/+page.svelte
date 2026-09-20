@@ -126,8 +126,6 @@
 		padding-inline: 24px;
 		border-radius: 9px;
 		font-size: 14px;
-		background-image: var(--marketing-dither-pattern);
-		background-size: 32px 32px;
 	}
 	.trial-note {
 		margin-top: 12px;

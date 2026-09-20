@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DITHER_GRADIENT_MASKS, type DitherDirection } from './paint.js';
+	import { ditherSurface, type DitherDirection } from '@openpost/dither';
 
 	interface Props {
 		color?: string;
@@ -27,8 +27,9 @@
 	<span
 		class="absolute inset-0 rounded-[inherit]"
 		style:background-color={color}
-		style:mask-image={DITHER_GRADIENT_MASKS[direction]}
-		style:mask-size={horizontal ? '100% 8px' : '8px 100%'}
+		use:ditherSurface={{ direction }}
+		style:mask-image="var(--dither-mask)"
+		style:mask-size="var(--dither-mask-size)"
 		style:mask-repeat={horizontal ? 'repeat-y' : 'repeat-x'}
 	></span>
 </span>

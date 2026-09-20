@@ -1,0 +1,55 @@
+/* Palette and contrast belong to the host; pixel geometry and interaction are shared. */
+:where([data-theme-button="dither"]) [data-dither-button],
+[data-dither-button="always"] {
+  --dither-enabled: 1;
+  position: relative;
+  isolation: isolate;
+}
+:where([data-theme-button="dither"])
+  [data-dither-button]:where(
+    [data-action-intent="focal"],
+    [data-action-intent="primary"],
+    [data-action-intent="ordinary"]
+  ),
+[data-dither-button="always"] {
+  --dither-button-visible: "";
+}
+[data-dither-button]::before {
+  content: var(--dither-button-visible, none);
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: var(--theme-dither-max-opacity, 0.22);
+  mask-image: var(--dither-mask);
+  mask-size: var(--dither-mask-size, 8px 64px);
+  mask-repeat: repeat-x;
+  pointer-events: none;
+}
+[data-dither-button]:is(:disabled, [aria-disabled="true"])::before {
+  display: none;
+}
+[data-dither-panel] {
+  position: relative;
+  isolation: isolate;
+}
+[data-dither-panel]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.09;
+  mask-image: var(--dither-mask);
+  mask-size: var(--dither-mask-size, 8px 64px);
+  mask-repeat: repeat-x;
+  pointer-events: none;
+}
+@media (forced-colors: active) {
+  [data-dither-button]::before,
+  [data-dither-panel]::before {
+    display: none;
+  }
+}

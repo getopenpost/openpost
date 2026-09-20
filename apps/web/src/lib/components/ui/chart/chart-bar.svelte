@@ -1,16 +1,27 @@
 <script lang="ts">
+	import { ditherSurface, type DitherDirection } from '@openpost/dither';
 	interface Props {
 		x: number;
 		y: number;
 		width: number;
 		height: number;
 		fill: string;
+		direction?: DitherDirection;
 	}
 
-	let { x, y, width, height, fill }: Props = $props();
+	let { x, y, width, height, fill, direction = 'down' }: Props = $props();
 </script>
 
-<rect data-chart-fill {x} {y} {width} {height} {fill} rx="2" />
+<rect
+	use:ditherSurface={{ interactive: true, direction }}
+	data-chart-fill
+	{x}
+	{y}
+	{width}
+	{height}
+	{fill}
+	rx="2"
+/>
 <!-- Keep the value boundary solid when the theme textures the fill. -->
 <rect
 	data-chart-outline

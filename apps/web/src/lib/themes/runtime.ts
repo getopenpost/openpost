@@ -1,4 +1,4 @@
-import { DITHER_GRADIENT_MASK } from '../components/dither/paint.js';
+import { DITHER_GRADIENT_MASK } from '@openpost/dither';
 import { resolveWorkshopTheme } from './workshop.js';
 import {
 	THEME_COLOR_TOKEN_KEYS,

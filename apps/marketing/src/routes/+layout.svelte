@@ -101,7 +101,7 @@
 	Skip to content
 </a>
 
-<div class="min-h-screen bg-background text-foreground">
+<div data-theme-button="dither" class="min-h-screen bg-background text-foreground">
 	<MarketingNav />
 	<main id="main-content">
 		{@render children()}

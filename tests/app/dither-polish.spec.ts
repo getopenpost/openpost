@@ -83,13 +83,17 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
       await page.evaluate(() => document.fonts.ready);
       if (path === "/quick-cut") {
         await expect(
-          page.getByText("No projects yet. Create one to start cutting.", { exact: true }),
+          page.getByText("No projects yet. Create one to start cutting.", {
+            exact: true,
+          }),
         ).toBeVisible();
         await expect(page.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
       }
       if (path === "/record") {
         const colors = await page
-          .getByRole("region", { name: "Your preview will appear here after recording starts." })
+          .getByRole("region", {
+            name: "Your preview will appear here after recording starts.",
+          })
           .evaluate((el) => {
             const text = el.querySelector("p");
             if (!text) throw new Error("Recorder preview text is unavailable");
@@ -138,7 +142,10 @@ test.describe("touch theme controls", () => {
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/settings?tab=appearance");
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    const hue = page.getByRole("spinbutton", { name: "Accent hue", exact: true });
+    const hue = page.getByRole("spinbutton", {
+      name: "Accent hue",
+      exact: true,
+    });
     await expect(hue).toHaveValue("45");
     await hue.fill("305");
     await expect(page.getByRole("slider", { name: "Accent hue" })).toHaveAttribute(
@@ -207,7 +214,9 @@ test.describe("touch theme controls", () => {
       });
       await page.getByRole("button", { name: "Choose Canvas color", exact: true }).click();
       await expect(hex).toBeVisible();
-      await page.screenshot({ path: `.impeccable/review/dither-polish/color-picker-${width}.png` });
+      await page.screenshot({
+        path: `.impeccable/review/dither-polish/color-picker-${width}.png`,
+      });
       await page.keyboard.press("Escape");
     }
   });
@@ -221,45 +230,48 @@ test("Dither button gradients respond to hover, focus, and press with reduced mo
   await createWorkspace(request, token, "Dither effects");
   await authenticatePage(page, token);
   for (const scheme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "no-preference" });
+    await page.emulateMedia({
+      colorScheme: scheme,
+      reducedMotion: "no-preference",
+    });
     await page.goto("/media");
     const button = page.getByRole("button", { name: "Upload", exact: true });
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
     await expect(button).toBeEnabled();
-    const texture = () =>
-      button.evaluate((el) => {
-        const style = getComputedStyle(el, "::before");
-        return {
-          opacity: Number(style.opacity),
-          position: style.backgroundPosition,
-          gradient: style.backgroundImage,
-          duration: style.transitionDuration,
-          mask: style.maskImage,
-        };
-      });
+    const focal = page.getByTestId("sidebar-new-post");
     await page.mouse.move(0, 0);
-    await expect.poll(async () => (await texture()).opacity).toBe(0.14);
-    expect((await texture()).gradient).toContain("linear-gradient");
-    expect((await texture()).mask).toContain("data:image/svg+xml");
+    await focal.screenshot({
+      path: `.impeccable/review/dither-unified/new-post-${scheme}-rest.png`,
+    });
+    await focal.hover();
+    await expect
+      .poll(() => focal.evaluate((el) => getComputedStyle(el, "::before").maskImage))
+      .toContain("data:image/svg+xml");
+    await page.waitForTimeout(400);
+    await focal.screenshot({
+      path: `.impeccable/review/dither-unified/new-post-${scheme}-hover.png`,
+    });
+    const texture = () => button.evaluate((el) => getComputedStyle(el, "::before").maskImage);
+    await page.mouse.move(0, 0);
+    await expect.poll(texture).toContain("data:image/svg+xml");
+    const rest = await texture();
     await button.hover();
-    await expect.poll(async () => (await texture()).position).toMatch(/^0(?:%|px) 0px$/);
-    await expect.poll(async () => (await texture()).opacity).toBe(0.18);
-    await page.mouse.down();
-    await expect.poll(async () => (await texture()).opacity).toBe(0.22);
+    await expect.poll(texture).not.toBe(rest);
     await page.mouse.move(0, 0);
-    await page.mouse.up();
+    await expect.poll(texture).toBe(rest);
     await page.keyboard.press("Tab");
     await button.focus();
     await expect(button).toBeFocused();
-    expect(await button.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
-    await expect.poll(async () => (await texture()).opacity).toBe(0.18);
+    await expect.poll(texture).not.toBe(rest);
     await button.screenshot({
       path: `.impeccable/review/dither-polish/button-focus-${scheme}.png`,
     });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    expect(
-      (await texture()).duration.split(",").every((duration) => parseFloat(duration) < 0.001),
-    ).toBe(true);
+    const focused = await texture();
+    await button.evaluate((el) => el.blur());
+    expect(await texture()).toBe(rest);
+    await button.focus();
+    expect(await texture()).toBe(focused);
     await page.emulateMedia({ forcedColors: "active" });
     await expect
       .poll(() => button.evaluate((el) => getComputedStyle(el, "::before").display))

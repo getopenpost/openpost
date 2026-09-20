@@ -1,43 +1,33 @@
 <script lang="ts">
+	import { ditherSurface } from '@openpost/dither';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import PostizSocialLogo from './PostizSocialLogo.svelte';
+	import { tools } from '../_marketing';
+	const featuredTools = [
+		'social-media-image-editor',
+		'social-media-video-editor',
+		'thread-splitter',
+		'multi-platform-character-counter'
+	].map((slug) => tools.find((tool) => tool.slug === slug)!);
 	const platforms = ['bluesky', 'linkedin', 'instagram', 'youtube', 'mastodon'] as const;
 </script>
 
 <section class="resources marketing-shell" aria-labelledby="resources-title">
 	<h2 id="resources-title">A few useful starting points.</h2>
 	<div class="resource-grid">
-		<a href="/tools" class="tools focus-ring">
-			<div class="card-heading">
+		<div data-dither-panel use:ditherSurface class="tools">
+			<a href="/tools" class="card-heading tool-heading focus-ring">
 				<h3>Free tools</h3>
 				<ArrowUpRight size={24} />
-			</div>
+			</a>
 			<p>Edit media, split a thread, or check a post before you send it.</p>
-			<div class="tool-art" aria-hidden="true">
-				<img
-					src="/assets/brand/features/image-editor.svg"
-					alt=""
-					width="112"
-					height="112"
-					loading="lazy"
-				/>
-				<img
-					src="/assets/brand/features/video-editor.svg"
-					alt=""
-					width="112"
-					height="112"
-					loading="lazy"
-				/>
-				<img
-					src="/assets/brand/features/compose.svg"
-					alt=""
-					width="112"
-					height="112"
-					loading="lazy"
-				/>
-			</div>
-		</a>
-		<a href="/guides" class="guides focus-ring">
+			<ul class="tool-list">
+				{#each featuredTools as tool (tool.slug)}
+					<li><a class="focus-ring" href={`/tools/${tool.slug}`}>{tool.name}</a></li>
+				{/each}
+			</ul>
+		</div>
+		<a data-dither-panel use:ditherSurface href="/guides" class="guides focus-ring">
 			<div class="card-heading">
 				<h3>Publishing guides</h3>
 				<ArrowUpRight size={24} />
@@ -48,6 +38,8 @@
 			</div>
 		</a>
 		<a
+			data-dither-panel
+			use:ditherSurface
 			href="https://openpo.st/docs/guides/quickstart"
 			class="developers focus-ring"
 			data-sveltekit-reload
@@ -61,7 +53,7 @@
 				<span>Ideas</span><span>How-tos</span><span>Answers</span>
 			</div>
 		</a>
-		<a href="/platforms" class="platforms focus-ring">
+		<a data-dither-panel use:ditherSurface href="/platforms" class="platforms focus-ring">
 			<div class="card-heading">
 				<h3>Know your channels</h3>
 				<ArrowUpRight size={24} />
@@ -90,14 +82,13 @@
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 20px;
 	}
-	a {
+	.resource-grid > a,
+	.tools {
 		display: block;
 		border-radius: 14px;
 		padding: 28px;
 		overflow: hidden;
 		min-width: 0;
-		background-image: var(--marketing-dither-pattern);
-		background-size: 32px 32px;
 	}
 	.tools {
 		grid-row: span 2;
@@ -138,21 +129,32 @@
 		font-size: 15px;
 		max-width: 48ch;
 	}
-	.tool-art {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+	.tool-heading {
+		color: inherit;
+	}
+	.tool-list {
+		margin-top: 32px;
+		list-style: none;
+		padding: 0;
+	}
+	.tool-list li + li {
+		border-top: 1px solid color-mix(in oklch, currentColor 18%, transparent);
+	}
+	.tool-list a {
+		display: flex;
 		align-items: center;
-		gap: 16px;
-		margin: 42px 0 4px;
+		min-height: 52px;
+		padding-block: 12px;
+		font-size: 17px;
+		font-weight: 500;
+		line-height: 1.4;
+		color: inherit;
 	}
-	.tool-art img {
-		width: 100%;
-		height: auto;
-		max-width: 128px;
+	.tool-list a:hover {
+		text-decoration: underline;
+		text-underline-offset: 4px;
 	}
-	.tool-art img:last-child {
-		margin-left: 65%;
-	}
+
 	.guide-art {
 		display: flex;
 		gap: 16px;
@@ -206,19 +208,9 @@
 			grid-row: auto;
 			grid-column: auto;
 		}
-		a {
+		.resource-grid > a,
+		.tools {
 			padding: 24px;
-		}
-		.tool-art {
-			display: flex;
-			gap: 16px;
-			margin-top: 28px;
-		}
-		.tool-art img {
-			width: calc((100% - 32px) / 3);
-		}
-		.tool-art img:last-child {
-			margin: 0;
 		}
 	}
 </style>

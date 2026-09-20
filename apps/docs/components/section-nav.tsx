@@ -1,4 +1,5 @@
 "use client";
+import { ditherSurface } from "@openpost/dither";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSearchContext } from "fumadocs-ui/contexts/search";
@@ -22,6 +23,15 @@ export function SectionNav() {
   const pathname = usePathname();
   const { setOpenSearch } = useSearchContext();
   const section = documentationSection(pathname);
+  const openApp = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    if (!openApp.current) return;
+    const surface = ditherSurface(openApp.current, {
+      kind: "button",
+      interactive: true,
+    });
+    return () => surface.destroy();
+  }, []);
   const navigation = useRef<HTMLElement>(null);
   const sectionIcons = {
     guides: BookOpen,
@@ -36,7 +46,9 @@ export function SectionNav() {
     const nav = navigation.current;
     const active = nav?.querySelector<HTMLElement>("[aria-current]");
     if (!nav || !active || nav.scrollWidth <= nav.clientWidth) return;
-    nav.scrollTo({ left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2 });
+    nav.scrollTo({
+      left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2,
+    });
   }, [section.id]);
   return (
     <header className="docs-header">
@@ -58,7 +70,12 @@ export function SectionNav() {
             <Github size={16} />
             GitHub
           </a>
-          <a href="https://app.openpo.st" className="docs-open-app">
+          <a
+            ref={openApp}
+            data-dither-button="always"
+            href="https://app.openpo.st"
+            className="docs-open-app"
+          >
             Open OpenPost
             <ArrowUpRight size={16} />
           </a>

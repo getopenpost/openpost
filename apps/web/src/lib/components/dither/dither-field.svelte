@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import { ditherThreshold } from './paint.js';
+	import { ditherThreshold } from '@openpost/dither';
 
 	const WIDTH = 240;
 	const HEIGHT = 80;

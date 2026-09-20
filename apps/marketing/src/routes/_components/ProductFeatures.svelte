@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ditherSurface } from '@openpost/dither';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import ThemeImage from './ThemeImage.svelte';
 	const features = [
@@ -83,7 +84,7 @@
 		</div>
 	</article>
 	<div class="feature-pair">
-		<article class="feature-panel ai">
+		<article data-dither-panel use:ditherSurface class="feature-panel ai">
 			<div class="copy">
 				<h3 class="feature-heading">
 					<img
@@ -127,7 +128,7 @@
 				</li>
 			</ol>
 		</article>
-		<article class="feature-panel memes">
+		<article data-dither-panel use:ditherSurface class="feature-panel memes">
 			<div class="copy">
 				<h3 class="feature-heading">
 					<img
@@ -255,8 +256,6 @@
 		overflow: hidden;
 		border-radius: 16px;
 		background: var(--card);
-		background-image: var(--marketing-dither-pattern);
-		background-size: 32px 32px;
 	}
 	.copy {
 		padding: 32px;

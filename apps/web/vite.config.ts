@@ -8,6 +8,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, searchForWorkspaceRoot, type Plugin, type PluginOption } from 'vite';
 import { postHogSourceMaps } from '../../scripts/posthog-source-maps.ts';
+import { phonemizerDataRacePlugin } from './src/lib/build/phonemizer-data-race.ts';
 
 const rawParaglidePlugin = paraglideVitePlugin({
 	project: './project.inlang',
@@ -49,6 +50,7 @@ export default defineConfig({
 		'import.meta.env.VITE_APP_MODE': JSON.stringify(process.env.VITE_APP_MODE || 'web')
 	},
 	plugins: [
+		phonemizerDataRacePlugin(),
 		...(isVitest ? [testMediaStubPlugin] : []),
 		tailwindcss(),
 		...appFrameworkPlugins,

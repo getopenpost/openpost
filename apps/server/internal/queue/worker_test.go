@@ -330,7 +330,7 @@ func TestTerminalFailureCarriesPublishWorkspaceID(t *testing.T) {
 	require.Empty(t, recorder.Exceptions[2].WorkspaceID)
 }
 
-func TestTerminalFailureCarriesRefreshCleanupAndDiscoveryWorkspaceIDs(t *testing.T) {
+func TestTerminalFailureCarriesRefreshAndCleanupWorkspaceIDs(t *testing.T) {
 	db := createTestDB(t)
 	defer db.Close()
 	now := time.Now().UTC()
@@ -357,14 +357,6 @@ func TestTerminalFailureCarriesRefreshCleanupAndDiscoveryWorkspaceIDs(t *testing
 		ID: "terminal-refresh-grant", Type: jobregistry.TypeRefreshToken,
 		Payload: `{"grant_id":"grant-terminal"}`, RunAt: time.Now().UTC(),
 	}, errors.New("refresh exploded"))
-	discoveryPayload, err := jobregistry.EncodeAccountContentDiscoveryPayload(jobregistry.AccountContentDiscoveryPayload{
-		WorkspaceID: "workspace-10", SocialAccountID: "account-terminal",
-	})
-	require.NoError(t, err)
-	finishTerminalJob(t, db, worker, &models.Job{
-		ID: "terminal-discovery", Type: jobregistry.TypeAccountContentDiscovery,
-		Payload: discoveryPayload, RunAt: time.Now().UTC(),
-	}, errors.New("discovery exploded"))
 	// Malformed payloads stay unknown rather than failing the failure path.
 	finishTerminalJob(t, db, worker, &models.Job{
 		ID: "terminal-malformed", Type: jobregistry.TypeRefreshToken,
@@ -377,11 +369,10 @@ func TestTerminalFailureCarriesRefreshCleanupAndDiscoveryWorkspaceIDs(t *testing
 	require.Equal(t, "workspace-1", mediaCleanupJobWorkspaceID(`{"workspace_id":"workspace-1"}`))
 	require.Empty(t, mediaCleanupJobWorkspaceID(`not json`))
 
-	require.Len(t, recorder.Exceptions, 4)
+	require.Len(t, recorder.Exceptions, 3)
 	require.Equal(t, "workspace-10", recorder.Exceptions[0].WorkspaceID)
 	require.Equal(t, "workspace-1", recorder.Exceptions[1].WorkspaceID)
-	require.Equal(t, "workspace-10", recorder.Exceptions[2].WorkspaceID)
-	require.Empty(t, recorder.Exceptions[3].WorkspaceID)
+	require.Empty(t, recorder.Exceptions[2].WorkspaceID)
 }
 
 func TestTerminalFailureCarriesPublicationBuildWorkspaceID(t *testing.T) {

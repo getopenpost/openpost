@@ -803,9 +803,9 @@ func (w *BackgroundWorker) recordTerminalFailure(ctx context.Context, job *model
 
 // jobErrorWorkspaceID resolves the affected workspace for a terminal job
 // failure from trusted database state. Publish jobs carry the publication in
-// scope_id (with a payload fallback for old rows); refresh, cleanup, build,
-// and discovery jobs resolve through their owning records. Unresolvable jobs
-// return "" so dashboards report unknown impact instead of inventing it.
+// scope_id (with a payload fallback for old rows); refresh, cleanup, and
+// build jobs resolve through their owning records. Unresolvable jobs return
+// "" so dashboards report unknown impact instead of inventing it.
 // The existing error_kind/error_code properties remain the cause vocabulary;
 // no competing taxonomy is introduced here.
 func (w *BackgroundWorker) jobErrorWorkspaceID(ctx context.Context, job *models.Job) string {
@@ -818,8 +818,6 @@ func (w *BackgroundWorker) jobErrorWorkspaceID(ctx context.Context, job *models.
 		return mediaCleanupJobWorkspaceID(job.Payload)
 	case jobregistry.TypePublicationBuild:
 		return w.publicationBuildWorkspaceID(ctx, job)
-	case jobregistry.TypeAccountContentDiscovery:
-		return accountDiscoveryJobWorkspaceID(job.Payload)
 	default:
 		return ""
 	}
@@ -891,14 +889,6 @@ func (w *BackgroundWorker) publicationBuildWorkspaceID(ctx context.Context, job 
 		return ""
 	}
 	return strings.TrimSpace(workspaceID)
-}
-
-func accountDiscoveryJobWorkspaceID(payload string) string {
-	decoded, err := jobregistry.DecodeAccountContentDiscoveryPayload(payload)
-	if err != nil {
-		return ""
-	}
-	return decoded.WorkspaceID
 }
 
 type classifiedJobFailure struct {

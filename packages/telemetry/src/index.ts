@@ -321,6 +321,12 @@ export class BrowserTelemetry {
       cookieWinsOnConflict: preference === "persistent",
       persistence: preference === "persistent" ? "localStorage+cookie" : "memory",
       ...(preference === "cookieless" ? { cookieless_mode: "always" } : {}),
+      // The recursive sanitizeSDKProperties() pass below is the primary
+      // removal layer for advertising/click identifiers. This SDK-level
+      // denylist is defense in depth for properties the sanitizer cannot
+      // reshape (for example SDK-registered super-properties applied
+      // after before_send).
+      property_denylist: clickIdentifierDenylist,
       person_profiles:
         preference === "persistent" && config.surface === "app" ? "identified_only" : "never",
       respect_dnt: true,
@@ -516,6 +522,9 @@ export class BrowserTelemetry {
 
     if (this.configured) {
       this.disabled = true;
+      // opt_out_capturing() discards already-buffered SDK requests; reset()
+      // alone only clears identity and would leave queued batches to flush.
+      this.sdk.opt_out_capturing();
       this.sdk.reset();
       if (this.config?.projectToken) {
         this.preferenceStore.clearSDKState(this.config.projectToken.trim());
@@ -869,6 +878,11 @@ function sanitizeSDKProperties(
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(properties)) {
     if (key === "title" || key === "$title" || key === "entries") continue;
+    // Advertising/click identifiers emitted by the SDK (or arriving as
+    // initial-property variants) are never product data. Drop them at
+    // every nesting level: $set/$set_once containers, arrays, and nested
+    // event-property objects all traverse this same sanitizer.
+    if (clickIdentifierDenylist.includes(key)) continue;
     if (
       key === "$current_url" ||
       key === "$initial_current_url" ||
@@ -930,6 +944,51 @@ function sanitizeSDKProperties(
   }
   return sanitized;
 }
+
+/**
+ * Advertising/click identifiers the installed posthog-js SDK attaches to
+ * events (campaign properties plus first-touch variants). Protocol and
+ * application identifiers (distinct IDs, session/window IDs, workspace or
+ * job IDs) are intentionally absent: they have separate privacy policies.
+ */
+const clickIdentifierDenylist = [
+  "fbclid",
+  "gclid",
+  "gclsrc",
+  "dclid",
+  "gbraid",
+  "wbraid",
+  "msclkid",
+  "ttclid",
+  "twclid",
+  "li_fat_id",
+  "igshid",
+  "mc_cid",
+  "rdt_cid",
+  "epik",
+  "qclid",
+  "sccid",
+  "irclid",
+  "_kx",
+  "$initial_fbclid",
+  "$initial_gclid",
+  "$initial_gclsrc",
+  "$initial_dclid",
+  "$initial_gbraid",
+  "$initial_wbraid",
+  "$initial_msclkid",
+  "$initial_ttclid",
+  "$initial_twclid",
+  "$initial_li_fat_id",
+  "$initial_igshid",
+  "$initial_mc_cid",
+  "$initial_rdt_cid",
+  "$initial_kx",
+  "$initial_epik",
+  "$initial_qclid",
+  "$initial_sccid",
+  "$initial_irclid",
+];
 
 function looksLikeURL(value: string): boolean {
   return /^(?:https?:)?\/\//iu.test(value.trim());

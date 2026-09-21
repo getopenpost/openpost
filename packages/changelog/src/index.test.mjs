@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  compareStableVersions,
   parseChangelog,
   prepareReleaseChangelog,
   releaseNotesForTag,
@@ -259,4 +260,12 @@ test("merges stacked unshipped sections without duplicating groups", () => {
     ["## Fixed", "", "- V6 fix.", "- Old browser fix."].join("\n"),
   );
   assert.deepEqual(validateChangelog(carried), []);
+});
+
+test("orders stable versions numerically and leaves labels unordered", () => {
+  assert.equal(compareStableVersions("6.0.0", "5.2.2"), 1);
+  assert.equal(compareStableVersions("5.1.1", "5.2.2"), -1);
+  assert.equal(compareStableVersions("5.2.2", "5.2.2"), 0);
+  assert.equal(compareStableVersions("10.0.0", "9.9.9"), 1);
+  assert.equal(compareStableVersions("Unreleased", "5.2.2"), null);
 });

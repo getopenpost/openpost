@@ -12,6 +12,7 @@ export interface ChangelogSection {
 
 export function parseChangelog(markdown: string): ChangelogSection[];
 export function validateChangelog(markdown: string): string[];
+export function compareStableVersions(left: string, right: string): number | null;
 export function prepareReleaseChangelog(
   markdown: string,
   tag: string,

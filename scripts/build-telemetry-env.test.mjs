@@ -7,8 +7,26 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repository = fileURLToPath(new URL("..", import.meta.url));
+// Web receives its release identity at runtime from the server, so its
+// static build only needs the source-map release identity. Marketing and
+// docs bake the public version into the deployed browser bundle.
+const expectedVersionEnv = {
+  web: ["OPENPOST_RELEASE_VERSION", "GITHUB_SHA"],
+  marketing: [
+    "VITE_OPENPOST_VERSION",
+    "VITE_OPENPOST_REVISION",
+    "OPENPOST_RELEASE_VERSION",
+    "GITHUB_SHA",
+  ],
+  docs: [
+    "VITE_OPENPOST_VERSION",
+    "VITE_OPENPOST_REVISION",
+    "OPENPOST_RELEASE_VERSION",
+    "GITHUB_SHA",
+  ],
+};
 for (const surface of ["web", "marketing", "docs"]) {
-  test(`${surface} build receives source-map credentials through Turbo's strict environment`, async (t) => {
+  test(`${surface} build receives source-map credentials and release identity through Turbo's strict environment`, async (t) => {
     const root = await mkdtemp(path.join(tmpdir(), "openpost-build-environment-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const application = path.join(root, "apps", surface);
@@ -34,7 +52,7 @@ for (const surface of ["web", "marketing", "docs"]) {
     );
     await writeFile(
       path.join(application, "build.cjs"),
-      'require("node:fs").writeFileSync("received.json", JSON.stringify({ enabled: process.env.POSTHOG_SOURCEMAPS_ENABLED, credential: process.env.POSTHOG_PERSONAL_API_KEY }));',
+      'require("node:fs").writeFileSync("received.json", JSON.stringify({ enabled: process.env.POSTHOG_SOURCEMAPS_ENABLED, credential: process.env.POSTHOG_PERSONAL_API_KEY, version: process.env.VITE_OPENPOST_VERSION, revision: process.env.VITE_OPENPOST_REVISION, releaseVersion: process.env.OPENPOST_RELEASE_VERSION, sha: process.env.GITHUB_SHA }));',
     );
     execFileSync("bun", ["install", "--lockfile-only", "--ignore-scripts"], {
       cwd: root,
@@ -50,12 +68,29 @@ for (const surface of ["web", "marketing", "docs"]) {
           ...process.env,
           POSTHOG_SOURCEMAPS_ENABLED: "1",
           POSTHOG_PERSONAL_API_KEY: "fixture-upload-credential",
+          VITE_OPENPOST_VERSION: "fixture-version",
+          VITE_OPENPOST_REVISION: "fixture-revision",
+          OPENPOST_RELEASE_VERSION: "fixture-release",
+          GITHUB_SHA: "fixture-sha",
         },
       },
     );
-    assert.deepEqual(JSON.parse(await readFile(path.join(application, "received.json"), "utf8")), {
-      enabled: "1",
-      credential: "fixture-upload-credential",
-    });
+    const received = JSON.parse(await readFile(path.join(application, "received.json"), "utf8"));
+    assert.equal(received.enabled, "1");
+    assert.equal(received.credential, "fixture-upload-credential");
+    for (const name of expectedVersionEnv[surface]) {
+      const receivedKey =
+        name === "VITE_OPENPOST_VERSION"
+          ? "version"
+          : name === "VITE_OPENPOST_REVISION"
+            ? "revision"
+            : name === "OPENPOST_RELEASE_VERSION"
+              ? "releaseVersion"
+              : "sha";
+      assert.ok(
+        received[receivedKey] !== undefined,
+        `${surface} build must receive ${name} through Turbo's strict environment`,
+      );
+    }
   });
 }

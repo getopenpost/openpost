@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-09-21
+
+### Changed
+
+- Show saved OpenPost and local projects together in Image Editor, Video Editor, and Quick Cut, with compact storage and sync status. The storage choice now controls where new projects are saved.
+- Give Quick Cut a shared editor start page, clear guidance after marking a selection, and compact kept-part rows with optional settings behind a disclosure.
+- Start background removal as soon as an image is chosen or pasted, download pasted images automatically, and add an accessible draggable before-and-after preview.
+
+### Fixed
+
+- Keep Quick Cut timeline scrubbing responsive by coalescing decoder seeks while moving the playhead immediately.
+- Preserve local Quick Cut project links across reloads and keep valid projects visible when another local project is unreadable.
+- Keep cloud image designs accessible when the local library cannot load.
+- Allow n8n package releases and recovery through the trusted publishing workflow without rebuilding or redeploying the app.
+
+### Removed
+
+- Analytics and the engagement inbox only cover content published through OpenPost. Native provider history reads, the account-content discovery sweep, external analytics sources, and the analytics source filter are gone, along with their coverage warnings and provider read usage.
+
 ## [5.2.2] - 2026-09-20
 
 ### Changed

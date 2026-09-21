@@ -1081,7 +1081,10 @@ function scrubStackURL(value: string): string {
     }
     const pathname = url.pathname;
     if (
-      /^\/(?:_app\/immutable|assets)\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+\.m?js(?::\d+){0,2}$/.test(
+      // SvelteKit and the public static bundles keep compiled JavaScript
+      // under /_app/immutable or /assets; the docs static export keeps it
+      // under /_next/static or /docs/_next/static for its /docs base path.
+      /^\/(?:_app\/immutable|assets|(?:docs\/)?_next\/static)\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+\.m?js(?::\d+){0,2}$/.test(
         pathname,
       )
     ) {

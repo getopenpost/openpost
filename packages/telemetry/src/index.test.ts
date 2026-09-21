@@ -562,6 +562,32 @@ describe("BrowserTelemetry", () => {
     vi.unstubAllGlobals();
   });
 
+  it("retains same-origin public Next chunks while redacting other same-origin paths", () => {
+    vi.stubGlobal("window", { location: { origin: "https://openpo.st", pathname: "/docs" } });
+    const sdk = new FakeSDK();
+    const subject = configuredTelemetry(sdk);
+    subject.configure(configuredApp);
+    const error = new Error("Docs navigation failed");
+    error.stack = [
+      "Error: Docs navigation failed",
+      "    at load (https://openpo.st/_next/static/chunks/webpack.ABC123.js:1:100?token=secret)",
+      "    at render (https://openpo.st/docs/_next/static/chunks/main.ABC123.js:2:200#secret)",
+      "    at open (https://openpo.st/docs/guide?token=secret:3:4)",
+      "    at remote (https://cdn.example/assets/widget.js:5:6)",
+    ].join("\n");
+
+    subject.captureException(error);
+
+    const stack = sdk.exceptions[0]?.error.stack ?? "";
+    expect(stack).toContain("https://openpo.st/_next/static/chunks/webpack.ABC123.js:1:100");
+    expect(stack).toContain("https://openpo.st/docs/_next/static/chunks/main.ABC123.js:2:200");
+    expect(stack).not.toContain("token=secret");
+    expect(stack).not.toContain("#secret");
+    expect(stack).not.toContain("openpo.st/docs/guide");
+    expect(stack).not.toContain("cdn.example/assets/widget.js");
+    vi.unstubAllGlobals();
+  });
+
   it("strips advertising click identifiers from the outgoing SDK payload", () => {
     vi.stubGlobal("window", {
       location: { origin: "https://app.openpo.st", pathname: "/settings" },

@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.0.1] - 2026-09-21
+
+### Fixed
+
+- Keep Image Editor workspace storage and device media import verification aligned with the current editor flow.
+
 ## [6.0.0] - 2026-09-21
 
 ### Changed

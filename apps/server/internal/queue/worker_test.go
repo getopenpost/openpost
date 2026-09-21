@@ -15,6 +15,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
@@ -64,7 +65,7 @@ func createTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Publication)(nil), (*models.Job)(nil), (*models.ProviderWriteAttempt)(nil)} {
+	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Publication)(nil), (*publicationbuilder.BuildRecord)(nil), (*models.Job)(nil), (*models.ProviderWriteAttempt)(nil)} {
 		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
 		require.NoError(t, err)
 	}
@@ -381,4 +382,39 @@ func TestTerminalFailureCarriesRefreshCleanupAndDiscoveryWorkspaceIDs(t *testing
 	require.Equal(t, "workspace-1", recorder.Exceptions[1].WorkspaceID)
 	require.Equal(t, "workspace-10", recorder.Exceptions[2].WorkspaceID)
 	require.Empty(t, recorder.Exceptions[3].WorkspaceID)
+}
+
+func TestTerminalFailureCarriesPublicationBuildWorkspaceID(t *testing.T) {
+	db := createTestDB(t)
+	defer db.Close()
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&publicationbuilder.BuildRecord{
+		ID: "build-terminal", WorkspaceID: "workspace-10", CreatedByID: "user-1",
+		State: publicationbuilder.BuildStateQueued, Phase: publicationbuilder.BuildPhaseQueued, Revision: 1,
+		IdempotencyKey: "terminal-build", RequestFingerprint: "fingerprint",
+		AuthorityJSON: "{}", RequestJSON: "{}", VoiceSnapshotJSON: "{}",
+		ResultJSON: "{}", UsageJSON: "{}", CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	worker := NewWorker(db, "workspace-worker", time.Second, nil, nil, stubStorage{})
+	recorder := &telemetry.MemoryRecorder{}
+	worker.SetTelemetry(recorder)
+	// Build jobs resolve through scope_id, with a payload fallback.
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-build-scope", Type: jobregistry.TypePublicationBuild, ScopeID: "build-terminal",
+		Payload: `{"build_id":"build-terminal"}`, RunAt: time.Now().UTC(),
+	}, errors.New("builder exploded hard"))
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-build-payload", Type: jobregistry.TypePublicationBuild,
+		Payload: `{"build_id":"build-terminal"}`, RunAt: time.Now().UTC(),
+	}, errors.New("builder exploded hard"))
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-build-unknown", Type: jobregistry.TypePublicationBuild, ScopeID: "build-missing",
+		Payload: `{"build_id":"build-missing"}`, RunAt: time.Now().UTC(),
+	}, errors.New("builder exploded hard"))
+
+	require.Len(t, recorder.Exceptions, 3)
+	require.Equal(t, "workspace-10", recorder.Exceptions[0].WorkspaceID)
+	require.Equal(t, "workspace-10", recorder.Exceptions[1].WorkspaceID)
+	require.Empty(t, recorder.Exceptions[2].WorkspaceID)
 }

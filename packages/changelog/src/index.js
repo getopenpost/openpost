@@ -89,7 +89,111 @@ function mergePendingBodyIntoReleaseBody(releaseBody, pending) {
   return lines.join("\n").trim();
 }
 
-export function prepareReleaseChangelog(markdown, tag, releaseDate) {
+const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+
+// Numeric collation orders dotted versions ("6.0.0" > "5.2.2") while leaving
+// non-version labels ("Unreleased") unordered so they are never carried.
+const versionCollator = new Intl.Collator("en", { numeric: true });
+
+export function compareStableVersions(left, right) {
+  if (!stableVersionPattern.test(String(left).trim())) return null;
+  if (!stableVersionPattern.test(String(right).trim())) return null;
+  return versionCollator.compare(String(left).trim(), String(right).trim());
+}
+
+// A failed candidate never publishes its GitHub release, so its dated
+// section never ships even though it sits above the last shipped one.
+function classifyCarriedHeader(label, normalizedTag, publishedTag) {
+  if (label === normalizedTag) return "target";
+  if (publishedTag !== "" && (compareStableVersions(label, publishedTag) ?? 0) > 0)
+    return "carried";
+  return "kept";
+}
+
+function collectCarriedSections(afterUnreleased, normalizedTag, publishedTag) {
+  const keptLines = [];
+  const carriedSections = [];
+  const targetLines = [];
+  let carriedCurrent = null;
+  let inTarget = false;
+  for (const rawLine of afterUnreleased.split("\n")) {
+    const headerMatch = sectionPattern.exec(rawLine.trim());
+    if (headerMatch) {
+      if (carriedCurrent) {
+        carriedSections.push(carriedCurrent.join("\n"));
+        carriedCurrent = null;
+      }
+      const kind = classifyCarriedHeader(headerMatch[1], normalizedTag, publishedTag);
+      inTarget = kind === "target";
+      if (kind === "carried") carriedCurrent = [];
+      else if (!inTarget) keptLines.push(rawLine);
+      continue;
+    }
+    if (carriedCurrent) carriedCurrent.push(rawLine);
+    else if (inTarget) targetLines.push(rawLine);
+    else keptLines.push(rawLine);
+  }
+  if (carriedCurrent) carriedSections.push(carriedCurrent.join("\n"));
+  return { keptLines, carriedSections, targetLines };
+}
+
+// Fold stacked orphans one at a time so repeated ### groups merge their
+// items instead of duplicating headers.
+function foldCarriedSections(carriedSections) {
+  let carriedBody = "";
+  for (const section of carriedSections.map((part) => part.trim()).filter(Boolean)) {
+    carriedBody = carriedBody ? mergePendingBodyIntoReleaseBody(section, carriedBody) : section;
+  }
+  return carriedBody.trim();
+}
+
+function countSectionItems(body) {
+  return (
+    parseChangelog(`## [Unreleased]\n\n${body}\n`)
+      .find((section) => section.label === "Unreleased")
+      ?.groups.reduce((total, group) => total + group.items.length, 0) ?? 0
+  );
+}
+
+function splitReleaseInput(markdown) {
+  const startMarker = "## [Unreleased]";
+  const start = markdown.indexOf(startMarker);
+  if (start < 0) throw new Error("CHANGELOG.md is missing [Unreleased]");
+  const bodyStart = start + startMarker.length;
+  const nextSectionOffset = markdown.slice(bodyStart).search(/\n## \[/u);
+  const bodyEnd = nextSectionOffset < 0 ? markdown.length : bodyStart + nextSectionOffset;
+  const unreleasedBody = markdown.slice(bodyStart, bodyEnd).trim();
+  const itemCount =
+    parseChangelog(`${startMarker}\n\n${unreleasedBody}\n`)[0]?.groups.reduce(
+      (total, current) => total + current.items.length,
+      0,
+    ) ?? 0;
+  return {
+    startMarker,
+    before: markdown.slice(0, start),
+    afterUnreleased: markdown.slice(bodyEnd).replace(/^\n+/u, ""),
+    unreleasedBody,
+    itemCount,
+  };
+}
+
+function finishRelease(before, normalizedTag, releaseDate, finalBody, keptLines) {
+  const shippedRest = keptLines.join("\n").replace(/^\n+/u, "").trimEnd();
+  const tail = shippedRest ? `\n\n${shippedRest}` : "";
+  return `${before}## [Unreleased]\n\n## [${normalizedTag}] - ${releaseDate}\n\n${finalBody}${tail}\n`;
+}
+
+function assembleCarriedBody(carriedSections, unreleasedBody, targetLines) {
+  const carriedBody = foldCarriedSections(carriedSections);
+  const pendingBody = carriedBody
+    ? mergePendingBodyIntoReleaseBody(carriedBody, unreleasedBody)
+    : unreleasedBody;
+  const targetBody = targetLines.join("\n").trim();
+  if (!targetBody) return pendingBody;
+  return pendingBody ? mergePendingBodyIntoReleaseBody(targetBody, pendingBody) : targetBody;
+}
+
+export function prepareReleaseChangelog(markdown, tag, releaseDate, options = {}) {
   const normalizedTag = String(tag).trim().replace(/^v/u, "");
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.test(normalizedTag)) {
     throw new Error(`expected a stable release tag, received ${JSON.stringify(tag)}`);
@@ -100,18 +204,29 @@ export function prepareReleaseChangelog(markdown, tag, releaseDate) {
     );
   }
 
-  const startMarker = "## [Unreleased]";
-  const start = markdown.indexOf(startMarker);
-  if (start < 0) throw new Error("CHANGELOG.md is missing [Unreleased]");
-  const bodyStart = start + startMarker.length;
-  const nextSectionOffset = markdown.slice(bodyStart).search(/\n## \[/u);
-  const bodyEnd = nextSectionOffset < 0 ? markdown.length : bodyStart + nextSectionOffset;
-  const unreleasedBody = markdown.slice(bodyStart, bodyEnd).trim();
-  const unreleased = parseChangelog(`${startMarker}\n\n${unreleasedBody}\n`)[0];
-  const itemCount =
-    unreleased?.groups.reduce((total, current) => total + current.items.length, 0) ?? 0;
-
-  const afterUnreleased = markdown.slice(bodyEnd).replace(/^\n+/u, "");
+  const { startMarker, before, afterUnreleased, unreleasedBody, itemCount } =
+    splitReleaseInput(markdown);
+  const publishedTag = String(options?.publishedTag ?? "")
+    .trim()
+    .replace(/^v/u, "");
+  // Fold every section newer than the latest published release into the
+  // replacement release instead of orphaning it.
+  const { keptLines, carriedSections, targetLines } = collectCarriedSections(
+    afterUnreleased,
+    normalizedTag,
+    publishedTag,
+  );
+  if (carriedSections.length > 0) {
+    const carriedHasItems = countSectionItems(carriedSections.join("\n\n"));
+    const finalBody = assembleCarriedBody(carriedSections, unreleasedBody, targetLines);
+    if (!finalBody) {
+      if (itemCount === 0 && carriedHasItems === 0) {
+        throw new Error("CHANGELOG.md [Unreleased] has no entries to release");
+      }
+      return markdown;
+    }
+    return finishRelease(before, normalizedTag, releaseDate, finalBody, keptLines);
+  }
   const nextSection = sectionPattern.exec(afterUnreleased.split(/\r?\n/u, 1)[0] ?? "");
   if (nextSection?.[1] === normalizedTag) {
     if (itemCount === 0) return markdown;
@@ -126,14 +241,13 @@ export function prepareReleaseChangelog(markdown, tag, releaseDate) {
     const followingSections = afterUnreleased.slice(releaseBodyEnd).replace(/^\n+/u, "").trimEnd();
     const mergedBody = mergePendingBodyIntoReleaseBody(releaseBody, unreleasedBody);
     const tail = followingSections ? `\n\n${followingSections}` : "";
-    return `${markdown.slice(0, start)}${startMarker}\n\n## [${normalizedTag}] - ${releaseDate}\n\n${mergedBody}${tail}\n`;
+    return `${before}## [Unreleased]\n\n## [${normalizedTag}] - ${releaseDate}\n\n${mergedBody}${tail}\n`;
   }
 
   if (itemCount === 0) {
     throw new Error("CHANGELOG.md [Unreleased] has no entries to release");
   }
 
-  const before = markdown.slice(0, start);
   return `${before}${startMarker}\n\n## [${normalizedTag}] - ${releaseDate}\n\n${unreleasedBody}\n\n${afterUnreleased}`;
 }
 

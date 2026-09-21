@@ -4,14 +4,6 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [6.0.1] - 2026-09-21
-
-### Fixed
-
-- Keep Image Editor workspace storage and device media import verification aligned with the current editor flow.
-
-## [6.0.0] - 2026-09-21
-
 ### Changed
 
 - Show saved OpenPost and local projects together in Image Editor, Video Editor, and Quick Cut, with compact storage and sync status. The storage choice now controls where new projects are saved.
@@ -24,10 +16,17 @@ All notable changes to this project are documented in this file.
 - Preserve local Quick Cut project links across reloads and keep valid projects visible when another local project is unreadable.
 - Keep cloud image designs accessible when the local library cannot load.
 - Allow n8n package releases and recovery through the trusted publishing workflow without rebuilding or redeploying the app.
+- Video Editor browser checks now follow the explicit Quick Cut or full editor choice, so the new start flow can pass release validation.
 
 ### Removed
 
 - Analytics and the engagement inbox only cover content published through OpenPost. Native provider history reads, the account-content discovery sweep, external analytics sources, and the analytics source filter are gone, along with their coverage warnings and provider read usage.
+
+## [6.0.1] - 2026-09-21
+
+### Fixed
+
+- Keep Image Editor workspace storage and device media import verification aligned with the current editor flow.
 
 ## [5.2.2] - 2026-09-20
 
@@ -93,12 +92,6 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Server-only releases no longer wait for an Android package that their candidate CI intentionally skips.
-
-## [5.1.1] - 2026-09-19
-
-### Fixed
-
-- Video Editor browser checks now follow the explicit Quick Cut or full editor choice, so the new start flow can pass release validation.
 
 ## [5.1.0] - 2026-09-19
 

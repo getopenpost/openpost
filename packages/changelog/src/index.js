@@ -89,7 +89,21 @@ function mergePendingBodyIntoReleaseBody(releaseBody, pending) {
   return lines.join("\n").trim();
 }
 
-export function prepareReleaseChangelog(markdown, tag, releaseDate) {
+const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+
+function compareStableVersions(left, right) {
+  const leftParts = stableVersionPattern.exec(String(left).trim())?.slice(1).map(Number);
+  const rightParts = stableVersionPattern.exec(String(right).trim())?.slice(1).map(Number);
+  if (!leftParts || !rightParts) return null;
+  for (let index = 0; index < leftParts.length; index += 1) {
+    if (leftParts[index] !== rightParts[index]) {
+      return Math.sign(leftParts[index] - rightParts[index]);
+    }
+  }
+  return 0;
+}
+
+export function prepareReleaseChangelog(markdown, tag, releaseDate, options = {}) {
   const normalizedTag = String(tag).trim().replace(/^v/u, "");
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.test(normalizedTag)) {
     throw new Error(`expected a stable release tag, received ${JSON.stringify(tag)}`);
@@ -112,6 +126,73 @@ export function prepareReleaseChangelog(markdown, tag, releaseDate) {
     unreleased?.groups.reduce((total, current) => total + current.items.length, 0) ?? 0;
 
   const afterUnreleased = markdown.slice(bodyEnd).replace(/^\n+/u, "");
+  // A failed candidate never publishes its GitHub release, so its dated
+  // section never ships even though it sits above the last shipped one.
+  // Fold every section newer than the latest published release into the
+  // replacement release instead of orphaning it.
+  const publishedTag = String(options?.publishedTag ?? "")
+    .trim()
+    .replace(/^v/u, "");
+  const keptLines = [];
+  const carriedSections = [];
+  const targetLines = [];
+  let carriedCount = 0;
+  let carriedCurrent = null;
+  let inTarget = false;
+  for (const rawLine of afterUnreleased.split("\n")) {
+    const headerMatch = sectionPattern.exec(rawLine.trim());
+    if (headerMatch) {
+      if (carriedCurrent) {
+        carriedSections.push(carriedCurrent.join("\n"));
+        carriedCurrent = null;
+      }
+      inTarget = headerMatch[1] === normalizedTag;
+      if (inTarget) continue;
+      if (publishedTag !== "" && (compareStableVersions(headerMatch[1], publishedTag) ?? 0) > 0) {
+        carriedCount += 1;
+        carriedCurrent = [];
+        continue;
+      }
+      keptLines.push(rawLine);
+      continue;
+    }
+    if (carriedCurrent) carriedCurrent.push(rawLine);
+    else if (inTarget) targetLines.push(rawLine);
+    else keptLines.push(rawLine);
+  }
+  if (carriedCurrent) carriedSections.push(carriedCurrent.join("\n"));
+  if (carriedCount > 0) {
+    const carriedHasItems =
+      parseChangelog(`## [Unreleased]\n\n${carriedSections.join("\n\n")}\n`).find(
+        (section) => section.label === "Unreleased",
+      )?.groups.reduce((total, group) => total + group.items.length, 0) ?? 0;
+    // Fold stacked orphans one at a time so repeated ### groups merge
+    // their items instead of duplicating headers. Each older orphan is the
+    // pending body merged into the accumulated newer entries.
+    let carriedBody = "";
+    for (const section of carriedSections.map((part) => part.trim()).filter(Boolean)) {
+      carriedBody = carriedBody ? mergePendingBodyIntoReleaseBody(section, carriedBody) : section;
+    }
+    carriedBody = carriedBody.trim();
+    const pendingBody = carriedBody
+      ? mergePendingBodyIntoReleaseBody(carriedBody, unreleasedBody)
+      : unreleasedBody;
+    const targetBody = targetLines.join("\n").trim();
+    let finalBody = pendingBody;
+    if (targetBody) {
+      finalBody = pendingBody ? mergePendingBodyIntoReleaseBody(targetBody, pendingBody) : targetBody;
+    }
+    if (!finalBody) {
+      if (itemCount === 0 && carriedHasItems === 0) {
+        throw new Error("CHANGELOG.md [Unreleased] has no entries to release");
+      }
+      return markdown;
+    }
+    const before = markdown.slice(0, start);
+    const shippedRest = keptLines.join("\n").replace(/^\n+/u, "").trimEnd();
+    const tail = shippedRest ? `\n\n${shippedRest}` : "";
+    return `${before}${startMarker}\n\n## [${normalizedTag}] - ${releaseDate}\n\n${finalBody}${tail}\n`;
+  }
   const nextSection = sectionPattern.exec(afterUnreleased.split(/\r?\n/u, 1)[0] ?? "");
   if (nextSection?.[1] === normalizedTag) {
     if (itemCount === 0) return markdown;

@@ -14,6 +14,11 @@ export default withMDX({
     NEXT_PUBLIC_POSTHOG_API_HOST: process.env.VITE_POSTHOG_API_HOST ?? "",
     NEXT_PUBLIC_POSTHOG_UI_HOST: process.env.VITE_POSTHOG_UI_HOST ?? "",
     NEXT_PUBLIC_OPENPOST_ENVIRONMENT: process.env.VITE_OPENPOST_ENVIRONMENT ?? "development",
+    NEXT_PUBLIC_OPENPOST_VERSION:
+      process.env.VITE_OPENPOST_VERSION ??
+      process.env.OPENPOST_RELEASE_VERSION ??
+      process.env.GITHUB_REF_NAME ??
+      "",
     NEXT_PUBLIC_OPENPOST_REVISION: process.env.CF_PAGES_COMMIT_SHA ?? process.env.GITHUB_SHA ?? "",
   },
 });

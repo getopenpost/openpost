@@ -134,6 +134,10 @@ async function createImageDesign(page: Page): Promise<string> {
   const fileChooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("button", { name: "Device", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Add an image" })
+    .getByRole("button", { name: /Drop files here or choose from your device/ })
+    .click();
   await (
     await fileChooser
   ).setFiles({
@@ -141,6 +145,7 @@ async function createImageDesign(page: Page): Promise<string> {
     mimeType: "image/png",
     buffer: colorPhoto,
   });
+  await page.getByRole("button", { name: "Upload 1 file", exact: true }).click();
   await expect(
     page.getByRole("treeitem", { name: "color-source.png, image", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -479,7 +484,7 @@ test.describe("touch editor headers", () => {
         const home = header.getByRole("button", { name: /Image Editor/u });
         await expect(home).toHaveCount(1);
         await home.click();
-        await expect(page).toHaveURL(/\/image-editor$/u);
+        await expect(page).toHaveURL(/\/editors$/u);
       }
     }
   });

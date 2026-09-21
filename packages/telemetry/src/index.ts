@@ -52,7 +52,6 @@ export interface TelemetryEventMap {
   };
   "image design exported": { mode: string; pages: number };
   "billing checkout opened": { billing_period: string; plan_id: string };
-  "first composition started": { signal: "text" | "media" | "content_mode" };
   "video project created": {
     source: "openpost_media" | "files" | "blank" | "recording" | "stock";
     editing_mode?: string;
@@ -168,7 +167,6 @@ const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
   "image design created": ["source"],
   "image design exported": ["mode", "pages"],
   "billing checkout opened": ["billing_period", "plan_id"],
-  "first composition started": ["signal"],
   "video project created": ["source", "editing_mode", "file_count"],
   "video export completed": ["format", "variant_count"],
   "public editor opened": ["editor", "source"],
@@ -182,7 +180,6 @@ const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
   "docs search used": ["result_count"],
   "docs code copied": ["language"],
 };
-const firstCompositionSignals = new Set(["text", "media", "content_mode"]);
 const planIDs = new Set(["founder", "team", "agency"]);
 const billingPeriods = new Set(["monthly", "annual"]);
 const telemetryPreferenceVersion = "v1";
@@ -829,12 +826,6 @@ function allowlistedEventProperties(
     return null;
   }
   if (Object.values(properties).some(containsSensitiveValue)) return null;
-  if (
-    name === "first composition started" &&
-    !firstCompositionSignals.has(String(properties.signal))
-  ) {
-    return null;
-  }
   if (
     name === "billing checkout opened" &&
     (!planIDs.has(String(properties.plan_id)) ||

@@ -345,6 +345,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	workspaceHandler.SetSensitiveActionServices(deps.AuthService, deps.IdentityService, deps.TokenEncryptor)
 	workspaceHandler.SetFrontendURL(deps.FrontendURL)
 	workspaceHandler.SetNotificationService(deps.NotificationService)
+	workspaceHandler.SetTelemetry(deps.Telemetry)
 	workspaceHandler.CreateWorkspace(api)
 	workspaceHandler.ListWorkspaces(api)
 	workspaceHandler.GetWorkspaceDeletionPreview(api)

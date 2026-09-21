@@ -52,6 +52,41 @@ func TestTelemetryAcceptsEverySupportedPublicProvider(t *testing.T) {
 	}
 }
 
+func TestFirstCompositionEventAcceptsBoundedSignals(t *testing.T) {
+	t.Parallel()
+
+	for _, signal := range []string{"text", "media", "content_mode"} {
+		t.Run(signal, func(t *testing.T) {
+			t.Parallel()
+			recorder := &MemoryRecorder{}
+			require.NoError(t, recorder.Capture(context.Background(), Event{
+				Name: EventFirstCompositionStarted, DistinctID: "user-1", WorkspaceID: "workspace-1",
+				Properties: map[string]any{"signal": signal},
+			}))
+			require.Len(t, recorder.Events, 1)
+		})
+	}
+}
+
+func TestFirstCompositionEventRejectsContentAndIdentity(t *testing.T) {
+	t.Parallel()
+	recorder := &MemoryRecorder{}
+	for name, properties := range map[string]map[string]any{
+		"authored content": {"signal": "private draft text"},
+		"content URL":      {"signal": "https://example.com/private.jpg"},
+		"origin key":       {"signal": "text", "origin_key": "origin-signal-0001"},
+		"workspace ID":     {"signal": "text", "workspace_id": "ws-secret"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Error(t, recorder.Capture(context.Background(), Event{
+				Name: EventFirstCompositionStarted, DistinctID: "user-1", WorkspaceID: "workspace-1",
+				Properties: properties,
+			}))
+		})
+	}
+	require.Empty(t, recorder.Events)
+}
+
 func TestTelemetryRejectsUnknownProvidersAndSensitiveValues(t *testing.T) {
 	t.Parallel()
 	recorder := &MemoryRecorder{}

@@ -404,29 +404,20 @@ describe("BrowserTelemetry", () => {
     expect(sdk.events).toHaveLength(0);
   });
 
-  it("rejects non-allowlisted first composition properties at runtime", () => {
+  it("does not capture the server-owned first composition milestone", () => {
     const sdk = new FakeSDK();
     const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
 
-    subject.capture("first composition started", {
-      signal: "text",
-      content: "private draft",
-      media_url: "https://example.com/private.jpg",
-      workspace_id: "ws-secret",
-    } as never);
+    // First composition is a server-owned observation; the browser
+    // catalogue must not retain it as a capturable event.
+    const captureUnchecked = subject.capture.bind(subject) as (
+      name: string,
+      properties: Record<string, unknown>,
+    ) => void;
+    captureUnchecked("first composition started", { signal: "text" });
 
     expect(sdk.events).toHaveLength(0);
-
-    subject.capture("first composition started", { signal: "text" });
-    expect(sdk.events).toEqual([
-      { event: "first composition started", properties: { signal: "text" } },
-    ]);
-
-    subject.capture("first composition started", {
-      signal: "https://example.com/private?token=secret",
-    } as never);
-    expect(sdk.events).toHaveLength(1);
   });
 
   it("rejects unknown events and properties at runtime", () => {

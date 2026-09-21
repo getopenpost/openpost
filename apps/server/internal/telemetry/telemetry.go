@@ -26,6 +26,7 @@ const (
 	EventWorkspaceCreated              = "workspace created"
 	EventCheckoutCompleted             = "checkout completed"
 	EventDestinationConnected          = "destination connected"
+	EventFirstCompositionStarted       = "first composition started"
 	EventWorkspaceActivated            = "workspace activated"
 	EventGrowthRefreshRequested        = "growth refresh requested"
 	EventGrowthRefreshCompleted        = "growth refresh completed"
@@ -46,6 +47,7 @@ var eventPropertyAllowlists = map[string]map[string]struct{}{
 	EventWorkspaceCreated:              propertySet(),
 	EventCheckoutCompleted:             propertySet("plan_id", "billing_period"),
 	EventDestinationConnected:          propertySet("platform", "account_count"),
+	EventFirstCompositionStarted:       propertySet("signal"),
 	EventWorkspaceActivated:            propertySet(),
 	EventGrowthRefreshRequested:        propertySet("platform"),
 	EventGrowthRefreshCompleted:        propertySet("platform", "recommendation_count"),
@@ -60,6 +62,7 @@ var eventPropertyAllowlists = map[string]map[string]struct{}{
 // canonical public-provider catalogue (see the parity test); reddit is not
 // a supported provider and must stay rejected.
 var eventPropertyValues = map[string]map[string]struct{}{
+	"signal":              propertySet("text", "media", "content_mode"),
 	"plan_id":             propertySet("founder", "team", "agency"),
 	"billing_period":      propertySet("monthly", "annual"),
 	"provider":            propertySet("paddle"),

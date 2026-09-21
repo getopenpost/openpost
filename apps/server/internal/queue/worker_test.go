@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -63,7 +64,7 @@ func createTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Job)(nil), (*models.ProviderWriteAttempt)(nil)} {
+	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Publication)(nil), (*models.Job)(nil), (*models.ProviderWriteAttempt)(nil)} {
 		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
 		require.NoError(t, err)
 	}
@@ -276,4 +277,108 @@ func TestProviderFailureTelemetryWaitsForTerminalAttempt(t *testing.T) {
 	require.Equal(t, 503, props["http_status"])
 	require.NotContains(t, fmt.Sprint(props), "Hello from Acme")
 	require.NotContains(t, fmt.Sprint(props), "customer prose")
+}
+
+func seedTerminalJobPublication(t *testing.T, db *bun.DB) {
+	t.Helper()
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.Publication{
+		ID: "publication-terminal", WorkspaceID: "workspace-10", CreatedByID: "user-1",
+		Title: "Launch", ContentProfile: models.ContentProfileShortText,
+		SourceText: "Launch", SourceContent: "Launch",
+		Status: models.PublicationStatusScheduled, CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+}
+
+func finishTerminalJob(t *testing.T, db *bun.DB, worker *BackgroundWorker, job *models.Job, processErr error) {
+	t.Helper()
+	job.Status = jobStatusProcessing
+	job.LockedBy = worker.workerID
+	job.MaxAttempts = 1
+	_, err := db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+	worker.finishFailedJob(t.Context(), job, processErr)
+}
+
+func TestTerminalFailureCarriesPublishWorkspaceID(t *testing.T) {
+	db := createTestDB(t)
+	defer db.Close()
+	seedTerminalJobPublication(t, db)
+	worker := NewWorker(db, "workspace-worker", time.Second, nil, nil, stubStorage{})
+	recorder := &telemetry.MemoryRecorder{}
+	worker.SetTelemetry(recorder)
+	// Current rows resolve through scope_id; legacy rows through the payload.
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-scope", Type: jobregistry.TypePublishPublication, ScopeID: "publication-terminal",
+		Payload: `{"publication_id":"publication-terminal"}`, RunAt: time.Now().UTC(),
+	}, errors.New("provider exploded"))
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-payload", Type: jobregistry.TypePublishPost,
+		Payload: `{"publication_id":"publication-terminal"}`, RunAt: time.Now().UTC(),
+	}, errors.New("provider exploded"))
+	// Unknown publications report unknown impact instead of inventing it.
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-unknown", Type: jobregistry.TypePublishPublication, ScopeID: "publication-missing",
+		Payload: `{"publication_id":"publication-missing"}`, RunAt: time.Now().UTC(),
+	}, errors.New("provider exploded"))
+
+	require.Len(t, recorder.Exceptions, 3)
+	require.Equal(t, "workspace-10", recorder.Exceptions[0].WorkspaceID)
+	require.Equal(t, "workspace-10", recorder.Exceptions[1].WorkspaceID)
+	require.Empty(t, recorder.Exceptions[2].WorkspaceID)
+}
+
+func TestTerminalFailureCarriesRefreshCleanupAndDiscoveryWorkspaceIDs(t *testing.T) {
+	db := createTestDB(t)
+	defer db.Close()
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.SocialAccount{
+		ID: "account-terminal", WorkspaceID: "workspace-10", Platform: "threads", AccountID: "threads-user",
+		AccessTokenEnc: []byte{}, CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.OAuthGrant{
+		ID: "grant-terminal", WorkspaceID: "workspace-1", Provider: "threads",
+		AccessTokenEnc: []byte("encrypted-access"), TokenVersion: 1,
+		ExecutionMode: "oauth2", AuthorizationEvidence: `{}`, ValidationStatus: "legacy_unverified",
+		CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	worker := NewWorker(db, "workspace-worker", time.Second, nil, nil, stubStorage{})
+	recorder := &telemetry.MemoryRecorder{}
+	worker.SetTelemetry(recorder)
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-refresh-account", Type: jobregistry.TypeRefreshToken,
+		Payload: `{"account_id":"account-terminal"}`, RunAt: time.Now().UTC(),
+	}, errors.New("refresh exploded"))
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-refresh-grant", Type: jobregistry.TypeRefreshToken,
+		Payload: `{"grant_id":"grant-terminal"}`, RunAt: time.Now().UTC(),
+	}, errors.New("refresh exploded"))
+	discoveryPayload, err := jobregistry.EncodeAccountContentDiscoveryPayload(jobregistry.AccountContentDiscoveryPayload{
+		WorkspaceID: "workspace-10", SocialAccountID: "account-terminal",
+	})
+	require.NoError(t, err)
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-discovery", Type: jobregistry.TypeAccountContentDiscovery,
+		Payload: discoveryPayload, RunAt: time.Now().UTC(),
+	}, errors.New("discovery exploded"))
+	// Malformed payloads stay unknown rather than failing the failure path.
+	finishTerminalJob(t, db, worker, &models.Job{
+		ID: "terminal-malformed", Type: jobregistry.TypeRefreshToken,
+		Payload: `not json`, RunAt: time.Now().UTC(),
+	}, errors.New("refresh exploded"))
+
+	// A retryable media_cleanup failure requeues through its recurrence
+	// instead of terminally failing, so it emits no exception. The payload
+	// decoder itself still resolves the known workspace for direct use.
+	require.Equal(t, "workspace-1", mediaCleanupJobWorkspaceID(`{"workspace_id":"workspace-1"}`))
+	require.Empty(t, mediaCleanupJobWorkspaceID(`not json`))
+
+	require.Len(t, recorder.Exceptions, 4)
+	require.Equal(t, "workspace-10", recorder.Exceptions[0].WorkspaceID)
+	require.Equal(t, "workspace-1", recorder.Exceptions[1].WorkspaceID)
+	require.Equal(t, "workspace-10", recorder.Exceptions[2].WorkspaceID)
+	require.Empty(t, recorder.Exceptions[3].WorkspaceID)
 }

@@ -791,6 +791,7 @@ func (w *BackgroundWorker) recordTerminalFailure(ctx context.Context, job *model
 	properties["http_status"] = providerFailure.HTTPStatus
 	captureErr := w.telemetry.CaptureException(ctx, telemetry.Exception{
 		DistinctID:  "job:" + job.ID,
+		WorkspaceID: w.jobErrorWorkspaceID(ctx, job),
 		Title:       "OpenPost " + job.Type + " job failed",
 		Description: "A durable background job reached a terminal failure",
 		Properties:  properties,
@@ -798,6 +799,106 @@ func (w *BackgroundWorker) recordTerminalFailure(ctx context.Context, job *model
 	if captureErr != nil {
 		log.Printf("[Worker %s] failed to enqueue terminal job telemetry: %v\n", w.workerID, captureErr)
 	}
+}
+
+// jobErrorWorkspaceID resolves the affected workspace for a terminal job
+// failure from trusted database state. Publish jobs carry the publication in
+// scope_id (with a payload fallback for old rows); refresh, cleanup, build,
+// and discovery jobs resolve through their owning records. Unresolvable jobs
+// return "" so dashboards report unknown impact instead of inventing it.
+// The existing error_kind/error_code properties remain the cause vocabulary;
+// no competing taxonomy is introduced here.
+func (w *BackgroundWorker) jobErrorWorkspaceID(ctx context.Context, job *models.Job) string {
+	switch job.Type {
+	case jobTypePublishPublication, jobregistry.TypePublishPost:
+		return w.publishJobWorkspaceID(ctx, job)
+	case jobTypeRefreshToken:
+		return w.refreshJobWorkspaceID(ctx, job.Payload)
+	case jobTypeMediaCleanup:
+		return mediaCleanupJobWorkspaceID(job.Payload)
+	case jobregistry.TypePublicationBuild:
+		return w.publicationBuildWorkspaceID(ctx, job)
+	case jobregistry.TypeAccountContentDiscovery:
+		return accountDiscoveryJobWorkspaceID(job.Payload)
+	default:
+		return ""
+	}
+}
+
+func (w *BackgroundWorker) publishJobWorkspaceID(ctx context.Context, job *models.Job) string {
+	publicationID := strings.TrimSpace(job.ScopeID)
+	if publicationID == "" {
+		var subject struct {
+			PublicationID string `json:"publication_id"`
+		}
+		if err := json.Unmarshal([]byte(job.Payload), &subject); err != nil {
+			return ""
+		}
+		publicationID = strings.TrimSpace(subject.PublicationID)
+	}
+	if publicationID == "" {
+		return ""
+	}
+	var workspaceID string
+	if err := w.db.NewSelect().Model((*models.Publication)(nil)).Column("workspace_id").Where("id = ?", publicationID).Scan(ctx, &workspaceID); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(workspaceID)
+}
+
+func (w *BackgroundWorker) refreshJobWorkspaceID(ctx context.Context, payload string) string {
+	target, err := tokenmanager.ParseRefreshJobPayload(payload)
+	if err != nil {
+		return ""
+	}
+	var workspaceID string
+	switch {
+	case target.GrantID != "":
+		err = w.db.NewSelect().Model((*models.OAuthGrant)(nil)).Column("workspace_id").Where("id = ?", target.GrantID).Scan(ctx, &workspaceID)
+	case target.AccountID != "":
+		err = w.db.NewSelect().Model((*models.SocialAccount)(nil)).Column("workspace_id").Where("id = ?", target.AccountID).Scan(ctx, &workspaceID)
+	default:
+		return ""
+	}
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(workspaceID)
+}
+
+func mediaCleanupJobWorkspaceID(payload string) string {
+	decoded, err := jobregistry.DecodeMediaCleanupPayload(payload)
+	if err != nil {
+		return ""
+	}
+	return decoded.WorkspaceID
+}
+
+func (w *BackgroundWorker) publicationBuildWorkspaceID(ctx context.Context, job *models.Job) string {
+	buildID := strings.TrimSpace(job.ScopeID)
+	if buildID == "" {
+		decoded, err := jobregistry.DecodePublicationBuildPayload(job.Payload)
+		if err != nil {
+			return ""
+		}
+		buildID = decoded.BuildID
+	}
+	if buildID == "" {
+		return ""
+	}
+	var workspaceID string
+	if err := w.db.NewSelect().Model((*publicationbuilder.BuildRecord)(nil)).Column("workspace_id").Where("id = ?", buildID).Scan(ctx, &workspaceID); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(workspaceID)
+}
+
+func accountDiscoveryJobWorkspaceID(payload string) string {
+	decoded, err := jobregistry.DecodeAccountContentDiscoveryPayload(payload)
+	if err != nil {
+		return ""
+	}
+	return decoded.WorkspaceID
 }
 
 type classifiedJobFailure struct {

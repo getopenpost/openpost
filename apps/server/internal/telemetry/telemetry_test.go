@@ -9,6 +9,96 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// supportedPublicProviders is the independently specified catalogue used to
+// pin telemetry validation parity: every entry must validate, and no
+// unsupported value (notably reddit) may sneak back in. The authoritative
+// owner of this list is the platform package's PublicProviders catalogue.
+var supportedPublicProviders = []string{
+	"bluesky", "discord", "facebook", "instagram", "lemmy", "linkedin",
+	"mastodon", "peertube", "piefed", "pinterest", "pixelfed", "telegram",
+	"threads", "tiktok", "x", "youtube",
+}
+
+func TestTelemetryAcceptsEverySupportedPublicProvider(t *testing.T) {
+	t.Parallel()
+
+	for _, provider := range supportedPublicProviders {
+		t.Run(provider, func(t *testing.T) {
+			t.Parallel()
+			recorder := &MemoryRecorder{}
+			require.NoError(t, recorder.Capture(context.Background(), Event{
+				Name: EventDestinationConnected,
+				Properties: map[string]any{
+					"platform": provider, "account_count": 1,
+				},
+			}))
+			require.NoError(t, recorder.Capture(context.Background(), Event{
+				Name: EventRenditionPublished,
+				Properties: map[string]any{
+					"publication_id": "publication-1", "rendition_id": "rendition-1",
+					"platform": provider, "profile": "short_text",
+				},
+			}))
+			require.NoError(t, recorder.Capture(context.Background(), Event{
+				Name: EventRenditionFailed,
+				Properties: map[string]any{
+					"publication_id": "publication-1", "rendition_id": "rendition-1",
+					"platform": provider, "profile": "short_text",
+					"error_kind": "provider", "error_code": "rate_limited",
+				},
+			}))
+			require.Len(t, recorder.Events, 3)
+		})
+	}
+}
+
+func TestTelemetryRejectsUnknownProvidersAndSensitiveValues(t *testing.T) {
+	t.Parallel()
+	recorder := &MemoryRecorder{}
+	for _, provider := range []string{
+		"reddit", "https://instance.example/users/alice", "person@example.com",
+	} {
+		require.Error(t, recorder.Capture(context.Background(), Event{
+			Name: EventDestinationConnected,
+			Properties: map[string]any{
+				"platform": provider, "account_count": 1,
+			},
+		}))
+	}
+	require.Error(t, recorder.Capture(context.Background(), Event{
+		Name: EventDestinationConnected,
+		Properties: map[string]any{
+			"platform": 7, "account_count": 1,
+		},
+	}))
+	require.Error(t, recorder.Capture(context.Background(), Event{
+		Name: EventDestinationConnected,
+		Properties: map[string]any{
+			"platform": "mastodon", "account_count": 1,
+			"access_token": "provider-token",
+		},
+	}))
+	require.Empty(t, recorder.Events)
+}
+
+type failingTelemetryRecorder struct{ MemoryRecorder }
+
+func (r *failingTelemetryRecorder) Capture(context.Context, Event) error {
+	return context.DeadlineExceeded
+}
+
+func TestValidationRejectionsAreCountedWithoutPayloadContent(t *testing.T) {
+	before := RejectedEventCount()
+	recorder := &MemoryRecorder{}
+	require.Error(t, recorder.Capture(context.Background(), Event{
+		Name: EventDestinationConnected,
+		Properties: map[string]any{
+			"platform": "reddit", "account_count": 1,
+		},
+	}))
+	require.GreaterOrEqual(t, RejectedEventCount(), before+1)
+}
+
 func TestDisabledTelemetryExposesNoBrowserCredentials(t *testing.T) {
 	recorder, err := New(Config{
 		Enabled:         false,

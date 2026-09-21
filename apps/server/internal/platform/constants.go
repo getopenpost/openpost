@@ -50,3 +50,28 @@ const (
 	bskyRecordTypeField = "$type"
 	jsonFieldVideo      = "video"
 )
+
+// PublicProviders returns the canonical public-provider catalogue: every
+// first-party provider key that product surfaces (including product
+// telemetry) may carry. It mirrors the provider constants above without
+// exposing private or operator-installed connector names.
+func PublicProviders() []string {
+	return []string{
+		providerBluesky,
+		providerDiscord,
+		providerFacebook,
+		providerInstagram,
+		providerLemmy,
+		providerLinkedIn,
+		providerMastodon,
+		providerPeerTube,
+		providerPieFed,
+		providerPinterest,
+		providerPixelfed,
+		providerTelegram,
+		providerThreads,
+		providerTikTok,
+		providerX,
+		providerYouTube,
+	}
+}

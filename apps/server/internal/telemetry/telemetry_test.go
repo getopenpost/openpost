@@ -116,12 +116,6 @@ func TestTelemetryRejectsUnknownProvidersAndSensitiveValues(t *testing.T) {
 	require.Empty(t, recorder.Events)
 }
 
-type failingTelemetryRecorder struct{ MemoryRecorder }
-
-func (r *failingTelemetryRecorder) Capture(context.Context, Event) error {
-	return context.DeadlineExceeded
-}
-
 func TestValidationRejectionsAreCountedWithoutPayloadContent(t *testing.T) {
 	before := RejectedEventCount()
 	recorder := &MemoryRecorder{}

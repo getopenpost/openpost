@@ -3,8 +3,29 @@ package platform
 import (
 	"testing"
 
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPublicProviderCatalogueMatchesTelemetryValidation(t *testing.T) {
+	t.Parallel()
+
+	providers := PublicProviders()
+	require.Len(t, providers, 16)
+	seen := map[string]struct{}{}
+	for _, provider := range providers {
+		_, duplicate := seen[provider]
+		require.Falsef(t, duplicate, "duplicate public provider %q", provider)
+		seen[provider] = struct{}{}
+	}
+	require.NotContains(t, providers, "reddit")
+	for _, provider := range providers {
+		require.NoErrorf(t, telemetry.ValidateEvent(telemetry.Event{
+			Name:       telemetry.EventDestinationConnected,
+			Properties: map[string]any{"platform": provider, "account_count": 1},
+		}), "provider %q must pass telemetry validation", provider)
+	}
+}
 
 func TestBuildAdapterRegistryRejectsUnsupportedOrIncompleteApps(t *testing.T) {
 	t.Parallel()

@@ -19,7 +19,7 @@ The production first-use funnel uses these ordered events:
 4. `workspace created` — server first Workspace creation
 5. `checkout completed` — server confirmation of the consumed successful checkout return
 6. `destination connected` — server claim of the first connected destination
-7. `first composition started` — browser confirmation after the server accepts the first meaningful composition claim
+7. `first composition started` — server-owned observation after the server accepts the first meaningful composition claim
 8. `workspace activated` — server exactly-once Activation transition
 
 The browser must not duplicate authoritative server outcomes. Funnel events accept only the properties declared in the shared browser and backend telemetry catalogues. Unknown event names, unknown properties, email addresses, secret-bearing URLs, and credential-shaped values are rejected before enqueue.
@@ -41,7 +41,7 @@ Backend product and service telemetry is a separate observation boundary. It rec
 
 Do not add email addresses, names, usernames, post text, media, request bodies, credentials, query strings, or raw URLs to events or exceptions. Use route templates, stable object IDs, status codes, release identity, and enumerated failure types. A PostHog project token is write-only and may be exposed to the browser; a personal API key must remain in CI secret storage.
 
-`first composition started` is emitted only after the server atomically accepts the first meaningful composition for a Workspace. Its browser property allowlist contains only `signal`, with one of `text`, `media`, or `content_mode`. It excludes authored content, prompts, captions, media URLs, identity data, provider handles, destination identifiers, and secret-bearing URLs. Opening or focusing the composer, selecting a destination, and saving an empty draft do not emit it.
+`first composition started` is a server-owned observation recorded only after the server atomically accepts the first meaningful composition for a Workspace. Its backend property allowlist contains only `signal`, with one of `text`, `media`, or `content_mode`. It excludes authored content, prompts, captions, media URLs, identity data, provider handles, destination identifiers, and secret-bearing URLs. Opening or focusing the composer, selecting a destination, and saving an empty draft do not emit it. The browser never captures this milestone; unrelated optional editor-intent events are unchanged.
 
 Before enabling telemetry, configure the PostHog project to:
 

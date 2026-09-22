@@ -2,12 +2,14 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	posthog "github.com/posthog/posthog-go"
@@ -24,6 +26,7 @@ const (
 	EventWorkspaceCreated              = "workspace created"
 	EventCheckoutCompleted             = "checkout completed"
 	EventDestinationConnected          = "destination connected"
+	EventFirstCompositionStarted       = "first composition started"
 	EventWorkspaceActivated            = "workspace activated"
 	EventGrowthRefreshRequested        = "growth refresh requested"
 	EventGrowthRefreshCompleted        = "growth refresh completed"
@@ -44,6 +47,7 @@ var eventPropertyAllowlists = map[string]map[string]struct{}{
 	EventWorkspaceCreated:              propertySet(),
 	EventCheckoutCompleted:             propertySet("plan_id", "billing_period"),
 	EventDestinationConnected:          propertySet("platform", "account_count"),
+	EventFirstCompositionStarted:       propertySet("signal"),
 	EventWorkspaceActivated:            propertySet(),
 	EventGrowthRefreshRequested:        propertySet("platform"),
 	EventGrowthRefreshCompleted:        propertySet("platform", "recommendation_count"),
@@ -53,16 +57,63 @@ var eventPropertyAllowlists = map[string]map[string]struct{}{
 	EventGrowthFollowFailed:            propertySet("platform", "follow_state", "error_class"),
 }
 
-var firstUsePropertyValues = map[string]map[string]struct{}{
+// eventPropertyValues constrains low-cardinality analytics properties to
+// their known value sets. The platform set must stay in parity with the
+// canonical public-provider catalogue (see the parity test); reddit is not
+// a supported provider and must stay rejected.
+var eventPropertyValues = map[string]map[string]struct{}{
+	"signal":              propertySet("text", "media", "content_mode"),
 	"plan_id":             propertySet("founder", "team", "agency"),
 	"billing_period":      propertySet("monthly", "annual"),
 	"provider":            propertySet("paddle"),
 	"mutual_count_bucket": propertySet("0", "1", "2-3", "4-6", "7+"),
 	"rank_bucket":         propertySet("1-3", "4-6", "7-10", "11+"),
 	"platform": propertySet(
-		"bluesky", "facebook", "instagram", "linkedin", "mastodon", "pinterest",
-		"reddit", "threads", "tiktok", "x", "youtube",
+		"bluesky", "discord", "facebook", "instagram", "lemmy", "linkedin",
+		"mastodon", "peertube", "piefed", "pinterest", "pixelfed", "telegram",
+		"threads", "tiktok", "x", "youtube",
 	),
+}
+
+// Closed rejection-reason set for validation accounting. Reasons never
+// carry payload content, only the category of the rejection.
+const (
+	validationReasonUnknownEvent      = "unknown_event"
+	validationReasonSensitiveField    = "sensitive_field"
+	validationReasonForbiddenProperty = "forbidden_property"
+	validationReasonSensitiveProperty = "sensitive_property"
+	validationReasonInvalidType       = "invalid_type"
+	validationReasonInvalidValue      = "invalid_value"
+)
+
+type validationError struct {
+	reason  string
+	message string
+}
+
+func (e *validationError) Error() string { return e.message }
+
+// validationRejections counts events refused at the recorder boundary.
+// It is a local process counter for operations visibility, reported via
+// the standard logger, never through the failing recorder itself.
+var validationRejections atomic.Uint64
+
+// RejectedEventCount reports how many events validation has refused in
+// this process.
+func RejectedEventCount() uint64 { return validationRejections.Load() }
+
+func recordValidationRejection(event Event, err error) {
+	reason := validationReasonInvalidValue
+	var validationErr *validationError
+	if errors.As(err, &validationErr) && validationErr.reason != "" {
+		reason = validationErr.reason
+	}
+	name := "unknown"
+	if _, known := eventPropertyAllowlists[event.Name]; known {
+		name = event.Name
+	}
+	validationRejections.Add(1)
+	log.Printf("telemetry event rejected event=%q reason=%s", name, reason)
 }
 
 var postHogAnonymousID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -191,6 +242,7 @@ func (r *noopRecorder) PublicConfig() BrowserConfig    { return publicConfig(r.c
 
 func (r *postHogRecorder) Capture(ctx context.Context, event Event) error {
 	if err := ValidateEvent(event); err != nil {
+		recordValidationRejection(event, err)
 		return err
 	}
 	properties := copyProperties(event.Properties)
@@ -206,7 +258,13 @@ func (r *postHogRecorder) Capture(ctx context.Context, event Event) error {
 	})
 }
 
-func (r *noopRecorder) Capture(_ context.Context, event Event) error { return ValidateEvent(event) }
+func (r *noopRecorder) Capture(_ context.Context, event Event) error {
+	if err := ValidateEvent(event); err != nil {
+		recordValidationRejection(event, err)
+		return err
+	}
+	return nil
+}
 
 func (r *postHogRecorder) Alias(ctx context.Context, distinctID, alias string) error {
 	if err := validateAlias(distinctID, alias); err != nil {
@@ -343,29 +401,29 @@ func copyProperties(properties map[string]any) map[string]any {
 func ValidateEvent(event Event) error {
 	allowed, known := eventPropertyAllowlists[event.Name]
 	if !known {
-		return fmt.Errorf("unknown telemetry event %q", event.Name)
+		return &validationError{reason: validationReasonUnknownEvent, message: fmt.Sprintf("unknown telemetry event %q", event.Name)}
 	}
 	for field, value := range map[string]string{
 		"distinct_id": event.DistinctID, "workspace_id": event.WorkspaceID, "uuid": event.UUID,
 	} {
 		if containsSensitiveValue(value) {
-			return fmt.Errorf("telemetry event %q field %q contains a sensitive value", event.Name, field)
+			return &validationError{reason: validationReasonSensitiveField, message: fmt.Sprintf("telemetry event %q field %q contains a sensitive value", event.Name, field)}
 		}
 	}
 	for key, value := range event.Properties {
 		if _, ok := allowed[key]; !ok {
-			return fmt.Errorf("telemetry event %q does not allow property %q", event.Name, key)
+			return &validationError{reason: validationReasonForbiddenProperty, message: fmt.Sprintf("telemetry event %q does not allow property %q", event.Name, key)}
 		}
 		if containsSensitiveValue(value) {
-			return fmt.Errorf("telemetry event %q property %q contains a sensitive value", event.Name, key)
+			return &validationError{reason: validationReasonSensitiveProperty, message: fmt.Sprintf("telemetry event %q property %q contains a sensitive value", event.Name, key)}
 		}
-		if allowedValues, constrained := firstUsePropertyValues[key]; constrained {
+		if allowedValues, constrained := eventPropertyValues[key]; constrained {
 			text, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("telemetry event %q property %q has an invalid type", event.Name, key)
+				return &validationError{reason: validationReasonInvalidType, message: fmt.Sprintf("telemetry event %q property %q has an invalid type", event.Name, key)}
 			}
 			if _, ok := allowedValues[text]; !ok {
-				return fmt.Errorf("telemetry event %q property %q has an invalid value", event.Name, key)
+				return &validationError{reason: validationReasonInvalidValue, message: fmt.Sprintf("telemetry event %q property %q has an invalid value", event.Name, key)}
 			}
 		}
 	}

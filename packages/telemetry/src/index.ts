@@ -52,7 +52,6 @@ export interface TelemetryEventMap {
   };
   "image design exported": { mode: string; pages: number };
   "billing checkout opened": { billing_period: string; plan_id: string };
-  "first composition started": { signal: "text" | "media" | "content_mode" };
   "video project created": {
     source: "openpost_media" | "files" | "blank" | "recording" | "stock";
     editing_mode?: string;
@@ -168,7 +167,6 @@ const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
   "image design created": ["source"],
   "image design exported": ["mode", "pages"],
   "billing checkout opened": ["billing_period", "plan_id"],
-  "first composition started": ["signal"],
   "video project created": ["source", "editing_mode", "file_count"],
   "video export completed": ["format", "variant_count"],
   "public editor opened": ["editor", "source"],
@@ -182,7 +180,6 @@ const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
   "docs search used": ["result_count"],
   "docs code copied": ["language"],
 };
-const firstCompositionSignals = new Set(["text", "media", "content_mode"]);
 const planIDs = new Set(["founder", "team", "agency"]);
 const billingPeriods = new Set(["monthly", "annual"]);
 const telemetryPreferenceVersion = "v1";
@@ -321,6 +318,12 @@ export class BrowserTelemetry {
       cookieWinsOnConflict: preference === "persistent",
       persistence: preference === "persistent" ? "localStorage+cookie" : "memory",
       ...(preference === "cookieless" ? { cookieless_mode: "always" } : {}),
+      // The recursive sanitizeSDKProperties() pass below is the primary
+      // removal layer for advertising/click identifiers. This SDK-level
+      // denylist is defense in depth for properties the sanitizer cannot
+      // reshape (for example SDK-registered super-properties applied
+      // after before_send).
+      property_denylist: clickIdentifierDenylist,
       person_profiles:
         preference === "persistent" && config.surface === "app" ? "identified_only" : "never",
       respect_dnt: true,
@@ -516,6 +519,9 @@ export class BrowserTelemetry {
 
     if (this.configured) {
       this.disabled = true;
+      // opt_out_capturing() discards already-buffered SDK requests; reset()
+      // alone only clears identity and would leave queued batches to flush.
+      this.sdk.opt_out_capturing();
       this.sdk.reset();
       if (this.config?.projectToken) {
         this.preferenceStore.clearSDKState(this.config.projectToken.trim());
@@ -821,12 +827,6 @@ function allowlistedEventProperties(
   }
   if (Object.values(properties).some(containsSensitiveValue)) return null;
   if (
-    name === "first composition started" &&
-    !firstCompositionSignals.has(String(properties.signal))
-  ) {
-    return null;
-  }
-  if (
     name === "billing checkout opened" &&
     (!planIDs.has(String(properties.plan_id)) ||
       !billingPeriods.has(String(properties.billing_period)))
@@ -869,6 +869,11 @@ function sanitizeSDKProperties(
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(properties)) {
     if (key === "title" || key === "$title" || key === "entries") continue;
+    // Advertising/click identifiers emitted by the SDK (or arriving as
+    // initial-property variants) are never product data. Drop them at
+    // every nesting level: $set/$set_once containers, arrays, and nested
+    // event-property objects all traverse this same sanitizer.
+    if (clickIdentifierDenylist.includes(key)) continue;
     if (
       key === "$current_url" ||
       key === "$initial_current_url" ||
@@ -930,6 +935,51 @@ function sanitizeSDKProperties(
   }
   return sanitized;
 }
+
+/**
+ * Advertising/click identifiers the installed posthog-js SDK attaches to
+ * events (campaign properties plus first-touch variants). Protocol and
+ * application identifiers (distinct IDs, session/window IDs, workspace or
+ * job IDs) are intentionally absent: they have separate privacy policies.
+ */
+const clickIdentifierDenylist = [
+  "fbclid",
+  "gclid",
+  "gclsrc",
+  "dclid",
+  "gbraid",
+  "wbraid",
+  "msclkid",
+  "ttclid",
+  "twclid",
+  "li_fat_id",
+  "igshid",
+  "mc_cid",
+  "rdt_cid",
+  "epik",
+  "qclid",
+  "sccid",
+  "irclid",
+  "_kx",
+  "$initial_fbclid",
+  "$initial_gclid",
+  "$initial_gclsrc",
+  "$initial_dclid",
+  "$initial_gbraid",
+  "$initial_wbraid",
+  "$initial_msclkid",
+  "$initial_ttclid",
+  "$initial_twclid",
+  "$initial_li_fat_id",
+  "$initial_igshid",
+  "$initial_mc_cid",
+  "$initial_rdt_cid",
+  "$initial_kx",
+  "$initial_epik",
+  "$initial_qclid",
+  "$initial_sccid",
+  "$initial_irclid",
+];
 
 function looksLikeURL(value: string): boolean {
   return /^(?:https?:)?\/\//iu.test(value.trim());
@@ -1031,7 +1081,10 @@ function scrubStackURL(value: string): string {
     }
     const pathname = url.pathname;
     if (
-      /^\/(?:_app\/immutable|assets)\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+\.m?js(?::\d+){0,2}$/.test(
+      // SvelteKit and the public static bundles keep compiled JavaScript
+      // under /_app/immutable or /assets; the docs static export keeps it
+      // under /_next/static or /docs/_next/static for its /docs base path.
+      /^\/(?:_app\/immutable|assets|(?:docs\/)?_next\/static)\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+\.m?js(?::\d+){0,2}$/.test(
         pathname,
       )
     ) {

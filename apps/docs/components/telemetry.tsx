@@ -23,6 +23,7 @@ export function Telemetry() {
       apiHost: process.env.NEXT_PUBLIC_POSTHOG_API_HOST,
       uiHost: process.env.NEXT_PUBLIC_POSTHOG_UI_HOST,
       environment: process.env.NEXT_PUBLIC_OPENPOST_ENVIRONMENT ?? "development",
+      version: process.env.NEXT_PUBLIC_OPENPOST_VERSION,
       revision: process.env.NEXT_PUBLIC_OPENPOST_REVISION,
       edition: "public",
       surface: "docs",

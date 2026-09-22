@@ -19,14 +19,17 @@ import (
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/workspaceteam"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
 
 type workspaceTestServer struct {
-	echo *echo.Echo
-	db   *bun.DB
-	api  huma.API
+	echo     *echo.Echo
+	db       *bun.DB
+	api      huma.API
+	handler  *WorkspaceHandler
+	recorder *telemetry.MemoryRecorder
 }
 
 func newWorkspaceTestServer(t *testing.T, entitlement entitlements.Service) *workspaceTestServer {
@@ -71,6 +74,8 @@ func newWorkspaceTestServerWithAuthenticator(t *testing.T, entitlement entitleme
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewWorkspaceHandler(db, authenticator, entitlement)
 	handler.SetFrontendURL("https://app.openpost.test")
+	recorder := &telemetry.MemoryRecorder{}
+	handler.SetTelemetry(recorder)
 	handler.CreateWorkspace(api)
 	handler.ListWorkspaceTeam(api)
 	handler.CreateWorkspaceInvitation(api)
@@ -87,7 +92,7 @@ func newWorkspaceTestServerWithAuthenticator(t *testing.T, entitlement entitleme
 	handler.GetWorkspaceSetup(api)
 	handler.StartWorkspaceComposition(api)
 
-	return &workspaceTestServer{echo: e, db: db, api: api}
+	return &workspaceTestServer{echo: e, db: db, api: api, handler: handler, recorder: recorder}
 }
 
 func TestWorkspaceCompositionStartsOnceForMeaningfulSignals(t *testing.T) {
@@ -117,6 +122,130 @@ func TestWorkspaceCompositionStartsOnceForMeaningfulSignals(t *testing.T) {
 			require.False(t, repeatClaim.Claimed)
 		})
 	}
+}
+
+func TestWorkspaceCompositionCapturesServerObservationOnce(t *testing.T) {
+	t.Parallel()
+
+	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
+	seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
+
+	first := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "text", "origin_key": "origin-signal-0001"}, "web-token")
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	require.Len(t, srv.recorder.Events, 1)
+	event := srv.recorder.Events[0]
+	require.Equal(t, telemetry.EventFirstCompositionStarted, event.Name)
+	require.Equal(t, "user-1", event.DistinctID)
+	require.Equal(t, "ws-1", event.WorkspaceID)
+	require.Equal(t, "composition:ws-1", event.UUID)
+	require.Equal(t, map[string]any{"signal": "text"}, event.Properties)
+
+	// Same-origin reconciliation still claims without a duplicate capture.
+	reconciled := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "text", "origin_key": "origin-signal-0001"}, "web-token")
+	require.Equal(t, http.StatusOK, reconciled.Code, reconciled.Body.String())
+	var reconciledClaim StartWorkspaceCompositionResponse
+	require.NoError(t, json.Unmarshal(reconciled.Body.Bytes(), &reconciledClaim))
+	require.True(t, reconciledClaim.Claimed)
+	require.Len(t, srv.recorder.Events, 1)
+
+	// A different origin key is rejected without a duplicate capture.
+	repeat := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "media", "origin_key": "origin-repeat-0001"}, "web-token")
+	require.Equal(t, http.StatusOK, repeat.Code, repeat.Body.String())
+	var repeatClaim StartWorkspaceCompositionResponse
+	require.NoError(t, json.Unmarshal(repeat.Body.Bytes(), &repeatClaim))
+	require.False(t, repeatClaim.Claimed)
+	require.Len(t, srv.recorder.Events, 1)
+}
+
+func TestWorkspaceCompositionTelemetryStaysWorkspaceScoped(t *testing.T) {
+	t.Parallel()
+
+	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
+	seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
+	ctx := context.Background()
+	_, err := srv.db.NewInsert().Model(&models.Workspace{ID: "ws-2", OrganizationID: "org-1", Name: "Second"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws-2", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(ctx)
+	require.NoError(t, err)
+
+	first := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "text", "origin_key": "origin-signal-0001"}, "web-token")
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	second := srv.postJSON(t, "/api/v1/workspaces/ws-2/setup/composition", map[string]any{"signal": "media", "origin_key": "origin-signal-0002"}, "web-token")
+	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
+	require.Len(t, srv.recorder.Events, 2)
+	require.Equal(t, "ws-1", srv.recorder.Events[0].WorkspaceID)
+	require.Equal(t, "composition:ws-1", srv.recorder.Events[0].UUID)
+	require.Equal(t, "ws-2", srv.recorder.Events[1].WorkspaceID)
+	require.Equal(t, "composition:ws-2", srv.recorder.Events[1].UUID)
+
+	denied := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "text", "origin_key": "origin-signal-0001"}, "other-workspace-token")
+	require.Equal(t, http.StatusForbidden, denied.Code, denied.Body.String())
+	require.Len(t, srv.recorder.Events, 2)
+}
+
+func TestWorkspaceCompositionConcurrentMembersClaimOnce(t *testing.T) {
+	t.Parallel()
+
+	authenticator := workspaceTestAuthenticator{
+		"web-token":      {UserID: "user-1", Email: "user@example.com"},
+		"member-2-token": {UserID: "user-2", Email: "member2@example.com"},
+	}
+	srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), authenticator)
+	seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
+	ctx := context.Background()
+	_, err := srv.db.NewInsert().Model(&models.User{
+		ID:           "user-2",
+		Email:        "member2@example.com",
+		PasswordHash: "hash",
+		CreatedAt:    time.Now().UTC(),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "ws-1",
+		UserID:      "user-2",
+		Role:        models.WorkspaceRoleEditor,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	first := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "text", "origin_key": "origin-signal-0001"}, "web-token")
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	var firstClaim StartWorkspaceCompositionResponse
+	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &firstClaim))
+	require.True(t, firstClaim.Claimed)
+	require.Len(t, srv.recorder.Events, 1)
+
+	// A second member racing the same workspace loses the durable claim
+	// and must not emit a duplicate observation.
+	second := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "media", "origin_key": "origin-member-2-0001"}, "member-2-token")
+	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
+	var secondClaim StartWorkspaceCompositionResponse
+	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &secondClaim))
+	require.False(t, secondClaim.Claimed)
+	require.Len(t, srv.recorder.Events, 1)
+	require.Equal(t, "user-1", srv.recorder.Events[0].DistinctID)
+	require.Equal(t, "composition:ws-1", srv.recorder.Events[0].UUID)
+}
+
+func TestWorkspaceCompositionClaimSurvivesTelemetryFailure(t *testing.T) {
+	t.Parallel()
+
+	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
+	seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
+	srv.handler.SetTelemetry(&failingCompositionRecorder{})
+
+	first := srv.postJSON(t, "/api/v1/workspaces/ws-1/setup/composition", map[string]any{"signal": "text", "origin_key": "origin-signal-0001"}, "web-token")
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	var firstClaim StartWorkspaceCompositionResponse
+	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &firstClaim))
+	require.True(t, firstClaim.Claimed)
+}
+
+type failingCompositionRecorder struct {
+	telemetry.MemoryRecorder
+}
+
+func (r *failingCompositionRecorder) Capture(_ context.Context, _ telemetry.Event) error {
+	return context.DeadlineExceeded
 }
 
 func TestWorkspaceSetupHidesActionsFromViewersAndRejectsScopedTokens(t *testing.T) {

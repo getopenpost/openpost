@@ -27,6 +27,7 @@ func (r *MemoryRecorder) PublicConfig() BrowserConfig {
 
 func (r *MemoryRecorder) Capture(_ context.Context, event Event) error {
 	if err := ValidateEvent(event); err != nil {
+		recordValidationRejection(event, err)
 		return err
 	}
 	r.mu.Lock()

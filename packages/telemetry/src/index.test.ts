@@ -291,7 +291,8 @@ describe("BrowserTelemetry", () => {
 
     subject.setPreference("off");
 
-    expect(sdk.optOutCount).toBe(0);
+    // Revocation must discard buffered SDK requests, not just reset identity.
+    expect(sdk.optOutCount).toBe(1);
     expect(sdk.resetCount).toBe(1);
     expect(store.clearedTokens).toEqual(["phc_test"]);
     expect(store.reloadCount).toBe(1);
@@ -403,29 +404,20 @@ describe("BrowserTelemetry", () => {
     expect(sdk.events).toHaveLength(0);
   });
 
-  it("rejects non-allowlisted first composition properties at runtime", () => {
+  it("does not capture the server-owned first composition milestone", () => {
     const sdk = new FakeSDK();
     const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
 
-    subject.capture("first composition started", {
-      signal: "text",
-      content: "private draft",
-      media_url: "https://example.com/private.jpg",
-      workspace_id: "ws-secret",
-    } as never);
+    // First composition is a server-owned observation; the browser
+    // catalogue must not retain it as a capturable event.
+    const captureUnchecked = subject.capture.bind(subject) as (
+      name: string,
+      properties: Record<string, unknown>,
+    ) => void;
+    captureUnchecked("first composition started", { signal: "text" });
 
     expect(sdk.events).toHaveLength(0);
-
-    subject.capture("first composition started", { signal: "text" });
-    expect(sdk.events).toEqual([
-      { event: "first composition started", properties: { signal: "text" } },
-    ]);
-
-    subject.capture("first composition started", {
-      signal: "https://example.com/private?token=secret",
-    } as never);
-    expect(sdk.events).toHaveLength(1);
   });
 
   it("rejects unknown events and properties at runtime", () => {
@@ -568,6 +560,129 @@ describe("BrowserTelemetry", () => {
     expect(stack).not.toContain("path-secret");
     expect(stack).not.toContain("token=secret");
     vi.unstubAllGlobals();
+  });
+
+  it("retains same-origin public Next chunks while redacting other same-origin paths", () => {
+    vi.stubGlobal("window", { location: { origin: "https://openpo.st", pathname: "/docs" } });
+    const sdk = new FakeSDK();
+    const subject = configuredTelemetry(sdk);
+    subject.configure(configuredApp);
+    const error = new Error("Docs navigation failed");
+    error.stack = [
+      "Error: Docs navigation failed",
+      "    at load (https://openpo.st/_next/static/chunks/webpack.ABC123.js:1:100?token=secret)",
+      "    at render (https://openpo.st/docs/_next/static/chunks/main.ABC123.js:2:200#secret)",
+      "    at open (https://openpo.st/docs/guide?token=secret:3:4)",
+      "    at remote (https://cdn.example/assets/widget.js:5:6)",
+    ].join("\n");
+
+    subject.captureException(error);
+
+    const stack = sdk.exceptions[0]?.error.stack ?? "";
+    expect(stack).toContain("https://openpo.st/_next/static/chunks/webpack.ABC123.js:1:100");
+    expect(stack).toContain("https://openpo.st/docs/_next/static/chunks/main.ABC123.js:2:200");
+    expect(stack).not.toContain("token=secret");
+    expect(stack).not.toContain("#secret");
+    expect(stack).not.toContain("openpo.st/docs/guide");
+    expect(stack).not.toContain("cdn.example/assets/widget.js");
+    vi.unstubAllGlobals();
+  });
+
+  it("strips advertising click identifiers from the outgoing SDK payload", () => {
+    vi.stubGlobal("window", {
+      location: { origin: "https://app.openpo.st", pathname: "/settings" },
+    });
+    try {
+      const sdk = new FakeSDK();
+      const subject = configuredTelemetry(sdk);
+      subject.configure(configuredApp);
+      const beforeSend = sdk.initialized[0]?.options.before_send as (event: {
+        event: string;
+        properties: Record<string, unknown>;
+      }) => { properties: Record<string, unknown> };
+      const event = beforeSend({
+        event: "$pageview",
+        properties: {
+          $current_url: "https://app.openpo.st/settings",
+          fbclid: "ad-click-id",
+          gclid: "ad-click-id",
+          gclsrc: "ad-click-id",
+          dclid: "ad-click-id",
+          gbraid: "ad-click-id",
+          wbraid: "ad-click-id",
+          msclkid: "ad-click-id",
+          ttclid: "ad-click-id",
+          twclid: "ad-click-id",
+          li_fat_id: "ad-click-id",
+          igshid: "ad-click-id",
+          mc_cid: "ad-click-id",
+          rdt_cid: "ad-click-id",
+          epik: "ad-click-id",
+          qclid: "ad-click-id",
+          sccid: "ad-click-id",
+          irclid: "ad-click-id",
+          _kx: "ad-click-id",
+          $set: { fbclid: "ad-click-id", gclid: "ad-click-id" },
+          $set_once: {
+            $initial_fbclid: "ad-click-id",
+            $initial_gclid: "ad-click-id",
+            $initial_kx: "ad-click-id",
+          },
+          $initial_fbclid: "ad-click-id",
+          $initial_msclkid: "ad-click-id",
+          $exception_list: [{ fbclid: "ad-click-id", lineno: 12 }],
+          distinct_id: "browser-user-1",
+          $session_id: "session-1",
+          surface: "app",
+        },
+      });
+      const serialized = JSON.stringify(event.properties);
+      for (const key of [
+        "fbclid",
+        "gclid",
+        "gclsrc",
+        "dclid",
+        "gbraid",
+        "wbraid",
+        "msclkid",
+        "ttclid",
+        "twclid",
+        "li_fat_id",
+        "igshid",
+        "mc_cid",
+        "rdt_cid",
+        "epik",
+        "qclid",
+        "sccid",
+        "irclid",
+        "_kx",
+        "$initial_fbclid",
+        "$initial_msclkid",
+        "$initial_kx",
+      ]) {
+        expect(event.properties).not.toHaveProperty(key);
+      }
+      expect(serialized).not.toContain("ad-click-id");
+      // Protocol and application identifiers keep their own policies.
+      expect(event.properties).toMatchObject({
+        distinct_id: "browser-user-1",
+        $session_id: "session-1",
+        surface: "app",
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("passes click identifiers to the SDK property denylist", () => {
+    const sdk = new FakeSDK();
+    const subject = configuredTelemetry(sdk);
+    subject.configure(configuredApp);
+    const denylist = sdk.initialized[0]?.options.property_denylist as unknown;
+    expect(Array.isArray(denylist)).toBe(true);
+    for (const key of ["fbclid", "gclid", "msclkid", "$initial_fbclid"]) {
+      expect(denylist).toContain(key);
+    }
   });
 });
 

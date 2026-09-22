@@ -5265,7 +5265,6 @@
 			if (claimError || !data) return;
 			compositionClaimedWorkspaceIDs.add(workspaceID);
 			compositionClaimOrigins.delete(workspaceID);
-			if (data.claimed) captureTelemetryEvent('first composition started', { signal });
 			if (selectedWorkspaceId === workspaceID) ui.refreshWorkspaceSetup();
 		} finally {
 			compositionClaimPendingWorkspaceIDs.delete(workspaceID);

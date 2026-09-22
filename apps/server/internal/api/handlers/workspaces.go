@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/openpost/backend/internal/services/workspacedeletion"
 	"github.com/openpost/backend/internal/services/workspaceprovisioning"
 	"github.com/openpost/backend/internal/services/workspaceteam"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 )
 
@@ -32,6 +34,7 @@ type WorkspaceHandler struct {
 	db                   *bun.DB
 	auth                 middleware.Authenticator
 	entitlement          entitlements.Service
+	telemetry            telemetry.Recorder
 	notifications        *notifications.Service
 	team                 *workspaceteam.Service
 	setup                *setupprojection.Service
@@ -65,6 +68,10 @@ func NewWorkspaceHandler(db *bun.DB, authenticator middleware.Authenticator, ent
 
 func (h *WorkspaceHandler) SetFrontendURL(frontendURL string) {
 	h.frontendURL = strings.TrimRight(strings.TrimSpace(frontendURL), "/")
+}
+
+func (h *WorkspaceHandler) SetTelemetry(recorder telemetry.Recorder) {
+	h.telemetry = recorder
 }
 
 func (h *WorkspaceHandler) SetNotificationService(service *notifications.Service) {
@@ -1144,7 +1151,11 @@ func (h *WorkspaceHandler) StartWorkspaceComposition(api huma.API) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to inspect Workspace composition")
 		}
-		claimed := rows == 1
+		newlyCreated := rows == 1
+		if newlyCreated {
+			h.captureFirstCompositionStarted(ctx, userID, input.PathID, claim)
+		}
+		claimed := newlyCreated
 		if !claimed {
 			var stored models.WorkspaceFirstComposition
 			if err := h.db.NewSelect().Model(&stored).Where("workspace_id = ?", input.PathID).Scan(ctx); err != nil {
@@ -1154,6 +1165,25 @@ func (h *WorkspaceHandler) StartWorkspaceComposition(api huma.API) {
 		}
 		return &StartWorkspaceCompositionOutput{Body: StartWorkspaceCompositionResponse{Claimed: claimed}}, nil
 	})
+}
+
+// captureFirstCompositionStarted records the server-owned observation of an
+// already-committed first-composition claim. Telemetry is best effort: a
+// recorder failure never fails the product operation.
+func (h *WorkspaceHandler) captureFirstCompositionStarted(ctx context.Context, userID, workspaceID string, claim *models.WorkspaceFirstComposition) {
+	if h.telemetry == nil {
+		return
+	}
+	if err := h.telemetry.Capture(ctx, telemetry.Event{
+		Name:        telemetry.EventFirstCompositionStarted,
+		DistinctID:  userID,
+		WorkspaceID: workspaceID,
+		UUID:        "composition:" + workspaceID,
+		Timestamp:   claim.CreatedAt,
+		Properties:  map[string]any{"signal": claim.Signal},
+	}); err != nil {
+		log.Printf("Failed to enqueue first composition telemetry: %v", err)
+	}
 }
 
 func (h *WorkspaceHandler) GetWorkspaceDeletionPreview(api huma.API) {

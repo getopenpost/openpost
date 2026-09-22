@@ -231,7 +231,7 @@ jobs:
           OPENPOST_GO_COVERAGE_FILE: coverage.out
           OPENPOST_GO_TEST_RACE: "1"
         run: bun run test -- backend
-      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: apps/server/coverage.out
           fail_ci_if_error: false
@@ -782,7 +782,7 @@ jobs:
           java-version: "21"
           distribution: temurin
       - name: Install Android SDK components
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: >-
             platform-tools
@@ -900,7 +900,7 @@ jobs:
         with:
           name: ${{ steps.frontend-artifact.outputs.name }}
           path: apps/server/cmd/openpost/public
-      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GHCR
         if: github.event_name == 'push'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -1026,7 +1026,7 @@ jobs:
         with:
           name: ${{ steps.platform-artifacts.outputs.arm64 }}
           path: tested-platforms
-      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io

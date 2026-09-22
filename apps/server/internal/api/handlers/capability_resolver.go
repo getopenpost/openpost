@@ -29,6 +29,7 @@ type CapabilityResolverHandler struct {
 	db          *bun.DB
 	auth        middleware.Authenticator
 	providers   map[string]platform.Adapter
+	providersMu sync.RWMutex
 	tokenSource AccessTokenSource
 	publicMedia *publicurl.MediaVerifier
 	readiness   *providerreadiness.Service
@@ -52,7 +53,7 @@ func NewCapabilityResolverHandler(
 	return &CapabilityResolverHandler{
 		db:          db,
 		auth:        auth,
-		providers:   providers,
+		providers:   cloneProviderAdapters(providers),
 		tokenSource: tokenSource,
 		cache:       map[string]accountCapabilityCacheEntry{},
 	}
@@ -104,6 +105,15 @@ func (h *CapabilityResolverHandler) SetPublicMediaVerifier(verifier *publicurl.M
 
 func (h *CapabilityResolverHandler) SetProviderReadiness(service *providerreadiness.Service) {
 	h.readiness = service
+}
+
+func (h *CapabilityResolverHandler) SetProvider(name string, adapter platform.Adapter) {
+	h.providersMu.Lock()
+	defer h.providersMu.Unlock()
+	if h.providers == nil {
+		h.providers = map[string]platform.Adapter{}
+	}
+	h.providers[name] = adapter
 }
 
 func (h *CapabilityResolverHandler) SetConnectorRegistry(registry *connectors.Registry, store *connectors.Store) {
@@ -749,7 +759,10 @@ func capabilitySettingDependenciesMet(setting capabilities.SettingDefinition, se
 }
 
 func (h *CapabilityResolverHandler) adapterForResolveAccount(account models.SocialAccount) platform.Adapter {
-	return h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
+	key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
+	h.providersMu.RLock()
+	defer h.providersMu.RUnlock()
+	return h.providers[key]
 }
 
 func (h *CapabilityResolverHandler) cachedAccountCapability(key string) (platform.AccountCapabilityResult, time.Time, bool) {

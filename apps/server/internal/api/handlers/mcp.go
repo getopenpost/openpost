@@ -16,6 +16,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -98,6 +99,7 @@ type MCPHandler struct {
 	publicURL         string
 	allowedOrigins    map[string]bool
 	providers         map[string]platform.Adapter
+	providersMu       sync.RWMutex
 	dynamicMastodon   bool
 	tokenEncryptor    *servicecrypto.TokenEncryptor
 	tokenSource       AccessTokenSource
@@ -152,8 +154,29 @@ func (h *MCPHandler) SetAllowedOrigins(origins []string) {
 }
 
 func (h *MCPHandler) SetProviderCatalog(providers map[string]platform.Adapter, dynamicMastodon bool) {
-	h.providers = providers
+	h.providersMu.Lock()
+	defer h.providersMu.Unlock()
+	h.providers = cloneProviderAdapters(providers)
 	h.dynamicMastodon = dynamicMastodon
+}
+
+func (h *MCPHandler) SetProvider(name string, adapter platform.Adapter) {
+	h.providersMu.Lock()
+	defer h.providersMu.Unlock()
+	if h.providers == nil {
+		h.providers = map[string]platform.Adapter{}
+	}
+	h.providers[name] = adapter
+}
+
+func (h *MCPHandler) providerMapSnapshot() map[string]platform.Adapter {
+	h.providersMu.RLock()
+	defer h.providersMu.RUnlock()
+	snapshot := make(map[string]platform.Adapter, len(h.providers))
+	for name, adapter := range h.providers {
+		snapshot[name] = adapter
+	}
+	return snapshot
 }
 
 func (h *MCPHandler) SetTokenEncryptor(encryptor *servicecrypto.TokenEncryptor) {
@@ -177,7 +200,7 @@ func (h *MCPHandler) publicationHandler() *PublicationHandler {
 	if h.usage != nil {
 		handler.SetUsage(h.usage)
 	}
-	handler.providers = h.providers
+	handler.providers = h.providerMapSnapshot()
 	handler.tokenSource = h.tokenSource
 	handler.readiness = h.readiness
 	return handler
@@ -3050,7 +3073,7 @@ func (h *MCPHandler) listProviderCatalog(ctx context.Context) any {
 	providers := applyProviderAvailabilityReadiness(
 		ctx,
 		h.readiness,
-		providerAvailability(h.providers, h.dynamicMastodon),
+		providerAvailability(h.providerMapSnapshot(), h.dynamicMastodon),
 	)
 	available := make([]string, 0)
 	needsConfiguration := make([]string, 0)
@@ -3762,7 +3785,10 @@ func (h *MCPHandler) commentAdapter(ctx context.Context, account *models.SocialA
 }
 
 func (h *MCPHandler) commentProvider(account *models.SocialAccount) (platform.CommentAdapter, *mcpError) {
-	provider := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
+	key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
+	h.providersMu.RLock()
+	provider := h.providers[key]
+	h.providersMu.RUnlock()
 	commenter, ok := provider.(platform.CommentAdapter)
 	if !ok || commenter == nil {
 		return nil, &mcpError{Code: -32603, Message: fmt.Sprintf("comments are not supported for %s", account.Platform)}
@@ -4007,7 +4033,7 @@ func (h *MCPHandler) providerReadiness(ctx context.Context, userID string, args 
 	if rpcErr := h.ensureWorkspaceAccess(ctx, userID, input.WorkspaceID); rpcErr != nil {
 		return nil, rpcErr
 	}
-	handler := &ProviderReadinessHandler{db: h.db, providers: h.providers, readiness: h.readiness}
+	handler := &ProviderReadinessHandler{db: h.db, providers: h.providerMapSnapshot(), readiness: h.readiness}
 	accounts, err := handler.loadReadinessAccounts(ctx, input.WorkspaceID)
 	if err != nil {
 		return nil, &mcpError{Code: -32603, Message: "failed to load connected accounts"}

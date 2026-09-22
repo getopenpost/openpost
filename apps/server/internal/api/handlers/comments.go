@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/middleware"
@@ -33,17 +34,27 @@ type CommentHandler struct {
 	db          *bun.DB
 	auth        middleware.Authenticator
 	providers   map[string]platform.Adapter
+	providersMu sync.RWMutex
 	encryptor   *servicecrypto.TokenEncryptor
 	tokenSource AccessTokenSource
 	featureGate CommentFeatureGate
 }
 
 func NewCommentHandler(db *bun.DB, authenticator middleware.Authenticator, providers map[string]platform.Adapter, encryptor *servicecrypto.TokenEncryptor) *CommentHandler {
-	return &CommentHandler{db: db, auth: authenticator, providers: providers, encryptor: encryptor}
+	return &CommentHandler{db: db, auth: authenticator, providers: cloneProviderAdapters(providers), encryptor: encryptor}
 }
 
 func (h *CommentHandler) SetFeatureGate(g CommentFeatureGate) {
 	h.featureGate = g
+}
+
+func (h *CommentHandler) SetProvider(name string, adapter platform.Adapter) {
+	h.providersMu.Lock()
+	defer h.providersMu.Unlock()
+	if h.providers == nil {
+		h.providers = map[string]platform.Adapter{}
+	}
+	h.providers[name] = adapter
 }
 
 func (h *CommentHandler) SetTokenSource(source AccessTokenSource) {
@@ -336,7 +347,10 @@ func (h *CommentHandler) commentAdapter(ctx context.Context, account *models.Soc
 }
 
 func (h *CommentHandler) commentProvider(account *models.SocialAccount) (platform.CommentAdapter, error) {
-	provider := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
+	key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
+	h.providersMu.RLock()
+	provider := h.providers[key]
+	h.providersMu.RUnlock()
 	commenter, ok := provider.(platform.CommentAdapter)
 	if !ok || commenter == nil {
 		return nil, huma.NewError(http.StatusNotImplemented, fmt.Sprintf("comments are not supported for %s", account.Platform))

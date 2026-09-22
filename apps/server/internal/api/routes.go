@@ -144,6 +144,7 @@ type RouteDeps struct {
 }
 
 func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
+	providerRegistrars := append([]func(string, platform.Adapter){}, deps.ProviderRegistrars...)
 	profileHandler := deps.ProfileHandler
 	if profileHandler == nil {
 		profileHandler = handlers.NewProfileHandler(deps.DB, deps.Authenticator, deps.MediaStorage)
@@ -281,16 +282,19 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	capabilityResolverHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
 	capabilityResolverHandler.SetProviderReadiness(deps.ProviderReadinessService)
 	capabilityResolverHandler.SetConnectorRegistry(deps.ConnectorRegistry, deps.ConnectorStore)
+	providerRegistrars = append(providerRegistrars, capabilityResolverHandler.SetProvider)
 	capabilityResolverHandler.RegisterRoutes(api)
 	handlers.NewProviderReadinessHandler(deps.DB, deps.Authenticator, deps.ProviderReadinessService, deps.Providers).RegisterRoutes(api)
 	handlers.NewProviderReadinessAdminHandler(deps.DB, deps.Authenticator, deps.ProviderReadinessService).RegisterRoutes(api)
 	destinationOptionsHandler := handlers.NewDestinationOptionsHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenSource)
+	providerRegistrars = append(providerRegistrars, destinationOptionsHandler.SetProvider)
 	if deps.TelegramService != nil {
 		destinationOptionsHandler.SetTelegramChatOptions(deps.TelegramService)
 	}
 	destinationOptionsHandler.RegisterRoutes(api)
 	publicationHandler := handlers.NewPublicationHandler(deps.DB, deps.Authenticator, deps.Entitlement)
 	publicationHandler.SetCapabilityDependencies(deps.Providers, deps.TokenSource)
+	providerRegistrars = append(providerRegistrars, publicationHandler.SetProvider)
 	publicationHandler.SetConnectorRegistry(deps.ConnectorRegistry)
 	publicationHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
 	publicationHandler.SetRepostService(deps.RepostService)
@@ -312,6 +316,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	handlers.NewVideoProjectHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)
 	commentHandler := handlers.NewCommentHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenEncryptor)
+	providerRegistrars = append(providerRegistrars, commentHandler.SetProvider)
 	commentHandler.SetTokenSource(deps.TokenSource)
 	commentHandler.RegisterRoutes(api)
 	analyticsHandler := handlers.NewAnalyticsHandler(deps.DB, deps.Authenticator, deps.AnalyticsService)
@@ -409,7 +414,10 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	oauthHandler.SetMastodonAppService(deps.MastodonAppService)
 	oauthHandler.SetProviderReadiness(deps.ProviderReadinessService)
 	oauthHandler.SetConnectorRegistry(deps.ConnectorRegistry, deps.ConnectorStore)
-	oauthHandler.SetProviderRegistrars(deps.ProviderRegistrars...)
+	if deps.MCPHandler != nil {
+		providerRegistrars = append(providerRegistrars, deps.MCPHandler.SetProvider)
+	}
+	oauthHandler.SetProviderRegistrars(providerRegistrars...)
 	oauthHandler.SetTelemetry(deps.Telemetry)
 	oauthHandler.SetTokenSource(deps.TokenSource)
 	oauthHandler.SetAccountAvatarStorage(deps.MediaStorage)
@@ -448,7 +456,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	afhHandler.ReadFeatures(api)
 	afhHandler.SaveFeatures(api)
 	oauthHandler.SetAccountFeaturesService(afhService)
-	oauthHandler.SetProviderRegistrars(append(deps.ProviderRegistrars, afhService.SetProvider)...)
+	oauthHandler.SetProviderRegistrars(append(providerRegistrars, afhService.SetProvider)...)
 	// Inject shared feature resolver into every feature service and handler. Avoid duplicating support/scope/plan rules.
 	if deps.AnalyticsService != nil {
 		deps.AnalyticsService.SetFeatureGate(afhService)

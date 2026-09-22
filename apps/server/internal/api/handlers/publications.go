@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -66,6 +67,7 @@ type PublicationHandler struct {
 	entitlement entitlements.Service
 	usage       *usage.Service
 	providers   map[string]platform.Adapter
+	providersMu sync.RWMutex
 	tokenSource AccessTokenSource
 	publicMedia *publicurl.MediaVerifier
 	reposts     *repostservice.Service
@@ -78,8 +80,19 @@ type PublicationHandler struct {
 }
 
 func (h *PublicationHandler) SetCapabilityDependencies(providers map[string]platform.Adapter, tokenSource AccessTokenSource) {
-	h.providers = providers
+	h.providersMu.Lock()
+	defer h.providersMu.Unlock()
+	h.providers = cloneProviderAdapters(providers)
 	h.tokenSource = tokenSource
+}
+
+func (h *PublicationHandler) SetProvider(name string, adapter platform.Adapter) {
+	h.providersMu.Lock()
+	defer h.providersMu.Unlock()
+	if h.providers == nil {
+		h.providers = map[string]platform.Adapter{}
+	}
+	h.providers[name] = adapter
 }
 
 func (h *PublicationHandler) SetConnectorRegistry(registry *connectors.Registry) {
@@ -2725,7 +2738,10 @@ func (h *PublicationHandler) validateDynamicPublicationCapabilities(ctx context.
 		if !ok {
 			continue
 		}
-		adapter := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
+		key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
+		h.providersMu.RLock()
+		adapter := h.providers[key]
+		h.providersMu.RUnlock()
 		result := platform.AccountCapabilityResult{}
 		hasResult := false
 		if account.Platform == capabilities.ProviderX {

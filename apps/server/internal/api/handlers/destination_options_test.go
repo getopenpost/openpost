@@ -94,6 +94,51 @@ func TestDestinationOptionsUsesConnectedAccountAndFreshToken(t *testing.T) {
 	require.Equal(t, platform.DestinationOptionsInput{RegionCode: "PT", Language: "pt"}, adapter.input)
 }
 
+func TestDestinationOptionsUsesDynamicallyRegisteredInstanceAdapter(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
+	ctx := context.Background()
+	_, err := db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "ws-1",
+		UserID:      "user-1",
+		Role:        models.WorkspaceRoleAdmin,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.SocialAccount{
+		ID:             "lemmy-1",
+		WorkspaceID:    "ws-1",
+		Slug:           "lemmy-main",
+		Platform:       "lemmy",
+		InstanceURL:    "https://lemmy.example",
+		AccessTokenEnc: []byte("encrypted"),
+		IsActive:       true,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	adapter := &destinationOptionsTestAdapter{}
+	tokenSource := &destinationOptionsTokenSource{}
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	handler := NewDestinationOptionsHandler(db, testAuthenticator{}, map[string]platform.Adapter{
+		"lemmy": platform.NewLemmyAdapter(""),
+	}, tokenSource)
+	handler.SetProvider(platform.AccountProviderKey("lemmy", "https://lemmy.example", ""), adapter)
+	handler.RegisterRoutes(api)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/accounts/lemmy-1/publishing-options/lemmy_communities", nil)
+	req.Header.Set("Authorization", "Bearer web-token")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var output struct {
+		Options []platform.DestinationOption `json:"options"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &output))
+	require.Equal(t, []platform.DestinationOption{{Value: "playlist-2", Label: "Lisbon launches"}}, output.Options)
+	require.Equal(t, "lemmy-1", tokenSource.accountID)
+}
+
 func TestThreadsLocationOptionsRequireLocationTaggingScope(t *testing.T) {
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
 	ctx := context.Background()

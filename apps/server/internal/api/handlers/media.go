@@ -2147,10 +2147,26 @@ func checkDeclaredMimeMatchesSniffed(declaredMimeType string, content []byte) er
 	}
 	declaredTop, _, _ := strings.Cut(declared, "/")
 	sniffedTop, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(strings.Split(sniffed, ";")[0])), "/")
-	if declaredTop != sniffedTop {
+	if declaredTop != sniffedTop && !sharedAudioVideoContainer(declared, sniffed) {
 		return fmt.Errorf("media content does not match the declared MIME type")
 	}
 	return nil
+}
+
+func sharedAudioVideoContainer(declared, sniffed string) bool {
+	declaredTop, declaredSubtype, _ := strings.Cut(declared, "/")
+	sniffedTop, sniffedSubtype, _ := strings.Cut(sniffed, "/")
+	if declaredSubtype != sniffedSubtype ||
+		(declaredTop != "audio" && declaredTop != "video") ||
+		(sniffedTop != "audio" && sniffedTop != "video") {
+		return false
+	}
+	switch declaredSubtype {
+	case "3gpp", "3gpp2", "matroska", "mp4", "ogg", "quicktime", "webm", "x-matroska":
+		return true
+	default:
+		return false
+	}
 }
 
 func isSVGMediaUpload(filename, declaredMimeType string, content []byte) bool {

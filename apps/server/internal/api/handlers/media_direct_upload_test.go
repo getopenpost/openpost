@@ -520,6 +520,7 @@ func TestValidateMediaAssetContentRejectsTopLevelMimeMismatch(t *testing.T) {
 	jpeg := append([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10}, make([]byte, 64)...)
 	require.NoError(t, validateMediaAssetContent("library", "cover.jpg", "image/jpeg", jpeg))
 	require.NoError(t, validateMediaAssetContent("library", "cover.png", "image/png", jpeg))
+	require.NoError(t, validateMediaAssetContent("library", "capture.webm", "audio/webm", []byte{0x1a, 0x45, 0xdf, 0xa3}))
 	require.NoError(t, validateMediaAssetContent("library", "notes.txt", "text/plain", []byte("notes")))
 	require.ErrorContains(
 		t,

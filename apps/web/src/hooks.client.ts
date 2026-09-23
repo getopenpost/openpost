@@ -44,14 +44,16 @@ function createAppChunkRecovery() {
 
 let chunkRecovery = createAppChunkRecovery();
 let uninstallChunkRecovery: (() => void) | null = null;
+let uninstallErrorCapture: (() => void) | null = null;
 
 export function initializeClientErrors(installErrorCapture: ErrorCaptureInstaller) {
 	uninstallChunkRecovery?.();
+	uninstallErrorCapture?.();
 	// A fresh controller per initialization keeps single-flight state scoped
 	// to its listeners; the persisted attempt budget still carries over.
 	chunkRecovery = createAppChunkRecovery();
 	uninstallChunkRecovery = chunkRecovery.install();
-	installErrorCapture();
+	uninstallErrorCapture = installErrorCapture();
 }
 
 /**

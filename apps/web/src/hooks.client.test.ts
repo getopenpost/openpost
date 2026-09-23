@@ -30,6 +30,16 @@ afterEach(() => {
 });
 
 describe('client error initialization', () => {
+	it('replaces the previous global error listener when initialized again', () => {
+		const runtime = testRuntime();
+		vi.stubGlobal('window', runtime);
+		vi.stubGlobal('navigator', { onLine: true });
+		vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {} });
+		initializeClientErrors(installTestErrorCapture);
+		initializeClientErrors(installTestErrorCapture);
+		runtime.dispatchEvent(Object.assign(new Event('error'), { error: new Error('failure') }));
+		expect(capturedExceptions).toHaveBeenCalledOnce();
+	});
 	it('preserves models and project caches when recovering a stale page', async () => {
 		const runtime = Object.assign(testRuntime(), {
 			setTimeout: (callback: () => void) => {

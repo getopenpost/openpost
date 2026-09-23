@@ -177,6 +177,7 @@ Useful diagnostics:
 
 ```sh
 openpost auth status
+openpost doctor
 openpost instance diagnostics --deployment docker-compose --provider youtube --logs-file ./openpost.log --json
 openpost auth token list
 openpost completion bash

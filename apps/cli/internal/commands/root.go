@@ -14,7 +14,8 @@
 // ├── thread  (create)
 // ├── jobs    (list)
 // ├── billing (status, checkout, portal)
-// └── completion
+// ├── completion
+// └── doctor  (offline local configuration check)
 //
 // Each subcommand file owns its own RunE and flags. Global flags
 // (--profile, --instance, --workspace, --json, --quiet, --yes,

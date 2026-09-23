@@ -126,7 +126,9 @@ native id, a `published` row without one (or a `failed` row with no error
 detail) reports `unknown` with a `reconcile-first` disposition.
 `summarizePublication` derives one aggregate (`pending` | `complete` |
 `partial`); partial success is first-class, so mixed results never read
-as `published`.
+as `published`. A publication where every rendition failed also reports
+`partial`: the counts (`published`, `failed`, `pending`, `unknown`)
+distinguish it from mixed results.
 
 ```ts
 import { describeRendition, summarizePublication } from "@getopenpost/sdk";

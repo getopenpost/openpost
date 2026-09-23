@@ -536,7 +536,7 @@ func diagnosticsToken(cfg *config.Runtime) (token string, source string, ok bool
 	}
 	token, err := auth.NewStore(cfg).Get(cfg.ProfileName)
 	if err != nil {
-		return "", source, true
+		return "", source, false
 	}
 	return token, source, true
 }

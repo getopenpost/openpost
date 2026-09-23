@@ -33,6 +33,26 @@ func TestDoctorReportsReadyConfigWithoutNetwork(t *testing.T) {
 	}
 }
 
+func TestDoctorTableOutputHidesTokenMaterial(t *testing.T) {
+	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
+	t.Setenv("OPENPOST_TOKEN", "secret-token-value")
+
+	out, err := executeRootCaptureStdout(t,
+		"--instance", "https://openpost.example",
+		"--workspace", "ws-1",
+		"doctor",
+	)
+	if err != nil {
+		t.Fatalf("doctor returned error: %v", err)
+	}
+	if strings.Contains(out, "secret-token-value") {
+		t.Fatalf("doctor table output leaked the token value:\n%s", out)
+	}
+	if !strings.Contains(out, "Ready") {
+		t.Fatalf("doctor table output missing readiness row:\n%s", out)
+	}
+}
+
 func TestDoctorFailsWithoutInstance(t *testing.T) {
 	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
 	t.Setenv("OPENPOST_TOKEN", "secret-token-value")

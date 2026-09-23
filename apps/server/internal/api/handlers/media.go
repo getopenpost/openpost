@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -1312,6 +1313,9 @@ func (h *MediaHandler) resolveCreateMediaUploadParams(ctx context.Context, actor
 	if mimeType == "" {
 		mimeType = defaultMediaMimeType
 	}
+	if err := validateMediaUploadDeclaration(filename, input.Body.MimeType); err != nil {
+		return nil, huma.Error400BadRequest(err.Error())
+	}
 	sizeLimit := mediaUploadSizeLimit(assetKind, filename, mimeType)
 	if input.Body.Size > sizeLimit {
 		return nil, huma.Error400BadRequest(mediaUploadSizeError(sizeLimit))
@@ -2055,7 +2059,13 @@ func validateMediaAssetContent(assetKind, filename, declaredMimeType string, con
 	if isSVGMediaUpload(filename, declaredMimeType, content) {
 		return errors.New("SVG upload could not be processed")
 	}
+	if err := validateMediaUploadDeclaration(filename, declaredMimeType); err != nil {
+		return err
+	}
 	if assetKind != "brand_font" {
+		if err := checkDeclaredMimeMatchesSniffed(declaredMimeType, content); err != nil {
+			return err
+		}
 		return nil
 	}
 	if len(content) > 10*1024*1024 {
@@ -2092,6 +2102,53 @@ func validateMediaAssetContent(assetKind, filename, declaredMimeType string, con
 			return strings.EqualFold(declaredMimeType, candidate)
 		}) {
 		return fmt.Errorf("brand font MIME type does not match the %s file", formatName)
+	}
+	return nil
+}
+
+var mediaMimePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*$`)
+
+// validateMediaUploadDeclaration is a pure pre-check on the declared upload
+// fields. It runs before any byte is stored so malformed declarations fail
+// fast with a coded message instead of surfacing later as a storage error.
+func validateMediaUploadDeclaration(filename, declaredMimeType string) error {
+	if strings.TrimSpace(filename) == "" {
+		return errors.New("filename is required")
+	}
+	mimeType := strings.ToLower(strings.TrimSpace(strings.Split(declaredMimeType, ";")[0]))
+	if mimeType == "" || mimeType == defaultMediaMimeType {
+		return nil
+	}
+	if !mediaMimePattern.MatchString(mimeType) {
+		return fmt.Errorf("media MIME type %q is not a valid type/subtype value", declaredMimeType)
+	}
+	return nil
+}
+
+// checkDeclaredMimeMatchesSniffed rejects uploads whose bytes sniff as a
+// different top-level type than declared. Subtype differences stay allowed
+// (transcodes and aliases), and generic text/plain and octet-stream sniffs
+// stay allowed: they are the sniffer's fallback for unknown binaries such
+// as device captures and container formats it cannot name. A specific sniff
+// (image, video, audio, html) that contradicts the declaration is a
+// polyglot the pipeline must not silently adopt.
+func checkDeclaredMimeMatchesSniffed(declaredMimeType string, content []byte) error {
+	if len(content) == 0 {
+		return nil
+	}
+	declared := strings.ToLower(strings.TrimSpace(strings.Split(declaredMimeType, ";")[0]))
+	if declared == "" || declared == defaultMediaMimeType {
+		return nil
+	}
+	sniffed := http.DetectContentType(content)
+	if strings.HasPrefix(sniffed, defaultMediaMimeType) ||
+		strings.HasPrefix(sniffed, "text/plain") {
+		return nil
+	}
+	declaredTop, _, _ := strings.Cut(declared, "/")
+	sniffedTop, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(strings.Split(sniffed, ";")[0])), "/")
+	if declaredTop != sniffedTop {
+		return fmt.Errorf("media content does not match the declared MIME type")
 	}
 	return nil
 }

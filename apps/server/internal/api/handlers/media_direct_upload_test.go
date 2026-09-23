@@ -496,6 +496,44 @@ func TestAPIWriteScopeRejectsUncataloguedLegacyMediaRoutes(t *testing.T) {
 	}
 }
 
+func TestValidateMediaUploadDeclaration(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, validateMediaUploadDeclaration("cover.png", "image/png"))
+	require.NoError(t, validateMediaUploadDeclaration("cover.png", "image/png; charset=binary"))
+	require.NoError(t, validateMediaUploadDeclaration("cover.png", ""))
+	require.NoError(t, validateMediaUploadDeclaration("cover.png", defaultMediaMimeType))
+	require.NoError(t, validateMediaUploadDeclaration("cover.png", ";charset=utf-8"))
+	require.ErrorContains(t, validateMediaUploadDeclaration("", "image/png"), "filename is required")
+	for _, mimeType := range []string{"not-a-mime", "image/", "/png", "image png"} {
+		require.ErrorContains(
+			t,
+			validateMediaUploadDeclaration("cover.png", mimeType),
+			"MIME type",
+		)
+	}
+}
+
+func TestValidateMediaAssetContentRejectsTopLevelMimeMismatch(t *testing.T) {
+	t.Parallel()
+
+	jpeg := append([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10}, make([]byte, 64)...)
+	require.NoError(t, validateMediaAssetContent("library", "cover.jpg", "image/jpeg", jpeg))
+	require.NoError(t, validateMediaAssetContent("library", "cover.png", "image/png", jpeg))
+	require.NoError(t, validateMediaAssetContent("library", "notes.txt", "text/plain", []byte("notes")))
+	require.ErrorContains(
+		t,
+		validateMediaAssetContent("library", "cover.mp4", "video/mp4", jpeg),
+		"does not match",
+	)
+	require.ErrorContains(
+		t,
+		validateMediaAssetContent("library", "cover.png", "image/png", []byte("<html><body>hi</body></html>")),
+		"does not match",
+	)
+	require.NoError(t, validateMediaAssetContent("library", "capture.mp4", "video/mp4", []byte("video bytes!")))
+}
+
 func TestValidateBrandFontContent(t *testing.T) {
 	t.Parallel()
 
@@ -545,6 +583,20 @@ func TestValidateMediaAssetContentRejectsSVG(t *testing.T) {
 			)
 		})
 	}
+}
+
+func TestCreateMediaUploadSessionRejectsMalformedMimeType(t *testing.T) {
+	t.Parallel()
+
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	resp := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
+		"workspace_id": "ws-1",
+		"filename":     "cover.png",
+		"mime_type":    "not-a-mime",
+		"size":         12,
+	})
+	require.Equal(t, http.StatusBadRequest, resp.Code, resp.Body.String())
 }
 
 func TestCreateMediaUploadSessionAppliesTypeSpecificSizeLimits(t *testing.T) {

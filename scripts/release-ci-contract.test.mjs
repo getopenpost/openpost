@@ -22,6 +22,7 @@ import { readReleaseSurfaceManifest } from "./release-surfaces.mjs";
 
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 const release = readFileSync(".github/workflows/release.yml", "utf8");
+const screenshotRefresh = readFileSync(".github/workflows/screenshot-refresh.yml", "utf8");
 const releaseScript = readFileSync("scripts/release.mjs", "utf8");
 const workflows = readdirSync(".github/workflows", { withFileTypes: true })
   .filter((entry) => entry.isFile() && /\.(?:ya?ml)$/u.test(entry.name))
@@ -147,6 +148,17 @@ test("failed tags do not hide distribution changes from the next candidate", () 
 
 test("the marketing build checks out its canonical immutable frontend assets", () => {
   const checkout = load(ci).jobs["marketing-build"].steps.find((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  );
+  assert.ok(checkout);
+  assert.doesNotMatch(
+    checkout.with?.["sparse-checkout"] ?? "",
+    /!\/apps\/web\/static\/image-editor-models\//u,
+  );
+});
+
+test("the screenshot refresh checks out its canonical immutable frontend assets", () => {
+  const checkout = load(screenshotRefresh).jobs.refresh.steps.find((step) =>
     step.uses?.startsWith("actions/checkout@"),
   );
   assert.ok(checkout);

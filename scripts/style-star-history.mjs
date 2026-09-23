@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
-import { ditherThreshold } from "../apps/web/src/lib/components/dither/paint.ts";
+import { ditherThreshold } from "../packages/dither/src/paint.ts";
 
 const cellSize = 2;
 const themes = {
@@ -10,8 +10,8 @@ const themes = {
   dark: { ink: "#e6e0dc", rgb: [255, 153, 95] },
 };
 
-// Follow Dither Kit's per-column alpha falloff, using the app's Bayer thresholds.
-// Attribution and license: apps/web/src/lib/components/dither/NOTICE.md.
+// Follow Dither Kit's per-column alpha falloff, using the shared package's Bayer thresholds.
+// Attribution and license: packages/dither/NOTICE.md.
 async function areaTexture(curve, width, floor, rgb) {
   const columns = Math.ceil(width / cellSize);
   const rows = Math.ceil(floor / cellSize);

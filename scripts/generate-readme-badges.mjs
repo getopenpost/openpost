@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { ditherThreshold } from "../apps/web/src/lib/components/dither/paint.ts";
+import { ditherThreshold } from "../packages/dither/src/paint.ts";
 
 const DEFAULT_REPOSITORY = "getopenpost/openpost";
 const BADGE_NAMES = ["downloads", "release", "stars", "follow-dev"];

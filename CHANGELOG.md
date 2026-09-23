@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Publish the TypeScript SDK feature set as `@getopenpost/sdk` `0.3.0` instead of reusing the existing `0.2.0` package version.
+
 ## [6.1.0] - 2026-09-23
 
 ### Added

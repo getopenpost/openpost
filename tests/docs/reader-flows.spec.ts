@@ -281,3 +281,14 @@ test("older provider URLs resolve to the individual guides", async ({ request })
     expect(new URL(response.url()).pathname).toBe("/docs/self-hosting/integrations");
   }
 });
+
+test("retired self-hosting guide URL opens the current guide without a hydration error", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/self-hosting/integrations/instagram");
+  await expect(page).toHaveURL(/\/docs\/self-hosting\/integrations\/instagram$/);
+  await expect(page.getByRole("heading", { name: "Instagram", level: 1 })).toBeVisible();
+  expect(errors).toEqual([]);
+});

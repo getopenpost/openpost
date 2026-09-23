@@ -1988,7 +1988,11 @@
 			if (resolveError) {
 				throw new Error(resolveError.detail || m.compose_load_capabilities_failed());
 			}
-			if (requestSequence !== capabilityResolveRequestSequence) return;
+			if (
+				requestSequence !== capabilityResolveRequestSequence ||
+				inputSnapshot !== capabilityInputSnapshot
+			)
+				return;
 			const resolvedAccounts = data?.accounts ?? [];
 			resolvedCapabilities = Object.fromEntries(
 				resolvedAccounts.map((capability) => [capability.account_id, capability])
@@ -2028,7 +2032,11 @@
 			void loadRequiredDestinationOptions();
 		} catch (resolveError) {
 			if (abortController.signal.aborted) return;
-			if (requestSequence !== capabilityResolveRequestSequence) return;
+			if (
+				requestSequence !== capabilityResolveRequestSequence ||
+				inputSnapshot !== capabilityInputSnapshot
+			)
+				return;
 			capabilityResolveError =
 				resolveError instanceof Error ? resolveError.message : m.compose_load_capabilities_failed();
 		} finally {
@@ -4947,6 +4955,7 @@
 		};
 		newVariants.set(accountId, current);
 		variants = newVariants;
+		validationIssues = [];
 		scheduleAutoSave();
 	}
 
@@ -5229,6 +5238,7 @@
 		posts = posts.map((p, pi) => (pi === index ? { ...p, content: value } : p));
 		if (index === 0) linkUrl = firstComposerURL(value);
 		postBuilderError = '';
+		validationIssues = [];
 		scheduleAutoSave();
 	}
 

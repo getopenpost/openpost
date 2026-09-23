@@ -272,7 +272,7 @@ export class ComposerSession {
 				: draft
 		);
 		this.#draftVersion += 1;
-		this.#patch({ dirty: true, error: null });
+		this.#patch({ dirty: true, validationIssues: [], error: null });
 	}
 
 	async save(): Promise<ComposerPublication> {
@@ -415,13 +415,22 @@ export class ComposerSession {
 	async validate(): Promise<ValidationIssue[]> {
 		this.#requireActive();
 		const generation = this.#generation;
-		const publication = await this.#ensureSaved();
+		let publication = await this.#ensureSaved();
 		this.#requireGeneration(generation);
 		this.#patch({ phase: 'validating', error: null });
 		try {
-			const result = await this.#client.validate(publication.id);
-			if (generation === this.#generation) this.#patch({ validationIssues: result.issues });
-			return result.issues;
+			while (true) {
+				const draftVersion = this.#draftVersion;
+				const result = await this.#client.validate(publication.id);
+				if (generation !== this.#generation) return result.issues;
+				if (draftVersion !== this.#draftVersion) {
+					publication = await this.#ensureSaved();
+					this.#requireGeneration(generation);
+					continue;
+				}
+				this.#patch({ validationIssues: result.issues });
+				return result.issues;
+			}
 		} catch (cause) {
 			if (generation === this.#generation) this.#patch({ error: errorMessage(cause) });
 			throw cause;

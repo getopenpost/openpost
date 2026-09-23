@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-09-23
+
+### Added
+
+- Webhook intake results expose `body_authenticated`, reporting whether verification covered the raw request body. Header-only shared secrets report false; the flag describes the current request only.
+- `openpost doctor` checks local CLI configuration without contacting any instance: version, platform, profile, instance, token presence and source, workspace, and config paths. Token material never prints. It exits non-zero with guidance when the instance or token is missing.
+- TypeScript SDK: structured retry dispositions on every error (`never`, `after-delay`, `after-reconnect`, `reconcile-first`), JSON serialization, and a new `ambiguous` code for requests that may have executed. Drive retry buttons and automation from `disposition`, not the boolean alone.
+- TypeScript SDK: per-rendition outcome helpers. `describeRendition` requires the provider native id before reporting `published` and maps unprovable rows to `unknown`; `summarizePublication` reports `pending`, `complete`, or `partial`.
+- TypeScript SDK: a deterministic `@getopenpost/sdk/testing` mock with scenario-driven publish behavior (`immediate-success`, `processing-then-success`, `mixed-success-failure`, `rate-limited`, `reconnect-required`, `ambiguous-accept`), an `advance()` latch, operation history, and reset. The subpath is separate from the root import so production bundles never carry it.
+- TypeScript SDK: a bounded `iterateOffsetPages` helper for offset-paged lists with `maxPages` and `maxItems` guards.
+
+### Fixed
+
+- Controlled sliders no longer turn internal step normalization into edits, so Image Editor export previews no longer restart repeatedly because of a small quality rounding difference.
+- Old self-hosting guide links now open the corresponding documentation pages.
+- Media uploads with an empty filename or a malformed MIME declaration now fail before any byte is stored, at session reserve and every validation entry point.
+- Uploads whose bytes sniff as a specific contradicting type (for example declared images containing HTML, or declared video containing JPEG bytes) are rejected instead of silently adopted. Generic fallbacks stay allowed for device captures.
+- Saving an Image Editor design with a group layer no longer fails with a server error.
+- Keep automatically recovered marketing JavaScript import failures out of error tracking. Report failures that cannot reload and still need the visitor to retry.
+- Stop periodic Video Editor autosave when its local project file has disappeared. Keep the unsaved edit and the existing save error visible so the user can restore the workspace file and retry without repeated background failures.
+- Local Video Editor project creation now falls back to a direct file write when a browser rejects an atomic move from a stale handle.
+- YouTube uploads reject titles containing `<>` and descriptions over 5000 bytes before a resumable session is created.
+- LinkedIn rejects malformed post ids in publish responses instead of storing ids that can never be reconciled; a missing id stays accepted for reconciliation.
+- TikTok media URLs must parse as HTTPS with a host, no credentials, and no fragment. Custom ports stay allowed for self-hosted instances.
+- X posts containing characters the X API never accepts (U+FFFE, U+FEFF, U+FFFF) now fail validation before any upload or post is dispatched.
+- Bluesky posts trim trailing punctuation from link facets, drop overlapping facets instead of sending provider-rejected records, skip mentions with malformed DIDs, and enforce the 300-character and 3000-byte limits before the record is built.
+- A provider acceptance without a native post id or a reference to reconcile with no longer reports published. It stays pending with reconcile-only safety so it reconciles instead of retrying. Acceptances carrying a reconciliation reference (for example Instagram container flows) are unchanged.
+
 ## [6.0.4] - 2026-09-23
 
 ### Fixed

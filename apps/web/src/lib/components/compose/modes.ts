@@ -4,6 +4,7 @@ import { m } from '$lib/paraglide/messages';
 export const COMPOSER_MODE_KEYS = ['post', 'thread'] as const;
 
 const MEDIA_TEXT_LINK_PLATFORMS = new Set(['x', 'threads', 'mastodon', 'linkedin']);
+const NATIVE_LINK_SETTING_KEYS = ['url', 'link_url', 'link_title', 'link_description'] as const;
 
 export type ComposerModeKey = (typeof COMPOSER_MODE_KEYS)[number];
 
@@ -44,6 +45,27 @@ export type ComposerSettingValue =
 
 export interface ComposerSettings {
 	[key: string]: ComposerSettingValue;
+}
+
+export function effectiveDestinationSettings(
+	platform: string,
+	mode: ComposerModeKey,
+	linkUrl: string,
+	mediaCount: number,
+	settings: ComposerSettings
+): ComposerSettings {
+	const effective = { ...settings };
+	if (
+		linkUrl.trim() &&
+		!(
+			MEDIA_TEXT_LINK_PLATFORMS.has(getPlatformKey(platform)) &&
+			(mode === 'thread' || mediaCount > 0)
+		)
+	) {
+		return effective;
+	}
+	for (const key of NATIVE_LINK_SETTING_KEYS) delete effective[key];
+	return effective;
 }
 
 export interface PublicationMediaPayload {

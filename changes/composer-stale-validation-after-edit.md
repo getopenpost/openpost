@@ -1,3 +1,3 @@
 ### Fixed
 
-- Editing a post clears validation warnings from the previous draft, including unsupported URL warnings after a link is removed. Validation responses for older drafts no longer restore those warnings.
+- Removing a URL from a post also removes its hidden link settings from destination checks, so Threads does not keep reporting a link that is no longer in the post. Old validation responses no longer restore warnings after an edit.

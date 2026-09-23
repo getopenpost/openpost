@@ -136,6 +136,7 @@
 	} from './compose/schedule-timezone';
 	import {
 		buildPublicationPayload,
+		effectiveDestinationSettings,
 		type ComposerModeKey,
 		type ComposerPublicationPayload,
 		type ComposerSettings,
@@ -1226,7 +1227,13 @@
 		});
 	}
 	function settingsForAccount(account: SocialAccount): ComposerSettings {
-		return normalizeSettings(account, settingsByAccount[account.id] ?? {}, 'destination');
+		return effectiveDestinationSettings(
+			account.platform,
+			textComposerMode,
+			linkUrl,
+			posts.reduce((count, post) => count + post.mediaIds.length, 0),
+			normalizeSettings(account, settingsByAccount[account.id] ?? {}, 'destination')
+		);
 	}
 
 	function segmentSettingsForAccount(account: SocialAccount): ComposerSettings {

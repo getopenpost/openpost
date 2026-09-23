@@ -1,10 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { buildPublicationPayload } from './modes';
+import { buildPublicationPayload, effectiveDestinationSettings } from './modes';
 
 const youtube = { id: 'yt-1', platform: 'youtube', account_username: 'OpenPost' };
 const tiktok = { id: 'tt-1', platform: 'tiktok', account_username: 'openpost' };
 
 describe('publication composer payloads', () => {
+	it('omits a stored native URL from Threads capability settings after removing the link', () => {
+		expect(
+			effectiveDestinationSettings('threads', 'thread', '', 0, {
+				url: 'https://example.com',
+				reply_settings: 'everyone'
+			})
+		).toEqual({ reply_settings: 'everyone' });
+	});
+
+	it('keeps a native URL for a link share but not for a Threads thread', () => {
+		const settings = { url: 'https://example.com' };
+		expect(
+			effectiveDestinationSettings('threads', 'post', 'https://example.com', 0, settings)
+		).toEqual(settings);
+		expect(
+			effectiveDestinationSettings('threads', 'thread', 'https://example.com', 0, settings)
+		).toEqual({});
+		expect(
+			effectiveDestinationSettings('threads', 'post', 'https://example.com', 1, settings)
+		).toEqual({});
+	});
 	it('keeps inline URLs in media posts without serializing native link settings', () => {
 		const accounts = [
 			{ id: 'threads-1', platform: 'threads', account_username: 'openpost' },

@@ -609,6 +609,30 @@ func TestNormalizeMediaTextLinkSettingsPreservesInput(t *testing.T) {
 	require.Equal(t, settings, unknownProvider)
 }
 
+func TestResolveDropsStaleNativeLinkSettingsOutsideLinkShare(t *testing.T) {
+	thread, ok := Find(ProviderThreads, models.ContentProfileThread)
+	require.True(t, ok)
+	resolved := Resolve(ProviderThreads, ResolveInput{
+		CreationPreset:         IntentThread,
+		RequestedOutputProfile: thread.OutputProfile,
+		Settings:               map[string]any{"url": "https://example.com", "reply_control": "everyone"},
+		Segments:               []ResolveSegment{{ID: "segment-1", Body: "A thread without a link"}},
+	})
+
+	require.Equal(t, models.ContentProfileThread, resolved.Profile)
+	requireNoIssueCode(t, resolved.Issues, "unsupported_setting")
+
+	linkResolved := Resolve(ProviderThreads, ResolveInput{
+		CreationPreset: IntentPost,
+		SourceURL:      "https://example.com",
+		Settings:       map[string]any{"url": "https://example.com"},
+		Segments:       []ResolveSegment{{ID: "segment-1", Body: "A link share"}},
+	})
+
+	require.Equal(t, models.ContentProfileLinkShare, linkResolved.Profile)
+	requireNoIssueCode(t, linkResolved.Issues, "unsupported_setting")
+}
+
 func TestProviderSettingsRejectCrossProviderKeys(t *testing.T) {
 	t.Parallel()
 

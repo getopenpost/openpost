@@ -755,6 +755,7 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 		activeSettings = commonDefaultSettings(catalog, provider, selected.OutputProfile, activeSettings)
 	}
 	selected.Settings = activeSettings
+	effectiveSettings := NormalizeResolvedSettings(provider, selected.Profile, input.Settings)
 	segmentStrategy := destinationSegmentStrategy(*selected, len(input.Segments))
 	effectiveSegments := destinationSegments(input.Segments, segmentStrategy)
 	for _, segment := range effectiveSegments {
@@ -764,7 +765,7 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 			segment.Title,
 			"",
 			segment.Media,
-			input.Settings,
+			effectiveSettings,
 		)
 		for index := range segmentIssues {
 			segmentIssues[index].SegmentID = segment.ID
@@ -1454,6 +1455,36 @@ func NormalizeMediaTextLinkSettings(provider string, mediaCount int, settings ma
 	default:
 		return settings
 	}
+}
+
+// NormalizeResolvedSettings keeps stale native link fields from a previous
+// destination format from failing capability resolution. Native link fields
+// are valid for the explicit link-share format only on providers that expose
+// them there.
+func NormalizeResolvedSettings(provider, profile string, settings map[string]any) map[string]any {
+	if len(settings) == 0 || profile == models.ContentProfileLinkShare {
+		return settings
+	}
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case ProviderX, ProviderThreads, ProviderMastodon, ProviderLinkedIn:
+		var normalized map[string]any
+		for _, key := range []string{"url", "link_url", "link_title", "link_description"} {
+			if _, ok := settings[key]; !ok {
+				continue
+			}
+			if normalized == nil {
+				normalized = make(map[string]any, len(settings))
+				for existingKey, value := range settings {
+					normalized[existingKey] = value
+				}
+			}
+			delete(normalized, key)
+		}
+		if normalized != nil {
+			return normalized
+		}
+	}
+	return settings
 }
 
 func ValidateOutput(provider, outputProfile, fallbackProfile, body, title, description string, media []MediaItem, settings map[string]any) []ValidationIssue {

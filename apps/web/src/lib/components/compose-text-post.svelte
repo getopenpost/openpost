@@ -136,7 +136,6 @@
 	} from './compose/schedule-timezone';
 	import {
 		buildPublicationPayload,
-		effectiveDestinationSettings,
 		type ComposerModeKey,
 		type ComposerPublicationPayload,
 		type ComposerSettings,
@@ -1227,13 +1226,7 @@
 		});
 	}
 	function settingsForAccount(account: SocialAccount): ComposerSettings {
-		return effectiveDestinationSettings(
-			account.platform,
-			textComposerMode,
-			linkUrl,
-			posts.reduce((count, post) => count + post.mediaIds.length, 0),
-			normalizeSettings(account, settingsByAccount[account.id] ?? {}, 'destination')
-		);
+		return normalizeSettings(account, settingsByAccount[account.id] ?? {}, 'destination');
 	}
 
 	function segmentSettingsForAccount(account: SocialAccount): ComposerSettings {
@@ -1995,11 +1988,7 @@
 			if (resolveError) {
 				throw new Error(resolveError.detail || m.compose_load_capabilities_failed());
 			}
-			if (
-				requestSequence !== capabilityResolveRequestSequence ||
-				inputSnapshot !== capabilityInputSnapshot
-			)
-				return;
+			if (requestSequence !== capabilityResolveRequestSequence) return;
 			const resolvedAccounts = data?.accounts ?? [];
 			resolvedCapabilities = Object.fromEntries(
 				resolvedAccounts.map((capability) => [capability.account_id, capability])
@@ -2039,11 +2028,7 @@
 			void loadRequiredDestinationOptions();
 		} catch (resolveError) {
 			if (abortController.signal.aborted) return;
-			if (
-				requestSequence !== capabilityResolveRequestSequence ||
-				inputSnapshot !== capabilityInputSnapshot
-			)
-				return;
+			if (requestSequence !== capabilityResolveRequestSequence) return;
 			capabilityResolveError =
 				resolveError instanceof Error ? resolveError.message : m.compose_load_capabilities_failed();
 		} finally {
@@ -4962,7 +4947,6 @@
 		};
 		newVariants.set(accountId, current);
 		variants = newVariants;
-		validationIssues = [];
 		scheduleAutoSave();
 	}
 
@@ -5245,7 +5229,6 @@
 		posts = posts.map((p, pi) => (pi === index ? { ...p, content: value } : p));
 		if (index === 0) linkUrl = firstComposerURL(value);
 		postBuilderError = '';
-		validationIssues = [];
 		scheduleAutoSave();
 	}
 

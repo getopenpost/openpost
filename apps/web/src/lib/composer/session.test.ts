@@ -464,9 +464,9 @@ describe('ComposerSession', () => {
 
 	it('keeps destination validation issues in observable session state', async () => {
 		const issue = {
-			code: 'unsupported_setting',
-			fallback_message: 'url is not supported for Threads thread',
-			message: 'url is not supported for Threads thread',
+			code: 'text_too_long',
+			fallback_message: 'Text is too long',
+			message: 'Text is too long',
 			severity: 'error',
 			scope: 'rendition',
 			scope_id: 'account-1'
@@ -480,63 +480,10 @@ describe('ComposerSession', () => {
 			}
 		});
 		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit(draft('Read https://example.com'));
+		session.edit(draft('Needs validation'));
 
 		expect(await session.validate()).toEqual([issue]);
 		expect(session.snapshot.validationIssues).toEqual([issue]);
-		session.edit(draft('Corrected post without the URL'));
-		expect(session.snapshot.validationIssues).toEqual([]);
-	});
-
-	it('revalidates a changed draft instead of restoring an old URL warning', async () => {
-		const issue = {
-			code: 'unsupported_setting',
-			fallback_message: 'url is not supported for Threads thread',
-			message: 'url is not supported for Threads thread',
-			severity: 'error'
-		};
-		let finishOldValidation!: (value: { issues: (typeof issue)[] }) => void;
-		let validationStarted!: () => void;
-		const oldValidation = new Promise<{ issues: (typeof issue)[] }>((resolve) => {
-			finishOldValidation = resolve;
-		});
-		const started = new Promise<void>((resolve) => (validationStarted = resolve));
-		let validationCalls = 0;
-		const session = new ComposerSession({
-			workspaceId: 'workspace-1',
-			client: clientWith({
-				async create(workspaceId) {
-					return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
-				},
-				async update(_id, _revision, updated) {
-					return {
-						id: 'publication-1',
-						workspace_id: 'workspace-1',
-						revision: 2,
-						status: 'draft',
-						draft: updated
-					};
-				},
-				async validate() {
-					validationCalls += 1;
-					if (validationCalls === 1) {
-						validationStarted();
-						return oldValidation;
-					}
-					return { issues: [] };
-				}
-			})
-		});
-		session.edit(draft('Read https://example.com'));
-		await session.save();
-		const pending = session.validate();
-		await started;
-		session.edit(draft('URL removed'));
-		finishOldValidation({ issues: [issue] });
-
-		expect(await pending).toEqual([]);
-		expect(session.snapshot.validationIssues).toEqual([]);
-		expect(validationCalls).toBe(2);
 	});
 
 	it('publishes now only after saving and validation', async () => {

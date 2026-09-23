@@ -1,6 +1,7 @@
 package botingress
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -104,6 +105,47 @@ func TestConnectionNonceExpiryReplayBadSecretAndCrossRoleConsumption(t *testing.
 	require.Len(t, stored.NonceHash, 64)
 	require.NotContains(t, fmt.Sprintf("%+v", stored), issued.Credential)
 	require.NotContains(t, fmt.Sprintf("%+v", stored), testSigningKey)
+}
+
+func TestAcceptResultReportsBodyAuthenticationHonestly(t *testing.T) {
+	web, _, now := newBotIngressServices(t)
+	normalizer := NormalizeFunc(func([]byte) (NormalizedEvent, error) {
+		return NormalizedEvent{
+			ProviderEventID: "provider-update-body-auth", Kind: "message.received",
+			WorkspaceID: "workspace-1", SubjectReference: "chat-7", OccurredAt: now,
+		}, nil
+	})
+
+	headerOnly, err := web.Accept(t.Context(), AcceptRequest{
+		Provider: "telegram", Body: []byte(`{"update_id":"provider-update-body-auth"}`),
+		Normalizer: normalizer,
+		Verifier:   SecretHeaderVerifier{HeaderName: "X-Bot-Secret", Secret: testWebhookSecret},
+		Headers:    http.Header{"X-Bot-Secret": []string{testWebhookSecret}},
+	})
+	require.NoError(t, err)
+	require.False(t, headerOnly.BodyAuthenticated)
+
+	bodyChecked, err := web.Accept(t.Context(), AcceptRequest{
+		Provider: "telegram", Body: []byte(`{"update_id":"provider-update-body-auth"}`),
+		Normalizer: normalizer,
+		Verifier:   bodyCheckingVerifier{expected: `{"update_id":"provider-update-body-auth"}`},
+		Headers:    http.Header{},
+	})
+	require.NoError(t, err)
+	require.True(t, bodyChecked.BodyAuthenticated)
+	require.Equal(t, headerOnly.EventID, bodyChecked.EventID)
+	require.True(t, bodyChecked.Duplicate)
+}
+
+type bodyCheckingVerifier struct {
+	expected string
+}
+
+func (verifier bodyCheckingVerifier) Verify(_ http.Header, body []byte) error {
+	if subtle.ConstantTimeCompare(body, []byte(verifier.expected)) != 1 {
+		return ErrInvalidSignature
+	}
+	return nil
 }
 
 func TestSignedIngressVerifiesBeforeNormalizationAndQueuesOneSafeReference(t *testing.T) {

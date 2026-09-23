@@ -77,6 +77,11 @@ type AcceptRequest struct {
 type AcceptResult struct {
 	EventID   string `json:"event_id"`
 	Duplicate bool   `json:"duplicate"`
+	// BodyAuthenticated reports whether verification covered the raw
+	// request body. A shared-secret header proves the sender holds the
+	// secret but says nothing about body integrity; consumers must not
+	// treat header-only acceptance as body authentication.
+	BodyAuthenticated bool `json:"body_authenticated"`
 }
 
 func (s *Service) Accept(ctx context.Context, request AcceptRequest) (AcceptResult, error) {
@@ -86,6 +91,7 @@ func (s *Service) Accept(ctx context.Context, request AcceptRequest) (AcceptResu
 	}
 	result, err := s.persistEvent(ctx, event, claims, now)
 	if err == nil {
+		result.BodyAuthenticated = verifierAuthenticatesBody(request.Verifier)
 		return result, nil
 	}
 	var safe *SafeError
@@ -93,6 +99,19 @@ func (s *Service) Accept(ctx context.Context, request AcceptRequest) (AcceptResu
 		return AcceptResult{}, safe
 	}
 	return AcceptResult{}, ErrIngressUnavailable
+}
+
+// verifierAuthenticatesBody reports whether verification covers the raw
+// request body. SecretHeaderVerifier compares one header and ignores the
+// body entirely; any other SignatureVerifier is expected to bind the body
+// (typically an HMAC over the raw bytes).
+func verifierAuthenticatesBody(verifier SignatureVerifier) bool {
+	switch verifier.(type) {
+	case SecretHeaderVerifier, *SecretHeaderVerifier:
+		return false
+	default:
+		return verifier != nil
+	}
 }
 
 func (s *Service) prepareEvent(request AcceptRequest) (*models.BotIngressEvent, credentialClaims, time.Time, error) {

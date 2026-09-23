@@ -10,6 +10,7 @@
 /self-hosting https://openpo.st/docs/self-hosting 301
 /self-hosting/ https://openpo.st/docs/self-hosting 301
 /self-hosting.md https://openpo.st/docs/self-hosting/index.md 301
+/self-hosting/* https://openpo.st/docs/self-hosting/:splat 301
 /guides/self-hosted-social-media-schedulers https://openpo.st/docs/self-hosting 301
 /guides/self-hosted-social-media-schedulers.md https://openpo.st/docs/self-hosting/index.md 301
 /guides/social-media-tools-with-api-and-mcp https://openpo.st/docs/automate 301

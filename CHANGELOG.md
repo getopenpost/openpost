@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.0.3] - 2026-09-23
+
+### Fixed
+
+- Removing a URL from a post also removes its hidden link settings from destination checks, so Threads does not keep reporting a link that is no longer in the post. Old validation responses no longer restore warnings after an edit.
+
 ## [6.0.2] - 2026-09-23
 
 ### Changed

@@ -98,6 +98,7 @@ func NewRoot(version string) *cobra.Command {
 	root.AddCommand(newJobsCmd())
 	root.AddCommand(newBillingCmd())
 	root.AddCommand(newCompletionCmd())
+	root.AddCommand(newDoctorCmd())
 	root.AddCommand(newVersionCmd(version))
 
 	return root

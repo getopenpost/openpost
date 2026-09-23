@@ -8,8 +8,13 @@ export type OpenPostErrorCode =
   | "rate_limited"
   | "server"
   | "operation_failed"
+  | "ambiguous"
   | "timeout"
   | "network";
+
+// Retry dispositions tell automation what to do next. `reconcile-first`
+// means the request may have executed (for example the response was lost
+// after dispatch): re-read state before retrying, never blind-retry.
 
 export interface OpenPostErrorOptions {
   status?: number | undefined;
@@ -65,6 +70,37 @@ export function retryAfterMsFromHeaders(headers: Headers): number | undefined {
   return Math.min(seconds, 60) * 1000;
 }
 
+export type OpenPostRetryDisposition =
+  | "never"
+  | "after-delay"
+  | "after-reconnect"
+  | "reconcile-first";
+
+// dispositionFor maps an error code to structured retry guidance. HTTP
+// mutations are never auto-retried by the client, so `timeout` and
+// `network` mean after-delay only when the caller can prove idempotency
+// (for example a read, or a write guarded by an idempotency key).
+export function dispositionFor(code: OpenPostErrorCode): OpenPostRetryDisposition {
+  switch (code) {
+    case "rate_limited":
+    case "server":
+    case "timeout":
+    case "network":
+      return "after-delay";
+    case "unauthorized":
+      return "after-reconnect";
+    case "ambiguous":
+      return "reconcile-first";
+    case "missing_config":
+    case "forbidden":
+    case "not_found":
+    case "conflict":
+    case "validation":
+    case "operation_failed":
+      return "never";
+  }
+}
+
 export class OpenPostError extends Error {
   readonly status: number | undefined;
   readonly code: OpenPostErrorCode;
@@ -87,5 +123,31 @@ export class OpenPostError extends Error {
       this.code === "timeout" ||
       this.code === "network"
     );
+  }
+
+  // Structured retry guidance derived from the code. `ambiguous` is never
+  // retryable: reconcile first, then decide.
+  get disposition(): OpenPostRetryDisposition {
+    return dispositionFor(this.code);
+  }
+
+  toJSON(): {
+    name: string;
+    message: string;
+    code: OpenPostErrorCode;
+    status: number | undefined;
+    retryAfterMs: number | undefined;
+    disposition: OpenPostRetryDisposition;
+    details: unknown;
+  } {
+    return {
+      name: this.name,
+      message: this.message,
+      code: this.code,
+      status: this.status,
+      retryAfterMs: this.retryAfterMs,
+      disposition: this.disposition,
+      details: this.details,
+    };
   }
 }

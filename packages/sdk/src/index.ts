@@ -61,8 +61,8 @@ export class OpenPost {
 
 export { HttpClient } from "./client.js";
 export type { OpenPostClientOptions } from "./client.js";
-export { OpenPostError } from "./errors.js";
-export type { OpenPostErrorCode } from "./errors.js";
+export { OpenPostError, dispositionFor } from "./errors.js";
+export type { OpenPostErrorCode, OpenPostRetryDisposition } from "./errors.js";
 export type { PublicationSegmentInput, RenditionSegmentInput } from "./types.js";
 export { SDK_VERSION } from "./version.js";
 export type {
@@ -96,3 +96,12 @@ export type {
   Workspace,
 } from "./types.js";
 export type { MediaAssetKind, MediaSource, UploadMediaInput } from "./resources/media.js";
+export { describeRendition, summarizePublication } from "./outcomes.js";
+export type {
+  PublicationOutcomeSummary,
+  PublicationSummary,
+  RenditionOutcome,
+  RenditionOutcomeState,
+} from "./outcomes.js";
+export { iterateOffsetPages } from "./pagination.js";
+export type { OffsetPageOptions } from "./pagination.js";

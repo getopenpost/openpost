@@ -76,7 +76,10 @@
       "fumadocs": { "entry": [] },
     },
     "packages/*": {
-      "entry": ["src/index.{js,mjs,ts}!"],
+      // Optional subpath roots (for example the SDK mock under
+      // `@getopenpost/sdk/testing`) are production entries even though the
+      // package root never imports them; that keeps the root import small.
+      "entry": ["src/index.{js,mjs,ts}!", "src/testing/index.{js,mjs,ts}!"],
       "project": ["src/**/*.{js,mjs,ts}!", "!src/**/*.{test,spec}.{js,mjs,ts}!"],
     },
   },

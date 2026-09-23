@@ -98,18 +98,74 @@ try {
 }
 ```
 
-| Code             | HTTP      | Retry?                                  |
-| ---------------- | --------- | --------------------------------------- |
-| `missing_config` | —         | no, set token/workspace                 |
-| `unauthorized`   | 401       | no                                      |
-| `forbidden`      | 403       | no                                      |
-| `not_found`      | 404       | no                                      |
-| `conflict`       | 409       | no, re-read first                       |
-| `validation`     | 400 / 422 | no, fix the input                       |
-| `rate_limited`   | 429       | yes (`retryAfterMs`)                    |
-| `server`         | 5xx       | GET retries once; mutations never retry |
-| `timeout`        | —         | caller decides                          |
-| `network`        | —         | caller decides                          |
+Every error carries a `disposition` automation can switch on (`never` |
+`after-delay` | `after-reconnect` | `reconcile-first`). `reconcile-first`
+means the request may have executed: re-read state before retrying, never
+blind-retry. `toJSON()` serializes the code, status, disposition, and
+details.
+
+| Code             | HTTP      | Disposition       | Retry?                                  |
+| ---------------- | --------- | ----------------- | --------------------------------------- |
+| `missing_config` | —         | `never`           | no, set token/workspace                 |
+| `unauthorized`   | 401       | `after-reconnect` | no, reconnect first                     |
+| `forbidden`      | 403       | `never`           | no                                      |
+| `not_found`      | 404       | `never`           | no                                      |
+| `conflict`       | 409       | `never`           | no, re-read first                       |
+| `validation`     | 400 / 422 | `never`           | no, fix the input                       |
+| `rate_limited`   | 429       | `after-delay`     | yes (`retryAfterMs`)                    |
+| `server`         | 5xx       | `after-delay`     | GET retries once; mutations never retry |
+| `ambiguous`      | —         | `reconcile-first` | no, reconcile first                     |
+| `timeout`        | —         | `after-delay`     | caller decides                          |
+| `network`        | —         | `after-delay`     | caller decides                          |
+
+## Outcomes
+
+Renditions are the per-destination truth. `describeRendition` maps one
+rendition to an exhaustive outcome: `published` requires the provider
+native id, a `published` row without one (or a `failed` row with no error
+detail) reports `unknown` with a `reconcile-first` disposition.
+`summarizePublication` derives one aggregate (`pending` | `complete` |
+`partial`); partial success is first-class, so mixed results never read
+as `published`.
+
+```ts
+import { describeRendition, summarizePublication } from "@getopenpost/sdk";
+
+const summary = summarizePublication(publication);
+if (summary.status === "partial") {
+  for (const outcome of summary.outcomes) {
+    console.log(outcome.state, outcome.disposition);
+  }
+}
+```
+
+## Testing
+
+`@getopenpost/sdk/testing` ships a deterministic mock of the automation
+surface: no network, fixed ids and timestamps, and one scenario string
+plus an `advance()` latch for async pipelines. The subpath is separate
+from the root import so production bundles never carry it.
+
+```ts
+import { MockOpenPost } from "@getopenpost/sdk/testing";
+
+const mock = new MockOpenPost("processing-then-success");
+const draft = await mock.publications.create({
+  workspace_id: "ws_...",
+  title: "Launch",
+  content_profile: "short_text",
+  source_text: "We shipped.",
+  social_account_ids: ["acc_..."],
+});
+await mock.publications.publishNow(draft.id, draft.revision);
+mock.advance(); // complete pending provider work without timers
+const done = await mock.publications.wait(draft.id);
+```
+
+Scenarios: `immediate-success`, `processing-then-success`,
+`mixed-success-failure`, `rate-limited`, `reconnect-required`,
+`ambiguous-accept`. `history()` records every operation with a sequence
+number; `reset()` clears state and counters.
 
 ## Automation surface
 

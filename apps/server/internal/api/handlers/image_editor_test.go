@@ -150,6 +150,30 @@ func TestImageEditorPageColorGradeRequiresVersionAndBoundedValues(t *testing.T) 
 	require.ErrorContains(t, validateImageEditorPayload(document), "must be between -1 and 1")
 }
 
+func TestImageEditorUpdateAcceptsGroupWithoutEffects(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	create := &CreateImageEditorDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Layer validation"
+	create.Body.PresetKey = "instagram-square"
+	created, err := handler.createDesign(ctx, create)
+	require.NoError(t, err)
+
+	update := &UpdateImageEditorDesignInput{PathID: created.Body.ID}
+	update.Body.ExpectedRevision = created.Body.Revision
+	update.Body.Document = created.Body.Document
+	update.Body.Document.Pages[0].Layers = append(update.Body.Document.Pages[0].Layers, ImageEditorLayer{
+		ID: "group-1", Type: "group", Name: "Group", Visible: true, Opacity: 1,
+	})
+
+	saved, err := handler.updateDesign(ctx, update)
+	require.NoError(t, err)
+	require.Equal(t, 2, saved.Body.Revision)
+	require.Len(t, saved.Body.Document.Pages[0].Layers, 1)
+	require.Nil(t, saved.Body.Document.Pages[0].Layers[0].Effects)
+}
+
 func newImageEditorHandlerTest(t *testing.T) (*ImageEditorHandler, context.Context) {
 	t.Helper()
 	db := createHandlerTestDB(t,

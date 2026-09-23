@@ -2320,6 +2320,9 @@ func validateImageEditorLayerOverlays(layer ImageEditorLayer) error {
 }
 
 func validateImageEditorLayerEffects(layer ImageEditorLayer) error {
+	if layer.Effects == nil {
+		return nil
+	}
 	if !oneOfImageEditorString(layer.Effects.BlendMode, "normal", "multiply", "screen", "overlay", "darken", "lighten", "soft_light") {
 		return fmt.Errorf("image editor layer blend mode is invalid")
 	}

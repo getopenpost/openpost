@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.0.2] - 2026-09-23
+
 ### Changed
 
 - Show saved OpenPost and local projects together in Image Editor, Video Editor, and Quick Cut, with compact storage and sync status. The storage choice now controls where new projects are saved.
@@ -12,6 +14,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Newly connected instance-based social accounts now resolve their provider adapters immediately across composer options, capability checks, publication validation, comments, and MCP instead of waiting for a server restart. This covers Lemmy, PeerTube, PieFed, Bluesky PDS, Mastodon, and Pixelfed accounts.
+- Instagram connection failures now explain when Meta returns no Business or Creator account linked to a Facebook Page the connecting person can manage.
+- Treat an Instagram professional account's own comments as ours when collecting engagement, so they are not stored as incoming inbox items.
 - Keep Quick Cut timeline scrubbing responsive by coalescing decoder seeks while moving the playhead immediately.
 - Preserve local Quick Cut project links across reloads and keep valid projects visible when another local project is unreadable.
 - Keep cloud image designs accessible when the local library cannot load.

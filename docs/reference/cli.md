@@ -37,22 +37,23 @@ openpost [flags]
 
 **Subcommands**
 
-| Command                | Description                                          |
-| ---------------------- | ---------------------------------------------------- |
-| `openpost account`     | Manage connected social accounts                     |
-| `openpost auth`        | Authenticate with an OpenPost instance               |
-| `openpost billing`     | Manage Hosted service billing                        |
-| `openpost completion`  | Generate shell completion script                     |
-| `openpost instance`    | Manage OpenPost instance profiles                    |
-| `openpost jobs`        | List background jobs                                 |
-| `openpost media`       | Upload and list media attachments                    |
-| `openpost post`        | Create, list, view, update, and delete posts         |
-| `openpost provider`    | Inspect provider availability and publishing support |
-| `openpost publication` | Create, list, validate, and publish publications     |
-| `openpost schedule`    | Manage reusable posting schedule slots               |
-| `openpost thread`      | Create multi-post threads                            |
-| `openpost version`     | Print the openpost CLI version                       |
-| `openpost workspace`   | Manage the active OpenPost workspace                 |
+| Command                | Description                                                  |
+| ---------------------- | ------------------------------------------------------------ |
+| `openpost account`     | Manage connected social accounts                             |
+| `openpost auth`        | Authenticate with an OpenPost instance                       |
+| `openpost billing`     | Manage Hosted service billing                                |
+| `openpost completion`  | Generate shell completion script                             |
+| `openpost doctor`      | Check local CLI configuration without contacting an instance |
+| `openpost instance`    | Manage OpenPost instance profiles                            |
+| `openpost jobs`        | List background jobs                                         |
+| `openpost media`       | Upload and list media attachments                            |
+| `openpost post`        | Create, list, view, update, and delete posts                 |
+| `openpost provider`    | Inspect provider availability and publishing support         |
+| `openpost publication` | Create, list, validate, and publish publications             |
+| `openpost schedule`    | Manage reusable posting schedule slots                       |
+| `openpost thread`      | Create multi-post threads                                    |
+| `openpost version`     | Print the openpost CLI version                               |
+| `openpost workspace`   | Manage the active OpenPost workspace                         |
 
 ### `openpost account`
 
@@ -478,6 +479,29 @@ Output a shell completion script for the given shell. To load completions: Bash:
 
 ```text
 openpost completion &lt;bash\|zsh\|fish\|powershell&gt;
+```
+
+**Inherited Flags**
+
+| Flag          | Default | Description                                                        |
+| ------------- | ------- | ------------------------------------------------------------------ |
+| `--instance`  | `-`     | OpenPost instance URL (default: profile or $OPENPOST_INSTANCE)     |
+| `--json`      | `false` | emit machine-readable JSON instead of tables/prose                 |
+| `--no-color`  | `false` | disable ANSI colors                                                |
+| `--profile`   | `-`     | profile name from config (default: $OPENPOST_PROFILE or 'default') |
+| `--quiet`     | `false` | suppress non-error output                                          |
+| `--token`     | `-`     | API token override (default: keyring or $OPENPOST_TOKEN)           |
+| `--workspace` | `-`     | workspace name or ID (default: profile or $OPENPOST_WORKSPACE)     |
+| `--yes`       | `false` | skip interactive confirmations                                     |
+
+### `openpost doctor`
+
+Check local CLI configuration without contacting an instance
+
+**Usage**
+
+```text
+openpost doctor
 ```
 
 **Inherited Flags**

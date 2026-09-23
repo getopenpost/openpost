@@ -764,8 +764,12 @@ func (x *XAdapter) Unrepost(ctx context.Context, accessToken, targetAccountID st
 }
 
 func buildXTweetPayload(req *PublishRequest) (map[string]interface{}, error) {
+	text := ContentWithSettingURL(req.Content, req.Settings)
+	if err := validateXTweetText(text); err != nil {
+		return nil, err
+	}
 	payload := map[string]interface{}{
-		jsonFieldText: ContentWithSettingURL(req.Content, req.Settings),
+		jsonFieldText: text,
 	}
 
 	attachmentKinds := 0
@@ -905,6 +909,16 @@ func xPollOptions(settings map[string]interface{}) []string {
 		}
 	}
 	return options
+}
+
+// validateXTweetText rejects characters X never accepts in post text.
+// U+FFFE, U+FEFF, and U+FFFF fail server-side, so they fail here before
+// any upload or mutation is dispatched.
+func validateXTweetText(text string) error {
+	if strings.ContainsAny(text, "\uFFFE\uFEFF\uFFFF") {
+		return fmt.Errorf("x post text contains characters X does not accept")
+	}
+	return nil
 }
 
 func validXReplySettings(value string) bool {

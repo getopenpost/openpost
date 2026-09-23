@@ -123,6 +123,22 @@ func TestBuildXTweetPayloadRejectsMutuallyExclusiveAttachments(t *testing.T) {
 	}
 }
 
+func TestBuildXTweetPayloadRejectsInvalidCharacters(t *testing.T) {
+	for _, text := range []string{"bad\uFFFEchar", "bad\uFEFFchar", "bad\uFFFFchar"} {
+		_, err := buildXTweetPayload(&PublishRequest{Content: text})
+		if err == nil {
+			t.Fatalf("expected invalid characters in %q to be rejected", text)
+		}
+	}
+	payload, err := buildXTweetPayload(&PublishRequest{Content: "Hello, world! \U0001F44B"})
+	if err != nil {
+		t.Fatalf("valid text rejected: %v", err)
+	}
+	if payload["text"] != "Hello, world! \U0001F44B" {
+		t.Fatalf("unexpected payload text: %#v", payload["text"])
+	}
+}
+
 func TestXResolveAccountPublishingCapabilitiesReadsAuthenticatedSubscription(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/2/users/me" {

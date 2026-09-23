@@ -17,6 +17,7 @@ import (
 
 	"github.com/openpost/backend/internal/netguard"
 	"github.com/openpost/backend/internal/providerlimits"
+	"github.com/rivo/uniseg"
 )
 
 type BlueskyAdapter struct {
@@ -822,6 +823,9 @@ func extractBlueskyRecordKey(externalID string) string {
 }
 
 func (b *BlueskyAdapter) buildPostRecord(_ string, req *PublishRequest, createdAt time.Time) (map[string]interface{}, error) {
+	if err := validateBlueskyText(req.Content); err != nil {
+		return nil, err
+	}
 	record := map[string]interface{}{
 		bskyRecordTypeField: "app.bsky.feed.post",
 		jsonFieldText:       req.Content,
@@ -993,25 +997,67 @@ var (
 	blueskyMentionPattern = regexp.MustCompile(`@([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?`)
 	blueskyHandlePattern  = regexp.MustCompile(`(?i)^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 	blueskyTagPattern     = regexp.MustCompile(`#[A-Za-z0-9_]+`)
+	blueskyDIDPattern     = regexp.MustCompile(`^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$`)
 )
 
+const (
+	blueskyMaxGraphemes = 300
+	blueskyMaxBytes     = 3000
+)
+
+// validateBlueskyText enforces the post length the relay enforces: 300
+// graphemes and 3000 UTF-8 bytes. It fails before any record is built so
+// oversized text never reaches the PDS.
+func validateBlueskyText(text string) error {
+	if len(text) > blueskyMaxBytes {
+		return fmt.Errorf("bluesky post text exceeds %d bytes", blueskyMaxBytes)
+	}
+	graphemes := 0
+	clusters := uniseg.NewGraphemes(text)
+	for clusters.Next() {
+		graphemes++
+	}
+	if graphemes > blueskyMaxGraphemes {
+		return fmt.Errorf("bluesky post text exceeds %d characters", blueskyMaxGraphemes)
+	}
+	return nil
+}
+
+type blueskyFacetCandidate struct {
+	start int
+	end   int
+	facet map[string]interface{}
+}
+
 func buildBlueskyFacets(text string, settings map[string]interface{}) []map[string]interface{} {
-	facets := []map[string]interface{}{}
+	candidates := []blueskyFacetCandidate{}
 	for _, match := range blueskyURLPattern.FindAllStringIndex(text, -1) {
 		start, end := match[0], match[1]
-		uri := text[start:end]
-		facets = append(facets, blueskyFacet(start, end, map[string]string{
-			bskyRecordTypeField: "app.bsky.richtext.facet#link",
-			"uri":               uri,
-		}))
+		uri := strings.TrimRight(text[start:end], ".,;:!?\")']}")
+		if uri == "" {
+			continue
+		}
+		end = start + len(uri)
+		candidates = append(candidates, blueskyFacetCandidate{
+			start: start,
+			end:   end,
+			facet: blueskyFacet(start, end, map[string]string{
+				bskyRecordTypeField: "app.bsky.richtext.facet#link",
+				"uri":               uri,
+			}),
+		})
 	}
 
 	for _, match := range blueskyTagPattern.FindAllStringIndex(text, -1) {
 		start, end := match[0], match[1]
-		facets = append(facets, blueskyFacet(start, end, map[string]string{
-			bskyRecordTypeField: "app.bsky.richtext.facet#tag",
-			"tag":               text[start+1 : end],
-		}))
+		candidates = append(candidates, blueskyFacetCandidate{
+			start: start,
+			end:   end,
+			facet: blueskyFacet(start, end, map[string]string{
+				bskyRecordTypeField: "app.bsky.richtext.facet#tag",
+				"tag":               text[start+1 : end],
+			}),
+		})
 	}
 
 	mentionDIDs := blueskyMentionDIDs(settings)
@@ -1019,15 +1065,36 @@ func buildBlueskyFacets(text string, settings map[string]interface{}) []map[stri
 		start, end := match[0], match[1]
 		handle := strings.ToLower(strings.TrimPrefix(text[start:end], "@"))
 		did := mentionDIDs[handle]
-		if did == "" {
+		if did == "" || !blueskyDIDPattern.MatchString(did) {
 			continue
 		}
-		facets = append(facets, blueskyFacet(start, end, map[string]string{
-			bskyRecordTypeField: "app.bsky.richtext.facet#mention",
-			"did":               did,
-		}))
+		candidates = append(candidates, blueskyFacetCandidate{
+			start: start,
+			end:   end,
+			facet: blueskyFacet(start, end, map[string]string{
+				bskyRecordTypeField: "app.bsky.richtext.facet#mention",
+				"did":               did,
+			}),
+		})
 	}
 
+	// The relay rejects overlapping facets. Candidates arrive ordered by
+	// kind (links, then tags, then mentions), so keep the first span that
+	// claims a byte range and drop later overlaps.
+	facets := []map[string]interface{}{}
+	for _, candidate := range candidates {
+		overlaps := false
+		for _, kept := range facets {
+			index := kept["index"].(map[string]int)
+			if candidate.start < index["byteEnd"] && index["byteStart"] < candidate.end {
+				overlaps = true
+				break
+			}
+		}
+		if !overlaps {
+			facets = append(facets, candidate.facet)
+		}
+	}
 	return facets
 }
 

@@ -67,6 +67,43 @@ func TestBuildBlueskyPostRecordAddsQuoteEmbed(t *testing.T) {
 	require.Equal(t, "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm", ref["cid"])
 }
 
+func TestBuildBlueskyFacetsTrimsTrailingPunctuation(t *testing.T) {
+	facets := buildBlueskyFacets("see https://example.com/path.", nil)
+	require.Len(t, facets, 1)
+	requireFacet(t, facets, 4, 28, "app.bsky.richtext.facet#link", "uri", "https://example.com/path")
+}
+
+func TestBuildBlueskyFacetsDropsOverlappingTagInsideLink(t *testing.T) {
+	facets := buildBlueskyFacets("https://example.com/#OpenPost", nil)
+	require.Len(t, facets, 1)
+	requireFacet(t, facets, 0, 29, "app.bsky.richtext.facet#link", "uri", "https://example.com/#OpenPost")
+}
+
+func TestBuildBlueskyFacetsSkipsMalformedMentionDIDs(t *testing.T) {
+	facets := buildBlueskyFacets("hi @user.bsky.social", map[string]interface{}{
+		"mention_dids": "user.bsky.social=not-a-did",
+	})
+	require.Empty(t, facets)
+}
+
+func TestBuildBlueskyPostRecordRejectsOversizedText(t *testing.T) {
+	adapter := NewBlueskyAdapter("")
+	_, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content: strings.Repeat("a", 301),
+	}, fixedBlueskyTime())
+	require.ErrorContains(t, err, "300")
+
+	_, err = adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content: strings.Repeat("é", 1600),
+	}, fixedBlueskyTime())
+	require.ErrorContains(t, err, "3000")
+
+	_, err = adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content: strings.Repeat("é", 200),
+	}, fixedBlueskyTime())
+	require.NoError(t, err)
+}
+
 func TestBuildBlueskyPostRecordRejectsExternalCardWithMedia(t *testing.T) {
 	adapter := NewBlueskyAdapter("")
 	_, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{

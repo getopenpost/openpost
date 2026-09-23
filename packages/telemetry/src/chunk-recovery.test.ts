@@ -97,8 +97,8 @@ describe("bounded chunk recovery", () => {
     ]);
 
     expect(first.kind).toBe("reloaded");
-    expect(second.kind).toBe("ignored");
-    expect(third.kind).toBe("ignored");
+    expect(second.kind).toBe("reloaded");
+    expect(third.kind).toBe("reloaded");
     expect(state.reloads).toHaveLength(1);
     expect(state.budget.current).toEqual({
       total: 1,
@@ -140,7 +140,7 @@ describe("bounded chunk recovery", () => {
           new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/a.js"),
         )
       ).kind,
-    ).toBe("ignored");
+    ).toBe("reloaded");
     expect(first.state.reloads).toHaveLength(1);
 
     // Next document, same asset: the pair budget is spent, so recovery

@@ -202,27 +202,36 @@ export function createChunkRecovery(options: ChunkRecoveryOptions = {}): ChunkRe
   let inFlight = false;
   let reloadScheduled = false;
   const seen = new WeakSet<object>();
+  let activeDecision: Promise<ChunkRecoveryDecision> | null = null;
+  let scheduledReloadDecision: ChunkRecoveryDecision | null = null;
 
   async function recover(error: unknown): Promise<ChunkRecoveryDecision> {
     if (isUnsupportedBrowserError(error)) return { kind: "ignored", reason: "unsupported-browser" };
     const message = errorMessage(error);
     if (!isChunkLoadErrorMessage(message)) return { kind: "ignored", reason: "unrelated" };
+    if (scheduledReloadDecision) return scheduledReloadDecision;
     if (typeof error === "object" && error !== null) {
-      if (seen.has(error)) return { kind: "ignored", reason: "duplicate" };
+      if (seen.has(error)) return activeDecision ?? { kind: "ignored", reason: "duplicate" };
       seen.add(error);
     }
     // One failure can arrive through preload, boundary, and global
     // rejection handlers. Decide once per document.
-    if (inFlight) return { kind: "ignored", reason: "single-flight" };
+    if (inFlight) return activeDecision ?? { kind: "ignored", reason: "single-flight" };
     inFlight = true;
-    try {
-      return await decide(message);
-    } finally {
-      // A scheduled reload navigates away with the flag set, which keeps
-      // late duplicate events from scheduling a second navigation.
-      // Manual/ignored outcomes clear it so an explicit retry can proceed.
-      if (!reloadScheduled) inFlight = false;
-    }
+    const decision = decide(message)
+      .then((result) => {
+        if (result.kind === "reloaded") scheduledReloadDecision = result;
+        return result;
+      })
+      .finally(() => {
+        // A scheduled reload navigates away with the flag set, which keeps
+        // late duplicate events from scheduling a second navigation.
+        // Manual/ignored outcomes clear it so an explicit retry can proceed.
+        if (!reloadScheduled) inFlight = false;
+        activeDecision = null;
+      });
+    activeDecision = decision;
+    return decision;
   }
 
   async function decide(message: string): Promise<ChunkRecoveryDecision> {

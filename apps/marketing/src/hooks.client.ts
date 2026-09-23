@@ -8,6 +8,7 @@ import {
 	isChunkLoadError,
 	isUnsupportedBrowserError
 } from '@openpost/telemetry';
+import { captureIfUnrecovered } from './chunk-error-reporting';
 
 function createMarketingChunkRecovery() {
 	return createChunkRecovery({
@@ -64,6 +65,7 @@ export const handleError: HandleClientError = ({ error, status }) => {
 	if (status === 404) return;
 	// The preload listener covers some import failures, but recovery must not
 	// depend on a separate event having fired first.
-	void chunkRecovery.recover(error);
-	captureClientException(error, { error_boundary: 'sveltekit', status, ...diagnosticsFor(error) });
+	void captureIfUnrecovered(error, chunkRecovery.recover, (cause) =>
+		captureClientException(cause, { error_boundary: 'sveltekit', status, ...diagnosticsFor(cause) })
+	);
 };

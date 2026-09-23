@@ -267,6 +267,7 @@ func (s *Service) resumeDefiniteFailure(
 	return s.sendPrepared(ctx, next, send)
 }
 
+//nolint:gocyclo // Every provider outcome remains visible in this durable state-machine boundary.
 func (s *Service) sendPrepared(ctx context.Context, attempt *models.ProviderWriteAttempt, send SendFunc) (platform.PublishResult, error) {
 	control := &Control{service: s, attempt: attempt, ctx: ctx}
 	result, sendErr := send(ctx, control)

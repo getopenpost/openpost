@@ -140,7 +140,7 @@ func TestBuildXTweetPayloadRejectsInvalidCharacters(t *testing.T) {
 }
 
 func TestXPublishValidatesTextBeforeAltTextMutations(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Fatalf("invalid text must fail before any provider request: %s %s", r.Method, r.URL.Path)
 	}))
 	defer server.Close()

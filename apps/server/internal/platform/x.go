@@ -766,6 +766,7 @@ func (x *XAdapter) Unrepost(ctx context.Context, accessToken, targetAccountID st
 	return fmt.Errorf("unreposting on X: %w", err)
 }
 
+//nolint:gocyclo // X payload fields have independent provider constraints that must fail closed here.
 func buildXTweetPayload(req *PublishRequest) (map[string]interface{}, error) {
 	text := ContentWithSettingURL(req.Content, req.Settings)
 	if err := validateXTweetText(text); err != nil {

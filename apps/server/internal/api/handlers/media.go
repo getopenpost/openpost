@@ -2063,11 +2063,12 @@ func validateMediaAssetContent(assetKind, filename, declaredMimeType string, con
 		return err
 	}
 	if assetKind != "brand_font" {
-		if err := checkDeclaredMimeMatchesSniffed(declaredMimeType, content); err != nil {
-			return err
-		}
-		return nil
+		return checkDeclaredMimeMatchesSniffed(declaredMimeType, content)
 	}
+	return validateBrandFontAsset(filename, declaredMimeType, content)
+}
+
+func validateBrandFontAsset(filename, declaredMimeType string, content []byte) error {
 	if len(content) > 10*1024*1024 {
 		return errors.New("brand fonts must be 10MB or smaller")
 	}

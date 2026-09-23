@@ -130,6 +130,23 @@ func TestFacebookOAuthCallbackExplainsMissingManageablePages(t *testing.T) {
 	)
 }
 
+func TestInstagramOAuthCallbackExplainsMissingPageLinkedAccount(t *testing.T) {
+	t.Parallel()
+
+	e, state, _ := newOAuthCallbackRedirectTestServer(t, "instagram", &selectionTestAdapter{
+		listErr: platform.ErrNoInstagramProfessionalAccount,
+	})
+	rec := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/instagram/callback?code=provider-code&state="+url.QueryEscape(state), nil, false)
+	result := rec.Result()
+	t.Cleanup(func() { _ = result.Body.Close() })
+
+	require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode)
+	require.Equal(t,
+		"https://app.openpost.test/settings?oauth_reason=instagram_no_page_linked_account&oauth_status=failed&tab=accounts&workspace_id=ws-1",
+		result.Header.Get("Location"),
+	)
+}
+
 func TestOAuthCallbackReauthorizationOfInactiveDestinationReturnsToAccounts(t *testing.T) {
 	t.Parallel()
 

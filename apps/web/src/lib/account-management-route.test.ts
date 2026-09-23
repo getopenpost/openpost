@@ -60,6 +60,25 @@ describe('account management route URL interpretation', () => {
 				'Facebook did not share any manageable Pages. Create a Page, request Page access, or check the Facebook app permissions, then try again.'
 		});
 	});
+
+	it('explains when Instagram has no professional account linked to a managed Page', () => {
+		const state = interpretAccountManagementURL(
+			new URL(
+				'https://openpost.test/settings?tab=accounts&oauth_status=failed&oauth_reason=instagram_no_page_linked_account&workspace_id=workspace-62'
+			)
+		);
+
+		expect(state).toEqual({
+			feedback: { kind: 'instagram_no_page_linked_account' },
+			workspaceID: 'workspace-62',
+			cleanHref: '/settings?tab=accounts'
+		});
+		expect(presentAccountManagementFeedback(state.feedback)).toEqual({
+			tone: 'error',
+			message:
+				'Instagram needs a Business or Creator account linked to a Facebook Page you can manage. Link the account to a Page, check your Page access, then reconnect.'
+		});
+	});
 });
 
 describe('normalized account connection continuation', () => {

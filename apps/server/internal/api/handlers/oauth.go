@@ -39,6 +39,7 @@ import (
 const mastodonProvider = "mastodon"
 const pixelfedProvider = "pixelfed"
 const oauthFailureReasonFacebookNoPages = "facebook_no_pages"
+const oauthFailureReasonInstagramNoPageLinkedAccount = "instagram_no_page_linked_account"
 
 // isCompatOAuthProvider reports providers that connect through the dynamic
 // Fediverse instance OAuth flow (per-instance app registration plus
@@ -1409,6 +1410,9 @@ func (h *OAuthHandler) saveAccountSelectionAndRedirect(
 		log.Printf("[Callback] Failed to list selectable accounts: platform=%s error=%v", platformName, err)
 		if errors.Is(err, platform.ErrNoFacebookPages) {
 			return h.redirectWithOAuthFeedback("failed", oauthFailureReasonFacebookNoPages, workspaceID)
+		}
+		if errors.Is(err, platform.ErrNoInstagramProfessionalAccount) {
+			return h.redirectWithOAuthFeedback("failed", oauthFailureReasonInstagramNoPageLinkedAccount, workspaceID)
 		}
 		return h.redirectWithError(fmt.Sprintf("failed to list selectable accounts: %s", err.Error()), workspaceID)
 	}

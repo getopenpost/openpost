@@ -1990,6 +1990,7 @@
 	"accounts_oauth_cancelled": "Ligação cancelada. Escolhe um destino para tentar novamente.",
 	"accounts_oauth_failed": "O OpenPost não conseguiu ligar esse destino. Verifica a configuração do fornecedor e tenta novamente.",
 	"accounts_oauth_facebook_no_pages": "O Facebook não partilhou nenhuma Página que possas gerir. Cria uma Página, pede acesso a uma ou verifica as permissões da app e tenta novamente.",
+	"accounts_oauth_instagram_no_page_linked_account": "O Instagram precisa de uma conta Business ou Creator ligada a uma Página do Facebook que possas gerir. Liga a conta a uma Página, verifica o teu acesso e tenta novamente.",
 	"accounts_oauth_confirm_title": "Ligar {platform}",
 	"accounts_oauth_confirm_description": "Eis o que acontecerá a seguir.",
 	"accounts_oauth_step_redirect": "O OpenPost envia-te para a rede social.",

@@ -7,7 +7,8 @@ import { m } from '$lib/paraglide/messages';
 export type AccountManagementURLFeedback =
 	| { kind: 'oauth_cancelled' }
 	| { kind: 'oauth_failed' }
-	| { kind: 'facebook_no_pages' };
+	| { kind: 'facebook_no_pages' }
+	| { kind: 'instagram_no_page_linked_account' };
 
 export interface AccountManagementURLState {
 	feedback: AccountManagementURLFeedback | null;
@@ -25,6 +26,8 @@ export function interpretAccountManagementURL(url: URL): AccountManagementURLSta
 
 	if (oauthStatus === 'failed' && oauthReason === 'facebook_no_pages') {
 		feedback = { kind: 'facebook_no_pages' };
+	} else if (oauthStatus === 'failed' && oauthReason === 'instagram_no_page_linked_account') {
+		feedback = { kind: 'instagram_no_page_linked_account' };
 	} else if (oauthStatus === 'cancelled') feedback = { kind: 'oauth_cancelled' };
 	else if (oauthStatus) feedback = { kind: 'oauth_failed' };
 	else if (hasLegacyError) feedback = { kind: 'oauth_failed' };
@@ -53,6 +56,9 @@ export function presentAccountManagementFeedback(
 	}
 	if (value.kind === 'facebook_no_pages') {
 		return { tone: 'error', message: m.accounts_oauth_facebook_no_pages() };
+	}
+	if (value.kind === 'instagram_no_page_linked_account') {
+		return { tone: 'error', message: m.accounts_oauth_instagram_no_page_linked_account() };
 	}
 	return { tone: 'error', message: m.accounts_oauth_failed() };
 }

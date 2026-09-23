@@ -38,6 +38,10 @@ const (
 	instagramCheckpointIDMaxLength    = 48
 )
 
+// ErrNoInstagramProfessionalAccount means Meta returned no professional account
+// linked to a Facebook Page the connecting user can manage.
+var ErrNoInstagramProfessionalAccount = errors.New("instagram has no Page-linked professional account")
+
 type InstagramAdapter struct {
 	clientID     string
 	clientSecret string
@@ -279,7 +283,7 @@ func (i *InstagramAdapter) listInstagramPages(ctx context.Context, token *TokenR
 		}
 	}
 	if len(pages) == 0 {
-		return nil, fmt.Errorf("OpenPost could not find a professional Instagram account linked to a Facebook Page this profile manages; Accounts Center profile links do not provide this access")
+		return nil, ErrNoInstagramProfessionalAccount
 	}
 	return pages, nil
 }

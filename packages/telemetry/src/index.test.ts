@@ -486,6 +486,19 @@ describe("BrowserTelemetry", () => {
     expect(sdk.exceptions[0]?.error.message).toBe("Svelte error: each_key_duplicate");
   });
 
+  it("preserves safe messages from non-Error rejection reasons", () => {
+    const sdk = new FakeSDK();
+    const subject = configuredTelemetry(sdk);
+    subject.configure(configuredApp);
+    subject.captureException({
+      name: "AbortError",
+      message: "Storage failed at https://example.com/?token=secret",
+    });
+    expect(sdk.exceptions[0]?.error.name).toBe("AbortError");
+    expect(sdk.exceptions[0]?.error.message).toContain("Storage failed");
+    expect(sdk.exceptions[0]?.error.message).not.toContain("secret");
+  });
+
   it("retains source-map asset locations through the SDK before_send boundary", () => {
     vi.stubGlobal("window", { location: { origin: "https://app.openpo.st", pathname: "/" } });
     try {

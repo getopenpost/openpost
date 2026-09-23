@@ -1039,7 +1039,8 @@ function sanitizeError(value: unknown): Error {
       ? value
       : typeof Event !== "undefined" && value instanceof Event
         ? new Error(`${value.constructor.name || "Event"}: ${value.type || "unknown"}`)
-        : new Error(typeof value === "string" ? value : "Unknown client error");
+        : (errorFromObject(value) ??
+          new Error(typeof value === "string" ? value : "Unknown client error"));
   // Production Svelte errors contain only a documentation URL. Preserve the
   // public error code before URL redaction, without retaining query values.
   const message = (source.message || "Unknown client error").replace(
@@ -1050,6 +1051,24 @@ function sanitizeError(value: unknown): Error {
   result.name = source.name || "Error";
   if (source.stack) result.stack = scrubStack(source.stack);
   return result;
+}
+
+function errorFromObject(value: unknown): Error | null {
+  if (typeof value !== "object" || value === null) return null;
+  try {
+    const message = Object.getOwnPropertyDescriptor(value, "message")?.value;
+    if (typeof message !== "string" || !message) return null;
+    const error = new Error(message);
+    const name = Object.getOwnPropertyDescriptor(value, "name")?.value;
+    if (typeof name === "string" && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(name)) {
+      error.name = name;
+    }
+    const stack = Object.getOwnPropertyDescriptor(value, "stack")?.value;
+    if (typeof stack === "string") error.stack = stack;
+    return error;
+  } catch {
+    return null;
+  }
 }
 
 function sanitizePropertyValue(value: unknown): unknown {

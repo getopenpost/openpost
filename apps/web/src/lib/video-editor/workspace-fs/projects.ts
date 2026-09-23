@@ -52,6 +52,13 @@ const logger = createLogger('WorkspaceFS:Projects');
 type SerializedProject = Omit<Project, 'rootFolderHandle'>;
 type ProjectLoadIntent = 'list' | 'open';
 
+export class ProjectNotFoundError extends Error {
+	constructor(id: string) {
+		super(`Project not found: ${id}`);
+		this.name = 'ProjectNotFoundError';
+	}
+}
+
 async function stashRootFolderHandle(project: Project): Promise<SerializedProject> {
 	const { rootFolderHandle, ...rest } = project;
 	if (rootFolderHandle) {
@@ -294,7 +301,7 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
 	try {
 		const existingSerialized = await readJson<SerializedProject>(root, projectJsonPath(id));
 		if (!existingSerialized) {
-			throw new Error(`Project not found: ${id}`);
+			throw new ProjectNotFoundError(id);
 		}
 
 		// Merge at the serialized layer — `rootFolderHandle` never lives in

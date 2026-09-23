@@ -27,7 +27,7 @@ export class PeriodicAutosaveController {
 	constructor(
 		private readonly isDirty: () => boolean,
 		private readonly save: () => Promise<void>,
-		private readonly onError: (cause: unknown) => void,
+		private readonly onError: (cause: unknown) => 'stop' | void,
 		private readonly scheduler: PeriodicAutosaveScheduler = browserScheduler
 	) {}
 
@@ -54,7 +54,9 @@ export class PeriodicAutosaveController {
 			if (!this.isDirty() || this.saving) return;
 			this.saving = true;
 			void this.save()
-				.catch((cause: unknown) => this.onError(cause))
+				.catch((cause: unknown) => {
+					if (this.onError(cause) === 'stop') this.stop();
+				})
 				.finally(() => {
 					this.saving = false;
 				});

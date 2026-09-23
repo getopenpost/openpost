@@ -9,8 +9,7 @@
 import { registerCloudExportProject } from './workspace-fs/export-storage';
 import { createLogger } from './workspace-fs/logger';
 import { getMediaForProject } from './workspace-fs/project-media';
-import { updateProject } from './workspace-fs/projects';
-import { getProject } from './workspace-fs/projects';
+import { getProject, ProjectNotFoundError, updateProject } from './workspace-fs/projects';
 import type { AnimationPreset, Project, ProjectFontAsset } from './project/types';
 import { cloneAnimationPreset, normalizeAnimationPresets } from './project/animation-presets';
 import { timelineStore } from './timeline/stores/timeline-store.svelte';
@@ -69,6 +68,7 @@ class EditorSession {
 		(error) => {
 			this.saveError = error instanceof Error ? error.message : String(error);
 			logger.error('periodic save failed', error);
+			if (error instanceof ProjectNotFoundError) return 'stop';
 		}
 	);
 

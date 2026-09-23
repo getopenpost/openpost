@@ -43,6 +43,10 @@ function isNotSupported(error: unknown): boolean {
 	return error instanceof DOMException && error.name === 'NotSupportedError';
 }
 
+function isInvalidState(error: unknown): boolean {
+	return error instanceof DOMException && error.name === 'InvalidStateError';
+}
+
 function wrap<T>(operation: string, fn: () => Promise<T>): Promise<T> {
 	return fn().catch((error) => {
 		if (isNotAllowed(error)) {
@@ -161,7 +165,7 @@ type MovableHandle = FileSystemFileHandle & {
 /**
  // SAFETY: the stored value satisfies the target type here.
  * Workspace roots whose `FileSystemFileHandle.move()` rejected as unsupported
- * (cloud-synced folders, network mounts, pre-M111 engines). The only way to
+ * or stale (cloud-synced folders, network mounts, some browser handles). The only way to
  * find out is to call it; we remember the answer per root so at most one
  * doomed move() happens per workspace rather than one per write.
  */
@@ -186,11 +190,11 @@ async function commitTmpFile(
 			await movable.move(parent, fileName);
 			return;
 		} catch (error) {
-			if (!isNotSupported(error)) throw error;
+			if (!isNotSupported(error) && !isInvalidState(error)) throw error;
 			rootsRejectingMove.add(root);
 			logger.warn(
 				// SAFETY: the stored value satisfies the target type here.
-				'writeJsonAtomic: FileSystemFileHandle.move() rejected as unsupported — ' +
+				'writeJsonAtomic: FileSystemFileHandle.move() failed — ' +
 					'falling back to a non-atomic copy+delete for this workspace',
 				error
 			);

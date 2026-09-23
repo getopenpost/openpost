@@ -280,3 +280,62 @@ func TestXMediaProcessingFailureIsTerminal(t *testing.T) {
 		t.Fatalf("expected terminal media failure, got %q, %v", classification, ok)
 	}
 }
+
+func TestXMediaProcessingWaitsWhenCheckAfterSecsIsOmitted(t *testing.T) {
+	statusCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Query().Get("command") != "STATUS" {
+			t.Fatalf("unexpected request %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		}
+		statusCalls++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"processing_info":{"state":"pending"}}`)
+	}))
+	defer server.Close()
+
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.uploadBaseURL = server.URL
+
+	ctx, cancel := context.WithTimeout(t.Context(), 150*time.Millisecond)
+	defer cancel()
+	err := adapter.waitForMediaProcessing(ctx, "access-token|access-secret", "media-1", &xMediaProcessingInfo{
+		State: "pending",
+	})
+	if err == nil {
+		t.Fatal("expected wait to stop when the context expires")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline, got %v", err)
+	}
+	if statusCalls > 1 {
+		t.Fatalf("STATUS busy-looped with omitted check_after_secs: %d calls", statusCalls)
+	}
+}
+
+func TestXMediaProcessingCompletesAfterOmittedCheckAfterSecs(t *testing.T) {
+	statusCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Query().Get("command") != "STATUS" {
+			t.Fatalf("unexpected request %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		}
+		statusCalls++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"processing_info":{"state":"succeeded"}}`)
+	}))
+	defer server.Close()
+
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.uploadBaseURL = server.URL
+
+	err := adapter.waitForMediaProcessing(t.Context(), "access-token|access-secret", "media-1", &xMediaProcessingInfo{
+		State: "pending",
+	})
+	if err != nil {
+		t.Fatalf("waitForMediaProcessing returned error: %v", err)
+	}
+	if statusCalls != 1 {
+		t.Fatalf("expected one STATUS poll after the minimum wait, got %d", statusCalls)
+	}
+}

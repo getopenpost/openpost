@@ -49,6 +49,9 @@ const (
 	XCapabilityStateFreshness        = 24 * time.Hour
 	xAccountCapabilityRevision       = "x-subscription-type.2026-07-26"
 	xMediaUploadChunkSize            = 5 * 1024 * 1024
+	// X omits check_after_secs or sends 0 while a video or GIF is still
+	// processing. Wait at least this long before each STATUS poll.
+	xMediaProcessingMinDelay = time.Second
 )
 
 type XRequestStore interface {
@@ -615,12 +618,10 @@ func (x *XAdapter) waitForMediaProcessing(ctx context.Context, accessToken, medi
 		return xTerminalMediaProcessingError(info)
 	}
 	for info.State == "pending" || info.State == "in_progress" {
-		if info.CheckAfterSecs > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Duration(info.CheckAfterSecs) * time.Second):
-			}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(xMediaProcessingDelay(info.CheckAfterSecs)):
 		}
 
 		statusURL := x.uploadURL("/1.1/media/upload.json") + "?command=STATUS&media_id=" + url.QueryEscape(mediaID)
@@ -650,6 +651,14 @@ func (x *XAdapter) waitForMediaProcessing(ctx context.Context, accessToken, medi
 		return nil
 	}
 	return fmt.Errorf("x media processing unexpected state: %s", info.State)
+}
+
+func xMediaProcessingDelay(checkAfterSecs int) time.Duration {
+	delay := time.Duration(checkAfterSecs) * time.Second
+	if delay < xMediaProcessingMinDelay {
+		return xMediaProcessingMinDelay
+	}
+	return delay
 }
 
 func xTerminalMediaProcessingError(info *xMediaProcessingInfo) error {

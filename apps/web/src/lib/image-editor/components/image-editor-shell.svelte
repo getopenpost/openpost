@@ -186,6 +186,7 @@
 	const EDIT_LAYERS_USER_SIZED_KEY = 'openpost-image-editor-edit-layers-user-sized-v2';
 	const COLOR_LAYERS_HEIGHT_KEY = 'openpost-image-editor-color-layers-height-v1';
 	const EXPORT_PREVIEW_DEBOUNCE_MS = 250;
+	const EXPORT_QUALITY_DECIMAL_PLACES = 2;
 	type SaveRequest = {
 		coverPreviewMediaID?: string;
 		recoveryReason: 'idle' | 'export' | 'close';
@@ -4741,14 +4742,21 @@
 						ariaLabel={m.image_editor_quality({
 							quality: Math.round((editor.document?.export_defaults.quality ?? 0.92) * 100)
 						})}
-						onValueChange={(quality) =>
+						onValueChange={(quality) => {
+							if (exportFormat === 'png' || !editor.document) return;
+							const nextQuality = Number(quality.toFixed(EXPORT_QUALITY_DECIMAL_PLACES));
+							const currentQuality = Number(
+								editor.document.export_defaults.quality.toFixed(EXPORT_QUALITY_DECIMAL_PLACES)
+							);
+							if (nextQuality === currentQuality) return;
 							editor.mutate(
 								'Change export quality',
 								(document) => {
-									document.export_defaults.quality = quality;
+									document.export_defaults.quality = nextQuality;
 								},
 								'export-quality'
-							)}
+							);
+						}}
 					/>
 				</label>
 			</div>

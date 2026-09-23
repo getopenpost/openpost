@@ -218,6 +218,52 @@ test("signed-in creators can use built-in templates in their workspace", async (
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
 });
 
+test("opening cloud design PNG export does not keep resetting its encoded preview", async ({
+  page,
+  request,
+}) => {
+  const auth = await registerUser(request, `image-export-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Image export workspace");
+  await authenticatePage(page, auth.token);
+  await page.route("**/image-editor/designs**", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    if (!payload.document?.export_defaults) {
+      await route.fulfill({ response, json: payload });
+      return;
+    }
+    // Replays the affected design's saved value, just above the slider's value.
+    payload.document.export_defaults.quality = 0.9200000166893005;
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await page.getByText("Custom size", { exact: true }).first().click();
+  await page.getByRole("button", { name: "Create custom design" }).click();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Export design" });
+  const preview = dialog.getByRole("img", { name: "Encoded export preview" });
+  await expect(preview).toBeVisible();
+  await expect
+    .poll(() =>
+      preview.evaluate(async (image: HTMLImageElement) =>
+        (await fetch(image.src)).headers.get("content-type"),
+      ),
+    )
+    .toBe("image/png");
+  const resets = await dialog.evaluate(async (root) => {
+    let count = 0;
+    const observer = new MutationObserver(() => {
+      if (root.textContent?.includes("Encoding preview")) count++;
+    });
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    observer.disconnect();
+    return count;
+  });
+  expect(resets).toBe(0);
+});
+
 test("starter previews fit the complete canvas on narrow phones", async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   await page.goto("/image-editor");

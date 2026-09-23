@@ -36,6 +36,16 @@
 
 	let keyboardGestureActive = false;
 	let pendingKeyboardCommit: number | null = null;
+	let interactionActive = false;
+
+	function handleValueChange(nextValue: number): void {
+		if (!interactionActive) return;
+		onValueChange?.(nextValue);
+	}
+
+	function endInteraction(): void {
+		interactionActive = false;
+	}
 
 	function isSliderKey(key: string): boolean {
 		return (
@@ -69,6 +79,7 @@
 	function cancelGesture(): void {
 		keyboardGestureActive = false;
 		pendingKeyboardCommit = null;
+		endInteraction();
 		onValueCancel?.();
 	}
 </script>
@@ -81,21 +92,28 @@
 	{max}
 	{step}
 	{disabled}
-	{onValueChange}
+	onValueChange={handleValueChange}
+	onpointerdowncapture={() => (interactionActive = true)}
+	onpointerup={endInteraction}
 	onValueCommit={handleValueCommit}
 	onkeydowncapture={(event) => {
 		if (event.key === 'Escape') {
 			cancelGesture();
 		} else if (isSliderKey(event.key)) {
 			keyboardGestureActive = true;
+			interactionActive = true;
 		}
 	}}
 	onkeydown={(event) => onKeydown?.(event)}
 	onkeyup={(event) => {
-		if (isSliderKey(event.key)) flushKeyboardCommit();
+		if (isSliderKey(event.key)) {
+			flushKeyboardCommit();
+			endInteraction();
+		}
 	}}
 	onfocusout={(event) => {
 		if (!event.currentTarget.contains(event.relatedTarget as Node | null)) flushKeyboardCommit();
+		endInteraction();
 	}}
 	onpointercancel={cancelGesture}
 	class={cn(

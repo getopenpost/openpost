@@ -532,6 +532,8 @@ func TestValidateMediaAssetContentRejectsTopLevelMimeMismatch(t *testing.T) {
 		"does not match",
 	)
 	require.NoError(t, validateMediaAssetContent("library", "capture.mp4", "video/mp4", []byte("video bytes!")))
+	require.NoError(t, validateMediaAssetContent("library", "empty.png", "image/png", nil))
+	require.NoError(t, validateMediaAssetContent("library", "cover.jpg", defaultMediaMimeType, jpeg))
 }
 
 func TestValidateBrandFontContent(t *testing.T) {

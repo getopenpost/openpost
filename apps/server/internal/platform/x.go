@@ -670,6 +670,9 @@ func (x *XAdapter) Publish(ctx context.Context, accessToken, _ string, req *Publ
 }
 
 func (x *XAdapter) publish(ctx context.Context, accessToken string, req *PublishRequest) (string, error) {
+	if err := validateXTweetText(ContentWithSettingURL(req.Content, req.Settings)); err != nil {
+		return "", err
+	}
 	// Set alt text for each media before posting
 	for i, mediaID := range req.PlatformMediaIDs {
 		altText := ""
@@ -911,12 +914,17 @@ func xPollOptions(settings map[string]interface{}) []string {
 	return options
 }
 
-// validateXTweetText rejects characters X never accepts in post text.
-// U+FFFE, U+FEFF, and U+FFFF fail server-side, so they fail here before
+// validateXTweetText rejects characters X never accepts in post text:
+// U+FFFE, U+FEFF, U+FFFF, the U+FDD0-U+FDEF noncharacters, and every
+// supplementary-plane noncharacter (U+nFFFE/U+nFFFF). It fails here before
 // any upload or mutation is dispatched.
 func validateXTweetText(text string) error {
-	if strings.ContainsAny(text, "\uFFFE\uFEFF\uFFFF") {
-		return fmt.Errorf("x post text contains characters X does not accept")
+	for _, codePoint := range text {
+		if codePoint == '\uFFFE' || codePoint == '\uFEFF' || codePoint == '\uFFFF' ||
+			(codePoint >= 0xFDD0 && codePoint <= 0xFDEF) ||
+			(codePoint >= 0x10000 && (codePoint&0xFFFF) >= 0xFFFE) {
+			return fmt.Errorf("x post text contains characters X does not accept")
+		}
 	}
 	return nil
 }

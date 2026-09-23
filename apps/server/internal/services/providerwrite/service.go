@@ -289,9 +289,26 @@ func (s *Service) sendPrepared(ctx context.Context, attempt *models.ProviderWrit
 	if current.Status != StatusSending {
 		return platform.PublishResult{}, fmt.Errorf("provider write attempt changed to %q during send", current.Status)
 	}
+	adapterClaimedAccepted := sendErr == nil && result.SubmissionState == platform.PublishSubmissionAccepted
 	result = mergeResult(resultFromAttempt(current), result)
 	if sendErr == nil && result.SubmissionState == "" {
 		result.SubmissionState = platform.PublishSubmissionAccepted
+	}
+	if adapterClaimedAccepted && result.ExternalID == "" && result.ProviderReference == "" {
+		// A provider acceptance without a native id or a reference to
+		// reconcile with proves nothing, and there is nothing to
+		// reconcile it with later. Holding it pending would strand the
+		// write in an un-reconcilable loop, so fail it as ambiguous with
+		// never-retry safety: the delivery resolves to manual resolution
+		// and retry selection excludes it.
+		result.RetrySafety = platform.PublishRetryNever
+		ambiguousErr := errors.New("provider accepted the write without a post id or reconciliation reference")
+		if err := s.persistAmbiguous(ctx, current, result, ambiguousErr); err != nil {
+			return platform.PublishResult{}, errors.Join(ambiguousErr, err)
+		}
+		return platform.PublishResult{}, &OutcomeError{
+			Kind: StatusAmbiguous, Retryable: false, Err: errors.Join(ErrOutcomeAmbiguous, ambiguousErr),
+		}
 	}
 	if result.SubmissionState == platform.PublishSubmissionAccepted && sendErr == nil {
 		if err := s.persistResult(ctx, current, result, sendErr, false); err != nil {

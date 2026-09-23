@@ -56,9 +56,18 @@ func TestLinkedInCreatePostValidatesPostIDShape(t *testing.T) {
 		t.Fatalf("valid post id rejected: id=%q err=%v", id, err)
 	}
 
-	postID = "not-a-post-id"
-	if _, err := adapter.createPost(context.Background(), "token", "urn:li:person:member-1", linkedInAPIVersion(), request()); err == nil {
-		t.Fatal("expected malformed post id to be rejected")
+	for _, valid := range []string{"urn:li:ugcPost:abc_123-XYZ", "123456789"} {
+		postID = valid
+		if id, err := adapter.createPost(context.Background(), "token", "urn:li:person:member-1", linkedInAPIVersion(), request()); err != nil || id != valid {
+			t.Fatalf("valid post id %q rejected: id=%q err=%v", valid, id, err)
+		}
+	}
+
+	for _, invalid := range []string{"not-a-post-id", "urn:li:comment:123", "urn:li:share:", "https://linkedin.com/posts/123"} {
+		postID = invalid
+		if _, err := adapter.createPost(context.Background(), "token", "urn:li:person:member-1", linkedInAPIVersion(), request()); err == nil {
+			t.Fatalf("expected malformed post id %q to be rejected", invalid)
+		}
 	}
 
 	postID = ""

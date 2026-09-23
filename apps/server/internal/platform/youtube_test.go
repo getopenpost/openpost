@@ -724,9 +724,20 @@ func TestPrepareYouTubeUploadRejectsProviderInvalidFields(t *testing.T) {
 	}
 
 	long := base()
-	long.Description = strings.Repeat("é", 2501)
+	long.Description = strings.Repeat("é", 5000)
+	if _, err := prepareYouTubeUpload(long); err != nil {
+		t.Fatalf("5000-character multibyte description rejected: %v", err)
+	}
+	long.Description = strings.Repeat("é", 5001)
 	if _, err := prepareYouTubeUpload(long); err == nil || !strings.Contains(err.Error(), "5000") {
-		t.Fatalf("expected description byte error, got %v", err)
+		t.Fatalf("expected description character error, got %v", err)
+	}
+
+	settingTitle := base()
+	settingTitle.Title = ""
+	settingTitle.Settings = map[string]interface{}{"privacy": "public", "category_id": "22", "title": "Setting <title>"}
+	if _, err := prepareYouTubeUpload(settingTitle); err == nil || !strings.Contains(err.Error(), "<>") {
+		t.Fatalf("expected settings-title charset error, got %v", err)
 	}
 }
 

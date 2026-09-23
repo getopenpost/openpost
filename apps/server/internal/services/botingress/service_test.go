@@ -148,6 +148,15 @@ func (verifier bodyCheckingVerifier) Verify(_ http.Header, body []byte) error {
 	return nil
 }
 
+func (verifier bodyCheckingVerifier) AuthenticatesBody() bool { return true }
+
+func TestVerifierAuthenticatesBodyIsFailClosed(t *testing.T) {
+	require.False(t, verifierAuthenticatesBody(nil))
+	require.False(t, verifierAuthenticatesBody(SecretHeaderVerifier{}))
+	require.False(t, verifierAuthenticatesBody(&SecretHeaderVerifier{}))
+	require.True(t, verifierAuthenticatesBody(bodyCheckingVerifier{}))
+}
+
 func TestSignedIngressVerifiesBeforeNormalizationAndQueuesOneSafeReference(t *testing.T) {
 	web, _, now := newBotIngressServices(t)
 	issued := issueTestNonce(t, web)

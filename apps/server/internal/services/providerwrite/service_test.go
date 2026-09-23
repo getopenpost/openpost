@@ -67,25 +67,32 @@ func TestAmbiguousWriteIsTerminalWithoutReconciliation(t *testing.T) {
 	require.Empty(t, attempt.SafeErrorCode)
 }
 
-func TestAcceptedWriteWithoutNativeIDStaysPendingForReconciliation(t *testing.T) {
+func TestAcceptedWriteWithoutNativeIDFailsAmbiguousForManualResolution(t *testing.T) {
 	db := newProviderWriteTestDB(t)
 	service := New(db)
 	input := providerWriteTestInput(t, "accepted-without-id")
 
-	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+	send := func(_ context.Context, control *Control) (platform.PublishResult, error) {
 		require.NoError(t, control.Begin(platform.PublishResult{ProviderState: "create_post", RetrySafety: platform.PublishRetryNever}))
 		accepted := platform.AcceptedPublishResult("")
 		require.NoError(t, control.Checkpoint(accepted))
 		return accepted, nil
-	}, nil)
-	require.Error(t, err)
-	if _, ok := IsPending(err); !ok {
-		t.Fatalf("expected a pending reconciliation error, got %v", err)
 	}
+	_, err := service.Execute(t.Context(), input, send, nil)
+	require.Error(t, err)
+	require.True(t, IsAmbiguous(err), "expected a terminal ambiguous error, got %v", err)
 
 	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
-	require.Equal(t, StatusSending, attempt.Status)
-	require.Equal(t, string(platform.PublishRetryReconcileOnly), attempt.RetrySafety)
+	require.Equal(t, StatusAmbiguous, attempt.Status)
+	require.Equal(t, string(platform.PublishRetryNever), attempt.RetrySafety)
+	require.Equal(t, DeliveryManualResolution, deliveryState(attempt))
+	require.Equal(t, RecoveryManualResolution, DeliveryRecoveryAction(models.ProviderDelivery{
+		State: DeliveryManualResolution, RetrySafety: attempt.RetrySafety,
+	}))
+
+	_, err = service.Execute(t.Context(), input, send, nil)
+	require.Error(t, err)
+	require.True(t, IsAmbiguous(err), "an id-less acceptance must never be replayed, got %v", err)
 }
 
 func TestAcceptedWriteWithoutIDButWithReferenceStaysAccepted(t *testing.T) {

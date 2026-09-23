@@ -492,8 +492,8 @@ func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, er
 	if strings.ContainsAny(firstNonEmptyString(settingString(req.Settings, "title"), strings.TrimSpace(req.Title)), "<>") {
 		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube titles cannot contain <> characters")
 	}
-	if len(strings.TrimSpace(req.Description)) > youtubeDescriptionMaxBytes {
-		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube descriptions are limited to %d bytes", youtubeDescriptionMaxBytes)
+	if len([]rune(strings.TrimSpace(req.Description))) > youtubeDescriptionMaxBytes {
+		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube descriptions are limited to %d characters", youtubeDescriptionMaxBytes)
 	}
 	privacy := settingString(req.Settings, "privacy")
 	switch privacy {

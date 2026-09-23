@@ -124,7 +124,7 @@ func TestBuildXTweetPayloadRejectsMutuallyExclusiveAttachments(t *testing.T) {
 }
 
 func TestBuildXTweetPayloadRejectsInvalidCharacters(t *testing.T) {
-	for _, text := range []string{"bad\uFFFEchar", "bad\uFEFFchar", "bad\uFFFFchar"} {
+	for _, text := range []string{"bad\uFFFEchar", "bad\uFEFFchar", "bad\uFFFFchar", "bad\uFDD0char", "bad\U0001FFFEchar"} {
 		_, err := buildXTweetPayload(&PublishRequest{Content: text})
 		if err == nil {
 			t.Fatalf("expected invalid characters in %q to be rejected", text)
@@ -136,6 +136,26 @@ func TestBuildXTweetPayloadRejectsInvalidCharacters(t *testing.T) {
 	}
 	if payload["text"] != "Hello, world! \U0001F44B" {
 		t.Fatalf("unexpected payload text: %#v", payload["text"])
+	}
+}
+
+func TestXPublishValidatesTextBeforeAltTextMutations(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("invalid text must fail before any provider request: %s %s", r.Method, r.URL.Path)
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+	adapter.uploadBaseURL = server.URL
+
+	_, err := adapter.Publish(context.Background(), "access-token|access-secret", "account-1", &PublishRequest{
+		Content:          "bad\uFFFFchar",
+		PlatformMediaIDs: []string{"media-1"},
+		MediaAltTexts:    []string{"alt"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "characters X does not accept") {
+		t.Fatalf("expected text validation error, got %v", err)
 	}
 }
 

@@ -783,11 +783,13 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 	return postID, nil
 }
 
-var linkedInPostIDPattern = regexp.MustCompile(`^urn:li:(share|ugcPost):[0-9]+$`)
+var linkedInPostIDPattern = regexp.MustCompile(`^(urn:li:(share|ugcPost):[A-Za-z0-9_-]+|[0-9]+)$`)
 
 // validateLinkedInPostID rejects a provider post id OpenPost could never
-// reconcile with. A missing id stays accepted; a malformed one cannot be
-// looked up, retried, or unposted, so it fails instead.
+// reconcile with. LinkedIn returns share or ugcPost URNs (numeric today,
+// alphanumeric tolerated) or a bare numeric id depending on version. A
+// missing id stays accepted; a malformed one cannot be looked up, retried,
+// or unposted, so it fails instead.
 func validateLinkedInPostID(postID string) error {
 	if !linkedInPostIDPattern.MatchString(strings.TrimSpace(postID)) {
 		return fmt.Errorf("linkedin post response contained an invalid post id")

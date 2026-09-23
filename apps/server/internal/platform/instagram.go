@@ -580,34 +580,42 @@ type instagramGraphComment struct {
 	Username  string `json:"username"`
 	Hidden    bool   `json:"hidden"`
 	ParentID  string `json:"parent_id"`
-	Replies   struct {
+	From      struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+	} `json:"from"`
+	Replies struct {
 		Data []instagramGraphComment `json:"data"`
 	} `json:"replies"`
 }
 
-func instagramCommentFromGraph(item instagramGraphComment, parentID string) Comment {
+func instagramCommentFromGraph(item instagramGraphComment, accountID, parentID string) Comment {
 	if parentID == "" {
 		parentID = item.ParentID
 	}
+	authorID := strings.TrimSpace(item.From.ID)
 	return Comment{
 		ID:         item.ID,
 		ParentID:   parentID,
-		AuthorName: item.Username,
+		AuthorID:   authorID,
+		AuthorName: firstNonEmptyString(item.Username, item.From.Username),
 		Text:       item.Text,
 		CreatedAt:  item.Timestamp,
 		Hidden:     item.Hidden,
+		IsOurs:     accountID != "" && authorID == accountID,
 		CanReply:   true,
 		CanHide:    true,
 		CanDelete:  true,
 	}
 }
 
-func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, _ string, externalID string) ([]Comment, error) {
-	const instagramCommentFields = "id,text,timestamp,username,hidden"
+func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, accountID string, externalID string) ([]Comment, error) {
+	const instagramCommentFields = "id,from,text,timestamp,username,hidden"
 	// GET /{ig-media-id}/comments returns only top-level comments. Replies
 	// are omitted unless the replies field is expanded. Instagram attaches
 	// a reply-to-a-reply to the top-level comment, so one expansion is
-	// enough to collect the conversation.
+	// enough to collect the conversation. Request from so the connected
+	// professional account's own comments are marked ours, not incoming.
 	fields := instagramCommentFields + ",replies{" + instagramCommentFields + ",parent_id}"
 	endpoint := i.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
@@ -628,15 +636,16 @@ func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, _ stri
 		return nil, fmt.Errorf("instagram comments: %s", result.Error.Message)
 	}
 
+	accountID = strings.TrimSpace(accountID)
 	comments := make([]Comment, 0, len(result.Data))
 	for _, item := range result.Data {
-		comments = append(comments, instagramCommentFromGraph(item, ""))
+		comments = append(comments, instagramCommentFromGraph(item, accountID, ""))
 		for _, reply := range item.Replies.Data {
 			parentID := reply.ParentID
 			if parentID == "" {
 				parentID = item.ID
 			}
-			comments = append(comments, instagramCommentFromGraph(reply, parentID))
+			comments = append(comments, instagramCommentFromGraph(reply, accountID, parentID))
 		}
 	}
 	return comments, nil

@@ -473,6 +473,8 @@ func (y *YouTubeAdapter) UploadMediaResumable(
 	return videoID, nil
 }
 
+const youtubeDescriptionMaxBytes = 5000
+
 func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, error) {
 	if !isVideoMime(req.MimeType) {
 		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube upload requires a video attachment")
@@ -486,6 +488,12 @@ func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, er
 	title := youtubeTitle(req)
 	if title == "" {
 		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube upload requires an explicit title")
+	}
+	if strings.ContainsAny(firstNonEmptyString(settingString(req.Settings, "title"), strings.TrimSpace(req.Title)), "<>") {
+		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube titles cannot contain <> characters")
+	}
+	if len(strings.TrimSpace(req.Description)) > youtubeDescriptionMaxBytes {
+		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube descriptions are limited to %d bytes", youtubeDescriptionMaxBytes)
 	}
 	privacy := settingString(req.Settings, "privacy")
 	switch privacy {

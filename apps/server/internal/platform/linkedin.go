@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -771,10 +772,27 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 
 	postID := respHeaders.Get("x-restli-id")
 	if postID == "" {
+		// No native id: the write stays accepted so reconciliation owns it.
+		// Only a present-but-malformed id is a hard error.
 		return "", nil
+	}
+	if err := validateLinkedInPostID(postID); err != nil {
+		return "", err
 	}
 
 	return postID, nil
+}
+
+var linkedInPostIDPattern = regexp.MustCompile(`^urn:li:(share|ugcPost):[0-9]+$`)
+
+// validateLinkedInPostID rejects a provider post id OpenPost could never
+// reconcile with. A missing id stays accepted; a malformed one cannot be
+// looked up, retried, or unposted, so it fails instead.
+func validateLinkedInPostID(postID string) error {
+	if !linkedInPostIDPattern.MatchString(strings.TrimSpace(postID)) {
+		return fmt.Errorf("linkedin post response contained an invalid post id")
+	}
+	return nil
 }
 
 var linkedInPlaintextEscaper = strings.NewReplacer(

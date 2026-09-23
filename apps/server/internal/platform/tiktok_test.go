@@ -258,6 +258,26 @@ func TestTikTokPublishRequiresHTTPSVideoURL(t *testing.T) {
 	}
 }
 
+func TestValidateTikTokPublicMediaURLsRejectsUnsafeTargets(t *testing.T) {
+	if err := validateTikTokPublicMediaURLs([]string{"https://media.example/video.mp4"}); err != nil {
+		t.Fatalf("valid media URL rejected: %v", err)
+	}
+	if err := validateTikTokPublicMediaURLs([]string{"https://media.example:8443/video.mp4"}); err != nil {
+		t.Fatalf("custom-port media URL rejected: %v", err)
+	}
+	for _, raw := range []string{
+		"http://media.example/video.mp4",
+		"https://user:secret@media.example/video.mp4",
+		"https://media.example/video.mp4#fragment",
+		"not-a-url",
+		"",
+	} {
+		if err := validateTikTokPublicMediaURLs([]string{raw}); err == nil {
+			t.Fatalf("expected media URL %q to be rejected", raw)
+		}
+	}
+}
+
 func TestTikTokPublishRejectsUnsupportedPhotoMedia(t *testing.T) {
 	adapter := NewTikTokAdapter("client-key", "client-secret", "https://app.example/callback")
 

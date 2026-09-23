@@ -701,6 +701,35 @@ func TestYouTubeUploadRejectsMissingRequiredChoicesBeforeNetwork(t *testing.T) {
 	}
 }
 
+func TestPrepareYouTubeUploadRejectsProviderInvalidFields(t *testing.T) {
+	base := func() UploadMediaRequest {
+		return UploadMediaRequest{
+			MimeType: "video/mp4",
+			Size:     11,
+			Title:    "Launch",
+			Settings: map[string]interface{}{"privacy": "public", "category_id": "22"},
+			OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader("video-bytes"[offset:])), nil
+			},
+		}
+	}
+	if _, err := prepareYouTubeUpload(base()); err != nil {
+		t.Fatalf("valid upload rejected: %v", err)
+	}
+
+	angled := base()
+	angled.Title = "Launch <now>"
+	if _, err := prepareYouTubeUpload(angled); err == nil || !strings.Contains(err.Error(), "<>") {
+		t.Fatalf("expected title charset error, got %v", err)
+	}
+
+	long := base()
+	long.Description = strings.Repeat("é", 2501)
+	if _, err := prepareYouTubeUpload(long); err == nil || !strings.Contains(err.Error(), "5000") {
+		t.Fatalf("expected description byte error, got %v", err)
+	}
+}
+
 func TestValidateMediaYouTubeRequiresOneVideo(t *testing.T) {
 	RegisterAllMediaValidators()
 

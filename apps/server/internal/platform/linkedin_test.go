@@ -30,6 +30,44 @@ func TestLinkedInGenerateAuthURLEncodesScopesWithPercentSpaces(t *testing.T) {
 	}
 }
 
+func TestLinkedInCreatePostValidatesPostIDShape(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	postID := ""
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/rest/posts" {
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+		}
+		resp := jsonResponse(req, `{}`)
+		if postID != "" {
+			resp.Header.Set("x-restli-id", postID)
+		}
+		return resp, nil
+	})}
+	adapter := NewLinkedInAdapter("", "", "", false, true)
+	request := func() *PublishRequest {
+		return &PublishRequest{Content: "Hello", Settings: map[string]interface{}{}}
+	}
+
+	postID = "urn:li:share:123456"
+	id, err := adapter.createPost(context.Background(), "token", "urn:li:person:member-1", linkedInAPIVersion(), request())
+	if err != nil || id != postID {
+		t.Fatalf("valid post id rejected: id=%q err=%v", id, err)
+	}
+
+	postID = "not-a-post-id"
+	if _, err := adapter.createPost(context.Background(), "token", "urn:li:person:member-1", linkedInAPIVersion(), request()); err == nil {
+		t.Fatal("expected malformed post id to be rejected")
+	}
+
+	postID = ""
+	id, err = adapter.createPost(context.Background(), "token", "urn:li:person:member-1", linkedInAPIVersion(), request())
+	if err != nil || id != "" {
+		t.Fatalf("missing post id must stay accepted for reconciliation: id=%q err=%v", id, err)
+	}
+}
+
 func TestLinkedInOrganizationSelectionUsesOrganizationURN(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

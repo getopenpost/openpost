@@ -289,7 +289,8 @@ func (t *TikTokAdapter) publishDirectVideoFromURL(ctx context.Context, accessTok
 
 func validateTikTokPublicMediaURLs(mediaURLs []string) error {
 	for _, mediaURL := range mediaURLs {
-		if !strings.HasPrefix(mediaURL, "https://") {
+		parsed, err := url.Parse(mediaURL)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
 			return fmt.Errorf("tiktok requires a publicly-accessible HTTPS media URL. Set OPENPOST_MEDIA_URL to your public media base URL")
 		}
 	}

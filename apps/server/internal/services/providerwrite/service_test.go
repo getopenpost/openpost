@@ -67,6 +67,46 @@ func TestAmbiguousWriteIsTerminalWithoutReconciliation(t *testing.T) {
 	require.Empty(t, attempt.SafeErrorCode)
 }
 
+func TestAcceptedWriteWithoutNativeIDStaysPendingForReconciliation(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "accepted-without-id")
+
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		require.NoError(t, control.Begin(platform.PublishResult{ProviderState: "create_post", RetrySafety: platform.PublishRetryNever}))
+		accepted := platform.AcceptedPublishResult("")
+		require.NoError(t, control.Checkpoint(accepted))
+		return accepted, nil
+	}, nil)
+	require.Error(t, err)
+	if _, ok := IsPending(err); !ok {
+		t.Fatalf("expected a pending reconciliation error, got %v", err)
+	}
+
+	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, StatusSending, attempt.Status)
+	require.Equal(t, string(platform.PublishRetryReconcileOnly), attempt.RetrySafety)
+}
+
+func TestAcceptedWriteWithoutIDButWithReferenceStaysAccepted(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "accepted-with-reference")
+
+	result, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		require.NoError(t, control.Begin(platform.PublishResult{ProviderState: "publish", RetrySafety: platform.PublishRetryNever}))
+		accepted := platform.AcceptedPublishResult("")
+		accepted.ProviderReference = "instagram:container-1"
+		require.NoError(t, control.Checkpoint(accepted))
+		return accepted, nil
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, platform.PublishSubmissionAccepted, result.SubmissionState)
+
+	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, StatusAccepted, attempt.Status)
+}
+
 func TestOperationFingerprintCannotChangeAfterAnAttemptExists(t *testing.T) {
 	db := newProviderWriteTestDB(t)
 	service := New(db)

@@ -764,6 +764,15 @@ func normalizeResult(result platform.PublishResult) platform.PublishResult {
 	if !validRetrySafety(result.RetrySafety) {
 		result.RetrySafety = ""
 	}
+	if result.SubmissionState == platform.PublishSubmissionAccepted &&
+		result.ExternalID == "" && result.ProviderReference == "" {
+		// A provider acceptance without a native id or a reference to
+		// reconcile with proves nothing. It must not become live: hold it
+		// pending with reconcile-only safety so it reconciles instead of
+		// retrying, and never reports published.
+		result.SubmissionState = platform.PublishSubmissionPending
+		result.RetrySafety = platform.PublishRetryReconcileOnly
+	}
 	return result
 }
 

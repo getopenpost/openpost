@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [6.1.2] - 2026-09-24
+## [6.1.3] - 2026-09-24
 
 ### Fixed
 

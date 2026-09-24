@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.1.2] - 2026-09-24
+
+### Fixed
+
+- Cloud Video Editor media can be deleted from the project media pool after its timeline references are removed.
+- Video Editor exports retry WebCodecs source decoding with software acceleration when a browser decoder reports a decoding error. This recovers affected high-frame-rate VP9 recordings without changing the selected export format or codec.
+
 ## [6.1.1] - 2026-09-23
 
 ### Fixed

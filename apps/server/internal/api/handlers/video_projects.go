@@ -11,6 +11,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/medialifecycle"
+	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/videoprojects"
 	"github.com/uptrace/bun"
 )
@@ -20,10 +22,12 @@ const videoProjectsPath = "/video-projects"
 type VideoProjectHandler struct {
 	service *videoprojects.Service
 	auth    middleware.Authenticator
+	db      *bun.DB
+	storage mediastore.BlobStorage
 }
 
-func NewVideoProjectHandler(db *bun.DB, authenticator middleware.Authenticator) *VideoProjectHandler {
-	return &VideoProjectHandler{service: videoprojects.NewService(db), auth: authenticator}
+func NewVideoProjectHandler(db *bun.DB, authenticator middleware.Authenticator, storage mediastore.BlobStorage) *VideoProjectHandler {
+	return &VideoProjectHandler{service: videoprojects.NewService(db), auth: authenticator, db: db, storage: storage}
 }
 
 type VideoProjectResponse struct {
@@ -171,6 +175,18 @@ type BeginProjectAssetUploadInput struct {
 	PathAsset string `path:"asset_id" doc:"Project Asset ID"`
 	Body      struct {
 		WorkspaceID string `json:"workspace_id" minLength:"1"`
+	}
+}
+
+type DeleteProjectAssetInput struct {
+	PathID      string `path:"id" doc:"Video project ID"`
+	PathAsset   string `path:"asset_id" doc:"Project Asset ID"`
+	WorkspaceID string `query:"workspace_id" required:"true" doc:"Workspace ID"`
+}
+
+type DeleteProjectAssetOutput struct {
+	Body struct {
+		Deleted bool `json:"deleted" doc:"Whether the Project Asset was removed"`
 	}
 }
 
@@ -329,6 +345,11 @@ func (h *VideoProjectHandler) RegisterRoutes(api huma.API) {
 		Summary: "Mark a Project Asset upload as started", Tags: []string{"Video Projects"},
 		Middlewares: auth, Errors: []int{400, 403, 404},
 	}, h.beginAssetUpload)
+	huma.Register(api, huma.Operation{
+		OperationID: "delete-video-project-asset", Method: http.MethodDelete, Path: videoProjectsPath + "/{id}/assets/{asset_id}",
+		Summary: "Delete a Project Asset", Description: "Removes a Project Asset after the editor no longer references it. Shared media remains available to other projects.",
+		Tags: []string{"Video Projects"}, Middlewares: auth, Errors: []int{400, 403, 404, 500},
+	}, h.deleteAsset)
 }
 
 func (h *VideoProjectHandler) create(ctx context.Context, input *CreateVideoProjectInput) (*VideoProjectOutput, error) {
@@ -587,6 +608,27 @@ func (h *VideoProjectHandler) beginAssetUpload(ctx context.Context, input *Begin
 		return nil, err
 	}
 	return &ProjectAssetOutput{Body: response}, nil
+}
+
+func (h *VideoProjectHandler) deleteAsset(ctx context.Context, input *DeleteProjectAssetInput) (*DeleteProjectAssetOutput, error) {
+	mediaID, err := h.service.DeleteAsset(
+		ctx,
+		workspaceActor(ctx, middleware.GetUserID(ctx)),
+		input.WorkspaceID,
+		input.PathID,
+		input.PathAsset,
+	)
+	if err != nil {
+		return nil, videoProjectError(err, "delete asset from")
+	}
+	if mediaID != "" {
+		if _, err := medialifecycle.NewService(h.db, h.storage).TrashManual(ctx, mediaID, input.WorkspaceID); err != nil {
+			return nil, huma.Error500InternalServerError("failed to move deleted Project Asset media to Trash")
+		}
+	}
+	output := &DeleteProjectAssetOutput{}
+	output.Body.Deleted = true
+	return output, nil
 }
 
 func projectAssetResponse(asset *models.ProjectAsset) (ProjectAssetResponse, error) {

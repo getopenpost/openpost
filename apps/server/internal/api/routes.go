@@ -313,7 +313,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	socialSetHandler := handlers.NewSocialSetHandler(deps.DB, deps.Authenticator)
 	socialSetHandler.SetCapabilityResolver(capabilityResolverHandler)
 	socialSetHandler.RegisterRoutes(api)
-	handlers.NewVideoProjectHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
+	handlers.NewVideoProjectHandler(deps.DB, deps.Authenticator, deps.MediaStorage).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)
 	commentHandler := handlers.NewCommentHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenEncryptor)
 	providerRegistrars = append(providerRegistrars, commentHandler.SetProvider)

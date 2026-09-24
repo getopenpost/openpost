@@ -83,6 +83,56 @@ func TestCloudVideoProjectCreateLoadAndWorkspaceAuthorization(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, otherWorkspace.Code, otherWorkspace.Body.String())
 }
 
+func TestCloudVideoProjectAssetDeleteRemovesAssetAndIsIdempotent(t *testing.T) {
+	server := newVideoProjectTestServer(t)
+	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"workspace_id": "ws-1",
+		"name":         "Delete asset",
+		"document":     map[string]any{"id": "delete-asset"},
+	})
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var project VideoProjectResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &project))
+
+	asset := &models.ProjectAsset{
+		ID:               "asset-delete-1",
+		ProjectID:        project.ID,
+		WorkspaceID:      "ws-1",
+		StableMediaID:    "stable-delete-1",
+		OriginalFilename: "recording.webm",
+		MimeType:         "video/webm",
+		Size:             12,
+		Status:           models.ProjectAssetStatusReady,
+		PreparationJSON:  `{}`,
+		Required:         true,
+		UploadedByUserID: "user-editor",
+	}
+	_, err := server.db.NewInsert().Model(asset).Exec(t.Context())
+	require.NoError(t, err)
+
+	deleted := server.request(
+		t,
+		"editor-token",
+		http.MethodDelete,
+		"/api/v1/video-projects/"+project.ID+"/assets/"+asset.ID+"?workspace_id=ws-1",
+		nil,
+	)
+	require.Equal(t, http.StatusOK, deleted.Code, deleted.Body.String())
+	var remaining int
+	remaining, err = server.db.NewSelect().Model((*models.ProjectAsset)(nil)).Where("id = ?", asset.ID).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, remaining)
+
+	replayed := server.request(
+		t,
+		"editor-token",
+		http.MethodDelete,
+		"/api/v1/video-projects/"+project.ID+"/assets/"+asset.ID+"?workspace_id=ws-1",
+		nil,
+	)
+	require.Equal(t, http.StatusOK, replayed.Code, replayed.Body.String())
+}
+
 func TestCloudVideoProjectNameFollowsEditsAndRestoredRevision(t *testing.T) {
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
@@ -475,7 +525,7 @@ func newVideoProjectTestServer(t *testing.T) *videoProjectTestServer {
 
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewVideoProjectHandler(db, videoProjectTestAuthenticator{}).RegisterRoutes(api)
+	NewVideoProjectHandler(db, videoProjectTestAuthenticator{}, nil).RegisterRoutes(api)
 	return &videoProjectTestServer{echo: e, db: db}
 }
 

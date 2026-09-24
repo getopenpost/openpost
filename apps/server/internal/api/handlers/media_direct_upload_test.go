@@ -259,7 +259,7 @@ func newMediaDirectUploadTestServerWithAuthenticator(
 	handler.SetEntitlement(entitlement)
 	handler.RegisterRoutes(api)
 	handler.RegisterLegacyRoutes(e)
-	NewVideoProjectHandler(db, authenticator).RegisterRoutes(api)
+	NewVideoProjectHandler(db, authenticator, storage).RegisterRoutes(api)
 
 	fakeStorage, _ := storage.(*fakeDirectUploadStorage)
 	return &mediaDirectUploadTestServer{echo: e, db: db, storage: fakeStorage, usage: usageSvc, handler: handler}

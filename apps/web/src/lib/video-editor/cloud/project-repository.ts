@@ -418,9 +418,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 	async listMedia(id: string): Promise<MediaMetadata[]> {
 		let assetData;
 		try {
-			assetData = await queryClient.query(
-				videoProjectAssetsQueryOptions(videoProjectQueryAPI, this.workspaceId, id)
-			);
+			assetData = await this.listAssets(id);
 		} catch {
 			const offline = await readOfflineCloudProject<TDocument>(this.workspaceId, id);
 			if (offline) return offline.media;
@@ -485,6 +483,37 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			if ((data.media?.length ?? 0) < 200) break;
 		}
 		return media;
+	}
+
+	async listAssets(id: string): Promise<components['schemas']['ProjectAssetResponse'][]> {
+		return queryClient.query(
+			videoProjectAssetsQueryOptions(videoProjectQueryAPI, this.workspaceId, id)
+		);
+	}
+
+	async deleteAssetForMedia(id: string, stableMediaId: string): Promise<void> {
+		const asset = (await this.listAssets(id)).find(
+			(candidate) => candidate.stable_media_id === stableMediaId
+		);
+		if (!asset) return;
+
+		const { error } = await client.DELETE('/video-projects/{id}/assets/{asset_id}', {
+			params: {
+				path: { id, asset_id: asset.id },
+				query: { workspace_id: this.workspaceId }
+			}
+		});
+		if (error) throw new Error('Could not delete Cloud Video Project asset');
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: videoProjectQueryKeys.assets(this.workspaceId, id),
+				refetchType: 'none'
+			}),
+			queryClient.invalidateQueries({
+				queryKey: mediaQueryKeys.lists(this.workspaceId),
+				refetchType: 'none'
+			})
+		]);
 	}
 
 	async reserveAsset(

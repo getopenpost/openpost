@@ -84,7 +84,10 @@
 		type MediaDeletionPlan
 	} from '$lib/video-editor/media/media-deletion';
 	import { removePlannedMediaReferences } from '$lib/video-editor/media/media-deletion-action';
-	import { deleteMediaFromProject } from '$lib/video-editor/media/project-media-delete';
+	import {
+		deleteMediaFromProject,
+		type ProjectMediaDeleteHandler
+	} from '$lib/video-editor/media/project-media-delete';
 	import {
 		captureSnapshot,
 		restoreSnapshot
@@ -125,7 +128,7 @@
 		onstock?: () => void;
 		onUnsupportedAudio?: (request: UnsupportedAudioImportRequest) => Promise<'import' | 'cancel'>;
 		importProjectAsset?: ProjectAssetImporter;
-		deleteProjectMedia?: typeof deleteMediaFromProject;
+		deleteProjectMedia?: ProjectMediaDeleteHandler;
 		generateMediaProxy?: typeof getAutomaticProxy;
 		requestSourceAccess?: typeof requestMediaSourceAccess;
 		pickSourceHandle?: () => Promise<FileSystemFileHandle | undefined>;

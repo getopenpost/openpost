@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { client } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
 import { CloudVideoProjectRepository } from './project-repository';
 
@@ -70,5 +71,48 @@ describe('CloudVideoProjectRepository media reload', () => {
 				bitrate: 4_000_000
 			})
 		]);
+	});
+
+	it('deletes the server Project Asset that owns a cloud media source', async () => {
+		const query = vi.spyOn(queryClient, 'query').mockResolvedValueOnce([
+			{
+				id: 'asset-1',
+				project_id: 'project-1',
+				workspace_id: 'workspace-1',
+				media_id: 'media-1',
+				stable_media_id: 'stable-media-1',
+				original_filename: 'recording.webm',
+				mime_type: 'video/webm',
+				size: 1_024,
+				sha256: '',
+				status: 'ready',
+				attention_reason: '',
+				preparation: {},
+				required: true,
+				uploaded_by_user_id: 'user-1',
+				device_id: 'device-1',
+				created_at: '2026-09-20T00:00:00Z',
+				updated_at: '2026-09-20T00:00:00Z'
+			}
+		]);
+		// SAFETY: The mocked DELETE response only needs the generated client's success shape.
+		const remove = vi.spyOn(client, 'DELETE').mockResolvedValue({
+			data: undefined,
+			error: undefined,
+			response: new Response(null, { status: 200 })
+		} as never);
+
+		await new CloudVideoProjectRepository<object>('workspace-1').deleteAssetForMedia(
+			'project-1',
+			'stable-media-1'
+		);
+
+		expect(query).toHaveBeenCalledOnce();
+		expect(remove).toHaveBeenCalledWith('/video-projects/{id}/assets/{asset_id}', {
+			params: {
+				path: { id: 'project-1', asset_id: 'asset-1' },
+				query: { workspace_id: 'workspace-1' }
+			}
+		});
 	});
 });

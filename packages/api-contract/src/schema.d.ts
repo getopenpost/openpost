@@ -4913,6 +4913,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/video-projects/{id}/assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Project Asset
+         * @description Removes a Project Asset after the editor no longer references it. Shared media remains available to other projects.
+         */
+        delete: operations["delete-video-project-asset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video-projects/{id}/assets/{asset_id}/begin-upload": {
         parameters: {
             query?: never;
@@ -7847,6 +7867,16 @@ export interface components {
             readonly $schema?: string;
             /** @description Success message */
             message: string;
+        };
+        DeleteProjectAssetOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/DeleteProjectAssetOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Whether the Project Asset was removed */
+            deleted: boolean;
         };
         DeletePromptOutputBody: {
             /**
@@ -34173,6 +34203,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectAssetResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-video-project-asset": {
+        parameters: {
+            query: {
+                /** @description Workspace ID */
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                /** @description Video project ID */
+                id: string;
+                /** @description Project Asset ID */
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteProjectAssetOutputBody"];
                 };
             };
             /** @description Bad Request */

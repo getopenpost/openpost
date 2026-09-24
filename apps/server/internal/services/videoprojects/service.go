@@ -220,6 +220,57 @@ func (s *Service) ListAssets(ctx context.Context, actor workspaceaccess.ActorFac
 	return assets, nil
 }
 
+// DeleteAsset removes a Project Asset after its editor references have been removed.
+// The media attachment is returned so the API can move it through the shared
+// media lifecycle without deleting media that another project still uses.
+func (s *Service) DeleteAsset(
+	ctx context.Context,
+	actor workspaceaccess.ActorFacts,
+	workspaceID string,
+	projectID string,
+	assetID string,
+) (string, error) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	projectID = strings.TrimSpace(projectID)
+	assetID = strings.TrimSpace(assetID)
+	if workspaceID == "" || projectID == "" || assetID == "" {
+		return "", ErrInvalid
+	}
+
+	var mediaID string
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		project, err := loadProject(txCtx, tx, workspaceID, projectID, false)
+		if err != nil {
+			return err
+		}
+		if err := authorize(txCtx, tx, actor, project.WorkspaceID, workspaceaccess.LevelEdit); err != nil {
+			return err
+		}
+
+		var asset models.ProjectAsset
+		err = tx.NewSelect().Model(&asset).
+			Where("id = ? AND project_id = ? AND workspace_id = ?", assetID, projectID, workspaceID).
+			Scan(txCtx)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Deletion is idempotent so a replay after a lost response succeeds.
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		mediaID = asset.MediaID
+		if _, err := tx.NewDelete().Model(&asset).WherePK().Exec(txCtx); err != nil {
+			return err
+		}
+		return refreshProjectSyncState(txCtx, tx, project.ID, s.now().UTC())
+	})
+	if err != nil {
+		return "", err
+	}
+	return mediaID, nil
+}
+
 func (s *Service) setAssetStatus(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, projectID, assetID, status, reason string) (*models.ProjectAsset, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	projectID = strings.TrimSpace(projectID)

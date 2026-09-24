@@ -76,6 +76,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { insertMediaAtFrame } from '$lib/video-editor/timeline/actions/insert-media';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectMediaDeleteResult } from '$lib/video-editor/media/project-media-delete';
 	import { formatMediaDuration } from '$lib/video-editor/media/library-view';
 	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
 	import { mediaRecovery } from '$lib/video-editor/media/media-recovery.svelte';
@@ -1075,6 +1076,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			throw error;
 		}
 	};
+
+	async function deleteCloudProjectMedia(
+		targetProjectId: string,
+		stableMediaId: string
+	): Promise<ProjectMediaDeleteResult> {
+		const workspaceId = workspaceCtx.currentWorkspace?.id;
+		if (!workspaceId) {
+			throw new Error('Open this Cloud project from a Workspace, then try again.');
+		}
+		await new CloudVideoProjectRepository<Project>(workspaceId).deleteAssetForMedia(
+			targetProjectId,
+			stableMediaId
+		);
+		return { deletedWorkspaceBytes: true, remainingProjectIds: [] };
+	}
 
 	function requestUnsupportedAudioDecision(
 		request: UnsupportedAudioImportRequest
@@ -3019,6 +3035,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											{#if leftPanel === 'media' && mediaPanelView === 'project'}
 												<MediaPoolList
 													{projectId}
+													deleteProjectMedia={cloudStorage ? deleteCloudProjectMedia : undefined}
 													onUnsupportedAudio={requestUnsupportedAudioDecision}
 													onsequenceopen={handleTabSwitchSelection}
 													onsourceopen={(mediaId) => (sourceMediaId = mediaId)}

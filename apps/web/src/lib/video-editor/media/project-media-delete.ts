@@ -18,6 +18,11 @@ export interface ProjectMediaDeleteResult {
 	remainingProjectIds: string[];
 }
 
+export type ProjectMediaDeleteHandler = (
+	projectId: string,
+	mediaId: string
+) => Promise<ProjectMediaDeleteResult>;
+
 export async function deleteMediaFromProject(
 	projectId: string,
 	mediaId: string,

@@ -4,6 +4,7 @@ import { ResilientVideoCanvasDecoder } from './render-video-decoder';
 describe('ResilientVideoCanvasDecoder', () => {
 	it('retries WebCodecs decoding failures with software decoding', async () => {
 		const preferences: string[] = [];
+		// SAFETY: The test only compares this canvas by identity; no OffscreenCanvas API is called.
 		const rendered = { canvas: {} as OffscreenCanvas, timestamp: 0, duration: 1 };
 		const hardwareSink = {
 			getCanvas: vi.fn().mockRejectedValue(new Error('Decoding error'))

@@ -52,6 +52,8 @@
 	let fadeDrag: {
 		handle: FadeHandle;
 		pointerId: number;
+		startClientX: number;
+		committed: boolean;
 		beforeSnapshot: ReturnType<typeof captureSnapshot>;
 		beforeItem: TimelineItem;
 		target: HTMLElement;
@@ -297,6 +299,11 @@
 
 	function onFadePointerMove(event: PointerEvent): void {
 		if (!fadeDrag || event.pointerId !== fadeDrag.pointerId) return;
+		if (!fadeDrag.committed) {
+			if (Math.abs(event.clientX - fadeDrag.startClientX) <= FADE_DRAG_THRESHOLD_PIXELS)
+				return;
+		fadeDrag.committed = true;
+		}
 		const next = computeFadeSeconds(event.clientX, fadeDrag.handle);
 		commitFade(fadeDrag.handle, next);
 	}
@@ -326,6 +333,10 @@
 
 	function onFadePointerUp(event: PointerEvent): void {
 		if (!fadeDrag || event.pointerId !== fadeDrag.pointerId) return;
+		if (!fadeDrag.committed) {
+			cleanupFadeDrag();
+			return;
+		}
 		const next = computeFadeSeconds(event.clientX, fadeDrag.handle);
 		commitFade(fadeDrag.handle, next);
 		finishFadeDrag(false);
@@ -361,6 +372,8 @@
 		fadeDrag = {
 			handle,
 			pointerId: event.pointerId,
+			startClientX: event.clientX,
+			committed: false,
 			beforeSnapshot: before,
 			beforeItem: { ...beforeItem },
 			target
@@ -377,8 +390,6 @@
 		window.addEventListener('pointerup', onFadePointerUp);
 		window.addEventListener('pointercancel', onFadePointerCancel);
 		window.addEventListener('keydown', onFadeKeyEscape);
-		const next = computeFadeSeconds(event.clientX, handle);
-		commitFade(handle, next);
 	}
 
 	function commitCurve(handle: FadeHandle, curve: number, curveX: number): void {
@@ -658,6 +669,9 @@
 	});
 
 	const handleTop = '-2px';
+	// Dead zone before a fade press becomes a fade drag (Kdenlive pattern): a press
+	// that never travels stays a no-op instead of stamping a fade under the cursor.
+	const FADE_DRAG_THRESHOLD_PIXELS = 4;
 </script>
 
 {#if isAudio || isVisual}
@@ -706,7 +720,7 @@
 				bind:this={fadeInHandle}
 				type="button"
 				role="slider"
-				class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {editing ===
+				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeInPercent <= 0 ? 'translate-x-0' : '-translate-x-1/2'} {densityPointerClass} {editing ===
 					'in' || hoveredFade === 'in'
 					? 'opacity-100'
 					: handleVisibilityClass}"
@@ -755,7 +769,7 @@
 				bind:this={fadeOutHandle}
 				type="button"
 				role="slider"
-				class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {editing ===
+				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeOutLeft >= 100 ? '-translate-x-full' : '-translate-x-1/2'} {densityPointerClass} {editing ===
 					'out' || hoveredFade === 'out'
 					? 'opacity-100'
 					: handleVisibilityClass}"
@@ -806,7 +820,7 @@
 					bind:this={curveInHandle}
 					type="button"
 					role="slider"
-					class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none items-center justify-center rounded-full transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
+					class="absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none items-center justify-center rounded-full transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
 						'in' || hoveredCurve === 'in'
 						? 'opacity-100'
 						: 'opacity-0 group-hover/timeline-item:opacity-100'}"
@@ -861,7 +875,7 @@
 					bind:this={curveOutHandle}
 					type="button"
 					role="slider"
-					class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none items-center justify-center rounded-full transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
+					class="absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none items-center justify-center rounded-full transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
 						'out' || hoveredCurve === 'out'
 						? 'opacity-100'
 						: 'opacity-0 group-hover/timeline-item:opacity-100'}"

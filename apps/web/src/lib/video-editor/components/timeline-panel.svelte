@@ -844,7 +844,7 @@
 	const fps = $derived(editorSession.fps);
 	const zoom = $derived(timelineStore.zoomLevel);
 	const pxPerFrame = $derived(timelinePixelsPerFrame(zoom));
-	const DRAG_THRESHOLD_PIXELS = 3;
+	const DRAG_THRESHOLD_PIXELS = 5;
 	const EMPTY_TIMELINE_ITEM_RANGE_INDEX = buildTimelineItemRangeIndex([]);
 	const timelineWidth = $derived(
 		TRACK_HEADER_WIDTH + Math.max(800, (timelineStore.maxItemEndFrame + fps * 10) * pxPerFrame)
@@ -5549,7 +5549,7 @@
 											{/if}
 											<button
 												type="button"
-												class="absolute inset-y-0 left-0 z-20 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11 {activeEditTool ===
+												class="absolute inset-y-0 left-0 z-20 w-3 cursor-ew-resize opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11 {activeEditTool ===
 												'track-push'
 													? pushAvailability === 'ready'
 														? 'bg-cyan-400/45 hover:bg-cyan-300/70'
@@ -5590,7 +5590,7 @@
 											></button>
 											<button
 												type="button"
-												class="absolute inset-y-0 right-0 z-20 w-2 cursor-ew-resize bg-white/15 opacity-0 group-hover:opacity-100 hover:bg-white/40 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11"
+												class="absolute inset-y-0 right-0 z-20 w-3 cursor-ew-resize bg-white/15 opacity-0 group-hover:opacity-100 hover:bg-white/40 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11"
 												aria-label={activeEditTool === 'rate-stretch'
 													? m.video_editor_rate_stretch()
 													: m.video_editor_trim_end()}

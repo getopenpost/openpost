@@ -41,7 +41,12 @@ describe('timeline snapping', () => {
 	it('keeps the magnetic hit area stable in screen space as zoom changes', () => {
 		expect(calculateAdaptiveSnapThreshold(1, 4)).toBe(2);
 		expect(calculateAdaptiveSnapThreshold(4, 16)).toBe(1);
-		expect(calculateAdaptiveSnapThreshold(0.25, 1)).toBe(16);
+		expect(calculateAdaptiveSnapThreshold(0.25, 1)).toBe(12);
+	});
+
+	it('caps the snap threshold at low zoom so clips do not magnetize from seconds away', () => {
+		expect(calculateAdaptiveSnapThreshold(0.01, 0.04)).toBe(120);
+		expect(calculateAdaptiveSnapThreshold(0.1, 0.4)).toBe(30);
 	});
 
 	it('builds targets from visible item edges, the playhead, markers, and the adaptive grid', () => {

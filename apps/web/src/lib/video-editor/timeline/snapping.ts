@@ -15,6 +15,8 @@ import { resolveTransitionWindow } from './transition-planner';
 import { effectiveMediaTracks } from './utils/track-groups';
 
 export const BASE_SNAP_THRESHOLD_PIXELS = 8;
+export const MAX_SNAP_THRESHOLD_PIXELS = 12;
+export const MAX_SNAP_THRESHOLD_FRAMES = 120;
 
 export type SnapTargetType = 'grid' | 'item-start' | 'item-end' | 'playhead' | 'marker';
 
@@ -40,8 +42,14 @@ export function calculateAdaptiveSnapThreshold(
 ): number {
 	const safeZoom = Math.max(0.01, zoomLevel);
 	const safePixelsPerFrame = Math.max(0.001, pixelsPerFrame);
-	const thresholdPixels = baseThresholdPixels / Math.sqrt(safeZoom);
-	return Math.max(1, Math.ceil(thresholdPixels / safePixelsPerFrame));
+	const thresholdPixels = Math.min(
+		baseThresholdPixels / Math.sqrt(safeZoom),
+		MAX_SNAP_THRESHOLD_PIXELS
+	);
+	return Math.min(
+		MAX_SNAP_THRESHOLD_FRAMES,
+		Math.max(1, Math.ceil(thresholdPixels / safePixelsPerFrame))
+	);
 }
 
 export function generateGridSnapPoints(

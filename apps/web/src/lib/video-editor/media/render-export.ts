@@ -85,6 +85,7 @@ import { ensureProResDecoderForCodec } from './prores-decoder';
 import { ensureAc3DecoderForCodec } from './ac3-decoder';
 import { mixAudioWindows } from '../audio/bounded-audio-mixer';
 import { RenderDisposalGate } from './render-disposal';
+import { ResilientVideoCanvasDecoder } from './render-video-decoder';
 
 export interface RenderExportProgress {
 	phase: 'preparing' | 'mixing' | 'rendering' | 'encoding' | 'finalizing';
@@ -140,7 +141,7 @@ const VIDEO_BITRATES = {
 
 interface VideoDecoder {
 	input: Input;
-	sink: CanvasSink;
+	sink: ResilientVideoCanvasDecoder;
 }
 
 interface ArtifactTarget {
@@ -400,11 +401,15 @@ export class TimelineFrameRenderer {
 		await ensureProResDecoderForCodec(videoTrack.codec);
 		const decoder: VideoDecoder = {
 			input,
-			sink: new CanvasSink(videoTrack, {
-				width: this.width,
-				height: this.height,
-				fit: 'contain'
-			})
+			sink: new ResilientVideoCanvasDecoder(
+				(hardwareAcceleration) =>
+					new CanvasSink(videoTrack, {
+						width: this.width,
+						height: this.height,
+						fit: 'contain',
+						decoderOptions: { hardwareAcceleration }
+					})
+			)
 		};
 		this.decoders.set(mediaId, decoder);
 		return decoder;

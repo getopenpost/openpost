@@ -132,7 +132,12 @@ const checks = {
   ]),
   changelog: stage("changelog", [
     bun("scripts/check-changelog.mjs"),
-    bunTest("packages/changelog/src/index.test.mjs", "scripts/merge-changelog-fragments.test.mjs"),
+    bunTest(
+      "packages/changelog/src/index.test.mjs",
+      "scripts/merge-changelog-fragments.test.mjs",
+      "scripts/release-notes.test.mjs",
+      "scripts/record-release-changelog.test.mjs",
+    ),
   ]),
   "social-images": stage("social images", [
     bun("scripts/social-images/catalog.mjs", "--check"),

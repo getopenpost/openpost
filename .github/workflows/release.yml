@@ -712,6 +712,44 @@ jobs:
             --notes-file release-notes.md \
             "$asset_scope" --published
 
+  record-changelog:
+    name: Record release in CHANGELOG
+    runs-on: ubuntu-latest
+    # Runs after publication so the recorded section matches exactly what
+    # shipped. The bot commit carries the automation identity, never a
+    # human author: tagging needs no changelog commit anymore.
+    needs: publish-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Record the published release and consume its fragments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          bun scripts/record-release-changelog.mjs "$GITHUB_REF_NAME"
+          if [[ -z "$(git status --porcelain -- CHANGELOG.md changes)" ]]; then
+            echo "CHANGELOG already records $GITHUB_REF_NAME; nothing to push."
+            exit 0
+          fi
+          git add CHANGELOG.md changes
+          git commit -m "docs: record ${GITHUB_REF_NAME} changelog"
+          # Main may have advanced while the release pipeline ran; rebase the
+          # record commit onto it (the recorder is idempotent) and push.
+          git fetch origin main
+          git rebase origin/main
+          git push origin main
+
   announce-discord:
     name: Announce release in Discord
     runs-on: ubuntu-latest

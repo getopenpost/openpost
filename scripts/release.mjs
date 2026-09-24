@@ -1,11 +1,10 @@
 #!/usr/bin/env bun
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
-import { changelogFragmentEntries } from "./changelog-fragments.mjs";
 import { releaseCommandEnvironment } from "./release-command-environment.mjs";
 import { requireConventionalCommitMessage, selectWorkflowRun } from "./release-lifecycle.mjs";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
@@ -304,41 +303,22 @@ async function prepare(commitMessage) {
   checkReleaseContracts();
   await checkReleaseMobileIdentity(publishedStableReleaseTag());
 
-  // Preparation owns exactly two paths: the changelog and its fragments.
-  // Product screenshots refresh deliberately with public imagery changes, not
-  // on every release. Android keeps its own cadence: preparation never bumps
-  // mobile identity, it only verifies the committed identity is release-valid.
-  const changelogPath = path.join(root, "CHANGELOG.md");
-  const originalFragments = await Promise.all(
-    changelogFragmentEntries(path.join(root, "changes")).map(async (entry) => {
-      const file = path.join(root, "changes", entry);
-      return { file, content: await readFile(file) };
-    }),
-  );
-  const originalChangelog = await readFile(changelogPath);
-  try {
-    run(["bun", "scripts/prepare-release-changelog.mjs", tag]);
-    run(["git", "add", "CHANGELOG.md", "changes"]);
-    if (git(["diff", "--cached", "--name-only"]).trim()) {
-      run(["git", "commit", "-m", commitMessage || `docs: prepare ${tag} changelog`]);
-    } else {
-      console.log(`release prepare: ${tag} changelog is already prepared; reusing HEAD`);
-    }
-  } catch (error) {
-    await Promise.all([
-      Bun.write(changelogPath, originalChangelog),
-      ...originalFragments.map(async ({ file, content }) => {
-        if (!(await exists(file))) await Bun.write(file, content);
-      }),
-    ]);
-    throw error;
-  }
-  // The candidate is the pushed SHA. Later main commits cannot enter it; a
+  // Fail fast when the candidate has no releasable notes. Tag CI builds the
+  // draft notes from changes/ fragments plus [Unreleased] at the tag, so an
+  // empty or invalid combination must stop here instead of in tag CI.
+  runCapture(["bun", "scripts/release-notes.mjs", tag]);
+
+  // Preparation owns no files. The changelog is generated in CI at draft
+  // time and recorded on main by the release workflow after publication, so
+  // preparation never commits. The candidate is the pushed main SHA: push
+  // local main commits so the tag (created by promote) points at an
+  // origin/main revision. Later main commits cannot enter the tag; a
   // rejected push means origin advanced and preparation stops here.
-  run(["git", "push", "origin", "main"]);
+  const ahead = Number(git(["rev-list", "--count", "origin/main..HEAD"]));
+  if (ahead > 0) run(["git", "push", "origin", "main"]);
 
   const revision = git(["rev-parse", "HEAD"]);
-  console.log(`release prepare: ${tag} candidate selected at ${revision}; tag CI proves it`);
+  console.log(`release prepare: ${tag} candidate selected at ${revision}; run promote to tag it`);
   return tag;
 }
 

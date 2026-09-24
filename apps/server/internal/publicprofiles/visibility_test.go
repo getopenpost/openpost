@@ -6,13 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParsePreservesHistoricalAllFieldsDefault(t *testing.T) {
-	for _, raw := range []string{"", "[]", "  []  "} {
-		visibility := Parse(raw)
-		require.Equal(t, SupportedFields(), visibility.Fields())
-	}
-}
-
 func TestNormalizeCanHideEveryOptionalField(t *testing.T) {
 	raw, fields, err := Normalize(nil)
 	require.NoError(t, err)

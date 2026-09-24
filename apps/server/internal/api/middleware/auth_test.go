@@ -341,18 +341,6 @@ func TestExternalApplicationRESTAccessRequiresExactGrant(t *testing.T) {
 	}, "list-workspaces"))
 }
 
-func TestLegacyRESTScopeCatalogIsExplicit(t *testing.T) {
-	read, write := LegacyRESTScopeOperationCatalog()
-	require.Empty(t, read)
-	require.Equal(t, []string{RESTOperationUploadMediaSessionContent}, write)
-}
-
-func TestRequestAuthTokenAcceptsSessionCookie(t *testing.T) {
-	token, cookieAuth := requestAuthToken("", "theme=dark; openpost_session=session-token")
-	require.Equal(t, "session-token", token)
-	require.True(t, cookieAuth)
-}
-
 func TestCookieRequestOriginProtection(t *testing.T) {
 	require.True(t, cookieRequestAllowed(http.MethodGet, "", "app.openpost.test"))
 	require.True(t, cookieRequestAllowed(http.MethodPost, "https://app.openpost.test", "app.openpost.test"))

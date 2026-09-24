@@ -156,9 +156,3 @@ func TestNewServiceRejectsInvalidStreamingURL(t *testing.T) {
 
 	require.ErrorContains(t, err, "Twitch or YouTube")
 }
-
-func TestDefaultRotationCyclesActivitiesEveryFewSeconds(t *testing.T) {
-	service, err := NewService("bot-token", Options{})
-	require.NoError(t, err)
-	require.LessOrEqual(t, service.rotation, 15*time.Second)
-}

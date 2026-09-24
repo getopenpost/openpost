@@ -37,16 +37,6 @@ func SupportsEngagement(platformName string) bool {
 	}
 }
 
-// SupportsGrow reports whether the platform supports grow discovery.
-func SupportsGrow(platformName string) bool {
-	switch platformName {
-	case "bluesky", "mastodon":
-		return true
-	default:
-		return false
-	}
-}
-
 func isLinkedInCommunityManagementState(raw string) bool {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

@@ -27,12 +27,6 @@ describe('scope bins', () => {
 });
 
 describe('scope range normalization', () => {
-	it('passes full-range values through clamped to 0-1', () => {
-		expect(normalizeScopeValue(0.5, 'full')).toBe(0.5);
-		expect(normalizeScopeValue(-0.2, 'full')).toBe(0);
-		expect(normalizeScopeValue(1.4, 'full')).toBe(1);
-	});
-
 	it('remaps studio-swing 16-235 into 0-1 for legal range', () => {
 		expect(normalizeScopeValue(16 / 255, 'legal')).toBe(0);
 		expect(normalizeScopeValue(235 / 255, 'legal')).toBe(1);

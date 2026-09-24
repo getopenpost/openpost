@@ -6,33 +6,6 @@ import (
 	"unicode"
 )
 
-type TargetContract struct {
-	Provider       string
-	BaseKey        string
-	Subdestination string
-	Example        string
-}
-
-func PublishingTargetContract(provider string) TargetContract {
-	provider = strings.ToLower(strings.TrimSpace(provider))
-	switch provider {
-	case providerPinterest:
-		return TargetContract{Provider: provider, BaseKey: provider, Subdestination: "board", Example: "pinterest:board:<board_id>"}
-	case providerTelegram:
-		return TargetContract{Provider: provider, BaseKey: provider, Subdestination: "chat", Example: "telegram:chat:<chat_id>"}
-	case providerDiscord:
-		return TargetContract{Provider: provider, BaseKey: provider, Subdestination: "channel", Example: "discord:channel:<channel_id>"}
-	case providerPeerTube:
-		return TargetContract{Provider: provider, BaseKey: provider, Subdestination: "channel", Example: "peertube:channel:<channel_name>"}
-	case providerLemmy:
-		return TargetContract{Provider: provider, BaseKey: provider, Subdestination: "community", Example: "lemmy:community:<host>:<name>"}
-	case providerPieFed:
-		return TargetContract{Provider: provider, BaseKey: provider, Subdestination: "community", Example: "piefed:community:<host>:<name>"}
-	default:
-		return TargetContract{Provider: provider, BaseKey: provider}
-	}
-}
-
 // ResolveTargetKey derives provider subdestination identity from typed
 // rendition settings and rejects an explicit key that disagrees with them.
 func ResolveTargetKey(provider, base, requested string, settings map[string]interface{}) (string, error) {

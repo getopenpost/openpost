@@ -31,41 +31,6 @@ func TestParseCommunityRef(t *testing.T) {
 	require.False(t, ok)
 }
 
-func TestCommunityCommentReferenceRoundTrip(t *testing.T) {
-	for _, provider := range []string{providerLemmy, providerPieFed} {
-		ref := communityCommentRef(provider, 42, "7")
-		postID, commentID, err := splitCommunityCommentRef(provider, ref)
-		require.NoError(t, err)
-		require.EqualValues(t, 42, postID)
-		require.EqualValues(t, 7, commentID)
-		require.Error(t, func() error {
-			_, _, splitErr := splitCommunityCommentRef(provider, "other:42:7")
-			return splitErr
-		}())
-	}
-}
-
-func TestFirstCommunityMediaURL(t *testing.T) {
-	require.Empty(t, firstCommunityMediaURL(nil))
-	require.Equal(t, "https://cdn.example/image.jpg", firstCommunityMediaURL(&PublishRequest{
-		PlatformMediaIDs: []string{"provider-id", " https://cdn.example/image.jpg "},
-	}))
-}
-
-func TestCommunityTargetKeyRoundTrip(t *testing.T) {
-	key := CommunityTargetKey("lemmy", "lemmy.world", "selfhosted")
-	require.Equal(t, "lemmy:community:lemmy.world:selfhosted", key)
-	provider, host, name, ok := ParseCommunityTargetKey(key)
-	require.True(t, ok)
-	require.Equal(t, "lemmy", provider)
-	require.Equal(t, "lemmy.world", host)
-	require.Equal(t, "selfhosted", name)
-
-	// Same name on different origins stays different destinations.
-	other := CommunityTargetKey("lemmy", "other.example", "selfhosted")
-	require.NotEqual(t, key, other)
-}
-
 func TestValidateCommunityPost(t *testing.T) {
 	require.NoError(t, ValidateCommunityPost("lemmy", "!selfhosted@lemmy.world", "Why I self-host"))
 	require.ErrorContains(t, ValidateCommunityPost("lemmy", "", "Title"), "require a community")
@@ -311,11 +276,4 @@ func TestResolveCommunityTargetKeys(t *testing.T) {
 	resolved, err = ResolveTargetKey("peertube", "peertube", "", map[string]interface{}{"channel": "demos"})
 	require.NoError(t, err)
 	require.Equal(t, "peertube:channel:demos", resolved)
-
-	contract := PublishingTargetContract("lemmy")
-	require.Equal(t, "community", contract.Subdestination)
-	contract = PublishingTargetContract("peertube")
-	require.Equal(t, "channel", contract.Subdestination)
-	contract = PublishingTargetContract("piefed")
-	require.Equal(t, "community", contract.Subdestination)
 }

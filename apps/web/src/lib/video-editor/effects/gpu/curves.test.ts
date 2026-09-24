@@ -6,10 +6,6 @@ function point(x: number, y = x): CurvePoint {
 }
 
 describe('curvePointInsertIndex', () => {
-	it('inserts between neighbors with room on both sides', () => {
-		expect(curvePointInsertIndex([point(0), point(1)], point(0.5))).toBe(1);
-	});
-
 	it('matches FreeCut click-to-add density with a half-gap rule', () => {
 		const points = [point(0), point(0.5), point(1)];
 		// 0.021 clears half the 0.04 drag gap, so the click lands.

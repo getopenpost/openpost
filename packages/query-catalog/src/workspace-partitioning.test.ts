@@ -8,6 +8,7 @@ import {
   openPostQueryKeys,
   promptQueryKeys,
   schedulingQueryKeys,
+  videoProjectQueryKeys,
   voiceProfileQueryKeys,
 } from "./index";
 
@@ -76,6 +77,11 @@ describe("workspace key partitioning", () => {
         name: "prompts",
         a: promptQueryKeys.lists("workspace-a"),
         b: promptQueryKeys.lists("workspace-b"),
+      },
+      {
+        name: "video projects",
+        a: videoProjectQueryKeys.list("workspace-a", false),
+        b: videoProjectQueryKeys.list("workspace-b", false),
       },
     ];
     for (const family of families) {

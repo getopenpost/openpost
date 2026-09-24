@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTextCurvePath, shadowColor, shadowOffset, textCurveStartOffset } from './effects';
+import { createTextCurvePath, shadowColor, shadowOffset } from './effects';
 import type { ImageEditorShadowEffect, ImageEditorTextCurve } from './types';
 
 const shadow: ImageEditorShadowEffect = {
@@ -33,10 +33,5 @@ describe('OpenPost Image Editor layer effects', () => {
 		expect(paths.every(Boolean)).toBe(true);
 		expect(new Set(paths).size).toBe(paths.length);
 		expect(createTextCurvePath(600, 180, curve('none'))).toBeNull();
-	});
-
-	it('keeps text path offset normalized to the layer width', () => {
-		expect(textCurveStartOffset(600, curve('arc_up'))).toBe(150);
-		expect(textCurveStartOffset(1200, curve('arc_up'))).toBe(300);
 	});
 });

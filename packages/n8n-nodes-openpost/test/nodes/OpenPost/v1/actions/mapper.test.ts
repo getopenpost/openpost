@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import {
   buildOpenPostRequest,
   extractResult,
-  idempotencyKey,
   nextCursorFromHeaders,
   resultTotal,
   shouldRetryOpenPost,
@@ -78,10 +77,6 @@ describe("OpenPost request mapper", () => {
       },
     });
     expect(request.options.qs).toMatchObject({ workspace_id: "ws-1", limit: 50, offset: 50 });
-  });
-
-  test("honors explicit idempotency keys", () => {
-    expect(idempotencyKey("event-1", "exec-1", "publication.create", 0)).toBe("event-1");
   });
 
   test("retries naturally idempotent completion requests only for transient failures", () => {

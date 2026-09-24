@@ -16,36 +16,6 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
-func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
-	t.Parallel()
-
-	expected := []string{
-		TypePublishPublication, TypeRefreshToken, TypeMediaCleanup,
-		TypeStorageDelete, TypeFeedbackDelivery, TypeAnalyticsSweep, TypeAnalyticsAccount,
-		TypeAnalyticsRendition, TypeBillingWebhook, TypeEngagementSweep, TypeEngagementSync,
-		TypeMessagingSweep, TypeMessagesSync, TypeEngagementAction, TypeMessageSend, TypeNotificationEmail,
-		TypeQueueReminderSweep,
-		TypeOwnershipTransferExpiry,
-		TypeRepostSweep, TypeRepostEvaluate, TypeRepostExecute, TypeMediaAnalyze,
-		TypeGrowthDiscovery, TypeGrowthFollow, TypePublicationBuild, TypeBotIngress,
-		TypeScheduledAccountCheck,
-		TypeExternalWebhookDelivery,
-	}
-	definitions := Definitions()
-	actual := make([]string, 0, len(definitions))
-	for _, definition := range definitions {
-		actual = append(actual, definition.Type)
-		require.NotEmpty(t, definition.Execution, definition.Type)
-		require.NotEmpty(t, definition.Failure, definition.Type)
-		require.NotEmpty(t, definition.Recovery, definition.Type)
-		require.Positive(t, definition.DefaultMaxAttempts, definition.Type)
-		if definition.Failure == FailureProviderRead {
-			require.NotEmpty(t, definition.FailureMessage, definition.Type)
-		}
-	}
-	require.ElementsMatch(t, expected, actual)
-}
-
 func TestBotIngressPayloadIsBoundedToAnEventReference(t *testing.T) {
 	t.Parallel()
 

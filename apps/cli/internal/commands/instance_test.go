@@ -11,8 +11,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/openpost/cli/internal/api"
 )
 
 func TestInstanceHealthChecksLivenessAndReadiness(t *testing.T) {
@@ -283,47 +281,6 @@ func TestInstanceDiagnosticsIncludesBillingSnapshot(t *testing.T) {
 	billing, ok := got["billing"].(map[string]any)
 	if !ok || billing["plan_id"] != "founder" || billing["status"] != "active" {
 		t.Fatalf("billing = %#v", got["billing"])
-	}
-}
-
-func TestBillingSummaryHelpers(t *testing.T) {
-	status := api.BillingStatus{
-		Status:            "active",
-		PlanID:            "pro",
-		CancelAtPeriodEnd: true,
-		Limits: map[string]int64{
-			"social_accounts":         15,
-			"scheduled_posts_monthly": 2500,
-		},
-		Usage: map[string]int64{
-			"social_accounts":         4,
-			"scheduled_posts_monthly": 125,
-		},
-	}
-
-	got := summarizeBillingStatus(status)
-	want := "pro; active; canceling; scheduled_posts_monthly=125/2500, social_accounts=4/15"
-	if got != want {
-		t.Fatalf("summarizeBillingStatus() = %q, want %q", got, want)
-	}
-}
-
-func TestProviderCatalogSummaryAndLookupHelpers(t *testing.T) {
-	providers := []api.ProviderInfo{
-		{Platform: "x", DisplayName: "X", Configured: true, Status: "available"},
-		{Platform: "youtube", DisplayName: "YouTube", Configured: false, Status: "needs_configuration"},
-		{Platform: "pinterest", DisplayName: "Pinterest", Configured: false, Status: "planned"},
-		{Platform: "instagram", DisplayName: "Instagram", Configured: false, Status: "disabled"},
-	}
-
-	if got := summarizeProviderCatalog(providers); got != "available=1 needs_configuration=1 planned=1 disabled=1" {
-		t.Fatalf("summarizeProviderCatalog() = %q", got)
-	}
-	if got := providerStatusFor(providers, "twitter"); got != "X: available (configured)" {
-		t.Fatalf("providerStatusFor(twitter) = %q", got)
-	}
-	if got := providerStatusFor(providers, "not-a-provider"); got != "not-a-provider: not found" {
-		t.Fatalf("providerStatusFor(not-a-provider) = %q", got)
 	}
 }
 

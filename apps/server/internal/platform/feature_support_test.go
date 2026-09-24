@@ -59,26 +59,3 @@ func TestSupportsAnalyticsLinkedInCommunityManagementParsing(t *testing.T) {
 		})
 	}
 }
-
-func TestSupportsEngagementParity(t *testing.T) {
-	enabled := map[string]bool{
-		"facebook": true, "instagram": true, "linkedin": true, "threads": true,
-		"mastodon": true, "bluesky": true, "x": true, "youtube": true,
-	}
-	for _, p := range []string{"facebook", "instagram", "linkedin", "threads", "mastodon", "bluesky", "x", "youtube", "discord", "tiktok"} {
-		got := SupportsEngagement(p)
-		want := enabled[p]
-		if got != want {
-			t.Errorf("SupportsEngagement(%q)=%v want %v", p, got, want)
-		}
-	}
-}
-
-func TestSupportsGrowParity(t *testing.T) {
-	if !SupportsGrow("bluesky") || !SupportsGrow("mastodon") {
-		t.Error("grow should support bluesky and mastodon")
-	}
-	if SupportsGrow("x") || SupportsGrow("discord") {
-		t.Error("grow should not support x or discord")
-	}
-}

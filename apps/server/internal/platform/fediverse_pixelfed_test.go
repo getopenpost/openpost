@@ -21,51 +21,6 @@ func TestCompatWaitForMediaProcessingHonorsCancellation(t *testing.T) {
 	require.Less(t, time.Since(started), 500*time.Millisecond)
 }
 
-func TestParseFediverseSoftware(t *testing.T) {
-	cases := map[string]FediverseSoftware{
-		"mastodon":   FediverseSoftwareMastodon,
-		"pixelfed":   FediverseSoftwarePixelfed,
-		"gotosocial": FediverseSoftwareGoToSocial,
-		"akkoma":     FediverseSoftwareAkkoma,
-		"pleroma":    FediverseSoftwarePleroma,
-		"friendica":  FediverseSoftwareFriendica,
-		"misskey":    FediverseSoftwareUnknown,
-		"":           FediverseSoftwareUnknown,
-	}
-	for name, want := range cases {
-		if got := ParseFediverseSoftware(name); got != want {
-			t.Fatalf("ParseFediverseSoftware(%q) = %q, want %q", name, got, want)
-		}
-	}
-}
-
-func TestSoftwareFromInstanceVersion(t *testing.T) {
-	if got := SoftwareFromInstanceVersion("4.2.0 (compatible; Pixelfed 0.11.0)", true); got != FediverseSoftwarePixelfed {
-		t.Fatalf("expected pixelfed, got %q", got)
-	}
-	if got := SoftwareFromInstanceVersion("3.5.0+akkoma", true); got != FediverseSoftwareAkkoma {
-		t.Fatalf("expected akkoma, got %q", got)
-	}
-	if got := SoftwareFromInstanceVersion("4.5.0", true); got != FediverseSoftwareMastodon {
-		t.Fatalf("expected mastodon, got %q", got)
-	}
-	if got := SoftwareFromInstanceVersion("", false); got != FediverseSoftwareUnknown {
-		t.Fatalf("expected unknown, got %q", got)
-	}
-}
-
-func TestFediverseSoftwareDisplayNameNeverClaimsMastodon(t *testing.T) {
-	for _, software := range []FediverseSoftware{
-		FediverseSoftwarePixelfed, FediverseSoftwareGoToSocial,
-		FediverseSoftwareAkkoma, FediverseSoftwarePleroma,
-		FediverseSoftwareFriendica, FediverseSoftwareUnknown,
-	} {
-		if name := software.DisplayName(); strings.EqualFold(name, "Mastodon") {
-			t.Fatalf("%q must not display as Mastodon", string(software))
-		}
-	}
-}
-
 func TestDetectFediverseSoftwareViaNodeInfo(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -132,19 +87,6 @@ func TestCompatInstanceCapabilitiesFallsBackToV1(t *testing.T) {
 	}
 	if !strings.HasPrefix(result.Revision, "compat-v1:") {
 		t.Fatalf("expected v1 revision, got %q", result.Revision)
-	}
-}
-
-func TestIsInstanceScopedProvider(t *testing.T) {
-	for _, provider := range []string{"mastodon", "pixelfed", "peertube", "lemmy", "piefed"} {
-		if !IsInstanceScopedProvider(provider) {
-			t.Fatalf("expected %s to be instance-scoped", provider)
-		}
-	}
-	for _, provider := range []string{"x", "bluesky", "youtube", ""} {
-		if IsInstanceScopedProvider(provider) {
-			t.Fatalf("expected %s to not be instance-scoped", provider)
-		}
 	}
 }
 

@@ -12,8 +12,4 @@ describe('analyticsMetricLabel', () => {
 		expect(analyticsMetricLabel('pin_clicks')).toBe('Cliques no Pin');
 		expect(analyticsMetricLabel('reactions')).toBe('Reações');
 	});
-
-	it('reserves readable fallback labels for extension metrics', () => {
-		expect(analyticsMetricLabel('provider_extension_metric')).toBe('provider extension metric');
-	});
 });

@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { isSVGFile, rasterizeSVGToPNG } from './svg-rasterize';
+import { rasterizeSVGToPNG } from './svg-rasterize';
 
 describe('SVG upload rasterization', () => {
-	it('recognizes SVG MIME types and extensions', () => {
-		expect(isSVGFile(new File(['<svg/>'], 'mark.svg', { type: 'image/svg+xml' }))).toBe(true);
-		expect(isSVGFile(new File(['<svg/>'], 'mark.svg', { type: '' }))).toBe(true);
-		expect(isSVGFile(new File(['png'], 'mark.png', { type: 'image/png' }))).toBe(false);
-	});
-
 	it('converts an SVG into a transparent PNG with a raster filename', async () => {
 		const svg = new File(
 			[

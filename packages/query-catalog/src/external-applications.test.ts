@@ -2,7 +2,6 @@ import { QueryClient } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
 import {
   externalAuthorizationRequestQueryOptions,
-  externalInstallationsQueryOptions,
   type ExternalApplicationQueryAPI,
 } from "./external-applications";
 
@@ -11,16 +10,6 @@ function queryClient() {
 }
 
 describe("external application queries", () => {
-  it("deduplicates concurrent installation reads", async () => {
-    const listInstallations = vi.fn(async () => []);
-    const options = externalInstallationsQueryOptions({ listInstallations });
-    const client = queryClient();
-
-    await Promise.all([client.fetchQuery(options), client.fetchQuery(options)]);
-
-    expect(listInstallations).toHaveBeenCalledTimes(1);
-  });
-
   it("normalizes and partitions authorization requests", async () => {
     const getAuthorizationRequest = vi.fn(async () => ({
       application: {

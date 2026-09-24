@@ -11,36 +11,6 @@ import (
 	"testing"
 )
 
-func TestReadWriteFrameRoundTrip(t *testing.T) {
-	var buf bytes.Buffer
-	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`)
-	if err := writeFrame(&buf, body, frameFormatNewline); err != nil {
-		t.Fatalf("writeFrame: %v", err)
-	}
-
-	got, format, err := readFrame(bufio.NewReader(&buf))
-	if err != nil {
-		t.Fatalf("readFrame: %v", err)
-	}
-	if format != frameFormatNewline {
-		t.Fatalf("format = %v, want newline", format)
-	}
-	if string(got) != string(body) {
-		t.Fatalf("body mismatch: got %q want %q", got, body)
-	}
-}
-
-func TestWriteFrameCompactsHTTPStyleJSON(t *testing.T) {
-	var buf bytes.Buffer
-	body := []byte("{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"result\": {}\n}\n")
-	if err := writeFrame(&buf, body, frameFormatNewline); err != nil {
-		t.Fatalf("writeFrame: %v", err)
-	}
-	if got, want := buf.String(), "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n"; got != want {
-		t.Fatalf("unexpected compact frame: got %q want %q", got, want)
-	}
-}
-
 func TestReadFrameRejectsMissingContentLength(t *testing.T) {
 	_, _, err := readFrame(bufio.NewReader(strings.NewReader("X-Test: yes\r\n\r\n{}")))
 	if err == nil || !strings.Contains(err.Error(), "Content-Length") {

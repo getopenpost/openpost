@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
@@ -49,7 +50,10 @@ test.beforeAll(async () => {
 });
 
 async function loginAsFreshUser(request: APIRequestContext, page: Page) {
-  const { token } = await registerUser(request, "theme-builtins-visual-qa@example.com");
+  const { token } = await registerUser(
+    request,
+    `theme-builtins-visual-qa-${randomUUID()}@example.com`,
+  );
   await createWorkspace(request, token, "Theme built-ins visual QA");
   await authenticatePage(page, token);
 }
@@ -171,7 +175,10 @@ test("a published organization theme remains visible and assignable after all bu
   page,
   request,
 }) => {
-  const { token } = await registerUser(request, "theme-organization-catalog-qa@example.com");
+  const { token } = await registerUser(
+    request,
+    `theme-organization-catalog-qa-${randomUUID()}@example.com`,
+  );
   const workspace = (await createWorkspace(request, token, "Theme organization catalog QA")) as {
     id: string;
     organization_id: string;

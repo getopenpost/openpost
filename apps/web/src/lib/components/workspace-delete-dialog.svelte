@@ -276,7 +276,11 @@
 		</Dialog.Header>
 
 		{#if loading}
-			<div class="flex min-h-32 items-center justify-center" aria-label={m.common_loading()}>
+			<div
+				class="flex min-h-32 items-center justify-center"
+				role="status"
+				aria-label={m.common_loading()}
+			>
 				<ProtectedIcon icon="loading" class="size-5 animate-spin" />
 			</div>
 		{:else}

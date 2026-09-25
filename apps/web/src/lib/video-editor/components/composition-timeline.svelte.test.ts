@@ -124,3 +124,31 @@ it('keeps an explicit accessible name on composition control override fields whi
 		sequenceStore.deleteCompositionAndReferences(nestedId);
 	}
 });
+
+it('exposes the layer tools toolbar with its accessible name', async () => {
+	const compositionId = 'composition-toolbar-label';
+	sequenceStore.addComposition({
+		id: compositionId,
+		name: 'Toolbar label',
+		editorKind: 'composite-2d',
+		items: [],
+		tracks: [],
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 60
+	});
+	sequenceStore.switchTo(compositionId);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const toolbar = screen.getByRole('toolbar', {
+			name: m.video_editor_composition_timeline_toolbar()
+		});
+		await expect.element(toolbar).toBeVisible();
+		await expect.element(toolbar.locator('[data-testid="add-layer-text"]')).toBeVisible();
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(compositionId);
+	}
+});

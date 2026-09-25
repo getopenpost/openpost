@@ -2305,7 +2305,11 @@
 			</div>
 		</div>
 		<!-- Generated layers + media add -->
-		<div class="composition-toolbar" aria-label={m.video_editor_composition_timeline_toolbar()}>
+		<div
+			class="composition-toolbar"
+			role="toolbar"
+			aria-label={m.video_editor_composition_timeline_toolbar()}
+		>
 			<span class="toolbar-label">{m.video_editor_composition_timeline_add_layer()}</span>
 			<Button
 				size="sm"

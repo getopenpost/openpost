@@ -21,7 +21,10 @@ const getMock = vi.spyOn(client, 'GET');
 const postMock = vi.spyOn(client, 'POST');
 
 function totpCalls() {
-	return postMock.mock.calls.filter(([path]) => path === '/auth/login/totp');
+	// NOTE: postMock.mock.calls is typed as never[] because the spied
+	// openapi-fetch POST overloads resolve call parameters to never, so
+	// index instead of destructuring (never has no iterator).
+	return postMock.mock.calls.filter((call) => call[0] === '/auth/login/totp');
 }
 
 describe('login TOTP submit gate', () => {

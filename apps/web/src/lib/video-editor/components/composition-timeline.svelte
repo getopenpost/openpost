@@ -2681,7 +2681,7 @@
 												{:else}
 													<span class="layer-name" title={itemLabel(item)}>{itemLabel(item)}</span>
 												{/if}
-												<span class="layer-type-badge" aria-label={item.type}
+												<span class="layer-type-badge" role="img" aria-label={item.type}
 													>{item.type === 'text'
 														? 'T'
 														: item.type === 'shape'

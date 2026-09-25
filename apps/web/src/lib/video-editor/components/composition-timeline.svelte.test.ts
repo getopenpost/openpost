@@ -180,3 +180,45 @@ it('exposes the layer tools toolbar with its accessible name', async () => {
 		sequenceStore.deleteCompositionAndReferences(compositionId);
 	}
 });
+
+it('exposes the layer type badge as an image with the full type name', async () => {
+	const compositionId = 'composition-layer-badge';
+	sequenceStore.addComposition({
+		id: compositionId,
+		name: 'Badge label',
+		editorKind: 'composite-2d',
+		items: [],
+		tracks: [],
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 60
+	});
+	sequenceStore.switchTo(compositionId);
+	timelineStore._setTracks(createDefaultTracks());
+	timelineStore._setItems([
+		{
+			id: 'badge-text-item',
+			trackId: 'track-video-main',
+			from: 0,
+			durationInFrames: 60,
+			label: 'Badge title',
+			type: 'text',
+			text: 'Hello',
+			fontFamily: 'Inter',
+			fontSize: 64,
+			fontWeight: 700,
+			color: '#ffffff',
+			transform: { x: 0, y: 0, width: 960, height: 240 }
+		}
+	]);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const badge = screen.getByRole('img', { name: 'text' });
+		await expect.element(badge).toBeVisible();
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(compositionId);
+	}
+});

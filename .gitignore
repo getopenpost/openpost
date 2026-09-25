@@ -123,6 +123,8 @@ apps/marketing/static/og/
 # Local Pi coding-agent state
 .pi/
 
+# Local agent scratch evidence (audit screenshots, PDFs, dumps); never shipped.
+/tmp/
 # Temporary asset sync state; recovered by scripts/sync-assets.mjs
 /.sync-assets.lock/
 /apps/web/static/.assets.staged-*/

@@ -9,9 +9,11 @@
 		onActivate: (accountId: string | null) => void;
 		accountLabel: (account: SocialAccount) => string;
 		issueCountFor: (account: SocialAccount) => number;
+		isCustomFor: (account: SocialAccount) => boolean;
 	}
 
-	let { accounts, activeAccountId, onActivate, accountLabel, issueCountFor }: Props = $props();
+	let { accounts, activeAccountId, onActivate, accountLabel, issueCountFor, isCustomFor }: Props =
+		$props();
 </script>
 
 <div
@@ -33,11 +35,15 @@
 	</button>
 	{#each accounts as account (account.id)}
 		{@const issueCount = issueCountFor(account)}
+		{@const custom = isCustomFor(account)}
 		<button
 			id="composer-destination-{account.id}"
 			type="button"
 			role="tab"
 			aria-selected={activeAccountId === account.id}
+			aria-label={custom
+				? `${accountLabel(account)}, ${m.compose_custom_state()}`
+				: accountLabel(account)}
 			class="flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
 			class:border-foreground={activeAccountId === account.id}
 			class:border-transparent={activeAccountId !== account.id}
@@ -53,6 +59,14 @@
 				compactOnMobile
 				showPlatform={false}
 			/>
+			{#if custom}
+				<span
+					class="size-1.5 shrink-0 rounded-full bg-primary"
+					aria-hidden="true"
+					title={m.compose_custom_state()}
+					data-testid="composer-destination-custom"
+				/>
+			{/if}
 			{#if issueCount > 0}
 				<span class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"
 					>{issueCount}</span

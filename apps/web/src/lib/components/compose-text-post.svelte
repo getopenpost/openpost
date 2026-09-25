@@ -5674,6 +5674,7 @@
 							onActivate={activateVariantTab}
 							{accountLabel}
 							issueCountFor={(account) => accountIssueMessages(account).length}
+							isCustomFor={(account) => variants.has(account.id)}
 						/>
 
 						{#if activeVariantAccount}

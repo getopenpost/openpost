@@ -1044,7 +1044,7 @@
 			</TabsContent>
 			<TabsContent value="failed">
 				{#if failureGroups.length > 0}
-					<div class="mb-6 space-y-3" aria-label={m.activity_recovery_queue()}>
+					<div class="mb-6 space-y-3" role="group" aria-label={m.activity_recovery_queue()}>
 						{#each failureGroups as group (group.key)}
 							<div
 								class="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center"

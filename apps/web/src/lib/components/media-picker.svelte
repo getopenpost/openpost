@@ -570,6 +570,7 @@
 {#snippet pickerBody()}
 	<div
 		class="flex shrink-0 items-center gap-1 border-b bg-muted/10 px-3 py-2 sm:px-4"
+		role="group"
 		aria-label={m.media_source()}
 	>
 		<div class="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">

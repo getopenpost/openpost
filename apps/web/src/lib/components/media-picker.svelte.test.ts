@@ -190,6 +190,14 @@ describe('MediaPicker meme source', () => {
 			.toHaveValue('team photo');
 	});
 
+	it('exposes the media source switcher as a named group', async () => {
+		const screen = await renderPicker(false);
+
+		const sourceGroup = screen.getByRole('group', { name: m.media_source() });
+		await expect.element(sourceGroup).toBeVisible();
+		await expect.element(sourceGroup.getByRole('tab', { name: 'Library' })).toBeVisible();
+	});
+
 	it('exposes the media type filter as a named group', async () => {
 		const screen = await render(MediaPicker, {
 			props: {

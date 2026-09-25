@@ -231,8 +231,7 @@ test("portable import edits only the imported design and updates the tab title",
     "Imported design only",
   );
   await page.getByRole("button", { name: "OpenPost Image Editor", exact: true }).click();
-  await expect(page).toHaveURL(/\/editors$/);
-  await expect(page.getByText("Imported design only", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/media$/);
 });
 
 test("guide arrow and delete keys leave the selected layer unchanged", async ({ page }) => {

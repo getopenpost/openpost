@@ -326,7 +326,8 @@
 		class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[var(--video-editor-border)] px-3 py-2"
 	>
 		<a
-			href="/editors"
+			href="/"
+			aria-label={m.sidebar_openpost_home()}
 			class="flex min-h-11 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)]"
 		>
 			<Logo class="h-5 w-auto" />

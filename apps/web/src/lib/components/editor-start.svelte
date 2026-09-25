@@ -26,9 +26,9 @@
 <header class="border-b bg-background">
 	<div class="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
 		<a
-			href="/editors"
+			href="/"
 			class="flex min-h-11 items-center rounded-md focus-visible:outline-2 focus-visible:outline-ring"
-			aria-label={m.editors_title()}
+			aria-label={m.sidebar_openpost_home()}
 		>
 			<Logo width={112} height={33} />
 		</a>

@@ -1030,7 +1030,7 @@ func (w *BackgroundWorker) handleStorageDelete(ctx context.Context, payload stri
 
 func (w *BackgroundWorker) handleRefreshTokenJob(ctx context.Context, payload string) error {
 	if w.tokens == nil {
-		return nil
+		return fmt.Errorf("token refresh is not configured")
 	}
 
 	target, err := tokenmanager.ParseRefreshJobPayload(payload)

@@ -141,7 +141,7 @@ var operations = []Operation{
 	readDisabled("get-workspace-settings"),
 	withSelectors(read("list-accounts", ExposureAlpha), workspaceSelector()),
 	readDisabled("list-account-providers"),
-	withSelectors(read("get-account-destination-options", ExposureAlpha), workspaceSelector(), accountSelector("account_id")),
+	withSelectors(read("get-account-destination-options", ExposureAlpha), workspaceSelector(), accountSelector()),
 	readDisabled("search-account-publishing-options"),
 	withSelectors(read("get-provider-readiness", ExposureAlpha), workspaceSelector()),
 	readDisabled("resolve-publishing-capabilities"),
@@ -156,6 +156,21 @@ var operations = []Operation{
 	withSelectors(read("get-publication", ExposureAlpha), workspaceSelector(), publicationSelector()),
 	withSelectors(readPaged("list-publication-events", ExposureAlpha), workspaceSelector(), publicationSelector()),
 	withSelectors(read("validate-publication", ExposureAlpha), workspaceSelector(), publicationSelector()),
+	withSelectors(read("get-analytics-overview", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("list-jobs", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("list-notifications", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("list-engagement", ExposureAlpha), workspaceSelector(), accountSelector()),
+	withSelectors(read("list-conversations", ExposureAlpha), workspaceSelector(), accountSelector()),
+	withSelectors(read("list-conversation-messages", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("list-growth-recommendations", ExposureAlpha), workspaceSelector(), accountSelector()),
+	withSelectors(read("get-repost-automation", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("read-account-features", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("list-voice-profiles", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("get-voice-profile", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("resolve-effective-voice-profiles", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("list-prompts", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("get-random-prompt", ExposureAlpha), workspaceSelector()),
+	read("get-prompt-categories", ExposureAlpha),
 	readDisabled("list-posting-schedules"),
 	withSelectors(read("get-next-available-slot", ExposureAlpha), workspaceSelector()),
 	readResult("get-job", ExposureAlpha, ResultExtraction{IDPath: "$.id"}),
@@ -257,8 +272,8 @@ func workspaceSelector() SelectorHint {
 	return SelectorHint{Parameter: "workspace_id", OperationID: "list-workspaces", ValuePath: "id", LabelPath: "name"}
 }
 
-func accountSelector(parameter string) SelectorHint {
-	return SelectorHint{Parameter: parameter, OperationID: "list-accounts", ValuePath: "id", LabelPath: "account_username"}
+func accountSelector() SelectorHint {
+	return SelectorHint{Parameter: "account_id", OperationID: "list-accounts", ValuePath: "id", LabelPath: "account_username"}
 }
 
 func publicationSelector() SelectorHint {

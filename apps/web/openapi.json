@@ -22525,7 +22525,22 @@
 					}
 				},
 				"summary": "Read feature settings for selected accounts",
-				"tags": ["Accounts"]
+				"tags": ["Accounts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			},
 			"post": {
 				"operationId": "save-account-features",
@@ -26315,7 +26330,22 @@
 					}
 				},
 				"summary": "Get stored whole-account content analytics",
-				"tags": ["Analytics"]
+				"tags": ["Analytics"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/analytics/refresh": {
@@ -32077,7 +32107,28 @@
 					}
 				},
 				"summary": "List stored replies and comments",
-				"tags": ["Engagement"]
+				"tags": ["Engagement"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						},
+						{
+							"label_path": "account_username",
+							"operation_id": "list-accounts",
+							"parameter": "account_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/engagement-and-messaging/refresh": {
@@ -32989,7 +33040,28 @@
 					}
 				},
 				"summary": "List growth recommendations",
-				"tags": ["Growth"]
+				"tags": ["Growth"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						},
+						{
+							"label_path": "account_username",
+							"operation_id": "list-accounts",
+							"parameter": "account_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/growth/refresh": {
@@ -35214,7 +35286,22 @@
 					}
 				},
 				"summary": "List recent background jobs",
-				"tags": ["Jobs"]
+				"tags": ["Jobs"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/jobs/{id}": {
@@ -37745,7 +37832,28 @@
 					}
 				},
 				"summary": "List stored social conversations",
-				"tags": ["Messaging"]
+				"tags": ["Messaging"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						},
+						{
+							"label_path": "account_username",
+							"operation_id": "list-accounts",
+							"parameter": "account_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/messages/refresh": {
@@ -37865,7 +37973,22 @@
 					}
 				},
 				"summary": "List messages in a stored conversation",
-				"tags": ["Messaging"]
+				"tags": ["Messaging"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/messages/{conversation_id}/send": {
@@ -38050,7 +38173,22 @@
 					}
 				},
 				"summary": "List the current user's stored notifications",
-				"tags": ["Notifications"]
+				"tags": ["Notifications"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/notifications/delete": {
@@ -41547,7 +41685,22 @@
 					}
 				},
 				"summary": "List writing prompts",
-				"tags": ["Prompts"]
+				"tags": ["Prompts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			},
 			"post": {
 				"operationId": "create-prompt",
@@ -41643,7 +41796,14 @@
 					}
 				},
 				"summary": "Get available prompt categories",
-				"tags": ["Prompts"]
+				"tags": ["Prompts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/prompts/random": {
@@ -41714,7 +41874,22 @@
 					}
 				},
 				"summary": "Get a random writing prompt",
-				"tags": ["Prompts"]
+				"tags": ["Prompts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/prompts/{id}": {
@@ -44696,7 +44871,22 @@
 					}
 				},
 				"summary": "Get workspace repost rules and available accounts",
-				"tags": ["Repost Automation"]
+				"tags": ["Repost Automation"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			},
 			"put": {
 				"operationId": "save-repost-automation",
@@ -49523,7 +49713,22 @@
 					}
 				},
 				"summary": "List Voice Profiles",
-				"tags": ["Voice Profiles"]
+				"tags": ["Voice Profiles"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			},
 			"post": {
 				"operationId": "create-voice-profile",
@@ -49713,7 +49918,22 @@
 					}
 				},
 				"summary": "Resolve effective Voice Profiles",
-				"tags": ["Voice Profiles"]
+				"tags": ["Voice Profiles"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			}
 		},
 		"/voice-profiles/{id}": {
@@ -49948,7 +50168,22 @@
 					}
 				},
 				"summary": "Get a Voice Profile",
-				"tags": ["Voice Profiles"]
+				"tags": ["Voice Profiles"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient",
+					"selectors": [
+						{
+							"label_path": "name",
+							"operation_id": "list-workspaces",
+							"parameter": "workspace_id",
+							"value_path": "id"
+						}
+					]
+				}
 			},
 			"put": {
 				"operationId": "update-voice-profile",

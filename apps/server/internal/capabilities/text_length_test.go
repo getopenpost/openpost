@@ -1,8 +1,10 @@
 package capabilities
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +28,38 @@ func TestTextLengthUsesXWeightedCounting(t *testing.T) {
 			require.Equal(t, test.want, TextLength(ProviderX, test.text))
 		})
 	}
+}
+
+func TestTextLengthUsesGraphemesForBluesky(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want int
+	}{
+		{name: "ASCII", text: "Hello, world!", want: 13},
+		{name: "CJK", text: "日本語", want: 3},
+		{name: "combining mark", text: "café", want: 4},
+		{name: "skin tone", text: "👍🏽", want: 1},
+		{name: "flag", text: "🇵🇹", want: 1},
+		{name: "ZWJ sequence", text: "👨‍👩‍👧‍👦", want: 1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, TextLength(ProviderBluesky, test.text))
+		})
+	}
+
+	// 151 skin-toned thumbs are 151 graphemes and 302 code points: within
+	// Bluesky's 300-grapheme limit, so the body must validate.
+	body := strings.Repeat("👍🏽", 151)
+	issues := Validate(ProviderBluesky, models.ContentProfileShortText, body, "", "", nil, nil)
+	for _, issue := range issues {
+		require.NotEqual(t, "text_too_long", issue.Code, issue.Message)
+	}
+	issues = Validate(ProviderBluesky, models.ContentProfileShortText, strings.Repeat("👍🏽", 301), "", "", nil, nil)
+	require.NotEmpty(t, issues)
+	require.Equal(t, "text_too_long", issues[0].Code)
 }
 
 func TestTextLengthKeepsOtherProvidersAtCodePoints(t *testing.T) {

@@ -104,7 +104,11 @@
 	}
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-1" aria-label={m.video_editor_shapes()}>
+<div
+	class="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
+	role="group"
+	aria-label={m.video_editor_shapes()}
+>
 	<div class="shape-grid grid grid-cols-2 gap-1">
 		{#each shapes as shape (shape.id)}
 			<button

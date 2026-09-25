@@ -215,7 +215,7 @@
 			</button>
 		</div>
 		{#if sceneBrowser.colorMode && libraryColors.length > 0}
-			<div class="space-y-1" aria-label={m.video_editor_scene_library_colors()}>
+			<div class="space-y-1" role="group" aria-label={m.video_editor_scene_library_colors()}>
 				<div class="flex items-center justify-between text-[10px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_scene_library_colors()}</span>
 					{#if sceneBrowser.referencePalette}

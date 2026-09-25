@@ -22,9 +22,7 @@ test("Recorder keeps its identity and save controls usable on phones", async ({
     await page.setViewportSize({ width, height: 900 });
     for (const colorScheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await expect(
-        header.getByRole("link", { name: "OpenPost Recorder", exact: true }),
-      ).toBeVisible();
+      await expect(header.getByRole("link", { name: "OpenPost home", exact: true })).toBeVisible();
       await expect(local).toBeVisible();
       await expect(cloud).toBeVisible();
       await expect

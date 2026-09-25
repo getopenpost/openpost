@@ -135,6 +135,7 @@
 				data-scene-browser-search
 				class="h-8 w-full rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] pr-2 pl-7 text-xs placeholder:text-[var(--video-editor-muted)] focus-visible:border-[var(--video-editor-focus-border)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklch,var(--video-editor-focus)_25%,transparent)]"
 				placeholder={m.video_editor_scene_search()}
+				aria-label={m.video_editor_scene_search()}
 				bind:value={sceneBrowser.query}
 			/>
 		</label>

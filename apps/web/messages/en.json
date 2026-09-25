@@ -4795,6 +4795,7 @@
 	"video_editor_shortcuts_filter_custom": "Custom",
 	"video_editor_shortcuts_filter_conflicts": "Conflicts",
 	"video_editor_shortcuts_filter_unassigned": "Unassigned",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "Playback",
 	"video_editor_shortcuts_section_editing": "Editing",
 	"video_editor_shortcuts_section_timeline": "Timeline",

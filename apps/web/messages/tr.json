@@ -4759,6 +4759,7 @@
 	"video_editor_shortcuts_filter_custom": "Özel",
 	"video_editor_shortcuts_filter_conflicts": "Çakışmalar",
 	"video_editor_shortcuts_filter_unassigned": "Atanmamış",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "Oynatma",
 	"video_editor_shortcuts_section_editing": "Düzenleme",
 	"video_editor_shortcuts_section_timeline": "Zaman çizelgesi",

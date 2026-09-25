@@ -4759,6 +4759,7 @@
 	"video_editor_shortcuts_filter_custom": "Personnalisés",
 	"video_editor_shortcuts_filter_conflicts": "Conflits",
 	"video_editor_shortcuts_filter_unassigned": "Non attribués",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "Lecture",
 	"video_editor_shortcuts_section_editing": "Montage",
 	"video_editor_shortcuts_section_timeline": "Montage",

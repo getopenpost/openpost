@@ -4759,6 +4759,7 @@
 	"video_editor_shortcuts_filter_custom": "사용자 지정",
 	"video_editor_shortcuts_filter_conflicts": "충돌",
 	"video_editor_shortcuts_filter_unassigned": "할당 안 됨",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "재생",
 	"video_editor_shortcuts_section_editing": "편집",
 	"video_editor_shortcuts_section_timeline": "타임라인",

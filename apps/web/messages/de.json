@@ -4754,6 +4754,7 @@
 	"video_editor_shortcuts_filter_custom": "Benutzerdefiniert",
 	"video_editor_shortcuts_filter_conflicts": "Konflikte",
 	"video_editor_shortcuts_filter_unassigned": "Nicht zugewiesen",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "Wiedergabe",
 	"video_editor_shortcuts_section_editing": "Bearbeitung",
 	"video_editor_shortcuts_section_timeline": "Timeline",

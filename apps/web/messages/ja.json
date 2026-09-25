@@ -4759,6 +4759,7 @@
 	"video_editor_shortcuts_filter_custom": "カスタム",
 	"video_editor_shortcuts_filter_conflicts": "競合あり",
 	"video_editor_shortcuts_filter_unassigned": "未割り当て",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "再生",
 	"video_editor_shortcuts_section_editing": "編集",
 	"video_editor_shortcuts_section_timeline": "タイムライン",

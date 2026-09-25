@@ -4759,6 +4759,7 @@
 	"video_editor_shortcuts_filter_custom": "Personalizados",
 	"video_editor_shortcuts_filter_conflicts": "Conflitos",
 	"video_editor_shortcuts_filter_unassigned": "Sem atalho",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "Reprodução",
 	"video_editor_shortcuts_section_editing": "Edição",
 	"video_editor_shortcuts_section_timeline": "Linha temporal",

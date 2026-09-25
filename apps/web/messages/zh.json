@@ -4759,6 +4759,7 @@
 	"video_editor_shortcuts_filter_custom": "自定义",
 	"video_editor_shortcuts_filter_conflicts": "冲突",
 	"video_editor_shortcuts_filter_unassigned": "未分配",
+	"video_editor_shortcuts_filter_label": "Filter shortcuts",
 	"video_editor_shortcuts_section_playback": "播放",
 	"video_editor_shortcuts_section_editing": "编辑",
 	"video_editor_shortcuts_section_timeline": "时间轴",

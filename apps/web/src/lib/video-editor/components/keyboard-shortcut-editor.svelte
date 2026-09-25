@@ -576,7 +576,11 @@
 			placeholder={m.video_editor_shortcuts_search()}
 			aria-label={m.video_editor_shortcuts_search()}
 		/>
-		<div class="flex gap-1 overflow-x-auto pb-1" aria-label={m.video_editor_shortcuts_filter_all()}>
+		<div
+			class="flex gap-1 overflow-x-auto pb-1"
+			role="group"
+			aria-label={m.video_editor_shortcuts_filter_label()}
+		>
 			{#each filters as item (item.id)}
 				<button
 					type="button"

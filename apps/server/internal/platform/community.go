@@ -137,16 +137,6 @@ func CommunityTargetKey(provider, host, name string) string {
 		strings.ToLower(strings.TrimSpace(host)) + ":" + strings.TrimSpace(name)
 }
 
-// ParseCommunityTargetKey splits a community destination key back into its
-// provider, host, and name.
-func ParseCommunityTargetKey(target string) (provider, host, name string, ok bool) {
-	parts := strings.Split(strings.TrimSpace(target), ":")
-	if len(parts) != 4 || parts[1] != "community" || parts[0] == "" || parts[2] == "" || parts[3] == "" {
-		return "", "", "", false
-	}
-	return parts[0], parts[2], parts[3], true
-}
-
 // CommunityDisplayRef renders the canonical "!name@host" handle.
 func CommunityDisplayRef(name, host string) string {
 	if host == "" {

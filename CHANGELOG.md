@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.2.0] - 2026-09-25
+
+### Added
+
+- Composer destination tabs now mark accounts that carry their own custom content with a small dot, so unsynced tabs stand apart from tabs sharing the common draft. The marker keeps its own accessible label and sits beside the existing issue count.
+
+### Removed
+
+- Removed the standalone Editors catalog page (`/editors`). Image and video work now starts from the Media library and the editor start pages, and every editor header leads back into OpenPost: the shared editor headers return to OpenPost home, and the Image Editor returns to Media. The Editors entry is gone from workspace navigation.
+
 ## [6.1.8] - 2026-09-25
 
 ### Fixed

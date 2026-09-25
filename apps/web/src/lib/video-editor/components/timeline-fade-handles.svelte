@@ -300,9 +300,8 @@
 	function onFadePointerMove(event: PointerEvent): void {
 		if (!fadeDrag || event.pointerId !== fadeDrag.pointerId) return;
 		if (!fadeDrag.committed) {
-			if (Math.abs(event.clientX - fadeDrag.startClientX) <= FADE_DRAG_THRESHOLD_PIXELS)
-				return;
-		fadeDrag.committed = true;
+			if (Math.abs(event.clientX - fadeDrag.startClientX) <= FADE_DRAG_THRESHOLD_PIXELS) return;
+			fadeDrag.committed = true;
 		}
 		const next = computeFadeSeconds(event.clientX, fadeDrag.handle);
 		commitFade(fadeDrag.handle, next);
@@ -720,8 +719,10 @@
 				bind:this={fadeInHandle}
 				type="button"
 				role="slider"
-				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeInPercent <= 0 ? 'translate-x-0' : '-translate-x-1/2'} {densityPointerClass} {editing ===
-					'in' || hoveredFade === 'in'
+				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeInPercent <=
+				0
+					? 'translate-x-0'
+					: '-translate-x-1/2'} {densityPointerClass} {editing === 'in' || hoveredFade === 'in'
 					? 'opacity-100'
 					: handleVisibilityClass}"
 				style="left:{fadeInPercent}%; top:{handleTop}"
@@ -769,8 +770,10 @@
 				bind:this={fadeOutHandle}
 				type="button"
 				role="slider"
-				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeOutLeft >= 100 ? '-translate-x-full' : '-translate-x-1/2'} {densityPointerClass} {editing ===
-					'out' || hoveredFade === 'out'
+				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeOutLeft >=
+				100
+					? '-translate-x-full'
+					: '-translate-x-1/2'} {densityPointerClass} {editing === 'out' || hoveredFade === 'out'
 					? 'opacity-100'
 					: handleVisibilityClass}"
 				disabled={!canInteract}

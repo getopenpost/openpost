@@ -2234,7 +2234,11 @@
 				</Button>
 			</div>
 			<div class="header-center">
-				<span class="composition-meta" aria-label={m.video_editor_composition_timeline_meta()}>
+				<span
+					class="composition-meta"
+					role="group"
+					aria-label={m.video_editor_composition_timeline_meta()}
+				>
 					{composition.width}×{composition.height} ·
 					<Input
 						aria-label={m.video_editor_composition_timeline_fps()}

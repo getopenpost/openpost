@@ -125,6 +125,34 @@ it('keeps an explicit accessible name on composition control override fields whi
 	}
 });
 
+it('exposes the composition dimensions strip as a named group', async () => {
+	const compositionId = 'composition-meta-group';
+	sequenceStore.addComposition({
+		id: compositionId,
+		name: 'Meta group',
+		editorKind: 'composite-2d',
+		items: [],
+		tracks: [],
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 60
+	});
+	sequenceStore.switchTo(compositionId);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const group = screen.getByRole('group', {
+			name: m.video_editor_composition_timeline_meta()
+		});
+		await expect.element(group).toBeVisible();
+		await expect.element(group.locator('[data-testid="composition-fps"]')).toBeVisible();
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(compositionId);
+	}
+});
+
 it('exposes the layer tools toolbar with its accessible name', async () => {
 	const compositionId = 'composition-toolbar-label';
 	sequenceStore.addComposition({

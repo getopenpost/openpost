@@ -241,7 +241,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.backend == 'true' || needs.plan.outputs.image == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
@@ -268,33 +268,27 @@ jobs:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum
       - run: bash scripts/ci-timing-summary.sh start hosted-data-plane
-      - name: Start the pinned S3-compatible service
+      - name: Build the pinned S3-compatible server from source
         run: |
-          # quay.io anonymous pulls flake with `unauthorized`; pull explicitly
-          # with backoff so `docker run` below never triggers an implicit pull.
-          for attempt in 1 2 3 4 5; do
-            if docker pull "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"; then
-              break
-            fi
-            echo "MinIO image pull attempt ${attempt} failed; retrying." >&2
-            sleep $((attempt * 10))
-            if [ "${attempt}" -eq 5 ]; then
-              exit 1
-            fi
-          done
-          docker run --detach --name openpost-minio \
-            --publish 9000:9000 \
-            --env MINIO_ROOT_USER=openpost-ci \
-            --env MINIO_ROOT_PASSWORD=openpost-ci-password \
-            quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e \
-            server /data --address :9000
+          # quay.io refuses anonymous pulls from CI runners, so the server is
+          # built from the Go module proxy instead of pulled as an image.
+          # Pinned by pseudo-version; update deliberately, never floating.
+          GOBIN="$RUNNER_TEMP" go install github.com/minio/minio@v0.0.0-20260212201848-7aac2a2c5b7c
+      - name: Start the S3-compatible service
+        env:
+          MINIO_ROOT_USER: openpost-ci
+          MINIO_ROOT_PASSWORD: openpost-ci-password
+        run: |
+          mkdir -p "$RUNNER_TEMP/minio-data"
+          "$RUNNER_TEMP/minio" server "$RUNNER_TEMP/minio-data" --address :9000 > apps/server/minio.log 2>&1 &
+          echo $! > "$RUNNER_TEMP/minio.pid"
           for _ in {1..30}; do
             if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
               exit 0
             fi
             sleep 1
           done
-          docker logs openpost-minio
+          cat apps/server/minio.log
           exit 1
       - name: Exercise hosted database migrations, queue claims, and object storage
         working-directory: apps/server
@@ -343,7 +337,7 @@ jobs:
           done
       - if: always()
         run: |
-          docker logs openpost-minio > apps/server/minio.log 2>&1 || true
+          kill "$(cat "$RUNNER_TEMP/minio.pid")" 2>/dev/null || true
           bash scripts/ci-timing-summary.sh finish hosted-data-plane
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

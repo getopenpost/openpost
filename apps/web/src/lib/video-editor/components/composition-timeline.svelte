@@ -3209,6 +3209,7 @@
 																	<Input
 																		value={compositionControlValue(item, control)}
 																		placeholder={control.defaultValue}
+																		aria-label={control.name}
 																		onchange={(event) =>
 																			setCompositionControlValue(
 																				item,

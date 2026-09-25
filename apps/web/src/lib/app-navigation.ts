@@ -35,7 +35,7 @@ export const appRouteFamilies = {
 	growth: ['/grow'],
 	analytics: ['/analytics'],
 	media: ['/media'],
-	editors: ['/editors', '/image-editor', '/video-editor'],
+	editors: ['/image-editor', '/video-editor'],
 	settings: ['/settings'],
 	'local-editors': ['/video-editor', '/quick-cut', '/record']
 } satisfies Record<AppRouteFamily, readonly string[]>;
@@ -72,13 +72,6 @@ export const primaryNavigation: PrimaryNavigationItem[] = [
 		mobile: false
 	},
 	{ id: 'media', label: 'Media', href: '/media', family: 'media', mobile: true },
-	{
-		id: 'editors',
-		label: 'Editors',
-		href: '/editors',
-		family: 'editors',
-		mobile: false
-	},
 	{ id: 'settings', label: 'Settings', href: '/settings', family: 'settings', mobile: false }
 ];
 

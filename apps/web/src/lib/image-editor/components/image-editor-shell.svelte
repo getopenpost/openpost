@@ -1670,7 +1670,7 @@
 				return;
 			}
 		}
-		await goto(resolveAppPath(guestMode ? '/image-editor' : '/editors'));
+		await goto(resolveAppPath(guestMode ? '/image-editor' : '/media'));
 	}
 
 	async function openHistory(): Promise<void> {

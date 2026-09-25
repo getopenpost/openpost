@@ -31,7 +31,6 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
     ["/settings?tab=general", "workspace"],
     ["/settings?tab=profile", "profile"],
     ["/settings?tab=appearance", "appearance"],
-    ["/editors", "editors"],
     ["/image-editor", "image-editor"],
     ["/video-editor", "video-editor"],
     ["/quick-cut", "quick-cut"],

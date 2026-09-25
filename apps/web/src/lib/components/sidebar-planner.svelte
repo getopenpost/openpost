@@ -634,7 +634,7 @@
 		{/if}
 
 		{#if loadingDrafts && !draftsDataReady}
-			<div class="space-y-1 px-1 py-1" aria-label={m.sidebar_drafts_loading()}>
+			<div class="space-y-1 px-1 py-1" role="status" aria-label={m.sidebar_drafts_loading()}>
 				{#each [1, 2, 3] as placeholder (placeholder)}
 					<div class="flex h-9 items-center gap-2 px-1.5">
 						<Skeleton class="size-6 rounded-md" />

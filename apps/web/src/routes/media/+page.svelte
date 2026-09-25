@@ -1372,6 +1372,7 @@
 						class="h-11 pr-10 pl-9"
 						bind:value={searchInput}
 						placeholder={m.media_search_filename_alt()}
+						aria-label={m.media_search_filename_alt()}
 						onkeydown={(event) => {
 							if (event.key === 'Enter' && !event.isComposing) {
 								event.preventDefault();

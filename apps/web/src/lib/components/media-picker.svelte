@@ -769,7 +769,12 @@
 						role="search"
 						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
-					<Input bind:value={search} class="pl-9" placeholder={m.media_picker_search()} />
+					<Input
+						bind:value={search}
+						class="pl-9"
+						placeholder={m.media_picker_search()}
+						aria-label={m.media_picker_search()}
+					/>
 				</div>
 				<AppSelect
 					value={sort}

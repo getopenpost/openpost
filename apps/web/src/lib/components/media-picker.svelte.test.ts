@@ -178,6 +178,18 @@ describe('MediaPicker meme source', () => {
 		expect(onConfirm).toHaveBeenCalledTimes(2);
 	});
 
+	it('gives the library search input an explicit accessible name', async () => {
+		const screen = await renderPicker(false);
+
+		const searchField = screen.getByPlaceholder(m.media_picker_search());
+		await expect.element(searchField).toHaveAttribute('aria-label', m.media_picker_search());
+
+		await searchField.fill('team photo');
+		await expect
+			.element(screen.getByRole('textbox', { name: m.media_picker_search() }))
+			.toHaveValue('team photo');
+	});
+
 	it('opens upload-first pickers on the device source', async () => {
 		const screen = await render(MediaPicker, {
 			props: {

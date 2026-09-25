@@ -277,19 +277,16 @@ func TestUpdateAccount_WireFormat(t *testing.T) {
 
 // TestListMedia_WireFormat verifies that ListMedia decodes the
 // server's `{media: [...], total: N}` shape, not a `{body: {media,
-// total}}` envelope.
-
-// TestListMedia_EmptyResponse_DoesNotSilentlySucceed guards against
-// the prior bug where the client decoded `{media: null, total: 0}`
-// into `{body: {media, total}}`, which silently produced a nil
-// slice — making the user believe there was no media when in fact
-// the response was just missing the `body` wrapper. With the fix,
-// the decode now matches the wire format and returns the empty
-// list directly.
-func TestListMedia_EmptyResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+// total}}` envelope. A previous version of this client decoded the
+// body envelope and silently produced a nil slice for real items,
+// making the user believe there was no media.
+func TestListMedia_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("workspace_id") != "ws_1" {
+			t.Fatalf("workspace_id = %q, want ws_1", r.URL.Query().Get("workspace_id"))
+		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"media":[],"total":0}`))
+		_, _ = w.Write([]byte(`{"media":[{"id":"media-1","workspace_id":"ws_1","mime_type":"image/png","size":42,"original_filename":"launch.png","width":32,"height":18}],"total":1}`))
 	}))
 	defer srv.Close()
 
@@ -298,8 +295,12 @@ func TestListMedia_EmptyResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListMedia returned error: %v", err)
 	}
-	if len(got) != 0 {
-		t.Errorf("expected 0 media items, got %d", len(got))
+	if len(got) != 1 {
+		t.Fatalf("expected 1 media item, got %d", len(got))
+	}
+	item := got[0]
+	if item.ID != "media-1" || item.MimeType != "image/png" || item.OriginalFilename != "launch.png" || item.Width != 32 || item.Height != 18 || item.Size != 42 {
+		t.Fatalf("media item wrong: %+v", item)
 	}
 }
 

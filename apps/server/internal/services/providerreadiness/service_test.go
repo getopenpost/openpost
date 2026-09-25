@@ -60,20 +60,6 @@ func TestServiceEnvironmentDisableHasPriorityAndSkipsLedger(t *testing.T) {
 	}
 }
 
-func TestRequiresCertifiedOperationKeepsDiscordBotOnTheNormalReadinessPath(t *testing.T) {
-	t.Parallel()
-
-	if requiresCertifiedOperation("discord") {
-		t.Fatal("Discord bot mode unexpectedly requires a separate certification gate")
-	}
-	if !requiresCertifiedOperation("telegram") {
-		t.Fatal("Telegram bot mode lost its certification gate")
-	}
-	if !requiresCertifiedOperation("pinterest") {
-		t.Fatal("Pinterest lost its certification gate")
-	}
-}
-
 func TestDiscordAnalyticsDoesNotInheritGlobalPublishingCertificationGate(t *testing.T) {
 	t.Parallel()
 

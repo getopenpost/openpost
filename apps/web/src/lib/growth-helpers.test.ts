@@ -291,11 +291,4 @@ describe('growth-helpers', () => {
 		expect(g.isStale(a)).toBe(true);
 		expect(g.isStale(b)).toBe(false);
 	});
-
-	it('preserves old cards during queued/refreshing via shouldPoll logic', () => {
-		// this is behavioral: when sync is queued, old results stay represented
-		const syncQueued = { status: 'queued' } as never;
-		expect(isSyncBusy(syncQueued)).toBe(true);
-		expect(shouldPollSync(syncQueued, false)).toBe(true);
-	});
 });

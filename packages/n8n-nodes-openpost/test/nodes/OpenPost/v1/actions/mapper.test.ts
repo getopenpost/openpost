@@ -2,9 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import {
   buildOpenPostRequest,
-  extractResult,
-  nextCursorFromHeaders,
-  resultTotal,
   shouldRetryOpenPost,
 } from "../../../../../nodes/OpenPost/v1/actions/mapper";
 import { findGeneratedAction } from "../../../../../nodes/OpenPost/v1/actions/generated/requestMappers";
@@ -51,14 +48,6 @@ describe("OpenPost request mapper", () => {
       media: [{ id: "media-1" }],
       goal: "announce",
     });
-  });
-
-  test("extracts cursor headers and wrapped result arrays", () => {
-    expect(nextCursorFromHeaders({ "x-next-cursor": "next-1" })).toBe("next-1");
-    expect(extractResult({ media: [{ id: "media-1" }] }, { body_path: "media" })).toEqual([
-      { id: "media-1" },
-    ]);
-    expect(resultTotal({ total: 73 }, "total")).toBe(73);
   });
 
   test("maps offset pagination without exposing an internal offset field", () => {

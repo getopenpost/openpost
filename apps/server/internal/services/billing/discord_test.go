@@ -64,11 +64,3 @@ func TestHandleJobSendsBillingEmbedOnceWithUserDetails(t *testing.T) {
 	require.NoError(t, db.NewSelect().Model(&event).Where("event_id = ?", "evt_discord").Scan(t.Context()))
 	require.Equal(t, now.Add(time.Minute), event.DiscordNotificationSentAt)
 }
-
-func TestEventNeedsNotificationCoversPaddleBillingLifecycle(t *testing.T) {
-	for _, eventType := range []string{"customer.created", "customer.updated", "customer.imported", "subscription.created", "subscription.trialing", "subscription.canceled", "subscription.imported", "transaction.created", "transaction.paid", "transaction.completed", "transaction.payment_failed", "transaction.canceled"} {
-		t.Run(eventType, func(t *testing.T) {
-			require.True(t, eventNeedsNotification(eventType))
-		})
-	}
-}

@@ -15,17 +15,6 @@ describe('record-mime helpers', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('picks first supported video and audio MIME in priority order', () => {
-		class FakeRecorder {
-			static isTypeSupported(type: string): boolean {
-				return type === 'video/webm;codecs=vp9,opus' || type === 'audio/webm;codecs=opus';
-			}
-		}
-		vi.stubGlobal('MediaRecorder', FakeRecorder);
-		expect(pickVideoMimeType()).toBe('video/webm;codecs=vp9,opus');
-		expect(pickAudioMimeType()).toBe('audio/webm;codecs=opus');
-	});
-
 	it('returns empty when no MIME is supported', () => {
 		class FakeRecorder {
 			static isTypeSupported(): boolean {

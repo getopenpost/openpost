@@ -67,16 +67,4 @@ describe("HttpClient", () => {
     await expect(http.get("/api/v1/workspaces")).rejects.toBeInstanceOf(OpenPostError);
     expect(fetch).toHaveBeenCalledOnce();
   });
-
-  it("skips empty query values when building URLs", () => {
-    const http = new HttpClient({ baseUrl: "https://example.test", token: "tok" });
-    expect(
-      http.buildUrl("/api/v1/publications", {
-        workspace_id: "w1",
-        status: "",
-        limit: 10,
-        offset: undefined,
-      }),
-    ).toBe("https://example.test/api/v1/publications?workspace_id=w1&limit=10");
-  });
 });

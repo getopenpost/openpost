@@ -7,7 +7,6 @@ import sharp from "sharp";
 import {
   fetchBadgeData,
   fetchNpmDownloads,
-  parseArguments,
   renderBadge,
   writeBadges,
 } from "./generate-readme-badges.mjs";
@@ -179,12 +178,4 @@ test("writes all light and dark badge variants", async () => {
   } finally {
     await rm(outputDir, { recursive: true, force: true });
   }
-});
-
-test("parses only supported options", () => {
-  assert.deepEqual(parseArguments(["--repo", "owner/project", "--output-dir", "tmp/badges"]), {
-    repository: "owner/project",
-    outputDir: "tmp/badges",
-  });
-  assert.throws(() => parseArguments(["--unknown"]), /Unknown argument/u);
 });

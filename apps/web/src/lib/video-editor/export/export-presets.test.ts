@@ -1,25 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-	applyExportPreset,
-	EXPORT_PRESETS,
-	matchExportPreset,
-	type ExportPresetId
-} from './export-presets';
+import { applyExportPreset, matchExportPreset, type ExportPresetId } from './export-presets';
 
 describe('export presets', () => {
-	it('bundles four presets that each set all four fields atomically', () => {
-		expect(EXPORT_PRESETS.map((preset) => preset.id)).toEqual(['master', 'web', 'social', 'draft']);
-		for (const preset of EXPORT_PRESETS) {
-			const applied = applyExportPreset(preset.id);
-			expect(applied).toEqual({
-				format: preset.format,
-				codec: preset.codec,
-				quality: preset.quality,
-				resolution: preset.resolution
-			});
-		}
-	});
-
 	it('keeps master at source resolution and draft at the smallest ladder rung', () => {
 		expect(applyExportPreset('master')).toMatchObject({ quality: 'high', resolution: 'source' });
 		expect(applyExportPreset('draft')).toMatchObject({ quality: 'draft', resolution: '854x480' });

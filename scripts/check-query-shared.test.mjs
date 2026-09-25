@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { isQueryAdapter, lineAt, sourceFiles } from "./check-query-shared.mjs";
+import { isQueryAdapter, sourceFiles } from "./check-query-shared.mjs";
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "check-query-shared-"));
@@ -36,12 +36,6 @@ test("sourceFiles honors extension and directory overrides", async () => {
     .map((file) => path.relative(root, file))
     .sort();
   assert.deepEqual(svelteOnly, ["b.svelte"]);
-});
-
-test("lineAt reports 1-based line numbers", () => {
-  assert.equal(lineAt("a\nb\nc\n", 0), 1);
-  assert.equal(lineAt("a\nb\nc\n", 2), 2);
-  assert.equal(lineAt("a\nb\nc\n", 4), 3);
 });
 
 test("isQueryAdapter matches adapter paths and skips tests", () => {

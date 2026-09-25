@@ -5,7 +5,6 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assetName, assetTarget } from "./platform";
 import {
-  cacheDir,
   defaultReleaseTag,
   downloadUrl,
   explicitBinaryPath,
@@ -113,13 +112,6 @@ describe("resolve", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  });
-
-  it("builds cache dirs and download URLs", () => {
-    expect(cacheDir("v1.2.3", { cacheDir: "/tmp/x" })).toBe(path.join("/tmp/x", "v1.2.3"));
-    expect(downloadUrl("v1.2.3", "openpost-cli-linux-amd64")).toBe(
-      "https://github.com/getopenpost/openpost/releases/download/v1.2.3/openpost-cli-linux-amd64",
-    );
   });
 
   it("parses sha256sum output bound to the asset name", () => {

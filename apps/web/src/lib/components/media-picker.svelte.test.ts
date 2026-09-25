@@ -190,6 +190,27 @@ describe('MediaPicker meme source', () => {
 			.toHaveValue('team photo');
 	});
 
+	it('exposes the media type filter as a named group', async () => {
+		const screen = await render(MediaPicker, {
+			props: {
+				open: true,
+				workspaceId: 'workspace-1',
+				accept: ['image/*', 'video/*'],
+				maxSelection: 4,
+				multiple: true,
+				showCreate: false,
+				enableMeme: false,
+				compactNavigation: false,
+				services,
+				onConfirm: vi.fn()
+			}
+		});
+
+		const typeGroup = screen.getByRole('group', { name: m.media_type() });
+		await expect.element(typeGroup).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: m.media_images() })).toBeVisible();
+	});
+
 	it('opens upload-first pickers on the device source', async () => {
 		const screen = await render(MediaPicker, {
 			props: {

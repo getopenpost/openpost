@@ -733,7 +733,11 @@
 	{#if pickerMode === 'library'}
 		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
 			{#if typeFilters.length > 1}
-				<div class="mb-2 flex min-w-0 gap-1 overflow-x-auto" aria-label={m.media_type()}>
+				<div
+					class="mb-2 flex min-w-0 gap-1 overflow-x-auto"
+					role="group"
+					aria-label={m.media_type()}
+				>
 					{#each [{ value: 'all' as const, label: m.media_all_types() }, ...typeFilters] as typeFilter (typeFilter.value)}
 						<Button
 							variant={mediaType === typeFilter.value ? 'secondary' : 'ghost'}

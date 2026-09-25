@@ -2154,20 +2154,32 @@ func checkDeclaredMimeMatchesSniffed(declaredMimeType string, content []byte) er
 	return nil
 }
 
+// sharedAudioVideoContainerSubtypes maps a declared or sniffed subtype to the
+// container it names. The sniffer names every ISO BMFF brand video/mp4 and
+// every Ogg page application/ogg, while browsers declare .m4a as audio/x-m4a
+// and .ogg, .oga and .opus as audio/ogg.
+var sharedAudioVideoContainerSubtypes = map[string]string{
+	"3gpp":       "3gpp",
+	"3gpp2":      "3gpp2",
+	"matroska":   "matroska",
+	"x-matroska": "x-matroska",
+	"mp4":        "mp4",
+	"m4a":        "mp4",
+	"x-m4a":      "mp4",
+	"ogg":        "ogg",
+	"quicktime":  "quicktime",
+	"webm":       "webm",
+}
+
 func sharedAudioVideoContainer(declared, sniffed string) bool {
 	declaredTop, declaredSubtype, _ := strings.Cut(declared, "/")
 	sniffedTop, sniffedSubtype, _ := strings.Cut(sniffed, "/")
-	if declaredSubtype != sniffedSubtype ||
-		(declaredTop != "audio" && declaredTop != "video") ||
-		(sniffedTop != "audio" && sniffedTop != "video") {
+	if (declaredTop != "audio" && declaredTop != "video") ||
+		(sniffedTop != "audio" && sniffedTop != "video" && sniffed != "application/ogg") {
 		return false
 	}
-	switch declaredSubtype {
-	case "3gpp", "3gpp2", "matroska", "mp4", "ogg", "quicktime", "webm", "x-matroska":
-		return true
-	default:
-		return false
-	}
+	container, ok := sharedAudioVideoContainerSubtypes[declaredSubtype]
+	return ok && container == sharedAudioVideoContainerSubtypes[sniffedSubtype]
 }
 
 func isSVGMediaUpload(filename, declaredMimeType string, content []byte) bool {

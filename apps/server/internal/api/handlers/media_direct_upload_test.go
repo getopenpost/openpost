@@ -537,6 +537,34 @@ func TestValidateMediaAssetContentRejectsTopLevelMimeMismatch(t *testing.T) {
 	require.NoError(t, validateMediaAssetContent("library", "cover.jpg", defaultMediaMimeType, jpeg))
 }
 
+func TestValidateMediaAssetContentAcceptsSnifferContainerNames(t *testing.T) {
+	t.Parallel()
+
+	// Go sniffs every Ogg page as application/ogg and every ISO BMFF brand
+	// containing "mp4" as video/mp4; browsers declare these files as
+	// audio/ogg, video/ogg and audio/x-m4a.
+	ogg := append([]byte("OggS\x00\x02"), make([]byte, 64)...)
+	m4a := append([]byte("\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom"), make([]byte, 64)...)
+	require.Equal(t, "application/ogg", http.DetectContentType(ogg))
+	require.Equal(t, "video/mp4", http.DetectContentType(m4a))
+
+	require.NoError(t, validateMediaAssetContent("library", "voice.ogg", "audio/ogg", ogg))
+	require.NoError(t, validateMediaAssetContent("library", "clip.ogv", "video/ogg", ogg))
+	require.NoError(t, validateMediaAssetContent("library", "voice.m4a", "audio/x-m4a", m4a))
+	require.NoError(t, validateMediaAssetContent("library", "voice.m4a", "audio/m4a", m4a))
+	require.NoError(t, validateMediaAssetContent("library", "voice.m4a", "audio/mp4", m4a))
+	require.ErrorContains(
+		t,
+		validateMediaAssetContent("library", "cover.png", "image/png", ogg),
+		"does not match",
+	)
+	require.ErrorContains(
+		t,
+		validateMediaAssetContent("library", "voice.ogg", "audio/ogg", m4a),
+		"does not match",
+	)
+}
+
 func TestValidateBrandFontContent(t *testing.T) {
 	t.Parallel()
 

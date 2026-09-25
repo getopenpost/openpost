@@ -744,6 +744,23 @@ func TestCompleteMediaUploadSessionKeepsDeclaredOggKind(t *testing.T) {
 	}
 }
 
+func TestDetectedMediaMimeTypeKeepsOnlyOggDeclarations(t *testing.T) {
+	t.Parallel()
+
+	ogg := append([]byte("OggS\x00\x02"), make([]byte, 64)...)
+	require.Equal(t, "audio/ogg", detectedMediaMimeType(ogg, "audio/ogg; codecs=opus"))
+	require.Equal(t, "video/ogg", detectedMediaMimeType(ogg, "Video/Ogg"))
+	require.Equal(t, "application/ogg", detectedMediaMimeType(ogg, ""))
+	require.Equal(t, "application/ogg", detectedMediaMimeType(ogg, "audio/opus"))
+
+	png := append([]byte("\x89PNG\x0D\x0A\x1A\x0A"), make([]byte, 64)...)
+	require.Equal(t, "image/png", detectedMediaMimeType(png, "audio/ogg"))
+
+	unknown := []byte{0x00, 0x01, 0x02, 0x03}
+	require.Equal(t, "audio/flac", detectedMediaMimeType(unknown, "audio/flac"))
+	require.Equal(t, defaultMediaMimeType, detectedMediaMimeType(unknown, ""))
+}
+
 func TestProjectAssetUploadStaysOutOfMediaLibraryAndCompletesProject(t *testing.T) {
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())

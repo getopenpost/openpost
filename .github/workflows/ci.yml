@@ -270,6 +270,18 @@ jobs:
       - run: bash scripts/ci-timing-summary.sh start hosted-data-plane
       - name: Start the pinned S3-compatible service
         run: |
+          # quay.io anonymous pulls flake with `unauthorized`; pull explicitly
+          # with backoff so `docker run` below never triggers an implicit pull.
+          for attempt in 1 2 3 4 5; do
+            if docker pull "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"; then
+              break
+            fi
+            echo "MinIO image pull attempt ${attempt} failed; retrying." >&2
+            sleep $((attempt * 10))
+            if [ "${attempt}" -eq 5 ]; then
+              exit 1
+            fi
+          done
           docker run --detach --name openpost-minio \
             --publish 9000:9000 \
             --env MINIO_ROOT_USER=openpost-ci \

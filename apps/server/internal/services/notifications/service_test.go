@@ -159,6 +159,29 @@ func TestWorkspaceInvitationEmailReportsProviderUnavailableWithoutQueueing(t *te
 	require.Zero(t, count)
 }
 
+func TestListHidesAccountWideRowsForWorkspaceBoundCredentials(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+	seed := []models.UserNotification{
+		{ID: "notif-workspace", UserID: "user-1", WorkspaceID: "workspace-1", Type: TypePostPublished, Title: "Published"},
+		{ID: "notif-account", UserID: "user-1", WorkspaceID: "", Type: TypeWorkspaceInvite, Title: "Invited to Other organization"},
+	}
+	_, err := db.NewInsert().Model(&seed).Exec(ctx)
+	require.NoError(t, err)
+
+	unbound, err := service.List(ctx, "user-1", "workspace-1", "", "", 30)
+	require.NoError(t, err)
+	require.Len(t, unbound.Items, 2)
+	require.Equal(t, 2, unbound.UnreadCount)
+
+	bound, err := service.List(ctx, "user-1", "workspace-1", "workspace-1", "", 30)
+	require.NoError(t, err)
+	require.Len(t, bound.Items, 1)
+	require.Equal(t, "workspace-1", bound.Items[0].WorkspaceID)
+	require.Equal(t, 1, bound.UnreadCount)
+}
+
 func TestNotificationDedupKeyIsIdempotent(t *testing.T) {
 	db := notificationsTestDB(t)
 	service := NewService(db)

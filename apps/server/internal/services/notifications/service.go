@@ -1059,17 +1059,25 @@ func (s *Service) handleWorkspaceInvitationEmail(ctx context.Context, job emailD
 	return nil
 }
 
-func (s *Service) List(ctx context.Context, userID, workspaceID, cursor string, limit int) (NotificationPage, error) {
+func (s *Service) List(ctx context.Context, userID, workspaceID, credentialWorkspaceID, cursor string, limit int) (NotificationPage, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 30
 	}
+	// A workspace-bound credential must not see account-wide rows. Those rows
+	// carry content from other workspaces, such as pending invitations with
+	// their invitation IDs and workspace names.
+	strictWorkspace := strings.TrimSpace(credentialWorkspaceID) != ""
 	var items []models.UserNotification
 	query := s.db.NewSelect().Model(&items).
 		Where("user_id = ?", userID).
 		Order("created_at DESC", "id DESC").
 		Limit(limit + 1)
 	if workspaceID != "" {
-		query = query.Where(visibleWorkspaceNotifications, workspaceID)
+		if strictWorkspace {
+			query = query.Where("workspace_id = ?", workspaceID)
+		} else {
+			query = query.Where(visibleWorkspaceNotifications, workspaceID)
+		}
 	}
 	if cursor != "" {
 		createdAt, id, err := parseCursor(cursor)
@@ -1093,7 +1101,11 @@ func (s *Service) List(ctx context.Context, userID, workspaceID, cursor string, 
 	unreadQuery := s.db.NewSelect().Model((*models.UserNotification)(nil)).
 		Where("user_id = ? AND read_at IS NULL", userID)
 	if workspaceID != "" {
-		unreadQuery = unreadQuery.Where(visibleWorkspaceNotifications, workspaceID)
+		if strictWorkspace {
+			unreadQuery = unreadQuery.Where("workspace_id = ?", workspaceID)
+		} else {
+			unreadQuery = unreadQuery.Where(visibleWorkspaceNotifications, workspaceID)
+		}
 	}
 	count, err := unreadQuery.Count(ctx)
 	if err != nil {

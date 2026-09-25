@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [6.1.8] - 2026-09-25
+
+### Fixed
+
+- Workspace-scoped `api:read` tokens can now call the stored analytics overview (`GET /api/v1/analytics`). The operation was missing from the read automation catalogue, so valid read-only tokens received `403`.
+- Admitted the same class of stored-data workspace reads to the `api:read` catalogue: job listing, notification inbox, engagement and conversation lists, growth recommendations, repost automation settings, account feature reads, voice profiles (including the read-only effective-profile resolver), and writing prompts. Each remains workspace-scoped and read-only at the handler layer; mutations stay excluded.
+- Hardened the notification inbox for workspace-bound credentials: account-wide rows (for example invitations from other workspaces) are now excluded when the calling token is bound to a workspace. Browser sessions and unscoped credentials keep the existing combined inbox.
+- Timeline clip corners no longer steal trim and move grabs for fades. Fade handles are smaller, sit inside the clip edge when no fade exists, use a distinct pointer cursor, and ignore presses that never travel.
+- Timeline snapping stays bounded when zoomed out, so clips no longer magnetize from seconds away.
+- Wait at least one second between X video and GIF STATUS polls when the provider omits `check_after_secs` or sends 0, so uploads do not busy-loop the media endpoint and fail as rate-limited.
+
+### Changed
+
+- Releases no longer need a changelog preparation commit. Tag CI builds the draft notes from `CHANGELOG.md` plus `changes/` fragments, and a post-publish bot commit records the shipped section and consumes exactly the tagged fragments.
+
 ## [6.1.3] - 2026-09-24
 
 ### Fixed

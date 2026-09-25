@@ -713,6 +713,37 @@ func TestCompleteMediaUploadSessionFinalizesUploadedObject(t *testing.T) {
 	require.Equal(t, int64(12), current)
 }
 
+func TestCompleteMediaUploadSessionKeepsDeclaredOggKind(t *testing.T) {
+	t.Parallel()
+
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	for _, tc := range []struct {
+		filename string
+		declared string
+		dominant string
+		page     byte
+	}{
+		{filename: "voice.ogg", declared: "audio/ogg", dominant: "audio", page: 0x02},
+		{filename: "clip.ogv", declared: "video/ogg", dominant: "video", page: 0x04},
+	} {
+		ogg := append([]byte{'O', 'g', 'g', 'S', 0x00, tc.page}, make([]byte, 64)...)
+		mediaID := srv.createUploadSession(t, tc.filename, tc.declared, int64(len(ogg)))
+		storage.objects[mediaID+filepath.Ext(tc.filename)] = ogg
+
+		resp := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{
+			"workspace_id": "ws-1",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+
+		var media models.MediaAttachment
+		require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", mediaID).Scan(context.Background()))
+		require.Equal(t, tc.declared, media.MimeType)
+		require.Equal(t, tc.dominant, media.DominantType)
+		require.Equal(t, mediaReadyStatus, media.ProcessingStatus)
+	}
+}
+
 func TestProjectAssetUploadStaysOutOfMediaLibraryAndCompletesProject(t *testing.T) {
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())

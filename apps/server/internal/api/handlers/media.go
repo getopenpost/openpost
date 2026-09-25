@@ -2046,6 +2046,9 @@ func formatMediaTime(value time.Time) string {
 
 func detectedMediaMimeType(content []byte, fallback string) string {
 	mimeType := http.DetectContentType(content)
+	if declared := declaredOggMediaMimeType(mimeType, fallback); declared != "" {
+		return declared
+	}
 	if !strings.HasPrefix(mimeType, defaultMediaMimeType) {
 		return mimeType
 	}
@@ -2053,6 +2056,21 @@ func detectedMediaMimeType(content []byte, fallback string) string {
 		return fallback
 	}
 	return defaultMediaMimeType
+}
+
+// declaredOggMediaMimeType keeps the browser's audio/ogg or video/ogg
+// declaration for an upload the sniffer names application/ogg. The sniffer
+// cannot tell Ogg audio from Ogg video, and application/ogg is neither
+// analysed as video nor presented as audio.
+func declaredOggMediaMimeType(sniffed, declared string) string {
+	if sniffed != "application/ogg" {
+		return ""
+	}
+	declared = strings.ToLower(strings.TrimSpace(strings.Split(declared, ";")[0]))
+	if declared == "audio/ogg" || declared == "video/ogg" {
+		return declared
+	}
+	return ""
 }
 
 func validateMediaAssetContent(assetKind, filename, declaredMimeType string, content []byte) error {

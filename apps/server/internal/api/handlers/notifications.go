@@ -83,7 +83,7 @@ func (h *NotificationHandler) RegisterRoutes(api huma.API) {
 		if err := h.requireWorkspaceAccess(ctx, workspaceID); err != nil {
 			return nil, err
 		}
-		page, err := h.service.List(ctx, middleware.GetUserID(ctx), workspaceID, input.Cursor, input.Limit)
+		page, err := h.service.List(ctx, middleware.GetUserID(ctx), workspaceID, middleware.GetWorkspaceID(ctx), input.Cursor, input.Limit)
 		if errors.Is(err, notifications.ErrInvalidCursor) {
 			return nil, huma.Error400BadRequest("invalid notification cursor")
 		}

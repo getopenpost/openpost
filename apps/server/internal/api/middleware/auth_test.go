@@ -290,6 +290,36 @@ func TestPrincipalCanAccessREST(t *testing.T) {
 	require.False(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeCLI, Audience: "https://example.test/mcp"}))
 	require.True(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIRead}, "list-publications"))
 	require.True(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIRead}, "get-provider-readiness"))
+	require.True(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIRead}, "get-analytics-overview"))
+	for _, operationID := range []string{
+		"list-jobs",
+		"list-notifications",
+		"list-engagement",
+		"list-conversations",
+		"list-conversation-messages",
+		"list-growth-recommendations",
+		"get-repost-automation",
+		"read-account-features",
+		"list-voice-profiles",
+		"get-voice-profile",
+		"resolve-effective-voice-profiles",
+		"list-prompts",
+		"get-random-prompt",
+		"get-prompt-categories",
+	} {
+		require.True(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIRead}, operationID), operationID)
+		require.True(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIWrite}, operationID), operationID)
+	}
+	// Mutations stay out of api:read; analytics refresh/repurpose and deletes
+	// remain uncatalogued until each is deliberately promoted.
+	for _, operationID := range []string{
+		"refresh-analytics",
+		"prepare-analytics-repurpose",
+		"delete-publication",
+		"delete-publication-rendition",
+	} {
+		require.False(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIRead}, operationID), operationID)
+	}
 	require.False(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIRead}, "create-publication"))
 	require.True(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIWrite}, "list-publications"))
 	require.True(t, PrincipalCanAccessREST(&Principal{Scope: apitokens.ScopeAPIWrite}, "publish-publication-now"))

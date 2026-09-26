@@ -30,9 +30,11 @@ It exposes a small routing set:
 
 - `search_operations` finds matching OpenPost operations and returns their schemas and safety information.
 - `query_operation` runs only read-only operations.
-- `execute_operation` runs only operations that change state or interact with an external service.
+- `execute_operation` runs only operations that change state or interact with an external service. Requires `mcp:full`.
+- `render_scheduler_widget` renders structured OpenPost data in the ChatGPT Apps widget. Read-only; available with `mcp:read`.
+- `render_local_media_upload` opens the device file picker for a workspace. Read-only; available with `mcp:read`. Its one-use upload ticket tool is app-only and requires `mcp:full`.
 
-A read-only connection does not receive `execute_operation`. Search results also exclude write operations. The server rejects an operation passed through the wrong execution tool.
+A read-only connection does not receive `execute_operation` or the upload ticket tool. Search results also exclude write operations. The server rejects an operation passed through the wrong execution tool.
 
 The compact endpoint does not run model-written code. It reduces the initial tool list and still sends each request through OpenPost's typed operation handlers.
 

@@ -65,7 +65,7 @@
 					aria-hidden="true"
 					title={m.compose_custom_state()}
 					data-testid="composer-destination-custom"
-				/>
+				></span>
 			{/if}
 			{#if issueCount > 0}
 				<span class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"

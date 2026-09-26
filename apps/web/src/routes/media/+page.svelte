@@ -1655,7 +1655,7 @@
 												src={getAuthenticatedMediaURL(
 													media.thumbnail_url || media.poster_thumbnail_url || ''
 												)}
-												alt=""
+												alt={media.alt_text || media.original_filename || m.media_library_title()}
 												loading="lazy"
 												class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
 											/>

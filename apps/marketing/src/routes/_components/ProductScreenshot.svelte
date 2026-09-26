@@ -91,6 +91,14 @@
 		if (expanded) void close();
 		else {
 			zoom.update({ margin: window.innerWidth < 640 ? 0 : 16 });
+			// medium-zoom clones this img outside of <picture>: the dark
+			// <source> never applies to the clone and it re-reads the img
+			// srcset plus a HiDPI pass, which leaked the light variant (and a
+			// second opened node) into dark-mode zooms. Strip the responsive
+			// hints first so the clone is a single node showing the theme-correct
+			// file (the <source> selection) instead of the light fallback.
+			image.removeAttribute('srcset');
+			image.removeAttribute('sizes');
 			opening = zoom.open({ target: image });
 		}
 	}
@@ -99,6 +107,10 @@
 		// medium-zoom ignores close while opening; retain an early Escape/click.
 		await opening;
 		if (zoom?.getZoomedImage() === image) await zoom.close();
+		if (activeSrcset === undefined) image.removeAttribute('srcset');
+		else image.setAttribute('srcset', activeSrcset);
+		if (sizes === undefined) image.removeAttribute('sizes');
+		else image.setAttribute('sizes', sizes);
 	}
 </script>
 
@@ -125,7 +137,6 @@
 			bind:this={image}
 			src={activeSrc}
 			srcset={activeSrcset}
-			data-zoom-src={activeSrc}
 			{sizes}
 			{alt}
 			width="2880"

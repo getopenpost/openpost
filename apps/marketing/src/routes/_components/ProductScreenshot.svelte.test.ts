@@ -45,7 +45,7 @@ describe('ProductScreenshot zoom source', () => {
 		// only this tour view ships responsive srcset variants).
 		expect(img.getAttribute('src')).toBe(composer.darkSrc);
 		expect(img.getAttribute('srcset')).toBe(composer.darkSrcset);
-		expect(img.getAttribute('data-zoom-src')).toBe(composer.darkSrc);
+		expect(img.hasAttribute('data-zoom-src')).toBe(false);
 		expect(link.getAttribute('href')).toBe(composer.darkSrc);
 	});
 
@@ -53,7 +53,7 @@ describe('ProductScreenshot zoom source', () => {
 		const { img, link } = await renderAtMode(composer, 'light');
 		expect(img.getAttribute('src')).toBe(composer.lightSrc);
 		expect(img.getAttribute('srcset')).toBe(composer.lightSrcset);
-		expect(img.getAttribute('data-zoom-src')).toBe(composer.lightSrc);
+		expect(img.hasAttribute('data-zoom-src')).toBe(false);
 		expect(link.getAttribute('href')).toBe(composer.lightSrc);
 	});
 
@@ -68,7 +68,9 @@ describe('ProductScreenshot zoom source', () => {
 			'dark'
 		);
 		expect(img.getAttribute('src')).toBe(composer.darkSrc);
-		expect(img.getAttribute('data-zoom-src')).toBe(composer.darkSrc);
+		// No responsive variants: no srcset and no zoom override, so the zoom
+		// stays a single image driven by the dark <source>.
 		expect(img.hasAttribute('srcset')).toBe(false);
+		expect(img.hasAttribute('data-zoom-src')).toBe(false);
 	});
 });

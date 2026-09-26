@@ -88,3 +88,59 @@ it('names video poster thumbnails with their alt text like image thumbnails', as
 	await expect.element(screen.getByRole('img', { name: 'Launch hero art' })).toBeVisible();
 	await expect.element(screen.getByRole('img', { name: 'Launch teaser poster' })).toBeVisible();
 });
+
+it('exposes the video processing bar as a named progressbar with its current value', async () => {
+	queryClient.clear();
+	const workspace = {
+		id: 'workspace-a',
+		name: 'Workspace',
+		avatar_url: '',
+		color: '',
+		can_edit: true,
+		role: 'admin' as const,
+		created_at: '',
+		organization_id: '',
+		organization_name: '',
+		sso_authenticated: true,
+		sso_identity_linked: true,
+		sso_required: false
+	};
+	// Set both so loadWorkspaces skips initialize(), which would overwrite the fixture.
+	workspaceCtx.workspaces = [workspace];
+	workspaceCtx.currentWorkspace = workspace;
+	const processingItem = {
+		id: 'media-video-processing',
+		workspace_id: 'workspace-a',
+		mime_type: 'video/mp4',
+		url: '/media/media-video-processing/file.mp4',
+		thumbnail_url: '/media/media-video-processing/poster.jpg',
+		poster_thumbnail_url: null,
+		original_filename: 'upload-clip.mp4',
+		alt_text: '',
+		size: 2048,
+		created_at: new Date().toISOString(),
+		processing_status: 'processing',
+		processing_progress: 42,
+		analysis_status: 'pending',
+		tags: []
+	};
+	vi.spyOn(client, 'GET').mockImplementation(async (path) => {
+		if (path === '/media') {
+			return { data: { media: [processingItem], total: 1 } } as never;
+		}
+		// SAFETY: All other reads in this processing-bar fixture return empty shapes.
+		return { data: [] } as never;
+	});
+	const screen = await render(
+		MediaPage,
+		{},
+		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+	);
+	const bar = screen.getByRole('progressbar', { name: 'upload-clip.mp4' });
+	// NOTE: visibility is not asserted here. In the vitest browser harness the Tailwind
+	// v4 --spacing token is undefined, so the h-1.5 track computes to 0px and Playwright
+	// reports it hidden; in production builds the token resolves and the bar is visible.
+	await expect.element(bar).toHaveAttribute('aria-valuemin', '0');
+	await expect.element(bar).toHaveAttribute('aria-valuemax', '100');
+	await expect.element(bar).toHaveAttribute('aria-valuenow', '42');
+});

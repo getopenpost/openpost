@@ -1688,7 +1688,16 @@
 														percent: Math.max(0, media.processing_progress ?? 0)
 													})}
 												</div>
-												<div class="h-1.5 overflow-hidden rounded-full bg-muted">
+												<div
+													class="h-1.5 overflow-hidden rounded-full bg-muted"
+													role="progressbar"
+													aria-label={media.original_filename ||
+														media.alt_text ||
+														m.media_library_title()}
+													aria-valuemin={0}
+													aria-valuemax={100}
+													aria-valuenow={Math.max(0, media.processing_progress ?? 0)}
+												>
 													<div
 														class="h-full rounded-full bg-primary transition-[width]"
 														style:width={`${Math.min(

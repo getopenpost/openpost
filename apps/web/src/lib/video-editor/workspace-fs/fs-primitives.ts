@@ -95,28 +95,48 @@ async function resolveFileParent(
 
 /* ────────────────────────────── Read helpers ─────────────────────────── */
 
+// File objects are snapshots. A replace from another tab or an external editor can
+// invalidate one between getFile() and consuming its bytes, even with permission.
+const MAX_SNAPSHOT_READ_ATTEMPTS = 3;
+
+async function readFileContents<T>(
+	root: FileSystemDirectoryHandle,
+	segments: string[],
+	consume: (file: File) => Promise<T>
+): Promise<T | null> {
+	for (let attempt = 1; ; attempt++) {
+		try {
+			const { parent, fileName } = await resolveFileParent(root, segments, false);
+			const handle = await parent.getFileHandle(fileName, { create: false });
+			return await consume(await handle.getFile());
+		} catch (error) {
+			if (isNotFound(error)) return null;
+			if (
+				!(error instanceof DOMException) ||
+				error.name !== 'NotReadableError' ||
+				attempt >= MAX_SNAPSHOT_READ_ATTEMPTS
+			)
+				throw error;
+		}
+	}
+}
+
 export async function readJson<T>(
 	root: FileSystemDirectoryHandle,
 	segments: string[]
 ): Promise<T | null> {
-	return wrap('readJson', async () => {
-		try {
-			const { parent, fileName } = await resolveFileParent(root, segments, false);
-			const file = await parent.getFileHandle(fileName, { create: false });
-			const blob = await file.getFile();
-			const text = await blob.text();
-			if (text.length === 0) return null;
+	return wrap('readJson', () =>
+		withKeyLock(writeJsonAtomicLockKey(segments), async () => {
+			const text = await readFileContents(root, segments, (file) => file.text());
+			if (text === null || text.length === 0) return null;
 			try {
-				// SAFETY: JSON.parse succeeded, so the text is valid JSON of shape T.
+				// SAFETY: persisted JSON is decoded at its owning repository boundary.
 				return JSON.parse(text) as T;
 			} catch (error) {
 				throw new WorkspaceFileCorruptError(segments.join('/'), error);
 			}
-		} catch (error) {
-			if (isNotFound(error)) return null;
-			throw error;
-		}
-	});
+		})
+	);
 }
 
 export async function readBlob(
@@ -139,9 +159,9 @@ export async function readArrayBuffer(
 	root: FileSystemDirectoryHandle,
 	segments: string[]
 ): Promise<ArrayBuffer | null> {
-	const blob = await readBlob(root, segments);
-	if (!blob) return null;
-	return blob.arrayBuffer();
+	return wrap('readArrayBuffer', () =>
+		readFileContents(root, segments, (file) => file.arrayBuffer())
+	);
 }
 
 /* ────────────────────────────── Write helpers ────────────────────────── */

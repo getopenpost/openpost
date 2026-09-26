@@ -287,7 +287,7 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	revision = int(publicationOf(cancelled)["revision"].(float64))
 
 	queued := mcpRequireToolSuccess(t, srv, "web-token", "alias-publish", "publish_publication_now", map[string]any{
-		"publication_id": postID, "expected_revision": revision,
+		"publication_id": postID, "expected_revision": revision, "confirm": true,
 	})
 	require.NotEmpty(t, structured(queued)["job_id"])
 

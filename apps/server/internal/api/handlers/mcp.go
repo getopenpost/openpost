@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/idempotency"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/netguard"
 	"github.com/openpost/backend/internal/platform"
@@ -64,6 +65,12 @@ const (
 	mcpToolSchedulePub    = "schedule_post"
 	mcpToolCancelPub      = "cancel_post"
 	mcpToolPublishPubNow  = "publish_post_now"
+	mcpToolDeletePub      = "delete_post"
+	mcpToolRetryFailed    = "retry_failed_variants"
+	mcpToolRetryOne       = "retry_variant"
+	mcpToolDeleteMedia    = "delete_media"
+	mcpToolUpdateMedia    = "update_media"
+	mcpToolGetMedia       = "get_media"
 	mcpToolPubEvents      = "list_post_events"
 	mcpToolComments       = "list_variant_comments"
 	mcpToolReplyComment   = "reply_to_comment"
@@ -159,6 +166,99 @@ func normalizeMCPDelegatedArguments(args map[string]any) {
 	if inner, ok := args["arguments"].(map[string]any); ok {
 		normalizeMCPArgumentKeys(inner)
 	}
+}
+
+// mcpIdempotencyKeySchema describes the optional replay key accepted by every
+// execute-mode mutation. It routes into the existing REST idempotency path
+// (mutationIdempotencyRequest/idempotency.Execute).
+func mcpIdempotencyKeySchema() map[string]any {
+	return map[string]any{
+		"type": "string", "minLength": 1, "maxLength": 200,
+		"description": "Optional replay key scoped to the caller, workspace, and operation. Repeating a call with the same key returns the stored result instead of running the mutation again.",
+	}
+}
+
+func mcpIdempotencyKeyFromArgs(args map[string]any) string {
+	if args == nil {
+		return ""
+	}
+	key, _ := args["idempotency_key"].(string)
+	return strings.TrimSpace(key)
+}
+
+// mcpDetailSchema selects the post result shape. Summary is the default for
+// mutations; full returns the complete post with ordered media and variants.
+func mcpDetailSchema() map[string]any {
+	return map[string]any{
+		"type": "string", "enum": []string{"summary", "full"},
+		"description": "Post result shape. Defaults to summary; use full when ordered media, variants, and delivery fields are needed.",
+	}
+}
+
+func mcpPostDetail(args map[string]any) string {
+	if args == nil {
+		return "summary"
+	}
+	detail, _ := args["detail"].(string)
+	if strings.TrimSpace(detail) == "full" {
+		return "full"
+	}
+	return "summary"
+}
+
+// mcpConfirmSchema declares the machine-enforceable confirmation gate for
+// irreversible tools. The handler rejects calls without confirm=true; prose
+// approval alone is not sufficient.
+func mcpConfirmSchema(description string) map[string]any {
+	return map[string]any{
+		"type": "boolean",
+		"description": description,
+	}
+}
+
+func mcpRequireConfirm(args map[string]any, operation string) *mcpError {
+	confirm, _ := args["confirm"].(bool)
+	if !confirm {
+		return &mcpError{Code: -32602, Message: operation + " is irreversible; repeat the call with confirm=true to proceed"}
+	}
+	return nil
+}
+
+func mcpDryRunFromArgs(args map[string]any) bool {
+	if args == nil {
+		return false
+	}
+	dryRun, _ := args["dry_run"].(bool)
+	return dryRun
+}
+
+// mcpBuildIdempotencyRequest returns the REST idempotency request for an
+// execute-mode mutation when the caller supplied idempotency_key. The second
+// return is false when no key was supplied and the caller should run the
+// mutation directly.
+func mcpBuildIdempotencyRequest(ctx context.Context, workspaceID, operationID string, args map[string]any) (idempotency.Request, bool, *mcpError) {
+	key := mcpIdempotencyKeyFromArgs(args)
+	if key == "" {
+		return idempotency.Request{}, false, nil
+	}
+	request, err := mutationIdempotencyRequest(ctx, workspaceID, operationID, key)
+	if err != nil {
+		return idempotency.Request{}, false, &mcpError{Code: -32602, Message: err.Error()}
+	}
+	return request, true, nil
+}
+
+func mcpIdempotencyError(err error, fallback string) *mcpError {
+	if errors.Is(err, idempotency.ErrConflict) {
+		return &mcpError{Code: -32602, Message: "idempotency key was already used with a different request"}
+	}
+	if errors.Is(err, idempotency.ErrInProgress) {
+		return &mcpError{Code: -32603, Message: "idempotent request is still in progress"}
+	}
+	if errors.Is(err, idempotency.ErrInvalid) {
+		return &mcpError{Code: -32602, Message: "invalid idempotency_key"}
+	}
+	return &mcpError{Code: -32603, Message: fallback}
 }
 
 type MCPHandler struct {
@@ -1189,7 +1289,7 @@ func mcpSearchToolsForScope(scope string) []map[string]any {
 	}
 	readOnlyTools := make([]map[string]any, 0, len(tools)-1)
 	for _, tool := range tools {
-		if tool["name"] != mcpToolExecute && tool["name"] != mcpToolRenderUpload && tool["name"] != mcpToolCreateTicket {
+		if tool["name"] != mcpToolExecute && tool["name"] != mcpToolCreateTicket {
 			readOnlyTools = append(readOnlyTools, tool)
 		}
 	}
@@ -1211,8 +1311,11 @@ func mcpDirectToolsForScope(scope string) []map[string]any {
 		tools = append(tools, operation.Descriptor)
 	}
 	tools = append(tools, mcpRenderSchedulerWidgetTool())
+	// render_local_media_upload changes no state and stays visible to
+	// read-only connections; the ticket tool mints the upload credential.
+	tools = append(tools, mcpRenderLocalUploadTool())
 	if !readOnly {
-		tools = append(tools, mcpRenderLocalUploadTool(), mcpCreateLocalUploadTicketTool())
+		tools = append(tools, mcpCreateLocalUploadTicketTool())
 	}
 	return tools
 }
@@ -1264,6 +1367,9 @@ func mcpOperationCatalog() []mcpOperationDefinition {
 		mcpSchedulePublicationTool(),
 		mcpCancelPublicationTool(),
 		mcpPublishPublicationNowTool(),
+		mcpDeletePublicationTool(),
+		mcpRetryFailedVariantsTool(),
+		mcpRetryVariantTool(),
 		mcpListPublicationEventsTool(),
 		mcpListRenditionCommentsTool(),
 		mcpReplyToCommentTool(),
@@ -1271,6 +1377,9 @@ func mcpOperationCatalog() []mcpOperationDefinition {
 		mcpDeleteCommentTool(),
 		mcpSuggestNextSlotTool(),
 		mcpUploadMediaFromURLTool(),
+		mcpGetMediaTool(),
+		mcpUpdateMediaTool(),
+		mcpDeleteMediaTool(),
 	}
 }
 
@@ -1492,7 +1601,7 @@ var mcpStringInputExamples = map[string]string{
 	"post_id":           "c66d7139-0549-4666-9374-124e988f97e7",
 	"variant_id":        "08ac072f-f39f-4583-8202-53f5ddf47eb6",
 	"media_id":          "30454fbe-246c-4d9d-9289-13e2c8df7f1e",
-	"comment_id":        "eyJyZW5kaXRpb25faWQiOiIuLi4ifQ",
+	"comment_id":        "eyJyZW5kaXRpb25faWQiOiAiMDhhYzA3MmYtZjM5Zi00NTgzLTgyMDItNTNmNWRkZjQ3ZWI2IiwgInByb3ZpZGVyX2NvbW1lbnRfaWQiOiAicHJvdmlkZXItY29tbWVudC0xMjMifQ",
 	"operation":         mcpToolAccounts,
 	"query":             "list connected social accounts",
 	"content":           "A concise product update for our community.",
@@ -1628,11 +1737,13 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolCreatePub,
 		"title":       "Create post",
-		"description": "Create a format-first post when one source needs provider-specific outputs, such as a YouTube title and TikTok caption. Returns the post ID, profile, state, schedule, and variant count.",
+		"description": "Create a format-first post draft when one source needs provider-specific outputs, such as a YouTube title and TikTok caption. Returns the post ID, profile, state, schedule, and variant count. The optional scheduled_at value only stores a desired time and never enqueues the post; call schedule_post after create_post to validate and enqueue, or publish_post_now to queue immediately.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"workspace_id": map[string]any{"type": "string", "description": "Workspace ID returned by list_workspaces."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
 				"content_profile": map[string]any{
 					"type":        "string",
 					"description": "OpenPost content profile: short_text, thread, link_share, image_post, carousel, story, short_video, or long_video.",
@@ -1707,8 +1818,8 @@ func mcpListPublicationsTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"workspace_id":    map[string]any{"type": "string", "description": "Workspace ID returned by list_workspaces."},
-				"status":          map[string]any{"type": "string", "description": "Optional post status filter."},
-				"content_profile": map[string]any{"type": "string", "description": "Optional content profile filter."},
+				"status":          map[string]any{"type": "string", "enum": []string{"draft", "ready", "scheduled", "publishing", "published", "failed"}, "description": "Optional post status filter."},
+				"content_profile": map[string]any{"type": "string", "enum": []string{"short_text", "thread", "link_share", "image_post", "carousel", "story", "short_video", "long_video"}, "description": "Optional content profile filter."},
 				"platform":        map[string]any{"type": "string", "description": "Optional destination platform filter, such as x, linkedin, or youtube."},
 				"calendar_from":   map[string]any{"type": "string", "format": "date-time", "description": "Include calendar occurrences at or after this RFC3339 timestamp."},
 				"calendar_before": map[string]any{"type": "string", "format": "date-time", "description": "Include calendar occurrences before this RFC3339 timestamp."},
@@ -1726,7 +1837,14 @@ func mcpGetPublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name": mcpToolGetPub, "title": "Get post",
 		"description": "Read one format-first post when its full source and destination state is needed. Returns the post, ordered media, variants, and delivery fields.",
-		"inputSchema": mcpPublicationIDSchema(),
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"detail":  mcpDetailSchema(),
+			},
+			"required": []string{"post_id"}, "additionalProperties": false,
+		},
 	}, mcpOperationQuery, false, false)
 }
 
@@ -1738,6 +1856,8 @@ func mcpUpdatePublicationTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
@@ -1781,6 +1901,8 @@ func mcpSetPublicationRenditionsTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
@@ -1805,6 +1927,8 @@ func mcpReplyToRenditionTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"variant_id": map[string]any{"type": "string", "description": "Published variant ID returned by get_post."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
 				"body":       map[string]any{"type": "string", "description": "Reply text sent to the variant's provider thread."},
 				"parent_id":  map[string]any{"type": "string", "description": "Optional provider-native parent reply ID when replying below a specific reply."},
 				"run_at": map[string]any{
@@ -1887,6 +2011,12 @@ func mcpSchedulePublicationTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
+				"dry_run": map[string]any{
+					"type": "boolean",
+					"description": "When true, validate the post and schedule readiness without enqueueing; returns the post state with an empty job ID.",
+				},
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
@@ -1912,6 +2042,8 @@ func mcpCancelPublicationTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"post_id": map[string]any{"type": "string", "description": "Scheduled Post ID."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
 				"expected_revision": map[string]any{
 					"type": "integer", "minimum": 1,
 					"description": "Revision returned by get_post immediately before cancellation.",
@@ -1926,11 +2058,18 @@ func mcpPublishPublicationNowTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolPublishPubNow,
 		"title":       "Publish post now",
-		"description": "Validate and queue a post when it should publish as soon as a worker is available. Returns the queued post state and durable publishing job ID.",
+		"description": "Validate and queue a post when it should publish as soon as a worker is available. Returns the queued post state and durable publishing job ID. This action is irreversible once a worker picks it up; repeat the call with confirm=true to proceed.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
+				"dry_run": map[string]any{
+					"type": "boolean",
+					"description": "When true, validate the post and publishing readiness without queueing; returns the post state with an empty job ID.",
+				},
+				"confirm": mcpConfirmSchema("Explicit confirmation that the post may publish immediately. Pass confirm=true on the second call."),
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
@@ -1945,6 +2084,84 @@ func mcpPublishPublicationNowTool() mcpOperationDefinition {
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
+}
+
+func mcpDeletePublicationTool() mcpOperationDefinition {
+	return mcpOperationDescriptor(map[string]any{
+		"name":        mcpToolDeletePub,
+		"title":       "Delete post",
+		"description": "Permanently delete an editable post, its destination variants, and any linked draft. This action is irreversible; repeat the call with confirm=true to proceed. Returns a confirmation message and the deleted post ID.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_post immediately before deletion.",
+				},
+				"confirm":         mcpConfirmSchema("Explicit confirmation that the post may be permanently deleted. Pass confirm=true on the second call."),
+				"idempotency_key": mcpIdempotencyKeySchema(),
+			},
+			"required":             []string{"post_id", "expected_revision", "confirm"},
+			"additionalProperties": false,
+		},
+	}, mcpOperationExecute, true, false)
+}
+
+func mcpRetryFailedVariantsTool() mcpOperationDefinition {
+	return mcpOperationDescriptor(map[string]any{
+		"name":        mcpToolRetryFailed,
+		"title":       "Retry failed variants",
+		"description": "Queue one retry batch for the remaining safely retryable failed destination variants. Returns the post state and durable retry job ID.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_post immediately before retrying.",
+				},
+				"execution_intent": map[string]any{
+					"type": "string", "enum": []string{"production", "certification_test"},
+					"description": "Optional typed readiness intent for this retry action. certification_test is restricted to an unscoped instance administrator.",
+				},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
+			},
+			"required":             []string{"post_id", "expected_revision"},
+			"additionalProperties": false,
+		},
+	}, mcpOperationExecute, true, true)
+}
+
+func mcpRetryVariantTool() mcpOperationDefinition {
+	return mcpOperationDescriptor(map[string]any{
+		"name":        mcpToolRetryOne,
+		"title":       "Retry variant",
+		"description": "Queue a retry for one failed destination variant with a confirmed safe delivery outcome. Returns the post state and durable retry job ID.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"variant_id": map[string]any{"type": "string", "description": "Failed variant ID returned by get_post."},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_post immediately before retrying.",
+				},
+				"execution_intent": map[string]any{
+					"type": "string", "enum": []string{"production", "certification_test"},
+					"description": "Optional typed readiness intent for this retry action. certification_test is restricted to an unscoped instance administrator.",
+				},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+				"detail":          mcpDetailSchema(),
+			},
+			"required":             []string{"post_id", "variant_id", "expected_revision"},
+			"additionalProperties": false,
+		},
+	}, mcpOperationExecute, true, true)
 }
 
 func mcpListPublicationEventsTool() mcpOperationDefinition {
@@ -1993,11 +2210,18 @@ func mcpDeleteCommentTool() mcpOperationDefinition {
 }
 
 func mcpCommentActionTool(name, title, description string, requiresBody, destructive bool) mcpOperationDefinition {
-	properties := map[string]any{"comment_id": map[string]any{"type": "string", "description": "Opaque comment ID returned by list_variant_comments."}}
+	properties := map[string]any{
+		"comment_id":      map[string]any{"type": "string", "description": "Opaque comment ID returned by list_variant_comments."},
+		"idempotency_key": mcpIdempotencyKeySchema(),
+	}
 	required := []string{"comment_id"}
 	if requiresBody {
 		properties["body"] = map[string]any{"type": "string", "description": "Reply text to send to the provider comment."}
 		required = append(required, "body")
+	}
+	if name == mcpToolDeleteComment {
+		properties["confirm"] = mcpConfirmSchema("Explicit confirmation that the provider comment may be permanently deleted. Pass confirm=true on the second call.")
+		required = append(required, "confirm")
 	}
 	return mcpOperationDescriptor(map[string]any{
 		"name": name, "title": title, "description": description,
@@ -2040,6 +2264,7 @@ func mcpUploadMediaFromURLTool() mcpOperationDefinition {
 					"type":        "string",
 					"description": "Workspace ID returned by list_workspaces.",
 				},
+				"idempotency_key": mcpIdempotencyKeySchema(),
 				"url": map[string]any{
 					"type":        "string",
 					"format":      "uri",
@@ -2058,6 +2283,59 @@ func mcpUploadMediaFromURLTool() mcpOperationDefinition {
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
+}
+
+func mcpGetMediaTool() mcpOperationDefinition {
+	return mcpOperationDescriptor(map[string]any{
+		"name":        mcpToolGetMedia,
+		"title":       "Get media",
+		"description": "Read one workspace media asset when its file details, processing state, usage, or deletion eligibility is needed. Returns the media item.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"media_id": map[string]any{"type": "string", "description": "Media ID returned by list_media or upload_media_from_url."},
+			},
+			"required":             []string{"media_id"},
+			"additionalProperties": false,
+		},
+	}, mcpOperationQuery, false, false)
+}
+
+func mcpUpdateMediaTool() mcpOperationDefinition {
+	return mcpOperationDescriptor(map[string]any{
+		"name":        mcpToolUpdateMedia,
+		"title":       "Update media",
+		"description": "Update a workspace media asset's favorite flag or alt text. Returns the updated media item with its usage and deletion eligibility.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"media_id":        map[string]any{"type": "string", "description": "Media ID returned by list_media or upload_media_from_url."},
+				"favorite":        map[string]any{"type": "boolean", "description": "Optional replacement favorite flag."},
+				"alt_text":        map[string]any{"type": "string", "description": "Optional replacement accessible alt text."},
+				"idempotency_key": mcpIdempotencyKeySchema(),
+			},
+			"required":             []string{"media_id"},
+			"additionalProperties": false,
+		},
+	}, mcpOperationExecute, true, false)
+}
+
+func mcpDeleteMediaTool() mcpOperationDefinition {
+	return mcpOperationDescriptor(map[string]any{
+		"name":        mcpToolDeleteMedia,
+		"title":       "Delete media",
+		"description": "Move a workspace media asset to Trash when list_media reports can_delete. This action is irreversible without a restore; repeat the call with confirm=true to proceed. Returns a confirmation message and the deleted media ID.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"media_id":        map[string]any{"type": "string", "description": "Media ID returned by list_media."},
+				"confirm":         mcpConfirmSchema("Explicit confirmation that the media may be moved to Trash. Pass confirm=true on the second call."),
+				"idempotency_key": mcpIdempotencyKeySchema(),
+			},
+			"required":             []string{"media_id", "confirm"},
+			"additionalProperties": false,
+		},
+	}, mcpOperationExecute, true, false)
 }
 
 func mcpRenderSchedulerWidgetTool() map[string]any {
@@ -2121,6 +2399,7 @@ func mcpCreateLocalUploadTicketTool() map[string]any {
 				"mime_type":    map[string]any{"type": "string", "maxLength": 255},
 				"size":         map[string]any{"type": "integer", "minimum": 1, "maximum": MaxMediaUploadBytes},
 				"alt_text":     map[string]any{"type": "string", "maxLength": 2000},
+				"idempotency_key": mcpIdempotencyKeySchema(),
 			},
 			"required": []string{"workspace_id", "filename", "size"}, "additionalProperties": false,
 		},
@@ -2145,6 +2424,10 @@ func mcpOperationDescriptor(tool map[string]any, mode mcpOperationMode, destruct
 			panic("read-only MCP operations cannot be destructive")
 		}
 	case mcpOperationExecute:
+		// Every state-changing operation advertises destructiveHint=true so
+		// clients gate mutations as a whole. openWorldHint stays split:
+		// true only for operations that reach external provider systems.
+		destructive = true
 	default:
 		panic("invalid MCP operation mode: " + mode)
 	}
@@ -2238,6 +2521,12 @@ var mcpToolStatuses = map[string]mcpToolStatus{
 	mcpToolSchedulePub:    {Invoking: "Scheduling post", Invoked: "Post scheduled"},
 	mcpToolCancelPub:      {Invoking: "Cancelling post", Invoked: "Post cancelled"},
 	mcpToolPublishPubNow:  {Invoking: "Queueing post", Invoked: "Post queued"},
+	mcpToolDeletePub:      {Invoking: "Deleting post", Invoked: "Post deleted"},
+	mcpToolRetryFailed:    {Invoking: "Retrying failed variants", Invoked: "Variant retry queued"},
+	mcpToolRetryOne:       {Invoking: "Retrying variant", Invoked: "Variant retry queued"},
+	mcpToolDeleteMedia:    {Invoking: "Deleting media", Invoked: "Media deleted"},
+	mcpToolUpdateMedia:    {Invoking: "Updating media", Invoked: "Media updated"},
+	mcpToolGetMedia:       {Invoking: "Loading media", Invoked: "Media loaded"},
 	mcpToolPubEvents:      {Invoking: "Loading post events", Invoked: "Post events loaded"},
 	mcpToolComments:       {Invoking: "Loading comments", Invoked: "Comments loaded"},
 	mcpToolReplyComment:   {Invoking: "Queueing comment reply", Invoked: "Comment reply queued"},
@@ -2272,19 +2561,31 @@ func mcpToolOutputSchema(toolName string) map[string]any {
 		}, key)
 	}
 	switch toolName {
-	case mcpToolCreatePub, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolCancelPub:
-		return mcpStructuredOutputSchema(map[string]any{
-			"publication": mcpOpenObjectSchema(),
-		}, "publication")
-	case mcpToolSchedulePub, mcpToolPublishPubNow, mcpToolReplyRendition:
+	case mcpToolCreatePub, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolCancelPub,
+		mcpToolSchedulePub, mcpToolPublishPubNow, mcpToolReplyRendition, mcpToolRetryFailed, mcpToolRetryOne:
 		return mcpStructuredOutputSchema(map[string]any{
 			"publication": mcpOpenObjectSchema(),
 			"job_id":      map[string]any{"type": "string"},
 		}, "publication", "job_id")
+	case mcpToolDeletePub:
+		return mcpStructuredOutputSchema(map[string]any{
+			"message": map[string]any{"type": "string"},
+			"post_id": map[string]any{"type": "string"},
+			"job_id":  map[string]any{"type": "string"},
+		}, "message", "post_id")
+	case mcpToolGetMedia, mcpToolUpdateMedia:
+		return mcpStructuredOutputSchema(map[string]any{
+			"media": mcpOpenObjectSchema(),
+		}, "media")
+	case mcpToolDeleteMedia:
+		return mcpStructuredOutputSchema(map[string]any{
+			"message":  map[string]any{"type": "string"},
+			"media_id": map[string]any{"type": "string"},
+		}, "message", "media_id")
 	case mcpToolReplyComment, mcpToolHideComment, mcpToolDeleteComment:
 		return mcpStructuredOutputSchema(map[string]any{
-			"message": map[string]any{"type": "string"}, "id": map[string]any{"type": "string"},
-		}, "message")
+			"message": map[string]any{"type": "string"}, "job_id": map[string]any{"type": "string"},
+		}, "message", "job_id")
 	case mcpToolValidatePub:
 		return mcpStructuredOutputSchema(map[string]any{
 			"valid":  map[string]any{"type": "boolean"},
@@ -2639,7 +2940,7 @@ func (h *MCPHandler) callTool(ctx context.Context, principal *middleware.Princip
 }
 
 func mcpToolCallChangesState(canonicalName string) bool {
-	if canonicalName == mcpToolExecute || canonicalName == mcpToolCreateTicket || canonicalName == mcpToolRenderUpload {
+	if canonicalName == mcpToolExecute || canonicalName == mcpToolCreateTicket {
 		return true
 	}
 	if operation, ok := mcpOperationByName(canonicalName); ok {
@@ -2886,8 +3187,10 @@ func (h *MCPHandler) callMCPOperation(ctx context.Context, userID, operation str
 	case mcpToolCreateTicket:
 		return h.createLocalMediaUploadTicket(ctx, userID, args)
 	case mcpToolCreatePub, mcpToolListPubs, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolReplyRendition,
-		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolPubEvents, mcpToolComments,
-		mcpToolReplyComment, mcpToolHideComment, mcpToolDeleteComment, mcpToolSuggestSlot, mcpToolUploadURL:
+		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolDeletePub,
+		mcpToolRetryFailed, mcpToolRetryOne, mcpToolPubEvents, mcpToolComments,
+		mcpToolReplyComment, mcpToolHideComment, mcpToolDeleteComment, mcpToolSuggestSlot, mcpToolUploadURL,
+		mcpToolGetMedia, mcpToolUpdateMedia, mcpToolDeleteMedia:
 		return h.callWorkspaceActionTool(ctx, userID, operation, args)
 	default:
 		return nil, &mcpError{Code: -32602, Message: fmt.Sprintf("unknown operation %q; call %s to discover supported operations", operation, mcpToolSearch)}
@@ -2898,9 +3201,12 @@ func (h *MCPHandler) callWorkspaceActionTool(ctx context.Context, userID, toolNa
 	toolName = normalizeMCPOperationName(toolName)
 	switch toolName {
 	case mcpToolCreatePub, mcpToolListPubs, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolReplyRendition,
-		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolPubEvents, mcpToolComments,
+		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolDeletePub,
+		mcpToolRetryFailed, mcpToolRetryOne, mcpToolPubEvents, mcpToolComments,
 		mcpToolReplyComment, mcpToolHideComment, mcpToolDeleteComment:
 		return h.callPublicationTool(ctx, userID, toolName, args)
+	case mcpToolGetMedia, mcpToolUpdateMedia, mcpToolDeleteMedia:
+		return h.callMediaTool(ctx, userID, toolName, args)
 	case mcpToolSuggestSlot:
 		return h.suggestNextSlot(ctx, userID, args)
 	case mcpToolUploadURL:
@@ -2933,6 +3239,12 @@ func (h *MCPHandler) callPublicationTool(ctx context.Context, userID, toolName s
 		return h.cancelPublication(ctx, userID, args)
 	case mcpToolPublishPubNow:
 		return h.publishPublicationNow(ctx, userID, args)
+	case mcpToolDeletePub:
+		return h.deletePublication(ctx, userID, args)
+	case mcpToolRetryFailed:
+		return h.retryFailedVariants(ctx, userID, args)
+	case mcpToolRetryOne:
+		return h.retryVariant(ctx, userID, args)
 	case mcpToolPubEvents:
 		return h.listPublicationEvents(ctx, userID, args)
 	case mcpToolComments:
@@ -3303,6 +3615,8 @@ type mcpCreatePublicationInput struct {
 	MediaIDs           []string                `json:"media_ids"`
 	Media              []PublicationMediaInput `json:"media"`
 	Renditions         []RenditionInput        `json:"variants"`
+	IdempotencyKey     string                  `json:"idempotency_key"`
+	Detail             string                  `json:"detail"`
 }
 
 type mcpPublicationStatus struct {
@@ -3376,7 +3690,7 @@ func (h *MCPHandler) createPublication(ctx context.Context, userID string, args 
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	publication, err := h.publicationHandler().publicationApplication().Create(ctx, userID, CreatePublicationBody{
+	body := CreatePublicationBody{
 		WorkspaceID:        input.WorkspaceID,
 		Title:              input.Title,
 		ContentProfile:     input.ContentProfile,
@@ -3388,20 +3702,37 @@ func (h *MCPHandler) createPublication(ctx context.Context, userID string, args 
 		SocialAccountIDs:   accountIDs,
 		Media:              defaultMedia,
 		Renditions:         input.Renditions,
-	})
+	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		return h.createPublicationIdempotent(ctx, userID, body, args)
+	}
+	publication, err := h.publicationHandler().publicationApplication().Create(ctx, userID, body)
 	if err != nil {
 		return nil, mcpPublicationCreateError(err)
 	}
-	status, rpcErr := h.loadMCPPublicationStatus(ctx, publication.ID)
+	return h.mcpPostResult(ctx, userID, publication.ID, "Post created: "+publication.ID, "", args)
+}
+
+func (h *MCPHandler) createPublicationIdempotent(ctx context.Context, userID string, body CreatePublicationBody, args map[string]any) (any, *mcpError) {
+	request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, body.WorkspaceID, "create-publication", args)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: "Post created: " + publication.ID}},
-		"structuredContent": map[string]any{
-			"publication": status,
-		},
-	}, nil
+	if !ok {
+		publication, err := h.publicationHandler().publicationApplication().Create(ctx, userID, body)
+		if err != nil {
+			return nil, mcpPublicationCreateError(err)
+		}
+		return h.mcpPostResult(ctx, userID, publication.ID, "Post created: "+publication.ID, "", args)
+	}
+	publication, _, err := h.publicationHandler().publicationApplicationForTesting().CreateIdempotent(ctx, userID, body, request)
+	if err != nil {
+		if errors.Is(err, idempotency.ErrConflict) {
+			return nil, mcpIdempotencyError(err, "failed to create post")
+		}
+		return nil, mcpPublicationCreateError(err)
+	}
+	return h.mcpPostResult(ctx, userID, publication.ID, "Post created: "+publication.ID, "", args)
 }
 
 func mcpPublicationCreateError(err error) *mcpError {
@@ -3498,9 +3829,16 @@ func (h *MCPHandler) getPublication(ctx context.Context, userID string, args map
 	if err != nil {
 		return nil, &mcpError{Code: -32602, Message: "post not found or unavailable"}
 	}
+	if mcpPostDetail(args) == "summary" {
+		status := mcpPublicationStatusFromResponse(publication)
+		return map[string]any{
+			"content":           []mcpContent{{Type: "text", Text: "Post loaded: " + publication.ID}},
+			"structuredContent": map[string]any{"publication": status, "job_id": ""},
+		}, nil
+	}
 	return map[string]any{
 		"content":           []mcpContent{{Type: "text", Text: "Post loaded: " + publication.ID}},
-		"structuredContent": map[string]any{"publication": publication},
+		"structuredContent": map[string]any{"publication": publication, "job_id": ""},
 	}, nil
 }
 
@@ -3518,6 +3856,8 @@ type mcpPublicationUpdateInput struct {
 	RandomDelayMinutes *int                    `json:"random_delay_minutes"`
 	InheritRandomDelay bool                    `json:"inherit_random_delay"`
 	Metadata           *map[string]interface{} `json:"metadata"`
+	IdempotencyKey     string                  `json:"idempotency_key"`
+	Detail             string                  `json:"detail"`
 }
 
 func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
@@ -3527,7 +3867,7 @@ func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args 
 		input.ExpectedRevision < 1 {
 		return nil, &mcpError{Code: -32602, Message: "invalid update_post arguments"}
 	}
-	if err := h.publicationHandler().publicationApplication().Update(ctx, userID, input.PublicationID, PublicationUpdateBody{
+	body := PublicationUpdateBody{
 		ExpectedRevision:   input.ExpectedRevision,
 		Title:              input.Title,
 		ContentProfile:     input.ContentProfile,
@@ -3540,10 +3880,27 @@ func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args 
 		RandomDelayMinutes: input.RandomDelayMinutes,
 		InheritRandomDelay: input.InheritRandomDelay,
 		Metadata:           mcpMetadataValue(input.Metadata),
-	}); err != nil {
+	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, "", "update-publication", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			publication, _, err := h.publicationHandler().publicationApplicationForTesting().UpdateIdempotent(ctx, userID, input.PublicationID, body, request)
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to update post")
+				}
+				return nil, publicationMutationMCPError(err, "failed to update post")
+			}
+			return h.mcpPostResult(ctx, userID, publication.ID, "Post updated: "+publication.ID, "", args)
+		}
+	}
+	if err := h.publicationHandler().publicationApplication().Update(ctx, userID, input.PublicationID, body); err != nil {
 		return nil, publicationMutationMCPError(err, "failed to update post")
 	}
-	return h.getPublication(ctx, userID, map[string]any{"post_id": input.PublicationID})
+	return h.mcpPostResult(ctx, userID, input.PublicationID, "Post updated: "+input.PublicationID, "", args)
 }
 
 func mcpMetadataValue(metadata *map[string]interface{}) map[string]interface{} {
@@ -3600,6 +3957,8 @@ func (h *MCPHandler) setPublicationRenditions(ctx context.Context, userID string
 		PublicationID    string           `json:"post_id"`
 		ExpectedRevision int              `json:"expected_revision"`
 		Renditions       []RenditionInput `json:"variants"`
+		IdempotencyKey   string           `json:"idempotency_key"`
+		Detail           string           `json:"detail"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil ||
 		strings.TrimSpace(input.PublicationID) == "" ||
@@ -3607,22 +3966,62 @@ func (h *MCPHandler) setPublicationRenditions(ctx context.Context, userID string
 		len(input.Renditions) == 0 {
 		return nil, &mcpError{Code: -32602, Message: "invalid set_post_variants arguments"}
 	}
-	if err := h.publicationHandler().publicationApplication().ReplaceRenditions(
+	handler := h.publicationHandler()
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		publication, err := handler.publicationApplication().Get(ctx, userID, strings.TrimSpace(input.PublicationID))
+		if err != nil {
+			return nil, &mcpError{Code: -32602, Message: "post not found or unavailable"}
+		}
+		accountMap, err := handler.loadAccounts(ctx, publication.WorkspaceID, renditionAccountIDs(input.Renditions))
+		if err != nil {
+			return nil, publicationMutationMCPError(err, "failed to update post variants")
+		}
+		if err := handler.validateMediaBelongsToWorkspace(ctx, publication.WorkspaceID, allPublicationMediaIDs(nil, nil, input.Renditions)); err != nil {
+			return nil, publicationMutationMCPError(err, "failed to update post variants")
+		}
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, publication.WorkspaceID, "upsert-publication-renditions", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.ResourceID = publication.ID
+			request.RequestHash, err = idempotency.Hash(struct {
+				PublicationID    string           `json:"publication_id"`
+				ExpectedRevision int              `json:"expected_revision"`
+				Renditions       []RenditionInput `json:"renditions"`
+			}{publication.ID, input.ExpectedRevision, input.Renditions})
+			if err != nil {
+				return nil, &mcpError{Code: -32603, Message: "failed to normalize variant update"}
+			}
+			if _, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (PublicationResponse, error) {
+				return handler.upsertRenditionsTx(txCtx, tx, userID, publication.ID, input.ExpectedRevision, input.Renditions, accountMap)
+			}); err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to update post variants")
+				}
+				return nil, publicationMutationMCPError(err, "failed to update post variants")
+			}
+			return h.mcpPostResult(ctx, userID, publication.ID, "Post variants updated: "+publication.ID, "", args)
+		}
+	}
+	if err := handler.publicationApplication().ReplaceRenditions(
 		ctx, userID, input.PublicationID, input.ExpectedRevision, input.Renditions,
 	); err != nil {
 		return nil, publicationMutationMCPError(err, "failed to update post variants")
 	}
-	return h.getPublication(ctx, userID, map[string]any{"post_id": input.PublicationID})
+	return h.mcpPostResult(ctx, userID, strings.TrimSpace(input.PublicationID), "Post variants updated: "+strings.TrimSpace(input.PublicationID), "", args)
 }
 
 func (h *MCPHandler) replyToRendition(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		RenditionID string                  `json:"variant_id"`
-		Body        string                  `json:"body"`
-		ParentID    string                  `json:"parent_id"`
-		Settings    map[string]interface{}  `json:"settings"`
-		Media       []PublicationMediaInput `json:"media"`
-		RunAt       *time.Time              `json:"run_at"`
+		RenditionID    string                  `json:"variant_id"`
+		Body           string                  `json:"body"`
+		ParentID       string                  `json:"parent_id"`
+		Settings       map[string]interface{}  `json:"settings"`
+		Media          []PublicationMediaInput `json:"media"`
+		RunAt          *time.Time              `json:"run_at"`
+		IdempotencyKey string                  `json:"idempotency_key"`
+		Detail         string                  `json:"detail"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.RenditionID) == "" || strings.TrimSpace(input.Body) == "" {
 		return nil, &mcpError{Code: -32602, Message: "invalid reply_to_variant arguments"}
@@ -3638,17 +4037,45 @@ func (h *MCPHandler) replyToRendition(ctx context.Context, userID string, args m
 	if input.RunAt != nil {
 		runAt = input.RunAt.UTC()
 	}
-	jobID, err := (&PublicationHandler{db: h.db}).queueRenditionReply(
-		ctx, rendition, publication, input.Body, input.ParentID, input.Settings, input.Media, runAt,
-	)
+	queue := func() (string, error) {
+		return (&PublicationHandler{db: h.db}).queueRenditionReply(
+			ctx, rendition, publication, input.Body, input.ParentID, input.Settings, input.Media, runAt,
+		)
+	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, publication.WorkspaceID, "reply-to-publication-rendition", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.ResourceID = publication.ID
+			request.RequestHash, _ = idempotency.Hash(struct {
+				RenditionID string                 `json:"variant_id"`
+				Body        string                 `json:"body"`
+				ParentID    string                 `json:"parent_id"`
+				Settings    map[string]interface{} `json:"settings"`
+				RunAt       string                 `json:"run_at"`
+			}{rendition.ID, input.Body, input.ParentID, input.Settings, runAt.Format(time.RFC3339Nano)})
+			result, err := idempotency.ExecuteWithIdentity(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+				// queueRenditionReply manages its own transaction; the
+				// idempotency claim commits atomically around it.
+				_ = tx
+				return queue()
+			}, func(jobID string) (string, string) { return publication.ID, jobID })
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to enqueue reply")
+				}
+				return nil, &mcpError{Code: -32603, Message: "failed to enqueue reply"}
+			}
+			return h.mcpPostResult(ctx, userID, publication.ID, "Reply queued: "+rendition.ID, result.Value, args)
+		}
+	}
+	jobID, err := queue()
 	if err != nil {
 		return nil, &mcpError{Code: -32603, Message: "failed to enqueue reply"}
 	}
-	status, statusErr := h.loadMCPPublicationStatus(ctx, publication.ID)
-	if statusErr != nil {
-		return nil, statusErr
-	}
-	return mcpPublicationActionResult("Reply queued: "+rendition.ID, jobID, status), nil
+	return h.mcpPostResult(ctx, userID, publication.ID, "Reply queued: "+rendition.ID, jobID, args)
 }
 
 func decodeMCPPublicationID(args map[string]any, invalid string) (string, *mcpError) {
@@ -3691,50 +4118,314 @@ func (h *MCPHandler) schedulePublication(ctx context.Context, userID string, arg
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+	if mcpDryRunFromArgs(args) {
+		if _, err := h.publicationHandler().publicationApplication().Validate(ctx, userID, publicationID); err != nil {
+			return nil, publicationMutationMCPError(err, "failed to validate post")
+		}
+		return h.mcpPostResult(ctx, userID, publicationID, "Post schedule validated: "+publicationID, "", args)
+	}
 	handler := h.publicationHandler()
+	if strings.TrimSpace(mcpIdempotencyKeyFromArgs(args)) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, "", "schedule-publication", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			result, _, err := handler.publicationApplicationForTesting().ScheduleIdempotent(ctx, userID, publicationID, expectedRevision, intent, request)
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to schedule post")
+				}
+				return nil, publicationMutationMCPError(err, "failed to schedule post")
+			}
+			return h.mcpPostResult(ctx, userID, publicationID, "Post scheduled: "+publicationID, result.JobID, args)
+		}
+	}
 	result, err := handler.publicationApplication().Schedule(ctx, userID, publicationID, expectedRevision, intent)
 	if err != nil {
 		return nil, publicationMutationMCPError(err, "failed to schedule post")
 	}
-	status, rpcErr := h.loadMCPPublicationStatus(ctx, publicationID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	return mcpPublicationActionResult("Post scheduled: "+publicationID, result.JobID, status), nil
+	return h.mcpPostResult(ctx, userID, publicationID, "Post scheduled: "+publicationID, result.JobID, args)
 }
 
 func (h *MCPHandler) cancelPublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		PublicationID    string `json:"post_id"`
 		ExpectedRevision int    `json:"expected_revision"`
+		IdempotencyKey   string `json:"idempotency_key"`
+		Detail           string `json:"detail"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.PublicationID) == "" || input.ExpectedRevision < 1 {
 		return nil, &mcpError{Code: -32602, Message: "invalid cancel_post arguments"}
 	}
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, "", "cancel-publication", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			publication, _, err := h.publicationHandler().publicationApplicationForTesting().CancelIdempotent(ctx, userID, input.PublicationID, input.ExpectedRevision, request)
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to cancel post")
+				}
+				return nil, publicationMutationMCPError(err, "failed to cancel post")
+			}
+			return h.mcpPostResult(ctx, userID, publication.ID, "Post cancelled: "+publication.ID, "", args)
+		}
+	}
 	if err := h.publicationHandler().publicationApplication().Cancel(
 		ctx, userID, input.PublicationID, input.ExpectedRevision,
 	); err != nil {
 		return nil, publicationMutationMCPError(err, "failed to cancel post")
 	}
-	return h.getPublication(ctx, userID, map[string]any{"post_id": input.PublicationID})
+	return h.mcpPostResult(ctx, userID, input.PublicationID, "Post cancelled: "+input.PublicationID, "", args)
 }
 
 func (h *MCPHandler) publishPublicationNow(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	if rpcErr := mcpRequireConfirm(args, "publish_post_now"); rpcErr != nil {
+		return nil, rpcErr
+	}
 	publicationID, expectedRevision, intent, rpcErr := h.loadMCPPublicationAction(ctx, args, "invalid publish_post_now arguments")
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+	if mcpDryRunFromArgs(args) {
+		if _, err := h.publicationHandler().publicationApplication().Validate(ctx, userID, publicationID); err != nil {
+			return nil, publicationMutationMCPError(err, "failed to validate post")
+		}
+		return h.mcpPostResult(ctx, userID, publicationID, "Post publish validated: "+publicationID, "", args)
+	}
 	handler := h.publicationHandler()
+	if strings.TrimSpace(mcpIdempotencyKeyFromArgs(args)) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, "", "publish-publication-now", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			result, _, err := handler.publicationApplicationForTesting().PublishNowIdempotent(ctx, userID, publicationID, expectedRevision, intent, request)
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to queue post")
+				}
+				return nil, publicationMutationMCPError(err, "failed to queue post")
+			}
+			return h.mcpPostResult(ctx, userID, publicationID, "Post queued: "+publicationID, result.JobID, args)
+		}
+	}
 	result, err := handler.publicationApplication().PublishNow(ctx, userID, publicationID, expectedRevision, intent)
 	if err != nil {
 		return nil, publicationMutationMCPError(err, "failed to queue post")
 	}
-	status, rpcErr := h.loadMCPPublicationStatus(ctx, publicationID)
+	return h.mcpPostResult(ctx, userID, publicationID, "Post queued: "+publicationID, result.JobID, args)
+}
+
+func (h *MCPHandler) deletePublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	if rpcErr := mcpRequireConfirm(args, "delete_post"); rpcErr != nil {
+		return nil, rpcErr
+	}
+	var input struct {
+		PublicationID    string `json:"post_id"`
+		ExpectedRevision int    `json:"expected_revision"`
+		Confirm          bool   `json:"confirm"`
+		IdempotencyKey   string `json:"idempotency_key"`
+	}
+	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.PublicationID) == "" || input.ExpectedRevision < 1 {
+		return nil, &mcpError{Code: -32602, Message: "invalid delete_post arguments"}
+	}
+	input.PublicationID = strings.TrimSpace(input.PublicationID)
+	deleteOp := func() *mcpError {
+		if err := h.publicationHandler().publicationApplication().Delete(ctx, userID, input.PublicationID, input.ExpectedRevision); err != nil {
+			return publicationMutationMCPError(err, "failed to delete post")
+		}
+		return nil
+	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, input.PublicationID)
+		if err != nil {
+			// The post may already be deleted by a replayed key; fall through
+			// to the generic idempotency claim keyed on the post ID.
+			_ = publication
+		}
+		workspaceID := ""
+		if publication.ID != "" {
+			workspaceID = publication.WorkspaceID
+		}
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, workspaceID, "delete-publication", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.ResourceID = input.PublicationID
+			request.RequestHash, _ = idempotency.Hash(struct {
+				PublicationID    string `json:"publication_id"`
+				ExpectedRevision int    `json:"expected_revision"`
+			}{input.PublicationID, input.ExpectedRevision})
+			var opErr *mcpError
+			result, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+				_ = tx
+				if rpcErr := deleteOp(); rpcErr != nil {
+					opErr = rpcErr
+					return "", errors.New(rpcErr.Message)
+				}
+				return input.PublicationID, nil
+			})
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to delete post")
+				}
+				if opErr != nil {
+					return nil, opErr
+				}
+				return nil, &mcpError{Code: -32603, Message: "failed to delete post"}
+			}
+			return h.mcpDeletedPostResult(result.Value), nil
+		}
+	}
+	if rpcErr := deleteOp(); rpcErr != nil {
+		return nil, rpcErr
+	}
+	return h.mcpDeletedPostResult(input.PublicationID), nil
+}
+
+func (h *MCPHandler) mcpDeletedPostResult(publicationID string) map[string]any {
+	return map[string]any{
+		"content": []mcpContent{{Type: "text", Text: "Post deleted: " + publicationID}},
+		"structuredContent": map[string]any{
+			"message": "Post deleted: " + publicationID,
+			"post_id": publicationID,
+			"job_id":  "",
+		},
+	}
+}
+
+func (h *MCPHandler) retryFailedVariants(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	publicationID, expectedRevision, intent, rpcErr := h.loadMCPPublicationAction(ctx, args, "invalid retry_failed_variants arguments")
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	return mcpPublicationActionResult("Post queued: "+publicationID, result.JobID, status), nil
+	_ = intent
+	if rpcErr := h.mcpCheckExpectedRevision(ctx, userID, publicationID, expectedRevision); rpcErr != nil {
+		return nil, rpcErr
+	}
+	handler := h.publicationHandler()
+	if strings.TrimSpace(mcpIdempotencyKeyFromArgs(args)) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, "", "retry-failed-publication-renditions", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			jobID, _, err := handler.publicationApplicationForTesting().RetryFailedRenditionsIdempotent(ctx, userID, publicationID, request)
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to queue variant retry")
+				}
+				return nil, publicationMutationMCPError(err, "failed to queue variant retry")
+			}
+			return h.mcpPostResult(ctx, userID, publicationID, "Variant retry queued: "+publicationID, jobID, args)
+		}
+	}
+	jobID, err := handler.publicationApplication().RetryFailedRenditions(ctx, userID, publicationID)
+	if err != nil {
+		return nil, publicationMutationMCPError(err, "failed to queue variant retry")
+	}
+	return h.mcpPostResult(ctx, userID, publicationID, "Variant retry queued: "+publicationID, jobID, args)
+}
+
+func (h *MCPHandler) retryVariant(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	var input struct {
+		PublicationID    string `json:"post_id"`
+		RenditionID      string `json:"variant_id"`
+		ExpectedRevision int    `json:"expected_revision"`
+		ExecutionIntent  string `json:"execution_intent"`
+		IdempotencyKey   string `json:"idempotency_key"`
+		Detail           string `json:"detail"`
+	}
+	if err := decodeMCPArguments(args, &input); err != nil ||
+		strings.TrimSpace(input.PublicationID) == "" ||
+		strings.TrimSpace(input.RenditionID) == "" ||
+		input.ExpectedRevision < 1 {
+		return nil, &mcpError{Code: -32602, Message: "invalid retry_variant arguments"}
+	}
+	input.PublicationID = strings.TrimSpace(input.PublicationID)
+	input.RenditionID = strings.TrimSpace(input.RenditionID)
+	if _, err := providerReadinessExecutionIntent(ctx, h.db, input.ExecutionIntent); err != nil {
+		return nil, &mcpError{Code: -32602, Message: err.Error()}
+	}
+	if rpcErr := h.mcpCheckExpectedRevision(ctx, userID, input.PublicationID, input.ExpectedRevision); rpcErr != nil {
+		return nil, rpcErr
+	}
+	var rendition models.Rendition
+	if err := h.db.NewSelect().Model(&rendition).
+		Where("id = ? AND publication_id = ?", input.RenditionID, input.PublicationID).
+		Scan(ctx); err != nil {
+		return nil, &mcpError{Code: -32602, Message: "variant not found for this post"}
+	}
+	retry := func() (string, *mcpError) {
+		jobID, err := h.publicationHandler().publicationApplicationForTesting().RetryRendition(ctx, userID, input.PublicationID, rendition.SocialAccountID, rendition.TargetKey)
+		if err != nil {
+			return "", publicationMutationMCPError(err, "failed to queue variant retry")
+		}
+		return jobID, nil
+	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, input.PublicationID)
+		if err != nil {
+			return nil, &mcpError{Code: -32602, Message: "post not found or unavailable"}
+		}
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, publication.WorkspaceID, "retry-publication-rendition", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.ResourceID = publication.ID
+			request.RequestHash, _ = idempotency.Hash(struct {
+				PublicationID string `json:"publication_id"`
+				RenditionID   string `json:"variant_id"`
+			}{publication.ID, rendition.ID})
+			var opErr *mcpError
+			result, err := idempotency.ExecuteWithIdentity(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+				_ = tx
+				jobID, rpcErr := retry()
+				if rpcErr != nil {
+					opErr = rpcErr
+					return "", errors.New(rpcErr.Message)
+				}
+				return jobID, nil
+			}, func(jobID string) (string, string) { return publication.ID, jobID })
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to queue variant retry")
+				}
+				if opErr != nil {
+					return nil, opErr
+				}
+				return nil, &mcpError{Code: -32603, Message: "failed to queue variant retry"}
+			}
+			return h.mcpPostResult(ctx, userID, publication.ID, "Variant retry queued: "+rendition.ID, result.Value, args)
+		}
+	}
+	jobID, rpcErr := retry()
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	return h.mcpPostResult(ctx, userID, input.PublicationID, "Variant retry queued: "+rendition.ID, jobID, args)
+}
+
+// mcpCheckExpectedRevision rejects stale writes with the same conflict shape
+// as the REST revision guard before dispatching to retry flows that do not
+// take a revision themselves. The canonical read also enforces workspace
+// access before the revision is compared.
+func (h *MCPHandler) mcpCheckExpectedRevision(ctx context.Context, userID, publicationID string, expectedRevision int) *mcpError {
+	publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, publicationID)
+	if err != nil {
+		return &mcpError{Code: -32602, Message: "post not found or unavailable"}
+	}
+	if publication.Revision != expectedRevision {
+		return &mcpError{Code: -32602, Message: fmt.Sprintf("revision conflict: expected %d but post is at revision %d; reload the post before retrying", expectedRevision, publication.Revision)}
+	}
+	return nil
 }
 
 func (h *MCPHandler) loadMCPPublicationAction(ctx context.Context, args map[string]any, invalidMessage string) (string, int, providerreadiness.ExecutionIntent, *mcpError) {
@@ -3742,6 +4433,10 @@ func (h *MCPHandler) loadMCPPublicationAction(ctx context.Context, args map[stri
 		PublicationID    string `json:"post_id"`
 		ExpectedRevision int    `json:"expected_revision"`
 		ExecutionIntent  string `json:"execution_intent"`
+		Confirm          bool   `json:"confirm"`
+		IdempotencyKey   string `json:"idempotency_key"`
+		Detail           string `json:"detail"`
+		DryRun           bool   `json:"dry_run"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return "", 0, "", &mcpError{Code: -32602, Message: invalidMessage}
@@ -3765,6 +4460,26 @@ func mcpPublicationActionResult(message, jobID string, status mcpPublicationStat
 			"job_id":      jobID,
 		},
 	}
+}
+
+// mcpPostResult returns the unified post result shape: a summary status plus
+// job ID by default, or the full post with ordered media and variants when
+// detail=full. jobID is empty when the operation enqueues no durable work.
+func (h *MCPHandler) mcpPostResult(ctx context.Context, userID, publicationID, message, jobID string, args map[string]any) (any, *mcpError) {
+	publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, publicationID)
+	if err != nil {
+		return nil, &mcpError{Code: -32602, Message: "post not found or unavailable"}
+	}
+	if mcpPostDetail(args) == "full" {
+		return map[string]any{
+			"content": []mcpContent{{Type: "text", Text: message}},
+			"structuredContent": map[string]any{
+				"publication": publication,
+				"job_id":      jobID,
+			},
+		}, nil
+	}
+	return mcpPublicationActionResult(message, jobID, mcpPublicationStatusFromResponse(publication)), nil
 }
 
 func (h *MCPHandler) listPublicationEvents(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
@@ -3841,11 +4556,18 @@ func (h *MCPHandler) listRenditionComments(ctx context.Context, userID string, a
 
 func (h *MCPHandler) moderateComment(ctx context.Context, userID, operation string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		CommentID string `json:"comment_id"`
-		Body      string `json:"body"`
+		CommentID      string `json:"comment_id"`
+		Body           string `json:"body"`
+		Confirm        bool   `json:"confirm"`
+		IdempotencyKey string `json:"idempotency_key"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.CommentID) == "" {
 		return nil, &mcpError{Code: -32602, Message: "invalid comment action arguments"}
+	}
+	if operation == mcpToolDeleteComment {
+		if rpcErr := mcpRequireConfirm(args, "delete_comment"); rpcErr != nil {
+			return nil, rpcErr
+		}
 	}
 	ref, err := decodeCommentReference(input.CommentID)
 	if err != nil {
@@ -3878,6 +4600,59 @@ func (h *MCPHandler) moderateComment(ctx context.Context, userID, operation stri
 	default:
 		return nil, &mcpError{Code: -32602, Message: "unknown comment action"}
 	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		// Replay check before queueing so a retried call returns the stored
+		// job instead of queueing a duplicate provider action.
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, publication.WorkspaceID, "provider-comment-"+action, args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.ResourceID = publication.ID
+			request.RequestHash, _ = idempotency.Hash(struct {
+				CommentID string `json:"comment_id"`
+				Body      string `json:"body"`
+				Action    string `json:"action"`
+			}{strings.TrimSpace(input.CommentID), input.Body, action})
+			if replay, found, err := idempotency.Replay[string](ctx, h.db, request); found || err != nil {
+				if err != nil {
+					return nil, mcpIdempotencyError(err, "failed to queue provider comment action")
+				}
+				return map[string]any{
+					"content":           []mcpContent{{Type: "text", Text: message}},
+					"structuredContent": map[string]any{"message": message, "job_id": replay.Value},
+				}, nil
+			}
+			queuedID, err := engagementservice.QueueProviderCommentAction(ctx, h.db, h.featureGate, engagementservice.ProviderCommentActionInput{
+				Actor:       workspaceActor(ctx, userID),
+				WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID,
+				RenditionID: rendition.ID, SocialAccountID: account.ID,
+				ProviderCommentID: ref.ProviderCommentID, Action: action,
+				Message: input.Body,
+			})
+			if err != nil {
+				return nil, &mcpError{Code: -32603, Message: "failed to queue provider comment action"}
+			}
+			request.JobID = queuedID
+			if result, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+				_ = txCtx
+				_ = tx
+				return queuedID, nil
+			}); err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to queue provider comment action")
+				}
+				// The job is queued; only the replay record failed.
+				return nil, &mcpError{Code: -32603, Message: "comment action queued but the replay record failed"}
+			} else if result.Replayed && result.Value != "" {
+				queuedID = result.Value
+			}
+			return map[string]any{
+				"content":           []mcpContent{{Type: "text", Text: message}},
+				"structuredContent": map[string]any{"message": message, "job_id": queuedID},
+			}, nil
+		}
+	}
 	jobID, err := engagementservice.QueueProviderCommentAction(ctx, h.db, h.featureGate, engagementservice.ProviderCommentActionInput{
 		Actor:       workspaceActor(ctx, userID),
 		WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID,
@@ -3890,7 +4665,7 @@ func (h *MCPHandler) moderateComment(ctx context.Context, userID, operation stri
 	}
 	return map[string]any{
 		"content":           []mcpContent{{Type: "text", Text: message}},
-		"structuredContent": map[string]any{"message": message, "id": jobID},
+		"structuredContent": map[string]any{"message": message, "job_id": jobID},
 	}, nil
 }
 
@@ -4204,6 +4979,248 @@ func (h *MCPHandler) providerReadiness(ctx context.Context, userID string, args 
 	}, nil
 }
 
+func (h *MCPHandler) callMediaTool(ctx context.Context, userID, toolName string, args map[string]any) (any, *mcpError) {
+	switch normalizeMCPOperationName(toolName) {
+	case mcpToolGetMedia:
+		return h.getMedia(ctx, userID, args)
+	case mcpToolUpdateMedia:
+		return h.updateMedia(ctx, userID, args)
+	case mcpToolDeleteMedia:
+		return h.deleteMedia(ctx, userID, args)
+	default:
+		return nil, &mcpError{Code: -32602, Message: "unknown tool"}
+	}
+}
+
+func (h *MCPHandler) loadMCPMedia(ctx context.Context, userID, mediaID string) (models.MediaAttachment, *mcpError) {
+	var media models.MediaAttachment
+	if err := h.db.NewSelect().Model(&media).Where("id = ?", strings.TrimSpace(mediaID)).Scan(ctx); err != nil {
+		return media, &mcpError{Code: -32602, Message: "media not found or unavailable"}
+	}
+	if rpcErr := h.ensureWorkspaceAccess(ctx, userID, media.WorkspaceID); rpcErr != nil {
+		return media, rpcErr
+	}
+	return media, nil
+}
+
+func (h *MCPHandler) mcpMediaResult(ctx context.Context, media models.MediaAttachment, message string) (any, *mcpError) {
+	mediaHandler := &MediaHandler{db: h.db}
+	usage, err := mediaHandler.mediaUsageSummary(ctx, media.WorkspaceID, media.ID)
+	if err != nil {
+		return nil, &mcpError{Code: -32603, Message: "failed to check media usage"}
+	}
+	out := mcpMediaFromAttachment(media, usage.Total, usage.Blocking == 0)
+	text := message
+	if text == "" {
+		text = "Media loaded: " + media.ID
+	}
+	return map[string]any{
+		"content":           []mcpContent{{Type: "text", Text: text}},
+		"structuredContent": map[string]any{"media": out},
+	}, nil
+}
+
+func (h *MCPHandler) getMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	var input struct {
+		MediaID string `json:"media_id"`
+	}
+	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.MediaID) == "" {
+		return nil, &mcpError{Code: -32602, Message: "invalid get_media arguments"}
+	}
+	media, rpcErr := h.loadMCPMedia(ctx, userID, input.MediaID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	return h.mcpMediaResult(ctx, media, "")
+}
+
+func (h *MCPHandler) updateMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	var input struct {
+		MediaID        string `json:"media_id"`
+		Favorite       *bool  `json:"favorite"`
+		AltText        *string `json:"alt_text"`
+		IdempotencyKey string `json:"idempotency_key"`
+	}
+	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.MediaID) == "" {
+		return nil, &mcpError{Code: -32602, Message: "invalid update_media arguments"}
+	}
+	if input.Favorite == nil && input.AltText == nil {
+		return nil, &mcpError{Code: -32602, Message: "favorite or alt_text is required"}
+	}
+	media, rpcErr := h.loadMCPMedia(ctx, userID, input.MediaID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, media.WorkspaceID); rpcErr != nil {
+		return nil, rpcErr
+	}
+	apply := func() (models.MediaAttachment, *mcpError) {
+		updated := media
+		if input.Favorite != nil && updated.IsFavorite != *input.Favorite {
+			handler := &MediaHandler{db: h.db}
+			// The favorite toggle endpoint flips state; loop until it holds
+			// the requested value (at most two transitions).
+			for i := 0; i < 2; i++ {
+				out, err := handler.updateMediaFavorite(ctx, &UpdateMediaFavoriteInput{PathID: updated.ID})
+				if err != nil {
+					return updated, &mcpError{Code: -32603, Message: "failed to update media"}
+				}
+				updated.IsFavorite = out.Body.IsFavorite
+				if updated.IsFavorite == *input.Favorite {
+					break
+				}
+			}
+			if updated.IsFavorite != *input.Favorite {
+				return updated, &mcpError{Code: -32603, Message: "failed to update media"}
+			}
+		}
+		if input.AltText != nil {
+			altText := strings.TrimSpace(*input.AltText)
+			handler := &MediaHandler{db: h.db}
+			var updateInput UpdateMediaInput
+			updateInput.PathID = updated.ID
+			updateInput.Body.AltText = &altText
+			if _, err := handler.updateMedia(ctx, &updateInput); err != nil {
+				return updated, &mcpError{Code: -32602, Message: err.Error()}
+			}
+			updated.AltText = altText
+		}
+		if err := h.db.NewSelect().Model(&updated).Where("id = ?", updated.ID).Scan(ctx); err != nil {
+			return updated, &mcpError{Code: -32603, Message: "failed to load updated media"}
+		}
+		return updated, nil
+	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, media.WorkspaceID, "update-media", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.ResourceID = media.ID
+			request.RequestHash, _ = idempotency.Hash(struct {
+				MediaID  string  `json:"media_id"`
+				Favorite *bool   `json:"favorite"`
+				AltText  *string `json:"alt_text"`
+			}{media.ID, input.Favorite, input.AltText})
+			if replay, found, err := idempotency.Replay[mcpMedia](ctx, h.db, request); found || err != nil {
+				if err != nil {
+					return nil, mcpIdempotencyError(err, "failed to update media")
+				}
+				return map[string]any{
+					"content":           []mcpContent{{Type: "text", Text: "Media updated: " + media.ID}},
+					"structuredContent": map[string]any{"media": replay.Value},
+				}, nil
+			}
+			updated, rpcErr := apply()
+			if rpcErr != nil {
+				return nil, rpcErr
+			}
+			mediaHandler := &MediaHandler{db: h.db}
+			usage, err := mediaHandler.mediaUsageSummary(ctx, updated.WorkspaceID, updated.ID)
+			if err != nil {
+				return nil, &mcpError{Code: -32603, Message: "failed to check media usage"}
+			}
+			out := mcpMediaFromAttachment(updated, usage.Total, usage.Blocking == 0)
+			if stored, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (mcpMedia, error) {
+				_ = txCtx
+				_ = tx
+				return out, nil
+			}); err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to update media")
+				}
+				return nil, &mcpError{Code: -32603, Message: "media updated but the replay record failed"}
+			} else if stored.Replayed {
+				out = stored.Value
+			}
+			return map[string]any{
+				"content":           []mcpContent{{Type: "text", Text: "Media updated: " + updated.ID}},
+				"structuredContent": map[string]any{"media": out},
+			}, nil
+		}
+	}
+	updated, rpcErr := apply()
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	return h.mcpMediaResult(ctx, updated, "Media updated: "+updated.ID)
+}
+
+func (h *MCPHandler) deleteMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	if rpcErr := mcpRequireConfirm(args, "delete_media"); rpcErr != nil {
+		return nil, rpcErr
+	}
+	var input struct {
+		MediaID        string `json:"media_id"`
+		Confirm        bool   `json:"confirm"`
+		IdempotencyKey string `json:"idempotency_key"`
+	}
+	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.MediaID) == "" {
+		return nil, &mcpError{Code: -32602, Message: "invalid delete_media arguments"}
+	}
+	media, rpcErr := h.loadMCPMedia(ctx, userID, input.MediaID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, media.WorkspaceID); rpcErr != nil {
+		return nil, rpcErr
+	}
+	remove := func() *mcpError {
+		handler := &MediaHandler{db: h.db}
+		_, err := handler.deleteMedia(ctx, &DeleteMediaInput{PathID: media.ID})
+		if err != nil {
+			var statusErr huma.StatusError
+			if errors.As(err, &statusErr) && statusErr.GetStatus() < http.StatusInternalServerError {
+				return &mcpError{Code: -32602, Message: err.Error()}
+			}
+			return &mcpError{Code: -32603, Message: "failed to delete media"}
+		}
+		return nil
+	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, media.WorkspaceID, "delete-media", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.ResourceID = media.ID
+			request.RequestHash, _ = idempotency.Hash(struct {
+				MediaID string `json:"media_id"`
+			}{media.ID})
+			var opErr *mcpError
+			result, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+				_ = tx
+				_ = txCtx
+				if rpcErr := remove(); rpcErr != nil {
+					opErr = rpcErr
+					return "", errors.New(rpcErr.Message)
+				}
+				return media.ID, nil
+			})
+			if err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to delete media")
+				}
+				if opErr != nil {
+					return nil, opErr
+				}
+				return nil, &mcpError{Code: -32603, Message: "failed to delete media"}
+			}
+			return map[string]any{
+				"content":           []mcpContent{{Type: "text", Text: "Media deleted: " + result.Value}},
+				"structuredContent": map[string]any{"message": "Media deleted: " + result.Value, "media_id": result.Value},
+			}, nil
+		}
+	}
+	if rpcErr := remove(); rpcErr != nil {
+		return nil, rpcErr
+	}
+	return map[string]any{
+		"content":           []mcpContent{{Type: "text", Text: "Media deleted: " + media.ID}},
+		"structuredContent": map[string]any{"message": "Media deleted: " + media.ID, "media_id": media.ID},
+	}, nil
+}
+
 func mcpMediaFromAttachment(media models.MediaAttachment, usageCount int, canDelete bool) mcpMedia {
 	thumbnailURL := "/media/" + media.ID + "/thumb"
 	if mcpHasSmallThumbnail(media.ThumbnailsJSON) {
@@ -4255,10 +5272,11 @@ func mcpHasSmallThumbnail(raw string) bool {
 
 func (h *MCPHandler) uploadMediaFromURL(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		WorkspaceID string `json:"workspace_id"`
-		URL         string `json:"url"`
-		Filename    string `json:"filename"`
-		AltText     string `json:"alt_text"`
+		WorkspaceID    string `json:"workspace_id"`
+		URL            string `json:"url"`
+		Filename       string `json:"filename"`
+		AltText        string `json:"alt_text"`
+		IdempotencyKey string `json:"idempotency_key"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid upload_media_from_url arguments"}
@@ -4269,38 +5287,54 @@ func (h *MCPHandler) uploadMediaFromURL(ctx context.Context, userID string, args
 	if h.mediaStorage == nil {
 		return nil, &mcpError{Code: -32603, Message: "media storage is not configured"}
 	}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, strings.TrimSpace(input.WorkspaceID), "upload-media-from-url", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.RequestHash, _ = idempotency.Hash(struct {
+				WorkspaceID string `json:"workspace_id"`
+				URL         string `json:"url"`
+				Filename    string `json:"filename"`
+				AltText     string `json:"alt_text"`
+			}{strings.TrimSpace(input.WorkspaceID), strings.TrimSpace(input.URL), strings.TrimSpace(input.Filename), strings.TrimSpace(input.AltText)})
+			if replay, found, err := idempotency.Replay[mcpMedia](ctx, h.db, request); found || err != nil {
+				if err != nil {
+					return nil, mcpIdempotencyError(err, "failed to upload media")
+				}
+				return map[string]any{
+					"content":           []mcpContent{{Type: "text", Text: "Media uploaded: " + replay.Value.ID}},
+					"structuredContent": map[string]any{"media": replay.Value},
+				}, nil
+			}
+			media, rpcErr := h.fetchAndStoreRemoteMedia(ctx, input.WorkspaceID, input.URL, input.Filename, input.AltText)
+			if rpcErr != nil {
+				return nil, rpcErr
+			}
+			request.ResourceID = media.ID
+			if result, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (mcpMedia, error) {
+				_ = txCtx
+				_ = tx
+				return media, nil
+			}); err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to upload media")
+				}
+				return nil, &mcpError{Code: -32603, Message: "media uploaded but the replay record failed"}
+			} else if result.Replayed {
+				media = result.Value
+			}
+			return map[string]any{
+				"content":           []mcpContent{{Type: "text", Text: "Media uploaded: " + media.ID}},
+				"structuredContent": map[string]any{"media": media},
+			}, nil
+		}
+	}
 
-	remote, filename, declaredMimeType, content, rpcErr := h.fetchRemoteMedia(ctx, input.URL, input.Filename)
+	media, rpcErr := h.fetchAndStoreRemoteMedia(ctx, input.WorkspaceID, input.URL, input.Filename, input.AltText)
 	if rpcErr != nil {
 		return nil, rpcErr
-	}
-	mediaHandler := &MediaHandler{
-		db:      h.db,
-		storage: h.mediaStorage,
-		quota:   h.entitlement,
-		usage:   h.usage,
-	}
-	result, err := mediaHandler.processUploadBytes(ctx, mediaUploadBytesInput{
-		WorkspaceID:      input.WorkspaceID,
-		Filename:         filename,
-		DeclaredMimeType: declaredMimeType,
-		Size:             int64(len(content)),
-		Content:          content,
-		AltText:          input.AltText,
-	})
-	if err != nil {
-		return nil, &mcpError{Code: -32602, Message: err.Error()}
-	}
-
-	media := mcpMedia{
-		ID:        stringFromMap(result, "id"),
-		MimeType:  stringFromMap(result, "mime_type"),
-		URL:       stringFromMap(result, "url"),
-		Size:      int64FromMap(result, "size"),
-		Deduped:   boolFromMap(result, "deduped"),
-		Filename:  filename,
-		AltText:   input.AltText,
-		SourceURL: remote.String(),
 	}
 	return map[string]any{
 		"content": []mcpContent{{
@@ -4313,6 +5347,41 @@ func (h *MCPHandler) uploadMediaFromURL(ctx context.Context, userID string, args
 	}, nil
 }
 
+func (h *MCPHandler) fetchAndStoreRemoteMedia(ctx context.Context, workspaceID, rawURL, filename, altText string) (mcpMedia, *mcpError) {
+	remote, filename, declaredMimeType, content, rpcErr := h.fetchRemoteMedia(ctx, rawURL, filename)
+	if rpcErr != nil {
+		return mcpMedia{}, rpcErr
+	}
+	mediaHandler := &MediaHandler{
+		db:      h.db,
+		storage: h.mediaStorage,
+		quota:   h.entitlement,
+		usage:   h.usage,
+	}
+	result, err := mediaHandler.processUploadBytes(ctx, mediaUploadBytesInput{
+		WorkspaceID:      workspaceID,
+		Filename:         filename,
+		DeclaredMimeType: declaredMimeType,
+		Size:             int64(len(content)),
+		Content:          content,
+		AltText:          altText,
+	})
+	if err != nil {
+		return mcpMedia{}, &mcpError{Code: -32602, Message: err.Error()}
+	}
+
+	return mcpMedia{
+		ID:        stringFromMap(result, "id"),
+		MimeType:  stringFromMap(result, "mime_type"),
+		URL:       stringFromMap(result, "url"),
+		Size:      int64FromMap(result, "size"),
+		Deduped:   boolFromMap(result, "deduped"),
+		Filename:  filename,
+		AltText:   altText,
+		SourceURL: remote.String(),
+	}, nil
+}
+
 func (h *MCPHandler) renderLocalMediaUpload(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		WorkspaceID string `json:"workspace_id"`
@@ -4320,7 +5389,9 @@ func (h *MCPHandler) renderLocalMediaUpload(ctx context.Context, userID string, 
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid render_local_media_upload arguments"}
 	}
-	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, input.WorkspaceID); rpcErr != nil {
+	// The picker itself changes no state, matching its read-only annotation;
+	// the one-use upload ticket is the state-changing step.
+	if rpcErr := h.ensureWorkspaceAccess(ctx, userID, input.WorkspaceID); rpcErr != nil {
 		return nil, rpcErr
 	}
 	return map[string]any{
@@ -4331,11 +5402,12 @@ func (h *MCPHandler) renderLocalMediaUpload(ctx context.Context, userID string, 
 
 func (h *MCPHandler) createLocalMediaUploadTicket(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		WorkspaceID string `json:"workspace_id"`
-		Filename    string `json:"filename"`
-		MimeType    string `json:"mime_type"`
-		Size        int64  `json:"size"`
-		AltText     string `json:"alt_text"`
+		WorkspaceID    string `json:"workspace_id"`
+		Filename       string `json:"filename"`
+		MimeType       string `json:"mime_type"`
+		Size           int64  `json:"size"`
+		AltText        string `json:"alt_text"`
+		IdempotencyKey string `json:"idempotency_key"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid create_local_media_upload_ticket arguments"}
@@ -4356,29 +5428,71 @@ func (h *MCPHandler) createLocalMediaUploadTicket(ctx context.Context, userID st
 	}
 	token := uuid.NewString()
 	expiresAt := time.Now().UTC().Add(mcpMediaUploadTTL)
-	ticket := &models.MCPMediaUploadTicket{
-		ID: uuid.NewString(), TicketHash: hashMCPMediaUploadTicket(token),
-		WorkspaceID: input.WorkspaceID, UserID: userID,
-		SessionID: middleware.GetSessionID(ctx), TokenID: middleware.GetTokenID(ctx), ClientID: middleware.GetClientID(ctx),
-		Filename: filename, MimeType: strings.TrimSpace(input.MimeType), Size: input.Size,
-		AltText: strings.TrimSpace(input.AltText), ExpiresAt: expiresAt,
+	mint := func() (map[string]any, *mcpError) {
+		ticket := &models.MCPMediaUploadTicket{
+			ID: uuid.NewString(), TicketHash: hashMCPMediaUploadTicket(token),
+			WorkspaceID: input.WorkspaceID, UserID: userID,
+			SessionID: middleware.GetSessionID(ctx), TokenID: middleware.GetTokenID(ctx), ClientID: middleware.GetClientID(ctx),
+			Filename: filename, MimeType: strings.TrimSpace(input.MimeType), Size: input.Size,
+			AltText: strings.TrimSpace(input.AltText), ExpiresAt: expiresAt,
+		}
+		if _, err := h.db.NewInsert().Model(ticket).Exec(ctx); err != nil {
+			return nil, &mcpError{Code: -32603, Message: "failed to prepare media upload"}
+		}
+		uploadURL := strings.TrimRight(h.publicURL, "/") + "/mcp/media-upload"
+		if strings.TrimSpace(h.publicURL) == "" {
+			uploadURL = "/mcp/media-upload"
+		}
+		return map[string]any{
+			"content":           []mcpContent{{Type: "text", Text: "Secure local media upload prepared."}},
+			"structuredContent": map[string]any{"ready": true, "expires_at": expiresAt.Format(time.RFC3339)},
+			"_meta": map[string]any{"upload": map[string]any{
+				"url": uploadURL, "method": http.MethodPut,
+				"headers":    map[string]string{"Authorization": "Upload " + token, "Content-Type": ticket.MimeType},
+				"expires_at": expiresAt.Format(time.RFC3339),
+			}},
+		}, nil
 	}
-	if _, err := h.db.NewInsert().Model(ticket).Exec(ctx); err != nil {
-		return nil, &mcpError{Code: -32603, Message: "failed to prepare media upload"}
+	if strings.TrimSpace(input.IdempotencyKey) != "" {
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, strings.TrimSpace(input.WorkspaceID), "create-local-media-upload-ticket", args)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if ok {
+			request.RequestHash, _ = idempotency.Hash(struct {
+				WorkspaceID string `json:"workspace_id"`
+				Filename    string `json:"filename"`
+				MimeType    string `json:"mime_type"`
+				Size        int64  `json:"size"`
+				AltText     string `json:"alt_text"`
+			}{strings.TrimSpace(input.WorkspaceID), filename, strings.TrimSpace(input.MimeType), input.Size, strings.TrimSpace(input.AltText)})
+			if replay, found, err := idempotency.Replay[map[string]any](ctx, h.db, request); found || err != nil {
+				if err != nil {
+					return nil, mcpIdempotencyError(err, "failed to prepare media upload")
+				}
+				return replay.Value, nil
+			}
+			result, rpcErr := mint()
+			if rpcErr != nil {
+				return nil, rpcErr
+			}
+			if stored, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (map[string]any, error) {
+				_ = txCtx
+				_ = tx
+				return result, nil
+			}); err != nil {
+				if errors.Is(err, idempotency.ErrConflict) {
+					return nil, mcpIdempotencyError(err, "failed to prepare media upload")
+				}
+				// The ticket is minted; only the replay record failed.
+				return nil, &mcpError{Code: -32603, Message: "upload prepared but the replay record failed"}
+			} else if stored.Replayed {
+				return stored.Value, nil
+			}
+			return result, nil
+		}
 	}
-	uploadURL := strings.TrimRight(h.publicURL, "/") + "/mcp/media-upload"
-	if strings.TrimSpace(h.publicURL) == "" {
-		uploadURL = "/mcp/media-upload"
-	}
-	return map[string]any{
-		"content":           []mcpContent{{Type: "text", Text: "Secure local media upload prepared."}},
-		"structuredContent": map[string]any{"ready": true, "expires_at": expiresAt.Format(time.RFC3339)},
-		"_meta": map[string]any{"upload": map[string]any{
-			"url": uploadURL, "method": http.MethodPut,
-			"headers":    map[string]string{"Authorization": "Upload " + token, "Content-Type": ticket.MimeType},
-			"expires_at": expiresAt.Format(time.RFC3339),
-		}},
-	}, nil
+	return mint()
 }
 
 func hashMCPMediaUploadTicket(token string) string {

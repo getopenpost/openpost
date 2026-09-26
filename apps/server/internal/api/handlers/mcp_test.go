@@ -1453,7 +1453,7 @@ func TestMCPCommentMutationQueuesOneAttemptProviderJob(t *testing.T) {
 	require.Nil(t, out["error"])
 	structured := out["result"].(map[string]any)["structuredContent"].(map[string]any)
 	require.Equal(t, "comment reply queued", structured["message"])
-	jobID := structured["id"].(string)
+	jobID := structured["job_id"].(string)
 	require.NotEmpty(t, jobID)
 	var job models.Job
 	require.NoError(t, srv.db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(ctx))

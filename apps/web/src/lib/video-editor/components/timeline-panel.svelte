@@ -5038,6 +5038,10 @@
 							aria-valuemin="0"
 							aria-valuemax={timelineStore.maxItemEndFrame}
 							aria-valuenow={timelineStore.currentFrame}
+							aria-valuetext={formatTimelinePreviewTimecode(
+								timelineStore.currentFrame,
+								timelineStore.fps
+							)}
 							aria-disabled={timelineStore.seekLocked}
 							onkeydown={onRulerKeydown}
 							onpointerdown={startRulerScrub}

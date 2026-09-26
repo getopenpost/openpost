@@ -188,17 +188,17 @@ boundary.
 ## Discoverable operations
 
 - `list_workspaces`: returns the workspaces available to the authenticated user.
-- `list_provider_catalog`: returns provider launch status so assistants know which platforms are available, need server configuration, or are still planned.
-- `list_accounts`: returns active social accounts for a workspace.
-- `list_media`: returns recent workspace media attachments so assistants can reuse existing assets.
-- `get_provider_readiness`: returns provider configuration, account, app-review, and public-media readiness checks.
+- `list_provider_catalog`: returns provider launch status so assistants know which platforms are available, need server configuration, or are still planned. Then call `list_accounts` for workspace destinations and `get_provider_readiness` for account-scoped checks.
+- `list_accounts`: returns active social accounts for a workspace. Pair with `list_provider_catalog` for platform availability and `get_provider_readiness` before scheduling.
+- `list_media`: returns workspace media attachments in newest-first order with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs. Defaults to 20 items per response, up to 100.
+- `get_provider_readiness`: returns provider configuration, account, app-review, and public-media readiness checks. Start from `list_provider_catalog` for platform availability, then `list_accounts` for the destinations these checks evaluate.
 - `create_post`: creates a format-first post with variants and destination-specific settings.
-- `list_posts`: lists format-first posts for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_variant_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed. `status` and `content_profile` accept only their documented enum values so typos fail with `-32602`.
+- `list_posts`: lists format-first posts for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_variant_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed. `status` and `content_profile` accept only their documented enum values so typos fail with `-32602`. Failed destinations name `get_post` for delivery detail and `retry_failed_variants` for safe retries.
 - `get_post`: returns a post with its destination variants and delivery state.
 - `update_post`: updates editable source fields, schedule time, and an optional random-delay range while preserving omitted values.
 - `set_post_variants`: replaces a post's destination-specific outputs and media roles.
 - `reply_to_variant`: queues an explicit provider reply immediately or at a requested time.
-- `validate_post`: validates a post before scheduling or publishing.
+- `validate_post`: validates a post before scheduling or publishing. When `valid` is false, the result names `get_post` for delivery detail and `retry_failed_variants` for safe retries after the issues are fixed.
 - `schedule_post`: schedules an existing post. The saved random-delay range is explicit or inherited from the Workspace, and the resulting Job time is authorized exactly. Accepts `idempotency_key` for safe retries and `dry_run` to validate without enqueueing.
 - `cancel_post`: cancels a scheduled post and its pending delivery Job.
 - `publish_post_now`: queues an existing post for immediate publishing. Accepts `dry_run` to validate without queueing. This action is irreversible once a worker picks it up: repeat the call with `confirm=true` to proceed.
@@ -208,8 +208,11 @@ boundary.
 - `get_media`: returns one workspace media asset with its usage and deletion eligibility.
 - `update_media`: updates a workspace media asset's favorite flag or alt text.
 - `delete_media`: moves a workspace media asset to Trash when `list_media` reports `can_delete`. Repeat the call with `confirm=true` to proceed.
-- `list_post_events`: returns lifecycle events for a post.
-- `list_variant_comments`: lists comments for a published variant.
+- `list_post_events`: returns lifecycle events for a post with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs. Defaults to 100 events per response, up to 200.
+- `list_variant_comments`: lists comments for a published variant with a `limit` input (1-100, default 50). Results beyond the limit are truncated in provider order and the response text notes the truncation.
+- `get_post_metrics`: returns stored analytics per variant (normalized `views`, `reactions`, `engagements`, `impressions`, and `reach`) plus post totals. Read-only against stored snapshots; it triggers no provider calls.
+- `get_dashboard_link`: builds an app-origin dashboard URL for a `post`, `media`, `account`, or `calendar` view so agents can hand users a link to the visualization. Pure URL builder besides the workspace access check.
+- `search_docs`: searches the curated offline registry of documentation and assistant skill pages, returning titles, `/docs` paths, and snippets.
 - `reply_to_comment`: replies to an opaque comment ID returned by `list_variant_comments`.
 - `hide_comment`: hides a supported provider comment.
 - `delete_comment`: permanently deletes a supported provider comment. Repeat the call with `confirm=true` to proceed.
@@ -235,6 +238,17 @@ Comment mutations report `job_id`.
 
 The directly advertised render tools are intentionally outside the delegated
 operation catalog; clients call them only when they want their Apps UI.
+Both render tools are read-only and stay visible to `mcp:read` connections:
+`render_scheduler_widget` renders model-visible structured data, while
+`render_local_media_upload` opens the picker and its one-use upload ticket
+tool (`create_local_media_upload_ticket`) is app-only and requires `mcp:full`.
+
+Read operations share paging conventions: `list_posts` and `list_media`
+default to 20 items per response capped at 100, `list_post_events`
+defaults to 100 capped at 200, and `list_variant_comments` defaults to 50
+capped at 100 with provider-order truncation. Cursor pages return
+`has_more`, `next_cursor`, and `total_count` with the same opaque
+timestamp-plus-ID pattern everywhere.
 
 ## Retired operation names and sunset policy
 
@@ -325,4 +339,12 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Records API-token client ID, name, scope, and token prefix for MCP tool calls when a request uses a dedicated CLI/MCP token, so Settings can attribute activity to ChatGPT, Claude, CI, or another configured client.
 - Returns structured content so assistants can inspect workspace, account, publication, destination, media, and suggested slot IDs without parsing prose.
 - Returns provider catalog structured content so assistants can avoid trying to connect or schedule to planned providers before adapters exist.
+- Accepted gaps (kept out deliberately; specced follow-ups, not oversights): no account connect/disconnect tools, no bulk operations, and no webhook management tools. Assistants connect accounts through the web settings flow and link users there with `get_dashboard_link` (`account` kind).
+- OAuth has no per-client allow-listing: any standards-compliant OAuth client can start the flow with a valid client-metadata URL (matching redirect, `none` auth, code flow), and non-URL client IDs additionally work through the ChatGPT connector and loopback redirect fallbacks. The recorded client name is attribution for Settings activity only, never an access gate.
+
+## Recommended toolsets per client
+
+- Full-catalog clients (ChatGPT, Claude Desktop, IDE assistants that handle dozens of tools): use the default `/mcp` endpoint. Every operation is directly advertised with its own schema, and the Apps widgets load through the render tools.
+- Token-constrained or search-first clients (coding agents, CLI-driven flows): use `/mcp/code`. Start each task with `search_operations`, run reads through `query_operation`, mutations through `execute_operation`, and render through `render_scheduler_widget` only when a visual summary helps.
+- Self-hosted operators choose with `OPENPOST_MCP_MODE`: `direct` (default) for full-catalog clients, `search` for constrained ones, `both` while migrating. Changing the list never changes permissions; `mcp:read` connections always lose `execute_operation` and the ticket tool regardless of mode.
 - Lets assistants attach workspace-owned source media to Posts through `media`, while preserving destination-specific media overrides through `set_post_variants`.

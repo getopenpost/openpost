@@ -17,7 +17,7 @@ Recruit a small group of relevant users before a broad announcement:
 - developers already using MCP clients or coding agents;
 - self-hosters who want a smaller runtime.
 
-Observe whether they can understand the product, connect two relevant destinations, create distinct renditions, schedule or publish, recover from provider setup failures, and return for another campaign.
+Observe whether they can understand the product, connect two relevant destinations, create distinct variants, schedule or publish, recover from provider setup failures, and return for another campaign.
 
 Do not manufacture proof. Collect attributed quotes, campaign examples, and comparison reasons only with permission and only after the person has used the workflow.
 
@@ -40,13 +40,13 @@ Suggested Show HN title:
 
 > Show HN: OpenPost – a self-hosted publishing layer for humans and AI agents
 
-The body should explain why “write once, publish everywhere” hides real provider differences; how canonical content and account-specific renditions work; why `mcp:read` and `mcp:full` have different authority; how the durable queue exposes failures; and which paths remain preview or unverified.
+The body should explain why “write once, publish everywhere” hides real provider differences; how canonical content and account-specific variants work; why `mcp:read` and `mcp:full` have different authority; how the durable queue exposes failures; and which paths remain preview or unverified.
 
 ## Wave 2: agent and self-hosted ecosystems
 
 After the first technical launch produces real usage, submit the integration to relevant MCP directories, agent communities, developer-tool newsletters, self-hosted software directories, and NixOS or homelab communities where promotion is allowed.
 
-Share this launch kit as the reusable artifact. It should prove the workflow with real evidence added after publication, not merely repeat product claims.
+Share this launch kit as the reusable artifact. It should prove the workflow with real evidence added after post, not merely repeat product claims.
 
 ## Wave 3: broader launch after proof
 
@@ -71,13 +71,13 @@ The recommended starting targets are planning values, not current results:
 
 - `[TARGET]` qualified registrations;
 - `[TARGET]` users who connect at least two destinations;
-- `[TARGET]` users who create account-specific renditions;
+- `[TARGET]` users who create account-specific variants;
 - `[TARGET]` users who successfully schedule or publish;
 - `[TARGET]` paying customers;
 - OAuth failure rate;
-- first-publication failure rate;
+- first-post failure rate;
 - time from signup to first scheduled post;
 - queue backlog and posts that never reach a final state;
 - support requests, refunds, and immediate cancellations.
 
-Reach without account connections points to trust or onboarding. Connections without a schedule point to value or complexity. One publication without a return visit points to retention. Record what happened in [`results-template.md`](./results-template.md).
+Reach without account connections points to trust or onboarding. Connections without a schedule point to value or complexity. One post without a return visit points to retention. Record what happened in [`results-template.md`](./results-template.md).

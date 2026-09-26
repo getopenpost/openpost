@@ -308,7 +308,7 @@ const channelStories = {
 		sections: [
 			{
 				title: 'Write for one community at a time.',
-				text: 'Each rendition targets one community with its own title, body, and validation. Adapting a post for another community means reviewing it again.'
+				text: 'Each variant targets one community with its own title, body, and validation. Adapting a post for another community means reviewing it again.'
 			},
 			{
 				title: 'Keep the rules next to the editor.',
@@ -338,7 +338,7 @@ const channelStories = {
 		visual: 'main',
 		sections: [
 			{
-				title: 'One community, one rendition.',
+				title: 'One community, one variant.',
 				text: 'Each post targets one community with its own title, body, and validation. Nothing is shared implicitly across communities.'
 			},
 			{

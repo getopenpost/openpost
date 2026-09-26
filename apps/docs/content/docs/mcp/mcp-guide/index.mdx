@@ -4,7 +4,9 @@ description: Give an AI assistant access to OpenPost through MCP.
 icon: Plug
 ---
 
-MCP gives an AI assistant live OpenPost tools. The assistant can inspect accounts, media, Publications, Renditions, schedules, and delivery results. With write access, it can also prepare drafts, change Publications, schedule work, publish, and manage supported comments.
+MCP gives an AI assistant live OpenPost tools. The assistant can inspect accounts, media, Posts, Variants, schedules, and delivery results. With write access, it can also prepare drafts, change Posts, schedule work, publish, and manage supported comments.
+
+A Post is one piece of content with its schedule and status. A Variant is its per-channel version for one account. The direct tools are `create_post`, `list_posts`, `get_post`, `update_post`, `set_post_variants`, `reply_to_variant`, `validate_post`, `schedule_post`, `cancel_post`, `publish_post_now`, `list_post_events`, and `list_variant_comments`, with the `adapt_post_variants` prompt and the `post_id`, `variant_id`, and `variants[]` arguments.
 
 Use MCP when your assistant supports a remote HTTP server or a local MCP command. You do not need the `openpost-cli` skill for an MCP connection.
 
@@ -31,7 +33,7 @@ List my OpenPost workspaces.
 Choose one of the returned workspaces, then ask:
 
 ```text
-Review this week's scheduled Publications without changing anything.
+Review this week's scheduled Posts without changing anything.
 ```
 
 This confirms the account, workspace, and read permissions before any write request.

@@ -11,10 +11,10 @@ Name the OpenPost workspace in every task after the first connection check. Tell
 Use `mcp:read`:
 
 ```text
-Review next week's scheduled Publications in the Personal workspace. Group them by destination, flag empty days and missing media, and do not change anything.
+Review next week's scheduled Posts in the Personal workspace. Group them by destination, flag empty days and missing media, and do not change anything.
 ```
 
-The assistant can inspect Publications, Renditions, connected accounts, media, and posting slots without gaining write access.
+The assistant can inspect Posts, Variants, connected accounts, media, and posting slots without gaining write access.
 
 ## Check provider readiness
 
@@ -34,14 +34,14 @@ Use `mcp:full`, but stop before scheduling:
 Create an unpublished launch draft for the Company workspace and its connected LinkedIn account. Reuse the newest matching image in the media library. Stop after creating the draft.
 ```
 
-Inspect the saved Publication in OpenPost. Check each destination Rendition before asking the assistant to schedule it.
+Inspect the saved Post in OpenPost. Check each destination Variant before asking the assistant to schedule it. To adapt one message for several channels, use the `adapt_post_variants` prompt with the saved `post_id` and the `variants[]` arguments.
 
 ## Schedule approved work
 
 Use `mcp:full` and provide an exact time or ask for an available posting slot:
 
 ```text
-Validate Publication pub_123. If it passes, schedule it in the next available Company workspace slot. Report the saved time and job state.
+Validate Post post_123. If it passes, schedule it in the next available Company workspace slot. Report the saved time and job state.
 ```
 
 Treat `scheduled` and `queued` as intermediate states. They do not prove that a provider published the content.
@@ -51,9 +51,9 @@ Treat `scheduled` and `queued` as intermediate states. They do not prove that a 
 Use `mcp:read` first:
 
 ```text
-Inspect Publication pub_123, its Renditions, and lifecycle events. Explain which destinations succeeded or failed and quote the saved failure reason. Do not retry anything.
+Inspect Post post_123, its Variants, and lifecycle events. Explain which destinations succeeded or failed and quote the saved failure reason. Do not retry anything.
 ```
 
-`list_publications` already summarizes failures per Publication as `failed_rendition_count` with a curated `error_kind`, `error_action`, and `error_message`. Ask for `get_publication` only when a failure needs full delivery detail.
+`list_posts` already summarizes failures per Post as `failed_variant_count` with a curated `error_kind`, `error_action`, and `error_message`. Ask for `get_post` only when a failure needs full delivery detail.
 
 Grant `mcp:full` only if you then want the assistant to make a correction or retry an authorized destination.

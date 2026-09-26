@@ -42,7 +42,7 @@
 			icon: '/assets/brand/features/calendar.svg',
 			lightSrc: '/assets/screenshots/calendar-light.webp',
 			darkSrc: '/assets/screenshots/calendar-dark.webp',
-			alt: 'OpenPost monthly calendar with scheduled publications',
+			alt: 'OpenPost monthly calendar with scheduled posts',
 			caption: 'Keep the week in view.'
 		},
 		{
@@ -50,7 +50,7 @@
 			icon: '/assets/brand/features/analytics.svg',
 			lightSrc: '/assets/screenshots/analytics-light.webp',
 			darkSrc: '/assets/screenshots/analytics-dark.webp',
-			alt: 'OpenPost analytics with account growth and publication results',
+			alt: 'OpenPost analytics with account growth and post results',
 			caption: 'Check the results from your connected accounts.'
 		},
 		{

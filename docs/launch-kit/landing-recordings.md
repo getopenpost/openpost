@@ -4,7 +4,7 @@ The landing page works with the existing tour and screenshots. These recordings 
 
 | Slot | Record | Length and frame |
 | --- | --- | --- |
-| Product tour | Start a publication from an idea, choose three destinations, adjust one version, and schedule it. End on the calendar. | 30–45 seconds, 16:9 |
+| Product tour | Start a post from an idea, choose three destinations, adjust one version, and schedule it. End on the calendar. | 30–45 seconds, 16:9 |
 | Image Editor | Start with a photo, add a headline, make a carousel page, and export to Media. | 10–15 seconds, 16:10 |
 | Video Editor | Import a short clip, trim it, add a caption, and export. | 10–15 seconds, 16:10 |
 

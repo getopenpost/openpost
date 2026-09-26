@@ -21,7 +21,7 @@ The MCP client does not need the X, Meta, LinkedIn, Bluesky, Mastodon, TikTok, o
 | Scope | Appropriate use | Server behavior |
 | --- | --- | --- |
 | `mcp:read` | Workspace, account, media, draft, schedule, readiness, status, and lifecycle inspection | Exposes only read-safe discovery/query paths and rejects every mutation |
-| `mcp:full` | Create or update drafts and renditions, upload media, schedule, publish, cancel, reply, or moderate | Keeps read and mutation operations separated, but permits approved `execute_operation` calls |
+| `mcp:full` | Create or update drafts and variants, upload media, schedule, publish, cancel, reply, or moderate | Keeps read and mutation operations separated, but permits approved `execute_operation` calls |
 
 Bind either token to one workspace unless the client genuinely needs more. Start a campaign rehearsal with `mcp:read`. Issue or approve `mcp:full` only for the preparation or execution step that requires it, then revoke it when the integration no longer needs access.
 
@@ -56,7 +56,7 @@ With `mcp:read`, discovery omits mutation operations and the server rejects atte
 
 ## What still requires operator judgment
 
-- `mcp:full` can execute publication operations when the client allows it. Provider-token secrecy is not the same as read-only access.
+- `mcp:full` can execute post operations when the client allows it. Provider-token secrecy is not the same as read-only access.
 - Human review is not a mandatory server-side approval stage. It is a process enforced by token choice, client approval, and the person operating the campaign.
 - Provider configuration or OAuth initiation does not prove that a specific format can publish.
 - External provider approval, quotas, outages, and API changes remain outside OpenPost.

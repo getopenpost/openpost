@@ -1,6 +1,6 @@
 # Fourteen-Day Activation and Guardrail Plan
 
-> **Product-usage measurement template — no automatic launch metrics are implied.** OpenPost's social-provider Analytics page measures connected accounts and publications; it does not include a product-usage analytics vendor or automatic launch KPI dashboard. Assign a human owner and a reproducible evidence source for every value.
+> **Product-usage measurement template — no automatic launch metrics are implied.** OpenPost's social-provider Analytics page measures connected accounts and posts; it does not include a product-usage analytics vendor or automatic launch KPI dashboard. Assign a human owner and a reproducible evidence source for every value.
 
 ## Window and definitions
 
@@ -41,7 +41,7 @@ Stars and mentions are secondary. Do not substitute them for connected accounts,
 | Guardrail | Actual | Denominator and definition | Manual evidence source | Owner | Response threshold |
 | --- | ---: | --- | --- | --- | --- |
 | OAuth connection failure rate by provider | _Pending_ | `[DEFINE]` | Provider readiness/errors and support log |  | `[DEFINE]` |
-| First-publication failure rate by provider | _Pending_ | `[DEFINE]` | Publication lifecycle events |  | `[DEFINE]` |
+| First-post failure rate by provider | _Pending_ | `[DEFINE]` | Post lifecycle events |  | `[DEFINE]` |
 | Support requests per activated user | _Pending_ | `[DEFINE]` | Manually classified support log |  | `[DEFINE]` |
 | Time from registration to first scheduled post | _Pending_ | `[DEFINE]` | Registration and schedule timestamps |  | `[DEFINE]` |
 | Scheduled posts without a final state | _Pending_ | `[DEFINE]` | Queue and lifecycle review |  | `[DEFINE]` |
@@ -54,9 +54,9 @@ Do not claim a rate when the denominator is missing. Keep provider-specific valu
 
 - [ ] Record new registrations and exclude test/internal accounts.
 - [ ] Count users who connected two destinations.
-- [ ] Count campaigns with at least one distinct destination rendition.
-- [ ] Check schedules and publications that reached a final state.
-- [ ] Review OAuth and first-publication failures by provider.
+- [ ] Count campaigns with at least one distinct destination variant.
+- [ ] Check schedules and posts that reached a final state.
+- [ ] Review OAuth and first-post failures by provider.
 - [ ] Review queue backlog and jobs without a final state.
 - [ ] Classify support requests and billing cancellations.
 - [ ] Save evidence links and update the timestamp.

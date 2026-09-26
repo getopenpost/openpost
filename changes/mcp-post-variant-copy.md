@@ -1,0 +1,3 @@
+### Changed
+
+- Reworded user-facing copy from Publication to Post and from Rendition to Variant across MCP docs, product copy, marketing, the launch kit, and surface-parity prose. Code identifiers, routes, and API shapes are unchanged. MCP guides now reference the `create_post`, `list_posts`, `get_post`, `update_post`, `set_post_variants`, `reply_to_variant`, `validate_post`, `schedule_post`, `cancel_post`, `publish_post_now`, `list_post_events`, and `list_variant_comments` tools with the `adapt_post_variants` prompt and the `post_id`, `variant_id`, and `variants[]` arguments. Launch-kit samples moved from `docs/launch-kit/renditions/` to `docs/launch-kit/variants/`.

@@ -12,7 +12,7 @@ type ToolArticle = {
 };
 
 // SAFETY: Every catalog entry contributes one article under its canonical preview-tool slug.
-const previewArticles = Object.fromEntries(
+const previewArticles = Object.fromEntries<ToolArticle>(
 	previewTools.map((tool) => [
 		tool.slug,
 		{

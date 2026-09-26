@@ -46,31 +46,6 @@
 	let cardDescription = $state('');
 	let cardImage = $state('');
 	let pollDuration = $state('1 day');
-	const TOOL_IMAGE_LIMIT = 35;
-	const supportsMultipleAttachments = $derived(
-		['discord', 'telegram', 'threads'].includes(selectedPlatform)
-	);
-	const attachmentLimit = $derived(
-		supportsMultipleAttachments ? (capability.maxImages ?? TOOL_IMAGE_LIMIT) : imageLimit
-	);
-	const parsedPollOptions = $derived(
-		pollOptions
-			.split(/\n/u)
-			.map((option) => option.trim())
-			.filter(Boolean)
-	);
-	const imageLimit = $derived(
-		selectedFormat === 'story' ? 1 : (capability.maxImages ?? TOOL_IMAGE_LIMIT)
-	);
-	const pollLimit = $derived(capability.maxPollOptions ?? 4);
-	const isFacebookVideo = $derived(
-		selectedPlatform === 'facebook' && ['video', 'reel'].includes(selectedFormat)
-	);
-	const hasTitle = $derived(
-		['youtube', 'peertube', 'pinterest', 'reddit', 'lemmy', 'piefed', 'googlebusiness'].includes(
-			selectedPlatform
-		) || selectedFormat === 'document'
-	);
 	let selectedFormat = $state<PreviewFormat>(
 		untrack(() => previewCapabilities[initialPlatform].formats[0])
 	);
@@ -94,6 +69,31 @@
 	let optionsOpen = $state(false);
 
 	const capability = $derived(previewCapabilities[selectedPlatform]);
+	const TOOL_IMAGE_LIMIT = 35;
+	const supportsMultipleAttachments = $derived(
+		['discord', 'telegram', 'threads'].includes(selectedPlatform)
+	);
+	const parsedPollOptions = $derived(
+		pollOptions
+			.split(/\n/u)
+			.map((option) => option.trim())
+			.filter(Boolean)
+	);
+	const imageLimit = $derived(
+		selectedFormat === 'story' ? 1 : (capability.maxImages ?? TOOL_IMAGE_LIMIT)
+	);
+	const attachmentLimit = $derived(
+		supportsMultipleAttachments ? (capability.maxImages ?? TOOL_IMAGE_LIMIT) : imageLimit
+	);
+	const pollLimit = $derived(capability.maxPollOptions ?? 4);
+	const isFacebookVideo = $derived(
+		selectedPlatform === 'facebook' && ['video', 'reel'].includes(selectedFormat)
+	);
+	const hasTitle = $derived(
+		['youtube', 'peertube', 'pinterest', 'reddit', 'lemmy', 'piefed', 'googlebusiness'].includes(
+			selectedPlatform
+		) || selectedFormat === 'document'
+	);
 	const pollSupported = $derived(capability.polls && ['post', 'thread'].includes(selectedFormat));
 	const formatOptions = $derived(capability.formats);
 	const allowedMediaKinds = $derived(mediaKindsFor(selectedPlatform, selectedFormat));

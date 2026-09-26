@@ -2,11 +2,9 @@ name: README assets
 
 on:
   schedule:
-    # Spread through the UTC day so badges stay fresh; the star-count guard
-    # still skips chart regeneration unless stars increased.
-    - cron: "17 1 * * *"
-    - cron: "17 9 * * *"
-    - cron: "17 17 * * *"
+    # Once every two days so badge refreshes do not bloat commit history;
+    # the star-count guard still skips chart regeneration unless stars increased.
+    - cron: "17 9 */2 * *"
   workflow_dispatch:
 
 permissions:

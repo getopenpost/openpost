@@ -123,6 +123,8 @@ var configTestEnvKeys = []string{
 	"LINKEDIN_REDIRECT_URI",
 	"LINKEDIN_DISABLE_THREAD_REPLIES",
 	"OPENPOST_DISABLE_LINKEDIN_THREAD_REPLIES",
+	"OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED",
+	"OPENPOST_DISABLE_TIKTOK_DISPLAY_API",
 	"THREADS_CLIENT_ID",
 	"THREADS_CLIENT_SECRET",
 	"THREADS_REDIRECT_URI",
@@ -175,6 +177,14 @@ func TestLoadControlsOAuthDynamicClientRegistration(t *testing.T) {
 	t.Setenv("OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED", "true")
 
 	require.True(t, Load().OAuthDCR)
+}
+
+func TestLoadTikTokDisplayAPIToggle(t *testing.T) {
+	require.False(t, Load().DisableTikTokDisplayAPI)
+
+	t.Setenv("OPENPOST_DISABLE_TIKTOK_DISPLAY_API", "true")
+
+	require.True(t, Load().DisableTikTokDisplayAPI)
 }
 
 func TestLoadMCPMode(t *testing.T) {

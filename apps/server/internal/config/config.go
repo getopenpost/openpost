@@ -147,6 +147,8 @@ type Config struct {
 	ThreadsClientSecret string
 	ThreadsRedirectURI  string
 
+	DisableTikTokDisplayAPI bool
+
 	ProviderApps                  []platform.AppConfig
 	ConnectorsFile                string
 	DisabledProviders             []string
@@ -349,6 +351,7 @@ func Load() *Config {
 		ThreadsClientID:               getEnvWithFallbacks("THREADS_CLIENT_ID", ""),
 		ThreadsClientSecret:           getEnvWithFallbacks("THREADS_CLIENT_SECRET", ""),
 		ThreadsRedirectURI:            oauthRedirectFromFrontend("THREADS_REDIRECT_URI", "", frontendURL, "/api/v1/accounts/threads/callback"),
+		DisableTikTokDisplayAPI:       getEnvBoolWithAliases(false, "OPENPOST_DISABLE_TIKTOK_DISPLAY_API"),
 		DisabledProviders:             parseStringList(getEnvDefault("OPENPOST_DISABLED_PROVIDERS", "")),
 		ProviderCertificationEnforced: getEnvBoolWithAliases(false, "OPENPOST_PROVIDER_CERTIFICATION_ENFORCED"),
 

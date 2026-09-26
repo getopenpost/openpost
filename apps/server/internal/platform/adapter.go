@@ -227,6 +227,7 @@ func RegisterAllMediaValidators() {
 		MediaValidators[providerBluesky] = validateBlueskyMedia
 		MediaValidators[providerDiscord] = validateDiscordMedia
 		MediaValidators[providerFacebook] = validateFacebookMedia
+		MediaValidators[providerGoogleBusiness] = validateGoogleBusinessMedia
 		MediaValidators[providerInstagram] = validateInstagramMedia
 		MediaValidators[providerLinkedIn] = validateLinkedInMedia
 		MediaValidators[providerMastodon] = validateMastodonMedia

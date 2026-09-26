@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -20,6 +21,58 @@ import (
 )
 
 const maxResponseBytes = 1 << 20
+
+// connectorTransportError classifies a failed connector request without
+// retaining the request URL, matching the platform package boundary for
+// credential-bearing provider URLs.
+type connectorTransportError struct {
+	timeout  bool
+	canceled bool
+}
+
+func (e *connectorTransportError) Error() string {
+	switch {
+	case e.canceled:
+		return "connector request was canceled"
+	case e.timeout:
+		return "connector request timed out"
+	default:
+		return "connector request transport failed"
+	}
+}
+
+func sanitizeConnectorTransportError(err error) error {
+	// Strip the *url.Error wrapper, which embeds the full request URL, but
+	// keep the underlying cause: dial-time diagnostics such as private
+	// allowlist violations are operator-facing and carry no credentials.
+	cause := err
+	foundRequestError := false
+	for {
+		var requestErr *url.Error
+		if !errors.As(cause, &requestErr) {
+			break
+		}
+		foundRequestError = true
+		if requestErr.Err == nil || requestErr.Err == cause {
+			return &connectorTransportError{}
+		}
+		cause = requestErr.Err
+	}
+	if !foundRequestError {
+		return err
+	}
+	if errors.Is(cause, context.Canceled) {
+		return &connectorTransportError{canceled: true}
+	}
+	if errors.Is(cause, context.DeadlineExceeded) {
+		return &connectorTransportError{timeout: true}
+	}
+	var networkErr net.Error
+	if errors.As(cause, &networkErr) && networkErr.Timeout() {
+		return &connectorTransportError{timeout: true}
+	}
+	return fmt.Errorf("connector request failed: %w", cause)
+}
 
 type Resolver interface {
 	LookupIPAddr(context.Context, string) ([]net.IPAddr, error)
@@ -193,7 +246,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, input, output 
 	}
 	response, err := c.http.Do(request)
 	if err != nil {
-		return fmt.Errorf("connector request failed: %w", err)
+		return fmt.Errorf("connector request failed: %w", sanitizeConnectorTransportError(err))
 	}
 	defer response.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))

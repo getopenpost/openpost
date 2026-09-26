@@ -56,6 +56,7 @@ const platformNames = [
   ["tiktok", "TikTok"],
   ["youtube", "YouTube"],
   ["pinterest", "Pinterest"],
+  ["googlebusiness", "Google Business"],
   ["telegram", "Telegram"],
   ["discord", "Discord"],
 ];

@@ -516,25 +516,33 @@ func isTransientFacebookVideoPollError(err error) bool {
 }
 
 func (f *FacebookAdapter) publishFeedPost(ctx context.Context, accessToken, pageID string, req *PublishRequest) (string, error) {
-	values := map[string]string{
-		"message":             strings.TrimSpace(req.Content),
-		oauthParamAccessToken: accessToken,
+	linkURL := facebookFeedLink(req)
+	publish := func(link string) (string, error) {
+		values := map[string]string{
+			"message":             strings.TrimSpace(req.Content),
+			oauthParamAccessToken: accessToken,
+		}
+		if link != "" {
+			values["link"] = link
+		}
+		if preset := settingString(req.Settings, "text_format_preset_id"); preset != "" {
+			values["text_format_preset_id"] = preset
+		}
+		respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/feed"), values, nil)
+		if err != nil {
+			return "", fmt.Errorf("facebook feed publish: %w", err)
+		}
+		id, err := facebookPublishedID("facebook feed publish", respBody)
+		if err != nil {
+			return "", err
+		}
+		return id, nil
 	}
-	if linkURL := settingString(req.Settings, "url"); linkURL != "" {
-		values["link"] = linkURL
+	id, err := publish(linkURL)
+	if err != nil && linkURL != "" && isFacebookLinkScrapeFailure(err) {
+		return publish("")
 	}
-	if preset := settingString(req.Settings, "text_format_preset_id"); preset != "" {
-		values["text_format_preset_id"] = preset
-	}
-	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/feed"), values, nil)
-	if err != nil {
-		return "", fmt.Errorf("facebook feed publish: %w", err)
-	}
-	id, err := facebookPublishedID("facebook feed publish", respBody)
-	if err != nil {
-		return "", err
-	}
-	return id, nil
+	return id, err
 }
 
 func (f *FacebookAdapter) publishPhoto(ctx context.Context, accessToken, pageID, caption, mediaURL string) (string, error) {
@@ -781,13 +789,25 @@ func facebookPublishedID(label string, respBody []byte) (string, error) {
 		PostID string `json:"post_id"`
 		Error  struct {
 			Message string `json:"message"`
+			Code    any    `json:"code"`
+			Subcode any    `json:"error_subcode"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(respBody, &publishResp); err != nil {
 		return "", fmt.Errorf("decoding %s: %w", label, err)
 	}
 	if publishResp.Error.Message != "" {
-		return "", &HTTPError{StatusCode: http.StatusBadRequest, Code: "facebook_publish_error"}
+		// Same embedded-error handling as Instagram: classify the embedded
+		// {code, subcode} and never retain the message.
+		code := firstSafeProviderCode([]any{publishResp.Error.Code})
+		if code == "" {
+			code = "facebook_publish_error"
+		}
+		return "", normalizeMetaPublishError(&HTTPError{
+			StatusCode: http.StatusBadRequest,
+			Code:       code,
+			Subcode:    firstSafeProviderCode([]any{publishResp.Error.Subcode}),
+		})
 	}
 	id := firstNonEmptyString(publishResp.PostID, publishResp.ID)
 	if id == "" {

@@ -71,6 +71,7 @@ import (
 	"github.com/openpost/backend/internal/services/organizationownership"
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/postgeneration"
+	postimportservice "github.com/openpost/backend/internal/services/postimport"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/proxyauth"
@@ -472,6 +473,7 @@ func main() {
 	providers, providerEntries, err := platform.BuildAdapterRegistry(providerAppConfigs, platform.RegistryOptions{
 		DisableLinkedInThreadReplies: cfg.DisableLinkedInThreadReplies,
 		EnableLinkedInOrganizations:  cfg.EnableLinkedInOrganizations,
+		DisableTikTokDisplayAPI:      cfg.DisableTikTokDisplayAPI,
 	})
 	if err != nil {
 		fatalfWithDiagnostics(diagnosticsReporter, "failed to build provider app registry: %v", err)
@@ -551,6 +553,7 @@ func main() {
 	repostService.SetUsage(usageService)
 	repostService.SetEntitlement(entitlementService)
 	growthService := growthservice.NewService(db, tokenManager, telemetryRecorder)
+	postImportService := postimportservice.NewService(db, tokenManager)
 	notificationService := notifications.NewService(db, notifications.Options{
 		EmailDelivery: authMailSender, Encryptor: tokenEncryptor, PublicURL: cfg.PublicURL,
 	})
@@ -738,6 +741,7 @@ func main() {
 		worker.SetRepostService(repostService)
 		worker.SetVideoProcessingService(videoProcessingService)
 		worker.SetGrowthService(growthService)
+		worker.SetPostImportService(postImportService)
 		worker.SetPublicationBuilderService(publicationBuilderApplication)
 		worker.SetAccountPreflightService(accountPreflightService)
 		worker.SetExternalWebhookService(externalWebhookService)

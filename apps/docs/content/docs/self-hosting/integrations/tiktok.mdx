@@ -23,7 +23,7 @@ OpenPost connects a TikTok account through Login Kit. Direct Post publishes thro
    https://post.example.com/api/v1/accounts/tiktok/callback
    ```
 
-3. In the Content Posting API settings, enable the posting modes you need. Request access to `video.publish` for Direct Post and `video.upload` for inbox upload. OpenPost also requests `user.info.basic`, `user.info.profile`, `user.info.stats`, and `video.list`. Complete the portal's URL ownership verification for media fetched by URL.
+3. In the Content Posting API settings, enable the posting modes you need. Request access to `video.publish` for Direct Post and `video.upload` for inbox upload. OpenPost requests `user.info.basic`, `video.publish`, and `video.upload` for publishing, plus the optional Display API scopes `user.info.profile`, `user.info.stats`, and `video.list` for usernames, analytics, and video reconciliation. When the TikTok app has no Display API approval, set `OPENPOST_DISABLE_TIKTOK_DISPLAY_API=true` so OpenPost requests only the publishing scopes; connection and publishing keep working while usernames, analytics, and public video ID reconciliation stay unavailable. Complete the portal's URL ownership verification for media fetched by URL.
 4. Submit the app and its scopes for review where TikTok requires it. Copy the **Client Key** and **Client Secret** from the app settings.
 
 TikTok documents [app registration](https://developers.tiktok.com/docs/en/getting-started-create-an-app), [Direct Post setup](https://developers.tiktok.com/docs/en/content-posting-api-get-started), and [media URL verification](https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide).

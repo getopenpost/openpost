@@ -193,7 +193,7 @@ boundary.
 - `list_media`: returns recent workspace media attachments so assistants can reuse existing assets.
 - `get_provider_readiness`: returns provider configuration, account, app-review, and public-media readiness checks.
 - `create_publication`: creates a format-first publication with renditions and destination-specific settings.
-- `list_publications`: lists format-first publications for a workspace.
+- `list_publications`: lists format-first publications for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_rendition_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed.
 - `get_publication`: returns a publication with its destination renditions and delivery state.
 - `update_publication`: updates editable source fields, schedule time, and an optional random-delay range while preserving omitted values.
 - `set_publication_renditions`: replaces a publication's destination-specific outputs and media roles.

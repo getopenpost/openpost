@@ -11,7 +11,8 @@ TikTok supports video and photo posts through OAuth and the Content Posting API.
 - Social app entry with provider key `tiktok`
 - Callback URL: `https://your-domain.com/api/v1/accounts/tiktok/callback`
 - Public `OPENPOST_MEDIA_URL` or S3/R2 public media URL for Direct Post media URLs
-- Scopes: `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`, `video.publish`, `video.upload`, and photo-post access when using image posts
+- Publishing scopes: `user.info.basic`, `video.publish`, `video.upload`, plus photo-post access when using image posts
+- Optional Display API scopes: `user.info.profile` (username), `user.info.stats` (account analytics), `video.list` (video metrics and public video ID reconciliation)
 
 Example `OPENPOST_PROVIDER_APPS` entry:
 
@@ -49,3 +50,7 @@ Direct messages, Comments and replies, and Grow are not available for TikTok. An
 - `OPENPOST_MEDIA_URL` points at localhost or a private host.
 - TikTok app lacks Content Posting API access or required scopes.
 - The TikTok app's redirect URI does not exactly match OpenPost's callback URL.
+
+## Without Display API approval
+
+TikTok no longer offers the Display API to new apps. Those apps can still connect and publish: OpenPost needs only `user.info.basic`, `video.publish`, and `video.upload`. The connected account shows no username, analytics report the missing Display API scopes instead of failing the connection, and completed Direct Post videos keep the provider publish ID when the public video ID cannot be reconciled. Set `OPENPOST_DISABLE_TIKTOK_DISPLAY_API=true` so the authorization request asks only for the scopes TikTok can grant.

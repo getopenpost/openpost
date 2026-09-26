@@ -54,4 +54,6 @@ Use `mcp:read` first:
 Inspect Publication pub_123, its Renditions, and lifecycle events. Explain which destinations succeeded or failed and quote the saved failure reason. Do not retry anything.
 ```
 
+`list_publications` already summarizes failures per Publication as `failed_rendition_count` with a curated `error_kind`, `error_action`, and `error_message`. Ask for `get_publication` only when a failure needs full delivery detail.
+
 Grant `mcp:full` only if you then want the assistant to make a correction or retry an authorized destination.

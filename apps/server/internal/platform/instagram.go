@@ -685,7 +685,7 @@ func (i *InstagramAdapter) DeleteComment(ctx context.Context, accessToken, _ str
 func (i *InstagramAdapter) waitForContainer(ctx context.Context, accessToken, containerID string) error {
 	const maxAttempts = 6
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		status, err := i.containerStatus(ctx, accessToken, containerID)
+		status, detail, err := i.containerStatus(ctx, accessToken, containerID)
 		if err != nil {
 			return err
 		}
@@ -693,7 +693,7 @@ func (i *InstagramAdapter) waitForContainer(ctx context.Context, accessToken, co
 		case "", "FINISHED", "PUBLISHED":
 			return nil
 		case "ERROR", "EXPIRED":
-			return fmt.Errorf("instagram container processing failed: %s", status)
+			return classifyInstagramContainerFailure(detail)
 		}
 		if attempt < maxAttempts {
 			select {
@@ -706,24 +706,93 @@ func (i *InstagramAdapter) waitForContainer(ctx context.Context, accessToken, co
 	return fmt.Errorf("instagram container processing timed out")
 }
 
-func (i *InstagramAdapter) containerStatus(ctx context.Context, accessToken, containerID string) (string, error) {
-	respBody, err := DoRequest(ctx, http.MethodGet, i.graphURL(containerID+"?fields=status_code&access_token="+url.QueryEscape(accessToken)), nil, nil)
+func (i *InstagramAdapter) containerStatus(ctx context.Context, accessToken, containerID string) (status, detail string, err error) {
+	respBody, err := DoRequest(ctx, http.MethodGet, i.graphURL(containerID+"?fields=status_code,status&access_token="+url.QueryEscape(accessToken)), nil, nil)
 	if err != nil {
-		return "", fmt.Errorf("instagram container status: %w", err)
+		return "", "", fmt.Errorf("instagram container status: %w", err)
 	}
 	var statusResp struct {
 		StatusCode string `json:"status_code"`
+		Status     string `json:"status"`
 		Error      struct {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(respBody, &statusResp); err != nil {
-		return "", fmt.Errorf("decoding instagram container status: %w", err)
+		return "", "", fmt.Errorf("decoding instagram container status: %w", err)
 	}
 	if statusResp.Error.Message != "" {
-		return "", &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_processing_error"}
+		// The poll itself was rejected (expired token, missing
+		// permissions). The embedded Graph error carries {code, subcode};
+		// classify it like a synchronous publish error.
+		return "", "", normalizeMetaPublishError(NewHTTPError(http.StatusBadRequest, nil, respBody))
 	}
-	return strings.ToUpper(strings.TrimSpace(statusResp.StatusCode)), nil
+	return strings.ToUpper(strings.TrimSpace(statusResp.StatusCode)), statusResp.Status, nil
+}
+
+// Instagram checkpoint needles from Postiz #2123. The account is behind a
+// Meta login check: the token is still valid, so a refresh cannot help and
+// every post fails until the user logs in and reconnects. Matching fixed
+// needles and emitting a bounded code retains no raw provider text.
+func isInstagramCheckpointDetail(detail string) bool {
+	return strings.Contains(detail, "You cannot access the app till you log in to") ||
+		strings.Contains(detail, "Session key is malformed")
+}
+
+// instagramContainerCodeAllowlist holds the numeric codes the async container
+// detail text may carry (Postiz #2137/#2152 handleErrors). Only these codes
+// are extracted; anything else stays a generic processing failure.
+var instagramContainerCodeAllowlist = map[string]struct{}{
+	"200": {}, "2207001": {}, "2207005": {}, "2207009": {}, "2207023": {},
+	"2207027": {}, "2207042": {}, "2207051": {}, "2207077": {},
+	"2207082": {}, "2207085": {}, "36001": {}, "36003": {},
+}
+
+// classifyInstagramContainerFailure routes an async container ERROR/EXPIRED
+// state through the same {code, subcode} classifier as synchronous Graph
+// errors. The detail text is never retained: only an allowlisted numeric code
+// or a checkpoint code leaves this function.
+func classifyInstagramContainerFailure(detail string) error {
+	if isInstagramCheckpointDetail(detail) {
+		return &HTTPError{StatusCode: http.StatusUnauthorized, Code: "meta:checkpoint:instagram"}
+	}
+	if strings.Contains(detail, "(#200)") {
+		return normalizeMetaPublishError(&HTTPError{StatusCode: http.StatusForbidden, Code: "200"})
+	}
+	if code := firstAllowlistedCode(detail, instagramContainerCodeAllowlist); code != "" {
+		return normalizeMetaPublishError(&HTTPError{StatusCode: http.StatusBadRequest, Code: code})
+	}
+	return &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_processing_error"}
+}
+
+// firstAllowlistedCode returns the first 5-7 digit run in text that is a
+// member of the allowlist, or "" when there is none.
+func firstAllowlistedCode(text string, allowlist map[string]struct{}) string {
+	start := -1
+	for index, char := range text {
+		if char < '0' || char > '9' {
+			if start >= 0 {
+				if candidate := text[start:index]; len(candidate) >= 5 && len(candidate) <= 7 {
+					if _, ok := allowlist[candidate]; ok {
+						return candidate
+					}
+				}
+				start = -1
+			}
+			continue
+		}
+		if start < 0 {
+			start = index
+		}
+	}
+	if start >= 0 {
+		if candidate := text[start:]; len(candidate) >= 5 && len(candidate) <= 7 {
+			if _, ok := allowlist[candidate]; ok {
+				return candidate
+			}
+		}
+	}
+	return ""
 }
 
 type instagramPublishCheckpoint struct {
@@ -922,7 +991,7 @@ func (i *InstagramAdapter) resumeFinalContainer(ctx context.Context, accessToken
 	if checkpoint.kind == instagramCheckpointPublishKind {
 		pending = pendingInstagramPublishResult(checkpoint.containerID)
 	}
-	status, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
+	status, detail, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
 	if err != nil {
 		return pending, normalizeMetaPublishError(err)
 	}
@@ -959,7 +1028,7 @@ func (i *InstagramAdapter) resumeFinalContainer(ctx context.Context, accessToken
 			ProviderState:     instagramFinalProviderState,
 			ProviderReference: pending.ProviderReference,
 			RetrySafety:       PublishRetryNever,
-		}, &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_processing_error"}
+		}, classifyInstagramContainerFailure(detail)
 	default:
 		return pending, nil
 	}
@@ -971,13 +1040,18 @@ func (i *InstagramAdapter) resumeCarousel(ctx context.Context, accessToken, inst
 		return rejectedInstagramCheckpoint(pending, err.Error())
 	}
 	for _, childID := range checkpoint.references {
-		status, err := i.containerStatus(ctx, accessToken, childID)
+		status, detail, err := i.containerStatus(ctx, accessToken, childID)
 		if err != nil {
 			return pending, normalizeMetaPublishError(err)
 		}
 		switch status {
 		case "FINISHED":
-		case "ERROR", "EXPIRED", "PUBLISHED":
+		case "ERROR", "EXPIRED":
+			rejected := pending
+			rejected.SubmissionState = PublishSubmissionRejected
+			rejected.RetrySafety = PublishRetryNever
+			return rejected, classifyInstagramContainerFailure(detail)
+		case "PUBLISHED":
 			return rejectedInstagramCheckpoint(pending, "instagram carousel child container is not reusable")
 		default:
 			return pending, nil
@@ -1056,7 +1130,7 @@ func (i *InstagramAdapter) resumeStorySequence(ctx context.Context, accessToken,
 		}
 		return pendingInstagramStoryResult(index, checkpoint.references, containerID), nil
 	}
-	status, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
+	status, detail, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
 	if err != nil {
 		return pending, normalizeMetaPublishError(err)
 	}
@@ -1077,7 +1151,10 @@ func (i *InstagramAdapter) resumeStorySequence(ctx context.Context, accessToken,
 	case "PUBLISHED":
 		externalID = instagramUnknownPublishedIDPrefix + checkpoint.containerID
 	case "ERROR", "EXPIRED":
-		return rejectedInstagramCheckpoint(pending, "instagram story container processing failed")
+		rejected := pending
+		rejected.SubmissionState = PublishSubmissionRejected
+		rejected.RetrySafety = PublishRetryNever
+		return rejected, classifyInstagramContainerFailure(detail)
 	default:
 		return pending, nil
 	}
@@ -1153,13 +1230,26 @@ func instagramIDFromResponse(label string, respBody []byte) (string, error) {
 		ID    string `json:"id"`
 		Error struct {
 			Message string `json:"message"`
+			Code    any    `json:"code"`
+			Subcode any    `json:"error_subcode"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return "", fmt.Errorf("decoding %s: %w", label, err)
 	}
 	if resp.Error.Message != "" {
-		return "", &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_publish_error"}
+		// Meta sometimes answers HTTP 200 with the failure embedded in the
+		// body. Classify the embedded {code, subcode} like any Graph error;
+		// only bounded codes leave this function, never the message.
+		code := firstSafeProviderCode([]any{resp.Error.Code})
+		if code == "" {
+			code = "instagram_publish_error"
+		}
+		return "", normalizeMetaPublishError(&HTTPError{
+			StatusCode: http.StatusBadRequest,
+			Code:       code,
+			Subcode:    firstSafeProviderCode([]any{resp.Error.Subcode}),
+		})
 	}
 	if resp.ID == "" {
 		return "", fmt.Errorf("%s: missing id", label)

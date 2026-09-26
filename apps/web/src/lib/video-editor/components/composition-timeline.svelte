@@ -2421,6 +2421,7 @@
 						<div
 							{...props}
 							class="layer-sidebar"
+							role="group"
 							aria-label={m.video_editor_composition_timeline_layers()}
 							bind:this={sidebarEl}
 							oncontextmenucapture={prepareCompositionContextMenu}

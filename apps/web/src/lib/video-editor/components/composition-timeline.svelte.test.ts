@@ -252,3 +252,48 @@ it('exposes the composition work-area lane as a named group', async () => {
 		sequenceStore.deleteCompositionAndReferences(compositionId);
 	}
 });
+
+it('exposes the layer sidebar as a named group', async () => {
+	const compositionId = 'composition-layer-sidebar-group';
+	sequenceStore.addComposition({
+		id: compositionId,
+		name: 'Sidebar group',
+		editorKind: 'composite-2d',
+		items: [],
+		tracks: [],
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 60
+	});
+	sequenceStore.switchTo(compositionId);
+	timelineStore._setTracks(createDefaultTracks());
+	timelineStore._setItems([
+		{
+			id: 'sidebar-text-item',
+			trackId: 'track-video-main',
+			from: 0,
+			durationInFrames: 60,
+			label: 'Sidebar title',
+			type: 'text',
+			text: 'Hello',
+			fontFamily: 'Inter',
+			fontSize: 64,
+			fontWeight: 700,
+			color: '#ffffff',
+			transform: { x: 0, y: 0, width: 960, height: 240 }
+		}
+	]);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const group = screen.getByRole('group', {
+			name: m.video_editor_composition_timeline_layers()
+		});
+		await expect.element(group).toBeVisible();
+		await expect.element(group.getByTestId('layer-expand-sidebar-text-item')).toBeVisible();
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(compositionId);
+	}
+});

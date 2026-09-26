@@ -193,20 +193,26 @@ boundary.
 - `list_media`: returns recent workspace media attachments so assistants can reuse existing assets.
 - `get_provider_readiness`: returns provider configuration, account, app-review, and public-media readiness checks.
 - `create_post`: creates a format-first post with variants and destination-specific settings.
-- `list_posts`: lists format-first posts for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_variant_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed.
+- `list_posts`: lists format-first posts for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_variant_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed. `status` and `content_profile` accept only their documented enum values so typos fail with `-32602`.
 - `get_post`: returns a post with its destination variants and delivery state.
 - `update_post`: updates editable source fields, schedule time, and an optional random-delay range while preserving omitted values.
 - `set_post_variants`: replaces a post's destination-specific outputs and media roles.
 - `reply_to_variant`: queues an explicit provider reply immediately or at a requested time.
 - `validate_post`: validates a post before scheduling or publishing.
-- `schedule_post`: schedules an existing post. The saved random-delay range is explicit or inherited from the Workspace, and the resulting Job time is authorized exactly.
+- `schedule_post`: schedules an existing post. The saved random-delay range is explicit or inherited from the Workspace, and the resulting Job time is authorized exactly. Accepts `idempotency_key` for safe retries and `dry_run` to validate without enqueueing.
 - `cancel_post`: cancels a scheduled post and its pending delivery Job.
-- `publish_post_now`: queues an existing post for immediate publishing.
+- `publish_post_now`: queues an existing post for immediate publishing. Accepts `dry_run` to validate without queueing. This action is irreversible once a worker picks it up: repeat the call with `confirm=true` to proceed.
+- `delete_post`: permanently deletes an editable post, its destination variants, and any linked draft. Repeat the call with `confirm=true` to proceed; a repeated call with the same `idempotency_key` replays the stored deletion.
+- `retry_failed_variants`: queues one retry batch for the remaining safely retryable failed destination variants.
+- `retry_variant`: queues a retry for one failed destination variant with a confirmed safe delivery outcome. Both retry operations use the post-action shape (`post_id` plus `expected_revision`) and return the post state with the durable retry Job ID.
+- `get_media`: returns one workspace media asset with its usage and deletion eligibility.
+- `update_media`: updates a workspace media asset's favorite flag or alt text.
+- `delete_media`: moves a workspace media asset to Trash when `list_media` reports `can_delete`. Repeat the call with `confirm=true` to proceed.
 - `list_post_events`: returns lifecycle events for a post.
 - `list_variant_comments`: lists comments for a published variant.
 - `reply_to_comment`: replies to an opaque comment ID returned by `list_variant_comments`.
 - `hide_comment`: hides a supported provider comment.
-- `delete_comment`: permanently deletes a supported provider comment.
+- `delete_comment`: permanently deletes a supported provider comment. Repeat the call with `confirm=true` to proceed.
 - `suggest_next_slot`: returns the next free configured posting slot for a workspace.
 - `upload_media_from_url`: fetches a public HTTP(S) media URL and stores it in a workspace.
 - `render_local_media_upload`: opens the MCP Apps local file picker. The widget
@@ -214,6 +220,18 @@ boundary.
   actor. OpenPost consumes the ticket before reading the body, sanitizes the
   filename, and streams the file through the normal validation, quota, storage,
   deduplication, analysis, and usage pipeline.
+
+Every execute-mode mutation accepts an optional `idempotency_key` routed into
+the existing REST idempotency path (`mutationIdempotencyRequest` plus
+`idempotency.Execute` and the idempotent application methods), so a retried
+call replays the stored result instead of running the mutation again.
+Irreversible tools (`delete_post`, `publish_post_now`, `delete_media`,
+`delete_comment`) additionally require a machine-enforceable `confirm=true`
+second call: the first call describes the irreversible effect and is rejected,
+and only the confirmed repeat runs. Post mutations return a unified shape, a
+summary status plus `job_id` (empty when no durable work is enqueued), with an
+optional `detail: summary|full` input selecting the complete post instead.
+Comment mutations report `job_id`.
 
 The directly advertised render tools are intentionally outside the delegated
 operation catalog; clients call them only when they want their Apps UI.

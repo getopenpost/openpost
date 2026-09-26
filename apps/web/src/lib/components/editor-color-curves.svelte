@@ -280,6 +280,7 @@
 			return;
 		}
 		const step = event.altKey ? 0.001 : event.shiftKey ? 0.05 : 0.01;
+		const largeStep = event.altKey ? 0.01 : event.shiftKey ? 0.5 : 0.1;
 		const delta =
 			event.key === 'ArrowLeft'
 				? { x: -step, y: 0 }
@@ -289,7 +290,15 @@
 						? { x: 0, y: -step }
 						: event.key === 'ArrowUp'
 							? { x: 0, y: step }
-							: null;
+							: event.key === 'PageDown'
+								? { x: 0, y: -largeStep }
+								: event.key === 'PageUp'
+									? { x: 0, y: largeStep }
+									: event.key === 'Home'
+										? { x: 0, y: -point.y }
+										: event.key === 'End'
+											? { x: 0, y: 1 - point.y }
+											: null;
 		if (!delta) return;
 		event.preventDefault();
 		const next = movedPoints(points, index, { x: point.x + delta.x, y: point.y + delta.y });

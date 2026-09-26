@@ -106,11 +106,15 @@
 	async function close() {
 		// medium-zoom ignores close while opening; retain an early Escape/click.
 		await opening;
-		if (zoom?.getZoomedImage() === image) await zoom.close();
-		if (activeSrcset === undefined) image.removeAttribute('srcset');
-		else image.setAttribute('srcset', activeSrcset);
-		if (sizes === undefined) image.removeAttribute('sizes');
-		else image.setAttribute('sizes', sizes);
+		// The tour remounts screenshots on tab switch, which nulls the bound
+		// node: after unmount there is no inline image to restore.
+		const node: HTMLImageElement | null = image ?? null;
+		if (zoom?.getZoomedImage() === node) await zoom.close();
+		if (!node) return;
+		if (activeSrcset === undefined) node.removeAttribute('srcset');
+		else node.setAttribute('srcset', activeSrcset);
+		if (sizes === undefined) node.removeAttribute('sizes');
+		else node.setAttribute('sizes', sizes);
 	}
 </script>
 

@@ -588,6 +588,7 @@
 								{:else if item.status === 'success'}
 									<span
 										class="flex size-8 items-center justify-center text-success-foreground"
+										role="img"
 										aria-label={m.media_upload_complete()}
 									>
 										<ProtectedIcon icon="success" class="size-4" />

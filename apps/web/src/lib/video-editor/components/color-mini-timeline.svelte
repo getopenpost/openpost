@@ -1,3 +1,7 @@
+<script module lang="ts">
+	import { nextKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
+</script>
+
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -256,12 +260,14 @@
 
 	function onTimelineKeydown(event: KeyboardEvent): void {
 		if (timelineStore.seekLocked) return;
-		let frame = timelineStore.currentFrame;
-		if (event.key === 'ArrowLeft') frame -= event.shiftKey ? 10 : 1;
-		else if (event.key === 'ArrowRight') frame += event.shiftKey ? 10 : 1;
-		else if (event.key === 'Home') frame = 0;
-		else if (event.key === 'End') frame = maxFrame;
-		else return;
+		const frame = nextKeyboardFrame(
+			timelineStore.currentFrame,
+			event.key,
+			event.shiftKey,
+			timelineStore.fps,
+			maxFrame
+		);
+		if (frame === null) return;
 		event.preventDefault();
 		editorSession.pausePlayback();
 		setCurrentFrame(Math.min(maxFrame, Math.max(0, frame)));

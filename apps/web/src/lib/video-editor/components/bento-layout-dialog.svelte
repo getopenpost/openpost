@@ -204,7 +204,7 @@
 		</Dialog.Header>
 
 		<div class="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-			<div class="flex flex-wrap gap-1.5" aria-label={m.video_editor_bento_title()}>
+			<div class="flex flex-wrap gap-1.5" role="group" aria-label={m.video_editor_bento_title()}>
 				{#each builtIns as preset (preset.id)}
 					<button
 						type="button"

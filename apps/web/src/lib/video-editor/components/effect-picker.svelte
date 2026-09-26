@@ -104,7 +104,7 @@
 	</Popover.Trigger>
 	<Popover.Content align="start" class="w-80 max-w-[calc(100vw-1rem)] p-0">
 		<Command.Root>
-			<Command.Input placeholder={searchPlaceholder} />
+			<Command.Input placeholder={searchPlaceholder} aria-label={searchPlaceholder} />
 			<Command.List bind:ref={listElement} class="max-h-[min(26rem,60vh)]">
 				<Command.Empty>{emptyLabel}</Command.Empty>
 				{#each groups as group (group.label)}

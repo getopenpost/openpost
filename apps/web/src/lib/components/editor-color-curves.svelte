@@ -253,6 +253,39 @@
 		ondraft(null);
 	}
 
+	/**
+	 * Pure arrow/PageUp/PageDown/Home/End delta for one curve point so the
+	 * keyboard-move hot path stays a flat switch instead of a nested ternary
+	 * chain. Returns null for keys that do not move the point.
+	 */
+	function curveKeyboardDelta(
+		key: string,
+		pointY: number,
+		step: number,
+		largeStep: number
+	): { x: number; y: number } | null {
+		switch (key) {
+			case 'ArrowLeft':
+				return { x: -step, y: 0 };
+			case 'ArrowRight':
+				return { x: step, y: 0 };
+			case 'ArrowDown':
+				return { x: 0, y: -step };
+			case 'ArrowUp':
+				return { x: 0, y: step };
+			case 'PageDown':
+				return { x: 0, y: -largeStep };
+			case 'PageUp':
+				return { x: 0, y: largeStep };
+			case 'Home':
+				return { x: 0, y: -pointY };
+			case 'End':
+				return { x: 0, y: 1 - pointY };
+			default:
+				return null;
+		}
+	}
+
 	function movePointByKeyboard(event: KeyboardEvent, index: number): void {
 		if (!gpuEffect.enabled) return;
 		const points = draft[activeChannel];
@@ -280,16 +313,8 @@
 			return;
 		}
 		const step = event.altKey ? 0.001 : event.shiftKey ? 0.05 : 0.01;
-		const delta =
-			event.key === 'ArrowLeft'
-				? { x: -step, y: 0 }
-				: event.key === 'ArrowRight'
-					? { x: step, y: 0 }
-					: event.key === 'ArrowDown'
-						? { x: 0, y: -step }
-						: event.key === 'ArrowUp'
-							? { x: 0, y: step }
-							: null;
+		const largeStep = event.altKey ? 0.01 : event.shiftKey ? 0.5 : 0.1;
+		const delta = curveKeyboardDelta(event.key, point.y, step, largeStep);
 		if (!delta) return;
 		event.preventDefault();
 		const next = movedPoints(points, index, { x: point.x + delta.x, y: point.y + delta.y });

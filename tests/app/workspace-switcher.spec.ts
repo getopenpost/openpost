@@ -1,14 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
-// BUG (filed 2026-09-03, test-prune audit): workspace selection silently fails to
-// apply after workspace mutations in E2E. Mechanism, proven with instrumented
-// runs: the create/switch dialog unmounts mid-flight (onDestroy fires with the
-// dialog still open), which flips its stale-request guard (active=false,
-// requestSequence mismatch), so setWorkspace() aborts and the UI keeps the old
-// workspace with no error. Skipped, not deleted: re-enable after the
-// dialog/store handshake is fixed to survive remounts.
-test.skip("workspace switcher creates and selects a workspace", async ({ page, request }) => {
+// The create-flow half of this selection race was fixed by decoupling workspace
+// selection from dialog mount state in create-workspace-dialog.svelte (the
+// selection guard now checks only the actor identity, so bootstrap-invalidation
+// remounts mid-flight no longer abort selection). Re-enabled to prove it end to end.
+test("workspace switcher creates and selects a workspace", async ({ page, request }) => {
   const unique = Date.now().toString(36);
   const email = `workspace-create-${unique}@example.com`;
   const firstName = `Personal ${unique}`;
@@ -224,11 +221,9 @@ test("dirty composer workspace switches can stay, save to the origin, or discard
   expect(draftWrites).toHaveLength(2);
 });
 
-// BUG (filed 2026-09-03, test-prune audit): switching workspaces while the
-// previous workspace has an in-flight request never applies the selection
-// (second workspace's accounts render hidden), same selection-application race
-// family as the create-flow failure above. Skipped, not deleted.
-test.skip("a slow previous-workspace response cannot replace current account data", async ({
+// Regression: switching workspaces while the previous workspace has an
+// in-flight request must keep the newly selected workspace's account data.
+test("a slow previous-workspace response cannot replace current account data", async ({
   page,
   request,
 }) => {

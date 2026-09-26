@@ -1609,6 +1609,7 @@
 												{/if}
 												{#if !account.is_active}
 													<span
+														role="img"
 														class="size-1.5 rounded-full bg-amber-500"
 														aria-label={m.accounts_connection_paused()}
 													></span>

@@ -399,14 +399,11 @@ test("composer sends workspace-local wall time as the exact scheduled instant", 
   await expect.poll(() => scheduledAt).toBe("2099-07-21T13:00:00.000Z");
 });
 
-// BUG (filed 2026-09-03, test-prune audit): workspace selection silently fails to
-// apply after workspace mutations in E2E. Mechanism, proven with instrumented
-// runs: the create/switch dialog unmounts mid-flight (onDestroy fires with the
-// dialog still open), which flips its stale-request guard (active=false,
-// requestSequence mismatch), so setWorkspace() aborts and the UI keeps the old
-// workspace with no error. Skipped, not deleted: re-enable after the
-// dialog/store handshake is fixed to survive remounts.
-test.skip("an in-flight autosave cannot attach an old-workspace draft after switching", async ({
+// The create/switch selection races behind this scenario were fixed by decoupling
+// workspace selection from dialog mount state (create-workspace-dialog.svelte) and by
+// making stale implicit bootstrap refreshes yield to newer explicit selections
+// (workspace.svelte.ts). Re-enabled to prove the in-flight autosave isolation end to end.
+test("an in-flight autosave cannot attach an old-workspace draft after switching", async ({
   page,
   request,
 }) => {

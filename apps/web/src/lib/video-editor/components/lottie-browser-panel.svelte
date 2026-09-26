@@ -144,7 +144,7 @@
 	}
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col" aria-label={m.video_editor_lottiefiles()}>
+<div class="flex min-h-0 flex-1 flex-col" role="group" aria-label={m.video_editor_lottiefiles()}>
 	<div class="flex flex-col gap-2 border-b border-[var(--video-editor-border)] p-2">
 		<label class="relative block">
 			<span class="sr-only">{m.video_editor_lottiefiles_search()}</span>

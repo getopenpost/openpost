@@ -1,14 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, password, registerUser } from "./helpers";
 
-// BUG (filed 2026-09-03, test-prune audit): workspace selection silently fails to
-// apply after workspace mutations in E2E. Mechanism, proven with instrumented
-// runs: the create/switch dialog unmounts mid-flight (onDestroy fires with the
-// dialog still open), which flips its stale-request guard (active=false,
-// requestSequence mismatch), so setWorkspace() aborts and the UI keeps the old
-// workspace with no error. Skipped, not deleted: re-enable after the
-// dialog/store handshake is fixed to survive remounts.
-test.skip("workspace settings delete the active workspace and keep another", async ({
+// The create/switch selection races behind the 2026-09-03 skip were fixed by
+// decoupling workspace selection from dialog mount state
+// (create-workspace-dialog.svelte) and by taking the refresh-only path for
+// stale implicit bootstraps (workspace.svelte.ts). Re-enabled to prove the
+// delete-active-workspace selection handoff end to end.
+test("workspace settings delete the active workspace and keep another", async ({
   page,
   request,
 }) => {

@@ -423,7 +423,7 @@
 				</div>
 			{/if}
 			{#if !compact || showPresets}
-				<div class="mt-1" aria-label={m.video_editor_color_presets()}>
+				<div class="mt-1" role="group" aria-label={m.video_editor_color_presets()}>
 					<div class="mb-1 text-[9px] tracking-wide text-[var(--video-editor-muted)] uppercase">
 						{m.video_editor_color_presets()}
 					</div>

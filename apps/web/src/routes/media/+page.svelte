@@ -1372,6 +1372,7 @@
 						class="h-11 pr-10 pl-9"
 						bind:value={searchInput}
 						placeholder={m.media_search_filename_alt()}
+						aria-label={m.media_search_filename_alt()}
 						onkeydown={(event) => {
 							if (event.key === 'Enter' && !event.isComposing) {
 								event.preventDefault();
@@ -1654,7 +1655,7 @@
 												src={getAuthenticatedMediaURL(
 													media.thumbnail_url || media.poster_thumbnail_url || ''
 												)}
-												alt=""
+												alt={media.alt_text || media.original_filename || m.media_library_title()}
 												loading="lazy"
 												class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
 											/>
@@ -1687,7 +1688,16 @@
 														percent: Math.max(0, media.processing_progress ?? 0)
 													})}
 												</div>
-												<div class="h-1.5 overflow-hidden rounded-full bg-muted">
+												<div
+													class="h-1.5 overflow-hidden rounded-full bg-muted"
+													role="progressbar"
+													aria-label={media.original_filename ||
+														media.alt_text ||
+														m.media_library_title()}
+													aria-valuemin={0}
+													aria-valuemax={100}
+													aria-valuenow={Math.max(0, media.processing_progress ?? 0)}
+												>
 													<div
 														class="h-full rounded-full bg-primary transition-[width]"
 														style:width={`${Math.min(

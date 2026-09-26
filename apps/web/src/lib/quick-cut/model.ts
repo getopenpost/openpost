@@ -590,3 +590,15 @@ export function estimateOutputBytes(
 	}
 	return Math.ceil(total * 1.08);
 }
+
+export type QuickCutStorageMode = 'cloud' | 'local';
+
+// Local projects without a workspace root live only in memory, so closing
+// discards them. Callers must confirm through the in-app dialog, never window.confirm.
+export function requiresCloseConfirmation(options: {
+	hasProject: boolean;
+	storageMode: QuickCutStorageMode;
+	hasWorkspaceRoot: boolean;
+}): boolean {
+	return options.hasProject && options.storageMode === 'local' && !options.hasWorkspaceRoot;
+}

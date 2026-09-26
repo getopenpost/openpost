@@ -199,6 +199,76 @@ describe('workspace settings state', () => {
 		});
 	});
 
+	it('keeps a newer selection when a stale implicit refresh resolves late', async () => {
+		const staleLoad = deferred<{
+			data: ReturnType<typeof bootstrap>;
+			error: null;
+			response: Response;
+		}>();
+		const allowSelection = deferred<boolean>();
+		const switchGuard = vi.fn(() => allowSelection.promise);
+		mocks.get.mockImplementation(
+			(
+				path: string,
+				options?: {
+					params?: { query?: { preferred_workspace_id?: string }; path?: { id?: string } };
+				}
+			) => {
+				if (path === '/app/bootstrap') {
+					if (options?.params?.query?.preferred_workspace_id === workspaceB.id) {
+						return Promise.resolve({
+							data: bootstrap([workspaceA, workspaceB], workspaceB.id, settings('Europe/Lisbon')),
+							error: null,
+							response: new Response(null, { status: 200 })
+						});
+					}
+					return staleLoad.promise;
+				}
+				if (path === '/workspaces/{id}/settings') {
+					return Promise.resolve({
+						data: settings('Europe/Lisbon'),
+						error: null,
+						response: new Response(null, { status: 200 })
+					});
+				}
+				throw new Error(`Unexpected GET ${path}`);
+			}
+		);
+		queryClient.setQueryData(
+			openPostBootstrapQueryKeys.workspaceSettings(workspaceB.id),
+			settings('Europe/Lisbon')
+		);
+		const context = new WorkspaceContext();
+		context.workspaces = [workspaceA, workspaceB];
+		context.currentWorkspace = workspaceA;
+		localStorage.setItem('openpost_current_workspace', JSON.stringify(workspaceA));
+		context.registerWorkspaceSwitchGuard(switchGuard);
+
+		// The explicit creation-flow selection of B yields inside its switch guard
+		// (guards run between the sequence bump and the persisted selection), so a
+		// stale implicit onboarding refresh with intent A can start mid-flight.
+		const pendingSelection = context.loadWorkspaces(workspaceB.id, {
+			selectionIsCurrent: () => true
+		});
+		await vi.waitFor(() => expect(switchGuard).toHaveBeenCalled());
+		const pendingRefresh = context.initialize();
+		allowSelection.resolve(true);
+		await pendingSelection;
+		expect(context.currentWorkspace?.id).toBe(workspaceB.id);
+		staleLoad.resolve({
+			data: bootstrap([workspaceA, workspaceB], workspaceA.id, settings('Europe/Berlin')),
+			error: null,
+			response: new Response(null, { status: 200 })
+		});
+		await pendingRefresh;
+
+		expect(context.workspaces).toEqual([workspaceA, workspaceB]);
+		expect(context.currentWorkspace?.id).toBe(workspaceB.id);
+		expect(JSON.parse(localStorage.getItem('openpost_current_workspace') ?? '{}')).toMatchObject({
+			id: workspaceB.id
+		});
+	});
+
 	it('does not restore a workspace after the requesting route becomes stale', async () => {
 		const workspaceLoad = deferred<{
 			data: ReturnType<typeof bootstrap>;

@@ -299,6 +299,7 @@
 	</div>
 
 	<span
+		role="img"
 		class="voiceover-secondary shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums sm:px-2"
 		aria-label={`${timecode} / ${totalFrames}`}
 	>

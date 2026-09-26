@@ -82,4 +82,11 @@ describe('KeyboardShortcutEditor', () => {
 		await expect.element(screen.getByRole('alert')).toHaveTextContent('Play or pause');
 		await expect.element(screen.getByRole('button', { name: 'Apply import' })).toBeDisabled();
 	});
+
+	it('exposes the shortcut filter bar as a named group', async () => {
+		const screen = await render(KeyboardShortcutEditor);
+		const group = screen.getByRole('group', { name: 'Filter shortcuts' });
+		await expect.element(group).toBeVisible();
+		await expect.element(group.getByRole('button', { name: /^All/ })).toBeVisible();
+	});
 });

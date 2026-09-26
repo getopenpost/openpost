@@ -103,7 +103,13 @@
 					void create();
 				}}
 			>
-				<Input bind:value={newTagName} maxlength={64} class="h-9" placeholder={m.media_new_tag()} />
+				<Input
+					bind:value={newTagName}
+					maxlength={64}
+					class="h-9"
+					placeholder={m.media_new_tag()}
+					aria-label={m.media_new_tag()}
+				/>
 				<Button
 					type="submit"
 					size="icon-sm"

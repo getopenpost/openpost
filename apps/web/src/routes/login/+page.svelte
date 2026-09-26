@@ -154,6 +154,7 @@
 
 	async function handleVerifyTOTP(e: Event) {
 		e.preventDefault();
+		if (totpCode.trim().length !== 6) return;
 		const requestSequence = ++authenticationRequestSequence;
 		const route = `${window.location.pathname}${window.location.search}`;
 		const target = loginTarget();
@@ -311,7 +312,11 @@
 						/>
 					</div>
 
-					<Button type="submit" disabled={isLoading} class="w-full gap-2">
+					<Button
+						type="submit"
+						disabled={isLoading || totpCode.trim().length !== 6}
+						class="w-full gap-2"
+					>
 						{#if isLoading}
 							<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
 							{m.auth_login_verifying()}

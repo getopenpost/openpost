@@ -1515,7 +1515,9 @@
 													draggingKey === item.key && 'opacity-50',
 													reschedulingKey === item.key && 'pointer-events-none opacity-60'
 												)}
-												aria-label={m.calendar_publication_card({ title: item.title })}
+												aria-label={item.accounts.length > 0
+													? `${m.calendar_publication_card({ title: item.title })} · ${m.calendar_account_count({ count: item.accounts.length })}`
+													: m.calendar_publication_card({ title: item.title })}
 												title={`${formatTime(item.occursAt)} · ${item.title} · ${item.workspaceName}`}
 												ondragstart={(event) => onDragStart(event, item)}
 												ondragend={onDragEnd}
@@ -1527,10 +1529,8 @@
 													aria-hidden="true"
 												></span>
 												{#if item.accounts.length > 0}
-													<span
-														class="flex shrink-0 items-center -space-x-1"
-														aria-label={m.calendar_account_count({ count: item.accounts.length })}
-													>
+													<!-- Decorative avatar stack: the button label already announces the account count. -->
+													<span class="flex shrink-0 items-center -space-x-1" aria-hidden="true">
 														{#each item.accounts.slice(0, 3) as account (account.id)}
 															<span
 																class="flex size-4 items-center justify-center rounded-full border border-border bg-background ring-1 ring-background"
@@ -1755,10 +1755,11 @@
 										: m.calendar_status_scheduled()}
 								</span>
 								{#if item.accounts.length > 0}
-									<span
-										class="flex items-center -space-x-1"
-										aria-label={m.calendar_account_count({ count: item.accounts.length })}
+									<!-- Decorative avatar stack: the sr-only label announces the account count. -->
+									<span class="sr-only"
+										>{m.calendar_account_count({ count: item.accounts.length })}</span
 									>
+									<span class="flex items-center -space-x-1" aria-hidden="true">
 										{#each item.accounts.slice(0, 5) as account (account.id)}
 											<span
 												class="flex size-6 items-center justify-center rounded-full border border-border bg-background ring-2 ring-background"

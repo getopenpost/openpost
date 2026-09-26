@@ -18,6 +18,7 @@
 
 {#if clipWidthPx >= minimumWidth}
 	<span
+		role="img"
 		class="relative z-10 mr-1 shrink-0 rounded bg-amber-950/80 px-1 py-0.5 font-mono text-[8px] font-semibold text-amber-100 ring-1 ring-amber-400/45"
 		title={description}
 		aria-label={description}

@@ -570,9 +570,14 @@
 {#snippet pickerBody()}
 	<div
 		class="flex shrink-0 items-center gap-1 border-b bg-muted/10 px-3 py-2 sm:px-4"
+		role="group"
 		aria-label={m.media_source()}
 	>
-		<div class="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">
+		<div
+			class="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+			role="tablist"
+			aria-label={m.media_source()}
+		>
 			<Button
 				variant={pickerMode === 'library' ? 'secondary' : 'ghost'}
 				size="sm"
@@ -733,7 +738,11 @@
 	{#if pickerMode === 'library'}
 		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
 			{#if typeFilters.length > 1}
-				<div class="mb-2 flex min-w-0 gap-1 overflow-x-auto" aria-label={m.media_type()}>
+				<div
+					class="mb-2 flex min-w-0 gap-1 overflow-x-auto"
+					role="group"
+					aria-label={m.media_type()}
+				>
 					{#each [{ value: 'all' as const, label: m.media_all_types() }, ...typeFilters] as typeFilter (typeFilter.value)}
 						<Button
 							variant={mediaType === typeFilter.value ? 'secondary' : 'ghost'}
@@ -769,7 +778,12 @@
 						role="search"
 						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
-					<Input bind:value={search} class="pl-9" placeholder={m.media_picker_search()} />
+					<Input
+						bind:value={search}
+						class="pl-9"
+						placeholder={m.media_picker_search()}
+						aria-label={m.media_picker_search()}
+					/>
 				</div>
 				<AppSelect
 					value={sort}

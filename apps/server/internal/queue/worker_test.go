@@ -124,6 +124,29 @@ func TestWorkerCompletesObsoleteRefreshJobWithoutTerminalTelemetry(t *testing.T)
 	require.Empty(t, recorder.Exceptions)
 }
 
+func TestWorkerFailsRefreshJobWithoutTokenManager(t *testing.T) {
+	db := createTestDB(t)
+	now := time.Now().UTC()
+	job := models.Job{
+		ID: "refresh-unconfigured", Type: jobregistry.TypeRefreshToken,
+		Payload: `{"account_id":"account-missing"}`, Status: jobStatusPending,
+		RunAt: now.Add(-time.Minute), MaxAttempts: 1,
+	}
+	_, err := db.NewInsert().Model(&job).Exec(t.Context())
+	require.NoError(t, err)
+
+	worker := NewWorker(db, "worker-refresh-unconfigured", time.Hour, nil, nil, stubStorage{})
+	recorder := &telemetry.MemoryRecorder{}
+	worker.SetTelemetry(recorder)
+
+	require.True(t, worker.processNextJobIfAvailable(t.Context()))
+	require.NoError(t, db.NewSelect().Model(&job).WherePK().Scan(t.Context()))
+	require.Equal(t, jobStatusFailed, job.Status)
+	require.Equal(t, "Token refresh failed. OpenPost will retry when the failure is temporary.", job.LastError)
+	require.Len(t, recorder.Exceptions, 1)
+	require.Equal(t, jobregistry.TypeRefreshToken, recorder.Exceptions[0].Properties["job_type"])
+}
+
 func TestWorkerFailsUnknownJobTypes(t *testing.T) {
 	t.Parallel()
 

@@ -183,14 +183,16 @@ describe('theme editor model', () => {
 		}
 	});
 
-	// KNOWN BUG (audited 2026-09-03, not fixed here): randomizing the colors
-	// section can pick a palette whose focal color fails contrast safety
-	// (hasReadableActionStates/hasVisibleFocus) against the workshop canvas, so
-	// parseThemeManifest rejects the draft with "light must contain a complete
-	// manifest". The editor surfaces this as a draft-incomplete error (fail-closed,
-	// save stays blocked), but Randomize should not produce an error state.
-	// Re-enable when the randomizer only emits contrast-safe palettes.
-	it.skip('produces a complete valid theme when randomizing colors', () => {
+	// The color randomizer only commits contrast-safe palettes: it walks the
+	// candidate palettes and skips any that fail isCompleteThemeSchemeManifest,
+	// so every seed below must serialize back through parseThemeManifest.
+	// Broader per-theme/per-scheme color coverage lives in
+	// theme-editor-randomization.test.ts; this test pins the full-manifest
+	// (all-section) randomize path plus the colors-only path. The notebook
+	// cases below fail without the contrast-safe walk (e.g. notebook/light
+	// seed 0 picks a focal color with no readable action states), so they
+	// prove the guard instead of passing incidentally like workshop/light.
+	it('produces a complete valid theme when randomizing colors', () => {
 		const source = getBuiltInTheme('workshop');
 		for (const seed of [0, 1, 2, 17, 42017, 2_147_483_647]) {
 			expect(() =>
@@ -198,6 +200,14 @@ describe('theme editor model', () => {
 			).not.toThrow();
 			const randomized = randomizeThemeManifest(source, 'light', seed, 'colors');
 			expect(() => parseThemeManifest(serializeThemeManifest(randomized))).not.toThrow();
+		}
+		const notebook = getBuiltInTheme('notebook');
+		for (const seed of [0, 12, 14]) {
+			const randomized = randomizeThemeManifest(notebook, 'light', seed, 'colors');
+			expect(
+				() => parseThemeManifest(serializeThemeManifest(randomized)),
+				`notebook light seed ${seed}`
+			).not.toThrow();
 		}
 	});
 });

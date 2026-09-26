@@ -9,6 +9,13 @@ import {
 import Fixture from './transport-bar.fixture.svelte';
 import '../../../routes/layout.css';
 
+it('exposes the transport timecode readout as a labeled image', async () => {
+	const screen = await render(Fixture, { width: 900 });
+	const readout = screen.getByRole('img', { name: '00:00:00 / 0', exact: true });
+	await expect.element(readout).toBeVisible();
+	expect(readout.element().textContent).toContain('00:00:00');
+});
+
 it('keeps a 44px play target inside the narrow transport bar', async () => {
 	await page.viewport(640, 450);
 	try {

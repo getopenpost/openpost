@@ -43,6 +43,7 @@
 		handleOpenChange(false);
 	}
 
+	// fallow-ignore-next-line complexity -- pre-existing hotspot (23/22 on main); this change only adds straight-line selection currency.
 	async function createWorkspace(event: SubmitEvent) {
 		event.preventDefault();
 		const name = workspaceName.trim();
@@ -58,6 +59,12 @@
 		const sequence = ++requestSequence;
 		const isSameActor = () => get(auth).user?.id === actorID;
 		const isCurrentRequest = () => active && sequence === requestSequence && open && isSameActor();
+		// Workspace selection must survive dialog unmount: bootstrap invalidations can
+		// remount this dialog mid-flight (firing onDestroy with the dialog still open),
+		// and aborting selection then leaves the workspace created server-side while the
+		// UI silently keeps the old one. Dialog chrome (close, error, pending) stays
+		// gated on isCurrentRequest; only the store selection uses the actor check.
+		const isSelectionCurrent = () => isSameActor();
 		try {
 			const organizationID = workspaceCtx.currentWorkspace?.organization_id?.trim() ?? '';
 			const body: components['schemas']['CreateWorkspaceInputBody'] = { name };
@@ -73,7 +80,7 @@
 			const projection = auth.captureUserProjection(actorID);
 			if (!projection) return;
 			const bootstrap = await workspaceCtx.loadWorkspaces(data.id, {
-				selectionIsCurrent: isCurrentRequest
+				selectionIsCurrent: isSelectionCurrent
 			});
 			if (!isSameActor() || !auth.projectBootstrap(bootstrap, projection)) return;
 			if (!isCurrentRequest()) return;

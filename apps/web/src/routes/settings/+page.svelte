@@ -230,11 +230,19 @@
 			requestSequence === workspaceDeletionRequestSequence &&
 			get(auth).user?.id === actorID;
 		const projected = await workspaceCtx.deleteWorkspace(workspaceID, confirmation);
-		if (!projected || !isCurrentRequest()) return false;
+		if (!projected) return false;
 		showToast(m.workspace_delete_success());
-		if (!isCurrentRequest()) return false;
+		// Deleting the current workspace shrinks the workspace list, which flips the
+		// layout's workspace access key and remounts this page through its onboarding
+		// loading gate before this continuation resumes. The remount clears `active`,
+		// so a remounted page that still shows the deleted workspace must navigate
+		// home. A user who navigated elsewhere mid-flight is left alone.
+		const showingDeletedWorkspace =
+			page.url.pathname === resolveAppPath('/settings') &&
+			page.url.searchParams.get('workspace') === workspaceID;
+		if (!isCurrentRequest() && !showingDeletedWorkspace) return false;
 		await goto(resolve('/'));
-		return isCurrentRequest();
+		return true;
 	}
 </script>
 

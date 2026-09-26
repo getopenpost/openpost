@@ -178,6 +178,55 @@ describe('MediaPicker meme source', () => {
 		expect(onConfirm).toHaveBeenCalledTimes(2);
 	});
 
+	it('gives the library search input an explicit accessible name', async () => {
+		const screen = await renderPicker(false);
+
+		const searchField = screen.getByPlaceholder(m.media_picker_search());
+		await expect.element(searchField).toHaveAttribute('aria-label', m.media_picker_search());
+
+		await searchField.fill('team photo');
+		await expect
+			.element(screen.getByRole('textbox', { name: m.media_picker_search() }))
+			.toHaveValue('team photo');
+	});
+
+	it('exposes the media source switcher as a named group', async () => {
+		const screen = await renderPicker(false);
+
+		const sourceGroup = screen.getByRole('group', { name: m.media_source() });
+		await expect.element(sourceGroup).toBeVisible();
+		await expect.element(sourceGroup.getByRole('tab', { name: 'Library' })).toBeVisible();
+	});
+
+	it('exposes the media source tablist by name', async () => {
+		const screen = await renderPicker(false);
+
+		const sourceTabs = screen.getByRole('tablist', { name: m.media_source() });
+		await expect.element(sourceTabs).toBeVisible();
+		await expect.element(sourceTabs.getByRole('tab', { name: 'Library' })).toBeVisible();
+	});
+
+	it('exposes the media type filter as a named group', async () => {
+		const screen = await render(MediaPicker, {
+			props: {
+				open: true,
+				workspaceId: 'workspace-1',
+				accept: ['image/*', 'video/*'],
+				maxSelection: 4,
+				multiple: true,
+				showCreate: false,
+				enableMeme: false,
+				compactNavigation: false,
+				services,
+				onConfirm: vi.fn()
+			}
+		});
+
+		const typeGroup = screen.getByRole('group', { name: m.media_type() });
+		await expect.element(typeGroup).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: m.media_images() })).toBeVisible();
+	});
+
 	it('opens upload-first pickers on the device source', async () => {
 		const screen = await render(MediaPicker, {
 			props: {

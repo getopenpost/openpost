@@ -88,6 +88,7 @@
 
 		<div
 			class="flex shrink-0 gap-1 overflow-x-auto border-b px-4 py-2"
+			role="group"
 			aria-label={m.media_source()}
 		>
 			<Button

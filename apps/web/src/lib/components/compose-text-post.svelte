@@ -2761,6 +2761,11 @@
 		window.addEventListener('pagehide', handlePageHide);
 		void (async () => {
 			await initializeComposer();
+			// Pick up a workspace-switch notice stashed by the pre-remount instance.
+			if (selectedWorkspaceId && !workspaceChangeNotice) {
+				const pending = ui.takePendingComposerWorkspaceNotice(selectedWorkspaceId);
+				if (pending) workspaceChangeNotice = pending;
+			}
 			await restoreImageEditorReturn();
 			await restoreActivePublicationBuild();
 		})();
@@ -3217,6 +3222,13 @@
 		workspaceChangeNotice = resetWorkspaceState ? m.compose_workspace_context_reset() : '';
 		if (resetWorkspaceState) {
 			ui.clearActiveComposerDraft();
+			// The layout remounts the app shell on workspace switches, destroying
+			// this instance before the notice above can render. Stash it so the
+			// remounted composer can show it.
+			ui.setPendingComposerWorkspaceNotice({
+				message: m.compose_workspace_context_reset(),
+				workspaceId: value
+			});
 			replaceState(resolve('/'), {});
 		}
 		void loadAccounts(value);
@@ -5599,7 +5611,10 @@
 		<AppToast
 			message={workspaceChangeNotice}
 			dismissLabel={m.common_dismiss()}
-			onDismiss={() => (workspaceChangeNotice = '')}
+			onDismiss={() => {
+				workspaceChangeNotice = '';
+				ui.clearPendingComposerWorkspaceNotice();
+			}}
 		/>
 	{/if}
 	{#if captionGenerationError}

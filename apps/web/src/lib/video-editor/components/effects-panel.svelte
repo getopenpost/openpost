@@ -844,6 +844,7 @@
 											{#if !isEffectAtDefaults(effect)}
 												<span
 													class="inline-flex size-4 shrink-0 items-center justify-center"
+													role="img"
 													aria-label={m.video_editor_effects_modified()}
 													data-effect-modified
 												>

@@ -34,6 +34,7 @@ import {
 	type SelectionPoint
 } from './selection';
 import { imageEditorTransformFromCenterDecomposition } from './collective-transform';
+import { imageEditorPageDimensions } from './page-dimensions';
 
 type FabricModule = typeof import('fabric');
 type FabricCanvas = InstanceType<FabricModule['Canvas']>;
@@ -957,8 +958,32 @@ export class OpenPostFabricAdapter {
 	}
 
 	sampleLayerPixelGrid(id: string, point: SelectionPoint, radius = 4): ImageEditorPixelGrid | null {
-		const sample = this.rasterizeLayerAtPoint(id, point);
-		return sample ? imageEditorPixelGrid(sample.image, sample.point, radius) : null;
+		const object = this.objectByLayerID.get(id);
+		if (!object || !globalThis.document) return null;
+		const { width: pageWidth, height: pageHeight } = imageEditorPageDimensions(
+			this.document,
+			this.page
+		);
+		const centerX = Math.floor(point.x);
+		const centerY = Math.floor(point.y);
+		if (centerX < 0 || centerY < 0 || centerX >= pageWidth || centerY >= pageHeight) return null;
+		const safeRadius = Math.max(1, Math.min(16, Math.floor(radius)));
+		const startX = Math.max(0, centerX - safeRadius);
+		const startY = Math.max(0, centerY - safeRadius);
+		const endX = Math.min(pageWidth, centerX + safeRadius + 1);
+		const endY = Math.min(pageHeight, centerY + safeRadius + 1);
+		const canvas = globalThis.document.createElement('canvas');
+		canvas.width = endX - startX;
+		canvas.height = endY - startY;
+		const context = canvas.getContext('2d', { willReadFrequently: true });
+		if (!context) return null;
+		context.translate(-startX, -startY);
+		object.render(context);
+		return imageEditorPixelGrid(
+			context.getImageData(0, 0, canvas.width, canvas.height),
+			{ x: centerX - startX, y: centerY - startY },
+			safeRadius
+		);
 	}
 
 	previewImageLayer(id: string, preview?: ImageEditorLayer): void {
@@ -1155,6 +1180,7 @@ export class OpenPostFabricAdapter {
 		this.objectByLayerID.clear();
 		this.decorationsByLayerID.clear();
 		this.layerSnapshots.clear();
+		this.selectedLayerSample = null;
 		this.backgroundObject = null;
 		this.backgroundSnapshot = '';
 		this.clearAltOriginGhost();

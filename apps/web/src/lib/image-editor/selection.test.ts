@@ -21,7 +21,9 @@ import {
 	strokePixelMaskRegion,
 	smoothSelectionPoints,
 	subtractPixelMasks,
+	subtractPixelMaskRegionFromSpans,
 	translatePixelMask,
+	translatePixelMaskRegion,
 	transformPixelMask,
 	pixelMaskTransformAround
 } from './selection';
@@ -68,7 +70,12 @@ describe('OpenPost Image Editor selection composition', () => {
 	});
 
 	it('creates and composes real pixel masks for rectangle and ellipse selections', () => {
-		const rectangle = rectanglePixelMask(8, 8, { x: 1, y: 1, width: 5, height: 4 });
+		const rectangle = rectanglePixelMask(8, 8, {
+			x: 1,
+			y: 1,
+			width: 5,
+			height: 4
+		});
 		const ellipse = ellipsePixelMask(8, 8, { x: 2, y: 2, width: 4, height: 4 });
 		const subtracted = combinePixelMasks(rectangle, ellipse, 'subtract');
 		const intersected = combinePixelMasks(rectangle, ellipse, 'intersect');
@@ -80,7 +87,12 @@ describe('OpenPost Image Editor selection composition', () => {
 		expect(intersected.reduce((total, value) => total + value, 0)).toBeLessThan(
 			ellipse.reduce((total, value) => total + value, 0)
 		);
-		expect(pixelMaskBounds(ellipse, 8, 8)).toEqual({ x: 2, y: 2, width: 4, height: 4 });
+		expect(pixelMaskBounds(ellipse, 8, 8)).toEqual({
+			x: 2,
+			y: 2,
+			width: 4,
+			height: 4
+		});
 	});
 
 	it('grows, shrinks, and inverts a binary pixel selection at the page boundary', () => {
@@ -206,23 +218,65 @@ describe('OpenPost Image Editor selection composition', () => {
 	});
 
 	it('moves a pixel selection without leaving a stale copy', () => {
-		const original = rectanglePixelMask(8, 6, { x: 1, y: 1, width: 3, height: 2 });
+		const original = rectanglePixelMask(8, 6, {
+			x: 1,
+			y: 1,
+			width: 3,
+			height: 2
+		});
 		const moved = translatePixelMask(original, 8, 6, 2, 1);
 
 		expect(pixelMaskContainsPoint(moved, 8, 6, { x: 3, y: 2 })).toBe(true);
 		expect(pixelMaskContainsPoint(moved, 8, 6, { x: 1, y: 1 })).toBe(false);
 		expect(moved.reduce((total, value) => total + value, 0)).toBe(6);
+		const clipped = translatePixelMaskRegion(
+			original,
+			8,
+			6,
+			{ x: 1, y: 1, width: 3, height: 2 },
+			-2,
+			1
+		);
+		expect(clipped.bounds).toEqual({ x: 0, y: 2, width: 2, height: 2 });
+		expect(pixelMaskToSpans(clipped.data, 8, 6)).toEqual([
+			{ x: 0, y: 2, width: 2 },
+			{ x: 0, y: 3, width: 2 }
+		]);
+	});
+
+	it('erases only the marked pixels while normalizing overlapping imported spans', () => {
+		const spans = [
+			{ x: 1.2, y: 1.9, width: 3.1 },
+			{ x: 3, y: 1, width: 3 },
+			{ x: 0, y: 3, width: 2 }
+		];
+		const region = strokePixelMaskRegion(8, 5, [{ x: 3.5, y: 1.5 }], 2)!;
+		expect(subtractPixelMaskRegionFromSpans(spans, 8, 5, region)).toEqual([
+			{ x: 1, y: 1, width: 1 },
+			{ x: 5, y: 1, width: 1 },
+			{ x: 0, y: 3, width: 2 }
+		]);
 	});
 
 	it('resizes and rotates masks around an explicit transform origin', () => {
-		const original = rectanglePixelMask(20, 20, { x: 4, y: 4, width: 4, height: 2 });
+		const original = rectanglePixelMask(20, 20, {
+			x: 4,
+			y: 4,
+			width: 4,
+			height: 2
+		});
 		const resized = transformPixelMask(
 			original,
 			20,
 			20,
 			pixelMaskTransformAround({ x: 4, y: 4 }, 2, 2)
 		);
-		expect(pixelMaskBounds(resized, 20, 20)).toEqual({ x: 4, y: 4, width: 8, height: 4 });
+		expect(pixelMaskBounds(resized, 20, 20)).toEqual({
+			x: 4,
+			y: 4,
+			width: 8,
+			height: 4
+		});
 
 		const rotated = transformPixelMask(
 			original,
@@ -230,7 +284,12 @@ describe('OpenPost Image Editor selection composition', () => {
 			20,
 			pixelMaskTransformAround({ x: 6, y: 5 }, 1, 1, 90)
 		);
-		expect(pixelMaskBounds(rotated, 20, 20)).toEqual({ x: 5, y: 3, width: 2, height: 4 });
+		expect(pixelMaskBounds(rotated, 20, 20)).toEqual({
+			x: 5,
+			y: 3,
+			width: 2,
+			height: 4
+		});
 	});
 
 	it('subtracts an erase mask from compact paint spans', () => {

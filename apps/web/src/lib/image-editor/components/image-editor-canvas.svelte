@@ -22,6 +22,7 @@
 		intersectPixelMasks,
 		normalizeSelectionBounds,
 		pixelMaskContainsPoint,
+		pixelMaskBounds,
 		polygonPixelMask,
 		rectanglePixelMask,
 		type SelectionBounds,
@@ -81,6 +82,7 @@
 		mode: ImageEditorSelectionMode;
 		targetLayerID?: string;
 		originalSelection?: Uint8Array;
+		originalSelectionBounds?: SelectionBounds | null;
 	}
 	interface PolygonalSelection {
 		points: SelectionPoint[];
@@ -1216,7 +1218,12 @@
 				current: point,
 				points: [point],
 				mode,
-				originalSelection: editor.pixelSelection.data.slice()
+				originalSelection: editor.pixelSelection.data.slice(),
+				originalSelectionBounds: pixelMaskBounds(
+					editor.pixelSelection.data,
+					editor.pixelSelection.width,
+					editor.pixelSelection.height
+				)
 			};
 			capturePointer(event.currentTarget, event.pointerId);
 			event.preventDefault();
@@ -1360,7 +1367,8 @@
 				editor.movePixelSelection(
 					gesture.originalSelection,
 					point.x - gesture.start.x,
-					point.y - gesture.start.y
+					point.y - gesture.start.y,
+					gesture.originalSelectionBounds
 				);
 			}
 		} else if (['marquee', 'ellipse_marquee'].includes(gesture.tool)) {
@@ -1422,7 +1430,8 @@
 				editor.movePixelSelection(
 					gesture.originalSelection,
 					point.x - gesture.start.x,
-					point.y - gesture.start.y
+					point.y - gesture.start.y,
+					gesture.originalSelectionBounds
 				);
 			}
 			selectionGesture = null;

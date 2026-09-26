@@ -252,6 +252,11 @@ export interface PixelMaskRegion extends SelectionBounds {
 	data: Uint8Array;
 }
 
+interface PixelMaskTranslation {
+	data: Uint8Array;
+	bounds: SelectionBounds | null;
+}
+
 export function strokePixelMask(
 	width: number,
 	height: number,
@@ -259,7 +264,10 @@ export function strokePixelMask(
 	size: number,
 	roughness = 0
 ): Uint8Array {
-	return rasterizeStrokeMask(width, height, points, size, roughness, { x: 0, y: 0 });
+	return rasterizeStrokeMask(width, height, points, size, roughness, {
+		x: 0,
+		y: 0
+	});
 }
 
 export function strokePixelMaskRegion(
@@ -397,19 +405,51 @@ export function translatePixelMask(
 	deltaX: number,
 	deltaY: number
 ): Uint8Array {
+	return translatePixelMaskRegion(
+		mask,
+		width,
+		height,
+		pixelMaskBounds(mask, width, height),
+		deltaX,
+		deltaY
+	).data;
+}
+
+export function translatePixelMaskRegion(
+	mask: Uint8Array,
+	width: number,
+	height: number,
+	bounds: SelectionBounds | null,
+	deltaX: number,
+	deltaY: number
+): PixelMaskTranslation {
 	const translated = new Uint8Array(width * height);
 	const offsetX = Math.round(deltaX);
 	const offsetY = Math.round(deltaY);
-	for (let y = 0; y < height; y++) {
+	if (!bounds) return { data: translated, bounds: null };
+	let minX = width;
+	let minY = height;
+	let maxX = -1;
+	let maxY = -1;
+	for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
 		const targetY = y + offsetY;
 		if (targetY < 0 || targetY >= height) continue;
-		for (let x = 0; x < width; x++) {
+		for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
 			if (!mask[y * width + x]) continue;
 			const targetX = x + offsetX;
-			if (targetX >= 0 && targetX < width) translated[targetY * width + targetX] = 1;
+			if (targetX < 0 || targetX >= width) continue;
+			translated[targetY * width + targetX] = 1;
+			minX = Math.min(minX, targetX);
+			minY = Math.min(minY, targetY);
+			maxX = Math.max(maxX, targetX);
+			maxY = Math.max(maxY, targetY);
 		}
 	}
-	return translated;
+	return {
+		data: translated,
+		bounds:
+			maxX < minX ? null : { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+	};
 }
 
 export function magicPixelMask(
@@ -565,6 +605,62 @@ export function pixelSpansToMask(
 		if (end > start) mask.fill(1, y * width + start, y * width + end);
 	}
 	return mask;
+}
+
+export function subtractPixelMaskRegionFromSpans(
+	spans: Array<{ x: number; y: number; width: number }>,
+	width: number,
+	height: number,
+	region: PixelMaskRegion
+): Array<{ x: number; y: number; width: number }> {
+	const rows = new Map<number, Array<{ start: number; end: number }>>();
+	for (const span of spans) {
+		const y = Math.floor(span.y);
+		if (y < 0 || y >= height) continue;
+		const start = clampInteger(Math.floor(span.x), 0, width);
+		const end = clampInteger(Math.ceil(span.x + span.width), 0, width);
+		if (end <= start) continue;
+		const intervals = rows.get(y) ?? [];
+		intervals.push({ start, end });
+		rows.set(y, intervals);
+	}
+	const result: Array<{ x: number; y: number; width: number }> = [];
+	const emit = (x: number, end: number, y: number): void => {
+		if (end > x) result.push({ x, y, width: end - x });
+	};
+	for (const y of [...rows.keys()].sort((left, right) => left - right)) {
+		const intervals = rows.get(y)!;
+		intervals.sort((left, right) => left.start - right.start);
+		let start = intervals[0].start;
+		let end = intervals[0].end;
+		const subtract = (): void => {
+			if (y < region.y || y >= region.y + region.height) {
+				emit(start, end, y);
+				return;
+			}
+			let runStart = start;
+			const overlapStart = Math.max(start, region.x);
+			const overlapEnd = Math.min(end, region.x + region.width);
+			for (let x = overlapStart; x < overlapEnd; x++) {
+				if (!region.data[(y - region.y) * region.width + x - region.x]) continue;
+				emit(runStart, x, y);
+				runStart = x + 1;
+			}
+			emit(runStart, end, y);
+		};
+		for (let index = 1; index < intervals.length; index++) {
+			const next = intervals[index];
+			if (next.start <= end) {
+				end = Math.max(end, next.end);
+				continue;
+			}
+			subtract();
+			start = next.start;
+			end = next.end;
+		}
+		subtract();
+	}
+	return result;
 }
 
 export function pixelMaskBounds(

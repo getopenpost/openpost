@@ -44,12 +44,14 @@ import {
 	pixelMaskToSpans,
 	strokePixelMask,
 	strokePixelMaskRegion,
+	subtractPixelMaskRegionFromSpans,
 	type PixelMaskRegion,
 	smoothSelectionPoints,
 	subtractPixelMasks,
-	translatePixelMask,
+	translatePixelMaskRegion,
 	transformPixelMask,
 	mergeSelectionIDs,
+	type SelectionBounds,
 	type SelectionPoint,
 	type ImageEditorPixelSelection
 } from './selection';
@@ -1083,21 +1085,25 @@ export class ImageEditorController {
 		return promotedIDs;
 	}
 
-	movePixelSelection(data: Uint8Array, deltaX: number, deltaY: number): void {
+	movePixelSelection(
+		data: Uint8Array,
+		deltaX: number,
+		deltaY: number,
+		bounds?: SelectionBounds | null
+	): void {
 		if (!this.pixelSelection) return;
-		const translated = translatePixelMask(
+		const translated = translatePixelMaskRegion(
 			data,
 			this.pixelSelection.width,
 			this.pixelSelection.height,
+			bounds === undefined
+				? pixelMaskBounds(data, this.pixelSelection.width, this.pixelSelection.height)
+				: bounds,
 			deltaX,
 			deltaY
 		);
-		this.pixelSelection = pixelMaskBounds(
-			translated,
-			this.pixelSelection.width,
-			this.pixelSelection.height
-		)
-			? { ...this.pixelSelection, data: translated }
+		this.pixelSelection = translated.bounds
+			? { ...this.pixelSelection, data: translated.data }
 			: null;
 	}
 
@@ -1295,12 +1301,13 @@ export class ImageEditorController {
 			if (target.type === 'paint' && target.paint) {
 				const width = Math.max(1, Math.round(target.paint.source_width));
 				const height = Math.max(1, Math.round(target.paint.source_height));
-				const paintMask = pixelSpansToMask(target.paint.spans, width, height);
-				const eraseMask = strokePixelMask(width, height, points, size);
-				target.paint.spans = pixelMaskToSpans(
-					subtractPixelMasks(paintMask, eraseMask),
+				const eraseMask = strokePixelMaskRegion(width, height, points, size);
+				if (!eraseMask) return;
+				target.paint.spans = subtractPixelMaskRegionFromSpans(
+					target.paint.spans,
 					width,
-					height
+					height,
+					eraseMask
 				);
 				target.erase_mask = undefined;
 				return;

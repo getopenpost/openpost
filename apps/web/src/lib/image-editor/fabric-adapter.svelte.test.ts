@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Canvas, IText } from 'fabric';
 import { page as browserPage } from 'vitest/browser';
 import { renderImageEditorPage } from './static-renderer';
@@ -231,6 +231,34 @@ async function freshRenderDigest(page: ImageEditorPage, selectedIDs: string[]): 
 }
 
 describe('OpenPost Image Editor Fabric reconciliation', () => {
+	it('updates selected-layer eyedropper pixels after an edit', async () => {
+		const layer = renderLayer('sampled', 10, 10, 40, 40);
+		layer.transform.rotation = 30;
+		const coveringLayer = renderLayer('cover', 10, 10, 40, 40);
+		coveringLayer.shape!.fill = '#0000ff';
+		const page = pageFixture([layer, coveringLayer]);
+		const mounted = await mountAdapter(documentFixture(page), page);
+		try {
+			const readPixels = vi.spyOn(CanvasRenderingContext2D.prototype, 'getImageData');
+			const before = mounted.adapter.sampleLayerPixelGrid('sampled', {
+				x: 30,
+				y: 30
+			});
+			expect(Array.from(before!.centerPixel).slice(0, 3)).toEqual([249, 115, 22]);
+			expect(readPixels.mock.calls.map(([, , width, height]) => [width, height])).toEqual([[9, 9]]);
+			readPixels.mockRestore();
+			const nextPage = structuredClone(page);
+			nextPage.layers[0].shape!.fill = '#123456';
+			await mounted.adapter.sync(documentFixture(nextPage), nextPage);
+			const after = mounted.adapter.sampleLayerPixelGrid('sampled', {
+				x: 30,
+				y: 30
+			});
+			expect(Array.from(after!.centerPixel).slice(0, 3)).toEqual([18, 52, 86]);
+		} finally {
+			mounted.adapter.dispose();
+		}
+	});
 	it.each([
 		{ key: 'rotation' as const, value: 45, selectionUpdates: { angle: 15 } },
 		{ key: 'flip_x' as const, value: true, selectionUpdates: { flipX: true } }

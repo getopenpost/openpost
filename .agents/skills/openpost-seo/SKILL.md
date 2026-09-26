@@ -11,7 +11,7 @@ Run the [claude-seo](https://github.com/AgriciDaniel/claude-seo) scripts directl
 
 - Use the shallow, Git-ignored checkout at `docs/references/claude-seo`, pinned to tag `v2.4.0` (`e77e783e38eeb738424eb72117abbd2dacdd88af`). Clone that tag there if the checkout is absent. Review upstream changes before updating the pin.
 - Read `skills/seo/SKILL.md` and only the relevant leaf skill in that checkout for the requested audit. Execute bundled Python scripts through `scripts/claude-seo run <script.py>`, not a bare interpreter.
-- Set `CLAUDE_SEO_PYTHON` to a Python 3.10+ executable and `CLAUDE_SEO_DATA_DIR` to a dedicated user-data directory outside the repository. Run `scripts/claude-seo setup` once for the isolated dependencies and Chromium, then require `scripts/claude-seo doctor --json` to report `ready: true`. The checkout's `install.sh` installs Claude Code skills globally and is unnecessary here.
+- Set `CLAUDE_SEO_PYTHON` to a Python 3.10+ executable and `CLAUDE_SEO_DATA_DIR` to a dedicated user-data directory outside the repository. Run `scripts/claude-seo doctor --json` first. If it is not ready, run `scripts/claude-seo setup` only when the user requested setup or dependency repair, then confirm the doctor reports `ready: true`. The checkout's `install.sh` installs Claude Code skills globally and is unnecessary here.
 
 ## OpenPost audit
 

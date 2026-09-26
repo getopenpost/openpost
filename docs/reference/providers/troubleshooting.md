@@ -94,6 +94,7 @@ OpenPost saves the error type, status, safe error code, next retry time, and the
 ## Instagram
 
 - Instagram requires an Instagram Business or Creator account connected to a Facebook Page.
+- Reading Instagram conversations requires a Meta app owned by a verified business, along with `instagram_basic`, `instagram_manage_messages`, and `pages_manage_metadata`.
 - `facebook account has no connected instagram business accounts` means the authenticated Meta user has no eligible Page-backed Instagram account, lacks full control of the Page, or the app lacks required scopes. Business Portfolio Pages require `business_management` for discovery.
 - Publishing requires `instagram_basic`, `instagram_content_publish`, Page scopes, and often Meta app review.
 - `Invalid Scopes: pages_read_user_content` during Instagram connect is the same Meta dependency error as Facebook: `instagram_basic` depends on `pages_read_user_content`. Meta's Conversations API also requires `pages_manage_metadata` to read Instagram messages. Enable both on the Meta app alongside the Instagram and Page scopes above, then reconnect.

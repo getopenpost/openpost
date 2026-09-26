@@ -40,7 +40,7 @@ func (i *InstagramAdapter) MessagingSupport() MessagingSupport {
 	return MessagingSupport{
 		Enabled: true, CanSend: true, RequiresOptIn: true, ReplyWindow: 24 * time.Hour,
 		RequiredScopes: []string{"instagram_basic", "instagram_manage_messages", "pages_manage_metadata"}, ConversationModel: "professional_message",
-		Unavailable: "Instagram messages require access to instagram_basic, instagram_manage_messages, and pages_manage_metadata. A person must message the professional account first.",
+		Unavailable: "Instagram messages require instagram_basic, instagram_manage_messages, and pages_manage_metadata, and a Meta app owned by a verified business. A person must message the professional account first.",
 	}
 }
 

@@ -26,13 +26,19 @@
 	let nextCursor = $state<string | null>(null);
 	let loadingMore = $state(false);
 	let loadMoreError = $state('');
-	let accountKey = $state('');
+	let accountKey = '';
+	let firstPageData: typeof imports.data;
+	let paginationGeneration = 0;
 	$effect(() => {
 		const key = `${workspaceID}:${accountID}`;
-		if (accountKey === key) return;
+		const data = imports.data;
+		if (accountKey === key && firstPageData === data) return;
 		accountKey = key;
+		firstPageData = data;
+		paginationGeneration += 1;
 		extraPosts = [];
 		nextCursor = null;
+		loadingMore = false;
 		loadMoreError = '';
 	});
 	let posts = $derived.by(() => {
@@ -49,22 +55,27 @@
 		if (!cursor || loadingMore) return;
 		const requestWorkspaceID = workspaceID;
 		const requestAccountID = accountID;
+		const requestGeneration = paginationGeneration;
+		const isCurrentRequest = () =>
+			workspaceID === requestWorkspaceID &&
+			accountID === requestAccountID &&
+			paginationGeneration === requestGeneration;
 		loadingMore = true;
 		loadMoreError = '';
 		try {
 			const data = await queryClient.fetchQuery(
 				postImportPageQueryOptions(postImportQueryAPI, requestWorkspaceID, requestAccountID, cursor)
 			);
-			if (workspaceID === requestWorkspaceID && accountID === requestAccountID) {
+			if (isCurrentRequest()) {
 				extraPosts = [...extraPosts, ...(data.posts ?? [])];
 				nextCursor = data.next_cursor ?? '';
 			}
 		} catch {
-			if (workspaceID === requestWorkspaceID && accountID === requestAccountID) {
+			if (isCurrentRequest()) {
 				loadMoreError = m.account_imports_load_failed();
 			}
 		} finally {
-			loadingMore = false;
+			if (isCurrentRequest()) loadingMore = false;
 		}
 	}
 

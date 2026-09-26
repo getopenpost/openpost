@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
+import { tick } from 'svelte';
 import { postImportQueryKey } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
@@ -113,6 +114,10 @@ it('discards loaded pages when the first page refreshes', async () => {
 		.mockResolvedValueOnce({
 			data: { ...overview, posts: [post('old')], next_cursor: undefined },
 			response: new Response()
+		})
+		.mockResolvedValueOnce({
+			data: { ...overview, posts: [post('fresh-old')], next_cursor: undefined },
+			response: new Response()
 		});
 	const screen = await render(
 		PostImportSettings,
@@ -125,11 +130,14 @@ it('discards loaded pages when the first page refreshes', async () => {
 	queryClient.setQueryData(postImportQueryKey('workspace-1', 'account-1'), {
 		...overview,
 		posts: [post('newer'), post('new')],
-		next_cursor: 'new-cursor'
+		next_cursor: 'older'
 	});
 	await expect.element(screen.getByText('Post newer')).toBeVisible();
 	await expect.element(screen.getByText('Post old')).not.toBeInTheDocument();
 	await expect.element(screen.getByRole('button', { name: 'Load more' })).toBeVisible();
+	await screen.getByRole('button', { name: 'Load more' }).click();
+	await expect.element(screen.getByText('Post fresh-old')).toBeVisible();
+	expect(getMock).toHaveBeenCalledTimes(3);
 });
 
 it('ignores an older page response after the first page refreshes', async () => {
@@ -175,15 +183,8 @@ it('ignores an older page response after the first page refreshes', async () => 
 	});
 	await expect.element(screen.getByText('Post newer')).toBeVisible();
 	finishPage?.();
-	await vi.waitFor(() =>
-		expect(
-			queryClient.getQueryState([
-				...postImportQueryKey('workspace-1', 'account-1'),
-				'page',
-				'older'
-			])?.status
-		).toBe('success')
-	);
+	await getMock.mock.results[1]?.value;
+	await tick();
 	await expect.element(screen.getByRole('button', { name: 'Load more' })).toBeEnabled();
 	await expect.element(screen.getByText('Post old')).not.toBeInTheDocument();
 });

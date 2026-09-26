@@ -36,6 +36,9 @@
 		accountKey = key;
 		firstPageData = data;
 		paginationGeneration += 1;
+		queryClient.removeQueries({
+			queryKey: [...postImportQueryKey(workspaceID, accountID), 'page']
+		});
 		extraPosts = [];
 		nextCursor = null;
 		loadingMore = false;

@@ -39,6 +39,28 @@
 		if (next.size === previous.size && [...next].every((id) => previous.has(id))) return null;
 		return next;
 	}
+
+	/**
+	 * Ruler slider keyboard map. Arrows step one frame (ten with shift),
+	 * PageUp/PageDown jump one second of frames, and Home/End jump to the
+	 * timeline bounds. Returns null for keys the ruler does not handle so the
+	 * caller can ignore them without side effects.
+	 */
+	export function nextRulerKeyboardFrame(
+		currentFrame: number,
+		key: string,
+		shiftKey: boolean,
+		fps: number,
+		maxEndFrame: number
+	): number | null {
+		if (key === 'ArrowLeft') return currentFrame - (shiftKey ? 10 : 1);
+		if (key === 'ArrowRight') return currentFrame + (shiftKey ? 10 : 1);
+		if (key === 'PageDown') return currentFrame - Math.max(1, Math.round(fps));
+		if (key === 'PageUp') return currentFrame + Math.max(1, Math.round(fps));
+		if (key === 'Home') return 0;
+		if (key === 'End') return maxEndFrame;
+		return null;
+	}
 </script>
 
 <script lang="ts">
@@ -1406,12 +1428,14 @@
 
 	function onRulerKeydown(event: KeyboardEvent): void {
 		if (timelineStore.seekLocked) return;
-		let frame = timelineStore.currentFrame;
-		if (event.key === 'ArrowLeft') frame -= event.shiftKey ? 10 : 1;
-		else if (event.key === 'ArrowRight') frame += event.shiftKey ? 10 : 1;
-		else if (event.key === 'Home') frame = 0;
-		else if (event.key === 'End') frame = timelineStore.maxItemEndFrame;
-		else return;
+		const frame = nextRulerKeyboardFrame(
+			timelineStore.currentFrame,
+			event.key,
+			event.shiftKey,
+			fps,
+			timelineStore.maxItemEndFrame
+		);
+		if (frame === null) return;
 		event.preventDefault();
 		setCurrentFrame(frame);
 		audioSkimController.schedule(frame);

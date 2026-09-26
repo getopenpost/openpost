@@ -255,8 +255,13 @@ export async function listGuestImageEditorDesigns(limit = 12): Promise<LocalImag
 	const result = records
 		.sort((left, right) => right.updated_at.localeCompare(left.updated_at))
 		.slice(0, limit);
-	await Promise.all(result.map((record) => warmGuestImageEditorMedia(record.document)));
 	return result;
+}
+
+export async function warmGuestImageEditorDesignMedia(
+	document: ImageEditorDocument
+): Promise<string[]> {
+	return await warmGuestImageEditorMedia(document);
 }
 
 export async function deleteGuestImageEditorDesign(id: string): Promise<void> {

@@ -31,6 +31,7 @@
 		deleteGuestImageEditorDesign,
 		listGuestImageEditorDesigns,
 		requestGuestImageEditorPersistence,
+		warmGuestImageEditorDesignMedia,
 		type LocalImageEditorDesign
 	} from '$lib/image-editor/local-persistence';
 	import { trackPublicImageEditorEvent } from '$lib/image-editor/public-telemetry';
@@ -115,6 +116,7 @@
 	);
 
 	let localDesignListMounted = false;
+	let localDesignLoadSequence = 0;
 	const heldLocalDesignIDs = new Set<string>();
 	onMount(() => {
 		localDesignListMounted = true;
@@ -127,11 +129,12 @@
 	});
 
 	async function loadLocalDesigns(): Promise<void> {
+		const sequence = ++localDesignLoadSequence;
 		localLoading = true;
 		localLoadError = '';
 		try {
 			const localDesigns = await listGuestImageEditorDesigns(localLimit);
-			if (!localDesignListMounted) {
+			if (!localDesignListMounted || sequence !== localDesignLoadSequence) {
 				for (const design of localDesigns)
 					releaseUnretainedLocalImageEditorMediaForDesign(design.id);
 				return;
@@ -148,14 +151,20 @@
 				retainLocalImageEditorMediaForDesign(id);
 				heldLocalDesignIDs.add(id);
 			}
+			await Promise.all(
+				localDesigns.map((record) => warmGuestImageEditorDesignMedia(record.document))
+			);
+			if (!localDesignListMounted || sequence !== localDesignLoadSequence) return;
 			recentDesigns = localDesigns;
 			trackPublicImageEditorEvent('image_editor_public_view', {
 				returning_guest: localDesigns.length > 0
 			});
 		} catch (cause) {
-			localLoadError = cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
+			if (sequence === localDesignLoadSequence)
+				localLoadError =
+					cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
 		} finally {
-			localLoading = false;
+			if (sequence === localDesignLoadSequence) localLoading = false;
 		}
 	}
 

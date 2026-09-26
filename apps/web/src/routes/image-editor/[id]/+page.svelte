@@ -19,6 +19,10 @@
 		loadGuestImageEditorDesign
 	} from '$lib/image-editor/local-persistence';
 	import { trackPublicImageEditorEvent } from '$lib/image-editor/public-telemetry';
+	import {
+		releaseLocalImageEditorMediaForDesign,
+		retainLocalImageEditorMediaForDesign
+	} from '$lib/image-editor/local-media-url';
 	import { migrateImageEditorDocument } from '$lib/image-editor/document';
 	import type { ImageEditorBrandKit, ImageEditorDocumentResponse } from '$lib/image-editor/types';
 	import ImageEditorShell from '$lib/image-editor/components/image-editor-shell.svelte';
@@ -50,10 +54,15 @@
 
 	$effect(() => {
 		const designID = page.params.id ?? '';
+		const local = isLocalImageEditorDesignID(designID);
+		if (local) retainLocalImageEditorMediaForDesign(designID);
 		const request = ++loadRequest;
 		untrack(() => {
 			void initialize(designID, request);
 		});
+		return () => {
+			if (local) releaseLocalImageEditorMediaForDesign(designID);
+		};
 	});
 
 	async function initialize(designID: string, request: number): Promise<void> {

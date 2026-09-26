@@ -1,9 +1,12 @@
-import { strToU8, zipSync } from 'fflate';
+import { strToU8, Zip, ZipPassThrough } from 'fflate';
 import type { ImageEditorDocument, ImageEditorPage } from './types';
 import { OpenPostFabricAdapter } from './fabric-adapter';
 import { m } from '$lib/paraglide/messages';
 import { imageEditorArchiveFilename, imageEditorPageFilename } from './export-names';
+import { IMAGE_EDITOR_EXPORT_WORKING_MEMORY_LIMIT } from './export-budget';
 import { imageEditorPageDimensions } from './page-dimensions';
+
+const ARCHIVE_YIELD_BYTES = 4 * 1024 * 1024;
 
 export interface ImageEditorRenderedPage {
 	page: ImageEditorPage;
@@ -19,6 +22,11 @@ export async function renderImageEditorPages(
 ): Promise<ImageEditorRenderedPage[]> {
 	const pages = imageEditorDocument.pages.filter((page) => pageIDs.includes(page.id));
 	const results: ImageEditorRenderedPage[] = [];
+	const maxPixels = pages.reduce((largest, page) => {
+		const { width, height } = imageEditorPageDimensions(imageEditorDocument, page);
+		return Math.max(largest, width * height);
+	}, 0);
+	let retainedBytes = 0;
 	for (let index = 0; index < pages.length; index++) {
 		signal?.throwIfAborted();
 		const page = pages[index];
@@ -30,6 +38,13 @@ export async function renderImageEditorPages(
 				signal
 			)
 		);
+		retainedBytes += results.at(-1)!.blob.size;
+		if (
+			maxPixels * 9 + retainedBytes * (pages.length > 1 ? 3 : 1) >
+			IMAGE_EDITOR_EXPORT_WORKING_MEMORY_LIMIT
+		) {
+			throw new Error('The rendered pages exceed the browser export memory limit.');
+		}
 		onProgress?.(index + 1, pages.length);
 		signal?.throwIfAborted();
 		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -158,20 +173,72 @@ export async function downloadRenderedPages(
 		downloadBlob(pages[0].blob, pages[0].filename);
 		return;
 	}
-	const entries = await Promise.all(
-		pages.map(
-			async (page) => [page.filename, new Uint8Array(await page.blob.arrayBuffer())] as const
-		)
-	);
-	const files = Object.fromEntries(entries);
-	const zipped = zipSync({
-		...files,
-		'manifest.txt': strToU8(m.image_editor_zip_manifest({ count: pages.length }))
+	downloadBlob(await createRenderedPagesArchive(pages), imageEditorArchiveFilename(title));
+}
+
+export async function createRenderedPagesArchive(pages: ImageEditorRenderedPage[]): Promise<Blob> {
+	const retainedPageBytes = pages.reduce((total, page) => total + page.blob.size, 0);
+	const chunks: Uint8Array<ArrayBuffer>[] = [];
+	let archiveBytes = 0;
+	let failure: Error | null = null;
+	let complete!: () => void;
+	let rejectComplete!: (error: Error) => void;
+	const finished = new Promise<void>((resolve, reject) => {
+		complete = resolve;
+		rejectComplete = reject;
 	});
-	downloadBlob(
-		new Blob([zipped.slice().buffer], { type: 'application/zip' }),
-		imageEditorArchiveFilename(title)
-	);
+	void finished.catch(() => undefined);
+	const zip = new Zip((error, chunk, final) => {
+		if (failure) return;
+		if (error) {
+			failure = error;
+			rejectComplete(error);
+			return;
+		}
+		archiveBytes += chunk.byteLength;
+		if (retainedPageBytes + archiveBytes * 2 > IMAGE_EDITOR_EXPORT_WORKING_MEMORY_LIMIT) {
+			failure = new Error('The rendered pages exceed the browser archive memory limit.');
+			rejectComplete(failure);
+			return;
+		}
+		const owned = new Uint8Array(chunk.byteLength);
+		owned.set(chunk);
+		chunks.push(owned);
+		if (final) complete();
+	});
+	try {
+		for (const page of pages) {
+			const entry = new ZipPassThrough(page.filename);
+			zip.add(entry);
+			const reader = page.blob.stream().getReader();
+			let bytesSinceYield = 0;
+			try {
+				while (true) {
+					if (failure) throw failure;
+					const { done, value } = await reader.read();
+					if (done) break;
+					entry.push(value);
+					bytesSinceYield += value.byteLength;
+					if (bytesSinceYield >= ARCHIVE_YIELD_BYTES) {
+						bytesSinceYield = 0;
+						await new Promise<void>((resolve) => setTimeout(resolve, 0));
+					}
+				}
+				entry.push(new Uint8Array(), true);
+			} finally {
+				reader.releaseLock();
+			}
+		}
+		const manifest = new ZipPassThrough('manifest.txt');
+		zip.add(manifest);
+		manifest.push(strToU8(m.image_editor_zip_manifest({ count: pages.length })), true);
+		zip.end();
+		await finished;
+		return new Blob(chunks, { type: 'application/zip' });
+	} catch (cause) {
+		zip.terminate();
+		throw cause;
+	}
 }
 
 function downloadBlob(blob: Blob, filename: string): void {

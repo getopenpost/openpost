@@ -1,4 +1,13 @@
-import { strFromU8, strToU8, Unzip, UnzipInflate, zipSync } from 'fflate';
+import {
+	strFromU8,
+	strToU8,
+	Unzip,
+	UnzipInflate,
+	UnzipPassThrough,
+	Zip,
+	AsyncZipDeflate,
+	ZipPassThrough
+} from 'fflate';
 import {
 	cloneImageEditorDocument,
 	cloneImageEditorPage,
@@ -15,6 +24,7 @@ const MAX_PROJECT_ARCHIVE_BYTES = 128 * 1024 * 1024;
 const MAX_PROJECT_MEDIA_BYTES = 50 * 1024 * 1024;
 const MAX_PROJECT_TOTAL_MEDIA_BYTES = 200 * 1024 * 1024;
 const MAX_PROJECT_MEDIA_ITEMS = 500;
+const ARCHIVE_YIELD_BYTES = 4 * 1024 * 1024;
 
 export interface ImageEditorProjectMediaSource {
 	name: string;
@@ -43,9 +53,7 @@ interface ParsedImageEditorProjectManifest {
 	media: ImageEditorProjectMediaEntry[];
 }
 
-interface ProjectArchive {
-	[path: string]: Uint8Array;
-}
+type ProjectArchive = Record<string, Blob>;
 
 type ProjectJSONValue =
 	| string
@@ -85,8 +93,11 @@ export async function createImageEditorProjectArchive(
 		page.preview_media_id = undefined;
 		page.latest_export_media_id = undefined;
 	}
-	const files: Record<string, Uint8Array> = {};
 	const media: ImageEditorProjectMediaEntry[] = [];
+	const sources: Array<{
+		path: string;
+		source: ImageEditorProjectMediaSource;
+	}> = [];
 	let totalBytes = 0;
 	for (const [index, id] of imageEditorPortableMediaIDs(projectDocument).entries()) {
 		const source = await loadMedia(id);
@@ -98,7 +109,7 @@ export async function createImageEditorProjectArchive(
 			throw new Error('Project media exceeds the 200 MB portable-project limit.');
 		}
 		const path = `media/${String(index + 1).padStart(3, '0')}-${safeProjectName(source.name)}`;
-		files[path] = new Uint8Array(await source.blob.arrayBuffer());
+		sources.push({ path, source });
 		media.push({
 			id,
 			path,
@@ -114,12 +125,75 @@ export async function createImageEditorProjectArchive(
 		document: projectDocument,
 		media
 	};
-	files['project.json'] = strToU8(JSON.stringify(manifest));
-	const archive = zipSync(files, { level: 6 });
-	if (archive.byteLength > MAX_PROJECT_ARCHIVE_BYTES) {
-		throw new Error('The compressed project exceeds the 128 MB portable-project limit.');
+	const chunks: Uint8Array<ArrayBuffer>[] = [];
+	let archiveBytes = 0;
+	let failure: Error | null = null;
+	let complete!: () => void;
+	let rejectComplete!: (error: Error) => void;
+	const finished = new Promise<void>((resolve, reject) => {
+		complete = resolve;
+		rejectComplete = reject;
+	});
+	void finished.catch(() => undefined);
+	const zip = new Zip((error, chunk, final) => {
+		if (failure) return;
+		if (error) {
+			failure = error;
+			rejectComplete(error);
+			return;
+		}
+		archiveBytes += chunk.byteLength;
+		if (archiveBytes > MAX_PROJECT_ARCHIVE_BYTES) {
+			failure = new Error('The compressed project exceeds the 128 MB portable-project limit.');
+			rejectComplete(failure);
+			return;
+		}
+		const owned = new Uint8Array(chunk.byteLength);
+		owned.set(chunk);
+		chunks.push(owned);
+		if (final) complete();
+	});
+	try {
+		const projectEntry = new AsyncZipDeflate('project.json', { level: 6 });
+		zip.add(projectEntry);
+		projectEntry.push(strToU8(JSON.stringify(manifest)), true);
+		for (const { path, source } of sources) {
+			const entry = mediaIsCompressed(source.mimeType || source.blob.type)
+				? new ZipPassThrough(path)
+				: new AsyncZipDeflate(path, { level: 6 });
+			zip.add(entry);
+			const reader = source.blob.stream().getReader();
+			let bytesSinceYield = 0;
+			try {
+				while (true) {
+					if (failure) throw failure;
+					const { done, value } = await reader.read();
+					if (done) break;
+					entry.push(value);
+					bytesSinceYield += value.byteLength;
+					if (bytesSinceYield >= ARCHIVE_YIELD_BYTES) {
+						bytesSinceYield = 0;
+						await new Promise<void>((resolve) => setTimeout(resolve, 0));
+					}
+				}
+				entry.push(new Uint8Array(), true);
+			} finally {
+				reader.releaseLock();
+			}
+		}
+		zip.end();
+		await finished;
+		return new Blob(chunks, { type: IMAGE_EDITOR_PROJECT_MIME });
+	} catch (cause) {
+		zip.terminate();
+		throw cause;
 	}
-	return new Blob([Uint8Array.from(archive).buffer], { type: IMAGE_EDITOR_PROJECT_MIME });
+}
+
+function mediaIsCompressed(mimeType: string): boolean {
+	return /^(?:image\/(?:png|jpe?g|webp|gif|avif|heic|heif)|audio\/(?:aac|flac|mp4|mpeg|ogg|webm)|video\/(?:mp4|mpeg|ogg|quicktime|webm)|application\/(?:pdf|zip|x-zip-compressed))/iu.test(
+		mimeType
+	);
 }
 
 export async function parseImageEditorProjectArchive(
@@ -130,18 +204,18 @@ export async function parseImageEditorProjectArchive(
 	}
 	let archive: ProjectArchive;
 	try {
-		archive = unzipProjectSafely(new Uint8Array(await file.arrayBuffer()));
+		archive = await unzipProjectSafely(file);
 		if (Object.keys(archive).length === 0) throw new Error('Empty archive');
 	} catch {
 		throw new Error('The project archive is damaged or is not an OpenPost Image Editor project.');
 	}
 	const projectJSON = archive['project.json'];
-	if (!projectJSON || projectJSON.byteLength > 10 * 1024 * 1024) {
+	if (!projectJSON || projectJSON.size > 10 * 1024 * 1024) {
 		throw new Error('The project manifest is missing or too large.');
 	}
 	let rawManifest: unknown;
 	try {
-		rawManifest = JSON.parse(strFromU8(projectJSON));
+		rawManifest = JSON.parse(strFromU8(new Uint8Array(await projectJSON.arrayBuffer())));
 	} catch {
 		throw new Error('The project manifest is not valid JSON.');
 	}
@@ -176,10 +250,10 @@ export async function parseImageEditorProjectArchive(
 			throw new Error('The project media manifest contains an unsafe or duplicate entry.');
 		}
 		const bytes = archive[entry.path];
-		if (!bytes || bytes.byteLength !== entry.size || bytes.byteLength > MAX_PROJECT_MEDIA_BYTES) {
+		if (!bytes || bytes.size !== entry.size || bytes.size > MAX_PROJECT_MEDIA_BYTES) {
 			throw new Error(`Project media ${entry.name || entry.id} is missing or has an invalid size.`);
 		}
-		totalBytes += bytes.byteLength;
+		totalBytes += bytes.size;
 		if (totalBytes > MAX_PROJECT_TOTAL_MEDIA_BYTES) {
 			throw new Error('Project media exceeds the 200 MB portable-project limit.');
 		}
@@ -187,7 +261,7 @@ export async function parseImageEditorProjectArchive(
 		seenPaths.add(entry.path);
 		return {
 			...entry,
-			file: new File([Uint8Array.from(bytes).buffer], safeProjectName(entry.name), {
+			file: new File([bytes], safeProjectName(entry.name), {
 				type: entry.mime_type
 			})
 		};
@@ -206,15 +280,20 @@ export async function parseImageEditorProjectArchive(
 	return { document: importedDocument, media };
 }
 
-function unzipProjectSafely(compressed: Uint8Array): ProjectArchive {
+async function unzipProjectSafely(file: File): Promise<ProjectArchive> {
 	const archive: ProjectArchive = {};
 	let totalOutputBytes = 0;
 	let entryCount = 0;
+	const seenPaths = new Set<string>();
 	const unzip = new Unzip((entry) => {
 		entryCount++;
 		if (entryCount > MAX_PROJECT_MEDIA_ITEMS + 1) {
 			throw new Error('The project contains too many files.');
 		}
+		if (seenPaths.has(entry.name) || (entry.compression !== 0 && entry.compression !== 8)) {
+			throw new Error('The project contains a duplicate or unsupported ZIP entry.');
+		}
+		seenPaths.add(entry.name);
 		const maximum = entry.name === 'project.json' ? 10 * 1024 * 1024 : MAX_PROJECT_MEDIA_BYTES;
 		if (entry.originalSize !== undefined && entry.originalSize > maximum) {
 			throw new Error('A project entry exceeds its safe extraction limit.');
@@ -234,18 +313,32 @@ function unzipProjectSafely(compressed: Uint8Array): ProjectArchive {
 			}
 			chunks.push(data);
 			if (!final) return;
-			const output = new Uint8Array(entryBytes);
-			let offset = 0;
-			for (const chunk of chunks) {
-				output.set(chunk, offset);
-				offset += chunk.byteLength;
-			}
-			archive[entry.name] = output;
+			archive[entry.name] = new Blob(chunks);
 		};
 		entry.start();
 	});
+	unzip.register(UnzipPassThrough);
 	unzip.register(UnzipInflate);
-	unzip.push(compressed, true);
+	const reader = file.stream().getReader();
+	let bytesSinceYield = 0;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			unzip.push(value, false);
+			bytesSinceYield += value.byteLength;
+			if (bytesSinceYield >= ARCHIVE_YIELD_BYTES) {
+				bytesSinceYield = 0;
+				await new Promise<void>((resolve) => setTimeout(resolve, 0));
+			}
+		}
+		unzip.push(new Uint8Array(), true);
+	} catch (cause) {
+		await reader.cancel(cause).catch(() => undefined);
+		throw cause;
+	} finally {
+		reader.releaseLock();
+	}
 	return archive;
 }
 

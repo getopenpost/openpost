@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { strFromU8, unzipSync } from 'fflate';
 import { blankImageEditorDocument, defaultTransform } from './document';
-import { renderImageEditorPage } from './static-renderer';
+import { createRenderedPagesArchive, renderImageEditorPage } from './static-renderer';
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -29,6 +30,36 @@ describe('Image Editor full-resolution rendering', () => {
 			bitmap.close();
 		}
 	});
+
+	it('packages multiple encoded pages without changing their bytes', async () => {
+		const document = blankImageEditorDocument({
+			key: 'archive-test',
+			name: 'Archive test',
+			default_format: 'png',
+			profiles: [],
+			width_px: 64,
+			height_px: 64
+		});
+		const first = new Uint8Array([1, 2, 3, 4]);
+		const second = new Uint8Array([5, 6, 7, 8]);
+		const archive = await createRenderedPagesArchive([
+			{
+				page: document.pages[0],
+				filename: 'first.png',
+				blob: new Blob([first])
+			},
+			{
+				page: document.pages[0],
+				filename: 'second.webp',
+				blob: new Blob([second])
+			}
+		]);
+		const files = unzipSync(new Uint8Array(await archive.arrayBuffer()));
+		expect(files['first.png']).toEqual(first);
+		expect(files['second.webp']).toEqual(second);
+		expect(strFromU8(files['manifest.txt'])).toContain('2');
+	});
+
 	it.each(['background', 'layer'] as const)(
 		'rejects an export with missing %s media',
 		async (target) => {

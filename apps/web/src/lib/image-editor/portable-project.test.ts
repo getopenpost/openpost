@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Unzip, UnzipInflate, UnzipPassThrough } from 'fflate';
 import { blankImageEditorDocument, defaultImageAdjustments, defaultTransform } from './document';
 import {
 	createImageEditorProjectArchive,
@@ -94,6 +95,33 @@ describe('OpenPost Image Editor portable projects', () => {
 		expect(parsed.media[0].id).toBe('media-source');
 		expect([...new Uint8Array(await parsed.media[0].file.arrayBuffer())]).toEqual([1, 2, 3]);
 		expect(safeImageEditorProjectFilename(document.title)).toBe('Launch-card.openpost-image');
+	});
+
+	it('stores encoded source media without a second compression pass', async () => {
+		const document = blankImageEditorDocument(preset);
+		document.pages[0].background = {
+			type: 'image',
+			opacity: 1,
+			image: { media_id: 'encoded-photo', fit: 'cover' }
+		};
+		const archive = await createImageEditorProjectArchive(document, async () => ({
+			name: 'photo.jpg',
+			mimeType: 'image/jpeg',
+			blob: new Blob([new Uint8Array([255, 216, 255, 217])], {
+				type: 'image/jpeg'
+			})
+		}));
+		const methods = new Map<string, number>();
+		const unzip = new Unzip((entry) => {
+			methods.set(entry.name, entry.compression);
+			entry.ondata = () => undefined;
+			entry.start();
+		});
+		unzip.register(UnzipInflate);
+		unzip.register(UnzipPassThrough);
+		unzip.push(new Uint8Array(await archive.arrayBuffer()), true);
+		expect(methods.get('media/001-photo.jpg')).toBe(0);
+		expect(methods.get('project.json')).toBe(8);
 	});
 
 	it('rejects files that are not project archives', async () => {

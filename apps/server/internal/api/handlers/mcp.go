@@ -1254,7 +1254,7 @@ window: %s
 Workflow:
 1. Call search_operations to load the list_posts and suggest_next_slot schemas.
 2. Call query_operation with list_posts for the workspace and requested window. Prefer narrow windows of 7 to 14 days with activity_bucket scheduled; keep the default limit and repeat the request with the returned next_cursor while has_more is true, repeating all other filters unchanged. Calendar windows are limited to one page, so narrow the window instead of widening it when results do not fit.
-3. Look for collisions, empty stretches, missing platform coverage, and Posts that need destination-specific Variants. Failed destinations are summarized per Post as failed_variant_count with a curated error_kind, error_action, and error_message; call get_post for full delivery detail only when a failure needs action.
+3. Look for collisions, empty stretches, missing platform coverage, and Posts that need destination-specific Variants. Failed destinations are summarized per Post as failed_variant_count with a curated error_kind, error_action, and error_message; call get_post for full delivery detail and retry_failed_variants to retry safely retryable failures when a failure needs action.
 4. Call query_operation with suggest_next_slot if a useful new slot is needed.
 5. Recommend concrete actions without canceling or scheduling anything unless the user explicitly asks.
 `, promptArg(args, "workspace_id", "(required)"), promptArg(args, "window", "upcoming queue")))
@@ -1652,7 +1652,7 @@ func mcpListProviderCatalogTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolProviders,
 		"title":       "List provider catalog",
-		"description": "Inspect the provider catalog before choosing a social platform. Returns each provider's launch status, configuration state, capabilities, and availability notes.",
+		"description": "Inspect the provider catalog before choosing a social platform. Returns each provider's launch status, configuration state, capabilities, and availability notes. Then call list_accounts for workspace destinations and get_provider_readiness for account-scoped readiness checks.",
 		"inputSchema": map[string]any{
 			"type":                 "object",
 			"properties":           map[string]any{},
@@ -1665,7 +1665,7 @@ func mcpListAccountsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolAccounts,
 		"title":       "List social accounts",
-		"description": "List connected destinations before drafting or scheduling for a workspace. Returns active social account IDs, platforms, slugs, usernames, and instance URLs.",
+		"description": "List connected destinations before drafting or scheduling for a workspace. Returns active social account IDs, platforms, slugs, usernames, and instance URLs. Pair with list_provider_catalog for platform availability and get_provider_readiness for account-scoped checks before scheduling.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1718,7 +1718,7 @@ func mcpProviderReadinessTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolReadiness,
 		"title":       "Get provider readiness",
-		"description": "Check whether configured providers are ready before scheduling or publishing. Returns provider app, account scope, public-media, quota, and audit readiness details.",
+		"description": "Check whether configured providers are ready before scheduling or publishing. Returns provider app, account scope, public-media, quota, and audit readiness details. Start from list_provider_catalog for platform availability, then list_accounts for the workspace destinations these checks evaluate.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1823,7 +1823,7 @@ func mcpListPublicationsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolListPubs,
 		"title":       "List posts",
-		"description": "Find format-first posts before reading, editing, validating, or scheduling one. Returns matching post summaries in newest-first order, up to limit items per response. Prefer narrow calendar windows and follow next_cursor with the cursor input while has_more is true instead of widening the window.",
+		"description": "Find format-first posts before reading, editing, validating, or scheduling one. Returns matching post summaries in newest-first order, up to limit items per response. Prefer narrow calendar windows and follow next_cursor with the cursor input while has_more is true instead of widening the window. Failed destinations are summarized per post as failed_variant_count with curated error fields; call get_post for full delivery detail and retry_failed_variants to retry safely retryable failures.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -2000,7 +2000,7 @@ func mcpValidatePublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolValidatePub,
 		"title":       "Validate post",
-		"description": "Validate a post before scheduling or immediate publishing. Returns a valid flag plus actionable provider, media, account-scope, and processing issues.",
+		"description": "Validate a post before scheduling or immediate publishing. Returns a valid flag plus actionable provider, media, account-scope, and processing issues. When valid is false, call get_post for the current delivery state; failed destinations retry through retry_failed_variants after the issues are fixed.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -4209,8 +4209,12 @@ func (h *MCPHandler) validatePublication(ctx context.Context, userID string, arg
 		return nil, &mcpError{Code: -32603, Message: "failed to validate post"}
 	}
 	valid := !hasBlockingIssues(issues)
+	text := fmt.Sprintf("Post validation found %d issue(s).", len(issues))
+	if !valid {
+		text = fmt.Sprintf("Post validation failed with %d issue(s); call get_post for the current delivery state and retry_failed_variants once the issues are fixed.", len(issues))
+	}
 	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Post validation found %d issue(s).", len(issues))}},
+		"content": []mcpContent{{Type: "text", Text: text}},
 		"structuredContent": map[string]any{
 			"valid":  valid,
 			"issues": issues,

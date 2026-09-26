@@ -226,6 +226,27 @@ func TestMCPSearchDocsFindsGuides(t *testing.T) {
 	require.Contains(t, mcpErrorMessage(t, overLimit), "limit")
 }
 
+func TestMCPToolDescriptionsCrossLinkNextSteps(t *testing.T) {
+	t.Parallel()
+
+	descriptions := map[string]string{}
+	for _, operation := range mcpOperationCatalog() {
+		name, _ := operation.Descriptor["name"].(string)
+		text, _ := operation.Descriptor["description"].(string)
+		descriptions[name] = text
+	}
+	require.Contains(t, descriptions[mcpToolProviders], "list_accounts")
+	require.Contains(t, descriptions[mcpToolProviders], "get_provider_readiness")
+	require.Contains(t, descriptions[mcpToolAccounts], "list_provider_catalog")
+	require.Contains(t, descriptions[mcpToolAccounts], "get_provider_readiness")
+	require.Contains(t, descriptions[mcpToolReadiness], "list_provider_catalog")
+	require.Contains(t, descriptions[mcpToolReadiness], "list_accounts")
+	require.Contains(t, descriptions[mcpToolListPubs], "retry_failed_variants")
+	require.Contains(t, descriptions[mcpToolListPubs], "get_post")
+	require.Contains(t, descriptions[mcpToolValidatePub], "retry_failed_variants")
+	require.Contains(t, descriptions[mcpToolValidatePub], "get_post")
+}
+
 type mcpStubTokenSource struct{}
 
 func (mcpStubTokenSource) GetValidAccessToken(context.Context, string) (string, error) {

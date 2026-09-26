@@ -1303,16 +1303,16 @@ export class OpenPostFabricAdapter {
 		const textarea = target.hiddenTextarea;
 		if (!textarea) return;
 		const beforeInput = (event: Event): void => {
-			const input = event as InputEvent;
+			if (!(event instanceof InputEvent)) return;
 			const active = this.activeTextInput;
 			if (!active || active.target !== target) return;
-			const composing = input.inputType === 'insertCompositionText' && active.compositionRange;
+			const composing = event.inputType === 'insertCompositionText' && active.compositionRange;
 			active.edit = {
 				start: composing
 					? composing.start
 					: textGraphemeOffset(textarea.value, textarea.selectionStart),
 				end: composing ? composing.end : textGraphemeOffset(textarea.value, textarea.selectionEnd),
-				inputType: input.inputType,
+				inputType: event.inputType,
 				previousText: textarea.value
 			};
 		};
@@ -1493,12 +1493,12 @@ export class OpenPostFabricAdapter {
 				if (graphemes[index] === '\n' || graphemes[index] === '\r\n') continue;
 				const { lineIndex, charIndex } = target.get2DCursorLocation(index, true);
 				const style = (styles[lineIndex] ??= {});
-				style[charIndex] = {
-					...(run.font_weight === undefined ? {} : { fontWeight: run.font_weight }),
-					...(run.font_style === undefined ? {} : { fontStyle: run.font_style }),
-					...(run.underline === undefined ? {} : { underline: run.underline }),
-					...(run.color === undefined ? {} : { fill: run.color })
-				};
+				const characterStyle: EditableFabricText['styles'][number][number] = {};
+				if (run.font_weight !== undefined) characterStyle.fontWeight = run.font_weight;
+				if (run.font_style !== undefined) characterStyle.fontStyle = run.font_style;
+				if (run.underline !== undefined) characterStyle.underline = run.underline;
+				if (run.color !== undefined) characterStyle.fill = run.color;
+				style[charIndex] = characterStyle;
 			}
 		}
 		target.styles = styles;
@@ -1814,7 +1814,7 @@ export class OpenPostFabricAdapter {
 			} else {
 				object = new this.fabric.Textbox(layer.text.text, textOptions);
 			}
-			this.applyTextRuns(object as EditableFabricText, layer.text);
+			if (isEditableFabricText(object)) this.applyTextRuns(object, layer.text);
 		}
 		if (layer.type === 'shape' && layer.shape) {
 			const shapeOptions = {

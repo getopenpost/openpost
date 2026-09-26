@@ -4,7 +4,7 @@ import { queryGET } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
 
-export function createPostImportQueryAPI(transport: QueryTransport): PostImportQueryAPI {
+function createPostImportQueryAPI(transport: QueryTransport): PostImportQueryAPI {
 	return {
 		async readPostImports(workspaceID, accountID, signal) {
 			const { data } = await queryGET({

@@ -13269,6 +13269,9 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"next_cursor": {
+						"type": "string"
+					},
 					"next_eligible_at": {
 						"format": "date-time",
 						"type": "string"
@@ -17611,7 +17614,7 @@
 					},
 					"enabled": {
 						"description": "Whether native post imports are enabled",
-						"type": ["boolean", "null"]
+						"type": "boolean"
 					},
 					"workspace_id": {
 						"description": "Workspace ID",
@@ -24116,6 +24119,30 @@
 						"schema": {
 							"description": "Workspace ID",
 							"type": "string"
+						}
+					},
+					{
+						"description": "Opaque cursor for older imported posts",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for older imported posts",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Imported posts per page",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 50,
+							"description": "Imported posts per page",
+							"format": "int64",
+							"maximum": 100,
+							"minimum": 1,
+							"type": "integer"
 						}
 					}
 				],

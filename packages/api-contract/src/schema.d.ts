@@ -11084,6 +11084,7 @@ export interface components {
             failure_message?: string;
             /** Format: date-time */
             last_success_at?: string;
+            next_cursor?: string;
             /** Format: date-time */
             next_eligible_at?: string;
             platform: string;
@@ -12976,7 +12977,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Whether native post imports are enabled */
-            enabled: boolean | null;
+            enabled: boolean;
             /** @description Workspace ID */
             workspace_id: string;
         };
@@ -16175,6 +16176,10 @@ export interface operations {
             query: {
                 /** @description Workspace ID */
                 workspace_id: string;
+                /** @description Opaque cursor for older imported posts */
+                cursor?: string;
+                /** @description Imported posts per page */
+                limit?: number;
             };
             header?: never;
             path: {

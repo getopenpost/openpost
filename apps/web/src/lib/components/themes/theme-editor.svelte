@@ -1082,6 +1082,7 @@
 					</p>{/if}
 				{#if validationIssues.length > 0}<div
 						class="space-y-2 rounded-[var(--theme-radius-lg,var(--radius))] border border-destructive/35 bg-destructive/8 p-3"
+						role="alert"
 						aria-label={m.theme_editor_validation_issues()}
 					>
 						{#each validationIssues as issue (`${issue.path}:${issue.message}`)}<p class="text-xs">

@@ -305,4 +305,20 @@ describe('ThemeEditor', () => {
 		);
 		await expect.element(screen.getByText('No uploaded resources.')).toBeVisible();
 	});
+
+	it('announces server validation issues as a named alert', async () => {
+		const initialTheme = duplicateThemeManifest(
+			getBuiltInTheme('workshop'),
+			'northstar',
+			'Northstar'
+		);
+		const screen = render(ThemeEditor, {
+			initialTheme,
+			validationIssues: [{ path: 'schemes.light.colors.canvas', message: 'invalid' }]
+		});
+
+		const alert = screen.getByRole('alert', { name: 'Validation issues' });
+		await expect.element(alert).toBeVisible();
+		await expect.element(alert).toHaveTextContent('schemes.light.colors.canvas');
+	});
 });

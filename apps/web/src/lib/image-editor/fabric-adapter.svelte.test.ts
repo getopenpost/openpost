@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Canvas, IText } from 'fabric';
-import { page as browserPage } from 'vitest/browser';
 import { renderImageEditorPage } from './static-renderer';
 import { OpenPostFabricAdapter } from './fabric-adapter';
 import { editTextWithRuns, type ImageEditorTextEdit } from './text-runs';
@@ -771,10 +770,6 @@ describe('OpenPost Image Editor text layer outlines', () => {
 			});
 			try {
 				await settleCanvas();
-				await browserPage.screenshot({
-					element: mounted.canvas,
-					path: `../../../../../test-results/text-outline-${position}.png`
-				});
 				const pixels = mounted.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;
 				let glyphOutline = 0;
 				let emptyBoxOutline = 0;
@@ -840,14 +835,6 @@ describe('OpenPost Image Editor text layer outlines', () => {
 		try {
 			const withoutOutline = plain.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;
 			const withOutline = mounted.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;
-			await browserPage.screenshot({
-				element: mounted.canvas,
-				path: '../../../../../test-results/text-outline-translucent.png'
-			});
-			await browserPage.screenshot({
-				element: plain.canvas,
-				path: '../../../../../test-results/text-plain-translucent.png'
-			});
 			let darkest = 255;
 			for (let i = 0; i < withoutOutline.length; i += 4)
 				darkest = Math.min(darkest, withoutOutline[i]);

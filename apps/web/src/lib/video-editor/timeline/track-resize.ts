@@ -3,9 +3,9 @@ import type { TimelineTrack } from '../project/types';
 export const MIN_TRACK_HEIGHT = 48;
 export const MAX_TRACK_HEIGHT = 140;
 
-export const TRACK_HEIGHT_ARROW_STEP = 4;
-export const TRACK_HEIGHT_SHIFT_STEP = 12;
-export const TRACK_HEIGHT_PAGE_STEP = 24;
+const TRACK_HEIGHT_ARROW_STEP = 4;
+const TRACK_HEIGHT_SHIFT_STEP = 12;
+const TRACK_HEIGHT_PAGE_STEP = 24;
 
 /**
  * Track-height slider keyboard map. ArrowUp/ArrowDown shrink/grow the track

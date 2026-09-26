@@ -34,7 +34,6 @@ import {
 	type SelectionPoint
 } from './selection';
 import { imageEditorTransformFromCenterDecomposition } from './collective-transform';
-import { imageEditorPageDimensions } from './page-dimensions';
 
 type FabricModule = typeof import('fabric');
 type FabricCanvas = InstanceType<FabricModule['Canvas']>;

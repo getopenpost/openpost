@@ -36,7 +36,7 @@
 	const fieldID = $props.id();
 
 	$effect(() => {
-		editor.workspaceID;
+		void editor.workspaceID;
 		presetID = '';
 		name = '';
 		feedback = '';

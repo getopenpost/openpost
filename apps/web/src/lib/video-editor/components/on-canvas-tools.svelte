@@ -1053,6 +1053,7 @@
 		<svg
 			class="absolute inset-0 size-full overflow-visible"
 			viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+			role="group"
 			aria-label={m.video_editor_motion_path()}
 		>
 			<polyline

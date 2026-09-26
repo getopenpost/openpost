@@ -260,6 +260,7 @@ export class WorkspaceContext {
 	}): Promise<AppBootstrap | undefined> {
 		const requestGeneration = ++this.bootstrapRequestGeneration;
 		const workspaceSelectionRevision = this.workspaceSwitchRequestSequence;
+		const fetchStartWorkspaceID = this.currentWorkspace?.id ?? null;
 		const queryOptions = appBootstrapQueryOptions(
 			appBootstrapQueryAPI,
 			options.preferredWorkspaceID
@@ -276,13 +277,19 @@ export class WorkspaceContext {
 		}
 		if (requestGeneration !== this.bootstrapRequestGeneration) return;
 		seedAppBootstrap(queryClient, bootstrap);
-		await this.applyBootstrap(bootstrap, workspaceSelectionRevision, options.selectionIsCurrent);
+		await this.applyBootstrap(
+			bootstrap,
+			workspaceSelectionRevision,
+			fetchStartWorkspaceID,
+			options.selectionIsCurrent
+		);
 		return bootstrap;
 	}
 
 	private async applyBootstrap(
 		bootstrap: AppBootstrap,
 		workspaceSelectionRevision: number,
+		fetchStartWorkspaceID: string | null,
 		selectionIsCurrent?: () => boolean
 	) {
 		const previousWorkspaces = this.workspaces;
@@ -303,7 +310,16 @@ export class WorkspaceContext {
 		}
 		if (
 			workspaceSelectionRevision !== this.workspaceSwitchRequestSequence ||
-			(selectionIsCurrent && !selectionIsCurrent())
+			(selectionIsCurrent && !selectionIsCurrent()) ||
+			// An implicit refresh (no explicit preferred workspace and no currency
+			// guard, e.g. the layout onboarding check) must not move a selection
+			// that is newer than its own intent. Switch guards yield mid-flight,
+			// so a just-applied selection can predate this fetch's response even
+			// when no switch happened during the flight itself.
+			(!selectionIsCurrent &&
+				fetchStartWorkspaceID !== null &&
+				this.currentWorkspace !== null &&
+				this.currentWorkspace.id !== fetchStartWorkspaceID)
 		) {
 			const currentWorkspace = this.currentWorkspace;
 			const refreshedCurrentWorkspace = this.workspaces.find(

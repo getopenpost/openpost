@@ -504,6 +504,7 @@
 	<div class="space-y-6" data-testid="instance-configuration">
 		<div
 			class="flex max-w-full gap-2 overflow-x-auto pb-1"
+			role="group"
 			aria-label={m.settings_configuration_sections()}
 		>
 			{#each sections as section (section.id)}

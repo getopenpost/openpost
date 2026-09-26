@@ -157,6 +157,7 @@
 		MAX_TRACK_HEIGHT,
 		MIN_TRACK_HEIGHT,
 		clampTrackHeight,
+		formatTrackHeightText,
 		nextTrackHeightKeyboard,
 		resetTrackHeightsInList,
 		resizeAllTracksInList,
@@ -5708,6 +5709,7 @@
 										aria-valuemin={MIN_TRACK_HEIGHT}
 										aria-valuemax={MAX_TRACK_HEIGHT}
 										aria-valuenow={track.height}
+										aria-valuetext={formatTrackHeightText(track.height)}
 										title={m.video_editor_track_resize_hint()}
 										data-track-resize={track.id}
 										data-marquee-ignore

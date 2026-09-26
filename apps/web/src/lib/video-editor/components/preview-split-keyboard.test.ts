@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextSplitKeyboardPosition } from './preview-player.svelte';
+import { formatSplitPositionText, nextSplitKeyboardPosition } from './preview-player.svelte';
 
 describe('nextSplitKeyboardPosition', () => {
 	it('steps one percent with arrows and ten percent with shift', () => {
@@ -22,5 +22,13 @@ describe('nextSplitKeyboardPosition', () => {
 	it('returns null for unhandled keys so the caller skips side effects', () => {
 		expect(nextSplitKeyboardPosition(0.5, 'Enter', false)).toBeNull();
 		expect(nextSplitKeyboardPosition(0.5, 'a', false)).toBeNull();
+	});
+});
+
+describe('formatSplitPositionText', () => {
+	it('announces the position as a percent instead of a bare number', () => {
+		expect(formatSplitPositionText(0.5)).toBe('50%');
+		expect(formatSplitPositionText(0.05)).toBe('5%');
+		expect(formatSplitPositionText(0.95)).toBe('95%');
 	});
 });

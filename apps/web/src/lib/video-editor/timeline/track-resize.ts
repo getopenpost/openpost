@@ -31,6 +31,15 @@ export function nextTrackHeightKeyboard(
 	return null;
 }
 
+/**
+ * Screen-reader readout for the track-height resize slider so assistive
+ * technology announces e.g. "96 pixels" instead of a bare number,
+ * matching the image-editor guide wording ("at {value} pixels").
+ */
+export function formatTrackHeightText(height: number): string {
+	return `${Math.round(height)} pixels`;
+}
+
 export function clampTrackHeight(height: number): number {
 	return Math.max(MIN_TRACK_HEIGHT, Math.min(MAX_TRACK_HEIGHT, Math.round(height)));
 }

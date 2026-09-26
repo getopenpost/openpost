@@ -8,6 +8,15 @@
 	 * side effects. Clamping to the 0.05..0.95 slider range stays in
 	 * colorPreviewStore.setSplitPosition.
 	 */
+	/**
+	 * Screen-reader readout for the Color before/after split slider so
+	 * assistive technology announces e.g. "45%" instead of a bare number,
+	 * matching the hue-band slider `${}%`-style unit convention.
+	 */
+	export function formatSplitPositionText(position: number): string {
+		return `${Math.round(position * 100)}%`;
+	}
+
 	export function nextSplitKeyboardPosition(
 		current: number,
 		key: string,
@@ -1507,6 +1516,7 @@
 										aria-valuemin="5"
 										aria-valuemax="95"
 										aria-valuenow={Math.round(colorPreviewStore.splitPosition * 100)}
+										aria-valuetext={formatSplitPositionText(colorPreviewStore.splitPosition)}
 										onpointerdown={startSplitDrag}
 										onpointermove={moveSplit}
 										onkeydown={splitKeydown}

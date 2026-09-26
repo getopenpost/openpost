@@ -383,3 +383,33 @@ func TestHandleJobRejectsBadPayload(t *testing.T) {
 	require.Error(t, service.HandleJob(context.Background(), "post_import_sync", `{}`))
 	require.Error(t, service.HandleJob(context.Background(), "unknown", `{}`))
 }
+
+func TestDueImportIsQueuedOnceAfterItsFirstCycle(t *testing.T) {
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", "https://bsky.example")
+	service := NewService(db, &stubTokenSource{token: "token"})
+	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.Enable(t.Context(), "workspace-1", account.ID)
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", "completed").Where("type = ?", JobTypeSync).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("next_eligible_at = ?", now.Add(time.Hour)).Where("social_account_id = ?", account.ID).Exec(t.Context())
+	require.NoError(t, err)
+
+	queued, err := service.EnqueueDue(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 0, queued)
+
+	now = now.Add(time.Hour)
+	queued, err = service.EnqueueDue(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, queued)
+	queued, err = service.EnqueueDue(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 0, queued)
+
+	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ? AND status = ?", JobTypeSync, "pending").Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}

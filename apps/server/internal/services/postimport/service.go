@@ -25,7 +25,10 @@ const (
 	watermarkOverlap = time.Minute
 	initialItemCap   = 250
 	defaultPageSize  = 50
+	dueSweepLimit    = 100
 )
+
+var ErrAccountNotFound = errors.New("post import account not found")
 
 // Policy is instance-owned rate policy. It is provider-overridable but never
 // workspace-controlled. ReadRequestsPerDay counts every listing request that
@@ -142,8 +145,11 @@ func (s *Service) Enable(ctx context.Context, workspaceID, accountID string) (*m
 // Disable stops future imports for one account. The imported library stays
 // readable; rows are never deleted by disable.
 func (s *Service) Disable(ctx context.Context, workspaceID, accountID string) error {
+	if _, err := s.loadAccount(ctx, workspaceID, accountID); err != nil {
+		return err
+	}
 	now := s.now().UTC()
-	result, err := s.db.NewUpdate().Model((*models.PostImportState)(nil)).
+	_, err := s.db.NewUpdate().Model((*models.PostImportState)(nil)).
 		Set("enabled = ?", false).
 		Set("cursor = ?", "").
 		Set("next_eligible_at = ?", nil).
@@ -153,9 +159,6 @@ func (s *Service) Disable(ctx context.Context, workspaceID, accountID string) er
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("disable post import: %w", err)
-	}
-	if rows, _ := result.RowsAffected(); rows == 0 {
-		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -189,6 +192,61 @@ func (s *Service) ListImported(ctx context.Context, workspaceID, accountID strin
 	return posts, nil
 }
 
+type Overview struct {
+	Platform string
+	Support  platform.NativePostSupport
+	State    *models.PostImportState
+	Posts    []models.ImportedPost
+}
+
+// ReadOverview serves account import state and stored posts without calling a
+// provider. An account that has never opted in has an empty library.
+func (s *Service) ReadOverview(ctx context.Context, workspaceID, accountID string) (Overview, error) {
+	account, err := s.loadAccount(ctx, workspaceID, accountID)
+	if err != nil {
+		return Overview{}, err
+	}
+	state, err := s.Status(ctx, workspaceID, accountID)
+	if errors.Is(err, sql.ErrNoRows) {
+		state = nil
+	} else if err != nil {
+		return Overview{}, fmt.Errorf("read post import state: %w", err)
+	}
+	posts, err := s.ListImported(ctx, workspaceID, accountID, 100)
+	if err != nil {
+		return Overview{}, err
+	}
+	return Overview{Platform: account.Platform, Support: platform.NativePostSupportFor(account.Platform), State: state, Posts: posts}, nil
+}
+
+// EnqueueDue recovers import work from the stored account checkpoints. It is
+// safe to run on every worker: the active-job index admits one job per account.
+func (s *Service) EnqueueDue(ctx context.Context) (int, error) {
+	now := s.now().UTC()
+	var states []models.PostImportState
+	if err := s.db.NewSelect().Model(&states).
+		Where("enabled = ?", true).
+		Where("(next_eligible_at IS NULL OR next_eligible_at <= ?)", now).
+		Where("social_account_id IN (SELECT id FROM social_accounts WHERE is_active = ?)", true).
+		Where("social_account_id NOT IN (SELECT dedupe_key FROM jobs WHERE type = ? AND status IN (?, ?))", JobTypeSync, jobregistry.StatusPending, jobregistry.StatusProcessing).
+		Order("next_eligible_at ASC").
+		Limit(dueSweepLimit).
+		Scan(ctx); err != nil {
+		return 0, fmt.Errorf("list due post imports: %w", err)
+	}
+	queued := 0
+	for _, state := range states {
+		inserted, err := s.enqueueSync(ctx, state.WorkspaceID, state.SocialAccountID, now)
+		if err != nil {
+			return queued, err
+		}
+		if inserted {
+			queued++
+		}
+	}
+	return queued, nil
+}
+
 func (s *Service) loadAccount(ctx context.Context, workspaceID, accountID string) (models.SocialAccount, error) {
 	var account models.SocialAccount
 	err := s.db.NewSelect().Model(&account).
@@ -196,12 +254,12 @@ func (s *Service) loadAccount(ctx context.Context, workspaceID, accountID string
 		Scan(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return account, fmt.Errorf("post import account not found")
+			return account, ErrAccountNotFound
 		}
 		return account, fmt.Errorf("load post import account: %w", err)
 	}
 	if workspaceID != "" && account.WorkspaceID != strings.TrimSpace(workspaceID) {
-		return account, fmt.Errorf("post import account not found")
+		return account, ErrAccountNotFound
 	}
 	return account, nil
 }
@@ -540,6 +598,8 @@ func (s *Service) enqueueSync(ctx context.Context, workspaceID, accountID string
 	if err != nil {
 		return false, err
 	}
+	job.ScopeID = workspaceID
+	job.DedupeKey = accountID
 	result, err := s.db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
 	if err != nil {
 		return false, fmt.Errorf("enqueue post import sync: %w", err)

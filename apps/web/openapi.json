@@ -9528,6 +9528,29 @@
 				"required": ["x", "y", "width", "height", "rotation", "flip_x", "flip_y"],
 				"type": "object"
 			},
+			"ImportedPostResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"external_url": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"published_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"text": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "title", "text", "external_url", "published_at"],
+				"type": "object"
+			},
 			"IngestDiagnosticsInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -13221,6 +13244,55 @@
 					}
 				},
 				"required": ["status", "expires_in", "interval"],
+				"type": "object"
+			},
+			"PostImportOverviewResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/PostImportOverviewResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"account_id": {
+						"type": "string"
+					},
+					"enabled": {
+						"type": "boolean"
+					},
+					"failure_message": {
+						"type": "string"
+					},
+					"last_success_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"next_eligible_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"posts": {
+						"items": {
+							"$ref": "#/components/schemas/ImportedPostResponse"
+						},
+						"type": ["array", "null"]
+					},
+					"status": {
+						"type": "string"
+					},
+					"supported": {
+						"type": "boolean"
+					},
+					"unavailable_reason": {
+						"type": "string"
+					}
+				},
+				"required": ["account_id", "platform", "supported", "enabled", "status", "posts"],
 				"type": "object"
 			},
 			"PostingScheduleResponse": {
@@ -17525,6 +17597,28 @@
 					}
 				},
 				"required": ["settings"],
+				"type": "object"
+			},
+			"SavePostImportsInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/SavePostImportsInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"enabled": {
+						"description": "Whether native post imports are enabled",
+						"type": ["boolean", "null"]
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "enabled"],
 				"type": "object"
 			},
 			"SaveProviderAppInputBody": {
@@ -23996,6 +24090,197 @@
 					}
 				},
 				"summary": "Revoke a provider grant and disconnect every destination that uses it",
+				"tags": ["Accounts"]
+			}
+		},
+		"/accounts/{account_id}/post-imports": {
+			"get": {
+				"operationId": "read-post-imports",
+				"parameters": [
+					{
+						"description": "Connected account ID",
+						"in": "path",
+						"name": "account_id",
+						"required": true,
+						"schema": {
+							"description": "Connected account ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PostImportOverviewResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Read a connected account's native post imports",
+				"tags": ["Accounts"]
+			},
+			"put": {
+				"operationId": "save-post-imports",
+				"parameters": [
+					{
+						"description": "Connected account ID",
+						"in": "path",
+						"name": "account_id",
+						"required": true,
+						"schema": {
+							"description": "Connected account ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SavePostImportsInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PostImportOverviewResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Opt a connected account into or out of native post imports",
 				"tags": ["Accounts"]
 			}
 		},

@@ -911,6 +911,7 @@ func main() {
 		InstanceSettingsService:      instanceSettingsService,
 		AIPromptService:              aiPromptService,
 		AnalyticsService:             analyticsService,
+		PostImportService:            postImportService,
 		MessagingService:             messagingService,
 		EngagementService:            engagementService,
 		RepostService:                repostService,

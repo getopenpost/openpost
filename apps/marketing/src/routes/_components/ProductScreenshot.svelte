@@ -34,6 +34,14 @@
 	const resolvedLightSrc = $derived(lightSrc ?? src ?? '');
 	const resolvedDarkSrc = $derived(darkSrc ?? src ?? '');
 	const resolvedDarkSrcset = $derived(darkSrcset ?? resolvedDarkSrc);
+	// medium-zoom clones the <img> outside of <picture>, so the dark <source>
+	// never applies to the enlarged image and its HiDPI pass re-reads the img
+	// srcset (light-only on views with responsive variants, e.g. the composer
+	// tour screenshot). Keep the img itself mode-correct so the zoom matches
+	// the page theme.
+	const activeSrcset = $derived(
+		mode.current === 'dark' ? (darkSrcset ?? lightSrcset) : lightSrcset
+	);
 	const darkMedia = $derived(
 		mode.current === undefined
 			? '(prefers-color-scheme: dark)'
@@ -115,8 +123,9 @@
 		<source media={darkMedia} srcset={resolvedDarkSrcset} {sizes} />
 		<img
 			bind:this={image}
-			src={resolvedLightSrc}
-			srcset={lightSrcset}
+			src={activeSrc}
+			srcset={activeSrcset}
+			data-zoom-src={activeSrc}
 			{sizes}
 			{alt}
 			width="2880"

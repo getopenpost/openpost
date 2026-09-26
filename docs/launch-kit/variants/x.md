@@ -1,4 +1,4 @@
-# X Rendition
+# X Variant
 
 > **Illustrative copy — not a published post.** Include X in a real campaign only after the exact account and format pass the verification log.
 

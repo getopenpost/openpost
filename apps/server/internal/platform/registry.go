@@ -25,6 +25,7 @@ type AppConfig struct {
 type RegistryOptions struct {
 	DisableLinkedInThreadReplies bool
 	EnableLinkedInOrganizations  bool
+	DisableTikTokDisplayAPI      bool
 }
 
 type RegistryEntry struct {
@@ -90,6 +91,12 @@ var appBuilders = map[string]appBuilder{
 		}
 		return NewFacebookAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
 	},
+	providerGoogleBusiness: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
+		if strings.TrimSpace(app.ClientID) == "" {
+			return nil, fmt.Errorf("googlebusiness provider app requires client_id")
+		}
+		return NewGoogleBusinessAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
+	},
 	providerInstagram: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
 		if strings.TrimSpace(app.ClientID) == "" {
 			return nil, fmt.Errorf("instagram provider app requires client_id")
@@ -108,11 +115,15 @@ var appBuilders = map[string]appBuilder{
 		}
 		return NewThreadsAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
 	},
-	providerTikTok: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
+	providerTikTok: func(app AppConfig, opts RegistryOptions) (Adapter, error) {
 		if strings.TrimSpace(app.ClientID) == "" {
 			return nil, fmt.Errorf("tiktok provider app requires client_id")
 		}
-		return NewTikTokAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
+		capabilities := TikTokDefaultScopeCapabilities()
+		if opts.DisableTikTokDisplayAPI {
+			capabilities = capabilities.WithoutDisplayAPI()
+		}
+		return NewTikTokAdapterWithCapabilities(app.ClientID, app.ClientSecret, app.RedirectURI, capabilities), nil
 	},
 	providerYouTube: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
 		if strings.TrimSpace(app.ClientID) == "" {

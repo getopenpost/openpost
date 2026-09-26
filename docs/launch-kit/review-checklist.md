@@ -48,7 +48,7 @@ Repeat for every destination:
 - [ ] The client requires approval for `execute_operation`.
 - [ ] The operation name, account IDs, media IDs, format, and time are visible before approval.
 - [ ] Approval covers this exact operation, not future agent-generated work.
-- [ ] Immediate publication is not selected accidentally.
+- [ ] Immediate post is not selected accidentally.
 
 ## Schedule and queue
 

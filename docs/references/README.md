@@ -17,6 +17,7 @@ This directory is for local, gitignored source checkouts used as implementation 
 - `openvid/` is a shallow clone of <https://github.com/CristianOlivera1/openvid>. Use it for polished product-demo interactions. Check its license before copying code.
 - `openreel-video/` is a shallow clone of <https://github.com/Augani/openreel-video>. Use it as a feature inventory, not an architectural source of truth.
 - `qcut/` is a shallow clone of <https://github.com/Quriosity-agent/qcut>. Use it for product and interaction ideas only until its source license permits more.
+- `claude-seo/` is a shallow clone of <https://github.com/AgriciDaniel/claude-seo> at `v2.4.0` (`e77e783e38eeb738424eb72117abbd2dacdd88af`, MIT). Codex runs its local audit scripts through `.agents/skills/openpost-seo/SKILL.md`.
 
 All checkout directories are ignored by Git. Keep them shallow and local. Never commit or vendor them. Audit the exact source revision and license before porting any code.
 

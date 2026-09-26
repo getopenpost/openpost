@@ -755,13 +755,16 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 		payload["content"] = map[string]interface{}{
 			"media": mediaItem,
 		}
-	} else if articleURL := firstNonEmptyString(settingString(req.Settings, "url"), settingString(req.Settings, "link_url")); articleURL != "" {
-		payload["content"] = map[string]interface{}{
-			"article": map[string]interface{}{
-				"source":      articleURL,
-				"title":       settingString(req.Settings, "article_title"),
-				"description": settingString(req.Settings, "article_description"),
-			},
+	} else if articleURL := EffectiveLinkURL(req.Settings, req.Content); articleURL != "" {
+		title, description := linkedInArticleFields(ctx, req, articleURL)
+		if title != "" {
+			payload["content"] = map[string]interface{}{
+				"article": map[string]interface{}{
+					"source":      articleURL,
+					"title":       title,
+					"description": description,
+				},
+			}
 		}
 	}
 
@@ -1203,7 +1206,7 @@ func doRequestWithHeaders(ctx context.Context, method, url string, body io.Reade
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", sanitizeTransportError(err))
 	}
 	defer resp.Body.Close()
 

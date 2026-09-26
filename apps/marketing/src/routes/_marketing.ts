@@ -207,7 +207,7 @@ export const plans = planCatalog.plans.map((plan) => ({
 	limits: [
 		formatLimit(plan.limits.workspaces, 'workspace'),
 		formatLimit(plan.limits.social_accounts, 'social account'),
-		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled publications/month`,
+		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled posts/month`,
 		`${plan.limits.media_bytes_stored / 1_000_000_000} GB media`,
 		plan.limits.team_members === 1
 			? '1 seat'
@@ -261,7 +261,7 @@ const platformImplementations = [
 		limits: [
 			`${PLATFORM_LIMITS.x.charLimit} weighted characters for standard accounts`,
 			'Up to 25,000 weighted characters for verified Basic, Premium, or Premium+ accounts',
-			'Video: 140 seconds and 512 MiB standard; up to 4 hours and 16 GiB subscribed',
+			'Video: 20 minutes and 8 GiB standard; up to 125 minutes and 16 GiB subscribed',
 			PLATFORM_LIMITS.x.media,
 			'Your X API plan and limits still apply'
 		],
@@ -433,7 +433,7 @@ const platformImplementations = [
 		preview: {
 			label: 'Community post',
 			headline: 'A discussion with title and body',
-			body: 'Each rendition targets one community with its own title, body, and validation.',
+			body: 'Each variant targets one community with its own title, body, and validation.',
 			detail: 'Community and title required',
 			chips: ['Community', 'Replies', 'Moderation-aware']
 		},
@@ -460,7 +460,7 @@ const platformImplementations = [
 			'A community and title are required for every post',
 			PLATFORM_LIMITS.lemmy.media,
 			'Communities can restrict posting to moderators',
-			'A publication with an unresolved community cannot be scheduled'
+			'A post with an unresolved community cannot be scheduled'
 		],
 		limitations: [
 			'Publishing uses the Lemmy v3 API; 1.x instances on API v4 are refused explicitly.',
@@ -483,7 +483,7 @@ const platformImplementations = [
 		preview: {
 			label: 'Community post',
 			headline: 'A discussion with title and body',
-			body: 'Each rendition targets one community with its own title, body, and validation.',
+			body: 'Each variant targets one community with its own title, body, and validation.',
 			detail: 'Community and title required',
 			chips: ['Community', 'Replies', 'Native API']
 		},
@@ -510,7 +510,7 @@ const platformImplementations = [
 			'A community and title are required for every post',
 			PLATFORM_LIMITS.piefed.media,
 			'Communities can restrict posting to moderators',
-			'A publication with an unresolved community cannot be scheduled'
+			'A post with an unresolved community cannot be scheduled'
 		],
 		limitations: [
 			'Publishing uses the native PieFed alpha API through its own adapter.',
@@ -948,6 +948,52 @@ const platformImplementations = [
 		],
 		verification:
 			'Do not connect or publish for public accounts until Standard access and every readiness gate pass with current live evidence.',
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
+	},
+	{
+		slug: 'googlebusiness',
+		name: 'Google Business',
+		short: 'googlebusiness',
+		tag: 'Unavailable pending certification',
+		requiresProviderApproval: true,
+		implementationDetail: 'Adapter code exists; public connections are intentionally unavailable',
+		description:
+			'Google Business Profile is not publicly available in OpenPost. Google API access and current live certification are required before connection or publishing can be claimed.',
+		heroTitle: 'Google Business Profile remains behind the provider readiness gate.',
+		preview: {
+			label: 'No public connection',
+			headline: 'Certification required',
+			body: 'Mocked tests and adapter code do not make Google Business Profile available to public Hosted accounts.',
+			detail: 'Google API access plus live evidence',
+			chips: ['Unavailable', 'Provider approval', 'Live certification']
+		},
+		accountRequirement:
+			'A Google Cloud project with approved Business Profile API access, exact scopes, runtime controls, and current live certification.',
+		auth: 'Google OAuth 2.0 with location selection; publicly unavailable',
+		setup: [
+			'Operators may configure a Google Business app only for controlled development or certification work.',
+			'Keep public connection, publishing, and analytics operations disabled without current evidence.',
+			'Use the provider readiness ledger before changing any public availability statement.'
+		],
+		formats: [
+			{
+				name: 'Public availability',
+				text: 'Unavailable',
+				media: 'Unavailable'
+			}
+		],
+		limits: [
+			'Google API access approval is required for production use',
+			'Public Hosted availability requires current exact-subject live evidence',
+			'No Google Business operation is advertised as available today'
+		],
+		limitations: [
+			'Google enables the Local Posts surface only after an access request is approved.',
+			'An adapter, configured credential, or mocked test is not a readiness claim.',
+			'OpenPost exposes no public Google Business claim without a current certification projection.'
+		],
+		verification:
+			'Do not connect or publish for public accounts until Google API access and every readiness gate pass with current live evidence.',
 		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{

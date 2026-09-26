@@ -28,7 +28,7 @@ async function callMCP(
   return payload.result;
 }
 
-test("scheduler widget renders canonical list_publications results", async ({ page, request }) => {
+test("scheduler widget renders canonical list_posts results", async ({ page, request }) => {
   const unique = Date.now().toString(36);
   const title = `Widget publication ${unique}`;
   const auth = await registerUser(request, `mcp-widget-${unique}@example.com`);
@@ -50,7 +50,7 @@ test("scheduler widget renders canonical list_publications results", async ({ pa
   const listed = await callMCP(request, mcpToken, "list-publications", "tools/call", {
     name: "query_operation",
     arguments: {
-      operation: "list_publications",
+      operation: "list_posts",
       arguments: { workspace_id: workspace.id },
     },
   });

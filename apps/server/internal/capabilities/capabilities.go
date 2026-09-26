@@ -17,24 +17,25 @@ import (
 )
 
 const (
-	ProviderBluesky   = "bluesky"
-	ProviderDiscord   = "discord"
-	ProviderFacebook  = "facebook"
-	ProviderInstagram = "instagram"
-	ProviderLinkedIn  = "linkedin"
-	ProviderMastodon  = "mastodon"
-	ProviderPixelfed  = "pixelfed"
-	ProviderPeerTube  = "peertube"
-	ProviderLemmy     = "lemmy"
-	ProviderPieFed    = "piefed"
-	ProviderPinterest = "pinterest"
-	ProviderTelegram  = "telegram"
-	ProviderThreads   = "threads"
-	ProviderTikTok    = "tiktok"
-	ProviderX         = "x"
-	ProviderYouTube   = "youtube"
+	ProviderBluesky        = "bluesky"
+	ProviderDiscord        = "discord"
+	ProviderFacebook       = "facebook"
+	ProviderGoogleBusiness = "googlebusiness"
+	ProviderInstagram      = "instagram"
+	ProviderLinkedIn       = "linkedin"
+	ProviderMastodon       = "mastodon"
+	ProviderPixelfed       = "pixelfed"
+	ProviderPeerTube       = "peertube"
+	ProviderLemmy          = "lemmy"
+	ProviderPieFed         = "piefed"
+	ProviderPinterest      = "pinterest"
+	ProviderTelegram       = "telegram"
+	ProviderThreads        = "threads"
+	ProviderTikTok         = "tiktok"
+	ProviderX              = "x"
+	ProviderYouTube        = "youtube"
 
-	capabilityRevision   = "2026-09-12.1"
+	capabilityRevision   = "2026-09-26.1"
 	xMinVideoAspectRatio = "1:3"
 	xMaxVideoAspectRatio = "3:1"
 	blueskyImageMaxBytes = 2_000_000
@@ -326,7 +327,7 @@ func All() []Capability {
 	xVideo := MediaConstraint{
 		MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"},
 		MinVideoAspectRatio: xMinVideoAspectRatio, MaxVideoAspectRatio: xMaxVideoAspectRatio,
-		MaxSizeBytes: 512 * 1024 * 1024, MaxDurationSeconds: 140,
+		MaxSizeBytes: providerlimits.XPostVideoMaxBytes, MaxDurationSeconds: providerlimits.XPostVideoMaxDurationSeconds,
 	}
 	mastodonVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4", "video/quicktime", "video/webm"}, MaxSizeBytes: 99 * 1024 * 1024}
 	linkedinVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 500 * 1024 * 1024, MaxDurationSeconds: 30 * 60}
@@ -342,6 +343,10 @@ func All() []Capability {
 	pinterestCarousel.MinCount = 2
 	pinterestCarousel.MaxCount = 5
 	pinterestVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 2 * 1024 * 1024 * 1024, MaxDurationSeconds: 15 * 60}
+	googlebusinessPhoto := MediaConstraint{
+		MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"image/jpeg", "image/png"},
+		RequiresPublicURL: true, RequiresHTTPSFetchable: true,
+	}
 	telegramMedia := MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "application/pdf"}}
 	publicShortVideo := shortVideo
 	publicShortVideo.RequiresPublicURL = true
@@ -363,8 +368,8 @@ func All() []Capability {
 		AllowedMIMEs:        []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime"},
 		MinVideoAspectRatio: xMinVideoAspectRatio,
 		MaxVideoAspectRatio: xMaxVideoAspectRatio,
-		MaxSizeBytes:        512 * 1024 * 1024,
-		MaxDurationSeconds:  140,
+		MaxSizeBytes:        providerlimits.XPostVideoMaxBytes,
+		MaxDurationSeconds:  providerlimits.XPostVideoMaxDurationSeconds,
 	}
 
 	defaultQueued := func(c Capability) Capability {
@@ -455,6 +460,9 @@ func All() []Capability {
 		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileImagePost, Label: "Pinterest Pin", TextLimit: 800, Media: pinterestImage, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
 		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileCarousel, Label: "Pinterest multi-image Pin", TextLimit: 800, Media: pinterestCarousel, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
 		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileShortVideo, Label: "Pinterest video Pin", TextLimit: 800, Media: pinterestVideo, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
+
+		defaultQueued(Capability{Provider: ProviderGoogleBusiness, Profile: models.ContentProfileShortText, Label: "Google Business update", TextLimit: 1500, Media: text, Settings: googlebusinessSettings(), RequiresAppReview: true, UnavailableReason: "Google Business delivery is not enabled until Google API access and live certification are complete."}),
+		defaultQueued(Capability{Provider: ProviderGoogleBusiness, Profile: models.ContentProfileImagePost, Label: "Google Business photo update", TextLimit: 1500, Media: googlebusinessPhoto, RequiresPublicMedia: true, Settings: googlebusinessSettings(), RequiresAppReview: true, UnavailableReason: "Google Business delivery is not enabled until Google API access and live certification are complete."}),
 
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, Settings: telegramSettings()}),
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileImagePost, Label: "Telegram media", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings()}),
@@ -859,22 +867,23 @@ func sameDefaultSetting(left, right SettingDefinition) bool {
 }
 
 var providerDisplayNames = map[string]string{
-	ProviderX:         "X",
-	ProviderLinkedIn:  "LinkedIn",
-	ProviderTikTok:    "TikTok",
-	ProviderYouTube:   "YouTube",
-	ProviderFacebook:  "Facebook",
-	ProviderInstagram: "Instagram",
-	ProviderMastodon:  "Mastodon",
-	ProviderPixelfed:  "Pixelfed",
-	ProviderPeerTube:  "PeerTube",
-	ProviderLemmy:     "Lemmy",
-	ProviderPieFed:    "PieFed",
-	ProviderPinterest: "Pinterest",
-	ProviderTelegram:  "Telegram",
-	ProviderBluesky:   "Bluesky",
-	ProviderThreads:   "Threads",
-	ProviderDiscord:   "Discord",
+	ProviderX:              "X",
+	ProviderLinkedIn:       "LinkedIn",
+	ProviderTikTok:         "TikTok",
+	ProviderYouTube:        "YouTube",
+	ProviderFacebook:       "Facebook",
+	ProviderGoogleBusiness: "Google Business",
+	ProviderInstagram:      "Instagram",
+	ProviderMastodon:       "Mastodon",
+	ProviderPixelfed:       "Pixelfed",
+	ProviderPeerTube:       "PeerTube",
+	ProviderLemmy:          "Lemmy",
+	ProviderPieFed:         "PieFed",
+	ProviderPinterest:      "Pinterest",
+	ProviderTelegram:       "Telegram",
+	ProviderBluesky:        "Bluesky",
+	ProviderThreads:        "Threads",
+	ProviderDiscord:        "Discord",
 }
 
 func providerDisplayName(provider string) string {
@@ -2493,6 +2502,7 @@ func instagramSettings() []SettingField {
 		{Key: "cover_media_id", Label: "Cover image", Type: "media", Control: "media_picker", Intents: []string{IntentShortVideo}},
 		{Key: "thumbnail_timestamp_ms", Label: "Cover frame", Type: "number", Control: "cover_frame", Intents: []string{IntentShortVideo}},
 		{Key: "share_to_feed", Label: "Share Reel to feed", Type: "boolean", Intents: []string{IntentShortVideo}},
+		{Key: "first_comment", Label: "First comment", Type: "textarea", Control: "follow_up", Scope: SettingScopeSegment},
 	}
 }
 
@@ -2520,6 +2530,25 @@ func pinterestSettings() []SettingField {
 		{Key: "cover_media_id", Label: "Cover image", Type: "media", Control: "media_picker", Intents: []string{IntentShortVideo}, MediaShapes: []string{MediaShapeVideo}, Required: true, Constraints: SettingConstraint{Accept: []string{"image/jpeg", "image/png"}}},
 		{Key: "alt_text", Label: "Alt text", Type: "textarea", Scope: SettingScopeMediaItem, Constraints: SettingConstraint{MaxLength: 500}},
 		{Key: "is_ai_generated", Label: "AI-generated content", Type: "boolean"},
+	}
+}
+
+func googlebusinessSettings() []SettingField {
+	eventOrOffer := []SettingCondition{{Key: "topic_type", Operator: "in", Value: []string{"event", "offer"}}}
+	return []SettingField{
+		{Key: "location_id", Label: "Location", Type: "select", Control: "remote_picker", Required: true, OptionsSource: "googlebusiness_locations"},
+		{Key: "topic_type", Label: "Post type", Type: "select", Default: "standard", Options: []string{"standard", "event", "offer"}, Help: "Google accepts What's New, Event, and Offer local posts."},
+		{Key: "language_code", Label: "Language", Type: "text", Control: "language", Default: "en-US"},
+		{Key: "call_to_action", Label: "Button", Type: "select", Default: "none", Options: []string{"none", "book", "order", "shop", "learn_more", "sign_up", "call"}, Help: "Offer posts carry no button because Google ignores it on that type."},
+		{Key: "action_url", Label: "Button link", Type: "url", Dependencies: []SettingCondition{{Key: "call_to_action", Operator: "not_equals", Value: "none"}}},
+		{Key: "event_title", Label: "Event name", Type: "text", Constraints: SettingConstraint{MaxLength: 58}, Dependencies: eventOrOffer},
+		{Key: "event_start_date", Label: "Start date", Type: "date", Dependencies: eventOrOffer},
+		{Key: "event_start_time", Label: "Start time", Type: "time", Dependencies: eventOrOffer},
+		{Key: "event_end_date", Label: "End date", Type: "date", Dependencies: eventOrOffer},
+		{Key: "event_end_time", Label: "End time", Type: "time", Dependencies: eventOrOffer},
+		{Key: "offer_coupon_code", Label: "Coupon code", Type: "text", Dependencies: []SettingCondition{{Key: "topic_type", Operator: "equals", Value: "offer"}}},
+		{Key: "offer_redeem_url", Label: "Redemption link", Type: "url", Dependencies: []SettingCondition{{Key: "topic_type", Operator: "equals", Value: "offer"}}},
+		{Key: "offer_terms", Label: "Offer terms", Type: "textarea", Dependencies: []SettingCondition{{Key: "topic_type", Operator: "equals", Value: "offer"}}},
 	}
 }
 
@@ -2558,6 +2587,7 @@ func youtubeSettings() []SettingField {
 		{Key: "contains_synthetic_media", Label: "Synthetic media", Type: "boolean"},
 		{Key: "paid_placement", Label: "Contains paid promotion", Type: "boolean"},
 		{Key: "notify_subscribers", Label: "Notify subscribers", Type: "boolean"},
+		{Key: "first_comment", Label: "First comment", Type: "textarea", Control: "follow_up", Scope: SettingScopeSegment},
 	}
 }
 

@@ -188,25 +188,34 @@ boundary.
 ## Discoverable operations
 
 - `list_workspaces`: returns the workspaces available to the authenticated user.
-- `list_provider_catalog`: returns provider launch status so assistants know which platforms are available, need server configuration, or are still planned.
-- `list_accounts`: returns active social accounts for a workspace.
-- `list_media`: returns recent workspace media attachments so assistants can reuse existing assets.
-- `get_provider_readiness`: returns provider configuration, account, app-review, and public-media readiness checks.
-- `create_publication`: creates a format-first publication with renditions and destination-specific settings.
-- `list_publications`: lists format-first publications for a workspace.
-- `get_publication`: returns a publication with its destination renditions and delivery state.
-- `update_publication`: updates editable source fields, schedule time, and an optional random-delay range while preserving omitted values.
-- `set_publication_renditions`: replaces a publication's destination-specific outputs and media roles.
-- `reply_to_rendition`: queues an explicit provider reply immediately or at a requested time.
-- `validate_publication`: validates a publication before scheduling or publishing.
-- `schedule_publication`: schedules an existing publication. The saved random-delay range is explicit or inherited from the Workspace, and the resulting Job time is authorized exactly.
-- `cancel_publication`: cancels a scheduled publication and its pending delivery Job.
-- `publish_publication_now`: queues an existing publication for immediate publishing.
-- `list_publication_events`: returns lifecycle events for a publication.
-- `list_rendition_comments`: lists comments for a published rendition.
-- `reply_to_comment`: replies to an opaque comment ID returned by `list_rendition_comments`.
+- `list_provider_catalog`: returns provider launch status so assistants know which platforms are available, need server configuration, or are still planned. Then call `list_accounts` for workspace destinations and `get_provider_readiness` for account-scoped checks.
+- `list_accounts`: returns active social accounts for a workspace. Pair with `list_provider_catalog` for platform availability and `get_provider_readiness` before scheduling.
+- `list_media`: returns workspace media attachments in newest-first order with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs. Defaults to 20 items per response, up to 100.
+- `get_provider_readiness`: returns provider configuration, account, app-review, and public-media readiness checks. Start from `list_provider_catalog` for platform availability, then `list_accounts` for the destinations these checks evaluate.
+- `create_post`: creates a format-first post with variants and destination-specific settings.
+- `list_posts`: lists format-first posts for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_variant_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed. `status` and `content_profile` accept only their documented enum values so typos fail with `-32602`. Failed destinations name `get_post` for delivery detail and `retry_failed_variants` for safe retries.
+- `get_post`: returns a post with its destination variants and delivery state.
+- `update_post`: updates editable source fields, schedule time, and an optional random-delay range while preserving omitted values.
+- `set_post_variants`: replaces a post's destination-specific outputs and media roles.
+- `reply_to_variant`: queues an explicit provider reply immediately or at a requested time.
+- `validate_post`: validates a post before scheduling or publishing. When `valid` is false, the result names `get_post` for delivery detail and `retry_failed_variants` for safe retries after the issues are fixed.
+- `schedule_post`: schedules an existing post. The saved random-delay range is explicit or inherited from the Workspace, and the resulting Job time is authorized exactly. Accepts `idempotency_key` for safe retries and `dry_run` to validate without enqueueing.
+- `cancel_post`: cancels a scheduled post and its pending delivery Job.
+- `publish_post_now`: queues an existing post for immediate publishing. Accepts `dry_run` to validate without queueing. This action is irreversible once a worker picks it up: repeat the call with `confirm=true` to proceed.
+- `delete_post`: permanently deletes an editable post, its destination variants, and any linked draft. Repeat the call with `confirm=true` to proceed; a repeated call with the same `idempotency_key` replays the stored deletion.
+- `retry_failed_variants`: queues one retry batch for the remaining safely retryable failed destination variants.
+- `retry_variant`: queues a retry for one failed destination variant with a confirmed safe delivery outcome. Both retry operations use the post-action shape (`post_id` plus `expected_revision`) and return the post state with the durable retry Job ID.
+- `get_media`: returns one workspace media asset with its usage and deletion eligibility.
+- `update_media`: updates a workspace media asset's favorite flag or alt text.
+- `delete_media`: moves a workspace media asset to Trash when `list_media` reports `can_delete`. Repeat the call with `confirm=true` to proceed.
+- `list_post_events`: returns lifecycle events for a post with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs. Defaults to 100 events per response, up to 200.
+- `list_variant_comments`: lists comments for a published variant with a `limit` input (1-100, default 50). Results beyond the limit are truncated in provider order and the response text notes the truncation.
+- `get_post_metrics`: returns stored analytics per variant (normalized `views`, `reactions`, `engagements`, `impressions`, and `reach`) plus post totals. Read-only against stored snapshots; it triggers no provider calls.
+- `get_dashboard_link`: builds an app-origin dashboard URL for a `post`, `media`, `account`, or `calendar` view so agents can hand users a link to the visualization. Pure URL builder besides the workspace access check.
+- `search_docs`: searches the curated offline registry of documentation and assistant skill pages, returning titles, `/docs` paths, and snippets.
+- `reply_to_comment`: replies to an opaque comment ID returned by `list_variant_comments`.
 - `hide_comment`: hides a supported provider comment.
-- `delete_comment`: permanently deletes a supported provider comment.
+- `delete_comment`: permanently deletes a supported provider comment. Repeat the call with `confirm=true` to proceed.
 - `suggest_next_slot`: returns the next free configured posting slot for a workspace.
 - `upload_media_from_url`: fetches a public HTTP(S) media URL and stores it in a workspace.
 - `render_local_media_upload`: opens the MCP Apps local file picker. The widget
@@ -215,8 +224,69 @@ boundary.
   filename, and streams the file through the normal validation, quota, storage,
   deduplication, analysis, and usage pipeline.
 
+Every execute-mode mutation accepts an optional `idempotency_key` routed into
+the existing REST idempotency path (`mutationIdempotencyRequest` plus
+`idempotency.Execute` and the idempotent application methods), so a retried
+call replays the stored result instead of running the mutation again.
+Irreversible tools (`delete_post`, `publish_post_now`, `delete_media`,
+`delete_comment`) additionally require a machine-enforceable `confirm=true`
+second call: the first call describes the irreversible effect and is rejected,
+and only the confirmed repeat runs. Post mutations return a unified shape, a
+summary status plus `job_id` (empty when no durable work is enqueued), with an
+optional `detail: summary|full` input selecting the complete post instead.
+Comment mutations report `job_id`.
+
 The directly advertised render tools are intentionally outside the delegated
 operation catalog; clients call them only when they want their Apps UI.
+Both render tools are read-only and stay visible to `mcp:read` connections:
+`render_scheduler_widget` renders model-visible structured data, while
+`render_local_media_upload` opens the picker and its one-use upload ticket
+tool (`create_local_media_upload_ticket`) is app-only and requires `mcp:full`.
+
+Read operations share paging conventions: `list_posts` and `list_media`
+default to 20 items per response capped at 100, `list_post_events`
+defaults to 100 capped at 200, and `list_variant_comments` defaults to 50
+capped at 100 with provider-order truncation. Cursor pages return
+`has_more`, `next_cursor`, and `total_count` with the same opaque
+timestamp-plus-ID pattern everywhere.
+
+## Retired operation names and sunset policy
+
+The post/variant names above replaced the original publication/rendition
+names. `tools/list`, `search_operations`, and `prompts/list` advertise the new
+names only. The retired names below remain callable through `tools/call`,
+`query_operation`, and `execute_operation`, and retired argument keys
+(`publication_id`, `rendition_id`, `renditions`, `failed_rendition_count`) are
+accepted wherever their replacements (`post_id`, `variant_id`, `variants`,
+`failed_variant_count`) are documented; when a call sends both forms, the new
+key wins. Audit rows record the canonical name. Structured output uses the new
+names, except the top-level `publication` and `publications` keys, which are
+unchanged:
+
+| Retired                            | Canonical                    |
+| ---------------------------------- | ---------------------------- |
+| `create_publication`               | `create_post`                |
+| `list_publications`                | `list_posts`                 |
+| `get_publication`                  | `get_post`                   |
+| `update_publication`               | `update_post`                |
+| `set_publication_renditions`       | `set_post_variants`          |
+| `reply_to_rendition`               | `reply_to_variant`           |
+| `validate_publication`             | `validate_post`              |
+| `schedule_publication`             | `schedule_post`              |
+| `cancel_publication`               | `cancel_post`                |
+| `publish_publication_now`          | `publish_post_now`           |
+| `list_publication_events`          | `list_post_events`           |
+| `list_rendition_comments`          | `list_variant_comments`      |
+| prompt `adapt_platform_renditions` | prompt `adapt_post_variants` |
+
+The scheduler widget accepts both `renditions` and `variants` views. Retired
+names follow the same precedent as the legacy `search`/`query`/`execute`
+aliases: they stay callable indefinitely for cached clients, are never
+advertised, and are removed only by an explicitly announced breaking change
+that names the removal version, the migration window, and the replacement
+names. REST paths and bodies, OpenAPI, CLI nouns, database columns, and
+internal identifiers keep the publication/rendition terms; only the MCP
+assistant-facing surface uses post/variant names.
 
 ## Registry listing version and compatibility
 
@@ -238,9 +308,9 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 
 ## Current prompts
 
-- `plan_social_post`: guides an assistant from a rough idea to a workspace-aware Publication.
-- `adapt_platform_renditions`: guides destination-specific copywriting for an existing Publication.
-- `review_schedule`: guides queue inspection and next-action recommendations without mutating Publications.
+- `plan_social_post`: guides an assistant from a rough idea to a workspace-aware Post.
+- `adapt_post_variants`: guides destination-specific copywriting for an existing Post.
+- `review_schedule`: guides queue inspection and next-action recommendations without mutating Posts.
 
 ## Current scope
 
@@ -261,7 +331,7 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Provides `openpost-mcp` for local stdio clients without duplicating server tool logic.
 - Advertises MCP prompt templates for common agentic scheduling workflows: planning a post, adapting platform renditions, and reviewing the publishing queue.
 - Validates workspace membership and account ownership before returning, creating, scheduling, canceling, or uploading data.
-- Keeps draft iteration agent-friendly: assistants can create, list, update, validate, schedule, cancel, and publish Publications through the canonical Publication tools, set per-destination renditions through `set_publication_renditions`, and inspect lifecycle events.
+- Keeps draft iteration agent-friendly: assistants can create, list, update, validate, schedule, cancel, and publish Posts through the canonical Post tools, set per-destination variants through `set_post_variants`, and inspect lifecycle events.
 - Validates rendition targets against the Publication destination list so assistants do not create outputs that would never publish.
 - Rejects media URL fetches that resolve to private, loopback, link-local, multicast, or otherwise local addresses.
 - Enforces the same scheduled-publication and media-upload entitlement and usage accounting as the web/API paths.
@@ -269,4 +339,12 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Records API-token client ID, name, scope, and token prefix for MCP tool calls when a request uses a dedicated CLI/MCP token, so Settings can attribute activity to ChatGPT, Claude, CI, or another configured client.
 - Returns structured content so assistants can inspect workspace, account, publication, destination, media, and suggested slot IDs without parsing prose.
 - Returns provider catalog structured content so assistants can avoid trying to connect or schedule to planned providers before adapters exist.
-- Lets assistants attach workspace-owned source media to Publications through `media`, while preserving destination-specific media overrides through `set_publication_renditions`.
+- Lets assistants attach workspace-owned source media to Posts through `media`, while preserving destination-specific media overrides through `set_post_variants`.
+- Accepted gaps (kept out deliberately; specced follow-ups, not oversights): no account connect/disconnect tools, no bulk operations, and no webhook management tools. Assistants connect accounts through the web settings flow and link users there with `get_dashboard_link` (`account` kind).
+- OAuth has no per-client allow-listing: any standards-compliant OAuth client can start the flow with a valid client-metadata URL (matching redirect, `none` auth, code flow), and non-URL client IDs additionally work through the ChatGPT connector and loopback redirect fallbacks. The recorded client name is attribution for Settings activity only, never an access gate.
+
+## Recommended toolsets per client
+
+- Full-catalog clients (ChatGPT, Claude Desktop, IDE assistants that handle dozens of tools): use the default `/mcp` endpoint. Every operation is directly advertised with its own schema, and the Apps widgets load through the render tools.
+- Token-constrained or search-first clients (coding agents, CLI-driven flows): use `/mcp/code`. Start each task with `search_operations`, run reads through `query_operation`, mutations through `execute_operation`, and render through `render_scheduler_widget` only when a visual summary helps.
+- Self-hosted operators choose with `OPENPOST_MCP_MODE`: `direct` (default) for full-catalog clients, `search` for constrained ones, `both` while migrating. Changing the list never changes permissions; `mcp:read` connections always lose `execute_operation` and the ticket tool regardless of mode.

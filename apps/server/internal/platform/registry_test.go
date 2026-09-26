@@ -135,6 +135,25 @@ func TestBuildAdapterRegistryAcceptsBuiltinCredentialProviders(t *testing.T) {
 	}
 }
 
+func TestBuildAdapterRegistryTikTokDisplayAPIToggle(t *testing.T) {
+	t.Parallel()
+
+	app := AppConfig{Provider: "tiktok", ClientID: "tiktok-key", ClientSecret: "tiktok-secret", RedirectURI: "https://app.test/api/v1/accounts/tiktok/callback"}
+
+	adapters, _, err := BuildAdapterRegistry([]AppConfig{app}, RegistryOptions{})
+	require.NoError(t, err)
+	full, ok := adapters["tiktok"].(*TikTokAdapter)
+	require.True(t, ok)
+	require.Equal(t, TikTokDefaultScopeCapabilities().Scopes(), full.RequestedScopes())
+
+	adapters, _, err = BuildAdapterRegistry([]AppConfig{app}, RegistryOptions{DisableTikTokDisplayAPI: true})
+	require.NoError(t, err)
+	minimal, ok := adapters["tiktok"].(*TikTokAdapter)
+	require.True(t, ok)
+	require.Equal(t, TikTokRequiredPublishingScopes(), minimal.RequestedScopes())
+	require.False(t, minimal.AnalyticsSupport().Account)
+}
+
 func TestNewInstanceAdapterCoversCredentialProviders(t *testing.T) {
 	for _, provider := range []string{providerPeerTube, providerLemmy, providerPieFed} {
 		adapter, ok := NewInstanceAdapter(provider, "https://instance.example")

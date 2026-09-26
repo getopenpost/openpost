@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestTikTokGenerateAuthURL(t *testing.T) {
@@ -42,6 +44,188 @@ func TestTikTokGenerateAuthURL(t *testing.T) {
 	}
 	if !strings.Contains(query.Get("scope"), "user.info.stats") || !strings.Contains(query.Get("scope"), "video.list") {
 		t.Fatalf("expected analytics read scopes, got %q", query.Get("scope"))
+	}
+}
+
+func TestTikTokScopeCapabilitiesSplitRequiredFromOptional(t *testing.T) {
+	required := TikTokRequiredPublishingScopes()
+	if len(required) != 3 || required[0] != "user.info.basic" || required[1] != "video.publish" || required[2] != "video.upload" {
+		t.Fatalf("unexpected minimal publishing scopes: %q", required)
+	}
+
+	optional := TikTokOptionalDisplayScopes()
+	if len(optional) != 3 || optional[0] != "user.info.profile" || optional[1] != "user.info.stats" || optional[2] != "video.list" {
+		t.Fatalf("unexpected optional display scopes: %q", optional)
+	}
+
+	def := TikTokDefaultScopeCapabilities().Scopes()
+	want := []string{"user.info.basic", "user.info.profile", "user.info.stats", "video.list", "video.publish", "video.upload"}
+	if strings.Join(def, ",") != strings.Join(want, ",") {
+		t.Fatalf("default scope set changed: got %q want %q", def, want)
+	}
+
+	minimal := TikTokDefaultScopeCapabilities().WithoutDisplayAPI().Scopes()
+	if strings.Join(minimal, ",") != strings.Join(required, ",") {
+		t.Fatalf("display-disabled scope set is not the minimal publishing set: got %q", minimal)
+	}
+
+	for _, set := range [][]string{def, required, optional} {
+		seen := map[string]struct{}{}
+		for _, scope := range set {
+			if _, duplicate := seen[scope]; duplicate {
+				t.Fatalf("duplicate scope %q in %q", scope, set)
+			}
+			seen[scope] = struct{}{}
+		}
+	}
+}
+
+func TestTikTokGenerateAuthURLUsesInstallationCapabilitySet(t *testing.T) {
+	minimal := NewTikTokAdapterWithCapabilities("client-key", "client-secret", "https://app.example/callback", TikTokMinimalScopeCapabilities())
+
+	authURL, _ := minimal.GenerateAuthURL("state-123")
+	parsed, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatalf("parsing auth url: %v", err)
+	}
+	scope := parsed.Query().Get("scope")
+	if scope != "user.info.basic,video.publish,video.upload" {
+		t.Fatalf("expected minimal publishing scopes, got %q", scope)
+	}
+	for _, dropped := range TikTokOptionalDisplayScopes() {
+		if strings.Contains(scope, dropped) {
+			t.Fatalf("minimal auth url must not request display scope %q: %q", dropped, scope)
+		}
+	}
+
+	capabilityURL, _ := minimal.GenerateAuthURLWithCapabilities("state-123", TikTokDefaultScopeCapabilities())
+	capabilityScope := mustParseQuery(t, capabilityURL).Get("scope")
+	for _, want := range []string{"video.publish", "user.info.stats", "video.list"} {
+		if !strings.Contains(capabilityScope, want) {
+			t.Fatalf("expected capability auth url to contain %q, got %q", want, capabilityScope)
+		}
+	}
+
+	if got := minimal.RequestedScopes(); strings.Join(got, ",") != scope {
+		t.Fatalf("RequestedScopes %q does not match auth url scope %q", got, scope)
+	}
+}
+
+func TestTikTokAdapterAlwaysRequestsBothPublishingScopes(t *testing.T) {
+	for _, capabilities := range []TikTokScopeCapabilities{
+		{Profile: true},
+		{DirectPost: true},
+	} {
+		adapter := NewTikTokAdapterWithCapabilities("key", "secret", "https://app.example/callback", capabilities)
+		require.Contains(t, adapter.RequestedScopes(), "video.publish")
+		require.Contains(t, adapter.RequestedScopes(), "video.upload")
+	}
+}
+
+func mustParseQuery(t *testing.T, raw string) url.Values {
+	t.Helper()
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		t.Fatalf("parsing auth url: %v", err)
+	}
+	return parsed.Query()
+}
+
+func TestTikTokGetProfileFallsBackToBasicFieldsWithoutDisplayGrant(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokUserInfoURL:
+			return jsonResponse(req, `{"data":{},"error":{"code":"scope_not_authorized","message":"scope not authorized","log_id":"log"}}`), nil
+		case tiktokUserInfoBasicURL:
+			return jsonResponse(req, `{"data":{"user":{"open_id":"open-1","display_name":"Creator","avatar_url":"https://cdn.tiktok.example/avatar.jpg"}},"error":{"code":"ok","message":"","log_id":"log"}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	profile, err := NewTikTokAdapter("client-key", "client-secret", "https://app.example/callback").GetProfile(context.Background(), "access")
+	if err != nil {
+		t.Fatalf("GetProfile with basic grant returned error: %v", err)
+	}
+	if profile.ID != "open-1" || profile.DisplayName != "Creator" {
+		t.Fatalf("unexpected degraded profile: %#v", profile)
+	}
+	if profile.CapabilityState["tiktok_display_profile"] != "unavailable" {
+		t.Fatalf("expected degraded display capability state, got %#v", profile.CapabilityState)
+	}
+}
+
+func TestTikTokGetProfileStillFailsForDeadToken(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	calls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		return jsonResponse(req, `{"data":{},"error":{"code":"access_token_invalid","message":"invalid token","log_id":"log"}}`), nil
+	})}
+
+	if _, err := NewTikTokAdapter("client-key", "client-secret", "https://app.example/callback").GetProfile(context.Background(), "access"); err == nil {
+		t.Fatalf("expected dead-token profile error")
+	}
+	if calls != 1 {
+		t.Fatalf("dead token must not trigger a basic-fields retry, got %d calls", calls)
+	}
+}
+
+func TestTikTokPublishAcceptsCompletedVideoWithoutVideoListGrant(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokCreatorInfoURL:
+			return jsonResponse(req, `{"data":{"privacy_level_options":["PUBLIC_TO_EVERYONE"]},"error":{"code":"ok"}}`), nil
+		case tiktokVideoInitURL:
+			return jsonResponse(req, `{"data":{"publish_id":"publish-1"},"error":{"code":"ok"}}`), nil
+		case tiktokPublishStatusURL:
+			return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE"},"error":{"code":"ok"}}`), nil
+		case tiktokVideoListURL:
+			return jsonResponse(req, `{"data":{},"error":{"code":"scope_permission_missed","message":"permission missed","log_id":"log"}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	request := &PublishRequest{
+		Content: "Launch video", PlatformMediaIDs: []string{"https://media.example/video.mp4"},
+		Media:    []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
+		Settings: map[string]interface{}{"content_posting_method": "DIRECT_POST", "privacy_level": "PUBLIC_TO_EVERYONE"},
+	}
+	request.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error { return nil })
+	result, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
+	if err != nil {
+		t.Fatalf("completed publish without video.list grant returned error: %v", err)
+	}
+	if result.ExternalID != "publish-1" {
+		t.Fatalf("expected provider publish id fallback, got %#v", result)
+	}
+}
+
+func TestTikTokAnalyticsSupportExplainsDisplayDisabledInstallation(t *testing.T) {
+	full := NewTikTokAdapter("key", "secret", "https://app.example/callback")
+	support := full.AnalyticsSupport()
+	if !support.Account || !support.Content {
+		t.Fatalf("default adapter must support analytics, got %#v", support)
+	}
+
+	minimal := NewTikTokAdapterWithCapabilities("key", "secret", "https://app.example/callback", TikTokMinimalScopeCapabilities())
+	degraded := minimal.AnalyticsSupport()
+	if degraded.Account || degraded.Content {
+		t.Fatalf("display-disabled adapter must not advertise analytics, got %#v", degraded)
+	}
+	if !strings.Contains(degraded.AccountUnavailable, "user.info.stats") || !strings.Contains(degraded.ContentUnavailable, "video.list") {
+		t.Fatalf("analytics unavailability must name the missing scopes, got %#v", degraded)
 	}
 }
 

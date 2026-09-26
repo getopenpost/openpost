@@ -39,14 +39,19 @@ func PublishingSettingsContract(provider string) PublishingSettingContract {
 			AdapterKeys:  []string{"url", "video_title", "video_description", "share_to_feed"},
 			PipelineKeys: []string{"first_comment"},
 		},
+		providerGoogleBusiness: {
+			AdapterKeys: []string{"location_id", "topic_type", "language_code", "call_to_action", "action_url", "event_title", "event_start_date", "event_start_time", "event_end_date", "event_end_time", "offer_coupon_code", "offer_redeem_url", "offer_terms"},
+		},
 		providerInstagram: {
-			AdapterKeys: []string{"is_trial_reel", "graduation_strategy", "collaborators", "location_id", "user_tags", "product_tags", "cover_media_id", "thumbnail_timestamp_ms", "share_to_feed", "alt_text"},
+			AdapterKeys:  []string{"is_trial_reel", "graduation_strategy", "collaborators", "location_id", "user_tags", "product_tags", "cover_media_id", "thumbnail_timestamp_ms", "share_to_feed", "alt_text"},
+			PipelineKeys: []string{"first_comment"},
 		},
 		providerThreads: {
 			AdapterKeys: []string{"url", "poll_options", "text_attachment_plaintext", "text_attachment_link_url", "gif_id", "reply_control", "topic_tag", "location_id", "spoiler", "ghost_post", "reply_approvals", "alt_text"},
 		},
 		providerYouTube: {
-			AdapterKeys: []string{"privacy", "title", "description", "tags", "category_id", "playlist_id", "thumbnail_media_id", "caption_media_id", "caption_language", "license", "embeddable", "self_declared_made_for_kids", "contains_synthetic_media", "paid_placement", "notify_subscribers"},
+			AdapterKeys:  []string{"privacy", "title", "description", "tags", "category_id", "playlist_id", "thumbnail_media_id", "caption_media_id", "caption_language", "license", "embeddable", "self_declared_made_for_kids", "contains_synthetic_media", "paid_placement", "notify_subscribers"},
+			PipelineKeys: []string{"first_comment"},
 		},
 		providerTikTok: {
 			AdapterKeys:  []string{"content_posting_method", "privacy_level", "duet", "stitch", "comment", "photo_title", "cover_index", "auto_add_music", "brand_content_toggle", "brand_organic_toggle", "is_aigc", "cover_timestamp_ms"},

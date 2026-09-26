@@ -4,9 +4,9 @@
 
 AI can draft social posts. It should not publish them blind.
 
-OpenPost gives an authorized agent a bounded place to inspect workspace context, prepare destination-specific renditions, and suggest a schedule without receiving provider credentials.
+OpenPost gives an authorized agent a bounded place to inspect workspace context, prepare destination-specific variants, and suggest a schedule without receiving provider credentials.
 
-You review every account, rendition, media choice, and time in the web app. Then you decide what enters the visible publishing queue.
+You review every account, variant, media choice, and time in the web app. Then you decide what enters the visible publishing queue.
 
 Use the Hosted service, or self-host the same AGPL product as one binary or container.
 
@@ -22,4 +22,4 @@ https://openpo.st
 - Hosted service and self-hosted deployments are the same AGPL product.
 - The queue and final lifecycle outcomes are visible in OpenPost.
 
-The files in [`renditions/`](./renditions/) show how to adapt these facts without pasting identical copy into every destination.
+The files in [`variants/`](./variants/) show how to adapt these facts without pasting identical copy into every destination.

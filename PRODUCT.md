@@ -12,7 +12,7 @@ OpenPost serves solo founders first: people building a company without a dedicat
 
 ## Product Purpose
 
-OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, adapt that content for every channel, and keep it publishing from one workspace. Shared drafts, account-specific renditions, media, schedules, and outcomes stay together. Success means the founder can keep building the company while OpenPost carries the repeatable work of shaping, scheduling, and tracking its content.
+OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, adapt that content for every channel, and keep it publishing from one workspace. Shared drafts, account-specific variants, media, schedules, and outcomes stay together. Success means the founder can keep building the company while OpenPost carries the repeatable work of shaping, scheduling, and tracking its content.
 
 ## Positioning
 
@@ -20,15 +20,15 @@ OpenPost is the all-in-one content team for solo founders. It sits above a basic
 
 ## Operating Context
 
-Users move between composing, adapting destination renditions, managing connected accounts and reusable media, planning a calendar, and inspecting scheduled or completed jobs. Small teams share workspaces and roles. Automation uses the same workspace and account boundaries through the API, CLI, and MCP server. Users may choose the Hosted service, while self-hosted operators configure their own domain, storage, database, and provider applications.
+Users move between composing, adapting destination variants, managing connected accounts and reusable media, planning a calendar, and inspecting scheduled or completed jobs. Small teams share workspaces and roles. Automation uses the same workspace and account boundaries through the API, CLI, and MCP server. Users may choose the Hosted service, while self-hosted operators configure their own domain, storage, database, and provider applications.
 
 The SvelteKit interface is embedded in the Go binary. A standalone Expo mobile app uses the same typed HTTP API, terms, permissions, and workspace boundaries through native Android and iOS interfaces.
 
 ## Capabilities and Constraints
 
-- One publication model supports shared source content plus independently valid account renditions while the text-and-thread composer keeps its spacious writing canvas. Post, Thread, Story, Short video, and Video are starter presets; each destination owns its format, text, media, schedule override, and provider settings.
+- One post model supports shared source content plus independently valid account variants while the text-and-thread composer keeps its spacious writing canvas. Post, Thread, Story, Short video, and Video are starter presets; each destination owns its format, text, media, schedule override, and provider settings.
 - Social Sets save format-independent account groups and optional account format defaults. New drafts snapshot their selected destinations so later set edits do not change scheduled work.
-- Publications can be scheduled through a durable database-backed queue, with visible draft, scheduled, published, failed, and retry states.
+- Posts can be scheduled through a durable database-backed queue, with visible draft, scheduled, published, failed, and retry states.
 - Workspaces organize accounts, media, prompts, schedules, members, billing, and usage limits.
 - Organizations own a versioned theme library and default. When organization policy allows it, workspace admins may choose another published theme. Each person still chooses light, dark, or system appearance. The complete resolved theme applies to authenticated web and mobile chrome; theme creation and revision management remain a desktop web task.
 - OpenPost Image Editor creates editable, multi-page social images from workspace media, original templates, brand assets, text, and shapes. It exports ordered derivatives back to Media or the active composer without replacing source assets.

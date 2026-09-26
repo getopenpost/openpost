@@ -1,4 +1,4 @@
-# Bluesky Rendition
+# Bluesky Variant
 
 > **Illustrative copy — not a published thread.** Include Bluesky in a real campaign only after the exact account and thread path pass the verification log.
 
@@ -14,7 +14,7 @@ The agent can inspect the selected OpenPost workspace, connected accounts, media
 
 ## Post 3/5
 
-One base message is not pasted everywhere. OpenPost keeps account-specific renditions, so copy, media, thread shape, and settings can match each destination. (3/5)
+One base message is not pasted everywhere. OpenPost keeps account-specific variants, so copy, media, thread shape, and settings can match each destination. (3/5)
 
 ## Post 4/5
 

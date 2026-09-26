@@ -357,6 +357,9 @@ func TestFacebookPublishNormalizesMetaFailures(t *testing.T) {
 		code       string
 	}{
 		{name: "expired token", body: `{"error":{"code":190}}`, statusCode: http.StatusUnauthorized, code: "meta:token_expired:190"},
+		{name: "security checkpoint", body: `{"error":{"code":190,"error_subcode":459}}`, statusCode: http.StatusUnauthorized, code: "meta:checkpoint:190:459"},
+		{name: "lost page role", body: `{"error":{"code":190,"error_subcode":492}}`, statusCode: http.StatusForbidden, code: "meta:missing_page_role:190:492"},
+		{name: "missing object", body: `{"error":{"code":100,"error_subcode":33}}`, statusCode: http.StatusBadRequest, code: "meta:nonexistent:100:33"},
 		{name: "permission", body: `{"error":{"code":10}}`, statusCode: http.StatusForbidden, code: "meta:permission:10"},
 		{name: "rate limit", body: `{"error":{"code":4}}`, statusCode: http.StatusTooManyRequests, code: "meta:rate_limit:4"},
 		{name: "generic rejection", body: `{"error":{"code":1}}`, statusCode: http.StatusBadRequest, code: "meta:rejected:1"},

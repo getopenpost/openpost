@@ -147,6 +147,8 @@ type Config struct {
 	ThreadsClientSecret string
 	ThreadsRedirectURI  string
 
+	DisableTikTokDisplayAPI bool
+
 	ProviderApps                  []platform.AppConfig
 	ConnectorsFile                string
 	DisabledProviders             []string
@@ -349,6 +351,7 @@ func Load() *Config {
 		ThreadsClientID:               getEnvWithFallbacks("THREADS_CLIENT_ID", ""),
 		ThreadsClientSecret:           getEnvWithFallbacks("THREADS_CLIENT_SECRET", ""),
 		ThreadsRedirectURI:            oauthRedirectFromFrontend("THREADS_REDIRECT_URI", "", frontendURL, "/api/v1/accounts/threads/callback"),
+		DisableTikTokDisplayAPI:       getEnvBoolWithAliases(false, "OPENPOST_DISABLE_TIKTOK_DISPLAY_API"),
 		DisabledProviders:             parseStringList(getEnvDefault("OPENPOST_DISABLED_PROVIDERS", "")),
 		ProviderCertificationEnforced: getEnvBoolWithAliases(false, "OPENPOST_PROVIDER_CERTIFICATION_ENFORCED"),
 
@@ -542,17 +545,18 @@ func defaultProviderAppConfig(cfg *Config, apps []platform.AppConfig) []platform
 
 func providerRedirectURI(cfg *Config, provider string) string {
 	redirects := map[string]string{
-		"x":         cfg.TwitterRedirectURI,
-		"discord":   oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/discord/callback"),
-		"facebook":  oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/facebook/callback"),
-		"instagram": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/instagram/callback"),
-		"mastodon":  cfg.MastodonRedirectURI,
-		"pixelfed":  cfg.MastodonRedirectURI,
-		"pinterest": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/pinterest/callback"),
-		"linkedin":  cfg.LinkedInRedirectURI,
-		"threads":   cfg.ThreadsRedirectURI,
-		"tiktok":    oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/tiktok/callback"),
-		"youtube":   oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/youtube/callback"),
+		"x":              cfg.TwitterRedirectURI,
+		"discord":        oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/discord/callback"),
+		"facebook":       oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/facebook/callback"),
+		"googlebusiness": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/googlebusiness/callback"),
+		"instagram":      oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/instagram/callback"),
+		"mastodon":       cfg.MastodonRedirectURI,
+		"pixelfed":       cfg.MastodonRedirectURI,
+		"pinterest":      oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/pinterest/callback"),
+		"linkedin":       cfg.LinkedInRedirectURI,
+		"threads":        cfg.ThreadsRedirectURI,
+		"tiktok":         oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/tiktok/callback"),
+		"youtube":        oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/youtube/callback"),
 	}
 	return redirects[provider]
 }

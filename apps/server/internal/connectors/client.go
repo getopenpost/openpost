@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -20,6 +21,56 @@ import (
 )
 
 const maxResponseBytes = 1 << 20
+
+var (
+	errConnectorHostOutsideAllowlist    = errors.New("connector host is outside the private connector allowlist")
+	errConnectorPortOutsideAllowlist    = errors.New("connector port is outside the private connector allowlist")
+	errConnectorAddressOutsideAllowlist = errors.New("connector address is outside the private connector allowlist")
+)
+
+// connectorTransportError classifies a failed connector request without
+// retaining the request URL, matching the platform package boundary for
+// credential-bearing provider URLs.
+type connectorTransportError struct {
+	timeout  bool
+	canceled bool
+}
+
+func (e *connectorTransportError) Error() string {
+	switch {
+	case e.canceled:
+		return "connector request was canceled"
+	case e.timeout:
+		return "connector request timed out"
+	default:
+		return "connector request transport failed"
+	}
+}
+
+func sanitizeConnectorTransportError(err error) error {
+	// HTTP and redirect errors may contain credentials from a request URL or
+	// Location header. Only preserve known safe classifications.
+	if errors.Is(err, context.Canceled) {
+		return &connectorTransportError{canceled: true}
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &connectorTransportError{timeout: true}
+	}
+	var networkErr net.Error
+	if errors.As(err, &networkErr) && networkErr.Timeout() {
+		return &connectorTransportError{timeout: true}
+	}
+	for _, policyErr := range []error{
+		errConnectorHostOutsideAllowlist,
+		errConnectorPortOutsideAllowlist,
+		errConnectorAddressOutsideAllowlist,
+	} {
+		if errors.Is(err, policyErr) {
+			return policyErr
+		}
+	}
+	return &connectorTransportError{}
+}
 
 type Resolver interface {
 	LookupIPAddr(context.Context, string) ([]net.IPAddr, error)
@@ -193,7 +244,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, input, output 
 	}
 	response, err := c.http.Do(request)
 	if err != nil {
-		return fmt.Errorf("connector request failed: %w", err)
+		return fmt.Errorf("connector request failed: %w", sanitizeConnectorTransportError(err))
 	}
 	defer response.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
@@ -337,11 +388,11 @@ func dialPrivateConnector(
 		return nil, err
 	}
 	if !slices.Contains(endpoint.AllowedHosts, strings.ToLower(host)) {
-		return nil, fmt.Errorf("connector host is outside the private connector allowlist")
+		return nil, errConnectorHostOutsideAllowlist
 	}
 	port, err := strconv.Atoi(rawPort)
 	if err != nil || !slices.Contains(endpoint.AllowedPorts, port) {
-		return nil, fmt.Errorf("connector port is outside the private connector allowlist")
+		return nil, errConnectorPortOutsideAllowlist
 	}
 	addresses, err := allowedPrivateAddresses(ctx, resolver, host, endpoint.AllowedCIDRs)
 	if err != nil {
@@ -375,7 +426,7 @@ func allowedPrivateAddresses(
 	for _, address := range addresses {
 		parsed, ok := netip.AddrFromSlice(address.IP)
 		if !ok || !addressAllowed(parsed.Unmap(), allowedCIDRs) {
-			return nil, fmt.Errorf("connector address is outside the private connector allowlist")
+			return nil, errConnectorAddressOutsideAllowlist
 		}
 	}
 	return addresses, nil

@@ -874,7 +874,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "mcp/gemini-cli.mdx",
     "title": "Connect Gemini CLI",
-    "description": "Review and prepare OpenPost publications from Gemini CLI.",
+    "description": "Review and prepare OpenPost posts from Gemini CLI.",
     "route": "/mcp/gemini-cli",
     "agentRepresentation": {
       "membership": "ordinary"

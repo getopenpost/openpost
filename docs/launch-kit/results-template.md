@@ -16,7 +16,7 @@
 ## Workflow result
 
 - Base post prepared: `[YES / NO]`
-- Destination-specific renditions reviewed: `[COUNT]`
+- Destination-specific variants reviewed: `[COUNT]`
 - Providers removed after verification: `[LIST AND REASON]`
 - Manual edits after agent preparation: `[SUMMARY]`
 - Queue result: `[PENDING / COMPLETE / PARTIAL / FAILED]`
@@ -25,7 +25,7 @@
 
 | Provider | Account | Format | Scheduled state | Final state | Provider post ID | Published URL | Failure or retry ID | Evidence captured at |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `[PROVIDER]` | `[ACCOUNT]` | `[FORMAT]` | Pending — not proof of publication | Pending |  |  |  |  |
+| `[PROVIDER]` | `[ACCOUNT]` | `[FORMAT]` | Pending — not proof of post | Pending |  |  |  |  |
 
 Only mark a destination published when OpenPost records the provider result. Preserve failures and retries as outcomes; do not delete them to make the report look clean.
 
@@ -37,7 +37,7 @@ Only mark a destination published when OpenPost records the provider result. Pre
 - Successfully scheduled or published: `[VALUE]`
 - Paying customers: `[VALUE]`
 - OAuth failure rate: `[VALUE]`
-- First-publication failure rate: `[VALUE]`
+- First-post failure rate: `[VALUE]`
 - Median time to first scheduled post: `[VALUE]`
 - Queue backlog or missing final states: `[VALUE]`
 
@@ -70,4 +70,4 @@ Quote: `[NONE COLLECTED YET]`
 - Provider URLs: `[LINKS]`
 - Public technical write-up: `[LINK]`
 
-Do not link to the sample rendition files as proof that anything published.
+Do not link to the sample variant files as proof that anything published.

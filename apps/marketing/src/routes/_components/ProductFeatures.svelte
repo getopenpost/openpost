@@ -2,6 +2,7 @@
 	import { ditherSurface } from '@openpost/dither';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import ThemeImage from './ThemeImage.svelte';
+	const detailScreenshotSizes = '(max-width: 760px) calc(100vw - 64px), 50vw';
 	const features = [
 		{
 			title: 'Your media library',
@@ -76,9 +77,12 @@
 			<ThemeImage
 				lightSrc="/assets/screenshots/calendar-detail-light.webp"
 				darkSrc="/assets/screenshots/calendar-detail-dark.webp"
-				alt="OpenPost calendar showing scheduled publications across channels"
-				width={2272}
-				height={1600}
+				lightSrcset="/assets/screenshots/calendar-detail-light-768.webp 768w, /assets/screenshots/calendar-detail-light-1536.webp 1536w, /assets/screenshots/calendar-detail-light.webp 2256w"
+				darkSrcset="/assets/screenshots/calendar-detail-dark-768.webp 768w, /assets/screenshots/calendar-detail-dark-1536.webp 1536w, /assets/screenshots/calendar-detail-dark.webp 2256w"
+				sizes={detailScreenshotSizes}
+				alt="OpenPost calendar showing scheduled posts across channels"
+				width={2256}
+				height={1612}
 				loading="lazy"
 			/>
 		</div>
@@ -153,6 +157,9 @@
 				<ThemeImage
 					lightSrc="/assets/screenshots/meme-creator-detail-light.webp"
 					darkSrc="/assets/screenshots/meme-creator-detail-dark.webp"
+					lightSrcset="/assets/screenshots/meme-creator-detail-light-768.webp 768w, /assets/screenshots/meme-creator-detail-light-1536.webp 1536w, /assets/screenshots/meme-creator-detail-light.webp 2764w"
+					darkSrcset="/assets/screenshots/meme-creator-detail-dark-768.webp 768w, /assets/screenshots/meme-creator-detail-dark-1536.webp 1536w, /assets/screenshots/meme-creator-detail-dark.webp 2764w"
+					sizes={detailScreenshotSizes}
 					alt="OpenPost meme creator with editable captions and a rendered Drakeposting preview"
 					width={2764}
 					height={1920}
@@ -184,9 +191,12 @@
 			<ThemeImage
 				lightSrc="/assets/screenshots/analytics-detail-light.webp"
 				darkSrc="/assets/screenshots/analytics-detail-dark.webp"
+				lightSrcset="/assets/screenshots/analytics-detail-light-768.webp 768w, /assets/screenshots/analytics-detail-light-1536.webp 1536w, /assets/screenshots/analytics-detail-light.webp 2188w"
+				darkSrcset="/assets/screenshots/analytics-detail-dark-768.webp 768w, /assets/screenshots/analytics-detail-dark-1536.webp 1536w, /assets/screenshots/analytics-detail-dark.webp 2188w"
+				sizes={detailScreenshotSizes}
 				alt="Daily views chart in OpenPost analytics"
-				width={2108}
-				height={578}
+				width={2188}
+				height={656}
 				loading="lazy"
 			/>
 		</div>

@@ -99,19 +99,29 @@ test("meme screenshot does not include the blurred dialog backdrop at its sides"
     await expect
       .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
       .toBe(true);
-    const edgeDifference = await image.evaluate((img: HTMLImageElement) => {
+    const edgeDifference = await image.evaluate(async (img: HTMLImageElement) => {
+      const bitmap = await createImageBitmap(await (await fetch(img.currentSrc)).blob());
       const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
       const context = canvas.getContext("2d");
       if (!context) throw new Error("Canvas 2D context is unavailable");
-      context.drawImage(img, 0, 0);
-      const pixel = (x: number) => context.getImageData(x, 80, 1, 1).data;
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const sourceWidth = Number(img.getAttribute("width"));
+      const scale = canvas.width / sourceWidth;
+      const pixel = (x: number) =>
+        context.getImageData(
+          Math.min(canvas.width - 1, Math.max(1, Math.round(x * scale))),
+          Math.round(80 * scale),
+          1,
+          1,
+        ).data;
       const distance = (left: Uint8ClampedArray, right: Uint8ClampedArray) =>
         Math.max(...[0, 1, 2].map((channel) => Math.abs(left[channel] - right[channel])));
       return Math.max(
         distance(pixel(2), pixel(100)),
-        distance(pixel(img.naturalWidth - 3), pixel(img.naturalWidth - 101)),
+        distance(pixel(sourceWidth - 3), pixel(sourceWidth - 101)),
       );
     });
     expect(edgeDifference).toBeLessThan(20);
@@ -199,10 +209,15 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
   for (const image of await features.locator(".visual img").all()) {
     await image.scrollIntoViewIfNeeded();
     await expect
-      .poll(() =>
-        image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth >= 1000),
-      )
+      .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
       .toBe(true);
+    const resolution = await image.evaluate(async (img: HTMLImageElement) => {
+      const bitmap = await createImageBitmap(await (await fetch(img.currentSrc)).blob());
+      const width = bitmap.width;
+      bitmap.close();
+      return { width, needed: img.clientWidth * window.devicePixelRatio };
+    });
+    expect(resolution.width).toBeGreaterThanOrEqual(resolution.needed);
   }
   for (const mark of await features.locator('img[src*="/brand/features/"]').all()) {
     await mark.scrollIntoViewIfNeeded();
@@ -225,6 +240,13 @@ test("landing keeps trial terms and its tour accessible without JavaScript", asy
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("You build the business.");
   await expect(page.getByText("14 days free. $0 today. Card required.").first()).toBeVisible();
+  await expect(page.getByRole("group", { name: "Explore OpenPost" })).toBeVisible();
+  for (const button of await page
+    .getByRole("group", { name: "Explore OpenPost" })
+    .getByRole("button")
+    .all()) {
+    await expect(button).toBeDisabled();
+  }
   await expect(page.getByRole("link", { name: "Start your free trial" }).first()).toHaveAttribute(
     "href",
     /app\.openpo\.st\/register\?plan=founder/,

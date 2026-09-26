@@ -211,7 +211,7 @@ func mcpPostDetail(args map[string]any) string {
 // approval alone is not sufficient.
 func mcpConfirmSchema(description string) map[string]any {
 	return map[string]any{
-		"type": "boolean",
+		"type":        "boolean",
 		"description": description,
 	}
 }
@@ -1678,7 +1678,7 @@ func mcpListMediaTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolListMedia,
 		"title":       "List media",
-		"description": "Find existing workspace assets before uploading or attaching media. Returns recent media IDs, file details, processing state, usage, and deletion eligibility.",
+		"description": "Find existing workspace assets before uploading or attaching media. Returns media IDs, file details, processing state, usage, and deletion eligibility in newest-first order, up to limit items per response. Follow next_cursor with the cursor input while has_more is true instead of widening the limit.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1691,6 +1691,10 @@ func mcpListMediaTool() mcpOperationDefinition {
 					"minimum":     1,
 					"maximum":     100,
 					"description": "Maximum media items to return. Defaults to 20.",
+				},
+				"cursor": map[string]any{
+					"type":        "string",
+					"description": "Opaque cursor from a previous response's next_cursor. Repeat all other filters unchanged while paging.",
 				},
 				"filter": map[string]any{
 					"type":        "string",
@@ -1741,7 +1745,7 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"workspace_id": map[string]any{"type": "string", "description": "Workspace ID returned by list_workspaces."},
+				"workspace_id":    map[string]any{"type": "string", "description": "Workspace ID returned by list_workspaces."},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 				"detail":          mcpDetailSchema(),
 				"content_profile": map[string]any{
@@ -1855,7 +1859,7 @@ func mcpUpdatePublicationTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"post_id":         map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 				"detail":          mcpDetailSchema(),
 				"expected_revision": map[string]any{
@@ -1900,7 +1904,7 @@ func mcpSetPublicationRenditionsTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"post_id":         map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 				"detail":          mcpDetailSchema(),
 				"expected_revision": map[string]any{
@@ -1926,11 +1930,11 @@ func mcpReplyToRenditionTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"variant_id": map[string]any{"type": "string", "description": "Published variant ID returned by get_post."},
+				"variant_id":      map[string]any{"type": "string", "description": "Published variant ID returned by get_post."},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 				"detail":          mcpDetailSchema(),
-				"body":       map[string]any{"type": "string", "description": "Reply text sent to the variant's provider thread."},
-				"parent_id":  map[string]any{"type": "string", "description": "Optional provider-native parent reply ID when replying below a specific reply."},
+				"body":            map[string]any{"type": "string", "description": "Reply text sent to the variant's provider thread."},
+				"parent_id":       map[string]any{"type": "string", "description": "Optional provider-native parent reply ID when replying below a specific reply."},
 				"run_at": map[string]any{
 					"type": "string", "format": "date-time", "description": "Optional future RFC3339 execution time, such as 2026-08-01T09:30:00Z. Omit to queue immediately.",
 				},
@@ -2010,11 +2014,11 @@ func mcpSchedulePublicationTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"post_id":         map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 				"detail":          mcpDetailSchema(),
 				"dry_run": map[string]any{
-					"type": "boolean",
+					"type":        "boolean",
 					"description": "When true, validate the post and schedule readiness without enqueueing; returns the post state with an empty job ID.",
 				},
 				"expected_revision": map[string]any{
@@ -2041,7 +2045,7 @@ func mcpCancelPublicationTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"post_id": map[string]any{"type": "string", "description": "Scheduled Post ID."},
+				"post_id":         map[string]any{"type": "string", "description": "Scheduled Post ID."},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 				"detail":          mcpDetailSchema(),
 				"expected_revision": map[string]any{
@@ -2062,11 +2066,11 @@ func mcpPublishPublicationNowTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"post_id":         map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 				"detail":          mcpDetailSchema(),
 				"dry_run": map[string]any{
-					"type": "boolean",
+					"type":        "boolean",
 					"description": "When true, validate the post and publishing readiness without queueing; returns the post state with an empty job ID.",
 				},
 				"confirm": mcpConfirmSchema("Explicit confirmation that the post may publish immediately. Pass confirm=true on the second call."),
@@ -2144,7 +2148,7 @@ func mcpRetryVariantTool() mcpOperationDefinition {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"post_id":    map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"variant_id": map[string]any{"type": "string", "description": "Failed variant ID returned by get_post."},
 				"expected_revision": map[string]any{
 					"type":        "integer",
@@ -2168,12 +2172,13 @@ func mcpListPublicationEventsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolPubEvents,
 		"title":       "List post events",
-		"description": "Inspect post history when diagnosing delivery, retry, or moderation state. Returns ordered lifecycle events with status, message, metadata, and timestamps.",
+		"description": "Inspect post history when diagnosing delivery, retry, or moderation state. Returns ordered lifecycle events with status, message, metadata, and timestamps, up to limit items per response. Follow next_cursor with the cursor input while has_more is true.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"limit":   map[string]any{"type": "integer", "minimum": 1, "maximum": 200, "description": "Maximum events to return. Defaults to 100."},
+				"cursor":  map[string]any{"type": "string", "description": "Opaque cursor from a previous response's next_cursor. Repeat the post_id unchanged while paging."},
 			},
 			"required":             []string{"post_id"},
 			"additionalProperties": false,
@@ -2185,11 +2190,12 @@ func mcpListRenditionCommentsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolComments,
 		"title":       "List variant comments",
-		"description": "Read live comments before replying to or moderating a published variant. Returns provider comments with opaque OpenPost comment IDs safe for follow-up actions.",
+		"description": "Read live comments before replying to or moderating a published variant. Returns up to limit provider comments with opaque OpenPost comment IDs safe for follow-up actions. Results beyond limit are truncated in provider order; the response text notes when truncation occurred.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"variant_id": map[string]any{"type": "string", "description": "Variant ID from a post's destination-specific output."},
+				"limit":      map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum comments to return. Defaults to 50; extra provider results are truncated."},
 			},
 			"required":             []string{"variant_id"},
 			"additionalProperties": false,
@@ -2394,11 +2400,11 @@ func mcpCreateLocalUploadTicketTool() map[string]any {
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"workspace_id": map[string]any{"type": "string"},
-				"filename":     map[string]any{"type": "string", "minLength": 1, "maxLength": 1024},
-				"mime_type":    map[string]any{"type": "string", "maxLength": 255},
-				"size":         map[string]any{"type": "integer", "minimum": 1, "maximum": MaxMediaUploadBytes},
-				"alt_text":     map[string]any{"type": "string", "maxLength": 2000},
+				"workspace_id":    map[string]any{"type": "string"},
+				"filename":        map[string]any{"type": "string", "minLength": 1, "maxLength": 1024},
+				"mime_type":       map[string]any{"type": "string", "maxLength": 255},
+				"size":            map[string]any{"type": "integer", "minimum": 1, "maximum": MaxMediaUploadBytes},
+				"alt_text":        map[string]any{"type": "string", "maxLength": 2000},
 				"idempotency_key": mcpIdempotencyKeySchema(),
 			},
 			"required": []string{"workspace_id", "filename", "size"}, "additionalProperties": false,
@@ -2555,6 +2561,22 @@ func mcpToolOutputSchema(toolName string) map[string]any {
 			"total_count":  map[string]any{"type": "integer"},
 		}, "publications")
 	}
+	if toolName == mcpToolListMedia {
+		return mcpStructuredOutputSchema(map[string]any{
+			"media":       mcpArraySchema(mcpOpenObjectSchema()),
+			"has_more":    map[string]any{"type": "boolean"},
+			"next_cursor": map[string]any{"type": "string"},
+			"total_count": map[string]any{"type": "integer"},
+		}, "media")
+	}
+	if toolName == mcpToolPubEvents {
+		return mcpStructuredOutputSchema(map[string]any{
+			"events":      mcpArraySchema(mcpOpenObjectSchema()),
+			"has_more":    map[string]any{"type": "boolean"},
+			"next_cursor": map[string]any{"type": "string"},
+			"total_count": map[string]any{"type": "integer"},
+		}, "events")
+	}
 	if key, ok := mcpArrayOutputKey(toolName); ok {
 		return mcpStructuredOutputSchema(map[string]any{
 			key: mcpArraySchema(mcpOpenObjectSchema()),
@@ -2632,10 +2654,6 @@ func mcpArrayOutputKey(toolName string) (string, bool) {
 		return "providers", true
 	case mcpToolAccounts:
 		return "accounts", true
-	case mcpToolListMedia:
-		return "media", true
-	case mcpToolPubEvents:
-		return "events", true
 	case mcpToolComments:
 		return "comments", true
 	default:
@@ -4495,6 +4513,7 @@ func (h *MCPHandler) listPublicationEvents(ctx context.Context, userID string, a
 	var input struct {
 		PublicationID string `json:"post_id"`
 		Limit         int    `json:"limit"`
+		Cursor        string `json:"cursor"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid list_post_events arguments"}
@@ -4503,24 +4522,65 @@ func (h *MCPHandler) listPublicationEvents(ctx context.Context, userID string, a
 	if input.PublicationID == "" {
 		return nil, &mcpError{Code: -32602, Message: "post_id is required"}
 	}
+	limit := input.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 200 {
+		limit = 200
+	}
 	page, err := h.publicationHandler().publicationApplication().History(
-		ctx, userID, input.PublicationID, input.Limit, "",
+		ctx, userID, input.PublicationID, limit, strings.TrimSpace(input.Cursor),
 	)
 	if err != nil {
 		return nil, publicationMutationMCPError(err, "failed to list post events")
 	}
 	out := page.Events
+	if out == nil {
+		out = []PublicationLifecycleEventResponse{}
+	}
+	total := h.countPublicationHistoryEvents(ctx, input.PublicationID)
+	text := fmt.Sprintf("Found %d of %d post events.", len(out), total)
+	if page.HasMore {
+		text = fmt.Sprintf("Found %d of %d post events; more are available. Repeat the request with cursor %q while has_more is true.", len(out), total, page.NextCursor)
+	}
 	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Found %d post events.", len(out))}},
+		"content": []mcpContent{{Type: "text", Text: text}},
 		"structuredContent": map[string]any{
-			"events": out,
+			"events":      out,
+			"has_more":    page.HasMore,
+			"next_cursor": page.NextCursor,
+			"total_count": total,
 		},
 	}, nil
+}
+
+// countPublicationHistoryEvents totals the same merged history that
+// listPublicationHistory serves: lifecycle events, draft revision changes,
+// and the creation item. Missing history tables read as zero so workspaces
+// provisioned before a migration keep working.
+func (h *MCPHandler) countPublicationHistoryEvents(ctx context.Context, publicationID string) int {
+	total := 1
+	if lifecycleCount, err := h.db.NewSelect().Model((*models.PublicationLifecycleEvent)(nil)).
+		Where("publication_id = ?", publicationID).
+		Count(ctx); err == nil {
+		total += lifecycleCount
+	} else if !isMissingPublicationHistoryTable(err) {
+		return total
+	}
+	if editCount, err := h.db.NewSelect().Model((*models.DraftRevisionChange)(nil)).
+		Where("aggregate_type = ?", drafts.AggregatePublication).
+		Where("aggregate_id = ?", publicationID).
+		Count(ctx); err == nil {
+		total += editCount
+	}
+	return total
 }
 
 func (h *MCPHandler) listRenditionComments(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		RenditionID string `json:"variant_id"`
+		Limit       int    `json:"limit"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid list_variant_comments arguments"}
@@ -4528,6 +4588,13 @@ func (h *MCPHandler) listRenditionComments(ctx context.Context, userID string, a
 	input.RenditionID = strings.TrimSpace(input.RenditionID)
 	if input.RenditionID == "" {
 		return nil, &mcpError{Code: -32602, Message: "variant_id is required"}
+	}
+	limit := input.Limit
+	if limit == 0 {
+		limit = 50
+	}
+	if limit < 1 || limit > 100 {
+		return nil, &mcpError{Code: -32602, Message: "limit must be between 1 and 100"}
 	}
 	rendition, publication, account, rpcErr := h.loadMCPCommentContext(ctx, userID, input.RenditionID)
 	if rpcErr != nil {
@@ -4555,8 +4622,13 @@ func (h *MCPHandler) listRenditionComments(ctx context.Context, userID string, a
 		}
 		out = append(out, commentResponse(rendition.ID, ref, comment))
 	}
+	text := fmt.Sprintf("Found %d comments for %s.", len(out), publication.Title)
+	if len(out) > limit {
+		out = out[:limit]
+		text = fmt.Sprintf("Found %d comments for %s; showing the first %d (limit %d).", len(comments), publication.Title, limit, limit)
+	}
 	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Found %d comments for %s.", len(out), publication.Title)}},
+		"content": []mcpContent{{Type: "text", Text: text}},
 		"structuredContent": map[string]any{
 			"comments": out,
 		},
@@ -4898,6 +4970,7 @@ type mcpListMediaInput struct {
 	WorkspaceID string `json:"workspace_id"`
 	Limit       int    `json:"limit"`
 	Filter      string `json:"filter"`
+	Cursor      string `json:"cursor"`
 }
 
 func (h *MCPHandler) listMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
@@ -4915,26 +4988,64 @@ func (h *MCPHandler) listMedia(ctx context.Context, userID string, args map[stri
 	if limit < 1 || limit > 100 {
 		return nil, &mcpError{Code: -32602, Message: "limit must be between 1 and 100"}
 	}
-
-	var rows []models.MediaAttachment
-	query := h.db.NewSelect().
-		Model(&rows).
-		Where("workspace_id = ?", input.WorkspaceID)
-	switch strings.TrimSpace(input.Filter) {
-	case "", "all":
-	case "favorites":
-		query = query.Where("is_favorite = ?", true)
-	case "used":
-		query = query.Where("id IN (SELECT media_id FROM post_media)")
-	case "unused":
-		query = query.Where("id NOT IN (SELECT media_id FROM post_media)")
-	default:
-		return nil, &mcpError{Code: -32602, Message: "filter must be one of all, favorites, used, or unused"}
+	var cursor *timestampIDCursor
+	if strings.TrimSpace(input.Cursor) != "" {
+		parsed, err := parseTimestampIDCursor(input.Cursor)
+		if err != nil {
+			return nil, &mcpError{Code: -32602, Message: "invalid list_media cursor; repeat the previous response's next_cursor unchanged"}
+		}
+		cursor = &parsed
 	}
 
-	err := query.Order("created_at DESC").Limit(limit).Scan(ctx, &rows)
+	filter := strings.TrimSpace(input.Filter)
+	applyMediaFilter := func(query *bun.SelectQuery) (*bun.SelectQuery, *mcpError) {
+		switch filter {
+		case "", "all":
+		case "favorites":
+			query = query.Where("workspace_id = ? AND is_favorite = ?", input.WorkspaceID, true)
+		case "used":
+			query = query.Where("workspace_id = ? AND id IN (SELECT media_id FROM post_media)", input.WorkspaceID)
+		case "unused":
+			query = query.Where("workspace_id = ? AND id NOT IN (SELECT media_id FROM post_media)", input.WorkspaceID)
+		default:
+			return nil, &mcpError{Code: -32602, Message: "filter must be one of all, favorites, used, or unused"}
+		}
+		if filter == "" || filter == "all" {
+			query = query.Where("workspace_id = ?", input.WorkspaceID)
+		}
+		return query, nil
+	}
+
+	countQuery := h.db.NewSelect().Model((*models.MediaAttachment)(nil))
+	countQuery, rpcErr := applyMediaFilter(countQuery)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	total, err := countQuery.Count(ctx)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, &mcpError{Code: -32603, Message: "failed to list media"}
+	}
+
+	var rows []models.MediaAttachment
+	query := h.db.NewSelect().Model(&rows)
+	query, rpcErr = applyMediaFilter(query)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	query = query.Order("created_at DESC", "id DESC")
+	if cursor != nil {
+		query = query.Where(
+			"(created_at < ? OR (created_at = ? AND id < ?))",
+			cursor.Timestamp, cursor.Timestamp, cursor.ID,
+		)
+	}
+	err = query.Limit(limit+1).Scan(ctx, &rows)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, &mcpError{Code: -32603, Message: "failed to list media"}
+	}
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
 	}
 	mediaHandler := &MediaHandler{db: h.db}
 	media := make([]mcpMedia, 0, len(rows))
@@ -4945,10 +5056,17 @@ func (h *MCPHandler) listMedia(ctx context.Context, userID string, args map[stri
 		}
 		media = append(media, mcpMediaFromAttachment(row, usage.Total, usage.Blocking == 0))
 	}
+	nextCursor := ""
+	if hasMore && len(rows) > 0 {
+		last := rows[len(rows)-1]
+		nextCursor = encodeTimestampIDCursor(last.CreatedAt, last.ID)
+	}
 
-	text := fmt.Sprintf("Found %d media items.", len(media))
+	text := fmt.Sprintf("Found %d of %d media items.", len(media), total)
 	if len(media) == 0 {
 		text = "No media attachments found."
+	} else if hasMore {
+		text = fmt.Sprintf("Found %d of %d media items; more are available. Repeat the request with cursor %q while has_more is true.", len(media), total, nextCursor)
 	}
 	return map[string]any{
 		"content": []mcpContent{{
@@ -4956,7 +5074,10 @@ func (h *MCPHandler) listMedia(ctx context.Context, userID string, args map[stri
 			Text: text,
 		}},
 		"structuredContent": map[string]any{
-			"media": media,
+			"media":       media,
+			"has_more":    hasMore,
+			"next_cursor": nextCursor,
+			"total_count": total,
 		},
 	}, nil
 }
@@ -5045,10 +5166,10 @@ func (h *MCPHandler) getMedia(ctx context.Context, userID string, args map[strin
 
 func (h *MCPHandler) updateMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		MediaID        string `json:"media_id"`
-		Favorite       *bool  `json:"favorite"`
+		MediaID        string  `json:"media_id"`
+		Favorite       *bool   `json:"favorite"`
 		AltText        *string `json:"alt_text"`
-		IdempotencyKey string `json:"idempotency_key"`
+		IdempotencyKey string  `json:"idempotency_key"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.MediaID) == "" {
 		return nil, &mcpError{Code: -32602, Message: "invalid update_media arguments"}

@@ -87,7 +87,7 @@ func TestMCPPublicationAuthorizationRetainsTokenAndClientIdentity(t *testing.T) 
 	}
 	raw, err := json.Marshal(map[string]any{
 		"name":      mcpToolSchedulePub,
-		"arguments": map[string]any{"publication_id": "publication-1", "expected_revision": 1},
+		"arguments": map[string]any{"post_id": "publication-1", "expected_revision": 1},
 	})
 	require.NoError(t, err)
 	handler := &MCPHandler{db: db}

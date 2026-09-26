@@ -192,19 +192,19 @@ boundary.
 - `list_accounts`: returns active social accounts for a workspace.
 - `list_media`: returns recent workspace media attachments so assistants can reuse existing assets.
 - `get_provider_readiness`: returns provider configuration, account, app-review, and public-media readiness checks.
-- `create_publication`: creates a format-first publication with renditions and destination-specific settings.
-- `list_publications`: lists format-first publications for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_rendition_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed.
-- `get_publication`: returns a publication with its destination renditions and delivery state.
-- `update_publication`: updates editable source fields, schedule time, and an optional random-delay range while preserving omitted values.
-- `set_publication_renditions`: replaces a publication's destination-specific outputs and media roles.
-- `reply_to_rendition`: queues an explicit provider reply immediately or at a requested time.
-- `validate_publication`: validates a publication before scheduling or publishing.
-- `schedule_publication`: schedules an existing publication. The saved random-delay range is explicit or inherited from the Workspace, and the resulting Job time is authorized exactly.
-- `cancel_publication`: cancels a scheduled publication and its pending delivery Job.
-- `publish_publication_now`: queues an existing publication for immediate publishing.
-- `list_publication_events`: returns lifecycle events for a publication.
-- `list_rendition_comments`: lists comments for a published rendition.
-- `reply_to_comment`: replies to an opaque comment ID returned by `list_rendition_comments`.
+- `create_post`: creates a format-first post with variants and destination-specific settings.
+- `list_posts`: lists format-first posts for a workspace. Results are newest-first, default 20 per response up to 100, with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs for stable paging. Prefer narrow calendar windows and follow `next_cursor` instead of widening the window. Each item includes a safe failure summary (`failed_variant_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination); raw provider response bodies are never exposed.
+- `get_post`: returns a post with its destination variants and delivery state.
+- `update_post`: updates editable source fields, schedule time, and an optional random-delay range while preserving omitted values.
+- `set_post_variants`: replaces a post's destination-specific outputs and media roles.
+- `reply_to_variant`: queues an explicit provider reply immediately or at a requested time.
+- `validate_post`: validates a post before scheduling or publishing.
+- `schedule_post`: schedules an existing post. The saved random-delay range is explicit or inherited from the Workspace, and the resulting Job time is authorized exactly.
+- `cancel_post`: cancels a scheduled post and its pending delivery Job.
+- `publish_post_now`: queues an existing post for immediate publishing.
+- `list_post_events`: returns lifecycle events for a post.
+- `list_variant_comments`: lists comments for a published variant.
+- `reply_to_comment`: replies to an opaque comment ID returned by `list_variant_comments`.
 - `hide_comment`: hides a supported provider comment.
 - `delete_comment`: permanently deletes a supported provider comment.
 - `suggest_next_slot`: returns the next free configured posting slot for a workspace.
@@ -217,6 +217,44 @@ boundary.
 
 The directly advertised render tools are intentionally outside the delegated
 operation catalog; clients call them only when they want their Apps UI.
+
+## Retired operation names and sunset policy
+
+The post/variant names above replaced the original publication/rendition
+names. `tools/list`, `search_operations`, and `prompts/list` advertise the new
+names only. The retired names below remain callable through `tools/call`,
+`query_operation`, and `execute_operation`, and retired argument keys
+(`publication_id`, `rendition_id`, `renditions`, `failed_rendition_count`) are
+accepted wherever their replacements (`post_id`, `variant_id`, `variants`,
+`failed_variant_count`) are documented; when a call sends both forms, the new
+key wins. Audit rows record the canonical name. Structured output uses the new
+names, except the top-level `publication` and `publications` keys, which are
+unchanged:
+
+| Retired                            | Canonical                    |
+| ---------------------------------- | ---------------------------- |
+| `create_publication`               | `create_post`                |
+| `list_publications`                | `list_posts`                 |
+| `get_publication`                  | `get_post`                   |
+| `update_publication`               | `update_post`                |
+| `set_publication_renditions`       | `set_post_variants`          |
+| `reply_to_rendition`               | `reply_to_variant`           |
+| `validate_publication`             | `validate_post`              |
+| `schedule_publication`             | `schedule_post`              |
+| `cancel_publication`               | `cancel_post`                |
+| `publish_publication_now`          | `publish_post_now`           |
+| `list_publication_events`          | `list_post_events`           |
+| `list_rendition_comments`          | `list_variant_comments`      |
+| prompt `adapt_platform_renditions` | prompt `adapt_post_variants` |
+
+The scheduler widget accepts both `renditions` and `variants` views. Retired
+names follow the same precedent as the legacy `search`/`query`/`execute`
+aliases: they stay callable indefinitely for cached clients, are never
+advertised, and are removed only by an explicitly announced breaking change
+that names the removal version, the migration window, and the replacement
+names. REST paths and bodies, OpenAPI, CLI nouns, database columns, and
+internal identifiers keep the publication/rendition terms; only the MCP
+assistant-facing surface uses post/variant names.
 
 ## Registry listing version and compatibility
 
@@ -238,9 +276,9 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 
 ## Current prompts
 
-- `plan_social_post`: guides an assistant from a rough idea to a workspace-aware Publication.
-- `adapt_platform_renditions`: guides destination-specific copywriting for an existing Publication.
-- `review_schedule`: guides queue inspection and next-action recommendations without mutating Publications.
+- `plan_social_post`: guides an assistant from a rough idea to a workspace-aware Post.
+- `adapt_post_variants`: guides destination-specific copywriting for an existing Post.
+- `review_schedule`: guides queue inspection and next-action recommendations without mutating Posts.
 
 ## Current scope
 
@@ -261,7 +299,7 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Provides `openpost-mcp` for local stdio clients without duplicating server tool logic.
 - Advertises MCP prompt templates for common agentic scheduling workflows: planning a post, adapting platform renditions, and reviewing the publishing queue.
 - Validates workspace membership and account ownership before returning, creating, scheduling, canceling, or uploading data.
-- Keeps draft iteration agent-friendly: assistants can create, list, update, validate, schedule, cancel, and publish Publications through the canonical Publication tools, set per-destination renditions through `set_publication_renditions`, and inspect lifecycle events.
+- Keeps draft iteration agent-friendly: assistants can create, list, update, validate, schedule, cancel, and publish Posts through the canonical Post tools, set per-destination variants through `set_post_variants`, and inspect lifecycle events.
 - Validates rendition targets against the Publication destination list so assistants do not create outputs that would never publish.
 - Rejects media URL fetches that resolve to private, loopback, link-local, multicast, or otherwise local addresses.
 - Enforces the same scheduled-publication and media-upload entitlement and usage accounting as the web/API paths.
@@ -269,4 +307,4 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Records API-token client ID, name, scope, and token prefix for MCP tool calls when a request uses a dedicated CLI/MCP token, so Settings can attribute activity to ChatGPT, Claude, CI, or another configured client.
 - Returns structured content so assistants can inspect workspace, account, publication, destination, media, and suggested slot IDs without parsing prose.
 - Returns provider catalog structured content so assistants can avoid trying to connect or schedule to planned providers before adapters exist.
-- Lets assistants attach workspace-owned source media to Publications through `media`, while preserving destination-specific media overrides through `set_publication_renditions`.
+- Lets assistants attach workspace-owned source media to Posts through `media`, while preserving destination-specific media overrides through `set_post_variants`.

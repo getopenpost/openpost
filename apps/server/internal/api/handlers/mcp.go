@@ -54,18 +54,18 @@ const (
 	mcpToolAccounts       = "list_accounts"
 	mcpToolListMedia      = "list_media"
 	mcpToolReadiness      = "get_provider_readiness"
-	mcpToolCreatePub      = "create_publication"
-	mcpToolListPubs       = "list_publications"
-	mcpToolGetPub         = "get_publication"
-	mcpToolUpdatePub      = "update_publication"
-	mcpToolPubRenditions  = "set_publication_renditions"
-	mcpToolReplyRendition = "reply_to_rendition"
-	mcpToolValidatePub    = "validate_publication"
-	mcpToolSchedulePub    = "schedule_publication"
-	mcpToolCancelPub      = "cancel_publication"
-	mcpToolPublishPubNow  = "publish_publication_now"
-	mcpToolPubEvents      = "list_publication_events"
-	mcpToolComments       = "list_rendition_comments"
+	mcpToolCreatePub      = "create_post"
+	mcpToolListPubs       = "list_posts"
+	mcpToolGetPub         = "get_post"
+	mcpToolUpdatePub      = "update_post"
+	mcpToolPubRenditions  = "set_post_variants"
+	mcpToolReplyRendition = "reply_to_variant"
+	mcpToolValidatePub    = "validate_post"
+	mcpToolSchedulePub    = "schedule_post"
+	mcpToolCancelPub      = "cancel_post"
+	mcpToolPublishPubNow  = "publish_post_now"
+	mcpToolPubEvents      = "list_post_events"
+	mcpToolComments       = "list_variant_comments"
 	mcpToolReplyComment   = "reply_to_comment"
 	mcpToolHideComment    = "hide_comment"
 	mcpToolDeleteComment  = "delete_comment"
@@ -75,7 +75,7 @@ const (
 	mcpToolRenderUpload   = "render_local_media_upload"
 	mcpToolCreateTicket   = "create_local_media_upload_ticket"
 	mcpPromptPlanPost     = "plan_social_post"
-	mcpPromptRenditions   = "adapt_platform_renditions"
+	mcpPromptRenditions   = "adapt_post_variants"
 	mcpPromptReviewQueue  = "review_schedule"
 	mcpScopeRead          = apitokens.ScopeMCPRead
 	mcpScopeFull          = apitokens.ScopeMCP
@@ -86,6 +86,80 @@ const (
 	mcpAppWidgetMimeType  = "text/html;profile=mcp-app"
 	mcpMediaUploadTTL     = 10 * time.Minute
 )
+
+// mcpOperationAliases maps retired MCP operation names to their canonical
+// replacements. tools/list and search_operations advertise the canonical names
+// only; every alias below remains callable through tools/call, query_operation,
+// and execute_operation so cached clients keep working. Aliases are permanent
+// until a documented sunset removes them; see docs/development/mcp.md.
+var mcpOperationAliases = map[string]string{
+	"create_publication":         "create_post",
+	"list_publications":          "list_posts",
+	"get_publication":            "get_post",
+	"update_publication":         "update_post",
+	"set_publication_renditions": "set_post_variants",
+	"reply_to_rendition":         "reply_to_variant",
+	"validate_publication":       "validate_post",
+	"schedule_publication":       "schedule_post",
+	"cancel_publication":         "cancel_post",
+	"publish_publication_now":    "publish_post_now",
+	"list_publication_events":    "list_post_events",
+	"list_rendition_comments":    "list_variant_comments",
+}
+
+// mcpPromptAliases maps retired MCP prompt names to their canonical
+// replacements. prompts/list advertises the canonical names only.
+var mcpPromptAliases = map[string]string{
+	"adapt_platform_renditions": "adapt_post_variants",
+}
+
+// mcpArgumentAliases maps retired MCP argument keys to their canonical
+// replacements. Calls may send either form; when both are present the
+// canonical key wins. Structured output uses the canonical keys only, except
+// for the documented top-level publication/publications keys which are
+// unchanged.
+var mcpArgumentAliases = map[string]string{
+	"publication_id":         "post_id",
+	"rendition_id":           "variant_id",
+	"renditions":             "variants",
+	"failed_rendition_count": "failed_variant_count",
+}
+
+// normalizeMCPOperationName returns the canonical operation name for a retired
+// alias, or the input unchanged when it is already canonical.
+func normalizeMCPOperationName(name string) string {
+	if canonical, ok := mcpOperationAliases[strings.TrimSpace(name)]; ok {
+		return canonical
+	}
+	return name
+}
+
+// normalizeMCPArgumentKeys rewrites retired argument keys in place. When both
+// the retired and canonical forms are present, the canonical value wins.
+func normalizeMCPArgumentKeys(args map[string]any) {
+	for oldKey, newKey := range mcpArgumentAliases {
+		oldValue, ok := args[oldKey]
+		if !ok {
+			continue
+		}
+		if _, exists := args[newKey]; !exists {
+			args[newKey] = oldValue
+		}
+		delete(args, oldKey)
+	}
+}
+
+// normalizeMCPDelegatedArguments rewrites a retired delegated operation name
+// and retired argument keys inside query_operation/execute_operation envelopes.
+func normalizeMCPDelegatedArguments(args map[string]any) {
+	operation, _ := args["operation"].(string)
+	if strings.TrimSpace(operation) != "" {
+		args["operation"] = normalizeMCPOperationName(operation)
+	}
+	if inner, ok := args["arguments"].(map[string]any); ok {
+		normalizeMCPArgumentKeys(inner)
+	}
+}
 
 type MCPHandler struct {
 	db                *bun.DB
@@ -544,11 +618,11 @@ func (h *MCPHandler) mcpInstructions(scope string, mode mcpToolMode) string {
 	var base string
 	switch mode {
 	case mcpToolModeSearch:
-		base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. Call search_operations with a plain-language task to discover relevant operation names and schemas. Call query_operation only for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps." + shared
+		base = "OpenPost schedules social posts and format-first posts through a compact safety-aware tool surface. Call search_operations with a plain-language task to discover relevant operation names and schemas. Call query_operation only for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps." + shared
 	case mcpToolModeBoth:
-		base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. The listed operation tools are callable directly with their own arguments; alternatively, call search_operations with a plain-language task to discover relevant operation names and schemas, then query_operation for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps." + shared
+		base = "OpenPost schedules social posts and format-first posts through a compact safety-aware tool surface. The listed operation tools are callable directly with their own arguments; alternatively, call search_operations with a plain-language task to discover relevant operation names and schemas, then query_operation for guaranteed read-only operations. Search again when required fields are unclear. Use render_scheduler_widget directly when a visual summary helps." + shared
 	default:
-		base = "OpenPost schedules social posts and format-first publications through a compact safety-aware tool surface. The listed operation tools are callable directly with their own arguments. Call query_operation only for guaranteed read-only operations. Use render_scheduler_widget directly when a visual summary helps." + shared
+		base = "OpenPost schedules social posts and format-first posts through a compact safety-aware tool surface. The listed operation tools are callable directly with their own arguments. Call query_operation only for guaranteed read-only operations. Use render_scheduler_widget directly when a visual summary helps." + shared
 	}
 	if mcpScopeIsReadOnly(scope) {
 		return base + " This connection is read-only: mutation operations are hidden from discovery and rejected by the server."
@@ -673,8 +747,8 @@ func mcpPromptsForScope(scope string) []map[string]any {
 func mcpPlanSocialPostPrompt() map[string]any {
 	return map[string]any{
 		"name":        mcpPromptPlanPost,
-		"title":       "Plan a publication",
-		"description": "Turn an idea into a workspace-aware OpenPost Publication draft.",
+		"title":       "Plan a post",
+		"description": "Turn an idea into a workspace-aware OpenPost Post draft.",
 		"arguments": []map[string]any{
 			{"name": "idea", "description": "The source idea, note, link, or rough content to develop.", "required": true},
 			{"name": "workspace_id", "description": "Optional workspace ID if already known.", "required": false},
@@ -686,11 +760,11 @@ func mcpPlanSocialPostPrompt() map[string]any {
 func mcpAdaptPlatformRenditionsPrompt() map[string]any {
 	return map[string]any{
 		"name":        mcpPromptRenditions,
-		"title":       "Adapt platform renditions",
-		"description": "Rewrite a Publication in draft or scheduled state into platform-native destination copy.",
+		"title":       "Adapt post variants",
+		"description": "Rewrite a Post in draft or scheduled state into platform-native destination copy.",
 		"arguments": []map[string]any{
-			{"name": "workspace_id", "description": "Workspace ID that owns the Publication.", "required": true},
-			{"name": "publication_id", "description": "Draft or scheduled Publication ID to adapt.", "required": true},
+			{"name": "workspace_id", "description": "Workspace ID that owns the Post.", "required": true},
+			{"name": "post_id", "description": "Draft or scheduled Post ID to adapt.", "required": true},
 			{"name": "goal", "description": "Optional campaign goal, audience, or tone guidance.", "required": false},
 		},
 	}
@@ -700,7 +774,7 @@ func mcpReviewSchedulePrompt() map[string]any {
 	return map[string]any{
 		"name":        mcpPromptReviewQueue,
 		"title":       "Review publishing queue",
-		"description": "Inspect upcoming scheduled Publications and recommend useful next actions.",
+		"description": "Inspect upcoming scheduled Posts and recommend useful next actions.",
 		"arguments": []map[string]any{
 			{"name": "workspace_id", "description": "Workspace ID to inspect.", "required": true},
 			{"name": "window", "description": "Optional time window, such as today, this week, or next 14 days.", "required": false},
@@ -716,14 +790,31 @@ func mcpGetPrompt(raw json.RawMessage, readOnly ...bool) (any, *mcpError) {
 	if err := json.Unmarshal(raw, &params); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid prompt params"}
 	}
+	params.Name = strings.TrimSpace(params.Name)
+	if canonical, ok := mcpPromptAliases[params.Name]; ok {
+		params.Name = canonical
+	}
+	if params.Arguments != nil {
+		normalized := make(map[string]string, len(params.Arguments))
+		for key, value := range params.Arguments {
+			normalized[key] = value
+		}
+		if _, ok := normalized["post_id"]; !ok {
+			if legacy, ok := normalized["publication_id"]; ok {
+				normalized["post_id"] = legacy
+			}
+		}
+		delete(normalized, "publication_id")
+		params.Arguments = normalized
+	}
 	if len(readOnly) > 0 && readOnly[0] && params.Name != mcpPromptReviewQueue {
 		return nil, &mcpError{Code: -32602, Message: "this prompt requires mcp:full because it creates or changes OpenPost data"}
 	}
 	switch params.Name {
 	case mcpPromptPlanPost:
-		return mcpPromptResult("Plan an OpenPost Publication draft from an idea.", mcpPlanPostPromptText(params.Arguments)), nil
+		return mcpPromptResult("Plan an OpenPost Post draft from an idea.", mcpPlanPostPromptText(params.Arguments)), nil
 	case mcpPromptRenditions:
-		return mcpPromptResult("Adapt a Publication into platform-native renditions.", mcpRenditionsPromptText(params.Arguments)), nil
+		return mcpPromptResult("Adapt a Post into platform-native variants.", mcpRenditionsPromptText(params.Arguments)), nil
 	case mcpPromptReviewQueue:
 		return mcpPromptResult("Review the scheduled publishing queue.", mcpReviewQueuePromptText(params.Arguments)), nil
 	default:
@@ -737,7 +828,7 @@ func (h *MCPHandler) listMCPResources() any {
 			"uri":         mcpAppWidgetURI,
 			"name":        "openpost_scheduler",
 			"title":       "OpenPost Scheduler",
-			"description": "Renders OpenPost workspaces, accounts, media, Publications, Renditions, schedules, and provider status in ChatGPT.",
+			"description": "Renders OpenPost workspaces, accounts, media, Posts, Variants, schedules, and provider status in ChatGPT.",
 			"mimeType":    mcpAppWidgetMimeType,
 			"_meta":       h.mcpAppWidgetResourceMeta(),
 		}, {
@@ -812,7 +903,7 @@ func (h *MCPHandler) mcpAppWidgetResourceMeta() map[string]any {
 	}
 	meta := map[string]any{
 		"ui":                         ui,
-		"openai/widgetDescription":   "OpenPost scheduler view for workspaces, accounts, media, Publications, Renditions, schedules, and provider status.",
+		"openai/widgetDescription":   "OpenPost scheduler view for workspaces, accounts, media, Posts, Variants, schedules, and provider status.",
 		"openai/widgetPrefersBorder": true,
 		"openai/widgetCSP":           legacyCSP,
 	}
@@ -909,6 +1000,7 @@ h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }
     if (data.workspaces) return "workspaces";
     if (data.suggestion) return "suggestion";
     if (data.renditions) return "renditions";
+    if (data.variants) return "variants";
     return "summary";
   }
   function statusClass(value) {
@@ -933,14 +1025,14 @@ h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }
     }).join("") + '</div>';
   }
   function renderPublication(publication) {
-    if (!publication) return '<div class="empty">No Publication data to show.</div>';
+    if (!publication) return '<div class="empty">No Post data to show.</div>';
     var renditions = array(publication.renditions || publication.destinations).map(function (rendition) {
       return '<div class="row"><span class="muted">' + escapeHTML(rendition.platform || rendition.social_account_id || "destination") + '</span><span class="' + statusClass(rendition.status) + '">' + escapeHTML(rendition.status || "pending") + '</span></div>';
     }).join("");
     var media = array(publication.media).map(function (item) {
       return '<div class="row"><span class="muted">' + escapeHTML(item.original_filename || item.media_id || "media") + '</span><span class="pill idle">' + escapeHTML(item.mime_type || "asset") + '</span></div>';
     }).join("");
-    var title = publication.title || publication.source_text || publication.content || publication.id || "Publication";
+    var title = publication.title || publication.source_text || publication.content || publication.id || "Post";
     return '<section class="card"><div class="title">' + escapeHTML(title) + '</div><div class="muted">' + escapeHTML(publication.scheduled_at || publication.created_at || "") + '</div>' + renditions + media + '</section>';
   }
   function renderData(view, data) {
@@ -954,6 +1046,7 @@ h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }
     if (view === "workspaces") return renderCards(array(data.workspaces));
     if (view === "suggestion") return renderCards(data.suggestion ? [data.suggestion] : []);
     if (view === "renditions") return renderCards(array(data.renditions));
+    if (view === "variants") return renderCards(array(data.variants));
     return '<pre class="json">' + escapeHTML(JSON.stringify(data, null, 2)) + '</pre>';
   }
   function render(payload) {
@@ -1020,11 +1113,11 @@ Source idea:
 %s
 
 Workflow:
-1. Call search_operations to load the schemas for list_workspaces, list_provider_catalog, list_accounts, list_media, upload_media_from_url, and create_publication as needed.
+1. Call search_operations to load the schemas for list_workspaces, list_provider_catalog, list_accounts, list_media, upload_media_from_url, and create_post as needed.
 2. If workspace_id is missing, call query_operation with list_workspaces and ask which workspace to use.
 3. Call query_operation with list_provider_catalog and list_accounts to choose available destinations matching these platform hints: %s.
 4. Call query_operation with list_media if the idea needs existing media, or call execute_operation with upload_media_from_url if the user supplied a public media URL.
-5. Call execute_operation with create_publication to create one concise draft and relevant media_ids. Do not schedule it until the user approves timing and destinations.
+5. Call execute_operation with create_post to create one concise draft and relevant media_ids. Do not schedule it until the user approves timing and destinations.
 6. Explain what you created and suggest the next scheduling step.
 
 workspace_id: %s
@@ -1033,19 +1126,19 @@ workspace_id: %s
 
 func mcpRenditionsPromptText(args map[string]string) string {
 	return strings.TrimSpace(fmt.Sprintf(`
-Adapt an existing OpenPost Publication into platform-native renditions.
+Adapt an existing OpenPost Post into platform-native variants.
 
 workspace_id: %s
-publication_id: %s
+post_id: %s
 goal: %s
 
 Workflow:
-1. Call search_operations to load the get_publication and set_publication_renditions schemas.
-2. Call query_operation with get_publication to inspect destinations and current state.
+1. Call search_operations to load the get_post and set_post_variants schemas.
+2. Call query_operation with get_post to inspect destinations and current state.
 3. Write concise, platform-native copy for each destination account.
-4. Call execute_operation with set_publication_renditions and one rendition per destination account.
+4. Call execute_operation with set_post_variants and one variant per destination account.
 5. Summarize what changed and mention any platforms that need media, hashtags, or shorter copy.
-`, promptArg(args, "workspace_id", "(required)"), promptArg(args, "publication_id", "(required)"), promptArg(args, "goal", "match the source Publication and audience")))
+`, promptArg(args, "workspace_id", "(required)"), promptArg(args, "post_id", "(required)"), promptArg(args, "goal", "match the source Post and audience")))
 }
 
 func mcpReviewQueuePromptText(args map[string]string) string {
@@ -1056,9 +1149,9 @@ workspace_id: %s
 window: %s
 
 Workflow:
-1. Call search_operations to load the list_publications and suggest_next_slot schemas.
-2. Call query_operation with list_publications for the workspace and requested window. Prefer narrow windows of 7 to 14 days with activity_bucket scheduled; keep the default limit and repeat the request with the returned next_cursor while has_more is true, repeating all other filters unchanged. Calendar windows are limited to one page, so narrow the window instead of widening it when results do not fit.
-3. Look for collisions, empty stretches, missing platform coverage, and Publications that need destination-specific Renditions. Failed destinations are summarized per Publication as failed_rendition_count with a curated error_kind, error_action, and error_message; call get_publication for full delivery detail only when a failure needs action.
+1. Call search_operations to load the list_posts and suggest_next_slot schemas.
+2. Call query_operation with list_posts for the workspace and requested window. Prefer narrow windows of 7 to 14 days with activity_bucket scheduled; keep the default limit and repeat the request with the returned next_cursor while has_more is true, repeating all other filters unchanged. Calendar windows are limited to one page, so narrow the window instead of widening it when results do not fit.
+3. Look for collisions, empty stretches, missing platform coverage, and Posts that need destination-specific Variants. Failed destinations are summarized per Post as failed_variant_count with a curated error_kind, error_action, and error_message; call get_post for full delivery detail only when a failure needs action.
 4. Call query_operation with suggest_next_slot if a useful new slot is needed.
 5. Recommend concrete actions without canceling or scheduling anything unless the user explicitly asks.
 `, promptArg(args, "workspace_id", "(required)"), promptArg(args, "window", "upcoming queue")))
@@ -1192,7 +1285,7 @@ func mcpSearchTool() map[string]any {
 			"properties": map[string]any{
 				"query": map[string]any{
 					"type":        "string",
-					"description": "Plain-language capability or operation name to find, such as 'create and schedule a video publication' or 'list connected accounts'.",
+					"description": "Plain-language capability or operation name to find, such as 'create and schedule a video post' or 'list connected accounts'.",
 				},
 				"limit": map[string]any{
 					"type":        "integer",
@@ -1204,7 +1297,7 @@ func mcpSearchTool() map[string]any {
 			"required":             []string{"query"},
 			"additionalProperties": false,
 		},
-	}, mcpToolSafety{ReadOnly: true})
+	}, mcpToolSafety{ReadOnly: true, Idempotent: true})
 }
 
 func mcpQueryTool() map[string]any {
@@ -1216,7 +1309,7 @@ func mcpQueryTool() map[string]any {
 			"Exact read-only operation name returned by search_operations.",
 			"Arguments matching the read-only operation input schema returned by search_operations.",
 		),
-	}, mcpToolSafety{ReadOnly: true, OpenWorld: true})
+	}, mcpToolSafety{ReadOnly: true, OpenWorld: true, Idempotent: true})
 }
 
 func mcpExecuteTool() map[string]any {
@@ -1396,8 +1489,8 @@ func mcpStringInputExample(name string, schema map[string]any) string {
 var mcpStringInputExamples = map[string]string{
 	"workspace_id":      "2f4aa6c2-3c8f-4e1f-91ac-43de2c2b67b1",
 	"social_account_id": "7a763db0-7c0f-4a81-b4aa-c4d5b44e786c",
-	"publication_id":    "c66d7139-0549-4666-9374-124e988f97e7",
-	"rendition_id":      "08ac072f-f39f-4583-8202-53f5ddf47eb6",
+	"post_id":           "c66d7139-0549-4666-9374-124e988f97e7",
+	"variant_id":        "08ac072f-f39f-4583-8202-53f5ddf47eb6",
 	"media_id":          "30454fbe-246c-4d9d-9289-13e2c8df7f1e",
 	"comment_id":        "eyJyZW5kaXRpb25faWQiOiIuLi4ifQ",
 	"operation":         mcpToolAccounts,
@@ -1534,8 +1627,8 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 	}
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolCreatePub,
-		"title":       "Create publication",
-		"description": "Create a format-first publication when one source needs provider-specific outputs, such as a YouTube title and TikTok caption. Returns the publication ID, profile, state, schedule, and rendition count.",
+		"title":       "Create post",
+		"description": "Create a format-first post when one source needs provider-specific outputs, such as a YouTube title and TikTok caption. Returns the post ID, profile, state, schedule, and variant count.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1545,13 +1638,13 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 					"description": "OpenPost content profile: short_text, thread, link_share, image_post, carousel, story, short_video, or long_video.",
 					"enum":        []string{"short_text", "thread", "link_share", "image_post", "carousel", "story", "short_video", "long_video"},
 				},
-				"title":       map[string]any{"type": "string", "description": "Internal publication title."},
+				"title":       map[string]any{"type": "string", "description": "Internal post title."},
 				"source_text": map[string]any{"type": "string", "description": "Canonical source text. Compute from description, caption, or title; do not expose this term to users."},
 				"source_url":  map[string]any{"type": "string", "description": "Optional source URL for link shares."},
 				"scheduled_at": map[string]any{
 					"type":        "string",
 					"format":      "date-time",
-					"description": "Optional desired schedule time. Call schedule_publication after create_publication to validate and enqueue.",
+					"description": "Optional desired schedule time. Call schedule_post after create_post to validate and enqueue.",
 				},
 				"random_delay_minutes": map[string]any{
 					"type": "integer", "minimum": 0, "maximum": 60,
@@ -1559,7 +1652,7 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 				},
 				"social_account_ids": map[string]any{
 					"type":        "array",
-					"description": "Destination account IDs returned by list_accounts. Used to create default renditions when renditions is omitted.",
+					"description": "Destination account IDs returned by list_accounts. Used to create default variants when variants is omitted.",
 					"items":       map[string]any{"type": "string"},
 				},
 				"media_ids": map[string]any{
@@ -1569,10 +1662,10 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 				},
 				"media": map[string]any{
 					"type":        "array",
-					"description": "Default ordered media used by renditions that do not provide their own media.",
+					"description": "Default ordered media used by variants that do not provide their own media.",
 					"items":       mediaSchema,
 				},
-				"renditions": map[string]any{
+				"variants": map[string]any{
 					"type":        "array",
 					"description": "Explicit account/provider outputs. Use fields by output role: body/caption as body, YouTube title as title, YouTube description as description, provider settings such as privacy.",
 					"items": map[string]any{
@@ -1590,7 +1683,7 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 							},
 							"media": map[string]any{
 								"type":        "array",
-								"description": "Rendition-specific ordered media.",
+								"description": "Variant-specific ordered media.",
 								"items":       mediaSchema,
 							},
 						},
@@ -1608,19 +1701,19 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 func mcpListPublicationsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolListPubs,
-		"title":       "List publications",
-		"description": "Find format-first publications before reading, editing, validating, or scheduling one. Returns matching publication summaries in newest-first order, up to limit items per response. Prefer narrow calendar windows and follow next_cursor with the cursor input while has_more is true instead of widening the window.",
+		"title":       "List posts",
+		"description": "Find format-first posts before reading, editing, validating, or scheduling one. Returns matching post summaries in newest-first order, up to limit items per response. Prefer narrow calendar windows and follow next_cursor with the cursor input while has_more is true instead of widening the window.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"workspace_id":    map[string]any{"type": "string", "description": "Workspace ID returned by list_workspaces."},
-				"status":          map[string]any{"type": "string", "description": "Optional publication status filter."},
+				"status":          map[string]any{"type": "string", "description": "Optional post status filter."},
 				"content_profile": map[string]any{"type": "string", "description": "Optional content profile filter."},
 				"platform":        map[string]any{"type": "string", "description": "Optional destination platform filter, such as x, linkedin, or youtube."},
 				"calendar_from":   map[string]any{"type": "string", "format": "date-time", "description": "Include calendar occurrences at or after this RFC3339 timestamp."},
 				"calendar_before": map[string]any{"type": "string", "format": "date-time", "description": "Include calendar occurrences before this RFC3339 timestamp."},
 				"activity_bucket": map[string]any{"type": "string", "enum": []string{"scheduled", "published", "failed", "draft"}, "description": "Optional calendar-compatible activity bucket."},
-				"limit":           map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum publications to return. Defaults to 20."},
+				"limit":           map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum posts to return. Defaults to 20."},
 				"cursor":          map[string]any{"type": "string", "description": "Opaque cursor from a previous response's next_cursor. Repeat all other filters unchanged while paging."},
 			},
 			"required":             []string{"workspace_id"},
@@ -1631,26 +1724,26 @@ func mcpListPublicationsTool() mcpOperationDefinition {
 
 func mcpGetPublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
-		"name": mcpToolGetPub, "title": "Get publication",
-		"description": "Read one format-first publication when its full source and destination state is needed. Returns the publication, ordered media, renditions, and delivery fields.",
+		"name": mcpToolGetPub, "title": "Get post",
+		"description": "Read one format-first post when its full source and destination state is needed. Returns the post, ordered media, variants, and delivery fields.",
 		"inputSchema": mcpPublicationIDSchema(),
 	}, mcpOperationQuery, false, false)
 }
 
 func mcpUpdatePublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
-		"name": mcpToolUpdatePub, "title": "Update publication",
-		"description": "Edit a publication's source fields or proposed schedule while preserving omitted values. Returns the updated publication and does not enqueue it for publishing.",
+		"name": mcpToolUpdatePub, "title": "Update post",
+		"description": "Edit a post's source fields or proposed schedule while preserving omitted values. Returns the updated post and does not enqueue it for publishing.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
-					"description": "Revision returned by get_publication. Reload the publication after a conflict before retrying.",
+					"description": "Revision returned by get_post. Reload the post after a conflict before retrying.",
 				},
-				"title": map[string]any{"type": "string", "description": "Optional replacement internal title used to identify the publication."},
+				"title": map[string]any{"type": "string", "description": "Optional replacement internal title used to identify the post."},
 				"content_profile": map[string]any{
 					"type": "string", "description": "Optional replacement OpenPost content profile.",
 					"enum": []string{"short_text", "thread", "link_share", "image_post", "carousel", "story", "short_video", "long_video"},
@@ -1664,56 +1757,56 @@ func mcpUpdatePublicationTool() mcpOperationDefinition {
 				},
 				"clear_schedule": map[string]any{
 					"type":        "boolean",
-					"description": "Clear the saved schedule and cancel its pending publication job. Do not combine with scheduled_at.",
+					"description": "Clear the saved schedule and cancel its pending post job. Do not combine with scheduled_at.",
 				},
 				"random_delay_minutes": map[string]any{
 					"type": "integer", "minimum": 0, "maximum": 60,
 					"description": "Optional replacement random schedule delay in minutes (±N).",
 				},
 				"inherit_random_delay": map[string]any{
-					"type": "boolean", "description": "Use the current Workspace random-delay setting when this Publication is scheduled.",
+					"type": "boolean", "description": "Use the current Workspace random-delay setting when this Post is scheduled.",
 				},
 				"metadata": map[string]any{"type": "object", "description": "Optional replacement application metadata, e.g. {\"campaign\":\"spring-launch\"}.", "additionalProperties": true},
 			},
-			"required": []string{"publication_id", "expected_revision"}, "additionalProperties": false,
+			"required": []string{"post_id", "expected_revision"}, "additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, false)
 }
 
 func mcpSetPublicationRenditionsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
-		"name": mcpToolPubRenditions, "title": "Set publication renditions",
-		"description": "Replace every destination output after publication accounts, provider fields, media roles, or captions change. Returns the publication with its complete replacement rendition set.",
+		"name": mcpToolPubRenditions, "title": "Set post variants",
+		"description": "Replace every destination output after post accounts, provider fields, media roles, or captions change. Returns the post with its complete replacement variant set.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
-					"description": "Revision returned by get_publication. Reload the publication after a conflict before retrying.",
+					"description": "Revision returned by get_post. Reload the post after a conflict before retrying.",
 				},
-				"renditions": map[string]any{
+				"variants": map[string]any{
 					"type": "array", "minItems": 1,
-					"description": "Complete replacement list of destination-specific publication outputs.",
+					"description": "Complete replacement list of destination-specific post outputs.",
 					"items":       mcpPublicationRenditionSchema(),
 				},
 			},
-			"required": []string{"publication_id", "expected_revision", "renditions"}, "additionalProperties": false,
+			"required": []string{"post_id", "expected_revision", "variants"}, "additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, false)
 }
 
 func mcpReplyToRenditionTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
-		"name": mcpToolReplyRendition, "title": "Reply to rendition",
-		"description": "Queue a reply to an already published provider rendition, either now or at a future time. Returns the updated publication status and durable reply job ID.",
+		"name": mcpToolReplyRendition, "title": "Reply to variant",
+		"description": "Queue a reply to an already published provider variant, either now or at a future time. Returns the updated post status and durable reply job ID.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"rendition_id": map[string]any{"type": "string", "description": "Published rendition ID returned by get_publication."},
-				"body":         map[string]any{"type": "string", "description": "Reply text sent to the rendition's provider thread."},
-				"parent_id":    map[string]any{"type": "string", "description": "Optional provider-native parent reply ID when replying below a specific reply."},
+				"variant_id": map[string]any{"type": "string", "description": "Published variant ID returned by get_post."},
+				"body":       map[string]any{"type": "string", "description": "Reply text sent to the variant's provider thread."},
+				"parent_id":  map[string]any{"type": "string", "description": "Optional provider-native parent reply ID when replying below a specific reply."},
 				"run_at": map[string]any{
 					"type": "string", "format": "date-time", "description": "Optional future RFC3339 execution time, such as 2026-08-01T09:30:00Z. Omit to queue immediately.",
 				},
@@ -1722,7 +1815,7 @@ func mcpReplyToRenditionTool() mcpOperationDefinition {
 					"type": "array", "description": "Optional ordered media attachments for the reply.", "items": mcpPublicationMediaSchema(),
 				},
 			},
-			"required": []string{"rendition_id", "body"}, "additionalProperties": false,
+			"required": []string{"variant_id", "body"}, "additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
 }
@@ -1731,9 +1824,9 @@ func mcpPublicationIDSchema() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+			"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 		},
-		"required": []string{"publication_id"}, "additionalProperties": false,
+		"required": []string{"post_id"}, "additionalProperties": false,
 	}
 }
 
@@ -1754,7 +1847,7 @@ func mcpPublicationMediaSchema() map[string]any {
 func mcpPublicationRenditionSchema() map[string]any {
 	return map[string]any{
 		"type": "object", "properties": map[string]any{
-			"id":                map[string]any{"type": "string", "description": "Optional existing rendition ID when replacing a previously stored output."},
+			"id":                map[string]any{"type": "string", "description": "Optional existing variant ID when replacing a previously stored output."},
 			"social_account_id": map[string]any{"type": "string", "description": "Destination account ID returned by list_accounts."},
 			"profile": map[string]any{
 				"type": "string", "description": "Optional content profile override for this destination.",
@@ -1772,14 +1865,14 @@ func mcpPublicationRenditionSchema() map[string]any {
 func mcpValidatePublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolValidatePub,
-		"title":       "Validate publication",
-		"description": "Validate a publication before scheduling or immediate publishing. Returns a valid flag plus actionable provider, media, account-scope, and processing issues.",
+		"title":       "Validate post",
+		"description": "Validate a post before scheduling or immediate publishing. Returns a valid flag plus actionable provider, media, account-scope, and processing issues.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 			},
-			"required":             []string{"publication_id"},
+			"required":             []string{"post_id"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationQuery, false, false)
@@ -1788,23 +1881,23 @@ func mcpValidatePublicationTool() mcpOperationDefinition {
 func mcpSchedulePublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolSchedulePub,
-		"title":       "Schedule publication",
-		"description": "Validate and enqueue a publication after its future scheduled_at value is set. Returns the scheduled publication state and durable publishing job ID.",
+		"title":       "Schedule post",
+		"description": "Validate and enqueue a post after its future scheduled_at value is set. Returns the scheduled post state and durable publishing job ID.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
-					"description": "Revision returned by get_publication after the schedule time was saved.",
+					"description": "Revision returned by get_post after the schedule time was saved.",
 				},
 				"execution_intent": map[string]any{
 					"type": "string", "enum": []string{"production", "certification_test"},
 					"description": "Optional typed readiness intent for this enqueue action. certification_test is restricted to an unscoped instance administrator.",
 				},
 			},
-			"required":             []string{"publication_id", "expected_revision"},
+			"required":             []string{"post_id", "expected_revision"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
@@ -1813,18 +1906,18 @@ func mcpSchedulePublicationTool() mcpOperationDefinition {
 func mcpCancelPublicationTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolCancelPub,
-		"title":       "Cancel publication",
-		"description": "Cancel a scheduled publication and its pending durable delivery work.",
+		"title":       "Cancel post",
+		"description": "Cancel a scheduled post and its pending durable delivery work.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"publication_id": map[string]any{"type": "string", "description": "Scheduled Publication ID."},
+				"post_id": map[string]any{"type": "string", "description": "Scheduled Post ID."},
 				"expected_revision": map[string]any{
 					"type": "integer", "minimum": 1,
-					"description": "Revision returned by get_publication immediately before cancellation.",
+					"description": "Revision returned by get_post immediately before cancellation.",
 				},
 			},
-			"required": []string{"publication_id", "expected_revision"}, "additionalProperties": false,
+			"required": []string{"post_id", "expected_revision"}, "additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
 }
@@ -1832,23 +1925,23 @@ func mcpCancelPublicationTool() mcpOperationDefinition {
 func mcpPublishPublicationNowTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolPublishPubNow,
-		"title":       "Publish publication now",
-		"description": "Validate and queue a publication when it should publish as soon as a worker is available. Returns the queued publication state and durable publishing job ID.",
+		"title":       "Publish post now",
+		"description": "Validate and queue a post when it should publish as soon as a worker is available. Returns the queued post state and durable publishing job ID.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
 				"expected_revision": map[string]any{
 					"type":        "integer",
 					"minimum":     1,
-					"description": "Revision returned by get_publication immediately before publishing.",
+					"description": "Revision returned by get_post immediately before publishing.",
 				},
 				"execution_intent": map[string]any{
 					"type": "string", "enum": []string{"production", "certification_test"},
 					"description": "Optional typed readiness intent for this enqueue action. certification_test is restricted to an unscoped instance administrator.",
 				},
 			},
-			"required":             []string{"publication_id", "expected_revision"},
+			"required":             []string{"post_id", "expected_revision"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
@@ -1857,15 +1950,15 @@ func mcpPublishPublicationNowTool() mcpOperationDefinition {
 func mcpListPublicationEventsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolPubEvents,
-		"title":       "List publication events",
-		"description": "Inspect publication history when diagnosing delivery, retry, or moderation state. Returns ordered lifecycle events with status, message, metadata, and timestamps.",
+		"title":       "List post events",
+		"description": "Inspect post history when diagnosing delivery, retry, or moderation state. Returns ordered lifecycle events with status, message, metadata, and timestamps.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
-				"limit":          map[string]any{"type": "integer", "minimum": 1, "maximum": 200, "description": "Maximum events to return. Defaults to 100."},
+				"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
+				"limit":   map[string]any{"type": "integer", "minimum": 1, "maximum": 200, "description": "Maximum events to return. Defaults to 100."},
 			},
-			"required":             []string{"publication_id"},
+			"required":             []string{"post_id"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationQuery, false, false)
@@ -1874,21 +1967,21 @@ func mcpListPublicationEventsTool() mcpOperationDefinition {
 func mcpListRenditionCommentsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolComments,
-		"title":       "List rendition comments",
-		"description": "Read live comments before replying to or moderating a published rendition. Returns provider comments with opaque OpenPost comment IDs safe for follow-up actions.",
+		"title":       "List variant comments",
+		"description": "Read live comments before replying to or moderating a published variant. Returns provider comments with opaque OpenPost comment IDs safe for follow-up actions.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"rendition_id": map[string]any{"type": "string", "description": "Rendition ID from a publication's destination-specific output."},
+				"variant_id": map[string]any{"type": "string", "description": "Variant ID from a post's destination-specific output."},
 			},
-			"required":             []string{"rendition_id"},
+			"required":             []string{"variant_id"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationQuery, false, true)
 }
 
 func mcpReplyToCommentTool() mcpOperationDefinition {
-	return mcpCommentActionTool(mcpToolReplyComment, "Reply to comment", "Queue a durable one-attempt provider reply after selecting an opaque ID from list_rendition_comments. Returns a confirmation message and job ID.", true, false)
+	return mcpCommentActionTool(mcpToolReplyComment, "Reply to comment", "Queue a durable one-attempt provider reply after selecting an opaque ID from list_variant_comments. Returns a confirmation message and job ID.", true, false)
 }
 
 func mcpHideCommentTool() mcpOperationDefinition {
@@ -1900,7 +1993,7 @@ func mcpDeleteCommentTool() mcpOperationDefinition {
 }
 
 func mcpCommentActionTool(name, title, description string, requiresBody, destructive bool) mcpOperationDefinition {
-	properties := map[string]any{"comment_id": map[string]any{"type": "string", "description": "Opaque comment ID returned by list_rendition_comments."}}
+	properties := map[string]any{"comment_id": map[string]any{"type": "string", "description": "Opaque comment ID returned by list_variant_comments."}}
 	required := []string{"comment_id"}
 	if requiresBody {
 		properties["body"] = map[string]any{"type": "string", "description": "Reply text to send to the provider comment."}
@@ -1997,7 +2090,7 @@ func mcpRenderSchedulerWidgetTool() map[string]any {
 			"required":             []string{"data"},
 			"additionalProperties": false,
 		},
-	}, mcpToolSafety{ReadOnly: true})
+	}, mcpToolSafety{ReadOnly: true, Idempotent: true})
 }
 
 func mcpRenderLocalUploadTool() map[string]any {
@@ -2012,7 +2105,7 @@ func mcpRenderLocalUploadTool() map[string]any {
 			},
 			"required": []string{"workspace_id"}, "additionalProperties": false,
 		},
-	}, mcpToolSafety{ReadOnly: true})
+	}, mcpToolSafety{ReadOnly: true, Idempotent: true})
 }
 
 func mcpCreateLocalUploadTicketTool() map[string]any {
@@ -2042,6 +2135,7 @@ type mcpToolSafety struct {
 	ReadOnly    bool
 	Destructive bool
 	OpenWorld   bool
+	Idempotent  bool
 }
 
 func mcpOperationDescriptor(tool map[string]any, mode mcpOperationMode, destructive, openWorld bool) mcpOperationDefinition {
@@ -2059,6 +2153,7 @@ func mcpOperationDescriptor(tool map[string]any, mode mcpOperationMode, destruct
 			ReadOnly:    mode == mcpOperationQuery,
 			Destructive: destructive,
 			OpenWorld:   openWorld,
+			Idempotent:  mode == mcpOperationQuery,
 		}),
 		Mode: mode,
 	}
@@ -2078,6 +2173,7 @@ func mcpToolDescriptor(tool map[string]any, safety mcpToolSafety) map[string]any
 		"readOnlyHint":    safety.ReadOnly,
 		"destructiveHint": safety.Destructive,
 		"openWorldHint":   safety.OpenWorld,
+		"idempotentHint":  safety.Idempotent,
 	}
 	status := mcpToolInvocationStatus(toolName)
 	meta := map[string]any{
@@ -2132,17 +2228,17 @@ var mcpToolStatuses = map[string]mcpToolStatus{
 	mcpToolAccounts:       {Invoking: "Loading accounts", Invoked: "Accounts loaded"},
 	mcpToolListMedia:      {Invoking: "Loading media", Invoked: "Media loaded"},
 	mcpToolReadiness:      {Invoking: "Checking provider readiness", Invoked: "Provider readiness loaded"},
-	mcpToolCreatePub:      {Invoking: "Creating publication", Invoked: "Publication created"},
-	mcpToolListPubs:       {Invoking: "Loading publications", Invoked: "Publications loaded"},
-	mcpToolGetPub:         {Invoking: "Loading publication", Invoked: "Publication loaded"},
-	mcpToolUpdatePub:      {Invoking: "Updating publication", Invoked: "Publication updated"},
-	mcpToolPubRenditions:  {Invoking: "Updating publication outputs", Invoked: "Publication outputs updated"},
+	mcpToolCreatePub:      {Invoking: "Creating post", Invoked: "Post created"},
+	mcpToolListPubs:       {Invoking: "Loading posts", Invoked: "Posts loaded"},
+	mcpToolGetPub:         {Invoking: "Loading post", Invoked: "Post loaded"},
+	mcpToolUpdatePub:      {Invoking: "Updating post", Invoked: "Post updated"},
+	mcpToolPubRenditions:  {Invoking: "Updating post variants", Invoked: "Post variants updated"},
 	mcpToolReplyRendition: {Invoking: "Queueing reply", Invoked: "Reply queued"},
-	mcpToolValidatePub:    {Invoking: "Validating publication", Invoked: "Publication validated"},
-	mcpToolSchedulePub:    {Invoking: "Scheduling publication", Invoked: "Publication scheduled"},
-	mcpToolCancelPub:      {Invoking: "Cancelling publication", Invoked: "Publication cancelled"},
-	mcpToolPublishPubNow:  {Invoking: "Queueing publication", Invoked: "Publication queued"},
-	mcpToolPubEvents:      {Invoking: "Loading publication events", Invoked: "Publication events loaded"},
+	mcpToolValidatePub:    {Invoking: "Validating post", Invoked: "Post validated"},
+	mcpToolSchedulePub:    {Invoking: "Scheduling post", Invoked: "Post scheduled"},
+	mcpToolCancelPub:      {Invoking: "Cancelling post", Invoked: "Post cancelled"},
+	mcpToolPublishPubNow:  {Invoking: "Queueing post", Invoked: "Post queued"},
+	mcpToolPubEvents:      {Invoking: "Loading post events", Invoked: "Post events loaded"},
 	mcpToolComments:       {Invoking: "Loading comments", Invoked: "Comments loaded"},
 	mcpToolReplyComment:   {Invoking: "Queueing comment reply", Invoked: "Comment reply queued"},
 	mcpToolHideComment:    {Invoking: "Queueing comment hide", Invoked: "Comment hide queued"},
@@ -2342,7 +2438,7 @@ func searchMCPOperations(args map[string]any, allowedModes ...mcpOperationMode) 
 	}
 	message := fmt.Sprintf("Found %d OpenPost operation(s) for %q.", len(operations), input.Query)
 	if len(operations) == 0 {
-		message = "No matching OpenPost operations found. Try a focused capability phrase such as 'draft', 'scheduled publication', 'media', or 'connected accounts'."
+		message = "No matching OpenPost operations found. Try a focused capability phrase such as 'draft', 'scheduled post', 'media', or 'connected accounts'."
 	}
 	return map[string]any{
 		"content": []mcpContent{{Type: "text", Text: message}},
@@ -2514,6 +2610,10 @@ func (h *MCPHandler) callTool(ctx context.Context, principal *middleware.Princip
 		return nil, rpcErr
 	}
 	canonicalName := canonicalMCPToolName(params.Name)
+	normalizeMCPArgumentKeys(params.Arguments)
+	if canonicalName == mcpToolQuery || canonicalName == mcpToolExecute {
+		normalizeMCPDelegatedArguments(params.Arguments)
+	}
 	auditToolName, auditArgs := mcpToolAuditTarget(canonicalName, params.Arguments)
 	start := time.Now()
 	if mcpScopeIsReadOnly(principal.Scope) && mcpToolCallChangesState(canonicalName) {
@@ -2568,7 +2668,7 @@ func mcpToolAuditTarget(canonicalName string, arguments map[string]any) (string,
 	auditArgs := arguments
 	if canonicalName == mcpToolQuery || canonicalName == mcpToolExecute {
 		if operationName, ok := arguments["operation"].(string); ok && strings.TrimSpace(operationName) != "" {
-			auditToolName = strings.TrimSpace(operationName)
+			auditToolName = normalizeMCPOperationName(strings.TrimSpace(operationName))
 		}
 		if operationArgs, ok := arguments["arguments"].(map[string]any); ok {
 			auditArgs = operationArgs
@@ -2597,6 +2697,8 @@ func (h *MCPHandler) executeMCPTool(ctx context.Context, userID, scope, canonica
 			break
 		}
 		input.Operation = strings.TrimSpace(input.Operation)
+		input.Operation = normalizeMCPOperationName(input.Operation)
+		normalizeMCPArgumentKeys(input.Arguments)
 		auditToolName = input.Operation
 		auditArgs = input.Arguments
 		result, rpcErr = h.callDiscoveredMCPOperation(ctx, userID, mcpOperationMode(canonicalName), input.Operation, input.Arguments)
@@ -2629,7 +2731,7 @@ func canonicalMCPToolName(name string) string {
 	case mcpLegacyToolExecute:
 		return mcpToolExecute
 	default:
-		return name
+		return normalizeMCPOperationName(name)
 	}
 }
 
@@ -2746,6 +2848,7 @@ type mcpDelegatedOperationInput struct {
 }
 
 func mcpOperationByName(name string) (mcpOperationDefinition, bool) {
+	name = normalizeMCPOperationName(name)
 	for _, operation := range mcpOperationCatalog() {
 		operationName, _ := operation.Descriptor["name"].(string)
 		if operationName == name {
@@ -2770,6 +2873,7 @@ func (h *MCPHandler) callDiscoveredMCPOperation(ctx context.Context, userID stri
 }
 
 func (h *MCPHandler) callMCPOperation(ctx context.Context, userID, operation string, args map[string]any) (any, *mcpError) {
+	operation = normalizeMCPOperationName(operation)
 	switch operation {
 	case mcpToolWorkspaces, mcpToolProviders:
 		return h.callReadOnlyGlobalTool(ctx, userID, operation)
@@ -2791,6 +2895,7 @@ func (h *MCPHandler) callMCPOperation(ctx context.Context, userID, operation str
 }
 
 func (h *MCPHandler) callWorkspaceActionTool(ctx context.Context, userID, toolName string, args map[string]any) (any, *mcpError) {
+	toolName = normalizeMCPOperationName(toolName)
 	switch toolName {
 	case mcpToolCreatePub, mcpToolListPubs, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolReplyRendition,
 		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolPubEvents, mcpToolComments,
@@ -2806,6 +2911,7 @@ func (h *MCPHandler) callWorkspaceActionTool(ctx context.Context, userID, toolNa
 }
 
 func (h *MCPHandler) callPublicationTool(ctx context.Context, userID, toolName string, args map[string]any) (any, *mcpError) {
+	toolName = normalizeMCPOperationName(toolName)
 	switch toolName {
 	case mcpToolCreatePub:
 		return h.createPublication(ctx, userID, args)
@@ -2899,7 +3005,7 @@ func (h *MCPHandler) renderSchedulerWidget(args map[string]any) (any, *mcpError)
 }
 
 func mcpSchedulerWidgetViews() []string {
-	return []string{"summary", "workspaces", "providers", "accounts", "media", "publication", "publications", "post", "posts", "suggestion", "renditions"}
+	return []string{"summary", "workspaces", "providers", "accounts", "media", "publication", "publications", "post", "posts", "suggestion", "renditions", "variants"}
 }
 
 func mcpValidSchedulerWidgetView(view string) bool {
@@ -2933,12 +3039,15 @@ func mcpInferSchedulerWidgetView(data map[string]any) string {
 		return "suggestion"
 	case data["renditions"] != nil:
 		return "renditions"
+	case data["variants"] != nil:
+		return "variants"
 	default:
 		return "summary"
 	}
 }
 
 func decodeMCPArguments(args map[string]any, dest any) error {
+	normalizeMCPArgumentKeys(args)
 	payload, err := json.Marshal(args)
 	if err != nil {
 		return err
@@ -3193,7 +3302,7 @@ type mcpCreatePublicationInput struct {
 	SocialAccountIDs   []string                `json:"social_account_ids"`
 	MediaIDs           []string                `json:"media_ids"`
 	Media              []PublicationMediaInput `json:"media"`
-	Renditions         []RenditionInput        `json:"renditions"`
+	Renditions         []RenditionInput        `json:"variants"`
 }
 
 type mcpPublicationStatus struct {
@@ -3215,7 +3324,7 @@ type mcpPublicationStatus struct {
 	// ErrorKind, ErrorAction, and ErrorMessage summarize the first failed
 	// rendition using the same curated taxonomy stored on the rendition
 	// (never raw provider response bodies).
-	FailedRenditionCount int    `json:"failed_rendition_count"`
+	FailedRenditionCount int    `json:"failed_variant_count"`
 	ErrorKind            string `json:"error_kind,omitempty"`
 	ErrorAction          string `json:"error_action,omitempty"`
 	ErrorMessage         string `json:"error_message,omitempty"`
@@ -3249,7 +3358,7 @@ func mcpPublicationStatusFromResponse(publication PublicationResponse) mcpPublic
 func (h *MCPHandler) createPublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input mcpCreatePublicationInput
 	if err := decodeMCPArguments(args, &input); err != nil {
-		return nil, &mcpError{Code: -32602, Message: "invalid create_publication arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid create_post arguments"}
 	}
 	now := time.Now().UTC()
 	if rpcErr := validateMCPCreatePublicationInput(input, now); rpcErr != nil {
@@ -3288,7 +3397,7 @@ func (h *MCPHandler) createPublication(ctx context.Context, userID string, args 
 		return nil, rpcErr
 	}
 	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: "Publication created: " + publication.ID}},
+		"content": []mcpContent{{Type: "text", Text: "Post created: " + publication.ID}},
 		"structuredContent": map[string]any{
 			"publication": status,
 		},
@@ -3300,7 +3409,7 @@ func mcpPublicationCreateError(err error) *mcpError {
 	if errors.As(err, &statusErr) && statusErr.GetStatus() < http.StatusInternalServerError {
 		return &mcpError{Code: -32602, Message: statusErr.Error()}
 	}
-	return &mcpError{Code: -32603, Message: "failed to create publication"}
+	return &mcpError{Code: -32603, Message: "failed to create post"}
 }
 
 func validateMCPCreatePublicationInput(input mcpCreatePublicationInput, now time.Time) *mcpError {
@@ -3343,7 +3452,7 @@ func (h *MCPHandler) listPublications(ctx context.Context, userID string, args m
 		Cursor         string `json:"cursor"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
-		return nil, &mcpError{Code: -32602, Message: "invalid list_publications arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid list_posts arguments"}
 	}
 	limit := input.Limit
 	if limit <= 0 {
@@ -3359,15 +3468,15 @@ func (h *MCPHandler) listPublications(ctx context.Context, userID string, args m
 		Limit: limit, Cursor: strings.TrimSpace(input.Cursor),
 	})
 	if err != nil {
-		return nil, publicationMutationMCPError(err, "failed to list publications")
+		return nil, publicationMutationMCPError(err, "failed to list posts")
 	}
 	publications := make([]mcpPublicationStatus, 0, len(page.Publications))
 	for _, publication := range page.Publications {
 		publications = append(publications, mcpPublicationStatusFromResponse(publication))
 	}
-	text := fmt.Sprintf("Found %d publications.", len(publications))
+	text := fmt.Sprintf("Found %d posts.", len(publications))
 	if page.HasMore {
-		text = fmt.Sprintf("Found %d publications; more are available. Repeat the request with cursor %q while has_more is true.", len(publications), page.NextCursor)
+		text = fmt.Sprintf("Found %d posts; more are available. Repeat the request with cursor %q while has_more is true.", len(publications), page.NextCursor)
 	}
 	return map[string]any{
 		"content": []mcpContent{{Type: "text", Text: text}},
@@ -3381,22 +3490,22 @@ func (h *MCPHandler) listPublications(ctx context.Context, userID string, args m
 }
 
 func (h *MCPHandler) getPublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	publicationID, rpcErr := decodeMCPPublicationID(args, "invalid get_publication arguments")
+	publicationID, rpcErr := decodeMCPPublicationID(args, "invalid get_post arguments")
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, publicationID)
 	if err != nil {
-		return nil, &mcpError{Code: -32602, Message: "publication not found or unavailable"}
+		return nil, &mcpError{Code: -32602, Message: "post not found or unavailable"}
 	}
 	return map[string]any{
-		"content":           []mcpContent{{Type: "text", Text: "Publication loaded: " + publication.ID}},
+		"content":           []mcpContent{{Type: "text", Text: "Post loaded: " + publication.ID}},
 		"structuredContent": map[string]any{"publication": publication},
 	}, nil
 }
 
 type mcpPublicationUpdateInput struct {
-	PublicationID      string                  `json:"publication_id"`
+	PublicationID      string                  `json:"post_id"`
 	ExpectedRevision   int                     `json:"expected_revision"`
 	Title              *string                 `json:"title"`
 	ContentProfile     *string                 `json:"content_profile"`
@@ -3416,7 +3525,7 @@ func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args 
 	if err := decodeMCPArguments(args, &input); err != nil ||
 		strings.TrimSpace(input.PublicationID) == "" ||
 		input.ExpectedRevision < 1 {
-		return nil, &mcpError{Code: -32602, Message: "invalid update_publication arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid update_post arguments"}
 	}
 	if err := h.publicationHandler().publicationApplication().Update(ctx, userID, input.PublicationID, PublicationUpdateBody{
 		ExpectedRevision:   input.ExpectedRevision,
@@ -3432,9 +3541,9 @@ func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args 
 		InheritRandomDelay: input.InheritRandomDelay,
 		Metadata:           mcpMetadataValue(input.Metadata),
 	}); err != nil {
-		return nil, publicationMutationMCPError(err, "failed to update publication")
+		return nil, publicationMutationMCPError(err, "failed to update post")
 	}
-	return h.getPublication(ctx, userID, map[string]any{"publication_id": input.PublicationID})
+	return h.getPublication(ctx, userID, map[string]any{"post_id": input.PublicationID})
 }
 
 func mcpMetadataValue(metadata *map[string]interface{}) map[string]interface{} {
@@ -3488,27 +3597,27 @@ func isDraftRevisionConflict(err error) bool {
 
 func (h *MCPHandler) setPublicationRenditions(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		PublicationID    string           `json:"publication_id"`
+		PublicationID    string           `json:"post_id"`
 		ExpectedRevision int              `json:"expected_revision"`
-		Renditions       []RenditionInput `json:"renditions"`
+		Renditions       []RenditionInput `json:"variants"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil ||
 		strings.TrimSpace(input.PublicationID) == "" ||
 		input.ExpectedRevision < 1 ||
 		len(input.Renditions) == 0 {
-		return nil, &mcpError{Code: -32602, Message: "invalid set_publication_renditions arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid set_post_variants arguments"}
 	}
 	if err := h.publicationHandler().publicationApplication().ReplaceRenditions(
 		ctx, userID, input.PublicationID, input.ExpectedRevision, input.Renditions,
 	); err != nil {
-		return nil, publicationMutationMCPError(err, "failed to update publication renditions")
+		return nil, publicationMutationMCPError(err, "failed to update post variants")
 	}
-	return h.getPublication(ctx, userID, map[string]any{"publication_id": input.PublicationID})
+	return h.getPublication(ctx, userID, map[string]any{"post_id": input.PublicationID})
 }
 
 func (h *MCPHandler) replyToRendition(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		RenditionID string                  `json:"rendition_id"`
+		RenditionID string                  `json:"variant_id"`
 		Body        string                  `json:"body"`
 		ParentID    string                  `json:"parent_id"`
 		Settings    map[string]interface{}  `json:"settings"`
@@ -3516,7 +3625,7 @@ func (h *MCPHandler) replyToRendition(ctx context.Context, userID string, args m
 		RunAt       *time.Time              `json:"run_at"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.RenditionID) == "" || strings.TrimSpace(input.Body) == "" {
-		return nil, &mcpError{Code: -32602, Message: "invalid reply_to_rendition arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid reply_to_variant arguments"}
 	}
 	rendition, publication, _, rpcErr := h.loadMCPCommentContext(ctx, userID, input.RenditionID)
 	if rpcErr != nil {
@@ -3544,7 +3653,7 @@ func (h *MCPHandler) replyToRendition(ctx context.Context, userID string, args m
 
 func decodeMCPPublicationID(args map[string]any, invalid string) (string, *mcpError) {
 	var input struct {
-		PublicationID string `json:"publication_id"`
+		PublicationID string `json:"post_id"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.PublicationID) == "" {
 		return "", &mcpError{Code: -32602, Message: invalid}
@@ -3554,22 +3663,22 @@ func decodeMCPPublicationID(args map[string]any, invalid string) (string, *mcpEr
 
 func (h *MCPHandler) validatePublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		PublicationID string `json:"publication_id"`
+		PublicationID string `json:"post_id"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
-		return nil, &mcpError{Code: -32602, Message: "invalid validate_publication arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid validate_post arguments"}
 	}
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
 	if input.PublicationID == "" {
-		return nil, &mcpError{Code: -32602, Message: "publication_id is required"}
+		return nil, &mcpError{Code: -32602, Message: "post_id is required"}
 	}
 	issues, err := h.publicationHandler().publicationApplication().Validate(ctx, userID, input.PublicationID)
 	if err != nil {
-		return nil, &mcpError{Code: -32603, Message: "failed to validate publication"}
+		return nil, &mcpError{Code: -32603, Message: "failed to validate post"}
 	}
 	valid := !hasBlockingIssues(issues)
 	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Publication validation found %d issue(s).", len(issues))}},
+		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Post validation found %d issue(s).", len(issues))}},
 		"structuredContent": map[string]any{
 			"valid":  valid,
 			"issues": issues,
@@ -3578,59 +3687,59 @@ func (h *MCPHandler) validatePublication(ctx context.Context, userID string, arg
 }
 
 func (h *MCPHandler) schedulePublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	publicationID, expectedRevision, intent, rpcErr := h.loadMCPPublicationAction(ctx, args, "invalid schedule_publication arguments")
+	publicationID, expectedRevision, intent, rpcErr := h.loadMCPPublicationAction(ctx, args, "invalid schedule_post arguments")
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	handler := h.publicationHandler()
 	result, err := handler.publicationApplication().Schedule(ctx, userID, publicationID, expectedRevision, intent)
 	if err != nil {
-		return nil, publicationMutationMCPError(err, "failed to schedule publication")
+		return nil, publicationMutationMCPError(err, "failed to schedule post")
 	}
 	status, rpcErr := h.loadMCPPublicationStatus(ctx, publicationID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	return mcpPublicationActionResult("Publication scheduled: "+publicationID, result.JobID, status), nil
+	return mcpPublicationActionResult("Post scheduled: "+publicationID, result.JobID, status), nil
 }
 
 func (h *MCPHandler) cancelPublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		PublicationID    string `json:"publication_id"`
+		PublicationID    string `json:"post_id"`
 		ExpectedRevision int    `json:"expected_revision"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.PublicationID) == "" || input.ExpectedRevision < 1 {
-		return nil, &mcpError{Code: -32602, Message: "invalid cancel_publication arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid cancel_post arguments"}
 	}
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
 	if err := h.publicationHandler().publicationApplication().Cancel(
 		ctx, userID, input.PublicationID, input.ExpectedRevision,
 	); err != nil {
-		return nil, publicationMutationMCPError(err, "failed to cancel publication")
+		return nil, publicationMutationMCPError(err, "failed to cancel post")
 	}
-	return h.getPublication(ctx, userID, map[string]any{"publication_id": input.PublicationID})
+	return h.getPublication(ctx, userID, map[string]any{"post_id": input.PublicationID})
 }
 
 func (h *MCPHandler) publishPublicationNow(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	publicationID, expectedRevision, intent, rpcErr := h.loadMCPPublicationAction(ctx, args, "invalid publish_publication_now arguments")
+	publicationID, expectedRevision, intent, rpcErr := h.loadMCPPublicationAction(ctx, args, "invalid publish_post_now arguments")
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	handler := h.publicationHandler()
 	result, err := handler.publicationApplication().PublishNow(ctx, userID, publicationID, expectedRevision, intent)
 	if err != nil {
-		return nil, publicationMutationMCPError(err, "failed to queue publication")
+		return nil, publicationMutationMCPError(err, "failed to queue post")
 	}
 	status, rpcErr := h.loadMCPPublicationStatus(ctx, publicationID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	return mcpPublicationActionResult("Publication queued: "+publicationID, result.JobID, status), nil
+	return mcpPublicationActionResult("Post queued: "+publicationID, result.JobID, status), nil
 }
 
 func (h *MCPHandler) loadMCPPublicationAction(ctx context.Context, args map[string]any, invalidMessage string) (string, int, providerreadiness.ExecutionIntent, *mcpError) {
 	var input struct {
-		PublicationID    string `json:"publication_id"`
+		PublicationID    string `json:"post_id"`
 		ExpectedRevision int    `json:"expected_revision"`
 		ExecutionIntent  string `json:"execution_intent"`
 	}
@@ -3639,7 +3748,7 @@ func (h *MCPHandler) loadMCPPublicationAction(ctx context.Context, args map[stri
 	}
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
 	if input.PublicationID == "" || input.ExpectedRevision < 1 {
-		return "", 0, "", &mcpError{Code: -32602, Message: "publication_id and expected_revision are required"}
+		return "", 0, "", &mcpError{Code: -32602, Message: "post_id and expected_revision are required"}
 	}
 	intent, err := providerReadinessExecutionIntent(ctx, h.db, input.ExecutionIntent)
 	if err != nil {
@@ -3660,25 +3769,25 @@ func mcpPublicationActionResult(message, jobID string, status mcpPublicationStat
 
 func (h *MCPHandler) listPublicationEvents(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		PublicationID string `json:"publication_id"`
+		PublicationID string `json:"post_id"`
 		Limit         int    `json:"limit"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
-		return nil, &mcpError{Code: -32602, Message: "invalid list_publication_events arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid list_post_events arguments"}
 	}
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
 	if input.PublicationID == "" {
-		return nil, &mcpError{Code: -32602, Message: "publication_id is required"}
+		return nil, &mcpError{Code: -32602, Message: "post_id is required"}
 	}
 	page, err := h.publicationHandler().publicationApplication().History(
 		ctx, userID, input.PublicationID, input.Limit, "",
 	)
 	if err != nil {
-		return nil, publicationMutationMCPError(err, "failed to list publication events")
+		return nil, publicationMutationMCPError(err, "failed to list post events")
 	}
 	out := page.Events
 	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Found %d publication events.", len(out))}},
+		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Found %d post events.", len(out))}},
 		"structuredContent": map[string]any{
 			"events": out,
 		},
@@ -3687,14 +3796,14 @@ func (h *MCPHandler) listPublicationEvents(ctx context.Context, userID string, a
 
 func (h *MCPHandler) listRenditionComments(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		RenditionID string `json:"rendition_id"`
+		RenditionID string `json:"variant_id"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
-		return nil, &mcpError{Code: -32602, Message: "invalid list_rendition_comments arguments"}
+		return nil, &mcpError{Code: -32602, Message: "invalid list_variant_comments arguments"}
 	}
 	input.RenditionID = strings.TrimSpace(input.RenditionID)
 	if input.RenditionID == "" {
-		return nil, &mcpError{Code: -32602, Message: "rendition_id is required"}
+		return nil, &mcpError{Code: -32602, Message: "variant_id is required"}
 	}
 	rendition, publication, account, rpcErr := h.loadMCPCommentContext(ctx, userID, input.RenditionID)
 	if rpcErr != nil {
@@ -3705,7 +3814,7 @@ func (h *MCPHandler) listRenditionComments(ctx context.Context, userID string, a
 		return nil, rpcErr
 	}
 	if strings.TrimSpace(rendition.ExternalID) == "" {
-		return nil, &mcpError{Code: -32602, Message: "rendition has no provider post ID"}
+		return nil, &mcpError{Code: -32602, Message: "variant has no provider post ID"}
 	}
 	comments, err := commenter.ListComments(ctx, accessToken, account.AccountID, rendition.ExternalID)
 	if err != nil {
@@ -3788,11 +3897,11 @@ func (h *MCPHandler) moderateComment(ctx context.Context, userID, operation stri
 func (h *MCPHandler) loadMCPCommentContext(ctx context.Context, userID, renditionID string) (*models.Rendition, *models.Publication, *models.SocialAccount, *mcpError) {
 	var rendition models.Rendition
 	if err := h.db.NewSelect().Model(&rendition).Where("id = ?", renditionID).Scan(ctx); err != nil {
-		return nil, nil, nil, &mcpError{Code: -32602, Message: "rendition not found"}
+		return nil, nil, nil, &mcpError{Code: -32602, Message: "variant not found"}
 	}
 	var publication models.Publication
 	if err := h.db.NewSelect().Model(&publication).Where("id = ?", rendition.PublicationID).Scan(ctx); err != nil {
-		return nil, nil, nil, &mcpError{Code: -32602, Message: "publication not found"}
+		return nil, nil, nil, &mcpError{Code: -32602, Message: "post not found"}
 	}
 	if rpcErr := h.ensureWorkspaceAccess(ctx, userID, publication.WorkspaceID); rpcErr != nil {
 		return nil, nil, nil, rpcErr
@@ -3844,11 +3953,11 @@ func (h *MCPHandler) commentProvider(account *models.SocialAccount) (platform.Co
 func (h *MCPHandler) loadMCPPublicationStatus(ctx context.Context, publicationID string) (mcpPublicationStatus, *mcpError) {
 	var publication models.Publication
 	if err := h.db.NewSelect().Model(&publication).Where("id = ?", publicationID).Scan(ctx); err != nil {
-		return mcpPublicationStatus{}, &mcpError{Code: -32603, Message: "failed to load publication"}
+		return mcpPublicationStatus{}, &mcpError{Code: -32603, Message: "failed to load post"}
 	}
 	count, err := h.db.NewSelect().Model((*models.Rendition)(nil)).Where("publication_id = ?", publicationID).Count(ctx)
 	if err != nil {
-		return mcpPublicationStatus{}, &mcpError{Code: -32603, Message: "failed to load publication renditions"}
+		return mcpPublicationStatus{}, &mcpError{Code: -32603, Message: "failed to load post variants"}
 	}
 	return mcpPublicationStatus{
 		ID:                   publication.ID,
@@ -3949,7 +4058,7 @@ func (h *MCPHandler) suggestNextSlot(ctx context.Context, userID string, args ma
 		Where("scheduled_at >= ?", now.UTC().Add(-24*time.Hour)).
 		Order("scheduled_at ASC")
 	if err := publicationQuery.Scan(ctx); err != nil && err != sql.ErrNoRows {
-		return nil, &mcpError{Code: -32603, Message: "failed to load scheduled publications"}
+		return nil, &mcpError{Code: -32603, Message: "failed to load scheduled posts"}
 	}
 
 	nextSlot, nextSlotTime := findNextConfiguredScheduleSlotTime(now, loc, schedules, scheduledPublications, workspace.RandomDelayMinutes)

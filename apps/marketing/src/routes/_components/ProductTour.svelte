@@ -129,25 +129,23 @@
 		if (!(event.target instanceof Element && event.target.closest('.tour-playback'))) paused = true;
 	}}
 >
-	{#if ready}
-		<div class="view-picker" role="group" aria-label="Explore OpenPost">
-			{#each views as item, index (item.name)}
-				<button
-					type="button"
-					class="focus-ring"
-					aria-pressed={selected === index}
-					onclick={() => select(index)}
-					><img src={item.icon} alt="" width="24" height="24" /><span>{item.name}</span><span
-						class="progress-track"
-						aria-hidden="true"
-						><span
-							style:transform={`scaleX(${selected === index ? (paused || reducedMotion ? 1 : progress) : 0})`}
-						></span></span
-					></button
-				>
-			{/each}
-		</div>
-	{/if}
+	<div class="view-picker" role="group" aria-label="Explore OpenPost">
+		{#each views as item, index (item.name)}
+			<button
+				type="button"
+				class="focus-ring"
+				aria-pressed={selected === index}
+				onclick={() => select(index)}
+				><img src={item.icon} alt="" width="24" height="24" /><span>{item.name}</span><span
+					class="progress-track"
+					aria-hidden="true"
+					><span
+						style:transform={`scaleX(${selected === index ? (paused || reducedMotion ? 1 : progress) : 0})`}
+					></span></span
+				></button
+			>
+		{/each}
+	</div>
 	<div class="preview">
 		{#key selected}
 			<ProductScreenshot

@@ -3,6 +3,7 @@ import { SectionNav } from "@/components/section-nav";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
 import { BrandMark } from "@/components/brand-mark";
+import { Github } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const tree = source.getPageTree();
@@ -36,7 +37,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           defaultOpenLevel: 0,
           footer: <AnalyticsChoices key="analytics-choices" />,
         }}
-        githubUrl="https://github.com/getopenpost/openpost"
+        links={[
+          {
+            type: "icon",
+            url: "https://github.com/getopenpost/openpost",
+            text: "GitHub",
+            label: "GitHub",
+            icon: <Github aria-hidden="true" />,
+            external: true,
+          },
+        ]}
       >
         {children}
       </DocsLayout>

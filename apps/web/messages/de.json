@@ -7719,6 +7719,7 @@
 	"video_editor_recording_files_saved": "{count} Dateien gespeichert",
 	"video_editor_recording_download": "{source} herunterladen",
 	"video_editor_recording_inserted": "Aufnahme zur Zeitachse hinzugefügt.",
+	"video_editor_recording_screen_share_not_started": "Die Bildschirmfreigabe wurde nicht gestartet. Versuche es erneut und wähle einen Bildschirm, ein Fenster oder einen Tab. Falls die Auswahl nicht geöffnet wird, prüfe die Berechtigungen für Bildschirmaufnahmen im Browser und in den Systemeinstellungen.",
 	"video_editor_recording_error_permission": "Der Zugriff wurde verweigert. Erlauben Sie Bildschirm-, Kamera- oder Mikrofonzugriff in den Browsereinstellungen.",
 	"video_editor_recording_error_device_missing": "Das gewählte Aufnahmegerät ist nicht verfügbar.",
 	"video_editor_recording_error_device_busy": "Das gewählte Aufnahmegerät wird von einer anderen App verwendet.",

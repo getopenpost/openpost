@@ -7724,6 +7724,7 @@
 	"video_editor_recording_files_saved": "{count} fichiers sauvegardés",
 	"video_editor_recording_download": "Télécharger {source}",
 	"video_editor_recording_inserted": "Enregistrement ajouté à la timeline.",
+	"video_editor_recording_screen_share_not_started": "Le partage d’écran n’a pas démarré. Réessayez et choisissez un écran, une fenêtre ou un onglet. Si le sélecteur ne s’ouvre pas, vérifiez les autorisations d’enregistrement d’écran du navigateur et du système.",
 	"video_editor_recording_error_permission": "L’accès a été refusé. Autorisez l’écran, la caméra ou le microphone dans les réglages du navigateur.",
 	"video_editor_recording_error_device_missing": "Le périphérique d’enregistrement sélectionné n’est pas disponible.",
 	"video_editor_recording_error_device_busy": "Le périphérique d’enregistrement sélectionné est utilisé par une autre application.",

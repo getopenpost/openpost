@@ -7724,6 +7724,7 @@
 	"video_editor_recording_files_saved": "已保存 {count} 个文件",
 	"video_editor_recording_download": "下载{source}",
 	"video_editor_recording_inserted": "录制已添加到时间线。",
+	"video_editor_recording_screen_share_not_started": "屏幕共享未开始。请重试并选择一个屏幕、窗口或标签页。如果选择器未打开，请检查浏览器和系统设置中的屏幕录制权限。",
 	"video_editor_recording_error_permission": "访问被拒绝。请在浏览器设置中允许访问屏幕、摄像头或麦克风。",
 	"video_editor_recording_error_device_missing": "所选录制设备不可用。",
 	"video_editor_recording_error_device_busy": "所选录制设备正被其他应用使用。",

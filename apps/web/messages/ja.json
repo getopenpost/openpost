@@ -7724,6 +7724,7 @@
 	"video_editor_recording_files_saved": "{count} ファイルを保存しました",
 	"video_editor_recording_download": "{source}をダウンロード",
 	"video_editor_recording_inserted": "録画をタイムラインに追加しました。",
+	"video_editor_recording_screen_share_not_started": "画面共有が開始されませんでした。もう一度試して、画面、ウィンドウ、またはタブを選択してください。選択画面が開かない場合は、ブラウザーとシステムの設定で画面収録の権限を確認してください。",
 	"video_editor_recording_error_permission": "アクセスが拒否されました。ブラウザ設定で画面、カメラ、またはマイクへのアクセスを許可してください。",
 	"video_editor_recording_error_device_missing": "選択した録画デバイスを使用できません。",
 	"video_editor_recording_error_device_busy": "選択した録画デバイスは別のアプリで使用中です。",

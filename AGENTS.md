@@ -22,6 +22,7 @@ Load only the branch the task needs:
 | Substantial, ambiguous, or multi-ticket work                            | `agent-workflow`; the OpenPost Vikunja project for the current spec, priority, and execution state  |
 | Product scope, public copy, provider support, or capability claims      | `README.md` for current public claims and readiness; `PRODUCT.md` for purpose, terms, and scope     |
 | UI, visual, or user-facing copy changes                                 | `ux-consistency` and `DESIGN.md`; add `impeccable` for design critique                              |
+| Public SEO, search discovery, or agent access audits                    | `openpost-seo`; verify live findings against the marketing and documentation source owners          |
 | Interaction sounds                                                      | `cuelume`                                                                                           |
 | Repository ownership or an unfamiliar seam                              | `docs/agents/repository-map.md`, then confirm its paths and symbols with `rg`                       |
 | Go HTTP or OpenAPI work                                                 | `huma`; for TypeScript consumers, also use `openapi-typescript`                                     |

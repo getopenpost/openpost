@@ -338,27 +338,36 @@ function rasterizeStrokeMask(
 			});
 		}
 	}
+	roughenStrokeMask(mask, width, height, roughness, origin);
+	return mask;
+}
+
+function roughenStrokeMask(
+	mask: Uint8Array,
+	width: number,
+	height: number,
+	roughness: number,
+	origin: SelectionPoint
+): void {
 	const texture = Math.max(0, Math.min(1, roughness));
-	if (texture > 0) {
-		const hardMask = mask.slice();
-		for (let y = 0; y < height; y++) {
-			for (let x = 0; x < width; x++) {
-				const index = y * width + x;
-				if (!hardMask[index]) continue;
-				const edge =
-					x === 0 ||
-					y === 0 ||
-					x + 1 === width ||
-					y + 1 === height ||
-					!hardMask[index - 1] ||
-					!hardMask[index + 1] ||
-					!hardMask[index - width] ||
-					!hardMask[index + width];
-				if (edge && pixelNoise(origin.x + x, origin.y + y) < texture * 0.72) mask[index] = 0;
-			}
+	if (texture <= 0) return;
+	const hardMask = mask.slice();
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const index = y * width + x;
+			if (!hardMask[index]) continue;
+			const edge =
+				x === 0 ||
+				y === 0 ||
+				x + 1 === width ||
+				y + 1 === height ||
+				!hardMask[index - 1] ||
+				!hardMask[index + 1] ||
+				!hardMask[index - width] ||
+				!hardMask[index + width];
+			if (edge && pixelNoise(origin.x + x, origin.y + y) < texture * 0.72) mask[index] = 0;
 		}
 	}
-	return mask;
 }
 
 export function smoothSelectionPoints(points: SelectionPoint[], amount: number): SelectionPoint[] {

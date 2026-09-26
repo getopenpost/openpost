@@ -380,6 +380,7 @@
 								{#if sceneBrowser.query || sceneBrowser.referencePalette}
 									<div
 										class="flex flex-wrap gap-1"
+										role="group"
 										aria-label={m.video_editor_scene_match_signals()}
 									>
 										{#if ranked.signals.keywordMatched}

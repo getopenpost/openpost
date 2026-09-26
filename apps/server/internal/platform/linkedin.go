@@ -1203,7 +1203,7 @@ func doRequestWithHeaders(ctx context.Context, method, url string, body io.Reade
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", sanitizeTransportError(err))
 	}
 	defer resp.Body.Close()
 

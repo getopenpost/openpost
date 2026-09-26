@@ -83,3 +83,17 @@ func newPrivateTestClient(t *testing.T, rawURL string) *Client {
 	require.NoError(t, err)
 	return client
 }
+
+func TestClientSanitizesTransportErrors(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	client := newPrivateTestClient(t, server.URL)
+	server.Close()
+
+	_, err := client.Manifest(context.Background())
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "connector.test")
+	require.NotContains(t, err.Error(), "connector-secret")
+	require.ErrorContains(t, err, "connector request failed")
+}

@@ -741,7 +741,7 @@ func uploadPinterestVideo(ctx context.Context, session pinterestUploadSession, r
 	response, err := client.Do(request)
 	if err != nil {
 		_ = pipeReader.Close()
-		return fmt.Errorf("pinterest video upload failed: %w", err)
+		return fmt.Errorf("pinterest video upload failed: %w", sanitizeTransportError(err))
 	}
 	defer response.Body.Close()
 	body, readErr := io.ReadAll(response.Body)

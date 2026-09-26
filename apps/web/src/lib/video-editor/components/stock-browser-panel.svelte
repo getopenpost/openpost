@@ -49,6 +49,7 @@
 
 <div
 	class="min-h-0 flex-1 overflow-y-auto p-2 text-[var(--video-editor-text)]"
+	role="group"
 	aria-label={m.video_editor_stock_assets()}
 >
 	<StockMediaBrowser

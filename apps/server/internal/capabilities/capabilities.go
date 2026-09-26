@@ -2493,6 +2493,7 @@ func instagramSettings() []SettingField {
 		{Key: "cover_media_id", Label: "Cover image", Type: "media", Control: "media_picker", Intents: []string{IntentShortVideo}},
 		{Key: "thumbnail_timestamp_ms", Label: "Cover frame", Type: "number", Control: "cover_frame", Intents: []string{IntentShortVideo}},
 		{Key: "share_to_feed", Label: "Share Reel to feed", Type: "boolean", Intents: []string{IntentShortVideo}},
+		{Key: "first_comment", Label: "First comment", Type: "textarea", Control: "follow_up", Scope: SettingScopeSegment},
 	}
 }
 
@@ -2558,6 +2559,7 @@ func youtubeSettings() []SettingField {
 		{Key: "contains_synthetic_media", Label: "Synthetic media", Type: "boolean"},
 		{Key: "paid_placement", Label: "Contains paid promotion", Type: "boolean"},
 		{Key: "notify_subscribers", Label: "Notify subscribers", Type: "boolean"},
+		{Key: "first_comment", Label: "First comment", Type: "textarea", Control: "follow_up", Scope: SettingScopeSegment},
 	}
 }
 

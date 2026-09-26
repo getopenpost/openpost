@@ -618,6 +618,7 @@ func (s *Service) publishRendition(
 	})
 	s.captureRenditionEvent(ctx, telemetry.EventRenditionPublished, publication, rendition, nil, rendition.ID, publishedAt)
 	s.scheduleReposts(ctx, rendition.ID)
+	s.publishFirstCommentBestEffort(ctx, publication, rendition, provider, token, account.AccountID, externalID, settings)
 	return nil
 }
 
@@ -850,6 +851,7 @@ func (s *Service) publishRenditionSegments(
 		"segment_count": len(segments),
 	}, rendition.ID, publishedAt)
 	s.scheduleReposts(ctx, rendition.ID)
+	s.publishFirstCommentBestEffort(ctx, publication, rendition, provider, token, account.AccountID, rootExternalID, firstCommentSettingsForSegments(destinationSettings, segments))
 	return nil
 }
 

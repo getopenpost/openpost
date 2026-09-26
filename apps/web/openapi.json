@@ -4595,7 +4595,8 @@
 							"video_editor_source",
 							"video_editor_export",
 							"stock_import",
-							"meme_generator"
+							"meme_generator",
+							"screenshot_template"
 						],
 						"type": "string"
 					},
@@ -4974,6 +4975,29 @@
 					}
 				},
 				"required": ["plan_id", "billing_period"],
+				"type": "object"
+			},
+			"CreateScreenshotTemplateDesignInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/CreateScreenshotTemplateDesignInputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"document": {
+						"$ref": "#/components/schemas/ScreenshotTemplateDocument"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "document"],
 				"type": "object"
 			},
 			"CreateSocialSetInputBody": {
@@ -10648,6 +10672,35 @@
 					}
 				},
 				"required": ["items", "sync_state", "follow_updates"],
+				"type": "object"
+			},
+			"ListScreenshotTemplateDesignsOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/ListScreenshotTemplateDesignsOutputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"can_edit": {
+						"type": "boolean"
+					},
+					"designs": {
+						"items": {
+							"$ref": "#/components/schemas/ScreenshotTemplateDesignSummary"
+						},
+						"type": ["array", "null"]
+					},
+					"total": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["designs", "total", "can_edit"],
 				"type": "object"
 			},
 			"ListStockProvidersOutputBody": {
@@ -17728,6 +17781,31 @@
 				"required": ["workspace_id", "policies"],
 				"type": "object"
 			},
+			"SaveScreenshotTemplateExportInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/SaveScreenshotTemplateExportInputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"media_id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"required": ["revision", "media_id"],
+				"type": "object"
+			},
 			"Screenshot": {
 				"additionalProperties": false,
 				"properties": {
@@ -17739,6 +17817,374 @@
 					}
 				},
 				"required": ["mime_type", "data"],
+				"type": "object"
+			},
+			"ScreenshotTemplateConversation": {
+				"additionalProperties": false,
+				"properties": {
+					"messages": {
+						"items": {
+							"$ref": "#/components/schemas/ScreenshotTemplateMessage"
+						},
+						"maxItems": 80,
+						"minItems": 1,
+						"type": "array"
+					},
+					"name": {
+						"maxLength": 100,
+						"type": "string"
+					},
+					"people": {
+						"items": {
+							"$ref": "#/components/schemas/ScreenshotTemplatePerson"
+						},
+						"maxItems": 12,
+						"minItems": 2,
+						"type": "array"
+					},
+					"read_receipt": {
+						"maxLength": 100,
+						"type": "string"
+					},
+					"self_id": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"show_header": {
+						"type": "boolean"
+					},
+					"timestamp": {
+						"maxLength": 100,
+						"type": "string"
+					}
+				},
+				"required": [
+					"name",
+					"timestamp",
+					"show_header",
+					"read_receipt",
+					"self_id",
+					"people",
+					"messages"
+				],
+				"type": "object"
+			},
+			"ScreenshotTemplateDesignResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/ScreenshotTemplateDesignResponse.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"can_edit": {
+						"type": "boolean"
+					},
+					"document": {
+						"$ref": "#/components/schemas/ScreenshotTemplateDocument"
+					},
+					"id": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"template_id": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"can_edit",
+					"document",
+					"id",
+					"workspace_id",
+					"title",
+					"template_id",
+					"revision",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"ScreenshotTemplateDesignSummary": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"template_id": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "workspace_id", "title", "template_id", "revision", "updated_at"],
+				"type": "object"
+			},
+			"ScreenshotTemplateDocument": {
+				"additionalProperties": false,
+				"properties": {
+					"appearance": {
+						"enum": ["light", "dark"],
+						"type": "string"
+					},
+					"conversation": {
+						"$ref": "#/components/schemas/ScreenshotTemplateConversation"
+					},
+					"frame": {
+						"enum": ["natural", "square", "portrait"],
+						"type": "string"
+					},
+					"receipt": {
+						"$ref": "#/components/schemas/ScreenshotTemplateReceipt"
+					},
+					"schema_version": {
+						"enum": [1],
+						"format": "int64",
+						"type": "integer"
+					},
+					"status_page": {
+						"$ref": "#/components/schemas/ScreenshotTemplateStatus"
+					},
+					"template_id": {
+						"enum": ["messages", "group-chat", "receipt", "status-page"],
+						"type": "string"
+					},
+					"text_size": {
+						"enum": ["small", "normal", "large"],
+						"type": "string"
+					},
+					"title": {
+						"maxLength": 150,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["schema_version", "template_id", "title", "appearance", "frame", "text_size"],
+				"type": "object"
+			},
+			"ScreenshotTemplateMessage": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"sender_id": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"text": {
+						"maxLength": 2000,
+						"type": "string"
+					}
+				},
+				"required": ["id", "sender_id", "text"],
+				"type": "object"
+			},
+			"ScreenshotTemplatePerson": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 100,
+						"type": "string"
+					}
+				},
+				"required": ["id", "name"],
+				"type": "object"
+			},
+			"ScreenshotTemplateReceipt": {
+				"additionalProperties": false,
+				"properties": {
+					"address": {
+						"maxLength": 300,
+						"type": "string"
+					},
+					"business": {
+						"maxLength": 150,
+						"type": "string"
+					},
+					"currency": {
+						"enum": ["USD", "EUR", "GBP", "BRL", "JPY"],
+						"type": "string"
+					},
+					"custom_total": {
+						"maxLength": 100,
+						"type": "string"
+					},
+					"footer": {
+						"maxLength": 500,
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/ScreenshotTemplateReceiptItem"
+						},
+						"maxItems": 40,
+						"minItems": 1,
+						"type": "array"
+					},
+					"order": {
+						"maxLength": 100,
+						"type": "string"
+					},
+					"tax_percent": {
+						"format": "double",
+						"maximum": 100,
+						"minimum": 0,
+						"type": "number"
+					},
+					"timestamp": {
+						"maxLength": 100,
+						"type": "string"
+					}
+				},
+				"required": [
+					"business",
+					"address",
+					"timestamp",
+					"order",
+					"currency",
+					"tax_percent",
+					"custom_total",
+					"footer",
+					"items"
+				],
+				"type": "object"
+			},
+			"ScreenshotTemplateReceiptItem": {
+				"additionalProperties": false,
+				"properties": {
+					"amount_cents": {
+						"format": "int64",
+						"maximum": 99999999,
+						"minimum": 0,
+						"type": "integer"
+					},
+					"id": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 200,
+						"type": "string"
+					},
+					"quantity": {
+						"format": "int64",
+						"maximum": 999,
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"required": ["id", "name", "quantity", "amount_cents"],
+				"type": "object"
+			},
+			"ScreenshotTemplateRecipeOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/ScreenshotTemplateRecipeOutputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"document": {
+						"$ref": "#/components/schemas/ScreenshotTemplateDocument"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "document"],
+				"type": "object"
+			},
+			"ScreenshotTemplateStatus": {
+				"additionalProperties": false,
+				"properties": {
+					"headline": {
+						"maxLength": 200,
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 150,
+						"type": "string"
+					},
+					"severity": {
+						"enum": ["operational", "degraded", "outage"],
+						"type": "string"
+					},
+					"updates": {
+						"items": {
+							"$ref": "#/components/schemas/ScreenshotTemplateStatusUpdate"
+						},
+						"maxItems": 30,
+						"minItems": 1,
+						"type": "array"
+					}
+				},
+				"required": ["name", "headline", "severity", "updates"],
+				"type": "object"
+			},
+			"ScreenshotTemplateStatusUpdate": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"stage": {
+						"maxLength": 80,
+						"type": "string"
+					},
+					"text": {
+						"maxLength": 2000,
+						"type": "string"
+					},
+					"timestamp": {
+						"maxLength": 100,
+						"type": "string"
+					}
+				},
+				"required": ["id", "stage", "text", "timestamp"],
 				"type": "object"
 			},
 			"SearchPage": {
@@ -20867,6 +21313,30 @@
 						"type": "string"
 					}
 				},
+				"type": "object"
+			},
+			"UpdateScreenshotTemplateDesignInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/UpdateScreenshotTemplateDesignInputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"document": {
+						"$ref": "#/components/schemas/ScreenshotTemplateDocument"
+					},
+					"revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"required": ["revision", "document"],
 				"type": "object"
 			},
 			"UpdateSocialSetInputBody": {
@@ -45204,6 +45674,730 @@
 				},
 				"summary": "Replace workspace repost rules",
 				"tags": ["Repost Automation"]
+			}
+		},
+		"/screenshot-templates/designs": {
+			"get": {
+				"operationId": "list-screenshot-template-designs",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 40,
+							"format": "int64",
+							"maximum": 100,
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "offset",
+						"schema": {
+							"default": 0,
+							"format": "int64",
+							"minimum": 0,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ListScreenshotTemplateDesignsOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List screenshot template designs",
+				"tags": ["Media"]
+			},
+			"post": {
+				"operationId": "create-screenshot-template-design",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateScreenshotTemplateDesignInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ScreenshotTemplateDesignResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Create a screenshot template design",
+				"tags": ["Media"]
+			}
+		},
+		"/screenshot-templates/designs/{id}": {
+			"delete": {
+				"operationId": "delete-screenshot-template-design",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "No Content"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Delete a screenshot template design",
+				"tags": ["Media"]
+			},
+			"get": {
+				"operationId": "get-screenshot-template-design",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ScreenshotTemplateDesignResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Get a screenshot template design",
+				"tags": ["Media"]
+			},
+			"put": {
+				"operationId": "update-screenshot-template-design",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateScreenshotTemplateDesignInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ScreenshotTemplateDesignResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Save a screenshot template design",
+				"tags": ["Media"]
+			}
+		},
+		"/screenshot-templates/designs/{id}/exports": {
+			"post": {
+				"operationId": "save-screenshot-template-export",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SaveScreenshotTemplateExportInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ScreenshotTemplateRecipeOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Save the editable recipe for a screenshot export",
+				"tags": ["Media"]
+			}
+		},
+		"/screenshot-templates/recipes/{media_id}": {
+			"get": {
+				"operationId": "get-screenshot-template-recipe",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "media_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ScreenshotTemplateRecipeOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Get the editable recipe for a screenshot export",
+				"tags": ["Media"]
 			}
 		},
 		"/social-sets": {

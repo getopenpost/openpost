@@ -96,6 +96,7 @@
 						{ value: 'all', label: m.media_all_sources() },
 						{ value: 'upload', label: m.media_uploads() },
 						{ value: 'camera', label: m.media_camera() },
+						{ value: 'screenshot_template', label: m.templates_title() },
 						{ value: 'image_editor_export', label: m.media_image_editor_exports() },
 						{ value: 'image_editor_edit', label: m.media_image_editor_edits() },
 						{ value: 'background_removal', label: m.media_background_removal() }

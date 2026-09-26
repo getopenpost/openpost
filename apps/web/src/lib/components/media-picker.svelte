@@ -59,6 +59,7 @@
 		onConfirm,
 		onInitialFilesConsumed,
 		onCreate,
+		onCreateTemplate,
 		onCreateVideo,
 		services = {
 			listMedia: queryImageEditorMedia,
@@ -94,6 +95,7 @@
 		) => void | boolean | Promise<void | boolean>;
 		onInitialFilesConsumed?: () => void;
 		onCreate?: () => void | Promise<void>;
+		onCreateTemplate?: () => void | Promise<void>;
 		onCreateVideo?: (media?: MediaPickerVideoSelection) => void | Promise<void>;
 		services?: {
 			listMedia: typeof queryImageEditorMedia;
@@ -552,6 +554,21 @@
 		}
 	}
 
+	async function createTemplate(): Promise<void> {
+		if (actionLoading) return;
+		actionLoading = true;
+		error = '';
+		try {
+			if (onCreateTemplate) await onCreateTemplate();
+			else await goto(resolveAppPath('/templates'));
+			open = false;
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.templates_load_failed();
+		} finally {
+			actionLoading = false;
+		}
+	}
+
 	async function createVideo(): Promise<void> {
 		if (!onCreateVideo || actionLoading) return;
 		actionLoading = true;
@@ -641,6 +658,15 @@
 				</Button>
 			{/if}
 		</div>
+		{#if !useCompactNavigation && showCreate && mimeTypeAllowed('image')}
+			<Button
+				variant="ghost"
+				size="sm"
+				class="shrink-0"
+				disabled={actionLoading}
+				onclick={createTemplate}><ThemeIcon role="editors" />{m.templates_title()}</Button
+			>
+		{/if}
 		{#if !useCompactNavigation && showCreate}
 			<Button
 				variant="ghost"
@@ -710,6 +736,11 @@
 					{/if}
 					{#if (canUseCamera || canUseStock || canUseMeme) && (showCreate || onCreateVideo)}
 						<DropdownMenu.Separator />
+					{/if}
+					{#if showCreate && mimeTypeAllowed('image')}
+						<DropdownMenu.Item disabled={actionLoading} onclick={createTemplate}
+							><ThemeIcon role="editors" class="size-4" />{m.templates_title()}</DropdownMenu.Item
+						>
 					{/if}
 					{#if showCreate}
 						<DropdownMenu.Item disabled={actionLoading} onclick={createDesign}>

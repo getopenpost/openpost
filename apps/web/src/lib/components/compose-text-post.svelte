@@ -2412,6 +2412,14 @@
 	}
 
 	async function openImageEditorFromComposer() {
+		return openStillEditorFromComposer('image');
+	}
+
+	async function openTemplateEditorFromComposer() {
+		return openStillEditorFromComposer('template');
+	}
+
+	async function openStillEditorFromComposer(editor: 'image' | 'template') {
 		if (!selectedWorkspaceId) return;
 		const workspaceId = selectedWorkspaceId;
 		const generation = saveGeneration;
@@ -2450,7 +2458,7 @@
 		});
 		await goto(
 			resolveAppPath(
-				`/image-editor/new?workspace=${encodeURIComponent(workspaceId)}&return_token=${encodeURIComponent(token.token)}`
+				`${editor === 'template' ? '/templates' : '/image-editor/new'}?workspace=${encodeURIComponent(workspaceId)}&return_token=${encodeURIComponent(token.token)}`
 			)
 		);
 	}
@@ -6317,6 +6325,7 @@
 		void generateMissingMediaAltText(addedIds, postContext);
 	}}
 	onCreate={openImageEditorFromComposer}
+	onCreateTemplate={openTemplateEditorFromComposer}
 	onCreateVideo={openVideoEditorFromComposer}
 />
 

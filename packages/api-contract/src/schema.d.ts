@@ -4420,6 +4420,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/screenshot-templates/designs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List screenshot template designs */
+        get: operations["list-screenshot-template-designs"];
+        put?: never;
+        /** Create a screenshot template design */
+        post: operations["create-screenshot-template-design"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/screenshot-templates/designs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a screenshot template design */
+        get: operations["get-screenshot-template-design"];
+        /** Save a screenshot template design */
+        put: operations["update-screenshot-template-design"];
+        post?: never;
+        /** Delete a screenshot template design */
+        delete: operations["delete-screenshot-template-design"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/screenshot-templates/designs/{id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save the editable recipe for a screenshot export */
+        post: operations["save-screenshot-template-export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/screenshot-templates/recipes/{media_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the editable recipe for a screenshot export */
+        get: operations["get-screenshot-template-recipe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/social-sets": {
         parameters: {
             query?: never;
@@ -7408,7 +7479,7 @@ export interface components {
              * @description Media provenance
              * @enum {string}
              */
-            source?: "upload" | "camera" | "image_editor_export" | "image_editor_edit" | "background_removal" | "video_editor_source" | "video_editor_export" | "stock_import" | "meme_generator";
+            source?: "upload" | "camera" | "image_editor_export" | "image_editor_edit" | "background_removal" | "video_editor_source" | "video_editor_export" | "stock_import" | "meme_generator" | "screenshot_template";
             /** @description License and creator provenance for a selected stock asset */
             stock_provenance?: components["schemas"]["StockMediaProvenance"];
             /** @description Optional tag to assign to this upload */
@@ -7617,6 +7688,16 @@ export interface components {
             plan_id: string;
             /** @description Existing integrity-protected choice to validate against the supplied plan and period */
             purchase_choice_token?: string;
+        };
+        CreateScreenshotTemplateDesignInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/CreateScreenshotTemplateDesignInputBody.json
+             */
+            readonly $schema?: string;
+            document: components["schemas"]["ScreenshotTemplateDocument"];
+            workspace_id: string;
         };
         CreateSocialSetInputBody: {
             /**
@@ -9987,6 +10068,18 @@ export interface components {
             follow_updates: components["schemas"]["FollowUpdateView"][] | null;
             items: components["schemas"]["RecommendationView"][] | null;
             sync_state: components["schemas"]["SyncStateView"];
+        };
+        ListScreenshotTemplateDesignsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ListScreenshotTemplateDesignsOutputBody.json
+             */
+            readonly $schema?: string;
+            can_edit: boolean;
+            designs: components["schemas"]["ScreenshotTemplateDesignSummary"][] | null;
+            /** Format: int64 */
+            total: number;
         };
         ListStockProvidersOutputBody: {
             /**
@@ -13028,9 +13121,129 @@ export interface components {
             /** @description Workspace ID */
             workspace_id: string;
         };
+        SaveScreenshotTemplateExportInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/SaveScreenshotTemplateExportInputBody.json
+             */
+            readonly $schema?: string;
+            media_id: string;
+            /** Format: int64 */
+            revision: number;
+        };
         Screenshot: {
             data: string;
             mime_type: string;
+        };
+        ScreenshotTemplateConversation: {
+            messages: components["schemas"]["ScreenshotTemplateMessage"][];
+            name: string;
+            people: components["schemas"]["ScreenshotTemplatePerson"][];
+            read_receipt: string;
+            self_id: string;
+            show_header: boolean;
+            timestamp: string;
+        };
+        ScreenshotTemplateDesignResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ScreenshotTemplateDesignResponse.json
+             */
+            readonly $schema?: string;
+            can_edit: boolean;
+            document: components["schemas"]["ScreenshotTemplateDocument"];
+            id: string;
+            /** Format: int64 */
+            revision: number;
+            template_id: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            workspace_id: string;
+        };
+        ScreenshotTemplateDesignSummary: {
+            id: string;
+            /** Format: int64 */
+            revision: number;
+            template_id: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            workspace_id: string;
+        };
+        ScreenshotTemplateDocument: {
+            /** @enum {string} */
+            appearance: "light" | "dark";
+            conversation?: components["schemas"]["ScreenshotTemplateConversation"];
+            /** @enum {string} */
+            frame: "natural" | "square" | "portrait";
+            receipt?: components["schemas"]["ScreenshotTemplateReceipt"];
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            schema_version: 1;
+            status_page?: components["schemas"]["ScreenshotTemplateStatus"];
+            /** @enum {string} */
+            template_id: "messages" | "group-chat" | "receipt" | "status-page";
+            /** @enum {string} */
+            text_size: "small" | "normal" | "large";
+            title: string;
+        };
+        ScreenshotTemplateMessage: {
+            id: string;
+            sender_id: string;
+            text: string;
+        };
+        ScreenshotTemplatePerson: {
+            id: string;
+            name: string;
+        };
+        ScreenshotTemplateReceipt: {
+            address: string;
+            business: string;
+            /** @enum {string} */
+            currency: "USD" | "EUR" | "GBP" | "BRL" | "JPY";
+            custom_total: string;
+            footer: string;
+            items: components["schemas"]["ScreenshotTemplateReceiptItem"][];
+            order: string;
+            /** Format: double */
+            tax_percent: number;
+            timestamp: string;
+        };
+        ScreenshotTemplateReceiptItem: {
+            /** Format: int64 */
+            amount_cents: number;
+            id: string;
+            name: string;
+            /** Format: int64 */
+            quantity: number;
+        };
+        ScreenshotTemplateRecipeOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ScreenshotTemplateRecipeOutputBody.json
+             */
+            readonly $schema?: string;
+            document: components["schemas"]["ScreenshotTemplateDocument"];
+            workspace_id: string;
+        };
+        ScreenshotTemplateStatus: {
+            headline: string;
+            name: string;
+            /** @enum {string} */
+            severity: "operational" | "degraded" | "outage";
+            updates: components["schemas"]["ScreenshotTemplateStatusUpdate"][];
+        };
+        ScreenshotTemplateStatusUpdate: {
+            id: string;
+            stage: string;
+            text: string;
+            timestamp: string;
         };
         SearchPage: {
             /**
@@ -14176,6 +14389,17 @@ export interface components {
             public_profile_visible_fields?: string[];
             /** @description Unique public username */
             username?: string;
+        };
+        UpdateScreenshotTemplateDesignInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/UpdateScreenshotTemplateDesignInputBody.json
+             */
+            readonly $schema?: string;
+            document: components["schemas"]["ScreenshotTemplateDocument"];
+            /** Format: int64 */
+            revision: number;
         };
         UpdateSocialSetInputBody: {
             /**
@@ -31861,6 +32085,611 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-screenshot-template-designs": {
+        parameters: {
+            query: {
+                workspace_id: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListScreenshotTemplateDesignsOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-screenshot-template-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScreenshotTemplateDesignInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotTemplateDesignResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-screenshot-template-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotTemplateDesignResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-screenshot-template-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateScreenshotTemplateDesignInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotTemplateDesignResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-screenshot-template-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "save-screenshot-template-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveScreenshotTemplateExportInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotTemplateRecipeOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-screenshot-template-recipe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotTemplateRecipeOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -32,6 +32,7 @@ Open a post's media picker and choose a source:
 - **Upload** adds a file from your device.
 - **Camera** captures a still image after browser permission.
 - **Meme** opens OpenPost's built-in catalog, lets you fill every caption and replaceable image slot, and saves the locally rendered result in Media.
+- **Templates** creates message conversations, group chats, receipts, and status pages from editable fields.
 - **Create** saves your post and opens [OpenPost Image Editor](/image-editor).
 
 OpenPost keeps files in the order you choose. It checks the file types and count against the rules for all selected accounts.
@@ -45,6 +46,16 @@ If your instance operator has configured OpenRouter, adding an image with no sav
 OpenPost saves the caption only while the shared alt text is still blank, so existing text and edits made while the request runs always win. Review the result and adjust it before publishing. You can also customize alt text for a specific account. A missing API key or a captioning error does not stop the image from being attached or published.
 
 The thumbnail and any relevant segment text leave the OpenPost instance for this external processing. Instance operators can review the full privacy boundary and setup in [Environment Variables](/self-hosting/configuration).
+
+## Create screenshot templates
+
+Choose **Templates** in Media or the composer's media picker, then pick a populated example. Edit the fields beside the preview. Conversations support participants, ordered messages, and pasting lines in `Name: message` form. Receipts calculate totals from line items and tax, with an optional custom total. Status pages contain an incident and ordered updates.
+
+Use **Appearance** for light or dark artwork, text size, and image shape. **Fit content** adjusts the height automatically. Square and portrait shapes add space; export is blocked if content would be cut off. On a phone, switch between **Edit** and **Preview**. Undo and redo keep edits reversible.
+
+Designs save automatically to the current workspace. **Download** creates a PNG on your device. **Save to Media** keeps the PNG in the library. **Add to publication** opens it in the composer; when you started from an existing publication, **Return to publication** preserves that draft and attaches the image.
+
+Open an exported image in Media and choose **Edit a copy** to start from its saved content. Later edits or deletion of the original design do not alter earlier exports. If two sessions edit the same design, save your version as a copy to preserve both.
 
 ## Prepare and edit video
 

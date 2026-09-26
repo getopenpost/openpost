@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolveAppPath } from '$lib/app-path';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -105,6 +106,12 @@
 				{onRetryAnalysis}
 			/>
 			<div class="flex flex-wrap gap-2 border-y py-3">
+				{#if media.source === 'screenshot_template' && canEdit}<Button
+						variant="outline"
+						size="sm"
+						href={resolveAppPath(`/templates?media=${encodeURIComponent(media.id)}`)}
+						><ThemeIcon role="editors" />{m.templates_use_recipe()}</Button
+					>{/if}
 				{#if isImage(media.mime_type) && canEdit && editorEnabled}
 					<Button variant="outline" size="sm" onclick={() => onEditImage(media!)}>
 						<ThemeIcon role="appearance" />

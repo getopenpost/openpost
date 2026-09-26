@@ -75,6 +75,8 @@ export function mediaSourceLabel(value: string): string {
 			return m.media_image_editor_edits();
 		case 'background_removal':
 			return m.media_background_removal();
+		case 'screenshot_template':
+			return m.templates_title();
 		case 'meme_generator':
 			return m.media_picker_meme();
 		default:

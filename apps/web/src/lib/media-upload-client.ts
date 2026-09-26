@@ -20,6 +20,7 @@ export interface UploadMediaFileOptions {
 		| 'background_removal'
 		| 'stock_import'
 		| 'meme_generator'
+		| 'screenshot_template'
 		| 'video_editor_source';
 	assetKind?:
 		| 'library'

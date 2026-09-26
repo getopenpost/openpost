@@ -159,6 +159,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	mediaHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
 	mediaHandler.RegisterRoutes(api)
 	mediaHandler.RegisterImageCaptionRoutes(api, deps.ImageCaptioner)
+	handlers.NewScreenshotTemplateHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewMemeHandler(
 		deps.DB,
 		deps.Authenticator,

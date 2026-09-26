@@ -5,6 +5,7 @@
 	import { page } from '$app/stores';
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { resolveAppPath } from '$lib/app-path';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { client, type Workspace } from '$lib/api/client';
 	import {
@@ -1323,6 +1324,9 @@
 			</Select.Root>
 		{/if}
 		{#if mediaCanEdit && lifecycleView !== 'trash'}
+			<Button variant="outline" href={resolveAppPath('/templates')}
+				><ThemeIcon role="editors" class="size-4" />{m.templates_title()}</Button
+			>
 			<Button class="gap-2" onclick={() => (uploadDialogOpen = true)}>
 				<ThemeIcon role="add" class="size-4" />
 				{m.media_picker_add_media()}

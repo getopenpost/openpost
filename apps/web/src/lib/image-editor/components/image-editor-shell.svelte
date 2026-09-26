@@ -1507,11 +1507,13 @@
 
 	async function exportProject(): Promise<void> {
 		if (!editor.document || projectBusy) return;
+		const view = captureEditorMutationView();
 		if (editor.floatingPixelSelection) editor.commitFloatingPixelSelection();
 		projectBusy = true;
 		projectError = '';
 		try {
 			const blob = await createImageEditorProjectArchive(editor.document, projectMediaSource);
+			if (!editorMutationViewIsCurrent(view)) return;
 			const url = URL.createObjectURL(blob);
 			const anchor = document.createElement('a');
 			anchor.href = url;
@@ -2772,7 +2774,9 @@
 			controller.signal.throwIfAborted();
 			if (!editorMutationViewIsCurrent(view)) return;
 			if (exportMode === 'download') {
-				await downloadRenderedPages(rendered, editor.document.title);
+				await downloadRenderedPages(rendered, editor.document.title, controller.signal);
+				controller.signal.throwIfAborted();
+				if (!editorMutationViewIsCurrent(view)) return;
 				exportDialogOpen = false;
 				exportSuccessfulByPage = {};
 				suppressSavedAnnouncementUntil = Date.now() + 5_000;

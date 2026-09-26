@@ -167,20 +167,29 @@ export async function renderImageEditorPreview(
 
 export async function downloadRenderedPages(
 	pages: ImageEditorRenderedPage[],
-	title: string
+	title: string,
+	signal?: AbortSignal
 ): Promise<void> {
+	signal?.throwIfAborted();
 	if (pages.length === 1) {
 		downloadBlob(pages[0].blob, pages[0].filename);
 		return;
 	}
-	downloadBlob(await createRenderedPagesArchive(pages), imageEditorArchiveFilename(title));
+	const archive = await createRenderedPagesArchive(pages, signal);
+	signal?.throwIfAborted();
+	downloadBlob(archive, imageEditorArchiveFilename(title));
 }
 
-export async function createRenderedPagesArchive(pages: ImageEditorRenderedPage[]): Promise<Blob> {
+export async function createRenderedPagesArchive(
+	pages: ImageEditorRenderedPage[],
+	signal?: AbortSignal
+): Promise<Blob> {
+	signal?.throwIfAborted();
 	const retainedPageBytes = pages.reduce((total, page) => total + page.blob.size, 0);
 	const chunks: Uint8Array<ArrayBuffer>[] = [];
 	let archiveBytes = 0;
 	let failure: Error | null = null;
+	let activeReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 	let complete!: () => void;
 	let rejectComplete!: (error: Error) => void;
 	const finished = new Promise<void>((resolve, reject) => {
@@ -206,16 +215,28 @@ export async function createRenderedPagesArchive(pages: ImageEditorRenderedPage[
 		chunks.push(owned);
 		if (final) complete();
 	});
+	const onAbort = (): void => {
+		failure = new DOMException('Export cancelled.', 'AbortError');
+		zip.terminate();
+		void activeReader?.cancel(failure).catch(() => undefined);
+		rejectComplete(failure);
+	};
+	signal?.addEventListener('abort', onAbort, { once: true });
 	try {
+		signal?.throwIfAborted();
 		for (const page of pages) {
+			signal?.throwIfAborted();
 			const entry = new ZipPassThrough(page.filename);
 			zip.add(entry);
 			const reader = page.blob.stream().getReader();
+			activeReader = reader;
 			let bytesSinceYield = 0;
 			try {
 				while (true) {
+					signal?.throwIfAborted();
 					if (failure) throw failure;
 					const { done, value } = await reader.read();
+					signal?.throwIfAborted();
 					if (done) break;
 					entry.push(value);
 					bytesSinceYield += value.byteLength;
@@ -226,6 +247,7 @@ export async function createRenderedPagesArchive(pages: ImageEditorRenderedPage[
 				}
 				entry.push(new Uint8Array(), true);
 			} finally {
+				activeReader = null;
 				reader.releaseLock();
 			}
 		}
@@ -234,10 +256,13 @@ export async function createRenderedPagesArchive(pages: ImageEditorRenderedPage[
 		manifest.push(strToU8(m.image_editor_zip_manifest({ count: pages.length })), true);
 		zip.end();
 		await finished;
+		signal?.throwIfAborted();
 		return new Blob(chunks, { type: 'application/zip' });
 	} catch (cause) {
 		zip.terminate();
 		throw cause;
+	} finally {
+		signal?.removeEventListener('abort', onAbort);
 	}
 }
 

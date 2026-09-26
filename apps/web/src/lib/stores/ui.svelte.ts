@@ -26,6 +26,11 @@ export class UIState {
 	composerResetCounter = $state(0);
 	workspaceSetupRevision = $state(0);
 	activeComposerDraftId = $state<string | null>(null);
+	pendingComposerWorkspaceNotice = $state.raw<{
+		message: string;
+		workspaceId: string;
+		at: number;
+	} | null>(null);
 	pendingPrompt = $state<PendingPrompt | null>(null);
 	pendingRepurposeHandoff = $state.raw<RepurposeHandoff | null>(null);
 	isFeedbackOpen = $state(false);
@@ -82,6 +87,26 @@ export class UIState {
 
 	clearActiveComposerDraft() {
 		this.activeComposerDraftId = null;
+	}
+
+	// The layout swaps the whole app shell for a loader on workspace switches,
+	// which destroys the composer before its context-reset notice can render.
+	// Stash the notice here so the remounted composer can show it. Entries
+	// expire quickly so a stale switch can never surface on a later visit.
+	setPendingComposerWorkspaceNotice(notice: { message: string; workspaceId: string }) {
+		this.pendingComposerWorkspaceNotice = { ...notice, at: Date.now() };
+	}
+
+	takePendingComposerWorkspaceNotice(workspaceId: string): string {
+		const pending = this.pendingComposerWorkspaceNotice;
+		this.pendingComposerWorkspaceNotice = null;
+		if (!pending || pending.workspaceId !== workspaceId) return '';
+		if (Date.now() - pending.at > 60_000) return '';
+		return pending.message;
+	}
+
+	clearPendingComposerWorkspaceNotice() {
+		this.pendingComposerWorkspaceNotice = null;
 	}
 
 	registerComposerResetGuard(guard: () => boolean): () => void {

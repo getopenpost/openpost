@@ -729,7 +729,7 @@
     color: var(--page-fg);
   }
 
-  .preview-page * {
+  .preview-page :global(*) {
     box-sizing: border-box;
   }
 
@@ -1685,10 +1685,11 @@
   }
 
   .facebook-topbar {
+    height: 3.5rem;
     min-height: 3.5rem;
-    border-bottom: 1px solid #dddfe2;
+    border-bottom: 1px solid var(--page-border);
     box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
-    padding: 0.45rem 1rem;
+    padding: 0 1rem;
   }
 
   .facebook-brand {
@@ -1743,6 +1744,12 @@
     border-radius: 50%;
     background: var(--page-soft);
     padding: 0.65rem;
+  }
+
+  .facebook-topbar .top-actions > :global(svg) {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: none;
   }
 
   .facebook-page {
@@ -1904,7 +1911,7 @@
   .instagram-page {
     display: grid;
     grid-template-columns: 4.5rem minmax(30rem, 44rem) minmax(15rem, 20rem);
-    justify-content: center;
+    justify-content: start;
     gap: 1.5rem;
   }
 
@@ -2880,6 +2887,7 @@
     }
 
     .mobile-native-nav {
+      width: 100%;
       position: sticky;
       z-index: 40;
       right: 0;
@@ -2941,9 +2949,25 @@
       gap: 0;
     }
 
-    .facebook-topbar .native-search,
     .facebook-topbar nav {
       display: none;
+    }
+
+    .facebook-topbar {
+      padding-inline: 0.75rem;
+    }
+    .facebook-topbar .native-search {
+      display: flex;
+      width: 2.5rem;
+      min-width: 2.5rem;
+      min-height: 2.5rem;
+      padding: 0.65rem;
+    }
+    .facebook-topbar .native-search span {
+      display: none;
+    }
+    .facebook-page {
+      padding: 0;
     }
 
     .facebook-topbar .top-actions {

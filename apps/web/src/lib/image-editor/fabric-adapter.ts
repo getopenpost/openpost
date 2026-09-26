@@ -1180,7 +1180,6 @@ export class OpenPostFabricAdapter {
 		this.objectByLayerID.clear();
 		this.decorationsByLayerID.clear();
 		this.layerSnapshots.clear();
-		this.selectedLayerSample = null;
 		this.backgroundObject = null;
 		this.backgroundSnapshot = '';
 		this.clearAltOriginGhost();

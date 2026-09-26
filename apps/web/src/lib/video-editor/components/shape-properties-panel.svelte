@@ -511,8 +511,7 @@
 		{#if item.shapeType === 'path'}
 			<span
 				class="cursor-help text-[10px] text-[var(--video-editor-muted)] underline decoration-dotted underline-offset-2"
-				title={m.video_editor_shape_mask_path_hint()}
-				aria-label={m.video_editor_shape_mask_path_hint()}>{m.video_editor_shape_mask_type()}</span
+				title={m.video_editor_shape_mask_path_hint()}>{m.video_editor_shape_mask_type()}</span
 			>
 		{/if}
 	{/if}

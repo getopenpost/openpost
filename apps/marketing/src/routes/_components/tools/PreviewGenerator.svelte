@@ -71,7 +71,8 @@
 	const capability = $derived(previewCapabilities[selectedPlatform]);
 	const TOOL_IMAGE_LIMIT = 35;
 	const supportsMultipleAttachments = $derived(
-		['discord', 'telegram', 'threads'].includes(selectedPlatform)
+		['discord', 'telegram', 'threads'].includes(selectedPlatform) ||
+			(selectedPlatform === 'instagram' && selectedFormat === 'post')
 	);
 	const parsedPollOptions = $derived(
 		pollOptions

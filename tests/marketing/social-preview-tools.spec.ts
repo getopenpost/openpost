@@ -67,7 +67,7 @@ test("local media selection uses the destination limit without silently discardi
 test("channel and carousel previews accept mixed photo and video attachments", async ({ page }) => {
   await page.goto("/tools/discord-post-preview");
   await page.waitForLoadState("networkidle");
-  for (const platform of ["Discord", "Threads", "Telegram"]) {
+  for (const platform of ["Instagram", "Discord", "Threads", "Telegram"]) {
     await select(page, "Platform", platform);
     await page.getByRole("button", { name: /Post details/ }).click();
     await page
@@ -84,6 +84,25 @@ test("channel and carousel previews accept mixed photo and video attachments", a
     ).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
     await page.getByRole("button", { name: "View preview", exact: true }).click();
+    if (platform === "Instagram") {
+      const preview = page.locator("[data-preview-viewport]");
+      await preview.getByRole("button", { name: "Next media", exact: true }).click();
+      await expect(preview.locator("video")).toBeVisible();
+      await expect(preview.locator("video")).toHaveAttribute("src", /^blob:/);
+      for (const format of ["story", "reel"]) {
+        await select(page, "Format", format);
+        await page.getByRole("button", { name: /Post details/ }).click();
+        await page
+          .locator('input[type="file"]')
+          .setInputFiles([
+            "apps/marketing/static/assets/marketing/studio-cup.webp",
+            "tests/app/fixtures/product-screenshots/study-sos-demo.mp4",
+          ]);
+        await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+        await page.getByRole("button", { name: "View preview", exact: true }).click();
+      }
+      await select(page, "Format", "post");
+    }
   }
   await select(page, "Format", "video");
   await expect(page.getByRole("alert")).toContainText("hidden from the preview");

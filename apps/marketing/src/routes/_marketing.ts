@@ -261,7 +261,7 @@ const platformImplementations = [
 		limits: [
 			`${PLATFORM_LIMITS.x.charLimit} weighted characters for standard accounts`,
 			'Up to 25,000 weighted characters for verified Basic, Premium, or Premium+ accounts',
-			'Video: 140 seconds and 512 MiB standard; up to 4 hours and 16 GiB subscribed',
+			'Video: 20 minutes and 8 GiB standard; up to 125 minutes and 16 GiB subscribed',
 			PLATFORM_LIMITS.x.media,
 			'Your X API plan and limits still apply'
 		],

@@ -402,10 +402,10 @@ func TestApplyAccountConstraintsRevalidatesXTextAndVideo(t *testing.T) {
 		Media: []MediaItem{{
 			ID:             "video-1",
 			MimeType:       "video/mp4",
-			Size:           600 * 1024 * 1024,
+			Size:           9 * 1024 * 1024 * 1024,
 			Width:          1920,
 			Height:         1080,
-			DurationMS:     180_000,
+			DurationMS:     1_500_000,
 			AnalysisStatus: "ready",
 		}},
 	}}
@@ -419,8 +419,8 @@ func TestApplyAccountConstraintsRevalidatesXTextAndVideo(t *testing.T) {
 
 	ApplyAccountConstraints(&resolved, AccountConstraintInput{Segments: segments, Constraints: map[string]any{
 		"text_limit":                 280,
-		"max_video_duration_seconds": 140,
-		"max_video_size_bytes":       int64(512 * 1024 * 1024),
+		"max_video_duration_seconds": 20 * 60,
+		"max_video_size_bytes":       int64(8 * 1024 * 1024 * 1024),
 	}})
 
 	require.Contains(t, issueCodes(resolved.Issues), "text_too_long")
@@ -430,7 +430,7 @@ func TestApplyAccountConstraintsRevalidatesXTextAndVideo(t *testing.T) {
 
 	ApplyAccountConstraints(&resolved, AccountConstraintInput{Segments: segments, Constraints: map[string]any{
 		"text_limit":                 25_000,
-		"max_video_duration_seconds": 4 * 60 * 60,
+		"max_video_duration_seconds": 125 * 60,
 		"max_video_size_bytes":       int64(16 * 1024 * 1024 * 1024),
 	}})
 	require.NotContains(t, issueCodes(resolved.Issues), "text_too_long")
@@ -497,7 +497,7 @@ func TestVideoCapabilitiesUseSafeProviderSpecificLimits(t *testing.T) {
 		maxDuration  int
 		allowedMIMEs []string
 	}{
-		{ProviderX, models.ContentProfileLongVideo, 512 * 1024 * 1024, 140, []string{"video/mp4"}},
+		{ProviderX, models.ContentProfileLongVideo, 8 * 1024 * 1024 * 1024, 20 * 60, []string{"video/mp4"}},
 		{ProviderMastodon, models.ContentProfileLongVideo, 99 * 1024 * 1024, 0, []string{"video/mp4", "video/quicktime", "video/webm"}},
 		{ProviderLinkedIn, models.ContentProfileLongVideo, 500 * 1024 * 1024, 30 * 60, []string{"video/mp4"}},
 		{ProviderTikTok, models.ContentProfileShortVideo, 4 * 1024 * 1024 * 1024, 10 * 60, []string{"video/mp4", "video/quicktime", "video/webm"}},
@@ -511,7 +511,7 @@ func TestVideoCapabilitiesUseSafeProviderSpecificLimits(t *testing.T) {
 			require.Equal(t, tt.maxBytes, capability.Media.MaxSizeBytes)
 			require.Equal(t, tt.maxDuration, capability.Media.MaxDurationSeconds)
 			require.ElementsMatch(t, tt.allowedMIMEs, capability.Media.AllowedMIMEs)
-			require.Equal(t, "2026-09-12.1", capability.CapabilityRevision)
+			require.Equal(t, "2026-09-26.1", capability.CapabilityRevision)
 		})
 	}
 }

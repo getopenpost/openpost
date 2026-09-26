@@ -1,0 +1,29 @@
+import { describe, expect, it } from 'vitest';
+import { nextMiniTimelineKeyboardFrame } from './color-mini-timeline.svelte';
+
+describe('nextMiniTimelineKeyboardFrame', () => {
+	const fps = 30;
+	const maxFrame = 300;
+
+	it('steps one frame with arrows and ten frames with shift', () => {
+		expect(nextMiniTimelineKeyboardFrame(100, 'ArrowLeft', false, fps, maxFrame)).toBe(99);
+		expect(nextMiniTimelineKeyboardFrame(100, 'ArrowRight', false, fps, maxFrame)).toBe(101);
+		expect(nextMiniTimelineKeyboardFrame(100, 'ArrowLeft', true, fps, maxFrame)).toBe(90);
+		expect(nextMiniTimelineKeyboardFrame(100, 'ArrowRight', true, fps, maxFrame)).toBe(110);
+	});
+
+	it('jumps one second of frames with PageUp and PageDown', () => {
+		expect(nextMiniTimelineKeyboardFrame(100, 'PageUp', false, fps, maxFrame)).toBe(130);
+		expect(nextMiniTimelineKeyboardFrame(100, 'PageDown', false, fps, maxFrame)).toBe(70);
+	});
+
+	it('jumps to the timeline bounds with Home and End', () => {
+		expect(nextMiniTimelineKeyboardFrame(100, 'Home', false, fps, maxFrame)).toBe(0);
+		expect(nextMiniTimelineKeyboardFrame(100, 'End', false, fps, maxFrame)).toBe(maxFrame);
+	});
+
+	it('returns null for unhandled keys so the caller skips side effects', () => {
+		expect(nextMiniTimelineKeyboardFrame(100, 'Enter', false, fps, maxFrame)).toBeNull();
+		expect(nextMiniTimelineKeyboardFrame(100, 'a', false, fps, maxFrame)).toBeNull();
+	});
+});

@@ -242,10 +242,10 @@
 				onAltDuplicate(entries) {
 					editor.duplicateSelectedAtTransforms(entries);
 				},
-				onTextChange(id, text) {
+				onTextChange(id, text, edit) {
 					const layer = editor.activePage?.layers.find((item) => item.id === id);
 					if (!layer?.text || layer.text.text === text) return layer?.text;
-					const next = editor.updateTextContent(id, text);
+					const next = editor.updateTextContent(id, text, edit);
 					canvasOriginDocument = editor.document;
 					return next;
 				},

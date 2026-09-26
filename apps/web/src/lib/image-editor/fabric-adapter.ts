@@ -9,7 +9,7 @@ import type {
 	ImageEditorTool,
 	ImageEditorTextValue
 } from './types';
-import { textGraphemes } from './text-runs';
+import { textGraphemeOffset, textGraphemes, type ImageEditorTextEdit } from './text-runs';
 import {
 	defaultImageAdjustments,
 	isEmptyImageEditorPaintLayer,
@@ -66,6 +66,7 @@ interface FabricObjectCollection extends FabricObject {
 
 interface EditableFabricText extends FabricObject {
 	text: string;
+	hiddenTextarea?: HTMLTextAreaElement | null;
 	selectionStart: number;
 	selectionEnd: number;
 	styles: Record<number, Record<number, Record<string, string | number | boolean>>>;
@@ -149,7 +150,7 @@ interface FabricAdapterOptions {
 	onSelection(ids: string[]): void;
 	onTransform(id: string, updates: Partial<ImageEditorLayer['transform']>): void;
 	onAltDuplicate?(entries: Array<{ id: string; transform: ImageEditorLayer['transform'] }>): void;
-	onTextChange(id: string, text: string): ImageEditorTextValue | void;
+	onTextChange(id: string, text: string, edit?: ImageEditorTextEdit): ImageEditorTextValue | void;
 	onTextSelectionChange?(id: string, start: number, end: number): void;
 	onTextEditingChange?(editing: boolean): void;
 	onImageDimensions?(id: string, width: number, height: number): void;
@@ -450,6 +451,16 @@ export class OpenPostFabricAdapter {
 	};
 	private altDuplicatePending = false;
 	private altOriginGhost: FabricObject | null = null;
+	private activeTextInput: {
+		target: EditableFabricText;
+		textarea: HTMLTextAreaElement;
+		beforeInput: (event: Event) => void;
+		input: () => void;
+		compositionStart: () => void;
+		compositionEnd: () => void;
+		compositionRange: { start: number; end: number } | null;
+		edit?: ImageEditorTextEdit;
+	} | null = null;
 
 	constructor(options: FabricAdapterOptions) {
 		this.element = options.canvas;
@@ -1174,6 +1185,7 @@ export class OpenPostFabricAdapter {
 
 	dispose(): void {
 		this.renderSequence++;
+		this.releaseTextInput();
 		for (const object of this.objectByLayerID.values()) this.releaseObjectURL(object);
 		this.revokeObjectURLs();
 		this.objectByLayerID.clear();
@@ -1276,8 +1288,69 @@ export class OpenPostFabricAdapter {
 				);
 			}
 		});
-		canvas.on('text:editing:entered', () => this.onTextEditingChange(true));
-		canvas.on('text:editing:exited', () => this.onTextEditingChange(false));
+		canvas.on('text:editing:entered', (event) => {
+			if (isEditableFabricText(event.target)) this.captureTextInput(event.target);
+			this.onTextEditingChange(true);
+		});
+		canvas.on('text:editing:exited', () => {
+			this.releaseTextInput();
+			this.onTextEditingChange(false);
+		});
+	}
+
+	private captureTextInput(target: EditableFabricText): void {
+		this.releaseTextInput();
+		const textarea = target.hiddenTextarea;
+		if (!textarea) return;
+		const beforeInput = (event: Event): void => {
+			const input = event as InputEvent;
+			const active = this.activeTextInput;
+			if (!active || active.target !== target) return;
+			const composing = input.inputType === 'insertCompositionText' && active.compositionRange;
+			active.edit = {
+				start: composing
+					? composing.start
+					: textGraphemeOffset(textarea.value, textarea.selectionStart),
+				end: composing ? composing.end : textGraphemeOffset(textarea.value, textarea.selectionEnd),
+				inputType: input.inputType,
+				previousText: textarea.value
+			};
+		};
+		const input = (): void => {
+			const range = this.activeTextInput?.compositionRange;
+			if (range) range.end = textGraphemeOffset(textarea.value, textarea.selectionEnd);
+		};
+		const compositionStart = (): void => {
+			const start = textGraphemeOffset(textarea.value, textarea.selectionStart);
+			if (this.activeTextInput) this.activeTextInput.compositionRange = { start, end: start };
+		};
+		const compositionEnd = (): void => {
+			if (this.activeTextInput) this.activeTextInput.compositionRange = null;
+		};
+		textarea.addEventListener('beforeinput', beforeInput);
+		textarea.addEventListener('input', input);
+		textarea.addEventListener('compositionstart', compositionStart);
+		textarea.addEventListener('compositionend', compositionEnd);
+		this.activeTextInput = {
+			target,
+			textarea,
+			beforeInput,
+			input,
+			compositionStart,
+			compositionEnd,
+			compositionRange: null
+		};
+	}
+
+	private releaseTextInput(): void {
+		const active = this.activeTextInput;
+		if (active) {
+			active.textarea.removeEventListener('beforeinput', active.beforeInput);
+			active.textarea.removeEventListener('input', active.input);
+			active.textarea.removeEventListener('compositionstart', active.compositionStart);
+			active.textarea.removeEventListener('compositionend', active.compositionEnd);
+		}
+		this.activeTextInput = null;
 	}
 
 	private createAltOriginGhost(target: FabricObject): void {
@@ -1396,7 +1469,9 @@ export class OpenPostFabricAdapter {
 	private emitTextChange(target?: FabricObject): void {
 		const layerID = target?.__imageEditorLayerID;
 		if (!layerID || this.syncing || !target || !isEditableFabricText(target)) return;
-		const value = this.onTextChange(layerID, target.text);
+		const edit = this.activeTextInput?.target === target ? this.activeTextInput.edit : undefined;
+		if (this.activeTextInput) this.activeTextInput.edit = undefined;
+		const value = this.onTextChange(layerID, target.text, edit);
 		if (value) this.applyTextRuns(target, value);
 		this.onTextSelectionChange(layerID, target.selectionStart, target.selectionEnd);
 		const layer = this.page.layers.find((candidate) => candidate.id === layerID);

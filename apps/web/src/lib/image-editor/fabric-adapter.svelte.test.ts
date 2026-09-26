@@ -3,6 +3,7 @@ import type { Canvas, IText } from 'fabric';
 import { page as browserPage } from 'vitest/browser';
 import { renderImageEditorPage } from './static-renderer';
 import { OpenPostFabricAdapter } from './fabric-adapter';
+import { editTextWithRuns, type ImageEditorTextEdit } from './text-runs';
 import {
 	imageEditorCollectiveTransform,
 	transformImageEditorCollectiveMember
@@ -11,7 +12,8 @@ import type {
 	ImageEditorDocument,
 	ImageEditorGradientType,
 	ImageEditorLayer,
-	ImageEditorPage
+	ImageEditorPage,
+	ImageEditorTextValue
 } from './types';
 
 function adapterInternals<T extends object>(adapter: OpenPostFabricAdapter): T {
@@ -80,7 +82,15 @@ function documentFixture(page: ImageEditorPage, width = 360, height = 240): Imag
 async function mountAdapter(
 	document: ImageEditorDocument,
 	page: ImageEditorPage,
-	options: { staticCanvas?: boolean; renderScale?: number } = {}
+	options: {
+		staticCanvas?: boolean;
+		renderScale?: number;
+		onTextChange?: (
+			id: string,
+			text: string,
+			edit?: ImageEditorTextEdit
+		) => ImageEditorTextValue | void;
+	} = {}
 ) {
 	const canvas = window.document.createElement('canvas');
 	window.document.body.append(canvas);
@@ -93,7 +103,7 @@ async function mountAdapter(
 		renderScale: options.renderScale,
 		onSelection: () => undefined,
 		onTransform: () => undefined,
-		onTextChange: () => undefined
+		onTextChange: options.onTextChange ?? (() => undefined)
 	});
 	await adapter.mount();
 	return { adapter, canvas };
@@ -182,6 +192,57 @@ it('renders saved grapheme emphasis in the live canvas and static export', async
 		exported.adapter.dispose();
 		live.canvas.remove();
 		exported.canvas.remove();
+	}
+});
+
+it('uses the Fabric textarea edit position for repeated text', async () => {
+	const layer: ImageEditorLayer = {
+		...renderLayer('text', 40, 40, 260, 100),
+		type: 'text',
+		shape: undefined,
+		text: {
+			text: 'aaaa',
+			runs: [{ start: 3, end: 4, font_weight: 700 }],
+			font_family: 'Arial',
+			font_weight: 400,
+			font_style: 'normal',
+			font_size: 80,
+			color: '#000000',
+			align: 'left',
+			line_height: 1.1,
+			letter_spacing: 0,
+			stroke_width: 0,
+			shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 }
+		}
+	};
+	const page = pageFixture([layer]);
+	let updated: ImageEditorTextValue | undefined;
+	const mounted = await mountAdapter(documentFixture(page), page, {
+		onTextChange(_id, text, edit) {
+			updated = editTextWithRuns(layer.text!, text, edit);
+			return updated;
+		}
+	});
+	try {
+		const { objectByLayerID } = adapterInternals<{ objectByLayerID: Map<string, IText> }>(
+			mounted.adapter
+		);
+		const target = objectByLayerID.get(layer.id)!;
+		target.enterEditing();
+		const textarea = target.hiddenTextarea!;
+		textarea.setSelectionRange(0, 0);
+		textarea.dispatchEvent(
+			new InputEvent('beforeinput', { bubbles: true, inputType: 'deleteContentForward' })
+		);
+		textarea.value = 'aaa';
+		textarea.setSelectionRange(0, 0);
+		textarea.dispatchEvent(
+			new InputEvent('input', { bubbles: true, inputType: 'deleteContentForward' })
+		);
+		expect(updated?.runs).toEqual([{ start: 2, end: 3, font_weight: 700 }]);
+		target.exitEditing();
+	} finally {
+		mounted.adapter.dispose();
 	}
 });
 

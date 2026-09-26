@@ -61,6 +61,26 @@ function response(): ImageEditorDocumentResponse {
 }
 
 describe('OpenPost Image Editor editor layer interactions', () => {
+	it('drops an old text range when direct page or layer selection changes', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.addText();
+		const id = editor.selectedLayers[0].id;
+		editor.updateTextContent(id, 'abcd');
+		editor.setTextRange(id, 1, 3);
+		editor.selectedLayerIDs = [];
+		editor.selectedLayerIDs = [id];
+		editor.updateTextStyle(id, 'font_weight', 700);
+		expect(editor.selectedLayers[0].text?.runs).toBeUndefined();
+		expect(editor.selectedLayers[0].text?.font_weight).toBe(700);
+		editor.setTextRange(id, 1, 3);
+		const pageID = editor.activePageID;
+		editor.activePageID = 'another-page';
+		editor.activePageID = pageID;
+		editor.updateTextStyle(id, 'font_style', 'italic');
+		expect(editor.selectedLayers[0].text?.runs).toBeUndefined();
+		expect(editor.selectedLayers[0].text?.font_style).toBe('italic');
+	});
 	it('applies range formatting once while preserving the layer default and undoing it', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());

@@ -6,7 +6,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
 	import { useImageEditor } from '../editor.svelte';
-	import { textGraphemeOffset, textRunStyleAt } from '../text-runs';
+	import { textGraphemeOffset, textRunStyleAt, type ImageEditorTextEdit } from '../text-runs';
 
 	const editor = useImageEditor();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
@@ -27,6 +27,9 @@
 			: ''
 	);
 	let applicationFeedback = $state('');
+	let pendingTextEdit: ImageEditorTextEdit | undefined;
+	let compositionStart: number | null = null;
+	let compositionEnd: number | null = null;
 	let fontWeightOptions = $derived.by(() => {
 		const options = [
 			[100, m.image_editor_thin()],
@@ -136,8 +139,40 @@
 				value={layer.text.text}
 				disabled={!editor.canEdit}
 				onselect={(event) => selectTextRange(event.currentTarget)}
+				oncompositionstart={(event) => {
+					compositionStart = textGraphemeOffset(
+						event.currentTarget.value,
+						event.currentTarget.selectionStart
+					);
+					compositionEnd = compositionStart;
+				}}
+				oncompositionend={() => {
+					compositionStart = null;
+					compositionEnd = null;
+				}}
+				onbeforeinput={(event) => {
+					const target = event.currentTarget;
+					const composing =
+						event.inputType === 'insertCompositionText' && compositionStart !== null;
+					pendingTextEdit = {
+						start: composing
+							? compositionStart!
+							: textGraphemeOffset(target.value, target.selectionStart),
+						end: composing
+							? compositionEnd!
+							: textGraphemeOffset(target.value, target.selectionEnd),
+						inputType: event.inputType,
+						previousText: target.value
+					};
+				}}
 				oninput={(event) => {
-					editor.updateTextContent(layer.id, event.currentTarget.value);
+					editor.updateTextContent(layer.id, event.currentTarget.value, pendingTextEdit);
+					if (compositionStart !== null)
+						compositionEnd = textGraphemeOffset(
+							event.currentTarget.value,
+							event.currentTarget.selectionEnd
+						);
+					pendingTextEdit = undefined;
 					selectTextRange(event.currentTarget);
 				}}
 			/>

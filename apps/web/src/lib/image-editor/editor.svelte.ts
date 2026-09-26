@@ -27,7 +27,7 @@ import {
 	type ImageEditorCollectiveTransformKey
 } from './collective-transform';
 import { ImageEditorHistory } from './history';
-import { editTextWithRuns, styleTextRange } from './text-runs';
+import { editTextWithRuns, styleTextRange, type ImageEditorTextEdit } from './text-runs';
 import {
 	rasterResultLayer,
 	type ImageEditorRasterPlan,
@@ -198,8 +198,26 @@ export class ImageEditorController {
 	revision = $state(0);
 	canEdit = $state(false);
 	document = $state.raw<ImageEditorDocument | null>(null);
-	activePageID = $state('');
-	selectedLayerIDs = $state.raw<string[]>([]);
+	private pageID = $state('');
+	private layerIDs = $state.raw<string[]>([]);
+	get activePageID(): string {
+		return this.pageID;
+	}
+	set activePageID(value: string) {
+		if (value !== this.pageID) this.textRange = null;
+		this.pageID = value;
+	}
+	get selectedLayerIDs(): string[] {
+		return this.layerIDs;
+	}
+	set selectedLayerIDs(value: string[]) {
+		if (
+			value.length !== this.layerIDs.length ||
+			value.some((id, index) => id !== this.layerIDs[index])
+		)
+			this.textRange = null;
+		this.layerIDs = value;
+	}
 	textRange = $state.raw<{
 		pageID: string;
 		layerID: string;
@@ -635,11 +653,6 @@ export class ImageEditorController {
 	}
 
 	selectLayer(id: string, mode: boolean | 'replace' | 'toggle' | 'range' = 'replace'): void {
-		if (
-			this.textRange &&
-			(this.textRange.layerID !== id || this.textRange.pageID !== this.activePageID)
-		)
-			this.textRange = null;
 		if (!id) {
 			this.selectedLayerIDs = [];
 			this.selectionAnchorID = '';
@@ -654,7 +667,6 @@ export class ImageEditorController {
 				const start = Math.min(anchorIndex, targetIndex);
 				const end = Math.max(anchorIndex, targetIndex);
 				this.selectedLayerIDs = order.slice(start, end + 1);
-				if (this.selectedLayerIDs.length !== 1) this.textRange = null;
 				return;
 			}
 		}
@@ -666,18 +678,12 @@ export class ImageEditorController {
 			this.selectedLayerIDs = [id];
 		}
 		this.selectionAnchorID = id;
-		if (this.selectedLayerIDs.length !== 1) this.textRange = null;
 	}
 
 	applyLayerSelection(ids: string[], mode: ImageEditorSelectionMode = 'replace'): void {
 		const available = new SvelteSet(this.activePage?.layers.map((layer) => layer.id) ?? []);
 		const candidates = ids.filter((id) => available.has(id));
 		this.selectedLayerIDs = mergeSelectionIDs(this.selectedLayerIDs, candidates, mode);
-		if (
-			this.textRange &&
-			(this.selectedLayerIDs.length !== 1 || this.selectedLayerIDs[0] !== this.textRange.layerID)
-		)
-			this.textRange = null;
 		this.selectionAnchorID = this.selectedLayerIDs.at(-1) ?? '';
 	}
 
@@ -1683,10 +1689,14 @@ export class ImageEditorController {
 		this.textRange = end > start ? { pageID: this.activePageID, layerID, start, end } : null;
 	}
 
-	updateTextContent(id: string, text: string): ImageEditorLayer['text'] {
+	updateTextContent(
+		id: string,
+		text: string,
+		edit?: ImageEditorTextEdit
+	): ImageEditorLayer['text'] {
 		const layer = this.activePage?.layers.find((item) => item.id === id);
 		if (!layer?.text || layer.locked) return layer?.text;
-		const next = editTextWithRuns(layer.text, text);
+		const next = editTextWithRuns(layer.text, text, edit);
 		this.updateLayer(id, { text: next }, `text:${id}`);
 		return next;
 	}

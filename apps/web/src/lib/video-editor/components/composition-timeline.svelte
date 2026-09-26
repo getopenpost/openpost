@@ -2360,6 +2360,7 @@
 		<div
 			class="io-lane"
 			data-testid="composition-io-lane"
+			role="group"
 			aria-label={m.video_editor_composition_timeline_range()}
 		>
 			<div class="io-strip">

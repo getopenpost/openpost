@@ -222,3 +222,33 @@ it('exposes the layer type badge as an image with the full type name', async () 
 		sequenceStore.deleteCompositionAndReferences(compositionId);
 	}
 });
+
+it('exposes the composition work-area lane as a named group', async () => {
+	const compositionId = 'composition-io-lane-group';
+	sequenceStore.addComposition({
+		id: compositionId,
+		name: 'Work area group',
+		editorKind: 'composite-2d',
+		items: [],
+		tracks: [],
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 120
+	});
+	sequenceStore.switchTo(compositionId);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const group = screen.getByRole('group', {
+			name: m.video_editor_composition_timeline_range()
+		});
+		await expect.element(group).toBeVisible();
+		await expect
+			.element(group.getByText(m.video_editor_composition_timeline_full_range()))
+			.toBeVisible();
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(compositionId);
+	}
+});

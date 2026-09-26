@@ -46,6 +46,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		hasOverlap,
 		normalizeSegments,
 		reorderSegment,
+		requiresCloseConfirmation,
 		formatTimecode,
 		segmentsOutsideMarkedRanges
 	} from '$lib/quick-cut/model';
@@ -206,6 +207,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let preflightGeneration = 0;
 	let previewWait: AbortController | null = null;
 	let sourceRemovalDialogOpen = $state(false);
+	let closeProjectDialogOpen = $state(false);
 	let segmentValidationToastId: string | number | null = null;
 	let pendingSourceRemoval = $state<QuickCutSource | null>(null);
 	let capturingFrame = $state(false);
@@ -342,12 +344,26 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	async function closeProject(event: MouseEvent): Promise<void> {
 		event.preventDefault();
 		if (
-			project &&
-			storageMode === 'local' &&
-			!getWorkspaceRoot() &&
-			!window.confirm(m.theme_editor_discard_title())
-		)
+			requiresCloseConfirmation({
+				hasProject: project !== null,
+				storageMode,
+				hasWorkspaceRoot: getWorkspaceRoot() !== null
+			})
+		) {
+			closeProjectDialogOpen = true;
 			return;
+		}
+		await performCloseProject();
+	}
+
+	async function confirmCloseProject(): Promise<DestructiveActionOutcome> {
+		await saveQueue;
+		if (saveState === 'error') return { ok: false, message: m.quick_cut_save_failed() };
+		await performCloseProject();
+		return { ok: true };
+	}
+
+	async function performCloseProject(): Promise<void> {
 		await saveQueue;
 		if (saveState === 'error') return;
 		stopPreview();
@@ -2380,6 +2396,13 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			<ExportPanel progress={exportProgress} cancel={cancelExport} isExporting={exporting} />
 		{/if}
 	</main>
+	<DestructiveConfirmDialog
+		bind:open={closeProjectDialogOpen}
+		title={m.quick_cut_close_unsaved_title()}
+		description={m.quick_cut_close_unsaved_description()}
+		confirmLabel={m.quick_cut_close_discard()}
+		onConfirm={confirmCloseProject}
+	/>
 	<DestructiveConfirmDialog
 		bind:open={sourceRemovalDialogOpen}
 		title={m.quick_cut_remove_source_title({ name: pendingSourceRemoval?.name ?? '' })}

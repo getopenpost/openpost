@@ -10,6 +10,7 @@ import {
 	parseTimecode,
 	hasOverlap,
 	assessExport,
+	requiresCloseConfirmation,
 	segmentsOutsideMarkedRanges
 } from './model';
 
@@ -194,5 +195,41 @@ describe('quick-cut model', () => {
 		];
 
 		expect(segmentsOutsideMarkedRanges(marked, [{ id: SRC_A, duration: 5 }])).toEqual([]);
+	});
+
+	describe('requiresCloseConfirmation', () => {
+		it('requires confirmation for a local project without a workspace root', () => {
+			expect(
+				requiresCloseConfirmation({
+					hasProject: true,
+					storageMode: 'local',
+					hasWorkspaceRoot: false
+				})
+			).toBe(true);
+		});
+
+		it('skips confirmation without a project, with cloud storage, or with a workspace root', () => {
+			expect(
+				requiresCloseConfirmation({
+					hasProject: false,
+					storageMode: 'local',
+					hasWorkspaceRoot: false
+				})
+			).toBe(false);
+			expect(
+				requiresCloseConfirmation({
+					hasProject: true,
+					storageMode: 'cloud',
+					hasWorkspaceRoot: false
+				})
+			).toBe(false);
+			expect(
+				requiresCloseConfirmation({
+					hasProject: true,
+					storageMode: 'local',
+					hasWorkspaceRoot: true
+				})
+			).toBe(false);
+		});
 	});
 });

@@ -85,6 +85,7 @@ it('loads older imported posts from the next page', async () => {
 		params: {
 			path: { account_id: 'account-1' },
 			query: { workspace_id: 'workspace-1', cursor: 'older' }
-		}
+		},
+		signal: expect.any(AbortSignal)
 	});
 });

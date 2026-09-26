@@ -11,11 +11,27 @@ export interface PostImportQueryAPI {
     workspaceID: string,
     accountID: string,
     signal: AbortSignal,
+    cursor?: string,
   ): Promise<PostImportOverview>;
 }
 
 export const postImportQueryKey = (workspaceID: string, accountID: string) =>
   openPostWorkspaceKey(workspaceID, "accounts", accountID, "post-imports");
+
+export function postImportPageQueryOptions(
+  api: PostImportQueryAPI,
+  workspaceID: string,
+  accountID: string,
+  cursor: string,
+) {
+  const queryKey = [...postImportQueryKey(workspaceID, accountID), "page", cursor] as const;
+  return {
+    ...openPostQueryPolicy(queryStaleTime),
+    queryKey,
+    queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) =>
+      api.readPostImports(workspaceID, accountID, signal, cursor),
+  };
+}
 
 export function postImportQueryOptions(
   api: PostImportQueryAPI,

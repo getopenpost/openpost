@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
-	import { postImportQueryKey, postImportQueryOptions } from '@openpost/query-catalog';
+	import {
+		postImportPageQueryOptions,
+		postImportQueryKey,
+		postImportQueryOptions
+	} from '@openpost/query-catalog';
 	import { client } from '$lib/api/client';
 	import { queryClient } from '$lib/query/client';
 	import { postImportQueryAPI } from '$lib/query/post-imports';
@@ -48,13 +52,9 @@
 		loadingMore = true;
 		loadMoreError = '';
 		try {
-			const { data, error } = await client.GET('/accounts/{account_id}/post-imports', {
-				params: {
-					path: { account_id: requestAccountID },
-					query: { workspace_id: requestWorkspaceID, cursor }
-				}
-			});
-			if (error || !data) throw new Error(m.account_imports_load_failed());
+			const data = await queryClient.fetchQuery(
+				postImportPageQueryOptions(postImportQueryAPI, requestWorkspaceID, requestAccountID, cursor)
+			);
 			if (workspaceID === requestWorkspaceID && accountID === requestAccountID) {
 				extraPosts = [...extraPosts, ...(data.posts ?? [])];
 				nextCursor = data.next_cursor ?? '';

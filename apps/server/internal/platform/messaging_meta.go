@@ -39,8 +39,8 @@ func (f *FacebookAdapter) SendMessage(ctx context.Context, token string, input S
 func (i *InstagramAdapter) MessagingSupport() MessagingSupport {
 	return MessagingSupport{
 		Enabled: true, CanSend: true, RequiresOptIn: true, ReplyWindow: 24 * time.Hour,
-		RequiredScopes: []string{"instagram_manage_messages"}, ConversationModel: "professional_message",
-		Unavailable: "Instagram messages require advanced messaging access. A person must message the professional account first.",
+		RequiredScopes: []string{"instagram_basic", "instagram_manage_messages", "pages_manage_metadata"}, ConversationModel: "professional_message",
+		Unavailable: "Instagram messages require access to instagram_basic, instagram_manage_messages, and pages_manage_metadata. A person must message the professional account first.",
 	}
 }
 

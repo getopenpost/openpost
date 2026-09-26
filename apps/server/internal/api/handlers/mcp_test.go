@@ -746,13 +746,13 @@ func TestMCPPublicationExecutionIntentDefaultsAndRequiresInstanceAdmin(t *testin
 	publicationID := created.(map[string]any)["structuredContent"].(map[string]any)["publication"].(mcpPublicationStatus).ID
 
 	_, _, intent, rpcErr := srv.handler.loadMCPPublicationAction(ctx, map[string]any{
-		"publication_id": publicationID, "expected_revision": 1,
+		"post_id": publicationID, "expected_revision": 1,
 	}, "invalid")
 	require.Nil(t, rpcErr)
 	require.Equal(t, providerreadiness.ExecutionIntentProduction, intent)
 
 	rejectedPublicationID, rejectedRevision, rejectedIntent, rpcErr := srv.handler.loadMCPPublicationAction(ctx, map[string]any{
-		"publication_id": publicationID, "expected_revision": 1,
+		"post_id": publicationID, "expected_revision": 1,
 		"execution_intent": "certification_test",
 	}, "invalid")
 	require.NotNil(t, rpcErr)
@@ -764,7 +764,7 @@ func TestMCPPublicationExecutionIntentDefaultsAndRequiresInstanceAdmin(t *testin
 	_, err := srv.db.NewUpdate().Model((*models.User)(nil)).Set("is_admin = ?", true).Where("id = ?", "user-1").Exec(ctx)
 	require.NoError(t, err)
 	_, _, intent, rpcErr = srv.handler.loadMCPPublicationAction(ctx, map[string]any{
-		"publication_id": publicationID, "expected_revision": 1,
+		"post_id": publicationID, "expected_revision": 1,
 		"execution_intent": "certification_test",
 	}, "invalid")
 	require.Nil(t, rpcErr)
@@ -957,7 +957,7 @@ func TestMCPDelegatedToolsRejectOperationsAcrossSafetyBoundary(t *testing.T) {
 			tool:          mcpToolQuery,
 			operation:     mcpToolCreatePub,
 			arguments:     map[string]any{"workspace_id": "ws-1", "content_profile": "short_text", "source_text": "must not be created"},
-			expectedError: "create_publication changes state or performs an external action; call " + mcpToolExecute + " with this operation",
+			expectedError: "create_post changes state or performs an external action; call " + mcpToolExecute + " with this operation",
 		},
 		{
 			name:          "execute rejects read",
@@ -1155,7 +1155,7 @@ func TestMCPWorkspaceScopedTokenFiltersAndRejectsOtherWorkspaces(t *testing.T) {
 		"id":      "scoped-create",
 		"method":  "tools/call",
 		"params": map[string]any{
-			"name": "create_publication",
+			"name": "create_post",
 			"arguments": map[string]any{
 				"workspace_id":    "ws-2",
 				"content_profile": "short_text",
@@ -1212,9 +1212,9 @@ func TestMCPCallListPublicationEvents(t *testing.T) {
 		"id":      "call-publication-events",
 		"method":  "tools/call",
 		"params": map[string]any{
-			"name": "list_publication_events",
+			"name": "list_post_events",
 			"arguments": map[string]any{
-				"publication_id": "publication-events",
+				"post_id": "publication-events",
 			},
 		},
 	})
@@ -1283,9 +1283,9 @@ func TestMCPCallValidatePublication(t *testing.T) {
 		"id":      "call-validate-publication",
 		"method":  "tools/call",
 		"params": map[string]any{
-			"name": "validate_publication",
+			"name": "validate_post",
 			"arguments": map[string]any{
-				"publication_id": "publication-validate",
+				"post_id": "publication-validate",
 			},
 		},
 	})
@@ -1365,7 +1365,7 @@ func TestMCPListPublicationsCursorPagination(t *testing.T) {
 	require.Equal(t, float64(5), first["total_count"])
 
 	newest := first["publications"].([]any)[0].(map[string]any)
-	require.Equal(t, float64(1), newest["failed_rendition_count"])
+	require.Equal(t, float64(1), newest["failed_variant_count"])
 	require.Equal(t, "rate_limited", newest["error_kind"])
 	require.Equal(t, "retry", newest["error_action"])
 	require.Equal(t, "The provider is rate limiting this account. OpenPost will retry.", newest["error_message"])
@@ -1373,7 +1373,7 @@ func TestMCPListPublicationsCursorPagination(t *testing.T) {
 		require.NotContains(t, newest, key)
 	}
 	healthy := first["publications"].([]any)[1].(map[string]any)
-	require.Equal(t, float64(0), healthy["failed_rendition_count"])
+	require.Equal(t, float64(0), healthy["failed_variant_count"])
 	require.NotContains(t, healthy, "error_kind")
 	require.NotContains(t, healthy, "error_action")
 	require.NotContains(t, healthy, "error_message")
@@ -1714,7 +1714,7 @@ func TestMCPCallAuditLogRecordsSuccessAndFailure(t *testing.T) {
 	failResp := srv.request(t, "mcp-token", map[string]any{
 		"jsonrpc": "2.0", "id": "call-log-error", "method": "tools/call",
 		"params": map[string]any{
-			"name": "create_publication",
+			"name": "create_post",
 			"arguments": map[string]any{
 				"workspace_id": "ws-1", "content_profile": "short_text",
 				"source_text": "Draft from an agent", "social_account_ids": []string{"account-other-workspace"},
@@ -1723,7 +1723,7 @@ func TestMCPCallAuditLogRecordsSuccessAndFailure(t *testing.T) {
 	})
 	require.Equal(t, http.StatusOK, failResp.Code)
 	var failure models.MCPToolCall
-	require.NoError(t, srv.db.NewSelect().Model(&failure).Where("tool_name = ?", "create_publication").Scan(context.Background()))
+	require.NoError(t, srv.db.NewSelect().Model(&failure).Where("tool_name = ?", "create_post").Scan(context.Background()))
 	require.Equal(t, "error", failure.Status)
 	require.Contains(t, failure.ErrorMessage, "outside this workspace")
 }

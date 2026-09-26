@@ -124,7 +124,7 @@ func TestMCPListRenditionCommentsUsesInstanceSpecificProvider(t *testing.T) {
 
 	for _, tc := range commentProviderKeyCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, rpcErr := handler.listRenditionComments(context.Background(), "user-1", map[string]any{"rendition_id": tc.renditionID})
+			result, rpcErr := handler.listRenditionComments(context.Background(), "user-1", map[string]any{"variant_id": tc.renditionID})
 
 			require.Nil(t, rpcErr)
 			structured := result.(map[string]any)["structuredContent"].(map[string]any)

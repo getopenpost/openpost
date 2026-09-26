@@ -3,7 +3,10 @@ import { render } from 'vitest-browser-svelte';
 import CopyButton from './copy-button.svelte';
 
 describe('copy feedback', () => {
-	afterEach(() => vi.restoreAllMocks());
+	afterEach(() => {
+		vi.restoreAllMocks();
+		vi.useRealTimers();
+	});
 	it('only confirms a completed clipboard write and offers retry on failure', async () => {
 		let finish!: () => void;
 		vi.spyOn(document, 'execCommand').mockReturnValue(false);
@@ -26,6 +29,8 @@ describe('copy feedback', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'Copy', exact: true }))
 			.toHaveAttribute('aria-busy', 'true');
+		// Keep the temporary success label visible while browser assertions run.
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		finish();
 		await expect.element(screen.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
 		expect(write).toHaveBeenCalledWith('sample invitation');

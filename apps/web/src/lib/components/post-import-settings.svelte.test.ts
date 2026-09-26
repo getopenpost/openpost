@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
+import { postImportQueryKey } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
 import PostImportSettings from './post-import-settings.svelte';
@@ -88,4 +89,101 @@ it('loads older imported posts from the next page', async () => {
 		},
 		signal: expect.any(AbortSignal)
 	});
+});
+
+it('discards loaded pages when the first page refreshes', async () => {
+	const post = (id: string) => ({
+		id,
+		title: `Post ${id}`,
+		text: `Post ${id}`,
+		external_url: '',
+		published_at: '2026-09-26T10:00:00Z'
+	});
+	const overview = {
+		account_id: 'account-1',
+		platform: 'bluesky',
+		supported: true,
+		enabled: true,
+		status: 'complete',
+		posts: [post('new')],
+		next_cursor: 'older'
+	};
+	getMock
+		.mockResolvedValueOnce({ data: overview, response: new Response() })
+		.mockResolvedValueOnce({
+			data: { ...overview, posts: [post('old')], next_cursor: undefined },
+			response: new Response()
+		});
+	const screen = await render(
+		PostImportSettings,
+		{ workspaceID: 'workspace-1', accountID: 'account-1' },
+		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+	);
+	await expect.element(screen.getByText('Post new')).toBeVisible();
+	await screen.getByRole('button', { name: 'Load more' }).click();
+	await expect.element(screen.getByText('Post old')).toBeVisible();
+	queryClient.setQueryData(postImportQueryKey('workspace-1', 'account-1'), {
+		...overview,
+		posts: [post('newer'), post('new')],
+		next_cursor: 'new-cursor'
+	});
+	await expect.element(screen.getByText('Post newer')).toBeVisible();
+	await expect.element(screen.getByText('Post old')).not.toBeInTheDocument();
+	await expect.element(screen.getByRole('button', { name: 'Load more' })).toBeVisible();
+});
+
+it('ignores an older page response after the first page refreshes', async () => {
+	const post = (id: string) => ({
+		id,
+		title: `Post ${id}`,
+		text: `Post ${id}`,
+		external_url: '',
+		published_at: '2026-09-26T10:00:00Z'
+	});
+	const overview = {
+		account_id: 'account-1',
+		platform: 'bluesky',
+		supported: true,
+		enabled: true,
+		status: 'complete',
+		posts: [post('new')],
+		next_cursor: 'older'
+	};
+	let finishPage: (() => void) | undefined;
+	getMock.mockResolvedValueOnce({ data: overview, response: new Response() });
+	getMock.mockImplementationOnce(async () => {
+		await new Promise<void>((resolve) => {
+			finishPage = resolve;
+		});
+		return {
+			data: { ...overview, posts: [post('old')], next_cursor: undefined },
+			response: new Response()
+		};
+	});
+	const screen = await render(
+		PostImportSettings,
+		{ workspaceID: 'workspace-1', accountID: 'account-1' },
+		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+	);
+	await expect.element(screen.getByText('Post new')).toBeVisible();
+	await screen.getByRole('button', { name: 'Load more' }).click();
+	expect(finishPage).toBeTypeOf('function');
+	queryClient.setQueryData(postImportQueryKey('workspace-1', 'account-1'), {
+		...overview,
+		posts: [post('newer'), post('new')],
+		next_cursor: 'new-cursor'
+	});
+	await expect.element(screen.getByText('Post newer')).toBeVisible();
+	finishPage?.();
+	await vi.waitFor(() =>
+		expect(
+			queryClient.getQueryState([
+				...postImportQueryKey('workspace-1', 'account-1'),
+				'page',
+				'older'
+			])?.status
+		).toBe('success')
+	);
+	await expect.element(screen.getByRole('button', { name: 'Load more' })).toBeEnabled();
+	await expect.element(screen.getByText('Post old')).not.toBeInTheDocument();
 });

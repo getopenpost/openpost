@@ -359,6 +359,7 @@
 		>
 			<div
 				class="template-strip border-t border-[var(--video-editor-border)]"
+				role="group"
 				aria-label={m.video_editor_text_templates()}
 			>
 				{#each TEXT_STYLE_PRESETS as preset (preset.id)}
@@ -404,6 +405,7 @@
 	>
 		<div
 			class="grid grid-cols-4 gap-1 border-t border-[var(--video-editor-border)] p-2"
+			role="group"
 			aria-label={m.video_editor_effects()}
 		>
 			{#each ['none', 'shadow', 'outline', 'glow'] as presetId (presetId)}

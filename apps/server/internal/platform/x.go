@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/dghubble/oauth1"
+	"github.com/openpost/backend/internal/providerlimits"
 )
 
 type XAdapter struct {
@@ -41,11 +42,11 @@ const (
 	XSubscriptionTypePremiumPlus     = "PremiumPlus"
 	XStandardTextLimit               = 280
 	XPremiumTextLimit                = 25_000
-	XStandardVideoDurationSeconds    = 140
-	XPremiumVideoDurationSeconds     = 4 * 60 * 60
-	XStandardVideoSizeBytes          = 512 * 1024 * 1024
+	XStandardVideoDurationSeconds    = providerlimits.XPostVideoMaxDurationSeconds
+	XPremiumVideoDurationSeconds     = providerlimits.XPremiumPostVideoMaxDurationSeconds
+	XStandardVideoSizeBytes          = providerlimits.XPostVideoMaxBytes
 	XOAuthRequestLifetime            = 10 * time.Minute
-	XPremiumVideoSizeBytes           = 16 * 1024 * 1024 * 1024
+	XPremiumVideoSizeBytes           = providerlimits.XPremiumPostVideoMaxBytes
 	XCapabilityStateFreshness        = 24 * time.Hour
 	xAccountCapabilityRevision       = "x-subscription-type.2026-07-26"
 	xMediaUploadChunkSize            = 5 * 1024 * 1024
@@ -968,7 +969,7 @@ func (x *XAdapter) doSignedRequest(ctx context.Context, combinedAccessToken, met
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", sanitizeTransportError(err))
 	}
 	defer resp.Body.Close()
 

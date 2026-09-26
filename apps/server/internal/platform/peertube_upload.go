@@ -40,7 +40,7 @@ func peertubeRawRequest(ctx context.Context, method, rawURL string, headers map[
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return peertubeRawResponse{}, &MediaUploadError{RetryClassification: MediaRetrySafeResume, Err: fmt.Errorf("peertube request failed: %w", err)}
+		return peertubeRawResponse{}, &MediaUploadError{RetryClassification: MediaRetrySafeResume, Err: fmt.Errorf("peertube request failed: %w", sanitizeTransportError(err))}
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)

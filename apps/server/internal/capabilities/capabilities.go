@@ -34,7 +34,7 @@ const (
 	ProviderX         = "x"
 	ProviderYouTube   = "youtube"
 
-	capabilityRevision   = "2026-09-12.1"
+	capabilityRevision   = "2026-09-26.1"
 	xMinVideoAspectRatio = "1:3"
 	xMaxVideoAspectRatio = "3:1"
 	blueskyImageMaxBytes = 2_000_000
@@ -326,7 +326,7 @@ func All() []Capability {
 	xVideo := MediaConstraint{
 		MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"},
 		MinVideoAspectRatio: xMinVideoAspectRatio, MaxVideoAspectRatio: xMaxVideoAspectRatio,
-		MaxSizeBytes: 512 * 1024 * 1024, MaxDurationSeconds: 140,
+		MaxSizeBytes: providerlimits.XPostVideoMaxBytes, MaxDurationSeconds: providerlimits.XPostVideoMaxDurationSeconds,
 	}
 	mastodonVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4", "video/quicktime", "video/webm"}, MaxSizeBytes: 99 * 1024 * 1024}
 	linkedinVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 500 * 1024 * 1024, MaxDurationSeconds: 30 * 60}
@@ -363,8 +363,8 @@ func All() []Capability {
 		AllowedMIMEs:        []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime"},
 		MinVideoAspectRatio: xMinVideoAspectRatio,
 		MaxVideoAspectRatio: xMaxVideoAspectRatio,
-		MaxSizeBytes:        512 * 1024 * 1024,
-		MaxDurationSeconds:  140,
+		MaxSizeBytes:        providerlimits.XPostVideoMaxBytes,
+		MaxDurationSeconds:  providerlimits.XPostVideoMaxDurationSeconds,
 	}
 
 	defaultQueued := func(c Capability) Capability {

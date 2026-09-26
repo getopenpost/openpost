@@ -183,6 +183,9 @@
 	} = $props();
 
 	const editor = provideImageEditor(new ImageEditorController());
+	$effect(() => {
+		editor.setBrandKit(initialBrandKit);
+	});
 	const backgroundRemoval = new ImageEditorBackgroundRemoval();
 	const editorTabID = crypto.randomUUID();
 	const DESKTOP_TOOL_RAIL_WIDTH = 56;
@@ -640,7 +643,6 @@
 		}
 		if (!editor.document) {
 			editor.load(initial);
-			editor.setBrandKit(initialBrandKit);
 			editor.pagesExpanded = initial.document.pages.length > 1;
 			coverPreviewMediaID = initial.cover_preview_media_id ?? '';
 		}

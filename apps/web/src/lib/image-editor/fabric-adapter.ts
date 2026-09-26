@@ -6,8 +6,10 @@ import type {
 	ImageEditorImageAdjustments,
 	ImageEditorLayer,
 	ImageEditorPage,
-	ImageEditorTool
+	ImageEditorTool,
+	ImageEditorTextValue
 } from './types';
+import { textGraphemes } from './text-runs';
 import {
 	defaultImageAdjustments,
 	isEmptyImageEditorPaintLayer,
@@ -64,6 +66,13 @@ interface FabricObjectCollection extends FabricObject {
 
 interface EditableFabricText extends FabricObject {
 	text: string;
+	selectionStart: number;
+	selectionEnd: number;
+	styles: Record<number, Record<number, Record<string, string | number | boolean>>>;
+	get2DCursorLocation(
+		index: number,
+		skipWrapping?: boolean
+	): { lineIndex: number; charIndex: number };
 	initDimensions(): void;
 	enterEditing(): void;
 	selectAll?(): void;
@@ -140,7 +149,8 @@ interface FabricAdapterOptions {
 	onSelection(ids: string[]): void;
 	onTransform(id: string, updates: Partial<ImageEditorLayer['transform']>): void;
 	onAltDuplicate?(entries: Array<{ id: string; transform: ImageEditorLayer['transform'] }>): void;
-	onTextChange(id: string, text: string): void;
+	onTextChange(id: string, text: string): ImageEditorTextValue | void;
+	onTextSelectionChange?(id: string, start: number, end: number): void;
 	onTextEditingChange?(editing: boolean): void;
 	onImageDimensions?(id: string, width: number, height: number): void;
 	onMissingMedia?(mediaID: string, layerID?: string): void;
@@ -429,6 +439,7 @@ export class OpenPostFabricAdapter {
 	private onTransform: FabricAdapterOptions['onTransform'];
 	private onAltDuplicate: NonNullable<FabricAdapterOptions['onAltDuplicate']>;
 	private onTextChange: FabricAdapterOptions['onTextChange'];
+	private onTextSelectionChange: NonNullable<FabricAdapterOptions['onTextSelectionChange']>;
 	private onTextEditingChange: NonNullable<FabricAdapterOptions['onTextEditingChange']>;
 	private onImageDimensions: NonNullable<FabricAdapterOptions['onImageDimensions']>;
 	private onMissingMedia: NonNullable<FabricAdapterOptions['onMissingMedia']>;
@@ -455,6 +466,7 @@ export class OpenPostFabricAdapter {
 		this.onTransform = options.onTransform;
 		this.onAltDuplicate = options.onAltDuplicate ?? (() => undefined);
 		this.onTextChange = options.onTextChange;
+		this.onTextSelectionChange = options.onTextSelectionChange ?? (() => undefined);
 		this.onTextEditingChange = options.onTextEditingChange ?? (() => undefined);
 		this.onImageDimensions = options.onImageDimensions ?? (() => undefined);
 		this.onMissingMedia = options.onMissingMedia ?? (() => undefined);
@@ -1230,6 +1242,16 @@ export class OpenPostFabricAdapter {
 			}
 		});
 		canvas.on('text:changed', (event) => this.emitTextChange(event.target));
+		canvas.on('text:selection:changed', (event) => {
+			const target = event.target;
+			if (isEditableFabricText(target) && target.__imageEditorLayerID) {
+				this.onTextSelectionChange(
+					target.__imageEditorLayerID,
+					target.selectionStart,
+					target.selectionEnd
+				);
+			}
+		});
 		canvas.on('text:editing:entered', () => this.onTextEditingChange(true));
 		canvas.on('text:editing:exited', () => this.onTextEditingChange(false));
 	}
@@ -1350,7 +1372,9 @@ export class OpenPostFabricAdapter {
 	private emitTextChange(target?: FabricObject): void {
 		const layerID = target?.__imageEditorLayerID;
 		if (!layerID || this.syncing || !target || !isEditableFabricText(target)) return;
-		this.onTextChange(layerID, target.text);
+		const value = this.onTextChange(layerID, target.text);
+		if (value) this.applyTextRuns(target, value);
+		this.onTextSelectionChange(layerID, target.selectionStart, target.selectionEnd);
 		const layer = this.page.layers.find((candidate) => candidate.id === layerID);
 		if (layer && (layer.effects?.stroke || layer.effects?.inner_shadow)) {
 			// Canvas-origin edits are accepted without a document render to preserve the caret.
@@ -1358,6 +1382,28 @@ export class OpenPostFabricAdapter {
 			this.syncObjectOrder();
 			this.canvas?.requestRenderAll();
 		}
+	}
+
+	private applyTextRuns(target: EditableFabricText, value: ImageEditorTextValue): void {
+		// Refresh Fabric's unwrapped lines before translating grapheme offsets to style positions.
+		if (value.runs?.length) target.initDimensions();
+		const styles: EditableFabricText['styles'] = {};
+		const graphemes = textGraphemes(value.text);
+		for (const run of value.runs ?? []) {
+			for (let index = run.start; index < run.end && index < graphemes.length; index++) {
+				if (graphemes[index] === '\n' || graphemes[index] === '\r\n') continue;
+				const { lineIndex, charIndex } = target.get2DCursorLocation(index, true);
+				const style = (styles[lineIndex] ??= {});
+				style[charIndex] = {
+					...(run.font_weight === undefined ? {} : { fontWeight: run.font_weight }),
+					...(run.font_style === undefined ? {} : { fontStyle: run.font_style }),
+					...(run.underline === undefined ? {} : { underline: run.underline }),
+					...(run.color === undefined ? {} : { fill: run.color })
+				};
+			}
+		}
+		target.styles = styles;
+		target.initDimensions();
 	}
 
 	private snapBypassed(event: Event | undefined): boolean {
@@ -1669,6 +1715,7 @@ export class OpenPostFabricAdapter {
 			} else {
 				object = new this.fabric.Textbox(layer.text.text, textOptions);
 			}
+			this.applyTextRuns(object as EditableFabricText, layer.text);
 		}
 		if (layer.type === 'shape' && layer.shape) {
 			const shapeOptions = {
@@ -1904,7 +1951,7 @@ export class OpenPostFabricAdapter {
 				strokeWidth: layer.text.stroke_width,
 				backgroundColor: layer.text.highlight_color
 			});
-			textObject.initDimensions?.();
+			this.applyTextRuns(textObject, layer.text);
 		} else if (layer.type === 'shape' && layer.shape) {
 			object.set({
 				...common,
@@ -2680,7 +2727,12 @@ export class OpenPostFabricAdapter {
 			resized.height = height;
 			const context = resized.getContext('2d');
 			if (!context) return null;
-			const region = sourceBounds ?? { x: 0, y: 0, width: sourceWidth, height: sourceHeight };
+			const region = sourceBounds ?? {
+				x: 0,
+				y: 0,
+				width: sourceWidth,
+				height: sourceHeight
+			};
 			context.drawImage(
 				source,
 				region.x,

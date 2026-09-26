@@ -18,6 +18,44 @@ const preset: ImageEditorPreset = {
 };
 
 describe('OpenPost Image Editor portable projects', () => {
+	it('reopens selected-range text emphasis without changing whole-layer defaults', async () => {
+		const document = blankImageEditorDocument(preset);
+		document.pages[0].layers.push({
+			id: 'headline',
+			type: 'text',
+			name: 'Headline',
+			visible: true,
+			locked: false,
+			opacity: 1,
+			transform: defaultTransform(300, 80),
+			text: {
+				text: 'Launch 👩🏽‍🚀',
+				runs: [{ start: 7, end: 8, font_weight: 700, color: '#ff0000' }],
+				font_family: 'Geist Variable',
+				font_weight: 400,
+				font_style: 'normal',
+				font_size: 48,
+				color: '#000000',
+				align: 'left',
+				line_height: 1,
+				letter_spacing: 0,
+				stroke_width: 0,
+				shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 }
+			}
+		});
+		const archive = await createImageEditorProjectArchive(document, async () => {
+			throw new Error('No media is needed');
+		});
+		const reopened = await parseImageEditorProjectArchive(
+			new File([archive], 'launch.openpost-image')
+		);
+		expect(reopened.document.pages[0].layers[0].text).toMatchObject({
+			font_weight: 400,
+			color: '#000000',
+			runs: [{ start: 7, end: 8, font_weight: 700, color: '#ff0000' }]
+		});
+	});
+
 	it('round-trips the document and every referenced source media file', async () => {
 		const document = blankImageEditorDocument(preset);
 		document.title = 'Launch / card';
@@ -45,7 +83,9 @@ describe('OpenPost Image Editor portable projects', () => {
 			blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
 		}));
 		const parsed = await parseImageEditorProjectArchive(
-			new File([archive], safeImageEditorProjectFilename(document.title), { type: archive.type })
+			new File([archive], safeImageEditorProjectFilename(document.title), {
+				type: archive.type
+			})
 		);
 
 		expect(parsed.document.title).toBe('Launch / card');
@@ -59,7 +99,9 @@ describe('OpenPost Image Editor portable projects', () => {
 	it('rejects files that are not project archives', async () => {
 		await expect(
 			parseImageEditorProjectArchive(
-				new File(['not a zip'], 'broken.openpost-image', { type: 'application/octet-stream' })
+				new File(['not a zip'], 'broken.openpost-image', {
+					type: 'application/octet-stream'
+				})
 			)
 		).rejects.toThrow('damaged');
 	});

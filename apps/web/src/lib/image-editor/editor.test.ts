@@ -61,6 +61,23 @@ function response(): ImageEditorDocumentResponse {
 }
 
 describe('OpenPost Image Editor editor layer interactions', () => {
+	it('applies range formatting once while preserving the layer default and undoing it', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.addText();
+		const id = editor.selectedLayers[0].id;
+		editor.updateTextContent(id, 'A👩🏽‍🚀B');
+		const before = editor.selectedLayers[0].text;
+		editor.setTextRange(id, 1, 2);
+		editor.updateTextStyle(id, 'font_weight', 700);
+		expect(editor.selectedLayers[0].text).toMatchObject({
+			font_weight: before?.font_weight,
+			runs: [{ start: 1, end: 2, font_weight: 700 }]
+		});
+		editor.undo();
+		expect(editor.selectedLayers[0].text).toEqual(before);
+	});
+
 	it('refines the active pixel selection without mutating the document or target layers', () => {
 		const editor = new ImageEditorController();
 		const initial = response();
@@ -731,11 +748,20 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 			editor.pencilRoughness = roughness;
 			const data = new Uint8Array(32 * 32);
 			for (let row = 8; row < 12; row++) data.fill(1, row * 32 + 10, row * 32 + 12);
-			editor.pixelSelection = { width: 32, height: 32, data, targetLayerIDs: [] };
+			editor.pixelSelection = {
+				width: 32,
+				height: 32,
+				data,
+				targetLayerIDs: []
+			};
 			editor.addPencilStroke([{ x: 10, y: 10, pressure: 0.5 }]);
 			const painted = editor.activePage!.layers.at(-1)!;
 			expect(painted.transform).toMatchObject({ x: 10, y, width: 2, height });
-			expect(painted.paint).toMatchObject({ source_width: 2, source_height: height, spans });
+			expect(painted.paint).toMatchObject({
+				source_width: 2,
+				source_height: height,
+				spans
+			});
 			editor.undo();
 			expect(editor.activePage?.layers.map((layer) => layer.id)).toEqual([
 				'back',

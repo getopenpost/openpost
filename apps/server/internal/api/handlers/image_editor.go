@@ -25,6 +25,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/medialifecycle"
+	"github.com/rivo/uniseg"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 )
@@ -89,6 +90,7 @@ type ImageEditorTextCurve struct {
 
 type ImageEditorTextValue struct {
 	Text           string                `json:"text"`
+	Runs           []ImageEditorTextRun  `json:"runs,omitempty"`
 	FontFamily     string                `json:"font_family"`
 	FontAssetID    string                `json:"font_asset_id,omitempty"`
 	FontWeight     int                   `json:"font_weight"`
@@ -106,6 +108,15 @@ type ImageEditorTextValue struct {
 	StrokeWidth    float64               `json:"stroke_width"`
 	Shadow         ImageEditorTextShadow `json:"shadow"`
 	Curve          *ImageEditorTextCurve `json:"curve,omitempty"`
+}
+
+type ImageEditorTextRun struct {
+	Start      int     `json:"start"`
+	End        int     `json:"end"`
+	FontWeight *int    `json:"font_weight,omitempty"`
+	FontStyle  *string `json:"font_style,omitempty"`
+	Underline  *bool   `json:"underline,omitempty"`
+	Color      *string `json:"color,omitempty"`
 }
 
 type ImageEditorImageAdjustments struct {
@@ -2107,6 +2118,13 @@ func validateImageEditorPage(payload ImageEditorDocumentPayload, page ImageEdito
 	if len(page.Layers) > imageEditorMaxLayersPerPage {
 		return fmt.Errorf("an OpenPost Image Editor page cannot contain more than %d layers", imageEditorMaxLayersPerPage)
 	}
+	if payload.SchemaVersion == 1 {
+		for _, layer := range page.Layers {
+			if layer.Text != nil && len(layer.Text.Runs) > 0 {
+				return fmt.Errorf("text emphasis requires image editor schema version 2")
+			}
+		}
+	}
 	if err := validateImageEditorPageBackground(page); err != nil {
 		return err
 	}
@@ -2377,10 +2395,40 @@ func validateImageEditorTextLayer(layer ImageEditorLayer) error {
 	if !imageEditorTextEffectsValid(layer.Text) {
 		return fmt.Errorf("text effects are invalid")
 	}
+	if !imageEditorTextRunsValid(layer.Text) {
+		return fmt.Errorf("text emphasis ranges are invalid")
+	}
 	if layer.Text.Curve != nil && !imageEditorTextCurveValid(layer.Text.Curve) {
 		return fmt.Errorf("text curve is invalid")
 	}
 	return nil
+}
+
+func imageEditorTextRunsValid(text *ImageEditorTextValue) bool {
+	if len(text.Runs) > 2000 {
+		return false
+	}
+	length := uniseg.GraphemeClusterCount(text.Text)
+	lastEnd := 0
+	for _, run := range text.Runs {
+		if run.Start < lastEnd || run.End <= run.Start || run.End > length {
+			return false
+		}
+		if run.FontWeight == nil && run.FontStyle == nil && run.Underline == nil && run.Color == nil {
+			return false
+		}
+		if run.FontWeight != nil && (*run.FontWeight < 100 || *run.FontWeight > 900) {
+			return false
+		}
+		if run.FontStyle != nil && !oneOfImageEditorString(*run.FontStyle, "normal", "italic") {
+			return false
+		}
+		if run.Color != nil && !imageEditorHexColor.MatchString(*run.Color) {
+			return false
+		}
+		lastEnd = run.End
+	}
+	return true
 }
 
 func imageEditorTextContentValid(text *ImageEditorTextValue) bool {

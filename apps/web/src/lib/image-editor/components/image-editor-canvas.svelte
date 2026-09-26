@@ -115,7 +115,11 @@
 		if (!context) return;
 		context.drawImage(pending.source, 0, 0, width, height);
 		lastScopeAt = performance.now();
-		editor.colorScopeSample = { source: sample, itemId: pending.itemId, image: null };
+		editor.colorScopeSample = {
+			source: sample,
+			itemId: pending.itemId,
+			image: null
+		};
 	}
 	function scheduleScope(source: HTMLCanvasElement, itemId: string) {
 		pendingScope = { source, itemId };
@@ -185,9 +189,11 @@
 	let magicScanProgress = $state(0);
 	let magicScanError = $state('');
 	let magicScanAbort: AbortController | null = null;
-	let magicPreviewMask = $state.raw<{ width: number; height: number; data: Uint8Array } | null>(
-		null
-	);
+	let magicPreviewMask = $state.raw<{
+		width: number;
+		height: number;
+		data: Uint8Array;
+	} | null>(null);
 	type FloatingTransformHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | 'rotate';
 	let floatingTransformGesture = $state.raw<{
 		pointerID: number;
@@ -197,7 +203,14 @@
 	let mediaDragDepth = 0;
 	let panStart = { x: 0, y: 0, panX: 0, panY: 0 };
 	const touchPointers = new SvelteMap<number, { x: number; y: number }>();
-	let pinchStart = { distance: 0, zoom: 1, centerX: 0, centerY: 0, panX: 0, panY: 0 };
+	let pinchStart = {
+		distance: 0,
+		zoom: 1,
+		centerX: 0,
+		centerY: 0,
+		panX: 0,
+		panY: 0
+	};
 
 	function attachCanvas(node: HTMLCanvasElement) {
 		canvasElement = node;
@@ -229,9 +242,13 @@
 				},
 				onTextChange(id, text) {
 					const layer = editor.activePage?.layers.find((item) => item.id === id);
-					if (!layer?.text || layer.text.text === text) return;
-					editor.updateLayer(id, { text: { ...layer.text, text } }, `text:${id}`);
+					if (!layer?.text || layer.text.text === text) return layer?.text;
+					const next = editor.updateTextContent(id, text);
 					canvasOriginDocument = editor.document;
+					return next;
+				},
+				onTextSelectionChange(id, start, end) {
+					editor.setTextRange(id, start, end);
 				},
 				onTextEditingChange(editing) {
 					textEditing = editing;
@@ -590,8 +607,12 @@
 			.filter(
 				(
 					projection
-				): projection is { id: string; width: number; height: number; data: Uint8Array } =>
-					Boolean(projection)
+				): projection is {
+					id: string;
+					width: number;
+					height: number;
+					data: Uint8Array;
+				} => Boolean(projection)
 			);
 	}
 
@@ -661,7 +682,10 @@
 	): boolean {
 		const bounds = editor.floatingPixelSelectionBounds;
 		if (!bounds) return false;
-		const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+		const center = {
+			x: bounds.x + bounds.width / 2,
+			y: bounds.y + bounds.height / 2
+		};
 		if (handle === 'rotate') {
 			const startAngle = Math.atan2(start.y - center.y, start.x - center.x);
 			const nextAngle = Math.atan2(point.y - center.y, point.x - center.x);
@@ -1020,7 +1044,11 @@
 				image.width === editor.activePageDimensions.width &&
 				image.height === editor.activePageDimensions.height
 			) {
-				magicPreviewMask = { width: image.width, height: image.height, data: mask };
+				magicPreviewMask = {
+					width: image.width,
+					height: image.height,
+					data: mask
+				};
 				await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 			}
 			onComplete(mask);
@@ -1028,7 +1056,9 @@
 			if (cause instanceof DOMException && cause.name === 'AbortError') return;
 			magicScanError =
 				cause instanceof RangeError
-					? m.image_editor_magic_scan_too_large({ limit: MAXIMUM_MAGIC_SCAN_PIXELS })
+					? m.image_editor_magic_scan_too_large({
+							limit: MAXIMUM_MAGIC_SCAN_PIXELS
+						})
 					: cause instanceof Error
 						? cause.message
 						: m.image_editor_magic_scan_failed();
@@ -1669,7 +1699,10 @@
 
 	function startPan(event: PointerEvent): void {
 		if (event.pointerType === 'touch') {
-			touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+			touchPointers.set(event.pointerId, {
+				x: event.clientX,
+				y: event.clientY
+			});
 			if (touchPointers.size === 2) {
 				selectionGesture = null;
 				const [first, second] = [...touchPointers.values()];
@@ -1756,7 +1789,10 @@
 			if (point) queueEyedropperSample(point);
 		}
 		if (event.pointerType === 'touch' && touchPointers.has(event.pointerId)) {
-			touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+			touchPointers.set(event.pointerId, {
+				x: event.clientX,
+				y: event.clientY
+			});
 			if (touchPointers.size >= 2) {
 				const [first, second] = [...touchPointers.values()];
 				const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
@@ -2025,10 +2061,22 @@
 					ariaLabel={m.image_editor_eyedropper_target()}
 					onValueChange={(value) => (editor.eyedropperTarget = value as ImageEditorColorTarget)}
 					options={[
-						{ value: 'foreground', label: m.image_editor_eyedropper_foreground() },
-						{ value: 'selected_fill', label: m.image_editor_eyedropper_selected_fill() },
-						{ value: 'selected_stroke', label: m.image_editor_eyedropper_selected_stroke() },
-						{ value: 'page_background', label: m.image_editor_eyedropper_page_background() }
+						{
+							value: 'foreground',
+							label: m.image_editor_eyedropper_foreground()
+						},
+						{
+							value: 'selected_fill',
+							label: m.image_editor_eyedropper_selected_fill()
+						},
+						{
+							value: 'selected_stroke',
+							label: m.image_editor_eyedropper_selected_stroke()
+						},
+						{
+							value: 'page_background',
+							label: m.image_editor_eyedropper_page_background()
+						}
 					]}
 					class="h-7 w-40 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
 				/>
@@ -2080,7 +2128,9 @@
 			>
 				<span>
 					{magicScanError ||
-						m.image_editor_magic_scanning({ value: Math.round(magicScanProgress * 100) })}
+						m.image_editor_magic_scanning({
+							value: Math.round(magicScanProgress * 100)
+						})}
 				</span>
 				{#if magicScanBusy}
 					<Button variant="ghost" size="xs" onclick={cancelMagicScan}>{m.common_cancel()}</Button>
@@ -2371,7 +2421,10 @@
 								{ value: 'linear', label: m.image_editor_gradient_linear() },
 								{ value: 'radial', label: m.image_editor_gradient_radial() },
 								{ value: 'angle', label: m.image_editor_gradient_angle() },
-								{ value: 'reflected', label: m.image_editor_gradient_reflected() },
+								{
+									value: 'reflected',
+									label: m.image_editor_gradient_reflected()
+								},
 								{ value: 'diamond', label: m.image_editor_gradient_diamond() }
 							]}
 							class="h-7 w-36 border-[var(--editor-border)] bg-[var(--editor-control)] text-[var(--editor-text)]"
@@ -2431,7 +2484,9 @@
 					</label>
 					<label class="flex min-w-32 items-center gap-2 px-1 text-xs">
 						<span class="whitespace-nowrap">
-							{m.image_editor_smoothing({ value: Math.round(editor.pencilSmoothing * 100) })}
+							{m.image_editor_smoothing({
+								value: Math.round(editor.pencilSmoothing * 100)
+							})}
 						</span>
 						<Slider
 							value={Math.round(editor.pencilSmoothing * 100)}
@@ -2461,7 +2516,9 @@
 							class="whitespace-nowrap"
 							class:text-warning-foreground={editor.paintOpacity < 0.25}
 						>
-							{m.image_editor_opacity({ value: Math.round(editor.paintOpacity * 100) })}
+							{m.image_editor_opacity({
+								value: Math.round(editor.paintOpacity * 100)
+							})}
 						</span>
 						<Slider
 							value={Math.round(editor.paintOpacity * 100)}
@@ -2628,7 +2685,9 @@
 							type="button"
 							class="group absolute top-0 z-35 h-full w-3 -translate-x-1/2 cursor-ew-resize touch-none border-0 bg-transparent p-0"
 							style:left={`${value * editor.zoom}px`}
-							aria-label={m.image_editor_vertical_guide_at({ value: Math.round(value) })}
+							aria-label={m.image_editor_vertical_guide_at({
+								value: Math.round(value)
+							})}
 							onpointerdown={(event) => startGuide(event, 'vertical', index)}
 							onpointermove={moveGuide}
 							onpointerup={finishGuide}
@@ -2645,7 +2704,9 @@
 							type="button"
 							class="group absolute left-0 z-35 h-3 w-full -translate-y-1/2 cursor-ns-resize touch-none border-0 bg-transparent p-0"
 							style:top={`${value * editor.zoom}px`}
-							aria-label={m.image_editor_horizontal_guide_at({ value: Math.round(value) })}
+							aria-label={m.image_editor_horizontal_guide_at({
+								value: Math.round(value)
+							})}
 							onpointerdown={(event) => startGuide(event, 'horizontal', index)}
 							onpointermove={moveGuide}
 							onpointerup={finishGuide}
@@ -2729,7 +2790,9 @@
 							<button
 								type="button"
 								class={`pointer-events-auto absolute size-11 touch-none border-0 bg-transparent ${item.class}`}
-								aria-label={m.image_editor_resize_floating_pixels({ handle: item.handle })}
+								aria-label={m.image_editor_resize_floating_pixels({
+									handle: item.handle
+								})}
 								onpointerdown={(event) =>
 									startFloatingTransform(event, item.handle as FloatingTransformHandle)}
 								onpointermove={moveFloatingTransform}

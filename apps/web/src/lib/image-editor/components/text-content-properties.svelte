@@ -6,9 +6,18 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
 	import { useImageEditor } from '../editor.svelte';
+	import { textGraphemeOffset, textRunStyleAt } from '../text-runs';
 
 	const editor = useImageEditor();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
+	let textRange = $derived(
+		editor.textRange?.pageID === editor.activePageID && editor.textRange.layerID === layer?.id
+			? editor.textRange
+			: null
+	);
+	let selectedStyle = $derived(
+		layer?.text && textRange ? textRunStyleAt(layer.text, textRange.start) : null
+	);
 	let brandFonts = $derived(editor.brandKit?.fonts ?? []);
 	let brandTextStyles = $derived(editor.brandKit?.text_styles ?? []);
 	let missingFontAsset = $derived(
@@ -29,15 +38,21 @@
 			[700, m.image_editor_bold()],
 			[800, m.image_editor_extra_bold()],
 			[900, m.image_editor_black()]
-		].map(([weight, label]) => ({ value: String(weight), label: `${weight} · ${label}` }));
-		const selectedWeight = layer?.text?.font_weight;
+		].map(([weight, label]) => ({
+			value: String(weight),
+			label: `${weight} · ${label}`
+		}));
+		const selectedWeight = selectedStyle?.font_weight ?? layer?.text?.font_weight;
 		if (
 			Number.isFinite(selectedWeight) &&
 			selectedWeight! >= 1 &&
 			selectedWeight! <= 1000 &&
 			!options.some((option) => option.value === String(selectedWeight))
 		) {
-			options.push({ value: String(selectedWeight), label: String(selectedWeight) });
+			options.push({
+				value: String(selectedWeight),
+				label: String(selectedWeight)
+			});
 			options.sort((left, right) => Number(left.value) - Number(right.value));
 		}
 		return options;
@@ -64,6 +79,15 @@
 					})
 				: m.image_editor_applied_to_layers({ count: result.applied });
 	}
+
+	function selectTextRange(target: HTMLTextAreaElement): void {
+		if (!layer?.text) return;
+		editor.setTextRange(
+			layer.id,
+			textGraphemeOffset(target.value, target.selectionStart),
+			textGraphemeOffset(target.value, target.selectionEnd)
+		);
+	}
 </script>
 
 {#if layer?.type === 'text' && layer.text}
@@ -76,7 +100,10 @@
 					ariaLabel={m.image_editor_apply_text_style()}
 					disabled={!editor.canEdit || layer.locked}
 					onValueChange={applyTextStyle}
-					options={brandTextStyles.map((style) => ({ value: style.id, label: style.name }))}
+					options={brandTextStyles.map((style) => ({
+						value: style.id,
+						label: style.name
+					}))}
 					placeholder={m.image_editor_choose_text_style()}
 					class="h-7 w-full"
 				/>
@@ -108,14 +135,20 @@
 				class="min-h-20"
 				value={layer.text.text}
 				disabled={!editor.canEdit}
-				oninput={(event) =>
-					editor.updateLayer(
-						layer.id,
-						{ text: { ...layer.text!, text: event.currentTarget.value } },
-						`text:${layer.id}`
-					)}
+				onselect={(event) => selectTextRange(event.currentTarget)}
+				oninput={(event) => {
+					editor.updateTextContent(layer.id, event.currentTarget.value);
+					selectTextRange(event.currentTarget);
+				}}
 			/>
 		</label>
+		{#if textRange}
+			<p class="text-xs text-muted-foreground" role="status">
+				{m.image_editor_selected_count({
+					count: textRange.end - textRange.start
+				})}
+			</p>
+		{/if}
 		<label class="grid gap-1 text-xs">
 			<span>{m.image_editor_font_family()}</span>
 			<ImageEditorFontPicker
@@ -158,13 +191,10 @@
 			<label class="grid gap-1 text-xs">
 				<span>{m.image_editor_weight()}</span>
 				<AppSelect
-					value={String(layer.text.font_weight)}
+					value={String(selectedStyle?.font_weight ?? layer.text.font_weight)}
 					ariaLabel={m.image_editor_weight()}
 					disabled={!editor.canEdit}
-					onValueChange={(value) =>
-						editor.updateLayer(layer.id, {
-							text: { ...layer.text!, font_weight: Number(value) }
-						})}
+					onValueChange={(value) => editor.updateTextStyle(layer.id, 'font_weight', Number(value))}
 					options={fontWeightOptions}
 					class="h-7 w-full"
 				/>

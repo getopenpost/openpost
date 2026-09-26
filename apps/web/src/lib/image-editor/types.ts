@@ -87,6 +87,7 @@ export interface ImageEditorTextCurve {
 
 export interface ImageEditorTextValue {
 	text: string;
+	runs?: ImageEditorTextRun[];
 	font_family: string;
 	font_asset_id?: string;
 	font_weight: number;
@@ -104,6 +105,15 @@ export interface ImageEditorTextValue {
 	stroke_width: number;
 	shadow: ImageEditorTextShadow;
 	curve?: ImageEditorTextCurve;
+}
+
+export interface ImageEditorTextRun {
+	start: number;
+	end: number;
+	font_weight?: number;
+	font_style?: 'normal' | 'italic';
+	underline?: boolean;
+	color?: string;
 }
 
 export interface ImageEditorImageAdjustments extends EditorColorGrade {

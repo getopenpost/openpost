@@ -117,6 +117,74 @@ function pixelDigest(canvas: HTMLCanvasElement): number {
 	return hash >>> 0;
 }
 
+it('renders saved grapheme emphasis in the live canvas and static export', async () => {
+	const layer: ImageEditorLayer = {
+		id: 'headline',
+		type: 'text',
+		name: 'Headline',
+		visible: true,
+		locked: false,
+		opacity: 1,
+		transform: {
+			x: 20,
+			y: 20,
+			width: 300,
+			height: 100,
+			rotation: 0,
+			flip_x: false,
+			flip_y: false
+		},
+		text: {
+			text: 'A👩🏽‍🚀B',
+			runs: [{ start: 2, end: 3, font_weight: 700, color: '#ff0000' }],
+			font_family: 'Arial',
+			font_weight: 400,
+			font_style: 'normal',
+			font_size: 52,
+			color: '#000000',
+			align: 'left',
+			line_height: 1,
+			letter_spacing: 0,
+			stroke_width: 0,
+			shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 }
+		}
+	};
+	const page = pageFixture([layer]);
+	const document = documentFixture(page);
+	const live = await mountAdapter(document, page);
+	const exported = await mountAdapter(document, page, { staticCanvas: true });
+	try {
+		const objects = adapterInternals<{ objectByLayerID: Map<string, IText> }>(live.adapter);
+		const glyph = objects.objectByLayerID.get('headline');
+		expect(glyph?.styles[0]?.[2]).toMatchObject({
+			fontWeight: 700,
+			fill: '#ff0000'
+		});
+		expect(glyph?.styles[0]?.[1]).toBeUndefined();
+		await settleCanvas();
+		expect(pixelDigest(live.canvas)).toBe(pixelDigest(exported.canvas));
+		const changedLayer: ImageEditorLayer = {
+			...layer,
+			text: {
+				...layer.text!,
+				text: 'A\n👩🏽‍🚀B',
+				runs: [{ start: 3, end: 4, font_weight: 700, color: '#ff0000' }]
+			}
+		};
+		const changedPage = pageFixture([changedLayer]);
+		await live.adapter.sync(documentFixture(changedPage), changedPage);
+		expect(objects.objectByLayerID.get('headline')?.styles[1]?.[1]).toMatchObject({
+			fontWeight: 700,
+			fill: '#ff0000'
+		});
+	} finally {
+		live.adapter.dispose();
+		exported.adapter.dispose();
+		live.canvas.remove();
+		exported.canvas.remove();
+	}
+});
+
 function pixelAt(canvas: HTMLCanvasElement, x: number, y: number): number[] {
 	const context = canvas.getContext('2d');
 	if (!context) throw new Error('Canvas context is unavailable.');
@@ -672,10 +740,14 @@ describe('OpenPost Image Editor text layer outlines', () => {
 		const layer = textLayer();
 		layer.opacity = 0.5;
 		const page = pageFixture([layer]);
-		const mounted = await mountAdapter(documentFixture(page), page, { staticCanvas: true });
+		const mounted = await mountAdapter(documentFixture(page), page, {
+			staticCanvas: true
+		});
 		const plainPage = structuredClone(page);
 		delete plainPage.layers[0].effects!.stroke;
-		const plain = await mountAdapter(documentFixture(plainPage), plainPage, { staticCanvas: true });
+		const plain = await mountAdapter(documentFixture(plainPage), plainPage, {
+			staticCanvas: true
+		});
 		try {
 			const withoutOutline = plain.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;
 			const withOutline = mounted.canvas.getContext('2d')!.getImageData(0, 0, 360, 240).data;

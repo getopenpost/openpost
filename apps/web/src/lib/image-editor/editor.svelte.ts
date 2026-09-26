@@ -26,6 +26,7 @@ import {
 	type ImageEditorCollectiveTransformKey
 } from './collective-transform';
 import { ImageEditorHistory } from './history';
+import { editTextWithRuns, styleTextRange } from './text-runs';
 import {
 	rasterResultLayer,
 	type ImageEditorRasterPlan,
@@ -60,6 +61,7 @@ import type {
 	ImageEditorBrandKit,
 	ImageEditorBrandTextStyle,
 	ImageEditorLayer,
+	ImageEditorTextRun,
 	ImageEditorImageAdjustments,
 	ImageEditorPage,
 	ImageEditorPageBackground,
@@ -195,6 +197,12 @@ export class ImageEditorController {
 	document = $state.raw<ImageEditorDocument | null>(null);
 	activePageID = $state('');
 	selectedLayerIDs = $state.raw<string[]>([]);
+	textRange = $state.raw<{
+		pageID: string;
+		layerID: string;
+		start: number;
+		end: number;
+	} | null>(null);
 	activeTool = $state<ImageEditorTool>('select');
 	selectionMode = $state<ImageEditorSelectionMode>('replace');
 	magicSelectTolerance = $state(32);
@@ -370,6 +378,7 @@ export class ImageEditorController {
 		if (this.document.schema_version === 1) this.document.schema_version = 2;
 		this.activePageID = response.document.pages[0]?.id ?? '';
 		this.selectedLayerIDs = [];
+		this.textRange = null;
 		this.pixelSelection = null;
 		this.floatingPixelSelection = null;
 		this.selectionAnchorID = '';
@@ -622,6 +631,11 @@ export class ImageEditorController {
 	}
 
 	selectLayer(id: string, mode: boolean | 'replace' | 'toggle' | 'range' = 'replace'): void {
+		if (
+			this.textRange &&
+			(this.textRange.layerID !== id || this.textRange.pageID !== this.activePageID)
+		)
+			this.textRange = null;
 		if (!id) {
 			this.selectedLayerIDs = [];
 			this.selectionAnchorID = '';
@@ -636,6 +650,7 @@ export class ImageEditorController {
 				const start = Math.min(anchorIndex, targetIndex);
 				const end = Math.max(anchorIndex, targetIndex);
 				this.selectedLayerIDs = order.slice(start, end + 1);
+				if (this.selectedLayerIDs.length !== 1) this.textRange = null;
 				return;
 			}
 		}
@@ -647,12 +662,18 @@ export class ImageEditorController {
 			this.selectedLayerIDs = [id];
 		}
 		this.selectionAnchorID = id;
+		if (this.selectedLayerIDs.length !== 1) this.textRange = null;
 	}
 
 	applyLayerSelection(ids: string[], mode: ImageEditorSelectionMode = 'replace'): void {
 		const available = new SvelteSet(this.activePage?.layers.map((layer) => layer.id) ?? []);
 		const candidates = ids.filter((id) => available.has(id));
 		this.selectedLayerIDs = mergeSelectionIDs(this.selectedLayerIDs, candidates, mode);
+		if (
+			this.textRange &&
+			(this.selectedLayerIDs.length !== 1 || this.selectedLayerIDs[0] !== this.textRange.layerID)
+		)
+			this.textRange = null;
 		this.selectionAnchorID = this.selectedLayerIDs.at(-1) ?? '';
 	}
 
@@ -1647,6 +1668,38 @@ export class ImageEditorController {
 			},
 			coalesceKey
 		);
+	}
+
+	setTextRange(layerID: string, start: number, end: number): void {
+		this.textRange = end > start ? { pageID: this.activePageID, layerID, start, end } : null;
+	}
+
+	updateTextContent(id: string, text: string): ImageEditorLayer['text'] {
+		const layer = this.activePage?.layers.find((item) => item.id === id);
+		if (!layer?.text || layer.locked) return layer?.text;
+		const next = editTextWithRuns(layer.text, text);
+		this.updateLayer(id, { text: next }, `text:${id}`);
+		return next;
+	}
+
+	updateTextStyle<K extends 'font_weight' | 'font_style' | 'underline' | 'color'>(
+		id: string,
+		property: K,
+		value: NonNullable<ImageEditorTextRun[K]>,
+		coalesceKey?: string
+	): void {
+		const layer = this.activePage?.layers.find((item) => item.id === id);
+		if (!layer?.text || layer.locked) return;
+		const range =
+			this.textRange?.pageID === this.activePageID && this.textRange.layerID === id
+				? this.textRange
+				: null;
+		const text = range
+			? styleTextRange(layer.text, range.start, range.end, {
+					[property]: value
+				})
+			: { ...layer.text, [property]: value };
+		this.updateLayer(id, { text }, coalesceKey);
 	}
 
 	applyImageCrop(id: string, window: ImageEditorCropWindow): void {

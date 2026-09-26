@@ -64,6 +64,48 @@ func TestImageEditorMixedPageSizesRoundTripAndLegacyFallback(t *testing.T) {
 	require.Error(t, validateImageEditorPayload(legacy))
 }
 
+func TestImageEditorTextRunsPreserveGraphemeRanges(t *testing.T) {
+	t.Parallel()
+	bold := 700
+	italic := "italic"
+	color := "#ff0000"
+	value := ImageEditorTextValue{
+		Text: "A👩🏽‍🚀e\u0301Z",
+		Runs: []ImageEditorTextRun{{Start: 1, End: 3, FontWeight: &bold, FontStyle: &italic, Color: &color}},
+	}
+	require.True(t, imageEditorTextRunsValid(&value))
+	encoded, err := json.Marshal(value)
+	require.NoError(t, err)
+	var decoded ImageEditorTextValue
+	require.NoError(t, json.Unmarshal(encoded, &decoded))
+	require.Equal(t, value.Runs, decoded.Runs)
+
+	value.Runs[0].End = 5
+	require.False(t, imageEditorTextRunsValid(&value), "ranges must end within grapheme count")
+	value.Runs[0].End = 3
+	value.Runs = append(value.Runs, ImageEditorTextRun{Start: 2, End: 4, Color: &color})
+	require.False(t, imageEditorTextRunsValid(&value), "overlapping ranges must be rejected")
+}
+
+func TestImageEditorLegacyPageRejectsTextRuns(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	create := &CreateImageEditorDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Legacy text"
+	create.Body.PresetKey = "instagram-square"
+	created, err := handler.createDesign(ctx, create)
+	require.NoError(t, err)
+
+	document := created.Body.Document
+	document.SchemaVersion = 1
+	underline := true
+	document.Pages[0].Layers = append(document.Pages[0].Layers, ImageEditorLayer{
+		Text: &ImageEditorTextValue{Text: "abc", Runs: []ImageEditorTextRun{{Start: 0, End: 1, Underline: &underline}}},
+	})
+	require.ErrorContains(t, validateImageEditorPayload(document), "text emphasis requires image editor schema version 2")
+}
+
 func TestImageEditorNamedRevisionPaginationReachesOlderVersions(t *testing.T) {
 	t.Parallel()
 	handler, ctx := newImageEditorHandlerTest(t)

@@ -13,6 +13,7 @@
 	import LayerEffectsPanel from './layer-effects-panel.svelte';
 	import PageBackgroundEditor from './page-background-editor.svelte';
 	import TextContentProperties from './text-content-properties.svelte';
+	import { textRunStyleAt } from '../text-runs';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
@@ -33,6 +34,14 @@
 
 	const editor = useImageEditor();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
+	let textRange = $derived(
+		editor.textRange?.pageID === editor.activePageID && editor.textRange.layerID === layer?.id
+			? editor.textRange
+			: null
+	);
+	let selectedTextStyle = $derived(
+		layer?.text && textRange ? textRunStyleAt(layer.text, textRange.start) : null
+	);
 	let cropOpen = $state(false);
 	let layerActionsOpen = $state(false);
 	let transformOpen = $state(false);
@@ -116,7 +125,10 @@
 		editor.updateTransform(
 			layer.id,
 			key === 'width'
-				? { width: Math.max(1, value), height: Math.max(1, value / Math.max(0.0001, ratio)) }
+				? {
+						width: Math.max(1, value),
+						height: Math.max(1, value / Math.max(0.0001, ratio))
+					}
 				: { height: Math.max(1, value), width: Math.max(1, value * ratio) }
 		);
 	}
@@ -162,7 +174,10 @@
 				?.layers.find((candidate) => candidate.id === layer?.id);
 			if (!current?.text) return;
 			const previousType = current.text.curve?.type ?? 'none';
-			current.text.curve = { ...(current.text.curve ?? defaultTextCurve()), type };
+			current.text.curve = {
+				...(current.text.curve ?? defaultTextCurve()),
+				type
+			};
 			if (type !== 'circle' && type !== 'ellipse') return;
 			const nextHeight =
 				type === 'circle'
@@ -420,7 +435,9 @@
 					<Collapsible.Content class="space-y-2 pt-2">
 						{#if editor.selectedLayers.length > 1}
 							<div class="space-y-1.5 rounded-md border bg-muted/20 p-2">
-								<p class="text-xs font-medium">{m.image_editor_transform_layers()}</p>
+								<p class="text-xs font-medium">
+									{m.image_editor_transform_layers()}
+								</p>
 								<div class="grid grid-cols-3 gap-1">
 									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('left')}
 										>{m.image_editor_align_left()}</Button
@@ -554,7 +571,9 @@
 							<span>
 								{mixedOpacity.mixed
 									? m.image_editor_opacity_mixed()
-									: m.image_editor_opacity({ value: Math.round(layer.opacity * 100) })}
+									: m.image_editor_opacity({
+											value: Math.round(layer.opacity * 100)
+										})}
 							</span>
 							<Slider
 								min={0}
@@ -562,7 +581,9 @@
 								step={0.01}
 								value={layer.opacity}
 								disabled={!editor.canEdit}
-								ariaLabel={m.image_editor_opacity({ value: Math.round(layer.opacity * 100) })}
+								ariaLabel={m.image_editor_opacity({
+									value: Math.round(layer.opacity * 100)
+								})}
 								onValueChange={(opacity) => {
 									const result = editor.updateSelectedOpacity(opacity);
 									applicationFeedback = partialApplicationMessage(result);
@@ -585,16 +606,11 @@
 							<label class="grid gap-1 text-xs">
 								<span>{m.image_editor_style()}</span>
 								<AppSelect
-									value={layer.text.font_style}
+									value={selectedTextStyle?.font_style ?? layer.text.font_style}
 									ariaLabel={m.image_editor_style()}
 									disabled={!editor.canEdit}
 									onValueChange={(value) =>
-										editor.updateLayer(layer.id, {
-											text: {
-												...layer.text!,
-												font_style: value as 'normal' | 'italic'
-											}
-										})}
+										editor.updateTextStyle(layer.id, 'font_style', value as 'normal' | 'italic')}
 									options={[
 										{ value: 'normal', label: m.image_editor_normal() },
 										{ value: 'italic', label: m.image_editor_italic() }
@@ -627,14 +643,18 @@
 						</div>
 						<div class="grid grid-cols-2 gap-2">
 							<Button
-								variant={layer.text.underline ? 'secondary' : 'outline'}
+								variant={(selectedTextStyle?.underline ?? layer.text.underline)
+									? 'secondary'
+									: 'outline'}
 								size="sm"
-								aria-pressed={Boolean(layer.text.underline)}
+								aria-pressed={Boolean(selectedTextStyle?.underline ?? layer.text.underline)}
 								disabled={!editor.canEdit || layer.locked}
 								onclick={() =>
-									editor.updateLayer(layer.id, {
-										text: { ...layer.text!, underline: !layer.text!.underline }
-									})}
+									editor.updateTextStyle(
+										layer.id,
+										'underline',
+										!(selectedTextStyle?.underline ?? layer.text!.underline)
+									)}
 							>
 								{m.image_editor_underline()}
 							</Button>
@@ -659,11 +679,17 @@
 								disabled={!editor.canEdit || layer.locked}
 								onValueChange={(value) =>
 									editor.updateLayer(layer.id, {
-										text: { ...layer.text!, wrap: value as 'word' | 'character' }
+										text: {
+											...layer.text!,
+											wrap: value as 'word' | 'character'
+										}
 									})}
 								options={[
 									{ value: 'word', label: m.image_editor_wrap_words() },
-									{ value: 'character', label: m.image_editor_wrap_characters() }
+									{
+										value: 'character',
+										label: m.image_editor_wrap_characters()
+									}
 								]}
 								class="h-7 w-full"
 							/>
@@ -694,16 +720,12 @@
 							<span>{m.image_editor_color()}</span>
 							<ColorPicker
 								label={m.image_editor_color()}
-								value={layer.text.color}
+								value={selectedTextStyle?.color ?? layer.text.color}
 								disabled={!editor.canEdit}
 								{brandColors}
 								recentColors={editor.recentColors}
 								onChange={(value) =>
-									editor.updateLayer(
-										layer.id,
-										{ text: { ...layer.text!, color: value } },
-										`text-color:${layer.id}`
-									)}
+									editor.updateTextStyle(layer.id, 'color', value, `text-color:${layer.id}`)}
 								onCommit={(value) => editor.rememberColor(value)}
 							/>
 						</label>
@@ -733,7 +755,10 @@
 									options={[
 										{ value: 'none', label: m.image_editor_curve_none() },
 										{ value: 'arc_up', label: m.image_editor_curve_arc_up() },
-										{ value: 'arc_down', label: m.image_editor_curve_arc_down() },
+										{
+											value: 'arc_down',
+											label: m.image_editor_curve_arc_down()
+										},
 										{ value: 'wave', label: m.image_editor_curve_wave() },
 										{ value: 'circle', label: m.image_editor_curve_circle() },
 										{ value: 'ellipse', label: m.image_editor_curve_ellipse() }
@@ -874,7 +899,12 @@
 										highlight_color: undefined,
 										stroke_color: undefined,
 										stroke_width: 0,
-										shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 },
+										shadow: {
+											color: '#00000000',
+											blur: 0,
+											offset_x: 0,
+											offset_y: 0
+										},
 										curve: defaultTextCurve()
 									}
 								})}>{m.image_editor_clear_text_effects()}</Button
@@ -906,7 +936,10 @@
 									})}
 								options={[
 									{ value: 'rectangle', label: m.image_editor_rectangle() },
-									{ value: 'rounded_rectangle', label: m.image_editor_rounded_rectangle() },
+									{
+										value: 'rounded_rectangle',
+										label: m.image_editor_rounded_rectangle()
+									},
 									{ value: 'ellipse', label: m.image_editor_ellipse() },
 									{ value: 'line', label: m.image_editor_line() }
 								]}
@@ -1155,7 +1188,10 @@
 									size="xs"
 									onclick={() =>
 										editor.updateLayer(layer.id, {
-											image: { ...layer.image!, adjustments: defaultImageAdjustments() }
+											image: {
+												...layer.image!,
+												adjustments: defaultImageAdjustments()
+											}
 										})}
 								>
 									{m.image_editor_reset_all()}

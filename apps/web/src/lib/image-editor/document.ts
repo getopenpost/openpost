@@ -1,4 +1,5 @@
 import { validEditorColorTools } from '$lib/editor-color-grade/model';
+import { validTextRuns } from './text-runs';
 import {
 	IMAGE_EDITOR_LIMITS,
 	IMAGE_EDITOR_SCHEMA_VERSION,
@@ -346,6 +347,9 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 				errors.push(`${layer.name} has invalid opacity.`);
 			}
 			if (layer.type === 'text' && !layer.text) errors.push(`${layer.name} has no text data.`);
+			if (layer.text && !validTextRuns(layer.text)) {
+				errors.push(`${layer.name} has invalid text emphasis ranges.`);
+			}
 			if (
 				layer.text?.curve &&
 				(!['none', 'arc_up', 'arc_down', 'wave', 'circle', 'ellipse'].includes(

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+import { FabricImage } from 'fabric';
 import {
 	defaultImageAdjustments,
 	defaultImageEditorPageBackground,
 	defaultTransform
 } from '$lib/image-editor/document';
 import { renderImageEditorPage, renderImageEditorPreview } from '$lib/image-editor/static-renderer';
+import { OpenPostFabricAdapter } from '$lib/image-editor/fabric-adapter';
 import type { ImageEditorDocument } from '$lib/image-editor/types';
 import { CanvasStackCompositor } from '$lib/video-editor/media/canvas-stack-compositor';
 import { createGpuCompositor } from '$lib/video-editor/effects/gpu/compositor';
@@ -51,7 +53,7 @@ function pixels(source: HTMLCanvasElement): Uint8ClampedArray {
 	return context.getImageData(0, 0, canvas.width, canvas.height).data;
 }
 
-async function blobCenterPixel(blob: Blob): Promise<number[]> {
+async function blobCenterPixel(blob: Blob, x = 0.5): Promise<number[]> {
 	const bitmap = await createImageBitmap(blob);
 	const canvas = document.createElement('canvas');
 	canvas.width = bitmap.width;
@@ -61,7 +63,7 @@ async function blobCenterPixel(blob: Blob): Promise<number[]> {
 	context.drawImage(bitmap, 0, 0);
 	bitmap.close();
 	return [
-		...context.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data
+		...context.getImageData(Math.floor(canvas.width * x), Math.floor(canvas.height / 2), 1, 1).data
 	];
 }
 
@@ -69,6 +71,45 @@ async function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 	return new Promise((resolve, reject) => {
 		canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Canvas encode failed.'))));
 	});
+}
+
+function gradedLayerDocument(sourceSize: number): ImageEditorDocument {
+	const page = {
+		id: 'page',
+		name: 'Page 1',
+		background_color: '#ffffff',
+		background: defaultImageEditorPageBackground('#ffffff'),
+		layers: [
+			{
+				id: 'image',
+				type: 'image' as const,
+				name: 'Image',
+				visible: true,
+				locked: false,
+				opacity: 1,
+				transform: defaultTransform(sourceSize / 2, sourceSize / 2),
+				image: {
+					media_id: 'media',
+					source_width: sourceSize,
+					source_height: sourceSize,
+					fit: 'stretch' as const,
+					crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
+					adjustments: { ...defaultImageAdjustments(), ...grade },
+					color_grade_version: 1 as const
+				}
+			}
+		]
+	};
+	return {
+		schema_version: 1,
+		title: 'Graded layer',
+		preset_key: 'square',
+		width_px: sourceSize / 2,
+		height_px: sourceSize / 2,
+		brand_kit_revision: 0,
+		export_defaults: { format: 'png', quality: 1, matte_color: '#ffffff' },
+		pages: [page]
+	};
 }
 
 describe('shared still and video color rendering', () => {
@@ -251,71 +292,159 @@ describe('shared still and video color rendering', () => {
 		}
 	});
 
-	it('keeps a versioned image-layer grade through document reload, preview, and export', async () => {
+	it.each<{
+		sourceSize: number;
+		cropSize: number;
+		fit?: 'cover' | 'contain';
+		blur?: number;
+		masked?: boolean;
+	}>([
+		{ sourceSize: 64, cropSize: 0.5 },
+		{ sourceSize: 2048, cropSize: 0.5 },
+		{ sourceSize: 2048, cropSize: 0.01 },
+		{ sourceSize: 2048, cropSize: 0.5, fit: 'cover' },
+		{ sourceSize: 2048, cropSize: 0.5, fit: 'contain', masked: true },
+		{ sourceSize: 2048, cropSize: 0.5, blur: 0.2 }
+	])(
+		'keeps a $sourceSize px source with crop $cropSize and fit $fit through reload, bounded preview, and full export',
+		async ({ sourceSize, cropSize, fit, blur = 0, masked = false }) => {
+			const source = document.createElement('canvas');
+			source.width = sourceSize;
+			source.height = sourceSize;
+			const sourceContext = source.getContext('2d');
+			if (!sourceContext) throw new Error('Canvas has no 2D context.');
+			sourceContext.fillStyle = '#204060';
+			sourceContext.fillRect(0, 0, sourceSize, sourceSize);
+			sourceContext.fillStyle = '#a04020';
+			sourceContext.fillRect(sourceSize / 2, 0, sourceSize / 2, sourceSize);
+			sourceContext.fillStyle = '#00ff00';
+			sourceContext.fillRect(0, 0, sourceSize / 4, sourceSize);
+			sourceContext.fillRect((sourceSize * 3) / 4, 0, sourceSize / 4, sourceSize);
+			if (masked)
+				sourceContext.clearRect(
+					sourceSize / 4,
+					(sourceSize * 3) / 8,
+					sourceSize / 4,
+					sourceSize / 4
+				);
+			const sourceBlob = await canvasBlob(source);
+			const fetchMock = vi
+				.spyOn(globalThis, 'fetch')
+				.mockImplementation(() => Promise.resolve(new Response(sourceBlob, { status: 200 })));
+
+			const uploadedWidths: number[] = [];
+			const renderGrade = ImageGradeRenderer.prototype.render;
+			const renderSpy = vi
+				.spyOn(ImageGradeRenderer.prototype, 'render')
+				.mockImplementation(function (this: ImageGradeRenderer, input, width, height, adjustments) {
+					if (!('width' in input))
+						throw new Error('Expected an image grade input with pixel dimensions.');
+					uploadedWidths.push(input.width);
+					return renderGrade.call(this, input, width, height, adjustments);
+				});
+			try {
+				const imageDocument = gradedLayerDocument(sourceSize);
+				const imageLayer = imageDocument.pages[0].layers[0];
+				const cropHeight = fit ? cropSize / 2 : cropSize;
+				imageLayer.image!.crop = {
+					x: (1 - cropSize) / 2,
+					y: (1 - cropHeight) / 2,
+					width: cropSize,
+					height: cropHeight
+				};
+				imageLayer.image!.fit = fit ?? 'stretch';
+				imageLayer.image!.adjustments.blur = blur;
+				if (masked) imageLayer.mask = { shape: 'ellipse', inset: 0, radius: 0 };
+				const reloaded = structuredClone(imageDocument);
+				const exported = await renderImageEditorPage(reloaded, reloaded.pages[0], 0);
+				expect(renderSpy.mock.calls.at(-1)?.slice(1, 3)).toEqual([sourceSize, sourceSize]);
+				renderSpy.mockClear();
+				uploadedWidths.length = 0;
+				const preview = await renderImageEditorPreview(reloaded, reloaded.pages[0]);
+				const previewLimit = sourceSize <= 512 ? sourceSize : blur ? 1024 : 512;
+				for (const [, width, height] of renderSpy.mock.calls) {
+					expect(width).toBeLessThanOrEqual(previewLimit);
+					expect(height).toBeLessThanOrEqual(previewLimit);
+				}
+
+				expect(renderSpy).toHaveBeenCalled();
+				for (const width of uploadedWidths) expect(width).toBeLessThanOrEqual(previewLimit);
+				const exportedSamples = await Promise.all(
+					[0.25, 0.75].map((x) => blobCenterPixel(exported.blob, x))
+				);
+				const previewSamples = await Promise.all(
+					[0.25, 0.75].map((x) => blobCenterPixel(preview, x))
+				);
+				expect(exportedSamples[0]).not.toEqual(exportedSamples[1]);
+				if (masked) expect(exportedSamples[0]).toEqual([255, 255, 255, 255]);
+				for (let sample = 0; sample < 2; sample++) {
+					for (let channel = 0; channel < 4; channel++) {
+						expect(
+							Math.abs(exportedSamples[sample][channel] - previewSamples[sample][channel])
+						).toBeLessThanOrEqual(4);
+					}
+				}
+			} finally {
+				fetchMock.mockRestore();
+				renderSpy.mockRestore();
+			}
+		}
+	);
+	it('reuses grading for geometry edits and restores canceled color previews', async () => {
 		const source = document.createElement('canvas');
-		source.width = 16;
-		source.height = 16;
-		const sourceContext = source.getContext('2d');
-		if (!sourceContext) throw new Error('Canvas has no 2D context.');
-		sourceContext.fillStyle = '#204060';
-		sourceContext.fillRect(0, 0, 16, 16);
+		source.width = source.height = 32;
+		const context = source.getContext('2d')!;
+		context.fillStyle = '#204060';
+		context.fillRect(0, 0, 32, 32);
 		const sourceBlob = await canvasBlob(source);
 		const fetchMock = vi
 			.spyOn(globalThis, 'fetch')
-			.mockImplementation(() => Promise.resolve(new Response(sourceBlob, { status: 200 })));
-
+			.mockImplementation(() => Promise.resolve(new Response(sourceBlob)));
+		const renderSpy = vi.spyOn(ImageGradeRenderer.prototype, 'render');
+		const filterSpy = vi.spyOn(FabricImage.prototype, 'applyFilters');
+		const canvas = document.createElement('canvas');
+		const imageDocument = gradedLayerDocument(32);
+		const page = imageDocument.pages[0];
+		page.layers[0].image!.adjustments.blur = 0.2;
+		const adapter = new OpenPostFabricAdapter({
+			canvas,
+			document: imageDocument,
+			page,
+			readOnly: false,
+			onSelection() {},
+			onTransform() {},
+			onTextChange() {}
+		});
 		try {
-			const page = {
-				id: 'page',
-				name: 'Page 1',
-				background_color: '#ffffff',
-				background: defaultImageEditorPageBackground('#ffffff'),
-				layers: [
-					{
-						id: 'image',
-						type: 'image' as const,
-						name: 'Image',
-						visible: true,
-						locked: false,
-						opacity: 1,
-						transform: defaultTransform(16, 16),
-						image: {
-							media_id: 'media',
-							source_width: 16,
-							source_height: 16,
-							fit: 'stretch' as const,
-							crop: { x: 0, y: 0, width: 1, height: 1 },
-							adjustments: { ...defaultImageAdjustments(), ...grade },
-							color_grade_version: 1 as const
-						}
-					}
-				]
-			};
-			const imageDocument: ImageEditorDocument = {
-				schema_version: 1,
-				title: 'Graded layer',
-				preset_key: 'square',
-				width_px: 16,
-				height_px: 16,
-				brand_kit_revision: 0,
-				export_defaults: { format: 'png', quality: 1, matte_color: '#ffffff' },
-				pages: [page]
-			};
-			const reloaded = structuredClone(imageDocument);
-			const exported = await renderImageEditorPage(reloaded, reloaded.pages[0], 0);
-			const preview = await renderImageEditorPreview(reloaded, reloaded.pages[0]);
-			const exportedPixel = await blobCenterPixel(exported.blob);
-			const previewPixel = await blobCenterPixel(preview);
-
-			expect(reloaded.pages[0].layers[0]?.image?.color_grade_version).toBe(1);
-			expect(exportedPixel).not.toEqual([32, 64, 96, 255]);
-			for (let channel = 0; channel < 4; channel += 1) {
-				expect(
-					Math.abs((exportedPixel[channel] ?? 0) - (previewPixel[channel] ?? 0))
-				).toBeLessThanOrEqual(4);
-			}
+			await adapter.mount();
+			await new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+			);
+			const initialPixel = Array.from(adapter.samplePagePixel({ x: 8, y: 8 })!);
+			renderSpy.mockClear();
+			filterSpy.mockClear();
+			const moved = structuredClone(imageDocument);
+			moved.pages[0].layers[0].transform.x = 2;
+			moved.pages[0].layers[0].opacity = 0.5;
+			await adapter.sync(moved, moved.pages[0]);
+			expect(renderSpy).not.toHaveBeenCalled();
+			expect(filterSpy).not.toHaveBeenCalled();
+			const draft = structuredClone(moved.pages[0].layers[0]);
+			draft.image!.adjustments.brightness = 0.8;
+			adapter.previewImageLayer('image', draft);
+			expect(renderSpy).toHaveBeenCalledTimes(1);
+			adapter.previewImageLayer('image');
+			expect(renderSpy).toHaveBeenCalledTimes(2);
+			await adapter.sync(imageDocument, page);
+			await new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+			);
+			expect(Array.from(adapter.samplePagePixel({ x: 8, y: 8 })!)).toEqual(initialPixel);
 		} finally {
+			adapter.dispose();
 			fetchMock.mockRestore();
+			renderSpy.mockRestore();
+			filterSpy.mockRestore();
 		}
 	});
 });

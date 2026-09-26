@@ -47,7 +47,10 @@ type FabricObject = InstanceType<FabricModule['FabricObject']> & {
 };
 type FabricImageObject = InstanceType<FabricModule['FabricImage']> & {
 	__imageEditorGradeApplied?: boolean;
-	__imageEditorGradeSource?: TexImageSource;
+	__imageEditorGradeSource?: ReturnType<FabricImageObject['getElement']>;
+	__imageEditorGradeKey?: string;
+	__imageEditorFilterKey?: string;
+	__imageEditorGradeGeometry?: ImageEditorImageGeometry;
 	__imageEditorGradeCanvas?: HTMLCanvasElement;
 	__imageEditorGradeBackend?: ImageGradeBackend;
 	__imageEditorRenderWidth?: number;
@@ -173,9 +176,11 @@ interface ImageEditorAlphaHitMask {
 	alpha: Uint8Array;
 }
 
-interface ImageGradeRenderSize {
+interface ImageGradeRenderPlan {
 	width: number;
 	height: number;
+	sourceBounds?: SelectionBounds;
+	geometry?: ImageEditorImageGeometry;
 }
 
 const MAXIMUM_ALPHA_HIT_MASK_PIXELS = 1_048_576;
@@ -405,6 +410,7 @@ export class OpenPostFabricAdapter {
 	private colorGradeComparisonPage = false;
 	private colorGradeComparisonLayerIDs = new Set<string>();
 	private gradeRenderer: ImageGradeRenderer | null = null;
+	private gradeInputCanvas: HTMLCanvasElement | null = null;
 	private applyingPageGrade = false;
 	private document: ImageEditorDocument;
 	private page: ImageEditorPage;
@@ -1131,6 +1137,10 @@ export class OpenPostFabricAdapter {
 		this.canvas?.off('after:render', this.applyPageColorGrade);
 		this.canvas?.off('after:render', this.publishRenderedFrame);
 		this.canvas?.dispose();
+		if (this.gradeInputCanvas) {
+			this.gradeInputCanvas.width = this.gradeInputCanvas.height = 0;
+			this.gradeInputCanvas = null;
+		}
 		this.gradeRenderer?.dispose();
 		this.gradeRenderer = null;
 		this.canvas = null;
@@ -1748,35 +1758,20 @@ export class OpenPostFabricAdapter {
 			const sourceWidth = Math.max(1, image.width);
 			const sourceHeight = Math.max(1, image.height);
 			if (layer.image.color_grade_version === IMAGE_COLOR_GRADE_VERSION) {
-				const gradeSource = image.getElement();
-				const renderSize = this.gradeRenderSize(sourceWidth, sourceHeight);
-				const graded = this.renderLayerGrade(
-					gradeSource,
-					renderSize.width,
-					renderSize.height,
-					this.layerGradeBefore(layer.id) ? defaultImageAdjustments() : layer.image.adjustments
-				);
-				if (graded) {
-					image = new this.fabric.FabricImage(graded.canvas);
-					image.__imageEditorGradeCanvas = graded.canvas;
-					image.__imageEditorGradeBackend = graded.backend;
-					image.__imageEditorRenderWidth = renderSize.width;
-					image.__imageEditorRenderHeight = renderSize.height;
-				} else {
-					this.onRenderError(layer.id);
-					if (this.staticMode) throw new Error(`Color grading failed for layer ${layer.id}.`);
-				}
 				image.__imageEditorGradeApplied = true;
-				image.__imageEditorGradeSource = gradeSource;
+				image.__imageEditorGradeSource = image.getElement();
+				this.applyImageGrade(image, layer, this.gradeRenderPlan(layer, sourceWidth, sourceHeight));
 			}
 			if (layer.image.intrinsic_pending) {
 				queueMicrotask(() => this.onImageDimensions(layer.id, sourceWidth, sourceHeight));
 			}
-			const geometry = computeImageGeometry(
-				layer,
-				image.__imageEditorRenderWidth ?? sourceWidth,
-				image.__imageEditorRenderHeight ?? sourceHeight
-			);
+			const geometry =
+				image.__imageEditorGradeGeometry ??
+				computeImageGeometry(
+					layer,
+					image.__imageEditorRenderWidth ?? sourceWidth,
+					image.__imageEditorRenderHeight ?? sourceHeight
+				);
 			image.set({
 				...options,
 				...geometry
@@ -1859,21 +1854,12 @@ export class OpenPostFabricAdapter {
 				layer.image.color_grade_version === IMAGE_COLOR_GRADE_VERSION &&
 				image.__imageEditorGradeSource
 			) {
-				const graded = this.renderLayerGrade(
-					image.__imageEditorGradeSource,
-					image.__imageEditorRenderWidth ?? layer.image.source_width,
-					image.__imageEditorRenderHeight ?? layer.image.source_height,
-					this.layerGradeBefore(layer.id) ? defaultImageAdjustments() : layer.image.adjustments,
-					image.__imageEditorGradeCanvas
+				const renderSize = this.gradeRenderPlan(
+					layer,
+					object.__imageEditorSourceWidth ?? layer.image.source_width,
+					object.__imageEditorSourceHeight ?? layer.image.source_height
 				);
-				if (graded) {
-					image.setElement(graded.canvas);
-					image.__imageEditorGradeBackend = graded.backend;
-				} else {
-					this.onRenderError(layer.id);
-					if (this.staticMode) throw new Error(`Color grading failed for layer ${layer.id}.`);
-				}
-				image.__imageEditorGradeApplied = true;
+				this.applyImageGrade(image, layer, renderSize);
 			}
 			object.set({
 				...common
@@ -2453,9 +2439,16 @@ export class OpenPostFabricAdapter {
 
 	private applyImageFilters(image: FabricImageObject, layer: ImageEditorLayer): void {
 		if (!this.fabric || !layer.image) return;
+		const filterKey = JSON.stringify([
+			this.layerGradeBefore(layer.id),
+			image.__imageEditorGradeApplied,
+			layer.image.adjustments
+		]);
+		if (image.__imageEditorFilterKey === filterKey) return;
 		if (this.layerGradeBefore(layer.id)) {
 			image.filters = [];
 			image.applyFilters();
+			image.__imageEditorFilterKey = filterKey;
 			return;
 		}
 		const adjustment = layer.image.adjustments;
@@ -2540,6 +2533,7 @@ export class OpenPostFabricAdapter {
 		}
 		image.filters = filters;
 		image.applyFilters();
+		image.__imageEditorFilterKey = filterKey;
 	}
 
 	private applyImageGeometry(object: FabricObject, layer: ImageEditorLayer): void {
@@ -2562,11 +2556,85 @@ export class OpenPostFabricAdapter {
 				object.height ??
 				1
 		);
-		object.set(computeImageGeometry(layer, sourceWidth, sourceHeight));
+		object.set(
+			image.__imageEditorGradeGeometry ?? computeImageGeometry(layer, sourceWidth, sourceHeight)
+		);
 	}
 
-	private gradeRenderSize(sourceWidth: number, sourceHeight: number): ImageGradeRenderSize {
-		return { width: sourceWidth, height: sourceHeight };
+	private gradeRenderPlan(
+		layer: ImageEditorLayer,
+		sourceWidth: number,
+		sourceHeight: number
+	): ImageGradeRenderPlan {
+		// Interactive pixels feed selection/erase tools; exports retain full source detail.
+		if (!this.staticMode || this.renderScale >= 1)
+			return { width: sourceWidth, height: sourceHeight };
+		const geometry = computeImageGeometry(layer, sourceWidth, sourceHeight);
+		const scale = Math.min(
+			1,
+			Math.max(Math.abs(geometry.scaleX), Math.abs(geometry.scaleY)) * this.renderScale
+		);
+		// Blur uses neighboring source pixels and a radius relative to the whole image.
+		if (layer.image?.adjustments.blur) {
+			return {
+				width: Math.max(1, Math.ceil(sourceWidth * scale)),
+				height: Math.max(1, Math.ceil(sourceHeight * scale))
+			};
+		}
+		const width = Math.max(1, Math.ceil(geometry.width * scale));
+		const height = Math.max(1, Math.ceil(geometry.height * scale));
+		return {
+			width,
+			height,
+			sourceBounds: {
+				x: geometry.cropX,
+				y: geometry.cropY,
+				width: geometry.width,
+				height: geometry.height
+			},
+			geometry: {
+				...geometry,
+				cropX: 0,
+				cropY: 0,
+				width,
+				height,
+				scaleX: (geometry.width * geometry.scaleX) / width,
+				scaleY: (geometry.height * geometry.scaleY) / height
+			}
+		};
+	}
+
+	private applyImageGrade(
+		image: FabricImageObject,
+		layer: ImageEditorLayer,
+		size: ImageGradeRenderPlan
+	): void {
+		if (!image.__imageEditorGradeSource || !layer.image) return;
+		const adjustments = this.layerGradeBefore(layer.id)
+			? defaultImageAdjustments()
+			: layer.image.adjustments;
+		const key = JSON.stringify([size.width, size.height, size.sourceBounds, adjustments]);
+		image.__imageEditorGradeGeometry = size.geometry;
+		if (image.__imageEditorGradeKey === key) return;
+		const graded = this.renderLayerGrade(
+			image.__imageEditorGradeSource,
+			size,
+			adjustments,
+			image.__imageEditorGradeCanvas
+		);
+		if (!graded) {
+			this.onRenderError(layer.id);
+			if (this.staticMode) throw new Error(`Color grading failed for layer ${layer.id}.`);
+			return;
+		}
+		image.filters = [];
+		image.__imageEditorFilterKey = undefined;
+		image.setElement(graded.canvas);
+		image.__imageEditorGradeCanvas = graded.canvas;
+		image.__imageEditorGradeBackend = graded.backend;
+		image.__imageEditorRenderWidth = size.width;
+		image.__imageEditorRenderHeight = size.height;
+		image.__imageEditorGradeKey = key;
 	}
 
 	private layerGradeBefore(layerID: string): boolean {
@@ -2574,13 +2642,47 @@ export class OpenPostFabricAdapter {
 	}
 
 	private renderLayerGrade(
-		source: TexImageSource,
-		width: number,
-		height: number,
+		source: ReturnType<FabricImageObject['getElement']>,
+		plan: ImageGradeRenderPlan,
 		adjustments: ImageEditorImageAdjustments,
 		target?: HTMLCanvasElement
 	): { canvas: HTMLCanvasElement; backend: ImageGradeBackend } | null {
-		const rendered = this.gradeRenderer?.render(source, width, height, adjustments);
+		const { width, height, sourceBounds } = plan;
+		const sourceWidth =
+			'naturalWidth' in source
+				? source.naturalWidth
+				: 'videoWidth' in source
+					? source.videoWidth
+					: source.width;
+		const sourceHeight =
+			'naturalHeight' in source
+				? source.naturalHeight
+				: 'videoHeight' in source
+					? source.videoHeight
+					: source.height;
+		let input = source;
+		if (sourceBounds || width < sourceWidth || height < sourceHeight) {
+			// Resize before GPU upload, not only its output framebuffer.
+			const resized = (this.gradeInputCanvas ??= document.createElement('canvas'));
+			resized.width = width;
+			resized.height = height;
+			const context = resized.getContext('2d');
+			if (!context) return null;
+			const region = sourceBounds ?? { x: 0, y: 0, width: sourceWidth, height: sourceHeight };
+			context.drawImage(
+				source,
+				region.x,
+				region.y,
+				region.width,
+				region.height,
+				0,
+				0,
+				width,
+				height
+			);
+			input = resized;
+		}
+		const rendered = this.gradeRenderer?.render(input, width, height, adjustments);
 		if (!rendered) return null;
 		const canvas = target ?? document.createElement('canvas');
 		canvas.width = width;

@@ -248,6 +248,10 @@ export function polygonPixelMask(
 	return mask;
 }
 
+export interface PixelMaskRegion extends SelectionBounds {
+	data: Uint8Array;
+}
+
 export function strokePixelMask(
 	width: number,
 	height: number,
@@ -255,19 +259,64 @@ export function strokePixelMask(
 	size: number,
 	roughness = 0
 ): Uint8Array {
+	return rasterizeStrokeMask(width, height, points, size, roughness, { x: 0, y: 0 });
+}
+
+export function strokePixelMaskRegion(
+	width: number,
+	height: number,
+	points: SelectionPoint[],
+	size: number,
+	roughness = 0
+): PixelMaskRegion | null {
+	if (points.length === 0) return null;
+	// The full brush radius also contains every interpolated pressure sample.
+	const radius = Math.max(0.5, size / 2);
+	let minX = width;
+	let minY = height;
+	let maxX = 0;
+	let maxY = 0;
+	for (const point of points) {
+		minX = Math.min(minX, point.x - radius);
+		minY = Math.min(minY, point.y - radius);
+		maxX = Math.max(maxX, point.x + radius);
+		maxY = Math.max(maxY, point.y + radius);
+	}
+	const x = clampInteger(Math.floor(minX), 0, width);
+	const y = clampInteger(Math.floor(minY), 0, height);
+	const regionWidth = clampInteger(Math.ceil(maxX), 0, width) - x;
+	const regionHeight = clampInteger(Math.ceil(maxY), 0, height) - y;
+	if (regionWidth <= 0 || regionHeight <= 0) return null;
+	return {
+		x,
+		y,
+		width: regionWidth,
+		height: regionHeight,
+		data: rasterizeStrokeMask(regionWidth, regionHeight, points, size, roughness, { x, y })
+	};
+}
+
+function rasterizeStrokeMask(
+	width: number,
+	height: number,
+	points: SelectionPoint[],
+	size: number,
+	roughness: number,
+	origin: SelectionPoint
+): Uint8Array {
 	const mask = new Uint8Array(width * height);
 	if (points.length === 0) return mask;
 	const radiusForPoint = (point: SelectionPoint): number =>
 		Math.max(0.5, (size / 2) * Math.max(0.1, Math.min(1, point.pressure ?? 1)));
 	const stamp = (point: SelectionPoint): void => {
 		const radius = radiusForPoint(point);
-		const startX = clampInteger(Math.floor(point.x - radius), 0, width);
-		const endX = clampInteger(Math.ceil(point.x + radius), 0, width);
-		const startY = clampInteger(Math.floor(point.y - radius), 0, height);
-		const endY = clampInteger(Math.ceil(point.y + radius), 0, height);
+		const startX = clampInteger(Math.floor(point.x - radius) - origin.x, 0, width);
+		const endX = clampInteger(Math.ceil(point.x + radius) - origin.x, 0, width);
+		const startY = clampInteger(Math.floor(point.y - radius) - origin.y, 0, height);
+		const endY = clampInteger(Math.ceil(point.y + radius) - origin.y, 0, height);
 		for (let y = startY; y < endY; y++) {
 			for (let x = startX; x < endX; x++) {
-				if (Math.hypot(x + 0.5 - point.x, y + 0.5 - point.y) <= radius) {
+				if (Math.hypot(origin.x + x + 0.5 - point.x, origin.y + y + 0.5 - point.y) <= radius) {
 					mask[y * width + x] = 1;
 				}
 			}
@@ -289,27 +338,36 @@ export function strokePixelMask(
 			});
 		}
 	}
+	roughenStrokeMask(mask, width, height, roughness, origin);
+	return mask;
+}
+
+function roughenStrokeMask(
+	mask: Uint8Array,
+	width: number,
+	height: number,
+	roughness: number,
+	origin: SelectionPoint
+): void {
 	const texture = Math.max(0, Math.min(1, roughness));
-	if (texture > 0) {
-		const hardMask = mask.slice();
-		for (let y = 0; y < height; y++) {
-			for (let x = 0; x < width; x++) {
-				const index = y * width + x;
-				if (!hardMask[index]) continue;
-				const edge =
-					x === 0 ||
-					y === 0 ||
-					x + 1 === width ||
-					y + 1 === height ||
-					!hardMask[index - 1] ||
-					!hardMask[index + 1] ||
-					!hardMask[index - width] ||
-					!hardMask[index + width];
-				if (edge && pixelNoise(x, y) < texture * 0.72) mask[index] = 0;
-			}
+	if (texture <= 0) return;
+	const hardMask = mask.slice();
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const index = y * width + x;
+			if (!hardMask[index]) continue;
+			const edge =
+				x === 0 ||
+				y === 0 ||
+				x + 1 === width ||
+				y + 1 === height ||
+				!hardMask[index - 1] ||
+				!hardMask[index + 1] ||
+				!hardMask[index - width] ||
+				!hardMask[index + width];
+			if (edge && pixelNoise(origin.x + x, origin.y + y) < texture * 0.72) mask[index] = 0;
 		}
 	}
-	return mask;
 }
 
 export function smoothSelectionPoints(points: SelectionPoint[], amount: number): SelectionPoint[] {

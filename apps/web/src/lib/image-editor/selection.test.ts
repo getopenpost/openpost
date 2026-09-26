@@ -18,6 +18,7 @@ import {
 	polygonIntersectsBounds,
 	rectanglePixelMask,
 	strokePixelMask,
+	strokePixelMaskRegion,
 	smoothSelectionPoints,
 	subtractPixelMasks,
 	translatePixelMask,
@@ -126,6 +127,22 @@ describe('OpenPost Image Editor selection composition', () => {
 
 		expect(spans.length).toBeGreaterThan(0);
 		expect(spans.some((span) => span.width >= 7)).toBe(true);
+	});
+
+	it('keeps a small pressure stroke bounded on an 8K page without shifting its pixels', () => {
+		const region = strokePixelMaskRegion(7680, 4320, [{ x: 10, y: 10, pressure: 0.5 }], 8);
+		expect(region).not.toBeNull();
+		if (!region) throw new Error('Expected a stroke region');
+		expect(region.data.byteLength).toBeLessThanOrEqual(64);
+		expect(
+			pixelMaskToSpans(region.data, region.width, region.height, -region.x, -region.y)
+		).toEqual([
+			{ x: 9, y: 8, width: 2 },
+			{ x: 8, y: 9, width: 4 },
+			{ x: 8, y: 10, width: 4 },
+			{ x: 9, y: 11, width: 2 }
+		]);
+		expect(strokePixelMaskRegion(7680, 4320, [{ x: -10, y: -10 }], 2)).toBeNull();
 	});
 
 	it('uses pen pressure to vary the pencil footprint', () => {

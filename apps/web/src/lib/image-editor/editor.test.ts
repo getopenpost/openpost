@@ -698,6 +698,55 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(bucket?.paint?.spans).toEqual([{ x: 0, y: 0, width: 20 }]);
 	});
 
+	it.each([
+		{
+			roughness: 0,
+			y: 8,
+			height: 4,
+			spans: [
+				{ x: 0, y: 0, width: 1 },
+				{ x: 0, y: 1, width: 2 },
+				{ x: 0, y: 2, width: 2 },
+				{ x: 0, y: 3, width: 1 }
+			]
+		},
+		{
+			roughness: 1,
+			y: 9,
+			height: 3,
+			spans: [
+				{ x: 0, y: 0, width: 2 },
+				{ x: 0, y: 1, width: 1 },
+				{ x: 0, y: 2, width: 1 }
+			]
+		}
+	])(
+		'clips pressure strokes with roughness $roughness in page coordinates and undoes once',
+		({ roughness, y, height, spans }) => {
+			const initial = response();
+			initial.document.width_px = initial.document.height_px = 32;
+			const editor = new ImageEditorController();
+			editor.load(initial);
+			editor.pencilSize = 8;
+			editor.pencilRoughness = roughness;
+			const data = new Uint8Array(32 * 32);
+			for (let row = 8; row < 12; row++) data.fill(1, row * 32 + 10, row * 32 + 12);
+			editor.pixelSelection = { width: 32, height: 32, data, targetLayerIDs: [] };
+			editor.addPencilStroke([{ x: 10, y: 10, pressure: 0.5 }]);
+			const painted = editor.activePage!.layers.at(-1)!;
+			expect(painted.transform).toMatchObject({ x: 10, y, width: 2, height });
+			expect(painted.paint).toMatchObject({ source_width: 2, source_height: height, spans });
+			editor.undo();
+			expect(editor.activePage?.layers.map((layer) => layer.id)).toEqual([
+				'back',
+				'middle',
+				'front'
+			]);
+			editor.redo();
+			expect(editor.activePage?.layers.at(-1)).toEqual(painted);
+		}
+	);
+
 	it('restores a non-destructively erased image in one undoable command', () => {
 		const editor = new ImageEditorController();
 		const initial = response();

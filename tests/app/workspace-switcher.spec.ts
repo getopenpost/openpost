@@ -221,11 +221,9 @@ test("dirty composer workspace switches can stay, save to the origin, or discard
   expect(draftWrites).toHaveLength(2);
 });
 
-// BUG (filed 2026-09-03, test-prune audit): switching workspaces while the
-// previous workspace has an in-flight request never applies the selection
-// (second workspace's accounts render hidden), same selection-application race
-// family as the create-flow failure above. Skipped, not deleted.
-test.skip("a slow previous-workspace response cannot replace current account data", async ({
+// Regression: switching workspaces while the previous workspace has an
+// in-flight request must keep the newly selected workspace's account data.
+test("a slow previous-workspace response cannot replace current account data", async ({
   page,
   request,
 }) => {

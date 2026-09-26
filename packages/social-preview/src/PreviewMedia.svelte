@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PreviewDocument from "./PreviewDocument.svelte";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -85,11 +86,7 @@
       {#if item.durationLabel}<span class="duration">{item.durationLabel}</span
         >{/if}
     {:else if item.kind === "document"}
-      <div class="document-page">
-        <FileText aria-hidden="true" />
-        <strong>{item.alt || "Document preview"}</strong>
-        <span>PDF</span>
-      </div>
+      <PreviewDocument media={item} />
     {:else}
       <img
         src={item.src}
@@ -459,37 +456,6 @@
     border-radius: 0.5rem;
   }
 
-  .document-page {
-    display: grid;
-    height: 100%;
-    min-height: 19rem;
-    place-items: center;
-    align-content: center;
-    gap: 0.8rem;
-    background: #f3f2ef;
-    color: #232323;
-    padding: 3rem;
-    text-align: center;
-  }
-
-  .document-page :global(svg) {
-    width: 2.4rem;
-    height: 2.4rem;
-    color: #0a66c2;
-  }
-
-  .document-page strong {
-    max-width: 25ch;
-    font-size: 1.15rem;
-    line-height: 1.3;
-  }
-
-  .document-page span {
-    color: #666;
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-
   .empty-media {
     display: grid;
     min-height: 18rem;
@@ -515,10 +481,6 @@
     .carousel-button {
       width: 2.75rem;
       height: 2.75rem;
-    }
-
-    .document-page {
-      min-height: 14rem;
     }
   }
   .attachment-gallery {
@@ -579,6 +541,8 @@
   }
   @media (pointer: coarse) {
     .carousel-dots button {
+      flex-shrink: 0;
+      min-width: 44px;
       width: 44px;
       height: 44px;
     }
@@ -586,5 +550,9 @@
       overflow-x: auto;
       justify-content: safe center;
     }
+  }
+  .media-tile.kind-document {
+    aspect-ratio: auto;
+    max-height: none;
   }
 </style>

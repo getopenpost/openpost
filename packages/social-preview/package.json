@@ -14,7 +14,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@lucide/svelte": "^0.577.0"
+    "@lucide/svelte": "^0.577.0",
+    "pdfjs-dist": "5.4.296"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

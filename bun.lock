@@ -265,6 +265,7 @@
       "name": "@openpost/social-preview",
       "dependencies": {
         "@lucide/svelte": "^0.577.0",
+        "pdfjs-dist": "5.4.296",
       },
       "devDependencies": {
         "@sveltejs/vite-plugin-svelte": "^7.3.0",

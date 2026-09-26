@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { authenticatePage, registerUser, createWorkspace } from "./helpers";
 
+test.use({ hasTouch: true });
+
 test("workspace effect presets persist and apply with undo", async ({
   page,
   request,
@@ -78,6 +80,8 @@ test("workspace effect presets persist and apply with undo", async ({
     await page.getByRole("option", { name: "Launch outline", exact: true }).click();
     await page.getByLabel("Preset name", { exact: true }).scrollIntoViewIfNeeded();
     await expect(page.getByLabel("Preset name", { exact: true })).toBeVisible();
+    const fieldBox = await page.getByLabel("Preset name", { exact: true }).boundingBox();
+    expect(fieldBox?.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );

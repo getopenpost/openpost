@@ -2,19 +2,20 @@ import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 import { ImageEditorController } from '../editor.svelte';
-import { blankImageEditorDocument, defaultTransform } from '../document';
+import { blankImageEditorDocument, cloneImageEditorPage, defaultTransform } from '../document';
 import Fixture from './image-editor-resize-dialog.fixture.svelte';
 import '../../../routes/layout.css';
 
-function setup(): ImageEditorController {
+function setup(options: { mixedPages?: boolean } = {}): ImageEditorController {
+	const mixedPages = options.mixedPages ?? false;
 	const editor = new ImageEditorController();
 	const document = blankImageEditorDocument({
 		key: 'test-landscape',
 		name: 'Test landscape',
 		default_format: 'png',
 		profiles: [],
-		width_px: 100,
-		height_px: 50
+		width_px: mixedPages ? 1080 : 100,
+		height_px: mixedPages ? 1080 : 50
 	});
 	document.pages[0].layers = [
 		{
@@ -47,6 +48,12 @@ function setup(): ImageEditorController {
 			}
 		}
 	];
+	if (mixedPages) {
+		const second = cloneImageEditorPage(document.pages[0], 'Portrait');
+		second.width_px = 720;
+		second.height_px = 1280;
+		document.pages.push(second);
+	}
 	editor.load({
 		id: 'design',
 		workspace_id: 'workspace',
@@ -97,6 +104,27 @@ it('defaults to fit and commits one undoable aspect-preserving resize', async ()
 		width: 20,
 		height: 10
 	});
+});
+
+it('resizes every page when the target matches the design default but pages differ', async () => {
+	const editor = setup({ mixedPages: true });
+	const original = editor.document;
+	const originalSecond = editor.document!.pages[1];
+	const screen = await render(Fixture, { editor });
+
+	await expect.element(screen.getByRole('spinbutton', { name: 'Width' })).toHaveValue(1080);
+	await expect.element(screen.getByRole('spinbutton', { name: 'Height' })).toHaveValue(1080);
+	await screen.getByRole('button', { name: 'Resize' }).click();
+
+	expect(editor.document).not.toBe(original);
+	expect(editor.document!.pages.map((page) => [page.width_px, page.height_px])).toEqual([
+		[1080, 1080],
+		[1080, 1080]
+	]);
+	expect(editor.document!.pages[1].layers[0].transform).not.toEqual(
+		originalSecond.layers[0].transform
+	);
+	expect(editor.canUndo).toBe(true);
 });
 
 it('keeps every resize choice usable at 320px in dark mode', async () => {

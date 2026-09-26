@@ -14,6 +14,7 @@ import {
 } from './document';
 import { defaultLayerEffects, defaultTextCurve } from './effects';
 import { imageEditorPageDimensions } from './page-dimensions';
+import { IMAGE_EDITOR_SCHEMA_VERSION } from './types';
 import {
 	applyImageEditorCropWindow,
 	resetImageEditorCrop,
@@ -377,7 +378,8 @@ export class ImageEditorController {
 		this.revision = response.revision;
 		this.canEdit = response.can_edit;
 		this.document = cloneImageEditorDocument(response.document);
-		if (this.document.schema_version === 1) this.document.schema_version = 2;
+		if (this.document.schema_version === 1)
+			this.document.schema_version = IMAGE_EDITOR_SCHEMA_VERSION;
 		this.activePageID = response.document.pages[0]?.id ?? '';
 		this.selectedLayerIDs = [];
 		this.textRange = null;

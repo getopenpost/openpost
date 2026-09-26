@@ -64,7 +64,13 @@
 						width: editor.document.width_px,
 						height: editor.document.height_px
 					};
-		if (width === current.width && height === current.height) {
+		const allPagesAlreadyMatch =
+			scope === 'page' ||
+			editor.document.pages.every((page) => {
+				const size = imageEditorPageDimensions(editor.document!, page);
+				return size.width === width && size.height === height;
+			});
+		if (width === current.width && height === current.height && allPagesAlreadyMatch) {
 			open = false;
 			return;
 		}

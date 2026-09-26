@@ -1,8 +1,5 @@
 <script module lang="ts">
-	// Single source of truth for the timeline frame-step keyboard contract;
-	// timeline-panel re-exports the same helper as nextRulerKeyboardFrame.
-	import { nextKeyboardFrame as nextMiniTimelineKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
-	export { nextMiniTimelineKeyboardFrame };
+	import { nextKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
 </script>
 
 <script lang="ts">
@@ -263,7 +260,7 @@
 
 	function onTimelineKeydown(event: KeyboardEvent): void {
 		if (timelineStore.seekLocked) return;
-		const frame = nextMiniTimelineKeyboardFrame(
+		const frame = nextKeyboardFrame(
 			timelineStore.currentFrame,
 			event.key,
 			event.shiftKey,

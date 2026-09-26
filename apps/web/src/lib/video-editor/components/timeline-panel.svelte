@@ -40,10 +40,7 @@
 		return next;
 	}
 
-	// Single source of truth for the timeline frame-step keyboard contract;
-	// color-mini-timeline re-exports the same helper as nextMiniTimelineKeyboardFrame.
-	import { nextKeyboardFrame as nextRulerKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
-	export { nextRulerKeyboardFrame };
+	import { nextKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
 </script>
 
 <script lang="ts">
@@ -1413,7 +1410,7 @@
 
 	function onRulerKeydown(event: KeyboardEvent): void {
 		if (timelineStore.seekLocked) return;
-		const frame = nextRulerKeyboardFrame(
+		const frame = nextKeyboardFrame(
 			timelineStore.currentFrame,
 			event.key,
 			event.shiftKey,

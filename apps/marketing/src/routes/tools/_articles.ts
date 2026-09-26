@@ -57,9 +57,7 @@ const previewArticles = Object.fromEntries<ToolArticle>(
 	])
 ) as Record<PreviewTool['slug'], ToolArticle>;
 
-export const toolArticles: Record<MarketingToolSlug, ToolArticle> = {
-	...previewArticles,
-	...mediaArticles,
+const authoredArticles = {
 	'multi-platform-character-counter': {
 		title: 'Social media character counter',
 		description: 'Paste your post. See how it fits on each channel.',
@@ -503,4 +501,11 @@ export const toolArticles: Record<MarketingToolSlug, ToolArticle> = {
 			}
 		]
 	}
-} satisfies Record<MarketingToolSlug, ToolArticle>;
+} satisfies Partial<Record<MarketingToolSlug, ToolArticle>>;
+
+export const toolArticles = Object.assign(
+	{},
+	previewArticles,
+	mediaArticles,
+	authoredArticles
+) satisfies Record<MarketingToolSlug, ToolArticle>;

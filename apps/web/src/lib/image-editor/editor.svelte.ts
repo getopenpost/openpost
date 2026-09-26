@@ -41,6 +41,8 @@ import {
 	pixelSpansToMask,
 	pixelMaskToSpans,
 	strokePixelMask,
+	strokePixelMaskRegion,
+	type PixelMaskRegion,
 	smoothSelectionPoints,
 	subtractPixelMasks,
 	translatePixelMask,
@@ -1211,17 +1213,24 @@ export class ImageEditorController {
 			})),
 			this.pencilSmoothing
 		);
-		const stroke = strokePixelMask(
+		const stroke = strokePixelMaskRegion(
 			this.document.width_px,
 			this.document.height_px,
 			samples,
 			this.pencilSize,
 			this.pencilRoughness
 		);
-		this.addPaintFill(
-			this.pixelSelection ? intersectPixelMasks(stroke, this.pixelSelection.data) : stroke,
-			m.image_editor_pencil()
-		);
+		if (!stroke) return;
+		if (this.pixelSelection) {
+			for (let y = 0; y < stroke.height; y++) {
+				for (let x = 0; x < stroke.width; x++) {
+					if (!this.pixelSelection.data[(stroke.y + y) * this.document.width_px + stroke.x + x]) {
+						stroke.data[y * stroke.width + x] = 0;
+					}
+				}
+			}
+		}
+		this.addPaintRegion(stroke, m.image_editor_pencil());
 	}
 
 	addEraseStroke(
@@ -1327,18 +1336,30 @@ export class ImageEditorController {
 
 	addPaintFill(mask: Uint8Array, name = m.image_editor_paint_bucket()): void {
 		if (!this.document) return;
-		const bounds = pixelMaskBounds(mask, this.document.width_px, this.document.height_px);
-		if (!bounds) return;
-		const spans = pixelMaskToSpans(
-			mask,
-			this.document.width_px,
-			this.document.height_px,
-			bounds.x,
-			bounds.y
+		this.addPaintRegion(
+			{
+				x: 0,
+				y: 0,
+				width: this.document.width_px,
+				height: this.document.height_px,
+				data: mask
+			},
+			name
 		);
+	}
+
+	private addPaintRegion(region: PixelMaskRegion, name: string): void {
+		const bounds = pixelMaskBounds(region.data, region.width, region.height);
+		if (!bounds) return;
+		const spans = pixelMaskToSpans(region.data, region.width, region.height, bounds.x, bounds.y);
 		this.addPaintLayer({
 			name,
-			transform: defaultTransform(bounds.width, bounds.height, bounds.x, bounds.y),
+			transform: defaultTransform(
+				bounds.width,
+				bounds.height,
+				region.x + bounds.x,
+				region.y + bounds.y
+			),
 			paint: {
 				kind: 'fill',
 				color: this.paintColor,

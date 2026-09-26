@@ -26,18 +26,20 @@
   import User from "@lucide/svelte/icons/user-round";
   import Users from "@lucide/svelte/icons/users";
   import Video from "@lucide/svelte/icons/video";
-  import type { PreviewModel } from "./model";
+  import type { PreviewModel, PreviewScheme } from "./model";
   import { platformNames } from "./model";
   import PlatformGlyph from "./PlatformGlyph.svelte";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import SocialPreview from "./SocialPreview.svelte";
+  import AdditionalPreviewPage from "./AdditionalPreviewPage.svelte";
 
   interface Props {
     model: PreviewModel;
     class?: string;
+    scheme?: PreviewScheme;
   }
 
-  let { model, class: className = "" }: Props = $props();
+  let { model, class: className = "", scheme = "system" }: Props = $props();
   const platformName = $derived(platformNames[model.platform]);
   const handle = $derived(model.identity.handle.replace(/^@/u, ""));
 </script>
@@ -105,23 +107,18 @@
   </div>
 {/snippet}
 
-{#snippet feedPost(
-  name: string,
-  account: string,
-  text: string,
-  tone: string,
-)}
+{#snippet feedPost(name: string, account: string, text: string, tone: string)}
   <article class="context-post" aria-hidden="true">
     <i style={`--avatar-tone: ${tone}`}>{name.slice(0, 1)}</i>
     <div>
       <header>
-        <strong>{name}</strong><span>@{account} · 2h</span
-        ><MoreHorizontal />
+        <strong>{name}</strong><span>@{account} · 2h</span><MoreHorizontal />
       </header>
       <p>{text}</p>
       <footer>
-        <span><MessageCircle /> 12</span><span><Repeat2 /> 4</span
-        ><span><Heart /> 86</span><span><Share2 /></span>
+        <span><MessageCircle /> 12</span><span><Repeat2 /> 4</span><span
+          ><Heart /> 86</span
+        ><span><Share2 /></span>
       </footer>
     </div>
   </article>
@@ -136,7 +133,11 @@
 {/snippet}
 
 {#snippet mobileNav()}
-  <nav class="mobile-native-nav" aria-label={`${platformName} mobile navigation`}>
+  <nav
+    aria-hidden="true"
+    class="mobile-native-nav"
+    aria-label={`${platformName} mobile navigation`}
+  >
     <span class="active">{@render navIcon("home")}</span>
     <span>{@render navIcon("search")}</span>
     {#if model.platform === "instagram" || model.platform === "tiktok"}
@@ -144,7 +145,11 @@
     {:else}
       <span>{@render navIcon("message")}</span>
     {/if}
-    <span>{@render navIcon(model.platform === "instagram" ? "video" : "bell")}</span>
+    <span
+      >{@render navIcon(
+        model.platform === "instagram" ? "video" : "bell",
+      )}</span
+    >
     <PreviewAvatar identity={model.identity} size={26} />
   </nav>
 {/snippet}
@@ -156,546 +161,559 @@
   </div>
 {/snippet}
 
-<main
-  class={[
-    "preview-page",
-    `platform-${model.platform}`,
-    `format-${model.format}`,
-    className,
-  ]}
-  data-preview-shell={model.platform}
-  aria-label={`${platformName} page preview`}
+<div
+  class="preview-container"
+  style:color-scheme={scheme === "system" ? undefined : scheme}
 >
-  {#if model.platform === "x" || model.platform === "bluesky" || model.platform === "mastodon" || model.platform === "threads"}
-    <div class="micro-page">
-      <aside class="micro-left">
-        <div class="brand-mark">
-          <PlatformGlyph platform={model.platform} label={platformName} />
-        </div>
-        <nav aria-label={`${platformName} navigation`}>
-          {@render navItem("home", "Home", true)}
-          {@render navItem(
-            "search",
-            model.platform === "bluesky" ? "Search" : "Explore",
-          )}
-          {@render navItem("bell", "Notifications")}
-          {@render navItem(
-            "message",
-            model.platform === "mastodon" ? "Private mentions" : "Messages",
-          )}
-          {#if model.platform === "bluesky"}
-            {@render navItem("hash", "Feeds")}
-            {@render navItem("bookmark", "Saved")}
-          {:else if model.platform === "mastodon"}
-            {@render navItem("users", "Live feeds")}
-            {@render navItem("bookmark", "Bookmarks")}
-          {:else if model.platform === "threads"}
-            {@render navItem("at", "Activity")}
-          {:else}
-            {@render navItem("bookmark", "Bookmarks")}
-            {@render navItem("users", "Communities")}
-          {/if}
-          {@render navItem("user", "Profile")}
-          {@render navItem(
-            "settings",
-            model.platform === "x" ? "More" : "Settings",
-          )}
-        </nav>
-        <div class="compose-button">
-          <Plus aria-hidden="true" /><span>New post</span>
-        </div>
-        <div class="rail-profile">
-          <PreviewAvatar identity={model.identity} size={40} />
-          <span
-            ><strong>{model.identity.displayName}</strong><small
-              >@{handle}</small
-            ></span
-          >
-          <MoreHorizontal aria-hidden="true" />
-        </div>
-      </aside>
-
-      <section class="micro-center">
-        <header class="micro-mobile-header">
-          <PreviewAvatar identity={model.identity} size={32} />
-          <PlatformGlyph platform={model.platform} label={platformName} />
-          {#if model.platform === "x"}
-            <Settings />
-          {:else}
-            <MessageCircle />
-          {/if}
-        </header>
-        <header class="column-header">
-          <div>
-            <h1>
-              {model.platform === "mastodon"
-                ? "Home"
-                : model.platform === "threads"
-                  ? "For you"
-                  : "Home"}
-            </h1>
-            {#if model.platform === "mastodon"}<span
-                >Posts from people you follow</span
-              >{/if}
+  <main
+    class={[
+      "preview-page",
+      `platform-${model.platform}`,
+      `format-${model.format}`,
+      className,
+    ]}
+    data-preview-shell={model.platform}
+    aria-label={`${platformName} page preview`}
+  >
+    {#if ["threads", "mastodon", "pixelfed", "peertube", "lemmy", "piefed", "pinterest", "reddit", "googlebusiness"].includes(model.platform)}
+      <AdditionalPreviewPage {model} {scheme} />
+    {:else if model.platform === "x" || model.platform === "bluesky"}
+      <div class="micro-page">
+        <aside class="micro-left">
+          <div class="brand-mark">
+            <PlatformGlyph platform={model.platform} label={platformName} />
           </div>
-          {#if model.platform === "threads"}<ChevronDown
-              aria-hidden="true"
-            />{/if}
-          {#if model.platform === "bluesky"}<Settings aria-hidden="true" />{/if}
-          {#if model.platform === "x"}<span class="feed-settings"
-              ><Settings /></span
-            >{/if}
-        </header>
-        {#if model.platform !== "mastodon"}
-          <div class="feed-tabs" aria-hidden="true">
-            <strong
-              >{model.platform === "bluesky" ? "Following" : "For you"}</strong
+          <nav aria-hidden="true" aria-label={`${platformName} navigation`}>
+            {@render navItem("home", "Home", true)}
+            {@render navItem(
+              "search",
+              model.platform === "bluesky" ? "Search" : "Explore",
+            )}
+            {@render navItem("bell", "Notifications")}
+            {@render navItem(
+              "message",
+              model.platform === "x" ? "Chat" : "Messages",
+            )}
+            {#if model.platform === "bluesky"}
+              {@render navItem("hash", "Feeds")}
+              {@render navItem("bookmark", "Saved")}
+            {:else}
+              {@render navItem("compass", "Grok")}
+              {@render navItem("history", "History")}
+              {@render navItem("news", "Creator Studio")}
+              {@render navItem("at", "Premium")}
+            {/if}
+            {@render navItem("user", "Profile")}
+            {@render navItem(
+              "settings",
+              model.platform === "x" ? "More" : "Settings",
+            )}
+          </nav>
+          <div class="compose-button">
+            <Plus aria-hidden="true" /><span
+              >{model.platform === "x" ? "Post" : "New post"}</span
             >
+          </div>
+          <div class="rail-profile">
+            <PreviewAvatar identity={model.identity} size={40} />
             <span
-              >{model.platform === "bluesky"
-                ? "Discover"
-                : model.platform === "threads"
-                  ? "Following"
-                  : "Following"}</span
+              ><strong>{model.identity.displayName}</strong><small
+                >@{handle}</small
+              ></span
             >
+            <MoreHorizontal aria-hidden="true" />
           </div>
-        {/if}
-        <div class="micro-composer" aria-hidden="true">
-          <PreviewAvatar identity={model.identity} size={40} />
-          <span>
-            {model.platform === "mastodon"
-              ? "What is on your mind?"
-              : model.platform === "threads"
-                ? "Start a thread..."
-                : "What’s happening?"}
-          </span>
-          <div>
-            <ImageIcon />
-            <Smile />
-          </div>
-          <b>Post</b>
-        </div>
-        <div class="platform-post-stage">
-          <SocialPreview {model} />
-        </div>
-        {@render feedPost(
-          "Maya Chen",
-          "mayac",
-          model.platform === "mastodon"
-            ? "A small update from the fediverse: the community design notes are ready to read."
-            : "The best product updates show the work and make the next step obvious.",
-          "#7c3aed",
-        )}
-        {@render feedPost(
-          "Open Design",
-          "opendesign",
-          "A practical look at accessible interface patterns for publishing tools.",
-          "#0f766e",
-        )}
-      </section>
+        </aside>
 
-      <aside class="micro-right">
-        {@render searchBox(`Search ${platformName}`)}
-        <section class="side-card">
-          <h2>
-            {model.platform === "mastodon"
-              ? "Explore"
-              : model.platform === "threads"
-                ? "For you"
-                : "What’s happening"}
-          </h2>
-          {#each ["Interface design", "Creator tools", "Open source"] as topic, index (topic)}
-            <div class="topic">
-              <span
+        <section class="micro-center">
+          <header class="micro-mobile-header">
+            <PreviewAvatar identity={model.identity} size={32} />
+            <PlatformGlyph platform={model.platform} label={platformName} />
+            {#if model.platform === "x"}
+              <Settings />
+            {:else}
+              <MessageCircle />
+            {/if}
+          </header>
+          <header class="column-header">
+            <div>
+              <h1>Home</h1>
+            </div>
+
+            {#if model.platform === "bluesky"}<Settings
+                aria-hidden="true"
+              />{/if}
+            {#if model.platform === "x"}<span class="feed-settings"
+                ><Settings /></span
+              >{/if}
+          </header>
+          {#if model.platform === "x" || model.platform === "bluesky"}
+            <div class="feed-tabs" aria-hidden="true">
+              <strong
                 >{model.platform === "bluesky"
-                  ? "Popular with friends"
-                  : index === 0
-                    ? "Trending now"
-                    : "Popular"}</span
+                  ? "Following"
+                  : "For you"}</strong
               >
-              <strong>{topic}</strong>
-              <small>{`${index + 1}.2K posts`}</small>
+              <span
+                >{model.platform === "bluesky" ? "Discover" : "Following"}</span
+              >
+            </div>
+          {/if}
+          <div class="micro-composer" aria-hidden="true">
+            <PreviewAvatar identity={model.identity} size={40} />
+            <span>
+              {model.platform === "bluesky"
+                ? "What's up?"
+                : "What’s happening?"}
+            </span>
+            <div>
+              <ImageIcon />
+              <Smile />
+            </div>
+            <b>Post</b>
+          </div>
+          <div class="platform-post-stage">
+            <SocialPreview {model} {scheme} />
+          </div>
+          {@render feedPost(
+            "Maya Chen",
+            "mayac",
+            "The best product updates show the work and make the next step obvious.",
+            "#7c3aed",
+          )}
+          {@render feedPost(
+            "Open Design",
+            "opendesign",
+            "A practical look at accessible interface patterns for publishing tools.",
+            "#0f766e",
+          )}
+        </section>
+
+        <aside class="micro-right">
+          {@render searchBox(`Search ${platformName}`)}
+          <section class="side-card">
+            <h2>
+              {model.platform === "bluesky"
+                ? "Discover new feeds"
+                : "What’s happening"}
+            </h2>
+            {#each ["Interface design", "Creator tools", "Open source"] as topic, index (topic)}
+              <div class="topic">
+                <span
+                  >{model.platform === "bluesky"
+                    ? "Popular with friends"
+                    : index === 0
+                      ? "Trending now"
+                      : "Popular"}</span
+                >
+                <strong>{topic}</strong>
+                <small>{`${index + 1}.2K posts`}</small>
+              </div>
+            {/each}
+            <span class="side-more" aria-hidden="true">Show more</span>
+          </section>
+          <section class="side-card follow-card">
+            <h2>Who to follow</h2>
+            {@render followRow(
+              "OpenPost Image Editor Notes",
+              "studionotes",
+              "#2563eb",
+            )}
+            {@render followRow("Ari Santos", "arisantos", "#db2777")}
+            {@render followRow("The Web", "theweb", "#ca8a04")}
+          </section>
+          <p class="native-footer" aria-hidden="true">
+            Terms · Privacy · Accessibility · Help · © 2026
+          </p>
+        </aside>
+        {@render mobileNav()}
+      </div>
+    {:else if model.platform === "linkedin"}
+      <header class="linkedin-topbar">
+        <PlatformGlyph platform="linkedin" label="LinkedIn" />
+        {@render searchBox("Search")}
+        <nav aria-hidden="true" aria-label="LinkedIn navigation">
+          {@render navItem("home", "Home", true)}
+          {@render navItem("users", "My Network")}
+          {@render navItem("play", "Jobs")}
+          {@render navItem("message", "Messaging")}
+          {@render navItem("bell", "Notifications")}
+          {@render navItem("user", "Me")}
+        </nav>
+      </header>
+      <div class="linkedin-page">
+        <aside class="linkedin-profile">
+          <div class="profile-cover"></div>
+          <PreviewAvatar identity={model.identity} size={68} />
+          <strong>{model.identity.displayName}</strong>
+          <span>@{handle}</span>
+
+          <hr />
+
+          <hr />
+          <div class="saved-row"><Bookmark /> <strong>Saved items</strong></div>
+        </aside>
+        <section class="linkedin-feed">
+          <div class="linkedin-composer">
+            <PreviewAvatar identity={model.identity} size={44} />
+            <span>Start a post</span>
+            <footer>
+              <b><ImageIcon /> Media</b><b><CirclePlay /> Event</b><b
+                ><Newspaper /> Write article</b
+              >
+            </footer>
+          </div>
+          <SocialPreview {model} {scheme} />
+          <div class="linkedin-divider"><span>Sort by: <b>Top</b></span></div>
+          {@render feedPost(
+            "Product Builders",
+            "product-builders",
+            "Three concrete ways teams can make publishing reviews faster and clearer.",
+            "#0a66c2",
+          )}
+        </section>
+        <aside class="linkedin-news side-card">
+          <h2>LinkedIn News</h2>
+          {#each ["Creators rethink distribution", "Design systems keep evolving", "Teams invest in video"] as item, index (item)}
+            <div class="news-item">
+              <strong>{item}</strong><span
+                >{index + 2}h ago · {index + 1},104 readers</span
+              >
             </div>
           {/each}
-          <span class="side-more" aria-hidden="true">Show more</span>
-        </section>
-        <section class="side-card follow-card">
-          <h2>Who to follow</h2>
-          {@render followRow("OpenPost Image Editor Notes", "studionotes", "#2563eb")}
-          {@render followRow("Ari Santos", "arisantos", "#db2777")}
-          {@render followRow("The Web", "theweb", "#ca8a04")}
-        </section>
-        <p class="native-footer" aria-hidden="true">
-          Terms · Privacy · Accessibility · Help · © 2026
-        </p>
-      </aside>
-      {@render mobileNav()}
-    </div>
-  {:else if model.platform === "linkedin"}
-    <header class="linkedin-topbar">
-      <PlatformGlyph platform="linkedin" label="LinkedIn" />
-      {@render searchBox("Search")}
-      <nav aria-label="LinkedIn navigation">
-        {@render navItem("home", "Home", true)}
-        {@render navItem("users", "My Network")}
-        {@render navItem("play", "Jobs")}
-        {@render navItem("message", "Messaging")}
-        {@render navItem("bell", "Notifications")}
-        {@render navItem("user", "Me")}
-      </nav>
-    </header>
-    <div class="linkedin-page">
-      <aside class="linkedin-profile">
-        <div class="profile-cover"></div>
-        <PreviewAvatar identity={model.identity} size={68} />
-        <strong>{model.identity.displayName}</strong>
-        <span>@{handle}</span>
-        <p>Creator · Building with OpenPost</p>
-        <hr />
-        <div class="profile-stat"><small>Profile viewers</small><b>24</b></div>
-        <div class="profile-stat"><small>Post impressions</small><b>138</b></div>
-        <hr />
-        <div class="saved-row"><Bookmark /> <strong>Saved items</strong></div>
-      </aside>
-      <section class="linkedin-feed">
-        <div class="linkedin-composer">
-          <PreviewAvatar identity={model.identity} size={44} />
-          <span>Start a post</span>
-          <footer>
-            <b><ImageIcon /> Media</b><b><CirclePlay /> Event</b
-            ><b><Newspaper /> Write article</b>
-          </footer>
+          <b class="show-more">Show more <ChevronDown /></b>
+        </aside>
+        {@render mobileNav()}
+      </div>
+    {:else if model.platform === "facebook"}
+      <header class="facebook-topbar">
+        <div class="facebook-brand">
+          <PlatformGlyph platform="facebook" label="Facebook" />
         </div>
-        <SocialPreview {model} />
-        <div class="linkedin-divider"><span>Sort by: <b>Top</b></span></div>
-        {@render feedPost(
-          "Product Builders",
-          "product-builders",
-          "Three concrete ways teams can make publishing reviews faster and clearer.",
-          "#0a66c2",
-        )}
-      </section>
-      <aside class="linkedin-news side-card">
-        <h2>LinkedIn News</h2>
-        {#each ["Creators rethink distribution", "Design systems keep evolving", "Teams invest in video"] as item, index (item)}
-          <div class="news-item">
-            <strong>{item}</strong><span
-              >{index + 2}h ago · {index + 1},104 readers</span
+        {@render searchBox("Search Facebook")}
+        <nav aria-hidden="true" aria-label="Facebook navigation">
+          {@render navItem("home", "Home", true)}
+          {@render navItem("video", "Video")}
+          {@render navItem("users", "Groups")}
+        </nav>
+        <div class="top-actions">
+          {@render navIcon("menu")}{@render navIcon("message")}{@render navIcon(
+            "bell",
+          )}<PreviewAvatar identity={model.identity} size={38} />
+        </div>
+      </header>
+      <div class="facebook-page">
+        <aside class="facebook-left">
+          <div class="account-row">
+            <PreviewAvatar identity={model.identity} size={36} /><strong
+              >{model.identity.displayName}</strong
             >
           </div>
-        {/each}
-        <b class="show-more">Show more <ChevronDown /></b>
-      </aside>
-      {@render mobileNav()}
-    </div>
-  {:else if model.platform === "facebook"}
-    <header class="facebook-topbar">
-      <div class="facebook-brand">
-        <PlatformGlyph platform="facebook" label="Facebook" />
-      </div>
-      {@render searchBox("Search Facebook")}
-      <nav aria-label="Facebook navigation">
-        {@render navItem("home", "Home", true)}
-        {@render navItem("video", "Video")}
-        {@render navItem("users", "Groups")}
-      </nav>
-      <div class="top-actions">
-        {@render navIcon("menu")}{@render navIcon("message")}{@render navIcon(
-          "bell",
-        )}<PreviewAvatar identity={model.identity} size={38} />
-      </div>
-    </header>
-    <div class="facebook-page">
-      <aside class="facebook-left">
-        <div class="account-row">
-          <PreviewAvatar identity={model.identity} size={36} /><strong
-            >{model.identity.displayName}</strong
-          >
-        </div>
-        {@render navItem("users", "Friends")}
-        {@render navItem("video", "Video")}
-        {@render navItem("bookmark", "Saved")}
-        {@render navItem("users", "Groups")}
-        {@render navItem("compass", "Feeds")}
-      </aside>
-      <section class="facebook-feed">
-        <div class="facebook-stories" aria-hidden="true">
-          {#each ["Create story", "Maya", "Ari", "OpenPost Image Editor"] as story, index (story)}
-            <div
-              style={`--story-tone: ${["#1877f2", "#7c3aed", "#db2777", "#0f766e"][index]}`}
-            >
-              <i>{story.slice(0, 1)}</i
-              ><span>{story}</span>
-            </div>
-          {/each}
-        </div>
-        <div class="facebook-composer">
-          <PreviewAvatar identity={model.identity} size={40} />
-          <span>What’s on your mind?</span>
-          <footer>
-            <b><Video /> Live video</b><b><ImageIcon /> Photo/video</b
-            ><b><Smile /> Feeling/activity</b>
-          </footer>
-        </div>
-        <SocialPreview {model} />
-        {@render feedPost(
-          "OpenPost Community",
-          "openpostcommunity",
-          "This week’s community round-up is ready. Thanks to everyone who shared feedback.",
-          "#1877f2",
-        )}
-      </section>
-      <aside class="facebook-right">
-        <div class="contacts-heading"><h2>Contacts</h2><Video /><Search /><MoreHorizontal /></div>
-        {@render followRow("Maya Chen", "Online", "#7c3aed")}
-        {@render followRow("Ari Santos", "Online", "#db2777")}
-        {@render followRow("OpenPost Image Editor Notes", "Online", "#2563eb")}
-        {@render followRow("Open Design", "Online", "#0f766e")}
-      </aside>
-      {@render mobileNav()}
-    </div>
-  {:else if model.platform === "instagram"}
-    <div class="instagram-page">
-      <aside class="instagram-left">
-        <div class="instagram-wordmark">Instagram</div>
-        <div class="brand-mark compact-logo">
-          <PlatformGlyph platform="instagram" />
-        </div>
-        <nav aria-label="Instagram navigation">
-          {@render navItem("home", "Home", true)}
-          {@render navItem("search", "Search")}
-          {@render navItem("compass", "Explore")}
-          {@render navItem("video", "Reels")}
-          {@render navItem("message", "Messages")}
-          {@render navItem("bell", "Notifications")}
-          {@render navItem("plus", "Create")}
-          {@render navItem("user", "Profile")}
-        </nav>
-        {@render navItem("settings", "More")}
-      </aside>
-      <section
-        class={[
-          "instagram-feed",
-          (model.format === "story" || model.format === "reel") && "immersive",
-        ]}
-      >
-        <header class="instagram-mobile-header">
-          <div class="instagram-wordmark">Instagram</div>
-          <span><Heart /><Send /></span>
-        </header>
-        {#if model.format === "post"}
-          <div class="story-strip" aria-hidden="true">
-            {#each Array(6) as _, index (index)}
-              <div>
-                <i></i><span
-                  >{index === 0 ? "Your story" : `profile_${index}`}</span
-                >
+          {@render navItem("users", "Friends")}
+          {@render navItem("video", "Video")}
+          {@render navItem("bookmark", "Saved")}
+          {@render navItem("users", "Groups")}
+          {@render navItem("compass", "Feeds")}
+        </aside>
+        <section class="facebook-feed">
+          <div class="facebook-stories" aria-hidden="true">
+            {#each ["Create story", "Maya", "Ari", "OpenPost Image Editor"] as story, index (story)}
+              <div
+                style={`--story-tone: ${["#1877f2", "#7c3aed", "#db2777", "#0f766e"][index]}`}
+              >
+                <i>{story.slice(0, 1)}</i><span>{story}</span>
               </div>
             {/each}
           </div>
-        {/if}
-        <SocialPreview {model} />
-        {#if model.format === "post"}{@render ghostRows(2)}{/if}
-      </section>
-      {#if model.format === "post"}
-        <aside class="instagram-right">
-          <div class="account-row">
-            <PreviewAvatar identity={model.identity} size={44} /><span
-              ><strong>{handle}</strong><small
-                >{model.identity.displayName}</small
-              ></span
-            ><b>Switch</b>
+          <div class="facebook-composer">
+            <PreviewAvatar identity={model.identity} size={40} />
+            <span>What’s on your mind?</span>
+            <footer>
+              <b><Video /> Live video</b><b><ImageIcon /> Photo/video</b><b
+                ><Smile /> Feeling/activity</b
+              >
+            </footer>
           </div>
-          <div class="suggested-heading"><h2>Suggested for you</h2><b>See all</b></div>
-          {@render followRow("OpenPost Image Editor Notes", "studionotes", "#2563eb")}
-          {@render followRow("Maya Chen", "mayac", "#7c3aed")}
-          {@render followRow("Open Design", "opendesign", "#0f766e")}
-          <p class="native-footer" aria-hidden="true">
-            About · Help · Press · API · Jobs · Privacy · Terms
-          </p>
+          <SocialPreview {model} {scheme} />
+          {@render feedPost(
+            "OpenPost Community",
+            "openpostcommunity",
+            "This week’s community round-up is ready. Thanks to everyone who shared feedback.",
+            "#1877f2",
+          )}
+        </section>
+        <aside class="facebook-right">
+          <div class="contacts-heading">
+            <h2>Contacts</h2>
+            <Video /><Search /><MoreHorizontal />
+          </div>
+          {@render followRow("Maya Chen", "Online", "#7c3aed")}
+          {@render followRow("Ari Santos", "Online", "#db2777")}
+          {@render followRow(
+            "OpenPost Image Editor Notes",
+            "Online",
+            "#2563eb",
+          )}
+          {@render followRow("Open Design", "Online", "#0f766e")}
         </aside>
-      {/if}
-      {@render mobileNav()}
-    </div>
-  {:else if model.platform === "youtube"}
-    <header class="youtube-topbar">
-      <Menu aria-hidden="true" />
-      <div class="youtube-brand">
-        <PlatformGlyph platform="youtube" label="YouTube" /><strong
-          >YouTube</strong
-        >
       </div>
-      <div class="youtube-search">
-        {@render searchBox("Search")}<button aria-label="Search"
-          ><Search /></button
-        ><span><Mic /></span>
-      </div>
-      <div class="top-actions">
-        <Video /><Bell /><PreviewAvatar identity={model.identity} size={34} />
-      </div>
-    </header>
-    <div class="youtube-page">
-      <aside class="youtube-left">
-        {@render navItem("home", "Home", true)}
-        {@render navItem("play", "Shorts")}
-        {@render navItem("video", "Subscriptions")}
-        <hr />
-        {@render navItem("user", "You")}
-        {@render navItem("bookmark", "Playlists")}
-        {@render navItem("history", "History")}
-      </aside>
-      <section
-        class={["youtube-watch", model.format === "short" && "shorts-view"]}
-      >
-        <div class="youtube-main">
-          <div class="youtube-chips" aria-hidden="true">
-            <b>All</b><span>From your search</span><span>Related</span
-            ><span>Recently uploaded</span>
+    {:else if model.platform === "instagram"}
+      <div class="instagram-page">
+        <aside class="instagram-left">
+          <div class="instagram-wordmark">Instagram</div>
+          <div class="brand-mark compact-logo">
+            <PlatformGlyph platform="instagram" />
           </div>
-          <SocialPreview {model} />
+          <nav aria-hidden="true" aria-label="Instagram navigation">
+            {@render navItem("home", "Home", true)}
+            {@render navItem("search", "Search")}
+            {@render navItem("compass", "Explore")}
+            {@render navItem("video", "Reels")}
+            {@render navItem("message", "Messages")}
+            {@render navItem("bell", "Notifications")}
+            {@render navItem("plus", "Create")}
+            {@render navItem("user", "Profile")}
+          </nav>
+          {@render navItem("settings", "More")}
+        </aside>
+        <section
+          class={[
+            "instagram-feed",
+            (model.format === "story" || model.format === "reel") &&
+              "immersive",
+          ]}
+        >
+          <header class="instagram-mobile-header">
+            <strong>For you</strong>
+            {@render searchBox("Search")}
+          </header>
+          {#if model.format === "post"}
+            <div class="instagram-feed-tabs" aria-hidden="true">
+              <strong>For you</strong><span>Following</span>
+            </div>
+            <div class="story-strip" aria-hidden="true">
+              {#each Array(6) as _, index (index)}
+                <div>
+                  <i></i><span
+                    >{index === 0 ? "Your story" : `profile_${index}`}</span
+                  >
+                </div>
+              {/each}
+            </div>
+          {/if}
+          <SocialPreview {model} {scheme} />
+          {#if model.format === "post"}{@render ghostRows(2)}{/if}
+        </section>
+        {#if model.format === "post"}
+          <aside class="instagram-right">
+            <div class="account-row">
+              <PreviewAvatar identity={model.identity} size={44} /><span
+                ><strong>{handle}</strong><small
+                  >{model.identity.displayName}</small
+                ></span
+              ><b>Switch</b>
+            </div>
+            <div class="suggested-heading">
+              <h2>Suggested for you</h2>
+              <b>See all</b>
+            </div>
+            {@render followRow(
+              "OpenPost Image Editor Notes",
+              "studionotes",
+              "#2563eb",
+            )}
+            {@render followRow("Maya Chen", "mayac", "#7c3aed")}
+            {@render followRow("Open Design", "opendesign", "#0f766e")}
+            <p class="native-footer" aria-hidden="true">
+              About · Help · Press · API · Jobs · Privacy · Terms
+            </p>
+          </aside>
+        {/if}
+        <nav class="mobile-native-nav instagram-bottom" aria-hidden="true">
+          <Home /><Search /><Video /><Plus /><Send /><Grid2X2 /><User />
+        </nav>
+      </div>
+    {:else if model.platform === "youtube"}
+      <header class="youtube-topbar">
+        <Menu aria-hidden="true" />
+        <div class="youtube-brand">
+          <PlatformGlyph platform="youtube" label="YouTube" /><strong
+            >YouTube</strong
+          >
         </div>
-        <aside class="recommendations">
-          {#each Array(7) as _, index (index)}
-            <div class="recommendation" aria-hidden="true">
-              <i><span>{index + 2}:14</span></i>
-              <div
-                ><strong
-                  >{[
-                    "A practical guide to better social video",
-                    "Build a repeatable publishing workflow",
-                    "The creator tools worth knowing",
-                    "Designing clear content systems",
-                    "How small teams publish consistently",
-                    "Behind the scenes: launch day",
-                    "Weekly product and design notes",
-                  ][index]}</strong
-                ><small>OpenPost Image Editor</small><small
-                  >{index + 3}K views · {index + 1} days ago</small
-                ></div
+        <div class="youtube-search">
+          {@render searchBox("Search")}<span aria-hidden="true"><Search /></span
+          ><span><Mic /></span>
+        </div>
+        <div class="top-actions">
+          <Video /><Bell /><PreviewAvatar identity={model.identity} size={34} />
+        </div>
+      </header>
+      <div class="youtube-page">
+        <aside class="youtube-left">
+          {@render navItem("home", "Home", true)}
+          {@render navItem("play", "Shorts")}
+          {@render navItem("video", "Subscriptions")}
+          <hr />
+          {@render navItem("user", "You")}
+          {@render navItem("bookmark", "Playlists")}
+          {@render navItem("history", "History")}
+        </aside>
+        <section
+          class={["youtube-watch", model.format === "short" && "shorts-view"]}
+        >
+          <div class="youtube-main">
+            <div class="youtube-chips" aria-hidden="true">
+              <b>All</b><span>From your search</span><span>Related</span><span
+                >Recently uploaded</span
               >
             </div>
-          {/each}
-        </aside>
-        {@render mobileNav()}
-      </section>
-    </div>
-  {:else if model.platform === "tiktok"}
-    <header class="tiktok-topbar">
-      <div class="tiktok-brand">
-        <PlatformGlyph platform="tiktok" label="TikTok" /><strong>TikTok</strong
-        >
-      </div>
-      {@render searchBox("Search")}
-      <div class="top-actions">
-        <span class="upload"><Plus /> Upload</span><Send /><MessageCircle
-        /><PreviewAvatar identity={model.identity} size={34} />
-      </div>
-    </header>
-    <div class="tiktok-page">
-      <aside class="tiktok-left">
-        {@render navItem("home", "For You", true)}
-        {@render navItem("compass", "Explore")}
-        {@render navItem("users", "Following")}
-        {@render navItem("users", "Friends")}
-        {@render navItem("video", "LIVE")}
-        {@render navItem("message", "Messages")}
-        {@render navItem("user", "Profile")}
-        <hr />
-        <strong class="rail-label">Suggested accounts</strong>
-        {@render ghostRows(4)}
-      </aside>
-      <section class="tiktok-feed">
-        <div class="tiktok-feed-tabs" aria-hidden="true">
-          <span>Following</span><strong>For You</strong>
-        </div>
-        <SocialPreview {model} />
-        {@render mobileNav()}
-      </section>
-    </div>
-  {:else if model.platform === "discord"}
-    <div class="discord-page">
-      <aside class="server-rail">
-        <div class="discord-home">
-          <PlatformGlyph platform="discord" label="Discord" />
-        </div>
-        {#each ["OP", "DS", "UI", "+"] as server (server)}<span>{server}</span
-          >{/each}
-      </aside>
-      <aside class="channel-rail">
-        <header><strong>OpenPost</strong><ChevronDown /></header>
-        <span>TEXT CHANNELS</span>
-        {@render navItem("hash", "general", true)}
-        {@render navItem("hash", "content")}
-        {@render navItem("hash", "social")}
-        <span>VOICE CHANNELS</span>
-        {@render navItem("message", "Lounge")}
-        <div class="discord-user">
-          <PreviewAvatar identity={model.identity} size={34} />
-          <span><strong>{handle}</strong><small>Online</small></span>
-          <Mic />
-          <Settings />
-        </div>
-      </aside>
-      <section class="discord-chat">
-        <header>
-          <Hash /><strong>general</strong><span>OpenPost community chat</span
-          ><div><Bell /><Users /><Search /></div>
-        </header>
-        <div class="chat-history">
-          <div class="channel-welcome">
-            <Hash />
-            <h1>Welcome to #general!</h1>
-            <p>This is the start of the #general channel.</p>
+            <SocialPreview {model} {scheme} />
           </div>
-          <SocialPreview {model} />
-        </div>
-        <div class="message-box">
-          <Plus /><span>Message #general</span><span>GIF</span><AtSign />
-        </div>
-      </section>
-      <aside class="member-rail">
-        <span>ONLINE — 4</span>
-        {@render followRow("OpenPost", "Creator", "#5865f2")}
-        {@render followRow("Maya", "Online", "#7c3aed")}
-        {@render followRow("Ari", "Online", "#db2777")}
-        {@render followRow("OpenPost Image Editor Bot", "BOT", "#0f766e")}
-      </aside>
-    </div>
-  {:else if model.platform === "telegram"}
-    <div class="telegram-page">
-      <aside class="telegram-chat-list" aria-hidden="true">
-        <header><Menu /><strong>Telegram</strong><Search /></header>
-        <div class="telegram-search">Search</div>
-        <div class="telegram-channel-row">
-          <PreviewAvatar identity={model.identity} size={46} />
-          <span
-            ><strong>{model.identity.displayName}</strong><small
-              >{model.segments[0]?.text || "Channel"}</small
-            ></span
+          <aside class="recommendations">
+            {#each Array(7) as _, index (index)}
+              <div class="recommendation" aria-hidden="true">
+                <i><span>{index + 2}:14</span></i>
+                <div>
+                  <strong
+                    >{[
+                      "A practical guide to better social video",
+                      "Build a repeatable publishing workflow",
+                      "The creator tools worth knowing",
+                      "Designing clear content systems",
+                      "How small teams publish consistently",
+                      "Behind the scenes: launch day",
+                      "Weekly product and design notes",
+                    ][index]}</strong
+                  ><small>OpenPost Image Editor</small><small
+                    >{index + 3}K views · {index + 1} days ago</small
+                  >
+                </div>
+              </div>
+            {/each}
+          </aside>
+          {@render mobileNav()}
+        </section>
+      </div>
+    {:else if model.platform === "tiktok"}
+      <header class="tiktok-topbar">
+        <div class="tiktok-brand">
+          <PlatformGlyph platform="tiktok" label="TikTok" /><strong
+            >TikTok</strong
           >
-          <time>{model.createdAtLabel}</time>
         </div>
-      </aside>
-      <section class="telegram-conversation">
-        <header class="telegram-channel-header">
-          <PreviewAvatar identity={model.identity} size={40} />
-          <span
-            ><h1>{model.identity.displayName}</h1>
-            <small>channel</small></span
-          >
-          <Search aria-hidden="true" />
-          <MoreHorizontal aria-hidden="true" />
-        </header>
-        <div class="telegram-messages">
-          <span class="telegram-date">Today</span>
-          <SocialPreview {model} />
+        {@render searchBox("Search")}
+        <div class="top-actions">
+          <span class="upload"><Plus /> Upload</span><Send /><MessageCircle
+          /><PreviewAvatar identity={model.identity} size={34} />
         </div>
-      </section>
-    </div>
-  {:else}
-    <div class="unsupported-page"><SocialPreview {model} /></div>
-  {/if}
-</main>
+      </header>
+      <div class="tiktok-page">
+        <aside class="tiktok-left">
+          {@render navItem("home", "For You", true)}
+          {@render navItem("compass", "Explore")}
+          {@render navItem("users", "Following")}
+          {@render navItem("users", "Friends")}
+          {@render navItem("video", "LIVE")}
+          {@render navItem("message", "Messages")}
+          {@render navItem("user", "Profile")}
+          <hr />
+          <strong class="rail-label">Suggested accounts</strong>
+          {@render ghostRows(4)}
+        </aside>
+        <section class="tiktok-feed">
+          <div class="tiktok-feed-tabs" aria-hidden="true">
+            <span>Following</span><strong>For You</strong>
+          </div>
+          <SocialPreview {model} {scheme} />
+          {@render mobileNav()}
+        </section>
+      </div>
+    {:else if model.platform === "discord"}
+      <div class="discord-page">
+        <aside class="server-rail">
+          <div class="discord-home">
+            <PlatformGlyph platform="discord" label="Discord" />
+          </div>
+          {#each ["OP", "DS", "UI", "+"] as server (server)}<span>{server}</span
+            >{/each}
+        </aside>
+        <aside class="channel-rail">
+          <header><strong>OpenPost</strong><ChevronDown /></header>
+          <span>TEXT CHANNELS</span>
+          {@render navItem("hash", "general", true)}
+          {@render navItem("hash", "content")}
+          {@render navItem("hash", "social")}
+          <span>VOICE CHANNELS</span>
+          {@render navItem("message", "Lounge")}
+          <div class="discord-user">
+            <PreviewAvatar identity={model.identity} size={34} />
+            <span><strong>{handle}</strong><small>Online</small></span>
+            <Mic />
+            <Settings />
+          </div>
+        </aside>
+        <section class="discord-chat">
+          <header>
+            <Hash /><strong>general</strong><span>OpenPost community chat</span>
+            <div><Bell /><Users /><Search /></div>
+          </header>
+          <div class="chat-history">
+            <div class="channel-welcome">
+              <Hash />
+              <h1>Welcome to #general!</h1>
+              <p>This is the start of the #general channel.</p>
+            </div>
+            <SocialPreview {model} {scheme} />
+          </div>
+          <div class="message-box">
+            <Plus /><span>Message #general</span><span>GIF</span><AtSign />
+          </div>
+        </section>
+        <aside class="member-rail">
+          <span>MEMBERS</span>
+          {@render followRow("OpenPost", "Creator", "#5865f2")}
+          {@render followRow("Maya", "Online", "#7c3aed")}
+          {@render followRow("Ari", "Online", "#db2777")}
+          {@render followRow("OpenPost Image Editor Bot", "BOT", "#0f766e")}
+        </aside>
+      </div>
+    {:else if model.platform === "telegram"}
+      <div class="telegram-page">
+        <aside class="telegram-chat-list" aria-hidden="true">
+          <header><Menu /><strong>Telegram</strong><Search /></header>
+          <div class="telegram-search">Search</div>
+          <div class="telegram-channel-row">
+            <PreviewAvatar identity={model.identity} size={46} />
+            <span
+              ><strong>{model.identity.displayName}</strong><small
+                >{model.segments[0]?.text || "Channel"}</small
+              ></span
+            >
+            <time>{model.createdAtLabel}</time>
+          </div>
+        </aside>
+        <section class="telegram-conversation">
+          <header class="telegram-channel-header">
+            <PreviewAvatar identity={model.identity} size={40} />
+            <span
+              ><h1>{model.identity.displayName}</h1>
+              <small>channel</small></span
+            >
+            <Search aria-hidden="true" />
+            <MoreHorizontal aria-hidden="true" />
+          </header>
+          <div class="telegram-messages">
+            <span class="telegram-date">Today</span>
+            <SocialPreview {model} {scheme} />
+          </div>
+        </section>
+      </div>
+    {:else}
+      <div class="unsupported-page"><SocialPreview {model} {scheme} /></div>
+    {/if}
+  </main>
+</div>
 
 <style>
   .preview-page {
@@ -1366,38 +1384,6 @@
     opacity: 0.72;
   }
 
-  .platform-mastodon {
-    --page-bg: #191b22;
-    --page-surface: #282c37;
-    --page-fg: #f5f5f7;
-    --page-muted: #9baec8;
-    --page-border: #393f4f;
-    --page-soft: #282c37;
-    --page-accent: #6364ff;
-  }
-
-  .platform-mastodon .brand-mark {
-    color: #6364ff;
-  }
-
-  .platform-mastodon .micro-page {
-    grid-template-columns: minmax(13rem, 18rem) minmax(0, 34rem) minmax(
-        17rem,
-        20rem
-      );
-    gap: 0.8rem;
-    padding-inline: 0.8rem;
-  }
-
-  .platform-mastodon .micro-left,
-  .platform-mastodon .micro-center {
-    border: 0;
-  }
-
-  .platform-mastodon .micro-center {
-    background: #282c37;
-  }
-
   .platform-bluesky {
     --page-bg: #fff;
     --page-fg: #101827;
@@ -1409,45 +1395,6 @@
 
   .platform-bluesky .brand-mark {
     color: #1185fe;
-  }
-
-  .platform-threads {
-    --page-bg: #fff;
-    --page-fg: #0a0a0a;
-    --page-muted: #777;
-    --page-border: #e5e5e5;
-    --page-soft: #f5f5f5;
-    --page-accent: #0a0a0a;
-  }
-
-  .platform-threads .micro-page {
-    grid-template-columns: 5.5rem minmax(0, 39.5rem) minmax(17rem, 20rem);
-  }
-
-  .platform-threads .micro-left {
-    align-items: center;
-    padding-inline: 0.5rem;
-  }
-
-  .platform-threads .micro-left .nav-item {
-    width: 3.2rem;
-    padding: 0;
-    justify-content: center;
-  }
-
-  .platform-threads .micro-left .nav-item strong,
-  .platform-threads .compose-button span,
-  .platform-threads .rail-profile > span,
-  .platform-threads .rail-profile > :global(svg) {
-    display: none;
-  }
-
-  .platform-threads .compose-button {
-    width: 3.1rem;
-  }
-
-  .platform-threads .rail-profile {
-    padding: 0;
   }
 
   .linkedin-topbar,
@@ -1856,7 +1803,11 @@
     min-height: 10rem;
     overflow: hidden;
     border-radius: 0.7rem;
-    background: color-mix(in srgb, var(--story-tone, #1877f2) 22%, var(--page-surface));
+    background: color-mix(
+      in srgb,
+      var(--story-tone, #1877f2) 22%,
+      var(--page-surface)
+    );
     box-shadow: 0 1px 2px rgb(0 0 0 / 16%);
   }
 
@@ -1952,7 +1903,7 @@
 
   .instagram-page {
     display: grid;
-    grid-template-columns: 15.25rem minmax(30rem, 39.5rem) minmax(15rem, 20rem);
+    grid-template-columns: 4.5rem minmax(30rem, 44rem) minmax(15rem, 20rem);
     justify-content: center;
     gap: 1.5rem;
   }
@@ -1983,6 +1934,8 @@
   }
 
   .instagram-left .nav-item {
+    justify-content: center;
+    padding-inline: 0;
     min-height: 3.3rem;
     border-radius: 0.5rem;
     font-size: 0.9rem;
@@ -2143,7 +2096,7 @@
     background: var(--page-surface);
   }
 
-  .youtube-search button {
+  .youtube-search > span:first-of-type {
     width: 4rem;
     height: 2.5rem;
     display: grid;
@@ -2155,7 +2108,7 @@
     color: inherit;
   }
 
-  .youtube-search button :global(svg),
+  .youtube-search > span:first-of-type :global(svg),
   .youtube-search > span :global(svg) {
     width: 1.2rem;
     height: 1.2rem;
@@ -2411,7 +2364,7 @@
   .discord-page {
     display: grid;
     grid-template-columns: 4.5rem 15rem minmax(0, 1fr) 15rem;
-    background: #313338;
+    background: var(--page-surface);
   }
 
   .server-rail {
@@ -2419,7 +2372,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.55rem;
-    background: #1e1f22;
+    background: light-dark(#e3e5e8, #1e1f22);
     padding-top: 0.75rem;
   }
 
@@ -2430,7 +2383,7 @@
     height: 3rem;
     place-items: center;
     border-radius: 50%;
-    background: #313338;
+    background: var(--page-surface);
     color: #dbdee1;
     font-size: 0.72rem;
     font-weight: 700;
@@ -2448,7 +2401,7 @@
 
   .channel-rail {
     position: relative;
-    background: #2b2d31;
+    background: var(--page-soft);
     color: #949ba4;
     padding: 0.75rem 0.5rem;
   }
@@ -2622,7 +2575,7 @@
     min-height: 2.8rem;
     margin: 0 1rem 1.5rem;
     border-radius: 0.5rem;
-    background: #383a40;
+    background: light-dark(#ebedef, #383a40);
     color: var(--page-muted);
     padding: 0 0.8rem;
     font-size: 0.78rem;
@@ -2634,7 +2587,7 @@
   }
 
   .member-rail {
-    background: #2b2d31;
+    background: var(--page-soft);
   }
 
   .member-rail .follow-row {
@@ -2657,97 +2610,7 @@
     padding: 1rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .platform-x,
-    .platform-bluesky,
-    .platform-threads,
-    .platform-linkedin,
-    .platform-facebook,
-    .platform-instagram,
-    .platform-youtube,
-    .platform-tiktok {
-      --page-bg: #000;
-      --page-surface: #121212;
-      --page-fg: #f2f2f2;
-      --page-muted: #a4a4a4;
-      --page-border: #2f3336;
-      --page-soft: #202124;
-    }
-
-    .platform-bluesky {
-      --page-bg: #111822;
-      --page-surface: #111822;
-      --page-border: #273344;
-    }
-
-    .platform-linkedin {
-      --page-surface: #1b1f23;
-      --page-border: #38434f;
-      --page-soft: #293138;
-    }
-
-    .platform-facebook {
-      --page-bg: #18191a;
-      --page-surface: #242526;
-      --page-border: #3e4042;
-      --page-soft: #3a3b3c;
-    }
-
-    .platform-instagram,
-    .platform-youtube,
-    .platform-tiktok {
-      --page-bg: #000;
-      --page-surface: #0f0f0f;
-      --page-border: #2f2f2f;
-      --page-soft: #272727;
-    }
-  }
-
-  :global(.dark) .platform-x,
-  :global(.dark) .platform-bluesky,
-  :global(.dark) .platform-threads,
-  :global(.dark) .platform-linkedin,
-  :global(.dark) .platform-facebook,
-  :global(.dark) .platform-instagram,
-  :global(.dark) .platform-youtube,
-  :global(.dark) .platform-tiktok {
-    --page-bg: #000;
-    --page-surface: #121212;
-    --page-fg: #f2f2f2;
-    --page-muted: #a4a4a4;
-    --page-border: #2f3336;
-    --page-soft: #202124;
-  }
-
-  :global(.dark) .platform-bluesky {
-    --page-bg: #111822;
-    --page-surface: #111822;
-    --page-border: #273344;
-  }
-
-  :global(.dark) .platform-linkedin {
-    --page-surface: #1b1f23;
-    --page-border: #38434f;
-    --page-soft: #293138;
-  }
-
-  :global(.dark) .platform-facebook {
-    --page-bg: #18191a;
-    --page-surface: #242526;
-    --page-border: #3e4042;
-    --page-soft: #3a3b3c;
-  }
-
-  :global(.dark) .platform-instagram,
-  :global(.dark) .platform-youtube,
-  :global(.dark) .platform-tiktok {
-    --page-bg: #000;
-    --page-surface: #0f0f0f;
-    --page-border: #2f2f2f;
-    --page-soft: #272727;
-  }
-
-  @media (max-width: 68rem) {
+  @container social-page (max-width: 68rem) {
     .micro-page {
       grid-template-columns: 5rem minmax(0, 37.5rem) minmax(16rem, 20rem);
     }
@@ -2878,7 +2741,7 @@
     }
   }
 
-  @media (max-width: 52rem) {
+  @container social-page (max-width: 52rem) {
     .micro-page {
       grid-template-columns: 4.25rem minmax(0, 37.5rem);
     }
@@ -2920,7 +2783,7 @@
     }
 
     .youtube-search .native-search,
-    .youtube-search button {
+    .youtube-search > span:first-of-type {
       display: none;
     }
 
@@ -2941,7 +2804,7 @@
     }
   }
 
-  @media (max-width: 40rem) {
+  @container social-page (max-width: 40rem) {
     .telegram-page {
       display: block;
     }
@@ -3017,7 +2880,7 @@
     }
 
     .mobile-native-nav {
-      position: fixed;
+      position: sticky;
       z-index: 40;
       right: 0;
       bottom: 0;
@@ -3127,11 +2990,6 @@
       font-size: 1.5rem;
     }
 
-    .instagram-mobile-header > span {
-      display: flex;
-      gap: 1rem;
-    }
-
     .instagram-mobile-header :global(svg) {
       width: 1.35rem;
       height: 1.35rem;
@@ -3184,6 +3042,167 @@
 
     .discord-chat {
       min-height: 100dvh;
+    }
+  }
+
+  .preview-container {
+    container: social-page / inline-size;
+    width: 100%;
+    min-width: 0;
+    color-scheme: light dark;
+  }
+  :global(.dark) .preview-container {
+    color-scheme: dark;
+  }
+  :global(.light) .preview-container {
+    color-scheme: light;
+  }
+  .preview-page {
+    --page-bg: light-dark(#fff, #000);
+    --page-surface: light-dark(#fff, #121212);
+    --page-fg: light-dark(#0f1419, #f2f2f2);
+    --page-muted: light-dark(#536471, #a4a4a4);
+    --page-border: light-dark(#eff3f4, #2f3336);
+    --page-soft: light-dark(#f5f5f5, #202124);
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .platform-bluesky {
+    --page-bg: light-dark(#fff, #111822);
+    --page-surface: var(--page-bg);
+    --page-border: light-dark(#e5eaf0, #273344);
+    --page-fg: light-dark(#101827, #f1f3f5);
+    --page-muted: light-dark(#68788a, #a7b5c5);
+    --page-soft: light-dark(#f1f5f9, #1e2938);
+  }
+  .platform-linkedin {
+    --page-bg: light-dark(#f4f2ee, #000);
+    --page-surface: light-dark(#fff, #1b1f23);
+    --page-border: light-dark(#dfdeda, #38434f);
+    --page-soft: light-dark(#eef3f8, #293138);
+  }
+  .platform-facebook {
+    --page-bg: light-dark(#f0f2f5, #18191a);
+    --page-surface: light-dark(#fff, #242526);
+    --page-border: light-dark(#dddfe2, #3e4042);
+    --page-soft: light-dark(#f0f2f5, #3a3b3c);
+  }
+  .platform-mastodon {
+    --page-bg: light-dark(#f3f5f7, #191b22);
+    --page-surface: light-dark(#fff, #282c37);
+    --page-fg: light-dark(#282c37, #f5f5f7);
+    --page-muted: light-dark(#606984, #9baec8);
+    --page-border: light-dark(#d9e1e8, #393f4f);
+    --page-soft: var(--page-surface);
+  }
+  .platform-discord {
+    --page-bg: light-dark(#fff, #313338);
+    --page-surface: var(--page-bg);
+    --page-fg: light-dark(#313338, #f2f3f5);
+    --page-muted: light-dark(#5c5e66, #b5bac1);
+    --page-border: light-dark(#e3e5e8, #26272d);
+    --page-soft: light-dark(#f2f3f5, #2b2d31);
+  }
+  .telegram-page {
+    background: light-dark(#d8e5e4, #0e1621);
+    color: light-dark(#18242b, #f5f5f5);
+  }
+  .telegram-chat-list,
+  .telegram-channel-header {
+    background: light-dark(#fff, #17212b);
+    border-color: light-dark(#e0e5e7, #27333e);
+  }
+  .telegram-search {
+    background: light-dark(#f1f3f5, #242f3d);
+  }
+  .telegram-channel-row {
+    background: light-dark(#e9f3ff, #2b5278);
+  }
+  .telegram-channel-row small,
+  .telegram-channel-row time,
+  .telegram-channel-header small {
+    color: light-dark(#52636b, #a8b7c5);
+  }
+
+  @container social-page (max-width: 40rem) {
+    .facebook-feed {
+      padding-bottom: 0;
+      gap: 8px;
+    }
+    .facebook-feed :global(.facebook-preview) {
+      border-radius: 0;
+      border-inline: 0;
+    }
+  }
+  .platform-x .column-header {
+    display: none;
+  }
+  .platform-x .compose-button {
+    background: var(--page-fg);
+    color: var(--page-bg);
+  }
+  .platform-x .nav-item {
+    font-size: 20px;
+  }
+  .platform-x .nav-item:not(.active) strong {
+    font-weight: 400;
+  }
+  .platform-instagram {
+    --page-bg: light-dark(#fff, #000);
+    --page-surface: light-dark(#fff, #000);
+    --page-fg: light-dark(#262626, #f5f5f5);
+    --page-muted: light-dark(#737373, #a8a8a8);
+    --page-border: light-dark(#dbdbdb, #262626);
+    --page-soft: light-dark(#fafafa, #121212);
+  }
+  .platform-youtube {
+    --page-bg: light-dark(#fff, #0f0f0f);
+    --page-surface: var(--page-bg);
+    --page-fg: light-dark(#0f0f0f, #f1f1f1);
+    --page-muted: light-dark(#606060, #aaa);
+    --page-border: light-dark(#e5e5e5, #303030);
+    --page-soft: light-dark(#f2f2f2, #272727);
+  }
+  .platform-tiktok {
+    --page-bg: light-dark(#fff, #121212);
+    --page-surface: var(--page-bg);
+    --page-fg: light-dark(#161823, #f1f1f1);
+    --page-muted: light-dark(#646570, #aaa);
+    --page-border: light-dark(#e5e5e5, #303030);
+    --page-soft: light-dark(#f2f2f2, #272727);
+  }
+  .instagram-left .instagram-wordmark,
+  .instagram-left .nav-item strong {
+    display: none;
+  }
+  .instagram-left .compact-logo {
+    display: grid;
+  }
+  .instagram-feed-tabs {
+    display: flex;
+    gap: 20px;
+    width: min(100%, 470px);
+    border-bottom: 1px solid var(--page-border);
+    padding: 16px 0;
+  }
+  .instagram-feed-tabs span {
+    color: var(--page-muted);
+  }
+  @container social-page (max-width: 40rem) {
+    .instagram-feed-tabs {
+      display: none;
+    }
+    .instagram-mobile-header {
+      gap: 20px;
+    }
+    .instagram-mobile-header .native-search {
+      flex: 1;
+      width: auto;
+      min-height: 32px;
+      border-radius: 8px;
+    }
+    .instagram-bottom {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      justify-items: center;
     }
   }
 </style>

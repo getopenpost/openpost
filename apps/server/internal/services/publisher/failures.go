@@ -113,33 +113,77 @@ func classifyProviderHTTPFailure(err error) (Failure, bool) {
 	if !errors.As(err, &providerErr) {
 		return Failure{}, false
 	}
-	code := strings.ToLower(providerErr.Code)
-	kind := ""
-	switch {
-	case strings.Contains(code, "duplicate") || providerErr.StatusCode == http.StatusConflict:
-		kind = FailureDuplicateContent
-	case strings.Contains(code, "expired"):
-		kind = FailureAuthExpired
-	case providerErr.StatusCode == http.StatusUnauthorized:
-		kind = FailureReconnectRequired
-	case providerErr.StatusCode == http.StatusForbidden:
-		kind = FailurePermission
-	case providerErr.StatusCode == http.StatusPaymentRequired:
-		kind = FailureBillingRequired
-	case providerErr.StatusCode == http.StatusTooManyRequests:
-		kind = FailureRateLimited
-	case providerErr.StatusCode == http.StatusBadRequest ||
-		providerErr.StatusCode == http.StatusUnprocessableEntity:
-		kind = FailureValidation
-	case providerErr.StatusCode >= 500:
-		kind = FailureProviderServer
+	if failure, ok := classifyMetaFailure(providerErr); ok {
+		return failure, true
 	}
+	code := strings.ToLower(providerErr.Code)
+	kind := providerFailureKindByStatus(providerErr.StatusCode, code)
 	if kind == "" {
 		return Failure{}, false
 	}
 	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
 	if kind == FailurePermission && code == "discord_attach_files_permission_lost" {
 		failure.Message = "Allow Attach Files for the bot in this Discord channel, or remove the attachments."
+	}
+	failure.Subcode = providerErr.Subcode
+	failure.TraceID = providerErr.TraceID
+	return failure, true
+}
+
+func providerFailureKindByStatus(status int, code string) string {
+	switch {
+	case strings.Contains(code, "duplicate") || status == http.StatusConflict:
+		return FailureDuplicateContent
+	case strings.Contains(code, "expired"):
+		return FailureAuthExpired
+	case status == http.StatusUnauthorized:
+		return FailureReconnectRequired
+	case status == http.StatusForbidden:
+		return FailurePermission
+	case status == http.StatusPaymentRequired:
+		return FailureBillingRequired
+	case status == http.StatusTooManyRequests:
+		return FailureRateLimited
+	case status == http.StatusBadRequest || status == http.StatusUnprocessableEntity:
+		return FailureValidation
+	case status >= 500:
+		return FailureProviderServer
+	default:
+		return ""
+	}
+}
+
+// classifyMetaFailure maps normalized Meta error codes to failure kinds with
+// distinct recovery actions: checkpoint and expired credentials reconnect,
+// a lost Page role reconnects after an admin grants it back, terminal media
+// or missing objects ask for an edit, and transient outages retry.
+func classifyMetaFailure(providerErr *platform.HTTPError) (Failure, bool) {
+	var kind string
+	var retryable bool
+	switch code := providerErr.Code; {
+	case code == "meta:checkpoint:190:459" || code == "meta:checkpoint:instagram":
+		kind = FailureReconnectRequired
+	case code == "meta:missing_page_role:190:492":
+		kind = FailurePermission
+	case code == "meta:nonexistent:100:33":
+		kind = FailureValidation
+	case code == "meta:media_silent_audio:2207082":
+		kind = FailureProviderProcessing
+		retryable = true
+	case code == "meta:media_format:2207085" || strings.HasPrefix(code, "meta:media_rejected:"):
+		kind = FailureValidation
+	default:
+		return Failure{}, false
+	}
+	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
+	failure.Retryable = retryable
+	if message := platform.MetaFailureMessage(providerErr.Code); message != "" {
+		failure.Message = message
+	}
+	if providerErr.Code == "meta:missing_page_role:190:492" {
+		// The fix happens in the provider (Page admin grants a role) and
+		// completes with a reconnect, not by opening the provider post.
+		failure.Action = FailureActionReconnect
 	}
 	failure.Subcode = providerErr.Subcode
 	failure.TraceID = providerErr.TraceID

@@ -781,13 +781,25 @@ func facebookPublishedID(label string, respBody []byte) (string, error) {
 		PostID string `json:"post_id"`
 		Error  struct {
 			Message string `json:"message"`
+			Code    any    `json:"code"`
+			Subcode any    `json:"error_subcode"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(respBody, &publishResp); err != nil {
 		return "", fmt.Errorf("decoding %s: %w", label, err)
 	}
 	if publishResp.Error.Message != "" {
-		return "", &HTTPError{StatusCode: http.StatusBadRequest, Code: "facebook_publish_error"}
+		// Same embedded-error handling as Instagram: classify the embedded
+		// {code, subcode} and never retain the message.
+		code := firstSafeProviderCode([]any{publishResp.Error.Code})
+		if code == "" {
+			code = "facebook_publish_error"
+		}
+		return "", normalizeMetaPublishError(&HTTPError{
+			StatusCode: http.StatusBadRequest,
+			Code:       code,
+			Subcode:    firstSafeProviderCode([]any{publishResp.Error.Subcode}),
+		})
 	}
 	id := firstNonEmptyString(publishResp.PostID, publishResp.ID)
 	if id == "" {

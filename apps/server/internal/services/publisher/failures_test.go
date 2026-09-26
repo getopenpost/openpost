@@ -52,6 +52,48 @@ func TestRetryDelayIsBoundedAndHonorsRetryAfter(t *testing.T) {
 	require.Equal(t, 36*time.Second, RetryDelay(1, 0, 0.9))
 }
 
+func TestClassifyMetaFailuresUseDistinctRecoveryActions(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		kind      string
+		retryable bool
+		action    string
+		message   string
+	}{
+		{"checkpoint", &platform.HTTPError{StatusCode: 401, Code: "meta:checkpoint:190:459", Subcode: "459"}, FailureReconnectRequired, false, FailureActionReconnect, "security check"},
+		{"instagram checkpoint", &platform.HTTPError{StatusCode: 401, Code: "meta:checkpoint:instagram"}, FailureReconnectRequired, false, FailureActionReconnect, "instagram.com"},
+		{"lost page role", &platform.HTTPError{StatusCode: 403, Code: "meta:missing_page_role:190:492", Subcode: "492"}, FailurePermission, false, FailureActionReconnect, "role on this Page"},
+		{"missing object never retries", &platform.HTTPError{StatusCode: 400, Code: "meta:nonexistent:100:33", Subcode: "33"}, FailureValidation, false, FailureActionEdit, "no longer exists"},
+		{"silent audio retries", &platform.HTTPError{StatusCode: 400, Code: "meta:media_silent_audio:2207082"}, FailureProviderProcessing, true, FailureActionRetry, "volume to 0"},
+		{"format rejection", &platform.HTTPError{StatusCode: 400, Code: "meta:media_format:2207085"}, FailureValidation, false, FailureActionEdit, "format, duration"},
+		{"daily limit", &platform.HTTPError{StatusCode: 400, Code: "meta:media_rejected:2207042"}, FailureValidation, false, FailureActionEdit, "25 posts per day"},
+		{"outage retries", &platform.HTTPError{StatusCode: 503, Code: "meta:transient"}, FailureProviderServer, true, FailureActionRetry, "temporarily unavailable"},
+		{"rate limit retries", &platform.HTTPError{StatusCode: 429, Code: "meta:transient"}, FailureRateLimited, true, FailureActionRetry, "rate limiting"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			failure := ClassifyFailure(test.err)
+			require.Equal(t, test.kind, failure.Kind)
+			require.Equal(t, test.retryable, failure.Retryable)
+			require.Equal(t, test.action, failure.Action)
+			require.Contains(t, failure.Message, test.message)
+			require.Equal(t, test.err.(*platform.HTTPError).Code, failure.Code)
+		})
+	}
+}
+
+func TestClassifyMetaFailuresPreserveBoundedDiagnostics(t *testing.T) {
+	failure := ClassifyFailure(&platform.HTTPError{
+		StatusCode: 401,
+		Code:       "meta:checkpoint:190:459",
+		Subcode:    "459",
+		TraceID:    "A1b2C3d4",
+	})
+	require.Equal(t, "459", failure.Subcode)
+	require.Equal(t, "A1b2C3d4", failure.TraceID)
+}
+
 func TestDiscordAttachmentPermissionFailureExplainsHowToPublish(t *testing.T) {
 	failure := ClassifyFailure(&platform.HTTPError{
 		StatusCode: http.StatusForbidden,

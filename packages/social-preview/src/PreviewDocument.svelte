@@ -41,7 +41,15 @@
         ]);
         if (disposed) return;
         pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+        const resources = new URL(
+          `/pdfjs/${pdfjs.version}/`,
+          window.location.origin,
+        ).href;
         task = pdfjs.getDocument({
+          cMapUrl: `${resources}cmaps/`,
+          cMapPacked: true,
+          standardFontDataUrl: `${resources}standard_fonts/`,
+          wasmUrl: `${resources}wasm/`,
           url: source,
           withCredentials:
             new URL(source, window.location.href).origin ===

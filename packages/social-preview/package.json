@@ -22,6 +22,7 @@
     "@vitest/browser-playwright": "^4.1.11",
     "playwright": "^1.58.2",
     "vite": "^8.2.1",
+    "vite-plugin-static-copy": "4.1.1",
     "vitest": "^4.1.11",
     "vitest-browser-svelte": "^2.2.1"
   },

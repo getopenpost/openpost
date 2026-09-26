@@ -3,6 +3,7 @@ import { render } from "vitest-browser-svelte";
 import SocialPreview from "./SocialPreview.svelte";
 import { createPreviewModel } from "./model";
 import documentURL from "./fixtures/two-pages.pdf?url";
+import resourceDocumentURL from "./fixtures/cjk-jpeg2000.pdf?url";
 
 const model = (src = documentURL) =>
   createPreviewModel({
@@ -64,4 +65,35 @@ it("reports a corrupt PDF and can recover when the attachment is replaced", asyn
   } finally {
     URL.revokeObjectURL(broken);
   }
+});
+
+it("renders CJK text, standard symbols, and JPEG2000 images from a valid PDF", async () => {
+  const screen = render(SocialPreview, { model: model(resourceDocumentURL) });
+  const page = screen.getByRole("img", { name: "Document page 1", exact: true });
+  await expect.element(page).toBeVisible();
+  await expect
+    .element(screen.getByRole("region", { name: "Launch deck" }))
+    .toHaveTextContent("日本語");
+  await expect
+    .poll(() =>
+      Array.from(
+        (page.element().querySelector("canvas") as HTMLCanvasElement)
+          .getContext("2d")!
+          .getImageData(1, 1, 1, 1).data,
+      ),
+    )
+    .toEqual([255, 0, 0, 255]);
+  const canvas = page.element().querySelector("canvas") as HTMLCanvasElement;
+  const symbols = canvas
+    .getContext("2d")!
+    .getImageData(
+      0,
+      Math.floor(canvas.height * 0.75),
+      canvas.width,
+      Math.floor(canvas.height * 0.2),
+    );
+  expect(Array.from(symbols.data).some((value, index) => index % 4 !== 3 && value < 128)).toBe(
+    true,
+  );
+  await expect.element(screen.getByRole("alert")).not.toBeInTheDocument();
 });

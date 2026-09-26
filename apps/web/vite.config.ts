@@ -1,3 +1,4 @@
+import { pdfPreviewAssets } from '../../packages/social-preview/pdf-assets.ts';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
@@ -50,6 +51,7 @@ export default defineConfig({
 		'import.meta.env.VITE_APP_MODE': JSON.stringify(process.env.VITE_APP_MODE || 'web')
 	},
 	plugins: [
+		pdfPreviewAssets(),
 		phonemizerDataRacePlugin(),
 		...(isVitest ? [testMediaStubPlugin] : []),
 		tailwindcss(),

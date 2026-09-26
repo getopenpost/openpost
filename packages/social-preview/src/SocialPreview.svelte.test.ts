@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-svelte";
+import { userEvent } from "vitest/browser";
 import SocialPreview from "./SocialPreview.svelte";
 import SocialPreviewPage from "./SocialPreviewPage.svelte";
 import {
@@ -175,4 +176,56 @@ describe("SocialPreviewPage destination shells", () => {
     await expect.element(screen.getByText("First destination post.")).toBeVisible();
     await expect.element(screen.getByText("Second destination post.")).toBeVisible();
   });
+});
+
+it("keeps a large carousel position window visible while keyboard navigation reaches every item", async () => {
+  const host = document.createElement("div");
+  host.style.width = "320px";
+  document.body.append(host);
+  try {
+    const screen = render(SocialPreview, {
+      target: host,
+      props: {
+        model: createPreviewModel({
+          platform: "instagram",
+          media: Array.from({ length: 35 }, (_, index) => ({
+            id: `slide-${index}`,
+            kind: "image" as const,
+            src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3C/svg%3E",
+            alt: `Slide ${index + 1}`,
+          })),
+        }),
+      },
+    });
+    const positions = () => [
+      ...host.querySelectorAll<HTMLButtonElement>('button[aria-label^="Show media"]'),
+    ];
+    await expect.poll(() => positions().length).toBe(5);
+    for (let slide = 1; slide <= 35; slide += 1) {
+      await expect
+        .element(screen.getByRole("img", { name: `Slide ${slide}`, exact: true }))
+        .toBeVisible();
+      const dots = positions();
+      expect(dots).toHaveLength(5);
+      const active = dots.find((dot) => dot.getAttribute("aria-current") === "true")!;
+      expect(active.getAttribute("aria-label")).toBe(`Show media ${slide}`);
+      const bounds = active.getBoundingClientRect();
+      const frame = host.getBoundingClientRect();
+      expect(bounds.left).toBeGreaterThanOrEqual(frame.left);
+      expect(bounds.right).toBeLessThanOrEqual(frame.right);
+      if (slide >= 3 && slide <= 33) expect(dots[2]).toBe(active);
+      if (slide < 35) {
+        screen.getByRole("button", { name: "Next media" }).element().focus();
+        await userEvent.keyboard("{Enter}");
+      }
+    }
+    await expect
+      .element(screen.getByRole("button", { name: "Next media" }))
+      .not.toBeInTheDocument();
+    screen.getByRole("button", { name: "Previous media" }).element().focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.element(screen.getByRole("img", { name: "Slide 34", exact: true })).toBeVisible();
+  } finally {
+    host.remove();
+  }
 });

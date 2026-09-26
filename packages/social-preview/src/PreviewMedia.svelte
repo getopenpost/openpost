@@ -28,6 +28,7 @@
     class: className = "",
     emptyLabel = "",
   }: Props = $props();
+  const MAX_VISIBLE_POSITION_DOTS = 5;
   let currentIndex = $state(0);
   let measuredRatios = $state<Record<string, number>>({});
 
@@ -46,6 +47,18 @@
     Math.min(currentIndex, Math.max(0, media.length - 1)),
   );
   const active = $derived(media[safeIndex]);
+  const positionStart = $derived(
+    Math.max(
+      0,
+      Math.min(
+        safeIndex - Math.floor(MAX_VISIBLE_POSITION_DOTS / 2),
+        media.length - MAX_VISIBLE_POSITION_DOTS,
+      ),
+    ),
+  );
+  const visiblePositions = $derived(
+    media.slice(positionStart, positionStart + MAX_VISIBLE_POSITION_DOTS),
+  );
   const visibleGridMedia = $derived(media.slice(0, 4));
   const visibleFacebookMedia = $derived(media.slice(0, 5));
   const galleryMedia = $derived(
@@ -140,7 +153,8 @@
         </button>
       {/if}
       <div class="carousel-dots" aria-label="Media position">
-        {#each media as item, index (item.id)}
+        {#each visiblePositions as item, offset (item.id)}
+          {@const index = positionStart + offset}
           <button
             type="button"
             aria-label={`Show media ${index + 1}`}

@@ -40,27 +40,10 @@
 		return next;
 	}
 
-	/**
-	 * Ruler slider keyboard map. Arrows step one frame (ten with shift),
-	 * PageUp/PageDown jump one second of frames, and Home/End jump to the
-	 * timeline bounds. Returns null for keys the ruler does not handle so the
-	 * caller can ignore them without side effects.
-	 */
-	export function nextRulerKeyboardFrame(
-		currentFrame: number,
-		key: string,
-		shiftKey: boolean,
-		fps: number,
-		maxEndFrame: number
-	): number | null {
-		if (key === 'ArrowLeft') return currentFrame - (shiftKey ? 10 : 1);
-		if (key === 'ArrowRight') return currentFrame + (shiftKey ? 10 : 1);
-		if (key === 'PageDown') return currentFrame - Math.max(1, Math.round(fps));
-		if (key === 'PageUp') return currentFrame + Math.max(1, Math.round(fps));
-		if (key === 'Home') return 0;
-		if (key === 'End') return maxEndFrame;
-		return null;
-	}
+	// Single source of truth for the timeline frame-step keyboard contract;
+	// color-mini-timeline re-exports the same helper as nextMiniTimelineKeyboardFrame.
+	import { nextKeyboardFrame as nextRulerKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
+	export { nextRulerKeyboardFrame };
 </script>
 
 <script lang="ts">

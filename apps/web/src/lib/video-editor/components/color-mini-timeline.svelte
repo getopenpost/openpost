@@ -1,26 +1,8 @@
 <script module lang="ts">
-	/**
-	 * Pure next-frame map for the Color mini-timeline slider so the WAI-ARIA
-	 * keyboard contract (arrows 1/10 frames, PageUp/PageDown one second of
-	 * frames, Home/End bounds) is unit-testable without the timeline store.
-	 * Returns null for unhandled keys so the caller can ignore them without
-	 * side effects.
-	 */
-	export function nextMiniTimelineKeyboardFrame(
-		currentFrame: number,
-		key: string,
-		shiftKey: boolean,
-		fps: number,
-		maxFrame: number
-	): number | null {
-		if (key === 'ArrowLeft') return currentFrame - (shiftKey ? 10 : 1);
-		if (key === 'ArrowRight') return currentFrame + (shiftKey ? 10 : 1);
-		if (key === 'PageDown') return currentFrame - Math.max(1, Math.round(fps));
-		if (key === 'PageUp') return currentFrame + Math.max(1, Math.round(fps));
-		if (key === 'Home') return 0;
-		if (key === 'End') return maxFrame;
-		return null;
-	}
+	// Single source of truth for the timeline frame-step keyboard contract;
+	// timeline-panel re-exports the same helper as nextRulerKeyboardFrame.
+	import { nextKeyboardFrame as nextMiniTimelineKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
+	export { nextMiniTimelineKeyboardFrame };
 </script>
 
 <script lang="ts">

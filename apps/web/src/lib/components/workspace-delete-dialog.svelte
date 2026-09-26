@@ -6,6 +6,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { ProtectedIcon } from '$lib/themes/icons';
+	import DialogLoadingStatus from '$lib/components/dialog-loading-status.svelte';
 	import { client } from '$lib/api/client';
 	import {
 		oidcIdentitiesQueryOptions,
@@ -276,13 +277,7 @@
 		</Dialog.Header>
 
 		{#if loading}
-			<div
-				class="flex min-h-32 items-center justify-center"
-				role="status"
-				aria-label={m.common_loading()}
-			>
-				<ProtectedIcon icon="loading" class="size-5 animate-spin" />
-			</div>
+			<DialogLoadingStatus />
 		{:else}
 			<div class="space-y-4">
 				{#if preview}

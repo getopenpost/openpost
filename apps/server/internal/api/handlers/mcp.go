@@ -4081,6 +4081,7 @@ func (h *MCPHandler) replyToRendition(ctx context.Context, userID string, args m
 func decodeMCPPublicationID(args map[string]any, invalid string) (string, *mcpError) {
 	var input struct {
 		PublicationID string `json:"post_id"`
+		Detail        string `json:"detail"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.PublicationID) == "" {
 		return "", &mcpError{Code: -32602, Message: invalid}
@@ -4184,11 +4185,20 @@ func (h *MCPHandler) cancelPublication(ctx context.Context, userID string, args 
 }
 
 func (h *MCPHandler) publishPublicationNow(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	if rpcErr := mcpRequireConfirm(args, "publish_post_now"); rpcErr != nil {
-		return nil, rpcErr
-	}
 	publicationID, expectedRevision, intent, rpcErr := h.loadMCPPublicationAction(ctx, args, "invalid publish_post_now arguments")
 	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	// Authorization precedes the irreversible-action gate so viewers always
+	// see the workspace role error first.
+	publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, publicationID)
+	if err != nil {
+		return nil, &mcpError{Code: -32602, Message: "post not found or unavailable"}
+	}
+	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, publication.WorkspaceID); rpcErr != nil {
+		return nil, rpcErr
+	}
+	if rpcErr := mcpRequireConfirm(args, "publish_post_now"); rpcErr != nil {
 		return nil, rpcErr
 	}
 	if mcpDryRunFromArgs(args) {
@@ -4222,9 +4232,6 @@ func (h *MCPHandler) publishPublicationNow(ctx context.Context, userID string, a
 }
 
 func (h *MCPHandler) deletePublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	if rpcErr := mcpRequireConfirm(args, "delete_post"); rpcErr != nil {
-		return nil, rpcErr
-	}
 	var input struct {
 		PublicationID    string `json:"post_id"`
 		ExpectedRevision int    `json:"expected_revision"`
@@ -4235,6 +4242,18 @@ func (h *MCPHandler) deletePublication(ctx context.Context, userID string, args 
 		return nil, &mcpError{Code: -32602, Message: "invalid delete_post arguments"}
 	}
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
+	// Authorization precedes the irreversible-action gate so viewers always
+	// see the workspace role error first.
+	publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, input.PublicationID)
+	if err != nil {
+		return nil, &mcpError{Code: -32602, Message: "post not found or unavailable"}
+	}
+	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, publication.WorkspaceID); rpcErr != nil {
+		return nil, rpcErr
+	}
+	if rpcErr := mcpRequireConfirm(args, "delete_post"); rpcErr != nil {
+		return nil, rpcErr
+	}
 	deleteOp := func() *mcpError {
 		if err := h.publicationHandler().publicationApplication().Delete(ctx, userID, input.PublicationID, input.ExpectedRevision); err != nil {
 			return publicationMutationMCPError(err, "failed to delete post")
@@ -4242,17 +4261,7 @@ func (h *MCPHandler) deletePublication(ctx context.Context, userID string, args 
 		return nil
 	}
 	if strings.TrimSpace(input.IdempotencyKey) != "" {
-		publication, err := h.publicationHandler().publicationApplication().Get(ctx, userID, input.PublicationID)
-		if err != nil {
-			// The post may already be deleted by a replayed key; fall through
-			// to the generic idempotency claim keyed on the post ID.
-			_ = publication
-		}
-		workspaceID := ""
-		if publication.ID != "" {
-			workspaceID = publication.WorkspaceID
-		}
-		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, workspaceID, "delete-publication", args)
+		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, publication.WorkspaceID, "delete-publication", args)
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -4564,11 +4573,6 @@ func (h *MCPHandler) moderateComment(ctx context.Context, userID, operation stri
 	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.CommentID) == "" {
 		return nil, &mcpError{Code: -32602, Message: "invalid comment action arguments"}
 	}
-	if operation == mcpToolDeleteComment {
-		if rpcErr := mcpRequireConfirm(args, "delete_comment"); rpcErr != nil {
-			return nil, rpcErr
-		}
-	}
 	ref, err := decodeCommentReference(input.CommentID)
 	if err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid comment ID"}
@@ -4579,6 +4583,11 @@ func (h *MCPHandler) moderateComment(ctx context.Context, userID, operation stri
 	}
 	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, publication.WorkspaceID); rpcErr != nil {
 		return nil, rpcErr
+	}
+	if operation == mcpToolDeleteComment {
+		if rpcErr := mcpRequireConfirm(args, "delete_comment"); rpcErr != nil {
+			return nil, rpcErr
+		}
 	}
 	if _, rpcErr := h.commentProvider(account); rpcErr != nil {
 		return nil, rpcErr
@@ -5147,9 +5156,6 @@ func (h *MCPHandler) updateMedia(ctx context.Context, userID string, args map[st
 }
 
 func (h *MCPHandler) deleteMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	if rpcErr := mcpRequireConfirm(args, "delete_media"); rpcErr != nil {
-		return nil, rpcErr
-	}
 	var input struct {
 		MediaID        string `json:"media_id"`
 		Confirm        bool   `json:"confirm"`
@@ -5162,7 +5168,12 @@ func (h *MCPHandler) deleteMedia(ctx context.Context, userID string, args map[st
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+	// Authorization precedes the irreversible-action gate so viewers always
+	// see the workspace role error first.
 	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, media.WorkspaceID); rpcErr != nil {
+		return nil, rpcErr
+	}
+	if rpcErr := mcpRequireConfirm(args, "delete_media"); rpcErr != nil {
 		return nil, rpcErr
 	}
 	remove := func() *mcpError {

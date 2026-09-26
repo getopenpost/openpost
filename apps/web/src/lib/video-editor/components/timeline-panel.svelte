@@ -157,6 +157,7 @@
 		MAX_TRACK_HEIGHT,
 		MIN_TRACK_HEIGHT,
 		clampTrackHeight,
+		nextTrackHeightKeyboard,
 		resetTrackHeightsInList,
 		resizeAllTracksInList,
 		resizeTrackInList
@@ -1543,14 +1544,10 @@
 	}
 
 	function resizeTrackHeightFromKeyboard(event: KeyboardEvent, trackId: string): void {
-		let height: number | null = null;
 		const track = timelineStore.tracks.find((candidate) => candidate.id === trackId);
 		if (!track) return;
-		if (event.key === 'ArrowUp') height = track.height - (event.shiftKey ? 12 : 4);
-		else if (event.key === 'ArrowDown') height = track.height + (event.shiftKey ? 12 : 4);
-		else if (event.key === 'Home') height = MIN_TRACK_HEIGHT;
-		else if (event.key === 'End') height = MAX_TRACK_HEIGHT;
-		else return;
+		const height = nextTrackHeightKeyboard(track.height, event.key, event.shiftKey);
+		if (height === null) return;
 		event.preventDefault();
 		event.stopPropagation();
 		const before = captureSnapshot();

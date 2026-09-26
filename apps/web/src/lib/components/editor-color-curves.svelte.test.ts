@@ -3,6 +3,7 @@ import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import '../../routes/layout.css';
 import EditorColorCurves from './editor-color-curves.svelte';
+import type { GpuParamValues } from '$lib/video-editor/effects/gpu/types';
 
 it('keeps compact curve markers, hit targets, and strokes in screen space', async () => {
 	await render(EditorColorCurves, {
@@ -41,7 +42,7 @@ it('keeps compact curve markers, hit targets, and strokes in screen space', asyn
 
 describe('curve point slider keyboard', () => {
 	async function renderWithMiddlePoint() {
-		const ondraft = vi.fn();
+		const ondraft = vi.fn<(params: GpuParamValues | null) => void>();
 		const oncommit = vi.fn();
 		const screen = await render(EditorColorCurves, {
 			gpuEffect: {
@@ -65,11 +66,13 @@ describe('curve point slider keyboard', () => {
 		return { point, ondraft, oncommit };
 	}
 
-	function middleOutput(call: [{ masterPoints: string }] | undefined): number {
+	function middleOutput(call: [GpuParamValues | null] | undefined): number {
 		// SAFETY: every keyboard step commits a draft, so the last call carries the serialized master points.
 		const params = call![0];
+		// SAFETY: the curves panel serializes master points as a string param.
+		const raw = params!.masterPoints as string;
 		// SAFETY: the curves panel serializes master points as an array of [x, y] pairs.
-		const parsed = JSON.parse(params.masterPoints) as Array<[number, number]>;
+		const parsed = JSON.parse(raw) as Array<[number, number]>;
 		return parsed[1]![1]!;
 	}
 

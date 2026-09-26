@@ -131,3 +131,18 @@ export function sourceWaveformSeekTime(input: {
 	}
 	return input.detailStartSeconds + progress * (input.detailEndSeconds - input.detailStartSeconds);
 }
+
+/**
+ * Formatted time (m:ss.t, or h:mm:ss.t past an hour) for the source waveform
+ * slider's aria-valuetext, so assistive technology announces a time position
+ * instead of raw seconds. Rounds to tenths first so values like 59.96 roll
+ * over to 1:00.0 rather than rendering 0:60.0.
+ */
+export function formatSourceWaveformTime(totalSeconds: number): string {
+	const rounded = Math.round(Math.max(0, totalSeconds) * 10) / 10;
+	const hours = Math.floor(rounded / 3600);
+	const minutes = Math.floor((rounded % 3600) / 60);
+	const seconds = (rounded % 60).toFixed(1).padStart(4, '0');
+	if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`;
+	return `${minutes}:${seconds}`;
+}

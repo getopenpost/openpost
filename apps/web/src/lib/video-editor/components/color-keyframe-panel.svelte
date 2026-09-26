@@ -169,6 +169,7 @@
 			<div
 				class="flex overflow-hidden rounded-sm border border-[var(--video-editor-border)]"
 				role="tablist"
+				aria-label={m.video_editor_keyframe_view()}
 			>
 				<button
 					type="button"

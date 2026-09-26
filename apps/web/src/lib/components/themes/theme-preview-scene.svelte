@@ -402,7 +402,12 @@
 							</div>
 						</div>
 					{:else if scene === 'loading'}
-						<div class="space-y-3" aria-busy="true" aria-label={copy.loadingWorkspace}>
+						<div
+							class="space-y-3"
+							role="status"
+							aria-busy="true"
+							aria-label={copy.loadingWorkspace}
+						>
 							{#if loadingAsset}
 								<img
 									data-theme-loading-art

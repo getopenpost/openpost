@@ -37,6 +37,7 @@
 </script>
 
 <div
+	role="group"
 	class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1"
 	aria-label={m.video_editor_backgrounds_title()}
 >

@@ -1,4 +1,37 @@
 <!-- Multi-track composited preview with direct transform gizmos. -->
+<script module lang="ts">
+	/**
+	 * Pure next-position map for the Color before/after split slider so the
+	 * WAI-ARIA keyboard contract (arrows 1/10 percent, PageUp/PageDown ten
+	 * percent, Home/End bounds) is unit-testable without the preview store.
+	 * Returns null for unhandled keys so the caller can ignore them without
+	 * side effects. Clamping to the 0.05..0.95 slider range stays in
+	 * colorPreviewStore.setSplitPosition.
+	 */
+	/**
+	 * Screen-reader readout for the Color before/after split slider so
+	 * assistive technology announces e.g. "45%" instead of a bare number,
+	 * matching the hue-band slider `${}%`-style unit convention.
+	 */
+	export function formatSplitPositionText(position: number): string {
+		return `${Math.round(position * 100)}%`;
+	}
+
+	export function nextSplitKeyboardPosition(
+		current: number,
+		key: string,
+		shiftKey: boolean
+	): number | null {
+		if (key === 'ArrowLeft') return current - (shiftKey ? 0.1 : 0.01);
+		if (key === 'ArrowRight') return current + (shiftKey ? 0.1 : 0.01);
+		if (key === 'PageDown') return current - 0.1;
+		if (key === 'PageUp') return current + 0.1;
+		if (key === 'Home') return 0.05;
+		if (key === 'End') return 0.95;
+		return null;
+	}
+</script>
+
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -892,13 +925,11 @@
 	}
 
 	function splitKeydown(event: KeyboardEvent): void {
-		let next: number | null = null;
-		if (event.key === 'ArrowLeft')
-			next = colorPreviewStore.splitPosition - (event.shiftKey ? 0.1 : 0.01);
-		if (event.key === 'ArrowRight')
-			next = colorPreviewStore.splitPosition + (event.shiftKey ? 0.1 : 0.01);
-		if (event.key === 'Home') next = 0.05;
-		if (event.key === 'End') next = 0.95;
+		const next = nextSplitKeyboardPosition(
+			colorPreviewStore.splitPosition,
+			event.key,
+			event.shiftKey
+		);
 		if (next === null) return;
 		event.preventDefault();
 		colorPreviewStore.setSplitPosition(next);
@@ -1485,6 +1516,7 @@
 										aria-valuemin="5"
 										aria-valuemax="95"
 										aria-valuenow={Math.round(colorPreviewStore.splitPosition * 100)}
+										aria-valuetext={formatSplitPositionText(colorPreviewStore.splitPosition)}
 										onpointerdown={startSplitDrag}
 										onpointermove={moveSplit}
 										onkeydown={splitKeydown}

@@ -285,7 +285,7 @@
 </script>
 
 {#if item}
-	<div class="flex flex-col gap-3" aria-label={m.video_editor_clip_properties()}>
+	<div class="flex flex-col gap-3" role="group" aria-label={m.video_editor_clip_properties()}>
 		{#if item.type === 'adjustment'}
 			<p class="text-xs leading-relaxed text-muted-foreground">
 				{m.video_editor_adjustment_layer_hint()}

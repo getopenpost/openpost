@@ -532,7 +532,11 @@
 				{/if}
 			</div>
 		</div>
-		<div class="dimension-strip" aria-label={m.video_editor_expression_dimensions_title()}>
+		<div
+			class="dimension-strip"
+			role="group"
+			aria-label={m.video_editor_expression_dimensions_title()}
+		>
 			<div>
 				<strong>{m.video_editor_expression_dimensions_title()}</strong>
 				<span>{m.video_editor_expression_dimensions_description()}</span>

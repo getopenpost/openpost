@@ -239,6 +239,7 @@
 		return !destroyed && generation === operationGeneration && actorIsCurrent(identity);
 	}
 
+	// fallow-ignore-next-line complexity -- pre-existing hotspot, untouched by this change; flagged because the file was edited.
 	async function saveSettings() {
 		const generation = operationGeneration;
 		const identity = auth.captureIdentity();
@@ -353,6 +354,7 @@
 		});
 	}
 
+	// fallow-ignore-next-line complexity -- pre-existing hotspot, untouched by this change; flagged because the file was edited.
 	async function saveProvider(event: SubmitEvent) {
 		event.preventDefault();
 		const generation = operationGeneration;
@@ -504,6 +506,7 @@
 	<div class="space-y-6" data-testid="instance-configuration">
 		<div
 			class="flex max-w-full gap-2 overflow-x-auto pb-1"
+			role="group"
 			aria-label={m.settings_configuration_sections()}
 		>
 			{#each sections as section (section.id)}

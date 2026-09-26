@@ -14,6 +14,7 @@ export default defineConfig({
 				}
 			},
 			{
+				extends: './vite.config.ts',
 				test: {
 					name: 'browser',
 					browser: {

@@ -10,7 +10,8 @@
 	import {
 		sampleSourceWaveform,
 		sourceWaveformDetailWindow,
-		sourceWaveformSeekTime
+		sourceWaveformSeekTime,
+		formatSourceWaveformTime
 	} from '$lib/video-editor/preview/source-audio-waveform';
 
 	let {
@@ -166,6 +167,8 @@
 		if (event.key === 'ArrowLeft') onseek(Math.max(0, currentTimeSeconds - step));
 		else if (event.key === 'ArrowRight')
 			onseek(Math.min(durationSeconds, currentTimeSeconds + step));
+		else if (event.key === 'PageUp') onseek(Math.min(durationSeconds, currentTimeSeconds + 10));
+		else if (event.key === 'PageDown') onseek(Math.max(0, currentTimeSeconds - 10));
 		else if (event.key === 'Home') onseek(0);
 		else if (event.key === 'End') onseek(durationSeconds);
 		else return;
@@ -187,6 +190,7 @@
 	aria-valuemin="0"
 	aria-valuemax={durationSeconds}
 	aria-valuenow={Math.max(0, Math.min(durationSeconds, currentTimeSeconds))}
+	aria-valuetext={formatSourceWaveformTime(currentTimeSeconds)}
 	onpointerdown={pointerDown}
 	onpointermove={pointerMove}
 	onkeydown={keydown}

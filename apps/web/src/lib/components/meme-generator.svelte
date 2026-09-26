@@ -807,7 +807,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 					{/if}
 
 					{#if suggestionsLoading}
-						<div class="candidate-grid" aria-label={m.meme_generator_generating()}>
+						<div class="candidate-grid" role="status" aria-label={m.meme_generator_generating()}>
 							{#each ['one', 'two', 'three', 'four'] as key (key)}
 								<div class="overflow-hidden rounded-lg border border-border bg-card p-2">
 									<Skeleton class="aspect-[4/3] w-full" />
@@ -991,7 +991,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 					</div>
 
 					{#if templatesLoading}
-						<div class="template-grid" aria-label={m.common_loading()}>
+						<div class="template-grid" role="status" aria-label={m.common_loading()}>
 							{#each ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as key (key)}
 								<div class="overflow-hidden rounded-lg border border-border bg-card p-2">
 									<Skeleton class="aspect-[4/3] w-full" />

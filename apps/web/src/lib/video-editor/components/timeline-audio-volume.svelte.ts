@@ -22,6 +22,29 @@ export interface TimelineAudioVolumeInput {
 	onedit: () => void;
 }
 
+/** Large keyboard step for the clip volume slider, matching the mixer fader convention. */
+export const CLIP_VOLUME_KEYBOARD_LARGE_STEP_DB = 6;
+
+/**
+ * Pure key mapping for the timeline clip volume slider. Arrows step half a
+ * decibel (three with shift), PageUp/PageDown jump six decibels, and
+ * Home/End jump to the volume bounds. Returns null for unhandled keys so the
+ * caller can skip side effects.
+ */
+export function nextClipVolumeKeyboardDb(
+	currentDb: number,
+	key: string,
+	shiftKey: boolean
+): number | null {
+	if (key === 'ArrowUp') return currentDb + (shiftKey ? 3 : 0.5);
+	if (key === 'ArrowDown') return currentDb - (shiftKey ? 3 : 0.5);
+	if (key === 'PageUp') return currentDb + CLIP_VOLUME_KEYBOARD_LARGE_STEP_DB;
+	if (key === 'PageDown') return currentDb - CLIP_VOLUME_KEYBOARD_LARGE_STEP_DB;
+	if (key === 'Home') return AUDIO_VOLUME_DB_MIN;
+	if (key === 'End') return AUDIO_VOLUME_DB_MAX;
+	return null;
+}
+
 type AudioVolumeDrag = {
 	pointerId: number;
 	itemId: string;
@@ -166,22 +189,9 @@ export class TimelineAudioVolume {
 	adjustAudioVolumeWithKeyboard(event: KeyboardEvent, item: TimelineItem): void {
 		const current = timelineStore.itemById.get(item.id);
 		if (!current || current.type !== 'audio') return;
-		if (event.key === 'Home') {
-			event.preventDefault();
-			this.setAudioVolumeFromTimeline(current, AUDIO_VOLUME_DB_MIN);
-			return;
-		}
-		if (event.key === 'End') {
-			event.preventDefault();
-			this.setAudioVolumeFromTimeline(current, AUDIO_VOLUME_DB_MAX);
-			return;
-		}
-		if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+		const next = nextClipVolumeKeyboardDb(this.audioVolumeDb(current), event.key, event.shiftKey);
+		if (next === null) return;
 		event.preventDefault();
-		const step = event.shiftKey ? 3 : 0.5;
-		this.setAudioVolumeFromTimeline(
-			current,
-			this.audioVolumeDb(current) + (event.key === 'ArrowUp' ? step : -step)
-		);
+		this.setAudioVolumeFromTimeline(current, next);
 	}
 }

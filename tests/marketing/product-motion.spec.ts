@@ -114,6 +114,31 @@ for (const width of [1440, 390, 320]) {
   }
 }
 
+for (const scheme of ["light", "dark"] as const) {
+  test(`composer zoom shows the ${scheme} screenshot variant`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "no-preference" });
+    await page.goto("/");
+    await dismissTelemetryConsent(page);
+    await page.getByRole("button", { name: "Compose", exact: true }).click();
+    const trigger = page.getByRole("link", { name: "Enlarge Compose screenshot" });
+    await trigger.scrollIntoViewIfNeeded();
+    await trigger.press("Enter");
+    await expect(page.getByRole("button", { name: "Close Compose screenshot" })).toBeFocused();
+    // The zoomed clone lives outside <picture>, so it once showed the light
+    // variant in dark mode. It must be a single node showing the page theme.
+    const enlarged = page.locator(".medium-zoom-image--opened");
+    await expect(enlarged).toHaveCount(1);
+    const sources = await enlarged.evaluateAll((images) =>
+      images.map((image) => (image as HTMLImageElement).currentSrc),
+    );
+    expect(sources).toHaveLength(1);
+    expect(sources[0]).toContain(scheme === "dark" ? "main-dark" : "main-light");
+    await page.keyboard.press("Escape");
+    await expect(enlarged).toHaveCount(0);
+  });
+}
+
 test("screenshots remain direct image links without JavaScript", async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();

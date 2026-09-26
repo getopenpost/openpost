@@ -1167,6 +1167,7 @@
 													<Textarea
 														bind:value={replyBody}
 														placeholder={m.engagement_reply_placeholder()}
+														aria-label={m.engagement_reply_placeholder()}
 														rows={3}
 														required
 													/>

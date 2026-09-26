@@ -2234,7 +2234,11 @@
 				</Button>
 			</div>
 			<div class="header-center">
-				<span class="composition-meta" aria-label={m.video_editor_composition_timeline_meta()}>
+				<span
+					class="composition-meta"
+					role="group"
+					aria-label={m.video_editor_composition_timeline_meta()}
+				>
 					{composition.width}×{composition.height} ·
 					<Input
 						aria-label={m.video_editor_composition_timeline_fps()}
@@ -2305,7 +2309,11 @@
 			</div>
 		</div>
 		<!-- Generated layers + media add -->
-		<div class="composition-toolbar" aria-label={m.video_editor_composition_timeline_toolbar()}>
+		<div
+			class="composition-toolbar"
+			role="toolbar"
+			aria-label={m.video_editor_composition_timeline_toolbar()}
+		>
 			<span class="toolbar-label">{m.video_editor_composition_timeline_add_layer()}</span>
 			<Button
 				size="sm"
@@ -2352,6 +2360,7 @@
 		<div
 			class="io-lane"
 			data-testid="composition-io-lane"
+			role="group"
 			aria-label={m.video_editor_composition_timeline_range()}
 		>
 			<div class="io-strip">
@@ -2412,6 +2421,7 @@
 						<div
 							{...props}
 							class="layer-sidebar"
+							role="group"
 							aria-label={m.video_editor_composition_timeline_layers()}
 							bind:this={sidebarEl}
 							oncontextmenucapture={prepareCompositionContextMenu}
@@ -2673,7 +2683,7 @@
 												{:else}
 													<span class="layer-name" title={itemLabel(item)}>{itemLabel(item)}</span>
 												{/if}
-												<span class="layer-type-badge" aria-label={item.type}
+												<span class="layer-type-badge" role="img" aria-label={item.type}
 													>{item.type === 'text'
 														? 'T'
 														: item.type === 'shape'
@@ -3209,6 +3219,7 @@
 																	<Input
 																		value={compositionControlValue(item, control)}
 																		placeholder={control.defaultValue}
+																		aria-label={control.name}
 																		onchange={(event) =>
 																			setCompositionControlValue(
 																				item,

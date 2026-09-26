@@ -77,6 +77,7 @@
 
 <div
 	class="text-browser min-h-0 flex-1 overflow-y-auto p-2"
+	role="group"
 	aria-label={m.video_editor_text_templates()}
 >
 	{#each groups as group (group.layout)}

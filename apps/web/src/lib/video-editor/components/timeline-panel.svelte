@@ -39,6 +39,8 @@
 		if (next.size === previous.size && [...next].every((id) => previous.has(id))) return null;
 		return next;
 	}
+
+	import { nextKeyboardFrame } from '$lib/video-editor/timeline/keyboard-frame';
 </script>
 
 <script lang="ts">
@@ -135,6 +137,8 @@
 		MAX_TRACK_HEIGHT,
 		MIN_TRACK_HEIGHT,
 		clampTrackHeight,
+		formatTrackHeightText,
+		nextTrackHeightKeyboard,
 		resetTrackHeightsInList,
 		resizeAllTracksInList,
 		resizeTrackInList
@@ -1406,12 +1410,14 @@
 
 	function onRulerKeydown(event: KeyboardEvent): void {
 		if (timelineStore.seekLocked) return;
-		let frame = timelineStore.currentFrame;
-		if (event.key === 'ArrowLeft') frame -= event.shiftKey ? 10 : 1;
-		else if (event.key === 'ArrowRight') frame += event.shiftKey ? 10 : 1;
-		else if (event.key === 'Home') frame = 0;
-		else if (event.key === 'End') frame = timelineStore.maxItemEndFrame;
-		else return;
+		const frame = nextKeyboardFrame(
+			timelineStore.currentFrame,
+			event.key,
+			event.shiftKey,
+			fps,
+			timelineStore.maxItemEndFrame
+		);
+		if (frame === null) return;
 		event.preventDefault();
 		setCurrentFrame(frame);
 		audioSkimController.schedule(frame);
@@ -1519,14 +1525,10 @@
 	}
 
 	function resizeTrackHeightFromKeyboard(event: KeyboardEvent, trackId: string): void {
-		let height: number | null = null;
 		const track = timelineStore.tracks.find((candidate) => candidate.id === trackId);
 		if (!track) return;
-		if (event.key === 'ArrowUp') height = track.height - (event.shiftKey ? 12 : 4);
-		else if (event.key === 'ArrowDown') height = track.height + (event.shiftKey ? 12 : 4);
-		else if (event.key === 'Home') height = MIN_TRACK_HEIGHT;
-		else if (event.key === 'End') height = MAX_TRACK_HEIGHT;
-		else return;
+		const height = nextTrackHeightKeyboard(track.height, event.key, event.shiftKey);
+		if (height === null) return;
 		event.preventDefault();
 		event.stopPropagation();
 		const before = captureSnapshot();
@@ -5017,6 +5019,10 @@
 							aria-valuemin="0"
 							aria-valuemax={timelineStore.maxItemEndFrame}
 							aria-valuenow={timelineStore.currentFrame}
+							aria-valuetext={formatTimelinePreviewTimecode(
+								timelineStore.currentFrame,
+								timelineStore.fps
+							)}
 							aria-disabled={timelineStore.seekLocked}
 							onkeydown={onRulerKeydown}
 							onpointerdown={startRulerScrub}
@@ -5683,6 +5689,7 @@
 										aria-valuemin={MIN_TRACK_HEIGHT}
 										aria-valuemax={MAX_TRACK_HEIGHT}
 										aria-valuenow={track.height}
+										aria-valuetext={formatTrackHeightText(track.height)}
 										title={m.video_editor_track_resize_hint()}
 										data-track-resize={track.id}
 										data-marquee-ignore

@@ -34,6 +34,14 @@
 	const resolvedLightSrc = $derived(lightSrc ?? src ?? '');
 	const resolvedDarkSrc = $derived(darkSrc ?? src ?? '');
 	const resolvedDarkSrcset = $derived(darkSrcset ?? resolvedDarkSrc);
+	// medium-zoom clones the <img> outside of <picture>, so the dark <source>
+	// never applies to the enlarged image and its HiDPI pass re-reads the img
+	// srcset (light-only on views with responsive variants, e.g. the composer
+	// tour screenshot). Keep the img itself mode-correct so the zoom matches
+	// the page theme.
+	const activeSrcset = $derived(
+		mode.current === 'dark' ? (darkSrcset ?? lightSrcset) : lightSrcset
+	);
 	const darkMedia = $derived(
 		mode.current === undefined
 			? '(prefers-color-scheme: dark)'
@@ -83,6 +91,14 @@
 		if (expanded) void close();
 		else {
 			zoom.update({ margin: window.innerWidth < 640 ? 0 : 16 });
+			// medium-zoom clones this img outside of <picture>: the dark
+			// <source> never applies to the clone and it re-reads the img
+			// srcset plus a HiDPI pass, which leaked the light variant (and a
+			// second opened node) into dark-mode zooms. Strip the responsive
+			// hints first so the clone is a single node showing the theme-correct
+			// file (the <source> selection) instead of the light fallback.
+			image.removeAttribute('srcset');
+			image.removeAttribute('sizes');
 			opening = zoom.open({ target: image });
 		}
 	}
@@ -90,7 +106,15 @@
 	async function close() {
 		// medium-zoom ignores close while opening; retain an early Escape/click.
 		await opening;
-		if (zoom?.getZoomedImage() === image) await zoom.close();
+		// The tour remounts screenshots on tab switch, which nulls the bound
+		// node: after unmount there is no inline image to restore.
+		const node: HTMLImageElement | null = image ?? null;
+		if (zoom?.getZoomedImage() === node) await zoom.close();
+		if (!node) return;
+		if (activeSrcset === undefined) node.removeAttribute('srcset');
+		else node.setAttribute('srcset', activeSrcset);
+		if (sizes === undefined) node.removeAttribute('sizes');
+		else node.setAttribute('sizes', sizes);
 	}
 </script>
 
@@ -115,8 +139,8 @@
 		<source media={darkMedia} srcset={resolvedDarkSrcset} {sizes} />
 		<img
 			bind:this={image}
-			src={resolvedLightSrc}
-			srcset={lightSrcset}
+			src={activeSrc}
+			srcset={activeSrcset}
 			{sizes}
 			{alt}
 			width="2880"

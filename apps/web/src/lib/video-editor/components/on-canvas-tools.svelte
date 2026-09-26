@@ -18,6 +18,7 @@
 		calculateTransformResize,
 		calculateTransformRotation,
 		CROP_EDGE_PROPERTY,
+		nextCropKeyboardLocal,
 		type CanvasAnimatedValues,
 		MIN_TRANSFORM_SIZE,
 		positionKeyframeFrames,
@@ -638,28 +639,9 @@
 	}
 
 	function cropKeydown(event: KeyboardEvent, edge: CropEdge): void {
-		const inward =
-			(edge === 'left' && event.key === 'ArrowRight') ||
-			(edge === 'right' && event.key === 'ArrowLeft') ||
-			(edge === 'top' && event.key === 'ArrowDown') ||
-			(edge === 'bottom' && event.key === 'ArrowUp');
-		const outward =
-			(edge === 'left' && event.key === 'ArrowLeft') ||
-			(edge === 'right' && event.key === 'ArrowRight') ||
-			(edge === 'top' && event.key === 'ArrowUp') ||
-			(edge === 'bottom' && event.key === 'ArrowDown');
-		if (!inward && !outward) return;
+		const local = nextCropKeyboardLocal(edge, event.key, event.shiftKey);
+		if (!local) return;
 		event.preventDefault();
-		const step = (event.shiftKey ? 10 : 1) * (inward ? 1 : -1);
-		const start = { x: 0, y: 0 };
-		const local =
-			edge === 'left'
-				? { x: step, y: 0 }
-				: edge === 'right'
-					? { x: -step, y: 0 }
-					: edge === 'top'
-						? { x: 0, y: step }
-						: { x: 0, y: -step };
 		const radians = (rotation * Math.PI) / 180;
 		const world = {
 			x: local.x * Math.cos(radians) - local.y * Math.sin(radians),
@@ -668,7 +650,7 @@
 		draftCrop = calculateCropFromDrag({
 			edge,
 			startCrop: item.crop,
-			startPoint: start,
+			startPoint: { x: 0, y: 0 },
 			currentPoint: world,
 			rotation,
 			mediaWidth: width,
@@ -1071,6 +1053,7 @@
 		<svg
 			class="absolute inset-0 size-full overflow-visible"
 			viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+			role="group"
 			aria-label={m.video_editor_motion_path()}
 		>
 			<polyline

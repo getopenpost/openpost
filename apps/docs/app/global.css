@@ -82,6 +82,9 @@ a {
 #nd-sidebar {
   background: var(--color-fd-background);
 }
+#nd-sidebar a[data-active="true"] {
+  color: var(--color-fd-foreground);
+}
 #nd-page {
   padding-top: 3rem;
 }

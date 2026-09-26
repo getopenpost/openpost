@@ -282,6 +282,12 @@ test("older provider URLs resolve to the individual guides", async ({ request })
   }
 });
 
+test("older workspace URL reaches the current guide", async ({ request }) => {
+  const response = await request.get("/docs/usage/workspaces");
+  expect(response.ok()).toBe(true);
+  expect(new URL(response.url()).pathname).toBe("/docs/guides/workspaces");
+});
+
 test("retired self-hosting guide URL opens the current guide without a hydration error", async ({
   page,
 }) => {

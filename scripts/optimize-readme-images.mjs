@@ -55,6 +55,15 @@ const images = [
       width,
     })),
   ),
+  ...["calendar-detail", "meme-creator-detail", "analytics-detail"].flatMap((name) =>
+    [768, 1536].flatMap((width) =>
+      ["light", "dark"].map((scheme) => ({
+        name: `${name}-${scheme}`,
+        outputName: `${name}-${scheme}-${width}`,
+        width,
+      })),
+    ),
+  ),
 ];
 
 export async function optimizeReadmeImages() {

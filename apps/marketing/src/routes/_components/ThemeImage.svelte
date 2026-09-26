@@ -4,6 +4,9 @@
 	let {
 		lightSrc,
 		darkSrc,
+		lightSrcset,
+		darkSrcset,
+		sizes,
 		alt,
 		width,
 		height,
@@ -13,6 +16,9 @@
 	}: {
 		lightSrc: string;
 		darkSrc: string;
+		lightSrcset?: string;
+		darkSrcset?: string;
+		sizes?: string;
 		alt: string;
 		width: number;
 		height: number;
@@ -31,8 +37,18 @@
 </script>
 
 <picture>
-	<source media={darkMedia} srcset={darkSrc} />
-	<img src={lightSrc} {alt} {width} {height} {loading} {decoding} class={className} />
+	<source media={darkMedia} srcset={darkSrcset ?? darkSrc} {sizes} />
+	<img
+		src={lightSrc}
+		srcset={lightSrcset}
+		{sizes}
+		{alt}
+		{width}
+		{height}
+		{loading}
+		{decoding}
+		class={className}
+	/>
 </picture>
 
 <style>

@@ -104,12 +104,16 @@ test("logo maker exports usable PNG and SVG", async ({ page }) => {
   expect(stats.channels[3].max).toBeGreaterThan(0);
 });
 
-test("find a converter, clear an empty search, and open Quick Cut", async ({ page }) => {
+test("find a converter, clear an empty search, and open Quick Cut", async ({ page, isMobile }) => {
   await page.goto("/tools");
   await dismissTelemetryConsent(page);
   const main = page.getByRole("main");
+  if (isMobile) {
+    const searchBounds = await main.getByLabel("Search free tools").boundingBox();
+    expect(searchBounds?.height).toBeGreaterThanOrEqual(44);
+  }
   await main.getByLabel("Search free tools").fill("WebP to PNG");
-  await expect(main.locator(".tool-row")).toHaveCount(1);
+  await expect(main.getByRole("link")).toHaveCount(1);
   await main.getByRole("link", { name: /^WebP to PNG/ }).click();
   await expect(page).toHaveURL(/\/tools\/webp-to-png/);
   await expect(page).toHaveTitle(/WebP to PNG/);
@@ -122,7 +126,7 @@ test("find a converter, clear an empty search, and open Quick Cut", async ({ pag
   await expect(main.getByRole("heading", { name: "No tools match that search." })).toBeVisible();
   await main.getByRole("button", { name: "Show all tools" }).click();
   await main.getByRole("button", { name: "Video", exact: true }).click();
-  await expect(main.locator(".tool-row")).toHaveCount(2);
+  await expect(main.getByRole("link")).toHaveCount(2);
   await main.getByRole("link", { name: /^Quick Cut/ }).click();
   await expect(main.getByRole("link", { name: "Open Quick Cut" })).toHaveAttribute(
     "href",

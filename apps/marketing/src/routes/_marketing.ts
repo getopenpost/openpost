@@ -207,7 +207,7 @@ export const plans = planCatalog.plans.map((plan) => ({
 	limits: [
 		formatLimit(plan.limits.workspaces, 'workspace'),
 		formatLimit(plan.limits.social_accounts, 'social account'),
-		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled publications/month`,
+		`${plan.limits.scheduled_posts_monthly.toLocaleString('en-US')} scheduled posts/month`,
 		`${plan.limits.media_bytes_stored / 1_000_000_000} GB media`,
 		plan.limits.team_members === 1
 			? '1 seat'
@@ -433,7 +433,7 @@ const platformImplementations = [
 		preview: {
 			label: 'Community post',
 			headline: 'A discussion with title and body',
-			body: 'Each rendition targets one community with its own title, body, and validation.',
+			body: 'Each variant targets one community with its own title, body, and validation.',
 			detail: 'Community and title required',
 			chips: ['Community', 'Replies', 'Moderation-aware']
 		},
@@ -460,7 +460,7 @@ const platformImplementations = [
 			'A community and title are required for every post',
 			PLATFORM_LIMITS.lemmy.media,
 			'Communities can restrict posting to moderators',
-			'A publication with an unresolved community cannot be scheduled'
+			'A post with an unresolved community cannot be scheduled'
 		],
 		limitations: [
 			'Publishing uses the Lemmy v3 API; 1.x instances on API v4 are refused explicitly.',
@@ -483,7 +483,7 @@ const platformImplementations = [
 		preview: {
 			label: 'Community post',
 			headline: 'A discussion with title and body',
-			body: 'Each rendition targets one community with its own title, body, and validation.',
+			body: 'Each variant targets one community with its own title, body, and validation.',
 			detail: 'Community and title required',
 			chips: ['Community', 'Replies', 'Native API']
 		},
@@ -510,7 +510,7 @@ const platformImplementations = [
 			'A community and title are required for every post',
 			PLATFORM_LIMITS.piefed.media,
 			'Communities can restrict posting to moderators',
-			'A publication with an unresolved community cannot be scheduled'
+			'A post with an unresolved community cannot be scheduled'
 		],
 		limitations: [
 			'Publishing uses the native PieFed alpha API through its own adapter.',

@@ -10,7 +10,7 @@ OpenPost checks the token scope and workspace access for every MCP operation. Th
 
 | Scope      | Access                                                                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `mcp:read` | Inspect workspaces, accounts, media, Publications, schedules, readiness, comments, and lifecycle events. It cannot change OpenPost data. |
+| `mcp:read` | Inspect workspaces, accounts, media, Posts, schedules, readiness, comments, and lifecycle events. It cannot change OpenPost data. |
 | `mcp:full` | Includes read access and permits operations that create, edit, schedule, publish, upload, reply, or moderate.                            |
 
 OpenPost defaults an OAuth request with no scope to `mcp:full`. Select `mcp:read` explicitly for reviews and audits.
@@ -27,7 +27,7 @@ For write tasks, tell the assistant where to stop:
 Create an unpublished draft for my review. Do not schedule or publish it.
 ```
 
-Before publishing, check the workspace, destination accounts, text, media, and time. A scheduled or queued Publication is not published. Ask the assistant to inspect the Publication's Renditions and lifecycle events when delivery is partial or fails.
+Before publishing, check the workspace, destination accounts, text, media, and time. A scheduled or queued Post is not published. Ask the assistant to inspect the Post's Variants and lifecycle events when delivery is partial or fails.
 
 ## Protect credentials
 

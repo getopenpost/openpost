@@ -12,11 +12,11 @@ OpenPost exposes one backend through several purpose-built clients. “Supported
 | List and disconnect accounts                      | Full                        | Full                                         | List only                      | Full                     |
 | Inspect provider readiness and capabilities       | Full                        | Full                                         | Readiness and provider catalog | Full                     |
 | Create, edit, schedule, and delete standard posts | Full                        | Full                                         | Full                           | Full                     |
-| Create and publish format-first publications      | Full                        | Full                                         | Full                           | Full                     |
+| Create and publish format-first posts             | Full                        | Full                                         | Full                           | Full                     |
 | Upload and reuse media                            | Full                        | Full                                         | Upload-by-URL and reuse by ID  | Full                     |
 | Manage posting-slot definitions                   | Full                        | Full                                         | Reads next slot for scheduling | Full                     |
-| Review jobs and publication activity              | Full                        | Full                                         | Publication events only        | Full                     |
-| Review account and publication analytics          | Full                        | Not exposed                                  | Not exposed                    | Full                     |
+| Review jobs and post activity                     | Full                        | Full                                         | Post events only               | Full                     |
+| Review account and post analytics                 | Full                        | Not exposed                                  | Not exposed                    | Full                     |
 | Reply to and moderate provider comments           | Full                        | Supported providers                          | Supported providers            | Full                     |
 | Manage billing                                    | Full on hosted instances    | Status, checkout, and portal                 | Not exposed                    | Full on hosted instances |
 | Configure provider applications                   | Operator configuration only | Not exposed                                  | Readiness only                 | Instance-admin API       |

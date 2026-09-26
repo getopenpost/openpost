@@ -76,7 +76,7 @@
 			<ThemeImage
 				lightSrc="/assets/screenshots/calendar-detail-light.webp"
 				darkSrc="/assets/screenshots/calendar-detail-dark.webp"
-				alt="OpenPost calendar showing scheduled publications across channels"
+				alt="OpenPost calendar showing scheduled posts across channels"
 				width={2272}
 				height={1600}
 				loading="lazy"

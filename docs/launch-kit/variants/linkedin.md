@@ -1,4 +1,4 @@
-# LinkedIn Rendition
+# LinkedIn Variant
 
 > **Illustrative copy — not a published post.** Include LinkedIn in a real campaign only after the exact account and format pass the verification log.
 
@@ -6,7 +6,7 @@ AI can write a plausible social post in seconds. The harder part is deciding whi
 
 That is the problem OpenPost is built around.
 
-An authorized agent can inspect workspace context and prepare a canonical campaign with account-specific renditions. It does not receive the social provider credentials. I can then open the work in OpenPost, review the copy, media, accessibility text, destinations, and timing, and approve the exact operation that enters the queue.
+An authorized agent can inspect workspace context and prepare a canonical campaign with account-specific variants. It does not receive the social provider credentials. I can then open the work in OpenPost, review the copy, media, accessibility text, destinations, and timing, and approve the exact operation that enters the queue.
 
 The queue keeps scheduled work, provider results, failures, and retries visible. The Hosted service and self-hosted deployment are the same AGPL product; the self-hosted runtime is one binary or container with SQLite by default and no required Redis service.
 

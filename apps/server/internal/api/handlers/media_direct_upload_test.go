@@ -537,6 +537,34 @@ func TestValidateMediaAssetContentRejectsTopLevelMimeMismatch(t *testing.T) {
 	require.NoError(t, validateMediaAssetContent("library", "cover.jpg", defaultMediaMimeType, jpeg))
 }
 
+func TestValidateMediaAssetContentAcceptsSnifferContainerNames(t *testing.T) {
+	t.Parallel()
+
+	// Go sniffs every Ogg page as application/ogg and every ISO BMFF brand
+	// containing "mp4" as video/mp4; browsers declare these files as
+	// audio/ogg, video/ogg and audio/x-m4a.
+	ogg := append([]byte("OggS\x00\x02"), make([]byte, 64)...)
+	m4a := append([]byte("\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom"), make([]byte, 64)...)
+	require.Equal(t, "application/ogg", http.DetectContentType(ogg))
+	require.Equal(t, "video/mp4", http.DetectContentType(m4a))
+
+	require.NoError(t, validateMediaAssetContent("library", "voice.ogg", "audio/ogg", ogg))
+	require.NoError(t, validateMediaAssetContent("library", "clip.ogv", "video/ogg", ogg))
+	require.NoError(t, validateMediaAssetContent("library", "voice.m4a", "audio/x-m4a", m4a))
+	require.NoError(t, validateMediaAssetContent("library", "voice.m4a", "audio/m4a", m4a))
+	require.NoError(t, validateMediaAssetContent("library", "voice.m4a", "audio/mp4", m4a))
+	require.ErrorContains(
+		t,
+		validateMediaAssetContent("library", "cover.png", "image/png", ogg),
+		"does not match",
+	)
+	require.ErrorContains(
+		t,
+		validateMediaAssetContent("library", "voice.ogg", "audio/ogg", m4a),
+		"does not match",
+	)
+}
+
 func TestValidateBrandFontContent(t *testing.T) {
 	t.Parallel()
 
@@ -683,6 +711,71 @@ func TestCompleteMediaUploadSessionFinalizesUploadedObject(t *testing.T) {
 	current, err := srv.usage.CurrentMonthly(context.Background(), "ws-1", entitlements.LimitMediaBytesUploadedMonthly, time.Now())
 	require.NoError(t, err)
 	require.Equal(t, int64(12), current)
+}
+
+func TestCompleteMediaUploadSessionKeepsDeclaredContainerKind(t *testing.T) {
+	t.Parallel()
+
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	ogg := func(page byte) []byte {
+		return append([]byte{'O', 'g', 'g', 'S', 0x00, page}, make([]byte, 64)...)
+	}
+	m4a := append([]byte("\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom"), make([]byte, 64)...)
+	for _, tc := range []struct {
+		filename string
+		declared string
+		dominant string
+		content  []byte
+	}{
+		{filename: "voice.ogg", declared: "audio/ogg", dominant: "audio", content: ogg(0x02)},
+		{filename: "clip.ogv", declared: "video/ogg", dominant: "video", content: ogg(0x04)},
+		{filename: "voice.m4a", declared: "audio/x-m4a", dominant: "audio", content: m4a},
+	} {
+		mediaID := srv.createUploadSession(t, tc.filename, tc.declared, int64(len(tc.content)))
+		storage.objects[mediaID+filepath.Ext(tc.filename)] = tc.content
+
+		resp := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{
+			"workspace_id": "ws-1",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+
+		var media models.MediaAttachment
+		require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", mediaID).Scan(context.Background()))
+		require.Equal(t, tc.declared, media.MimeType)
+		require.Equal(t, tc.dominant, media.DominantType)
+		require.Equal(t, mediaReadyStatus, media.ProcessingStatus)
+	}
+}
+
+func TestDetectedMediaMimeTypeKeepsDeclaredContainerKinds(t *testing.T) {
+	t.Parallel()
+
+	ogg := append([]byte("OggS\x00\x02"), make([]byte, 64)...)
+	require.Equal(t, "audio/ogg", detectedMediaMimeType(ogg, "audio/ogg; codecs=opus"))
+	require.Equal(t, "video/ogg", detectedMediaMimeType(ogg, "Video/Ogg"))
+	require.Equal(t, "application/ogg", detectedMediaMimeType(ogg, ""))
+	require.Equal(t, "application/ogg", detectedMediaMimeType(ogg, "audio/opus"))
+
+	// An M4A brand is sniffed as video/mp4; the declared audio type is kept,
+	// but not for another declaration and not for an mp4 video brand.
+	m4a := append([]byte("\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom"), make([]byte, 64)...)
+	require.Equal(t, "audio/x-m4a", detectedMediaMimeType(m4a, "audio/x-m4a"))
+	require.Equal(t, "audio/m4a", detectedMediaMimeType(m4a, "Audio/M4A"))
+	require.Equal(t, "audio/mp4", detectedMediaMimeType(m4a, "audio/mp4; codecs=mp4a.40.2"))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(m4a, ""))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(m4a, "video/mp4"))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(m4a, "audio/aac"))
+	mp4 := append([]byte("\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41"), make([]byte, 64)...)
+	require.Equal(t, "video/mp4", http.DetectContentType(mp4))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(mp4, "audio/mp4"))
+
+	png := append([]byte("\x89PNG\x0D\x0A\x1A\x0A"), make([]byte, 64)...)
+	require.Equal(t, "image/png", detectedMediaMimeType(png, "audio/ogg"))
+
+	unknown := []byte{0x00, 0x01, 0x02, 0x03}
+	require.Equal(t, "audio/flac", detectedMediaMimeType(unknown, "audio/flac"))
+	require.Equal(t, defaultMediaMimeType, detectedMediaMimeType(unknown, ""))
 }
 
 func TestProjectAssetUploadStaysOutOfMediaLibraryAndCompletesProject(t *testing.T) {

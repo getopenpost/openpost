@@ -1711,7 +1711,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					href="/quick-cut"
 					onclick={closeProject}
 					class="inline-flex size-8 shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary"
-					aria-label={m.quick_cut_title()}><ThemeIcon role="chevron-left" class="size-5" /></a
+					aria-label={m.common_back()}><ThemeIcon role="chevron-left" class="size-5" /></a
 				>
 				{#if project}
 					<EditorTitleInput

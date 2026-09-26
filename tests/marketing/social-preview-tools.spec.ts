@@ -54,7 +54,56 @@ test("local media selection uses the destination limit without silently discardi
   await page.getByRole("button", { name: /Post details/ }).click();
   await page.locator('input[type="file"]').setInputFiles(files);
   await expect(page.getByRole("button", { name: /^Remove photo-/ })).toHaveCount(5);
+  await page.getByRole("button", { name: "View preview", exact: true }).click();
+  await select(page, "Platform", "X");
+  await expect(page.getByRole("alert")).toContainText("exceeds the 4-image preview limit");
+  await page.getByRole("button", { name: /Post details/ }).click();
+  await expect(page.getByRole("button", { name: /^Remove photo-/ })).toHaveCount(5);
   await page.getByRole("button", { name: "Remove photo-2.png", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Remove photo-/ })).toHaveCount(4);
   await expect(page.getByRole("button", { name: "Remove photo-4.png", exact: true })).toBeVisible();
+});
+
+test("channel and carousel previews accept mixed photo and video attachments", async ({ page }) => {
+  await page.goto("/tools/discord-post-preview");
+  await page.waitForLoadState("networkidle");
+  for (const platform of ["Discord", "Threads", "Telegram"]) {
+    await select(page, "Platform", platform);
+    await page.getByRole("button", { name: /Post details/ }).click();
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles([
+        "apps/marketing/static/assets/marketing/studio-cup.webp",
+        "tests/app/fixtures/product-screenshots/study-sos-demo.mp4",
+      ]);
+    await expect(
+      page.getByRole("button", { name: "Remove studio-cup.webp", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Remove study-sos-demo.mp4", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await page.getByRole("button", { name: "View preview", exact: true }).click();
+  }
+  await select(page, "Format", "video");
+  await expect(page.getByRole("alert")).toContainText("hidden from the preview");
+  await page.getByRole("button", { name: /Post details/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Remove studio-cup.webp", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Remove study-sos-demo.mp4", exact: true }),
+  ).toBeVisible();
+});
+
+test("an oversized poll keeps every option visible and explains the limit", async ({ page }) => {
+  await page.goto("/tools/x-post-preview");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: /Post details/ }).click();
+  await page.getByRole("checkbox", { name: "Include a poll" }).check();
+  await page.getByLabel("Poll options, up to 4").fill("One\nTwo\nThree\nFour\nFive");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "View preview", exact: true }).click();
+  await expect(page.getByLabel("Poll preview")).toContainText("Five");
+  await expect(page.getByRole("status")).toContainText("poll exceeds the 4-option preview limit");
 });

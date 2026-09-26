@@ -47,6 +47,18 @@
 	let cardImage = $state('');
 	let pollDuration = $state('1 day');
 	const TOOL_IMAGE_LIMIT = 35;
+	const supportsMultipleAttachments = $derived(
+		['discord', 'telegram', 'threads'].includes(selectedPlatform)
+	);
+	const attachmentLimit = $derived(
+		supportsMultipleAttachments ? (capability.maxImages ?? TOOL_IMAGE_LIMIT) : imageLimit
+	);
+	const parsedPollOptions = $derived(
+		pollOptions
+			.split(/\n/u)
+			.map((option) => option.trim())
+			.filter(Boolean)
+	);
 	const imageLimit = $derived(
 		selectedFormat === 'story' ? 1 : (capability.maxImages ?? TOOL_IMAGE_LIMIT)
 	);
@@ -82,6 +94,25 @@
 	const pollSupported = $derived(capability.polls && ['post', 'thread'].includes(selectedFormat));
 	const formatOptions = $derived(capability.formats);
 	const allowedMediaKinds = $derived(mediaKindsFor(selectedPlatform, selectedFormat));
+	const selectionWarning = $derived.by(() => {
+		if (localMedia.some((media) => !allowedMediaKinds.includes(media.kind)))
+			return 'Some files do not match this format and are hidden from the preview. Your files have been kept. Change the format or remove them in Post details.';
+		if (localMedia.length > attachmentLimit)
+			return `This selection exceeds the ${attachmentLimit}-${supportsMultipleAttachments ? 'item' : 'image'} preview limit. Remove ${localMedia.length - attachmentLimit} item(s) in Post details. Your files have been kept.`;
+		if (
+			!supportsMultipleAttachments &&
+			localMedia.length > 1 &&
+			localMedia.some((media) => media.kind !== 'image')
+		)
+			return 'This format previews one video or document at a time. Your files have been kept. Remove extra files in Post details.';
+		if (
+			selectedPlatform === 'telegram' &&
+			localMedia.some((media) => media.kind === 'document') &&
+			localMedia.some((media) => media.kind !== 'document')
+		)
+			return 'Telegram document albums cannot mix with photos or videos. Your files have been kept. Remove one media type in Post details.';
+		return '';
+	});
 	const availableCardKinds = $derived(capability.cards ?? []);
 	const mediaAccept = $derived(
 		[
@@ -92,7 +123,11 @@
 			.filter(Boolean)
 			.join(',')
 	);
-	const mediaHint = $derived(mediaKindLabel(allowedMediaKinds));
+	const mediaHint = $derived(
+		supportsMultipleAttachments
+			? `up to ${attachmentLimit} ${allowedMediaKinds.join(', ')} attachments`
+			: mediaKindLabel(allowedMediaKinds)
+	);
 	const activeOptionCount = $derived(
 		Number(author !== 'OpenPost' || handle !== 'openpost' || avatarUrl !== '' || verified) +
 			Number(pollEnabled) +
@@ -119,7 +154,9 @@
 	const previewMedia = $derived.by<PreviewMedia[]>(() => {
 		if (pollEnabled && pollSupported) return [];
 		if (localMedia.length > 0) {
-			return localMedia.map((media) => ({ ...media, alt: media.alt || altText }));
+			return localMedia
+				.filter((media) => allowedMediaKinds.includes(media.kind))
+				.map((media) => ({ ...media, alt: media.alt || altText }));
 		}
 		const url = publicMediaUrl.trim();
 		if (!url) return [];
@@ -147,11 +184,7 @@
 			poll:
 				pollEnabled && pollSupported
 					? {
-							options: pollOptions
-								.split(/\n/u)
-								.map((option) => option.trim())
-								.filter(Boolean)
-								.slice(0, pollLimit),
+							options: parsedPollOptions,
 							durationLabel: pollDuration
 						}
 					: undefined,
@@ -216,13 +249,27 @@
 			input.value = '';
 			return;
 		}
-		if (kinds.some((kind) => kind === 'video' || kind === 'document') && files.length > 1) {
+		if (
+			!supportsMultipleAttachments &&
+			kinds.some((kind) => kind === 'video' || kind === 'document') &&
+			files.length > 1
+		) {
 			mediaError = `Choose one video or document, or up to ${imageLimit} images.`;
 			input.value = '';
 			return;
 		}
-		if (files.length > imageLimit) {
-			mediaError = `Choose up to ${imageLimit} images for this preview. Your current media is unchanged.`;
+		if (
+			selectedPlatform === 'telegram' &&
+			kinds.includes('document') &&
+			kinds.some((kind) => kind !== 'document')
+		) {
+			mediaError =
+				'Choose a document album, or an album of photos and videos. Telegram does not mix documents with other media.';
+			input.value = '';
+			return;
+		}
+		if (files.length > attachmentLimit) {
+			mediaError = `Choose up to ${attachmentLimit} ${supportsMultipleAttachments ? 'media items' : 'images'} for this preview. Your current media is unchanged.`;
 			input.value = '';
 			return;
 		}
@@ -240,10 +287,7 @@
 
 	function reconcileMediaSelection() {
 		const allowed = mediaKindsFor(selectedPlatform, selectedFormat);
-		for (const media of localMedia) {
-			if (!allowed.includes(media.kind)) URL.revokeObjectURL(media.src);
-		}
-		localMedia = localMedia.filter((media) => allowed.includes(media.kind));
+
 		if (!allowed.includes(publicMediaKind)) {
 			publicMediaKind = allowed[0] ?? 'image';
 			publicMediaUrl = '';
@@ -490,11 +534,13 @@
 							placeholder="One option per line"
 						/>
 					</label>
-					{#if pollOptions.split(/\n/u).filter((option) => option.trim()).length > pollLimit}<p
+					{#if parsedPollOptions.length > pollLimit}<p
 							role="alert"
 							class="text-sm text-destructive"
 						>
-							Only the first {pollLimit} options appear. Remove extra options to match the preview.
+							This poll has {parsedPollOptions.length} options. Remove {parsedPollOptions.length -
+								pollLimit} to meet the {pollLimit}-option preview limit. All options remain visible
+							for editing.
 						</p>{/if}
 					<label class="grid gap-2 text-sm font-medium" for="preview-poll-duration"
 						>Poll duration<Input
@@ -757,6 +803,17 @@
 					placeholder="Write the post you want to preview..."
 				/>
 			</label>
+			{#if selectionWarning}<p role="alert" class="text-sm leading-5 text-destructive">
+					{selectionWarning}
+				</p>{/if}
+			{#if pollEnabled && pollSupported && parsedPollOptions.length > pollLimit}<p
+					role="status"
+					class="text-sm leading-5 text-destructive"
+				>
+					The poll exceeds the {pollLimit}-option preview limit. Edit Post details to remove extra
+					options.
+				</p>{/if}
+
 			{#if selectedFormat === 'thread'}
 				<p class="text-xs leading-5 text-muted-foreground">
 					Put <strong>---</strong> on its own line between posts.

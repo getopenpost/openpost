@@ -90,6 +90,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export type RecorderErrorCode =
+	| 'screen-share-not-started'
 	| 'permission-denied'
 	| 'no-device'
 	| 'device-busy'

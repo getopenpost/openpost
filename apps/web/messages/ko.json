@@ -7710,6 +7710,7 @@
 	"video_editor_recording_files_saved": "파일 {count}개 저장됨",
 	"video_editor_recording_download": "{source} 다운로드",
 	"video_editor_recording_inserted": "녹화를 타임라인에 추가했습니다.",
+	"video_editor_recording_screen_share_not_started": "화면 공유가 시작되지 않았습니다. 다시 시도하고 화면, 창 또는 탭을 선택하세요. 선택 창이 열리지 않으면 브라우저와 시스템 설정에서 화면 녹화 권한을 확인하세요.",
 	"video_editor_recording_error_permission": "접근이 거부되었습니다. 브라우저 설정에서 화면, 카메라 또는 마이크 접근을 허용하세요.",
 	"video_editor_recording_error_device_missing": "선택한 녹화 장치를 사용할 수 없습니다.",
 	"video_editor_recording_error_device_busy": "다른 앱에서 선택한 녹화 장치를 사용 중입니다.",

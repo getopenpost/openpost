@@ -7710,6 +7710,7 @@
 	"video_editor_recording_files_saved": "{count} dosya kaydedildi",
 	"video_editor_recording_download": "{source} indir",
 	"video_editor_recording_inserted": "Kayıt zaman çizelgesine eklendi.",
+	"video_editor_recording_screen_share_not_started": "Ekran paylaşımı başlamadı. Tekrar deneyip bir ekran, pencere veya sekme seçin. Seçici açılmazsa tarayıcı ve sistem ayarlarındaki ekran kaydı izinlerini kontrol edin.",
 	"video_editor_recording_error_permission": "Erişim reddedildi. Tarayıcı ayarlarından ekran, kamera veya mikrofon erişimine izin verin.",
 	"video_editor_recording_error_device_missing": "Seçilen kayıt cihazı kullanılamıyor.",
 	"video_editor_recording_error_device_busy": "Seçilen kayıt cihazı başka bir uygulama tarafından kullanılıyor.",

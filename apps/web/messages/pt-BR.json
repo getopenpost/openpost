@@ -7710,6 +7710,7 @@
 	"video_editor_recording_files_saved": "{count} arquivos salvos",
 	"video_editor_recording_download": "Baixar {source}",
 	"video_editor_recording_inserted": "Gravação adicionada à linha do tempo.",
+	"video_editor_recording_screen_share_not_started": "O compartilhamento de tela não foi iniciado. Tente novamente e escolha uma tela, janela ou aba. Se o seletor não abrir, verifique as permissões de gravação de tela nas configurações do navegador e do sistema.",
 	"video_editor_recording_error_permission": "O acesso foi negado. Permita o acesso à tela, câmera ou microfone nas configurações do navegador.",
 	"video_editor_recording_error_device_missing": "O dispositivo de gravação selecionado não está disponível.",
 	"video_editor_recording_error_device_busy": "Outro aplicativo está usando o dispositivo de gravação selecionado.",

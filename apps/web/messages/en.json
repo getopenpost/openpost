@@ -7760,6 +7760,7 @@
 	"video_editor_recording_files_saved": "{count} files saved",
 	"video_editor_recording_download": "Download {source}",
 	"video_editor_recording_inserted": "Recording added to the timeline.",
+	"video_editor_recording_screen_share_not_started": "Screen sharing did not start. Try again and choose a screen, window, or tab. If the picker does not open, check screen recording permissions in your browser and system settings.",
 	"video_editor_recording_error_permission": "Access was denied. Allow screen, camera, or microphone access in your browser settings and try again.",
 	"video_editor_recording_error_device_missing": "The selected recording device is not available.",
 	"video_editor_recording_error_device_busy": "The selected recording device is in use by another app.",

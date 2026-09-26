@@ -435,14 +435,21 @@ export class ScreenCaptureRecorder {
 		} catch (error) {
 			cleanupStartStreams();
 			if (generation === this.generation) {
-				const code = mapRecorderError(error);
+				// Display capture uses NotAllowedError for both picker cancellation and denial.
+				const code =
+					selection.screen &&
+					!screenStream &&
+					error instanceof DOMException &&
+					error.name === 'NotAllowedError'
+						? 'screen-share-not-started'
+						: mapRecorderError(error);
 				this.setError(code);
 				this.status = 'error';
 				if (selection.screen) {
 					const honestStatus = deriveSystemAudioStatus({
 						requested: systemAudioRequested,
 						stream: screenStream,
-						error,
+						error: screenStream || code === 'screen-share-not-started' ? undefined : error,
 						capabilities
 					});
 					const honestCursorActual = readActualCursor(screenStream, capabilities);

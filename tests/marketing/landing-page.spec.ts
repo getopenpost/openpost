@@ -229,6 +229,12 @@ test("landing keeps trial terms and its tour accessible without JavaScript", asy
   await expect(page.getByRole("heading", { level: 1 })).toContainText("You build the business.");
   await expect(page.getByText("14 days free. $0 today. Card required.").first()).toBeVisible();
   await expect(page.getByRole("group", { name: "Explore OpenPost" })).toBeVisible();
+  for (const button of await page
+    .getByRole("group", { name: "Explore OpenPost" })
+    .getByRole("button")
+    .all()) {
+    await expect(button).toBeDisabled();
+  }
   await expect(page.getByRole("link", { name: "Start your free trial" }).first()).toHaveAttribute(
     "href",
     /app\.openpo\.st\/register\?plan=founder/,

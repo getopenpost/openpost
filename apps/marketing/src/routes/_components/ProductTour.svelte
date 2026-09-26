@@ -133,6 +133,7 @@
 		{#each views as item, index (item.name)}
 			<button
 				type="button"
+				disabled={!ready}
 				class="focus-ring"
 				aria-pressed={selected === index}
 				onclick={() => select(index)}

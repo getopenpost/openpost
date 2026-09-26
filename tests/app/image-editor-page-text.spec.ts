@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { authenticatePage, registerUser, createWorkspace } from "./helpers";
 
-test.use({ hasTouch: true });
+test.use({ hasTouch: true, actionTimeout: 15_000 });
 
 test("mixed page sizes persist and Resize design also resets pages to the default size", async ({
   page,
@@ -19,6 +19,7 @@ test("mixed page sizes persist and Resize design also resets pages to the defaul
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
   const strip = page.getByTestId("image-editor-page-strip");
+  await strip.getByRole("button", { name: "Expand pages", exact: true }).click();
   await strip.getByRole("button", { name: "Duplicate page", exact: true }).click();
   await strip.getByRole("button", { name: "Resize page", exact: true }).click();
   const resizePage = page.getByRole("dialog", { name: "Resize page", exact: true });
@@ -129,9 +130,10 @@ test("text range weight survives cloud save and reload without changing the whol
   await page.getByRole("menuitem", { name: /^Text\b/ }).click();
   const text = page.getByRole("textbox", { name: "Text", exact: true });
   await text.fill("Launch faster today");
-  await text.press("Home");
+  await text.press("ControlOrMeta+A");
+  await text.press("ArrowLeft");
   for (let index = 0; index < 6; index++) await text.press("Shift+ArrowRight");
-  await page.getByRole("combobox", { name: "Weight", exact: true }).click();
+  await page.getByRole("button", { name: "Weight", exact: true }).click();
   await page.getByRole("option", { name: "400 · Regular", exact: true }).click();
   await expect
     .poll(async () => {
@@ -139,7 +141,7 @@ test("text range weight survives cloud save and reload without changing the whol
         headers: { Authorization: `Bearer ${auth.token}` },
       });
       const data = await response.json();
-      return data.document.pages[0].layers[0].text;
+      return data.document.pages[0].layers[0]?.text;
     })
     .toMatchObject({
       text: "Launch faster today",
@@ -153,9 +155,10 @@ test("text range weight survives cloud save and reload without changing the whol
     .first()
     .click();
   await expect(text).toHaveValue("Launch faster today");
-  await text.press("Home");
+  await text.press("ControlOrMeta+A");
+  await text.press("ArrowLeft");
   for (let index = 0; index < 6; index++) await text.press("Shift+ArrowRight");
-  await expect(page.getByRole("combobox", { name: "Weight", exact: true })).toContainText(
+  await expect(page.getByRole("button", { name: "Weight", exact: true })).toContainText(
     "400 · Regular",
   );
   await page.screenshot({ path: testInfo.outputPath("text-range-desktop.png") });
@@ -171,7 +174,9 @@ test("text range weight survives cloud save and reload without changing the whol
         .getByRole("button", { name: "Properties", exact: true })
         .click();
     }
-    await expect(text).toBeVisible();
+    await expect(
+      page.getByRole("dialog").getByRole("textbox", { name: "Text", exact: true }),
+    ).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );

@@ -78,7 +78,7 @@ test("workspace template opens immediately with its pages and editable title", a
       throw new Error(`${error.message}\nBrowser errors: ${errors.join("\n")}`);
     });
   await expect(
-    page.getByRole("button", { name: "Page 2: Second page", exact: true }),
+    page.getByRole("button", { name: "Page 2: Second page, 1080 × 1080 px", exact: true }),
   ).toBeVisible();
   await page.getByRole("textbox", { name: "Design title" }).fill("Opened template");
   await expect(page).toHaveTitle("Opened template");

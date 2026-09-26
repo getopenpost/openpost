@@ -9264,11 +9264,15 @@ export interface components {
              */
             color_grade_version?: 1;
             guides?: components["schemas"]["ImageEditorPageGuides"];
+            /** Format: int64 */
+            height_px?: number;
             id: string;
             latest_export_media_id?: string;
             layers: components["schemas"]["ImageEditorLayer"][] | null;
             name: string;
             preview_media_id?: string;
+            /** Format: int64 */
+            width_px?: number;
         };
         ImageEditorPaintPoint: {
             /** Format: double */
@@ -9420,6 +9424,17 @@ export interface components {
             /** @enum {string} */
             type: "none" | "arc_up" | "arc_down" | "wave" | "circle" | "ellipse";
         };
+        ImageEditorTextRun: {
+            color?: string;
+            /** Format: int64 */
+            end: number;
+            font_style?: string;
+            /** Format: int64 */
+            font_weight?: number;
+            /** Format: int64 */
+            start: number;
+            underline?: boolean;
+        };
         ImageEditorTextShadow: {
             /** Format: double */
             blur: number;
@@ -9445,6 +9460,7 @@ export interface components {
             letter_spacing: number;
             /** Format: double */
             line_height: number;
+            runs?: components["schemas"]["ImageEditorTextRun"][] | null;
             shadow: components["schemas"]["ImageEditorTextShadow"];
             strike?: boolean;
             stroke_color?: string;

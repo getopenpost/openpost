@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,7 @@ const (
 	tiktokAuthURL           = "https://www.tiktok.com/v2/auth/authorize/"
 	tiktokTokenURL          = "https://open.tiktokapis.com/v2/oauth/token/"
 	tiktokUserInfoURL       = "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username"
+	tiktokUserInfoBasicURL  = "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name"
 	tiktokCreatorInfoURL    = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/"
 	tiktokVideoInitURL      = "https://open.tiktokapis.com/v2/post/publish/video/init/"
 	tiktokVideoInboxInitURL = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
@@ -35,14 +37,37 @@ type TikTokAdapter struct {
 	clientKey    string
 	clientSecret string
 	redirectURI  string
+	scopes       []string
+	capabilities TikTokScopeCapabilities
 }
 
 func NewTikTokAdapter(clientKey, clientSecret, redirectURI string) *TikTokAdapter {
+	return NewTikTokAdapterWithCapabilities(clientKey, clientSecret, redirectURI, TikTokDefaultScopeCapabilities())
+}
+
+func NewTikTokAdapterWithCapabilities(clientKey, clientSecret, redirectURI string, capabilities TikTokScopeCapabilities) *TikTokAdapter {
+	if len(capabilities.Scopes()) <= 1 {
+		capabilities = TikTokMinimalScopeCapabilities()
+	}
 	return &TikTokAdapter{
 		clientKey:    clientKey,
 		clientSecret: clientSecret,
 		redirectURI:  redirectURI,
+		scopes:       capabilities.Scopes(),
+		capabilities: capabilities,
 	}
+}
+
+// RequestedScopes returns the installation-enabled OAuth scope set this
+// adapter requests. It is built from TikTokScopeCapabilities, never from a
+// free-form scope string.
+func (t *TikTokAdapter) RequestedScopes() []string {
+	return append([]string(nil), t.scopes...)
+}
+
+// ScopeCapabilities returns the capability set backing RequestedScopes.
+func (t *TikTokAdapter) ScopeCapabilities() TikTokScopeCapabilities {
+	return t.capabilities
 }
 
 func (t *TikTokAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescriptor {
@@ -58,7 +83,20 @@ func (t *TikTokAdapter) GenerateAuthURL(state string) (string, map[string]string
 	params.Set("client_key", t.clientKey)
 	params.Set(oauthParamRedirectURI, t.redirectURI)
 	params.Set("response_type", oauthResponseType)
-	params.Set("scope", strings.Join(tiktokScopes(), ","))
+	params.Set("scope", strings.Join(t.RequestedScopes(), ","))
+	params.Set("state", state)
+	return tiktokAuthURL + "?" + params.Encode(), nil
+}
+
+// GenerateAuthURLWithCapabilities builds the OAuth authorization URL from a
+// capability set instead of a fixed scope union, so installations whose
+// TikTok app lacks Display API approval request only what TikTok can grant.
+func (t *TikTokAdapter) GenerateAuthURLWithCapabilities(state string, capabilities TikTokScopeCapabilities) (string, map[string]string) {
+	params := url.Values{}
+	params.Set("client_key", t.clientKey)
+	params.Set(oauthParamRedirectURI, t.redirectURI)
+	params.Set("response_type", oauthResponseType)
+	params.Set("scope", strings.Join(capabilities.Scopes(), ","))
 	params.Set("state", state)
 	return tiktokAuthURL + "?" + params.Encode(), nil
 }
@@ -144,11 +182,32 @@ func (t *TikTokAdapter) exchangeToken(ctx context.Context, values map[string]str
 }
 
 func (t *TikTokAdapter) GetProfile(ctx context.Context, accessToken string) (*UserProfile, error) {
-	respBody, err := DoRequest(ctx, "GET", tiktokUserInfoURL, nil, map[string]string{
+	profile, apiCode, err := t.fetchTikTokProfile(ctx, accessToken, tiktokUserInfoURL)
+	if err == nil {
+		return profile, nil
+	}
+	// The username field needs the Display API profile scope, which TikTok
+	// no longer offers to new apps. A scope-denied full lookup must not
+	// block connect: retry with the always-granted Login Kit identity
+	// fields and leave the username empty.
+	if isTikTokScopeDeniedCode(apiCode) {
+		if degraded, _, fallbackErr := t.fetchTikTokProfile(ctx, accessToken, tiktokUserInfoBasicURL); fallbackErr == nil {
+			if degraded.CapabilityState == nil {
+				degraded.CapabilityState = map[string]string{}
+			}
+			degraded.CapabilityState[tiktokCapabilityStateDisplayProfile] = "unavailable"
+			return degraded, nil
+		}
+	}
+	return nil, err
+}
+
+func (t *TikTokAdapter) fetchTikTokProfile(ctx context.Context, accessToken, endpoint string) (*UserProfile, string, error) {
+	respBody, err := DoRequest(ctx, "GET", endpoint, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("tiktok profile: %w", err)
+		return nil, "", fmt.Errorf("tiktok profile: %w", err)
 	}
 
 	var profileResp struct {
@@ -163,13 +222,13 @@ func (t *TikTokAdapter) GetProfile(ctx context.Context, accessToken string) (*Us
 		Error tiktokAPIError `json:"error"`
 	}
 	if err := json.Unmarshal(respBody, &profileResp); err != nil {
-		return nil, fmt.Errorf("decoding tiktok profile: %w", err)
+		return nil, "", fmt.Errorf("decoding tiktok profile: %w", err)
 	}
-	if err := profileResp.Error.err("tiktok profile"); err != nil {
-		return nil, err
+	if code := strings.TrimSpace(profileResp.Error.Code); code != "" && code != "ok" {
+		return nil, code, profileResp.Error.err("tiktok profile")
 	}
 	if profileResp.Data.User.OpenID == "" {
-		return nil, fmt.Errorf("tiktok profile: missing open_id")
+		return nil, "", fmt.Errorf("tiktok profile: missing open_id")
 	}
 
 	username := firstNonEmptyString(profileResp.Data.User.Username, profileResp.Data.User.DisplayName)
@@ -178,7 +237,7 @@ func (t *TikTokAdapter) GetProfile(ctx context.Context, accessToken string) (*Us
 		Username:    username,
 		DisplayName: profileResp.Data.User.DisplayName,
 		AvatarURL:   profileResp.Data.User.AvatarURL,
-	}, nil
+	}, "", nil
 }
 
 func (t *TikTokAdapter) UploadMedia(_ context.Context, _ string, _ string, _ string, _ io.Reader) (string, error) {
@@ -617,15 +676,7 @@ func (t *TikTokAdapter) waitForPublishID(ctx context.Context, accessToken, publi
 			return "", fmt.Errorf("tiktok publish status: %w", err)
 		}
 
-		var statusResp struct {
-			Data struct {
-				Status                   string   `json:"status"`
-				PubliclyAvailablePostID  []string `json:"publicly_available_post_id"`
-				PublicalyAvailablePostID []string `json:"publicaly_available_post_id"` //nolint:misspell
-				FailReason               string   `json:"fail_reason"`
-			} `json:"data"`
-			Error tiktokAPIError `json:"error"`
-		}
+		var statusResp tiktokPublishStatusResponse
 		if err := json.Unmarshal(respBody, &statusResp); err != nil {
 			return "", fmt.Errorf("decoding tiktok publish status: %w", err)
 		}
@@ -635,24 +686,7 @@ func (t *TikTokAdapter) waitForPublishID(ctx context.Context, accessToken, publi
 
 		switch statusResp.Data.Status {
 		case "PUBLISH_COMPLETE":
-			if ids := firstNonEmptyStringSlice(statusResp.Data.PubliclyAvailablePostID, statusResp.Data.PublicalyAvailablePostID); len(ids) > 0 {
-				return ids[0], nil
-			}
-			if tiktokCanResolvePublishedVideo(req) {
-				resolvedID, resolveErr := t.resolvePublishedVideoID(ctx, accessToken, req, time.Now().UTC())
-				if resolveErr == nil {
-					return resolvedID, nil
-				}
-				if checkpointErr := req.Checkpoint(PublishResult{
-					SubmissionState: PublishSubmissionPending,
-					ProviderState:   "published_unresolved", ProviderReference: publishID,
-					RetrySafety: PublishRetryReconcileOnly, ReconcileAfter: time.Minute,
-				}); checkpointErr != nil {
-					return "", checkpointErr
-				}
-				return "", resolveErr
-			}
-			return publishID, nil
+			return t.completedPublishID(ctx, accessToken, publishID, req, statusResp)
 		case "SEND_TO_USER_INBOX":
 			return publishID, nil
 		case platformStatusFailed:
@@ -669,6 +703,44 @@ func (t *TikTokAdapter) waitForPublishID(ctx context.Context, accessToken, publi
 	}
 
 	return publishID, nil
+}
+
+type tiktokPublishStatusResponse struct {
+	Data struct {
+		Status                   string   `json:"status"`
+		PubliclyAvailablePostID  []string `json:"publicly_available_post_id"`
+		PublicalyAvailablePostID []string `json:"publicaly_available_post_id"` //nolint:misspell
+		FailReason               string   `json:"fail_reason"`
+	} `json:"data"`
+	Error tiktokAPIError `json:"error"`
+}
+
+// completedPublishID maps a PUBLISH_COMPLETE status to the durable external
+// ID. A completed post without a public ID reconciles through video.list;
+// without that Display API grant the provider publish ID is the receipt.
+func (t *TikTokAdapter) completedPublishID(ctx context.Context, accessToken, publishID string, req *PublishRequest, statusResp tiktokPublishStatusResponse) (string, error) {
+	if ids := firstNonEmptyStringSlice(statusResp.Data.PubliclyAvailablePostID, statusResp.Data.PublicalyAvailablePostID); len(ids) > 0 {
+		return ids[0], nil
+	}
+	if !tiktokCanResolvePublishedVideo(req) {
+		return publishID, nil
+	}
+	resolvedID, resolveErr := t.resolvePublishedVideoID(ctx, accessToken, req, time.Now().UTC())
+	if resolveErr == nil {
+		return resolvedID, nil
+	}
+	var scopeErr *TikTokScopeError
+	if errors.As(resolveErr, &scopeErr) {
+		return publishID, nil
+	}
+	if checkpointErr := req.Checkpoint(PublishResult{
+		SubmissionState: PublishSubmissionPending,
+		ProviderState:   "published_unresolved", ProviderReference: publishID,
+		RetrySafety: PublishRetryReconcileOnly, ReconcileAfter: time.Minute,
+	}); checkpointErr != nil {
+		return "", checkpointErr
+	}
+	return "", resolveErr
 }
 
 func tiktokCanResolvePublishedVideo(req *PublishRequest) bool {
@@ -703,6 +775,9 @@ func (t *TikTokAdapter) resolvePublishedVideoID(ctx context.Context, accessToken
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("decoding tiktok completed publish lookup: %w", err)
+	}
+	if isTikTokScopeDeniedCode(response.Error.Code) {
+		return "", &TikTokScopeError{Code: strings.TrimSpace(response.Error.Code), Operation: "completed publish lookup"}
 	}
 	if err := response.Error.err("tiktok completed publish lookup"); err != nil {
 		return "", err
@@ -816,14 +891,100 @@ func isTikTokVideoMime(mimeType string) bool {
 	}
 }
 
-func tiktokScopes() []string {
+// TikTok OAuth scope names. The Login Kit identity scope and the Content
+// Posting scopes are required for publishing; the Display API scopes are
+// optional and degrade gracefully when the TikTok app lacks approval.
+const (
+	tiktokScopeUserInfoBasic   = "user.info.basic"
+	tiktokScopeUserInfoProfile = "user.info.profile"
+	tiktokScopeUserInfoStats   = "user.info.stats"
+	tiktokScopeVideoList       = "video.list"
+	tiktokScopeVideoPublish    = "video.publish"
+	tiktokScopeVideoUpload     = "video.upload"
+)
+
+// TikTokScopeCapabilities selects which TikTok capability families an
+// installation authorizes. Publishing needs the identity scope plus the
+// Content Posting scope of every enabled posting mode; the Display API
+// families (profile enrichment, analytics, discovery) are optional. TikTok
+// no longer offers Display API to new apps, so the minimal publishing set
+// must keep connect and publish working on its own.
+type TikTokScopeCapabilities struct {
+	DirectPost  bool
+	InboxUpload bool
+	Profile     bool
+	Analytics   bool
+	Discovery   bool
+}
+
+// TikTokDefaultScopeCapabilities enables every TikTok capability family. It
+// preserves the historical authorization request for installations whose
+// TikTok app already holds Display API approval.
+func TikTokDefaultScopeCapabilities() TikTokScopeCapabilities {
+	return TikTokScopeCapabilities{
+		DirectPost:  true,
+		InboxUpload: true,
+		Profile:     true,
+		Analytics:   true,
+		Discovery:   true,
+	}
+}
+
+// TikTokMinimalScopeCapabilities enables publishing only: the Login Kit
+// identity scope plus both Content Posting scopes. The posting method is
+// chosen per post at publish time, so the installation must authorize both
+// Direct Post and inbox upload up front.
+func TikTokMinimalScopeCapabilities() TikTokScopeCapabilities {
+	return TikTokScopeCapabilities{
+		DirectPost:  true,
+		InboxUpload: true,
+	}
+}
+
+// WithoutDisplayAPI clears the Display API families while keeping
+// publishing intact, for TikTok apps without Display API approval.
+func (c TikTokScopeCapabilities) WithoutDisplayAPI() TikTokScopeCapabilities {
+	c.Profile = false
+	c.Analytics = false
+	c.Discovery = false
+	return c
+}
+
+// Scopes builds the deterministic OAuth scope list for the capability set.
+func (c TikTokScopeCapabilities) Scopes() []string {
+	scopes := []string{tiktokScopeUserInfoBasic}
+	if c.Profile {
+		scopes = append(scopes, tiktokScopeUserInfoProfile)
+	}
+	if c.Analytics {
+		scopes = append(scopes, tiktokScopeUserInfoStats)
+	}
+	if c.Analytics || c.Discovery {
+		scopes = append(scopes, tiktokScopeVideoList)
+	}
+	if c.DirectPost {
+		scopes = append(scopes, tiktokScopeVideoPublish)
+	}
+	if c.InboxUpload {
+		scopes = append(scopes, tiktokScopeVideoUpload)
+	}
+	return scopes
+}
+
+// TikTokRequiredPublishingScopes is the minimal scope set that keeps TikTok
+// connect and publish working without Display API approval.
+func TikTokRequiredPublishingScopes() []string {
+	return TikTokMinimalScopeCapabilities().Scopes()
+}
+
+// TikTokOptionalDisplayScopes lists the Display API scopes that enrich the
+// profile (username), account analytics, and video discovery/reconciliation.
+// Their absence degrades those features instead of blocking connect.
+func TikTokOptionalDisplayScopes() []string {
 	return []string{
-		"user.info.basic",
-		"user.info.profile",
-		"user.info.stats",
-		"video.list",
-		"video.publish",
-		"video.upload",
+		tiktokScopeUserInfoProfile,
+		tiktokScopeUserInfoStats,
+		tiktokScopeVideoList,
 	}
 }
 
@@ -842,6 +1003,35 @@ func (e tiktokAPIError) err(label string) error {
 		return fmt.Errorf("%s: %s (log_id=%s)", label, message, e.LogID)
 	}
 	return fmt.Errorf("%s: %s", label, message)
+}
+
+// tiktokCapabilityStateDisplayProfile marks a connected account whose TikTok
+// grant lacks the Display API profile scope. The username stays empty while
+// connect, publish, and preflight continue on the Login Kit identity scope.
+const tiktokCapabilityStateDisplayProfile = "tiktok_display_profile"
+
+// TikTokScopeError reports a TikTok request rejected for a missing grant,
+// such as the Display API video.list scope on an app without approval.
+// Callers degrade the dependent feature instead of failing the operation.
+type TikTokScopeError struct {
+	Code      string
+	Operation string
+}
+
+func (e *TikTokScopeError) Error() string {
+	return fmt.Sprintf("tiktok %s: missing authorized scope (%s)", e.Operation, e.Code)
+}
+
+// isTikTokScopeDeniedCode reports the TikTok Content Posting API codes for a
+// missing grant. A publish-time 401 with these codes is a scope gap, not a
+// dead token, and must stay a degradable failure.
+func isTikTokScopeDeniedCode(code string) bool {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "scope_not_authorized", "scope_permission_missed":
+		return true
+	default:
+		return false
+	}
 }
 
 func tiktokTitle(content string) string {

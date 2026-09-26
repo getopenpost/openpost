@@ -275,6 +275,10 @@ Example:
 
 TikTok direct video publishing requires `OPENPOST_MEDIA_URL` or `OPENPOST_S3_PUBLIC_BASE_URL` to point at public HTTPS media URLs.
 
+| Variable                              | Required | Default | Description                                                                                                                                                                                                                           |
+| ------------------------------------- | -------: | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENPOST_DISABLE_TIKTOK_DISPLAY_API` |       No | `false` | Request only the TikTok publishing scopes (`user.info.basic`, `video.publish`, `video.upload`). Set `true` when the TikTok app lacks Display API approval. Usernames, analytics, and public video ID reconciliation stay unavailable. |
+
 ## YouTube
 
 YouTube video uploads are configured through the provider app registry instead of legacy provider-specific env vars. Use `OPENPOST_PROVIDER_APPS` for bootstrap/self-hosting or the instance-admin provider app API for hosted/operator-managed credentials.

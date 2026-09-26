@@ -472,6 +472,7 @@ func main() {
 	providers, providerEntries, err := platform.BuildAdapterRegistry(providerAppConfigs, platform.RegistryOptions{
 		DisableLinkedInThreadReplies: cfg.DisableLinkedInThreadReplies,
 		EnableLinkedInOrganizations:  cfg.EnableLinkedInOrganizations,
+		DisableTikTokDisplayAPI:      cfg.DisableTikTokDisplayAPI,
 	})
 	if err != nil {
 		fatalfWithDiagnostics(diagnosticsReporter, "failed to build provider app registry: %v", err)

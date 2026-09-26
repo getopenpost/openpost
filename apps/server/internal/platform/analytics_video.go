@@ -15,11 +15,19 @@ import (
 const tiktokVideoQueryURL = "https://open.tiktokapis.com/v2/video/query/?fields=id,like_count,comment_count,share_count,view_count"
 
 func (t *TikTokAdapter) AnalyticsSupport() AnalyticsSupport {
+	if !t.capabilities.Analytics {
+		return AnalyticsSupport{
+			Account:            false,
+			Content:            false,
+			AccountUnavailable: "TikTok analytics need the Display API scopes (user.info.stats for account totals, video.list for video metrics). This installation requests publishing scopes only.",
+			ContentUnavailable: "TikTok analytics need the Display API scopes (user.info.stats for account totals, video.list for video metrics). This installation requests publishing scopes only.",
+		}
+	}
 	return AnalyticsSupport{
 		Account:               true,
 		Content:               true,
-		AccountRequiredScopes: []string{"user.info.stats"},
-		ContentRequiredScopes: []string{"video.list"},
+		AccountRequiredScopes: []string{tiktokScopeUserInfoStats},
+		ContentRequiredScopes: []string{tiktokScopeVideoList},
 	}
 }
 

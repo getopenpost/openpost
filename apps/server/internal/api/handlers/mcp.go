@@ -1057,8 +1057,8 @@ window: %s
 
 Workflow:
 1. Call search_operations to load the list_publications and suggest_next_slot schemas.
-2. Call query_operation with list_publications for the workspace and requested window. Use activity_bucket scheduled and calendar_from or calendar_before when the window can be expressed as timestamps.
-3. Look for collisions, empty stretches, missing platform coverage, and Publications that need destination-specific Renditions.
+2. Call query_operation with list_publications for the workspace and requested window. Prefer narrow windows of 7 to 14 days with activity_bucket scheduled; keep the default limit and repeat the request with the returned next_cursor while has_more is true, repeating all other filters unchanged. Calendar windows are limited to one page, so narrow the window instead of widening it when results do not fit.
+3. Look for collisions, empty stretches, missing platform coverage, and Publications that need destination-specific Renditions. Failed destinations are summarized per Publication as failed_rendition_count with a curated error_kind, error_action, and error_message; call get_publication for full delivery detail only when a failure needs action.
 4. Call query_operation with suggest_next_slot if a useful new slot is needed.
 5. Recommend concrete actions without canceling or scheduling anything unless the user explicitly asks.
 `, promptArg(args, "workspace_id", "(required)"), promptArg(args, "window", "upcoming queue")))
@@ -1609,7 +1609,7 @@ func mcpListPublicationsTool() mcpOperationDefinition {
 	return mcpOperationDescriptor(map[string]any{
 		"name":        mcpToolListPubs,
 		"title":       "List publications",
-		"description": "Find format-first publications before reading, editing, validating, or scheduling one. Returns matching publication summaries in newest-first order.",
+		"description": "Find format-first publications before reading, editing, validating, or scheduling one. Returns matching publication summaries in newest-first order, up to limit items per response. Prefer narrow calendar windows and follow next_cursor with the cursor input while has_more is true instead of widening the window.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1621,6 +1621,7 @@ func mcpListPublicationsTool() mcpOperationDefinition {
 				"calendar_before": map[string]any{"type": "string", "format": "date-time", "description": "Include calendar occurrences before this RFC3339 timestamp."},
 				"activity_bucket": map[string]any{"type": "string", "enum": []string{"scheduled", "published", "failed", "draft"}, "description": "Optional calendar-compatible activity bucket."},
 				"limit":           map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum publications to return. Defaults to 20."},
+				"cursor":          map[string]any{"type": "string", "description": "Opaque cursor from a previous response's next_cursor. Repeat all other filters unchanged while paging."},
 			},
 			"required":             []string{"workspace_id"},
 			"additionalProperties": false,
@@ -2161,6 +2162,14 @@ func mcpToolInvocationStatus(toolName string) mcpToolStatus {
 }
 
 func mcpToolOutputSchema(toolName string) map[string]any {
+	if toolName == mcpToolListPubs {
+		return mcpStructuredOutputSchema(map[string]any{
+			"publications": mcpArraySchema(mcpOpenObjectSchema()),
+			"has_more":     map[string]any{"type": "boolean"},
+			"next_cursor":  map[string]any{"type": "string"},
+			"total_count":  map[string]any{"type": "integer"},
+		}, "publications")
+	}
 	if key, ok := mcpArrayOutputKey(toolName); ok {
 		return mcpStructuredOutputSchema(map[string]any{
 			key: mcpArraySchema(mcpOpenObjectSchema()),
@@ -2228,8 +2237,6 @@ func mcpArrayOutputKey(toolName string) (string, bool) {
 		return "accounts", true
 	case mcpToolListMedia:
 		return "media", true
-	case mcpToolListPubs:
-		return "publications", true
 	case mcpToolPubEvents:
 		return "events", true
 	case mcpToolComments:
@@ -3204,6 +3211,39 @@ type mcpPublicationStatus struct {
 	CreatedAt            string `json:"created_at"`
 	UpdatedAt            string `json:"updated_at"`
 	RenditionCount       int    `json:"rendition_count"`
+	// FailedRenditionCount counts destination renditions in failed status.
+	// ErrorKind, ErrorAction, and ErrorMessage summarize the first failed
+	// rendition using the same curated taxonomy stored on the rendition
+	// (never raw provider response bodies).
+	FailedRenditionCount int    `json:"failed_rendition_count"`
+	ErrorKind            string `json:"error_kind,omitempty"`
+	ErrorAction          string `json:"error_action,omitempty"`
+	ErrorMessage         string `json:"error_message,omitempty"`
+}
+
+// mcpPublicationStatusFromResponse renders the list summary for one
+// canonical Publication, including its safe failure summary.
+func mcpPublicationStatusFromResponse(publication PublicationResponse) mcpPublicationStatus {
+	status := mcpPublicationStatus{
+		ID: publication.ID, WorkspaceID: publication.WorkspaceID, Title: publication.Title,
+		ContentProfile: publication.ContentProfile, Status: publication.Status, Revision: publication.Revision,
+		SourceText: publication.SourceText, SourceURL: publication.SourceURL, ScheduledAt: publication.ScheduledAt,
+		RandomDelayMinutes: publication.RandomDelayMinutes, RandomDelayInherited: publication.RandomDelayInherited,
+		CreatedAt: publication.CreatedAt,
+		UpdatedAt: publication.UpdatedAt, RenditionCount: len(publication.Renditions),
+	}
+	for _, rendition := range publication.Renditions {
+		if rendition.Status != models.RenditionStatusFailed {
+			continue
+		}
+		status.FailedRenditionCount++
+		if status.FailedRenditionCount == 1 {
+			status.ErrorKind = rendition.ErrorKind
+			status.ErrorAction = rendition.ErrorAction
+			status.ErrorMessage = rendition.ErrorMessage
+		}
+	}
+	return status
 }
 
 func (h *MCPHandler) createPublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
@@ -3300,37 +3340,42 @@ func (h *MCPHandler) listPublications(ctx context.Context, userID string, args m
 		CalendarFrom   string `json:"calendar_from"`
 		CalendarBefore string `json:"calendar_before"`
 		Limit          int    `json:"limit"`
+		Cursor         string `json:"cursor"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid list_publications arguments"}
 	}
 	limit := input.Limit
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
 	}
 	page, err := h.publicationHandler().publicationApplication().List(ctx, userID, ListPublicationsInput{
 		WorkspaceID: input.WorkspaceID, Status: input.Status, ActivityBucket: input.ActivityBucket,
 		ContentProfile: input.ContentProfile, Platform: input.Platform,
-		CalendarFrom: input.CalendarFrom, CalendarBefore: input.CalendarBefore, Limit: limit,
+		CalendarFrom: input.CalendarFrom, CalendarBefore: input.CalendarBefore,
+		Limit: limit, Cursor: strings.TrimSpace(input.Cursor),
 	})
 	if err != nil {
 		return nil, publicationMutationMCPError(err, "failed to list publications")
 	}
 	publications := make([]mcpPublicationStatus, 0, len(page.Publications))
 	for _, publication := range page.Publications {
-		publications = append(publications, mcpPublicationStatus{
-			ID: publication.ID, WorkspaceID: publication.WorkspaceID, Title: publication.Title,
-			ContentProfile: publication.ContentProfile, Status: publication.Status, Revision: publication.Revision,
-			SourceText: publication.SourceText, SourceURL: publication.SourceURL, ScheduledAt: publication.ScheduledAt,
-			RandomDelayMinutes: publication.RandomDelayMinutes, RandomDelayInherited: publication.RandomDelayInherited,
-			CreatedAt: publication.CreatedAt,
-			UpdatedAt: publication.UpdatedAt, RenditionCount: len(publication.Renditions),
-		})
+		publications = append(publications, mcpPublicationStatusFromResponse(publication))
+	}
+	text := fmt.Sprintf("Found %d publications.", len(publications))
+	if page.HasMore {
+		text = fmt.Sprintf("Found %d publications; more are available. Repeat the request with cursor %q while has_more is true.", len(publications), page.NextCursor)
 	}
 	return map[string]any{
-		"content": []mcpContent{{Type: "text", Text: fmt.Sprintf("Found %d publications.", len(publications))}},
+		"content": []mcpContent{{Type: "text", Text: text}},
 		"structuredContent": map[string]any{
 			"publications": publications,
+			"has_more":     page.HasMore,
+			"next_cursor":  page.NextCursor,
+			"total_count":  page.TotalCount,
 		},
 	}, nil
 }

@@ -711,14 +711,22 @@ export function createShortcutImportReview(
 	return { result, changes, conflicts };
 }
 
-export function editorShortcutTargetIsDisabled(target: EventTarget | null): boolean {
+export function editorShortcutTargetIsDisabled(
+	target: EventTarget | null,
+	{ allowControls = false }: { allowControls?: boolean } = {}
+): boolean {
 	if (!(target instanceof HTMLElement)) return false;
 	if (target.isContentEditable) return true;
 	if (target.closest('[data-editor-shortcuts-disabled]')) return true;
+	if (target.closest('input, textarea, select, [contenteditable="true"]')) return true;
 	if (target.closest('[data-editor-shortcuts-enabled]')) return false;
 	if (target.closest('[data-editor-shortcuts-owned]')) return true;
-	return Boolean(target.closest('input, textarea, select, button, a, [contenteditable="true"]'));
+	return !allowControls && Boolean(target.closest('button, a, [role="slider"], [role="tab"]'));
 }
+
+// Project commands remain available after using a toolbar or inspector control.
+// Text editors and surfaces owning their own history still keep their shortcuts.
+const PROJECT_SHORTCUTS = new Set<EditorShortcutId>(['UNDO', 'REDO', 'SAVE', 'EXPORT']);
 
 /**
  * Shared keydown prelude for editor surfaces: ignore already-handled events
@@ -730,9 +738,14 @@ export function createShortcutMatcher(
 	bindings: EditorShortcutBindingMap
 ): ((...ids: EditorShortcutId[]) => boolean) | null {
 	if (event.defaultPrevented) return null;
-	if (editorShortcutTargetIsDisabled(event.target)) return null;
+	if (editorShortcutTargetIsDisabled(event.target, { allowControls: true })) return null;
 	return (...ids: EditorShortcutId[]) =>
-		ids.some((id) => eventMatchesShortcut(event, bindings[id]));
+		ids.some(
+			(id) =>
+				!editorShortcutTargetIsDisabled(event.target, {
+					allowControls: PROJECT_SHORTCUTS.has(id)
+				}) && eventMatchesShortcut(event, bindings[id])
+		);
 }
 
 function editorPlaybackTargetIsDisabled(target: EventTarget | null): boolean {

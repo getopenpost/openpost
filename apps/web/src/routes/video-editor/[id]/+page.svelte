@@ -185,12 +185,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	} from '$lib/video-editor/media/embedded-subtitle-service';
 	import {
 		editorDeleteModeForEvent,
-		editorShortcutTargetIsDisabled,
-		eventMatchesShortcut,
+		createShortcutMatcher,
 		formatShortcutBinding,
 		handleGlobalPlayPauseShortcut,
-		handleOpenSceneBrowserShortcut,
-		type EditorShortcutId
+		handleOpenSceneBrowserShortcut
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 	import { itemClipboardStore } from '$lib/video-editor/timeline/stores/item-clipboard-store.svelte';
@@ -2125,9 +2123,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			}
 		}
 		const bindings = keyboardShortcuts.bindings;
-		const matches = (...ids: EditorShortcutId[]) =>
-			ids.some((id) => eventMatchesShortcut(event, bindings[id]));
-		if (editorShortcutTargetIsDisabled(event.target)) return;
+		const matches = createShortcutMatcher(event, bindings);
+		if (!matches) return;
 		const sourceLocalPlayback = matches(
 			'PLAY_PAUSE',
 			'PREVIOUS_FRAME',

@@ -16,16 +16,30 @@
 	): number | null {
 		const stepFrames = shiftKey ? 10 : 1;
 		const stepSeconds = fps > 0 ? stepFrames / fps : 0.033;
-		if (key === 'ArrowLeft') return currentSeconds + (handle === 'in' ? -stepSeconds : stepSeconds);
-		if (key === 'ArrowRight')
-			return currentSeconds + (handle === 'in' ? stepSeconds : -stepSeconds);
-		if (key === 'ArrowUp') return currentSeconds + stepSeconds;
-		if (key === 'ArrowDown') return currentSeconds - stepSeconds;
-		if (key === 'PageUp') return currentSeconds + (fps > 0 ? 1 : stepSeconds * 10);
-		if (key === 'PageDown') return currentSeconds - (fps > 0 ? 1 : stepSeconds * 10);
-		if (key === 'Home') return 0;
-		if (key === 'End') return Math.max(0, maxSeconds);
-		return null;
+		const pageSeconds = fps > 0 ? 1 : stepSeconds * 10;
+		// Fade-in grows to the right, fade-out to the left: one sign keeps the
+		// ArrowLeft/ArrowRight branches free of nested conditionals.
+		const lateralSign = handle === 'in' ? 1 : -1;
+		switch (key) {
+			case 'ArrowLeft':
+				return currentSeconds - lateralSign * stepSeconds;
+			case 'ArrowRight':
+				return currentSeconds + lateralSign * stepSeconds;
+			case 'ArrowUp':
+				return currentSeconds + stepSeconds;
+			case 'ArrowDown':
+				return currentSeconds - stepSeconds;
+			case 'PageUp':
+				return currentSeconds + pageSeconds;
+			case 'PageDown':
+				return currentSeconds - pageSeconds;
+			case 'Home':
+				return 0;
+			case 'End':
+				return Math.max(0, maxSeconds);
+			default:
+				return null;
+		}
 	}
 
 	/**

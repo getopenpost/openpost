@@ -56,6 +56,7 @@ const (
 	processingHeartbeat                = staleProcessingJobAge / 3
 	publicationBuilderUnavailableRetry = time.Minute
 	jobFinalizationTimeout             = 3 * time.Second
+	postImportSweepInterval            = 15 * time.Minute
 )
 
 // BackgroundWorker polls the configured database for pending jobs.
@@ -422,6 +423,8 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 func (w *BackgroundWorker) Start(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
+	importTicker := time.NewTicker(postImportSweepInterval)
+	defer importTicker.Stop()
 	defer close(w.done)
 
 	log.Printf("Worker %s started polling every %v\n", w.workerID, w.interval)
@@ -430,6 +433,7 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 	}
 	w.ensureMediaLifecycleJobs(ctx)
 	w.ensureQueueReminderSweepJob(ctx)
+	w.enqueueDuePostImports(ctx)
 	w.processDueJobs(ctx)
 
 	for {
@@ -442,7 +446,18 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			w.processDueJobs(ctx)
+		case <-importTicker.C:
+			w.enqueueDuePostImports(ctx)
 		}
+	}
+}
+
+func (w *BackgroundWorker) enqueueDuePostImports(ctx context.Context) {
+	if w.postImports == nil {
+		return
+	}
+	if _, err := w.postImports.EnqueueDue(ctx); err != nil {
+		log.Printf("[Worker %s] failed to enqueue due post imports: %v", w.workerID, err)
 	}
 }
 

@@ -7,6 +7,7 @@ import {
 	type VoiceoverRecorderDependencies
 } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
 import Fixture from './transport-bar.fixture.svelte';
+import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import '../../../routes/layout.css';
 
 it('keeps a 44px play target inside the narrow transport bar', async () => {
@@ -186,5 +187,28 @@ it('keeps supported voiceover commands and active stop reachable at 320px', asyn
 		voiceoverRecorder.__resetForTesting();
 		editorSession.project = null;
 		await page.viewport(1280, 900);
+	}
+});
+
+it('shows elapsed and total time in the same frame timecode', async () => {
+	timelineStore.__resetForTesting();
+	timelineStore._setItems([
+		{
+			id: 'clip',
+			trackId: 'visual',
+			from: 0,
+			durationInFrames: 3793,
+			type: 'text',
+			text: 'Clip',
+			label: 'Clip',
+			color: '#ffffff'
+		}
+	]);
+	timelineStore._setCurrentFrame(1575);
+	try {
+		const screen = await render(Fixture, { width: 900 });
+		await expect.element(screen.getByLabelText('00:00:52:15 / 00:02:06:13')).toBeVisible();
+	} finally {
+		timelineStore.__resetForTesting();
 	}
 });

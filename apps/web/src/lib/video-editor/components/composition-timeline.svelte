@@ -1373,13 +1373,19 @@
 		snapTargets: ReturnType<typeof buildSnapTargets>;
 		snapThreshold: number;
 		snapEnabled: boolean;
+		collapseSelectionOnClick: boolean;
+		selectedIds: string[];
 	};
 	let drag: DragState | null = $state(null);
 	function isLocked(item: TimelineItem): boolean {
 		return isTrackEffectivelyLocked(item.trackId, timelineStore.tracks);
 	}
 	function startBarPointerDown(item: TimelineItem, event: PointerEvent): void {
-		if (event.button !== 0 || isLocked(item)) return;
+		if (event.button !== 0) return;
+		if (isLocked(item)) {
+			selectItem(item.id, event.ctrlKey || event.metaKey, event.shiftKey);
+			return;
+		}
 		const current = event.currentTarget;
 		if (!(current instanceof HTMLElement)) return;
 		const barElement = current;
@@ -1390,11 +1396,18 @@
 		let kind: DragState['kind'] = 'move';
 		if (xInBar < edge) kind = 'trim-start';
 		else if (xInBar > w - edge) kind = 'trim-end';
-		selectItem(item.id, event.ctrlKey || event.metaKey, event.shiftKey);
+		const modifiesSelection = event.ctrlKey || event.metaKey || event.shiftKey;
+		const collapseSelectionOnClick = !modifiesSelection && selectedItemIds.has(item.id);
+		if (modifiesSelection || !selectedItemIds.has(item.id)) {
+			selectItem(item.id, event.ctrlKey || event.metaKey, event.shiftKey);
+		}
+		if (!selectedItemIds.has(item.id)) return;
 		const before = captureSnapshot();
 		pointerGestures?.cancel('superseded');
 		drag = {
 			kind,
+			collapseSelectionOnClick,
+			selectedIds: [...selectedItemIds],
 			id: item.id,
 			startX: event.clientX,
 			originalFrom: item.from,
@@ -1432,7 +1445,7 @@
 		drag.active = true;
 		const activeDrag = drag;
 		const deltaFrames = Math.round(deltaPx / Math.max(0.001, pxPerFrame));
-		const item = timelineStore.itemById.get(activeDrag.id);
+		const item = activeDrag.before.items.find((candidate) => candidate.id === activeDrag.id);
 		if (!item) return;
 		if (activeDrag.kind === 'move') {
 			const proposed = activeDrag.originalFrom + deltaFrames;
@@ -1455,8 +1468,8 @@
 			const plan = planLinkedMoveGesture(
 				anchorItem,
 				patchFrom,
-				timelineStore.items,
-				selectedItemIds.has(anchorItem.id) ? [...selectedItemIds] : [anchorItem.id]
+				activeDrag.before.items,
+				activeDrag.selectedIds
 			);
 			const locked = plan.some((u) => {
 				const it = timelineStore.itemById.get(u.id);
@@ -1487,7 +1500,7 @@
 				trimAnchor,
 				handle,
 				snap.snappedFrame - originalEdge,
-				timelineStore.items,
+				activeDrag.before.items,
 				timelineStore.fps,
 				activeDrag.snapEnabled ? activeDrag.snapTargets : [],
 				activeDrag.snapThreshold,
@@ -1505,6 +1518,7 @@
 		const before = drag.before;
 		const wasActive = drag.active;
 		if (cancelled || !wasActive) {
+			if (!cancelled && drag.collapseSelectionOnClick) selectItem(drag.id, false, false);
 			restoreSnapshot(before);
 			drag = null;
 			return;
@@ -3402,7 +3416,8 @@
 								onpointerdown={(event) => startBarPointerDown(item, event)}
 								onclick={(event) => {
 									event.stopPropagation();
-									selectItem(item.id, event.ctrlKey || event.metaKey, event.shiftKey);
+									if (event.detail === 0)
+										selectItem(item.id, event.ctrlKey || event.metaKey, event.shiftKey);
 								}}
 								ondblclick={() => {
 									const mid = item.from + Math.floor(item.durationInFrames / 2);

@@ -614,6 +614,7 @@
 		trackPushPlan: TrackPushGesturePlan | null;
 		trackPushDelta: number;
 		activated: boolean;
+		collapseSelectionOnClick: boolean;
 		latestClientX: number;
 		latestClientY: number;
 		rafId: number | null;
@@ -2776,6 +2777,10 @@
 	}
 
 	function selectItem(event: MouseEvent, id: string): void {
+		applyItemSelection(id, event.metaKey || event.ctrlKey || event.shiftKey ? 'toggle' : 'replace');
+	}
+
+	function applyItemSelection(id: string, mode: 'toggle' | 'replace'): void {
 		const previousPrimaryId = selectedItemId;
 		selectedTransitionId = null;
 		const selection = updateTimelineItemSelection(
@@ -2783,7 +2788,7 @@
 			selectedItemIds,
 			id,
 			timelineStore.linkedSelectionEnabled,
-			event.metaKey || event.ctrlKey
+			mode === 'toggle'
 		);
 		selectedItemIds = selection.ids;
 		selectedItemId = selection.primaryId;
@@ -2960,10 +2965,24 @@
 		if (event.currentTarget instanceof HTMLElement) {
 			event.currentTarget.focus({ preventScroll: true });
 		}
-		if (event.metaKey || event.ctrlKey || !selectedItemIds.includes(id)) selectItem(event, id);
+		const modifiesSelection =
+			requestedKind === 'move' && (event.metaKey || event.ctrlKey || event.shiftKey);
+		const collapseSelectionOnClick =
+			requestedKind === 'move' &&
+			!modifiesSelection &&
+			!event.altKey &&
+			selectedItemIds.includes(id);
+		if (modifiesSelection || !selectedItemIds.includes(id))
+			applyItemSelection(id, modifiesSelection ? 'toggle' : 'replace');
 		else selectedItemId = id;
+		// Removing a clip from the selection must not start moving it.
+		if (!selectedItemIds.includes(id)) return;
 		const item = timelineStore.itemById.get(id);
-		if (!item || isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) return;
+		if (!item) return;
+		if (isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) {
+			if (collapseSelectionOnClick) applyItemSelection(id, 'replace');
+			return;
+		}
 		// INTENTIONAL DIVERGENCE from FreeCut: Alt+move slips the clip in place instead of
 		// duplicate-dragging a copy (FreeCut's use-timeline-drag Alt=copy). The simpler slip
 		// matches our tool model (explicit slip/slide tools) and avoids a hidden copy gesture.
@@ -3055,6 +3074,7 @@
 			slideRight: slideNeighbors?.right ? $state.snapshot(slideNeighbors.right) : null,
 			trackPushPlan,
 			trackPushDelta: 0,
+			collapseSelectionOnClick,
 			activated:
 				kind === 'track-push' ||
 				kind === 'trim-start' ||
@@ -3361,7 +3381,7 @@
 				pruneOrphanedTransitions();
 			}
 		}
-		if (!cancelled && completed.kind === 'move') pruneInvalidTransitions();
+		if (!cancelled && completed.activated && completed.kind === 'move') pruneInvalidTransitions();
 		const completedItem = timelineStore.itemById.get(completed.id);
 		const didBoundaryEdit =
 			completedItem !== undefined &&
@@ -3406,6 +3426,7 @@
 		}
 		drag.latestClientY = event.clientY;
 		applyPointerFrame(event.clientX);
+		if (!drag.activated && drag.collapseSelectionOnClick) applyItemSelection(drag.id, 'replace');
 		finishDrag(false);
 	}
 

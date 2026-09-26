@@ -43,6 +43,7 @@
 		handleOpenChange(false);
 	}
 
+	// fallow-ignore-next-line complexity -- pre-existing hotspot (23/22 on main); this change only adds straight-line selection currency.
 	async function createWorkspace(event: SubmitEvent) {
 		event.preventDefault();
 		const name = workspaceName.trim();

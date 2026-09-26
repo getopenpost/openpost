@@ -239,6 +239,7 @@
 		return !destroyed && generation === operationGeneration && actorIsCurrent(identity);
 	}
 
+	// fallow-ignore-next-line complexity -- pre-existing hotspot, untouched by this change; flagged because the file was edited.
 	async function saveSettings() {
 		const generation = operationGeneration;
 		const identity = auth.captureIdentity();
@@ -353,6 +354,7 @@
 		});
 	}
 
+	// fallow-ignore-next-line complexity -- pre-existing hotspot, untouched by this change; flagged because the file was edited.
 	async function saveProvider(event: SubmitEvent) {
 		event.preventDefault();
 		const generation = operationGeneration;

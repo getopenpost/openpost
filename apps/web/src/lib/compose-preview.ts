@@ -1,6 +1,7 @@
 import {
 	createPreviewModel,
 	normalizePreviewPlatform,
+	type PreviewBusinessPost,
 	type PreviewCard,
 	type PreviewFormat,
 	type PreviewMedia,
@@ -23,6 +24,7 @@ export interface ComposerPreviewMedia {
 	altText?: string;
 	poster?: string;
 	durationLabel?: string;
+	aspectRatio?: number;
 }
 
 export interface ComposerPreviewSegment {
@@ -38,6 +40,7 @@ export interface ComposerPreviewInput {
 	segments: ComposerPreviewSegment[];
 	media?: ComposerPreviewMedia[];
 	outputProfile?: string;
+	segmentStrategy?: 'preserve' | 'join';
 	destinationSettings?: ComposerSettings;
 	title?: string;
 	subtitle?: string;
@@ -53,22 +56,40 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 		...destinationSettings,
 		...(firstSegment?.settings ?? {})
 	};
-	const previewSegments: PreviewSegment[] = input.segments.map((segment) => ({
+	const sourceSegments =
+		input.segmentStrategy === 'join' && input.segments.length > 1
+			? [
+					{
+						...firstSegment,
+						id: firstSegment.id,
+						text: input.segments
+							.map((segment) => segment.text.trim())
+							.filter(Boolean)
+							.join('\n\n'),
+						media: input.segments.flatMap((segment) => segment.media ?? [])
+					}
+				]
+			: input.segments;
+	const previewSegments: PreviewSegment[] = sourceSegments.map((segment) => ({
 		id: segment.id,
 		text: segment.text,
-		media: segment.media?.map(previewMedia)
+		media: segment.media?.map(previewMedia),
+		poll: previewPoll({ ...destinationSettings, ...segment.settings }),
+		card: previewCard({ ...destinationSettings, ...segment.settings }),
+		contentWarning: previewWarning({ ...destinationSettings, ...segment.settings })
 	}));
-	const media = (firstSegment?.media?.length ? firstSegment.media : (input.media ?? [])).map(
-		previewMedia
-	);
+	const media = (sourceSegments[0]?.media ?? input.media ?? []).map(previewMedia);
 	const title =
 		input.title ||
 		parseSettingText(mergedSettings, 'title') ||
 		parseSettingText(mergedSettings, 'video_title') ||
 		parseSettingText(mergedSettings, 'article_title') ||
-		parseSettingText(mergedSettings, 'document_title');
+		parseSettingText(mergedSettings, 'document_title') ||
+		parseSettingText(mergedSettings, 'pin_title') ||
+		parseSettingText(mergedSettings, 'event_title');
 	const subtitle =
 		input.subtitle ||
+		(platform === 'facebook' && parseSettingText(mergedSettings, 'video_description')) ||
 		parseSettingText(mergedSettings, 'description') ||
 		parseSettingText(mergedSettings, 'video_description') ||
 		parseSettingText(mergedSettings, 'article_description') ||
@@ -86,16 +107,15 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 		media,
 		poll: previewPoll(mergedSettings),
 		card: previewCard(mergedSettings, input.linkUrl),
-		contentWarning:
-			parseSettingText(mergedSettings, 'spoiler_text') ||
-			(settingBoolean(mergedSettings, 'spoiler') ? 'Sensitive media' : undefined),
+		contentWarning: previewWarning(mergedSettings),
 		visibility: parseSettingText(mergedSettings, 'visibility') || undefined,
 		location:
 			input.location ||
 			parseSettingText(mergedSettings, 'location_name') ||
 			parseSettingText(mergedSettings, 'location'),
 		title,
-		subtitle
+		subtitle,
+		business: platform === 'googlebusiness' ? previewBusinessPost(mergedSettings) : undefined
 	});
 }
 
@@ -107,6 +127,8 @@ export function previewFormat(
 ): PreviewFormat {
 	const profileSuffix = outputProfile.trim().toLowerCase().split('.').at(-1);
 	if (
+		profileSuffix === 'post' ||
+		profileSuffix === 'photo' ||
 		profileSuffix === 'thread' ||
 		profileSuffix === 'story' ||
 		profileSuffix === 'reel' ||
@@ -116,7 +138,6 @@ export function previewFormat(
 	) {
 		return profileSuffix;
 	}
-	if (platform === 'tiktok' && profileSuffix === 'photo') return 'photo';
 	if (mode === 'thread' && !outputProfile) return 'thread';
 	if (platform === 'youtube' || platform === 'peertube') return 'video';
 	if (platform === 'linkedin' && media.some((item) => item.kind === 'document')) return 'document';
@@ -124,6 +145,7 @@ export function previewFormat(
 		return 'photo';
 	}
 	if (media.some((item) => item.kind === 'video')) return 'video';
+	if (platform === 'pinterest') return 'photo';
 	return 'post';
 }
 
@@ -139,7 +161,8 @@ function previewMedia(item: ComposerPreviewMedia): PreviewMedia {
 		src: getAuthenticatedMediaByID(item.id),
 		alt: item.altText,
 		poster: item.poster,
-		durationLabel: item.durationLabel
+		durationLabel: item.durationLabel,
+		aspectRatio: item.aspectRatio
 	};
 }
 
@@ -170,6 +193,7 @@ function previewCard(settings: ComposerSettings, fallbackURL?: string): PreviewC
 	const url =
 		parseSettingText(settings, 'url') ||
 		parseSettingText(settings, 'link_url') ||
+		parseSettingText(settings, 'destination_link') ||
 		fallbackURL?.trim() ||
 		'';
 	if (!url) return undefined;
@@ -182,6 +206,42 @@ function previewCard(settings: ComposerSettings, fallbackURL?: string): PreviewC
 			parseSettingText(settings, 'link_image_url') ||
 			parseSettingText(settings, 'thumbnail_url') ||
 			undefined
+	};
+}
+
+function previewWarning(settings: ComposerSettings): string | undefined {
+	return (
+		parseSettingText(settings, 'spoiler_text') ||
+		(settingBoolean(settings, 'spoiler') || settingBoolean(settings, 'sensitive')
+			? 'Sensitive media'
+			: undefined)
+	);
+}
+
+function previewBusinessPost(settings: ComposerSettings): PreviewBusinessPost {
+	const topic = parseSettingText(settings, 'topic_type');
+	const action = parseSettingText(settings, 'call_to_action');
+	return {
+		topic: topic === 'event' || topic === 'offer' ? topic : 'standard',
+		startDate: parseSettingText(settings, 'event_start_date') || undefined,
+		endDate: parseSettingText(settings, 'event_end_date') || undefined,
+		startTime: parseSettingText(settings, 'event_start_time') || undefined,
+		endTime: parseSettingText(settings, 'event_end_time') || undefined,
+		action:
+			topic !== 'offer' &&
+			(action === 'book' ||
+				action === 'order' ||
+				action === 'shop' ||
+				action === 'learn_more' ||
+				action === 'sign_up' ||
+				action === 'call')
+				? action
+				: undefined,
+		actionUrl:
+			parseSettingText(settings, topic === 'offer' ? 'offer_redeem_url' : 'action_url') ||
+			undefined,
+		couponCode: parseSettingText(settings, 'offer_coupon_code') || undefined,
+		terms: parseSettingText(settings, 'offer_terms') || undefined
 	};
 }
 

@@ -10,6 +10,7 @@ export {
   supportsPreviewFormat,
 } from "./model";
 export type {
+  PreviewBusinessPost,
   PreviewCard,
   PreviewFormat,
   PreviewIdentity,
@@ -20,4 +21,5 @@ export type {
   PreviewPlatformKey,
   PreviewPoll,
   PreviewSegment,
+  PreviewScheme,
 } from "./model";

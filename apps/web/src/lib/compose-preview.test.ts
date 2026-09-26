@@ -34,7 +34,7 @@ describe('social preview model', () => {
 		).toBe(true);
 	});
 
-	it('stays in sync with the backend provider registry', () => {
+	it('can preview every built-in backend provider, including gated providers', () => {
 		const backendCatalog = readFileSync(
 			new URL('../../../server/internal/capabilities/capabilities.go', import.meta.url),
 			'utf8'
@@ -48,11 +48,10 @@ describe('social preview model', () => {
 		const backendProviders = [
 			...backendCatalog.matchAll(/Capability\{Provider:\s+(Provider[A-Za-z]+)[^\n]*\}/gu)
 		]
-			.filter((match) => !match[0].includes('UnavailableReason:'))
 			.map((match) => providerValues.get(match[1]))
 			.filter((provider): provider is string => Boolean(provider));
 
-		expect([...new Set(backendProviders)].sort()).toEqual([...previewPlatforms].sort());
+		expect(previewPlatforms).toEqual(expect.arrayContaining([...new Set(backendProviders)]));
 	});
 
 	it('normalizes instance-qualified platforms and safe defaults', () => {
@@ -76,6 +75,83 @@ describe('social preview model', () => {
 });
 
 describe('composer preview mapping', () => {
+	it('keeps an explicit feed format when the post contains video', () => {
+		const model = buildComposerPreview({
+			account: { ...account, platform: 'facebook' },
+			mode: 'post',
+			outputProfile: 'facebook.post',
+			segments: [{ id: 'one', text: 'Feed video', media: [{ id: 'clip', mimeType: 'video/mp4' }] }]
+		});
+		expect(model.format).toBe('post');
+	});
+
+	it('preserves a cleared first-segment attachment override', () => {
+		const model = buildComposerPreview({
+			account,
+			mode: 'post',
+			segments: [{ id: 'one', text: 'Text only', media: [] }],
+			media: [{ id: 'shared-image', mimeType: 'image/jpeg' }]
+		});
+		expect(model.media).toEqual([]);
+	});
+
+	it('joins destination segments when the publishing contract joins them', () => {
+		const model = buildComposerPreview({
+			account: { ...account, platform: 'linkedin' },
+			mode: 'thread',
+			outputProfile: 'linkedin.post',
+			segmentStrategy: 'join',
+			segments: [
+				{ id: 'one', text: 'First paragraph' },
+				{ id: 'two', text: 'Second paragraph' }
+			]
+		});
+		expect(model.segments.map((segment) => segment.text)).toEqual([
+			'First paragraph\n\nSecond paragraph'
+		]);
+	});
+
+	it('maps Pin and business post settings to visible content', () => {
+		const pin = buildComposerPreview({
+			account: { ...account, platform: 'pinterest' },
+			mode: 'post',
+			segments: [{ id: 'one', text: 'Description' }],
+			destinationSettings: {
+				pin_title: 'Launch board',
+				destination_link: 'https://example.com/launch'
+			}
+		});
+		expect(pin).toMatchObject({
+			platform: 'pinterest',
+			title: 'Launch board',
+			card: { domain: 'example.com' }
+		});
+		const business = buildComposerPreview({
+			account: { ...account, platform: 'googlebusiness' },
+			mode: 'post',
+			segments: [{ id: 'one', text: 'Join us' }],
+			destinationSettings: {
+				topic_type: 'event',
+				event_title: 'Open studio',
+				event_start_date: '2026-10-03',
+				event_end_date: '2026-10-04',
+				call_to_action: 'book',
+				action_url: 'https://example.com/book'
+			}
+		});
+		expect(business).toMatchObject({
+			platform: 'googlebusiness',
+			title: 'Open studio',
+			business: {
+				topic: 'event',
+				startDate: '2026-10-03',
+				endDate: '2026-10-04',
+				action: 'book',
+				actionUrl: 'https://example.com/book'
+			}
+		});
+	});
+
 	it('maps resolved destination profiles to native-looking preview formats', () => {
 		expect(previewFormat('x', 'thread', [], 'x.thread')).toBe('thread');
 		expect(previewFormat('instagram', 'post', [], 'instagram.reel')).toBe('reel');

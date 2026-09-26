@@ -1,7 +1,3 @@
-# Text template browser group
+### Fixed
 
-## Fixed
-
-- Exposed the Video Editor text template browser as a named group so its
-  Templates label reaches assistive technology instead of being silently
-  ignored.
+- Exposed the Video Editor text template browser as a named group so its Templates label reaches assistive technology instead of being silently ignored.

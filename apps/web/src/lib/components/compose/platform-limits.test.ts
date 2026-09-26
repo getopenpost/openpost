@@ -18,6 +18,15 @@ describe('platform-limits', () => {
 		expect(platformTextLength('mastodon', '日本語')).toBe(3);
 	});
 
+	it('uses grapheme clusters for Bluesky', () => {
+		expect(platformTextLength('bluesky', 'Hello, world!')).toBe(13);
+		expect(platformTextLength('bluesky', '日本語')).toBe(3);
+		expect(platformTextLength('bluesky', 'café')).toBe(4);
+		expect(platformTextLength('bluesky', '👍🏽')).toBe(1);
+		expect(platformTextLength('bluesky', '🇵🇹')).toBe(1);
+		expect(platformTextLength('bluesky', '👨‍👩‍👧‍👦')).toBe(1);
+	});
+
 	it('uses UTF-8 bytes for Threads', () => {
 		expect(platformTextLength('threads', 'OpenPost')).toBe(8);
 		expect(platformTextLength('threads', 'é')).toBe(2);

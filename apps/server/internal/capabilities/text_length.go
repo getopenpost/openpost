@@ -16,10 +16,14 @@ var xURLPattern = xurls.Relaxed()
 // TextLength returns the provider's effective length for a post body.
 // X normalizes text to NFC, shortens every URL to 23 characters, weights
 // selected Unicode ranges as one character, and weights the rest as two.
+// Bluesky counts grapheme clusters, the unit its 300-character post limit
+// uses, and Threads counts UTF-8 bytes.
 func TextLength(provider, text string) int {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case ProviderX:
 		return xWeightedTextLength(norm.NFC.String(text))
+	case ProviderBluesky:
+		return uniseg.GraphemeClusterCount(text)
 	case ProviderThreads:
 		return len(text)
 	}

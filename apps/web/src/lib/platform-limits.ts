@@ -162,6 +162,7 @@ export function accountHasXPremiumLongPosts(account: AccountLimitTarget): boolea
 export function platformTextLength(platform: string, text: string): number {
 	const platformKey = getPlatformKey(platform);
 	if (platformKey === 'threads') return new TextEncoder().encode(text).length;
+	if (platformKey === 'bluesky') return graphemeSegments(text).length;
 	if (platformKey !== 'x') return Array.from(text).length;
 	const normalized = text.normalize('NFC');
 

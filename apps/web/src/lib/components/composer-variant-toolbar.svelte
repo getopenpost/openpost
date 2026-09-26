@@ -12,6 +12,8 @@
 		multiAccount: boolean;
 		segmentStrategy?: string;
 		postCount: number;
+		previewOpen?: boolean;
+		previewId: string;
 		onPreview: () => void;
 		onSettings: () => void;
 		onResetField: (field: 'content' | 'media') => void;
@@ -27,6 +29,8 @@
 		multiAccount,
 		segmentStrategy,
 		postCount,
+		previewOpen = false,
+		previewId,
 		onPreview,
 		onSettings,
 		onResetField,
@@ -36,7 +40,15 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-2 border-b py-3">
-	<Button type="button" variant="ghost" size="sm" class="h-11 md:h-9" onclick={() => onPreview()}>
+	<Button
+		type="button"
+		variant="ghost"
+		size="sm"
+		class="h-11 md:h-9"
+		aria-expanded={previewOpen}
+		aria-controls={previewId}
+		onclick={() => onPreview()}
+	>
 		{m.compose_preview()}
 	</Button>
 	<Button type="button" variant="ghost" size="sm" class="h-11 md:h-9" onclick={() => onSettings()}>

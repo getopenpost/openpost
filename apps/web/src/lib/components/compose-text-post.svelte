@@ -177,6 +177,7 @@
 	import { composerErrorMessage } from '$lib/composer/error-presentation';
 	import { createComposerPublicationClient } from '$lib/composer/publication-client';
 	import { buildComposerPreview } from '$lib/compose-preview';
+	import ComposerPreview from '$lib/components/composer-preview.svelte';
 	import { openPreviewWindow, type PreviewWindowSession } from '$lib/preview-window';
 	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
 	import type { MediaPickerVideoSelection } from '$lib/media-picker';
@@ -495,6 +496,8 @@
 	let lastSavedScheduleAt = '';
 	let appliedInitialContextKey = $state('');
 	const previewSessions = new SvelteMap<string, PreviewWindowSession>();
+	let previewOpen = $state(false);
+	const previewId = $props.id();
 	const textareaRefs = new SvelteMap<number, HTMLTextAreaElement>();
 	const randomDelayOptions = [0, 5, 10, 15, 30, 45, 60];
 	const desktopComposerControls = new MediaQuery('min-width: 768px');
@@ -1332,6 +1335,7 @@
 			mode: textComposerMode,
 			outputProfile:
 				requestedOutputProfiles[account.id] ?? resolvedCapabilities[account.id]?.output_profile,
+			segmentStrategy: resolvedCapabilities[account.id]?.segment_strategy,
 			segments: posts.map((post) => {
 				const mediaIds = getVariantMediaIds(account.id, post.key) ?? post.mediaIds;
 				return {
@@ -5686,12 +5690,22 @@
 								multiAccount={selectedAccounts.length > 1}
 								segmentStrategy={resolvedCapabilities[activeVariantAccount.id]?.segment_strategy}
 								postCount={posts.length}
-								onPreview={() => openAccountPreview(activeVariantAccount!)}
+								{previewOpen}
+								{previewId}
+								onPreview={() => (previewOpen = !previewOpen)}
 								onSettings={() => openDestinationSettings(activeVariantAccount!)}
 								onResetField={(field) => resetVariantField(activeVariantAccount!.id, field)}
 								onResync={() => resyncAccount(activeVariantAccount!.id)}
 								onDestinationAction={openDestinationAction}
 							/>
+							<div id={previewId}>
+								{#if previewOpen}
+									<ComposerPreview
+										model={previewForAccount(activeVariantAccount)}
+										onOpenFull={() => openAccountPreview(activeVariantAccount!)}
+									/>
+								{/if}
+							</div>
 						{/if}
 					</section>
 				{/if}

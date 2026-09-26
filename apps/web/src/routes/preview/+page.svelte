@@ -2,7 +2,13 @@
 	import { onMount } from 'svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { page } from '$app/stores';
-	import { SocialPreviewPage, platformNames, type PreviewModel } from '@openpost/social-preview';
+	import {
+		SocialPreviewPage,
+		platformNames,
+		type PreviewModel,
+		type PreviewScheme
+	} from '@openpost/social-preview';
+	import { Button } from '$lib/components/ui/button';
 	import { channelName } from '$lib/preview-window';
 	import { m } from '$lib/paraglide/messages';
 
@@ -15,6 +21,8 @@
 	let model = $state<PreviewModel | null>(null);
 	let connected = $state(false);
 	let invalid = $state(false);
+	let previewWidth = $state<number | null>(null);
+	let scheme = $state<PreviewScheme>('system');
 	let channel: BroadcastChannel | null = null;
 	const pageTitle = $derived(
 		model
@@ -64,7 +72,40 @@
 		</section>
 	</main>
 {:else if model}
-	<SocialPreviewPage {model} />
+	<div
+		class="flex flex-wrap items-center justify-between gap-3 border-b bg-background px-3 py-2 text-foreground"
+	>
+		<strong class="text-sm">{pageTitle}</strong>
+		<div class="flex flex-wrap items-center gap-3">
+			<div class="flex flex-wrap gap-1" role="group" aria-label={m.preview_width()}>
+				{#each [null, 320, 390, 768, 1200] as width (width)}
+					<Button
+						variant={previewWidth === width ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-pressed={previewWidth === width}
+						onclick={() => (previewWidth = width)}
+						>{width === null ? m.preview_fit() : `${width}px`}</Button
+					>
+				{/each}
+			</div>
+			<div class="flex gap-1" role="group" aria-label={m.settings_appearance()}>
+				{#each [{ value: 'system', label: m.sidebar_appearance_system() }, { value: 'light', label: m.sidebar_appearance_light() }, { value: 'dark', label: m.sidebar_appearance_dark() }] as option (option.value)}
+					<Button
+						variant={scheme === option.value ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-pressed={scheme === option.value}
+						onclick={() => (scheme = option.value as PreviewScheme)}>{option.label}</Button
+					>
+				{/each}
+			</div>
+		</div>
+	</div>
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users can focus this scroll region to pan a preview wider than the window.) -->
+	<div class="preview-stage" tabindex="0" role="region" aria-label={m.compose_preview()}>
+		<div class="preview-frame" style:width={previewWidth ? `${previewWidth}px` : '100%'}>
+			<SocialPreviewPage {model} {scheme} />
+		</div>
+	</div>
 	{#if !connected}
 		<div class="preview-disconnected" role="status">
 			<ThemeIcon role="plugin" />
@@ -85,6 +126,19 @@
 {/if}
 
 <style>
+	.preview-stage {
+		min-height: calc(100dvh - 3.5rem);
+		overflow: auto;
+		background: var(--muted);
+	}
+	.preview-stage:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: -2px;
+	}
+	.preview-frame {
+		margin-inline: auto;
+		min-height: calc(100dvh - 3.5rem);
+	}
 	.preview-connection-state {
 		display: grid;
 		min-height: 100dvh;

@@ -7,7 +7,7 @@
 
   interface Props {
     model: PreviewModel;
-    platform: Extract<PreviewPlatform, "lemmy" | "piefed">;
+    platform: Extract<PreviewPlatform, "lemmy" | "piefed" | "reddit">;
     compact?: boolean;
   }
 
@@ -15,9 +15,7 @@
   const primary = $derived(model.segments[0] ?? { id: "primary", text: "" });
   const media = $derived(primary.media?.length ? primary.media : model.media);
   const title = $derived(model.title || primary.text || "Untitled post");
-  const body = $derived(
-    model.title ? primary.text : (model.subtitle ?? ""),
-  );
+  const body = $derived(model.title ? primary.text : "");
 </script>
 
 <article
@@ -43,7 +41,10 @@
     <PreviewAttachment card={model.card} {platform} />
   {/if}
   {#if media.length > 0}
-    <PreviewMedia media={media.slice(0, 1)} layout="single" />
+    <PreviewMedia
+      {media}
+      layout={platform === "reddit" && media.length > 1 ? "carousel" : "single"}
+    />
   {/if}
 
   <PreviewActions {platform} {compact} />
@@ -51,11 +52,11 @@
 
 <style>
   .community-preview {
-    --native-bg: #fff;
-    --native-surface: #f6f7f8;
-    --native-fg: #1a1a1b;
-    --native-muted: #7c7c7d;
-    --native-border: #e5e5e6;
+    --native-bg: light-dark(#fff, #0b1416);
+    --native-surface: light-dark(#f6f7f8, #1a282d);
+    --native-fg: light-dark(#1a1a1b, #eef1f3);
+    --native-muted: light-dark(#596469, #a8b5bc);
+    --native-border: light-dark(#e5e5e6, #34464d);
     width: min(100%, 40rem);
     overflow: hidden;
     border: 1px solid var(--native-border);
@@ -96,6 +97,7 @@
   .community-preview h2 {
     margin: 0;
     padding: 0.6rem 1rem 0;
+    overflow-wrap: anywhere;
     font-size: 1.05rem;
     line-height: 1.35;
   }
@@ -106,10 +108,44 @@
     font-size: 0.9rem;
     line-height: 1.5;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .community-preview :global(.preview-actions) {
     border-top: 1px solid var(--native-border);
     margin-top: 0.75rem;
+  }
+  .platform-reddit {
+    border: 0;
+    border-radius: 1rem;
+    padding: 0.25rem;
+  }
+  .platform-reddit h2 {
+    font-size: 1.15rem;
+    font-weight: 650;
+  }
+  .platform-reddit :global(.preview-actions) {
+    justify-content: flex-start;
+    gap: 1rem;
+    padding-inline: 0.75rem;
+    border-top: 0;
+  }
+  .platform-reddit :global(.media-carousel),
+  .platform-reddit :global(.single-media) {
+    margin-top: 0.75rem;
+    border-radius: 1rem;
+  }
+  .platform-lemmy {
+    border-radius: 0.3rem;
+  }
+  .platform-piefed {
+    --native-bg: light-dark(#fff, #212529);
+    --native-fg: light-dark(#212529, #dee2e6);
+    border-radius: 0.4rem;
+  }
+  .compact header,
+  .compact h2,
+  .compact .post-body {
+    padding-inline: 0.75rem;
   }
 </style>

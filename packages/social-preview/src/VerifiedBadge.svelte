@@ -15,10 +15,12 @@
   aria-label="Verified"
 >
   <svg viewBox="0 0 24 24" aria-hidden="true">
-    {#if platform === "instagram" || platform === "threads"}
+    {#if platform === "instagram" || platform === "threads" || platform === "x" || platform === "bluesky"}
       <path
         d="m12 1 2.4 2.2 3.2-.4 1.3 3 3 1.3-.4 3.2L23 12l-2.2 2.4.4 3.2-3 1.3-1.3 3-3.2-.4L12 23l-2.4-2.2-3.2.4-1.3-3-3-1.3.4-3.2L1 12l2.2-2.4-.4-3.2 3-1.3 1.3-3 3.2.4z"
       />
+    {:else if platform === "linkedin"}
+      <path d="M12 2 21 6v6c0 5-5 8-9 10C8 20 3 17 3 12V6z" />
     {:else}
       <circle cx="12" cy="12" r="11" />
     {/if}
@@ -36,7 +38,6 @@
     color: #1d9bf0;
   }
 
-  .verified-badge.platform-linkedin,
   .verified-badge.platform-facebook {
     color: #0a66c2;
   }
@@ -62,5 +63,8 @@
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 2.5;
+  }
+  .verified-badge.platform-linkedin {
+    color: var(--native-muted, #666);
   }
 </style>

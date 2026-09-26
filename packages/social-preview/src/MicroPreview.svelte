@@ -17,7 +17,7 @@
 
   type MicroPlatform = Extract<
     PreviewPlatform,
-    "x" | "mastodon" | "pixelfed" | "bluesky" | "threads"
+    "x" | "mastodon" | "bluesky" | "threads"
   >;
 
   interface Props {
@@ -27,17 +27,11 @@
   }
 
   let { model, platform, compact = false }: Props = $props();
-  // Pixelfed shares Mastodon's microblog rendering: handle line, content
-  // warning presentation, visibility indicator, and avatar sizing.
-  const compat = $derived(platform === "pixelfed" ? "mastodon" : platform);
-  let revealedWarning = $state<string | null>(null);
+  let revealedWarnings = $state<Record<string, string | undefined>>({});
 
   const handle = $derived(model.identity.handle.replace(/^@/u, ""));
   const isThread = $derived(
     model.format === "thread" && model.segments.length > 1,
-  );
-  const warningHidden = $derived(
-    Boolean(model.contentWarning && revealedWarning !== model.contentWarning),
   );
 
   function mediaForSegment(
@@ -55,36 +49,33 @@
 {#snippet authorMeta()}
   <div class="author-meta">
     <div class="name-line">
-      <strong>{model.identity.displayName}</strong>
+      <strong
+        >{platform === "threads" ? handle : model.identity.displayName}</strong
+      >
       {#if model.identity.verified}<VerifiedBadge {platform} />{/if}
-      {#if platform !== "threads"}<span>@{handle}</span>{/if}
-      {#if platform === "x" || platform === "bluesky"}<span
-          >· {model.createdAtLabel}</span
+      {#if platform === "x" || platform === "bluesky"}<span>@{handle}</span
         >{/if}
+      {#if platform !== "mastodon"}<span>· {model.createdAtLabel}</span>{/if}
     </div>
-    {#if compat === "mastodon"}
+    {#if platform === "mastodon"}
       <span class="mastodon-handle">@{handle}</span>
     {/if}
   </div>
 {/snippet}
 
-{#snippet contentWarning()}
-  {#if model.contentWarning}
+{#snippet contentWarning(warning: string, segmentId: string)}
+  {@const warningHidden = revealedWarnings[segmentId] !== warning}
+  {#if warning}
     <div class="content-warning">
       <div>
-        <strong
-          >{compat === "mastodon"
-            ? model.contentWarning
-            : "Hidden words"}</strong
-        >
-        {#if compat === "mastodon"}<span>Content warning</span>{/if}
+        <strong>{warning}</strong>
+        <span>Content warning</span>
       </div>
       <button
         type="button"
+        aria-expanded={!warningHidden}
         onclick={() =>
-          (revealedWarning = warningHidden
-            ? (model.contentWarning ?? null)
-            : null)}
+          (revealedWarnings[segmentId] = warningHidden ? warning : undefined)}
       >
         {warningHidden ? "Show more" : "Hide"}
       </button>
@@ -93,17 +84,15 @@
 {/snippet}
 
 {#snippet postBody(segment: PreviewSegment, index: number)}
-  {#if index === 0}{@render contentWarning()}{/if}
-  {#if !warningHidden}
-    <p class="post-text">{segment.text || "Your post will appear here."}</p>
-    {#if index === 0 && model.card}<PreviewAttachment
-        card={model.card}
-        {platform}
-      />{/if}
-    {#if index === 0 && model.poll}<PreviewPollView
-        poll={model.poll}
-        {platform}
-      />{/if}
+  {@const warning =
+    segment.contentWarning ?? (index === 0 ? model.contentWarning : undefined)}
+  {@const card = segment.card ?? (index === 0 ? model.card : undefined)}
+  {@const poll = segment.poll ?? (index === 0 ? model.poll : undefined)}
+  {#if warning}{@render contentWarning(warning, segment.id)}{/if}
+  {#if !warning || revealedWarnings[segment.id] === warning}
+    {#if segment.text}<p class="post-text">{segment.text}</p>{/if}
+    {#if card}<PreviewAttachment {card} {platform} />{/if}
+    {#if poll}<PreviewPollView {poll} {platform} />{/if}
     {@const segmentMedia = mediaForSegment(segment, index)}
     {#if segmentMedia.length > 0}
       <PreviewMediaView media={segmentMedia} layout="grid" />
@@ -125,7 +114,6 @@
   class={[
     "micro-preview",
     `platform-${platform}`,
-    compat !== platform && `platform-${compat}`,
     isThread && "is-thread",
     compact && "compact",
   ]}
@@ -135,7 +123,13 @@
       <div class="avatar-column">
         <PreviewAvatar
           identity={model.identity}
-          size={compat === "mastodon" ? 46 : platform === "x" ? 40 : 42}
+          size={platform === "mastodon"
+            ? 46
+            : platform === "threads"
+              ? 36
+              : platform === "x"
+                ? 40
+                : 42}
         />
         {#if isThread && index < model.segments.length - 1}<span
             class="thread-line"
@@ -143,7 +137,7 @@
           ></span>{/if}
       </div>
 
-      {#if compat === "mastodon"}
+      {#if platform === "mastodon"}
         <div class="mastodon-post">
           <header>
             {@render authorMeta()}
@@ -249,6 +243,8 @@
   }
 
   .name-line strong {
+    flex-shrink: 0;
+    max-width: 60%;
     color: var(--native-fg);
     font-weight: 700;
   }
@@ -298,6 +294,8 @@
   }
 
   .content-warning > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
     display: grid;
     gap: 0.1rem;
   }
@@ -326,6 +324,7 @@
   }
 
   .platform-x .micro-post {
+    gap: 0.5rem;
     grid-template-columns: 2.5rem minmax(0, 1fr);
     padding-block: 0.75rem 0.15rem;
   }
@@ -336,9 +335,12 @@
   }
 
   .platform-bluesky {
-    --native-fg: #101827;
-    --native-muted: #68788a;
-    --native-border: #e5eaf0;
+    --native-fg: light-dark(#101827, #f2f2f2);
+    --native-muted: light-dark(#68788a, #9aa8b8);
+    --native-border: light-dark(#e5eaf0, #273344);
+    --native-bg: light-dark(#fff, #111822);
+    --native-surface: light-dark(#fff, #111822);
+    --native-soft: light-dark(#f3f5f8, #1c2734);
   }
 
   .platform-bluesky .micro-post {
@@ -353,12 +355,12 @@
   }
 
   .platform-mastodon {
-    --native-bg: #282c37;
-    --native-surface: #282c37;
-    --native-fg: #f5f5f7;
-    --native-muted: #9baec8;
-    --native-border: #393f4f;
-    --native-soft: #333846;
+    --native-bg: light-dark(#fff, #191b22);
+    --native-surface: light-dark(#fff, #191b22);
+    --native-fg: light-dark(#282c37, #f5f5f7);
+    --native-muted: light-dark(#606984, #9baec8);
+    --native-border: light-dark(#e2e4e9, #393f4f);
+    --native-soft: light-dark(#f2f3f6, #333846);
     width: min(100%, 34rem);
     border-radius: 0.3rem;
     font-family:
@@ -381,7 +383,7 @@
   }
 
   .platform-mastodon .name-line {
-    display: block;
+    display: flex;
     font-size: 0.94rem;
     line-height: 1.25;
   }
@@ -420,17 +422,25 @@
   }
 
   .platform-threads {
-    --native-fg: #101010;
-    --native-muted: #777;
-    --native-border: #e9e9e9;
+    --native-fg: light-dark(#101010, #f2f2f2);
+    --native-muted: light-dark(#737373, #999);
+    --native-border: light-dark(#e9e9e9, #2d2d2d);
     width: min(100%, 39.5rem);
     border-radius: 1rem;
+    --native-bg: light-dark(#fff, #101010);
+    --native-surface: light-dark(#fff, #101010);
+    --native-soft: light-dark(#f3f3f3, #161616);
   }
 
   .platform-threads .micro-post {
-    grid-template-columns: 2.5rem minmax(0, 1fr);
+    grid-template-columns: 2.25rem minmax(0, 1fr);
     gap: 0.75rem;
-    padding: 0.9rem 1rem 0.25rem;
+    padding: 1.5rem 1.5rem 0.35rem;
+  }
+
+  .platform-threads :global(.preview-actions) {
+    justify-content: flex-start;
+    gap: 0.65rem;
   }
 
   .platform-threads .name-line strong {
@@ -452,57 +462,7 @@
     padding-inline: 0.75rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .platform-x,
-    .platform-bluesky,
-    .platform-threads {
-      --native-bg: #000;
-      --native-surface: #000;
-      --native-fg: #f2f2f2;
-      --native-muted: #71767b;
-      --native-border: #2f3336;
-      --native-soft: #16181c;
-    }
-
-    .platform-bluesky {
-      --native-bg: #111822;
-      --native-surface: #111822;
-      --native-muted: #9aa8b8;
-      --native-border: #273344;
-    }
-
-    .platform-threads {
-      --native-bg: #0a0a0a;
-      --native-surface: #0a0a0a;
-      --native-border: #2d2d2d;
-    }
-  }
-
-  :global(.dark) .platform-x,
-  :global(.dark) .platform-bluesky,
-  :global(.dark) .platform-threads {
-    --native-bg: #000;
-    --native-surface: #000;
-    --native-fg: #f2f2f2;
-    --native-muted: #71767b;
-    --native-border: #2f3336;
-    --native-soft: #16181c;
-  }
-
-  :global(.dark) .platform-bluesky {
-    --native-bg: #111822;
-    --native-surface: #111822;
-    --native-muted: #9aa8b8;
-    --native-border: #273344;
-  }
-
-  :global(.dark) .platform-threads {
-    --native-bg: #0a0a0a;
-    --native-surface: #0a0a0a;
-    --native-border: #2d2d2d;
-  }
-
-  @media (max-width: 32rem) {
+  @container (max-width: 32rem) {
     .micro-preview,
     .platform-mastodon,
     .platform-threads {
@@ -518,5 +478,18 @@
     .name-line span {
       font-size: 0.84rem;
     }
+  }
+  @media (pointer: coarse) {
+    .content-warning button {
+      min-height: 44px;
+    }
+  }
+  .platform-x {
+    --native-bg: light-dark(#fff, #000);
+    --native-surface: light-dark(#fff, #000);
+    --native-fg: light-dark(#0f1419, #f2f2f2);
+    --native-muted: light-dark(#536471, #8b9095);
+    --native-border: light-dark(#eff3f4, #2f3336);
+    --native-soft: light-dark(#f3f4f6, #16181c);
   }
 </style>

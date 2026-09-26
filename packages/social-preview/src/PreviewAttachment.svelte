@@ -86,7 +86,7 @@
     font-size: 0.9rem;
     line-height: 1.35;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .kind-quote {
@@ -112,7 +112,7 @@
     overflow: hidden;
     color: var(--native-muted, #536471);
     text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .kind-quote > p {
@@ -120,6 +120,7 @@
     font-size: 0.88rem;
     line-height: 1.4;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .kind-quote > span {
@@ -150,12 +151,55 @@
     border: 0;
     border-left: 4px solid #5865f2;
     border-radius: 0.25rem;
-    background: #2b2d31;
-    color: #f2f3f5;
+    background: light-dark(#f2f3f5, #2b2d31);
+    color: var(--native-fg, #f2f3f5);
   }
 
   .platform-discord .link-copy > span,
   .platform-discord .link-copy > p {
-    color: #b5bac1;
+    color: var(--native-muted, #b5bac1);
+  }
+  .platform-facebook:not(.kind-quote):has(> img),
+  .platform-linkedin:not(.kind-quote):has(> img),
+  .platform-bluesky:not(.kind-quote):has(> img) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .platform-facebook > img,
+  .platform-linkedin > img,
+  .platform-bluesky > img {
+    aspect-ratio: 1.91;
+    min-height: 0;
+  }
+  .platform-facebook .link-copy,
+  .platform-linkedin .link-copy {
+    background: var(--native-soft, #f0f2f5);
+  }
+  .platform-x:not(.kind-quote):has(> img) {
+    position: relative;
+    grid-template-columns: 1fr;
+  }
+  .platform-x > img {
+    aspect-ratio: 1.91;
+  }
+  .platform-x:not(.kind-quote):has(> img) .link-copy {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    max-width: calc(100% - 1rem);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    background: rgb(0 0 0 / 75%);
+    color: #fff;
+  }
+  .platform-x:not(.kind-quote):has(> img) .link-copy > span {
+    color: #fff;
+  }
+  .platform-x:not(.kind-quote):has(> img) .link-copy > strong,
+  .platform-x:not(.kind-quote):has(> img) .link-copy > p {
+    display: none;
+  }
+  .quote-header strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 </style>

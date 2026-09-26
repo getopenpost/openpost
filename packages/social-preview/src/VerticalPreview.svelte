@@ -95,7 +95,9 @@
         size={34}
         ring={platform === "instagram"}
       />
-      <strong>{handle}</strong>
+      <strong
+        >{platform === "facebook" ? model.identity.displayName : handle}</strong
+      >
       <span>{model.createdAtLabel}</span>
       <MoreHorizontal aria-hidden="true" />
       <X aria-hidden="true" />
@@ -104,6 +106,8 @@
     <div class="player-heading">
       {#if platform === "facebook"}<strong>Reels</strong>{/if}
       {#if platform === "youtube"}<strong>Shorts</strong>{/if}
+      {#if platform === "instagram"}<strong>Reels</strong>{/if}
+      {#if platform === "tiktok"}<strong>For You</strong>{/if}
       <span class="volume"><Volume2 aria-hidden="true" /></span>
       <MoreHorizontal aria-hidden="true" />
     </div>
@@ -131,6 +135,7 @@
   {/if}
 
   {#if isStory}
+    {#if segment.text}<p class="story-caption">{segment.text}</p>{/if}
     <div class="story-reply">
       <span>Send message…</span>
       <Heart aria-hidden="true" />
@@ -139,7 +144,15 @@
   {:else}
     <div class="vertical-copy">
       <div class="author-row">
-        <strong>@{handle}</strong>
+        {#if platform !== "tiktok"}<PreviewAvatar
+            identity={model.identity}
+            size={28}
+          />{/if}
+        <strong
+          >{platform === "facebook"
+            ? model.identity.displayName
+            : `@${handle}`}</strong
+        >
         {#if platform === "instagram" || platform === "youtube"}
           <span>{platform === "youtube" ? "Subscribe" : "Follow"}</span>
         {/if}
@@ -155,7 +168,10 @@
       </div>
     </div>
     <div class="action-stack">
-      <PreviewAvatar identity={model.identity} size={40} />
+      {#if platform === "tiktok"}<PreviewAvatar
+          identity={model.identity}
+          size={40}
+        />{/if}
       <PreviewActions {platform} vertical />
       {#if platform === "tiktok"}
         <span class="music-disc"><Music2 aria-hidden="true" /></span>
@@ -497,7 +513,7 @@
 
   .player-progress span {
     display: block;
-    width: 31%;
+    width: 0;
     height: 100%;
     background: white;
   }
@@ -527,10 +543,46 @@
     --player-width: 20rem;
   }
 
-  @media (max-width: 32rem) {
+  @container (max-width: 32rem) {
     .vertical-preview {
       width: min(100%, 22rem);
       border-radius: 0.45rem;
     }
+  }
+  .vertical-media img,
+  .vertical-media video {
+    object-fit: contain;
+  }
+  .story-heading strong,
+  .author-row strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .story-heading > :global(svg) {
+    flex: none;
+  }
+  .story-caption {
+    position: absolute;
+    z-index: 2;
+    inset: auto 1rem 5.3rem;
+    margin: 0;
+    padding: 0.5rem;
+    background: rgb(0 0 0 / 65%);
+    color: #fff;
+    border-radius: 0.35rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    max-height: 45%;
+    overflow-y: auto;
+  }
+  .platform-tiktok .vertical-copy {
+    bottom: 2rem;
+  }
+  .platform-youtube .audio-row {
+    display: none;
   }
 </style>

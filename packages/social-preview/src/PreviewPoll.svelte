@@ -13,9 +13,6 @@
   {#each poll.options as option, index (`${option}-${index}`)}
     <div class="poll-option">
       <span>{option || `Option ${index + 1}`}</span>
-      {#if platform === "mastodon"}<i
-          style:--poll-width={`${Math.max(12, 42 - index * 8)}%`}
-        ></i>{/if}
     </div>
   {/each}
   <small>
@@ -44,6 +41,7 @@
     color: var(--native-fg, #0f1419);
     font-size: 0.82rem;
     font-weight: 650;
+    overflow-wrap: anywhere;
   }
 
   .poll-option span {
@@ -61,17 +59,10 @@
   }
 
   .platform-mastodon .poll-option {
-    border-color: #6d7180;
+    border-color: var(--native-border, #6d7180);
     border-radius: 0.3rem;
-    background: #2f3441;
-    color: #fff;
-  }
-
-  .platform-mastodon .poll-option i {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: var(--poll-width);
-    background: rgb(99 100 255 / 32%);
+    background: var(--native-surface, #2f3441);
+    color: var(--native-fg, #fff);
   }
 
   .platform-linkedin {
@@ -80,7 +71,7 @@
 
   .platform-linkedin .poll-option {
     border-width: 2px;
-    color: #0a66c2;
+    color: light-dark(#0a66c2, #70b5f9);
   }
 
   .platform-threads {

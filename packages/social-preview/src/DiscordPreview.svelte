@@ -32,11 +32,11 @@
         <header>
           <strong>{model.identity.displayName}</strong>
           <span class="app-badge">APP</span>
-          <span>Today at {model.createdAtLabel}</span>
+          <span>{model.createdAtLabel}</span>
         </header>
-        <p>{segment.text || "Your message will appear here."}</p>
-        {#if index === 0 && model.card}<PreviewAttachment
-            card={model.card}
+        {#if segment.text}<p>{segment.text}</p>{/if}
+        {#if segment.card ?? (index === 0 ? model.card : undefined)}<PreviewAttachment
+            card={(segment.card ?? model.card)!}
             platform="discord"
           />{/if}
         {#if media.length > 0}
@@ -61,11 +61,12 @@
 
 <style>
   .discord-preview {
-    --native-bg: #313338;
-    --native-surface: #313338;
-    --native-fg: #f2f3f5;
-    --native-muted: #b5bac1;
-    --native-border: #4e5058;
+    --native-bg: light-dark(#fff, #313338);
+    --native-surface: light-dark(#fff, #313338);
+    --native-soft: light-dark(#f2f3f5, #2b2d31);
+    --native-fg: light-dark(#313338, #f2f3f5);
+    --native-muted: light-dark(#5c6067, #b5bac1);
+    --native-border: light-dark(#dfe1e5, #4e5058);
     width: min(100%, 42rem);
     overflow: hidden;
     background: var(--native-bg);
@@ -79,11 +80,11 @@
     display: grid;
     grid-template-columns: 2.5rem minmax(0, 1fr);
     gap: 1rem;
-    padding: 0.2rem 1rem 0.65rem;
+    padding: 1rem 1rem 0.65rem;
   }
 
   .message:hover {
-    background: #2e3035;
+    background: light-dark(#f2f3f5, #2e3035);
   }
 
   .message + .message {
@@ -98,12 +99,13 @@
     display: flex;
     min-width: 0;
     align-items: baseline;
+    flex-wrap: wrap;
     gap: 0.4rem;
   }
 
   header strong {
     overflow: hidden;
-    color: #f2f3f5;
+    color: var(--native-fg);
     font-size: 0.9rem;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -126,7 +128,7 @@
 
   p {
     margin: 0.15rem 0 0;
-    color: #dbdee1;
+    color: var(--native-fg);
     font-size: 0.9rem;
     line-height: 1.4;
     overflow-wrap: anywhere;
@@ -166,7 +168,7 @@
     padding-inline: 0.75rem;
   }
 
-  @media (max-width: 32rem) {
+  @container (max-width: 32rem) {
     .message {
       gap: 0.7rem;
       padding-inline: 0.75rem;
@@ -174,7 +176,7 @@
 
     .message-actions {
       position: static;
-      display: flex;
+      display: none;
       grid-column: 2;
       width: max-content;
       margin-top: -0.35rem;

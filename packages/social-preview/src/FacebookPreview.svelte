@@ -64,16 +64,16 @@
 
 <style>
   .facebook-preview {
-    --native-bg: #f0f2f5;
-    --native-surface: #fff;
-    --native-fg: #050505;
-    --native-muted: #65676b;
-    --native-border: #ced0d4;
-    --native-soft: #e4e6eb;
-    width: min(100%, 31.25rem);
+    --native-bg: light-dark(#f0f2f5, #18191a);
+    --native-surface: light-dark(#fff, #242526);
+    --native-fg: light-dark(#050505, #e4e6eb);
+    --native-muted: light-dark(#65676b, #b0b3b8);
+    --native-border: light-dark(#ced0d4, #3e4042);
+    --native-soft: light-dark(#e4e6eb, #3a3b3c);
+    width: min(100%, 41.25rem);
     overflow: hidden;
-    border: 1px solid #dddfe2;
-    border-radius: 0.5rem;
+    border: 1px solid var(--native-border);
+    border-radius: 0.75rem;
     background: var(--native-surface);
     color: var(--native-fg);
     box-shadow: 0 1px 2px rgb(0 0 0 / 14%);
@@ -179,34 +179,5 @@
   .compact header,
   .compact .post-text {
     padding-inline: 0.75rem;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .facebook-preview {
-      --native-bg: #18191a;
-      --native-surface: #242526;
-      --native-fg: #e4e6eb;
-      --native-muted: #b0b3b8;
-      --native-border: #3e4042;
-      --native-soft: #3a3b3c;
-      border-color: #3e4042;
-    }
-  }
-
-  :global(.dark) .facebook-preview {
-    --native-bg: #18191a;
-    --native-surface: #242526;
-    --native-fg: #e4e6eb;
-    --native-muted: #b0b3b8;
-    --native-border: #3e4042;
-    --native-soft: #3a3b3c;
-    border-color: #3e4042;
-  }
-
-  @media (max-width: 32rem) {
-    .facebook-preview {
-      border-inline: 0;
-      border-radius: 0;
-    }
   }
 </style>

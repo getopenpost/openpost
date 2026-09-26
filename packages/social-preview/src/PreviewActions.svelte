@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import BarChart3 from "@lucide/svelte/icons/chart-no-axes-column-increasing";
   import Bookmark from "@lucide/svelte/icons/bookmark";
   import Download from "@lucide/svelte/icons/download";
@@ -62,11 +64,10 @@
         ];
       case "pixelfed":
         return [
-          { name: "reply", label: "Reply" },
-          { name: "repost", label: "Boost" },
-          { name: "favorite", label: "Favorite" },
-          { name: "bookmark", label: "Bookmark" },
-          { name: "more", label: "More" },
+          { name: "like", label: "Like" },
+          { name: "comment", label: "Comment" },
+          { name: "repost", label: "Share" },
+          { name: "bookmark", label: "Save" },
         ];
       case "bluesky":
         return [
@@ -127,6 +128,7 @@
           { name: "bookmark", label: "Save" },
           { name: "more", label: "More" },
         ];
+      case "reddit":
       case "lemmy":
       case "piefed":
         return [
@@ -148,8 +150,7 @@
   });
 
   const showText = $derived(
-    !compact &&
-      !vertical &&
+    !vertical &&
       (platform === "linkedin" ||
         platform === "facebook" ||
         platform === "youtube" ||
@@ -163,7 +164,9 @@
   {:else if name === "repost"}
     <Repeat2 />
   {:else if name === "like"}
-    {#if platform === "linkedin" || platform === "facebook" || platform === "youtube" || platform === "peertube" || platform === "lemmy" || platform === "piefed"}
+    {#if platform === "reddit" || platform === "lemmy" || platform === "piefed"}<ArrowUp
+      />
+    {:else if platform === "linkedin" || platform === "facebook" || platform === "youtube" || platform === "peertube"}
       <ThumbsUp />
     {:else}
       <Heart />
@@ -185,7 +188,8 @@
   {:else if name === "download"}
     <Download />
   {:else if name === "dislike"}
-    <ThumbsDown />
+    {#if platform === "reddit" || platform === "lemmy" || platform === "piefed"}<ArrowDown
+      />{:else}<ThumbsDown />{/if}
   {:else}
     <MoreHorizontal />
   {/if}
@@ -197,6 +201,7 @@
     `platform-${platform}`,
     vertical && "vertical-actions",
     showText && "with-labels",
+    compact && "compact",
   ]}
   aria-label="Post actions"
 >
@@ -204,7 +209,7 @@
     <span class="action" title={action.label}>
       <span class="icon" aria-hidden="true">{@render icon(action.name)}</span>
       {#if vertical}
-        <small>0</small>
+        <small>{action.label}</small>
       {:else if showText}
         <span>{action.label}</span>
       {:else}
@@ -255,6 +260,7 @@
   }
 
   .platform-instagram,
+  .platform-pixelfed,
   .platform-threads {
     color: var(--native-fg, #0f1419);
   }
@@ -337,7 +343,7 @@
     border: 0;
   }
 
-  @media (max-width: 32rem) {
+  @container (max-width: 32rem) {
     .with-labels .action {
       gap: 0.3rem;
       font-size: 0.7rem;
@@ -346,5 +352,24 @@
     .platform-youtube.with-labels .action:nth-child(n + 5) {
       display: none;
     }
+  }
+  @container (max-width: 22rem) {
+    .with-labels .action {
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      font-size: 0.63rem;
+    }
+    .with-labels .icon {
+      height: 1.65rem;
+    }
+  }
+  .platform-reddit {
+    color: var(--native-fg);
+  }
+  .platform-reddit .action {
+    border-radius: 999px;
+    background: var(--native-surface);
+    padding-inline: 0.25rem;
   }
 </style>

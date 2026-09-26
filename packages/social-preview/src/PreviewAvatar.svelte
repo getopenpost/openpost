@@ -14,6 +14,7 @@
     class: className = "",
     ring = false,
   }: Props = $props();
+  let failedUrl = $state<string | undefined>();
   const initials = $derived(
     identity.displayName
       .split(/\s+/u)
@@ -29,8 +30,12 @@
   style:--avatar-size={`${size}px`}
   aria-hidden="true"
 >
-  {#if identity.avatarUrl}
-    <img src={identity.avatarUrl} alt="" />
+  {#if identity.avatarUrl && failedUrl !== identity.avatarUrl}
+    <img
+      src={identity.avatarUrl}
+      alt=""
+      onerror={() => (failedUrl = identity.avatarUrl)}
+    />
   {:else}
     {initials}
   {/if}

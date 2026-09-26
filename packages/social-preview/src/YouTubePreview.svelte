@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Play from "@lucide/svelte/icons/play";
+  import Settings from "@lucide/svelte/icons/settings";
+  import Maximize from "@lucide/svelte/icons/maximize";
   import Bell from "@lucide/svelte/icons/bell";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import type { PreviewModel } from "./model";
@@ -28,7 +31,9 @@
 {#if model.format === "short"}
   <VerticalPreview {model} {platform} {compact} />
 {:else}
-  <article class={["youtube-preview", `platform-${platform}`, compact && "compact"]}>
+  <article
+    class={["youtube-preview", `platform-${platform}`, compact && "compact"]}
+  >
     <div class="player">
       {#if media.length > 0}
         <PreviewMedia media={media.slice(0, 1)} layout="single" />
@@ -39,11 +44,14 @@
         </div>
       {/if}
       <div class="player-controls" aria-hidden="true">
-        <span class="play-button">▶</span>
-        <span>0:00 / 0:00</span>
+        <span class="play-button"><Play fill="currentColor" /></span>
+        <span
+          >0:00{media[0]?.durationLabel
+            ? ` / ${media[0].durationLabel}`
+            : ""}</span
+        >
         <i></i>
-        <span>⚙</span>
-        <span>□</span>
+        <Settings /><Maximize />
       </div>
     </div>
 
@@ -55,7 +63,7 @@
           <strong>{model.identity.displayName}</strong>
           <span>@{model.identity.handle.replace(/^@/u, "")}</span>
         </div>
-        <button type="button" tabindex="-1">Subscribe</button>
+        <span class="subscribe">Subscribe</span>
         <Bell aria-hidden="true" />
       </div>
       <div class="video-actions">
@@ -80,13 +88,14 @@
 
 <style>
   .youtube-preview {
-    --native-bg: #fff;
-    --native-surface: #fff;
-    --native-fg: #0f0f0f;
-    --native-muted: #606060;
-    --native-border: #e5e5e5;
-    --native-soft: #f2f2f2;
+    --native-bg: light-dark(#fff, #0f0f0f);
+    --native-surface: light-dark(#fff, #0f0f0f);
+    --native-fg: light-dark(#0f0f0f, #f1f1f1);
+    --native-muted: light-dark(#606060, #aaa);
+    --native-border: light-dark(#e5e5e5, #303030);
+    --native-soft: light-dark(#f2f2f2, #272727);
     width: min(100%, 51rem);
+    background: var(--native-bg);
     color: var(--native-fg);
     font-family: Roboto, Arial, sans-serif;
   }
@@ -157,7 +166,7 @@
   .player-controls i::before {
     content: "";
     display: block;
-    width: 18%;
+    width: 0;
     height: 100%;
     background: #f00;
   }
@@ -168,6 +177,7 @@
     font-weight: 600;
     line-height: 1.35;
     letter-spacing: -0.015em;
+    overflow-wrap: anywhere;
   }
 
   .video-meta {
@@ -201,7 +211,9 @@
     font-size: 0.72rem;
   }
 
-  .channel button {
+  .channel .subscribe {
+    display: inline-flex;
+    align-items: center;
     min-height: 2.25rem;
     border: 0;
     border-radius: 999px;
@@ -245,6 +257,7 @@
     font-size: 0.78rem;
     line-height: 1.45;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     line-clamp: 3;
@@ -274,43 +287,39 @@
     font-size: 1.05rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .youtube-preview {
-      --native-bg: #0f0f0f;
-      --native-surface: #0f0f0f;
-      --native-fg: #f1f1f1;
-      --native-muted: #aaa;
-      --native-border: #303030;
-      --native-soft: #272727;
-    }
+  .player-controls :global(svg) {
+    width: 1.15rem;
+    height: 1.15rem;
   }
-
-  :global(.dark) .youtube-preview {
-    --native-bg: #0f0f0f;
-    --native-surface: #0f0f0f;
-    --native-fg: #f1f1f1;
-    --native-muted: #aaa;
-    --native-border: #303030;
-    --native-soft: #272727;
+  .player :global(video),
+  .player :global(img) {
+    object-fit: contain;
   }
-
-  @media (max-width: 43rem) {
+  .platform-peertube .player {
+    border-radius: 0;
+  }
+  .platform-peertube .subscribe {
+    background: #f1680d;
+    color: #fff;
+    border-radius: 0.25rem;
+  }
+  .platform-peertube .description {
+    border-radius: 0.25rem;
+  }
+  @container (max-width: 43rem) {
     .player {
       border-radius: 0;
     }
-
     h2,
     .video-meta,
     .description,
     .comments {
       margin-inline: 0.75rem;
     }
-
     .video-meta {
       align-items: flex-start;
       flex-direction: column;
     }
-
     .video-actions {
       width: 100%;
     }

@@ -2,6 +2,8 @@
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import type { PreviewModel } from "./model";
   import PreviewActions from "./PreviewActions.svelte";
+  import PreviewPoll from "./PreviewPoll.svelte";
+  import PreviewAttachment from "./PreviewAttachment.svelte";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
   import VerifiedBadge from "./VerifiedBadge.svelte";
@@ -10,10 +12,16 @@
   interface Props {
     model: PreviewModel;
     compact?: boolean;
+    platform?: "instagram" | "pixelfed";
   }
 
-  let { model, compact = false }: Props = $props();
+  let { model, compact = false, platform = "instagram" }: Props = $props();
+  let revealedWarning = $state<string | null>(null);
   const primary = $derived(model.segments[0] ?? { id: "primary", text: "" });
+  const warning = $derived(primary.contentWarning ?? model.contentWarning);
+  const warningHidden = $derived(
+    Boolean(warning && revealedWarning !== warning),
+  );
   const media = $derived(primary.media?.length ? primary.media : model.media);
   const handle = $derived(model.identity.handle.replace(/^@/u, ""));
   const isVertical = $derived(
@@ -24,53 +32,81 @@
 {#if isVertical}
   <VerticalPreview {model} platform="instagram" {compact} />
 {:else}
-  <article class={["instagram-preview", compact && "compact"]}>
+  <article
+    class={["instagram-preview", `platform-${platform}`, compact && "compact"]}
+  >
     <header>
-      <span class="story-ring">
+      <span class:story-ring={platform === "instagram"}>
         <PreviewAvatar identity={model.identity} size={32} />
       </span>
       <div class="identity">
         <div>
-          <strong>{handle}</strong>
-          {#if model.identity.verified}<VerifiedBadge
-              platform="instagram"
-            />{/if}
+          <strong
+            >{platform === "pixelfed"
+              ? model.identity.displayName
+              : handle}</strong
+          >
+          {#if model.identity.verified}<VerifiedBadge {platform} />{/if}
         </div>
         {#if model.location}<span>{model.location}</span>{/if}
       </div>
       <MoreHorizontal aria-hidden="true" />
     </header>
 
-    {#if media.length > 0}
-      <PreviewMedia {media} layout="carousel" />
-    {:else}
-      <div class="empty-feed-media">
-        <span aria-hidden="true">▧</span>
-        <p>Add a photo or video to preview an Instagram post.</p>
+    {#if warning}
+      <div class="content-warning">
+        <strong>{warning}</strong><span>Content warning</span><button
+          type="button"
+          aria-expanded={!warningHidden}
+          onclick={() =>
+            (revealedWarning = warningHidden ? (warning ?? null) : null)}
+          >{warningHidden ? "Show more" : "Hide"}</button
+        >
       </div>
     {/if}
+    {#if !warningHidden}
+      {#if media.length > 0}
+        <PreviewMedia {media} layout="carousel" />
+      {:else}
+        <div class="empty-feed-media">
+          <span aria-hidden="true">▧</span>
+          <p>Add a photo or video to preview this post.</p>
+        </div>
+      {/if}
 
-    <div class="post-actions">
-      <PreviewActions platform="instagram" {compact} />
-    </div>
-    <div class="caption">
-      <p>
-        <strong>{handle}</strong>
-        <span>{primary.text || "Your caption will appear here."}</span>
-      </p>
-      <span>View all 0 comments</span>
-      <small>{model.createdAtLabel}</small>
-    </div>
+      <div class="post-actions">
+        <PreviewActions {platform} {compact} />
+      </div>
+      <div class="caption">
+        <p>
+          <strong
+            >{platform === "pixelfed"
+              ? model.identity.displayName
+              : handle}</strong
+          >
+          <span>{primary.text}</span>
+        </p>
+        {#if platform === "pixelfed" && model.card}<PreviewAttachment
+            card={model.card}
+            {platform}
+          />{/if}
+        {#if platform === "pixelfed" && model.poll}<PreviewPoll
+            poll={model.poll}
+            {platform}
+          />{/if}
+        <small>{model.createdAtLabel}</small>
+      </div>
+    {/if}
   </article>
 {/if}
 
 <style>
   .instagram-preview {
-    --native-bg: #fff;
-    --native-surface: #fff;
-    --native-fg: #000;
-    --native-muted: #737373;
-    --native-border: #dbdbdb;
+    --native-bg: light-dark(#fff, #000);
+    --native-surface: light-dark(#fff, #000);
+    --native-fg: light-dark(#000, #f5f5f5);
+    --native-muted: light-dark(#737373, #a8a8a8);
+    --native-border: light-dark(#dbdbdb, #262626);
     width: min(100%, 29.25rem);
     overflow: hidden;
     border: 1px solid var(--native-border);
@@ -140,7 +176,7 @@
     align-content: center;
     gap: 0.6rem;
     border-block: 1px solid var(--native-border);
-    background: #f7f7f7;
+    background: light-dark(#f7f7f7, #121212);
     color: var(--native-muted);
     text-align: center;
   }
@@ -188,11 +224,6 @@
     margin-right: 0.35rem;
   }
 
-  .caption > span {
-    color: var(--native-muted);
-    font-size: 0.78rem;
-  }
-
   .caption small {
     margin-top: 0.2rem;
     color: var(--native-muted);
@@ -205,36 +236,41 @@
     min-height: 3.35rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .instagram-preview {
-      --native-bg: #000;
-      --native-surface: #000;
-      --native-fg: #f5f5f5;
-      --native-muted: #a8a8a8;
-      --native-border: #262626;
-    }
-
-    .empty-feed-media {
-      background: #121212;
-    }
-  }
-
-  :global(.dark) .instagram-preview {
-    --native-bg: #000;
-    --native-surface: #000;
-    --native-fg: #f5f5f5;
-    --native-muted: #a8a8a8;
-    --native-border: #262626;
-  }
-
-  :global(.dark) .empty-feed-media {
-    background: #121212;
-  }
-
-  @media (max-width: 32rem) {
+  @container (max-width: 32rem) {
     .instagram-preview {
       border-inline: 0;
       border-radius: 0;
+    }
+  }
+  .platform-pixelfed {
+    width: min(100%, 38rem);
+    border-radius: 0.35rem;
+  }
+  .content-warning {
+    display: grid;
+    gap: 0.4rem;
+    padding: 1rem;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+  }
+  .content-warning > span {
+    color: var(--native-muted);
+    font-size: 0.75rem;
+  }
+  .content-warning button {
+    justify-self: start;
+    min-height: 2.25rem;
+    border: 1px solid var(--native-border);
+    border-radius: 0.35rem;
+    background: var(--native-bg);
+    color: var(--native-fg);
+    padding: 0.4rem 0.8rem;
+    font: inherit;
+    cursor: pointer;
+  }
+  @media (pointer: coarse) {
+    .content-warning button {
+      min-height: 44px;
     }
   }
 </style>

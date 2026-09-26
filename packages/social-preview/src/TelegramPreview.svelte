@@ -35,11 +35,11 @@
           >
         </div>
       {:else if media.length > 0}
-        <PreviewMedia {media} layout={media.length > 1 ? "grid" : "single"} />
+        <PreviewMedia {media} layout="album" />
       {:else if model.format === "video"}
         <PreviewMedia media={[]} emptyLabel="Video preview" />
       {/if}
-      <p>{segment?.text || "Your message will appear here."}</p>
+      {#if segment?.text}<p>{segment.text}</p>{/if}
       <footer>
         <span>{model.createdAtLabel}</span>
       </footer>
@@ -49,6 +49,10 @@
 
 <style>
   .telegram-preview {
+    --native-fg: light-dark(#18242b, #f5f5f5);
+    --native-muted: light-dark(#52636b, #a1b3c1);
+    --native-border: light-dark(#d8dde1, #34495b);
+    --native-soft: light-dark(#f1f5f7, #20364b);
     width: min(100%, 42rem);
     min-height: 16rem;
     display: grid;
@@ -65,8 +69,8 @@
         rgb(255 255 255 / 25%) 0 0.16rem,
         transparent 0.18rem
       ),
-      #d8e5e4;
-    color: #18242b;
+      light-dark(#d8e5e4, #0e1621);
+    color: var(--native-fg);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
@@ -81,7 +85,7 @@
   .bubble {
     min-width: 0;
     border-radius: 0.9rem 0.9rem 0.9rem 0.3rem;
-    background: #fff;
+    background: light-dark(#fff, #182533);
     box-shadow: 0 1px 2px rgb(27 48 54 / 13%);
     padding: 0.55rem 0.65rem 0.4rem;
   }
@@ -89,7 +93,7 @@
   .sender {
     display: block;
     overflow: hidden;
-    color: #2678a7;
+    color: light-dark(#2678a7, #6ab3f3);
     font-size: 0.82rem;
     font-weight: 700;
     text-overflow: ellipsis;
@@ -110,7 +114,7 @@
     justify-content: flex-end;
     gap: 0.2rem;
     margin-top: 0.2rem;
-    color: #52636b;
+    color: var(--native-muted);
     font-size: 0.66rem;
   }
 
@@ -126,7 +130,7 @@
     gap: 0.7rem;
     margin-top: 0.5rem;
     border-radius: 0.55rem;
-    background: #f1f5f7;
+    background: var(--native-soft);
     padding: 0.65rem;
   }
 
@@ -159,7 +163,7 @@
   }
 
   .document small {
-    color: #52636b;
+    color: var(--native-muted);
     font-size: 0.7rem;
   }
 
@@ -167,7 +171,7 @@
     padding: 0.85rem 0.65rem;
   }
 
-  @media (max-width: 32rem) {
+  @container (max-width: 32rem) {
     .telegram-preview {
       padding: 1rem 0.65rem;
     }

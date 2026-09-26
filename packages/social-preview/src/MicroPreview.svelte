@@ -91,7 +91,10 @@
     {#if poll}<PreviewPollView {poll} {platform} />{/if}
     {@const segmentMedia = mediaForSegment(segment, index)}
     {#if segmentMedia.length > 0}
-      <PreviewMediaView media={segmentMedia} layout="grid" />
+      <PreviewMediaView
+        media={segmentMedia}
+        layout={platform === "threads" ? "carousel" : "grid"}
+      />
     {/if}
   {/if}
 {/snippet}
@@ -266,6 +269,11 @@
     line-height: 1.34;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+
+  .platform-threads :global(.media-carousel) {
+    margin-top: 0.65rem;
+    border-radius: 1rem;
   }
 
   .post-column :global(.media-grid),

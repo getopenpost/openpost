@@ -196,3 +196,29 @@ it.each(["x", "discord"] as const)(
       .not.toBeInTheDocument();
   },
 );
+
+it("lets readers reach every attachment in a mixed 20-item Threads post", async () => {
+  const screen = render(SocialPreview, {
+    model: createPreviewModel({
+      platform: "threads",
+      media: [
+        ...Array.from({ length: 19 }, (_, index) => image(`Item ${index + 1}`)),
+        {
+          id: "last",
+          kind: "video",
+          src: "data:video/mp4;base64,",
+          alt: "Final clip",
+          poster: image("Poster").src,
+        },
+      ],
+    }),
+  });
+  await expect.element(screen.getByRole("img", { name: "Item 1 artwork" })).toBeVisible();
+  const next = screen.getByRole("button", { name: "Next media" });
+  for (let index = 1; index < 20; index += 1) await next.click();
+  await expect.element(screen.getByLabelText("Final clip")).toBeVisible();
+  await expect.element(screen.getByText("20/20", { exact: true })).toBeVisible();
+  await expect.element(next).not.toBeInTheDocument();
+  await screen.getByRole("button", { name: "Previous media" }).click();
+  await expect.element(screen.getByRole("img", { name: "Item 19 artwork" })).toBeVisible();
+});

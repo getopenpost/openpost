@@ -24,6 +24,8 @@
   import Settings from "@lucide/svelte/icons/settings";
   import Smile from "@lucide/svelte/icons/smile";
   import User from "@lucide/svelte/icons/user-round";
+  import ThumbsUp from "@lucide/svelte/icons/thumbs-up";
+  import Globe from "@lucide/svelte/icons/globe";
   import Users from "@lucide/svelte/icons/users";
   import Video from "@lucide/svelte/icons/video";
   import type { PreviewModel, PreviewScheme } from "./model";
@@ -122,6 +124,33 @@
       </footer>
     </div>
   </article>
+{/snippet}
+
+{#snippet nativeContextPost(name: string, text: string, tone: string)}
+  <article class="context-post native-context-post" aria-hidden="true">
+    <header>
+      <i style={`--avatar-tone: ${tone}`}>{name.slice(0, 1)}</i>
+      <div><strong>{name}</strong><span>2h · <Globe /></span></div>
+      <MoreHorizontal />
+    </header>
+    <p>{text}</p>
+    <footer>
+      <span><ThumbsUp /> Like</span>
+      <span><MessageCircle /> Comment</span>
+      {#if model.platform === "linkedin"}
+        <span><Repeat2 /> Repost</span><span><Send /> Send</span>
+      {:else}
+        <span><Share2 /> Share</span>
+      {/if}
+    </footer>
+  </article>
+{/snippet}
+
+{#snippet contactRow(name: string, tone: string)}
+  <div class="contact-row" aria-hidden="true">
+    <i style={`--avatar-tone: ${tone}`}>{name.slice(0, 1)}<b></b></i>
+    <strong>{name}</strong>
+  </div>
 {/snippet}
 
 {#snippet followRow(name: string, account: string, tone: string)}
@@ -365,9 +394,8 @@
           </div>
           <SocialPreview {model} {scheme} />
           <div class="linkedin-divider"><span>Sort by: <b>Top</b></span></div>
-          {@render feedPost(
+          {@render nativeContextPost(
             "Product Builders",
-            "product-builders",
             "Three concrete ways teams can make publishing reviews faster and clearer.",
             "#0a66c2",
           )}
@@ -435,9 +463,8 @@
             </footer>
           </div>
           <SocialPreview {model} {scheme} />
-          {@render feedPost(
+          {@render nativeContextPost(
             "OpenPost Community",
-            "openpostcommunity",
             "This week’s community round-up is ready. Thanks to everyone who shared feedback.",
             "#1877f2",
           )}
@@ -447,14 +474,10 @@
             <h2>Contacts</h2>
             <Video /><Search /><MoreHorizontal />
           </div>
-          {@render followRow("Maya Chen", "Online", "#7c3aed")}
-          {@render followRow("Ari Santos", "Online", "#db2777")}
-          {@render followRow(
-            "OpenPost Image Editor Notes",
-            "Online",
-            "#2563eb",
-          )}
-          {@render followRow("Open Design", "Online", "#0f766e")}
+          {@render contactRow("Maya Chen", "#7c3aed")}
+          {@render contactRow("Ari Santos", "#db2777")}
+          {@render contactRow("OpenPost Image Editor Notes", "#2563eb")}
+          {@render contactRow("Open Design", "#0f766e")}
         </aside>
       </div>
     {:else if model.platform === "instagram"}
@@ -1227,6 +1250,8 @@
   }
 
   .context-post > i,
+  .native-context-post header > i,
+  .contact-row > i,
   .follow-row > i {
     display: grid;
     width: 2.5rem;
@@ -1889,12 +1914,63 @@
     margin-left: 0.85rem;
   }
 
-  .facebook-right .follow-row {
-    padding-inline: 0.75rem;
+  .native-context-post {
+    display: block;
   }
-
-  .facebook-right .follow-row > b {
-    display: none;
+  .native-context-post header {
+    gap: 0.65rem;
+  }
+  .native-context-post header > div {
+    min-width: 0;
+  }
+  .native-context-post header strong {
+    display: block;
+  }
+  .native-context-post header span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.2rem;
+  }
+  .native-context-post header span :global(svg) {
+    width: 0.75rem;
+    height: 0.75rem;
+    margin: 0;
+  }
+  .native-context-post p {
+    margin-top: 0.75rem;
+  }
+  .native-context-post footer {
+    max-width: none;
+    border-top: 1px solid var(--page-border);
+    padding-top: 0.65rem;
+  }
+  .native-context-post footer span {
+    font-weight: 600;
+  }
+  .contact-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.75rem;
+  }
+  .contact-row > i {
+    position: relative;
+  }
+  .contact-row > i > b {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 0.65rem;
+    height: 0.65rem;
+    border: 2px solid var(--page-bg);
+    border-radius: 50%;
+    background: #31a24c;
+  }
+  .contact-row > strong {
+    min-width: 0;
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
   }
 
   .platform-instagram {

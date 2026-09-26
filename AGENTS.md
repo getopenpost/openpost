@@ -5,6 +5,8 @@ OpenPost is the all-in-one content team for solo founders. It turns their work i
 - A **Publication** is the user-visible post. It owns the source idea, schedule, status, and destination outputs.
 - A **Rendition** is one destination-specific version with its own account, text, media, format, timing, and provider settings.
 
+Product copy calls these posts and variants. `Publication` and `Rendition` remain the internal model names.
+
 ## Product bar
 
 - Start with the founder's launches, updates, lessons, and ideas. Remove repeat work without hiding decisions.

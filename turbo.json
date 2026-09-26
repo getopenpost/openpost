@@ -3,6 +3,7 @@
   "globalDependencies": ["package.json", "bun.lock", "bunfig.toml"],
   "globalPassThroughEnv": [
     "OPENPOST_ROOT_TASK_LOCKED",
+    "OPENPOST_PARAGLIDE_PRECOMPILED",
     "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
     "VITEST_MAX_WORKERS"
   ],

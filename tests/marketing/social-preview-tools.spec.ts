@@ -107,3 +107,30 @@ test("an oversized poll keeps every option visible and explains the limit", asyn
   await expect(page.getByLabel("Poll preview")).toContainText("Five");
   await expect(page.getByRole("status")).toContainText("poll exceeds the 4-option preview limit");
 });
+
+test("Story previews preserve the post draft and media while hiding unused copy", async ({
+  page,
+}) => {
+  await page.goto("/tools/instagram-post-preview");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Post copy").fill("A caption for the feed, kept for later.");
+  await page.getByRole("button", { name: /Post details/ }).click();
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles("apps/marketing/static/assets/marketing/studio-cup.webp");
+  await page.getByLabel("Media alt text", { exact: true }).fill("A ceramic cup in a studio");
+  await page.getByRole("button", { name: "View preview", exact: true }).click();
+  await select(page, "Format", "story");
+  await expect(page.getByLabel("Post copy")).toHaveCount(0);
+  await expect(
+    page.getByText("Text must be part of your image or video.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-preview-viewport]").getByRole("img", { name: "A ceramic cup in a studio" }),
+  ).toBeVisible();
+  await select(page, "Format", "post");
+  await expect(page.getByLabel("Post copy")).toHaveValue("A caption for the feed, kept for later.");
+  await expect(
+    page.locator("[data-preview-viewport]").getByRole("img", { name: "A ceramic cup in a studio" }),
+  ).toBeVisible();
+});

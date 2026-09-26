@@ -63,6 +63,9 @@
 		selectedFormat === 'story' ? 1 : (capability.maxImages ?? TOOL_IMAGE_LIMIT)
 	);
 	const pollLimit = $derived(capability.maxPollOptions ?? 4);
+	const isFacebookVideo = $derived(
+		selectedPlatform === 'facebook' && ['video', 'reel'].includes(selectedFormat)
+	);
 	const hasTitle = $derived(
 		['youtube', 'peertube', 'pinterest', 'reddit', 'lemmy', 'piefed', 'googlebusiness'].includes(
 			selectedPlatform
@@ -393,14 +396,20 @@
 			<label class="flex min-h-11 items-center gap-3 text-sm font-medium"
 				><Checkbox bind:checked={verified} />Verified badge</label
 			>
-			<label class="grid gap-2 text-sm font-medium" for="preview-context"
-				>Community, channel, or subtitle<Input
-					id="preview-context"
-					class="h-11"
-					bind:value={subtitle}
-					placeholder="Optional context"
-				/></label
-			>
+			<label class="grid gap-2 text-sm font-medium" for="preview-context">
+				{isFacebookVideo ? 'Video description' : 'Community, channel, or subtitle'}
+				{#if isFacebookVideo}<Textarea
+						id="preview-context"
+						class="min-h-24 p-3 leading-6"
+						bind:value={subtitle}
+						placeholder="Describe your video"
+					/>{:else}<Input
+						id="preview-context"
+						class="h-11"
+						bind:value={subtitle}
+						placeholder="Optional context"
+					/>{/if}
+			</label>
 			<label class="grid gap-2 text-sm font-medium" for="preview-location"
 				>Location<Input
 					id="preview-location"
@@ -794,15 +803,21 @@
 				</label>
 			{/if}
 
-			<label class="grid gap-2 text-sm font-medium" for="preview-copy">
-				Post copy
-				<Textarea
-					id="preview-copy"
-					bind:value={draft}
-					class="min-h-36 p-3 leading-6"
-					placeholder="Write the post you want to preview..."
-				/>
-			</label>
+			{#if selectedFormat === 'story'}
+				<p class="text-sm leading-6 text-muted-foreground">
+					Text must be part of your image or video.
+				</p>
+			{:else}
+				<label class="grid gap-2 text-sm font-medium" for="preview-copy">
+					Post copy
+					<Textarea
+						id="preview-copy"
+						bind:value={draft}
+						class="min-h-36 p-3 leading-6"
+						placeholder="Write the post you want to preview..."
+					/>
+				</label>
+			{/if}
 			{#if selectionWarning}<p role="alert" class="text-sm leading-5 text-destructive">
 					{selectionWarning}
 				</p>{/if}

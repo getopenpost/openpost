@@ -177,8 +177,8 @@
 					Each workspace has separate limits. One social account is one connected profile or page.
 				</p>
 				<p>
-					A post counts once, including all threads and destinations. Monthly allowances
-					reset by calendar month in UTC, including on yearly plans.
+					A post counts once, including all threads and destinations. Monthly allowances reset by
+					calendar month in UTC, including on yearly plans.
 				</p>
 				<p>
 					AI writing and alt text have no separate charge. Provider limits, including the monthly X

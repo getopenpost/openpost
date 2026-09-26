@@ -86,8 +86,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { sendToOpenPost } from '$lib/video-editor/send-to-openpost';
 	import {
+		createShortcutMatcher,
 		editorShortcutTargetIsDisabled,
-		eventMatchesShortcut,
 		formatShortcutBinding,
 		handleGlobalPlayPauseShortcut
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
@@ -1531,49 +1531,51 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	function onKeydown(event: KeyboardEvent): void {
 		if (handleGlobalPlayPauseShortcut(event, keyboardShortcuts.bindings.PLAY_PAUSE, togglePlay))
 			return;
-		if (event.repeat || event.defaultPrevented || editorShortcutTargetIsDisabled(event.target))
-			return;
+		if (event.repeat) return;
 		const bindings = keyboardShortcuts.bindings;
-		if (eventMatchesShortcut(event, bindings.UNDO)) {
+		const matches = createShortcutMatcher(event, bindings);
+		if (!matches) return;
+		if (matches('UNDO')) {
 			event.preventDefault();
 			restoreHistory('undo');
 			return;
 		}
-		if (eventMatchesShortcut(event, bindings.REDO)) {
+		if (matches('REDO')) {
 			event.preventDefault();
 			restoreHistory('redo');
 			return;
 		}
-		if (eventMatchesShortcut(event, bindings.ADD_MARKER)) {
+		if (matches('ADD_MARKER')) {
 			event.preventDefault();
 			addMarker();
 			return;
 		}
-		if (eventMatchesShortcut(event, bindings.SAVE)) {
+		if (matches('SAVE')) {
 			event.preventDefault();
 			syncProject();
 			return;
 		}
-		if (eventMatchesShortcut(event, bindings.EXPORT) && sources.length > 0) {
+		if (matches('EXPORT') && sources.length > 0) {
 			event.preventDefault();
 			panel = 'export';
 			return;
 		}
-		if (eventMatchesShortcut(event, bindings.ZOOM_IN)) {
+		if (matches('ZOOM_IN')) {
 			event.preventDefault();
 			zoomTimeline(2);
 			return;
 		}
-		if (eventMatchesShortcut(event, bindings.ZOOM_OUT)) {
+		if (matches('ZOOM_OUT')) {
 			event.preventDefault();
 			zoomTimeline(0.5);
 			return;
 		}
-		if (eventMatchesShortcut(event, bindings.ZOOM_TO_FIT)) {
+		if (matches('ZOOM_TO_FIT')) {
 			event.preventDefault();
 			resetTimelineZoom();
 			return;
 		}
+		if (editorShortcutTargetIsDisabled(event.target)) return;
 		const action = quickCutShortcutAction(event, bindings);
 		if (!action) return;
 		event.preventDefault();

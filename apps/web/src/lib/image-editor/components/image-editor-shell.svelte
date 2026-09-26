@@ -69,6 +69,10 @@
 	} from '../recovery';
 	import { saveGuestImageEditorDesign, storeGuestImageEditorMedia } from '../local-persistence';
 	import {
+		releaseLocalImageEditorMediaForDesign,
+		retainLocalImageEditorMediaForDesign
+	} from '../local-media-url';
+	import {
 		createGuestImageEditorDesignFromDocument,
 		getGuestImageEditorMediaForMigration,
 		replaceGuestImageEditorMediaIDs
@@ -695,6 +699,7 @@
 	}
 
 	onMount(() => {
+		if (guestMode) retainLocalImageEditorMediaForDesign(editor.id);
 		const designChannel =
 			!guestMode && typeof BroadcastChannel !== 'undefined'
 				? new BroadcastChannel(`openpost-image-editor:${editor.id}`)
@@ -911,6 +916,7 @@
 		window.addEventListener('beforeunload', beforeUnload);
 		return () => {
 			editorViewActive = false;
+			if (guestMode) releaseLocalImageEditorMediaForDesign(editor.id);
 			rasterAbort?.abort();
 			exportPreviewGeneration++;
 			unsubscribe();

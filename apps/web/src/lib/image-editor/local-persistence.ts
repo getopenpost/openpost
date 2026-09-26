@@ -8,6 +8,7 @@ import {
 } from './document';
 import {
 	isLocalImageEditorMediaID,
+	localImageEditorMediaGeneration,
 	localImageEditorMediaURL,
 	registerLocalImageEditorMedia,
 	releaseLocalImageEditorMedia
@@ -297,6 +298,7 @@ export async function storeGuestImageEditorMedia(
 	file: File,
 	options: { provenance?: StockMediaProvenance } = {}
 ): Promise<ImageEditorMediaItem> {
+	const mediaGeneration = localImageEditorMediaGeneration(designID);
 	assertSupportedGuestImage(file);
 	const dimensions = await imageDimensions(file);
 	const id = `local_media_${crypto.randomUUID()}`;
@@ -331,16 +333,22 @@ export async function storeGuestImageEditorMedia(
 	} finally {
 		db.close();
 	}
-	registerLocalImageEditorMedia(id, file);
+	if (mediaGeneration === localImageEditorMediaGeneration(designID))
+		registerLocalImageEditorMedia(id, file, designID);
 	return guestMediaItem(record);
 }
 
 export async function getGuestImageEditorMediaBlob(mediaID: string): Promise<Blob> {
 	const record = await getGuestMediaRecord(mediaID);
 	if (!record) throw new Error(m.image_editor_public_image_missing());
+	const mediaGeneration = localImageEditorMediaGeneration(record.design_id);
 	const blob = await guestMediaBlob(record);
 	if (!blob) throw new Error(m.image_editor_public_image_missing());
-	if (!localImageEditorMediaURL(mediaID)) registerLocalImageEditorMedia(mediaID, blob);
+	if (
+		mediaGeneration === localImageEditorMediaGeneration(record.design_id) &&
+		!localImageEditorMediaURL(mediaID)
+	)
+		registerLocalImageEditorMedia(mediaID, blob, record.design_id);
 	return blob;
 }
 
@@ -489,8 +497,10 @@ async function warmGuestImageEditorMedia(document: ImageEditorDocument): Promise
 
 async function warmGuestMediaRecord(record: LocalImageEditorMedia): Promise<void> {
 	if (localImageEditorMediaURL(record.id)) return;
+	const mediaGeneration = localImageEditorMediaGeneration(record.design_id);
 	const blob = await guestMediaBlob(record);
-	if (blob) registerLocalImageEditorMedia(record.id, blob);
+	if (blob && mediaGeneration === localImageEditorMediaGeneration(record.design_id))
+		registerLocalImageEditorMedia(record.id, blob, record.design_id);
 }
 
 async function guestMediaBlob(record: LocalImageEditorMedia): Promise<Blob | null> {

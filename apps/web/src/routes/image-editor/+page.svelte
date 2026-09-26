@@ -34,6 +34,11 @@
 		type LocalImageEditorDesign
 	} from '$lib/image-editor/local-persistence';
 	import { trackPublicImageEditorEvent } from '$lib/image-editor/public-telemetry';
+	import {
+		releaseLocalImageEditorMediaForDesign,
+		releaseUnretainedLocalImageEditorMediaForDesign,
+		retainLocalImageEditorMediaForDesign
+	} from '$lib/image-editor/local-media-url';
 	import type { ImageEditorPreset, ImageEditorTemplate } from '$lib/image-editor/types';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
@@ -109,8 +114,16 @@
 				: '')
 	);
 
+	let localDesignListMounted = false;
+	const heldLocalDesignIDs = new Set<string>();
 	onMount(() => {
+		localDesignListMounted = true;
 		void loadLocalDesigns();
+		return () => {
+			localDesignListMounted = false;
+			for (const id of heldLocalDesignIDs) releaseLocalImageEditorMediaForDesign(id);
+			heldLocalDesignIDs.clear();
+		};
 	});
 
 	async function loadLocalDesigns(): Promise<void> {
@@ -118,6 +131,23 @@
 		localLoadError = '';
 		try {
 			const localDesigns = await listGuestImageEditorDesigns(localLimit);
+			if (!localDesignListMounted) {
+				for (const design of localDesigns)
+					releaseUnretainedLocalImageEditorMediaForDesign(design.id);
+				return;
+			}
+			const nextIDs = new Set(localDesigns.map((design) => design.id));
+			for (const id of heldLocalDesignIDs) {
+				if (!nextIDs.has(id)) {
+					releaseLocalImageEditorMediaForDesign(id);
+					heldLocalDesignIDs.delete(id);
+				}
+			}
+			for (const id of nextIDs) {
+				if (heldLocalDesignIDs.has(id)) continue;
+				retainLocalImageEditorMediaForDesign(id);
+				heldLocalDesignIDs.add(id);
+			}
 			recentDesigns = localDesigns;
 			trackPublicImageEditorEvent('image_editor_public_view', {
 				returning_guest: localDesigns.length > 0

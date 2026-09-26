@@ -98,8 +98,8 @@
 {#if picker && document}
 	<div
 		class="absolute z-50 max-w-64 min-w-44 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl"
-		style:left={`${Math.min(document.width_px - 180 / editor.zoom, picker.point.x) * editor.zoom}px`}
-		style:top={`${Math.min(document.height_px - 48 / editor.zoom, picker.point.y) * editor.zoom}px`}
+		style:left={`${Math.min(editor.activePageDimensions.width - 180 / editor.zoom, picker.point.x) * editor.zoom}px`}
+		style:top={`${Math.min(editor.activePageDimensions.height - 48 / editor.zoom, picker.point.y) * editor.zoom}px`}
 		role="menu"
 		aria-label={m.image_editor_select_layer()}
 		data-testid="image-editor-layer-picker"

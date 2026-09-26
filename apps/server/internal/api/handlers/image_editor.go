@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	imageEditorSchemaVersion       = 1
+	imageEditorSchemaVersion       = 2
 	imageEditorSnapshotVersion     = 1
 	imageEditorPageStorageVersion  = 1
 	imageEditorColorGradeVersion   = 1
@@ -275,6 +275,8 @@ type ImageEditorColorGrade struct {
 type ImageEditorPagePayload struct {
 	ID                  string                     `json:"id"`
 	Name                string                     `json:"name"`
+	WidthPX             *int                       `json:"width_px,omitempty"`
+	HeightPX            *int                       `json:"height_px,omitempty"`
 	BackgroundColor     string                     `json:"background_color"`
 	Background          *ImageEditorPageBackground `json:"background,omitempty"`
 	Guides              *ImageEditorPageGuides     `json:"guides,omitempty"`
@@ -292,6 +294,8 @@ type ImageEditorPageGuides struct {
 
 type imageEditorStoredPageState struct {
 	StorageVersion    int                        `json:"storage_version"`
+	WidthPX           *int                       `json:"width_px,omitempty"`
+	HeightPX          *int                       `json:"height_px,omitempty"`
 	Background        *ImageEditorPageBackground `json:"background"`
 	Guides            *ImageEditorPageGuides     `json:"guides,omitempty"`
 	ColorGradeVersion int                        `json:"color_grade_version,omitempty"`
@@ -1942,8 +1946,14 @@ func imageEditorDocumentPayload(
 		var guides *ImageEditorPageGuides
 		var colorGradeVersion int
 		var colorGrade *ImageEditorColorGrade
+		var pageWidth, pageHeight *int
 		if encoded := strings.TrimSpace(page.BackgroundJSON); encoded != "" && encoded != "{}" {
-			storedBackground, storedGuides, storedColorGradeVersion, storedColorGrade, err := decodeImageEditorPageState(encoded, page.BackgroundColor)
+			var err error
+			var storedBackground *ImageEditorPageBackground
+			var storedGuides *ImageEditorPageGuides
+			var storedColorGradeVersion int
+			var storedColorGrade *ImageEditorColorGrade
+			storedBackground, storedGuides, storedColorGradeVersion, storedColorGrade, pageWidth, pageHeight, err = decodeImageEditorPageState(encoded, page.BackgroundColor)
 			if err != nil {
 				return payload, errors.New("OpenPost Image Editor design contains an invalid page background")
 			}
@@ -1955,6 +1965,8 @@ func imageEditorDocumentPayload(
 		payload.Pages = append(payload.Pages, ImageEditorPagePayload{
 			ID:                  page.ID,
 			Name:                page.Name,
+			WidthPX:             pageWidth,
+			HeightPX:            pageHeight,
 			BackgroundColor:     page.BackgroundColor,
 			Background:          background,
 			Guides:              guides,
@@ -2042,7 +2054,7 @@ func validateImageEditorDimensions(width, height int) error {
 
 //nolint:gocyclo // Document validation reports precise failures across bounded pages and hierarchy.
 func validateImageEditorPayload(payload ImageEditorDocumentPayload) error {
-	if payload.SchemaVersion != imageEditorSchemaVersion {
+	if payload.SchemaVersion != 1 && payload.SchemaVersion != imageEditorSchemaVersion {
 		return fmt.Errorf("unsupported OpenPost Image Editor schema version")
 	}
 	if strings.TrimSpace(payload.Title) == "" || len([]rune(payload.Title)) > 160 {
@@ -2084,6 +2096,14 @@ func validateImageEditorPage(payload ImageEditorDocumentPayload, page ImageEdito
 		return fmt.Errorf("image editor page IDs must be unique")
 	}
 	pageIDs[page.ID] = struct{}{}
+	if (page.WidthPX == nil) != (page.HeightPX == nil) ||
+		(payload.SchemaVersion == 1 && page.WidthPX != nil) {
+		return fmt.Errorf("image editor page dimensions require schema version %d and both axes", imageEditorSchemaVersion)
+	}
+	width, height := imageEditorPageDimensions(payload, page)
+	if err := validateImageEditorDimensions(width, height); err != nil {
+		return err
+	}
 	if len(page.Layers) > imageEditorMaxLayersPerPage {
 		return fmt.Errorf("an OpenPost Image Editor page cannot contain more than %d layers", imageEditorMaxLayersPerPage)
 	}
@@ -2104,18 +2124,27 @@ func validateImageEditorPage(payload ImageEditorDocumentPayload, page ImageEdito
 	return validateImageEditorLayerHierarchy(parents, pageLayerIDs)
 }
 
+func imageEditorPageDimensions(document ImageEditorDocumentPayload, page ImageEditorPagePayload) (int, int) {
+	if page.WidthPX != nil && page.HeightPX != nil {
+		return *page.WidthPX, *page.HeightPX
+	}
+	return document.WidthPX, document.HeightPX
+}
+
 func validateImageEditorPageGuides(payload ImageEditorDocumentPayload, page ImageEditorPagePayload) error {
 	if page.Guides != nil {
 		if len(page.Guides.Horizontal) > 100 || len(page.Guides.Vertical) > 100 {
 			return fmt.Errorf("image editor pages cannot contain more than 100 guides per axis")
 		}
 		for _, value := range page.Guides.Horizontal {
-			if !finiteImageEditorNumber(value) || value < 0 || value > float64(payload.HeightPX) {
+			_, height := imageEditorPageDimensions(payload, page)
+			if !finiteImageEditorNumber(value) || value < 0 || value > float64(height) {
 				return fmt.Errorf("image editor horizontal guides must remain inside the page")
 			}
 		}
 		for _, value := range page.Guides.Vertical {
-			if !finiteImageEditorNumber(value) || value < 0 || value > float64(payload.WidthPX) {
+			width, _ := imageEditorPageDimensions(payload, page)
+			if !finiteImageEditorNumber(value) || value < 0 || value > float64(width) {
 				return fmt.Errorf("image editor vertical guides must remain inside the page")
 			}
 		}
@@ -2652,6 +2681,8 @@ func insertImageEditorPages(ctx context.Context, tx bun.Tx, documentID string, p
 		background := normalizeImageEditorPageBackground(page.Background, page.BackgroundColor)
 		backgroundJSON, err := json.Marshal(imageEditorStoredPageState{
 			StorageVersion:    imageEditorPageStorageVersion,
+			WidthPX:           page.WidthPX,
+			HeightPX:          page.HeightPX,
 			Background:        background,
 			Guides:            page.Guides,
 			ColorGradeVersion: page.ColorGradeVersion,
@@ -2684,28 +2715,28 @@ func insertImageEditorPages(ctx context.Context, tx bun.Tx, documentID string, p
 func decodeImageEditorPageState(
 	encoded string,
 	fallbackColor string,
-) (*ImageEditorPageBackground, *ImageEditorPageGuides, int, *ImageEditorColorGrade, error) {
+) (*ImageEditorPageBackground, *ImageEditorPageGuides, int, *ImageEditorColorGrade, *int, *int, error) {
 	var versionProbe struct {
 		StorageVersion int `json:"storage_version"`
 	}
 	if err := json.Unmarshal([]byte(encoded), &versionProbe); err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, 0, nil, nil, nil, err
 	}
 	if versionProbe.StorageVersion == 0 {
 		var legacy ImageEditorPageBackground
 		if err := json.Unmarshal([]byte(encoded), &legacy); err != nil {
-			return nil, nil, 0, nil, err
+			return nil, nil, 0, nil, nil, nil, err
 		}
-		return normalizeImageEditorPageBackground(&legacy, fallbackColor), nil, 0, nil, nil
+		return normalizeImageEditorPageBackground(&legacy, fallbackColor), nil, 0, nil, nil, nil, nil
 	}
 	if versionProbe.StorageVersion != imageEditorPageStorageVersion {
-		return nil, nil, 0, nil, fmt.Errorf("unsupported image editor page storage version %d", versionProbe.StorageVersion)
+		return nil, nil, 0, nil, nil, nil, fmt.Errorf("unsupported image editor page storage version %d", versionProbe.StorageVersion)
 	}
 	var state imageEditorStoredPageState
 	if err := json.Unmarshal([]byte(encoded), &state); err != nil {
-		return nil, nil, 0, nil, err
+		return nil, nil, 0, nil, nil, nil, err
 	}
-	return normalizeImageEditorPageBackground(state.Background, fallbackColor), state.Guides, state.ColorGradeVersion, state.ColorGrade, nil
+	return normalizeImageEditorPageBackground(state.Background, fallbackColor), state.Guides, state.ColorGradeVersion, state.ColorGrade, state.WidthPX, state.HeightPX, nil
 }
 
 func replaceImageEditorMediaReferences(ctx context.Context, tx bun.Tx, document *models.DesignDocument, pages []ImageEditorPagePayload) error {

@@ -2,6 +2,7 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { OpenPostFabricAdapter } from '../fabric-adapter';
 	import { queueImageEditorPreview } from '../preview-queue';
+	import { imageEditorPageDimensions } from '../page-dimensions';
 	import type { ImageEditorDocument, ImageEditorPage } from '../types';
 
 	let {
@@ -25,7 +26,12 @@
 	} = $props();
 
 	let page = $derived(explicitPage ?? document.pages[0]);
-	let dimensionKey = $derived(explicitDimensionKey ?? `${document.width_px}:${document.height_px}`);
+	let pageSize = $derived(
+		page
+			? imageEditorPageDimensions(document, page)
+			: { width: document.width_px, height: document.height_px }
+	);
+	let dimensionKey = $derived(explicitDimensionKey ?? `${pageSize.width}:${pageSize.height}`);
 	let adapter = $state.raw<OpenPostFabricAdapter | null>(null);
 	let renderError = $state(false);
 	let imageURL = $state('');
@@ -58,7 +64,7 @@
 		let disposed = false;
 		const currentPage = page;
 		if (!currentPage) return () => undefined;
-		const renderScale = Math.min(1, 512 / Math.max(document.width_px, document.height_px));
+		const renderScale = Math.min(1, 512 / Math.max(pageSize.width, pageSize.height));
 		const next = new OpenPostFabricAdapter({
 			canvas,
 			document,
@@ -138,9 +144,9 @@
 			class="template-preview-frame pasteboard-checker relative max-h-full max-w-full overflow-hidden shadow-sm"
 			role="img"
 			aria-label={label || document.title}
-			style:aspect-ratio={`${document.width_px} / ${document.height_px}`}
-			style:width={document.width_px / document.height_px >= 4 / 3 ? '100%' : 'auto'}
-			style:height={document.width_px / document.height_px >= 4 / 3 ? 'auto' : '100%'}
+			style:aspect-ratio={`${pageSize.width} / ${pageSize.height}`}
+			style:width={pageSize.width / pageSize.height >= 4 / 3 ? '100%' : 'auto'}
+			style:height={pageSize.width / pageSize.height >= 4 / 3 ? 'auto' : '100%'}
 		>
 			{#if cached}
 				{#if imageURL}<img src={imageURL} alt="" class="block size-full object-contain" />{/if}

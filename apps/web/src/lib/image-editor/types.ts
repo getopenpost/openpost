@@ -1,7 +1,7 @@
 import type { EditorColorGrade } from '$lib/editor-color-grade/model';
 import type { StockMediaProvenance } from '$lib/stock-media';
 
-export const IMAGE_EDITOR_SCHEMA_VERSION = 1 as const;
+export const IMAGE_EDITOR_SCHEMA_VERSION = 2 as const;
 export const IMAGE_EDITOR_LIMITS = {
 	minDimension: 64,
 	maxDimension: 4096,
@@ -256,6 +256,9 @@ export interface ImageEditorLayer {
 export interface ImageEditorPage {
 	id: string;
 	name: string;
+	/** Omitted in legacy documents; both dimensions then inherit the document defaults. */
+	width_px?: number;
+	height_px?: number;
 	background_color: string;
 	background?: ImageEditorPageBackground;
 	/** Versioned output grade applied after the complete page has been composited. */
@@ -271,7 +274,7 @@ export interface ImageEditorPage {
 }
 
 export interface ImageEditorDocument {
-	schema_version: typeof IMAGE_EDITOR_SCHEMA_VERSION;
+	schema_version: 1 | typeof IMAGE_EDITOR_SCHEMA_VERSION;
 	title: string;
 	preset_key: string;
 	width_px: number;

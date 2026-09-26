@@ -10,6 +10,7 @@ import {
 	validateImageEditorDocument
 } from './document';
 import { IMAGE_EDITOR_LIMITS, type ImageEditorLayer, type ImageEditorPreset } from './types';
+import { imageEditorPageDimensions } from './page-dimensions';
 
 const preset: ImageEditorPreset = {
 	key: 'instagram-square',
@@ -57,6 +58,29 @@ describe('OpenPost Image Editor document contracts', () => {
 		expect(document.pages).toHaveLength(1);
 		expect(document.width_px).toBe(1080);
 		expect(document.export_defaults.matte_color).toBe('#ffffff');
+	});
+
+	it('migrates legacy uniform pages and validates mixed page dimensions independently', () => {
+		const legacy = blankImageEditorDocument(preset);
+		legacy.schema_version = 1;
+		const migrated = migrateImageEditorDocument(legacy).document!;
+		expect(migrated.schema_version).toBe(2);
+		expect(imageEditorPageDimensions(migrated, migrated.pages[0])).toEqual({
+			width: 1080,
+			height: 1080
+		});
+
+		const second = cloneImageEditorPage(migrated.pages[0], 'Portrait');
+		second.width_px = 720;
+		second.height_px = 1280;
+		second.guides = { horizontal: [1200], vertical: [700] };
+		migrated.pages.push(second);
+		expect(validateImageEditorDocument(migrated)).toEqual([]);
+		expect(imageEditorPageDimensions(migrated, second)).toEqual({ width: 720, height: 1280 });
+		second.width_px = 600;
+		expect(validateImageEditorDocument(migrated)).toContain('Portrait has invalid guides.');
+		delete second.height_px;
+		expect(validateImageEditorDocument(migrated)).toContain('Portrait has invalid dimensions.');
 	});
 
 	it('normalizes and validates page-specific non-exporting guides', () => {

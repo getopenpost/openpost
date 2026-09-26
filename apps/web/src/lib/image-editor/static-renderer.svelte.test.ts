@@ -7,6 +7,28 @@ afterEach(() => {
 });
 
 describe('Image Editor full-resolution rendering', () => {
+	it('exports each page at its own dimensions', async () => {
+		const document = blankImageEditorDocument({
+			key: 'mixed-export',
+			name: 'Mixed export',
+			default_format: 'png',
+			profiles: [],
+			width_px: 64,
+			height_px: 64
+		});
+		const second = structuredClone(document.pages[0]);
+		second.id = 'portrait';
+		second.width_px = 80;
+		second.height_px = 120;
+		document.pages.push(second);
+		const rendered = await renderImageEditorPage(document, second, 1);
+		const bitmap = await createImageBitmap(rendered.blob);
+		try {
+			expect([bitmap.width, bitmap.height]).toEqual([80, 120]);
+		} finally {
+			bitmap.close();
+		}
+	});
 	it.each(['background', 'layer'] as const)(
 		'rejects an export with missing %s media',
 		async (target) => {

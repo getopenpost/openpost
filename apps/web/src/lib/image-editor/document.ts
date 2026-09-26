@@ -15,6 +15,7 @@ import {
 	IMAGE_COLOR_GRADE_VERSION,
 	defaultEditorColorGradeAdjustments
 } from '$lib/editor-color-grade/model';
+import { imageEditorPageDimensions } from './page-dimensions';
 
 const HEX_COLOR = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
 
@@ -244,7 +245,7 @@ export function cloneImageEditorLayer(
 
 export function validateImageEditorDocument(document: ImageEditorDocument): string[] {
 	const errors: string[] = [];
-	if (document.schema_version !== IMAGE_EDITOR_SCHEMA_VERSION) {
+	if (document.schema_version !== 1 && document.schema_version !== IMAGE_EDITOR_SCHEMA_VERSION) {
 		errors.push('This OpenPost Image Editor document version is not supported.');
 	}
 	if (!document.title.trim() || document.title.length > 160) {
@@ -274,6 +275,19 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 	const pageIDs = new Set<string>();
 	const layerIDs = new Set<string>();
 	for (const page of document.pages) {
+		const pageSize = imageEditorPageDimensions(document, page);
+		if (
+			(document.schema_version === 1 && page.width_px !== undefined) ||
+			(page.width_px === undefined) !== (page.height_px === undefined) ||
+			!Number.isInteger(pageSize.width) ||
+			!Number.isInteger(pageSize.height) ||
+			pageSize.width < IMAGE_EDITOR_LIMITS.minDimension ||
+			pageSize.height < IMAGE_EDITOR_LIMITS.minDimension ||
+			pageSize.width > IMAGE_EDITOR_LIMITS.maxDimension ||
+			pageSize.height > IMAGE_EDITOR_LIMITS.maxDimension ||
+			pageSize.width * pageSize.height > IMAGE_EDITOR_LIMITS.maxPixels
+		)
+			errors.push(`${page.name} has invalid dimensions.`);
 		if (!page.id || pageIDs.has(page.id)) errors.push('Every page must have a unique ID.');
 		pageIDs.add(page.id);
 		if (page.color_grade && !validEditorColorTools(page.color_grade))
@@ -297,10 +311,10 @@ export function validateImageEditorDocument(document: ImageEditorDocument): stri
 			(page.guides?.horizontal.length ?? 0) > 100 ||
 			(page.guides?.vertical.length ?? 0) > 100 ||
 			(page.guides?.horizontal ?? []).some(
-				(value) => !Number.isFinite(value) || value < 0 || value > document.height_px
+				(value) => !Number.isFinite(value) || value < 0 || value > pageSize.height
 			) ||
 			(page.guides?.vertical ?? []).some(
-				(value) => !Number.isFinite(value) || value < 0 || value > document.width_px
+				(value) => !Number.isFinite(value) || value < 0 || value > pageSize.width
 			)
 		) {
 			errors.push(`${page.name} has invalid guides.`);
@@ -582,7 +596,7 @@ export function migrateImageEditorDocument(
 			error: 'This design was created by a newer OpenPost version and is read-only here.'
 		};
 	}
-	if (version !== IMAGE_EDITOR_SCHEMA_VERSION) {
+	if (version !== 1 && version !== IMAGE_EDITOR_SCHEMA_VERSION) {
 		return {
 			readOnly: true,
 			error: 'This OpenPost Image Editor document version cannot be migrated.'
@@ -597,6 +611,7 @@ export function migrateImageEditorDocument(
 	try {
 		// SAFETY: The current schema and required structure are checked before full semantic validation.
 		const document = cloneImageEditorDocument(raw as ImageEditorDocument);
+		document.schema_version = IMAGE_EDITOR_SCHEMA_VERSION;
 		const errors = validateImageEditorDocument(document);
 		return errors.length > 0 ? { readOnly: true, error: errors[0] } : { document, readOnly: false };
 	} catch {

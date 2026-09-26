@@ -5,14 +5,20 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { m } from '$lib/paraglide/messages';
 	import { useImageEditor } from '../editor.svelte';
-	import { resizeImageEditorDocument, type ImageEditorResizeMode } from '../resize';
+	import {
+		resizeImageEditorDocument,
+		resizeImageEditorPage,
+		type ImageEditorResizeMode
+	} from '../resize';
 	import { IMAGE_EDITOR_LIMITS } from '../types';
+	import { imageEditorPageDimensions } from '../page-dimensions';
 
 	interface Props {
 		open: boolean;
+		scope?: 'design' | 'page';
 	}
 
-	let { open = $bindable() }: Props = $props();
+	let { open = $bindable(), scope = 'design' }: Props = $props();
 
 	const editor = useImageEditor();
 
@@ -23,8 +29,15 @@
 
 	$effect.pre(() => {
 		if (open && editor.document) {
-			width = editor.document.width_px;
-			height = editor.document.height_px;
+			const current =
+				scope === 'page' && editor.activePage
+					? imageEditorPageDimensions(editor.document, editor.activePage)
+					: {
+							width: editor.document.width_px,
+							height: editor.document.height_px
+						};
+			width = current.width;
+			height = current.height;
 			mode = 'fit';
 			error = '';
 		}
@@ -33,8 +46,8 @@
 	function resize(): void {
 		if (!editor.document) return;
 		if (
-			!Number.isFinite(width) ||
-			!Number.isFinite(height) ||
+			!Number.isInteger(width) ||
+			!Number.isInteger(height) ||
 			width < IMAGE_EDITOR_LIMITS.minDimension ||
 			height < IMAGE_EDITOR_LIMITS.minDimension ||
 			width > IMAGE_EDITOR_LIMITS.maxDimension ||
@@ -44,17 +57,41 @@
 			error = m.image_editor_resize_limits();
 			return;
 		}
-		if (width === editor.document.width_px && height === editor.document.height_px) {
+		const current =
+			scope === 'page'
+				? editor.activePageDimensions
+				: {
+						width: editor.document.width_px,
+						height: editor.document.height_px
+					};
+		if (width === current.width && height === current.height) {
 			open = false;
 			return;
 		}
-		const resized = resizeImageEditorDocument(editor.document, { width, height, mode });
-		editor.mutate(m.image_editor_resize_design(), (document) => {
-			document.width_px = resized.width_px;
-			document.height_px = resized.height_px;
-			document.preset_key = resized.preset_key;
-			document.pages = resized.pages;
-		});
+		if (scope === 'page') {
+			const resized = resizeImageEditorPage(editor.document, editor.activePageID, {
+				width,
+				height,
+				mode
+			});
+			editor.clearPixelSelection();
+			editor.mutate(m.image_editor_resize_page(), (document) => {
+				document.pages = resized.pages;
+			});
+		} else {
+			const resized = resizeImageEditorDocument(editor.document, {
+				width,
+				height,
+				mode
+			});
+			editor.clearPixelSelection();
+			editor.mutate(m.image_editor_resize_design(), (document) => {
+				document.width_px = resized.width_px;
+				document.height_px = resized.height_px;
+				document.preset_key = resized.preset_key;
+				document.pages = resized.pages;
+			});
+		}
 		editor.fitZoom();
 		open = false;
 	}
@@ -63,7 +100,11 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>{m.image_editor_resize_design()}</Dialog.Title>
+			<Dialog.Title
+				>{scope === 'page'
+					? m.image_editor_resize_page()
+					: m.image_editor_resize_design()}</Dialog.Title
+			>
 			<Dialog.Description>{m.image_editor_resize_body()}</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-4">

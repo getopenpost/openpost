@@ -80,7 +80,10 @@
 				gradient:
 					background.type === 'gradient' && background.gradient
 						? background.gradient
-						: defaultImageEditorPageGradient(editor.document.width_px, editor.document.height_px)
+						: defaultImageEditorPageGradient(
+								editor.activePageDimensions.width,
+								editor.activePageDimensions.height
+							)
 			});
 			return;
 		}
@@ -112,7 +115,12 @@
 		updateGradient((gradient) => {
 			Object.assign(
 				gradient,
-				orientImageEditorGradient(gradient, document.width_px, document.height_px, radians)
+				orientImageEditorGradient(
+					gradient,
+					editor.activePageDimensions.width,
+					editor.activePageDimensions.height,
+					radians
+				)
 			);
 		}, 'page-background-angle');
 	}
@@ -123,7 +131,12 @@
 		updateGradient((gradient) => {
 			Object.assign(
 				gradient,
-				retargetImageEditorGradient(gradient, type, document.width_px, document.height_px)
+				retargetImageEditorGradient(
+					gradient,
+					type,
+					editor.activePageDimensions.width,
+					editor.activePageDimensions.height
+				)
 			);
 		}, 'page-background-gradient-type');
 	}

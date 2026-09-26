@@ -1,4 +1,5 @@
 import type { ImageEditorDocument, ImageEditorPage } from './types';
+import { imageEditorPageDimensions } from './page-dimensions';
 
 export interface ImageEditorExportResumeEntry {
 	mediaID: string;
@@ -16,8 +17,7 @@ export function imageEditorPageExportFingerprint(
 ): string {
 	const { preview_media_id: _preview, latest_export_media_id: _latest, ...renderedPage } = page;
 	const source = JSON.stringify({
-		width: document.width_px,
-		height: document.height_px,
+		...imageEditorPageDimensions(document, page),
 		exportDefaults: document.export_defaults,
 		page: renderedPage
 	});

@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func intPtr(value int) *int { return &value }
+
 func gzipJSONForTest(data []byte) ([]byte, error) {
 	var buffer bytes.Buffer
 	writer := gzip.NewWriter(&buffer)
@@ -25,6 +27,41 @@ func gzipJSONForTest(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
+}
+
+func TestImageEditorMixedPageSizesRoundTripAndLegacyFallback(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	create := &CreateImageEditorDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Mixed pages"
+	create.Body.PresetKey = "instagram-square"
+	created, err := handler.createDesign(ctx, create)
+	require.NoError(t, err)
+	require.Equal(t, imageEditorSchemaVersion, created.Body.Document.SchemaVersion)
+	update := &UpdateImageEditorDesignInput{PathID: created.Body.ID}
+	update.Body.ExpectedRevision = created.Body.Revision
+	update.Body.Document = created.Body.Document
+	second := created.Body.Document.Pages[0]
+	second.ID = "second-page"
+	second.Name = "Portrait"
+	second.WidthPX = intPtr(720)
+	second.HeightPX = intPtr(1280)
+	second.Guides = &ImageEditorPageGuides{Horizontal: []float64{1200}, Vertical: []float64{700}}
+	update.Body.Document.Pages = append(update.Body.Document.Pages, second)
+	updated, err := handler.updateDesign(ctx, update)
+	require.NoError(t, err)
+	require.Nil(t, updated.Body.Document.Pages[0].WidthPX)
+	require.Equal(t, 720, *updated.Body.Document.Pages[1].WidthPX)
+	require.Equal(t, 1280, *updated.Body.Document.Pages[1].HeightPX)
+	require.Equal(t, second.Guides, updated.Body.Document.Pages[1].Guides)
+	legacy := updated.Body.Document
+	legacy.SchemaVersion = 1
+	legacy.Pages = legacy.Pages[:1]
+	require.NoError(t, validateImageEditorPayload(legacy))
+	legacy.Pages[0].WidthPX = intPtr(720)
+	legacy.Pages[0].HeightPX = intPtr(1280)
+	require.Error(t, validateImageEditorPayload(legacy))
 }
 
 func TestImageEditorNamedRevisionPaginationReachesOlderVersions(t *testing.T) {
@@ -839,12 +876,14 @@ func TestImageEditorLegacyPageAndRevisionSnapshotsRemainReadable(t *testing.T) {
 	background := ImageEditorPageBackground{Type: "solid", Color: "#123456", Opacity: 1}
 	encoded, err := json.Marshal(background)
 	require.NoError(t, err)
-	decodedBackground, guides, colorGradeVersion, colorGrade, err := decodeImageEditorPageState(string(encoded), "#ffffff")
+	decodedBackground, guides, colorGradeVersion, colorGrade, width, height, err := decodeImageEditorPageState(string(encoded), "#ffffff")
 	require.NoError(t, err)
 	require.Equal(t, "#123456", decodedBackground.Color)
 	require.Nil(t, guides)
 	require.Zero(t, colorGradeVersion)
 	require.Nil(t, colorGrade)
+	require.Nil(t, width)
+	require.Nil(t, height)
 }
 
 func TestImageEditorSavesWheelsAndCurves(t *testing.T) {

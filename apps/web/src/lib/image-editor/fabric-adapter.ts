@@ -13,6 +13,7 @@ import {
 	isEmptyImageEditorPaintLayer,
 	imageEditorPageBackground
 } from './document';
+import { imageEditorPageDimensions } from './page-dimensions';
 import { createTextCurvePath, shadowColor, shadowOffset, textCurveStartOffset } from './effects';
 import {
 	createImageEditorCanvasGradient,
@@ -460,20 +461,24 @@ export class OpenPostFabricAdapter {
 		this.onRenderError = options.onRenderError ?? (() => undefined);
 	}
 
+	private get pageDimensions(): { width: number; height: number } {
+		return imageEditorPageDimensions(this.document, this.page);
+	}
+
 	async mount(): Promise<void> {
 		this.fabric = await import('fabric');
 		this.gradeRenderer = new ImageGradeRenderer(createGpuCompositor);
 		this.canvas = this.staticMode
 			? new this.fabric.StaticCanvas(this.element, {
-					width: Math.max(1, Math.round(this.document.width_px * this.renderScale)),
-					height: Math.max(1, Math.round(this.document.height_px * this.renderScale)),
+					width: Math.max(1, Math.round(this.pageDimensions.width * this.renderScale)),
+					height: Math.max(1, Math.round(this.pageDimensions.height * this.renderScale)),
 					backgroundColor: 'transparent',
 					renderOnAddRemove: false,
 					enableRetinaScaling: false
 				})
 			: new this.fabric.Canvas(this.element, {
-					width: this.document.width_px,
-					height: this.document.height_px,
+					width: this.pageDimensions.width,
+					height: this.pageDimensions.height,
 					backgroundColor: 'transparent',
 					selection: false,
 					preserveObjectStacking: true,
@@ -504,8 +509,14 @@ export class OpenPostFabricAdapter {
 		this.guideObjects = [];
 		this.backgroundObject = null;
 		this.canvas.setDimensions({
-			width: Math.max(1, Math.round(document.width_px * this.renderScale)),
-			height: Math.max(1, Math.round(document.height_px * this.renderScale))
+			width: Math.max(
+				1,
+				Math.round(imageEditorPageDimensions(document, page).width * this.renderScale)
+			),
+			height: Math.max(
+				1,
+				Math.round(imageEditorPageDimensions(document, page).height * this.renderScale)
+			)
 		});
 		if (this.staticMode) this.canvas.setZoom(this.renderScale);
 		this.canvas.backgroundColor = 'transparent';
@@ -541,8 +552,8 @@ export class OpenPostFabricAdapter {
 	async sync(document: ImageEditorDocument, page: ImageEditorPage): Promise<void> {
 		if (!this.canvas || !this.fabric) return;
 		const dimensionsChanged =
-			document.width_px !== this.document.width_px ||
-			document.height_px !== this.document.height_px;
+			imageEditorPageDimensions(document, page).width !== this.pageDimensions.width ||
+			imageEditorPageDimensions(document, page).height !== this.pageDimensions.height;
 		const pageChanged = page.id !== this.page.id;
 		const backgroundChanged =
 			JSON.stringify(imageEditorPageBackground(page)) !== this.backgroundSnapshot;
@@ -713,8 +724,8 @@ export class OpenPostFabricAdapter {
 		}
 		this.clearGuides();
 		const excluded = new Set(options.excludeLayerIDs ?? []);
-		const candidatesX = [0, this.document.width_px / 2, this.document.width_px];
-		const candidatesY = [0, this.document.height_px / 2, this.document.height_px];
+		const candidatesX = [0, this.pageDimensions.width / 2, this.pageDimensions.width];
+		const candidatesY = [0, this.pageDimensions.height / 2, this.pageDimensions.height];
 		this.appendPrecisionCandidates(candidatesX, candidatesY);
 		for (const object of imageEditorFabricObjects(this.canvas.getObjects())) {
 			if (
@@ -742,10 +753,10 @@ export class OpenPostFabricAdapter {
 		const threshold = SNAP_SCREEN_PX / this.screenZoom();
 		const snapped = snapImageEditorPoint(point, filteredX, filteredY, threshold, options.axes);
 		if (snapped.guideX !== null) {
-			this.addGuide([snapped.guideX, 0, snapped.guideX, this.document.height_px]);
+			this.addGuide([snapped.guideX, 0, snapped.guideX, this.pageDimensions.height]);
 		}
 		if (snapped.guideY !== null) {
-			this.addGuide([0, snapped.guideY, this.document.width_px, snapped.guideY]);
+			this.addGuide([0, snapped.guideY, this.pageDimensions.width, snapped.guideY]);
 		}
 		return snapped;
 	}
@@ -765,10 +776,10 @@ export class OpenPostFabricAdapter {
 		candidatesX.push(...this.snapGuideX);
 		candidatesY.push(...this.snapGuideY);
 		if (this.snapGridSize <= 0) return;
-		for (let x = this.snapGridSize; x < this.document.width_px; x += this.snapGridSize) {
+		for (let x = this.snapGridSize; x < this.pageDimensions.width; x += this.snapGridSize) {
 			candidatesX.push(x);
 		}
-		for (let y = this.snapGridSize; y < this.document.height_px; y += this.snapGridSize) {
+		for (let y = this.snapGridSize; y < this.pageDimensions.height; y += this.snapGridSize) {
 			candidatesY.push(y);
 		}
 	}
@@ -876,7 +887,7 @@ export class OpenPostFabricAdapter {
 			this.canvas.renderAll();
 			return this.canvas
 				.getContext()
-				.getImageData(0, 0, this.document.width_px, this.document.height_px);
+				.getImageData(0, 0, this.pageDimensions.width, this.pageDimensions.height);
 		} finally {
 			this.canvas.backgroundColor = background;
 			objects.forEach((object, index) => (object.visible = visibility[index]));
@@ -888,7 +899,8 @@ export class OpenPostFabricAdapter {
 		if (!this.canvas || this.staticMode) return null;
 		const x = Math.floor(point.x);
 		const y = Math.floor(point.y);
-		if (x < 0 || y < 0 || x >= this.document.width_px || y >= this.document.height_px) return null;
+		if (x < 0 || y < 0 || x >= this.pageDimensions.width || y >= this.pageDimensions.height)
+			return null;
 		try {
 			return this.canvas.getContext().getImageData(x, y, 1, 1).data;
 		} catch {
@@ -903,15 +915,15 @@ export class OpenPostFabricAdapter {
 		if (
 			centerX < 0 ||
 			centerY < 0 ||
-			centerX >= this.document.width_px ||
-			centerY >= this.document.height_px
+			centerX >= this.pageDimensions.width ||
+			centerY >= this.pageDimensions.height
 		)
 			return null;
 		const safeRadius = Math.max(1, Math.min(16, Math.floor(radius)));
 		const startX = Math.max(0, centerX - safeRadius);
 		const startY = Math.max(0, centerY - safeRadius);
-		const endX = Math.min(this.document.width_px, centerX + safeRadius + 1);
-		const endY = Math.min(this.document.height_px, centerY + safeRadius + 1);
+		const endX = Math.min(this.pageDimensions.width, centerX + safeRadius + 1);
+		const endY = Math.min(this.pageDimensions.height, centerY + safeRadius + 1);
 		try {
 			const image = this.canvas
 				.getContext()
@@ -1367,8 +1379,8 @@ export class OpenPostFabricAdapter {
 		const threshold = SNAP_SCREEN_PX / zoom;
 		const width = target.getScaledWidth();
 		const height = target.getScaledHeight();
-		const candidatesX = [0, this.document.width_px / 2, this.document.width_px];
-		const candidatesY = [0, this.document.height_px / 2, this.document.height_px];
+		const candidatesX = [0, this.pageDimensions.width / 2, this.pageDimensions.width];
+		const candidatesY = [0, this.pageDimensions.height / 2, this.pageDimensions.height];
 		this.appendPrecisionCandidates(candidatesX, candidatesY);
 		for (const object of imageEditorFabricObjects(this.canvas.getObjects())) {
 			if (
@@ -1406,10 +1418,10 @@ export class OpenPostFabricAdapter {
 			target.top = candidate - [0, height / 2, height][index];
 		}
 		if (guideX !== null) {
-			this.addGuide([guideX, 0, guideX, this.document.height_px]);
+			this.addGuide([guideX, 0, guideX, this.pageDimensions.height]);
 		}
 		if (guideY !== null) {
-			this.addGuide([0, guideY, this.document.width_px, guideY]);
+			this.addGuide([0, guideY, this.pageDimensions.width, guideY]);
 		}
 	}
 
@@ -1429,8 +1441,8 @@ export class OpenPostFabricAdapter {
 		this.clearGuides();
 		const zoom = this.screenZoom();
 		const threshold = SNAP_SCREEN_PX / zoom;
-		const candidatesX = [0, this.document.width_px / 2, this.document.width_px];
-		const candidatesY = [0, this.document.height_px / 2, this.document.height_px];
+		const candidatesX = [0, this.pageDimensions.width / 2, this.pageDimensions.width];
+		const candidatesY = [0, this.pageDimensions.height / 2, this.pageDimensions.height];
 		this.appendPrecisionCandidates(candidatesX, candidatesY);
 		for (const object of imageEditorFabricObjects(this.canvas.getObjects())) {
 			if (object === target || !object.__imageEditorLayerID || this.guideObjects.includes(object))
@@ -1454,10 +1466,10 @@ export class OpenPostFabricAdapter {
 		target.scaleY = (target.scaleY ?? 1) * (snapped.bounds.height / current.height);
 		target.setCoords();
 		if (snapped.guideX !== null) {
-			this.addGuide([snapped.guideX, 0, snapped.guideX, this.document.height_px]);
+			this.addGuide([snapped.guideX, 0, snapped.guideX, this.pageDimensions.height]);
 		}
 		if (snapped.guideY !== null) {
-			this.addGuide([0, snapped.guideY, this.document.width_px, snapped.guideY]);
+			this.addGuide([0, snapped.guideY, this.pageDimensions.width, snapped.guideY]);
 		}
 	}
 
@@ -1492,8 +1504,8 @@ export class OpenPostFabricAdapter {
 			);
 			return null;
 		}
-		const width = this.document.width_px;
-		const height = this.document.height_px;
+		const width = this.pageDimensions.width;
+		const height = this.pageDimensions.height;
 		if (background.type === 'gradient' && background.gradient) {
 			const gradient = structuredClone(background.gradient);
 			const gradientBitmap =

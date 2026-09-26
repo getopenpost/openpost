@@ -6,6 +6,7 @@ import {
 } from './document';
 import type { ImageEditorDocument, ImageEditorLayer } from './types';
 import { defaultLayerEffects } from './effects';
+import { imageEditorPageDimensions } from './page-dimensions';
 
 export type ImageEditorRasterOperation =
 	| 'rasterize'
@@ -72,6 +73,7 @@ export function prepareRasterOperation(
 		if (roots.some((layer, index) => siblings[first + index] !== layer)) return null;
 	}
 	const rootIDs = new Set(roots.map((layer) => layer.id));
+	const pageSize = imageEditorPageDimensions(document, page);
 	const sourceLayers =
 		kind === 'flatten_page'
 			? page.layers
@@ -105,16 +107,16 @@ export function prepareRasterOperation(
 			: Math.max(0, Math.floor(Math.min(...roots.map((layer) => layer.transform.y))));
 	const right =
 		kind === 'flatten_page'
-			? document.width_px
+			? pageSize.width
 			: Math.min(
-					document.width_px,
+					pageSize.width,
 					Math.ceil(Math.max(...roots.map((layer) => layer.transform.x + layer.transform.width)))
 				);
 	const bottom =
 		kind === 'flatten_page'
-			? document.height_px
+			? pageSize.height
 			: Math.min(
-					document.height_px,
+					pageSize.height,
 					Math.ceil(Math.max(...roots.map((layer) => layer.transform.y + layer.transform.height)))
 				);
 	return {
@@ -126,8 +128,8 @@ export function prepareRasterOperation(
 		parentID: kind === 'flatten_page' ? undefined : roots[0].parent_id,
 		name: kind === 'flatten_page' ? page.name : roots.at(-1)!.name,
 		bounds: {
-			x: Math.min(x, document.width_px - 1),
-			y: Math.min(y, document.height_px - 1),
+			x: Math.min(x, pageSize.width - 1),
+			y: Math.min(y, pageSize.height - 1),
 			width: Math.max(1, right - x),
 			height: Math.max(1, bottom - y)
 		}

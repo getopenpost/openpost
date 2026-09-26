@@ -3,6 +3,7 @@ import type { ImageEditorDocument, ImageEditorPage } from './types';
 import { OpenPostFabricAdapter } from './fabric-adapter';
 import { m } from '$lib/paraglide/messages';
 import { imageEditorArchiveFilename, imageEditorPageFilename } from './export-names';
+import { imageEditorPageDimensions } from './page-dimensions';
 
 export interface ImageEditorRenderedPage {
 	page: ImageEditorPage;
@@ -117,10 +118,8 @@ export async function renderImageEditorPreview(
 	await globalThis.document.fonts?.ready;
 	signal?.throwIfAborted();
 	const canvas = globalThis.document.createElement('canvas');
-	const renderScale = Math.min(
-		1,
-		512 / Math.max(imageEditorDocument.width_px, imageEditorDocument.height_px)
-	);
+	const pageSize = imageEditorPageDimensions(imageEditorDocument, page);
+	const renderScale = Math.min(1, 512 / Math.max(pageSize.width, pageSize.height));
 	const adapter = new OpenPostFabricAdapter({
 		canvas,
 		document: imageEditorDocument,

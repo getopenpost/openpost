@@ -92,8 +92,8 @@
 		if (!layer || !editor.document) return;
 		editor.updateTransform(layer.id, {
 			...(axis === 'horizontal'
-				? { x: (editor.document.width_px - layer.transform.width) / 2 }
-				: { y: (editor.document.height_px - layer.transform.height) / 2 })
+				? { x: (editor.activePageDimensions.width - layer.transform.width) / 2 }
+				: { y: (editor.activePageDimensions.height - layer.transform.height) / 2 })
 		});
 	}
 
@@ -174,7 +174,7 @@
 			current.transform.height = nextHeight;
 			current.transform.y = Math.max(
 				0,
-				Math.min(document.height_px - nextHeight, centerY - nextHeight / 2)
+				Math.min(editor.activePageDimensions.height - nextHeight, centerY - nextHeight / 2)
 			);
 		});
 	}

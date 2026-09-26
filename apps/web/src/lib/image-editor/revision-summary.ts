@@ -107,6 +107,8 @@ function samePageProperties(current: ImageEditorPage, target: ImageEditorPage): 
 	return sameRevisionValue(
 		{
 			name: current.name,
+			width_px: current.width_px,
+			height_px: current.height_px,
 			background_color: current.background_color,
 			background: current.background,
 			color_grade_version: current.color_grade_version,
@@ -116,6 +118,8 @@ function samePageProperties(current: ImageEditorPage, target: ImageEditorPage): 
 		},
 		{
 			name: target.name,
+			width_px: target.width_px,
+			height_px: target.height_px,
 			background_color: target.background_color,
 			background: target.background,
 			color_grade_version: target.color_grade_version,

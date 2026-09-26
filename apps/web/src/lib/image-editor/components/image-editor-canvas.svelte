@@ -526,22 +526,22 @@
 		const current = eyedropperKeyboardCursor ??
 			eyedropperPreview?.point ??
 			cursorPoint ?? {
-				x: Math.floor(editor.document.width_px / 2),
-				y: Math.floor(editor.document.height_px / 2)
+				x: Math.floor(editor.activePageDimensions.width / 2),
+				y: Math.floor(editor.activePageDimensions.height / 2)
 			};
 		const step = event.shiftKey ? 10 : 1;
 		const point = {
 			x: Math.max(
 				0,
 				Math.min(
-					editor.document.width_px - 1,
+					editor.activePageDimensions.width - 1,
 					current.x + (event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0)
 				)
 			),
 			y: Math.max(
 				0,
 				Math.min(
-					editor.document.height_px - 1,
+					editor.activePageDimensions.height - 1,
 					current.y + (event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0)
 				)
 			)
@@ -560,8 +560,8 @@
 		const document = editor.document;
 		if (!document) return { x: 14, y: 14 };
 		return {
-			x: point.x > document.width_px / 2 ? -78 : 14,
-			y: point.y > document.height_px / 2 ? -78 : 14
+			x: point.x > editor.activePageDimensions.width / 2 ? -78 : 14,
+			y: point.y > editor.activePageDimensions.height / 2 ? -78 : 14
 		};
 	}
 
@@ -615,7 +615,11 @@
 		const id = editor.selectedLayerIDs.at(-1);
 		const layer = editor.activePage?.layers.find((candidate) => candidate.id === id);
 		if (!document || !id || !layer || layer.locked || !adapter) return false;
-		const mask = adapter.layerAlphaPixelMask(id, document.width_px, document.height_px);
+		const mask = adapter.layerAlphaPixelMask(
+			id,
+			editor.activePageDimensions.width,
+			editor.activePageDimensions.height
+		);
 		if (!mask) return false;
 		editor.applyPixelSelection(mask, [id], 'replace');
 		return true;
@@ -803,7 +807,7 @@
 		return imageEditorDocumentPoint(
 			{ x: event.clientX, y: event.clientY },
 			bounds,
-			{ width: document.width_px, height: document.height_px },
+			{ width: editor.activePageDimensions.width, height: editor.activePageDimensions.height },
 			outside
 		);
 	}
@@ -832,7 +836,10 @@
 	): number | null {
 		const point = documentPoint(event, 'allow');
 		if (!point || !editor.document) return null;
-		const limit = axis === 'horizontal' ? editor.document.height_px : editor.document.width_px;
+		const limit =
+			axis === 'horizontal'
+				? editor.activePageDimensions.height
+				: editor.activePageDimensions.width;
 		const previous =
 			index === undefined
 				? undefined
@@ -867,7 +874,12 @@
 		event.preventDefault();
 		const document = editor.document;
 		if (!document) return;
-		editor.addGuide(axis, (axis === 'horizontal' ? document.height_px : document.width_px) / 2);
+		editor.addGuide(
+			axis,
+			(axis === 'horizontal'
+				? editor.activePageDimensions.height
+				: editor.activePageDimensions.width) / 2
+		);
 	}
 
 	function moveGuide(event: PointerEvent): void {
@@ -1005,8 +1017,8 @@
 			if (
 				preview &&
 				editor.document &&
-				image.width === editor.document.width_px &&
-				image.height === editor.document.height_px
+				image.width === editor.activePageDimensions.width &&
+				image.height === editor.activePageDimensions.height
 			) {
 				magicPreviewMask = { width: image.width, height: image.height, data: mask };
 				await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -1240,7 +1252,9 @@
 			} else if (editor.pixelSelection) {
 				editor.addPaintFill(editor.pixelSelection.data);
 			} else if (editor.document) {
-				const mask = new Uint8Array(editor.document.width_px * editor.document.height_px);
+				const mask = new Uint8Array(
+					editor.activePageDimensions.width * editor.activePageDimensions.height
+				);
 				mask.fill(1);
 				editor.addPaintFill(mask);
 			}
@@ -1463,12 +1477,16 @@
 			if (document) {
 				const mask =
 					editor.pixelSelection?.data ??
-					rectanglePixelMask(document.width_px, document.height_px, {
-						x: 0,
-						y: 0,
-						width: document.width_px,
-						height: document.height_px
-					});
+					rectanglePixelMask(
+						editor.activePageDimensions.width,
+						editor.activePageDimensions.height,
+						{
+							x: 0,
+							y: 0,
+							width: editor.activePageDimensions.width,
+							height: editor.activePageDimensions.height
+						}
+					);
 				editor.addGradientFill(mask, gesture.start, point);
 			}
 			selectionGesture = null;
@@ -1488,22 +1506,22 @@
 			if (gesture.mode === 'replace') editor.clearPixelSelection();
 		} else if (gesture.tool === 'marquee') {
 			mask = rectanglePixelMask(
-				editor.document?.width_px ?? 1,
-				editor.document?.height_px ?? 1,
+				editor.activePageDimensions.width,
+				editor.activePageDimensions.height,
 				normalizeSelectionBounds(gesture.start, point)
 			);
 		} else if (gesture.tool === 'ellipse_marquee') {
 			mask = ellipsePixelMask(
-				editor.document?.width_px ?? 1,
-				editor.document?.height_px ?? 1,
+				editor.activePageDimensions.width,
+				editor.activePageDimensions.height,
 				normalizeSelectionBounds(gesture.start, point)
 			);
 		} else {
 			const points = [...gesture.points, point];
 			if (points.length >= 3) {
 				mask = polygonPixelMask(
-					editor.document?.width_px ?? 1,
-					editor.document?.height_px ?? 1,
+					editor.activePageDimensions.width,
+					editor.activePageDimensions.height,
 					points
 				);
 			}
@@ -1532,7 +1550,11 @@
 		)
 			return false;
 		editor.applyPixelSelection(
-			polygonPixelMask(document.width_px, document.height_px, selection.points),
+			polygonPixelMask(
+				editor.activePageDimensions.width,
+				editor.activePageDimensions.height,
+				selection.points
+			),
 			selection.targetLayerIDs,
 			selection.mode
 		);
@@ -1868,8 +1890,8 @@
 					eyedropperPreview?.point ??
 					(editor.document
 						? {
-								x: Math.floor(editor.document.width_px / 2),
-								y: Math.floor(editor.document.height_px / 2)
+								x: Math.floor(editor.activePageDimensions.width / 2),
+								y: Math.floor(editor.activePageDimensions.height / 2)
 							}
 						: null);
 				if (point) {
@@ -2532,8 +2554,8 @@
 				role="region"
 				aria-label={m.image_editor_design_canvas()}
 				data-testid="image-editor-stage"
-				style:width={`${editor.document.width_px * editor.zoom}px`}
-				style:height={`${editor.document.height_px * editor.zoom}px`}
+				style:width={`${editor.activePageDimensions.width * editor.zoom}px`}
+				style:height={`${editor.activePageDimensions.height * editor.zoom}px`}
 				style:--image-editor-zoom={editor.zoom}
 				style:--image-editor-pencil-color={editor.paintColor}
 				onpointerdown={(event) => layerPickerRef?.cycleStart(event)}
@@ -2553,7 +2575,7 @@
 						onpointercancel={cancelGuide}
 						onkeydown={(event) => addCenteredGuideFromKeyboard(event, 'vertical')}
 					>
-						{#each rulerTicks(editor.document.width_px) as tick (tick.value)}
+						{#each rulerTicks(editor.activePageDimensions.width) as tick (tick.value)}
 							<span
 								class="absolute bottom-0 border-l border-[var(--editor-muted)]"
 								class:h-3={tick.major}
@@ -2579,7 +2601,7 @@
 						onpointercancel={cancelGuide}
 						onkeydown={(event) => addCenteredGuideFromKeyboard(event, 'horizontal')}
 					>
-						{#each rulerTicks(editor.document.height_px) as tick (tick.value)}
+						{#each rulerTicks(editor.activePageDimensions.height) as tick (tick.value)}
 							<span
 								class="absolute right-0 border-t border-[var(--editor-muted)]"
 								class:w-3={tick.major}
@@ -2674,8 +2696,8 @@
 				{/if}
 				<canvas
 					{@attach attachSelectionOverlay}
-					width={editor.document.width_px}
-					height={editor.document.height_px}
+					width={editor.activePageDimensions.width}
+					height={editor.activePageDimensions.height}
 					class="pointer-events-none absolute inset-0 z-15 size-full"
 					data-testid="image-editor-pixel-selection"
 					data-active={editor.pixelSelection ? 'true' : 'false'}
@@ -2845,7 +2867,7 @@
 				{#if selectionGesture && !selectionGesture.originalSelection}
 					<svg
 						class="pointer-events-none absolute inset-0 z-20 size-full overflow-visible"
-						viewBox={`0 0 ${editor.document.width_px} ${editor.document.height_px}`}
+						viewBox={`0 0 ${editor.activePageDimensions.width} ${editor.activePageDimensions.height}`}
 						aria-hidden="true"
 					>
 						{#if selectionGesture.tool === 'select' || selectionGesture.tool === 'marquee'}
@@ -2910,7 +2932,7 @@
 				{#if polygonalSelection}
 					<svg
 						class="pointer-events-none absolute inset-0 z-20 size-full overflow-visible"
-						viewBox={`0 0 ${editor.document.width_px} ${editor.document.height_px}`}
+						viewBox={`0 0 ${editor.activePageDimensions.width} ${editor.activePageDimensions.height}`}
 						data-testid="image-editor-polygonal-lasso-preview"
 						aria-hidden="true"
 					>
@@ -2934,7 +2956,7 @@
 				{#if magicPulse}
 					<svg
 						class="pointer-events-none absolute inset-0 z-20 size-full overflow-visible"
-						viewBox={`0 0 ${editor.document.width_px} ${editor.document.height_px}`}
+						viewBox={`0 0 ${editor.activePageDimensions.width} ${editor.activePageDimensions.height}`}
 						aria-hidden="true"
 					>
 						<circle

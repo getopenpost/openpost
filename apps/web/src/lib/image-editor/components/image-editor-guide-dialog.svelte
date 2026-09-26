@@ -20,7 +20,7 @@
 	$effect.pre(() => {
 		if (open) {
 			axis = 'vertical';
-			position = Math.round((editor.document?.width_px ?? 0) / 2);
+			position = Math.round(editor.activePageDimensions.width / 2);
 		}
 	});
 
@@ -56,7 +56,9 @@
 				<Input
 					type="number"
 					min="0"
-					max={axis === 'horizontal' ? editor.document?.height_px : editor.document?.width_px}
+					max={axis === 'horizontal'
+						? editor.activePageDimensions.height
+						: editor.activePageDimensions.width}
 					bind:value={position}
 					onkeydown={(event) => {
 						if (event.key === 'Enter') addGuide();

@@ -5,6 +5,7 @@ import type {
 	ImageEditorPaintPoint
 } from './types';
 import { IMAGE_EDITOR_LIMITS } from './types';
+import { imageEditorPageDimensions } from './page-dimensions';
 
 export type ImageEditorResizeMode = 'preserve' | 'fit' | 'fill' | 'stretch';
 
@@ -28,15 +29,18 @@ export function resizeImageEditorDocument(
 	document: ImageEditorDocument,
 	options: ImageEditorResizeOptions
 ): ImageEditorDocument {
-	const geometry = resizeGeometry(document, options);
 	return {
 		...document,
 		width_px: options.width,
 		height_px: options.height,
 		preset_key: 'custom',
 		pages: document.pages.map((page) => {
+			const size = imageEditorPageDimensions(document, page);
+			const geometry = resizeGeometry({ width_px: size.width, height_px: size.height }, options);
 			const resizedPage = {
 				...page,
+				width_px: options.width,
+				height_px: options.height,
 				layers: page.layers.map((layer) => resizeLayer(layer, geometry))
 			};
 			if (page.background) {
@@ -54,6 +58,24 @@ export function resizeImageEditorDocument(
 			}
 			return resizedPage;
 		})
+	};
+}
+
+export function resizeImageEditorPage(
+	document: ImageEditorDocument,
+	pageID: string,
+	options: ImageEditorResizeOptions
+): ImageEditorDocument {
+	const page = document.pages.find((candidate) => candidate.id === pageID);
+	if (!page) return document;
+	const size = imageEditorPageDimensions(document, page);
+	const resized = resizeImageEditorDocument(
+		{ ...document, width_px: size.width, height_px: size.height, pages: [page] },
+		options
+	).pages[0];
+	return {
+		...document,
+		pages: document.pages.map((candidate) => (candidate.id === pageID ? resized : candidate))
 	};
 }
 

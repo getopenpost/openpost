@@ -89,6 +89,7 @@
 		type ImageEditorRenderedPage
 	} from '../static-renderer';
 	import { imageEditorExportBudget } from '../export-budget';
+	import { imageEditorPageDimensions } from '../page-dimensions';
 	import {
 		imageEditorPageExportFingerprint,
 		reusableImageEditorExports,
@@ -439,8 +440,23 @@
 	let exportFormat = $derived(editor.document?.export_defaults.format ?? 'png');
 	let exportSupportsTransparency = $derived(exportFormat !== 'jpeg');
 	let exportPixelCount = $derived(
-		(editor.document?.width_px ?? 0) * (editor.document?.height_px ?? 0) * exportPages.length
+		editor.document
+			? exportPages.reduce((total, page) => {
+					const size = imageEditorPageDimensions(editor.document!, page);
+					return total + size.width * size.height;
+				}, 0)
+			: 0
 	);
+	let exportSizeLabel = $derived.by(() => {
+		if (!editor.document || exportPages.length === 0) return '';
+		const first = imageEditorPageDimensions(editor.document, exportPages[0]);
+		return exportPages.every((page) => {
+			const size = imageEditorPageDimensions(editor.document!, page);
+			return size.width === first.width && size.height === first.height;
+		})
+			? `${first.width} × ${first.height}`
+			: m.image_editor_mixed_sizes();
+	});
 	let exportBudget = $derived(
 		editor.document
 			? imageEditorExportBudget(
@@ -2534,7 +2550,7 @@
 			if (!document) return;
 			await placeExternalFiles(
 				[file],
-				{ x: document.width_px / 2, y: document.height_px / 2 },
+				{ x: editor.activePageDimensions.width / 2, y: editor.activePageDimensions.height / 2 },
 				editor.activePageID
 			);
 			return;
@@ -4655,8 +4671,7 @@
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<div>
 						<p class="text-sm font-semibold">
-							{exportFormat.toUpperCase()} · {editor.document?.width_px ?? 0} ×
-							{editor.document?.height_px ?? 0}
+							{exportFormat.toUpperCase()} · {exportSizeLabel}
 						</p>
 						<p class="mt-0.5 text-xs text-muted-foreground">
 							{m.image_editor_export_summary({

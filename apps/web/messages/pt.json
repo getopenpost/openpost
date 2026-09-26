@@ -277,6 +277,8 @@
 	"image_editor_version_history": "Histórico de versões",
 	"image_editor_create_checkpoint": "Criar ponto de controlo",
 	"image_editor_save_template": "Guardar como modelo do espaço de trabalho",
+	"image_editor_resize_page": "Redimensionar página",
+	"image_editor_mixed_sizes": "Tamanhos mistos",
 	"image_editor_resize_design": "Redimensionar design",
 	"image_editor_resize_asset_panel": "Redimensionar o painel de recursos",
 	"image_editor_resize_inspector_panel": "Redimensionar o painel de definições",

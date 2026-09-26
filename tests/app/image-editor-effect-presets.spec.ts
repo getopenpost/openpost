@@ -43,9 +43,18 @@ test("workspace effect presets persist and apply with undo", async ({
   await page.getByRole("button", { name: /^Effects/ }).click();
   await page.getByRole("combobox", { name: "Choose an effect preset" }).click();
   await page.getByRole("option", { name: "Launch shadow", exact: true }).click();
+  await page.getByRole("button", { name: "Remove drop shadow", exact: true }).click();
   await page.getByLabel("Preset name", { exact: true }).fill("Launch outline");
-  await page.getByRole("button", { name: "Update preset", exact: true }).click();
+  await page.getByRole("button", { name: "Rename preset", exact: true }).click();
   await expect(page.getByText("Preset saved.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove drop shadow", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove drop shadow", exact: true }).click();
+  await page.getByRole("button", { name: "Replace effects", exact: true }).click();
+  await expect(page.getByText("Preset saved.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Add drop shadow", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add drop shadow", exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath("presets-desktop.png") });
   for (const [width, colorScheme] of [
     [390, "light"],

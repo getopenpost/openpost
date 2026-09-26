@@ -49,23 +49,28 @@
 		feedback = m.image_editor_effect_preset_applied();
 	}
 
-	async function save(mode: 'new' | 'update'): Promise<void> {
-		if (!canManage || busy || !name.trim() || (mode === 'update' && !preset)) return;
+	async function save(mode: 'new' | 'update' | 'rename'): Promise<void> {
+		if (!canManage || busy || !name.trim() || (mode !== 'new' && !preset)) return;
 		const workspaceID = editor.workspaceID;
-		const id = mode === 'update' ? presetID : crypto.randomUUID();
-		const effects = structuredClone($state.snapshot(layer.effects ?? defaultLayerEffects()));
+		const id = mode === 'new' ? crypto.randomUUID() : presetID;
+		const effects = structuredClone(
+			$state.snapshot(
+				mode === 'rename' && preset ? preset.effects : (layer.effects ?? defaultLayerEffects())
+			)
+		);
 		busy = true;
 		error = '';
 		feedback = '';
 		try {
 			const kit = await saveImageEditorEffectPreset(workspaceID, {
 				id,
-				name: name.trim(),
+				name: mode === 'update' && preset ? preset.name : name.trim(),
 				effects
 			});
 			if (editor.workspaceID !== workspaceID) return;
 			editor.setBrandKit(kit);
 			presetID = id;
+			name = kit.effect_presets?.find((entry) => entry.id === id)?.name ?? name;
 			feedback = m.image_editor_effect_preset_saved();
 		} catch (cause) {
 			if (editor.workspaceID === workspaceID)
@@ -145,6 +150,12 @@
 				onclick={() => save('new')}>{m.image_editor_effect_preset_save_new()}</Button
 			>
 			{#if preset}
+				<Button
+					variant="outline"
+					size="xs"
+					disabled={busy || !name.trim() || name.trim() === preset.name}
+					onclick={() => save('rename')}>{m.image_editor_effect_preset_rename()}</Button
+				>
 				<Button
 					variant="outline"
 					size="xs"

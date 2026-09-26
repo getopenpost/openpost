@@ -70,6 +70,7 @@ function imageEditorBrandKit(data: ApiImageEditorBrandKit): ImageEditorBrandKit 
 		...data,
 		id: data.id ?? `${data.workspace_id}:brand-kit`,
 		colors: data.colors ?? [],
+		effect_presets: data.effect_presets ?? [],
 		text_styles: data.text_styles ?? [],
 		backgrounds: data.backgrounds ?? [],
 		fonts: (data.fonts ?? []).map((font) => ({ ...font, id: font.id ?? font.media_id }))

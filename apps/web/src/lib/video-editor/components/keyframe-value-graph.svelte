@@ -1436,13 +1436,10 @@
 								{@const inY = point.y + bezier.y2 * (next.y - point.y)}
 								<line x1={point.x} y1={point.y} x2={outX} y2={outY} stroke="oklch(0.75 0.02 55)" />
 								<line x1={next.x} y1={next.y} x2={inX} y2={inY} stroke="oklch(0.75 0.02 55)" />
+								<!-- Pointer-only drag handle: easing stays keyboard-adjustable through the segment button and preset menu, so this exposes role="img" instead of the keyboard-operable slider role. -->
 								<circle
-									role="slider"
-									tabindex="-1"
+									role="img"
 									aria-label={m.video_editor_keyframe_graph_outgoing_handle()}
-									aria-valuemin="0"
-									aria-valuemax="1"
-									aria-valuenow={bezier.x1}
 									cx={outX}
 									cy={outY}
 									r={HANDLE_HIT_RADIUS}
@@ -1459,12 +1456,8 @@
 									class="pointer-events-none"
 								/>
 								<circle
-									role="slider"
-									tabindex="-1"
+									role="img"
 									aria-label={m.video_editor_keyframe_graph_incoming_handle()}
-									aria-valuemin="0"
-									aria-valuemax="1"
-									aria-valuenow={bezier.x2}
 									cx={inX}
 									cy={inY}
 									r={HANDLE_HIT_RADIUS}
@@ -1522,13 +1515,10 @@
 							</g>
 						{/each}
 
+						<!-- Pointer-only scrub line: the playhead stays keyboard-adjustable through the timeline ruler and mini-timeline sliders, so this exposes role="img" instead of the keyboard-operable slider role. -->
 						<line
-							role="slider"
-							tabindex="-1"
+							role="img"
 							aria-label={m.video_editor_keyframe_graph_playhead()}
-							aria-valuemin="0"
-							aria-valuemax={item.durationInFrames - 1}
-							aria-valuenow={relativePlayhead}
 							x1={playheadX}
 							x2={playheadX}
 							y1="0"

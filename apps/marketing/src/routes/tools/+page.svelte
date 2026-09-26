@@ -5,7 +5,14 @@
 	import HeroAccent from '../_components/HeroAccent.svelte';
 	import { tools, getToolCategory } from '../_marketing';
 
-	const categories = ['All tools', 'Images', 'Video', 'Convert', 'Writing & planning'] as const;
+	const categories = [
+		'All tools',
+		'Images',
+		'Video',
+		'Convert',
+		'Previews',
+		'Writing & planning'
+	] as const;
 	type Category = (typeof categories)[number];
 	let category = $state<Category>('All tools');
 	let query = $state('');

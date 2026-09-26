@@ -142,3 +142,31 @@ export const imageFormats: readonly {
   extension: string;
   mime: string;
 }[];
+
+export interface PreviewTool {
+  checks: readonly string[];
+  platform:
+    | "x"
+    | "bluesky"
+    | "mastodon"
+    | "pixelfed"
+    | "peertube"
+    | "lemmy"
+    | "piefed"
+    | "linkedin"
+    | "threads"
+    | "instagram"
+    | "facebook"
+    | "youtube"
+    | "tiktok"
+    | "pinterest"
+    | "reddit"
+    | "googlebusiness"
+    | "discord"
+    | "telegram";
+  slug: `${PreviewTool["platform"]}-post-preview`;
+  name: string;
+  title: string;
+  description: string;
+}
+export const previewTools: readonly PreviewTool[];

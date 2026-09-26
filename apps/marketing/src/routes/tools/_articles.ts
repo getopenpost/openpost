@@ -1,3 +1,4 @@
+import { previewTools, type PreviewTool } from '@openpost/social-images';
 import type { MarketingToolSlug } from '../_marketing';
 import { mediaArticles } from './_media-articles';
 
@@ -10,7 +11,54 @@ type ToolArticle = {
 	questions: readonly { question: string; answer: string }[];
 };
 
-export const toolArticles = {
+// SAFETY: Every catalog entry contributes one article under its canonical preview-tool slug.
+const previewArticles = Object.fromEntries(
+	previewTools.map((tool) => [
+		tool.slug,
+		{
+			title: tool.name,
+			description: tool.description,
+			privacy:
+				'Text and local files stay in your browser. Public image and video URLs load from their hosts.',
+			steps: [
+				'Write your post and choose a format.',
+				'Add your account details and media through Post details.',
+				'Compare the full page and post card at phone, tablet, or desktop widths.'
+			],
+			sections: [
+				{
+					title: `What to check on ${tool.name.replace(' post preview', '')}`,
+					paragraphs: tool.checks
+				},
+				{
+					title: 'Native layout and publishing availability',
+					paragraphs: [
+						'These previews illustrate native network layouts. They do not publish anything, fetch a live account, or certify that a format can be published through OpenPost. Network apps, account types, and server settings can change the final appearance and limits.'
+					]
+				}
+			],
+			questions: [
+				{
+					question: 'Do I need an account?',
+					answer: 'No. You can edit and preview a post without signing in.'
+				},
+				{
+					question: 'Can I preview the whole page?',
+					answer:
+						'Yes. Choose Full page for the surrounding feed, channel, or watch page. Choose Post card to focus on the content itself.'
+				},
+				{
+					question: 'Will my files upload?',
+					answer:
+						'Local files use temporary browser URLs and are not uploaded. Closing or refreshing the page clears your draft.'
+				}
+			]
+		}
+	])
+) as Record<PreviewTool['slug'], ToolArticle>;
+
+export const toolArticles: Record<MarketingToolSlug, ToolArticle> = {
+	...previewArticles,
 	...mediaArticles,
 	'multi-platform-character-counter': {
 		title: 'Social media character counter',

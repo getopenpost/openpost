@@ -13,7 +13,7 @@
 	import UtmLinkBuilder from '../../_components/tools/UtmLinkBuilder.svelte';
 	import VideoEditorLauncher from '../../_components/tools/VideoEditorLauncher.svelte';
 	import QuickCutLauncher from '../../_components/tools/QuickCutLauncher.svelte';
-	import { imageConversions } from '@openpost/social-images';
+	import { imageConversions, previewTools } from '@openpost/social-images';
 	import { getTool } from '../../_marketing';
 
 	const slug = $derived.by(() => {
@@ -21,6 +21,7 @@
 		if (!tool) error(404, 'Tool not found');
 		return tool.slug;
 	});
+	const previewTool = $derived(previewTools.find((item) => item.slug === slug));
 	const conversion = $derived(imageConversions.find((item) => item.slug === slug));
 </script>
 
@@ -39,8 +40,8 @@
 		<ImageEditorLauncher />
 	{:else if slug === 'multi-platform-character-counter'}
 		<CharacterCounter />
-	{:else if slug === 'post-preview-generator'}
-		<PreviewGenerator />
+	{:else if slug === 'post-preview-generator' || previewTool}
+		{#key slug}<PreviewGenerator initialPlatform={previewTool?.platform} />{/key}
 	{:else if slug === 'thread-splitter'}
 		<ThreadSplitter />
 	{:else if slug === 'fediverse-handle-checker'}

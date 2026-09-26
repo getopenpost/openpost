@@ -1,18 +1,22 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import {
 		SocialPreview,
+		SocialPreviewPage,
 		createPreviewModel,
 		platformNames,
 		previewCapabilities,
 		previewPlatforms,
 		supportsPreviewFormat,
 		type PreviewCard,
+		type PreviewBusinessPost,
 		type PreviewFormat,
 		type PreviewMedia,
 		type PreviewMediaKind,
 		type PreviewPlatform
 	} from '@openpost/social-preview';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import ImagePlus from '@lucide/svelte/icons/image-plus';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -28,8 +32,33 @@
 		local: true;
 	}
 
-	let selectedPlatform = $state<PreviewPlatform>('x');
-	let selectedFormat = $state<PreviewFormat>('post');
+	let { initialPlatform = 'x' }: { initialPlatform?: PreviewPlatform } = $props();
+	let selectedPlatform = $state<PreviewPlatform>(untrack(() => initialPlatform));
+	let previewMode = $state('page');
+	let previewWidth = $state('390');
+	let previewScheme = $state<'light' | 'dark'>('light');
+	let business = $state<PreviewBusinessPost>({ topic: 'standard' });
+	let avatarUrl = $state('');
+	let verified = $state(false);
+	let location = $state('');
+	let subtitle = $state('');
+	let cardTitle = $state('');
+	let cardDescription = $state('');
+	let cardImage = $state('');
+	let pollDuration = $state('1 day');
+	const TOOL_IMAGE_LIMIT = 35;
+	const imageLimit = $derived(
+		selectedFormat === 'story' ? 1 : (capability.maxImages ?? TOOL_IMAGE_LIMIT)
+	);
+	const pollLimit = $derived(capability.maxPollOptions ?? 4);
+	const hasTitle = $derived(
+		['youtube', 'peertube', 'pinterest', 'reddit', 'lemmy', 'piefed', 'googlebusiness'].includes(
+			selectedPlatform
+		) || selectedFormat === 'document'
+	);
+	let selectedFormat = $state<PreviewFormat>(
+		untrack(() => previewCapabilities[initialPlatform].formats[0])
+	);
 	let author = $state('OpenPost');
 	let handle = $state('openpost');
 	let draft = $state(
@@ -44,12 +73,13 @@
 	let contentWarning = $state('');
 	let linkUrl = $state('');
 	let cardKind = $state<PreviewCard['kind']>('link');
-	let formatTitle = $state('Your video title');
+	let formatTitle = $state('Your post title');
 	let mediaError = $state('');
 	let localMediaInput = $state<HTMLInputElement | null>(null);
 	let optionsOpen = $state(false);
 
 	const capability = $derived(previewCapabilities[selectedPlatform]);
+	const pollSupported = $derived(capability.polls && ['post', 'thread'].includes(selectedFormat));
 	const formatOptions = $derived(capability.formats);
 	const allowedMediaKinds = $derived(mediaKindsFor(selectedPlatform, selectedFormat));
 	const availableCardKinds = $derived(capability.cards ?? []);
@@ -64,12 +94,14 @@
 	);
 	const mediaHint = $derived(mediaKindLabel(allowedMediaKinds));
 	const activeOptionCount = $derived(
-		Number(author !== 'OpenPost' || handle !== 'openpost') +
+		Number(author !== 'OpenPost' || handle !== 'openpost' || avatarUrl !== '' || verified) +
 			Number(pollEnabled) +
 			Number(Boolean(contentWarning.trim())) +
 			Number(Boolean(linkUrl.trim())) +
 			Number(localMedia.length > 0 || Boolean(publicMediaUrl.trim())) +
-			Number(Boolean(altText.trim()))
+			Number(Boolean(altText.trim())) +
+			Number(Boolean(location || subtitle)) +
+			Number(selectedPlatform === 'googlebusiness' && business.topic !== 'standard')
 	);
 	const previewSegments = $derived.by(() => {
 		const parts =
@@ -85,9 +117,9 @@
 		}));
 	});
 	const previewMedia = $derived.by<PreviewMedia[]>(() => {
-		if (pollEnabled && capability.polls) return [];
+		if (pollEnabled && pollSupported) return [];
 		if (localMedia.length > 0) {
-			return localMedia.map((media) => ({ ...media, alt: altText }));
+			return localMedia.map((media) => ({ ...media, alt: media.alt || altText }));
 		}
 		const url = publicMediaUrl.trim();
 		if (!url) return [];
@@ -106,35 +138,41 @@
 			format: selectedFormat,
 			identity: {
 				displayName: author,
-				handle
+				handle,
+				avatarUrl: avatarUrl || undefined,
+				verified
 			},
 			segments: previewSegments,
 			media: previewMedia,
 			poll:
-				pollEnabled && capability.polls
+				pollEnabled && pollSupported
 					? {
 							options: pollOptions
 								.split(/\n/u)
 								.map((option) => option.trim())
 								.filter(Boolean)
-								.slice(0, 4),
-							durationLabel: '1 day'
+								.slice(0, pollLimit),
+							durationLabel: pollDuration
 						}
 					: undefined,
 			card:
 				linkUrl.trim() && availableCardKinds.includes(cardKind)
 					? {
 							kind: cardKind,
-							title: cardKind === 'quote' ? 'Quoted post' : safeDomain(linkUrl) || 'Shared link',
+							title:
+								cardTitle ||
+								(cardKind === 'quote' ? 'Quoted post' : safeDomain(linkUrl) || 'Shared link'),
 							domain: safeDomain(linkUrl),
-							description: cardKind === 'quote' ? linkUrl.trim() : 'Link card preview'
+							description: cardDescription,
+							imageUrl: cardImage || undefined
 						}
 					: undefined,
 			contentWarning:
 				capability.contentWarning && contentWarning.trim() ? contentWarning.trim() : undefined,
-			title:
-				selectedPlatform === 'youtube' || selectedFormat === 'document' ? formatTitle : undefined,
-			subtitle: selectedPlatform === 'youtube' ? author : undefined
+			title: hasTitle ? formatTitle : undefined,
+			subtitle: subtitle || undefined,
+			location: location || undefined,
+			business: selectedPlatform === 'googlebusiness' ? business : undefined
 		})
 	);
 
@@ -154,14 +192,14 @@
 	function chooseFormat(value: string) {
 		// SAFETY: chooseFormat receives values from previewCapabilities[selectedPlatform].formats.
 		selectedFormat = value as PreviewFormat;
-		if (selectedFormat === 'document' && formatTitle === 'Your video title') {
+		if (selectedFormat === 'document' && formatTitle === 'Your post title') {
 			formatTitle = 'Your document title';
 		}
 		if (
 			(selectedFormat === 'video' || selectedFormat === 'short') &&
 			formatTitle === 'Your document title'
 		) {
-			formatTitle = 'Your video title';
+			formatTitle = 'Your post title';
 		}
 		reconcileMediaSelection();
 	}
@@ -179,12 +217,17 @@
 			return;
 		}
 		if (kinds.some((kind) => kind === 'video' || kind === 'document') && files.length > 1) {
-			mediaError = 'Choose one video or document, or up to four images.';
+			mediaError = `Choose one video or document, or up to ${imageLimit} images.`;
+			input.value = '';
+			return;
+		}
+		if (files.length > imageLimit) {
+			mediaError = `Choose up to ${imageLimit} images for this preview. Your current media is unchanged.`;
 			input.value = '';
 			return;
 		}
 		clearLocalMedia();
-		localMedia = files.slice(0, 4).map((file, index) => ({
+		localMedia = files.map((file, index) => ({
 			id: `local-${index}-${file.name}`,
 			name: file.name,
 			local: true,
@@ -238,11 +281,19 @@
 				? 'one PDF document'
 				: kind === 'video'
 					? 'one video'
-					: 'up to four images'
+					: `up to ${imageLimit} images`
 		);
 		if (labels.length === 0) return 'no media';
 		if (labels.length === 1) return labels[0];
 		return `${labels.slice(0, -1).join(', ')}, or ${labels.at(-1)}`;
+	}
+
+	function moveMedia(index: number, direction: -1 | 1) {
+		const next = index + direction;
+		if (next < 0 || next >= localMedia.length) return;
+		const reordered = [...localMedia];
+		[reordered[index], reordered[next]] = [reordered[next], reordered[index]];
+		localMedia = reordered;
 	}
 
 	function removeMedia(id: string) {
@@ -286,9 +337,138 @@
 					<Input id="preview-handle" bind:value={handle} class="h-11" maxlength={100} />
 				</label>
 			</div>
+			<label class="grid gap-2 text-sm font-medium" for="preview-avatar"
+				>Avatar URL<Input
+					id="preview-avatar"
+					type="url"
+					class="h-11"
+					bind:value={avatarUrl}
+					placeholder="https://example.com/avatar.jpg"
+				/></label
+			>
+			<label class="flex min-h-11 items-center gap-3 text-sm font-medium"
+				><Checkbox bind:checked={verified} />Verified badge</label
+			>
+			<label class="grid gap-2 text-sm font-medium" for="preview-context"
+				>Community, channel, or subtitle<Input
+					id="preview-context"
+					class="h-11"
+					bind:value={subtitle}
+					placeholder="Optional context"
+				/></label
+			>
+			<label class="grid gap-2 text-sm font-medium" for="preview-location"
+				>Location<Input
+					id="preview-location"
+					class="h-11"
+					bind:value={location}
+					placeholder="Optional location"
+				/></label
+			>
 		</section>
 
-		{#if capability.polls}
+		{#if selectedPlatform === 'googlebusiness'}
+			<section class="grid gap-4 border-t pt-5" aria-labelledby="business-options-title">
+				<h3 id="business-options-title" class="text-sm font-semibold">Business update</h3>
+				<div class="grid gap-2">
+					<label for="business-topic" class="text-sm font-medium">Update type</label><AppSelect
+						id="business-topic"
+						value={business.topic}
+						options={[
+							{ value: 'standard', label: 'Update' },
+							{ value: 'event', label: 'Event' },
+							{ value: 'offer', label: 'Offer' }
+						]}
+						ariaLabel="Business update type"
+						class="h-11 w-full md:h-11"
+						onValueChange={(value) => (business.topic = value as PreviewBusinessPost['topic'])}
+					/>
+				</div>
+				{#if business.topic !== 'standard'}
+					<div class="grid gap-4 sm:grid-cols-2">
+						<label for="business-start" class="grid gap-2 text-sm font-medium"
+							>Start date<Input
+								id="business-start"
+								type="date"
+								class="h-11"
+								bind:value={business.startDate}
+							/></label
+						><label for="business-end" class="grid gap-2 text-sm font-medium"
+							>End date<Input
+								id="business-end"
+								type="date"
+								class="h-11"
+								bind:value={business.endDate}
+							/></label
+						>
+					</div>
+				{/if}
+				{#if business.topic === 'event'}
+					<div class="grid gap-4 sm:grid-cols-2">
+						<label for="business-start-time" class="grid gap-2 text-sm font-medium"
+							>Start time<Input
+								id="business-start-time"
+								type="time"
+								class="h-11"
+								bind:value={business.startTime}
+							/></label
+						><label for="business-end-time" class="grid gap-2 text-sm font-medium"
+							>End time<Input
+								id="business-end-time"
+								type="time"
+								class="h-11"
+								bind:value={business.endTime}
+							/></label
+						>
+					</div>
+				{/if}
+				{#if business.topic === 'offer'}
+					<label for="business-coupon" class="grid gap-2 text-sm font-medium"
+						>Coupon code<Input
+							id="business-coupon"
+							class="h-11"
+							bind:value={business.couponCode}
+						/></label
+					><label for="business-terms" class="grid gap-2 text-sm font-medium"
+						>Offer terms<Textarea
+							id="business-terms"
+							class="min-h-20 p-3"
+							bind:value={business.terms}
+						/></label
+					>
+				{/if}
+				<div class="grid gap-2">
+					<label for="business-action" class="text-sm font-medium">Button</label><AppSelect
+						id="business-action"
+						value={business.action ?? 'none'}
+						options={[
+							{ value: 'none', label: 'No button' },
+							{ value: 'book', label: 'Book' },
+							{ value: 'order', label: 'Order online' },
+							{ value: 'shop', label: 'Shop' },
+							{ value: 'learn_more', label: 'Learn more' },
+							{ value: 'sign_up', label: 'Sign up' },
+							{ value: 'call', label: 'Call now' }
+						]}
+						ariaLabel="Business action"
+						class="h-11 w-full md:h-11"
+						onValueChange={(value) =>
+							(business.action =
+								value === 'none' ? undefined : (value as PreviewBusinessPost['action']))}
+					/>
+				</div>
+				{#if business.action}<label for="business-action-url" class="grid gap-2 text-sm font-medium"
+						>Button URL<Input
+							id="business-action-url"
+							type="url"
+							class="h-11"
+							bind:value={business.actionUrl}
+						/></label
+					>{/if}
+			</section>
+		{/if}
+
+		{#if pollSupported}
 			<section class="grid gap-4 border-t pt-5" aria-labelledby="preview-poll-options">
 				<div>
 					<h3 id="preview-poll-options" class="text-sm font-semibold">Poll</h3>
@@ -302,7 +482,7 @@
 				</label>
 				{#if pollEnabled}
 					<label class="grid gap-2 text-sm font-medium" for="preview-poll">
-						Poll options
+						Poll options, up to {pollLimit}
 						<Textarea
 							id="preview-poll"
 							bind:value={pollOptions}
@@ -310,6 +490,19 @@
 							placeholder="One option per line"
 						/>
 					</label>
+					{#if pollOptions.split(/\n/u).filter((option) => option.trim()).length > pollLimit}<p
+							role="alert"
+							class="text-sm text-destructive"
+						>
+							Only the first {pollLimit} options appear. Remove extra options to match the preview.
+						</p>{/if}
+					<label class="grid gap-2 text-sm font-medium" for="preview-poll-duration"
+						>Poll duration<Input
+							id="preview-poll-duration"
+							class="h-11"
+							bind:value={pollDuration}
+						/></label
+					>
 				{/if}
 			</section>
 		{/if}
@@ -361,6 +554,27 @@
 							placeholder="https://example.com/article"
 						/>
 					</label>
+					<label class="grid gap-2 text-sm font-medium" for="preview-card-title"
+						>Card title<Input id="preview-card-title" class="h-11" bind:value={cardTitle} /></label
+					>
+					<label class="grid gap-2 text-sm font-medium" for="preview-card-description"
+						>{cardKind === 'quote' ? 'Quoted text' : 'Card description'}<Textarea
+							id="preview-card-description"
+							class="min-h-20 p-3"
+							bind:value={cardDescription}
+						/></label
+					>
+					<label class="grid gap-2 text-sm font-medium" for="preview-card-image"
+						>Card image URL<Input
+							id="preview-card-image"
+							type="url"
+							class="h-11"
+							bind:value={cardImage}
+						/></label
+					>
+					<p class="text-xs leading-5 text-muted-foreground">
+						Enter the card details yourself. This tool does not fetch page metadata.
+					</p>
 				{/if}
 			</section>
 		{/if}
@@ -369,7 +583,9 @@
 			<div>
 				<h3 id="preview-media-options" class="text-sm font-semibold">Media</h3>
 				<p class="mt-1 text-xs leading-5 text-muted-foreground">
-					This {selectedFormat.replace('_', ' ')} accepts {mediaHint}.
+					This preview accepts {mediaHint}. {capability.maxImages === undefined
+						? 'Image count is a tool limit; network or server limits may differ.'
+						: ''}
 				</p>
 			</div>
 			<div>
@@ -393,24 +609,48 @@
 					Choose local media
 				</Button>
 				<p class="mt-2 text-xs leading-5 text-muted-foreground">Files stay in this browser.</p>
-				{#if mediaError}<p class="mt-2 text-sm text-destructive">
+				{#if mediaError}<p role="alert" class="mt-2 text-sm text-destructive">
 						{mediaError}
 					</p>{/if}
 				{#if localMedia.length > 0}
 					<ul class="mt-2 grid gap-1">
-						{#each localMedia as media (media.id)}
-							<li
-								class="flex min-h-11 items-center justify-between gap-3 rounded-md bg-muted px-3 text-xs"
-							>
-								<span class="truncate">{media.name}</span>
-								<button
-									type="button"
-									class="focus-ring grid size-10 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-foreground"
-									aria-label={`Remove ${media.name}`}
-									onclick={() => removeMedia(media.id)}
+						{#each localMedia as media, index (media.id)}
+							<li class="grid gap-2 rounded-md bg-muted p-3 text-xs">
+								<div class="flex min-w-0 items-center gap-2">
+									<span class="min-w-0 flex-1 truncate">{media.name}</span>
+									<Button
+										variant="ghost"
+										size="icon"
+										class="size-11 shrink-0"
+										aria-label={`Move ${media.name} earlier`}
+										disabled={index === 0}
+										onclick={() => moveMedia(index, -1)}><ArrowUp class="size-4" /></Button
+									>
+									<Button
+										variant="ghost"
+										size="icon"
+										class="size-11 shrink-0"
+										aria-label={`Move ${media.name} later`}
+										disabled={index === localMedia.length - 1}
+										onclick={() => moveMedia(index, 1)}><ArrowDown class="size-4" /></Button
+									>
+									<button
+										type="button"
+										class="focus-ring grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-foreground"
+										aria-label={`Remove ${media.name}`}
+										onclick={() => removeMedia(media.id)}
+									>
+										<Trash2 class="size-4" />
+									</button>
+								</div>
+								<label class="grid gap-2" for={`media-alt-${index}`}
+									>Alt text for this item<Input
+										id={`media-alt-${index}`}
+										class="h-11"
+										bind:value={media.alt}
+										placeholder="Use the shared alt text, or add a description"
+									/></label
 								>
-									<Trash2 class="size-4" />
-								</button>
 							</li>
 						{/each}
 					</ul>
@@ -466,7 +706,7 @@
 	>
 		<h2 id="preview-controls-title" class="text-lg font-semibold">Write your post</h2>
 		<p class="mt-1 text-sm leading-6 text-muted-foreground">
-			Controls appear only when the selected platform supports them.
+			Preview native formats. Publishing availability in OpenPost may differ.
 		</p>
 
 		<div class="mt-5 grid gap-4">
@@ -501,9 +741,9 @@
 				</div>
 			</div>
 
-			{#if selectedPlatform === 'youtube' || selectedFormat === 'document'}
+			{#if hasTitle}
 				<label class="grid gap-2 text-sm font-medium" for="preview-title">
-					{selectedFormat === 'document' ? 'Document title' : 'Video title'}
+					{selectedFormat === 'document' ? 'Document title' : 'Post title'}
 					<Input id="preview-title" bind:value={formatTitle} class="h-11" />
 				</label>
 			{/if}
@@ -548,7 +788,7 @@
 	</section>
 
 	<section
-		class="grid min-h-[32rem] place-items-center self-start rounded-xl bg-muted/20 p-3 sm:p-6 xl:sticky xl:top-24"
+		class="grid min-h-[32rem] min-w-0 place-items-center self-start rounded-xl bg-muted/20 p-3 sm:p-6 xl:sticky xl:top-24"
 		aria-labelledby="destination-preview-title"
 	>
 		<div class="grid w-full place-items-center gap-4">
@@ -564,7 +804,67 @@
 					</span>
 				{/if}
 			</div>
-			<SocialPreview model={previewModel} />
+			<div class="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+				<div class="grid gap-2">
+					<label for="preview-mode" class="text-sm font-medium">View</label><AppSelect
+						id="preview-mode"
+						value={previewMode}
+						options={[
+							{ value: 'page', label: 'Full page' },
+							{ value: 'card', label: 'Post card' }
+						]}
+						ariaLabel="Preview view"
+						class="h-11 w-full md:h-11"
+						onValueChange={(value) => (previewMode = value)}
+					/>
+				</div>
+				<div class="grid gap-2">
+					<label for="preview-width" class="text-sm font-medium">Screen width</label><AppSelect
+						id="preview-width"
+						value={previewWidth}
+						options={[
+							{ value: '320', label: 'Small phone · 320px' },
+							{ value: '390', label: 'Phone · 390px' },
+							{ value: '768', label: 'Tablet · 768px' },
+							{ value: '1200', label: 'Desktop · 1200px' }
+						]}
+						ariaLabel="Preview screen width"
+						class="h-11 w-full md:h-11"
+						onValueChange={(value) => (previewWidth = value)}
+					/>
+				</div>
+				<div class="grid gap-2">
+					<label for="preview-scheme" class="text-sm font-medium">Appearance</label><AppSelect
+						id="preview-scheme"
+						value={previewScheme}
+						options={[
+							{ value: 'light', label: 'Light' },
+							{ value: 'dark', label: 'Dark' }
+						]}
+						ariaLabel="Preview appearance"
+						class="h-11 w-full md:h-11"
+						onValueChange={(value) => (previewScheme = value as 'light' | 'dark')}
+					/>
+				</div>
+			</div>
+			<p class="w-full text-xs leading-5 text-muted-foreground">
+				Scroll the preview sideways when the selected screen is wider than this workspace. All
+				names, counts, and surrounding posts are illustrative.
+			</p>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll a wide preview.) -->
+			<div
+				class="w-full min-w-0 overflow-x-auto rounded-lg border focus-visible:outline-2 focus-visible:outline-ring"
+				role="region"
+				aria-label="Scrollable social preview"
+				tabindex="0"
+			>
+				<div style:width={`${previewWidth}px`} class="mx-auto min-h-96" data-preview-viewport>
+					{#if previewMode === 'page'}<SocialPreviewPage
+							model={previewModel}
+							scheme={previewScheme}
+						/>{:else}<SocialPreview model={previewModel} scheme={previewScheme} />{/if}
+				</div>
+			</div>
 		</div>
 	</section>
 </div>

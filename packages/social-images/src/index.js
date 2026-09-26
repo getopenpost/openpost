@@ -1,3 +1,5 @@
+import { previewTools } from "./preview-tools.js";
+export { previewTools } from "./preview-tools.js";
 import { marketingGuides } from "./guides.js";
 import { mediaTools } from "./media-tools.js";
 export { mediaTools, imageConversions, imageFormats } from "./media-tools.js";
@@ -62,6 +64,7 @@ const platformNames = [
 ];
 
 const toolPages = [
+  ...previewTools,
   ...mediaTools,
   {
     slug: "social-media-video-editor",

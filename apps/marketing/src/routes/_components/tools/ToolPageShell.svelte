@@ -11,8 +11,12 @@
 		getToolCategory,
 		type MarketingToolSlug
 	} from '../../_marketing';
+	import { previewTools } from '@openpost/social-images';
 	import { toolArticles } from '../../tools/_articles';
 	let { slug, children }: { slug: MarketingToolSlug; children: Snippet } = $props();
+	const isPreview = $derived(
+		slug === 'post-preview-generator' || previewTools.some((tool) => tool.slug === slug)
+	);
 	const article = $derived(toolArticles[slug]);
 	const related = $derived(
 		tools
@@ -28,7 +32,7 @@
 
 <section class="tool-page marketing-shell">
 	<a href="/tools" class="back-link focus-ring"><ArrowLeft size={16} /> All free tools</a>
-	<div class="tool-layout">
+	<div class="tool-layout" class:preview-layout={isPreview}>
 		<div class="tool-main">
 			<header>
 				<h1>{article.title}</h1>
@@ -73,40 +77,43 @@
 				</section>
 			</article>
 		</div>
-		<aside
-			class="tool-promo"
-			aria-label="Create and schedule with OpenPost"
-			data-agent-exclude="application-cta"
-		>
-			<div class="promo-content">
-				<div class="promo-brand">
-					<ThemeImage
-						lightSrc="/assets/brand/logo.svg"
-						darkSrc="/assets/brand/logo-dark.svg"
-						alt=""
-						width={24}
-						height={24}
-					/><span>OpenPost</span>
+		{#if !isPreview}
+			<aside
+				class="tool-promo"
+				aria-label="Create and schedule with OpenPost"
+				data-agent-exclude="application-cta"
+			>
+				<div class="promo-content">
+					<div class="promo-brand">
+						<ThemeImage
+							lightSrc="/assets/brand/logo.svg"
+							darkSrc="/assets/brand/logo-dark.svg"
+							alt=""
+							width={24}
+							height={24}
+						/><span>OpenPost</span>
+					</div>
+					<h2>A good post.<br /><HeroAccent>Then another.</HeroAccent></h2>
+					<p>Keep your ideas, images, videos, and schedule in one place.</p>
+					<ul>
+						<li><Check size={16} /> Write with a little AI help</li>
+						<li><Check size={16} /> Edit images and videos</li>
+						<li><Check size={16} /> Plan your week of posts</li>
+					</ul>
+					<Button href={managedSignupUrl}>Try OpenPost <ArrowRight data-icon="inline-end" /></Button
+					>
+					<small>{managedTrialNote}</small>
 				</div>
-				<h2>A good post.<br /><HeroAccent>Then another.</HeroAccent></h2>
-				<p>Keep your ideas, images, videos, and schedule in one place.</p>
-				<ul>
-					<li><Check size={16} /> Write with a little AI help</li>
-					<li><Check size={16} /> Edit images and videos</li>
-					<li><Check size={16} /> Plan your week of posts</li>
-				</ul>
-				<Button href={managedSignupUrl}>Try OpenPost <ArrowRight data-icon="inline-end" /></Button>
-				<small>{managedTrialNote}</small>
-			</div>
-			<img
-				class="promo-preview"
-				src="/assets/screenshots/calendar-dark.webp"
-				alt="Scheduled posts in the OpenPost calendar"
-				width="1280"
-				height="800"
-				loading="lazy"
-			/>
-		</aside>
+				<img
+					class="promo-preview"
+					src="/assets/screenshots/calendar-dark.webp"
+					alt="Scheduled posts in the OpenPost calendar"
+					width="1280"
+					height="800"
+					loading="lazy"
+				/>
+			</aside>
+		{/if}
 	</div>
 </section>
 
@@ -283,7 +290,7 @@
 		font-size: 15px;
 	}
 	@media (min-width: 1100px) {
-		.tool-layout {
+		.tool-layout:not(.preview-layout) {
 			grid-template-columns: minmax(0, 1fr) 300px;
 		}
 		.tool-promo {

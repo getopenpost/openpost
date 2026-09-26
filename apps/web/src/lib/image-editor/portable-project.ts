@@ -298,7 +298,7 @@ async function unzipProjectSafely(file: File): Promise<ProjectArchive> {
 		if (entry.originalSize !== undefined && entry.originalSize > maximum) {
 			throw new Error('A project entry exceeds its safe extraction limit.');
 		}
-		const chunks: Uint8Array[] = [];
+		const chunks: Uint8Array<ArrayBuffer>[] = [];
 		let entryBytes = 0;
 		entry.ondata = (error, data, final) => {
 			if (error) throw error;
@@ -311,7 +311,7 @@ async function unzipProjectSafely(file: File): Promise<ProjectArchive> {
 				entry.terminate();
 				throw new Error('The project exceeds its safe extraction limit.');
 			}
-			chunks.push(data);
+			chunks.push(data.slice());
 			if (!final) return;
 			archive[entry.name] = new Blob(chunks);
 		};

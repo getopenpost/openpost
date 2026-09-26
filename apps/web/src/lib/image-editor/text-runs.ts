@@ -27,7 +27,7 @@ export interface ImageEditorTextEdit {
 }
 
 function stylesByGrapheme(text: ImageEditorTextValue): RunStyle[] {
-	const styles = Array.from<RunStyle>({ length: textGraphemes(text.text).length }, () => ({}));
+	const styles = Array.from({ length: textGraphemes(text.text).length }, (): RunStyle => ({}));
 	for (const run of text.runs ?? []) {
 		const { start, end, ...style } = run;
 		for (let index = start; index < end && index < styles.length; index++) {

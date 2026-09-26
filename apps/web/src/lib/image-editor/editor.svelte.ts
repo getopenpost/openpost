@@ -50,6 +50,7 @@ import {
 	smoothSelectionPoints,
 	subtractPixelMasks,
 	translatePixelMaskRegion,
+	translatePixelMask,
 	transformPixelMask,
 	mergeSelectionIDs,
 	type SelectionBounds,

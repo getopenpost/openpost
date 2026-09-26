@@ -77,6 +77,37 @@ test("mixed page sizes persist and Resize design also resets pages to the defaul
     [1080, 1080],
     [720, 1280],
   ]);
+  await strip.getByRole("button", { name: /1080 × 1080 px/ }).click();
+  await page.getByRole("menuitem", { name: "Tools", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Shape\b/ }).click();
+  await page.getByRole("menubar").getByRole("menuitem", { name: "Select", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Select layer alpha", exact: true }).click();
+  const selection = page.getByTestId("image-editor-pixel-selection");
+  await expect(selection).toHaveAttribute("data-active", "true");
+  const transfer = await page.evaluateHandle(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "#2255cc";
+    context.fillRect(0, 0, 64, 64);
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob((value) => resolve(value!)));
+    const data = new DataTransfer();
+    data.items.add(new File([blob], "page-drop.png", { type: "image/png" }));
+    return data;
+  });
+  const target = strip.getByRole("button", { name: /720 × 1280 px/ });
+  await target.dispatchEvent("drop", { dataTransfer: transfer });
+  await transfer.dispose();
+  await expect(target).toHaveAttribute("aria-current", "page");
+  await expect(selection).toHaveAttribute("data-active", "false");
+  await expect
+    .poll(async () => {
+      const data = await (
+        await request.get(`/api/v1/image-editor/designs/${id}`, { headers })
+      ).json();
+      return data.document.pages[1].layers.map((layer: { type: string }) => layer.type);
+    })
+    .toEqual(["image"]);
 });
 
 test("text range weight survives cloud save and reload without changing the whole layer", async ({

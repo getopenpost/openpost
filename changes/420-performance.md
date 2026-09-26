@@ -6,3 +6,4 @@
 ### Fixed
 
 - Guest Image Editor releases local media URLs when their last open view closes, while keeping images available across overlapping views.
+- Canceling an Image Editor export also stops archive creation before a download starts. Multi-page previews retain only the previewed page, and export memory checks account for encoded pages and archive buffers.

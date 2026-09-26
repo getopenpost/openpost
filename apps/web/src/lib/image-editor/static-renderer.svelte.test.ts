@@ -76,7 +76,7 @@ describe('Image Editor full-resolution rendering', () => {
 		const first = new Blob([new Uint8Array([1])]);
 		vi.spyOn(first, 'stream').mockImplementation(
 			() =>
-				new ReadableStream<Uint8Array>({
+				new ReadableStream<Uint8Array<ArrayBuffer>>({
 					start(controller) {
 						controller.enqueue(new Uint8Array([1]));
 					}

@@ -1825,7 +1825,7 @@
 
   .facebook-stories {
     display: grid;
-    width: min(100%, 31.25rem);
+    width: min(100%, 41.25rem);
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.5rem;
   }
@@ -1869,7 +1869,7 @@
   }
 
   .facebook-composer {
-    width: min(100%, 31.25rem);
+    width: min(100%, 41.25rem);
   }
 
   .facebook-composer footer b:first-child :global(svg) {
@@ -1885,7 +1885,7 @@
   }
 
   .platform-facebook .context-post {
-    width: min(100%, 31.25rem);
+    width: min(100%, 41.25rem);
     border-radius: 0.65rem;
     background: var(--page-surface);
     box-shadow: 0 1px 2px rgb(0 0 0 / 10%);

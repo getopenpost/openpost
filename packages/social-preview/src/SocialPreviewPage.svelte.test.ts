@@ -51,3 +51,20 @@ it("keeps explicit preview colors independent from the host application theme", 
     document.documentElement.classList.remove("dark");
   }
 });
+
+it("aligns Facebook stories and feed cards in one desktop column", async () => {
+  await page.viewport(1280, 900);
+  host = document.createElement("div");
+  host.style.width = "1280px";
+  document.body.append(host);
+  await render(SocialPreviewPage, {
+    target: host,
+    props: { model: { ...model, platform: "facebook" }, scheme: "dark" },
+  });
+  const authored = host.querySelector(".facebook-preview")!.getBoundingClientRect();
+  for (const selector of [".facebook-stories", ".facebook-composer", ".native-context-post"]) {
+    const neighbor = host.querySelector(selector)!.getBoundingClientRect();
+    expect(neighbor.left).toBeCloseTo(authored.left);
+    expect(neighbor.width).toBeCloseTo(authored.width);
+  }
+});

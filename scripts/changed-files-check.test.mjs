@@ -216,4 +216,20 @@ describe("changed-files-check", () => {
     expect(svelteResult.status).not.toBe(0);
     expect(svelteResult.stderr).toContain("CompileError: Unexpected block closing tag");
   });
+
+  test("accepts a staged generated file excluded from formatting", () => {
+    const cwd = fixture();
+    mkdirSync(join(cwd, "packages/api-contract/src"), { recursive: true });
+    writeFileSync(join(cwd, ".prettierignore"), "packages/api-contract/src/schema.d.ts\n");
+    writeFileSync(
+      join(cwd, "packages/api-contract/src/schema.d.ts"),
+      "export type Generated={value:string}\n",
+    );
+    git(cwd, "add", "packages/api-contract/src/schema.d.ts");
+
+    const result = run("bash", [script, "--staged"], cwd, { env: formatterEnv(cwd) });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("changed-files-check: OK (1 changed files)");
+  });
 });

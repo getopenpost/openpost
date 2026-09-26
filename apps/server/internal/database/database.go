@@ -220,6 +220,8 @@ func CreateSchema(db *bun.DB) error {
 		(*models.RenditionSegment)(nil),
 		(*models.RenditionSegmentMedia)(nil),
 		(*models.RenditionMedia)(nil),
+		(*models.ImportedPost)(nil),
+		(*models.PostImportState)(nil),
 		(*models.PublicationLifecycleEvent)(nil),
 		(*models.PublicationAsset)(nil),
 		(*models.PublicationAlias)(nil),

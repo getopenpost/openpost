@@ -1586,6 +1586,59 @@ type RenditionMedia struct {
 	ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms,notnull,default:0" json:"thumbnail_timestamp_ms"`
 }
 
+// ImportedPost is the read-only library inventory of native posts authored
+// outside OpenPost. It is owned by the post-import surface, never by
+// analytics: analytics reads publications and renditions only, so imported
+// rows cannot clutter analytics views. Origin is always "external"; rows are
+// never published, repurposed, or measured.
+type ImportedPost struct {
+	bun.BaseModel `bun:"table:imported_posts"`
+
+	ID               string    `bun:",pk" json:"id"`
+	WorkspaceID      string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID  string    `bun:"social_account_id,notnull,unique:imported_post_identity" json:"social_account_id"`
+	Platform         string    `bun:",notnull" json:"platform"`
+	ProviderPostID   string    `bun:"provider_post_id,notnull,unique:imported_post_identity" json:"provider_post_id"`
+	ProviderParentID string    `bun:"provider_parent_id,notnull,default:''" json:"provider_parent_id,omitempty"`
+	Title            string    `bun:",notnull,default:''" json:"title,omitempty"`
+	Text             string    `bun:",notnull,default:''" json:"text"`
+	ExternalURL      string    `bun:"external_url,notnull,default:''" json:"external_url,omitempty"`
+	PublishedAt      time.Time `bun:"published_at,notnull" json:"published_at"`
+	Origin           string    `bun:",notnull,default:'external'" json:"origin"`
+	FirstSeenAt      time.Time `bun:"first_seen_at,notnull" json:"first_seen_at"`
+	LastSeenAt       time.Time `bun:"last_seen_at,notnull" json:"last_seen_at"`
+	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// PostImportState is the mutable per-account checkpoint for bounded,
+// resumable native-post imports. A row exists only after explicit opt-in;
+// enabling sets the watermark to now so activation never backfills history.
+type PostImportState struct {
+	bun.BaseModel `bun:"table:post_import_states"`
+
+	ID                string    `bun:",pk" json:"id"`
+	WorkspaceID       string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID   string    `bun:"social_account_id,notnull,unique" json:"social_account_id"`
+	Platform          string    `bun:",notnull" json:"platform"`
+	Enabled           bool      `bun:",notnull,default:true" json:"enabled"`
+	Status            string    `bun:",notnull,default:'partial'" json:"status"`
+	Cursor            string    `bun:",notnull,default:''" json:"-"`
+	ImportWatermark   time.Time `bun:"import_watermark,nullzero" json:"import_watermark,omitempty"`
+	CycleStartedAt    time.Time `bun:"cycle_started_at,nullzero" json:"-"`
+	InitialFinishedAt time.Time `bun:"initial_finished_at,nullzero" json:"initial_finished_at,omitempty"`
+	InitialItemsSeen  int       `bun:"initial_items_seen,notnull,default:0" json:"initial_items_seen"`
+	ReadBudgetStart   time.Time `bun:"read_budget_start,nullzero" json:"-"`
+	ReadBudgetUsed    int       `bun:"read_budget_used,notnull,default:0" json:"-"`
+	LastAttemptedAt   time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at,omitempty"`
+	LastSuccessAt     time.Time `bun:"last_success_at,nullzero" json:"last_success_at,omitempty"`
+	FailureCode       string    `bun:"failure_code,notnull,default:''" json:"failure_code,omitempty"`
+	FailureMessage    string    `bun:"failure_message,notnull,default:''" json:"failure_message,omitempty"`
+	NextEligibleAt    time.Time `bun:"next_eligible_at,nullzero" json:"next_eligible_at,omitempty"`
+	CreatedAt         time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt         time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
 // AnalyticsAccountSnapshot is an immutable provider measurement. MetricsJSON
 // contains only normalized integers and MetricMetadataJSON preserves their
 // meaning; provider responses and tokens are never retained.

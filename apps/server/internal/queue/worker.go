@@ -29,6 +29,7 @@ import (
 	messagingservice "github.com/openpost/backend/internal/services/messaging"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationownership"
+	postimportservice "github.com/openpost/backend/internal/services/postimport"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/publisher"
@@ -55,6 +56,7 @@ const (
 	processingHeartbeat                = staleProcessingJobAge / 3
 	publicationBuilderUnavailableRetry = time.Minute
 	jobFinalizationTimeout             = 3 * time.Second
+	postImportSweepInterval            = 15 * time.Minute
 )
 
 // BackgroundWorker polls the configured database for pending jobs.
@@ -77,6 +79,7 @@ type BackgroundWorker struct {
 	video                 *videoprocessing.Service
 	growth                *growthservice.Service
 	publicationBuilder    *publicationbuilder.Application
+	postImports           *postimportservice.Service
 	accountPreflight      *accountpreflightservice.Service
 	externalWebhooks      *externalwebhooks.Service
 	telemetry             telemetry.Recorder
@@ -206,6 +209,16 @@ func (w *BackgroundWorker) SetPublicationBuilderService(service *publicationbuil
 			return publicationbuilder.ErrRuntimeUnavailable
 		}
 		return w.publicationBuilder.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
+func (w *BackgroundWorker) SetPostImportService(service *postimportservice.Service) {
+	w.postImports = service
+	w.executors[jobregistry.ExecutePostImport] = func(ctx context.Context, job *models.Job) error {
+		if w.postImports == nil {
+			return fmt.Errorf("post imports are not configured")
+		}
+		return w.postImports.HandleJob(ctx, job.Type, job.Payload)
 	}
 }
 
@@ -410,6 +423,8 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 func (w *BackgroundWorker) Start(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
+	importTicker := time.NewTicker(postImportSweepInterval)
+	defer importTicker.Stop()
 	defer close(w.done)
 
 	log.Printf("Worker %s started polling every %v\n", w.workerID, w.interval)
@@ -418,6 +433,7 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 	}
 	w.ensureMediaLifecycleJobs(ctx)
 	w.ensureQueueReminderSweepJob(ctx)
+	w.enqueueDuePostImports(ctx)
 	w.processDueJobs(ctx)
 
 	for {
@@ -430,7 +446,18 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			w.processDueJobs(ctx)
+		case <-importTicker.C:
+			w.enqueueDuePostImports(ctx)
 		}
+	}
+}
+
+func (w *BackgroundWorker) enqueueDuePostImports(ctx context.Context) {
+	if w.postImports == nil {
+		return
+	}
+	if _, err := w.postImports.EnqueueDue(ctx); err != nil {
+		log.Printf("[Worker %s] failed to enqueue due post imports: %v", w.workerID, err)
 	}
 }
 

@@ -542,17 +542,18 @@ func defaultProviderAppConfig(cfg *Config, apps []platform.AppConfig) []platform
 
 func providerRedirectURI(cfg *Config, provider string) string {
 	redirects := map[string]string{
-		"x":         cfg.TwitterRedirectURI,
-		"discord":   oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/discord/callback"),
-		"facebook":  oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/facebook/callback"),
-		"instagram": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/instagram/callback"),
-		"mastodon":  cfg.MastodonRedirectURI,
-		"pixelfed":  cfg.MastodonRedirectURI,
-		"pinterest": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/pinterest/callback"),
-		"linkedin":  cfg.LinkedInRedirectURI,
-		"threads":   cfg.ThreadsRedirectURI,
-		"tiktok":    oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/tiktok/callback"),
-		"youtube":   oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/youtube/callback"),
+		"x":              cfg.TwitterRedirectURI,
+		"discord":        oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/discord/callback"),
+		"facebook":       oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/facebook/callback"),
+		"googlebusiness": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/googlebusiness/callback"),
+		"instagram":      oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/instagram/callback"),
+		"mastodon":       cfg.MastodonRedirectURI,
+		"pixelfed":       cfg.MastodonRedirectURI,
+		"pinterest":      oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/pinterest/callback"),
+		"linkedin":       cfg.LinkedInRedirectURI,
+		"threads":        cfg.ThreadsRedirectURI,
+		"tiktok":         oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/tiktok/callback"),
+		"youtube":        oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/youtube/callback"),
 	}
 	return redirects[provider]
 }

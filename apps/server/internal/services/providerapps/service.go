@@ -254,7 +254,7 @@ func isFederatedProviderApp(provider string) bool {
 
 func providerUsesSharedAppValidation(provider string) bool {
 	switch provider {
-	case "pinterest", "telegram", "discord", "pixelfed", "peertube", "lemmy", "piefed":
+	case "pinterest", "telegram", "discord", "pixelfed", "peertube", "lemmy", "piefed", "googlebusiness":
 		return true
 	default:
 		return false
@@ -266,7 +266,7 @@ func providerUsesSharedAppValidation(provider string) bool {
 // instance-owned and may be stored in encrypted provider app rows.
 func isManagedProviderApp(provider string) bool {
 	switch provider {
-	case "x", "mastodon", "pixelfed", "peertube", "lemmy", "piefed", "linkedin", "threads", "facebook", "instagram", "tiktok", "youtube", "pinterest", "telegram", "discord":
+	case "x", "mastodon", "pixelfed", "peertube", "lemmy", "piefed", "linkedin", "threads", "facebook", "instagram", "tiktok", "youtube", "pinterest", "telegram", "discord", "googlebusiness":
 		return true
 	default:
 		return false

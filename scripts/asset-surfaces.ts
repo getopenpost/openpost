@@ -6,6 +6,7 @@ export const publishedProviderAssetSlugs = [
   "bluesky",
   "discord",
   "pinterest",
+  "googlebusiness",
   "telegram",
   "x",
   "mastodon",

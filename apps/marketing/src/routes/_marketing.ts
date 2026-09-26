@@ -951,6 +951,52 @@ const platformImplementations = [
 		docsUrl: 'https://openpo.st/docs/guides/accounts'
 	},
 	{
+		slug: 'googlebusiness',
+		name: 'Google Business',
+		short: 'googlebusiness',
+		tag: 'Unavailable pending certification',
+		requiresProviderApproval: true,
+		implementationDetail: 'Adapter code exists; public connections are intentionally unavailable',
+		description:
+			'Google Business Profile is not publicly available in OpenPost. Google API access and current live certification are required before connection or publishing can be claimed.',
+		heroTitle: 'Google Business Profile remains behind the provider readiness gate.',
+		preview: {
+			label: 'No public connection',
+			headline: 'Certification required',
+			body: 'Mocked tests and adapter code do not make Google Business Profile available to public Hosted accounts.',
+			detail: 'Google API access plus live evidence',
+			chips: ['Unavailable', 'Provider approval', 'Live certification']
+		},
+		accountRequirement:
+			'A Google Cloud project with approved Business Profile API access, exact scopes, runtime controls, and current live certification.',
+		auth: 'Google OAuth 2.0 with location selection; publicly unavailable',
+		setup: [
+			'Operators may configure a Google Business app only for controlled development or certification work.',
+			'Keep public connection, publishing, and analytics operations disabled without current evidence.',
+			'Use the provider readiness ledger before changing any public availability statement.'
+		],
+		formats: [
+			{
+				name: 'Public availability',
+				text: 'Unavailable',
+				media: 'Unavailable'
+			}
+		],
+		limits: [
+			'Google API access approval is required for production use',
+			'Public Hosted availability requires current exact-subject live evidence',
+			'No Google Business operation is advertised as available today'
+		],
+		limitations: [
+			'Google enables the Local Posts surface only after an access request is approved.',
+			'An adapter, configured credential, or mocked test is not a readiness claim.',
+			'OpenPost exposes no public Google Business claim without a current certification projection.'
+		],
+		verification:
+			'Do not connect or publish for public accounts until Google API access and every readiness gate pass with current live evidence.',
+		docsUrl: 'https://openpo.st/docs/guides/accounts'
+	},
+	{
 		slug: 'telegram',
 		name: 'Telegram',
 		short: 'telegram',

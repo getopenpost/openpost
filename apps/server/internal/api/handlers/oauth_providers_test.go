@@ -88,7 +88,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	var out []ProviderInfo
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
-	require.Len(t, out, 16)
+	require.Len(t, out, 17)
 	require.Equal(t, "bluesky", out[0].Platform)
 	require.Equal(t, providerStatusAvailable, out[0].Status)
 	require.True(t, out[0].Configured)
@@ -127,10 +127,14 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.Equal(t, "instagram", out[12].Platform)
 	require.Equal(t, "facebook", out[13].Platform)
 	require.Equal(t, "youtube", out[14].Platform)
-	require.Equal(t, "tiktok", out[15].Platform)
-	require.Equal(t, "OAuth app connection for TikTok videos and photo posts.", out[15].Description)
-	require.Contains(t, out[15].Capabilities, "Short videos")
-	require.Contains(t, out[15].Capabilities, "Photo posts")
+	require.Equal(t, "googlebusiness", out[15].Platform)
+	require.Equal(t, "Google Business", out[15].DisplayName)
+	require.False(t, out[15].Configured)
+	require.Contains(t, out[15].Capabilities, "Local posts")
+	require.Equal(t, "tiktok", out[16].Platform)
+	require.Equal(t, "OAuth app connection for TikTok videos and photo posts.", out[16].Description)
+	require.Contains(t, out[16].Capabilities, "Short videos")
+	require.Contains(t, out[16].Capabilities, "Photo posts")
 }
 
 func TestTelegramConnectionAvailabilityFollowsReadiness(t *testing.T) {

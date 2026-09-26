@@ -557,6 +557,13 @@ var providerCatalog = []ProviderInfo{
 		Capabilities: []string{"Shorts", "Video uploads", "Scheduling", "Platform variants", "MCP workflows"},
 	},
 	{
+		Platform:     "googlebusiness",
+		DisplayName:  "Google Business",
+		AuthMode:     "oauth",
+		Description:  "Google OAuth connection for Business Profile local posts; location selection and publishing require Google API access and current live certification.",
+		Capabilities: []string{"Location selection", "Local posts", "Scheduling", "Platform variants", "MCP workflows"},
+	},
+	{
 		Platform:     "tiktok",
 		DisplayName:  "TikTok",
 		AuthMode:     "oauth",

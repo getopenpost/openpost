@@ -8,6 +8,7 @@
   import PreviewMedia from "./PreviewMedia.svelte";
   import VerifiedBadge from "./VerifiedBadge.svelte";
   import VerticalPreview from "./VerticalPreview.svelte";
+  import PreviewText from "./PreviewText.svelte";
 
   interface Props {
     model: PreviewModel;
@@ -78,14 +79,16 @@
         <PreviewActions {platform} {compact} />
       </div>
       <div class="caption">
-        <p>
-          <strong
-            >{platform === "pixelfed"
+        <div class="caption-text">
+          <PreviewText
+            text={primary.text}
+            author={platform === "pixelfed"
               ? model.identity.displayName
-              : handle}</strong
-          >
-          <span>{primary.text}</span>
-        </p>
+              : handle}
+            lines={2}
+            buttonLabel="more"
+          />
+        </div>
         {#if platform === "pixelfed" && model.card}<PreviewAttachment
             card={model.card}
             {platform}
@@ -212,16 +215,12 @@
     padding: 0 0.85rem 0.85rem;
   }
 
-  .caption p {
+  .caption-text {
     margin: 0;
     font-size: 0.81rem;
     line-height: 1.45;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
-  }
-
-  .caption p strong {
-    margin-right: 0.35rem;
   }
 
   .caption small {

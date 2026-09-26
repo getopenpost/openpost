@@ -6,6 +6,7 @@
     lines?: number;
     class?: string;
     buttonLabel?: string;
+    author?: string;
   }
 
   let {
@@ -13,6 +14,7 @@
     lines = 3,
     class: className = "",
     buttonLabel = "See more",
+    author,
   }: Props = $props();
   const contentId = $props.id();
   const lineLimit = $derived(Math.max(1, Math.floor(lines)));
@@ -53,10 +55,10 @@
 <div class={["preview-text", className]}>
   <p
     id={contentId}
-    use:observeOverflow={{ text, limit: lineLimit }}
+    use:observeOverflow={{ text: `${author ?? ""}${text}`, limit: lineLimit }}
     style:-webkit-line-clamp={expanded ? "unset" : lineLimit}
   >
-    {text}
+    {#if author}<strong>{author}</strong>{/if}{text}
   </p>
   {#if truncated}
     <button
@@ -96,6 +98,9 @@
     font: inherit;
     font-weight: 600;
     cursor: pointer;
+  }
+  strong {
+    margin-right: 0.35rem;
   }
   button:hover {
     text-decoration: underline;

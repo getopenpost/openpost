@@ -8,6 +8,7 @@
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
   import VerticalPreview from "./VerticalPreview.svelte";
+  import PreviewText from "./PreviewText.svelte";
 
   interface Props {
     model: PreviewModel;
@@ -42,7 +43,7 @@
     </header>
 
     {#if text}
-      <p class="post-text">{text}</p>
+      <div class="post-text"><PreviewText {text} lines={5} /></div>
     {/if}
     {#if model.card}<PreviewAttachment
         card={model.card}

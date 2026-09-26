@@ -8,6 +8,7 @@
   import PreviewMedia from "./PreviewMedia.svelte";
   import PreviewPoll from "./PreviewPoll.svelte";
   import VerifiedBadge from "./VerifiedBadge.svelte";
+  import PreviewText from "./PreviewText.svelte";
 
   interface Props {
     model: PreviewModel;
@@ -30,7 +31,13 @@
 </script>
 
 {#snippet postText(segment: PreviewSegment)}
-  <p class="post-text">{segment.text || "Your post will appear here."}</p>
+  <div class="post-text">
+    <PreviewText
+      text={segment.text || "Your post will appear here."}
+      lines={2}
+      buttonLabel="… more"
+    />
+  </div>
 {/snippet}
 
 <article class={["linkedin-preview", compact && "compact"]}>

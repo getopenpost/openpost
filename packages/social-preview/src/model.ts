@@ -174,6 +174,7 @@ export const previewCapabilities: Record<PreviewPlatform, PreviewCapability> = {
   threads: {
     formats: ["post", "thread", "video"],
     media: commonMedia,
+    maxImages: 20,
     polls: true,
     cards: ["link", "quote"],
     contentWarning: true,

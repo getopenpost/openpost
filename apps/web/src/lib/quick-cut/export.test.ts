@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { PerformanceObserver } from 'node:perf_hooks';
+import { describe, expect, it, vi } from 'vitest';
+import { configureProfiling } from '$lib/performance/profiling';
 import { exportSegments, preflightExport } from './export';
 import { createSegment } from './model';
 import type { QuickCutSource } from './types';
@@ -56,6 +58,41 @@ function makeSource(id: string, overrides: Partial<QuickCutSource> = {}): QuickC
 }
 
 describe('quick-cut preflight', () => {
+	it('includes synchronous planning in the export preflight trace', async () => {
+		const source = makeSource('profiled');
+		const entries: { name: string; duration: number }[] = [];
+		const observer = new PerformanceObserver((list) => entries.push(...list.getEntries()));
+		observer.observe({ type: 'measure' });
+		let now = 100;
+		const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+		vi.stubGlobal('navigator', {
+			storage: {
+				estimate: async () => {
+					now += 20;
+					return { quota: 1, usage: 0 };
+				}
+			}
+		});
+		configureProfiling({ enabled: true });
+		try {
+			await expect(
+				exportSegments({
+					sources: [source],
+					segments: [createSegment(0, 1, { sourceId: source.id })],
+					cutMode: 'nearestKeyframe',
+					merge: false
+				})
+			).rejects.toThrow('Not enough storage');
+			await expect.poll(() => entries.length).toBe(1);
+			expect(entries[0]).toMatchObject({ name: 'OpenPost/Quick Cut/Preflight', duration: 20 });
+		} finally {
+			configureProfiling({ enabled: false });
+			clock.mockRestore();
+			vi.unstubAllGlobals();
+			observer.disconnect();
+		}
+	});
+
 	it('reports stream copy when starts are on keyframes', async () => {
 		const src = makeSource('s1');
 		const segs = [createSegment(0, 2, { sourceId: 's1' }), createSegment(4, 6, { sourceId: 's1' })];

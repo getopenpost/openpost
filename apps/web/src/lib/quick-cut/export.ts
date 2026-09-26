@@ -1,3 +1,4 @@
+import { startProfileSpan } from '$lib/performance/profiling';
 import {
 	ALL_FORMATS,
 	BlobSource,
@@ -1776,8 +1777,12 @@ export async function exportSegments(
 	const { sources, segments, cutMode, merge, signal, onProgress } = options;
 	const enabled = segments.filter((s) => s.enabled !== false);
 	if (enabled.length === 0) throw new Error('No segments to export.');
-	const preflight = await preflightExport(sources, enabled, cutMode, merge);
+	const finishPreflight = startProfileSpan('Quick Cut', 'Preflight');
+	const preflight = await preflightExport(sources, enabled, cutMode, merge).finally(
+		finishPreflight
+	);
 	if (!preflight.eligible) throw new Error(preflight.reason);
+	const finishProfile = startProfileSpan('Quick Cut', 'Export');
 	const startTime = Date.now();
 	const artifacts: QuickCutScratchArtifact[] = [];
 	let lastReportedFraction = 0;
@@ -1986,6 +1991,8 @@ export async function exportSegments(
 	} catch (e) {
 		for (const a of artifacts) await discardScratchFile(a.scratchPath).catch(() => undefined);
 		throw e;
+	} finally {
+		finishProfile?.();
 	}
 }
 

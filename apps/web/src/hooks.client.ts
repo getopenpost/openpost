@@ -2,6 +2,7 @@
 import type { HandleClientError } from '@sveltejs/kit';
 import { installMaintainerDiagnosticsCapture } from '$lib/diagnostics-report';
 import { installCryptoRandomUUID } from '$lib/crypto-random-uuid';
+import { configureProfiling } from '$lib/performance/profiling';
 import {
 	captureClientException,
 	createChunkRecovery,
@@ -99,6 +100,7 @@ function diagnosticsFor(error: unknown): ChunkFailureDiagnostics {
 }
 
 async function init() {
+	configureProfiling({ enabled: new URLSearchParams(location.search).get('profile') === '1' });
 	installCryptoRandomUUID();
 	initializeClientErrors(installGlobalErrorCapture);
 	// Maintainer diagnostics ride a separate channel to the viewer's own
@@ -106,6 +108,9 @@ async function init() {
 	// never message text, and only when the instance switch is on and no
 	// browser privacy signal refuses.
 	installMaintainerDiagnosticsCapture();
+	if (import.meta.env.DEV && new URLSearchParams(location.search).get('renderScan') === '1') {
+		void import('$lib/performance/render-scan');
+	}
 }
 
 export { init };

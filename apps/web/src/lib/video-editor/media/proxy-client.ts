@@ -8,6 +8,7 @@
  * least-recently-accessed cache replaces the unbounded Map.
  */
 
+import { startProfileSpan } from '$lib/performance/profiling';
 import type { MediaMetadata } from './types';
 import type { ProxyRequest, ProxyWorkerResponse } from './proxy-worker';
 import { SizedAccessedMemoryCache } from './sized-accessed-memory-cache';
@@ -203,6 +204,7 @@ async function encodeProxy(
 ): Promise<Blob> {
 	const cacheVersion = cacheVersions.get(media.id) ?? 0;
 	const worker = new Worker(new URL('./proxy-worker.ts', import.meta.url), { type: 'module' });
+	const finishProfile = startProfileSpan('Media', 'Generate proxy');
 	try {
 		const { resolveMediaBlob } = await import('./resolve-media-blob');
 		const file = await resolveMediaBlob(media);
@@ -249,6 +251,7 @@ async function encodeProxy(
 		throw error;
 	} finally {
 		worker.terminate();
+		finishProfile?.();
 	}
 }
 

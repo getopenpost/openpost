@@ -136,7 +136,8 @@ export default defineConfig({
 		sourcemap: sourceMaps.enabled ? 'hidden' : false
 	},
 	optimizeDeps: {
-		exclude: ['ai-music-js', 'kokoro-js', 'phonemizer'],
+		// The scanner must share the app's Svelte runtime when mounted from client init.
+		exclude: ['ai-music-js', 'kokoro-js', 'phonemizer', 'svelte-render-scan'],
 		include: [
 			'@ricky0123/vad-web/dist/models/silero',
 			'@lucide/svelte/icons/maximize',

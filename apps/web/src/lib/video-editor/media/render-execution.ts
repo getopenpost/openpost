@@ -1,3 +1,4 @@
+import { isProfilingEnabled, startProfileSpan } from '$lib/performance/profiling';
 import type { Project } from '../project/types';
 import { exportStorageRoot } from '../workspace-fs/export-storage';
 import { mediaPool } from './pool.svelte';
@@ -198,7 +199,8 @@ async function renderInWorker(
 			requestId,
 			project: job.project,
 			media: dependencies.media().map(cloneMedia),
-			workspaceRoot
+			workspaceRoot,
+			profiling: isProfilingEnabled()
 		};
 		const request: RenderExportWorkerRequest =
 			job.mode === 'video'
@@ -220,6 +222,7 @@ export async function renderExportArtifact(
 	job: RenderExecutionJob,
 	dependencies: RenderExecutionDependencies = defaultDependencies
 ): Promise<RenderExecutionOutcome> {
+	const finishProfile = startProfileSpan('Export', job.mode);
 	try {
 		const artifact = await renderInWorker(job, dependencies);
 		return {
@@ -249,6 +252,8 @@ export async function renderExportArtifact(
 			renderPath: artifact.renderMethod === 'smart-copy' ? 'smart-copy' : 'main-thread',
 			fallbackReason: reason
 		};
+	} finally {
+		finishProfile?.();
 	}
 }
 
@@ -540,6 +545,7 @@ async function renderImageSequenceInWorker(
 			project: job.project,
 			media: dependencies.media().map(cloneMedia),
 			workspaceRoot,
+			profiling: isProfilingEnabled(),
 			options: job.options
 		};
 		if (job.signal?.aborted) {

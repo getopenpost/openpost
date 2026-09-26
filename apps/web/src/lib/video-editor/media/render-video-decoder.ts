@@ -1,3 +1,4 @@
+import { startProfileSpan } from '$lib/performance/profiling';
 import type { CanvasSink, VideoSinkDecoderOptions, WrappedCanvas } from 'mediabunny';
 
 type HardwareAcceleration = NonNullable<VideoSinkDecoderOptions['hardwareAcceleration']>;
@@ -61,6 +62,7 @@ export class ResilientVideoCanvasDecoder {
 	}
 
 	async getCanvas(timestamp: number): Promise<WrappedCanvas | null> {
+		const finishProfile = startProfileSpan('Video decode', 'Frame');
 		try {
 			return await this.read(timestamp);
 		} catch (error) {
@@ -68,7 +70,9 @@ export class ResilientVideoCanvasDecoder {
 			await this.reset();
 			this.software = true;
 			this.sink = this.createSink('prefer-software', this.reverseCapacity || 2);
-			return this.read(timestamp);
+			return await this.read(timestamp);
+		} finally {
+			finishProfile?.();
 		}
 	}
 

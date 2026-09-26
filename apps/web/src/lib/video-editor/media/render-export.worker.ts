@@ -1,3 +1,4 @@
+import { configureProfiling } from '$lib/performance/profiling';
 import type { RenderExportProgress } from './render-export';
 import type {
 	RenderExportWorkerRequest,
@@ -72,6 +73,7 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 		return;
 	}
 
+	configureProfiling({ enabled: message.profiling === true });
 	const controller = new AbortController();
 	activeRequests.set(message.requestId, controller);
 	try {

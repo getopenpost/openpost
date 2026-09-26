@@ -8,6 +8,7 @@
  * fallback, persistent chunked audio DSP, and OPFS-backed output streaming.
  */
 
+import { startProfileSpan } from '$lib/performance/profiling';
 import {
 	ALL_FORMATS,
 	AdtsOutputFormat,
@@ -634,11 +635,13 @@ export class TimelineFrameRenderer {
 	}
 
 	async render(frame: number): Promise<OffscreenCanvas> {
+		const finishProfile = startProfileSpan('Video compose', 'Frame');
 		this.disposal.enter();
 		try {
 			return await this.renderFrame(frame);
 		} finally {
 			this.disposal.leave();
+			finishProfile?.();
 		}
 	}
 
@@ -960,7 +963,8 @@ export async function renderMultiTrackVideoArtifact(
 			audioSource = null;
 		}
 	}
-	const feedTask = runFeed();
+	const finishAudio = startProfileSpan('Video audio', 'Mix and encode');
+	const feedTask = runFeed().finally(finishAudio);
 	feedTask.catch(() => undefined);
 
 	const frameRenderer = new TimelineFrameRenderer(project, {
@@ -979,10 +983,12 @@ export async function renderMultiTrackVideoArtifact(
 				timestamp: outputFrame / fps,
 				duration: 1 / fps
 			});
+			const finishEncode = startProfileSpan('Video encode', 'Submit frame');
 			try {
 				await videoSource.add(sample);
 			} finally {
 				sample.close();
+				finishEncode?.();
 			}
 
 			report(options, 'rendering', outputFrame + 1, totalFrames);
@@ -992,7 +998,8 @@ export async function renderMultiTrackVideoArtifact(
 		report(options, 'encoding', totalFrames, totalFrames);
 		await feedTask;
 		report(options, 'finalizing', totalFrames, totalFrames);
-		await output.finalize();
+		const finishFinalize = startProfileSpan('Export', 'Finalize');
+		await output.finalize().finally(finishFinalize);
 	} catch (error) {
 		try {
 			if (output.state === 'started') await output.cancel();
@@ -1121,7 +1128,8 @@ export async function renderTimelineAudioArtifact(
 		if (producedWindows === 0) throw new Error('The audio mix is empty.');
 		source.close();
 		report(options, 'finalizing', totalFrames, totalFrames);
-		await output.finalize();
+		const finishFinalize = startProfileSpan('Export', 'Finalize');
+		await output.finalize().finally(finishFinalize);
 	} catch (error) {
 		try {
 			if (output.state === 'started') await output.cancel();

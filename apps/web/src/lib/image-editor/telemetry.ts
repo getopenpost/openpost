@@ -1,3 +1,5 @@
+import { startProfileSpan } from '$lib/performance/profiling';
+
 export type ImageEditorMetricName =
 	| 'document_load'
 	| 'canvas_ready'
@@ -9,8 +11,10 @@ export type ImageEditorMetricName =
 export function startImageEditorMetric(
 	name: ImageEditorMetricName
 ): (outcome?: 'success' | 'error') => void {
+	const finishProfile = startProfileSpan('Image Editor', name);
 	const startedAt = globalThis.performance?.now() ?? Date.now();
 	return (outcome = 'success') => {
+		finishProfile?.();
 		const duration = Math.max(0, (globalThis.performance?.now() ?? Date.now()) - startedAt);
 		globalThis.dispatchEvent?.(
 			new CustomEvent('openpost:image-editor-metric', {

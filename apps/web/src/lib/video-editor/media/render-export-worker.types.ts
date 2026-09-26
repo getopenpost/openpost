@@ -21,6 +21,7 @@ interface WorkerRenderStartBase {
 	project: Project;
 	media: MediaMetadata[];
 	workspaceRoot: FileSystemDirectoryHandle;
+	profiling?: boolean;
 }
 
 export interface WorkerVideoRenderStart extends WorkerRenderStartBase {

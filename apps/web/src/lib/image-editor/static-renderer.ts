@@ -1,3 +1,4 @@
+import { startProfileSpan } from '$lib/performance/profiling';
 import { strToU8, Zip, ZipPassThrough } from 'fflate';
 import type { ImageEditorDocument, ImageEditorPage } from './types';
 import { OpenPostFabricAdapter } from './fabric-adapter';
@@ -75,6 +76,7 @@ export async function renderImageEditorPage(
 			throw new Error(m.image_editor_export_missing_media());
 		}
 	});
+	const finishProfile = startProfileSpan('Image Editor', 'Render page');
 	try {
 		await adapter.mount();
 		signal?.throwIfAborted();
@@ -109,6 +111,7 @@ export async function renderImageEditorPage(
 		};
 	} finally {
 		adapter.dispose();
+		finishProfile?.();
 	}
 }
 
@@ -146,6 +149,7 @@ export async function renderImageEditorPreview(
 		onTransform() {},
 		onTextChange() {}
 	});
+	const finishProfile = startProfileSpan('Image Editor', 'Render preview');
 	try {
 		signal?.throwIfAborted();
 		await adapter.mount();
@@ -162,6 +166,7 @@ export async function renderImageEditorPreview(
 		return blob;
 	} finally {
 		adapter.dispose();
+		finishProfile?.();
 	}
 }
 

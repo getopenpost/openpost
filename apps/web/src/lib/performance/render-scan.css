@@ -1,0 +1,38 @@
+.openpost-render-scan button {
+	background-color: var(--muted) !important;
+	color: var(--muted-foreground);
+	border: 1px solid var(--border);
+	box-shadow: none;
+}
+
+.openpost-render-scan button:has(.enabled) {
+	background-color: var(--primary) !important;
+	color: var(--primary-foreground);
+}
+
+.openpost-render-scan svg {
+	stroke: currentColor;
+}
+
+.render-perf__box {
+	border-color: var(--primary);
+	background-color: color-mix(in oklab, var(--primary) 5%, transparent);
+}
+
+.render-perf__title {
+	border-color: var(--primary);
+	background-color: var(--primary);
+	color: var(--primary-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.openpost-render-scan button,
+	.openpost-render-scan button div {
+		transition: none !important;
+		transform: none !important;
+	}
+
+	.render-perf__box {
+		transition: none !important;
+	}
+}

@@ -12,6 +12,7 @@
  *   viewport rather than React's per-clip hooks.
  */
 
+import { startProfileSpan } from '$lib/performance/profiling';
 import type { MediaMetadata } from './types';
 import {
 	buildTargetIndices,
@@ -205,6 +206,7 @@ class FilmstripCacheService {
 		}
 
 		const version = this.cacheVersions.get(media.id) ?? 0;
+		const finishProfile = startProfileSpan('Media', 'Load filmstrip');
 		const promise = this.loadPersistedOrExtract(
 			media,
 			targetIndices,
@@ -216,6 +218,7 @@ class FilmstripCacheService {
 		try {
 			return await promise;
 		} finally {
+			finishProfile?.();
 			const current = this.loadingPromises.get(media.id);
 			if (current === promise) this.loadingPromises.delete(media.id);
 		}

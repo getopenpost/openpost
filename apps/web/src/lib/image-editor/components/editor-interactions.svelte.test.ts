@@ -92,22 +92,28 @@ it('previews page moves without saving, cancels, then commits one undoable move'
 	expect(editor.document?.pages.map((p) => p.id)).toEqual(['first', 'second', 'third']);
 	expect(editor.canUndo).toBe(false);
 });
-it('announces page moves made with the visible reorder controls', async () => {
-	const editor = setup();
-	const screen = await render(Fixture, { editor });
-	await screen.getByRole('button', { name: /Page 1: First/ }).click();
-	await screen.getByRole('button', { name: 'Move page right' }).click();
-	await expect.element(screen.getByText('First, position 2 of 3.')).toBeInTheDocument();
-	expect(editor.document?.pages.map((page) => page.id)).toEqual(['second', 'first', 'third']);
-	const transfer = new DataTransfer();
-	screen.container
-		.querySelector<HTMLElement>('[data-page-id="first"]')!
-		.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
-	screen.container
-		.querySelector<HTMLElement>('[data-page-id="third"]')!
-		.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
-	await expect.element(screen.getByText('Placed First at position 3.')).toBeInTheDocument();
-	expect(editor.document?.pages.map((page) => page.id)).toEqual(['second', 'third', 'first']);
+it('announces page moves made from the phone actions menu', async () => {
+	await page.viewport(320, 800);
+	try {
+		const editor = setup();
+		const screen = await render(Fixture, { editor });
+		await screen.getByRole('button', { name: /Page 1: First/ }).click();
+		await screen.getByRole('button', { name: 'More actions' }).click();
+		await screen.getByRole('menuitem', { name: 'Move page right' }).click();
+		await expect.element(screen.getByText('First, position 2 of 3.')).toBeInTheDocument();
+		expect(editor.document?.pages.map((page) => page.id)).toEqual(['second', 'first', 'third']);
+		const transfer = new DataTransfer();
+		screen.container
+			.querySelector<HTMLElement>('[data-page-id="first"]')!
+			.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+		screen.container
+			.querySelector<HTMLElement>('[data-page-id="third"]')!
+			.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
+		await expect.element(screen.getByText('Placed First at position 3.')).toBeInTheDocument();
+		expect(editor.document?.pages.map((page) => page.id)).toEqual(['second', 'third', 'first']);
+	} finally {
+		await page.viewport(1280, 900);
+	}
 });
 it('keeps page controls and long layer names inside a narrow viewport', async () => {
 	await page.viewport(320, 800);

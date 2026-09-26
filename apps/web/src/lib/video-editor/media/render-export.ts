@@ -19,6 +19,7 @@ import {
 	canEncodeVideo,
 	getFirstEncodableVideoCodec,
 	Input,
+	type InputVideoTrack,
 	MkvOutputFormat,
 	MovOutputFormat,
 	Mp3OutputFormat,
@@ -138,11 +139,6 @@ const VIDEO_BITRATES = {
 	standard: 8_000_000,
 	high: 16_000_000
 } as const;
-
-interface VideoDecoder {
-	input: Input;
-	sink: ResilientVideoCanvasDecoder;
-}
 
 interface ArtifactTarget {
 	target: BufferTarget | StreamTarget;
@@ -277,13 +273,16 @@ export class TimelineFrameRenderer {
 	private readonly burnSubtitles: boolean;
 	private readonly trackOrderById: Map<string, number>;
 	private readonly adjustmentLayers: AdjustmentLayerScope[];
-	private readonly decoders = new Map<string, VideoDecoder>();
+	private readonly videoTracks = new Map<string, Promise<InputVideoTrack | null>>();
+	private readonly decoders = new Map<string, ResilientVideoCanvasDecoder>();
+	private readonly activeDecoders = new Set<string>();
 	private readonly imageCache = new Map<string, ImageBitmap>();
 	private readonly animatedFrames = new Map<string, Promise<AnimatedImageFramesResult | null>>();
 	private readonly inputs: Input[] = [];
 	private readonly stackCompositor: CanvasStackCompositor;
 	private readonly textCanvas = new OffscreenCanvas(1, 1);
 	private readonly nestedRenderers = new Map<string, TimelineFrameRenderer>();
+	private readonly activeNestedRenderers = new Set<string>();
 	private readonly lottieProvider = new LottieFrameProvider();
 	private readonly lottieBlobs = new Map<string, Blob>();
 	private readonly lottieSpecs = new Map<string, Promise<LottieRenderSpec>>();
@@ -385,9 +384,7 @@ export class TimelineFrameRenderer {
 		return { source: this.textCanvas, width, height };
 	}
 
-	private async getDecoder(mediaId: string): Promise<VideoDecoder | null> {
-		const existing = this.decoders.get(mediaId);
-		if (existing) return existing;
+	private async openVideoTrack(mediaId: string): Promise<InputVideoTrack | null> {
 		const media = mediaPool.get(mediaId);
 		if (!media) return null;
 		const blob = await resolveMediaBlob(media);
@@ -399,19 +396,39 @@ export class TimelineFrameRenderer {
 		const videoTrack = await input.getPrimaryVideoTrack();
 		if (!videoTrack) return null;
 		await ensureProResDecoderForCodec(videoTrack.codec);
-		const decoder: VideoDecoder = {
-			input,
-			sink: new ResilientVideoCanvasDecoder(
-				(hardwareAcceleration) =>
-					new CanvasSink(videoTrack, {
-						width: this.width,
-						height: this.height,
-						fit: 'contain',
-						decoderOptions: { hardwareAcceleration }
-					})
-			)
-		};
-		this.decoders.set(mediaId, decoder);
+		return videoTrack;
+	}
+
+	private async getDecoder(item: TimelineItem): Promise<ResilientVideoCanvasDecoder | null> {
+		const mediaId = item.mediaId;
+		if (!mediaId) return null;
+		this.activeDecoders.add(item.id);
+		let track = this.videoTracks.get(mediaId);
+		if (!track) {
+			track = this.openVideoTrack(mediaId);
+			this.videoTracks.set(mediaId, track);
+		}
+		const videoTrack = await track;
+		if (!videoTrack) return null;
+		const existing = this.decoders.get(item.id);
+		if (existing) return existing;
+		// Clips sharing a source can play different times simultaneously, including in a transition.
+		const decoder = new ResilientVideoCanvasDecoder(
+			(hardwareAcceleration, poolSize) =>
+				new CanvasSink(videoTrack, {
+					width: this.width,
+					height: this.height,
+					fit: 'contain',
+					poolSize,
+					decoderOptions: { hardwareAcceleration }
+				}),
+			{
+				reverse: item.isReversed
+					? { width: this.width, height: this.height, fps: item.sourceFps ?? this.fps }
+					: undefined
+			}
+		);
+		this.decoders.set(item.id, decoder);
 		return decoder;
 	}
 
@@ -511,6 +528,7 @@ export class TimelineFrameRenderer {
 			);
 			if (!composition) return null;
 			const rendererKey = `${composition.id}:${originalItem.id}:${JSON.stringify(originalItem.compositionControlOverrides ?? {})}`;
+			this.activeNestedRenderers.add(rendererKey);
 			let renderer = this.nestedRenderers.get(rendererKey);
 			if (!renderer) {
 				const compositionItems = applyCompositionControlOverrides(
@@ -590,11 +608,9 @@ export class TimelineFrameRenderer {
 			return source ? { source, width, height } : null;
 		}
 		if (resolvedItem.type === 'video') {
-			const decoder = await this.getDecoder(resolvedItem.mediaId);
+			const decoder = await this.getDecoder(originalItem);
 			if (!decoder) return null;
-			const wrapped = await decoder.sink.getCanvas(
-				frameToSourceSeconds(originalItem, frame, this.fps)
-			);
+			const wrapped = await decoder.getCanvas(frameToSourceSeconds(originalItem, frame, this.fps));
 			return wrapped
 				? {
 						source: wrapped.canvas,
@@ -627,6 +643,8 @@ export class TimelineFrameRenderer {
 	}
 
 	private async renderFrame(frame: number): Promise<OffscreenCanvas> {
+		this.activeDecoders.clear();
+		this.activeNestedRenderers.clear();
 		this.stackCompositor.beginFrame(this.width, this.height, this.backgroundColor);
 		const activeMasks = this.orderedItems
 			.filter(
@@ -724,6 +742,16 @@ export class TimelineFrameRenderer {
 		);
 
 		this.stackCompositor.assertExactRender();
+		for (const [id, decoder] of this.decoders) {
+			if (this.activeDecoders.has(id)) continue;
+			decoder.dispose();
+			this.decoders.delete(id);
+		}
+		for (const [id, renderer] of this.nestedRenderers) {
+			if (this.activeNestedRenderers.has(id)) continue;
+			renderer.dispose();
+			this.nestedRenderers.delete(id);
+		}
 		return this.canvas;
 	}
 
@@ -732,6 +760,8 @@ export class TimelineFrameRenderer {
 	}
 
 	private disposeResources(): void {
+		for (const decoder of this.decoders.values()) decoder.dispose();
+		this.decoders.clear();
 		for (const input of this.inputs) input.dispose?.();
 		for (const renderer of this.nestedRenderers.values()) renderer.dispose();
 		this.nestedRenderers.clear();

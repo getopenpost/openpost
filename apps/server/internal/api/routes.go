@@ -44,6 +44,7 @@ import (
 	"github.com/openpost/backend/internal/services/organizationownership"
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/postgeneration"
+	"github.com/openpost/backend/internal/services/postimport"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
@@ -115,6 +116,7 @@ type RouteDeps struct {
 	InstanceSettingsService      *instancesettings.Service
 	AIPromptService              *aiprompts.Service
 	AnalyticsService             *analyticsservice.Service
+	PostImportService            *postimport.Service
 	MessagingService             *messagingservice.Service
 	EngagementService            *engagementservice.Service
 	RepostService                *repostservice.Service
@@ -440,6 +442,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	oauthHandler.RefreshAccountMetadata(api)
 	oauthHandler.DisconnectAccount(api)
 	oauthHandler.RevokeAccountGrant(api)
+	handlers.NewPostImportHandler(deps.DB, deps.PostImportService, deps.Authenticator).RegisterRoutes(api)
 
 	var planPolicy accountfeatures.PlanPolicy
 	if deps.Entitlement != nil {

@@ -332,6 +332,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/accounts/{account_id}/post-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a connected account's native post imports */
+        get: operations["read-post-imports"];
+        /** Opt a connected account into or out of native post imports */
+        put: operations["save-post-imports"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts/{account_id}/publishing-options/{source}": {
         parameters: {
             query?: never;
@@ -9445,6 +9463,14 @@ export interface components {
             /** Format: double */
             y: number;
         };
+        ImportedPostResponse: {
+            external_url: string;
+            id: string;
+            /** Format: date-time */
+            published_at: string;
+            text: string;
+            title: string;
+        };
         IngestDiagnosticsInputBody: {
             /**
              * Format: uri
@@ -11045,6 +11071,27 @@ export interface components {
             retry_after?: number;
             status: string;
             token?: string;
+        };
+        PostImportOverviewResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/PostImportOverviewResponse.json
+             */
+            readonly $schema?: string;
+            account_id: string;
+            enabled: boolean;
+            failure_message?: string;
+            /** Format: date-time */
+            last_success_at?: string;
+            next_cursor?: string;
+            /** Format: date-time */
+            next_eligible_at?: string;
+            platform: string;
+            posts: components["schemas"]["ImportedPostResponse"][] | null;
+            status: string;
+            supported: boolean;
+            unavailable_reason?: string;
         };
         PostingScheduleResponse: {
             /**
@@ -12921,6 +12968,18 @@ export interface components {
             readonly $schema?: string;
             /** @description Settings to update atomically */
             settings: components["schemas"]["InstanceSettingUpdateInput"][] | null;
+        };
+        SavePostImportsInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/SavePostImportsInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Whether native post imports are enabled */
+            enabled: boolean;
+            /** @description Workspace ID */
+            workspace_id: string;
         };
         SaveProviderAppInputBody: {
             /**
@@ -16103,6 +16162,162 @@ export interface operations {
             };
             /** @description Bad Gateway */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "read-post-imports": {
+        parameters: {
+            query: {
+                /** @description Workspace ID */
+                workspace_id: string;
+                /** @description Opaque cursor for older imported posts */
+                cursor?: string;
+                /** @description Imported posts per page */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Connected account ID */
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostImportOverviewResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "save-post-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Connected account ID */
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavePostImportsInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostImportOverviewResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

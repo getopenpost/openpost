@@ -181,7 +181,7 @@ if [ "${#nix_files[@]}" -gt 0 ]; then
   jobs+=("$!")
 fi
 if [ "${#root_format[@]}" -gt 0 ]; then
-  (bunx oxfmt --check "${root_format[@]}") &
+  (bunx oxfmt --check --no-error-on-unmatched-pattern "${root_format[@]}") &
   jobs+=("$!")
 fi
 if [ "${#frontend_format[@]}" -gt 0 ]; then

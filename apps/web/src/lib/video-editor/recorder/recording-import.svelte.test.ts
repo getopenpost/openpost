@@ -98,3 +98,27 @@ it.each(formats)(
 	},
 	20000
 );
+
+it('reports an unstarted screen share separately from denied camera access', async () => {
+	const recorder = new ScreenCaptureRecorder();
+	vi.spyOn(navigator.mediaDevices, 'getDisplayMedia').mockRejectedValue(
+		new DOMException('Permission denied', 'NotAllowedError')
+	);
+	try {
+		await expect(
+			recorder.startWithSelection({ screen: true, camera: false, microphone: false })
+		).rejects.toThrow();
+		expect(recorder.error).toBe('screen-share-not-started');
+		expect(recorder.status).toBe('error');
+		vi.spyOn(navigator.mediaDevices, 'getUserMedia').mockRejectedValue(
+			new DOMException('Permission denied', 'NotAllowedError')
+		);
+		await expect(
+			recorder.startWithSelection({ screen: false, camera: true, microphone: false })
+		).rejects.toThrow();
+		expect(recorder.error).toBe('permission-denied');
+	} finally {
+		await recorder.cancel();
+		vi.restoreAllMocks();
+	}
+});

@@ -20,7 +20,10 @@
 	} from '$lib/video-editor/preview/playback-settings';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
 	import { resolvePreviewCaptureFrame } from '$lib/video-editor/preview/capture-frame';
-	import { timelinePreviewScrub } from '$lib/video-editor/preview/timeline-preview-scrub';
+	import {
+		formatTimelinePreviewTimecode,
+		timelinePreviewScrub
+	} from '$lib/video-editor/preview/timeline-preview-scrub';
 	import { adaptivePreviewQuality } from '$lib/video-editor/preview/adaptive-preview-quality.svelte';
 	import { toast } from 'svelte-sonner';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
@@ -68,13 +71,8 @@
 	let fullscreenPortalTarget = $state<HTMLElement | null>(null);
 	let savingFrame = $state(false);
 
-	const timecode = $derived.by(() => {
-		const total = timelineStore.currentFrame / fps;
-		const minutes = Math.floor(total / 60);
-		const seconds = Math.floor(total % 60);
-		const frames = Math.round((total % 1) * fps);
-		return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
-	});
+	const timecode = $derived(formatTimelinePreviewTimecode(timelineStore.currentFrame, fps));
+	const durationTimecode = $derived(formatTimelinePreviewTimecode(totalFrames, fps));
 
 	function previewElement(): HTMLElement | null {
 		return document.querySelector<HTMLElement>('[data-video-preview]');
@@ -301,10 +299,10 @@
 	<span
 		role="img"
 		class="voiceover-secondary shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums sm:px-2"
-		aria-label={`${timecode} / ${totalFrames}`}
+		aria-label={`${timecode} / ${durationTimecode}`}
 	>
 		{timecode}
-		<span class="text-muted-foreground max-[479px]:hidden">/ {totalFrames}</span>
+		<span class="text-muted-foreground max-[479px]:hidden">/ {durationTimecode}</span>
 	</span>
 
 	<div class="mx-auto hidden shrink-0 items-center gap-1 @min-[800px]/program:flex">

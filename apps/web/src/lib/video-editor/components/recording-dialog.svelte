@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { recorderErrorMessage } from '$lib/video-editor/recorder/error-message';
 	import { onMount, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
@@ -215,25 +216,6 @@
 		}
 	}
 
-	function localizedRecorderError(): string {
-		switch (recorder.error) {
-			case 'permission-denied':
-				return m.video_editor_recording_error_permission();
-			case 'no-device':
-				return m.video_editor_recording_error_device_missing();
-			case 'device-busy':
-				return m.video_editor_recording_error_device_busy();
-			case 'storage-full':
-				return m.video_editor_recording_storage_stopped();
-			case 'unsupported':
-				return m.video_editor_recording_error_unsupported();
-			case 'stop-timeout':
-				return m.video_editor_recording_error_stop_timeout();
-			default:
-				return m.video_editor_recording_error_start();
-		}
-	}
-
 	function sourceLabel(kind: RecorderKind): string {
 		if (kind === 'screen') return m.record_source_screen();
 		if (kind === 'camera') return m.record_source_camera();
@@ -374,7 +356,7 @@
 			});
 			pendingCapture = { destination, knownIds };
 		} catch {
-			showToast(localizedRecorderError(), 'error');
+			showToast(recorderErrorMessage(recorder.error), 'error');
 		}
 	}
 
@@ -382,7 +364,7 @@
 		try {
 			await recorder.stop();
 		} catch {
-			showToast(localizedRecorderError(), 'error');
+			showToast(recorderErrorMessage(recorder.error), 'error');
 		}
 	}
 
@@ -807,7 +789,7 @@
 						role="alert"
 						class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive"
 					>
-						{localizedRecorderError()}
+						{recorderErrorMessage(recorder.error)}
 					</div>
 				{/if}
 			</fieldset>

@@ -6,6 +6,7 @@
 
 	let {
 		label,
+		showLabel = true,
 		value,
 		min = 0,
 		max = 100,
@@ -23,6 +24,7 @@
 		onValueCancel
 	}: {
 		label: string;
+		showLabel?: boolean;
 		value: number;
 		min?: number;
 		max?: number;
@@ -123,7 +125,7 @@
 	)}
 	data-editor-slider-row
 >
-	<span class="min-w-0 flex-1 truncate text-[11px]" title={label}>{label}</span>
+	{#if showLabel}<span class="min-w-0 flex-1 truncate text-[11px]" title={label}>{label}</span>{/if}
 	<div
 		role="group"
 		aria-label={label}

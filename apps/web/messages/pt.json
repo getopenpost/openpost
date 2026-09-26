@@ -7724,6 +7724,7 @@
 	"video_editor_recording_files_saved": "{count} ficheiros guardados",
 	"video_editor_recording_download": "Descarregar {source}",
 	"video_editor_recording_inserted": "Gravação adicionada à linha de tempo.",
+	"video_editor_recording_screen_share_not_started": "A partilha do ecrã não foi iniciada. Tenta novamente e escolhe um ecrã, uma janela ou um separador. Se o seletor não abrir, verifica as permissões de gravação do ecrã nas definições do navegador e do sistema.",
 	"video_editor_recording_error_permission": "O acesso foi recusado. Permita o acesso ao ecrã, câmara ou microfone nas definições do navegador.",
 	"video_editor_recording_error_device_missing": "O dispositivo de gravação selecionado não está disponível.",
 	"video_editor_recording_error_device_busy": "Outra aplicação está a usar o dispositivo de gravação selecionado.",

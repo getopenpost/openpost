@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatTimelinePreviewTimecode } from '../preview/timeline-preview-scrub';
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
@@ -339,15 +340,7 @@
 	}
 
 	function formatTimecode(frame: number): string {
-		const roundedFps = Math.max(1, Math.round(sourceFps));
-		const totalSeconds = Math.floor(frame / sourceFps);
-		const hours = Math.floor(totalSeconds / 3600);
-		const minutes = Math.floor((totalSeconds % 3600) / 60);
-		const seconds = totalSeconds % 60;
-		const frames = Math.min(roundedFps - 1, Math.floor(frame % sourceFps));
-		return [hours, minutes, seconds, frames]
-			.map((value) => String(value).padStart(2, '0'))
-			.join(':');
+		return formatTimelinePreviewTimecode(frame, sourceFps);
 	}
 
 	function clampFrame(frame: number): number {

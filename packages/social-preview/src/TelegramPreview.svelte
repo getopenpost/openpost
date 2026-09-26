@@ -11,7 +11,7 @@
 
   let { model, compact = false }: Props = $props();
   const segment = $derived(model.segments[0]);
-  const media = $derived(segment?.media?.length ? segment.media : model.media);
+  const media = $derived(segment?.media ?? model.media);
   const document = $derived(
     media.length === 1 && media[0]?.kind === "document" ? media[0] : undefined,
   );

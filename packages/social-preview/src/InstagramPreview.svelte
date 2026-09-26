@@ -22,7 +22,7 @@
   const warningHidden = $derived(
     Boolean(warning && revealedWarning !== warning),
   );
-  const media = $derived(primary.media?.length ? primary.media : model.media);
+  const media = $derived(primary.media ?? model.media);
   const handle = $derived(model.identity.handle.replace(/^@/u, ""));
   const isVertical = $derived(
     model.format === "story" || model.format === "reel",

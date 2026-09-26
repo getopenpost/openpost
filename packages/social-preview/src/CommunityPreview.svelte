@@ -13,7 +13,7 @@
 
   let { model, platform, compact = false }: Props = $props();
   const primary = $derived(model.segments[0] ?? { id: "primary", text: "" });
-  const media = $derived(primary.media?.length ? primary.media : model.media);
+  const media = $derived(primary.media ?? model.media);
   const title = $derived(model.title || primary.text || "Untitled post");
   const body = $derived(model.title ? primary.text : "");
 </script>

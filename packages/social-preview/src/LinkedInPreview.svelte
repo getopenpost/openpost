@@ -16,9 +16,7 @@
 
   let { model, compact = false }: Props = $props();
   const primary = $derived(model.segments[0] ?? { id: "primary", text: "" });
-  const primaryMedia = $derived(
-    primary.media?.length ? primary.media : model.media,
-  );
+  const primaryMedia = $derived(primary.media ?? model.media);
   const displayMedia = $derived(
     model.format === "document" && model.title
       ? primaryMedia.map((item) =>
@@ -87,14 +85,13 @@
     </div>
   {/if}
 
-  <div class="engagement-summary">
+  <div class="action-row">
+    <PreviewAvatar identity={model.identity} size={24} />
+    <div class="actions"><PreviewActions platform="linkedin" {compact} /></div>
     <span class="reaction-cluster" aria-hidden="true"
       ><i>👍</i><i>♥</i><i>👏</i></span
     >
-    <span>0 reactions</span>
-    <span class="engagement-right">0 comments · 0 reposts</span>
   </div>
-  <div class="action-row"><PreviewActions platform="linkedin" {compact} /></div>
 
   {#if replies.length > 0}
     <div class="comment-thread">
@@ -261,17 +258,6 @@
     font-weight: 700;
   }
 
-  .engagement-summary {
-    display: flex;
-    min-height: 2.3rem;
-    align-items: center;
-    gap: 0.4rem;
-    margin-inline: 1rem;
-    border-bottom: 1px solid var(--native-border);
-    color: var(--native-muted);
-    font-size: 0.72rem;
-  }
-
   .reaction-cluster {
     display: flex;
   }
@@ -298,12 +284,17 @@
     background: #6dae4f;
   }
 
-  .engagement-right {
-    margin-left: auto;
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 2.5rem;
+    padding: 0 0.85rem;
   }
 
-  .action-row {
-    padding: 0.15rem 0.6rem;
+  .actions {
+    flex: 1;
+    min-width: 0;
   }
 
   .comment-thread {

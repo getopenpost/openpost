@@ -21,11 +21,7 @@
 
 <article class={["discord-preview", compact && "compact"]}>
   {#each segments as segment, index (segment.id)}
-    {@const media = segment.media?.length
-      ? segment.media
-      : index === 0
-        ? model.media
-        : []}
+    {@const media = segment.media ?? (index === 0 ? model.media : [])}
     <div class="message">
       <PreviewAvatar identity={model.identity} size={40} />
       <div class="message-body">

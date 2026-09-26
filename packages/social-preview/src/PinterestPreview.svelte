@@ -8,7 +8,7 @@
   let { model, compact = false }: { model: PreviewModel; compact?: boolean } =
     $props();
   const primary = $derived(model.segments[0]);
-  const media = $derived(primary?.media?.length ? primary.media : model.media);
+  const media = $derived(primary?.media ?? model.media);
 </script>
 
 <article class={["pinterest-preview", compact && "compact"]}>

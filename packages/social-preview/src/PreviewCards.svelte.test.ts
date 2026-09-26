@@ -134,3 +134,65 @@ it("shows offer terms and coupon instead of the standard Business Profile action
   await expect.element(screen.getByText("View offer", { exact: true })).toBeVisible();
   await expect.element(screen.getByText("Book", { exact: true })).not.toBeInTheDocument();
 });
+
+describe("destination-specific video text", () => {
+  it("does not invent an Instagram Story text overlay", async () => {
+    const screen = render(SocialPreview, {
+      model: createPreviewModel({
+        platform: "instagram",
+        format: "story",
+        segments: [{ id: "one", text: "This is not burned into the image." }],
+        media: [image("Story")],
+      }),
+    });
+    await expect
+      .element(screen.getByText("This is not burned into the image."))
+      .not.toBeInTheDocument();
+    await expect.element(screen.getByRole("img", { name: "Story artwork" })).toBeVisible();
+  });
+
+  it.each(["video", "reel"] as const)(
+    "shows the destination description for a Facebook %s",
+    async (format) => {
+      const screen = render(SocialPreview, {
+        model: createPreviewModel({
+          platform: "facebook",
+          format,
+          subtitle: "The published video description.",
+          segments: [{ id: "one", text: "The source draft text." }],
+        }),
+      });
+      await expect.element(screen.getByText("The published video description.")).toBeVisible();
+      await expect.element(screen.getByText("The source draft text.")).not.toBeInTheDocument();
+    },
+  );
+
+  it("shows the explicit YouTube Short title instead of the source body", async () => {
+    const screen = render(SocialPreview, {
+      model: createPreviewModel({
+        platform: "youtube",
+        format: "short",
+        title: "The Short title",
+        segments: [{ id: "one", text: "The source description." }],
+      }),
+    });
+    await expect.element(screen.getByText("The Short title", { exact: true })).toBeVisible();
+  });
+});
+
+it.each(["x", "discord"] as const)(
+  "does not restore explicitly removed media in %s",
+  async (platform) => {
+    const screen = render(SocialPreview, {
+      model: createPreviewModel({
+        platform,
+        media: [image("Removed")],
+        segments: [{ id: "one", text: "Text only.", media: [] }],
+      }),
+    });
+    await expect.element(screen.getByText("Text only.")).toBeVisible();
+    await expect
+      .element(screen.getByRole("img", { name: "Removed artwork" }))
+      .not.toBeInTheDocument();
+  },
+);

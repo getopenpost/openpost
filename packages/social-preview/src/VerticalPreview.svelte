@@ -25,12 +25,20 @@
   let currentIndex = $state(0);
 
   const segment = $derived(model.segments[0] ?? { id: "primary", text: "" });
-  const media = $derived(segment.media?.length ? segment.media : model.media);
+  const media = $derived(segment.media ?? model.media);
   const safeIndex = $derived(
     Math.min(currentIndex, Math.max(0, media.length - 1)),
   );
   const activeMedia = $derived(media[safeIndex]);
   const handle = $derived(model.identity.handle.replace(/^@/u, ""));
+  const caption = $derived(
+    platform === "youtube"
+      ? model.title || segment.text
+      : platform === "facebook" &&
+          (model.format === "reel" || model.format === "video")
+        ? model.subtitle || segment.text
+        : segment.text || model.title,
+  );
   const isStory = $derived(model.format === "story");
   const playerLabel = $derived(
     `${platform === "youtube" ? "YouTube" : platform[0]?.toUpperCase() + platform.slice(1)} ${model.format} player`,
@@ -135,7 +143,6 @@
   {/if}
 
   {#if isStory}
-    {#if segment.text}<p class="story-caption">{segment.text}</p>{/if}
     <div class="story-reply">
       <span>Send message…</span>
       <Heart aria-hidden="true" />
@@ -157,7 +164,7 @@
           <span>{platform === "youtube" ? "Subscribe" : "Follow"}</span>
         {/if}
       </div>
-      <p>{segment.text || model.title || "Your caption will appear here."}</p>
+      <p>{caption || "Your caption will appear here."}</p>
       <div class="audio-row">
         <Music2 aria-hidden="true" />
         <span
@@ -562,22 +569,6 @@
   }
   .story-heading > :global(svg) {
     flex: none;
-  }
-  .story-caption {
-    position: absolute;
-    z-index: 2;
-    inset: auto 1rem 5.3rem;
-    margin: 0;
-    padding: 0.5rem;
-    background: rgb(0 0 0 / 65%);
-    color: #fff;
-    border-radius: 0.35rem;
-    font-size: 0.9rem;
-    line-height: 1.4;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-    max-height: 45%;
-    overflow-y: auto;
   }
   .platform-tiktok .vertical-copy {
     bottom: 2rem;

@@ -16,7 +16,10 @@
 
   let { model, compact = false }: Props = $props();
   const primary = $derived(model.segments[0] ?? { id: "primary", text: "" });
-  const media = $derived(primary.media?.length ? primary.media : model.media);
+  const media = $derived(primary.media ?? model.media);
+  const text = $derived(
+    model.format === "video" ? model.subtitle || primary.text : primary.text,
+  );
   const isVertical = $derived(
     model.format === "story" || model.format === "reel",
   );
@@ -38,8 +41,8 @@
       </div>
     </header>
 
-    {#if primary.text}
-      <p class="post-text">{primary.text}</p>
+    {#if text}
+      <p class="post-text">{text}</p>
     {/if}
     {#if model.card}<PreviewAttachment
         card={model.card}

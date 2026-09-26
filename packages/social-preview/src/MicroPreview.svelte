@@ -38,11 +38,7 @@
     segment: PreviewSegment,
     index: number,
   ): PreviewMedia[] {
-    return segment.media?.length
-      ? segment.media
-      : index === 0
-        ? model.media
-        : [];
+    return segment.media ?? (index === 0 ? model.media : []);
   }
 </script>
 
@@ -470,7 +466,8 @@
       border-radius: 0;
     }
 
-    .micro-post {
+    .micro-post,
+    .platform-threads .micro-post {
       padding-inline: 0.75rem;
     }
 

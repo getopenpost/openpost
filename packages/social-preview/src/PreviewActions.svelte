@@ -151,8 +151,7 @@
 
   const showText = $derived(
     !vertical &&
-      (platform === "linkedin" ||
-        platform === "facebook" ||
+      (platform === "facebook" ||
         platform === "youtube" ||
         platform === "peertube"),
   );

@@ -146,7 +146,7 @@ it('exposes the composition dimensions strip as a named group', async () => {
 			name: m.video_editor_composition_timeline_meta()
 		});
 		await expect.element(group).toBeVisible();
-		await expect.element(group.locator('[data-testid="composition-fps"]')).toBeVisible();
+		await expect.element(group.getByTestId('composition-fps')).toBeVisible();
 	} finally {
 		timelineStore.__resetForTesting();
 		sequenceStore.deleteCompositionAndReferences(compositionId);
@@ -174,7 +174,7 @@ it('exposes the layer tools toolbar with its accessible name', async () => {
 			name: m.video_editor_composition_timeline_toolbar()
 		});
 		await expect.element(toolbar).toBeVisible();
-		await expect.element(toolbar.locator('[data-testid="add-layer-text"]')).toBeVisible();
+		await expect.element(toolbar.getByTestId('add-layer-text')).toBeVisible();
 	} finally {
 		timelineStore.__resetForTesting();
 		sequenceStore.deleteCompositionAndReferences(compositionId);

@@ -5,7 +5,7 @@ import type { components } from '$lib/api/types';
 
 type RecommendationView = components['schemas']['RecommendationView'];
 
-function rec(overrides: Partial<RecommendationView>): RecommendationView {
+function rec(overrides: Partial<RecommendationView> = {}): RecommendationView {
 	return {
 		id: 'r1',
 		workspace_id: 'ws-1',

@@ -50,7 +50,10 @@ it('exposes the publication recovery queue as a named group', async () => {
 	};
 	vi.spyOn(client, 'GET').mockImplementation(async (path, options) => {
 		if (path === '/publications') {
-			const bucket = options?.params?.query?.activity_bucket;
+			// NOTE: The spied openapi-fetch GET overloads resolve the options
+			// parameter to never, so cast to read the activity_bucket query value.
+			const bucket = (options as { params?: { query?: { activity_bucket?: unknown } } } | undefined)
+				?.params?.query?.activity_bucket;
 			if (bucket === 'failed') {
 				return {
 					data: [failedPublication],

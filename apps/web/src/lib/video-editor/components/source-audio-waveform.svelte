@@ -166,6 +166,8 @@
 		if (event.key === 'ArrowLeft') onseek(Math.max(0, currentTimeSeconds - step));
 		else if (event.key === 'ArrowRight')
 			onseek(Math.min(durationSeconds, currentTimeSeconds + step));
+		else if (event.key === 'PageUp') onseek(Math.min(durationSeconds, currentTimeSeconds + 10));
+		else if (event.key === 'PageDown') onseek(Math.max(0, currentTimeSeconds - 10));
 		else if (event.key === 'Home') onseek(0);
 		else if (event.key === 'End') onseek(durationSeconds);
 		else return;

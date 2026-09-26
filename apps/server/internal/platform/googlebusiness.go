@@ -444,6 +444,7 @@ func paginateGoogleBusinessOptions(options []DestinationOption, search, cursor s
 	}
 	start := 0
 	if cursor != "" {
+		start = len(filtered)
 		for index, option := range filtered {
 			if option.Value == cursor {
 				start = index + 1

@@ -118,6 +118,17 @@ func TestGoogleBusinessLocationFilteringAcrossAccounts(t *testing.T) {
 	}, ids, "only operable locations across every account are selectable; rejected and unverified-signal locations are filtered")
 }
 
+func TestGoogleBusinessOptionsUnknownCursorDoesNotRestartPagination(t *testing.T) {
+	options := []DestinationOption{{Value: "location-a", Label: "A"}, {Value: "location-b", Label: "B"}}
+	first := paginateGoogleBusinessOptions(options, "", "", 1)
+	require.Equal(t, "location-a", first.Options[0].Value)
+	require.Equal(t, "location-a", first.NextCursor)
+
+	missing := paginateGoogleBusinessOptions(options, "", "removed-location", 1)
+	require.Empty(t, missing.Options)
+	require.Empty(t, missing.NextCursor)
+}
+
 func TestGoogleBusinessSelectAccountRequiresOperability(t *testing.T) {
 	stubGoogleBusinessDirectory(t, `{"locations": []}`)
 

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -66,6 +67,33 @@ func TestLinkedInBuildsArticleFromDetectedURLWithOGFallback(t *testing.T) {
 	require.Contains(t, string(payload), "https://example.com/launch")
 	require.Contains(t, string(payload), "OG Title")
 	require.Contains(t, string(payload), "OG Desc")
+}
+
+func TestLinkedInFallsBackToTextWhenPreviewHasNoTitle(t *testing.T) {
+	originalClient := httpClient
+	originalFetch := fetchLinkPreviewFunc
+	defer func() { httpClient = originalClient; fetchLinkPreviewFunc = originalFetch }()
+
+	fetchLinkPreviewFunc = func(context.Context, string) (LinkPreview, error) {
+		return LinkPreview{}, errors.New("preview unavailable")
+	}
+	var payload []byte
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		payload, _ = io.ReadAll(req.Body)
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Header:     http.Header{"X-Restli-Id": {"urn:li:share:1"}},
+			Body:       io.NopCloser(strings.NewReader(`{}`)),
+			Request:    req,
+		}, nil
+	})}
+
+	adapter := &LinkedInAdapter{}
+	_, err := adapter.Publish(context.Background(), "token", "urn:li:person:1", &PublishRequest{
+		Content: "Launch notes https://example.com/launch",
+	})
+	require.NoError(t, err)
+	require.NotContains(t, string(payload), `"article"`)
 }
 
 func TestFacebookFallsBackToTextOnlyOnScrapeFailure(t *testing.T) {

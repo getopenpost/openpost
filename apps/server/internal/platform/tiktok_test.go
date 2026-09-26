@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestTikTokGenerateAuthURL(t *testing.T) {
@@ -106,6 +108,17 @@ func TestTikTokGenerateAuthURLUsesInstallationCapabilitySet(t *testing.T) {
 
 	if got := minimal.RequestedScopes(); strings.Join(got, ",") != scope {
 		t.Fatalf("RequestedScopes %q does not match auth url scope %q", got, scope)
+	}
+}
+
+func TestTikTokAdapterAlwaysRequestsBothPublishingScopes(t *testing.T) {
+	for _, capabilities := range []TikTokScopeCapabilities{
+		{Profile: true},
+		{DirectPost: true},
+	} {
+		adapter := NewTikTokAdapterWithCapabilities("key", "secret", "https://app.example/callback", capabilities)
+		require.Contains(t, adapter.RequestedScopes(), "video.publish")
+		require.Contains(t, adapter.RequestedScopes(), "video.upload")
 	}
 }
 

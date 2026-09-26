@@ -573,7 +573,11 @@
 		role="group"
 		aria-label={m.media_source()}
 	>
-		<div class="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">
+		<div
+			class="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+			role="tablist"
+			aria-label={m.media_source()}
+		>
 			<Button
 				variant={pickerMode === 'library' ? 'secondary' : 'ghost'}
 				size="sm"

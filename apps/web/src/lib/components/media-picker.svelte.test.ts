@@ -198,6 +198,14 @@ describe('MediaPicker meme source', () => {
 		await expect.element(sourceGroup.getByRole('tab', { name: 'Library' })).toBeVisible();
 	});
 
+	it('exposes the media source tablist by name', async () => {
+		const screen = await renderPicker(false);
+
+		const sourceTabs = screen.getByRole('tablist', { name: m.media_source() });
+		await expect.element(sourceTabs).toBeVisible();
+		await expect.element(sourceTabs.getByRole('tab', { name: 'Library' })).toBeVisible();
+	});
+
 	it('exposes the media type filter as a named group', async () => {
 		const screen = await render(MediaPicker, {
 			props: {

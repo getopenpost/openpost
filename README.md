@@ -133,6 +133,7 @@ Run OpenPost with Docker Compose. The default setup uses one container with SQLi
     <img src="./assets/buttons/self-host-light.svg" alt="Get started with self-hosting" height="36">
   </picture>
 </a>
+<a href="https://repocloud.io/details/OpenPost/"><img src="https://d16t0pc4846x52.cloudfront.net/deploylobe.svg" alt="Deploy on RepoCloud" height="36"></a>
 
 [Configure integrations](https://openpo.st/docs/self-hosting/integrations) · [Backups and upgrades](https://openpo.st/docs/self-hosting/maintenance)
 

@@ -212,8 +212,9 @@
 		externalDropPageID = '';
 		insertionPageID = '';
 		if (files.length > 0 && editor.canEdit && editor.document) {
-			editor.activePageID = pageID;
-			editor.selectedLayerIDs = [];
+			const page = pages.find((candidate) => candidate.id === pageID);
+			if (!page) return;
+			selectPage(page);
 			void onExternalFiles?.(
 				files,
 				{

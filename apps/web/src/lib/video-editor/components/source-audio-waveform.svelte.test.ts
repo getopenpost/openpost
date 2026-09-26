@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import type { MediaMetadata } from '$lib/video-editor/media/types';
+import type { ComponentProps } from 'svelte';
 import SourceAudioWaveform from './source-audio-waveform.svelte';
 
 function mediaFixture(): MediaMetadata {
+	// SAFETY: the fixture carries the stream metadata the slider derives its bounds from;
+	// the waveform loader failure path renders without reaching the decoder.
 	return {
 		id: 'test-media',
 		fileName: 'clip.mp4',
@@ -20,7 +23,7 @@ function mediaFixture(): MediaMetadata {
 	} as MediaMetadata;
 }
 
-async function renderWaveform(props: Record<string, unknown> = {}) {
+async function renderWaveform(props: Partial<ComponentProps<typeof SourceAudioWaveform>> = {}) {
 	const onseek = vi.fn();
 	const screen = await render(SourceAudioWaveform, {
 		media: mediaFixture(),
@@ -30,6 +33,7 @@ async function renderWaveform(props: Record<string, unknown> = {}) {
 		...props
 	});
 	const slider = screen.getByRole('slider', { name: 'Source audio waveform' });
+	// SAFETY: waveform slider locators resolve to HTMLElement hosts, which support focus().
 	(slider.element() as HTMLElement).focus();
 	await expect.element(slider).toHaveFocus();
 	return { slider, onseek };

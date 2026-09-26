@@ -77,6 +77,8 @@ describe('CreateWorkspaceDialog selection', () => {
 		await screen.getByRole('button', { name: 'Create Workspace and continue' }).click();
 
 		await vi.waitFor(() => expect(postMock).toHaveBeenCalled());
+		// SAFETY: deferred<never> models the pending client promise; the cast bridges the
+		// workspace-create payload whose data.id the dialog reads for selection.
 		create.resolve({ data: { id: 'ws-new' }, response: new Response() } as never);
 		await vi.waitFor(() => expect(loadWorkspacesMock).toHaveBeenCalled());
 		expect(capturedSelection).toBeDefined();
@@ -87,6 +89,8 @@ describe('CreateWorkspaceDialog selection', () => {
 		// one leaves the user behind with no error.
 		await screen.unmount();
 		expect(capturedSelection!()).toBe(true);
+		// SAFETY: deferred<never> models the pending refresh gate; resolving undefined releases
+		// the held loadWorkspaces call after unmount, which the dialog must tolerate.
 		refresh.resolve(undefined as never);
 	});
 });

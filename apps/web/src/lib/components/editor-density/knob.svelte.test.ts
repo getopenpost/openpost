@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
+import type { ComponentProps } from 'svelte';
 import '../../../routes/layout.css';
 import Knob from './knob.svelte';
 
-async function renderKnob(props: Record<string, unknown> = {}) {
+async function renderKnob(props: Partial<ComponentProps<typeof Knob>> = {}) {
 	const screen = await render(Knob, {
 		ariaLabel: 'Opacity',
 		value: 50,
@@ -15,6 +16,7 @@ async function renderKnob(props: Record<string, unknown> = {}) {
 	});
 	const slider = screen.getByRole('slider', { name: 'Opacity' });
 	await expect.element(slider).toBeVisible();
+	// SAFETY: knob slider locators resolve to HTMLElement hosts, which support focus().
 	(slider.element() as HTMLElement).focus();
 	await expect.element(slider).toHaveFocus();
 	return { screen, slider };

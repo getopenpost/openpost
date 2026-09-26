@@ -50,11 +50,13 @@ it('exposes the publication recovery queue as a named group', async () => {
 	};
 	vi.spyOn(client, 'GET').mockImplementation(async (path, options) => {
 		if (path === '/publications') {
-			// NOTE: The spied openapi-fetch GET overloads resolve the options
+			// SAFETY: The spied openapi-fetch GET overloads resolve the options
 			// parameter to never, so cast to read the activity_bucket query value.
 			const bucket = (options as { params?: { query?: { activity_bucket?: unknown } } } | undefined)
 				?.params?.query?.activity_bucket;
 			if (bucket === 'failed') {
+				// SAFETY: the overloaded GET mock cannot express the publications-list union; the cast
+				// bridges the failed-post fixture whose retry action the queue reads.
 				return {
 					data: [failedPublication],
 					response: new Response(null, { headers: { 'X-Total-Count': '1' } })

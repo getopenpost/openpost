@@ -2,8 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import HueBandControl from './gpu-hue-band-control.svelte';
+import type { ComponentProps } from 'svelte';
 
-async function renderControl(props: Record<string, unknown> = {}, focusable = true) {
+async function renderControl(
+	props: Partial<ComponentProps<typeof HueBandControl>> = {},
+	focusable = true
+) {
 	const oncommit = vi.fn();
 	const screen = await render(HueBandControl, {
 		center: 100,
@@ -16,6 +20,7 @@ async function renderControl(props: Record<string, unknown> = {}, focusable = tr
 	});
 	const slider = screen.getByRole('slider', { name: 'Key hue' });
 	if (focusable) {
+		// SAFETY: hue-band slider locators resolve to HTMLElement hosts, which support focus().
 		(slider.element() as HTMLElement).focus();
 		await expect.element(slider).toHaveFocus();
 	}

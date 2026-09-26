@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
+import type { ComponentProps } from 'svelte';
 import ColorWheel from './editor-color-wheel.svelte';
 
-async function renderWheel(props: Record<string, unknown> = {}, focusable = true) {
+async function renderWheel(
+	props: Partial<ComponentProps<typeof ColorWheel>> = {},
+	focusable = true
+) {
 	const oncommit = vi.fn();
 	const screen = await render(ColorWheel, {
 		label: 'Saturation',
@@ -15,6 +19,7 @@ async function renderWheel(props: Record<string, unknown> = {}, focusable = true
 	});
 	const slider = screen.getByRole('slider', { name: 'Saturation color wheel' });
 	if (focusable) {
+		// SAFETY: wheel slider locators resolve to HTMLElement hosts, which support focus().
 		(slider.element() as HTMLElement).focus();
 		await expect.element(slider).toHaveFocus();
 	}

@@ -125,6 +125,7 @@ it('does not apply a rail style when the selected text track is locked', async (
 });
 
 it('exposes clip properties as a named group', async () => {
+	// SAFETY: the literal supplies the TimelineItem fields the panel reads for a video clip.
 	const item: TimelineItem = {
 		id: 'clip-1',
 		trackId: 'track-video-main',

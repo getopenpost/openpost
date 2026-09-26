@@ -59,13 +59,16 @@ describe('curve point slider keyboard', () => {
 			oncommit
 		});
 		const point = screen.getByRole('slider', { name: 'Master curve point 2' });
+		// SAFETY: curve-point slider locators resolve to HTMLElement hosts, which support focus().
 		(point.element() as HTMLElement).focus();
 		await expect.element(point).toHaveFocus();
 		return { point, ondraft, oncommit };
 	}
 
-	function middleOutput(call: unknown): number {
-		const params = (call as [{ masterPoints: string }])[0];
+	function middleOutput(call: [{ masterPoints: string }] | undefined): number {
+		// SAFETY: every keyboard step commits a draft, so the last call carries the serialized master points.
+		const params = call![0];
+		// SAFETY: the curves panel serializes master points as an array of [x, y] pairs.
 		const parsed = JSON.parse(params.masterPoints) as Array<[number, number]>;
 		return parsed[1]![1]!;
 	}

@@ -75,6 +75,8 @@ it('names video poster thumbnails with their alt text like image thumbnails', as
 	};
 	vi.spyOn(client, 'GET').mockImplementation(async (path) => {
 		if (path === '/media') {
+			// SAFETY: the overloaded GET mock cannot express the media-list union; the cast bridges
+			// the thumbnail fixture whose items the grid reads.
 			return { data: { media: [videoItem, imageItem], total: 2 } } as never;
 		}
 		// SAFETY: All other reads in this thumbnail fixture return empty shapes.
@@ -126,6 +128,8 @@ it('exposes the video processing bar as a named progressbar with its current val
 	};
 	vi.spyOn(client, 'GET').mockImplementation(async (path) => {
 		if (path === '/media') {
+			// SAFETY: the overloaded GET mock cannot express the media-list union; the cast bridges
+			// the processing fixture whose progress the bar reads.
 			return { data: { media: [processingItem], total: 1 } } as never;
 		}
 		// SAFETY: All other reads in this processing-bar fixture return empty shapes.

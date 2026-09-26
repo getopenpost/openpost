@@ -16,6 +16,8 @@ describe('WorkspaceDeleteDialog loading status', () => {
 	});
 
 	it('exposes the preview loading indicator as a live status', async () => {
+		// SAFETY: a never-settling promise holds the dialog in its loading state; the cast bridges
+		// the mock's declared response type, whose payload the loading branch never reads.
 		getMock.mockImplementation(() => new Promise(() => {}) as never);
 		const screen = await render(WorkspaceDeleteDialog, {
 			open: true,

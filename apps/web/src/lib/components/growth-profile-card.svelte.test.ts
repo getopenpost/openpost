@@ -6,6 +6,7 @@ import type { components } from '$lib/api/types';
 type RecommendationView = components['schemas']['RecommendationView'];
 
 function rec(overrides: Partial<RecommendationView> = {}): RecommendationView {
+	// SAFETY: the literal lists every RecommendationView field the card reads; overrides only replace whole fields.
 	return {
 		id: 'r1',
 		workspace_id: 'ws-1',

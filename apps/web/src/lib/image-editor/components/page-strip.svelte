@@ -4,6 +4,7 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { useImageEditor } from '../editor.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Input } from '$lib/components/ui/input';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import TemplatePreview from './template-preview.svelte';
@@ -359,7 +360,7 @@
 				<Input
 					bind:ref={pageNameInput}
 					bind:value={pageNameDraft}
-					class="ml-1 h-7 min-w-28 flex-1 text-xs sm:max-w-52"
+					class="ml-1 h-7 min-w-0 flex-1 text-xs sm:max-w-52 sm:min-w-28"
 					aria-label={m.image_editor_page_name()}
 					maxlength={120}
 					onblur={() => finishRenamePage(true)}
@@ -374,7 +375,68 @@
 					}}
 				/>
 			{/if}
-			<div class="ml-auto flex gap-1">
+			<div class="ml-auto flex gap-1 sm:hidden">
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-11"
+					aria-label={m.image_editor_add_page()}
+					onclick={() => editor.addPage()}
+					disabled={!editor.canEdit}><ThemeIcon role="add" /></Button
+				>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-11"
+					aria-label={m.image_editor_resize_page()}
+					onclick={() => (resizePageOpen = true)}
+					disabled={!editor.canEdit}><ThemeIcon role="edit" /></Button
+				>
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="icon-xs"
+								class="size-11"
+								aria-label={m.image_editor_more_actions()}
+								><ThemeIcon role="more-horizontal" /></Button
+							>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content align="end">
+						<DropdownMenu.Item
+							class="[@media(pointer:coarse)]:min-h-11"
+							disabled={!editor.canEdit || activeIndex < 0 || Boolean(editingPageID)}
+							onclick={beginRenamePage}>{m.image_editor_rename_page()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Item
+							class="[@media(pointer:coarse)]:min-h-11"
+							disabled={!editor.canEdit || activeIndex <= 0}
+							onclick={() => moveActivePage(-1)}
+							>{m.interaction_reorder_previous()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Item
+							class="[@media(pointer:coarse)]:min-h-11"
+							disabled={!editor.canEdit || activeIndex >= pages.length - 1}
+							onclick={() => moveActivePage(1)}>{m.interaction_reorder_next()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Item
+							class="[@media(pointer:coarse)]:min-h-11"
+							disabled={!editor.canEdit}
+							onclick={() => editor.duplicatePage()}
+							>{m.image_editor_duplicate_page()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Item
+							class="[@media(pointer:coarse)]:min-h-11"
+							disabled={!editor.canEdit || pages.length <= 1}
+							onclick={() => editor.deletePage()}>{m.image_editor_delete_page()}</DropdownMenu.Item
+						>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
+			</div>
+			<div class="ml-auto hidden gap-1 sm:flex">
 				<Button
 					variant="ghost"
 					size="icon-xs"

@@ -979,8 +979,11 @@ export async function renderMultiTrackVideoArtifact(
 				timestamp: outputFrame / fps,
 				duration: 1 / fps
 			});
-			await videoSource.add(sample);
-			sample.close();
+			try {
+				await videoSource.add(sample);
+			} finally {
+				sample.close();
+			}
 
 			report(options, 'rendering', outputFrame + 1, totalFrames);
 		}

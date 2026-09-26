@@ -11,7 +11,7 @@ import {
 	VideoSample,
 	VideoSampleSource
 } from 'mediabunny';
-import { TimelineFrameRenderer } from './render-export';
+import { renderMultiTrackVideoArtifact, TimelineFrameRenderer } from './render-export';
 import { mediaPool } from './pool.svelte';
 import type { Project } from '../project/types';
 import { getProxy, clearProxyCache } from './proxy-client';
@@ -87,6 +87,28 @@ afterEach(() => {
 });
 
 describe('timeline video decoding', () => {
+	it('releases the submitted frame when the encoder rejects an export', async () => {
+		const project = sourceProject();
+		project.timeline!.items = [
+			{
+				id: 'background',
+				type: 'background',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 1,
+				label: 'Background'
+			}
+		];
+		let submitted: VideoSample | undefined;
+		vi.spyOn(VideoSampleSource.prototype, 'add').mockImplementation(async (sample) => {
+			submitted = sample;
+			throw new Error('Encoder failed');
+		});
+		await expect(renderMultiTrackVideoArtifact(project)).rejects.toThrow('Encoder failed');
+		expect(submitted).toBeDefined();
+		expect(() => submitted!.toVideoFrame()).toThrow(/closed/i);
+	});
+
 	it('keeps simultaneous uses of a source independent and releases inactive decoders', async () => {
 		const blob = await sourceVideo();
 		const url = URL.createObjectURL(blob);

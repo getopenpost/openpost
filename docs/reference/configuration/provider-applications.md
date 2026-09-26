@@ -4,9 +4,9 @@ This page is for operators configuring provider OAuth applications.
 
 A provider application identifies the OpenPost installation to a social network during OAuth. It is instance configuration, not a user's connected social-account token and not an OpenPost API or CLI token.
 
-OpenPost manages encrypted provider-application rows for `x`, `mastodon`, `linkedin`, `threads`, `facebook`, `instagram`, `tiktok`, `youtube`, `pinterest`, `telegram`, and Discord bot mode. Bluesky app passwords and Discord incoming webhooks remain user-owned connection modes, so the administrator API rejects those credential shapes.
+OpenPost manages encrypted provider-application rows for `x`, `mastodon`, `linkedin`, `threads`, `facebook`, `instagram`, `tiktok`, `youtube`, `pinterest`, `telegram`, `googlebusiness`, and Discord bot mode. Bluesky app passwords and Discord incoming webhooks remain user-owned connection modes, so the administrator API rejects those credential shapes.
 
-A configured provider application is not a public availability claim. Pinterest and Telegram bot mode remain hidden or blocked for public Hosted use until their exact approval, scope, policy, runtime-control, and current live-certification evidence passes. Discord bot accounts use the normal configured-account readiness path. Existing Discord incoming-webhook connections use a separate mode and remain supported.
+A configured provider application is not a public availability claim. Pinterest, Google Business, and Telegram bot mode remain hidden or blocked for public Hosted use until their exact approval, scope, policy, runtime-control, and current live-certification evidence passes. Discord bot accounts use the normal configured-account readiness path. Existing Discord incoming-webhook connections use a separate mode and remain supported.
 
 ## Ownership
 

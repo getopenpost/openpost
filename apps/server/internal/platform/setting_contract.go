@@ -39,6 +39,9 @@ func PublishingSettingsContract(provider string) PublishingSettingContract {
 			AdapterKeys:  []string{"url", "video_title", "video_description", "share_to_feed"},
 			PipelineKeys: []string{"first_comment"},
 		},
+		providerGoogleBusiness: {
+			AdapterKeys: []string{"location_id", "topic_type", "language_code", "call_to_action", "action_url", "event_title", "event_start_date", "event_start_time", "event_end_date", "event_end_time", "offer_coupon_code", "offer_redeem_url", "offer_terms"},
+		},
 		providerInstagram: {
 			AdapterKeys:  []string{"is_trial_reel", "graduation_strategy", "collaborators", "location_id", "user_tags", "product_tags", "cover_media_id", "thumbnail_timestamp_ms", "share_to_feed", "alt_text"},
 			PipelineKeys: []string{"first_comment"},

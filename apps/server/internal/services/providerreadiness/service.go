@@ -412,7 +412,7 @@ func (s *Service) resolveConnectionConfiguration(provider, instanceURL string) R
 func requiresCertifiedOperation(provider string) bool {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	switch provider {
-	case capabilities.ProviderPinterest, capabilities.ProviderTelegram:
+	case capabilities.ProviderPinterest, capabilities.ProviderTelegram, capabilities.ProviderGoogleBusiness:
 		return true
 	default:
 		return false

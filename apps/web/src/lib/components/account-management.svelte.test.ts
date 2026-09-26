@@ -349,4 +349,26 @@ describe('account management modes', () => {
 			.element(screen.getByRole('button', { name: /Refresh profile for/ }))
 			.not.toBeInTheDocument();
 	});
+
+	it('exposes the paused-connection dot as a labeled image', async () => {
+		getMock.mockImplementation((path: string) => {
+			if (path === '/accounts') {
+				return Promise.resolve({ data: [{ ...account, is_active: false }], error: null });
+			}
+			return Promise.resolve({ data: [], error: null });
+		});
+		const screen = await render(AccountManagement, {
+			workspace,
+			workspaces: [workspace],
+			links,
+			onContinue: vi.fn(),
+			onAccountsChanged: vi.fn()
+		});
+
+		await expect.element(screen.getByRole('button', { name: /Actions for/ })).toBeVisible();
+		// SAFETY: the paused dot is a spacing-sized span that computes to 0px in the
+		// vitest browser harness, so visibility cannot be asserted; the role/name
+		// exposure is the regression signal.
+		expect(screen.getByRole('img', { name: 'Connection paused' }).element()).not.toBeNull();
+	});
 });

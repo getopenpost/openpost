@@ -10,7 +10,8 @@
 	import {
 		sampleSourceWaveform,
 		sourceWaveformDetailWindow,
-		sourceWaveformSeekTime
+		sourceWaveformSeekTime,
+		formatSourceWaveformTime
 	} from '$lib/video-editor/preview/source-audio-waveform';
 
 	let {
@@ -189,6 +190,7 @@
 	aria-valuemin="0"
 	aria-valuemax={durationSeconds}
 	aria-valuenow={Math.max(0, Math.min(durationSeconds, currentTimeSeconds))}
+	aria-valuetext={formatSourceWaveformTime(currentTimeSeconds)}
 	onpointerdown={pointerDown}
 	onpointermove={pointerMove}
 	onkeydown={keydown}

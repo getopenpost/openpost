@@ -63,3 +63,20 @@ describe('Source audio waveform slider keyboard', () => {
 		expect(onseek.mock.calls[0][0]).toBe(120);
 	});
 });
+
+describe('Source audio waveform slider value text', () => {
+	it('announces the position as formatted time instead of raw seconds', async () => {
+		const { slider } = await renderWaveform({ currentTimeSeconds: 50 });
+		// Without aria-valuetext assistive technology announces the raw
+		// aria-valuenow float ("50"); the formatted time carries the units.
+		await expect.element(slider).toHaveAttribute('aria-valuetext', '0:50.0');
+	});
+
+	it('rolls tenths over into minutes and hours', async () => {
+		const { slider } = await renderWaveform({
+			durationSeconds: 7200,
+			currentTimeSeconds: 3725.46
+		});
+		await expect.element(slider).toHaveAttribute('aria-valuetext', '1:02:05.5');
+	});
+});

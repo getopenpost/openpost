@@ -2049,6 +2049,9 @@ func detectedMediaMimeType(content []byte, fallback string) string {
 	if declared := declaredOggMediaMimeType(mimeType, fallback); declared != "" {
 		return declared
 	}
+	if declared := declaredM4AMediaMimeType(content, mimeType, fallback); declared != "" {
+		return declared
+	}
 	if !strings.HasPrefix(mimeType, defaultMediaMimeType) {
 		return mimeType
 	}
@@ -2068,6 +2071,22 @@ func declaredOggMediaMimeType(sniffed, declared string) string {
 	}
 	declared = strings.ToLower(strings.TrimSpace(strings.Split(declared, ";")[0]))
 	if declared == "audio/ogg" || declared == "video/ogg" {
+		return declared
+	}
+	return ""
+}
+
+// declaredM4AMediaMimeType keeps the browser's audio declaration for an
+// upload the sniffer names video/mp4 when its ISO BMFF major brand is M4A.
+// The sniffer names every brand that lists mp4 video/mp4, and a stored
+// video/mp4 would make the audio upload a video everywhere downstream.
+func declaredM4AMediaMimeType(content []byte, sniffed, declared string) string {
+	if sniffed != "video/mp4" || len(content) < 12 || string(content[4:12]) != "ftypM4A " {
+		return ""
+	}
+	declared = strings.ToLower(strings.TrimSpace(strings.Split(declared, ";")[0]))
+	switch declared {
+	case "audio/x-m4a", "audio/m4a", "audio/mp4":
 		return declared
 	}
 	return ""

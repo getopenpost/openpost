@@ -713,23 +713,27 @@ func TestCompleteMediaUploadSessionFinalizesUploadedObject(t *testing.T) {
 	require.Equal(t, int64(12), current)
 }
 
-func TestCompleteMediaUploadSessionKeepsDeclaredOggKind(t *testing.T) {
+func TestCompleteMediaUploadSessionKeepsDeclaredContainerKind(t *testing.T) {
 	t.Parallel()
 
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	ogg := func(page byte) []byte {
+		return append([]byte{'O', 'g', 'g', 'S', 0x00, page}, make([]byte, 64)...)
+	}
+	m4a := append([]byte("\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom"), make([]byte, 64)...)
 	for _, tc := range []struct {
 		filename string
 		declared string
 		dominant string
-		page     byte
+		content  []byte
 	}{
-		{filename: "voice.ogg", declared: "audio/ogg", dominant: "audio", page: 0x02},
-		{filename: "clip.ogv", declared: "video/ogg", dominant: "video", page: 0x04},
+		{filename: "voice.ogg", declared: "audio/ogg", dominant: "audio", content: ogg(0x02)},
+		{filename: "clip.ogv", declared: "video/ogg", dominant: "video", content: ogg(0x04)},
+		{filename: "voice.m4a", declared: "audio/x-m4a", dominant: "audio", content: m4a},
 	} {
-		ogg := append([]byte{'O', 'g', 'g', 'S', 0x00, tc.page}, make([]byte, 64)...)
-		mediaID := srv.createUploadSession(t, tc.filename, tc.declared, int64(len(ogg)))
-		storage.objects[mediaID+filepath.Ext(tc.filename)] = ogg
+		mediaID := srv.createUploadSession(t, tc.filename, tc.declared, int64(len(tc.content)))
+		storage.objects[mediaID+filepath.Ext(tc.filename)] = tc.content
 
 		resp := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{
 			"workspace_id": "ws-1",
@@ -744,7 +748,7 @@ func TestCompleteMediaUploadSessionKeepsDeclaredOggKind(t *testing.T) {
 	}
 }
 
-func TestDetectedMediaMimeTypeKeepsOnlyOggDeclarations(t *testing.T) {
+func TestDetectedMediaMimeTypeKeepsDeclaredContainerKinds(t *testing.T) {
 	t.Parallel()
 
 	ogg := append([]byte("OggS\x00\x02"), make([]byte, 64)...)
@@ -752,6 +756,19 @@ func TestDetectedMediaMimeTypeKeepsOnlyOggDeclarations(t *testing.T) {
 	require.Equal(t, "video/ogg", detectedMediaMimeType(ogg, "Video/Ogg"))
 	require.Equal(t, "application/ogg", detectedMediaMimeType(ogg, ""))
 	require.Equal(t, "application/ogg", detectedMediaMimeType(ogg, "audio/opus"))
+
+	// An M4A brand is sniffed as video/mp4; the declared audio type is kept,
+	// but not for another declaration and not for an mp4 video brand.
+	m4a := append([]byte("\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom"), make([]byte, 64)...)
+	require.Equal(t, "audio/x-m4a", detectedMediaMimeType(m4a, "audio/x-m4a"))
+	require.Equal(t, "audio/m4a", detectedMediaMimeType(m4a, "Audio/M4A"))
+	require.Equal(t, "audio/mp4", detectedMediaMimeType(m4a, "audio/mp4; codecs=mp4a.40.2"))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(m4a, ""))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(m4a, "video/mp4"))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(m4a, "audio/aac"))
+	mp4 := append([]byte("\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41"), make([]byte, 64)...)
+	require.Equal(t, "video/mp4", http.DetectContentType(mp4))
+	require.Equal(t, "video/mp4", detectedMediaMimeType(mp4, "audio/mp4"))
 
 	png := append([]byte("\x89PNG\x0D\x0A\x1A\x0A"), make([]byte, 64)...)
 	require.Equal(t, "image/png", detectedMediaMimeType(png, "audio/ogg"))

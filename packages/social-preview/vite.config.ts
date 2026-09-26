@@ -7,6 +7,8 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   plugins: [svelte(), pdfPreviewAssets()],
+  // Discover the page-shell icon before browser tests start, avoiding a mid-run reload.
+  optimizeDeps: { include: ["@lucide/svelte/icons/globe"] },
   test: {
     browser: {
       enabled: true,

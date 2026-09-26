@@ -6,9 +6,11 @@ import { registerQueryAuthorizationBoundary } from '$lib/query/authorization-bou
 import {
 	createImageEditorDesign,
 	deleteImageEditorDesign,
+	deleteImageEditorEffectPreset,
 	ImageEditorWorkspaceMismatchError,
 	saveImageEditorBrandKit,
-	saveImageEditorDesign
+	saveImageEditorDesign,
+	saveImageEditorEffectPreset
 } from './api';
 import type {
 	ImageEditorBrandKit,
@@ -163,20 +165,33 @@ describe('Image Editor mutation cache reconciliation', () => {
 		expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
 	});
 
-	it('replaces the exact brand-kit cache after a save', async () => {
-		const brandKit = brandKitFixture();
-		mocks.put.mockResolvedValue({
-			data: brandKit,
-			response: new Response(null, { status: 200 })
-		});
+	it.each(['brand', 'save-preset', 'delete-preset'])(
+		'replaces the exact brand-kit cache after %s',
+		async (operation) => {
+			const brandKit = brandKitFixture();
+			const mock = operation === 'delete-preset' ? mocks.delete : mocks.put;
+			mock.mockResolvedValue({
+				data: brandKit,
+				response: new Response(null, { status: 200 })
+			});
 
-		const saved = await saveImageEditorBrandKit(brandKit);
+			const saved =
+				operation === 'save-preset'
+					? await saveImageEditorEffectPreset('workspace-1', {
+							id: 'preset-1',
+							name: 'Shadow',
+							effects: { blend_mode: 'normal' }
+						})
+					: operation === 'delete-preset'
+						? await deleteImageEditorEffectPreset('workspace-1', 'preset-1')
+						: await saveImageEditorBrandKit(brandKit);
 
-		expect(saved).toEqual(brandKit);
-		expect(queryClient.getQueryData(imageEditorQueryKeys.brandKit('workspace-1'))).toEqual(
-			brandKit
-		);
-	});
+			expect(saved).toEqual(brandKit);
+			expect(queryClient.getQueryData(imageEditorQueryKeys.brandKit('workspace-1'))).toEqual(
+				brandKit
+			);
+		}
+	);
 
 	it('removes a deleted design and its revisions without touching another Workspace', async () => {
 		const designKey = imageEditorQueryKeys.design('workspace-1', 'design-1');
@@ -234,6 +249,7 @@ function designSummary(design: ImageEditorDocumentResponse): ImageEditorDesignSu
 
 function brandKitFixture(): ImageEditorBrandKit {
 	return {
+		effect_presets: [],
 		id: 'brand-1',
 		workspace_id: 'workspace-1',
 		name: 'OpenPost',

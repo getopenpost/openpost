@@ -9006,5 +9006,18 @@
 	"editor_more_options": "Diğer seçenekler",
 	"quick_cut_selection_start": "Oynatma başlığını taşıyıp I ile başlangıcı işaretleyin.",
 	"quick_cut_selection_end": "O ile bitişi işaretleyin.",
-	"quick_cut_selection_ready": "Yalnızca bu seçimi tutun veya düzenlemeden kaldırın."
+	"quick_cut_selection_ready": "Yalnızca bu seçimi tutun veya düzenlemeden kaldırın.",
+	"image_editor_effect_presets": "Çalışma alanı efekt ön ayarları",
+	"image_editor_effect_preset_choose": "Efekt ön ayarı seç",
+	"image_editor_effect_preset_apply": "Uygula",
+	"image_editor_effect_preset_name": "Ön ayar adı",
+	"image_editor_effect_preset_save_new": "Yeni kaydet",
+	"image_editor_effect_preset_update": "Ön ayarı güncelle",
+	"image_editor_effect_preset_delete": "Ön ayarı sil",
+	"image_editor_effect_preset_applied": "Ön ayar uygulandı. Önceki efektleri geri yüklemek için geri alın.",
+	"image_editor_effect_preset_saved": "Ön ayar kaydedildi.",
+	"image_editor_effect_preset_deleted": "Ön ayar silindi. Katmanlar uygulanan efektleri korur.",
+	"image_editor_effect_preset_failed": "Değişiklikler kaydedilemedi.",
+	"image_editor_effect_preset_incompatible": "Bu katman, bu ön ayardaki tüm efektleri desteklemiyor.",
+	"image_editor_effect_presets_workspace": "Yeniden kullanılabilir efektleri kaydetmek için bir çalışma alanı projesi açın."
 }

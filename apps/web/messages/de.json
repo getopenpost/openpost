@@ -9006,5 +9006,18 @@
 	"editor_more_options": "Weitere Optionen",
 	"quick_cut_selection_start": "Bewege den Abspielkopf und markiere den Anfang mit I.",
 	"quick_cut_selection_end": "Markiere das Ende mit O.",
-	"quick_cut_selection_ready": "Behalte nur diese Auswahl oder entferne sie aus dem Schnitt."
+	"quick_cut_selection_ready": "Behalte nur diese Auswahl oder entferne sie aus dem Schnitt.",
+	"image_editor_effect_presets": "Effektvorgaben des Arbeitsbereichs",
+	"image_editor_effect_preset_choose": "Effektvorgabe auswählen",
+	"image_editor_effect_preset_apply": "Anwenden",
+	"image_editor_effect_preset_name": "Name der Vorgabe",
+	"image_editor_effect_preset_save_new": "Neu speichern",
+	"image_editor_effect_preset_update": "Vorgabe aktualisieren",
+	"image_editor_effect_preset_delete": "Vorgabe löschen",
+	"image_editor_effect_preset_applied": "Vorgabe angewendet. Rückgängig stellt die vorherigen Effekte wieder her.",
+	"image_editor_effect_preset_saved": "Vorgabe gespeichert.",
+	"image_editor_effect_preset_deleted": "Vorgabe gelöscht. Ebenen behalten ihre angewendeten Effekte.",
+	"image_editor_effect_preset_failed": "Änderungen konnten nicht gespeichert werden.",
+	"image_editor_effect_preset_incompatible": "Diese Ebene unterstützt nicht alle Effekte dieser Vorgabe.",
+	"image_editor_effect_presets_workspace": "Öffne ein Projekt im Arbeitsbereich, um wiederverwendbare Effekte zu speichern."
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LayerEffectPresets from './layer-effect-presets.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import * as Collapsible from '$lib/components/ui/collapsible';
@@ -310,6 +311,7 @@
 		{/snippet}
 	</Collapsible.Trigger>
 	<Collapsible.Content class="space-y-3 pt-3">
+		<LayerEffectPresets {layer} {canUseInnerShadow} {canUseStroke} />
 		<label class="grid gap-1 text-xs">
 			<span>{m.image_editor_blend_mode()}</span>
 			<AppSelect

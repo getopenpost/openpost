@@ -9006,5 +9006,18 @@
 	"editor_more_options": "Mais opções",
 	"quick_cut_selection_start": "Move o cursor e marca o início com I.",
 	"quick_cut_selection_end": "Marca o fim com O.",
-	"quick_cut_selection_ready": "Mantém apenas esta seleção ou remove-a da edição."
+	"quick_cut_selection_ready": "Mantém apenas esta seleção ou remove-a da edição.",
+	"image_editor_effect_presets": "Predefinições de efeitos do espaço de trabalho",
+	"image_editor_effect_preset_choose": "Escolher predefinição de efeitos",
+	"image_editor_effect_preset_apply": "Aplicar",
+	"image_editor_effect_preset_name": "Nome da predefinição",
+	"image_editor_effect_preset_save_new": "Guardar nova",
+	"image_editor_effect_preset_update": "Atualizar predefinição",
+	"image_editor_effect_preset_delete": "Eliminar predefinição",
+	"image_editor_effect_preset_applied": "Predefinição aplicada. Anule para repor os efeitos anteriores.",
+	"image_editor_effect_preset_saved": "Predefinição guardada.",
+	"image_editor_effect_preset_deleted": "Predefinição eliminada. As camadas mantêm os efeitos aplicados.",
+	"image_editor_effect_preset_failed": "Não foi possível guardar as alterações.",
+	"image_editor_effect_preset_incompatible": "Esta camada não suporta todos os efeitos desta predefinição.",
+	"image_editor_effect_presets_workspace": "Abra um projeto do espaço de trabalho para guardar efeitos reutilizáveis."
 }

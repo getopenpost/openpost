@@ -9006,5 +9006,18 @@
 	"editor_more_options": "More options",
 	"quick_cut_selection_start": "Move the playhead and mark the start with I.",
 	"quick_cut_selection_end": "Mark the end with O.",
-	"quick_cut_selection_ready": "Keep only this selection, or remove it from your edit."
+	"quick_cut_selection_ready": "Keep only this selection, or remove it from your edit.",
+	"image_editor_effect_presets": "Workspace effect presets",
+	"image_editor_effect_preset_choose": "Choose an effect preset",
+	"image_editor_effect_preset_apply": "Apply",
+	"image_editor_effect_preset_name": "Preset name",
+	"image_editor_effect_preset_save_new": "Save new",
+	"image_editor_effect_preset_update": "Update preset",
+	"image_editor_effect_preset_delete": "Delete preset",
+	"image_editor_effect_preset_applied": "Preset applied. Undo to restore previous effects.",
+	"image_editor_effect_preset_saved": "Preset saved.",
+	"image_editor_effect_preset_deleted": "Preset deleted. Applied layers keep their effects.",
+	"image_editor_effect_preset_failed": "Could not save changes.",
+	"image_editor_effect_preset_incompatible": "This layer does not support every effect in this preset.",
+	"image_editor_effect_presets_workspace": "Open a workspace project to save reusable effects."
 }

@@ -9006,5 +9006,18 @@
 	"editor_more_options": "更多选项",
 	"quick_cut_selection_start": "移动播放头，按 I 标记起点。",
 	"quick_cut_selection_end": "按 O 标记终点。",
-	"quick_cut_selection_ready": "仅保留此选区，或从编辑中移除。"
+	"quick_cut_selection_ready": "仅保留此选区，或从编辑中移除。",
+	"image_editor_effect_presets": "工作区效果预设",
+	"image_editor_effect_preset_choose": "选择效果预设",
+	"image_editor_effect_preset_apply": "应用",
+	"image_editor_effect_preset_name": "预设名称",
+	"image_editor_effect_preset_save_new": "保存为新预设",
+	"image_editor_effect_preset_update": "更新预设",
+	"image_editor_effect_preset_delete": "删除预设",
+	"image_editor_effect_preset_applied": "已应用预设。撤销可恢复之前的效果。",
+	"image_editor_effect_preset_saved": "已保存预设。",
+	"image_editor_effect_preset_deleted": "已删除预设。图层保留已应用的效果。",
+	"image_editor_effect_preset_failed": "无法保存更改。",
+	"image_editor_effect_preset_incompatible": "此图层不支持该预设中的所有效果。",
+	"image_editor_effect_presets_workspace": "打开工作区项目以保存可重复使用的效果。"
 }

@@ -132,17 +132,18 @@ type ImageEditorBrandFont struct {
 }
 
 type ImageEditorBrandKitResponse struct {
-	ID          string                      `json:"id,omitempty"`
-	WorkspaceID string                      `json:"workspace_id"`
-	Name        string                      `json:"name"`
-	Revision    int                         `json:"revision"`
-	Exists      bool                        `json:"exists"`
-	CanEdit     bool                        `json:"can_edit"`
-	Colors      []ImageEditorBrandColor     `json:"colors"`
-	TextStyles  []ImageEditorBrandTextStyle `json:"text_styles"`
-	Backgrounds []string                    `json:"backgrounds"`
-	Fonts       []ImageEditorBrandFont      `json:"fonts"`
-	UpdatedAt   string                      `json:"updated_at,omitempty"`
+	EffectPresets []ImageEditorEffectPresetResponse `json:"effect_presets"`
+	ID            string                            `json:"id,omitempty"`
+	WorkspaceID   string                            `json:"workspace_id"`
+	Name          string                            `json:"name"`
+	Revision      int                               `json:"revision"`
+	Exists        bool                              `json:"exists"`
+	CanEdit       bool                              `json:"can_edit"`
+	Colors        []ImageEditorBrandColor           `json:"colors"`
+	TextStyles    []ImageEditorBrandTextStyle       `json:"text_styles"`
+	Backgrounds   []string                          `json:"backgrounds"`
+	Fonts         []ImageEditorBrandFont            `json:"fonts"`
+	UpdatedAt     string                            `json:"updated_at,omitempty"`
 }
 
 type GetImageEditorBrandKitInput struct {
@@ -295,6 +296,7 @@ func (h *ImageEditorHandler) registerTemplates(api huma.API) {
 }
 
 func (h *ImageEditorHandler) registerBrandKit(api huma.API) {
+	h.registerEffectPresets(api)
 	huma.Register(api, huma.Operation{
 		OperationID: "get-image-editor-brand-kit",
 		Method:      http.MethodGet,
@@ -819,8 +821,13 @@ func (h *ImageEditorHandler) loadBrandKit(ctx context.Context, workspaceID strin
 		Backgrounds: []string{},
 		Fonts:       []ImageEditorBrandFont{},
 	}
+	presets, err := h.loadEffectPresets(ctx, workspaceID)
+	if err != nil {
+		return response, err
+	}
+	response.EffectPresets = presets
 	var kit models.BrandKit
-	err := h.db.NewSelect().Model(&kit).Where("workspace_id = ?", workspaceID).Scan(ctx)
+	err = h.db.NewSelect().Model(&kit).Where("workspace_id = ?", workspaceID).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return response, nil
 	}

@@ -385,7 +385,14 @@ export interface ImageEditorBrandFont {
 	license_acknowledged_at?: string;
 }
 
+export interface ImageEditorEffectPreset {
+	id: string;
+	name: string;
+	effects: ImageEditorLayerEffects;
+}
+
 export interface ImageEditorBrandKit {
+	effect_presets?: ImageEditorEffectPreset[];
 	id: string;
 	workspace_id: string;
 	name: string;

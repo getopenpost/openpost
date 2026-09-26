@@ -8133,6 +8133,12 @@
 						},
 						"type": ["array", "null"]
 					},
+					"effect_presets": {
+						"items": {
+							"$ref": "#/components/schemas/ImageEditorEffectPresetResponse"
+						},
+						"type": ["array", "null"]
+					},
 					"exists": {
 						"type": "boolean"
 					},
@@ -8166,6 +8172,7 @@
 					}
 				},
 				"required": [
+					"effect_presets",
 					"workspace_id",
 					"name",
 					"revision",
@@ -8604,6 +8611,22 @@
 					"updated_at",
 					"document"
 				],
+				"type": "object"
+			},
+			"ImageEditorEffectPresetResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"effects": {
+						"$ref": "#/components/schemas/ImageEditorLayerEffects"
+					},
+					"id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "name", "effects"],
 				"type": "object"
 			},
 			"ImageEditorEraseMask": {
@@ -17503,6 +17526,34 @@
 					}
 				},
 				"required": ["workspace_id", "choices"],
+				"type": "object"
+			},
+			"SaveImageEditorEffectPresetInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/SaveImageEditorEffectPresetInputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"effects": {
+						"$ref": "#/components/schemas/ImageEditorLayerEffects"
+					},
+					"name": {
+						"maxLength": 120,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "name", "effects"],
 				"type": "object"
 			},
 			"SaveInstanceSettingsInputBody": {
@@ -34439,6 +34490,163 @@
 					}
 				},
 				"summary": "Restore an OpenPost Image Editor design revision as a new head",
+				"tags": ["OpenPost Image Editor"]
+			}
+		},
+		"/image-editor/effect-presets/{id}": {
+			"delete": {
+				"operationId": "delete-image-editor-effect-preset",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"format": "uuid",
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ImageEditorBrandKitResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Delete a workspace layer effect preset",
+				"tags": ["OpenPost Image Editor"]
+			},
+			"put": {
+				"operationId": "save-image-editor-effect-preset",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"format": "uuid",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SaveImageEditorEffectPresetInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ImageEditorBrandKitResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Save a workspace layer effect preset",
 				"tags": ["OpenPost Image Editor"]
 			}
 		},

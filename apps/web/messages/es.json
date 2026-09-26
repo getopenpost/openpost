@@ -9006,5 +9006,18 @@
 	"editor_more_options": "Más opciones",
 	"quick_cut_selection_start": "Mueve el cursor y marca el inicio con I.",
 	"quick_cut_selection_end": "Marca el final con O.",
-	"quick_cut_selection_ready": "Conserva solo esta selección o elimínala de la edición."
+	"quick_cut_selection_ready": "Conserva solo esta selección o elimínala de la edición.",
+	"image_editor_effect_presets": "Preajustes de efectos del espacio de trabajo",
+	"image_editor_effect_preset_choose": "Elegir un preajuste de efectos",
+	"image_editor_effect_preset_apply": "Aplicar",
+	"image_editor_effect_preset_name": "Nombre del preajuste",
+	"image_editor_effect_preset_save_new": "Guardar nuevo",
+	"image_editor_effect_preset_update": "Actualizar preajuste",
+	"image_editor_effect_preset_delete": "Eliminar preajuste",
+	"image_editor_effect_preset_applied": "Preajuste aplicado. Deshaz para restaurar los efectos anteriores.",
+	"image_editor_effect_preset_saved": "Preajuste guardado.",
+	"image_editor_effect_preset_deleted": "Preajuste eliminado. Las capas conservan los efectos aplicados.",
+	"image_editor_effect_preset_failed": "No se pudieron guardar los cambios.",
+	"image_editor_effect_preset_incompatible": "Esta capa no admite todos los efectos de este preajuste.",
+	"image_editor_effect_presets_workspace": "Abre un proyecto del espacio de trabajo para guardar efectos reutilizables."
 }

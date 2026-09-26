@@ -9006,5 +9006,18 @@
 	"editor_more_options": "Plus d’options",
 	"quick_cut_selection_start": "Déplacez la tête de lecture et marquez le début avec I.",
 	"quick_cut_selection_end": "Marquez la fin avec O.",
-	"quick_cut_selection_ready": "Gardez uniquement cette sélection ou retirez-la du montage."
+	"quick_cut_selection_ready": "Gardez uniquement cette sélection ou retirez-la du montage.",
+	"image_editor_effect_presets": "Préréglages d’effets de l’espace de travail",
+	"image_editor_effect_preset_choose": "Choisir un préréglage d’effets",
+	"image_editor_effect_preset_apply": "Appliquer",
+	"image_editor_effect_preset_name": "Nom du préréglage",
+	"image_editor_effect_preset_save_new": "Enregistrer un nouveau",
+	"image_editor_effect_preset_update": "Mettre à jour",
+	"image_editor_effect_preset_delete": "Supprimer le préréglage",
+	"image_editor_effect_preset_applied": "Préréglage appliqué. Annulez pour rétablir les effets précédents.",
+	"image_editor_effect_preset_saved": "Préréglage enregistré.",
+	"image_editor_effect_preset_deleted": "Préréglage supprimé. Les calques conservent les effets appliqués.",
+	"image_editor_effect_preset_failed": "Impossible d’enregistrer les modifications.",
+	"image_editor_effect_preset_incompatible": "Ce calque ne prend pas en charge tous les effets de ce préréglage.",
+	"image_editor_effect_presets_workspace": "Ouvrez un projet de l’espace de travail pour enregistrer des effets réutilisables."
 }

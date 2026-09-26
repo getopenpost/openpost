@@ -2631,6 +2631,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/image-editor/effect-presets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save a workspace layer effect preset */
+        put: operations["save-image-editor-effect-preset"];
+        post?: never;
+        /** Delete a workspace layer effect preset */
+        delete: operations["delete-image-editor-effect-preset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/image-editor/presets": {
         parameters: {
             query?: never;
@@ -8960,6 +8978,7 @@ export interface components {
             backgrounds: string[] | null;
             can_edit: boolean;
             colors: components["schemas"]["ImageEditorBrandColor"][] | null;
+            effect_presets: components["schemas"]["ImageEditorEffectPresetResponse"][] | null;
             exists: boolean;
             fonts: components["schemas"]["ImageEditorBrandFont"][] | null;
             id?: string;
@@ -9101,6 +9120,11 @@ export interface components {
             revision: number;
             updated_at: string;
             workspace_id: string;
+        };
+        ImageEditorEffectPresetResponse: {
+            effects: components["schemas"]["ImageEditorLayerEffects"];
+            id: string;
+            name: string;
         };
         ImageEditorEraseMask: {
             /** Format: double */
@@ -12910,6 +12934,17 @@ export interface components {
             /** @description Choices to save (complete batch) */
             choices: components["schemas"]["Item"][] | null;
             /** @description Workspace ID */
+            workspace_id: string;
+        };
+        SaveImageEditorEffectPresetInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/SaveImageEditorEffectPresetInputBody.json
+             */
+            readonly $schema?: string;
+            effects: components["schemas"]["ImageEditorLayerEffects"];
+            name: string;
             workspace_id: string;
         };
         SaveInstanceSettingsInputBody: {
@@ -24270,6 +24305,128 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "save-image-editor-effect-preset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveImageEditorEffectPresetInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageEditorBrandKitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-image-editor-effect-preset": {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageEditorBrandKitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

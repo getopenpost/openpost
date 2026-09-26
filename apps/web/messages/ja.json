@@ -9006,5 +9006,18 @@
 	"editor_more_options": "その他の設定",
 	"quick_cut_selection_start": "再生ヘッドを移動し、Iで開始点を設定します。",
 	"quick_cut_selection_end": "Oで終了点を設定します。",
-	"quick_cut_selection_ready": "選択範囲だけを残すか、編集から削除します。"
+	"quick_cut_selection_ready": "選択範囲だけを残すか、編集から削除します。",
+	"image_editor_effect_presets": "ワークスペースのエフェクトプリセット",
+	"image_editor_effect_preset_choose": "エフェクトプリセットを選択",
+	"image_editor_effect_preset_apply": "適用",
+	"image_editor_effect_preset_name": "プリセット名",
+	"image_editor_effect_preset_save_new": "新規保存",
+	"image_editor_effect_preset_update": "プリセットを更新",
+	"image_editor_effect_preset_delete": "プリセットを削除",
+	"image_editor_effect_preset_applied": "プリセットを適用しました。元に戻すと以前のエフェクトに戻ります。",
+	"image_editor_effect_preset_saved": "プリセットを保存しました。",
+	"image_editor_effect_preset_deleted": "プリセットを削除しました。適用済みのレイヤーのエフェクトは維持されます。",
+	"image_editor_effect_preset_failed": "変更を保存できませんでした。",
+	"image_editor_effect_preset_incompatible": "このレイヤーは、このプリセットの一部のエフェクトに対応していません。",
+	"image_editor_effect_presets_workspace": "ワークスペースのプロジェクトを開くと、再利用できるエフェクトを保存できます。"
 }

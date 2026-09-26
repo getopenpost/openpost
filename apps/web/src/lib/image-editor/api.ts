@@ -11,6 +11,7 @@ import {
 import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 import type {
 	ImageEditorBrandKit,
+	ImageEditorEffectPreset,
 	ImageEditorDesignSummary,
 	ImageEditorDocument,
 	ImageEditorDocumentResponse,
@@ -91,6 +92,7 @@ function imageEditorBrandKit(data: ApiImageEditorBrandKit): ImageEditorBrandKit 
 		colors: data.colors ?? [],
 		text_styles: data.text_styles ?? [],
 		backgrounds: data.backgrounds ?? [],
+		effect_presets: data.effect_presets ?? [],
 		fonts: (data.fonts ?? []).map((font) => ({ ...font, id: font.id ?? font.media_id }))
 	};
 }
@@ -582,4 +584,43 @@ export async function consumeImageEditorReturnToken(token: string): Promise<{
 		media_ids: data.media_ids ?? [],
 		constraints: data.constraints
 	};
+}
+
+export async function saveImageEditorEffectPreset(
+	workspaceID: string,
+	preset: ImageEditorEffectPreset
+): Promise<ImageEditorBrandKit> {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.PUT('/image-editor/effect-presets/{id}', {
+		params: { path: { id: preset.id } },
+		body: { workspace_id: workspaceID, name: preset.name, effects: preset.effects }
+	});
+	settleImageEditorMutation(session, response);
+	if (error || !data) throw new Error(problemMessage(error, 'Could not save the effect preset.'));
+	const kit = requireImageEditorWorkspace(imageEditorBrandKit(data), workspaceID);
+	const queryKey = imageEditorQueryKeys.brandKit(workspaceID);
+	await reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey, exact: true }],
+		reconcile: () => queryClient.setQueryData(queryKey, kit)
+	});
+	return kit;
+}
+
+export async function deleteImageEditorEffectPreset(
+	workspaceID: string,
+	id: string
+): Promise<ImageEditorBrandKit> {
+	const session = captureQueryMutationSession();
+	const { data, error, response } = await client.DELETE('/image-editor/effect-presets/{id}', {
+		params: { path: { id }, query: { workspace_id: workspaceID } }
+	});
+	settleImageEditorMutation(session, response);
+	if (error || !data) throw new Error(problemMessage(error, 'Could not delete the effect preset.'));
+	const kit = requireImageEditorWorkspace(imageEditorBrandKit(data), workspaceID);
+	const queryKey = imageEditorQueryKeys.brandKit(workspaceID);
+	await reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey, exact: true }],
+		reconcile: () => queryClient.setQueryData(queryKey, kit)
+	});
+	return kit;
 }

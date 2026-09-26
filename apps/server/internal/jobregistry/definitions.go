@@ -36,6 +36,7 @@ const (
 	TypeBotIngress              = "bot_ingress"
 	TypeScheduledAccountCheck   = "scheduled_account_preflight"
 	TypeExternalWebhookDelivery = "external_webhook_delivery"
+	TypePostImportSync          = "post_import_sync"
 )
 
 // ExecutionKind selects the injected implementation for a registered Job.
@@ -62,6 +63,7 @@ const (
 	ExecuteBotIngress            ExecutionKind = "bot_ingress"
 	ExecuteScheduledAccountCheck ExecutionKind = "scheduled_account_preflight"
 	ExecuteExternalWebhook       ExecutionKind = "external_webhook"
+	ExecutePostImport            ExecutionKind = "post_import"
 )
 
 // FailurePolicy describes how the runtime interprets an execution error.
@@ -168,6 +170,8 @@ var definitions = map[string]Definition{
 		FailureMessage: "A scheduled account check failed. OpenPost will retry without changing the account connection.",
 	},
 	TypeExternalWebhookDelivery: definition(TypeExternalWebhookDelivery, 8, ExecuteExternalWebhook, FailureDefault, RecoveryRequeue),
+	TypePostImportSync: providerReadDefinition(TypePostImportSync, 3, ExecutePostImport, RecoveryRequeue,
+		"Native post import failed. OpenPost will resume from its stored checkpoint when the failure is temporary.", ""),
 }
 
 func definition(jobType string, attempts int, execution ExecutionKind, failure FailurePolicy, recovery RecoveryPolicy) Definition {

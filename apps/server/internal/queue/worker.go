@@ -29,6 +29,7 @@ import (
 	messagingservice "github.com/openpost/backend/internal/services/messaging"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationownership"
+	postimportservice "github.com/openpost/backend/internal/services/postimport"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/publisher"
@@ -77,6 +78,7 @@ type BackgroundWorker struct {
 	video                 *videoprocessing.Service
 	growth                *growthservice.Service
 	publicationBuilder    *publicationbuilder.Application
+	postImports           *postimportservice.Service
 	accountPreflight      *accountpreflightservice.Service
 	externalWebhooks      *externalwebhooks.Service
 	telemetry             telemetry.Recorder
@@ -206,6 +208,16 @@ func (w *BackgroundWorker) SetPublicationBuilderService(service *publicationbuil
 			return publicationbuilder.ErrRuntimeUnavailable
 		}
 		return w.publicationBuilder.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
+func (w *BackgroundWorker) SetPostImportService(service *postimportservice.Service) {
+	w.postImports = service
+	w.executors[jobregistry.ExecutePostImport] = func(ctx context.Context, job *models.Job) error {
+		if w.postImports == nil {
+			return fmt.Errorf("post imports are not configured")
+		}
+		return w.postImports.HandleJob(ctx, job.Type, job.Payload)
 	}
 }
 

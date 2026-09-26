@@ -5821,6 +5821,7 @@
 	"account_imports_empty": "Ainda não há publicações importadas.",
 	"account_imports_load_failed": "Não foi possível carregar as publicações importadas.",
 	"account_imports_save_failed": "Não foi possível atualizar a importação.",
+	"account_imports_load_more": "Carregar mais",
 	"account_features_details_description": "Escolha o que o OpenPost pode fazer por esta conta. Cada escolha é guardada por destino.",
 	"stock_media_photos": "Fotos",
 	"stock_media_videos": "Vídeos",

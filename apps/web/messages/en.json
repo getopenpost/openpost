@@ -5862,6 +5862,7 @@
 	"account_imports_empty": "No imported posts yet.",
 	"account_imports_load_failed": "Unable to load imported posts.",
 	"account_imports_save_failed": "Unable to update imported posts.",
+	"account_imports_load_more": "Load more",
 	"account_features_details_description": "Choose what OpenPost can do for this account. Each choice is saved per destination.",
 	"stock_media_photos": "Photos",
 	"stock_media_videos": "Videos",

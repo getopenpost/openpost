@@ -26,13 +26,15 @@ func NewPostImportHandler(db *bun.DB, service *postimport.Service, auth middlewa
 type ReadPostImportsInput struct {
 	AccountID   string `path:"account_id" doc:"Connected account ID"`
 	WorkspaceID string `query:"workspace_id" required:"true" doc:"Workspace ID"`
+	Cursor      string `query:"cursor" doc:"Opaque cursor for older imported posts"`
+	Limit       int    `query:"limit" default:"50" minimum:"1" maximum:"100" doc:"Imported posts per page"`
 }
 
 type SavePostImportsInput struct {
 	AccountID string `path:"account_id" doc:"Connected account ID"`
 	Body      struct {
 		WorkspaceID string `json:"workspace_id" required:"true" doc:"Workspace ID"`
-		Enabled     *bool  `json:"enabled" required:"true" doc:"Whether native post imports are enabled"`
+		Enabled     bool   `json:"enabled" required:"true" doc:"Whether native post imports are enabled"`
 	}
 }
 
@@ -55,6 +57,7 @@ type PostImportOverviewResponse struct {
 	NextEligibleAt    *time.Time             `json:"next_eligible_at,omitempty"`
 	FailureMessage    string                 `json:"failure_message,omitempty"`
 	Posts             []ImportedPostResponse `json:"posts"`
+	NextCursor        string                 `json:"next_cursor,omitempty"`
 }
 
 type PostImportOverviewOutput struct {
@@ -79,7 +82,7 @@ func (h *PostImportHandler) RegisterRoutes(api huma.API) {
 		if !allowed {
 			return nil, huma.Error403Forbidden("workspace read denied")
 		}
-		return h.read(ctx, workspaceID, input.AccountID)
+		return h.read(ctx, workspaceID, input.AccountID, input.Cursor, input.Limit)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -89,8 +92,8 @@ func (h *PostImportHandler) RegisterRoutes(api huma.API) {
 		Errors: []int{400, 403, 404, 409},
 	}, func(ctx context.Context, input *SavePostImportsInput) (*PostImportOverviewOutput, error) {
 		workspaceID := strings.TrimSpace(input.Body.WorkspaceID)
-		if workspaceID == "" || input.Body.Enabled == nil {
-			return nil, huma.Error400BadRequest("workspace_id and enabled are required")
+		if workspaceID == "" {
+			return nil, huma.Error400BadRequest("workspace_id is required")
 		}
 		allowed, err := workspaceEditAllowed(ctx, h.db, workspaceID, middleware.GetUserID(ctx))
 		if err != nil {
@@ -99,14 +102,14 @@ func (h *PostImportHandler) RegisterRoutes(api huma.API) {
 		if !allowed {
 			return nil, huma.Error403Forbidden("workspace edit denied")
 		}
-		current, err := h.service.ReadOverview(ctx, workspaceID, input.AccountID)
+		current, err := h.service.ReadOverview(ctx, workspaceID, input.AccountID, "", 50)
 		if errors.Is(err, postimport.ErrAccountNotFound) {
 			return nil, huma.Error404NotFound("account not found")
 		}
 		if err != nil {
 			return nil, huma.Error500InternalServerError("could not read post imports")
 		}
-		if *input.Body.Enabled {
+		if input.Body.Enabled {
 			if !current.Support.Supported {
 				return nil, huma.Error409Conflict(current.Support.UnavailableReason)
 			}
@@ -117,14 +120,17 @@ func (h *PostImportHandler) RegisterRoutes(api huma.API) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("could not save post import choice")
 		}
-		return h.read(ctx, workspaceID, input.AccountID)
+		return h.read(ctx, workspaceID, input.AccountID, "", 50)
 	})
 }
 
-func (h *PostImportHandler) read(ctx context.Context, workspaceID, accountID string) (*PostImportOverviewOutput, error) {
-	overview, err := h.service.ReadOverview(ctx, workspaceID, accountID)
+func (h *PostImportHandler) read(ctx context.Context, workspaceID, accountID, cursor string, limit int) (*PostImportOverviewOutput, error) {
+	overview, err := h.service.ReadOverview(ctx, workspaceID, accountID, cursor, limit)
 	if errors.Is(err, postimport.ErrAccountNotFound) {
 		return nil, huma.Error404NotFound("account not found")
+	}
+	if errors.Is(err, postimport.ErrInvalidCursor) {
+		return nil, huma.Error400BadRequest("invalid cursor")
 	}
 	if err != nil {
 		return nil, huma.Error500InternalServerError("could not read post imports")
@@ -132,7 +138,7 @@ func (h *PostImportHandler) read(ctx context.Context, workspaceID, accountID str
 	response := PostImportOverviewResponse{
 		AccountID: accountID, Platform: overview.Platform,
 		Supported: overview.Support.Supported, UnavailableReason: overview.Support.UnavailableReason,
-		Posts: make([]ImportedPostResponse, 0, len(overview.Posts)),
+		Posts: make([]ImportedPostResponse, 0, len(overview.Posts)), NextCursor: overview.NextCursor,
 	}
 	if overview.State != nil {
 		response.Enabled = overview.State.Enabled

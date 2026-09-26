@@ -237,6 +237,50 @@ func TestSyncResumesFromStoredCursor(t *testing.T) {
 	require.False(t, state.LastSuccessAt.IsZero())
 }
 
+func TestResumedSyncKeepsStartWatermark(t *testing.T) {
+	server := blueskyFeedServer(map[string]string{
+		"":      `{"cursor":"older","feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/first", "first", "2026-09-26T11:00:00Z") + `]}`,
+		"older": `{"feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/second", "second", "2026-09-26T10:00:00Z") + `]}`,
+	})
+	defer server.Close()
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", server.URL)
+	service := NewService(db, &stubTokenSource{token: "token"})
+	service.maxPages = 1
+	started := time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)
+	current := started
+	service.now = func() time.Time { return current }
+	_, err := service.Enable(t.Context(), "workspace-1", account.ID)
+	require.NoError(t, err)
+	require.NoError(t, service.SyncAccount(t.Context(), "workspace-1", account.ID))
+	current = started.Add(25 * time.Hour)
+	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("next_eligible_at = ?", started).Where("social_account_id = ?", account.ID).Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, service.SyncAccount(t.Context(), "workspace-1", account.ID))
+	state := loadImportState(t, db, account.ID)
+	require.True(t, state.LastSuccessAt.Equal(started), "next cycle must revisit posts published during the cursor resume")
+	require.True(t, state.CycleStartedAt.IsZero())
+}
+
+func TestInitialCapTransitionsToIncremental(t *testing.T) {
+	server := blueskyFeedServer(map[string]string{"": `{"cursor":"older","feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/new", "new", "2026-09-26T11:00:00Z") + `]}`})
+	defer server.Close()
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", server.URL)
+	service := NewService(db, &stubTokenSource{token: "token"})
+	started := time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return started }
+	_, err := service.Enable(t.Context(), "workspace-1", account.ID)
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("initial_items_seen = ?", initialItemCap-1).Where("social_account_id = ?", account.ID).Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, service.SyncAccount(t.Context(), "workspace-1", account.ID))
+	state := loadImportState(t, db, account.ID)
+	require.False(t, state.InitialFinishedAt.IsZero())
+	require.True(t, state.LastSuccessAt.Equal(started))
+	require.Empty(t, state.Cursor)
+}
+
 func TestSyncSkipsPostsPublishedThroughOpenPost(t *testing.T) {
 	ownURI := "at://did:plc:owner/app.bsky.feed.post/own"
 	nativeURI := "at://did:plc:owner/app.bsky.feed.post/native"

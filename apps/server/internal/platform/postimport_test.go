@@ -121,6 +121,27 @@ func TestBlueskyReaderStopsAtWatermark(t *testing.T) {
 	require.Equal(t, NativePostComplete, page.Coverage)
 }
 
+func TestBlueskyReaderContinuesPastRepostOnlyPage(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if req.URL.Query().Get("cursor") == "next" {
+			_, _ = w.Write([]byte(`{"feed":[{"post":{"uri":"at://did:plc:owner/app.bsky.feed.post/original","author":{"did":"did:plc:owner","handle":"owner.test"},"record":{"text":"original","createdAt":"2026-09-26T10:00:00Z"}}}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"cursor":"next","feed":[{"reason":{"$type":"app.bsky.feed.defs#reasonRepost"},"post":{"uri":"at://did:plc:owner/app.bsky.feed.post/repost","author":{"did":"did:plc:owner"}}}]}`))
+	}))
+	defer server.Close()
+	adapter := NewBlueskyAdapter(server.URL)
+	first, err := adapter.ListNativePosts(context.Background(), "token", NativePostRequest{AccountID: "did:plc:owner"})
+	require.NoError(t, err)
+	require.Empty(t, first.Items)
+	require.Equal(t, "next", first.NextCursor)
+	second, err := adapter.ListNativePosts(context.Background(), "token", NativePostRequest{AccountID: "did:plc:owner", Cursor: first.NextCursor})
+	require.NoError(t, err)
+	require.Len(t, second.Items, 1)
+}
+
 func TestBlueskyReaderMapsPermissionFailureWithoutDisconnect(t *testing.T) {
 	t.Parallel()
 

@@ -116,7 +116,7 @@ func nativePostBlueskyPage(response blueskyAuthorFeedResponse, input NativePostR
 		seen[uri] = struct{}{}
 		page.Items = append(page.Items, item)
 	}
-	if next := strings.TrimSpace(response.Cursor); next != "" && next != strings.TrimSpace(input.Cursor) && len(page.Items) > 0 {
+	if next := strings.TrimSpace(response.Cursor); next != "" && next != strings.TrimSpace(input.Cursor) && len(response.Feed) > 0 {
 		page.NextCursor = next
 		page.Coverage = NativePostPartial
 	}

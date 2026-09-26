@@ -3,6 +3,8 @@ package postimport
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +31,7 @@ const (
 )
 
 var ErrAccountNotFound = errors.New("post import account not found")
+var ErrInvalidCursor = errors.New("invalid post import cursor")
 
 // Policy is instance-owned rate policy. It is provider-overridable but never
 // workspace-controlled. ReadRequestsPerDay counts every listing request that
@@ -107,6 +110,13 @@ func (s *Service) Enable(ctx context.Context, workspaceID, accountID string) (*m
 	if !support.Supported {
 		return nil, fmt.Errorf("native post imports are not supported for %s: %s", account.Platform, support.UnavailableReason)
 	}
+	existing, err := s.Status(ctx, account.WorkspaceID, account.ID)
+	if err == nil && existing.Enabled {
+		return existing, nil
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("read post import state: %w", err)
+	}
 	state := &models.PostImportState{
 		ID:              uuid.NewString(),
 		WorkspaceID:     account.WorkspaceID,
@@ -119,13 +129,19 @@ func (s *Service) Enable(ctx context.Context, workspaceID, accountID string) (*m
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
+	mutated := false
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		_, err := tx.NewInsert().Model(state).
-			On("CONFLICT (social_account_id) DO UPDATE SET enabled = EXCLUDED.enabled, status = EXCLUDED.status, cursor = '', import_watermark = EXCLUDED.import_watermark, cycle_started_at = EXCLUDED.cycle_started_at, initial_finished_at = NULL, initial_items_seen = 0, failure_code = '', failure_message = '', next_eligible_at = NULL, updated_at = EXCLUDED.updated_at").
+		result, err := tx.NewInsert().Model(state).
+			On("CONFLICT (social_account_id) DO UPDATE SET enabled = EXCLUDED.enabled, status = EXCLUDED.status, cursor = '', import_watermark = EXCLUDED.import_watermark, cycle_started_at = EXCLUDED.cycle_started_at, initial_finished_at = NULL, initial_items_seen = 0, failure_code = '', failure_message = '', next_eligible_at = NULL, updated_at = EXCLUDED.updated_at WHERE enabled = FALSE").
 			Exec(txCtx)
 		if err != nil {
 			return fmt.Errorf("enable post import: %w", err)
 		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("count enabled post import rows: %w", err)
+		}
+		mutated = rows > 0
 		reloaded := &models.PostImportState{}
 		if err := tx.NewSelect().Model(reloaded).Where("social_account_id = ?", account.ID).Scan(txCtx); err != nil {
 			return fmt.Errorf("reload post import state: %w", err)
@@ -136,8 +152,10 @@ func (s *Service) Enable(ctx context.Context, workspaceID, accountID string) (*m
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.enqueueSync(ctx, account.WorkspaceID, account.ID, now); err != nil {
-		return nil, err
+	if mutated {
+		if _, err := s.enqueueSync(ctx, account.WorkspaceID, account.ID, now); err != nil {
+			return nil, err
+		}
 	}
 	return state, nil
 }
@@ -178,30 +196,59 @@ func (s *Service) Status(ctx context.Context, workspaceID, accountID string) (*m
 // ListImported serves the imported library from stored rows only. It makes
 // no provider calls and never touches analytics tables.
 func (s *Service) ListImported(ctx context.Context, workspaceID, accountID string, limit int) ([]models.ImportedPost, error) {
+	posts, _, err := s.ListImportedPage(ctx, workspaceID, accountID, "", limit)
+	return posts, err
+}
+
+type importedPostCursor struct {
+	PublishedAt time.Time `json:"published_at"`
+	ID          string    `json:"id"`
+}
+
+func (s *Service) ListImportedPage(ctx context.Context, workspaceID, accountID, cursor string, limit int) ([]models.ImportedPost, string, error) {
 	limit = min(max(1, limit), 100)
 	var posts []models.ImportedPost
-	err := s.db.NewSelect().Model(&posts).
+	query := s.db.NewSelect().Model(&posts).
 		Where("workspace_id = ?", strings.TrimSpace(workspaceID)).
-		Where("social_account_id = ?", strings.TrimSpace(accountID)).
-		Order("published_at DESC").
-		Limit(limit).
-		Scan(ctx)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("list imported posts: %w", err)
+		Where("social_account_id = ?", strings.TrimSpace(accountID))
+	if cursor != "" {
+		payload, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			return nil, "", ErrInvalidCursor
+		}
+		var after importedPostCursor
+		if json.Unmarshal(payload, &after) != nil || after.PublishedAt.IsZero() || after.ID == "" {
+			return nil, "", ErrInvalidCursor
+		}
+		query = query.Where("(published_at < ? OR (published_at = ? AND id < ?))", after.PublishedAt, after.PublishedAt, after.ID)
 	}
-	return posts, nil
+	err := query.Order("published_at DESC", "id DESC").Limit(limit + 1).Scan(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, "", fmt.Errorf("list imported posts: %w", err)
+	}
+	if len(posts) <= limit {
+		return posts, "", nil
+	}
+	posts = posts[:limit]
+	last := posts[len(posts)-1]
+	payload, err := json.Marshal(importedPostCursor{PublishedAt: last.PublishedAt.UTC(), ID: last.ID})
+	if err != nil {
+		return nil, "", fmt.Errorf("encode imported post cursor: %w", err)
+	}
+	return posts, base64.RawURLEncoding.EncodeToString(payload), nil
 }
 
 type Overview struct {
-	Platform string
-	Support  platform.NativePostSupport
-	State    *models.PostImportState
-	Posts    []models.ImportedPost
+	Platform   string
+	Support    platform.NativePostSupport
+	State      *models.PostImportState
+	Posts      []models.ImportedPost
+	NextCursor string
 }
 
 // ReadOverview serves account import state and stored posts without calling a
 // provider. An account that has never opted in has an empty library.
-func (s *Service) ReadOverview(ctx context.Context, workspaceID, accountID string) (Overview, error) {
+func (s *Service) ReadOverview(ctx context.Context, workspaceID, accountID, cursor string, limit int) (Overview, error) {
 	account, err := s.loadAccount(ctx, workspaceID, accountID)
 	if err != nil {
 		return Overview{}, err
@@ -212,11 +259,11 @@ func (s *Service) ReadOverview(ctx context.Context, workspaceID, accountID strin
 	} else if err != nil {
 		return Overview{}, fmt.Errorf("read post import state: %w", err)
 	}
-	posts, err := s.ListImported(ctx, workspaceID, accountID, 100)
+	posts, nextCursor, err := s.ListImportedPage(ctx, workspaceID, accountID, cursor, limit)
 	if err != nil {
 		return Overview{}, err
 	}
-	return Overview{Platform: account.Platform, Support: platform.NativePostSupportFor(account.Platform), State: state, Posts: posts}, nil
+	return Overview{Platform: account.Platform, Support: platform.NativePostSupportFor(account.Platform), State: state, Posts: posts, NextCursor: nextCursor}, nil
 }
 
 // EnqueueDue recovers import work from the stored account checkpoints. It is
@@ -290,9 +337,6 @@ func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string
 	cursor := prepared.state.Cursor
 	seen := prepared.state.InitialItemsSeen
 	for pages := 0; pages < max(1, s.maxPages); pages++ {
-		if prepared.state.InitialFinishedAt.IsZero() && seen >= initialItemCap {
-			break
-		}
 		cost := 1
 		if estimator, ok := prepared.reader.(platform.NativePostReadEstimator); ok {
 			cost = max(1, estimator.NativePostReadCost(platform.NativePostRequest{PageSize: prepared.policy.PageSize}))
@@ -327,15 +371,10 @@ func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string
 		prepared.state.InitialItemsSeen = seen
 		cursor = page.NextCursor
 		if strings.TrimSpace(cursor) == "" {
-			prepared.state.Cursor = ""
-			prepared.state.InitialFinishedAt = coalesceTime(prepared.state.InitialFinishedAt, now)
-			prepared.state.LastSuccessAt = now
-			prepared.state.Status = string(coverageStatus(page.Coverage))
-			prepared.state.FailureCode = ""
-			prepared.state.FailureMessage = ""
-			prepared.state.NextEligibleAt = now.Add(routineCadence)
-			prepared.state.UpdatedAt = now
-			return s.saveState(ctx, prepared.state)
+			return s.finishSync(ctx, prepared.state, coverageStatus(page.Coverage), now)
+		}
+		if prepared.state.InitialFinishedAt.IsZero() && seen >= initialItemCap {
+			return s.finishSync(ctx, prepared.state, platform.NativePostPartial, now)
 		}
 		prepared.state.Cursor = cursor
 		if err := s.saveState(ctx, prepared.state); err != nil {
@@ -347,6 +386,19 @@ func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string
 	prepared.state.LastAttemptedAt = now
 	prepared.state.UpdatedAt = now
 	return s.saveState(ctx, prepared.state)
+}
+
+func (s *Service) finishSync(ctx context.Context, state *models.PostImportState, coverage platform.NativePostStatus, now time.Time) error {
+	state.Cursor = ""
+	state.InitialFinishedAt = coalesceTime(state.InitialFinishedAt, now)
+	state.LastSuccessAt = coalesceTime(state.CycleStartedAt, now)
+	state.CycleStartedAt = time.Time{}
+	state.Status = string(coverage)
+	state.FailureCode = ""
+	state.FailureMessage = ""
+	state.NextEligibleAt = now.Add(routineCadence)
+	state.UpdatedAt = now
+	return s.saveState(ctx, state)
 }
 
 type syncPreparation struct {
@@ -387,7 +439,7 @@ func (s *Service) prepareSync(ctx context.Context, workspaceID, accountID string
 	if !state.InitialFinishedAt.IsZero() && !state.LastSuccessAt.IsZero() {
 		publishedAfter = state.LastSuccessAt.Add(-watermarkOverlap)
 	}
-	if state.Cursor == "" && state.InitialFinishedAt.IsZero() && state.CycleStartedAt.IsZero() {
+	if state.Cursor == "" {
 		state.CycleStartedAt = now
 	}
 	ownPostIDs, err := s.openPostPublishedIDs(ctx, account.ID)

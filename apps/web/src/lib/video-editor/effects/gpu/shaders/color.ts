@@ -1253,9 +1253,7 @@ vec4 gradientMapFragment(vec2 vUv) {
 	dataTexture: {
 		key: (p) => {
 			const preset = resolveGradientPreset(p);
-			return preset === 'custom'
-				? `custom:${readString(p, 'customStops', '')}`
-				: `preset:${preset}`;
+			return [preset, preset === 'custom' ? readString(p, 'customStops', '') : ''];
 		},
 		build: (p) => ({
 			width: 256,

@@ -19,10 +19,10 @@ import type {
 import { BLEND_MODE_INDEX, type BlendMode } from './blend-modes';
 import { BLEND_MODES_GLSL, EFFECT_COMMON_GLSL, FULLSCREEN_VERTEX_GLSL } from './shader-source';
 import { getGpuEffect } from './registry';
-import type { GpuParamValues, GpuProgramDefinition } from './types';
+import type { GpuDataTextureKey, GpuParamValues, GpuProgramDefinition } from './types';
 import { PaperShaderRenderer } from '../paper/renderer';
 import { gpuResourcePool } from './gpu-resource-pool';
-import { COLOR_BATCH_FRAGMENT_SOURCE, packColorBatch, planEffectPasses } from './color-batch';
+import { COLOR_BATCH_FRAGMENT_SOURCE, ColorBatchUniforms, planEffectPasses } from './color-batch';
 
 /** One resolved effect instance handed to `render`. */
 export interface GpuRenderEffect extends EditorColorRenderEffect {
@@ -44,6 +44,22 @@ interface ProgramBundle {
 	program: WebGLProgram;
 	uniformLocations: Map<string, WebGLUniformLocation | null>;
 	samplerUnits: Map<string, number>;
+}
+
+const MAX_DATA_TEXTURES = 8;
+const MAX_DATA_TEXTURE_BYTES = 16 * 1024 * 1024;
+
+interface DataTextureEntry {
+	effectId: string;
+	key: GpuDataTextureKey;
+	texture: WebGLTexture;
+	target: number;
+	bytes: number;
+}
+
+function sameDataTextureKey(left: GpuDataTextureKey, right: GpuDataTextureKey): boolean {
+	if (left === right) return true;
+	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 const VERTEX_SHADER = FULLSCREEN_VERTEX_GLSL;
@@ -158,15 +174,14 @@ export class GpuCompositor implements EditorColorCompositor {
 	private blendProgram: ProgramBundle | null = null;
 	private colorBatchProgram: ProgramBundle | null = null;
 	private colorBatchUnavailable = false;
+	private readonly colorBatchUniforms = new ColorBatchUniforms();
 	private sourceTexture: WebGLTexture | null = null;
 	private backdropTexture: WebGLTexture | null = null;
 	private pingTextures: [WebGLTexture | null, WebGLTexture | null] = [null, null];
 	private framebuffers: [WebGLFramebuffer | null, WebGLFramebuffer | null] = [null, null];
 	private pingSize: [number, number] = [0, 0];
-	private dataTextureCache = new Map<
-		string,
-		{ texture: WebGLTexture; key: string; dimension: '2d' | '3d'; target: number }
-	>();
+	private readonly dataTextures: DataTextureEntry[] = [];
+	private dataTextureBytes = 0;
 	private paperRenderer: PaperShaderRenderer | undefined;
 	private disposed = false;
 	private lastFailure: string | null = null;
@@ -185,6 +200,8 @@ export class GpuCompositor implements EditorColorCompositor {
 			this.pingTextures = [null, null];
 			this.framebuffers = [null, null];
 			this.pingSize = [0, 0];
+			this.dataTextures.length = 0;
+			this.dataTextureBytes = 0;
 		};
 		this.contextLostListener = listener;
 		canvas.addEventListener('webglcontextlost', listener);
@@ -383,17 +400,21 @@ export class GpuCompositor implements EditorColorCompositor {
 		// source with the auxiliary LUT or glyph atlas for the current pass.
 		gl.activeTexture(gl.TEXTURE1);
 		const key = spec.key(params);
-		const cached = this.dataTextureCache.get(definition.id);
-		if (
-			cached &&
-			cached.key === key &&
-			cached.dimension === dimension &&
-			cached.target === target
-		) {
+		const cachedIndex = this.dataTextures.findIndex(
+			(entry) =>
+				entry.effectId === definition.id &&
+				sameDataTextureKey(entry.key, key) &&
+				entry.target === target
+		);
+		if (cachedIndex >= 0) {
+			const cached = this.dataTextures[cachedIndex]!;
+			if (cachedIndex !== this.dataTextures.length - 1) {
+				this.dataTextures.splice(cachedIndex, 1);
+				this.dataTextures.push(cached);
+			}
 			gl.bindTexture(target, cached.texture);
 			return;
 		}
-		if (cached) gl.deleteTexture(cached.texture);
 		const payload = spec.build(params);
 		const depth = payload.depth ?? 1;
 		const is3d = dimension === '3d';
@@ -468,7 +489,20 @@ export class GpuCompositor implements EditorColorCompositor {
 					);
 				}
 			}
-			this.dataTextureCache.set(definition.id, { texture, key, dimension, target });
+			const bytes = payload.width * payload.height * depth * 4;
+			// Retain several authored variants so stacked effects and adjacent clips
+			// do not rebuild each other's LUTs. Animated values evict the least recent.
+			while (
+				this.dataTextures.length > 0 &&
+				(this.dataTextures.length >= MAX_DATA_TEXTURES ||
+					this.dataTextureBytes + bytes > MAX_DATA_TEXTURE_BYTES)
+			) {
+				const oldest = this.dataTextures.shift()!;
+				gl.deleteTexture(oldest.texture);
+				this.dataTextureBytes -= oldest.bytes;
+			}
+			this.dataTextures.push({ effectId: definition.id, texture, key, target, bytes });
+			this.dataTextureBytes += bytes;
 			gl.bindTexture(target, texture);
 		} catch (error) {
 			if (texture) gl.deleteTexture(texture);
@@ -523,7 +557,8 @@ export class GpuCompositor implements EditorColorCompositor {
 
 				if (pass.kind === 'color-batch') {
 					if (!colorBatchProgram) return false;
-					const packed = packColorBatch(pass.effects, width, height, options.time ?? 0);
+					const packed = this.colorBatchUniforms;
+					packed.pack(pass.effects, width, height, options.time ?? 0);
 					gl.useProgram(colorBatchProgram.program);
 					gl.uniform1i(this.location(colorBatchProgram, 'uInputTex'), 0);
 					gl.uniform1i(this.location(colorBatchProgram, 'uOpCount'), packed.count);
@@ -669,12 +704,13 @@ export class GpuCompositor implements EditorColorCompositor {
 			if (this.sourceTexture) gl.deleteTexture(this.sourceTexture);
 			if (this.backdropTexture) gl.deleteTexture(this.backdropTexture);
 			if (this.neutralBase) gl.deleteTexture(this.neutralBase);
-			for (const cached of this.dataTextureCache.values()) gl.deleteTexture(cached.texture);
+			for (const cached of this.dataTextures) gl.deleteTexture(cached.texture);
 			gl.deleteShader(this.vertexShader);
 		} else {
 			gpuResourcePool.clearForContext(gl);
 		}
-		this.dataTextureCache.clear();
+		this.dataTextures.length = 0;
+		this.dataTextureBytes = 0;
 		this.pingTextures = [null, null];
 		this.framebuffers = [null, null];
 		this.programs.clear();

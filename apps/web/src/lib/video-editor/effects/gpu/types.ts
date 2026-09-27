@@ -63,13 +63,15 @@ export type GpuParamSchema =
 	| GpuColorParamSchema
 	| GpuTextParamSchema;
 
+export type GpuDataTextureKey = readonly (string | number)[];
+
 /**
  * Auxiliary CPU-built texture bound alongside the input (e.g. a 256x1 LUT).
  * Port of EffectDataTextureSpec for curves, imported LUTs, and glyph atlases.
  */
 export interface GpuDataTextureSpec {
-	/** Cheap change-detection key derived from params. */
-	key: (params: GpuParamValues) => string;
+	/** Components include every input to build; keep large encoded payloads separate. */
+	key: (params: GpuParamValues) => GpuDataTextureKey;
 	/** Dimension of the auxiliary texture; 2D by default for existing specs. */
 	dimension?: '2d' | '3d';
 	build: (params: GpuParamValues) => {

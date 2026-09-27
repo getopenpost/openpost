@@ -89,7 +89,7 @@ function buildAsciiAtlas(params: GpuParamValues) {
 }
 
 export const asciiDataTexture: GpuDataTextureSpec = {
-	key: (params) => `${asciiAtlasRamp(params)}|${String(params.font ?? 'monospace')}`,
+	key: (params) => [asciiAtlasRamp(params), String(params.font ?? 'monospace')],
 	build: buildAsciiAtlas
 };
 

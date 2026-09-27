@@ -271,15 +271,15 @@ vec4 lutFragment(vec2 vUv) {
 		}
 	],
 	uniformValues: (params) => ({
-		u_lutSize: numeric(params.lutSize, 2),
+		u_lutSize: normalizedLutSize(params.lutSize),
 		u_intensity: numeric(params.intensity, 1)
 	}),
 	dataTexture: {
 		dimension: '3d',
-		key: (params) => String(params.lutData ?? ''),
+		// Keep the encoded payload separate so cache hits do not copy and compare a large joined string.
+		key: (params) => [normalizedLutSize(params.lutSize), String(params.lutData ?? '')],
 		build: (params) => {
-			const sizeValue = numeric(params.lutSize, 2);
-			const size = Math.min(MAX_LUT_SIZE, Math.max(MIN_LUT_SIZE, Math.floor(sizeValue)));
+			const size = normalizedLutSize(params.lutSize);
 			const encoded = String(params.lutData ?? '');
 			if (encoded.length > 0) {
 				try {
@@ -305,4 +305,8 @@ vec4 lutFragment(vec2 vUv) {
 function numeric(value: GpuParamValue | undefined, fallback: number): number {
 	const number = Number(value);
 	return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizedLutSize(value: GpuParamValue | undefined): number {
+	return Math.min(MAX_LUT_SIZE, Math.max(MIN_LUT_SIZE, Math.floor(numeric(value, MIN_LUT_SIZE))));
 }

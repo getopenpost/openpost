@@ -58,11 +58,36 @@ export function planEffectPasses<T extends ColorBatchEffect>(
 	return passes;
 }
 
-export interface PackedColorBatch {
-	count: number;
-	kinds: Int32Array;
-	values0: Float32Array;
-	values1: Float32Array;
+export class ColorBatchUniforms {
+	count = 0;
+	readonly kinds = new Int32Array(MAX_INLINE_COLOR_EFFECTS);
+	readonly values0 = new Float32Array(MAX_INLINE_COLOR_EFFECTS * 4);
+	readonly values1 = new Float32Array(MAX_INLINE_COLOR_EFFECTS * 4);
+
+	pack(effects: readonly ColorBatchEffect[], width: number, height: number, time: number): void {
+		if (effects.length < 2 || effects.length > MAX_INLINE_COLOR_EFFECTS) {
+			throw new Error(`Inline color batch must contain 2-${MAX_INLINE_COLOR_EFFECTS} effects.`);
+		}
+		this.count = effects.length;
+		for (let index = 0; index < effects.length; index++) {
+			const effect = effects[index]!;
+			const kind = INLINE_COLOR_EFFECT_KINDS.get(effect.effectId);
+			const definition = getGpuEffect(effect.effectId);
+			if (kind === undefined || !definition || definition.paperShader !== undefined) {
+				throw new Error(`GPU effect cannot join an inline color batch: ${effect.effectId}`);
+			}
+			this.kinds[index] = kind;
+			const values = operationValues(
+				effect.effectId,
+				definition.uniformValues(effect.params, width, height, time)
+			);
+			const offset = index * 4;
+			for (let channel = 0; channel < 4; channel++) {
+				this.values0[offset + channel] = values[channel] ?? 0;
+				this.values1[offset + channel] = values[channel + 4] ?? 0;
+			}
+		}
+	}
 }
 
 function uniform(values: GpuUniformValues, name: string, fallback = 0): number {
@@ -108,38 +133,6 @@ function operationValues(effectId: string, values: GpuUniformValues): readonly n
 		default:
 			return [];
 	}
-}
-
-export function packColorBatch(
-	effects: readonly ColorBatchEffect[],
-	width: number,
-	height: number,
-	time: number
-): PackedColorBatch {
-	if (effects.length < 2 || effects.length > MAX_INLINE_COLOR_EFFECTS) {
-		throw new Error(`Inline color batch must contain 2-${MAX_INLINE_COLOR_EFFECTS} effects.`);
-	}
-	const kinds = new Int32Array(MAX_INLINE_COLOR_EFFECTS);
-	const values0 = new Float32Array(MAX_INLINE_COLOR_EFFECTS * 4);
-	const values1 = new Float32Array(MAX_INLINE_COLOR_EFFECTS * 4);
-
-	for (let index = 0; index < effects.length; index++) {
-		const effect = effects[index]!;
-		const kind = INLINE_COLOR_EFFECT_KINDS.get(effect.effectId);
-		const definition = getGpuEffect(effect.effectId);
-		if (kind === undefined || !definition || definition.paperShader !== undefined) {
-			throw new Error(`GPU effect cannot join an inline color batch: ${effect.effectId}`);
-		}
-		kinds[index] = kind;
-		const values = operationValues(
-			effect.effectId,
-			definition.uniformValues(effect.params, width, height, time)
-		);
-		values0.set(values.slice(0, 4), index * 4);
-		values1.set(values.slice(4, 8), index * 4);
-	}
-
-	return { count: effects.length, kinds, values0, values1 };
 }
 
 export const COLOR_BATCH_FRAGMENT_SOURCE = /* glsl */ `

@@ -74,7 +74,7 @@ vec4 curvesFragment(vec2 vUv) {
 	schema,
 	uniformValues: () => ({}),
 	dataTexture: {
-		key: curvesLutKey,
+		key: (params) => [curvesLutKey(params)],
 		build: (params) => ({ width: 256, height: 1, data: buildCurvesLut(params) })
 	}
 };

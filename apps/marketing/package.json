@@ -15,6 +15,7 @@
 		"@openpost/dither": "workspace:*",
 		"@openpost/legal-policy": "workspace:*",
 		"@openpost/plan-catalog": "workspace:*",
+		"@openpost/platform-text": "workspace:*",
 		"@openpost/social-images": "workspace:*",
 		"@openpost/social-preview": "workspace:*",
 		"@openpost/telemetry": "workspace:*",

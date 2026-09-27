@@ -116,6 +116,7 @@ Each social network has one self-hosting integration guide. Keep shared credenti
 - Provider certification identifies output profiles. Hash all of an output's authoring formats into its contract, and use the same production requirements when recording and evaluating evidence.
 - Connected-account limits revalidate with saved destination settings; publishing readiness uses the canonical output contract rather than account-adjusted preview limits.
 - Media limits shared by the capability catalogue and provider validators belong in `apps/server/internal/providerlimits/`. Record the official source and verification date there, and test both validation boundaries against the same independently specified limits.
+- `@openpost/platform-text` owns public platform text limits and counting rules shared by the composer and marketing tools. Keep account-specific limit resolution in the web app.
 - Telegram authorization comes from its verified installation for the same account, workspace, and chat. Do not require a user OAuth grant for bot-token publishing.
 
 ## Execution

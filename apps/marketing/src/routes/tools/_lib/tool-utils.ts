@@ -1,3 +1,5 @@
+import { countPlatformText, PLATFORM_LIMITS } from '@openpost/platform-text';
+
 export type PlatformKey =
 	| 'x'
 	| 'mastodon'
@@ -17,119 +19,103 @@ export interface PlatformCountDefinition {
 	name: string;
 	limit: number;
 	note: string;
-	countMode: 'graphemes' | 'x-weighted';
 }
 
 export const COUNTER_PLATFORMS: PlatformCountDefinition[] = [
 	{
 		key: 'x',
 		name: 'X',
-		limit: 280,
-		note: 'Standard-post estimate: links use 23 characters, with X-style character weighting.',
-		countMode: 'x-weighted'
+		limit: PLATFORM_LIMITS.x.charLimit,
+		note: 'Standard-post estimate: links use 23 characters, with X-style character weighting.'
 	},
 	{
 		key: 'bluesky',
 		name: 'Bluesky',
-		limit: 300,
-		note: 'Counts the characters you can see.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.bluesky.charLimit,
+		note: 'Counts grapheme clusters.'
 	},
 	{
 		key: 'mastodon',
 		name: 'Mastodon',
-		limit: 500,
-		note: '500 is the common default; an instance can set a different limit.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.mastodon.charLimit,
+		note: '500 is the common default; an instance can set a different limit.'
 	},
 	{
 		key: 'threads',
 		name: 'Threads',
-		limit: 500,
-		note: 'Counts the characters you can see.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.threads.charLimit,
+		note: 'Counts UTF-8 bytes.'
 	},
 	{
 		key: 'linkedin',
 		name: 'LinkedIn',
-		limit: 3_000,
-		note: 'This is the main post limit; comment replies are shorter.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.linkedin.charLimit,
+		note: 'This is the main post limit; comment replies are shorter.'
 	},
 	{
 		key: 'instagram',
 		name: 'Instagram',
-		limit: 2_200,
-		note: 'Caption limit for feed posts and Reels.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.instagram.charLimit,
+		note: 'Caption limit for feed posts and Reels.'
 	},
 	{
 		key: 'tiktok',
 		name: 'TikTok',
-		limit: 2_200,
-		note: 'Video caption limit. Photo posts allow up to 4,000 characters.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.tiktok.charLimit,
+		note: 'Video caption limit. Photo posts allow up to 4,000 characters.'
 	},
 	{
 		key: 'youtube',
 		name: 'YouTube',
-		limit: 5_000,
-		note: 'Video description limit; titles use a separate field.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.youtube.charLimit,
+		note: 'Video description limit; titles use a separate field.'
 	},
 	{
 		key: 'facebook',
 		name: 'Facebook Pages',
-		limit: 63_206,
-		note: 'Maximum post length. Shorter posts are often easier to read.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.facebook.charLimit,
+		note: 'Maximum post length. Shorter posts are often easier to read.'
 	},
 	{
 		key: 'pinterest',
 		name: 'Pinterest',
-		limit: 800,
-		note: 'Pin description limit; Pin titles use a separate field.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.pinterest.charLimit,
+		note: 'Pin description limit; Pin titles use a separate field.'
 	},
 	{
 		key: 'telegram',
 		name: 'Telegram',
-		limit: 4_096,
-		note: 'Text-message limit; media captions allow up to 1,024 characters.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.telegram.charLimit,
+		note: 'Text-message limit; media captions allow up to 1,024 characters.'
 	},
 	{
 		key: 'discord',
 		name: 'Discord',
-		limit: 2_000,
-		note: 'Message limit for incoming webhooks.',
-		countMode: 'graphemes'
+		limit: PLATFORM_LIMITS.discord.charLimit,
+		note: 'Message limit for incoming webhooks.'
 	}
 ];
 
 export const THREAD_PLATFORMS = [
-	{ key: 'x', name: 'X', limit: 280, countMode: 'x-weighted' },
-	{ key: 'bluesky', name: 'Bluesky', limit: 300, countMode: 'graphemes' },
-	{ key: 'mastodon', name: 'Mastodon', limit: 500, countMode: 'graphemes' },
-	{ key: 'threads', name: 'Threads', limit: 500, countMode: 'graphemes' },
+	{ key: 'x', name: 'X', limit: PLATFORM_LIMITS.x.charLimit },
+	{ key: 'bluesky', name: 'Bluesky', limit: PLATFORM_LIMITS.bluesky.charLimit },
+	{ key: 'mastodon', name: 'Mastodon', limit: PLATFORM_LIMITS.mastodon.charLimit },
+	{ key: 'threads', name: 'Threads', limit: PLATFORM_LIMITS.threads.charLimit },
 	{
 		key: 'linkedin',
 		name: 'LinkedIn comment thread',
-		limit: 1_250,
-		countMode: 'graphemes'
+		limit: 1_250
 	}
 ] as const;
 
-const urlPattern = /https?:\/\/[^\s]+/giu;
-const pictographicPattern = /\p{Extended_Pictographic}/u;
+const graphemeSegmenter = Intl.Segmenter
+	? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+	: null;
 
 export function graphemes(value: string): string[] {
 	const normalized = value.normalize('NFC');
-	if (Intl.Segmenter) {
-		const segmenter = new Intl.Segmenter(undefined, {
-			granularity: 'grapheme'
-		});
-		return Array.from(segmenter.segment(normalized), (part) => part.segment);
+	if (graphemeSegmenter) {
+		return Array.from(graphemeSegmenter.segment(normalized), (part) => part.segment);
 	}
 	return Array.from(normalized);
 }
@@ -138,39 +124,8 @@ export function graphemeCount(value: string): number {
 	return graphemes(value).length;
 }
 
-function xWeight(value: string): number {
-	return graphemes(value).reduce((total, grapheme) => {
-		if (pictographicPattern.test(grapheme)) return total + 2;
-		return (
-			total +
-			Array.from(grapheme).reduce((graphemeTotal, character) => {
-				const point = character.codePointAt(0) ?? 0;
-				const singleWeight =
-					(point >= 0 && point <= 0x10ff) ||
-					(point >= 0x2000 && point <= 0x200d) ||
-					(point >= 0x2010 && point <= 0x201f) ||
-					(point >= 0x2032 && point <= 0x2037);
-				return graphemeTotal + (singleWeight ? 1 : 2);
-			}, 0)
-		);
-	}, 0);
-}
-
-export function xWeightedCount(value: string): number {
-	const normalized = value.normalize('NFC');
-	let count = 0;
-	let cursor = 0;
-	for (const match of normalized.matchAll(urlPattern)) {
-		const index = match.index ?? cursor;
-		count += xWeight(normalized.slice(cursor, index));
-		count += 23;
-		cursor = index + match[0].length;
-	}
-	return count + xWeight(normalized.slice(cursor));
-}
-
 export function platformTextCount(value: string, platform: PlatformKey): number {
-	return platform === 'x' ? xWeightedCount(value) : graphemeCount(value);
+	return countPlatformText(platform, value);
 }
 
 export function wordCount(value: string): number {
@@ -195,12 +150,28 @@ function sentenceSegments(value: string): string[] {
 function splitOversizeToken(value: string, limit: number, platform: PlatformKey): string[] {
 	const pieces: string[] = [];
 	let current = '';
+	let currentCount = 0;
+	const additive = platform !== 'x' || !/[./:]/u.test(value);
+	const graphemeWeights = new Map<string, number>();
+	const weight = (grapheme: string) => {
+		let count = graphemeWeights.get(grapheme);
+		if (count === undefined) {
+			count = platformTextCount(grapheme, platform);
+			graphemeWeights.set(grapheme, count);
+		}
+		return count;
+	};
 	for (const grapheme of graphemes(value)) {
-		if (current && platformTextCount(current + grapheme, platform) > limit) {
+		const nextCount = additive
+			? currentCount + weight(grapheme)
+			: platformTextCount(current + grapheme, platform);
+		if (current && nextCount > limit) {
 			pieces.push(current);
 			current = grapheme;
+			currentCount = additive ? weight(grapheme) : platformTextCount(grapheme, platform);
 		} else {
 			current += grapheme;
+			currentCount = nextCount;
 		}
 	}
 	if (current) pieces.push(current);

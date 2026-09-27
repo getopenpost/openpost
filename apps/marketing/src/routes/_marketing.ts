@@ -1,6 +1,6 @@
 import { planCatalog, purchaseTerms, selfHostedDeployment } from '@openpost/plan-catalog';
 import { mediaTools, previewTools } from '@openpost/social-images';
-import { PLATFORM_LIMITS } from '../../../web/src/lib/platform-limits';
+import { PLATFORM_LIMITS } from '@openpost/platform-text';
 import publicClaimManifest from '../../../../config/provider-certification/public-claims.json';
 
 type PublicProviderClaim = {
@@ -675,7 +675,7 @@ const platformImplementations = [
 			}
 		],
 		limits: [
-			`${PLATFORM_LIMITS.threads.charLimit} characters`,
+			`${PLATFORM_LIMITS.threads.charLimit} UTF-8 bytes`,
 			PLATFORM_LIMITS.threads.media,
 			'Reply chains',
 			'Public media URL and approved Meta app access required'

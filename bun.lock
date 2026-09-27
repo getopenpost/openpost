@@ -53,6 +53,7 @@
         "@openpost/dither": "workspace:*",
         "@openpost/legal-policy": "workspace:*",
         "@openpost/plan-catalog": "workspace:*",
+        "@openpost/platform-text": "workspace:*",
         "@openpost/social-images": "workspace:*",
         "@openpost/social-preview": "workspace:*",
         "@openpost/telemetry": "workspace:*",
@@ -106,6 +107,7 @@
         "@openpost/api-contract": "workspace:*",
         "@openpost/dither": "workspace:*",
         "@openpost/plan-catalog": "workspace:*",
+        "@openpost/platform-text": "workspace:*",
         "@openpost/query-catalog": "workspace:*",
         "@openpost/social-preview": "workspace:*",
         "@openpost/telemetry": "workspace:*",
@@ -238,6 +240,12 @@
       "devDependencies": {
         "typescript": "^5.9.3",
         "vitest": "^4.1.11",
+      },
+    },
+    "packages/platform-text": {
+      "name": "@openpost/platform-text",
+      "devDependencies": {
+        "typescript": "5.9.3",
       },
     },
     "packages/query-catalog": {
@@ -995,6 +1003,8 @@
     "@openpost/legal-policy": ["@openpost/legal-policy@workspace:packages/legal-policy"],
 
     "@openpost/plan-catalog": ["@openpost/plan-catalog@workspace:packages/plan-catalog"],
+
+    "@openpost/platform-text": ["@openpost/platform-text@workspace:packages/platform-text"],
 
     "@openpost/query-catalog": ["@openpost/query-catalog@workspace:packages/query-catalog"],
 

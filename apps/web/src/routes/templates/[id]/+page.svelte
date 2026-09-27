@@ -9,7 +9,7 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { screenshotTemplateAPI } from '$lib/screenshot-templates/api';
+	import { screenshotTemplateAPI } from '$lib/query/screenshot-templates';
 	import Editor from '$lib/screenshot-templates/editor.svelte';
 	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	let openedWorkspace = $state('');

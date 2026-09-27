@@ -1,10 +1,11 @@
 import { client } from '$lib/api/client';
-import { queryGET, type QueryTransportResponse } from '$lib/query/transport';
+import { type QueryTransportResponse } from '$lib/query/transport';
 import {
 	captureQueryMutationSession,
 	settleQueryMutationSession
 } from '$lib/query/authorization-boundary';
 import { queryClient } from '$lib/query/client';
+import { inScreenshotWorkspace } from '$lib/query/screenshot-templates';
 import {
 	screenshotTemplateKeys,
 	type ScreenshotDocument,
@@ -12,48 +13,6 @@ import {
 } from '@openpost/query-catalog';
 import { m } from '$lib/paraglide/messages';
 
-function inWorkspace<T extends { workspace_id: string }>(data: T, workspaceId: string): T {
-	if (data.workspace_id !== workspaceId) throw new Error(m.templates_workspace_changed());
-	return data;
-}
-export const screenshotTemplateAPI: ScreenshotTemplateQueryAPI = {
-	async list(workspaceId, offset, signal) {
-		const { data } = await queryGET({
-			signal,
-			fallback: m.templates_load_failed(),
-			request: (signal) =>
-				client.GET('/screenshot-templates/designs', {
-					params: { query: { workspace_id: workspaceId, offset, limit: 40 } },
-					signal
-				})
-		});
-		return data;
-	},
-	async detail(workspaceId, id, signal) {
-		const { data } = await queryGET({
-			signal,
-			fallback: m.templates_load_failed(),
-			request: (signal) =>
-				client.GET('/screenshot-templates/designs/{id}', {
-					params: { path: { id } },
-					signal
-				})
-		});
-		return inWorkspace(data, workspaceId);
-	},
-	async recipe(workspaceId, mediaId, signal) {
-		const { data } = await queryGET({
-			signal,
-			fallback: m.templates_load_failed(),
-			request: (signal) =>
-				client.GET('/screenshot-templates/recipes/{media_id}', {
-					params: { path: { media_id: mediaId } },
-					signal
-				})
-		});
-		return inWorkspace(data, workspaceId);
-	}
-};
 export class ScreenshotSaveError extends Error {
 	constructor(
 		public readonly status: number,
@@ -79,7 +38,7 @@ async function cacheDesign(
 	design: Awaited<ReturnType<ScreenshotTemplateQueryAPI['detail']>> | undefined
 ) {
 	if (!design) throw new Error(m.templates_save_failed());
-	inWorkspace(design, workspaceId);
+	inScreenshotWorkspace(design, workspaceId);
 	queryClient.setQueryData(screenshotTemplateKeys.detail(workspaceId, design.id), design);
 	await queryClient.invalidateQueries({
 		queryKey: screenshotTemplateKeys.lists(workspaceId),

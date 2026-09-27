@@ -15,11 +15,8 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
-	import {
-		createScreenshotDesign,
-		deleteScreenshotDesign,
-		screenshotTemplateAPI
-	} from '$lib/screenshot-templates/api';
+	import { createScreenshotDesign, deleteScreenshotDesign } from '$lib/screenshot-templates/api';
+	import { screenshotTemplateAPI } from '$lib/query/screenshot-templates';
 	import { newDocument, templateName, TEMPLATE_IDS } from '$lib/screenshot-templates/document';
 	import MemeBrowser from '$lib/meme-generator/browser.svelte';
 	import { memeDocument } from '$lib/screenshot-templates/meme';

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -308,4 +309,50 @@ test("automatic Turbo cache maintenance does not wait for another maintenance lo
 
   releaseLock();
   await maintenance;
+});
+
+test("shell-entry prune exits while a Turbo task holds a cache lease", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "openpost-turbo-cache-entry-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const cacheDirectory = path.join(directory, "cache");
+  let releaseTask;
+  const holdTask = new Promise((resolve) => {
+    releaseTask = resolve;
+  });
+  let markStarted;
+  const started = new Promise((resolve) => {
+    markStarted = resolve;
+  });
+  const task = withTurboCacheLease({ directory: cacheDirectory }, async () => {
+    markStarted();
+    await holdTask;
+  });
+  await started;
+
+  const child = spawn(
+    process.execPath,
+    [path.join(import.meta.dir, "turbo-cache.mjs"), "prune-if-idle"],
+    {
+      env: { ...process.env, OPENPOST_TURBO_CACHE_DIR: cacheDirectory },
+    },
+  );
+  let stderr = "";
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill();
+  }, 5_000);
+  const exitCode = await new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", resolve);
+  });
+  clearTimeout(timer);
+  releaseTask();
+  await task;
+
+  assert.equal(timedOut, false, "shell entry waited for an active Turbo task");
+  assert.equal(exitCode, 0, stderr);
 });

@@ -372,12 +372,21 @@ function processIsAlive(pid) {
 
 if (import.meta.main) {
   const command = process.argv[2] ?? "prune";
-  if (command !== "prune") throw new Error(`Unsupported Turbo cache command: ${command}`);
+  if (command !== "prune" && command !== "prune-if-idle") {
+    throw new Error(`Unsupported Turbo cache command: ${command}`);
+  }
   const directory = resolveTurboCacheDirectory();
   const maxBytes = turboCacheMaxBytes();
-  const result = await withTurboCacheMaintenance({ directory }, () =>
-    pruneTurboCache({ directory, maxBytes }),
-  );
-  const message = formatPruneResult(result, maxBytes);
+  let result;
+  if (command === "prune") {
+    result = await withTurboCacheMaintenance({ directory }, () =>
+      pruneTurboCache({ directory, maxBytes }),
+    );
+  } else {
+    await tryTurboCacheMaintenance({ directory }, async () => {
+      result = await pruneTurboCache({ directory, maxBytes });
+    });
+  }
+  const message = result && formatPruneResult(result, maxBytes);
   if (message) console.log(message);
 }

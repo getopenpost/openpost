@@ -68,7 +68,10 @@
     cache-prune.exec = ''
       cd "${config.git.root}"
       bun scripts/turbo-cache.mjs prune
+      go-cache-prune
+    '';
 
+    go-cache-prune.exec = ''
       max_mib="''${OPENPOST_GO_CACHE_MAX_MIB:-4096}"
       if ! [[ "$max_mib" =~ ^[1-9][0-9]*$ ]]; then
         echo "OPENPOST_GO_CACHE_MAX_MIB must be a positive integer; received: $max_mib" >&2
@@ -188,7 +191,8 @@
       done
     fi
 
-    cache-prune
+    bun scripts/turbo-cache.mjs prune-if-idle
+    go-cache-prune
   '';
 
   enterTest = ''

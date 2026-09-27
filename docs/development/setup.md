@@ -67,6 +67,8 @@ task-cache cap and the daily 4 GiB default cap on the shared Go build cache.
 Root commands use the OpenPost directory under the operating system's user
 cache, so linked worktrees share entries and one total limit, including inside
 Devenv.
+Shell entry also prunes only when the Turbo cache is idle, so entering another
+worktree does not wait for an active root task.
 Finite root tasks opportunistically enforce the Turbo cap after each run,
 keeping the newest complete entries. Automatic maintenance skips pruning when
 another task or maintenance pass is active instead of waiting for it. `dev`

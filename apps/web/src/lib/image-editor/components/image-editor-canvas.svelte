@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
+	import EditorColorMagnifier from '$lib/components/editor-color-magnifier.svelte';
 	import {
 		SCOPE_CAPTURE_INTERVAL_PAUSED_MS,
 		SCOPE_SAMPLE_SIZE_PAUSED
@@ -568,20 +569,6 @@
 		eyedropperKeyboardCursor = point;
 		sampleEyedropper(point, false);
 		return true;
-	}
-
-	function eyedropperPixelColor(grid: ImageEditorPixelGrid, index: number): string {
-		const offset = index * 4;
-		return `rgba(${grid.data[offset] ?? 0}, ${grid.data[offset + 1] ?? 0}, ${grid.data[offset + 2] ?? 0}, ${(grid.data[offset + 3] ?? 0) / 255})`;
-	}
-
-	function eyedropperMagnifierOffset(point: SelectionPoint): SelectionPoint {
-		const document = editor.document;
-		if (!document) return { x: 14, y: 14 };
-		return {
-			x: point.x > editor.activePageDimensions.width / 2 ? -78 : 14,
-			y: point.y > editor.activePageDimensions.height / 2 ? -78 : 14
-		};
 	}
 
 	function pixelContentProjections(): Array<{
@@ -2894,38 +2881,7 @@
 						</div>
 					</div>
 				{/if}
-				{#if editor.activeTool === 'eyedropper' && eyedropperPreview}
-					{@const magnifierOffset = eyedropperMagnifierOffset(eyedropperPreview.point)}
-					<div
-						class="pointer-events-none absolute z-30 grid place-items-center gap-1 rounded-lg border-2 border-[var(--canvas-handle)] bg-[var(--editor-canvas)] p-1.5 text-[9px] font-semibold text-[var(--editor-text)] shadow-xl"
-						style:left={`${eyedropperPreview.point.x * editor.zoom + magnifierOffset.x}px`}
-						style:top={`${eyedropperPreview.point.y * editor.zoom + magnifierOffset.y}px`}
-						data-testid="image-editor-eyedropper-magnifier"
-						aria-hidden="true"
-					>
-						<div
-							class="eyedropper-grid grid overflow-hidden rounded-sm border border-white/40"
-							style:grid-template-columns={`repeat(${eyedropperPreview.grid.width}, 0.375rem)`}
-						>
-							{#each Array.from( { length: eyedropperPreview.grid.width * eyedropperPreview.grid.height } ) as _, index (index)}
-								<span
-									class="size-1.5"
-									class:ring-2={index ===
-										Math.floor(eyedropperPreview.grid.width / 2) * eyedropperPreview.grid.width +
-											Math.floor(eyedropperPreview.grid.width / 2)}
-									class:ring-white={index ===
-										Math.floor(eyedropperPreview.grid.width / 2) * eyedropperPreview.grid.width +
-											Math.floor(eyedropperPreview.grid.width / 2)}
-									class:ring-inset={index ===
-										Math.floor(eyedropperPreview.grid.width / 2) * eyedropperPreview.grid.width +
-											Math.floor(eyedropperPreview.grid.width / 2)}
-									style:background-color={eyedropperPixelColor(eyedropperPreview.grid, index)}
-								></span>
-							{/each}
-						</div>
-						<span>{eyedropperPreview.color.toUpperCase()}</span>
-					</div>
-				{/if}
+
 				{#if (editor.activeTool === 'pencil' || editor.activeTool === 'eraser') && brushPreview}
 					<div
 						class="pointer-events-none absolute z-30 rounded-full border border-white shadow-[0_0_0_1px_rgb(0_0_0/0.8)]"
@@ -3076,21 +3032,25 @@
 	{/if}
 </div>
 
+{#if editor.activeTool === 'eyedropper' && eyedropperPreview && stageElement}
+	{@const bounds = stageElement.getBoundingClientRect()}
+	<EditorColorMagnifier
+		image={eyedropperPreview.grid}
+		pixelX={Math.floor(eyedropperPreview.grid.width / 2)}
+		pixelY={Math.floor(eyedropperPreview.grid.height / 2)}
+		clientX={bounds.left + eyedropperPreview.point.x * editor.zoom}
+		clientY={bounds.top + eyedropperPreview.point.y * editor.zoom}
+		color={eyedropperPreview.alpha === 255
+			? eyedropperPreview.color
+			: `${eyedropperPreview.color}${eyedropperPreview.alpha.toString(16).padStart(2, '0')}`}
+		testId="image-editor-eyedropper-magnifier"
+	/>
+{/if}
+
 <style>
 	.fabric-stage :global(.canvas-container) {
 		transform: scale(var(--image-editor-zoom));
 		transform-origin: top left;
-	}
-
-	.eyedropper-grid {
-		background-color: var(--canvas-handle);
-		background-image: conic-gradient(
-			var(--canvas-grid) 25%,
-			var(--canvas-handle) 0 50%,
-			var(--canvas-grid) 0 75%,
-			var(--canvas-handle) 0
-		);
-		background-size: 0.75rem 0.75rem;
 	}
 
 	.image-editor-selection-outline {

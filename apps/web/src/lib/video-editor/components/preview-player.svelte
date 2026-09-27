@@ -33,6 +33,7 @@
 </script>
 
 <script lang="ts">
+	import EditorColorMagnifier from '$lib/components/editor-color-magnifier.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
@@ -216,7 +217,9 @@
 	let stackWidth = $state(1);
 	let stackHeight = $state(1);
 	let pickerOverlay = $state<HTMLButtonElement | null>(null);
-	let pickerLoupe = $state<HTMLCanvasElement | null>(null);
+	let pickerImage = $state.raw<ImageData | null>(null);
+	let pickerPixelX = $state(0);
+	let pickerPixelY = $state(0);
 	let pickerX = $state(0);
 	let pickerY = $state(0);
 	let pickerColor = $state<{ r: number; g: number; b: number } | null>(null);
@@ -892,6 +895,7 @@
 	$effect(() => {
 		const picker = colorPreviewStore.activePicker;
 		if (!picker) {
+			pickerImage = null;
 			pickerColor = null;
 			return;
 		}
@@ -953,27 +957,12 @@
 			b: (image.data[offset + 2] ?? 0) / 255
 		};
 		pickerColor = color;
-		pickerX = Math.max(8, Math.min(rect.width - 88, event.clientX - rect.left + 16));
-		pickerY = Math.max(8, Math.min(rect.height - 104, event.clientY - rect.top + 16));
-		requestAnimationFrame(() => drawPickerLoupe(image, pixelX, pixelY));
+		pickerX = event.clientX;
+		pickerY = event.clientY;
+		pickerPixelX = pixelX;
+		pickerPixelY = pixelY;
+		pickerImage = image;
 		return color;
-	}
-
-	function drawPickerLoupe(image: ImageData, x: number, y: number): void {
-		const loupe = pickerLoupe;
-		if (!loupe) return;
-		const source = document.createElement('canvas');
-		source.width = image.width;
-		source.height = image.height;
-		source.getContext('2d')?.putImageData(image, 0, 0);
-		const context = loupe.getContext('2d');
-		if (!context) return;
-		context.imageSmoothingEnabled = false;
-		context.clearRect(0, 0, loupe.width, loupe.height);
-		context.drawImage(source, x - 4, y - 4, 9, 9, 0, 0, loupe.width, loupe.height);
-		context.strokeStyle = 'rgba(255,255,255,0.9)';
-		context.lineWidth = 1;
-		context.strokeRect(loupe.width / 2 - 3.5, loupe.height / 2 - 3.5, 8, 8);
 	}
 
 	function choosePickerColor(event: PointerEvent): void {
@@ -1635,22 +1624,10 @@
 								class="absolute inset-0 z-30 cursor-crosshair bg-transparent focus-visible:outline-2 focus-visible:outline-white"
 								aria-label={m.video_editor_color_picker_instruction()}
 								onpointermove={samplePicker}
+								onpointerleave={() => (pickerColor = null)}
 								onpointerdown={choosePickerColor}
 								onkeydown={pickerKeydown}
 							>
-								{#if pickerColor}
-									<span
-										class="pointer-events-none absolute overflow-hidden rounded border border-white bg-black shadow-xl"
-										style:left={`${pickerX}px`}
-										style:top={`${pickerY}px`}
-									>
-										<canvas bind:this={pickerLoupe} width="40" height="40" class="block size-[40px]"
-										></canvas>
-										<span class="block px-1 py-0.5 text-center font-mono text-[10px] text-white"
-											>{colorHex(pickerColor)}</span
-										>
-									</span>
-								{/if}
 							</button>
 						{/if}
 						{#if previewDiagnostics.clipTimingOverlay && diagnosticClip}
@@ -1713,3 +1690,15 @@
 		<PreviewMixEntryLayer {entry} url={urls[entry.mediaId]} duckWindows={previewDuckWindows} />
 	{/each}
 </div>
+
+{#if colorPreviewStore.activePicker && pickerColor && pickerImage}
+	<EditorColorMagnifier
+		image={pickerImage}
+		pixelX={pickerPixelX}
+		pixelY={pickerPixelY}
+		clientX={pickerX}
+		clientY={pickerY}
+		color={colorHex(pickerColor)}
+		testId="video-editor-eyedropper-magnifier"
+	/>
+{/if}

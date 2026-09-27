@@ -38,6 +38,52 @@ export interface TextRasterFrame {
 
 const SUBTITLE_LAYOUT_CACHE_LIMIT = 32;
 const subtitleLayoutCache = new Map<string, TextBlockLayout>();
+const fontIds = new WeakMap<FontFace, number>();
+const fontLoads = new WeakMap<FontFaceSet, { revision: number }>();
+let nextFontId = 0;
+
+/** FontFaceSet events miss already-loaded additions and descriptor edits. */
+export function textRasterFontKey(): string {
+	// SAFETY: WorkerGlobalScope exposes fonts as FontFaceSet; windows use document.fonts.
+	const fonts = globalThis.document?.fonts ?? (globalThis as { fonts?: FontFaceSet }).fonts;
+	if (!fonts) return '';
+	let loads = fontLoads.get(fonts);
+	if (!loads) {
+		const state = { revision: 0 };
+		const changed = () => state.revision++;
+		fonts.addEventListener('loadingdone', changed);
+		fonts.addEventListener('loadingerror', changed);
+		fontLoads.set(fonts, state);
+		loads = state;
+	}
+	return JSON.stringify([
+		loads.revision,
+		...Array.from(fonts, (face) => {
+			let id = fontIds.get(face);
+			if (id === undefined) {
+				id = nextFontId++;
+				fontIds.set(face, id);
+			}
+			return [
+				id,
+				face.status,
+				face.family,
+				face.style,
+				face.weight,
+				face.stretch,
+				face.unicodeRange,
+				face.featureSettings,
+				face.display,
+				'variationSettings' in face ? face.variationSettings : undefined,
+				'variant' in face ? face.variant : undefined,
+				'sizeAdjust' in face ? face.sizeAdjust : undefined,
+				face.ascentOverride,
+				face.descentOverride,
+				face.lineGapOverride
+			];
+		})
+	]);
+}
 
 function styledSubtitleItem(
 	text: string,
@@ -107,7 +153,7 @@ function getCachedSubtitleLayout(
 	width: number,
 	height: number
 ): TextBlockLayout {
-	const key = subtitleLayoutKey(styled, width, height);
+	const key = `${textRasterFontKey()}:${subtitleLayoutKey(styled, width, height)}`;
 	const cached = subtitleLayoutCache.get(key);
 	if (cached) return cached;
 	const layout = layoutTextBlock(styled, width, height, createCanvasTextMeasurer(context));

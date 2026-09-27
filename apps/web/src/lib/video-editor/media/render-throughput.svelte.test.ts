@@ -15,6 +15,8 @@ import { renderMultiTrackVideoArtifact, TimelineFrameRenderer } from './render-e
 import { mediaPool } from './pool.svelte';
 import type { Project } from '../project/types';
 import { getProxy, clearProxyCache } from './proxy-client';
+import { createTextMotionEffect } from '../timeline/text-motion-presets';
+import { ItemRasterizer } from './item-rasterizer';
 
 const FPS = 30;
 const FRAME_COUNT = 60;
@@ -100,7 +102,261 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('timeline video decoding', () => {
+describe('timeline rendering', () => {
+	it('bounds retained raster memory after compositing and releases it on disposal', () => {
+		const rasterizer = new ItemRasterizer(2048, 2048, FPS);
+		const canvases: OffscreenCanvas[] = [];
+		try {
+			for (let index = 0; index < 4; index++) {
+				const result = rasterizer.render(
+					{
+						id: `shape-${index}`,
+						type: 'shape',
+						trackId: 'v',
+						from: 0,
+						durationInFrames: 60,
+						label: 'Shape',
+						shapeType: 'rectangle',
+						fillColor: '#ff0000'
+					},
+					0
+				)!;
+				expect(result.source).toBeInstanceOf(OffscreenCanvas);
+				if (!(result.source instanceof OffscreenCanvas)) throw new Error('Expected canvas raster');
+				canvases.push(result.source);
+				expect([...result.source.getContext('2d')!.getImageData(1024, 1024, 1, 1).data]).toEqual([
+					255, 0, 0, 255
+				]);
+				rasterizer.release();
+				expect(
+					canvases.reduce((sum, canvas) => sum + canvas.width * canvas.height * 4, 0)
+				).toBeLessThanOrEqual(32 * 1024 * 1024);
+			}
+		} finally {
+			rasterizer.dispose();
+		}
+		expect(canvases.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
+	});
+
+	it('moves karaoke highlighting to the next word at its exact boundary', async () => {
+		const project = sourceProject();
+		project.metadata.width = 256;
+		project.timeline!.items = [
+			{
+				id: 'captions',
+				type: 'subtitle',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 60,
+				label: 'Captions',
+				fontFamily: 'sans-serif',
+				fontSize: 24,
+				color: '#ffffff',
+				captionHighlightMode: 'karaoke',
+				karaokeActiveColor: '#ff0000',
+				cues: [
+					{
+						id: 'cue',
+						startFrame: 0,
+						endFrame: 60,
+						text: 'AAAA BBBB',
+						words: [
+							{ id: 'word-a', text: 'AAAA', startFrame: 0, endFrame: 30 },
+							{ id: 'word-b', text: 'BBBB', startFrame: 30, endFrame: 60 }
+						]
+					}
+				]
+			}
+		];
+		const renderer = new TimelineFrameRenderer(project);
+		try {
+			for (const frame of [0, 29, 30, 59]) {
+				const pixels = (await renderer.render(frame))
+					.getContext('2d')!
+					.getImageData(0, 0, 256, 64).data;
+				const highlighted = [0, 0];
+				for (let pixel = 0; pixel < pixels.length; pixel += 4) {
+					if (pixels[pixel]! > 128 && pixels[pixel + 1]! < 64)
+						highlighted[(pixel / 4) % 256 < 128 ? 0 : 1]!++;
+				}
+				expect(highlighted[frame < 30 ? 0 : 1]).toBeGreaterThan(0);
+				expect(highlighted[frame < 30 ? 1 : 0]).toBe(0);
+			}
+		} finally {
+			renderer.dispose();
+		}
+	});
+
+	it('reuses unchanged caption pixels but paints the next cue at its exact frame', async () => {
+		const project = sourceProject();
+		project.timeline!.items = [
+			{
+				id: 'captions',
+				type: 'subtitle',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 60,
+				label: 'Captions',
+				fontFamily: 'sans-serif',
+				fontSize: 16,
+				color: '#ffffff',
+				cues: [
+					{ id: 'one', startFrame: 0, endFrame: 30, text: 'ONE' },
+					{ id: 'two', startFrame: 30, endFrame: 60, text: 'TWO' }
+				]
+			}
+		];
+		const paint = vi.spyOn(OffscreenCanvasRenderingContext2D.prototype, 'fillText');
+		const renderer = new TimelineFrameRenderer(project);
+		try {
+			const first = (await renderer.render(0)).getContext('2d')!.getImageData(0, 0, 64, 64).data;
+			expect(first.some((value, index) => index % 4 === 0 && value > 0)).toBe(true);
+			for (let frame = 1; frame < 30; frame++) await renderer.render(frame);
+			expect(paint.mock.calls.length).toBeLessThanOrEqual(1);
+			const unchanged = renderer.canvas.getContext('2d')!.getImageData(0, 0, 64, 64).data;
+			expect(unchanged).toEqual(first);
+			const next = (await renderer.render(30)).getContext('2d')!.getImageData(0, 0, 64, 64).data;
+			expect(next.some((value, index) => index % 4 === 0 && value > 0)).toBe(true);
+			expect(next).not.toEqual(first);
+		} finally {
+			renderer.dispose();
+		}
+	});
+
+	it('keeps timers and animated glyphs moving when their authored text is unchanged', async () => {
+		const project = sourceProject();
+		project.timeline!.items = [
+			{
+				id: 'timer',
+				type: 'text',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 60,
+				label: 'Timer',
+				fontFamily: 'sans-serif',
+				fontSize: 16,
+				color: '#ffffff',
+				timer: { style: 'numbers', format: 'seconds', direction: 'down' }
+			}
+		];
+		const timer = new TimelineFrameRenderer(project);
+		try {
+			const first = (await timer.render(0)).getContext('2d')!.getImageData(0, 0, 64, 64).data;
+			const later = (await timer.render(30)).getContext('2d')!.getImageData(0, 0, 64, 64).data;
+			expect(later).not.toEqual(first);
+		} finally {
+			timer.dispose();
+		}
+		project.timeline!.items[0] = {
+			...project.timeline!.items[0]!,
+			timer: undefined,
+			text: 'I',
+			textMotion: { in: { ...createTextMotionEffect('typewriter'), durationFrames: 20 } }
+		};
+		const motion = new TimelineFrameRenderer(project);
+		try {
+			const first = (await motion.render(0)).getContext('2d')!.getImageData(0, 0, 64, 64).data;
+			const last = (await motion.render(25)).getContext('2d')!.getImageData(0, 0, 64, 64).data;
+			expect(first.filter((_, index) => index % 4 === 0).some((red) => red > 0)).toBe(false);
+			expect(last.filter((_, index) => index % 4 === 0).some((red) => red > 0)).toBe(true);
+		} finally {
+			motion.dispose();
+		}
+	});
+
+	it('refreshes text after an already loaded font replaces another face', async () => {
+		const mono = await new FontFace(
+			'Raster test font',
+			'local("Courier New"), local("Liberation Mono"), local("DejaVu Sans Mono")'
+		).load();
+		const proportional = await new FontFace(
+			'Raster test font',
+			'local("Arial"), local("Liberation Sans"), local("DejaVu Sans")'
+		).load();
+		document.fonts.add(mono);
+		const project = sourceProject();
+		project.metadata.width = 256;
+		project.timeline!.items = [
+			{
+				id: 'title',
+				type: 'text',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 60,
+				label: 'Title',
+				fontFamily: 'Raster test font',
+				fontSize: 24,
+				color: '#ffffff',
+				text: 'iiiiiiii'
+			}
+		];
+		const renderer = new TimelineFrameRenderer(project);
+		const inkWidth = (canvas: OffscreenCanvas) => {
+			const pixels = canvas.getContext('2d')!.getImageData(0, 0, 256, 64).data;
+			const columns = new Set<number>();
+			for (let pixel = 0; pixel < pixels.length; pixel += 4)
+				if (pixels[pixel]! > 0) columns.add((pixel / 4) % 256);
+			return Math.max(...columns) - Math.min(...columns);
+		};
+		try {
+			const initial = inkWidth(await renderer.render(0));
+			document.fonts.delete(mono);
+			document.fonts.add(proportional);
+			const replaced = inkWidth(await renderer.render(1));
+			expect(initial).toBeGreaterThan(80);
+			expect(replaced).toBeLessThan(60);
+		} finally {
+			renderer.dispose();
+			document.fonts.delete(mono);
+			document.fonts.delete(proportional);
+		}
+	});
+
+	it('keeps both raster sources intact throughout a shape transition', async () => {
+		const project = sourceProject();
+		project.timeline!.items = ['#ff0000', '#0000ff'].map((fillColor, index) => ({
+			id: `shape-${index}`,
+			type: 'shape',
+			trackId: 'v',
+			from: index * 30,
+			durationInFrames: 30,
+			label: 'Shape',
+			shapeType: 'rectangle',
+			fillColor,
+			transform: { width: 64, height: 64 }
+		}));
+		project.timeline!.transitions = [
+			{
+				id: 'dissolve',
+				type: 'crossfade',
+				presentation: 'dissolve',
+				timing: 'linear',
+				durationInFrames: 21,
+				fromItemId: 'shape-0',
+				toItemId: 'shape-1'
+			}
+		];
+		const renderer = new TimelineFrameRenderer(project);
+		try {
+			for (const [frame, expected] of [
+				[20, [255, 0, 0, 255]],
+				[30, [128, 0, 128, 255]],
+				[40, [0, 0, 255, 255]]
+			] as const) {
+				const canvas = await renderer.render(frame);
+				const pixel = canvas.getContext('2d')!.getImageData(32, 32, 1, 1).data;
+				for (let channel = 0; channel < 4; channel++) {
+					expect(
+						Math.abs(pixel[channel]! - expected[channel]!),
+						`frame ${frame}, channel ${channel}`
+					).toBeLessThanOrEqual(3);
+				}
+			}
+		} finally {
+			renderer.dispose();
+		}
+	});
+
 	it('releases the submitted frame when the encoder rejects an export', async () => {
 		const project = sourceProject();
 		project.timeline!.items = [

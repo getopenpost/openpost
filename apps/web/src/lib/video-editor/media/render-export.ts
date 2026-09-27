@@ -40,8 +40,7 @@ import { mediaPool } from './pool.svelte';
 import { resolveMediaBlob } from './resolve-media-blob';
 import { resolveAnimatedItemAt } from '../timeline/animated-properties';
 import { scaleItemForCanvas } from './render-geometry';
-import { renderSubtitleCueRaster, renderSubtitleRaster, renderTextItemRaster } from './text-raster';
-import { renderShapeItemRaster } from '../shapes/render';
+import { ItemRasterizer } from './item-rasterizer';
 import { animatedFrameIndexForItem, isAnimatedImageMedia } from './animated-image-plan';
 import { animatedImageCache } from './animated-image-client';
 import type { AnimatedImageFrames as AnimatedImageFramesResult } from './animated-image-client';
@@ -67,7 +66,6 @@ import {
 	outputDurationFrames,
 	paintOrder,
 	planNestedMixdown,
-	selectCuesAtFrame,
 	sliceMixEntries,
 	transitionBlendAtFrame,
 	type MixEntry
@@ -281,7 +279,7 @@ export class TimelineFrameRenderer {
 	private readonly animatedFrames = new Map<string, Promise<AnimatedImageFramesResult | null>>();
 	private readonly inputs: Input[] = [];
 	private readonly stackCompositor: CanvasStackCompositor;
-	private readonly textCanvas = new OffscreenCanvas(1, 1);
+	private readonly itemRasterizer: ItemRasterizer;
 	private readonly nestedRenderers = new Map<string, TimelineFrameRenderer>();
 	private readonly activeNestedRenderers = new Set<string>();
 	private readonly lottieProvider = new LottieFrameProvider();
@@ -303,6 +301,7 @@ export class TimelineFrameRenderer {
 				? options.backgroundColor
 				: (project.metadata.backgroundColor ?? '#000000');
 		this.fps = project.metadata.fps;
+		this.itemRasterizer = new ItemRasterizer(this.width, this.height, this.fps);
 		const items = project.timeline?.items ?? [];
 		const tracks = project.timeline?.tracks ?? [];
 		this.trackOrderById = new Map(tracks.map((track) => [track.id, track.order]));
@@ -321,69 +320,6 @@ export class TimelineFrameRenderer {
 		);
 		this.transitions = project.timeline?.transitions ?? [];
 		this.itemsById = new Map(items.map((item) => [item.id, item]));
-	}
-
-	private textSource(item: TimelineItem, frame: number) {
-		const width = Math.max(1, Math.round(item.transform?.width ?? this.width));
-		const height = Math.max(1, Math.round(item.transform?.height ?? this.height));
-		this.textCanvas.width = width;
-		this.textCanvas.height = height;
-		const context = this.textCanvas.getContext('2d');
-		if (!context) throw new Error('Failed to create the text raster context.');
-		renderTextItemRaster(context, item, width, height, {
-			absoluteFrame: frame,
-			fps: this.fps
-		});
-		return {
-			source: this.textCanvas,
-			width,
-			height
-		};
-	}
-
-	private subtitleSource(item: TimelineItem, text: string) {
-		const width = Math.max(1, Math.round(item.transform?.width ?? this.width));
-		const height = Math.max(1, Math.round(item.transform?.height ?? this.height));
-		this.textCanvas.width = width;
-		this.textCanvas.height = height;
-		const context = this.textCanvas.getContext('2d');
-		if (!context) throw new Error('Failed to create the subtitle raster context.');
-		renderSubtitleRaster(context, text, item, width, height);
-		return {
-			source: this.textCanvas,
-			width,
-			height
-		};
-	}
-
-	private karaokeSubtitleSource(
-		item: TimelineItem,
-		cue: import('../project/types').SubtitleCue,
-		frame: number
-	) {
-		const width = Math.max(1, Math.round(item.transform?.width ?? this.width));
-		const height = Math.max(1, Math.round(item.transform?.height ?? this.height));
-		this.textCanvas.width = width;
-		this.textCanvas.height = height;
-		const context = this.textCanvas.getContext('2d');
-		if (!context) throw new Error('Failed to create the subtitle raster context.');
-		renderSubtitleCueRaster(context, cue, item, width, height, frame);
-		return {
-			source: this.textCanvas,
-			width,
-			height
-		};
-	}
-
-	private shapeSource(item: TimelineItem) {
-		const width = Math.max(1, Math.round(item.transform?.width ?? this.width));
-		const height = Math.max(1, Math.round(item.transform?.height ?? this.height));
-		this.textCanvas.width = width;
-		this.textCanvas.height = height;
-		const context = this.textCanvas.getContext('2d');
-		if (!context) throw new Error('Failed to create the shape raster context.');
-		renderShapeItemRaster(context, item, width, height);
-		return { source: this.textCanvas, width, height };
 	}
 
 	private async openVideoTrack(mediaId: string): Promise<InputVideoTrack | null> {
@@ -510,18 +446,13 @@ export class TimelineFrameRenderer {
 		frame: number
 	): Promise<StackLayerSource | null> {
 		if (resolvedItem.type === 'background') return null;
-		if (resolvedItem.type === 'subtitle') {
-			const cue = selectCuesAtFrame(resolvedItem.cues ?? [], frame)[0];
-			if (!cue) return null;
-			// Shared karaoke helper guarantees preview and export resolve the same active word
-			// at exact frame boundaries; fallback renders exactly as a normal caption.
-			if (resolvedItem.captionHighlightMode === 'karaoke' && cue.words && cue.words.length > 0) {
-				return this.karaokeSubtitleSource(resolvedItem, cue, frame);
-			}
-			return this.subtitleSource(resolvedItem, cue.text);
+		if (
+			resolvedItem.type === 'subtitle' ||
+			resolvedItem.type === 'text' ||
+			resolvedItem.type === 'shape'
+		) {
+			return this.itemRasterizer.render(resolvedItem, frame);
 		}
-		if (resolvedItem.type === 'text') return this.textSource(resolvedItem, frame);
-		if (resolvedItem.type === 'shape') return this.shapeSource(resolvedItem);
 		if (resolvedItem.type === 'composition' && resolvedItem.compositionId) {
 			if (this.ancestry.has(resolvedItem.compositionId)) return null;
 			const composition = this.project.timeline?.compositions?.find(
@@ -721,7 +652,10 @@ export class TimelineFrameRenderer {
 					resolveParticipant(outgoingItem),
 					resolveParticipant(incomingItem)
 				]);
-				if (!outgoing || !incoming) continue;
+				if (!outgoing || !incoming) {
+					this.itemRasterizer.release();
+					continue;
+				}
 				this.stackCompositor.compositeTransition(
 					outgoing,
 					incoming,
@@ -729,11 +663,15 @@ export class TimelineFrameRenderer {
 					blend.progress,
 					frame / this.fps
 				);
+				this.itemRasterizer.release();
 				transitionRendered = true;
 				continue;
 			}
 			const participant = await resolveParticipant(item);
-			if (!participant || participant.alpha <= 0) continue;
+			if (!participant || participant.alpha <= 0) {
+				this.itemRasterizer.release();
+				continue;
+			}
 			this.stackCompositor.compositeLayer(
 				participant.source,
 				participant.item,
@@ -741,7 +679,9 @@ export class TimelineFrameRenderer {
 				frame / this.fps,
 				participant.masks
 			);
+			this.itemRasterizer.release();
 		}
+		this.itemRasterizer.release();
 		this.stackCompositor.applyOutputEffects(
 			sequenceColorGradeEffectsAtFrame(this.adjustmentLayers, frame),
 			frame / this.fps
@@ -776,6 +716,7 @@ export class TimelineFrameRenderer {
 		this.lottieProvider.destroy();
 		this.lottieBlobs.clear();
 		this.lottieSpecs.clear();
+		this.itemRasterizer.dispose();
 		this.stackCompositor.dispose();
 	}
 }

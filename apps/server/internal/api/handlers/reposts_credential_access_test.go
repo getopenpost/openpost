@@ -254,6 +254,7 @@ func newRepostCredentialTestServer(
 		(*models.APIToken)(nil),
 		(*models.SocialAccount)(nil),
 		(*models.RepostPolicy)(nil),
+		(*models.RepostExecution)(nil),
 		(*models.RepostPolicyAccount)(nil),
 		(*models.RepostAccountGrant)(nil),
 	)
@@ -300,8 +301,9 @@ func seedRepostCredentialFixture(t *testing.T, db *bun.DB) {
 			ID: repostCredentialSSOWorkspaceID, OrganizationID: repostCredentialOrganizationID,
 			Name: "Repost SSO", CreatedAt: now,
 		},
-		&models.Workspace{ID: repostCredentialPublicWorkspaceID, Name: "Repost public", CreatedAt: now},
-		&models.Workspace{ID: repostCredentialInactiveWorkspace, Name: "Repost inactive", CreatedAt: now},
+		&models.Organization{ID: "repost-public-org", Name: "Repost public", CreatedByID: "user-1", CreatedAt: now},
+		&models.Workspace{ID: repostCredentialPublicWorkspaceID, OrganizationID: "repost-public-org", Name: "Repost public", CreatedAt: now},
+		&models.Workspace{ID: repostCredentialInactiveWorkspace, OrganizationID: "repost-public-org", Name: "Repost inactive", CreatedAt: now},
 		&models.WorkspaceMember{
 			WorkspaceID: repostCredentialSSOWorkspaceID, UserID: "user-1",
 			Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive,
@@ -388,4 +390,73 @@ func repostCredentialCounts(t *testing.T, db *bun.DB, policyCount, grantCount in
 	actualGrants, err := db.NewSelect().Model((*models.RepostAccountGrant)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, grantCount, actualGrants)
+}
+
+func TestRepostPolicySaveKeepsExistingIdentity(t *testing.T) {
+	db := workflowHandlerDB(t)
+	now := time.Now().UTC().Add(-time.Hour)
+	account := &models.SocialAccount{ID: "repost-account", WorkspaceID: "ws", Platform: "x", AccountID: "founder", AccountUsername: "founder", AccessTokenEnc: []byte("test"), IsActive: true, CreatedAt: now}
+	_, err := db.NewInsert().Model(account).Exec(t.Context())
+	require.NoError(t, err)
+	service := repostservice.NewService(db, nil)
+	service.SetProvider("x", &repostCredentialAdapter{})
+	policy := &models.RepostPolicy{ID: "legacy-rule", WorkspaceID: "ws", Name: "Existing promotion", Enabled: true, DelaySeconds: 86400, EvaluationWindowSeconds: 604800, ThresholdMode: "all", PlateauChecks: 2, StagesJSON: "[]", CreatedByID: "user", UpdatedByID: "user", CreatedAt: now, UpdatedAt: now}
+	_, err = db.NewInsert().Model(policy).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.RepostPolicyAccount{PolicyID: policy.ID, SocialAccountID: account.ID, Role: repostservice.RoleTarget}).Exec(t.Context())
+	require.NoError(t, err)
+	publication, err := NewPublicationHandler(db, workflowSession{}, nil).publicationApplication().Create(t.Context(), "user", CreatePublicationBody{WorkspaceID: "ws", ContentProfile: models.ContentProfileShortText, SourceText: "Already published", SocialAccountIDs: []string{account.ID}})
+	require.NoError(t, err)
+	var rendition models.Rendition
+	require.NoError(t, db.NewSelect().Model(&rendition).Where("publication_id = ?", publication.ID).Scan(t.Context()))
+	snapshot, err := json.Marshal(map[string]any{"policy_name": policy.Name, "rule": repostservice.DefaultRule()})
+	require.NoError(t, err)
+	pending := &models.RepostExecution{ID: "existing-run", WorkspaceID: "ws", PublicationID: publication.ID, RenditionID: rendition.ID, SourceAccountID: account.ID, TargetAccountID: account.ID, PolicyID: policy.ID, RuleSnapshotJSON: string(snapshot), Status: repostservice.StatusPending, CurrentStage: 1, TotalStages: 1, StageHistoryJSON: "[]", LastMetricsJSON: "{}", EligibleAfter: now.Add(24 * time.Hour), DeadlineAt: now.Add(7 * 24 * time.Hour), NextCheckAt: now.Add(24 * time.Hour), CreatedAt: now, UpdatedAt: now}
+	_, err = db.NewInsert().Model(pending).Exec(t.Context())
+	require.NoError(t, err)
+	credential := repostservice.RequestCredential{SessionID: "session"}
+	settings, err := service.Settings(t.Context(), "ws", "user", credential)
+	require.NoError(t, err)
+	input := settings.Policies[0].PolicyInput
+	input.Name = "Renamed promotion"
+	input.Enabled = false
+	_, err = service.ReplacePolicies(t.Context(), "ws", "user", []repostservice.PolicyInput{input}, credential, "")
+	require.NoError(t, err)
+	var saved models.RepostPolicy
+	require.NoError(t, db.NewSelect().Model(&saved).Where("id = ?", policy.ID).Scan(t.Context()))
+	require.True(t, saved.CreatedAt.Equal(now), "editing must preserve the existing rule identity and creation time")
+	require.Equal(t, policy.CreatedByID, saved.CreatedByID)
+	require.False(t, saved.Enabled)
+	history, err := service.Settings(t.Context(), "ws", "user", credential)
+	require.NoError(t, err)
+	require.Len(t, history.Executions, 1)
+	require.Equal(t, "existing-run", history.Executions[0].ID)
+	require.Equal(t, policy.ID, history.Executions[0].PolicyID)
+	require.Equal(t, "Existing promotion", history.Executions[0].PolicyName)
+	require.Equal(t, repostservice.StatusPending, history.Executions[0].Status)
+	require.Equal(t, 86400, history.Executions[0].Rule.DelaySeconds)
+
+	_, err = service.ReplacePolicies(t.Context(), "ws", "user", []repostservice.PolicyInput{input}, credential, settings.Revision)
+	require.ErrorIs(t, err, repostservice.ErrConflict)
+}
+
+func TestNewRepostRuleStaysPaused(t *testing.T) {
+	server := newRepostCredentialTestServer(t, workspaceTestAuthenticator{
+		"browser": {UserID: "user-1", SessionID: repostCredentialBrowserSessionID},
+	})
+	seedRepostCredentialFixture(t, server.db)
+	response := server.request(t, http.MethodPut, "/api/v1/repost-automation", map[string]any{
+		"workspace_id": repostCredentialPublicWorkspaceID,
+		"policies": []repostservice.PolicyInput{{
+			Name: "Paused template", Enabled: false,
+			SourceAccountIDs: []string{}, TargetAccountIDs: []string{repostCredentialSourceAccountID},
+			Rule: repostservice.DefaultRule(),
+		}},
+	}, "browser")
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	read := server.request(t, http.MethodGet, "/api/v1/repost-automation?workspace_id="+repostCredentialPublicWorkspaceID, nil, "browser")
+	require.Equal(t, http.StatusOK, read.Code, read.Body.String())
+	settings := repostSettings(t, read)
+	require.Len(t, settings.Policies, 1)
+	require.False(t, settings.Policies[0].Enabled, "saving a template must not enable it")
 }

@@ -137,6 +137,29 @@ export function templates(): {
 			definition: { schema: 1, source: { kind: 'rss', url: '' }, steps: [draft, approval] }
 		},
 		{
+			id: 'rss-schedule',
+			name: m.workflows_schedule_template(),
+			description: m.workflows_schedule_template_help(),
+			definition: {
+				schema: 1,
+				source: { kind: 'rss', url: '' },
+				steps: [
+					draft,
+					approval,
+					{
+						id: 'schedule',
+						kind: 'schedule',
+						name: m.workflows_schedule(),
+						inputs: {
+							publication_id: reference('review.publication_id'),
+							revision: reference('review.revision'),
+							minutes: literal(60)
+						}
+					}
+				]
+			}
+		},
+		{
 			id: 'followup',
 			name: m.workflows_reply_template(),
 			description: m.workflows_reply_template_help(),

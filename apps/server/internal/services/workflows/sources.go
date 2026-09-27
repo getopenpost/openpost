@@ -28,6 +28,10 @@ import (
 const maxSourceBytes = 2 * 1024 * 1024
 const maxSourceItems = 500
 
+// Release asset metadata can dwarf the notes, so keep each page within the
+// shared response budget while the persisted cursor covers older releases.
+const githubReleasesPerPage = 10
+
 var sourceURLPolicy = netguard.URLPolicy{Label: "workflow source", AllowedSchemes: []string{"https", "http"}}
 
 type WorkflowSourceItem struct {
@@ -167,7 +171,7 @@ func (s *Service) githubReleasePage(ctx context.Context, workspaceID string, sou
 	if err != nil {
 		return nil, false, err
 	}
-	data, err := s.readURL(ctx, "https://api.github.com/repos/"+source.Repository+"/releases?per_page=100&page="+strconv.Itoa(page), token)
+	data, err := s.readURL(ctx, "https://api.github.com/repos/"+source.Repository+"/releases?per_page="+strconv.Itoa(githubReleasesPerPage)+"&page="+strconv.Itoa(page), token)
 	if err != nil {
 		return nil, false, err
 	}
@@ -195,7 +199,7 @@ func (s *Service) githubReleasePage(ctx context.Context, workspaceID string, sou
 		}
 		result = append(result, SourceItem{ID: strconv.FormatInt(release.ID, 10), Title: boundedText(title), Body: boundedText(release.Body), URL: release.URL, PublishedAt: release.PublishedAt})
 	}
-	return result, len(releases) == 100, nil
+	return result, len(releases) == githubReleasesPerPage, nil
 }
 func (s *Service) feedItems(ctx context.Context, address string) ([]SourceItem, error) {
 	data, err := s.readURL(ctx, address, "")

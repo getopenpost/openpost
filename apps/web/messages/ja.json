@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "ワークフローの一致するリポストルールをすべて適用します。",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "記事を下書きに変換",
 	"workflows_feed_template_help": "フィードを監視し、新しい項目ごとに下書きを確認します。",
 	"workflows_reply_template": "公開後にフォローアップ",
-	"workflows_reply_template_help": "待機後、投稿に用意済みの返信を追加します。",
+	"workflows_reply_template_help": "対象アカウントと返信文を選択します。待機後、対応するプラットフォームで返信します。既存の最初のコメントは別に管理されます。",
 	"workflows_custom_value": "値を入力",
 	"workflows_value_source": "{field}の値の取得元",
 	"workflows_insert_field": "フィールドを挿入",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "このワークフローと実行履歴を削除します。実行中の処理を先に完了または中止してください。作成済みの投稿はOpenPostに残ります。",
-	"workflows_delete_connection_help": "保存済みのGitHubトークンを削除します。削除する前に、この接続をワークフローから外してください。"
+	"workflows_delete_connection_help": "保存済みのGitHubトークンを削除します。削除する前に、この接続をワークフローから外してください。",
+	"workflows_repost_cycle": "再投稿を繰り返す",
+	"workflows_repost_popular": "人気の投稿を再投稿する",
+	"workflows_reposts_preserved": "既存のルール、投稿別の設定、アカウントへのアクセス、待機中の再投稿は保存済みの設定を維持します。一時停止は新しい実行を止めますが、待機中の実行は続行します。",
+	"workflows_schedule_template": "フィードの記事を確認して予約する",
+	"workflows_schedule_template_help": "新しい記事ごとに下書きを作成し、確認後に承認済みの版を予約します。",
+	"workflows_skipped": "スキップ済み"
 }

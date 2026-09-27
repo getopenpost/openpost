@@ -5612,7 +5612,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "Alle passenden Repost-Regeln aus Workflows anwenden.",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "Artikel in Entwürfe umwandeln",
 	"workflows_feed_template_help": "Verfolge einen Feed und prüfe einen Entwurf für jeden neuen Eintrag.",
 	"workflows_reply_template": "Nach der Veröffentlichung nachfassen",
-	"workflows_reply_template_help": "Warte und füge deinem Beitrag dann eine vorbereitete Antwort hinzu.",
+	"workflows_reply_template_help": "Quellkonten und Antworttext wählen. Nach der Wartezeit auf unterstützten Plattformen antworten. Bestehende erste Kommentare bleiben getrennt.",
 	"workflows_custom_value": "Wert eingeben",
 	"workflows_value_source": "Wertquelle für {field}",
 	"workflows_insert_field": "Feld einfügen",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "Löscht diesen Ablauf und seinen Verlauf. Beende oder storniere zuerst aktive Ausführungen. Erstellte Beiträge bleiben in OpenPost.",
-	"workflows_delete_connection_help": "Löscht das gespeicherte GitHub-Token. Entferne die Verbindung zuerst aus den Arbeitsabläufen."
+	"workflows_delete_connection_help": "Löscht das gespeicherte GitHub-Token. Entferne die Verbindung zuerst aus den Arbeitsabläufen.",
+	"workflows_repost_cycle": "Erneut teilen",
+	"workflows_repost_popular": "Beliebten Beitrag erneut teilen",
+	"workflows_reposts_preserved": "Bestehende Regeln, Beitragsausnahmen, Kontozugriffe und ausstehende Reposts behalten ihre Einstellungen. Pausieren stoppt neue Ausführungen; ausstehende laufen weiter.",
+	"workflows_schedule_template": "Feed-Artikel prüfen und planen",
+	"workflows_schedule_template_help": "Erstelle für jeden neuen Artikel einen Entwurf, prüfe ihn und plane die freigegebene Version.",
+	"workflows_skipped": "Übersprungen"
 }

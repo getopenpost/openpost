@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { components } from '$lib/api/types';
 	import { client } from '$lib/api/client';
 	import { repostAutomationQueryOptions, schedulingQueryKeys } from '@openpost/query-catalog';
@@ -43,10 +45,14 @@
 
 	interface Props {
 		workspaceID: string;
+		selectedPolicyID?: string;
+		template?: string;
 	}
 
-	let { workspaceID }: Props = $props();
+	let { workspaceID, selectedPolicyID = '', template = '' }: Props = $props();
 	const unsavedChanges = getOptionalUnsavedChanges();
+	let expandedPolicyID = $state('');
+	let appliedTemplate = false;
 	let settings = $state.raw<RepostSettings | null>(null);
 	let policies = $state<RepostPolicy[]>([]);
 	let loading = $state(true);
@@ -155,6 +161,14 @@
 		settings = data;
 		policies = (data.policies ?? []).map(normalizePolicy);
 		savedSnapshot = policySnapshot(policies);
+		if (!expandedPolicyID) expandedPolicyID = selectedPolicyID || policies[0]?.id || '';
+		if (template && !appliedTemplate && data.can_manage) {
+			appliedTemplate = true;
+			addPolicy(template);
+			const url = new URL(page.url);
+			url.searchParams.delete('template');
+			replaceState(url, page.state);
+		}
 	}
 
 	async function saveSettings() {
@@ -170,7 +184,11 @@
 		saveError = '';
 		try {
 			const { data, error, response } = await client.PUT('/repost-automation', {
-				body: { workspace_id: view.workspaceID, policies: nextPolicies }
+				body: {
+					workspace_id: view.workspaceID,
+					policies: nextPolicies,
+					expected_revision: settings.revision
+				}
 			});
 			settleQueryMutationSession(view.session, response);
 			if (error || !data) throw new Error(error?.detail || m.repost_save_failed());
@@ -197,15 +215,25 @@
 		}
 	}
 
-	function addPolicy() {
+	function addPolicy(preset = 'repost') {
 		const firstTarget = targetAccounts.find((account) => !account.grant_required);
+		const id = crypto.randomUUID();
+		const rule = defaultRule();
+		if (preset === 'cycle') rule.stages?.push({ delay_seconds: 259200, unrepost_previous: true });
+		if (preset === 'popular') rule.min_likes = 10;
+		expandedPolicyID = id;
 		policies.push({
-			id: crypto.randomUUID(),
-			name: m.repost_new_rule(),
-			enabled: true,
+			id,
+			name:
+				preset === 'cycle'
+					? m.workflows_repost_cycle()
+					: preset === 'popular'
+						? m.workflows_repost_popular()
+						: m.repost_new_rule(),
+			enabled: false,
 			source_account_ids: [],
 			target_account_ids: firstTarget ? [firstTarget.id] : [],
-			rule: defaultRule()
+			rule
 		});
 	}
 
@@ -380,7 +408,7 @@
 	>
 		{#snippet actions()}
 			{#if settings?.can_manage}
-				<Button variant="outline" size="sm" onclick={addPolicy} disabled={loading}>
+				<Button variant="outline" size="sm" onclick={() => addPolicy()} disabled={loading}>
 					<ThemeIcon role="add" class="size-4" />
 					{m.repost_add_rule()}
 				</Button>
@@ -390,7 +418,13 @@
 
 	<InlineNotice tone="info">
 		<p>{m.repost_native_notice()}</p>
-		<p class="mt-1 text-current/75">{m.repost_analytics_notice()}</p>
+		<details class="mt-1">
+			<summary
+				class="min-h-11 cursor-pointer py-3 text-current/75 focus-visible:outline-2 focus-visible:outline-ring"
+				>{m.workflows_details()}</summary
+			>
+			<p class="text-current/75">{m.workflows_reposts_preserved()}</p>
+		</details>
 	</InlineNotice>
 
 	{#if loadError && settings}
@@ -430,10 +464,21 @@
 
 		<div class="space-y-4">
 			{#each policies as policy, index (policy.id)}
-				<section
+				<details
 					class="rounded-xl border bg-background"
-					aria-labelledby={`repost-rule-${policy.id}`}
+					open={expandedPolicyID === policy.id}
+					ontoggle={(event) => {
+						if (event.currentTarget.open) expandedPolicyID = policy.id ?? '';
+						else if (expandedPolicyID === policy.id) expandedPolicyID = '';
+					}}
 				>
+					<summary
+						class="min-h-11 cursor-pointer p-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring"
+						>{policy.name}
+						<span class="ml-2 text-xs font-normal text-muted-foreground"
+							>{policy.enabled ? m.workflows_active() : m.workflows_paused()}</span
+						></summary
+					>
 					<div class="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
 						<div class="min-w-0 flex-1">
 							<Label for={`repost-rule-${policy.id}`} class="sr-only">{m.repost_rule_name()}</Label>
@@ -446,21 +491,23 @@
 								class="max-w-md font-medium"
 							/>
 						</div>
-						<label class="flex min-h-11 items-center gap-2 text-sm">
-							<Checkbox bind:checked={policy.enabled} disabled={!settings.can_manage} />
-							<span>{m.repost_enabled()}</span>
-						</label>
-						{#if settings.can_manage}
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								class="text-destructive hover:text-destructive"
-								onclick={() => removePolicy(index)}
-								aria-label={m.repost_remove_rule({ name: policy.name })}
-							>
-								<ThemeIcon role="delete" class="size-4" />
-							</Button>
-						{/if}
+						<div class="flex items-center justify-between gap-3 sm:justify-end">
+							<label class="flex min-h-11 items-center gap-2 text-sm">
+								<Checkbox bind:checked={policy.enabled} disabled={!settings.can_manage} />
+								<span>{m.repost_enabled()}</span>
+							</label>
+							{#if settings.can_manage}
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									class="text-destructive hover:text-destructive"
+									onclick={() => removePolicy(index)}
+									aria-label={m.repost_remove_rule({ name: policy.name })}
+								>
+									<ThemeIcon role="delete" class="size-4" />
+								</Button>
+							{/if}
+						</div>
 					</div>
 
 					<div class="space-y-6 p-4 sm:p-5">
@@ -564,8 +611,17 @@
 							</div>
 						</div>
 
-						<fieldset class="space-y-3 border-t pt-5">
-							<legend class="text-sm font-medium">{m.repost_engagement_gates()}</legend>
+						<details
+							class="space-y-3 border-t pt-5"
+							open={policy.rule.min_likes > 0 ||
+								policy.rule.min_comments > 0 ||
+								policy.rule.min_reposts > 0 ||
+								policy.rule.min_views > 0 ||
+								policy.rule.require_plateau}
+						>
+							<summary class="min-h-11 cursor-pointer text-sm font-medium"
+								>{m.repost_engagement_gates()}</summary
+							>
 							<p class="text-sm text-muted-foreground">{m.repost_engagement_gates_body()}</p>
 							<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 								{#each [['min_likes', m.repost_min_likes()], ['min_comments', m.repost_min_comments()], ['min_reposts', m.repost_min_reposts()], ['min_views', m.repost_min_views()]] as threshold (threshold[0])}
@@ -647,16 +703,16 @@
 									</Select.Root>
 								{/if}
 							</div>
-						</fieldset>
+						</details>
 					</div>
-				</section>
+				</details>
 			{:else}
 				<div class="rounded-xl border border-dashed px-5 py-12 text-center">
 					<ThemeIcon role="repeat" class="mx-auto size-6 text-muted-foreground" />
 					<h3 class="mt-3 font-medium">{m.repost_empty_heading()}</h3>
 					<p class="mx-auto mt-1 max-w-lg text-sm text-muted-foreground">{m.repost_empty_body()}</p>
 					{#if settings.can_manage}
-						<Button class="mt-4" onclick={addPolicy} disabled={targetAccounts.length === 0}>
+						<Button class="mt-4" onclick={() => addPolicy()} disabled={targetAccounts.length === 0}>
 							<ThemeIcon role="add" class="size-4" />
 							{m.repost_add_first_rule()}
 						</Button>

@@ -1,6 +1,6 @@
 # Native workflows
 
-Workflows turn GitHub releases, RSS/Atom items, manual inputs, and newly published OpenPost variants into ordered content actions. The initial actions create drafts, use the native AI Builder, request review, schedule posts, wait, branch, read collected metrics, and queue prepared replies. Existing repost automation remains independent.
+Workflows turn GitHub releases, RSS/Atom items, manual inputs, and newly published OpenPost variants into ordered content actions. The initial actions create drafts, use the native AI Builder, request review, schedule posts, wait, branch, read collected metrics, and queue prepared replies. Existing repost policies appear alongside these definitions in Workflows. The native repost service remains their single execution owner.
 
 ## Authoring and execution
 
@@ -39,3 +39,11 @@ The editor lives at `/workflows` and `/workflows/[id]`. Reads use the shared que
 ## Evidence
 
 Service and HTTP tests cover immutable snapshots, conditions and typed references, safe previews, timers, approval revision checks, access revocation, cancellation during an action, source baselines, GitHub page reconciliation, native backlog draining, credential secrecy, and native draft/scheduling replay. Browser tests exercise saving and reopening, preview versus live draft creation, approval, templates, keyboard selection, and desktop/phone layouts.
+
+## Repost migration
+
+This is an in-place migration of the product surface. Existing `RepostPolicy` records appear in the Workflows library without conversion, reactivation, or a second generic definition. `/settings?tab=reposts` redirects to `/workflows/reposts`. Native editing, account grants, stage schedules, and execution history live there. The history includes custom per-post executions without a policy ID. First comments remain owned by the publication settings and are not copied into follow-up workflows.
+
+The existing repost executor retains original-publication-relative times, all/any thresholds, plateau checks, deadlines, unrepost checkpoints, account grants, and per-rendition/target delivery identity. Enabled and paused rules keep their state. Pausing prevents new admissions; accepted executions continue from their immutable rule snapshots. Composer `off` and `custom` overrides keep precedence.
+
+Saving rules updates retained IDs in place, preserving creator, creation time, and execution foreign keys. The editor sends the collection revision and stale saves fail with 409. Deleting a rule leaves accepted execution snapshots intact. Native repost history exposes the latest 50 executions. No data-copy migration or job restart is required, and rolling back the UI leaves these native tables and jobs usable by the prior release.

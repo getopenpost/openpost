@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "Appliquer toutes les règles de republication correspondantes des workflows.",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "Transformer des articles en brouillons",
 	"workflows_feed_template_help": "Suivez un flux et vérifiez un brouillon pour chaque nouvel élément.",
 	"workflows_reply_template": "Donner suite après publication",
-	"workflows_reply_template_help": "Attendez, puis ajoutez une réponse préparée à votre publication.",
+	"workflows_reply_template_help": "Choisissez les comptes sources et le texte de réponse. Répondez après un délai sur les plateformes compatibles. Les premiers commentaires existants restent séparés.",
 	"workflows_custom_value": "Saisir une valeur",
 	"workflows_value_source": "Source de la valeur de {field}",
 	"workflows_insert_field": "Insérer un champ",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "Supprime ce flux et son historique. Terminez ou annulez les exécutions actives au préalable. Les publications créées restent dans OpenPost.",
-	"workflows_delete_connection_help": "Supprime le jeton GitHub enregistré. Retirez cette connexion des flux avant de la supprimer."
+	"workflows_delete_connection_help": "Supprime le jeton GitHub enregistré. Retirez cette connexion des flux avant de la supprimer.",
+	"workflows_repost_cycle": "Répéter un repartage",
+	"workflows_repost_popular": "Repartager une publication populaire",
+	"workflows_reposts_preserved": "Les règles existantes, exceptions par publication, accès aux comptes et repartages en attente conservent leurs réglages. La pause bloque les nouvelles exécutions ; celles en attente continuent.",
+	"workflows_schedule_template": "Relire et programmer les articles du flux",
+	"workflows_schedule_template_help": "Créez un brouillon pour chaque nouvel article, relisez-le puis programmez la version approuvée.",
+	"workflows_skipped": "Ignoré"
 }

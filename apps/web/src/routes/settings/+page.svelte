@@ -80,6 +80,9 @@
 			showHostedBilling
 		)
 	);
+	$effect(() => {
+		if (activeSettingsTab === 'reposts') void goto('/workflows/reposts', { replaceState: true });
+	});
 	const panelError = $derived(panelFailure?.tab === activeSettingsTab ? panelFailure.message : '');
 
 	$effect(() => {

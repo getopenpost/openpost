@@ -217,6 +217,33 @@ func (commands publicationApplication) CreateIdempotent(
 	return result.Value, result.Replayed, nil
 }
 
+// CreateFromWorkflow replays the accepted draft before resolving mutable Social
+// Set defaults. A run's frozen input remains the identity across worker restarts.
+func (commands publicationApplication) CreateFromWorkflow(ctx context.Context, userID string, input CreatePublicationBody, request idempotency.Request) (PublicationResponse, error) {
+	if err := commands.handler.checkWorkspaceEditAccess(ctx, input.WorkspaceID, userID); err != nil {
+		return PublicationResponse{}, err
+	}
+	hash, err := idempotency.Hash(input)
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	request.RequestHash = hash
+	replay, found, err := idempotency.Replay[PublicationResponse](ctx, commands.handler.db, request)
+	if found || err != nil {
+		return replay.Value, err
+	}
+	prepared, err := commands.prepareCreate(ctx, userID, input)
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	publication := publicationModelFromCreate(prepared.input, userID, publicationCreationSource(ctx, userID), prepared.repostOverrideJSON, prepared.now)
+	request.ResourceID = publication.ID
+	result, err := idempotency.Execute(ctx, commands.handler.db, request, func(txCtx context.Context, tx bun.Tx) (PublicationResponse, error) {
+		return commands.persistCreateTx(txCtx, tx, publication, prepared)
+	})
+	return result.Value, err
+}
+
 // CreateFromBuild commits one ready AI build through the canonical Publication
 // application. The build ID is the durable idempotency key, and source media is
 // rechecked in the same transaction that creates its references.

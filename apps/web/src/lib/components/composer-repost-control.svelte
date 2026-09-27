@@ -228,6 +228,10 @@
 			{/each}
 		</RadioGroup.Root>
 
+		<Button href="/workflows/reposts" variant="link" class="mx-4 mb-3">
+			{m.workflows_title()}<ThemeIcon role="arrow-right" class="size-4" />
+		</Button>
+
 		{#if value.mode === 'custom' && value.rule}
 			<div class="space-y-5 border-t p-4">
 				<fieldset class="space-y-2">

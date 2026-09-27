@@ -5658,7 +5658,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "Apply every matching repost rule from Workflows.",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "Turn articles into drafts",
 	"workflows_feed_template_help": "Watch a feed and review a draft for each new item.",
 	"workflows_reply_template": "Follow up after publishing",
-	"workflows_reply_template_help": "Wait, then add a prepared reply to your post.",
+	"workflows_reply_template_help": "Choose source accounts and reply text. Wait, then reply on providers that support it. Existing first comments stay separate.",
 	"workflows_custom_value": "Write a value",
 	"workflows_value_source": "Value source for {field}",
 	"workflows_insert_field": "Insert a field",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "Delete this workflow and its run history. Finish or cancel active runs first. Created posts stay in OpenPost.",
-	"workflows_delete_connection_help": "Delete the stored GitHub token. Remove this connection from workflows before deleting it."
+	"workflows_delete_connection_help": "Delete the stored GitHub token. Remove this connection from workflows before deleting it.",
+	"workflows_repost_cycle": "Repeat a repost",
+	"workflows_repost_popular": "Repost a popular post",
+	"workflows_reposts_preserved": "Existing rules, post overrides, account access, and pending reposts keep their saved settings. Pausing stops new runs; pending runs continue.",
+	"workflows_schedule_template": "Review and schedule feed articles",
+	"workflows_schedule_template_help": "Create a draft from each new article, review it, then schedule the approved revision.",
+	"workflows_skipped": "Skipped"
 }

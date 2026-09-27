@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "Aplicar todas las reglas de republicación coincidentes de Flujos de trabajo.",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "Convertir artículos en borradores",
 	"workflows_feed_template_help": "Sigue un feed y revisa un borrador por cada nuevo elemento.",
 	"workflows_reply_template": "Dar seguimiento tras publicar",
-	"workflows_reply_template_help": "Espera y añade una respuesta preparada a tu publicación.",
+	"workflows_reply_template_help": "Elige las cuentas de origen y el texto de respuesta. Espera y responde en las plataformas compatibles. Los primeros comentarios existentes se mantienen separados.",
 	"workflows_custom_value": "Escribir un valor",
 	"workflows_value_source": "Origen del valor de {field}",
 	"workflows_insert_field": "Insertar campo",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "Elimina este flujo y su historial. Finaliza o cancela las ejecuciones activas primero. Las publicaciones creadas permanecen en OpenPost.",
-	"workflows_delete_connection_help": "Elimina el token de GitHub guardado. Quita esta conexión de los flujos antes de eliminarla."
+	"workflows_delete_connection_help": "Elimina el token de GitHub guardado. Quita esta conexión de los flujos antes de eliminarla.",
+	"workflows_repost_cycle": "Repetir una republicación",
+	"workflows_repost_popular": "Republicar una publicación popular",
+	"workflows_reposts_preserved": "Las reglas existentes, excepciones por publicación, accesos a cuentas y republicaciones pendientes conservan su configuración. Pausar detiene nuevas ejecuciones; las pendientes continúan.",
+	"workflows_schedule_template": "Revisar y programar artículos de un feed",
+	"workflows_schedule_template_help": "Crea un borrador de cada artículo nuevo, revísalo y programa la versión aprobada.",
+	"workflows_skipped": "Omitido"
 }

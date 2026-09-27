@@ -96,7 +96,7 @@ func workflowReceipt(input workflows.EffectRequest, operation string) idempotenc
 func (a workflowActions) draft(ctx context.Context, input workflows.EffectRequest) (map[string]any, error) {
 	commands := a.publications.publicationApplicationForTesting()
 	body := CreatePublicationBody{WorkspaceID: input.Authority.WorkspaceID, Title: workflowText(input.Inputs, "title"), SourceText: workflowText(input.Inputs, "text"), SourceURL: workflowText(input.Inputs, "url"), SocialAccountIDs: workflowAccounts(input.Inputs), SocialSetID: workflowText(input.Inputs, "social_set_id"), CreationPreset: "post", ContentProfile: "text", Metadata: map[string]any{"workflow_run_id": input.RunID, "workflow_step_id": input.StepID}}
-	publication, _, err := commands.CreateIdempotent(ctx, input.Authority.UserID, body, workflowReceipt(input, "create-draft"))
+	publication, err := commands.CreateFromWorkflow(ctx, input.Authority.UserID, body, workflowReceipt(input, "create-draft"))
 	if err != nil {
 		return nil, err
 	}

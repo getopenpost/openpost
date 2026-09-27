@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "워크플로의 일치하는 리포스트 규칙을 모두 적용합니다.",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "기사를 초안으로 전환",
 	"workflows_feed_template_help": "피드를 확인하고 새 항목마다 초안을 검토합니다.",
 	"workflows_reply_template": "게시 후 후속 작업",
-	"workflows_reply_template_help": "기다린 뒤 게시물에 준비된 답글을 추가합니다.",
+	"workflows_reply_template_help": "소스 계정과 답글 내용을 선택하세요. 대기 후 지원되는 플랫폼에서 답글을 작성합니다. 기존 첫 댓글은 별도로 유지됩니다.",
 	"workflows_custom_value": "값 입력",
 	"workflows_value_source": "{field}의 값 출처",
 	"workflows_insert_field": "필드 삽입",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "이 워크플로와 실행 기록을 삭제합니다. 먼저 활성 실행을 완료하거나 취소하세요. 생성된 게시물은 OpenPost에 남습니다.",
-	"workflows_delete_connection_help": "저장된 GitHub 토큰을 삭제합니다. 삭제하기 전에 워크플로에서 이 연결을 제거하세요."
+	"workflows_delete_connection_help": "저장된 GitHub 토큰을 삭제합니다. 삭제하기 전에 워크플로에서 이 연결을 제거하세요.",
+	"workflows_repost_cycle": "재게시 반복",
+	"workflows_repost_popular": "인기 게시물 재게시",
+	"workflows_reposts_preserved": "기존 규칙, 게시물별 설정, 계정 접근 및 대기 중인 재게시는 저장된 설정을 유지합니다. 일시 중지는 새 실행을 중단하며 대기 중인 실행은 계속됩니다.",
+	"workflows_schedule_template": "피드 기사 검토 및 예약",
+	"workflows_schedule_template_help": "새 기사마다 초안을 만들고 검토한 후 승인된 버전을 예약합니다.",
+	"workflows_skipped": "건너뜀"
 }

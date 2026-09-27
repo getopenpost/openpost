@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { SocialAccount } from '@openpost/query-catalog';
+	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import type { Source, Connection } from './api';
 	import { createConnection, deleteConnection } from './api';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -15,11 +17,13 @@
 		source,
 		workspaceID,
 		connections,
+		accounts,
 		onchange
 	}: {
 		source: Source;
 		workspaceID: string;
 		connections: Connection[];
+		accounts: SocialAccount[];
 		onchange: (source: Source) => void;
 	} = $props();
 	let deleteOpen = $state(false),
@@ -150,6 +154,32 @@
 				oninput={(event) => onchange({ ...source, url: event.currentTarget.value })}
 			/>
 		</div>
+	{:else if source.kind === 'rendition_published'}
+		<fieldset class="space-y-2">
+			<legend class="text-sm font-medium">{m.repost_source_accounts()}</legend>
+			<label class="flex min-h-11 items-center gap-2 text-sm"
+				><Checkbox
+					checked={!source.account_ids?.length}
+					onCheckedChange={() => onchange({ ...source, account_ids: [] })}
+				/>{m.repost_any_compatible_source()}</label
+			>
+			{#each accounts as account (account.id)}<label
+					class="flex min-h-11 items-center gap-3 text-sm"
+					><Checkbox
+						checked={source.account_ids?.includes(account.id) ?? false}
+						onCheckedChange={(checked) =>
+							onchange({
+								...source,
+								account_ids: checked
+									? [...(source.account_ids ?? []), account.id]
+									: (source.account_ids ?? []).filter((id) => id !== account.id)
+							})}
+					/><SocialAccountIdentity
+						name={account.account_username || account.platform}
+						platform={account.platform}
+					/></label
+				>{/each}
+		</fieldset>
 	{/if}
 	<p class="text-sm leading-6 text-muted-foreground">
 		{source.kind === 'manual'

@@ -52,9 +52,23 @@ for (const viewport of [
       });
     });
 
-    await page.goto("/settings?tab=reposts");
+    if (viewport.width === 1440) {
+      await page.goto("/workflows");
+      await page.getByRole("link", { name: "Launch cycle Automatic reposting Active" }).click();
+    } else {
+      await page.goto("/settings?tab=reposts");
+    }
+    await expect(page).toHaveURL(/\/workflows\/reposts/);
     const settings = page.getByTestId("repost-automation-settings");
     await expect(settings).toBeVisible();
+    await page.getByRole("button", { name: "Runs", exact: true }).click();
+    await page.getByText("Original launch rule", { exact: true }).click();
+    await expect(page.getByText("Waiting · 1/2", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open post", exact: true })).toHaveAttribute(
+      "href",
+      "/publications/existing-publication",
+    );
+    await page.getByRole("button", { name: "Configure", exact: true }).click();
     await page.screenshot({
       path: testInfo.outputPath("repost-cycle-before.png"),
       fullPage: true,
@@ -77,6 +91,7 @@ for (const viewport of [
       .poll(() => savedBody)
       .toEqual({
         workspace_id: workspace.id,
+        expected_revision: "saved-revision",
         policies: [
           expect.objectContaining({
             rule: expect.objectContaining({
@@ -118,6 +133,23 @@ function settingsResponse(workspaceID: string) {
   return {
     workspace_id: workspaceID,
     can_manage: true,
+    revision: "saved-revision",
+    executions: [
+      {
+        id: "existing-run",
+        policy_id: `${workspaceID}-policy`,
+        policy_name: "Original launch rule",
+        publication_id: "existing-publication",
+        target_account_id: `${workspaceID}-account`,
+        status: "pending",
+        current_stage: 1,
+        total_stages: 2,
+        created_at: "2026-09-20T12:00:00Z",
+        next_check_at: "2026-09-23T12:00:00Z",
+        rule: {},
+        history: [],
+      },
+    ],
     accounts: [
       {
         id: `${workspaceID}-account`,

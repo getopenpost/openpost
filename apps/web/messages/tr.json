@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "İş akışlarındaki eşleşen tüm yeniden paylaşım kurallarını uygula.",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "Makaleleri taslağa dönüştür",
 	"workflows_feed_template_help": "Bir akışı takip edin ve her yeni öğe için bir taslak inceleyin.",
 	"workflows_reply_template": "Yayımladıktan sonra devam et",
-	"workflows_reply_template_help": "Bekleyin ve gönderinize hazırlanmış bir yanıt ekleyin.",
+	"workflows_reply_template_help": "Kaynak hesapları ve yanıt metnini seçin. Bekledikten sonra desteklenen platformlarda yanıt verin. Mevcut ilk yorumlar ayrı kalır.",
 	"workflows_custom_value": "Değer yaz",
 	"workflows_value_source": "{field} için değer kaynağı",
 	"workflows_insert_field": "Alan ekle",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "Bu iş akışını ve çalıştırma geçmişini siler. Önce etkin çalıştırmaları tamamlayın veya iptal edin. Oluşturulan gönderiler OpenPost’ta kalır.",
-	"workflows_delete_connection_help": "Kaydedilen GitHub belirtecini siler. Silmeden önce bu bağlantıyı iş akışlarından kaldırın."
+	"workflows_delete_connection_help": "Kaydedilen GitHub belirtecini siler. Silmeden önce bu bağlantıyı iş akışlarından kaldırın.",
+	"workflows_repost_cycle": "Yeniden paylaşımı tekrarla",
+	"workflows_repost_popular": "Popüler bir gönderiyi yeniden paylaş",
+	"workflows_reposts_preserved": "Mevcut kurallar, gönderi ayarları, hesap erişimleri ve bekleyen yeniden paylaşımlar kayıtlı ayarlarını korur. Duraklatma yeni çalıştırmaları durdurur; bekleyenler devam eder.",
+	"workflows_schedule_template": "Akış yazılarını incele ve planla",
+	"workflows_schedule_template_help": "Her yeni yazı için taslak oluştur, incele ve onaylanan sürümü planla.",
+	"workflows_skipped": "Atlandı"
 }

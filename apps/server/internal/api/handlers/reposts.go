@@ -27,8 +27,9 @@ type GetRepostSettingsInput struct {
 
 type SaveRepostSettingsInput struct {
 	Body struct {
-		WorkspaceID string                      `json:"workspace_id" doc:"Workspace ID"`
-		Policies    []repostservice.PolicyInput `json:"policies" doc:"Complete replacement set of workspace repost rules"`
+		WorkspaceID      string                      `json:"workspace_id" doc:"Workspace ID"`
+		ExpectedRevision string                      `json:"expected_revision,omitempty" doc:"Revision returned by the last read; stale updates fail with 409"`
+		Policies         []repostservice.PolicyInput `json:"policies" doc:"Complete replacement set of workspace repost rules"`
 	}
 }
 
@@ -55,7 +56,7 @@ func (h *RepostHandler) RegisterRoutes(api huma.API) {
 		Summary:     "Get workspace repost rules and available accounts",
 		Tags:        []string{tagReposts},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{403},
+		Errors:      []int{403, 409},
 	}, func(ctx context.Context, input *GetRepostSettingsInput) (*RepostSettingsOutput, error) {
 		userID := middleware.GetUserID(ctx)
 		if err := h.checkWorkspaceAccess(ctx, input.WorkspaceID, userID); err != nil {
@@ -75,7 +76,7 @@ func (h *RepostHandler) RegisterRoutes(api huma.API) {
 		Summary:     "Replace workspace repost rules",
 		Tags:        []string{tagReposts},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{400, 403},
+		Errors:      []int{400, 403, 409},
 	}, func(ctx context.Context, input *SaveRepostSettingsInput) (*RepostSettingsOutput, error) {
 		userID := middleware.GetUserID(ctx)
 		if err := h.checkWorkspaceAdminAccess(ctx, input.Body.WorkspaceID, userID); err != nil {
@@ -87,6 +88,7 @@ func (h *RepostHandler) RegisterRoutes(api huma.API) {
 			userID,
 			input.Body.Policies,
 			repostRequestCredential(ctx),
+			input.Body.ExpectedRevision,
 		)
 		if err != nil {
 			return nil, repostHTTPError(err)
@@ -148,6 +150,8 @@ func (h *RepostHandler) checkWorkspaceAdminAccess(ctx context.Context, workspace
 
 func repostHTTPError(err error) error {
 	switch {
+	case errors.Is(err, repostservice.ErrConflict):
+		return huma.Error409Conflict(err.Error())
 	case errors.Is(err, repostservice.ErrWorkspaceAdmin), errors.Is(err, repostservice.ErrWorkspaceAccess):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, repostservice.ErrGrantNotFound):

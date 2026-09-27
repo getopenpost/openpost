@@ -1397,7 +1397,7 @@ type RepostPolicy struct {
 	ID                      string    `bun:",pk" json:"id"`
 	WorkspaceID             string    `bun:"workspace_id,notnull" json:"workspace_id"`
 	Name                    string    `bun:",notnull" json:"name"`
-	Enabled                 bool      `bun:",notnull,default:true" json:"enabled"`
+	Enabled                 bool      `bun:",notnull" json:"enabled"`
 	DelaySeconds            int       `bun:"delay_seconds,notnull,default:86400" json:"delay_seconds"`
 	EvaluationWindowSeconds int       `bun:"evaluation_window_seconds,notnull,default:604800" json:"evaluation_window_seconds"`
 	ThresholdMode           string    `bun:"threshold_mode,notnull,default:'all'" json:"threshold_mode"`

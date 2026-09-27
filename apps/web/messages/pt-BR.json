@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "Aplicar todas as regras de republicação correspondentes dos fluxos de trabalho.",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "Transformer artigos em rascunhos",
 	"workflows_feed_template_help": "Acompanhe um feed e revise um rascunho por cada novo item.",
 	"workflows_reply_template": "Dar seguimento após publicar",
-	"workflows_reply_template_help": "Asalva e adiciona uma resposta preparada à publicação.",
+	"workflows_reply_template_help": "Escolha as contas de origem e o texto da resposta. Aguarde e responda nas plataformas compatíveis. Os primeiros comentários existentes permanecem separados.",
 	"workflows_custom_value": "Escrever um valor",
 	"workflows_value_source": "Origem do valor de {field}",
 	"workflows_insert_field": "Inserir campo",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "Exclui este fluxo e seu histórico de execuções. Conclua ou cancele as execuções ativas primeiro. As publicações criadas ficam no OpenPost.",
-	"workflows_delete_connection_help": "Exclui o token GitHub salvo. Remova esta conexão dos fluxos antes de excluí-la."
+	"workflows_delete_connection_help": "Exclui o token GitHub salvo. Remova esta conexão dos fluxos antes de excluí-la.",
+	"workflows_repost_cycle": "Repetir uma republicação",
+	"workflows_repost_popular": "Republicar uma publicação popular",
+	"workflows_reposts_preserved": "As regras existentes, exceções por publicação, acessos às contas e republicações pendentes mantêm as configurações salvas. Pausar impede novas execuções; as pendentes continuam.",
+	"workflows_schedule_template": "Revisar e agendar artigos de um feed",
+	"workflows_schedule_template_help": "Crie um rascunho de cada novo artigo, revise e agende a versão aprovada.",
+	"workflows_skipped": "Ignorado"
 }

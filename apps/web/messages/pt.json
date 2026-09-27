@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Definições de republicação",
 	"composer_repost_settings_body": "Use as predefinições do espaço de trabalho ou substitua-as nesta publicação.",
 	"composer_repost_default": "Usar regras do espaço de trabalho",
-	"composer_repost_default_body": "Aplicar todas as regras correspondentes das Definições.",
+	"composer_repost_default_body": "Aplicar todas as regras de republicação correspondentes dos fluxos de trabalho.",
 	"composer_repost_never": "Não republicar",
 	"composer_repost_never_body": "Ignorar toda a automação de republicação nesta publicação.",
 	"composer_repost_custom": "Personalizada",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "Transformar artigos em rascunhos",
 	"workflows_feed_template_help": "Acompanha um feed e revê um rascunho por cada novo item.",
 	"workflows_reply_template": "Dar seguimento após publicar",
-	"workflows_reply_template_help": "Aguarda e adiciona uma resposta preparada à publicação.",
+	"workflows_reply_template_help": "Escolhe as contas de origem e o texto da resposta. Aguarda e responde nas plataformas compatíveis. Os primeiros comentários existentes mantêm-se separados.",
 	"workflows_custom_value": "Escrever um valor",
 	"workflows_value_source": "Origem do valor de {field}",
 	"workflows_insert_field": "Inserir campo",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Título",
 	"workflows_sample_url": "Ligação",
 	"workflows_delete_help": "Elimina este fluxo e o histórico de execuções. Termina ou cancela as execuções ativas primeiro. As publicações criadas ficam no OpenPost.",
-	"workflows_delete_connection_help": "Elimina o token GitHub guardado. Remove esta ligação dos fluxos antes de a eliminar."
+	"workflows_delete_connection_help": "Elimina o token GitHub guardado. Remove esta ligação dos fluxos antes de a eliminar.",
+	"workflows_repost_cycle": "Repetir uma republicação",
+	"workflows_repost_popular": "Republicar uma publicação popular",
+	"workflows_reposts_preserved": "As regras existentes, exceções por publicação, acessos às contas e republicações pendentes mantêm as definições guardadas. Pausar impede novas execuções; as pendentes continuam.",
+	"workflows_schedule_template": "Rever e agendar artigos de um feed",
+	"workflows_schedule_template_help": "Cria um rascunho de cada novo artigo, revê-o e agenda a versão aprovada.",
+	"workflows_skipped": "Ignorado"
 }

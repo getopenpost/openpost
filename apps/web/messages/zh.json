@@ -5617,7 +5617,7 @@
 	"composer_repost_settings": "Repost settings",
 	"composer_repost_settings_body": "Use workspace defaults or replace them for this post.",
 	"composer_repost_default": "Use workspace rules",
-	"composer_repost_default_body": "Apply every matching rule from Settings.",
+	"composer_repost_default_body": "应用工作流中所有匹配的转发规则。",
 	"composer_repost_never": "Do not repost",
 	"composer_repost_never_body": "Skip all repost automation for this post.",
 	"composer_repost_custom": "Custom",
@@ -9248,7 +9248,7 @@
 	"workflows_feed_template": "将文章转为草稿",
 	"workflows_feed_template_help": "关注订阅源，并审核每个新条目生成的草稿。",
 	"workflows_reply_template": "发布后跟进",
-	"workflows_reply_template_help": "等待后，为帖子添加预先写好的回复。",
+	"workflows_reply_template_help": "选择来源账号和回复内容。等待后在支持的平台上回复。现有的首条评论保持独立。",
 	"workflows_custom_value": "输入值",
 	"workflows_value_source": "{field} 的值来源",
 	"workflows_insert_field": "插入字段",
@@ -9357,5 +9357,11 @@
 	"workflows_sample_title": "Title",
 	"workflows_sample_url": "Link",
 	"workflows_delete_help": "删除此工作流及其运行历史。请先完成或取消正在进行的运行。已创建的帖子会保留在 OpenPost 中。",
-	"workflows_delete_connection_help": "删除保存的 GitHub 令牌。删除前请先从工作流中移除此连接。"
+	"workflows_delete_connection_help": "删除保存的 GitHub 令牌。删除前请先从工作流中移除此连接。",
+	"workflows_repost_cycle": "重复转发",
+	"workflows_repost_popular": "转发热门帖子",
+	"workflows_reposts_preserved": "现有规则、帖子单独设置、账号访问权限和待处理转发均保留已保存的设置。暂停会停止新运行，待处理运行会继续。",
+	"workflows_schedule_template": "审核并安排订阅源文章",
+	"workflows_schedule_template_help": "为每篇新文章创建草稿，审核后安排已批准的版本。",
+	"workflows_skipped": "已跳过"
 }

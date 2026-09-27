@@ -138,7 +138,7 @@
 		nodesConnectable={false}
 		nodesFocusable={false}
 		edgesFocusable={false}
-		deleteKey={null}
+		deleteKey={[]}
 		colorMode={mode.current ?? 'light'}
 		ariaLabelConfig={{
 			'controls.ariaLabel': m.image_editor_zoom(),

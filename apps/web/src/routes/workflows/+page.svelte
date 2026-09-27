@@ -1,11 +1,17 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { workflowsQueryOptions, workflowRunsQueryOptions } from '@openpost/query-catalog';
+	import {
+		repostAutomationQueryOptions,
+		workflowsQueryOptions,
+		workflowRunsQueryOptions
+	} from '@openpost/query-catalog';
 	import { workflowQueryAPI } from '$lib/query/workflows';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { saveWorkflow, deleteWorkflow, type Workflow, type Definition } from '$lib/workflows/api';
 	import { templates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
+	import RepostHistory from '$lib/workflows/repost-history.svelte';
 	import RunInspector from '$lib/workflows/run-inspector.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
@@ -18,6 +24,9 @@
 		deleteOpen = $state(false);
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const workflowsQuery = createQuery(() => workflowsQueryOptions(workflowQueryAPI, workspaceID));
+	const repostsQuery = createQuery(() =>
+		repostAutomationQueryOptions(schedulingQueryAPI, workspaceID)
+	);
 	const runsQuery = createQuery(() => workflowRunsQueryOptions(workflowQueryAPI, workspaceID));
 	let tab = $state<'workflows' | 'runs' | 'templates'>('workflows'),
 		selectedRun = $state(''),
@@ -50,7 +59,10 @@
 	title={m.workflows_title()}
 	description={m.workflows_subtitle()}
 	themeIconRole="repeat"
-	loading={workflowsQuery.isPending && !workflowsQuery.error}
+	loading={[
+		workflowsQuery.isPending && !workflowsQuery.error,
+		repostsQuery.isPending && !repostsQuery.error
+	].some(Boolean)}
 >
 	{#snippet actions()}<Button
 			disabled={busy || !workspaceID || workspaceCtx.currentWorkspace?.role === 'viewer'}
@@ -67,13 +79,16 @@
 				>{/each}
 		</div>{/snippet}
 	<div class="space-y-6">
+		{#if repostsQuery.error}<InlineNotice tone="error" message={String(repostsQuery.error)} />{/if}
 		{#if error || workflowsQuery.error}<InlineNotice
 				tone="error"
 				message={error || String(workflowsQuery.error)}
 			/>{/if}
 		{#if tab === 'workflows'}
-			{#if workflowsQuery.data?.length}<div class="divide-y rounded-lg border bg-card">
-					{#each workflowsQuery.data as workflow (workflow.id)}<div class="flex items-center">
+			{#if workflowsQuery.data?.length || repostsQuery.data?.policies?.length}<div
+					class="divide-y rounded-lg border bg-card"
+				>
+					{#each workflowsQuery.data ?? [] as workflow (workflow.id)}<div class="flex items-center">
 							<a
 								href={`/workflows/${workflow.id}`}
 								class="flex min-h-24 min-w-0 flex-1 items-center gap-4 p-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
@@ -111,6 +126,24 @@
 									}}><ThemeIcon role="delete" class="size-4" /></Button
 								>{/if}
 						</div>{/each}
+					{#each repostsQuery.data?.policies ?? [] as policy (policy.id)}
+						<a
+							href={`/workflows/reposts?policy=${policy.id}`}
+							class="flex min-h-24 min-w-0 items-center gap-4 p-4 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+						>
+							<span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"
+								><ThemeIcon role="repeat" class="size-5" /></span
+							>
+							<span class="min-w-0 flex-1"
+								><span class="block truncate font-medium">{policy.name}</span><span
+									class="mt-1 block text-sm text-muted-foreground">{m.repost_heading()}</span
+								></span
+							>
+							<span class="text-xs text-muted-foreground"
+								>{policy.enabled ? m.workflows_active() : m.workflows_paused()}</span
+							><ThemeIcon role="chevron-right" class="size-4 shrink-0" />
+						</a>
+					{/each}
 				</div>
 			{:else if !workflowsQuery.error}<EmptyState
 					themeIconRole="repeat"
@@ -119,6 +152,7 @@
 					actionLabel={m.workflows_templates()}
 					onAction={() => (tab = 'templates')}
 				/>{/if}
+			<Button variant="ghost" href="/workflows/reposts">{m.repost_heading()}</Button>
 		{:else if tab === 'templates'}
 			<div class="divide-y rounded-lg border bg-card">
 				{#each templates() as template (template.id)}<div
@@ -135,11 +169,29 @@
 							>{m.workflows_use_template()}</Button
 						>
 					</div>{/each}
+				{#each [{ id: 'repost', name: m.repost_new_rule(), description: m.repost_delay_days( { count: 1 } ) }, { id: 'cycle', name: m.workflows_repost_cycle(), description: `${m.repost_delay_days({ count: 1 })} · ${m.repost_delay_days({ count: 3 })}` }, { id: 'popular', name: m.workflows_repost_popular(), description: m.repost_engagement_gates_body() }] as template (template.id)}
+					<div class="flex flex-wrap items-center gap-4 p-5">
+						<div class="min-w-0 flex-1 basis-64">
+							<h2 class="font-medium">{template.name}</h2>
+							<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
+						</div>
+						<Button
+							href={`/workflows/reposts?template=${template.id}`}
+							variant="outline"
+							disabled={workspaceCtx.currentWorkspace?.role !== 'admin'}
+							>{m.workflows_use_template()}</Button
+						>
+					</div>
+				{/each}
 			</div>
 		{:else if selectedRun}<Button variant="ghost" onclick={() => (selectedRun = '')}
 				><ThemeIcon role="arrow-left" class="size-4" />{m.workflows_runs()}</Button
 			><RunInspector {workspaceID} runID={selectedRun} />
 		{:else}
+			<details class="rounded-lg border p-4">
+				<summary class="min-h-11 cursor-pointer text-sm font-medium">{m.repost_heading()}</summary
+				><RepostHistory {workspaceID} />
+			</details>
 			{#if runsQuery.error}<InlineNotice tone="error" message={String(runsQuery.error)} />{/if}
 			<div class="divide-y rounded-lg border bg-card">
 				{#each runsQuery.data ?? [] as run (run.id)}<button

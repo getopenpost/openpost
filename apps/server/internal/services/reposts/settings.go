@@ -13,11 +13,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/uptrace/bun"
 )
 
 var (
+	ErrConflict        = errors.New("repost rules changed; reload before saving")
 	ErrWorkspaceAccess = errors.New("workspace access required")
 	ErrWorkspaceAdmin  = errors.New("workspace admin role required")
 	ErrGrantNotFound   = errors.New("repost account grant not found")
@@ -53,6 +55,10 @@ func (s *Service) Settings(ctx context.Context, workspaceID, userID string, cred
 	if err != nil {
 		return SettingsResponse{}, err
 	}
+	revisionBefore, err := policyRevision(ctx, s.db, workspaceID)
+	if err != nil {
+		return SettingsResponse{}, err
+	}
 	policies, err := s.listPolicies(ctx, workspaceID)
 	if err != nil {
 		return SettingsResponse{}, err
@@ -62,7 +68,19 @@ func (s *Service) Settings(ctx context.Context, workspaceID, userID string, cred
 	if err != nil {
 		return SettingsResponse{}, err
 	}
+	revision, err := policyRevision(ctx, s.db, workspaceID)
+	if err != nil {
+		return SettingsResponse{}, err
+	}
+	if revision != revisionBefore {
+		return SettingsResponse{}, ErrConflict
+	}
+	executions, err := s.executionHistory(ctx, workspaceID)
+	if err != nil {
+		return SettingsResponse{}, err
+	}
 	return SettingsResponse{
+		Revision: revision, Executions: executions,
 		WorkspaceID:        workspaceID,
 		CanManage:          role == models.WorkspaceRoleAdmin,
 		SupportedPlatforms: append([]string(nil), supportedPlatforms...),
@@ -79,6 +97,7 @@ func (s *Service) ReplacePolicies(
 	userID string,
 	inputs []PolicyInput,
 	credential RequestCredential,
+	expectedRevision string,
 ) (SettingsResponse, error) {
 	if err := s.requireWorkspaceAdmin(ctx, workspaceID, userID, credential); err != nil {
 		return SettingsResponse{}, err
@@ -145,8 +164,28 @@ func (s *Service) ReplacePolicies(
 
 	now := time.Now().UTC()
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewDelete().Model((*models.RepostPolicy)(nil)).Where("workspace_id = ?", workspaceID).Exec(txCtx); err != nil {
-			return fmt.Errorf("replace repost rules: %w", err)
+		if err := organizationguard.LockWorkspace(txCtx, tx, workspaceID); err != nil {
+			return err
+		}
+		if expectedRevision != "" {
+			current, err := policyRevision(txCtx, tx, workspaceID)
+			if err != nil {
+				return err
+			}
+			if current != expectedRevision {
+				return ErrConflict
+			}
+		}
+		ids := make([]string, 0, len(normalized))
+		for _, input := range normalized {
+			ids = append(ids, input.ID)
+		}
+		removed := tx.NewDelete().Model((*models.RepostPolicy)(nil)).Where("workspace_id = ?", workspaceID)
+		if len(ids) > 0 {
+			removed = removed.Where("id NOT IN (?)", bun.List(ids))
+		}
+		if _, err := removed.Exec(txCtx); err != nil {
+			return fmt.Errorf("remove repost rules: %w", err)
 		}
 		for _, input := range normalized {
 			for _, targetID := range input.TargetAccountIDs {
@@ -161,7 +200,23 @@ func (s *Service) ReplacePolicies(
 			if err != nil {
 				return err
 			}
-			if _, err := tx.NewInsert().Model(policy).Exec(txCtx); err != nil {
+			var existing models.RepostPolicy
+			lookupErr := tx.NewSelect().Model(&existing).Where("id = ?", policy.ID).Scan(txCtx)
+			if lookupErr == nil && existing.WorkspaceID != workspaceID {
+				return ErrWorkspaceAccess
+			}
+			if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+				return lookupErr
+			}
+			if lookupErr == nil {
+				policy.CreatedAt, policy.CreatedByID = existing.CreatedAt, existing.CreatedByID
+				if _, err := tx.NewUpdate().Model(policy).WherePK().Exec(txCtx); err != nil {
+					return err
+				}
+				if _, err := tx.NewDelete().Model((*models.RepostPolicyAccount)(nil)).Where("policy_id = ?", policy.ID).Exec(txCtx); err != nil {
+					return err
+				}
+			} else if _, err := tx.NewInsert().Model(policy).Exec(txCtx); err != nil {
 				return fmt.Errorf("store repost rule %q: %w", input.Name, err)
 			}
 			assignments := make([]models.RepostPolicyAccount, 0, len(input.SourceAccountIDs)+len(input.TargetAccountIDs))

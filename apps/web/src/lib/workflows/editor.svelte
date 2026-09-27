@@ -69,6 +69,7 @@
 		panel = $state<'configure' | 'test' | 'runs'>('configure');
 	let mobileView = $state<'configure' | 'canvas'>('configure');
 	let error = $state(''),
+		saveFailed = $state(false),
 		busy = $state(false),
 		saving = $state(false);
 	let history = $state.raw<string[]>([]),
@@ -165,11 +166,13 @@
 			record = next;
 			saved = snapshot;
 			error = '';
+			saveFailed = false;
 		})();
 		try {
 			await pendingSave;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.workflows_operation_failed();
+			saveFailed = true;
 			throw cause;
 		} finally {
 			pendingSave = undefined;
@@ -177,7 +180,7 @@
 		}
 	}
 	$effect(() => {
-		if (!canEdit || !dirty || !doc.name.trim() || error) return;
+		if (!canEdit || !dirty || !doc.name.trim() || saveFailed) return;
 		const snapshot = JSON.stringify(doc);
 		const timer = setTimeout(() => {
 			if (snapshot === JSON.stringify(doc)) void save().catch(() => {});
@@ -224,6 +227,7 @@
 			history = [];
 			future = [];
 			error = '';
+			saveFailed = false;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.workflows_operation_failed();
 		} finally {
@@ -320,18 +324,18 @@
 	<div class="flex h-full min-h-0 flex-col">
 		{#if error}<div class="py-2">
 				<InlineNotice tone="error" message={error}
-					>{#snippet actions()}<Button
-							variant="outline"
-							size="sm"
-							disabled={saving}
-							onclick={() => {
-								error = '';
-								void save().catch(() => {});
-							}}>{m.workflows_retry_save()}</Button
-						>{/snippet}</InlineNotice
-				><Button variant="ghost" size="sm" disabled={busy} onclick={reloadSaved}
-					>{m.workflows_reload_saved()}</Button
-				>
+					>{#snippet actions()}{#if saveFailed}<Button
+								variant="outline"
+								size="sm"
+								disabled={saving}
+								onclick={() => {
+									error = '';
+									void save().catch(() => {});
+								}}>{m.workflows_retry_save()}</Button
+							>{/if}{/snippet}</InlineNotice
+				>{#if saveFailed}<Button variant="ghost" size="sm" disabled={busy} onclick={reloadSaved}
+						>{m.workflows_reload_saved()}</Button
+					>{/if}
 			</div>{/if}
 		{#if initial.source_error}<div class="py-2">
 				<InlineNotice
@@ -406,6 +410,7 @@
 									source={doc.definition.source}
 									workspaceID={initial.workspace_id}
 									{connections}
+									{accounts}
 									onchange={(source) => change((next) => (next.definition.source = source))}
 								/>
 							{:else if step}

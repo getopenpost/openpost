@@ -6,7 +6,7 @@ icon: Workflow
 
 Open **More → Workflows** in your workspace. Start from a GitHub release, RSS feed, or follow-up template, or choose **New workflow** to build your own.
 
-Workflows use your existing OpenPost accounts and posts. They can create drafts, use the AI Builder, wait for review, schedule posts, wait, branch on a condition, read collected metrics, and queue replies. Existing repost settings continue to work separately.
+Workflows use your existing OpenPost accounts and posts. They can create drafts, use the AI Builder, wait for review, schedule posts, wait, branch on a condition, read collected metrics, and queue replies. Your existing repost rules also appear in Workflows.
 
 ## Make a release announcement
 
@@ -58,3 +58,11 @@ Delete a workflow only after pausing it and finishing or cancelling its active r
 Workspace viewers can inspect workflows. Editors can configure and preview them. Administrators can publish workflows, start live runs, approve posts, cancel runs, and manage connections. Execution rechecks the activating user's access.
 
 A workflow supports up to 40 steps and four branch levels. A workspace supports 100 workflows and 1,000 active runs. Runs expire after 30 days. The run list shows the latest 50 runs. These are execution limits, separate from plan limits and provider capabilities.
+
+## Existing reposts and first comments
+
+Repost rules move into **Workflows** automatically. Their active or paused state, source and target accounts, engagement gates, repost cycles, and account grants stay intact. Scheduled reposts continue with their saved rules. There is no import button and no need to recreate them.
+
+Open a repost rule to change its settings or inspect **Runs**, including custom reposts configured on individual posts. Expand a rule to see its accounts and timing; engagement gates remain collapsed until needed. Start with a one-day repost, a one-day and three-day cycle, or a repost after ten likes. New templates start paused so you can choose the accounts and enable them deliberately.
+
+Pausing a rule stops new runs. Reposts already accepted continue. Per-post **Do not repost** and **Custom** choices still take precedence. First comments configured on a post remain separate. A follow-up workflow adds another reply, so avoid duplicating an existing first comment.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -297,14 +298,34 @@ func TestCancelDuringNativeEffectKeepsItsOutcomeAndStopsNextStep(t *testing.T) {
 	require.Equal(t, "accepted-post", final.Steps[0].Output["id"])
 }
 
+func TestGitHubSampleHandlesRepositoriesWithLargeReleaseHistories(t *testing.T) {
+	s, actor := workflowTestService(t, nil)
+	s.client = &http.Client{Transport: responseTransport(func(req *http.Request) (*http.Response, error) {
+		count, err := strconv.Atoi(req.URL.Query().Get("per_page"))
+		require.NoError(t, err)
+		releases := make([]map[string]any, count)
+		for i := range releases {
+			releases[i] = map[string]any{"id": i + 1, "name": fmt.Sprintf("Release %d", i+1), "body": "Release notes", "assets": strings.Repeat("x", 32*1024)}
+		}
+		data, err := json.Marshal(releases)
+		require.NoError(t, err)
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(string(data))), Header: make(http.Header)}, nil
+	})}
+	items, err := s.Sample(t.Context(), actor, "ws", Source{Kind: "github_release", Repository: "example/releases"})
+	require.NoError(t, err)
+	require.Len(t, items, 5)
+	require.Equal(t, "Release 1", items[0].Title)
+	require.Equal(t, "Release notes", items[0].Body)
+}
+
 func TestGitHubPollReconcilesPagesWithoutReplayingKnownReleases(t *testing.T) {
 	s, actor := workflowTestService(t, nil)
 	now := time.Now().UTC()
 	var expanded bool
 	s.client = &http.Client{Transport: responseTransport(func(req *http.Request) (*http.Response, error) {
 		page := req.URL.Query().Get("page")
-		releases := make([]map[string]any, 0, 100)
-		count := 100
+		releases := make([]map[string]any, 0, 10)
+		count := 10
 		if page == "3" {
 			count = 1
 		}
@@ -337,7 +358,7 @@ func TestGitHubPollReconcilesPagesWithoutReplayingKnownReleases(t *testing.T) {
 	}
 	count, err := s.db.NewSelect().Model((*runRecord)(nil)).Where("workflow_id = ?", workflow.ID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 101, count)
+	require.Equal(t, 11, count)
 }
 
 func TestDeletedConnectionCannotBeSavedFromStaleEditor(t *testing.T) {
@@ -423,4 +444,32 @@ func TestConditionMatchesTypedOutputAgainstAuthoredScalarText(t *testing.T) {
 			require.Equal(t, "Matched", result.Steps[1].Output["text"])
 		})
 	}
+}
+
+func TestExpiredWaitResumesOnceAfterRestart(t *testing.T) {
+	calls := 0
+	s, actor := workflowTestService(t, actionFunc(func(context.Context, EffectRequest) (EffectResult, error) {
+		calls++
+		return EffectResult{Output: map[string]any{"id": "draft"}}, nil
+	}))
+	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "wait", Kind: KindWait, Inputs: map[string]Value{"minutes": literal(10)}}, {ID: "draft", Kind: KindDraft, Inputs: map[string]Value{"text": literal("After the restart")}}})
+	run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModeLive, map[string]any{}, workflow.Revision)
+	require.NoError(t, err)
+	runJob(t, s, run.ID)
+	waiting, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+	require.NoError(t, err)
+	require.Equal(t, StateWaiting, waiting.State)
+	waiting.Steps[0].StartedAt = time.Now().UTC().Add(-11 * time.Minute)
+	results, err := json.Marshal(waiting.Steps)
+	require.NoError(t, err)
+	_, err = s.db.NewUpdate().Model((*runRecord)(nil)).Set("results_json = ?, wake_at = ?", string(results), time.Now().UTC().Add(-time.Minute)).Where("id = ?", run.ID).Exec(t.Context())
+	require.NoError(t, err)
+	restarted := NewService(s.db, s.actions, s.encryptor)
+	for range 4 {
+		runJob(t, restarted, run.ID)
+	}
+	final, err := restarted.GetRun(t.Context(), actor, "ws", run.ID)
+	require.NoError(t, err)
+	require.Equal(t, StateSucceeded, final.State)
+	require.Equal(t, 1, calls)
 }

@@ -171,12 +171,14 @@ type GrantResponse struct {
 }
 
 type SettingsResponse struct {
-	WorkspaceID        string           `json:"workspace_id"`
-	CanManage          bool             `json:"can_manage"`
-	SupportedPlatforms []string         `json:"supported_platforms"`
-	Policies           []PolicyResponse `json:"policies"`
-	Accounts           []AccountOption  `json:"accounts"`
-	Grants             []GrantResponse  `json:"grants"`
+	Revision           string                    `json:"revision,omitempty"`
+	Executions         []RepostExecutionResponse `json:"executions,omitempty"`
+	WorkspaceID        string                    `json:"workspace_id"`
+	CanManage          bool                      `json:"can_manage"`
+	SupportedPlatforms []string                  `json:"supported_platforms"`
+	Policies           []PolicyResponse          `json:"policies"`
+	Accounts           []AccountOption           `json:"accounts"`
+	Grants             []GrantResponse           `json:"grants"`
 }
 
 type ruleSnapshot struct {
@@ -312,4 +314,22 @@ func uniqueIDs(ids []string) []string {
 		result = append(result, id)
 	}
 	return result
+}
+
+// RepostExecutionResponse keeps native promotion history available after its
+// settings move into Workflows, including per-post rules with no policy ID.
+type RepostExecutionResponse struct {
+	ID              string              `json:"id"`
+	PolicyID        string              `json:"policy_id,omitempty"`
+	PolicyName      string              `json:"policy_name,omitempty"`
+	PublicationID   string              `json:"publication_id"`
+	TargetAccountID string              `json:"target_account_id"`
+	Status          string              `json:"status"`
+	CurrentStage    int                 `json:"current_stage"`
+	TotalStages     int                 `json:"total_stages"`
+	NextCheckAt     *time.Time          `json:"next_check_at,omitempty"`
+	Error           string              `json:"error,omitempty"`
+	Rule            Rule                `json:"rule"`
+	History         []StageHistoryEntry `json:"history"`
+	CreatedAt       time.Time           `json:"created_at"`
 }

@@ -12745,6 +12745,25 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        RepostExecutionResponse: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            current_stage: number;
+            error?: string;
+            history: components["schemas"]["StageHistoryEntry"][] | null;
+            id: string;
+            /** Format: date-time */
+            next_check_at?: string;
+            policy_id?: string;
+            policy_name?: string;
+            publication_id: string;
+            rule: components["schemas"]["Rule"];
+            status: string;
+            target_account_id: string;
+            /** Format: int64 */
+            total_stages: number;
+        };
         RepostGrantOutputBody: {
             /**
              * Format: uri
@@ -13394,6 +13413,8 @@ export interface components {
              * @example https://example.com/api/v1/schemas/SaveRepostSettingsInputBody.json
              */
             readonly $schema?: string;
+            /** @description Revision returned by the last read; stale updates fail with 409 */
+            expected_revision?: string;
             /** @description Complete replacement set of workspace repost rules */
             policies: components["schemas"]["PolicyInput"][] | null;
             /** @description Workspace ID */
@@ -13721,8 +13742,10 @@ export interface components {
             readonly $schema?: string;
             accounts: components["schemas"]["AccountOption"][] | null;
             can_manage: boolean;
+            executions?: components["schemas"]["RepostExecutionResponse"][] | null;
             grants: components["schemas"]["GrantResponse"][] | null;
             policies: components["schemas"]["PolicyResponse"][] | null;
+            revision?: string;
             supported_platforms: string[] | null;
             workspace_id: string;
         };
@@ -13816,6 +13839,19 @@ export interface components {
             delay_seconds: number;
             /** @description Remove the preceding repost before creating this one */
             unrepost_previous: boolean;
+        };
+        StageHistoryEntry: {
+            /** Format: int64 */
+            delay_seconds: number;
+            /** Format: date-time */
+            executed_at: string;
+            external_url?: string;
+            repost_external_id?: string;
+            /** Format: int64 */
+            stage: number;
+            unrepost_previous: boolean;
+            /** Format: date-time */
+            unreposted_at?: string;
         };
         StartCLIAuthInputBody: {
             /**
@@ -32672,6 +32708,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -32725,6 +32770,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

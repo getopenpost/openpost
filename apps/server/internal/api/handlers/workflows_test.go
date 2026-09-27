@@ -173,3 +173,28 @@ func TestWorkflowNativeDraftWithDestinationAndReplyReplay(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
 }
+
+func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
+	db := workflowHandlerDB(t)
+	now := time.Now().UTC()
+	for _, row := range []any{
+		&models.SocialAccount{ID: "source", WorkspaceID: "ws", Platform: "mastodon", AccountUsername: "founder", AccountID: "founder", AccessTokenEnc: []byte("test"), IsActive: true, CreatedAt: now},
+		&models.SocialSet{ID: "set", WorkspaceID: "ws", Name: "Founder", CreatedAt: now, UpdatedAt: now},
+		&models.SocialSetAccount{SocialSetID: "set", SocialAccountID: "source", CreatedAt: now},
+	} {
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	actions := NewWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil, nil)
+	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Preserve this draft", "social_set_id": "set"}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: now}, RunID: "recovery", StepID: "draft", ExpiresAt: now.Add(time.Hour)}
+	first, err := actions.Execute(t.Context(), input)
+	require.NoError(t, err)
+	_, err = db.NewDelete().Model((*models.SocialSet)(nil)).Where("id = ?", "set").Exec(t.Context())
+	require.NoError(t, err)
+	replay, err := actions.Execute(t.Context(), input)
+	require.NoError(t, err)
+	require.Equal(t, first, replay)
+	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}

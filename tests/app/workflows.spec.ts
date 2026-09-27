@@ -91,6 +91,36 @@ test("workflow editor saves, previews without writes, and approves a native draf
   await expect(page.getByRole("link", { name: /Release announcement/ })).toHaveCount(0);
 });
 
+test("a failed source sample keeps the saved editor usable", async ({ page }) => {
+  await openWorkflows(page);
+  await page.getByRole("button", { name: "Start from a template", exact: true }).first().click();
+  await page.getByRole("button", { name: "Use template", exact: true }).first().click();
+  await page.getByLabel("GitHub repository", { exact: true }).fill("getopenpost/openpost");
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.route("**/workflow-sources/sample?*", (route) =>
+    route.fulfill({
+      status: 422,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        title: "Source unavailable",
+        status: 422,
+        detail: "GitHub is unavailable. Try again.",
+      }),
+    }),
+  );
+  await page.getByRole("button", { name: "Preview", exact: true }).first().click();
+  await page.getByRole("button", { name: "Fetch an example", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("GitHub is unavailable");
+  await expect(page.getByRole("button", { name: "Retry save", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Configure", exact: true }).click();
+  await page.getByLabel("Workflow name", { exact: true }).fill("Recovered release workflow");
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Workflow name", { exact: true })).toHaveValue(
+    "Recovered release workflow",
+  );
+});
+
 for (const viewport of [
   { width: 1440, height: 960 },
   { width: 390, height: 844 },

@@ -3,7 +3,11 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { marketingRouteManifest, mediaTools } from "../packages/social-images/src/index.js";
+import {
+  marketingRouteManifest,
+  mediaTools,
+  previewTools,
+} from "../packages/social-images/src/index.js";
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -58,9 +62,12 @@ export function catalogSlugs(source, catalog) {
   }
   const section = source.slice(start, end);
   const literals = [...section.matchAll(/\bslug:\s*["']([^"']+)["']/gu)].map((match) => match[1]);
-  return catalog === "tools" && section.includes("...mediaTools")
-    ? [...mediaTools.map((tool) => tool.slug), ...literals]
-    : literals;
+  if (catalog !== "tools") return literals;
+  return [
+    ...(section.includes("...previewTools") ? previewTools.map((tool) => tool.slug) : []),
+    ...(section.includes("...mediaTools") ? mediaTools.map((tool) => tool.slug) : []),
+    ...literals,
+  ];
 }
 
 function sorted(values) {

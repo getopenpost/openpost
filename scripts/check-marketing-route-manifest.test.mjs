@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { marketingRouteManifest } from "../packages/social-images/src/index.js";
+import { marketingRouteManifest, previewTools } from "../packages/social-images/src/index.js";
 
 import {
   catalogSlugs,
@@ -33,11 +33,14 @@ test("catalog parsing stays inside the named ownership boundaries", () => {
   const source = `
 const platformImplementations = [{ slug: "x" }, { slug: "mastodon" }];
 export const platforms = platformImplementations.map(Boolean);
-export const tools = [{ slug: "counter" }];
+export const tools = [...previewTools, { slug: "counter" }];
 export const faqs = [];
 `;
   assert.deepEqual(catalogSlugs(source, "platforms"), ["x", "mastodon"]);
-  assert.deepEqual(catalogSlugs(source, "tools"), ["counter"]);
+  assert.deepEqual(catalogSlugs(source, "tools"), [
+    ...previewTools.map((tool) => tool.slug),
+    "counter",
+  ]);
 });
 
 test("stale manifest routes fail the reverse page check", async () => {

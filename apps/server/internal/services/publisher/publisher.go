@@ -222,10 +222,15 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 	if err := s.db.NewSelect().Model(publication).Where("id = ?", payload.PublicationID).Scan(ctx); err != nil {
 		return err
 	}
+	now := time.Now().UTC()
 	if _, err := s.db.NewUpdate().Model(publication).
 		Set("status = ?", models.PublicationStatusPublishing).
-		Set("actual_run_at = ?", time.Now().UTC()).
-		Set("updated_at = ?", time.Now().UTC()).
+		Set("actual_run_at = CASE WHEN status IN (?) AND actual_run_at IS NOT NULL THEN actual_run_at ELSE ? END", bun.List([]string{
+			models.PublicationStatusPublishing,
+			models.PublicationStatusPublished,
+			models.PublicationStatusFailed,
+		}), now).
+		Set("updated_at = ?", now).
 		Where("id = ?", publication.ID).
 		Exec(ctx); err != nil {
 		log.Printf("[Publisher] Failed to mark publication %s as publishing: %v", publication.ID, err)
@@ -324,7 +329,9 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 		}
 	}
 
-	s.finalizePublication(ctx, publication)
+	if err := s.finalizePublication(ctx, publication); err != nil {
+		return err
+	}
 	if retryFailure != nil {
 		return retryFailure
 	}
@@ -415,8 +422,7 @@ func (s *Service) persistTerminalPreflightFailure(
 			},
 		)
 	}
-	s.finalizePublication(ctx, &publication)
-	return nil
+	return s.finalizePublication(ctx, &publication)
 }
 
 func (s *Service) persistRenditionFailure(
@@ -2274,11 +2280,10 @@ func (s *Service) providerForAccount(ctx context.Context, workspaceID string, ac
 	return provider, providerKey, false, nil
 }
 
-func (s *Service) finalizePublication(ctx context.Context, publication *models.Publication) {
+func (s *Service) finalizePublication(ctx context.Context, publication *models.Publication) error {
 	var renditions []models.Rendition
 	if err := s.db.NewSelect().Model(&renditions).Where("publication_id = ?", publication.ID).Scan(ctx); err != nil {
-		log.Printf("[Publisher] Failed to load renditions for publication %s: %v", publication.ID, err)
-		return
+		return fmt.Errorf("load renditions for publication %s: %w", publication.ID, err)
 	}
 	hasFailed := false
 	allPublished := len(renditions) > 0
@@ -2309,10 +2314,10 @@ func (s *Service) finalizePublication(ctx context.Context, publication *models.P
 		return s.createPublicationResultNotifications(txCtx, tx, publication, status, renditions)
 	})
 	if err != nil {
-		log.Printf("[Publisher] Failed to finalize publication %s: %v", publication.ID, err)
-		return
+		return fmt.Errorf("finalize publication %s: %w", publication.ID, err)
 	}
 	s.cleanupPublishedPublicationMedia(ctx, publication.ID, status)
+	return nil
 }
 
 func (s *Service) cleanupPublishedPublicationMedia(ctx context.Context, publicationID, status string) {

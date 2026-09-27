@@ -7,6 +7,101 @@ import { COMPOSITION_CONTROLS_VERSION } from '$lib/video-editor/project/types';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 import CompositionTimeline from './composition-timeline.svelte';
+import SelectionFixture from './composition-selection.fixture.svelte';
+
+it('duplicates a Motion layer at the same time and selects the copy', async () => {
+	const id = 'duplicate-motion';
+	sequenceStore.addComposition({
+		id,
+		name: 'Duplicate',
+		editorKind: 'composite-2d',
+		items: [
+			{
+				id: 'title',
+				type: 'text',
+				text: 'Title',
+				label: 'Title',
+				trackId: 'track-video-main',
+				from: 0,
+				durationInFrames: 300
+			}
+		],
+		tracks: createDefaultTracks(),
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 300
+	});
+	sequenceStore.switchTo(id);
+	const onselectitem = vi.fn();
+	try {
+		const screen = await render(CompositionTimeline, {
+			onedit: vi.fn(),
+			onselectitem,
+			selectedItemId: 'title'
+		});
+		await screen.getByTestId('composition-duplicate').click();
+		expect(timelineStore.items).toHaveLength(2);
+		const copy = timelineStore.items.find((item) => item.id !== 'title')!;
+		expect(copy.from).toBe(0);
+		expect(copy.durationInFrames).toBe(300);
+		expect(copy.trackId).not.toBe('track-video-main');
+		expect(onselectitem).toHaveBeenLastCalledWith(copy.id);
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(id);
+	}
+});
+
+it('keeps all duplicated layers selected when the inspector receives the primary selection', async () => {
+	const id = 'duplicate-selection';
+	sequenceStore.addComposition({
+		id,
+		name: 'Selection',
+		editorKind: 'composite-2d',
+		items: ['first', 'second'].map((id, index) => ({
+			id,
+			label: id,
+			text: id,
+			type: 'text',
+			trackId: index === 0 ? 'track-video-main' : 'track-video-overlay',
+			from: 0,
+			durationInFrames: 300
+		})),
+		tracks: createDefaultTracks(),
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 300
+	});
+	sequenceStore.switchTo(id);
+	try {
+		const screen = await render(SelectionFixture);
+		await screen.getByTestId('composition-layer-first').click();
+		await userEvent.keyboard('{Shift>}');
+		await screen.getByTestId('composition-layer-second').click();
+		await userEvent.keyboard('{/Shift}');
+		await screen.getByTestId('composition-duplicate').click();
+		const copies = timelineStore.items.filter((item) => !['first', 'second'].includes(item.id));
+		expect(copies).toHaveLength(2);
+		for (const copy of copies) {
+			await expect
+				.element(screen.getByTestId(`composition-layer-${copy.id}`))
+				.toHaveAttribute('aria-pressed', 'true');
+		}
+		await expect
+			.element(screen.getByTestId('composition-layer-first'))
+			.toHaveAttribute('aria-pressed', 'false');
+		await expect
+			.element(screen.getByTestId('composition-layer-second'))
+			.toHaveAttribute('aria-pressed', 'false');
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(id);
+	}
+});
 
 it('changes composition zoom through the accessible scalar slider', async () => {
 	const previousZoom = timelineStore.zoomLevel;

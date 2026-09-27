@@ -11,7 +11,7 @@
 	- track-groups for inherited visibility/lock/mute/solo
 -->
 <script lang="ts">
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		createShortcutMatcher,
@@ -21,7 +21,11 @@
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { removeItems, updateItemProperties } from '$lib/video-editor/timeline/actions/items';
+	import {
+		duplicateItems,
+		removeItems,
+		updateItemProperties
+	} from '$lib/video-editor/timeline/actions/items';
 	import {
 		setTransformParent,
 		detachTransformParent
@@ -323,6 +327,7 @@
 	let selectedItemIds = $state<Set<string>>(new Set());
 	let lastSelectedId = $state<string | null>(null);
 	$effect(() => {
+		if (externalId === untrack(() => lastSelectedId)) return;
 		selectedItemIds = externalId === null ? new Set() : new Set([externalId]);
 		lastSelectedId = externalId;
 	});
@@ -876,20 +881,12 @@
 	}
 	function duplicateSelected(): void {
 		if (selectedItemIds.size === 0) return;
-		const before = captureSnapshot();
 		const ids = expandMotionLayerItemIds(motionPlan, [...selectedItemIds]);
-		const selected = timelineStore.items.filter((i) => ids.includes(i.id));
-		const newItems: TimelineItem[] = selected.map((item) => ({
-			...snapshotTimelineState(item),
-			id: crypto.randomUUID(),
-			from: item.from + 10,
-			label: item.label ? `${item.label} copy` : item.type
-		}));
-		const shift = findForwardOpenTrackShift(newItems, timelineStore.items);
-		if (shift === null) return;
-		if (shift > 0) newItems.forEach((item) => (item.from += shift));
-		timelineStore._setItems([...timelineStore.items, ...newItems]);
-		commandHistory.addUndoEntry({ type: 'DUPLICATE_ITEMS' }, before);
+		const copies = duplicateItems(ids, { placement: 'above' });
+		if (copies.length === 0) return;
+		selectedItemIds = new Set(copies);
+		lastSelectedId = copies[0]!;
+		onselectitem?.(lastSelectedId);
 		onedit();
 		status = m.video_editor_motion_duplicated();
 	}

@@ -531,24 +531,46 @@ export function joinItems(ids: string[]): string[] {
 	});
 }
 
-export function duplicateItems(ids: string[]): string[] {
+export function duplicateItems(
+	ids: string[],
+	options: { placement?: 'after' | 'above' } = {}
+): string[] {
 	return execute('DUPLICATE_ITEMS', () => {
 		const byId = timelineStore.itemById;
+		const trackCopies = new Map<string, string>();
+		if (options.placement === 'above') {
+			const sourceTracks = new Set(ids.map((id) => byId.get(id)?.trackId));
+			const tracks = timelineStore.tracks
+				.toSorted((a, b) => a.order - b.order)
+				.flatMap((track) => {
+					if (!sourceTracks.has(track.id)) return [track];
+					const id = crypto.randomUUID();
+					trackCopies.set(track.id, id);
+					return [{ ...track, id }, track];
+				});
+			timelineStore._setTracks(tracks.map((track, order) => ({ ...track, order })));
+		}
 		const duplicateIdBySourceId = new Map<string, string>();
 		for (const id of ids) {
 			if (byId.has(id)) duplicateIdBySourceId.set(id, crypto.randomUUID());
 		}
 		const duplicates: TimelineItem[] = [];
+		const linkedGroups = new Map<string, string>();
 		for (const id of ids) {
 			const item = byId.get(id);
 			const duplicateId = duplicateIdBySourceId.get(id);
 			if (!item || !duplicateId) continue;
+			if (item.linkedGroupId && !linkedGroups.has(item.linkedGroupId)) {
+				linkedGroups.set(item.linkedGroupId, crypto.randomUUID());
+			}
 			duplicates.push({
 				...snapshotTimelineState(item),
 				...clonePropertyRuntime(item, duplicateIdBySourceId),
 				id: duplicateId,
 				originId: item.originId ?? item.id,
-				from: item.from + item.durationInFrames
+				linkedGroupId: item.linkedGroupId ? linkedGroups.get(item.linkedGroupId) : undefined,
+				trackId: trackCopies.get(item.trackId) ?? item.trackId,
+				from: options.placement === 'above' ? item.from : item.from + item.durationInFrames
 			});
 		}
 		const shift = findForwardOpenTrackShift(duplicates, timelineStore.items);

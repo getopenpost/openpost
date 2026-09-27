@@ -2,7 +2,20 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { ArrowRight, Menu, Moon, Sun, X } from '@lucide/svelte';
+	import {
+		ArrowRight,
+		BookOpen,
+		CircleHelp,
+		FileText,
+		History,
+		Mail,
+		Menu,
+		Moon,
+		ShieldCheck,
+		Sun,
+		Users,
+		X
+	} from '@lucide/svelte';
 	import Clapperboard from '@lucide/svelte/icons/clapperboard';
 	import Images from '@lucide/svelte/icons/images';
 	import { mode, toggleMode } from 'mode-watcher';
@@ -11,10 +24,20 @@
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu';
 	import ThemeImage from './ThemeImage.svelte';
 	import GitHubStarPill from './GitHubStarPill.svelte';
-	import { appUrl, managedSignupUrl, marketingNavigation, platforms } from '../_marketing';
+	import { appUrl, docsUrl, managedSignupUrl, marketingNavigation, platforms } from '../_marketing';
 
 	type NavigationItem = { label: string; href: string };
 	type ResourceGroup = { label: string; items: readonly NavigationItem[] };
+
+	const resourceIcons = new Map([
+		[docsUrl, BookOpen],
+		['/guides', FileText],
+		['/faq', CircleHelp],
+		['/changelog', History],
+		['/contact', Mail],
+		['/about', Users],
+		['/security', ShieldCheck]
+	]);
 
 	let mobileOpen = $state(false);
 	let hydrated = $state(false);
@@ -244,22 +267,29 @@
 					>
 						Resources
 					</NavigationMenu.Trigger>
-					<NavigationMenu.Content class="resource-menu left-1/2 -translate-x-1/2 p-3">
-						<div class="grid grid-cols-2 gap-3">
+					<NavigationMenu.Content class="resource-menu right-0 left-auto p-2">
+						<div class="grid grid-cols-[1.15fr_1fr] divide-x">
 							{#each resourceGroups as group (group.label)}
-								<div>
-									<p class="px-3 pb-1.5 text-xs font-semibold text-foreground">
+								<div class="px-2 py-1">
+									<p class="px-3 pt-2 pb-2 text-xs font-medium text-muted-foreground">
 										{group.label}
 									</p>
-									<ul class="grid gap-0.5">
+									<ul class="grid">
 										{#each group.items as item (item.href)}
+											{@const Icon = resourceIcons.get(item.href)}
 											<li>
 												<NavigationMenu.Link
 													{...navigationHref(item.href)}
 													active={isActive(item.href)}
 													aria-current={isActive(item.href) ? 'page' : undefined}
-													class="focus-ring min-h-10 w-full rounded-md px-3 text-sm text-muted-foreground hover:text-foreground data-[active=true]:text-foreground"
+													class="focus-ring min-h-11 w-full gap-2.5 rounded-md px-3 text-sm font-medium text-foreground"
 												>
+													{#if Icon}
+														<Icon
+															class="size-4 shrink-0 text-muted-foreground"
+															aria-hidden="true"
+														/>
+													{/if}
 													{item.label}
 												</NavigationMenu.Link>
 											</li>
@@ -369,7 +399,7 @@
 	}
 
 	:global(.resource-menu.resource-menu) {
-		width: min(42rem, calc(100vw - 2rem));
+		width: min(28rem, calc(100vw - 2rem));
 	}
 
 	:global(.tool-menu.tool-menu) {

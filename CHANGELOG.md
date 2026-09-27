@@ -4,6 +4,53 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.1.0] - 2026-09-27
+
+### Added
+
+- Create a shared poll in the composer and choose a native poll, custom poll, text version, or post without a poll for each destination. Drafts preserve unfinished choices; publishing requires resolving them.
+- Video Editor library with favorites, collections, recent items, saved text styles, effects, animations, transitions, timers and reusable blocks. Saved source files stay available on this device and are copied into the destination project when reused.
+- Native countdowns, count-up timers, rings, progress bars, bomb and tomato timers, with editable styling, completion holds and attached countdown sounds.
+- Reusable blocks expose text, color and supported hold durations without changing other instances. Repeat places a previewed batch with count, gap and an optional end boundary, with one Undo.
+- Open the composed current video frame in Image Editor from the preview controls. Export includes editable chapters generated from named markers and the selected render range.
+
+### Fixed
+
+- Preserve commas in poll answers and show each thread segment's own poll in previews.
+- Send LinkedIn poll questions separately from post commentary and use its supported seven-day and fourteen-day duration values.
+- Keep poll choices and independent account polls through saving, reopening, copying, and canonical API edits.
+- Transitions between text or shapes keep both source images instead of replacing the outgoing image with the incoming one.
+- Nested sequences retain their duration in seconds when inserted into a project with a different frame rate.
+- Keep saved cloud video assets available after reopening a project instead of asking for local files.
+- Prevent the timeline menu from scrolling the editor into an accidental command, and keep short clip bodies available for dragging.
+- Refresh paused color comparisons immediately and show caption job progress for the selected clip.
+- Show progress and cancellation for cloud project bundle exports, including cancellation of original-media downloads.
+- Duplicate Motion layers at their original timing on new tracks and select the copies.
+- Open the effect inspector after applying an effect and treat a double-click as one insertion.
+- Refresh an imported LUT when its dimensions change, so stale colors cannot survive a dimension mismatch.
+- Prevent concurrent welcome confirmations with different keys from creating multiple first Workspaces for one user.
+- Published TypeScript SDK 0.3.1 with the stalled-response timeout fix.
+
+### Changed
+
+- Image and Video Editor eyedroppers show a larger pixel grid with a center crosshair and exact color value before selection. The preview stays inside the window near its edges.
+- The free image color picker uses the same magnifier for hover and keyboard sampling without changing the selected color on hover.
+- Video exports reuse unchanged title, caption, and shape pixels while preserving animation, karaoke timing, and font updates.
+- Reuse the Video Editor composition lookup index until the composition registry changes.
+- Reduce repeated GPU texture uploads when video and image edits use multiple Curves, LUT, gradient-map, or ASCII effects. Keep texture reuse bounded by count and memory.
+- Reuse color-effect buffers during preview and export to reduce per-frame allocations.
+
+### Improved
+
+- Favorites sit in the corner of Video Editor catalog cards, with keyboard access and full-size touch targets.
+- Bomb and tomato timers have dimensional shading, detailed materials, animated sparks and completion particles.
+- Timer appearance controls include independent colors, progress thickness, segments, rounded ends, ring angle, number visibility and completion effects. Existing font, position, timing and saved-library controls remain available.
+
+### Security
+
+- Stop serving original media, thumbnails, and video posters after access is denied. Previously, error responses could include private file bytes when the media ID was known, even without valid credentials.
+- Reject HTML and XML media uploads, including generic MIME declarations and duplicate uploads. Serve existing active documents and unknown file types as downloads with restrictive browser headers. Thanks to Hamza for privately reporting the stored XSS.
+
 ## [7.0.1] - 2026-09-27
 
 ### Fixed

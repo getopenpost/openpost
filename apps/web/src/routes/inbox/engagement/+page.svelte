@@ -284,6 +284,8 @@
 
 	$effect(() => {
 		if (workspaceId && workspaceId !== publicationWorkspaceId) {
+			if (publicationSearchTimer) clearTimeout(publicationSearchTimer);
+			publicationSearchTimer = undefined;
 			refreshSequence++;
 			refreshing = false;
 			actionInFlight = '';
@@ -312,7 +314,11 @@
 	function searchPublications(search: string) {
 		publicationSearch = search;
 		if (publicationSearchTimer) clearTimeout(publicationSearchTimer);
-		publicationSearchTimer = setTimeout(() => (publicationQuerySearch = search), 250);
+		const requestedWorkspaceId = workspaceId;
+		publicationSearchTimer = setTimeout(() => {
+			if (workspaceId === requestedWorkspaceId) publicationQuerySearch = search;
+			publicationSearchTimer = undefined;
+		}, 250);
 	}
 
 	function selectPublication(value: string) {
@@ -465,6 +471,7 @@
 		if (!workspaceId || engagementAllDisabled) return false;
 		const scope = captureEngagementMutationView(item.id, unreadOnly);
 		const requestSequence = ++actionRequestSequence;
+		const submittedReply = action === 'reply' ? replyBody : '';
 		actionInFlight = item.id;
 		try {
 			const { error: apiError, response } = await client.POST('/engagement/{item_id}/actions', {
@@ -472,7 +479,7 @@
 				body: {
 					workspace_id: scope.workspaceID,
 					action,
-					message: action === 'reply' ? replyBody.trim() : undefined
+					message: action === 'reply' ? submittedReply.trim() : undefined
 				}
 			});
 			if (!settleQueryMutationSession(scope.session, response)) return false;
@@ -482,7 +489,12 @@
 				}
 				return false;
 			}
-			if (action === 'reply' && engagementMutationViewIsCurrent(scope) && replyItemId === item.id) {
+			if (
+				action === 'reply' &&
+				engagementMutationViewIsCurrent(scope) &&
+				replyItemId === item.id &&
+				replyBody === submittedReply
+			) {
 				replyItemId = '';
 				replyBody = '';
 			}

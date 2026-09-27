@@ -271,6 +271,11 @@
 		await markConversationRead(conversation);
 	}
 
+	function clearSelectedConversation() {
+		selectedId = '';
+		selectedFallback = undefined;
+	}
+
 	async function loadOlderMessages() {
 		if (!selectedId || !messageNextCursor || loadingOlderMessages) return;
 		const anchor = messageVisibleAnchor();
@@ -399,7 +404,8 @@
 		const view = captureConversationMutationView(selected.id);
 		const sequence = ++sendSequence;
 		sending = true;
-		const body = replyBody.trim();
+		const submittedDraft = replyBody;
+		const body = submittedDraft.trim();
 		const pendingOlderPage = messageQuery.isFetchingNextPage
 			? messageQuery.fetchNextPage({ cancelRefetch: false })
 			: null;
@@ -436,7 +442,7 @@
 			});
 		}
 		if (conversationMutationTargetIsCurrent(view)) {
-			replyBody = '';
+			if (replyBody === submittedDraft) replyBody = '';
 			showToast(m.messages_queued(), 'success');
 		}
 	}
@@ -718,6 +724,7 @@
 					value={platformFilter || 'all'}
 					onValueChange={(value) => {
 						platformFilter = value === 'all' ? '' : value;
+						clearSelectedConversation();
 						const selectedAccount = accounts.find((account) => account.id === accountFilter);
 						if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
 							accountFilter = '';
@@ -737,7 +744,10 @@
 				<Select.Root
 					type="single"
 					value={accountFilter || 'all'}
-					onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
+					onValueChange={(value) => {
+						accountFilter = value === 'all' ? '' : value;
+						clearSelectedConversation();
+					}}
 				>
 					<Select.Trigger
 						class="h-11 w-60 sm:h-9"
@@ -779,6 +789,7 @@
 						checked={archived}
 						onCheckedChange={(checked) => {
 							archived = checked;
+							clearSelectedConversation();
 						}}
 					/>
 					{m.engagement_archived()}

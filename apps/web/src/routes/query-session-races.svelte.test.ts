@@ -225,6 +225,133 @@ describe('route mutation sessions', () => {
 		await expect.element(screen.getByText('Bea thread')).toBeVisible();
 	});
 
+	it('keeps text typed into the same conversation while its earlier reply sends', async () => {
+		getMock.mockImplementation(async (path) => {
+			if (path === '/messages') {
+				return {
+					data: { items: [conversation('Ada', 0)], total: 1, sync_states: [], next_cursor: '' }
+				};
+			}
+			if (path === '/messages/{conversation_id}') {
+				return { data: { items: [], next_cursor: '' }, response: new Response() };
+			}
+			if (path === '/accounts') return { data: [] };
+			return { data: [] };
+		});
+		const send = deferred<{ data: ReturnType<typeof directMessage>; response: Response }>();
+		postMock.mockReturnValue(send.promise);
+
+		const screen = await renderWithQuery(MessagesPage);
+		await screen.getByRole('button', { name: /Ada/ }).click();
+		const composer = screen.getByPlaceholder('Write a message…');
+		await composer.fill('First reply');
+		await screen.getByRole('button', { name: 'Send', exact: true }).click();
+		await vi.waitFor(() => expect(postMock).toHaveBeenCalledOnce());
+		await composer.fill('Second reply');
+		send.resolve({ data: directMessage('sent-1', 'First reply'), response: new Response() });
+
+		await expect.element(screen.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
+		await expect.element(composer).toHaveValue('Second reply');
+	});
+
+	it('closes a selected conversation when its filter changes', async () => {
+		getMock.mockImplementation(async (path, options) => {
+			if (path === '/messages') {
+				const archived = (options as { params: { query: { archived: boolean } } }).params.query
+					.archived;
+				return {
+					data: {
+						items: archived ? [conversation('Bea', 0, 'conversation-b')] : [conversation('Ada', 0)],
+						total: 1,
+						sync_states: [],
+						next_cursor: ''
+					}
+				};
+			}
+			if (path === '/messages/{conversation_id}') {
+				return { data: { items: [], next_cursor: '' }, response: new Response() };
+			}
+			if (path === '/accounts') return { data: [] };
+			return { data: [] };
+		});
+		const screen = await renderWithQuery(MessagesPage);
+		await screen.getByRole('button', { name: /Ada/ }).click();
+		await expect.element(screen.getByTestId('conversation-reply-composer')).toBeVisible();
+		await screen.getByRole('checkbox', { name: 'Archived', exact: true }).click();
+		await expect.element(screen.getByRole('button', { name: /Bea/ })).toBeVisible();
+		await expect.element(screen.getByTestId('conversation-reply-composer')).not.toBeInTheDocument();
+	});
+
+	it('keeps an engagement reply edited while the earlier draft queues', async () => {
+		getMock.mockImplementation(async (path) => {
+			if (path === '/engagement') {
+				return {
+					data: {
+						items: [engagementItem('Ada', false)],
+						total: 1,
+						sync_states: [],
+						next_cursor: ''
+					}
+				};
+			}
+			if (path === '/publications') {
+				return { data: [], response: new Response(null, { headers: { 'X-Next-Cursor': '' } }) };
+			}
+			if (path === '/accounts') return { data: [] };
+			return { data: [] };
+		});
+		const send = deferred<{ data: Record<string, never>; response: Response }>();
+		postMock.mockImplementation(async (path) =>
+			path === '/engagement/{item_id}/actions'
+				? send.promise
+				: { data: {}, response: new Response() }
+		);
+
+		const screen = await renderWithQuery(EngagementPage);
+		await screen.getByRole('button', { name: 'Reply', exact: true }).click();
+		const composer = screen.getByPlaceholder('Write a reply…');
+		await composer.fill('First reply');
+		await screen.getByRole('button', { name: 'Queue reply' }).click();
+		await vi.waitFor(() => expect(postMock).toHaveBeenCalledOnce());
+		await composer.fill('Second reply');
+		send.resolve({ data: {}, response: new Response() });
+
+		await vi.waitFor(() => expect(postMock).toHaveBeenCalledTimes(2));
+		await expect.element(composer).toHaveValue('Second reply');
+	});
+
+	it('does not apply an old publication search to the next Workspace', async () => {
+		getMock.mockImplementation(async (path) => {
+			if (path === '/engagement') {
+				return { data: { items: [], total: 0, sync_states: [], next_cursor: '' } };
+			}
+			if (path === '/publications') {
+				return { data: [], response: new Response(null, { headers: { 'X-Next-Cursor': '' } }) };
+			}
+			if (path === '/accounts') return { data: [] };
+			return { data: [] };
+		});
+		const screen = await renderWithQuery(EngagementPage);
+		await screen.getByRole('combobox', { name: 'All posts' }).click();
+		await screen.getByPlaceholder('Search posts').fill('old workspace search');
+		workspaceCtx.currentWorkspace = workspaceB;
+		workspaceCtx.workspaces = [workspaceB];
+		workspaceCtx.settingsWorkspaceID = workspaceB.id;
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		const nextWorkspaceSearches = getMock.mock.calls
+			.filter(
+				([path, options]) =>
+					path === '/publications' &&
+					(options as { params: { query: { workspace_id: string } } }).params.query.workspace_id ===
+						workspaceB.id
+			)
+			.map(
+				([, options]) =>
+					(options as { params: { query: { search?: string } } }).params.query.search ?? ''
+			);
+		expect(nextWorkspaceSearches).not.toContain('old workspace search');
+	});
+
 	it("does not apply an old actor's queued Engagement action to the current queue", async () => {
 		let activeItem = engagementItem('Ada', false);
 		getMock.mockImplementation(async (path) => {

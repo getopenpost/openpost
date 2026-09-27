@@ -44,7 +44,7 @@ test("WebP conversion downloads real original-size PNG with transparency", async
   await expect(page.getByRole("alert")).toContainText(/damaged|decode|processed/i);
 });
 
-test("color picker samples source pixels with the keyboard", async ({ page }) => {
+test("color picker previews source pixels and selects with mouse or keyboard", async ({ page }) => {
   await page.goto("/tools/image-color-picker");
   await dismissTelemetryConsent(page);
   await page
@@ -52,9 +52,29 @@ test("color picker samples source pixels with the keyboard", async ({ page }) =>
     .setInputFiles({ name: "pixels.png", mimeType: "image/png", buffer: await sampleImage() });
   const sampler = page.getByRole("button", { name: /^Image color sampler/ });
   await expect(page.getByRole("button", { name: /^HEX/ })).toContainText("#0000FF");
+  const magnifier = page.getByTestId("image-color-picker-magnifier");
+  await sampler.scrollIntoViewIfNeeded();
+  const imageBounds = (await sampler.locator("img").boundingBox())!;
+  const redX = Math.ceil(imageBounds.x + 15);
+  const rowY = Math.ceil(imageBounds.y + 8);
+  await page.mouse.move(redX, rowY);
+  await expect(magnifier).toContainText("#FF0000");
+  await expect(page.getByRole("button", { name: /^HEX/ })).toContainText("#0000FF");
+  await page.mouse.click(redX, rowY);
+  await expect(page.getByRole("button", { name: /^HEX/ })).toContainText("#FF0000");
+  await expect(page.getByLabel("X pixel", { exact: true })).toHaveValue("16");
+  await sampler.press("ArrowRight");
+  await expect(magnifier).toContainText("#0000FF");
   await sampler.press("ArrowLeft");
   await expect(page.getByRole("button", { name: /^HEX/ })).toContainText("#FF0000");
   await expect(sampler).toBeFocused();
+  await expect(magnifier).toContainText("#FF0000");
+  await sampler.press("Enter");
+  await expect(page.getByLabel("X pixel", { exact: true })).toHaveValue("16");
+  await page.mouse.move(Math.ceil(imageBounds.x + 31), rowY);
+  await expect(magnifier).toContainText("#00000000");
+  await page.getByRole("heading", { level: 1 }).hover();
+  await expect(magnifier).toBeHidden();
 });
 
 test("clipboard image becomes a downloadable original-size file", async ({ page }) => {

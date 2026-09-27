@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Clipboard, Pipette, RotateCcw } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
+	import EditorColorMagnifier from '$lib/components/editor-color-magnifier.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -32,6 +33,13 @@
 	let error = $state('');
 	let status = $state('');
 	let imageElement = $state<HTMLImageElement>();
+	let magnifier = $state.raw<{
+		image: ImageData;
+		clientX: number;
+		clientY: number;
+		color: string;
+	} | null>(null);
+	const PREVIEW_RADIUS = 2;
 	let loadVersion = 0;
 	const previewURL = new ObjectURLSlot();
 	const supportsEyeDropper = typeof window !== 'undefined' && 'EyeDropper' in window;
@@ -63,6 +71,35 @@
 		);
 	}
 
+	function previewSample(
+		nextX: number,
+		nextY: number,
+		pointer?: { clientX: number; clientY: number }
+	): void {
+		const context = canvas?.getContext('2d', { willReadFrequently: true });
+		const bounds = imageElement?.getBoundingClientRect();
+		if (!context || !bounds) return;
+		const size = PREVIEW_RADIUS * 2 + 1;
+		magnifier = {
+			image: context.getImageData(nextX - PREVIEW_RADIUS, nextY - PREVIEW_RADIUS, size, size),
+			clientX: pointer?.clientX ?? bounds.left + ((nextX + 0.5) / width) * bounds.width,
+			clientY: pointer?.clientY ?? bounds.top + ((nextY + 0.5) / height) * bounds.height,
+			color: rgbaToHex(sampleCanvasPixel(context, nextX, nextY))
+		};
+	}
+
+	function previewPointer(event: PointerEvent): void {
+		if (!imageElement) return;
+		const point = mapRenderedPoint(
+			event.clientX,
+			event.clientY,
+			imageElement.getBoundingClientRect(),
+			width,
+			height
+		);
+		previewSample(point.x, point.y, event);
+	}
+
 	function sampleField(axis: 'x' | 'y', event: Event): void {
 		if (!(event.currentTarget instanceof HTMLInputElement)) return;
 		const value = Number(event.currentTarget.value) - 1;
@@ -72,6 +109,7 @@
 
 	async function load(file: File): Promise<void> {
 		const version = ++loadVersion;
+		magnifier = null;
 		let next: ImageBitmap | null = null;
 		busy = true;
 		error = '';
@@ -111,6 +149,7 @@
 	}
 
 	function reset(): void {
+		magnifier = null;
 		loadVersion++;
 		bitmap?.close();
 		bitmap = null;
@@ -170,7 +209,12 @@
 					type="button"
 					class="image-control"
 					aria-label={`Image color sampler. Pixel ${x + 1} of ${width} horizontally, ${y + 1} of ${height} vertically.`}
+					onpointermove={previewPointer}
+					onpointerleave={() => (magnifier = null)}
+					onfocus={() => previewSample(x, y)}
+					onblur={() => (magnifier = null)}
 					onclick={(event) => {
+						if (event.detail === 0) return;
 						const point = mapRenderedPoint(
 							event.clientX,
 							event.clientY,
@@ -179,6 +223,7 @@
 							height
 						);
 						sample(point.x, point.y);
+						previewSample(x, y, event);
 					}}
 					onkeydown={(event) => {
 						let dx = 0,
@@ -190,6 +235,7 @@
 						else return;
 						event.preventDefault();
 						sample(x + dx, y + dy);
+						previewSample(x, y);
 					}}
 				>
 					<img bind:this={imageElement} src={preview} alt="" />
@@ -256,8 +302,8 @@
 						</div>
 					</section>{/if}
 				<p class="hint">
-					Click the image to sample a pixel. Focus it and use the arrow keys for precise movement.
-					Transparent pixels include alpha in HEX, RGB, and HSL values.
+					Hover to preview a pixel, then click to select it. Focus the image and use the arrow keys
+					for precise movement. Transparent pixels include alpha in HEX, RGB, and HSL values.
 				</p>
 				<div class="actions">
 					{#if supportsEyeDropper}<Button variant="outline" onclick={pickScreenColor}
@@ -272,6 +318,18 @@
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
 	<p class="sr-only" aria-live="polite">{status}</p>
 </div>
+
+{#if magnifier}
+	<EditorColorMagnifier
+		image={magnifier.image}
+		pixelX={PREVIEW_RADIUS}
+		pixelY={PREVIEW_RADIUS}
+		clientX={magnifier.clientX}
+		clientY={magnifier.clientY}
+		color={magnifier.color}
+		testId="image-color-picker-magnifier"
+	/>
+{/if}
 
 <style>
 	.picker {

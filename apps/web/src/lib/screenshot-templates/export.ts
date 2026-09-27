@@ -1,10 +1,19 @@
 import { EXPORT_SCALE, MAX_EXPORT_HEIGHT, TEMPLATE_WIDTH } from './document';
 import { m } from '$lib/paraglide/messages';
 
-export async function renderScreenshot(element: HTMLElement, height: number): Promise<Blob> {
+export async function renderScreenshot(
+	element: HTMLElement,
+	{ contentElement, frameHeight }: { contentElement?: HTMLElement; frameHeight: number }
+): Promise<Blob> {
+	await document.fonts.ready;
+	// Failed images must stop export instead of producing a silently incomplete screenshot.
+	await Promise.all(Array.from(element.querySelectorAll('img'), (image) => image.decode()));
+	// Image decoding can change natural height. Measure only after every source is ready.
+	const height = element.offsetHeight;
+	if (frameHeight && (contentElement?.offsetHeight ?? height) > frameHeight + 1)
+		throw new Error(m.templates_overflow());
 	const outputHeight = Math.ceil(height * EXPORT_SCALE);
 	if (outputHeight < 1 || outputHeight > MAX_EXPORT_HEIGHT) throw new Error(m.templates_too_tall());
-	await document.fonts.ready;
 	const { toBlob } = await import('html-to-image');
 	const blob = await toBlob(element, {
 		width: TEMPLATE_WIDTH,

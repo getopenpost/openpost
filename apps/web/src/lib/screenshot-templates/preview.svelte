@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getAuthenticatedMediaByID } from '$lib/media-url';
+	import { m } from '$lib/paraglide/messages';
 	import type { ScreenshotDocument } from '@openpost/query-catalog';
 	import { receiptMoney, receiptTotals, TEMPLATE_WIDTH } from './document';
 	let {
@@ -39,19 +41,33 @@
 				<div class="chat-header">
 					<span class="back" aria-hidden="true">‹</span>
 					<div class="contact">
-						<div class="avatar">
-							{doc.template_id === 'group-chat'
-								? (chat.people ?? [])
-										.map((p) => p.name.charAt(0))
-										.join('')
-										.slice(0, 3)
-								: chat.name
+						{#if doc.template_id === 'group-chat'}
+							<div class="group-avatars">
+								{#each chat.people.slice(0, 4) as person (person.id)}
+									<div class="avatar">
+										{#if person.avatar_media_id}<img
+												src={getAuthenticatedMediaByID(person.avatar_media_id)}
+												alt={person.name}
+											/>{:else}{person.name.slice(0, 1).toUpperCase()}{/if}
+									</div>
+								{/each}{#if chat.people.length > 4}<span class="avatar-count"
+										>+{chat.people.length - 4}</span
+									>{/if}
+							</div>
+						{:else}
+							{@const contact = chat.people.find((person) => person.id !== chat.self_id)}
+							<div class="avatar">
+								{#if contact?.avatar_media_id}<img
+										src={getAuthenticatedMediaByID(contact.avatar_media_id)}
+										alt={contact.name}
+									/>{:else}{chat.name
 										.split(/\s+/)
 										.map((word) => word.charAt(0))
 										.slice(0, 2)
 										.join('')
-										.toUpperCase()}
-						</div>
+										.toUpperCase()}{/if}
+							</div>
+						{/if}
 						<div class="contact-name">{chat.name} <span class="chevron">›</span></div>
 					</div>
 					<svg
@@ -74,8 +90,20 @@
 				{#each messages as message, index (message.id)}
 					{@const outgoing = message.sender_id === chat.self_id}
 					{@const grouped = index > 0 && messages[index - 1].sender_id === message.sender_id}
+					{@const sender = chat.people.find((person) => person.id === message.sender_id)}
 					{@const last = messages[index + 1]?.sender_id !== message.sender_id}
-					<div class="message" class:outgoing class:grouped data-content-id={message.id}>
+					<div
+						class="message"
+						class:outgoing
+						class:grouped
+						class:with-avatar={Boolean(sender?.avatar_media_id)}
+						data-content-id={message.id}
+					>
+						{#if sender?.avatar_media_id && last}<img
+								class="message-avatar"
+								src={getAuthenticatedMediaByID(sender.avatar_media_id)}
+								alt={sender.name}
+							/>{/if}
 						{#if doc.template_id === 'group-chat' && !outgoing && !grouped}<div class="sender">
 								{chat.people?.find((person) => person.id === message.sender_id)?.name}
 							</div>{/if}
@@ -84,10 +112,20 @@
 							role={onselect ? 'button' : undefined}
 							type={onselect ? 'button' : undefined}
 							class="bubble"
-							class:tail={last}
+							class:tail={last && !message.image_media_id}
+							class:photo-bubble={Boolean(message.image_media_id)}
 							dir="auto"
-							onclick={() => onselect?.(message.id)}>{message.text || '\u00a0'}</svelte:element
+							onclick={() => onselect?.(message.id)}
 						>
+							{#if message.image_media_id}<img
+									class="message-image"
+									src={getAuthenticatedMediaByID(message.image_media_id)}
+									alt={m.templates_message_photo({ number: index + 1 })}
+								/>{/if}
+							{#if message.text || !message.image_media_id}<span class="message-text"
+									>{message.text || '\u00a0'}</span
+								>{/if}
+						</svelte:element>
 					</div>
 				{/each}
 				{#if chat.read_receipt && messages.at(-1)?.sender_id === chat.self_id}<div
@@ -157,6 +195,72 @@
 </div>
 
 <style>
+	.avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: inherit;
+	}
+	.group-avatars {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 65px;
+		padding-inline: 8px;
+	}
+	.group-avatars .avatar {
+		width: 45px;
+		height: 45px;
+		font-size: 22px;
+		border: 2px solid var(--shot-panel);
+		margin-inline: -8px;
+	}
+	.avatar-count {
+		font-size: 13px;
+		margin-left: 12px;
+	}
+	.message {
+		position: relative;
+	}
+	.message.with-avatar {
+		padding-left: 44px;
+	}
+	.message.with-avatar.outgoing {
+		padding-left: 0;
+		padding-right: 44px;
+	}
+	.message-avatar {
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		width: 29px;
+		height: 29px;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+	.outgoing .message-avatar {
+		left: auto;
+		right: 0;
+	}
+	.bubble.photo-bubble {
+		white-space: normal;
+		padding: 0;
+		overflow: hidden;
+		width: 300px;
+	}
+	.message-image {
+		display: block;
+		width: 100%;
+		height: auto;
+		max-height: 380px;
+		object-fit: contain;
+	}
+	.photo-bubble .message-text {
+		white-space: pre-wrap;
+		display: block;
+		padding: 11px 17px;
+	}
+
 	.screenshot {
 		--shot-bg: #fff;
 		--shot-text: #111;

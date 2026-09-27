@@ -9110,5 +9110,8 @@
 	"templates_recipe_description": "내보낸 이미지에서 새 디자인을 만드세요.",
 	"templates_previous": "Previous",
 	"templates_next": "Next",
-	"templates_read_only": "이 워크스페이스의 디자인을 볼 수 있습니다. 편집자는 디자인을 만들거나 변경할 수 있습니다."
+	"templates_read_only": "이 워크스페이스의 디자인을 볼 수 있습니다. 편집자는 디자인을 만들거나 변경할 수 있습니다.",
+	"templates_person_photo": "{name}의 사진",
+	"templates_message_photo": "메시지 {number}의 이미지",
+	"templates_remove_photo": "삭제: {label}"
 }

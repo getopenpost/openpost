@@ -596,6 +596,18 @@ func (snapshot *protectionSnapshot) loadNormalized(
 			JOIN candidate_media candidate ON candidate.media_id = item.media_id
 			WHERE collection.workspace_id = (SELECT workspace_id FROM batch_scope)
 			UNION
+            SELECT 'reference', reference.media_id
+            FROM screenshot_template_media_references reference
+            JOIN screenshot_template_designs design ON design.id = reference.design_id
+            JOIN candidate_media candidate ON candidate.media_id = reference.media_id
+            WHERE design.workspace_id = (SELECT workspace_id FROM batch_scope)
+            UNION
+            SELECT 'reference', reference.media_id
+            FROM screenshot_template_recipe_media_references reference
+            JOIN media_generation_recipes recipe ON recipe.media_id = reference.export_media_id
+            JOIN candidate_media candidate ON candidate.media_id = reference.media_id
+            WHERE recipe.workspace_id = (SELECT workspace_id FROM batch_scope)
+            UNION
 			SELECT 'reference', font.media_id
 			FROM brand_fonts font
 			JOIN brand_kits kit ON kit.id = font.brand_kit_id

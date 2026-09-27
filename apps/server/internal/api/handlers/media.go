@@ -767,6 +767,8 @@ func applyListMediaFeatureFilter(query *bun.SelectQuery, input *ListMediaInput) 
 					OR id IN (SELECT r.media_id FROM design_media_references r JOIN design_documents d ON d.id = r.design_document_id WHERE d.deleted_at IS NULL)
 					OR id IN (SELECT r.media_id FROM design_revision_media_references r JOIN design_revisions v ON v.id = r.revision_id JOIN design_documents d ON d.id = v.design_document_id WHERE d.deleted_at IS NULL)
 					OR id IN (SELECT media_id FROM design_template_media_references)
+                OR id IN (SELECT media_id FROM screenshot_template_media_references)
+                OR id IN (SELECT media_id FROM screenshot_template_recipe_media_references)
 					OR id IN (SELECT media_id FROM brand_fonts)
 					OR id IN (SELECT cover_preview_media_id FROM design_documents WHERE cover_preview_media_id IS NOT NULL AND deleted_at IS NULL)
 					OR id IN (SELECT p.preview_media_id FROM design_pages p JOIN design_documents d ON d.id = p.design_document_id WHERE p.preview_media_id IS NOT NULL AND d.deleted_at IS NULL)
@@ -782,6 +784,8 @@ func applyListMediaFeatureFilter(query *bun.SelectQuery, input *ListMediaInput) 
 				AND id NOT IN (SELECT r.media_id FROM design_media_references r JOIN design_documents d ON d.id = r.design_document_id WHERE d.deleted_at IS NULL)
 				AND id NOT IN (SELECT r.media_id FROM design_revision_media_references r JOIN design_revisions v ON v.id = r.revision_id JOIN design_documents d ON d.id = v.design_document_id WHERE d.deleted_at IS NULL)
 				AND id NOT IN (SELECT media_id FROM design_template_media_references)
+                AND id NOT IN (SELECT media_id FROM screenshot_template_media_references)
+                AND id NOT IN (SELECT media_id FROM screenshot_template_recipe_media_references)
 				AND id NOT IN (SELECT media_id FROM brand_fonts)
 				AND id NOT IN (SELECT cover_preview_media_id FROM design_documents WHERE cover_preview_media_id IS NOT NULL AND deleted_at IS NULL)
 				AND id NOT IN (SELECT p.preview_media_id FROM design_pages p JOIN design_documents d ON d.id = p.design_document_id WHERE p.preview_media_id IS NOT NULL AND d.deleted_at IS NULL)
@@ -2577,6 +2581,8 @@ func (h *MediaHandler) mediaUsageSummaries(ctx context.Context, workspaceID stri
 	}
 
 	blockingQueries := []string{
+		`SELECT media_id, COUNT(*) AS usage_count FROM screenshot_template_media_references WHERE media_id IN (?) GROUP BY media_id`,
+		`SELECT media_id, COUNT(*) AS usage_count FROM screenshot_template_recipe_media_references WHERE media_id IN (?) GROUP BY media_id`,
 		`SELECT r.media_id, COUNT(*) AS usage_count
 			FROM design_media_references r
 			JOIN design_documents d ON d.id = r.design_document_id
@@ -2712,6 +2718,23 @@ func (h *MediaHandler) publicationsUsingMedia(ctx context.Context, workspaceID, 
 //nolint:gocyclo // Each usage type has distinct labels and destination metadata.
 func (h *MediaHandler) nonPublicationMediaUsage(ctx context.Context, workspaceID, mediaID string) ([]MediaUsageItem, error) {
 	usage := []MediaUsageItem{}
+	var screenshots []struct {
+		ID    string
+		Title string
+		Kind  string
+	}
+	if err := h.db.NewRaw(`SELECT d.id, d.title, 'screenshot_template' AS kind
+ FROM screenshot_template_media_references r JOIN screenshot_template_designs d ON d.id = r.design_id
+ WHERE r.media_id = ? AND d.workspace_id = ?
+ UNION ALL SELECT recipe.media_id AS id, recipe.template_name AS title, 'screenshot_template_export' AS kind
+ FROM screenshot_template_recipe_media_references r JOIN media_generation_recipes recipe ON recipe.media_id = r.export_media_id
+ WHERE r.media_id = ? AND recipe.workspace_id = ?`, mediaID, workspaceID, mediaID, workspaceID).Scan(ctx, &screenshots); err != nil && !isMissingOptionalMediaTable(err) {
+		return nil, err
+	}
+	for _, item := range screenshots {
+		usage = append(usage, MediaUsageItem{Kind: item.Kind, ID: item.ID, Label: item.Title, Status: "editable"})
+	}
+
 	var designs []struct {
 		ID    string `bun:"id"`
 		Title string `bun:"title"`

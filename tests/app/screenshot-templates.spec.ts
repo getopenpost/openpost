@@ -285,6 +285,7 @@ test("message reordering previews locally, cancels, and commits pointer moves wi
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await openTemplates(page);
   await page.getByRole("button", { name: "Group chat", exact: true }).click();
   const first = page.locator('[data-reorder-key="a"]');
@@ -329,4 +330,123 @@ test("duplicated messages save and reopen", async ({ page }) => {
     { timeout: 30000 },
   );
   await expect(page.getByRole("textbox", { name: "Message 5", exact: true })).toBeVisible();
+});
+
+test("chat images and every participant photo survive editing, export and draft deletion", async ({
+  page,
+}) => {
+  const { token, workspace } = await openTemplates(page);
+  const headers = { Authorization: `Bearer ${token}` };
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 160;
+    canvas.height = 120;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#00dd55";
+    ctx.fillRect(0, 0, 160, 120);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  const upload = await page.request.post("/api/v1/media/upload", {
+    headers,
+    multipart: {
+      workspace_id: workspace.id,
+      source: "upload",
+      file: { name: "chat-photo.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") },
+    },
+  });
+  expect(upload.ok()).toBeTruthy();
+  const photo = await upload.json();
+  await page.getByRole("button", { name: "Group chat", exact: true }).click();
+  const choose = async (label: string) => {
+    await page.getByRole("button", { name: label, exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Select chat-photo.png", exact: true }).click();
+    await dialog.getByRole("button", { name: /^Add/ }).click();
+    await expect(dialog).toHaveCount(0);
+  };
+  await choose("Image for message 1");
+  await page.getByRole("textbox", { name: "Message 1", exact: true }).fill("");
+  await page.getByText("Conversation details", { exact: true }).click();
+  for (const name of ["You", "Alex", "Sam"]) await choose(`Photo for ${name}`);
+  const preview = page.locator("[data-template-preview]");
+  await expect(preview.locator(".message-image")).toHaveCount(1);
+  await expect(preview.locator(".group-avatars img")).toHaveCount(3);
+  await page.getByRole("button", { name: "Remove: Image for message 1", exact: true }).click();
+  await expect(preview.locator(".message-image")).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(preview.locator(".message-image")).toHaveCount(1);
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Duplicate", exact: true }).first().click();
+  await expect(preview.locator(".message-image")).toHaveCount(2);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  const handle = page.locator('[data-reorder-key="a"]');
+  await handle.focus();
+  await handle.press("Space");
+  await handle.press("ArrowDown");
+  await handle.press("Space");
+  await expect(
+    page.getByRole("button", { name: "Remove: Image for message 2", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Remove: Image for message 1", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  const designID = page.url().split("/").at(-1)!;
+  await page.reload();
+  await expect(preview.locator(".message-image")).toHaveCount(1, { timeout: 30000 });
+  await expect(preview.locator(".group-avatars img")).toHaveCount(3);
+  const exported = await downloadPNG(page);
+  const greenPixels = await page.evaluate(async (data) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(image, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let green = 0;
+    for (let i = 0; i < pixels.length; i += 4)
+      if (pixels[i] < 20 && pixels[i + 1] > 200 && pixels[i + 2] > 60 && pixels[i + 2] < 110)
+        green++;
+    return green;
+  }, exported.toString("base64"));
+  expect(greenPixels).toBeGreaterThan(150000);
+  const blocked = await page.request.delete(
+    `/api/v1/media/${photo.id}?workspace_id=${workspace.id}`,
+    { headers },
+  );
+  expect(blocked.status()).toBe(400);
+  expect(await blocked.text()).toContain("cannot delete media while it is used");
+  const recipeResponse = page.waitForResponse(
+    (r) =>
+      r.url().endsWith(`/screenshot-templates/designs/${designID}/exports`) &&
+      r.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Save to Media", exact: true }).click();
+  const response = await recipeResponse;
+  expect(response.ok()).toBeTruthy();
+  const request = response.request().postDataJSON();
+  const deleted = await page.request.delete(`/api/v1/screenshot-templates/designs/${designID}`, {
+    headers,
+  });
+  expect(deleted.ok()).toBeTruthy();
+  const stillBlocked = await page.request.delete(
+    `/api/v1/media/${photo.id}?workspace_id=${workspace.id}`,
+    { headers },
+  );
+  expect(stillBlocked.status()).toBe(400);
+  expect(await stillBlocked.text()).toContain("cannot delete media while it is used");
+  const recipe = await page.request.get(
+    `/api/v1/screenshot-templates/recipes/${request.media_id}`,
+    { headers },
+  );
+  expect(recipe.ok()).toBeTruthy();
+  const snapshot = (await recipe.json()).document;
+  expect(
+    snapshot.conversation.people.map((p: { avatar_media_id: string }) => p.avatar_media_id),
+  ).toEqual([photo.id, photo.id, photo.id]);
+  expect(snapshot.conversation.messages[0].image_media_id).toBe(photo.id);
 });

@@ -77,6 +77,16 @@ func TestDeleteWorkspaceRemovesWorkspaceContent(t *testing.T) {
 		MimeType: "image/png", CreatedAt: time.Now().UTC(),
 	}).Exec(ctx)
 	require.NoError(t, err)
+	for _, model := range []any{
+		&models.ScreenshotTemplateDesign{ID: "chat", WorkspaceID: "workspace-1", CreatedByID: "user-1", Title: "Chat", TemplateID: "messages", Revision: 1, DocumentJSON: `{}`, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		&models.ScreenshotTemplateMediaReference{DesignID: "chat", MediaID: "media-1"},
+		&models.MediaAttachment{ID: "chat-export", FileHash: "chat-export-hash", WorkspaceID: "workspace-1", MimeType: "image/png", CreatedAt: time.Now()},
+		&models.MediaGenerationRecipe{MediaID: "chat-export", WorkspaceID: "workspace-1", CreatedByID: "user-1", Kind: "screenshot_template", RendererKey: "openpost-screenshot-html-v1", TemplateID: "messages", TemplateName: "Chat", CatalogRevision: "1", RecipeJSON: `{}`, CreatedAt: time.Now()},
+		&models.ScreenshotTemplateRecipeMediaReference{ExportMediaID: "chat-export", MediaID: "media-1"},
+	} {
+		_, err := server.db.NewInsert().Model(model).Exec(ctx)
+		require.NoError(t, err)
+	}
 	_, err = server.db.NewInsert().Model(&models.UserNotification{
 		ID: "notification-1", UserID: "user-1", WorkspaceID: "workspace-1",
 		Type: "publish_failed", Title: "Publishing failed", Body: "Draft content",

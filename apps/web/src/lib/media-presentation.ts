@@ -98,6 +98,8 @@ export function mediaUsageKindLabel(value: string): string {
 			return m.media_usage_design_preview();
 		case 'design_page_export':
 			return m.media_usage_design_page_export();
+		case 'screenshot_template':
+		case 'screenshot_template_export':
 		case 'template':
 			return m.media_usage_template();
 		case 'template_preview':

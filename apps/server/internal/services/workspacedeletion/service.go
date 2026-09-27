@@ -624,6 +624,9 @@ type modelDeletion struct {
 
 func deletionPlan(workspaceIDs []string, ids deletionIDs) []modelDeletion {
 	deletions := []modelDeletion{}
+	// Release screenshot source ownership before deleting workspace media.
+	deletions = appendDeletions(deletions, ids.media, "media_id IN (?)", (*models.ScreenshotTemplateMediaReference)(nil), (*models.ScreenshotTemplateRecipeMediaReference)(nil))
+	deletions = appendDeletions(deletions, workspaceIDs, "workspace_id IN (?)", (*models.ScreenshotTemplateDesign)(nil))
 	deletions = appendDeletions(deletions, workspaceIDs, "workspace_id IN (?)", (*models.AnalyticsAccountSnapshot)(nil), (*models.AnalyticsRenditionSnapshot)(nil), (*models.AnalyticsSyncState)(nil))
 	deletions = appendDeletions(deletions, ids.renditionSegments, "rendition_segment_id IN (?)", (*models.RenditionSegmentMedia)(nil))
 	deletions = appendDeletions(deletions, ids.renditions, "rendition_id IN (?)", (*models.RenditionMediaDeliveryRelation)(nil), (*models.RenditionMediaDelivery)(nil), (*models.RenditionMedia)(nil), (*models.RenditionSegment)(nil))

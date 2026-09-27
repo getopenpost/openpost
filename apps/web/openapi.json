@@ -17998,6 +17998,10 @@
 						"minLength": 1,
 						"type": "string"
 					},
+					"image_media_id": {
+						"maxLength": 80,
+						"type": "string"
+					},
 					"sender_id": {
 						"maxLength": 80,
 						"minLength": 1,
@@ -18014,6 +18018,10 @@
 			"ScreenshotTemplatePerson": {
 				"additionalProperties": false,
 				"properties": {
+					"avatar_media_id": {
+						"maxLength": 80,
+						"type": "string"
+					},
 					"id": {
 						"maxLength": 80,
 						"minLength": 1,

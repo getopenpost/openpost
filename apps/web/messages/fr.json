@@ -9110,5 +9110,8 @@
 	"templates_recipe_description": "Créez un design à partir de cette image exportée.",
 	"templates_previous": "Previous",
 	"templates_next": "Next",
-	"templates_read_only": "Vous pouvez consulter les designs de cet espace. Un éditeur peut les créer ou les modifier."
+	"templates_read_only": "Vous pouvez consulter les designs de cet espace. Un éditeur peut les créer ou les modifier.",
+	"templates_person_photo": "Photo de {name}",
+	"templates_message_photo": "Image du message {number}",
+	"templates_remove_photo": "Supprimer : {label}"
 }

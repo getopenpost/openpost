@@ -13194,10 +13194,12 @@ export interface components {
         };
         ScreenshotTemplateMessage: {
             id: string;
+            image_media_id?: string;
             sender_id: string;
             text: string;
         };
         ScreenshotTemplatePerson: {
+            avatar_media_id?: string;
             id: string;
             name: string;
         };

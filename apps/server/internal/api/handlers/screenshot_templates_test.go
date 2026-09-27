@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -23,7 +24,7 @@ type screenshotTestServer struct {
 
 func newScreenshotTestServer(t *testing.T) screenshotTestServer {
 	t.Helper()
-	db := createHandlerTestDB(t, (*models.User)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.MediaAttachment)(nil), (*models.MediaGenerationRecipe)(nil), (*models.ScreenshotTemplateDesign)(nil))
+	db := createHandlerTestDB(t, (*models.User)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.MediaAttachment)(nil), (*models.MediaGenerationRecipe)(nil), (*models.ScreenshotTemplateDesign)(nil), (*models.ScreenshotTemplateMediaReference)(nil), (*models.ScreenshotTemplateRecipeMediaReference)(nil))
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.User{ID: "user-1", Email: "template@example.com", PasswordHash: "test"}).Exec(ctx)
 	require.NoError(t, err)
@@ -147,6 +148,61 @@ func TestScreenshotTemplateRejectsInvalidConversation(t *testing.T) {
 			test.change(&doc)
 			response := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
 			require.Contains(t, []int{400, 422}, response.Code, response.Body.String())
+		})
+	}
+}
+
+func TestScreenshotTemplateImageFieldsRoundTrip(t *testing.T) {
+	srv := newScreenshotTestServer(t)
+	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "photo", WorkspaceID: "workspace-1", MimeType: "image/png", ProcessingStatus: "ready"}).Exec(t.Context())
+	require.NoError(t, err)
+	var doc map[string]any
+	encoded, err := json.Marshal(screenshotDocumentFixture())
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(encoded, &doc))
+	chat := doc["conversation"].(map[string]any)
+	chat["people"].([]any)[0].(map[string]any)["avatar_media_id"] = "photo"
+	chat["messages"].([]any)[0].(map[string]any)["image_media_id"] = "photo"
+	result := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
+	require.Equal(t, 200, result.Code, result.Body.String())
+	require.Contains(t, result.Body.String(), `"avatar_media_id":"photo"`)
+	require.Contains(t, result.Body.String(), `"image_media_id":"photo"`)
+}
+
+func TestScreenshotTemplateRejectsUnavailableImages(t *testing.T) {
+	for _, test := range []struct {
+		name, workspace, mime, status string
+		assetKind                     string
+		trashed                       bool
+	}{
+		{name: "another workspace", workspace: "workspace-2", mime: "image/png", status: "ready"},
+		{name: "project asset", workspace: "workspace-1", mime: "image/png", status: "ready", assetKind: "project_asset"},
+		{name: "video", workspace: "workspace-1", mime: "video/mp4", status: "ready"},
+		{name: "SVG", workspace: "workspace-1", mime: "image/svg+xml", status: "ready"},
+		{name: "processing", workspace: "workspace-1", mime: "image/png", status: "processing"},
+		{name: "trash", workspace: "workspace-1", mime: "image/png", status: "ready", trashed: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			srv := newScreenshotTestServer(t)
+			media := models.MediaAttachment{ID: "photo", WorkspaceID: test.workspace, MimeType: test.mime, ProcessingStatus: test.status, AssetKind: test.assetKind}
+			if test.trashed {
+				media.TrashedAt = time.Now()
+			}
+			_, err := srv.db.NewInsert().Model(&media).Exec(t.Context())
+			require.NoError(t, err)
+			design := srv.create(t)
+			for _, field := range []string{"avatar", "message"} {
+				doc := screenshotDocumentFixture()
+				if field == "avatar" {
+					doc.Conversation.People[0].AvatarMediaID = "photo"
+				} else {
+					doc.Conversation.Messages[0].ImageMediaID = "photo"
+				}
+				create := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
+				require.Equal(t, 400, create.Code, create.Body.String())
+				update := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 1, "document": doc})
+				require.Equal(t, 400, update.Code, update.Body.String())
+			}
 		})
 	}
 }

@@ -9110,5 +9110,8 @@
 	"templates_recipe_description": "Erstelle einen neuen Entwurf aus diesem exportierten Bild.",
 	"templates_previous": "Previous",
 	"templates_next": "Next",
-	"templates_read_only": "Du kannst Entwürfe in diesem Arbeitsbereich ansehen. Ein Bearbeiter kann sie erstellen oder ändern."
+	"templates_read_only": "Du kannst Entwürfe in diesem Arbeitsbereich ansehen. Ein Bearbeiter kann sie erstellen oder ändern.",
+	"templates_person_photo": "Foto von {name}",
+	"templates_message_photo": "Bild für Nachricht {number}",
+	"templates_remove_photo": "Entfernen: {label}"
 }

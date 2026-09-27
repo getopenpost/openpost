@@ -9,14 +9,16 @@ const screenshotTemplateSchemaVersion = 1
 const screenshotTemplateRenderer = "openpost-screenshot-html-v1"
 
 type ScreenshotTemplatePerson struct {
-	ID   string `json:"id" minLength:"1" maxLength:"80"`
-	Name string `json:"name" maxLength:"100"`
+	ID            string `json:"id" minLength:"1" maxLength:"80"`
+	Name          string `json:"name" maxLength:"100"`
+	AvatarMediaID string `json:"avatar_media_id,omitempty" maxLength:"80"`
 }
 
 type ScreenshotTemplateMessage struct {
-	ID       string `json:"id" minLength:"1" maxLength:"80"`
-	SenderID string `json:"sender_id" minLength:"1" maxLength:"80"`
-	Text     string `json:"text" maxLength:"2000"`
+	ID           string `json:"id" minLength:"1" maxLength:"80"`
+	SenderID     string `json:"sender_id" minLength:"1" maxLength:"80"`
+	Text         string `json:"text" maxLength:"2000"`
+	ImageMediaID string `json:"image_media_id,omitempty" maxLength:"80"`
 }
 
 type ScreenshotTemplateConversation struct {

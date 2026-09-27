@@ -9110,5 +9110,8 @@
 	"templates_recipe_description": "この書き出した画像から新しいデザインを作成します。",
 	"templates_previous": "Previous",
 	"templates_next": "Next",
-	"templates_read_only": "このワークスペースのデザインを閲覧できます。編集者は作成や変更ができます。"
+	"templates_read_only": "このワークスペースのデザインを閲覧できます。編集者は作成や変更ができます。",
+	"templates_person_photo": "{name}の写真",
+	"templates_message_photo": "メッセージ{number}の画像",
+	"templates_remove_photo": "削除: {label}"
 }

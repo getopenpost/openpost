@@ -9110,5 +9110,8 @@
 	"templates_recipe_description": "Bu dışa aktarılmış görselden yeni bir tasarım oluşturun.",
 	"templates_previous": "Previous",
 	"templates_next": "Next",
-	"templates_read_only": "Bu çalışma alanındaki tasarımları görüntüleyebilirsiniz. Bir düzenleyici tasarım oluşturabilir veya değiştirebilir."
+	"templates_read_only": "Bu çalışma alanındaki tasarımları görüntüleyebilirsiniz. Bir düzenleyici tasarım oluşturabilir veya değiştirebilir.",
+	"templates_person_photo": "{name} için fotoğraf",
+	"templates_message_photo": "{number}. mesaj için görsel",
+	"templates_remove_photo": "Kaldır: {label}"
 }

@@ -201,19 +201,18 @@
 			busy = false;
 		}
 	}
+	let exportMenuOpen = $state(false);
 	async function exportImage(destination: 'download' | 'media' | 'publication') {
 		if (busy || !previewElement || overflow || tooTall) return;
+		exportMenuOpen = false;
 		busy = true;
 		error = '';
 		try {
 			if (canEdit) await save();
 			await tick();
-			if (frameHeight && (contentElement?.offsetHeight ?? 0) > frameHeight + 1) {
-				throw new Error(m.templates_overflow());
-			}
 			const snapshot = doc;
 			const snapshotJSON = JSON.stringify(snapshot);
-			const blob = await renderScreenshot(previewElement, previewElement.offsetHeight);
+			const blob = await renderScreenshot(previewElement, { contentElement, frameHeight });
 			if (!mounted) return;
 			if (destination === 'download') {
 				downloadScreenshot(blob, snapshot.title);
@@ -364,7 +363,7 @@
 					onclick={() => exportImage('publication')}
 					>{returnToken ? m.templates_return_publication() : m.templates_add_publication()}</Button
 				>
-				{#if viewportIsNarrow}<DropdownMenu.Root
+				{#if viewportIsNarrow}<DropdownMenu.Root bind:open={exportMenuOpen}
 						><DropdownMenu.Trigger
 							>{#snippet child({ props })}<Button
 									{...props}
@@ -443,6 +442,7 @@
 						oninput={(title) => update({ ...doc, title }, 'title')}
 					/>
 					{#if doc.conversation}<ConversationFields
+							workspaceId={design.workspace_id}
 							value={doc.conversation}
 							onchange={(conversation, key) => update({ ...doc, conversation }, key)}
 						/>{:else if doc.receipt}<ReceiptFields

@@ -174,8 +174,21 @@ func (h *ScreenshotTemplateHandler) create(ctx context.Context, input *CreateScr
 	}
 	now := time.Now().UTC()
 	row := models.ScreenshotTemplateDesign{ID: uuid.NewString(), WorkspaceID: input.Body.WorkspaceID, CreatedByID: middleware.GetUserID(ctx), Title: input.Body.Document.Title, TemplateID: input.Body.Document.TemplateID, Revision: 1, DocumentJSON: string(encoded), CreatedAt: now, UpdatedAt: now}
-	if _, err := h.db.NewInsert().Model(&row).Exec(ctx); err != nil {
-		return nil, huma.Error500InternalServerError("failed to create template design")
+	ids := screenshotTemplateMediaIDs(input.Body.Document)
+	err = h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, ids); err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().Model(&row).Exec(ctx); err != nil {
+			return huma.Error500InternalServerError("failed to create template design")
+		}
+		if err := replaceScreenshotTemplateMedia(ctx, tx, row.ID, ids); err != nil {
+			return huma.Error500InternalServerError("failed to save template images")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return screenshotTemplateResponse(row, true)
 }
@@ -205,16 +218,29 @@ func (h *ScreenshotTemplateHandler) update(ctx context.Context, input *UpdateScr
 	row.TemplateID = input.Body.Document.TemplateID
 	row.Revision = input.Body.Revision + 1
 	row.UpdatedAt = time.Now().UTC()
-	result, err := h.db.NewUpdate().Model(&row).Column("document_json", "title", "template_id", "revision", "updated_at").Where("id = ? AND revision = ?", row.ID, input.Body.Revision).Exec(ctx)
+	ids := screenshotTemplateMediaIDs(input.Body.Document)
+	err = h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, ids); err != nil {
+			return err
+		}
+		result, err := tx.NewUpdate().Model(&row).Column("document_json", "title", "template_id", "revision", "updated_at").Where("id = ? AND revision = ?", row.ID, input.Body.Revision).Exec(ctx)
+		if err != nil {
+			return huma.Error500InternalServerError("failed to save template design")
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return huma.Error500InternalServerError("failed to verify template save")
+		}
+		if count != 1 {
+			return huma.Error409Conflict("this design changed elsewhere; save a copy to keep your changes")
+		}
+		if err := replaceScreenshotTemplateMedia(ctx, tx, row.ID, ids); err != nil {
+			return huma.Error500InternalServerError("failed to save template images")
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to save template design")
-	}
-	count, err := result.RowsAffected()
-	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to verify template save")
-	}
-	if count != 1 {
-		return nil, huma.Error409Conflict("this design changed elsewhere; save a copy to keep your changes")
+		return nil, err
 	}
 	return screenshotTemplateResponse(row, true)
 }
@@ -247,16 +273,41 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 		return nil, huma.Error400BadRequest("the export must be a screenshot template PNG")
 	}
 	recipe := models.MediaGenerationRecipe{MediaID: media.ID, WorkspaceID: row.WorkspaceID, CreatedByID: middleware.GetUserID(ctx), Kind: "screenshot_template", RendererKey: screenshotTemplateRenderer, TemplateID: row.TemplateID, TemplateName: row.Title, CatalogRevision: "1", RecipeJSON: row.DocumentJSON, CreatedAt: time.Now().UTC()}
-	if _, err := h.db.NewInsert().Model(&recipe).On("CONFLICT (media_id) DO NOTHING").Exec(ctx); err != nil {
-		return nil, huma.Error500InternalServerError("failed to save template recipe")
+	var doc ScreenshotTemplateDocument
+	if err := json.Unmarshal([]byte(row.DocumentJSON), &doc); err != nil {
+		return nil, huma.Error500InternalServerError("failed to read template document")
 	}
-	// Exports are immutable. A retry may only reuse the identical recipe.
-	var saved models.MediaGenerationRecipe
-	if err := h.db.NewSelect().Model(&saved).Where("media_id = ?", media.ID).Scan(ctx); err != nil {
-		return nil, huma.Error500InternalServerError("failed to read template recipe")
+	ids := screenshotTemplateMediaIDs(doc)
+	for _, id := range ids {
+		if id == media.ID {
+			return nil, huma.Error400BadRequest("an export cannot be its own source image")
+		}
 	}
-	if saved.RecipeJSON != row.DocumentJSON || saved.Kind != "screenshot_template" {
-		return nil, huma.Error409Conflict("this media already has a different recipe")
+	err = h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, ids); err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().Model(&recipe).On("CONFLICT (media_id) DO NOTHING").Exec(ctx); err != nil {
+			return huma.Error500InternalServerError("failed to save template recipe")
+		}
+		// Exports are immutable. A retry may only reuse the identical recipe.
+		var saved models.MediaGenerationRecipe
+		if err := tx.NewSelect().Model(&saved).Where("media_id = ?", media.ID).Scan(ctx); err != nil {
+			return huma.Error500InternalServerError("failed to read template recipe")
+		}
+		if saved.RecipeJSON != row.DocumentJSON || saved.Kind != "screenshot_template" {
+			return huma.Error409Conflict("this media already has a different recipe")
+		}
+		for _, id := range ids {
+			ref := models.ScreenshotTemplateRecipeMediaReference{ExportMediaID: media.ID, MediaID: id}
+			if _, err := tx.NewInsert().Model(&ref).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
+				return huma.Error500InternalServerError("failed to retain template images")
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return h.recipe(ctx, &ScreenshotTemplateRecipeInput{MediaID: media.ID})
 }

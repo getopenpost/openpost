@@ -53,10 +53,19 @@ type PendingCapture = {
 };
 
 async function readQueue(): Promise<PendingCapture[]> {
+  const info = await FileSystem.getInfoAsync(CAPTURE_QUEUE_FILE);
+  if (!info.exists) return [];
+
   try {
-    return JSON.parse(await FileSystem.readAsStringAsync(CAPTURE_QUEUE_FILE)) as PendingCapture[];
-  } catch {
-    return [];
+    const decoded: unknown = JSON.parse(await FileSystem.readAsStringAsync(CAPTURE_QUEUE_FILE));
+    if (!Array.isArray(decoded) || !decoded.every(isPendingCapture)) {
+      throw new Error("The saved capture queue has an invalid format");
+    }
+    return decoded;
+  } catch (cause) {
+    throw new Error("Saved capture queue could not be read. Captures remain on this device.", {
+      cause,
+    });
   }
 }
 
@@ -74,6 +83,7 @@ export async function queueVideoCapture(
   asset: VideoCaptureAsset,
   preparation: ProjectAssetPreparation,
 ): Promise<void> {
+  const queue = await readQueue();
   const id = `capture-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   await FileSystem.makeDirectoryAsync(CAPTURE_QUEUE_DIRECTORY, { intermediates: true });
   const extension = asset.fileName?.split(".").pop() || "mp4";
@@ -83,7 +93,6 @@ export async function queueVideoCapture(
   if (!info.exists || typeof info.size !== "number" || info.size <= 0) {
     throw new Error("The captured video could not be read");
   }
-  const queue = await readQueue();
   const contentHash = await fileSHA256(uri);
   await writeQueue([
     ...queue,
@@ -195,10 +204,13 @@ async function uploadCapture(capture: PendingCapture): Promise<void> {
   if (reserved.error || !reserved.data) {
     throw new Error(await errorMessage(reserved.response, "Could not prepare Project Asset"));
   }
-  await client.POST("/video-projects/{id}/assets/{asset_id}/begin-upload", {
+  const begin = await client.POST("/video-projects/{id}/assets/{asset_id}/begin-upload", {
     params: { path: { id: created.data.id, asset_id: reserved.data.id } },
     body: { workspace_id: capture.workspaceId },
   });
+  if (begin.error || !begin.data) {
+    throw new Error(await errorMessage(begin.response, "Could not begin Project Asset upload"));
+  }
   const session = await client.POST("/media/upload-session", {
     body: {
       workspace_id: capture.workspaceId,
@@ -243,4 +255,28 @@ async function fileSHA256(uri: string): Promise<string> {
   } finally {
     reader.releaseLock();
   }
+}
+
+function isPendingCapture(value: unknown): value is PendingCapture {
+  if (!value || typeof value !== "object") return false;
+  const capture = value as Partial<PendingCapture>;
+  return (
+    typeof capture.id === "string" &&
+    typeof capture.workspaceId === "string" &&
+    typeof capture.name === "string" &&
+    typeof capture.uri === "string" &&
+    typeof capture.filename === "string" &&
+    typeof capture.mimeType === "string" &&
+    typeof capture.size === "number" &&
+    Number.isFinite(capture.size) &&
+    typeof capture.durationSeconds === "number" &&
+    Number.isFinite(capture.durationSeconds) &&
+    typeof capture.width === "number" &&
+    Number.isFinite(capture.width) &&
+    typeof capture.height === "number" &&
+    Number.isFinite(capture.height) &&
+    typeof capture.queuedAt === "number" &&
+    Number.isFinite(capture.queuedAt) &&
+    Boolean(capture.preparation && typeof capture.preparation === "object")
+  );
 }

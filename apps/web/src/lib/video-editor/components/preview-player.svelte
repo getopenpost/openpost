@@ -619,6 +619,8 @@
 
 	$effect(() => {
 		void displayFrame;
+		void colorPreviewStore.comparisonMode;
+		void colorPreviewStore.comparisonItemIds;
 		// Effect edits replace these arrays in place on the timeline items.
 		// Read them here because the animation-frame callback is not reactive.
 		for (const item of activeItems) void item.effects;

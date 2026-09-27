@@ -43,19 +43,26 @@ it('keeps compact curve markers, hit targets, and strokes in screen space', asyn
 describe('curve point slider keyboard', () => {
 	async function renderWithMiddlePoint() {
 		const ondraft = vi.fn<(params: GpuParamValues | null) => void>();
-		const oncommit = vi.fn();
+		const gpuEffect = $state<{
+			id: string;
+			enabled: boolean;
+			params: GpuParamValues;
+		}>({
+			id: 'curves',
+			enabled: true,
+			params: {
+				masterPoints: JSON.stringify([
+					[0, 0],
+					[0.5, 0.5],
+					[1, 1]
+				])
+			}
+		});
+		const oncommit = vi.fn((params: GpuParamValues) => {
+			gpuEffect.params = params;
+		});
 		const screen = await render(EditorColorCurves, {
-			gpuEffect: {
-				id: 'curves',
-				enabled: true,
-				params: {
-					masterPoints: JSON.stringify([
-						[0, 0],
-						[0.5, 0.5],
-						[1, 1]
-					])
-				}
-			},
+			gpuEffect,
 			ondraft,
 			oncommit
 		});
@@ -67,7 +74,7 @@ describe('curve point slider keyboard', () => {
 	}
 
 	function middleOutput(call: [GpuParamValues | null] | undefined): number {
-		// SAFETY: every keyboard step commits a draft, so the last call carries the serialized master points.
+		// SAFETY: the assertion selects the last non-null draft because committing clears the transient preview.
 		const params = call![0];
 		// SAFETY: the curves panel serializes master points as a string param.
 		const raw = params!.masterPoints as string;
@@ -79,22 +86,31 @@ describe('curve point slider keyboard', () => {
 	it('moves output in large steps with PageUp and PageDown', async () => {
 		const { ondraft } = await renderWithMiddlePoint();
 		await userEvent.keyboard('{PageUp}');
-		expect(middleOutput(ondraft.mock.calls.at(-1))).toBeCloseTo(0.6, 10);
+		expect(middleOutput(ondraft.mock.calls.findLast(([params]) => params !== null))).toBeCloseTo(
+			0.6,
+			10
+		);
 		await userEvent.keyboard('{PageDown}');
-		expect(middleOutput(ondraft.mock.calls.at(-1))).toBeCloseTo(0.5, 10);
+		expect(middleOutput(ondraft.mock.calls.findLast(([params]) => params !== null))).toBeCloseTo(
+			0.5,
+			10
+		);
 	});
 
 	it('jumps output to min with Home and max with End', async () => {
 		const { ondraft } = await renderWithMiddlePoint();
 		await userEvent.keyboard('{Home}');
-		expect(middleOutput(ondraft.mock.calls.at(-1))).toBe(0);
+		expect(middleOutput(ondraft.mock.calls.findLast(([params]) => params !== null))).toBe(0);
 		await userEvent.keyboard('{End}');
-		expect(middleOutput(ondraft.mock.calls.at(-1))).toBe(1);
+		expect(middleOutput(ondraft.mock.calls.findLast(([params]) => params !== null))).toBe(1);
 	});
 
 	it('keeps arrow small steps', async () => {
 		const { ondraft } = await renderWithMiddlePoint();
 		await userEvent.keyboard('{ArrowUp}');
-		expect(middleOutput(ondraft.mock.calls.at(-1))).toBeCloseTo(0.51, 10);
+		expect(middleOutput(ondraft.mock.calls.findLast(([params]) => params !== null))).toBeCloseTo(
+			0.51,
+			10
+		);
 	});
 });

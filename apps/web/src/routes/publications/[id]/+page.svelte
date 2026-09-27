@@ -1,4 +1,6 @@
 <script lang="ts">
+	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import AsyncActionButton from '$lib/components/async-action-button.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
@@ -14,7 +16,10 @@
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
 	import PublicationHistory from '$lib/components/publication-history.svelte';
 	import ComposeTextPost from '$lib/components/compose-text-post.svelte';
-	import { publicationDraftCopy } from '$lib/composer/publication-client';
+	import {
+		createComposerPublicationClient,
+		publicationDraftCopy
+	} from '$lib/composer/publication-client';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -43,6 +48,8 @@
 	let recoveryMessage = $state('');
 	let recoveryFailed = $state(false);
 	let copying = $state(false);
+	let removeDialogOpen = $state(false);
+	let pendingRemoval = $state.raw<Publication | null>(null);
 	let copyError = $state('');
 	let copyRequestKey = '';
 	let recoveryRequestSequence = 0;
@@ -63,6 +70,20 @@
 	);
 
 	type DetailOperation = PublicationOperation<AuthIdentityToken | undefined>;
+
+	async function removeLocalRecord(): Promise<DestructiveActionOutcome> {
+		const target = pendingRemoval;
+		if (!target) return { ok: false };
+		const operation = captureDetailOperation(target.id, target.workspace_id);
+		await createComposerPublicationClient(target.workspace_id).delete(target.id, target.revision);
+		if (!detailViewIsCurrent(operation)) return { ok: true };
+		ui.invalidatePublications(
+			{ workspaceId: target.workspace_id, scopes: ['activity', 'calendar', 'drafts'] },
+			{ immediate: true }
+		);
+		await goto(resolve('/publications'));
+		return { ok: true, successMessage: m.publication_remove_success() };
+	}
 
 	function captureDetailOperation(id: string, workspaceId: string): DetailOperation {
 		return operationScope.capture(auth.captureIdentity(), workspaceId, id);
@@ -384,6 +405,18 @@
 						: m.activity_dismiss_failed()}
 				</Button>
 			{/if}
+			{#if publication.status === 'published' && workspaceCtx.currentWorkspace?.can_edit}
+				<Button
+					variant="outline"
+					onclick={() => {
+						pendingRemoval = publication;
+						removeDialogOpen = true;
+					}}
+				>
+					<ThemeIcon role="delete" class="mr-1.5 size-4" />
+					{m.publication_remove_local()}
+				</Button>
+			{/if}
 			{@render copyAsDraftButton()}
 			<Button variant="outline" onclick={() => history.back()}>
 				<ThemeIcon role="arrow-left" class="mr-1.5 size-4" />
@@ -492,3 +525,11 @@
 		</Sheet.Root>
 	</div>
 {/if}
+
+<DestructiveConfirmDialog
+	bind:open={removeDialogOpen}
+	title={m.publication_remove_local()}
+	description={m.publication_remove_description()}
+	confirmLabel={m.publication_remove_local()}
+	onConfirm={removeLocalRecord}
+/>

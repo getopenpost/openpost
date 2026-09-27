@@ -9113,5 +9113,8 @@
 	"templates_read_only": "Você pode ver os designs deste espaço de trabalho. Um editor pode criá-los ou alterá-los.",
 	"templates_person_photo": "Foto de {name}",
 	"templates_message_photo": "Imagem da mensagem {number}",
-	"templates_remove_photo": "Remover: {label}"
+	"templates_remove_photo": "Remover: {label}",
+	"publication_remove_local": "Remover do OpenPost",
+	"publication_remove_description": "Remove permanentemente esta publicação e seu histórico do OpenPost. As publicações nas redes sociais não serão excluídas.",
+	"publication_remove_success": "Publicação removida do OpenPost."
 }

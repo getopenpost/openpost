@@ -276,6 +276,9 @@ func (s *Service) refreshWorkspace(ctx context.Context, workspaceID string, forc
 func (s *Service) syncEngagement(ctx context.Context, renditionID string) error {
 	var rendition models.Rendition
 	if err := s.db.NewSelect().Model(&rendition).Where("id = ?", renditionID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
 		return err
 	}
 	account, err := s.resolveRenditionAccount(ctx, rendition.SocialAccountID)

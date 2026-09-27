@@ -9113,5 +9113,8 @@
 	"templates_read_only": "이 워크스페이스의 디자인을 볼 수 있습니다. 편집자는 디자인을 만들거나 변경할 수 있습니다.",
 	"templates_person_photo": "{name}의 사진",
 	"templates_message_photo": "메시지 {number}의 이미지",
-	"templates_remove_photo": "삭제: {label}"
+	"templates_remove_photo": "삭제: {label}",
+	"publication_remove_local": "OpenPost에서 삭제",
+	"publication_remove_description": "이 게시물과 기록을 OpenPost에서 영구적으로 삭제합니다. 소셜 네트워크의 게시물은 삭제되지 않습니다.",
+	"publication_remove_success": "OpenPost에서 게시물을 삭제했습니다."
 }

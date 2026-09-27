@@ -4143,7 +4143,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a publication
-         * @description Permanently deletes an editable publication, its destinations, and any linked draft post.
+         * @description Permanently removes a publication and its destinations from OpenPost. Published posts remain on the social networks. Publications with active delivery cannot be removed.
          */
         delete: operations["delete-publication"];
         options?: never;

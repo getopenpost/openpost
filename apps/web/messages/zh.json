@@ -9113,5 +9113,8 @@
 	"templates_read_only": "你可以查看此工作区中的设计。编辑者可以创建或修改设计。",
 	"templates_person_photo": "{name}的照片",
 	"templates_message_photo": "消息{number}的图片",
-	"templates_remove_photo": "移除：{label}"
+	"templates_remove_photo": "移除：{label}",
+	"publication_remove_local": "从 OpenPost 移除",
+	"publication_remove_description": "从 OpenPost 永久移除此发布及其历史记录。社交网络上的帖子不会被删除。",
+	"publication_remove_success": "已从 OpenPost 移除发布。"
 }

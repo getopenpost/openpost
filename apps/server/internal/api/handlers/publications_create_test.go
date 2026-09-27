@@ -203,58 +203,62 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 }
 
 func TestDeletePublicationRequiresConfirmationAndRevision(t *testing.T) {
-	db := createHandlerTestDB(t,
-		(*models.WorkspaceMember)(nil),
-		(*models.Publication)(nil),
-		(*models.Job)(nil),
-	)
-	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.WorkspaceMember{
-		WorkspaceID: "workspace-1",
-		UserID:      "user-1",
-		Role:        models.WorkspaceRoleAdmin,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Publication{
-		ID:              "publication-1",
-		WorkspaceID:     "workspace-1",
-		CreatedByID:     "user-1",
-		Title:           "Story draft",
-		Intent:          "story",
-		ContentProfile:  "story",
-		Status:          models.PublicationStatusDraft,
-		MetadataJSON:    "{}",
-		ReleasePlanJSON: "{}",
-	}).Exec(ctx)
-	require.NoError(t, err)
+	for _, status := range []string{models.PublicationStatusDraft, models.PublicationStatusPublished} {
+		t.Run(status, func(t *testing.T) {
+			db := createHandlerTestDB(t,
+				(*models.WorkspaceMember)(nil),
+				(*models.Publication)(nil),
+				(*models.Job)(nil),
+			)
+			ctx := context.Background()
+			_, err := db.NewInsert().Model(&models.WorkspaceMember{
+				WorkspaceID: "workspace-1",
+				UserID:      "user-1",
+				Role:        models.WorkspaceRoleAdmin,
+			}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.Publication{
+				ID:              "publication-1",
+				WorkspaceID:     "workspace-1",
+				CreatedByID:     "user-1",
+				Title:           "Story draft",
+				Intent:          "story",
+				ContentProfile:  "story",
+				Status:          status,
+				MetadataJSON:    "{}",
+				ReleasePlanJSON: "{}",
+			}).Exec(ctx)
+			require.NoError(t, err)
 
-	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
+			e := echo.New()
+			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 
-	unconfirmed := httptest.NewRequestWithContext(
-		ctx,
-		http.MethodDelete,
-		"/api/v1/publications/publication-1",
-		nil,
-	)
-	unconfirmed.Header.Set("Authorization", "Bearer web-token")
-	unconfirmedRec := httptest.NewRecorder()
-	e.ServeHTTP(unconfirmedRec, unconfirmed)
-	require.Equal(t, http.StatusBadRequest, unconfirmedRec.Code, unconfirmedRec.Body.String())
+			unconfirmed := httptest.NewRequestWithContext(
+				ctx,
+				http.MethodDelete,
+				"/api/v1/publications/publication-1",
+				nil,
+			)
+			unconfirmed.Header.Set("Authorization", "Bearer web-token")
+			unconfirmedRec := httptest.NewRecorder()
+			e.ServeHTTP(unconfirmedRec, unconfirmed)
+			require.Equal(t, http.StatusBadRequest, unconfirmedRec.Code, unconfirmedRec.Body.String())
 
-	confirmed := httptest.NewRequestWithContext(
-		ctx,
-		http.MethodDelete,
-		"/api/v1/publications/publication-1?confirm=true&expected_revision=1",
-		nil,
-	)
-	confirmed.Header.Set("Authorization", "Bearer web-token")
-	confirmedRec := httptest.NewRecorder()
-	e.ServeHTTP(confirmedRec, confirmed)
-	require.Equal(t, http.StatusOK, confirmedRec.Code, confirmedRec.Body.String())
+			confirmed := httptest.NewRequestWithContext(
+				ctx,
+				http.MethodDelete,
+				"/api/v1/publications/publication-1?confirm=true&expected_revision=1",
+				nil,
+			)
+			confirmed.Header.Set("Authorization", "Bearer web-token")
+			confirmedRec := httptest.NewRecorder()
+			e.ServeHTTP(confirmedRec, confirmed)
+			require.Equal(t, http.StatusOK, confirmedRec.Code, confirmedRec.Body.String())
 
-	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, count)
+			count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(ctx)
+			require.NoError(t, err)
+			require.Zero(t, count)
+		})
+	}
 }

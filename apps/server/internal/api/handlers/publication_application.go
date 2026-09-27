@@ -547,12 +547,15 @@ func (commands publicationApplication) Delete(
 	expectedRevision int,
 ) (err error) {
 	defer categorizePublicationError(&err)
-	publication, err := commands.handler.loadPublicationForEdit(ctx, publicationID, userID)
+	publication, err := commands.handler.loadPublication(ctx, publicationID, userID)
 	if err != nil {
 		return err
 	}
+	if err := commands.handler.checkWorkspaceEditAccess(ctx, publication.WorkspaceID, userID); err != nil {
+		return err
+	}
 	return commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		current, err := commands.handler.loadEditablePublicationTx(txCtx, tx, publication.ID)
+		current, err := commands.handler.loadPublicationForMutationTx(txCtx, tx, publication.ID, models.PublicationStatusPublished)
 		if err != nil {
 			return err
 		}
@@ -573,7 +576,7 @@ func (commands publicationApplication) Delete(
 			return fmt.Errorf("delete publication: %w", err)
 		}
 		if affected, _ := result.RowsAffected(); affected == 0 {
-			latest, loadErr := commands.handler.loadEditablePublicationTx(txCtx, tx, current.ID)
+			latest, loadErr := commands.handler.loadPublicationForMutationTx(txCtx, tx, current.ID, models.PublicationStatusPublished)
 			if loadErr != nil {
 				return loadErr
 			}

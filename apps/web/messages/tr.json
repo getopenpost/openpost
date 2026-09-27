@@ -9113,5 +9113,8 @@
 	"templates_read_only": "Bu çalışma alanındaki tasarımları görüntüleyebilirsiniz. Bir düzenleyici tasarım oluşturabilir veya değiştirebilir.",
 	"templates_person_photo": "{name} için fotoğraf",
 	"templates_message_photo": "{number}. mesaj için görsel",
-	"templates_remove_photo": "Kaldır: {label}"
+	"templates_remove_photo": "Kaldır: {label}",
+	"publication_remove_local": "OpenPost’tan kaldır",
+	"publication_remove_description": "Bu yayını ve geçmişini OpenPost’tan kalıcı olarak kaldırır. Sosyal ağlardaki gönderiler silinmez.",
+	"publication_remove_success": "Yayın OpenPost’tan kaldırıldı."
 }

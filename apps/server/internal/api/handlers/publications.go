@@ -574,7 +574,7 @@ func (h *PublicationHandler) deletePublication(api huma.API) {
 		Method:      http.MethodDelete,
 		Path:        publicationPathByID,
 		Summary:     "Delete a publication",
-		Description: "Permanently deletes an editable publication, its destinations, and any linked draft post.",
+		Description: "Permanently removes a publication and its destinations from OpenPost. Published posts remain on the social networks. Publications with active delivery cannot be removed.",
 		Tags:        []string{tagPublications},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{400, 403, 404, 409},
@@ -2478,6 +2478,10 @@ func (h *PublicationHandler) loadPublicationForEdit(ctx context.Context, publica
 }
 
 func (h *PublicationHandler) loadEditablePublicationTx(ctx context.Context, tx bun.Tx, publicationID string) (*models.Publication, error) {
+	return h.loadPublicationForMutationTx(ctx, tx, publicationID)
+}
+
+func (h *PublicationHandler) loadPublicationForMutationTx(ctx context.Context, tx bun.Tx, publicationID string, additionalStatuses ...string) (*models.Publication, error) {
 	publicationID = publicationPathID(publicationID)
 	if err := lockPublicationMutationTx(ctx, tx, publicationID); err != nil {
 		return nil, err
@@ -2489,7 +2493,7 @@ func (h *PublicationHandler) loadEditablePublicationTx(ctx context.Context, tx b
 		}
 		return nil, err
 	}
-	if !isPublicationEditable(publication.Status) {
+	if !isPublicationEditable(publication.Status) && !slices.Contains(additionalStatuses, publication.Status) {
 		return nil, errPublicationNotEditable
 	}
 	if err := h.lockActivePrimaryPublicationJobsTx(ctx, tx, publicationID); err != nil {

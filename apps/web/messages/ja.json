@@ -9113,5 +9113,8 @@
 	"templates_read_only": "このワークスペースのデザインを閲覧できます。編集者は作成や変更ができます。",
 	"templates_person_photo": "{name}の写真",
 	"templates_message_photo": "メッセージ{number}の画像",
-	"templates_remove_photo": "削除: {label}"
+	"templates_remove_photo": "削除: {label}",
+	"publication_remove_local": "OpenPostから削除",
+	"publication_remove_description": "この投稿と履歴をOpenPostから完全に削除します。ソーシャルネットワーク上の投稿は削除されません。",
+	"publication_remove_success": "OpenPostから投稿を削除しました。"
 }

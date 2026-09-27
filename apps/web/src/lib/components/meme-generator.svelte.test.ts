@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { client } from '$lib/api/client';
+import type { ScreenshotDocument } from '@openpost/query-catalog';
 import type {
 	MemeGeneratorAPI,
 	MemePreviewResult,
@@ -9,25 +11,9 @@ import type {
 import { m } from '$lib/paraglide/messages';
 import MemeBrowser from '$lib/meme-generator/browser.svelte';
 import MemeGenerator from './meme-generator.svelte';
-import { createScreenshotDesign } from '$lib/screenshot-templates/api';
-vi.mock('$lib/screenshot-templates/api', async (importOriginal) => {
-	const original = await importOriginal<typeof import('$lib/screenshot-templates/api')>();
-	return {
-		...original,
-		createScreenshotDesign: vi.fn(async (workspaceId, document) => ({
-			id: 'seeded-draft',
-			workspace_id: workspaceId,
-			document,
-			title: document.title,
-			template_id: document.template_id,
-			revision: 1,
-			can_edit: true,
-			created_at: '2026-09-27T00:00:00Z',
-			updated_at: '2026-09-27T00:00:00Z'
-		}))
-	};
-});
 import '../../routes/layout.css';
+
+afterEach(() => vi.restoreAllMocks());
 
 const template: MemeTemplate = {
 	id: 'fry',
@@ -283,7 +269,29 @@ describe('Meme template browsing', () => {
 });
 
 it('returns from a seeded meme to its original suggestions without creating another draft', async () => {
-	vi.mocked(createScreenshotDesign).mockClear();
+	const post = vi.fn(
+		async (
+			_path: string,
+			options: { body: { workspace_id: string; document: ScreenshotDocument } }
+		) => {
+			const { workspace_id, document } = options.body;
+			return {
+				data: {
+					id: 'seeded-draft',
+					workspace_id,
+					document,
+					title: document.title,
+					template_id: document.template_id,
+					revision: 1,
+					can_edit: true,
+					created_at: '2026-09-27T00:00:00Z',
+					updated_at: '2026-09-27T00:00:00Z'
+				},
+				response: new Response()
+			};
+		}
+	);
+	vi.spyOn(client, 'POST').mockImplementation(post);
 	const candidate = {
 		template_id: 'fry',
 		template,
@@ -310,5 +318,7 @@ it('returns from a seeded meme to its original suggestions without creating anot
 			})
 		)
 		.toBeVisible();
-	expect(createScreenshotDesign).toHaveBeenCalledTimes(1);
+	expect(post).toHaveBeenCalledExactlyOnceWith('/screenshot-templates/designs', {
+		body: { workspace_id: 'workspace-1', document: expect.any(Object) }
+	});
 });

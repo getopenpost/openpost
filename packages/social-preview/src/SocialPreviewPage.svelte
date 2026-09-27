@@ -266,7 +266,7 @@
           </header>
           <header class="column-header">
             <div>
-              <h1>Home</h1>
+              <h2>Home</h2>
             </div>
 
             {#if model.platform === "bluesky"}<Settings
@@ -684,7 +684,7 @@
           <div class="chat-history">
             <div class="channel-welcome">
               <Hash />
-              <h1>Welcome to #general!</h1>
+              <h2>Welcome to #general!</h2>
               <p>This is the start of the #general channel.</p>
             </div>
             <SocialPreview {model} {scheme} />
@@ -720,7 +720,7 @@
           <header class="telegram-channel-header">
             <PreviewAvatar identity={model.identity} size={40} />
             <span
-              ><h1>{model.identity.displayName}</h1>
+              ><h2>{model.identity.displayName}</h2>
               <small>channel</small></span
             >
             <Search aria-hidden="true" />
@@ -856,7 +856,7 @@
     min-width: 0;
   }
 
-  .telegram-channel-header h1 {
+  .telegram-channel-header h2 {
     overflow: hidden;
     margin: 0;
     font-size: 0.9rem;
@@ -1074,7 +1074,7 @@
     backdrop-filter: blur(10px);
   }
 
-  .column-header h1 {
+  .column-header h2 {
     margin: 0;
     font-size: 1.1rem;
     line-height: 1.2;
@@ -2630,7 +2630,7 @@
     padding: 0.7rem;
   }
 
-  .channel-welcome h1 {
+  .channel-welcome h2 {
     margin: 0.65rem 0 0;
     font-size: 1.6rem;
   }
@@ -2954,7 +2954,7 @@
       display: none;
     }
 
-    .column-header h1 {
+    .column-header h2 {
       font-size: 0.9rem;
     }
 

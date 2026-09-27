@@ -195,13 +195,13 @@
     </div>
     <section class="business-layout">
       <header>
-        <h1>{model.identity.displayName}</h1>
+        <h2>{model.identity.displayName}</h2>
         <span class="business-label"><MapPin />Business profile</span>
       </header>
       <div class="tabs" aria-hidden="true">
         <strong>Overview</strong><span>Updates</span><span>Photos</span>
       </div>
-      <h2>Updates</h2>
+      <h3>Updates</h3>
       <SocialPreview {model} {scheme} />
     </section>
   {:else}
@@ -287,7 +287,6 @@
     width: 24px;
     height: 24px;
   }
-  .native-page h1,
   .native-page h2,
   .native-page h3,
   .native-page p {
@@ -696,7 +695,7 @@
     margin: 32px 0 0 150px;
     padding: 0 24px 40px 0;
   }
-  .business-layout h1 {
+  .business-layout h2 {
     font-size: 28px;
     font-weight: 400;
     overflow-wrap: anywhere;
@@ -712,7 +711,7 @@
     width: 16px;
     height: 16px;
   }
-  .business-layout h2 {
+  .business-layout h3 {
     margin: 24px 0 16px;
     font-size: 20px;
     font-weight: 500;
@@ -930,7 +929,7 @@
       margin: 20px 0 0;
       padding: 0 12px 24px;
     }
-    .business-layout h1 {
+    .business-layout h2 {
       font-size: 24px;
     }
   }

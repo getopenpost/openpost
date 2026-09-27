@@ -4,6 +4,115 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.0.1] - 2026-09-27
+
+### Fixed
+
+- MCP publication variants accept explicit output formats and format locks.
+- The composer preserves saved publication alt text and destination-specific media descriptions.
+- Composer capability checks include each destination's effective text and attachments.
+- Media editing reopens an existing image design, and workspace designs can be deleted from the editor library.
+- Source associations are recorded for new editing designs. Older designs remain available and removable; the first Edit after upgrading may create one new design.
+- Published records can be removed from OpenPost without deleting posts on social networks.
+- Facebook and Instagram image posts no longer inherit Reel settings or reject inline links as unsupported native link settings.
+- Failed video encodes release the submitted frame instead of keeping its native video memory open.
+- Audio exports no longer reject complete clips or shift their start by one sample when timeline boundaries accumulate floating-point rounding errors.
+- Preview sidebars and mobile navigation now follow the selected preview width. Media keeps its natural proportions, attachment collections remain visible, and warnings, polls, thread settings, events, and offers reflect the authored content.
+- Composer previews preserve the selected destination format, joined segments, and cleared attachments.
+- Guest Image Editor releases local media URLs when their last open view closes, while keeping images available across overlapping views.
+- Canceling an Image Editor export also stops archive creation before a download starts. Multi-page previews retain only the previewed page, and export memory checks account for encoded pages and archive buffers.
+- Workspace brand controls become available when their data finishes loading after a newly created design opens.
+- Meme drafts save before the composer picker closes. Animated memes can return to a publication, and saved meme recipes retain their image slots and source media.
+- Self-hosting backup instructions now distinguish the guide's bind mount from the named volume used by the repository Compose file and platform recipes.
+- Free text tools now use the same platform character limits and counting rules as the composer. Long drafts also split faster.
+- Mobile Video Project uploads now stop when the server rejects the asset upload start, and malformed capture queues remain on-device instead of being treated as empty and overwritten.
+- PeerTube video posts now read stored media in bounded chunks during resumable uploads, so publishing works without loading the whole video into memory.
+- Provider certification now requires fresh evidence when the required approval tier changes.
+- Retrying a publication keeps its original date. A failed finalization returns an error so the job can retry without sending an already published variant again.
+- Keep replies typed while an earlier message or engagement reply is sending.
+- Clear the selected conversation when message filters change, and stop pending engagement searches from carrying into another Workspace.
+- Worker recovery checks the lease again before failing a stale job or marking its provider writes ambiguous. A renewed worker lease keeps the job active.
+- The CLI streams media files through upload sessions instead of buffering the full multipart request in memory.
+- Documentation link checks now catch links to folders that have no page, while allowing indexless navigation groups.
+- Instagram Inbox now checks all permissions Meta requires to read conversations, so accounts missing `pages_manage_metadata` ask to reconnect before message sync.
+- Meta publishing failures now report the specific cause and recovery action: expired tokens reconnect, lost Page roles and checkpointed accounts ask for reconnection, policy blocks stay terminal, and transient outages keep retrying. Raw provider error bodies are never retained.
+- Keep transform values readable in narrow inspectors and show playback position and total duration in matching frame timecodes.
+- Explain canceled or blocked screen sharing without falsely reporting denied camera or microphone access, consistently in the editor and standalone recorder.
+- Make Shift-click toggle timeline selection and plain clicks narrow it without breaking group drags. Preserve Motion group spacing and linked source boundaries across repeated drag and trim updates, and keep locked layers selectable.
+- Keep Undo, Redo, Save, and Export available after focusing editor controls, while preserving native text editing and local keyboard controls in Video Editor and Quick Cut.
+- Recover metadata and binary reads invalidated by concurrent file replacement. Serialize JSON reads with saves, while preserving real permission, corruption, and persistent read errors.
+- Free social preview pages keep one page heading while preserving the headings shown inside platform previews.
+- Public site builds stay within Cloudflare Pages' header-rule limit while preserving Markdown content types for marketing and documentation.
+- The homepage screenshot tour keeps its controls in the initial page layout, avoiding a shift when JavaScript starts.
+- Documentation navigation has readable active-link contrast and an accessible GitHub icon.
+- Older documentation URLs redirect again after consolidating rules within Cloudflare's limit.
+- Sanitize provider transport errors in the X, LinkedIn, PeerTube, Pinterest, and connector HTTP helpers so failing requests no longer leak signed upload or connector URLs into errors and logs.
+- SDK request timeouts now include reading response bodies, so a server that sends headers but stalls its body cannot leave calls pending indefinitely.
+- TikTok accounts connect with the publishing scopes alone. The profile falls back to the Login Kit identity fields when the Display API username scope is missing, completed Direct Post videos keep the provider publish ID when `video.list` reconciliation is unavailable, and analytics explain the missing Display API scopes instead of blocking the connection.
+- Correct the default X Post video limits to 20 minutes / 8 GiB standard and 125 minutes / 16 GiB subscribed, matching X's documented `tweet_video` caps. The previous 512 MiB / 140-second defaults describe Direct Message video, which OpenPost never uploads.
+
+### Changed
+
+- Image Editor pencil strokes process only the affected area, reducing work on large canvases while preserving pressure, texture, selection clipping, and undo.
+- Page and template thumbnails grade images at the resolution needed for their crop and size. Interactive editing and exports retain full-resolution pixels.
+- Moving, resizing, or changing an image layer's opacity reuses its color grade and blur when their inputs are unchanged.
+- Editor operations expose opt-in local Performance traces. Development builds also offer a Svelte DOM update scanner through `renderScan=1`.
+- Video exports and composited previews reuse sequential decoding instead of decoding from the previous keyframe for every frame. Reversed clips use bounded frame windows, and finished clips and nested compositions release their decoders.
+- Forward video rendering transforms only requested source frames and passes native frames to the compositor, avoiding canvas work for frames skipped by the timeline frame rate or playback speed.
+- Reversed clips cache the source frames the timeline will actually display, including speed ramps, reducing repeated decoding within the same memory limit.
+- Preview proxies include seek points every quarter second while preserving source frames and timing.
+- Full-resolution exports, previews, guides, selections, and page tools use each page's own size. Existing designs keep their current page sizes.
+- Page actions remain reachable on narrow phones. Dropping an image onto another page clears the previous selection and fits the new page.
+- Image Editor exports package pages and project media without blocking the editor on large ZIP compression or recompressing encoded images and video.
+- Image Editor selection moves, paint erasing, and selected-layer color sampling use the affected pixels instead of scanning or reading the full canvas.
+- Reworded user-facing copy from Publication to Post and from Rendition to Variant across MCP docs, product copy, marketing, the launch kit, and surface-parity prose. Code identifiers, routes, and API shapes are unchanged. MCP guides now reference the `create_post`, `list_posts`, `get_post`, `update_post`, `set_post_variants`, `reply_to_variant`, `validate_post`, `schedule_post`, `cancel_post`, `publish_post_now`, `list_post_events`, and `list_variant_comments` tools with the `adapt_post_variants` prompt and the `post_id`, `variant_id`, and `variants[]` arguments. Launch-kit samples moved from `docs/launch-kit/renditions/` to `docs/launch-kit/variants/`.
+- MCP assistant-facing operations now use post/variant naming: `create_post`, `list_posts`, `get_post`, `update_post`, `set_post_variants`, `reply_to_variant`, `validate_post`, `schedule_post`, `cancel_post`, `publish_post_now`, `list_post_events`, and `list_variant_comments`, plus the `adapt_post_variants` prompt. Argument keys are renamed to match (`post_id`, `variant_id`, `variants`, `failed_variant_count`), and every tool descriptor carries an `idempotentHint` annotation alongside the existing safety hints. The scheduler widget accepts a `variants` view alias.
+- Retired `publication_*`/`rendition_*` operation names, the `adapt_platform_renditions` prompt, and the old argument keys remain callable as permanent back-compat aliases (new key wins when both are sent), but are no longer advertised. Structured output keeps the top-level `publication` and `publications` keys. REST paths and bodies, OpenAPI, CLI nouns, database columns, and internal identifiers are unchanged.
+- MCP marks every state-changing operation `destructiveHint=true`, keeps `openWorldHint` for operations that reach external provider systems only, and requires a machine-enforceable `confirm=true` second call for `delete_post`, `publish_post_now`, `delete_media`, and `delete_comment`.
+- MCP `list_posts` constrains `status` and `content_profile` to enums so typos fail with `-32602`, and `create_post` documents that `scheduled_at` only stores a desired time while `schedule_post` validates and enqueues.
+- MCP `render_local_media_upload` is read-only end to end: it needs only workspace read access and stays visible to `mcp:read` connections, while the upload-ticket tool remains `mcp:full` only.
+- MCP read paging is now consistent: `list_posts` and `list_media` default to 20 and cap at 100, while `list_post_events` is explicitly 100/200.
+- MCP provider catalog, social account, and readiness descriptions name each other as next steps; `list_posts` and `validate_post` failure text names `get_post` for delivery detail and `retry_failed_variants` for safe retries.
+- MCP clarifies widget renderer scope: both render tools are read-only and visible to `mcp:read`, while the upload ticket tool stays app-only and requires `mcp:full`.
+- MCP OAuth has no per-client allow-listing: any standards-compliant OAuth client can connect, and the recorded client name is attribution only.
+- Marketing feature screenshots load sizes suited to the visitor's screen.
+- Documentation search loads when opened, reducing the JavaScript needed for an initial page view.
+
+### Added
+
+- Pinterest, Reddit, and Google Business Profile post previews, plus dedicated page layouts for every preview platform.
+- Free platform-specific post preview tools with card and full-page views, phone, tablet, and desktop widths, and light and dark appearances.
+- Live compact previews in the publication composer, with a full-page preview that follows edits.
+- Image Editor pages can have different canvas sizes within one design. Resize the active page with Fit, Fill, Keep size, or Stretch, and see each page's size in the page strip.
+- Save workspace layer-effect presets with blend modes, shadows, and outlines. Apply a preset with one undo step, update it from a layer, or delete it without changing layers that already use it.
+- Select part of a text layer in the Image Editor canvas or Text field to set its weight, italic style, underline, or color without changing the rest of the layer. Emphasis survives text edits, undo, saved designs, portable projects, and image export.
+- Screenshot templates for messages, group chats, receipts, and status pages. Edit structured fields with a live preview, undo and redo, light or dark artwork, and automatic image height or fixed social shapes.
+- Workspace designs with automatic saving and conflict protection. Download PNGs, save editable exports to Media, or return them to a publication without losing the composer draft.
+- Image messages and profile photos for every chat participant. Choose, replace, or remove photos from Media, preserve them in saved designs and PNGs, and retain source images for editable exports.
+- Memes now appear in Templates and use the same saved workspace drafts, undo and redo, image picker, and export controls as chats, receipts, and status pages. Existing memes can be reopened as editable copies from Media.
+- Instagram and YouTube posts can now publish a first comment as a child operation of the same publish flow.
+- Facebook link posts retry without the link-card attachment when the provider rejects the scrape, and LinkedIn link posts resolve their preview the same way, so link shares degrade to text posts instead of failing.
+- Add a gated Google Business Profile provider (`googlebusiness`) for controlled development and certification: OAuth connection with location selection, STANDARD/EVENT/OFFER local post validation, and create-then-reconcile publishing. Delivery stays disabled until Google API access and live certification are complete.
+- MCP `list_publications` now pages with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs, defaulting to 20 items per response and capping at 100. Assistants review large queues by following `next_cursor` over narrow windows instead of requesting wide unbounded windows.
+- MCP `list_publications` items now include a safe failure summary: `failed_rendition_count` plus the curated `error_kind`, `error_action`, and `error_message` of the first failed destination. Raw provider response bodies are never exposed.
+- MCP execute-mode mutations accept an optional `idempotency_key` routed into the existing REST idempotency path, so retried `create_post`, `update_post`, `set_post_variants`, `schedule_post`, `cancel_post`, `publish_post_now`, `reply_to_variant`, comment actions, `upload_media_from_url`, and upload-ticket calls replay the stored result instead of running twice.
+- MCP can now delete posts through `delete_post` (post ID plus expected revision with a `confirm=true` second call), manage media through `get_media`, `update_media` (favorite, alt text), and `delete_media` (with `confirm=true`), and retry delivery through `retry_failed_variants` and `retry_variant` using the post-action shape.
+- MCP `schedule_post` and `publish_post_now` accept `dry_run` to validate readiness without enqueueing, and post results accept `detail: summary|full` to choose between the unified summary plus job ID shape and the complete post.
+- MCP comment mutations now report `job_id` instead of `id`, and every post mutation returns the unified summary plus job ID shape.
+- MCP `list_media` and `list_post_events` now page with an opaque `cursor` input and `has_more`, `next_cursor`, and `total_count` outputs, using the same shape as `list_posts`. Events default to 100 items per response and cap at 200.
+- MCP `list_variant_comments` accepts a `limit` input (1-100, default 50); results beyond the limit are truncated in provider order and the response text notes the truncation.
+- MCP `get_post_metrics` returns stored analytics per variant (normalized `views`, `reactions`, `engagements`, `impressions`, and `reach`) plus post totals, reading stored snapshots without provider calls.
+- MCP `get_dashboard_link` builds an app-origin dashboard URL for `post`, `media`, `account`, and `calendar` views so agents can hand users a link to the visualization.
+- MCP `search_docs` searches a curated offline registry of documentation and assistant skill pages, returning titles, `/docs` paths, and snippets.
+- MCP documents recommended toolsets per client (direct `/mcp` for full-catalog clients, compact `/mcp/code` for constrained ones) and records the accepted gaps: no account connect/disconnect, no bulk operations, and no webhook tools.
+- Native post imports as a separate opt-in library, independent of Analytics. Enabling imports on a Bluesky or Mastodon account stores its native posts (published after opt-in only, never backfilled) in a read-only imported-posts library with per-account checkpoints, daily read budgets, and loop protection against posts published through OpenPost. X native reads stay disabled by the read-cost policy; Threads, Instagram, Facebook, LinkedIn, TikTok, YouTube, and Pinterest are explicit TODOs.
+- TikTok authorization is now capability-driven: the login request asks for the publishing scopes (`user.info.basic`, `video.publish`, `video.upload`) plus the optional Display API scopes (`user.info.profile`, `user.info.stats`, `video.list`). Set `OPENPOST_DISABLE_TIKTOK_DISPLAY_API=true` when the TikTok app has no Display API approval so the request asks only for what TikTok can grant.
+
+### Improved
+
+- Browse free tools in a searchable grid with editor screenshots, image examples, network icons, and compact phone layouts.
+- Devenv shell entry no longer waits for another worktree's active Turbo task before starting commands. Explicit `cache-prune` still waits to enforce the cache limit.
+
 ## [6.3.0] - 2026-09-26
 
 ### Changed

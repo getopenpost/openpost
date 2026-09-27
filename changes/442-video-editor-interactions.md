@@ -1,4 +1,4 @@
-## Fixed
+### Fixed
 
 - Keep saved cloud video assets available after reopening a project instead of asking for local files.
 - Prevent the timeline menu from scrolling the editor into an accidental command, and keep short clip bodies available for dragging.

@@ -594,17 +594,23 @@ func (w *BackgroundWorker) failAmbiguousStaleJobs(ctx context.Context, cutoff ti
 			return err
 		}
 		for _, job := range jobs {
-			if definition.Execution == jobregistry.ExecuteRepost && w.reposts != nil {
-				w.reposts.MarkAmbiguousWrite(ctx, job.Payload)
-			}
-			if _, err := w.db.NewUpdate().Model((*models.Job)(nil)).
+			result, err := w.db.NewUpdate().Model((*models.Job)(nil)).
 				Set("status = ?", jobStatusFailed).
 				Set("last_error = ?", definition.RecoveryMessage).
 				Set("locked_at = NULL").
 				Set("locked_by = ''").
-				Where("id = ? AND status = ?", job.ID, jobStatusProcessing).
-				Exec(ctx); err != nil {
+				Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, job.LockedBy).
+				Where("locked_at IS NOT NULL AND locked_at <= ?", cutoff).
+				Exec(ctx)
+			if err != nil {
 				return err
+			}
+			affected, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if affected > 0 && definition.Execution == jobregistry.ExecuteRepost && w.reposts != nil {
+				w.reposts.MarkAmbiguousWrite(ctx, job.Payload)
 			}
 		}
 	}

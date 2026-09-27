@@ -696,30 +696,21 @@ func (s *Service) MarkStaleJobAttempts(ctx context.Context, cutoff time.Time) (i
 	var affected int64
 	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		var attemptIDs []string
-		if err := tx.NewSelect().Model((*models.ProviderWriteAttempt)(nil)).Column("id").
-			Where("status = ?", StatusSending).
-			Where("job_id IN (SELECT id FROM jobs WHERE status = ? AND locked_at IS NOT NULL AND locked_at <= ?)", "processing", cutoff.UTC()).
-			Scan(txCtx, &attemptIDs); err != nil {
-			return err
-		}
-		if len(attemptIDs) == 0 {
-			return nil
-		}
 		now := s.now()
-		result, err := tx.NewUpdate().Model((*models.ProviderWriteAttempt)(nil)).
+		if err := tx.NewUpdate().Model((*models.ProviderWriteAttempt)(nil)).
 			Set("status = ?", StatusAmbiguous).
 			Set("submission_state = CASE WHEN submission_state = ? THEN submission_state ELSE ? END", platform.PublishSubmissionPending, platform.PublishSubmissionUnknown).
 			Set("retry_safety = CASE WHEN submission_state = ? THEN ? ELSE retry_safety END", platform.PublishSubmissionPending, platform.PublishRetryReconcileOnly).
 			Set("safe_error_class = ?", "worker_interrupted").
 			Set("completed_at = ?", now).
 			Set("updated_at = ?", now).
-			Where("id IN (?)", bun.List(attemptIDs)).
 			Where("status = ?", StatusSending).
-			Exec(txCtx)
-		if err != nil {
+			Where("job_id IN (SELECT id FROM jobs WHERE status = ? AND locked_at IS NOT NULL AND locked_at <= ?)", "processing", cutoff.UTC()).
+			Returning("id").
+			Scan(txCtx, &attemptIDs); err != nil {
 			return err
 		}
-		affected, _ = result.RowsAffected()
+		affected = int64(len(attemptIDs))
 		for _, attemptID := range attemptIDs {
 			if err := s.syncDeliveryTx(txCtx, tx, attemptID, false); err != nil {
 				return err

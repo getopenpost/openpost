@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,7 +10,29 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 )
+
+type renewJobBeforeRecoveryUpdate struct {
+	db       *bun.DB
+	jobID    string
+	lockedAt time.Time
+	renewed  bool
+	err      error
+}
+
+func (hook *renewJobBeforeRecoveryUpdate) BeforeQuery(ctx context.Context, event *bun.QueryEvent) context.Context {
+	if hook.renewed || event.Operation() != "UPDATE" || !strings.Contains(event.Query, "jobs") {
+		return ctx
+	}
+	hook.renewed = true
+	_, hook.err = hook.db.NewUpdate().Model((*models.Job)(nil)).
+		Set("locked_at = ?", hook.lockedAt).
+		Where("id = ?", hook.jobID).Exec(ctx)
+	return ctx
+}
+
+func (*renewJobBeforeRecoveryUpdate) AfterQuery(context.Context, *bun.QueryEvent) {}
 
 func TestWorkerRequeuesStaleProcessingJobs(t *testing.T) {
 	t.Parallel()
@@ -102,4 +125,30 @@ func TestWorkerNeverRequeuesAmbiguousProviderWrites(t *testing.T) {
 	require.NoError(t, db.NewSelect().Model(job).WherePK().Scan(ctx))
 	require.Equal(t, jobStatusFailed, job.Status)
 	require.Contains(t, job.LastError, "did not retry")
+}
+
+func TestWorkerDoesNotFailJobRenewedDuringRecovery(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	job, err := jobregistry.NewJob(jobregistry.TypeMessageSend, `{"id":"message-1"}`, now.Add(-time.Hour))
+	require.NoError(t, err)
+	job.Status = jobStatusProcessing
+	job.LockedAt = now.Add(-20 * time.Minute)
+	job.LockedBy = "active-worker"
+	_, err = db.NewInsert().Model(job).Exec(ctx)
+	require.NoError(t, err)
+
+	renewal := &renewJobBeforeRecoveryUpdate{db: db, jobID: job.ID, lockedAt: now}
+	db.AddQueryHook(renewal)
+	worker := &BackgroundWorker{db: db, workerID: "recovery-worker"}
+	require.NoError(t, worker.failAmbiguousStaleJobs(ctx, now.Add(-15*time.Minute)))
+	require.NoError(t, renewal.err)
+	require.True(t, renewal.renewed, "the active worker renewed its lease before recovery changed status")
+	require.NoError(t, db.NewSelect().Model(job).WherePK().Scan(ctx))
+	require.Equal(t, jobStatusProcessing, job.Status)
+	require.Equal(t, "active-worker", job.LockedBy)
+	require.True(t, now.Equal(job.LockedAt))
 }

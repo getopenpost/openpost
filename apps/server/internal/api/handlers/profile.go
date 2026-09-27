@@ -155,7 +155,7 @@ func (h *ProfileHandler) serveAvatar(c echo.Context) error {
 	}
 	defer file.Close()
 	contentType := avatarContentType(filepath.Ext(objectKey))
-	c.Response().Header().Set("Content-Type", contentType)
+	contentType = setMediaResponseHeaders(c.Response().Header(), contentType, objectKey)
 	c.Response().Header().Set("Cache-Control", "public, max-age=604800, immutable")
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)

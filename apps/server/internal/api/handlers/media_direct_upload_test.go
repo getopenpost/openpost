@@ -530,7 +530,7 @@ func TestValidateMediaAssetContentRejectsTopLevelMimeMismatch(t *testing.T) {
 	require.ErrorContains(
 		t,
 		validateMediaAssetContent("library", "cover.png", "image/png", []byte("<html><body>hi</body></html>")),
-		"does not match",
+		"HTML and XML documents are not supported media",
 	)
 	require.NoError(t, validateMediaAssetContent("library", "capture.mp4", "video/mp4", []byte("video bytes!")))
 	require.NoError(t, validateMediaAssetContent("library", "empty.png", "image/png", nil))

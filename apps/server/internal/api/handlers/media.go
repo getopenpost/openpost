@@ -1717,6 +1717,15 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 		return result, err
 	}
 
+	validationContent := inspection.Content
+	if len(validationContent) == 0 {
+		validationContent = inspection.Prefix
+	}
+	if err := validateMediaAssetContent(media.AssetKind, media.OriginalFilename, media.MimeType, validationContent); err != nil {
+		h.markMediaUploadFailed(ctx, media.ID)
+		return result, huma.Error400BadRequest(err.Error())
+	}
+
 	fileHash := inspection.FileHash
 	if duplicate, found, err := h.deduplicateDirectMediaUpload(ctx, workspaceID, fileHash, media); err != nil {
 		return result, err
@@ -1931,14 +1940,6 @@ func (h *MediaHandler) findDuplicateMedia(ctx context.Context, workspaceID, file
 }
 
 func (h *MediaHandler) finalizeDirectMediaUploadRecord(ctx context.Context, media models.MediaAttachment, inspection mediaUploadInspection) (models.MediaAttachment, error) {
-	validationContent := inspection.Content
-	if len(validationContent) == 0 {
-		validationContent = inspection.Prefix
-	}
-	if err := validateMediaAssetContent(media.AssetKind, media.OriginalFilename, media.MimeType, validationContent); err != nil {
-		h.markMediaUploadFailed(ctx, media.ID)
-		return media, huma.Error400BadRequest(err.Error())
-	}
 	mimeType := detectedMediaMimeType(inspection.Prefix, media.MimeType)
 	width, height := 0, 0
 	var thumbnails Thumbnails
@@ -2103,10 +2104,13 @@ func validateMediaAssetContent(assetKind, filename, declaredMimeType string, con
 	if err := validateMediaUploadDeclaration(filename, declaredMimeType); err != nil {
 		return err
 	}
-	if assetKind != "brand_font" {
-		return checkDeclaredMimeMatchesSniffed(declaredMimeType, content)
+	if activeMediaDocumentType(http.DetectContentType(content)) {
+		return errors.New("HTML and XML documents are not supported media")
 	}
-	return validateBrandFontAsset(filename, declaredMimeType, content)
+	if assetKind == "brand_font" {
+		return validateBrandFontAsset(filename, declaredMimeType, content)
+	}
+	return checkDeclaredMimeMatchesSniffed(declaredMimeType, content)
 }
 
 func validateBrandFontAsset(filename, declaredMimeType string, content []byte) error {
@@ -2163,6 +2167,9 @@ func validateMediaUploadDeclaration(filename, declaredMimeType string) error {
 	}
 	if !mediaMimePattern.MatchString(mimeType) {
 		return fmt.Errorf("media MIME type %q is not a valid type/subtype value", declaredMimeType)
+	}
+	if activeMediaDocumentType(mimeType) {
+		return errors.New("HTML and XML documents are not supported media")
 	}
 	return nil
 }
@@ -3773,7 +3780,7 @@ func (h *MediaHandler) serveMedia(c echo.Context) error {
 	}
 	defer file.Close()
 
-	c.Response().Header().Set("Content-Type", media.MimeType)
+	contentType := setMediaResponseHeaders(c.Response().Header(), media.MimeType, media.OriginalFilename)
 	if f, ok := file.(*os.File); ok {
 		if stat, err := f.Stat(); err == nil {
 			http.ServeContent(c.Response(), c.Request(), stat.Name(), stat.ModTime(), f)
@@ -3781,7 +3788,7 @@ func (h *MediaHandler) serveMedia(c echo.Context) error {
 		}
 	}
 
-	return c.Stream(http.StatusOK, media.MimeType, file)
+	return c.Stream(http.StatusOK, contentType, file)
 }
 
 func (h *MediaHandler) serveThumbnailSize(c echo.Context) error {
@@ -3839,7 +3846,7 @@ func (h *MediaHandler) serveThumbnailSize(c echo.Context) error {
 		}
 	}
 
-	c.Response().Header().Set("Content-Type", "image/jpeg")
+	setMediaResponseHeaders(c.Response().Header(), "image/jpeg", "")
 	return c.Stream(http.StatusOK, "image/jpeg", file)
 }
 
@@ -3866,7 +3873,7 @@ func (h *MediaHandler) serveVideoPoster(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "video poster file not found"})
 	}
 	defer file.Close()
-	c.Response().Header().Set("Content-Type", "image/jpeg")
+	setMediaResponseHeaders(c.Response().Header(), "image/jpeg", "")
 	if f, ok := file.(*os.File); ok {
 		if stat, statErr := f.Stat(); statErr == nil {
 			http.ServeContent(c.Response(), c.Request(), stat.Name(), stat.ModTime(), f)

@@ -15,7 +15,7 @@ test.describe("touch editor discovery", () => {
     await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
     const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
     await expect(layers).toHaveCount(6);
-    const family = page.getByTestId("image-editor-tool-family").first();
+    const family = page.getByRole("button", { name: /^(Rectangle|Ellipse) select$/ });
     expect(await family.evaluate((element) => element.tagName)).toBe("BUTTON");
     const bounds = (await family.boundingBox())!;
     expect(bounds.width).toBeGreaterThanOrEqual(44);

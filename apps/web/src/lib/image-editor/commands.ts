@@ -432,6 +432,33 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		railSlot: 'select'
 	},
 	{
+		id: 'tool_crop',
+		category: 'tools',
+		shortcuts: [{ key: 'c' }],
+		availability: 'crop_target',
+		tool: 'crop',
+		mobileGroup: 'retouch',
+		railSlot: 'crop'
+	},
+	{
+		id: 'tool_text',
+		category: 'tools',
+		shortcuts: [{ key: 't' }],
+		availability: 'editable',
+		tool: 'text',
+		mobileGroup: 'draw',
+		railSlot: 'text'
+	},
+	{
+		id: 'tool_shape',
+		category: 'tools',
+		shortcuts: [{ key: 'u' }],
+		availability: 'editable',
+		tool: 'shape',
+		mobileGroup: 'draw',
+		railSlot: 'shape'
+	},
+	{
 		id: 'tool_marquee',
 		category: 'tools',
 		shortcuts: [{ key: 'm' }],
@@ -477,42 +504,6 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		railSlot: 'magic_select'
 	},
 	{
-		id: 'tool_crop',
-		category: 'tools',
-		shortcuts: [{ key: 'c' }],
-		availability: 'crop_target',
-		tool: 'crop',
-		mobileGroup: 'retouch',
-		railSlot: 'crop'
-	},
-	{
-		id: 'tool_eyedropper',
-		category: 'tools',
-		shortcuts: [{ key: 'i' }],
-		availability: 'always',
-		tool: 'eyedropper',
-		mobileGroup: 'select',
-		railSlot: 'eyedropper'
-	},
-	{
-		id: 'tool_text',
-		category: 'tools',
-		shortcuts: [{ key: 't' }],
-		availability: 'editable',
-		tool: 'text',
-		mobileGroup: 'draw',
-		railSlot: 'text'
-	},
-	{
-		id: 'tool_shape',
-		category: 'tools',
-		shortcuts: [{ key: 'u' }],
-		availability: 'editable',
-		tool: 'shape',
-		mobileGroup: 'draw',
-		railSlot: 'shape'
-	},
-	{
 		id: 'tool_pencil',
 		category: 'tools',
 		shortcuts: [{ key: 'b', display: 'B / P' }, { key: 'p' }],
@@ -556,6 +547,15 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		tool: 'gradient',
 		mobileGroup: 'draw',
 		railSlot: 'fill'
+	},
+	{
+		id: 'tool_eyedropper',
+		category: 'tools',
+		shortcuts: [{ key: 'i' }],
+		availability: 'always',
+		tool: 'eyedropper',
+		mobileGroup: 'select',
+		railSlot: 'eyedropper'
 	},
 	{
 		id: 'tool_hand',

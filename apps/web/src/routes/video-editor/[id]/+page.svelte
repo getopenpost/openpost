@@ -730,8 +730,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	);
 	const showSourceMonitor = $derived(activeWorkspace === 'edit' && sourceMediaId !== null);
 	const primaryLeftPanelOptions = $derived<LeftPanelOption[]>([
-		{ value: 'library', label: m.video_editor_library(), iconKind: 'theme', icon: 'favorite' },
-		{ value: 'timers', label: m.video_editor_timers(), iconKind: 'theme', icon: 'time' },
 		{
 			value: 'media',
 			label: m.video_editor_media_pool(),
@@ -749,6 +747,24 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			label: m.video_editor_tool_text(),
 			iconKind: 'protected',
 			icon: 'editor-text'
+		},
+		{
+			value: 'transcript',
+			label: m.video_editor_transcript(),
+			iconKind: 'protected',
+			icon: 'editor-captions'
+		},
+		{
+			value: 'transitions',
+			label: m.video_editor_transition(),
+			iconKind: 'protected',
+			icon: 'editor-transitions'
+		},
+		{
+			value: 'effects',
+			label: m.video_editor_effects(),
+			iconKind: 'protected',
+			icon: 'editor-effects'
 		},
 		{
 			value: 'shapes',
@@ -770,29 +786,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			icon: 'editor-stickers'
 		},
 		{
-			value: 'effects',
-			label: m.video_editor_effects(),
-			iconKind: 'protected',
-			icon: 'editor-effects'
-		},
-		{
-			value: 'transitions',
-			label: m.video_editor_transition(),
-			iconKind: 'protected',
-			icon: 'editor-transitions'
-		},
-		{
 			value: 'lottie',
 			label: m.video_editor_animations(),
 			iconKind: 'protected',
 			icon: 'editor-animation'
 		},
-		{
-			value: 'transcript',
-			label: m.video_editor_transcript(),
-			iconKind: 'protected',
-			icon: 'editor-captions'
-		}
+		{ value: 'timers', label: m.video_editor_timers(), iconKind: 'theme', icon: 'time' },
+		{ value: 'library', label: m.video_editor_library(), iconKind: 'theme', icon: 'favorite' }
 	]);
 	const utilityLeftPanelOptions = $derived<LeftPanelOption[]>([
 		{

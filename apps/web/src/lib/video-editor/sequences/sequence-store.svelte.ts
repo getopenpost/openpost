@@ -45,6 +45,19 @@ const state = $state<{
 	sequenceViewById: {}
 });
 
+let indexedCompositions: SubComposition[] | null = null;
+let compositionIndex = new Map<string, SubComposition>();
+
+function compositionsById(): Map<string, SubComposition> {
+	if (state.compositions !== indexedCompositions) {
+		indexedCompositions = state.compositions;
+		compositionIndex = new Map(
+			state.compositions.map((composition) => [composition.id, composition])
+		);
+	}
+	return compositionIndex;
+}
+
 function copy<T>(value: T): T {
 	return snapshotTimelineState(value);
 }
@@ -161,15 +174,19 @@ function flushActive(): void {
 			snapshot.items.reduce((max, item) => Math.max(max, item.from + item.durationInFrames), 0)
 		)
 	};
-	if (!equal(current, nextComposition)) state.compositions[index] = nextComposition;
+	if (!equal(current, nextComposition)) {
+		state.compositions = state.compositions.map((composition, currentIndex) =>
+			currentIndex === index ? nextComposition : composition
+		);
+	}
 }
 
 export const sequenceStore = {
 	get compositions(): SubComposition[] {
 		return state.compositions;
 	},
-	get compositionById(): Map<string, SubComposition> {
-		return new Map(state.compositions.map((composition) => [composition.id, composition]));
+	get compositionById(): ReadonlyMap<string, SubComposition> {
+		return compositionsById();
 	},
 	get topLevelSequenceIds(): string[] {
 		return state.topLevelSequenceIds;
@@ -271,7 +288,9 @@ export const sequenceStore = {
 	updateComposition(id: string, patch: Partial<Omit<SubComposition, 'id'>>): boolean {
 		const index = state.compositions.findIndex((composition) => composition.id === id);
 		if (index < 0) return false;
-		state.compositions[index] = { ...state.compositions[index]!, ...copy(patch) };
+		state.compositions = state.compositions.map((composition, currentIndex) =>
+			currentIndex === index ? { ...composition, ...copy(patch) } : composition
+		);
 		return true;
 	},
 	deleteCompositionAndReferences(id: string): boolean {

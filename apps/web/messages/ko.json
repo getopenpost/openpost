@@ -9175,5 +9175,15 @@
 	"video_editor_timer_length": "길이(초)",
 	"video_editor_timer_hold": "종료 유지(초)",
 	"video_editor_repeat_end": "종료 경계(초, 선택 사항)",
-	"video_editor_library_text_style": "텍스트 스타일"
+	"video_editor_library_text_style": "텍스트 스타일",
+	"video_editor_timer_progress_color": "진행 색상",
+	"video_editor_timer_track_color": "트랙 색상",
+	"video_editor_timer_track_opacity": "트랙 불투명도 (%)",
+	"video_editor_timer_thickness": "두께 (%)",
+	"video_editor_timer_segments": "구간 수",
+	"video_editor_timer_start_angle": "시작 각도 (°)",
+	"video_editor_timer_show_value": "숫자 표시",
+	"video_editor_timer_body_color": "본체 색상",
+	"video_editor_timer_accent_color": "강조 색상",
+	"video_editor_timer_finish_effect": "완료 효과"
 }

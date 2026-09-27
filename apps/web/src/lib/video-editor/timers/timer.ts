@@ -6,6 +6,17 @@ export interface TimerSettings {
 	finishText?: string;
 	warningSound?: boolean;
 	finishHoldSeconds?: number;
+	progressColor?: string;
+	trackColor?: string;
+	trackOpacity?: number;
+	thickness?: number;
+	startAngle?: number;
+	segments?: number;
+	rounded?: boolean;
+	showValue?: boolean;
+	bodyColor?: string;
+	accentColor?: string;
+	finishEffect?: boolean;
 }
 
 export function timerTiming(settings: TimerSettings, duration: number, fps: number) {

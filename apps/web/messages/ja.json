@@ -9175,5 +9175,15 @@
 	"video_editor_timer_length": "時間（秒）",
 	"video_editor_timer_hold": "終了後の表示（秒）",
 	"video_editor_repeat_end": "終了位置（秒、任意）",
-	"video_editor_library_text_style": "テキストスタイル"
+	"video_editor_library_text_style": "テキストスタイル",
+	"video_editor_timer_progress_color": "進行状況の色",
+	"video_editor_timer_track_color": "トラックの色",
+	"video_editor_timer_track_opacity": "トラックの不透明度 (%)",
+	"video_editor_timer_thickness": "太さ (%)",
+	"video_editor_timer_segments": "分割数",
+	"video_editor_timer_start_angle": "開始角度 (°)",
+	"video_editor_timer_show_value": "数字を表示",
+	"video_editor_timer_body_color": "本体の色",
+	"video_editor_timer_accent_color": "アクセントカラー",
+	"video_editor_timer_finish_effect": "完了エフェクト"
 }

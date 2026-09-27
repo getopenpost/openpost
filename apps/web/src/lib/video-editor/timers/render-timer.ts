@@ -1,6 +1,7 @@
 import type { TimelineItem } from '../project/types';
 import type { TextRasterContext } from '../media/text-raster';
 import { timerValue } from './timer';
+import { paintSculptedTimer } from './sculpted-timer';
 
 /** Authored timer artwork is shared by the preview and export text raster. */
 export function paintTimer(
@@ -14,101 +15,76 @@ export function paintTimer(
 	const timer = item.timer!;
 	const value = timerValue(timer, frame - item.from, item.durationInFrames, fps);
 	const size = Math.min(width, height);
-	const x = width / 2;
-	const y = height / 2;
-	const radius = size * 0.4;
-	const color = item.color ?? '#ffffff';
+	const x = width / 2,
+		y = height / 2;
+	const color = timer.progressColor ?? item.color ?? '#ffffff';
+	const track = timer.trackColor ?? color;
+	const thickness =
+		Math.max(1, Math.min(25, timer.thickness ?? (timer.style === 'bar' ? 8 : 3.5))) / 100;
+	const radius = size * Math.min(0.4, 0.48 - thickness / 2);
+	const segments = Math.max(1, Math.min(60, Math.round(timer.segments ?? 1)));
 	context.save();
-	context.lineWidth = Math.max(2, size * 0.035);
-	context.lineCap = 'round';
-	if (timer.style === 'ring') {
-		context.strokeStyle = color;
-		context.globalAlpha = 0.2;
-		context.beginPath();
-		context.arc(x, y, radius, 0, Math.PI * 2);
-		context.stroke();
-		context.globalAlpha = 1;
-		context.beginPath();
-		context.arc(x, y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * value.fraction);
-		context.stroke();
-	} else if (timer.style === 'bar') {
-		context.fillStyle = color;
-		context.globalAlpha = 0.2;
-		context.fillRect(width * 0.05, height * 0.82, width * 0.9, height * 0.08);
-		context.globalAlpha = 1;
-		context.fillRect(width * 0.05, height * 0.82, width * 0.9 * value.fraction, height * 0.08);
-	} else if (timer.style === 'bomb' || timer.style === 'tomato') {
-		const tomato = timer.style === 'tomato';
-		if (!value.finished) {
-			const gradient = context.createRadialGradient(
-				x - radius * 0.4,
-				y - radius * 0.4,
-				0,
-				x,
-				y,
-				radius * 1.2
-			);
-			gradient.addColorStop(0, tomato ? '#ff8060' : '#686c7a');
-			gradient.addColorStop(1, tomato ? '#a51d18' : '#141620');
-			context.fillStyle = gradient;
-			context.beginPath();
-			context.arc(x, y, radius * 0.85, 0, Math.PI * 2);
-			context.fill();
-			if (tomato) {
-				context.fillStyle = '#408542';
+	context.lineWidth = size * thickness;
+	context.lineCap = timer.rounded === false ? 'butt' : 'round';
+	if (timer.style === 'ring' || timer.style === 'bar') {
+		const start = ((timer.startAngle ?? -90) * Math.PI) / 180;
+		const gap = segments > 1 ? 0.12 : 0;
+		function progressShape(fraction: number): void {
+			for (let n = 0; n < segments; n++) {
+				const amount = Math.max(0, Math.min(1 - gap, fraction * segments - n));
+				if (amount <= 0) continue;
 				context.beginPath();
-				for (let i = 0; i < 10; i++) {
-					const angle = (i * Math.PI) / 5 - Math.PI / 2;
-					const r = radius * (i % 2 ? 0.12 : 0.4);
-					context.lineTo(x + Math.cos(angle) * r, y - radius * 0.7 + Math.sin(angle) * r * 0.5);
+				if (timer.style === 'ring') {
+					const from = start + ((n + gap / 2) / segments) * Math.PI * 2;
+					const to = from + (amount / segments) * Math.PI * 2;
+					const outer = radius + context.lineWidth / 2;
+					const inner = radius - context.lineWidth / 2;
+					// Round within the segment, so even thick, closely spaced segments keep their gaps.
+					const corner =
+						timer.rounded === false || amount === 1
+							? 0
+							: Math.min(context.lineWidth / 2, ((to - from) * inner) / 2);
+					const point = (r: number, angle: number): [number, number] => [
+						x + r * Math.cos(angle),
+						y + r * Math.sin(angle)
+					];
+					context.arc(x, y, outer, from + corner / outer, to - corner / outer);
+					context.quadraticCurveTo(...point(outer, to), ...point(outer - corner, to));
+					context.lineTo(...point(inner + corner, to));
+					context.quadraticCurveTo(...point(inner, to), ...point(inner, to - corner / inner));
+					context.arc(x, y, inner, to - corner / inner, from + corner / inner, true);
+					context.quadraticCurveTo(...point(inner, from), ...point(inner + corner, from));
+					context.lineTo(...point(outer - corner, from));
+					context.quadraticCurveTo(...point(outer, from), ...point(outer, from + corner / outer));
+					context.closePath();
+					context.fill();
+				} else {
+					const barWidth = (width * 0.9) / segments;
+					const barHeight = height * thickness;
+					context.roundRect(
+						width * 0.05 + (n + gap / 2) * barWidth,
+						height * 0.86 - barHeight / 2,
+						amount * barWidth,
+						barHeight,
+						timer.rounded === false ? 0 : Math.min(barHeight / 2, (amount * barWidth) / 2)
+					);
+					context.fill();
 				}
-				context.closePath();
-				context.fill();
-			} else {
-				context.strokeStyle = '#d9b475';
-				context.beginPath();
-				context.moveTo(x + radius * 0.4, y - radius * 0.72);
-				const fuseX = x + radius * (0.4 + 0.4 * value.fraction);
-				const fuseY = y - radius * (0.72 + 0.3 * value.fraction);
-				context.lineTo(fuseX, fuseY);
-				context.stroke();
-				context.fillStyle = '#ffbe42';
-				context.beginPath();
-				context.arc(fuseX, fuseY, size * 0.025, 0, Math.PI * 2);
-				context.fill();
-			}
-		} else {
-			const expansion = 0.55 + Math.sin((value.finishProgress * Math.PI) / 2) * 0.55;
-			context.globalAlpha = 1 - value.finishProgress * 0.65;
-			context.fillStyle = tomato ? '#e84632' : '#ff8a32';
-			context.beginPath();
-			for (let i = 0; i < 24; i++) {
-				const angle = (i * Math.PI) / 12;
-				const distance = radius * expansion * (i % 2 ? 0.65 : 1);
-				context.lineTo(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance);
-			}
-			context.closePath();
-			context.fill();
-			context.fillStyle = tomato ? '#ff6551' : '#ffd15c';
-			for (let i = 0; i < 12; i++) {
-				const angle = (i * Math.PI) / 6;
-				const distance = radius * expansion * (0.8 + (i % 3) * 0.08);
-				context.beginPath();
-				context.arc(
-					x + Math.cos(angle) * distance,
-					y + Math.sin(angle) * distance,
-					radius * (0.04 + (i % 3) * 0.02),
-					0,
-					Math.PI * 2
-				);
-				context.fill();
 			}
 		}
+		context.strokeStyle = context.fillStyle = track;
+		context.globalAlpha = Math.max(0, Math.min(1, timer.trackOpacity ?? 0.2));
+		progressShape(1);
+		context.strokeStyle = context.fillStyle = color;
+		context.globalAlpha = 1;
+		progressShape(value.fraction);
+	} else if (timer.style === 'bomb' || timer.style === 'tomato') {
+		paintSculptedTimer(context, timer, value, width, height, (frame - item.from) / fps);
 	}
 	context.restore();
 	return {
 		...item,
-		text: value.text,
+		text: timer.showValue === false ? '' : value.text,
 		textSpans: undefined,
 		textStylePresetId: undefined
 	};

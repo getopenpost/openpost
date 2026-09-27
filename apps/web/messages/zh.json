@@ -9175,5 +9175,15 @@
 	"video_editor_timer_length": "时长（秒）",
 	"video_editor_timer_hold": "结束停留（秒）",
 	"video_editor_repeat_end": "结束位置（秒，可选）",
-	"video_editor_library_text_style": "文本样式"
+	"video_editor_library_text_style": "文本样式",
+	"video_editor_timer_progress_color": "进度颜色",
+	"video_editor_timer_track_color": "轨道颜色",
+	"video_editor_timer_track_opacity": "轨道不透明度 (%)",
+	"video_editor_timer_thickness": "粗细 (%)",
+	"video_editor_timer_segments": "分段数",
+	"video_editor_timer_start_angle": "起始角度 (°)",
+	"video_editor_timer_show_value": "显示数字",
+	"video_editor_timer_body_color": "主体颜色",
+	"video_editor_timer_accent_color": "强调色",
+	"video_editor_timer_finish_effect": "完成效果"
 }

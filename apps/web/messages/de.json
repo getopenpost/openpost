@@ -9175,5 +9175,15 @@
 	"video_editor_timer_length": "Dauer (Sekunden)",
 	"video_editor_timer_hold": "Endpause (Sekunden)",
 	"video_editor_repeat_end": "Endgrenze (Sekunden, optional)",
-	"video_editor_library_text_style": "Textstil"
+	"video_editor_library_text_style": "Textstil",
+	"video_editor_timer_progress_color": "Fortschrittsfarbe",
+	"video_editor_timer_track_color": "Spurfarbe",
+	"video_editor_timer_track_opacity": "Spurdeckkraft (%)",
+	"video_editor_timer_thickness": "Stärke (%)",
+	"video_editor_timer_segments": "Segmente",
+	"video_editor_timer_start_angle": "Startwinkel (°)",
+	"video_editor_timer_show_value": "Zahlen anzeigen",
+	"video_editor_timer_body_color": "Körperfarbe",
+	"video_editor_timer_accent_color": "Akzentfarbe",
+	"video_editor_timer_finish_effect": "Abschlusseffekt"
 }

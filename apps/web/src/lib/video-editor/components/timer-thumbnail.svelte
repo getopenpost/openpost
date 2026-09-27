@@ -17,13 +17,13 @@
 				durationInFrames: 300,
 				timer,
 				color: '#ffffff',
-				fontSize: 25,
+				fontSize: 50,
 				fontWeight: 700,
 				textAlign: 'center',
 				verticalAlign: 'middle'
 			},
-			160,
-			120,
+			320,
+			240,
 			{ absoluteFrame: 75, fps: 30 }
 		);
 	});
@@ -31,8 +31,8 @@
 
 <canvas
 	bind:this={canvas}
-	width="160"
-	height="120"
+	width="320"
+	height="240"
 	aria-hidden="true"
 	class="aspect-[4/3] w-full rounded bg-[#171923]"
 ></canvas>

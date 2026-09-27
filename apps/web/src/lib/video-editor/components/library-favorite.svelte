@@ -5,8 +5,17 @@
 	import { toast } from 'svelte-sonner';
 	import { videoLibrary } from '../library/library-store.svelte';
 	import type { LibraryRecipe } from '../library/types';
-	let { catalogId, name, recipe }: { catalogId: string; name: string; recipe: LibraryRecipe } =
-		$props();
+	let {
+		catalogId,
+		name,
+		recipe,
+		placement = 'overlay'
+	}: {
+		catalogId: string;
+		name: string;
+		recipe: LibraryRecipe;
+		placement?: 'overlay' | 'inline';
+	} = $props();
 	const id = $derived(`${videoLibrary.scope}:${catalogId}`);
 	const entry = $derived(videoLibrary.entries.find((value) => value.id === id));
 	async function toggle(): Promise<void> {
@@ -25,6 +34,7 @@
 	aria-label={m.video_editor_library_favorite({ name })}
 	aria-pressed={entry?.favorite ?? false}
 	onclick={toggle}
-	class={entry?.favorite ? 'text-[var(--video-editor-focus)]' : ''}
+	title={m.video_editor_library_favorite({ name })}
+	class={`${placement === 'overlay' ? 'absolute! top-1 right-1 z-10 border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]' : ''} ${entry?.favorite ? 'text-[var(--video-editor-focus)]' : 'text-[var(--video-editor-muted)]'}`}
 	><ThemeIcon role="favorite" /></Button
 >

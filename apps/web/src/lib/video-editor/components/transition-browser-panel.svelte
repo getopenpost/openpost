@@ -100,7 +100,7 @@
 				{#each group.items as definition (definition.id)}
 					{@const label = localizedTransitionLabel(definition.id, definition.label)}
 					{@const direction = definition.directions?.[0] as TransitionDirection | undefined}
-					<div class="min-w-0">
+					<div class="relative min-w-0">
 						<button
 							type="button"
 							draggable="true"

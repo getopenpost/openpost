@@ -188,6 +188,7 @@
 					<div>
 						<strong>{preset.name}</strong>
 						<LibraryFavorite
+							placement="inline"
 							catalogId={`animation:${preset.id}`}
 							name={preset.name}
 							recipe={{ kind: 'animation', preset }}

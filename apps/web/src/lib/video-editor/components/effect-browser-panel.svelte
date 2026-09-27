@@ -178,7 +178,7 @@
 			<div class="effect-grid">
 				{#each group.items as item (item.id)}
 					{@const effectId = 'effectId' in item ? item.effectId : undefined}
-					<div>
+					<div class="relative min-w-0">
 						<button
 							type="button"
 							draggable="true"

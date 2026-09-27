@@ -119,7 +119,7 @@
 				{/if}
 				{#each TEXT_STYLE_PRESETS.filter((preset) => preset.layout === group.layout) as preset (preset.id)}
 					{@const copy = localizedTextStylePresetCopy(preset.id)}
-					<div>
+					<div class="relative min-w-0">
 						<button
 							type="button"
 							class="template-card"

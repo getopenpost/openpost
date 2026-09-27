@@ -9175,5 +9175,15 @@
 	"video_editor_timer_length": "Süre (saniye)",
 	"video_editor_timer_hold": "Bitişte bekleme (saniye)",
 	"video_editor_repeat_end": "Bitiş sınırı (saniye, isteğe bağlı)",
-	"video_editor_library_text_style": "Metin stili"
+	"video_editor_library_text_style": "Metin stili",
+	"video_editor_timer_progress_color": "İlerleme rengi",
+	"video_editor_timer_track_color": "İz rengi",
+	"video_editor_timer_track_opacity": "İz opaklığı (%)",
+	"video_editor_timer_thickness": "Kalınlık (%)",
+	"video_editor_timer_segments": "Bölümler",
+	"video_editor_timer_start_angle": "Başlangıç açısı (°)",
+	"video_editor_timer_show_value": "Sayıları göster",
+	"video_editor_timer_body_color": "Gövde rengi",
+	"video_editor_timer_accent_color": "Vurgu rengi",
+	"video_editor_timer_finish_effect": "Bitiş efekti"
 }

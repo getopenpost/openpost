@@ -45,6 +45,10 @@ test.describe("touch timer library", () => {
     const bounds = await favorite.boundingBox();
     expect(bounds!.width).toBeGreaterThanOrEqual(44);
     expect(bounds!.height).toBeGreaterThanOrEqual(44);
+    const cardAfterScroll = await ringCard.boundingBox();
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(
+      cardAfterScroll!.y + cardAfterScroll!.height,
+    );
     await favorite.tap();
     await expect(favorite).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("tab", { name: "Library", exact: true }).click();
@@ -107,6 +111,14 @@ for (const scheme of ["light", "dark"] as const) {
     await duration.fill("45");
     await duration.press("Tab");
     await expect(duration).toHaveValue("45");
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    const thickness = page.getByRole("spinbutton", { name: "Thickness (%)", exact: true });
+    const segments = page.getByRole("spinbutton", { name: "Segments", exact: true });
+    await thickness.fill("12");
+    await thickness.press("Tab");
+    await segments.fill("8");
+    await segments.press("Tab");
+    await expect(thickness).toHaveValue("12");
     await page.getByRole("textbox", { name: "Finish text", exact: true }).fill("GO");
     await page.getByRole("textbox", { name: "Finish text", exact: true }).press("Tab");
     await page.getByRole("tab", { name: "Library", exact: true }).click();
@@ -173,6 +185,9 @@ for (const scheme of ["light", "dark"] as const) {
     await page.getByRole("button", { name: "My rest timer", exact: true }).first().click();
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
     await expect(duration).toHaveValue("45");
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await expect(thickness).toHaveValue("12");
+    await expect(segments).toHaveValue("8");
     await page
       .getByRole("banner")
       .getByRole("button", { name: "More actions", exact: true })
@@ -262,5 +277,40 @@ for (const scheme of ["light", "dark"] as const) {
     await page.goto(projectURL);
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
     expect(errors).toEqual([]);
+  });
+}
+
+for (const style of ["Bomb", "Tomato"] as const) {
+  test(`sculpted ${style} appearance controls`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await createProject(page, `${style} timer`);
+    await page.getByRole("tab", { name: "Timers", exact: true }).click();
+    await page.getByRole("button", { name: style, exact: true }).click();
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await expect(
+      page.getByRole("checkbox", { name: "Completion effect", exact: true }),
+    ).toBeChecked();
+    await page.getByRole("checkbox", { name: "Show numbers", exact: true }).uncheck();
+    await page.screenshot({ path: testInfo.outputPath(`${style}-artwork.png`) });
+    await page.getByRole("checkbox", { name: "Show numbers", exact: true }).check();
+    await page.screenshot({ path: testInfo.outputPath(`${style}-timer.png`) });
+    const bodyColor = page.getByRole("button", { name: "Body color", exact: true });
+    await bodyColor.click();
+    const hex = page.getByRole("textbox", { name: "Hex color", exact: true });
+    await hex.fill("#2855FF");
+    await hex.press("Enter");
+    await page.keyboard.press("Escape");
+    await expect(bodyColor).toHaveAttribute("title", "Body color: #2855FF");
+    await page.screenshot({ path: testInfo.outputPath(`${style}-custom-color.png`) });
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await bodyColor.scrollIntoViewIfNeeded();
+      await expect(bodyColor).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      await page.screenshot({ path: testInfo.outputPath(`${style}-appearance-${width}.png`) });
+    }
   });
 }

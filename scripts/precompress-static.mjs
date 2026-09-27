@@ -1,4 +1,4 @@
-import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { brotliCompress, constants, gzip } from "node:zlib";
 import { promisify } from "node:util";
 import { dirname, extname, resolve } from "node:path";
@@ -25,8 +25,9 @@ async function filesBelow(directory) {
 }
 
 export async function precompressDirectory(publicDirectory = defaultPublicDirectory) {
+  const files = await filesBelow(publicDirectory);
   const candidates = [];
-  for (const pathname of await filesBelow(publicDirectory)) {
+  for (const pathname of files) {
     if (!compressibleExtensions.has(extname(pathname))) continue;
     if ((await stat(pathname)).size < minimumBytes) continue;
     candidates.push(pathname);
@@ -53,6 +54,14 @@ export async function precompressDirectory(publicDirectory = defaultPublicDirect
     sourceBytes += source.length;
     brotliBytes += brotliOutput.length;
     gzipBytes += gzipOutput.length;
+  }
+
+  // Turbo restores regular files as 0644, so the uncached artifact must use the same mode.
+  for (const pathname of [
+    ...files,
+    ...candidates.flatMap((file) => [`${file}.br`, `${file}.gz`]),
+  ]) {
+    await chmod(pathname, 0o644);
   }
 
   return {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -17,6 +17,7 @@ test("precompresses only eligible package-local text assets", async (t) => {
     writeFile(path.join(directory, "small.css"), "body{}\n"),
     writeFile(path.join(directory, "image.png"), source),
   ]);
+  await chmod(path.join(directory, "image.png"), 0o666);
 
   const result = await precompressDirectory(directory);
 
@@ -30,4 +31,6 @@ test("precompresses only eligible package-local text assets", async (t) => {
   );
   await assert.rejects(readFile(path.join(directory, "small.css.gz")), /ENOENT/);
   await assert.rejects(readFile(path.join(directory, "image.png.gz")), /ENOENT/);
+  assert.equal((await stat(path.join(directory, "image.png"))).mode & 0o777, 0o644);
+  assert.equal((await stat(path.join(directory, "app.js.gz"))).mode & 0o777, 0o644);
 });

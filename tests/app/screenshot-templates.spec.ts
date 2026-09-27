@@ -266,6 +266,7 @@ test("Media reopens the exported content after its original draft is edited and 
     .getByRole("textbox", { name: "Message 1", exact: true })
     .fill("A later draft version.");
   await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page.getByRole("link", { name: /Exported conversation/ })).toBeVisible();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("link", { name: /Exported conversation/ })).toHaveCount(0);

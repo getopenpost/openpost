@@ -6,6 +6,20 @@ import (
 	"time"
 )
 
+func TestEvaluateRequiresNewCertificationWhenApprovalTierRequirementChanges(t *testing.T) {
+	t.Parallel()
+	input := healthyInput()
+	if decision := Evaluate(input); !decision.Executable {
+		t.Fatalf("original certification is not executable: %#v", decision.Blockers)
+	}
+
+	input.Contract.Requirements.RequiredApprovalTier = "standard"
+	decision := Evaluate(input)
+	if decision.Executable || decision.Facts.LocalTest != EvidenceStateMismatch || decision.Facts.LiveCertification != EvidenceStateMismatch {
+		t.Fatalf("old evidence covered a new approval tier requirement: %#v", decision)
+	}
+}
+
 func TestEvaluateFailClosedStatePrecedence(t *testing.T) {
 	t.Parallel()
 

@@ -52,9 +52,11 @@
 					<ThemeIcon role="notification" class="size-4" />
 					<span>{m.notifications_heading()}</span>
 					{#if unreadCount > 0}
+						<!-- The link label already announces the unread count, so the badge
+							itself is presentational (matching the compact branch below). -->
 						<span
 							class="ms-auto min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[10px] font-semibold text-primary-foreground"
-							aria-label={m.notifications_unread_count({ count: unreadCount })}
+							aria-hidden="true"
 						>
 							{unreadCount > 99 ? '99+' : unreadCount}
 						</span>

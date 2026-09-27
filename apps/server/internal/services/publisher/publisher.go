@@ -584,6 +584,7 @@ func (s *Service) publishRendition(
 			req,
 			mediaAttachments,
 		)
+		token = refreshedToken
 	}
 	if err != nil {
 		return err

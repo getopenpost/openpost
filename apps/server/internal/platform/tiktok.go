@@ -46,8 +46,9 @@ func NewTikTokAdapter(clientKey, clientSecret, redirectURI string) *TikTokAdapte
 }
 
 func NewTikTokAdapterWithCapabilities(clientKey, clientSecret, redirectURI string, capabilities TikTokScopeCapabilities) *TikTokAdapter {
-	if len(capabilities.Scopes()) <= 1 {
-		capabilities = TikTokMinimalScopeCapabilities()
+	if !capabilities.DirectPost || !capabilities.InboxUpload {
+		capabilities.DirectPost = true
+		capabilities.InboxUpload = true
 	}
 	return &TikTokAdapter{
 		clientKey:    clientKey,

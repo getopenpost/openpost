@@ -134,6 +134,73 @@ export function calculateCropFromDrag({
 	return { ...crop, [edge]: nextSourcePixels / sourceDimension };
 }
 
+const CROP_KEYBOARD_LARGE_STEP = 10;
+/**
+ * Saturating local-pixel step for Home/End. calculateCropFromDrag clamps the
+ * resulting inset to [0, maxInset], so an outsized delta safely lands on the
+ * bound through the same single apply path as arrow nudges.
+ */
+const CROP_KEYBOARD_BOUND_STEP = 1_000_000;
+
+function isCropInwardArrow(edge: CropEdge, key: string): boolean {
+	return (
+		(edge === 'left' && key === 'ArrowRight') ||
+		(edge === 'right' && key === 'ArrowLeft') ||
+		(edge === 'top' && key === 'ArrowDown') ||
+		(edge === 'bottom' && key === 'ArrowUp')
+	);
+}
+
+function isCropOutwardArrow(edge: CropEdge, key: string): boolean {
+	return (
+		(edge === 'left' && key === 'ArrowLeft') ||
+		(edge === 'right' && key === 'ArrowRight') ||
+		(edge === 'top' && key === 'ArrowUp') ||
+		(edge === 'bottom' && key === 'ArrowDown')
+	);
+}
+
+/**
+ * Map a crop-handle keypress to an item-local pixel delta, or null when the
+ * key has no slider meaning. Arrows nudge (shift for a large step), PageUp
+ * and PageDown take large inward/outward steps, and Home/End saturate to the
+ * no-crop and maximum-crop bounds through the shared clamped drag math.
+ */
+export function nextCropKeyboardLocal(
+	edge: CropEdge,
+	key: string,
+	shiftKey: boolean
+): Point | null {
+	let direction: 1 | -1 | null = null;
+	let magnitude: number;
+	if (isCropInwardArrow(edge, key)) {
+		direction = 1;
+		magnitude = shiftKey ? CROP_KEYBOARD_LARGE_STEP : 1;
+	} else if (isCropOutwardArrow(edge, key)) {
+		direction = -1;
+		magnitude = shiftKey ? CROP_KEYBOARD_LARGE_STEP : 1;
+	} else if (key === 'PageUp') {
+		direction = 1;
+		magnitude = CROP_KEYBOARD_LARGE_STEP;
+	} else if (key === 'PageDown') {
+		direction = -1;
+		magnitude = CROP_KEYBOARD_LARGE_STEP;
+	} else if (key === 'End') {
+		direction = 1;
+		magnitude = CROP_KEYBOARD_BOUND_STEP;
+	} else if (key === 'Home') {
+		direction = -1;
+		magnitude = CROP_KEYBOARD_BOUND_STEP;
+	} else {
+		return null;
+	}
+	const signed = direction * magnitude;
+	if (edge === 'left') return { x: signed, y: 0 };
+	if (edge === 'right') return { x: -signed, y: 0 };
+	if (edge === 'top') return { x: 0, y: signed };
+	return { x: 0, y: -signed };
+}
+
 function rotateVector(point: Point, angleDegrees: number): Point {
 	const radians = (angleDegrees * Math.PI) / 180;
 	const cos = Math.cos(radians);

@@ -108,6 +108,7 @@
 			<Command.Input
 				value={search}
 				placeholder={searchPlaceholder}
+				aria-label={searchPlaceholder}
 				oninput={(event) => updateSearch(event.currentTarget.value)}
 			/>
 			<Command.List id={`${id}-options`}>

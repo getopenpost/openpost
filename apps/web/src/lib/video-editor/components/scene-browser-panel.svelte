@@ -135,6 +135,7 @@
 				data-scene-browser-search
 				class="h-8 w-full rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] pr-2 pl-7 text-xs placeholder:text-[var(--video-editor-muted)] focus-visible:border-[var(--video-editor-focus-border)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklch,var(--video-editor-focus)_25%,transparent)]"
 				placeholder={m.video_editor_scene_search()}
+				aria-label={m.video_editor_scene_search()}
 				bind:value={sceneBrowser.query}
 			/>
 		</label>
@@ -214,7 +215,7 @@
 			</button>
 		</div>
 		{#if sceneBrowser.colorMode && libraryColors.length > 0}
-			<div class="space-y-1" aria-label={m.video_editor_scene_library_colors()}>
+			<div class="space-y-1" role="group" aria-label={m.video_editor_scene_library_colors()}>
 				<div class="flex items-center justify-between text-[10px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_scene_library_colors()}</span>
 					{#if sceneBrowser.referencePalette}
@@ -379,6 +380,7 @@
 								{#if sceneBrowser.query || sceneBrowser.referencePalette}
 									<div
 										class="flex flex-wrap gap-1"
+										role="group"
 										aria-label={m.video_editor_scene_match_signals()}
 									>
 										{#if ranked.signals.keywordMatched}

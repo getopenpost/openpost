@@ -135,7 +135,7 @@ export async function suggestMemes({
 }
 
 function recipeBody(input: MemeRecipeInput) {
-	const body: components['schemas']['RenderMemeInputBody'] = {
+	const body: Omit<components['schemas']['RenderMemeInputBody'], 'retention_class'> = {
 		workspace_id: input.workspaceId,
 		template_id: input.templateId,
 		captions: input.captions,
@@ -171,7 +171,7 @@ function retryableMemePreviewStatus(status: number): boolean {
 
 export async function renderMeme(input: MemeRecipeInput): Promise<MemeRenderResult> {
 	const result = await client.POST('/memes/render', {
-		body: { ...recipeBody(input), retention_class: input.retentionClass },
+		body: { ...recipeBody(input), retention_class: input.retentionClass ?? 'temporary' },
 		signal: input.signal
 	});
 	return responseData(result.data, result.error, result.response, m.meme_generator_render_failed());

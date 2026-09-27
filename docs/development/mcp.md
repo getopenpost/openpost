@@ -339,6 +339,7 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Records API-token client ID, name, scope, and token prefix for MCP tool calls when a request uses a dedicated CLI/MCP token, so Settings can attribute activity to ChatGPT, Claude, CI, or another configured client.
 - Returns structured content so assistants can inspect workspace, account, publication, destination, media, and suggested slot IDs without parsing prose.
 - Returns provider catalog structured content so assistants can avoid trying to connect or schedule to planned providers before adapters exist.
+- Lets assistants attach workspace-owned source media to Posts through `media`, while preserving destination-specific media overrides through `set_post_variants`.
 - Accepted gaps (kept out deliberately; specced follow-ups, not oversights): no account connect/disconnect tools, no bulk operations, and no webhook management tools. Assistants connect accounts through the web settings flow and link users there with `get_dashboard_link` (`account` kind).
 - OAuth has no per-client allow-listing: any standards-compliant OAuth client can start the flow with a valid client-metadata URL (matching redirect, `none` auth, code flow), and non-URL client IDs additionally work through the ChatGPT connector and loopback redirect fallbacks. The recorded client name is attribution for Settings activity only, never an access gate.
 
@@ -347,4 +348,3 @@ This policy follows the [Official MCP Registry versioning guidance](https://mode
 - Full-catalog clients (ChatGPT, Claude Desktop, IDE assistants that handle dozens of tools): use the default `/mcp` endpoint. Every operation is directly advertised with its own schema, and the Apps widgets load through the render tools.
 - Token-constrained or search-first clients (coding agents, CLI-driven flows): use `/mcp/code`. Start each task with `search_operations`, run reads through `query_operation`, mutations through `execute_operation`, and render through `render_scheduler_widget` only when a visual summary helps.
 - Self-hosted operators choose with `OPENPOST_MCP_MODE`: `direct` (default) for full-catalog clients, `search` for constrained ones, `both` while migrating. Changing the list never changes permissions; `mcp:read` connections always lose `execute_operation` and the ticket tool regardless of mode.
-- Lets assistants attach workspace-owned source media to Posts through `media`, while preserving destination-specific media overrides through `set_post_variants`.

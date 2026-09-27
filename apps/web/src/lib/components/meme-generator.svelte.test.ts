@@ -108,6 +108,14 @@ function templateListResult(
 	};
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
+
 function mockAPI(overrides: Partial<MemeGeneratorAPI> = {}): MemeGeneratorAPI {
 	return {
 		listTemplates: vi.fn().mockResolvedValue(templateListResult([template])),
@@ -258,6 +266,19 @@ describe('Meme template browsing', () => {
 			expect(onSelect).toHaveBeenCalledWith(template, ['The plan', 'Reality'], 'Launch joke')
 		);
 		expect(api.suggest).not.toHaveBeenCalled();
+	});
+
+	it('exposes the template loading skeletons as a live status', async () => {
+		const listTemplates = vi
+			.fn()
+			.mockImplementation(() => deferred<MemeTemplateListResult>().promise);
+		const api = mockAPI({ listTemplates });
+		const screen = await render(MemeGenerator, {
+			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
+		});
+
+		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
+		await expect.element(screen.getByRole('status', { name: m.common_loading() })).toBeVisible();
 	});
 });
 

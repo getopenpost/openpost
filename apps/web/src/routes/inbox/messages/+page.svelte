@@ -1077,6 +1077,7 @@
 											class="min-h-11 resize-none"
 											bind:value={replyBody}
 											placeholder={m.messages_reply_placeholder()}
+											aria-label={m.messages_reply_placeholder()}
 											rows={2}
 											required
 											disabled={messagingAllDisabled}

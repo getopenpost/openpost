@@ -30,7 +30,11 @@
 	}
 </script>
 
-<div class="flex min-w-0 flex-wrap items-center gap-1.5" aria-label={m.media_filter_by_tag()}>
+<div
+	class="flex min-w-0 flex-wrap items-center gap-1.5"
+	role="group"
+	aria-label={m.media_filter_by_tag()}
+>
 	<Button
 		variant={selectedIds.length === 0 && !untagged ? 'secondary' : 'ghost'}
 		size="sm"

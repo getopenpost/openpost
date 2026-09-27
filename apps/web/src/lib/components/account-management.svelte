@@ -58,6 +58,7 @@
 	} from './account-presentation';
 	import { m } from '$lib/paraglide/messages';
 	import AccountFeaturePresentation from '$lib/components/account-feature-presentation.svelte';
+	import PostImportSettings from '$lib/components/post-import-settings.svelte';
 	import type { components } from '$lib/api/types';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import {
@@ -1609,6 +1610,7 @@
 												{/if}
 												{#if !account.is_active}
 													<span
+														role="img"
 														class="size-1.5 rounded-full bg-amber-500"
 														aria-label={m.accounts_connection_paused()}
 													></span>
@@ -2078,6 +2080,12 @@
 								</p>
 							</section>
 						{/if}
+					{/if}
+
+					{#if selectedWorkspaceId && (editingAccount.platform === 'bluesky' || editingAccount.platform === 'mastodon')}
+						{#key `${selectedWorkspaceId}:${editingAccount.id}`}
+							<PostImportSettings workspaceID={selectedWorkspaceId} accountID={editingAccount.id} />
+						{/key}
 					{/if}
 
 					<details class="group rounded-lg border bg-muted/10">

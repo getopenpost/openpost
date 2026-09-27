@@ -28,6 +28,7 @@
 /development/api-reference /api-reference 301
 /development/api-tokens /api-reference 301
 /development/external-applications /api-reference 301
+/development/*.md https://github.com/getopenpost/openpost/blob/main/docs/development/:splat.md 301
 /development/* https://github.com/getopenpost/openpost/blob/main/docs/development/:splat.md 301
 /guide/concepts /guides/quickstart 301
 /guide/quickstart /guides/quickstart 301

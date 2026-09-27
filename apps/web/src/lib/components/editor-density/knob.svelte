@@ -188,6 +188,26 @@
 			event.preventDefault();
 			event.stopPropagation();
 			setLive(nudgeValue(value, -1, step, { shift: event.shiftKey, alt: event.altKey }, min, max));
+		} else if (event.key === 'PageUp') {
+			event.preventDefault();
+			event.stopPropagation();
+			setLive(
+				nudgeValue(value, 1, step * 10, { shift: event.shiftKey, alt: event.altKey }, min, max)
+			);
+		} else if (event.key === 'PageDown') {
+			event.preventDefault();
+			event.stopPropagation();
+			setLive(
+				nudgeValue(value, -1, step * 10, { shift: event.shiftKey, alt: event.altKey }, min, max)
+			);
+		} else if (event.key === 'Home') {
+			event.preventDefault();
+			event.stopPropagation();
+			setLive(min);
+		} else if (event.key === 'End') {
+			event.preventDefault();
+			event.stopPropagation();
+			setLive(max);
 		} else if (event.key === 'Escape') {
 			event.stopPropagation();
 			gestureActive = false;
@@ -196,7 +216,14 @@
 		}
 	}}
 	onkeyup={(event) => {
-		if (event.key.startsWith('Arrow')) commit(value);
+		if (
+			event.key.startsWith('Arrow') ||
+			event.key === 'PageUp' ||
+			event.key === 'PageDown' ||
+			event.key === 'Home' ||
+			event.key === 'End'
+		)
+			commit(value);
 	}}
 	onblur={() => {
 		if (gestureActive) commit(value);

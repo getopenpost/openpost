@@ -465,7 +465,11 @@
 		</Dialog.Header>
 
 		<div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-			<div class="grid grid-cols-2 rounded-lg bg-muted p-1" role="tablist">
+			<div
+				class="grid grid-cols-2 rounded-lg bg-muted p-1"
+				role="tablist"
+				aria-label={m.video_editor_cleanup_title()}
+			>
 				<Button
 					type="button"
 					variant={mode === 'fillers' ? 'secondary' : 'ghost'}

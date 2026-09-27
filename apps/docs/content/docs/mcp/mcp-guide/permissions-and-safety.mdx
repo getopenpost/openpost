@@ -8,10 +8,10 @@ OpenPost checks the token scope and workspace access for every MCP operation. Th
 
 ## Choose a scope
 
-| Scope      | Access                                                                                                                                   |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope      | Access                                                                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `mcp:read` | Inspect workspaces, accounts, media, Posts, schedules, readiness, comments, and lifecycle events. It cannot change OpenPost data. |
-| `mcp:full` | Includes read access and permits operations that create, edit, schedule, publish, upload, reply, or moderate.                            |
+| `mcp:full` | Includes read access and permits operations that create, edit, schedule, publish, upload, reply, or moderate.                     |
 
 OpenPost defaults an OAuth request with no scope to `mcp:full`. Select `mcp:read` explicitly for reviews and audits.
 

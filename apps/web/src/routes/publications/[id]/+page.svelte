@@ -405,10 +405,11 @@
 						: m.activity_dismiss_failed()}
 				</Button>
 			{/if}
-			{#if publication.status === 'published' && workspaceCtx.currentWorkspace?.can_edit}
+			{#if publication?.status === 'published' && workspaceCtx.currentWorkspace?.can_edit}
 				<Button
 					variant="outline"
 					onclick={() => {
+						if (!publication) return;
 						pendingRemoval = publication;
 						removeDialogOpen = true;
 					}}

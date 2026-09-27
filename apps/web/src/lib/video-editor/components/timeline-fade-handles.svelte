@@ -1,3 +1,73 @@
+<script module lang="ts">
+	/**
+	 * Pure keyboard map for fade duration handles so the WAI-ARIA slider
+	 * contract (arrows one frame / ten with shift, PageUp/PageDown one second,
+	 * Home/End no-fade / max-fade) is unit-testable without the timeline store.
+	 * Returns null for unhandled keys so the caller can ignore them without
+	 * side effects. Clamping stays with commitFade.
+	 */
+	export function nextFadeKeyboardSeconds(
+		currentSeconds: number,
+		key: string,
+		shiftKey: boolean,
+		fps: number,
+		maxSeconds: number,
+		handle: 'in' | 'out'
+	): number | null {
+		const stepFrames = shiftKey ? 10 : 1;
+		const stepSeconds = fps > 0 ? stepFrames / fps : 0.033;
+		const pageSeconds = fps > 0 ? 1 : stepSeconds * 10;
+		// Fade-in grows to the right, fade-out to the left: one sign keeps the
+		// ArrowLeft/ArrowRight branches free of nested conditionals.
+		const lateralSign = handle === 'in' ? 1 : -1;
+		switch (key) {
+			case 'ArrowLeft':
+				return currentSeconds - lateralSign * stepSeconds;
+			case 'ArrowRight':
+				return currentSeconds + lateralSign * stepSeconds;
+			case 'ArrowUp':
+				return currentSeconds + stepSeconds;
+			case 'ArrowDown':
+				return currentSeconds - stepSeconds;
+			case 'PageUp':
+				return currentSeconds + pageSeconds;
+			case 'PageDown':
+				return currentSeconds - pageSeconds;
+			case 'Home':
+				return 0;
+			case 'End':
+				return Math.max(0, maxSeconds);
+			default:
+				return null;
+		}
+	}
+
+	/**
+	 * Pure keyboard map for audio fade curve dots. Arrows nudge curve/bias,
+	 * PageUp/PageDown move ten arrow steps, Home resets, End pins to full.
+	 * Returns null for unhandled keys. Clamping stays with commitCurve.
+	 */
+	export function nextCurveKeyboard(
+		curve: number,
+		curveX: number,
+		key: string,
+		shiftKey: boolean,
+		defaultCurveX: number
+	): { curve: number; curveX: number } | null {
+		const curveStep = shiftKey ? 0.1 : 0.05;
+		const biasStep = shiftKey ? 0.04 : 0.02;
+		if (key === 'ArrowLeft') return { curve, curveX: curveX - biasStep };
+		if (key === 'ArrowRight') return { curve, curveX: curveX + biasStep };
+		if (key === 'ArrowUp') return { curve: curve + curveStep, curveX };
+		if (key === 'ArrowDown') return { curve: curve - curveStep, curveX };
+		if (key === 'PageUp') return { curve: curve + curveStep * 10, curveX };
+		if (key === 'PageDown') return { curve: curve - curveStep * 10, curveX };
+		if (key === 'Home') return { curve: 0, curveX: defaultCurveX };
+		if (key === 'End') return { curve: 1, curveX: 0.96 };
+		return null;
+	}
+</script>
+
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -535,39 +605,13 @@
 
 	function adjustFadeWithKeyboard(event: KeyboardEvent, handle: FadeHandle): void {
 		if (!canInteract) return;
-		const stepFrames = event.shiftKey ? 10 : 1;
-		const stepSeconds = fps > 0 ? stepFrames / fps : 0.033;
-		let delta = 0;
-		if (event.key === 'ArrowLeft') delta = handle === 'in' ? -stepSeconds : stepSeconds;
-		else if (event.key === 'ArrowRight') delta = handle === 'in' ? stepSeconds : -stepSeconds;
-		else if (event.key === 'ArrowUp') delta = stepSeconds;
-		else if (event.key === 'ArrowDown') delta = -stepSeconds;
-		else if (event.key === 'Home') {
-			event.preventDefault();
-			const before = captureSnapshot();
-			commitFade(handle, 0);
-			const after = captureSnapshot();
-			if (!snapshotsEqual(before, after)) {
-				commandHistory.addUndoEntry({ type: 'UPDATE_FADE_KEYBOARD' }, before);
-				onedit();
-			}
-			return;
-		} else if (event.key === 'End') {
-			event.preventDefault();
-			const before = captureSnapshot();
-			const max = duration > 0 && fps > 0 ? duration / fps : 5;
-			commitFade(handle, Math.max(0, max));
-			const after = captureSnapshot();
-			if (!snapshotsEqual(before, after)) {
-				commandHistory.addUndoEntry({ type: 'UPDATE_FADE_KEYBOARD' }, before);
-				onedit();
-			}
-			return;
-		} else return;
+		const current = handle === 'in' ? fadeIn : fadeOut;
+		const max = duration > 0 && fps > 0 ? duration / fps : 5;
+		const next = nextFadeKeyboardSeconds(current, event.key, event.shiftKey, fps, max, handle);
+		if (next === null) return;
 		event.preventDefault();
 		const before = captureSnapshot();
-		const current = handle === 'in' ? fadeIn : fadeOut;
-		commitFade(handle, current + delta);
+		commitFade(handle, next);
 		const after = captureSnapshot();
 		if (!snapshotsEqual(before, after)) {
 			commandHistory.addUndoEntry({ type: 'UPDATE_FADE_KEYBOARD' }, before);
@@ -579,38 +623,17 @@
 		if (!canInteract) return;
 		const rawCurve = handle === 'in' ? audioFadeInCurve : audioFadeOutCurve;
 		const rawX = handle === 'in' ? audioFadeInCurveX : audioFadeOutCurveX;
-		let nextCurve = rawCurve;
-		let nextX = rawX;
-		const curveStep = event.shiftKey ? 0.1 : 0.05;
-		const biasStep = event.shiftKey ? 0.04 : 0.02;
-		if (event.key === 'ArrowLeft') nextX -= biasStep;
-		else if (event.key === 'ArrowRight') nextX += biasStep;
-		else if (event.key === 'ArrowUp') nextCurve += curveStep;
-		else if (event.key === 'ArrowDown') nextCurve -= curveStep;
-		else if (event.key === 'Home') {
-			event.preventDefault();
-			const before = captureSnapshot();
-			commitCurve(handle, 0, AUDIO_FADE_CURVE_X_DEFAULT);
-			const after = captureSnapshot();
-			if (!snapshotsEqual(before, after)) {
-				commandHistory.addUndoEntry({ type: 'UPDATE_AUDIO_FADE_CURVE_KEYBOARD' }, before);
-				onedit();
-			}
-			return;
-		} else if (event.key === 'End') {
-			event.preventDefault();
-			const before = captureSnapshot();
-			commitCurve(handle, 1, 0.96);
-			const after = captureSnapshot();
-			if (!snapshotsEqual(before, after)) {
-				commandHistory.addUndoEntry({ type: 'UPDATE_AUDIO_FADE_CURVE_KEYBOARD' }, before);
-				onedit();
-			}
-			return;
-		} else return;
+		const next = nextCurveKeyboard(
+			rawCurve,
+			rawX,
+			event.key,
+			event.shiftKey,
+			AUDIO_FADE_CURVE_X_DEFAULT
+		);
+		if (!next) return;
 		event.preventDefault();
 		const before = captureSnapshot();
-		commitCurve(handle, nextCurve, nextX);
+		commitCurve(handle, next.curve, next.curveX);
 		const after = captureSnapshot();
 		if (!snapshotsEqual(before, after)) {
 			commandHistory.addUndoEntry({ type: 'UPDATE_AUDIO_FADE_CURVE_KEYBOARD' }, before);

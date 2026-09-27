@@ -430,6 +430,7 @@
 	{#if layout === 'single' && showViewModes}
 		<div
 			class="mb-1 flex items-center justify-end gap-0.5"
+			role="group"
 			aria-label={m.video_editor_scope_live()}
 		>
 			{#each VIEW_MODES as option (option.value)}

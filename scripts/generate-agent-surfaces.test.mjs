@@ -1540,6 +1540,7 @@ test(
         description: route.description,
         title: route.title,
         unavailablePlatform: {
+          "/platforms/googlebusiness": "Google Business",
           "/platforms/pinterest": "Pinterest",
         }[route.path],
       });
@@ -1628,7 +1629,7 @@ test(
         ...formatted.map((plan) => plan.limits.social_accounts.toLocaleString("en-US")),
       ],
       [
-        "Scheduled publications / month",
+        "Scheduled posts / month",
         ...formatted.map((plan) => plan.limits.scheduled_posts_monthly.toLocaleString("en-US")),
       ],
       ["Media storage", ...formatted.map((plan) => plan.storage)],

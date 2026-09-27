@@ -58,6 +58,8 @@
 		else if (event.key === 'ArrowRight') hue += 1;
 		else if (event.key === 'ArrowDown') amount -= 0.01;
 		else if (event.key === 'ArrowUp') amount += 0.01;
+		else if (event.key === 'PageDown') amount -= 0.1;
+		else if (event.key === 'PageUp') amount += 0.1;
 		else if (event.key === 'Home') amount = 0;
 		else if (event.key === 'End') amount = 1;
 		else return;

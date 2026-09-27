@@ -175,6 +175,7 @@
 
 	<div
 		class="flex items-center gap-2 text-xs leading-4 text-muted-foreground"
+		role="group"
 		aria-label={followersFollowersFollowingA11y}
 	>
 		<span class="tabular-nums"
@@ -191,7 +192,7 @@
 	</div>
 
 	{#if reasonChips.length > 0}
-		<div class="flex flex-wrap gap-1.5" aria-label={m.grow_reasons_label()}>
+		<div class="flex flex-wrap gap-1.5" role="group" aria-label={m.grow_reasons_label()}>
 			{#each reasonChips as chip (chip.key)}
 				<span
 					class="inline-flex items-center rounded-md border bg-muted px-2 py-1 text-xs leading-none font-medium text-muted-foreground"

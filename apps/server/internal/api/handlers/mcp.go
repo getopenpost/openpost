@@ -2597,6 +2597,7 @@ func mcpToolInvocationStatus(toolName string) mcpToolStatus {
 	return mcpToolStatus{Invoking: "Running tool", Invoked: "Tool complete"}
 }
 
+//nolint:gocyclo // Tool cases are a flat schema catalog, not nested control flow.
 func mcpToolOutputSchema(toolName string) map[string]any {
 	if toolName == mcpToolListPubs {
 		return mcpStructuredOutputSchema(map[string]any{
@@ -3295,6 +3296,7 @@ func (h *MCPHandler) callWorkspaceActionTool(ctx context.Context, userID, toolNa
 	}
 }
 
+//nolint:gocyclo // Each switch case delegates one tool to its owning operation.
 func (h *MCPHandler) callPublicationTool(ctx context.Context, userID, toolName string, args map[string]any) (any, *mcpError) {
 	toolName = normalizeMCPOperationName(toolName)
 	switch toolName {
@@ -4141,7 +4143,7 @@ func (h *MCPHandler) replyToRendition(ctx context.Context, userID string, args m
 				Settings    map[string]interface{} `json:"settings"`
 				RunAt       string                 `json:"run_at"`
 			}{rendition.ID, input.Body, input.ParentID, input.Settings, runAt.Format(time.RFC3339Nano)})
-			result, err := idempotency.ExecuteWithIdentity(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+			result, err := idempotency.ExecuteWithIdentity(ctx, h.db, request, func(_ context.Context, tx bun.Tx) (string, error) {
 				// queueRenditionReply manages its own transaction; the
 				// idempotency claim commits atomically around it.
 				_ = tx
@@ -4349,37 +4351,35 @@ func (h *MCPHandler) deletePublication(ctx context.Context, userID string, args 
 		}
 		return nil
 	}
-	if strings.TrimSpace(input.IdempotencyKey) != "" {
-		request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, publication.WorkspaceID, "delete-publication", args)
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-		if ok {
-			request.ResourceID = input.PublicationID
-			request.RequestHash, _ = idempotency.Hash(struct {
-				PublicationID    string `json:"publication_id"`
-				ExpectedRevision int    `json:"expected_revision"`
-			}{input.PublicationID, input.ExpectedRevision})
-			var opErr *mcpError
-			result, err := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
-				_ = tx
-				if rpcErr := deleteOp(); rpcErr != nil {
-					opErr = rpcErr
-					return "", errors.New(rpcErr.Message)
-				}
-				return input.PublicationID, nil
-			})
-			if err != nil {
-				if errors.Is(err, idempotency.ErrConflict) {
-					return nil, mcpIdempotencyError(err, "failed to delete post")
-				}
-				if opErr != nil {
-					return nil, opErr
-				}
-				return nil, &mcpError{Code: -32603, Message: "failed to delete post"}
+	request, ok, rpcErr := mcpBuildIdempotencyRequest(ctx, publication.WorkspaceID, "delete-publication", args)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	if ok {
+		request.ResourceID = input.PublicationID
+		request.RequestHash, _ = idempotency.Hash(struct {
+			PublicationID    string `json:"publication_id"`
+			ExpectedRevision int    `json:"expected_revision"`
+		}{input.PublicationID, input.ExpectedRevision})
+		var opErr *mcpError
+		result, err := idempotency.Execute(ctx, h.db, request, func(_ context.Context, tx bun.Tx) (string, error) {
+			_ = tx
+			if rpcErr := deleteOp(); rpcErr != nil {
+				opErr = rpcErr
+				return "", errors.New(rpcErr.Message)
 			}
-			return h.mcpDeletedPostResult(result.Value), nil
+			return input.PublicationID, nil
+		})
+		if err != nil {
+			if errors.Is(err, idempotency.ErrConflict) {
+				return nil, mcpIdempotencyError(err, "failed to delete post")
+			}
+			if opErr != nil {
+				return nil, opErr
+			}
+			return nil, &mcpError{Code: -32603, Message: "failed to delete post"}
 		}
+		return h.mcpDeletedPostResult(result.Value), nil
 	}
 	if rpcErr := deleteOp(); rpcErr != nil {
 		return nil, rpcErr
@@ -4431,6 +4431,7 @@ func (h *MCPHandler) retryFailedVariants(ctx context.Context, userID string, arg
 	return h.mcpPostResult(ctx, userID, publicationID, "Variant retry queued: "+publicationID, jobID, args)
 }
 
+//nolint:gocyclo // Validation, authorization, and replay each have distinct client errors.
 func (h *MCPHandler) retryVariant(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		PublicationID    string `json:"post_id"`
@@ -4483,7 +4484,7 @@ func (h *MCPHandler) retryVariant(ctx context.Context, userID string, args map[s
 				RenditionID   string `json:"variant_id"`
 			}{publication.ID, rendition.ID})
 			var opErr *mcpError
-			result, err := idempotency.ExecuteWithIdentity(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+			result, err := idempotency.ExecuteWithIdentity(ctx, h.db, request, func(_ context.Context, tx bun.Tx) (string, error) {
 				_ = tx
 				jobID, rpcErr := retry()
 				if rpcErr != nil {
@@ -4706,6 +4707,7 @@ func (h *MCPHandler) listRenditionComments(ctx context.Context, userID string, a
 	}, nil
 }
 
+//nolint:gocyclo // Comment actions share access checks but retain separate replay and queue outcomes.
 func (h *MCPHandler) moderateComment(ctx context.Context, userID, operation string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		CommentID      string `json:"comment_id"`
@@ -5044,6 +5046,7 @@ type mcpListMediaInput struct {
 	Cursor      string `json:"cursor"`
 }
 
+//nolint:gocyclo // Cursor, filter, count, and usage checks each preserve a distinct API error.
 func (h *MCPHandler) listMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input mcpListMediaInput
 	if err := decodeMCPArguments(args, &input); err != nil {
@@ -5196,6 +5199,8 @@ type mcpVariantMetrics struct {
 // getPostMetrics reads stored analytics snapshots for a post's variants. It
 // never calls providers: collection stays in the analytics service, and this
 // operation only normalizes what is already stored.
+//
+//nolint:gocyclo // Snapshot measurement keys must stay distinct from unmeasured zero values.
 func (h *MCPHandler) getPostMetrics(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	postID, rpcErr := decodeMCPPublicationID(args, "invalid get_post_metrics arguments")
 	if rpcErr != nil {
@@ -5522,6 +5527,7 @@ func (h *MCPHandler) getMedia(ctx context.Context, userID string, args map[strin
 	return h.mcpMediaResult(ctx, media, "")
 }
 
+//nolint:gocyclo // Favorite and alt-text updates share one replay boundary and preserve their API errors.
 func (h *MCPHandler) updateMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		MediaID        string  `json:"media_id"`
@@ -5634,6 +5640,7 @@ func (h *MCPHandler) updateMedia(ctx context.Context, userID string, args map[st
 	return h.mcpMediaResult(ctx, updated, "Media updated: "+updated.ID)
 }
 
+//nolint:gocyclo // Authorization, confirmation, provider errors, and replay have distinct outcomes.
 func (h *MCPHandler) deleteMedia(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		MediaID        string `json:"media_id"`
@@ -5890,6 +5897,7 @@ func (h *MCPHandler) renderLocalMediaUpload(ctx context.Context, userID string, 
 	}, nil
 }
 
+//nolint:gocyclo // Ticket validation, minting, and replay must keep their failure modes distinct.
 func (h *MCPHandler) createLocalMediaUploadTicket(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
 		WorkspaceID    string `json:"workspace_id"`

@@ -757,12 +757,14 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 		}
 	} else if articleURL := EffectiveLinkURL(req.Settings, req.Content); articleURL != "" {
 		title, description := linkedInArticleFields(ctx, req, articleURL)
-		payload["content"] = map[string]interface{}{
-			"article": map[string]interface{}{
-				"source":      articleURL,
-				"title":       title,
-				"description": description,
-			},
+		if title != "" {
+			payload["content"] = map[string]interface{}{
+				"article": map[string]interface{}{
+					"source":      articleURL,
+					"title":       title,
+					"description": description,
+				},
+			}
 		}
 	}
 

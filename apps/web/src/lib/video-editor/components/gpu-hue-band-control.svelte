@@ -3,7 +3,7 @@
 	the key hue, with the core (hueWidth) and feather (hueSoftness) bands drawn
 	around the center marker. Ported from FreeCut (MIT) `HueBandControl`.
 	Pointer drags preview live through onlive and commit one undoable update
-	through oncommit; keyboard arrows/Home/End commit directly.
+	through oncommit; keyboard arrows/Home/End/PageUp/PageDown commit directly.
 -->
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
@@ -109,6 +109,8 @@
 		let next: number | null = null;
 		if (event.key === 'ArrowLeft') next = center - (event.shiftKey ? 10 : 1);
 		else if (event.key === 'ArrowRight') next = center + (event.shiftKey ? 10 : 1);
+		else if (event.key === 'PageUp') next = center + 10;
+		else if (event.key === 'PageDown') next = center - 10;
 		else if (event.key === 'Home') next = 0;
 		else if (event.key === 'End') next = 360;
 		if (next === null) return;

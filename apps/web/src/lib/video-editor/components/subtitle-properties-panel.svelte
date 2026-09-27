@@ -80,7 +80,7 @@
 		<span id={`caption-presets-${activeItem.id}`} class="field-label">
 			{m.video_editor_caption_presets()}
 		</span>
-		<div class="preset-strip" aria-labelledby={`caption-presets-${activeItem.id}`}>
+		<div class="preset-strip" role="group" aria-labelledby={`caption-presets-${activeItem.id}`}>
 			{#each CAPTION_STYLE_PRESETS as preset (preset.id)}
 				<button
 					type="button"

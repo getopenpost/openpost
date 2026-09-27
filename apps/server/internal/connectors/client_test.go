@@ -37,6 +37,21 @@ func TestClientRejectsCredentialBearingRedirects(t *testing.T) {
 	require.ErrorContains(t, err, "HTTP status 307")
 }
 
+func TestClientDoesNotExposeMalformedRedirectLocation(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Location", "https://redirect.example/%zz?token=redirect-secret")
+		response.WriteHeader(http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := newPrivateTestClient(t, server.URL)
+	_, err := client.Manifest(context.Background())
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "redirect-secret")
+}
+
 func TestClientRejectsPrivateAddressOutsideConfiguredCIDR(t *testing.T) {
 	t.Parallel()
 

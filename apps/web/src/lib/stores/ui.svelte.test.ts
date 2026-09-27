@@ -34,6 +34,49 @@ describe('UIState repurpose handoff', () => {
 	});
 });
 
+describe('UIState pending composer workspace notice', () => {
+	it('hands a switch notice to the remounted composer for the matching workspace only', () => {
+		const state = new UIState();
+		state.setPendingComposerWorkspaceNotice({
+			message: 'Workspace changed.',
+			workspaceId: 'workspace-b'
+		});
+
+		expect(state.takePendingComposerWorkspaceNotice('workspace-a')).toBe('');
+		state.setPendingComposerWorkspaceNotice({
+			message: 'Workspace changed.',
+			workspaceId: 'workspace-b'
+		});
+		expect(state.takePendingComposerWorkspaceNotice('workspace-b')).toBe('Workspace changed.');
+		// Taking consumes the notice so later remounts stay quiet.
+		expect(state.takePendingComposerWorkspaceNotice('workspace-b')).toBe('');
+	});
+
+	it('drops expired notices instead of surfacing them on a later visit', () => {
+		const state = new UIState();
+		state.setPendingComposerWorkspaceNotice({
+			message: 'Workspace changed.',
+			workspaceId: 'workspace-b'
+		});
+		if (state.pendingComposerWorkspaceNotice) {
+			state.pendingComposerWorkspaceNotice.at -= 61_000;
+		}
+
+		expect(state.takePendingComposerWorkspaceNotice('workspace-b')).toBe('');
+	});
+
+	it('clears a pending notice on dismiss so it cannot resurface', () => {
+		const state = new UIState();
+		state.setPendingComposerWorkspaceNotice({
+			message: 'Workspace changed.',
+			workspaceId: 'workspace-b'
+		});
+		state.clearPendingComposerWorkspaceNotice();
+
+		expect(state.takePendingComposerWorkspaceNotice('workspace-b')).toBe('');
+	});
+});
+
 describe('UIState composer reset guards', () => {
 	it('keeps the active composer mounted until its transient work can be discarded safely', () => {
 		const state = new UIState();

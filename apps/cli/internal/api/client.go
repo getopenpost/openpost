@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -85,7 +85,7 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("HTTP %d", e.StatusCode)
 }
 
-func (c *Client) do(ctx context.Context, method, path string, body any, out any, contentType string) error {
+func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
 	u, err := url.Parse(c.BaseURL + path)
 	if err != nil {
 		return fmt.Errorf("invalid URL %s: %w", c.BaseURL+path, err)
@@ -94,7 +94,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any,
 	if body != nil {
 		if r, ok := body.(io.Reader); ok {
 			rdr = r
-		} else if s, ok := body.(string); ok && contentType == "" {
+		} else if s, ok := body.(string); ok {
 			rdr = strings.NewReader(s)
 		} else {
 			data, err := json.Marshal(body)
@@ -112,9 +112,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any,
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}
 	req.Header.Set("Accept", "application/json")
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	} else if body != nil {
+	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("User-Agent", c.UserAgent)
@@ -149,52 +147,23 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any,
 }
 
 func (c *Client) GetJSON(ctx context.Context, path string, out any) error {
-	return c.do(ctx, http.MethodGet, path, nil, out, "")
+	return c.do(ctx, http.MethodGet, path, nil, out)
 }
 
 func (c *Client) PostJSON(ctx context.Context, path string, body, out any) error {
-	return c.do(ctx, http.MethodPost, path, body, out, "")
+	return c.do(ctx, http.MethodPost, path, body, out)
 }
 
 func (c *Client) PatchJSON(ctx context.Context, path string, body, out any) error {
-	return c.do(ctx, http.MethodPatch, path, body, out, "")
+	return c.do(ctx, http.MethodPatch, path, body, out)
 }
 
 func (c *Client) PutJSON(ctx context.Context, path string, body, out any) error {
-	return c.do(ctx, http.MethodPut, path, body, out, "")
+	return c.do(ctx, http.MethodPut, path, body, out)
 }
 
 func (c *Client) DeleteJSON(ctx context.Context, path string, out any) error {
-	return c.do(ctx, http.MethodDelete, path, nil, out, "")
-}
-
-// PostForm posts a multipart/form-data request with the given fields
-// and a file under fieldName. out is decoded from the JSON body.
-func (c *Client) PostForm(ctx context.Context, path, fileField, filePath string, fields map[string]string, out any) error {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("open file: %w", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	for k, v := range fields {
-		if err := mw.WriteField(k, v); err != nil {
-			return err
-		}
-	}
-	fw, err := mw.CreateFormFile(fileField, filepath.Base(filePath))
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(fw, f); err != nil {
-		return err
-	}
-	if err := mw.Close(); err != nil {
-		return err
-	}
-	return c.do(ctx, http.MethodPost, path, &buf, out, mw.FormDataContentType())
+	return c.do(ctx, http.MethodDelete, path, nil, out)
 }
 
 // ----- typed endpoints used by the CLI -----
@@ -704,17 +673,122 @@ func (c *Client) ListMedia(ctx context.Context, workspaceID string, limit int) (
 	return out.Media, nil
 }
 
-// UploadMedia uploads a local file to the active workspace using the multipart media endpoint.
+// UploadMedia uploads a local file through a streaming media upload session.
 func (c *Client) UploadMedia(ctx context.Context, workspaceID, filePath, altText string) (*Media, error) {
-	fields := map[string]string{"workspace_id": workspaceID}
-	if altText != "" {
-		fields["alt_text"] = altText
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("open file: %w", err)
 	}
-	var m Media
-	if err := c.PostForm(ctx, "/api/v1/media/upload", "file", filePath, fields, &m); err != nil {
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat file: %w", err)
+	}
+	mimeType := mime.TypeByExtension(filepath.Ext(filePath))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	var session mediaUploadSession
+	if err := c.PostJSON(ctx, "/api/v1/media/upload-session", map[string]any{
+		"workspace_id": workspaceID,
+		"filename":     filepath.Base(filePath),
+		"mime_type":    mimeType,
+		"size":         info.Size(),
+		"alt_text":     altText,
+	}, &session); err != nil {
 		return nil, err
 	}
-	return &m, nil
+	if session.Deduped {
+		return &Media{
+			ID: session.MediaID, MimeType: mimeType,
+			URL: "/media/" + session.MediaID, Size: info.Size(),
+			Deduped: true, AltText: altText, OriginalFilename: filepath.Base(filePath),
+		}, nil
+	}
+	if err := c.putFile(ctx, session.Upload, f, info.Size()); err != nil {
+		return nil, err
+	}
+	var media Media
+	if err := c.PostJSON(ctx, session.CompleteURL, map[string]string{"workspace_id": workspaceID}, &media); err != nil {
+		return nil, err
+	}
+	return &media, nil
+}
+
+type mediaUploadSession struct {
+	MediaID     string                   `json:"media_id"`
+	Deduped     bool                     `json:"deduped"`
+	CompleteURL string                   `json:"complete_url"`
+	Upload      mediaUploadSessionTarget `json:"upload"`
+}
+
+type mediaUploadSessionTarget struct {
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+}
+
+func (c *Client) putFile(ctx context.Context, target mediaUploadSessionTarget, file *os.File, size int64) error {
+	if target.URL == "" {
+		return fmt.Errorf("media upload session did not include an upload URL")
+	}
+	u, err := url.Parse(target.URL)
+	if err != nil {
+		return fmt.Errorf("invalid media upload URL: %w", err)
+	}
+	baseURL, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return fmt.Errorf("invalid API URL: %w", err)
+	}
+	if !u.IsAbs() {
+		u = baseURL.ResolveReference(u)
+	}
+	method := target.Method
+	if method == "" {
+		method = http.MethodPut
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), file)
+	if err != nil {
+		return fmt.Errorf("create media upload request: %w", err)
+	}
+	req.ContentLength = size
+	for key, value := range target.Headers {
+		req.Header.Set(key, value)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", c.UserAgent)
+	if c.Token != "" && strings.EqualFold(u.Scheme, baseURL.Scheme) && strings.EqualFold(u.Host, baseURL.Host) {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	// Large uploads can outlast the general API timeout. The request context
+	// still cancels the transfer when the caller stops it.
+	client := *c.HTTP
+	client.Timeout = 0
+	client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("media upload failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= http.StatusMultipleChoices {
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return fmt.Errorf("media upload failed: HTTP %d (read response: %w)", resp.StatusCode, readErr)
+		}
+		apiErr := &Error{StatusCode: resp.StatusCode}
+		_ = json.Unmarshal(body, apiErr)
+		if apiErr.Message == "" && apiErr.Detail == "" {
+			apiErr.Message = strings.TrimSpace(string(body))
+		}
+		return apiErr
+	}
+	_, err = io.Copy(io.Discard, resp.Body)
+	if err != nil {
+		return fmt.Errorf("read media upload response: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) DeleteMedia(ctx context.Context, mediaID string) error {

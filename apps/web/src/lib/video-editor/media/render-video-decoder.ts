@@ -1,8 +1,15 @@
 import { startProfileSpan } from '$lib/performance/profiling';
-import type { CanvasSink, VideoSinkDecoderOptions, WrappedCanvas } from 'mediabunny';
+import type { VideoSample, VideoSampleSink, VideoSinkDecoderOptions } from 'mediabunny';
 
 type HardwareAcceleration = NonNullable<VideoSinkDecoderOptions['hardwareAcceleration']>;
-type VideoCanvasSink = Pick<CanvasSink, 'canvases'>;
+type SampleSink = Pick<VideoSampleSink, 'samples'>;
+
+interface RenderedVideoFrame {
+	source: VideoFrame;
+	width: number;
+	height: number;
+	timestamp: number;
+}
 
 // Scrubbing across a gap should seek, not decode every skipped frame.
 const MAX_FORWARD_DECODE_SECONDS = 1;
@@ -10,7 +17,9 @@ const REVERSE_CACHE_BYTES = 64 * 1024 * 1024;
 const MAX_REVERSE_CACHE_FRAMES = 30;
 
 interface DecoderOptions {
-	reverse?: { width: number; height: number; fps: number };
+	width: number;
+	height: number;
+	reverseFps?: number;
 }
 
 function isWebCodecsDecodingError(error: unknown): boolean {
@@ -26,42 +35,43 @@ function isWebCodecsDecodingError(error: unknown): boolean {
 }
 
 /** Keeps sequential reads on one bounded decoder, with a software retry on decode failure. */
-export class ResilientVideoCanvasDecoder {
-	private sink: VideoCanvasSink;
+export class ResilientVideoFrameDecoder {
+	private sink: SampleSink;
 	private software = false;
-	private stream: ReturnType<CanvasSink['canvases']> | null = null;
-	private current: WrappedCanvas | null = null;
-	private next: WrappedCanvas | null = null;
+	private stream: ReturnType<VideoSampleSink['samples']> | null = null;
+	private current: VideoSample | null = null;
+	private next: VideoSample | null = null;
+	private rendered: RenderedVideoFrame | null = null;
 	private lastTimestamp = -Infinity;
 	private ended = false;
-	private readonly reverseFrames: WrappedCanvas[] = [];
+	private readonly reverseFrames: RenderedVideoFrame[] = [];
 	private readonly reverseCapacity: number;
 	private readonly reverseWindowSeconds: number;
 	private reverseEndTimestamp = -Infinity;
 
 	constructor(
-		private readonly createSink: (
-			hardwareAcceleration: HardwareAcceleration,
-			poolSize: number
-		) => VideoCanvasSink,
-		options: DecoderOptions = {}
+		private readonly createSink: (hardwareAcceleration: HardwareAcceleration) => SampleSink,
+		private readonly options: DecoderOptions
 	) {
-		this.reverseCapacity = options.reverse
-			? Math.max(
-					1,
-					Math.min(
-						MAX_REVERSE_CACHE_FRAMES,
-						Math.floor(REVERSE_CACHE_BYTES / (options.reverse.width * options.reverse.height * 4))
+		this.reverseCapacity =
+			options.reverseFps !== undefined
+				? Math.max(
+						1,
+						Math.min(
+							MAX_REVERSE_CACHE_FRAMES,
+							Math.floor(REVERSE_CACHE_BYTES / (options.width * options.height * 4))
+						)
 					)
-				)
-			: 0;
-		this.reverseWindowSeconds = options.reverse
-			? Math.min(1, (this.reverseCapacity - 1) / Math.max(1, options.reverse.fps))
-			: 0;
-		this.sink = createSink('no-preference', this.reverseCapacity || 2);
+				: 0;
+		this.reverseWindowSeconds =
+			options.reverseFps !== undefined
+				? Math.min(1, (this.reverseCapacity - 1) / Math.max(1, options.reverseFps))
+				: 0;
+		this.sink = createSink('no-preference');
 	}
 
-	async getCanvas(timestamp: number): Promise<WrappedCanvas | null> {
+	/** The returned frame is borrowed until the next read or disposal. */
+	async getFrame(timestamp: number): Promise<RenderedVideoFrame | null> {
 		const finishProfile = startProfileSpan('Video decode', 'Frame');
 		try {
 			return await this.read(timestamp);
@@ -69,14 +79,14 @@ export class ResilientVideoCanvasDecoder {
 			if (this.software || !isWebCodecsDecodingError(error)) throw error;
 			await this.reset();
 			this.software = true;
-			this.sink = this.createSink('prefer-software', this.reverseCapacity || 2);
+			this.sink = this.createSink('prefer-software');
 			return await this.read(timestamp);
 		} finally {
 			finishProfile?.();
 		}
 	}
 
-	private async read(timestamp: number): Promise<WrappedCanvas | null> {
+	private async read(timestamp: number): Promise<RenderedVideoFrame | null> {
 		if (this.reverseCapacity > 0) return this.readReverse(timestamp);
 		if (
 			timestamp < this.lastTimestamp ||
@@ -85,7 +95,7 @@ export class ResilientVideoCanvasDecoder {
 			await this.reset();
 		}
 		this.lastTimestamp = timestamp;
-		this.stream ??= this.sink.canvases(timestamp);
+		this.stream ??= this.sink.samples(timestamp);
 		while (!this.ended) {
 			if (!this.next) {
 				const result = await this.stream.next();
@@ -93,25 +103,35 @@ export class ResilientVideoCanvasDecoder {
 				this.next = result.value ?? null;
 			}
 			if (!this.next || this.next.timestamp > timestamp + 1e-10) break;
+			this.current?.close();
+			this.rendered?.source.close();
+			this.rendered = null;
 			this.current = this.next;
 			this.next = null;
 		}
-		return this.current;
+		if (!this.current) return null;
+		this.rendered ??= await this.renderSample(this.current);
+		return this.rendered;
 	}
 
-	private async readReverse(timestamp: number): Promise<WrappedCanvas | null> {
+	private async readReverse(timestamp: number): Promise<RenderedVideoFrame | null> {
 		const first = this.reverseFrames[0];
 		if (!first || timestamp < first.timestamp || timestamp > this.reverseEndTimestamp) {
 			await this.reset();
 			this.reverseEndTimestamp = timestamp;
-			this.stream = this.sink.canvases(
+			this.stream = this.sink.samples(
 				Math.max(0, timestamp - this.reverseWindowSeconds),
 				timestamp + 1e-10
 			);
 			try {
-				for await (const frame of this.stream) {
-					this.reverseFrames.push(frame);
-					if (this.reverseFrames.length > this.reverseCapacity) this.reverseFrames.shift();
+				for await (const sample of this.stream) {
+					try {
+						if (this.reverseFrames.length === this.reverseCapacity)
+							this.reverseFrames.shift()?.source.close();
+						this.reverseFrames.push(await this.renderSample(sample));
+					} finally {
+						sample.close();
+					}
 				}
 			} finally {
 				await this.stream.return();
@@ -121,12 +141,38 @@ export class ResilientVideoCanvasDecoder {
 		return this.reverseFrames.findLast((frame) => frame.timestamp <= timestamp + 1e-10) ?? null;
 	}
 
+	private async renderSample(sample: VideoSample): Promise<RenderedVideoFrame> {
+		// Transform only the selected source frame. The library preserves rotation, pixel aspect
+		// ratio, black letterboxing and mipmapped downscaling without painting skipped frames.
+		const transformed = await sample.transform({
+			width: this.options.width,
+			height: this.options.height,
+			fit: 'contain',
+			alpha: 'discard'
+		});
+		try {
+			return {
+				source: transformed.toVideoFrame(),
+				width: this.options.width,
+				height: this.options.height,
+				timestamp: sample.timestamp
+			};
+		} finally {
+			transformed.close();
+		}
+	}
+
 	private async reset(): Promise<void> {
 		const stream = this.stream;
 		this.stream = null;
+		this.current?.close();
+		this.next?.close();
+		this.rendered?.source.close();
+		this.rendered = null;
 		this.current = null;
 		this.next = null;
 		this.ended = false;
+		for (const frame of this.reverseFrames) frame.source.close();
 		this.reverseFrames.length = 0;
 		await stream?.return();
 	}

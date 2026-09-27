@@ -16,7 +16,7 @@ import {
 	AudioSampleSource,
 	BlobSource,
 	BufferTarget,
-	CanvasSink,
+	VideoSampleSink,
 	canEncodeVideo,
 	getFirstEncodableVideoCodec,
 	Input,
@@ -87,7 +87,7 @@ import { ensureProResDecoderForCodec } from './prores-decoder';
 import { ensureAc3DecoderForCodec } from './ac3-decoder';
 import { mixAudioWindows } from '../audio/bounded-audio-mixer';
 import { RenderDisposalGate } from './render-disposal';
-import { ResilientVideoCanvasDecoder } from './render-video-decoder';
+import { ResilientVideoFrameDecoder } from './render-video-decoder';
 
 export interface RenderExportProgress {
 	phase: 'preparing' | 'mixing' | 'rendering' | 'encoding' | 'finalizing';
@@ -275,7 +275,7 @@ export class TimelineFrameRenderer {
 	private readonly trackOrderById: Map<string, number>;
 	private readonly adjustmentLayers: AdjustmentLayerScope[];
 	private readonly videoTracks = new Map<string, Promise<InputVideoTrack | null>>();
-	private readonly decoders = new Map<string, ResilientVideoCanvasDecoder>();
+	private readonly decoders = new Map<string, ResilientVideoFrameDecoder>();
 	private readonly activeDecoders = new Set<string>();
 	private readonly imageCache = new Map<string, ImageBitmap>();
 	private readonly animatedFrames = new Map<string, Promise<AnimatedImageFramesResult | null>>();
@@ -400,7 +400,7 @@ export class TimelineFrameRenderer {
 		return videoTrack;
 	}
 
-	private async getDecoder(item: TimelineItem): Promise<ResilientVideoCanvasDecoder | null> {
+	private async getDecoder(item: TimelineItem): Promise<ResilientVideoFrameDecoder | null> {
 		const mediaId = item.mediaId;
 		if (!mediaId) return null;
 		this.activeDecoders.add(item.id);
@@ -414,19 +414,12 @@ export class TimelineFrameRenderer {
 		const existing = this.decoders.get(item.id);
 		if (existing) return existing;
 		// Clips sharing a source can play different times simultaneously, including in a transition.
-		const decoder = new ResilientVideoCanvasDecoder(
-			(hardwareAcceleration, poolSize) =>
-				new CanvasSink(videoTrack, {
-					width: this.width,
-					height: this.height,
-					fit: 'contain',
-					poolSize,
-					decoderOptions: { hardwareAcceleration }
-				}),
+		const decoder = new ResilientVideoFrameDecoder(
+			(hardwareAcceleration) => new VideoSampleSink(videoTrack, { hardwareAcceleration }),
 			{
-				reverse: item.isReversed
-					? { width: this.width, height: this.height, fps: item.sourceFps ?? this.fps }
-					: undefined
+				width: this.width,
+				height: this.height,
+				reverseFps: item.isReversed ? (item.sourceFps ?? this.fps) : undefined
 			}
 		);
 		this.decoders.set(item.id, decoder);
@@ -611,12 +604,12 @@ export class TimelineFrameRenderer {
 		if (resolvedItem.type === 'video') {
 			const decoder = await this.getDecoder(originalItem);
 			if (!decoder) return null;
-			const wrapped = await decoder.getCanvas(frameToSourceSeconds(originalItem, frame, this.fps));
+			const wrapped = await decoder.getFrame(frameToSourceSeconds(originalItem, frame, this.fps));
 			return wrapped
 				? {
-						source: wrapped.canvas,
-						width: wrapped.canvas.width,
-						height: wrapped.canvas.height
+						source: wrapped.source,
+						width: wrapped.width,
+						height: wrapped.height
 					}
 				: null;
 		}

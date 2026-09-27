@@ -43,3 +43,9 @@ Use a disposable local copy of a real project with original media, several cuts,
 Alternate baseline and candidate runs in the same browser and repeat each at least twice. Keep other exports and test suites idle. Report the individual results and median; do not count a warm cache or a browser change as a code improvement. Run Chrome and Brave separately. Measure throughput with tracing and the DOM scanner off, then capture a diagnostic recording to explain the result.
 
 Validate decoded output dimensions, duration, frame count, audio channels and amplitude, plus representative frames around cuts and transitions. A faster export with dropped frames or changed quality is not an equivalent result. Keep private project inputs, media, traces, and benchmark output under the ignored `tmp/` directory.
+
+## Isolate encoder overhead
+
+Prepare one corpus of rendered project frames before timing. Include motion, text, effects, and transitions. Feed identical pixel buffers, timestamps, and keyframe requests to the normal export library, direct WebCodecs, and, when available, the platform encoder. Match dimensions, frame rate, profile, bitrate mode, bitrate, color space, range, frame reordering, and latency settings. Confirm the native encoder's hardware status rather than inferring it from a requested hint.
+
+Keep input preparation and final file writing outside the encoder comparison, and report startup separately. Validate every decoded output frame against the other paths, not just compressed file sizes. Container metadata can change file hashes without changing the video. A short repeated corpus isolates encoder overhead; it does not establish a throughput ceiling for a complete project. Follow it with alternating full-project exports through the production renderer.

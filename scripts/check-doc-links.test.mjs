@@ -57,10 +57,16 @@ test("validates Fumadocs meta navigation and MDX link reachability", async () =>
   );
   await writeFile(path.join(docs, "guides", "index.mdx"), "Overview");
   await writeFile(path.join(docs, "guides", "quickstart.mdx"), "Done");
+  await mkdir(path.join(docs, "unindexed"));
+  await writeFile(path.join(docs, "unindexed", "child.mdx"), "Child page");
 
   assert.deepEqual(fumadocsNavigationTargets(root), ["/", "/guides", "/guides/quickstart"]);
   assert.equal(
     localDocumentationTargetExists(root, "apps/docs/content/docs/index.mdx", "/guides/missing"),
+    false,
+  );
+  assert.equal(
+    localDocumentationTargetExists(root, "apps/docs/content/docs/index.mdx", "/docs/unindexed"),
     false,
   );
   assert.deepEqual(

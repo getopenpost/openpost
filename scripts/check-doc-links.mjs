@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -128,7 +128,13 @@ export function localDocumentationCandidates(root, sourceFile, rawTarget) {
 
 export function localDocumentationTargetExists(root, sourceFile, target) {
   const candidates = localDocumentationCandidates(root, sourceFile, target);
-  return candidates.length === 0 || candidates.some((candidate) => existsSync(candidate));
+  const pageLink = sourceFile.startsWith("apps/docs/content/docs/");
+  return (
+    candidates.length === 0 ||
+    candidates.some(
+      (candidate) => existsSync(candidate) && (!pageLink || statSync(candidate).isFile()),
+    )
+  );
 }
 
 export function markdownTargets(contents) {

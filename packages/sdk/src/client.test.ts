@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { HttpClient } from "./client";
 import { OpenPostError } from "./errors";
 import { SDK_VERSION } from "./version";
+import { OpenPost } from "./index";
 
 function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -66,5 +67,45 @@ describe("HttpClient", () => {
     const http = new HttpClient({ baseUrl: "https://example.test", token: "tok", fetch });
     await expect(http.get("/api/v1/workspaces")).rejects.toBeInstanceOf(OpenPostError);
     expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("times out when a public SDK response body never finishes", async () => {
+    let bodyController: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          bodyController = controller;
+          init?.signal?.addEventListener(
+            "abort",
+            () => controller.error(new DOMException("The operation was aborted", "AbortError")),
+            { once: true },
+          );
+        },
+      });
+      return new Response(body, {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    const client = new OpenPost({
+      baseUrl: "https://example.test",
+      token: "tok",
+      timeoutMs: 10,
+      fetch,
+    });
+    const pending = client.workspaces.list();
+    const outcome = await Promise.race([
+      pending.then(
+        () => "resolved" as const,
+        (error: unknown) => error,
+      ),
+      new Promise<"pending">((resolve) => setTimeout(() => resolve("pending"), 40)),
+    ]);
+
+    if (outcome === "pending") bodyController?.close();
+    if (outcome === "pending") await pending.catch(() => undefined);
+
+    expect(outcome).toBeInstanceOf(OpenPostError);
+    expect((outcome as OpenPostError).code).toBe("timeout");
   });
 });

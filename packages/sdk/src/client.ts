@@ -178,23 +178,28 @@ export class HttpClient {
     }
     if (options.mimeType && !headers["Content-Type"]) headers["Content-Type"] = options.mimeType;
     let response: Response;
+    let responseText: string;
     try {
-      response = await this.fetchWithTimeout(url, {
-        method: options.method ?? "PUT",
-        headers,
-        body: body as BodyInit,
-      });
+      ({ response, text: responseText } = await this.fetchWithTimeout(
+        url,
+        {
+          method: options.method ?? "PUT",
+          headers,
+          body: body as BodyInit,
+        },
+        async (response) => ({ response, text: response.ok ? "" : await response.text() }),
+      ));
     } catch (error) {
+      if (error instanceof OpenPostError) throw error;
       throw new OpenPostError(`Upload failed: ${messageOf(error)}`, {
         code: "network",
         details: { cause: String(error) },
       });
     }
     if (!response.ok) {
-      const text = await response.text().catch(() => "");
       throw new OpenPostError(
-        `Upload failed with HTTP ${response.status}${text ? `: ${text.slice(0, 200)}` : ""}`,
-        { status: response.status, code: inferCode(response.status, text) },
+        `Upload failed with HTTP ${response.status}${responseText ? `: ${responseText.slice(0, 200)}` : ""}`,
+        { status: response.status, code: inferCode(response.status, responseText) },
       );
     }
   }
@@ -228,10 +233,14 @@ export class HttpClient {
     }
 
     let response: Response;
+    let text: string;
     try {
       const init: RequestInit = { method, headers };
       if (body !== undefined) init.body = body;
-      response = await this.fetchWithTimeout(url, init);
+      ({ response, text } = await this.fetchWithTimeout(url, init, async (response) => ({
+        response,
+        text: await response.text(),
+      })));
     } catch (error) {
       if (error instanceof OpenPostError) throw error;
       throw new OpenPostError(`Network error: ${messageOf(error)}`, {
@@ -240,7 +249,6 @@ export class HttpClient {
       });
     }
 
-    const text = await response.text();
     let parsed: unknown = null;
     if (text) {
       try {
@@ -279,13 +287,18 @@ export class HttpClient {
     return status === 429 || status >= 500;
   }
 
-  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  private async fetchWithTimeout<T>(
+    url: string,
+    init: RequestInit,
+    consume: (response: Response) => Promise<T>,
+  ): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      return await this.fetchImpl(url, { ...init, signal: controller.signal });
+      const response = await this.fetchImpl(url, { ...init, signal: controller.signal });
+      return await consume(response);
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
+      if (controller.signal.aborted) {
         throw new OpenPostError(`Request timed out after ${this.timeoutMs}ms`, { code: "timeout" });
       }
       throw error;

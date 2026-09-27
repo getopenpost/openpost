@@ -322,11 +322,16 @@ describe('route mutation sessions', () => {
 	});
 
 	it('does not apply an old publication search to the next Workspace', async () => {
-		getMock.mockImplementation(async (path) => {
+		const publicationQueries: { workspaceID: string; search?: string }[] = [];
+		getMock.mockImplementation(async (path, options) => {
 			if (path === '/engagement') {
 				return { data: { items: [], total: 0, sync_states: [], next_cursor: '' } };
 			}
 			if (path === '/publications') {
+				// SAFETY: The path check identifies the /publications query request.
+				const query = (options as { params: { query: { workspace_id: string; search?: string } } })
+					.params.query;
+				publicationQueries.push({ workspaceID: query.workspace_id, search: query.search });
 				return { data: [], response: new Response(null, { headers: { 'X-Next-Cursor': '' } }) };
 			}
 			if (path === '/accounts') return { data: [] };
@@ -339,19 +344,9 @@ describe('route mutation sessions', () => {
 		workspaceCtx.workspaces = [workspaceB];
 		workspaceCtx.settingsWorkspaceID = workspaceB.id;
 		await new Promise((resolve) => setTimeout(resolve, 300));
-		const nextWorkspaceSearches = getMock.mock.calls
-			.filter(
-				([path, options]) =>
-					path === '/publications' &&
-					// SAFETY: The path check identifies the /publications query request.
-					(options as { params: { query: { workspace_id: string } } }).params.query.workspace_id ===
-						workspaceB.id
-			)
-			.map(
-				([, options]) =>
-					// SAFETY: The filter above keeps only /publications query requests.
-					(options as { params: { query: { search?: string } } }).params.query.search ?? ''
-			);
+		const nextWorkspaceSearches = publicationQueries
+			.filter(({ workspaceID }) => workspaceID === workspaceB.id)
+			.map(({ search }) => search ?? '');
 		expect(nextWorkspaceSearches).not.toContain('old workspace search');
 	});
 

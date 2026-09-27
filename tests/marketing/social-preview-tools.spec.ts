@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { dismissTelemetryConsent } from "./helpers";
 
 async function select(page: import("@playwright/test").Page, name: string, option: string) {
   await page.getByRole("button", { name, exact: true }).click();
@@ -10,6 +11,7 @@ test("preview workspace keeps the draft when changing screen, appearance, and vi
 }) => {
   await page.goto("/tools");
   await page.waitForLoadState("networkidle");
+  await dismissTelemetryConsent(page);
   await page.getByRole("button", { name: "Previews", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search free tools" }).fill("LinkedIn");
   await page.getByRole("link", { name: /LinkedIn post preview/ }).click();
@@ -36,6 +38,7 @@ test("local media selection uses the destination limit without silently discardi
 }) => {
   await page.goto("/tools/post-preview-generator");
   await page.waitForLoadState("networkidle");
+  await dismissTelemetryConsent(page);
   await page.getByRole("button", { name: /Post details/ }).click();
   const image = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1kAAAAASUVORK5CYII=",
@@ -55,7 +58,9 @@ test("local media selection uses the destination limit without silently discardi
   await page.locator('input[type="file"]').setInputFiles(files);
   await expect(page.getByRole("button", { name: /^Remove photo-/ })).toHaveCount(5);
   await page.getByRole("button", { name: "View preview", exact: true }).click();
-  await select(page, "Platform", "X");
+  await page.getByRole("button", { name: "Platform", exact: true }).click();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("alert")).toContainText("exceeds the 4-image preview limit");
   await page.getByRole("button", { name: /Post details/ }).click();
   await expect(page.getByRole("button", { name: /^Remove photo-/ })).toHaveCount(5);
@@ -67,6 +72,7 @@ test("local media selection uses the destination limit without silently discardi
 test("channel and carousel previews accept mixed photo and video attachments", async ({ page }) => {
   await page.goto("/tools/discord-post-preview");
   await page.waitForLoadState("networkidle");
+  await dismissTelemetryConsent(page);
   for (const platform of ["Instagram", "Discord", "Threads", "Telegram"]) {
     await select(page, "Platform", platform);
     await page.getByRole("button", { name: /Post details/ }).click();
@@ -118,6 +124,7 @@ test("channel and carousel previews accept mixed photo and video attachments", a
 test("an oversized poll keeps every option visible and explains the limit", async ({ page }) => {
   await page.goto("/tools/x-post-preview");
   await page.waitForLoadState("networkidle");
+  await dismissTelemetryConsent(page);
   await page.getByRole("button", { name: /Post details/ }).click();
   await page.getByRole("checkbox", { name: "Include a poll" }).check();
   await page.getByLabel("Poll options, up to 4").fill("One\nTwo\nThree\nFour\nFive");
@@ -132,6 +139,7 @@ test("Story previews preserve the post draft and media while hiding unused copy"
 }) => {
   await page.goto("/tools/instagram-post-preview");
   await page.waitForLoadState("networkidle");
+  await dismissTelemetryConsent(page);
   await page.getByLabel("Post copy").fill("A caption for the feed, kept for later.");
   await page.getByRole("button", { name: /Post details/ }).click();
   await page

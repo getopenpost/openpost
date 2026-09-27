@@ -186,7 +186,9 @@
 							data-effect-catalog-id={item.id}
 							aria-label={item.label}
 							title={m.video_editor_effects_add_or_drag()}
-							onclick={() => apply(item.label, item.effects)}
+							onclick={(event) => {
+								if (event.detail <= 1) apply(item.label, item.effects);
+							}}
 							ondragstart={(event) => startDrag(event, item.label, item.effects)}
 							ondragend={clearEffectDragData}
 							onpointerenter={() => (activeId = item.id)}

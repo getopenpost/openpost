@@ -3096,7 +3096,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												<EffectBrowserPanel
 													selectedItemIds={selectedLeftPanelItemIds}
 													oninserted={handleVectorAssetInserted}
-													onedit={() => editorSession.scheduleAutosave()}
+													onedit={() => {
+														editorSession.scheduleAutosave();
+														editInspectorTab = 'effects';
+														expandRightSidebar();
+														mobileEditPane = 'tools';
+													}}
 												/>
 											{:else if leftPanel === 'transitions'}
 												<TransitionBrowserPanel onapply={handleApplyTransition} />

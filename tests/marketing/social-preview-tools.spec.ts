@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { dismissTelemetryConsent } from "./helpers";
 
+const photoFixture = "tests/app/fixtures/product-screenshots/lisbon-tram.png";
+
 async function select(page: import("@playwright/test").Page, name: string, option: string) {
   await page.getByRole("button", { name, exact: true }).click();
   await page.getByRole("option", { name: option, exact: true }).click();
@@ -78,12 +80,9 @@ test("channel and carousel previews accept mixed photo and video attachments", a
     await page.getByRole("button", { name: /Post details/ }).click();
     await page
       .locator('input[type="file"]')
-      .setInputFiles([
-        "apps/marketing/static/assets/marketing/studio-cup.webp",
-        "tests/app/fixtures/product-screenshots/study-sos-demo.mp4",
-      ]);
+      .setInputFiles([photoFixture, "tests/app/fixtures/product-screenshots/study-sos-demo.mp4"]);
     await expect(
-      page.getByRole("button", { name: "Remove studio-cup.webp", exact: true }),
+      page.getByRole("button", { name: "Remove lisbon-tram.png", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Remove study-sos-demo.mp4", exact: true }),
@@ -101,7 +100,7 @@ test("channel and carousel previews accept mixed photo and video attachments", a
         await page
           .locator('input[type="file"]')
           .setInputFiles([
-            "apps/marketing/static/assets/marketing/studio-cup.webp",
+            photoFixture,
             "tests/app/fixtures/product-screenshots/study-sos-demo.mp4",
           ]);
         await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
@@ -114,7 +113,7 @@ test("channel and carousel previews accept mixed photo and video attachments", a
   await expect(page.getByRole("alert")).toContainText("hidden from the preview");
   await page.getByRole("button", { name: /Post details/ }).click();
   await expect(
-    page.getByRole("button", { name: "Remove studio-cup.webp", exact: true }),
+    page.getByRole("button", { name: "Remove lisbon-tram.png", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Remove study-sos-demo.mp4", exact: true }),
@@ -142,10 +141,8 @@ test("Story previews preserve the post draft and media while hiding unused copy"
   await dismissTelemetryConsent(page);
   await page.getByLabel("Post copy").fill("A caption for the feed, kept for later.");
   await page.getByRole("button", { name: /Post details/ }).click();
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles("apps/marketing/static/assets/marketing/studio-cup.webp");
-  await page.getByLabel("Media alt text", { exact: true }).fill("A ceramic cup in a studio");
+  await page.locator('input[type="file"]').setInputFiles(photoFixture);
+  await page.getByLabel("Media alt text", { exact: true }).fill("A tram in Lisbon");
   await page.getByRole("button", { name: "View preview", exact: true }).click();
   await select(page, "Format", "story");
   await expect(page.getByLabel("Post copy")).toHaveCount(0);
@@ -153,11 +150,11 @@ test("Story previews preserve the post draft and media while hiding unused copy"
     page.getByText("Text must be part of your image or video.", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.locator("[data-preview-viewport]").getByRole("img", { name: "A ceramic cup in a studio" }),
+    page.locator("[data-preview-viewport]").getByRole("img", { name: "A tram in Lisbon" }),
   ).toBeVisible();
   await select(page, "Format", "post");
   await expect(page.getByLabel("Post copy")).toHaveValue("A caption for the feed, kept for later.");
   await expect(
-    page.locator("[data-preview-viewport]").getByRole("img", { name: "A ceramic cup in a studio" }),
+    page.locator("[data-preview-viewport]").getByRole("img", { name: "A tram in Lisbon" }),
   ).toBeVisible();
 });

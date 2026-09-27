@@ -36,6 +36,7 @@ import (
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
@@ -1113,5 +1114,14 @@ func (w *BackgroundWorker) ensureMediaLifecycleJobs(ctx context.Context) {
 func (w *BackgroundWorker) ensureQueueReminderSweepJob(ctx context.Context) {
 	if _, _, err := jobregistry.EnqueueQueueReminderSweep(ctx, w.db, time.Time{}); err != nil {
 		log.Printf("Failed to schedule queue reminder sweep: %v", err)
+	}
+}
+
+func (w *BackgroundWorker) SetWorkflowService(service *workflows.Service) {
+	w.executors[jobregistry.ExecuteWorkflow] = func(ctx context.Context, job *models.Job) error {
+		if service == nil {
+			return fmt.Errorf("workflows are unavailable")
+		}
+		return service.HandleJob(ctx, job.Type, job.Payload)
 	}
 }

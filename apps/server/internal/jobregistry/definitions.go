@@ -37,6 +37,9 @@ const (
 	TypeScheduledAccountCheck   = "scheduled_account_preflight"
 	TypeExternalWebhookDelivery = "external_webhook_delivery"
 	TypePostImportSync          = "post_import_sync"
+	TypeWorkflowSweep           = "workflow_sweep"
+	TypeWorkflowPoll            = "workflow_poll"
+	TypeWorkflowRun             = "workflow_run"
 )
 
 // ExecutionKind selects the injected implementation for a registered Job.
@@ -64,6 +67,7 @@ const (
 	ExecuteScheduledAccountCheck ExecutionKind = "scheduled_account_preflight"
 	ExecuteExternalWebhook       ExecutionKind = "external_webhook"
 	ExecutePostImport            ExecutionKind = "post_import"
+	ExecuteWorkflow              ExecutionKind = "workflow"
 )
 
 // FailurePolicy describes how the runtime interprets an execution error.
@@ -172,6 +176,9 @@ var definitions = map[string]Definition{
 	TypeExternalWebhookDelivery: definition(TypeExternalWebhookDelivery, 8, ExecuteExternalWebhook, FailureDefault, RecoveryRequeue),
 	TypePostImportSync: providerReadDefinition(TypePostImportSync, 3, ExecutePostImport, RecoveryRequeue,
 		"Native post import failed. OpenPost will resume from its stored checkpoint when the failure is temporary.", ""),
+	TypeWorkflowSweep: {Type: TypeWorkflowSweep, DefaultMaxAttempts: 5, Recurrence: time.Minute, Execution: ExecuteWorkflow, Failure: FailureDefault, Recovery: RecoveryRequeue},
+	TypeWorkflowPoll:  definition(TypeWorkflowPoll, 3, ExecuteWorkflow, FailureDefault, RecoveryRequeue),
+	TypeWorkflowRun:   definition(TypeWorkflowRun, 5, ExecuteWorkflow, FailureDefault, RecoveryRequeue),
 }
 
 func definition(jobType string, attempts int, execution ExecutionKind, failure FailurePolicy, recovery RecoveryPolicy) Definition {

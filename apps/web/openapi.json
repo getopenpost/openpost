@@ -22704,6 +22704,497 @@
 				"required": ["definition"],
 				"type": "object"
 			},
+			"Workflow": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/Workflow.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"definition": {
+						"$ref": "#/components/schemas/WorkflowDefinition"
+					},
+					"description": {
+						"type": "string"
+					},
+					"enabled": {
+						"type": "boolean"
+					},
+					"id": {
+						"type": "string"
+					},
+					"last_checked_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"published_revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"source_error": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"name",
+					"description",
+					"revision",
+					"published_revision",
+					"enabled",
+					"definition",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"WorkflowConnection": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowConnection.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "name", "kind", "created_at"],
+				"type": "object"
+			},
+			"WorkflowConnectionInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowConnectionInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 100,
+						"minLength": 1,
+						"type": "string"
+					},
+					"token": {
+						"maxLength": 1000,
+						"minLength": 10,
+						"type": "string"
+					}
+				},
+				"required": ["name", "token"],
+				"type": "object"
+			},
+			"WorkflowDefinition": {
+				"additionalProperties": false,
+				"properties": {
+					"schema": {
+						"format": "int64",
+						"maximum": 1,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"source": {
+						"$ref": "#/components/schemas/WorkflowSource"
+					},
+					"steps": {
+						"items": {
+							"$ref": "#/components/schemas/WorkflowStep"
+						},
+						"maxItems": 40,
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["schema", "source", "steps"],
+				"type": "object"
+			},
+			"WorkflowDeleteOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowDeleteOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"deleted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["deleted"],
+				"type": "object"
+			},
+			"WorkflowRevisionInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowRevisionInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"expected_revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"publication_revision": {
+						"format": "int64",
+						"minimum": 0,
+						"type": "integer"
+					}
+				},
+				"required": ["expected_revision"],
+				"type": "object"
+			},
+			"WorkflowRun": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowRun.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"current_step_id": {
+						"type": "string"
+					},
+					"definition": {
+						"$ref": "#/components/schemas/WorkflowDefinition"
+					},
+					"error": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"mode": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"source": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"state": {
+						"type": "string"
+					},
+					"steps": {
+						"items": {
+							"$ref": "#/components/schemas/WorkflowStepResult"
+						},
+						"type": ["array", "null"]
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"wake_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workflow_id": {
+						"type": "string"
+					},
+					"workflow_name": {
+						"type": "string"
+					},
+					"workflow_revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workflow_id",
+					"workspace_id",
+					"workflow_name",
+					"workflow_revision",
+					"mode",
+					"state",
+					"revision",
+					"definition",
+					"source",
+					"steps",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"WorkflowSaveRequest": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowSaveRequest.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"definition": {
+						"$ref": "#/components/schemas/WorkflowDefinition"
+					},
+					"description": {
+						"maxLength": 500,
+						"type": "string"
+					},
+					"expected_revision": {
+						"format": "int64",
+						"minimum": 0,
+						"type": "integer"
+					},
+					"name": {
+						"maxLength": 100,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["name", "description", "expected_revision", "definition"],
+				"type": "object"
+			},
+			"WorkflowSource": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowSource.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"account_ids": {
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 50,
+						"type": ["array", "null"]
+					},
+					"connection_id": {
+						"type": "string"
+					},
+					"include_prereleases": {
+						"type": "boolean"
+					},
+					"kind": {
+						"enum": ["manual", "github_release", "rss", "rendition_published"],
+						"type": "string"
+					},
+					"repository": {
+						"maxLength": 200,
+						"type": "string"
+					},
+					"url": {
+						"maxLength": 2048,
+						"type": "string"
+					}
+				},
+				"required": ["kind"],
+				"type": "object"
+			},
+			"WorkflowSourceItem": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"body": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"publication_id": {
+						"type": "string"
+					},
+					"published_at": {
+						"type": "string"
+					},
+					"rendition_id": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"url": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "title", "body", "url", "published_at"],
+				"type": "object"
+			},
+			"WorkflowStartInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowStartInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"expected_revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"mode": {
+						"enum": ["preview", "live"],
+						"type": "string"
+					},
+					"source": {
+						"additionalProperties": {},
+						"type": "object"
+					}
+				},
+				"required": ["expected_revision", "mode", "source"],
+				"type": "object"
+			},
+			"WorkflowStep": {
+				"additionalProperties": false,
+				"properties": {
+					"else": {
+						"items": {
+							"$ref": "#/components/schemas/WorkflowStep"
+						},
+						"maxItems": 40,
+						"type": ["array", "null"]
+					},
+					"id": {
+						"maxLength": 64,
+						"type": "string"
+					},
+					"inputs": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/WorkflowValue"
+						},
+						"type": "object"
+					},
+					"kind": {
+						"enum": [
+							"create_draft",
+							"build_draft",
+							"approval",
+							"schedule",
+							"reply",
+							"wait",
+							"condition",
+							"metrics"
+						],
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 100,
+						"type": "string"
+					},
+					"then": {
+						"items": {
+							"$ref": "#/components/schemas/WorkflowStep"
+						},
+						"maxItems": 40,
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["id", "kind", "name", "inputs"],
+				"type": "object"
+			},
+			"WorkflowStepResult": {
+				"additionalProperties": false,
+				"properties": {
+					"completed_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"error": {
+						"type": "string"
+					},
+					"inputs": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"output": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"started_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"state": {
+						"type": "string"
+					},
+					"step_id": {
+						"type": "string"
+					}
+				},
+				"required": ["step_id", "kind", "name", "state", "inputs", "output", "started_at"],
+				"type": "object"
+			},
+			"WorkflowValue": {
+				"additionalProperties": false,
+				"properties": {
+					"literal": {},
+					"reference": {
+						"maxLength": 200,
+						"type": "string"
+					}
+				},
+				"type": "object"
+			},
 			"WorkspaceAccessAuditResponse": {
 				"additionalProperties": false,
 				"properties": {
@@ -52247,6 +52738,1916 @@
 				},
 				"summary": "Set the Workspace default Voice Profile",
 				"tags": ["Voice Profiles"]
+			}
+		},
+		"/workflow-connections": {
+			"get": {
+				"operationId": "list-workflow-connections",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workflow_id",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/WorkflowConnection"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "List workflow connections without secrets",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
+			},
+			"post": {
+				"operationId": "create-workflow-connection",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowConnectionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowConnection"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Store an encrypted GitHub access token",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflow-connections/{id}": {
+			"delete": {
+				"operationId": "delete-workflow-connection",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowDeleteOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Delete an unused workflow connection",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "destructive",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflow-runs": {
+			"get": {
+				"operationId": "list-workflow-runs",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workflow_id",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/WorkflowRun"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "List the latest 50 workspace workflow runs",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
+			}
+		},
+		"/workflow-runs/{id}": {
+			"get": {
+				"operationId": "get-workflow-run",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowRun"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Inspect a workflow run and its step results",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
+			}
+		},
+		"/workflow-runs/{id}/approve": {
+			"post": {
+				"operationId": "approve-workflow-run",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowRevisionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowRun"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Approve the exact reviewed post revision and continue",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "external-action",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflow-runs/{id}/cancel": {
+			"post": {
+				"operationId": "cancel-workflow-run",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowRevisionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowRun"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Cancel remaining steps; an action already dispatched may finish",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflow-sources/sample": {
+			"post": {
+				"operationId": "sample-workflow-source",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowSource"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/WorkflowSourceItem"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Read source examples without advancing a production cursor",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflows": {
+			"get": {
+				"operationId": "list-workflows",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workflow_id",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/Workflow"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "List workspace workflows",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
+			},
+			"post": {
+				"operationId": "create-workflow",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowSaveRequest"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Workflow"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Create a workflow draft",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflows/{id}": {
+			"delete": {
+				"operationId": "delete-workflow",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowDeleteOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Delete a paused workflow with no active runs",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "destructive",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			},
+			"get": {
+				"operationId": "get-workflow",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Workflow"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Get a workflow draft",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
+			},
+			"put": {
+				"operationId": "save-workflow",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowSaveRequest"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Workflow"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Save a workflow draft with revision checking",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflows/{id}/pause": {
+			"post": {
+				"operationId": "pause-workflow",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowRevisionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Workflow"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Stop new automatic runs; existing runs continue",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflows/{id}/publish": {
+			"post": {
+				"operationId": "publish-workflow",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowRevisionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Workflow"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Publish this workflow revision and enable its source",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "external-action",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflows/{id}/runs": {
+			"post": {
+				"operationId": "start-workflow-run",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowStartInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowRun"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Preview a workflow without effects or explicitly start a live run",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "external-action",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/workspace-invitations/accept": {

@@ -406,3 +406,25 @@ func requireLifecycleTypes(t *testing.T, events []models.PublicationLifecycleEve
 		require.Equal(t, eventType, events[i].Type)
 	}
 }
+
+func TestPublishedTransitionRecoversWithItsDurableEventWithoutAnotherSend(t *testing.T) {
+	adapter := &fakePublisherAdapter{externalID: "external-1"}
+	srv := newPublisherLifecycleTestServer(t, adapter)
+	ctx, payload := srv.authorizedPublicationJob(t)
+	_, err := srv.db.ExecContext(ctx, `CREATE TRIGGER reject_published_event BEFORE INSERT ON publication_lifecycle_events WHEN NEW.type = 'published' BEGIN SELECT RAISE(ABORT, 'event storage failed'); END`)
+	require.NoError(t, err)
+	require.Error(t, srv.service.HandlePublishPublicationJob(ctx, payload))
+	var rendition models.Rendition
+	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
+	require.NotEqual(t, models.RenditionStatusPublished, rendition.Status)
+	require.True(t, rendition.ErrorRetryable)
+	_, err = srv.db.ExecContext(ctx, `DROP TRIGGER reject_published_event`)
+	require.NoError(t, err)
+	require.NoError(t, srv.service.HandlePublishPublicationJob(ctx, payload))
+	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
+	require.Equal(t, models.RenditionStatusPublished, rendition.Status)
+	require.Equal(t, 1, adapter.publishCalls)
+	count, err := srv.db.NewSelect().Model((*models.PublicationLifecycleEvent)(nil)).Where("rendition_id = ? AND type = ?", "rendition-1", lifecycle.EventPublished).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}

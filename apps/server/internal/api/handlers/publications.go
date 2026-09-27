@@ -1366,6 +1366,19 @@ func (h *PublicationHandler) queueRenditionReply(
 	media any,
 	runAt time.Time,
 ) (string, error) {
+	return h.queueRenditionReplyCommand(ctx, rendition, publication, body, parentID, settings, media, runAt, nil)
+}
+
+func (h *PublicationHandler) queueRenditionReplyCommand(
+	ctx context.Context,
+	rendition *models.Rendition,
+	publication *models.Publication,
+	body, parentID string,
+	settings map[string]interface{},
+	media any,
+	runAt time.Time,
+	request *idempotency.Request,
+) (string, error) {
 	confirmedAt := time.Now().UTC()
 	runAt = runAt.UTC()
 	if runAt.IsZero() {
@@ -1394,7 +1407,7 @@ func (h *PublicationHandler) queueRenditionReply(
 			return "", err
 		}
 	}
-	err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+	persist := func(txCtx context.Context, tx bun.Tx) error {
 		if err := lockOrganizationForPublicationMutationTx(txCtx, tx, publication.ID); err != nil {
 			return err
 		}
@@ -1427,8 +1440,29 @@ func (h *PublicationHandler) queueRenditionReply(
 			Settings: map[string]any{"parent_id": parentID, "settings": settings},
 		})
 		return err
+	}
+	if request == nil {
+		err = h.db.RunInTx(ctx, &sql.TxOptions{}, persist)
+		return jobID, err
+	}
+	request.RequestHash, err = idempotency.Hash(struct {
+		RenditionID string
+		Body        string
+		ParentID    string
+		Settings    map[string]interface{}
+		Media       any
+		RunAt       time.Time
+	}{rendition.ID, body, parentID, settings, media, runAt})
+	if err != nil {
+		return "", err
+	}
+	result, err := idempotency.Execute(ctx, h.db, *request, func(txCtx context.Context, tx bun.Tx) (string, error) {
+		if err := persist(txCtx, tx); err != nil {
+			return "", err
+		}
+		return jobID, nil
 	})
-	return jobID, err
+	return result.Value, err
 }
 
 func (h *PublicationHandler) activePublicationReplyJobsTx(

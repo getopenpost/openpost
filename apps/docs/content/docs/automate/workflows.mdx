@@ -1,0 +1,60 @@
+---
+title: Native workflows
+description: Turn releases, feed items, and published posts into repeatable content work inside OpenPost.
+icon: Workflow
+---
+
+Open **More → Workflows** in your workspace. Start from a GitHub release, RSS feed, or follow-up template, or choose **New workflow** to build your own.
+
+Workflows use your existing OpenPost accounts and posts. They can create drafts, use the AI Builder, wait for review, schedule posts, wait, branch on a condition, read collected metrics, and queue replies. Existing repost settings continue to work separately.
+
+## Make a release announcement
+
+1. Choose the GitHub release template and enter `owner/repository`.
+2. Select **Create draft** on the canvas or in the **Steps** menu.
+3. Write the post and use **Insert a field** to include the release title, notes, or link. Select the destination accounts.
+4. Keep **Review post** after the draft so each announcement waits for a decision.
+5. Open **Preview**. Use the supplied example or choose **Fetch an example**, then select **Run preview**.
+6. Inspect the step inputs and outputs. When the configuration is ready, select **Publish workflow**.
+
+Public GitHub repositories need no connection. For a private repository, a workspace administrator can save a GitHub access token under **Add connection**. Give the token access to the intended repository and permission to read its contents. OpenPost stores it encrypted and does not include it in run data.
+
+GitHub and RSS/Atom sources check every five minutes. Activation records existing items as the starting point; they do not create runs. Future items start runs once each. A feed can only supply items it still retains. Catching up across many GitHub releases may take several checks.
+
+## Edit a workflow
+
+Changes save automatically. **Saved** confirms the current draft reached the server. If another editor changes the same workflow, resolve the conflict before continuing.
+
+Draft edits take effect for automatic runs when you publish the workflow again. Runs already started retain their original definition. Use the canvas to select steps or the **Steps** menu to navigate with the keyboard. On a phone, switch between **Configure step** and **Show canvas**.
+
+A condition has a Yes path and a No path. After the chosen path finishes, the run continues with the following step. Fields can refer to source data or an earlier step on the same path. Missing data fails the step instead of silently substituting an empty value.
+
+For equality conditions, a number or boolean from an earlier step accepts the corresponding entered value, such as `10` or `true`. Two text values use exact text equality. **Contains** ignores letter case. Numeric comparisons reject values that cannot be read as finite numbers.
+
+## Preview and live runs
+
+**Run preview** resolves your fields and conditions using example outputs for native actions. It creates no posts, invokes no AI generation, queues no replies, and skips waits and approvals. Metric values in a preview are examples.
+
+Reading source examples is a real read from the selected source. It does not start a run or change which future items will be admitted.
+
+**Run live** performs the saved draft's configured actions using the sample input currently shown. Use it only when you intend those actions to occur. It can create posts or queue work even while automatic runs are paused.
+
+## Review and schedule
+
+Open **Runs**, select a run waiting for approval, and inspect the displayed post revision and destination variants. **Open post** opens the normal editor. After editing, return to the run and review its current revision before approving it.
+
+To schedule an approved post, add **Schedule post** after **Review post**. Select the review step's post and revision as its inputs. A later edit to the post makes that revision stale and blocks scheduling until the conflict is resolved. Scheduling still follows normal account, provider, and publishing checks.
+
+The AI draft step uses the configured AI Builder. Metrics come from successful, recent Analytics observations; unavailable or stale metrics are errors, not zero counts. Replies use the native publishing queue and the destination's provider rules.
+
+## Inspect, pause, and stop
+
+Run details show each step's input, output, result, and failure. Drafts, scheduled posts, and provider outcomes remain visible in **Publications**.
+
+**Pause new runs** stops automatic admission. Existing runs continue. **Cancel remaining steps** stops the rest of one run; an action already accepted may finish. It does not delete a draft or cancel a publication already queued. Manage that post in Publications when needed.
+
+Delete a workflow only after pausing it and finishing or cancelling its active runs. Deletion removes its run history; created posts remain. Remove a GitHub connection from workflow drafts and pause active revisions using it before deleting the connection.
+
+Workspace viewers can inspect workflows. Editors can configure and preview them. Administrators can publish workflows, start live runs, approve posts, cancel runs, and manage connections. Execution rechecks the activating user's access.
+
+A workflow supports up to 40 steps and four branch levels. A workspace supports 100 workflows and 1,000 active runs. Runs expire after 30 days. The run list shows the latest 50 runs. These are execution limits, separate from plan limits and provider capabilities.

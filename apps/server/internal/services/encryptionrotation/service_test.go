@@ -36,6 +36,7 @@ func rotationTestDB(t *testing.T) *bun.DB {
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
 	statements := []string{
+		`CREATE TABLE workflow_connections (id TEXT PRIMARY KEY, ciphertext BLOB)`,
 		`CREATE TABLE users (id TEXT PRIMARY KEY, totp_secret_encrypted BLOB)`,
 		`CREATE TABLE identity_providers (id TEXT PRIMARY KEY, client_secret_encrypted BLOB)`,
 		`CREATE TABLE oidc_auth_requests (id TEXT PRIMARY KEY, pkce_verifier_encrypted BLOB)`,
@@ -75,6 +76,7 @@ func legacyCiphertext(t *testing.T, key, plaintext string) []byte {
 func seedEncryptedColumns(t *testing.T, db *bun.DB, key string) []encryptedFixture {
 	t.Helper()
 	fixtures := []encryptedFixture{
+		{table: "workflow_connections", column: "ciphertext", primaryKey: []string{"id"}, keyValues: []string{"workflow"}, plaintext: "github-test-token"},
 		{table: "users", column: "totp_secret_encrypted", primaryKey: []string{"id"}, keyValues: []string{"user"}, plaintext: "totp-secret"},
 		{table: "identity_providers", column: "client_secret_encrypted", primaryKey: []string{"id"}, keyValues: []string{"identity"}, plaintext: "identity-secret"},
 		{table: "oidc_auth_requests", column: "pkce_verifier_encrypted", primaryKey: []string{"id"}, keyValues: []string{"request"}, plaintext: "pkce-verifier"},
@@ -160,8 +162,8 @@ func TestRotateReencryptsEveryPersistedCiphertextAndVerifiesCurrentKey(t *testin
 	result, err := Rotate(t.Context(), db, encryptor)
 
 	require.NoError(t, err)
-	require.Equal(t, 19, result.RotatedCiphertexts)
-	require.Equal(t, 19, result.VerifiedCiphertexts)
+	require.Equal(t, 20, result.RotatedCiphertexts)
+	require.Equal(t, 20, result.VerifiedCiphertexts)
 	for _, fixture := range fixtures {
 		var ciphertext []byte
 		arguments := make([]any, 0, len(fixture.keyValues))
@@ -188,7 +190,7 @@ func TestRotateReencryptsEveryPersistedCiphertextAndVerifiesCurrentKey(t *testin
 	secondResult, err := Rotate(t.Context(), db, encryptor)
 	require.NoError(t, err)
 	require.Zero(t, secondResult.RotatedCiphertexts)
-	require.Equal(t, 19, secondResult.VerifiedCiphertexts)
+	require.Equal(t, 20, secondResult.VerifiedCiphertexts)
 }
 
 func TestRotateRollsBackWhenAnyCiphertextCannotBeVerified(t *testing.T) {

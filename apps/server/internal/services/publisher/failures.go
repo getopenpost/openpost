@@ -58,9 +58,22 @@ func (e *RetryableError) Error() string {
 	return e.Failure.Message
 }
 
+// A provider-write receipt already holds the accepted result. Retry the same
+// authorization so local state and its event can finish without another send.
+type renditionCompletionError struct{ cause error }
+
+func (e *renditionCompletionError) Error() string {
+	return "finalizing accepted publication: " + e.cause.Error()
+}
+func (e *renditionCompletionError) Unwrap() error { return e.cause }
+
 func ClassifyFailure(err error) Failure {
 	if err == nil {
 		return Failure{}
+	}
+	var completion *renditionCompletionError
+	if errors.As(err, &completion) {
+		return Failure{Kind: FailureUnknown, Code: "publication_finalization_pending", Retryable: true, Action: FailureActionRetry, Message: "The provider accepted this post. OpenPost will retry saving its result without sending it again."}
 	}
 	if retryAfter, pending := providerwrite.IsPending(err); pending {
 		failure := failureForKind(FailureProviderProcessing, "provider_submission_pending", 0, retryAfter)
@@ -68,16 +81,7 @@ func ClassifyFailure(err error) Failure {
 		return failure
 	}
 	if providerwrite.IsAmbiguous(err) {
-		if retryAfter, retryable := providerwrite.IsRetryable(err); retryable {
-			failure := failureForKind(FailureProviderProcessing, "idempotent_provider_retry", 0, retryAfter)
-			failure.Message = "The provider result was interrupted. OpenPost will retry with the same provider idempotency key."
-			return failure
-		}
-		failure := failureForKind(FailureUnknown, "ambiguous_provider_write", 0, 0)
-		failure.Message = "The provider may have accepted this publish. OpenPost did not send it again. Check the provider before retrying manually."
-		failure.Action = FailureActionProvider
-		failure.Retryable = false
-		return failure
+		return classifyAmbiguousWrite(err)
 	}
 	if retryClass, ok := platform.MediaRetryClassificationForError(err); ok {
 		failure := failureForKind(FailureProviderProcessing, "", 0, 0)
@@ -106,6 +110,19 @@ func ClassifyFailure(err error) Failure {
 		return failureForKind(FailureNetwork, "", 0, 0)
 	}
 	return classifyFailureMessage(lower)
+}
+
+func classifyAmbiguousWrite(err error) Failure {
+	if retryAfter, retryable := providerwrite.IsRetryable(err); retryable {
+		failure := failureForKind(FailureProviderProcessing, "idempotent_provider_retry", 0, retryAfter)
+		failure.Message = "The provider result was interrupted. OpenPost will retry with the same provider idempotency key."
+		return failure
+	}
+	failure := failureForKind(FailureUnknown, "ambiguous_provider_write", 0, 0)
+	failure.Message = "The provider may have accepted this publish. OpenPost did not send it again. Check the provider before retrying manually."
+	failure.Action = FailureActionProvider
+	failure.Retryable = false
+	return failure
 }
 
 func classifyProviderHTTPFailure(err error) (Failure, bool) {

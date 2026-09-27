@@ -56,7 +56,7 @@
 	const sidebarNavigationItems = $derived(workspaceNavigationItems);
 	const moreNavigationItems = $derived(
 		navigationItems.filter((item) =>
-			['publications', 'media', 'growth', 'editors'].includes(item.id)
+			['publications', 'media', 'growth', 'editors', 'workflows'].includes(item.id)
 		)
 	);
 	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
@@ -77,6 +77,8 @@
 				return 'communications';
 			case 'media':
 				return 'media';
+			case 'workflows':
+				return 'repeat';
 			case 'editors':
 				return 'editors';
 			default:
@@ -100,6 +102,8 @@
 				return m.sidebar_communications();
 			case 'media':
 				return m.sidebar_media();
+			case 'workflows':
+				return m.workflows_title();
 			case 'editors':
 				return m.editors_title();
 			case 'settings':

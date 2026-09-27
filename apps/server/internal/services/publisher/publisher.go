@@ -602,28 +602,10 @@ func (s *Service) publishRendition(
 		externalURL = publisherExternalURL(externalID)
 	}
 	publishedAt := time.Now().UTC()
-	if _, err := s.db.NewUpdate().Model(rendition).
-		Set("status = ?", models.RenditionStatusPublished).
-		Set("external_id = ?", externalID).
-		Set("external_url = ?", externalURL).
-		Set("error_message = ''").
-		Set("error_kind = ''").
-		Set("error_code = ''").
-		Set("error_http_status = 0").
-		Set("error_retryable = ?", false).
-		Set("error_retry_at = NULL").
-		Set("error_action = ''").
-		Set("updated_at = ?", publishedAt).
-		Where("id = ?", rendition.ID).
-		Exec(ctx); err != nil {
-		return fmt.Errorf("updating rendition status: %w", err)
+	if err := s.completeRendition(ctx, publication, rendition, externalID, externalURL, publishedAt); err != nil {
+		return err
 	}
 	s.recordPublishedPost(ctx, publication.WorkspaceID)
-	s.recordPublicationLifecycleEvent(ctx, publication.WorkspaceID, publication.ID, rendition.ID, lifecycle.EventPublished, lifecycle.StatusSucceeded, "rendition published", map[string]any{
-		"platform":     rendition.Platform,
-		"external_id":  externalID,
-		"external_url": externalURL,
-	})
 	s.captureRenditionEvent(ctx, telemetry.EventRenditionPublished, publication, rendition, nil, rendition.ID, publishedAt)
 	s.scheduleReposts(ctx, rendition.ID)
 	s.publishFirstCommentBestEffort(ctx, publication, rendition, provider, token, account.AccountID, externalID, settings)
@@ -899,21 +881,8 @@ func (s *Service) publishRenditionSegments(
 	}
 
 	publishedAt := time.Now().UTC()
-	if _, err := s.db.NewUpdate().Model(rendition).
-		Set("status = ?", models.RenditionStatusPublished).
-		Set("external_id = ?", rootExternalID).
-		Set("external_url = ?", rootExternalURL).
-		Set("error_message = ''").
-		Set("error_kind = ''").
-		Set("error_code = ''").
-		Set("error_http_status = 0").
-		Set("error_retryable = ?", false).
-		Set("error_retry_at = NULL").
-		Set("error_action = ''").
-		Set("updated_at = ?", publishedAt).
-		Where("id = ?", rendition.ID).
-		Exec(ctx); err != nil {
-		return fmt.Errorf("updating segmented rendition status: %w", err)
+	if err := s.completeRendition(ctx, publication, rendition, rootExternalID, rootExternalURL, publishedAt); err != nil {
+		return err
 	}
 	s.captureRenditionEvent(ctx, telemetry.EventRenditionPublished, publication, rendition, map[string]any{
 		"segment_count": len(segments),
@@ -2633,4 +2602,33 @@ func (s *Service) getPublicMediaURL(media models.MediaAttachment) string {
 		media,
 		time.Now().UTC().Add(15*time.Minute),
 	)
+}
+
+// The published state and its durable event are one commit. Source consumers can
+// recover missed worker wakeups by reading the event after a process restart.
+func (s *Service) completeRendition(ctx context.Context, publication *models.Publication, rendition *models.Rendition, externalID, externalURL string, publishedAt time.Time) error {
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model(rendition).
+			Set("status = ?", models.RenditionStatusPublished).
+			Set("external_id = ?", externalID).
+			Set("external_url = ?", externalURL).
+			Set("error_message = ''").
+			Set("error_kind = ''").
+			Set("error_code = ''").
+			Set("error_http_status = 0").
+			Set("error_retryable = ?", false).
+			Set("error_retry_at = NULL").
+			Set("error_action = ''").
+			Set("updated_at = ?", publishedAt).
+			Where("id = ?", rendition.ID).
+			Exec(ctx); err != nil {
+			return fmt.Errorf("updating rendition status: %w", err)
+		}
+		_, err := lifecycle.NewService(tx).Record(ctx, lifecycle.EventInput{WorkspaceID: publication.WorkspaceID, PublicationID: publication.ID, RenditionID: rendition.ID, Type: lifecycle.EventPublished, Status: lifecycle.StatusSucceeded, Message: "rendition published", CreatedAt: publishedAt, Metadata: map[string]any{"platform": rendition.Platform, "external_id": externalID, "external_url": externalURL}})
+		return err
+	})
+	if err != nil {
+		return &renditionCompletionError{cause: err}
+	}
+	return nil
 }

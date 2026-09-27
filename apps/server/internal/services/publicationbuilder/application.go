@@ -333,6 +333,21 @@ func (application *Application) Enqueue(ctx context.Context, request CreateBuild
 	return build, true, err
 }
 
+// FindByKey resumes the original build after a caller loses its response. The
+// saved request remains authoritative even if destination settings later change.
+func (application *Application) FindByKey(ctx context.Context, workspaceID, userID, key string) (Build, bool, error) {
+	var record BuildRecord
+	err := application.db.NewSelect().Model(&record).Where("workspace_id = ? AND created_by_id = ? AND idempotency_key = ?", workspaceID, userID, key).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Build{}, false, nil
+	}
+	if err != nil {
+		return Build{}, false, err
+	}
+	build, err := decodeBuild(record)
+	return build, true, err
+}
+
 func (application *Application) Get(ctx context.Context, userID, buildID string) (Build, error) {
 	var record BuildRecord
 	err := application.db.NewSelect().Model(&record).

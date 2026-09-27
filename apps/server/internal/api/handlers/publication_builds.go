@@ -43,6 +43,7 @@ const (
 )
 
 type publicationBuildApplication interface {
+	FindByKey(context.Context, string, string, string) (publicationbuilder.Build, bool, error)
 	Enqueue(context.Context, publicationbuilder.CreateBuildRequest) (publicationbuilder.Build, bool, error)
 	Get(context.Context, string, string) (publicationbuilder.Build, error)
 	Retry(context.Context, string, string) (publicationbuilder.Build, error)

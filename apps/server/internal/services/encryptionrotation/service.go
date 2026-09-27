@@ -30,6 +30,7 @@ type columnTarget struct {
 }
 
 var columnTargets = []columnTarget{
+	{table: "workflow_connections", primaryKeys: []string{"id"}, columns: []string{"ciphertext"}},
 	{table: "users", primaryKeys: []string{"id"}, columns: []string{"totp_secret_encrypted"}},
 	{table: "identity_providers", primaryKeys: []string{"id"}, columns: []string{"client_secret_encrypted"}},
 	{table: "oidc_auth_requests", primaryKeys: []string{"id"}, columns: []string{"pkce_verifier_encrypted"}},

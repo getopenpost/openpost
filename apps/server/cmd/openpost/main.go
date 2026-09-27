@@ -87,6 +87,7 @@ import (
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/services/workspaceteam"
 	"github.com/openpost/backend/internal/telemetry"
 )
@@ -713,6 +714,7 @@ func main() {
 	}, feedbackDestination)
 
 	organizationOwnershipService := organizationownership.NewService(db, notificationService, identityService)
+	workflowService := workflows.NewService(db, nil, tokenEncryptor)
 	var worker *queue.BackgroundWorker
 	var discordPresenceService *discordpresence.Service
 	if command.role.runsWorker() {
@@ -730,6 +732,7 @@ func main() {
 			break
 		}
 		worker = queue.NewWorker(db, newWorkerID(), 1*time.Second, publishSvc, tokenManager, storage)
+		worker.SetWorkflowService(workflowService)
 		worker.SetFeedbackService(feedbackService)
 		worker.SetAnalyticsService(analyticsService)
 		worker.SetBillingService(billingService)
@@ -747,6 +750,9 @@ func main() {
 		worker.SetExternalWebhookService(externalWebhookService)
 		worker.SetTelemetry(telemetryRecorder)
 		worker.SetDiagnosticsReporter(diagnosticsReporter)
+		if err := workflowService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			fatalfWithDiagnostics(diagnosticsReporter, "failed to schedule workflows: %v", err)
+		}
 		if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 			fatalfWithDiagnostics(diagnosticsReporter, "failed to schedule pending video analysis: %v", err)
 		}
@@ -830,6 +836,7 @@ func main() {
 	githubStarsService := githubstars.NewService(githubstars.Options{})
 	apiroutes.RegisterHumaRoutes(api, apiroutes.RouteDeps{
 		DB:                        db,
+		WorkflowService:           workflowService,
 		Readiness:                 readiness,
 		AuthService:               authService,
 		Authenticator:             authenticator,

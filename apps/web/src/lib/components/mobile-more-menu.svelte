@@ -10,7 +10,9 @@
 	import WorkspaceMenuItems from './workspace-menu-items.svelte';
 	import AccountPreferencesMenu from './account-preferences-menu.svelte';
 	const destinations = $derived(
-		primaryNavigation.filter((item) => ['analytics', 'growth', 'editors'].includes(item.id))
+		primaryNavigation.filter((item) =>
+			['analytics', 'growth', 'editors', 'workflows'].includes(item.id)
+		)
 	);
 	let { onNavigate }: { onNavigate: () => void } = $props();
 	let section = $state<'main' | 'workspace' | 'profile'>('main');
@@ -55,13 +57,21 @@
 				goto(resolveAppPath(item.href));
 			}}
 			><ThemeIcon
-				role={item.id === 'analytics' ? 'analytics' : item.id === 'growth' ? 'growth' : 'editors'}
+				role={item.id === 'workflows'
+					? 'repeat'
+					: item.id === 'analytics'
+						? 'analytics'
+						: item.id === 'growth'
+							? 'growth'
+							: 'editors'}
 				class="size-4"
-			/>{item.id === 'analytics'
-				? m.sidebar_analytics()
-				: item.id === 'growth'
-					? m.sidebar_grow()
-					: m.editors_title()}</DropdownMenu.Item
+			/>{item.id === 'workflows'
+				? m.workflows_title()
+				: item.id === 'analytics'
+					? m.sidebar_analytics()
+					: item.id === 'growth'
+						? m.sidebar_grow()
+						: m.editors_title()}</DropdownMenu.Item
 		>
 	{/each}
 	<DropdownMenu.Separator />

@@ -356,6 +356,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "automate/workflows.mdx",
+    "title": "Native workflows",
+    "description": "Turn releases, feed items, and published posts into repeatable content work inside OpenPost.",
+    "route": "/automate/workflows",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
     "page": "guides/accounts.mdx",
     "title": "Connect accounts",
     "description": "Add and manage social accounts in a workspace.",

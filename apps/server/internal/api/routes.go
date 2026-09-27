@@ -54,11 +54,13 @@ import (
 	"github.com/openpost/backend/internal/services/sessions"
 	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/openpost/backend/internal/services/updatestatus"
+	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 )
 
 type RouteDeps struct {
+	WorkflowService              *workflows.Service
 	DB                           *bun.DB
 	Readiness                    *Readiness
 	AuthService                  *auth.Service
@@ -309,6 +311,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationBuildHandler.SetCapabilityResolver(capabilityResolverHandler)
 	publicationBuildHandler.SetPlanner(deps.PublicationPlanner)
 	publicationBuildHandler.RegisterRoutes(api)
+	registerWorkflowRoutes(api, deps, publicationHandler, publicationBuildHandler)
 	handlers.NewPublicationDiscoveryHandler(deps.DB, deps.Authenticator, deps.PublicationDiscovery).RegisterRoutes(api)
 	handlers.NewVoiceProfileHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewThemeHandler(deps.DB, deps.Authenticator, deps.MediaStorage).RegisterRoutes(api)
@@ -631,4 +634,13 @@ func RegisterHealth(api huma.API, db *bun.DB, readiness *Readiness, storage medi
 		}
 		return resp, nil
 	})
+}
+
+func registerWorkflowRoutes(api huma.API, deps RouteDeps, publicationHandler *handlers.PublicationHandler, publicationBuildHandler *handlers.PublicationBuildHandler) {
+	workflowService := deps.WorkflowService
+	if workflowService == nil {
+		workflowService = workflows.NewService(deps.DB, nil, deps.TokenEncryptor)
+	}
+	workflowService.SetActions(handlers.NewWorkflowActions(publicationHandler, publicationBuildHandler, deps.AnalyticsService))
+	handlers.NewWorkflowHandler(workflowService, deps.Authenticator).RegisterRoutes(api)
 }

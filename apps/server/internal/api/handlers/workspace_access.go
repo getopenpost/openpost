@@ -20,7 +20,14 @@ func workspaceActor(ctx context.Context, userID string) workspaceaccess.ActorFac
 }
 
 func workspaceDecision(ctx context.Context, db bun.IDB, workspaceID, userID string, level workspaceaccess.Level) (workspaceaccess.Decision, error) {
-	return workspaceaccess.NewAuthorizer(db).Authorize(ctx, workspaceID, workspaceActor(ctx, userID), level)
+	authorizer := workspaceaccess.NewAuthorizer(db)
+	if authority, ok := workspaceaccess.StoredAuthorityFromContext(ctx); ok {
+		if authority.UserID != userID || authority.WorkspaceID != workspaceID {
+			return workspaceaccess.Decision{Reason: "stored workspace scope does not match command"}, nil
+		}
+		return authorizer.AuthorizeStored(ctx, authority, level)
+	}
+	return authorizer.Authorize(ctx, workspaceID, workspaceActor(ctx, userID), level)
 }
 
 func workspaceReadAllowed(ctx context.Context, db bun.IDB, workspaceID, userID string) (bool, error) {

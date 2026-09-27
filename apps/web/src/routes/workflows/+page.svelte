@@ -1,0 +1,177 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { workflowsQueryOptions, workflowRunsQueryOptions } from '@openpost/query-catalog';
+	import { workflowQueryAPI } from '$lib/query/workflows';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { saveWorkflow, deleteWorkflow, type Workflow, type Definition } from '$lib/workflows/api';
+	import { templates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
+	import RunInspector from '$lib/workflows/run-inspector.svelte';
+	import PageContainer from '$lib/components/page-container.svelte';
+	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import EmptyState from '$lib/components/empty-state.svelte';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { ThemeIcon } from '$lib/themes/icons';
+	import { m } from '$lib/paraglide/messages';
+	let deleting = $state<Workflow | null>(null),
+		deleteOpen = $state(false);
+	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const workflowsQuery = createQuery(() => workflowsQueryOptions(workflowQueryAPI, workspaceID));
+	const runsQuery = createQuery(() => workflowRunsQueryOptions(workflowQueryAPI, workspaceID));
+	let tab = $state<'workflows' | 'runs' | 'templates'>('workflows'),
+		selectedRun = $state(''),
+		busy = $state(false),
+		error = $state('');
+	async function create(
+		name: string = m.workflows_untitled(),
+		definition: Definition = { schema: 1, source: { kind: 'manual' }, steps: [] }
+	) {
+		busy = true;
+		error = '';
+		try {
+			const workflow = await saveWorkflow(workspaceID, '', {
+				name,
+				description: '',
+				expected_revision: 0,
+				definition
+			});
+			await goto(`/workflows/${workflow.id}`);
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.workflows_operation_failed();
+		} finally {
+			busy = false;
+		}
+	}
+</script>
+
+<svelte:head><title>{m.workflows_title()} · OpenPost</title></svelte:head>
+<PageContainer
+	title={m.workflows_title()}
+	description={m.workflows_subtitle()}
+	themeIconRole="repeat"
+	loading={workflowsQuery.isPending && !workflowsQuery.error}
+>
+	{#snippet actions()}<Button
+			disabled={busy || !workspaceID || workspaceCtx.currentWorkspace?.role === 'viewer'}
+			onclick={() => create()}><ThemeIcon role="add" class="size-4" />{m.workflows_new()}</Button
+		>{/snippet}
+	{#snippet navigation()}<div class="flex flex-wrap gap-2 border-b pb-3">
+			{#each [{ id: 'workflows', label: m.workflows_your_workflows() }, { id: 'runs', label: m.workflows_runs() }, { id: 'templates', label: m.workflows_templates() }] as item}<Button
+					variant={tab === item.id ? 'secondary' : 'ghost'}
+					size="sm"
+					onclick={() => {
+						tab = item.id as typeof tab;
+						selectedRun = '';
+					}}>{item.label}</Button
+				>{/each}
+		</div>{/snippet}
+	<div class="space-y-6">
+		{#if error || workflowsQuery.error}<InlineNotice
+				tone="error"
+				message={error || String(workflowsQuery.error)}
+			/>{/if}
+		{#if tab === 'workflows'}
+			{#if workflowsQuery.data?.length}<div class="divide-y rounded-lg border bg-card">
+					{#each workflowsQuery.data as workflow (workflow.id)}<div class="flex items-center">
+							<a
+								href={`/workflows/${workflow.id}`}
+								class="flex min-h-24 min-w-0 flex-1 items-center gap-4 p-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+								><span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"
+									><ThemeIcon
+										role={workflow.definition.source.kind === 'github_release'
+											? 'github'
+											: 'repeat'}
+										class="size-5"
+									/></span
+								><span class="min-w-0 flex-1"
+									><span class="block truncate font-medium">{workflow.name}</span><span
+										class="mt-1 block text-sm text-muted-foreground"
+										>{sourceLabel(workflow.definition.source.kind)}</span
+									>{#if workflow.source_error}<span class="mt-1 block text-xs text-destructive"
+											>{m.workflows_source_error()}</span
+										>{/if}</span
+								><span class="text-xs text-muted-foreground"
+									>{workflow.enabled
+										? m.workflows_active()
+										: workflow.published_revision
+											? m.workflows_paused()
+											: m.workflows_draft()}</span
+								><ThemeIcon role="chevron-right" class="size-4 shrink-0" /></a
+							>
+							{#if workspaceCtx.currentWorkspace?.role === 'admin'}<Button
+									variant="ghost"
+									size="icon-sm"
+									class="mr-3"
+									disabled={workflow.enabled}
+									aria-label={`${m.common_delete()}: ${workflow.name}`}
+									onclick={() => {
+										deleting = workflow;
+										deleteOpen = true;
+									}}><ThemeIcon role="delete" class="size-4" /></Button
+								>{/if}
+						</div>{/each}
+				</div>
+			{:else if !workflowsQuery.error}<EmptyState
+					themeIconRole="repeat"
+					title={m.workflows_no_workflows()}
+					description={m.workflows_no_workflows_help()}
+					actionLabel={m.workflows_templates()}
+					onAction={() => (tab = 'templates')}
+				/>{/if}
+		{:else if tab === 'templates'}
+			<div class="divide-y rounded-lg border bg-card">
+				{#each templates() as template (template.id)}<div
+						class="flex flex-wrap items-center gap-4 p-5"
+					>
+						<div class="min-w-0 flex-1 basis-64">
+							<h2 class="font-medium">{template.name}</h2>
+							<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
+						</div>
+						<Button
+							variant="outline"
+							disabled={busy || workspaceCtx.currentWorkspace?.role === 'viewer'}
+							onclick={() => create(template.name, template.definition)}
+							>{m.workflows_use_template()}</Button
+						>
+					</div>{/each}
+			</div>
+		{:else if selectedRun}<Button variant="ghost" onclick={() => (selectedRun = '')}
+				><ThemeIcon role="arrow-left" class="size-4" />{m.workflows_runs()}</Button
+			><RunInspector {workspaceID} runID={selectedRun} />
+		{:else}
+			{#if runsQuery.error}<InlineNotice tone="error" message={String(runsQuery.error)} />{/if}
+			<div class="divide-y rounded-lg border bg-card">
+				{#each runsQuery.data ?? [] as run (run.id)}<button
+						type="button"
+						class="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+						onclick={() => (selectedRun = run.id)}
+						><span class="min-w-0"
+							><span class="block truncate text-sm font-medium">{run.workflow_name}</span><span
+								class="mt-1 block text-xs text-muted-foreground"
+								>{new Date(run.created_at).toLocaleString()} · {run.mode === 'preview'
+									? m.workflows_preview()
+									: m.workflows_live()}</span
+							></span
+						><span class="text-sm">{runStateLabel(run.state)}</span></button
+					>{/each}
+			</div>
+			{#if !runsQuery.data?.length && !runsQuery.isPending}<EmptyState
+					themeIconRole="history"
+					title={m.workflows_no_runs()}
+					description={m.workflows_no_runs_help()}
+				/>{/if}
+		{/if}
+	</div>
+</PageContainer>
+
+<DestructiveConfirmDialog
+	bind:open={deleteOpen}
+	title={`${m.common_delete()}: ${deleting?.name ?? ''}`}
+	description={m.workflows_delete_help()}
+	onConfirm={async () => {
+		if (!deleting) return { ok: false };
+		await deleteWorkflow(workspaceID, deleting.id);
+		return { ok: true };
+	}}
+/>

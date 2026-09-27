@@ -60,7 +60,8 @@ function markdownHeaderPaths(files) {
   for (const file of files.filter((entry) => entry.endsWith(".md"))) {
     const normalized = file.split(path.sep).join("/");
     const slashIndex = normalized.indexOf("/");
-    paths.add(slashIndex < 0 ? `/${normalized}` : `/${normalized.slice(0, slashIndex)}/*.md`);
+    // Pages placeholders stop at '/', keeping root Markdown headers off /docs.
+    paths.add(slashIndex < 0 ? "/:name.md" : `/${normalized.slice(0, slashIndex)}/*.md`);
   }
   return [...paths].sort();
 }

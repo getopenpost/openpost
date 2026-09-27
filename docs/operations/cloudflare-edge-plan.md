@@ -55,10 +55,11 @@ characters. The generated plan uses this Cloudflare execution order:
 
 Cloudflare evaluates cache variance from the origin response. The public builds
 therefore generate `Vary: Accept` for every catalogue-owned canonical HTML path
-and the explicit `/*.md` or `/docs/*.md` artifacts in the composed Pages
-`_headers` file. The response
-transform keeps the selected client response explicit; it does not replace the
-origin header required by the Cache Rule.
+and the Markdown artifacts in the composed Pages `_headers` file. Composition
+scopes marketing's root Markdown rule to the one-segment `/:name.md` placeholder
+and its nested Markdown rules to marketing directories. Documentation keeps its
+own `/docs/*.md` rule. The response transform keeps the selected client response
+explicit; it does not replace the origin header required by the Cache Rule.
 
 The exact catalogue membership leaves `.md` URLs, assets, `llms.txt`,
 `llms-full.txt`, other machine resources, and unknown paths outside the rules.

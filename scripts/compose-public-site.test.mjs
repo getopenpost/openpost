@@ -58,7 +58,7 @@ test("composes both builds and keeps control files at the deployment root", asyn
   const headers = await readFile(path.join(output, "_headers"), "utf8");
   assert.match(headers, /\/docs\/api\/search/u);
   assert.doesNotMatch(headers, /^\/\*\.md$/mu);
-  assert.match(headers, /^\/index\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
+  assert.match(headers, /^\/:name\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
   assert.match(headers, /^\/tools\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
   assert.match(
     headers,
@@ -70,6 +70,36 @@ test("composes both builds and keeps control files at the deployment root", asyn
     /\/docs\/usage \/docs\/guides\/quickstart 301/u,
   );
   await assert.rejects(readFile(path.join(output, "docs/_headers"), "utf8"), /ENOENT/u);
+});
+
+test("one-segment Markdown headers keep the composed site within the Pages rule limit", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "openpost-public-headers-"));
+  const marketing = path.join(root, "marketing");
+  const docs = path.join(root, "documentation");
+  const output = path.join(root, "output");
+  await Promise.all([mkdir(marketing), mkdir(docs)]);
+  await Promise.all([
+    ...Array.from({ length: 22 }, (_, index) =>
+      writeFile(path.join(marketing, `page-${index}.md`), "Markdown"),
+    ),
+    writeFile(
+      path.join(marketing, "_headers"),
+      `/*.md\n  Content-Type: text/markdown; charset=utf-8\n${Array.from({ length: 80 }, (_, index) => `/page-${index}\n  Vary: Accept`).join("\n")}\n`,
+    ),
+    writeFile(path.join(marketing, "_redirects"), ""),
+    writeFile(path.join(docs, "_headers"), "/docs/*\n  Vary: Accept\n"),
+    writeFile(path.join(docs, "_redirects"), ""),
+  ]);
+
+  await composePublicSite({
+    marketingDirectory: marketing,
+    docsDirectory: docs,
+    outputDirectory: output,
+  });
+
+  const headers = await readFile(path.join(output, "_headers"), "utf8");
+  assert.match(headers, /^\/:name\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
+  assert.ok(headers.split("\n").filter((line) => line.startsWith("/")).length <= 100);
 });
 
 test("rejects a marketing route that collides with the docs mount", async () => {

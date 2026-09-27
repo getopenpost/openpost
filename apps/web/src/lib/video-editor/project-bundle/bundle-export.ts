@@ -42,7 +42,7 @@ export interface BundleExportRuntime {
 	exportSnapshot(projectId: string): ReturnType<typeof exportProjectSnapshot>;
 	getProjectMediaIds(projectId: string): Promise<string[]>;
 	getMedia(mediaId: string): Promise<MediaMetadata | undefined>;
-	resolveMediaBlob(media: MediaMetadata): Promise<Blob>;
+	resolveMediaBlob(media: MediaMetadata, options?: { signal?: AbortSignal }): Promise<Blob>;
 	readProjectThumbnail(projectId: string): Promise<Blob | null>;
 }
 
@@ -127,7 +127,13 @@ export function createBundleExportService(runtime: BundleExportRuntime) {
 				throwIfBundleAborted(signal);
 				const metadata = await runtime.getMedia(mediaId);
 				if (!metadata) throw new Error(`Project media is missing: ${mediaId}`);
-				const blob = await runtime.resolveMediaBlob(metadata);
+				onProgress?.({
+					stage: 'collecting',
+					percent: (collected.length / mediaIds.length) * 5,
+					currentFile: metadata.fileName
+				});
+				const blob = await runtime.resolveMediaBlob(metadata, { signal });
+				throwIfBundleAborted(signal);
 				if (blob.size !== metadata.fileSize) {
 					throw new Error(`Source changed since import: ${metadata.fileName}`);
 				}

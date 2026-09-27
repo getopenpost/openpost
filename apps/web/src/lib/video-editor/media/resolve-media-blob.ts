@@ -4,13 +4,21 @@ import { requireWorkspaceRoot } from '../workspace-fs/root';
 import type { MediaMetadata } from './types';
 
 /** Resolve a linked or collected source without loading media-import UI code. */
-export async function resolveMediaBlob(media: MediaMetadata): Promise<Blob> {
+export async function resolveMediaBlob(
+	media: MediaMetadata,
+	options: { signal?: AbortSignal } = {}
+): Promise<Blob> {
+	options.signal?.throwIfAborted();
 	if (media.storageType === 'cloud' && media.remoteUrl) {
 		try {
-			const response = await fetch(media.remoteUrl, { credentials: 'include' });
+			const response = await fetch(media.remoteUrl, {
+				credentials: 'include',
+				signal: options.signal
+			});
 			if (!response.ok) throw new Error(`Could not load ${media.fileName} (${response.status})`);
-			return response.blob();
+			return await response.blob();
 		} catch (error) {
+			options.signal?.throwIfAborted();
 			const cached =
 				media.offlineUrl && typeof caches !== 'undefined'
 					? await caches.match(media.offlineUrl)

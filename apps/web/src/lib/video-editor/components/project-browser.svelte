@@ -12,7 +12,6 @@
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
-	import type { BundleProgress } from '$lib/video-editor/project-bundle/bundle-types';
 	import type { ProjectDetailsUpdate } from '$lib/video-editor/project/project-details';
 	import type { Project } from '$lib/video-editor/project/types';
 	import {
@@ -45,9 +44,7 @@
 		duplicatingId,
 		exportingId,
 		exportingKind,
-		bundleProgress,
 		bundleOperation,
-		bundleCanceling,
 		oncreate,
 		onimportjson,
 		onimportbundle,
@@ -56,7 +53,6 @@
 		onduplicate,
 		onexportjson,
 		onexportbundle,
-		oncancelbundle,
 		ondelete,
 		ondeletebatch,
 		onrestore,
@@ -76,9 +72,7 @@
 		duplicatingId: string | null;
 		exportingId: string | null;
 		exportingKind: 'json' | 'bundle' | null;
-		bundleProgress: BundleProgress | null;
 		bundleOperation: 'import' | 'export' | null;
-		bundleCanceling: boolean;
 		oncreate: (name: string, settings: ProjectCreationSettings) => Promise<boolean>;
 		onimportjson: (file: File) => Promise<void>;
 		onimportbundle: (file: File) => Promise<void>;
@@ -87,7 +81,6 @@
 		onduplicate: (project: Project) => Promise<void>;
 		onexportjson: (project: Project) => Promise<void>;
 		onexportbundle: (project: Project) => Promise<void>;
-		oncancelbundle: () => void;
 		ondelete: (project: Project) => Promise<void>;
 		ondeletebatch: (projects: Project[]) => Promise<string[]>;
 		onrestore: (projectId: string, projectName: string) => Promise<void>;
@@ -366,61 +359,6 @@
 			</Button>
 		</div>
 	</div>
-
-	{#if bundleProgress && bundleOperation}
-		<div
-			class="mt-4 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 py-2"
-			role="status"
-			aria-live="polite"
-		>
-			<div class="flex items-center justify-between gap-3 text-xs">
-				<span class="font-medium">
-					{bundleOperation === 'import'
-						? m.video_editor_project_bundle_importing()
-						: m.video_editor_project_bundle_exporting()}
-				</span>
-				<div class="flex items-center gap-2">
-					<span>{Math.round(bundleProgress.percent)}%</span>
-					<Button variant="ghost" size="xs" disabled={bundleCanceling} onclick={oncancelbundle}>
-						{#if bundleCanceling}
-							<ProtectedIcon
-								icon="loading"
-								class="size-3.5 animate-spin motion-reduce:animate-none"
-							/>
-						{:else}
-							<ThemeIcon role="close" class="size-3.5" />
-						{/if}
-						{bundleCanceling
-							? m.video_editor_project_bundle_canceling()
-							: m.video_editor_project_bundle_cancel()}
-					</Button>
-				</div>
-			</div>
-			<div
-				class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--video-editor-control)]"
-				role="progressbar"
-				aria-valuemin="0"
-				aria-valuemax="100"
-				aria-valuenow={Math.round(bundleProgress.percent)}
-				aria-label={bundleOperation === 'import'
-					? m.video_editor_project_bundle_importing()
-					: m.video_editor_project_bundle_exporting()}
-			>
-				<div
-					class="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
-					style:width={`${Math.max(0, Math.min(100, bundleProgress.percent))}%`}
-				></div>
-			</div>
-			{#if bundleProgress.currentFile}
-				<p
-					class="mt-1 truncate text-xs text-[var(--video-editor-muted)]"
-					title={bundleProgress.currentFile}
-				>
-					{bundleProgress.currentFile}
-				</p>
-			{/if}
-		</div>
-	{/if}
 
 	{#if showNewProject}
 		<form

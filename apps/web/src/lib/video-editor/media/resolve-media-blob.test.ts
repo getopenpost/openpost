@@ -27,8 +27,46 @@ describe('resolveMediaBlob', () => {
 
 		await expect(resolveMediaBlob(media)).resolves.toEqual(response);
 		expect(fetchMock).toHaveBeenCalledWith('/api/v1/media/server-media-1', {
-			credentials: 'include'
+			credentials: 'include',
+			signal: undefined
 		});
+	});
+
+	it('aborts a cloud download without falling back to offline bytes', async () => {
+		const controller = new AbortController();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				(_url, options: RequestInit) =>
+					new Promise((_resolve, reject) => {
+						options.signal?.addEventListener('abort', () => reject(options.signal?.reason));
+					})
+			)
+		);
+		const cacheMatch = vi.fn();
+		vi.stubGlobal('caches', { match: cacheMatch });
+		const result = resolveMediaBlob(
+			{
+				id: 'recording',
+				storageType: 'cloud',
+				remoteUrl: '/recording.mp4',
+				offlineUrl: '/offline.mp4',
+				fileName: 'recording.mp4',
+				fileSize: 100,
+				mimeType: 'video/mp4',
+				duration: 1,
+				width: 1920,
+				height: 1080,
+				fps: 30,
+				codec: 'h264',
+				bitrate: 0,
+				tags: []
+			},
+			{ signal: controller.signal }
+		);
+		controller.abort();
+		await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+		expect(cacheMatch).not.toHaveBeenCalled();
 	});
 
 	it('uses an explicitly pinned original when the server is unreachable', async () => {

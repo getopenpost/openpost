@@ -71,6 +71,44 @@ function memoryOutput() {
 }
 
 describe('project bundle export', () => {
+	it('reports the current cloud source and cancels its download', async () => {
+		const controller = new AbortController();
+		const item = metadata('media-1', 'recording.mp4');
+		const source = Promise.withResolvers<Blob>();
+		const downloadCanceled = vi.fn();
+		const runtime: BundleExportRuntime = {
+			exportSnapshot: snapshot,
+			getProjectMediaIds: async () => [item.id],
+			getMedia: async () => item,
+			resolveMediaBlob: async (_media, options?: { signal?: AbortSignal }) => {
+				options?.signal?.addEventListener('abort', () => {
+					downloadCanceled();
+					source.reject(options.signal?.reason);
+				});
+				controller.abort();
+				if (!options?.signal) source.resolve(new Blob(['hello video']));
+				return source.promise;
+			},
+			readProjectThumbnail: async () => null
+		};
+		const memory = memoryOutput();
+		const progress = vi.fn();
+		await expect(
+			createBundleExportService(runtime).exportProjectBundle(
+				'project-1',
+				memory.output,
+				progress,
+				controller.signal
+			)
+		).rejects.toMatchObject({ name: 'AbortError' });
+		expect(downloadCanceled).toHaveBeenCalledOnce();
+		expect(progress).toHaveBeenCalledWith(
+			expect.objectContaining({ stage: 'collecting', currentFile: 'recording.mp4' })
+		);
+		expect(memory.abort).toHaveBeenCalledOnce();
+		expect(memory.bytes()).toHaveLength(0);
+	});
+
 	it('streams a checksummed bundle and stores duplicate source bytes once', async () => {
 		const source = new Blob(['hello video'], { type: 'video/mp4' });
 		const media = [metadata('media-1', 'launch.mp4'), metadata('media-2', 'copy.mp4')];

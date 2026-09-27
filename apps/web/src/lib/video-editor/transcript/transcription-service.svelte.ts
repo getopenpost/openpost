@@ -181,8 +181,7 @@ export class TranscriptionService {
 	}
 
 	jobForItem(itemId: string): TranscriptionJobView | undefined {
-		const owned = this.targetByItemId.get(itemId);
-		return owned ? this.state[owned.target.id] : undefined;
+		return this.jobs.find((job) => job.itemId === itemId);
 	}
 
 	queuePosition(viewId: string): number | null {

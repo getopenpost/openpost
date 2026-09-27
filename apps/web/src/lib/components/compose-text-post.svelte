@@ -136,6 +136,7 @@
 	} from './compose/schedule-timezone';
 	import {
 		buildPublicationPayload,
+		parseComposerSettingOptionalString,
 		type ComposerModeKey,
 		type ComposerPublicationPayload,
 		type ComposerSettings,
@@ -841,8 +842,8 @@
 		const values = new SvelteMap(mediaAltTexts);
 		if (activeVariantAccountId) {
 			for (const [mediaId, settings] of Object.entries(mediaSettingsByAccount)) {
-				const alt = settings[activeVariantAccountId]?.alt_text;
-				if (typeof alt === 'string') values.set(mediaId, alt);
+				const alt = parseComposerSettingOptionalString(settings[activeVariantAccountId]?.alt_text);
+				if (alt !== undefined) values.set(mediaId, alt);
 			}
 		}
 		return values;
@@ -4256,7 +4257,7 @@
 
 	function mediaAltTextForAccount(mediaId: string, accountId: string): string {
 		const override = mediaSettingsByAccount[mediaId]?.[accountId]?.alt_text;
-		return typeof override === 'string' ? override : (mediaAltTexts.get(mediaId) ?? '');
+		return parseComposerSettingOptionalString(override) ?? mediaAltTexts.get(mediaId) ?? '';
 	}
 
 	function setMediaAltText(mediaId: string, alt: string) {

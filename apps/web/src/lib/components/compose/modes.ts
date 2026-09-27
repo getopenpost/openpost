@@ -424,8 +424,7 @@ function mediaPayload(
 			const settings = cloneComposerSettings(
 				accountId ? item.settingsByAccount?.[accountId] : item.settings
 			);
-			const accountAltText =
-				typeof settings.alt_text === 'string' ? settings.alt_text.trim() : undefined;
+			const accountAltText = parseComposerSettingOptionalString(settings.alt_text)?.trim();
 			const thumbnailTimestamp = parseComposerSettingNumber(settings.thumbnail_timestamp_ms);
 			delete settings.alt_text;
 			delete settings.thumbnail_timestamp_ms;
@@ -451,6 +450,12 @@ function cloneComposerSettings(settings?: ComposerSettings): ComposerSettings {
 
 function parseComposerSettingString(value: ComposerSettingValue | undefined): string {
 	return typeof value === 'string' ? value : '';
+}
+
+export function parseComposerSettingOptionalString(
+	value: ComposerSettingValue | undefined
+): string | undefined {
+	return typeof value === 'string' ? value : undefined;
 }
 
 function parseComposerSettingNumber(value: ComposerSettingValue | undefined): number {

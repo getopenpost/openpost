@@ -4310,6 +4310,7 @@
 						"type": "string"
 					},
 					"source_media_id": {
+						"description": "Source library image. Reopens its active editing design when one exists.",
 						"type": "string"
 					},
 					"title": {

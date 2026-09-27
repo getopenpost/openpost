@@ -2218,6 +2218,7 @@ type DesignDocument struct {
 	ExportFormat        string    `bun:"export_format,notnull,default:'png'" json:"export_format"`
 	ExportQuality       float64   `bun:"export_quality,notnull,default:0.92" json:"export_quality"`
 	ExportMatteColor    string    `bun:"export_matte_color,notnull,default:'#ffffff'" json:"export_matte_color"`
+	SourceMediaID       string    `bun:"source_media_id,nullzero" json:"-"`
 	CoverPreviewMediaID string    `bun:"cover_preview_media_id,nullzero" json:"cover_preview_media_id,omitempty"`
 	IsFavorite          bool      `bun:"is_favorite,notnull,default:false" json:"is_favorite"`
 	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`

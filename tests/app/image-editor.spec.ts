@@ -746,3 +746,83 @@ for (const scheme of ["light", "dark"] as const) {
     }
   });
 }
+
+test("workspace designs can be deleted and editing a media file reopens its design", async ({
+  page,
+  request,
+}, testInfo) => {
+  const auth = await registerUser(request, `design-lifecycle-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Design lifecycle");
+  const upload = await request.post("/api/v1/media/upload", {
+    headers: { Authorization: `Bearer ${auth.token}` },
+    multipart: {
+      workspace_id: workspace.id,
+      file: {
+        name: "reuse.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ZkAAAAASUVORK5CYII=",
+          "base64",
+        ),
+      },
+    },
+  });
+  expect(upload.ok(), await upload.text()).toBe(true);
+  const media = await upload.json();
+  await authenticatePage(page, auth.token);
+  const sourceURL = `/image-editor/new?workspace=${workspace.id}&source_media=${media.id}&source_name=reuse.png&width=1080&height=1080`;
+  await page.goto(sourceURL);
+  await expect(page).toHaveURL(/\/image-editor\/[a-f0-9-]+(?:\?.*)?$/);
+  const firstURL = page.url();
+  await page.goto(sourceURL);
+  await expect(page).toHaveURL(firstURL);
+  await page.goto("/image-editor");
+  const deleteButton = page.getByRole("button", { name: "Delete Edit reuse", exact: true });
+  await expect(deleteButton).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("workspace-design.png"), fullPage: true });
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 800 });
+      await expect(deleteButton).toBeVisible();
+      await deleteButton.focus();
+      await expect(deleteButton).toBeFocused();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(`workspace-design-${width}-${colorScheme}.png`),
+        fullPage: true,
+      });
+    }
+  }
+  await deleteButton.press("Enter");
+  await expect(page.getByRole("dialog")).toContainText("This design will be moved to trash.");
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("link", { name: /Edit reuse/ })).toHaveCount(0);
+  const usage = await request.get(`/api/v1/media/${media.id}/usage`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  });
+  expect(
+    (await usage.json()).usage.filter((item: { kind: string }) => item.kind.startsWith("design")),
+  ).toEqual([]);
+  const replacements = await Promise.all(
+    [0, 1].map(() =>
+      request.post("/api/v1/image-editor/designs", {
+        headers: { Authorization: `Bearer ${auth.token}` },
+        data: {
+          workspace_id: workspace.id,
+          source_media_id: media.id,
+          preset_key: "instagram-square",
+          title: "Replacement edit",
+          width_px: 1080,
+          height_px: 1080,
+        },
+      }),
+    ),
+  );
+  for (const response of replacements) expect(response.ok(), await response.text()).toBe(true);
+  const documents = await Promise.all(replacements.map((response) => response.json()));
+  expect(documents[0].id).toBe(documents[1].id);
+  expect(firstURL).not.toContain(documents[0].id);
+});

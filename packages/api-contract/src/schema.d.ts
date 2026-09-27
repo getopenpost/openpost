@@ -7344,6 +7344,7 @@ export interface components {
             /** Format: int64 */
             height_px: number;
             preset_key: string;
+            /** @description Source library image. Reopens its active editing design when one exists. */
             source_media_id?: string;
             title: string;
             /** Format: int64 */

@@ -417,7 +417,7 @@ type CreateImageEditorDesignInput struct {
 		PresetKey       string `json:"preset_key"`
 		WidthPX         int    `json:"width_px"`
 		HeightPX        int    `json:"height_px"`
-		SourceMediaID   string `json:"source_media_id,omitempty"`
+		SourceMediaID   string `json:"source_media_id,omitempty" doc:"Source library image. Reopens its active editing design when one exists."`
 		ClientRequestID string `json:"client_request_id,omitempty" maxLength:"200" doc:"Stable client request ID used to make design creation idempotent"`
 	}
 }
@@ -918,6 +918,9 @@ func (h *ImageEditorHandler) createDesign(ctx context.Context, input *CreateImag
 	); err != nil {
 		return nil, err
 	}
+	if existing, err := h.sourceEditingDesign(ctx, document); err != nil || existing != nil {
+		return existing, err
+	}
 	payload := ImageEditorDocumentPayload{
 		SchemaVersion: imageEditorSchemaVersion,
 		Title:         title,
@@ -934,15 +937,43 @@ func (h *ImageEditorHandler) createDesign(ctx context.Context, input *CreateImag
 	if err := validateImageEditorPayload(payload); err != nil {
 		return nil, huma.Error400BadRequest(err.Error())
 	}
-	if err := h.insertCreatedDesign(ctx, document, payload.Pages, now); err != nil {
+	return h.completeDesignCreation(ctx, document, payload.Pages, clientRequestID)
+}
+
+func (h *ImageEditorHandler) completeDesignCreation(ctx context.Context, document *models.DesignDocument, pages []ImageEditorPagePayload, clientRequestID string) (*CreateImageEditorDesignOutput, error) {
+	if err := h.insertCreatedDesign(ctx, document, pages, document.CreatedAt); err != nil {
+		if existing, lookupErr := h.sourceEditingDesign(ctx, document); lookupErr == nil && existing != nil {
+			return existing, nil
+		}
 		if clientRequestID != "" {
-			if response, responseErr := h.documentResponse(ctx, documentID); responseErr == nil {
+			if response, responseErr := h.documentResponse(ctx, document.ID); responseErr == nil {
 				return &CreateImageEditorDesignOutput{Body: *response}, nil
 			}
 		}
 		return nil, huma.Error500InternalServerError("failed to create OpenPost Image Editor design")
 	}
 	response, err := h.documentResponse(ctx, document.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &CreateImageEditorDesignOutput{Body: *response}, nil
+}
+
+func (h *ImageEditorHandler) sourceEditingDesign(ctx context.Context, source *models.DesignDocument) (*CreateImageEditorDesignOutput, error) {
+	if source.SourceMediaID == "" {
+		return nil, nil
+	}
+	var existing models.DesignDocument
+	err := h.db.NewSelect().Model(&existing).
+		Where("workspace_id = ? AND source_media_id = ? AND deleted_at IS NULL", source.WorkspaceID, source.SourceMediaID).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to find source editing design")
+	}
+	response, err := h.documentResponse(ctx, existing.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,6 +1033,7 @@ func (h *ImageEditorHandler) attachCreateDesignSource(
 	if err != nil {
 		return huma.Error500InternalServerError("failed to load source media")
 	}
+	document.SourceMediaID = media.ID
 	document.CoverPreviewMediaID = media.ID
 	page.Layers = append(page.Layers, newImageEditorImageLayer(media, width, height))
 	return nil

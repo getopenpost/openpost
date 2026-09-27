@@ -112,20 +112,7 @@ func validateScreenshotTemplateDocument(doc ScreenshotTemplateDocument) error {
 	}
 	switch doc.TemplateID {
 	case "meme":
-		if doc.Meme == nil || strings.TrimSpace(doc.Meme.TemplateID) == "" || doc.Meme.OverlaySlots < len(doc.Meme.OverlayMediaIDs) {
-			return errors.New("a meme requires a template and valid image slots")
-		}
-		for _, caption := range doc.Meme.Captions {
-			if memes.ValidateCaption(caption) != nil {
-				return errors.New("meme caption is invalid")
-			}
-		}
-		for _, id := range doc.Meme.OverlayMediaIDs {
-			if strings.TrimSpace(id) == "" {
-				return errors.New("meme image slots must be filled in order")
-			}
-		}
-		return nil
+		return validateScreenshotMeme(doc.Meme)
 	case "messages", "group-chat":
 		return validateScreenshotConversation(doc.Conversation)
 	case "receipt":
@@ -135,6 +122,23 @@ func validateScreenshotTemplateDocument(doc ScreenshotTemplateDocument) error {
 	default:
 		return errors.New("template is not supported")
 	}
+}
+
+func validateScreenshotMeme(meme *ScreenshotTemplateMeme) error {
+	if meme == nil || strings.TrimSpace(meme.TemplateID) == "" || meme.OverlaySlots < len(meme.OverlayMediaIDs) {
+		return errors.New("a meme requires a template and valid image slots")
+	}
+	for _, caption := range meme.Captions {
+		if memes.ValidateCaption(caption) != nil {
+			return errors.New("meme caption is invalid")
+		}
+	}
+	for _, id := range meme.OverlayMediaIDs {
+		if strings.TrimSpace(id) == "" {
+			return errors.New("meme image slots must be filled in order")
+		}
+	}
+	return nil
 }
 
 func validateScreenshotConversation(conversation *ScreenshotTemplateConversation) error {

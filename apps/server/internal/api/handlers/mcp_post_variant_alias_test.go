@@ -42,9 +42,9 @@ var mcpPostVariantRetiredNames = []string{
 	"list_rendition_comments",
 }
 
-func mcpCallToolResult(t *testing.T, srv *mcpTestServer, token, id, name string, args map[string]any) map[string]any {
+func mcpCallToolResult(t *testing.T, srv *mcpTestServer, id, name string, args map[string]any) map[string]any {
 	t.Helper()
-	resp := srv.request(t, token, map[string]any{
+	resp := srv.request(t, "web-token", map[string]any{
 		"jsonrpc": "2.0",
 		"id":      id,
 		"method":  "tools/call",
@@ -59,9 +59,9 @@ func mcpCallToolResult(t *testing.T, srv *mcpTestServer, token, id, name string,
 	return out
 }
 
-func mcpRequireToolSuccess(t *testing.T, srv *mcpTestServer, token, id, name string, args map[string]any) map[string]any {
+func mcpRequireToolSuccess(t *testing.T, srv *mcpTestServer, id, name string, args map[string]any) map[string]any {
 	t.Helper()
-	out := mcpCallToolResult(t, srv, token, id, name, args)
+	out := mcpCallToolResult(t, srv, id, name, args)
 	require.Nil(t, out["error"], "tool %s must succeed: %v", name, out["error"])
 	result, ok := out["result"].(map[string]any)
 	require.True(t, ok, "tool %s must return a result", name)
@@ -214,7 +214,7 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	}
 
 	// Create through the retired operation and argument names.
-	created := mcpRequireToolSuccess(t, srv, "web-token", "alias-create", "create_publication", map[string]any{
+	created := mcpRequireToolSuccess(t, srv, "alias-create", "create_publication", map[string]any{
 		"workspace_id": "ws-1", "content_profile": "short_text",
 		"source_text": "Alias compatibility draft", "social_account_ids": []string{"account-1"},
 		"renditions": []any{map[string]any{"social_account_id": "account-1", "body": "Alias compatibility draft"}},
@@ -232,7 +232,7 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 		Where("tool_name = ?", "create_post").Scan(t.Context(), &auditCreate))
 	require.Equal(t, "create_post", auditCreate.ToolName)
 
-	listed := mcpRequireToolSuccess(t, srv, "web-token", "alias-list", "list_publications", map[string]any{
+	listed := mcpRequireToolSuccess(t, srv, "alias-list", "list_publications", map[string]any{
 		"workspace_id": "ws-1",
 	})
 	items := structured(listed)["publications"].([]any)
@@ -249,12 +249,12 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	}
 	require.True(t, found, "retired list_publications must return the created post")
 
-	loaded := mcpRequireToolSuccess(t, srv, "web-token", "alias-get", "get_publication", map[string]any{
+	loaded := mcpRequireToolSuccess(t, srv, "alias-get", "get_publication", map[string]any{
 		"publication_id": postID,
 	})
 	require.Equal(t, postID, publicationOf(loaded)["id"])
 
-	updated := mcpRequireToolSuccess(t, srv, "web-token", "alias-update", "update_publication", map[string]any{
+	updated := mcpRequireToolSuccess(t, srv, "alias-update", "update_publication", map[string]any{
 		"publication_id": postID, "expected_revision": float64(1),
 		"title":        "Alias title",
 		"scheduled_at": time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339),
@@ -262,18 +262,18 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	revision := int(publicationOf(updated)["revision"].(float64))
 	require.Greater(t, revision, 1)
 
-	replaced := mcpRequireToolSuccess(t, srv, "web-token", "alias-set", "set_publication_renditions", map[string]any{
+	replaced := mcpRequireToolSuccess(t, srv, "alias-set", "set_publication_renditions", map[string]any{
 		"publication_id": postID, "expected_revision": revision,
 		"renditions": []any{map[string]any{"social_account_id": "account-1", "body": "Alias variant body"}},
 	})
 	revision = int(publicationOf(replaced)["revision"].(float64))
 
-	validated := mcpRequireToolSuccess(t, srv, "web-token", "alias-validate", "validate_publication", map[string]any{
+	validated := mcpRequireToolSuccess(t, srv, "alias-validate", "validate_publication", map[string]any{
 		"publication_id": postID,
 	})
 	require.Contains(t, structured(validated), "valid")
 
-	scheduled := mcpRequireToolSuccess(t, srv, "web-token", "alias-schedule", "schedule_publication", map[string]any{
+	scheduled := mcpRequireToolSuccess(t, srv, "alias-schedule", "schedule_publication", map[string]any{
 		"publication_id": postID, "expected_revision": revision,
 	})
 	scheduledPost := publicationOf(scheduled)
@@ -281,35 +281,35 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	require.NotEmpty(t, structured(scheduled)["job_id"])
 	revision = int(scheduledPost["revision"].(float64))
 
-	cancelled := mcpRequireToolSuccess(t, srv, "web-token", "alias-cancel", "cancel_publication", map[string]any{
+	cancelled := mcpRequireToolSuccess(t, srv, "alias-cancel", "cancel_publication", map[string]any{
 		"publication_id": postID, "expected_revision": revision,
 	})
 	revision = int(publicationOf(cancelled)["revision"].(float64))
 
-	queued := mcpRequireToolSuccess(t, srv, "web-token", "alias-publish", "publish_publication_now", map[string]any{
+	queued := mcpRequireToolSuccess(t, srv, "alias-publish", "publish_publication_now", map[string]any{
 		"publication_id": postID, "expected_revision": revision, "confirm": true,
 	})
 	require.NotEmpty(t, structured(queued)["job_id"])
 
-	events := mcpRequireToolSuccess(t, srv, "web-token", "alias-events", "list_publication_events", map[string]any{
+	events := mcpRequireToolSuccess(t, srv, "alias-events", "list_publication_events", map[string]any{
 		"publication_id": postID,
 	})
 	require.NotEmpty(t, structured(events)["events"])
 
 	// Variant-scoped aliases route to the domain handlers instead of failing
 	// as unknown operations.
-	reply := mcpCallToolResult(t, srv, "web-token", "alias-reply", "reply_to_variant", map[string]any{
+	reply := mcpCallToolResult(t, srv, "alias-reply", "reply_to_variant", map[string]any{
 		"variant_id": "missing-variant", "body": "hello",
 	})
 	require.Equal(t, "variant not found", reply["error"].(map[string]any)["message"])
 
-	comments := mcpCallToolResult(t, srv, "web-token", "alias-comments", "list_variant_comments", map[string]any{
+	comments := mcpCallToolResult(t, srv, "alias-comments", "list_variant_comments", map[string]any{
 		"variant_id": "missing-variant",
 	})
 	require.Equal(t, "variant not found", comments["error"].(map[string]any)["message"])
 
 	// The delegated path accepts retired operation names and argument keys.
-	delegatedCreate := mcpRequireToolSuccess(t, srv, "web-token", "alias-delegated-create", mcpToolExecute, map[string]any{
+	delegatedCreate := mcpRequireToolSuccess(t, srv, "alias-delegated-create", mcpToolExecute, map[string]any{
 		"operation": "create_publication",
 		"arguments": map[string]any{
 			"workspace_id": "ws-1", "content_profile": "short_text",
@@ -318,7 +318,7 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	})
 	require.Contains(t, publicationOf(delegatedCreate)["source_text"], "Delegated alias draft")
 
-	delegatedList := mcpRequireToolSuccess(t, srv, "web-token", "alias-delegated-list", mcpToolQuery, map[string]any{
+	delegatedList := mcpRequireToolSuccess(t, srv, "alias-delegated-list", mcpToolQuery, map[string]any{
 		"operation": "list_publications",
 		"arguments": map[string]any{"workspace_id": "ws-1"},
 	})
@@ -345,7 +345,7 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	require.Contains(t, text, postID)
 
 	// The variants widget view renders variant data.
-	rendered := mcpRequireToolSuccess(t, srv, "web-token", "alias-widget", mcpToolRenderWidget, map[string]any{
+	rendered := mcpRequireToolSuccess(t, srv, "alias-widget", mcpToolRenderWidget, map[string]any{
 		"view": "variants",
 		"data": map[string]any{"variants": []any{map[string]any{"id": "variant-1"}}},
 	})
@@ -379,25 +379,25 @@ func TestMCPPostVariantAnnotations(t *testing.T) {
 func TestMCPExplicitVariantFormatRoundTrip(t *testing.T) {
 	t.Parallel()
 	srv := newMCPTestServer(t)
-	created := mcpRequireToolSuccess(t, srv, "web-token", "locked-create", "create_post", map[string]any{
+	created := mcpRequireToolSuccess(t, srv, "locked-create", "create_post", map[string]any{
 		"workspace_id": "ws-1", "content_profile": "short_text", "source_text": "Explicit format",
 		"variants": []any{map[string]any{
 			"social_account_id": "account-1", "profile": "short_text", "output_profile": "x.post", "format_locked": true,
 		}},
 	})
 	post := created["structuredContent"].(map[string]any)["publication"].(map[string]any)
-	loaded := mcpRequireToolSuccess(t, srv, "web-token", "locked-get", "get_post", map[string]any{"post_id": post["id"], "detail": "full"})
+	loaded := mcpRequireToolSuccess(t, srv, "locked-get", "get_post", map[string]any{"post_id": post["id"], "detail": "full"})
 	post = loaded["structuredContent"].(map[string]any)["publication"].(map[string]any)
 	variants := post["renditions"].([]any)
 	require.Equal(t, true, variants[0].(map[string]any)["format_locked"])
-	updated := mcpRequireToolSuccess(t, srv, "web-token", "locked-update", "set_post_variants", map[string]any{
+	updated := mcpRequireToolSuccess(t, srv, "locked-update", "set_post_variants", map[string]any{
 		"post_id": post["id"], "expected_revision": post["revision"],
 		"variants": []any{map[string]any{
 			"social_account_id": "account-1", "profile": "short_text", "output_profile": "x.post", "format_locked": false,
 		}},
 	})
 	post = updated["structuredContent"].(map[string]any)["publication"].(map[string]any)
-	loaded = mcpRequireToolSuccess(t, srv, "web-token", "unlocked-get", "get_post", map[string]any{"post_id": post["id"], "detail": "full"})
+	loaded = mcpRequireToolSuccess(t, srv, "unlocked-get", "get_post", map[string]any{"post_id": post["id"], "detail": "full"})
 	post = loaded["structuredContent"].(map[string]any)["publication"].(map[string]any)
 	require.Equal(t, false, post["renditions"].([]any)[0].(map[string]any)["format_locked"])
 }

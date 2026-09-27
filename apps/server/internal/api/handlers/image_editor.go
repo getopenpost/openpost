@@ -2150,12 +2150,8 @@ func validateImageEditorPage(payload ImageEditorDocumentPayload, page ImageEdito
 	if len(page.Layers) > imageEditorMaxLayersPerPage {
 		return fmt.Errorf("an OpenPost Image Editor page cannot contain more than %d layers", imageEditorMaxLayersPerPage)
 	}
-	if payload.SchemaVersion == 1 {
-		for _, layer := range page.Layers {
-			if layer.Text != nil && len(layer.Text.Runs) > 0 {
-				return fmt.Errorf("text emphasis requires image editor schema version 2")
-			}
-		}
+	if err := validateImageEditorPageTextSchema(payload.SchemaVersion, page.Layers); err != nil {
+		return err
 	}
 	if err := validateImageEditorPageBackground(page); err != nil {
 		return err
@@ -2172,6 +2168,18 @@ func validateImageEditorPage(payload ImageEditorDocumentPayload, page ImageEdito
 		return err
 	}
 	return validateImageEditorLayerHierarchy(parents, pageLayerIDs)
+}
+
+func validateImageEditorPageTextSchema(schemaVersion int, layers []ImageEditorLayer) error {
+	if schemaVersion != 1 {
+		return nil
+	}
+	for _, layer := range layers {
+		if layer.Text != nil && len(layer.Text.Runs) > 0 {
+			return fmt.Errorf("text emphasis requires image editor schema version 2")
+		}
+	}
+	return nil
 }
 
 func imageEditorPageDimensions(document ImageEditorDocumentPayload, page ImageEditorPagePayload) (int, int) {
@@ -2443,24 +2451,28 @@ func imageEditorTextRunsValid(text *ImageEditorTextValue) bool {
 	length := uniseg.GraphemeClusterCount(text.Text)
 	lastEnd := 0
 	for _, run := range text.Runs {
-		if run.Start < lastEnd || run.End <= run.Start || run.End > length {
-			return false
-		}
-		if run.FontWeight == nil && run.FontStyle == nil && run.Underline == nil && run.Color == nil {
-			return false
-		}
-		if run.FontWeight != nil && (*run.FontWeight < 100 || *run.FontWeight > 900) {
-			return false
-		}
-		if run.FontStyle != nil && !oneOfImageEditorString(*run.FontStyle, "normal", "italic") {
-			return false
-		}
-		if run.Color != nil && !imageEditorHexColor.MatchString(*run.Color) {
+		if !imageEditorTextRunValid(run, lastEnd, length) {
 			return false
 		}
 		lastEnd = run.End
 	}
 	return true
+}
+
+func imageEditorTextRunValid(run ImageEditorTextRun, lastEnd, length int) bool {
+	if run.Start < lastEnd || run.End <= run.Start || run.End > length {
+		return false
+	}
+	if run.FontWeight == nil && run.FontStyle == nil && run.Underline == nil && run.Color == nil {
+		return false
+	}
+	if run.FontWeight != nil && (*run.FontWeight < 100 || *run.FontWeight > 900) {
+		return false
+	}
+	if run.FontStyle != nil && !oneOfImageEditorString(*run.FontStyle, "normal", "italic") {
+		return false
+	}
+	return run.Color == nil || imageEditorHexColor.MatchString(*run.Color)
 }
 
 func imageEditorTextContentValid(text *ImageEditorTextValue) bool {

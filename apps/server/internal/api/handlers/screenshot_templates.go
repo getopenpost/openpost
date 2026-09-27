@@ -283,7 +283,14 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 			return nil, huma.Error400BadRequest("an export cannot be its own source image")
 		}
 	}
-	err = h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	if err := h.saveExportRecipe(ctx, row, media.ID, doc, ids, recipe); err != nil {
+		return nil, err
+	}
+	return h.recipe(ctx, &ScreenshotTemplateRecipeInput{MediaID: media.ID})
+}
+
+func (h *ScreenshotTemplateHandler) saveExportRecipe(ctx context.Context, row models.ScreenshotTemplateDesign, mediaID string, doc ScreenshotTemplateDocument, ids []string, recipe models.MediaGenerationRecipe) error {
+	return h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, doc); err != nil {
 			return err
 		}
@@ -292,24 +299,20 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 		}
 		// Exports are immutable. A retry may only reuse the identical recipe.
 		var saved models.MediaGenerationRecipe
-		if err := tx.NewSelect().Model(&saved).Where("media_id = ?", media.ID).Scan(ctx); err != nil {
+		if err := tx.NewSelect().Model(&saved).Where("media_id = ?", mediaID).Scan(ctx); err != nil {
 			return huma.Error500InternalServerError("failed to read template recipe")
 		}
 		if saved.RecipeJSON != row.DocumentJSON || saved.Kind != "screenshot_template" {
 			return huma.Error409Conflict("this media already has a different recipe")
 		}
 		for _, id := range ids {
-			ref := models.ScreenshotTemplateRecipeMediaReference{ExportMediaID: media.ID, MediaID: id}
+			ref := models.ScreenshotTemplateRecipeMediaReference{ExportMediaID: mediaID, MediaID: id}
 			if _, err := tx.NewInsert().Model(&ref).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
 				return huma.Error500InternalServerError("failed to retain template images")
 			}
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	return h.recipe(ctx, &ScreenshotTemplateRecipeInput{MediaID: media.ID})
 }
 
 func (h *ScreenshotTemplateHandler) recipe(ctx context.Context, input *ScreenshotTemplateRecipeInput) (*ScreenshotTemplateRecipeOutput, error) {

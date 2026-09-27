@@ -206,3 +206,35 @@ func TestScreenshotTemplateRejectsUnavailableImages(t *testing.T) {
 		})
 	}
 }
+
+func TestMemeTemplateDraftAndLegacyRecipe(t *testing.T) {
+	t.Parallel()
+	srv := newScreenshotTestServer(t)
+	doc := ScreenshotTemplateDocument{SchemaVersion: 1, TemplateID: "meme", Title: "Launch joke", Appearance: "light", Frame: "natural", TextSize: "normal", Meme: &ScreenshotTemplateMeme{TemplateID: "fry", Name: "Futurama Fry", Captions: []string{"Before launch", "After launch"}, OverlayMediaIDs: []string{}, Format: "png"}}
+	created := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
+	require.Equal(t, 200, created.Code, created.Body.String())
+	var design ScreenshotTemplateDesignResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &design))
+	doc.Meme.Captions[1] = "Still fixing bugs"
+	updated := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 1, "document": doc})
+	require.Equal(t, 200, updated.Code, updated.Body.String())
+	loaded := srv.request(t, http.MethodGet, "/screenshot-templates/designs/"+design.ID, nil)
+	require.NoError(t, json.Unmarshal(loaded.Body.Bytes(), &design))
+	require.Equal(t, []string{"Before launch", "Still fixing bugs"}, design.Document.Meme.Captions)
+	doc.Meme.OverlayMediaIDs = []string{"foreign-image"}
+	invalid := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 2, "document": doc})
+	require.Equal(t, 400, invalid.Code, invalid.Body.String())
+	legacy := MemeRecipeDocument{SchemaVersion: 1, Template: MemeRecipeTemplateSnapshot{ID: "fry", Name: "Fry", Lines: 2}, Captions: []string{"Old", "Joke"}, Format: "gif"}
+	encoded, err := json.Marshal(legacy)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.MediaGenerationRecipe{MediaID: "legacy", WorkspaceID: "workspace-1", Kind: "meme", RecipeJSON: string(encoded)}).Exec(t.Context())
+	require.NoError(t, err)
+	result := srv.request(t, http.MethodGet, "/screenshot-templates/recipes/legacy", nil)
+	require.Equal(t, 200, result.Code, result.Body.String())
+	var recipe ScreenshotTemplateRecipeOutput
+	require.NoError(t, json.Unmarshal(result.Body.Bytes(), &recipe.Body))
+	require.Equal(t, "meme", recipe.Body.Document.TemplateID)
+	require.Equal(t, "gif", recipe.Body.Document.Meme.Format)
+	require.Equal(t, "legacy", recipe.Body.Document.Meme.ParentMediaID)
+	require.Equal(t, []string{"Old", "Joke"}, recipe.Body.Document.Meme.Captions)
+}

@@ -9114,6 +9114,7 @@
 	"templates_person_photo": "{name} için fotoğraf",
 	"templates_message_photo": "{number}. mesaj için görsel",
 	"templates_remove_photo": "Kaldır: {label}",
+	"templates_screenshots": "Ekran görüntüleri",
 	"publication_remove_local": "OpenPost’tan kaldır",
 	"publication_remove_description": "Bu yayını ve geçmişini OpenPost’tan kalıcı olarak kaldırır. Sosyal ağlardaki gönderiler silinmez.",
 	"publication_remove_success": "Yayın OpenPost’tan kaldırıldı."

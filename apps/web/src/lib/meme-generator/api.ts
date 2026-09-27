@@ -171,7 +171,7 @@ function retryableMemePreviewStatus(status: number): boolean {
 
 export async function renderMeme(input: MemeRecipeInput): Promise<MemeRenderResult> {
 	const result = await client.POST('/memes/render', {
-		body: recipeBody(input),
+		body: { ...recipeBody(input), retention_class: input.retentionClass },
 		signal: input.signal
 	});
 	return responseData(result.data, result.error, result.response, m.meme_generator_render_failed());

@@ -15800,6 +15800,12 @@
 						"maxLength": 80,
 						"type": "string"
 					},
+					"retention_class": {
+						"default": "temporary",
+						"description": "Keep in the library or manage as temporary post media",
+						"enum": ["library", "temporary"],
+						"type": "string"
+					},
 					"template_id": {
 						"description": "OpenPost meme template ID",
 						"maxLength": 80,
@@ -17973,6 +17979,9 @@
 						"enum": ["natural", "square", "portrait"],
 						"type": "string"
 					},
+					"meme": {
+						"$ref": "#/components/schemas/ScreenshotTemplateMeme"
+					},
 					"receipt": {
 						"$ref": "#/components/schemas/ScreenshotTemplateReceipt"
 					},
@@ -17985,7 +17994,7 @@
 						"$ref": "#/components/schemas/ScreenshotTemplateStatus"
 					},
 					"template_id": {
-						"enum": ["messages", "group-chat", "receipt", "status-page"],
+						"enum": ["messages", "group-chat", "receipt", "status-page", "meme"],
 						"type": "string"
 					},
 					"text_size": {
@@ -17999,6 +18008,65 @@
 					}
 				},
 				"required": ["schema_version", "template_id", "title", "appearance", "frame", "text_size"],
+				"type": "object"
+			},
+			"ScreenshotTemplateMeme": {
+				"additionalProperties": false,
+				"properties": {
+					"alt_text": {
+						"maxLength": 500,
+						"type": "string"
+					},
+					"captions": {
+						"items": {
+							"maxLength": 200,
+							"type": "string"
+						},
+						"maxItems": 16,
+						"minItems": 1,
+						"type": "array"
+					},
+					"format": {
+						"enum": ["png", "webp", "gif"],
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 150,
+						"minLength": 1,
+						"type": "string"
+					},
+					"overlay_media_ids": {
+						"items": {
+							"maxLength": 80,
+							"type": "string"
+						},
+						"maxItems": 8,
+						"type": "array"
+					},
+					"overlay_slots": {
+						"format": "int64",
+						"maximum": 8,
+						"minimum": 0,
+						"type": "integer"
+					},
+					"parent_media_id": {
+						"maxLength": 80,
+						"type": "string"
+					},
+					"template_id": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": [
+					"template_id",
+					"name",
+					"captions",
+					"overlay_slots",
+					"overlay_media_ids",
+					"format"
+				],
 				"type": "object"
 			},
 			"ScreenshotTemplateMessage": {

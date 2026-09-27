@@ -1461,7 +1461,7 @@ test.describe("product screenshot capture", () => {
         .getByRole("textbox", { name: "Caption 1", exact: true })
         .fill("Writing the same post five times");
       const memePreview = mediaPicker.getByRole("img", {
-        name: "Preview of the Drakeposting meme",
+        name: "Drakeposting",
       });
       const previewResponse = page.waitForResponse(
         (response) => response.url().includes("/memes/preview") && response.ok(),

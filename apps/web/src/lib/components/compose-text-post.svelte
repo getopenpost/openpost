@@ -2467,7 +2467,7 @@
 			max_selection: composerMediaLimit,
 			constraints: {
 				max_count: composerMediaLimit,
-				allowed_mimes: ['image/png', 'image/jpeg', 'image/webp'],
+				allowed_mimes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
 				thread_segment: mediaPickerPostIndex
 			}
 		});

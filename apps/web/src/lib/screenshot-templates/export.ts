@@ -26,11 +26,11 @@ export async function renderScreenshot(
 	if (!blob) throw new Error(m.image_editor_export_failed());
 	return blob;
 }
-export function downloadScreenshot(blob: Blob, title: string): void {
+export function downloadScreenshot(blob: Blob, title: string, extension = 'png'): void {
 	const url = URL.createObjectURL(blob);
 	const anchor = document.createElement('a');
 	anchor.href = url;
-	anchor.download = screenshotFilename(title);
+	anchor.download = screenshotFilename(title).replace(/\.png$/, `.${extension}`);
 	anchor.click();
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

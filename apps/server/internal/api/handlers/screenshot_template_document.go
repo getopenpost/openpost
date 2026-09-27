@@ -3,6 +3,8 @@ package handlers
 import (
 	"errors"
 	"strings"
+
+	"github.com/openpost/backend/internal/memes"
 )
 
 const screenshotTemplateSchemaVersion = 1
@@ -64,9 +66,21 @@ type ScreenshotTemplateStatus struct {
 	Updates  []ScreenshotTemplateStatusUpdate `json:"updates" nullable:"false" minItems:"1" maxItems:"30"`
 }
 
+type ScreenshotTemplateMeme struct {
+	TemplateID      string   `json:"template_id" minLength:"1" maxLength:"80"`
+	Name            string   `json:"name" minLength:"1" maxLength:"150"`
+	Captions        []string `json:"captions" nullable:"false" minItems:"1" maxItems:"16" maxLength:"200"`
+	OverlaySlots    int      `json:"overlay_slots" minimum:"0" maximum:"8"`
+	OverlayMediaIDs []string `json:"overlay_media_ids" nullable:"false" maxItems:"8" maxLength:"80"`
+	Format          string   `json:"format" enum:"png,webp,gif"`
+	AltText         string   `json:"alt_text,omitempty" maxLength:"500"`
+	ParentMediaID   string   `json:"parent_media_id,omitempty" maxLength:"80"`
+}
+
 type ScreenshotTemplateDocument struct {
+	Meme          *ScreenshotTemplateMeme         `json:"meme,omitempty"`
 	SchemaVersion int                             `json:"schema_version" enum:"1"`
-	TemplateID    string                          `json:"template_id" enum:"messages,group-chat,receipt,status-page"`
+	TemplateID    string                          `json:"template_id" enum:"messages,group-chat,receipt,status-page,meme"`
 	Title         string                          `json:"title" minLength:"1" maxLength:"150"`
 	Appearance    string                          `json:"appearance" enum:"light,dark"`
 	Frame         string                          `json:"frame" enum:"natural,square,portrait"`
@@ -81,6 +95,9 @@ func validateScreenshotTemplateDocument(doc ScreenshotTemplateDocument) error {
 		return errors.New("template document version or title is invalid")
 	}
 	payloads := 0
+	if doc.Meme != nil {
+		payloads++
+	}
 	if doc.Conversation != nil {
 		payloads++
 	}
@@ -94,6 +111,21 @@ func validateScreenshotTemplateDocument(doc ScreenshotTemplateDocument) error {
 		return errors.New("a template requires exactly one content family")
 	}
 	switch doc.TemplateID {
+	case "meme":
+		if doc.Meme == nil || strings.TrimSpace(doc.Meme.TemplateID) == "" || doc.Meme.OverlaySlots < len(doc.Meme.OverlayMediaIDs) {
+			return errors.New("a meme requires a template and valid image slots")
+		}
+		for _, caption := range doc.Meme.Captions {
+			if memes.ValidateCaption(caption) != nil {
+				return errors.New("meme caption is invalid")
+			}
+		}
+		for _, id := range doc.Meme.OverlayMediaIDs {
+			if strings.TrimSpace(id) == "" {
+				return errors.New("meme image slots must be filled in order")
+			}
+		}
+		return nil
 	case "messages", "group-chat":
 		return validateScreenshotConversation(doc.Conversation)
 	case "receipt":

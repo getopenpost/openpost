@@ -21,10 +21,14 @@
 		screenshotTemplateAPI
 	} from '$lib/screenshot-templates/api';
 	import { newDocument, templateName, TEMPLATE_IDS } from '$lib/screenshot-templates/document';
+	import MemeBrowser from '$lib/meme-generator/browser.svelte';
+	import { memeDocument } from '$lib/screenshot-templates/meme';
+	import { getLocaleTag } from '$lib/i18n';
 	import Preview from '$lib/screenshot-templates/preview.svelte';
 	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const returnToken = $derived(page.url.searchParams.get('return_token') ?? '');
 	const mediaID = $derived(page.url.searchParams.get('media') ?? '');
+	let category = $state<'screenshots' | 'memes'>('screenshots');
 	let offset = $state(0);
 	let busy = $state(false);
 	let error = $state('');
@@ -70,6 +74,22 @@
 	loading={designs.isPending}
 	loadingLayout="gallery"
 >
+	{#snippet navigation()}
+		<div class="flex flex-wrap gap-2" aria-label={m.templates_choose()}>
+			<Button
+				size="sm"
+				variant={category === 'screenshots' ? 'secondary' : 'ghost'}
+				aria-pressed={category === 'screenshots'}
+				onclick={() => (category = 'screenshots')}>{m.templates_screenshots()}</Button
+			>
+			<Button
+				size="sm"
+				variant={category === 'memes' ? 'secondary' : 'ghost'}
+				aria-pressed={category === 'memes'}
+				onclick={() => (category = 'memes')}>{m.media_picker_meme()}</Button
+			>
+		</div>
+	{/snippet}
 	{#if error}<InlineNotice tone="error" message={error} />{/if}
 	{#if designs.isError && !designs.data}<InlineNotice
 			tone="error"
@@ -97,29 +117,41 @@
 						}}>{m.templates_use_recipe()}</Button
 					>{/if}
 			</section>{/if}
-		<section class="space-y-3">
-			<h2 class="text-sm font-medium">{m.templates_choose()}</h2>
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				{#each examples as document (document.template_id)}<button
-						type="button"
-						class="group overflow-hidden rounded-lg border text-left transition-colors hover:border-ring focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-60"
-						disabled={!canEdit || busy}
-						onclick={() => create(document)}
-					>
-						<div class="relative h-56 overflow-hidden bg-muted/50 p-4" aria-hidden="true">
-							<div
-								class="absolute top-4 left-1/2 origin-top -translate-x-1/2 scale-[.44] ring-1 ring-border"
-							>
-								<Preview {document} />
+		{#if category !== 'memes'}<section class="space-y-3">
+				<h2 class="text-sm font-medium">{m.templates_choose()}</h2>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+					{#each examples as document (document.template_id)}<button
+							type="button"
+							class="group overflow-hidden rounded-lg border text-left transition-colors hover:border-ring focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-60"
+							disabled={!canEdit || busy}
+							onclick={() => create(document)}
+						>
+							<div class="relative h-56 overflow-hidden bg-muted/50 p-4" aria-hidden="true">
+								<div
+									class="absolute top-4 left-1/2 origin-top -translate-x-1/2 scale-[.44] ring-1 ring-border"
+								>
+									<Preview {document} />
+								</div>
 							</div>
-						</div>
-						<div class="flex items-center justify-between border-t bg-card px-4 py-3">
-							<span class="text-sm font-medium">{templateName(document.template_id)}</span
-							><ThemeIcon role="arrow-right" class="size-4 text-muted-foreground" />
-						</div>
-					</button>{/each}
-			</div>
-		</section>
+							<div class="flex items-center justify-between border-t bg-card px-4 py-3">
+								<span class="text-sm font-medium">{templateName(document.template_id)}</span
+								><ThemeIcon role="arrow-right" class="size-4 text-muted-foreground" />
+							</div>
+						</button>{/each}
+				</div>
+			</section>{/if}
+		{#if category === 'memes'}<section class="mt-6 space-y-3">
+				<h2 class="text-sm font-medium">{m.media_picker_meme()}</h2>
+				<fieldset disabled={!canEdit || busy} class="min-w-0">
+					{#key workspaceId}<MemeBrowser
+							{workspaceId}
+							language={getLocaleTag()}
+							onSelect={(template, captions, altText) =>
+								create(memeDocument(template, captions, altText))}
+						/>{/key}
+				</fieldset>
+			</section>{/if}
+
 		<section class="mt-8 space-y-3">
 			<h2 class="text-sm font-medium">{m.templates_drafts()}</h2>
 			{#if !designs.data?.designs?.length}<p class="py-8 text-sm text-muted-foreground">

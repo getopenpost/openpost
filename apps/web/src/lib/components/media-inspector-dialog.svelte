@@ -106,7 +106,7 @@
 				{onRetryAnalysis}
 			/>
 			<div class="flex flex-wrap gap-2 border-y py-3">
-				{#if media.source === 'screenshot_template' && canEdit}<Button
+				{#if (media.source === 'screenshot_template' || media.source === 'meme_generator') && canEdit}<Button
 						variant="outline"
 						size="sm"
 						href={resolveAppPath(`/templates?media=${encodeURIComponent(media.id)}`)}

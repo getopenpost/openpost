@@ -133,13 +133,14 @@ type memeThumbnailCacheEntry struct {
 
 // MemeMediaImport is the bounded input to the existing media pipeline.
 type MemeMediaImport struct {
-	WorkspaceID   string
-	TemplateID    string
-	Extension     string
-	MIMEType      string
-	Data          []byte
-	AltText       string
-	ParentMediaID string
+	RetentionClass string
+	WorkspaceID    string
+	TemplateID     string
+	Extension      string
+	MIMEType       string
+	Data           []byte
+	AltText        string
+	ParentMediaID  string
 }
 
 // MemeMediaImporter keeps media mutation injectable while the production
@@ -158,6 +159,9 @@ func (i mediaHandlerMemeImporter) ImportMeme(ctx context.Context, input MemeMedi
 		return models.MediaAttachment{}, false, errors.New("media handler is unavailable")
 	}
 	extension := normalizedMemeExtension(input.Extension)
+	if input.RetentionClass == "" {
+		input.RetentionClass = medialifecycle.RetentionTemporary
+	}
 	var created models.MediaAttachment
 	result, err := i.handler.processUploadBytes(ctx, mediaUploadBytesInput{
 		WorkspaceID:      input.WorkspaceID,
@@ -168,7 +172,7 @@ func (i mediaHandlerMemeImporter) ImportMeme(ctx context.Context, input MemeMedi
 		AltText:          input.AltText,
 		Source:           "meme_generator",
 		AssetKind:        "library",
-		RetentionClass:   medialifecycle.RetentionTemporary,
+		RetentionClass:   input.RetentionClass,
 		ParentMediaID:    input.ParentMediaID,
 		OnCreated: func(media models.MediaAttachment) {
 			created = media
@@ -339,6 +343,7 @@ type PreviewMemeOutput struct {
 
 type RenderMemeInput struct {
 	Body struct {
+		RetentionClass  string   `json:"retention_class,omitempty" default:"temporary" enum:"library,temporary" doc:"Keep in the library or manage as temporary post media"`
 		WorkspaceID     string   `json:"workspace_id" required:"true" doc:"Workspace ID"`
 		TemplateID      string   `json:"template_id" required:"true" minLength:"1" maxLength:"80" doc:"OpenPost meme template ID"`
 		Captions        []string `json:"captions" required:"true" minItems:"1" maxItems:"16" maxLength:"200" doc:"Caption values in template order"`
@@ -651,7 +656,7 @@ func (h *MemeHandler) generateSuggestions(ctx context.Context, input *GenerateMe
 }
 
 func (h *MemeHandler) previewMeme(ctx context.Context, input *PreviewMemeInput) (*PreviewMemeOutput, error) {
-	if err := h.requireWorkspaceAccess(ctx, input.Body.WorkspaceID, true); err != nil {
+	if err := h.requireWorkspaceAccess(ctx, input.Body.WorkspaceID, false); err != nil {
 		return nil, err
 	}
 	if !h.allow(ctx, "preview", memePreviewRequestsPerMinute) {
@@ -708,7 +713,7 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 		return nil, huma.Error429TooManyRequests("another generated image is still being saved; try again shortly")
 	}
 	media, deduped, err := h.importer.ImportMeme(ctx, MemeMediaImport{
-		WorkspaceID: input.Body.WorkspaceID, TemplateID: template.ID,
+		WorkspaceID: input.Body.WorkspaceID, TemplateID: template.ID, RetentionClass: input.Body.RetentionClass,
 		Extension: rendered.Extension, MIMEType: rendered.MIMEType, Data: rendered.Data,
 		AltText: altText, ParentMediaID: strings.TrimSpace(input.Body.ParentMediaID),
 	})
@@ -746,7 +751,25 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 		TemplateID: template.ID, TemplateName: template.Name, TemplateSourceURL: sourceURL,
 		CatalogRevision: revision, RecipeJSON: string(recipeJSON), CreatedAt: h.now().UTC(),
 	}
-	if _, err := h.db.NewInsert().Model(&recipe).Exec(ctx); err != nil {
+	if err := h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		sourceDocument := ScreenshotTemplateDocument{Meme: &ScreenshotTemplateMeme{OverlayMediaIDs: document.OverlayMediaIDs, ParentMediaID: document.ParentMediaID}}
+		ids := screenshotTemplateMediaIDs(sourceDocument)
+		if err := validateScreenshotTemplateMedia(ctx, tx, input.Body.WorkspaceID, sourceDocument); err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().Model(&recipe).Exec(ctx); err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		refs := make([]models.ScreenshotTemplateRecipeMediaReference, 0, len(ids))
+		for _, id := range ids {
+			refs = append(refs, models.ScreenshotTemplateRecipeMediaReference{ExportMediaID: media.ID, MediaID: id})
+		}
+		_, err := tx.NewInsert().Model(&refs).Exec(ctx)
+		return err
+	}); err != nil {
 		if !deduped {
 			h.rollbackImportedMeme(ctx, media)
 		}
@@ -905,6 +928,9 @@ func (h *MemeHandler) loadOverlayImages(ctx context.Context, workspaceID string,
 				return nil, huma.Error404NotFound("overlay media not found")
 			}
 			return nil, huma.Error500InternalServerError("failed to load overlay media")
+		}
+		if media.AssetKind != "library" {
+			return nil, huma.Error400BadRequest("overlay images must be in the Media library")
 		}
 		mimeType := strings.ToLower(strings.TrimSpace(media.MimeType))
 		if !media.TrashedAt.IsZero() || media.ProcessingStatus != mediaReadyStatus || !supportedMemeOverlayMIME(mimeType) {

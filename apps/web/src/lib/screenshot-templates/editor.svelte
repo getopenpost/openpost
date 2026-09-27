@@ -37,7 +37,30 @@
 	import ConversationFields from './conversation-fields.svelte';
 	import ReceiptFields from './receipt-fields.svelte';
 	import StatusFields from './status-fields.svelte';
-	let { design, returnToken = '' }: { design: ScreenshotDesign; returnToken?: string } = $props();
+	import MemeFields from './meme-fields.svelte';
+	import { memeInput } from './meme';
+	import { memeGeneratorAPI, memePreviewDataURL } from '$lib/meme-generator/api';
+	import type { MemeGeneratorAPI } from '$lib/meme-generator/types';
+	import type { MediaUploadResult } from '$lib/media-upload-client';
+	let {
+		design,
+		returnToken = '',
+		onAttach,
+		onBack,
+		onCopy,
+		memeAPI = memeGeneratorAPI
+	}: {
+		design: ScreenshotDesign;
+		returnToken?: string;
+		onAttach?: (media: MediaUploadResult) => Promise<boolean>;
+		onBack?: () => void;
+		onCopy?: (design: ScreenshotDesign) => void;
+		memeAPI?: MemeGeneratorAPI;
+	} = $props();
+	let memePreview = $state('');
+	let memePreviewError = $state('');
+	let memePreviewLoading = $state(false);
+	let previewRetry = $state(0);
 	const initial = untrack(() => design);
 	let doc = $state.raw<ScreenshotDocument>(initial.document);
 	let saved = $state(JSON.stringify(initial.document));
@@ -45,6 +68,7 @@
 	let saving = $state(false);
 	let busy = $state(false);
 	let error = $state('');
+	let retryAction: () => Promise<void> = save;
 	let conflict = $state(false);
 	let tab = $state<'content' | 'appearance'>('content');
 	let mobileView = $state<'edit' | 'preview'>('edit');
@@ -75,7 +99,40 @@
 			`/templates${returnToken ? `?return_token=${encodeURIComponent(returnToken)}` : ''}`
 		)
 	);
-	let lastExport: { documentJSON: string; mediaID: string; linked: boolean } | undefined;
+	let lastExport:
+		| { documentJSON: string; mediaID: string; media: MediaUploadResult; linked: boolean }
+		| undefined;
+	$effect(() => {
+		const meme = doc.meme;
+		void previewRetry;
+		if (!meme) return;
+		const controller = new AbortController();
+		memePreviewLoading = true;
+		memePreviewError = '';
+		const timer = setTimeout(async () => {
+			try {
+				const result = await memeAPI.preview({
+					...memeInput(initial.workspace_id, meme, controller.signal),
+					format: 'webp'
+				});
+				if (!controller.signal.aborted) memePreview = memePreviewDataURL(result);
+			} catch (cause) {
+				if (!controller.signal.aborted)
+					memePreviewError =
+						cause instanceof Error ? cause.message : m.meme_generator_preview_failed();
+			} finally {
+				if (!controller.signal.aborted) memePreviewLoading = false;
+			}
+		}, 320);
+		return () => {
+			clearTimeout(timer);
+			controller.abort();
+		};
+	});
+	const exportUnavailable = $derived(
+		!!doc.meme && (memePreviewLoading || !!memePreviewError || !memePreview)
+	);
+
 	function update(next: ScreenshotDocument, key?: string) {
 		if (!canEdit || busy) return;
 		history.checkpointShared(m.templates_edit(), doc, next, JSON.stringify(next).length * 2, key);
@@ -92,9 +149,19 @@
 		doc = history.redo(doc);
 		historyVersion++;
 	}
-	function failure(cause: unknown) {
+	function failure(cause: unknown, retry: () => Promise<void> = save) {
+		retryAction = retry;
 		error = cause instanceof Error ? cause.message : m.templates_save_failed();
 		conflict = cause instanceof ScreenshotSaveError && cause.status === 409;
+	}
+	export async function flush(): Promise<boolean> {
+		if (busy) return false;
+		try {
+			await save();
+			return !dirty;
+		} catch {
+			return false;
+		}
 	}
 	async function save(): Promise<void> {
 		if (savePromise) return savePromise;
@@ -188,6 +255,11 @@
 		error = '';
 		try {
 			const next = await createScreenshotDesign(initial.workspace_id, doc);
+			if (onCopy) {
+				saved = JSON.stringify(doc);
+				onCopy(next);
+				return;
+			}
 			saved = JSON.stringify(doc);
 			busy = false;
 			await goto(
@@ -196,14 +268,14 @@
 				)
 			);
 		} catch (cause) {
-			failure(cause);
+			failure(cause, copy);
 		} finally {
 			busy = false;
 		}
 	}
 	let exportMenuOpen = $state(false);
 	async function exportImage(destination: 'download' | 'media' | 'publication') {
-		if (busy || !previewElement || overflow || tooTall) return;
+		if (busy || (!doc.meme && !previewElement) || overflow || tooTall || exportUnavailable) return;
 		exportMenuOpen = false;
 		busy = true;
 		error = '';
@@ -212,22 +284,35 @@
 			await tick();
 			const snapshot = doc;
 			const snapshotJSON = JSON.stringify(snapshot);
-			const blob = await renderScreenshot(previewElement, { contentElement, frameHeight });
+			const blob = snapshot.meme
+				? undefined
+				: await renderScreenshot(previewElement!, { contentElement, frameHeight });
 			if (!mounted) return;
-			if (destination === 'download') {
+			if (destination === 'download' && blob) {
 				downloadScreenshot(blob, snapshot.title);
 				showToast(m.image_editor_export_downloaded(), 'success');
 				return;
 			}
 			if (!canEdit) throw new Error(m.image_editor_read_only());
 			if (lastExport?.documentJSON !== snapshotJSON) {
-				const media = await uploadMediaFile({
-					workspaceId: initial.workspace_id,
-					file: new File([blob], screenshotFilename(snapshot.title), { type: 'image/png' }),
-					source: 'screenshot_template',
-					signal: exportController.signal
-				});
-				lastExport = { documentJSON: snapshotJSON, mediaID: media.id, linked: false };
+				const media = snapshot.meme
+					? (
+							await memeAPI.render(
+								memeInput(initial.workspace_id, snapshot.meme, exportController.signal)
+							)
+						).media
+					: await uploadMediaFile({
+							workspaceId: initial.workspace_id,
+							file: new File([blob!], screenshotFilename(snapshot.title), { type: 'image/png' }),
+							source: 'screenshot_template',
+							signal: exportController.signal
+						});
+				lastExport = {
+					documentJSON: snapshotJSON,
+					mediaID: media.id,
+					media,
+					linked: !!snapshot.meme
+				};
 			}
 			if (!lastExport.linked) {
 				await saveScreenshotExport(initial.id, revision, lastExport.mediaID);
@@ -235,8 +320,21 @@
 			}
 			if (!mounted || workspaceCtx.currentWorkspace?.id !== initial.workspace_id) return;
 			await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all(initial.workspace_id) });
+			if (destination === 'download') {
+				const response = await fetch(`/media/${encodeURIComponent(lastExport.mediaID)}`, {
+					signal: exportController.signal
+				});
+				if (!response.ok) throw new Error(m.image_editor_export_failed());
+				downloadScreenshot(await response.blob(), snapshot.title, snapshot.meme?.format);
+				showToast(m.image_editor_export_downloaded(), 'success');
+				return;
+			}
 			if (destination === 'media') {
 				showToast(m.templates_saved_media(), 'success');
+				return;
+			}
+			if (onAttach) {
+				if (!(await onAttach(lastExport.media))) throw new Error(m.meme_generator_attach_failed());
 				return;
 			}
 			let target = resolveAppPath(
@@ -253,7 +351,7 @@
 			busy = false;
 			await goto(target);
 		} catch (cause) {
-			if (mounted) failure(cause);
+			if (mounted) failure(cause, () => exportImage(destination));
 		} finally {
 			busy = false;
 		}
@@ -296,10 +394,21 @@
 </script>
 
 <svelte:window onkeydown={keyboard} />
-<div class="template-editor editor-density flex min-h-0 flex-1 flex-col" aria-busy={busy}>
+<div
+	class="template-editor editor-density flex min-h-0 flex-1 flex-col"
+	class:embedded={!!onAttach}
+	aria-busy={busy}
+>
 	<EditorHeader>
 		{#snippet identity()}<Button
-				href={backURL}
+				href={onBack ? undefined : backURL}
+				onclick={onBack
+					? async () => {
+							await save()
+								.then(() => onBack?.())
+								.catch(failure);
+						}
+					: undefined}
 				variant="ghost"
 				size="icon-sm"
 				aria-label={m.common_back()}><ThemeIcon role="arrow-left" class="size-4" /></Button
@@ -341,11 +450,15 @@
 		</div>
 		<div class="hidden text-xs text-muted-foreground lg:block">{m.templates_editor_hint()}</div>
 		<div class="flex items-center gap-2">
-			{#if !viewportIsNarrow || !canEdit}
+			{#if (!viewportIsNarrow || !canEdit) && (!doc.meme || canEdit)}
 				<Button
 					variant="outline"
 					size="sm"
-					disabled={busy || overflow || tooTall || !previewElement}
+					disabled={busy ||
+						exportUnavailable ||
+						overflow ||
+						tooTall ||
+						(!doc.meme && !previewElement)}
 					onclick={() => exportImage('download')}
 					><ThemeIcon role="download" class="size-3.5" />{m.image_editor_download()}</Button
 				>
@@ -354,12 +467,12 @@
 				{#if !viewportIsNarrow}<Button
 						variant="outline"
 						size="sm"
-						disabled={busy || overflow || tooTall}
+						disabled={busy || exportUnavailable || overflow || tooTall}
 						onclick={() => exportImage('media')}>{m.templates_save_media()}</Button
 					>{/if}
 				<Button
 					size="sm"
-					disabled={busy || overflow || tooTall}
+					disabled={busy || exportUnavailable || overflow || tooTall}
 					onclick={() => exportImage('publication')}
 					>{returnToken ? m.templates_return_publication() : m.templates_add_publication()}</Button
 				>
@@ -374,7 +487,11 @@
 								>{/snippet}</DropdownMenu.Trigger
 						><DropdownMenu.Content align="end">
 							<DropdownMenu.Item
-								disabled={busy || overflow || tooTall || !previewElement}
+								disabled={busy ||
+									exportUnavailable ||
+									overflow ||
+									tooTall ||
+									(!doc.meme && !previewElement)}
 								onclick={() => exportImage('download')}
 								><ThemeIcon
 									role="download"
@@ -382,7 +499,7 @@
 								/>{m.image_editor_download()}</DropdownMenu.Item
 							>
 							<DropdownMenu.Item
-								disabled={busy || overflow || tooTall}
+								disabled={busy || exportUnavailable || overflow || tooTall}
 								onclick={() => exportImage('media')}
 								><ThemeIcon
 									role="media"
@@ -400,7 +517,7 @@
 						variant="outline"
 						size="sm"
 						disabled={busy}
-						onclick={() => save().catch(() => {})}>{m.common_retry()}</Button
+						onclick={() => retryAction().catch(() => {})}>{m.common_retry()}</Button
 					>{#if canEdit}<Button variant="outline" size="sm" disabled={busy} onclick={copy}
 							>{m.image_editor_save_copy()}</Button
 						>{/if}{/snippet}</InlineNotice
@@ -420,28 +537,33 @@
 			class="fields-panel min-w-0 overflow-y-auto border-r bg-card"
 			aria-label={m.templates_content()}
 		>
-			<div class="sticky top-0 z-10 flex border-b bg-card px-3 py-2">
-				<Button
-					variant={tab === 'content' ? 'secondary' : 'ghost'}
-					size="sm"
-					aria-pressed={tab === 'content'}
-					onclick={() => (tab = 'content')}>{m.templates_content()}</Button
-				><Button
-					variant={tab === 'appearance' ? 'secondary' : 'ghost'}
-					size="sm"
-					aria-pressed={tab === 'appearance'}
-					onclick={() => (tab = 'appearance')}>{m.templates_appearance()}</Button
-				>
-			</div>
+			{#if !doc.meme}<div class="sticky top-0 z-10 flex border-b bg-card px-3 py-2">
+					<Button
+						variant={tab === 'content' ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-pressed={tab === 'content'}
+						onclick={() => (tab = 'content')}>{m.templates_content()}</Button
+					><Button
+						variant={tab === 'appearance' ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-pressed={tab === 'appearance'}
+						onclick={() => (tab = 'appearance')}>{m.templates_appearance()}</Button
+					>
+				</div>
+			{/if}
 			<fieldset disabled={!canEdit || busy} class="min-w-0 space-y-5 p-4">
-				{#if tab === 'content'}
+				{#if tab === 'content' || doc.meme}
 					<TextField
 						label={m.templates_design_name()}
 						value={doc.title}
 						maxlength={150}
 						oninput={(title) => update({ ...doc, title }, 'title')}
 					/>
-					{#if doc.conversation}<ConversationFields
+					{#if doc.meme}<MemeFields
+							workspaceId={design.workspace_id}
+							value={doc.meme}
+							onchange={(meme, key) => update({ ...doc, meme }, key)}
+						/>{:else if doc.conversation}<ConversationFields
 							workspaceId={design.workspace_id}
 							value={doc.conversation}
 							onchange={(conversation, key) => update({ ...doc, conversation }, key)}
@@ -514,32 +636,54 @@
 			class="preview-panel min-w-0 overflow-y-auto bg-muted/40"
 			aria-label={m.templates_preview()}
 		>
-			<div bind:clientWidth={viewportWidth} class="flex min-h-full flex-col items-center py-5">
+			{#if doc.meme}
 				<div
-					class="mb-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground"
+					class="flex min-h-full flex-col items-center justify-center gap-3 p-5"
+					aria-busy={memePreviewLoading}
 				>
-					<span>{m.templates_preview()}</span><span>·</span><span
-						>{TEMPLATE_WIDTH * EXPORT_SCALE} × {Math.ceil(previewHeight * EXPORT_SCALE)} px</span
-					>
+					{#if memePreviewLoading}<p role="status" class="text-sm text-muted-foreground">
+							{m.meme_generator_preview_loading()}
+						</p>{/if}
+					{#if memePreviewError}<InlineNotice tone="error" message={memePreviewError}
+							>{#snippet actions()}<Button variant="outline" onclick={() => previewRetry++}
+									>{m.common_retry()}</Button
+								>{/snippet}</InlineNotice
+						>{/if}
+					{#if memePreview}<img
+							src={memePreview}
+							alt={doc.meme.alt_text || doc.title}
+							class="max-h-[75dvh] max-w-full object-contain"
+							class:opacity-50={memePreviewLoading}
+						/>{/if}
 				</div>
-				<div
-					class="relative shrink-0"
-					style:width="{TEMPLATE_WIDTH * scale}px"
-					style:height="{previewHeight * scale}px"
-				>
+			{:else}
+				<div bind:clientWidth={viewportWidth} class="flex min-h-full flex-col items-center py-5">
 					<div
-						class="absolute top-0 left-0 origin-top-left ring-1 ring-border"
-						style:transform="scale({scale})"
+						class="mb-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground"
 					>
-						<Preview
-							document={doc}
-							onselect={focusField}
-							bind:element={previewElement}
-							bind:contentElement
-						/>
+						<span>{m.templates_preview()}</span><span>·</span><span
+							>{TEMPLATE_WIDTH * EXPORT_SCALE} × {Math.ceil(previewHeight * EXPORT_SCALE)} px</span
+						>
+					</div>
+					<div
+						class="relative shrink-0"
+						style:width="{TEMPLATE_WIDTH * scale}px"
+						style:height="{previewHeight * scale}px"
+					>
+						<div
+							class="absolute top-0 left-0 origin-top-left ring-1 ring-border"
+							style:transform="scale({scale})"
+						>
+							<Preview
+								document={doc}
+								onselect={focusField}
+								bind:element={previewElement}
+								bind:contentElement
+							/>
+						</div>
 					</div>
 				</div>
-			</div>
+			{/if}
 		</section>
 	</div>
 </div>
@@ -548,6 +692,10 @@
 	.template-editor {
 		height: calc(100dvh - 64px);
 		min-height: 440px;
+	}
+	.template-editor.embedded {
+		height: 100%;
+		min-height: 0;
 	}
 	.editor-body {
 		display: grid;

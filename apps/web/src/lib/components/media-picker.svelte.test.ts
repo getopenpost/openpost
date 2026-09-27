@@ -253,29 +253,4 @@ describe('MediaPicker meme source', () => {
 		await screen.getByRole('button', { name: 'Close' }).click();
 		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
 	});
-
-	it('opens a seeded meme recommendation after the availability check', async () => {
-		const initialCandidate = {
-			template_id: template.id,
-			caption_lines: ['The plan', 'What production did'],
-			rationale: 'The contrast carries the joke.',
-			alt_text: 'Futurama Fry meme. Text: The plan; What production did.',
-			template
-		};
-		const screen = await renderPicker(true, false, {
-			initialMode: 'meme',
-			memeInitialIdea: 'A release that ignored the plan',
-			memeInitialCandidate: initialCandidate,
-			memeInitialPreview: `data:image/svg+xml;base64,${svgBase64('The plan / What production did')}`
-		});
-
-		await expect
-			.element(screen.getByRole('tab', { name: m.media_picker_meme() }))
-			.toHaveAttribute('aria-selected', 'true');
-		await expect
-			.element(screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })))
-			.toHaveValue('The plan');
-		expect(mocks.suggest).not.toHaveBeenCalled();
-		expect(mocks.preview).not.toHaveBeenCalled();
-	});
 });

@@ -450,3 +450,182 @@ test("chat images and every participant photo survive editing, export and draft 
   ).toEqual([photo.id, photo.id, photo.id]);
   expect(snapshot.conversation.messages[0].image_media_id).toBe(photo.id);
 });
+
+test("memes share template drafts, history, media exports and editable recipes", async ({
+  page,
+}) => {
+  const { token, workspace } = await openTemplates(page);
+  const catalogResponse = await page.request.get(
+    `/api/v1/memes/templates?workspace_id=${workspace.id}&limit=250`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const catalog = await catalogResponse.json();
+  const still = catalog.templates.find(
+    (template: { animated: boolean; lines: number }) => !template.animated && template.lines === 2,
+  );
+  expect(still).toBeTruthy();
+  await page.getByRole("button", { name: "Meme", exact: true }).click();
+  await page.getByRole("textbox", { name: "Search templates", exact: true }).fill(still.name);
+  await page.getByRole("textbox", { name: "Search templates", exact: true }).press("Enter");
+  const choice = page.getByRole("button", { name: `Use the ${still.name} template`, exact: true });
+  await expect(choice).toBeVisible({ timeout: 30000 });
+  await choice.click();
+  await expect(page).toHaveURL(/\/templates\/[^?]+$/);
+  const draftURL = page.url();
+  const caption = page.getByLabel("Caption 1", { exact: true });
+  await caption.fill("Ship the shared editor");
+  await page.getByLabel("Caption 2", { exact: true }).fill("Keep the jokes");
+  await caption.blur();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(caption).toHaveValue("Ship the shared editor", { timeout: 30000 });
+  await expect(page.getByRole("button", { name: "Appearance", exact: true })).toHaveCount(0);
+  await page.route("**/api/v1/memes/preview", (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Preview is temporarily unavailable" }),
+    }),
+  );
+  await caption.fill("Ship the shared editor again");
+  await expect(page.getByRole("button", { name: "Save to Media", exact: true })).toBeDisabled();
+  await expect(page.getByText("Preview is temporarily unavailable", { exact: true })).toBeVisible();
+  await page.unroute("**/api/v1/memes/preview");
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await caption.fill("Ship the shared editor");
+  await page.getByRole("button", { name: "Save to Media", exact: true }).click();
+  await expect(
+    page.getByText("Saved to Media. You can edit a copy from the media library.", { exact: true }),
+  ).toBeVisible({ timeout: 30000 });
+  const list = await page.request.get(`/api/v1/media?workspace_id=${workspace.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await list.json();
+  const media = (data.media ?? data).find(
+    (item: { source: string }) => item.source === "meme_generator",
+  );
+  expect(media).toBeTruthy();
+  const recipe = await page.request.get(`/api/v1/screenshot-templates/recipes/${media.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(recipe.ok()).toBeTruthy();
+  expect((await recipe.json()).document.meme.captions).toEqual([
+    "Ship the shared editor",
+    "Keep the jokes",
+  ]);
+  const png = await downloadPNG(page);
+  const pixels = await inspectPNG(page, png);
+  expect(pixels.opaque).toBeGreaterThan(1000);
+  expect(page.url()).toBe(draftURL);
+});
+
+test("animated meme returns to its publication through Templates", async ({ page }) => {
+  const { token, workspace } = await openTemplates(page);
+  const catalogResponse = await page.request.get(
+    `/api/v1/memes/templates?workspace_id=${workspace.id}&limit=250`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  expect(catalogResponse.ok()).toBeTruthy();
+  const catalog = await catalogResponse.json();
+  const animated = catalog.templates.find((template: { animated: boolean }) => template.animated);
+  expect(animated).toBeTruthy();
+  await page.goto("/");
+  await page
+    .getByRole("textbox", { name: "Post text", exact: true })
+    .fill("An animated launch joke.");
+  await page.getByRole("button", { name: "Add media", exact: true }).first().click();
+  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await expect(page).toHaveURL(/\/templates\?.*return_token=/);
+  await page.getByRole("button", { name: "Meme", exact: true }).click();
+  await page.getByRole("textbox", { name: "Search templates", exact: true }).fill(animated.name);
+  await page.getByRole("textbox", { name: "Search templates", exact: true }).press("Enter");
+  await page
+    .getByRole("button", { name: `Use the ${animated.name} template`, exact: true })
+    .click();
+  let renders = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/memes/render")) renders++;
+  });
+  let rejectReturn = true;
+  await page.route("**/api/v1/image-editor/return-tokens/*/complete", async (route) => {
+    if (rejectReturn) {
+      rejectReturn = false;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Try the attachment again" }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Return to publication", exact: true }).click();
+  await expect(page.getByText("Try the attachment again", { exact: true })).toBeVisible({
+    timeout: 30000,
+  });
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+
+  await expect(page.getByRole("textbox", { name: "Post text", exact: true })).toHaveValue(
+    "An animated launch joke.",
+    { timeout: 30000 },
+  );
+  await expect(page.locator("[data-composer-media-id]")).toHaveCount(1);
+  const mediaID = await page
+    .locator("[data-composer-media-id]")
+    .getAttribute("data-composer-media-id");
+  const recipe = await page.request.get(`/api/v1/screenshot-templates/recipes/${mediaID}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(recipe.ok()).toBeTruthy();
+  expect((await recipe.json()).document.meme.format).toBe("gif");
+  expect(renders).toBe(1);
+});
+
+for (const close of ["escape", "templates"])
+  test(`leaving the meme picker via ${close} saves edits`, async ({ page }) => {
+    const { token, workspace } = await openTemplates(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Add media", exact: true }).first().click();
+    const picker = page.getByRole("dialog");
+    await picker.getByRole("tab", { name: "Meme", exact: true }).click();
+    await picker.getByRole("textbox", { name: "Search templates", exact: true }).fill("Fry");
+    await picker.getByRole("textbox", { name: "Search templates", exact: true }).press("Enter");
+    await picker
+      .getByRole("button", { name: "Use the Futurama Fry template", exact: true })
+      .click();
+    if (close === "templates") {
+      await page.route("**/api/v1/screenshot-templates/designs/*", async (route) => {
+        if (route.request().method() !== "PUT") return route.continue();
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Draft save unavailable" }),
+        });
+      });
+    }
+    await picker.getByLabel("Caption 1", { exact: true }).fill("Save before closing");
+    if (close === "escape") await page.keyboard.press("Escape");
+    else {
+      await picker.getByRole("button", { name: "Templates", exact: true }).click();
+      await expect(picker.getByText("Draft save unavailable", { exact: true })).toBeVisible();
+      await page.unroute("**/api/v1/screenshot-templates/designs/*");
+      await picker.getByRole("button", { name: "Templates", exact: true }).click();
+    }
+    await expect(picker).not.toBeVisible();
+    const response = await page.request.get(
+      `/api/v1/screenshot-templates/designs?workspace_id=${workspace.id}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(response.ok()).toBeTruthy();
+    const drafts = await response.json();
+    const detail = await page.request.get(
+      `/api/v1/screenshot-templates/designs/${drafts.designs[0].id}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect((await detail.json()).document.meme.captions[0]).toBe("Save before closing");
+    await page.goto("/templates");
+    await page.getByRole("link", { name: /Futurama Fry/ }).click();
+    await expect(page.getByLabel("Caption 1", { exact: true })).toHaveValue("Save before closing");
+  });

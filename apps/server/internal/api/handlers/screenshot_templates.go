@@ -176,7 +176,7 @@ func (h *ScreenshotTemplateHandler) create(ctx context.Context, input *CreateScr
 	row := models.ScreenshotTemplateDesign{ID: uuid.NewString(), WorkspaceID: input.Body.WorkspaceID, CreatedByID: middleware.GetUserID(ctx), Title: input.Body.Document.Title, TemplateID: input.Body.Document.TemplateID, Revision: 1, DocumentJSON: string(encoded), CreatedAt: now, UpdatedAt: now}
 	ids := screenshotTemplateMediaIDs(input.Body.Document)
 	err = h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, ids); err != nil {
+		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, input.Body.Document); err != nil {
 			return err
 		}
 		if _, err := tx.NewInsert().Model(&row).Exec(ctx); err != nil {
@@ -220,7 +220,7 @@ func (h *ScreenshotTemplateHandler) update(ctx context.Context, input *UpdateScr
 	row.UpdatedAt = time.Now().UTC()
 	ids := screenshotTemplateMediaIDs(input.Body.Document)
 	err = h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, ids); err != nil {
+		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, input.Body.Document); err != nil {
 			return err
 		}
 		result, err := tx.NewUpdate().Model(&row).Column("document_json", "title", "template_id", "revision", "updated_at").Where("id = ? AND revision = ?", row.ID, input.Body.Revision).Exec(ctx)
@@ -284,7 +284,7 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 		}
 	}
 	err = h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, ids); err != nil {
+		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, doc); err != nil {
 			return err
 		}
 		if _, err := tx.NewInsert().Model(&recipe).On("CONFLICT (media_id) DO NOTHING").Exec(ctx); err != nil {
@@ -314,7 +314,7 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 
 func (h *ScreenshotTemplateHandler) recipe(ctx context.Context, input *ScreenshotTemplateRecipeInput) (*ScreenshotTemplateRecipeOutput, error) {
 	var recipe models.MediaGenerationRecipe
-	err := h.db.NewSelect().Model(&recipe).Where("media_id = ? AND kind = ?", input.MediaID, "screenshot_template").Scan(ctx)
+	err := h.db.NewSelect().Model(&recipe).Where("media_id = ? AND kind IN (?, ?)", input.MediaID, "screenshot_template", "meme").Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, huma.Error404NotFound("template recipe not found")
 	}
@@ -326,6 +326,19 @@ func (h *ScreenshotTemplateHandler) recipe(ctx context.Context, input *Screensho
 	}
 	out := &ScreenshotTemplateRecipeOutput{}
 	out.Body.WorkspaceID = recipe.WorkspaceID
+	if recipe.Kind == "meme" {
+		var meme MemeRecipeDocument
+		if err := json.Unmarshal([]byte(recipe.RecipeJSON), &meme); err != nil {
+			return nil, huma.Error500InternalServerError("failed to read meme recipe")
+		}
+		format := meme.Format
+		if format != "gif" && format != "webp" {
+			format = "png"
+		}
+		overlays := append([]string{}, meme.OverlayMediaIDs...)
+		out.Body.Document = ScreenshotTemplateDocument{SchemaVersion: 1, TemplateID: "meme", Title: meme.Template.Name, Appearance: "light", Frame: "natural", TextSize: "normal", Meme: &ScreenshotTemplateMeme{TemplateID: meme.Template.ID, Name: meme.Template.Name, Captions: meme.Captions, OverlaySlots: meme.Template.Overlays, OverlayMediaIDs: overlays, Format: format, AltText: meme.AltText, ParentMediaID: recipe.MediaID}}
+		return out, nil
+	}
 	if err := json.Unmarshal([]byte(recipe.RecipeJSON), &out.Body.Document); err != nil {
 		return nil, huma.Error500InternalServerError("failed to read template document")
 	}

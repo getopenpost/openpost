@@ -3,12 +3,30 @@ import { render } from 'vitest-browser-svelte';
 import type {
 	MemeGeneratorAPI,
 	MemePreviewResult,
-	MemeRenderResult,
 	MemeTemplate,
 	MemeTemplateListResult
 } from '$lib/meme-generator/types';
 import { m } from '$lib/paraglide/messages';
+import MemeBrowser from '$lib/meme-generator/browser.svelte';
 import MemeGenerator from './meme-generator.svelte';
+import { createScreenshotDesign } from '$lib/screenshot-templates/api';
+vi.mock('$lib/screenshot-templates/api', async (importOriginal) => {
+	const original = await importOriginal<typeof import('$lib/screenshot-templates/api')>();
+	return {
+		...original,
+		createScreenshotDesign: vi.fn(async (workspaceId, document) => ({
+			id: 'seeded-draft',
+			workspace_id: workspaceId,
+			document,
+			title: document.title,
+			template_id: document.template_id,
+			revision: 1,
+			can_edit: true,
+			created_at: '2026-09-27T00:00:00Z',
+			updated_at: '2026-09-27T00:00:00Z'
+		}))
+	};
+});
 import '../../routes/layout.css';
 
 const template: MemeTemplate = {
@@ -90,55 +108,6 @@ function templateListResult(
 	};
 }
 
-function renderResult(
-	selectedTemplate: MemeTemplate = template,
-	format: 'png' | 'gif' = 'png'
-): MemeRenderResult {
-	const mimeType = format === 'gif' ? 'image/gif' : 'image/png';
-	return {
-		media: {
-			id: 'media-meme-1',
-			alt_text: `${selectedTemplate.name} meme.`,
-			analysis_status: 'ready',
-			asset_kind: 'library',
-			deduped: false,
-			mime_type: mimeType,
-			original_filename: `${selectedTemplate.id}.${format}`,
-			processing_progress: 100,
-			processing_status: 'ready',
-			retention_class: 'library',
-			size: 128,
-			source: 'meme_generator',
-			url: '/media/media-meme-1'
-		},
-		recipe: {
-			media_id: 'media-meme-1',
-			workspace_id: 'workspace-1',
-			created_by_id: 'user-1',
-			kind: 'meme',
-			renderer_key: 'openpost',
-			template_id: selectedTemplate.id,
-			template_name: selectedTemplate.name,
-			created_at: '2026-08-09T12:00:00Z',
-			recipe: {
-				schema_version: 1,
-				renderer_key: 'openpost',
-				catalog_revision: 'catalog-1',
-				template: {
-					id: selectedTemplate.id,
-					name: selectedTemplate.name,
-					lines: selectedTemplate.lines,
-					overlays: selectedTemplate.overlays
-				},
-				captions: selectedTemplate.example.text,
-				overlay_media_ids: selectedTemplate.overlays > 0 ? ['overlay-1'] : [],
-				format,
-				rendered_mime_type: mimeType
-			}
-		}
-	};
-}
-
 function mockAPI(overrides: Partial<MemeGeneratorAPI> = {}): MemeGeneratorAPI {
 	return {
 		listTemplates: vi.fn().mockResolvedValue(templateListResult([template])),
@@ -153,106 +122,12 @@ function mockAPI(overrides: Partial<MemeGeneratorAPI> = {}): MemeGeneratorAPI {
 			.mockImplementation(({ captions, templateId }) =>
 				Promise.resolve(previewResult(captions, templateId))
 			),
-		render: vi.fn().mockResolvedValue(renderResult()),
+		render: vi.fn(),
 		...overrides
 	};
 }
 
-function deferred<T>() {
-	let resolve!: (value: T) => void;
-	let reject!: (cause: unknown) => void;
-	const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-		resolve = resolvePromise;
-		reject = rejectPromise;
-	});
-	return { promise, resolve, reject };
-}
-
-describe('MemeGenerator', () => {
-	it('edits a manual template, fills an image slot, and attaches', async () => {
-		const api = mockAPI();
-		const onAttach = vi.fn();
-		const onPickOverlay = vi.fn().mockResolvedValue({
-			media_id: 'overlay-1',
-			preview_url: 'data:image/png;base64,b3ZlcmxheQ==',
-			name: 'Team photo'
-		});
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach, onPickOverlay }
-		});
-
-		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_template_select({ name: template.name })
-			})
-			.click();
-		await screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })).fill('CI passed');
-		await screen
-			.getByLabelText(m.meme_generator_caption_label({ number: 2 }))
-			.fill('production disagreed');
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_choose_image({ number: 1 })
-			})
-			.click();
-		const attachButton = screen.getByRole('button', {
-			name: m.meme_generator_render_attach()
-		});
-		await expect.element(attachButton).toBeEnabled();
-		await attachButton.click();
-
-		expect(onPickOverlay).toHaveBeenCalledWith(0, null);
-		expect(api.render).toHaveBeenCalledWith(
-			expect.objectContaining({
-				workspaceId: 'workspace-1',
-				templateId: 'fry',
-				captions: ['CI passed', 'production disagreed'],
-				overlayMediaIds: ['overlay-1'],
-				format: 'png'
-			})
-		);
-		expect(onAttach).toHaveBeenCalledWith(
-			expect.objectContaining({
-				media: expect.objectContaining({ id: 'media-meme-1' })
-			})
-		);
-		await expect.element(screen.getByText(m.meme_generator_attached()).first()).toBeVisible();
-	});
-
-	it('opens a seeded recommendation without requesting another suggestion or preview', async () => {
-		const api = mockAPI();
-		const initialCandidate = {
-			template_id: template.id,
-			caption_lines: ['The plan', 'What production did'],
-			rationale: 'The contrast carries the joke.',
-			alt_text: 'Futurama Fry meme. Text: The plan; What production did.',
-			template
-		};
-		const screen = await render(MemeGenerator, {
-			props: {
-				workspaceId: 'workspace-1',
-				api,
-				onAttach: vi.fn(),
-				initialIdea: 'A release that ignored the plan',
-				initialCandidate,
-				initialPreview: `data:image/svg+xml;base64,${memeImageBase64(initialCandidate.caption_lines)}`
-			}
-		});
-
-		await expect
-			.element(screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })))
-			.toHaveValue('The plan');
-		await expect
-			.element(screen.getByLabelText(m.meme_generator_caption_label({ number: 2 })))
-			.toHaveValue('What production did');
-		expect(api.suggest).not.toHaveBeenCalled();
-		expect(api.preview).not.toHaveBeenCalled();
-		await expect
-			.element(screen.getByRole('button', { name: m.meme_generator_render_attach() }))
-			.toBeEnabled();
-	});
-
+describe('Meme template browsing', () => {
 	it('sends the idea and preview request shape when generating candidates', async () => {
 		const candidate = {
 			template_id: 'fry',
@@ -264,10 +139,11 @@ describe('MemeGenerator', () => {
 		const api = mockAPI({
 			suggest: vi.fn().mockResolvedValue({ candidates: [candidate] })
 		});
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
+		const screen = await render(MemeBrowser, {
+			props: { workspaceId: 'workspace-1', api, onSelect: vi.fn() }
 		});
 
+		await screen.getByRole('tab', { name: m.meme_generator_ideas_tab() }).click();
 		await screen
 			.getByLabelText(m.meme_generator_idea_label())
 			.fill('Tests passed but users found it');
@@ -277,10 +153,6 @@ describe('MemeGenerator', () => {
 		});
 		await expect.element(candidateButton).toBeVisible();
 
-		await candidateButton.click();
-		await expect
-			.element(screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })))
-			.toHaveValue('tests are green');
 		await expect
 			.element(screen.getByText('A dry contrast between the signal and reality.'))
 			.toBeVisible();
@@ -330,10 +202,11 @@ describe('MemeGenerator', () => {
 			suggest: vi.fn().mockResolvedValue({ candidates }),
 			preview
 		});
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
+		const screen = await render(MemeBrowser, {
+			props: { workspaceId: 'workspace-1', api, onSelect: vi.fn() }
 		});
 
+		await screen.getByRole('tab', { name: m.meme_generator_ideas_tab() }).click();
 		await screen.getByLabelText(m.meme_generator_idea_label()).fill('Four reliable previews');
 		await screen.getByRole('button', { name: m.meme_generator_generate() }).click();
 
@@ -351,330 +224,70 @@ describe('MemeGenerator', () => {
 		expect(preview).toHaveBeenCalledTimes(4);
 	});
 
-	it('recovers failed and canceled candidate previews without leaving cards pending', async () => {
-		const candidateTemplates = [
-			makeTemplate('first', 'First Template'),
-			makeTemplate('second', 'Second Template'),
-			makeTemplate('third', 'Third Template'),
-			makeTemplate('fourth', 'Fourth Template')
-		];
-		const candidates = candidateTemplates.map((candidateTemplate, index) => ({
-			template_id: candidateTemplate.id,
-			caption_lines: [`setup ${index + 1}`, `punchline ${index + 1}`],
-			alt_text: `${candidateTemplate.name} meme.`,
-			rationale: `Direction ${index + 1}`,
-			template: candidateTemplate
-		}));
-		const canceledBackgroundPreview = deferred<MemePreviewResult>();
-		const preview = vi
+	it('passes a chosen template and captions into the shared editor, and allows retry after draft creation fails', async () => {
+		const onSelect = vi
 			.fn()
-			.mockResolvedValueOnce(previewResult(candidates[0].caption_lines, 'first'))
-			.mockResolvedValueOnce(previewResult(candidates[1].caption_lines, 'second'))
-			.mockRejectedValueOnce(new Error('Temporary renderer failure'))
-			.mockImplementationOnce(({ signal }: { signal?: AbortSignal }) => {
-				signal?.addEventListener(
-					'abort',
-					() =>
-						canceledBackgroundPreview.reject(
-							new DOMException('Preview request canceled', 'AbortError')
-						),
-					{ once: true }
-				);
-				return canceledBackgroundPreview.promise;
-			})
-			.mockResolvedValueOnce(previewResult(candidates[3].caption_lines, 'fourth'))
-			.mockResolvedValueOnce(previewResult(candidates[2].caption_lines, 'third'));
-		const api = mockAPI({
-			suggest: vi.fn().mockResolvedValue({ candidates }),
-			preview
+			.mockRejectedValueOnce(new Error('Draft could not be saved'))
+			.mockResolvedValue(undefined);
+		const screen = await render(MemeBrowser, {
+			props: { workspaceId: 'workspace-1', api: mockAPI(), onSelect }
 		});
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
+		const choice = screen.getByRole('button', {
+			name: m.meme_generator_template_select({ name: template.name })
 		});
-
-		await screen.getByLabelText(m.meme_generator_idea_label()).fill('Four preview states');
-		await screen.getByRole('button', { name: m.meme_generator_generate() }).click();
-		const firstCandidate = screen.getByRole('button', {
-			name: m.meme_generator_candidate_select({
-				name: candidateTemplates[0].name
-			})
-		});
-		const secondCandidate = screen.getByRole('button', {
-			name: m.meme_generator_candidate_select({
-				name: candidateTemplates[1].name
-			})
-		});
-		await vi.waitFor(() => {
-			expect(firstCandidate.element().querySelector('img')).not.toBeNull();
-			expect(secondCandidate.element().querySelector('img')).not.toBeNull();
-		});
-		await expect
-			.element(screen.getByText(m.meme_generator_candidate_preview_failed()))
-			.toBeVisible();
-		await expect
-			.element(
-				screen.getByRole('button', {
-					name: m.meme_generator_candidate_preview_retry()
-				})
-			)
-			.toBeVisible();
-		expect(screen.container.textContent).not.toContain('Preview pending');
-
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_candidate_select({
-					name: candidateTemplates[3].name
-				})
-			})
-			.click();
-		await expect
-			.element(screen.getByRole('button', { name: m.meme_generator_render_attach() }))
-			.toBeEnabled();
-		await vi.waitFor(() =>
-			expect(
-				screen
-					.getByRole('button', {
-						name: m.meme_generator_candidate_select({
-							name: candidateTemplates[3].name
-						})
-					})
-					.element()
-					.querySelector('img')
-			).not.toBeNull()
-		);
-
-		await screen.getByRole('button', { name: m.meme_generator_candidate_preview_retry() }).click();
-		await vi.waitFor(() =>
-			expect(
-				screen
-					.getByRole('button', {
-						name: m.meme_generator_candidate_select({
-							name: candidateTemplates[2].name
-						})
-					})
-					.element()
-					.querySelector('img')
-			).not.toBeNull()
-		);
-		await expect
-			.element(screen.getByRole('button', { name: m.meme_generator_render_attach() }))
-			.toBeEnabled();
-		expect(screen.container.textContent).not.toContain('Preview pending');
+		await choice.click();
+		await expect.element(screen.getByText('Draft could not be saved')).toBeVisible();
+		await choice.click();
+		expect(onSelect).toHaveBeenCalledTimes(2);
+		expect(onSelect).toHaveBeenLastCalledWith(template, ['not sure if', 'or just careful'], '');
 	});
-
-	it('keeps an AI-only template editable after the candidate copy changes', async () => {
-		const aiOnlyTemplate = makeTemplate('doge', 'Doge', {
-			example: {
-				text: ['release looked quiet', 'alerts joined the chat'],
-				url: ''
-			}
-		});
+	it('opens seeded AI captions without regenerating suggestions', async () => {
+		const api = mockAPI();
+		const onSelect = vi.fn();
 		const candidate = {
-			template_id: aiOnlyTemplate.id,
-			caption_lines: ['release looked quiet', 'alerts joined the chat'],
-			alt_text: 'Doge watches a release become noisy.',
-			rationale: 'The template is not in the first catalog page.',
-			template: aiOnlyTemplate
+			template_id: 'fry',
+			template,
+			caption_lines: ['The plan', 'Reality'],
+			alt_text: 'Launch joke',
+			rationale: 'Contrast'
 		};
-		const api = mockAPI({
-			suggest: vi.fn().mockResolvedValue({ candidates: [candidate] })
+		await render(MemeBrowser, {
+			props: { workspaceId: 'workspace-1', api, onSelect, initialCandidate: candidate }
 		});
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
-		});
-
-		await screen.getByLabelText(m.meme_generator_idea_label()).fill('A noisy release');
-		await screen.getByRole('button', { name: m.meme_generator_generate() }).click();
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_candidate_select({ name: aiOnlyTemplate.name })
-			})
-			.click();
-		await screen
-			.getByLabelText(m.meme_generator_caption_label({ number: 1 }))
-			.fill('release stayed quiet');
-
-		await expect
-			.element(screen.getByLabelText(m.meme_generator_caption_label({ number: 2 })))
-			.toHaveValue('alerts joined the chat');
-		await expect
-			.element(screen.getByRole('button', { name: m.meme_generator_render_attach() }))
-			.toBeEnabled();
-		expect(api.preview).toHaveBeenCalledWith(
-			expect.objectContaining({
-				templateId: 'doge',
-				captions: ['release stayed quiet', 'alerts joined the chat']
-			})
+		await vi.waitFor(() =>
+			expect(onSelect).toHaveBeenCalledWith(template, ['The plan', 'Reality'], 'Launch joke')
 		);
+		expect(api.suggest).not.toHaveBeenCalled();
 	});
+});
 
-	it('does not attach a stale preview and remains disabled when the current preview fails', async () => {
-		const stalePreview = deferred<MemePreviewResult>();
-		const currentPreview = deferred<MemePreviewResult>();
-		const preview = vi
-			.fn()
-			.mockResolvedValueOnce(previewResult(template.example.text))
-			.mockImplementationOnce(() => stalePreview.promise)
-			.mockImplementationOnce(() => currentPreview.promise);
-		const api = mockAPI({ preview });
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
-		});
-
-		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_template_select({ name: template.name })
+it('returns from a seeded meme to its original suggestions without creating another draft', async () => {
+	vi.mocked(createScreenshotDesign).mockClear();
+	const candidate = {
+		template_id: 'fry',
+		template,
+		caption_lines: ['Launch plan', 'Reality'],
+		alt_text: 'Launch joke',
+		rationale: 'Contrast'
+	};
+	const screen = await render(MemeGenerator, {
+		props: {
+			workspaceId: 'workspace-1',
+			api: mockAPI(),
+			initialCandidate: candidate,
+			onAttach: vi.fn()
+		}
+	});
+	await expect
+		.element(screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })))
+		.toHaveValue('Launch plan');
+	await screen.getByRole('button', { name: m.common_back(), exact: true }).click();
+	await expect
+		.element(
+			screen.getByRole('button', {
+				name: m.meme_generator_candidate_select({ name: template.name })
 			})
-			.click();
-		const attachButton = screen.getByRole('button', {
-			name: m.meme_generator_render_attach()
-		});
-		await expect.element(attachButton).toBeEnabled();
-
-		await screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })).fill('first edit');
-		await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
-		await screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })).fill('current edit');
-		await expect.element(attachButton).toBeDisabled();
-		await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(3));
-
-		stalePreview.resolve(previewResult(['first edit', 'or just careful']));
-		await expect.element(attachButton).toBeDisabled();
-		currentPreview.reject(new Error('Preview service unavailable'));
-		await expect.element(screen.getByText('Preview service unavailable')).toBeVisible();
-		await expect.element(attachButton).toBeDisabled();
-		expect(api.render).not.toHaveBeenCalled();
-	});
-
-	it('retries only attachment when the rendered meme is already saved', async () => {
-		const api = mockAPI();
-		const onAttach = vi
-			.fn()
-			.mockRejectedValueOnce(new Error('Composer unavailable'))
-			.mockResolvedValueOnce(undefined);
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach }
-		});
-
-		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_template_select({ name: template.name })
-			})
-			.click();
-		const renderButton = screen.getByRole('button', {
-			name: m.meme_generator_render_attach()
-		});
-		await expect.element(renderButton).toBeEnabled();
-		await renderButton.click();
-
-		await expect
-			.element(
-				screen.getByText(
-					'The meme was saved in Media, but it could not be attached. Try attaching it again.'
-				)
-			)
-			.toBeVisible();
-		const retryButton = screen.getByRole('button', {
-			name: m.meme_generator_attach_retry()
-		});
-		await expect.element(retryButton).toBeEnabled();
-		expect(api.render).toHaveBeenCalledTimes(1);
-		expect(onAttach).toHaveBeenCalledTimes(1);
-
-		await retryButton.click();
-		await expect.element(screen.getByText(m.meme_generator_attached()).first()).toBeVisible();
-		expect(api.render).toHaveBeenCalledTimes(1);
-		expect(onAttach).toHaveBeenCalledTimes(2);
-	});
-
-	it('keeps the rendered meme for retry when attachment is explicitly rejected', async () => {
-		const api = mockAPI();
-		const onAttach = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach }
-		});
-
-		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_template_select({ name: template.name })
-			})
-			.click();
-		await screen.getByRole('button', { name: m.meme_generator_render_attach() }).click();
-
-		await expect.element(screen.getByText(m.meme_generator_attach_failed())).toBeVisible();
-		const retryButton = screen.getByRole('button', {
-			name: m.meme_generator_attach_retry()
-		});
-		await expect.element(retryButton).toBeEnabled();
-		expect(api.render).toHaveBeenCalledTimes(1);
-		expect(onAttach).toHaveBeenCalledTimes(1);
-
-		await retryButton.click();
-		await expect.element(screen.getByText(m.meme_generator_attached()).first()).toBeVisible();
-		expect(api.render).toHaveBeenCalledTimes(1);
-		expect(onAttach).toHaveBeenCalledTimes(2);
-	});
-
-	it('renders animated templates as GIFs', async () => {
-		const animatedTemplate = makeTemplate('animated-drake', 'Animated Drake', {
-			animated: true
-		});
-		const api = mockAPI({
-			listTemplates: vi.fn().mockResolvedValue(templateListResult([animatedTemplate])),
-			thumbnailURL: vi
-				.fn()
-				.mockReturnValue(
-					`data:image/svg+xml;base64,${memeImageBase64(animatedTemplate.example.text)}`
-				),
-			render: vi.fn().mockResolvedValue(renderResult(animatedTemplate, 'gif'))
-		});
-		const onAttach = vi.fn();
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach }
-		});
-
-		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_template_select({ name: animatedTemplate.name })
-			})
-			.click();
-		const attachButton = screen.getByRole('button', {
-			name: m.meme_generator_render_attach()
-		});
-		await expect.element(attachButton).toBeEnabled();
-		await attachButton.click();
-
-		expect(api.render).toHaveBeenCalledWith(
-			expect.objectContaining({ templateId: 'animated-drake', format: 'gif' })
-		);
-		expect(onAttach).toHaveBeenCalledOnce();
-	});
-
-	it('counts visible caption characters without penalizing punctuation', async () => {
-		const api = mockAPI();
-		const screen = await render(MemeGenerator, {
-			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
-		});
-
-		await screen.getByRole('tab', { name: m.meme_generator_templates_tab() }).click();
-		await screen
-			.getByRole('button', {
-				name: m.meme_generator_template_select({ name: template.name })
-			})
-			.click();
-		await screen
-			.getByLabelText(m.meme_generator_caption_label({ number: 1 }))
-			.fill('?'.repeat(101));
-
-		await expect
-			.element(screen.getByText(m.meme_generator_caption_count({ current: 101, maximum: 200 })))
-			.toBeVisible();
-		await expect
-			.element(screen.getByRole('button', { name: m.meme_generator_render_attach() }))
-			.toBeEnabled();
-		expect(api.render).not.toHaveBeenCalled();
-	});
+		)
+		.toBeVisible();
+	expect(createScreenshotDesign).toHaveBeenCalledTimes(1);
 });

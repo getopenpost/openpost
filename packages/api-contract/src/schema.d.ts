@@ -12286,6 +12286,12 @@ export interface components {
             overlay_media_ids?: string[] | null;
             /** @description Prior generated media when this is an edited version */
             parent_media_id?: string;
+            /**
+             * @description Keep in the library or manage as temporary post media
+             * @default temporary
+             * @enum {string}
+             */
+            retention_class: "library" | "temporary";
             /** @description OpenPost meme template ID */
             template_id: string;
             /** @description Workspace ID */
@@ -13184,6 +13190,7 @@ export interface components {
             conversation?: components["schemas"]["ScreenshotTemplateConversation"];
             /** @enum {string} */
             frame: "natural" | "square" | "portrait";
+            meme?: components["schemas"]["ScreenshotTemplateMeme"];
             receipt?: components["schemas"]["ScreenshotTemplateReceipt"];
             /**
              * Format: int64
@@ -13192,10 +13199,22 @@ export interface components {
             schema_version: 1;
             status_page?: components["schemas"]["ScreenshotTemplateStatus"];
             /** @enum {string} */
-            template_id: "messages" | "group-chat" | "receipt" | "status-page";
+            template_id: "messages" | "group-chat" | "receipt" | "status-page" | "meme";
             /** @enum {string} */
             text_size: "small" | "normal" | "large";
             title: string;
+        };
+        ScreenshotTemplateMeme: {
+            alt_text?: string;
+            captions: string[];
+            /** @enum {string} */
+            format: "png" | "webp" | "gif";
+            name: string;
+            overlay_media_ids: string[];
+            /** Format: int64 */
+            overlay_slots: number;
+            parent_media_id?: string;
+            template_id: string;
         };
         ScreenshotTemplateMessage: {
             id: string;

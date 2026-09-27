@@ -9114,6 +9114,7 @@
 	"templates_person_photo": "Foto de {name}",
 	"templates_message_photo": "Imagem da mensagem {number}",
 	"templates_remove_photo": "Remover: {label}",
+	"templates_screenshots": "Capturas de ecrã",
 	"publication_remove_local": "Remover do OpenPost",
 	"publication_remove_description": "Remove permanentemente esta publicação e o seu histórico do OpenPost. As publicações nas redes sociais não serão eliminadas.",
 	"publication_remove_success": "Publicação removida do OpenPost."

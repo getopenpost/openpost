@@ -201,6 +201,7 @@ func newMemeHandlerTestServer(t *testing.T, suggester memegeneration.Suggester) 
 		(*models.WorkspaceMember)(nil),
 		(*models.MediaAttachment)(nil),
 		(*models.MediaGenerationRecipe)(nil),
+		(*models.ScreenshotTemplateRecipeMediaReference)(nil),
 		(*models.UsageCounter)(nil),
 		(*models.RenditionMedia)(nil),
 	)
@@ -449,10 +450,14 @@ func TestMemeRenderImportsMediaPersistsImmutableRecipeAndAllowsRecipeRead(t *tes
 	mismatchedRecipe := srv.request(t, http.MethodGet, "/api/v1/memes/recipes/"+output.Body.Media.ID, nil)
 	require.Equal(t, http.StatusInternalServerError, mismatchedRecipe.Code, mismatchedRecipe.Body.String())
 
-	forbiddenPreview := srv.request(t, http.MethodPost, "/api/v1/memes/preview", map[string]any{
+	viewerPreview := srv.request(t, http.MethodPost, "/api/v1/memes/preview", map[string]any{
 		"workspace_id": "ws-1", "template_id": "drake", "captions": []string{"one", "two"},
 	})
-	require.Equal(t, http.StatusForbidden, forbiddenPreview.Code)
+	require.Equal(t, http.StatusOK, viewerPreview.Code, viewerPreview.Body.String())
+	forbiddenRender := srv.request(t, http.MethodPost, "/api/v1/memes/render", map[string]any{
+		"workspace_id": "ws-1", "template_id": "drake", "captions": []string{"one", "two"},
+	})
+	require.Equal(t, http.StatusForbidden, forbiddenRender.Code)
 }
 
 func TestMemeRenderRollsBackImportedMediaWhenRecipeInsertFails(t *testing.T) {
@@ -725,3 +730,36 @@ func mustDecodeBase64(t *testing.T, value string) []byte {
 }
 
 var _ mediastore.BlobStorage = (*memeMemoryStorage)(nil)
+
+func TestMemeRenderRetainsGIFOverlayAndParent(t *testing.T) {
+	t.Parallel()
+	srv := newMemeHandlerTestServer(t, nil)
+	image, err := base64.StdEncoding.DecodeString("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+	require.NoError(t, err)
+	for _, id := range []string{"overlay-gif", "parent-gif"} {
+		_, err = srv.db.NewInsert().Model(&models.MediaAttachment{ID: id, WorkspaceID: "ws-1", FilePath: id + ".gif", MimeType: "image/gif", ProcessingStatus: mediaReadyStatus, Size: int64(len(image)), Width: 1, Height: 1}).Exec(t.Context())
+		require.NoError(t, err)
+		srv.storage.objects[id+".gif"] = image
+	}
+	response := srv.request(t, http.MethodPost, "/api/v1/memes/render", map[string]any{"workspace_id": "ws-1", "template_id": "3hd", "captions": []string{"One", "Two", "Three"}, "overlay_media_ids": []string{"overlay-gif"}, "parent_media_id": "parent-gif", "format": "png", "retention_class": "library"})
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var output RenderMemeOutput
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
+	require.Equal(t, "library", output.Body.Media.RetentionClass)
+	var refs []models.ScreenshotTemplateRecipeMediaReference
+	require.NoError(t, srv.db.NewSelect().Model(&refs).Where("export_media_id = ?", output.Body.Media.ID).Order("media_id ASC").Scan(t.Context()))
+	require.Len(t, refs, 2)
+	require.Equal(t, "overlay-gif", refs[0].MediaID)
+	require.Equal(t, "parent-gif", refs[1].MediaID)
+}
+
+func TestMemeRejectsProjectAssetOverlay(t *testing.T) {
+	t.Parallel()
+	srv := newMemeHandlerTestServer(t, nil)
+	data := validMemePNG(t)
+	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "project-image", WorkspaceID: "ws-1", AssetKind: "project_asset", FilePath: "project.png", MimeType: "image/png", ProcessingStatus: mediaReadyStatus, Size: int64(len(data)), Width: 1, Height: 1}).Exec(t.Context())
+	require.NoError(t, err)
+	srv.storage.objects["project.png"] = data
+	response := srv.request(t, http.MethodPost, "/api/v1/memes/render", map[string]any{"workspace_id": "ws-1", "template_id": "3hd", "captions": []string{"One", "Two", "Three"}, "overlay_media_ids": []string{"project-image"}, "format": "png"})
+	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+}

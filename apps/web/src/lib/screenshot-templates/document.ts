@@ -1,6 +1,6 @@
 import type { ScreenshotDocument } from '@openpost/query-catalog';
 import { m } from '$lib/paraglide/messages';
-export type TemplateID = ScreenshotDocument['template_id'];
+export type TemplateID = Exclude<ScreenshotDocument['template_id'], 'meme'>;
 export type Conversation = NonNullable<ScreenshotDocument['conversation']>;
 export type Receipt = NonNullable<ScreenshotDocument['receipt']>;
 export type StatusPage = NonNullable<ScreenshotDocument['status_page']>;
@@ -10,6 +10,8 @@ export const EXPORT_SCALE = 2;
 export const MAX_EXPORT_HEIGHT = 8192;
 export function templateName(id: string): string {
 	switch (id) {
+		case 'meme':
+			return m.media_picker_meme();
 		case 'messages':
 			return m.templates_messages();
 		case 'group-chat':

@@ -9,12 +9,14 @@
 		mediaId,
 		label,
 		avatar = false,
+		accept = ['image/png', 'image/jpeg', 'image/webp'],
 		onchange
 	}: {
 		workspaceId: string;
 		mediaId?: string;
 		label: string;
 		avatar?: boolean;
+		accept?: string[];
 		onchange: (id: string | undefined) => void;
 	} = $props();
 	let open = $state(false);
@@ -49,7 +51,7 @@
 {#if open}<MediaPicker
 		bind:open
 		{workspaceId}
-		accept={['image/png', 'image/jpeg', 'image/webp']}
+		{accept}
 		multiple={false}
 		maxSelection={1}
 		showCreate={false}

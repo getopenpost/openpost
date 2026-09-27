@@ -224,6 +224,16 @@ func (s *Service) ConfirmFirstWorkspace(ctx context.Context, input ConfirmFirstW
 }
 
 func (s *Service) confirmFirstWorkspaceTx(ctx context.Context, tx bun.Tx, input ConfirmFirstWorkspaceInput) (FirstWorkspaceConfirmation, error) {
+	if tx.Dialect().Name() == dialect.PG {
+		// Different confirmation keys still compete for one user's first Workspace.
+		if _, err := tx.ExecContext(
+			ctx,
+			"SELECT pg_advisory_xact_lock(hashtextextended('openpost:first-workspace:' || ?, 0))",
+			input.UserID,
+		); err != nil {
+			return FirstWorkspaceConfirmation{}, fmt.Errorf("locking first Workspace confirmation: %w", err)
+		}
+	}
 	var existing models.BillingCheckoutAttempt
 	err := tx.NewSelect().Model(&existing).Where("user_id = ?", input.UserID).Where("confirmation_key = ?", input.ConfirmationKey).Scan(ctx)
 	if err == nil {

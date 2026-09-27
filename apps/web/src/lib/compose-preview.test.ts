@@ -178,6 +178,19 @@ describe('composer preview mapping', () => {
 		).toBe('photo');
 	});
 
+	it('preserves commas in poll answers on each thread segment', () => {
+		const model = buildComposerPreview({
+			account,
+			mode: 'thread',
+			segments: [
+				{ id: 'one', text: 'First', settings: { poll_options: 'Yes, sometimes\nNever' } },
+				{ id: 'two', text: 'Second', settings: { poll_options: 'Red, green\nBlue' } }
+			]
+		});
+		expect(model.segments?.[0].poll?.options).toEqual(['Yes, sometimes', 'Never']);
+		expect(model.segments?.[1].poll?.options).toEqual(['Red, green', 'Blue']);
+	});
+
 	it('maps destination settings without exposing them in the preview URL', () => {
 		const model = buildComposerPreview({
 			account,

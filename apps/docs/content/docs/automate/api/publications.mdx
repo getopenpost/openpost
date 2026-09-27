@@ -26,6 +26,38 @@ Creating a Publication does not publish it. Omit `social_account_ids` for a draf
 
 The server records raw HTTP creation as `creation_source: "api"`. The TypeScript SDK sends its own client identity and records `creation_source: "sdk"` instead.
 
+## Shared polls
+
+Put a shared poll in a canonical segment's `settings.poll`. Choose a mode for each account; missing choices may save as a draft but block publishing.
+
+```json
+{
+  "segments": [
+    {
+      "body": "Help us plan.",
+      "settings": {
+        "poll": {
+          "question": "What should we build next?",
+          "options": [
+            { "id": "workflows", "text": "Workflows" },
+            { "id": "analytics", "text": "Better analytics" }
+          ],
+          "duration_seconds": 86400,
+          "destinations": {
+            "acc_x": { "mode": "native" },
+            "acc_bluesky": { "mode": "text" }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+`native` uses the shared poll, `text` appends the question and numbered answers, and `omit` keeps the rest of the destination post without a poll. For `custom`, include an independent `poll` object with question, options and duration inside that destination choice. Option IDs must be unique and stable. Answers contain one line each; commas remain part of the answer. Optional `multiple` and `hide_totals` flags require native destination support.
+
+Preserve the whole canonical `settings.poll` object when copying or editing a draft. Keep generated rendition bodies separate from authored `body_override` values to avoid duplicating poll text. Existing `poll_*` destination settings remain supported; `legacy` preserves such an independent poll when a shared poll is added. Poll choices are independent of text and media overrides.
+
 ## Validate and publish
 
 Validate the saved Publication before scheduling or publishing:

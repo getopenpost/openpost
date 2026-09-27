@@ -1,4 +1,12 @@
 <script lang="ts">
+	import SharedPollEditor from './compose/shared-poll-editor.svelte';
+	import {
+		readSharedPoll,
+		resolvePollPreview,
+		clearPollSettings,
+		supportsNativePoll,
+		type SharedPoll
+	} from './compose/polls';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { z } from 'zod';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
@@ -825,7 +833,16 @@
 	const settingsAccount = $derived(
 		accounts.find((account) => account.id === settingsAccountId) ?? null
 	);
-	const settingsDialogFields = $derived(settingsAccount ? visibleSettings(settingsAccount) : []);
+	const settingsDialogFields = $derived(
+		settingsAccount
+			? visibleSettings(settingsAccount).filter(
+					(field) =>
+						!activePost?.poll ||
+						activePost.poll.destinations[settingsAccount.id]?.mode === 'legacy' ||
+						!field.key.startsWith('poll_')
+				)
+			: []
+	);
 	const settingsDialogValues = $derived(
 		settingsAccount ? dialogSettingsForAccount(settingsAccount) : {}
 	);
@@ -860,7 +877,8 @@
 			posts: posts.map((post) => ({
 				key: post.key,
 				content: post.content,
-				mediaIds: post.mediaIds
+				mediaIds: post.mediaIds,
+				poll: post.poll
 			})),
 			settingsByAccount,
 			segmentSettingsByPost,
@@ -930,7 +948,9 @@
 			selectedAccounts.every((account) => accountReadiness(account, 'publish_scheduled').canProceed)
 	);
 	const canSaveEditedPost = $derived(
-		canSubmitPublication && (!(selectedDate && selectedTime) || canSchedulePublication)
+		hasContent &&
+			selectedAccountIds.length > 0 &&
+			(!(selectedDate && selectedTime) || canSchedulePublication)
 	);
 	const activeVariantAccount = $derived(
 		activeVariantAccountId ? (accounts.find((a) => a.id === activeVariantAccountId) ?? null) : null
@@ -1343,26 +1363,147 @@
 		);
 	}
 
+	function pollProjection(post: PostItem, account: SocialAccount) {
+		return resolvePollPreview(
+			post.poll,
+			account.id,
+			visibleSettings(account),
+			getVariantContent(account.id, post.key) ?? post.content,
+			segmentSettingsByPost[post.key]?.[account.id] ?? {}
+		);
+	}
+
+	function updateSharedPoll(post: PostItem, poll: SharedPoll | undefined) {
+		if (poll && !post.poll) {
+			poll = {
+				...poll,
+				destinations: {
+					...poll.destinations,
+					...Object.fromEntries(
+						selectedAccounts
+							.filter((account) =>
+								Boolean(segmentSettingsByPost[post.key]?.[account.id]?.poll_options)
+							)
+							.map((account) => [account.id, { mode: 'legacy' as const }])
+					)
+				}
+			};
+		}
+		posts = posts.map((item) => (item.key === post.key ? { ...item, poll } : item));
+		if (!poll && post.poll) {
+			segmentSettingsByPost = {
+				...segmentSettingsByPost,
+				[post.key]: Object.fromEntries(
+					Object.entries(segmentSettingsByPost[post.key] ?? {}).map(([id, settings]) => [
+						id,
+						post.poll?.destinations[id]?.mode === 'legacy' ? settings : clearPollSettings(settings)
+					])
+				)
+			};
+		}
+		validationIssues = [];
+		scheduleAutoSave();
+		scheduleCapabilityResolve();
+	}
+
+	function sharedPollError(post: PostItem, account: SocialAccount): string {
+		const poll = post.poll;
+		if (!poll) return '';
+		const choice = poll.destinations[account.id];
+		if (!choice) return m.compose_poll_decision();
+		if (choice.mode === 'omit' || choice.mode === 'legacy') return '';
+		const content = choice.mode === 'custom' ? choice.poll : poll;
+		if (!content?.question.trim()) return m.compose_poll_question_required();
+		const missing = content.options.findIndex((option) => !option.text.trim());
+		if (missing >= 0) return m.compose_poll_option_required({ number: missing + 1 });
+		if (content.options.length < 2) return m.compose_poll_minimum({ count: 2 });
+		if (
+			choice.mode !== 'text' &&
+			posts.length > 1 &&
+			resolvedCapabilities[account.id]?.segment_strategy === 'join'
+		)
+			return m.compose_poll_join_conflict();
+		if (choice.mode === 'text') return '';
+		const fields = visibleSettings(account);
+		if (!supportsNativePoll(fields)) return m.compose_poll_unavailable();
+		const definition = fields.find((field) => field.key === 'poll_options')!;
+		if ((getVariantMediaIds(account.id, post.key) ?? post.mediaIds).length)
+			return m.compose_poll_media_conflict();
+		if (content.options.length > (definition.constraints?.max_items ?? 4))
+			return m.compose_poll_maximum({ count: definition.constraints?.max_items ?? 4 });
+		const maxLength = definition.constraints?.max_length;
+		if (maxLength && content.options.some((option) => [...option.text.trim()].length > maxLength))
+			return m.compose_poll_limit({ count: maxLength });
+		if (
+			(content.multiple && !fields.some((field) => field.key === 'poll_multiple')) ||
+			(content.hide_totals && !fields.some((field) => field.key === 'poll_hide_totals'))
+		)
+			return m.compose_poll_feature_unsupported();
+		if (
+			fields.some((field) => field.key === 'poll_duration') &&
+			![86400, 259200, 604800, 1209600].includes(content.duration_seconds)
+		)
+			return m.compose_poll_duration_invalid();
+		return '';
+	}
+
 	function previewForAccount(account: SocialAccount) {
+		const joined =
+			resolvedCapabilities[account.id]?.segment_strategy === 'join' && posts.length > 1;
+		const segments = posts.map((post) => {
+			const mediaIds = getVariantMediaIds(account.id, post.key) ?? post.mediaIds;
+			const projection = joined
+				? {
+						body: getVariantContent(account.id, post.key) ?? post.content,
+						settings: segmentSettingsByPost[post.key]?.[account.id] ?? {}
+					}
+				: pollProjection(post, account);
+			return {
+				id: post.key,
+				text: projection.body,
+				settings: projection.settings,
+				media: mediaIds.map((id) => ({
+					id,
+					mimeType: mediaMimeTypes.get(id),
+					altText: mediaAltTextForAccount(id, account.id)
+				}))
+			};
+		});
+		if (joined) {
+			let projection = {
+				body: segments
+					.map((segment) => segment.text.trim())
+					.filter(Boolean)
+					.join('\n\n'),
+				settings: segments[0].settings
+			};
+			for (const post of posts) {
+				if (
+					post.poll?.destinations[account.id]?.mode === 'text' ||
+					post.poll?.destinations[account.id]?.mode === 'omit'
+				) {
+					projection = resolvePollPreview(
+						post.poll,
+						account.id,
+						visibleSettings(account),
+						projection.body,
+						projection.settings
+					);
+				}
+			}
+			segments.splice(0, segments.length, {
+				...segments[0],
+				text: projection.body,
+				settings: projection.settings,
+				media: segments.flatMap((segment) => segment.media)
+			});
+		}
 		return buildComposerPreview({
 			account,
 			mode: textComposerMode,
 			outputProfile:
 				requestedOutputProfiles[account.id] ?? resolvedCapabilities[account.id]?.output_profile,
-			segmentStrategy: resolvedCapabilities[account.id]?.segment_strategy,
-			segments: posts.map((post) => {
-				const mediaIds = getVariantMediaIds(account.id, post.key) ?? post.mediaIds;
-				return {
-					id: post.key,
-					text: getVariantContent(account.id, post.key) ?? post.content,
-					media: mediaIds.map((id) => ({
-						id,
-						mimeType: mediaMimeTypes.get(id),
-						altText: mediaAltTextForAccount(id, account.id)
-					})),
-					settings: segmentSettingsByPost[post.key]?.[account.id] ?? {}
-				};
-			}),
+			segments,
 			destinationSettings: settingsForAccount(account),
 			linkUrl
 		});
@@ -1495,6 +1636,9 @@
 
 	function configuredPollErrorForAccount(account: SocialAccount): string {
 		for (const post of posts) {
+			const sharedError = sharedPollError(post, account);
+			if (sharedError) return sharedError;
+			if (post.poll && post.poll.destinations[account.id]?.mode !== 'legacy') continue;
 			const definition = visibleSettings(account).find(
 				(setting) => setting.key === 'poll_options' && setting.scope === 'segment'
 			);
@@ -1534,7 +1678,8 @@
 		if (!hasContent) blockers.push(m.compose_please_enter_content());
 		if (
 			isThread &&
-			posts.filter((post) => post.content.trim() || post.mediaIds.length > 0).length < 2
+			posts.filter((post) => post.content.trim() || post.mediaIds.length > 0 || post.poll).length <
+				2
 		) {
 			blockers.push(m.compose_thread_minimum());
 		}
@@ -1752,6 +1897,7 @@
 			segments: posts.map((post, index) => ({
 				id: `legacy-segment:${targetPublicationID}:${index}`,
 				content: post.content,
+				poll: post.poll,
 				url: index === 0 ? linkUrl : '',
 				media: publicationMedia(post.mediaIds),
 				settingsByAccount: segmentSettingsByPost[post.key] ?? {}
@@ -1999,7 +2145,10 @@
 							accountId,
 							posts.map((post) => ({
 								id: post.key,
-								content: getVariantContent(accountId, post.key) ?? post.content,
+								content: pollProjection(
+									post,
+									selectedAccounts.find((account) => account.id === accountId)!
+								).body,
 								url: post === posts[0] ? linkUrl : '',
 								media: (getVariantMediaIds(accountId, post.key) ?? post.mediaIds).map(
 									(mediaId) => ({
@@ -2661,6 +2810,7 @@
 		posts = canonicalSegments.map((segment) => ({
 			key: segment.id,
 			content: segment.body,
+			poll: readSharedPoll(segment.settings),
 			mediaIds: (segment.media ?? []).map((media) => media.id)
 		}));
 		if (posts.length === 0) {
@@ -3661,7 +3811,7 @@
 			error = m.compose_select_date_time();
 			return false;
 		}
-		const pollError = configuredPollError();
+		const pollError = selectedDate && selectedTime ? configuredPollError() : '';
 		if (pollError) {
 			error = pollError;
 			return false;
@@ -4965,6 +5115,10 @@
 
 	function convertGeneratedThreadToPost(): void {
 		if (!generationUndo || posts.length < 2) return;
+		if (posts.slice(1).some((post) => post.poll)) {
+			error = m.compose_poll_join_conflict();
+			return;
+		}
 		const source = posts[0];
 		const joinedSource: PostItem = {
 			...source,
@@ -6021,6 +6175,39 @@
 												/>
 											{/if}
 										</div>
+
+										<SharedPollEditor
+											value={post.poll}
+											body={post.content}
+											destinations={selectedAccounts.map((account) => ({
+												id: account.id,
+												label: accountContextLabel(account),
+												fields: visibleSettings(account),
+												body: getVariantContent(account.id, post.key) ?? post.content,
+												error: sharedPollError(post, account)
+											}))}
+											onChange={(poll) => updateSharedPoll(post, poll)}
+											onExclude={toggleAccount}
+											onLegacySettings={(id) => {
+												activePostIndex = i;
+												const account = selectedAccounts.find((item) => item.id === id);
+												if (account) openDestinationSettings(account);
+											}}
+											onCustomizeText={(id) => {
+												activeVariantAccountId = id;
+												activePostIndex = i;
+												unsyncAccount(id);
+												const account = selectedAccounts.find((item) => item.id === id);
+												if (account && post.poll?.destinations[id]?.mode === 'text') {
+													const text = pollProjection(post, account).body;
+													handleVariantChange(id, i, text);
+													updateSharedPoll(post, {
+														...post.poll,
+														destinations: { ...post.poll.destinations, [id]: { mode: 'omit' } }
+													});
+												}
+											}}
+										/>
 
 										{#if i === 0 && !activeVariantAccountId && !isThread && postBuilderError}
 											<p class="border-t py-3 text-sm text-destructive" role="alert">

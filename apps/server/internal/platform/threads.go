@@ -686,7 +686,7 @@ func (t *ThreadsAdapter) SearchPublishingOptions(ctx context.Context, accessToke
 
 func separatedSettingValues(settings map[string]interface{}, key string) []string {
 	raw := settingString(settings, key)
-	values := strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == '\n' })
+	values := strings.FieldsFunc(raw, func(r rune) bool { return r == '\n' || (key != "poll_options" && r == ',') })
 	result := make([]string, 0, len(values))
 	for _, value := range values {
 		if value = strings.TrimSpace(value); value != "" {

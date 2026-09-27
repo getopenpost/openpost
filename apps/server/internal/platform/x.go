@@ -914,7 +914,7 @@ func xPollOptions(settings map[string]interface{}) []string {
 		return nil
 	}
 	parts := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == '\n' || r == ','
+		return r == '\n'
 	})
 	options := []string{}
 	for _, part := range parts {

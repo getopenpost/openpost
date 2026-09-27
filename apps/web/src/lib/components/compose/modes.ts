@@ -1,3 +1,4 @@
+import { sharedPollSchema, type SharedPoll } from './polls';
 import { getPlatformKey } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 
@@ -73,6 +74,7 @@ export interface PublicationMediaInput {
 }
 
 export interface PublicationSegmentInput {
+	poll?: SharedPoll;
 	id: string;
 	content: string;
 	title?: string;
@@ -117,6 +119,7 @@ export interface ComposerPublicationPayload {
 	};
 	media: Array<{ media_id: string; role: string }>;
 	segments: Array<{
+		settings?: { poll: SharedPoll };
 		id: string;
 		body: string;
 		title: string;
@@ -191,6 +194,7 @@ export function buildPublicationPayload(
 			description: segment.description ?? '',
 			media: mediaPayload(segment.media)
 		};
+		if (segment.poll) payloadSegment.settings = { poll: sharedPollSchema.parse(segment.poll) };
 		const segmentURL = segment.url?.trim();
 		if (segmentURL) payloadSegment.url = segmentURL;
 		return payloadSegment;
@@ -371,6 +375,7 @@ function publicationSegments(input: PublicationComposerInput): PublicationSegmen
 			description: firstNonEmpty(source?.description),
 			url: firstNonEmpty(input.fields.linkUrl, source?.url),
 			media: input.media.length > 0 ? input.media : (source?.media ?? []),
+			poll: source?.poll,
 			settingsByAccount: source?.settingsByAccount
 		}
 	];

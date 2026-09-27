@@ -1,3 +1,4 @@
+import { readSharedPoll } from '$lib/components/compose/polls';
 import type { components } from '$lib/api/types';
 import type { HandoffJSONValue } from '$lib/editor-handoff';
 import type { PostItem, VariantPost } from '$lib/components/compose/draft-utils';
@@ -116,6 +117,8 @@ function parsePost(value: HandoffJSONValue): PostItem | null {
 	const mediaIds = stringArray(fields.get('mediaIds'));
 	if (!key || content === undefined || !mediaIds) return null;
 	const post: PostItem = { key, content, mediaIds };
+	const poll = readSharedPoll(Object.fromEntries(fields));
+	if (poll) post.poll = poll;
 	const id = stringValue(fields.get('id'));
 	if (id) post.id = id;
 	return post;

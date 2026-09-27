@@ -1,4 +1,6 @@
+import { readSharedPoll, type SharedPoll } from './polls';
 export interface PostItem {
+	poll?: SharedPoll;
 	id?: string;
 	key: string;
 	content: string;
@@ -15,7 +17,7 @@ export interface VariantPost {
 export type ThreadVariantMap = Record<string, Record<string, VariantPost>>;
 
 export interface DecodedThreadDraft {
-	posts: { key: string; content: string; mediaIds: string[] }[];
+	posts: PostItem[];
 	variants: ThreadVariantMap;
 }
 
@@ -52,7 +54,7 @@ export function makeEmptyPost(): PostItem {
 
 export function encodeThreadDraft(posts: PostItem[], variants: ThreadVariantMap = {}): string {
 	const data = {
-		p: posts.map((p) => ({ k: p.key, c: p.content, m: p.mediaIds })),
+		p: posts.map((p) => ({ k: p.key, c: p.content, m: p.mediaIds, poll: p.poll })),
 		v: variants
 	};
 	return THREAD_DRAFT_PREFIX + JSON.stringify(data);
@@ -114,7 +116,8 @@ function parseThreadPost(value: ThreadDraftJSONValue): DecodedThreadDraft['posts
 	return {
 		key: typeof value.k === 'string' && value.k ? value.k : generatePostKey(),
 		content: value.c === undefined || value.c === null ? '' : String(value.c),
-		mediaIds: Array.isArray(value.m) ? value.m.map(String) : []
+		mediaIds: Array.isArray(value.m) ? value.m.map(String) : [],
+		poll: readSharedPoll(value)
 	};
 }
 
@@ -153,11 +156,13 @@ function isThreadDraftRecord(value: unknown): value is { [key: string]: ThreadDr
 }
 
 export function getDraftSnapshot(posts: PostItem[]): string {
-	return JSON.stringify(posts.map((p) => ({ content: p.content, mediaIds: p.mediaIds })));
+	return JSON.stringify(
+		posts.map((p) => ({ content: p.content, mediaIds: p.mediaIds, poll: p.poll }))
+	);
 }
 
 export function hasAnyContent(posts: PostItem[]): boolean {
-	return posts.some((p) => p.content.trim().length > 0 || p.mediaIds.length > 0);
+	return posts.some((p) => p.content.trim().length > 0 || p.mediaIds.length > 0 || Boolean(p.poll));
 }
 
 export function arraysEqual(left: string[], right: string[]): boolean {

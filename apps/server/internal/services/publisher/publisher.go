@@ -29,6 +29,7 @@ import (
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
+	"github.com/openpost/backend/internal/services/publicationpoll"
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/usage"
@@ -661,6 +662,66 @@ func (s *Service) publishRenditionSegments(
 	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &destinationSettings)
 	if err := validatePublishingTarget(ctx, provider, token, account.AccountID, destinationSettings); err != nil {
 		return err
+	}
+
+	// Resolve every poll before the first provider write, including queued API drafts.
+	var canonical []models.PublicationSegment
+	if err := s.db.NewSelect().Model(&canonical).Where("publication_id = ?", publication.ID).Order("position ASC").Scan(ctx); err != nil {
+		return err
+	}
+	hasPoll := false
+	for _, source := range canonical {
+		var sourceSettings map[string]any
+		_ = json.Unmarshal([]byte(source.SettingsJSON), &sourceSettings)
+		if sourceSettings[publicationpoll.SettingsKey] == nil {
+			continue
+		}
+		hasPoll = true
+		if len(segments) == 1 && len(canonical) > 1 {
+			continue
+		}
+		for i := range segments {
+			segment := &segments[i]
+			if segment.PublicationSegmentID != source.ID {
+				continue
+			}
+			body := source.Body
+			if segment.BodyOverride != nil {
+				body = *segment.BodyOverride
+			}
+			var settings map[string]any
+			_ = json.Unmarshal([]byte(segment.SettingsJSON), &settings)
+			resolvedBody, resolvedSettings, pollErr := publicationpoll.Resolve(sourceSettings, account.ID, rendition.Platform, rendition.OutputProfile, body, settings)
+			if pollErr != nil {
+				return pollErr
+			}
+			segment.Body = resolvedBody
+			segment.SettingsJSON = mustPublisherJSON(resolvedSettings)
+		}
+	}
+	if hasPoll && len(segments) == 1 && len(canonical) > 1 {
+		var sources []map[string]any
+		var bodies []string
+		for _, source := range canonical {
+			var values map[string]any
+			_ = json.Unmarshal([]byte(source.SettingsJSON), &values)
+			sources = append(sources, values)
+			if body := strings.TrimSpace(source.Body); body != "" {
+				bodies = append(bodies, body)
+			}
+		}
+		body := strings.Join(bodies, "\n\n")
+		if segments[0].BodyOverride != nil {
+			body = *segments[0].BodyOverride
+		}
+		var settings map[string]any
+		_ = json.Unmarshal([]byte(segments[0].SettingsJSON), &settings)
+		body, settings, pollErr := publicationpoll.ResolveJoined(sources, account.ID, rendition.Platform, rendition.OutputProfile, body, settings)
+		if pollErr != nil {
+			return pollErr
+		}
+		segments[0].Body = body
+		segments[0].SettingsJSON = mustPublisherJSON(settings)
 	}
 
 	parentExternalID := ""

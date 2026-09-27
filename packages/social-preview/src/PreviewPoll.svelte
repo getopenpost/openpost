@@ -10,6 +10,7 @@
 </script>
 
 <div class={["preview-poll", `platform-${platform}`]} aria-label="Poll preview">
+  {#if poll.question}<p class="poll-question">{poll.question}</p>{/if}
   {#each poll.options as option, index (`${option}-${index}`)}
     <div class="poll-option">
       <span>{option || `Option ${index + 1}`}</span>
@@ -23,6 +24,12 @@
 </div>
 
 <style>
+  .poll-question {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
   .preview-poll {
     display: grid;
     gap: 0.5rem;

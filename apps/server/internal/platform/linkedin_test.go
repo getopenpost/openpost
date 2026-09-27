@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -245,5 +246,47 @@ func TestLinkedInUnrepostDeletesReshareURN(t *testing.T) {
 	adapter := NewLinkedInAdapter("", "", "", false)
 	if err := adapter.Unrepost(t.Context(), "token", "target", UnrepostRequest{RepostExternalID: "urn:li:share:12345"}); err != nil {
 		t.Fatalf("unrepost failed: %v", err)
+	}
+}
+
+func TestLinkedInPollSeparatesQuestionAndMapsLegacyDurations(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	for _, duration := range []struct{ saved, wire string }{{"ONE_WEEK", "SEVEN_DAYS"}, {"TWO_WEEKS", "FOURTEEN_DAYS"}} {
+		t.Run(duration.saved, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				var payload struct {
+					Commentary string `json:"commentary"`
+					Content    struct {
+						Poll struct {
+							Question string `json:"question"`
+							Options  []struct {
+								Text string `json:"text"`
+							} `json:"options"`
+							Settings struct {
+								Duration string `json:"duration"`
+							} `json:"settings"`
+						} `json:"poll"`
+					} `json:"content"`
+				}
+				if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+					t.Fatal(err)
+				}
+				if payload.Commentary != "Help us plan." || payload.Content.Poll.Question != "Would you use this?" || payload.Content.Poll.Settings.Duration != duration.wire {
+					t.Fatalf("unexpected poll payload: %+v", payload)
+				}
+				if len(payload.Content.Poll.Options) != 2 || payload.Content.Poll.Options[0].Text != "Yes, sometimes" {
+					t.Fatalf("answers changed: %+v", payload.Content.Poll.Options)
+				}
+				resp := jsonResponse(req, `{}`)
+				resp.Header.Set("x-restli-id", "urn:li:share:123456")
+				return resp, nil
+			})}
+			adapter := NewLinkedInAdapter("", "", "", false, true)
+			_, err := adapter.createPost(t.Context(), "token", "urn:li:person:member-1", linkedInAPIVersion(), &PublishRequest{Content: "Help us plan.", Settings: map[string]interface{}{"poll_question": "Would you use this?", "poll_options": "Yes, sometimes\nNo", "poll_duration": duration.saved}})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

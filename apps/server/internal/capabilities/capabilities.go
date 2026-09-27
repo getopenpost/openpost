@@ -1712,6 +1712,12 @@ func validateSettingDefinition(capability Capability, field SettingDefinition, s
 	}
 	if field.Control == "poll" || field.Type == "tags" {
 		items := splitSettingItems(value)
+		if field.Control == "poll" {
+			items = strings.Split(value, "\n")
+			for i := range items {
+				items[i] = strings.TrimSpace(items[i])
+			}
+		}
 		if field.Constraints.MinItems > 0 && len(items) < field.Constraints.MinItems {
 			issues = append(issues, settingValidationIssue(capability, field, "setting_min_items", fmt.Sprintf("%s requires at least %d values", field.Label, field.Constraints.MinItems)))
 		}
@@ -2407,7 +2413,7 @@ func pixelfedSettings() []SettingField {
 		{Key: "spoiler_text", Label: "Content warning", Type: "text"},
 		{Key: "sensitive", Label: "Sensitive media", Type: "boolean"},
 		{Key: "language", Label: "Language", Type: "tags", Control: "language", Help: "BCP 47 language tag."},
-		{Key: "poll_options", Label: "Poll", Type: "textarea", Control: "poll", Scope: SettingScopeSegment, MediaShapes: []string{MediaShapeText}, Constraints: SettingConstraint{MinItems: 2, MaxItems: 4}, Conflicts: []SettingCondition{{Key: "media", Operator: "present"}}, Help: "Poll limits come from the connected Pixelfed server."},
+		{Key: "poll_options", Label: "Poll", Type: "textarea", Control: "poll", Scope: SettingScopeSegment, MediaShapes: []string{MediaShapeText}, Constraints: SettingConstraint{MinItems: 2, MaxItems: 4}, Conflicts: []SettingCondition{{Key: "media", Operator: "present"}}, UnavailableReason: "Poll publishing is not verified for Pixelfed.", Help: "Choose a text version or post without the poll."},
 		{Key: "poll_expires_in_seconds", Label: "Poll duration", Type: "number", Scope: SettingScopeSegment, Dependencies: []SettingCondition{{Key: "poll_options", Operator: "present"}}},
 		{Key: "poll_multiple", Label: "Allow multiple choices", Type: "boolean", Scope: SettingScopeSegment, Dependencies: []SettingCondition{{Key: "poll_options", Operator: "present"}}},
 		{Key: "poll_hide_totals", Label: "Hide totals until the poll ends", Type: "boolean", Scope: SettingScopeSegment, Dependencies: []SettingCondition{{Key: "poll_options", Operator: "present"}}},
@@ -2469,8 +2475,9 @@ func linkedinSettings() []SettingField {
 	return []SettingField{
 		{Key: "visibility", Label: "Visibility", Type: "select", Options: []string{"PUBLIC", "CONNECTIONS"}},
 		{Key: "reshare_disabled", Label: "Disable reshares", Type: "boolean"},
-		{Key: "poll_options", Label: "Poll", Type: "textarea", Control: "poll", Scope: SettingScopeSegment, MediaShapes: []string{MediaShapeText}, Constraints: SettingConstraint{MinItems: 2, MaxItems: 4, MaxLength: 30}, Capability: "polls"},
-		{Key: "poll_duration", Label: "Poll duration", Type: "select", Scope: SettingScopeSegment, Options: []string{"ONE_DAY", "THREE_DAYS", "ONE_WEEK", "TWO_WEEKS"}, Dependencies: []SettingCondition{{Key: "poll_options", Operator: "present"}}},
+		{Key: "poll_options", Label: "Poll", Type: "textarea", Control: "poll", Scope: SettingScopeSegment, MediaShapes: []string{MediaShapeText}, Constraints: SettingConstraint{MinItems: 2, MaxItems: 4, MaxLength: 30}, Conflicts: []SettingCondition{{Key: "media", Operator: "present"}}, Capability: "polls"},
+		{Key: "poll_question", Label: "Poll question", Type: "text", Scope: SettingScopeSegment, Constraints: SettingConstraint{MaxLength: 140}, Dependencies: []SettingCondition{{Key: "poll_options", Operator: "present"}}},
+		{Key: "poll_duration", Label: "Poll duration", Type: "select", Scope: SettingScopeSegment, Options: []string{"ONE_DAY", "THREE_DAYS", "SEVEN_DAYS", "FOURTEEN_DAYS", "ONE_WEEK", "TWO_WEEKS"}, Dependencies: []SettingCondition{{Key: "poll_options", Operator: "present"}}},
 		{Key: "article_title", Label: "Article title", Type: "text"},
 		{Key: "article_description", Label: "Article description", Type: "textarea"},
 		{Key: "thumbnail_media_id", Label: "Video thumbnail", Type: "media", Control: "media_picker", MediaShapes: []string{MediaShapeVideo}, UnavailableReason: "LinkedIn does not expose thumbnail upload for this publishing flow."},

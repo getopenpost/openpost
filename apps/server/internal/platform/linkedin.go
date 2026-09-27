@@ -720,9 +720,15 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 			options = append(options, map[string]string{"text": option})
 		}
 		duration := firstNonEmptyString(settingString(req.Settings, "poll_duration"), "ONE_DAY")
+		switch duration {
+		case "ONE_WEEK":
+			duration = "SEVEN_DAYS"
+		case "TWO_WEEKS":
+			duration = "FOURTEEN_DAYS"
+		}
 		payload["content"] = map[string]interface{}{
 			"poll": map[string]interface{}{
-				"question": strings.TrimSpace(req.Content),
+				"question": firstNonEmptyString(strings.TrimSpace(settingString(req.Settings, "poll_question")), strings.TrimSpace(req.Content)),
 				"options":  options,
 				"settings": map[string]string{"duration": duration},
 			},

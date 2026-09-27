@@ -64,6 +64,7 @@ export interface PreviewSegment {
 }
 
 export interface PreviewPoll {
+  question?: string;
   options: string[];
   durationLabel?: string;
   allowMultiple?: boolean;

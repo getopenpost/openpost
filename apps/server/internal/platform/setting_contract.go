@@ -32,7 +32,7 @@ func PublishingSettingsContract(provider string) PublishingSettingContract {
 			AdapterKeys: []string{"link_url", "link_title", "link_description", "quote_url", "languages", "self_labels", "reply_gate", "thread_gate", "alt_text"},
 		},
 		providerLinkedIn: {
-			AdapterKeys:  []string{"url", "visibility", "reshare_disabled", "poll_options", "poll_duration", "article_title", "article_description", "document_title", "alt_text"},
+			AdapterKeys:  []string{"url", "visibility", "reshare_disabled", "poll_options", "poll_question", "poll_duration", "article_title", "article_description", "document_title", "alt_text"},
 			PipelineKeys: []string{"first_comment"},
 		},
 		providerFacebook: {

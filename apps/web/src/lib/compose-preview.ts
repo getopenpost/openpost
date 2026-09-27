@@ -1,3 +1,4 @@
+import { pollDurationLabel } from '$lib/components/compose/polls';
 import {
 	createPreviewModel,
 	normalizePreviewPlatform,
@@ -170,11 +171,12 @@ function previewPoll(settings: ComposerSettings): PreviewPoll | undefined {
 	const options = parseSeparatedValues(settings.poll_options);
 	if (options.length < 2) return undefined;
 	const duration =
-		parseSettingText(settings, 'poll_duration') ||
+		pollDurationLabelForEnum(parseSettingText(settings, 'poll_duration')) ||
 		parseDurationLabel(settings.poll_duration_minutes, 'minute') ||
 		parseDurationLabel(settings.poll_expires_in_seconds, 'second');
 	return {
 		options,
+		question: parseSettingText(settings, 'poll_question') || undefined,
 		durationLabel: duration || undefined,
 		allowMultiple: settingBoolean(settings, 'poll_multiple')
 	};
@@ -262,7 +264,7 @@ function parseSeparatedValues(value: ComposerSettingValue | undefined): string[]
 			.filter(Boolean);
 	if (typeof value !== 'string') return [];
 	return value
-		.split(/[\n,]/u)
+		.split('\n')
 		.map((item) => item.trim())
 		.filter(Boolean);
 }
@@ -273,11 +275,7 @@ function parseDurationLabel(
 ): string {
 	const amount = typeof value === 'number' ? value : Number(value);
 	if (!Number.isFinite(amount) || amount <= 0) return '';
-	if (unit === 'second' && amount >= 3600 && amount % 3600 === 0) {
-		const hours = amount / 3600;
-		return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-	}
-	return `${amount} ${amount === 1 ? unit : `${unit}s`}`;
+	return pollDurationLabel(unit === 'minute' ? amount * 60 : amount);
 }
 
 function safeDomain(value: string): string {
@@ -286,4 +284,16 @@ function safeDomain(value: string): string {
 	} catch {
 		return '';
 	}
+}
+
+function pollDurationLabelForEnum(value: string): string {
+	const days = new Map([
+		['ONE_DAY', 1],
+		['THREE_DAYS', 3],
+		['SEVEN_DAYS', 7],
+		['FOURTEEN_DAYS', 14],
+		['ONE_WEEK', 7],
+		['TWO_WEEKS', 14]
+	]).get(value);
+	return days ? pollDurationLabel(days * 86400) : '';
 }

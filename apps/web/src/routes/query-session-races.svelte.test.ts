@@ -257,6 +257,7 @@ describe('route mutation sessions', () => {
 	it('closes a selected conversation when its filter changes', async () => {
 		getMock.mockImplementation(async (path, options) => {
 			if (path === '/messages') {
+				// SAFETY: This branch handles the /messages request with its archived query parameter.
 				const archived = (options as { params: { query: { archived: boolean } } }).params.query
 					.archived;
 				return {
@@ -342,11 +343,13 @@ describe('route mutation sessions', () => {
 			.filter(
 				([path, options]) =>
 					path === '/publications' &&
+					// SAFETY: The path check identifies the /publications query request.
 					(options as { params: { query: { workspace_id: string } } }).params.query.workspace_id ===
 						workspaceB.id
 			)
 			.map(
 				([, options]) =>
+					// SAFETY: The filter above keeps only /publications query requests.
 					(options as { params: { query: { search?: string } } }).params.query.search ?? ''
 			);
 		expect(nextWorkspaceSearches).not.toContain('old workspace search');

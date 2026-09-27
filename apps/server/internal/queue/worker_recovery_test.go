@@ -150,5 +150,5 @@ func TestWorkerDoesNotFailJobRenewedDuringRecovery(t *testing.T) {
 	require.NoError(t, db.NewSelect().Model(job).WherePK().Scan(ctx))
 	require.Equal(t, jobStatusProcessing, job.Status)
 	require.Equal(t, "active-worker", job.LockedBy)
-	require.True(t, now.Equal(job.LockedAt))
+	require.WithinDuration(t, now, job.LockedAt, time.Microsecond)
 }

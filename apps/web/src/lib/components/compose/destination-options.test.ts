@@ -49,8 +49,16 @@ describe('loadableDestinationOptionSources', () => {
 
 describe('composerDestinationSettings', () => {
 	it('keeps YouTube settings available before a compatible video is attached', () => {
-		const privacy = setting('privacy', '');
-		const title = setting('title', '');
+		const privacy = {
+			...setting('privacy', ''),
+			intents: ['short_video'],
+			output_profiles: ['youtube.short']
+		};
+		const title = {
+			...setting('title', ''),
+			intents: ['short_video'],
+			output_profiles: ['youtube.short']
+		};
 		const catalog = [
 			{
 				capability_revision: 'test',
@@ -74,6 +82,38 @@ describe('composerDestinationSettings', () => {
 			privacy,
 			title
 		]);
+	});
+
+	it('does not expose Reel fields while loading a saved photo destination', () => {
+		for (const provider of ['facebook', 'instagram']) {
+			const outputProfile = provider === 'facebook' ? 'facebook.photo' : 'instagram.feed';
+			const reel = {
+				...setting('share_to_feed', ''),
+				type: 'boolean',
+				intents: ['short_video'],
+				output_profiles: [outputProfile]
+			};
+			const location = {
+				...setting('location_id', ''),
+				intents: ['post'],
+				output_profiles: [outputProfile]
+			};
+			expect(
+				composerDestinationSettings(
+					provider,
+					undefined,
+					[
+						{
+							provider,
+							output_profile: outputProfile,
+							intents: ['post'],
+							settings: [reel, location]
+						}
+					],
+					outputProfile
+				)
+			).toEqual([location]);
+		}
 	});
 
 	it('keeps an account-specific empty settings list instead of restoring generic bot fields', () => {

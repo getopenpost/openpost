@@ -7,6 +7,8 @@ const tiktok = { id: 'tt-1', platform: 'tiktok', account_username: 'openpost' };
 describe('publication composer payloads', () => {
 	it('keeps inline URLs in media posts without serializing native link settings', () => {
 		const accounts = [
+			{ id: 'facebook-1', platform: 'facebook', account_username: 'openpost' },
+			{ id: 'instagram-1', platform: 'instagram', account_username: 'openpost' },
 			{ id: 'threads-1', platform: 'threads', account_username: 'openpost' },
 			{ id: 'x-1', platform: 'x', account_username: 'openpost' },
 			{ id: 'mastodon-1', platform: 'mastodon', account_username: 'openpost' },
@@ -32,7 +34,7 @@ describe('publication composer payloads', () => {
 			)
 		});
 
-		expect(payload.renditions).toHaveLength(4);
+		expect(payload.renditions).toHaveLength(6);
 		for (const rendition of payload.renditions) {
 			expect(rendition.body).toContain('https://example.com');
 			expect(rendition.settings).toEqual({ reply_settings: 'everyone' });
@@ -151,64 +153,67 @@ describe('publication composer payloads', () => {
 		]);
 	});
 
-	it('stores first comments as follow-up segments and media options on the destination item', () => {
-		const linkedin = { id: 'li-1', platform: 'linkedin', account_username: 'OpenPost' };
-		const payload = buildPublicationPayload({
-			mode: 'post',
-			workspaceId: 'ws-1',
-			accounts: [linkedin],
-			fields: { postText: 'Release notes' },
-			media: [
-				{
-					id: 'image-1',
-					mimeType: 'image/jpeg',
-					altText: 'A product screen',
-					settingsByAccount: {
-						'li-1': {
-							alt_text: 'A destination-specific description',
-							tagged_user_ids: 'person-1, person-2'
-						}
-					}
-				}
-			],
-			segments: [
-				{
-					id: 'segment-1',
-					content: 'Release notes',
-					media: [
-						{
-							id: 'image-1',
-							mimeType: 'image/jpeg',
-							altText: 'A product screen',
-							settingsByAccount: {
-								'li-1': {
-									alt_text: 'A destination-specific description',
-									tagged_user_ids: 'person-1, person-2'
-								}
+	it.each(['A destination-specific description', ''])(
+		'stores first comments and destination media options with alt text %j',
+		(altText) => {
+			const linkedin = { id: 'li-1', platform: 'linkedin', account_username: 'OpenPost' };
+			const payload = buildPublicationPayload({
+				mode: 'post',
+				workspaceId: 'ws-1',
+				accounts: [linkedin],
+				fields: { postText: 'Release notes' },
+				media: [
+					{
+						id: 'image-1',
+						mimeType: 'image/jpeg',
+						altText: 'A product screen',
+						settingsByAccount: {
+							'li-1': {
+								alt_text: altText,
+								tagged_user_ids: 'person-1, person-2'
 							}
 						}
-					],
-					settingsByAccount: { 'li-1': { first_comment: 'Read the full changelog.' } }
+					}
+				],
+				segments: [
+					{
+						id: 'segment-1',
+						content: 'Release notes',
+						media: [
+							{
+								id: 'image-1',
+								mimeType: 'image/jpeg',
+								altText: 'A product screen',
+								settingsByAccount: {
+									'li-1': {
+										alt_text: altText,
+										tagged_user_ids: 'person-1, person-2'
+									}
+								}
+							}
+						],
+						settingsByAccount: { 'li-1': { first_comment: 'Read the full changelog.' } }
+					}
+				],
+				resolvedByAccount: {
+					'li-1': { profile: 'image_post', outputProfile: 'linkedin.image' }
 				}
-			],
-			resolvedByAccount: {
-				'li-1': { profile: 'image_post', outputProfile: 'linkedin.image' }
-			}
-		});
+			});
 
-		expect(payload.renditions[0].segments).toHaveLength(2);
-		expect(payload.renditions[0].segments[0].media[0]).toMatchObject({
-			media_id: 'image-1',
-			alt_text: 'A destination-specific description',
-			settings: { tagged_user_ids: 'person-1, person-2' }
-		});
-		expect(payload.renditions[0].segments[1]).toMatchObject({
-			publication_segment_id: 'segment-1',
-			body: 'Read the full changelog.',
-			settings: {},
-			media: []
-		});
-	});
+			expect(payload.renditions[0].segments).toHaveLength(2);
+			expect(payload.renditions[0].segments[0].media[0]).toMatchObject({
+				media_id: 'image-1',
+				settings: { tagged_user_ids: 'person-1, person-2' }
+			});
+			expect(payload.renditions[0].segments[0].media[0].alt_text).toBe(altText || undefined);
+			expect(payload.renditions[0].segments[1]).toMatchObject({
+				publication_segment_id: 'segment-1',
+				body: 'Read the full changelog.',
+				settings: {},
+				media: []
+			});
+		}
+	);
 
 	it('joins a shared thread for a single-post destination', () => {
 		const linkedin = { id: 'li-1', platform: 'linkedin', account_username: 'OpenPost' };

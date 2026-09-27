@@ -837,9 +837,21 @@
 			selectedAccounts.map((account) => [account.id, dialogSettingsForAccount(account)])
 		)
 	);
+	const editorMediaAltTexts = $derived.by(() => {
+		const values = new SvelteMap(mediaAltTexts);
+		if (activeVariantAccountId) {
+			for (const [mediaId, settings] of Object.entries(mediaSettingsByAccount)) {
+				const alt = settings[activeVariantAccountId]?.alt_text;
+				if (typeof alt === 'string') values.set(mediaId, alt);
+			}
+		}
+		return values;
+	});
 	const capabilityInputSnapshot = $derived(
 		JSON.stringify({
 			workspace: selectedWorkspaceId,
+			variants: Array.from(variants.entries()),
+			mediaAltTexts: Array.from(mediaAltTexts.entries()),
 			accounts: selectedAccountIds,
 			mode: textComposerMode,
 			requestedOutputProfiles,
@@ -1216,6 +1228,7 @@
 			formatLockedByAccount,
 			scheduleOverridesByAccount,
 			variants: variantEntries,
+			mediaAltTexts: Array.from(mediaAltTexts.entries()),
 			linkUrl,
 			settingsByAccount,
 			segmentSettingsByPost,
@@ -1344,7 +1357,7 @@
 					media: mediaIds.map((id) => ({
 						id,
 						mimeType: mediaMimeTypes.get(id),
-						altText: mediaAltTexts.get(id)
+						altText: mediaAltTextForAccount(id, account.id)
 					})),
 					settings: segmentSettingsByPost[post.key]?.[account.id] ?? {}
 				};
@@ -1922,7 +1935,9 @@
 				};
 				for (const media of segment.media ?? []) {
 					const mediaSettings = parseComposerSettingsRecord(media.settings ?? {});
-					if (media.alt_text) mediaSettings.alt_text = media.alt_text;
+					if ((media.alt_text ?? '') !== (mediaAltTexts.get(media.id) ?? '')) {
+						mediaSettings.alt_text = media.alt_text ?? '';
+					}
 					if (media.thumbnail_timestamp_ms) {
 						mediaSettings.thumbnail_timestamp_ms = media.thumbnail_timestamp_ms;
 					}
@@ -1977,6 +1992,22 @@
 					region,
 					account_settings: Object.fromEntries(
 						selectedAccounts.map((account) => [account.id, settingsForAccount(account)])
+					),
+					account_segments: Object.fromEntries(
+						selectedAccountIds.map((accountId) => [
+							accountId,
+							posts.map((post) => ({
+								id: post.key,
+								content: getVariantContent(accountId, post.key) ?? post.content,
+								url: post === posts[0] ? linkUrl : '',
+								media: (getVariantMediaIds(accountId, post.key) ?? post.mediaIds).map(
+									(mediaId) => ({
+										media_id: mediaId,
+										alt_text: mediaAltTextForAccount(mediaId, accountId)
+									})
+								)
+							}))
+						])
 					),
 					segments: posts.map((post) => ({
 						id: post.key,
@@ -2646,7 +2677,11 @@
 		mediaAltTexts = new Map();
 		const publicationMedia = [
 			...canonicalSegments.flatMap((segment) => segment.media ?? []),
-			...(publication.media ?? [])
+			...(publication.media ?? []),
+			...(publication.renditions ?? []).flatMap((rendition) => [
+				...(rendition.media ?? []),
+				...(rendition.segments ?? []).flatMap((segment) => segment.media ?? [])
+			])
 		];
 		mediaMimeTypes = new Map(publicationMedia.map((media) => [media.id, media.mime_type] as const));
 		mediaSizes = new Map();
@@ -2670,6 +2705,12 @@
 				: Promise.resolve(),
 			loadAccounts(selectedWorkspaceId, selectedAccountIds)
 		]);
+		mediaAltTexts = new SvelteMap(
+			[
+				...(publication.media ?? []),
+				...canonicalSegments.flatMap((segment) => segment.media ?? [])
+			].map((media) => [media.id, media.alt_text ?? ''])
+		);
 		hydrateCanonicalSettings(publication);
 		if (resolveAfter) await resolveCapabilities();
 		lastSavedSnapshot = getSaveSnapshot();
@@ -4201,27 +4242,31 @@
 		variants = newVariants;
 	}
 
+	function mediaAltTextForAccount(mediaId: string, accountId: string): string {
+		const override = mediaSettingsByAccount[mediaId]?.[accountId]?.alt_text;
+		return typeof override === 'string' ? override : (mediaAltTexts.get(mediaId) ?? '');
+	}
+
 	function setMediaAltText(mediaId: string, alt: string) {
 		captionRequests.get(mediaId)?.abort();
 		suppressedCaptionMediaIds.add(mediaId);
 		failedCaptionMediaIds.delete(mediaId);
-		const newAlts = new SvelteMap(mediaAltTexts);
-		if (alt.trim()) {
-			newAlts.set(mediaId, alt.trim());
-		} else {
-			newAlts.delete(mediaId);
+		if (activeVariantAccountId) {
+			mediaSettingsByAccount = {
+				...mediaSettingsByAccount,
+				[mediaId]: {
+					...mediaSettingsByAccount[mediaId],
+					[activeVariantAccountId]: {
+						...mediaSettingsByAccount[mediaId]?.[activeVariantAccountId],
+						alt_text: alt.trim()
+					}
+				}
+			};
+			scheduleAutoSave();
+			return;
 		}
-		mediaAltTexts = newAlts;
-
-		// Persist to backend
-		client
-			.PATCH('/media/{id}', {
-				params: { path: { id: mediaId } },
-				body: { alt_text: alt.trim() }
-			})
-			.catch((e: any) => {
-				console.error('Failed to save alt text:', e);
-			});
+		mediaAltTexts = new SvelteMap(mediaAltTexts).set(mediaId, alt.trim());
+		scheduleAutoSave();
 	}
 
 	// --------------------------------------------------------------------------
@@ -5895,7 +5940,7 @@
 										<ComposerMediaGrid
 											mediaIds={editorMediaIds}
 											mediaCount={editorMediaCount}
-											altTexts={mediaAltTexts}
+											altTexts={editorMediaAltTexts}
 											captioningIds={captioningMediaIds}
 											bind:editingAltMediaId
 											pendingUploads={pendingMediaUploads}

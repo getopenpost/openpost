@@ -12623,6 +12623,10 @@ export interface components {
             readonly $schema?: string;
             /** @description Connected account IDs */
             account_ids: string[] | null;
+            /** @description Effective segments for customized destinations, keyed by selected connected account ID */
+            account_segments?: {
+                [key: string]: components["schemas"]["ResolveCapabilitySegmentInput"][] | null;
+            };
             /** @description Destination settings keyed by connected account ID */
             account_settings?: {
                 [key: string]: {

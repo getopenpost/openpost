@@ -579,6 +579,8 @@ func TestValidateAllowsInlineURLsWithMedia(t *testing.T) {
 		fallbackProfile string
 		media           []MediaItem
 	}{
+		{ProviderFacebook, "facebook.photo", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
+		{ProviderInstagram, "instagram.feed", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
 		{ProviderThreads, "threads.post", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
 		{ProviderX, "x.post", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
 		{ProviderMastodon, "mastodon.post", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
@@ -605,7 +607,7 @@ func TestNormalizeMediaTextLinkSettingsPreservesInput(t *testing.T) {
 
 	withoutMedia := NormalizeMediaTextLinkSettings(ProviderX, 0, settings)
 	require.Equal(t, settings, withoutMedia)
-	unknownProvider := NormalizeMediaTextLinkSettings(ProviderInstagram, 1, settings)
+	unknownProvider := NormalizeMediaTextLinkSettings(ProviderPinterest, 1, settings)
 	require.Equal(t, settings, unknownProvider)
 }
 

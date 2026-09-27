@@ -3,7 +3,14 @@ import { m } from '$lib/paraglide/messages';
 
 export const COMPOSER_MODE_KEYS = ['post', 'thread'] as const;
 
-const MEDIA_TEXT_LINK_PLATFORMS = new Set(['x', 'threads', 'mastodon', 'linkedin']);
+const MEDIA_TEXT_LINK_PLATFORMS = new Set([
+	'x',
+	'threads',
+	'mastodon',
+	'linkedin',
+	'facebook',
+	'instagram'
+]);
 
 export type ComposerModeKey = (typeof COMPOSER_MODE_KEYS)[number];
 
@@ -417,7 +424,8 @@ function mediaPayload(
 			const settings = cloneComposerSettings(
 				accountId ? item.settingsByAccount?.[accountId] : item.settings
 			);
-			const accountAltText = parseComposerSettingString(settings.alt_text).trim();
+			const accountAltText =
+				typeof settings.alt_text === 'string' ? settings.alt_text.trim() : undefined;
 			const thumbnailTimestamp = parseComposerSettingNumber(settings.thumbnail_timestamp_ms);
 			delete settings.alt_text;
 			delete settings.thumbnail_timestamp_ms;
@@ -425,7 +433,7 @@ function mediaPayload(
 				media_id: item.id,
 				role: item.role || 'attachment'
 			};
-			const altText = accountAltText || item.altText;
+			const altText = accountAltText ?? item.altText;
 			if (altText) payload.alt_text = altText;
 			if (thumbnailTimestamp > 0) payload.thumbnail_timestamp_ms = thumbnailTimestamp;
 			if (Object.keys(settings).length > 0) payload.settings = settings;

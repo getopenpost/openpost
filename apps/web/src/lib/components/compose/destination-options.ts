@@ -19,7 +19,8 @@ export interface DestinationSettingInvalidation {
 export function composerDestinationSettings(
 	provider: string,
 	resolvedSettings: SettingDefinition[] | undefined,
-	catalog: readonly Pick<Capability, 'provider' | 'output_profile' | 'settings'>[],
+	catalog: readonly (Pick<Capability, 'provider' | 'output_profile' | 'settings'> &
+		Partial<Pick<Capability, 'intents'>>)[],
 	outputProfile = ''
 ): SettingDefinition[] {
 	if (resolvedSettings !== undefined) return resolvedSettings;
@@ -31,7 +32,15 @@ export function composerDestinationSettings(
 			? providerCapabilities[0]
 			: undefined;
 
-	return matchingCapability?.settings ?? [];
+	if (!matchingCapability) return [];
+	const { intents } = matchingCapability;
+	return (matchingCapability.settings ?? []).filter((setting) => {
+		return (
+			!intents?.length ||
+			!setting.intents?.length ||
+			setting.intents.some((intent) => intents.includes(intent))
+		);
+	});
 }
 
 function conditionMatches(condition: SettingCondition, values: DestinationSettings): boolean {

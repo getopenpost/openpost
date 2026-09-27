@@ -16609,6 +16609,16 @@
 						"type": ["array", "null"],
 						"uniqueItems": true
 					},
+					"account_segments": {
+						"additionalProperties": {
+							"items": {
+								"$ref": "#/components/schemas/ResolveCapabilitySegmentInput"
+							},
+							"type": ["array", "null"]
+						},
+						"description": "Effective segments for customized destinations, keyed by selected connected account ID",
+						"type": "object"
+					},
 					"account_settings": {
 						"additionalProperties": {
 							"additionalProperties": {},

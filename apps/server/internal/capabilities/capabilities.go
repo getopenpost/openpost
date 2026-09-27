@@ -1448,7 +1448,7 @@ func NormalizeMediaTextLinkSettings(provider string, mediaCount int, settings ma
 		return settings
 	}
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case ProviderX, ProviderThreads, ProviderMastodon, ProviderLinkedIn:
+	case ProviderX, ProviderThreads, ProviderMastodon, ProviderLinkedIn, ProviderFacebook, ProviderInstagram:
 		if _, hasURL := settings["url"]; !hasURL {
 			if _, hasLinkURL := settings["link_url"]; !hasLinkURL {
 				return settings
@@ -1475,7 +1475,7 @@ func NormalizeResolvedSettings(provider, profile string, settings map[string]any
 		return settings
 	}
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case ProviderX, ProviderThreads, ProviderMastodon, ProviderLinkedIn:
+	case ProviderX, ProviderThreads, ProviderMastodon, ProviderLinkedIn, ProviderFacebook, ProviderInstagram:
 		var normalized map[string]any
 		for _, key := range []string{"url", "link_url", "link_title", "link_description"} {
 			if _, ok := settings[key]; !ok {

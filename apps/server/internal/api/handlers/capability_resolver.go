@@ -137,15 +137,16 @@ type ResolveCapabilitySegmentInput struct {
 
 type ResolveCapabilitiesInput struct {
 	Body struct {
-		AccountIDs              []string                        `json:"account_ids" minItems:"1" uniqueItems:"true" doc:"Connected account IDs"`
-		Intent                  string                          `json:"intent,omitempty" enum:"post,thread,story,short_video,video" doc:"Deprecated compatibility alias for creation_preset"`
-		CreationPreset          string                          `json:"creation_preset,omitempty" enum:"post,thread,story,short_video,video" doc:"Starter preset used only to choose initial destination formats"`
-		RequestedOutputProfiles map[string]string               `json:"requested_output_profiles,omitempty" doc:"Explicit or saved output profiles keyed by connected account ID"`
-		SourceURL               string                          `json:"source_url,omitempty" doc:"Canonical source URL"`
-		Locale                  string                          `json:"locale,omitempty" doc:"BCP 47 locale for option labels"`
-		Region                  string                          `json:"region,omitempty" doc:"ISO 3166-1 alpha-2 region"`
-		Segments                []ResolveCapabilitySegmentInput `json:"segments" minItems:"1" doc:"Ordered canonical segments"`
-		Settings                map[string]map[string]any       `json:"account_settings,omitempty" doc:"Destination settings keyed by connected account ID"`
+		AccountIDs              []string                                   `json:"account_ids" minItems:"1" uniqueItems:"true" doc:"Connected account IDs"`
+		Intent                  string                                     `json:"intent,omitempty" enum:"post,thread,story,short_video,video" doc:"Deprecated compatibility alias for creation_preset"`
+		CreationPreset          string                                     `json:"creation_preset,omitempty" enum:"post,thread,story,short_video,video" doc:"Starter preset used only to choose initial destination formats"`
+		RequestedOutputProfiles map[string]string                          `json:"requested_output_profiles,omitempty" doc:"Explicit or saved output profiles keyed by connected account ID"`
+		SourceURL               string                                     `json:"source_url,omitempty" doc:"Canonical source URL"`
+		Locale                  string                                     `json:"locale,omitempty" doc:"BCP 47 locale for option labels"`
+		Region                  string                                     `json:"region,omitempty" doc:"ISO 3166-1 alpha-2 region"`
+		Segments                []ResolveCapabilitySegmentInput            `json:"segments" minItems:"1" doc:"Ordered canonical segments"`
+		AccountSegments         map[string][]ResolveCapabilitySegmentInput `json:"account_segments,omitempty" doc:"Effective segments for customized destinations, keyed by selected connected account ID"`
+		Settings                map[string]map[string]any                  `json:"account_settings,omitempty" doc:"Destination settings keyed by connected account ID"`
 	}
 }
 
@@ -187,7 +188,17 @@ func (h *CapabilityResolverHandler) RegisterRoutes(api huma.API) {
 		output := &ResolveCapabilitiesOutput{}
 		output.Body.Accounts = make([]ResolvedAccountCapability, 0, len(accounts))
 		for _, account := range accounts {
-			accountSegments := segmentsWithDestinationFields(segments, input.Body.Settings[account.ID])
+			accountSegments := segments
+			if overrides, exists := input.Body.AccountSegments[account.ID]; exists {
+				if len(overrides) == 0 {
+					return nil, huma.Error400BadRequest("destination segments must not be empty")
+				}
+				accountSegments, err = h.resolveSegments(ctx, workspaceID, overrides)
+				if err != nil {
+					return nil, err
+				}
+			}
+			accountSegments = segmentsWithDestinationFields(accountSegments, input.Body.Settings[account.ID])
 			resolveInput := capabilities.ResolveInput{
 				Intent:                 input.Body.Intent,
 				CreationPreset:         input.Body.CreationPreset,
@@ -200,7 +211,7 @@ func (h *CapabilityResolverHandler) RegisterRoutes(api huma.API) {
 			if err != nil {
 				return nil, huma.Error502BadGateway("connector capability resolution failed")
 			}
-			satisfyCanonicalURLRequirement(&resolved, input.Body.SourceURL, segments)
+			satisfyCanonicalURLRequirement(&resolved, input.Body.SourceURL, accountSegments)
 			immediate := h.publicationReadiness(ctx, account, resolved.Capability, providerreadiness.OperationPublishImmediate, input.Body.Settings[account.ID])
 			scheduled := h.publicationReadiness(ctx, account, resolved.Capability, providerreadiness.OperationPublishScheduled, input.Body.Settings[account.ID])
 			if connectorBacked {

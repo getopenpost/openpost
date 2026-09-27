@@ -8,7 +8,7 @@ The database holds accounts, schedules, and publication state. The media directo
 
 ## Back up the SQLite setup
 
-From the directory containing `docker-compose.yml`, stop OpenPost so the SQLite copy is consistent. Record the image tag and create an archive:
+For the [Compose guide's](/self-hosting) `./data` bind mount, run these commands from the directory containing `docker-compose.yml`. Stop OpenPost so the SQLite copy is consistent. Record the image tag and create an archive:
 
 ```sh
 docker compose stop openpost
@@ -17,6 +17,8 @@ docker compose start openpost
 ```
 
 Check that the archive opens with `tar -tzf openpost-backup-YYYYMMDD-HHMMSS.tar.gz`, replacing the name with your new file. Copy it to private storage outside this server. It contains account data and secrets. If you use PostgreSQL or S3 storage, back up those services with their own consistent backup tools as well.
+
+The repository's `docker-compose.yml` and platform recipes use an `openpost_data` named volume instead of `./data`. Back up that volume with the Compose file, environment values, and image tag. Follow your [platform guide](/self-hosting#choose-a-platform) for its storage location and backup steps. The archive command above does not include a named volume.
 
 ## Upgrade
 
@@ -33,7 +35,7 @@ The self-hosted `all` container applies database migrations at startup. If you n
 
 ## Restore
 
-On a replacement server, install Docker Compose, extract the archive into an empty directory, and check the image tag and paths in `docker-compose.yml`. Restore the same `.env` secrets. Start with `docker compose up -d`, check `/api/v1/ready`, sign in, open a saved publication with media, and inspect a scheduled post. Reconnect any provider whose external app or token was revoked since the backup.
+On a replacement server, install Docker Compose and restore the data using the same storage layout. Extract the bind-mount archive into an empty directory, or restore the named volume from its volume backup before starting OpenPost. Check the image tag and paths in `docker-compose.yml`, and restore the same `.env` secrets. Start with `docker compose up -d`, check `/api/v1/ready`, sign in, open a saved publication with media, and inspect a scheduled post. Reconnect any provider whose external app or token was revoked since the backup.
 
 ## Check health
 

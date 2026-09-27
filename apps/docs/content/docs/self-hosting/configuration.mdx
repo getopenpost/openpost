@@ -18,7 +18,7 @@ Use HTTPS for a public instance and make sure your proxy forwards API and media 
 
 ## Storage
 
-The [Compose setup](/self-hosting) stores SQLite at `/data/db/openpost.db` and media at `/data/media`. Both paths sit under the persistent `./data` bind mount. Do not put only the database on persistent storage; published media and draft attachments live in the media directory.
+The [Compose setup](/self-hosting) stores SQLite at `/data/db/openpost.db` and media at `/data/media` under its `./data` bind mount. The repository's `docker-compose.yml` and platform recipes use an `openpost_data` named volume for the same paths. Back up the storage your deployment actually uses. Do not persist only the database; published media and draft attachments live in the media directory.
 
 For PostgreSQL, set `OPENPOST_DATABASE_DRIVER=postgres` and `OPENPOST_DATABASE_URL` to the connection string. For S3-compatible storage, set `OPENPOST_STORAGE_DRIVER=s3`, `OPENPOST_S3_ENDPOINT`, `OPENPOST_S3_REGION`, `OPENPOST_S3_BUCKET`, `OPENPOST_S3_ACCESS_KEY_ID`, `OPENPOST_S3_SECRET_ACCESS_KEY`, and `OPENPOST_S3_PUBLIC_BASE_URL`. Set `OPENPOST_S3_FORCE_PATH_STYLE=true` only if your object store needs it. These are deployment choices; moving an existing instance's data needs a planned migration, not just a setting change.
 

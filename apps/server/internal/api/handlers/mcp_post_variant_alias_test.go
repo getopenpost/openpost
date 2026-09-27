@@ -375,3 +375,29 @@ func TestMCPPostVariantAnnotations(t *testing.T) {
 		require.True(t, ok, "tool %s must carry idempotentHint", name)
 	}
 }
+
+func TestMCPExplicitVariantFormatRoundTrip(t *testing.T) {
+	t.Parallel()
+	srv := newMCPTestServer(t)
+	created := mcpRequireToolSuccess(t, srv, "web-token", "locked-create", "create_post", map[string]any{
+		"workspace_id": "ws-1", "content_profile": "short_text", "source_text": "Explicit format",
+		"variants": []any{map[string]any{
+			"social_account_id": "account-1", "profile": "short_text", "output_profile": "x.post", "format_locked": true,
+		}},
+	})
+	post := created["structuredContent"].(map[string]any)["publication"].(map[string]any)
+	loaded := mcpRequireToolSuccess(t, srv, "web-token", "locked-get", "get_post", map[string]any{"post_id": post["id"], "detail": "full"})
+	post = loaded["structuredContent"].(map[string]any)["publication"].(map[string]any)
+	variants := post["renditions"].([]any)
+	require.Equal(t, true, variants[0].(map[string]any)["format_locked"])
+	updated := mcpRequireToolSuccess(t, srv, "web-token", "locked-update", "set_post_variants", map[string]any{
+		"post_id": post["id"], "expected_revision": post["revision"],
+		"variants": []any{map[string]any{
+			"social_account_id": "account-1", "profile": "short_text", "output_profile": "x.post", "format_locked": false,
+		}},
+	})
+	post = updated["structuredContent"].(map[string]any)["publication"].(map[string]any)
+	loaded = mcpRequireToolSuccess(t, srv, "web-token", "unlocked-get", "get_post", map[string]any{"post_id": post["id"], "detail": "full"})
+	post = loaded["structuredContent"].(map[string]any)["publication"].(map[string]any)
+	require.Equal(t, false, post["renditions"].([]any)[0].(map[string]any)["format_locked"])
+}

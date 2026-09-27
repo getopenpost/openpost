@@ -1789,28 +1789,7 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 				"variants": map[string]any{
 					"type":        "array",
 					"description": "Explicit account/provider outputs. Use fields by output role: body/caption as body, YouTube title as title, YouTube description as description, provider settings such as privacy.",
-					"items": map[string]any{
-						"type": "object",
-						"properties": map[string]any{
-							"social_account_id": map[string]any{"type": "string", "description": "Destination account ID."},
-							"profile":           map[string]any{"type": "string", "description": "Optional content profile override."},
-							"body":              map[string]any{"type": "string", "description": "Post text or caption output."},
-							"title":             map[string]any{"type": "string", "description": "Provider title output, especially YouTube video title."},
-							"description":       map[string]any{"type": "string", "description": "Provider description output, especially YouTube video description."},
-							"settings": map[string]any{
-								"type":                 "object",
-								"description":          "Provider-specific settings such as YouTube privacy, TikTok privacy_level, link_url, or post_type.",
-								"additionalProperties": true,
-							},
-							"media": map[string]any{
-								"type":        "array",
-								"description": "Variant-specific ordered media.",
-								"items":       mediaSchema,
-							},
-						},
-						"required":             []string{"social_account_id"},
-						"additionalProperties": false,
-					},
+					"items":       mcpPublicationRenditionSchema(),
 				},
 			},
 			"required":             []string{"workspace_id", "content_profile", "source_text"},
@@ -1987,11 +1966,13 @@ func mcpPublicationRenditionSchema() map[string]any {
 				"type": "string", "description": "Optional content profile override for this destination.",
 				"enum": []string{"short_text", "thread", "link_share", "image_post", "carousel", "story", "short_video", "long_video"},
 			},
-			"body":        map[string]any{"type": "string", "description": "Provider-native post text or caption."},
-			"title":       map[string]any{"type": "string", "description": "Provider-native title, especially for YouTube videos."},
-			"description": map[string]any{"type": "string", "description": "Provider-native long description, especially for YouTube videos."},
-			"settings":    map[string]any{"type": "object", "description": "Provider settings, e.g. {\"privacy\":\"public\"}.", "additionalProperties": true},
-			"media":       map[string]any{"type": "array", "description": "Ordered media attachments for this destination output.", "items": mcpPublicationMediaSchema()},
+			"output_profile": map[string]any{"type": "string", "description": "Exact provider format ID returned by capability resolution."},
+			"format_locked":  map[string]any{"type": "boolean", "description": "Preserve the explicitly selected format when source content changes."},
+			"body":           map[string]any{"type": "string", "description": "Provider-native post text or caption."},
+			"title":          map[string]any{"type": "string", "description": "Provider-native title, especially for YouTube videos."},
+			"description":    map[string]any{"type": "string", "description": "Provider-native long description, especially for YouTube videos."},
+			"settings":       map[string]any{"type": "object", "description": "Provider settings, e.g. {\"privacy\":\"public\"}.", "additionalProperties": true},
+			"media":          map[string]any{"type": "array", "description": "Ordered media attachments for this destination output.", "items": mcpPublicationMediaSchema()},
 		}, "required": []string{"social_account_id"}, "additionalProperties": false,
 	}
 }

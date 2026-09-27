@@ -4597,7 +4597,11 @@
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
-				<DropdownMenu.Content class="video-editor-theme w-60" align="start">
+				<DropdownMenu.Content
+					class="video-editor-theme max-h-(--bits-dropdown-menu-content-available-height) w-60 overflow-y-auto"
+					collisionPadding={8}
+					align="start"
+				>
 					<DropdownMenu.Item onclick={() => addNamedTrack('video')}>
 						{m.video_editor_track_add_video()}
 					</DropdownMenu.Item>
@@ -5632,7 +5636,7 @@
 											{/if}
 											<button
 												type="button"
-												class="absolute inset-y-0 left-0 z-20 w-3 cursor-ew-resize opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11 {activeEditTool ===
+												class="absolute inset-y-0 left-0 z-20 w-3 max-w-[25%] min-w-0! cursor-ew-resize opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white @max-[8px]:pointer-events-none [@media(pointer:coarse)]:w-11 {activeEditTool ===
 												'track-push'
 													? pushAvailability === 'ready'
 														? 'bg-cyan-400/45 hover:bg-cyan-300/70'
@@ -5673,7 +5677,7 @@
 											></button>
 											<button
 												type="button"
-												class="absolute inset-y-0 right-0 z-20 w-3 cursor-ew-resize bg-white/15 opacity-0 group-hover:opacity-100 hover:bg-white/40 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:w-11"
+												class="absolute inset-y-0 right-0 z-20 w-3 max-w-[25%] min-w-0! cursor-ew-resize bg-white/15 opacity-0 group-hover:opacity-100 hover:bg-white/40 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white @max-[8px]:pointer-events-none [@media(pointer:coarse)]:w-11"
 												aria-label={activeEditTool === 'rate-stretch'
 													? m.video_editor_rate_stretch()
 													: m.video_editor_trim_end()}

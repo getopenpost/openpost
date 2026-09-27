@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import Fixture from './timeline-selection.fixture.svelte';
@@ -34,7 +34,37 @@ beforeEach(() => {
 		}))
 	);
 });
-afterEach(() => timelineStore.__resetForTesting());
+afterEach(() => {
+	timelineStore.__resetForTesting();
+	window.scrollTo(0, 0);
+});
+
+it('opens the timeline menu near the viewport edge without scrolling or editing', async () => {
+	const onedit = vi.fn();
+	await page.viewport(1168, 600);
+	const screen = await render(Fixture, { onedit, topSpace: 260 });
+	await screen.getByRole('button', { name: 'Timeline: More actions', exact: true }).click();
+	await expect
+		.element(screen.getByRole('menuitem', { name: 'Add visual track', exact: true }))
+		.toBeVisible();
+	const menu = screen.getByRole('menu').element();
+	await expect
+		.poll(() => menu.getBoundingClientRect().bottom)
+		.toBeLessThanOrEqual(window.innerHeight);
+	expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+	expect(window.scrollY).toBe(0);
+	expect(timelineStore.tracks).toHaveLength(1);
+	expect(onedit).not.toHaveBeenCalled();
+});
+
+it('leaves the center of a one-frame clip available for moving', async () => {
+	timelineStore._setItems([{ ...timelineStore.items[0]!, durationInFrames: 1 }]);
+	const screen = await render(Fixture, { onedit: vi.fn() });
+	const clip = screen.getByRole('button', { name: /^first\./ }).element();
+	const rect = clip.getBoundingClientRect();
+	const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+	expect(target?.closest('button')).toBe(clip);
+});
 
 it('adds and removes clips with Shift-click', async () => {
 	const screen = await render(Fixture, { onedit: vi.fn() });

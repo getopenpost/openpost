@@ -419,7 +419,7 @@ export class TimelineFrameRenderer {
 			{
 				width: this.width,
 				height: this.height,
-				reverseFps: item.isReversed ? (item.sourceFps ?? this.fps) : undefined
+				reverse: item.isReversed
 			}
 		);
 		this.decoders.set(item.id, decoder);
@@ -495,6 +495,12 @@ export class TimelineFrameRenderer {
 			throw new Error(`Animated image frame ${index} missing for ${media?.fileName ?? mediaId}`);
 		}
 		return { source: bitmap, width: resolved.width, height: resolved.height };
+	}
+
+	private *sourceTimestampsAfter(item: TimelineItem, frame: number): Generator<number> {
+		for (let nextFrame = frame + 1; nextFrame < item.from + item.durationInFrames; nextFrame++) {
+			yield frameToSourceSeconds(item, nextFrame, this.fps);
+		}
 	}
 
 	private async sourceForItem(
@@ -604,7 +610,10 @@ export class TimelineFrameRenderer {
 		if (resolvedItem.type === 'video') {
 			const decoder = await this.getDecoder(originalItem);
 			if (!decoder) return null;
-			const wrapped = await decoder.getFrame(frameToSourceSeconds(originalItem, frame, this.fps));
+			const wrapped = await decoder.getFrame(
+				frameToSourceSeconds(originalItem, frame, this.fps),
+				originalItem.isReversed ? this.sourceTimestampsAfter(originalItem, frame) : undefined
+			);
 			return wrapped
 				? {
 						source: wrapped.source,

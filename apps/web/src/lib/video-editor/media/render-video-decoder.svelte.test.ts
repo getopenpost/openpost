@@ -27,7 +27,8 @@ describe('ResilientVideoFrameDecoder', () => {
 		const decoder = new ResilientVideoFrameDecoder(
 			(hardwareAcceleration) => {
 				preferences.push(hardwareAcceleration);
-				return hardwareAcceleration === 'prefer-software' ? softwareSink : hardwareSink;
+				const sink = hardwareAcceleration === 'prefer-software' ? softwareSink : hardwareSink;
+				return { ...sink, samplesAtTimestamps: sink.samples };
 			},
 			{ width: 1, height: 1 }
 		);
@@ -50,6 +51,7 @@ describe('ResilientVideoFrameDecoder', () => {
 	it('does not hide non-decoding failures behind a retry', async () => {
 		const failure = new Error('The input has no video track.');
 		const createSink = vi.fn(() => ({
+			samplesAtTimestamps: vi.fn(),
 			samples: async function* () {
 				await Promise.reject(failure);
 				yield sampleAt(0, 1);
@@ -65,10 +67,53 @@ describe('ResilientVideoFrameDecoder', () => {
 		}
 	});
 
+	it('preserves reverse prefetch across a software retry and closes its samples', async () => {
+		const requests: number[][] = [];
+		const samples: VideoSample[] = [];
+		const decoder = new ResilientVideoFrameDecoder(
+			(hardwareAcceleration) => ({
+				samples: vi.fn(),
+				samplesAtTimestamps: async function* (timestamps) {
+					const requested: number[] = [];
+					for await (const timestamp of timestamps) requested.push(timestamp);
+					requests.push(requested);
+					for (const timestamp of requested) {
+						const sample = sampleAt(timestamp);
+						samples.push(sample);
+						yield sample;
+						if (hardwareAcceleration !== 'prefer-software') throw new Error('Decoding error');
+					}
+				}
+			}),
+			{ width: 2, height: 2, reverse: true }
+		);
+		const upcoming = (function* () {
+			yield 0.5;
+			yield 0.25;
+			yield 0;
+		})();
+		try {
+			const first = await decoder.getFrame(0.75, upcoming);
+			expect(first?.timestamp).toBe(0.75);
+			expect((await decoder.getFrame(0.25))?.timestamp).toBe(0.25);
+			expect(requests).toEqual([
+				[0, 0.25, 0.5, 0.75],
+				[0, 0.25, 0.5, 0.75]
+			]);
+			for (const sample of samples) expect(() => sample.toVideoFrame()).toThrow(/closed/i);
+			decoder.dispose();
+			expect(first?.source.displayWidth).toBe(0);
+		} finally {
+			decoder.dispose();
+			for (const sample of samples) sample.close();
+		}
+	});
+
 	it('closes skipped and replaced samples while retaining the final frame until disposal', async () => {
 		const samples = [0, 0.25, 0.5].map((timestamp) => sampleAt(timestamp));
 		const decoder = new ResilientVideoFrameDecoder(
 			() => ({
+				samplesAtTimestamps: vi.fn(),
 				samples: async function* () {
 					yield* samples;
 				}

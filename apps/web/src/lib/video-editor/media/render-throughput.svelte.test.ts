@@ -30,6 +30,11 @@ async function sourceVideo(): Promise<Blob> {
 	for (let frame = 0; frame < FRAME_COUNT; frame++) {
 		context.fillStyle = `rgb(${frame * 4}, 40, 80)`;
 		context.fillRect(0, 0, 64, 64);
+		// Six high-contrast bits survive lossy encoding and identify every source frame.
+		for (let bit = 0; bit < 6; bit++) {
+			context.fillStyle = frame & (1 << bit) ? 'white' : 'black';
+			context.fillRect(bit * 10, 0, 10, 10);
+		}
 		const sample = new VideoSample(canvas, { timestamp: frame / FPS, duration: 1 / FPS });
 		await source.add(sample);
 		sample.close();
@@ -37,6 +42,15 @@ async function sourceVideo(): Promise<Blob> {
 	source.close();
 	await output.finalize();
 	return new Blob([target.buffer!], { type: 'video/mp4' });
+}
+
+function frameIdentity(canvas: OffscreenCanvas): number {
+	const context = canvas.getContext('2d')!;
+	let identity = 0;
+	for (let bit = 0; bit < 6; bit++) {
+		if (context.getImageData(bit * 10 + 5, 5, 1, 1).data[0]! > 128) identity += 2 ** bit;
+	}
+	return identity;
 }
 
 function sourceProject(isReversed = false): Project {
@@ -274,10 +288,12 @@ describe('timeline video decoding', () => {
 	it.each([
 		{ isReversed: false, sourceStep: 1 },
 		{ isReversed: true, sourceStep: 1 },
-		{ isReversed: false, sourceStep: 2 }
+		{ isReversed: false, sourceStep: 2 },
+		{ isReversed: true, sourceStep: 2 },
+		{ isReversed: true, sourceStep: 1, ramped: true }
 	])(
-		'reuses decoding and draws requested frames, reversed=$isReversed, source step=$sourceStep',
-		async ({ isReversed, sourceStep }) => {
+		'reuses decoding and draws requested frames, reversed=$isReversed, source step=$sourceStep, ramped=$ramped',
+		async ({ isReversed, sourceStep, ramped }) => {
 			const blob = await sourceVideo();
 			const url = URL.createObjectURL(blob);
 			mediaPool.upsert(
@@ -300,32 +316,40 @@ describe('timeline video decoding', () => {
 			);
 			const project = sourceProject(isReversed);
 			project.metadata.fps = FPS / sourceStep;
-			project.timeline!.items[0]!.durationInFrames = FRAME_COUNT / sourceStep;
+			const outputFrames = ramped ? 45 : FRAME_COUNT / sourceStep;
+			const clip = project.timeline!.items[0]!;
+			clip.durationInFrames = outputFrames;
+			if (ramped) {
+				clip.sourceEnd = FRAME_COUNT;
+				clip.speedRamp = [
+					{ id: 'normal', sourceFrame: 0, speed: 1, easing: 'hold' },
+					{ id: 'fast', sourceFrame: 15, speed: 2, easing: 'hold' },
+					{ id: 'slow', sourceFrame: 45, speed: 1, easing: 'hold' },
+					{ id: 'end', sourceFrame: 60, speed: 1, easing: 'linear' }
+				];
+			}
+			const expectedSourceFrame = (frame: number): number => {
+				if (ramped) {
+					if (frame < 15) return 59 - frame;
+					if (frame < 30) return 74 - frame * 2;
+					return 44 - frame;
+				}
+				return isReversed ? FRAME_COUNT - 1 - frame * sourceStep : frame * sourceStep;
+			};
 			const draw = vi.spyOn(VideoSample.prototype, 'drawWithFit');
 			const configure = vi.spyOn(VideoDecoder.prototype, 'configure');
 			const renderer = new TimelineFrameRenderer(project);
 			try {
-				for (let frame = 0; frame < FRAME_COUNT / sourceStep; frame++) {
+				for (let frame = 0; frame < outputFrames; frame++) {
 					const canvas = await renderer.render(frame);
-					const red = canvas.getContext('2d')!.getImageData(32, 32, 1, 1).data[0]!;
-					expect(
-						Math.abs(
-							red - (isReversed ? FRAME_COUNT - 1 - frame * sourceStep : frame * sourceStep) * 4
-						)
-					).toBeLessThan(5);
+					expect(frameIdentity(canvas)).toBe(expectedSourceFrame(frame));
 				}
 				// A clip must not repeatedly decode its preceding keyframe group during export.
 				expect(configure.mock.calls.length).toBeLessThanOrEqual(4);
-				if (!isReversed)
-					expect(draw.mock.calls.length).toBeLessThanOrEqual(FRAME_COUNT / sourceStep);
-				for (const frame of [8, 9, 9, FRAME_COUNT / sourceStep - 1, 2, 3]) {
+				expect(draw.mock.calls.length).toBeLessThanOrEqual(outputFrames);
+				for (const frame of [8, 9, 9, outputFrames - 1, 2, 3]) {
 					const canvas = await renderer.render(frame);
-					const red = canvas.getContext('2d')!.getImageData(32, 32, 1, 1).data[0]!;
-					expect(
-						Math.abs(
-							red - (isReversed ? FRAME_COUNT - 1 - frame * sourceStep : frame * sourceStep) * 4
-						)
-					).toBeLessThan(5);
+					expect(frameIdentity(canvas)).toBe(expectedSourceFrame(frame));
 				}
 			} finally {
 				renderer.dispose();

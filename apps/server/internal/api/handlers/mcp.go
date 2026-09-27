@@ -1933,16 +1933,6 @@ func mcpReplyToRenditionTool() mcpOperationDefinition {
 	}, mcpOperationExecute, false, true)
 }
 
-func mcpPublicationIDSchema() map[string]any {
-	return map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"post_id": map[string]any{"type": "string", "description": "Post ID returned by create_post or list_posts."},
-		},
-		"required": []string{"post_id"}, "additionalProperties": false,
-	}
-}
-
 func mcpPublicationMediaSchema() map[string]any {
 	return map[string]any{
 		"type": "object", "properties": map[string]any{
@@ -4879,32 +4869,6 @@ func (h *MCPHandler) commentProvider(account *models.SocialAccount) (platform.Co
 	return commenter, nil
 }
 
-func (h *MCPHandler) loadMCPPublicationStatus(ctx context.Context, publicationID string) (mcpPublicationStatus, *mcpError) {
-	var publication models.Publication
-	if err := h.db.NewSelect().Model(&publication).Where("id = ?", publicationID).Scan(ctx); err != nil {
-		return mcpPublicationStatus{}, &mcpError{Code: -32603, Message: "failed to load post"}
-	}
-	count, err := h.db.NewSelect().Model((*models.Rendition)(nil)).Where("publication_id = ?", publicationID).Count(ctx)
-	if err != nil {
-		return mcpPublicationStatus{}, &mcpError{Code: -32603, Message: "failed to load post variants"}
-	}
-	return mcpPublicationStatus{
-		ID:                   publication.ID,
-		WorkspaceID:          publication.WorkspaceID,
-		Title:                publication.Title,
-		ContentProfile:       publication.ContentProfile,
-		Status:               publication.Status,
-		Revision:             publication.Revision,
-		SourceText:           publication.SourceText,
-		SourceURL:            publication.SourceURL,
-		ScheduledAt:          formatOptionalTime(publication.ScheduledAt),
-		RandomDelayMinutes:   publication.RandomDelayMinutes,
-		RandomDelayInherited: !publication.RandomDelayExplicit,
-		CreatedAt:            publication.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:            publication.UpdatedAt.Format(time.RFC3339),
-		RenditionCount:       count,
-	}, nil
-}
 func (h *MCPHandler) loadMCPWorkspace(ctx context.Context, workspaceID string) (models.Workspace, *mcpError) {
 	var workspace models.Workspace
 	err := h.db.NewSelect().

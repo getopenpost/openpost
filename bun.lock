@@ -222,7 +222,7 @@
     },
     "packages/n8n-nodes-openpost": {
       "name": "@getopenpost/n8n-nodes-openpost",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "devDependencies": {
         "@n8n/node-cli": "0.44.3",
         "n8n-workflow": "2.35.3",
@@ -253,7 +253,7 @@
     },
     "packages/sdk": {
       "name": "@getopenpost/sdk",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "devDependencies": {
         "typescript": "5.9.3",
         "vitest": "4.1.11",

@@ -15,6 +15,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
+	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/mediasigner"
 	"github.com/stretchr/testify/require"
 )
@@ -170,7 +171,12 @@ func TestMediaBearerQueryAuthorizationAndCachePolicy(t *testing.T) {
 	} {
 		response := request(test.token, test.transport, "")
 		require.Equal(t, http.StatusForbidden, response.Code, "%s %s: %s", test.transport, test.token, response.Body.String())
+		require.NotContains(t, response.Body.String(), "private", "denied requests must not include media bytes")
 	}
+
+	anonymous := request("", "", "")
+	require.Equal(t, http.StatusUnauthorized, anonymous.Code)
+	require.NotContains(t, anonymous.Body.String(), "private", "anonymous requests must not include media bytes")
 
 	for _, test := range []struct {
 		token     string
@@ -210,4 +216,29 @@ func TestMediaBearerQueryAuthorizationAndCachePolicy(t *testing.T) {
 	require.LessOrEqual(t, signedMaxAge, expiresAt.Unix()-time.Now().UTC().Unix()+1)
 	require.Equal(t, "https://app.openpost.test", signedResponse.Header().Get(echo.HeaderAccessControlAllowOrigin))
 	require.Equal(t, "Origin", signedResponse.Header().Get(echo.HeaderVary))
+}
+
+func TestDeniedMediaRequestsDoNotReturnOriginalsOrPreviews(t *testing.T) {
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	for _, key := range []string{"original.bin", "small.jpg", "medium.jpg", "poster.jpg"} {
+		storage.objects[key] = []byte("private media bytes")
+	}
+	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "protected", WorkspaceID: "ws-1", FilePath: "original.bin", MimeType: "application/octet-stream", ThumbnailsJSON: `{"sm":"small.jpg","md":"medium.jpg"}`, ThumbnailObjectKey: "poster.jpg"}).Exec(t.Context())
+	require.NoError(t, err)
+	for _, suffix := range []string{"", "/thumb/sm", "/thumb/md", "/poster"} {
+		for _, query := range []string{"", "?sig=invalid&exp=9999999999", "?token=invalid"} {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/media/protected"+suffix+query, nil)
+			response := httptest.NewRecorder()
+			srv.echo.ServeHTTP(response, req)
+			require.Equal(t, http.StatusUnauthorized, response.Code, suffix+query)
+			require.NotContains(t, response.Body.String(), "private media bytes", suffix+query)
+		}
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/media/protected"+suffix, nil)
+		req.Header.Set("Authorization", "Bearer web-token")
+		response := httptest.NewRecorder()
+		srv.echo.ServeHTTP(response, req)
+		require.Equal(t, http.StatusOK, response.Code, suffix)
+		require.Equal(t, "private media bytes", response.Body.String(), suffix)
+	}
 }

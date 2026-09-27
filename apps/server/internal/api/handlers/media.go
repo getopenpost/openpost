@@ -3901,16 +3901,16 @@ func (h *MediaHandler) optionalMediaAuth() echo.MiddlewareFunc {
 
 func (h *MediaHandler) authorizeMediaAccess(c echo.Context, media *models.MediaAttachment) error {
 	if media == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{fieldError: errMediaNotFound})
+		return echo.NewHTTPError(http.StatusNotFound, map[string]string{fieldError: errMediaNotFound})
 	}
 
 	if userID, _ := c.Get(string(middleware.UserIDKey)).(string); userID != "" {
 		allowed, err := h.userCanAccessWorkspace(c.Request().Context(), media.WorkspaceID, userID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{fieldError: errValidateWorkspaceAccess})
+			return echo.NewHTTPError(http.StatusInternalServerError, map[string]string{fieldError: errValidateWorkspaceAccess})
 		}
 		if !allowed {
-			return c.JSON(http.StatusForbidden, map[string]string{fieldError: errWorkspaceAccessDenied})
+			return echo.NewHTTPError(http.StatusForbidden, map[string]string{fieldError: errWorkspaceAccessDenied})
 		}
 		setCredentialMediaCache(c)
 		return nil
@@ -3919,26 +3919,26 @@ func (h *MediaHandler) authorizeMediaAccess(c echo.Context, media *models.MediaA
 	if token := c.QueryParam("token"); token != "" {
 		principal, err := h.principalFromQueryToken(c.Request().Context(), token)
 		if errors.Is(err, errMediaQueryTokenScope) {
-			return c.JSON(http.StatusForbidden, map[string]string{fieldError: "token is not authorized for media access"})
+			return echo.NewHTTPError(http.StatusForbidden, map[string]string{fieldError: "token is not authorized for media access"})
 		}
 		if err == nil && principal != nil {
 			middleware.AttachPrincipal(c, principal)
 			allowed, accessErr := h.userCanAccessWorkspace(c.Request().Context(), media.WorkspaceID, principal.UserID)
 			if accessErr != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{fieldError: errValidateWorkspaceAccess})
+				return echo.NewHTTPError(http.StatusInternalServerError, map[string]string{fieldError: errValidateWorkspaceAccess})
 			}
 			if allowed {
 				setCredentialMediaCache(c)
 				return nil
 			}
-			return c.JSON(http.StatusForbidden, map[string]string{fieldError: errWorkspaceAccessDenied})
+			return echo.NewHTTPError(http.StatusForbidden, map[string]string{fieldError: errWorkspaceAccessDenied})
 		}
 	}
 
 	expiresAtUnix, _ := strconv.ParseInt(c.QueryParam("exp"), 10, 64)
 	signature := c.QueryParam("sig")
 	if signature == "" || h.signer == nil || !h.signer.Verify(media.ID, signature, expiresAtUnix) {
-		return c.JSON(http.StatusUnauthorized, map[string]string{fieldError: "authentication required"})
+		return echo.NewHTTPError(http.StatusUnauthorized, map[string]string{fieldError: "authentication required"})
 	}
 
 	remainingSeconds := expiresAtUnix - time.Now().UTC().Unix()

@@ -44,6 +44,9 @@
 </script>
 
 <script lang="ts">
+	import { videoLibrary } from '../library/library-store.svelte';
+	import { applyLibraryEntry } from '../library/apply';
+	import { addTimer } from '../timers/actions';
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import ColorPicker from '$lib/components/color-picker.svelte';
@@ -1824,14 +1827,44 @@
 		const track = effectiveMediaTracks(timelineStore.tracks).find(
 			(candidate) => candidate.id === trackId
 		);
-		if (!track || track.kind === 'audio' || track.locked) {
+		const libraryEntry =
+			payload.kind === 'library'
+				? videoLibrary.entries.find((entry) => entry.id === payload.entryId)
+				: undefined;
+		const recipe = libraryEntry?.recipe;
+		const libraryTimeline = recipe?.kind === 'selection' ? recipe.project.timeline : undefined;
+		const audioOnly = libraryTimeline?.items.every((item) => item.type === 'audio') ?? false;
+		if (
+			(payload.kind === 'library' && !libraryEntry) ||
+			!track ||
+			(audioOnly ? track.kind !== 'audio' : track.kind === 'audio') ||
+			track.locked
+		) {
 			generatedItemDropPreview = null;
 			return true;
 		}
 		const from = sceneFrameAtPointer(event);
-		const durationInFrames = timelineStore.fps * 3;
-		const itemType =
-			payload.kind === 'shape' ? 'shape' : payload.kind === 'background' ? 'background' : 'text';
+		const timer =
+			payload.kind === 'timer'
+				? payload.timer
+				: recipe?.kind === 'timer'
+					? recipe.timer
+					: undefined;
+		const durationInFrames =
+			libraryTimeline && recipe?.kind === 'selection'
+				? Math.round(
+						(Math.max(...libraryTimeline.items.map((item) => item.from + item.durationInFrames)) *
+							timelineStore.fps) /
+							recipe.project.metadata.fps
+					)
+				: Math.round(timelineStore.fps * (timer ? 10 + (timer.finishHoldSeconds ?? 0) : 3));
+		const itemType = audioOnly
+			? 'audio'
+			: payload.kind === 'shape'
+				? 'shape'
+				: payload.kind === 'background'
+					? 'background'
+					: 'text';
 		if (!trackRangeIsOpen(timelineStore.items, trackId, from, durationInFrames, itemType)) {
 			generatedItemDropPreview = null;
 			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
@@ -1861,6 +1894,10 @@
 		frame: number,
 		preferredTrackId: string
 	): string {
+		if (payload.kind === 'library')
+			throw new Error('Library entries require asynchronous insertion.');
+		if (payload.kind === 'timer')
+			return addTimer(payload.timer, payload.label, { from: frame, trackId: preferredTrackId });
 		if (payload.kind === 'shape') {
 			return addShapeItem(payload.shapeType, payload.label, payload.style, {
 				frame,
@@ -1887,6 +1924,25 @@
 		event.preventDefault();
 		event.stopPropagation();
 		if (!preview || preview.trackId !== trackId) return true;
+		if (payload.kind === 'library') {
+			const entry = videoLibrary.entries.find((entry) => entry.id === payload.entryId);
+			if (!entry) return true;
+			void applyLibraryEntry($state.snapshot(entry), {
+				selectedIds: [],
+				importAsset: importProjectAsset,
+				placement: { from: preview.from, trackId }
+			})
+				.then((ids) => {
+					if (!ids.length) return;
+					selectedItemId = ids[0] ?? null;
+					selectedItemIds = ids;
+					onedit();
+				})
+				.catch((cause) =>
+					showToast(cause instanceof Error ? cause.message : String(cause), 'error')
+				);
+			return true;
+		}
 		try {
 			const itemId = insertGeneratedItem(payload, preview.from, trackId);
 			selectedItemId = itemId;

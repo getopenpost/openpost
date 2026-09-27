@@ -9,6 +9,11 @@ it('exposes the transition browser as a named group', async () => {
 	const group = screen.getByRole('group', { name: m.video_editor_transition() });
 	await expect.element(group).toBeVisible();
 	await expect
-		.element(group.getByRole('button', { name: m.video_editor_transition_preset_fade() }))
+		.element(
+			group.getByRole('button', {
+				name: m.video_editor_transition_preset_fade(),
+				exact: true
+			})
+		)
 		.toBeVisible();
 });

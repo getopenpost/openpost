@@ -1,5 +1,8 @@
 <!-- Text recipes adapted from FreeCut's MIT-licensed media sidebar. -->
 <script lang="ts">
+	import LibraryShelf from './library-shelf.svelte';
+	import type { ProjectAssetImporter } from '../media/types';
+	import LibraryFavorite from './library-favorite.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import { addTextItem, addTextTemplateItem } from '$lib/video-editor/timeline/actions/items';
@@ -17,10 +20,12 @@
 
 	let {
 		oninserted,
+		importAsset,
 		selectedTextItemId = null,
 		onapplied = () => {}
 	}: {
 		oninserted: (itemId: string) => void;
+		importAsset?: ProjectAssetImporter;
 		selectedTextItemId?: string | null;
 		onapplied?: () => void;
 	} = $props();
@@ -80,6 +85,13 @@
 	role="group"
 	aria-label={m.video_editor_text_templates()}
 >
+	<LibraryShelf
+		kind="text"
+		selectedIds={selectedTextItemId ? [selectedTextItemId] : []}
+		{oninserted}
+		onedit={onapplied}
+		{importAsset}
+	/>
 	{#each groups as group (group.layout)}
 		<section class="mb-4 last:mb-0">
 			<h3
@@ -107,32 +119,39 @@
 				{/if}
 				{#each TEXT_STYLE_PRESETS.filter((preset) => preset.layout === group.layout) as preset (preset.id)}
 					{@const copy = localizedTextStylePresetCopy(preset.id)}
-					<button
-						type="button"
-						class="template-card"
-						draggable="true"
-						onclick={() => usePreset(preset.id)}
-						ondragstart={(event) => startDrag(event, copy.label, preset.id)}
-						ondragend={clearGeneratedItemDragData}
-						aria-label={selectedTextItem?.type === 'text'
-							? m.video_editor_text_apply_template({ name: copy.label })
-							: `${m.video_editor_add_text()}: ${copy.label}`}
-						aria-pressed={selectedTextItem?.type === 'text'
-							? selectedTextItem.textStylePresetId === preset.id
-							: undefined}
-						disabled={selectedTextItemLocked}
-					>
-						<span class="template-canvas" data-kind={preset.previewKind} aria-hidden="true">
-							{#if copy.sample.eyebrow}<span class="eyebrow">{copy.sample.eyebrow}</span>{/if}
-							<span class="title">{copy.sample.title}</span>
-							{#if copy.sample.subtitle}<span class="subtitle">{copy.sample.subtitle}</span>{/if}
-						</span>
-						<span class="template-name"
-							>{selectedTextItem?.type === 'text'
+					<div>
+						<button
+							type="button"
+							class="template-card"
+							draggable="true"
+							onclick={() => usePreset(preset.id)}
+							ondragstart={(event) => startDrag(event, copy.label, preset.id)}
+							ondragend={clearGeneratedItemDragData}
+							aria-label={selectedTextItem?.type === 'text'
 								? m.video_editor_text_apply_template({ name: copy.label })
-								: copy.label}</span
+								: `${m.video_editor_add_text()}: ${copy.label}`}
+							aria-pressed={selectedTextItem?.type === 'text'
+								? selectedTextItem.textStylePresetId === preset.id
+								: undefined}
+							disabled={selectedTextItemLocked}
 						>
-					</button>
+							<span class="template-canvas" data-kind={preset.previewKind} aria-hidden="true">
+								{#if copy.sample.eyebrow}<span class="eyebrow">{copy.sample.eyebrow}</span>{/if}
+								<span class="title">{copy.sample.title}</span>
+								{#if copy.sample.subtitle}<span class="subtitle">{copy.sample.subtitle}</span>{/if}
+							</span>
+							<span class="template-name"
+								>{selectedTextItem?.type === 'text'
+									? m.video_editor_text_apply_template({ name: copy.label })
+									: copy.label}</span
+							>
+						</button>
+						<LibraryFavorite
+							catalogId={`text:${preset.id}`}
+							name={copy.label}
+							recipe={{ kind: 'text', presetId: preset.id }}
+						/>
+					</div>
 				{/each}
 			</div>
 		</section>

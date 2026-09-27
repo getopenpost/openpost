@@ -1,3 +1,4 @@
+import { timerAudioEntries } from '../timers/audio';
 /* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-conditional-empty-object-spread */
 /**
  * Pure planning math for the multi-track rendered export: output duration,
@@ -58,6 +59,7 @@ import {
 
 /** One scheduled clip in the offline audio mixdown. */
 export interface MixEntry {
+	toneFrequency?: number;
 	ducking?: AudioDuckingSettings;
 	duckStartSeconds?: number;
 	duckEndSeconds?: number;
@@ -186,6 +188,10 @@ export function planMixdown(
 	const anySolo = resolvedTracks.some((track) => track.solo);
 	const entries: MixEntry[] = [];
 	for (const item of items) {
+		if (item.timer) {
+			const track = trackById.get(item.trackId);
+			if (track && isAudible(track, anySolo)) entries.push(...timerAudioEntries(item, track, fps));
+		}
 		if (!AUDIO_BEARING_TYPES.has(item.type) || !item.mediaId) continue;
 		if (hasLinkedAudioCompanion(item, items)) continue;
 		const track = trackById.get(item.trackId);

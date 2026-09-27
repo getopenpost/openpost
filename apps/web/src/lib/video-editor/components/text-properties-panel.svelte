@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import TimerProperties from './timer-properties.svelte';
 	import TextStyleToggles from './text-style-toggles.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -124,6 +125,7 @@
 </script>
 
 <div class="space-y-2">
+	{#if activeItem.timer}<TimerProperties item={activeItem} {onedit} />{/if}
 	{#if activeItem.textSpans?.length}
 		<div class="space-y-2">
 			{#each activeItem.textSpans as span, index (`${index}:${span.text}`)}
@@ -233,12 +235,14 @@
 			{/each}
 		</div>
 	{:else}
-		<Textarea
-			class="min-h-12 w-full resize-y text-xs"
-			value={activeItem.text ?? ''}
-			aria-label={m.video_editor_tool_text()}
-			onchange={(event) => commitPlainText(event.currentTarget.value)}
-		></Textarea>
+		{#if !activeItem.timer}
+			<Textarea
+				class="min-h-12 w-full resize-y text-xs"
+				value={activeItem.text ?? ''}
+				aria-label={m.video_editor_tool_text()}
+				onchange={(event) => commitPlainText(event.currentTarget.value)}
+			></Textarea>
+		{/if}
 		<div class="grid grid-cols-2 gap-1.5">
 			<label class="field-label col-span-2">
 				{m.video_editor_text_font()}

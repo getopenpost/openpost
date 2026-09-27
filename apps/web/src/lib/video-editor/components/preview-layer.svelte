@@ -604,6 +604,7 @@
 			resolved.type,
 			resolved.text,
 			resolved.textSpans,
+			resolved.timer,
 			resolved.spanLayout,
 			resolved.label,
 			activeSubtitle?.text,
@@ -676,7 +677,8 @@
 			renderShapeItemRaster(context, resolved, width, height);
 		} else if (resolved.type === 'text') {
 			renderTextItemRaster(context, resolved, width, height, {
-				absoluteFrame: visualFrame
+				absoluteFrame: visualFrame,
+				fps: timelineStore.fps
 			});
 		} else if (activeSubtitle) {
 			// Karaoke highlight requires the exact cue words and the absolute frame; the shared

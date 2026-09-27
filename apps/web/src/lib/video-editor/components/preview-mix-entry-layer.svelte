@@ -1,5 +1,6 @@
 <!-- Leaf audio produced by a nested sequence mix plan. -->
 <script lang="ts">
+	import { timerToneBlob } from '../timers/audio';
 	import { untrack } from 'svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import type { MixEntry } from '$lib/video-editor/media/render-plan';
@@ -48,13 +49,24 @@
 
 	let {
 		entry,
-		url,
+		url: mediaUrl,
 		duckWindows = []
 	}: {
 		entry: MixEntry;
 		url?: string | null;
 		duckWindows?: MixEntryDuckWindow[];
 	} = $props();
+	let toneUrl = $state<string | null>(null);
+	$effect(() => {
+		if (!entry.toneFrequency) return;
+		const value = URL.createObjectURL(timerToneBlob(entry.toneFrequency));
+		toneUrl = value;
+		return () => {
+			URL.revokeObjectURL(value);
+			toneUrl = null;
+		};
+	});
+	const url = $derived(toneUrl ?? mediaUrl);
 	let audio = $state<HTMLAudioElement | null>(null);
 	let syncMedia = $state<(() => void) | null>(null);
 	let processedNode = $state<AudioWorkletNode | null>(null);

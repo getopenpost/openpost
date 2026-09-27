@@ -1025,6 +1025,30 @@
       "source_refs": ["apps/web/src/lib/image-editor/local-persistence.ts"]
     },
     {
+      "id": "idb-video-library",
+      "technology": "IndexedDB",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-library",
+      "purpose": "Stores saved elements, reusable blocks, copied source files, favorites, collections, and recent use on this device.",
+      "scope": "Application origin and browser profile; records are separated by Workspace or local-only use.",
+      "duration": "Until the user removes a library item, the browser evicts the database, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/video-editor/library/repository.ts"]
+    },
+    {
+      "id": "idb-video-library-entries",
+      "technology": "IndexedDB",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "entries",
+      "purpose": "Stores reusable library records and their copied source files inside the openpost-video-library database.",
+      "scope": "Application origin; openpost-video-library database, separated by Workspace or local-only use.",
+      "duration": "Until the user removes the library item, the browser evicts the database, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/video-editor/library/repository.ts"]
+    },
+    {
       "id": "idb-video-editor-handles",
       "technology": "IndexedDB",
       "owner": "OpenPost Video Editor",

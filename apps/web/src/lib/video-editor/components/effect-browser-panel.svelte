@@ -1,4 +1,6 @@
 <script lang="ts">
+	import LibraryShelf from './library-shelf.svelte';
+	import LibraryFavorite from './library-favorite.svelte';
 	import { onDestroy } from 'svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
@@ -142,6 +144,7 @@
 	role="group"
 	aria-label={m.video_editor_effects()}
 >
+	<LibraryShelf kind="effects" selectedIds={selectedItemIds} {oninserted} {onedit} />
 	<Input
 		type="search"
 		bind:value={search}
@@ -175,34 +178,41 @@
 			<div class="effect-grid">
 				{#each group.items as item (item.id)}
 					{@const effectId = 'effectId' in item ? item.effectId : undefined}
-					<button
-						type="button"
-						draggable="true"
-						class="effect-card"
-						data-effect-catalog-id={item.id}
-						aria-label={item.label}
-						title={m.video_editor_effects_add_or_drag()}
-						onclick={() => apply(item.label, item.effects)}
-						ondragstart={(event) => startDrag(event, item.label, item.effects)}
-						ondragend={clearEffectDragData}
-						onpointerenter={() => (activeId = item.id)}
-						onpointerleave={() => {
-							if (activeId === item.id) activeId = null;
-						}}
-						onfocus={() => (activeId = item.id)}
-						onblur={() => {
-							if (activeId === item.id) activeId = null;
-						}}
-					>
-						<EffectThumbnail
-							{effectId}
-							effects={effectId ? undefined : item.effects}
-							viewport={scroller}
-							active={activeId === item.id}
-							class="aspect-video w-full rounded max-md:h-12 max-md:object-cover"
+					<div>
+						<button
+							type="button"
+							draggable="true"
+							class="effect-card"
+							data-effect-catalog-id={item.id}
+							aria-label={item.label}
+							title={m.video_editor_effects_add_or_drag()}
+							onclick={() => apply(item.label, item.effects)}
+							ondragstart={(event) => startDrag(event, item.label, item.effects)}
+							ondragend={clearEffectDragData}
+							onpointerenter={() => (activeId = item.id)}
+							onpointerleave={() => {
+								if (activeId === item.id) activeId = null;
+							}}
+							onfocus={() => (activeId = item.id)}
+							onblur={() => {
+								if (activeId === item.id) activeId = null;
+							}}
+						>
+							<EffectThumbnail
+								{effectId}
+								effects={effectId ? undefined : item.effects}
+								viewport={scroller}
+								active={activeId === item.id}
+								class="aspect-video w-full rounded max-md:h-12 max-md:object-cover"
+							/>
+							<span>{item.label}</span>
+						</button>
+						<LibraryFavorite
+							catalogId={`effects:${item.id}`}
+							name={item.label}
+							recipe={{ kind: 'effects', effects: item.effects.map(cloneTemplate) }}
 						/>
-						<span>{item.label}</span>
-					</button>
+					</div>
 				{/each}
 			</div>
 		</section>

@@ -32,7 +32,16 @@ function hasVisual(items: TimelineItem[]): boolean {
 }
 
 function hasAudio(items: TimelineItem[]): boolean {
-	return items.some((item) => item.type === 'audio' || item.type === 'video');
+	return items.some(
+		(item) => item.type === 'audio' || item.type === 'video' || item.timer?.warningSound
+	);
+}
+
+function nestedDuration(composition: SubComposition): number {
+	return Math.max(
+		1,
+		Math.round((composition.durationInFrames * timelineStore.fps) / composition.fps)
+	);
 }
 
 function wrapperSourceFields(composition: SubComposition) {
@@ -60,7 +69,7 @@ function nestedSequenceWrappers(
 			type: 'composition',
 			trackId: visualTrack.id,
 			from,
-			durationInFrames: Math.max(1, composition.durationInFrames),
+			durationInFrames: nestedDuration(composition),
 			label: composition.name,
 			compositionId: composition.id,
 			compositionWidth: composition.width,
@@ -76,7 +85,7 @@ function nestedSequenceWrappers(
 			type: 'audio',
 			trackId: audioTrack.id,
 			from,
-			durationInFrames: Math.max(1, composition.durationInFrames),
+			durationInFrames: nestedDuration(composition),
 			label: composition.name,
 			compositionId: composition.id,
 			linkedGroupId,
@@ -270,28 +279,34 @@ export function sequenceDeletionImpactFor(compositionIds: string[]): SequenceDel
 	};
 }
 
-export function nestSequence(compositionId: string, from = timelineStore.currentFrame): string[] {
+export function nestSequence(
+	compositionId: string,
+	from = timelineStore.currentFrame,
+	preferredTrackId?: string
+): string[] {
 	return execute('NEST_SEQUENCE', () => {
 		const composition = assertCompositionCanNest(compositionId);
-		const durationInFrames = Math.max(1, composition.durationInFrames);
-		const effectiveTracks = effectiveMediaTracks(timelineStore.tracks);
-		const preferredVisualTrack = effectiveTracks
-			.filter((track) => track.kind !== 'audio' && !track.locked)
-			.toSorted((left, right) => left.order - right.order)[0];
-		const visualTrack =
-			hasVisual(composition.items) && preferredVisualTrack
-				? ensureOpenTrackForRange({
-						kind: 'video',
-						itemType: 'composition',
-						from,
-						durationInFrames,
-						label: composition.name,
-						preferredTrackId: preferredVisualTrack.id
-					})
-				: undefined;
-		const audioTrack = effectiveTracks
-			.filter((track) => track.kind === 'audio' && !track.locked)
-			.toSorted((left, right) => right.order - left.order)[0];
+		const durationInFrames = nestedDuration(composition);
+		const visualTrack = hasVisual(composition.items)
+			? ensureOpenTrackForRange({
+					kind: 'video',
+					itemType: 'composition',
+					from,
+					durationInFrames,
+					label: composition.name,
+					preferredTrackId
+				})
+			: undefined;
+		const audioTrack = hasAudio(composition.items)
+			? ensureOpenTrackForRange({
+					kind: 'audio',
+					itemType: 'audio',
+					from,
+					durationInFrames,
+					label: composition.name,
+					preferredTrackId: hasVisual(composition.items) ? undefined : preferredTrackId
+				})
+			: undefined;
 		const wrappers = nestedSequenceWrappers(composition, from, visualTrack, audioTrack);
 		if (wrappers.length === 0) throw new Error('No compatible unlocked track is available.');
 		timelineStore._setItems([...timelineStore.items, ...wrappers]);
@@ -313,7 +328,7 @@ export function nestSequenceOnExactTracks(
 	return execute('NEST_SEQUENCE', () => {
 		const composition = assertCompositionCanNest(compositionId);
 		const exactFrom = Math.max(0, Math.round(from));
-		const duration = Math.max(1, composition.durationInFrames);
+		const duration = nestedDuration(composition);
 		const end = exactFrom + duration;
 		const effectiveTracks = effectiveMediaTracks(timelineStore.tracks);
 		const exactTrack = (trackId: string | undefined, kind: 'video' | 'audio') => {

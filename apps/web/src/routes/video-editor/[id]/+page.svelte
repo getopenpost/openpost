@@ -21,6 +21,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes/contracts';
 	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
+	import { toast } from 'svelte-sonner';
 	import { showToast } from '$lib/toast';
 	import { ui } from '$lib/stores/ui.svelte';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
@@ -77,6 +78,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
 	import type { ProjectMediaDeleteResult } from '$lib/video-editor/media/project-media-delete';
+	import ReusableLibrary from '$lib/video-editor/components/reusable-library.svelte';
+	import { videoLibrary } from '$lib/video-editor/library/library-store.svelte';
+	import TimerBrowser from '$lib/video-editor/components/timer-browser.svelte';
 	import { formatMediaDuration } from '$lib/video-editor/media/library-view';
 	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
 	import { mediaRecovery } from '$lib/video-editor/media/media-recovery.svelte';
@@ -484,7 +488,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let recordingOpen = $state(false);
 	let unsupportedAudioRequest = $state<UnsupportedAudioImportRequest | null>(null);
 	let unsupportedAudioResolve: ((decision: 'import' | 'cancel') => void) | null = null;
+	$effect(() => {
+		const scope = cloudStorage ? workspaceCtx.currentWorkspace?.id : 'local';
+		if (scope) void videoLibrary.load(scope).catch((error) => toast.error(String(error)));
+	});
 	type LeftPanel =
+		| 'library'
+		| 'timers'
 		| 'media'
 		| 'stock'
 		| 'text'
@@ -720,6 +730,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	);
 	const showSourceMonitor = $derived(activeWorkspace === 'edit' && sourceMediaId !== null);
 	const primaryLeftPanelOptions = $derived<LeftPanelOption[]>([
+		{ value: 'library', label: m.video_editor_library(), iconKind: 'theme', icon: 'favorite' },
+		{ value: 'timers', label: m.video_editor_timers(), iconKind: 'theme', icon: 'time' },
 		{
 			value: 'media',
 			label: m.video_editor_media_pool(),
@@ -3046,9 +3058,27 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												<SceneBrowserPanel />
 											{:else if leftPanel === 'text'}
 												<TextTemplateBrowser
+													importAsset={cloudStorage ? importCloudEditorProjectAsset : undefined}
 													selectedTextItemId={selectedIsText ? selectedItemId : null}
 													onapplied={() => editorSession.scheduleAutosave()}
 													oninserted={handleVectorAssetInserted}
+												/>
+											{:else if leftPanel === 'library'}
+												<ReusableLibrary
+													ontransition={handleApplyTransition}
+													selectedIds={selectedLeftPanelItemIds}
+													oninserted={(ids) => {
+														selectedItemIds = ids;
+														selectedItemId = ids[0] ?? null;
+														editorSession.scheduleAutosave();
+													}}
+													onedit={() => editorSession.scheduleAutosave()}
+													importAsset={cloudStorage ? importCloudEditorProjectAsset : undefined}
+												/>
+											{:else if leftPanel === 'timers'}
+												<TimerBrowser
+													oninserted={handleVectorAssetInserted}
+													importAsset={cloudStorage ? importCloudEditorProjectAsset : undefined}
 												/>
 											{:else if leftPanel === 'shapes'}
 												<ShapePanel oninserted={handleVectorAssetInserted} />
@@ -3181,6 +3211,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											/>
 										{/key}
 										<TransportBar
+											workspaceId={cloudStorage ? workspaceCtx.currentWorkspace?.id : undefined}
 											{projectId}
 											importProjectAsset={cloudStorage ? importCloudEditorProjectAsset : undefined}
 											onvoiceoverinserted={handleVoiceoverInserted}

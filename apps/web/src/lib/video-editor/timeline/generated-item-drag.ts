@@ -1,3 +1,4 @@
+import type { TimerSettings } from '../timers/timer';
 /** Versioned drag payload for text recipes and generated shape layers. */
 
 import type { ShapeType, TextStylePresetId } from '../project/types';
@@ -20,6 +21,8 @@ const SHAPE_TYPES = [
 ] satisfies readonly ShapeType[];
 
 export type GeneratedItemDragData =
+	| { version: 1; kind: 'library'; label: string; entryId: string }
+	| { version: 1; kind: 'timer'; label: string; timer: TimerSettings }
 	| {
 			version: typeof GENERATED_ITEM_DRAG_VERSION;
 			kind: 'text';
@@ -52,6 +55,8 @@ interface UntrustedShapeStyle {
 }
 
 interface UntrustedGeneratedItemDragData {
+	entryId?: unknown;
+	timer?: TimerSettings;
 	version?: unknown;
 	kind?: unknown;
 	label?: unknown;
@@ -85,6 +90,23 @@ function isGeneratedItemDragData(value: unknown): value is GeneratedItemDragData
 		candidate.label.length === 0
 	) {
 		return false;
+	}
+	if (candidate.kind === 'library')
+		return typeof candidate.entryId === 'string' && candidate.entryId.length > 0;
+	if (candidate.kind === 'timer') {
+		const timer = candidate.timer;
+		return Boolean(
+			timer &&
+			(timer.finishText === undefined || typeof timer.finishText === 'string') &&
+			(timer.warningSound === undefined || typeof timer.warningSound === 'boolean') &&
+			(timer.finishHoldSeconds === undefined ||
+				(Number.isFinite(timer.finishHoldSeconds) &&
+					timer.finishHoldSeconds >= 0 &&
+					timer.finishHoldSeconds <= 10)) &&
+			['numbers', 'ring', 'bar', 'bomb', 'tomato'].includes(timer.style) &&
+			['down', 'up'].includes(timer.direction) &&
+			['clock', 'seconds', 'percent'].includes(timer.format)
+		);
 	}
 	if (candidate.kind === 'text') {
 		return (

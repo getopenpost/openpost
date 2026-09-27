@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resizeReusableBlock } from '../sequences/reusable-block';
+	import { toast } from 'svelte-sonner';
 	import { Button } from '$lib/components/ui/button';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Input } from '$lib/components/ui/input';
@@ -55,7 +57,7 @@
 	}
 </script>
 
-{#if activeItem.type === 'composition' && controls.length > 0}
+{#if activeItem.type === 'composition' && (controls.length > 0 || composition?.reusableHold)}
 	<section
 		class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2.5"
 	>
@@ -66,6 +68,22 @@
 			{m.video_editor_motion_overrides_hint()}
 		</p>
 		<div class="mt-2 space-y-2">
+			{#if composition?.reusableHold}
+				<label class="grid gap-1 text-xs"
+					>{m.video_editor_timer_length()}
+					<Input
+						type="number"
+						min={0.1}
+						max={3600}
+						step={0.1}
+						value={composition.durationInFrames / composition.fps}
+						onchange={(event) => {
+							if (resizeReusableBlock(activeItem.id, Number(event.currentTarget.value))) onedit();
+							else toast.error(m.video_editor_repeat_blocked());
+						}}
+					/>
+				</label>
+			{/if}
 			{#each controls as control (control.id)}
 				<div class="block text-[10px] text-[var(--video-editor-muted)]">
 					<span class="flex items-center gap-1.5">

@@ -1,3 +1,4 @@
+import type { TimerSettings } from '../timers/timer';
 import type { PaperBackgroundId } from '../effects/paper/catalog';
 import type { GpuParamValues } from '../effects/gpu/types';
 /**
@@ -750,6 +751,7 @@ export interface TimelineItem
 	lottieSlotOverrides?: Record<string, number | [number, number]>;
 
 	// Text items
+	timer?: TimerSettings;
 	text?: string;
 	textSpans?: TextSpan[];
 	spanLayout?: TextSpanLayout;
@@ -942,6 +944,8 @@ export interface ProjectTimeline {
 }
 
 export interface SubComposition {
+	/** Editable hold between fixed entrance and exit events in a saved block. */
+	reusableHold?: { start: number; end: number };
 	id: string;
 	name: string;
 	editorKind?: 'sequence' | 'composite-2d';

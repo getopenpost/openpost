@@ -43,6 +43,7 @@
 		type ExportPresetId
 	} from '../export/export-presets';
 	import RenderQueuePanel from './render-queue-panel.svelte';
+	import ExportChapters from './export-chapters.svelte';
 	import { captureSnapshot } from '../timeline/commands/snapshot.svelte';
 	import { sequenceStore } from '../sequences/sequence-store.svelte';
 	import {
@@ -897,6 +898,15 @@
 						exportTimeline.outPoint === undefined}
 				/>{m.video_editor_export_range()}
 			</label>
+			{#if selectedRange && exportProject}
+				{#key selectedSequenceId}
+					<ExportChapters
+						markers={exportTimeline?.markers ?? []}
+						fps={exportProject.metadata.fps}
+						range={selectedRange}
+					/>
+				{/key}
+			{/if}
 			<div
 				class="mt-3 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
 				aria-live="polite"

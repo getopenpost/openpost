@@ -1,3 +1,4 @@
+import { timerToneSample } from '../timers/audio';
 /* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/require-safety-comment-for-type-assertion */
 import type { MixEntry } from '../media/render-plan';
 import { collectMixEntryDuckWindows, type MixEntryDuckWindow } from './audio-ducking';
@@ -292,14 +293,18 @@ async function* streamEntryAudio(
 	signal?: AbortSignal,
 	diagnostics?: AudioMixDiagnostics
 ): AsyncGenerator<Float32Array[]> {
-	const media = mediaPool.get(entry.mediaId);
-	if (!media) throw new Error("A timeline clip's media is unavailable.");
-	let blob: Blob;
-	try {
-		blob = await resolveMediaBlob(media);
-	} catch (error) {
-		if (isAbortError(error)) throw error;
-		throw new Error("A timeline clip's media could not be opened.", { cause: error });
+	let blob: Blob | undefined;
+	if (!entry.toneFrequency) {
+		const media = mediaPool.get(entry.mediaId);
+		if (!media) throw new Error("A timeline clip's media is unavailable.");
+		try {
+			blob = await resolveMediaBlob(media);
+		} catch (error) {
+			if (isAbortError(error)) throw error;
+			throw new Error("A timeline clip's media could not be opened.", {
+				cause: error
+			});
+		}
 	}
 
 	const targetFrames = Math.max(
@@ -346,7 +351,12 @@ async function* streamEntryAudio(
 		if (chunkEnd <= chunkStart) break;
 		let decoded: DecodedAudioChunk;
 		try {
-			decoded = await decodeSourceSlice(blob, chunkStart, chunkEnd, signal);
+			if (entry.toneFrequency) {
+				const samples = new Float32Array(Math.ceil((chunkEnd - chunkStart) * MIX_SAMPLE_RATE));
+				for (let i = 0; i < samples.length; i++)
+					samples[i] = timerToneSample(chunkStart + i / MIX_SAMPLE_RATE, entry.toneFrequency);
+				decoded = { channels: [samples], sampleRate: MIX_SAMPLE_RATE };
+			} else decoded = await decodeSourceSlice(blob!, chunkStart, chunkEnd, signal);
 		} catch (error) {
 			if (isAbortError(error)) throw error;
 			throw new Error('A timeline clip could not be decoded.', { cause: error });

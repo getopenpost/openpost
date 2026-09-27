@@ -1,5 +1,8 @@
 <!-- Transition catalog and previews adapted from FreeCut's MIT-licensed picker. -->
 <script lang="ts">
+	import LibraryFavorite from './library-favorite.svelte';
+	import { videoLibrary } from '../library/library-store.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { onDestroy } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { TransitionDirection } from '$lib/video-editor/project/types';
@@ -75,6 +78,17 @@
 	role="group"
 	aria-label={m.video_editor_transition()}
 >
+	{#each videoLibrary.entries as entry (entry.id)}
+		{#if entry.recipe.kind === 'transition'}
+			{@const recipe = entry.recipe}
+			<Button
+				size="xs"
+				variant="ghost"
+				class="mb-1 w-full justify-start"
+				onclick={() => onapply(recipe.presentation, recipe.direction)}>{entry.name}</Button
+			>
+		{/if}
+	{/each}
 	{#each groups as group (group.category)}
 		<section class="mb-2 last:mb-0">
 			<h3
@@ -86,33 +100,39 @@
 				{#each group.items as definition (definition.id)}
 					{@const label = localizedTransitionLabel(definition.id, definition.label)}
 					{@const direction = definition.directions?.[0] as TransitionDirection | undefined}
-					<button
-						type="button"
-						draggable="true"
-						class="transition-card"
-						data-transition-catalog-id={definition.id}
-						aria-label={label}
-						title={label}
-						onclick={() => onapply(definition.id, direction)}
-						ondragstart={(event) => startDrag(event, definition.id, label, direction)}
-						ondragend={clearTransitionDragData}
-						onpointerenter={() => (activeId = definition.id)}
-						onpointerleave={() => {
-							if (activeId === definition.id) activeId = null;
-						}}
-						onfocus={() => (activeId = definition.id)}
-						onblur={() => {
-							if (activeId === definition.id) activeId = null;
-						}}
-					>
-						<TransitionThumbnail
-							presentationId={definition.id}
-							{direction}
-							viewport={scroller}
-							active={activeId === definition.id}
+					<div class="min-w-0">
+						<button
+							type="button"
+							draggable="true"
+							class="transition-card w-full"
+							data-transition-catalog-id={definition.id}
+							aria-label={label}
+							title={label}
+							onclick={() => onapply(definition.id, direction)}
+							ondragstart={(event) => startDrag(event, definition.id, label, direction)}
+							ondragend={clearTransitionDragData}
+							onpointerenter={() => (activeId = definition.id)}
+							onpointerleave={() => {
+								if (activeId === definition.id) activeId = null;
+							}}
+							onfocus={() => (activeId = definition.id)}
+							onblur={() => {
+								if (activeId === definition.id) activeId = null;
+							}}
+						>
+							<TransitionThumbnail
+								presentationId={definition.id}
+								{direction}
+								viewport={scroller}
+								active={activeId === definition.id}
+							/>
+							<span>{label}</span>
+						</button><LibraryFavorite
+							catalogId={`transition:${definition.id}`}
+							name={label}
+							recipe={{ kind: 'transition', presentation: definition.id, direction }}
 						/>
-						<span>{label}</span>
-					</button>
+					</div>
 				{/each}
 			</div>
 		</section>

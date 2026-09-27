@@ -1,3 +1,4 @@
+import { paintTimer } from '../timers/render-timer';
 /** Shared text and subtitle rasterization for live preview and export. */
 
 import type { TimelineItem } from '../project/types';
@@ -32,6 +33,7 @@ export type TextRasterContext = CanvasRenderingContext2D | OffscreenCanvasRender
 
 export interface TextRasterFrame {
 	absoluteFrame: number;
+	fps?: number;
 }
 
 const SUBTITLE_LAYOUT_CACHE_LIMIT = 32;
@@ -223,8 +225,19 @@ export function renderTextItemRaster(
 ): void {
 	context.clearRect(0, 0, width, height);
 	context.save();
+	if (item.timer)
+		item = paintTimer(
+			context,
+			item,
+			width,
+			height,
+			frame?.absoluteFrame ?? item.from,
+			frame?.fps ?? 30
+		);
 	const layout = layoutTextBlock(item, width, height, createCanvasTextMeasurer(context));
+	if (item.timer) context.globalCompositeOperation = 'destination-over';
 	paintTextBackground(context, item, layout);
+	if (item.timer) context.globalCompositeOperation = 'source-over';
 	if (item.textShadow) {
 		context.shadowColor = item.textShadow.color;
 		context.shadowBlur = item.textShadow.blur;

@@ -331,7 +331,8 @@ export class TimelineFrameRenderer {
 		const context = this.textCanvas.getContext('2d');
 		if (!context) throw new Error('Failed to create the text raster context.');
 		renderTextItemRaster(context, item, width, height, {
-			absoluteFrame: frame
+			absoluteFrame: frame,
+			fps: this.fps
 		});
 		return {
 			source: this.textCanvas,

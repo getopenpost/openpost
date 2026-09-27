@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LibraryFavorite from './library-favorite.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
@@ -186,6 +187,11 @@
 				<article class="saved-card">
 					<div>
 						<strong>{preset.name}</strong>
+						<LibraryFavorite
+							catalogId={`animation:${preset.id}`}
+							name={preset.name}
+							recipe={{ kind: 'animation', preset }}
+						/>
 						<span
 							>{m.video_editor_saved_animation_summary({
 								count: String(preset.properties.length + (preset.vectorProperties?.length ?? 0)),

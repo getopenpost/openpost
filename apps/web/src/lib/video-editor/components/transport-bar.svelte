@@ -1,6 +1,12 @@
 <!-- Transport: play/pause, frame stepping, in/out, timecode -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolveAppPath } from '$lib/app-path';
+	import { createExportableSequences } from '../export/exportable-sequences';
+	import { captureSnapshot } from '../timeline/commands/snapshot.svelte';
+	import { sequenceStore } from '../sequences/sequence-store.svelte';
+	import { createImageDesignFromFrame } from '../preview/frame-image-editor';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -9,7 +15,6 @@
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
 	import { renderTimelineFrame } from '$lib/video-editor/media/render-export';
 	import { importGeneratedImage } from '$lib/video-editor/media/import.svelte';
@@ -40,12 +45,14 @@
 
 	let {
 		projectId,
+		workspaceId = '',
 		importProjectAsset,
 		onvoiceoverinserted = () => {},
 		theaterActive = false,
 		ontoggletheater = () => {}
 	}: {
 		projectId: string;
+		workspaceId?: string;
 		importProjectAsset?: ProjectAssetImporter;
 		onvoiceoverinserted?: (itemId: string) => void;
 		theaterActive?: boolean;
@@ -100,29 +107,38 @@
 		setTimeout(() => URL.revokeObjectURL(url), 0);
 	}
 
-	async function saveCurrentFrame(): Promise<void> {
+	async function saveCurrentFrame(
+		destination: 'download' | 'image-editor' = 'download'
+	): Promise<void> {
 		if (savingFrame || !editorSession.project) return;
 		savingFrame = true;
 		try {
-			const project = editorSession.project;
+			const activeId = sequenceStore.activeSequenceId;
+			const project = createExportableSequences(
+				$state.snapshot(editorSession.project),
+				captureSnapshot(),
+				activeId
+			).find((entry) => entry.id === activeId)!.project;
+			const targetWorkspace = workspaceId;
 			const frame = resolvePreviewCaptureFrame({
 				currentFrame: timelineStore.currentFrame,
 				previewFrame: $timelinePreviewScrub.frame,
 				isPlaying: editorSession.isPlaying
 			});
 			const fileName = buildFrameFileName(frame, fps, totalFrames);
-			const blob = await renderTimelineFrame(
-				{
-					...project,
-					timeline: {
-						...project.timeline,
-						items: $state.snapshot(timelineStore.items),
-						tracks: timelineStore.tracks,
-						transitions: [...transitionsStore.list]
-					}
-				},
-				frame
-			);
+			if (destination === 'image-editor') editorSession.pausePlayback();
+			const blob = await renderTimelineFrame(project, frame);
+			if (destination === 'image-editor') {
+				await editorSession.saveNow();
+				if (editorSession.saveError) throw new Error(editorSession.saveError);
+				const id = await createImageDesignFromFrame(
+					new File([blob], fileName, { type: 'image/png' }),
+					targetWorkspace
+				);
+				if (projectId !== project.id || workspaceId !== targetWorkspace) return;
+				await goto(resolveAppPath(`/image-editor/${id}`));
+				return;
+			}
 			downloadBlob(blob, fileName);
 			try {
 				await importGeneratedImage(new File([blob], fileName, { type: 'image/png' }), {
@@ -294,6 +310,15 @@
 					class="animate-spin motion-reduce:animate-none"
 				/>{:else}<ThemeIcon role="camera" />{/if}
 		</Button>
+		<Button
+			class="hidden @min-[800px]/program:inline-flex"
+			size="icon-xs"
+			variant="ghost"
+			disabled={savingFrame || totalFrames === 0}
+			aria-label={m.video_editor_frame_open_image()}
+			title={m.video_editor_frame_open_image()}
+			onclick={() => void saveCurrentFrame('image-editor')}><ThemeIcon role="image" /></Button
+		>
 	</div>
 
 	<span
@@ -416,6 +441,12 @@
 					onclick={() => void saveCurrentFrame()}
 				>
 					<ThemeIcon role="camera" />{m.video_editor_save_frame()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item
+					disabled={savingFrame || totalFrames === 0}
+					onclick={() => void saveCurrentFrame('image-editor')}
+				>
+					<ThemeIcon role="image" />{m.video_editor_frame_open_image()}
 				</DropdownMenu.Item>
 				<DropdownMenu.Item onclick={ontoggletheater}>
 					{#if theaterActive}<ThemeIcon role="eye-off" />{:else}<ThemeIcon role="eye" />{/if}

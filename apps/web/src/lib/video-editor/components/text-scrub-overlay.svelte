@@ -55,7 +55,8 @@
 			});
 			if (resolved.type === 'text') {
 				renderTextItemRaster(scratchContext, resolved, safeWidth, safeHeight, {
-					absoluteFrame: targetFrame
+					absoluteFrame: targetFrame,
+					fps
 				});
 			} else {
 				renderSubtitleRaster(scratchContext, resolved.text ?? '', resolved, safeWidth, safeHeight);

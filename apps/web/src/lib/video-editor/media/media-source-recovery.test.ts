@@ -104,6 +104,16 @@ function runtime() {
 }
 
 describe('media source recovery', () => {
+	it('does not ask to relink cloud originals that have no local workspace copy', async () => {
+		const testRuntime = runtime();
+		testRuntime.setWorkspaceSource(null);
+		await expect(
+			testRuntime.recovery.scanMediaSourceIssues([
+				{ ...media(), storageType: 'cloud', remoteUrl: '/api/v1/video-projects/p/assets/a/content' }
+			])
+		).resolves.toEqual([]);
+	});
+
 	it('distinguishes expired handle access from a missing workspace copy', async () => {
 		const testRuntime = runtime();
 		testRuntime.setHandleValidation({ kind: 'permission' });

@@ -112,6 +112,8 @@ async function invalidateDerivedMedia(mediaId: string): Promise<void> {
 
 export function createMediaSourceRecovery(runtime: MediaSourceRecoveryRuntime) {
 	async function validateMediaSource(media: MediaMetadata): Promise<MediaSourceIssue | null> {
+		// Cloud originals resolve through Project Assets, not the local workspace folder.
+		if (media.storageType === 'cloud') return null;
 		const sourceFileName = media.sourceFileName ?? media.fileName;
 		if (media.storageType === 'handle') {
 			const validation = await runtime.validateHandle(media.id);

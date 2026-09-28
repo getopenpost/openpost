@@ -90,7 +90,11 @@ for (const scheme of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await createProject(page, "Reusable timer workflow");
     const projectURL = page.url();
-    await page.getByRole("tab", { name: "Timers", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Timers", exact: true }).click();
     const ringCard = page.getByRole("button", { name: "Ring", exact: true });
     const cardBounds = await ringCard.boundingBox();
     const previewBounds = await ringCard.locator("canvas").boundingBox();
@@ -111,7 +115,10 @@ for (const scheme of ["light", "dark"] as const) {
     await duration.fill("45");
     await duration.press("Tab");
     await expect(duration).toHaveValue("45");
-    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await page
+      .getByRole("region", { name: "Text", exact: true })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
     const thickness = page.getByRole("spinbutton", { name: "Thickness (%)", exact: true });
     const segments = page.getByRole("spinbutton", { name: "Segments", exact: true });
     await thickness.fill("12");
@@ -121,7 +128,11 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(thickness).toHaveValue("12");
     await page.getByRole("textbox", { name: "Finish text", exact: true }).fill("GO");
     await page.getByRole("textbox", { name: "Finish text", exact: true }).press("Tab");
-    await page.getByRole("tab", { name: "Library", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Library", exact: true }).click();
     await page.getByRole("button", { name: "Save selection to library", exact: true }).click();
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("My rest timer");
     await page
@@ -178,14 +189,21 @@ for (const scheme of ["light", "dark"] as const) {
       "saved",
     );
     await page.reload();
-    await page.getByRole("tab", { name: "Library", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Library", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "My rest timer", exact: true }).first(),
     ).toBeVisible();
     await page.getByRole("button", { name: "My rest timer", exact: true }).first().click();
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
     await expect(duration).toHaveValue("45");
-    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await page
+      .getByRole("region", { name: "Text", exact: true })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
     await expect(thickness).toHaveValue("12");
     await expect(segments).toHaveValue("8");
     await page
@@ -284,9 +302,16 @@ for (const style of ["Bomb", "Tomato"] as const) {
   test(`sculpted ${style} appearance controls`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await createProject(page, `${style} timer`);
-    await page.getByRole("tab", { name: "Timers", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Timers", exact: true }).click();
     await page.getByRole("button", { name: style, exact: true }).click();
-    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await page
+      .getByRole("region", { name: "Text", exact: true })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
     await expect(
       page.getByRole("checkbox", { name: "Completion effect", exact: true }),
     ).toBeChecked();

@@ -698,11 +698,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (rightSidebarCollapsed) toggleRightSidebar();
 	}
 
-	function selectLeftPanel(panel: LeftPanel): void {
+	function toggleLeftPanel(panel: LeftPanel): void {
 		if (leftPanel === panel && !leftSidebarRail) {
 			toggleLeftSidebar();
 			return;
 		}
+		openLeftPanel(panel);
+	}
+
+	function openLeftPanel(panel: LeftPanel): void {
 		leftPanel = panel;
 		expandLeftSidebar();
 	}
@@ -2882,7 +2886,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	aria-controls="video-editor-left-tool-panel"
 																	aria-label={option.label}
 																	aria-selected={leftPanel === option.value}
-																	onclick={() => selectLeftPanel(option.value)}
+																	onclick={() => toggleLeftPanel(option.value)}
 																	onkeydown={(event) =>
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
@@ -2914,7 +2918,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	aria-controls="video-editor-left-tool-panel"
 																	aria-label={option.label}
 																	aria-selected={leftPanel === option.value}
-																	onclick={() => selectLeftPanel(option.value)}
+																	onclick={() => toggleLeftPanel(option.value)}
 																	onkeydown={(event) =>
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
@@ -2942,7 +2946,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											</DropdownMenu.Trigger>
 											<DropdownMenu.Content side="right" align="end" class="video-editor-theme">
 												{#each morePanelOptions as option (option.value)}
-													<DropdownMenu.Item onclick={() => selectLeftPanel(option.value)}
+													<DropdownMenu.Item onclick={() => openLeftPanel(option.value)}
 														>{@render leftPanelIcon(option, 'size-4')}
 														{option.label}</DropdownMenu.Item
 													>

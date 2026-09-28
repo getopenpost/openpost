@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.2.4] - 2026-09-28
+
+### Added
+
+- Native workflows with GitHub releases, RSS/Atom, manual runs, and published-post sources. Build content flows with drafts, AI writing, review, scheduling, conditions, waits, metrics, and prepared replies.
+- A visual workflow editor, starting templates, previews without publishing effects, and run inspection with revision-bound approval. Runs persist across worker restarts and use OpenPost's native publishing rules.
+- Move existing repost rules, grants, templates, and run history into Workflows without restarting deliveries. Preserve rule identity on edits, reject stale changes, and recover workflow drafts after Social Set changes.
+
+### Fixed
+
+- Saving a paused repost rule no longer enables it through the database default.
+- GitHub sources fetch smaller release pages to handle repositories with large asset histories. Source errors no longer block editor autosave or offer unrelated save recovery actions.
+
+### Changed
+
+- Put common editing tools first in the Image and Video Editor toolbars, keep related tools together, and move specialized tools later in the list.
+- Made the website Resources menu more compact, with clearer link groups and icons.
+
 ## [7.1.0] - 2026-09-27
 
 ### Added

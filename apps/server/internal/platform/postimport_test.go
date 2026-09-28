@@ -192,6 +192,28 @@ func TestMastodonReaderImportsOriginalsWithMaxIDCursor(t *testing.T) {
 	require.Equal(t, NativePostPartial, page.Coverage)
 }
 
+func TestMastodonReaderKeepsParagraphAndLineBreaks(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"id":"300","created_at":"2026-09-20T10:00:00Z","content":"<p>First line<br />second line</p><p>Tom &amp; Jerry <a href=\"https://mastodon.test/tags/cats\" class=\"mention hashtag\" rel=\"tag\">#<span>cats</span></a></p>","spoiler_text":"","url":"https://mastodon.test/@owner/300","reblog":null,"in_reply_to_id":null,"account":{"id":"42"}}
+		]`))
+	}))
+	defer server.Close()
+
+	adapter := NewMastodonAdapter("", "", "", server.URL)
+	page, err := adapter.ListNativePosts(context.Background(), "token", NativePostRequest{
+		AccountID:   "42",
+		InstanceURL: server.URL,
+		PageSize:    20,
+	})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, "First line\nsecond line\n\nTom & Jerry #cats", page.Items[0].Text)
+}
+
 func TestMastodonReaderCompletesOnShortPage(t *testing.T) {
 	t.Parallel()
 

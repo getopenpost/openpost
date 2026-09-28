@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 type mastodonNativeStatus struct {
@@ -91,7 +93,7 @@ func nativePostMastodonPage(statuses []mastodonNativeStatus, input NativePostReq
 			page.NextCursor = ""
 			return page
 		}
-		text := strings.TrimSpace(stripHTMLTags(status.Content))
+		text := mastodonStatusText(status.Content)
 		if spoiler := strings.TrimSpace(status.Spoiler); spoiler != "" {
 			text = strings.TrimSpace(spoiler + "\n\n" + text)
 		}
@@ -115,4 +117,36 @@ func nativePostMastodonPage(statuses []mastodonNativeStatus, input NativePostReq
 		page.Coverage = NativePostPartial
 	}
 	return page
+}
+
+// mastodonStatusText turns a status's HTML back into the text it was written
+// as. Mastodon renders each paragraph as <p> and each line break as <br>, so
+// only removing the tags ran paragraphs and lines together ("first linesecond
+// line"). A <br> becomes a newline and a paragraph ends with a blank line;
+// entities are decoded by the parser.
+func mastodonStatusText(content string) string {
+	doc, err := html.Parse(strings.NewReader(content))
+	if err != nil {
+		return strings.TrimSpace(stripHTMLTags(content))
+	}
+	var sb strings.Builder
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		switch {
+		case n.Type == html.TextNode:
+			sb.WriteString(n.Data)
+			return
+		case n.Type == html.ElementNode && n.Data == "br":
+			sb.WriteString("\n")
+			return
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+		if n.Type == html.ElementNode && n.Data == "p" {
+			sb.WriteString("\n\n")
+		}
+	}
+	walk(doc)
+	return strings.TrimSpace(sb.String())
 }

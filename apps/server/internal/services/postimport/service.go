@@ -575,8 +575,13 @@ func (s *Service) commitPage(ctx context.Context, account models.SocialAccount, 
 	return committed, nil
 }
 
+// reserveBudget spends read budget for the current UTC day. The budget is a
+// UTC-day fence, like the X engagement read budget: an exhausted budget is
+// retried at nextUTCDay, so it has to be fresh by then. A window rolling 24
+// hours from the first read was still spent at that midnight and pushed the
+// account back another full day.
 func (s *Service) reserveBudget(state *models.PostImportState, dailyLimit, cost int, now time.Time) bool {
-	if state.ReadBudgetStart.IsZero() || now.Sub(state.ReadBudgetStart.UTC()) >= 24*time.Hour {
+	if state.ReadBudgetStart.IsZero() || !utcDay(state.ReadBudgetStart).Equal(utcDay(now)) {
 		state.ReadBudgetStart = now
 		state.ReadBudgetUsed = 0
 	}
@@ -661,6 +666,10 @@ func (s *Service) enqueueSync(ctx context.Context, workspaceID, accountID string
 		return false, err
 	}
 	return rows > 0, nil
+}
+
+func utcDay(t time.Time) time.Time {
+	return t.UTC().Truncate(24 * time.Hour)
 }
 
 func nextUTCDay(now time.Time) time.Time {

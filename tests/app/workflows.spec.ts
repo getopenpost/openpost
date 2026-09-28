@@ -139,7 +139,13 @@ for (const viewport of [
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
-    await expect(page.locator("body")).toHaveJSProperty("scrollWidth", viewport.width);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      )
+      .toBe(true);
     await page.screenshot({
       path: `test-results/workflows-light-${viewport.width}.png`,
       fullPage: true,

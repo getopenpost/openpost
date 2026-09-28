@@ -1,3 +1,4 @@
+import { sliceClipFades } from '../media/clip-fades';
 /** Undoable sequence and compound-clip editing actions. */
 
 import { createDefaultTracks } from '../project/defaults';
@@ -159,7 +160,9 @@ export function updateCompositeCompositionCanvas(
 		...(patch.height !== undefined && {
 			height: Math.round(Math.min(4320, Math.max(1, patch.height)))
 		}),
-		...(patch.backgroundColor !== undefined && { backgroundColor: patch.backgroundColor })
+		...(patch.backgroundColor !== undefined && {
+			backgroundColor: patch.backgroundColor
+		})
 	};
 	if (
 		(normalized.width === undefined || normalized.width === composition.width) &&
@@ -498,10 +501,27 @@ function mapItemThroughWrapper(
 
 	const mapped: TimelineItem = {
 		...snapshotTimelineState(item),
+		...sliceClipFades(
+			item,
+			mapping.clippedStartFrames,
+			item.durationInFrames - mapping.clippedEndFrames,
+			compositionFps
+		),
 		from: wrapper.from + mapping.mappedFrom,
 		durationInFrames: mapping.mappedDuration,
 		speed: (item.speed ?? 1) * mapping.wrapperSpeed
 	};
+	for (const key of ['fadeIn', 'fadeOut', 'audioFadeIn', 'audioFadeOut'] as const) {
+		if (mapped[key] !== undefined) mapped[key] /= mapping.wrapperSpeed;
+	}
+	for (const key of ['videoFadeOffsets', 'audioFadeOffsets'] as const) {
+		const offsets = mapped[key];
+		if (offsets)
+			mapped[key] = {
+				in: offsets.in / mapping.wrapperSpeed,
+				out: offsets.out / mapping.wrapperSpeed
+			};
+	}
 	if (item.type === 'video' || item.type === 'audio' || item.type === 'composition') {
 		const childSourceFps =
 			item.sourceFps ??

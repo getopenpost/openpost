@@ -1,3 +1,4 @@
+import { sliceClipFades } from '../../media/clip-fades';
 /**
  * Timeline item edit actions. Every public action runs inside `execute`
  * so it lands as one undoable step.
@@ -78,6 +79,7 @@ export function addTextItem(label: string): string {
 		const targetTrack = ensureOpenTrackForRange({
 			kind: 'video',
 			itemType: 'text',
+			stacking: 'top',
 			from,
 			durationInFrames,
 			label
@@ -113,6 +115,7 @@ export function addTextItemAtFrame(
 		const targetTrack = ensureOpenTrackForRange({
 			kind: 'video',
 			itemType: 'text',
+			stacking: 'top',
 			from: frame,
 			durationInFrames,
 			label,
@@ -150,13 +153,14 @@ export function addTextTemplateItem(
 		const targetTrack = ensureOpenTrackForRange({
 			kind: 'video',
 			itemType: 'text',
+			stacking: 'top',
 			from,
 			durationInFrames,
 			label: copy.label,
 			preferredTrackId: placement.preferredTrackId
 		});
-		const projectWidth = editorSession.project?.metadata.width ?? 1920;
-		const projectHeight = editorSession.project?.metadata.height ?? 1080;
+		const projectWidth = sequenceStore.activeWidth;
+		const projectHeight = sequenceStore.activeHeight;
 		const template = buildTextStylePresetTemplate(
 			presetId,
 			{ width: projectWidth, height: projectHeight },
@@ -246,8 +250,8 @@ export function addShapeItem(
 		) {
 			throw new Error('An unlocked visual track is required to add a shape.');
 		}
-		const projectWidth = editorSession.project?.metadata.width ?? 1920;
-		const projectHeight = editorSession.project?.metadata.height ?? 1080;
+		const projectWidth = sequenceStore.activeWidth;
+		const projectHeight = sequenceStore.activeHeight;
 		const size = Math.max(80, Math.round(Math.min(projectWidth, projectHeight) * 0.28));
 		const from = placement.frame ?? timelineStore.currentFrame;
 		const durationInFrames = timelineStore.fps * 3;
@@ -725,6 +729,7 @@ export function trimItemStart(id: string, newFrom: number, newSourceStart?: numb
 		const nextDuration = item.durationInFrames - delta;
 		if (nextDuration <= 0 || delta < 0) return false;
 		const patch: Partial<TimelineItem> = {
+			...sliceClipFades(item, delta, item.durationInFrames, timelineStore.fps),
 			from: newFrom,
 			durationInFrames: nextDuration
 		};
@@ -741,7 +746,10 @@ export function trimItemEnd(id: string, newEnd: number, newSourceEnd?: number): 
 	if (!item) return false;
 	const nextDuration = newEnd - item.from;
 	if (nextDuration <= 0 || newEnd < item.from + 1) return false;
-	const patch: Partial<TimelineItem> = { durationInFrames: nextDuration };
+	const patch: Partial<TimelineItem> = {
+		...sliceClipFades(item, 0, nextDuration, timelineStore.fps),
+		durationInFrames: nextDuration
+	};
 	if ((item.type === 'video' || item.type === 'audio') && newSourceEnd !== undefined) {
 		patch.sourceEnd = newSourceEnd;
 	}

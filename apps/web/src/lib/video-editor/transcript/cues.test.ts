@@ -26,6 +26,28 @@ describe('buildCuesFromWords', () => {
 		}
 	});
 
+	it('keeps every spoken word when text exceeds the caption line limit', () => {
+		const sentence = 'This is a short editor test. The title and audio should stay in sync.';
+		const transcript = sentence.split(' ').map((text, index) => ({
+			text,
+			startSeconds: index * 0.3,
+			endSeconds: (index + 1) * 0.3
+		}));
+		const cues = buildCuesFromWords(transcript, { fps: 30 });
+		expect(
+			cues
+				.map((cue) => cue.text)
+				.join(' ')
+				.replaceAll('\n', ' ')
+		).toBe(sentence);
+		expect(cues).toHaveLength(2);
+		for (const cue of cues) {
+			expect(cue.text.split('\n').length).toBeLessThanOrEqual(2);
+			expect(cue.startFrame).toBe(cue.words![0]!.startFrame);
+			expect(cue.endFrame).toBe(cue.words!.at(-1)!.endFrame);
+		}
+	});
+
 	it('never produces zero-length cues', () => {
 		const cues = buildCuesFromWords(words(['hi', 5, 5]), { fps: 24 });
 		expect(cues[0]!.endFrame).toBeGreaterThan(cues[0]!.startFrame);

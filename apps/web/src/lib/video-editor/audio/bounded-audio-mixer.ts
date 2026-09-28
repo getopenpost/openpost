@@ -118,10 +118,14 @@ async function decodeSourceSlice(
 	blob: Blob,
 	startSeconds: number,
 	endSeconds: number,
+	sourceFrameDuration: number,
 	signal?: AbortSignal
 ): Promise<DecodedAudioChunk> {
 	throwIfAborted(signal);
-	const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+	const input = new Input({
+		source: new BlobSource(blob),
+		formats: ALL_FORMATS
+	});
 	let sink: AudioSampleSink | null = null;
 	try {
 		const track = await input.getPrimaryAudioTrack();
@@ -133,6 +137,7 @@ async function decodeSourceSlice(
 		let sampleRate = track.sampleRate || MIX_SAMPLE_RATE;
 		let channelCount = 0;
 		let totalFrames = 0;
+		let decodedEnd = start;
 		const chunks: Float32Array[][] = [];
 		for await (const sample of sink.samples(start, end)) {
 			try {
@@ -176,10 +181,31 @@ async function decodeSourceSlice(
 				});
 				chunks.push(planes);
 				totalFrames += frames;
+				decodedEnd = Math.max(decodedEnd, sample.timestamp + sample.duration);
 			} finally {
 				sample.close();
 			}
 		}
+		// Only pad the verified natural EOF remainder of one timeline frame. A decode
+		// failure or a materially short source must still fail the export.
+		let paddingFrames = 0;
+		if (sourceFrameDuration > 0 && decodedEnd < end) {
+			const sourceEnd = await track.computeDuration();
+			const remainder = end - sourceEnd;
+			if (
+				remainder > 0 &&
+				remainder <= sourceFrameDuration + 1 / sampleRate &&
+				decodedEnd >= sourceEnd - 1 / sampleRate
+			) {
+				paddingFrames = Math.max(
+					0,
+					Math.ceil(samplePosition(end, sampleRate)) -
+						Math.ceil(samplePosition(Math.max(start, sourceEnd), sampleRate))
+				);
+				channelCount ||= track.numberOfChannels;
+			}
+		}
+		totalFrames += paddingFrames;
 		if (totalFrames === 0) return { channels: [], sampleRate };
 		const channels = Array.from({ length: channelCount }, () => new Float32Array(totalFrames));
 		let writeOffset = 0;
@@ -356,10 +382,19 @@ async function* streamEntryAudio(
 				for (let i = 0; i < samples.length; i++)
 					samples[i] = timerToneSample(chunkStart + i / MIX_SAMPLE_RATE, entry.toneFrequency);
 				decoded = { channels: [samples], sampleRate: MIX_SAMPLE_RATE };
-			} else decoded = await decodeSourceSlice(blob!, chunkStart, chunkEnd, signal);
+			} else
+				decoded = await decodeSourceSlice(
+					blob!,
+					chunkStart,
+					chunkEnd,
+					entry.sourceFrameDuration ?? 0,
+					signal
+				);
 		} catch (error) {
 			if (isAbortError(error)) throw error;
-			throw new Error('A timeline clip could not be decoded.', { cause: error });
+			throw new Error('A timeline clip could not be decoded.', {
+				cause: error
+			});
 		}
 		cursor = entry.reversed ? chunkStart : chunkEnd;
 		const sourceFinished = entry.reversed ? cursor <= sourceStart : cursor >= sourceEnd;
@@ -530,7 +565,11 @@ export async function* mixAudioWindows(
 	durationSeconds: number,
 	signal?: AbortSignal,
 	diagnostics?: AudioMixDiagnostics
-): AsyncGenerator<{ samples: Float32Array[]; sampleRate: number; channels: number }> {
+): AsyncGenerator<{
+	samples: Float32Array[];
+	sampleRate: number;
+	channels: number;
+}> {
 	throwIfAborted(signal);
 	if (entries.length === 0 || durationSeconds <= 0) return;
 	const totalSamples = Math.ceil(samplePosition(durationSeconds, MIX_SAMPLE_RATE));
@@ -600,7 +639,11 @@ export async function* mixAudioWindows(
 					if (Math.abs(channel[sample]!) > 1) channel[sample] = Math.tanh(channel[sample]!);
 				}
 			}
-			yield { samples: mix, sampleRate: MIX_SAMPLE_RATE, channels: MIX_CHANNELS };
+			yield {
+				samples: mix,
+				sampleRate: MIX_SAMPLE_RATE,
+				channels: MIX_CHANNELS
+			};
 		}
 	} finally {
 		await Promise.all(prepared.map((entry) => entry.reader?.close()));

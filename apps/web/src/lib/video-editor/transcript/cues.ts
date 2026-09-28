@@ -32,7 +32,7 @@ const DEFAULT_MAX_CHARS_PER_LINE = 32;
 const DEFAULT_MAX_LINES = 2;
 const DEFAULT_MAX_DURATION_SECONDS = 5;
 
-function wrapWords(words: string[], maxCharsPerLine: number, maxLines: number): string[] {
+function wrapWords(words: string[], maxCharsPerLine: number): string[] {
 	const lines: string[] = [];
 	let current = '';
 	for (const word of words) {
@@ -40,7 +40,6 @@ function wrapWords(words: string[], maxCharsPerLine: number, maxLines: number): 
 		if (candidate.length > maxCharsPerLine && current) {
 			lines.push(current);
 			current = word;
-			if (lines.length === maxLines) return [...lines, '…'];
 		} else {
 			current = candidate;
 		}
@@ -67,8 +66,7 @@ export function buildCuesFromWords(
 		const last = batch[batch.length - 1]!;
 		const lines = wrapWords(
 			batch.map((word) => word.text),
-			maxChars,
-			maxLines
+			maxChars
 		);
 		cues.push({
 			id: crypto.randomUUID(),
@@ -95,7 +93,9 @@ export function buildCuesFromWords(
 		if (batch.length > 0) {
 			const first = batch[0]!;
 			const spansTooLong = word.endSeconds - first.startSeconds > maxDuration;
-			if (spansTooLong) flush();
+			const exceedsLineLimit =
+				wrapWords([...batch.map((entry) => entry.text), word.text], maxChars).length > maxLines;
+			if (spansTooLong || exceedsLineLimit) flush();
 		}
 		batch.push(word);
 	}

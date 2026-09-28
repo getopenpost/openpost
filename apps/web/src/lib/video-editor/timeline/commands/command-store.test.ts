@@ -89,16 +89,34 @@ describe('command history', () => {
 
 		expect(commandHistory.undoStack).toHaveLength(1);
 		expect(commandHistory.getLastCommandType()).toBe('GROUP_TRANSFORM');
-		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({ x: 100, y: 50 });
-		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({ x: -40, y: 75 });
+		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({
+			x: 100,
+			y: 50
+		});
+		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({
+			x: -40,
+			y: 75
+		});
 
 		commandHistory.undo();
-		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({ x: 0, y: 0 });
-		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({ x: 20, y: 30 });
+		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({
+			x: 0,
+			y: 0
+		});
+		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({
+			x: 20,
+			y: 30
+		});
 
 		commandHistory.redo();
-		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({ x: 100, y: 50 });
-		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({ x: -40, y: 75 });
+		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({
+			x: 100,
+			y: 50
+		});
+		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({
+			x: -40,
+			y: 75
+		});
 	});
 
 	it('rolls back every nested mutation when an atomic action reports failure', () => {
@@ -117,8 +135,14 @@ describe('command history', () => {
 
 		expect(committed).toBe(false);
 		expect(commandHistory.undoStack).toHaveLength(0);
-		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({ x: 0, y: 0 });
-		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({ x: 20, y: 30 });
+		expect(timelineStore.itemById.get(first.id)?.transform).toEqual({
+			x: 0,
+			y: 0
+		});
+		expect(timelineStore.itemById.get(second.id)?.transform).toEqual({
+			x: 20,
+			y: 30
+		});
 		expect(keyframeSelectionStore.itemId).toBe(first.id);
 		expect([...keyframeSelectionStore.ids]).toEqual(['first-key']);
 	});
@@ -159,7 +183,12 @@ describe('_splitItem source boundaries', () => {
 	});
 
 	it('splits durations and shifts the right piece source window at 1x', () => {
-		const item = videoItem({ durationInFrames: 60, sourceStart: 300, sourceFps: 30, speed: 1 });
+		const item = videoItem({
+			durationInFrames: 60,
+			sourceStart: 300,
+			sourceFps: 30,
+			speed: 1
+		});
 		timelineStore._setItems([item]);
 
 		const result = timelineStore._splitItem(item.id, item.from + 18);
@@ -184,8 +213,14 @@ describe('_splitItem source boundaries', () => {
 		timelineStore._setItems([item]);
 
 		const result = timelineStore._splitItem(item.id, item.from + 18);
-		expect(result?.leftItem).toMatchObject({ sourceStart: 342, sourceEnd: 360 });
-		expect(result?.rightItem).toMatchObject({ sourceStart: 300, sourceEnd: 342 });
+		expect(result?.leftItem).toMatchObject({
+			sourceStart: 342,
+			sourceEnd: 360
+		});
+		expect(result?.rightItem).toMatchObject({
+			sourceStart: 300,
+			sourceEnd: 342
+		});
 	});
 
 	it('splits a variable-speed clip at the source frame shown at the cut', () => {
@@ -206,7 +241,10 @@ describe('_splitItem source boundaries', () => {
 		const result = timelineStore._splitItem(item.id, item.from + 60);
 
 		expect(result?.leftItem).toMatchObject({ sourceStart: 0, sourceEnd: 90 });
-		expect(result?.rightItem).toMatchObject({ sourceStart: 90, sourceEnd: 120 });
+		expect(result?.rightItem).toMatchObject({
+			sourceStart: 90,
+			sourceEnd: 120
+		});
 		expect(result?.rightItem.speedRamp).toEqual(item.speedRamp);
 	});
 
@@ -232,4 +270,40 @@ describe('_splitItem source boundaries', () => {
 		expect(result?.leftItem.lottiePhaseOffset).toBe(5);
 		expect(result?.rightItem.lottiePhaseOffset).toBe(25);
 	});
+});
+
+describe('failed edit recovery', () => {
+	beforeEach(() => {
+		timelineStore.__resetForTesting();
+		commandHistory.clearHistory();
+	});
+	it.each([execute, executeAtomic])('restores the document when a command throws', (run) => {
+		const item = videoItem();
+		timelineStore._setItems([item]);
+		expect(() =>
+			run('FAIL', () => {
+				timelineStore._removeItems([item.id]);
+				throw new Error('edit failed');
+			})
+		).toThrow('edit failed');
+		expect(timelineStore.items.map((item) => item.id)).toEqual([item.id]);
+		expect(commandHistory.canUndo).toBe(false);
+	});
+});
+
+it('keeps the playhead and scroll position when undoing and redoing an edit', () => {
+	timelineStore.__resetForTesting();
+	commandHistory.clearHistory();
+	timelineStore._setItems([videoItem({ id: 'clip' })]);
+	execute('RENAME', () => timelineStore._updateItems([{ id: 'clip', patch: { label: 'Edited' } }]));
+	timelineStore._setCurrentFrame(42);
+	timelineStore._setScrollPosition(120);
+	commandHistory.undo();
+	expect(timelineStore.itemById.get('clip')?.label).toBe('clip');
+	expect(timelineStore.currentFrame).toBe(42);
+	expect(timelineStore.scrollPosition).toBe(120);
+	commandHistory.redo();
+	expect(timelineStore.itemById.get('clip')?.label).toBe('Edited');
+	expect(timelineStore.currentFrame).toBe(42);
+	expect(timelineStore.scrollPosition).toBe(120);
 });

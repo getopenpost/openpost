@@ -1,37 +1,9 @@
-import type {
-	AiCaptionsCaptionSource,
-	SubtitleCue,
-	SubtitleWord,
-	TimelineItem,
-	TranscriptCaptionSource
-} from '../project/types';
+import type { SubtitleCue, SubtitleWord, TimelineItem } from '../project/types';
 import { joinTranscriptWords } from './engine/transcript-text';
-
-function captionSourceForItem(
-	item: TimelineItem,
-	timelineFps: number,
-	type: 'transcript' | 'ai-captions' = 'transcript'
-): TranscriptCaptionSource | AiCaptionsCaptionSource {
-	const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : timelineFps;
-	const speed = item.speed && item.speed > 0 ? item.speed : 1;
-	const sourceStartSeconds = Math.max(0, (item.sourceStart ?? 0) / sourceFps);
-	const sourceEndSeconds = Math.max(
-		sourceStartSeconds,
-		(item.sourceEnd ??
-			(item.sourceStart ?? 0) +
-				(item.durationInFrames * speed * sourceFps) / Math.max(1, timelineFps)) / sourceFps
-	);
-	// SAFETY: type is constrained to the two clip-owned caption sources, and the returned shape satisfies either transcript or ai-captions source.
-	return {
-		type,
-		clipId: item.id,
-		mediaId: item.mediaId ?? '',
-		sourceStartSeconds,
-		sourceEndSeconds,
-		playbackSpeed: speed,
-		isReversed: item.isReversed === true
-	} as TranscriptCaptionSource | AiCaptionsCaptionSource;
-}
+import {
+	captionFramesToSourceRange,
+	resolveTranscriptCaptionTiming
+} from './caption-source-mapping';
 
 function slicedWord(
 	word: SubtitleWord,
@@ -99,14 +71,16 @@ export function synchronizeTranscriptCaptionsAfterSplit(
 	items: readonly TimelineItem[],
 	leftSource: TimelineItem,
 	rightSource: TimelineItem,
-	splitFrame: number,
-	timelineFps: number
+	_splitFrame: number,
+	timelineFps: number,
+	lockedTrackIds: ReadonlySet<string> = new Set()
 ): TimelineItem[] {
 	const nextItems: TimelineItem[] = [];
 	for (const item of items) {
 		const sourceType = item.captionSource?.type;
 		if (
 			item.type !== 'subtitle' ||
+			lockedTrackIds.has(item.trackId) ||
 			(sourceType !== 'transcript' && sourceType !== 'ai-captions') ||
 			item.captionSource?.clipId !== leftSource.id ||
 			!item.cues
@@ -114,31 +88,42 @@ export function synchronizeTranscriptCaptionsAfterSplit(
 			nextItems.push(item);
 			continue;
 		}
-		const splitOffset = splitFrame - item.from;
-		if (splitOffset <= 0 || splitOffset >= item.durationInFrames) {
-			nextItems.push(item);
-			continue;
-		}
-		const leftCues = slicedCues(item.cues, 0, splitOffset, 0, false);
-		const rightCues = slicedCues(item.cues, splitOffset, item.durationInFrames, splitOffset, true);
-		// SAFETY: guarded above to transcript or ai-captions, so narrowing to those two is sound.
-		const captionType = item.captionSource?.type as 'transcript' | 'ai-captions';
-		if (leftCues.length > 0) {
+		const originalSource = {
+			...leftSource,
+			durationInFrames: leftSource.durationInFrames + rightSource.durationInFrames,
+			sourceStart: Math.min(leftSource.sourceStart ?? 0, rightSource.sourceStart ?? 0),
+			sourceEnd: Math.max(leftSource.sourceEnd ?? 0, rightSource.sourceEnd ?? 0)
+		};
+		const source = item.captionSource;
+		if (!source || (source.type !== 'transcript' && source.type !== 'ai-captions')) continue;
+		const timing = resolveTranscriptCaptionTiming(source, originalSource, timelineFps);
+		for (const fragment of [leftSource, rightSource]) {
+			const start = Math.max(item.from, fragment.from);
+			const end = Math.min(
+				item.from + item.durationInFrames,
+				fragment.from + fragment.durationInFrames
+			);
+			if (end <= start) continue;
+			const firstFrame = start - item.from;
+			const lastFrame = end - item.from;
+			const newIds = fragment.id === rightSource.id;
+			const cues = slicedCues(item.cues, firstFrame, lastFrame, firstFrame, newIds);
+			if (cues.length === 0) continue;
+			const range = captionFramesToSourceRange(firstFrame, lastFrame, timing, timelineFps);
 			nextItems.push({
 				...item,
-				durationInFrames: leftSource.durationInFrames,
-				captionSource: captionSourceForItem(leftSource, timelineFps, captionType),
-				cues: leftCues
-			});
-		}
-		if (rightCues.length > 0) {
-			nextItems.push({
-				...item,
-				id: crypto.randomUUID(),
-				from: rightSource.from,
-				durationInFrames: rightSource.durationInFrames,
-				captionSource: captionSourceForItem(rightSource, timelineFps, captionType),
-				cues: rightCues
+				id: newIds ? crypto.randomUUID() : item.id,
+				from: start,
+				durationInFrames: end - start,
+				captionSource: {
+					...source,
+					clipId: fragment.id,
+					sourceStartSeconds: range.start,
+					sourceEndSeconds: range.end,
+					playbackSpeed: timing.playbackSpeed,
+					isReversed: timing.isReversed
+				},
+				cues
 			});
 		}
 	}

@@ -244,7 +244,8 @@ export function buildInsertedGapPreviewUpdatesForSyncLockedTracks(params: {
 
 function splitItemWithBookkeeping(
 	itemId: string,
-	splitFrame: number
+	splitFrame: number,
+	preservedLinkedGroups: ReadonlySet<string>
 ): { leftItem: TimelineItem; rightItem: TimelineItem } | null {
 	const current = timelineStore.itemById.get(itemId);
 	if (!current) return null;
@@ -259,7 +260,8 @@ function splitItemWithBookkeeping(
 				: transition
 		)
 	);
-	if (originalLinkedGroupId) {
+
+	if (originalLinkedGroupId && !preservedLinkedGroups.has(originalLinkedGroupId)) {
 		timelineStore._updateItems([
 			{ id: result.leftItem.id, patch: { linkedGroupId: undefined } },
 			{ id: result.rightItem.id, patch: { linkedGroupId: undefined } }
@@ -268,9 +270,35 @@ function splitItemWithBookkeeping(
 	return result;
 }
 
+function linkedGroupsWithinTracks(trackIds: readonly string[]): Set<string> {
+	const candidates = new Set(trackIds);
+	const members = new Map<string, number>();
+	for (const item of timelineStore.items) {
+		if (item.linkedGroupId)
+			members.set(item.linkedGroupId, (members.get(item.linkedGroupId) ?? 0) + 1);
+	}
+	const groups = new Set([...members].filter(([, count]) => count > 1).map(([id]) => id));
+	for (const item of timelineStore.items) {
+		if (item.linkedGroupId && !candidates.has(item.trackId)) groups.delete(item.linkedGroupId);
+	}
+	return groups;
+}
+
+type CaptionRippleMode = 'track' | 'source';
+
+function followsSource(item: TimelineItem, mode: CaptionRippleMode): boolean {
+	return (
+		mode === 'source' &&
+		item.type === 'subtitle' &&
+		(item.captionSource?.type === 'transcript' || item.captionSource?.type === 'ai-captions')
+	);
+}
+
 function removeItemsOnTrackInterval(
 	trackId: string,
-	interval: TimeInterval
+	interval: TimeInterval,
+	captionMode: CaptionRippleMode,
+	preservedLinkedGroups: ReadonlySet<string>
 ): RipplePropagationResult {
 	const affectedIds: string[] = [];
 	const removedIds: string[] = [];
@@ -278,6 +306,7 @@ function removeItemsOnTrackInterval(
 		.filter(
 			(item) =>
 				item.trackId === trackId &&
+				!followsSource(item, captionMode) &&
 				item.from < interval.end &&
 				item.from + item.durationInFrames > interval.start
 		)
@@ -296,10 +325,18 @@ function removeItemsOnTrackInterval(
 			continue;
 		}
 		if (startsBeforeInterval && endsAfterInterval) {
-			const splitAtStart = splitItemWithBookkeeping(current.id, interval.start);
+			const splitAtStart = splitItemWithBookkeeping(
+				current.id,
+				interval.start,
+				preservedLinkedGroups
+			);
 			if (!splitAtStart) continue;
 			affectedIds.push(splitAtStart.leftItem.id, splitAtStart.rightItem.id);
-			const splitAtEnd = splitItemWithBookkeeping(splitAtStart.rightItem.id, interval.end);
+			const splitAtEnd = splitItemWithBookkeeping(
+				splitAtStart.rightItem.id,
+				interval.end,
+				preservedLinkedGroups
+			);
 			if (!splitAtEnd) continue;
 			timelineStore._removeItems([splitAtEnd.leftItem.id]);
 			removedIds.push(splitAtEnd.leftItem.id);
@@ -307,7 +344,7 @@ function removeItemsOnTrackInterval(
 			continue;
 		}
 		if (startsBeforeInterval) {
-			const split = splitItemWithBookkeeping(current.id, interval.start);
+			const split = splitItemWithBookkeeping(current.id, interval.start, preservedLinkedGroups);
 			if (!split) continue;
 			timelineStore._removeItems([split.rightItem.id]);
 			removedIds.push(split.rightItem.id);
@@ -315,7 +352,7 @@ function removeItemsOnTrackInterval(
 			continue;
 		}
 
-		const split = splitItemWithBookkeeping(current.id, interval.end);
+		const split = splitItemWithBookkeeping(current.id, interval.end, preservedLinkedGroups);
 		if (!split) continue;
 		timelineStore._removeItems([split.leftItem.id]);
 		removedIds.push(split.leftItem.id);
@@ -330,11 +367,14 @@ function removeItemsOnTrackInterval(
 function shiftTrackItems(
 	trackId: string,
 	predicate: (item: TimelineItem) => boolean,
-	delta: number
+	delta: number,
+	captionMode: CaptionRippleMode = 'track'
 ): string[] {
 	if (delta === 0) return [];
 	const updates = timelineStore.items
-		.filter((item) => item.trackId === trackId && predicate(item))
+		.filter(
+			(item) => item.trackId === trackId && !followsSource(item, captionMode) && predicate(item)
+		)
 		.map((item) => ({ id: item.id, from: Math.max(0, item.from + delta) }));
 	if (updates.length > 0) timelineStore._moveItems(updates);
 	return updates.map((update) => update.id);
@@ -343,6 +383,7 @@ function shiftTrackItems(
 export function propagateRemovedIntervalsToSyncLockedTracks(params: {
 	editedTrackIds: ReadonlySet<string>;
 	intervals: TimeInterval[];
+	captionMode?: CaptionRippleMode;
 }): RipplePropagationResult {
 	const intervals = normalizeRippleIntervals(params.intervals);
 	if (intervals.length === 0) return { affectedIds: [], removedIds: [] };
@@ -353,6 +394,7 @@ export function propagateRemovedIntervalsToSyncLockedTracks(params: {
 	);
 	const affectedIds: string[] = [];
 	const removedIds: string[] = [];
+	const preservedLinkedGroups = linkedGroupsWithinTracks(candidateTrackIds);
 
 	for (const trackId of candidateTrackIds) {
 		let removedFrames = 0;
@@ -363,11 +405,21 @@ export function propagateRemovedIntervalsToSyncLockedTracks(params: {
 			};
 			const intervalLength = currentInterval.end - currentInterval.start;
 			if (intervalLength <= 0) continue;
-			const overlapResult = removeItemsOnTrackInterval(trackId, currentInterval);
+			const overlapResult = removeItemsOnTrackInterval(
+				trackId,
+				currentInterval,
+				params.captionMode ?? 'track',
+				preservedLinkedGroups
+			);
 			affectedIds.push(...overlapResult.affectedIds);
 			removedIds.push(...overlapResult.removedIds);
 			affectedIds.push(
-				...shiftTrackItems(trackId, (item) => item.from >= currentInterval.end, -intervalLength)
+				...shiftTrackItems(
+					trackId,
+					(item) => item.from >= currentInterval.end,
+					-intervalLength,
+					params.captionMode ?? 'track'
+				)
 			);
 			removedFrames += intervalLength;
 		}
@@ -392,6 +444,7 @@ export function propagateInsertedGapToSyncLockedTracks(params: {
 		params.editedTrackIds
 	);
 	const affectedIds: string[] = [];
+	const preservedLinkedGroups = linkedGroupsWithinTracks(candidateTrackIds);
 
 	for (const trackId of candidateTrackIds) {
 		const straddledItems = timelineStore.items
@@ -405,7 +458,7 @@ export function propagateInsertedGapToSyncLockedTracks(params: {
 		for (const straddledItem of straddledItems) {
 			const current = timelineStore.itemById.get(straddledItem.id);
 			if (!current || current.trackId !== trackId) continue;
-			const splitResult = splitItemWithBookkeeping(current.id, cutFrame);
+			const splitResult = splitItemWithBookkeeping(current.id, cutFrame, preservedLinkedGroups);
 			if (!splitResult) continue;
 			affectedIds.push(splitResult.leftItem.id, splitResult.rightItem.id);
 		}

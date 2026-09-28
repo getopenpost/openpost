@@ -41,9 +41,15 @@ export function captureSnapshot(): TimelineSnapshot {
 
 export function restoreSnapshot(
 	snapshot: TimelineSnapshot,
-	registryFrom?: SequenceRegistrySnapshot
+	registryFrom?: SequenceRegistrySnapshot,
+	options: { preserveView?: boolean } = {}
 ): void {
 	const plainSnapshot = $state.snapshot(snapshot);
+	if (options.preserveView) {
+		plainSnapshot.currentFrame = timelineStore.currentFrame;
+		plainSnapshot.scrollPosition = timelineStore.scrollPosition;
+		plainSnapshot.snapEnabled = timelineStore.snapEnabled;
+	}
 	if (registryFrom) {
 		sequenceStore.applyRegistryDelta($state.snapshot(registryFrom), plainSnapshot.sequenceRegistry);
 	} else {

@@ -36,14 +36,7 @@ class CommandHistory {
 	}
 
 	execute<T>(command: TimelineCommand, action: () => T): T {
-		if (this.atomicDepth > 0) return action();
-		const beforeSnapshot = captureSnapshot();
-		const result = action();
-		const afterSnapshot = captureSnapshot();
-		if (!snapshotsEqual(beforeSnapshot, afterSnapshot)) {
-			this.push(command, beforeSnapshot, afterSnapshot);
-		}
-		return result;
+		return this.executeAtomic(command, action);
 	}
 
 	/** Collapse any nested timeline commands into one undoable transaction. */
@@ -66,6 +59,10 @@ class CommandHistory {
 		let result: T;
 		try {
 			result = action();
+		} catch (error) {
+			restoreSnapshot(beforeSnapshot, captureSnapshot().sequenceRegistry);
+			keyframeSelectionStore.restoreSelection(beforeKeyframeSelection);
+			throw error;
 		} finally {
 			this.atomicDepth = 0;
 		}
@@ -106,7 +103,9 @@ class CommandHistory {
 		if (this.undoStack.length === 0) return;
 		const entry = this.undoStack[this.undoStack.length - 1];
 		if (!entry) return;
-		restoreSnapshot(entry.beforeSnapshot, entry.afterSnapshot.sequenceRegistry);
+		restoreSnapshot(entry.beforeSnapshot, entry.afterSnapshot.sequenceRegistry, {
+			preserveView: true
+		});
 		this.undoStack = this.undoStack.slice(0, -1);
 		this.redoStack = [...this.redoStack, entry];
 		logger.debug(`undo ${entry.command.type}`);
@@ -116,7 +115,9 @@ class CommandHistory {
 		if (this.redoStack.length === 0) return;
 		const entry = this.redoStack[this.redoStack.length - 1];
 		if (!entry) return;
-		restoreSnapshot(entry.afterSnapshot, entry.beforeSnapshot.sequenceRegistry);
+		restoreSnapshot(entry.afterSnapshot, entry.beforeSnapshot.sequenceRegistry, {
+			preserveView: true
+		});
 		this.redoStack = this.redoStack.slice(0, -1);
 		this.undoStack = [...this.undoStack, entry];
 		logger.debug(`redo ${entry.command.type}`);

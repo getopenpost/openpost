@@ -50,10 +50,28 @@ export function joinedTimelineItem(items: TimelineItem[]): TimelineItem | null {
 	if (!canJoinMultipleItems(sorted)) return null;
 	const first = sorted[0]!;
 	const last = sorted[sorted.length - 1]!;
-	return {
+	const joined: TimelineItem = {
 		...first,
+		fadeOut: last.fadeOut,
+		audioFadeOut: last.audioFadeOut,
+		audioFadeOutCurve: last.audioFadeOutCurve,
+		audioFadeOutCurveX: last.audioFadeOutCurveX,
 		durationInFrames: last.from + last.durationInFrames - first.from,
 		sourceStart: first.isReversed ? last.sourceStart : first.sourceStart,
 		sourceEnd: first.isReversed ? first.sourceEnd : last.sourceEnd
 	};
+
+	if (first.videoFadeOffsets || last.videoFadeOffsets) {
+		joined.videoFadeOffsets = {
+			in: first.videoFadeOffsets?.in ?? 0,
+			out: last.videoFadeOffsets?.out ?? 0
+		};
+	}
+	if (first.audioFadeOffsets || last.audioFadeOffsets) {
+		joined.audioFadeOffsets = {
+			in: first.audioFadeOffsets?.in ?? 0,
+			out: last.audioFadeOffsets?.out ?? 0
+		};
+	}
+	return joined;
 }

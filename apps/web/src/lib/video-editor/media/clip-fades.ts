@@ -96,18 +96,29 @@ export function audioFadeOutCurveGain(
 }
 
 export function visualClipFadeOpacityAtFrame(
-	item: Pick<TimelineItem, 'type' | 'from' | 'durationInFrames' | 'fadeIn' | 'fadeOut'>,
+	item: Pick<
+		TimelineItem,
+		'type' | 'from' | 'durationInFrames' | 'fadeIn' | 'fadeOut' | 'videoFadeOffsets'
+	>,
 	absoluteFrame: number,
 	fps: number
 ): number {
 	if (item.type !== 'video' && item.type !== 'composition') return 1;
-	const relativeFrame = absoluteFrame - item.from;
-	if (relativeFrame < 0 || relativeFrame >= item.durationInFrames) return 0;
+	const localFrame = absoluteFrame - item.from;
+	if (localFrame < 0 || localFrame >= item.durationInFrames) return 0;
+	const duration = item.durationInFrames;
+	const relativeFrame = localFrame;
+	if (item.videoFadeOffsets) {
+		return Math.min(
+			edgeGain(localFrame / fps + item.videoFadeOffsets.in, item.fadeIn),
+			edgeGain((duration - localFrame) / fps + item.videoFadeOffsets.out, item.fadeOut)
+		);
+	}
 	return linearFadeGain(
 		relativeFrame,
-		item.durationInFrames,
-		safeFadeFrames(item.fadeIn, fps, item.durationInFrames),
-		safeFadeFrames(item.fadeOut, fps, item.durationInFrames)
+		duration,
+		safeFadeFrames(item.fadeIn, fps, duration),
+		safeFadeFrames(item.fadeOut, fps, duration)
 	);
 }
 
@@ -116,6 +127,7 @@ export function audioClipFadeGainAtFrame(
 		TimelineItem,
 		| 'from'
 		| 'durationInFrames'
+		| 'audioFadeOffsets'
 		| 'audioFadeIn'
 		| 'audioFadeOut'
 		| 'audioFadeInCurve'
@@ -124,17 +136,32 @@ export function audioClipFadeGainAtFrame(
 		| 'audioFadeOutCurveX'
 	>,
 	absoluteFrame: number,
-	fps: number
+	fps: number,
+	options: { includeEnd?: boolean } = {}
 ): number {
-	const relativeFrame = absoluteFrame - item.from;
-	if (relativeFrame < 0 || relativeFrame >= item.durationInFrames) return 1;
-	const fadeInFrames = safeFadeFrames(item.audioFadeIn, fps, item.durationInFrames);
-	const fadeOutFrames = safeFadeFrames(item.audioFadeOut, fps, item.durationInFrames);
+	const localFrame = absoluteFrame - item.from;
 	if (
-		fadeInFrames <= 0 ||
-		fadeOutFrames <= 0 ||
-		fadeInFrames >= item.durationInFrames - fadeOutFrames
-	) {
+		localFrame < 0 ||
+		localFrame > item.durationInFrames ||
+		(localFrame === item.durationInFrames && !options.includeEnd)
+	)
+		return 1;
+	const duration = item.durationInFrames;
+	const relativeFrame = localFrame;
+	if (item.audioFadeOffsets) {
+		const into = edgeGain(localFrame / fps + item.audioFadeOffsets.in, item.audioFadeIn);
+		const remaining = edgeGain(
+			(duration - localFrame) / fps + item.audioFadeOffsets.out,
+			item.audioFadeOut
+		);
+		return Math.min(
+			audioFadeInCurveGain(into, item.audioFadeInCurve, item.audioFadeInCurveX),
+			audioFadeOutCurveGain(1 - remaining, item.audioFadeOutCurve, item.audioFadeOutCurveX)
+		);
+	}
+	const fadeInFrames = safeFadeFrames(item.audioFadeIn, fps, duration);
+	const fadeOutFrames = safeFadeFrames(item.audioFadeOut, fps, duration);
+	if (fadeInFrames <= 0 || fadeOutFrames <= 0 || fadeInFrames >= duration - fadeOutFrames) {
 		if (fadeInFrames > 0 && fadeOutFrames <= 0 && relativeFrame < fadeInFrames) {
 			return audioFadeInCurveGain(
 				relativeFrame / fadeInFrames,
@@ -142,18 +169,14 @@ export function audioClipFadeGainAtFrame(
 				item.audioFadeInCurveX
 			);
 		}
-		if (
-			fadeOutFrames > 0 &&
-			fadeInFrames <= 0 &&
-			relativeFrame > item.durationInFrames - fadeOutFrames
-		) {
+		if (fadeOutFrames > 0 && fadeInFrames <= 0 && relativeFrame > duration - fadeOutFrames) {
 			return audioFadeOutCurveGain(
-				(relativeFrame - (item.durationInFrames - fadeOutFrames)) / fadeOutFrames,
+				(relativeFrame - (duration - fadeOutFrames)) / fadeOutFrames,
 				item.audioFadeOutCurve,
 				item.audioFadeOutCurveX
 			);
 		}
-		return linearFadeGain(relativeFrame, item.durationInFrames, fadeInFrames, fadeOutFrames);
+		return linearFadeGain(relativeFrame, duration, fadeInFrames, fadeOutFrames);
 	}
 	if (relativeFrame < fadeInFrames) {
 		return audioFadeInCurveGain(
@@ -162,7 +185,7 @@ export function audioClipFadeGainAtFrame(
 			item.audioFadeInCurveX
 		);
 	}
-	const fadeOutStart = item.durationInFrames - fadeOutFrames;
+	const fadeOutStart = duration - fadeOutFrames;
 	if (relativeFrame > fadeOutStart) {
 		return audioFadeOutCurveGain(
 			(relativeFrame - fadeOutStart) / fadeOutFrames,
@@ -181,4 +204,46 @@ export function linearGainToDb(gain: number): number {
 export function dbToLinearGain(db: number): number {
 	if (!Number.isFinite(db)) return 1;
 	return Math.pow(10, Math.min(12, Math.max(-60, db)) / 20);
+}
+
+function edgeGain(seconds: number, fadeSeconds: number | undefined): number {
+	return fadeSeconds && fadeSeconds > 0 ? clamp01(seconds / fadeSeconds) : 1;
+}
+
+/** Preserve the authored envelope when retaining a window of a clip. */
+export function sliceClipFades(
+	item: TimelineItem,
+	start: number,
+	end: number,
+	fps: number
+): Partial<TimelineItem> {
+	const patch: Partial<TimelineItem> = {};
+	for (const kind of ['video', 'audio'] as const) {
+		const inKey = kind === 'video' ? 'fadeIn' : 'audioFadeIn';
+		const outKey = kind === 'video' ? 'fadeOut' : 'audioFadeOut';
+		const offsetKey = kind === 'video' ? 'videoFadeOffsets' : 'audioFadeOffsets';
+		const offsets = item[offsetKey];
+		if (!offsets && !item[inKey] && !item[outKey]) continue;
+		if (!offsets) {
+			let into = safeFadeFrames(item[inKey], fps, item.durationInFrames);
+			let out = safeFadeFrames(item[outKey], fps, item.durationInFrames);
+			// Legacy overlapping fades form a linear triangle, even for shaped audio.
+			if (into > 0 && out > 0 && into >= item.durationInFrames - out) {
+				const midpoint = item.durationInFrames / 2;
+				const peak = Math.min(1, midpoint / Math.max(into, 1));
+				into = out = Math.max(midpoint, 1) / peak;
+				if (kind === 'audio') {
+					patch.audioFadeInCurve = 0;
+					patch.audioFadeOutCurve = 0;
+				}
+			}
+			patch[inKey] = into / fps;
+			patch[outKey] = out / fps;
+		}
+		patch[offsetKey] = {
+			in: (offsets?.in ?? 0) + start / fps,
+			out: (offsets?.out ?? 0) + (item.durationInFrames - end) / fps
+		};
+	}
+	return patch;
 }

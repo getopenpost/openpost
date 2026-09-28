@@ -1,4 +1,8 @@
-import type { TimelineItem, TranscriptCaptionSource } from '../project/types';
+import type {
+	AiCaptionsCaptionSource,
+	TimelineItem,
+	TranscriptCaptionSource
+} from '../project/types';
 import type { SourceRange } from '../timeline/actions/range-removal';
 
 export interface ResolvedTranscriptCaptionTiming {
@@ -14,7 +18,7 @@ export interface CaptionFrameRange {
 }
 
 export function resolveTranscriptCaptionTiming(
-	source: TranscriptCaptionSource,
+	source: TranscriptCaptionSource | AiCaptionsCaptionSource,
 	sourceItem: TimelineItem | null | undefined,
 	timelineFps: number
 ): ResolvedTranscriptCaptionTiming {

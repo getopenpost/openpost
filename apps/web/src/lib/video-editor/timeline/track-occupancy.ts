@@ -71,15 +71,38 @@ export function planOpenTrackForRange(options: {
 	const candidates = preferred
 		? [preferred, ...compatible.filter((track) => track.id !== preferred.id)]
 		: compatible;
-	const open = candidates.find((track) =>
-		trackRangeIsOpen(
-			options.items,
-			track.id,
-			options.from,
-			options.durationInFrames,
-			options.itemType,
-			ignoredItemIds
-		)
+	const occupiedOrders =
+		options.stacking && options.kind === 'video'
+			? options.tracks
+					.filter(
+						(track) =>
+							track.kind === 'video' &&
+							track.visible &&
+							options.items.some(
+								(item) =>
+									item.trackId === track.id &&
+									!ignoredItemIds.has(item.id) &&
+									exclusivelyOccupiesTrack(item) &&
+									timelineRangesOverlap(options, item)
+							)
+					)
+					.map((track) => track.order)
+			: [];
+	const open = candidates.find(
+		(track) =>
+			(track.id === preferred?.id ||
+				occupiedOrders.length === 0 ||
+				(options.stacking === 'top'
+					? track.order < Math.min(...occupiedOrders)
+					: track.order > Math.max(...occupiedOrders))) &&
+			trackRangeIsOpen(
+				options.items,
+				track.id,
+				options.from,
+				options.durationInFrames,
+				options.itemType,
+				ignoredItemIds
+			)
 	);
 	if (open) return { track: open, created: false };
 

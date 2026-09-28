@@ -1,5 +1,6 @@
 /** Pure edit plans for live timeline pointer and keyboard gestures. */
 
+import { sliceClipFades } from '../media/clip-fades';
 import type { TimelineItem, TimelineTrack, TimelineTransition } from '../project/types';
 import {
 	calculateTrimSourceUpdate,
@@ -220,12 +221,19 @@ export function planLinkedMoveGesture(
 				? tracks[index + offset]
 				: destination.tracks.find((track) => track.id === participant.trackId);
 			if (!target || target.locked || target.isGroup) return original;
-			moves.push({ id: participant.id, from: participant.from + delta, trackId: target.id });
+			moves.push({
+				id: participant.id,
+				from: participant.from + delta,
+				trackId: target.id
+			});
 		}
 		if (
 			updatesIntroduceExclusiveTrackOverlap(
 				items,
-				moves.map(({ id, from, trackId }) => ({ id, patch: { from, trackId } }))
+				moves.map(({ id, from, trackId }) => ({
+					id,
+					patch: { from, trackId }
+				}))
 			)
 		)
 			return original;
@@ -265,6 +273,15 @@ function trimPatchForAmount(
 		amount,
 		durationInFrames,
 		timelineFps
+	);
+	Object.assign(
+		patch,
+		sliceClipFades(
+			item,
+			handle === 'start' ? amount : 0,
+			handle === 'start' ? item.durationInFrames : durationInFrames,
+			timelineFps
+		)
 	);
 	if (sourceUpdate) Object.assign(patch, sourceUpdate);
 	return patch;

@@ -33,9 +33,13 @@ function collides(trackId: string, from: number, end: number): boolean {
 
 function newTrack(kind: 'video' | 'audio', label: string): TimelineTrack {
 	const orders = timelineStore.tracks.map((track) => track.order);
+	const names = new Set(timelineStore.tracks.map((track) => track.name));
+	let suffix = 1;
+	let name = label;
+	while (names.has(name)) name = `${label} ${++suffix}`;
 	return {
 		id: crypto.randomUUID(),
-		name: label,
+		name,
 		kind,
 		height: kind === 'video' ? 96 : 72,
 		locked: false,

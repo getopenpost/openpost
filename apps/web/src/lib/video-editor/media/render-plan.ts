@@ -72,6 +72,8 @@ export interface MixEntry {
 	whenSeconds: number;
 	/** Seconds into the source media where this clip begins. */
 	sourceOffsetSeconds: number;
+	/** Maximum source-time remainder introduced by rounding a clip to timeline frames. */
+	sourceFrameDuration?: number;
 	/** Source seconds played per real second (the item's speed). */
 	playbackRate: number;
 	/** Output-relative tempo samples for a persisted variable-speed curve. */
@@ -109,7 +111,10 @@ export function applyMixEntryGain(entries: MixEntry[], gain: number): MixEntry[]
 	if (gain === 1) return entries;
 	return entries.map((entry) => ({
 		...entry,
-		gainPoints: entry.gainPoints.map((point) => ({ ...point, value: point.value * gain })),
+		gainPoints: entry.gainPoints.map((point) => ({
+			...point,
+			value: point.value * gain
+		})),
 		previewGainPoints: entry.previewGainPoints.map((point) => ({
 			...point,
 			value: point.value * gain
@@ -227,7 +232,10 @@ export function planMixdown(
 			: undefined;
 		const rateCurve = variableSpeed
 			? [
-					{ atSeconds: 0, rate: playbackRateAtTimelineOffset(item, startFrame - item.from, fps) },
+					{
+						atSeconds: 0,
+						rate: playbackRateAtTimelineOffset(item, startFrame - item.from, fps)
+					},
 					...playbackRateCurve(item, fps)
 						.filter(
 							(point) =>
@@ -273,6 +281,7 @@ export function planMixdown(
 								(beforeFrames / fps) * speed
 						)
 					: Math.max(0, (item.sourceStart ?? 0) / sourceFps - (beforeFrames / fps) * speed),
+			sourceFrameDuration: speed / fps,
 			playbackRate: variableSpeed
 				? playbackRateAtTimelineOffset(item, startFrame - item.from, fps)
 				: speed,
@@ -508,7 +517,10 @@ function slicePlaybackRateCurve(
 		{ atSeconds: 0, rate: curveRateAt(curve, startSeconds) },
 		...curve
 			.filter((point) => point.atSeconds > startSeconds && point.atSeconds < endSeconds)
-			.map((point) => ({ ...point, atSeconds: point.atSeconds - startSeconds })),
+			.map((point) => ({
+				...point,
+				atSeconds: point.atSeconds - startSeconds
+			})),
 		{ atSeconds: durationSeconds, rate: curveRateAt(curve, endSeconds) }
 	];
 }
@@ -550,13 +562,19 @@ export function sliceMixEntries(
 			{ whenSeconds: 0, value: startGain },
 			...entry.gainPoints
 				.filter((point) => point.whenSeconds > overlapStart && point.whenSeconds <= overlapEnd)
-				.map((point) => ({ ...point, whenSeconds: point.whenSeconds - startSeconds }))
+				.map((point) => ({
+					...point,
+					whenSeconds: point.whenSeconds - startSeconds
+				}))
 		];
 		const previewGainPoints = [
 			{ whenSeconds: 0, value: previewStartGain },
 			...entry.previewGainPoints
 				.filter((point) => point.whenSeconds > overlapStart && point.whenSeconds <= overlapEnd)
-				.map((point) => ({ ...point, whenSeconds: point.whenSeconds - startSeconds }))
+				.map((point) => ({
+					...point,
+					whenSeconds: point.whenSeconds - startSeconds
+				}))
 		];
 		let slicedDucking = entry.ducking;
 		let slicedDuckStart = entry.duckStartSeconds;
@@ -619,14 +637,16 @@ function volumeGainPoints(
 	const seen = new Set<number>();
 	for (let frame = startFrame; frame <= endFrame; frame++) {
 		const animated = track && track.frames.length > 0 ? activeValueAt(item, 'volume', frame) : null;
-		const clipFade =
-			frame === item.from + item.durationInFrames && (item.audioFadeOut ?? 0) > 0
-				? 0
-				: audioClipFadeGainAtFrame(item, frame, fps);
+		const clipFade = audioClipFadeGainAtFrame(item, frame, fps, {
+			includeEnd: true
+		});
 		const whenSeconds = frame / fps;
 		if (seen.has(whenSeconds)) continue;
 		seen.add(whenSeconds);
-		points.push({ whenSeconds, value: (animated ?? item.volume ?? 1) * trackVolume * clipFade });
+		points.push({
+			whenSeconds,
+			value: (animated ?? item.volume ?? 1) * trackVolume * clipFade
+		});
 	}
 	return points.length > 0 ? points : [{ whenSeconds: startFrame / fps, value: baseGain }];
 }
@@ -652,7 +672,13 @@ export function transitionBlendAtFrame(
 			transition.timing,
 			transition.bezierPoints
 		);
-		return { outgoingId: from.id, incomingId: to.id, progress, type: transition.type, transition };
+		return {
+			outgoingId: from.id,
+			incomingId: to.id,
+			progress,
+			type: transition.type,
+			transition
+		};
 	}
 	return null;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { audioClipFadeGainAtFrame } from '../media/clip-fades';
 import type { TimelineItem } from '../project/types';
 import {
 	canvasNudgePatch,
@@ -7,7 +8,8 @@ import {
 	planCanvasNudge,
 	planLinkedSlipGesture,
 	planRateStretchGesture,
-	planSlideGesture
+	planSlideGesture,
+	planTrimGesture
 } from './edit-gesture';
 
 function video(
@@ -34,10 +36,18 @@ describe('rate-stretch gesture parity', () => {
 		expect(isRateStretchableType({ ...video('a', 't', 0, 10), type: 'audio' })).toBe(true);
 		expect(isRateStretchableType({ ...video('c', 't', 0, 10), type: 'composition' })).toBe(true);
 		expect(
-			isRateStretchableType({ ...video('g', 't', 0, 10), type: 'image', label: 'loop.gif' })
+			isRateStretchableType({
+				...video('g', 't', 0, 10),
+				type: 'image',
+				label: 'loop.gif'
+			})
 		).toBe(true);
 		expect(
-			isRateStretchableType({ ...video('s', 't', 0, 10), type: 'image', label: 'still.png' })
+			isRateStretchableType({
+				...video('s', 't', 0, 10),
+				type: 'image',
+				label: 'still.png'
+			})
 		).toBe(false);
 		expect(isRateStretchableType({ ...video('x', 't', 0, 10), type: 'text' })).toBe(false);
 	});
@@ -59,7 +69,11 @@ describe('rate-stretch gesture parity', () => {
 		);
 		expect(plan?.patch.durationInFrames).toBe(120);
 		expect(plan?.patch.speed).toBeCloseTo(200 / 120, 5);
-		expect(plan?.snapTarget).toEqual({ frame: 120, type: 'item-start', itemId: 'other' });
+		expect(plan?.snapTarget).toEqual({
+			frame: 120,
+			type: 'item-start',
+			itemId: 'other'
+		});
 	});
 
 	it('caps the stretched duration at the speed limits', () => {
@@ -103,7 +117,10 @@ describe('rate-stretch gesture parity', () => {
 describe('canvas-pixel nudge parity', () => {
 	it('nudges visual transforms and skips timeline-only kinds', () => {
 		const visual = video('v', 't', 0, 10, { transform: { x: 5, y: 0 } });
-		expect(canvasNudgePatch(visual, 1, 0)?.transform).toMatchObject({ x: 6, y: 0 });
+		expect(canvasNudgePatch(visual, 1, 0)?.transform).toMatchObject({
+			x: 6,
+			y: 0
+		});
 		expect(canvasNudgePatch({ ...visual, type: 'audio' }, 1, 0)).toBeNull();
 		expect(canvasNudgePatch({ ...visual, type: 'adjustment' }, 0, 1)).toBeNull();
 		expect(canvasNudgePatch({ ...visual, type: 'controller' }, 0, 1)).toBeNull();
@@ -156,4 +173,20 @@ describe('slip and slide preservation parity', () => {
 		const clamped = planLinkedSlipGesture(item, -1000, [item], 30);
 		expect(clamped.find((update) => update.id === item.id)?.patch.sourceStart).toBe(80);
 	});
+});
+
+it('preserves the existing fade envelope when dragging a trimmed clip edge', () => {
+	const item = video('clip', 't', 15, 285, {
+		sourceStart: 15,
+		sourceEnd: 300,
+		sourceFps: 30,
+		audioFadeIn: 2,
+		audioFadeOut: 2,
+		audioFadeOffsets: { in: 0.5, out: 0 }
+	});
+	const plan = planTrimGesture(item, 'start', 15, [item], 30, [], 0);
+	const trimmed = { ...item, ...plan.patch };
+	expect(trimmed.from).toBe(30);
+	expect(audioClipFadeGainAtFrame(trimmed, 30, 30)).toBeCloseTo(0.5);
+	expect(audioClipFadeGainAtFrame(trimmed, 270, 30)).toBeCloseTo(0.5);
 });

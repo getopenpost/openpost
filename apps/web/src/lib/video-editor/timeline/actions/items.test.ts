@@ -1,4 +1,6 @@
+import { planMixdown } from '../../media/render-plan';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { sequenceStore } from '../../sequences/sequence-store.svelte';
 import { editorSession } from '$lib/video-editor/editor.svelte';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
 import { commandHistory } from '../commands/command-store.svelte';
@@ -25,11 +27,13 @@ import {
 	setItemsReversed,
 	splitItemsAtFrame,
 	trimItemEnd,
+	trimItemStart,
 	updateItemsSpeedPoint,
 	updateItemProperties,
 	updateMarker,
 	unlinkItems
 } from './items';
+import { audioClipFadeGainAtFrame, visualClipFadeOpacityAtFrame } from '../../media/clip-fades';
 import { transitionsStore } from './transitions-store.svelte';
 
 function clip(overrides: Partial<TimelineItem>): TimelineItem {
@@ -108,7 +112,9 @@ describe('sequence color grade item', () => {
 					: track
 			)
 		);
-		const id = addAdjustmentLayer('Sequence grade', { sequenceColorGrade: true });
+		const id = addAdjustmentLayer('Sequence grade', {
+			sequenceColorGrade: true
+		});
 		const grade = timelineStore.itemById.get(id);
 		const track = timelineStore.tracks.find((candidate) => candidate.id === grade?.trackId);
 
@@ -126,7 +132,9 @@ describe('sequence color grade item', () => {
 	it('creates a sequence grade when every source track is locked', () => {
 		timelineStore._setTracks(timelineStore.tracks.map((track) => ({ ...track, locked: true })));
 
-		const id = addAdjustmentLayer('Sequence grade', { sequenceColorGrade: true });
+		const id = addAdjustmentLayer('Sequence grade', {
+			sequenceColorGrade: true
+		});
 		expect(timelineStore.itemById.get(id)?.sequenceColorGrade).toBe(true);
 	});
 });
@@ -526,4 +534,118 @@ describe('addTextItem', () => {
 		]);
 		expect(commandHistory.canUndo).toBe(false);
 	});
+});
+
+describe('split fade continuity', () => {
+	beforeEach(() => {
+		timelineStore.__resetForTesting();
+		timelineStore._setTracks(createDefaultTracks());
+		commandHistory.clearHistory();
+	});
+	it.each([15, 60, 191, 270])(
+		'preserves visual and curved audio fades through a cut at %i',
+		(cut) => {
+			const original = clip({
+				durationInFrames: 300,
+				sourceEnd: 300,
+				fadeIn: 2.1,
+				fadeOut: 2,
+				audioFadeIn: 2.1,
+				audioFadeOut: 2,
+				audioFadeInCurve: 0.8,
+				audioFadeOutCurve: -0.5
+			});
+			timelineStore._setItems([original]);
+			const expected = Array.from({ length: 300 }, (_, frame) => [
+				visualClipFadeOpacityAtFrame(original, frame, 30),
+				audioClipFadeGainAtFrame(original, frame, 30)
+			]);
+			splitItemsAtFrame(cut, [original.id]);
+			for (let frame = 0; frame < 300; frame++) {
+				const part = timelineStore.items.find(
+					(item) => frame >= item.from && frame < item.from + item.durationInFrames
+				)!;
+				expect(visualClipFadeOpacityAtFrame(part, frame, 30)).toBeCloseTo(expected[frame]![0]!, 8);
+				expect(audioClipFadeGainAtFrame(part, frame, 30)).toBeCloseTo(expected[frame]![1]!, 8);
+			}
+		}
+	);
+});
+
+it('exports a continuous envelope at a split and retains the far fade after an edge edit', () => {
+	timelineStore.__resetForTesting();
+	timelineStore._setTracks(createDefaultTracks());
+	timelineStore._setItems([
+		clip({
+			durationInFrames: 300,
+			sourceEnd: 300,
+			audioFadeIn: 2,
+			audioFadeOut: 2
+		})
+	]);
+	splitItemsAtFrame(150, ['clip']);
+	const right = timelineStore.items.find((item) => item.id !== 'clip')!;
+	const entries = planMixdown(timelineStore.items, timelineStore.tracks, 30);
+	expect(entries[0]!.gainPoints.at(-1)!.value).toBe(1);
+	expect(entries[1]!.gainPoints[0]!.value).toBe(1);
+	updateItemProperties(right.id, { audioFadeIn: 1 });
+	expect(audioClipFadeGainAtFrame(timelineStore.itemById.get(right.id)!, 270, 30)).toBeCloseTo(0.5);
+	trimItemStart(right.id, 165);
+	expect(audioClipFadeGainAtFrame(timelineStore.itemById.get(right.id)!, 165, 30)).toBeCloseTo(0.5);
+});
+
+it('joining split siblings restores both outer fade boundaries', () => {
+	timelineStore.__resetForTesting();
+	timelineStore._setTracks(createDefaultTracks());
+	commandHistory.clearHistory();
+	timelineStore._setItems([
+		clip({
+			durationInFrames: 300,
+			sourceEnd: 300,
+			audioFadeIn: 2,
+			audioFadeOut: 2,
+			fadeIn: 2,
+			fadeOut: 2
+		})
+	]);
+	const split = splitItemsAtFrame(150, ['clip']);
+	joinItems([...split.left, ...split.right]);
+	expect(timelineStore.items).toHaveLength(1);
+	expect(audioClipFadeGainAtFrame(timelineStore.items[0]!, 270, 30)).toBeCloseTo(0.5);
+	expect(visualClipFadeOpacityAtFrame(timelineStore.items[0]!, 270, 30)).toBeCloseTo(0.5);
+});
+
+it('places a lower third inside the lower safe area of the active sequence', () => {
+	timelineStore.__resetForTesting();
+	timelineStore._setTracks(createDefaultTracks());
+	commandHistory.clearHistory();
+	const id = addTextTemplateItem('lower-third', {
+		label: 'Lower Third',
+		sample: { title: 'Name', subtitle: 'Role' }
+	});
+	const item = timelineStore.itemById.get(id)!;
+	const width = sequenceStore.activeWidth;
+	const height = sequenceStore.activeHeight;
+	expect(item.transform?.y).toBeGreaterThan(height * 0.25);
+	expect(item.transform?.width).toBeLessThan(width);
+	expect(item.transform?.height).toBeLessThan(height * 0.3);
+});
+
+it('adds titles above an occupied video instead of hiding them on an empty lower track', () => {
+	timelineStore.__resetForTesting();
+	const tracks = createDefaultTracks();
+	timelineStore._setTracks(tracks);
+	commandHistory.clearHistory();
+	const top = tracks
+		.filter((track) => track.kind === 'video')
+		.sort((a, b) => a.order - b.order)[0]!;
+	timelineStore._setItems([clip({ trackId: top.id, durationInFrames: 300 })]);
+	const id = addTextTemplateItem('lower-third', {
+		label: 'Lower Third',
+		sample: { title: 'Name', subtitle: 'Role' }
+	});
+	const title = timelineStore.itemById.get(id)!;
+	expect(timelineStore.tracks.find((track) => track.id === title.trackId)!.order).toBeLessThan(
+		top.order
+	);
 });

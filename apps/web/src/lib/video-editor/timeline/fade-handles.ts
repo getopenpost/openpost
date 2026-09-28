@@ -157,16 +157,25 @@ export function getAudioFadeCurveControlPoint(params: {
 	clipWidthPixels: number;
 	curve: number | undefined;
 	curveX?: number;
+	progressStart?: number;
+	progressEnd?: number;
 }): AudioFadeCurveControlPoint {
 	const fadePixels = Math.max(0, Math.min(params.fadePixels, params.clipWidthPixels));
 	const startX = params.handle === 'in' ? 0 : Math.max(0, params.clipWidthPixels - fadePixels);
 	const endX = params.handle === 'in' ? fadePixels : params.clipWidthPixels;
 	const normalizedCurveX = clampAudioFadeCurveX(params.curveX);
-	const absoluteX = startX + (endX - startX) * normalizedCurveX;
+	const progressStart = params.progressStart ?? 0;
+	const progressEnd = params.progressEnd ?? 1;
+	const displayProgress = Math.max(
+		0.1,
+		Math.min(0.9, (normalizedCurveX - progressStart) / Math.max(0.001, progressEnd - progressStart))
+	);
+	const curveProgress = progressStart + displayProgress * (progressEnd - progressStart);
+	const absoluteX = startX + (endX - startX) * displayProgress;
 	const curveValue =
 		params.handle === 'in'
-			? evaluateAudioFadeInCurve(normalizedCurveX, params.curve, normalizedCurveX)
-			: evaluateAudioFadeOutCurve(normalizedCurveX, params.curve, normalizedCurveX);
+			? evaluateAudioFadeInCurve(curveProgress, params.curve, normalizedCurveX)
+			: evaluateAudioFadeOutCurve(curveProgress, params.curve, normalizedCurveX);
 	return {
 		x: Math.max(Math.min(startX, endX), Math.min(Math.max(startX, endX), absoluteX)),
 		y: Math.max(0, Math.min(100, 100 - curveValue * 100))
@@ -179,6 +188,8 @@ export function getAudioFadeCurvePath(params: {
 	clipWidthPixels: number;
 	curve: number | undefined;
 	curveX?: number;
+	progressStart?: number;
+	progressEnd?: number;
 }): string {
 	const fadePixels = Math.max(0, Math.min(params.fadePixels, params.clipWidthPixels));
 	if (fadePixels <= 0) return '';
@@ -188,10 +199,13 @@ export function getAudioFadeCurvePath(params: {
 	for (let index = 0; index <= AUDIO_FADE_CURVE_PATH_SAMPLES; index += 1) {
 		const progress = index / AUDIO_FADE_CURVE_PATH_SAMPLES;
 		const x = startX + (endX - startX) * progress;
+		const curveProgress =
+			(params.progressStart ?? 0) +
+			progress * ((params.progressEnd ?? 1) - (params.progressStart ?? 0));
 		const curveValue =
 			params.handle === 'in'
-				? evaluateAudioFadeInCurve(progress, params.curve, params.curveX)
-				: evaluateAudioFadeOutCurve(progress, params.curve, params.curveX);
+				? evaluateAudioFadeInCurve(curveProgress, params.curve, params.curveX)
+				: evaluateAudioFadeOutCurve(curveProgress, params.curve, params.curveX);
 		const y = 100 - curveValue * 100;
 		points.push(`${formatPathValue(x)} ${formatPathValue(y)}`);
 	}
@@ -208,6 +222,8 @@ export function getAudioFadeCurveFromOffset(params: {
 	fadePixels: number;
 	clipWidthPixels: number;
 	rowHeight: number;
+	progressStart?: number;
+	progressEnd?: number;
 }): CurveBias {
 	if (!Number.isFinite(params.rowHeight) || params.rowHeight <= 0 || params.fadePixels <= 0) {
 		return { curve: 0, curveX: AUDIO_FADE_CURVE_X_DEFAULT };
@@ -227,6 +243,9 @@ export function getAudioFadeCurveFromOffset(params: {
 	} else {
 		curveX = clampAudioFadeCurveX((params.pointerOffsetX - startX) / Math.max(1, endX - startX));
 	}
+	curveX = clampAudioFadeCurveX(
+		(params.progressStart ?? 0) + curveX * ((params.progressEnd ?? 1) - (params.progressStart ?? 0))
+	);
 	const edgeDistance = Math.min(curveX, 1 - curveX);
 	const edgeDampingRamp = Math.min(1, edgeDistance * 5);
 	const edgeDampingExponent = 1 + (1 - edgeDampingRamp) * 2;
@@ -237,9 +256,15 @@ export function getAudioFadeCurveFromOffset(params: {
 	if (y <= linearY) {
 		const range = Math.max(1, linearY);
 		const raw = (linearY - y) / range;
-		return { curve: clampAudioFadeCurve(Math.pow(raw, edgeDampingExponent)), curveX };
+		return {
+			curve: clampAudioFadeCurve(Math.pow(raw, edgeDampingExponent)),
+			curveX
+		};
 	}
 	const range = Math.max(1, 100 - linearY);
 	const raw = (y - linearY) / range;
-	return { curve: clampAudioFadeCurve(-Math.pow(raw, edgeDampingExponent)), curveX };
+	return {
+		curve: clampAudioFadeCurve(-Math.pow(raw, edgeDampingExponent)),
+		curveX
+	};
 }

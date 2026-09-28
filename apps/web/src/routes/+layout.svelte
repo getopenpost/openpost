@@ -122,8 +122,10 @@
 		'/accounts/mastodon/callback',
 		'/accounts/callback'
 	];
+	const isWorkflowEditor = $derived(/^\/workflows\/[0-9a-f-]+$/.test(currentPath));
 	let isStandaloneRoute = $derived(
-		standaloneRoutes.includes(currentPath) ||
+		isWorkflowEditor ||
+			standaloneRoutes.includes(currentPath) ||
 			isErrorRoute ||
 			isPublicProfileRoute ||
 			currentPath === '/image-editor' ||
@@ -581,7 +583,7 @@
 				{@render children()}
 			{/if}
 		{:else if isStandaloneRoute}
-			{#if !isPublicProfileRoute && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
+			{#if !isWorkflowEditor && !isPublicProfileRoute && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
 				<div class="fixed top-4 right-4 z-20">
 					<LanguageSwitcher compact />
 				</div>

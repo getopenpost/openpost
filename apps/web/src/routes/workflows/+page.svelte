@@ -12,6 +12,7 @@
 	import { templates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import RepostHistory from '$lib/workflows/repost-history.svelte';
+	import GraphPreview from '$lib/workflows/graph-preview.svelte';
 	import RunInspector from '$lib/workflows/run-inspector.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
@@ -77,6 +78,9 @@
 						selectedRun = '';
 					}}>{item.label}</Button
 				>{/each}
+			<Button size="sm" variant="ghost" href="/workflows/connections"
+				>{m.workflows_connections()}</Button
+			>
 		</div>{/snippet}
 	<div class="space-y-6">
 		{#if repostsQuery.error}<InlineNotice tone="error" message={String(repostsQuery.error)} />{/if}
@@ -92,13 +96,8 @@
 							<a
 								href={`/workflows/${workflow.id}`}
 								class="flex min-h-24 min-w-0 flex-1 items-center gap-4 p-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
-								><span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"
-									><ThemeIcon
-										role={workflow.definition.source.kind === 'github_release'
-											? 'github'
-											: 'repeat'}
-										class="size-5"
-									/></span
+								><span class="hidden w-48 shrink-0 sm:block"
+									><GraphPreview definition={workflow.definition} /></span
 								><span class="min-w-0 flex-1"
 									><span class="block truncate font-medium">{workflow.name}</span><span
 										class="mt-1 block text-sm text-muted-foreground"
@@ -154,11 +153,12 @@
 				/>{/if}
 			<Button variant="ghost" href="/workflows/reposts">{m.repost_heading()}</Button>
 		{:else if tab === 'templates'}
-			<div class="divide-y rounded-lg border bg-card">
+			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each templates() as template (template.id)}<div
-						class="flex flex-wrap items-center gap-4 p-5"
+						class="flex flex-col items-start gap-4 rounded-lg border bg-card p-4"
 					>
-						<div class="min-w-0 flex-1 basis-64">
+						<GraphPreview definition={template.definition} />
+						<div class="min-w-0 flex-1">
 							<h2 class="font-medium">{template.name}</h2>
 							<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
 						</div>
@@ -170,8 +170,8 @@
 						>
 					</div>{/each}
 				{#each [{ id: 'repost', name: m.repost_new_rule(), description: m.repost_delay_days( { count: 1 } ) }, { id: 'cycle', name: m.workflows_repost_cycle(), description: `${m.repost_delay_days({ count: 1 })} · ${m.repost_delay_days({ count: 3 })}` }, { id: 'popular', name: m.workflows_repost_popular(), description: m.repost_engagement_gates_body() }] as template (template.id)}
-					<div class="flex flex-wrap items-center gap-4 p-5">
-						<div class="min-w-0 flex-1 basis-64">
+					<div class="flex flex-col items-start gap-4 rounded-lg border bg-card p-4">
+						<div class="min-w-0 flex-1">
 							<h2 class="font-medium">{template.name}</h2>
 							<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
 						</div>
@@ -198,12 +198,16 @@
 						type="button"
 						class="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 						onclick={() => (selectedRun = run.id)}
-						><span class="min-w-0"
+						><span class="hidden w-48 shrink-0 sm:block"
+							><GraphPreview definition={run.definition} {run} /></span
+						><span class="min-w-0 flex-1"
 							><span class="block truncate text-sm font-medium">{run.workflow_name}</span><span
 								class="mt-1 block text-xs text-muted-foreground"
 								>{new Date(run.created_at).toLocaleString()} · {run.mode === 'preview'
 									? m.workflows_preview()
-									: m.workflows_live()}</span
+									: run.mode === 'test'
+										? m.workflows_test_node()
+										: m.workflows_live()}</span
 							></span
 						><span class="text-sm">{runStateLabel(run.state)}</span></button
 					>{/each}

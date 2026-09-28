@@ -23,6 +23,26 @@ async function openWorkflows(page: import("@playwright/test").Page) {
   return { token, workspace };
 }
 
+async function addStep(page: import("@playwright/test").Page, name: string) {
+  const close = page.getByRole("button", { name: "Back to canvas", exact: true });
+  if (await close.isVisible()) await close.click();
+  await page.getByRole("button", { name: "Add step", exact: true }).click();
+  await page
+    .getByRole("complementary", { name: "What happens next?" })
+    .getByRole("button", { name: new RegExp("^" + name) })
+    .click();
+}
+async function releaseTemplate(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Start from a template", exact: true }).first().click();
+  await page
+    .getByRole("heading", { name: "Announce a GitHub release", exact: true })
+    .locator("..")
+    .locator("..")
+    .getByRole("button", { name: "Use template", exact: true })
+    .click();
+  await page.getByRole("button", { name: /^Needs attention/ }).click();
+}
+
 test("workflow editor saves, previews without writes, and approves a native draft", async ({
   page,
 }) => {
@@ -31,23 +51,27 @@ test("workflow editor saves, previews without writes, and approves a native draf
   const completedRun = page.getByRole("paragraph").filter({ hasText: /^Completed$/ });
   await page.getByRole("button", { name: "New workflow", exact: true }).click();
   await page.getByLabel("Workflow name", { exact: true }).fill("Release announcement");
-  await page.getByRole("button", { name: "Add step", exact: true }).click();
-  await page.getByRole("option", { name: "Create draft", exact: true }).click();
+  await addStep(page, "Create draft");
   await page
     .getByLabel("Post text", { exact: true })
     .fill("Shipping {{source.title}}: {{source.body}}");
-  await page.getByRole("button", { name: "Add step", exact: true }).click();
-  await page.getByRole("option", { name: "Review post", exact: true }).click();
+  await addStep(page, "Review post");
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   const editorURL = page.url();
   await page.reload();
   await expect(page.getByLabel("Workflow name", { exact: true })).toHaveValue(
     "Release announcement",
   );
-  await page.getByRole("button", { name: "Preview", exact: true }).first().click();
-  await page.getByLabel("Title", { exact: true }).fill("version 2");
-  await page.getByLabel("Post text", { exact: true }).fill("Smaller daily tasks.");
-  await page.getByRole("button", { name: "Run preview", exact: true }).click();
+  await expect(page.getByTestId("sidebar-draft-list")).toHaveCount(0);
+  await page.getByRole("button", { name: "Test data", exact: true }).click();
+  await page.getByLabel("Sample input (JSON)", { exact: true }).fill(
+    JSON.stringify({
+      title: "version 2",
+      body: "Smaller daily tasks.",
+      url: "https://example.com",
+    }),
+  );
+  await page.getByRole("button", { name: "Run preview", exact: true }).last().click();
   await expect(completedRun).toBeVisible({
     timeout: 30000,
   });
@@ -57,7 +81,8 @@ test("workflow editor saves, previews without writes, and approves a native draf
   });
   expect(publications.ok()).toBeTruthy();
   expect(await publications.json()).toEqual([]);
-  await page.getByRole("button", { name: "Preview", exact: true }).first().click();
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByRole("button", { name: "Test data", exact: true }).click();
   await page.getByText("Live", { exact: true }).click();
   await page.getByRole("button", { name: "Run live", exact: true }).click();
   await expect(
@@ -76,11 +101,6 @@ test("workflow editor saves, previews without writes, and approves a native draf
     { headers },
   );
   expect(await livePublications.json()).toHaveLength(1);
-  await expect(
-    page
-      .getByTestId("sidebar-draft-list")
-      .getByText("Shipping version 2: Smaller daily tasks.", { exact: true }),
-  ).toBeVisible();
   await page.goto(editorURL);
   await expect(page.getByLabel("Workflow name", { exact: true })).toHaveValue(
     "Release announcement",
@@ -100,8 +120,7 @@ test("workflow editor saves, previews without writes, and approves a native draf
 
 test("a failed source sample keeps the saved editor usable", async ({ page }) => {
   await openWorkflows(page);
-  await page.getByRole("button", { name: "Start from a template", exact: true }).first().click();
-  await page.getByRole("button", { name: "Use template", exact: true }).first().click();
+  await releaseTemplate(page);
   await page.getByLabel("GitHub repository", { exact: true }).fill("getopenpost/openpost");
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.route("**/workflow-sources/sample?*", (route) =>
@@ -115,11 +134,12 @@ test("a failed source sample keeps the saved editor usable", async ({ page }) =>
       }),
     }),
   );
-  await page.getByRole("button", { name: "Preview", exact: true }).first().click();
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await page.getByRole("button", { name: "Test data", exact: true }).click();
   await page.getByRole("button", { name: "Fetch an example", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("GitHub is unavailable");
   await expect(page.getByRole("button", { name: "Retry save", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Configure", exact: true }).click();
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
   await page.getByLabel("Workflow name", { exact: true }).fill("Recovered release workflow");
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
@@ -137,8 +157,7 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await openWorkflows(page);
-    await page.getByRole("button", { name: "Start from a template", exact: true }).first().click();
-    await page.getByRole("button", { name: "Use template", exact: true }).first().click();
+    await releaseTemplate(page);
     await page.getByLabel("GitHub repository", { exact: true }).fill("openpost/openpost");
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Steps", exact: true }).focus();
@@ -146,6 +165,17 @@ for (const viewport of [
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
+    const inspector = page.getByRole("dialog");
+    await expect(inspector).toBeVisible();
+    await page.getByRole("button", { name: "Steps", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(inspector).toBeVisible();
+    const bounds = await inspector.boundingBox();
+    expect(bounds?.width).toBeGreaterThan(viewport.width * 0.9);
+    if (viewport.width >= 1024) {
+      expect(bounds?.x).toBeGreaterThan(0);
+      expect(bounds?.y).toBeGreaterThan(0);
+    }
     await expect
       .poll(() =>
         page.evaluate(
@@ -157,25 +187,31 @@ for (const viewport of [
       path: `test-results/workflows-light-${viewport.width}.png`,
       fullPage: true,
     });
-    if (viewport.width < 1024)
-      await page.getByRole("button", { name: "Show canvas", exact: true }).click();
+    if (await page.getByRole("button", { name: "Back to canvas", exact: true }).isVisible())
+      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
     await expect(page.getByLabel("Workflow canvas", { exact: true })).toBeVisible();
     await page.evaluate(() => {
       localStorage.setItem("mode-watcher-mode", "dark");
     });
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
     await page.reload();
-    if (viewport.width < 1024)
-      await page.getByRole("button", { name: "Show canvas", exact: true }).click();
+    if (await page.getByRole("button", { name: "Back to canvas", exact: true }).isVisible())
+      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
     await expect(
       page
         .getByLabel("Workflow canvas", { exact: true })
-        .getByRole("button", { name: "GitHub release Source" }),
+        .getByRole("button", { name: "GitHub release Trigger" }),
     ).toBeInViewport();
     await page.screenshot({
       path: `test-results/workflows-dark-${viewport.width}.png`,
       fullPage: true,
     });
+    const sourceNode = page.getByRole("button", { name: "GitHub release Trigger", exact: true });
+    await sourceNode.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(sourceNode).toBeFocused();
   });
 }
 
@@ -231,15 +267,127 @@ test.describe("workflow touch controls", () => {
   test("configuration keeps primary controls at touch size", async ({ page }) => {
     await openWorkflows(page);
     await page.getByRole("button", { name: "New workflow", exact: true }).click();
-    for (const label of ["Add step", "Steps", "Publish workflow", "Preview"]) {
+    for (const label of ["Add step", "Editor", "Publish workflow", "Run preview"]) {
       const control = page.getByRole("button", { name: label, exact: true }).first();
       await expect(control).toBeVisible();
       const bounds = await control.boundingBox();
       expect(bounds?.height).toBeGreaterThanOrEqual(44);
     }
-    await page.getByRole("button", { name: "Show canvas", exact: true }).click();
     const zoom = page.getByRole("button", { name: "Zoom in", exact: true });
     await expect(zoom).toBeVisible();
     expect((await zoom.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   });
+});
+
+test("node testing preserves structured variables and leaves later steps untouched", async ({
+  page,
+}) => {
+  const { token, workspace } = await openWorkflows(page);
+  const created = await page.request.post(`/api/v1/workflows?workspace_id=${workspace.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      name: "Data tools",
+      description: "",
+      expected_revision: 0,
+      definition: {
+        schema: 1,
+        source: { kind: "manual" },
+        steps: [
+          {
+            id: "shape",
+            kind: "code",
+            name: "Shape items",
+            inputs: { data: { literal: [] }, code: { literal: "return { items: input };" } },
+          },
+          {
+            id: "count",
+            kind: "code",
+            name: "Count articles",
+            inputs: {
+              data: { reference: "shape.data.items" },
+              code: { literal: "return input.length;" },
+            },
+          },
+          {
+            id: "combine",
+            kind: "code",
+            name: "Combine results",
+            inputs: {
+              data: { literal: { first: "{{shape.data.items.0.title}}", count: "{{count.data}}" } },
+              code: { literal: "return input.first + ': ' + input.count;" },
+            },
+          },
+          {
+            id: "draft",
+            kind: "create_draft",
+            name: "Unfinished draft",
+            inputs: { text: { literal: "" } },
+          },
+        ],
+      },
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const workflow = await created.json();
+  await page.goto(`/workflows/${workflow.id}`);
+  await page.getByRole("button", { name: "Test data", exact: true }).click();
+  await page
+    .getByLabel("Sample input (JSON)", { exact: true })
+    .fill(JSON.stringify({ items: [{ title: "First article" }, { title: "Second article" }] }));
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await page.getByRole("button", { name: "Shape items JavaScript", exact: true }).click();
+  await page.getByLabel("Data", { exact: true }).fill("{{source.items}}");
+  await expect(page.getByRole("button", { name: "Data", exact: true })).toContainText(
+    "source.items",
+  );
+  await page.getByRole("button", { name: "Test node", exact: true }).click();
+  const output = page.getByRole("region", { name: "Output", exact: true });
+  await expect(output.getByText("First article", { exact: true })).toBeVisible({ timeout: 30000 });
+  await output.getByRole("button", { name: "Table", exact: true }).click();
+  await expect(output.getByRole("cell", { name: "First article", exact: true })).toBeVisible();
+  await expect(output.getByRole("cell", { name: "Second article", exact: true })).toBeVisible();
+  for (const [name, expected] of [
+    ["Count articles", "2"],
+    ["Combine results", "First article: 2"],
+  ]) {
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await page.getByRole("button", { name: `${name} JavaScript`, exact: true }).click();
+    await page.getByRole("button", { name: "Test node", exact: true }).click();
+    await expect(output.getByText(expected, { exact: true })).toBeVisible({ timeout: 30000 });
+  }
+  await page
+    .getByLabel("JavaScript", { exact: true })
+    .fill('throw new Error("Cannot format this article");');
+  await page.getByRole("button", { name: "Test node", exact: true }).click();
+  await expect(output.getByRole("alert")).toContainText("Cannot format this article", {
+    timeout: 30000,
+  });
+  const posts = await page.request.get(`/api/v1/publications?workspace_id=${workspace.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(await posts.json()).toEqual([]);
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await page.getByRole("button", { name: /^Needs attention/ }).click();
+  await expect(page.getByLabel("Post text", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+});
+
+test("connections keep saved secrets hidden and allow replacement", async ({ page }) => {
+  await openWorkflows(page);
+  await page.goto("/workflows/connections");
+  await page.getByRole("button", { name: "Add connection", exact: true }).click();
+  await page.getByLabel("Connection name", { exact: true }).fill("Release API");
+  await page.getByLabel("Secret value", { exact: true }).fill("example-test-secret");
+  await page.getByRole("button", { name: "Save connection", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Release API", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("example-test-secret", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Replace secret", exact: true }).click();
+  await expect(page.getByLabel("Secret value", { exact: true })).toHaveValue("");
+  await page.getByLabel("Secret value", { exact: true }).fill("replacement-test-secret");
+  await page.getByRole("button", { name: "Save connection", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Release API", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Secret value", { exact: true })).toHaveCount(0);
 });

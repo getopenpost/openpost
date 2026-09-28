@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { z } from 'zod';
+	/* oxlint-disable anti-slop/no-runtime-typeof -- Workflow literals are user-authored JSON; distinguish text from structured values for editing and previews. */
 	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
 	import { Label } from '$lib/components/ui/label';
-	import type { Value } from './api';
+	import type { Value, WorkflowData } from './api';
+	import type { Reference } from './fields';
 	import Choice from './choice.svelte';
+	import TokenEditor from './token-editor.svelte';
+	import { fieldIssue, resolveDisplay } from './validation';
 	import { m } from '$lib/paraglide/messages';
 	let {
 		id,
@@ -14,57 +16,131 @@
 		references = [],
 		multiline = false,
 		numeric = false,
-		placeholder = ''
+		min,
+		max,
+		placeholder = '',
+		required = false,
+		code = false,
+		json = false,
+		options,
+		readonly = false,
+		data = {}
 	}: {
 		id: string;
 		label: string;
+		readonly?: boolean;
+		data?: WorkflowData;
 		value?: Value;
 		onchange: (value: Value) => void;
-		references?: { value: string; label: string }[];
+		references?: Reference[];
 		multiline?: boolean;
 		numeric?: boolean;
+		min?: number;
+		max?: number;
 		placeholder?: string;
+		required?: boolean;
+		code?: boolean;
+		json?: boolean;
+		options?: { value: string; label: string }[];
 	} = $props();
-	const scalarSchema = z.union([z.string(), z.number(), z.boolean()]).catch('');
-	const text = $derived(String(scalarSchema.parse(value?.literal)));
-	const mode = $derived(value?.reference || 'literal');
+
+	const text = $derived(
+		json
+			? typeof value?.literal === 'string'
+				? value.literal
+				: JSON.stringify(value?.literal ?? {}, null, 2)
+			: String(value?.literal ?? '')
+	);
+	const issue = $derived(
+		fieldIssue(
+			{ key: id.replace('workflow-', ''), label, required, code, json, numeric, min, max },
+			value,
+			references
+		)
+	);
+
+	const resolved = $derived.by(() => {
+		if (code) return undefined;
+		if (value?.reference) return resolveDisplay(value.reference, data);
+		if (!text.includes('{{')) return undefined;
+		return text.replace(/\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}/g, (_token, ref: string) => {
+			const value = resolveDisplay(ref, data);
+			return value === undefined
+				? m.workflows_value_unavailable()
+				: typeof value === 'object'
+					? JSON.stringify(value)
+					: String(value);
+		});
+	});
 	function write(next: string) {
+		if (json) {
+			const reference = next.trim().match(/^\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}$/)?.[1];
+			onchange(reference ? { reference } : { literal: next });
+			return;
+		}
 		onchange({ literal: numeric && next !== '' ? Number(next) : next });
 	}
 </script>
 
-<div class="space-y-2">
-	<Label for={id}>{label}</Label>
-	{#if references.length}
-		<Choice
-			value={mode}
-			options={[{ value: 'literal', label: m.workflows_custom_value() }, ...references]}
-			label={m.workflows_value_source({ field: label })}
-			onchange={(next) => onchange(next === 'literal' ? { literal: '' } : { reference: next })}
+<div class="space-y-2" data-workflow-field={id}>
+	<div class="flex items-center justify-between gap-2">
+		<Label for={id}
+			>{label}{#if required}<span aria-hidden="true" class="text-destructive"> *</span>{/if}</Label
+		>
+		{#if references.length && !code && !options}<div class="w-28 shrink-0">
+				<Choice
+					value={value?.reference ? 'variable' : 'literal'}
+					label={`${label}: ${m.workflows_value_source({ field: label })}`}
+					options={[
+						{ value: 'literal', label: m.workflows_literal() },
+						{ value: 'variable', label: m.workflows_variable() }
+					]}
+					onchange={(mode) =>
+						onchange(
+							mode === 'variable' ? { reference: references[0]?.value ?? '' } : { literal: '' }
+						)}
+				/>
+			</div>{/if}
+	</div>
+	{#if value?.reference}<Choice
+			{id}
+			value={value.reference}
+			options={references.some((ref) => ref.value === value.reference)
+				? references
+				: [{ value: value.reference, label: value.reference }, ...references]}
+			{label}
+			onchange={(reference) => onchange({ reference })}
 		/>
-	{/if}
-	{#if !value?.reference}
-		{#if multiline}<Textarea
-				{id}
-				value={text}
-				{placeholder}
-				rows={5}
-				oninput={(event) => write(event.currentTarget.value)}
-			/>
-		{:else}<Input
-				{id}
-				type={numeric ? 'number' : 'text'}
-				value={text}
-				{placeholder}
-				oninput={(event) => write(event.currentTarget.value)}
-			/>{/if}
-		{#if multiline && references.length}<Choice
-				value="insert"
-				label={m.workflows_insert_field()}
-				options={[{ value: 'insert', label: m.workflows_insert_field() }, ...references]}
-				onchange={(next) => {
-					if (next !== 'insert') write(`${text}{{${next}}}`);
-				}}
-			/>{/if}
-	{:else}<p class="text-xs break-all text-muted-foreground">{value.reference}</p>{/if}
+	{:else if options}<Choice {id} value={text} {options} {label} onchange={write} />
+	{:else if multiline || json}<TokenEditor
+			{id}
+			{label}
+			value={text}
+			{readonly}
+			{references}
+			{code}
+			onreference={json ? (reference) => onchange({ reference }) : undefined}
+			{placeholder}
+			invalid={Boolean(issue)}
+			onchange={write}
+		/>
+	{:else}<Input
+			{id}
+			{min}
+			{max}
+			type={numeric ? 'number' : 'text'}
+			value={text}
+			{placeholder}
+			aria-invalid={Boolean(issue)}
+			aria-describedby={issue ? `${id}-error` : undefined}
+			oninput={(event) => write(event.currentTarget.value)}
+		/>{/if}
+	{#if resolved !== undefined}<div class="rounded-md bg-muted/50 p-2 text-xs">
+			<span class="text-muted-foreground">{m.workflows_resolved_value()}</span>
+			<pre class="mt-1 max-h-28 overflow-auto font-sans whitespace-pre-wrap">{typeof resolved ===
+				'object'
+					? JSON.stringify(resolved, null, 2)
+					: String(resolved)}</pre>
+		</div>{/if}
+	{#if issue}<p id={`${id}-error`} class="text-xs text-destructive" role="status">{issue}</p>{/if}
 </div>

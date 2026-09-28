@@ -6,18 +6,18 @@ icon: Workflow
 
 Open **More → Workflows** in your workspace. Start from a GitHub release, RSS feed, or follow-up template, or choose **New workflow** to build your own.
 
-Workflows use your existing OpenPost accounts and posts. They can create drafts, use the AI Builder, wait for review, schedule posts, wait, branch on a condition, read collected metrics, and queue replies. Your existing repost rules also appear in Workflows.
+Workflows use your existing OpenPost accounts and posts. They can create drafts, use AI, wait for review, schedule posts, branch, read metrics, queue replies, call APIs, and transform data. Your existing repost rules also appear in Workflows.
 
 ## Make a release announcement
 
 1. Choose the GitHub release template and enter `owner/repository`.
 2. Select **Create draft** on the canvas or in the **Steps** menu.
-3. Write the post and use **Insert a field** to include the release title, notes, or link. Select the destination accounts.
+3. Write the post and use **Insert variable** to include the release title, notes, or link. Select the destination accounts.
 4. Keep **Review post** after the draft so each announcement waits for a decision.
-5. Open **Preview**. Use the supplied example or choose **Fetch an example**, then select **Run preview**.
+5. Open **Test data**. Use the supplied example or choose **Fetch an example**, then select **Run preview**.
 6. Inspect the step inputs and outputs. When the configuration is ready, select **Publish workflow**.
 
-Public GitHub repositories need no connection. For a private repository, a workspace administrator can save a GitHub access token under **Add connection**. Give the token access to the intended repository and permission to read its contents. OpenPost stores it encrypted and does not include it in run data.
+Public GitHub repositories need no connection. For a private repository, a workspace administrator can save a GitHub access token on the **Connections** page. Give the token access to the intended repository and permission to read its contents. OpenPost stores it encrypted and does not include it in run data.
 
 GitHub and RSS/Atom sources check every five minutes. Activation records existing items as the starting point; they do not create runs. Future items start runs once each. A feed can only supply items it still retains. Catching up across many GitHub releases may take several checks.
 
@@ -25,15 +25,43 @@ GitHub and RSS/Atom sources check every five minutes. Activation records existin
 
 Changes save automatically. **Saved** confirms the current draft reached the server. If another editor changes the same workflow, resolve the conflict before continuing.
 
-Draft edits take effect for automatic runs when you publish the workflow again. Runs already started retain their original definition. Use the canvas to select steps or the **Steps** menu to navigate with the keyboard. On a phone, switch between **Configure step** and **Show canvas**.
+Draft edits take effect for automatic runs when you publish the workflow again. Runs already started retain their original definition. Use the canvas to select steps or the **Steps** menu to navigate with the keyboard. The editor fills the window. Select **Add step**, use a node’s plus button, or drag its output dot to empty space to choose the next node. On a phone, switch between **Input**, **Configure step**, and **Output**, then use **Back to canvas**.
 
-A condition has a Yes path and a No path. After the chosen path finishes, the run continues with the following step. Fields can refer to source data or an earlier step on the same path. Missing data fails the step instead of silently substituting an empty value.
+A condition or AI decision has a Yes path and a No path. After the chosen path finishes, the run continues with the following step. Fields can refer to source data or an earlier step on the same path. Missing data fails the step instead of silently substituting an empty value.
 
 For equality conditions, a number or boolean from an earlier step accepts the corresponding entered value, such as `10` or `true`. Two text values use exact text equality. **Contains** ignores letter case. Numeric comparisons reject values that cannot be read as finite numbers.
 
+## Triggers and tools
+
+Choose a manual trigger, GitHub release, RSS/Atom item, interval, new post, published variant, or publishing failure. Interval triggers run every 5 minutes to every 30 days. They skip missed intervals after downtime. New-post triggers exclude posts created by automation. Failure triggers preserve recorded failures even if the post is retried before the next check.
+
+The node picker groups content, flow, AI, data, and tool actions. Use **AI text** to summarize, rewrite, translate, or draft from supplied material. **AI decision** applies written criteria and returns a Yes/No result with a reason. Token usage and provider-reported costs are recorded. No workflow spending limit is enforced yet.
+
+Data nodes edit fields, transform text, parse JSON, filter/sort/limit lists, merge data, format dates, and add UTM tracking parameters. **Read RSS feed** fetches current feed items inside a workflow, useful for a weekly digest.
+
+**JavaScript** receives the selected data as `input` and returns a JSON value. It runs in an isolated environment with a two-second deadline and a 32 MiB JavaScript heap. It cannot access the network, files, or host environment. Use **HTTP request** for API calls.
+
+## Variables and node data
+
+Required fields and unavailable variables show an inline error and a **Needs attention** badge on the node. Select the badge to open its configuration.
+
+Text fields display inserted variables as separate chips. **Edit variable syntax** exposes the underlying field paths. The value preview uses the current sample or run data. Drop or select a variable in a JSON field to preserve its array or object value.
+
+The node inspector opens in a large modal over the canvas, with input data on the left, settings in the middle, and output on the right. Switch between structure, table, and JSON views. Table view shows item collections as rows. On a phone, it opens as a sheet with three inspector tabs. Close it to return to the selected node.
+
+## Connections and custom requests
+
+Open **Connections** from the Workflows library to add or replace credentials. GitHub tokens, Bearer tokens, API key headers, and Basic authentication are supported. Secret values are encrypted and are never shown again after saving.
+
+Custom credentials are restricted to the exact HTTPS host you choose. Select the saved connection in an HTTP node. Configure the method, query parameters, headers, body, timeout, and response format, or import a cURL request. Unsupported flags, shell commands, and local file reads are rejected. Put authentication in Connections rather than the cURL command or raw headers.
+
+Requests reject private-network destinations, have a maximum 30-second timeout, and retain up to 256 KiB of response data. An interrupted external request stops for inspection rather than being sent again automatically. Verify its remote outcome before starting another run.
+
 ## Preview and live runs
 
-**Run preview** resolves your fields and conditions using example outputs for native actions. It creates no posts, invokes no AI generation, queues no replies, and skips waits and approvals. Metric values in a preview are examples.
+**Run preview** resolves your fields and conditions using example outputs for native actions. It creates no posts, invokes no AI generation, queues no replies, and skips waits and approvals. Metric values, HTTP responses, and AI decisions in a preview are examples.
+
+**Test node** makes a real call for the selected HTTP, feed, or AI node, or executes a data transformation. Later steps do not run. It uses the data shown in the inspector and records the result in run history. HTTP writes can change the remote service, and AI calls record usage. Node tests require a workspace administrator.
 
 Reading source examples is a real read from the selected source. It does not start a run or change which future items will be admitted.
 
@@ -53,7 +81,7 @@ Run details show each step's input, output, result, and failure. Drafts, schedul
 
 **Pause new runs** stops automatic admission. Existing runs continue. **Cancel remaining steps** stops the rest of one run; an action already accepted may finish. It does not delete a draft or cancel a publication already queued. Manage that post in Publications when needed.
 
-Delete a workflow only after pausing it and finishing or cancelling its active runs. Deletion removes its run history; created posts remain. Remove a GitHub connection from workflow drafts and pause active revisions using it before deleting the connection.
+Delete a workflow only after pausing it and finishing or cancelling its active runs. Deletion removes its run history; created posts remain. Remove a connection from workflow drafts and pause active revisions using it before deleting the connection.
 
 Workspace viewers can inspect workflows. Editors can configure and preview them. Administrators can publish workflows, start live runs, approve posts, cancel runs, and manage connections. Execution rechecks the activating user's access.
 

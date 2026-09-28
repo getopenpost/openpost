@@ -1,0 +1,270 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { EditorState, Compartment } from '@codemirror/state';
+	import {
+		EditorView,
+		Decoration,
+		WidgetType,
+		ViewPlugin,
+		MatchDecorator,
+		keymap,
+		placeholder as editorPlaceholder
+	} from '@codemirror/view';
+	import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+	import { autocompletion } from '@codemirror/autocomplete';
+	import { javascript } from '@codemirror/lang-javascript';
+	import { referenceExists } from './validation';
+	import type { Reference } from './fields';
+	import { Button } from '$lib/components/ui/button';
+	import Choice from './choice.svelte';
+	import { m } from '$lib/paraglide/messages';
+	let {
+		id,
+		label,
+		value,
+		onchange,
+		references = [],
+		code = false,
+		invalid = false,
+		placeholder = '',
+		readonly = false,
+		onreference
+	}: {
+		readonly?: boolean;
+		onreference?: (reference: string) => void;
+		id: string;
+		label: string;
+		value: string;
+		onchange: (value: string) => void;
+		references?: Reference[];
+		code?: boolean;
+		invalid?: boolean;
+		placeholder?: string;
+	} = $props();
+	let element: HTMLDivElement;
+	let view: EditorView | undefined;
+	let syntax = $state(false);
+	const configuration = new Compartment();
+	class Token extends WidgetType {
+		reference: string;
+		title: string;
+		valid: boolean;
+		constructor(reference: string, title: string, valid: boolean) {
+			super();
+			this.reference = reference;
+			this.title = title;
+			this.valid = valid;
+		}
+
+		eq(other: Token) {
+			return (
+				this.reference === other.reference &&
+				this.title === other.title &&
+				this.valid === other.valid
+			);
+		}
+		toDOM() {
+			const span = document.createElement('span');
+			span.className = `workflow-token ${this.valid ? '' : 'workflow-token-invalid'}`;
+			span.textContent = this.title;
+			span.title = this.reference;
+			span.setAttribute('aria-label', this.reference);
+			return span;
+		}
+	}
+	function extensions() {
+		const refs = references;
+		const matcher = new MatchDecorator({
+			regexp: /\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}/g,
+			decoration: (match) =>
+				Decoration.replace({
+					widget: new Token(
+						match[1],
+						refs.find((ref) => ref.value === match[1])?.label ?? match[1],
+						referenceExists(match[1], refs)
+					)
+				})
+		});
+		const tokens = ViewPlugin.fromClass(
+			class {
+				decorations;
+				constructor(editor: EditorView) {
+					this.decorations = matcher.createDeco(editor);
+				}
+				update(update: import('@codemirror/view').ViewUpdate) {
+					this.decorations = matcher.updateDeco(update, this.decorations);
+				}
+			},
+			{
+				decorations: (instance) => instance.decorations,
+				provide: (plugin) =>
+					EditorView.atomicRanges.of(
+						(editor) => editor.plugin(plugin)?.decorations ?? Decoration.none
+					)
+			}
+		);
+		return [
+			EditorState.readOnly.of(readonly),
+			EditorView.editable.of(!readonly),
+			EditorView.contentAttributes.of({
+				id,
+				'aria-label': label,
+				'aria-invalid': String(invalid),
+				'aria-describedby': invalid ? `${id}-error` : ''
+			}),
+			...(code ? [javascript()] : syntax ? [] : [tokens]),
+			autocompletion({
+				override: [
+					(context) => {
+						const match = context.matchBefore(/[\w.-]*/);
+						if (!match || (!context.explicit && match.from === match.to)) return null;
+						return {
+							from: Math.max(
+								0,
+								match.from -
+									(context.state.sliceDoc(Math.max(0, match.from - 2), match.from) === '{{' ? 2 : 0)
+							),
+							options: refs.map((ref) => ({
+								label: ref.value,
+								detail: ref.label,
+								apply: onreference ? () => onreference?.(ref.value) : `{{${ref.value}}}`,
+								type: 'variable'
+							}))
+						};
+					}
+				]
+			}),
+			editorPlaceholder(placeholder)
+		];
+	}
+	onMount(() => {
+		view = new EditorView({
+			parent: element,
+			state: EditorState.create({
+				doc: value,
+				extensions: [
+					history(),
+					keymap.of([...defaultKeymap, ...historyKeymap]),
+					EditorView.lineWrapping,
+					configuration.of(extensions()),
+					EditorView.updateListener.of((update) => {
+						if (update.docChanged) onchange(update.state.doc.toString());
+					}),
+					EditorView.domEventHandlers({
+						drop(event, editor) {
+							const ref = event.dataTransfer?.getData('application/openpost-workflow-reference');
+							if (!ref || readonly || code) return false;
+							event.preventDefault();
+							if (onreference) {
+								onreference(ref);
+								return true;
+							}
+							const pos =
+								editor.posAtCoords({ x: event.clientX, y: event.clientY }) ??
+								editor.state.selection.main.head;
+							editor.dispatch({
+								changes: { from: pos, insert: `{{${ref}}}` },
+								selection: { anchor: pos + ref.length + 4 }
+							});
+							editor.focus();
+							return true;
+						}
+					})
+				]
+			})
+		});
+		return () => {
+			view?.destroy();
+			view = undefined;
+		};
+	});
+	$effect(() => {
+		const next = value;
+		if (view && view.state.doc.toString() !== next)
+			view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } });
+	});
+	$effect(() => {
+		const updated = extensions();
+		if (view) view.dispatch({ effects: configuration.reconfigure(updated) });
+	});
+	function insert(reference: string) {
+		if (!view || readonly) return;
+		if (onreference) {
+			onreference(reference);
+			return;
+		}
+		view.dispatch(view.state.replaceSelection(`{{${reference}}}`));
+		view.focus();
+	}
+</script>
+
+<div
+	class="workflow-token-editor overflow-hidden rounded-md border bg-background focus-within:ring-2 focus-within:ring-ring {invalid
+		? 'border-destructive'
+		: 'border-input'}"
+>
+	<div bind:this={element} class="min-h-28 text-sm"></div>
+	{#if !code && !readonly}<div class="flex items-center justify-between gap-2 border-t px-2 py-1">
+			<Choice
+				value="insert"
+				label={m.workflows_insert_variable()}
+				options={[{ value: 'insert', label: m.workflows_insert_variable() }, ...references]}
+				onchange={(reference) => {
+					if (reference !== 'insert') insert(reference);
+				}}
+			/>
+			<Button
+				size="icon-sm"
+				variant="ghost"
+				aria-label={syntax ? m.workflows_show_tokens() : m.workflows_show_source()}
+				aria-pressed={syntax}
+				onclick={() => (syntax = !syntax)}><span class="font-mono text-xs">{'{}'}</span></Button
+			>
+		</div>{/if}
+</div>
+
+<style>
+	.workflow-token-editor :global(.cm-editor) {
+		background: var(--background);
+		color: var(--foreground);
+	}
+	.workflow-token-editor :global(.cm-content) {
+		font-family: var(--font-sans);
+		padding: 10px;
+		min-height: 112px;
+		caret-color: var(--foreground);
+	}
+	.workflow-token-editor :global(.cm-scroller) {
+		max-height: 320px;
+		overflow: auto;
+	}
+	.workflow-token-editor :global(.cm-focused) {
+		outline: none;
+	}
+	.workflow-token-editor :global(.cm-selectionBackground) {
+		background: var(--accent) !important;
+	}
+	.workflow-token-editor :global(.cm-tooltip) {
+		background: var(--popover);
+		color: var(--popover-foreground);
+		border-color: var(--border);
+	}
+	.workflow-token-editor :global(.workflow-token) {
+		display: inline-block;
+		margin: 1px 2px;
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: var(--accent);
+		color: var(--accent-foreground);
+		font-size: 12px;
+		line-height: 20px;
+		white-space: normal;
+	}
+	.workflow-token-editor :global(.workflow-token-invalid) {
+		color: var(--destructive);
+		text-decoration: underline wavy;
+	}
+	.workflow-token-editor :global(.cm-placeholder) {
+		color: var(--muted-foreground);
+	}
+</style>

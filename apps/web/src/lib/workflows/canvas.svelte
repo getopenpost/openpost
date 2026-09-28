@@ -3,142 +3,108 @@
 		SvelteFlow,
 		Background,
 		Controls,
+		MarkerType,
 		type Node,
 		type Edge,
-		type FitViewOptions
+		type OnConnectEnd,
+		type Connection
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 	import { mode } from 'mode-watcher';
+	import { MediaQuery } from 'svelte/reactivity';
+	const narrow = new MediaQuery('(max-width: 639px)');
 	import WorkflowNode, { type WorkflowNodeData } from './node.svelte';
-	import { actionCatalog, sourceLabel } from './catalog';
-	import type { Definition, Step } from './api';
+	import { workflowGraph, type Port } from './graph';
+	import type { Definition, Run } from './api';
 	import { m } from '$lib/paraglide/messages';
+	let positions = $state<Record<string, { x: number; y: number }>>({});
 	let {
 		definition,
 		selectedID,
-		onselect
-	}: { definition: Definition; selectedID: string; onselect: (id: string) => void } = $props();
-	type SequenceLayout = { ends: string[]; y: number };
+		onselect,
+		onadd,
+		onconnect,
+		run,
+		readonly = false
+	}: {
+		definition: Definition;
+		selectedID: string;
+		onselect: (id: string) => void;
+		onadd?: (id: string, port: Port) => void;
+		onconnect?: (source: string, target: string, port: Port) => void;
+		run?: Run;
+		readonly?: boolean;
+	} = $props();
 	const nodeTypes = { workflow: WorkflowNode };
-	const fitViewOptions: FitViewOptions = {
-		padding: { top: '32px', bottom: '76px', left: '24px', right: '24px' },
-		maxZoom: 1
+	const graph = $derived(workflowGraph(definition, run));
+	const nodes = $derived<Node<WorkflowNodeData>[]>(
+		graph.nodes.map((node) => ({
+			id: node.id,
+			type: 'workflow',
+			position: positions[node.id] ?? { x: node.x, y: node.y },
+			selected: node.id === selectedID,
+			data: {
+				...node,
+				readonly,
+				onselect: () => onselect(node.id),
+				onadd: !readonly && onadd ? (port) => onadd?.(node.id, port) : undefined
+			}
+		}))
+	);
+	const edges = $derived<Edge[]>(
+		graph.edges.map((edge) => ({
+			...edge,
+			sourceHandle: edge.port,
+			type: 'smoothstep',
+			markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--muted-foreground)' },
+			style: 'stroke: var(--muted-foreground); stroke-width: 1.5',
+			labelStyle: 'fill:var(--foreground)'
+		}))
+	);
+	function outputPort(handle: string | null | undefined): Port {
+		return handle === 'then' || handle === 'else' ? handle : 'after';
+	}
+	const connectEnd: OnConnectEnd = (event, state) => {
+		if (
+			!readonly &&
+			!state.isValid &&
+			!state.toNode &&
+			state.fromNode &&
+			state.fromHandle?.type === 'source'
+		)
+			onadd?.(state.fromNode.id, outputPort(state.fromHandle.id));
 	};
-	const graph = $derived.by(() => {
-		const nodes: Node<WorkflowNodeData>[] = [
-			{
-				id: 'source',
-				type: 'workflow',
-				position: { x: 0, y: 0 },
-				selected: selectedID === 'source',
-				data: {
-					label: sourceLabel(definition.source.kind),
-					description: m.workflows_source(),
-					icon: definition.source.kind === 'github_release' ? 'github' : 'download',
-					source: true,
-					onselect: () => onselect('source')
-				}
-			}
-		];
-		const edges: Edge[] = [];
-		function width(steps: Step[]): number {
-			return Math.max(
-				1,
-				...steps.map((step) =>
-					step.kind === 'condition' ? width(step.then ?? []) + width(step.else ?? []) : 1
-				)
-			);
-		}
-		function sequence(
-			steps: Step[],
-			x: number,
-			y: number,
-			parents: string[],
-			label?: string
-		): SequenceLayout {
-			let ends = parents;
-			for (const step of steps) {
-				const entry = actionCatalog().find((entry) => entry.kind === step.kind);
-				nodes.push({
-					id: step.id,
-					type: 'workflow',
-					position: { x, y },
-					selected: selectedID === step.id,
-					data: {
-						label: step.name || entry?.label || step.kind,
-						description: entry?.description ?? '',
-						icon: entry?.icon ?? 'settings',
-						onselect: () => onselect(step.id)
-					}
-				});
-				for (const parent of ends)
-					edges.push({
-						id: `${parent}:${step.id}`,
-						source: parent,
-						target: step.id,
-						type: 'smoothstep',
-						label,
-						style: 'stroke: var(--muted-foreground); stroke-width: 1.5',
-						labelStyle: 'fill: var(--foreground)'
-					});
-				label = undefined;
-				ends = [step.id];
-				y += 145;
-				if (step.kind === 'condition') {
-					const branches = (['then', 'else'] as const).map((branch) => {
-						const label = branch === 'then' ? m.workflows_yes() : m.workflows_no();
-						const branchX =
-							branch === 'then'
-								? x - width(step.else ?? []) * 165
-								: x + width(step.then ?? []) * 165;
-						const id = `$branch:${step.id}:${branch}`;
-						nodes.push({
-							id,
-							type: 'workflow',
-							position: { x: branchX, y },
-							data: {
-								label,
-								description: branch === 'then' ? m.workflows_add_yes() : m.workflows_add_no(),
-								icon: 'add',
-								onselect: () => onselect(step.id)
-							}
-						});
-						edges.push({
-							id: `${step.id}:${id}`,
-							source: step.id,
-							target: id,
-							type: 'smoothstep',
-							label,
-							style: 'stroke: var(--muted-foreground)'
-						});
-						return sequence(step[branch] ?? [], branchX, y + 145, [id]);
-					});
-					const [left, right] = branches;
-					ends = [...new Set([...left.ends, ...right.ends])];
-					y = Math.max(left.y, right.y);
-				}
-			}
-			return { ends, y };
-		}
-		sequence(definition.steps ?? [], 0, 145, ['source']);
-		return { nodes, edges };
-	});
+	function connect(connection: Connection) {
+		if (!readonly)
+			onconnect?.(connection.source, connection.target, outputPort(connection.sourceHandle));
+	}
 </script>
 
-<div class="workflow-canvas h-full min-h-[340px] bg-background" aria-label={m.workflows_canvas()}>
+<div class="workflow-canvas h-full min-h-0 bg-background" aria-label={m.workflows_canvas()}>
 	<SvelteFlow
-		nodes={graph.nodes}
-		edges={graph.edges}
+		onnodedragstop={({ nodes: moved }) => {
+			positions = {
+				...positions,
+				...Object.fromEntries(moved.map((node) => [node.id, node.position]))
+			};
+		}}
+		{nodes}
+		{edges}
 		{nodeTypes}
 		fitView
-		{fitViewOptions}
-		minZoom={0.25}
-		maxZoom={1.5}
-		nodesDraggable={false}
-		nodesConnectable={false}
-		nodesFocusable={false}
+		fitViewOptions={{
+			padding: 0.25,
+			maxZoom: 1,
+			nodes: graph.nodes.slice(0, narrow.current ? 1 : 3).map(({ id }) => ({ id }))
+		}}
+		minZoom={0.15}
+		maxZoom={1.75}
+		nodesDraggable={!readonly}
+		nodesConnectable={!readonly}
 		edgesFocusable={false}
 		deleteKey={[]}
+		onconnectend={connectEnd}
+		onconnect={connect}
 		colorMode={mode.current ?? 'light'}
 		ariaLabelConfig={{
 			'controls.ariaLabel': m.image_editor_zoom(),
@@ -146,10 +112,13 @@
 			'controls.zoomOut.ariaLabel': m.image_editor_zoom_out(),
 			'controls.fitView.ariaLabel': m.image_editor_fit_canvas()
 		}}
-		attributionPosition="bottom-left"
 	>
-		<Background gap={20} size={1} patternColor="var(--border)" />
-		<Controls showLock={false} position="bottom-right" orientation="horizontal" {fitViewOptions} />
+		<Background
+			gap={24}
+			size={1}
+			patternColor="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
+		/>
+		<Controls showLock={false} position="bottom-left" orientation="horizontal" />
 	</SvelteFlow>
 </div>
 
@@ -164,14 +133,19 @@
 		--xy-edge-label-background-color: var(--background);
 		--xy-edge-label-color: var(--foreground);
 	}
+	.workflow-canvas :global(.svelte-flow__controls-button:focus-visible) {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+	}
+	@media (max-width: 639px) {
+		.workflow-canvas :global(.svelte-flow__controls) {
+			bottom: 72px;
+		}
+	}
 	@media (pointer: coarse) {
 		.workflow-canvas :global(.svelte-flow__controls-button) {
 			width: 44px;
 			height: 44px;
 		}
-	}
-	.workflow-canvas :global(.svelte-flow__controls-button:focus-visible) {
-		outline: 2px solid var(--ring);
-		outline-offset: 2px;
 	}
 </style>

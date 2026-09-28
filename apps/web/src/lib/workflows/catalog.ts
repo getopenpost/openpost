@@ -1,4 +1,5 @@
-import type { Definition, Step, Value } from './api';
+import { outputFields, type Reference } from './fields';
+import type { Definition, Step, Value, WorkflowData } from './api';
 import type { ThemeIconRole } from '$lib/themes';
 import { m } from '$lib/paraglide/messages';
 const literal = (value: Value['literal']): Value => ({ literal: value });
@@ -10,6 +11,85 @@ export function actionCatalog(): {
 	icon: ThemeIconRole;
 }[] {
 	return [
+		{
+			kind: 'http_request',
+			label: m.workflows_http(),
+			description: m.workflows_http_help(),
+			icon: 'link'
+		},
+		{
+			kind: 'code',
+			label: m.workflows_code(),
+			description: m.workflows_code_help(),
+			icon: 'settings'
+		},
+		{
+			kind: 'ai_text',
+			label: m.workflows_ai_text(),
+			description: m.workflows_ai_text_help(),
+			icon: 'sparkles'
+		},
+		{
+			kind: 'ai_decision',
+			label: m.workflows_ai_decision(),
+			description: m.workflows_ai_decision_help(),
+			icon: 'filter'
+		},
+		{
+			kind: 'set_fields',
+			label: m.workflows_fields(),
+			description: m.workflows_fields_help(),
+			icon: 'edit'
+		},
+		{ kind: 'text', label: m.workflows_text(), description: m.workflows_text_help(), icon: 'edit' },
+		{
+			kind: 'parse_json',
+			label: m.workflows_parse_json(),
+			description: m.workflows_parse_json_help(),
+			icon: 'settings'
+		},
+		{
+			kind: 'list_filter',
+			label: m.workflows_list_filter(),
+			description: m.workflows_list_filter_help(),
+			icon: 'filter'
+		},
+		{
+			kind: 'list_sort',
+			label: m.workflows_list_sort(),
+			description: m.workflows_list_sort_help(),
+			icon: 'settings'
+		},
+		{
+			kind: 'list_limit',
+			label: m.workflows_list_limit(),
+			description: m.workflows_list_limit_help(),
+			icon: 'filter'
+		},
+		{
+			kind: 'merge',
+			label: m.workflows_merge(),
+			description: m.workflows_merge_help(),
+			icon: 'repeat'
+		},
+		{
+			kind: 'date',
+			label: m.workflows_date(),
+			description: m.workflows_date_help(),
+			icon: 'calendar'
+		},
+		{
+			kind: 'tracking_link',
+			label: m.workflows_tracking_link(),
+			description: m.workflows_tracking_link_help(),
+			icon: 'link'
+		},
+		{
+			kind: 'read_feed',
+			label: m.workflows_read_feed(),
+			description: m.workflows_read_feed_help(),
+			icon: 'download'
+		},
 		{
 			kind: 'create_draft',
 			label: m.workflows_create_draft(),
@@ -60,12 +140,61 @@ export function sourceLabel(kind: Definition['source']['kind']): string {
 		manual: m.workflows_manual(),
 		github_release: m.workflows_github(),
 		rss: m.workflows_rss(),
-		rendition_published: m.workflows_published()
+		rendition_published: m.workflows_published(),
+		interval: m.workflows_interval(),
+		publication_created: m.workflows_post_created(),
+		rendition_failed: m.workflows_post_failed()
 	}[kind];
 }
 export function newStep(kind: Step['kind']): Step {
 	const id = `step_${crypto.randomUUID().slice(0, 8)}`;
 	const inputs: Record<string, Value> = {};
+	type NodeDefaults = Partial<Record<Step['kind'], Step['inputs']>>;
+	const defaults: NodeDefaults = {
+		http_request: {
+			method: literal('GET'),
+			url: literal(''),
+			headers: literal({}),
+			query: literal({}),
+			body: literal(''),
+			timeout: literal(20),
+			response_format: literal('auto')
+		},
+		code: { data: reference('source.body'), code: literal('return { text: String(input) };') },
+		ai_text: {
+			text: reference('source.body'),
+			instructions: literal(m.workflows_default_instructions())
+		},
+		ai_decision: {
+			text: reference('source.body'),
+			instructions: literal(m.workflows_default_criteria())
+		},
+		set_fields: { fields: literal({}) },
+		text: { text: reference('source.body'), operation: literal('trim'), limit: literal(280) },
+		parse_json: { text: reference('source.body') },
+		list_filter: {
+			items: literal([]),
+			field: literal('title'),
+			operator: literal('contains'),
+			right: literal('')
+		},
+		list_sort: { items: literal([]), field: literal('title'), direction: literal('ascending') },
+		list_limit: { items: literal([]), limit: literal(5) },
+		merge: { first: literal({}), second: literal({}) },
+		date: {
+			date: reference('source.published_at'),
+			format: literal('date'),
+			timezone: literal('UTC')
+		},
+		tracking_link: {
+			url: reference('source.url'),
+			source: literal('social'),
+			medium: literal('organic'),
+			campaign: literal('')
+		},
+		read_feed: { url: literal('') }
+	};
+	Object.assign(inputs, defaults[kind]);
 	if (kind === 'create_draft' || kind === 'build_draft') {
 		inputs.text = literal('{{source.title}}\n\n{{source.body}}\n\n{{source.url}}');
 		inputs.account_ids = literal([]);
@@ -91,7 +220,7 @@ export function newStep(kind: Step['kind']): Step {
 		name: actionCatalog().find((item) => item.kind === kind)?.label ?? kind,
 		inputs
 	};
-	if (kind === 'condition') {
+	if (kind === 'condition' || kind === 'ai_decision') {
 		step.then = [];
 		step.else = [];
 	}
@@ -119,7 +248,90 @@ export function templates(): {
 		name: m.workflows_approval(),
 		inputs: { publication_id: reference('draft.id') }
 	};
+	const node = (id: string, kind: Step['kind'], inputs: Record<string, Value>): Step => ({
+		...newStep(kind),
+		id,
+		inputs
+	});
 	return [
+		{
+			id: 'digest',
+			name: m.workflows_template_digest(),
+			description: m.workflows_template_digest_help(),
+			definition: {
+				schema: 1,
+				source: { kind: 'interval', interval_minutes: 10080 },
+				steps: [
+					node('feed', 'read_feed', { url: literal('') }),
+					node('limit', 'list_limit', { items: reference('feed.items'), limit: literal(5) }),
+					node('digest', 'code', {
+						data: reference('limit.items'),
+						code: literal('return input.map(item => item.title + "\\n" + item.url).join("\\n\\n");')
+					}),
+					{ ...draft, inputs: { ...draft.inputs, text: reference('digest.data') } },
+					approval
+				]
+			}
+		},
+		{
+			id: 'decision',
+			name: m.workflows_template_decision(),
+			description: m.workflows_template_decision_help(),
+			definition: {
+				schema: 1,
+				source: { kind: 'github_release', repository: '' },
+				steps: [
+					{
+						...node('decision', 'ai_decision', {
+							text: reference('source.body'),
+							instructions: literal(m.workflows_default_criteria())
+						}),
+						then: [draft, approval],
+						else: []
+					}
+				]
+			}
+		},
+		{
+			id: 'api',
+			name: m.workflows_template_request(),
+			description: m.workflows_template_request_help(),
+			definition: {
+				schema: 1,
+				source: { kind: 'manual' },
+				steps: [
+					node('request', 'http_request', {
+						method: literal('GET'),
+						url: literal(''),
+						timeout: literal(20),
+						response_format: literal('json')
+					}),
+					node('format', 'code', {
+						data: reference('request.body'),
+						code: literal('return JSON.stringify(input, null, 2);')
+					}),
+					{ ...draft, inputs: { ...draft.inputs, text: reference('format.data') } },
+					approval
+				]
+			}
+		},
+		{
+			id: 'weekly',
+			name: m.workflows_template_weekly(),
+			description: m.workflows_template_weekly_help(),
+			definition: {
+				schema: 1,
+				source: { kind: 'interval', interval_minutes: 10080 },
+				steps: [
+					node('write', 'ai_text', {
+						text: literal(''),
+						instructions: literal(m.workflows_default_instructions())
+					}),
+					{ ...draft, inputs: { ...draft.inputs, text: reference('write.text') } },
+					approval
+				]
+			}
+		},
 		{
 			id: 'github',
 			name: m.workflows_release_template(),
@@ -203,32 +415,47 @@ export function editSteps(
 }
 export function availableReferences(
 	steps: Step[],
-	selectedID: string
-): { value: string; label: string }[] {
-	const sources = ['title', 'body', 'url', 'published_at', 'publication_id', 'rendition_id'].map(
-		(field) => ({ value: `source.${field}`, label: `${m.workflows_source()}: ${field}` })
-	);
+	selectedID: string,
+	sourceData?: WorkflowData
+): Reference[] {
+	const sources: Reference[] = [
+		'title',
+		'body',
+		'url',
+		'published_at',
+		'publication_id',
+		'rendition_id',
+		'id',
+		'account_id'
+	].map((field) => ({ value: `source.${field}`, label: `${m.workflows_source()}: ${field}` }));
+	/* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-object-parameters -- Discover fields in user-authored sample JSON, including nested arrays, without prescribing a source schema. */
+	if (sourceData && typeof sourceData === 'object') {
+		function observe(data: object, path: string, depth: number) {
+			if (depth > 5) return;
+			for (const [key, value] of Object.entries(data).slice(0, 200)) {
+				const name = `${path}.${key}`;
+				if (!sources.some((ref) => ref.value === name)) sources.push({ value: name, label: name });
+				if (value && typeof value === 'object') observe(value, name, depth + 1);
+			}
+		}
+		observe(sourceData, 'source', 0);
+	} else sources.push({ value: 'source', label: m.workflows_source(), dynamic: true });
+	/* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-object-parameters */
 	function visit(list: Step[], available: typeof sources): typeof sources | undefined {
 		let current = [...available];
 		for (const step of list) {
 			if (step.id === selectedID) return current;
-			const branch = visit(step.then ?? [], current) ?? visit(step.else ?? [], current);
-			if (branch) return branch;
-			const fields =
-				step.kind === 'create_draft' || step.kind === 'build_draft'
-					? ['id', 'revision', 'text', 'title']
-					: step.kind === 'approval'
-						? ['publication_id', 'revision']
-						: step.kind === 'metrics'
-							? ['likes', 'comments', 'impressions', 'observed_at']
-							: [];
+			const fields = outputFields(step);
 			current = [
 				...current,
-				...fields.map((field) => ({
-					value: `${step.id}.${field}`,
-					label: `${step.name}: ${field}`
+				...fields.map(({ name, dynamic }) => ({
+					value: `${step.id}.${name}`,
+					label: `${step.name}: ${name}`,
+					dynamic
 				}))
 			];
+			const branch = visit(step.then ?? [], current) ?? visit(step.else ?? [], current);
+			if (branch) return branch;
 		}
 	}
 	return visit(steps, sources) ?? sources;

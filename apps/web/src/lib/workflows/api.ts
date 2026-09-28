@@ -15,6 +15,7 @@ export type Value = components['schemas']['WorkflowValue'];
 export type Run = components['schemas']['WorkflowRun'];
 export type Source = components['schemas']['WorkflowSource'];
 export type Connection = components['schemas']['WorkflowConnection'];
+export type WorkflowData = components['schemas']['WorkflowNodeTestRequest']['data'];
 export type Save = components['schemas']['WorkflowSaveRequest'];
 
 async function mutation<T>(
@@ -97,11 +98,16 @@ export function sampleSource(ws: string, source: Source) {
 		})
 	);
 }
-export function createConnection(ws: string, name: string, token: string) {
+export function createConnection(
+	ws: string,
+	name: string,
+	token: string,
+	options: Omit<components['schemas']['WorkflowCredentialRequest'], 'name' | 'token'> = {}
+) {
 	return mutation(ws, () =>
 		client.POST('/workflow-connections', {
 			params: { query: { workspace_id: ws } },
-			body: { name, token }
+			body: { name, token, ...options }
 		})
 	);
 }
@@ -115,6 +121,30 @@ export function deleteConnection(ws: string, id: string) {
 	return mutation(ws, () =>
 		client.DELETE('/workflow-connections/{id}', {
 			params: { query: { workspace_id: ws }, path: { id } }
+		})
+	);
+}
+
+export function rotateConnection(ws: string, id: string, token: string) {
+	return mutation(ws, () =>
+		client.PUT('/workflow-connections/{id}', {
+			params: { query: { workspace_id: ws }, path: { id } },
+			body: { token }
+		})
+	);
+}
+
+export function testNode(
+	ws: string,
+	id: string,
+	revision: number,
+	stepID: string,
+	data: WorkflowData
+) {
+	return mutation(ws, () =>
+		client.POST('/workflows/{id}/test-node', {
+			params: { query: { workspace_id: ws }, path: { id } },
+			body: { expected_revision: revision, step_id: stepID, data }
 		})
 	);
 }

@@ -46,6 +46,8 @@ const testMediaStubPlugin: Plugin = {
 };
 
 export default defineConfig({
+	// Editor extensions must share one state/view instance across transitive dependencies.
+	resolve: { dedupe: ['@codemirror/state', '@codemirror/view'] },
 	cacheDir:
 		isVitest && process.env.NODE_ENV === 'production'
 			? 'node_modules/.vite-vitest-production'

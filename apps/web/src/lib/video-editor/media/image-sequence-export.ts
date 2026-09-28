@@ -10,7 +10,7 @@
 import { TimelineFrameRenderer } from './render-export';
 import type { Project } from '../project/types';
 import type { RenderExportProgress } from './render-export';
-import { outputDurationFrames } from './render-plan';
+import { projectOutputDurationFrames } from './render-plan';
 import { sanitizeWorkspaceFileName } from '../workspace-fs/paths';
 import { writeBlob, removeEntry, exists, listDirectory } from '../workspace-fs/fs-primitives';
 import { projectExportsDir } from '../workspace-fs/paths';
@@ -129,7 +129,7 @@ export function estimateSequenceBytes(
 }
 
 export function resolveSequenceRange(project: Project, range: ImageSequenceExportOptions['range']) {
-	const full = outputDurationFrames(project.timeline?.items ?? []);
+	const full = projectOutputDurationFrames(project);
 	const startFrame = Math.max(0, Math.floor(range?.startFrame ?? 0));
 	const endFrame = Math.min(full, Math.ceil(range?.endFrame ?? full));
 	const totalFrames = Math.max(0, endFrame - startFrame);

@@ -1,3 +1,4 @@
+import { projectOutputDurationFrames } from './render-plan';
 import {
 	AUDIO_CODECS,
 	MkvOutputFormat,
@@ -96,10 +97,6 @@ function audioCodec(codec: string | undefined): AudioCodec | null {
 
 function defaultCodec(format: SmartCopyFormat): VideoCodec {
 	return format === 'webm' ? 'vp9' : 'avc';
-}
-
-function projectEnd(items: readonly TimelineItem[]): number {
-	return items.reduce((maximum, item) => Math.max(maximum, item.from + item.durationInFrames), 0);
 }
 
 function activeTrackIds(tracks: readonly TimelineTrack[]): Set<string> {
@@ -268,8 +265,8 @@ export function assessSmartCopy(
 	const fps = project.metadata.fps;
 	const startFrame = Math.max(0, Math.floor(settings.range?.startFrame ?? 0));
 	const endFrame = Math.min(
-		projectEnd(timeline.items),
-		Math.ceil(settings.range?.endFrame ?? projectEnd(timeline.items))
+		projectOutputDurationFrames(project),
+		Math.ceil(settings.range?.endFrame ?? projectOutputDurationFrames(project))
 	);
 	if (endFrame <= startFrame) return { eligible: false, blocker: 'empty-range' };
 

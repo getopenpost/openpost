@@ -242,7 +242,7 @@ export function assessExportPreflight(input: ExportPreflightInput): ExportPrefli
 					description: '',
 					createdAt: 0,
 					updatedAt: 0,
-					duration: projectEnd(input.items),
+					duration: projectEnd(input.items) / Math.max(1, input.fps),
 					metadata: {
 						fps: input.fps,
 						width: input.projectWidth ?? input.settings.width,

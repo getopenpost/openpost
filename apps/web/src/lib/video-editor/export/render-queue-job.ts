@@ -165,3 +165,30 @@ export function rangesFromFixedDuration(
 	}
 	return ranges;
 }
+
+export function projectForRenderJob(job: RenderQueueJob): Project {
+	const { snapshot } = job;
+	return {
+		id: snapshot.projectId,
+		name: job.name,
+		description: '',
+		createdAt: job.createdAt,
+		updatedAt: job.createdAt,
+		duration: job.settings.range.endFrame / snapshot.fps,
+		metadata: {
+			width: snapshot.width,
+			height: snapshot.height,
+			fps: snapshot.fps,
+			backgroundColor: snapshot.backgroundColor
+		},
+		timeline: {
+			tracks: snapshot.tracks,
+			items: snapshot.items,
+			transitions: snapshot.transitions,
+			compositions: snapshot.compositions,
+			masterVolumeDb: snapshot.masterVolumeDb ?? 0,
+			masterMuted: snapshot.masterMuted ?? false,
+			busAudioEq: snapshot.busAudioEq
+		}
+	};
+}

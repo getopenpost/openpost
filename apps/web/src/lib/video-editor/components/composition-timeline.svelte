@@ -1842,7 +1842,7 @@
 		return MOTION_VECTOR_ROW_DEFINITIONS.filter((row) => {
 			const hasVector = activeVectorKeyframes(item, row.property);
 			const separated = item.separatedVectorProperties?.includes(row.property);
-			return Boolean(hasVector) || !separated;
+			return Boolean(hasVector) || (expandedLayerIds.has(item.id) && !separated);
 		}).slice(0, 3);
 	}
 	function keyframesForVector(item: TimelineItem, property: KeyframeProperty) {
@@ -2164,18 +2164,10 @@
 		pointerGestures?.cancel('superseded');
 		scrubActive = true;
 		const rect = scrubRoot.getBoundingClientRect();
-		const frame = Math.round(
-			((event.clientX - rect.left) / Math.max(1, rect.width)) *
-				(visibleRange.end - visibleRange.start) +
-				visibleRange.start
-		);
+		const frame = Math.round((event.clientX - rect.left) / pxPerFrame);
 		handleGhostScrubMove(frame);
 		const onMove = (e: PointerGestureEvent) => {
-			const f = Math.round(
-				((e.clientX - rect.left) / Math.max(1, rect.width)) *
-					(visibleRange.end - visibleRange.start) +
-					visibleRange.start
-			);
+			const f = Math.round((e.clientX - rect.left) / pxPerFrame);
 			handleGhostScrubMove(f);
 		};
 		pointerGestures?.start({

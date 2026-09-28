@@ -63,7 +63,7 @@ import {
 	applyMixEntryGain,
 	isVisibleAtFrame,
 	masterBusGain,
-	outputDurationFrames,
+	projectOutputDurationFrames,
 	paintOrder,
 	planNestedMixdown,
 	sliceMixEntries,
@@ -747,7 +747,7 @@ export async function renderMultiTrackVideoArtifact(
 	const items = timeline?.items ?? [];
 	if (items.length === 0) throw new Error('This timeline has nothing to render.');
 	const tracks = timeline?.tracks ?? [];
-	const fullDuration = outputDurationFrames(items);
+	const fullDuration = projectOutputDurationFrames(project);
 	const startFrame = Math.max(0, Math.floor(options.range?.startFrame ?? 0));
 	const endFrame = Math.min(fullDuration, Math.ceil(options.range?.endFrame ?? fullDuration));
 	const totalFrames = Math.max(0, endFrame - startFrame);
@@ -998,7 +998,7 @@ export async function renderTimelineAudioArtifact(
 	const fps = project.metadata.fps;
 	const items = project.timeline?.items ?? [];
 	const tracks = project.timeline?.tracks ?? [];
-	const fullDuration = outputDurationFrames(items);
+	const fullDuration = projectOutputDurationFrames(project);
 	const startFrame = Math.max(0, Math.floor(options.range?.startFrame ?? 0));
 	const endFrame = Math.min(fullDuration, Math.ceil(options.range?.endFrame ?? fullDuration));
 	const totalFrames = Math.max(0, endFrame - startFrame);

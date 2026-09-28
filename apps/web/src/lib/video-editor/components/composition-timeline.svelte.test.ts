@@ -9,6 +9,53 @@ import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte
 import CompositionTimeline from './composition-timeline.svelte';
 import SelectionFixture from './composition-selection.fixture.svelte';
 
+it('seeks between Motion ruler labels using the same scale as the labels', async () => {
+	const id = 'ruler-gap';
+	sequenceStore.addComposition({
+		id,
+		name: 'Ruler gap',
+		editorKind: 'composite-2d',
+		items: [],
+		tracks: [],
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 353
+	});
+	sequenceStore.switchTo(id);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const ruler = screen.getByTestId('composition-ruler').element();
+		const ticks = Array.from(ruler.querySelectorAll<HTMLButtonElement>('button'));
+		const first = ticks[0]!;
+		const second = ticks[1]!;
+		const a = Number(first.textContent);
+		const b = Number(second.textContent);
+		const x =
+			(first.getBoundingClientRect().left +
+				first.getBoundingClientRect().width / 2 +
+				second.getBoundingClientRect().left +
+				second.getBoundingClientRect().width / 2) /
+			2;
+		for (const type of ['pointerdown', 'pointerup']) {
+			(type === 'pointerdown' ? ruler : window).dispatchEvent(
+				new PointerEvent(type, {
+					pointerId: 1,
+					button: 0,
+					bubbles: true,
+					clientX: x,
+					clientY: ruler.getBoundingClientRect().top + 5
+				})
+			);
+		}
+		expect(timelineStore.currentFrame).toBe(Math.round((a + b) / 2));
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(id);
+	}
+});
+
 it('duplicates a Motion layer at the same time and selects the copy', async () => {
 	const id = 'duplicate-motion';
 	sequenceStore.addComposition({

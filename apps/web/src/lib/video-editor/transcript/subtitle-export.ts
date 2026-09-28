@@ -1,5 +1,6 @@
 /** Subtitle export planning shared by sidecar and embedded-track modes. */
-import type { SubtitleCue, TimelineItem } from '$lib/video-editor/project/types';
+import type { TimelineItem } from '$lib/video-editor/project/types';
+import { captionTimelineOffset } from './caption-source-mapping';
 import { formatSrt } from './srt';
 
 export function collectSubtitleCues(
@@ -10,8 +11,20 @@ export function collectSubtitleCues(
 ): Array<{ startSeconds: number; endSeconds: number; text: string }> {
 	return items
 		.filter((item) => item.type === 'subtitle')
-		.flatMap((item) => item.cues ?? [])
-		.filter((cue) => cue.endFrame > startFrame && cue.startFrame < endFrame)
+		.flatMap((item) =>
+			(item.cues ?? []).map((cue) => ({
+				...cue,
+				startFrame: Math.max(item.from, cue.startFrame + captionTimelineOffset(item)),
+				endFrame: Math.min(
+					item.from + item.durationInFrames,
+					cue.endFrame + captionTimelineOffset(item)
+				)
+			}))
+		)
+		.filter(
+			(cue) =>
+				cue.endFrame > cue.startFrame && cue.endFrame > startFrame && cue.startFrame < endFrame
+		)
 		.map((cue) => ({
 			startSeconds: Math.max(0, Math.max(cue.startFrame, startFrame) - startFrame) / fps,
 			endSeconds: Math.max(1, Math.min(cue.endFrame, endFrame) - startFrame) / fps,

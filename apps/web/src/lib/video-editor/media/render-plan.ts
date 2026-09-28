@@ -11,6 +11,7 @@ import { timerAudioEntries } from '../timers/audio';
  */
 
 import type {
+	Project,
 	SubtitleCue,
 	SubComposition,
 	ProjectTimeline,
@@ -137,6 +138,14 @@ export interface TransitionBlend {
 
 export function outputDurationFrames(items: TimelineItem[]): number {
 	return items.reduce((max, item) => Math.max(max, item.from + item.durationInFrames), 0);
+}
+
+/** Export snapshots include authored Motion holds after the last layer ends. */
+export function projectOutputDurationFrames(project: Project): number {
+	return Math.max(
+		outputDurationFrames(project.timeline?.items ?? []),
+		Number.isFinite(project.duration) ? Math.round(project.duration * project.metadata.fps) : 0
+	);
 }
 
 export function isVisibleAtFrame(item: TimelineItem, frame: number): boolean {

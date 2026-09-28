@@ -51,6 +51,7 @@
 	} from '$lib/video-editor/effects/scope-samples.svelte';
 	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { selectCuesAtFrame } from '$lib/video-editor/media/render-plan';
+	import { captionTimelineOffset } from '$lib/video-editor/transcript/caption-source-mapping';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
 	import {
 		previewItemVolume,
@@ -265,7 +266,7 @@
 	const mediaCropStyle = 'left:0;top:0;width:100%;height:100%';
 	const activeSubtitle = $derived(
 		resolved.type === 'subtitle'
-			? selectCuesAtFrame(resolved.cues ?? [], visualFrame)[0]
+			? selectCuesAtFrame(resolved.cues ?? [], visualFrame - captionTimelineOffset(resolved))[0]
 			: undefined
 	);
 	const basePreviewVolume = $derived(
@@ -684,7 +685,14 @@
 			// Karaoke highlight requires the exact cue words and the absolute frame; the shared
 			// helper falls back to normal rendering when karaoke is disabled or timings are unusable.
 			if (resolved.captionHighlightMode === 'karaoke' && activeSubtitle.words?.length) {
-				renderSubtitleCueRaster(context, activeSubtitle, resolved, width, height, visualFrame);
+				renderSubtitleCueRaster(
+					context,
+					activeSubtitle,
+					resolved,
+					width,
+					height,
+					visualFrame - captionTimelineOffset(resolved)
+				);
 			} else {
 				renderSubtitleRaster(context, activeSubtitle.text, resolved, width, height);
 			}

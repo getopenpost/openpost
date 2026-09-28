@@ -1,4 +1,4 @@
-import type { Project } from '../project/types';
+import { projectForRenderJob } from './render-queue-job';
 import type { RenderExportProgress } from '../media/render-export';
 import { renderQueueStore, type RenderQueueJob, type RenderQueueStore } from './render-queue-store';
 
@@ -13,40 +13,13 @@ export type RenderQueueExecutor = (
 	options: { signal: AbortSignal; onProgress: (progress: RenderExportProgress) => void }
 ) => Promise<QueueExecutionResult>;
 
-function projectForJob(job: RenderQueueJob): Project {
-	const { snapshot } = job;
-	return {
-		id: snapshot.projectId,
-		name: job.name,
-		description: '',
-		createdAt: job.createdAt,
-		updatedAt: job.createdAt,
-		duration: (job.settings.range.endFrame - job.settings.range.startFrame) / snapshot.fps,
-		metadata: {
-			width: snapshot.width,
-			height: snapshot.height,
-			fps: snapshot.fps,
-			backgroundColor: snapshot.backgroundColor
-		},
-		timeline: {
-			tracks: snapshot.tracks,
-			items: snapshot.items,
-			transitions: snapshot.transitions,
-			compositions: snapshot.compositions,
-			masterVolumeDb: snapshot.masterVolumeDb ?? 0,
-			masterMuted: snapshot.masterMuted ?? false,
-			busAudioEq: snapshot.busAudioEq
-		}
-	};
-}
-
 async function executeRenderJob(
 	job: RenderQueueJob,
 	options: { signal: AbortSignal; onProgress: (progress: RenderExportProgress) => void }
 ): Promise<QueueExecutionResult> {
 	const { renderVideoExport, renderAudioExport, renderImageSequenceExport } =
 		await import('../media/render-execution');
-	const project = projectForJob(job);
+	const project = projectForRenderJob(job);
 	const range = job.settings.range;
 	if (
 		job.settings.format === 'mp3' ||

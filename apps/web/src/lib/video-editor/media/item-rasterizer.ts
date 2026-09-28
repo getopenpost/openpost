@@ -2,6 +2,7 @@ import type { TimelineItem } from '../project/types';
 import { renderShapeItemRaster } from '../shapes/render';
 import { isTextMotionActive } from '../timeline/text-motion-eval';
 import { activeWordIndexAtFrame } from '../transcript/karaoke';
+import { captionTimelineOffset } from '../transcript/caption-source-mapping';
 import type { StackLayerSource } from './canvas-stack-compositor';
 import { selectCuesAtFrame } from './render-plan';
 import {
@@ -32,7 +33,9 @@ export class ItemRasterizer {
 	) {}
 
 	render(item: TimelineItem, frame: number): StackLayerSource | null {
-		const cue = item.type === 'subtitle' ? selectCuesAtFrame(item.cues ?? [], frame)[0] : undefined;
+		const cueFrame = frame - captionTimelineOffset(item);
+		const cue =
+			item.type === 'subtitle' ? selectCuesAtFrame(item.cues ?? [], cueFrame)[0] : undefined;
 		if (item.type === 'subtitle' && !cue) return null;
 		const width = Math.max(1, Math.round(item.transform?.width ?? this.width));
 		const height = Math.max(1, Math.round(item.transform?.height ?? this.height));
@@ -56,7 +59,7 @@ export class ItemRasterizer {
 			height,
 			cue,
 			animated ? frame : undefined,
-			karaoke ? activeWordIndexAtFrame(cue?.words, frame) : undefined,
+			karaoke ? activeWordIndexAtFrame(cue?.words, cueFrame) : undefined,
 			item.type === 'shape' ? undefined : textRasterFontKey()
 		]);
 		let raster = this.rasters.get(item.id);
@@ -73,7 +76,7 @@ export class ItemRasterizer {
 			// Match a fresh canvas even if a prior painter left text or clipping state behind.
 			context.reset();
 			if (item.type === 'shape') renderShapeItemRaster(context, item, width, height);
-			else if (cue && karaoke) renderSubtitleCueRaster(context, cue, item, width, height, frame);
+			else if (cue && karaoke) renderSubtitleCueRaster(context, cue, item, width, height, cueFrame);
 			else if (cue) renderSubtitleRaster(context, cue.text, item, width, height);
 			else
 				renderTextItemRaster(context, item, width, height, { absoluteFrame: frame, fps: this.fps });

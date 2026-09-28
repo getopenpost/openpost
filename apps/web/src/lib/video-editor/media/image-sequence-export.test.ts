@@ -69,3 +69,18 @@ describe('image sequence naming and ranges', () => {
 		);
 	});
 });
+
+it('exports a Motion hold after the final layer, including a range wholly inside the hold', () => {
+	const project = projectWithDuration(274);
+	project.duration = 353 / 30;
+	expect(resolveSequenceRange(project, undefined)).toEqual({
+		startFrame: 0,
+		endFrame: 353,
+		totalFrames: 353
+	});
+	expect(resolveSequenceRange(project, { startFrame: 300, endFrame: 353 })).toEqual({
+		startFrame: 300,
+		endFrame: 353,
+		totalFrames: 53
+	});
+});

@@ -215,6 +215,13 @@ export const sequenceStore = {
 	get activeHeight(): number {
 		return sequenceStore.activeSequence?.height ?? state.rootResolution.height;
 	},
+	get activeDurationInFrames(): number {
+		const sequence = sequenceStore.activeSequence;
+		return Math.max(
+			timelineStore.maxItemEndFrame,
+			sequence?.editorKind === 'composite-2d' ? sequence.durationInFrames : 0
+		);
+	},
 	_setRootResolution(resolution: ProjectResolution): void {
 		state.rootResolution = copy(resolution);
 	},

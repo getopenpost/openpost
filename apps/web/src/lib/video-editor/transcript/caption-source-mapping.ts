@@ -17,6 +17,13 @@ export interface CaptionFrameRange {
 	end: number;
 }
 
+/** Generated cues use clip-local frames; imported subtitle files use sequence frames. */
+export function captionTimelineOffset(item: TimelineItem): number {
+	return item.captionSource?.type === 'transcript' || item.captionSource?.type === 'ai-captions'
+		? item.from
+		: 0;
+}
+
 export function resolveTranscriptCaptionTiming(
 	source: TranscriptCaptionSource | AiCaptionsCaptionSource,
 	sourceItem: TimelineItem | null | undefined,

@@ -24,8 +24,9 @@ describe('cURL request import', () => {
 		expect(get.query.literal).toEqual({ title: 'release & notes' });
 	});
 	it.each([
-		`curl https://example.com -H 'Authorization: Bearer private-token'`,
-		`curl https://example.com -H 'X-API-Key: private-token'`,
+		...['Authorization: Bearer private-token', 'X-API-Key: private-token'].map(
+			(header) => `curl https://example.com -H '${header}'`
+		),
 		`curl https://example.com --data @/etc/passwd`,
 		`curl https://example.com ; echo unsafe`,
 		`curl https://example.com --output /tmp/result`,

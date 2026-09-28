@@ -22,7 +22,11 @@ test("a background moves between visual tracks with undo, cancel and persistence
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Choose folder", exact: true }).click();
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
-  await page.getByRole("tab", { name: "Backgrounds", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("Sunset mesh");
   await page.getByRole("button", { name: "Sunset mesh", exact: true }).click();
   const source = page.locator('[data-track="track-video-main"]');
@@ -65,7 +69,11 @@ test("a background moves between visual tracks with undo, cancel and persistence
     timeout: 30_000,
   });
   await expect(destination.locator("[data-timeline-item-id]")).toHaveCount(1);
-  await page.getByRole("tab", { name: "Backgrounds", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("Ocean mesh");
   await page.getByRole("button", { name: "Ocean mesh", exact: true }).click();
   const sunset = page.getByRole("button", { name: /^Sunset mesh\. Drag/ });

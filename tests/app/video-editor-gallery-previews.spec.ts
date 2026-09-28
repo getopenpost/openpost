@@ -18,7 +18,7 @@ test("background and effect catalogs compile only the active preview", async ({ 
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Choose folder", exact: true }).click();
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
-  await page.getByRole("tab", { name: "Backgrounds", exact: true }).waitFor();
+  await page.getByRole("tablist", { name: "Editor workspaces" }).waitFor();
   await page.evaluate(() => {
     const metrics = { compiles: 0, draws: 0, compileMs: 0 };
     Object.assign(window, { catalogMetrics: metrics });
@@ -44,7 +44,11 @@ test("background and effect catalogs compile only the active preview", async ({ 
           }
         ).catalogMetrics,
     );
-  await page.getByRole("tab", { name: "Backgrounds", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   const backgrounds = page.getByRole("searchbox", { name: "Search backgrounds" });
   await backgrounds.fill("Warp");
   const warp = page.getByRole("button", { name: "Warp", exact: true });

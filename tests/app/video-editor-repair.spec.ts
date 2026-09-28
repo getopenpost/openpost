@@ -365,7 +365,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
       await page.setViewportSize({ width, height: 900 });
       await page.locator("header").getByRole("button", { name: "More actions" }).click();
       await page.getByRole("menuitem", { name: "Record screen" }).click();
-      const dialog = page.getByRole("dialog", { name: "Record screen" });
+      const dialog = page.getByRole("dialog", { name: "Recorder", exact: true });
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole("button", { name: "Microphone", exact: true })).toBeVisible();
       await dialog.getByRole("button", { name: "Microphone", exact: true }).click();
@@ -384,7 +384,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Record screen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Record screen" });
+  const dialog = page.getByRole("dialog", { name: "Recorder", exact: true });
   await dialog.getByRole("checkbox", { name: "Microphone", exact: true }).uncheck();
   await dialog.getByText("Advanced", { exact: true }).click();
   await dialog.getByRole("button", { name: "Countdown" }).click();
@@ -441,8 +441,10 @@ test("recording setup fits both themes and imports a real streaming WebM", async
     });
     await expect(
       dialog.getByRole("button", { name: "Recover recording", exact: true }),
-    ).toBeDisabled();
-    await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(1);
+    ).toBeHidden();
+    await expect(dialog.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    await expect(dialog.getByRole("status")).toContainText("Saving");
+    await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0);
     await expect(page.locator("[data-project-summary]")).toContainText("2 clips");
   } finally {
     releaseRecoveryUpload();
@@ -465,7 +467,11 @@ test("editing text over a background does not leave the old lettering underneath
   await newProject(page, "Background text");
   await page.getByRole("button", { name: "Add layer", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
-  await page.getByRole("tab", { name: "Backgrounds", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("button", { name: "Ocean mesh", exact: true }).click();
   const canvas = page.locator<HTMLCanvasElement>("[data-stacked-preview]");
   const overlay = page.getByRole("group", { name: "Visual 2", exact: true });

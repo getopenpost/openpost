@@ -5374,6 +5374,9 @@
 											onmoveup={() => editTrack(() => moveTrack(track.id, -1))}
 											onmovedown={() => editTrack(() => moveTrack(track.id, 1))}
 											onrename={(name) => editTrack(() => renameTrack(track.id, name))}
+											onheightpointerdown={(event) => startTrackHeightResize(event, track.id)}
+											onheightkeydown={(event) => resizeTrackHeightFromKeyboard(event, track.id)}
+											onheightreset={(event) => resetTrackHeight(event, track.id)}
 											onvisibility={() =>
 												editTrack(
 													() => toggleTrackVisibility(track.id),
@@ -5850,7 +5853,7 @@
 										{/if}
 									{/each}
 									{#if !track.isGroup}<div
-											class="absolute inset-x-0 bottom-0 z-50 h-2 cursor-row-resize touch-none bg-transparent focus-visible:bg-[oklch(0.66_0.14_45_/_0.25)] focus-visible:outline-none [@media(pointer:coarse)]:h-11"
+											class="absolute inset-x-0 bottom-0 z-50 h-2 cursor-row-resize touch-none bg-transparent focus-visible:bg-[oklch(0.66_0.14_45_/_0.25)] focus-visible:outline-none [@media(pointer:coarse)]:hidden"
 											role="slider"
 											tabindex="0"
 											aria-orientation="vertical"

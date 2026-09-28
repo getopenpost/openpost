@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import {
+		MIN_TRACK_HEIGHT,
+		MAX_TRACK_HEIGHT,
+		formatTrackHeightText
+	} from '../timeline/track-resize';
 	import { Portal } from 'bits-ui';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
@@ -30,6 +35,9 @@
 		onmoveup = () => {},
 		onmovedown = () => {},
 		onrename = () => {},
+		onheightpointerdown,
+		onheightkeydown,
+		onheightreset,
 		onvisibility,
 		onmute,
 		onsolo,
@@ -54,6 +62,9 @@
 		onmoveup?: () => void;
 		onmovedown?: () => void;
 		onrename?: (name: string) => void;
+		onheightpointerdown?: (event: PointerEvent) => void;
+		onheightkeydown?: (event: KeyboardEvent) => void;
+		onheightreset?: (event: MouseEvent) => void;
 		onvisibility: () => void;
 		onmute: () => void;
 		onsolo: () => void;
@@ -283,70 +294,92 @@
 						bind:this={moreMenuContent}
 						class="video-editor-theme fixed z-[100] min-w-56 space-y-1 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-md"
 						style={`left:${moreMenuLeft}px;top:${moreMenuTop}px`}
-						role="menu"
 					>
-						<button
-							type="button"
-							role="menuitem"
-							class={menuItemClass}
-							data-active={effectiveTrack.muted}
-							disabled={inheritedMuted}
-							title={inheritedMuted ? m.video_editor_track_group_mute_inherited() : undefined}
-							onclick={() => runMoreAction(onmute)}
-						>
-							{#if effectiveTrack.muted}<ThemeIcon role="audio" class="size-4" />{:else}<ThemeIcon
-									role="audio"
-									class="size-4"
-								/>{/if}
-							{effectiveTrack.muted ? m.video_editor_track_unmute() : m.video_editor_track_mute()}
-						</button>
-						<button
-							type="button"
-							role="menuitem"
-							class={menuItemClass}
-							data-active={effectiveTrack.solo}
-							disabled={inheritedSolo}
-							title={inheritedSolo ? m.video_editor_track_group_solo_inherited() : undefined}
-							onclick={() => runMoreAction(onsolo)}
-						>
-							<ProtectedIcon icon="editor-solo" class="size-4" />
-							{effectiveTrack.solo ? m.video_editor_track_unsolo() : m.video_editor_track_solo()}
-						</button>
+						<div role="menu">
+							<button
+								type="button"
+								role="menuitem"
+								class={menuItemClass}
+								data-active={effectiveTrack.muted}
+								disabled={inheritedMuted}
+								title={inheritedMuted ? m.video_editor_track_group_mute_inherited() : undefined}
+								onclick={() => runMoreAction(onmute)}
+							>
+								{#if effectiveTrack.muted}<ThemeIcon role="audio" class="size-4" />{:else}<ThemeIcon
+										role="audio"
+										class="size-4"
+									/>{/if}
+								{effectiveTrack.muted ? m.video_editor_track_unmute() : m.video_editor_track_mute()}
+							</button>
+							<button
+								type="button"
+								role="menuitem"
+								class={menuItemClass}
+								data-active={effectiveTrack.solo}
+								disabled={inheritedSolo}
+								title={inheritedSolo ? m.video_editor_track_group_solo_inherited() : undefined}
+								onclick={() => runMoreAction(onsolo)}
+							>
+								<ProtectedIcon icon="editor-solo" class="size-4" />
+								{effectiveTrack.solo ? m.video_editor_track_unsolo() : m.video_editor_track_solo()}
+							</button>
+							{#if !track.isGroup}
+								<button
+									type="button"
+									role="menuitem"
+									class={menuItemClass}
+									data-active={track.syncLock !== false}
+									onclick={() => runMoreAction(onsynclock)}
+								>
+									<ThemeIcon role="link" class="size-4" />
+									{track.syncLock !== false
+										? m.video_editor_track_sync_unlock()
+										: m.video_editor_track_sync_lock()}
+								</button>
+							{:else}
+								<button
+									type="button"
+									role="menuitem"
+									class={menuItemClass}
+									onclick={() => runMoreAction(onungroup)}
+								>
+									<ProtectedIcon icon="editor-ungroup" class="size-4" />
+									{m.video_editor_track_group_ungroup_hint()}
+								</button>
+							{/if}
+							<button
+								type="button"
+								role="menuitem"
+								class="{menuItemClass} text-red-300 hover:bg-red-500/15 hover:text-red-200"
+								disabled={!canDelete}
+								title={canDelete ? undefined : m.video_editor_track_keep_one()}
+								onclick={() => runMoreAction(track.isGroup ? ondeletegroup : ondelete)}
+							>
+								<ThemeIcon role="delete" class="size-4" />
+								{track.isGroup
+									? m.video_editor_track_group_delete()
+									: m.video_editor_track_delete()}
+							</button>
+						</div>
 						{#if !track.isGroup}
-							<button
-								type="button"
-								role="menuitem"
-								class={menuItemClass}
-								data-active={track.syncLock !== false}
-								onclick={() => runMoreAction(onsynclock)}
+							<div
+								role="slider"
+								tabindex="0"
+								aria-orientation="vertical"
+								aria-label={m.video_editor_track_resize({ name: track.name })}
+								aria-valuemin={MIN_TRACK_HEIGHT}
+								aria-valuemax={MAX_TRACK_HEIGHT}
+								aria-valuenow={track.height}
+								aria-valuetext={formatTrackHeightText(track.height)}
+								class="{menuItemClass} hidden min-h-11 cursor-ns-resize touch-none [@media(pointer:coarse)]:flex"
+								title={m.video_editor_track_resize_hint()}
+								onpointerdown={onheightpointerdown}
+								onkeydown={onheightkeydown}
+								ondblclick={onheightreset}
 							>
-								<ThemeIcon role="link" class="size-4" />
-								{track.syncLock !== false
-									? m.video_editor_track_sync_unlock()
-									: m.video_editor_track_sync_lock()}
-							</button>
-						{:else}
-							<button
-								type="button"
-								role="menuitem"
-								class={menuItemClass}
-								onclick={() => runMoreAction(onungroup)}
-							>
-								<ProtectedIcon icon="editor-ungroup" class="size-4" />
-								{m.video_editor_track_group_ungroup_hint()}
-							</button>
+								{m.video_editor_track_resize({ name: track.name })}
+							</div>
 						{/if}
-						<button
-							type="button"
-							role="menuitem"
-							class="{menuItemClass} text-red-300 hover:bg-red-500/15 hover:text-red-200"
-							disabled={!canDelete}
-							title={canDelete ? undefined : m.video_editor_track_keep_one()}
-							onclick={() => runMoreAction(track.isGroup ? ondeletegroup : ondelete)}
-						>
-							<ThemeIcon role="delete" class="size-4" />
-							{track.isGroup ? m.video_editor_track_group_delete() : m.video_editor_track_delete()}
-						</button>
 					</div>
 				</Portal>
 			{/if}

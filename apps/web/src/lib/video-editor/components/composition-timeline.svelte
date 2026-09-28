@@ -2305,7 +2305,7 @@
 				<Button
 					size="sm"
 					variant="ghost"
-					aria-label={m.video_editor_motion_create_composition()}
+					aria-label={m.video_editor_motion_new_composition()}
 					onclick={() => {
 						showNewDialog = true;
 						newName = '';
@@ -2315,7 +2315,7 @@
 					data-testid="composition-new"
 				>
 					<ThemeIcon role="add" class="size-4" />
-					{m.video_editor_motion_create_composition()}
+					{m.video_editor_motion_new_composition()}
 				</Button>
 			</div>
 			<div class="header-center">
@@ -3731,10 +3731,10 @@
 				class="dialog"
 				role="dialog"
 				aria-modal="true"
-				aria-label={m.video_editor_motion_create_composition()}
+				aria-label={m.video_editor_motion_new_composition()}
 				data-testid="new-composition-dialog"
 			>
-				<h3>{m.video_editor_motion_create_composition()}</h3>
+				<h3>{m.video_editor_motion_new_composition()}</h3>
 				<label
 					>{m.video_editor_composition_timeline_name()}<Input
 						value={newName}
@@ -3804,7 +3804,7 @@
 				newFps = 30;
 				newDuration = 300;
 			}}
-			data-testid="empty-new-composition">{m.video_editor_motion_create_composition()}</Button
+			data-testid="empty-new-composition">{m.video_editor_motion_new_composition()}</Button
 		>
 		{#if showNewDialog}
 			<div
@@ -3816,10 +3816,10 @@
 				class="dialog"
 				role="dialog"
 				aria-modal="true"
-				aria-label={m.video_editor_motion_create_composition()}
+				aria-label={m.video_editor_motion_new_composition()}
 				data-testid="new-composition-dialog-empty"
 			>
-				<h3>{m.video_editor_motion_create_composition()}</h3>
+				<h3>{m.video_editor_motion_new_composition()}</h3>
 				<label
 					>{m.video_editor_composition_timeline_name()}<Input
 						value={newName}
@@ -3862,14 +3862,14 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 360px;
-		border: 1px solid oklch(0.26 0.016 55);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.5rem;
-		background: oklch(0.155 0.009 55);
-		color: oklch(0.9 0.01 65);
+		background: var(--video-editor-panel);
+		color: var(--video-editor-text);
 		overflow: hidden;
 	}
 	.composition-timeline:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: -2px;
 	}
 	.composition-header {
@@ -3879,8 +3879,8 @@
 		justify-content: space-between;
 		gap: 0.5rem;
 		padding: 0.35rem 0.5rem;
-		border-bottom: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.17 0.01 55);
+		border-bottom: 1px solid var(--video-editor-border);
+		background: var(--video-editor-panel);
 	}
 	.header-left,
 	.header-center,
@@ -3892,25 +3892,25 @@
 	}
 	.header-label {
 		font-size: 0.62rem;
-		color: oklch(0.72 0.015 65);
+		color: var(--video-editor-muted);
 	}
 	.composition-timeline :global(.composition-picker) {
 		min-width: 160px;
 		height: 32px;
 		border-radius: 0.32rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		padding: 0 0.4rem;
 		font-size: 0.72rem;
 	}
 	.composition-timeline :global(.composition-picker:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.composition-meta {
 		font-size: 0.62rem;
-		color: oklch(0.68 0.016 65);
+		color: var(--video-editor-muted);
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
@@ -3919,8 +3919,8 @@
 		width: 56px;
 		height: 24px;
 		border-radius: 0.25rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		text-align: center;
 		font-size: 0.62rem;
@@ -3929,7 +3929,7 @@
 		width: 72px;
 	}
 	.composition-timeline :global(.meta-input:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.header-zoom {
@@ -3939,7 +3939,7 @@
 	}
 	.zoom-label {
 		font-size: 0.62rem;
-		color: oklch(0.72 0.015 65);
+		color: var(--video-editor-muted);
 	}
 	.zoom-slider-wrap {
 		width: 140px;
@@ -3950,12 +3950,12 @@
 		align-items: center;
 		gap: 0.4rem;
 		padding: 0.45rem 0.7rem;
-		border-bottom: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.16 0.009 55);
+		border-bottom: 1px solid var(--video-editor-border);
+		background: var(--video-editor-panel);
 	}
 	.toolbar-label {
 		font-size: 0.62rem;
-		color: oklch(0.72 0.015 65);
+		color: var(--video-editor-muted);
 		margin-right: 0.2rem;
 	}
 	.toolbar-search {
@@ -3966,21 +3966,21 @@
 		width: 180px;
 		height: 32px;
 		border-radius: 0.32rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		padding: 0 0.5rem;
 		font-size: 0.72rem;
 	}
 	.composition-timeline :global(.filter-input:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.io-lane {
 		position: relative;
 		height: 22px;
-		border-bottom: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.16 0.009 55);
+		border-bottom: 1px solid var(--video-editor-border);
+		background: var(--video-editor-panel);
 	}
 	.io-strip {
 		position: relative;
@@ -3999,7 +3999,7 @@
 	}
 	.io-label {
 		font-size: 0.58rem;
-		color: oklch(0.78 0.08 45);
+		color: var(--video-editor-text);
 	}
 	.io-empty {
 		position: absolute;
@@ -4007,7 +4007,7 @@
 		display: grid;
 		place-items: center;
 		font-size: 0.62rem;
-		color: oklch(0.62 0.016 65);
+		color: var(--video-editor-muted);
 	}
 	.io-handle {
 		position: absolute;
@@ -4023,7 +4023,7 @@
 		min-width: 12px;
 	}
 	.io-handle:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.composition-body {
@@ -4081,14 +4081,14 @@
 		}
 	}
 	.layer-sidebar {
-		border-right: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.16 0.009 55);
+		border-right: 1px solid var(--video-editor-border);
+		background: var(--video-editor-panel);
 		overflow-y: auto;
 		overflow-x: hidden;
 		padding: 0 0.35rem;
 	}
 	.layer-sidebar:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: -2px;
 	}
 	.sidebar-virtual-spacer {
@@ -4109,7 +4109,7 @@
 		font-size: 0.58rem;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
-		color: oklch(0.62 0.016 65);
+		color: var(--video-editor-muted);
 		padding: 0.2rem 0.15rem;
 	}
 	.group-row {
@@ -4118,8 +4118,8 @@
 		gap: 0.25rem;
 		padding: 0.3rem 0.2rem;
 		border-radius: 0.32rem;
-		border: 1px solid oklch(0.24 0.012 55);
-		background: oklch(0.18 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-panel);
 		margin-bottom: 0.25rem;
 	}
 	.group-header {
@@ -4136,10 +4136,11 @@
 		min-height: 32px;
 	}
 	.group-header.selected {
-		color: oklch(0.78 0.08 45);
+		background: var(--video-editor-selection);
+		color: var(--video-editor-selection-text);
 	}
 	.group-header:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.group-toggle {
@@ -4150,7 +4151,7 @@
 		border-radius: 0.2rem;
 	}
 	.group-toggle:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.group-name {
@@ -4161,7 +4162,7 @@
 	}
 	.group-span {
 		font-size: 0.58rem;
-		color: oklch(0.62 0.016 65);
+		color: var(--video-editor-muted);
 		font-variant-numeric: tabular-nums;
 	}
 	.group-actions {
@@ -4192,19 +4193,19 @@
 		min-height: 32px;
 	}
 	.layer-row.selected {
-		background: oklch(0.22 0.02 55);
+		background: var(--video-editor-control);
 		border-color: oklch(0.66 0.14 45 / 0.5);
 	}
 	.layer-row.pickTarget {
 		border-color: oklch(0.62 0.14 230);
-		background: oklch(0.2 0.02 230);
+		background: var(--video-editor-control);
 	}
 	.layer-row.controller {
 		border-style: dashed;
 		opacity: 0.85;
 	}
 	.layer-row:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: -2px;
 	}
 	.layer-expand {
@@ -4219,7 +4220,7 @@
 		border-radius: 0.2rem;
 	}
 	.layer-expand:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.layer-name {
@@ -4235,7 +4236,7 @@
 		display: grid;
 		place-items: center;
 		border-radius: 0.2rem;
-		background: oklch(0.24 0.012 55);
+		background: var(--video-editor-border);
 		font-size: 0.58rem;
 		font-weight: 700;
 	}
@@ -4251,7 +4252,7 @@
 		min-height: 28px;
 	}
 	.icon-btn:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.solo-label {
@@ -4277,7 +4278,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		font-size: 0.62rem;
-		color: oklch(0.72 0.02 65);
+		color: var(--video-editor-muted);
 	}
 	.blend-cell {
 		display: flex;
@@ -4286,19 +4287,19 @@
 		width: 100%;
 		height: 24px;
 		border-radius: 0.25rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		font-size: 0.62rem;
 		padding: 0 0.2rem;
 	}
 	.composition-timeline :global(.blend-select:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.timing-cell {
 		font-size: 0.58rem;
-		color: oklch(0.62 0.016 65);
+		color: var(--video-editor-muted);
 		font-variant-numeric: tabular-nums;
 		text-align: right;
 	}
@@ -4308,7 +4309,7 @@
 		width: 20px;
 		height: 20px;
 		cursor: grab;
-		color: oklch(0.62 0.016 65);
+		color: var(--video-editor-muted);
 		user-select: none;
 		border-radius: 0.2rem;
 	}
@@ -4316,7 +4317,7 @@
 		cursor: grabbing;
 	}
 	.drag-handle:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.composition-timeline :global(.rename-input) {
@@ -4324,14 +4325,14 @@
 		height: 28px;
 		border-radius: 0.25rem;
 		border: 1px solid oklch(0.66 0.14 45);
-		background: oklch(0.2 0.01 55);
+		background: var(--video-editor-control);
 		color: inherit;
 		padding: 0 0.35rem;
 		font-size: 0.72rem;
 		min-width: 0;
 	}
 	.composition-timeline :global(.rename-input:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.vector-row {
@@ -4340,23 +4341,23 @@
 		align-items: center;
 		gap: 0.25rem;
 		padding: 0.18rem 0.35rem;
-		border-top: 1px dashed oklch(0.24 0.012 55);
+		border-top: 1px dashed var(--video-editor-border);
 		font-size: 0.6rem;
-		color: oklch(0.68 0.015 65);
+		color: var(--video-editor-muted);
 	}
 	.vector-keys {
 		position: relative;
 		height: 12px;
 		border-radius: 0.2rem;
-		background: oklch(0.13 0.008 55);
+		background: var(--video-editor-panel);
 		overflow: hidden;
 	}
 	.vector-lane {
 		position: absolute;
 		left: 0;
 		right: 0;
-		background: oklch(0.13 0.008 55 / 0.5);
-		border-top: 1px dashed oklch(0.24 0.012 55);
+		background: color-mix(in oklch, var(--video-editor-panel) 50%, transparent);
+		border-top: 1px dashed var(--video-editor-border);
 	}
 	.vector-key {
 		position: absolute;
@@ -4366,7 +4367,7 @@
 		margin-left: -5px;
 		transform: rotate(45deg);
 		background: oklch(0.76 0.14 45);
-		border: 1px solid oklch(0.12 0.01 55);
+		border: 1px solid var(--video-editor-panel);
 		cursor: grab;
 		min-width: 12px;
 		min-height: 12px;
@@ -4379,7 +4380,7 @@
 		box-shadow: 0 0 0 2px oklch(0.66 0.14 45 / 0.4);
 	}
 	.vector-key:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.vector-key-secondary {
@@ -4391,23 +4392,23 @@
 		grid-template-columns: 36px 1fr 60px;
 		gap: 0.25rem;
 		padding: 0.18rem 0.35rem;
-		border-top: 1px dashed oklch(0.24 0.012 55);
+		border-top: 1px dashed var(--video-editor-border);
 		font-size: 0.58rem;
-		color: oklch(0.68 0.015 65);
+		color: var(--video-editor-muted);
 	}
 	.text-band-label {
 		font-weight: 600;
-		color: oklch(0.78 0.12 230);
+		color: var(--video-editor-text);
 	}
 	.text-band-preset {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: oklch(0.72 0.02 65);
+		color: var(--video-editor-muted);
 	}
 	.text-band-meta {
 		font-variant-numeric: tabular-nums;
-		color: oklch(0.62 0.016 65);
+		color: var(--video-editor-muted);
 		text-align: right;
 	}
 	.inline-props {
@@ -4416,10 +4417,10 @@
 		align-items: stretch;
 		gap: 0.35rem;
 		padding: 0.3rem 0.35rem;
-		border-top: 1px dashed oklch(0.24 0.012 55);
-		background: oklch(0.14 0.008 55);
+		border-top: 1px dashed var(--video-editor-border);
+		background: var(--video-editor-panel);
 		font-size: 0.62rem;
-		color: oklch(0.68 0.015 65);
+		color: var(--video-editor-muted);
 	}
 	.inline-props-toolbar,
 	.dopesheet-mode-row {
@@ -4452,7 +4453,7 @@
 	.inline-label {
 		flex: 0 0 auto;
 		font-weight: 600;
-		color: oklch(0.76 0.14 45);
+		color: var(--video-editor-text);
 	}
 	.text-band-lane {
 		position: absolute;
@@ -4471,7 +4472,7 @@
 		border-radius: 0.22rem;
 		background: oklch(0.45 0.12 230 / 0.28);
 		border: 1px solid oklch(0.55 0.12 230 / 0.6);
-		color: oklch(0.85 0.02 65);
+		color: var(--video-editor-text);
 		font-size: 0.58rem;
 		cursor: grab;
 		overflow: hidden;
@@ -4484,12 +4485,12 @@
 		cursor: not-allowed;
 	}
 	.text-band:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.text-band-slot {
 		font-weight: 700;
-		color: oklch(0.78 0.14 230);
+		color: var(--video-editor-text);
 	}
 	.text-band-handle {
 		position: absolute;
@@ -4508,14 +4509,14 @@
 		cursor: not-allowed;
 	}
 	.text-band-handle:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.empty-layers {
 		padding: 1rem 0.4rem;
 		font-size: 0.72rem;
 		text-align: center;
-		color: oklch(0.62 0.016 65);
+		color: var(--video-editor-muted);
 	}
 	.empty-actions {
 		display: flex;
@@ -4525,11 +4526,11 @@
 	}
 	.timeline-content {
 		overflow: auto;
-		background: oklch(0.145 0.008 55);
+		background: var(--video-editor-panel);
 		position: relative;
 	}
 	.timeline-content:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: -2px;
 	}
 	.timeline-inner {
@@ -4540,8 +4541,8 @@
 		top: 0;
 		z-index: 2;
 		height: 28px;
-		border-bottom: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.16 0.009 55);
+		border-bottom: 1px solid var(--video-editor-border);
+		background: var(--video-editor-panel);
 		overflow: hidden;
 		cursor: pointer;
 	}
@@ -4553,13 +4554,13 @@
 		margin-left: -24px;
 		border: 0;
 		background: transparent;
-		color: oklch(0.62 0.012 55);
+		color: var(--video-editor-muted);
 		cursor: pointer;
 		min-width: 44px;
 		min-height: 28px;
 	}
 	.ruler-tick:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: -2px;
 	}
 	.tick-line {
@@ -4568,7 +4569,7 @@
 		top: 16px;
 		width: 1px;
 		bottom: 0;
-		background: oklch(0.28 0.012 55);
+		background: var(--video-editor-border);
 	}
 	.tick-label {
 		position: absolute;
@@ -4595,15 +4596,15 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		background: oklch(0.12 0.008 55 / 0.45);
+		background: color-mix(in oklch, var(--video-editor-panel) 45%, transparent);
 		pointer-events: none;
 	}
 	.comp-end-dim {
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		border-left: 1px solid oklch(0.38 0.02 55);
-		background: oklch(0.12 0.008 55 / 0.55);
+		border-left: 1px solid var(--video-editor-border);
+		background: color-mix(in oklch, var(--video-editor-panel) 55%, transparent);
 		pointer-events: none;
 	}
 	.layer-bars {
@@ -4614,9 +4615,9 @@
 		position: absolute;
 		height: 22px;
 		border-radius: 0.28rem;
-		border: 1px solid oklch(0.32 0.02 58);
-		background: oklch(0.22 0.015 55);
-		color: oklch(0.86 0.01 65);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
+		color: var(--video-editor-text);
 		font-size: 0.62rem;
 		text-align: left;
 		padding-left: 0.35rem;
@@ -4628,11 +4629,11 @@
 	}
 	.layer-bar.selected {
 		border-color: oklch(0.66 0.14 45);
-		background: oklch(0.28 0.03 50);
+		background: var(--video-editor-border);
 		box-shadow: 0 0 0 2px oklch(0.66 0.14 45 / 0.22);
 	}
 	.layer-bar:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.bar-label {
@@ -4657,15 +4658,15 @@
 		width: 48px;
 		height: 22px;
 		border-radius: 0.2rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		font-size: 0.58rem;
 		text-align: center;
 		padding: 0 0.2rem;
 	}
 	.composition-timeline :global(.timing-input:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.motion-layer-bands,
@@ -4674,7 +4675,7 @@
 		flex-direction: column;
 		gap: 0.15rem;
 		padding: 0.25rem 0.35rem;
-		border-top: 1px dashed oklch(0.24 0.012 55);
+		border-top: 1px dashed var(--video-editor-border);
 	}
 	.motion-layer-band,
 	.modifier-band {
@@ -4691,7 +4692,7 @@
 	}
 	.motion-layer-band:focus-visible,
 	.modifier-band:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.path-vertex-lane,
@@ -4699,16 +4700,16 @@
 		display: flex;
 		align-items: center;
 		padding: 0.2rem 0.35rem;
-		border-top: 1px dashed oklch(0.24 0.012 55);
+		border-top: 1px dashed var(--video-editor-border);
 		font-size: 0.58rem;
-		color: oklch(0.68 0.015 65);
+		color: var(--video-editor-muted);
 	}
 	.link-pick-row {
 		display: flex;
 		align-items: center;
 		gap: 0.3rem;
 		padding: 0.25rem 0.35rem;
-		border-top: 1px dashed oklch(0.24 0.012 55);
+		border-top: 1px dashed var(--video-editor-border);
 	}
 	.link-pick-btn {
 		display: inline-flex;
@@ -4717,33 +4718,33 @@
 		height: 22px;
 		padding: 0 0.4rem;
 		border-radius: 0.2rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		font-size: 0.58rem;
 		cursor: pointer;
 	}
 	.link-pick-btn[aria-pressed='true'] {
 		border-color: oklch(0.66 0.14 45);
-		background: oklch(0.28 0.03 50);
+		background: var(--video-editor-border);
 	}
 	.link-pick-btn:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.link-badge {
 		font-size: 0.58rem;
 		padding: 0.1rem 0.3rem;
 		border-radius: 0.2rem;
-		background: oklch(0.22 0.015 55);
-		border: 1px solid oklch(0.26 0.016 55);
+		background: var(--video-editor-control);
+		border: 1px solid var(--video-editor-border);
 	}
 	.published-controls {
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
 		padding: 0.3rem 0.35rem;
-		border-top: 1px dashed oklch(0.24 0.012 55);
+		border-top: 1px dashed var(--video-editor-border);
 	}
 	.control-row {
 		display: flex;
@@ -4755,13 +4756,13 @@
 		flex: 1;
 		height: 22px;
 		border-radius: 0.2rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		padding: 0 0.3rem;
 	}
 	.control-row :global(input:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.drop-ghost {
@@ -4781,7 +4782,7 @@
 		bottom: 0;
 		width: 1px;
 		background: oklch(0.76 0.14 45);
-		box-shadow: 0 0 0 1px oklch(0.18 0.01 55 / 0.75);
+		box-shadow: 0 0 0 1px color-mix(in oklch, var(--video-editor-panel) 75%, transparent);
 		pointer-events: none;
 		z-index: 12;
 	}
@@ -4801,13 +4802,13 @@
 		justify-content: space-between;
 		gap: 0.6rem;
 		padding: 0.45rem 0.6rem;
-		border-top: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.17 0.01 55);
+		border-top: 1px solid var(--video-editor-border);
+		background: var(--video-editor-panel);
 		flex-wrap: wrap;
 	}
 	.footer-status {
 		font-size: 0.62rem;
-		color: oklch(0.68 0.015 65);
+		color: var(--video-editor-muted);
 		min-height: 18px;
 	}
 	.footer-actions {
@@ -4822,15 +4823,15 @@
 	.frame-readout {
 		font-size: 0.62rem;
 		font-variant-numeric: tabular-nums;
-		color: oklch(0.72 0.015 65);
+		color: var(--video-editor-muted);
 	}
 	.pick-overlay {
 		position: absolute;
 		inset: 0;
 		display: grid;
 		place-items: center;
-		background: oklch(0.12 0.008 55 / 0.6);
-		color: oklch(0.9 0.01 65);
+		background: color-mix(in oklch, var(--video-editor-panel) 60%, transparent);
+		color: var(--video-editor-text);
 		font-size: 0.72rem;
 		pointer-events: none;
 	}
@@ -4845,8 +4846,8 @@
 		left: 50%;
 		top: 50%;
 		transform: translate(-50%, -50%);
-		background: oklch(0.18 0.01 55);
-		border: 1px solid oklch(0.26 0.016 55);
+		background: var(--video-editor-panel);
+		border: 1px solid var(--video-editor-border);
 		border-radius: 0.5rem;
 		padding: 1rem;
 		z-index: 50;
@@ -4856,7 +4857,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-		color: oklch(0.9 0.01 65);
+		color: var(--video-editor-text);
 	}
 	.dialog h3 {
 		margin: 0;
@@ -4872,13 +4873,13 @@
 	.dialog :global(input) {
 		height: 32px;
 		border-radius: 0.32rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		padding: 0 0.5rem;
 	}
 	.dialog :global(input:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.dialog-actions {
@@ -4893,11 +4894,11 @@
 		gap: 0.8rem;
 		padding: 2rem 1rem;
 		text-align: center;
-		color: oklch(0.68 0.015 65);
+		color: var(--video-editor-muted);
 		min-height: 240px;
-		border: 1px dashed oklch(0.26 0.016 55);
+		border: 1px dashed var(--video-editor-border);
 		border-radius: 0.5rem;
-		background: oklch(0.16 0.009 55);
+		background: var(--video-editor-panel);
 	}
 	.empty-picker {
 		display: flex;
@@ -4908,13 +4909,13 @@
 	.empty-picker :global(button[data-slot='select-trigger']) {
 		height: 32px;
 		border-radius: 0.32rem;
-		border: 1px solid oklch(0.26 0.016 55);
-		background: oklch(0.2 0.01 55);
+		border: 1px solid var(--video-editor-border);
+		background: var(--video-editor-control);
 		color: inherit;
 		padding: 0 0.4rem;
 	}
 	.empty-picker :global(button[data-slot='select-trigger']:focus-visible) {
-		outline: 2px solid oklch(0.66 0.14 45);
+		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
 	}
 	.sr-only {

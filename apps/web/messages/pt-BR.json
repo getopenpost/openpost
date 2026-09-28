@@ -5102,6 +5102,7 @@
 	"video_editor_model_cancel": "Agora não",
 	"video_editor_smart_unavailable": "Esta ferramenta de análise local só fica disponível quando um modelo verificado está configurado.",
 	"video_editor_select_clip": "Selecione um clipe para usar esta ferramenta.",
+	"video_editor_transition_select_one_clip": "Selecione um único clipe para adicionar uma transição.",
 	"video_editor_color_keyframes_add_effect": "Adicione um efeito de cor para animar seus controles.",
 	"video_editor_text_default": "Seu título",
 	"video_editor_caption_default": "Adicionar uma legenda",

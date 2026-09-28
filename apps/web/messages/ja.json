@@ -5102,6 +5102,7 @@
 	"video_editor_model_cancel": "今はしない",
 	"video_editor_smart_unavailable": "このローカル解析ツールは、検証済みモデルが設定されるまで利用できません。",
 	"video_editor_select_clip": "このツールを使うにはクリップを選択してください。",
+	"video_editor_transition_select_one_clip": "トランジションを追加するには、クリップを1つ選択してください。",
 	"video_editor_color_keyframes_add_effect": "カラーエフェクトを追加すると、コントロールをアニメーション化できます。",
 	"video_editor_text_default": "タイトルを入力",
 	"video_editor_caption_default": "字幕を入力",

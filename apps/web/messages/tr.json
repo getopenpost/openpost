@@ -5102,6 +5102,7 @@
 	"video_editor_model_cancel": "Şimdi değil",
 	"video_editor_smart_unavailable": "Bu yerel analiz aracı, doğrulanmış modeli yapılandırılana kadar kullanılamaz.",
 	"video_editor_select_clip": "Bu aracı kullanmak için bir klip seçin.",
+	"video_editor_transition_select_one_clip": "Geçiş eklemek için tek bir klip seçin.",
 	"video_editor_color_keyframes_add_effect": "Kontrollerini canlandırmak için bir renk efekti ekleyin.",
 	"video_editor_text_default": "Başlığınız",
 	"video_editor_caption_default": "Altyazı ekleyin",

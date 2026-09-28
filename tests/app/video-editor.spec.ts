@@ -96,7 +96,7 @@ async function seedDistinctSequences(page: Page): Promise<void> {
       const composition = (
         id: string,
         name: string,
-        items: Array<Record<string, unknown>>,
+        items: Array<ReturnType<typeof textItem>>,
         editorKind = "sequence",
       ) => ({
         id,
@@ -140,6 +140,12 @@ async function seedDistinctSequences(page: Page): Promise<void> {
           composition(compoundId, "Nested compound", [
             textItem("switch-proof-compound-item", "Compound slate"),
           ]),
+          composition(
+            "switch-proof-motion",
+            "Existing motion",
+            [textItem("switch-proof-motion-item", "Motion slate")],
+            "composite-2d",
+          ),
         ],
         topLevelSequenceIds: ["switch-proof-alpha", "switch-proof-beta"],
       };
@@ -250,6 +256,130 @@ test("sequence switches synchronize tracks, preview, and selection", async ({ pa
   await page.getByRole("button", { name: "Main", exact: true }).click();
   await expectTimeline("switch-proof-main", "Main slate");
   await expect(inspectorHeading).toHaveText("Main slate");
+});
+
+test("selected clip split leaves other overlapping tracks intact", async ({ page }) => {
+  await createProject(page, "Selected split");
+  await addTextItem(page);
+  await addTextItem(page);
+  const clips = page.locator("[data-timeline-item-id]");
+  await expect(clips).toHaveCount(2);
+  const selected = clips.last();
+  const untouchedId = await clips.first().getAttribute("data-timeline-item-id");
+  const untouched = page.locator(`[data-timeline-item-id="${untouchedId}"]`);
+  const untouchedWidth = (await untouched.boundingBox())!.width;
+  await page.getByRole("slider", { name: "Timeline playhead", exact: true }).press("ArrowRight");
+  await selected.getByRole("button", { name: /Drag to move/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: /Split at playhead/ }).click();
+  await expect(clips).toHaveCount(3);
+  expect((await untouched.boundingBox())!.width).toBe(untouchedWidth);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(clips).toHaveCount(2);
+  await page.getByRole("region", { name: "Timeline", exact: true }).focus();
+  await page.keyboard.press("b");
+  await expect(clips).toHaveCount(3);
+  expect((await untouched.boundingBox())!.width).toBe(untouchedWidth);
+});
+
+test("transition feedback explains the single-clip requirement", async ({ page }, testInfo) => {
+  await createProject(page, "Transition selection");
+  await addTextItem(page);
+  await addTextItem(page);
+  const clips = page.locator("[data-timeline-item-id]");
+  await clips
+    .first()
+    .getByRole("button", { name: /Drag to move/ })
+    .click();
+  await clips
+    .last()
+    .getByRole("button", { name: /Drag to move/ })
+    .click({ modifiers: ["Shift"] });
+  await expect(page.getByRole("heading", { name: "2 clips selected" })).toBeVisible();
+  await page.getByRole("tab", { name: "Transition", exact: true }).click();
+  await page.getByRole("button", { name: "Cross dissolve", exact: true }).click();
+  await expect(
+    page.getByText("Select one clip to add a transition.", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("transition-selection-fixed.png") });
+});
+
+test("Motion distinguishes an empty composition from a selection and restores Edit selection", async ({
+  page,
+}, testInfo) => {
+  await createProject(page, "Motion creation intent");
+  await seedDistinctSequences(page);
+  await page.getByRole("button", { name: /^Main slate\. Drag/ }).click();
+  await page.getByRole("tab", { name: "Motion", exact: true }).first().click();
+  await expect(page.getByTestId("composition-new")).toHaveAccessibleName("New composition");
+  await page.getByTestId("composition-new").click();
+  await expect(page.getByRole("dialog", { name: "New composition" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("motion-new-composition-fixed.png") });
+  await page.getByTestId("new-composition-cancel").click();
+  await page.getByRole("tab", { name: "Edit", exact: true }).click();
+  await expect(page.locator("#video-editor-tools-panel h2")).toHaveText("Main slate");
+});
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`Motion creation controls remain readable in ${scheme}`, async ({ page }, testInfo) => {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await createProject(page, "Motion contrast");
+    await seedDistinctSequences(page);
+    await page.getByRole("tab", { name: "Motion", exact: true }).click();
+    await page.getByTestId("composition-new").click();
+    const cancel = page.getByTestId("new-composition-cancel");
+    const contrast = await cancel.evaluate((button) => {
+      const surface = button.closest('[role="dialog"]')!;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d")!;
+      const luminance = (color: string) => {
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        const rgb = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => {
+          const channel = value / 255;
+          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        });
+        return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+      };
+      const text = luminance(getComputedStyle(button).color);
+      const background = luminance(getComputedStyle(surface).backgroundColor);
+      return {
+        ratio: (Math.max(text, background) + 0.05) / (Math.min(text, background) + 0.05),
+        buttonBackground: getComputedStyle(button).backgroundColor,
+      };
+    });
+    expect(contrast.buttonBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(
+      contrast.ratio,
+      "Cancel text meets normal-text contrast on the Motion dialog",
+    ).toBeGreaterThanOrEqual(4.5);
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(cancel).toBeInViewport({ ratio: 1 });
+      await page.screenshot({
+        path: testInfo.outputPath(`motion-creation-${scheme}-${width}.png`),
+      });
+    }
+  });
+}
+
+test("reload restores the active sequence without editing the project", async ({ page }) => {
+  await createProject(page, "Sequence continuity");
+  await seedDistinctSequences(page);
+  await page.getByRole("button", { name: "Alpha sequence", exact: true }).click();
+  await expect(page.locator('[data-timeline-item-id="switch-proof-alpha-item"]')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('[data-timeline-item-id="switch-proof-alpha-item"]')).toBeVisible();
+  await page.getByRole("tab", { name: "Motion", exact: true }).click();
+  await expect(page.getByTestId("composition-layer-switch-proof-motion-item")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("composition-layer-switch-proof-motion-item")).toBeVisible();
+  await page.getByRole("tab", { name: "Edit", exact: true }).click();
+  await expect(page.locator('[data-timeline-item-id="switch-proof-alpha-item"]')).toBeVisible();
+  await page.getByRole("button", { name: "Main", exact: true }).click();
+  await page.reload();
+  await expect(page.locator('[data-timeline-item-id="switch-proof-main"]')).toBeVisible();
 });
 
 test("Stock and Create keep working state while another tool is open", async ({

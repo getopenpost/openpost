@@ -18,6 +18,7 @@ import { Clock } from './preview/clock';
 import { mediaPool } from './media/pool.svelte';
 import { sceneBrowser } from './media/scene-search/scene-browser.svelte';
 import { sequenceStore } from './sequences/sequence-store.svelte';
+import { readSequenceView, writeSequenceView } from './sequences/sequence-view-storage';
 import { editorSettings } from './settings/editor-settings.svelte';
 import { mediaRecovery } from './media/media-recovery.svelte';
 import { PeriodicAutosaveController } from './settings/periodic-autosave';
@@ -57,6 +58,7 @@ class EditorSession {
 	});
 
 	private projectId: string | null = null;
+	private cloudWorkspaceId = '';
 	private cloudProject: CloudVideoProject<Project> | null = null;
 	private cloudRepository: CloudVideoProjectRepository<Project> | null = null;
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -126,6 +128,7 @@ class EditorSession {
 		this.stopAutosaveTimers();
 		this.project = null;
 		this.projectId = projectId;
+		this.cloudWorkspaceId = cloudWorkspaceId;
 		this.cloudRepository = cloudWorkspaceId
 			? new CloudVideoProjectRepository<Project>(cloudWorkspaceId)
 			: null;
@@ -162,9 +165,15 @@ class EditorSession {
 			this.cloudProject = cloudProject;
 			commandHistory.clearHistory();
 			sequenceStore.load(project.timeline ?? { tracks: [], items: [] }, project.metadata);
+			const savedView = readSequenceView(projectId, cloudWorkspaceId);
+			const editSequence = savedView?.editSequenceId
+				? sequenceStore.compositionById.get(savedView.editSequenceId)
+				: null;
+			this.editSequenceId =
+				editSequence && editSequence.editorKind !== 'composite-2d' ? editSequence.id : null;
+			sequenceStore.switchTo(savedView?.activeSequenceId ?? null);
 			timelineStore._setSnapEnabled(editorSettings.snapByDefault);
 			timelineStore._setMaxUndoHistory(editorSettings.maxUndoHistory);
-			this.clock.setFps(project.metadata.fps);
 			this.syncTimelineClock();
 			const media =
 				this.cloudProject && this.cloudRepository
@@ -182,6 +191,18 @@ class EditorSession {
 		} finally {
 			this.loading = false;
 		}
+	}
+
+	editSequenceId: string | null = null;
+
+	rememberActiveSequence(sequenceId: string | null): void {
+		if (!this.projectId || this.loading || this.loadError) return;
+		if (sequenceStore.activeSequence?.editorKind !== 'composite-2d')
+			this.editSequenceId = sequenceId;
+		writeSequenceView(this.projectId, this.cloudWorkspaceId, {
+			activeSequenceId: sequenceId,
+			editSequenceId: this.editSequenceId
+		});
 	}
 
 	syncTimelineClock(): void {

@@ -33,6 +33,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		removeItems,
 		rippleDeleteItems,
 		splitAtFrame,
+		splitItemsAtFrame,
 		splitAtScenes,
 		removeMarker,
 		setCurrentFrame,
@@ -468,6 +469,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (activeTimelineKey === lastActiveTimelineKey) return;
 		lastActiveTimelineKey = activeTimelineKey;
 		untrack(handleTabSwitchSelection);
+	});
+	$effect(() => {
+		if (!displayedProject) return;
+		editorSession.rememberActiveSequence(sequenceStore.activeSequenceId);
 	});
 	let colorGradeScope = $state<'clip' | 'sequence'>('clip');
 	let sourceMediaId = $state<string | null>(null);
@@ -1168,7 +1173,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	function handleSplit(): void {
-		const result = splitAtFrame(timelineStore.currentFrame, undefined);
+		const selection =
+			selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : [];
+		const targets = timelineStore.linkedSelectionEnabled
+			? expandSelectionWithLinkedItems(timelineStore.items, selection)
+			: selection;
+		const result =
+			targets.length > 0
+				? splitItemsAtFrame(timelineStore.currentFrame, targets)
+				: splitAtFrame(timelineStore.currentFrame);
 		emitEditorSound(result.right.length > 0 ? 'confirm' : 'error', editorSession.clock.isPlaying);
 		if (result.right.length === 0) return;
 		editorSession.scheduleAutosave();
@@ -1432,8 +1445,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		const workspace = activeWorkspace;
 		const compositions = sequenceStore.compositions;
 		const active = sequenceStore.activeSequence;
-		if (workspace !== 'motion') return;
+		if (workspace !== 'motion' || editorSession.loading) return;
 		if (active?.editorKind === 'composite-2d') {
+			if (!motionWorkspaceReturnCaptured) {
+				motionWorkspaceReturnSequenceId = editorSession.editSequenceId;
+				motionWorkspaceReturnCaptured = true;
+			}
 			lastMotionCompositionId = active.id;
 			return;
 		}
@@ -1911,7 +1928,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			return;
 		}
 		if (selectedItemIds.length > 1 || !selectedItemId) {
-			showToast(m.video_editor_select_clip(), 'info');
+			showToast(m.video_editor_transition_select_one_clip(), 'info');
 			return;
 		}
 		const target = resolveTransitionTargetFromSelection({

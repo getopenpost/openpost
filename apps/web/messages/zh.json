@@ -5102,6 +5102,7 @@
 	"video_editor_model_cancel": "暂不",
 	"video_editor_smart_unavailable": "在其校验过的模型配置完成前，该本地分析工具不可用。",
 	"video_editor_select_clip": "选择一个剪辑即可使用此工具。",
+	"video_editor_transition_select_one_clip": "请选择一个片段以添加转场。",
 	"video_editor_color_keyframes_add_effect": "添加色彩效果即可为其控件制作动画。",
 	"video_editor_text_default": "你的标题",
 	"video_editor_caption_default": "添加一条字幕",

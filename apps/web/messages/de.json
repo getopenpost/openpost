@@ -5097,6 +5097,7 @@
 	"video_editor_model_cancel": "Jetzt nicht",
 	"video_editor_smart_unavailable": "Dieses lokale Analysewerkzeug ist erst verfügbar, wenn sein verifiziertes Modell konfiguriert ist.",
 	"video_editor_select_clip": "Wähle einen Clip, um dieses Werkzeug zu verwenden.",
+	"video_editor_transition_select_one_clip": "Wähle einen einzelnen Clip aus, um einen Übergang hinzuzufügen.",
 	"video_editor_color_keyframes_add_effect": "Füge einen Farbeffekt hinzu, um seine Regler zu animieren.",
 	"video_editor_text_default": "Dein Titel",
 	"video_editor_caption_default": "Untertitel hinzufügen",

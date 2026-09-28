@@ -5143,6 +5143,7 @@
 	"video_editor_model_cancel": "Not now",
 	"video_editor_smart_unavailable": "This local analysis tool is not available until its verified model is configured.",
 	"video_editor_select_clip": "Select a clip to use this tool.",
+	"video_editor_transition_select_one_clip": "Select one clip to add a transition.",
 	"video_editor_color_keyframes_add_effect": "Add a color effect to animate its controls.",
 	"video_editor_text_default": "Your title",
 	"video_editor_caption_default": "Add a caption",

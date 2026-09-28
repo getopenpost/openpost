@@ -13,7 +13,10 @@ import (
 	"time"
 )
 
-const blueskyChatProxy = "did:web:api.bsky.chat#bsky_chat"
+const (
+	blueskyChatProxy       = "did:web:api.bsky.chat#bsky_chat"
+	blueskyChatMessageView = "chat.bsky.convo.defs#messageView"
+)
 
 func (b *BlueskyAdapter) MessagingSupport() MessagingSupport {
 	return MessagingSupport{
@@ -62,6 +65,7 @@ func (b *BlueskyAdapter) FetchMessages(ctx context.Context, accessToken string, 
 		}
 		var messageList struct {
 			Messages []struct {
+				Type   string `json:"$type"`
 				ID     string `json:"id"`
 				Text   string `json:"text"`
 				SentAt string `json:"sentAt"`
@@ -75,7 +79,10 @@ func (b *BlueskyAdapter) FetchMessages(ctx context.Context, accessToken string, 
 		}
 		messages := make([]ProviderMessage, 0, len(messageList.Messages))
 		for _, message := range messageList.Messages {
-			if message.ID == "" {
+			// getMessages also returns deletedMessageView (deleted by this
+			// account) and systemMessageView (group events), which carry no
+			// text and must not arrive as empty messages.
+			if message.ID == "" || (message.Type != "" && message.Type != blueskyChatMessageView) {
 				continue
 			}
 			sentAt, _ := time.Parse(time.RFC3339Nano, message.SentAt)

@@ -33,6 +33,7 @@ var publicOperationIDs = map[string]struct{}{
 	"poll-cli-auth":                      {},
 	"readiness-check":                    {},
 	"register":                           {},
+	"join-hosted-waitlist":               {},
 	"request-password-reset":             {},
 	"resend-email-verification":          {},
 	"reset-password":                     {},

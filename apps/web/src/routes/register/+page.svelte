@@ -13,6 +13,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PurchaseChoiceError from '$lib/components/purchase-choice-error.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
+	import HostedWaitlist from '$lib/components/hosted-waitlist.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { onboardingPathForPlan } from '$lib/billing';
 	import PurchaseChoiceSummary from '$lib/components/purchase-choice-summary.svelte';
@@ -100,7 +101,9 @@
 				error = m.auth_config_load_failed();
 			} else if (configurationResult) {
 				authConfiguration = configurationResult;
-				if (!configurationResult.registration_enabled) error = m.auth_registration_disabled();
+				if (!configurationResult.registration_enabled && !configurationResult.waitlist_enabled) {
+					error = m.auth_registration_disabled();
+				}
 				if (
 					configurationResult.registration_enabled &&
 					configurationResult.purchase_choice_required
@@ -113,7 +116,7 @@
 
 			if (providerResult) oidcProviders = providerResult;
 			configurationLoadError = results[0].status === 'rejected';
-			providerLoadError = results[1].status === 'rejected';
+			providerLoadError = !authConfiguration?.waitlist_enabled && results[1].status === 'rejected';
 
 			if ((results[0].status === 'rejected' || providerLoadError) && !error) {
 				error = m.auth_config_load_failed();
@@ -290,173 +293,185 @@
 </script>
 
 <svelte:head>
-	<title>{hostedSignup ? m.auth_register_title() : m.auth_register_selfhost_title()}</title>
+	<title
+		>{authConfiguration?.waitlist_enabled
+			? m.waitlist_title()
+			: hostedSignup
+				? m.auth_register_title()
+				: m.auth_register_selfhost_title()}</title
+	>
 </svelte:head>
 
-<StandaloneShell
-	title={hostedSignup ? m.auth_register_heading() : m.auth_register_selfhost_heading()}
-	description={hostedSignup
-		? m.auth_register_description()
-		: m.auth_register_selfhost_description()}
-	logoHref="/"
->
-	{#if hostedSignup}
-		<div
-			class="mb-5 grid grid-cols-3 gap-2 border-y py-3 text-center text-[11px] leading-4 text-muted-foreground"
-		>
-			<span>{m.auth_register_proof_trial()}</span>
-			<span>{m.auth_register_proof_channels()}</span>
-			<span>{m.auth_register_proof_cancel()}</span>
-		</div>
-	{/if}
-	{#if purchaseChoiceLoading}
-		<div
-			class="mb-4 flex items-center justify-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground"
-			role="status"
-		>
-			<ProtectedIcon icon="loading" class="size-4 animate-spin" />
-			{m.purchase_choice_loading()}
-		</div>
-	{:else if purchaseChoice}
-		<div class="mb-4">
-			<PurchaseChoiceSummary choice={purchaseChoice} />
-		</div>
-	{:else if authConfiguration?.purchase_choice_required && purchaseChoiceError}
-		<PurchaseChoiceError code={purchaseChoiceError} className="mb-4" />
-	{/if}
-	{#if error}
-		<InlineNotice tone={authConfiguration ? 'warning' : 'error'} message={error} class="mb-4">
-			{#snippet actions()}
-				{#if !configurationLoading && (!authConfiguration || configurationLoadError || providerLoadError)}
-					<Button variant="outline" size="sm" onclick={() => void loadConfiguration()}>
-						{m.common_retry()}
-					</Button>
-				{/if}
-			{/snippet}
-		</InlineNotice>
-	{/if}
+{#if configurationLoading && !authConfiguration}
+	<StandaloneShell title="OpenPost" logoHref="/" loading loadingLabel={m.common_loading()} />
+{:else if authConfiguration?.waitlist_enabled}
+	<HostedWaitlist privacyURL={authConfiguration.privacy_url} loginHref={loginTarget()} />
+{:else}
+	<StandaloneShell
+		title={hostedSignup ? m.auth_register_heading() : m.auth_register_selfhost_heading()}
+		description={hostedSignup
+			? m.auth_register_description()
+			: m.auth_register_selfhost_description()}
+		logoHref="/"
+	>
+		{#if hostedSignup}
+			<div
+				class="mb-5 grid grid-cols-3 gap-2 border-y py-3 text-center text-[11px] leading-4 text-muted-foreground"
+			>
+				<span>{m.auth_register_proof_trial()}</span>
+				<span>{m.auth_register_proof_channels()}</span>
+				<span>{m.auth_register_proof_cancel()}</span>
+			</div>
+		{/if}
+		{#if purchaseChoiceLoading}
+			<div
+				class="mb-4 flex items-center justify-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground"
+				role="status"
+			>
+				<ProtectedIcon icon="loading" class="size-4 animate-spin" />
+				{m.purchase_choice_loading()}
+			</div>
+		{:else if purchaseChoice}
+			<div class="mb-4">
+				<PurchaseChoiceSummary choice={purchaseChoice} />
+			</div>
+		{:else if authConfiguration?.purchase_choice_required && purchaseChoiceError}
+			<PurchaseChoiceError code={purchaseChoiceError} className="mb-4" />
+		{/if}
+		{#if error}
+			<InlineNotice tone={authConfiguration ? 'warning' : 'error'} message={error} class="mb-4">
+				{#snippet actions()}
+					{#if !configurationLoading && (!authConfiguration || configurationLoadError || providerLoadError)}
+						<Button variant="outline" size="sm" onclick={() => void loadConfiguration()}>
+							{m.common_retry()}
+						</Button>
+					{/if}
+				{/snippet}
+			</InlineNotice>
+		{/if}
 
-	{#if authConfiguration?.registration_enabled && signupProviders.length}
-		<AuthProviderButtons
-			providers={signupProviders}
-			returnPath={oidcReturnTarget()}
-			disabled={isLoading ||
-				purchaseChoiceLoading ||
-				(authConfiguration.purchase_choice_required && !purchaseChoice)}
-			signup={true}
-			{purchaseChoice}
-			onstart={() => captureTelemetryEvent('signup started')}
-			onerror={(message) => (error = message)}
-		/>
-		<div class="my-5 flex items-center gap-3" aria-hidden="true">
-			<div class="h-px flex-1 bg-border"></div>
-			<span class="text-xs font-medium text-muted-foreground">{m.common_or()}</span>
-			<div class="h-px flex-1 bg-border"></div>
-		</div>
-	{/if}
-
-	<form onsubmit={handleSubmit} class="space-y-4">
-		<div class="space-y-2">
-			<Label for="email">{m.common_email()}</Label>
-			<Input
-				type="email"
-				id="email"
-				bind:value={email}
-				required
-				autocomplete="email"
-				placeholder={m.auth_email_placeholder()}
+		{#if authConfiguration?.registration_enabled && signupProviders.length}
+			<AuthProviderButtons
+				providers={signupProviders}
+				returnPath={oidcReturnTarget()}
+				disabled={isLoading ||
+					purchaseChoiceLoading ||
+					(authConfiguration.purchase_choice_required && !purchaseChoice)}
+				signup={true}
+				{purchaseChoice}
+				onstart={() => captureTelemetryEvent('signup started')}
+				onerror={(message) => (error = message)}
 			/>
-		</div>
-
-		<PasswordField
-			id="password"
-			label={m.common_password()}
-			bind:value={password}
-			required
-			autocomplete="new-password"
-			placeholder={m.auth_password_min_placeholder()}
-			describedby="password-rules"
-		/>
-
-		<div id="password-rules" class="rounded-md border bg-muted/20 p-3 text-sm">
-			<p class="font-medium">{m.auth_password_rules_heading()}</p>
-			<ul class="mt-2 space-y-2" aria-live="polite">
-				{#each [{ met: passwordHasMinimum, label: m.auth_password_rule_minimum() }, { met: passwordWithinMaximum, label: m.auth_password_rule_maximum() }, { met: passwordsMatch, label: m.auth_password_rule_match() }] as rule (rule.label)}
-					<li class="flex items-center gap-2" class:text-muted-foreground={!rule.met}>
-						{#if rule.met}
-							<ThemeIcon role="check" class="size-4 text-emerald-600 dark:text-emerald-400" />
-						{:else}
-							<ProtectedIcon icon="pending" class="size-4" />
-						{/if}
-						<span class="sr-only">
-							{rule.met ? m.auth_password_rule_met() : m.auth_password_rule_pending()}
-						</span>
-						<span>{rule.label}</span>
-					</li>
-				{/each}
-			</ul>
-		</div>
-
-		<PasswordField
-			id="confirmPassword"
-			label={m.auth_confirm_password()}
-			bind:value={confirmPassword}
-			required
-			autocomplete="new-password"
-			placeholder={m.auth_password_confirm_placeholder()}
-			describedby="password-rules"
-		/>
-
-		{#if authConfiguration?.legal_acceptance_required}
-			<div class="flex items-start gap-3 rounded-md border p-3">
-				<Checkbox id="legal-acceptance" bind:checked={acceptedLegal} required />
-				<Label for="legal-acceptance" class="block min-w-0 flex-1 text-sm leading-5 font-normal">
-					{m.auth_register_legal_prefix()}
-					<a
-						{...externalHref(authConfiguration.terms_url, 'https://openpo.st/terms')}
-						target="_blank"
-						rel="noreferrer"
-						class="font-medium text-primary underline-offset-4 hover:underline"
-						>{m.auth_register_terms()}</a
-					>
-					{m.auth_register_legal_join()}
-					<a
-						{...externalHref(authConfiguration.privacy_url, 'https://openpo.st/privacy')}
-						target="_blank"
-						rel="noreferrer"
-						class="font-medium text-primary underline-offset-4 hover:underline"
-						>{m.auth_register_privacy()}</a
-					>.
-				</Label>
+			<div class="my-5 flex items-center gap-3" aria-hidden="true">
+				<div class="h-px flex-1 bg-border"></div>
+				<span class="text-xs font-medium text-muted-foreground">{m.common_or()}</span>
+				<div class="h-px flex-1 bg-border"></div>
 			</div>
 		{/if}
 
-		<Button
-			type="submit"
-			disabled={isLoading ||
-				configurationLoading ||
-				!authConfiguration ||
-				!authConfiguration.registration_enabled ||
-				purchaseChoiceLoading ||
-				(Boolean(authConfiguration?.purchase_choice_required) && !purchaseChoice) ||
-				(Boolean(authConfiguration?.legal_acceptance_required) && !acceptedLegal)}
-			class="w-full gap-2"
-		>
-			{#if isLoading}
-				<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
-				{m.auth_register_loading()}
-			{:else}
-				{m.auth_register_submit()}
-			{/if}
-		</Button>
-	</form>
+		<form onsubmit={handleSubmit} class="space-y-4">
+			<div class="space-y-2">
+				<Label for="email">{m.common_email()}</Label>
+				<Input
+					type="email"
+					id="email"
+					bind:value={email}
+					required
+					autocomplete="email"
+					placeholder={m.auth_email_placeholder()}
+				/>
+			</div>
 
-	<p class="mt-6 text-center text-sm text-muted-foreground">
-		{m.auth_register_have_account()}
-		<a
-			href={resolveAppPath(loginTarget())}
-			class="inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
-			>{m.auth_register_sign_in()}</a
-		>
-	</p>
-</StandaloneShell>
+			<PasswordField
+				id="password"
+				label={m.common_password()}
+				bind:value={password}
+				required
+				autocomplete="new-password"
+				placeholder={m.auth_password_min_placeholder()}
+				describedby="password-rules"
+			/>
+
+			<div id="password-rules" class="rounded-md border bg-muted/20 p-3 text-sm">
+				<p class="font-medium">{m.auth_password_rules_heading()}</p>
+				<ul class="mt-2 space-y-2" aria-live="polite">
+					{#each [{ met: passwordHasMinimum, label: m.auth_password_rule_minimum() }, { met: passwordWithinMaximum, label: m.auth_password_rule_maximum() }, { met: passwordsMatch, label: m.auth_password_rule_match() }] as rule (rule.label)}
+						<li class="flex items-center gap-2" class:text-muted-foreground={!rule.met}>
+							{#if rule.met}
+								<ThemeIcon role="check" class="size-4 text-emerald-600 dark:text-emerald-400" />
+							{:else}
+								<ProtectedIcon icon="pending" class="size-4" />
+							{/if}
+							<span class="sr-only">
+								{rule.met ? m.auth_password_rule_met() : m.auth_password_rule_pending()}
+							</span>
+							<span>{rule.label}</span>
+						</li>
+					{/each}
+				</ul>
+			</div>
+
+			<PasswordField
+				id="confirmPassword"
+				label={m.auth_confirm_password()}
+				bind:value={confirmPassword}
+				required
+				autocomplete="new-password"
+				placeholder={m.auth_password_confirm_placeholder()}
+				describedby="password-rules"
+			/>
+
+			{#if authConfiguration?.legal_acceptance_required}
+				<div class="flex items-start gap-3 rounded-md border p-3">
+					<Checkbox id="legal-acceptance" bind:checked={acceptedLegal} required />
+					<Label for="legal-acceptance" class="block min-w-0 flex-1 text-sm leading-5 font-normal">
+						{m.auth_register_legal_prefix()}
+						<a
+							{...externalHref(authConfiguration.terms_url, 'https://openpo.st/terms')}
+							target="_blank"
+							rel="noreferrer"
+							class="font-medium text-primary underline-offset-4 hover:underline"
+							>{m.auth_register_terms()}</a
+						>
+						{m.auth_register_legal_join()}
+						<a
+							{...externalHref(authConfiguration.privacy_url, 'https://openpo.st/privacy')}
+							target="_blank"
+							rel="noreferrer"
+							class="font-medium text-primary underline-offset-4 hover:underline"
+							>{m.auth_register_privacy()}</a
+						>.
+					</Label>
+				</div>
+			{/if}
+
+			<Button
+				type="submit"
+				disabled={isLoading ||
+					configurationLoading ||
+					!authConfiguration ||
+					!authConfiguration.registration_enabled ||
+					purchaseChoiceLoading ||
+					(Boolean(authConfiguration?.purchase_choice_required) && !purchaseChoice) ||
+					(Boolean(authConfiguration?.legal_acceptance_required) && !acceptedLegal)}
+				class="w-full gap-2"
+			>
+				{#if isLoading}
+					<ProtectedIcon icon="loading" class="h-4 w-4 animate-spin" />
+					{m.auth_register_loading()}
+				{:else}
+					{m.auth_register_submit()}
+				{/if}
+			</Button>
+		</form>
+
+		<p class="mt-6 text-center text-sm text-muted-foreground">
+			{m.auth_register_have_account()}
+			<a
+				href={resolveAppPath(loginTarget())}
+				class="inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
+				>{m.auth_register_sign_in()}</a
+			>
+		</p>
+	</StandaloneShell>
+{/if}

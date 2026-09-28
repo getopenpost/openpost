@@ -87,6 +87,7 @@ import (
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/services/waitlist"
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/services/workspaceteam"
 	"github.com/openpost/backend/internal/telemetry"
@@ -282,6 +283,7 @@ func main() {
 		NativeCallbackURL:     cfg.OIDCNativeCallbackURL,
 		RegistrationsDisabled: cfg.DisableRegistrations,
 		RequireExplicitSignup: cfg.Edition == config.EditionCloud,
+		WaitlistEnabled:       cfg.HostedWaitlistEnabled,
 		Environment: identity.EnvironmentProviderConfig{
 			Issuer:            cfg.OIDCIssuer,
 			ClientID:          cfg.OIDCClientID,
@@ -301,6 +303,7 @@ func main() {
 	}
 	apiTokenService := apitokens.NewService(db)
 	sessionService := sessions.NewService(db)
+	waitlistService := waitlist.NewService(db, cfg.BillingDiscordWebhookURL)
 	billingService := billing.NewService(db, cfg.PaddleWebhookSecret, billing.PaddleConfig{
 		APIKey:               cfg.PaddleAPIKey,
 		APIBaseURL:           cfg.PaddleAPIBaseURL,
@@ -737,6 +740,7 @@ func main() {
 		worker.SetFeedbackService(feedbackService)
 		worker.SetAnalyticsService(analyticsService)
 		worker.SetBillingService(billingService)
+		worker.SetWaitlistService(waitlistService)
 		worker.SetBotIngressService(botIngressService)
 		worker.SetEngagementService(engagementService)
 		worker.SetMessagingService(messagingService)
@@ -835,7 +839,12 @@ func main() {
 		RunningBuild:   runningBuildRevision(),
 	})
 	githubStarsService := githubstars.NewService(githubstars.Options{})
+	var registrationWaitlist *waitlist.Service
+	if cfg.HostedWaitlistEnabled {
+		registrationWaitlist = waitlistService
+	}
 	apiroutes.RegisterHumaRoutes(api, apiroutes.RouteDeps{
+		WaitlistService:           registrationWaitlist,
 		DB:                        db,
 		WorkflowService:           workflowService,
 		Readiness:                 readiness,

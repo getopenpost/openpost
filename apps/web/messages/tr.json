@@ -1,4 +1,13 @@
 {
+	"waitlist_title": "Bekleme listesi - OpenPost",
+	"waitlist_heading": "OpenPost Cloud neredeyse hazır",
+	"waitlist_description": "Sosyal platformların son onaylarını tamamlıyor ve son ayrıntıları düzeltiyoruz.",
+	"waitlist_email_purpose": "E-posta adresinizi bırakın, kayıtlar açıldığında size haber verelim.",
+	"waitlist_submit": "Bekleme listesine katıl",
+	"waitlist_submitting": "Ekleniyor...",
+	"waitlist_success": "Listeye eklendiniz. Kayıtlar açıldığında size e-posta göndereceğiz.",
+	"waitlist_failed": "E-posta adresiniz kaydedilemedi. Lütfen tekrar deneyin.",
+	"waitlist_rate_limited": "Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.",
 	"image_editor_rasterize": "Görüntüye rasterleştir",
 	"image_editor_merge_down": "Alttakiyle birleştir",
 	"image_editor_merge_selected": "Seçilenleri birleştir",

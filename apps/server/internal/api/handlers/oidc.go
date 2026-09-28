@@ -308,6 +308,9 @@ func (h *OIDCHandler) start(ctx context.Context, input *OIDCStartInput) (*huma.S
 	intent := models.OIDCIntentLogin
 	returnPath := input.ReturnPath
 	if input.Signup {
+		if h.auth.waitlist != nil {
+			return nil, huma.Error403Forbidden("Hosted registration is not open yet; join the waitlist")
+		}
 		if h.auth.purchaseChoiceRequired &&
 			(strings.TrimSpace(input.PlanID) == "" || strings.TrimSpace(input.BillingPeriod) == "") {
 			return nil, purchaseChoiceAPIError(billing.ErrPurchaseChoiceMissing)

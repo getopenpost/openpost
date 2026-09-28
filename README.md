@@ -113,14 +113,9 @@
 
 ### OpenPost Hosted
 
-Use OpenPost to create and schedule posts without running your own server.
+Hosted signups are temporarily on a waitlist while we finish the remaining social platform approvals. Existing accounts can still sign in.
 
-<a href="https://app.openpo.st/register?plan=founder&billing_period=monthly">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/buttons/start-trial-dark.svg">
-    <img src="./assets/buttons/start-trial-light.svg" alt="Start a 14-day trial" height="36">
-  </picture>
-</a>
+[Join the waitlist](https://app.openpo.st/register)
 
 [View plans](https://openpo.st/pricing)
 

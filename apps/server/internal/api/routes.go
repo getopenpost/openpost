@@ -54,6 +54,7 @@ import (
 	"github.com/openpost/backend/internal/services/sessions"
 	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/openpost/backend/internal/services/updatestatus"
+	"github.com/openpost/backend/internal/services/waitlist"
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
@@ -114,6 +115,7 @@ type RouteDeps struct {
 	UnsplashAccessKey            string
 	PixabayAPIKey                string
 	FeedbackService              *feedback.Service
+	WaitlistService              *waitlist.Service
 	IdentityService              *identity.Service
 	InstanceSettingsService      *instancesettings.Service
 	AIPromptService              *aiprompts.Service
@@ -202,6 +204,8 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		deps.MFAService,
 		deps.DisableRegistrations,
 	)
+	authHandler.SetWaitlist(deps.WaitlistService)
+	authHandler.JoinWaitlist(api)
 	authHandler.SetSessionService(deps.SessionService)
 	authHandler.SetPasswordResetSender(deps.PasswordResetSender, deps.PublicURL)
 	authHandler.SetEmailVerification(deps.EmailVerificationService, deps.EmailVerificationSender, deps.EmailVerificationRequired)

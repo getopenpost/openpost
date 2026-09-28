@@ -36,6 +36,7 @@ import (
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/services/waitlist"
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
@@ -110,6 +111,12 @@ func (w *BackgroundWorker) SetAnalyticsService(service *analyticsservice.Service
 			return fmt.Errorf("analytics collection is not configured")
 		}
 		return w.analytics.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
+func (w *BackgroundWorker) SetWaitlistService(service *waitlist.Service) {
+	w.executors[jobregistry.ExecuteWaitlist] = func(ctx context.Context, job *models.Job) error {
+		return service.HandleNotification(ctx, job.Payload)
 	}
 }
 

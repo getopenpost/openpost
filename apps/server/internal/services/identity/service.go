@@ -84,6 +84,7 @@ type Config struct {
 	Environment           EnvironmentProviderConfig
 	FirstParty            []EnvironmentProviderConfig
 	RegistrationsDisabled bool
+	WaitlistEnabled       bool
 	RequireExplicitSignup bool
 	DefaultAssuranceAge   time.Duration
 }
@@ -993,6 +994,9 @@ func (s *Service) insertJITUser(
 	user *models.User,
 	linkedIdentity *models.UserIdentity,
 ) error {
+	if s.config.WaitlistEnabled {
+		return ErrRegistrationsClosed
+	}
 	if err := credentialguard.LockFirstUserBootstrap(ctx, tx); err != nil {
 		return err
 	}

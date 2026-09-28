@@ -46,6 +46,7 @@ func (p AccountPolicy) normalized() AccountPolicy {
 
 type AuthConfigurationOutput struct {
 	Body struct {
+		WaitlistEnabled           bool   `json:"waitlist_enabled"`
 		RegistrationEnabled       bool   `json:"registration_enabled"`
 		PasswordResetEnabled      bool   `json:"password_reset_enabled"`
 		EmailVerificationRequired bool   `json:"email_verification_required"`
@@ -116,7 +117,8 @@ func (h *AuthHandler) Configuration(api huma.API) {
 		Tags:        []string{tagAuth},
 	}, func(_ context.Context, _ *struct{}) (*AuthConfigurationOutput, error) {
 		out := &AuthConfigurationOutput{}
-		out.Body.RegistrationEnabled = !h.registrationsDisabled
+		out.Body.WaitlistEnabled = h.waitlist != nil
+		out.Body.RegistrationEnabled = !h.registrationsDisabled && h.waitlist == nil
 		out.Body.PasswordResetEnabled = h.passwordResetSender != nil
 		out.Body.EmailVerificationRequired = h.emailVerificationRequired
 		out.Body.PublicProfilesEnabled = h.publicProfilesEnabled

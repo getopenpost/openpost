@@ -426,3 +426,26 @@ func TestOIDCRejectsIssuerAudienceAndUserInfoSubject(t *testing.T) {
 		})
 	}
 }
+
+func TestWaitlistBlocksOIDCProvisioningButPreservesExistingLogin(t *testing.T) {
+	fake := newFakeOIDCIssuer(t)
+	service, db := newIdentityTestService(t, fake)
+	ctx := context.Background()
+	result, state := beginTestLogin(t, service, fake)
+	service.config.WaitlistEnabled = true
+	_, err := service.Complete(ctx, EnvironmentProviderID, state, "authorization-code", result.BrowserBinding)
+	require.ErrorIs(t, err, ErrRegistrationsClosed)
+	count, err := db.NewSelect().Model((*models.User)(nil)).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, count)
+
+	service.config.WaitlistEnabled = false
+	result, state = beginTestLogin(t, service, fake)
+	existing, err := service.Complete(ctx, EnvironmentProviderID, state, "authorization-code", result.BrowserBinding)
+	require.NoError(t, err)
+	service.config.WaitlistEnabled = true
+	result, state = beginTestLogin(t, service, fake)
+	completion, err := service.Complete(ctx, EnvironmentProviderID, state, "authorization-code", result.BrowserBinding)
+	require.NoError(t, err)
+	require.Equal(t, existing.User.ID, completion.User.ID)
+}

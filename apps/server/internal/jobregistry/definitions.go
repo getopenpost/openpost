@@ -13,6 +13,7 @@ const (
 	TypeMediaCleanup            = "media_cleanup"
 	TypeStorageDelete           = "storage_delete"
 	TypeFeedbackDelivery        = "deliver_feedback"
+	TypeWaitlistNotification    = "waitlist_notification"
 	TypeAnalyticsSweep          = "analytics_sweep"
 	TypeAnalyticsAccount        = "analytics_account_sync"
 	TypeAnalyticsRendition      = "analytics_rendition_sync"
@@ -53,6 +54,7 @@ const (
 	ExecuteMediaCleanup          ExecutionKind = "media_cleanup"
 	ExecuteStorageDelete         ExecutionKind = "storage_delete"
 	ExecuteFeedback              ExecutionKind = "feedback"
+	ExecuteWaitlist              ExecutionKind = "waitlist"
 	ExecuteAnalytics             ExecutionKind = "analytics"
 	ExecuteBilling               ExecutionKind = "billing"
 	ExecuteEngagement            ExecutionKind = "engagement"
@@ -107,7 +109,8 @@ type Definition struct {
 }
 
 var definitions = map[string]Definition{
-	TypePublishPublication: definition(TypePublishPublication, 3, ExecutePublishPublication, FailurePublish, RecoveryReconcilePublication),
+	TypeWaitlistNotification: definition(TypeWaitlistNotification, 10, ExecuteWaitlist, FailureDefault, RecoveryRequeue),
+	TypePublishPublication:   definition(TypePublishPublication, 3, ExecutePublishPublication, FailurePublish, RecoveryReconcilePublication),
 	TypeRefreshToken: providerReadDefinition(TypeRefreshToken, 5, ExecuteRefreshToken, RecoveryRequeue,
 		"Token refresh failed. OpenPost will retry when the failure is temporary.", ""),
 	TypeMediaCleanup: {

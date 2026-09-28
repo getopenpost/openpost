@@ -720,3 +720,19 @@ func writeEnvFile(t *testing.T, name, value string) string {
 	require.NoError(t, os.WriteFile(path, []byte(value), 0o600))
 	return path
 }
+
+func TestHostedWaitlistDefaultsAndReopening(t *testing.T) {
+	for _, tc := range []struct {
+		edition, enabled string
+		want             bool
+	}{
+		{EditionCloud, "", true}, {EditionCloud, "false", false},
+		{EditionSelfHost, "", false}, {EditionSelfHost, "true", false},
+	} {
+		t.Run(tc.edition+"/"+tc.enabled, func(t *testing.T) {
+			t.Setenv("OPENPOST_EDITION", tc.edition)
+			t.Setenv("OPENPOST_HOSTED_WAITLIST_ENABLED", tc.enabled)
+			require.Equal(t, tc.want, Load().HostedWaitlistEnabled)
+		})
+	}
+}

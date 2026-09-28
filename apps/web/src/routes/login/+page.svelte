@@ -479,7 +479,7 @@
 			<a
 				href={resolveAppPath(registrationTarget())}
 				class="inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
-				>{m.auth_login_create_one()}</a
+				>{authConfiguration?.waitlist_enabled ? m.waitlist_submit() : m.auth_login_create_one()}</a
 			>
 		</p>
 

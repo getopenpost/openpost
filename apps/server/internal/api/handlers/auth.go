@@ -29,6 +29,7 @@ import (
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/sessions"
+	"github.com/openpost/backend/internal/services/waitlist"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/openpost/backend/internal/usernames"
 	"github.com/uptrace/bun"
@@ -63,6 +64,7 @@ type AuthHandler struct {
 	mfa                       *mfa.Service
 	mfaRecovery               *mfarecovery.Service
 	registrationsDisabled     bool
+	waitlist                  *waitlist.Service
 	publicProfilesEnabled     bool
 	limiter                   *ratelimit.Limiter
 	passwordResetSender       passwordmail.PasswordResetSender
@@ -481,6 +483,9 @@ func (h *AuthHandler) captureSignupCompleted(ctx context.Context, userID string,
 }
 
 func (h *AuthHandler) validateRegistrationRequest(ctx context.Context, input *RegisterInput) (bool, error) {
+	if h.waitlist != nil {
+		return false, huma.Error403Forbidden("Hosted registration is not open yet; join the waitlist")
+	}
 	if _, err := h.resolvePurchaseChoice(input.Body.PurchaseChoiceToken, "", ""); err != nil {
 		return false, err
 	}
@@ -579,6 +584,9 @@ func (h *AuthHandler) registerUserWithPolicy(ctx context.Context, email, usernam
 }
 
 func (h *AuthHandler) insertRegistrationUser(ctx context.Context, tx bun.Tx, user *models.User) error {
+	if h.waitlist != nil {
+		return errRegistrationsDisabled
+	}
 	if err := credentialguard.LockFirstUserBootstrap(ctx, tx); err != nil {
 		return err
 	}

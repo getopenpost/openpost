@@ -46,6 +46,7 @@ type Config struct {
 	ProxyAuthSecret          string
 	ProxyAuthWorkspaceName   string
 	DisableRegistrations     bool
+	HostedWaitlistEnabled    bool
 	OAuthDCR                 bool
 	MCPMode                  string
 	PublicProfilesEnabled    bool
@@ -243,6 +244,7 @@ func Load() *Config {
 		ProxyAuthSecret:         getEnvDefault("OPENPOST_PROXY_AUTH_SECRET", ""),
 		ProxyAuthWorkspaceName:  strings.TrimSpace(getEnvDefault("OPENPOST_PROXY_AUTH_WORKSPACE_NAME", "My Workspace")),
 		DisableRegistrations:    getEnvBoolWithAliases(false, "OPENPOST_DISABLE_REGISTRATIONS"),
+		HostedWaitlistEnabled:   edition == EditionCloud && getEnvBoolWithAliases(true, "OPENPOST_HOSTED_WAITLIST_ENABLED"),
 		OAuthDCR:                getEnvBoolWithAliases(false, "OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED"),
 		MCPMode:                 getEnvEnum("OPENPOST_MCP_MODE", MCPModeDirect, MCPModeDirect, MCPModeSearch, MCPModeBoth),
 		PublicProfilesEnabled:   getEnvBoolWithAliases(true, "OPENPOST_PUBLIC_PROFILES_ENABLED"),

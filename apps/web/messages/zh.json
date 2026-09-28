@@ -1,4 +1,13 @@
 {
+	"waitlist_title": "等候名单 - OpenPost",
+	"waitlist_heading": "OpenPost Cloud 即将准备就绪",
+	"waitlist_description": "我们正在完成社交平台的最后审批，并完善最终细节。",
+	"waitlist_email_purpose": "留下您的邮箱，我们会在开放注册时通知您。",
+	"waitlist_submit": "加入等候名单",
+	"waitlist_submitting": "正在加入...",
+	"waitlist_success": "您已加入名单。开放注册时，我们会通过邮件通知您。",
+	"waitlist_failed": "无法保存您的邮箱，请重试。",
+	"waitlist_rate_limited": "尝试次数过多，请稍后再试。",
 	"image_editor_rasterize": "栅格化为图像",
 	"image_editor_merge_down": "向下合并",
 	"image_editor_merge_selected": "合并所选图层",

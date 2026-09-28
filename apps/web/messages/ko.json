@@ -1,4 +1,13 @@
 {
+	"waitlist_title": "대기 목록 - OpenPost",
+	"waitlist_heading": "OpenPost Cloud가 곧 준비됩니다",
+	"waitlist_description": "소셜 플랫폼의 마지막 승인을 받고 최종 세부 사항을 다듬고 있습니다.",
+	"waitlist_email_purpose": "이메일 주소를 남겨 주시면 가입이 시작될 때 알려드리겠습니다.",
+	"waitlist_submit": "대기 목록에 등록",
+	"waitlist_submitting": "등록 중...",
+	"waitlist_success": "대기 목록에 등록되었습니다. 가입이 시작되면 이메일로 알려드리겠습니다.",
+	"waitlist_failed": "이메일 주소를 저장하지 못했습니다. 다시 시도해 주세요.",
+	"waitlist_rate_limited": "시도 횟수가 너무 많습니다. 나중에 다시 시도해 주세요.",
 	"image_editor_rasterize": "이미지로 래스터화",
 	"image_editor_merge_down": "아래 레이어와 병합",
 	"image_editor_merge_selected": "선택 레이어 병합",

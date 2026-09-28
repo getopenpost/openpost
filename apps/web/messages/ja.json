@@ -1,4 +1,13 @@
 {
+	"waitlist_title": "ウェイティングリスト - OpenPost",
+	"waitlist_heading": "OpenPost Cloudはまもなく準備完了です",
+	"waitlist_description": "ソーシャルプラットフォームの最終承認と、仕上げの調整を進めています。",
+	"waitlist_email_purpose": "メールアドレスを登録すると、アカウント登録の受付開始時にお知らせします。",
+	"waitlist_submit": "ウェイティングリストに登録",
+	"waitlist_submitting": "登録中...",
+	"waitlist_success": "リストに登録しました。受付開始時にメールでお知らせします。",
+	"waitlist_failed": "メールアドレスを保存できませんでした。もう一度お試しください。",
+	"waitlist_rate_limited": "試行回数が多すぎます。しばらくしてからもう一度お試しください。",
 	"image_editor_rasterize": "画像にラスタライズ",
 	"image_editor_merge_down": "下のレイヤーと結合",
 	"image_editor_merge_selected": "選択したレイヤーを結合",

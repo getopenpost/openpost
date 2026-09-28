@@ -1,4 +1,13 @@
 {
+	"waitlist_title": "Join the waitlist - OpenPost",
+	"waitlist_heading": "OpenPost Cloud is almost ready",
+	"waitlist_description": "We're finishing the last social platform approvals and polishing the final details.",
+	"waitlist_email_purpose": "Leave your email and we'll let you know when you can sign up.",
+	"waitlist_submit": "Join the waitlist",
+	"waitlist_submitting": "Joining...",
+	"waitlist_success": "You're on the list. We'll email you when signups open.",
+	"waitlist_failed": "We couldn't save your email. Please try again.",
+	"waitlist_rate_limited": "Too many attempts. Please try again later.",
 	"image_editor_rasterize": "Rasterize to image",
 	"image_editor_merge_down": "Merge down",
 	"image_editor_merge_selected": "Merge selected",

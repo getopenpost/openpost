@@ -1,4 +1,13 @@
 {
+	"waitlist_title": "Lista de espera - OpenPost",
+	"waitlist_heading": "O OpenPost Cloud está quase pronto",
+	"waitlist_description": "Estamos concluindo as últimas aprovações das redes sociais e ajustando os detalhes finais.",
+	"waitlist_email_purpose": "Deixe seu email e avisaremos quando você puder criar uma conta.",
+	"waitlist_submit": "Entrar na lista de espera",
+	"waitlist_submitting": "Adicionando...",
+	"waitlist_success": "Você está na lista. Avisaremos por email quando as inscrições abrirem.",
+	"waitlist_failed": "Não foi possível salvar seu email. Tente novamente.",
+	"waitlist_rate_limited": "Muitas tentativas. Tente novamente mais tarde.",
 	"image_editor_rasterize": "Rasterizar para imagem",
 	"image_editor_merge_down": "Mesclar com a camada abaixo",
 	"image_editor_merge_selected": "Mesclar selecionadas",

@@ -2063,9 +2063,13 @@
 					},
 					"terms_version": {
 						"type": "string"
+					},
+					"waitlist_enabled": {
+						"type": "boolean"
 					}
 				},
 				"required": [
+					"waitlist_enabled",
 					"registration_enabled",
 					"password_reset_enabled",
 					"email_verification_required",
@@ -10486,6 +10490,43 @@
 					}
 				},
 				"required": ["id", "type", "status", "run_at", "attempts", "max_attempts", "created_at"],
+				"type": "object"
+			},
+			"JoinWaitlistInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/JoinWaitlistInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"email": {
+						"description": "Email address to notify when Hosted registration opens",
+						"maxLength": 254,
+						"minLength": 3,
+						"type": "string"
+					}
+				},
+				"required": ["email"],
+				"type": "object"
+			},
+			"JoinWaitlistOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/JoinWaitlistOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"joined": {
+						"type": "boolean"
+					}
+				},
+				"required": ["joined"],
 				"type": "object"
 			},
 			"ListImageEditorDesignsOutputBody": {
@@ -32036,6 +32077,96 @@
 					}
 				},
 				"summary": "Revoke an active web session",
+				"tags": ["Auth"]
+			}
+		},
+		"/auth/waitlist": {
+			"post": {
+				"operationId": "join-hosted-waitlist",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/JoinWaitlistInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/JoinWaitlistOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"security": [],
+				"summary": "Join the Hosted launch waitlist",
 				"tags": ["Auth"]
 			}
 		},

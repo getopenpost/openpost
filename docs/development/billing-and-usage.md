@@ -4,6 +4,16 @@ This page is for contributors changing hosted billing, entitlements, or usage ac
 
 Hosted service billing uses saved plan limits and durable usage counters. The backend does not call Paddle on normal API requests.
 
+## Temporary Hosted waitlist
+
+Cloud defaults to `OPENPOST_HOSTED_WAITLIST_ENABLED=true`. `/register` collects only an email while social platform approvals are pending. Self-hosted instances ignore this setting. Existing users can sign in; password registration and OIDC account provisioning are closed, including an OIDC callback started before the waitlist was enabled. Existing unverified accounts can still verify their email.
+
+`POST /api/v1/auth/waitlist` normalizes and deduplicates addresses in `hosted_waitlist_entries`. It creates no account, verification email, session, or billing record. The email and creation time are committed with a `waitlist_notification` job. The worker sends the email to `OPENPOST_BILLING_DISCORD_WEBHOOK_URL`, the same destination used for payment events, with Discord mentions disabled. Configure that secret on workers as well as web processes. Failed deliveries retry up to ten times; emails remain saved if all attempts fail. A delivery interrupted after Discord accepts it can appear twice.
+
+Apply migration 147 before starting web and worker roles. To reopen registration, set `OPENPOST_HOSTED_WAITLIST_ENABLED=false` on all roles and restart them. This restores the plan selection and verification flow without deleting waitlist entries. Pending notifications continue to run after reopening. The temporary waitlist has no launch-mail sender or admin UI; use the stored list for the later launch announcement.
+
+For manual recovery after fixing the webhook configuration, select failed `waitlist_notification` jobs in the database and reset their status to `pending`, attempts to `0`, and `run_at` to the current time. Sent entries are skipped using `notified_at`. Delete an entry by its normalized email if someone asks to leave the list; a queued notification for a deleted entry is skipped.
+
 ## Current pieces
 
 - `packages/plan-catalog/src/catalog.json`: the versioned source for hosted plan names, monthly and annual USD list prices, limits, trial length, card requirement, and amount due when the trial starts. Frontend and marketing code read it directly; `scripts/plan-catalog.mjs` generates the Go projection and checks for drift.

@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -492,6 +493,89 @@ func TestTikTokPublishRejectsUnsupportedPhotoMedia(t *testing.T) {
 			t.Fatalf("expected TikTok photo count error, got %v", err)
 		}
 	})
+}
+
+// TikTok's Media Transfer Guide: total_chunk_count is video_size divided by
+// chunk_size rounded down, every chunk is 5-64 MB except the final one, which
+// carries the trailing bytes (up to 128 MB), and a video over 64 MB must be
+// sent in more than one chunk.
+func TestTikTokFileUploadSendsTheChunksItDeclares(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	const uploadURL = "https://open-upload.tiktokapis.com/video/?upload_id=1"
+	const videoSize = tiktokMaxChunkSize + 3
+	var chunkSize, totalChunks int64
+	var puts []int64
+	var next int64
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokVideoInboxInitURL:
+			var body struct {
+				SourceInfo struct {
+					VideoSize       int64 `json:"video_size"`
+					ChunkSize       int64 `json:"chunk_size"`
+					TotalChunkCount int64 `json:"total_chunk_count"`
+				} `json:"source_info"`
+			}
+			require.NoError(t, json.NewDecoder(req.Body).Decode(&body))
+			require.Equal(t, int64(videoSize), body.SourceInfo.VideoSize)
+			chunkSize, totalChunks = body.SourceInfo.ChunkSize, body.SourceInfo.TotalChunkCount
+			return jsonResponse(req, `{"data":{"publish_id":"publish-1","upload_url":"`+uploadURL+`"},"error":{"code":"ok"}}`), nil
+		case uploadURL:
+			size, err := io.Copy(io.Discard, req.Body)
+			require.NoError(t, err)
+			require.Equal(t, fmt.Sprintf("bytes %d-%d/%d", next, next+size-1, videoSize), req.Header.Get("Content-Range"))
+			next += size
+			puts = append(puts, size)
+			return jsonResponseWithStatus(req, http.StatusCreated, `{}`), nil
+		case tiktokPublishStatusURL:
+			return jsonResponse(req, `{"data":{"status":"SEND_TO_USER_INBOX"},"error":{"code":"ok"}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	publishID, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").UploadMediaWithMetadata(t.Context(), "access", "open-1", UploadMediaRequest{
+		MimeType: "video/mp4",
+		Settings: map[string]interface{}{"content_posting_method": "MEDIA_UPLOAD"},
+		Reader:   bytes.NewReader(make([]byte, videoSize)),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "publish-1", publishID)
+	require.Equal(t, int64(videoSize), next)
+	require.Equal(t, videoSize/chunkSize, totalChunks, "total_chunk_count must be video_size / chunk_size rounded down")
+	require.Len(t, puts, int(totalChunks))
+	require.GreaterOrEqual(t, totalChunks, int64(2), "a video over 64 MB must be sent in several chunks")
+	for index, size := range puts[:len(puts)-1] {
+		require.Equal(t, chunkSize, size, "chunk %d", index)
+	}
+	require.GreaterOrEqual(t, chunkSize, int64(5*1024*1024))
+	require.LessOrEqual(t, chunkSize, int64(tiktokMaxChunkSize))
+	final := puts[len(puts)-1]
+	require.GreaterOrEqual(t, final, chunkSize, "the final chunk carries the trailing bytes")
+	require.LessOrEqual(t, final, int64(128*1024*1024))
+}
+
+func TestTikTokUploadChunksFollowTheTransferGuide(t *testing.T) {
+	const mib = 1024 * 1024
+	for _, videoSize := range []int64{1, 4 * mib, 64 * mib, 64*mib + 1, 100 * mib, 128 * mib, 130 * mib, 4 * 1024 * mib} {
+		chunkSize, totalChunks := tiktokUploadChunks(videoSize)
+		if videoSize <= tiktokMaxChunkSize {
+			require.Equal(t, videoSize, chunkSize, "size %d goes as a whole", videoSize)
+			require.Equal(t, int64(1), totalChunks, "size %d goes as a whole", videoSize)
+			continue
+		}
+		require.Equal(t, videoSize/chunkSize, totalChunks, "size %d", videoSize)
+		require.GreaterOrEqual(t, totalChunks, int64(2), "size %d", videoSize)
+		require.LessOrEqual(t, totalChunks, int64(1000), "size %d", videoSize)
+		require.GreaterOrEqual(t, chunkSize, int64(5*mib), "size %d", videoSize)
+		require.LessOrEqual(t, chunkSize, int64(tiktokMaxChunkSize), "size %d", videoSize)
+		final := videoSize - (totalChunks-1)*chunkSize
+		require.GreaterOrEqual(t, final, chunkSize, "size %d", videoSize)
+		require.LessOrEqual(t, final, int64(128*mib), "size %d", videoSize)
+	}
 }
 
 func jsonResponse(req *http.Request, body string) *http.Response {

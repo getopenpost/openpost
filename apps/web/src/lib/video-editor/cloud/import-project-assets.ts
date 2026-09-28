@@ -93,6 +93,7 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 					fps: probe!.fps,
 					codec: probe!.videoCodec ?? '',
 					audioCodec: probe!.audioCodec,
+					hasAudio: probe!.hasAudio,
 					tags: [probe!.kind, ...(options.tags ?? [])],
 					animationFrameCount: probe!.animationFrameCount,
 					attribution: options.attribution
@@ -148,6 +149,7 @@ export async function importCloudProjectAssetFile<TDocument extends object>(
 				bitrate: probe!.bitrate ?? 0,
 				audioCodec: probe!.audioCodec,
 				audioCodecSupported: probe!.audioCodecSupported,
+				hasAudio: probe!.hasAudio,
 				keyframeTimestamps: probe!.keyframeTimestamps,
 				gopInterval: probe!.gopInterval,
 				animationFrameCount: probe!.animationFrameCount,

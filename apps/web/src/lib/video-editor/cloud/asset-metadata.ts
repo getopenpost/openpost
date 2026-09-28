@@ -9,6 +9,7 @@ export const editorAssetMetadataSchema = z.object({
 	fps: z.number().finite().nonnegative(),
 	codec: z.string(),
 	audioCodec: z.string().optional(),
+	hasAudio: z.boolean().optional(),
 	tags: z.array(z.string()),
 	lottieTotalFrames: z.number().finite().positive().optional(),
 	lottieMarkers: z

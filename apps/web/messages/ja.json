@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "{min}から{max}までの数値を入力してください。",
 	"workflows_invalid_url": "認証情報を含まないHTTPまたはHTTPSのURLを入力してください。",
 	"workflows_test_node": "ノードをテスト",
-	"workflows_test_node_help": "このノードのみを実行します。HTTPリクエストは送信され、AI使用量は記録されます。後続のステップは実行されません。"
+	"workflows_test_node_help": "このノードのみを実行します。HTTPリクエストは送信され、AI使用量は記録されます。後続のステップは実行されません。",
+	"video_editor_transcript_options": "文字起こしの設定",
+	"video_editor_transcript_auto_scroll": "自動スクロール",
+	"video_editor_transcript_show_pauses": "無音区間を表示",
+	"video_editor_transcript_only_selection": "選択したクリップのみ",
+	"video_editor_transcript_correct": "文字起こしを修正",
+	"video_editor_transcript_add_text": "タイムラインにテキストを追加",
+	"video_editor_transcript_delete_video": "動画から削除",
+	"video_editor_transcript_cut_unavailable": "動画の編集には、単語の時刻情報があり、ロックされていない元のクリップが必要です。",
+	"video_editor_transcript_correct_help": "字幕を修正します。動画と音声の位置は変わりません。",
+	"video_editor_transcript_save_correction": "修正を保存",
+	"video_editor_transcript_read_help": "単語をクリックするとその時点に移動します。ドラッグまたはShiftを押しながらクリックして選択します。削除すると対応する動画と音声が消え、元に戻すと復元されます。",
+	"video_editor_transcript_pause": "{duration}秒の無音",
+	"video_editor_transcript_text_added": "発話の位置にテキストを追加しました。",
+	"video_editor_transcribe_no_audio": "この録画には音声がありません。マイクを使って録画するか、会話を含むクリップを選んでください。",
+	"video_editor_skim_time": "カーソルプレビュー",
+	"video_editor_motion_opened": "モーション：{name}",
+	"video_editor_media_placement_instruction": "トラックを選び、クリックしてクリップを配置します。Escapeでキャンセルします。"
 }

@@ -9,10 +9,12 @@ let whisperQueueSize = 0;
 let whisperQueueWaiter: (() => void) | null = null;
 let paused = false;
 let pauseWaiter: (() => void) | null = null;
+let startDecoding: (() => void) | null = null;
 
 type DecoderWorkerMessage =
 	| { type: 'port'; port: MessagePort }
 	| { type: 'pause' }
+	| { type: 'decode' }
 	| { type: 'resume' }
 	| {
 			type: 'init';
@@ -34,6 +36,12 @@ self.onmessage = async (event: MessageEvent<DecoderWorkerMessage>) => {
 				whisperQueueWaiter = null;
 			}
 		};
+		return;
+	}
+
+	if (message.type === 'decode') {
+		startDecoding?.();
+		startDecoding = null;
 		return;
 	}
 
@@ -93,9 +101,15 @@ async function run(
 			: (await input.getAudioTracks())[audioTrackIndex];
 	if (!audioTrack) {
 		input.dispose();
-		throw new Error('No audio track found in file');
+		postMain({ type: 'error', code: 'no-audio', message: 'No audio track found in file' });
+		return;
 	}
 
+	// Start the model only after finding audio, then wait until it can consume chunks.
+	await new Promise<void>((resolve) => {
+		startDecoding = resolve;
+		postMain({ type: 'audio-ready' });
+	});
 	const mediaDuration = await audioTrack.computeDuration();
 	const sourceStart = Math.min(Math.max(0, requestedStart), mediaDuration);
 	const sourceEnd = Math.min(Math.max(sourceStart, requestedEnd ?? mediaDuration), mediaDuration);

@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "{min} ile {max} arasında bir sayı girin.",
 	"workflows_invalid_url": "Kimlik bilgisi içermeyen bir HTTP veya HTTPS URL’si girin.",
 	"workflows_test_node": "Düğümü test et",
-	"workflows_test_node_help": "Yalnızca bu düğümü çalıştırır. HTTP istekleri gönderilir ve yapay zekâ kullanımı kaydedilir. Sonraki adımlar çalıştırılmaz."
+	"workflows_test_node_help": "Yalnızca bu düğümü çalıştırır. HTTP istekleri gönderilir ve yapay zekâ kullanımı kaydedilir. Sonraki adımlar çalıştırılmaz.",
+	"video_editor_transcript_options": "Döküm seçenekleri",
+	"video_editor_transcript_auto_scroll": "Otomatik kaydır",
+	"video_editor_transcript_show_pauses": "Duraklamaları göster",
+	"video_editor_transcript_only_selection": "Yalnızca seçili klipler",
+	"video_editor_transcript_correct": "Dökümü düzelt",
+	"video_editor_transcript_add_text": "Zaman çizelgesine metin ekle",
+	"video_editor_transcript_delete_video": "Videodan sil",
+	"video_editor_transcript_cut_unavailable": "Video düzenlemek için sözcük zamanları olan, kilidi açık bir kaynak klip gerekir.",
+	"video_editor_transcript_correct_help": "Altyazı metnini düzeltin. Video ve ses yerinde kalır.",
+	"video_editor_transcript_save_correction": "Düzeltmeyi kaydet",
+	"video_editor_transcript_read_help": "O ana gitmek için bir sözcüğe tıklayın. Seçmek için sürükleyin veya Shift ile tıklayın. Sil, ilgili video ve sesi kaldırır; Geri al bunları geri getirir.",
+	"video_editor_transcript_pause": "{duration} sn duraklama",
+	"video_editor_transcript_text_added": "Metin, sözcüklerin söylendiği ana eklendi.",
+	"video_editor_transcribe_no_audio": "Bu kayıtta ses yok. Mikrofonla kayıt yapın veya konuşma içeren bir klip seçin.",
+	"video_editor_skim_time": "İmleç önizlemesi",
+	"video_editor_motion_opened": "Hareket: {name}",
+	"video_editor_media_placement_instruction": "Bir parça seçip klibi yerleştirmek için tıklayın. Escape iptal eder."
 }

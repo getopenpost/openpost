@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "{min}에서 {max} 사이의 숫자를 입력하세요.",
 	"workflows_invalid_url": "인증 정보가 없는 HTTP 또는 HTTPS URL을 입력하세요.",
 	"workflows_test_node": "노드 테스트",
-	"workflows_test_node_help": "이 노드만 실행합니다. HTTP 요청이 전송되고 AI 사용량이 기록됩니다. 이후 단계는 실행되지 않습니다."
+	"workflows_test_node_help": "이 노드만 실행합니다. HTTP 요청이 전송되고 AI 사용량이 기록됩니다. 이후 단계는 실행되지 않습니다.",
+	"video_editor_transcript_options": "대본 옵션",
+	"video_editor_transcript_auto_scroll": "자동 스크롤",
+	"video_editor_transcript_show_pauses": "무음 구간 표시",
+	"video_editor_transcript_only_selection": "선택한 클립만",
+	"video_editor_transcript_correct": "대본 수정",
+	"video_editor_transcript_add_text": "타임라인에 텍스트 추가",
+	"video_editor_transcript_delete_video": "동영상에서 삭제",
+	"video_editor_transcript_cut_unavailable": "동영상을 편집하려면 단어별 시간 정보가 있는 잠금 해제된 원본 클립이 필요합니다.",
+	"video_editor_transcript_correct_help": "자막을 수정합니다. 동영상과 오디오는 그대로 유지됩니다.",
+	"video_editor_transcript_save_correction": "수정 저장",
+	"video_editor_transcript_read_help": "단어를 클릭하면 해당 시점으로 이동합니다. 드래그하거나 Shift를 누른 채 클릭하여 선택하세요. 삭제하면 해당 동영상과 오디오가 제거되고, 실행 취소하면 복원됩니다.",
+	"video_editor_transcript_pause": "{duration}초 무음",
+	"video_editor_transcript_text_added": "발화 시점에 텍스트를 추가했습니다.",
+	"video_editor_transcribe_no_audio": "이 녹화에는 오디오가 없습니다. 마이크로 녹화하거나 말소리가 있는 클립을 선택하세요.",
+	"video_editor_skim_time": "커서 미리보기",
+	"video_editor_motion_opened": "모션: {name}",
+	"video_editor_media_placement_instruction": "트랙을 선택하고 클릭하여 클립을 배치하세요. Escape로 취소합니다."
 }

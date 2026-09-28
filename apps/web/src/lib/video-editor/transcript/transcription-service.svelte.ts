@@ -211,6 +211,8 @@ export class TranscriptionService {
 		if (item.type !== 'audio' && item.type !== 'video') {
 			return Promise.reject(new Error(m.video_editor_transcribe_media_only()));
 		}
+		if (media.hasAudio === false)
+			return Promise.reject(new Error(m.video_editor_transcribe_no_audio()));
 		if (media.audioCodecSupported === false) {
 			return Promise.reject(new Error(m.video_editor_transcribe_unsupported_audio()));
 		}
@@ -259,6 +261,8 @@ export class TranscriptionService {
 		if (!media.mimeType.startsWith('audio/') && !media.mimeType.startsWith('video/')) {
 			return Promise.reject(new Error(m.video_editor_transcribe_media_only()));
 		}
+		if (media.hasAudio === false)
+			return Promise.reject(new Error(m.video_editor_transcribe_no_audio()));
 		if (media.audioCodecSupported === false) {
 			return Promise.reject(new Error(m.video_editor_transcribe_unsupported_audio()));
 		}

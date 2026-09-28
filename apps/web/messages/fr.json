@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "Saisissez un nombre entre {min} et {max}.",
 	"workflows_invalid_url": "Saisissez une URL HTTP ou HTTPS sans identifiants.",
 	"workflows_test_node": "Tester le nœud",
-	"workflows_test_node_help": "Exécute uniquement ce nœud. Les requêtes HTTP sont envoyées et l’utilisation de l’IA est enregistrée. Les étapes suivantes ne sont pas exécutées."
+	"workflows_test_node_help": "Exécute uniquement ce nœud. Les requêtes HTTP sont envoyées et l’utilisation de l’IA est enregistrée. Les étapes suivantes ne sont pas exécutées.",
+	"video_editor_transcript_options": "Options de transcription",
+	"video_editor_transcript_auto_scroll": "Défilement automatique",
+	"video_editor_transcript_show_pauses": "Afficher les pauses",
+	"video_editor_transcript_only_selection": "Clips sélectionnés uniquement",
+	"video_editor_transcript_correct": "Corriger la transcription",
+	"video_editor_transcript_add_text": "Ajouter du texte à la timeline",
+	"video_editor_transcript_delete_video": "Supprimer du montage",
+	"video_editor_transcript_cut_unavailable": "La modification du montage nécessite un clip source déverrouillé avec un minutage par mot.",
+	"video_editor_transcript_correct_help": "Corrigez les sous-titres. La vidéo et le son restent en place.",
+	"video_editor_transcript_save_correction": "Enregistrer la correction",
+	"video_editor_transcript_read_help": "Cliquez sur un mot pour atteindre ce moment. Faites glisser ou utilisez Maj-clic pour sélectionner. Supprimer retire la vidéo et le son correspondants ; Annuler les restaure.",
+	"video_editor_transcript_pause": "Pause de {duration}s",
+	"video_editor_transcript_text_added": "Texte ajouté au moment des mots prononcés.",
+	"video_editor_transcribe_no_audio": "Cet enregistrement ne contient pas de son. Enregistrez avec un microphone ou choisissez un clip avec de la parole.",
+	"video_editor_skim_time": "Survol",
+	"video_editor_motion_opened": "Animation : {name}",
+	"video_editor_media_placement_instruction": "Choisissez une piste et cliquez pour placer le clip. Échap annule."
 }

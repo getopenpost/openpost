@@ -91,6 +91,8 @@ export interface MediaMetadata {
 	codec: string;
 	bitrate: number;
 	audioCodec?: string;
+	/** Probe truth. Missing on older imports until the source is inspected. */
+	hasAudio?: boolean;
 	audioCodecSupported?: boolean;
 	videoCodecSupported?: boolean;
 	previewAudioConformedAt?: number;

@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "Introduce un número entre {min} y {max}.",
 	"workflows_invalid_url": "Introduce una URL HTTP o HTTPS sin credenciales.",
 	"workflows_test_node": "Probar nodo",
-	"workflows_test_node_help": "Ejecuta solo este nodo. Se envían las solicitudes HTTP y se registra el uso de IA. Los pasos posteriores no se ejecutan."
+	"workflows_test_node_help": "Ejecuta solo este nodo. Se envían las solicitudes HTTP y se registra el uso de IA. Los pasos posteriores no se ejecutan.",
+	"video_editor_transcript_options": "Opciones de transcripción",
+	"video_editor_transcript_auto_scroll": "Desplazamiento automático",
+	"video_editor_transcript_show_pauses": "Mostrar pausas",
+	"video_editor_transcript_only_selection": "Solo clips seleccionados",
+	"video_editor_transcript_correct": "Corregir transcripción",
+	"video_editor_transcript_add_text": "Añadir texto a la línea de tiempo",
+	"video_editor_transcript_delete_video": "Eliminar del vídeo",
+	"video_editor_transcript_cut_unavailable": "Para editar el vídeo, necesitas un clip de origen desbloqueado con tiempos por palabra.",
+	"video_editor_transcript_correct_help": "Corrige los subtítulos. El vídeo y el audio permanecen en su sitio.",
+	"video_editor_transcript_save_correction": "Guardar corrección",
+	"video_editor_transcript_read_help": "Haz clic en una palabra para ir a ese momento. Arrastra o usa Mayús-clic para seleccionar. Eliminar quita su vídeo y audio; Deshacer los restaura.",
+	"video_editor_transcript_pause": "Pausa de {duration}s",
+	"video_editor_transcript_text_added": "Texto añadido en el momento de las palabras.",
+	"video_editor_transcribe_no_audio": "Esta grabación no tiene audio. Graba con un micrófono o elige un clip con voz.",
+	"video_editor_skim_time": "Vista al pasar el cursor",
+	"video_editor_motion_opened": "Movimiento: {name}",
+	"video_editor_media_placement_instruction": "Elige una pista y haz clic para colocar el clip. Escape cancela."
 }

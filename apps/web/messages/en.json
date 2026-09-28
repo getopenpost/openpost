@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "Enter a number between {min} and {max}.",
 	"workflows_invalid_url": "Enter an HTTP or HTTPS URL without credentials.",
 	"workflows_test_node": "Test node",
-	"workflows_test_node_help": "Runs only this node. HTTP requests are sent and AI usage is recorded. Later steps do not run."
+	"workflows_test_node_help": "Runs only this node. HTTP requests are sent and AI usage is recorded. Later steps do not run.",
+	"video_editor_transcript_options": "Transcript options",
+	"video_editor_transcript_auto_scroll": "Auto-scroll",
+	"video_editor_transcript_show_pauses": "Show pauses",
+	"video_editor_transcript_only_selection": "Selected clips only",
+	"video_editor_transcript_correct": "Correct transcript",
+	"video_editor_transcript_add_text": "Add text to timeline",
+	"video_editor_transcript_delete_video": "Delete from video",
+	"video_editor_transcript_cut_unavailable": "Video edits need an unlocked source clip with word timing.",
+	"video_editor_transcript_correct_help": "Correct the caption text. Video and audio stay in place.",
+	"video_editor_transcript_save_correction": "Save correction",
+	"video_editor_transcript_read_help": "Click a word to seek. Drag or Shift-click to select words. Delete removes their video and audio; Undo restores them.",
+	"video_editor_transcript_pause": "{duration}s pause",
+	"video_editor_transcript_text_added": "Text added at the spoken words.",
+	"video_editor_transcribe_no_audio": "This recording has no audio. Record with a microphone or choose a clip with speech.",
+	"video_editor_skim_time": "Skimming",
+	"video_editor_motion_opened": "Motion: {name}",
+	"video_editor_media_placement_instruction": "Choose a track and click to place this clip. Escape cancels."
 }

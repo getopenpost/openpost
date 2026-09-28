@@ -67,11 +67,12 @@ export interface PCMChunk {
 
 export type MainThreadMessage =
 	| { type: 'ready' }
+	| { type: 'audio-ready' }
 	| { type: 'done' }
 	| { type: 'segment'; segment: TranscriptSegment }
 	| { type: 'progress'; event: TranscribeProgress }
 	| { type: 'runtime'; info: TranscribeRuntimeInfo }
-	| { type: 'error'; message: string };
+	| { type: 'error'; message: string; code?: 'no-audio' };
 
 export type TranscriptionWorkerMessage =
 	| { type: 'port'; port: MessagePort }

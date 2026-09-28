@@ -493,6 +493,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 							: item.video_codec || probe?.codec || item.container_format || '',
 					bitrate: Math.round((fileSize * 8) / Math.max(1, duration)),
 					audioCodec: item.audio_codec || probe?.audioCodec,
+					hasAudio: probe?.hasAudio,
 					audioCodecSupported: isAudioCodecSupported(item.audio_codec || probe?.audioCodec),
 					videoCodecSupported: isProResCodec(item.video_codec || probe?.codec) ? false : undefined,
 					lottieTotalFrames: probe?.lottieTotalFrames,

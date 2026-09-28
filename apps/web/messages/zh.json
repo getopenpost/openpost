@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "请输入 {min} 到 {max} 之间的数字。",
 	"workflows_invalid_url": "请输入不含凭据的 HTTP 或 HTTPS URL。",
 	"workflows_test_node": "测试节点",
-	"workflows_test_node_help": "仅运行此节点。会发送 HTTP 请求并记录 AI 用量，不会运行后续步骤。"
+	"workflows_test_node_help": "仅运行此节点。会发送 HTTP 请求并记录 AI 用量，不会运行后续步骤。",
+	"video_editor_transcript_options": "转录选项",
+	"video_editor_transcript_auto_scroll": "自动滚动",
+	"video_editor_transcript_show_pauses": "显示停顿",
+	"video_editor_transcript_only_selection": "仅显示所选片段",
+	"video_editor_transcript_correct": "更正转录",
+	"video_editor_transcript_add_text": "向时间线添加文字",
+	"video_editor_transcript_delete_video": "从视频中删除",
+	"video_editor_transcript_cut_unavailable": "编辑视频需要带有单词时间信息且未锁定的源片段。",
+	"video_editor_transcript_correct_help": "更正字幕文字，视频和音频保持原位。",
+	"video_editor_transcript_save_correction": "保存更正",
+	"video_editor_transcript_read_help": "点击单词跳转到相应时间。拖动或按住 Shift 点击以选择。删除会移除对应的视频和音频，撤销可恢复。",
+	"video_editor_transcript_pause": "停顿 {duration} 秒",
+	"video_editor_transcript_text_added": "已在说话的位置添加文字。",
+	"video_editor_transcribe_no_audio": "此录制没有音频。请使用麦克风录制，或选择包含语音的片段。",
+	"video_editor_skim_time": "悬停预览",
+	"video_editor_motion_opened": "动画：{name}",
+	"video_editor_media_placement_instruction": "选择轨道并点击以放置片段。按 Escape 取消。"
 }

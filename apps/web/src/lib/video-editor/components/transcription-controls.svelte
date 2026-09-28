@@ -213,10 +213,14 @@
 		size="sm"
 		class="col-span-2 w-full"
 		variant={busy ? 'outline' : 'secondary'}
-		disabled={!canTranscribe}
+		disabled={!canTranscribe && !busy}
 		onclick={busy ? oncancel : start}
 	>
 		{busy ? m.video_editor_transcribe_cancel() : (startLabel ?? m.video_editor_transcribe())}
 	</Button>
+	<p class="col-span-2 text-xs leading-relaxed text-muted-foreground">
+		{m.video_editor_transcribe_model_size({ size: modelDownloadSize })}
+		{m.video_editor_models_consent()}
+	</p>
 	<LocalModelCacheControl />
 </div>

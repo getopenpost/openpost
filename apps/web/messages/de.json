@@ -9523,5 +9523,22 @@
 	"workflows_invalid_number": "Gib eine Zahl zwischen {min} und {max} ein.",
 	"workflows_invalid_url": "Gib eine HTTP- oder HTTPS-URL ohne Zugangsdaten ein.",
 	"workflows_test_node": "Knoten testen",
-	"workflows_test_node_help": "Führt nur diesen Knoten aus. HTTP-Anfragen werden gesendet und die KI-Nutzung wird erfasst. Spätere Schritte werden nicht ausgeführt."
+	"workflows_test_node_help": "Führt nur diesen Knoten aus. HTTP-Anfragen werden gesendet und die KI-Nutzung wird erfasst. Spätere Schritte werden nicht ausgeführt.",
+	"video_editor_transcript_options": "Transkriptoptionen",
+	"video_editor_transcript_auto_scroll": "Automatisch scrollen",
+	"video_editor_transcript_show_pauses": "Pausen anzeigen",
+	"video_editor_transcript_only_selection": "Nur ausgewählte Clips",
+	"video_editor_transcript_correct": "Transkript korrigieren",
+	"video_editor_transcript_add_text": "Text zur Zeitleiste hinzufügen",
+	"video_editor_transcript_delete_video": "Aus Video löschen",
+	"video_editor_transcript_cut_unavailable": "Für Videoschnitte ist ein entsperrter Quellclip mit Wortzeiten erforderlich.",
+	"video_editor_transcript_correct_help": "Korrigiere den Untertiteltext. Video und Audio bleiben unverändert.",
+	"video_editor_transcript_save_correction": "Korrektur speichern",
+	"video_editor_transcript_read_help": "Klicke auf ein Wort, um dorthin zu springen. Ziehe oder nutze Umschalt-Klick zur Auswahl. Löschen entfernt das zugehörige Video und Audio; Rückgängig stellt beides wieder her.",
+	"video_editor_transcript_pause": "{duration}s Pause",
+	"video_editor_transcript_text_added": "Text an der Stelle der gesprochenen Wörter hinzugefügt.",
+	"video_editor_transcribe_no_audio": "Diese Aufnahme hat keinen Ton. Nimm mit einem Mikrofon auf oder wähle einen Clip mit Sprache.",
+	"video_editor_skim_time": "Vorschau beim Überfahren",
+	"video_editor_motion_opened": "Animation: {name}",
+	"video_editor_media_placement_instruction": "Wähle eine Spur und klicke, um den Clip zu platzieren. Escape bricht ab."
 }

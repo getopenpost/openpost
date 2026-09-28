@@ -288,11 +288,13 @@ test.describe("workflow touch controls", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.getByRole("button", { name: "More actions", exact: true }).click();
     await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
-    await expect(page.getByRole("button", { name: /^Needs attention/ })).toHaveCount(0);
+    const draftNode = page.getByRole("button", { name: "Create draft Create draft", exact: true });
+    await expect(draftNode).toHaveCount(0);
     await expect(page.getByRole("menu")).toHaveCount(0);
     await page.getByRole("button", { name: "More actions", exact: true }).click();
     await page.getByRole("menuitem", { name: "Redo", exact: true }).click();
-    await page.getByRole("button", { name: /^Needs attention/ }).click();
+    await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
+    await draftNode.click();
     await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
   });
 });
@@ -499,6 +501,7 @@ test("inserting a variable preserves JSON and its nested outputs remain usable",
     "false",
   );
   await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Run preview", exact: true }).click();
   await expect(page.getByRole("paragraph").filter({ hasText: /^Completed$/ })).toBeVisible({
     timeout: 30000,

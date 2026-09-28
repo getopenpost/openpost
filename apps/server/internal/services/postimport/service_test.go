@@ -337,6 +337,39 @@ func TestReadBudgetGuardBlocksProvidersReads(t *testing.T) {
 	require.True(t, account.IsActive)
 }
 
+func TestReadBudgetIsFreshAtTheUTCDayItsRetryWaitsFor(t *testing.T) {
+	server := blueskyFeedServer(map[string]string{
+		"":       `{"cursor":"page-2","feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/aaa", "first", "2026-09-26T15:30:00Z") + `]}`,
+		"page-2": `{"feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/bbb", "second", "2026-09-26T15:20:00Z") + `]}`,
+	})
+	defer server.Close()
+
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", server.URL)
+	service := NewService(db, &stubTokenSource{token: "token"})
+	service.SetPolicy("bluesky", Policy{ReadRequestsPerDay: 1, PageSize: 50})
+	now := time.Date(2026, 9, 26, 15, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.Enable(context.Background(), "workspace-1", account.ID)
+	require.NoError(t, err)
+
+	// 16:00 spends the day's one read on page one; page two waits for the
+	// next UTC day.
+	now = time.Date(2026, 9, 26, 16, 0, 0, 0, time.UTC)
+	require.NoError(t, service.SyncAccount(context.Background(), "workspace-1", account.ID))
+	require.Equal(t, 1, countImported(t, db, account.ID))
+	state := loadImportState(t, db, account.ID)
+	require.Equal(t, "cost_limited", state.Status)
+	require.Equal(t, time.Date(2026, 9, 27, 0, 0, 0, 0, time.UTC), state.NextEligibleAt.UTC())
+
+	// At that retry the budget is a new day's, not still the one spent at 16:00.
+	now = time.Date(2026, 9, 27, 0, 30, 0, 0, time.UTC)
+	require.NoError(t, service.SyncAccount(context.Background(), "workspace-1", account.ID))
+	require.Equal(t, 2, countImported(t, db, account.ID))
+	state = loadImportState(t, db, account.ID)
+	require.NotEqual(t, "cost_limited", state.Status)
+}
+
 func TestPermissionFailureKeepsAccountConnected(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)

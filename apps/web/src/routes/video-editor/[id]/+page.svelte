@@ -2093,6 +2093,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				mode,
 				signal: controller.signal
 			});
+			if (controller.signal.aborted) return;
 			const frames = cutFramesForItem({
 				cutSourceFrames: cutFrames,
 				sourceFps,
@@ -2395,6 +2396,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 {#snippet transcriptionControls()}
 	<TranscriptionControls
+		hasTranscript={timelineStore.items.some(
+			(item) =>
+				item.type === 'subtitle' &&
+				item.captionSource?.clipId === selectedItemId &&
+				!!item.cues?.length
+		)}
 		error={selectedMedia?.hasAudio === false
 			? m.video_editor_transcribe_no_audio()
 			: selectedItemId
@@ -3489,6 +3496,25 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													<DropdownMenu.Item onclick={handleSplit}>
 														{m.video_editor_split()}
 													</DropdownMenu.Item>
+													{#if selectedIsVideo}
+														<DropdownMenu.Sub>
+															<DropdownMenu.SubTrigger
+																disabled={scanningScenes || selectedTrackLocked}
+																>{m.video_editor_scene_split()}</DropdownMenu.SubTrigger
+															>
+															<DropdownMenu.SubContent class="video-editor-theme">
+																<DropdownMenu.Item
+																	onclick={() => void handleAutoSplitScenes(selectedItemId, 'fast')}
+																	>{m.video_editor_scene_split_fast()}</DropdownMenu.Item
+																>
+																<DropdownMenu.Item
+																	onclick={() =>
+																		void handleAutoSplitScenes(selectedItemId, 'adaptive-lfm')}
+																	>{m.video_editor_scene_split_adaptive()}</DropdownMenu.Item
+																>
+															</DropdownMenu.SubContent>
+														</DropdownMenu.Sub>
+													{/if}
 													<DropdownMenu.Item onclick={handleAddCrossfade}>
 														{m.video_editor_crossfade()}
 													</DropdownMenu.Item>
@@ -3522,6 +3548,24 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									{/if}
 								</div>
 
+								{#if scanningScenes}
+									<div
+										role="status"
+										class="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1 text-xs text-muted-foreground {rightSidebarRail
+											? 'lg:hidden'
+											: ''}"
+									>
+										<ProtectedIcon
+											icon="loading"
+											class="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+										/>
+										<span class="min-w-0 flex-1">{m.video_editor_scene_split()}</span>
+										<Button size="xs" variant="ghost" onclick={() => sceneScanController?.abort()}
+											>{m.common_cancel()}</Button
+										>
+									</div>
+								{/if}
+
 								<div
 									class="min-h-0 flex-1 overflow-y-auto p-2 {rightSidebarRail ? 'lg:hidden' : ''}"
 									use:resetInspectorScroll={`${editInspectorTab}:${(selectedItemId ? timelineStore.itemById.get(selectedItemId)?.type : null) ?? 'none'}`}
@@ -3544,42 +3588,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												mobileEditPane = 'assets';
 											}}
 										/>
-										{#if selectedIsVideo}
-											<div class="mt-3">
-												<div class="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-													{#if scanningScenes}
-														<ProtectedIcon
-															icon="loading"
-															class="size-3.5 animate-spin motion-reduce:animate-none"
-														/>
-													{/if}
-													{m.video_editor_scene_split()}
-												</div>
-												<div class="grid grid-cols-2 gap-1.5">
-													<Button
-														size="sm"
-														variant="outline"
-														class="min-h-11 lg:min-h-8"
-														disabled={scanningScenes || selectedTrackLocked}
-														title={m.video_editor_scene_split_fast_help()}
-														onclick={() => void handleAutoSplitScenes(selectedItemId, 'fast')}
-													>
-														{m.video_editor_scene_split_fast()}
-													</Button>
-													<Button
-														size="sm"
-														variant="outline"
-														class="min-h-11 lg:min-h-8"
-														disabled={scanningScenes || selectedTrackLocked}
-														title={m.video_editor_scene_split_adaptive_help()}
-														onclick={() =>
-															void handleAutoSplitScenes(selectedItemId, 'adaptive-lfm')}
-													>
-														{m.video_editor_scene_split_adaptive()}
-													</Button>
-												</div>
-											</div>
-										{/if}
 									{:else if selectedItemId && editInspectorTab === 'motion' && selectedSupportsMotion}
 										<MotionPresetsPanel
 											itemId={selectedItemId}

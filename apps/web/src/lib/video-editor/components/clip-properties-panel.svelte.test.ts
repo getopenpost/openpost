@@ -146,3 +146,56 @@ it('exposes clip properties as a named group', async () => {
 	await expect.element(group).toBeVisible();
 	await expect.element(group.getByTestId('clip-crop-section')).toBeVisible();
 });
+
+it('keeps everyday video controls visible and discloses detailed playback and crop settings', async () => {
+	const item: TimelineItem = {
+		id: 'footage',
+		trackId: 'track-video-main',
+		from: 0,
+		durationInFrames: 90,
+		label: 'Footage',
+		type: 'video'
+	};
+	timelineStore._setItems([item]);
+	const screen = await render(ClipPropertiesPanel, {
+		itemId: item.id,
+		onedit: vi.fn()
+	});
+	await expect.element(screen.getByRole('textbox', { name: 'Width', exact: true })).toBeVisible();
+	await expect.element(screen.getByRole('textbox', { name: 'Gain', exact: false })).toBeVisible();
+	await expect
+		.element(screen.getByRole('textbox', { name: 'Anchor X', exact: true }))
+		.not.toBeInTheDocument();
+	await expect
+		.element(screen.getByRole('button', { name: 'Reverse clip', exact: true }))
+		.not.toBeInTheDocument();
+	await screen.getByRole('button', { name: 'Playback', exact: true }).click();
+	await expect
+		.element(screen.getByRole('button', { name: 'Reverse clip', exact: true }))
+		.toBeVisible();
+	await screen.getByRole('button', { name: 'Crop media', exact: true }).click();
+	await expect.element(screen.getByRole('textbox', { name: 'Left', exact: true })).toBeVisible();
+});
+
+it('marks collapsed appearance and crop groups when only keyframes change those properties', async () => {
+	const item: TimelineItem = {
+		id: 'animated-footage',
+		trackId: 'track-video-main',
+		from: 0,
+		durationInFrames: 90,
+		label: 'Footage',
+		type: 'video',
+		keyframes: {
+			opacity: { frames: [0, 30], values: [1, 0.5] },
+			cropLeft: { frames: [0, 30], values: [0, 100] }
+		}
+	};
+	timelineStore._setItems([item]);
+	const screen = await render(ClipPropertiesPanel, { itemId: item.id, onedit: vi.fn() });
+	await expect
+		.element(screen.getByRole('button', { name: 'Appearance: Active', exact: true }))
+		.toHaveAttribute('aria-expanded', 'false');
+	await expect
+		.element(screen.getByRole('button', { name: 'Crop media: Active', exact: true }))
+		.toHaveAttribute('aria-expanded', 'false');
+});

@@ -289,6 +289,7 @@ for (const scheme of ["light", "dark"] as const) {
       expect(colors.actual).toBe(colors.neutral);
       expect(colors.actual).not.toBe(colors.hover);
     }
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
     const opacity = page.getByRole("slider", { name: "Opacity", exact: true });
     await opacity.focus();
     await opacity.press("ArrowLeft");

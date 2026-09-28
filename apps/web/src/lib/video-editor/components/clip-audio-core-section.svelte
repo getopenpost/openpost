@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { Slider } from '$lib/components/ui/slider';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
@@ -347,34 +348,30 @@
 		<section
 			class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 		>
-			<h3
-				class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
-			>
-				<ThemeIcon role="audio" class="size-3.5 text-[var(--video-editor-muted)]" />
-				{m.video_editor_audio_pitch()}
-			</h3>
-			<div class="divide-y divide-[var(--video-editor-border)]">
-				{@render control(
-					'audioPitchSemitones',
-					m.video_editor_audio_semitones(),
-					mixedValue((item) => item.audioPitchSemitones ?? 0),
-					-12,
-					12,
-					1,
-					'st',
-					0
-				)}
-				{@render control(
-					'audioPitchCents',
-					m.video_editor_audio_cents(),
-					mixedValue((item) => item.audioPitchCents ?? 0),
-					-100,
-					100,
-					1,
-					'ct',
-					0
-				)}
-			</div>
+			<EditorDisclosure label={m.video_editor_audio_pitch()}>
+				<div class="divide-y divide-[var(--video-editor-border)]">
+					{@render control(
+						'audioPitchSemitones',
+						m.video_editor_audio_semitones(),
+						mixedValue((item) => item.audioPitchSemitones ?? 0),
+						-12,
+						12,
+						1,
+						'st',
+						0
+					)}
+					{@render control(
+						'audioPitchCents',
+						m.video_editor_audio_cents(),
+						mixedValue((item) => item.audioPitchCents ?? 0),
+						-100,
+						100,
+						1,
+						'ct',
+						0
+					)}
+				</div>
+			</EditorDisclosure>
 		</section>
 	</div>
 {/if}

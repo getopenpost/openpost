@@ -297,29 +297,6 @@
 				</Popover.Content>
 			</Popover.Root>
 		</div>
-		<Button
-			class="hidden @min-[800px]/program:inline-flex"
-			size="icon-xs"
-			variant="ghost"
-			disabled={savingFrame || totalFrames === 0}
-			aria-label={savingFrame ? m.video_editor_saving_frame() : m.video_editor_save_frame()}
-			title={m.video_editor_save_frame()}
-			onclick={() => void saveCurrentFrame()}
-		>
-			{#if savingFrame}<ProtectedIcon
-					icon="loading"
-					class="animate-spin motion-reduce:animate-none"
-				/>{:else}<ThemeIcon role="camera" />{/if}
-		</Button>
-		<Button
-			class="hidden @min-[800px]/program:inline-flex"
-			size="icon-xs"
-			variant="ghost"
-			disabled={savingFrame || totalFrames === 0}
-			aria-label={m.video_editor_frame_open_image()}
-			title={m.video_editor_frame_open_image()}
-			onclick={() => void saveCurrentFrame('image-editor')}><ThemeIcon role="image" /></Button
-		>
 	</div>
 
 	<span
@@ -334,27 +311,6 @@
 		<span class="text-muted-foreground max-[479px]:hidden">/ {durationTimecode}</span>
 	</span>
 
-	<div class="mx-auto hidden shrink-0 items-center gap-1 @min-[800px]/program:flex">
-		<Button size="xs" variant="outline" onclick={() => setInPoint(timelineStore.currentFrame)}>
-			{m.video_editor_mark_in()}
-		</Button>
-		<Button size="xs" variant="outline" onclick={() => setOutPoint(timelineStore.currentFrame)}>
-			{m.video_editor_mark_out()}
-		</Button>
-		{#if timelineStore.inPoint !== null || timelineStore.outPoint !== null}
-			<Button
-				size="xs"
-				variant="ghost"
-				onclick={() => {
-					setInPoint(null);
-					setOutPoint(null);
-				}}
-			>
-				{m.video_editor_clear_marks()}
-			</Button>
-		{/if}
-	</div>
-
 	<div class="voiceover-secondary ml-auto flex shrink-0 items-center gap-1">
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
@@ -363,7 +319,6 @@
 						{...props}
 						size="icon-xs"
 						variant="ghost"
-						class="@min-[800px]/program:hidden"
 						aria-label={m.image_editor_more_actions()}
 						title={m.image_editor_more_actions()}
 					>

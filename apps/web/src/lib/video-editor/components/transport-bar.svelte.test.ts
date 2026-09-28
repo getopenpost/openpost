@@ -55,14 +55,20 @@ it('keeps a 44px play target inside the narrow transport bar', async () => {
 	}
 });
 
-it('shows secondary transport controls when the Program container is wide', async () => {
+it('keeps playback direct and frame capture in the wide transport menu', async () => {
 	const screen = await render(Fixture, { width: 900 });
 
 	await expect
 		.element(screen.getByRole('button', { name: 'Go to start', exact: true }))
 		.toBeVisible();
 	await expect.element(screen.getByRole('button', { name: 'Stop', exact: true })).toBeVisible();
-	expect(screen.getByRole('button', { name: 'More actions', exact: true }).query()).toBeNull();
+	await screen.getByRole('button', { name: 'More actions', exact: true }).click();
+	await expect
+		.element(screen.getByRole('menuitem', { name: 'Save current frame', exact: true }))
+		.toBeVisible();
+	await expect
+		.element(screen.getByRole('menuitem', { name: 'Mark in', exact: true }))
+		.toBeVisible();
 });
 
 it('keeps preview menus inside the fullscreen surface', async () => {

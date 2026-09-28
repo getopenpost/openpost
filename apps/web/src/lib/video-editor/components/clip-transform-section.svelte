@@ -2,7 +2,7 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
-	import { SliderRow } from '$lib/components/editor-density';
+	import { Disclosure as EditorDisclosure, SliderRow } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -434,47 +434,49 @@
 				</div>
 			</div>
 
-			<div
-				class="grid grid-cols-1 gap-1 px-2.5 py-2 @min-[24rem]/transform:grid-cols-[4.25rem_minmax(0,1fr)] @min-[24rem]/transform:gap-2"
-			>
-				<span class="pt-1.5 text-[10px] font-medium text-[var(--video-editor-muted)]"
-					>{m.video_editor_property_anchor()}</span
+			<EditorDisclosure label={m.video_editor_property_anchor()}>
+				<div
+					class="grid grid-cols-1 gap-1 px-2.5 py-2 @min-[24rem]/transform:grid-cols-[4.25rem_minmax(0,1fr)] @min-[24rem]/transform:gap-2"
 				>
-				<div class="flex min-w-0 items-start gap-1">
-					<div
-						class="grid min-w-0 flex-1 grid-cols-1 gap-1 @min-[18rem]/transform:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1"
+					<span class="pt-1.5 text-[10px] font-medium text-[var(--video-editor-muted)]"
+						>{m.video_editor_property_anchor()}</span
 					>
-						{@render numberControl(
-							'anchorX',
-							'X',
-							m.video_editor_property_anchor_x(),
-							'px',
-							undefined,
-							undefined
-						)}
-						{@render numberControl(
-							'anchorY',
-							'Y',
-							m.video_editor_property_anchor_y(),
-							'px',
-							undefined,
-							undefined
-						)}
+					<div class="flex min-w-0 items-start gap-1">
+						<div
+							class="grid min-w-0 flex-1 grid-cols-1 gap-1 @min-[18rem]/transform:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1"
+						>
+							{@render numberControl(
+								'anchorX',
+								'X',
+								m.video_editor_property_anchor_x(),
+								'px',
+								undefined,
+								undefined
+							)}
+							{@render numberControl(
+								'anchorY',
+								'Y',
+								m.video_editor_property_anchor_y(),
+								'px',
+								undefined,
+								undefined
+							)}
+						</div>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_property_reset_anchor()}
+							onclick={() =>
+								reset((item) => ({
+									anchorX: valueFor(item, 'width') / 2,
+									anchorY: valueFor(item, 'height') / 2
+								}))}
+						>
+							<ThemeIcon role="undo" class="size-3.5" />
+						</button>
 					</div>
-					<button
-						type="button"
-						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
-						aria-label={m.video_editor_property_reset_anchor()}
-						onclick={() =>
-							reset((item) => ({
-								anchorX: valueFor(item, 'width') / 2,
-								anchorY: valueFor(item, 'height') / 2
-							}))}
-					>
-						<ThemeIcon role="undo" class="size-3.5" />
-					</button>
 				</div>
-			</div>
+			</EditorDisclosure>
 
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
 				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
@@ -505,98 +507,107 @@
 	<section
 		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 	>
-		<h3
-			class="flex h-[25px] items-center border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+		<EditorDisclosure
+			label={m.video_editor_property_appearance()}
+			summary={items.some(
+				(item) =>
+					(item.transform?.opacity ?? 1) !== 1 ||
+					(item.blendMode ?? 'normal') !== 'normal' ||
+					item.transform?.cornerRadius ||
+					item.keyframes?.opacity?.frames.length ||
+					item.keyframes?.cornerRadius?.frames.length
+			)
+				? m.video_editor_workspace_active()
+				: undefined}
 		>
-			{m.video_editor_property_appearance()}
-		</h3>
-		<div class="divide-y divide-[var(--video-editor-border)]">
-			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
-					>{m.video_editor_clip_opacity()}</span
-				>
-				<div class="flex min-w-0 items-center gap-1">
-					<div class="min-w-0 flex-1">
-						<SliderRow
-							showLabel={false}
-							label={m.video_editor_clip_opacity()}
-							value={(mixedValue('opacity') ?? 1) * 100}
-							min={0}
-							max={100}
-							step={1}
-							precision={0}
-							resetValue={100}
-							onbegin={beginGesture}
-							onValueChange={(nextValue) => {
-								beginGesture();
-								writeLive('opacity', nextValue / 100);
-							}}
-							onValueCommit={(nextValue) => commitGesture('opacity', nextValue / 100)}
-							onValueCancel={cancelGesture}
-						/>
+			<div class="divide-y divide-[var(--video-editor-border)]">
+				<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
+					<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+						>{m.video_editor_clip_opacity()}</span
+					>
+					<div class="flex min-w-0 items-center gap-1">
+						<div class="min-w-0 flex-1">
+							<SliderRow
+								showLabel={false}
+								label={m.video_editor_clip_opacity()}
+								value={(mixedValue('opacity') ?? 1) * 100}
+								min={0}
+								max={100}
+								step={1}
+								precision={0}
+								resetValue={100}
+								onbegin={beginGesture}
+								onValueChange={(nextValue) => {
+									beginGesture();
+									writeLive('opacity', nextValue / 100);
+								}}
+								onValueCommit={(nextValue) => commitGesture('opacity', nextValue / 100)}
+								onValueCancel={cancelGesture}
+							/>
+						</div>
+						<button
+							type="button"
+							class:active={autoKeyEnabled('opacity')}
+							class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_property_auto_key({
+								property: m.video_editor_clip_opacity()
+							})}
+							aria-pressed={autoKeyEnabled('opacity')}
+							onclick={() => toggleAutoKey('opacity')}
+						>
+							<ProtectedIcon
+								icon="editor-keyframe"
+								class={`size-2.5 ${autoKeyEnabled('opacity') ? 'fill-current' : ''}`}
+							/>
+						</button>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_property_reset_opacity()}
+							onclick={() => reset(() => ({ opacity: 1 }))}
+						>
+							<ThemeIcon role="undo" class="size-3.5" />
+						</button>
 					</div>
-					<button
-						type="button"
-						class:active={autoKeyEnabled('opacity')}
-						class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
-						aria-label={m.video_editor_property_auto_key({
-							property: m.video_editor_clip_opacity()
-						})}
-						aria-pressed={autoKeyEnabled('opacity')}
-						onclick={() => toggleAutoKey('opacity')}
+				</div>
+				<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
+					<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+						>{m.video_editor_blend_mode()}</span
 					>
-						<ProtectedIcon
-							icon="editor-keyframe"
-							class={`size-2.5 ${autoKeyEnabled('opacity') ? 'fill-current' : ''}`}
-						/>
-					</button>
-					<button
-						type="button"
-						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
-						aria-label={m.video_editor_property_reset_opacity()}
-						onclick={() => reset(() => ({ opacity: 1 }))}
+					<AppSelect
+						class="h-[22px] min-w-0 text-xs"
+						value={hasShapeMask() ? 'normal' : mixedBlendMode()}
+						options={blendOptions}
+						placeholder={m.video_editor_property_mixed()}
+						ariaLabel={m.video_editor_blend_mode()}
+						disabled={hasShapeMask()}
+						onValueChange={setBlendMode}
+					/>
+				</div>
+				<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
+					<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+						>{m.video_editor_property_radius()}</span
 					>
-						<ThemeIcon role="undo" class="size-3.5" />
-					</button>
+					<div class="flex min-w-0 items-center gap-1">
+						{@render numberControl(
+							'cornerRadius',
+							'',
+							m.video_editor_property_radius(),
+							'px',
+							0,
+							1000
+						)}
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+							aria-label={m.video_editor_property_reset_radius()}
+							onclick={() => reset(() => ({ cornerRadius: 0 }))}
+						>
+							<ThemeIcon role="undo" class="size-3.5" />
+						</button>
+					</div>
 				</div>
 			</div>
-			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
-					>{m.video_editor_blend_mode()}</span
-				>
-				<AppSelect
-					class="h-[22px] min-w-0 text-xs"
-					value={hasShapeMask() ? 'normal' : mixedBlendMode()}
-					options={blendOptions}
-					placeholder={m.video_editor_property_mixed()}
-					ariaLabel={m.video_editor_blend_mode()}
-					disabled={hasShapeMask()}
-					onValueChange={setBlendMode}
-				/>
-			</div>
-			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
-					>{m.video_editor_property_radius()}</span
-				>
-				<div class="flex min-w-0 items-center gap-1">
-					{@render numberControl(
-						'cornerRadius',
-						'',
-						m.video_editor_property_radius(),
-						'px',
-						0,
-						1000
-					)}
-					<button
-						type="button"
-						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
-						aria-label={m.video_editor_property_reset_radius()}
-						onclick={() => reset(() => ({ cornerRadius: 0 }))}
-					>
-						<ThemeIcon role="undo" class="size-3.5" />
-					</button>
-				</div>
-			</div>
-		</div>
+		</EditorDisclosure>
 	</section>
 </div>

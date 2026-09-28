@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
@@ -180,179 +181,189 @@
 		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 		data-testid="clip-playback-section"
 	>
-		<h3
-			class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+		<EditorDisclosure
+			label={m.video_editor_clip_playback()}
+			summary={items.some(
+				(item) =>
+					(item.speed ?? 1) !== 1 ||
+					item.isReversed ||
+					item.speedRamp?.length ||
+					item.fadeIn ||
+					item.fadeOut
+			)
+				? m.video_editor_workspace_active()
+				: undefined}
 		>
-			<ProtectedIcon icon="editor-speed" class="size-3.5 text-[var(--video-editor-muted)]" />
-			{m.video_editor_clip_playback()}
-		</h3>
-		<div class="divide-y divide-[var(--video-editor-border)]">
-			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
-					>{m.video_editor_clip_speed()}</span
-				>
-				<div class="flex min-w-0 items-center gap-1">
-					<Slider
-						class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
-						min={0.1}
-						max={10}
-						step={0.01}
-						value={speedValue ?? 1}
-						ariaLabel={m.video_editor_clip_speed()}
-						onValueChange={(nextValue) => {
-							beginGesture('speed');
-							writeSpeed(nextValue);
-						}}
-						onValueCommit={(nextValue) => commitGesture('speed', nextValue)}
-						onValueCancel={cancelGesture}
-						onKeydown={(event) => event.stopPropagation()}
-					/>
-					<div class="relative w-[4.6rem] shrink-0">
-						<ScrubbableNumberInput
-							ariaLabel={m.video_editor_clip_speed()}
-							value={speedValue}
-							placeholder={m.video_editor_property_mixed()}
+			<div class="divide-y divide-[var(--video-editor-border)]">
+				<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
+					<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+						>{m.video_editor_clip_speed()}</span
+					>
+					<div class="flex min-w-0 items-center gap-1">
+						<Slider
+							class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 							min={0.1}
 							max={10}
 							step={0.01}
-							decimals={2}
-							class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
-							onbegin={() => beginGesture('speed')}
-							onlive={writeSpeed}
-							oncommit={(value) => commitGesture('speed', value)}
-							oncancel={cancelGesture}
+							value={speedValue ?? 1}
+							ariaLabel={m.video_editor_clip_speed()}
+							onValueChange={(nextValue) => {
+								beginGesture('speed');
+								writeSpeed(nextValue);
+							}}
+							onValueCommit={(nextValue) => commitGesture('speed', nextValue)}
+							onValueCancel={cancelGesture}
+							onKeydown={(event) => event.stopPropagation()}
 						/>
-						<span
-							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
-							>×</span
-						>
-					</div>
-					<button
-						type="button"
-						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-						aria-label={m.video_editor_motion_override_reset({ name: m.video_editor_clip_speed() })}
-						onclick={resetSpeed}
-					>
-						<ThemeIcon role="undo" class="size-3.5" />
-					</button>
-				</div>
-			</div>
-
-			{#if canEditSpeedCurve && speedCurveItem}
-				<SpeedRampEditor itemId={speedCurveItem.id} itemIds={selectedIds} {onedit} />
-			{/if}
-
-			{#if videoItems.length > 0}
-				{#each [{ field: 'fadeIn', label: m.video_editor_clip_fade_in_seconds() }, { field: 'fadeOut', label: m.video_editor_clip_fade_out_seconds() }] as control (control.field)}
-					{@const field = control.field as 'fadeIn' | 'fadeOut'}
-					{@const value = mixedValue(videoItems, (item) => item[field] ?? 0)}
-					<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-						<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
-							>{control.label}</span
-						>
-						<div class="flex min-w-0 items-center gap-1">
-							<Slider
-								class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
-								min={0}
-								max={fadeLimit()}
-								step={0.05}
-								value={value ?? 0}
-								ariaLabel={control.label}
-								onValueChange={(nextValue) => {
-									beginGesture(field);
-									writeFade(field, nextValue);
-								}}
-								onValueCommit={(nextValue) => commitGesture(field, nextValue)}
-								onValueCancel={cancelGesture}
-								onKeydown={(event) => event.stopPropagation()}
+						<div class="relative w-[4.6rem] shrink-0">
+							<ScrubbableNumberInput
+								ariaLabel={m.video_editor_clip_speed()}
+								value={speedValue}
+								placeholder={m.video_editor_property_mixed()}
+								min={0.1}
+								max={10}
+								step={0.01}
+								decimals={2}
+								class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+								onbegin={() => beginGesture('speed')}
+								onlive={writeSpeed}
+								oncommit={(value) => commitGesture('speed', value)}
+								oncancel={cancelGesture}
 							/>
-							<div class="relative w-[4.6rem] shrink-0">
-								<ScrubbableNumberInput
-									ariaLabel={control.label}
-									{value}
-									placeholder={m.video_editor_property_mixed()}
+							<span
+								class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
+								>×</span
+							>
+						</div>
+						<button
+							type="button"
+							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+							aria-label={m.video_editor_motion_override_reset({
+								name: m.video_editor_clip_speed()
+							})}
+							onclick={resetSpeed}
+						>
+							<ThemeIcon role="undo" class="size-3.5" />
+						</button>
+					</div>
+				</div>
+
+				{#if canEditSpeedCurve && speedCurveItem}
+					<SpeedRampEditor itemId={speedCurveItem.id} itemIds={selectedIds} {onedit} />
+				{/if}
+
+				{#if videoItems.length > 0}
+					{#each [{ field: 'fadeIn', label: m.video_editor_clip_fade_in_seconds() }, { field: 'fadeOut', label: m.video_editor_clip_fade_out_seconds() }] as control (control.field)}
+						{@const field = control.field as 'fadeIn' | 'fadeOut'}
+						{@const value = mixedValue(videoItems, (item) => item[field] ?? 0)}
+						<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
+							<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+								>{control.label}</span
+							>
+							<div class="flex min-w-0 items-center gap-1">
+								<Slider
+									class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 									min={0}
 									max={fadeLimit()}
 									step={0.05}
-									decimals={2}
-									class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
-									onbegin={() => beginGesture(field)}
-									onlive={(next) => writeFade(field, next)}
-									oncommit={(next) => commitGesture(field, next)}
-									oncancel={cancelGesture}
+									value={value ?? 0}
+									ariaLabel={control.label}
+									onValueChange={(nextValue) => {
+										beginGesture(field);
+										writeFade(field, nextValue);
+									}}
+									onValueCommit={(nextValue) => commitGesture(field, nextValue)}
+									onValueCancel={cancelGesture}
+									onKeydown={(event) => event.stopPropagation()}
 								/>
-								<span
-									class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
-									>s</span
+								<div class="relative w-[4.6rem] shrink-0">
+									<ScrubbableNumberInput
+										ariaLabel={control.label}
+										{value}
+										placeholder={m.video_editor_property_mixed()}
+										min={0}
+										max={fadeLimit()}
+										step={0.05}
+										decimals={2}
+										class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+										onbegin={() => beginGesture(field)}
+										onlive={(next) => writeFade(field, next)}
+										oncommit={(next) => commitGesture(field, next)}
+										oncancel={cancelGesture}
+									/>
+									<span
+										class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
+										>s</span
+									>
+								</div>
+								<button
+									type="button"
+									class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+									aria-label={m.video_editor_motion_override_reset({ name: control.label })}
+									onclick={() => resetFade(field)}
 								>
+									<ThemeIcon role="undo" class="size-3.5" />
+								</button>
 							</div>
-							<button
-								type="button"
-								class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-								aria-label={m.video_editor_motion_override_reset({ name: control.label })}
-								onclick={() => resetFade(field)}
-							>
-								<ThemeIcon role="undo" class="size-3.5" />
-							</button>
 						</div>
-					</div>
-				{/each}
-			{/if}
-
-			<div class="space-y-2 px-2.5 py-2">
-				<Button
-					type="button"
-					size="sm"
-					variant={reverseState() === true ? 'secondary' : 'outline'}
-					class="h-[25px] w-full justify-between text-xs"
-					aria-label={m.video_editor_clip_reverse()}
-					aria-pressed={reverseState() === true}
-					onclick={toggleReverse}
-				>
-					<span>{m.video_editor_clip_reverse()}</span>
-					<span class="text-[10px] opacity-70">
-						{reverseState() === null
-							? m.video_editor_property_mixed()
-							: reverseState()
-								? m.video_editor_clip_reverse_on()
-								: m.video_editor_clip_reverse_off()}
-					</span>
-				</Button>
-				{#if primaryVideo?.isReversed && (conformStatus.state === 'preparing' || conformStatus.state === 'rendering')}
-					<div
-						class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-2"
-					>
-						<div
-							class="flex items-center justify-between gap-2 text-[10px] text-[var(--video-editor-muted)]"
-						>
-							<span>{m.video_editor_clip_reverse_preparing()}</span>
-							<span>{Math.round(conformStatus.progress * 100)}%</span>
-						</div>
-						<div class="mt-1 h-1 overflow-hidden rounded bg-[var(--video-editor-control-hover)]">
-							<div
-								class="h-full bg-[var(--video-editor-primary)]"
-								style:width={`${Math.round(conformStatus.progress * 100)}%`}
-							></div>
-						</div>
-						<Button
-							type="button"
-							size="sm"
-							variant="ghost"
-							class="mt-1 h-6 px-1.5 text-[10px]"
-							onclick={() => primaryVideo?.mediaId && cancelReverseConform(primaryVideo.mediaId)}
-							>{m.common_cancel()}</Button
-						>
-					</div>
-				{:else if primaryVideo?.isReversed && conformStatus.state === 'ready'}
-					<p class="text-[10px] text-[oklch(0.74_0.1_145)]">
-						{m.video_editor_clip_reverse_ready()}
-					</p>
-				{:else if primaryVideo?.isReversed && (conformStatus.state === 'error' || conformStatus.state === 'canceled')}
-					<p class="text-[10px] text-[oklch(0.72_0.14_30)]">
-						{m.video_editor_clip_reverse_fallback()}
-					</p>
+					{/each}
 				{/if}
+
+				<div class="space-y-2 px-2.5 py-2">
+					<Button
+						type="button"
+						size="sm"
+						variant={reverseState() === true ? 'secondary' : 'outline'}
+						class="h-[25px] w-full justify-between text-xs"
+						aria-label={m.video_editor_clip_reverse()}
+						aria-pressed={reverseState() === true}
+						onclick={toggleReverse}
+					>
+						<span>{m.video_editor_clip_reverse()}</span>
+						<span class="text-[10px] opacity-70">
+							{reverseState() === null
+								? m.video_editor_property_mixed()
+								: reverseState()
+									? m.video_editor_clip_reverse_on()
+									: m.video_editor_clip_reverse_off()}
+						</span>
+					</Button>
+					{#if primaryVideo?.isReversed && (conformStatus.state === 'preparing' || conformStatus.state === 'rendering')}
+						<div
+							class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-2"
+						>
+							<div
+								class="flex items-center justify-between gap-2 text-[10px] text-[var(--video-editor-muted)]"
+							>
+								<span>{m.video_editor_clip_reverse_preparing()}</span>
+								<span>{Math.round(conformStatus.progress * 100)}%</span>
+							</div>
+							<div class="mt-1 h-1 overflow-hidden rounded bg-[var(--video-editor-control-hover)]">
+								<div
+									class="h-full bg-[var(--video-editor-primary)]"
+									style:width={`${Math.round(conformStatus.progress * 100)}%`}
+								></div>
+							</div>
+							<Button
+								type="button"
+								size="sm"
+								variant="ghost"
+								class="mt-1 h-6 px-1.5 text-[10px]"
+								onclick={() => primaryVideo?.mediaId && cancelReverseConform(primaryVideo.mediaId)}
+								>{m.common_cancel()}</Button
+							>
+						</div>
+					{:else if primaryVideo?.isReversed && conformStatus.state === 'ready'}
+						<p class="text-[10px] text-[oklch(0.74_0.1_145)]">
+							{m.video_editor_clip_reverse_ready()}
+						</p>
+					{:else if primaryVideo?.isReversed && (conformStatus.state === 'error' || conformStatus.state === 'canceled')}
+						<p class="text-[10px] text-[oklch(0.72_0.14_30)]">
+							{m.video_editor_clip_reverse_fallback()}
+						</p>
+					{/if}
+				</div>
 			</div>
-		</div>
+		</EditorDisclosure>
 	</section>
 {/if}

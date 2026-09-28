@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Disclosure as EditorDisclosure, HintButton } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
@@ -30,6 +31,7 @@
 	import type { TranscriptionJobStatus } from '$lib/video-editor/transcript/transcription-service.svelte';
 
 	let {
+		hasTranscript = false,
 		canTranscribe,
 		busy,
 		status,
@@ -43,6 +45,7 @@
 		startLabel,
 		error
 	}: {
+		hasTranscript?: boolean;
 		startLabel?: string;
 		error?: string;
 		canTranscribe: boolean;
@@ -59,6 +62,7 @@
 
 	const controlId = $props.id();
 
+	let setupOpen = $state(false);
 	let model = $state<TranscriptionModel>(editorSettings.defaultTranscriptionModel);
 	let language = $state(editorSettings.defaultTranscriptionLanguage);
 	let quantization = $state<TranscriptionQuantization>(
@@ -91,136 +95,152 @@
 	}
 </script>
 
-<div class="grid grid-cols-2 gap-1 rounded-md border border-border bg-card p-1.5">
-	{#if error && !busy}
-		<p role="alert" class="col-span-2 text-xs break-words text-destructive">{error}</p>
-	{/if}
-	<div class="col-span-2 text-[10px] text-muted-foreground">
-		<label
-			for={`${controlId}-model`}
-			title={`${transcriptionModelUiDescription(model)} ${m.video_editor_transcribe_model_size({ size: modelDownloadSize })}`}
-			>{m.video_editor_transcribe_model()}</label
-		>
-		<Select.Root type="single" bind:value={model} disabled={busy}>
-			<Select.Trigger
-				id={`${controlId}-model`}
-				aria-label={m.video_editor_transcribe_model()}
-				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
-			>
-				<span class="truncate">{transcriptionModelUiLabel(model)}</span>
-			</Select.Trigger>
-			<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
-				{#each TRANSCRIPTION_MODEL_OPTIONS as option}
-					<Select.Item value={option.value}>{transcriptionModelUiLabel(option.value)}</Select.Item>
-				{/each}
-			</Select.Content>
-		</Select.Root>
-	</div>
-	<div class="text-[10px] text-muted-foreground">
-		<label for={`${controlId}-language`}>{m.video_editor_transcribe_language()}</label>
-		<Select.Root type="single" bind:value={language} disabled={busy}>
-			<Select.Trigger
-				id={`${controlId}-language`}
-				aria-label={m.video_editor_transcribe_language()}
-				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
-			>
-				<span class="truncate">{transcriptionLanguageUiLabel(language)}</span>
-			</Select.Trigger>
-			<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
-				{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
-					<Select.Item value={option.value}
-						>{transcriptionLanguageUiLabel(option.value)}</Select.Item
-					>
-				{/each}
-			</Select.Content>
-		</Select.Root>
-	</div>
-	<div class="text-[10px] text-muted-foreground">
-		<label for={`${controlId}-quality`}>{m.video_editor_transcribe_quality()}</label>
-		<Select.Root
-			type="single"
-			bind:value={quantization}
-			disabled={busy || model === 'parakeet-tdt-v3'}
-		>
-			<Select.Trigger
-				id={`${controlId}-quality`}
-				aria-label={m.video_editor_transcribe_quality()}
-				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
-			>
-				<span class="truncate">{transcriptionQuantizationUiLabel(quantization)}</span>
-			</Select.Trigger>
-			<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
-				{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
-					<Select.Item value={option.value}
-						>{transcriptionQuantizationUiLabel(option.value)}</Select.Item
-					>
-				{/each}
-			</Select.Content>
-		</Select.Root>
-	</div>
-	{#if fallback}
-		<p
-			class="col-span-2 rounded bg-warning/10 px-1.5 py-1 text-[10px] text-warning-foreground"
-			role="status"
-		>
-			{fallback.fallbackReason === 'out-of-memory'
-				? m.video_editor_transcribe_memory_fallback({
-						model: transcriptionModelUiLabel(fallback.model)
-					})
-				: m.video_editor_transcribe_fallback({
-						model: transcriptionModelUiLabel(fallback.model)
-					})}
-		</p>
-	{/if}
-	{#if busy && status === 'queued'}
-		<p
-			class="col-span-2 rounded bg-muted px-1.5 py-1 text-[10px] text-muted-foreground"
-			role="status"
-		>
-			{m.video_editor_transcribe_queued({
-				position: queuePosition ?? 1,
-				total: Math.max(queueTotal ?? 1, queuePosition ?? 1)
-			})}
-		</p>
-	{/if}
-	{#if busy && progress}
-		<div class="col-span-2" aria-live="polite">
-			<div class="mb-0.5 flex items-center justify-between text-[9px] text-muted-foreground">
-				<span>{stageLabel(progress)}{backend ? ` · ${backend.toUpperCase()}` : ''}</span>
-				<span>
-					{Math.round(progress.progress * 100)}%
-					{#if progress.receivedBytes != null && progress.totalBytes}
-						· {formatBytes(progress.receivedBytes)} / {formatBytes(progress.totalBytes)}
-					{/if}
-				</span>
-			</div>
-			<div
-				class="h-1 overflow-hidden rounded-full bg-muted"
-				role="progressbar"
-				aria-label={stageLabel(progress)}
-				aria-valuemin="0"
-				aria-valuemax="100"
-				aria-valuenow={Math.round(progress.progress * 100)}
-			>
-				<div
-					class="h-full rounded-full bg-primary transition-[width]"
-					style:width={`${Math.max(2, progress.progress * 100)}%`}
-				></div>
-			</div>
+{#if hasTranscript && !busy && !error}
+	<EditorDisclosure label={startLabel ?? m.video_editor_transcribe()} bind:open={setupOpen}>
+		{@render controls()}
+	</EditorDisclosure>
+{:else}
+	{@render controls()}
+{/if}
+
+{#snippet controls()}
+	<div class="grid grid-cols-2 gap-1 rounded-md border border-border bg-card p-1.5">
+		{#if error && !busy}
+			<p role="alert" class="col-span-2 text-xs break-words text-destructive">{error}</p>
+		{/if}
+		<div class="col-span-2 text-[10px] text-muted-foreground">
+			<label for={`${controlId}-language`}>{m.video_editor_transcribe_language()}</label>
+			<Select.Root type="single" bind:value={language} disabled={busy}>
+				<Select.Trigger
+					id={`${controlId}-language`}
+					aria-label={m.video_editor_transcribe_language()}
+					class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
+				>
+					<span class="truncate">{transcriptionLanguageUiLabel(language)}</span>
+				</Select.Trigger>
+				<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
+					{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
+						<Select.Item value={option.value}
+							>{transcriptionLanguageUiLabel(option.value)}</Select.Item
+						>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 		</div>
-	{/if}
-	<Button
-		size="sm"
-		class="col-span-2 w-full"
-		variant={busy ? 'outline' : 'secondary'}
-		disabled={!canTranscribe && !busy}
-		onclick={busy ? oncancel : start}
-	>
-		{busy ? m.video_editor_transcribe_cancel() : (startLabel ?? m.video_editor_transcribe())}
-	</Button>
-	<p class="col-span-2 text-xs leading-relaxed text-muted-foreground">
-		{m.video_editor_transcribe_model_size({ size: modelDownloadSize })}
-		{m.video_editor_models_consent()}
-	</p>
-	<LocalModelCacheControl />
-</div>
+		{#if fallback}
+			<p
+				class="col-span-2 rounded bg-warning/10 px-1.5 py-1 text-[10px] text-warning-foreground"
+				role="status"
+			>
+				{fallback.fallbackReason === 'out-of-memory'
+					? m.video_editor_transcribe_memory_fallback({
+							model: transcriptionModelUiLabel(fallback.model)
+						})
+					: m.video_editor_transcribe_fallback({
+							model: transcriptionModelUiLabel(fallback.model)
+						})}
+			</p>
+		{/if}
+		{#if busy && status === 'queued'}
+			<p
+				class="col-span-2 rounded bg-muted px-1.5 py-1 text-[10px] text-muted-foreground"
+				role="status"
+			>
+				{m.video_editor_transcribe_queued({
+					position: queuePosition ?? 1,
+					total: Math.max(queueTotal ?? 1, queuePosition ?? 1)
+				})}
+			</p>
+		{/if}
+		{#if busy && progress}
+			<div class="col-span-2" aria-live="polite">
+				<div class="mb-0.5 flex items-center justify-between text-[9px] text-muted-foreground">
+					<span>{stageLabel(progress)}{backend ? ` · ${backend.toUpperCase()}` : ''}</span>
+					<span>
+						{Math.round(progress.progress * 100)}%
+						{#if progress.receivedBytes != null && progress.totalBytes}
+							· {formatBytes(progress.receivedBytes)} / {formatBytes(progress.totalBytes)}
+						{/if}
+					</span>
+				</div>
+				<div
+					class="h-1 overflow-hidden rounded-full bg-muted"
+					role="progressbar"
+					aria-label={stageLabel(progress)}
+					aria-valuemin="0"
+					aria-valuemax="100"
+					aria-valuenow={Math.round(progress.progress * 100)}
+				>
+					<div
+						class="h-full rounded-full bg-primary transition-[width]"
+						style:width={`${Math.max(2, progress.progress * 100)}%`}
+					></div>
+				</div>
+			</div>
+		{/if}
+		<Button
+			size="sm"
+			class="col-span-2 w-full"
+			variant={busy ? 'outline' : 'secondary'}
+			disabled={!canTranscribe && !busy}
+			onclick={busy ? oncancel : start}
+		>
+			{busy ? m.video_editor_transcribe_cancel() : (startLabel ?? m.video_editor_transcribe())}
+		</Button>
+		<div class="col-span-2 flex items-center gap-1 text-xs text-muted-foreground">
+			<span>{m.video_editor_transcribe_model_size({ size: modelDownloadSize })}</span>
+			<HintButton label={m.video_editor_models_consent()} hint={m.video_editor_models_consent()} />
+		</div>
+		<EditorDisclosure label={m.video_editor_advanced()} class="col-span-2">
+			<div class="grid grid-cols-2 gap-2">
+				<div class="col-span-2 text-[10px] text-muted-foreground">
+					<label
+						for={`${controlId}-model`}
+						title={`${transcriptionModelUiDescription(model)} ${m.video_editor_transcribe_model_size({ size: modelDownloadSize })}`}
+						>{m.video_editor_transcribe_model()}</label
+					>
+					<Select.Root type="single" bind:value={model} disabled={busy}>
+						<Select.Trigger
+							id={`${controlId}-model`}
+							aria-label={m.video_editor_transcribe_model()}
+							class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
+						>
+							<span class="truncate">{transcriptionModelUiLabel(model)}</span>
+						</Select.Trigger>
+						<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
+							{#each TRANSCRIPTION_MODEL_OPTIONS as option}
+								<Select.Item value={option.value}
+									>{transcriptionModelUiLabel(option.value)}</Select.Item
+								>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+				<div class="text-[10px] text-muted-foreground">
+					<label for={`${controlId}-quality`}>{m.video_editor_transcribe_quality()}</label>
+					<Select.Root
+						type="single"
+						bind:value={quantization}
+						disabled={busy || model === 'parakeet-tdt-v3'}
+					>
+						<Select.Trigger
+							id={`${controlId}-quality`}
+							aria-label={m.video_editor_transcribe_quality()}
+							class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
+						>
+							<span class="truncate">{transcriptionQuantizationUiLabel(quantization)}</span>
+						</Select.Trigger>
+						<Select.Content class="video-editor-theme bg-popover text-popover-foreground">
+							{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
+								<Select.Item value={option.value}
+									>{transcriptionQuantizationUiLabel(option.value)}</Select.Item
+								>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+			</div>
+			<LocalModelCacheControl />
+		</EditorDisclosure>
+	</div>
+{/snippet}

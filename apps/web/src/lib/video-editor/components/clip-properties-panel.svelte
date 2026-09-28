@@ -395,16 +395,11 @@
 		{/if}
 
 		{#if item.type === 'video' || item.type === 'audio'}
-			{#if item.type === 'audio'}
-				<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
-				<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
-			{:else}
-				<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
-				<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
-			{/if}
+			<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
+			<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
 
 			{#if audioItem}
-				<section>
+				<EditorDisclosure label={m.video_editor_advanced()}>
 					<details class="mt-2 rounded-md border border-border bg-muted/40">
 						<summary
 							class="flex min-h-[25px] cursor-pointer list-none items-center justify-between px-2 text-[10px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
@@ -508,7 +503,7 @@
 							</div>
 						{/if}
 					</div>
-				</section>
+				</EditorDisclosure>
 			{/if}
 		{/if}
 

@@ -26,6 +26,7 @@ it.each([280, 320, 390])('keeps transform values readable in a %ipx inspector', 
 			target,
 			props: { itemId: 'clip', onedit: vi.fn() }
 		});
+		await screen.getByRole('button', { name: 'Anchor', exact: true }).click();
 		for (const name of ['Width', 'Height', 'Anchor X', 'Anchor Y']) {
 			const input = screen.getByRole('textbox', { name, exact: true }).element();
 			if (!(input instanceof HTMLInputElement)) throw new Error(`${name} must be an input`);

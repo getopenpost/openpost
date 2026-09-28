@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { Slider } from '$lib/components/ui/slider';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
@@ -195,84 +196,90 @@
 		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 		data-testid="clip-crop-section"
 	>
-		<h3
-			class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+		<EditorDisclosure
+			label={m.video_editor_crop()}
+			summary={items.some(
+				(item) =>
+					(item.crop &&
+						Object.values(item.crop).some((value) => typeof value === 'number' && value !== 0)) ||
+					controls.some((control) => item.keyframes?.[control.property]?.frames.length)
+			)
+				? m.video_editor_workspace_active()
+				: undefined}
 		>
-			<ProtectedIcon icon="editor-crop" class="size-3.5 text-[var(--video-editor-muted)]" />
-			{m.video_editor_crop()}
-		</h3>
-		<div class="divide-y divide-[var(--video-editor-border)]">
-			{#each controls as control (control.property)}
-				{@const value = mixedValue(control.property)}
-				{@const maximum = maxFor(control.axis)}
-				<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-					<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
-						>{control.label()}</span
-					>
-					<div class="flex min-w-0 items-center gap-1">
-						<Slider
-							class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
-							min={control.axis === 'softness' ? -maximum : 0}
-							max={maximum}
-							step={1}
-							value={value ?? 0}
-							ariaLabel={control.label()}
-							onValueChange={(nextValue) => {
-								beginGesture();
-								writeLive(control.property, nextValue);
-							}}
-							onValueCommit={(nextValue) => commitGesture(control.property, nextValue)}
-							onValueCancel={cancelGesture}
-							onKeydown={(event) => event.stopPropagation()}
-						/>
-						<div class="relative w-[4.6rem] shrink-0">
-							<span
-								class="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-[9px] font-semibold text-[var(--video-editor-muted)]"
-								>{control.shortLabel}</span
-							>
-							<ScrubbableNumberInput
-								ariaLabel={control.label()}
-								{value}
-								placeholder={m.video_editor_property_mixed()}
+			<div class="divide-y divide-[var(--video-editor-border)]">
+				{#each controls as control (control.property)}
+					{@const value = mixedValue(control.property)}
+					{@const maximum = maxFor(control.axis)}
+					<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
+						<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+							>{control.label()}</span
+						>
+						<div class="flex min-w-0 items-center gap-1">
+							<Slider
+								class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 								min={control.axis === 'softness' ? -maximum : 0}
 								max={maximum}
 								step={1}
-								decimals={0}
-								class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
-								onbegin={beginGesture}
-								onlive={(next) => writeLive(control.property, next)}
-								oncommit={(next) => commitGesture(control.property, next)}
-								oncancel={cancelGesture}
+								value={value ?? 0}
+								ariaLabel={control.label()}
+								onValueChange={(nextValue) => {
+									beginGesture();
+									writeLive(control.property, nextValue);
+								}}
+								onValueCommit={(nextValue) => commitGesture(control.property, nextValue)}
+								onValueCancel={cancelGesture}
+								onKeydown={(event) => event.stopPropagation()}
 							/>
-							<span
-								class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
-								>px</span
+							<div class="relative w-[4.6rem] shrink-0">
+								<span
+									class="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-[9px] font-semibold text-[var(--video-editor-muted)]"
+									>{control.shortLabel}</span
+								>
+								<ScrubbableNumberInput
+									ariaLabel={control.label()}
+									{value}
+									placeholder={m.video_editor_property_mixed()}
+									min={control.axis === 'softness' ? -maximum : 0}
+									max={maximum}
+									step={1}
+									decimals={0}
+									class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
+									onbegin={beginGesture}
+									onlive={(next) => writeLive(control.property, next)}
+									oncommit={(next) => commitGesture(control.property, next)}
+									oncancel={cancelGesture}
+								/>
+								<span
+									class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
+									>px</span
+								>
+							</div>
+							<button
+								type="button"
+								class:active={autoKeyEnabled(control.property)}
+								class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
+								aria-label={m.video_editor_property_auto_key({ property: control.label() })}
+								aria-pressed={autoKeyEnabled(control.property)}
+								onclick={() => toggleAutoKey(control.property)}
 							>
+								<ProtectedIcon
+									icon="editor-keyframe"
+									class={`size-2.5 ${autoKeyEnabled(control.property) ? 'fill-current' : ''}`}
+								/>
+							</button>
+							<button
+								type="button"
+								class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								aria-label={m.video_editor_motion_override_reset({ name: control.label() })}
+								onclick={() => reset(control.property)}
+							>
+								<ThemeIcon role="undo" class="size-3.5" />
+							</button>
 						</div>
-						<button
-							type="button"
-							class:active={autoKeyEnabled(control.property)}
-							class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
-							aria-label={m.video_editor_property_auto_key({ property: control.label() })}
-							aria-pressed={autoKeyEnabled(control.property)}
-							onclick={() => toggleAutoKey(control.property)}
-						>
-							<ProtectedIcon
-								icon="editor-keyframe"
-								class={`size-2.5 ${autoKeyEnabled(control.property) ? 'fill-current' : ''}`}
-							/>
-						</button>
-						<button
-							type="button"
-							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-							aria-label={m.video_editor_motion_override_reset({ name: control.label() })}
-							onclick={() => reset(control.property)}
-						>
-							<ThemeIcon role="undo" class="size-3.5" />
-						</button>
 					</div>
-				</div>
-			{/each}
-		</div>
+				{/each}
+			</div>
+		</EditorDisclosure>
 	</section>
 {/if}

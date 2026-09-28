@@ -184,3 +184,48 @@ test("text range weight survives cloud save and reload without changing the whol
   }
   expect(errors).toEqual([]);
 });
+
+test("cloud autosave keeps the canvas text cursor and accepts continued typing", async ({
+  page,
+  request,
+}) => {
+  const auth = await registerUser(request, `canvas-autosave-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Canvas autosave");
+  await authenticatePage(page, auth.token);
+  await page.setViewportSize({ width: 1369, height: 850 });
+  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+  await page.getByRole("button", { name: "Text", exact: true }).click();
+  const saved = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().includes("/api/v1/image-editor/designs/"),
+  );
+  await page.keyboard.insertText("Hello 👩🏽‍💻");
+  const response = await saved;
+  expect(response.ok()).toBe(true);
+  await expect(
+    page
+      .getByRole("banner")
+      .getByText("Saved to OpenPost", { exact: true })
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
+  const designID = new URL(page.url()).pathname.split("/").at(-1)!;
+  await expect
+    .poll(
+      async () => {
+        const savedDesign = await request.get(`/api/v1/image-editor/designs/${designID}`, {
+          headers: { Authorization: `Bearer ${auth.token}` },
+        });
+        return (await savedDesign.json()).document.pages[0].preview_media_id;
+      },
+      { timeout: 15_000 },
+    )
+    .toBeTruthy();
+  await page.keyboard.insertText(" again");
+  await expect(page.getByRole("textbox", { name: "Text", exact: true })).toHaveValue(
+    "Hello 👩🏽‍💻 again",
+  );
+});

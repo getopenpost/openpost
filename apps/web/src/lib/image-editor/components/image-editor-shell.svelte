@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { replaceEqualDeep } from '@tanstack/svelte-query';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
@@ -82,6 +83,7 @@
 		trackPublicImageEditorEvent
 	} from '../public-telemetry';
 	import {
+		cloneImageEditorDocument,
 		cloneImageEditorLayer,
 		imageEditorPageHasTransparency,
 		validateImageEditorDocument
@@ -1307,11 +1309,12 @@
 			}
 			coverPreviewMediaID = response.cover_preview_media_id ?? '';
 			if (editor.document === submittedDocument) {
-				// Keep the current identity when the server accepted it unchanged. Replacing
-				// it resets every document consumer, including the page-strip previews.
-				if (JSON.stringify(response.document) !== JSON.stringify(submittedDocument)) {
-					editor.document = response.document;
-				}
+				// The server omits default fields and reorders JSON keys. Normalize its
+				// reply and retain unchanged layers so autosave cannot end canvas typing.
+				editor.document = replaceEqualDeep(
+					submittedDocument,
+					cloneImageEditorDocument(response.document)
+				);
 				editor.saveState = 'saved';
 				editor.saveMessage = guestMode
 					? m.image_editor_public_saved_device()
@@ -1398,10 +1401,12 @@
 			) {
 				return;
 			}
-			const nextDocument = structuredClone(editor.document);
-			const nextPage = nextDocument.pages.find((item) => item.id === page.id);
-			if (!nextPage) return;
-			nextPage.preview_media_id = uploaded.id;
+			const nextDocument = {
+				...editor.document,
+				pages: editor.document.pages.map((item) =>
+					item.id === page.id ? { ...item, preview_media_id: uploaded.id } : item
+				)
+			};
 			editor.document = nextDocument;
 			previewPending = false;
 			lastPreviewAt = Date.now();

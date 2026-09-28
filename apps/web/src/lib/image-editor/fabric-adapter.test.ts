@@ -305,6 +305,7 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 		const canvas = {
 			backgroundColor: previousPage.background_color,
 			getActiveObject: () => ({ getObjects: () => [object] }),
+			getActiveObjects: () => (selectionAttached ? [object] : []),
 			discardActiveObject() {
 				selectionAttached = false;
 			},

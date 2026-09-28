@@ -2891,12 +2891,18 @@ export class OpenPostFabricAdapter {
 	private restoreSelection(ids: string[]): void {
 		const canvas = this.interactiveCanvas();
 		if (!canvas || !this.fabric) return;
-		const wasSyncing = this.syncing;
-		this.syncing = true;
-		canvas.discardActiveObject();
 		const objects = ids
 			.map((id) => this.objectByLayerID.get(id))
 			.filter((object): object is FabricObject => Boolean(object));
+		const active = canvas.getActiveObjects();
+		if (
+			active.length === objects.length &&
+			active.every((object, index) => object === objects[index])
+		)
+			return;
+		const wasSyncing = this.syncing;
+		this.syncing = true;
+		canvas.discardActiveObject();
 		if (objects.length === 1) {
 			canvas.setActiveObject(objects[0]);
 		} else if (objects.length > 1) {

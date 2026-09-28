@@ -394,7 +394,7 @@ func repostCredentialCounts(t *testing.T, db *bun.DB, policyCount, grantCount in
 
 func TestRepostPolicySaveKeepsExistingIdentity(t *testing.T) {
 	db := workflowHandlerDB(t)
-	now := time.Now().UTC().Add(-time.Hour)
+	now := time.Date(2026, time.September, 1, 12, 0, 0, 123456789, time.UTC)
 	account := &models.SocialAccount{ID: "repost-account", WorkspaceID: "ws", Platform: "x", AccountID: "founder", AccountUsername: "founder", AccessTokenEnc: []byte("test"), IsActive: true, CreatedAt: now}
 	_, err := db.NewInsert().Model(account).Exec(t.Context())
 	require.NoError(t, err)
@@ -403,6 +403,7 @@ func TestRepostPolicySaveKeepsExistingIdentity(t *testing.T) {
 	policy := &models.RepostPolicy{ID: "legacy-rule", WorkspaceID: "ws", Name: "Existing promotion", Enabled: true, DelaySeconds: 86400, EvaluationWindowSeconds: 604800, ThresholdMode: "all", PlateauChecks: 2, StagesJSON: "[]", CreatedByID: "user", UpdatedByID: "user", CreatedAt: now, UpdatedAt: now}
 	_, err = db.NewInsert().Model(policy).Exec(t.Context())
 	require.NoError(t, err)
+	require.NoError(t, db.NewSelect().Model(policy).WherePK().Scan(t.Context()))
 	_, err = db.NewInsert().Model(&models.RepostPolicyAccount{PolicyID: policy.ID, SocialAccountID: account.ID, Role: repostservice.RoleTarget}).Exec(t.Context())
 	require.NoError(t, err)
 	publication, err := NewPublicationHandler(db, workflowSession{}, nil).publicationApplication().Create(t.Context(), "user", CreatePublicationBody{WorkspaceID: "ws", ContentProfile: models.ContentProfileShortText, SourceText: "Already published", SocialAccountIDs: []string{account.ID}})
@@ -424,7 +425,7 @@ func TestRepostPolicySaveKeepsExistingIdentity(t *testing.T) {
 	require.NoError(t, err)
 	var saved models.RepostPolicy
 	require.NoError(t, db.NewSelect().Model(&saved).Where("id = ?", policy.ID).Scan(t.Context()))
-	require.True(t, saved.CreatedAt.Equal(now), "editing must preserve the existing rule identity and creation time")
+	require.Equal(t, policy.CreatedAt, saved.CreatedAt, "editing must preserve the stored creation time")
 	require.Equal(t, policy.CreatedByID, saved.CreatedByID)
 	require.False(t, saved.Enabled)
 	history, err := service.Settings(t.Context(), "ws", "user", credential)

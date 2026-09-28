@@ -4,6 +4,9 @@ export const X_PREMIUM_CHAR_LIMIT = 25_000;
 const X_TRANSFORMED_URL_LENGTH = 23;
 const X_URL_PATTERN =
   /(?:https?:\/\/|www\.)[^\s<>{}[\]"']+|(?<![@\p{L}\p{N}_])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+[\p{L}]{2,63}(?:[/?#][^\s<>{}[\]"']*)?/giu;
+const MASTODON_URL_LENGTH = 23;
+const MASTODON_URL_PATTERN = /https?:\/\/[^\s<>{}[\]"']+/giu;
+const MASTODON_REMOTE_MENTION_PATTERN = /(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z0-9]+/gi;
 const GRAPHEME_SEGMENTER = resolveGraphemeSegmenter();
 
 export interface PlatformLimitDefinition {
@@ -132,6 +135,7 @@ export const PLATFORM_LIMITS = {
 export function countPlatformText(platformKey: string, text: string): number {
   if (platformKey === "threads") return new TextEncoder().encode(text).length;
   if (platformKey === "bluesky") return graphemeSegments(text).length;
+  if (platformKey === "mastodon") return Array.from(mastodonCountableText(text)).length;
   if (platformKey !== "x") return Array.from(text).length;
   const normalized = text.normalize("NFC");
 
@@ -146,6 +150,17 @@ export function countPlatformText(platformKey: string, text: string): number {
     cursor = start + matchedURL.length;
   }
   return length + xWeightedTextSegmentLength(normalized.slice(cursor));
+}
+
+// Mastodon measures a status after counting each http(s) link as 23
+// characters and each @user@domain mention as @user.
+function mastodonCountableText(text: string): string {
+  return text
+    .replace(MASTODON_URL_PATTERN, (url) => {
+      const trailing = url.slice(url.replace(/[.,!?;:)\]}]+$/u, "").length);
+      return "x".repeat(MASTODON_URL_LENGTH) + trailing;
+    })
+    .replace(MASTODON_REMOTE_MENTION_PATTERN, "$1@$2");
 }
 
 function xWeightedTextSegmentLength(text: string): number {

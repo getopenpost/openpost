@@ -68,9 +68,13 @@ it.each(formats)(
 				isCurrent: () => true
 			});
 			expect(result.itemIds).toHaveLength(3);
-			expect(mediaPool.get(result.mediaIds[0])?.audioCodec).toBe(
-				format === 'webm' ? 'opus' : 'aac'
-			);
+			const audioCodec = mediaPool.get(result.mediaIds[0])?.audioCodec;
+			if (format === 'mp4') {
+				// Generic MP4 lets the browser choose its audio codec.
+				expect(['aac', 'opus']).toContain(audioCodec);
+			} else {
+				expect(audioCodec).toBe(format === 'native' ? 'aac' : 'opus');
+			}
 			const extensions = result.mediaIds.map((id) => mediaPool.get(id)?.fileName.split('.').pop());
 			expect(extensions).toEqual(
 				format === 'native'

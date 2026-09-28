@@ -26,7 +26,7 @@
         "src/hooks.{js,ts}!",
         "src/lib/pwa/manifest.ts!",
         // Imported by Vite, whose plugin is disabled below to avoid running config during analysis.
-        "src/lib/build/phonemizer-data-race.ts!",
+        "src/lib/build/phonemizer-runtime.ts!",
         "src/lib/themes/icons/packs/{lucide,heroicons-outline,heroicons-solid,phosphor,tabler}.ts!",
       ],
       "project": [

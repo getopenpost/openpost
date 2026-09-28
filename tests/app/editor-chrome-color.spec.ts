@@ -86,10 +86,12 @@ async function verifySequenceAutoBalance(page: Page, errors: string[]): Promise<
   const timelineItems = page.locator("[data-timeline-item-id]");
   await expect(timelineItems).toHaveCount(2);
   await timelineItems
+    .locator('button[aria-pressed="false"]')
     .first()
-    .locator("button")
-    .first()
-    .click({ modifiers: ["ControlOrMeta"] });
+    .click({
+      modifiers: ["ControlOrMeta"],
+    });
+  await expect(timelineItems.locator('button[aria-pressed="true"]')).toHaveCount(2);
   await colorTab.click();
   await expect(page.getByRole("slider", { name: "Lift color wheel" })).toHaveAttribute(
     "aria-valuetext",

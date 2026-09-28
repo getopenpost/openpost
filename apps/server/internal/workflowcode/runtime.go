@@ -21,7 +21,7 @@ var cache = wazero.NewCompilationCache()
 
 const maxBytes = 256 * 1024
 const memoryPages = 1024 // 64 MiB, including the engine, stack and JS heap.
-const compileTimeout = 30 * time.Second
+const setupTimeout = 30 * time.Second
 const executionTimeout = 2 * time.Second
 
 func runtimeConfig() wazero.RuntimeConfig {
@@ -33,6 +33,9 @@ func Evaluate(ctx context.Context, code string, input any) (any, error) {
 	if err != nil || len(data) > maxBytes || len(code) > 20000 {
 		return nil, errors.New("JavaScript input is too large")
 	}
+	// Engine startup can be slow under build load; user code gets its own shorter budget.
+	ctx, cancel := context.WithTimeout(ctx, setupTimeout)
+	defer cancel()
 	runtime := wazero.NewRuntimeWithConfig(ctx, runtimeConfig())
 	defer runtime.Close(context.Background())
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
@@ -43,15 +46,10 @@ func Evaluate(ctx context.Context, code string, input any) (any, error) {
 		return nil, err
 	}
 	// No filesystem, environment, stdin, network, or host output is attached.
-	// A cold engine compilation does not consume the user's JavaScript budget.
-	compileCtx, cancelCompile := context.WithTimeout(ctx, compileTimeout)
-	compiled, err := runtime.CompileModule(compileCtx, engine)
-	cancelCompile()
+	compiled, err := runtime.CompileModule(ctx, engine)
 	if err != nil {
 		return nil, errors.New("JavaScript engine could not compile")
 	}
-	ctx, cancel := context.WithTimeout(ctx, executionTimeout)
-	defer cancel()
 	module, err := runtime.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithStartFunctions().WithSysWalltime().WithSysNanotime())
 	if err != nil {
 		return nil, fmt.Errorf("JavaScript engine could not start: %w", err)
@@ -81,6 +79,9 @@ func (g guest) evaluate(source string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := context.WithTimeout(g.ctx, executionTimeout)
+	defer cancel()
+	g.ctx = ctx
 	value, err := g.call("QJS_Eval", jsctx, options)
 	if err != nil {
 		return nil, err

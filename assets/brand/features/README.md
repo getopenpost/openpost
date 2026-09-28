@@ -16,6 +16,7 @@ Use icons beside visible feature names. App controls, navigation, provider marks
 | Accounts     | <img src="accounts.svg" alt="" width="24" height="24">     | `#4770a0`, `#9fc3e4` |
 | Recorder     | <img src="recorder.svg" alt="" width="24" height="24">     | `#ad4e42`, `#ffad66` |
 | Ideas        | <img src="ideas.svg" alt="" width="24" height="24">        | `#a97925`, `#ffd45c` |
+| Workflows    | <img src="workflows.svg" alt="" width="24" height="24">    | `#477d62`, `#c96d32` |
 | Automation   | <img src="automation.svg" alt="" width="24" height="24">   | `#4770a0`, `#9fc3e4` |
 | Grow         | <img src="grow.svg" alt="" width="24" height="24">         | `#477d62`, `#72d18d` |
 | Repost       | <img src="repost.svg" alt="" width="24" height="24">       | `#667633`, `#ffd45c` |

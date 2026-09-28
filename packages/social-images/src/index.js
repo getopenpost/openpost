@@ -157,7 +157,7 @@ const staticMarketingEntries = [
     title: "OpenPost - The all-in-one content team for solo founders",
     socialTitle: "Turn what you’re building into content. Publish it everywhere.",
     description:
-      "OpenPost helps solo founders create, adapt, schedule, and track content from one workspace.",
+      "Create, edit, and schedule social content in OpenPost. Turn GitHub releases and RSS feeds into drafts with visual workflows, AI, and review steps.",
     label: "The content team for companies of one",
     kind: "home",
     agentRepresentation: "static",

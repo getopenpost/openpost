@@ -98,6 +98,7 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 				featureList: [
 					'Destination-specific social content',
 					'Scheduling and durable publishing jobs',
+					'Visual workflows with GitHub, RSS, AI, and post review',
 					'Media library and editors',
 					'Analytics and supported conversations',
 					'HTTP API, CLI, and MCP automation',

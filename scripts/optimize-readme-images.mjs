@@ -8,12 +8,22 @@ const screenshotDirectory = path.join(repositoryRoot, "assets", "screenshots");
 const webpQuality = 0.84;
 
 const images = [
-  ...["main", "calendar", "analytics", "accounts", "media", "image-editor", "video-editor"].flatMap(
-    (name) =>
-      ["light", "dark"].map((scheme) => ({
-        name: `${name}-${scheme}`,
-        width: 2880,
-      })),
+  ...[
+    "main",
+    "calendar",
+    "analytics",
+    "accounts",
+    "media",
+    "image-editor",
+    "video-editor",
+    "workflows",
+    "workflows-node",
+    "workflows-detail",
+  ].flatMap((name) =>
+    ["light", "dark"].map((scheme) => ({
+      name: `${name}-${scheme}`,
+      width: 2880,
+    })),
   ),
   ...[
     "calendar-detail",

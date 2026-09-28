@@ -57,8 +57,8 @@ test("reduced motion keeps the tour still and manual choices remain available @d
     "true",
   );
   await expect(tour.getByRole("button", { name: /screenshot tour/ })).toHaveCount(0);
-  await tour.getByRole("button", { name: "Accounts", exact: true }).press("Enter");
-  await expect(tour.getByRole("link", { name: "Enlarge Accounts screenshot" })).toBeVisible();
+  await tour.getByRole("button", { name: "Workflows", exact: true }).press("Enter");
+  await expect(tour.getByRole("link", { name: "Enlarge Workflows screenshot" })).toBeVisible();
 });
 
 test("Features navigation opens the landing section from another page", async ({ page }) => {

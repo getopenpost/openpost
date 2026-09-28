@@ -62,12 +62,12 @@
 			caption: 'Keep your photos, clips, and brand assets together.'
 		},
 		{
-			name: 'Accounts',
-			icon: '/assets/brand/features/accounts.svg',
-			lightSrc: '/assets/screenshots/accounts-light.webp',
-			darkSrc: '/assets/screenshots/accounts-dark.webp',
-			alt: 'OpenPost Accounts page with connected social profiles',
-			caption: 'Bring your social accounts into one place.'
+			name: 'Workflows',
+			icon: '/assets/brand/features/workflows.svg',
+			lightSrc: '/assets/screenshots/workflows-light.webp',
+			darkSrc: '/assets/screenshots/workflows-dark.webp',
+			alt: 'OpenPost Workflows editor connecting a GitHub release to a draft and a review step',
+			caption: 'A new release becomes a draft. You review what goes out.'
 		}
 	];
 	let selected = $state(0);

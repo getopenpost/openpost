@@ -1,0 +1,63 @@
+---
+title: Workflow examples
+description: Set up a feed digest, filter release announcements with AI, or turn an API response into a draft.
+icon: Workflow
+---
+
+Start from **More → Workflows → Start from a template**. Each example below creates a draft and includes a review step. Read [Workflows](/automate/workflows) first for previews, activation, and run controls.
+
+## Prepare a weekly feed digest
+
+Use **Turn feed articles into a digest** to collect several articles into one post.
+
+1. Open the interval trigger. The template runs every seven days; change the interval if needed. It is an interval from activation, not a particular weekday and clock time.
+2. Open **Read RSS feed** and enter the public HTTPS URL of the RSS or Atom feed.
+3. Open **Limit items** and choose how many items to keep. The template keeps five in the feed's returned order.
+4. Open **JavaScript**. The supplied code joins each item's title and link into a digest. Leave it as supplied for your first run.
+5. Open **Create draft** and choose the destination accounts. Its post text comes from the JavaScript step.
+6. Test the feed node to inspect real items, then run a preview of the workflow. Confirm the links and length suit your selected channels.
+7. Publish the workflow. Open **Runs** when a draft is waiting for review.
+
+This template reads the feed's current items on each run. It does not remember which articles appeared in a previous digest. Use the RSS trigger template if you want one draft per new item.
+
+## Share only relevant releases
+
+Use **Review relevant updates with AI** to decide whether a release deserves a post.
+
+1. Set the GitHub repository on the trigger. For a private repository, select a saved GitHub connection.
+2. Open **AI decision** and describe your criteria. For example: “Choose Yes for a new feature users can try. Choose No for dependency updates, internal refactors, or documentation-only changes.”
+3. Keep **Create draft** and **Review post** on the **Yes** path. The empty **No** path finishes without a draft.
+4. Fetch an example release. **Test node** makes a real AI call and shows the decision and its reason. Try examples you would accept and reject.
+5. Choose destinations in **Create draft**, preview the full path, and publish when it behaves as expected.
+
+AI decisions can be wrong. Keep the review step before scheduling. Preview decisions are examples; use node tests to evaluate real decisions and inspect their recorded usage.
+
+## Turn an API response into a post
+
+Use **Turn an API response into a post** for updates from a service without a dedicated node.
+
+1. If the API needs authentication, save its credential in **Connections**, restricted to the API's exact HTTPS host.
+2. Open **HTTP request**, enter the URL, and select that connection. Start with a read-only `GET`. You can also import a cURL command, then review the parsed method, URL, headers, and body.
+3. Select **Test node** to inspect the real response. Choose **JSON** or **Table** to find the fields you need.
+4. Open **JavaScript** to format the selected response data. The supplied script only formats the JSON; it does not write finished social copy for you. Keep its output connected to **Create draft → Post text**.
+5. Choose destination accounts in **Create draft**, and keep **Review post** afterward.
+6. Run a preview. This template starts manually; **Run live** creates the draft. Change the trigger to an interval if you want recurring checks.
+
+JavaScript receives `input` and returns a JSON value. For an API response such as `{"title":"New reporting view","url":"https://example.com/updates/reporting"}`, this creates a short announcement:
+
+```js
+return `${input.title}\n\n${input.url}`;
+```
+
+HTTP node tests send real requests. Do not test a write method unless you intend its effect. Keep secrets in Connections, and inspect an interrupted request's remote outcome before trying again.
+
+## Schedule after approval
+
+The RSS template with review and scheduling already connects these steps. To extend another template:
+
+1. Add **Schedule post** after **Review post**.
+2. Set its post and revision inputs to the values returned by **Review post**.
+3. Choose the delay before publishing. The template uses 60 minutes.
+4. Preview the full workflow, then publish the updated draft.
+
+Approval applies to the displayed post revision. Editing the post afterward can make it stale and block scheduling. Account permissions and provider checks still apply. Inspect Publications for delivery results.

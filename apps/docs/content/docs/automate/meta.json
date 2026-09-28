@@ -5,6 +5,7 @@
   "pages": [
     "index",
     "workflows",
+    "workflow-examples",
     "---TypeScript SDK---",
     "[Overview](/automate/sdk)",
     "...sdk",

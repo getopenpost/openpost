@@ -944,6 +944,58 @@ test.describe("product screenshot capture", () => {
   });
 
   for (const captureScheme of ["dark", "light"] as const) {
+    test(`captures workflow authoring in ${captureScheme} mode`, async ({ page }) => {
+      await mkdir(screenshotDirectory, { recursive: true });
+      await authenticatePage(page, auth.token);
+      await page.addInitScript((scheme) => {
+        localStorage.setItem("mode-watcher-mode", scheme);
+      }, captureScheme);
+      await page.emulateMedia({ colorScheme: captureScheme, reducedMotion: "reduce" });
+      await page.clock.setFixedTime(new Date(fixedNow));
+      await page.goto("/workflows");
+      await page
+        .getByRole("button", { name: "Start from a template", exact: true })
+        .first()
+        .click();
+      await page
+        .getByRole("heading", { name: "Announce a GitHub release", exact: true })
+        .locator("../..")
+        .getByRole("button", { name: "Use template", exact: true })
+        .click();
+      await page.getByLabel("Workflow name", { exact: true }).fill("Release announcements");
+      await page.getByRole("button", { name: /^Needs attention/ }).click();
+      await page.getByLabel("GitHub repository", { exact: true }).fill("getopenpost/openpost");
+      await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+      await capture(page, `workflows-${captureScheme}.png`, [
+        page.getByRole("button", { name: "Create draft Create draft", exact: true }),
+        page.getByRole("button", { name: "Review post Review post", exact: true }),
+      ]);
+      const nodes = page.locator(".svelte-flow__node");
+      await expect(nodes).toHaveCount(3);
+      const bounds = await nodes.evaluateAll((elements) => {
+        const boxes = elements.map((element) => element.getBoundingClientRect());
+        const x = Math.min(...boxes.map((box) => box.left)) - 36;
+        const y = Math.min(...boxes.map((box) => box.top)) - 64;
+        return {
+          x,
+          y,
+          width: Math.max(...boxes.map((box) => box.right)) - x + 88,
+          height: Math.max(...boxes.map((box) => box.bottom)) - y + 64,
+        };
+      });
+      await page.screenshot({
+        path: join(screenshotDirectory, `workflows-detail-${captureScheme}.png`),
+        clip: bounds,
+        animations: "disabled",
+        caret: "hide",
+        scale: "device",
+      });
+      await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
+      await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
+      await captureDetail(page.getByRole("dialog"), `workflows-node-${captureScheme}.png`, 0);
+    });
+
     test(`captures current product surfaces in ${captureScheme} mode`, async ({
       page,
       request,

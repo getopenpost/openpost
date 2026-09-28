@@ -23,7 +23,7 @@ test("landing product preview follows the visitor's selection", async ({ page })
     "Calendar",
     "Analytics",
     "Media",
-    "Accounts",
+    "Workflows",
     "Compose",
   ]) {
     const button = picker.getByRole("button", { name, exact: true });
@@ -195,6 +195,7 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
     "Explore AI writing",
     "Make a meme",
     "Explore analytics",
+    "Build your first workflow",
     "Set repost rules",
     "See inbox support",
     "Connect your tools",
@@ -206,7 +207,7 @@ test("visitors can discover publishing, AI, memes, conversations, and developer 
     await expect(link).toBeFocused();
     await expect(link).toHaveAttribute("href", /^https:\/\/openpo\.st\/docs(?:\/|$)/);
   }
-  for (const image of await features.locator(".visual img").all()) {
+  for (const image of await features.locator(".visual img").filter({ visible: true }).all()) {
     await image.scrollIntoViewIfNeeded();
     await expect
       .poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
@@ -297,8 +298,10 @@ for (const width of [1440, 390, 320]) {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
       else await expect(page.locator("html")).not.toHaveClass(/dark/);
-      const productScreenshots = page.locator('main img[src^="/assets/screenshots/"]');
-      await expect(productScreenshots).toHaveCount(8);
+      const productScreenshots = page
+        .locator('main img[src^="/assets/screenshots/"]')
+        .filter({ visible: true });
+      await expect(productScreenshots).toHaveCount(width > 760 ? 9 : 8);
       for (const image of await productScreenshots.all()) {
         await image.scrollIntoViewIfNeeded();
         await expect

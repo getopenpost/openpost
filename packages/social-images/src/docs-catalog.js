@@ -356,9 +356,25 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "automate/workflow-examples.mdx",
+    "title": "Workflow examples",
+    "description": "Set up a feed digest, filter release announcements with AI, or turn an API response into a draft.",
+    "route": "/automate/workflow-examples",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "automate"
+    }
+  },
+  {
     "page": "automate/workflows.mdx",
-    "title": "Native workflows",
-    "description": "Turn releases, feed items, and published posts into repeatable content work inside OpenPost.",
+    "title": "Workflows",
+    "description": "Build your first workflow with GitHub or RSS, create drafts for review, and inspect every run in OpenPost.",
     "route": "/automate/workflows",
     "agentRepresentation": {
       "membership": "ordinary"

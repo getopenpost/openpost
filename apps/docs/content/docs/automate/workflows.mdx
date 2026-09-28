@@ -1,21 +1,50 @@
 ---
-title: Native workflows
-description: Turn releases, feed items, and published posts into repeatable content work inside OpenPost.
+title: Workflows
+description: Build your first workflow with GitHub or RSS, create drafts for review, and inspect every run in OpenPost.
 icon: Workflow
 ---
 
-Open **More → Workflows** in your workspace. Start from a GitHub release, RSS feed, or follow-up template, or choose **New workflow** to build your own.
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
+Open **More → Workflows** in your workspace, or [open Workflows](https://app.openpo.st/workflows). Start from a GitHub release, RSS feed, or follow-up template, or choose **New workflow** to build your own. No separate automation service is required.
 
 Workflows use your existing OpenPost accounts and posts. They can create drafts, use AI, wait for review, schedule posts, branch, read metrics, queue replies, call APIs, and transform data. Your existing repost rules also appear in Workflows.
 
+<SetupScreenshot
+  src="/docs/assets/screenshots/workflows-light.webp"
+  darkSrc="/docs/assets/screenshots/workflows-dark.webp"
+  alt="A GitHub release trigger connected to Create draft and Review post on the OpenPost workflow canvas"
+  width={1440}
+  height={960}
+  caption="A small workflow: a new release creates a draft, then waits for your review. This example does not publish the post."
+/>
+
+## Choose a starting point
+
+A **trigger** decides when a workflow starts. Each **step** uses the trigger's data or the output of an earlier step. A **run** is one execution, with its own inputs, results, and history.
+
+| You want to…                            | Start with…                          |
+| --------------------------------------- | ------------------------------------ |
+| Prepare a post for each product release | **Announce a GitHub release**        |
+| Turn new articles into drafts           | The RSS feed template                |
+| Prepare a weekly roundup                | **Turn feed articles into a digest** |
+| Decide which updates are worth sharing  | **Review relevant updates with AI**  |
+| Use data from another service           | **Turn an API response into a post** |
+| Reshare a published post                | A repost rule under **Reposts**      |
+
+See [workflow examples](/automate/workflow-examples) for guided setups. If your automation already runs in n8n, use the separate [OpenPost n8n connector](/automate/n8n).
+
 ## Make a release announcement
 
-1. Choose the GitHub release template and enter `owner/repository`.
-2. Select **Create draft** on the canvas or in the **Steps** menu.
-3. Write the post and use **Insert variable** to include the release title, notes, or link. Select the destination accounts.
-4. Keep **Review post** after the draft so each announcement waits for a decision.
-5. Open **Test data**. Use the supplied example or choose **Fetch an example**, then select **Run preview**.
-6. Inspect the step inputs and outputs. When the configuration is ready, select **Publish workflow**.
+1. Select **Start from a template**, then **Use template** under **Announce a GitHub release**.
+2. Open the trigger marked **Needs attention** and enter your GitHub repository as `owner/repository`.
+3. Select **Create draft** on the canvas or in the **Steps** menu.
+4. Write the post and use **Insert variable** to include the release title, notes, or link. Select the destination accounts. Check both the provider and account name, especially when you use the same handle on several networks.
+5. Keep **Review post** after the draft so each announcement waits for a decision.
+6. Close the node, open **Test data**, and use the supplied example or **Fetch an example**. Select **Run preview**, then inspect the inputs and outputs.
+7. Resolve any **Needs attention** warnings and select **Publish workflow** to start watching for future releases.
+
+**Publish workflow** activates the automation. It does not publish a social post. This template creates a draft and waits for review; it has no scheduling step. To publish the approved draft, open it in Publications and schedule it yourself, or [add a scheduling step](#review-and-schedule).
 
 Public GitHub repositories need no connection. For a private repository, a workspace administrator can save a GitHub access token on the **Connections** page. Give the token access to the intended repository and permission to read its contents. OpenPost stores it encrypted and does not include it in run data.
 
@@ -49,6 +78,15 @@ Text fields display inserted variables as separate chips. **Edit variable syntax
 
 The node inspector opens in a large modal over the canvas, with input data on the left, settings in the middle, and output on the right. Switch between structure, table, and JSON views. Table view shows item collections as rows. On a phone, it opens as a sheet with three inspector tabs. Close it to return to the selected node.
 
+<SetupScreenshot
+  src="/docs/assets/screenshots/workflows-node-light.webp"
+  darkSrc="/docs/assets/screenshots/workflows-node-dark.webp"
+  alt="Create draft settings with source data on the left, variable chips in the post text, and output on the right"
+  width={1392}
+  height={900}
+  caption="Select a node to edit its fields and inspect data without leaving the canvas. Example source values are shown until you fetch or run with real data."
+/>
+
 ## Connections and custom requests
 
 Open **Connections** from the Workflows library to add or replace credentials. GitHub tokens, Bearer tokens, API key headers, and Basic authentication are supported. Secret values are encrypted and are never shown again after saving.
@@ -74,6 +112,25 @@ Open **Runs**, select a run waiting for approval, and inspect the displayed post
 To schedule an approved post, add **Schedule post** after **Review post**. Select the review step's post and revision as its inputs. A later edit to the post makes that revision stale and blocks scheduling until the conflict is resolved. Scheduling still follows normal account, provider, and publishing checks.
 
 The AI draft step uses the configured AI Builder. Metrics come from successful, recent Analytics observations; unavailable or stale metrics are errors, not zero counts. Replies use the native publishing queue and the destination's provider rules.
+
+## Track AI usage
+
+Open a run and expand an AI step to see its recorded token usage and cost when the provider supplies it. Node tests also count as real AI calls. Preview runs use examples and do not call AI.
+
+There is no workflow dollar spending cap yet. A missing cost is not a promise that a call was free. Start with a small set of inputs and inspect usage before enabling a frequent trigger.
+
+## When a run needs attention
+
+| What you see                           | What to do                                                                                                                                                                         |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Needs attention** on a node          | Open it, fill the marked fields, and fix missing variables. Fetch an example if you need to inspect the source shape.                                                              |
+| No automatic runs after activation     | Wait for a new source item. Items already present at activation are the starting point, not a backlog. Check that the workflow is active and the repository or feed is accessible. |
+| A run waiting for review               | Open **Runs**, inspect the post, and approve its current revision. A preview does not wait for approval.                                                                           |
+| A stale post revision                  | Open the post, review the latest changes, and return to the run. Do not schedule using an old revision.                                                                            |
+| An HTTP call with an uncertain outcome | Check the remote service before starting another run. The request might have succeeded even if its response was interrupted.                                                       |
+| A failed or disconnected destination   | Inspect the post in Publications and reconnect the account if needed. A successful workflow step does not prove every destination published.                                       |
+
+Changing a workflow fixes its draft, not a run that already started. Publish the updated draft for future automatic runs. Before starting another live run, check whether the failed run already created a post or sent a request.
 
 ## Inspect, pause, and stop
 

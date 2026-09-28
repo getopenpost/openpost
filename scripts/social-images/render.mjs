@@ -158,6 +158,9 @@ function serviceSlug(path) {
 }
 
 function imagePathForEntry(entry) {
+  if (entry.path === "/automate/workflows" || entry.path === "/automate/workflow-examples") {
+    return join(root, "assets/brand/features/workflows.svg");
+  }
   const provider = providerSlug(entry.path);
   if (provider) {
     const path = join(root, `assets/logos/${provider}.svg`);

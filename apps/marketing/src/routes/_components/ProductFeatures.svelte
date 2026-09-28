@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { ditherSurface } from '@openpost/dither';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import Github from '@lucide/svelte/icons/github';
+	import FilePenLine from '@lucide/svelte/icons/file-pen-line';
+	import Check from '@lucide/svelte/icons/check';
 	import ThemeImage from './ThemeImage.svelte';
 	const detailScreenshotSizes = '(max-width: 760px) calc(100vw - 64px), 50vw';
 	const features = [
@@ -21,8 +25,8 @@
 		{
 			title: 'Auto repost',
 			icon: '/assets/brand/features/repost.svg',
-			text: 'Give a post another turn. Set delays and engagement rules, with overrides for individual posts.',
-			href: 'https://openpo.st/docs/guides/scheduling',
+			text: 'Give a post another turn. Manage repost rules in Workflows, with delays, engagement gates, and overrides for individual posts.',
+			href: 'https://openpo.st/docs/automate/workflows#existing-reposts-and-first-comments',
 			link: 'Set repost rules'
 		},
 		{
@@ -201,6 +205,53 @@
 			/>
 		</div>
 	</article>
+	<article class="workflows feature-panel">
+		<div class="copy">
+			<h3 class="feature-heading">
+				<img
+					src="/assets/brand/features/workflows.svg"
+					alt=""
+					width="44"
+					height="44"
+					loading="lazy"
+				/>
+				<span>Turn updates into posts<br />with Workflows.</span>
+			</h3>
+			<p>
+				Build a workflow from a GitHub release, an RSS feed, or a schedule. Turn updates into
+				drafts, add AI or conditions, and keep a review step before scheduling.
+			</p>
+			<a class="focus-ring" href="https://openpo.st/docs/automate/workflows" data-sveltekit-reload
+				>Build your first workflow <ArrowUpRight size={17} /></a
+			>
+		</div>
+		<div class="visual mint workflow-visual">
+			<div class="workflow-graph">
+				<ThemeImage
+					lightSrc="/assets/screenshots/workflows-detail-light.webp"
+					darkSrc="/assets/screenshots/workflows-detail-dark.webp"
+					alt="GitHub release connects to Create draft, then Review post in the workflow canvas"
+					width={1888}
+					height={408}
+					loading="lazy"
+				/>
+			</div>
+			<ol class="workflow-summary" aria-label="Example workflow">
+				<li><Github size={20} aria-hidden="true" /><span>GitHub release</span></li>
+				<li>
+					<ArrowDown size={16} aria-hidden="true" /><FilePenLine
+						size={20}
+						aria-hidden="true"
+					/><span>Create draft</span>
+				</li>
+				<li>
+					<ArrowDown size={16} aria-hidden="true" /><Check size={20} aria-hidden="true" /><span
+						>Review post</span
+					>
+				</li>
+			</ol>
+		</div>
+	</article>
 	<div class="more-features">
 		{#each features as feature (feature.title)}
 			<article>
@@ -282,11 +333,18 @@
 		margin-top: 12px;
 	}
 	.schedule,
-	.analytics {
+	.analytics,
+	.workflows {
 		display: grid;
 		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
 		align-items: center;
 		gap: 12px;
+	}
+	.workflows {
+		margin-top: 24px;
+	}
+	.workflow-summary {
+		display: none;
 	}
 	.visual {
 		display: flex;
@@ -381,6 +439,33 @@
 		}
 	}
 	@media (max-width: 760px) {
+		.workflow-graph {
+			display: none;
+		}
+		.workflow-summary {
+			display: grid;
+			width: 100%;
+			gap: 28px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+		.workflow-summary li {
+			position: relative;
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 16px;
+			border-radius: 10px;
+			background: var(--card);
+			color: var(--foreground);
+			font-size: 14px;
+		}
+		.workflow-summary :global(.lucide-arrow-down) {
+			position: absolute;
+			top: -22px;
+			left: 18px;
+		}
 		.product-features {
 			padding-block: 48px 0;
 		}
@@ -390,6 +475,7 @@
 		}
 		.schedule,
 		.analytics,
+		.workflows,
 		.feature-pair {
 			grid-template-columns: minmax(0, 1fr);
 		}

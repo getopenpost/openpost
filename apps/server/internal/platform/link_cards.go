@@ -19,13 +19,13 @@ var (
 	errLinkPreviewStatus = errors.New("link preview returned a non-success status")
 )
 
-var linkURLPattern = regexp.MustCompile(`https?://[^\s<>"')\]]+`)
+var linkURLPattern = regexp.MustCompile(`https?://[^\s<>"'\]]+`)
 
 // DetectFirstURL returns the first http(s) URL embedded in post text. Empty
 // means the text carries no link card candidate.
 func DetectFirstURL(text string) string {
 	for _, candidate := range linkURLPattern.FindAllString(text, -1) {
-		cleaned := strings.TrimRight(strings.TrimSpace(candidate), ".,;:!?)]}")
+		cleaned := trimURLTail(strings.TrimSpace(candidate))
 		parsed, err := url.Parse(cleaned)
 		if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
 			continue
@@ -33,6 +33,25 @@ func DetectFirstURL(text string) string {
 		return cleaned
 	}
 	return ""
+}
+
+// trimURLTail drops trailing sentence punctuation from a URL found in text.
+// A closing parenthesis is dropped only while it has no opening one in the
+// URL, so ".../Go_(programming_language)" keeps its parentheses while the
+// ")" that closes "(see https://example.com/x)" is not part of the link.
+func trimURLTail(candidate string) string {
+	for candidate != "" {
+		last := candidate[len(candidate)-1]
+		switch {
+		case strings.IndexByte(".,;:!?]}", last) >= 0:
+			candidate = candidate[:len(candidate)-1]
+		case last == ')' && strings.Count(candidate, ")") > strings.Count(candidate, "("):
+			candidate = candidate[:len(candidate)-1]
+		default:
+			return candidate
+		}
+	}
+	return candidate
 }
 
 // EffectiveLinkURL prefers an explicit native link setting and falls back to

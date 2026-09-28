@@ -1010,8 +1010,10 @@ const (
 	// blueskyTagBreaks ends a hashtag: JavaScript's \s plus the zero-width
 	// characters @atproto/api excludes.
 	blueskyTagBreaks = `\s\v\p{Z}\x{FEFF}\x{00AD}\x{2060}\x{200B}\x{200C}\x{200D}\x{20E2}`
-	// blueskyMaxTagGraphemes is the app.bsky.richtext.facet#tag limit.
+	// blueskyMaxTagGraphemes and blueskyMaxTagBytes are the
+	// app.bsky.richtext.facet#tag limits.
 	blueskyMaxTagGraphemes = 64
+	blueskyMaxTagBytes     = 640
 )
 
 const (
@@ -1066,7 +1068,7 @@ func buildBlueskyFacets(text string, settings map[string]interface{}) []map[stri
 		start := match[2]
 		tag := blueskyTrailingPunctuation.ReplaceAllString(text[match[4]:match[5]], "")
 		// "#" followed by U+FE0F is the keycap emoji, not a hashtag.
-		if strings.HasPrefix(tag, "\uFE0F") || uniseg.GraphemeClusterCount(tag) > blueskyMaxTagGraphemes {
+		if strings.HasPrefix(tag, "\uFE0F") || len(tag) > blueskyMaxTagBytes || uniseg.GraphemeClusterCount(tag) > blueskyMaxTagGraphemes {
 			continue
 		}
 		end := match[4] + len(tag)

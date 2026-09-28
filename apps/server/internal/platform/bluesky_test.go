@@ -103,6 +103,8 @@ func TestBuildBlueskyFacetsDetectsHashtagsLikeBluesky(t *testing.T) {
 		{text: "#" + longTag, want: []tagFacet{{0, 65, longTag}}},
 		{text: "#" + longTag + "a", want: nil},
 		{text: "#\uFE0F\u20E3 keycap", want: nil},
+		// 16 graphemes but 656 bytes: past the tag's 640-byte limit.
+		{text: "#" + strings.Repeat("e"+strings.Repeat("\u0301", 20), 16), want: nil},
 	}
 	for _, test := range tests {
 		var got []tagFacet

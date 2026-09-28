@@ -36,6 +36,20 @@ func TestParseOpenGraphMetadata(t *testing.T) {
 	require.Equal(t, "Meta desc", description)
 }
 
+func TestParseOpenGraphMetadataKeepsQuotesAndDecodesEntities(t *testing.T) {
+	title, description := parseOpenGraphMetadata(`<html><head>` +
+		`<meta property="og:title" content="The world's best coffee &amp; tea">` +
+		`<meta content='She said "hi" &#8212; then left' property='og:description'>` +
+		`</head></html>`)
+	require.Equal(t, "The world's best coffee & tea", title)
+	require.Equal(t, `She said "hi" — then left`, description)
+
+	title, description = parseOpenGraphMetadata(`<html><head><title>Don&#39;t panic</title>` +
+		`<meta name="description" content="It's fine"></head></html>`)
+	require.Equal(t, "Don't panic", title)
+	require.Equal(t, "It's fine", description)
+}
+
 func TestLinkedInBuildsArticleFromDetectedURLWithOGFallback(t *testing.T) {
 	originalClient := httpClient
 	originalFetch := fetchLinkPreviewFunc

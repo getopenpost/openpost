@@ -130,7 +130,6 @@ func TestAudioProjectAssetUploadsPersistMetadata(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
 			assertProcessedAudio(result)
-
 		})
 	}
 }

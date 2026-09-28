@@ -28,6 +28,7 @@ test("workflow editor saves, previews without writes, and approves a native draf
 }) => {
   const { token, workspace } = await openWorkflows(page);
   const headers = { Authorization: `Bearer ${token}` };
+  const completedRun = page.getByRole("paragraph").filter({ hasText: /^Completed$/ });
   await page.getByRole("button", { name: "New workflow", exact: true }).click();
   await page.getByLabel("Workflow name", { exact: true }).fill("Release announcement");
   await page.getByRole("button", { name: "Add step", exact: true }).click();
@@ -47,10 +48,7 @@ test("workflow editor saves, previews without writes, and approves a native draf
   await page.getByLabel("Title", { exact: true }).fill("version 2");
   await page.getByLabel("Post text", { exact: true }).fill("Smaller daily tasks.");
   await page.getByRole("button", { name: "Run preview", exact: true }).click();
-  await expect(page.getByText("Completed", { exact: true }).first()).toBeVisible({
-    timeout: 30000,
-  });
-  await expect(page.getByRole("button", { name: "Cancel run", exact: true })).toHaveCount(0, {
+  await expect(completedRun).toBeVisible({
     timeout: 30000,
   });
   await expect(page.getByText("This is a preview.", { exact: false })).toBeVisible();
@@ -68,11 +66,9 @@ test("workflow editor saves, previews without writes, and approves a native draf
   await expect(
     page.getByRole("main").getByText("Shipping version 2: Smaller daily tasks.", { exact: true }),
   ).toBeVisible();
+  await expect(completedRun).toHaveCount(0);
   await page.getByRole("button", { name: "Approve shown revision", exact: true }).click();
-  await expect(page.getByText("Completed", { exact: true }).first()).toBeVisible({
-    timeout: 30000,
-  });
-  await expect(page.getByRole("button", { name: "Cancel run", exact: true })).toHaveCount(0, {
+  await expect(completedRun).toBeVisible({
     timeout: 30000,
   });
   const livePublications = await page.request.get(

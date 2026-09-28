@@ -210,7 +210,7 @@
 						{m.video_editor_agent_storage_first_run({ size: formatBytes(storage.expectedBytes) })}
 					</p>
 				{:else}
-					<p class="mt-1 text-[11px] text-success">
+					<p class="mt-1 text-[11px] text-[var(--video-editor-text)]">
 						{m.video_editor_agent_storage_ready({ size: formatBytes(storage.readyBytes) })}
 					</p>
 				{/if}

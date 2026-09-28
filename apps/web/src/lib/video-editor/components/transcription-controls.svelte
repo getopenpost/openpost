@@ -40,9 +40,11 @@
 		fallback,
 		onstart,
 		oncancel,
-		startLabel
+		startLabel,
+		error
 	}: {
 		startLabel?: string;
+		error?: string;
 		canTranscribe: boolean;
 		busy: boolean;
 		status?: TranscriptionJobStatus;
@@ -54,6 +56,8 @@
 		onstart: (selection: TranscriptionSelection) => void;
 		oncancel: () => void;
 	} = $props();
+
+	const controlId = $props.id();
 
 	let model = $state<TranscriptionModel>(editorSettings.defaultTranscriptionModel);
 	let language = $state(editorSettings.defaultTranscriptionLanguage);
@@ -88,15 +92,18 @@
 </script>
 
 <div class="grid grid-cols-2 gap-1 rounded-md border border-border bg-card p-1.5">
+	{#if error && !busy}
+		<p role="alert" class="col-span-2 text-xs break-words text-destructive">{error}</p>
+	{/if}
 	<div class="col-span-2 text-[10px] text-muted-foreground">
 		<label
-			for="transcription-model"
+			for={`${controlId}-model`}
 			title={`${transcriptionModelUiDescription(model)} ${m.video_editor_transcribe_model_size({ size: modelDownloadSize })}`}
 			>{m.video_editor_transcribe_model()}</label
 		>
 		<Select.Root type="single" bind:value={model} disabled={busy}>
 			<Select.Trigger
-				id="transcription-model"
+				id={`${controlId}-model`}
 				aria-label={m.video_editor_transcribe_model()}
 				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
@@ -110,10 +117,10 @@
 		</Select.Root>
 	</div>
 	<div class="text-[10px] text-muted-foreground">
-		<label for="transcription-language">{m.video_editor_transcribe_language()}</label>
+		<label for={`${controlId}-language`}>{m.video_editor_transcribe_language()}</label>
 		<Select.Root type="single" bind:value={language} disabled={busy}>
 			<Select.Trigger
-				id="transcription-language"
+				id={`${controlId}-language`}
 				aria-label={m.video_editor_transcribe_language()}
 				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>
@@ -129,14 +136,14 @@
 		</Select.Root>
 	</div>
 	<div class="text-[10px] text-muted-foreground">
-		<label for="transcription-quality">{m.video_editor_transcribe_quality()}</label>
+		<label for={`${controlId}-quality`}>{m.video_editor_transcribe_quality()}</label>
 		<Select.Root
 			type="single"
 			bind:value={quantization}
 			disabled={busy || model === 'parakeet-tdt-v3'}
 		>
 			<Select.Trigger
-				id="transcription-quality"
+				id={`${controlId}-quality`}
 				aria-label={m.video_editor_transcribe_quality()}
 				class="mt-0.5 h-[25px] w-full justify-between rounded border border-field-border bg-field px-2 text-[11px] text-field-foreground shadow-none"
 			>

@@ -9,7 +9,7 @@ afterEach(() => {
 	timelineStore.__resetForTesting();
 });
 
-it('reactively reports a newly started caption job and clears it after a source failure', async () => {
+it('reactively reports a newly started caption job and retains the error after a source failure', async () => {
 	mediaPool.upsert(
 		{
 			id: 'recording',
@@ -58,7 +58,10 @@ it('reactively reports a newly started caption job and clears it after a source 
 		});
 	});
 	flushSync();
-	const result = service.enqueue('clip', { model: 'whisper-tiny', quantization: 'q8' });
+	const result = service.enqueue('clip', {
+		model: 'whisper-tiny',
+		quantization: 'q8'
+	});
 	const outcome = result.catch((error: Error) => error);
 	try {
 		await expect.poll(() => resolveSource.mock.calls.length).toBe(1);
@@ -70,6 +73,7 @@ it('reactively reports a newly started caption job and clears it after a source 
 		expect(error).toBeInstanceOf(Error);
 		flushSync();
 		expect(observed).toBeUndefined();
+		expect(service.errorForItem('clip')).toBe('Recording unavailable');
 		dispose();
 	}
 });

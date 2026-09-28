@@ -91,7 +91,7 @@ export interface ResolvedTranscriptionEngine {
 }
 
 export const MODEL_IDS = {
-	'parakeet-tdt-v3': 'Olicorne/parakeet-tdt-0.6b-v3-smoothquant-onnx',
+	'parakeet-tdt-v3': 'Olicorne/parakeet-tdt-0.6b-v3-optimized-onnx',
 	'whisper-tiny': 'onnx-community/whisper-tiny_timestamped',
 	'whisper-base': 'onnx-community/whisper-base_timestamped',
 	'whisper-small': 'onnx-community/whisper-small_timestamped',

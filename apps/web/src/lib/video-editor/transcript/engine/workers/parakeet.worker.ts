@@ -1,3 +1,10 @@
+import {
+	PARAKEET_MODEL_BASE,
+	PARAKEET_FILES,
+	PARAKEET_FILE_BYTES,
+	selectParakeetBackend
+} from '../parakeet-model';
+import { estimateParakeetRuntimeBytes } from '../runtime-estimates';
 import type {
 	EngineTranscriptWord,
 	MainThreadMessage,
@@ -18,14 +25,14 @@ import { fetchOnnxModelBytes, fetchOnnxModelText } from '../onnx-model-cache';
 
 const logger = console;
 
-const HF_BASE =
-	'https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-smoothquant-onnx/resolve/main';
-
-const ENCODER_FP16 = 'encoder-model.fp16.onnx';
-const ENCODER_INT8 = 'encoder-model.int8.onnx';
-const DECODER_INT8 = 'decoder_joint-model.int8.onnx';
-const PREPROCESSOR = 'nemo128.onnx';
-const VOCAB_FILE = 'vocab.txt';
+const HF_BASE = PARAKEET_MODEL_BASE;
+const {
+	encoderFp16: ENCODER_FP16,
+	encoderInt8: ENCODER_INT8,
+	decoder: DECODER_INT8,
+	preprocessor: PREPROCESSOR,
+	vocabulary: VOCAB_FILE
+} = PARAKEET_FILES;
 
 const SUBSAMPLING = 8;
 const SEC_PER_FRAME = 0.01 * SUBSAMPLING; // 80ms per encoder frame
@@ -36,21 +43,10 @@ const RECENT_WORD_RETENTION_SECONDS = 8;
 const DUPLICATE_WORD_START_TOLERANCE_SECONDS = 0.5;
 
 const ESTIMATED_BYTES = {
-	webgpu: Math.round(1_270 * 1024 * 1024),
-	wasm: Math.round(820 * 1024 * 1024)
-} satisfies Record<'webgpu' | 'wasm', number>;
-
-// Approximate on-disk sizes, summing to ESTIMATED_BYTES. These only weight the aggregate
-// download bar so it advances evenly across files rather than restarting at each one; the
-// real content-length replaces the estimate the moment a transfer starts, so drift here
-// costs nothing beyond a slightly uneven first chunk.
-const APPROX_FILE_BYTES = {
-	[PREPROCESSOR]: Math.round(1 * 1024 * 1024),
-	[ENCODER_FP16]: Math.round(1_199 * 1024 * 1024),
-	[ENCODER_INT8]: Math.round(749 * 1024 * 1024),
-	[DECODER_INT8]: Math.round(70 * 1024 * 1024)
-} satisfies Record<string, number>;
-const APPROX_FILE_BYTES_BY_NAME = new Map(Object.entries(APPROX_FILE_BYTES));
+	webgpu: estimateParakeetRuntimeBytes('webgpu'),
+	wasm: estimateParakeetRuntimeBytes('wasm')
+};
+const APPROX_FILE_BYTES_BY_NAME = new Map(Object.entries(PARAKEET_FILE_BYTES));
 
 type OrtModule = typeof import('onnxruntime-web');
 type OrtTensor = InstanceType<OrtModule['Tensor']>;
@@ -75,10 +71,6 @@ const recentWords: EngineTranscriptWord[] = [];
 
 function isString(value: unknown): value is string {
 	return typeof value === 'string';
-}
-
-function canUseWebGpu(): boolean {
-	return typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu != null;
 }
 
 function parseWorkerMessage(raw: unknown): TranscriptionWorkerMessage {
@@ -252,7 +244,7 @@ async function initPipeline(): Promise<void> {
 		vocab = await loadVocab();
 
 		// The heavy encoder prefers WebGPU (fp16) and falls back to the int8 WASM encoder.
-		const webgpuAvailable = canUseWebGpu();
+		const webgpuAvailable = (await selectParakeetBackend()) === 'webgpu';
 		const encoderFile = webgpuAvailable ? ENCODER_FP16 : ENCODER_INT8;
 
 		// Pass 1: fetch every weight file under a single aggregate byte counter. Compiling each

@@ -1,3 +1,4 @@
+import { PARAKEET_FILES, PARAKEET_FILE_BYTES } from './parakeet-model';
 import type { TranscriptionModel, TranscriptionQuantization } from './types';
 
 /**
@@ -17,14 +18,6 @@ const WHISPER_MODEL_BASE_ESTIMATES_MIB = {
 	'whisper-large': 2600
 } satisfies Record<TranscriptionModel, number>;
 
-// Parakeet ONNX footprint: fp16 encoder (~1.24 GB) + int8 decoder_joint (~18 MB)
-// with the Nemo preprocessor on WebGPU; the WASM-only fallback uses the int8
-// encoder (~0.79 GB).
-const PARAKEET_RUNTIME_MIB = {
-	webgpu: 1270,
-	wasm: 820
-} satisfies Record<'webgpu' | 'wasm', number>;
-
 const QUANTIZATION_MULTIPLIER = {
 	hybrid: 0.65,
 	fp32: 1,
@@ -43,7 +36,14 @@ export function estimateTranscriptionModelBytes(
 }
 
 export function estimateParakeetRuntimeBytes(backend: 'webgpu' | 'wasm'): number {
-	return Math.round(PARAKEET_RUNTIME_MIB[backend] * MIB);
+	return (
+		PARAKEET_FILE_BYTES[
+			backend === 'webgpu' ? PARAKEET_FILES.encoderFp16 : PARAKEET_FILES.encoderInt8
+		] +
+		PARAKEET_FILE_BYTES[PARAKEET_FILES.decoder] +
+		PARAKEET_FILE_BYTES[PARAKEET_FILES.preprocessor] +
+		PARAKEET_FILE_BYTES[PARAKEET_FILES.vocabulary]
+	);
 }
 
 export function formatModelBytes(bytes: number): string {

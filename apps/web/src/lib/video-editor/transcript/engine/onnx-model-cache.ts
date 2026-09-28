@@ -35,9 +35,11 @@ async function retryTransientDownload<T>(operation: () => Promise<T>): Promise<T
 	);
 }
 
-function requireSuccessfulResponse(response: Response): Response {
+function requireSuccessfulResponse(response: Response, url: string): Response {
 	if (response.ok) return response;
-	const error = new Error(`Failed to fetch model asset (${response.status})`);
+	const error = new Error(
+		`Failed to fetch ${new URL(url).pathname.split('/').at(-1) ?? 'model asset'} (${response.status})`
+	);
 	if (canRetryStatus(response.status)) throw error;
 	throw new PermanentModelFetchError(error.message);
 }
@@ -82,7 +84,7 @@ async function download(url: string, onBytes: ProgressCallback): Promise<ArrayBu
 	const cached = await cache?.match(url).catch(() => undefined);
 	if (cached) return readBytes(cached, onBytes, true);
 	const { bytes, contentType } = await retryTransientDownload(async () => {
-		const response = requireSuccessfulResponse(await fetch(url));
+		const response = requireSuccessfulResponse(await fetch(url), url);
 		return {
 			bytes: await readBytes(response, onBytes, false),
 			contentType: response.headers.get('content-type') ?? 'application/octet-stream'
@@ -123,7 +125,7 @@ export async function fetchOnnxModelText(url: string): Promise<string> {
 	const cached = await cache?.match(url).catch(() => undefined);
 	if (cached) return cached.text();
 	const { text, contentType } = await retryTransientDownload(async () => {
-		const response = requireSuccessfulResponse(await fetch(url));
+		const response = requireSuccessfulResponse(await fetch(url), url);
 		return {
 			text: await response.text(),
 			contentType: response.headers.get('content-type') ?? 'text/plain'

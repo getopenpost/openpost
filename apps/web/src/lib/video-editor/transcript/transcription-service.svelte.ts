@@ -165,6 +165,7 @@ export class TranscriptionService {
 	>();
 	private readonly sourceTranscriptLoads = new Map<string, Promise<SourceTranscript | null>>();
 	private active: QueuedTranscriptionJob | null = null;
+	private failures = $state<Record<string, string>>({});
 	private resetting = false;
 	private resetGeneration = 0;
 	private state = $state<Record<string, TranscriptionJobView>>({});
@@ -182,6 +183,10 @@ export class TranscriptionService {
 
 	jobForItem(itemId: string): TranscriptionJobView | undefined {
 		return this.jobs.find((job) => job.itemId === itemId);
+	}
+
+	errorForItem(itemId: string): string | undefined {
+		return this.failures[itemId];
 	}
 
 	queuePosition(viewId: string): number | null {
@@ -229,12 +234,21 @@ export class TranscriptionService {
 				: Promise.reject(new Error(m.video_editor_transcribe_already_queued()));
 		}
 
+		delete this.failures[itemId];
 		const generation = this.resetGeneration;
 		const promise = this.enqueueAfterSourceCheck(item, media, source, selection, key, generation);
 		this.pendingClipEnqueues.set(itemId, { requestKey: key, promise });
 		void promise.then(
 			() => this.clearPendingClipEnqueue(itemId, promise),
-			() => this.clearPendingClipEnqueue(itemId, promise)
+			(error: Error | string) => {
+				this.clearPendingClipEnqueue(itemId, promise);
+				if (
+					generation === this.resetGeneration &&
+					!(error instanceof Error && error.name === 'AbortError')
+				) {
+					this.failures[itemId] = error instanceof Error ? error.message : String(error);
+				}
+			}
 		);
 		return promise;
 	}
@@ -324,6 +338,7 @@ export class TranscriptionService {
 	}
 
 	reset(): void {
+		this.failures = {};
 		this.resetting = true;
 		this.resetGeneration += 1;
 		for (const job of [...this.pending]) void this.finishJob(job, abortError());
@@ -614,7 +629,11 @@ export class TranscriptionService {
 					model: 'whisper-small',
 					fallbackReason: 'out-of-memory'
 				});
-				this.publishProgress(job, { stage: 'preparing', progress: 0, restarted: true });
+				this.publishProgress(job, {
+					stage: 'preparing',
+					progress: 0,
+					restarted: true
+				});
 				words = await run('whisper-small');
 			}
 			if (job.controller.signal.aborted) throw abortError();

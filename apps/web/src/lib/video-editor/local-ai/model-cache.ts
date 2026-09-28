@@ -36,7 +36,10 @@ export const LOCAL_MODEL_CACHE_DEFINITIONS: LocalModelCacheDefinition[] = [
 		label: 'Parakeet',
 		description: 'Speech recognition encoder, decoder and vocabulary.',
 		cacheName: ONNX_MODEL_CACHE_NAME,
-		matchPathFragments: ['/parakeet-tdt-0.6b-v3-smoothquant-onnx/']
+		matchPathFragments: [
+			'/parakeet-tdt-0.6b-v3-smoothquant-onnx/',
+			'/parakeet-tdt-0.6b-v3-optimized-onnx/'
+		]
 	},
 	{
 		id: 'rife-interpolation',

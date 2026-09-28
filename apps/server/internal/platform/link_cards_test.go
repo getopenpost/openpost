@@ -50,6 +50,19 @@ func TestParseOpenGraphMetadataKeepsQuotesAndDecodesEntities(t *testing.T) {
 	require.Equal(t, "It's fine", description)
 }
 
+func TestParseOpenGraphMetadataReadsOnlyTheContentAttribute(t *testing.T) {
+	// data-content is a different attribute; only content names the value.
+	title, _ := parseOpenGraphMetadata(`<html><head><meta property="og:title" content="Final" data-content="Draft"></head></html>`)
+	require.Equal(t, "Final", title)
+	title, _ = parseOpenGraphMetadata(`<html><head><title>Fallback</title><meta property="og:title" data-content="Draft"></head></html>`)
+	require.Equal(t, "Fallback", title)
+
+	// An unquoted attribute value is valid HTML.
+	title, description := parseOpenGraphMetadata(`<html><head><meta property="og:title" content=Final><meta content=Summary name="description"></head></html>`)
+	require.Equal(t, "Final", title)
+	require.Equal(t, "Summary", description)
+}
+
 func TestLinkedInBuildsArticleFromDetectedURLWithOGFallback(t *testing.T) {
 	originalClient := httpClient
 	originalFetch := fetchLinkPreviewFunc

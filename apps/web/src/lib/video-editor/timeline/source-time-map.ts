@@ -96,6 +96,19 @@ function integrateSegment(segment: SpeedSegment, sourceFrame: number): number {
 	return (width / 3) * sum;
 }
 
+function boundaryPointId(
+	points: Iterable<SpeedRampPoint>,
+	edge: 'start' | 'end',
+	frame: number
+): string {
+	const ids = new Set([...points].map((point) => point.id));
+	const base = `source-${edge}:${frame}`;
+	let id = base;
+	let suffix = 1;
+	while (ids.has(id)) id = `${base}:${suffix++}`;
+	return id;
+}
+
 function normalizePoints(
 	item: TimelineItem,
 	sourceStart: number,
@@ -104,32 +117,43 @@ function normalizePoints(
 	const baseSpeed = clampSpeed(item.speed);
 	const pointsByFrame = new Map<number, SpeedRampPoint>();
 	for (const point of item.speedRamp ?? []) {
-		if (
-			!Number.isFinite(point.sourceFrame) ||
-			point.sourceFrame < sourceStart ||
-			point.sourceFrame > sourceEnd
-		) {
+		if (!Number.isFinite(point.sourceFrame) || point.sourceFrame < 0) {
 			continue;
 		}
 		pointsByFrame.set(point.sourceFrame, { ...point, speed: clampSpeed(point.speed) });
 	}
-	if (!pointsByFrame.has(sourceStart)) {
-		pointsByFrame.set(sourceStart, {
-			id: 'source-start',
-			sourceFrame: sourceStart,
+	const firstFrame = Math.min(sourceStart, ...pointsByFrame.keys());
+	const lastFrame = Math.max(sourceEnd, ...pointsByFrame.keys());
+	if (!pointsByFrame.has(firstFrame)) {
+		pointsByFrame.set(firstFrame, {
+			id: boundaryPointId(pointsByFrame.values(), 'start', firstFrame),
+			sourceFrame: firstFrame,
 			speed: baseSpeed,
 			easing: 'linear'
 		});
 	}
-	if (!pointsByFrame.has(sourceEnd)) {
-		pointsByFrame.set(sourceEnd, {
-			id: 'source-end',
-			sourceFrame: sourceEnd,
+	if (!pointsByFrame.has(lastFrame)) {
+		pointsByFrame.set(lastFrame, {
+			id: boundaryPointId(pointsByFrame.values(), 'end', lastFrame),
+			sourceFrame: lastFrame,
 			speed: baseSpeed,
 			easing: 'linear'
 		});
 	}
 	return [...pointsByFrame.values()].sort((left, right) => left.sourceFrame - right.sourceFrame);
+}
+
+/** Preserve implicit ramp endpoints before a trim changes the visible source window. */
+export function anchorSpeedRampBoundaries(
+	item: TimelineItem,
+	timelineFps: number
+): SpeedRampPoint[] | undefined {
+	if (!hasVariableSpeed(item)) return undefined;
+	return normalizePoints(
+		item,
+		item.sourceStart ?? 0,
+		sourceEndFor(item, timelineFps, sourceFpsFor(item, timelineFps))
+	);
 }
 
 function compileSourceTimeMap(item: TimelineItem, timelineFps: number): CompiledSourceTimeMap {
@@ -155,15 +179,33 @@ function compileSourceTimeMap(item: TimelineItem, timelineFps: number): Compiled
 		segment.elapsedAtEnd = elapsed;
 		segments.push(segment);
 	}
+	// Keep the authored ramp segments intact, including their easing, when a trim
+	// cuts through one. Only the visible integration window moves.
+	const first = segments.find(
+		(segment) => sourceStart >= segment.start && sourceStart < segment.end
+	);
+	const last = segments.findLast(
+		(segment) => sourceEnd > segment.start && sourceEnd <= segment.end
+	);
+	const offset = first
+		? first.elapsedAtStart + integrateSegment(first, sourceStart) * (timelineFps / sourceFps)
+		: 0;
+	const end = last
+		? last.elapsedAtStart + integrateSegment(last, sourceEnd) * (timelineFps / sourceFps)
+		: elapsed;
+	for (const segment of segments) {
+		segment.elapsedAtStart -= offset;
+		segment.elapsedAtEnd -= offset;
+	}
 	return {
 		sourceStart,
 		sourceEnd,
 		sourceFps,
 		timelineFps,
 		segments,
-		duration: elapsed,
-		startSpeed: points[0]?.speed ?? clampSpeed(item.speed),
-		endSpeed: points.at(-1)?.speed ?? clampSpeed(item.speed)
+		duration: end - offset,
+		startSpeed: first ? speedAt(first, sourceStart) : clampSpeed(item.speed),
+		endSpeed: last ? speedAt(last, sourceEnd) : clampSpeed(item.speed)
 	};
 }
 
@@ -332,8 +374,11 @@ export function playbackRateCurve(
 	const points: Array<PlaybackRateCurvePoint & { order: number }> = [];
 	for (let segmentIndex = 0; segmentIndex < map.segments.length; segmentIndex += 1) {
 		const segment = map.segments[segmentIndex]!;
+		const start = Math.max(map.sourceStart, segment.start);
+		const end = Math.min(map.sourceEnd, segment.end);
+		if (end <= start) continue;
 		for (let sample = 0; sample <= 16; sample += 1) {
-			const sourceFrame = segment.start + ((segment.end - segment.start) * sample) / 16;
+			const sourceFrame = start + ((end - start) * sample) / 16;
 			const elapsed = timelineElapsedAtSourceFrame(map, sourceFrame);
 			points.push({
 				offsetFrames: item.isReversed ? map.duration - elapsed : elapsed,

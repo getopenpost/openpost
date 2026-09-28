@@ -9,6 +9,7 @@
 import type { TimelineItem } from '../../project/types';
 import {
 	hasVariableSpeed,
+	anchorSpeedRampBoundaries,
 	sourceFrameToTimelineOffset,
 	timelineOffsetToSourceFrame
 } from '../source-time-map';
@@ -49,7 +50,7 @@ export function clampTrimAmount(
 	if (isMediaItem(item)) {
 		const { sourceStart, sourceFps, speed, sourceDuration } = getSourceProperties(item);
 		const effectiveSourceFps = sourceFps ?? timelineFps;
-		if (hasVariableSpeed(item)) {
+		if (hasVariableSpeed(item) || item.isReversed) {
 			if (handle === 'start' && trimAmount < 0) {
 				const sourceTarget = item.isReversed ? sourceDuration : 0;
 				if (sourceTarget !== undefined) {
@@ -180,6 +181,7 @@ function clampToMinDuration(
 }
 
 export interface TrimSourceUpdate {
+	speedRamp?: TimelineItem['speedRamp'];
 	sourceStart?: number;
 	sourceEnd?: number;
 }
@@ -196,17 +198,41 @@ export function calculateTrimSourceUpdate(
 
 	const { sourceStart, sourceEnd, sourceFps, speed, sourceDuration } = getSourceProperties(item);
 	const effectiveSourceFps = sourceFps ?? timelineFps;
-	if (hasVariableSpeed(item)) {
+	if (hasVariableSpeed(item) || item.isReversed) {
+		const speedRamp = anchorSpeedRampBoundaries(item, timelineFps);
+		const rampPatch = speedRamp ? { speedRamp } : {};
 		if (handle === 'start') {
 			const boundary = Math.round(
 				timelineOffsetToSourceFrame(item, clampedAmount, timelineFps) + (item.isReversed ? 1 : 0)
 			);
-			return item.isReversed ? { sourceEnd: boundary } : { sourceStart: boundary };
+			return item.isReversed
+				? {
+						...rampPatch,
+						sourceEnd: Math.max(sourceStart + 1, Math.min(sourceDuration ?? Infinity, boundary))
+					}
+				: {
+						...rampPatch,
+						sourceStart: Math.max(
+							0,
+							Math.min((sourceEnd ?? sourceDuration ?? Infinity) - 1, boundary)
+						)
+					};
 		}
 		const boundary = Math.round(
 			timelineOffsetToSourceFrame(item, newDuration, timelineFps) + (item.isReversed ? 1 : 0)
 		);
-		return item.isReversed ? { sourceStart: boundary } : { sourceEnd: boundary };
+		return item.isReversed
+			? {
+					...rampPatch,
+					sourceStart: Math.max(
+						0,
+						Math.min((sourceEnd ?? sourceDuration ?? Infinity) - 1, boundary)
+					)
+				}
+			: {
+					...rampPatch,
+					sourceEnd: Math.max(sourceStart + 1, Math.min(sourceDuration ?? Infinity, boundary))
+				};
 	}
 
 	if (handle === 'start') {

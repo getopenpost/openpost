@@ -50,6 +50,9 @@ test("workflow editor saves, previews without writes, and approves a native draf
   await expect(page.getByText("Completed", { exact: true }).first()).toBeVisible({
     timeout: 30000,
   });
+  await expect(page.getByRole("button", { name: "Cancel run", exact: true })).toHaveCount(0, {
+    timeout: 30000,
+  });
   await expect(page.getByText("This is a preview.", { exact: false })).toBeVisible();
   const publications = await page.request.get(`/api/v1/publications?workspace_id=${workspace.id}`, {
     headers,
@@ -67,6 +70,9 @@ test("workflow editor saves, previews without writes, and approves a native draf
   ).toBeVisible();
   await page.getByRole("button", { name: "Approve shown revision", exact: true }).click();
   await expect(page.getByText("Completed", { exact: true }).first()).toBeVisible({
+    timeout: 30000,
+  });
+  await expect(page.getByRole("button", { name: "Cancel run", exact: true })).toHaveCount(0, {
     timeout: 30000,
   });
   const livePublications = await page.request.get(
@@ -89,6 +95,11 @@ test("workflow editor saves, previews without writes, and approves a native draf
   await page.getByRole("button", { name: "Delete: Release announcement", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("link", { name: /Release announcement/ })).toHaveCount(0);
+  await expect(
+    page
+      .getByTestId("sidebar-draft-list")
+      .getByText("Shipping version 2: Smaller daily tasks.", { exact: true }),
+  ).toBeVisible();
 });
 
 test("a failed source sample keeps the saved editor usable", async ({ page }) => {

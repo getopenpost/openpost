@@ -15,6 +15,15 @@ export type StockSearchPage = components["schemas"]["SearchPage"];
 export interface MediaMetadataItem {
   readonly id: string;
   readonly mime_type?: string;
+  readonly url?: string;
+  readonly thumbnail_url?: string;
+  readonly width?: number;
+  readonly height?: number;
+  readonly duration_ms?: number;
+  readonly frame_rate?: number;
+  readonly container_format?: string;
+  readonly video_codec?: string;
+  readonly audio_codec?: string;
   readonly alt_text?: string;
   readonly size?: number;
   readonly processing_status?: string;

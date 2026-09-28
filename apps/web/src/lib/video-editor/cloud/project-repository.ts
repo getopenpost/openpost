@@ -1,3 +1,6 @@
+import { isAudioCodecSupported } from '../media/audio-codec-support';
+import { isProResCodec } from '../media/prores-decoder';
+import { editorAssetMetadataSchema, type EditorAssetMetadata } from './asset-metadata';
 import {
 	portableVideoProjectDocument,
 	videoProjectMutationOperations,
@@ -8,7 +11,7 @@ import {
 } from '@openpost/video-project';
 import type { components } from '@openpost/api-contract';
 import {
-	mediaListQueryOptions,
+	mediaMetadataQueryOptions,
 	mediaQueryKeys,
 	videoProjectAssetsQueryOptions,
 	videoProjectConflictsQueryOptions,
@@ -56,7 +59,9 @@ const pendingVideoProjectMutationSchema = z.object({
 	attempts: z.number()
 });
 const cloudDocumentSchema = z.looseObject({});
-const cloudDocumentFamilySchema = z.looseObject({ schemaFamily: z.string().optional() });
+const cloudDocumentFamilySchema = z.looseObject({
+	schemaFamily: z.string().optional()
+});
 type CloudVideoProjectDocument = components['schemas']['VideoProjectResponse']['document'];
 
 export function purgeCloudVideoProjectDeviceData(): void {
@@ -424,63 +429,86 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			if (offline) return offline.media;
 			throw new Error('Could not load Cloud Video Project assets');
 		}
-		const readyByMediaId = new Map(
-			assetData
-				.filter((asset) => asset.status === 'ready' && asset.media_id)
-				.map((asset) => [asset.media_id, asset] as const)
+		const readyAssets = assetData.filter(
+			(asset): asset is typeof asset & { media_id: string } =>
+				asset.status === 'ready' && Boolean(asset.media_id)
 		);
-		if (readyByMediaId.size === 0) return [];
+		const mediaIds = [...new Set(readyAssets.map((asset) => asset.media_id))];
+		if (mediaIds.length === 0) return [];
 
 		const media: MediaMetadata[] = [];
-		for (let offset = 0; ; offset += 200) {
+		for (let offset = 0; offset < mediaIds.length; offset += 200) {
 			let data;
 			try {
 				data = await queryClient.query(
-					mediaListQueryOptions(mediaQueryAPI, this.workspaceId, {
-						assetKind: 'project_asset',
-						lifecycle: 'all',
-						limit: 200,
-						offset
-					})
+					mediaMetadataQueryOptions(
+						mediaQueryAPI,
+						this.workspaceId,
+						mediaIds.slice(offset, offset + 200)
+					)
 				);
 			} catch {
 				const offline = await readOfflineCloudProject<TDocument>(this.workspaceId, id);
 				if (offline) return offline.media;
 				throw new Error('Could not load Cloud Video Project media');
 			}
-			for (const item of data.media ?? []) {
-				const asset = readyByMediaId.get(item.id);
-				if (!asset) continue;
-				const mediaKind = item.mime_type.startsWith('font/')
-					? 'font'
-					: item.mime_type.startsWith('audio/')
-						? 'audio'
-						: item.mime_type.startsWith('image/')
-							? 'image'
-							: 'video';
+			const metadataById = new Map((data.media ?? []).map((item) => [item.id, item]));
+			for (const asset of readyAssets) {
+				const item = metadataById.get(asset.media_id);
+				if (!item) continue;
+				const prepared = editorAssetMetadataSchema.safeParse(asset.preparation.editorMedia);
+				const probe = prepared.success ? prepared.data : undefined;
+				const mimeType = item.mime_type || asset.mime_type;
+				const fileSize = item.size ?? asset.size;
+				const duration =
+					(item.duration_ms ?? 0) > 0 ? (item.duration_ms ?? 0) / 1000 : (probe?.duration ?? 0);
+				const mediaKind =
+					probe?.codec === 'lottie' &&
+					(mimeType === 'application/zip' || mimeType === 'application/json')
+						? 'lottie'
+						: mimeType.startsWith('font/')
+							? 'font'
+							: mimeType.startsWith('audio/')
+								? 'audio'
+								: mimeType.startsWith('image/')
+									? 'image'
+									: 'video';
 				media.push({
 					id: asset.stable_media_id,
 					storageType: 'cloud',
 					remoteUrl: item.url,
+					remoteThumbnailUrl: item.thumbnail_url || item.poster_thumbnail_url || undefined,
 					offlineUrl: offlineMediaURL(this.workspaceId, id, asset.stable_media_id),
 					contentHash: asset.sha256 || undefined,
-					fileName: item.original_filename,
-					fileSize: item.size,
-					mimeType: item.mime_type,
-					duration: item.duration_ms / 1000,
-					width: item.width,
-					height: item.height,
-					fps: item.frame_rate,
-					codec: item.video_codec ?? item.container_format ?? '',
-					bitrate: item.bit_rate,
-					audioCodec: item.audio_codec,
-					// The server's media tags are library tag IDs, not the editor's semantic tags.
-					// Attribution, capture details, and extended browser probe results have no
-					// Project Asset contract fields, so only contract-owned metadata is restored.
-					tags: [mediaKind]
+					fileName: asset.original_filename,
+					fileSize,
+					mimeType,
+					duration,
+					width: item.width || probe?.width || 0,
+					height: item.height || probe?.height || 0,
+					fps: item.frame_rate || probe?.fps || 0,
+					codec:
+						mediaKind === 'lottie'
+							? 'lottie'
+							: item.video_codec || probe?.codec || item.container_format || '',
+					bitrate: Math.round((fileSize * 8) / Math.max(1, duration)),
+					audioCodec: item.audio_codec || probe?.audioCodec,
+					audioCodecSupported: isAudioCodecSupported(item.audio_codec || probe?.audioCodec),
+					videoCodecSupported: isProResCodec(item.video_codec || probe?.codec) ? false : undefined,
+					lottieTotalFrames: probe?.lottieTotalFrames,
+					lottieMarkers: probe?.lottieMarkers,
+					animationFrameCount: probe?.animationFrameCount,
+					attribution: probe?.attribution,
+					tags: [
+						...new Set([
+							mediaKind,
+							...(probe?.tags.filter(
+								(tag) => !['audio', 'video', 'image', 'font', 'lottie'].includes(tag)
+							) ?? [])
+						])
+					]
 				});
 			}
-			if ((data.media?.length ?? 0) < 200) break;
 		}
 		return media;
 	}
@@ -524,6 +552,7 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 			mimeType: string;
 			size: number;
 			sha256: string;
+			mediaMetadata?: EditorAssetMetadata;
 		}
 	): Promise<string> {
 		const { data, error } = await client.POST('/video-projects/{id}/assets', {
@@ -535,7 +564,9 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 				mime_type: input.mimeType,
 				size: input.size,
 				sha256: input.sha256,
-				preparation: {},
+				preparation: input.mediaMetadata
+					? { editorMedia: editorAssetMetadataSchema.parse({ version: 1, ...input.mediaMetadata }) }
+					: {},
 				device_id: deviceId()
 			}
 		});

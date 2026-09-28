@@ -56,7 +56,8 @@ export async function importLocalProjectToCloud(
 				fileName: item.fileName,
 				mimeType: item.mimeType || blob.type || 'application/octet-stream',
 				size: blob.size,
-				sha256: contentHash
+				sha256: contentHash,
+				mediaMetadata: item
 			})
 		}))
 	);

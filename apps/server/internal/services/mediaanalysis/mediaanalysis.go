@@ -48,6 +48,11 @@ type Result struct {
 	ThumbnailObject string
 }
 
+// IsTimeBased reports whether uploaded media needs stream metadata analysis.
+func IsTimeBased(mimeType string) bool {
+	return strings.HasPrefix(mimeType, "video/") || strings.HasPrefix(mimeType, "audio/")
+}
+
 type Analyzer interface {
 	Analyze(context.Context, Input) (Result, error)
 }

@@ -108,13 +108,13 @@ func (s *Service) EnqueuePendingAnalysis(ctx context.Context) error {
 	if err := s.db.NewSelect().
 		Model((*models.MediaAttachment)(nil)).
 		Column("id").
-		Where("mime_type LIKE 'video/%'").
+		Where("(mime_type LIKE 'video/%' OR mime_type LIKE 'audio/%')").
 		Where("processing_status != ?", "uploading").
 		WhereGroup(" AND ", func(query *bun.SelectQuery) *bun.SelectQuery {
 			return query.
 				Where("analysis_status = ?", statusPending).
 				WhereOr("(analysis_status != ? AND analysis_status != ?)", statusReady, statusFailed).
-				WhereOr("(analysis_status = ? AND (width <= 0 OR height <= 0 OR duration_ms <= 0))", statusReady)
+				WhereOr("(analysis_status = ? AND (duration_ms <= 0 OR (mime_type LIKE 'video/%' AND (width <= 0 OR height <= 0))))", statusReady)
 		}).
 		Scan(ctx, &mediaIDs); err != nil {
 		return err
@@ -145,7 +145,7 @@ func (s *Service) analyze(ctx context.Context, mediaID string) error {
 	if s.db == nil || s.storage == nil {
 		return errors.New("video processing is not configured")
 	}
-	media, eligible, err := s.loadVideo(ctx, mediaID)
+	media, eligible, err := s.loadMedia(ctx, mediaID)
 	if err != nil || !eligible {
 		return err
 	}
@@ -166,7 +166,7 @@ func (s *Service) analyze(ctx context.Context, mediaID string) error {
 	return nil
 }
 
-func (s *Service) loadVideo(ctx context.Context, mediaID string) (models.MediaAttachment, bool, error) {
+func (s *Service) loadMedia(ctx context.Context, mediaID string) (models.MediaAttachment, bool, error) {
 	var media models.MediaAttachment
 	if err := s.db.NewSelect().Model(&media).Where("id = ?", mediaID).Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -174,7 +174,7 @@ func (s *Service) loadVideo(ctx context.Context, mediaID string) (models.MediaAt
 		}
 		return media, false, err
 	}
-	return media, strings.HasPrefix(media.MimeType, "video/"), nil
+	return media, mediaanalysis.IsTimeBased(media.MimeType), nil
 }
 
 func (s *Service) beginAnalysis(ctx context.Context, mediaID string) error {
@@ -238,7 +238,7 @@ func (s *Service) persistResult(
 	result mediaanalysis.Result,
 ) error {
 	mimeType := media.MimeType
-	if result.DominantType == "audio" {
+	if result.DominantType == "audio" && strings.HasPrefix(mimeType, "video/") {
 		mimeType = "audio/" + strings.TrimPrefix(mimeType, "video/")
 	}
 	_, err := s.db.NewUpdate().

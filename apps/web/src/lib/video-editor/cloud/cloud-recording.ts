@@ -7,6 +7,7 @@ import { hashBlob } from '../project-bundle/bundle-utils';
 import { probeMediaFile } from '../media/probe-client';
 import { importCloudProjectAssetFile } from './import-project-assets';
 import { CloudVideoProjectRepository } from './project-repository';
+import type { EditorAssetMetadata } from './asset-metadata';
 import { recordingExtension } from '../recorder/record-mime';
 
 export type RecorderCloudDocument = ReturnType<typeof createCapturedVideoProjectDocumentFromAssets>;
@@ -22,6 +23,7 @@ export interface RecorderCloudRepository {
 			mimeType: string;
 			size: number;
 			sha256: string;
+			mediaMetadata?: EditorAssetMetadata;
 		}
 	): Promise<string>;
 }
@@ -121,7 +123,15 @@ export async function saveRecorderArtifactsToCloud(
 			fileName: asset.file.name,
 			mimeType: asset.file.type || 'application/octet-stream',
 			size: asset.file.size,
-			sha256: asset.sha256
+			sha256: asset.sha256,
+			mediaMetadata: {
+				duration: asset.metadata.duration || asset.artifact.durationMs / 1000,
+				width: asset.metadata.width,
+				height: asset.metadata.height,
+				fps: 0,
+				codec: '',
+				tags: [asset.file.type.startsWith('audio/') ? 'audio' : 'video']
+			}
 		});
 		await runtime.upload({
 			workspaceId: repository.workspaceId,

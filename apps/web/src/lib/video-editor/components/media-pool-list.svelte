@@ -343,6 +343,12 @@
 	async function previewUrl(id: string): Promise<void> {
 		const media = mediaPool.get(id);
 		if (!media || objectUrls[id]) return;
+		if (media.storageType === 'cloud') {
+			if (media.remoteThumbnailUrl) objectUrls[id] = media.remoteThumbnailUrl;
+			else if (media.tags.includes('image'))
+				objectUrls[id] = await getMediaObjectUrl(media).catch(() => '');
+			return;
+		}
 		try {
 			const thumbnail = await readBlob(requireWorkspaceRoot(), mediaThumbnailPath(id));
 			if (thumbnail) {

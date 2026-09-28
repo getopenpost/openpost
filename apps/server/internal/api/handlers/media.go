@@ -1966,7 +1966,7 @@ func (h *MediaHandler) finalizeDirectMediaUploadRecord(ctx context.Context, medi
 	media.DominantType = dominantMediaType(mimeType)
 	media.AspectRatio = mediaAspectRatio(width, height)
 	media.AnalysisStatus = mediaanalysis.AnalysisStatusReady
-	if strings.HasPrefix(mimeType, "video/") && h.video != nil {
+	if mediaanalysis.IsTimeBased(mimeType) && h.video != nil {
 		media.ProcessingStatus = mediaProcessingStatus
 		media.ProcessingProgress = 0
 		media.AnalysisStatus = mediaanalysis.AnalysisStatusPending
@@ -1981,7 +1981,7 @@ func (h *MediaHandler) finalizeDirectMediaUploadRecord(ctx context.Context, medi
 		h.markMediaUploadFailed(ctx, media.ID)
 		return media, huma.Error500InternalServerError("failed to finalize media record")
 	}
-	if strings.HasPrefix(mimeType, "video/") && h.video != nil {
+	if mediaanalysis.IsTimeBased(mimeType) && h.video != nil {
 		h.enqueueVideoAnalysis(ctx, media.ID)
 	}
 	return media, nil
@@ -2234,6 +2234,12 @@ func isSVGMediaUpload(filename, declaredMimeType string, content []byte) bool {
 	if strings.EqualFold(strings.TrimSpace(declaredMimeType), "image/svg+xml") ||
 		strings.EqualFold(filepath.Ext(strings.TrimSpace(filename)), ".svg") {
 		return true
+	}
+	// Binary media may contain SVG-like bytes in samples or metadata. Only
+	// inspect textual or unknown content for an undeclared SVG document.
+	detected := http.DetectContentType(content)
+	if !strings.HasPrefix(detected, "text/") && detected != "application/octet-stream" {
+		return false
 	}
 	normalized := bytes.ToLower(bytes.TrimSpace(content))
 	return bytes.Contains(normalized, []byte("<svg"))
@@ -3420,7 +3426,7 @@ func (h *MediaHandler) processStreamUpload(
 		AnalysisStatus:     mediaanalysis.AnalysisStatusReady,
 		LastUsedAt:         time.Now().UTC(),
 	}
-	if strings.HasPrefix(mimeType, "video/") && h.video != nil {
+	if mediaanalysis.IsTimeBased(mimeType) && h.video != nil {
 		media.ProcessingStatus = mediaProcessingStatus
 		media.ProcessingProgress = 0
 		media.AnalysisStatus = mediaanalysis.AnalysisStatusPending
@@ -3465,7 +3471,7 @@ func (h *MediaHandler) processStreamUpload(
 	if err := refreshPublicMediaState(ctx, h.db, h.publicMedia, media); err != nil {
 		log.Printf("failed to persist public URL verification for media %s: %v", media.ID, err)
 	}
-	if strings.HasPrefix(mimeType, "video/") && h.video != nil {
+	if mediaanalysis.IsTimeBased(mimeType) && h.video != nil {
 		h.enqueueVideoAnalysis(ctx, media.ID)
 	}
 	if !isInternalMediaAssetKind(assetKind) {
@@ -3591,7 +3597,7 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	media.DominantType = dominantMediaType(mimeType)
 	media.AspectRatio = mediaAspectRatio(media.Width, media.Height)
 	media.AnalysisStatus = mediaanalysis.AnalysisStatusReady
-	if strings.HasPrefix(mimeType, "video/") && h.video != nil {
+	if mediaanalysis.IsTimeBased(mimeType) && h.video != nil {
 		media.ProcessingStatus = mediaProcessingStatus
 		media.ProcessingProgress = 0
 		media.AnalysisStatus = mediaanalysis.AnalysisStatusPending
@@ -3636,7 +3642,7 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	if err := refreshPublicMediaState(ctx, h.db, h.publicMedia, media); err != nil {
 		log.Printf("failed to persist public URL verification for media %s: %v", media.ID, err)
 	}
-	if strings.HasPrefix(mimeType, "video/") {
+	if mediaanalysis.IsTimeBased(mimeType) {
 		h.enqueueVideoAnalysis(ctx, media.ID)
 	}
 	if !isInternalMediaAssetKind(assetKind) {

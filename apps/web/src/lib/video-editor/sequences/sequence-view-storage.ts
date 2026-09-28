@@ -1,34 +1,27 @@
 import { browser } from '$app/environment';
+import { z } from 'zod';
 
 function storageKey(projectId: string, workspaceId: string): string {
 	return `openpost-video-editor-active-sequence-v1:${JSON.stringify([workspaceId, projectId])}`;
 }
 
-interface SequenceView {
-	activeSequenceId: string | null;
-	editSequenceId: string | null;
-}
+const sequenceViewSchema = z.object({
+	activeSequenceId: z.string().nullable(),
+	editSequenceId: z.string().nullable(),
+	currentFrame: z.number().finite().nonnegative().optional(),
+	zoomLevel: z.number().finite().positive().optional(),
+	scrollPosition: z.number().finite().nonnegative().optional(),
+	leftPanel: z.string().optional()
+});
+type SequenceView = z.infer<typeof sequenceViewSchema>;
 
 export function readSequenceView(projectId: string, workspaceId: string): SequenceView | null {
 	if (!browser) return null;
 	try {
 		const value = localStorage.getItem(storageKey(projectId, workspaceId));
 		if (!value) return null;
-		const parsed: unknown = JSON.parse(value);
-		if (
-			!parsed ||
-			typeof parsed !== 'object' ||
-			!('activeSequenceId' in parsed) ||
-			!('editSequenceId' in parsed)
-		)
-			return null;
-		const { activeSequenceId, editSequenceId } = parsed;
-		if (
-			(activeSequenceId !== null && typeof activeSequenceId !== 'string') ||
-			(editSequenceId !== null && typeof editSequenceId !== 'string')
-		)
-			return null;
-		return { activeSequenceId, editSequenceId };
+		const parsed = sequenceViewSchema.safeParse(JSON.parse(value));
+		return parsed.success ? parsed.data : null;
 	} catch {
 		return null;
 	}

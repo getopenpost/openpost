@@ -146,6 +146,8 @@ export async function insertRecordingArtifacts(
 		if (!isCurrent()) throw new Error('Recording destination changed');
 		return executeAtomic('INSERT_RECORDING', () => {
 			const itemIds: string[] = [];
+			const tracks = [...timelineStore.tracks];
+			const items = [...timelineStore.items];
 			const mediaIds = imported.map((entry) => entry.mediaId);
 			const linkedGroupId = artifacts.length > 1 ? crypto.randomUUID() : undefined;
 			artifacts.forEach((artifact, index) => {
@@ -154,15 +156,19 @@ export async function insertRecordingArtifacts(
 				const offsetMs = Math.max(0, artifact.startOffsetMs);
 				const from = Math.max(0, baseFrame + Math.round((offsetMs / 1000) * fps));
 				const durationInFrames = Math.max(1, Math.round(importedEntry.duration * fps));
-				const existingTracks = timelineStore.tracks;
-				const order =
-					existingTracks.length > 0
-						? Math.max(...existingTracks.map((track) => track.order)) + 1
-						: 0;
 				const trackKind = trackKindForRecorder(artifact.kind);
+				const orders = tracks.map((track) => track.order);
+				const order =
+					trackKind === 'video' ? Math.min(0, ...orders) - 1 : Math.max(-1, ...orders) + 1;
+				let nameIndex = 0;
+				while (
+					tracks.some((track) => track.name === recorderKindToTrackName(artifact.kind, nameIndex))
+				)
+					nameIndex++;
+				const name = recorderKindToTrackName(artifact.kind, nameIndex);
 				const track: TimelineTrack = {
 					id: crypto.randomUUID(),
-					name: recorderKindToTrackName(artifact.kind, index),
+					name,
 					kind: trackKind,
 					height: trackKind === 'video' ? 72 : 56,
 					locked: false,
@@ -180,7 +186,7 @@ export async function insertRecordingArtifacts(
 					trackId: track.id,
 					from,
 					durationInFrames,
-					label: importedEntry.fileName,
+					label: name,
 					type: trackKind === 'audio' ? 'audio' : 'video',
 					mediaId: importedEntry.mediaId,
 					originId: crypto.randomUUID(),
@@ -191,10 +197,12 @@ export async function insertRecordingArtifacts(
 					sourceFps,
 					volume: 1
 				};
-				timelineStore._setTracks([...timelineStore.tracks, track]);
-				timelineStore._addItem(item);
+				tracks.push(track);
+				items.push(item);
 				itemIds.push(item.id);
 			});
+			timelineStore._setTracks(tracks);
+			timelineStore._setItems(items);
 			return { mediaIds, itemIds };
 		});
 	} catch (error) {

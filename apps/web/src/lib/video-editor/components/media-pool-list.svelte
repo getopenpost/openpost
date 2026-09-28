@@ -449,6 +449,7 @@
 
 	function placeMedia(media: MediaMetadata): void {
 		mediaPlacement.begin(mediaDragData('media', media.id, media.fileName));
+		showToast(m.video_editor_media_placement_instruction(), 'info');
 	}
 
 	function groupLabel(kind: MediaLibraryKind): string {
@@ -907,6 +908,7 @@
 
 	function placeSequence(sequence: SubComposition): void {
 		mediaPlacement.begin(mediaDragData('composition', sequence.id, sequence.name));
+		showToast(m.video_editor_media_placement_instruction(), 'info');
 	}
 
 	function duplicateComposition(sequence: SubComposition): void {
@@ -1375,7 +1377,9 @@
 				{m.video_editor_sequences()}
 			</h3>
 			<ul
-				class={assetViewMode === 'grid' ? 'grid gap-1.5' : 'flex flex-col gap-1'}
+				class={assetViewMode === 'grid'
+					? 'grid max-h-40 gap-1.5 overflow-y-auto'
+					: 'flex max-h-40 flex-col gap-1 overflow-y-auto'}
 				style:grid-template-columns={assetViewMode === 'grid' ? assetGridTemplate : undefined}
 				data-asset-group="sequences"
 				data-view={assetViewMode}
@@ -1595,7 +1599,7 @@
 										aria-label={`${m.video_editor_source_monitor()}: ${entry?.media.fileName ?? ''}`}
 										aria-pressed={selectedMediaIds.has(id)}
 										onclick={(event) => entry && selectMedia(event, entry.media)}
-										title={issue ? sourceIssueLabel(issue) : m.video_editor_source_monitor()}
+										title={issue ? sourceIssueLabel(issue) : entry?.media.fileName}
 									>
 										<span
 											class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--canvas-pasteboard)] {assetViewMode ===
@@ -1621,7 +1625,8 @@
 											{/if}
 										</span>
 										<span class="min-w-0 flex-1">
-											<span class="block truncate text-xs font-medium">{entry?.media.fileName}</span
+											<span class="line-clamp-2 text-xs font-medium break-all"
+												>{entry?.media.fileName}</span
 											>
 											{#if issue}
 												<span class="flex items-center gap-1 text-[11px] text-warning-foreground">

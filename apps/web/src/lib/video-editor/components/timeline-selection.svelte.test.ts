@@ -8,6 +8,7 @@ import '../../../routes/layout.css';
 beforeEach(() => {
 	timelineStore.__resetForTesting();
 	timelineStore._setSnapEnabled(false);
+	timelineStore._setScrollPosition(0);
 	timelineStore._setTracks([
 		{
 			id: 'visual',
@@ -138,4 +139,54 @@ it('preserves a group through drag preview and cancellation, then commits it tog
 	expect(timelineStore.items[2]!.from - 240).toBe(timelineStore.items[0]!.from);
 	expect(onedit).toHaveBeenCalledOnce();
 	await expect.element(screen.getByLabelText('Selected clips')).toHaveTextContent('first,third');
+});
+
+it('moves an unselected video from near its top corner without creating a fade', async () => {
+	timelineStore._setItems([
+		{
+			...timelineStore.items[0]!,
+			type: 'video',
+			mediaId: 'corner-test-media',
+			sourceStart: 0,
+			sourceEnd: 90,
+			sourceFps: 30
+		}
+	]);
+	const screen = await render(Fixture, { onedit: vi.fn() });
+	const clip = screen.getByRole('button', { name: /^first\./ }).element();
+	const rect = clip.getBoundingClientRect();
+	const x = rect.left + 12;
+	const y = rect.top + 6;
+	const target = document.elementFromPoint(x, y)!;
+	expect(target.closest('button')).toBe(clip);
+	const pointer = (type: string, receiver: EventTarget, offset: number) =>
+		receiver.dispatchEvent(
+			new PointerEvent(type, {
+				pointerId: 7,
+				button: 0,
+				bubbles: true,
+				cancelable: true,
+				clientX: x + offset,
+				clientY: y
+			})
+		);
+	pointer('pointerdown', target, 0);
+	pointer('pointermove', window, 40);
+	await new Promise(requestAnimationFrame);
+	pointer('pointerup', window, 40);
+	expect(timelineStore.items[0]!.from).toBeGreaterThan(0);
+	expect(timelineStore.items[0]!.fadeIn ?? 0).toBe(0);
+});
+
+it('restores and records the visible timeline position without authoring an edit', async () => {
+	timelineStore._setItems([{ ...timelineStore.items[0]!, from: 1200 }]);
+	timelineStore._setScrollPosition(250);
+	const onedit = vi.fn();
+	const screen = await render(Fixture, { onedit });
+	const viewport = screen.getByRole('region', { name: 'Timeline', exact: true }).element();
+	await expect.poll(() => viewport.scrollLeft).toBe(250);
+	viewport.scrollLeft = 500;
+	viewport.dispatchEvent(new Event('scroll'));
+	await expect.poll(() => timelineStore.scrollPosition).toBe(500);
+	expect(onedit).not.toHaveBeenCalled();
 });

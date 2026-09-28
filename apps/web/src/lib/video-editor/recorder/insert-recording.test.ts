@@ -155,3 +155,26 @@ describe('recording artifact insertion', () => {
 		expect(timelineStore.tracks).toHaveLength(0);
 	});
 });
+
+it('places each new screen recording above older footage with distinct readable names', async () => {
+	const runtime: RecordingImportRuntime = {
+		importVideo: vi
+			.fn()
+			.mockResolvedValueOnce(media('first', 'video'))
+			.mockResolvedValueOnce(media('second', 'video')),
+		importAudio: vi.fn(),
+		rollback: vi.fn()
+	};
+	await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime, {
+		isCurrent: () => true
+	});
+	const firstTrack = timelineStore.tracks[0]!;
+	const next = await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime, {
+		isCurrent: () => true
+	});
+	const nextItem = timelineStore.itemById.get(next.itemIds[0]!)!;
+	const nextTrack = timelineStore.tracks.find((track) => track.id === nextItem.trackId)!;
+	expect(nextTrack.order).toBeLessThan(firstTrack.order);
+	expect(nextTrack.name).toBe('Screen 2');
+	expect(nextItem.label).toBe('Screen 2');
+});

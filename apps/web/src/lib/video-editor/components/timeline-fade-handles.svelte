@@ -311,7 +311,7 @@
 			: null
 	);
 
-	const canInteract = $derived(!trackLocked && activeEditTool === null);
+	const canInteract = $derived(selected && !trackLocked && activeEditTool === null);
 	const isAnyEditing = $derived(editing !== null || curveEditing !== null);
 	const handleVisibilityClass = $derived(
 		editing !== null || curveEditing !== null || selected
@@ -323,9 +323,7 @@
 			? 'opacity-100'
 			: 'opacity-0 @min-[44px]:opacity-40 @min-[64px]:opacity-100 group-focus-within/timeline-item:opacity-100'
 	);
-	const densityPointerClass = $derived(
-		isAnyEditing ? 'pointer-events-auto' : 'pointer-events-none @min-[44px]:pointer-events-auto'
-	);
+	const densityPointerClass = $derived(canInteract ? 'pointer-events-auto' : 'pointer-events-none');
 
 	const keyboardHelp = $derived(m.video_editor_fade_handle_keyboard());
 	const curveKeyboardHelpId = $derived(
@@ -822,7 +820,7 @@
 				bind:this={fadeInHandle}
 				type="button"
 				role="slider"
-				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeInPercent <=
+				class="absolute flex h-4 w-4 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [@media(pointer:coarse)]:h-7 [@media(pointer:coarse)]:w-7 {fadeInPercent <=
 				0
 					? 'translate-x-0'
 					: '-translate-x-1/2'} {densityPointerClass} {editing === 'in' || hoveredFade === 'in'
@@ -873,7 +871,7 @@
 				bind:this={fadeOutHandle}
 				type="button"
 				role="slider"
-				class="absolute flex h-7 w-7 -translate-y-1/2 cursor-pointer touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {fadeOutLeft >=
+				class="absolute flex h-4 w-4 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [@media(pointer:coarse)]:h-7 [@media(pointer:coarse)]:w-7 {fadeOutLeft >=
 				100
 					? '-translate-x-full'
 					: '-translate-x-1/2'} {densityPointerClass} {editing === 'out' || hoveredFade === 'out'

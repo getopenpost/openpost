@@ -534,3 +534,57 @@ test("Color palettes explain their action and landscape workspaces retain a usab
   );
   await page.screenshot({ path: testInfo.outputPath("video-export-320.png") });
 });
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`Transcript has room to read and edit on phones in ${scheme}`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await createProject(page, "Readable transcript");
+    await page.getByRole("tab", { name: "Transcript", exact: true }).click();
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.getByRole("button", { name: "Assets", exact: true }).click();
+      const transcript = page.getByRole("region", { name: "Transcript", exact: true });
+      await expect(transcript).toBeVisible();
+      expect((await transcript.boundingBox())!.height).toBeGreaterThan(300);
+      expect(
+        await transcript.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+      ).toBe(true);
+      await expect(page.getByRole("searchbox", { name: "Search transcript" })).toBeInViewport({
+        ratio: 1,
+      });
+      await page.screenshot({ path: testInfo.outputPath(`transcript-${width}-${scheme}.png`) });
+      await page.getByRole("button", { name: "Program", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
+        ratio: 1,
+      });
+      await expect(transcript).toBeHidden();
+    }
+  });
+}
+
+test("Motion uses authored duration in its summary, transport, and export", async ({ page }) => {
+  test.setTimeout(90_000);
+  await createProject(page, "Motion duration");
+  await page.getByRole("tab", { name: "Motion", exact: true }).click();
+  await page.getByRole("button", { name: "New composition", exact: true }).click();
+  await page.getByRole("spinbutton", { name: "Width", exact: true }).fill("320");
+  await page.getByRole("spinbutton", { name: "Height", exact: true }).fill("240");
+  await page.getByRole("spinbutton", { name: "Duration (seconds)", exact: true }).fill("12");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page
+    .getByRole("toolbar", { name: "Layer tools" })
+    .getByRole("button", { name: "Text", exact: true })
+    .click();
+  await expect(page.getByText(/320×240 · 30 fps · 0:12 · 1 clips/)).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "00:00:00:00 / 00:00:12:00", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Export video" }).getByText(/12\.0s/),
+  ).toBeVisible();
+});

@@ -1,3 +1,4 @@
+import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
@@ -247,5 +248,41 @@ it.each([320, 390])('keeps expanded overflow actions inside a %ipx viewport', as
 		await userEvent.keyboard('{Escape}');
 	} finally {
 		await page.viewport(1280, 900);
+	}
+});
+
+it('keeps the authored Motion duration after the last layer ends', async () => {
+	const id = 'motion-duration';
+	sequenceStore.addComposition({
+		id,
+		name: 'Motion duration',
+		editorKind: 'composite-2d',
+		items: [
+			{
+				id: 'title',
+				type: 'text',
+				trackId: 'visual',
+				from: 0,
+				durationInFrames: 274,
+				text: 'Title',
+				label: 'Title'
+			}
+		],
+		tracks: [],
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 353
+	});
+	sequenceStore.switchTo(id);
+	try {
+		const screen = await render(Fixture, { width: 900 });
+		await expect
+			.element(screen.getByRole('img', { name: '00:00:00:00 / 00:00:11:23', exact: true }))
+			.toBeVisible();
+	} finally {
+		sequenceStore.deleteCompositionAndReferences(id);
+		timelineStore.__resetForTesting();
 	}
 });

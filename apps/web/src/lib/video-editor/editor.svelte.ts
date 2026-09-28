@@ -172,6 +172,12 @@ class EditorSession {
 			this.editSequenceId =
 				editSequence && editSequence.editorKind !== 'composite-2d' ? editSequence.id : null;
 			sequenceStore.switchTo(savedView?.activeSequenceId ?? null);
+			if (savedView?.currentFrame !== undefined)
+				timelineStore._setCurrentFrame(savedView.currentFrame);
+			if (savedView?.zoomLevel !== undefined) timelineStore._setZoomLevel(savedView.zoomLevel);
+			if (savedView?.scrollPosition !== undefined)
+				timelineStore._setScrollPosition(savedView.scrollPosition);
+			this.restoredLeftPanel = savedView?.leftPanel;
 			timelineStore._setSnapEnabled(editorSettings.snapByDefault);
 			timelineStore._setMaxUndoHistory(editorSettings.maxUndoHistory);
 			this.syncTimelineClock();
@@ -194,14 +200,19 @@ class EditorSession {
 	}
 
 	editSequenceId: string | null = null;
+	restoredLeftPanel: string | undefined;
 
-	rememberActiveSequence(sequenceId: string | null): void {
-		if (!this.projectId || this.loading || this.loadError) return;
+	rememberActiveSequence(sequenceId: string | null, leftPanel?: string): void {
+		if (!this.projectId || this.loading || this.loadError || this.isPlaying) return;
 		if (sequenceStore.activeSequence?.editorKind !== 'composite-2d')
 			this.editSequenceId = sequenceId;
 		writeSequenceView(this.projectId, this.cloudWorkspaceId, {
 			activeSequenceId: sequenceId,
-			editSequenceId: this.editSequenceId
+			editSequenceId: this.editSequenceId,
+			currentFrame: timelineStore.currentFrame,
+			zoomLevel: timelineStore.zoomLevel,
+			scrollPosition: timelineStore.scrollPosition,
+			leftPanel
 		});
 	}
 

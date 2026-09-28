@@ -7,7 +7,7 @@ FORM: FreeCut studio-workspace grammar, pinned by the user; seed freecut-parity-
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
 -->
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -83,7 +83,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import { videoLibrary } from '$lib/video-editor/library/library-store.svelte';
 	import TimerBrowser from '$lib/video-editor/components/timer-browser.svelte';
 	import { formatMediaDuration } from '$lib/video-editor/media/library-view';
-	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
 	import { mediaRecovery } from '$lib/video-editor/media/media-recovery.svelte';
 	import { conformReversePreview } from '$lib/video-editor/media/reverse-conform-service';
 	import {
@@ -470,9 +469,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		lastActiveTimelineKey = activeTimelineKey;
 		untrack(handleTabSwitchSelection);
 	});
+	let restoredPanelProject: string | null = null;
 	$effect(() => {
-		if (!displayedProject) return;
-		editorSession.rememberActiveSequence(sequenceStore.activeSequenceId);
+		if (!displayedProject || editorSession.loading) return;
+		if (restoredPanelProject !== displayedProject.id) {
+			leftPanel =
+				leftPanelOptions.find((option) => option.value === editorSession.restoredLeftPanel)
+					?.value ?? 'media';
+			restoredPanelProject = displayedProject.id;
+		}
+		editorSession.rememberActiveSequence(sequenceStore.activeSequenceId, leftPanel);
 	});
 	let colorGradeScope = $state<'clip' | 'sequence'>('clip');
 	let sourceMediaId = $state<string | null>(null);
@@ -808,6 +814,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		}
 	]);
 	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
+	const railPanelOptions = $derived(
+		primaryLeftPanelOptions.filter((option, index) => index < 6 || option.value === leftPanel)
+	);
+	const morePanelOptions = $derived(primaryLeftPanelOptions.slice(6));
 	const leftPanelHeading = $derived(
 		leftPanelOptions.find((option) => option.value === leftPanel)?.label ?? m.video_editor_assets()
 	);
@@ -820,24 +830,28 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		value: LeftPanel,
 		orientation: 'horizontal' | 'vertical'
 	): void {
-		const currentIndex = leftPanelOptions.findIndex((option) => option.value === value);
+		const options =
+			orientation === 'vertical'
+				? [...railPanelOptions, ...utilityLeftPanelOptions]
+				: leftPanelOptions;
+		const currentIndex = options.findIndex((option) => option.value === value);
 		let nextIndex: number | null = null;
 		if (event.key === 'Home') nextIndex = 0;
-		if (event.key === 'End') nextIndex = leftPanelOptions.length - 1;
+		if (event.key === 'End') nextIndex = options.length - 1;
 		if (orientation === 'horizontal' && event.key === 'ArrowRight') {
-			nextIndex = (currentIndex + 1) % leftPanelOptions.length;
+			nextIndex = (currentIndex + 1) % options.length;
 		}
 		if (orientation === 'horizontal' && event.key === 'ArrowLeft') {
-			nextIndex = (currentIndex - 1 + leftPanelOptions.length) % leftPanelOptions.length;
+			nextIndex = (currentIndex - 1 + options.length) % options.length;
 		}
 		if (orientation === 'vertical' && event.key === 'ArrowDown') {
-			nextIndex = (currentIndex + 1) % leftPanelOptions.length;
+			nextIndex = (currentIndex + 1) % options.length;
 		}
 		if (orientation === 'vertical' && event.key === 'ArrowUp') {
-			nextIndex = (currentIndex - 1 + leftPanelOptions.length) % leftPanelOptions.length;
+			nextIndex = (currentIndex - 1 + options.length) % options.length;
 		}
 		if (nextIndex === null) return;
-		const next = leftPanelOptions[nextIndex];
+		const next = options[nextIndex];
 		if (!next) return;
 		event.preventDefault();
 		leftPanel = next.value;
@@ -1152,6 +1166,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		selectedItemId = itemId;
 		selectedItemIds = [itemId];
 		selectedTransitionId = null;
+		const inserted = timelineStore.itemById.get(itemId);
+		if (inserted) {
+			setCurrentFrame(inserted.from);
+			void tick().then(() =>
+				document
+					.querySelector<HTMLElement>(`[data-track="${CSS.escape(inserted.trackId)}"]`)
+					?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+			);
+		}
 		editorSession.scheduleAutosave();
 		showToast(
 			m.video_editor_recording_inserted?.() ?? 'Recording added to the timeline',
@@ -1164,6 +1187,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		selectedItemIds = [itemId];
 		selectedTransitionId = null;
 		editorSession.scheduleAutosave();
+	}
+
+	function handleTranscriptTextInserted(itemId: string): void {
+		handleVectorAssetInserted(itemId);
+		editInspectorTab = 'properties';
+		if (rightSidebarCollapsed) toggleRightSidebar();
+		mobileEditPane = 'tools';
 	}
 
 	function handleSourceInserted(itemIds: string[]): void {
@@ -1272,6 +1302,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		);
 		return (
 			compositions.find((composition) => composition.id === preferredId)?.id ??
+			compositions.find(
+				(composition) =>
+					composition.id === timelineStore.itemById.get(selectedItemId ?? '')?.compositionId
+			)?.id ??
 			compositions.find((composition) => composition.id === lastMotionCompositionId)?.id ??
 			compositions[0]?.id ??
 			null
@@ -1310,6 +1344,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		const targetId = preferredMotionComposition(preferredId);
 		if (targetId) {
 			switchMotionComposition(targetId);
+			showToast(
+				m.video_editor_motion_opened({
+					name: sequenceStore.compositionById.get(targetId)?.name ?? ''
+				}),
+				'info'
+			);
 		} else resetTimelineSelection();
 	}
 
@@ -1585,9 +1625,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			width: project.metadata.width,
 			height: project.metadata.height,
 			fps: project.metadata.fps,
-			duration: formatMediaDuration(
-				outputDurationFrames(timelineStore.items) / project.metadata.fps
-			),
+			duration: formatMediaDuration(sequenceStore.activeDurationInFrames / project.metadata.fps),
 			clips: timelineStore.items.length,
 			media: mediaPool.mediaList.length,
 			issues: mediaRecovery.issueCount
@@ -1845,6 +1883,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				timelineStore.itemById.get(selectedItemId)?.type ?? ''
 			)
 	);
+	const selectedMedia = $derived(
+		selectedItemId
+			? mediaPool.get(timelineStore.itemById.get(selectedItemId)?.mediaId ?? '')
+			: undefined
+	);
 	const selectedIsMedia = $derived(
 		selectedItemId !== null &&
 			['video', 'audio'].includes(timelineStore.itemById.get(selectedItemId)?.type ?? '')
@@ -2084,7 +2127,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		} else {
 			editorSession.startPlayback({
 				start: 0,
-				end: Math.max(timelineStore.maxItemEndFrame, 1),
+				end: Math.max(sequenceStore.activeDurationInFrames, 1),
 				loop: false
 			});
 		}
@@ -2187,7 +2230,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				event.preventDefault();
 				editorSession.shuttlePlayback(1, {
 					start: 0,
-					end: Math.max(timelineStore.maxItemEndFrame, 1)
+					end: Math.max(sequenceStore.activeDurationInFrames, 1)
 				});
 				return;
 			}
@@ -2195,7 +2238,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				event.preventDefault();
 				editorSession.shuttlePlayback(-1, {
 					start: 0,
-					end: Math.max(timelineStore.maxItemEndFrame, 1)
+					end: Math.max(sequenceStore.activeDurationInFrames, 1)
 				});
 				return;
 			}
@@ -2352,8 +2395,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 {#snippet transcriptionControls()}
 	<TranscriptionControls
-		error={selectedItemId ? transcriptionService.errorForItem(selectedItemId) : undefined}
-		canTranscribe={selectedIsMedia}
+		error={selectedMedia?.hasAudio === false
+			? m.video_editor_transcribe_no_audio()
+			: selectedItemId
+				? transcriptionService.errorForItem(selectedItemId)
+				: undefined}
+		canTranscribe={selectedIsMedia && selectedMedia?.hasAudio !== false}
 		busy={selectedTranscriptionJob !== undefined}
 		status={selectedTranscriptionJob?.status}
 		queuePosition={selectedTranscriptionQueuePosition}
@@ -2788,7 +2835,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{#if activeWorkspace === 'edit'}
 							<aside
 								id="video-editor-assets-panel"
-								class="relative h-[min(44%,22rem)] min-h-24 w-full min-w-0 flex-none flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-start-1 {leftFullColumn
+								class="relative {leftPanel === 'transcript'
+									? 'h-auto flex-1'
+									: 'h-[min(44%,22rem)] flex-none'} min-h-24 w-full min-w-0 flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-start-1 {leftFullColumn
 									? 'lg:row-span-2'
 									: 'lg:row-span-1'} lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
@@ -2811,7 +2860,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											<div
 												class="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-2"
 											>
-												{#each primaryLeftPanelOptions as option (option.value)}
+												{#each railPanelOptions as option (option.value)}
 													<Tooltip.Root>
 														<Tooltip.Trigger>
 															{#snippet child({ props })}
@@ -2873,6 +2922,28 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												{/each}
 											</div>
 										</div>
+										<DropdownMenu.Root>
+											<DropdownMenu.Trigger>
+												{#snippet child({ props })}
+													<Button
+														{...props}
+														variant="ghost"
+														size="icon-sm"
+														class="mx-auto shrink-0"
+														aria-label={m.sidebar_more()}
+														title={m.sidebar_more()}><ThemeIcon role="more-horizontal" /></Button
+													>
+												{/snippet}
+											</DropdownMenu.Trigger>
+											<DropdownMenu.Content side="right" align="end" class="video-editor-theme">
+												{#each morePanelOptions as option (option.value)}
+													<DropdownMenu.Item onclick={() => selectLeftPanel(option.value)}
+														>{@render leftPanelIcon(option, 'size-4')}
+														{option.label}</DropdownMenu.Item
+													>
+												{/each}
+											</DropdownMenu.Content>
+										</DropdownMenu.Root>
 										{#if leftSidebarRail}
 											<div
 												class="flex shrink-0 flex-col items-center gap-1 border-t border-[var(--video-editor-border)] py-2"
@@ -3160,6 +3231,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													<div class="shrink-0 p-1">{@render transcriptionControls()}</div>
 												{/if}
 												<TranscriptPanel
+													ontextinserted={handleTranscriptTextInserted}
 													itemIds={selectedLeftPanelItemIds}
 													showHeading={false}
 													onedit={() => editorSession.scheduleAutosave()}
@@ -3185,7 +3257,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{/if}
 
 						<div
-							class="flex min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
+							class="{activeWorkspace === 'edit' &&
+							mobileEditPane === 'assets' &&
+							leftPanel === 'transcript'
+								? 'hidden lg:flex'
+								: 'flex'} min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
 								? 'lg:col-start-2 lg:row-start-1'
 								: ''}"
@@ -3550,6 +3626,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											class="mt-1 max-h-64 overflow-y-auto rounded-md border border-[var(--video-editor-border)] p-1"
 										>
 											<TranscriptPanel
+												ontextinserted={handleTranscriptTextInserted}
 												itemIds={selectedItemIds.length > 0
 													? selectedItemIds
 													: selectedItemId

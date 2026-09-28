@@ -15,7 +15,6 @@
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { outputDurationFrames } from '$lib/video-editor/media/render-plan';
 	import { renderTimelineFrame } from '$lib/video-editor/media/render-export';
 	import { importGeneratedImage } from '$lib/video-editor/media/import.svelte';
 	import {
@@ -61,7 +60,7 @@
 
 	const playing = $derived(editorSession.isPlaying);
 	const fps = $derived(editorSession.fps);
-	const totalFrames = $derived(outputDurationFrames(timelineStore.items));
+	const totalFrames = $derived(sequenceStore.activeDurationInFrames);
 	const monitorPercent = $derived(Math.round(previewPlaybackSettings.volume * 100));
 	const zoomLabel = $derived(
 		previewPlaybackSettings.zoom === -1
@@ -78,7 +77,9 @@
 	let fullscreenPortalTarget = $state<HTMLElement | null>(null);
 	let savingFrame = $state(false);
 
-	const timecode = $derived(formatTimelinePreviewTimecode(timelineStore.currentFrame, fps));
+	const timecode = $derived(
+		formatTimelinePreviewTimecode($timelinePreviewScrub.frame ?? timelineStore.currentFrame, fps)
+	);
 	const durationTimecode = $derived(formatTimelinePreviewTimecode(totalFrames, fps));
 
 	function previewElement(): HTMLElement | null {
@@ -214,7 +215,7 @@
 					? editorSession.pausePlayback()
 					: editorSession.startPlayback({
 							start: timelineStore.inPoint ?? 0,
-							end: timelineStore.outPoint ?? Math.max(timelineStore.maxItemEndFrame, 1),
+							end: timelineStore.outPoint ?? Math.max(totalFrames, 1),
 							loop: true
 						})}
 		>
@@ -326,6 +327,9 @@
 		class="voiceover-secondary shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums sm:px-2"
 		aria-label={`${timecode} / ${durationTimecode}`}
 	>
+		{#if $timelinePreviewScrub.frame !== null}<span class="mr-1 text-muted-foreground"
+				>{m.video_editor_skim_time()}</span
+			>{/if}
 		{timecode}
 		<span class="text-muted-foreground max-[479px]:hidden">/ {durationTimecode}</span>
 	</span>

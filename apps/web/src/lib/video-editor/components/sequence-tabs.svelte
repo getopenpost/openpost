@@ -137,7 +137,11 @@
 					{:else}
 						<button
 							type="button"
-							class="max-w-40 truncate py-1 pl-2.5 text-left focus-visible:outline-2 focus-visible:outline-ring"
+							class="py-1 pl-2.5 text-left whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ring {sequenceStore.activeSequenceId ===
+							tab.id
+								? ''
+								: 'max-w-40 truncate'}"
+							aria-current={sequenceStore.activeSequenceId === tab.id ? 'page' : undefined}
 							title={tab.name}
 							onclick={() => activate(tab.id)}
 							ondblclick={() => beginRename(tab.id, tab.name)}

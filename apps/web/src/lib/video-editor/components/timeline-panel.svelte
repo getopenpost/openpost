@@ -714,6 +714,7 @@
 		reason: MediaDropRejection | null;
 		snapTarget: SnapTarget | null;
 	} | null>(null);
+	let rejectedMove = $state(false);
 	let pendingMediaDrop = $state<{
 		clientX: number;
 		trackId: string;
@@ -797,7 +798,16 @@
 		const { scrollLeft, clientWidth } = scrollContainer;
 		if (!hasTimelineViewportChanged(timelineViewport, scrollLeft, clientWidth)) return;
 		timelineViewport = { scrollLeft, width: clientWidth };
+		timelineStore._setScrollPosition(scrollLeft);
 	}
+
+	$effect(() => {
+		const position = timelineStore.scrollPosition;
+		if (scrollContainer && Math.abs(scrollContainer.scrollLeft - position) > 1) {
+			scrollContainer.scrollLeft = position;
+			scheduleTimelineViewportUpdate();
+		}
+	});
 
 	function scheduleTimelineViewportUpdate(): void {
 		if (timelineViewportAnimationFrame !== null) return;
@@ -3242,12 +3252,20 @@
 			const targetTrackId =
 				document.elementFromPoint(clientX, drag.latestClientY)?.closest<HTMLElement>('[data-track]')
 					?.dataset.track ?? drag.original.trackId;
-			previewMoveItems(
-				planLinkedMoveGesture(drag.original, from, drag.editItems, drag.selectedItemIds, {
+			const moves = planLinkedMoveGesture(
+				drag.original,
+				from,
+				drag.editItems,
+				drag.selectedItemIds,
+				{
 					trackId: targetTrackId,
 					tracks: effectiveMediaTracks(drag.beforeSnapshot.tracks)
-				})
+				}
 			);
+			rejectedMove =
+				targetTrackId !== drag.original.trackId &&
+				moves.find((move) => move.id === drag!.id)?.trackId !== targetTrackId;
+			previewMoveItems(moves);
 			return;
 		}
 		if (drag.kind === 'slip') {
@@ -3505,6 +3523,9 @@
 			);
 			onedit();
 		}
+		if (!cancelled && rejectedMove)
+			showToast(m.video_editor_media_placement_unavailable(), 'error');
+		rejectedMove = false;
 		drag = null;
 		releaseTimelineIndexes();
 		activeSnapTarget = null;
@@ -4560,8 +4581,9 @@
 	]);
 
 	onMount(() => {
-		updateTimelineViewport();
 		if (!scrollContainer) return;
+		scrollContainer.scrollLeft = timelineStore.scrollPosition;
+		updateTimelineViewport();
 		const observer = new ResizeObserver(scheduleTimelineViewportUpdate);
 		observer.observe(scrollContainer);
 		return () => observer.disconnect();
@@ -5107,18 +5129,24 @@
 					role="region"
 					aria-label={m.video_editor_timeline()}
 				>
-					{#if mediaPlacement.request && mediaDropPreview}
+					{#if mediaPlacement.request || rejectedMove}
 						<div
 							class="pointer-events-none absolute top-1 right-2 left-2 z-[70] w-auto rounded-md border border-[oklch(0.38_0.015_55)] bg-[oklch(0.17_0.01_55_/_0.96)] px-3 py-1.5 text-xs text-white shadow-xl sm:right-auto sm:left-1/2 sm:w-max sm:max-w-[calc(100%-1rem)] sm:-translate-x-1/2"
 							role="status"
 							aria-live="polite"
 							data-media-placement-status
 						>
-							<span class="font-medium">{mediaDropPreview.label}</span>
+							<span class="font-medium"
+								>{mediaDropPreview?.label ?? mediaPlacement.request?.payload.label ?? ''}</span
+							>
 							<span class="ml-1 text-[oklch(0.7_0.015_55)]">
-								{mediaDropPreview.valid
-									? m.video_editor_media_placement_ready()
-									: m.video_editor_media_placement_unavailable()}
+								{rejectedMove
+									? m.video_editor_media_placement_unavailable()
+									: !mediaDropPreview
+										? m.video_editor_media_placement_instruction()
+										: mediaDropPreview.valid
+											? m.video_editor_media_placement_ready()
+											: m.video_editor_media_placement_unavailable()}
 							</span>
 						</div>
 					{/if}

@@ -98,15 +98,10 @@ func nativePostBlueskyPage(response blueskyAuthorFeedResponse, input NativePostR
 			page.NextCursor = ""
 			return page
 		}
-		handle := strings.TrimSpace(entry.Post.Author.Handle)
-		profile := handle
-		if profile == "" {
-			profile = accountID
-		}
 		item, normalizeErr := NormalizeNativePostItem(NativePostItem{
 			ProviderPostID: uri,
 			Text:           entry.Post.Record.Text,
-			ExternalURL:    blueskyNativePostURL(profile, uri),
+			ExternalURL:    blueskyNativePostURL(blueskyNativePostProfile(entry.Post.Author.Handle, accountID), uri),
 			PublishedAt:    publishedAt,
 			Origin:         ImportedPostOriginExternal,
 		})
@@ -121,6 +116,18 @@ func nativePostBlueskyPage(response blueskyAuthorFeedResponse, input NativePostR
 		page.Coverage = NativePostPartial
 	}
 	return page
+}
+
+// blueskyNativePostProfile names the profile a post link goes through: the
+// handle when Bluesky vouches for it, otherwise the DID. Bluesky reports a
+// handle whose verification fails as "handle.invalid", and a link through it
+// does not resolve.
+func blueskyNativePostProfile(handle, did string) string {
+	handle = strings.TrimSpace(handle)
+	if handle == "" || strings.EqualFold(handle, "handle.invalid") {
+		return did
+	}
+	return handle
 }
 
 func blueskyNativePostURL(profile, uri string) string {

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -157,6 +158,21 @@ func TestBlueskyReaderMapsPermissionFailureWithoutDisconnect(t *testing.T) {
 	var nativeErr *NativePostError
 	require.ErrorAs(t, err, &nativeErr)
 	require.Equal(t, NativePostPermissionRequired, nativeErr.Status)
+}
+
+func TestBlueskyReaderLinksThroughDIDWhenHandleIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	var response blueskyAuthorFeedResponse
+	require.NoError(t, json.Unmarshal([]byte(`{"feed":[
+		{"post":{"uri":"at://did:plc:owner/app.bsky.feed.post/aaa","author":{"did":"did:plc:owner","handle":"handle.invalid"},"record":{"text":"hello","createdAt":"2026-09-20T10:00:00Z"},"indexedAt":"2026-09-20T10:00:00Z"}},
+		{"post":{"uri":"at://did:plc:owner/app.bsky.feed.post/bbb","author":{"did":"did:plc:owner","handle":"owner.test"},"record":{"text":"again","createdAt":"2026-09-19T10:00:00Z"},"indexedAt":"2026-09-19T10:00:00Z"}}
+	]}`), &response))
+
+	page := nativePostBlueskyPage(response, NativePostRequest{AccountID: "did:plc:owner"})
+	require.Len(t, page.Items, 2)
+	require.Equal(t, "https://bsky.app/profile/did:plc:owner/post/aaa", page.Items[0].ExternalURL)
+	require.Equal(t, "https://bsky.app/profile/owner.test/post/bbb", page.Items[1].ExternalURL)
 }
 
 func TestMastodonReaderImportsOriginalsWithMaxIDCursor(t *testing.T) {

@@ -19,6 +19,15 @@ func TestDetectFirstURL(t *testing.T) {
 	require.Equal(t, "", DetectFirstURL("ftp://example.com/file"))
 }
 
+func TestDetectFirstURLKeepsBalancedParentheses(t *testing.T) {
+	require.Equal(t, "https://en.wikipedia.org/wiki/Go_(programming_language)",
+		DetectFirstURL("Read https://en.wikipedia.org/wiki/Go_(programming_language) today"))
+	require.Equal(t, "https://en.wikipedia.org/wiki/Go_(programming_language)",
+		DetectFirstURL("(see https://en.wikipedia.org/wiki/Go_(programming_language))."))
+	require.Equal(t, "https://example.com/x", DetectFirstURL("(see https://example.com/x)"))
+	require.Equal(t, "https://example.com/x", DetectFirstURL("See https://example.com/x)."))
+}
+
 func TestEffectiveLinkURLPrefersExplicitSetting(t *testing.T) {
 	settings := map[string]interface{}{"url": "https://explicit.example/x"}
 	require.Equal(t, "https://explicit.example/x", EffectiveLinkURL(settings, "see https://detected.example/y"))

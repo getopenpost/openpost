@@ -161,7 +161,10 @@
 		settings = data;
 		policies = (data.policies ?? []).map(normalizePolicy);
 		savedSnapshot = policySnapshot(policies);
-		if (!expandedPolicyID) expandedPolicyID = selectedPolicyID || policies[0]?.id || '';
+		if (!policies.some((policy) => policy.id === expandedPolicyID)) {
+			expandedPolicyID =
+				policies.find((policy) => policy.id === selectedPolicyID)?.id || policies[0]?.id || '';
+		}
 		if (template && !appliedTemplate && data.can_manage) {
 			appliedTemplate = true;
 			addPolicy(template);

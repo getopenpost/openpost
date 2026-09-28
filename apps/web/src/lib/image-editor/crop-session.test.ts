@@ -3,11 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ImageEditorCropSession, resolveCropSnapAxes } from './crop-session.svelte.ts';
 import { blankImageEditorDocument } from './document';
 import { ImageEditorController } from './editor.svelte';
-import {
-	snapImageEditorPoint,
-	type OpenPostFabricAdapter,
-	type ImageEditorPointSnap
-} from './fabric-adapter';
+import { snapImageEditorPoint, type ImageEditorPointSnap } from './fabric-adapter';
 import type { SelectionPoint } from './selection';
 
 describe('resolveCropSnapAxes', () => {
@@ -59,8 +55,6 @@ describe('crop aspect snapping', () => {
 				guideX: null,
 				guideY: null
 			};
-			// SAFETY: Crop gestures use only these three adapter methods; this test
-			// exercises snapping geometry without initializing Fabric's renderer.
 			const adapter = {
 				snapDocumentPoint(point: SelectionPoint, options: { axes?: 'both' | 'x' | 'y' }) {
 					const result = snapImageEditorPoint(point, guidesX, guidesY, 10, options.axes);
@@ -71,7 +65,7 @@ describe('crop aspect snapping', () => {
 					displayed = { guideX: null, guideY: null };
 				},
 				previewImageLayer() {}
-			} as OpenPostFabricAdapter;
+			};
 			const session = new ImageEditorCropSession({
 				editor,
 				adapter: () => adapter,

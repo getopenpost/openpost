@@ -47,7 +47,10 @@ export function resolveCropSnapAxes(
 
 export interface CropSessionEnvironment {
 	editor: ImageEditorController;
-	adapter: () => OpenPostFabricAdapter | null;
+	adapter: () => Pick<
+		OpenPostFabricAdapter,
+		'clearSnappingGuides' | 'previewImageLayer' | 'snapDocumentPoint'
+	> | null;
 	documentPoint: (
 		event: Pick<PointerEvent, 'clientX' | 'clientY'>,
 		outside?: 'reject' | 'clamp' | 'allow'

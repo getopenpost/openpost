@@ -220,3 +220,32 @@ it('shows elapsed and total time in the same frame timecode', async () => {
 		timelineStore.__resetForTesting();
 	}
 });
+
+it.each([320, 390])('keeps expanded overflow actions inside a %ipx viewport', async (width) => {
+	await page.viewport(width, 500);
+	try {
+		const screen = await render(Fixture, { width });
+		const originalHeight = document.documentElement.scrollHeight;
+		await screen.getByRole('button', { name: 'More actions', exact: true }).click();
+		await screen.getByRole('menuitem', { name: 'Voiceover settings', exact: true }).click();
+		const menu = screen.getByRole('menu').element();
+		await expect.poll(() => menu.getBoundingClientRect().bottom).toBeLessThanOrEqual(500);
+		expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+		expect(menu.scrollHeight).toBeGreaterThan(menu.clientHeight);
+		expect(getComputedStyle(menu).overflowY).toBe('auto');
+		expect(document.documentElement.scrollHeight).toBe(originalHeight);
+		await userEvent.keyboard('{End}');
+		await expect
+			.element(screen.getByRole('menuitem', { name: 'Enter theater mode', exact: true }))
+			.toHaveFocus();
+		expect(menu.scrollTop).toBeGreaterThan(0);
+		const lastAction = screen
+			.getByRole('menuitem', { name: 'Enter theater mode', exact: true })
+			.element()
+			.getBoundingClientRect();
+		expect(lastAction.bottom).toBeLessThanOrEqual(menu.getBoundingClientRect().bottom);
+		await userEvent.keyboard('{Escape}');
+	} finally {
+		await page.viewport(1280, 900);
+	}
+});

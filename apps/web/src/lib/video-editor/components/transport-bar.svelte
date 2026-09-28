@@ -370,7 +370,8 @@
 			<DropdownMenu.Content
 				align="end"
 				side="top"
-				class="transport-overflow video-editor-theme min-w-48"
+				collisionPadding={8}
+				class="transport-overflow video-editor-theme max-h-(--bits-dropdown-menu-content-available-height) min-w-48 overflow-y-auto overscroll-contain"
 				portalProps={fullscreenPortalTarget ? { to: fullscreenPortalTarget } : undefined}
 			>
 				<TimelineVoiceoverMenu {projectId} />

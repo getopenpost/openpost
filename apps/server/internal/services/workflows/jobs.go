@@ -120,20 +120,7 @@ func (s *Service) poll(ctx context.Context, id string) error {
 	if def.Source.Kind == "manual" {
 		return s.pollError(ctx, record, leaseUntil, nil)
 	}
-	since := record.CreatedAt
-	if record.SourceStartedAt != nil {
-		since = *record.SourceStartedAt
-	}
-	var items []SourceItem
-	nextPage := record.SourcePage
-	switch def.Source.Kind {
-	case "rendition_published":
-		items, err = s.publishedItems(ctx, record.WorkspaceID, def.Source.AccountIDs, since, &record)
-	case "github_release":
-		items, nextPage, err = s.pollGitHub(ctx, record, def.Source, since)
-	default:
-		items, err = s.readSource(ctx, record.WorkspaceID, def.Source, since)
-	}
+	items, nextPage, err := s.readPolledSource(ctx, record, def.Source)
 
 	if err != nil {
 		return s.pollError(ctx, record, leaseUntil, err)
@@ -144,6 +131,29 @@ func (s *Service) poll(ctx context.Context, id string) error {
 	}
 	return err
 }
+func (s *Service) readPolledSource(ctx context.Context, record workflowRecord, source Source) ([]SourceItem, int, error) {
+	since := record.CreatedAt
+	if record.SourceStartedAt != nil {
+		since = *record.SourceStartedAt
+	}
+	var err error
+	var items []SourceItem
+	nextPage := record.SourcePage
+	switch source.Kind {
+	case "publication_created":
+		items, err = s.publicationItems(ctx, record.WorkspaceID, since, &record)
+	case "rendition_failed":
+		items, err = s.failedItems(ctx, record.WorkspaceID, source.AccountIDs, since, &record)
+	case "rendition_published":
+		items, err = s.publishedItems(ctx, record.WorkspaceID, source.AccountIDs, since, &record)
+	case "github_release":
+		items, nextPage, err = s.pollGitHub(ctx, record, source, since)
+	default:
+		items, err = s.readSource(ctx, record.WorkspaceID, source, since)
+	}
+	return items, nextPage, err
+}
+
 func (s *Service) commitSourcePoll(ctx context.Context, record workflowRecord, def Definition, authority workspaceaccess.StoredAuthority, leaseUntil time.Time, items []SourceItem, nextPage int) error {
 	now, id := time.Now().UTC(), record.ID
 	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
@@ -209,7 +219,7 @@ func (s *Service) pollError(ctx context.Context, record workflowRecord, leaseUnt
 }
 
 func sourceEventKey(kind, id string) (string, error) {
-	if kind == "rendition_published" {
+	if kind == "rendition_published" || kind == "publication_created" || kind == "rendition_failed" {
 		return id, nil
 	}
 	return idempotency.Hash([]string{kind, id})

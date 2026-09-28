@@ -64,7 +64,16 @@ func anchorStepTimes(step Step, result *StepResult) {
 }
 func (s *Service) evaluateStep(ctx context.Context, record runRecord, authority workspaceaccess.StoredAuthority, step Step, result StepResult, remaining []Step) (stepProgress, error) {
 	progress := stepProgress{result: result, remaining: remaining[1:], state: StateQueued}
+	if isTransform(step.Kind) {
+		output, err := transform(ctx, step.Kind, result.Inputs)
+		progress.result.Output = output
+		return progress, err
+	}
 	switch step.Kind {
+	case KindHTTP, KindAIText, KindAIDecision:
+		return s.evaluateExternalStep(ctx, record, step, progress)
+	case KindFeed:
+		return s.evaluateFeedStep(ctx, record.Mode, progress)
 	case KindCondition:
 		matched, err := compare(result.Inputs)
 		if err != nil {
@@ -93,6 +102,44 @@ func (s *Service) evaluateStep(ctx context.Context, record runRecord, authority 
 	}
 	return progress, nil
 }
+func (s *Service) evaluateExternalStep(ctx context.Context, record runRecord, step Step, progress stepProgress) (stepProgress, error) {
+	if record.Mode == ModePreview {
+		progress.result.Output = map[string]any{"preview": true, "text": textInput(progress.result.Inputs, "text"), "matched": true, "reason": "Preview only; AI was not called", "body": map[string]any{}, "status": 200}
+	} else {
+		output, err := s.externalEffect(ctx, record, step, progress.result.Inputs)
+		progress.result.Output = output
+		if err != nil {
+			return progress, err
+		}
+	}
+	if step.Kind == KindAIDecision {
+		branch := step.Else
+		if progress.result.Output["matched"] == true {
+			branch = step.Then
+		}
+		progress.remaining = append(append([]Step{}, branch...), progress.remaining...)
+	}
+	return progress, nil
+}
+
+func (s *Service) evaluateFeedStep(ctx context.Context, mode string, progress stepProgress) (stepProgress, error) {
+	if mode == ModePreview {
+		progress.result.Output = map[string]any{"preview": true, "items": []any{}, "count": 0}
+		return progress, nil
+	}
+	items, err := s.feedItems(ctx, textInput(progress.result.Inputs, "url"))
+	if err != nil {
+		return progress, err
+	}
+	output := map[string]any{"items": items, "count": len(items)}
+	encoded, err := json.Marshal(output)
+	if err != nil || len(encoded) > 256*1024 {
+		return progress, errors.New("feed output exceeds 256 KiB; use an RSS trigger to process entries individually")
+	}
+	progress.result.Output = output
+	return progress, nil
+}
+
 func (s *Service) evaluateNativeStep(ctx context.Context, record runRecord, authority workspaceaccess.StoredAuthority, step Step, progress stepProgress, remaining []Step) (stepProgress, error) {
 	if record.Mode == ModePreview {
 		progress.result.Output = previewOutput(step, progress.result.Inputs)

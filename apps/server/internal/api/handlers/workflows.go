@@ -53,15 +53,24 @@ type WorkflowStartInput struct {
 		Source           map[string]any `json:"source"`
 	}
 }
+type WorkflowNodeTestInput struct {
+	WorkspaceID string `query:"workspace_id" required:"true"`
+	ID          string `path:"id"`
+	Body        workflows.WorkflowNodeTestRequest
+}
 type WorkflowSampleInput struct {
 	WorkspaceID string `query:"workspace_id" required:"true"`
 	Body        workflows.Source
 }
 type WorkflowConnectionInput struct {
 	WorkspaceID string `query:"workspace_id" required:"true"`
+	Body        workflows.WorkflowCredentialRequest
+}
+type WorkflowRotateCredentialInput struct {
+	WorkspaceID string `query:"workspace_id" required:"true"`
+	ID          string `path:"id"`
 	Body        struct {
-		Name  string `json:"name" minLength:"1" maxLength:"100"`
-		Token string `json:"token" minLength:"10" maxLength:"1000"`
+		Token string `json:"token" minLength:"1" maxLength:"4000"`
 	}
 }
 type WorkflowOutput struct{ Body workflows.Workflow }
@@ -86,6 +95,10 @@ func (h *WorkflowHandler) RegisterRoutes(api huma.API) {
 		op.Middlewares = huma.Middlewares{middleware.RequestMetadataMiddleware(), middleware.AuthMiddleware(api, h.auth)}
 		return op
 	}
+	huma.Register(api, operation("test-workflow-node", http.MethodPost, "/workflows/{id}/test-node", "Execute one data or tool node with supplied input data"), func(ctx context.Context, in *WorkflowNodeTestInput) (*WorkflowRunOutput, error) {
+		item, err := h.service.TestNode(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, in.ID, in.Body)
+		return &WorkflowRunOutput{Body: item}, workflowHTTPError(err)
+	})
 	huma.Register(api, operation("list-workflows", http.MethodGet, "/workflows", "List workspace workflows"), func(ctx context.Context, in *WorkflowListInput) (*WorkflowListOutput, error) {
 		items, err := h.service.List(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID)
 		return &WorkflowListOutput{Body: items}, workflowHTTPError(err)
@@ -144,8 +157,12 @@ func (h *WorkflowHandler) RegisterRoutes(api huma.API) {
 		items, err := h.service.Connections(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID)
 		return &WorkflowConnectionsOutput{Body: items}, workflowHTTPError(err)
 	})
-	huma.Register(api, operation("create-workflow-connection", http.MethodPost, "/workflow-connections", "Store an encrypted GitHub access token"), func(ctx context.Context, in *WorkflowConnectionInput) (*WorkflowConnectionOutput, error) {
-		item, err := h.service.SaveConnection(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, in.Body.Name, in.Body.Token)
+	huma.Register(api, operation("create-workflow-connection", http.MethodPost, "/workflow-connections", "Store an encrypted workflow credential"), func(ctx context.Context, in *WorkflowConnectionInput) (*WorkflowConnectionOutput, error) {
+		item, err := h.service.SaveCredential(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, in.Body)
+		return &WorkflowConnectionOutput{Body: item}, workflowHTTPError(err)
+	})
+	huma.Register(api, operation("rotate-workflow-connection", http.MethodPut, "/workflow-connections/{id}", "Replace a connection secret without changing its permitted host"), func(ctx context.Context, in *WorkflowRotateCredentialInput) (*WorkflowConnectionOutput, error) {
+		item, err := h.service.RotateCredential(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, in.ID, in.Body.Token)
 		return &WorkflowConnectionOutput{Body: item}, workflowHTTPError(err)
 	})
 	huma.Register(api, operation("delete-workflow-connection", http.MethodDelete, "/workflow-connections/{id}", "Delete an unused workflow connection"), func(ctx context.Context, in *WorkflowPathInput) (*WorkflowDeleteOutput, error) {

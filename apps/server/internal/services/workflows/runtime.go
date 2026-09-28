@@ -53,7 +53,7 @@ func (s *Service) executeRun(ctx context.Context, id string) error {
 		return s.finishRunStep(ctx, record, run.Steps, remaining, StateFailed, "The run reached its 30 day limit.", nil)
 	}
 	level := workspaceaccess.LevelEdit
-	if record.Mode == ModeLive {
+	if record.Mode != ModePreview {
 		level = workspaceaccess.LevelAdminister
 	}
 	decision, err := workspaceaccess.NewAuthorizer(s.db).AuthorizeStored(ctx, authority, level)

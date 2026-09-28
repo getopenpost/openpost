@@ -715,6 +715,7 @@ func main() {
 
 	organizationOwnershipService := organizationownership.NewService(db, notificationService, identityService)
 	workflowService := workflows.NewService(db, nil, tokenEncryptor)
+	workflowService.SetAI(contentGenerator, cfg.TextGenerationModel)
 	var worker *queue.BackgroundWorker
 	var discordPresenceService *discordpresence.Service
 	if command.role.runsWorker() {

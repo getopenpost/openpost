@@ -174,6 +174,8 @@ var operations = []Operation{
 	writeDisabled("publish-workflow", EffectExternalAction),
 	writeDisabled("pause-workflow", EffectLocalMutation),
 	writeDisabled("start-workflow-run", EffectExternalAction),
+	writeDisabled("test-workflow-node", EffectExternalAction),
+	writeDisabled("rotate-workflow-connection", EffectLocalMutation),
 	writeDisabled("approve-workflow-run", EffectExternalAction),
 	writeDisabled("cancel-workflow-run", EffectLocalMutation),
 	writeDisabled("sample-workflow-source", EffectQuery),

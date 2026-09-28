@@ -1,14 +1,16 @@
 # Native workflows
 
-Workflows turn GitHub releases, RSS/Atom items, manual inputs, and newly published OpenPost variants into ordered content actions. The initial actions create drafts, use the native AI Builder, request review, schedule posts, wait, branch, read collected metrics, and queue prepared replies. Existing repost policies appear alongside these definitions in Workflows. The native repost service remains their single execution owner.
+Workflows turn GitHub releases, RSS/Atom items, scheduled intervals, manual inputs, new posts, and publishing outcomes into ordered content actions. Nodes create drafts, use the native AI Builder, request review, schedule posts, wait, branch, read metrics, queue replies, call APIs, generate text, and transform data. Existing repost policies appear alongside these definitions in Workflows. The native repost service remains their single execution owner.
 
 ## Authoring and execution
 
-The saved document is a structured program, not the canvas graph. A condition owns its `then` and `else` steps. The canvas and keyboard-accessible configuration panel edit the same document. Step IDs are stable and references can only address earlier steps on the same path. Whole-field references retain their JSON type. Text interpolation supports field paths without executing expressions or code. Missing fields fail the step before a native write. Equality preserves exact text when both operands are text. When one operand is a number or boolean, entered text is parsed as that type; invalid or non-finite values fail the step.
+The saved document is a structured program, not the canvas graph. A condition or AI decision owns its `then` and `else` steps. The canvas and keyboard-accessible configuration panel edit the same document. Step IDs are stable and references can only address earlier steps on the same path. Whole-field references retain their JSON type. Text interpolation supports field paths without executing expressions or code. Missing fields fail the step before a native write. Equality preserves exact text when both operands are text. When one operand is a number or boolean, entered text is parsed as that type; invalid or non-finite values fail the step.
 
 Saving updates the draft through optimistic revision checking. Publishing copies the exact draft into the active definition. Automatic admission and each run retain an immutable snapshot. Draft edits never alter an existing run. The editor preserves newer local edits while a save is pending, and reports conflicts without overwriting another editor's work.
 
-A preview resolves bindings and branches with explicitly simulated native outputs. It skips timers and approval waits and never dispatches native actions. Reading a source example is a separate, real read that does not advance source admission. Live runs use the saved draft and perform the configured actions.
+The editor uses a standalone full-screen route, a categorized node picker in a sheet, and a large node-inspection dialog with input/configuration/output panels. On phones, inspection uses a bottom sheet with data tabs. Connection forms use dialogs. Graphs in templates and run history project the stored definitions. Required fields and invalid references share field and node diagnostics. CodeMirror renders text variables as atomic chips; whole-field JSON bindings preserve arrays and objects.
+
+A preview resolves bindings and branches with explicitly simulated native outputs. It skips timers and approval waits and never dispatches native actions. Reading a source example is a separate, real read that does not advance source admission. Live runs use the saved draft and perform the configured actions. Node tests execute one data, HTTP, feed, or AI node using explicitly supplied input data, without running later steps. They require administration, store resolved inputs before dispatch, and use normal durable jobs and run history. Publication actions remain in full workflow runs. Test data is never evaluated as JavaScript source.
 
 ## Durable boundaries
 
@@ -26,13 +28,27 @@ Activation establishes a baseline before reporting success. RSS/Atom uses GUIDs 
 
 Published-variant sources read successful native lifecycle events, deduplicate by variant, and drain unadmitted records in bounded pages. Poll failures never advance away from unadmitted native events. Source admission and job creation share a transaction. When capacity is limited, a poll admits only the available slots and retains its cursor for the remainder. Publishing commits the completed variant and its lifecycle event atomically, including thread completion.
 
+Scheduled intervals start at activation and admit the latest elapsed slot, without replaying missed slots after downtime. New-post triggers exclude the publication owner's `autopost` origin to prevent automation feedback loops. Failed-publication triggers consume durable lifecycle events, deduplicated by failure event ID, so retrying a rendition before the next poll cannot hide its failure.
+
 Source reads use the shared network guard, validate redirect destinations, limit response sizes, and reject private network targets. Authenticated GitHub reads stay on HTTPS at the original host. Connection secrets are encrypted, omitted from every response and run snapshot, and included in encryption-key rotation. Connections belong to a workspace. Deletion and definition changes share a workspace lock and recheck references before committing.
 
 Limits are enforced in the service: 40 steps, four nested branch levels, 100 workflows per workspace, 1,000 active runs, and a 30-day run lifetime. These are execution bounds, not sellable plan promises. Runs are inspected through `/workflow-runs`; the list returns the latest 50.
 
+## Custom tools and usage
+
+HTTP nodes support method, query, headers, body, timeout and response format. cURL import parses supported options into these fields and rejects shell constructs, file reads and unsupported flags. HTTP and feed reads use the shared public-network guard. HTTP output is bounded to 256 KiB, with a 30-second maximum timeout. Feed-node output is also bounded to 256 KiB; RSS triggers process larger feeds one entry at a time.
+
+GitHub, Bearer, API-header and Basic credentials live in workspace connections. Custom credentials bind to one exact HTTPS host. Rotation retains the connection ID. Authentication headers cannot be stored directly in workflow definitions. Raw and encoded secret values are removed from response bodies and permitted headers before persistence.
+
+External HTTP and AI effects claim a run/step receipt under the workspace lock, checking the running state and lease before dispatch. A completed receipt replays its saved output. An interrupted or failed receipt stops for inspection instead of repeating an uncertain remote action. Cancellation after acceptance may leave a completed effect, but prevents subsequent admission.
+
+`internal/workflowcode` evaluates JavaScript in a fresh QuickJS WebAssembly guest through Wazero. It has no filesystem, sockets, environment, host callbacks, or asynchronous work. The total guest memory, JavaScript heap, execution deadline and input/output sizes are bounded. Keep its upstream notices and isolation tests with the engine. Never substitute an in-process JavaScript evaluator or shell execution.
+
+AI text and decision calls record workspace, user, workflow, run, step, configured/returned model, provider request ID, token counts, reported cost when available, and outcome in `workflow_ai_usage`. Usage survives provider errors and invalid structured output. Costs are nullable, not inferred as zero. Native Builder usage remains in `publication_builds`, linked by its stable workflow run/step key. No workflow spending cap is enforced.
+
 ## Schema and recovery
 
-Migration 145 adds workflow definitions, runs, admitted events, and encrypted connections. It is additive. Before rolling back to a binary without workflow execution, pause the workflows and cancel or finish outstanding runs. Retain the tables for recovery and inspection. A worker running old code cannot resume new workflow jobs.
+Migration 145 adds workflow definitions, runs, admitted events, and encrypted connections. Migration 146 adds credential host metadata, external effect receipts, and AI usage. Both are additive. Before rolling back to a binary without workflow execution, pause the workflows and cancel or finish outstanding runs. Retain the tables for recovery and inspection. A worker running old code cannot resume new workflow jobs.
 
 The editor lives at `/workflows` and `/workflows/[id]`. Reads use the shared query catalogue and workspace cache boundaries. The REST API uses Huma contracts. Scoped API credentials receive explicit read/write operation policy; the connector catalogue does not automatically expose these operations in external automation adapters.
 

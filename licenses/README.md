@@ -32,3 +32,5 @@ OpenPost Video Editor includes adapted source from:
 - Microsoft Fluent Emoji Flat under the MIT License, distributed through `@iconify-json/fluent-emoji-flat` 1.2.5 for the local sticker browser. OpenPost records the source and license on each imported sticker. See `licenses/FLUENT_EMOJI.txt`.
 
 Microsoft and Fluent are trademarks of the Microsoft group of companies. Their use here does not imply endorsement or sponsorship.
+
+OpenPost Workflows embeds QuickJS WebAssembly from `fastschema/qjs` v0.0.6 under the MIT License, evaluated through Wazero. The unmodified engine and both upstream notices are retained in `apps/server/internal/workflowcode/`. CodeMirror and shell-quote retain their MIT notices through the frontend dependencies.

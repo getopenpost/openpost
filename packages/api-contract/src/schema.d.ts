@@ -5323,7 +5323,7 @@ export interface paths {
         /** List workflow connections without secrets */
         get: operations["list-workflow-connections"];
         put?: never;
-        /** Store an encrypted GitHub access token */
+        /** Store an encrypted workflow credential */
         post: operations["create-workflow-connection"];
         delete?: never;
         options?: never;
@@ -5339,7 +5339,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Replace a connection secret without changing its permitted host */
+        put: operations["rotate-workflow-connection"];
         post?: never;
         /** Delete an unused workflow connection */
         delete: operations["delete-workflow-connection"];
@@ -5515,6 +5516,23 @@ export interface paths {
         put?: never;
         /** Preview a workflow without effects or explicitly start a live run */
         post: operations["start-workflow-run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/test-node": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute one data or tool node with supplied input data */
+        post: operations["test-workflow-node"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15293,17 +15311,23 @@ export interface components {
             readonly $schema?: string;
             /** Format: date-time */
             created_at: string;
+            header_name?: string;
+            host?: string;
             id: string;
             kind: string;
             name: string;
         };
-        WorkflowConnectionInputBody: {
+        WorkflowCredentialRequest: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/api/v1/schemas/WorkflowConnectionInputBody.json
+             * @example https://example.com/api/v1/schemas/WorkflowCredentialRequest.json
              */
             readonly $schema?: string;
+            header_name?: string;
+            host?: string;
+            /** @enum {string} */
+            kind?: "github" | "bearer" | "header" | "basic";
             name: string;
             token: string;
         };
@@ -15322,6 +15346,20 @@ export interface components {
             readonly $schema?: string;
             deleted: boolean;
         };
+        WorkflowNodeTestRequest: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/WorkflowNodeTestRequest.json
+             */
+            readonly $schema?: string;
+            data: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            expected_revision: number;
+            step_id: string;
+        };
         WorkflowRevisionInputBody: {
             /**
              * Format: uri
@@ -15333,6 +15371,15 @@ export interface components {
             expected_revision: number;
             /** Format: int64 */
             publication_revision?: number;
+        };
+        WorkflowRotateCredentialInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/WorkflowRotateCredentialInputBody.json
+             */
+            readonly $schema?: string;
+            token: string;
         };
         WorkflowRun: {
             /**
@@ -15388,8 +15435,10 @@ export interface components {
             account_ids?: string[] | null;
             connection_id?: string;
             include_prereleases?: boolean;
+            /** Format: int64 */
+            interval_minutes?: number;
             /** @enum {string} */
-            kind: "manual" | "github_release" | "rss" | "rendition_published";
+            kind: "manual" | "github_release" | "rss" | "rendition_published" | "interval" | "publication_created" | "rendition_failed";
             repository?: string;
             url?: string;
         };
@@ -15425,7 +15474,7 @@ export interface components {
                 [key: string]: components["schemas"]["WorkflowValue"];
             };
             /** @enum {string} */
-            kind: "create_draft" | "build_draft" | "approval" | "schedule" | "reply" | "wait" | "condition" | "metrics";
+            kind: "create_draft" | "build_draft" | "approval" | "schedule" | "reply" | "wait" | "condition" | "metrics" | "http_request" | "code" | "ai_text" | "ai_decision" | "set_fields" | "text" | "parse_json" | "list_filter" | "list_sort" | "list_limit" | "merge" | "date" | "tracking_link" | "read_feed";
             name: string;
             then?: components["schemas"]["WorkflowStep"][] | null;
         };
@@ -37517,7 +37566,98 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["WorkflowConnectionInputBody"];
+                "application/json": components["schemas"]["WorkflowCredentialRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowConnection"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "rotate-workflow-connection": {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowRotateCredentialInputBody"];
             };
         };
         responses: {
@@ -38762,6 +38902,97 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WorkflowStartInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowRun"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "test-workflow-node": {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowNodeTestRequest"];
             };
         };
         responses: {

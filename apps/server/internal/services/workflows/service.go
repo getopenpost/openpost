@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/ai"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/idempotency"
 	"github.com/openpost/backend/internal/netguard"
@@ -20,6 +22,8 @@ import (
 )
 
 type Service struct {
+	generator ai.Generator
+	model     string
 	db        *bun.DB
 	actions   Actions
 	encryptor *servicecrypto.TokenEncryptor
@@ -75,12 +79,9 @@ func (s *Service) Save(ctx context.Context, actor workspaceaccess.ActorFacts, wo
 	if _, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelEdit); err != nil {
 		return Workflow{}, err
 	}
-	if err := Validate(input.Definition, false); err != nil {
+	name, err := validateSaveRequest(input)
+	if err != nil {
 		return Workflow{}, err
-	}
-	name := strings.TrimSpace(input.Name)
-	if name == "" || len(name) > 100 || len(input.Description) > 500 {
-		return Workflow{}, invalid("enter a name of 100 characters or fewer")
 	}
 	encoded, err := json.Marshal(input.Definition)
 	if err != nil {
@@ -91,6 +92,9 @@ func (s *Service) Save(ctx context.Context, actor workspaceaccess.ActorFacts, wo
 			return err
 		}
 		if err := validateConnection(ctx, tx, workspaceID, input.Definition.Source.ConnectionID); err != nil {
+			return err
+		}
+		if err := validateStepConnections(ctx, tx, workspaceID, input.Definition.Steps); err != nil {
 			return err
 		}
 		now := time.Now().UTC()
@@ -120,6 +124,17 @@ func (s *Service) Save(ctx context.Context, actor workspaceaccess.ActorFacts, wo
 		return Workflow{}, err
 	}
 	return s.Get(ctx, actor, workspaceID, id)
+}
+
+func validateSaveRequest(input SaveRequest) (string, error) {
+	if err := Validate(input.Definition, false); err != nil {
+		return "", err
+	}
+	name := strings.TrimSpace(input.Name)
+	if name == "" || len(name) > 100 || len(input.Description) > 500 {
+		return "", invalid("enter a name of 100 characters or fewer")
+	}
+	return name, nil
 }
 
 func (s *Service) Publish(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, id string, expected int) (Workflow, error) {
@@ -257,104 +272,6 @@ func decodeWorkflow(record workflowRecord) (Workflow, error) {
 	return item, nil
 }
 
-func (s *Service) Connections(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID string) ([]Connection, error) {
-	if _, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelEdit); err != nil {
-		return nil, err
-	}
-	records := []connectionRecord{}
-	if err := s.db.NewSelect().Model(&records).Column("id", "name", "kind", "created_at").Where("workspace_id = ?", workspaceID).Order("name ASC").Scan(ctx); err != nil {
-		return nil, err
-	}
-	result := make([]Connection, 0, len(records))
-	for _, record := range records {
-		result = append(result, Connection{ID: record.ID, Name: record.Name, Kind: record.Kind, CreatedAt: record.CreatedAt})
-	}
-	return result, nil
-}
-func (s *Service) SaveConnection(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, name, token string) (Connection, error) {
-	if _, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelAdminister); err != nil {
-		return Connection{}, err
-	}
-	name = strings.TrimSpace(name)
-	token = strings.TrimSpace(token)
-	if name == "" || len(name) > 100 || len(token) < 10 || len(token) > 1000 {
-		return Connection{}, invalid("enter a connection name and GitHub access token")
-	}
-	if s.encryptor == nil {
-		return Connection{}, errors.New("credential storage is unavailable")
-	}
-	ciphertext, err := s.encryptor.Encrypt(token)
-	if err != nil {
-		return Connection{}, err
-	}
-	record := connectionRecord{ID: uuid.NewString(), WorkspaceID: workspaceID, Name: name, Kind: "github", Ciphertext: ciphertext, CreatedAt: time.Now().UTC()}
-	if _, err := s.db.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return Connection{}, err
-	}
-	return Connection{ID: record.ID, Name: name, Kind: record.Kind, CreatedAt: record.CreatedAt}, nil
-}
-func (s *Service) DeleteConnection(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, id string) error {
-	if _, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelAdminister); err != nil {
-		return err
-	}
-	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if err := organizationguard.LockWorkspace(ctx, tx, workspaceID); err != nil {
-			return err
-		}
-		var records []workflowRecord
-		if err := tx.NewSelect().Model(&records).Where("workspace_id = ?", workspaceID).Scan(ctx); err != nil {
-			return err
-		}
-		for _, record := range records {
-			definitions := []string{record.DraftJSON}
-			if record.Enabled {
-				definitions = append(definitions, record.PublishedJSON)
-			}
-			for _, encoded := range definitions {
-				var definition Definition
-				if err := json.Unmarshal([]byte(encoded), &definition); err != nil {
-					return err
-				}
-				if definition.Source.ConnectionID == id {
-					return invalid("remove this connection from its workflows and pause enabled revisions first")
-				}
-			}
-		}
-		_, err := tx.NewDelete().Model((*connectionRecord)(nil)).Where("workspace_id = ? AND id = ?", workspaceID, id).Exec(ctx)
-		return err
-	})
-}
-func validateConnection(ctx context.Context, db bun.IDB, workspaceID, id string) error {
-	if id == "" {
-		return nil
-	}
-	exists, err := db.NewSelect().Model((*connectionRecord)(nil)).Where("workspace_id = ? AND id = ? AND kind = ?", workspaceID, id, "github").Exists(ctx)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return invalid("GitHub connection is unavailable in this workspace")
-	}
-	return nil
-}
-func (s *Service) connectionToken(ctx context.Context, workspaceID, id string) (string, error) {
-	if id == "" {
-		return "", nil
-	}
-	var record connectionRecord
-	if err := s.db.NewSelect().Model(&record).Where("workspace_id = ? AND id = ? AND kind = ?", workspaceID, id, "github").Scan(ctx); err != nil {
-		return "", invalid("GitHub connection is unavailable in this workspace")
-	}
-	if s.encryptor == nil {
-		return "", errors.New("credential storage is unavailable")
-	}
-	token, err := s.encryptor.Decrypt(record.Ciphertext)
-	if err != nil {
-		return "", errors.New("GitHub connection could not be decrypted")
-	}
-	return token, nil
-}
-
 // SetActions is called during application assembly, before the worker starts.
 func (s *Service) SetActions(actions Actions) { s.actions = actions }
 
@@ -370,4 +287,9 @@ func recordSourceBaseline(ctx context.Context, tx bun.Tx, id, fingerprint, sourc
 		}
 	}
 	return nil
+}
+
+func (s *Service) SetAI(generator ai.Generator, model string) {
+	s.generator = generator
+	s.model = model
 }

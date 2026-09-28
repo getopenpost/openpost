@@ -22892,6 +22892,12 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"header_name": {
+						"type": "string"
+					},
+					"host": {
+						"type": "string"
+					},
 					"id": {
 						"type": "string"
 					},
@@ -22905,14 +22911,26 @@
 				"required": ["id", "name", "kind", "created_at"],
 				"type": "object"
 			},
-			"WorkflowConnectionInputBody": {
+			"WorkflowCredentialRequest": {
 				"additionalProperties": false,
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/api/v1/schemas/WorkflowConnectionInputBody.json"],
+						"examples": ["https://example.com/api/v1/schemas/WorkflowCredentialRequest.json"],
 						"format": "uri",
 						"readOnly": true,
+						"type": "string"
+					},
+					"header_name": {
+						"maxLength": 100,
+						"type": "string"
+					},
+					"host": {
+						"maxLength": 253,
+						"type": "string"
+					},
+					"kind": {
+						"enum": ["github", "bearer", "header", "basic"],
 						"type": "string"
 					},
 					"name": {
@@ -22921,8 +22939,8 @@
 						"type": "string"
 					},
 					"token": {
-						"maxLength": 1000,
-						"minLength": 10,
+						"maxLength": 4000,
+						"minLength": 1,
 						"type": "string"
 					}
 				},
@@ -22969,6 +22987,34 @@
 				"required": ["deleted"],
 				"type": "object"
 			},
+			"WorkflowNodeTestRequest": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/WorkflowNodeTestRequest.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"data": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"expected_revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"step_id": {
+						"maxLength": 64,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["expected_revision", "step_id", "data"],
+				"type": "object"
+			},
 			"WorkflowRevisionInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -22991,6 +23037,27 @@
 					}
 				},
 				"required": ["expected_revision"],
+				"type": "object"
+			},
+			"WorkflowRotateCredentialInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/WorkflowRotateCredentialInputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"token": {
+						"maxLength": 4000,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["token"],
 				"type": "object"
 			},
 			"WorkflowRun": {
@@ -23132,8 +23199,22 @@
 					"include_prereleases": {
 						"type": "boolean"
 					},
+					"interval_minutes": {
+						"format": "int64",
+						"maximum": 43200,
+						"minimum": 0,
+						"type": "integer"
+					},
 					"kind": {
-						"enum": ["manual", "github_release", "rss", "rendition_published"],
+						"enum": [
+							"manual",
+							"github_release",
+							"rss",
+							"rendition_published",
+							"interval",
+							"publication_created",
+							"rendition_failed"
+						],
 						"type": "string"
 					},
 					"repository": {
@@ -23235,7 +23316,21 @@
 							"reply",
 							"wait",
 							"condition",
-							"metrics"
+							"metrics",
+							"http_request",
+							"code",
+							"ai_text",
+							"ai_decision",
+							"set_fields",
+							"text",
+							"parse_json",
+							"list_filter",
+							"list_sort",
+							"list_limit",
+							"merge",
+							"date",
+							"tracking_link",
+							"read_feed"
 						],
 						"type": "string"
 					},
@@ -53002,7 +53097,7 @@
 					"content": {
 						"application/json": {
 							"schema": {
-								"$ref": "#/components/schemas/WorkflowConnectionInputBody"
+								"$ref": "#/components/schemas/WorkflowCredentialRequest"
 							}
 						}
 					},
@@ -53090,7 +53185,7 @@
 						"description": "Service Unavailable"
 					}
 				},
-				"summary": "Store an encrypted GitHub access token",
+				"summary": "Store an encrypted workflow credential",
 				"tags": ["Workflows"],
 				"x-openpost-automation": {
 					"access": "write",
@@ -53210,6 +53305,129 @@
 				"x-openpost-automation": {
 					"access": "write",
 					"effect": "destructive",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			},
+			"put": {
+				"operationId": "rotate-workflow-connection",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowRotateCredentialInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowConnection"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Replace a connection secret without changing its permitted host",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
 					"exposure": "disabled",
 					"idempotency": "none",
 					"retry": "never"
@@ -54768,6 +54986,131 @@
 					}
 				},
 				"summary": "Preview a workflow without effects or explicitly start a live run",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "external-action",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflows/{id}/test-node": {
+			"post": {
+				"operationId": "test-workflow-node",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowNodeTestRequest"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkflowRun"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Execute one data or tool node with supplied input data",
 				"tags": ["Workflows"],
 				"x-openpost-automation": {
 					"access": "write",

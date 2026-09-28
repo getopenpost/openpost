@@ -44,8 +44,13 @@ func (s *Service) Start(ctx context.Context, actor workspaceaccess.ActorFacts, w
 	if err != nil || len(data) > 64*1024 {
 		return Run{}, invalid("sample is too large")
 	}
+	return s.admitRun(ctx, record, item.Definition, authority, mode, source, nil)
+}
+
+func (s *Service) admitRun(ctx context.Context, record workflowRecord, definition Definition, authority workspaceaccess.StoredAuthority, mode string, source map[string]any, prepared *StepResult) (Run, error) {
+	workspaceID := record.WorkspaceID
 	var run runRecord
-	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := organizationguard.LockWorkspace(ctx, tx, workspaceID); err != nil {
 			return err
 		}
@@ -57,7 +62,15 @@ func (s *Service) Start(ctx context.Context, actor workspaceaccess.ActorFacts, w
 			return invalid("workspace has reached 1000 active workflow runs")
 		}
 		var createErr error
-		run, createErr = s.createRun(ctx, tx, record, item.Definition, authority, mode, source)
+		run, createErr = s.createRun(ctx, tx, record, definition, authority, mode, source)
+		if createErr == nil && prepared != nil {
+			encoded, err := json.Marshal([]StepResult{*prepared})
+			if err != nil {
+				return err
+			}
+			run.ResultsJSON = string(encoded)
+			_, createErr = tx.NewUpdate().Model(&run).Column("results_json").WherePK().Exec(ctx)
+		}
 		return createErr
 	})
 	if err != nil {

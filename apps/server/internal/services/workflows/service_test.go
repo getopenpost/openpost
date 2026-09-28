@@ -473,3 +473,31 @@ func TestExpiredWaitResumesOnceAfterRestart(t *testing.T) {
 	require.Equal(t, StateSucceeded, final.State)
 	require.Equal(t, 1, calls)
 }
+
+func TestWorkflowRejectsBrokenTokensBeforeStarting(t *testing.T) {
+	s, actor := workflowTestService(t, nil)
+	for _, text := range []string{"Hello {{source.title", "Hello {{source.title + 1}}"} {
+		item := saveTestWorkflow(t, s, actor, []Step{{ID: "draft", Kind: KindDraft, Inputs: map[string]Value{"text": literal(text)}}})
+		_, err := s.Start(t.Context(), actor, "ws", item.ID, ModePreview, map[string]any{"title": "Release"}, item.Revision)
+		require.ErrorIs(t, err, ErrInvalid)
+	}
+}
+
+func TestWorkflowTransformsFeedItemsBeforeCreatingContent(t *testing.T) {
+	s, actor := workflowTestService(t, nil)
+	item := saveTestWorkflow(t, s, actor, []Step{
+		{ID: "parse", Kind: "parse_json", Inputs: map[string]Value{"text": reference("source.body")}},
+		{ID: "limit", Kind: "list_limit", Inputs: map[string]Value{"items": reference("parse.data"), "limit": literal(2)}},
+		{ID: "code", Kind: "code", Inputs: map[string]Value{"data": reference("limit.items"), "code": literal("return { text: input.map(item => item.title).join(' | ') };")}},
+		{ID: "draft", Kind: KindDraft, Inputs: map[string]Value{"text": reference("code.data.text")}},
+	})
+	run, err := s.Start(t.Context(), actor, "ws", item.ID, ModePreview, map[string]any{"body": `[{"title":"Release"},{"title":"Behind the scenes"},{"title":"Later"}]`}, item.Revision)
+	require.NoError(t, err)
+	for range 4 {
+		runJob(t, s, run.ID)
+	}
+	result, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+	require.NoError(t, err)
+	require.Equal(t, StateSucceeded, result.State, result.Error)
+	require.Equal(t, "Release | Behind the scenes", result.Steps[3].Inputs["text"])
+}

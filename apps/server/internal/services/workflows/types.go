@@ -26,6 +26,7 @@ const (
 	StateSucceeded = "succeeded"
 	StateFailed    = "failed"
 	StateCancelled = "cancelled"
+	ModeTest       = "test"
 	ModeLive       = "live"
 	ModePreview    = "preview"
 	KindDraft      = "create_draft"
@@ -36,6 +37,20 @@ const (
 	KindWait       = "wait"
 	KindCondition  = "condition"
 	KindMetrics    = "metrics"
+	KindHTTP       = "http_request"
+	KindCode       = "code"
+	KindAIText     = "ai_text"
+	KindAIDecision = "ai_decision"
+	KindFields     = "set_fields"
+	KindText       = "text"
+	KindJSON       = "parse_json"
+	KindFilter     = "list_filter"
+	KindSort       = "list_sort"
+	KindLimit      = "list_limit"
+	KindMerge      = "merge"
+	KindDate       = "date"
+	KindURL        = "tracking_link"
+	KindFeed       = "read_feed"
 )
 
 var (
@@ -53,7 +68,8 @@ type WorkflowDefinition struct {
 }
 
 type WorkflowSource struct {
-	Kind               string   `json:"kind" enum:"manual,github_release,rss,rendition_published"`
+	IntervalMinutes    int      `json:"interval_minutes,omitempty" minimum:"0" maximum:"43200"`
+	Kind               string   `json:"kind" enum:"manual,github_release,rss,rendition_published,interval,publication_created,rendition_failed"`
 	Repository         string   `json:"repository,omitempty" maxLength:"200"`
 	URL                string   `json:"url,omitempty" maxLength:"2048"`
 	ConnectionID       string   `json:"connection_id,omitempty"`
@@ -70,7 +86,7 @@ type WorkflowValue struct {
 
 type WorkflowStep struct {
 	ID     string           `json:"id" maxLength:"64"`
-	Kind   string           `json:"kind" enum:"create_draft,build_draft,approval,schedule,reply,wait,condition,metrics"`
+	Kind   string           `json:"kind" enum:"create_draft,build_draft,approval,schedule,reply,wait,condition,metrics,http_request,code,ai_text,ai_decision,set_fields,text,parse_json,list_filter,list_sort,list_limit,merge,date,tracking_link,read_feed"`
 	Name   string           `json:"name" maxLength:"100"`
 	Inputs map[string]Value `json:"inputs"`
 	Then   []Step           `json:"then,omitempty" maxItems:"40"`
@@ -131,10 +147,12 @@ type WorkflowStepResult struct {
 }
 
 type WorkflowConnection struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Kind      string    `json:"kind"`
-	CreatedAt time.Time `json:"created_at"`
+	Host       string    `json:"host,omitempty"`
+	HeaderName string    `json:"header_name,omitempty"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Kind       string    `json:"kind"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type EffectRequest struct {
@@ -172,3 +190,12 @@ type Run = WorkflowRun
 type StepResult = WorkflowStepResult
 
 type Connection = WorkflowConnection
+
+// Secret values are write-only. Credentials are bound to one HTTPS host.
+type WorkflowCredentialRequest struct {
+	Name       string `json:"name" minLength:"1" maxLength:"100"`
+	Kind       string `json:"kind,omitempty" enum:"github,bearer,header,basic"`
+	Token      string `json:"token" minLength:"1" maxLength:"4000"`
+	Host       string `json:"host,omitempty" maxLength:"253"`
+	HeaderName string `json:"header_name,omitempty" maxLength:"100"`
+}

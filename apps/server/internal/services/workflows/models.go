@@ -62,6 +62,8 @@ type eventRecord struct {
 }
 
 type connectionRecord struct {
+	Host          string
+	HeaderName    string
 	bun.BaseModel `bun:"table:workflow_connections"`
 	ID            string `bun:",pk"`
 	WorkspaceID   string

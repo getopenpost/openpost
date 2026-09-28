@@ -64,6 +64,12 @@ func (s *Service) Sample(ctx context.Context, actor workspaceaccess.ActorFacts, 
 
 func (s *Service) readSource(ctx context.Context, workspaceID string, source Source, since time.Time) ([]SourceItem, error) {
 	switch source.Kind {
+	case "interval":
+		return intervalItems(source, since)
+	case "publication_created":
+		return s.publicationItems(ctx, workspaceID, since, nil)
+	case "rendition_failed":
+		return s.failedItems(ctx, workspaceID, source.AccountIDs, since, nil)
 	case "manual":
 		return []SourceItem{{ID: "sample", Title: "A new product update", Body: "We shipped a useful improvement. Here is what changed.", URL: "https://example.com/update", PublishedAt: time.Now().UTC().Format(time.RFC3339)}}, nil
 	case "github_release":

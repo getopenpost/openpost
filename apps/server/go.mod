@@ -30,6 +30,7 @@ require (
 	github.com/pquerna/otp v1.5.0
 	github.com/rivo/uniseg v0.4.7
 	github.com/stretchr/testify v1.11.1
+	github.com/tetratelabs/wazero v1.12.0
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
@@ -89,7 +90,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

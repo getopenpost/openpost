@@ -21,6 +21,8 @@ var cache = wazero.NewCompilationCache()
 
 const maxBytes = 256 * 1024
 const memoryPages = 1024 // 64 MiB, including the engine, stack and JS heap.
+const compileTimeout = 30 * time.Second
+const executionTimeout = 2 * time.Second
 
 func runtimeConfig() wazero.RuntimeConfig {
 	return wazero.NewRuntimeConfig().WithCompilationCache(cache).WithMemoryLimitPages(memoryPages).WithCloseOnContextDone(true)
@@ -31,8 +33,6 @@ func Evaluate(ctx context.Context, code string, input any) (any, error) {
 	if err != nil || len(data) > maxBytes || len(code) > 20000 {
 		return nil, errors.New("JavaScript input is too large")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
 	runtime := wazero.NewRuntimeWithConfig(ctx, runtimeConfig())
 	defer runtime.Close(context.Background())
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
@@ -43,10 +43,15 @@ func Evaluate(ctx context.Context, code string, input any) (any, error) {
 		return nil, err
 	}
 	// No filesystem, environment, stdin, network, or host output is attached.
-	compiled, err := runtime.CompileModule(ctx, engine)
+	// A cold engine compilation does not consume the user's JavaScript budget.
+	compileCtx, cancelCompile := context.WithTimeout(ctx, compileTimeout)
+	compiled, err := runtime.CompileModule(compileCtx, engine)
+	cancelCompile()
 	if err != nil {
 		return nil, errors.New("JavaScript engine could not compile")
 	}
+	ctx, cancel := context.WithTimeout(ctx, executionTimeout)
+	defer cancel()
 	module, err := runtime.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithStartFunctions().WithSysWalltime().WithSysNanotime())
 	if err != nil {
 		return nil, fmt.Errorf("JavaScript engine could not start: %w", err)

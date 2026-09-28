@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"errors"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -104,47 +105,52 @@ func parseOpenGraphMetadata(document string) (string, string) {
 		metaContentByProperty(document, "og:description"),
 		metaContentByName(document, "description"),
 	)
-	return strings.TrimSpace(title), strings.TrimSpace(description)
+	// Attribute values and the title are HTML text: "Tom &amp; Jerry" and
+	// "Don&#39;t" are what the page says as "Tom & Jerry" and "Don't".
+	return strings.TrimSpace(html.UnescapeString(title)), strings.TrimSpace(html.UnescapeString(description))
 }
 
+// metaContentValue matches a content attribute up to its own closing quote,
+// so an apostrophe inside double quotes (or a double quote inside single
+// quotes) is part of the value rather than its end. The leading whitespace is
+// the attribute boundary, so data-content is not read as content, and an
+// unquoted value (content=Final), which HTML allows, is read too.
+const metaContentValue = `\scontent\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>` + "`" + `]+))`
+
 var (
-	ogTitlePattern       = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']+)["']`)
-	ogTitleReverse       = regexp.MustCompile(`(?i)<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:title["']`)
-	ogDescriptionPattern = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:description["'][^>]*content=["']([^"']+)["']`)
-	ogDescriptionReverse = regexp.MustCompile(`(?i)<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:description["']`)
-	metaDescription      = regexp.MustCompile(`(?i)<meta[^>]+name=["']description["'][^>]*content=["']([^"']+)["']`)
-	metaDescriptionRev   = regexp.MustCompile(`(?i)<meta[^>]+content=["']([^"']+)["'][^>]*name=["']description["']`)
+	ogTitlePattern       = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:title["'][^>]*` + metaContentValue)
+	ogTitleReverse       = regexp.MustCompile(`(?i)<meta[^>]*` + metaContentValue + `[^>]*property=["']og:title["']`)
+	ogDescriptionPattern = regexp.MustCompile(`(?i)<meta[^>]+property=["']og:description["'][^>]*` + metaContentValue)
+	ogDescriptionReverse = regexp.MustCompile(`(?i)<meta[^>]*` + metaContentValue + `[^>]*property=["']og:description["']`)
+	metaDescription      = regexp.MustCompile(`(?i)<meta[^>]+name=["']description["'][^>]*` + metaContentValue)
+	metaDescriptionRev   = regexp.MustCompile(`(?i)<meta[^>]*` + metaContentValue + `[^>]*name=["']description["']`)
 	htmlTitlePattern     = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
 )
+
+// metaContent returns the content value of the first pattern that matches;
+// the value is in whichever of the three value groups matched.
+func metaContent(document string, patterns ...*regexp.Regexp) string {
+	for _, pattern := range patterns {
+		if match := pattern.FindStringSubmatch(document); match != nil {
+			return match[1] + match[2] + match[3]
+		}
+	}
+	return ""
+}
 
 func metaContentByProperty(document, property string) string {
 	switch property {
 	case "og:title":
-		if match := ogTitlePattern.FindStringSubmatch(document); len(match) == 2 {
-			return match[1]
-		}
-		if match := ogTitleReverse.FindStringSubmatch(document); len(match) == 2 {
-			return match[1]
-		}
+		return metaContent(document, ogTitlePattern, ogTitleReverse)
 	case "og:description":
-		if match := ogDescriptionPattern.FindStringSubmatch(document); len(match) == 2 {
-			return match[1]
-		}
-		if match := ogDescriptionReverse.FindStringSubmatch(document); len(match) == 2 {
-			return match[1]
-		}
+		return metaContent(document, ogDescriptionPattern, ogDescriptionReverse)
 	}
 	return ""
 }
 
 func metaContentByName(document, name string) string {
 	if name == "description" {
-		if match := metaDescription.FindStringSubmatch(document); len(match) == 2 {
-			return match[1]
-		}
-		if match := metaDescriptionRev.FindStringSubmatch(document); len(match) == 2 {
-			return match[1]
-		}
+		return metaContent(document, metaDescription, metaDescriptionRev)
 	}
 	return ""
 }

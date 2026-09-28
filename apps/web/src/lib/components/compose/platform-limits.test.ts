@@ -24,6 +24,9 @@ describe('platform-limits', () => {
 		expect(platformTextLength('mastodon', `Read ${longURL}`)).toBe(28);
 		expect(platformTextLength('mastodon', `See ${longURL}.`)).toBe(28);
 		expect(platformTextLength('mastodon', 'www.example.com')).toBe(15);
+		expect(platformTextLength('mastodon', 'https://en.wikipedia.org/wiki/Foo_(bar)')).toBe(23);
+		expect(platformTextLength('mastodon', '(https://example.com/path)')).toBe(25);
+		expect(platformTextLength('mastodon', 'https://intranet/page')).toBe(21);
 		expect(platformTextLength('mastodon', '@alice@example.social hi')).toBe(9);
 		expect(platformTextLength('mastodon', '@alice hi')).toBe(9);
 		expect(platformTextLength('mastodon', `${'a'.repeat(450)} ${longURL}`)).toBe(474);

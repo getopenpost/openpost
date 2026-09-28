@@ -7,6 +7,10 @@ const X_URL_PATTERN =
 const MASTODON_URL_LENGTH = 23;
 const MASTODON_URL_PATTERN = /https?:\/\/[^\s<>{}[\]"']+/giu;
 const MASTODON_REMOTE_MENTION_PATTERN = /(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z0-9]+/gi;
+// An http(s) link whose host ends in a dot and a top-level domain, the part of
+// twitter-text's validDomain Mastodon relies on to decide what is a link.
+const MASTODON_LINK_HOST =
+  /^https?:\/\/(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)/iu;
 const GRAPHEME_SEGMENTER = resolveGraphemeSegmenter();
 
 export interface PlatformLimitDefinition {
@@ -156,11 +160,29 @@ export function countPlatformText(platformKey: string, text: string): number {
 // characters and each @user@domain mention as @user.
 function mastodonCountableText(text: string): string {
   return text
-    .replace(MASTODON_URL_PATTERN, (url) => {
-      const trailing = url.slice(url.replace(/[.,!?;:)\]}]+$/u, "").length);
-      return "x".repeat(MASTODON_URL_LENGTH) + trailing;
+    .replace(MASTODON_URL_PATTERN, (match) => {
+      const url = match.slice(0, mastodonURLEnd(match));
+      if (!MASTODON_LINK_HOST.test(url)) return match;
+      return "x".repeat(MASTODON_URL_LENGTH) + match.slice(url.length);
     })
     .replace(MASTODON_REMOTE_MENTION_PATTERN, "$1@$2");
+}
+
+// Trailing punctuation is not part of a link, except a ")" that closes a "("
+// inside it, as in https://en.wikipedia.org/wiki/Foo_(bar).
+function mastodonURLEnd(url: string): number {
+  let end = url.length;
+  while (end > 0) {
+    const character = url[end - 1];
+    if (character === ")") {
+      const body = url.slice(0, end);
+      if (body.split("(").length >= body.split(")").length) break;
+    } else if (!/[.,!?;:\]}]/u.test(character)) {
+      break;
+    }
+    end--;
+  }
+  return end;
 }
 
 function xWeightedTextSegmentLength(text: string): number {

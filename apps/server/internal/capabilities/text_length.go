@@ -19,6 +19,10 @@ var (
 	xURLPattern                  = xurls.Relaxed()
 	mastodonURLPattern           = xurls.Strict()
 	mastodonRemoteMentionPattern = regexp.MustCompile(`(?i)(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z0-9]+`)
+	// mastodonLinkHost accepts an http(s) link whose host ends in a dot and a
+	// top-level domain, the part of twitter-text's validDomain Mastodon relies
+	// on to decide what counts as a link at all.
+	mastodonLinkHost = regexp.MustCompile(`(?i)^https?://(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)`)
 )
 
 // TextLength returns the provider's effective length for a post body.
@@ -47,7 +51,7 @@ func TextLength(provider, text string) int {
 // @user@domain mention becomes @user.
 func mastodonCountableText(text string) string {
 	text = mastodonURLPattern.ReplaceAllStringFunc(text, func(link string) string {
-		if scheme, _, _ := strings.Cut(strings.ToLower(link), "://"); scheme != "http" && scheme != "https" {
+		if !mastodonLinkHost.MatchString(link) {
 			return link
 		}
 		return strings.Repeat("x", mastodonURLLength)

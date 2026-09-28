@@ -73,6 +73,9 @@ func TestTextLengthCountsMastodonLinksAndRemoteMentionsLikeMastodon(t *testing.T
 		{name: "URL", text: "Read " + longURL, want: 28},
 		{name: "URL before punctuation", text: "See " + longURL + ".", want: 28},
 		{name: "no scheme", text: "www.example.com", want: 15},
+		{name: "balanced parentheses", text: "https://en.wikipedia.org/wiki/Foo_(bar)", want: 23},
+		{name: "URL in parentheses", text: "(https://example.com/path)", want: 25},
+		{name: "host without a domain", text: "https://intranet/page", want: 21},
 		{name: "remote mention", text: "@alice@example.social hi", want: 9},
 		{name: "local mention", text: "@alice hi", want: 9},
 	}

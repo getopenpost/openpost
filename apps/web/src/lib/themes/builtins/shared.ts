@@ -243,7 +243,7 @@ export function colors(seed: ColorSeed): ThemeColorTokens {
 		workspace: seed.workspace ?? seed.selection,
 		workspaceInk: seed.workspaceInk ?? seed.selectionInk,
 		overlay: seed.overlay ?? `color-mix(in oklch, ${seed.ink} 12%, transparent)`,
-		scrim: seed.scrim ?? `color-mix(in oklch, ${seed.ink} 52%, transparent)`,
+		scrim: seed.scrim ?? 'oklch(0 0 0 / 0.6)',
 		danger: seed.danger,
 		dangerInk: seed.dangerInk,
 		success: seed.success,

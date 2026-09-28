@@ -67,7 +67,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#704000ff",
           link: "#b74c05ff",
           focus: "#1a1512ff",
-          scrim: "#1a151285",
+          scrim: "#00000099",
           shadow: "#1a1512ff",
           status: {
             draft: "#706761ff",
@@ -165,7 +165,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#1a151285",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -339,7 +339,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#edbb64ff",
           link: "#d77343ff",
           focus: "#e6e4e1ff",
-          scrim: "#e6e4e185",
+          scrim: "#00000099",
           shadow: "#e6e4e1ff",
           status: {
             draft: "#9d938dff",
@@ -437,7 +437,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#e6e4e185",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -619,7 +619,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6f4600ff",
           link: "#0063d7ff",
           focus: "#0d1218ff",
-          scrim: "#0d121885",
+          scrim: "#00000099",
           shadow: "#0d1218ff",
           status: {
             draft: "#5a6472ff",
@@ -717,7 +717,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#0d121885",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -891,7 +891,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#eec469ff",
           link: "#66b6ffff",
           focus: "#b19bffff",
-          scrim: "#e6ecf285",
+          scrim: "#00000099",
           shadow: "#e6ecf2ff",
           status: {
             draft: "#93a0aeff",
@@ -989,7 +989,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#e6ecf285",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -1171,7 +1171,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6d3900ff",
           link: "#076798ff",
           focus: "#281d13ff",
-          scrim: "#281d1385",
+          scrim: "#00000099",
           shadow: "#281d13ff",
           status: {
             draft: "#72604aff",
@@ -1269,7 +1269,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#281d1385",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -1451,7 +1451,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6f3800ff",
           link: "#005ecbff",
           focus: "#131a2bff",
-          scrim: "#131a2b85",
+          scrim: "#00000099",
           shadow: "#131a2bff",
           status: {
             draft: "#515d78ff",
@@ -1549,7 +1549,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#131a2b85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -1723,7 +1723,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#fbc959ff",
           link: "#77baffff",
           focus: "#00ccf9ff",
-          scrim: "#f5f2e785",
+          scrim: "#00000099",
           shadow: "#f5f2e7ff",
           status: {
             draft: "#b1ab92ff",
@@ -1821,7 +1821,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#f5f2e785",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -2003,7 +2003,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6f4200ff",
           link: "#007338ff",
           focus: "#091a11ff",
-          scrim: "#091a1185",
+          scrim: "#00000099",
           shadow: "#091a11ff",
           status: {
             draft: "#4a6556ff",
@@ -2101,7 +2101,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#091a1185",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -2275,7 +2275,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f2c86cff",
           link: "#6dc88fff",
           focus: "#4ebe7dff",
-          scrim: "#e2efe685",
+          scrim: "#00000099",
           shadow: "#e2efe6ff",
           status: {
             draft: "#94ab9bff",
@@ -2373,7 +2373,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#e2efe685",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -2555,7 +2555,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6f4200ff",
           link: "#5d4fb9ff",
           focus: "#171a26ff",
-          scrim: "#171a2685",
+          scrim: "#00000099",
           shadow: "#171a26ff",
           status: {
             draft: "#5a5f75ff",
@@ -2653,7 +2653,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#171a2685",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -2835,7 +2835,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#673300ff",
           link: "#00649aff",
           focus: "#24230eff",
-          scrim: "#24230e85",
+          scrim: "#00000099",
           shadow: "#24230eff",
           status: {
             draft: "#615c3eff",
@@ -2933,7 +2933,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#24230e85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -3115,7 +3115,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f7c15fff",
           link: "#00cfe8ff",
           focus: "#e1e2daff",
-          scrim: "#e1e2da85",
+          scrim: "#00000099",
           shadow: "#e1e2daff",
           status: {
             draft: "#868c99ff",
@@ -3213,7 +3213,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#e1e2da85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -3395,7 +3395,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f4c26aff",
           link: "#ffffffff",
           focus: "#ffffffff",
-          scrim: "#ffffff85",
+          scrim: "#00000099",
           shadow: "#ffffffff",
           status: {
             draft: "#7d7d7dff",
@@ -3493,7 +3493,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#ffffff85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -3675,7 +3675,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6f4200ff",
           link: "#005fa8ff",
           focus: "#0056a4ff",
-          scrim: "#0e101185",
+          scrim: "#00000099",
           shadow: "#0e1011ff",
           status: {
             draft: "#515355ff",
@@ -3773,7 +3773,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#0e101185",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -3955,7 +3955,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#784900ff",
           link: "#0c66aeff",
           focus: "#0c66aeff",
-          scrim: "#25221e85",
+          scrim: "#00000099",
           shadow: "#25221eff",
           status: {
             draft: "#6f6c69ff",
@@ -4053,7 +4053,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#25221e85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -4235,7 +4235,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6f4100ff",
           link: "#0c68c2ff",
           focus: "#02093aff",
-          scrim: "#17161485",
+          scrim: "#00000099",
           shadow: "#171614ff",
           status: {
             draft: "#696969ff",
@@ -4333,7 +4333,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#17161485",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -4515,7 +4515,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f0b35cff",
           link: "#07c572ff",
           focus: "#07c572ff",
-          scrim: "#fafafa85",
+          scrim: "#00000099",
           shadow: "#fafafaff",
           status: {
             draft: "#b4b4b4ff",
@@ -4613,7 +4613,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#fafafa85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -4795,7 +4795,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#7c4c00ff",
           link: "#171717ff",
           focus: "#000000ff",
-          scrim: "#17171785",
+          scrim: "#00000099",
           shadow: "#171717ff",
           status: {
             draft: "#4d4d4dff",
@@ -4893,7 +4893,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#17171785",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -5075,7 +5075,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#6f4200ff",
           link: "#595855ff",
           focus: "#a62c00ff",
-          scrim: "#22221f85",
+          scrim: "#00000099",
           shadow: "#22221fff",
           status: {
             draft: "#6a6966ff",
@@ -5173,7 +5173,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#22221f85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -5355,7 +5355,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f2c86cff",
           link: "#c9d2deff",
           focus: "#c9d2deff",
-          scrim: "#fcfcfc85",
+          scrim: "#00000099",
           shadow: "#fcfcfcff",
           status: {
             draft: "#868d97ff",
@@ -5453,7 +5453,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#fcfcfc85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -5635,7 +5635,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#724400ff",
           link: "#1f6cb0ff",
           focus: "#222427ff",
-          scrim: "#22242785",
+          scrim: "#00000099",
           shadow: "#222427ff",
           status: {
             draft: "#5d6679ff",
@@ -5733,7 +5733,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#22242785",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -5915,7 +5915,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#724400ff",
           link: "#006849ff",
           focus: "#009871ff",
-          scrim: "#00000085",
+          scrim: "#00000099",
           shadow: "#000000ff",
           status: {
             draft: "#52565aff",
@@ -6013,7 +6013,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#00000085",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -6195,7 +6195,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#ebc166ff",
           link: "#7d85f2ff",
           focus: "#7d85f2ff",
-          scrim: "#f8f8f885",
+          scrim: "#00000099",
           shadow: "#f8f8f8ff",
           status: {
             draft: "#9d9da6ff",
@@ -6293,7 +6293,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#f8f8f885",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -6475,7 +6475,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#8e5400ff",
           link: "#0052abff",
           focus: "#0057b7ff",
-          scrim: "#2a2a1985",
+          scrim: "#00000099",
           shadow: "#2a2a19ff",
           status: {
             draft: "#4e4f3cff",
@@ -6573,7 +6573,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#2a2a1985",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -6755,7 +6755,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f4c26aff",
           link: "#dbdee1ff",
           focus: "#e4e4e4ff",
-          scrim: "#f0f2f485",
+          scrim: "#00000099",
           shadow: "#f0f2f4ff",
           status: {
             draft: "#a9abadff",
@@ -6853,7 +6853,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#f0f2f485",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -7035,7 +7035,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#883c00ff",
           link: "#434a6eff",
           focus: "#222858ff",
-          scrim: "#22285885",
+          scrim: "#00000099",
           shadow: "#222858ff",
           status: {
             draft: "#52555eff",
@@ -7133,7 +7133,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#22285885",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -7315,7 +7315,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#7b4800ff",
           link: "#0068a7ff",
           focus: "#0068a7ff",
-          scrim: "#494e5285",
+          scrim: "#00000099",
           shadow: "#494e52ff",
           status: {
             draft: "#646a70ff",
@@ -7413,7 +7413,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#494e5285",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -7595,7 +7595,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#754700ff",
           link: "#594bebff",
           focus: "#2f2785ff",
-          scrim: "#24283885",
+          scrim: "#00000099",
           shadow: "#242838ff",
           status: {
             draft: "#525d7aff",
@@ -7693,7 +7693,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#24283885",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -7875,7 +7875,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#633f00ff",
           link: "#7d2800ff",
           focus: "#903a03ff",
-          scrim: "#1c141085",
+          scrim: "#00000099",
           shadow: "#1c1410ff",
           status: {
             draft: "#5c5049ff",
@@ -7973,7 +7973,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#1c141085",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -8147,7 +8147,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f2c86cff",
           link: "#f99262ff",
           focus: "#ff9f6fff",
-          scrim: "#f3f2ec85",
+          scrim: "#00000099",
           shadow: "#f3f2ecff",
           status: {
             draft: "#b5a8a1ff",
@@ -8245,7 +8245,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#f3f2ec85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -8427,7 +8427,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#633f00ff",
           link: "#005a25ff",
           focus: "#006c35ff",
-          scrim: "#18160e85",
+          scrim: "#00000099",
           shadow: "#18160eff",
           status: {
             draft: "#565346ff",
@@ -8525,7 +8525,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#163045ff",
           handle: "#1a1512ff",
           safeArea: "#255479b8",
-          mediaScrim: "#18160e85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {
@@ -8699,7 +8699,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           onWarning: "#f2c86cff",
           link: "#63d18fff",
           focus: "#6ad895ff",
-          scrim: "#f3f2ec85",
+          scrim: "#00000099",
           shadow: "#f3f2ecff",
           status: {
             draft: "#aeab9eff",
@@ -8797,7 +8797,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
           waveform: "#9db4c9ff",
           handle: "#f8f8f8ff",
           safeArea: "#aec0d0b8",
-          mediaScrim: "#f3f2ec85",
+          mediaScrim: "#00000099",
         },
         typography: {
           displayLarge: {

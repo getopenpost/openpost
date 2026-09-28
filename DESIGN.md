@@ -228,6 +228,8 @@ The timeline uses a hybrid track model. The ordered primary sequence and project
 
 Workshop is flat by default. Its surfaces separate through warm tonal changes, hairline borders, and restrained rings. Other families may select a bounded elevation recipe, but resting hierarchy must remain clear and temporary layers must remain distinguishable.
 
+Modal backdrops darken the page in both schemes. Keep the scrim independent of text colors so dark mode never turns it white.
+
 ### Shadow Vocabulary
 
 - **Focal action:** a small, low-blur shadow that keeps a floating or circular primary action legible over content.

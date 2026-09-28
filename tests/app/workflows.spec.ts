@@ -215,6 +215,26 @@ for (const viewport of [
     });
     await sourceNode.click();
     await expect(page.getByRole("dialog")).toBeVisible();
+    const backdrop = await page.locator('[data-slot="dialog-overlay"]').evaluate((overlay) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = getComputedStyle(document.body).backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      const before = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
+      context.fillStyle = getComputedStyle(overlay).backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      const after = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
+      return { before, after };
+    });
+    expect(Math.max(...backdrop.before)).toBeGreaterThan(0);
+    expect(backdrop.after.reduce((sum, value) => sum + value, 0)).toBeLessThan(
+      backdrop.before.reduce((sum, value) => sum + value, 0),
+    );
+    await page.screenshot({
+      path: `test-results/workflows-dark-modal-${viewport.width}.png`,
+      fullPage: true,
+    });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(sourceNode).toBeFocused();

@@ -149,7 +149,7 @@ for file in "${files[@]}"; do
   case "$file" in
     apps/web/*)
       case "$file" in
-        *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.css | *.md | *.yml | *.yaml)
+        *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.jsonc | *.css | *.md | *.yml | *.yaml)
           frontend_format+=("${file#apps/web/}")
           ;;
       esac
@@ -161,7 +161,7 @@ for file in "${files[@]}"; do
           ;;
       esac
       ;;
-    *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.css | *.md | *.yml | *.yaml)
+    *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.jsonc | *.css | *.md | *.yml | *.yaml)
       root_format+=("$file")
       ;;
   esac
@@ -194,9 +194,11 @@ if [ "${#marketing_format[@]}" -gt 0 ]; then
 fi
 
 failed=0
-for job in "${jobs[@]}"; do
-  wait "$job" || failed=1
-done
+if [ "${#jobs[@]}" -gt 0 ]; then
+  for job in "${jobs[@]}"; do
+    wait "$job" || failed=1
+  done
+fi
 if [ "$failed" -ne 0 ]; then
   if [ "$mode" = "pushed-range" ]; then
     echo "" >&2

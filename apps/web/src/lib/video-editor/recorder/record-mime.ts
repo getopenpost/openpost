@@ -1,5 +1,7 @@
 // Pure MIME and estimate helpers for recorder - no Svelte runes, safe for node tests
 export const VIDEO_MIME_CANDIDATES = [
+	// Prefer the native H.264 path to forcing VP9 software encoding during capture.
+	'video/mp4;codecs=avc1,mp4a.40.2',
 	'video/webm;codecs=vp9,opus',
 	'video/webm;codecs=vp8,opus',
 	'video/webm',

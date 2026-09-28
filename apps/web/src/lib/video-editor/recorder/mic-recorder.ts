@@ -7,6 +7,8 @@ const MIME_CANDIDATES = [
 	'audio/mp4'
 ] as const;
 
+const METER_SAMPLE_INTERVAL_MS = 50;
+
 export interface MicRecorderOptions {
 	deviceId?: string;
 	noiseSuppression?: boolean;
@@ -102,13 +104,17 @@ export function startMicLevelMeter(
 	const samples = new Float32Array(analyser.fftSize);
 	let animationFrame: number | null = null;
 	let stopped = false;
+	let lastSampleAt = Number.NEGATIVE_INFINITY;
 	const update = () => {
 		if (stopped) return;
+		animationFrame = requestAnimationFrame(update);
+		const now = performance.now();
+		if (now - lastSampleAt < METER_SAMPLE_INTERVAL_MS) return;
+		lastSampleAt = now;
 		analyser.getFloatTimeDomainData(samples);
 		let energy = 0;
 		for (const sample of samples) energy += sample * sample;
 		onLevel(Math.min(1, Math.sqrt(energy / samples.length) * 3));
-		animationFrame = requestAnimationFrame(update);
 	};
 	update();
 	return () => {

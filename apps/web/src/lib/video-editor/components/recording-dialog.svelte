@@ -6,6 +6,8 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { showToast } from '$lib/toast';
 	import { recordingExtension } from '../recorder/record-mime';
 	import {
@@ -68,6 +70,7 @@
 	let inserting = $state(false);
 	let importError = $state<string | null>(null);
 	let destinationVersion = 0;
+	let startAttempt = 0;
 	let mounted = true;
 	let pendingCapture = $state<{
 		destination: ReturnType<typeof recordingDestination>;
@@ -320,10 +323,6 @@
 		}
 	});
 
-	$effect(() => {
-		void recorder.counters;
-	});
-
 	async function handleStart(): Promise<void> {
 		importError = null;
 		if (!hasSelection) {
@@ -337,6 +336,7 @@
 		const countdownSeconds = Number(countdown) || 0;
 		const destination = recordingDestination();
 		const knownIds = new Set(recorder.lastArtifacts.map((artifact) => artifact.scratchId));
+		const attempt = ++startAttempt;
 		try {
 			await recorder.startWithSelection(selection, {
 				cameraDeviceId: cameraId || null,
@@ -359,9 +359,12 @@
 				noiseSuppression,
 				autoGainControl
 			});
+			if (attempt !== startAttempt || !mounted) return;
 			pendingCapture = { destination, knownIds };
 		} catch {
-			showToast(recorderErrorMessage(recorder.error), 'error');
+			if (attempt === startAttempt && mounted && recorder.error) {
+				showToast(recorderErrorMessage(recorder.error), 'error');
+			}
 		}
 	}
 
@@ -403,6 +406,7 @@
 	}
 
 	async function handleCancel(): Promise<void> {
+		startAttempt += 1;
 		pendingCapture = null;
 		await recorder.cancel();
 		showToast(m.video_editor_recording_cancelled(), 'info');
@@ -465,155 +469,99 @@
 
 <Dialog.Root {open} onOpenChange={handleDialogOpen}>
 	<Dialog.Content
-		class="video-editor-theme max-h-[90dvh] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-[640px]"
-		aria-describedby={undefined}
+		class="video-editor-theme max-h-[90dvh] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-[520px]"
+		showCloseButton={!captureBusy && !inserting}
 	>
 		<Dialog.Header>
-			<Dialog.Title>{m.video_editor_record_screen()}</Dialog.Title>
+			<Dialog.Title>{m.record_title()}</Dialog.Title>
 			<Dialog.Description>{m.video_editor_record_screen_description()}</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="space-y-4 py-2">
-			<!-- Preflight -->
-			<fieldset class="min-w-0 space-y-3" disabled={captureBusy || inserting}>
-				<legend class="sr-only">
-					{m.video_editor_recording_setup()}
-				</legend>
+			{#if !captureBusy && !inserting}
+				<fieldset class="min-w-0 space-y-3">
+					<legend class="sr-only">
+						{m.video_editor_recording_setup()}
+					</legend>
 
-				<div class="grid min-w-0 gap-3 sm:grid-cols-3">
-					<label
-						data-state={includeScreen ? 'checked' : 'unchecked'}
-						class="flex min-h-8 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
-					>
-						<Checkbox
-							bind:checked={includeScreen}
-							onCheckedChange={(checked) => preferences.set('includeScreen', checked === true)}
-						/>
-						<span class="text-sm">{m.record_source_screen()}</span>
-					</label>
-					<label
-						data-state={includeCamera ? 'checked' : 'unchecked'}
-						class="flex min-h-8 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
-					>
-						<Checkbox
-							bind:checked={includeCamera}
-							onCheckedChange={(checked) => preferences.set('includeCamera', checked === true)}
-						/>
-						<span class="text-sm">{m.record_source_camera()}</span>
-					</label>
-					<label
-						data-state={includeMic ? 'checked' : 'unchecked'}
-						class="flex min-h-8 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
-					>
-						<Checkbox
-							bind:checked={includeMic}
-							onCheckedChange={(checked) => preferences.set('includeMicrophone', checked === true)}
-						/>
-						<span class="text-sm">{m.record_source_audio()}</span>
-					</label>
-				</div>
-
-				<div class="flex flex-wrap gap-3">
-					{#if includeCamera}
-						<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
-							<span>{m.record_camera()}</span>
-							<AppSelect
-								value={cameraId}
-								options={[
-									{ value: '', label: m.record_device_default() },
-									...cameras.map((c) => ({
-										value: c.deviceId,
-										label: c.label || m.record_device_default()
-									}))
-								]}
-								ariaLabel={m.record_camera()}
-								onValueChange={(v) => {
-									cameraId = v;
-									preferences.set('cameraDeviceId', v);
-								}}
-								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
+					<div class="grid min-w-0 gap-2 sm:grid-cols-3">
+						<label
+							data-state={includeScreen ? 'checked' : 'unchecked'}
+							class="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
+						>
+							<Checkbox
+								bind:checked={includeScreen}
+								onCheckedChange={(checked) => preferences.set('includeScreen', checked === true)}
 							/>
-						</div>
-					{/if}
-					{#if includeMic}
-						<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
-							<span>{m.record_microphone()}</span>
-							<AppSelect
-								value={micId}
-								options={[
-									{ value: '', label: m.record_device_default() },
-									...microphones.map((d) => ({
-										value: d.deviceId,
-										label: d.label || m.record_device_default()
-									}))
-								]}
-								ariaLabel={m.record_microphone()}
-								onValueChange={(v) => {
-									micId = v;
-									preferences.set('microphoneDeviceId', v);
-								}}
-								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
+							<span class="text-sm">{m.record_source_screen()}</span>
+						</label>
+						<label
+							data-state={includeCamera ? 'checked' : 'unchecked'}
+							class="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
+						>
+							<Checkbox
+								bind:checked={includeCamera}
+								onCheckedChange={(checked) => preferences.set('includeCamera', checked === true)}
 							/>
-						</div>
-					{/if}
-				</div>
+							<span class="text-sm">{m.record_source_camera()}</span>
+						</label>
+						<label
+							data-state={includeMic ? 'checked' : 'unchecked'}
+							class="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent data-[state=checked]:border-selection data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
+						>
+							<Checkbox
+								bind:checked={includeMic}
+								onCheckedChange={(checked) =>
+									preferences.set('includeMicrophone', checked === true)}
+							/>
+							<span class="text-sm">{m.record_source_audio()}</span>
+						</label>
+					</div>
 
-				<details class="min-w-0 space-y-3">
-					<summary
-						class="cursor-pointer py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring"
-						>{m.video_editor_advanced()}</summary
-					>
-					{#if includeScreen || includeCamera}
-						<div class="grid min-w-0 gap-3 sm:grid-cols-3">
-							<div class="flex min-w-0 flex-col gap-1 text-xs">
-								<span>{m.video_editor_export_resolution()}</span>
+					<div class="flex flex-wrap gap-3">
+						{#if includeCamera}
+							<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
+								<span>{m.record_camera()}</span>
 								<AppSelect
-									value={videoResolution}
+									value={cameraId}
 									options={[
-										{ value: '720p', label: '1280 × 720' },
-										{ value: '1080p', label: '1920 × 1080' },
-										{ value: '2160p', label: '3840 × 2160' }
+										{ value: '', label: m.record_device_default() },
+										...cameras.map((c) => ({
+											value: c.deviceId,
+											label: c.label || m.record_device_default()
+										}))
 									]}
-									ariaLabel={m.video_editor_export_resolution()}
-									onValueChange={setVideoResolution}
-									class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
-								/>
-							</div>
-							<div class="flex min-w-0 flex-col gap-1 text-xs">
-								<span>{m.video_editor_media_info_frame_rate()}</span>
-								<AppSelect
-									value={videoFrameRate}
-									options={[
-										{ value: '24', label: '24 fps' },
-										{ value: '30', label: '30 fps' },
-										{ value: '60', label: '60 fps' }
-									]}
-									ariaLabel={m.video_editor_media_info_frame_rate()}
-									onValueChange={(value) => {
-										videoFrameRate = value;
-										preferences.set('videoFrameRate', selectedFrameRate());
+									ariaLabel={m.record_camera()}
+									onValueChange={(v) => {
+										cameraId = v;
+										preferences.set('cameraDeviceId', v);
 									}}
 									class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 								/>
 							</div>
-							{#if includeCamera}
-								<div class="flex min-w-0 flex-col gap-1 text-xs">
-									<span>{m.video_editor_record_camera_facing()}</span>
-									<AppSelect
-										value={cameraFacingMode}
-										options={[
-											{ value: 'default', label: m.record_device_default() },
-											{ value: 'user', label: m.video_editor_record_camera_front() },
-											{ value: 'environment', label: m.video_editor_record_camera_back() }
-										]}
-										ariaLabel={m.video_editor_record_camera_facing()}
-										onValueChange={setCameraFacingMode}
-										class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
-									/>
-								</div>
-							{/if}
-						</div>
-					{/if}
+						{/if}
+						{#if includeMic}
+							<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
+								<span>{m.record_microphone()}</span>
+								<AppSelect
+									value={micId}
+									options={[
+										{ value: '', label: m.record_device_default() },
+										...microphones.map((d) => ({
+											value: d.deviceId,
+											label: d.label || m.record_device_default()
+										}))
+									]}
+									ariaLabel={m.record_microphone()}
+									onValueChange={(v) => {
+										micId = v;
+										preferences.set('microphoneDeviceId', v);
+									}}
+									class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
+								/>
+							</div>
+						{/if}
+					</div>
 
 					{#if includeScreen}
 						<div class="space-y-2">
@@ -626,10 +574,8 @@
 										preferences.set('includeSystemAudio', checked === true)}
 								/>
 								<span>{m.record_system_audio()}</span>
-								<span class="text-xs text-muted-foreground"
-									>({m.video_editor_system_audio_caveat()})</span
-								>
 							</label>
+							<p class="text-xs text-muted-foreground">{m.video_editor_system_audio_caveat()}</p>
 							{#if !hasDisplayMedia}
 								<p
 									role="alert"
@@ -638,178 +584,239 @@
 									{m.video_editor_record_display_unsupported()}
 								</p>
 							{/if}
-							{#if includeScreen && systemAudioStatusText && recoveryUrls.length === 0}
-								<p
-									role="status"
-									aria-live="polite"
-									class="rounded-md bg-muted p-2 text-xs text-muted-foreground"
-								>
-									{systemAudioStatusText}
-								</p>
-							{/if}
 						</div>
 					{/if}
 
-					{#if includeScreen}
-						<div class="space-y-1">
-							{#if cursorSupported}
+					<details class="group min-w-0 space-y-3 border-t pt-2">
+						<summary
+							class="flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-sm py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
+							><span class="flex items-center gap-2"
+								><ThemeIcon role="chevron-right" class="size-3.5 group-open:rotate-90" /><span
+									>{m.video_editor_advanced()}</span
+								></span
+							><span class="text-xs font-normal text-muted-foreground"
+								>{includeScreen || includeCamera
+									? `${videoResolution} · ${videoFrameRate} fps`
+									: m.record_source_audio()}</span
+							></summary
+						>
+						{#if includeScreen || includeCamera}
+							<div class="grid min-w-0 gap-3 sm:grid-cols-3">
 								<div class="flex min-w-0 flex-col gap-1 text-xs">
-									<span>{m.video_editor_record_cursor_mode()}</span>
+									<span>{m.video_editor_export_resolution()}</span>
 									<AppSelect
-										value={cursorMode}
+										value={videoResolution}
 										options={[
-											{ value: 'always', label: m.video_editor_record_cursor_always() },
-											{ value: 'motion', label: m.video_editor_record_cursor_motion() },
-											{ value: 'never', label: m.video_editor_record_cursor_never() }
+											{ value: '720p', label: '1280 × 720' },
+											{ value: '1080p', label: '1920 × 1080' },
+											{ value: '2160p', label: '3840 × 2160' }
 										]}
-										ariaLabel={m.video_editor_record_cursor_mode()}
-										onValueChange={setCursorMode}
+										ariaLabel={m.video_editor_export_resolution()}
+										onValueChange={setVideoResolution}
 										class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 									/>
 								</div>
-							{:else}
-								<p class="rounded-md bg-muted p-2 text-xs text-muted-foreground">
-									{m.video_editor_record_cursor_unsupported_hint()}
-								</p>
-							{/if}
-						</div>
-					{/if}
+								<div class="flex min-w-0 flex-col gap-1 text-xs">
+									<span>{m.video_editor_media_info_frame_rate()}</span>
+									<AppSelect
+										value={videoFrameRate}
+										options={[
+											{ value: '24', label: '24 fps' },
+											{ value: '30', label: '30 fps' },
+											{ value: '60', label: '60 fps' }
+										]}
+										ariaLabel={m.video_editor_media_info_frame_rate()}
+										onValueChange={(value) => {
+											videoFrameRate = value;
+											preferences.set('videoFrameRate', selectedFrameRate());
+										}}
+										class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
+									/>
+								</div>
+								{#if includeCamera}
+									<div class="flex min-w-0 flex-col gap-1 text-xs">
+										<span>{m.video_editor_record_camera_facing()}</span>
+										<AppSelect
+											value={cameraFacingMode}
+											options={[
+												{ value: 'default', label: m.record_device_default() },
+												{ value: 'user', label: m.video_editor_record_camera_front() },
+												{ value: 'environment', label: m.video_editor_record_camera_back() }
+											]}
+											ariaLabel={m.video_editor_record_camera_facing()}
+											onValueChange={setCameraFacingMode}
+											class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
+										/>
+									</div>
+								{/if}
+							</div>
+						{/if}
 
-					{#if includeMic}
-						<div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-							<label class="flex min-h-8 items-center gap-2 [@media(pointer:coarse)]:min-h-11">
-								<Checkbox
-									bind:checked={noiseSuppression}
-									onCheckedChange={(checked) =>
-										preferences.set('noiseSuppression', checked === true)}
+						{#if includeScreen}
+							<div class="space-y-1">
+								{#if cursorSupported}
+									<div class="flex min-w-0 flex-col gap-1 text-xs">
+										<span>{m.video_editor_record_cursor_mode()}</span>
+										<AppSelect
+											value={cursorMode}
+											options={[
+												{ value: 'always', label: m.video_editor_record_cursor_always() },
+												{ value: 'motion', label: m.video_editor_record_cursor_motion() },
+												{ value: 'never', label: m.video_editor_record_cursor_never() }
+											]}
+											ariaLabel={m.video_editor_record_cursor_mode()}
+											onValueChange={setCursorMode}
+											class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
+										/>
+									</div>
+								{:else}
+									<p class="rounded-md bg-muted p-2 text-xs text-muted-foreground">
+										{m.video_editor_record_cursor_unsupported_hint()}
+									</p>
+								{/if}
+							</div>
+						{/if}
+
+						{#if includeMic}
+							<div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+								<label class="flex min-h-8 items-center gap-2 [@media(pointer:coarse)]:min-h-11">
+									<Checkbox
+										bind:checked={noiseSuppression}
+										onCheckedChange={(checked) =>
+											preferences.set('noiseSuppression', checked === true)}
+									/>
+									<span>{m.video_editor_voiceover_noise_suppression()}</span>
+								</label>
+								<label class="flex min-h-8 items-center gap-2 [@media(pointer:coarse)]:min-h-11">
+									<Checkbox
+										bind:checked={autoGainControl}
+										onCheckedChange={(checked) =>
+											preferences.set('autoGainControl', checked === true)}
+									/>
+									<span>{m.video_editor_voiceover_auto_gain()}</span>
+								</label>
+							</div>
+						{/if}
+
+						<div class="grid min-w-0 gap-3 sm:grid-cols-2">
+							<div class="flex min-w-0 flex-col gap-1 text-xs">
+								<span>{m.video_editor_record_countdown()}</span>
+								<AppSelect
+									value={countdown}
+									options={[
+										{ value: '0', label: m.video_editor_record_countdown_off() },
+										{
+											value: '3',
+											label: m.video_editor_record_seconds({ seconds: 3 })
+										},
+										{
+											value: '5',
+											label: m.video_editor_record_seconds({ seconds: 5 })
+										},
+										{
+											value: '10',
+											label: m.video_editor_record_seconds({ seconds: 10 })
+										}
+									]}
+									ariaLabel={m.video_editor_record_countdown()}
+									onValueChange={(value) => {
+										countdown = value;
+										preferences.set(
+											'countdownSeconds',
+											value === '10' ? 10 : value === '5' ? 5 : value === '3' ? 3 : 0
+										);
+									}}
+									class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 								/>
-								<span>{m.video_editor_voiceover_noise_suppression()}</span>
-							</label>
-							<label class="flex min-h-8 items-center gap-2 [@media(pointer:coarse)]:min-h-11">
-								<Checkbox
-									bind:checked={autoGainControl}
-									onCheckedChange={(checked) =>
-										preferences.set('autoGainControl', checked === true)}
+							</div>
+							<div class="flex min-w-0 flex-col gap-1 text-xs">
+								<span>{m.video_editor_record_planned()}</span>
+								<AppSelect
+									value={plannedMinutes}
+									options={[
+										{
+											value: '2',
+											label: m.video_editor_record_minutes({ minutes: 2 })
+										},
+										{
+											value: '5',
+											label: m.video_editor_record_minutes({ minutes: 5 })
+										},
+										{
+											value: '15',
+											label: m.video_editor_record_minutes({ minutes: 15 })
+										},
+										{
+											value: '30',
+											label: m.video_editor_record_minutes({ minutes: 30 })
+										}
+									]}
+									ariaLabel={m.video_editor_record_planned()}
+									onValueChange={(value) => {
+										plannedMinutes = value;
+										preferences.set(
+											'plannedMinutes',
+											value === '30' ? 30 : value === '15' ? 15 : value === '2' ? 2 : 5
+										);
+									}}
+									class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
 								/>
-								<span>{m.video_editor_voiceover_auto_gain()}</span>
-							</label>
+							</div>
 						</div>
-					{/if}
 
-					<div class="grid min-w-0 gap-3 sm:grid-cols-2">
-						<div class="flex min-w-0 flex-col gap-1 text-xs">
-							<span>{m.video_editor_record_countdown()}</span>
-							<AppSelect
-								value={countdown}
-								options={[
-									{ value: '0', label: m.video_editor_record_countdown_off() },
-									{
-										value: '3',
-										label: m.video_editor_record_seconds({ seconds: 3 })
-									},
-									{
-										value: '5',
-										label: m.video_editor_record_seconds({ seconds: 5 })
-									},
-									{
-										value: '10',
-										label: m.video_editor_record_seconds({ seconds: 10 })
-									}
-								]}
-								ariaLabel={m.video_editor_record_countdown()}
-								onValueChange={(value) => {
-									countdown = value;
-									preferences.set(
-										'countdownSeconds',
-										value === '10' ? 10 : value === '5' ? 5 : value === '3' ? 3 : 0
-									);
-								}}
-								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
-							/>
-						</div>
-						<div class="flex min-w-0 flex-col gap-1 text-xs">
-							<span>{m.video_editor_record_planned()}</span>
-							<AppSelect
-								value={plannedMinutes}
-								options={[
-									{
-										value: '2',
-										label: m.video_editor_record_minutes({ minutes: 2 })
-									},
-									{
-										value: '5',
-										label: m.video_editor_record_minutes({ minutes: 5 })
-									},
-									{
-										value: '15',
-										label: m.video_editor_record_minutes({ minutes: 15 })
-									},
-									{
-										value: '30',
-										label: m.video_editor_record_minutes({ minutes: 30 })
-									}
-								]}
-								ariaLabel={m.video_editor_record_planned()}
-								onValueChange={(value) => {
-									plannedMinutes = value;
-									preferences.set(
-										'plannedMinutes',
-										value === '30' ? 30 : value === '15' ? 15 : value === '2' ? 2 : 5
-									);
-								}}
-								class="h-8 w-full min-w-0 [@media(pointer:coarse)]:h-11"
-							/>
-						</div>
-					</div>
+						{#if estimate}
+							<p class="text-xs text-muted-foreground">
+								{m.video_editor_record_estimate({ size: plannedEstimate() })}
+								{#if availableBytes !== null}
+									<span>
+										{availableBytes < plannedBytes
+											? m.video_editor_recording_space({
+													available: formatBytes(availableBytes)
+												})
+											: m.video_editor_recording_available_space({
+													available: formatBytes(availableBytes)
+												})}
+									</span>
+								{/if}
+							</p>
+						{/if}
+					</details>
 
-					{#if estimate}
-						<p class="text-xs text-muted-foreground">
-							{m.video_editor_record_estimate({ size: plannedEstimate() })}
-							{#if availableBytes !== null}
-								<span>
-									{availableBytes < plannedBytes
-										? m.video_editor_recording_space({
-												available: formatBytes(availableBytes)
-											})
-										: m.video_editor_recording_available_space({
-												available: formatBytes(availableBytes)
-											})}
-								</span>
-							{/if}
+					{#if !hasSelection}
+						<p
+							role="alert"
+							class="rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning-foreground"
+						>
+							{m.video_editor_recording_select_source()}
 						</p>
 					{/if}
-				</details>
-
-				{#if !hasSelection}
-					<p
-						role="alert"
-						class="rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning-foreground"
-					>
-						{m.video_editor_recording_select_source()}
-					</p>
-				{/if}
-
-				{#if recorder.error}
-					<div
-						role="alert"
-						class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive"
-					>
-						{recorderErrorMessage(recorder.error)}
-					</div>
-				{/if}
-			</fieldset>
-
+				</fieldset>
+			{/if}
+			{#if recorder.error}
+				<InlineNotice tone="error" message={recorderErrorMessage(recorder.error)} />
+			{/if}
 			{#if importError}
-				<p
-					role="alert"
-					class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs break-words text-destructive"
-				>
-					{importError}
-				</p>
+				<InlineNotice tone="error" message={importError} />
 			{/if}
 
 			<!-- Countdown / Progress -->
-			{#if requestingActive}
+			{#if stoppingActive || inserting}
+				<div
+					role="status"
+					aria-live="polite"
+					aria-busy="true"
+					class="flex min-h-40 flex-col items-center justify-center gap-3 py-6 text-center"
+				>
+					<ProtectedIcon
+						icon="loading"
+						class="size-6 animate-spin text-muted-foreground motion-reduce:animate-none"
+					/>
+					<p class="text-sm font-medium">
+						{stoppingActive ? m.video_editor_export_phase_finalizing() : m.video_editor_saving()}
+					</p>
+					<p class="text-xs text-muted-foreground">{sourceSummary}</p>
+				</div>
+			{:else if requestingActive}
 				<div role="status" aria-live="polite" class="space-y-3 rounded-lg bg-muted p-3 text-center">
 					<p class="text-sm">{m.video_editor_recording_waiting()}</p>
 					<Button
@@ -830,18 +837,17 @@
 							seconds: recorder.countdownRemaining ?? 0
 						})}
 					</p>
-					<p class="mt-1 text-xs text-muted-foreground">
-						{m.video_editor_recording_waiting()}
-					</p>
+					<Button
+						variant="ghost"
+						class="mt-3 min-h-8 [@media(pointer:coarse)]:min-h-11"
+						onclick={handleCancel}>{m.common_cancel()}</Button
+					>
 				</div>
-			{:else if recordingActive || stoppingActive}
+			{:else if recordingActive}
 				<div class="min-w-0 space-y-3">
 					<div class="flex flex-wrap items-center justify-between gap-3">
-						<span aria-live="polite" class="flex items-center gap-2 font-mono text-lg tabular-nums">
-							<span
-								class="size-2 animate-pulse rounded-full bg-red-500 motion-reduce:animate-none"
-								aria-hidden="true"
-							></span>
+						<span class="flex items-center gap-2 text-3xl font-medium tabular-nums">
+							<span class="size-2 rounded-full bg-destructive" aria-hidden="true"></span>
 							{elapsed}
 						</span>
 						<span class="text-xs text-muted-foreground">
@@ -849,72 +855,40 @@
 						</span>
 					</div>
 
-					<div class="grid gap-2 text-xs">
-						{#if includeScreen}
-							<div class="flex justify-between rounded bg-muted px-2 py-1.5">
-								<span>{m.record_source_screen()}</span><span class="font-mono tabular-nums"
-									>{m.video_editor_recording_chunks({
-										count: recorder.counters.screen.chunks
-									})} · {formatBytes(recorder.counters.screen.bytes)}</span
-								>
-							</div>
-						{/if}
-						{#if includeCamera}
-							<div class="flex justify-between rounded bg-muted px-2 py-1.5">
-								<span>{m.record_source_camera()}</span><span class="font-mono tabular-nums"
-									>{m.video_editor_recording_chunks({
-										count: recorder.counters.camera.chunks
-									})} · {formatBytes(recorder.counters.camera.bytes)}</span
-								>
-							</div>
-						{/if}
-						{#if includeMic}
+					{#if includeMic}
+						<div class="flex items-center gap-3 text-xs text-muted-foreground">
+							<span>{m.record_microphone()}</span>
 							<div
-								class="flex flex-wrap items-center justify-between gap-2 rounded bg-muted px-2 py-1.5"
+								role="meter"
+								aria-label={m.video_editor_voiceover_input_level()}
+								aria-valuemin="0"
+								aria-valuemax="100"
+								aria-valuenow={micMeterWidth}
+								class="h-2 flex-1 overflow-hidden rounded-full bg-muted"
 							>
-								<span>{m.record_source_audio()}</span>
-								<div class="flex items-center gap-2">
-									<div
-										role="meter"
-										data-editor-protected="input-meter"
-										aria-label={m.video_editor_voiceover_input_level()}
-										aria-valuemin="0"
-										aria-valuemax="100"
-										aria-valuenow={micMeterWidth}
-										aria-valuetext={`${micMeterWidth}%`}
-										class="h-1.5 w-20 overflow-hidden rounded-full bg-white/10"
-									>
-										<div
-											class="h-full rounded-full transition-[width,background-color] duration-75 {micMeterWidth >
-											85
-												? 'bg-red-400'
-												: 'bg-emerald-400'}"
-											style:width={`${micMeterWidth}%`}
-										></div>
-									</div>
-									<span class="font-mono tabular-nums"
-										>{m.video_editor_recording_chunks({
-											count: recorder.counters.microphone.chunks
-										})} · {formatBytes(recorder.counters.microphone.bytes)}</span
-									>
-								</div>
+								<div
+									class="h-full rounded-full bg-primary"
+									style:transform={`scaleX(${micMeterWidth / 100})`}
+									style:transform-origin="left"
+								></div>
 							</div>
-						{/if}
-					</div>
+						</div>
+					{/if}
+					{#if includeScreen && systemAudioStatusText}
+						<p class="text-xs text-muted-foreground">{systemAudioStatusText}</p>
+					{/if}
 
 					<div class="flex flex-wrap justify-center gap-2 pt-1">
 						<Button
 							variant="destructive"
 							class="min-h-8 min-w-32 [@media(pointer:coarse)]:min-h-11"
-							disabled={stoppingActive}
 							onclick={handleStop}
 						>
-							{stoppingActive ? m.common_loading() : m.video_editor_recording_stop()}
+							{m.video_editor_recording_stop()}
 						</Button>
 						<Button
 							variant="ghost"
 							class="min-h-8 [@media(pointer:coarse)]:min-h-11"
-							disabled={stoppingActive}
 							onclick={handleCancel}
 						>
 							{m.common_cancel()}
@@ -924,18 +898,16 @@
 			{/if}
 
 			<!-- Recovery -->
-			{#if recoveryUrls.length > 0}
-				<div role="status" class="rounded-md border border-warning/30 bg-warning/10 p-3 text-xs">
-					<p class="font-medium text-warning-foreground">
-						{m.video_editor_recovery_available()}
-					</p>
+			{#if recoveryUrls.length > 0 && !captureBusy && !inserting && !pendingCapture}
+				<div class="space-y-3 border-t pt-4 text-xs">
+					<InlineNotice message={m.video_editor_recovery_available()} />
 					<div class="mt-2 flex flex-col gap-2">
 						{#each recoveryUrls as r (r.url)}
-							<div class="flex flex-col gap-1 rounded bg-warning/5 p-2">
+							<div class="flex flex-col gap-1">
 								<a
 									href={r.url}
 									download={r.name}
-									class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-ring"
+									class="inline-flex items-center rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
 								>
 									{m.video_editor_recording_download({
 										source: sourceLabel(r.kind)
@@ -944,9 +916,9 @@
 								{#if r.capture}
 									{@const statusText = artifactStatusText(r.capture)}
 									{#if statusText}
-										<p role="status" class="text-[11px] text-warning-foreground">{statusText}</p>
+										<p role="status" class="text-xs text-muted-foreground">{statusText}</p>
 									{/if}
-									<p class="text-[11px] text-warning-foreground">
+									<p class="text-xs text-muted-foreground">
 										{m.video_editor_record_cursor_mode()}: {localizedCursor(r.capture.cursorActual)}
 									</p>
 								{/if}
@@ -963,7 +935,7 @@
 						</Button>
 						<Button
 							variant="outline"
-							class="min-h-8 border-warning/50! bg-warning/10! text-warning-foreground! shadow-none! hover:bg-warning/15! hover:text-warning-foreground! [@media(pointer:coarse)]:min-h-11"
+							class="min-h-8 [@media(pointer:coarse)]:min-h-11"
 							disabled={inserting}
 							onclick={handleDiscardRecovery}
 						>
@@ -973,26 +945,14 @@
 				</div>
 			{/if}
 
-			<!-- Previews when idle -->
-			{#if !captureBusy}
-				<div class="flex flex-wrap justify-center gap-2 pt-2">
+			{#if !captureBusy && !inserting}
+				<div class="flex flex-wrap items-center justify-end gap-2 border-t pt-4">
 					<Button
 						class="min-h-8 min-w-36 [@media(pointer:coarse)]:min-h-11"
-						disabled={inserting ||
-							!hasSelection ||
-							recordingActive ||
-							stoppingActive ||
-							(includeScreen && !hasDisplayMedia)}
+						disabled={!hasSelection || (includeScreen && !hasDisplayMedia)}
 						onclick={handleStart}
 					>
 						{m.video_editor_recording_start()}
-					</Button>
-					<Button
-						variant="outline"
-						class="min-h-8 [@media(pointer:coarse)]:min-h-11"
-						onclick={() => handleDialogOpen(false)}
-					>
-						{m.common_close()}
 					</Button>
 				</div>
 			{/if}

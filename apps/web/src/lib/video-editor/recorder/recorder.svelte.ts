@@ -257,10 +257,14 @@ function preferredVideoConstraints(
 	const result: Pick<MediaTrackConstraints, 'width' | 'height' | 'frameRate'> = {};
 	if (resolution) {
 		const size = VIDEO_RESOLUTION_SIZE[resolution];
-		result.width = { ideal: size.width };
-		result.height = { ideal: size.height };
+		result.width = { ideal: size.width, max: size.width };
+		result.height = { ideal: size.height, max: size.height };
 	}
-	if (options.videoFrameRate) result.frameRate = { ideal: options.videoFrameRate };
+	if (options.videoFrameRate)
+		result.frameRate = {
+			ideal: options.videoFrameRate,
+			max: options.videoFrameRate
+		};
 	return result;
 }
 
@@ -314,7 +318,6 @@ export class ScreenCaptureRecorder {
 	private recoveryManifestQueue: Promise<void> = Promise.resolve();
 	private releaseRecoveryLock: (() => void) | null = null;
 	private stopMicMeter: (() => void) | null = null;
-	private lastMicLevelUpdate = Number.NEGATIVE_INFINITY;
 	private activeCaptureTruth: ScreenCaptureTruth | null = null;
 	capabilities = $state<RecordingCapabilities>(detectRecordingCapabilities());
 	captureTruth = $state<ScreenCaptureTruth | null>(null);
@@ -513,10 +516,7 @@ export class ScreenCaptureRecorder {
 
 		if (micStream) {
 			this.stopMicMeter = startMicLevelMeter(micStream, (level) => {
-				const now = performance.now();
-				if (now - this.lastMicLevelUpdate < 40) return;
-				this.lastMicLevelUpdate = now;
-				this.micLevel = Math.max(0, Math.min(1, level));
+				this.micLevel = Math.round(Math.max(0, Math.min(1, level)) * 100) / 100;
 			});
 		}
 		this.screenStream = screenStream;
@@ -800,7 +800,7 @@ export class ScreenCaptureRecorder {
 			throw error;
 		}
 		if (generation !== this.generation) return;
-		this.startElapsedTimer();
+		if (this.status === 'recording') this.startElapsedTimer();
 	}
 
 	private buildRecoveryManifest(
@@ -893,7 +893,7 @@ export class ScreenCaptureRecorder {
 			if (this.startMonotonic !== null) {
 				this.elapsedMs = Math.max(0, Math.round(performance.now() - this.startMonotonic));
 			}
-		}, 100);
+		}, 250);
 	}
 
 	private stopElapsedTimer(): void {
@@ -926,7 +926,6 @@ export class ScreenCaptureRecorder {
 	private clearPreview(): void {
 		this.stopMicMeter?.();
 		this.stopMicMeter = null;
-		this.lastMicLevelUpdate = Number.NEGATIVE_INFINITY;
 		this.micLevel = 0;
 		this.screenStream = null;
 		this.cameraStream = null;
@@ -988,6 +987,10 @@ export class ScreenCaptureRecorder {
 			return [];
 		}
 		const generation = ++this.stopGeneration;
+		const elapsedAtStop =
+			this.startMonotonic !== null
+				? Math.max(0, Math.round(performance.now() - this.startMonotonic))
+				: this.elapsedMs;
 		this.status = 'stopping';
 		this.stopElapsedTimer();
 		this.stopCountdownTimer();
@@ -1029,11 +1032,7 @@ export class ScreenCaptureRecorder {
 							resolve();
 						}, STOP_TIMEOUT_MS);
 						try {
-							try {
-								entry.recorder.requestData();
-							} catch {
-								// requestData may not be supported
-							}
+							// stop() emits the final chunk before its stop event.
 							entry.recorder.stop();
 						} catch (error) {
 							if (timeout) clearTimeout(timeout);
@@ -1050,21 +1049,23 @@ export class ScreenCaptureRecorder {
 			if (generation !== this.stopGeneration) {
 				return [];
 			}
+			this.cleanupAcquiredStreams();
+			this.clearPreview();
 
 			// Await ordered durable writes and close sinks
-			for (const entry of internal) {
-				try {
-					await entry.sink.close();
-				} catch (error) {
-					logger.warn('sink close failed', error);
-					const code = mapRecorderError(error);
-					this.setError(code);
-				}
-			}
-
-			const elapsedAtStop = this.startMonotonic
-				? Math.max(0, Math.round(performance.now() - this.startMonotonic))
-				: this.elapsedMs;
+			await Promise.all(
+				internal.map(async (entry) => {
+					try {
+						await entry.sink.close();
+					} catch (error) {
+						if (generation !== this.stopGeneration) return;
+						logger.warn('sink close failed', error);
+						const code = mapRecorderError(error);
+						this.setError(code);
+					}
+				})
+			);
+			if (generation !== this.stopGeneration) return [];
 
 			const startTimes = internal
 				.map((e) => e.startTimeMs)
@@ -1077,11 +1078,13 @@ export class ScreenCaptureRecorder {
 				try {
 					file = await entry.sink.getFile();
 				} catch (error) {
+					if (generation !== this.stopGeneration) return [];
 					logger.warn('getFile failed, keeping partial', error);
 					const code = mapRecorderError(error);
 					this.setError(code);
 					continue;
 				}
+				if (generation !== this.stopGeneration) return [];
 				const sizeBytes = file.size;
 				const startOffsetMs =
 					entry.startTimeMs !== null && Number.isFinite(entry.startTimeMs)
@@ -1109,10 +1112,8 @@ export class ScreenCaptureRecorder {
 					logger.warn('Could not finalize recorder recovery manifest', error);
 				}
 			}
+			if (generation !== this.stopGeneration) return [];
 
-			for (const entry of internal) {
-				for (const track of entry.stream.getTracks()) track.stop();
-			}
 			this.internal = [];
 			this.acquiredStreams = [];
 			this.clearPreview();

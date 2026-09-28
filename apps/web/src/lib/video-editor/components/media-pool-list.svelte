@@ -199,9 +199,7 @@
 		).length,
 		unsupportedCodec: countUnsupportedCodecMedia(mediaPool.mediaList)
 	});
-	const healthIssueTotal = $derived(
-		healthCounts.missing + healthCounts.proxyPending + healthCounts.unsupportedCodec
-	);
+	const healthIssueTotal = $derived(healthCounts.missing + healthCounts.unsupportedCodec);
 	const showHealthChip = $derived(hasMediaHealthIssues(healthCounts));
 
 	$effect(() => {

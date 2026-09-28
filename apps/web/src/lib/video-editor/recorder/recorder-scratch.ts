@@ -1,5 +1,6 @@
 import { recordingExtension } from './record-mime';
 import { createLogger } from '../workspace-fs/logger';
+import { openScratchWriter, type ScratchWriter } from './scratch-writer';
 
 const logger = createLogger('RecorderScratch');
 
@@ -58,12 +59,13 @@ class OpfsSink implements ScratchSink {
 	readonly mimeType: string;
 	readonly durable = true;
 	private handle: FileSystemFileHandle | null = null;
-	private writable: FileSystemWritableFileStream | null = null;
 	private offset = 0;
 	private _bytes = 0;
 	private _chunks = 0;
 	private queue: Promise<void> = Promise.resolve();
 	private closed = false;
+	private closePromise: Promise<void> | null = null;
+	private failure: Error | null = null;
 	private dirHandle: FileSystemDirectoryHandle | null = null;
 
 	constructor(
@@ -71,7 +73,8 @@ class OpfsSink implements ScratchSink {
 		kind: ScratchKind,
 		mimeType: string,
 		dirHandle: FileSystemDirectoryHandle,
-		handle: FileSystemFileHandle
+		handle: FileSystemFileHandle,
+		private writer: ScratchWriter | null
 	) {
 		this.id = id;
 		this.kind = kind;
@@ -92,11 +95,18 @@ class OpfsSink implements ScratchSink {
 		if (this.closed) return Promise.reject(new Error('Sink closed'));
 		if (chunk.size === 0) return Promise.resolve();
 		const task = this.queue.then(async () => {
+			if (this.failure) throw this.failure;
 			if (!this.handle) throw new Error('File handle missing');
+			if (this.writer) {
+				await this.writer.write(chunk);
+				this.offset += chunk.size;
+				this._bytes += chunk.size;
+				this._chunks += 1;
+				return;
+			}
 			const writable = await this.handle.createWritable({
 				keepExistingData: this.offset > 0
 			});
-			this.writable = writable;
 			try {
 				// SAFETY: FileSystemWritableFileStream write at the durable browser storage boundary.
 				await writable.write({
@@ -105,7 +115,6 @@ class OpfsSink implements ScratchSink {
 					data: chunk
 				});
 				await writable.close();
-				this.writable = null;
 				this.offset += chunk.size;
 				this._bytes += chunk.size;
 				this._chunks += 1;
@@ -115,18 +124,29 @@ class OpfsSink implements ScratchSink {
 				} catch {
 					// The write error owns the failure.
 				}
-				this.writable = null;
 				throw error;
 			}
 		});
-		// keep chain alive even if one write fails
-		this.queue = task.catch(() => {});
+		// Never append later chunks after a failed chunk, which would corrupt the recording.
+		this.queue = task.catch((error: Error) => {
+			this.failure = error;
+		});
 		return task;
 	}
 
-	async close(): Promise<void> {
-		await this.queue;
+	close(): Promise<void> {
+		if (this.closePromise) return this.closePromise;
 		this.closed = true;
+		this.closePromise = (async () => {
+			await this.queue;
+			try {
+				await this.writer?.close();
+			} finally {
+				this.writer = null;
+			}
+			if (this.failure) throw this.failure;
+		})();
+		return this.closePromise;
 	}
 
 	async getFile(): Promise<File> {
@@ -141,20 +161,7 @@ class OpfsSink implements ScratchSink {
 	}
 
 	async discard(): Promise<void> {
-		try {
-			await this.queue;
-		} catch {
-			// ignore
-		}
-		if (this.writable && !this.closed) {
-			try {
-				await this.writable.close();
-			} catch {
-				// ignore
-			}
-			this.writable = null;
-			this.closed = true;
-		}
+		await this.close().catch(() => undefined);
 		if (this.dirHandle && this.handle) {
 			try {
 				await this.dirHandle.removeEntry(this.id);
@@ -493,7 +500,7 @@ export async function createScratchSink(
 		try {
 			const id = `${kind}-${sessionId ? `${sessionId}-` : ''}${crypto.randomUUID()}`;
 			const handle = await dir.getFileHandle(id, { create: true });
-			return new OpfsSink(id, kind, mimeType, dir, handle);
+			return new OpfsSink(id, kind, mimeType, dir, handle, await openScratchWriter(handle));
 		} catch (error) {
 			logger.warn('OPFS sink creation failed, falling back to memory', error);
 		}

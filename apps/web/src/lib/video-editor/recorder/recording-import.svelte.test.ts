@@ -12,16 +12,17 @@ const formats = [
 	'webm',
 	...(MediaRecorder.isTypeSupported('video/mp4') && MediaRecorder.isTypeSupported('audio/mp4')
 		? ['mp4']
-		: [])
+		: []),
+	...(MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2') ? ['native'] : [])
 ];
 
 it.each(formats)(
 	'inserts real %s captures and reimports downloaded microphone audio',
 	async (format) => {
-		if (format === 'mp4') {
+		if (format !== 'native') {
 			const supported = MediaRecorder.isTypeSupported.bind(MediaRecorder);
 			vi.spyOn(MediaRecorder, 'isTypeSupported').mockImplementation(
-				(type) => type.endsWith('/mp4') && supported(type)
+				(type) => type.split(';')[0].endsWith(`/${format}`) && supported(type)
 			);
 		}
 		await userEvent.click(document.body);
@@ -45,9 +46,11 @@ it.each(formats)(
 			streams.push(stream);
 			return stream;
 		};
-		vi.spyOn(navigator.mediaDevices, 'getDisplayMedia').mockImplementation(async () =>
-			videoStream()
-		);
+		vi.spyOn(navigator.mediaDevices, 'getDisplayMedia').mockImplementation(async () => {
+			const stream = videoStream();
+			stream.addTrack(destination.stream.getAudioTracks()[0].clone());
+			return stream;
+		});
 		vi.spyOn(navigator.mediaDevices, 'getUserMedia').mockImplementation(async (constraints) =>
 			constraints?.video ? videoStream() : destination.stream
 		);
@@ -65,20 +68,34 @@ it.each(formats)(
 				isCurrent: () => true
 			});
 			expect(result.itemIds).toHaveLength(3);
+			expect(mediaPool.get(result.mediaIds[0])?.audioCodec).toBe(
+				format === 'webm' ? 'opus' : 'aac'
+			);
 			const extensions = result.mediaIds.map((id) => mediaPool.get(id)?.fileName.split('.').pop());
 			expect(extensions).toEqual(
-				format === 'mp4' ? ['mp4', 'mp4', 'm4a'] : ['webm', 'webm', 'webm']
+				format === 'native'
+					? ['mp4', 'mp4', 'webm']
+					: format === 'mp4'
+						? ['mp4', 'mp4', 'm4a']
+						: ['webm', 'webm', 'webm']
 			);
 			expect(timelineStore.items.map((item) => item.type)).toEqual(['video', 'video', 'audio']);
 			expect(timelineStore.items.every((item) => item.durationInFrames > 20)).toBe(true);
 			const microphone = artifacts.find((artifact) => artifact.kind === 'microphone')!;
 			// File pickers commonly label audio-only .webm downloads as video/webm.
-			const downloaded = new File([microphone.blob], `microphone.${format}`, {
-				type: `video/${format}`
+			const audioFormat = format === 'native' ? 'webm' : format;
+			const downloaded = new File([microphone.blob], `microphone.${audioFormat}`, {
+				type: `video/${audioFormat}`
 			});
-			const importedId = await importCopiedFile(downloaded, { projectId: 'test-project' });
+			const importedId = await importCopiedFile(downloaded, {
+				projectId: 'test-project'
+			});
 			const imported = mediaPool.get(importedId)!;
-			expect(imported).toMatchObject({ fps: 0, mimeType: `audio/${format}`, tags: ['audio'] });
+			expect(imported).toMatchObject({
+				fps: 0,
+				mimeType: `audio/${audioFormat}`,
+				tags: ['audio']
+			});
 			const itemId = insertMediaAtFrame(imported, 90);
 			expect(timelineStore.items.find((item) => item.id === itemId)).toMatchObject({
 				type: 'audio',
@@ -106,7 +123,11 @@ it('reports an unstarted screen share separately from denied camera access', asy
 	);
 	try {
 		await expect(
-			recorder.startWithSelection({ screen: true, camera: false, microphone: false })
+			recorder.startWithSelection({
+				screen: true,
+				camera: false,
+				microphone: false
+			})
 		).rejects.toThrow();
 		expect(recorder.error).toBe('screen-share-not-started');
 		expect(recorder.status).toBe('error');
@@ -114,7 +135,11 @@ it('reports an unstarted screen share separately from denied camera access', asy
 			new DOMException('Permission denied', 'NotAllowedError')
 		);
 		await expect(
-			recorder.startWithSelection({ screen: false, camera: true, microphone: false })
+			recorder.startWithSelection({
+				screen: false,
+				camera: true,
+				microphone: false
+			})
 		).rejects.toThrow();
 		expect(recorder.error).toBe('permission-denied');
 	} finally {
@@ -122,3 +147,66 @@ it('reports an unstarted screen share separately from denied camera access', asy
 		vi.restoreAllMocks();
 	}
 });
+
+it.each(['finish', 'cancel'])(
+	'releases capture devices while saving, then can %s',
+	async (action) => {
+		const canvas = document.createElement('canvas');
+		canvas.width = 160;
+		canvas.height = 90;
+		const stream = canvas.captureStream(30);
+		const media = vi.spyOn(navigator.mediaDevices, 'getUserMedia').mockResolvedValue(stream);
+		const recorder = new ScreenCaptureRecorder();
+		let releaseRead = () => {};
+		const waiting = new Promise<void>((resolve) => {
+			releaseRead = resolve;
+		});
+		let reading = false;
+		const getFile = FileSystemFileHandle.prototype.getFile;
+		const read = vi
+			.spyOn(FileSystemFileHandle.prototype, 'getFile')
+			.mockImplementation(async function (this: FileSystemFileHandle) {
+				if (this.name.startsWith('camera-')) {
+					reading = true;
+					await waiting;
+				}
+				return getFile.call(this);
+			});
+		const draw = setInterval(() => canvas.getContext('2d')!.fillRect(0, 0, 160, 90), 33);
+		try {
+			await recorder.startWithSelection({
+				screen: false,
+				camera: true,
+				microphone: false
+			});
+			const stoppedAt = performance.now();
+			const clock = vi.spyOn(performance, 'now').mockReturnValue(stoppedAt);
+			const stopped = recorder.stop();
+			await expect.poll(() => reading).toBe(true);
+			clock.mockReturnValue(stoppedAt + 10_000);
+			try {
+				expect(stream.getVideoTracks()[0].readyState).toBe('ended');
+				if (action === 'cancel') await recorder.cancel();
+			} finally {
+				releaseRead();
+			}
+			const artifacts = await stopped;
+			if (action === 'finish') expect(artifacts[0].durationMs).toBeLessThan(1000);
+			else {
+				expect(artifacts).toEqual([]);
+				expect(recorder.lastArtifacts).toEqual([]);
+				expect(recorder.error).toBeNull();
+				expect(recorder.status).toBe('idle');
+			}
+			clock.mockRestore();
+		} finally {
+			releaseRead();
+			clearInterval(draw);
+			read.mockRestore();
+			media.mockRestore();
+			vi.restoreAllMocks();
+			await recorder.cancel();
+			await recorder.discardArtifacts(recorder.lastArtifacts);
+		}
+	}
+);

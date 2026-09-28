@@ -41,9 +41,9 @@ describe('hasMediaHealthIssues', () => {
 		expect(hasMediaHealthIssues(counts)).toBe(false);
 	});
 
-	it('is true when any single count is positive', () => {
+	it('reports missing sources and unsupported codecs without flagging preview preparation', () => {
 		expect(hasMediaHealthIssues({ missing: 1, proxyPending: 0, unsupportedCodec: 0 })).toBe(true);
-		expect(hasMediaHealthIssues({ missing: 0, proxyPending: 2, unsupportedCodec: 0 })).toBe(true);
+		expect(hasMediaHealthIssues({ missing: 0, proxyPending: 2, unsupportedCodec: 0 })).toBe(false);
 		expect(hasMediaHealthIssues({ missing: 0, proxyPending: 0, unsupportedCodec: 3 })).toBe(true);
 	});
 });

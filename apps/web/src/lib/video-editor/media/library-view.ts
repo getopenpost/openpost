@@ -101,7 +101,7 @@ export function countUnsupportedCodecMedia(media: readonly MediaMetadata[]): num
 }
 
 export function hasMediaHealthIssues(counts: MediaHealthCounts): boolean {
-	return counts.missing > 0 || counts.proxyPending > 0 || counts.unsupportedCodec > 0;
+	return counts.missing > 0 || counts.unsupportedCodec > 0;
 }
 
 export function formatMediaDuration(seconds: number): string {

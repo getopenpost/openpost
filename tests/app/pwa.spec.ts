@@ -267,7 +267,7 @@ test("a cached local video project reopens and exports offline", async ({ page, 
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export MP4" }).click();
-  await expect(page.getByText("Saved Offline video proof.mp4 to the exports folder.")).toBeVisible({
+  await expect(page.getByText("Saved Offline video proof.mp4.")).toBeVisible({
     timeout: 60_000,
   });
   await page.getByRole("button", { name: "Exports" }).click();

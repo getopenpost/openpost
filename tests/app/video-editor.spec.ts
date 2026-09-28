@@ -169,7 +169,7 @@ test("Video Editor quick export saves an MP4 in the workspace", async ({ page })
 
   await openHeaderMoreMenu(page);
   await page.getByRole("menuitem", { name: "Export MP4" }).click();
-  await expect(page.getByText(`Saved ${projectName}.mp4 to the exports folder.`)).toBeVisible({
+  await expect(page.getByText(`Saved ${projectName}.mp4.`)).toBeVisible({
     timeout: 60_000,
   });
 

@@ -129,9 +129,9 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   await expect(canvas).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export MP4", exact: true }).click();
-  await expect(
-    page.getByText("Saved Shader proof.mp4 to the exports folder.", { exact: true }),
-  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("Saved Shader proof.mp4.", { exact: true })).toBeVisible({
+    timeout: 60_000,
+  });
   await page.getByRole("button", { name: "Exports", exact: true }).click();
   const download = page.getByRole("button", { name: "Download Shader proof.mp4", exact: true });
   await expect(download).toBeEnabled();
@@ -293,9 +293,9 @@ test("Paper backgrounds and chained shader effects survive reopening and export"
   );
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export MP4", exact: true }).click();
-  await expect(
-    page.getByText("Saved Shader proof.mp4 to the exports folder.", { exact: true }),
-  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("Saved Shader proof.mp4.", { exact: true })).toBeVisible({
+    timeout: 60_000,
+  });
   await page.getByRole("button", { name: "Exports", exact: true }).click();
   const [file] = await Promise.all([
     page.waitForEvent("download"),

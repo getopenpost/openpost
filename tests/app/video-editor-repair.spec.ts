@@ -81,7 +81,7 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export MP4", exact: true }).click();
   await expect(
-    page.getByText("Saved Text proof.mp4 to the exports folder.", {
+    page.getByText("Saved Text proof.mp4.", {
       exact: true,
     }),
   ).toBeVisible({ timeout: 60000 });

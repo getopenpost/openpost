@@ -1,6 +1,11 @@
 <!-- Type-specific, undoable clip inspector with FreeCut-compatible auto-key rules. -->
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		canTrimItemToPlayhead,
+		trimItemToPlayhead
+	} from '$lib/video-editor/timeline/actions/trim-playhead';
 	import { Input } from '$lib/components/ui/input';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
@@ -58,6 +63,14 @@
 		onbrowsetextstyles?: () => void;
 	} = $props();
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
+	const canTrimStart = $derived(itemId ? canTrimItemToPlayhead(itemId, 'start') : false);
+	const canTrimEnd = $derived(itemId ? canTrimItemToPlayhead(itemId, 'end') : false);
+	function trimToPlayhead(edge: 'start' | 'end'): void {
+		if (!itemId) return;
+		editorSession.pausePlayback();
+		if (trimItemToPlayhead(itemId, edge)) onedit();
+	}
+
 	const audioItems = $derived.by(() => {
 		const selectedIds = itemIds.length > 0 ? itemIds : itemId ? [itemId] : [];
 		const selected = [...new Set(selectedIds)]
@@ -286,6 +299,32 @@
 
 {#if item}
 	<div class="flex flex-col gap-3" role="group" aria-label={m.video_editor_clip_properties()}>
+		{#if ['video', 'audio', 'image', 'composition'].includes(item.type)}
+			<div
+				class="grid grid-cols-1 gap-1"
+				role="group"
+				aria-label={m.video_editor_trim_to_playhead()}
+			>
+				<Button
+					size="xs"
+					variant="outline"
+					class="h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"
+					disabled={!canTrimStart}
+					onclick={() => trimToPlayhead('start')}
+				>
+					{m.video_editor_trim_start_playhead()}
+				</Button>
+				<Button
+					size="xs"
+					variant="outline"
+					class="h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"
+					disabled={!canTrimEnd}
+					onclick={() => trimToPlayhead('end')}
+				>
+					{m.video_editor_trim_end_playhead()}
+				</Button>
+			</div>
+		{/if}
 		{#if item.type === 'adjustment'}
 			<p class="text-xs leading-relaxed text-muted-foreground">
 				{m.video_editor_adjustment_layer_hint()}

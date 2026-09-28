@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "此录制没有音频。请使用麦克风录制，或选择包含语音的片段。",
 	"video_editor_skim_time": "悬停预览",
 	"video_editor_motion_opened": "动画：{name}",
-	"video_editor_media_placement_instruction": "选择轨道并点击以放置片段。按 Escape 取消。"
+	"video_editor_media_placement_instruction": "选择轨道并点击以放置片段。按 Escape 取消。",
+	"video_editor_add_sequence_end": "添加到序列末尾",
+	"video_editor_trim_to_playhead": "裁剪到播放头",
+	"video_editor_trim_start_playhead": "将起点裁剪到播放头",
+	"video_editor_trim_end_playhead": "将终点裁剪到播放头"
 }

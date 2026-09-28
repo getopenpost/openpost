@@ -1,4 +1,4 @@
-<!-- Media pool list: imported sources with probe status; click adds to timeline -->
+<!-- Imported sources, placement, and source health. -->
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -8,6 +8,10 @@
 		mediaDragData,
 		writeMediaDragData
 	} from '$lib/video-editor/media/media-drag';
+	import {
+		insertMediaAtPlayhead,
+		insertMediaAtSequenceEnd
+	} from '$lib/video-editor/timeline/actions/insert-media';
 	import { mediaPlacement } from '$lib/video-editor/media/media-placement.svelte';
 	import { getMediaObjectUrl } from '$lib/video-editor/media/media-source';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -445,6 +449,15 @@
 			event.dataTransfer,
 			mediaDragData('composition', composition.id, composition.name)
 		);
+	}
+
+	function addMedia(media: MediaMetadata, destination: 'playhead' | 'end'): void {
+		mediaPlacement.cancel();
+		editorSession.pausePlayback();
+		if (destination === 'end') insertMediaAtSequenceEnd(media);
+		else insertMediaAtPlayhead(media);
+		editorSession.syncTimelineClock();
+		editorSession.scheduleAutosave();
 	}
 
 	function placeMedia(media: MediaMetadata): void {
@@ -1677,6 +1690,20 @@
 												{/snippet}
 											</DropdownMenu.Trigger>
 											<DropdownMenu.Content class="video-editor-theme w-52" align="end">
+												<DropdownMenu.Item
+													disabled={Boolean(issue)}
+													onclick={() => addMedia(entry.media, 'playhead')}
+												>
+													<ThemeIcon role="add" class="size-4" />
+													{m.video_editor_stock_add_playhead()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													disabled={Boolean(issue)}
+													onclick={() => addMedia(entry.media, 'end')}
+												>
+													<ThemeIcon role="add" class="size-4" />
+													{m.video_editor_add_sequence_end()}
+												</DropdownMenu.Item>
 												{#if issue}
 													{#if issue.kind === 'permission'}
 														<DropdownMenu.Item
@@ -1874,6 +1901,20 @@
 									</ContextMenu.Item>
 									<ContextMenu.Separator />
 								{/if}
+								<ContextMenu.Item
+									disabled={Boolean(issue)}
+									onclick={() => addMedia(entry.media, 'playhead')}
+								>
+									<ThemeIcon role="add" class="size-4" />
+									{m.video_editor_stock_add_playhead()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									disabled={Boolean(issue)}
+									onclick={() => addMedia(entry.media, 'end')}
+								>
+									<ThemeIcon role="add" class="size-4" />
+									{m.video_editor_add_sequence_end()}
+								</ContextMenu.Item>
 								<ContextMenu.Item disabled={Boolean(issue)} onclick={() => onsourceopen(id)}>
 									<ProtectedIcon icon="media-video" class="size-4" />
 									{m.video_editor_source_monitor()}

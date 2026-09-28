@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "Esta gravação não tem áudio. Grave com um microfone ou escolha um clipe com fala.",
 	"video_editor_skim_time": "Prévia ao passar o cursor",
 	"video_editor_motion_opened": "Animação: {name}",
-	"video_editor_media_placement_instruction": "Escolha uma faixa e clique para colocar o clipe. Escape cancela."
+	"video_editor_media_placement_instruction": "Escolha uma faixa e clique para colocar o clipe. Escape cancela.",
+	"video_editor_add_sequence_end": "Adicionar ao fim da sequência",
+	"video_editor_trim_to_playhead": "Aparar até o cursor",
+	"video_editor_trim_start_playhead": "Aparar início até o cursor",
+	"video_editor_trim_end_playhead": "Aparar fim até o cursor"
 }

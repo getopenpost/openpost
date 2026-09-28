@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "この録画には音声がありません。マイクを使って録画するか、会話を含むクリップを選んでください。",
 	"video_editor_skim_time": "カーソルプレビュー",
 	"video_editor_motion_opened": "モーション：{name}",
-	"video_editor_media_placement_instruction": "トラックを選び、クリックしてクリップを配置します。Escapeでキャンセルします。"
+	"video_editor_media_placement_instruction": "トラックを選び、クリックしてクリップを配置します。Escapeでキャンセルします。",
+	"video_editor_add_sequence_end": "シーケンスの末尾に追加",
+	"video_editor_trim_to_playhead": "再生ヘッドでトリミング",
+	"video_editor_trim_start_playhead": "開始点を再生ヘッドまでトリミング",
+	"video_editor_trim_end_playhead": "終了点を再生ヘッドまでトリミング"
 }

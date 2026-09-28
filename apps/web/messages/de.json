@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "Diese Aufnahme hat keinen Ton. Nimm mit einem Mikrofon auf oder wähle einen Clip mit Sprache.",
 	"video_editor_skim_time": "Vorschau beim Überfahren",
 	"video_editor_motion_opened": "Animation: {name}",
-	"video_editor_media_placement_instruction": "Wähle eine Spur und klicke, um den Clip zu platzieren. Escape bricht ab."
+	"video_editor_media_placement_instruction": "Wähle eine Spur und klicke, um den Clip zu platzieren. Escape bricht ab.",
+	"video_editor_add_sequence_end": "Am Sequenzende hinzufügen",
+	"video_editor_trim_to_playhead": "Am Abspielkopf zuschneiden",
+	"video_editor_trim_start_playhead": "Anfang am Abspielkopf zuschneiden",
+	"video_editor_trim_end_playhead": "Ende am Abspielkopf zuschneiden"
 }

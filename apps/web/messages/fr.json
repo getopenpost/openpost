@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "Cet enregistrement ne contient pas de son. Enregistrez avec un microphone ou choisissez un clip avec de la parole.",
 	"video_editor_skim_time": "Survol",
 	"video_editor_motion_opened": "Animation : {name}",
-	"video_editor_media_placement_instruction": "Choisissez une piste et cliquez pour placer le clip. Échap annule."
+	"video_editor_media_placement_instruction": "Choisissez une piste et cliquez pour placer le clip. Échap annule.",
+	"video_editor_add_sequence_end": "Ajouter à la fin de la séquence",
+	"video_editor_trim_to_playhead": "Rogner à la tête de lecture",
+	"video_editor_trim_start_playhead": "Rogner le début à la tête de lecture",
+	"video_editor_trim_end_playhead": "Rogner la fin à la tête de lecture"
 }

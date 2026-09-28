@@ -167,3 +167,13 @@ export function insertMediaAtPlayhead(
 ): string {
 	return insertMediaAtFrame(media, timelineStore.currentFrame, options);
 }
+
+export function insertMediaAtSequenceEnd(media: MediaMetadata): string {
+	const kind = mediaTimelineKind(media);
+	const track = effectiveMediaTracks(timelineStore.tracks)
+		.filter((candidate) => candidate.kind === kind && !candidate.locked)
+		.toSorted((left, right) => left.order - right.order);
+	return insertMediaAtFrame(media, timelineStore.maxItemEndFrame, {
+		preferredTrackId: kind === 'video' ? track.at(-1)?.id : track[0]?.id
+	});
+}

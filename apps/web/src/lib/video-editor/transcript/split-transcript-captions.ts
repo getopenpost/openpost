@@ -129,3 +129,34 @@ export function synchronizeTranscriptCaptionsAfterSplit(
 	}
 	return nextItems;
 }
+
+/** Clip attached captions to the retained window without regenerating corrected words. */
+export function trimClipCaptions(
+	items: readonly TimelineItem[],
+	original: TimelineItem,
+	trimmed: TimelineItem,
+	fps: number
+): TimelineItem[] {
+	return items.flatMap((item) => {
+		const source = item.captionSource;
+		if (!source || source.clipId !== original.id) return [item];
+		const start = Math.max(item.from, trimmed.from);
+		const end = Math.min(
+			item.from + item.durationInFrames,
+			trimmed.from + trimmed.durationInFrames
+		);
+		if (end <= start) return [];
+		const offset = start - item.from;
+		const cues = item.cues
+			? slicedCues(item.cues, offset, end - item.from, offset, false)
+			: undefined;
+		if (cues?.length === 0) return [];
+		let captionSource = source;
+		if (source.type === 'transcript' || source.type === 'ai-captions') {
+			const timing = resolveTranscriptCaptionTiming(source, original, fps);
+			const range = captionFramesToSourceRange(offset, end - item.from, timing, fps);
+			captionSource = { ...source, sourceStartSeconds: range.start, sourceEndSeconds: range.end };
+		}
+		return [{ ...item, from: start, durationInFrames: end - start, cues, captionSource }];
+	});
+}

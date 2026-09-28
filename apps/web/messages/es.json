@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "Esta grabación no tiene audio. Graba con un micrófono o elige un clip con voz.",
 	"video_editor_skim_time": "Vista al pasar el cursor",
 	"video_editor_motion_opened": "Movimiento: {name}",
-	"video_editor_media_placement_instruction": "Elige una pista y haz clic para colocar el clip. Escape cancela."
+	"video_editor_media_placement_instruction": "Elige una pista y haz clic para colocar el clip. Escape cancela.",
+	"video_editor_add_sequence_end": "Añadir al final de la secuencia",
+	"video_editor_trim_to_playhead": "Recortar al cabezal",
+	"video_editor_trim_start_playhead": "Recortar inicio al cabezal",
+	"video_editor_trim_end_playhead": "Recortar final al cabezal"
 }

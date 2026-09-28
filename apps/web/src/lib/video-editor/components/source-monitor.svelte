@@ -2,6 +2,7 @@
 	import { formatTimelinePreviewTimecode } from '../preview/timeline-preview-scrub';
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { Button } from '$lib/components/ui/button';
 	import { showToast } from '$lib/toast';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -591,7 +592,7 @@
 		event.preventDefault();
 	}
 
-	function edit(mode: 'insert' | 'overwrite'): void {
+	function edit(mode: 'insert' | 'overwrite' | 'append'): void {
 		if (!media) return;
 		try {
 			editorSession.pausePlayback();
@@ -599,19 +600,21 @@
 				media,
 				inFrame: inPoint,
 				outFrame: outPoint,
-				insertFrame: timelineStore.currentFrame,
+				insertFrame: mode === 'append' ? timelineStore.maxItemEndFrame : timelineStore.currentFrame,
 				videoEnabled,
 				audioEnabled,
 				videoTarget,
 				audioTarget,
 				createdVideoTrackName: m.video_editor_track_video_name({ number: videoTracks.length + 1 }),
 				createdAudioTrackName: m.video_editor_track_audio_name({ number: audioTracks.length + 1 }),
-				mode
+				mode: mode === 'append' ? 'insert' : mode
 			});
 			oninserted(result.itemIds);
 			onedit();
 			showToast(
-				mode === 'insert' ? m.video_editor_source_inserted() : m.video_editor_source_overwritten(),
+				mode === 'overwrite'
+					? m.video_editor_source_overwritten()
+					: m.video_editor_source_inserted(),
 				'success'
 			);
 		} catch (error) {
@@ -1003,6 +1006,15 @@
 		</div>
 
 		<div class="grid grid-cols-2 gap-2">
+			<Button
+				size="xs"
+				variant="outline"
+				class="col-span-2 h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"
+				disabled={!videoEnabled && !audioEnabled}
+				onclick={() => edit('append')}
+			>
+				{m.video_editor_add_sequence_end()}
+			</Button>
 			<button
 				class="edit-button"
 				type="button"

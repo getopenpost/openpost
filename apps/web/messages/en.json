@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "This recording has no audio. Record with a microphone or choose a clip with speech.",
 	"video_editor_skim_time": "Skimming",
 	"video_editor_motion_opened": "Motion: {name}",
-	"video_editor_media_placement_instruction": "Choose a track and click to place this clip. Escape cancels."
+	"video_editor_media_placement_instruction": "Choose a track and click to place this clip. Escape cancels.",
+	"video_editor_add_sequence_end": "Add at end of sequence",
+	"video_editor_trim_to_playhead": "Trim to playhead",
+	"video_editor_trim_start_playhead": "Trim start to playhead",
+	"video_editor_trim_end_playhead": "Trim end to playhead"
 }

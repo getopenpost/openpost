@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "Bu kayıtta ses yok. Mikrofonla kayıt yapın veya konuşma içeren bir klip seçin.",
 	"video_editor_skim_time": "İmleç önizlemesi",
 	"video_editor_motion_opened": "Hareket: {name}",
-	"video_editor_media_placement_instruction": "Bir parça seçip klibi yerleştirmek için tıklayın. Escape iptal eder."
+	"video_editor_media_placement_instruction": "Bir parça seçip klibi yerleştirmek için tıklayın. Escape iptal eder.",
+	"video_editor_add_sequence_end": "Sekansın sonuna ekle",
+	"video_editor_trim_to_playhead": "Oynatma kafasına göre kırp",
+	"video_editor_trim_start_playhead": "Başlangıcı oynatma kafasına kırp",
+	"video_editor_trim_end_playhead": "Sonu oynatma kafasına kırp"
 }

@@ -9549,5 +9549,9 @@
 	"video_editor_transcribe_no_audio": "이 녹화에는 오디오가 없습니다. 마이크로 녹화하거나 말소리가 있는 클립을 선택하세요.",
 	"video_editor_skim_time": "커서 미리보기",
 	"video_editor_motion_opened": "모션: {name}",
-	"video_editor_media_placement_instruction": "트랙을 선택하고 클릭하여 클립을 배치하세요. Escape로 취소합니다."
+	"video_editor_media_placement_instruction": "트랙을 선택하고 클릭하여 클립을 배치하세요. Escape로 취소합니다.",
+	"video_editor_add_sequence_end": "시퀀스 끝에 추가",
+	"video_editor_trim_to_playhead": "재생 헤드까지 자르기",
+	"video_editor_trim_start_playhead": "시작을 재생 헤드까지 자르기",
+	"video_editor_trim_end_playhead": "끝을 재생 헤드까지 자르기"
 }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { commandHistory } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import type { MediaMetadata } from '../../media/types';
-import { insertMediaAtFrame } from './insert-media';
+import { insertMediaAtFrame, insertMediaAtSequenceEnd } from './insert-media';
 
 const image = {
 	id: 'sticker',
@@ -112,4 +112,25 @@ describe('insertMediaAtFrame', () => {
 		expect(timelineStore.tracks.map((track) => track.id)).toEqual(['video-1']);
 		expect(commandHistory.canUndo).toBe(false);
 	});
+});
+
+it('appends after the entire sequence without moving existing clips and undoes once', () => {
+	const existing = {
+		id: 'tail',
+		trackId: 'video-1',
+		from: 210,
+		durationInFrames: 60,
+		type: 'image' as const,
+		label: 'Tail'
+	};
+	timelineStore._setItems([existing]);
+	timelineStore._setCurrentFrame(12);
+	commandHistory.clearHistory();
+	const id = insertMediaAtSequenceEnd(image);
+	expect(timelineStore.itemById.get(id)).toMatchObject({ from: 270, durationInFrames: 90 });
+	expect(timelineStore.itemById.get('tail')).toEqual(existing);
+	expect(timelineStore.currentFrame).toBe(12);
+	commandHistory.undo();
+	expect(timelineStore.items).toEqual([existing]);
+	expect(commandHistory.canUndo).toBe(false);
 });

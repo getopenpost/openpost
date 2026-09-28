@@ -525,7 +525,7 @@
 						class="mt-3 text-sm text-muted-foreground"
 						role="status"
 					>
-						{m.video_editor_cloud_projects_loading()}
+						{m.common_loading()}
 					</p>{/if}
 				{#if workspaceID && cloudDesignsQuery.isError}<div class="mt-3" role="alert">
 						<p class="text-sm text-destructive">{m.image_editor_public_load_failed()}</p>

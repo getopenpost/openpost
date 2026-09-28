@@ -789,6 +789,7 @@ for (const scheme of ["light", "dark"] as const) {
       await expect(
         page.getByRole("button", { name: "Foreground color", exact: true }),
       ).toBeVisible();
+      await page.getByRole("button", { name: "Expand pages", exact: true }).click();
       await page.locator("#image-editor-workspace-tab-color").click();
       await expect(
         page.getByRole("button", { name: "Foreground color", exact: true }),
@@ -802,11 +803,17 @@ for (const scheme of ["light", "dark"] as const) {
       await expect(canvas).toBeInViewport({ ratio: 1 });
       const canvasBox = (await canvas.boundingBox())!;
       const controlsBox = (await color.boundingBox())!;
-      expect(canvasBox.height).toBeGreaterThanOrEqual(180);
+      expect(canvasBox.height).toBeGreaterThanOrEqual(220);
       expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
-      const advanced = color.getByRole("button", { name: "Advanced", exact: true });
+      const advanced = color.getByRole("button", {
+        name: "Advanced",
+        exact: true,
+      });
       if ((await advanced.getAttribute("aria-expanded")) !== "true") await advanced.click();
-      const lift = page.getByRole("slider", { name: "Lift color wheel", exact: true });
+      const lift = page.getByRole("slider", {
+        name: "Lift color wheel",
+        exact: true,
+      });
       await lift.scrollIntoViewIfNeeded();
       await expect(lift).toBeInViewport({ ratio: 1 });
       await lift.press("ArrowUp");
@@ -819,8 +826,26 @@ for (const scheme of ["light", "dark"] as const) {
       await page.screenshot({
         path: testInfo.outputPath(`photo-color-${width}.png`),
       });
+      await page.getByRole("button", { name: "Collapse pages", exact: true }).click();
       await page.locator("#image-editor-workspace-tab-edit").click();
     }
+    await page.getByRole("button", { name: "Expand pages", exact: true }).click();
+    await page.locator("#image-editor-workspace-tab-color").click();
+    await page.setViewportSize({ width: 640, height: 360 });
+    const shortCanvas = page.getByRole("application", {
+      name: "Design canvas",
+      exact: true,
+    });
+    expect((await shortCanvas.boundingBox())!.height).toBeGreaterThanOrEqual(100);
+    const warm = page
+      .locator("[data-image-color-workspace]:visible")
+      .getByRole("button", { name: "Warm", exact: true });
+    await warm.scrollIntoViewIfNeeded();
+    await expect(warm).toBeInViewport({ ratio: 1 });
+    await warm.click();
+    await expect(warm).toHaveAttribute("aria-pressed", "true");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("button", { name: "Collapse pages", exact: true })).toBeVisible();
   });
 }
 

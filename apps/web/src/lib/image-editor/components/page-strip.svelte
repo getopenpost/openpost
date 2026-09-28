@@ -16,8 +16,10 @@
 	import { containsExternalImageDrag, externalFiles } from '../media-drag';
 
 	let {
-		onExternalFiles
+		onExternalFiles,
+		compact = false
 	}: {
+		compact?: boolean;
 		onExternalFiles?: (
 			files: File[],
 			point: SelectionPoint,
@@ -26,6 +28,7 @@
 	} = $props();
 
 	const editor = useImageEditor();
+	const expanded = $derived(editor.pagesExpanded && !compact);
 	let draggingID = $state('');
 	let externalDropPageID = $state('');
 	let keyboardDraggingID = $state('');
@@ -338,18 +341,16 @@
 			<span class="sr-only">{m.image_editor_delete_page()}</span>
 		</Button>
 	{/snippet}
-	{#if editor.pagesExpanded}
+	{#if expanded}
 		<div class="flex h-8 items-center gap-1 border-b px-2 lg:h-8 [@media(pointer:coarse)]:h-11">
 			<Button
 				variant="ghost"
 				size="icon-xs"
 				class="size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
 				onclick={() => (editor.pagesExpanded = !editor.pagesExpanded)}
-				aria-label={editor.pagesExpanded
-					? m.image_editor_collapse_pages()
-					: m.image_editor_expand_pages()}
+				aria-label={expanded ? m.image_editor_collapse_pages() : m.image_editor_expand_pages()}
 			>
-				<ThemeIcon role={editor.pagesExpanded ? 'chevron-down' : 'chevron-up'} />
+				<ThemeIcon role={expanded ? 'chevron-down' : 'chevron-up'} />
 			</Button>
 			<span class="sr-only text-sm font-medium text-foreground sm:not-sr-only"
 				>{m.image_editor_pages()}</span
@@ -473,7 +474,7 @@
 				{@render pageActionButtons('size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11')}
 			</div>
 		</div>
-		{#if editor.pagesExpanded && editor.document}
+		{#if expanded && editor.document}
 			<div
 				bind:this={strip}
 				class="no-scrollbar flex h-24 shrink-0 items-center gap-2 overflow-x-auto px-3 py-2 lg:h-auto lg:min-h-0 lg:flex-1"
@@ -514,6 +515,7 @@
 				variant="ghost"
 				size="icon-xs"
 				class="size-[22px] [@media(pointer:coarse)]:size-11"
+				hidden={compact}
 				aria-label={m.image_editor_expand_pages()}
 				onclick={() => (editor.pagesExpanded = true)}
 			>

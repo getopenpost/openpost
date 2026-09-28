@@ -124,7 +124,11 @@ test("macOS trackpad pinch zoom responds without repeated long gestures", async 
   await expect.poll(zoomPercent).toBeGreaterThanOrEqual(Math.round(before * 1.045));
 });
 
-test("guest camera capture adds a local image without workspace writes", async ({ page }) => {
+test("guest camera capture supports crop controls and undo without workspace writes", async ({
+  page,
+}) => {
+  const cropErrors: string[] = [];
+  page.on("pageerror", (error) => cropErrors.push(error.message));
   const workspaceWrites: string[] = [];
   page.on("request", (request) => {
     if (
@@ -179,6 +183,79 @@ test("guest camera capture adds a local image without workspace writes", async (
   await expect(layers.first()).toContainText("camera-");
   await expect(page.getByText(/^Added camera-/)).toBeVisible();
   expect(workspaceWrites).toEqual([]);
+
+  await page.getByRole("button", { name: "Done", exact: true }).first().click();
+  const crop = page.getByRole("button", { name: "Crop", exact: true });
+  await crop.click();
+  const options = page.getByTestId("image-editor-crop-options");
+  await page.getByRole("button", { name: "Crop aspect ratio" }).click();
+  await page.getByRole("option", { name: "Square · 1:1", exact: true }).click();
+  expect(cropErrors).toEqual([]);
+  await expect(page.getByRole("button", { name: "Crop aspect ratio" })).toHaveText("Square · 1:1");
+  await options.getByRole("button", { name: "Apply crop" }).click();
+  await expect(options).toHaveCount(0);
+  await page.getByRole("button", { name: /^Transform/ }).click();
+  const width = page.getByRole("spinbutton", { name: "W", exact: true });
+  const height = page.getByRole("spinbutton", { name: "H", exact: true });
+  await expect(width).toHaveValue("240");
+  await expect(height).toHaveValue("240");
+
+  await crop.click();
+  await options.getByRole("button", { name: "Reset", exact: true }).click();
+  await options.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(options).toHaveCount(0);
+  await expect(width).toHaveValue("240");
+
+  await crop.click();
+  const edge = page.getByRole("button", {
+    name: "Resize crop from right",
+    exact: true,
+  });
+  const box = (await edge.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 30, box.y + box.height / 2, {
+    steps: 5,
+  });
+  await page.mouse.up();
+  await options.getByRole("button", { name: "Apply crop" }).click();
+  await expect(options).toHaveCount(0);
+  await expect.poll(async () => Number(await width.inputValue())).toBeLessThan(240);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(width).toHaveValue("240");
+
+  await crop.click();
+  await page.getByRole("button", { name: "Crop aspect ratio" }).click();
+  await page.getByRole("option", { name: "Square · 1:1", exact: true }).click();
+  const lockedEdge = (await edge.boundingBox())!;
+  await page.mouse.move(lockedEdge.x + lockedEdge.width / 2, lockedEdge.y + lockedEdge.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    lockedEdge.x + lockedEdge.width / 2 - 30,
+    lockedEdge.y + lockedEdge.height / 2 + 10,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+  await expect(page.getByRole("button", { name: "Crop aspect ratio" })).toHaveText("Square · 1:1");
+  const corner = page.getByRole("button", { name: "Resize crop from bottom right", exact: true });
+  const cornerBox = (await corner.boundingBox())!;
+  const cornerX = cornerBox.x + cornerBox.width / 2;
+  const cornerY = cornerBox.y + cornerBox.height / 2;
+  await page.keyboard.down("Control");
+  await page.mouse.move(cornerX, cornerY);
+  await page.mouse.down();
+  await page.mouse.move(cornerX + 8, cornerY - 7);
+  const firstCorner = (await corner.boundingBox())!;
+  await page.mouse.move(cornerX + 8, cornerY - 9);
+  const secondCorner = (await corner.boundingBox())!;
+  await page.mouse.up();
+  await page.keyboard.up("Control");
+  expect(Math.abs(secondCorner.x - firstCorner.x)).toBeLessThan(4);
+  await edge.press("ArrowLeft");
+  await options.getByRole("button", { name: "Apply crop" }).click();
+  await expect.poll(async () => Number(await width.inputValue())).toBeLessThan(240);
+  expect(Number(await width.inputValue())).toBeCloseTo(Number(await height.inputValue()), 0);
+  expect(cropErrors).toEqual([]);
 });
 
 test("Image Editor keeps Export as the rightmost visible header action", async ({ page }) => {

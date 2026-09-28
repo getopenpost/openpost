@@ -2142,7 +2142,7 @@
 				<AppSelect
 					value={crop.aspect}
 					ariaLabel={m.image_editor_crop_aspect()}
-					onValueChange={crop.setAspect}
+					onValueChange={(value) => crop.setAspect(value)}
 					options={[
 						{ value: 'free', label: m.image_editor_crop_free() },
 						{ value: 'original', label: m.image_editor_crop_original() },
@@ -2158,14 +2158,14 @@
 					variant="ghost"
 					size="sm"
 					class="h-7 shrink-0 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
-					onclick={crop.cancel}
+					onclick={() => crop.cancel()}
 				>
 					{m.common_cancel()}
 				</Button>
 				<Button
 					size="sm"
 					class="h-7 shrink-0 px-1.5 text-xs [@media(pointer:coarse)]:h-11"
-					onclick={crop.apply}
+					onclick={() => crop.apply()}
 				>
 					{m.image_editor_apply_crop()}
 				</Button>
@@ -2215,7 +2215,7 @@
 					variant="ghost"
 					size="sm"
 					class="h-7 px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
-					onclick={crop.reset}
+					onclick={() => crop.reset()}
 				>
 					{m.image_editor_reset()}
 				</Button>
@@ -2833,9 +2833,9 @@
 								}
 								crop.start(event, crop.mode === 'content' ? 'content' : 'move');
 							}}
-							onpointermove={crop.move}
-							onpointerup={crop.stop}
-							onpointercancel={crop.stop}
+							onpointermove={(event) => crop.move(event)}
+							onpointerup={(event) => crop.stop(event)}
+							onpointercancel={(event) => crop.stop(event)}
 						>
 							<span
 								class="pointer-events-none absolute inset-x-0 top-1/3 border-t border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"

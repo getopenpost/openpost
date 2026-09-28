@@ -23,6 +23,7 @@ const FULL_CROP_WINDOW: ImageEditorCropWindow = {
 	width: 1,
 	height: 1
 };
+const MINIMUM_CROP_SIZE = 0.005;
 
 function normalizeRotation(rotation: number): number {
 	const normalized = ((((rotation + 180) % 360) + 360) % 360) - 180;
@@ -172,7 +173,6 @@ export class ImageEditorCropSession {
 				nextWindow
 			);
 			this.window = nextWindow;
-			this.aspect = 'free';
 		}
 		this.previewSession();
 		event.preventDefault();
@@ -220,14 +220,13 @@ export class ImageEditorCropSession {
 			const nextWindow = this.updateWindow(this.window, handle, delta);
 			this.sourceWindow = this.sourceWindowForFrame(this.window, this.sourceWindow, nextWindow);
 			this.window = nextWindow;
-			this.aspect = 'free';
 		}
 		this.previewSession();
 	}
 
 	setAspect(value: string): void {
-		this.aspect = value;
 		const base = this.ensureSession();
+		this.aspect = value;
 		if (!base?.image || value === 'free') return;
 		const aspect =
 			value === 'original'
@@ -379,6 +378,7 @@ export class ImageEditorCropSession {
 				y: Math.max(0, Math.min(1 - origin.height, origin.y + delta.y))
 			};
 		}
+		if (this.aspect !== 'free') return this.resizeWithAspect(origin, handle, delta);
 		let left = origin.x;
 		let top = origin.y;
 		let right = origin.x + origin.width;
@@ -387,7 +387,7 @@ export class ImageEditorCropSession {
 		if (handle.includes('e')) right += delta.x;
 		if (handle.includes('n')) top += delta.y;
 		if (handle.includes('s')) bottom += delta.y;
-		const minimum = 0.005;
+		const minimum = MINIMUM_CROP_SIZE;
 		left = Math.max(0, Math.min(right - minimum, left));
 		top = Math.max(0, Math.min(bottom - minimum, top));
 		right = Math.min(1, Math.max(left + minimum, right));
@@ -400,6 +400,51 @@ export class ImageEditorCropSession {
 		});
 	}
 
+	private resizeWithAspect(
+		origin: ImageEditorCropWindow,
+		handle: CropHandle,
+		delta: SelectionPoint,
+		snapAxis?: 'x' | 'y'
+	): ImageEditorCropWindow {
+		const base = this.sessionLayer();
+		if (!base) return origin;
+		const horizontal = handle.includes('w') ? -1 : handle.includes('e') ? 1 : 0;
+		const vertical = handle.includes('n') ? -1 : handle.includes('s') ? 1 : 0;
+		const widthChange = (horizontal * delta.x) / origin.width;
+		const heightChange = (vertical * delta.y) / origin.height;
+		const pixelWidth = origin.width * base.transform.width;
+		const pixelHeight = origin.height * base.transform.height;
+		const change =
+			snapAxis === 'x' || !vertical
+				? widthChange
+				: snapAxis === 'y' || !horizontal
+					? heightChange
+					: (widthChange * pixelWidth ** 2 + heightChange * pixelHeight ** 2) /
+						(pixelWidth ** 2 + pixelHeight ** 2);
+		// Corners keep the opposite corner fixed; edge handles resize around the
+		// other axis's center. Clamp the shared scale so neither axis leaves the image.
+		const anchorX = origin.x + (origin.width * (1 - horizontal)) / 2;
+		const anchorY = origin.y + (origin.height * (1 - vertical)) / 2;
+		const availableWidth =
+			horizontal > 0 ? 1 - anchorX : horizontal < 0 ? anchorX : 2 * Math.min(anchorX, 1 - anchorX);
+		const availableHeight =
+			vertical > 0 ? 1 - anchorY : vertical < 0 ? anchorY : 2 * Math.min(anchorY, 1 - anchorY);
+		const maximumScale = Math.min(availableWidth / origin.width, availableHeight / origin.height);
+		const minimumScale = Math.max(
+			MINIMUM_CROP_SIZE / origin.width,
+			MINIMUM_CROP_SIZE / origin.height
+		);
+		const scale = Math.min(maximumScale, Math.max(minimumScale, 1 + change));
+		const width = origin.width * scale;
+		const height = origin.height * scale;
+		return {
+			x: anchorX - (width * (1 - horizontal)) / 2,
+			y: anchorY - (height * (1 - vertical)) / 2,
+			width,
+			height
+		};
+	}
+
 	private snapWindow(
 		window: ImageEditorCropWindow,
 		handle: Exclude<CropHandle, 'content'>,
@@ -410,33 +455,36 @@ export class ImageEditorCropSession {
 			this.env.adapter()?.clearSnappingGuides();
 			return window;
 		}
-		const result = applyImageEditorCropWindow(base, window, window);
 		const rotation = normalizeRotation(base.transform.rotation + this.rotationDelta);
 		const quarterTurns = Math.round(rotation / 90);
 		if (Math.abs(rotation - quarterTurns * 90) > 0.01) {
 			this.env.adapter()?.clearSnappingGuides();
 			return window;
 		}
-		const transform = { ...result.transform, rotation };
-		const local = {
-			x: handle.includes('w') ? 0 : handle.includes('e') ? transform.width : transform.width / 2,
-			y: handle.includes('n') ? 0 : handle.includes('s') ? transform.height : transform.height / 2
-		};
 		const radians = (rotation * Math.PI) / 180;
-		const center = {
-			x: transform.x + transform.width / 2,
-			y: transform.y + transform.height / 2
+		const pointForWindow = (candidate: ImageEditorCropWindow): SelectionPoint => {
+			const result = applyImageEditorCropWindow(base, candidate, candidate);
+			const transform = { ...result.transform, rotation };
+			const local = {
+				x: handle.includes('w') ? 0 : handle.includes('e') ? transform.width : transform.width / 2,
+				y: handle.includes('n') ? 0 : handle.includes('s') ? transform.height : transform.height / 2
+			};
+			const center = {
+				x: transform.x + transform.width / 2,
+				y: transform.y + transform.height / 2
+			};
+			return {
+				x:
+					center.x +
+					(local.x - transform.width / 2) * Math.cos(radians) -
+					(local.y - transform.height / 2) * Math.sin(radians),
+				y:
+					center.y +
+					(local.x - transform.width / 2) * Math.sin(radians) +
+					(local.y - transform.height / 2) * Math.cos(radians)
+			};
 		};
-		const point = {
-			x:
-				center.x +
-				(local.x - transform.width / 2) * Math.cos(radians) -
-				(local.y - transform.height / 2) * Math.sin(radians),
-			y:
-				center.y +
-				(local.x - transform.width / 2) * Math.sin(radians) +
-				(local.y - transform.height / 2) * Math.cos(radians)
-		};
+		const point = pointForWindow(window);
 		const rotatedSide = Math.abs(quarterTurns) % 2 === 1;
 		const axes = resolveCropSnapAxes(handle, rotatedSide);
 		const snapped = this.env.adapter()?.snapDocumentPoint(point, {
@@ -444,19 +492,61 @@ export class ImageEditorCropSession {
 			excludeLayerIDs: [base.id]
 		});
 		if (!snapped || (snapped.guideX === null && snapped.guideY === null)) return window;
-		const worldDelta = {
-			x: snapped.point.x - point.x,
-			y: snapped.point.y - point.y
-		};
-		const localDelta = {
+		const toLocalDelta = (worldDelta: SelectionPoint): SelectionPoint => ({
 			x:
 				(worldDelta.x * Math.cos(-radians) - worldDelta.y * Math.sin(-radians)) /
 				Math.max(1, base.transform.width),
 			y:
 				(worldDelta.x * Math.sin(-radians) + worldDelta.y * Math.cos(-radians)) /
 				Math.max(1, base.transform.height)
-		};
-		return this.updateWindow(window, handle, localDelta);
+		});
+		if (this.aspect === 'free' || handle === 'move') {
+			return this.updateWindow(
+				window,
+				handle,
+				toLocalDelta({
+					x: snapped.point.x - point.x,
+					y: snapped.point.y - point.y
+				})
+			);
+		}
+		// A fixed ratio can meet one nearby guide without meeting the other.
+		// Solve each candidate separately and display only the guide actually reached.
+		const candidates = (['x', 'y'] as const).flatMap((axis) => {
+			const guide = axis === 'x' ? snapped.guideX : snapped.guideY;
+			if (guide === null) return [];
+			const localAxis = rotatedSide ? (axis === 'x' ? 'y' : 'x') : axis;
+			const next = this.resizeWithAspect(
+				window,
+				handle,
+				toLocalDelta({
+					x: axis === 'x' ? guide - point.x : 0,
+					y: axis === 'y' ? guide - point.y : 0
+				}),
+				localAxis
+			);
+			const nextPoint = pointForWindow(next);
+			if (Math.abs(nextPoint[axis] - guide) > 0.01) return [];
+			return [
+				{
+					axis,
+					window: next,
+					point: nextPoint,
+					distance: Math.hypot(nextPoint.x - point.x, nextPoint.y - point.y)
+				}
+			];
+		});
+		candidates.sort((a, b) => a.distance - b.distance);
+		const closest = candidates[0];
+		if (!closest) {
+			this.env.adapter()?.clearSnappingGuides();
+			return window;
+		}
+		this.env.adapter()?.snapDocumentPoint(closest.point, {
+			axes: closest.axis,
+			excludeLayerIDs: [base.id]
+		});
+		return closest.window;
 	}
 
 	private sourceWindowForFrame(

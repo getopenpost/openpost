@@ -4,6 +4,57 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.3.1] - 2026-09-28
+
+### Fixes
+
+- Automatically display Arabic and Hebrew post text right to left in the composer and social previews, including mixed English words and paragraphs.
+- Show the provider, account identity, and avatar when choosing workflow destinations.
+- Preserve publishing failures through retries and keep external requests from repeating after an uncertain outcome. Cancellation fences new external effects and response snapshots redact saved credentials.
+- Retry temporary Threads carousel assembly failures and Instagram media-not-ready rejections with bounded backoff, reusing the prepared media containers.
+- Limit Meta propagation retries to confirmed readiness rejections so uncertain network or server failures cannot repeat a publish.
+- Give the JavaScript engine a separate startup budget so cold compilation does not cause valid code to time out. User code keeps its two-second execution limit.
+- Keep JSON intact when inserting variables, validate against the current source data, and accept nested field outputs. Canvas attention matches field errors, and invalid AI responses retain usage with a failed outcome.
+- Keep graph previews readable, expose undo and redo on phones, and reopen node settings on the configuration tab.
+
+### Fixed
+
+- Preserve fades, linked audio, captions, overlapping audio, imported subtitles, gaps and locked tracks through splits and transcript cuts. Prevent the production-only preview crash during timeline edits.
+- Keep the viewing position when undoing edits, support timeline Select All and cancelable marquee selection, and update paused text previews.
+- Restore cloud media playback and prepared audio/Lottie metadata when reopening projects, including multiple project assets that share uploaded media.
+- Restore Kokoro pronunciation data and compatible Parakeet model loading, and keep transcription failures visible.
+- Keep Color and Source controls reachable, align Motion keyframes and layer rows, place new titles above video, and improve recorder storage and export feedback.
+- Accept frame-rounding differences at verified audio EOF without hiding genuinely truncated sources.
+- Keep Motion marquee selection after releasing the pointer, restore selection when canceled, and accept valid binary audio that contains SVG-like bytes.
+- Split long auto-captions into timed cues instead of discarding spoken words behind an ellipsis.
+- Cloud autosave and preview-thumbnail updates preserve the Image Editor text cursor so typing can continue without reselecting the text.
+- Image Editor crop controls now apply, cancel, reset, change aspect ratio, and resize by dragging without losing the active crop session.
+- Crop aspect presets keep their ratio while resizing with the pointer or keyboard, and the first choice keeps its correct label.
+- On phones, the Color workspace keeps space for the live canvas when the page strip is expanded. Short windows compact the strip while keeping grading controls reachable.
+- The Image Editor library no longer describes saved designs as video projects while loading.
+- Video Editor splits selected clips and their linked media without cutting unrelated tracks. With no selection, split still cuts all unlocked clips at the playhead.
+- Video Editor remembers the active sequence and the Edit return destination from Motion on this device when reopening a project.
+- Motion labels empty-composition creation as "New composition", distinct from "Create from selection". Transition feedback now explains that one clip must be selected.
+- Motion timeline and creation dialogs use editor theme surfaces and readable text in light and dark modes.
+- Timer previews retain their authored size and keep counting after scrubbing, using the same preview renderer during hover and playback.
+- Video Editor playback menus stay within the viewport and scroll internally, including expanded voiceover settings.
+- Read a link card's Open Graph title and description whole when they contain an apostrophe, such as "The world's best", which was cut at the apostrophe, and decode HTML entities in them and in the page title, so a LinkedIn article card no longer shows "Tom &amp; Jerry" or "Don&#39;t". A `data-content` attribute is no longer read as the value, and an unquoted `content=` value is read.
+- Detect a link card URL that contains parentheses, such as a Wikipedia article link, whole. Detection stopped at the first ")", so "https://en.wikipedia.org/wiki/Go_(programming_language)" became a broken link missing its closing parenthesis; a ")" is now dropped only when it closes text around the link.
+- Link an imported Bluesky post through the account's DID when Bluesky reports its handle as `handle.invalid`, which it does when a custom-domain handle stops verifying. The post's link was built from that handle and did not open.
+- Keep the paragraph and line breaks of imported Mastodon posts. Only the HTML tags were removed, so every paragraph and line of a status ran together into one line with no space between them.
+- Reset the post-import read budget at the start of the UTC day, when an account whose budget ran out is retried. The budget rolled over 24 hours after its first read instead, so it was still spent at that midnight retry and the import waited another full day.
+
+### Features
+
+- Rebuild Workflows as a full-screen editor with a compact toolbar, searchable node picker, drag-to-add connections, required-field attention, variable chips, a large node-inspection modal with input/output panels, and graph previews for templates and runs.
+- Add scheduled, new-post, and failed-publication triggers; AI text and decisions; HTTP requests with cURL import; isolated JavaScript; and content/data transformations. Add digest, relevance-review, API-to-post, and weekly draft templates.
+- Manage encrypted GitHub and custom API credentials on a Connections page. Restrict custom credentials to a selected HTTPS host and replace secrets without rebuilding workflows.
+- Test individual data, HTTP, feed, and AI nodes without running later publishing steps. Record AI token usage and provider-reported costs without imposing a spending cap.
+
+### Operations
+
+- Migration 146 adds credential metadata, external-effect receipts, and workflow AI usage. Existing repost policies, grants, executions, and per-post overrides retain their native owners and IDs. Pause workflows and finish or cancel their runs before rolling back to a version without these node types.
+
 ## [7.2.4] - 2026-09-28
 
 ### Added

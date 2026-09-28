@@ -532,6 +532,14 @@ export function buildTextStylePresetTemplate(
 	const preset = TEXT_STYLE_RECIPES[presetId];
 	const copy = copyOverride ?? { label: preset.label, sample: preset.sample };
 	const styles = resolvedPresetStyle(presetId, canvas, styleScale);
+	if (presetId === 'lower-third') {
+		styles.transform = {
+			x: 0,
+			y: Math.round(canvas.height * 0.34),
+			width: Math.round(canvas.width * 0.9),
+			height: Math.round(canvas.height * 0.22)
+		};
+	}
 	const baseFontSize = styles.fontSize ?? 60;
 
 	switch (presetId) {

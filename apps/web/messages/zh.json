@@ -6621,7 +6621,7 @@
 	"video_editor_export_render": "渲染完整视频",
 	"video_editor_render_progress": "正在渲染第 {done} / {total} 帧",
 	"video_editor_send_to_openpost": "发送到 OpenPost",
-	"video_editor_export_done": "{name} 已保存到导出文件夹。",
+	"video_editor_export_done": "已保存 {name}。",
 	"video_editor_sent": "已发送到你的 OpenPost 媒体库。",
 	"video_editor_open_composer": "打开发帖编辑器",
 	"video_editor_crossfade": "添加交叉淡化",

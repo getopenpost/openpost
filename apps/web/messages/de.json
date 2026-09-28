@@ -6616,7 +6616,7 @@
 	"video_editor_export_render": "Gesamtes Video rendern",
 	"video_editor_render_progress": "Frame {done} / {total} wird gerendert",
 	"video_editor_send_to_openpost": "An OpenPost senden",
-	"video_editor_export_done": "{name} im Exportordner gespeichert.",
+	"video_editor_export_done": "{name} gespeichert.",
 	"video_editor_sent": "An deine OpenPost-Medienbibliothek gesendet.",
 	"video_editor_open_composer": "Im Composer öffnen",
 	"video_editor_crossfade": "Kreuzblende hinzufügen",

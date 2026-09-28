@@ -6621,7 +6621,7 @@
 	"video_editor_export_render": "Tam videoyu işle",
 	"video_editor_render_progress": "{done} / {total} kare işleniyor",
 	"video_editor_send_to_openpost": "OpenPost'a gönder",
-	"video_editor_export_done": "{name} dışa aktarmalar klasörüne kaydedildi.",
+	"video_editor_export_done": "{name} kaydedildi.",
 	"video_editor_sent": "OpenPost medya kitaplığınıza gönderildi.",
 	"video_editor_open_composer": "Düzenleyiciyi aç",
 	"video_editor_crossfade": "Çapraz geçiş ekle",

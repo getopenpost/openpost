@@ -6621,7 +6621,7 @@
 	"video_editor_export_render": "Effectuer le rendu complet",
 	"video_editor_render_progress": "Rendu de l'image {done} / {total}",
 	"video_editor_send_to_openpost": "Envoyer vers OpenPost",
-	"video_editor_export_done": "{name} enregistré dans le dossier des exports.",
+	"video_editor_export_done": "{name} enregistré.",
 	"video_editor_sent": "Envoyé vers votre médiathèque OpenPost.",
 	"video_editor_open_composer": "Ouvrir le compositeur",
 	"video_editor_crossfade": "Ajouter un fondu enchaîné",

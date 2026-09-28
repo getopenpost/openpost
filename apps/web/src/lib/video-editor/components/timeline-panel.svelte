@@ -656,6 +656,8 @@
 		active: boolean;
 		additive: boolean;
 		baseIds: string[];
+		basePrimary: string | null;
+		baseTransition: string | null;
 	} | null>(null);
 	let effectDropTargetIds = $state<string[]>([]);
 	let effectDropHoveredItemId = $state<string | null>(null);
@@ -2681,7 +2683,7 @@
 					continue;
 				const trackId = trackElement.dataset.track;
 				const index = trackId ? timelineItemRangeIndexes.get(trackId) : undefined;
-				if (!index) continue;
+				if (!index || !trackId || isTrackEffectivelyLocked(trackId, timelineStore.tracks)) continue;
 				for (const item of queryTimelineItemRange(index, frameRange)) hitIds.push(item.id);
 			}
 		}
@@ -2715,14 +2717,35 @@
 		marquee = null;
 		window.removeEventListener('pointermove', onMarqueePointerMove);
 		window.removeEventListener('pointerup', finishMarquee);
-		window.removeEventListener('pointercancel', finishMarquee);
+		window.removeEventListener('pointercancel', cancelMarquee);
+		window.removeEventListener('keydown', onMarqueeKeydown, true);
 	}
 
+	function cancelMarquee(): void {
+		if (!marquee) return;
+		const previous = marquee;
+		finishMarquee();
+		selectedItemIds = previous.baseIds;
+		selectedItemId = previous.basePrimary;
+		selectedTransitionId = previous.baseTransition;
+	}
+	function onMarqueeKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Escape') return;
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		cancelMarquee();
+	}
 	function startMarquee(event: PointerEvent): void {
 		if (event.button !== 0 || drag || marquee) return;
 		const target = event.target;
-		if (!(target instanceof HTMLElement) || !target.closest('[data-track]')) return;
-		if (target.closest('button, input, select, textarea, [data-marquee-ignore]')) return;
+		if (!(target instanceof HTMLElement)) return;
+		if (target.closest('button, input, select, textarea, [role=slider], [data-marquee-ignore]'))
+			return;
+		if (
+			!scrollContainer ||
+			event.clientX < scrollContainer.getBoundingClientRect().left + TRACK_HEADER_WIDTH
+		)
+			return;
 		clearHoverPreview();
 		event.preventDefault();
 		const additive = event.metaKey || event.ctrlKey || event.shiftKey;
@@ -2733,11 +2756,14 @@
 			currentY: event.clientY,
 			active: false,
 			additive,
-			baseIds: additive ? [...selectedItemIds] : []
+			baseIds: [...selectedItemIds],
+			basePrimary: selectedItemId,
+			baseTransition: selectedTransitionId
 		};
 		window.addEventListener('pointermove', onMarqueePointerMove);
 		window.addEventListener('pointerup', finishMarquee);
-		window.addEventListener('pointercancel', finishMarquee);
+		window.addEventListener('pointercancel', cancelMarquee);
+		window.addEventListener('keydown', onMarqueeKeydown, true);
 	}
 
 	function trackForItem(item: TimelineItem) {
@@ -2938,6 +2964,19 @@
 		const matches = createShortcutMatcher(event, keyboardShortcuts.bindings);
 		if (!matches) return;
 		if (keyframesPanel?.handleKeyframeEditorShortcut(event, matches) ?? false) return;
+		if (matches('COMPOSITION_SELECT_ALL')) {
+			event.preventDefault();
+			selectedItemIds = timelineStore.items
+				.filter(
+					(item) =>
+						!item.sequenceColorGrade &&
+						!isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)
+				)
+				.map((item) => item.id);
+			selectedItemId = selectedItemIds.at(-1) ?? null;
+			selectedTransitionId = null;
+			return;
+		}
 		if (matches('ZOOM_IN')) {
 			event.preventDefault();
 			zoomBy(TIMELINE_ZOOM_STEP);
@@ -5494,6 +5533,7 @@
 															: activeEditTool === 'slip' || activeEditTool === 'slide'
 																? 'cursor-move'
 																: 'cursor-grab active:cursor-grabbing'}"
+												aria-pressed={selectedItemIds.includes(item.id)}
 												aria-label={activeEditTool === 'track-push'
 													? `${item.label}. ${m.video_editor_track_push_handle()}`
 													: timelineItemAriaLabel(item, syncOffsetFrames)}

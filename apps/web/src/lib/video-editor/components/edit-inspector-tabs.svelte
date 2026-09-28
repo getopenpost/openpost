@@ -15,7 +15,7 @@
 	function label(tab: EditInspectorTab): string {
 		switch (tab) {
 			case 'motion':
-				return m.video_editor_workspace_motion();
+				return m.video_editor_inspector_animation();
 			case 'effects':
 				return m.video_editor_effects();
 			case 'transcript':

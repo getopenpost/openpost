@@ -6621,7 +6621,7 @@
 	"video_editor_export_render": "動画全体をレンダリング",
 	"video_editor_render_progress": "フレームをレンダリング中 {done} / {total}",
 	"video_editor_send_to_openpost": "OpenPost へ送る",
-	"video_editor_export_done": "{name} を書き出しフォルダに保存しました。",
+	"video_editor_export_done": "{name} を保存しました。",
 	"video_editor_sent": "OpenPost のメディアライブラリへ送りました。",
 	"video_editor_open_composer": "コンポーザーを開く",
 	"video_editor_crossfade": "クロスフェードを追加",

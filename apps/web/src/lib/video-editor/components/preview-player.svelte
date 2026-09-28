@@ -83,7 +83,6 @@
 		transitionAtFrame
 	} from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import PreviewLayer from './preview-layer.svelte';
-	import TextScrubOverlay from './text-scrub-overlay.svelte';
 	import PreviewAudioLayer from './preview-audio-layer.svelte';
 	import PreviewMixEntryLayer from './preview-mix-entry-layer.svelte';
 	import OnCanvasTools from './on-canvas-tools.svelte';
@@ -1552,13 +1551,7 @@
 								}}
 							/>
 						{/each}
-						<TextScrubOverlay
-							visible={!isPlaying && $timelinePreviewScrub.frame !== null}
-							frame={displayFrame}
-							width={canvasWidth}
-							height={canvasHeight}
-							fps={timelineStore.fps}
-						/>
+
 						{#if showTransformControls && selectedResolvedItems.length > 1 && !groupSelectionLocked}
 							<GroupOnCanvasTools
 								items={selectedResolvedItems}

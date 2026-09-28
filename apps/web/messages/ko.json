@@ -6621,7 +6621,7 @@
 	"video_editor_export_render": "전체 동영상 렌더링",
 	"video_editor_render_progress": "프레임 렌더링 {done} / {total}",
 	"video_editor_send_to_openpost": "OpenPost로 보내기",
-	"video_editor_export_done": "{name}을(를) 내보내기 폴더에 저장했습니다.",
+	"video_editor_export_done": "{name}을(를) 저장했습니다.",
 	"video_editor_sent": "OpenPost 미디어 라이브러리로 보냈습니다.",
 	"video_editor_open_composer": "작성기 열기",
 	"video_editor_crossfade": "크로스페이드 추가",

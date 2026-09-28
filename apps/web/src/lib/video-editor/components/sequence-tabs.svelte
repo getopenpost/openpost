@@ -81,6 +81,12 @@
 	}
 
 	function reorderByKeyboard(event: KeyboardEvent, id: string): void {
+		if (event.key === 'F2') {
+			event.preventDefault();
+			const sequence = sequenceStore.compositionById.get(id);
+			if (sequence) void beginRename(id, sequence.name);
+			return;
+		}
 		if (!event.altKey || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
 		event.preventDefault();
 		move(id, event.key === 'ArrowLeft' ? -1 : 1);

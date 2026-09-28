@@ -48,13 +48,40 @@ describe('recording setup', () => {
 		'opens %s choices without exposing anonymous devices',
 		async (source) => {
 			const enumeration = vi.spyOn(navigator.mediaDevices, 'enumerateDevices').mockResolvedValue([
-				{ kind: 'videoinput', deviceId: '', label: '', groupId: '', toJSON() {} },
-				{ kind: 'audioinput', deviceId: '', label: '', groupId: '', toJSON() {} },
-				{ kind: 'videoinput', deviceId: 'camera-1', label: 'USB camera', groupId: '', toJSON() {} },
-				{ kind: 'audioinput', deviceId: 'mic-1', label: 'USB microphone', groupId: '', toJSON() {} }
+				{
+					kind: 'videoinput',
+					deviceId: '',
+					label: '',
+					groupId: '',
+					toJSON() {}
+				},
+				{
+					kind: 'audioinput',
+					deviceId: '',
+					label: '',
+					groupId: '',
+					toJSON() {}
+				},
+				{
+					kind: 'videoinput',
+					deviceId: 'camera-1',
+					label: 'USB camera',
+					groupId: '',
+					toJSON() {}
+				},
+				{
+					kind: 'audioinput',
+					deviceId: 'mic-1',
+					label: 'USB microphone',
+					groupId: '',
+					toJSON() {}
+				}
 			]);
 			try {
-				const screen = await render(RecordingDialog, { open: true, projectId: 'recording-test' });
+				const screen = await render(RecordingDialog, {
+					open: true,
+					projectId: 'recording-test'
+				});
 				if (source === 'Camera')
 					await screen.getByRole('checkbox', { name: 'Camera', exact: true }).click();
 				await screen.getByRole('button', { name: source, exact: true }).click();
@@ -71,4 +98,26 @@ describe('recording setup', () => {
 			}
 		}
 	);
+});
+
+it('does not report negative remaining browser storage', async () => {
+	const estimate = vi
+		.spyOn(navigator.storage, 'estimate')
+		.mockResolvedValue({ quota: 100, usage: 200 });
+	try {
+		const screen = await render(RecordingDialog, {
+			open: true,
+			projectId: 'quota-test'
+		});
+		await screen.getByText('Advanced', { exact: true }).click();
+		await expect
+			.element(
+				screen.getByText('Recording needs more local space. 0 B is currently available.', {
+					exact: true
+				})
+			)
+			.toBeVisible();
+	} finally {
+		estimate.mockRestore();
+	}
 });

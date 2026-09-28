@@ -1135,6 +1135,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		showToast(m.video_editor_voiceover_added(), 'success');
 	}
 
+	function resetInspectorScroll(node: HTMLElement, _key: string) {
+		return {
+			update() {
+				node.scrollTop = 0;
+			}
+		};
+	}
+
 	function handleRecordingInserted(itemId: string): void {
 		selectedItemId = itemId;
 		selectedItemIds = [itemId];
@@ -1312,6 +1320,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	function changeEditorWorkspace(workspace: EditorWorkspaceId): void {
 		if (workspace === activeWorkspace) return;
+		colorPreviewStore.setComparisonMode('after');
 		if (workspace === 'motion') enterMotionWorkspace();
 		else if (activeWorkspace === 'motion') leaveMotionWorkspace(workspace);
 		else {
@@ -2324,6 +2333,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 </script>
 
+{#snippet transcriptionControls()}
+	<TranscriptionControls
+		error={selectedItemId ? transcriptionService.errorForItem(selectedItemId) : undefined}
+		canTranscribe={selectedIsMedia}
+		busy={selectedTranscriptionJob !== undefined}
+		status={selectedTranscriptionJob?.status}
+		queuePosition={selectedTranscriptionQueuePosition}
+		queueTotal={transcriptionJobCount}
+		progress={selectedTranscriptionJob?.progress ?? null}
+		backend={selectedTranscriptionJob?.backend ?? null}
+		fallback={selectedTranscriptionJob?.fallback ?? null}
+		onstart={(selection) => void handleTranscribe(selection)}
+		oncancel={cancelTranscription}
+	/>
+{/snippet}
+
 <svelte:head>
 	<title>{editorSession.project?.name ?? m.video_editor_title()}</title>
 </svelte:head>
@@ -3114,6 +3139,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 														: undefined}
 												/>
 											{:else if leftPanel === 'transcript'}
+												{#if selectedItemId && selectedIsMedia}
+													<div class="shrink-0 p-1">{@render transcriptionControls()}</div>
+												{/if}
 												<TranscriptPanel
 													itemIds={selectedLeftPanelItemIds}
 													showHeading={false}
@@ -3403,6 +3431,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 								<div
 									class="min-h-0 flex-1 overflow-y-auto p-2 {rightSidebarRail ? 'lg:hidden' : ''}"
+									use:resetInspectorScroll={`${editInspectorTab}:${(selectedItemId ? timelineStore.itemById.get(selectedItemId)?.type : null) ?? 'none'}`}
 								>
 									{#if selectedTransition}
 										<TransitionPropertiesPanel
@@ -3486,18 +3515,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											onedit={() => editorSession.scheduleAutosave()}
 										/>
 									{:else if selectedItemId && editInspectorTab === 'transcript' && selectedIsMedia}
-										<TranscriptionControls
-											canTranscribe={selectedIsMedia}
-											busy={selectedTranscriptionJob !== undefined}
-											status={selectedTranscriptionJob?.status}
-											queuePosition={selectedTranscriptionQueuePosition}
-											queueTotal={transcriptionJobCount}
-											progress={selectedTranscriptionJob?.progress ?? null}
-											backend={selectedTranscriptionJob?.backend ?? null}
-											fallback={selectedTranscriptionJob?.fallback ?? null}
-											onstart={(selection) => void handleTranscribe(selection)}
-											oncancel={cancelTranscription}
-										/>
+										{@render transcriptionControls()}
 										<div class="mt-1">
 											<AiCaptionControls
 												canGenerate={selectedIsMedia}

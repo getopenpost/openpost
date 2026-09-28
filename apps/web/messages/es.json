@@ -6621,7 +6621,7 @@
 	"video_editor_export_render": "Renderizar vídeo completo",
 	"video_editor_render_progress": "Marco de representación {done} / {total}",
 	"video_editor_send_to_openpost": "Enviar a OpenPost",
-	"video_editor_export_done": "Guardado {name} en la carpeta de exportaciones.",
+	"video_editor_export_done": "{name} guardado.",
 	"video_editor_sent": "Enviado a tu biblioteca de medios OpenPost.",
 	"video_editor_open_composer": "Abrir compositor",
 	"video_editor_crossfade": "Añadir crossfade",

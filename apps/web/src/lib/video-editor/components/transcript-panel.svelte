@@ -468,10 +468,7 @@
 
 	function commitIgnoredVideoWords(): void {
 		if (ignoredSourceWords.length === 0) return;
-		const result = applyTranscriptTargetRangeRemoval(
-			transcriptIgnoreStore.targets,
-			ignoredSourceWords
-		);
+		const result = applyTranscriptTargetRangeRemoval(transcriptIgnoreStore.targets);
 		if (result.removedItemCount === 0) return;
 		transcriptIgnoreStore.clear();
 		clearWordSelection();
@@ -498,8 +495,7 @@
 		if (clones.length === 0) return;
 		if (cut) {
 			const result = applyTranscriptTargetRangeRemoval(
-				buildTranscriptSelectionRanges(selectedSourceWords),
-				selectedSourceWords
+				buildTranscriptSelectionRanges(selectedSourceWords)
 			);
 			if (result.removedItemCount === 0) return;
 			onedit();

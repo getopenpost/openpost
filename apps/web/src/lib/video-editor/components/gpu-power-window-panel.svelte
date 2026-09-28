@@ -167,7 +167,7 @@
 </div>
 <div class="pb-1" class:opacity-50={disabled}>
 	<svg
-		class="aspect-video w-full touch-none rounded border border-[var(--video-editor-border)] bg-black"
+		class="aspect-video w-full max-w-sm touch-none rounded border border-[var(--video-editor-border)] bg-black"
 		viewBox="0 0 100 56.25"
 		role="application"
 		aria-label={`${effectLabel}: ${m.video_editor_power_window_gizmo()}`}

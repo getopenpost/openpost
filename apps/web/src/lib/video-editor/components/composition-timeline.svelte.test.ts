@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { m } from '$lib/paraglide/messages';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
@@ -84,6 +84,7 @@ it('keeps all duplicated layers selected when the inspector receives the primary
 		await screen.getByTestId('composition-layer-second').click();
 		await userEvent.keyboard('{/Shift}');
 		await screen.getByTestId('composition-duplicate').click();
+		await screen.getByTestId('ruler-tick-0').click();
 		const copies = timelineStore.items.filter((item) => !['first', 'second'].includes(item.id));
 		expect(copies).toHaveLength(2);
 		for (const copy of copies) {
@@ -542,3 +543,114 @@ it.each(['start', 'end'])(
 		}
 	}
 );
+
+it('aligns layer bars with measured sidebar rows after expanding and filtering', async () => {
+	await page.viewport(1280, 900);
+	const id = 'aligned-rows';
+	sequenceStore.addComposition({
+		id,
+		name: 'Aligned',
+		editorKind: 'composite-2d',
+		items: ['first', 'second'].map((id, index) => ({
+			id,
+			label: id,
+			type: 'text',
+			text: id,
+			trackId: index === 0 ? 'track-video-main' : 'track-video-overlay',
+			from: 0,
+			durationInFrames: 300
+		})),
+		tracks: createDefaultTracks(),
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 300
+	});
+	sequenceStore.switchTo(id);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const alignment = (itemId: string) => {
+			const label = screen
+				.getByTestId(`composition-layer-${itemId}`)
+				.element()
+				.getBoundingClientRect();
+			const bar = screen.getByTestId(`composition-bar-${itemId}`).element().getBoundingClientRect();
+			return Math.abs(label.top + label.height / 2 - bar.top - bar.height / 2);
+		};
+		await expect.poll(() => alignment('second')).toBeLessThan(2);
+		await screen.getByTestId('layer-expand-first').click();
+		await expect.poll(() => alignment('second')).toBeLessThan(2);
+		await screen.getByRole('textbox', { name: 'Filter layers' }).fill('second');
+		await expect.element(screen.getByTestId('composition-bar-first')).not.toBeInTheDocument();
+		await expect.poll(() => alignment('second')).toBeLessThan(2);
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(id);
+	}
+});
+
+it('retains marquee selection after pointer release and its browser click', async () => {
+	const id = 'review-motion';
+	sequenceStore.addComposition({
+		id,
+		name: id,
+		editorKind: 'composite-2d',
+		items: [
+			{
+				id: 'title',
+				label: 'Title',
+				type: 'text',
+				text: 'Title',
+				trackId: 'track-video-main',
+				from: 0,
+				durationInFrames: 30
+			}
+		],
+		tracks: createDefaultTracks(),
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 300
+	});
+	sequenceStore.switchTo(id);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const bar = screen.getByTestId('composition-bar-title');
+		const bars = screen.getByTestId('composition-layer-bars').element();
+		const rect = bar.element().getBoundingClientRect();
+		const pointer = (type: string, target: EventTarget, x: number, y: number) =>
+			target.dispatchEvent(
+				new PointerEvent(type, { pointerId: 1, button: 0, bubbles: true, clientX: x, clientY: y })
+			);
+		pointer('pointerdown', bars, rect.right + 20, rect.bottom + 10);
+		pointer('pointermove', window, rect.left + 2, rect.top + 2);
+		pointer('pointerup', window, rect.left + 2, rect.top + 2);
+		await expect.element(bar).toHaveAttribute('aria-pressed', 'true');
+		screen
+			.getByTestId('composition-scroll')
+			.element()
+			.dispatchEvent(
+				new MouseEvent('click', { bubbles: true, clientX: rect.left + 2, clientY: rect.top + 2 })
+			);
+		await expect.element(bar).toHaveAttribute('aria-pressed', 'true');
+		// A fresh blank click still clears the completed selection.
+		pointer('pointerdown', bars, rect.right + 20, rect.bottom + 10);
+		pointer('pointerup', window, rect.right + 20, rect.bottom + 10);
+		screen
+			.getByTestId('composition-scroll')
+			.element()
+			.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		await expect.element(bar).toHaveAttribute('aria-pressed', 'false');
+		// Canceling another drag restores the empty selection from before the gesture.
+		pointer('pointerdown', bars, rect.right + 20, rect.bottom + 10);
+		pointer('pointermove', window, rect.left + 2, rect.top + 2);
+		await expect.element(bar).toHaveAttribute('aria-pressed', 'true');
+		pointer('pointercancel', window, rect.left + 2, rect.top + 2);
+		await expect.element(bar).toHaveAttribute('aria-pressed', 'false');
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(id);
+	}
+});

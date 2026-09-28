@@ -210,7 +210,12 @@
 		try {
 			const est = await navigator.storage?.estimate?.();
 			availableBytes =
-				est?.quota !== undefined && est.usage !== undefined ? est.quota - est.usage : null;
+				est?.quota !== undefined &&
+				est.usage !== undefined &&
+				Number.isFinite(est.quota) &&
+				Number.isFinite(est.usage)
+					? Math.max(0, est.quota - est.usage)
+					: null;
 		} catch {
 			availableBytes = null;
 		}

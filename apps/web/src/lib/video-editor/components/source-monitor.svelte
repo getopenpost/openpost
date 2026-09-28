@@ -542,12 +542,14 @@
 	}
 
 	function markIn(): void {
-		inPoint = Math.min(currentFrame, outPoint - 1);
+		inPoint = Math.min(currentFrame, durationFrames - 1);
+		if (inPoint >= outPoint) outPoint = inPoint + 1;
 		marksActive = true;
 	}
 
 	function markOut(): void {
-		outPoint = Math.max(inPoint + 1, Math.min(durationFrames, currentFrame + 1));
+		outPoint = Math.min(durationFrames, currentFrame + 1);
+		if (outPoint <= inPoint) inPoint = outPoint - 1;
 		marksActive = true;
 	}
 
@@ -716,7 +718,7 @@
 
 <section
 	bind:this={monitorElement}
-	class="flex min-h-0 min-w-0 flex-1 flex-col border-r border-border bg-card"
+	class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto border-r border-border bg-card"
 	aria-label={m.video_editor_source_monitor()}
 	data-source-monitor
 	onmouseenter={handleSourceMouseEnter}
@@ -742,7 +744,7 @@
 	</header>
 
 	<div
-		class="editor-protected-surface relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-[var(--canvas-pasteboard)]"
+		class="editor-protected-surface relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[var(--canvas-pasteboard)]"
 		data-editor-protected="source-media"
 	>
 		{#if playing && sourceShuttleActive}
@@ -777,7 +779,7 @@
 				<audio bind:this={proxyAudioElement} src={sourceAudioUrl} preload="auto"></audio>
 			{/if}
 		{:else if kind === 'audio'}
-			<div class="flex size-full max-h-[360px] min-h-48 flex-col p-3 text-[var(--editor-muted)]">
+			<div class="flex size-full max-h-[360px] min-h-0 flex-col p-3 text-[var(--editor-muted)]">
 				<div class="mb-2 flex items-center justify-center gap-2 text-xs">
 					<ProtectedIcon icon="media-audio" class="size-4" />
 					<span>{m.video_editor_source_audio_only()}</span>

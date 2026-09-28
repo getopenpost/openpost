@@ -324,6 +324,8 @@
 	let sidebarViewportHeight = $state(400);
 	let sidebarScrollTop = $state(0);
 	let sidebarRowHeights = $state<Map<string, number>>(new Map());
+	type RowGeometry = { barHeight: number; barTop: number; vectors: number[]; textBands: number[] };
+	let sidebarRowGeometry = $state<Map<string, RowGeometry>>(new Map());
 	let selectedItemIds = $state<Set<string>>(new Set());
 	let lastSelectedId = $state<string | null>(null);
 	$effect(() => {
@@ -355,6 +357,14 @@
 	let newDuration = $state(300);
 	let editingNameId: string | null = $state(null);
 	let editingNameValue = $state('');
+	let inlineKeyframeWidth = $state(320);
+	const sheetLabelWidth = $derived(Math.min(180, Math.max(120, inlineKeyframeWidth * 0.45)));
+	function sheetScale(item: TimelineItem): number {
+		return Math.max(
+			0.001,
+			(inlineKeyframeWidth - sheetLabelWidth - 16) / Math.max(1, item.durationInFrames - 1)
+		);
+	}
 	let expandedLayerIds = $state<Set<string>>(new Set());
 	let expandedGroupIds = $state<Set<string>>(new Set());
 	let filterText = $state('');
@@ -423,7 +433,7 @@
 		sidebarRows.slice(sidebarWindow.startIndex, sidebarWindow.endIndex)
 	);
 	$effect(() => {
-		const activeKeys = new Set(sidebarRowKeys);
+		const activeKeys = new Set(motionRows.map(motionRowKey));
 		if ([...sidebarRowHeights.keys()].every((key) => activeKeys.has(key))) return;
 		sidebarRowHeights = new Map([...sidebarRowHeights].filter(([key]) => activeKeys.has(key)));
 	});
@@ -440,7 +450,23 @@
 		const measure = () => {
 			const style = getComputedStyle(node);
 			const marginBottom = Number.parseFloat(style.marginBottom) || 0;
-			setSidebarRowHeight(activeKey, node.getBoundingClientRect().height + marginBottom);
+			const rect = node.getBoundingClientRect();
+			setSidebarRowHeight(activeKey, rect.height + marginBottom);
+			const header = node.querySelector('.layer-row')?.getBoundingClientRect();
+			const offsets = (selector: string) =>
+				[...node.querySelectorAll(selector)].map((el) => el.getBoundingClientRect().top - rect.top);
+			const barHeight = matchMedia('(pointer: coarse)').matches ? 44 : ROW_H - 12;
+			const geometry: RowGeometry = {
+				barHeight,
+				barTop: header ? header.top - rect.top + (header.height - barHeight) / 2 : 0,
+				vectors: offsets('.vector-row'),
+				textBands: offsets('.text-band-row')
+			};
+			if (JSON.stringify(sidebarRowGeometry.get(activeKey)) !== JSON.stringify(geometry)) {
+				const next = new Map(sidebarRowGeometry);
+				next.set(activeKey, geometry);
+				sidebarRowGeometry = next;
+			}
 		};
 		const observer = new ResizeObserver(measure);
 		observer.observe(node);
@@ -463,7 +489,23 @@
 		queryTimelineItemRange(itemIndex, { start: visibleRange.start, end: visibleRange.end })
 	);
 	const layerEntryByItemId = $derived(
-		new Map(layerEntries.map((row, index) => [row.item.id, { row, index }]))
+		new Map(
+			sidebarRows.flatMap((row, index) =>
+				isLayerRow(row)
+					? [
+							[
+								row.item.id,
+								{
+									row,
+									index,
+									top: sidebarLayout.offsets[index] ?? 0,
+									geometry: sidebarRowGeometry.get(motionRowKey(row))
+								}
+							] as const
+						]
+					: []
+			)
+		)
 	);
 	const visibleLayerEntries = $derived.by(() => {
 		const ids = new Set([...visibleBars.map((item) => item.id), ...selectedItemIds]);
@@ -589,13 +631,19 @@
 		const clamped = Math.max(0, Math.min(frame, durationFrames - 1));
 		timelineStore._setCurrentFrame(clamped);
 	}
+	let suppressMarqueeClick = false;
 	function handleTimelineClick(event: MouseEvent): void {
+		if (suppressMarqueeClick) {
+			suppressMarqueeClick = false;
+			return;
+		}
 		const target = event.target;
 		if (!(target instanceof HTMLElement)) return;
 		if (
 			target.closest('[data-layer-row]') ||
 			target.closest('[data-vector-row]') ||
-			target.closest('[data-testid^="composition-bar"]')
+			target.closest('[data-testid^="composition-bar"]') ||
+			target.closest('[data-testid="composition-ruler"], button, input, select, textarea')
 		)
 			return;
 		clearSelection();
@@ -611,7 +659,7 @@
 	}
 	function handleFit(): void {
 		const span = Math.max(60, durationFrames);
-		const containerWidth = scrollEl ? scrollEl.clientWidth - 220 : 800;
+		const containerWidth = scrollEl ? Math.max(1, scrollEl.clientWidth - 24) : 800;
 		const targetPxPerFrame = containerWidth / span;
 		const level = clampTimelineZoom(targetPxPerFrame / 4);
 		timelineStore._setZoomLevel(level);
@@ -643,7 +691,7 @@
 			fallbackFrom: item.from,
 			fallbackTo: item.from + item.durationInFrames - 1,
 			fps,
-			availableWidth: Math.max(1, scrollEl.clientWidth - 220 - 50),
+			availableWidth: Math.max(1, scrollEl.clientWidth - 50),
 			scrollBase: 0
 		});
 		timelineStore._setZoomLevel(level);
@@ -1236,11 +1284,20 @@
 		let trackId = row?.dataset.layerRow
 			? (timelineStore.itemById.get(row.dataset.layerRow)?.trackId ?? null)
 			: null;
-		if (!trackId && layerBarsEl) {
+		if (
+			!trackId &&
+			layerBarsEl &&
+			event.clientY >= scrollRect.top + 28 &&
+			event.clientY < scrollRect.bottom
+		) {
 			const barsRect = layerBarsEl.getBoundingClientRect();
 			if (event.clientY >= barsRect.top && event.clientY <= barsRect.bottom) {
-				const rowIndex = Math.floor((event.clientY - barsRect.top) / ROW_H);
-				trackId = layerEntries[rowIndex]?.item.trackId ?? null;
+				const y = event.clientY - barsRect.top;
+				const rowIndex = sidebarLayout.offsets.findIndex(
+					(top, index) => y >= top && y < top + sidebarLayout.sizes[index]!
+				);
+				const targetRow = sidebarRows[rowIndex];
+				trackId = targetRow && isLayerRow(targetRow) ? targetRow.item.trackId : null;
 			}
 		}
 		let visualTrackId: string | null = null;
@@ -1549,11 +1606,15 @@
 			if (!reorderDrag) return;
 			const deltaY = e.clientY - reorderDrag.startY;
 			if (Math.abs(deltaY) < 6) return;
-			const rows = motionRows;
+			const rows = sidebarRows;
 			const idx = rows.findIndex((r) =>
 				isLayerRow(r) ? r.track?.id === trackId : r.track.id === trackId
 			);
-			const targetIdx = Math.max(0, Math.min(rows.length - 1, idx + Math.round(deltaY / ROW_H)));
+			if (!sidebarEl) return;
+			const y = e.clientY - sidebarEl.getBoundingClientRect().top + sidebarEl.scrollTop - 28;
+			const targetIdx = sidebarLayout.offsets.findIndex(
+				(top, index) => y >= top && y < top + sidebarLayout.sizes[index]!
+			);
 			if (targetIdx === idx || targetIdx < 0) return;
 			// update track orders atomically
 			const trackOrder = timelineStore.tracks.toSorted((a, b) => a.order - b.order);
@@ -1722,8 +1783,9 @@
 			event.preventDefault();
 			const item = timelineStore.itemById.get(lastSelectedId);
 			if (!item) return;
-			const rows = motionRows;
+			const rows = sidebarRows;
 			const idx = rows.findIndex((r) => isLayerRow(r) && r.item.id === lastSelectedId);
+			if (idx < 0) return;
 			const dir = reorderUp ? -1 : 1;
 			const targetIdx = idx + dir;
 			if (targetIdx < 0 || targetIdx >= rows.length) return;
@@ -2009,6 +2071,7 @@
 		active: boolean;
 	} | null = $state(null);
 	function startMarquee(event: PointerEvent): void {
+		suppressMarqueeClick = false;
 		const target = event.target;
 		if (!(target instanceof HTMLElement)) return;
 		if (
@@ -2020,9 +2083,10 @@
 		if (event.button !== 0) return;
 		const marqueeRoot = event.currentTarget;
 		if (!(marqueeRoot instanceof HTMLElement)) return;
-		const rect = marqueeRoot.getBoundingClientRect();
-		const rowIndexById = new Map(visualLayerItems.map((item, index) => [item.id, index]));
+		if (!layerBarsEl) return;
+		const rect = layerBarsEl.getBoundingClientRect();
 		pointerGestures?.cancel('superseded');
+		const selectionBefore = new Set(selectedItemIds);
 		marquee = {
 			x: event.clientX - rect.left,
 			y: event.clientY - rect.top,
@@ -2038,18 +2102,25 @@
 			const dy = e.clientY - marquee.startY;
 			if (!marquee.active && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
 			marquee.active = true;
-			const curX = e.clientX - rect.left;
-			const curY = e.clientY - rect.top;
+			const currentRect = layerBarsEl?.getBoundingClientRect() ?? rect;
+			const curX = e.clientX - currentRect.left;
+			const curY = e.clientY - currentRect.top;
 			marquee.w = curX - marquee.x;
 			marquee.h = curY - marquee.y;
 			// select items whose bar overlaps marquee in timeline content
 			const sel = new Set<string>();
-			for (const row of layerEntries) {
-				const item = row.item;
-				const left = timelineX(item.from) - scrollLeft;
-				const right = timelineX(item.from + item.durationInFrames) - scrollLeft;
-				const top = 8 + (rowIndexById.get(item.id) ?? 0) * ROW_H;
-				const barRect = { left, right, top, bottom: top + ROW_H - 12 };
+			for (const entry of layerEntryByItemId.values()) {
+				const item = entry.row.item;
+				if (isLocked(item)) continue;
+				const left = timelineX(item.from);
+				const right = timelineX(item.from + item.durationInFrames);
+				const top = entry.top + (entry.geometry?.barTop ?? 0);
+				const barRect = {
+					left,
+					right,
+					top,
+					bottom: top + (entry.geometry?.barHeight ?? ROW_H - 12)
+				};
 				const mRect = {
 					left: Math.min(marquee.x, marquee.x + marquee.w),
 					right: Math.max(marquee.x, marquee.x + marquee.w),
@@ -2064,16 +2135,19 @@
 				)
 					sel.add(item.id);
 			}
-			if (sel.size) selectedItemIds = sel;
+			selectedItemIds = sel;
 		};
 		pointerGestures?.start({
 			pointerId: event.pointerId,
 			target: marqueeRoot,
 			onMove,
 			onCommit: () => {
+				suppressMarqueeClick = marquee?.active ?? false;
 				marquee = null;
 			},
 			onCancel: () => {
+				suppressMarqueeClick = marquee?.active ?? false;
+				selectedItemIds = selectionBefore;
 				marquee = null;
 			}
 		});
@@ -3087,15 +3161,18 @@
 															>
 														</div>
 													</div>
-													<div class="inline-props-views">
+													<div class="inline-props-views" bind:clientWidth={inlineKeyframeWidth}>
 														{#if keyframeEditorMode(item.id) !== 'graph'}
 															<KeyframeDopesheet
 																{item}
 																availableProperties={getAnimatablePropertiesForItem(item)}
 																currentFrame={previewFrame ?? timelineStore.currentFrame}
-																pixelsPerFrame={pxPerFrame}
-																{timelineWidth}
-																{timelineX}
+																pixelsPerFrame={sheetScale(item)}
+																timelineWidth={inlineKeyframeWidth}
+																timelineX={(frame) =>
+																	sheetLabelWidth + 8 + (frame - item.from) * sheetScale(item)}
+																propertyColumnWidth={sheetLabelWidth}
+																presentation="side"
 																onscrub={seekTo}
 																onactiveproperty={(property) =>
 																	setActiveKeyframeProperty(item.id, property)}
@@ -3257,6 +3334,10 @@
 									data-testid="sidebar-virtual-after"
 								></div>
 							{/if}
+							<div
+								aria-hidden="true"
+								style:height={`${Math.max(200, sidebarLayout.totalSize + 120) - sidebarLayout.totalSize}px`}
+							></div>
 							{#if motionRows.length === 0}
 								<div class="empty-layers" data-testid="composition-empty-layers">
 									<p>{m.video_editor_composition_timeline_empty()}</p>
@@ -3334,10 +3415,7 @@
 			>
 				<div
 					class="timeline-inner"
-					style="width:{timelineWidth}px; height:{Math.max(
-						240,
-						layerEntries.length * ROW_H + 120
-					)}px"
+					style="width:{timelineWidth}px; height:{Math.max(240, sidebarLayout.totalSize + 148)}px"
 				>
 					<div
 						class="composition-ruler"
@@ -3401,11 +3479,11 @@
 						class="layer-bars"
 						bind:this={layerBarsEl}
 						data-testid="composition-layer-bars"
-						style="height:{Math.max(200, layerEntries.length * ROW_H)}px"
+						style="height:{Math.max(200, sidebarLayout.totalSize + 120)}px"
 					>
 						{#each visibleLayerEntries as entry (entry.row.item.id)}
 							{@const row = entry.row}
-							{@const idx = entry.index}
+							{@const rowTop = entry.top}
 							{@const item = row.item}
 							{@const isSelected = selectedItemIds.has(item.id)}
 							{@const vRows = vectorRowsFor(item)}
@@ -3414,10 +3492,11 @@
 								type="button"
 								class="layer-bar"
 								class:selected={isSelected}
-								style="left:{timelineX(item.from)}px; top:{8 + idx * ROW_H}px; width:{Math.max(
+								style="left:{timelineX(item.from)}px; top:{rowTop +
+									(entry.geometry?.barTop ?? 0)}px; width:{Math.max(
 									8,
 									item.durationInFrames * pxPerFrame
-								)}px; height:{ROW_H - 12}px"
+								)}px; height:{entry.geometry?.barHeight ?? ROW_H - 12}px"
 								data-testid={`composition-bar-${item.id}`}
 								aria-label={itemLabel(item)}
 								aria-pressed={isSelected}
@@ -3437,7 +3516,9 @@
 							{#each vRows as vRow, vIdx (vRow.property)}
 								<div
 									class="vector-lane"
-									style="top:{8 + idx * ROW_H + ROW_H + vIdx * VECTOR_H}px; height:{VECTOR_H}px"
+									style="top:{rowTop +
+										(entry.geometry?.vectors[vIdx] ??
+											ROW_H + vIdx * VECTOR_H)}px; height:{VECTOR_H}px"
 									data-testid={`vector-lane-${item.id}-${vRow.property}`}
 								>
 									{#each keyframesForVector(item, vRow.primary) as kf (keyframeIdentity(kf))}
@@ -3480,11 +3561,11 @@
 							{#each textBands as band, bIdx (band.slot)}
 								<div
 									class="text-band-lane"
-									style="top:{8 +
-										idx * ROW_H +
-										ROW_H +
-										vRows.length * VECTOR_H +
-										bIdx * TEXT_BAND_H}px; height:{TEXT_BAND_H}px"
+									style="top:{rowTop +
+										(entry.geometry?.textBands[bIdx] ??
+											ROW_H +
+												vRows.length * VECTOR_H +
+												bIdx * TEXT_BAND_H)}px; height:{TEXT_BAND_H}px"
 									data-testid={`text-lane-${item.id}-${band.slot}`}
 								>
 									<button
@@ -4004,7 +4085,7 @@
 		background: oklch(0.16 0.009 55);
 		overflow-y: auto;
 		overflow-x: hidden;
-		padding: 0.35rem;
+		padding: 0 0.35rem;
 	}
 	.layer-sidebar:focus-visible {
 		outline: 2px solid oklch(0.66 0.14 45);
@@ -4015,6 +4096,13 @@
 		pointer-events: none;
 	}
 	.layer-sidebar-header {
+		position: sticky;
+		top: 0;
+		z-index: 2;
+		height: 28px;
+		box-sizing: border-box;
+		align-items: center;
+		background: var(--background);
 		display: grid;
 		grid-template-columns: 1fr 86px 44px 64px;
 		gap: 0.25rem;
@@ -4353,6 +4441,10 @@
 		width: 100%;
 		overflow-x: auto;
 	}
+	.inline-props-views > :global(*) {
+		height: 240px;
+		min-height: 0;
+	}
 	.inline-props-views :global([data-keyframe-value-graph]) {
 		min-width: min(20rem, 100%);
 		width: 100%;
@@ -4517,7 +4609,6 @@
 	.layer-bars {
 		position: relative;
 		min-height: 200px;
-		padding-top: 8px;
 	}
 	.layer-bar {
 		position: absolute;

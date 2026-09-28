@@ -484,7 +484,7 @@
 			{/if}
 		</div>
 		<div
-			class="min-h-0 flex-1 overflow-hidden {scrollCompactBody
+			class="flex min-h-0 flex-1 flex-col overflow-hidden {scrollCompactBody
 				? 'short-scroll-workspace-body'
 				: ''}"
 		>

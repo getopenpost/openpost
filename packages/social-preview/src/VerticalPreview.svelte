@@ -164,7 +164,7 @@
           <span>{platform === "youtube" ? "Subscribe" : "Follow"}</span>
         {/if}
       </div>
-      <p>{caption || "Your caption will appear here."}</p>
+      <p dir="auto">{caption || "Your caption will appear here."}</p>
       <div class="audio-row">
         <Music2 aria-hidden="true" />
         <span
@@ -459,6 +459,8 @@
     line-height: 1.4;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     line-clamp: 3;

@@ -21,8 +21,8 @@
       <span class="save">Save</span>
     </div>
     {#if model.card?.domain}<span class="domain">{model.card.domain}</span>{/if}
-    {#if model.title}<h2>{model.title}</h2>{/if}
-    {#if primary?.text}<p>{primary.text}</p>{/if}
+    {#if model.title}<h2 dir="auto">{model.title}</h2>{/if}
+    {#if primary?.text}<p dir="auto">{primary.text}</p>{/if}
     <div class="author">
       <PreviewAvatar identity={model.identity} size={32} /><strong
         >{model.identity.displayName}</strong
@@ -86,6 +86,8 @@
     font-size: 0.9rem;
     line-height: 1.45;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
     overflow-wrap: anywhere;
   }
   .author {

@@ -55,7 +55,7 @@
       </div>
     </div>
 
-    <h2>{title}</h2>
+    <h2 dir="auto">{title}</h2>
     <div class="video-meta">
       <div class="channel">
         <PreviewAvatar identity={model.identity} size={40} />
@@ -73,7 +73,7 @@
 
     <div class="description">
       <strong>0 views · {model.createdAtLabel}</strong>
-      <p>{description}</p>
+      <p dir="auto">{description}</p>
     </div>
 
     <div class="comments">
@@ -257,6 +257,8 @@
     font-size: 0.78rem;
     line-height: 1.45;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;

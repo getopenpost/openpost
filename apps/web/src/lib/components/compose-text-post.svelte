@@ -6026,6 +6026,7 @@
 										<div class="relative">
 											<Textarea
 												id="post-textarea-{i}"
+												dir="auto"
 												aria-label={editorTextIsYouTubeDescription
 													? m.compose_description()
 													: m.compose_post_text()}

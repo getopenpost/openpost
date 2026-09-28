@@ -74,8 +74,13 @@ for (const width of [1280, 390, 320]) {
         exact: true,
       });
       const text =
-        "A longer update that wraps onto multiple lines in the composer.\n\nThe same text is shared across destinations.\n\nThe final line must stay readable above the customization controls.";
+        "مرحبا بكم في OpenPost! هذا تحديث طويل لاختبار التفاف النص في المحرر.\n\nשלום OpenPost!\n\nThe final English paragraph stays readable.";
       await editor.fill(text);
+      await page.screenshot({
+        path: testInfo.outputPath("mixed-direction-composer.png"),
+        fullPage: true,
+      });
+      await expect(editor).toHaveCSS("direction", "rtl");
       await page.locator(`#composer-destination-${accountID}`).click();
       await expect(editor).toBeDisabled();
       await expect(editor).toHaveValue(text);
@@ -106,8 +111,9 @@ for (const width of [1280, 390, 320]) {
       await expect(previewButton).toHaveAttribute("aria-expanded", "true");
       const preview = page.getByRole("region", { name: "Preview", exact: true });
       await expect(preview.getByText(text, { exact: true })).toBeVisible();
-      const revised = "This destination now has its own edited text.";
+      const revised = "שלום OpenPost! זהו טקסט מותאם ליעד.";
       await editor.fill(revised);
+      await expect(editor).toHaveCSS("direction", "rtl");
       await expect(preview.getByText(revised, { exact: true })).toBeVisible();
       await expect(preview.getByText(text, { exact: true })).toHaveCount(0);
       await preview.screenshot({ path: testInfo.outputPath("compact-preview.png") });
@@ -132,6 +138,7 @@ for (const width of [1280, 390, 320]) {
       );
       const finalText = "The open full-page preview also follows my edits.";
       await editor.fill(finalText);
+      await expect(editor).toHaveCSS("direction", "ltr");
       await expect(preview.getByText(finalText, { exact: true })).toBeVisible();
       await expect(fullPreview.getByText(finalText, { exact: true })).toBeVisible();
       await fullPreview.screenshot({ path: testInfo.outputPath("full-preview.png") });

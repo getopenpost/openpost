@@ -86,7 +86,7 @@
   {@const poll = segment.poll ?? (index === 0 ? model.poll : undefined)}
   {#if warning}{@render contentWarning(warning, segment.id)}{/if}
   {#if !warning || revealedWarnings[segment.id] === warning}
-    {#if segment.text}<p class="post-text">{segment.text}</p>{/if}
+    {#if segment.text}<p class="post-text" dir="auto">{segment.text}</p>{/if}
     {#if card}<PreviewAttachment {card} {platform} />{/if}
     {#if poll}<PreviewPollView {poll} {platform} />{/if}
     {@const segmentMedia = mediaForSegment(segment, index)}
@@ -269,6 +269,8 @@
     line-height: 1.34;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
   }
 
   .platform-threads :global(.media-carousel) {

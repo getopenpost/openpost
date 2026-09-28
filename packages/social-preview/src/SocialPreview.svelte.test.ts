@@ -38,6 +38,36 @@ describe("SocialPreview destination presentations", () => {
     await expect.element(screen.getByText("Views", { exact: true })).toBeVisible();
   });
 
+  it.each([
+    "x",
+    "discord",
+    "telegram",
+    "pinterest",
+    "googlebusiness",
+    "reddit",
+    "youtube",
+    "tiktok",
+  ] as const)(
+    "resolves mixed-script post direction in %s without reversing the card",
+    async (platform) => {
+      const text = "مرحبا OpenPost!";
+      const model = createPreviewModel({
+        platform,
+        identity: { displayName: "Alice", handle: "alice" },
+        title: "عنوان OpenPost!",
+        segments: [{ id: "primary", text }],
+      });
+      const screen = await render(SocialPreview, { model });
+      const caption = screen.getByText(text, { exact: true }).element();
+      expect(getComputedStyle(caption).direction).toBe("rtl");
+      expect(
+        getComputedStyle(
+          screen.getByLabelText(`${platformNames[platform]} ${model.format} preview`).element(),
+        ).direction,
+      ).toBe("ltr");
+    },
+  );
+
   it("renders Mastodon content warnings", async () => {
     const model = {
       ...previewModel("mastodon"),

@@ -39,7 +39,7 @@
       {:else if model.format === "video"}
         <PreviewMedia media={[]} emptyLabel="Video preview" />
       {/if}
-      {#if segment?.text}<p>{segment.text}</p>{/if}
+      {#if segment?.text}<p dir="auto">{segment.text}</p>{/if}
       <footer>
         <span>{model.createdAtLabel}</span>
       </footer>
@@ -106,6 +106,8 @@
     line-height: 1.45;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
   }
 
   footer {

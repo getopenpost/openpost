@@ -8,6 +8,7 @@ Preview support is separate from publishing readiness. Reddit is a preview-only 
 
 - Page navigation responds to the preview container width, not the host viewport. Keep mobile navigation inside that container.
 - `scheme` accepts `system`, `light`, or `dark`. Explicit schemes override the host application's appearance.
+- Authored text detects direction with `dir="auto"`; multiline post bodies use `unicode-bidi: plaintext` and `text-align: start` for independent paragraph direction. Isolate inline author names with `bdi`. Keep card controls in the interface direction and preserve the original text without inserting directional characters.
 - Preserve the selected output format, the destination's segment strategy, per-segment settings, and explicitly empty media arrays. Joined destinations use the same trimmed text and combined attachments as publication delivery.
 - Use supplied media dimensions when available and intrinsic dimensions otherwise. A missing ratio must not permanently force portrait media into a landscape crop.
 - Shared capability counts describe verified preview limits. Unspecified limits can vary by instance or client; public tools must label their own input limits and never silently discard uploads.

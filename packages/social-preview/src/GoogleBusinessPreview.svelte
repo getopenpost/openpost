@@ -30,7 +30,7 @@
   </header>
   {#if media.length}<PreviewMedia {media} layout="single" />{/if}
   <div class="update-copy">
-    {#if model.title}<h2>{model.title}</h2>{/if}
+    {#if model.title}<h2 dir="auto">{model.title}</h2>{/if}
     {#if model.business?.topic === "event" || model.business?.topic === "offer"}
       <span class="date-range"
         >{model.business.startDate}{model.business.startTime
@@ -42,7 +42,7 @@
           : ""}</span
       >
     {/if}
-    {#if primary?.text}<p>{primary.text}</p>{/if}
+    {#if primary?.text}<p dir="auto">{primary.text}</p>{/if}
     {#if model.business?.topic === "offer"}
       {#if model.business.couponCode}<span class="coupon"
           >Code: <strong>{model.business.couponCode}</strong></span
@@ -109,6 +109,8 @@
     font-size: 0.9rem;
     line-height: 1.5;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
     overflow-wrap: anywhere;
   }
   .link-label {

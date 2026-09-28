@@ -30,7 +30,7 @@
           <span class="app-badge">APP</span>
           <span>{model.createdAtLabel}</span>
         </header>
-        {#if segment.text}<p>{segment.text}</p>{/if}
+        {#if segment.text}<p dir="auto">{segment.text}</p>{/if}
         {#if segment.card ?? (index === 0 ? model.card : undefined)}<PreviewAttachment
             card={(segment.card ?? model.card)!}
             platform="discord"
@@ -129,6 +129,8 @@
     line-height: 1.4;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
   }
 
   .message-body :global(.single-media) {

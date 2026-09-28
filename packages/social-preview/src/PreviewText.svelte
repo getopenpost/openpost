@@ -54,11 +54,12 @@
 
 <div class={["preview-text", className]}>
   <p
+    dir="auto"
     id={contentId}
     use:observeOverflow={{ text: `${author ?? ""}${text}`, limit: lineLimit }}
     style:-webkit-line-clamp={expanded ? "unset" : lineLimit}
   >
-    {#if author}<strong>{author}</strong>{/if}{text}
+    {#if author}<strong><bdi>{author}</bdi></strong>{/if}{text}
   </p>
   {#if truncated}
     <button
@@ -83,6 +84,8 @@
     overflow: hidden;
     margin: 0;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
     overflow-wrap: anywhere;
     font: inherit;
     color: inherit;
@@ -100,7 +103,7 @@
     cursor: pointer;
   }
   strong {
-    margin-right: 0.35rem;
+    margin-inline-end: 0.35rem;
   }
   button:hover {
     text-decoration: underline;

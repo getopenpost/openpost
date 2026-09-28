@@ -58,7 +58,7 @@
   </header>
 
   <div class="post-body">
-    {#if model.title && model.format !== "document"}<h3>{model.title}</h3>{/if}
+    {#if model.title && model.format !== "document"}<h3 dir="auto">{model.title}</h3>{/if}
     {@render postText(primary)}
   </div>
 

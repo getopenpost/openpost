@@ -33,9 +33,9 @@
     </div>
   </header>
 
-  <h2>{title}</h2>
+  <h2 dir="auto">{title}</h2>
   {#if body}
-    <p class="post-body">{body}</p>
+    <p class="post-body" dir="auto">{body}</p>
   {/if}
   {#if model.card}
     <PreviewAttachment card={model.card} {platform} />
@@ -108,6 +108,8 @@
     font-size: 0.9rem;
     line-height: 1.5;
     white-space: pre-wrap;
+    unicode-bidi: plaintext;
+    text-align: start;
     overflow-wrap: anywhere;
   }
 

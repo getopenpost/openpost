@@ -73,6 +73,12 @@ func TestBuildBlueskyFacetsTrimsTrailingPunctuation(t *testing.T) {
 	requireFacet(t, facets, 4, 28, "app.bsky.richtext.facet#link", "uri", "https://example.com/path")
 }
 
+func TestBuildBlueskyFacetsSkipsALinkWithoutAHost(t *testing.T) {
+	for _, text := range []string{"https:///path", "see https://.", "https://?q=1"} {
+		require.Empty(t, buildBlueskyFacets(text, nil), "text %q", text)
+	}
+}
+
 func TestBuildBlueskyFacetsLinksTheWholeURL(t *testing.T) {
 	tests := []struct {
 		text string

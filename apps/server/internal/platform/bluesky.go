@@ -1037,7 +1037,9 @@ func buildBlueskyFacets(text string, settings map[string]interface{}) []map[stri
 	for _, match := range blueskyURLPattern.FindAllStringIndex(text, -1) {
 		start, end := match[0], match[1]
 		uri := strings.TrimRight(text[start:end], ".,;:!?\")']}")
-		if uri == "" {
+		// A link needs a host: "https:///path" or a bare "https://" is not a
+		// URI the post record accepts.
+		if _, rest, _ := strings.Cut(uri, "://"); rest == "" || strings.IndexAny(rest, "/?#") == 0 {
 			continue
 		}
 		end = start + len(uri)

@@ -698,7 +698,13 @@ func separatedSettingValues(settings map[string]interface{}, key string) []strin
 
 func (t *ThreadsAdapter) postContainer(ctx context.Context, userID string, payload map[string]string) (string, error) {
 	containerURL := "https://graph.threads.net/v1.0/" + userID + "/threads"
-	respBody, err := DoFormURLEncoded(ctx, "POST", containerURL, payload, nil)
+	var respBody []byte
+	var err error
+	if payload["media_type"] == "CAROUSEL" {
+		respBody, err = doMetaPropagationForm(ctx, containerURL, payload, metaCodeKey{code: "100", subcode: "4279004"})
+	} else {
+		respBody, err = DoFormURLEncoded(ctx, http.MethodPost, containerURL, payload, nil)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -723,29 +729,7 @@ func (t *ThreadsAdapter) publishContainer(ctx context.Context, accessToken, user
 		oauthParamAccessToken: accessToken,
 	}
 
-	var respBody []byte
-	var err error
-	const maxPublishAttempts = 5
-	for attempt := 1; attempt <= maxPublishAttempts; attempt++ {
-		respBody, err = DoFormURLEncoded(ctx, "POST", publishURL, payload, nil)
-		if err == nil {
-			break
-		}
-
-		// Threads may return code 24 briefly right after container creation/status=FINISHED.
-		// Retry a few times with short backoff to handle propagation lag.
-		if isThreadsPublishPropagationError(err) && attempt < maxPublishAttempts {
-			select {
-			case <-ctx.Done():
-				return "", ctx.Err()
-			case <-time.After(time.Duration(attempt) * 2 * time.Second):
-			}
-			continue
-		}
-
-		return "", fmt.Errorf("threads publish: %w", err)
-	}
-
+	respBody, err := doMetaPropagationForm(ctx, publishURL, payload, metaCodeKey{code: "24", subcode: "4279009"})
 	if err != nil {
 		return "", fmt.Errorf("threads publish: %w", err)
 	}
@@ -758,11 +742,6 @@ func (t *ThreadsAdapter) publishContainer(ctx context.Context, accessToken, user
 	}
 
 	return publishResp.ID, nil
-}
-
-func isThreadsPublishPropagationError(err error) bool {
-	var providerErr *HTTPError
-	return errors.As(err, &providerErr) && providerErr.Code == "24" && providerErr.Subcode == "4279009"
 }
 
 func validateThreadsMedia(media []MediaItem) []MediaValidationIssue {

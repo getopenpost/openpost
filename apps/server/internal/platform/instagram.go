@@ -1218,7 +1218,7 @@ func (i *InstagramAdapter) publishMediaContainer(ctx context.Context, accessToke
 		"creation_id":         containerID,
 		oauthParamAccessToken: accessToken,
 	}
-	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, i.graphURL(instagramUserID+"/media_publish"), values, nil)
+	respBody, err := doMetaPropagationForm(ctx, i.graphURL(instagramUserID+"/media_publish"), values, metaCodeKey{code: "9007", subcode: "2207027"})
 	if err != nil {
 		return "", fmt.Errorf("instagram media publish: %w", err)
 	}

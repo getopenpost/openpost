@@ -224,6 +224,8 @@ Shader backgrounds and image or logo effects use the existing searchable galleri
 
 Keep editor copy quiet. Use short labels, values, and direct actions in the default workspace; do not repeat the active tool as a panel heading or add routine reassurance below self-explanatory controls. Reserve inline prose for errors, permissions, destructive consequences, required attribution, and limitations that change what the creator can do. Put optional technical detail in a tooltip or disclosure.
 
+Editor panes must shrink within the window and scroll their own content. On phones, Assets uses the full area above the timeline; Program restores the preview. Timeline marker details, mixer, and beat controls share a bounded scrolling area that leaves the tracks and overview reachable.
+
 The timeline uses a hybrid track model. The ordered primary sequence and project-wide markers remain semantic rails. Visual, audio, and caption rows render from the document's actual track arrays, so multiple tracks stay distinct and empty categories do not consume permanent lanes. Items on one track cannot overlap unless an explicit transition owns the shared interval; use another track for intentional compositing.
 
 ## Elevation & Depth

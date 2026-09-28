@@ -2842,9 +2842,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{#if activeWorkspace === 'edit'}
 							<aside
 								id="video-editor-assets-panel"
-								class="relative {leftPanel === 'transcript'
-									? 'h-auto flex-1'
-									: 'h-[min(44%,22rem)] flex-none'} min-h-24 w-full min-w-0 flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-start-1 {leftFullColumn
+								class="relative h-auto min-h-0 w-full min-w-0 flex-1 flex-col border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:col-start-1 lg:row-start-1 {leftFullColumn
 									? 'lg:row-span-2'
 									: 'lg:row-span-1'} lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
@@ -3117,7 +3115,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										{/if}
 										<div
 											id="video-editor-left-tool-panel"
-											class="flex min-h-24 flex-1 flex-col lg:min-h-0"
+											class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
 											role="tabpanel"
 											aria-label={leftPanelHeading}
 										>
@@ -3264,9 +3262,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{/if}
 
 						<div
-							class="{activeWorkspace === 'edit' &&
-							mobileEditPane === 'assets' &&
-							leftPanel === 'transcript'
+							class="{activeWorkspace === 'edit' && mobileEditPane === 'assets'
 								? 'hidden lg:flex'
 								: 'flex'} min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'

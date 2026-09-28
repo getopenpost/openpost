@@ -589,3 +589,70 @@ test("Motion uses authored duration in its summary, transport, and export", asyn
     page.getByRole("dialog", { name: "Export video" }).getByText(/12\.0s/),
   ).toBeVisible();
 });
+
+test("panel content stays inside the editor when the window is short", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  await createProject(page, "Contained panels");
+  const failures: string[] = [];
+  for (const size of [
+    { width: 1440, height: 700 },
+    { width: 1024, height: 500 },
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+    { width: 320, height: 568 },
+  ]) {
+    await page.setViewportSize(size);
+    if (size.width < 1024) await page.getByRole("button", { name: "Assets", exact: true }).click();
+    const assets = page.getByRole("complementary", { name: "Assets", exact: true });
+    for (const name of ["Media pool", "Text", "Transcript", "Transition", "Effects", "Create"]) {
+      await assets.getByRole("tab", { name, exact: true }).click();
+      await assets.locator("button:visible").last().focus();
+      const geometry = await page.evaluate(() => ({
+        height: innerHeight,
+        documentHeight: document.documentElement.scrollHeight,
+        headerTop: document.querySelector("header")!.getBoundingClientRect().top,
+        timelineBottom: document.querySelector("footer")!.getBoundingClientRect().bottom,
+        assetsBottom: document.querySelector("#video-editor-assets-panel")!.getBoundingClientRect()
+          .bottom,
+        contentBottom: document
+          .querySelector("#video-editor-left-tool-panel")!
+          .getBoundingClientRect().bottom,
+        overviewBottom: document
+          .querySelector('[role="group"][aria-label="Timeline overview"]')!
+          .getBoundingClientRect().bottom,
+      }));
+      if (
+        geometry.contentBottom > geometry.assetsBottom + 1 ||
+        geometry.overviewBottom > geometry.timelineBottom + 1 ||
+        geometry.documentHeight > geometry.height + 1 ||
+        Math.abs(geometry.headerTop) > 1 ||
+        Math.abs(geometry.timelineBottom - geometry.height) > 1
+      ) {
+        failures.push(`${size.width}x${size.height} ${name}: ${JSON.stringify(geometry)}`);
+        await page.screenshot({ path: testInfo.outputPath(`overflow-${size.width}-${name}.png`) });
+      }
+    }
+    await page.getByRole("button", { name: "Add marker", exact: true }).click();
+    for (const name of ["Audio mixer", "Beat markers"]) {
+      await page.getByRole("button", { name, exact: true }).click();
+      if (name === "Audio mixer") {
+        await page.getByRole("slider", { name: "Master output volume", exact: true }).focus();
+      }
+      const bounds = await page.evaluate(() => ({
+        footer: document.querySelector("footer")!.getBoundingClientRect().bottom,
+        trackHeight: document
+          .querySelector("#video-editor-timeline-scroll")!
+          .getBoundingClientRect().height,
+        overview: document
+          .querySelector('[role="group"][aria-label="Timeline overview"]')!
+          .getBoundingClientRect().bottom,
+      }));
+      if (bounds.overview > bounds.footer + 1 || bounds.trackHeight < 24)
+        failures.push(`${size.width}x${size.height} ${name}: ${JSON.stringify(bounds)}`);
+      await page.getByRole("button", { name, exact: true }).click();
+    }
+  }
+  expect(failures).toEqual([]);
+});

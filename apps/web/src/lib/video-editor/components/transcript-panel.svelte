@@ -42,6 +42,8 @@
 		itemIds?: string[];
 		showHeading?: boolean;
 	} = $props();
+	const MIN_STICKY_PANEL_HEIGHT = 240;
+	let panelHeight = $state(0);
 	let panel: HTMLDivElement;
 	let searchBar: HTMLDivElement;
 	let selectionToolbar = $state<HTMLDivElement>();
@@ -373,6 +375,7 @@
 
 <div
 	bind:this={panel}
+	bind:clientHeight={panelHeight}
 	class="video-editor-theme transcript-document flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-2 [&>*]:shrink-0"
 	role="region"
 	aria-label={m.video_editor_transcript()}
@@ -380,7 +383,11 @@
 	data-editor-shortcuts-owned
 	data-testid="transcript-panel"
 >
-	<div bind:this={searchBar} class="sticky top-0 z-20 flex min-w-0 items-center gap-2 bg-card py-1">
+	<div
+		bind:this={searchBar}
+		class="top-0 z-20 flex min-w-0 items-center gap-2 bg-card py-1"
+		class:sticky={panelHeight >= MIN_STICKY_PANEL_HEIGHT}
+	>
 		{#if showHeading}<h3 class="text-sm font-medium">
 				{m.video_editor_transcript()}
 			</h3>{/if}
@@ -527,7 +534,8 @@
 	{#if selected.length}
 		<div
 			bind:this={selectionToolbar}
-			class="sticky bottom-0 z-10 grid grid-cols-2 items-center gap-1 rounded-md border border-border bg-card p-1.5 shadow-sm"
+			class:sticky={panelHeight >= MIN_STICKY_PANEL_HEIGHT}
+			class="bottom-0 z-10 grid grid-cols-2 items-center gap-1 rounded-md border border-border bg-card p-1.5 shadow-sm"
 			role="toolbar"
 			aria-label={m.video_editor_transcript_words_selected({
 				count: selected.length

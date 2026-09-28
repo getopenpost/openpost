@@ -178,3 +178,29 @@ it('extends selection while dragging below the sticky actions and scrolling', as
 		host.remove();
 	}
 });
+
+it('keeps words clickable in a short transcript pane', async () => {
+	speech();
+	const host = document.createElement('div');
+	host.style.cssText = 'height:64px;width:500px;display:flex;flex-direction:column';
+	document.body.append(host);
+	try {
+		const screen = await render(TranscriptPanel, { target: host, props: { onedit: vi.fn() } });
+		const word = screen.getByRole('button', { name: 'world', exact: true }).element();
+		word.scrollIntoView({ block: 'center' });
+		await expect
+			.poll(() => {
+				const bounds = word.getBoundingClientRect();
+				return word.contains(
+					document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
+				);
+			})
+			.toBe(true);
+		await screen.getByRole('button', { name: 'world', exact: true }).click();
+		expect(timelineStore.currentFrame).toBe(339);
+		await screen.getByRole('button', { name: 'Correct transcript', exact: true }).click();
+		await expect.element(screen.getByRole('textbox', { name: 'Caption line' })).toBeVisible();
+	} finally {
+		host.remove();
+	}
+});

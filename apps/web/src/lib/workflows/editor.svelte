@@ -33,6 +33,7 @@
 	} from './api';
 	import {
 		availableReferences,
+		exampleSource,
 		editSteps,
 		findStep,
 		newStep,
@@ -52,6 +53,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Label } from '$lib/components/ui/label';
@@ -86,16 +88,15 @@
 	let history = $state.raw<string[]>([]),
 		future = $state.raw<string[]>([]);
 	let sample = $state(
-		JSON.stringify(
-			{
-				title: 'A new release',
-				body: 'What changed and why it matters.',
-				url: 'https://example.com/update'
-			},
-			null,
-			2
-		)
+		untrack(() => JSON.stringify(exampleSource(initial.definition.source.kind), null, 2))
 	);
+	const sourceKind = $derived(doc.definition.source.kind);
+	$effect(() => {
+		const kind = sourceKind;
+		untrack(() => {
+			sample = JSON.stringify(exampleSource(kind), null, 2);
+		});
+	});
 	let selectedRun = $state('');
 	let inspectorOrigin: HTMLElement | null = null;
 	let testInputs = $state.raw<Record<string, WorkflowData>>({});
@@ -115,6 +116,10 @@
 				: false
 	}));
 	const inspectedRun = $derived(runQuery.data);
+	const inspectedDefinition = $derived(
+		panel === 'runs' && inspectedRun ? inspectedRun.definition : doc.definition
+	);
+	const inspectedStep = $derived(findStep(inspectedDefinition.steps ?? [], selectedID));
 	const selectedResult = $derived(
 		inspectedRun?.steps?.find((result) => result.step_id === selectedID)
 	);
@@ -417,6 +422,26 @@
 					onclick={redo}
 					aria-label={m.workflows_redo()}><ThemeIcon role="arrow-right" class="size-4" /></Button
 				>
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger
+						class="inline-flex size-8 items-center justify-center rounded-md hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring sm:hidden [@media(pointer:coarse)]:size-11"
+						aria-label={m.image_editor_more_actions()}
+					>
+						<ThemeIcon role="more-horizontal" class="size-4" />
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content>
+						<DropdownMenu.Item
+							class="[@media(pointer:coarse)]:min-h-11"
+							disabled={!history.length}
+							onSelect={undo}>{m.workflows_undo()}</DropdownMenu.Item
+						>
+						<DropdownMenu.Item
+							class="[@media(pointer:coarse)]:min-h-11"
+							disabled={!future.length}
+							onSelect={redo}>{m.workflows_redo()}</DropdownMenu.Item
+						>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
 			</div>
 			<div class="flex items-center gap-2">
 				{#if record.enabled}<Button
@@ -500,6 +525,7 @@
 			{:else}
 				<Canvas
 					definition={doc.definition}
+					{issues}
 					{selectedID}
 					run={inspectedRun}
 					readonly={!canEdit}
@@ -615,6 +641,7 @@
 				showCloseButton={false}
 				class="top-auto bottom-0 left-0 flex h-[calc(100dvh-0.75rem)] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-xl rounded-b-none p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:h-[min(900px,calc(100dvh-3rem))] sm:w-[calc(100vw-3rem)] sm:max-w-[1600px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
 				onOpenAutoFocus={() => {
+					dataTab = panel === 'runs' ? 'output' : 'configure';
 					inspectorOrigin =
 						document.activeElement instanceof HTMLElement ? document.activeElement : null;
 				}}
@@ -632,8 +659,8 @@
 						>{panel === 'test'
 							? m.workflows_test_data()
 							: selectedID === 'source'
-								? sourceLabel(doc.definition.source.kind)
-								: step?.name}</Dialog.Title
+								? sourceLabel(inspectedDefinition.source.kind)
+								: inspectedStep?.name}</Dialog.Title
 					><span class="shrink-0 text-[11px] text-muted-foreground" aria-live="polite"
 						>{saving
 							? m.workflows_saving()
@@ -729,7 +756,10 @@
 										{ value: 'source', label: sourceLabel(doc.definition.source.kind) },
 										...outline(doc.definition.steps ?? [])
 									]}
-									onchange={(id) => (selectedID = id)}
+									onchange={(id) => {
+										selectedID = id;
+										dataTab = 'configure';
+									}}
 								/>
 								{#if selectedID === 'source'}<SourceFields
 										source={doc.definition.source}

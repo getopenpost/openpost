@@ -16,6 +16,7 @@
 	import WorkflowNode, { type WorkflowNodeData } from './node.svelte';
 	import { workflowGraph, type Port } from './graph';
 	import type { Definition, Run } from './api';
+	import type { Issue } from './validation';
 	import { m } from '$lib/paraglide/messages';
 	let positions = $state<Record<string, { x: number; y: number }>>({});
 	let {
@@ -25,6 +26,7 @@
 		onadd,
 		onconnect,
 		run,
+		issues,
 		readonly = false
 	}: {
 		definition: Definition;
@@ -33,10 +35,11 @@
 		onadd?: (id: string, port: Port) => void;
 		onconnect?: (source: string, target: string, port: Port) => void;
 		run?: Run;
+		issues?: Issue[];
 		readonly?: boolean;
 	} = $props();
 	const nodeTypes = { workflow: WorkflowNode };
-	const graph = $derived(workflowGraph(definition, run));
+	const graph = $derived(workflowGraph(definition, run, issues));
 	const nodes = $derived<Node<WorkflowNodeData>[]>(
 		graph.nodes.map((node) => ({
 			id: node.id,

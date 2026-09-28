@@ -80,25 +80,29 @@
 		>
 			{m.workflows_usage_tracking()}
 		</p>{/if}
-	{#if step.kind === 'create_draft' || step.kind === 'build_draft'}<fieldset class="space-y-1">
-			<legend class="mb-2 text-sm font-medium">{m.workflows_destinations()}</legend
-			>{#each accounts as account (account.id)}<label
-					class="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-muted"
-					><Checkbox
-						checked={selectedAccounts.includes(account.id)}
-						onCheckedChange={(checked) =>
-							oninput('account_ids', {
-								literal: checked
-									? [...selectedAccounts, account.id]
-									: selectedAccounts.filter((id) => id !== account.id)
-							})}
-					/><SocialAccountIdentity
-						name={account.account_username || account.platform}
-						platform={account.platform}
-						avatarUrl={account.account_avatar_url}
-					/></label
-				>{/each}{#if !accounts.length}<p class="text-sm text-muted-foreground">
-					{m.workflows_no_accounts()}
-				</p>{/if}
-		</fieldset>{/if}
+	{#if step.kind === 'create_draft' || step.kind === 'build_draft'}{@render destinations()}{/if}
 </div>
+
+{#snippet destinations()}
+	<fieldset class="space-y-1">
+		<legend class="mb-2 text-sm font-medium">{m.workflows_destinations()}</legend
+		>{#each accounts as account (account.id)}<label
+				class="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-muted"
+				><Checkbox
+					checked={selectedAccounts.includes(account.id)}
+					onCheckedChange={(checked) =>
+						oninput('account_ids', {
+							literal: checked
+								? [...selectedAccounts, account.id]
+								: selectedAccounts.filter((id) => id !== account.id)
+						})}
+				/><SocialAccountIdentity
+					name={account.account_username || account.platform}
+					platform={account.platform}
+					avatarUrl={account.account_avatar_url}
+				/></label
+			>{/each}{#if !accounts.length}<p class="text-sm text-muted-foreground">
+				{m.workflows_no_accounts()}
+			</p>{/if}
+	</fieldset>
+{/snippet}

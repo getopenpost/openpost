@@ -1,7 +1,7 @@
 import type { Definition, Step, Run } from './api';
 import type { ThemeIconRole } from '$lib/themes';
 import { actionCatalog, sourceLabel } from './catalog';
-import { workflowIssues } from './validation';
+import { workflowIssues, type Issue } from './validation';
 import { m } from '$lib/paraglide/messages';
 export type Port = 'after' | 'then' | 'else';
 export type GraphNode = {
@@ -16,9 +16,18 @@ export type GraphNode = {
 	issues: number;
 	state?: string;
 };
-export type GraphEdge = { id: string; source: string; target: string; port: Port; label?: string };
-export function workflowGraph(definition: Definition, run?: Run) {
-	const issues = workflowIssues(definition);
+type GraphEdge = {
+	id: string;
+	source: string;
+	target: string;
+	port: Port;
+	label?: string;
+};
+export function workflowGraph(
+	definition: Definition,
+	run?: Run,
+	issues: Issue[] = workflowIssues(definition, run?.source)
+) {
 	const nodes: GraphNode[] = [
 		{
 			id: 'source',

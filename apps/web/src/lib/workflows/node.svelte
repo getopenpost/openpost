@@ -53,29 +53,33 @@
 			/>{/if}
 	</button>
 	{#each ports as port}
-		<Handle
-			id={port}
-			type="source"
-			position={Position.Right}
-			isConnectable={!info.readonly}
-			style={`top:${port === 'then' ? 25 : port === 'else' ? 75 : 50}%`}
-			class="!size-3 !border-2 !border-background !bg-muted-foreground"
-		/>
-		{#if info.branch}<span
-				class="pointer-events-none absolute -right-7 text-[10px] text-muted-foreground"
-				style={`top:${port === 'then' ? 25 : 75}%;transform:translateY(-50%)`}
-				>{port === 'then' ? m.workflows_yes() : m.workflows_no()}</span
-			>{/if}
-		{#if info.onadd}<button
-				type="button"
-				class="nodrag nopan absolute -right-16 flex size-7 items-center justify-center rounded-md border bg-background text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:size-11"
-				style={`top:${port === 'then' ? 25 : port === 'else' ? 75 : 50}%;transform:translateY(-50%)`}
-				aria-label={port === 'then'
-					? m.workflows_add_yes()
-					: port === 'else'
-						? m.workflows_add_no()
-						: m.workflows_add_after()}
-				onclick={() => info.onadd?.(port)}><ThemeIcon role="add" class="size-4" /></button
-			>{/if}
+		{@render outputPort(port)}
 	{/each}
 </div>
+
+{#snippet outputPort(port: Port)}
+	<Handle
+		id={port}
+		type="source"
+		position={Position.Right}
+		isConnectable={!info.readonly}
+		style={`top:${port === 'then' ? 25 : port === 'else' ? 75 : 50}%`}
+		class="!size-3 !border-2 !border-background !bg-muted-foreground"
+	/>
+	{#if info.branch}<span
+			class="pointer-events-none absolute -right-7 text-[10px] text-muted-foreground"
+			style={`top:${port === 'then' ? 25 : 75}%;transform:translateY(-50%)`}
+			>{port === 'then' ? m.workflows_yes() : m.workflows_no()}</span
+		>{/if}
+	{#if info.onadd}<button
+			type="button"
+			class="nodrag nopan absolute -right-16 flex size-7 items-center justify-center rounded-md border bg-background text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:size-11"
+			style={`top:${port === 'then' ? 25 : port === 'else' ? 75 : 50}%;transform:translateY(-50%)`}
+			aria-label={port === 'then'
+				? m.workflows_add_yes()
+				: port === 'else'
+					? m.workflows_add_no()
+					: m.workflows_add_after()}
+			onclick={() => info.onadd?.(port)}><ThemeIcon role="add" class="size-4" /></button
+		>{/if}
+{/snippet}

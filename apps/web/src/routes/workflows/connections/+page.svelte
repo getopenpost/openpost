@@ -163,73 +163,7 @@
 			<Dialog.Description>{m.workflows_connections_help()}</Dialog.Description>
 		</Dialog.Header>
 		{#if error}<InlineNotice tone="error" message={error} />{/if}
-		<form
-			class="space-y-4"
-			onsubmit={(event) => {
-				event.preventDefault();
-				void save();
-			}}
-		>
-			{#if !rotating}<div class="space-y-2">
-					<Label for="connection-name">{m.workflows_connection_name()}</Label><Input
-						id="connection-name"
-						required
-						maxlength={100}
-						bind:value={name}
-					/>
-				</div>
-				<div class="space-y-2">
-					<Label for="connection-kind">{m.workflows_connection_kind()}</Label><Choice
-						id="connection-kind"
-						label={m.workflows_connection_kind()}
-						value={kind}
-						options={[
-							{ value: 'github', label: 'GitHub' },
-							{ value: 'bearer', label: m.workflows_connection_bearer() },
-							{ value: 'header', label: m.workflows_connection_header_auth() },
-							{ value: 'basic', label: m.workflows_connection_basic() }
-						]}
-						onchange={(value) => (kind = value as typeof kind)}
-					/>
-				</div>
-				{#if kind !== 'github'}<div class="space-y-2">
-						<Label for="connection-host">{m.workflows_connection_host()}</Label><Input
-							id="connection-host"
-							required
-							bind:value={host}
-							placeholder="api.example.com"
-						/>
-						<p class="text-xs text-muted-foreground">{m.workflows_connection_host_help()}</p>
-					</div>{/if}
-				{#if kind === 'header'}<div class="space-y-2">
-						<Label for="connection-header">{m.workflows_connection_header()}</Label><Input
-							id="connection-header"
-							required
-							bind:value={header}
-						/>
-					</div>{/if}
-			{/if}
-			<div class="space-y-2">
-				<Label for="connection-secret">{m.workflows_connection_secret()}</Label><Input
-					id="connection-secret"
-					type="password"
-					autocomplete="new-password"
-					required
-					bind:value={token}
-				/>{#if kind === 'basic'}<p class="text-xs text-muted-foreground">
-						{m.workflows_connection_basic_help()}
-					</p>{/if}
-			</div>
-			<div class="flex gap-2">
-				<Button type="submit" disabled={busy}>{m.workflows_save_connection()}</Button><Button
-					variant="ghost"
-					onclick={() => {
-						adding = false;
-						token = '';
-					}}>{m.common_cancel()}</Button
-				>
-			</div>
-		</form>
+		{@render credentialForm()}
 	</Dialog.Content>
 </Dialog.Root>
 
@@ -243,3 +177,73 @@
 		return { ok: true };
 	}}
 />
+
+{#snippet credentialForm()}
+	<form
+		class="space-y-4"
+		onsubmit={(event) => {
+			event.preventDefault();
+			void save();
+		}}
+	>
+		{#if !rotating}<div class="space-y-2">
+				<Label for="connection-name">{m.workflows_connection_name()}</Label><Input
+					id="connection-name"
+					required
+					maxlength={100}
+					bind:value={name}
+				/>
+			</div>
+			<div class="space-y-2">
+				<Label for="connection-kind">{m.workflows_connection_kind()}</Label><Choice
+					id="connection-kind"
+					label={m.workflows_connection_kind()}
+					value={kind}
+					options={[
+						{ value: 'github', label: 'GitHub' },
+						{ value: 'bearer', label: m.workflows_connection_bearer() },
+						{ value: 'header', label: m.workflows_connection_header_auth() },
+						{ value: 'basic', label: m.workflows_connection_basic() }
+					]}
+					onchange={(value) => (kind = value as typeof kind)}
+				/>
+			</div>
+			{#if kind !== 'github'}<div class="space-y-2">
+					<Label for="connection-host">{m.workflows_connection_host()}</Label><Input
+						id="connection-host"
+						required
+						bind:value={host}
+						placeholder="api.example.com"
+					/>
+					<p class="text-xs text-muted-foreground">{m.workflows_connection_host_help()}</p>
+				</div>{/if}
+			{#if kind === 'header'}<div class="space-y-2">
+					<Label for="connection-header">{m.workflows_connection_header()}</Label><Input
+						id="connection-header"
+						required
+						bind:value={header}
+					/>
+				</div>{/if}
+		{/if}
+		<div class="space-y-2">
+			<Label for="connection-secret">{m.workflows_connection_secret()}</Label><Input
+				id="connection-secret"
+				type="password"
+				autocomplete="new-password"
+				required
+				bind:value={token}
+			/>{#if kind === 'basic'}<p class="text-xs text-muted-foreground">
+					{m.workflows_connection_basic_help()}
+				</p>{/if}
+		</div>
+		<div class="flex gap-2">
+			<Button type="submit" disabled={busy}>{m.workflows_save_connection()}</Button><Button
+				variant="ghost"
+				onclick={() => {
+					adding = false;
+					token = '';
+				}}>{m.common_cancel()}</Button
+			>
+		</div>
+	</form>
+{/snippet}

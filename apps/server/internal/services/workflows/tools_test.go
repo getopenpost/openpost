@@ -95,6 +95,7 @@ func TestAIUsageSurvivesInvalidOutputAndProviderFailureWithoutReplay(t *testing.
 			var usage []usageRecord
 			require.NoError(t, s.db.NewSelect().Model(&usage).Scan(t.Context()))
 			require.Len(t, usage, 1)
+			require.Equal(t, StateFailed, usage[0].State)
 			require.Equal(t, "user", usage[0].UserID)
 			require.Equal(t, int64(120), usage[0].TotalTokens)
 			require.Equal(t, cost, *usage[0].CostUSD)

@@ -111,7 +111,13 @@
 			{label}
 			onchange={(reference) => onchange({ reference })}
 		/>
-	{:else if options}<Choice {id} value={text} {options} {label} onchange={write} />
+	{:else}{@render literalEditor()}{/if}
+	{@render resolvedPreview()}
+	{#if issue}<p id={`${id}-error`} class="text-xs text-destructive" role="status">{issue}</p>{/if}
+</div>
+
+{#snippet literalEditor()}
+	{#if options}<Choice {id} value={text} {options} {label} onchange={write} />
 	{:else if multiline || json}<TokenEditor
 			{id}
 			{label}
@@ -119,7 +125,6 @@
 			{readonly}
 			{references}
 			{code}
-			onreference={json ? (reference) => onchange({ reference }) : undefined}
 			{placeholder}
 			invalid={Boolean(issue)}
 			onchange={write}
@@ -135,6 +140,9 @@
 			aria-describedby={issue ? `${id}-error` : undefined}
 			oninput={(event) => write(event.currentTarget.value)}
 		/>{/if}
+{/snippet}
+
+{#snippet resolvedPreview()}
 	{#if resolved !== undefined}<div class="rounded-md bg-muted/50 p-2 text-xs">
 			<span class="text-muted-foreground">{m.workflows_resolved_value()}</span>
 			<pre class="mt-1 max-h-28 overflow-auto font-sans whitespace-pre-wrap">{typeof resolved ===
@@ -142,5 +150,4 @@
 					? JSON.stringify(resolved, null, 2)
 					: String(resolved)}</pre>
 		</div>{/if}
-	{#if issue}<p id={`${id}-error`} class="text-xs text-destructive" role="status">{issue}</p>{/if}
-</div>
+{/snippet}

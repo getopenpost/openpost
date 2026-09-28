@@ -12,19 +12,16 @@ export function referenceExists(reference: string, references: Reference[]): boo
 		(item) => item.value === reference || (item.dynamic && reference.startsWith(`${item.value}.`))
 	);
 }
-export function bindingIssue(
-	value: Value | undefined,
-	references: Reference[],
-	required = false
-): string {
-	if (
-		required &&
+function missingValue(value: Value | undefined): boolean {
+	return (
 		!value?.reference &&
 		(value?.literal === undefined ||
 			value.literal === null ||
 			(typeof value.literal === 'string' && !value.literal.trim()))
-	)
-		return m.workflows_required();
+	);
+}
+function bindingIssue(value: Value | undefined, references: Reference[], required = false): string {
+	if (required && missingValue(value)) return m.workflows_required();
 	if (value?.reference && !referenceExists(value.reference, references))
 		return m.workflows_invalid_variable({ reference: value.reference });
 	if (value?.literal && typeof value.literal === 'object') {
@@ -34,10 +31,14 @@ export function bindingIssue(
 		}
 	}
 	if (typeof value?.literal !== 'string') return '';
+	return interpolationIssue(value.literal, references);
+}
+
+function interpolationIssue(text: string, references: Reference[]): string {
 	const pattern = /\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}/g;
-	const rest = value.literal.replace(pattern, '');
+	const rest = text.replace(pattern, '');
 	if (rest.includes('{{') || rest.includes('}}')) return m.workflows_invalid_syntax();
-	for (const token of value.literal.matchAll(pattern))
+	for (const token of text.matchAll(pattern))
 		if (!referenceExists(token[1], references))
 			return m.workflows_invalid_variable({ reference: token[1] });
 	return '';
@@ -105,40 +106,38 @@ export function fieldIssue(
 	value: Value | undefined,
 	references: Reference[]
 ): string {
-	const issue = field.code
-		? field.required && !String(value?.literal ?? '').trim()
-			? m.workflows_required()
-			: ''
-		: bindingIssue(value, references, field.required);
-	if (issue) return issue;
-	if (value?.reference || value?.literal === undefined || value.literal === '') return '';
-	if (field.numeric) {
-		const number = Number(value.literal);
-		if (
-			!Number.isFinite(number) ||
-			number < (field.min ?? 0) ||
-			number > (field.max ?? Number.MAX_SAFE_INTEGER)
-		)
-			return m.workflows_invalid_number({
-				min: field.min ?? 0,
-				max: field.max ?? Number.MAX_SAFE_INTEGER
-			});
-	}
-	if (field.json) {
+	if (field.code)
+		return field.required && !String(value?.literal ?? '').trim() ? m.workflows_required() : '';
+	if (field.json && typeof value?.literal === 'string' && value.literal.trim()) {
 		try {
-			if (typeof value.literal === 'string') JSON.parse(value.literal);
+			value = { ...value, literal: JSON.parse(value.literal) };
 		} catch {
 			return m.workflows_invalid_json();
 		}
 	}
-	if (field.key === 'url' && typeof value.literal === 'string' && !value.literal.includes('{{')) {
-		try {
-			const url = new URL(value.literal);
-			if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
-				return m.workflows_invalid_url();
-		} catch {
+	const issue = bindingIssue(value, references, field.required);
+	if (issue) return issue;
+	if (value?.reference || value?.literal === undefined || value.literal === '') return '';
+	if (field.numeric) return numberIssue(value.literal, field.min, field.max);
+	if (field.key === 'url') return urlIssue(value.literal);
+	return '';
+}
+
+function numberIssue(value: Value['literal'], min = 0, max = Number.MAX_SAFE_INTEGER): string {
+	const number = Number(value);
+	return !Number.isFinite(number) || number < min || number > max
+		? m.workflows_invalid_number({ min, max })
+		: '';
+}
+
+function urlIssue(value: Value['literal']): string {
+	if (typeof value !== 'string' || value.includes('{{')) return '';
+	try {
+		const url = new URL(value);
+		if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
 			return m.workflows_invalid_url();
-		}
+	} catch {
+		return m.workflows_invalid_url();
 	}
 	return '';
 }

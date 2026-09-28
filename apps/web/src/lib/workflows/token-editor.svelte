@@ -27,11 +27,9 @@
 		code = false,
 		invalid = false,
 		placeholder = '',
-		readonly = false,
-		onreference
+		readonly = false
 	}: {
 		readonly?: boolean;
-		onreference?: (reference: string) => void;
 		id: string;
 		label: string;
 		value: string;
@@ -127,7 +125,7 @@
 							options: refs.map((ref) => ({
 								label: ref.value,
 								detail: ref.label,
-								apply: onreference ? () => onreference?.(ref.value) : `{{${ref.value}}}`,
+								apply: `{{${ref.value}}}`,
 								type: 'variable'
 							}))
 						};
@@ -155,10 +153,6 @@
 							const ref = event.dataTransfer?.getData('application/openpost-workflow-reference');
 							if (!ref || readonly || code) return false;
 							event.preventDefault();
-							if (onreference) {
-								onreference(ref);
-								return true;
-							}
 							const pos =
 								editor.posAtCoords({ x: event.clientX, y: event.clientY }) ??
 								editor.state.selection.main.head;
@@ -189,10 +183,6 @@
 	});
 	function insert(reference: string) {
 		if (!view || readonly) return;
-		if (onreference) {
-			onreference(reference);
-			return;
-		}
 		view.dispatch(view.state.replaceSelection(`{{${reference}}}`));
 		view.focus();
 	}

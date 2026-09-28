@@ -24,7 +24,10 @@ async function openWorkflows(page: import("@playwright/test").Page) {
 }
 
 async function addStep(page: import("@playwright/test").Page, name: string) {
-  const close = page.getByRole("button", { name: "Back to canvas", exact: true });
+  const close = page.getByRole("button", {
+    name: "Back to canvas",
+    exact: true,
+  });
   if (await close.isVisible()) await close.click();
   await page.getByRole("button", { name: "Add step", exact: true }).click();
   await page
@@ -206,7 +209,10 @@ for (const viewport of [
       path: `test-results/workflows-dark-${viewport.width}.png`,
       fullPage: true,
     });
-    const sourceNode = page.getByRole("button", { name: "GitHub release Trigger", exact: true });
+    const sourceNode = page.getByRole("button", {
+      name: "GitHub release Trigger",
+      exact: true,
+    });
     await sourceNode.click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -276,6 +282,18 @@ test.describe("workflow touch controls", () => {
     const zoom = page.getByRole("button", { name: "Zoom in", exact: true });
     await expect(zoom).toBeVisible();
     expect((await zoom.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await addStep(page, "Create draft");
+    await page.getByRole("button", { name: "Output", exact: true }).click();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.getByRole("button", { name: "More actions", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^Needs attention/ })).toHaveCount(0);
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await page.getByRole("button", { name: "More actions", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Redo", exact: true }).click();
+    await page.getByRole("button", { name: /^Needs attention/ }).click();
+    await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
   });
 });
 
@@ -297,7 +315,10 @@ test("node testing preserves structured variables and leaves later steps untouch
             id: "shape",
             kind: "code",
             name: "Shape items",
-            inputs: { data: { literal: [] }, code: { literal: "return { items: input };" } },
+            inputs: {
+              data: { literal: [] },
+              code: { literal: "return { items: input };" },
+            },
           },
           {
             id: "count",
@@ -313,7 +334,12 @@ test("node testing preserves structured variables and leaves later steps untouch
             kind: "code",
             name: "Combine results",
             inputs: {
-              data: { literal: { first: "{{shape.data.items.0.title}}", count: "{{count.data}}" } },
+              data: {
+                literal: {
+                  first: "{{shape.data.items.0.title}}",
+                  count: "{{count.data}}",
+                },
+              },
               code: { literal: "return input.first + ': ' + input.count;" },
             },
           },
@@ -331,18 +357,22 @@ test("node testing preserves structured variables and leaves later steps untouch
   const workflow = await created.json();
   await page.goto(`/workflows/${workflow.id}`);
   await page.getByRole("button", { name: "Test data", exact: true }).click();
-  await page
-    .getByLabel("Sample input (JSON)", { exact: true })
-    .fill(JSON.stringify({ items: [{ title: "First article" }, { title: "Second article" }] }));
+  await page.getByLabel("Sample input (JSON)", { exact: true }).fill(
+    JSON.stringify({
+      items: [{ title: "First article" }, { title: "Second article" }],
+    }),
+  );
   await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
   await page.getByRole("button", { name: "Shape items JavaScript", exact: true }).click();
   await page.getByLabel("Data", { exact: true }).fill("{{source.items}}");
   await expect(page.getByRole("button", { name: "Data", exact: true })).toContainText(
-    "source.items",
+    "Source: items",
   );
   await page.getByRole("button", { name: "Test node", exact: true }).click();
   const output = page.getByRole("region", { name: "Output", exact: true });
-  await expect(output.getByText("First article", { exact: true })).toBeVisible({ timeout: 30000 });
+  await expect(output.getByText("First article", { exact: true })).toBeVisible({
+    timeout: 30000,
+  });
   await output.getByRole("button", { name: "Table", exact: true }).click();
   await expect(output.getByRole("cell", { name: "First article", exact: true })).toBeVisible();
   await expect(output.getByRole("cell", { name: "Second article", exact: true })).toBeVisible();
@@ -353,7 +383,9 @@ test("node testing preserves structured variables and leaves later steps untouch
     await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
     await page.getByRole("button", { name: `${name} JavaScript`, exact: true }).click();
     await page.getByRole("button", { name: "Test node", exact: true }).click();
-    await expect(output.getByText(expected, { exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(output.getByText(expected, { exact: true })).toBeVisible({
+      timeout: 30000,
+    });
   }
   await page
     .getByLabel("JavaScript", { exact: true })
@@ -372,6 +404,105 @@ test("node testing preserves structured variables and leaves later steps untouch
     "aria-invalid",
     "true",
   );
+});
+
+test("missing source variables mark both the field and its canvas node", async ({ page }) => {
+  await openWorkflows(page);
+  await page.getByRole("button", { name: "New workflow", exact: true }).click();
+  await addStep(page, "Create draft");
+  for (const reference of ["source.missing", "source.rendition_id"]) {
+    await page.getByLabel("Post text", { exact: true }).fill(`{{${reference}}}`);
+    await expect
+      .soft(page.getByLabel("Post text", { exact: true }))
+      .toHaveAttribute("aria-invalid", "true");
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect
+      .soft(page.getByRole("button", { name: /^Create draft.*Needs attention/ }))
+      .toBeVisible();
+    await page
+      .getByRole("button", { name: /^Create draft/ })
+      .first()
+      .click();
+  }
+  await page.getByLabel("Post text", { exact: true }).fill("{{source.title}}");
+  await expect(page.getByLabel("Post text", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "false",
+  );
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Needs attention/ })).toHaveCount(0);
+});
+
+test("inserting a variable preserves JSON and its nested outputs remain usable", async ({
+  page,
+}) => {
+  const { token, workspace } = await openWorkflows(page);
+  const created = await page.request.post(`/api/v1/workflows?workspace_id=${workspace.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      name: "Nested content",
+      description: "",
+      expected_revision: 0,
+      definition: {
+        schema: 1,
+        source: { kind: "manual" },
+        steps: [
+          {
+            id: "fields",
+            kind: "set_fields",
+            name: "Content fields",
+            inputs: { fields: { literal: { metadata: { tag: "" } } } },
+          },
+          {
+            id: "draft",
+            kind: "create_draft",
+            name: "Announcement",
+            inputs: { text: { literal: "{{fields.metadata.tag}}" } },
+          },
+        ],
+      },
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const workflow = await created.json();
+  await page.goto(`/workflows/${workflow.id}`);
+  await page.getByRole("button", { name: "Content fields Edit fields", exact: true }).click();
+  const fields = page.getByRole("textbox", {
+    name: "Fields (JSON)",
+    exact: true,
+  });
+  await fields.fill('{"metadata":{"tag":""}}');
+  await fields.press("End");
+  await fields.press("ArrowLeft");
+  await fields.press("ArrowLeft");
+  await fields.press("ArrowLeft");
+  await page.getByRole("button", { name: "Insert variable", exact: true }).click();
+  await page
+    .getByRole("option", {
+      name: /(?:Source: title|source.title)/,
+      exact: true,
+    })
+    .click();
+  await expect(fields).toBeVisible();
+  await page.getByRole("button", { name: "Edit variable syntax", exact: true }).click();
+  await expect(fields).toHaveText('{"metadata":{"tag":"{{source.title}}"}}');
+  await page.getByRole("button", { name: "Test node", exact: true }).click();
+  await expect(
+    page
+      .getByRole("region", { name: "Output", exact: true })
+      .getByText("A new release", { exact: true }),
+  ).toBeVisible({ timeout: 30000 });
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await page.getByRole("button", { name: /^Announcement/ }).click();
+  await expect(page.getByLabel("Post text", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "false",
+  );
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await page.getByRole("button", { name: "Run preview", exact: true }).click();
+  await expect(page.getByRole("paragraph").filter({ hasText: /^Completed$/ })).toBeVisible({
+    timeout: 30000,
+  });
 });
 
 test("connections keep saved secrets hidden and allow replacement", async ({ page }) => {

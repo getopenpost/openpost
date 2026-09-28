@@ -126,10 +126,6 @@ func (s *Service) generate(ctx context.Context, record runRecord, step Step, inp
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	result, err := s.generator.Generate(ctx, request)
-	usage.State = StateSucceeded
-	if err != nil {
-		usage.State = StateFailed
-	}
 	if result.Model != "" {
 		usage.Model = result.Model
 	}
@@ -140,16 +136,23 @@ func (s *Service) generate(ctx context.Context, record runRecord, step Step, inp
 	if cost := result.Usage.CostUSD; cost != nil && *cost >= 0 && !math.IsNaN(*cost) && !math.IsInf(*cost, 0) {
 		usage.CostUSD = cost
 	}
+	var output map[string]any
+	if err != nil {
+		err = errors.New("AI generation failed; check the provider configuration and usage")
+	} else {
+		output, err = generationOutput(step.Kind, result.Text, usage)
+	}
+	usage.State = StateSucceeded
+	if err != nil {
+		usage.State = StateFailed
+	}
 	// Persist even when a provider call failed or its response cannot be parsed.
 	writeCtx, cancelWrite := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancelWrite()
 	if _, saveErr := s.db.NewUpdate().Model(&usage).WherePK().Exec(writeCtx); saveErr != nil {
 		return nil, saveErr
 	}
-	if err != nil {
-		return nil, errors.New("AI generation failed; check the provider configuration and usage")
-	}
-	return generationOutput(step.Kind, result.Text, usage)
+	return output, err
 }
 func generationOutput(kind, text string, usage usageRecord) (map[string]any, error) {
 	output := map[string]any{"text": text}

@@ -413,33 +413,73 @@ export function editSteps(
 	}
 	return false;
 }
+export function exampleSource(kind: Definition['source']['kind']): WorkflowData {
+	const data: WorkflowData = {
+		id: 'sample',
+		title: 'A new release',
+		body: 'What changed and why it matters.',
+		url: 'https://example.com/update',
+		published_at: new Date().toISOString()
+	};
+	if (
+		kind === 'publication_created' ||
+		kind === 'rendition_published' ||
+		kind === 'rendition_failed'
+	)
+		data.publication_id = 'sample-post';
+	if (kind === 'rendition_published' || kind === 'rendition_failed') {
+		data.rendition_id = 'sample-variant';
+		data.account_id = 'sample-account';
+	}
+	if (kind === 'interval') {
+		data.title = 'Scheduled workflow';
+		data.body = '';
+		data.url = '';
+	}
+	return data;
+}
 export function availableReferences(
 	steps: Step[],
 	selectedID: string,
 	sourceData?: WorkflowData
 ): Reference[] {
-	const sources: Reference[] = [
-		'title',
-		'body',
-		'url',
-		'published_at',
-		'publication_id',
-		'rendition_id',
-		'id',
-		'account_id'
-	].map((field) => ({ value: `source.${field}`, label: `${m.workflows_source()}: ${field}` }));
+	const sources: Reference[] = (
+		sourceData === undefined
+			? [
+					'title',
+					'body',
+					'url',
+					'published_at',
+					'publication_id',
+					'rendition_id',
+					'id',
+					'account_id'
+				]
+			: []
+	).map((field) => ({
+		value: `source.${field}`,
+		label: `${m.workflows_source()}: ${field}`
+	}));
 	/* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-object-parameters -- Discover fields in user-authored sample JSON, including nested arrays, without prescribing a source schema. */
 	if (sourceData && typeof sourceData === 'object') {
 		function observe(data: object, path: string, depth: number) {
 			if (depth > 5) return;
 			for (const [key, value] of Object.entries(data).slice(0, 200)) {
 				const name = `${path}.${key}`;
-				if (!sources.some((ref) => ref.value === name)) sources.push({ value: name, label: name });
+				sources.push({
+					value: name,
+					label: `${m.workflows_source()}: ${name.slice(7)}`
+				});
 				if (value && typeof value === 'object') observe(value, name, depth + 1);
 			}
 		}
 		observe(sourceData, 'source', 0);
-	} else sources.push({ value: 'source', label: m.workflows_source(), dynamic: true });
+	} else
+		sources.push({
+			value: 'source',
+			label: m.workflows_source(),
+			dynamic: true
+		});
 	/* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-object-parameters */
 	function visit(list: Step[], available: typeof sources): typeof sources | undefined {
 		let current = [...available];

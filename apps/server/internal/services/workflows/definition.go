@@ -127,6 +127,13 @@ func validateStepBinding(kind, name string, binding Value, available map[string]
 	if name == "connection_id" && (binding.Reference != "" || strings.Contains(fmt.Sprint(binding.Literal), "{{")) {
 		return invalid("choose a saved connection directly")
 	}
+	if complete && jsonInput(kind, name) && binding.Reference == "" {
+		if text, ok := binding.Literal.(string); ok {
+			if err := json.Unmarshal([]byte(text), &binding.Literal); err != nil {
+				return invalid("must be valid JSON")
+			}
+		}
+	}
 	return validateBinding(binding, available, complete)
 }
 func validateJSONInputs(step Step) error {

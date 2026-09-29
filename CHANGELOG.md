@@ -4,6 +4,55 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.4.2] - 2026-09-29
+
+### Fixed
+
+- Keep generated captions aligned in preview and export when their source clip starts later in the timeline. Trim exported captions to the retained clip.
+- Fix Motion ruler seeking and preserve authored composition duration in full and partial exports.
+- Keep transcript cuts tied to the correct source instance and retained caption range.
+- Explain silent recordings before downloading a transcription model and show the model download size before transcription starts.
+- Keep playback controls and project duration consistent with the active Motion composition.
+- Prevent accidental fades when grabbing an unselected clip near its corner. Insert new recordings above existing visuals with distinct, short track names.
+- Cameras, screen sharing, and microphone monitoring stop before the recording finishes saving. Capture duration no longer includes storage delays.
+- Saving a new recording no longer briefly displays recovery warnings. Preparing previews no longer counts as a media issue.
+- Kept Video Editor asset panels, transcript controls, timeline tracks, and the overview within the window at small sizes. Phone Assets now uses the available panel space, and long controls scroll within their own panel.
+- Prevented the audio mixer, beat controls, and marker details from pushing timeline navigation below the window.
+- Kept transcript words clickable in short panels by letting search and word actions scroll with the text when there is not enough room to pin them.
+- Kept the selected Video Editor asset panel open when choosing it again from More.
+- Kept Video Editor clips selectable on touch screens by moving track-height resizing into the track menu. The mouse resize handle stays on the track edge.
+- Preserved source timing when trimming reversed clips and speed ramps, including ramps with implicit boundary points and very slow reversed clips.
+- Modal backdrops now darken the page in dark mode instead of washing it out with white.
+
+### Changed
+
+- Read and edit video transcripts as flowing text. Click words to seek, drag or Shift-click to select, correct captions, add selected text to the timeline, or cut the matching footage with undo. Search, playback following, pause markers, and detailed caption controls stay within the same panel.
+- Simplify the Video Editor asset rail and Motion layer rows. Show placement guidance, rejected drop feedback, the active Motion composition, and skim time. Remember the selected panel, playhead, zoom, and scroll position on this device.
+- Video recording prefers native H.264 when supported and appends capture data in a storage worker, reducing encoding and disk work while preserving recovery files.
+- The Video Editor recorder separates source setup, recording controls, and saving progress, with fewer controls visible during capture.
+- Hosted registration temporarily collects emails for the launch waitlist while the remaining social platform approvals are completed. Signups need no password or verification email. Existing accounts can still sign in, and self-hosted registration is unchanged.
+- Waitlist emails are saved once and sent to the configured billing Discord channel through the job queue. Set `OPENPOST_HOSTED_WAITLIST_ENABLED=false` to reopen Hosted registration.
+- Updated the Android package to 0.2.47 (49) for the shared API and built-in theme changes in this release.
+- The landing-page tour now shows a small release-to-draft workflow. Workflows has a dedicated feature section, matching artwork, share previews, and links from the documentation home and README.
+
+### Improved
+
+- Simplified Video Editor properties with expandable crop, playback, appearance, anchor, pitch, and advanced audio controls. Modified crop, playback, and appearance settings stay marked when closed.
+- Reduced preview toolbar clutter while keeping frame capture and in/out actions in its menu. Scene detection is available from clip actions.
+- Made transcript setup start with language and Auto-captions, with model settings under Advanced and download size visible. Existing transcripts keep generation setup collapsed so the words stay in view.
+
+### Added
+
+- Canvas format presets for landscape, vertical, square, and feed videos. Applying a format preserves frame rate and clip placement and can be undone in one step.
+- Trim a selected Video Editor clip's start or end to the playhead from Properties. Linked audio and attached captions follow the trim, later clips stay in place, and Undo restores the whole edit.
+- Add media at the playhead or at the end of the sequence from its menu. The source monitor can also append a marked range.
+- Illustrated Workflows guide and examples for feed digests, AI decisions, custom API data, and scheduling after review.
+
+### Security
+
+- Updated the Undici build-tool dependency to 7.29.1 to fix GHSA-3wwx-pv8p-q78v.
+- Updated the fast-uri build-tool dependency to 3.1.7 to fix URI authority parsing vulnerabilities.
+
 ## [7.3.1] - 2026-09-28
 
 ### Fixes

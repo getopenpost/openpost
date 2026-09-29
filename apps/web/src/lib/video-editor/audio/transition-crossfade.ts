@@ -43,6 +43,42 @@ function windowProgress(
 	return Math.min(1, Math.max(0, (frame - window.startFrame) / (window.durationInFrames - 1)));
 }
 
+function sameSourceTiming(left: TimelineItem, right: TimelineItem): boolean {
+	const leftRamp = left.speedRamp ?? [];
+	const rightRamp = right.speedRamp ?? [];
+	return (
+		(left.sourceStart ?? 0) === (right.sourceStart ?? 0) &&
+		left.sourceEnd === right.sourceEnd &&
+		left.sourceFps === right.sourceFps &&
+		(left.speed ?? 1) === (right.speed ?? 1) &&
+		Boolean(left.isReversed) === Boolean(right.isReversed) &&
+		leftRamp.length === rightRamp.length &&
+		leftRamp.every((point, index) => {
+			const other = rightRamp[index]!;
+			return (
+				point.sourceFrame === other.sourceFrame &&
+				point.speed === other.speed &&
+				point.easing === other.easing
+			);
+		})
+	);
+}
+
+function isTransitionCompanion(item: TimelineItem, visual: TimelineItem): boolean {
+	if (item.from !== visual.from || item.durationInFrames !== visual.durationInFrames) return false;
+	if (item.linkedGroupId && item.linkedGroupId === visual.linkedGroupId) return true;
+	// Detaching transfers the soundtrack's transitions as well as its samples.
+	// Editing links can then change without removing the authored crossfade.
+	return Boolean(
+		visual.audioDetached &&
+		item.type === 'audio' &&
+		item.originId &&
+		item.originId === visual.originId &&
+		item.mediaId === visual.mediaId &&
+		sameSourceTiming(item, visual)
+	);
+}
+
 /**
  * Check whether `item` participates in `transition` either directly or as a
  * synchronized linked companion (video ↔ audio that share linkedGroupId and
@@ -56,9 +92,7 @@ export function isOutgoingTransitionParticipant(
 ): boolean {
 	if (item.id === transition.fromItemId) return true;
 	const from = itemsById.get(transition.fromItemId);
-	if (!from || !item.linkedGroupId || item.linkedGroupId !== from.linkedGroupId) return false;
-	// Synchronized companion: same timeline window as the visual clip
-	return item.from === from.from && item.durationInFrames === from.durationInFrames;
+	return from !== undefined && isTransitionCompanion(item, from);
 }
 
 export function isIncomingTransitionParticipant(
@@ -68,19 +102,27 @@ export function isIncomingTransitionParticipant(
 ): boolean {
 	if (item.id === transition.toItemId) return true;
 	const to = itemsById.get(transition.toItemId);
-	if (!to || !item.linkedGroupId || item.linkedGroupId !== to.linkedGroupId) return false;
-	return item.from === to.from && item.durationInFrames === to.durationInFrames;
+	return to !== undefined && isTransitionCompanion(item, to);
+}
+
+export function findLinkedAudioCompanion(
+	item: TimelineItem,
+	items: TimelineItem[]
+): TimelineItem | undefined {
+	if (item.type !== 'video' || !item.linkedGroupId || !item.mediaId) return undefined;
+	return items.find(
+		(candidate) =>
+			candidate.type === 'audio' &&
+			candidate.mediaId === item.mediaId &&
+			candidate.linkedGroupId === item.linkedGroupId &&
+			candidate.from === item.from &&
+			candidate.durationInFrames === item.durationInFrames &&
+			sameSourceTiming(candidate, item)
+	);
 }
 
 export function hasLinkedAudioCompanion(item: TimelineItem, items: TimelineItem[]): boolean {
-	if (item.type !== 'video' || !item.linkedGroupId) return false;
-	return items.some(
-		(candidate) =>
-			candidate.type === 'audio' &&
-			candidate.linkedGroupId === item.linkedGroupId &&
-			candidate.from === item.from &&
-			candidate.durationInFrames === item.durationInFrames
-	);
+	return findLinkedAudioCompanion(item, items) !== undefined;
 }
 
 export function transitionGainAtProgress(

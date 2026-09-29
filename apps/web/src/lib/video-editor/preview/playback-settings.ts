@@ -17,7 +17,7 @@ export function clampMonitorVolume(value: number): number {
 }
 
 export function previewItemVolume(
-	item: Pick<TimelineItem, 'trackId' | 'volume'>,
+	item: Pick<TimelineItem, 'trackId' | 'volume' | 'audioDetached'>,
 	tracks: Array<
 		Pick<TimelineTrack, 'id' | 'muted' | 'solo' | 'volume' | 'visible'> & {
 			isGroup?: boolean;
@@ -34,11 +34,11 @@ export function previewItemVolume(
 }
 
 export function previewItemSourceVolume(
-	item: Pick<TimelineItem, 'volume'>,
+	item: Pick<TimelineItem, 'volume' | 'audioDetached'>,
 	monitorVolume: number,
 	monitorMuted: boolean
 ): number {
-	if (monitorMuted) return 0;
+	if (monitorMuted || item.audioDetached) return 0;
 	return Math.max(0, item.volume ?? 1) * clampMonitorVolume(monitorVolume);
 }
 

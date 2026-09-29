@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { userEvent } from 'vitest/browser';
 import { m } from '$lib/paraglide/messages';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
@@ -27,6 +28,49 @@ function textItem(): TimelineItem {
 afterEach(() => {
 	timelineStore.__resetForTesting();
 });
+
+it.each([false, true])(
+	'edits only selected recording audio, include camera: %s',
+	async (includeCamera) => {
+		timelineStore._setTracks(createDefaultTracks());
+		timelineStore._setItems([
+			{
+				id: 'screen',
+				type: 'video',
+				label: 'Screen',
+				mediaId: 'screen-media',
+				trackId: 'track-video-main',
+				from: 0,
+				durationInFrames: 90,
+				volume: 1,
+				linkedGroupId: 'recording'
+			},
+			{
+				id: 'camera-audio',
+				type: 'audio',
+				label: 'Camera audio',
+				mediaId: 'camera-media',
+				trackId: 'track-audio',
+				from: 0,
+				durationInFrames: 90,
+				volume: 0.5,
+				linkedGroupId: 'recording'
+			}
+		]);
+		const screen = await render(ClipPropertiesPanel, {
+			itemId: 'screen',
+			itemIds: includeCamera ? ['screen', 'camera-audio'] : ['screen'],
+			onedit: vi.fn()
+		});
+		const gain = screen.getByRole('textbox', { name: 'Gain', exact: false });
+		await gain.fill('-12');
+		await userEvent.keyboard('{Enter}');
+		expect(timelineStore.itemById.get('screen')?.volume).toBeCloseTo(0.2511886);
+		expect(timelineStore.itemById.get('camera-audio')?.volume).toBeCloseTo(
+			includeCamera ? 0.2511886 : 0.5
+		);
+	}
+);
 
 it('puts selected text editing before geometry and keeps advanced geometry disclosed', async () => {
 	const item = textItem();

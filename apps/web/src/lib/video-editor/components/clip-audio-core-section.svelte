@@ -27,14 +27,9 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { getSynchronizedLinkedItems } from '$lib/video-editor/timeline/utils/linked-items';
 	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
 
-	let {
-		itemId,
-		itemIds = [],
-		onedit
-	}: { itemId: string; itemIds?: string[]; onedit: () => void } = $props();
+	let { audioItems, onedit }: { audioItems: TimelineItem[]; onedit: () => void } = $props();
 
 	type StaticAudioField =
 		| 'audioFadeIn'
@@ -42,23 +37,6 @@
 		| 'audioPitchSemitones'
 		| 'audioPitchCents';
 
-	const audioItems = $derived.by(() => {
-		const selectedIds = itemIds.length > 0 ? itemIds : [itemId];
-		const selected = [...new Set(selectedIds)]
-			.map((id) => timelineStore.itemById.get(id))
-			.filter((item): item is TimelineItem => item !== undefined);
-		const selectedAudio = selected.filter((item) => item.type === 'audio');
-		if (selectedAudio.length > 0) return selectedAudio;
-		const resolved = new Map<string, TimelineItem>();
-		for (const item of selected) {
-			if (item.type !== 'video') continue;
-			const companion = getSynchronizedLinkedItems(timelineStore.items, item.id).find(
-				(candidate) => candidate.type === 'audio'
-			);
-			resolved.set((companion ?? item).id, companion ?? item);
-		}
-		return [...resolved.values()];
-	});
 	const selectedIds = $derived(audioItems.map((item) => item.id));
 	let gesture = $state<{
 		property: KeyframeProperty | StaticAudioField;

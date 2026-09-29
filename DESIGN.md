@@ -228,6 +228,8 @@ Editor panes must shrink within the window and scroll their own content. On phon
 
 Fade handles appear only on selected, editable clips. New generated captions and imported subtitles start above video in compact rows. Track names expose a drag grip; reordering previews locally, commits once on drop, and cancels with Escape. Keyboard reordering remains available.
 
+Video clips retain embedded audio by default. Detach audio in the clip menu creates a linked audio row and silences the video's embedded audio. Link and unlink control editing together, independently of which clip plays the sound. Recordings keep microphone audio with the camera, or with the screen when the camera is off.
+
 The timeline uses a hybrid track model. The ordered primary sequence and project-wide markers remain semantic rails. Visual, audio, and caption rows render from the document's actual track arrays, so multiple tracks stay distinct and empty categories do not consume permanent lanes. Items on one track cannot overlap unless an explicit transition owns the shared interval; use another track for intentional compositing.
 
 ## Elevation & Depth

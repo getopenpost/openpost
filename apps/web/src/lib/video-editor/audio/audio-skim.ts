@@ -130,6 +130,7 @@ export function selectAudioSkimSource(
 	let nested: { item: TimelineItem; gain: number; rank: number } | null = null;
 
 	for (const item of items) {
+		if (item.audioDetached) continue;
 		if (frame < item.from || frame >= item.from + item.durationInFrames) continue;
 		const track = byTrack.get(item.trackId);
 		if (!track || track.muted || track.visible === false || (anySolo && !track.solo)) continue;

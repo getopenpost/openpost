@@ -750,11 +750,13 @@
 										style:width={`${micMeterWidth}%`}
 									></div>
 								</div>
-								<span class="font-mono tabular-nums"
-									>{m.video_editor_recording_chunks({
-										count: recorder.counters.microphone.chunks
-									})} · {formatBytes(recorder.counters.microphone.bytes)}</span
-								>
+								{#if !includeScreen && !includeCamera}
+									<span class="font-mono tabular-nums"
+										>{m.video_editor_recording_chunks({
+											count: recorder.counters.microphone.chunks
+										})} · {formatBytes(recorder.counters.microphone.bytes)}</span
+									>
+								{/if}
 							</div>
 						</div>
 					{/if}

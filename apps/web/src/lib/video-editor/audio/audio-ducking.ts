@@ -106,7 +106,7 @@ function isAudibleTrack(track: TimelineTrack, anySolo: boolean): boolean {
 }
 
 function isAudioBearingItem(item: TimelineItem): boolean {
-	return item.type === 'audio' || item.type === 'video';
+	return !item.audioDetached && (item.type === 'audio' || item.type === 'video');
 }
 
 function duckingSourceFromItem(

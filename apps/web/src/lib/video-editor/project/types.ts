@@ -824,6 +824,8 @@ export interface TimelineItem
 	cornerPin?: TimelineItemCornerPin;
 
 	// Audio properties
+	/** Audio was moved to a separate clip; unlinking or deleting it must not restore this source. */
+	audioDetached?: boolean;
 	volume?: number;
 	audioFadeOffsets?: ClipFadeOffsets;
 	audioFadeIn?: number;

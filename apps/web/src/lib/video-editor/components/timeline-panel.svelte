@@ -280,6 +280,7 @@
 		getSynchronizedLinkedItems
 	} from '$lib/video-editor/timeline/utils/linked-items';
 	import TimelineLinkedSyncBadge from './timeline-linked-sync-badge.svelte';
+	import { canDetachAudio, detachAudio } from '../timeline/actions/detach-audio';
 	import { formatLinkedSyncOffset } from '$lib/video-editor/timeline/linked-sync-display';
 	import { updateTimelineItemSelection } from '$lib/video-editor/timeline/selection';
 	import {
@@ -2946,6 +2947,14 @@
 
 	function unlinkSelection(): void {
 		if (!unlinkItems(selectedItemIds)) return;
+		onedit();
+	}
+	function detachContextAudio(): void {
+		if (!contextPrimaryItem) return;
+		const audioId = detachAudio(contextPrimaryItem.id);
+		if (!audioId) return;
+		selectedItemIds = expandSelectionWithLinkedItems(timelineStore.items, [audioId]);
+		selectedItemId = audioId;
 		onedit();
 	}
 
@@ -5645,7 +5654,7 @@
 															</div>
 														{/if}
 													{/if}
-													{#if editorSettings.showWaveforms}
+													{#if editorSettings.showWaveforms && !displayItem.audioDetached}
 														{@const waveform = tiles.timelineWaveform(displayItem)}
 														{#if waveform}
 															<svg
@@ -5953,7 +5962,10 @@
 					</div>
 				{/snippet}
 			</ContextMenu.Trigger>
-			<ContextMenu.Content class="video-editor-theme w-60">
+			<ContextMenu.Content
+				side="bottom"
+				class="video-editor-theme max-h-(--bits-context-menu-content-available-height) w-60 overflow-y-auto"
+			>
 				{#if contextTransition}
 					<ContextMenu.Item variant="destructive" onclick={removeContextTransition}>
 						{m.video_editor_transition_delete()}
@@ -6195,6 +6207,11 @@
 								.join(' / ')}</ContextMenu.Shortcut
 						>
 					</ContextMenu.Item>
+					{#if contextPrimaryItem && canDetachAudio(contextPrimaryItem)}
+						<ContextMenu.Item onclick={detachContextAudio}
+							>{m.video_editor_detach_audio()}</ContextMenu.Item
+						>
+					{/if}
 					{#if canLinkSelectedItems}
 						<ContextMenu.Item onclick={linkSelection}
 							>{m.video_editor_link_selected()}</ContextMenu.Item

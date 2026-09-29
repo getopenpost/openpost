@@ -170,6 +170,28 @@ describe('preview crossfade', () => {
 });
 
 describe('transition mix planning', () => {
+	it.each<Partial<TimelineItem>>([
+		{ sourceStart: 30, sourceEnd: 90 },
+		{ speed: 2 },
+		{ isReversed: true },
+		{ sourceFps: 24 },
+		{ speedRamp: [{ id: 'ramp', sourceFrame: 0, speed: 2, easing: 'linear' }] }
+	])('keeps independently sourced linked audio audible: %j', (source) => {
+		const video = clip({ id: 'video', linkedGroupId: 'edit-group' });
+		const audio = clip({
+			id: 'audio',
+			type: 'audio',
+			trackId: 'audio',
+			linkedGroupId: 'edit-group',
+			...source
+		});
+		expect(
+			planMixdown([video, audio], [track('video'), track('audio', 'audio')], FPS).map(
+				(entry) => entry.itemId
+			)
+		).toEqual(['video', 'audio']);
+	});
+
 	it('clamps extensions to available source handles', () => {
 		const left = clip({ id: 'left', sourceEnd: 60, sourceDuration: 63 });
 		const right = clip({

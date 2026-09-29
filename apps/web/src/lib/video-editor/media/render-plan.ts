@@ -206,7 +206,7 @@ export function planMixdown(
 			const track = trackById.get(item.trackId);
 			if (track && isAudible(track, anySolo)) entries.push(...timerAudioEntries(item, track, fps));
 		}
-		if (!AUDIO_BEARING_TYPES.has(item.type) || !item.mediaId) continue;
+		if (!AUDIO_BEARING_TYPES.has(item.type) || !item.mediaId || item.audioDetached) continue;
 		if (hasLinkedAudioCompanion(item, items)) continue;
 		const track = trackById.get(item.trackId);
 		if (!track || !isAudible(track, anySolo)) continue;

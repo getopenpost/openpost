@@ -8,6 +8,7 @@ function sourceKey(item: TimelineItem): string | undefined {
 export function canJoinItems(left: TimelineItem, right: TimelineItem): boolean {
 	if (!left.originId || left.originId !== right.originId) return false;
 	if (left.type !== right.type || left.trackId !== right.trackId) return false;
+	if (Boolean(left.audioDetached) !== Boolean(right.audioDetached)) return false;
 	if (!sourceKey(left) || sourceKey(left) !== sourceKey(right)) return false;
 	if (left.from + left.durationInFrames !== right.from) return false;
 	if ((left.speed ?? 1) !== (right.speed ?? 1)) return false;

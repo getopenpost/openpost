@@ -34,6 +34,7 @@ export function resolveReverseShuttleAudioUrl(
 export function resolveAudioOwner(input: AudioOwnerInput): AudioOwner {
 	const { item, tracks, allItems, mediaEntry, usesSeparateProxyAudio, usesProcessedAudio } = input;
 	if (item.type !== 'video' && item.type !== 'audio') return 'none';
+	if (item.audioDetached) return 'none';
 	if (!mediaEntry || mediaEntry.status !== 'ready') return 'none';
 	if (mediaEntry.media.audioCodecSupported === false) return 'unsupported';
 	const track = tracks.find((t) => t.id === item.trackId);

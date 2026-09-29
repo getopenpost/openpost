@@ -84,5 +84,7 @@ describe('join item planning', () => {
 		expect(canJoinItems(left, { ...baseRight, mediaId: 'other' })).toBe(false);
 		expect(canJoinItems(left, { ...baseRight, trackId: 'other' })).toBe(false);
 		expect(canJoinItems(left, { ...baseRight, originId: 'other' })).toBe(false);
+		expect(joinedTimelineItem([left, { ...baseRight, audioDetached: true }])).toBeNull();
+		expect(joinedTimelineItem([{ ...left, audioDetached: true }, baseRight])).toBeNull();
 	});
 });

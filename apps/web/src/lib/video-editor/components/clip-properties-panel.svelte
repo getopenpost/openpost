@@ -24,7 +24,7 @@
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import CompositionControlOverrides from './composition-control-overrides.svelte';
 	import { resolveAnimatedItemLocalAt } from '$lib/video-editor/timeline/animated-properties';
-	import { getSynchronizedLinkedItems } from '$lib/video-editor/timeline/utils/linked-items';
+	import { findLinkedAudioCompanion } from '$lib/video-editor/audio/transition-crossfade';
 	import AudioDuckingPanel from './audio-ducking-panel.svelte';
 	import AudioEffectsPanel from './audio-effects-panel.svelte';
 	import {
@@ -76,14 +76,15 @@
 		const selected = [...new Set(selectedIds)]
 			.map((id) => timelineStore.itemById.get(id))
 			.filter((candidate): candidate is TimelineItem => candidate !== undefined);
-		const selectedAudio = selected.filter((candidate) => candidate.type === 'audio');
-		if (selectedAudio.length > 0) return selectedAudio;
 		const resolved = new Map<string, TimelineItem>();
 		for (const candidate of selected) {
+			if (candidate.type === 'audio') {
+				resolved.set(candidate.id, candidate);
+				continue;
+			}
 			if (candidate.type !== 'video') continue;
-			const companion = getSynchronizedLinkedItems(timelineStore.items, candidate.id).find(
-				(linked) => linked.type === 'audio'
-			);
+			const companion = findLinkedAudioCompanion(candidate, timelineStore.items);
+			if (candidate.audioDetached && !companion) continue;
 			resolved.set((companion ?? candidate).id, companion ?? candidate);
 		}
 		return [...resolved.values()];
@@ -434,7 +435,7 @@
 		{/if}
 
 		{#if item.type === 'video' || item.type === 'audio'}
-			<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
+			<ClipAudioCoreSection {audioItems} {onedit} />
 			<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
 
 			{#if audioItem}

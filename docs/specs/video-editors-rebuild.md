@@ -58,7 +58,7 @@ mediabunny-based (no ffmpeg.wasm): open file(s) → keyframe map via `EncodedPac
 
 ## Recorder
 
-The recorder uses `getDisplayMedia` for screen capture and `getUserMedia` for webcam and microphone capture. Separate sources share a monotonic timebase and write WebM or MP4 chunks through a crash-safe worker. The standalone `/record` page turns a signed-in capture into one Cloud Video Project with aligned video and audio tracks, while Local-only mode downloads ordinary files. The Video Editor Record action uploads each capture as a Project Asset before inserting its linked timeline item. Recoverable scratch artifacts remain on the device until the cloud save or local download succeeds.
+The recorder uses `getDisplayMedia` for screen capture and `getUserMedia` for webcam and microphone capture. Screen and camera share a monotonic timebase and write WebM or MP4 chunks through a crash-safe worker. Microphone audio stays in the camera file, or the screen file when no camera is selected; screen and microphone audio are mixed when both belong to the screen. Microphone-only capture remains an audio file. The standalone `/record` page turns a signed-in capture into one Cloud Video Project with aligned clips, while Local-only mode downloads ordinary files. Video clips expose Detach audio for separate linked editing, with link and unlink independent of audio playback ownership. The Video Editor Record action uploads each capture as a Project Asset before inserting its linked timeline item. Recoverable scratch artifacts remain on the device until the cloud save or local download succeeds.
 
 ## Send to OpenPost
 

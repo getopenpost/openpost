@@ -1,9 +1,9 @@
 /**
- * Screen capture recorder: separate screen / camera / microphone artifacts
+ * Screen capture recorder: screen and camera artifacts with embedded microphone audio
  * with monotonic shared-timebase alignment, measured start offsets,
  * visible preflight/countdown/progress, and robust lifecycle.
  *
- * Each selected source records into its own MediaRecorder backed by an
+ * Each video, or a standalone microphone, records into a MediaRecorder backed by an
  * ordered durable OPFS scratch sink (one file per recorder). Falls back
  * to a small bounded-memory sink when OPFS is unavailable. No unbounded
  * Blob[] accumulation.
@@ -36,6 +36,7 @@ import {
 	type ScratchSink
 } from './recorder-scratch';
 import { microphoneConstraints, startMicLevelMeter } from './mic-recorder';
+import { createRecordingStreams } from './recording-streams';
 import {
 	deriveSystemAudioStatus,
 	detectRecordingCapabilities,
@@ -305,6 +306,7 @@ export class ScreenCaptureRecorder {
 
 	private internal: InternalRecorder[] = [];
 	private acquiredStreams: MediaStream[] = [];
+	private releaseRecordingAudio: (() => void) | null = null;
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private countdownTimer: ReturnType<typeof setInterval> | null = null;
 	private countdownReject: ((error: Error) => void) | null = null;
@@ -353,6 +355,7 @@ export class ScreenCaptureRecorder {
 		this.elapsedMs = 0;
 		this.countdownRemaining = null;
 		const acquiredStreams: MediaStream[] = [];
+		let releaseRecordingAudio: (() => void) | null = null;
 		this.acquiredStreams = acquiredStreams;
 		this.stopPromise = null;
 		this.pendingWriteBytes = 0;
@@ -372,6 +375,8 @@ export class ScreenCaptureRecorder {
 			if (stream) acquiredStreams.push(stream);
 		};
 		const cleanupStartStreams = () => {
+			releaseRecordingAudio?.();
+			if (this.releaseRecordingAudio === releaseRecordingAudio) this.releaseRecordingAudio = null;
 			stopMediaStreams(acquiredStreams);
 			if (this.acquiredStreams === acquiredStreams) this.acquiredStreams = [];
 		};
@@ -560,33 +565,19 @@ export class ScreenCaptureRecorder {
 		this.activeRecoveryCreatedAt = recoveryCreatedAt;
 		this.recoveryManifestQueue = Promise.resolve();
 		this.releaseRecoveryLock = releaseRecoveryLock;
-		const toCreate: Array<{
-			kind: ScratchKind;
-			stream: MediaStream;
-			mime: string;
-		}> = [];
-		if (screenStream)
-			toCreate.push({
-				kind: 'screen',
-				stream: screenStream,
-				mime: pickVideoMimeType()
-			});
-		if (cameraStream)
-			toCreate.push({
-				kind: 'camera',
-				stream: cameraStream,
-				mime: pickVideoMimeType()
-			});
-		if (micStream)
-			toCreate.push({
-				kind: 'microphone',
-				stream: micStream,
-				mime: pickAudioMimeType()
-			});
-
 		const newInternal: InternalRecorder[] = [];
 		try {
-			for (const { kind, stream, mime } of toCreate) {
+			const recording = createRecordingStreams({
+				screen: screenStream,
+				camera: cameraStream,
+				microphone: micStream
+			});
+			releaseRecordingAudio = recording.dispose;
+			this.releaseRecordingAudio = releaseRecordingAudio;
+			await recording.resume();
+			if (generation !== this.generation) throw new Error('Cancelled');
+			for (const { kind, stream } of recording.sources) {
+				const mime = kind === 'microphone' ? pickAudioMimeType() : pickVideoMimeType();
 				const sink = await createScratchSink(kind, mime, recoverySessionId);
 				let recorder: MediaRecorder;
 				try {
@@ -933,6 +924,8 @@ export class ScreenCaptureRecorder {
 	}
 
 	private cleanupAcquiredStreams(): void {
+		this.releaseRecordingAudio?.();
+		this.releaseRecordingAudio = null;
 		const streams = this.acquiredStreams;
 		this.acquiredStreams = [];
 		stopMediaStreams(streams);

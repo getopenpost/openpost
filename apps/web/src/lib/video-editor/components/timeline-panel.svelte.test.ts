@@ -1,12 +1,113 @@
 import { expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { tick } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import TimelinePanel from './timeline-panel.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { createDefaultTracks } from '../project/defaults';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
+import { mediaPool } from '../media/pool.svelte';
+import { planMixdown } from '../media/render-plan';
 import '../../../routes/layout.css';
+
+it.each([1280, 320])(
+	'detaches and relinks audio through the keyboard menu at %ipx',
+	async (width) => {
+		await page.viewport(width, 720);
+		timelineStore.__resetForTesting();
+		commandHistory.clearHistory();
+		timelineStore._setTracks(createDefaultTracks());
+		mediaPool.loadAll([
+			{
+				id: 'speech-media',
+				storageType: 'cloud',
+				remoteUrl: '/speech.mp4',
+				fileName: 'speech.mp4',
+				fileSize: 100,
+				mimeType: 'video/mp4',
+				duration: 4,
+				width: 640,
+				height: 360,
+				fps: 30,
+				codec: 'avc',
+				audioCodec: 'aac',
+				hasAudio: true,
+				bitrate: 1000,
+				tags: []
+			}
+		]);
+		timelineStore._setItems([
+			{
+				id: 'speech',
+				type: 'video',
+				label: 'Speech',
+				mediaId: 'speech-media',
+				trackId: 'track-video-main',
+				from: 30,
+				durationInFrames: 60,
+				sourceStart: 30,
+				sourceEnd: 90,
+				sourceFps: 30,
+				volume: 0.5,
+				keyframes: { volume: { frames: [0, 59], values: [0.5, 0.8] } }
+			}
+		]);
+		const screen = await render(TimelinePanel, { onedit: vi.fn() });
+		screen.container.style.cssText = 'width:100%;height:650px;display:flex';
+		try {
+			await screen.getByRole('button', { name: /^Speech\. Drag/ }).click();
+			await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+			await expect.element(page.getByRole('menuitem', { name: /^Copy/ })).toBeVisible();
+			const detach = page.getByRole('menuitem', { name: 'Detach audio', exact: true });
+			await expect
+				.poll(() => detach.element().getBoundingClientRect().left)
+				.toBeGreaterThanOrEqual(0);
+			await expect
+				.poll(() => detach.element().getBoundingClientRect().right)
+				.toBeLessThanOrEqual(width);
+			await detach.click();
+			const audio = timelineStore.items.find((item) => item.type === 'audio')!;
+			expect(audio).toMatchObject({
+				from: 30,
+				durationInFrames: 60,
+				sourceStart: 30,
+				sourceEnd: 90,
+				volume: 0.5
+			});
+			expect(audio.linkedGroupId).toBe(timelineStore.itemById.get('speech')?.linkedGroupId);
+			await screen
+				.getByRole('button', { name: /^Speech\. Drag/ })
+				.first()
+				.click({ button: 'right' });
+			await page.getByRole('menuitem', { name: 'Unlink selected clips', exact: true }).click();
+			expect(timelineStore.items.every((item) => !item.linkedGroupId)).toBe(true);
+			expect(
+				planMixdown(timelineStore.items, timelineStore.tracks, 30).map((entry) => entry.itemId)
+			).toEqual([audio.id]);
+			await screen
+				.getByRole('button', { name: /^Speech\. Drag/ })
+				.first()
+				.click({ button: 'right' });
+			await page.getByRole('menuitem', { name: 'Link selected clips', exact: true }).click();
+			expect(timelineStore.itemById.get(audio.id)?.linkedGroupId).toBe(
+				timelineStore.itemById.get('speech')?.linkedGroupId
+			);
+			commandHistory.undo();
+			commandHistory.undo();
+			commandHistory.undo();
+			expect(timelineStore.items).toHaveLength(1);
+			expect(
+				planMixdown(timelineStore.items, timelineStore.tracks, 30).map((entry) => entry.itemId)
+			).toEqual(['speech']);
+		} finally {
+			await screen.unmount();
+			await page.viewport(1280, 900);
+			mediaPool.clear();
+			timelineStore.__resetForTesting();
+			commandHistory.clearHistory();
+		}
+	}
+);
 
 it('selects clips with the select-all shortcut without selecting locked clips', async () => {
 	timelineStore.__resetForTesting();

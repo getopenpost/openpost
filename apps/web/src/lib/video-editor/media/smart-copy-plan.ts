@@ -355,6 +355,7 @@ export function assessSmartCopy(
 	const activeAudioTrack = trackById.get(activeAudioItem.trackId)!;
 	const audioVolume = (activeAudioItem.volume ?? 1) * (activeAudioTrack.volume ?? 1);
 	const includeAudio =
+		!activeAudioItem.audioDetached &&
 		media.audioCodecSupported !== false &&
 		!activeAudioTrack.muted &&
 		audioVolume > 0 &&

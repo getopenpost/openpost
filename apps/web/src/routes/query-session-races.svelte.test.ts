@@ -385,8 +385,8 @@ describe('route mutation sessions', () => {
 	});
 
 	it('reconciles a Calendar move in its origin Workspace without moving the next Workspace UI', async () => {
-		// The calendar grid needs a square viewport to expose the target slot.
-		await page.viewport(900, 900);
+		// The draggable month grid appears at the desktop breakpoint.
+		await page.viewport(1280, 900);
 		const sourceAt = futureDate(2, 10);
 		const targetAt = futureDate(3, 10);
 		const publications = new Map([

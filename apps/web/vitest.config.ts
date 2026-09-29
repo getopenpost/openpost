@@ -40,6 +40,9 @@ export default defineConfig({
 					maxWorkers: 1,
 					browser: {
 						enabled: true,
+						// The interactive runner scales its iframe into a sidebar. Headless
+						// fixtures need their actual viewport for layout and video playback.
+						ui: runRealMusicModel,
 						provider: playwright({
 							launchOptions: {
 								executablePath: chromiumExecutablePath,

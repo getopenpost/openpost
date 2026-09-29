@@ -66,7 +66,7 @@
 			icon: '/assets/brand/features/workflows.svg',
 			lightSrc: '/assets/screenshots/workflows-light.webp',
 			darkSrc: '/assets/screenshots/workflows-dark.webp',
-			alt: 'A GitHub release branches on breaking changes into AI-written announcements or short updates, each with a draft and review step',
+			alt: 'OpenPost Workflows branches a GitHub release into an announcement or a short update, each with a draft and review step',
 			caption: 'Different updates, different paths. You review what goes out.'
 		}
 	];

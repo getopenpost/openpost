@@ -148,7 +148,7 @@ func (a workflowActions) schedule(ctx context.Context, input workflows.EffectReq
 		return nil, err
 	}
 	if found {
-		return map[string]any{"publication_id": id, "job_id": replay.Value.JobID, "scheduled_at": runAt.Format(time.RFC3339), "status": "scheduled"}, nil
+		return workflowScheduleOutput(id, runAt, replay.Value), nil
 	}
 	updated, _, err := commands.UpdateIdempotent(ctx, input.Authority.UserID, id, PublicationUpdateBody{ExpectedRevision: revision, ScheduledAt: &runAt}, workflowReceipt(input, "schedule-time"))
 	if err != nil {
@@ -158,8 +158,12 @@ func (a workflowActions) schedule(ctx context.Context, input workflows.EffectReq
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"publication_id": id, "job_id": queued.JobID, "scheduled_at": runAt.Format(time.RFC3339), "status": "scheduled"}, nil
+	return workflowScheduleOutput(id, runAt, queued), nil
 }
+func workflowScheduleOutput(id string, runAt time.Time, queued publicationEnqueueResult) map[string]any {
+	return map[string]any{"publication_id": id, "job_id": queued.JobID, "scheduled_at": runAt.Format(time.RFC3339), "status": "scheduled", "renditions": queued.Renditions}
+}
+
 func (a workflowActions) reply(ctx context.Context, input workflows.EffectRequest) (map[string]any, error) {
 	rendition, publication, err := a.publications.loadRenditionWithPublicationForEdit(ctx, workflowText(input.Inputs, "rendition_id"), input.Authority.UserID)
 	if err != nil {

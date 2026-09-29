@@ -837,6 +837,7 @@
 									/>
 								{:else if step}{#key step.id}
 										<StepFields
+											workspaceID={initial.workspace_id}
 											{step}
 											{references}
 											readonly={!canEdit}

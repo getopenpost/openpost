@@ -3524,8 +3524,8 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 	if err != nil {
 		return publicationEnqueueResult{}, err
 	}
-	if hasBlockingIssues(issues) {
-		return publicationEnqueueResult{}, errPublicationValidationBlocked
+	if err := publicationValidationError(issues); err != nil {
+		return publicationEnqueueResult{}, err
 	}
 	if err := h.requirePublicationReadinessWithDB(ctx, tx, publication, operation, intent, true); err != nil {
 		return publicationEnqueueResult{}, err
@@ -4483,6 +4483,31 @@ func formatOptionalTime(value time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339)
+}
+
+// All enqueue callers retain the same actionable validation details, including
+// workers that cannot make a separate interactive validation request.
+func publicationValidationError(issues []capabilities.ValidationIssue) error {
+	var messages []string
+	for _, issue := range issues {
+		if issue.Severity != "error" {
+			continue
+		}
+		message := issue.FallbackMessage
+		if message == "" {
+			message = issue.Message
+		}
+		if issue.Provider != "" {
+			message = issue.Provider + ": " + message
+		}
+		if !slices.Contains(messages, message) {
+			messages = append(messages, message)
+		}
+	}
+	if len(messages) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", errPublicationValidationBlocked, strings.Join(messages, "; "))
 }
 
 func hasBlockingIssues(issues []capabilities.ValidationIssue) bool {

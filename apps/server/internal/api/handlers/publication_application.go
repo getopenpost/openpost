@@ -887,10 +887,7 @@ func (commands publicationApplication) validateForEnqueue(ctx context.Context, u
 	if err != nil {
 		return err
 	}
-	if hasBlockingIssues(issues) {
-		return errPublicationValidationBlocked
-	}
-	return nil
+	return publicationValidationError(issues)
 }
 
 func (commands publicationApplication) RetryRendition(

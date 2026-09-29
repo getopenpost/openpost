@@ -9571,5 +9571,7 @@
 	"workflows_recipe_dedupe_help": "Jeden unterschiedlichen Eintrag einmal behalten, mit einem bearbeitbaren JavaScript-Schritt.",
 	"workflows_recipe_join": "Text verbinden",
 	"workflows_recipe_join_help": "Eine Liste mit einem bearbeitbaren Trennzeichen zu Text verbinden.",
-	"workflows_text_input": "Text"
+	"workflows_text_input": "Text",
+	"workflows_set_help": "Jeder Lauf verwendet die aktuellen Konten und Vorgaben dieses Sets. Bestehende Beiträge behalten ihre Einstellungen.",
+	"workflows_set_missing": "Dieses Social Set ist nicht mehr verfügbar. Wähle ein anderes Set oder einzelne Konten."
 }

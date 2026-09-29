@@ -9571,5 +9571,7 @@
 	"workflows_recipe_dedupe_help": "Düzenlenebilir bir JavaScript adımıyla her farklı öğeden bir tane tutun.",
 	"workflows_recipe_join": "Metni birleştir",
 	"workflows_recipe_join_help": "Bir listeyi düzenlenebilir bir ayırıcıyla metne dönüştürün.",
-	"workflows_text_input": "Metin"
+	"workflows_text_input": "Metin",
+	"workflows_set_help": "Her çalıştırma bu setin güncel hesaplarını ve varsayılan ayarlarını kullanır. Mevcut gönderiler ayarlarını korur.",
+	"workflows_set_missing": "Bu sosyal set artık kullanılamıyor. Başka bir set veya tek tek hesaplar seçin."
 }

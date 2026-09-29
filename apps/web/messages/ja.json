@@ -9571,5 +9571,7 @@
 	"workflows_recipe_dedupe_help": "編集可能なJavaScriptステップで、異なる項目を1つずつ残します。",
 	"workflows_recipe_join": "テキストを結合",
 	"workflows_recipe_join_help": "編集可能な区切り文字でリストをテキストに結合します。",
-	"workflows_text_input": "テキスト"
+	"workflows_text_input": "テキスト",
+	"workflows_set_help": "実行ごとに、このセットの現在のアカウントと既定の設定を使用します。既存の投稿の設定は変わりません。",
+	"workflows_set_missing": "このソーシャルセットは利用できなくなりました。別のセットまたは個別のアカウントを選択してください。"
 }

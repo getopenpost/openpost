@@ -141,6 +141,7 @@ func TestWorkflowNativeScheduleReplayKeepsOneJobAndOneAuthorization(t *testing.T
 	replay, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
 	require.Equal(t, first, replay)
+	require.NotEmpty(t, first.Output["renditions"], "workflow runs must expose the scheduler destination outcomes")
 	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", publication.ID).Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
@@ -197,4 +198,24 @@ func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
 	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
+}
+
+func TestWorkflowScheduleReportsNativeDestinationValidation(t *testing.T) {
+	db := workflowHandlerDB(t)
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "bot", WorkspaceID: "ws", Platform: "discord", AccountUsername: "Updates", AccessTokenEnc: []byte("test"), CapabilityState: `{"connection_type":"bot"}`, IsActive: true}).Exec(t.Context())
+	require.NoError(t, err)
+	actions := NewWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil, nil)
+	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Needs a channel", "account_ids": []string{"bot"}}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: now}, RunID: "validation", StepID: "draft", ExpiresAt: now.Add(time.Hour)}
+	draft, err := actions.Execute(t.Context(), input)
+	require.NoError(t, err)
+	input.Kind = workflows.KindSchedule
+	input.StepID = "schedule"
+	input.Inputs = map[string]any{"publication_id": draft.Output["id"], "revision": draft.Output["revision"], "scheduled_at": now.Add(time.Hour).Format(time.RFC3339Nano)}
+	_, err = actions.Execute(t.Context(), input)
+	require.ErrorIs(t, err, errPublicationValidationBlocked)
+	require.Contains(t, err.Error(), "Choose a Discord channel")
+	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", draft.Output["id"]).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
 }

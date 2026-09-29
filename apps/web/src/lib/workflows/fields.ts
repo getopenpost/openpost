@@ -236,7 +236,7 @@ const outputs = {
 	text: ['text', 'length'],
 	date: ['text', 'timestamp'],
 	tracking_link: ['url'],
-	schedule: ['publication_id', 'job_id', 'scheduled_at', 'status'],
+	schedule: ['publication_id', 'job_id', 'scheduled_at', 'status', 'renditions'],
 	reply: ['rendition_id', 'job_id', 'status'],
 	wait: ['until']
 } satisfies Record<Exclude<Step['kind'], 'set_fields'>, string[]>;
@@ -245,7 +245,7 @@ export function outputFields(step: Step): { name: string; dynamic?: boolean }[] 
 	if (step.kind !== 'set_fields')
 		return outputs[step.kind].map((name) => ({
 			name,
-			dynamic: ['data', 'body', 'headers', 'items', 'usage'].includes(name)
+			dynamic: ['data', 'body', 'headers', 'items', 'usage', 'renditions'].includes(name)
 		}));
 	try {
 		// Field mappings may be saved objects or JSON text still being edited.

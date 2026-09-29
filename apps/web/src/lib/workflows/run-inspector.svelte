@@ -132,6 +132,19 @@
 		{/if}
 		{#each run.steps ?? [] as step (step.step_id)}
 			{@const usage = usageSchema.safeParse(step.output?.usage)}
+			{@const postID =
+				run.mode === 'live'
+					? z
+							.string()
+							.catch('')
+							.parse(
+								step.kind === 'schedule'
+									? step.inputs?.publication_id
+									: step.kind === 'create_draft' || step.kind === 'build_draft'
+										? step.output?.id
+										: undefined
+							)
+					: ''}
 			<details
 				class="rounded-lg border bg-card p-3"
 				open={step.state === 'failed' || step.state === 'awaiting_approval'}
@@ -149,6 +162,12 @@
 							· {m.workflows_usage_cost({ amount: usage.data.cost_usd.toFixed(6) })}{/if}
 					</p>{/if}
 				{#if step.error}<p class="mt-3 text-sm text-destructive">{step.error}</p>{/if}
+				{#if postID}<Button
+						class="mt-3"
+						size="sm"
+						variant="outline"
+						href={`/publications/${encodeURIComponent(postID)}`}>{m.workflows_edit()}</Button
+					>{/if}
 				<div class="mt-3 space-y-3">
 					{#each [{ label: m.workflows_inputs(), data: step.inputs }, { label: m.workflows_outputs(), data: step.output }] as item}<div
 						>

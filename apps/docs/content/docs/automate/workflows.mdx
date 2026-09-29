@@ -115,11 +115,19 @@ Reading source examples is a real read from the selected source. It does not sta
 
 **Run live** performs the saved draft's configured actions using the sample input currently shown. Use it only when you intend those actions to occur. It can create posts or queue work even while automatic runs are paused.
 
+## Destinations and Social Sets
+
+In **Create draft** or **AI draft**, open **Destinations** to select individual accounts or a Social Set. The picker is shared with the post composer. Select **Manage Social Sets** to choose formats and provider settings, such as a Discord channel or who can reply on X.
+
+Each new run uses the set's current accounts and defaults when it creates a draft. Existing posts retain their saved settings. Selecting individual accounts switches away from the set. If a set is deleted, choose another set or individual accounts before running again.
+
+For changes to one post, use **Open post** during review. The normal composer provides media, variants, provider options, and validation. Return to the run to approve the updated revision.
+
 ## Review and schedule
 
 Open **Runs**, select a run waiting for approval, and inspect the displayed post revision and destination variants. **Open post** opens the normal editor. After editing, return to the run and review its current revision before approving it.
 
-To schedule an approved post, add **Schedule post** after **Review post**. Select the review step's post and revision as its inputs. A later edit to the post makes that revision stale and blocks scheduling until the conflict is resolved. Scheduling still follows normal account, provider, and publishing checks.
+To schedule an approved post, add **Schedule post** after **Review post**. Select the review step's post and revision as its inputs. A later edit to the post makes that revision stale and blocks scheduling until the conflict is resolved. Scheduling uses the same publication scheduler as the composer, including account access, provider settings, content limits, workspace random delay, and publishing checks. The delay is relative to when the schedule step starts. Destination outcomes are included in the step output; scheduling acceptance does not mean the post has published.
 
 The AI draft step uses the configured AI Builder. Metrics come from successful, recent Analytics observations; unavailable or stale metrics are errors, not zero counts. Replies use the native publishing queue and the destination's provider rules.
 

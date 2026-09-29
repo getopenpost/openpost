@@ -9571,5 +9571,7 @@
 	"workflows_recipe_dedupe_help": "Conserva uno de cada elemento distinto con un paso JavaScript editable.",
 	"workflows_recipe_join": "Unir texto",
 	"workflows_recipe_join_help": "Une una lista en un texto con un separador editable.",
-	"workflows_text_input": "Texto"
+	"workflows_text_input": "Texto",
+	"workflows_set_help": "Cada ejecución usa las cuentas y los valores predeterminados actuales de este conjunto. Las publicaciones existentes conservan sus ajustes.",
+	"workflows_set_missing": "Este conjunto social ya no está disponible. Elige otro conjunto o cuentas individuales."
 }

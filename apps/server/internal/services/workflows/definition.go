@@ -357,7 +357,7 @@ var stepOutputFields = map[string][]string{
 	KindText:       {"text", "length"},
 	KindDate:       {"text", "timestamp"},
 	KindURL:        {"url"},
-	KindSchedule:   {"publication_id", "job_id", "scheduled_at", "status"},
+	KindSchedule:   {"publication_id", "job_id", "scheduled_at", "status", "renditions.*"},
 	KindReply:      {"rendition_id", "job_id", "status"},
 	KindWait:       {"until"},
 }

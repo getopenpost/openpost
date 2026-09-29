@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
@@ -709,3 +711,139 @@ test("canvas shortcuts undo and redo without stealing text history", async ({ pa
   await page.keyboard.press("ControlOrMeta+z");
   await expect(nodes).toHaveCount(2);
 });
+
+for (const width of [1440, 390, 320]) {
+  for (const scheme of ["light", "dark"] as const) {
+    test(`workflow Social Sets reuse provider settings at ${width}px in ${scheme}`, async ({
+      page,
+    }) => {
+      const { token, workspace } = await openWorkflows(page);
+      const accountID = randomUUID();
+      const db = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
+      execFileSync("sqlite3", [
+        "-cmd",
+        ".timeout 5000",
+        db,
+        `INSERT INTO social_accounts
+        (id, workspace_id, slug, platform, account_id, account_username, access_token_encrypted, capability_state_json, is_active)
+        VALUES ('${accountID}', '${workspace.id}', 'workflow-discord', 'discord', 'guild-test', 'Launch channel', X'00', '{"connection_type":"bot"}', 1);`,
+      ]);
+      await page.addInitScript((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.setViewportSize({ width, height: 900 });
+      await page.reload();
+      await page.route(`**/api/v1/accounts/${accountID}/publishing-options/**`, (route) =>
+        route.fulfill({ json: { options: [{ value: "updates-channel", label: "#updates" }] } }),
+      );
+      await page.getByRole("button", { name: "New workflow", exact: true }).click();
+      if (width === 1440 && scheme === "light") {
+        await page.route("**/api/v1/capabilities", (route) =>
+          route.fulfill({ status: 503, json: { detail: "Destination settings unavailable" } }),
+        );
+      }
+      await addStep(page, "Create draft");
+      if (width === 1440 && scheme === "light") {
+        await expect(page.getByRole("alert")).toContainText("Destination settings unavailable");
+        await expect(page.getByTestId("composer-account-control")).toHaveCount(0);
+        await page.unroute("**/api/v1/capabilities");
+        await page.getByRole("button", { name: "Try again", exact: true }).click();
+      }
+      await page.getByTestId("composer-account-control").click();
+      await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
+      const manager = page.getByRole("dialog", { name: "Manage Social Sets", exact: true });
+      await manager
+        .getByRole("textbox", { name: "Set name", exact: true })
+        .fill("Launch destinations");
+      await manager.getByLabel("Format for Launch channel", { exact: true }).click();
+      await page.getByRole("option", { name: "Discord message", exact: true }).click();
+      await manager.getByRole("button", { name: "Edit post settings", exact: true }).click();
+      const settings = page.getByRole("dialog", { name: "Discord settings", exact: true });
+      await settings.getByRole("combobox", { name: "Channel", exact: true }).click();
+      await page.getByRole("option", { name: "#updates", exact: true }).click();
+      await settings.getByRole("button", { name: "Done", exact: true }).click();
+      const saved = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/v1/social-sets") && response.request().method() === "POST",
+      );
+      await manager.getByRole("button", { name: "Save", exact: true }).click();
+      const response = await saved;
+      expect(response.ok(), await response.text()).toBeTruthy();
+      const set = await response.json();
+      expect(set.accounts[0].default_settings).toEqual({ channel_id: "updates-channel" });
+      await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+      await manager.getByRole("button", { name: "Save", exact: true }).focus();
+      await page.keyboard.press("ControlOrMeta+z");
+      await page.keyboard.press("Escape");
+      await expect(manager).toBeHidden();
+      await expect(page.getByTestId("composer-account-control")).toContainText(
+        "Launch destinations",
+      );
+      await expect(
+        page.getByText("Each run uses this set's current accounts and defaults.", { exact: false }),
+      ).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+      const nameFits = await page.getByLabel("Step name", { exact: true }).evaluate((element) => {
+        if (!(element instanceof HTMLInputElement)) throw new Error("Step name must be an input");
+        const style = getComputedStyle(element);
+        const context = document.createElement("canvas").getContext("2d")!;
+        context.font = style.font;
+        const width =
+          element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return context.measureText(element.value).width <= width;
+      });
+      expect(nameFits, "The node name should fit beside its header actions").toBe(true);
+      await expect(
+        page
+          .getByRole("dialog", { name: "Create draft", exact: true })
+          .getByText("Saved", { exact: true }),
+      ).toBeVisible();
+      await page.screenshot({ path: `test-results/workflow-destinations-${scheme}-${width}.png` });
+      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+      await expect(page.getByRole("dialog")).toBeHidden();
+      await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+      const workflowURL = page.url();
+      await page.reload();
+      await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
+      await expect(page.getByTestId("composer-account-control")).toContainText(
+        "Launch destinations",
+      );
+      if (width === 1440 && scheme === "light") {
+        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+        await page.getByRole("button", { name: "Test data", exact: true }).click();
+        await page.getByText("Live", { exact: true }).click();
+        await page.getByRole("button", { name: "Run live", exact: true }).click();
+        await expect(page.getByRole("paragraph").filter({ hasText: /^Completed$/ })).toBeVisible({
+          timeout: 30000,
+        });
+        const posts = await page.request.get(`/api/v1/publications?workspace_id=${workspace.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const publications = await posts.json();
+        expect(publications).toHaveLength(1);
+        const post = await page.request.get(`/api/v1/publications/${publications[0].id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const publication = await post.json();
+        expect(publication.renditions[0].settings.channel_id).toBe("updates-channel");
+        expect(publication.renditions[0].output_profile).toBe("discord.post");
+        await page.goto(workflowURL);
+        await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
+      }
+      await page.getByTestId("composer-account-control").click();
+      await page.getByTestId("composer-account-row").getByRole("checkbox").uncheck();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("composer-account-control")).not.toContainText(
+        "Launch destinations",
+      );
+      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+      await page.getByRole("button", { name: "Organize", exact: true }).focus();
+      await page.keyboard.press("ControlOrMeta+z");
+      await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
+      await expect(page.getByTestId("composer-account-control")).toContainText(
+        "Launch destinations",
+      );
+    });
+  }
+}

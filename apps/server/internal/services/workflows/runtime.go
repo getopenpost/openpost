@@ -279,6 +279,7 @@ func previewOutput(step Step, inputs map[string]any) map[string]any {
 		output["revision"] = 1
 		output["approved"] = true
 	case KindSchedule:
+		output["renditions"] = []any{}
 		output["publication_id"] = inputs["publication_id"]
 		output["scheduled_at"] = inputs["scheduled_at"]
 		output["status"] = "scheduled"

@@ -18,9 +18,10 @@
 	import type { Definition, Run } from './api';
 	import type { Issue } from './validation';
 	import { m } from '$lib/paraglide/messages';
-	let positions = $state<Record<string, { x: number; y: number }>>({});
 	let {
 		definition,
+		positions = {},
+		onlayout,
 		selectedID,
 		onselect,
 		onadd,
@@ -32,6 +33,8 @@
 		readonly = false
 	}: {
 		definition: Definition;
+		positions?: Record<string, { x: number; y: number }>;
+		onlayout?: (positions: Record<string, { x: number; y: number }>) => void;
 		selectedID: string;
 		onselect: (id: string) => void;
 		onadd?: (id: string, port: Port) => void;
@@ -44,7 +47,7 @@
 	} = $props();
 	let layoutVersion = $state(0);
 	export function organize() {
-		positions = {};
+		onlayout?.({});
 		layoutVersion++;
 	}
 	const nodeTypes = { workflow: WorkflowNode };
@@ -99,10 +102,10 @@
 	{#key layoutVersion}
 		<SvelteFlow
 			onnodedragstop={({ nodes: moved }) => {
-				positions = {
+				onlayout?.({
 					...positions,
 					...Object.fromEntries(moved.map((node) => [node.id, node.position]))
-				};
+				});
 			}}
 			{nodes}
 			{edges}

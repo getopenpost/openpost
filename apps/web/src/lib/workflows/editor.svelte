@@ -76,6 +76,7 @@
 		saveFailed = $state(false),
 		busy = $state(false),
 		saving = $state(false);
+	let positions = $state.raw<Record<string, { x: number; y: number }>>({});
 	let history = $state.raw<string[]>([]),
 		future = $state.raw<string[]>([]);
 	let sample = $state(
@@ -145,26 +146,76 @@
 	const runsQuery = createQuery(() =>
 		workflowRunsQueryOptions(workflowQueryAPI, initial.workspace_id, initial.id)
 	);
+	function snapshot() {
+		return JSON.stringify({ doc, positions, selectedID });
+	}
+	function restore(value: string) {
+		const restored = JSON.parse(value);
+		doc = restored.doc;
+		positions = restored.positions;
+		selectedID = restored.selectedID;
+		if (selectedID !== 'source' && !findStep(doc.definition.steps ?? [], selectedID)) {
+			selectedID = 'source';
+			inspector = false;
+		}
+	}
+	function remember(previous: string) {
+		history = [...history.slice(-49), previous];
+		future = [];
+	}
 	function change(edit: (next: typeof doc) => void) {
 		if (!canEdit) return;
+		const previous = snapshot();
 		const next = structuredClone(doc);
 		edit(next);
 		if (JSON.stringify(next) === JSON.stringify(doc)) return;
-		history = [...history.slice(-49), JSON.stringify(doc)];
-		future = [];
+		remember(previous);
 		doc = next;
 	}
+	function moveNodes(next: typeof positions) {
+		if (!canEdit || JSON.stringify(next) === JSON.stringify(positions)) return;
+		remember(snapshot());
+		positions = next;
+	}
 	function undo() {
-		if (!history.length) return;
-		future = [...future, JSON.stringify(doc)];
-		doc = JSON.parse(history.at(-1)!);
+		if (!canEdit || !history.length) return;
+		future = [...future, snapshot()];
+		restore(history.at(-1)!);
 		history = history.slice(0, -1);
 	}
 	function redo() {
-		if (!future.length) return;
-		history = [...history, JSON.stringify(doc)];
-		doc = JSON.parse(future.at(-1)!);
+		if (!canEdit || !future.length) return;
+		history = [...history, snapshot()];
+		restore(future.at(-1)!);
 		future = future.slice(0, -1);
+	}
+	function shortcut(event: KeyboardEvent) {
+		if (event.defaultPrevented || event.isComposing || event.altKey || !canEdit || picker) return;
+		const target = event.target;
+		if (!(target instanceof HTMLElement)) return;
+		const overlay = target.closest(
+			'[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'
+		);
+		if (overlay && !overlay.hasAttribute('data-workflow-inspector')) return;
+		if (!(event.metaKey || event.ctrlKey)) return;
+		const key = event.key.toLowerCase();
+		if (key === 's') {
+			event.preventDefault();
+			void save().catch(() => {});
+			return;
+		}
+		// Text editors own their history, including an empty undo stack.
+		if (
+			panel !== 'configure' ||
+			target.isContentEditable ||
+			target.closest('input, textarea, select, [role="textbox"]')
+		)
+			return;
+		if (key === 'z' || key === 'y') {
+			event.preventDefault();
+			if (key === 'y' || event.shiftKey) redo();
+			else undo();
+		}
 	}
 	function editStep(edit: (value: Step, siblings: Step[], index: number) => void) {
 		change((next) => {
@@ -372,15 +423,7 @@
 	}
 </script>
 
-<svelte:window
-	onkeydown={(event) => {
-		if (event.defaultPrevented) return;
-		if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-			event.preventDefault();
-			void save().catch(() => {});
-		}
-	}}
-/>
+<svelte:window onkeydown={shortcut} />
 <div
 	class="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground"
 	data-workflow-editor
@@ -427,6 +470,7 @@
 					class="hidden sm:inline-flex"
 					disabled={!history.length}
 					onclick={undo}
+					aria-keyshortcuts="Control+Z Meta+Z"
 					aria-label={m.workflows_undo()}><ThemeIcon role="arrow-left" class="size-4" /></Button
 				>
 				<Button
@@ -435,6 +479,7 @@
 					class="hidden sm:inline-flex"
 					disabled={!future.length}
 					onclick={redo}
+					aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y"
 					aria-label={m.workflows_redo()}><ThemeIcon role="arrow-right" class="size-4" /></Button
 				>
 				<DropdownMenu.Root>
@@ -540,6 +585,8 @@
 			{:else}
 				<Canvas
 					bind:this={canvas}
+					{positions}
+					onlayout={moveNodes}
 					onduplicate={duplicate}
 					onremove={remove}
 					definition={doc.definition}
@@ -652,6 +699,7 @@
 			/>{/if}
 		<Dialog.Root bind:open={inspector}>
 			<Dialog.Content
+				data-workflow-inspector
 				showCloseButton={false}
 				class="top-auto bottom-0 left-0 flex h-[calc(100dvh-0.75rem)] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-xl rounded-b-none p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:h-[min(900px,calc(100dvh-3rem))] sm:w-[calc(100vw-3rem)] sm:max-w-[1600px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
 				onOpenAutoFocus={() => {
@@ -676,28 +724,31 @@
 								? sourceLabel(inspectedDefinition.source.kind)
 								: inspectedStep?.name}</Dialog.Title
 					>
-					{#if panel === 'configure' && step && canEdit}
-						<Input
-							aria-label={m.workflows_step_name()}
-							value={step.name}
-							maxlength={100}
-							class="min-w-0 flex-1 border-transparent bg-transparent px-2 text-sm font-medium shadow-none hover:border-input focus-visible:border-input"
-							oninput={(event) => editStep((target) => (target.name = event.currentTarget.value))}
-						/>
-					{:else}<span class="min-w-0 flex-1 truncate text-sm font-medium"
-							>{panel === 'test'
-								? m.workflows_test_data()
-								: selectedID === 'source'
-									? sourceLabel(inspectedDefinition.source.kind)
-									: inspectedStep?.name}</span
-						>{/if}
-					<span class="shrink-0 text-[11px] text-muted-foreground" aria-live="polite"
-						>{saving
-							? m.workflows_saving()
-							: dirty
-								? m.workflows_unsaved()
-								: m.workflows_saved()}</span
-					><Button
+					<div class="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-3">
+						{#if panel === 'configure' && step && canEdit}
+							<Input
+								aria-label={m.workflows_step_name()}
+								value={step.name}
+								maxlength={100}
+								class="min-w-0 flex-1 border-transparent bg-transparent px-2 text-sm font-medium shadow-none hover:border-input focus-visible:border-input"
+								oninput={(event) => editStep((target) => (target.name = event.currentTarget.value))}
+							/>
+						{:else}<span class="min-w-0 flex-1 truncate text-sm font-medium"
+								>{panel === 'test'
+									? m.workflows_test_data()
+									: selectedID === 'source'
+										? sourceLabel(inspectedDefinition.source.kind)
+										: inspectedStep?.name}</span
+							>{/if}
+						<span class="shrink-0 px-2 text-[11px] text-muted-foreground sm:px-0" aria-live="polite"
+							>{saving
+								? m.workflows_saving()
+								: dirty
+									? m.workflows_unsaved()
+									: m.workflows_saved()}</span
+						>
+					</div>
+					<Button
 						size="sm"
 						variant="outline"
 						disabled={busy || (canTestNode ? !canAdmin : !canEdit) || panel === 'runs'}

@@ -30,6 +30,25 @@
 			<button
 				type="button"
 				onkeydown={(event) => {
+					if (event.isComposing || event.altKey) return;
+					if (!info.readonly && (event.key === 'Delete' || event.key === 'Backspace')) {
+						if (info.onremove) {
+							event.preventDefault();
+							info.onremove();
+						}
+						return;
+					}
+					if (
+						!info.readonly &&
+						(event.metaKey || event.ctrlKey) &&
+						event.key.toLowerCase() === 'd'
+					) {
+						if (info.onduplicate) {
+							event.preventDefault();
+							info.onduplicate();
+						}
+						return;
+					}
 					if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
 						event.preventDefault();
 						const bounds = event.currentTarget.getBoundingClientRect();

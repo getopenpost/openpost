@@ -645,6 +645,15 @@ test("canvas context actions, organization, and recipes preserve an editable wor
   await page.mouse.up();
   const moved = await writer.boundingBox();
   expect(moved!.y).toBeGreaterThan(before!.y + 80);
+  await page.getByRole("button", { name: "Organize", exact: true }).focus();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect
+    .poll(async () => Math.abs((await writer.boundingBox())!.y - before!.y))
+    .toBeLessThan(2);
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect
+    .poll(async () => Math.abs((await writer.boundingBox())!.y - moved!.y))
+    .toBeLessThan(2);
   await page.getByRole("button", { name: "Organize", exact: true }).click();
   const source = page.getByRole("button", {
     name: "Run manually Trigger",
@@ -667,4 +676,36 @@ test("canvas context actions, organization, and recipes preserve an editable wor
   ]);
   expect(definition.steps[1].inputs.text.reference).toBe(`${definition.steps[0].id}.text`);
   expect(definition.steps[2].inputs.publication_id.reference).toBe(`${definition.steps[1].id}.id`);
+});
+
+test("canvas shortcuts undo and redo without stealing text history", async ({ page }) => {
+  await openWorkflows(page);
+  await page.getByRole("button", { name: "New workflow", exact: true }).click();
+  await addStep(page, "Create draft");
+  const text = page.getByLabel("Post text", { exact: true });
+  await text.fill("Original draft");
+  await text.press("ControlOrMeta+z");
+  await expect(text).toContainText("Source: title");
+  await text.press("ControlOrMeta+Shift+z");
+  await expect(text).toHaveText("Original draft");
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  const draft = page.getByRole("button", { name: "Create draft Create draft", exact: true });
+  await draft.focus();
+  await page.keyboard.press("ControlOrMeta+d");
+  const nodes = page.getByRole("button", { name: "Create draft Create draft", exact: true });
+  await expect(nodes).toHaveCount(2);
+  await page.getByRole("button", { name: "Organize", exact: true }).focus();
+  await page.keyboard.press("Control+z");
+  await expect(nodes).toHaveCount(1);
+  await page.keyboard.press("Control+y");
+  await expect(nodes).toHaveCount(2);
+  await page.keyboard.press("Meta+z");
+  await expect(nodes).toHaveCount(1);
+  await page.keyboard.press("Meta+Shift+z");
+  await expect(nodes).toHaveCount(2);
+  await nodes.first().focus();
+  await page.keyboard.press("Delete");
+  await expect(nodes).toHaveCount(1);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(nodes).toHaveCount(2);
 });

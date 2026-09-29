@@ -125,6 +125,7 @@ export interface KeyframePastePlan {
 	inserts: KeyframeInsert[];
 	skippedUnsupported: number;
 	skippedBlocked: number;
+	scaleBase?: KeyframeClipboard['scaleBase'];
 }
 
 export function buildKeyframePastePlan({
@@ -158,7 +159,17 @@ export function buildKeyframePastePlan({
 		}
 		inserts.push(clipboardEntryToInsert(keyframe, frame));
 	}
-	return { inserts, skippedUnsupported, skippedBlocked };
+	return {
+		inserts,
+		skippedUnsupported,
+		skippedBlocked,
+		...(clipboard.sourceItemId === item.id &&
+			clipboard.scaleBase &&
+			inserts.some(
+				(insert) =>
+					insert.vectorGroupId && (insert.property === 'width' || insert.property === 'height')
+			) && { scaleBase: clipboard.scaleBase })
+	};
 }
 
 function clipboardEntryToInsert(entry: KeyframeClipboardEntry, frame: number): KeyframeInsert {

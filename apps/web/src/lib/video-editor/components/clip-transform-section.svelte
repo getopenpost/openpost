@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { sequenceStore } from '../sequences/sequence-store.svelte';
+	import PropertyKeyframeButton from './property-keyframe-button.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { Disclosure as EditorDisclosure, SliderRow } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
-	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import type { KeyframeProperty, TimelineItem } from '$lib/video-editor/project/types';
 	import { ALL_BLEND_MODES, type BlendMode } from '$lib/video-editor/effects/gpu/blend-modes';
@@ -44,8 +45,8 @@
 	let gesture = $state<TimelineSnapshot | null>(null);
 
 	function valueFor(item: TimelineItem, property: KeyframeProperty): number {
-		const frameWidth = editorSession.project?.metadata.width ?? 1920;
-		const frameHeight = editorSession.project?.metadata.height ?? 1080;
+		const frameWidth = sequenceStore.activeWidth;
+		const frameHeight = sequenceStore.activeHeight;
 		const resolved = resolveAnimatedItemLocalAt(item, timelineStore.currentFrame, {
 			fps: timelineStore.fps,
 			frameWidth,
@@ -92,21 +93,6 @@
 
 	function aspectLocked(): boolean {
 		return items.length > 0 && items.every(itemAspectLocked);
-	}
-
-	function autoKeyEnabled(property: KeyframeProperty): boolean {
-		return (
-			items.length > 0 && items.every((item) => autoKeyframeStore.isEnabled(item.id, property))
-		);
-	}
-
-	function toggleAutoKey(property: KeyframeProperty): void {
-		const enabled = !autoKeyEnabled(property);
-		for (const item of items) {
-			if (autoKeyframeStore.isEnabled(item.id, property) !== enabled) {
-				autoKeyframeStore.toggle(item.id, property);
-			}
-		}
 	}
 
 	function valuesFor(property: KeyframeProperty, value: number) {
@@ -176,8 +162,8 @@
 	}
 
 	function resetSize(): void {
-		const frameWidth = editorSession.project?.metadata.width ?? 1920;
-		const frameHeight = editorSession.project?.metadata.height ?? 1080;
+		const frameWidth = sequenceStore.activeWidth;
+		const frameHeight = sequenceStore.activeHeight;
 		reset((item) => {
 			if (item.type === 'shape' || item.type === 'text') {
 				const size = Math.min(valueFor(item, 'width'), valueFor(item, 'height'));
@@ -277,19 +263,7 @@
 				>{unit}</span
 			>
 		</div>
-		<button
-			type="button"
-			class:active={autoKeyEnabled(property)}
-			class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] transition-colors hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
-			aria-label={m.video_editor_property_auto_key({ property: ariaLabel })}
-			aria-pressed={autoKeyEnabled(property)}
-			onclick={() => toggleAutoKey(property)}
-		>
-			<ProtectedIcon
-				icon="editor-keyframe"
-				class={`size-2.5 ${autoKeyEnabled(property) ? 'fill-current' : ''}`}
-			/>
-		</button>
+		<PropertyKeyframeButton {items} {property} label={ariaLabel} {onedit} />
 	</div>
 {/snippet}
 
@@ -408,21 +382,12 @@
 							onValueCancel={cancelGesture}
 						/>
 					</div>
-					<button
-						type="button"
-						class:active={autoKeyEnabled('rotation')}
-						class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] transition-colors hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
-						aria-label={m.video_editor_property_auto_key({
-							property: m.video_editor_rotation()
-						})}
-						aria-pressed={autoKeyEnabled('rotation')}
-						onclick={() => toggleAutoKey('rotation')}
-					>
-						<ProtectedIcon
-							icon="editor-keyframe"
-							class={`size-2.5 ${autoKeyEnabled('rotation') ? 'fill-current' : ''}`}
-						/>
-					</button>
+					<PropertyKeyframeButton
+						{items}
+						property="rotation"
+						label={m.video_editor_rotation()}
+						{onedit}
+					/>
 					<button
 						type="button"
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
@@ -545,21 +510,12 @@
 								onValueCancel={cancelGesture}
 							/>
 						</div>
-						<button
-							type="button"
-							class:active={autoKeyEnabled('opacity')}
-							class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
-							aria-label={m.video_editor_property_auto_key({
-								property: m.video_editor_clip_opacity()
-							})}
-							aria-pressed={autoKeyEnabled('opacity')}
-							onclick={() => toggleAutoKey('opacity')}
-						>
-							<ProtectedIcon
-								icon="editor-keyframe"
-								class={`size-2.5 ${autoKeyEnabled('opacity') ? 'fill-current' : ''}`}
-							/>
-						</button>
+						<PropertyKeyframeButton
+							{items}
+							property="opacity"
+							label={m.video_editor_clip_opacity()}
+							{onedit}
+						/>
 						<button
 							type="button"
 							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"

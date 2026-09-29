@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { sequenceStore } from '../sequences/sequence-store.svelte';
+	import PropertyKeyframeButton from './property-keyframe-button.svelte';
 	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
-	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import {
 		cropPropertyValuePixels,
@@ -86,8 +87,8 @@
 
 	function dimensionsFor(item: TimelineItem): CropSourceDimensions {
 		const media = item.mediaId ? mediaPool.get(item.mediaId) : undefined;
-		const projectWidth = editorSession.project?.metadata.width ?? 1920;
-		const projectHeight = editorSession.project?.metadata.height ?? 1080;
+		const projectWidth = sequenceStore.activeWidth;
+		const projectHeight = sequenceStore.activeHeight;
 		return cropSourceDimensions(
 			{
 				...item,
@@ -100,8 +101,8 @@
 	}
 
 	function resolvedCrop(item: TimelineItem): TimelineItem['crop'] {
-		const frameWidth = editorSession.project?.metadata.width ?? 1920;
-		const frameHeight = editorSession.project?.metadata.height ?? 1080;
+		const frameWidth = sequenceStore.activeWidth;
+		const frameHeight = sequenceStore.activeHeight;
 		return resolveAnimatedItemLocalAt(item, timelineStore.currentFrame, {
 			fps: timelineStore.fps,
 			frameWidth,
@@ -127,21 +128,6 @@
 		if (axis === 'horizontal') return Math.min(...dimensions.map((value) => value.width));
 		if (axis === 'vertical') return Math.min(...dimensions.map((value) => value.height));
 		return Math.max(...dimensions.map(cropSoftnessReferenceDimension));
-	}
-
-	function autoKeyEnabled(property: CropKeyframeProperty): boolean {
-		return (
-			items.length > 0 && items.every((item) => autoKeyframeStore.isEnabled(item.id, property))
-		);
-	}
-
-	function toggleAutoKey(property: CropKeyframeProperty): void {
-		const enabled = !autoKeyEnabled(property);
-		for (const item of items) {
-			if (autoKeyframeStore.isEnabled(item.id, property) !== enabled) {
-				autoKeyframeStore.toggle(item.id, property);
-			}
-		}
 	}
 
 	function beginGesture(): void {
@@ -255,19 +241,12 @@
 									>px</span
 								>
 							</div>
-							<button
-								type="button"
-								class:active={autoKeyEnabled(control.property)}
-								class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)]"
-								aria-label={m.video_editor_property_auto_key({ property: control.label() })}
-								aria-pressed={autoKeyEnabled(control.property)}
-								onclick={() => toggleAutoKey(control.property)}
-							>
-								<ProtectedIcon
-									icon="editor-keyframe"
-									class={`size-2.5 ${autoKeyEnabled(control.property) ? 'fill-current' : ''}`}
-								/>
-							</button>
+							<PropertyKeyframeButton
+								{items}
+								property={control.property}
+								label={control.label()}
+								{onedit}
+							/>
 							<button
 								type="button"
 								class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"

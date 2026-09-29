@@ -1,4 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
+import { commandHistory } from '../timeline/commands/command-store.svelte';
+import { resolveAnimatedItemLocalAt } from '../timeline/animated-properties';
 import { render } from 'vitest-browser-svelte';
 import { m } from '$lib/paraglide/messages';
 import type { TimelineItem } from '$lib/video-editor/project/types';
@@ -46,4 +49,20 @@ it('exposes the text effects as a named group', async () => {
 	await expect
 		.element(group.getByRole('button', { name: m.video_editor_text_effect_shadow() }))
 		.toBeVisible();
+});
+
+it('shows and edits animated font size at the playhead without changing the starting size', async () => {
+	const item = { ...textItem(), keyframes: { fontSize: { frames: [0, 60], values: [64, 128] } } };
+	timelineStore._setItems([item]);
+	timelineStore._setCurrentFrame(30);
+	commandHistory.clearHistory();
+	const screen = await render(TextPropertiesPanel, { item, onedit: vi.fn() });
+	const size = screen.getByRole('spinbutton', { name: 'Size', exact: true });
+	await expect.element(size).toHaveValue(96);
+	await size.fill('120');
+	await userEvent.tab();
+	expect(resolveAnimatedItemLocalAt(timelineStore.itemById.get(item.id)!, 30).fontSize).toBe(120);
+	expect(resolveAnimatedItemLocalAt(timelineStore.itemById.get(item.id)!, 0).fontSize).toBe(64);
+	commandHistory.undo();
+	await expect.element(size).toHaveValue(96);
 });

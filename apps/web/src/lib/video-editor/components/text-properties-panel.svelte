@@ -10,8 +10,20 @@
 	import EditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
-	import type { TextSpan, TextStylePresetId, TimelineItem } from '../project/types';
+	import type {
+		KeyframeProperty,
+		TextSpan,
+		TextStylePresetId,
+		TimelineItem
+	} from '../project/types';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+	import {
+		resolvePreExpressionItemAt,
+		getAnimatablePropertiesForItem
+	} from '../timeline/animated-properties';
+	import { setAnimatedProperties } from '../timeline/actions/keyframes';
+	import { executeAtomic } from '../timeline/commands/command-store.svelte';
+	import { autoKeyframeStore } from '../timeline/stores/auto-keyframe-store.svelte';
 	import { updateItemProperties } from '../timeline/actions/items';
 	import {
 		applyTextEffectPreset,
@@ -39,7 +51,8 @@
 		oncreatevoice?: (itemId: string, text: string) => void;
 		onbrowsetextstyles?: () => void;
 	} = $props();
-	const activeItem = $derived(timelineStore.itemById.get(item.id) ?? item);
+	const sourceItem = $derived(timelineStore.itemById.get(item.id) ?? item);
+	const activeItem = $derived(resolvePreExpressionItemAt(sourceItem, timelineStore.currentFrame));
 	const selectedTextItemIds = $derived.by(() => {
 		const selectedIds = itemIds.length > 0 ? itemIds : [activeItem.id];
 		const textIds = selectedIds.filter((id) => timelineStore.itemById.get(id)?.type === 'text');
@@ -107,7 +120,26 @@
 	}
 
 	function commitItem(patch: Partial<TimelineItem>): void {
-		updateItemProperties(activeItem.id, patch, 'UPDATE_TEXT_CONTENT');
+		const values: Partial<Record<KeyframeProperty, number>> = {};
+		const staticPatch = { ...patch };
+		for (const property of getAnimatablePropertiesForItem(sourceItem)) {
+			if (!(property in patch)) continue;
+			// SAFETY: the membership check excludes nested animation paths; every
+			// KeyframeProperty that is also a top-level TimelineItem field is numeric.
+			const field = property as Extract<KeyframeProperty, keyof TimelineItem>;
+			const value = patch[field];
+			if (value === undefined || !Number.isFinite(value)) continue;
+			values[property] = value;
+			delete staticPatch[field];
+		}
+		executeAtomic('UPDATE_TEXT_CONTENT', () => {
+			if (Object.keys(staticPatch).length)
+				updateItemProperties(activeItem.id, staticPatch, 'UPDATE_TEXT_CONTENT');
+			if (Object.keys(values).length)
+				setAnimatedProperties(activeItem.id, timelineStore.currentFrame, values, (property) =>
+					autoKeyframeStore.isEnabled(activeItem.id, property)
+				);
+		});
 		onedit();
 	}
 

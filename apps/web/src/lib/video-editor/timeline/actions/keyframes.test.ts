@@ -8,7 +8,10 @@ import { commandHistory } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { keyframeSelectionStore } from '../stores/keyframe-selection-store.svelte';
 import { transitionsStore } from './transitions-store.svelte';
-import { editorKeyframes } from '../keyframe-editor';
+import { editorKeyframes, keyframeIdentity } from '../keyframe-editor';
+import { resolvePreExpressionItemAt } from '../animated-properties';
+import { keyframeValueAt } from '../keyframe-value';
+import { buildKeyframePastePlan } from '../keyframe-dopesheet';
 import { buildEffectKeyframeProperty } from '../../effects/effect-keyframes';
 import { createDefaultTracks } from '../../project/defaults';
 import {
@@ -95,6 +98,199 @@ describe('setKeyframe', () => {
 		expect(track.frames).toEqual([20]);
 		expect(track.values).toEqual([0.2]);
 		expect(commandHistory.undoStack.length).toBe(2);
+	});
+
+	it.each(['width', 'anchorX'] as const)(
+		'copies and pastes coupled %s keys with both axes',
+		(property) => {
+			timelineStore._setItems([
+				{
+					id: 'a',
+					trackId: 't',
+					from: 0,
+					durationInFrames: 90,
+					label: '',
+					type: 'text',
+					transform: { width: 100, height: 60 }
+				}
+			]);
+			setKeyframe('a', property, 10, property === 'width' ? 300 : 30);
+			const key = editorKeyframes(getItem('a'), property)[0]!;
+			expect(keyframeSelectionStore.copy(getItem('a'), new Set([keyframeIdentity(key)]))).toBe(
+				true
+			);
+			const entries = keyframeSelectionStore.clipboard!.keyframes;
+			expect(entries).toHaveLength(2);
+			expect(
+				insertKeyframes(
+					'a',
+					entries.map((entry) => ({ ...entry, frame: entry.frame + 40 }))
+				)
+			).toHaveLength(2);
+			expect(editorKeyframes(getItem('a'), property).map((key) => key.frame)).toEqual([10, 40]);
+			expect(resolvePreExpressionItemAt(getItem('a'), 40).transform).toMatchObject(
+				property === 'width' ? { width: 300, height: 60 } : { anchorX: 30, anchorY: 30 }
+			);
+			commandHistory.undo();
+			expect(editorKeyframes(getItem('a'), property).map((key) => key.frame)).toEqual([10]);
+			keyframeSelectionStore.clearClipboard();
+		}
+	);
+
+	it.each(['width', 'anchorX'] as const)(
+		'preserves existing dimensionless scale animation when capturing %s',
+		(property) => {
+			timelineStore._setItems([
+				{
+					id: 'a',
+					trackId: 't',
+					from: 0,
+					durationInFrames: 90,
+					label: '',
+					type: 'text',
+					vectorKeyframes: {
+						scale: [
+							{ id: 'start', frame: 0, value: { x: 192000, y: 108000 }, easing: 'linear' },
+							{ id: 'end', frame: 60, value: { x: 96000, y: 54000 }, easing: 'linear' }
+						]
+					}
+				}
+			]);
+			const value = property === 'width' ? 1440 : 720;
+			expect(setKeyframe('a', property, 30, value)).toBe(true);
+			for (const [frame, width, height] of [
+				[0, 1920, 1080],
+				[30, 1440, 810],
+				[60, 960, 540]
+			]) {
+				expect(resolvePreExpressionItemAt(getItem('a'), frame!).transform).toMatchObject({
+					width,
+					height
+				});
+			}
+			commandHistory.undo();
+			expect(getItem('a').transform?.width).toBeUndefined();
+			expect(resolvePreExpressionItemAt(getItem('a'), 30).transform).toMatchObject({
+				width: 1440,
+				height: 810
+			});
+		}
+	);
+
+	it.each(['all', 'anchor only'])(
+		'preserves dimensions when pasting %s of a cut legacy selection',
+		(selection) => {
+			timelineStore._setItems([
+				{
+					id: 'a',
+					trackId: 't',
+					from: 0,
+					durationInFrames: 90,
+					label: '',
+					type: 'text',
+					vectorKeyframes: {
+						scale: [{ id: 'size', frame: 10, value: { x: 192000, y: 108000 }, easing: 'linear' }],
+						anchor: [{ id: 'pivot', frame: 10, value: { x: 960, y: 540 }, easing: 'linear' }]
+					}
+				}
+			]);
+			const key = editorKeyframes(getItem('a'), 'width')[0]!;
+			const anchor = editorKeyframes(getItem('a'), 'anchorX')[0]!;
+			expect(
+				keyframeSelectionStore.copy(
+					getItem('a'),
+					new Set([keyframeIdentity(key), keyframeIdentity(anchor)]),
+					true
+				)
+			).toBe(true);
+			const clipboard = keyframeSelectionStore.clipboard!;
+			expect(removeKeyframes('a', clipboard.sourceRefs)).toBe(true);
+			expect(editorKeyframes(getItem('a'), 'width')).toEqual([]);
+			const plan = buildKeyframePastePlan({
+				clipboard,
+				item: getItem('a'),
+				anchorFrame: 40,
+				availableProperties:
+					selection === 'all' ? ['width', 'height', 'anchorX', 'anchorY'] : ['anchorX', 'anchorY'],
+				blockedRanges: []
+			});
+			insertKeyframes('a', plan.inserts, { scaleBase: plan.scaleBase });
+			expect(resolvePreExpressionItemAt(getItem('a'), 40).transform).toMatchObject({
+				width: 1920,
+				height: 1080
+			});
+			keyframeSelectionStore.clearClipboard();
+		}
+	);
+
+	it('pastes a copied scale into a fresh layer using the destination canvas dimensions', () => {
+		timelineStore._setItems([
+			{
+				id: 'a',
+				trackId: 't',
+				from: 0,
+				durationInFrames: 90,
+				label: '',
+				type: 'text',
+				transform: { width: 100, height: 60 }
+			},
+			{ id: 'b', trackId: 't', from: 0, durationInFrames: 90, label: '', type: 'text' }
+		]);
+		setKeyframe('a', 'width', 10, 100);
+		const key = editorKeyframes(getItem('a'), 'width')[0]!;
+		expect(keyframeSelectionStore.copy(getItem('a'), new Set([keyframeIdentity(key)]))).toBe(true);
+		const plan = buildKeyframePastePlan({
+			clipboard: keyframeSelectionStore.clipboard!,
+			item: getItem('b'),
+			anchorFrame: 40,
+			availableProperties: ['width', 'height'],
+			blockedRanges: []
+		});
+		insertKeyframes('b', plan.inserts, { scaleBase: plan.scaleBase });
+		expect(resolvePreExpressionItemAt(getItem('b'), 40).transform).toMatchObject({
+			width: 1920,
+			height: 1080
+		});
+		keyframeSelectionStore.clearClipboard();
+	});
+
+	it('captures the other anchor axis at its animated size when starting an anchor lane', () => {
+		timelineStore._setItems([
+			{
+				id: 'a',
+				trackId: 't',
+				from: 0,
+				durationInFrames: 90,
+				label: '',
+				type: 'text',
+				transform: { width: 100, height: 100 },
+				vectorKeyframes: {
+					scale: [{ id: 'size', frame: 0, value: { x: 200, y: 200 }, easing: 'linear' }]
+				}
+			}
+		]);
+		expect(setKeyframe('a', 'anchorX', 30, 100)).toBe(true);
+		expect(resolvePreExpressionItemAt(getItem('a'), 30).transform).toMatchObject({
+			anchorX: 100,
+			anchorY: 100
+		});
+	});
+
+	it('preserves crop when capturing a key on a layer that inherits its dimensions', () => {
+		timelineStore._setItems([
+			{
+				id: 'a',
+				trackId: 't',
+				from: 0,
+				durationInFrames: 90,
+				label: '',
+				type: 'lottie',
+				crop: { left: 0.1, right: 0, top: 0, bottom: 0 }
+			}
+		]);
+		const value = keyframeValueAt(getItem('a'), 'cropLeft', 30, { width: 1080, height: 1920 });
+		expect(setKeyframe('a', 'cropLeft', 30, value)).toBe(true);
+		expect(resolvePreExpressionItemAt(getItem('a'), 30).crop?.left).toBeCloseTo(0.1);
 	});
 
 	it('skips the history step when nothing changes', () => {

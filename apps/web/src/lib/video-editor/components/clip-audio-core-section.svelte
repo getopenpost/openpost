@@ -1,7 +1,8 @@
 <script lang="ts">
+	import PropertyKeyframeButton from './property-keyframe-button.svelte';
 	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { Slider } from '$lib/components/ui/slider';
-	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		clampAudioPitchCents,
@@ -164,22 +165,6 @@
 		gesture = null;
 	}
 
-	function autoKeyEnabled(): boolean {
-		return (
-			audioItems.length > 0 &&
-			audioItems.every((item) => autoKeyframeStore.isEnabled(item.id, 'volume'))
-		);
-	}
-
-	function toggleAutoKey(): void {
-		const enabled = !autoKeyEnabled();
-		for (const item of audioItems) {
-			if (autoKeyframeStore.isEnabled(item.id, 'volume') !== enabled) {
-				autoKeyframeStore.toggle(item.id, 'volume');
-			}
-		}
-	}
-
 	function resetGain(): void {
 		let changed = false;
 		executeAtomic('RESET_CLIP_GAIN', () => {
@@ -253,19 +238,7 @@
 				>
 			</div>
 			{#if property === 'volume'}
-				<button
-					type="button"
-					class:active={autoKeyEnabled()}
-					class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
-					aria-label={m.video_editor_property_auto_key({ property: label })}
-					aria-pressed={autoKeyEnabled()}
-					onclick={toggleAutoKey}
-				>
-					<ProtectedIcon
-						icon="editor-keyframe"
-						class={`size-2.5 ${autoKeyEnabled() ? 'fill-current' : ''}`}
-					/>
-				</button>
+				<PropertyKeyframeButton items={audioItems} property="volume" {label} {onedit} />
 			{/if}
 			<button
 				type="button"

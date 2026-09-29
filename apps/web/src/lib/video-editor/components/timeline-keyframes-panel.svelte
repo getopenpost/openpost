@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sequenceStore } from '../sequences/sequence-store.svelte';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
@@ -10,18 +11,9 @@
 	import KeyframeValueGraph from './keyframe-value-graph.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { Input } from '$lib/components/ui/input';
-	import {
-		activeValueAt,
-		setKeyframe,
-		setKeyframeEasing
-	} from '$lib/video-editor/timeline/actions/keyframes';
-	import { resolvePreExpressionItemAt } from '$lib/video-editor/timeline/animated-properties';
+	import { setKeyframe, setKeyframeEasing } from '$lib/video-editor/timeline/actions/keyframes';
+	import { keyframeValueAt } from '$lib/video-editor/timeline/keyframe-value';
 	import { editorKeyframes } from '$lib/video-editor/timeline/keyframe-editor';
-	import {
-		isPathVertexKeyframeProperty,
-		pathVertexPropertyValue
-	} from '$lib/video-editor/timeline/path-vertex-keyframes';
-	import { effectPropertyBaseValue } from '$lib/video-editor/effects/effect-keyframes';
 	import { BEZIER_PRESETS, buildEasingConfig } from '$lib/video-editor/timeline/easing-presets';
 	import {
 		easingConfigFromPreset,
@@ -199,40 +191,11 @@
 		)
 			return;
 		const frame = timelineStore.currentFrame - item.from;
-		const resolved = resolvePreExpressionItemAt(item, timelineStore.currentFrame);
-		const transformValue = transformKeyframeValue(resolved, property);
-		const pathValue = isPathVertexKeyframeProperty(property)
-			? pathVertexPropertyValue(resolved.pathVertices, property)
-			: undefined;
-		const value =
-			transformValue ??
-			pathValue ??
-			activeValueAt(item, property, timelineStore.currentFrame) ??
-			effectPropertyBaseValue(item, property) ??
-			(property === 'opacity' || property === 'volume' ? 1 : 0);
+		const value = keyframeValueAt(item, property, timelineStore.currentFrame, {
+			width: sequenceStore.activeWidth,
+			height: sequenceStore.activeHeight
+		});
 		if (setKeyframe(item.id, property, frame, value)) onedit();
-	}
-
-	function transformKeyframeValue(
-		item: TimelineItem,
-		property: KeyframeProperty
-	): number | undefined {
-		switch (property) {
-			case 'x':
-			case 'y':
-			case 'width':
-			case 'height':
-			case 'scaleX':
-			case 'scaleY':
-			case 'anchorX':
-			case 'anchorY':
-			case 'rotation':
-			case 'opacity':
-			case 'cornerRadius':
-				return item.transform?.[property];
-			default:
-				return undefined;
-		}
 	}
 
 	function commitEasing(easing: EasingType, config?: EasingConfig): void {

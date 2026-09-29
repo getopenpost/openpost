@@ -1,5 +1,6 @@
 <!-- Type-specific, undoable clip inspector with FreeCut-compatible auto-key rules. -->
 <script lang="ts">
+	import { sequenceStore } from '../sequences/sequence-store.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -176,8 +177,8 @@
 	];
 
 	function valueFor(source: TimelineItem, property: KeyframeProperty): number {
-		const frameWidth = editorSession.project?.metadata.width ?? 1920;
-		const frameHeight = editorSession.project?.metadata.height ?? 1080;
+		const frameWidth = sequenceStore.activeWidth;
+		const frameHeight = sequenceStore.activeHeight;
 		const resolved = resolveAnimatedItemLocalAt(source, timelineStore.currentFrame, {
 			fps: timelineStore.fps,
 			frameWidth,
@@ -226,27 +227,27 @@
 			case 'volume':
 				return resolved.volume ?? 1;
 			case 'fontSize':
-				return source.fontSize ?? defaultValue(property);
+				return resolved.fontSize ?? defaultValue(property);
 			case 'fontWeight':
-				return source.fontWeight ?? defaultValue(property);
+				return resolved.fontWeight ?? defaultValue(property);
 			case 'lineHeight':
-				return source.lineHeight ?? defaultValue(property);
+				return resolved.lineHeight ?? defaultValue(property);
 			case 'letterSpacing':
-				return source.letterSpacing ?? 0;
+				return resolved.letterSpacing ?? 0;
 			case 'paddingX':
-				return source.paddingX ?? 0;
+				return resolved.paddingX ?? 0;
 			case 'paddingY':
-				return source.paddingY ?? 0;
+				return resolved.paddingY ?? 0;
 			case 'borderRadius':
-				return source.borderRadius ?? 0;
+				return resolved.borderRadius ?? 0;
 			case 'strokeWidth':
-				return source.strokeWidth ?? 0;
+				return resolved.strokeWidth ?? 0;
 			case 'textShadowOffsetX':
-				return source.textShadow?.offsetX ?? 0;
+				return resolved.textShadow?.offsetX ?? 0;
 			case 'textShadowOffsetY':
-				return source.textShadow?.offsetY ?? 0;
+				return resolved.textShadow?.offsetY ?? 0;
 			case 'textShadowBlur':
-				return source.textShadow?.blur ?? 0;
+				return resolved.textShadow?.blur ?? 0;
 		}
 		return defaultValue(property);
 	}
@@ -414,8 +415,8 @@
 		{#if item.type === 'subtitle'}
 			<SubtitlePropertiesPanel
 				{item}
-				canvasWidth={editorSession.project?.metadata.width ?? 1920}
-				canvasHeight={editorSession.project?.metadata.height ?? 1080}
+				canvasWidth={sequenceStore.activeWidth}
+				canvasHeight={sequenceStore.activeHeight}
 				{onedit}
 			/>
 		{/if}

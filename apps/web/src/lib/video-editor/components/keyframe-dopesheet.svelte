@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sequenceStore } from '../sequences/sequence-store.svelte';
 	import { onDestroy } from 'svelte';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { ToolbarGroup } from '$lib/components/editor-density';
@@ -34,7 +35,7 @@
 		type EditorKeyframe,
 		type MarqueeMode
 	} from '$lib/video-editor/timeline/keyframe-editor';
-	import { activeValueAt } from '$lib/video-editor/timeline/actions/keyframes';
+	import { keyframeValueAt } from '$lib/video-editor/timeline/keyframe-value';
 	import { calculateTransitionPortions } from '$lib/video-editor/timeline/transition-planner';
 	import { keyframeSelectionStore } from '$lib/video-editor/timeline/stores/keyframe-selection-store.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -568,9 +569,10 @@
 	}
 
 	function addAtCurrentFrame(property: KeyframeProperty): void {
-		const value =
-			activeValueAt(item, property, currentFrame) ??
-			(property === 'opacity' || property === 'volume' ? 1 : 0);
+		const value = keyframeValueAt(item, property, currentFrame, {
+			width: sequenceStore.activeWidth,
+			height: sequenceStore.activeHeight
+		});
 		if (!setKeyframe(item.id, property, relativeCurrentFrame, value)) return;
 		onactiveproperty(property);
 		onedit();
@@ -613,7 +615,7 @@
 			});
 			return;
 		}
-		const refs = insertKeyframes(item.id, plan.inserts);
+		const refs = insertKeyframes(item.id, plan.inserts, { scaleBase: plan.scaleBase });
 		if (refs.length === 0) {
 			status = m.video_editor_keyframe_sheet_status_none_pasted();
 			return;

@@ -12,7 +12,11 @@ import {
 	keyframeIdentity,
 	type KeyframeRef
 } from '$lib/video-editor/timeline/keyframe-editor';
-import { activePositionKeyframes } from '$lib/video-editor/timeline/vector-keyframes';
+import {
+	activeVectorKeyframes,
+	VECTOR_COMPONENTS,
+	vectorToScalarComponent
+} from '$lib/video-editor/timeline/vector-keyframes';
 
 export interface KeyframeClipboardEntry {
 	property: KeyframeProperty;
@@ -30,6 +34,8 @@ export interface KeyframeClipboard {
 	sourceItemId: string;
 	originFrame: number;
 	sourceRefs: KeyframeRef[];
+	/** Retain a legacy scale basis when the last key is cut before a same-clip paste. */
+	scaleBase?: { width: number; height: number };
 }
 
 export interface KeyframeSelectionSnapshot {
@@ -93,9 +99,9 @@ class KeyframeSelectionStore {
 		const properties = new Set<KeyframeProperty>(
 			Object.keys(item.keyframes ?? {}) as KeyframeProperty[]
 		);
-		if (activePositionKeyframes(item)) {
-			properties.add('x');
-			properties.add('y');
+		for (const property of ['position', 'scale', 'anchor'] as const) {
+			if (!activeVectorKeyframes(item, property)) continue;
+			for (const component of VECTOR_COMPONENTS[property]) properties.add(component);
 		}
 		const allKeyframes = [...properties].flatMap((property) => editorKeyframes(item, property));
 		const selectedVectorIds = new Set(
@@ -111,6 +117,14 @@ class KeyframeSelectionStore {
 		if (selected.length === 0) return false;
 		const originFrame = Math.min(...selected.map((keyframe) => keyframe.frame));
 		this.#clipboard = {
+			...(selected.some(
+				(keyframe) => keyframe.vectorId && ['width', 'height'].includes(keyframe.property)
+			) && {
+				scaleBase: {
+					width: vectorToScalarComponent(item, 'scale', 'x', 100),
+					height: vectorToScalarComponent(item, 'scale', 'y', 100)
+				}
+			}),
 			keyframes: selected.map((keyframe) => ({
 				property: keyframe.property,
 				frame: keyframe.frame - originFrame,

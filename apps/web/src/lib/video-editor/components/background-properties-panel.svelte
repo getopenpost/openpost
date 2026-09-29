@@ -15,15 +15,8 @@
 		updateBackground,
 		updateBackgroundBackgroundColor,
 		updateBackgroundColors,
-		updateBackgroundDensity,
 		updateBackgroundForeground,
-		updateBackgroundForegroundOpacity,
-		updateBackgroundOffsetX,
-		updateBackgroundOffsetY,
-		updateBackgroundPatternKind,
-		updateBackgroundRotation,
-		updateBackgroundScale,
-		updateBackgroundSmoothness
+		updateBackgroundPatternKind
 	} from '$lib/video-editor/timeline/actions/backgrounds';
 	import ShaderBackgroundControls from './shader-background-controls.svelte';
 	import { backgroundPresetLabel as presetLabel } from '../backgrounds/labels';
@@ -31,27 +24,33 @@
 	import { clampBackground } from '../backgrounds/types';
 	import { shaderBackgroundSupport } from '../backgrounds/shader-support.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
+	import { resolvePreExpressionItemAt } from '../timeline/animated-properties';
 	import { setAnimatedProperty } from '$lib/video-editor/timeline/actions/keyframes';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 
-	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	let { item: sourceItem, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	const item = $derived(
+		resolvePreExpressionItemAt(
+			timelineStore.itemById.get(sourceItem.id) ?? sourceItem,
+			timelineStore.currentFrame
+		)
+	);
 	const bg = $derived(item.background!);
 	onMount(() => {
 		shaderBackgroundSupport.check();
 	});
 
-	function commitKeyframeOr(
-		keyframeProp: KeyframeProperty | undefined,
-		value: number,
-		fallback: () => void
-	): void {
-		if (keyframeProp && autoKeyframeStore.isEnabled(item.id, keyframeProp)) {
-			setAnimatedProperty(item.id, keyframeProp, timelineStore.currentFrame, value, true);
+	function commitNumeric(property: KeyframeProperty, value: number): void {
+		if (
+			setAnimatedProperty(
+				item.id,
+				property,
+				timelineStore.currentFrame,
+				value,
+				autoKeyframeStore.isEnabled(item.id, property)
+			)
+		)
 			onedit();
-			return;
-		}
-		fallback();
-		onedit();
 	}
 
 	function applyPreset(id: string): void {
@@ -147,8 +146,7 @@
 				max={1}
 				step={0.01}
 				ariaLabel={m.video_editor_background_smoothness()}
-				onValueCommit={(v) =>
-					commitKeyframeOr('backgroundSmoothness', v, () => updateBackgroundSmoothness(item.id, v))}
+				onValueCommit={(v) => commitNumeric('backgroundSmoothness', v)}
 			/>
 		</label>
 	{:else}
@@ -217,8 +215,7 @@
 				max={1}
 				step={0.01}
 				ariaLabel={m.video_editor_background_density()}
-				onValueCommit={(v) =>
-					commitKeyframeOr('backgroundDensity', v, () => updateBackgroundDensity(item.id, v))}
+				onValueCommit={(v) => commitNumeric('backgroundDensity', v)}
 			/>
 		</label>
 		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
@@ -233,10 +230,7 @@
 				max={1}
 				step={0.01}
 				ariaLabel={m.video_editor_background_fg_opacity()}
-				onValueCommit={(v) =>
-					commitKeyframeOr('backgroundForegroundOpacity', v, () =>
-						updateBackgroundForegroundOpacity(item.id, v)
-					)}
+				onValueCommit={(v) => commitNumeric('backgroundForegroundOpacity', v)}
 			/>
 		</label>
 	{/if}
@@ -254,8 +248,7 @@
 				max={360}
 				step={1}
 				ariaLabel={m.video_editor_background_rotation()}
-				onValueCommit={(v) =>
-					commitKeyframeOr('backgroundRotation', v, () => updateBackgroundRotation(item.id, v))}
+				onValueCommit={(v) => commitNumeric('backgroundRotation', v)}
 			/>
 		</label>
 		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
@@ -270,8 +263,7 @@
 				max={4}
 				step={0.01}
 				ariaLabel={m.video_editor_background_scale()}
-				onValueCommit={(v) =>
-					commitKeyframeOr('backgroundScale', v, () => updateBackgroundScale(item.id, v))}
+				onValueCommit={(v) => commitNumeric('backgroundScale', v)}
 			/>
 		</label>
 	</div>
@@ -289,8 +281,7 @@
 				max={bg.kind === 'shader' ? 1 : 0.5}
 				step={0.01}
 				ariaLabel={m.video_editor_background_offset_x()}
-				onValueCommit={(v) =>
-					commitKeyframeOr('backgroundOffsetX', v, () => updateBackgroundOffsetX(item.id, v))}
+				onValueCommit={(v) => commitNumeric('backgroundOffsetX', v)}
 			/>
 		</label>
 		<label class="flex flex-col gap-1 text-[10px] text-[var(--video-editor-muted)]">
@@ -305,8 +296,7 @@
 				max={bg.kind === 'shader' ? 1 : 0.5}
 				step={0.01}
 				ariaLabel={m.video_editor_background_offset_y()}
-				onValueCommit={(v) =>
-					commitKeyframeOr('backgroundOffsetY', v, () => updateBackgroundOffsetY(item.id, v))}
+				onValueCommit={(v) => commitNumeric('backgroundOffsetY', v)}
 			/>
 		</label>
 	</div>

@@ -6,11 +6,24 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import type { ShapeType, TimelineItem } from '$lib/video-editor/project/types';
+	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+	import {
+		resolvePreExpressionItemAt,
+		getAnimatablePropertiesForItem
+	} from '../timeline/animated-properties';
+	import { setAnimatedProperty } from '../timeline/actions/keyframes';
+	import { autoKeyframeStore } from '../timeline/stores/auto-keyframe-store.svelte';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
 	import { hasPathVertexKeyframes } from '$lib/video-editor/timeline/path-vertex-keyframes';
 	import { ThemeIcon } from '$lib/themes/icons';
 
-	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	let { item: sourceItem, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	const item = $derived(
+		resolvePreExpressionItemAt(
+			timelineStore.itemById.get(sourceItem.id) ?? sourceItem,
+			timelineStore.currentFrame
+		)
+	);
 
 	const shapeTypes: Array<{ type: ShapeType; label: () => string }> = [
 		{ type: 'rectangle', label: m.video_editor_shape_primitive_rectangle },
@@ -100,12 +113,29 @@
 	}
 
 	function numberPatch(property: keyof TimelineItem, value: number): void {
-		if (Number.isFinite(value)) commit({ [property]: value });
+		if (!Number.isFinite(value)) return;
+		const animatedProperty = getAnimatablePropertiesForItem(item).find(
+			(candidate) => candidate === property
+		);
+		if (!animatedProperty) {
+			commit({ [property]: value });
+			return;
+		}
+		if (
+			setAnimatedProperty(
+				item.id,
+				animatedProperty,
+				timelineStore.currentFrame,
+				value,
+				autoKeyframeStore.isEnabled(item.id, animatedProperty)
+			)
+		)
+			onedit();
 	}
 
 	function strokePathPatch(field: StrokePathField, value: number): void {
 		if (!Number.isFinite(value)) return;
-		commit({ [field.property]: Math.max(field.minimum, Math.min(field.maximum, value)) });
+		numberPatch(field.property, Math.max(field.minimum, Math.min(field.maximum, value)));
 	}
 
 	function setMaskEnabled(enabled: boolean): void {

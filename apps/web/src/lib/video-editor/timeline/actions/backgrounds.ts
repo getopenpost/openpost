@@ -101,37 +101,6 @@ export function updateBackground(
 	return applyPatch(itemId, patch, commandType);
 }
 
-export function updateBackgroundRotation(itemId: string, rotation: number): boolean {
-	return applyPatch(itemId, { rotation }, 'UPDATE_BACKGROUND_ROTATION');
-}
-
-export function updateBackgroundScale(itemId: string, scale: number): boolean {
-	return applyPatch(itemId, { scale }, 'UPDATE_BACKGROUND_SCALE');
-}
-
-export function updateBackgroundOffsetX(itemId: string, offsetX: number): boolean {
-	return applyPatch(itemId, { offsetX }, 'UPDATE_BACKGROUND_OFFSET_X');
-}
-
-export function updateBackgroundOffsetY(itemId: string, offsetY: number): boolean {
-	return applyPatch(itemId, { offsetY }, 'UPDATE_BACKGROUND_OFFSET_Y');
-}
-
-export function updateBackgroundSmoothness(itemId: string, smoothness: number): boolean {
-	return applyPatch(itemId, { smoothness }, 'UPDATE_BACKGROUND_SMOOTHNESS');
-}
-
-export function updateBackgroundDensity(itemId: string, density: number): boolean {
-	return applyPatch(itemId, { density }, 'UPDATE_BACKGROUND_DENSITY');
-}
-
-export function updateBackgroundForegroundOpacity(
-	itemId: string,
-	foregroundOpacity: number
-): boolean {
-	return applyPatch(itemId, { foregroundOpacity }, 'UPDATE_BACKGROUND_FOREGROUND_OPACITY');
-}
-
 export function updateBackgroundColors(
 	itemId: string,
 	colors: [string, string, string, string]

@@ -23,6 +23,8 @@ import type {
 	VectorKeyframe,
 	VectorKeyframeProperty
 } from '$lib/video-editor/project/types';
+import { cloneBackground } from '../../backgrounds/types';
+import { sequenceStore } from '../../sequences/sequence-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { keyframeSelectionStore } from '../stores/keyframe-selection-store.svelte';
 import { commandHistory, execute } from '../commands/command-store.svelte';
@@ -31,6 +33,7 @@ import type { TimelineSnapshot } from '../commands/types';
 import { isFrameInTransitionRegion } from '../edit-constraints';
 import { transitionsStore } from './transitions-store.svelte';
 import { legacyKeyframeId, trackEntryAt, type KeyframeRef } from '../keyframe-editor';
+import { keyframeValueAt } from '../keyframe-value';
 import {
 	activeVectorKeyframes,
 	activePositionKeyframes,
@@ -137,6 +140,12 @@ function editableKeyframeItem(itemId: string): TimelineItem | undefined {
 	return item && isColorGradeTargetEditable(item, timelineStore.tracks) ? item : undefined;
 }
 
+/** Whether a key can be authored at the absolute playhead, including track locks and transitions. */
+export function canSetKeyframeAt(itemId: string, absoluteFrame: number): boolean {
+	const item = editableKeyframeItem(itemId);
+	return Boolean(item && canWriteKeyframe(item, absoluteFrame - item.from));
+}
+
 /** Insert or replace a keyframe at exactly `frame` as one undoable step. */
 export function setKeyframe(
 	itemId: string,
@@ -145,11 +154,12 @@ export function setKeyframe(
 	value: number
 ): boolean {
 	return execute('SET_KEYFRAME', () => {
-		const item = editableKeyframeItem(itemId);
+		let item = editableKeyframeItem(itemId);
 		if (!item || !canWriteKeyframe(item, frame)) return false;
 		const vector = vectorProxyForItem(item, property);
 		if (vector) {
-			const promoted = promoteVectorKeyframes(item, vector.property, frame);
+			item = vectorItemWithDimensions(item, vector.property);
+			const promoted = promoteItemVectorKeyframes(item, vector.property, frame);
 			if (!promoted) return false;
 			remapPromotedSelection(itemId, promoted.identityRemap);
 			const current =
@@ -161,7 +171,10 @@ export function setKeyframe(
 			timelineStore._updateItems([
 				{
 					id: itemId,
-					patch: vectorPropertyKeyframesPatch(item, vector.property, keyframes)
+					patch: {
+						transform: item.transform,
+						...vectorPropertyKeyframesPatch(item, vector.property, keyframes)
+					}
 				}
 			]);
 			return true;
@@ -185,7 +198,7 @@ export function setAnimatedProperty(
 	autoKeyEnabled: boolean
 ): boolean {
 	return execute('SET_ANIMATED_PROPERTY', () => {
-		const item = editableKeyframeItem(itemId);
+		let item = editableKeyframeItem(itemId);
 		if (!item) return false;
 		const frameIsInsideItem =
 			absoluteFrame >= item.from && absoluteFrame < item.from + item.durationInFrames;
@@ -208,7 +221,8 @@ export function setAnimatedProperty(
 		if (vector && (hasVector || track || autoKeyEnabled || siblingAliasEnabled)) {
 			if (!frameIsInsideItem) return false;
 			if (!canWriteKeyframe(item, relativeFrame)) return false;
-			const promoted = promoteVectorKeyframes(item, vector.property, relativeFrame);
+			item = vectorItemWithDimensions(item, vector.property);
+			const promoted = promoteItemVectorKeyframes(item, vector.property, relativeFrame);
 			if (!promoted) return false;
 			remapPromotedSelection(itemId, promoted.identityRemap);
 			const current =
@@ -221,7 +235,10 @@ export function setAnimatedProperty(
 			timelineStore._updateItems([
 				{
 					id: itemId,
-					patch: vectorPropertyKeyframesPatch(item, vector.property, keyframes)
+					patch: {
+						transform: item.transform,
+						...vectorPropertyKeyframesPatch(item, vector.property, keyframes)
+					}
 				}
 			]);
 			return true;
@@ -375,7 +392,8 @@ function writeAnimatedProperties(
 	if (shouldWriteKey && !canWriteKeyframe(item, relativeFrame)) return false;
 	let workingItem = item;
 	for (const vectorProperty of vectorWrites) {
-		const promoted = promoteVectorKeyframes(workingItem, vectorProperty, relativeFrame);
+		workingItem = vectorItemWithDimensions(workingItem, vectorProperty);
+		const promoted = promoteItemVectorKeyframes(workingItem, vectorProperty, relativeFrame);
 		if (!promoted) return false;
 		remapPromotedSelection(itemId, promoted.identityRemap);
 		const [xProperty, yProperty] = VECTOR_COMPONENTS[vectorProperty];
@@ -393,7 +411,7 @@ function writeAnimatedProperties(
 					: scalarToVectorComponent(workingItem, vectorProperty, 'y', values[yProperty])
 		});
 		const vectorPatch = vectorPropertyKeyframesPatch(workingItem, vectorProperty, vectorKeyframes);
-		patch = { ...patch, ...vectorPatch };
+		patch = { ...patch, transform: workingItem.transform, ...vectorPatch };
 		workingItem = { ...item, ...patch };
 		keyframes = patch.keyframes;
 	}
@@ -844,7 +862,11 @@ export function duplicateKeyframes(itemId: string, edits: readonly KeyframeEdit[
 }
 
 /** Insert or replace several clipboard keyframes as one undo step. */
-export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert[]): KeyframeRef[] {
+export function insertKeyframes(
+	itemId: string,
+	inserts: readonly KeyframeInsert[],
+	options: { scaleBase?: { width: number; height: number } } = {}
+): KeyframeRef[] {
 	return execute('INSERT_KEYFRAMES', () => {
 		const item = editableKeyframeItem(itemId);
 		if (!item || inserts.length === 0) return [];
@@ -872,8 +894,9 @@ export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert
 		const writtenVectors = new Map<VectorKeyframeProperty, VectorKeyframe[]>();
 		let workingItem = item;
 		for (const [vectorProperty, propertyInserts] of vectorInsertsByProperty) {
+			workingItem = vectorItemWithDimensions(workingItem, vectorProperty, options.scaleBase);
 			const firstFrame = propertyInserts[0]?.frame;
-			const promoted = promoteVectorKeyframes(workingItem, vectorProperty, firstFrame);
+			const promoted = promoteItemVectorKeyframes(workingItem, vectorProperty, firstFrame);
 			if (!promoted) return [];
 			remapPromotedSelection(itemId, promoted.identityRemap);
 			let vectorKeyframes = promoted.keyframes;
@@ -934,6 +957,7 @@ export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert
 			writtenVectors.set(vectorProperty, vectorKeyframes);
 			patch = {
 				...patch,
+				transform: workingItem.transform,
 				...vectorPropertyKeyframesPatch(workingItem, vectorProperty, vectorKeyframes)
 			};
 			workingItem = { ...item, ...patch };
@@ -1327,6 +1351,50 @@ export function removeKeyframes(itemId: string, refs: readonly KeyframeRef[]): b
 	});
 }
 
+function vectorItemWithDimensions(
+	item: TimelineItem,
+	property: VectorKeyframeProperty,
+	inheritedSize = { width: sequenceStore.activeWidth, height: sequenceStore.activeHeight }
+): TimelineItem {
+	if (property === 'position' || activeVectorKeyframes(item, 'scale')) return item;
+	const width = item.transform?.width ?? item.sourceWidth;
+	const height = item.transform?.height ?? item.sourceHeight;
+	if (width !== undefined && height !== undefined) return item;
+	// Coupled scale and anchor lanes need a stable base for both axes, even when
+	// a newly created layer still inherits its size from the sequence canvas.
+	// Existing scale lanes retain their base and percentage units, including
+	// older layers whose missing dimensions used a base of 1.
+	return {
+		...item,
+		transform: {
+			...item.transform,
+			width: width ?? inheritedSize.width,
+			height: height ?? inheritedSize.height
+		}
+	};
+}
+
+function promoteItemVectorKeyframes(
+	item: TimelineItem,
+	property: VectorKeyframeProperty,
+	frame?: number
+) {
+	const promoted = promoteVectorKeyframes(item, property, frame);
+	if (!promoted || property !== 'anchor' || activeVectorKeyframes(item, property)) return promoted;
+	// An implicit pivot follows the animated size. Capture that position instead
+	// of moving the unedited axis to the center of the layer's base dimensions.
+	for (const keyframe of promoted.keyframes) {
+		for (const [axis, component] of [
+			['x', 'anchorX'],
+			['y', 'anchorY']
+		] as const) {
+			if (item.transform?.[component] !== undefined || item.keyframes?.[component]) continue;
+			keyframe.value[axis] = keyframeValueAt(item, component, item.from + keyframe.frame);
+		}
+	}
+	return promoted;
+}
+
 function vectorProxyForItem(
 	item: TimelineItem,
 	property: KeyframeProperty
@@ -1584,6 +1652,12 @@ function basePropertyPatch(
 		].includes(property)
 	) {
 		return { transform: { ...item.transform, [property]: value } };
+	}
+	if (property.startsWith('background')) {
+		if (!item.background) return {};
+		const suffix = property.slice('background'.length);
+		const field = `${suffix[0].toLowerCase()}${suffix.slice(1)}`;
+		return { background: cloneBackground({ ...item.background, [field]: value }) };
 	}
 	const crop = item.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
 	if (property.startsWith('crop')) {

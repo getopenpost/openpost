@@ -356,7 +356,7 @@
 			blockedRanges
 		});
 		if (keyframeSelectionStore.isCut && plan.skippedUnsupported + plan.skippedBlocked > 0) return;
-		const refs = insertKeyframes(item.id, plan.inserts);
+		const refs = insertKeyframes(item.id, plan.inserts, { scaleBase: plan.scaleBase });
 		const firstRef = refs[0];
 		if (!firstRef) return;
 		setSelection(refs.map((ref) => ref.id ?? keyframeIdentity(ref)));

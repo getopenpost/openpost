@@ -163,11 +163,11 @@ export function newStep(kind: Step['kind']): Step {
 		code: { data: reference('source.body'), code: literal('return { text: String(input) };') },
 		ai_text: {
 			text: reference('source.body'),
-			instructions: literal(m.workflows_default_instructions())
+			instructions: literal('')
 		},
 		ai_decision: {
 			text: reference('source.body'),
-			instructions: literal(m.workflows_default_criteria())
+			instructions: literal('')
 		},
 		set_fields: { fields: literal({}) },
 		text: { text: reference('source.body'), operation: literal('trim'), limit: literal(280) },

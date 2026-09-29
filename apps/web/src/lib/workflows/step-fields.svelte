@@ -7,7 +7,6 @@
 	import CurlImport from './curl-import.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import type { SocialAccount } from '@openpost/query-catalog';
 	import { m } from '$lib/paraglide/messages';
@@ -17,7 +16,6 @@
 		accounts,
 		connections = [],
 		oninput,
-		onname,
 		oninputs,
 		readonly = false,
 		data = {}
@@ -30,7 +28,6 @@
 		references: Reference[];
 		connections?: Connection[];
 		oninput: (key: string, value: Value) => void;
-		onname: (name: string) => void;
 	} = $props();
 	const selectedAccounts = $derived(
 		z.array(z.string()).catch([]).parse(step.inputs?.account_ids?.literal)
@@ -38,13 +35,6 @@
 </script>
 
 <div class="space-y-5">
-	<div class="space-y-2">
-		<Label for="workflow-step-name">{m.workflows_step_name()}</Label><Input
-			id="workflow-step-name"
-			value={step.name}
-			oninput={(event) => onname(event.currentTarget.value)}
-		/>
-	</div>
 	{#if step.kind === 'http_request'}<CurlImport onimport={oninputs} />
 		<div class="space-y-2">
 			<Label for="request-connection">{m.workflows_connection()}</Label><Choice
@@ -74,11 +64,6 @@
 		/>{/each}
 	{#if step.kind === 'code'}<p class="text-xs leading-5 text-muted-foreground">
 			{m.workflows_code_hint()}
-		</p>{/if}
-	{#if step.kind === 'ai_text' || step.kind === 'ai_decision' || step.kind === 'build_draft'}<p
-			class="text-xs leading-5 text-muted-foreground"
-		>
-			{m.workflows_usage_tracking()}
 		</p>{/if}
 	{#if step.kind === 'create_draft' || step.kind === 'build_draft'}{@render destinations()}{/if}
 </div>

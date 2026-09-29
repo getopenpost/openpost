@@ -1,6 +1,8 @@
 <script module lang="ts">
 	import type { GraphNode, Port } from './graph';
 	export type WorkflowNodeData = GraphNode & {
+		onduplicate?: () => void;
+		onremove?: () => void;
 		onselect: () => void;
 		onadd?: (port: Port) => void;
 		readonly?: boolean;
@@ -10,6 +12,7 @@
 <script lang="ts">
 	import { Handle, Position, type Node, type NodeProps } from '@xyflow/svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
+	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { m } from '$lib/paraglide/messages';
 	let { data: info, selected }: NodeProps<Node<WorkflowNodeData>> = $props();
 	const ports = $derived<Port[]>(info.branch ? ['then', 'else'] : ['after']);
@@ -22,36 +25,76 @@
 		class="!size-3 !border-2 !border-background !bg-muted-foreground"
 	/>{/if}
 <div class="relative">
-	<button
-		type="button"
-		onclick={info.onselect}
-		class="flex min-h-[76px] w-[220px] items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left text-card-foreground shadow-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring {info.issues
-			? 'border-destructive'
-			: selected
-				? 'border-ring ring-1 ring-ring'
-				: 'border-border'}"
-		aria-pressed={selected}
-	>
-		<span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"
-			><ThemeIcon role={info.icon} class="size-5" /></span
-		>
-		<span class="min-w-0"
-			><span class="block truncate text-sm font-medium">{info.label}</span><span
-				class="mt-1 block truncate text-xs text-muted-foreground"
-				>{info.issues ? m.workflows_needs_attention() : info.description}</span
-			></span
-		>
-		{#if info.issues}<ThemeIcon
-				role="feedback"
-				class="size-4 shrink-0 text-destructive"
-			/>{:else if info.state === 'succeeded'}<ThemeIcon
-				role="check"
-				class="size-4 shrink-0 text-success"
-			/>{:else if info.state === 'failed'}<ThemeIcon
-				role="feedback"
-				class="size-4 shrink-0 text-destructive"
-			/>{/if}
-	</button>
+	<ContextMenu.Root>
+		<ContextMenu.Trigger>
+			<button
+				type="button"
+				onkeydown={(event) => {
+					if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+						event.preventDefault();
+						const bounds = event.currentTarget.getBoundingClientRect();
+						event.currentTarget.dispatchEvent(
+							new MouseEvent('contextmenu', {
+								bubbles: true,
+								cancelable: true,
+								clientX: bounds.left + 24,
+								clientY: bounds.top + 24
+							})
+						);
+					}
+				}}
+				onclick={info.onselect}
+				class="flex min-h-[76px] w-[220px] items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left text-card-foreground shadow-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring {info.issues
+					? 'border-destructive'
+					: selected
+						? 'border-ring ring-1 ring-ring'
+						: 'border-border'}"
+				aria-pressed={selected}
+			>
+				<span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"
+					><ThemeIcon role={info.icon} class="size-5" /></span
+				>
+				<span class="min-w-0"
+					><span class="block truncate text-sm font-medium">{info.label}</span><span
+						class="mt-1 block truncate text-xs text-muted-foreground"
+						>{info.issues ? m.workflows_needs_attention() : info.description}</span
+					></span
+				>
+				{#if info.issues}<ThemeIcon
+						role="feedback"
+						class="size-4 shrink-0 text-destructive"
+					/>{:else if info.state === 'succeeded'}<ThemeIcon
+						role="check"
+						class="size-4 shrink-0 text-success"
+					/>{:else if info.state === 'failed'}<ThemeIcon
+						role="feedback"
+						class="size-4 shrink-0 text-destructive"
+					/>{/if}
+			</button>
+		</ContextMenu.Trigger>
+		<ContextMenu.Content class="[@media(pointer:coarse)]:[&_[role=menuitem]]:min-h-11">
+			<ContextMenu.Item onSelect={info.onselect}
+				><ThemeIcon role="edit" class="size-4" />{m.workflows_configure()}</ContextMenu.Item
+			>
+			{#if info.onadd}{#each ports as port}
+					<ContextMenu.Item onSelect={() => info.onadd?.(port)}
+						><ThemeIcon role="add" class="size-4" />{port === 'then'
+							? m.workflows_add_yes()
+							: port === 'else'
+								? m.workflows_add_no()
+								: m.workflows_add_after()}</ContextMenu.Item
+					>
+				{/each}{/if}
+			{#if info.onduplicate}<ContextMenu.Item onSelect={info.onduplicate}
+					><ThemeIcon role="copy" class="size-4" />{m.workflows_duplicate()}</ContextMenu.Item
+				>{/if}
+			{#if info.onremove}<ContextMenu.Separator /><ContextMenu.Item
+					variant="destructive"
+					onSelect={info.onremove}
+					><ThemeIcon role="delete" class="size-4" />{m.common_delete()}</ContextMenu.Item
+				>{/if}
+		</ContextMenu.Content>
+	</ContextMenu.Root>
 	{#each ports as port}
 		{@render outputPort(port)}
 	{/each}

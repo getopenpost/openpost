@@ -25,6 +25,8 @@
 		onselect,
 		onadd,
 		onconnect,
+		onduplicate,
+		onremove,
 		run,
 		issues,
 		readonly = false
@@ -33,11 +35,18 @@
 		selectedID: string;
 		onselect: (id: string) => void;
 		onadd?: (id: string, port: Port) => void;
+		onduplicate?: (id: string) => void;
+		onremove?: (id: string) => void;
 		onconnect?: (source: string, target: string, port: Port) => void;
 		run?: Run;
 		issues?: Issue[];
 		readonly?: boolean;
 	} = $props();
+	let layoutVersion = $state(0);
+	export function organize() {
+		positions = {};
+		layoutVersion++;
+	}
 	const nodeTypes = { workflow: WorkflowNode };
 	const graph = $derived(workflowGraph(definition, run, issues));
 	const nodes = $derived<Node<WorkflowNodeData>[]>(
@@ -50,6 +59,9 @@
 				...node,
 				readonly,
 				onselect: () => onselect(node.id),
+				onduplicate:
+					!readonly && !node.source && onduplicate ? () => onduplicate(node.id) : undefined,
+				onremove: !readonly && !node.source && onremove ? () => onremove(node.id) : undefined,
 				onadd: !readonly && onadd ? (port) => onadd?.(node.id, port) : undefined
 			}
 		}))
@@ -84,45 +96,49 @@
 </script>
 
 <div class="workflow-canvas h-full min-h-0 bg-background" aria-label={m.workflows_canvas()}>
-	<SvelteFlow
-		onnodedragstop={({ nodes: moved }) => {
-			positions = {
-				...positions,
-				...Object.fromEntries(moved.map((node) => [node.id, node.position]))
-			};
-		}}
-		{nodes}
-		{edges}
-		{nodeTypes}
-		fitView
-		fitViewOptions={{
-			padding: 0.25,
-			maxZoom: 1,
-			nodes: graph.nodes.slice(0, narrow.current ? 1 : 3).map(({ id }) => ({ id }))
-		}}
-		minZoom={0.15}
-		maxZoom={1.75}
-		nodesDraggable={!readonly}
-		nodesConnectable={!readonly}
-		edgesFocusable={false}
-		deleteKey={[]}
-		onconnectend={connectEnd}
-		onconnect={connect}
-		colorMode={mode.current ?? 'light'}
-		ariaLabelConfig={{
-			'controls.ariaLabel': m.image_editor_zoom(),
-			'controls.zoomIn.ariaLabel': m.image_editor_zoom_in(),
-			'controls.zoomOut.ariaLabel': m.image_editor_zoom_out(),
-			'controls.fitView.ariaLabel': m.image_editor_fit_canvas()
-		}}
-	>
-		<Background
-			gap={24}
-			size={1}
-			patternColor="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
-		/>
-		<Controls showLock={false} position="bottom-left" orientation="horizontal" />
-	</SvelteFlow>
+	{#key layoutVersion}
+		<SvelteFlow
+			onnodedragstop={({ nodes: moved }) => {
+				positions = {
+					...positions,
+					...Object.fromEntries(moved.map((node) => [node.id, node.position]))
+				};
+			}}
+			{nodes}
+			{edges}
+			{nodeTypes}
+			fitView
+			fitViewOptions={{
+				padding: 0.25,
+				maxZoom: 1,
+				nodes: (layoutVersion ? graph.nodes : graph.nodes.slice(0, narrow.current ? 1 : 3)).map(
+					({ id }) => ({ id })
+				)
+			}}
+			minZoom={0.15}
+			maxZoom={1.75}
+			nodesDraggable={!readonly}
+			nodesConnectable={!readonly}
+			edgesFocusable={false}
+			deleteKey={[]}
+			onconnectend={connectEnd}
+			onconnect={connect}
+			colorMode={mode.current ?? 'light'}
+			ariaLabelConfig={{
+				'controls.ariaLabel': m.image_editor_zoom(),
+				'controls.zoomIn.ariaLabel': m.image_editor_zoom_in(),
+				'controls.zoomOut.ariaLabel': m.image_editor_zoom_out(),
+				'controls.fitView.ariaLabel': m.image_editor_fit_canvas()
+			}}
+		>
+			<Background
+				gap={24}
+				size={1}
+				patternColor="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
+			/>
+			<Controls showLock={false} position="bottom-left" orientation="horizontal" />
+		</SvelteFlow>
+	{/key}
 </div>
 
 <style>

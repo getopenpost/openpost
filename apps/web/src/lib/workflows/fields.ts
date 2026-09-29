@@ -8,6 +8,7 @@ export type FieldSpec = {
 	required?: boolean;
 	multiline?: boolean;
 	numeric?: boolean;
+	preserveReferenceType?: boolean;
 	min?: number;
 	max?: number;
 	code?: boolean;
@@ -25,6 +26,10 @@ export function stepFields(kind: Step['kind'], inputs?: Step['inputs']): FieldSp
 		...required,
 		multiline: true
 	});
+	const inputText = field('text', m.workflows_text_input(), {
+		...required,
+		multiline: true
+	});
 	const post = field('publication_id', m.workflows_post(), required);
 	const rendition = field('rendition_id', m.workflows_variant(), required);
 	const items = field('items', m.workflows_items(), {
@@ -32,7 +37,7 @@ export function stepFields(kind: Step['kind'], inputs?: Step['inputs']): FieldSp
 		json: true
 	});
 	const condition = [
-		field('left', m.workflows_condition_value(), required),
+		field('left', m.workflows_condition_value(), { ...required, preserveReferenceType: true }),
 		field('operator', m.workflows_operator(), {
 			...required,
 			options: [
@@ -44,7 +49,7 @@ export function stepFields(kind: Step['kind'], inputs?: Step['inputs']): FieldSp
 				{ value: 'less_than', label: m.workflows_less_than() }
 			]
 		}),
-		field('right', m.workflows_compare_with(), required)
+		field('right', m.workflows_compare_with(), { ...required, preserveReferenceType: true })
 	];
 	const definitions = {
 		create_draft: () => [text, field('title', m.workflows_sample_title())],
@@ -112,16 +117,25 @@ export function stepFields(kind: Step['kind'], inputs?: Step['inputs']): FieldSp
 			})
 		],
 		ai_text: () => [
-			text,
-			field('instructions', m.workflows_instructions(), { ...required, multiline: true })
+			field('instructions', m.workflows_system_message(), { multiline: true }),
+			field('text', m.workflows_user_message(), {
+				...required,
+				multiline: true
+			})
 		],
 		ai_decision: () => [
-			text,
-			field('instructions', m.workflows_decision_criteria(), { ...required, multiline: true })
+			field('text', m.workflows_decision_input(), {
+				...required,
+				multiline: true
+			}),
+			field('instructions', m.workflows_decision_criteria(), {
+				...required,
+				multiline: true
+			})
 		],
 		set_fields: () => [field('fields', m.workflows_fields_json(), { ...required, json: true })],
 		text: () => [
-			text,
+			inputText,
 			field('operation', m.workflows_operation(), {
 				...required,
 				options: [
@@ -150,7 +164,7 @@ export function stepFields(kind: Step['kind'], inputs?: Step['inputs']): FieldSp
 					]
 				: [])
 		],
-		parse_json: () => [text],
+		parse_json: () => [inputText],
 		list_filter: () => [
 			items,
 			field('field', m.workflows_item_field(), required),
@@ -209,7 +223,7 @@ const outputs = {
 	approval: ['publication_id', 'revision', 'text', 'title', 'approved'],
 	metrics: ['likes', 'comments', 'impressions', 'observed_at'],
 	condition: ['matched'],
-	ai_decision: ['matched', 'reason', 'usage'],
+	ai_decision: ['matched', 'probability', 'reason', 'usage'],
 	ai_text: ['text', 'usage'],
 	http_request: ['status', 'body', 'headers'],
 	code: ['data'],

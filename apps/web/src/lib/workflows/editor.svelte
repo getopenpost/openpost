@@ -1,13 +1,3 @@
-<script lang="ts" module>
-	function outline(steps: Step[], prefix = ''): { value: string; label: string }[] {
-		return steps.flatMap((step, index) => [
-			{ value: step.id, label: `${prefix}${index + 1}. ${step.name}` },
-			...outline(step.then ?? [], `${prefix}↳ ${m.workflows_yes()}: `),
-			...outline(step.else ?? [], `${prefix}↳ ${m.workflows_no()}: `)
-		]);
-	}
-</script>
-
 <script lang="ts">
 	import { z } from 'zod';
 	import { beforeNavigate, goto } from '$app/navigation';
@@ -41,10 +31,11 @@
 		sourceLabel
 	} from './catalog';
 	import Canvas from './canvas.svelte';
+	import { duplicateStep } from './operations';
+	import { recipeSteps } from './recipes';
 	import SourceFields from './source-fields.svelte';
 	import StepFields from './step-fields.svelte';
 	import RunInspector from './run-inspector.svelte';
-	import Choice from './choice.svelte';
 	import NodePicker from './node-picker.svelte';
 	import DataView from './data-view.svelte';
 	import GraphPreview from './graph-preview.svelte';
@@ -98,6 +89,7 @@
 		});
 	});
 	let selectedRun = $state('');
+	let canvas = $state<Canvas>();
 	let inspectorOrigin: HTMLElement | null = null;
 	let testInputs = $state.raw<Record<string, WorkflowData>>({});
 	let pendingSave: Promise<void> | undefined;
@@ -180,18 +172,23 @@
 		});
 	}
 	function add(kind: Step['kind'], branch?: 'then' | 'else') {
-		const added = newStep(kind);
+		insertSteps([newStep(kind)], branch);
+	}
+	function insertSteps(steps: Step[], branch?: 'then' | 'else') {
+		const added = steps[0];
+		if (!added) return;
+		const kind = added.kind;
 		change((next) => {
 			next.definition.steps ??= [];
 			if (branch)
 				editSteps(next.definition.steps, selectedID, (parent) => {
-					parent[branch] = [...(parent[branch] ?? []), added];
+					parent[branch] = [...(parent[branch] ?? []), ...steps];
 				});
 			else if (selectedID !== 'source')
 				editSteps(next.definition.steps, selectedID, (_parent, siblings, index) => {
-					siblings.splice(index + 1, 0, added);
+					siblings.splice(index + 1, 0, ...steps);
 				});
-			else next.definition.steps.unshift(added);
+			else next.definition.steps.unshift(...steps);
 			const available = availableReferences(next.definition.steps, added.id);
 			const previousPost = available
 				.filter((item) => item.value.endsWith('.publication_id') || item.value.endsWith('.id'))
@@ -206,6 +203,24 @@
 		picker = false;
 		inspector = true;
 		panel = 'configure';
+	}
+	function remove(id: string) {
+		change((next) =>
+			editSteps(next.definition.steps ?? [], id, (_node, siblings, index) =>
+				siblings.splice(index, 1)
+			)
+		);
+		selectedID = 'source';
+		inspector = false;
+	}
+	function duplicate(id: string) {
+		change((next) =>
+			editSteps(next.definition.steps ?? [], id, (node, siblings, index) => {
+				const copied = duplicateStep(node);
+				siblings.splice(index + 1, 0, copied);
+				selectedID = copied.id;
+			})
+		);
 	}
 	async function save(): Promise<void> {
 		if (!canEdit) return;
@@ -524,6 +539,9 @@
 				</div>
 			{:else}
 				<Canvas
+					bind:this={canvas}
+					onduplicate={duplicate}
+					onremove={remove}
 					definition={doc.definition}
 					{issues}
 					{selectedID}
@@ -566,15 +584,10 @@
 				<div
 					class="absolute top-3 left-3 flex max-w-[calc(100%-76px)] flex-wrap items-center gap-2"
 				>
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => {
-							selectedID = 'source';
-							inspector = true;
-							panel = 'configure';
-						}}>{sourceLabel(doc.definition.source.kind)}</Button
-					>{#if issues.length}<Button
+					<Button variant="outline" size="sm" onclick={() => canvas?.organize()}
+						><ThemeIcon role="repeat" class="size-4" />{m.workflows_organize()}</Button
+					>
+					{#if issues.length}<Button
 							variant="outline"
 							size="sm"
 							class="text-destructive"
@@ -620,6 +633,7 @@
 			{/if}
 		</div>
 		{#if picker}<NodePicker
+				onrecipe={(id) => insertSteps(recipeSteps(id), addPort === 'after' ? undefined : addPort)}
 				onclose={() => (picker = false)}
 				onadd={(kind) => add(kind, addPort === 'after' ? undefined : addPort)}
 				onsource={(kind) => {
@@ -654,14 +668,30 @@
 				}}
 			>
 				<Dialog.Description class="sr-only">{m.workflows_details()}</Dialog.Description>
-				<header class="flex items-center gap-3 border-b bg-card px-3 py-2">
-					<Dialog.Title class="min-w-0 flex-1 truncate text-sm font-medium"
+				<header class="flex items-center gap-2 border-b bg-card px-3 py-2 sm:gap-3">
+					<Dialog.Title class="sr-only"
 						>{panel === 'test'
 							? m.workflows_test_data()
 							: selectedID === 'source'
 								? sourceLabel(inspectedDefinition.source.kind)
 								: inspectedStep?.name}</Dialog.Title
-					><span class="shrink-0 text-[11px] text-muted-foreground" aria-live="polite"
+					>
+					{#if panel === 'configure' && step && canEdit}
+						<Input
+							aria-label={m.workflows_step_name()}
+							value={step.name}
+							maxlength={100}
+							class="min-w-0 flex-1 border-transparent bg-transparent px-2 text-sm font-medium shadow-none hover:border-input focus-visible:border-input"
+							oninput={(event) => editStep((target) => (target.name = event.currentTarget.value))}
+						/>
+					{:else}<span class="min-w-0 flex-1 truncate text-sm font-medium"
+							>{panel === 'test'
+								? m.workflows_test_data()
+								: selectedID === 'source'
+									? sourceLabel(inspectedDefinition.source.kind)
+									: inspectedStep?.name}</span
+						>{/if}
+					<span class="shrink-0 text-[11px] text-muted-foreground" aria-live="polite"
 						>{saving
 							? m.workflows_saving()
 							: dirty
@@ -748,30 +778,13 @@
 									? inspectedRun?.definition.source
 									: selectedResult?.inputs}
 							/>{:else}<fieldset disabled={!canEdit} class="min-w-0 space-y-5">
-								<Choice
-									id="workflow-outline"
-									label={m.workflows_outline()}
-									value={selectedID}
-									options={[
-										{ value: 'source', label: sourceLabel(doc.definition.source.kind) },
-										...outline(doc.definition.steps ?? [])
-									]}
-									onchange={(id) => {
-										selectedID = id;
-										dataTab = 'configure';
-									}}
-								/>
 								{#if selectedID === 'source'}<SourceFields
 										source={doc.definition.source}
 										{connections}
 										{accounts}
 										onchange={(source) => change((next) => (next.definition.source = source))}
 									/>
-								{:else if step}{#key step.id}{#if canTestNode}<p
-												class="text-xs text-muted-foreground"
-											>
-												{m.workflows_test_node_help()}
-											</p>{/if}
+								{:else if step}{#key step.id}
 										<StepFields
 											{step}
 											{references}
@@ -781,7 +794,6 @@
 												editStep((target) => (target.inputs = { ...target.inputs, ...inputs }))}
 											{accounts}
 											{connections}
-											onname={(name) => editStep((value) => (value.name = name))}
 											oninput={(key, value) =>
 												editStep((target) => (target.inputs = { ...target.inputs, [key]: value }))}
 										/>{/key}
@@ -798,9 +810,7 @@
 											variant="ghost"
 											size="sm"
 											onclick={() => {
-												editStep((_step, siblings, index) => siblings.splice(index, 1));
-												selectedID = 'source';
-												inspector = false;
+												remove(selectedID);
 											}}>{m.workflows_remove_step()}</Button
 										>
 									</div>{/if}

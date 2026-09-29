@@ -28,7 +28,10 @@ async function addStep(page: import("@playwright/test").Page, name: string) {
     name: "Back to canvas",
     exact: true,
   });
-  if (await close.isVisible()) await close.click();
+  if (await close.isVisible()) {
+    await close.click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+  }
   await page.getByRole("button", { name: "Add step", exact: true }).click();
   await page
     .getByRole("complementary", { name: "What happens next?" })
@@ -163,15 +166,22 @@ for (const viewport of [
     await releaseTemplate(page);
     await page.getByLabel("GitHub repository", { exact: true }).fill("openpost/openpost");
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Steps", exact: true }).focus();
-    await page.keyboard.press("Enter");
-    await page.keyboard.press("ArrowDown");
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await page.getByRole("button", { name: "Create draft Create draft", exact: true }).focus();
     await page.keyboard.press("Enter");
     await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
     const inspector = page.getByRole("dialog");
     await expect(inspector).toBeVisible();
-    await page.getByRole("button", { name: "Steps", exact: true }).click();
+    await page
+      .locator('[data-workflow-field="workflow-text"]')
+      .getByRole("button", { name: "Insert variable", exact: true })
+      .click();
     await page.keyboard.press("Escape");
+    await expect(
+      page
+        .locator('[data-workflow-field="workflow-text"]')
+        .getByRole("button", { name: "Insert variable", exact: true }),
+    ).toBeFocused();
     await expect(inspector).toBeVisible();
     const bounds = await inspector.boundingBox();
     expect(bounds?.width).toBeGreaterThan(viewport.width * 0.9);
@@ -308,7 +318,10 @@ test.describe("workflow touch controls", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.getByRole("button", { name: "More actions", exact: true }).click();
     await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
-    const draftNode = page.getByRole("button", { name: "Create draft Create draft", exact: true });
+    const draftNode = page.getByRole("button", {
+      name: "Create draft Create draft",
+      exact: true,
+    });
     await expect(draftNode).toHaveCount(0);
     await expect(page.getByRole("menu")).toHaveCount(0);
     await page.getByRole("button", { name: "More actions", exact: true }).click();
@@ -387,7 +400,7 @@ test("node testing preserves structured variables and leaves later steps untouch
   await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
   await page.getByRole("button", { name: "Shape items JavaScript", exact: true }).click();
   await page.getByLabel("Data", { exact: true }).fill("{{source.items}}");
-  await expect(page.getByRole("button", { name: "Data", exact: true })).toContainText(
+  await expect(page.locator('[data-workflow-field="workflow-data"] .workflow-token')).toHaveText(
     "Source: items",
   );
   await page.getByRole("button", { name: "Test node", exact: true }).click();
@@ -498,7 +511,10 @@ test("inserting a variable preserves JSON and its nested outputs remain usable",
   await fields.press("ArrowLeft");
   await fields.press("ArrowLeft");
   await fields.press("ArrowLeft");
-  await page.getByRole("button", { name: "Insert variable", exact: true }).click();
+  await page
+    .locator('[data-workflow-field="workflow-fields"]')
+    .getByRole("button", { name: "Insert variable", exact: true })
+    .click();
   await page
     .getByRole("option", {
       name: /(?:Source: title|source.title)/,
@@ -544,4 +560,111 @@ test("connections keep saved secrets hidden and allow replacement", async ({ pag
   await page.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Release API", exact: true })).toBeVisible();
   await expect(page.getByLabel("Secret value", { exact: true })).toHaveCount(0);
+});
+
+test("typed variables render as chips in single-line fields", async ({ page }) => {
+  await openWorkflows(page);
+  await page.getByRole("button", { name: "New workflow", exact: true }).click();
+  await addStep(page, "Create draft");
+  await page.getByLabel("Title", { exact: true }).fill("Launch {{source.title}}");
+  await expect(page.locator('[data-workflow-field="workflow-title"] .workflow-token')).toHaveText(
+    "Source: title",
+  );
+  await page.getByLabel("Title", { exact: true }).fill("{{source.missing}}");
+  await expect(page.getByLabel("Title", { exact: true })).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.locator('[data-workflow-field="workflow-title"] .workflow-token-invalid'),
+  ).toHaveText("source.missing");
+});
+
+test("numeric variables remain text in post fields", async ({ page }) => {
+  const { token, workspace } = await openWorkflows(page);
+  await page.getByRole("button", { name: "New workflow", exact: true }).click();
+  await page.getByRole("button", { name: "Test data", exact: true }).click();
+  await page
+    .getByLabel("Sample input (JSON)", { exact: true })
+    .fill(JSON.stringify({ title: 42, body: "A result", url: "https://example.com" }));
+  await addStep(page, "Create draft");
+  await page.getByLabel("Post text", { exact: true }).fill("{{source.title}}");
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  await page.getByRole("button", { name: "Test data", exact: true }).click();
+  await page.getByText("Live", { exact: true }).click();
+  await page.getByRole("button", { name: "Run live", exact: true }).click();
+  await expect(page.getByRole("paragraph").filter({ hasText: /^Completed$/ })).toBeVisible({
+    timeout: 30000,
+  });
+  const publications = await page.request.get(`/api/v1/publications?workspace_id=${workspace.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(publications.ok()).toBeTruthy();
+  const posts = await publications.json();
+  expect(posts).toHaveLength(1);
+  expect(posts[0].source_text).toBe("42");
+});
+
+test("canvas context actions, organization, and recipes preserve an editable workflow", async ({
+  page,
+}) => {
+  const { token, workspace } = await openWorkflows(page);
+  await page.getByRole("button", { name: "New workflow", exact: true }).click();
+  await page.getByRole("button", { name: "Add step", exact: true }).click();
+  const picker = page.getByRole("complementary", {
+    name: "What happens next?",
+  });
+  await picker.getByRole("button", { name: "Recipes", exact: true }).click();
+  await picker.getByRole("button", { name: /^Write a draft with AI/ }).click();
+  await expect(page.getByLabel("System message", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Steps", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Usage is recorded", { exact: false })).toHaveCount(0);
+  await page.getByLabel("Step name", { exact: true }).fill("Write announcement");
+  await page.getByLabel("User message", { exact: true }).fill("Summarize {{source.body}}");
+  await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+  const writer = page.getByRole("button", {
+    name: "Write announcement AI text",
+    exact: true,
+  });
+  await writer.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
+  await expect(writer).toHaveCount(2);
+  await writer.last().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await expect(writer).toHaveCount(1);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(writer).toHaveCount(2);
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(writer).toHaveCount(1);
+  await writer.focus();
+  await page.keyboard.press("Shift+F10");
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  const before = await writer.boundingBox();
+  expect(before).toBeTruthy();
+  await page.mouse.move(before!.x + 20, before!.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(before!.x + 20, before!.y + 160, { steps: 10 });
+  await page.mouse.up();
+  const moved = await writer.boundingBox();
+  expect(moved!.y).toBeGreaterThan(before!.y + 80);
+  await page.getByRole("button", { name: "Organize", exact: true }).click();
+  const source = page.getByRole("button", {
+    name: "Run manually Trigger",
+    exact: true,
+  });
+  await expect
+    .poll(async () => Math.abs((await writer.boundingBox())!.y - (await source.boundingBox())!.y))
+    .toBeLessThan(2);
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  const id = page.url().split("/").at(-1);
+  const response = await page.request.get(`/api/v1/workflows/${id}?workspace_id=${workspace.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(response.ok()).toBeTruthy();
+  const { definition } = await response.json();
+  expect(definition.steps.map((step: { kind: string }) => step.kind)).toEqual([
+    "ai_text",
+    "create_draft",
+    "approval",
+  ]);
+  expect(definition.steps[1].inputs.text.reference).toBe(`${definition.steps[0].id}.text`);
+  expect(definition.steps[2].inputs.publication_id.reference).toBe(`${definition.steps[1].id}.id`);
 });

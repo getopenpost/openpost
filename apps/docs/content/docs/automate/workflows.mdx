@@ -38,7 +38,7 @@ See [workflow examples](/automate/workflow-examples) for guided setups. If your 
 
 1. Select **Start from a template**, then **Use template** under **Announce a GitHub release**.
 2. Open the trigger marked **Needs attention** and enter your GitHub repository as `owner/repository`.
-3. Select **Create draft** on the canvas or in the **Steps** menu.
+3. Select **Create draft** on the canvas.
 4. Write the post and use **Insert variable** to include the release title, notes, or link. Select the destination accounts. Check both the provider and account name, especially when you use the same handle on several networks.
 5. Keep **Review post** after the draft so each announcement waits for a decision.
 6. Close the node, open **Test data**, and use the supplied example or **Fetch an example**. Select **Run preview**, then inspect the inputs and outputs.
@@ -54,7 +54,11 @@ GitHub and RSS/Atom sources check every five minutes. Activation records existin
 
 Changes save automatically. **Saved** confirms the current draft reached the server. If another editor changes the same workflow, resolve the conflict before continuing.
 
-Draft edits take effect for automatic runs when you publish the workflow again. Runs already started retain their original definition. Use the canvas to select steps or the **Steps** menu to navigate with the keyboard. The editor fills the window. Select **Add step**, use a node’s plus button, or drag its output dot to empty space to choose the next node. On a phone, switch between **Input**, **Configure step**, and **Output**, then use **Back to canvas**.
+Draft edits take effect for automatic runs when you publish the workflow again. Runs already started retain their original definition. Select a node on the canvas, or focus it with the keyboard and press Enter. The editor fills the window. Select **Add step**, use a node’s plus button, or drag its output dot to empty space to choose the next node. On a phone, switch between **Input**, **Configure step**, and **Output**, then use **Back to canvas**.
+
+Use **Organize** at the top left to tidy the canvas without changing execution order. Right-click a node, or press Shift+F10 while it has focus, to configure, add after, duplicate, or delete it. Undo and redo apply to these edits. Rename a step directly in its modal header.
+
+The **Recipes** category adds connected steps together: write a draft with AI and review it, review and schedule a post, or prepare a feed digest. Each inserted step remains editable. Recipes also include JavaScript presets for removing duplicates and joining text.
 
 A condition or AI decision has a Yes path and a No path. After the chosen path finishes, the run continues with the following step. Fields can refer to source data or an earlier step on the same path. Missing data fails the step instead of silently substituting an empty value.
 
@@ -64,7 +68,9 @@ For equality conditions, a number or boolean from an earlier step accepts the co
 
 Choose a manual trigger, GitHub release, RSS/Atom item, interval, new post, published variant, or publishing failure. Interval triggers run every 5 minutes to every 30 days. They skip missed intervals after downtime. New-post triggers exclude posts created by automation. Failure triggers preserve recorded failures even if the post is retried before the next check.
 
-The node picker groups content, flow, AI, data, and tool actions. Use **AI text** to summarize, rewrite, translate, or draft from supplied material. **AI decision** applies written criteria and returns a Yes/No result with a reason. Token usage and provider-reported costs are recorded. No workflow spending limit is enforced yet.
+The node picker groups content, flow, AI, data, and tool actions. Use **AI text** for any text task. Write a **User message** and, optionally, a **System message** for instructions such as tone or output format. It returns text that later steps can use. The **Write a draft with AI** recipe connects it to OpenPost draft creation and review.
+
+**AI decision** uses Jev to evaluate your input against written criteria. It returns a probability from 0 to 1 and takes the Yes path at 0.5 or above. It does not generate a written explanation. Token usage and provider-reported costs are recorded for both AI nodes.
 
 Data nodes edit fields, transform text, parse JSON, filter/sort/limit lists, merge data, format dates, and add UTM tracking parameters. **Read RSS feed** fetches current feed items inside a workflow, useful for a weekly digest.
 
@@ -74,7 +80,9 @@ Data nodes edit fields, transform text, parse JSON, filter/sort/limit lists, mer
 
 Required fields and unavailable variables show an inline error and a **Needs attention** badge on the node. Select the badge to open its configuration.
 
-Text fields display inserted variables as separate chips. **Edit variable syntax** exposes the underlying field paths. The value preview uses the current sample or run data. Drop or select a variable in a JSON field to preserve its array or object value.
+Type a value and add variables wherever you need them. Select **Insert variable** to search available fields, type `{{` for suggestions, or drag an input field into the editor. Variables appear as chips in both short and long text fields; unavailable fields are marked invalid. **Edit variable syntax** exposes the underlying paths.
+
+The preview uses the current sample or run data. In numeric, JSON, and condition fields, a single variable preserves its original type. Text fields turn numeric and boolean variables into text. Mixing variables with text also produces text.
 
 The node inspector opens in a large modal over the canvas, with input data on the left, settings in the middle, and output on the right. Switch between structure, table, and JSON views. Table view shows item collections as rows. On a phone, it opens as a sheet with three inspector tabs. Close it to return to the selected node.
 

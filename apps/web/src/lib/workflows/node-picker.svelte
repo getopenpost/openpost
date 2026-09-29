@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as Sheet from '$lib/components/ui/sheet';
+	import { recipes } from './recipes';
 	import { actionCatalog, sourceLabel } from './catalog';
 	import type { Step, Source } from './api';
 	import { Input } from '$lib/components/ui/input';
@@ -7,10 +8,12 @@
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	let {
+		onrecipe,
 		onadd,
 		onsource,
 		onclose
 	}: {
+		onrecipe: (id: string) => void;
 		onadd: (kind: Step['kind']) => void;
 		onsource: (kind: Source['kind']) => void;
 		onclose: () => void;
@@ -28,6 +31,7 @@
 	}
 	const groups = $derived([
 		{ id: 'all', label: m.workflows_all_nodes() },
+		{ id: 'recipes', label: m.workflows_recipes() },
 		{ id: 'triggers', label: m.workflows_triggers_group() },
 		{ id: 'content', label: m.workflows_content_group() },
 		{ id: 'ai', label: m.workflows_ai_group() },
@@ -40,6 +44,11 @@
 			(item) =>
 				(group === 'all' || category(item.kind) === group) &&
 				`${item.label} ${item.description}`.toLowerCase().includes(search.toLowerCase())
+		)
+	);
+	const recipeEntries = $derived(
+		recipes().filter((item) =>
+			`${item.label} ${item.description}`.toLowerCase().includes(search.toLowerCase())
 		)
 	);
 	const sources = $derived(
@@ -95,7 +104,25 @@
 					>{/each}
 			</div>
 			<div class="min-h-0 flex-1 overflow-y-auto p-2">
-				{#if group === 'triggers'}{#each sources as kind}<button
+				{#if group === 'recipes'}
+					{#each recipeEntries as entry}
+						<button
+							type="button"
+							class="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+							onclick={() => onrecipe(entry.id)}
+						>
+							<ThemeIcon role="repeat" class="mt-1 size-5 shrink-0" /><span
+								><span class="block text-sm font-medium">{entry.label}</span><span
+									class="mt-1 block text-xs leading-5 text-muted-foreground"
+									>{entry.description}</span
+								></span
+							>
+						</button>
+					{/each}
+					{#if !recipeEntries.length}<p class="p-4 text-sm text-muted-foreground">
+							{m.workflows_no_match()}
+						</p>{/if}
+				{:else if group === 'triggers'}{#each sources as kind}<button
 							type="button"
 							class="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 							onclick={() => onsource(kind)}

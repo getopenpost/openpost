@@ -16,6 +16,7 @@
 		references = [],
 		multiline = false,
 		numeric = false,
+		preserveReferenceType = false,
 		min,
 		max,
 		placeholder = '',
@@ -35,6 +36,7 @@
 		references?: Reference[];
 		multiline?: boolean;
 		numeric?: boolean;
+		preserveReferenceType?: boolean;
 		min?: number;
 		max?: number;
 		placeholder?: string;
@@ -45,11 +47,13 @@
 	} = $props();
 
 	const text = $derived(
-		json
-			? typeof value?.literal === 'string'
-				? value.literal
-				: JSON.stringify(value?.literal ?? {}, null, 2)
-			: String(value?.literal ?? '')
+		value?.reference
+			? `{{${value.reference}}}`
+			: json
+				? typeof value?.literal === 'string'
+					? value.literal
+					: JSON.stringify(value?.literal ?? {}, null, 2)
+				: String(value?.literal ?? '')
 	);
 	const issue = $derived(
 		fieldIssue(
@@ -73,12 +77,14 @@
 		});
 	});
 	function write(next: string) {
-		if (json) {
-			const reference = next.trim().match(/^\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}$/)?.[1];
-			onchange(reference ? { reference } : { literal: next });
+		const reference = !code && next.trim().match(/^\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}$/)?.[1];
+		if (reference && (json || numeric || preserveReferenceType)) {
+			onchange({ reference });
 			return;
 		}
-		onchange({ literal: numeric && next !== '' ? Number(next) : next });
+		onchange({
+			literal: numeric && next !== '' && Number.isFinite(Number(next)) ? Number(next) : next
+		});
 	}
 </script>
 
@@ -87,44 +93,22 @@
 		<Label for={id}
 			>{label}{#if required}<span aria-hidden="true" class="text-destructive"> *</span>{/if}</Label
 		>
-		{#if references.length && !code && !options}<div class="w-28 shrink-0">
-				<Choice
-					value={value?.reference ? 'variable' : 'literal'}
-					label={`${label}: ${m.workflows_value_source({ field: label })}`}
-					options={[
-						{ value: 'literal', label: m.workflows_literal() },
-						{ value: 'variable', label: m.workflows_variable() }
-					]}
-					onchange={(mode) =>
-						onchange(
-							mode === 'variable' ? { reference: references[0]?.value ?? '' } : { literal: '' }
-						)}
-				/>
-			</div>{/if}
 	</div>
-	{#if value?.reference}<Choice
-			{id}
-			value={value.reference}
-			options={references.some((ref) => ref.value === value.reference)
-				? references
-				: [{ value: value.reference, label: value.reference }, ...references]}
-			{label}
-			onchange={(reference) => onchange({ reference })}
-		/>
-	{:else}{@render literalEditor()}{/if}
+	{@render literalEditor()}
 	{@render resolvedPreview()}
 	{#if issue}<p id={`${id}-error`} class="text-xs text-destructive" role="status">{issue}</p>{/if}
 </div>
 
 {#snippet literalEditor()}
 	{#if options}<Choice {id} value={text} {options} {label} onchange={write} />
-	{:else if multiline || json}<TokenEditor
+	{:else if !numeric || references.length}<TokenEditor
 			{id}
 			{label}
 			value={text}
 			{readonly}
 			{references}
 			{code}
+			multiline={multiline || json}
 			{placeholder}
 			invalid={Boolean(issue)}
 			onchange={write}

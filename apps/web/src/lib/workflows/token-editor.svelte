@@ -16,7 +16,9 @@
 	import { referenceExists } from './validation';
 	import type { Reference } from './fields';
 	import { Button } from '$lib/components/ui/button';
-	import Choice from './choice.svelte';
+	import * as Popover from '$lib/components/ui/popover';
+	import * as Command from '$lib/components/ui/command';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	let {
 		id,
@@ -25,6 +27,7 @@
 		onchange,
 		references = [],
 		code = false,
+		multiline = true,
 		invalid = false,
 		placeholder = '',
 		readonly = false
@@ -36,12 +39,15 @@
 		onchange: (value: string) => void;
 		references?: Reference[];
 		code?: boolean;
+		multiline?: boolean;
 		invalid?: boolean;
 		placeholder?: string;
 	} = $props();
 	let element: HTMLDivElement;
 	let view: EditorView | undefined;
 	let syntax = $state(false);
+	let variablesOpen = $state(false);
+	let returnToEditor = false;
 	const configuration = new Compartment();
 	class Token extends WidgetType {
 		reference: string;
@@ -106,32 +112,43 @@
 			EditorView.editable.of(!readonly),
 			EditorView.contentAttributes.of({
 				id,
+				role: 'textbox',
+				'aria-multiline': String(multiline),
 				'aria-label': label,
 				'aria-invalid': String(invalid),
 				'aria-describedby': invalid ? `${id}-error` : ''
 			}),
 			...(code ? [javascript()] : syntax ? [] : [tokens]),
-			autocompletion({
-				override: [
-					(context) => {
-						const match = context.matchBefore(/[\w.-]*/);
-						if (!match || (!context.explicit && match.from === match.to)) return null;
-						return {
-							from: Math.max(
-								0,
-								match.from -
-									(context.state.sliceDoc(Math.max(0, match.from - 2), match.from) === '{{' ? 2 : 0)
-							),
-							options: refs.map((ref) => ({
-								label: ref.value,
-								detail: ref.label,
-								apply: `{{${ref.value}}}`,
-								type: 'variable'
-							}))
-						};
-					}
-				]
-			}),
+			...(code
+				? []
+				: [
+						autocompletion({
+							override: [
+								(context) => {
+									const match = context.matchBefore(/\{\{[\w. -]*/);
+									if (!match && !context.explicit) return null;
+									return {
+										from: match?.from ?? context.pos,
+										options: refs
+											.filter(
+												(ref) =>
+													!match ||
+													`${ref.label} ${ref.value}`
+														.toLowerCase()
+														.includes(match.text.slice(2).trim().toLowerCase())
+											)
+											.map((ref) => ({
+												label: ref.value,
+												displayLabel: ref.label,
+												apply: `{{${ref.value}}}`,
+												type: 'variable'
+											})),
+										filter: false
+									};
+								}
+							]
+						})
+					]),
 			editorPlaceholder(placeholder)
 		];
 	}
@@ -184,25 +201,64 @@
 	function insert(reference: string) {
 		if (!view || readonly) return;
 		view.dispatch(view.state.replaceSelection(`{{${reference}}}`));
-		view.focus();
+		returnToEditor = true;
+		variablesOpen = false;
 	}
 </script>
 
 <div
-	class="workflow-token-editor overflow-hidden rounded-md border bg-background focus-within:ring-2 focus-within:ring-ring {invalid
+	class="workflow-token-editor {multiline
+		? ''
+		: 'workflow-token-single'} overflow-hidden rounded-md border bg-background focus-within:ring-2 focus-within:ring-ring {invalid
 		? 'border-destructive'
 		: 'border-input'}"
 >
-	<div bind:this={element} class="min-h-28 text-sm"></div>
+	<div bind:this={element} class="text-sm"></div>
 	{#if !code && !readonly}<div class="flex items-center justify-between gap-2 border-t px-2 py-1">
-			<Choice
-				value="insert"
-				label={m.workflows_insert_variable()}
-				options={[{ value: 'insert', label: m.workflows_insert_variable() }, ...references]}
-				onchange={(reference) => {
-					if (reference !== 'insert') insert(reference);
-				}}
-			/>
+			<Popover.Root bind:open={variablesOpen}>
+				<Popover.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="ghost" size="sm" class="gap-1.5 px-1.5 text-xs">
+							<ThemeIcon role="add" class="size-3.5" />{m.workflows_insert_variable()}
+						</Button>
+					{/snippet}
+				</Popover.Trigger>
+				<Popover.Content
+					align="start"
+					class="w-80 max-w-[calc(100vw-2rem)] p-0"
+					onCloseAutoFocus={(event) => {
+						if (!returnToEditor) return;
+						returnToEditor = false;
+						event.preventDefault();
+						view?.focus();
+					}}
+				>
+					<Command.Root>
+						<Command.Input
+							placeholder={m.workflows_search_variables()}
+							aria-label={m.workflows_search_variables()}
+						/>
+						<Command.List>
+							<Command.Empty>{m.workflows_no_match()}</Command.Empty>
+							<Command.Group>
+								{#each references as ref (ref.value)}
+									<Command.Item
+										value={`${ref.label} ${ref.value}`}
+										onSelect={() => insert(ref.value)}
+										class="min-h-9 [@media(pointer:coarse)]:min-h-11"
+									>
+										<span class="min-w-0"
+											><span class="block truncate">{ref.label}</span><span
+												class="block truncate text-[11px] text-muted-foreground">{ref.value}</span
+											></span
+										>
+									</Command.Item>
+								{/each}
+							</Command.Group>
+						</Command.List>
+					</Command.Root>
+				</Popover.Content>
+			</Popover.Root>
 			<Button
 				size="icon-sm"
 				variant="ghost"
@@ -223,6 +279,10 @@
 		padding: 10px;
 		min-height: 112px;
 		caret-color: var(--foreground);
+	}
+	.workflow-token-single :global(.cm-content) {
+		min-height: 36px;
+		padding: 6px 10px;
 	}
 	.workflow-token-editor :global(.cm-scroller) {
 		max-height: 320px;

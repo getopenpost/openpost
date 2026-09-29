@@ -56,7 +56,7 @@ test("top navigation keeps the requested section order and active state", async 
   await expect(page.locator(".home-paths").getByRole("link")).toHaveText([
     "Install OpenPost on your own server",
     "Connect an AI assistant",
-    "Automate OpenPost",
+    "Build a workflow",
     "Edit a video",
     "Design an image",
     "Browse the API reference",

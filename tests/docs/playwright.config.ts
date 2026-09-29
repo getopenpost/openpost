@@ -20,6 +20,6 @@ export default defineConfig({
     command:
       "bun run build -- public-site && bunx wrangler pages dev dist/public-site --compatibility-date 2026-08-06 --port 4175",
     url: baseURL,
-    timeout: 60_000,
+    timeout: 300_000,
   },
 });

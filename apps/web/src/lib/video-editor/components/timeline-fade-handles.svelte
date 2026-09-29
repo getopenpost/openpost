@@ -313,11 +313,6 @@
 
 	const canInteract = $derived(selected && !trackLocked && activeEditTool === null);
 	const isAnyEditing = $derived(editing !== null || curveEditing !== null);
-	const handleVisibilityClass = $derived(
-		editing !== null || curveEditing !== null || selected
-			? 'opacity-100'
-			: 'opacity-0 group-hover/timeline-item:opacity-100'
-	);
 	const densityVisibilityClass = $derived(
 		isAnyEditing
 			? 'opacity-100'
@@ -814,6 +809,7 @@
 		<div
 			class="pointer-events-none absolute inset-0 z-[60] transition-opacity duration-150 {densityVisibilityClass}"
 			data-fade-handles-container
+			hidden={!canInteract && !isAnyEditing}
 		>
 			<!-- Fade-in handle -->
 			<button
@@ -823,9 +819,7 @@
 				class="absolute flex h-4 w-4 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [@media(pointer:coarse)]:h-7 [@media(pointer:coarse)]:w-7 {fadeInPercent <=
 				0
 					? 'translate-x-0'
-					: '-translate-x-1/2'} {densityPointerClass} {editing === 'in' || hoveredFade === 'in'
-					? 'opacity-100'
-					: handleVisibilityClass}"
+					: '-translate-x-1/2'} {densityPointerClass} opacity-100"
 				style="left:{fadeInPercent}%; top:{handleTop}"
 				disabled={!canInteract}
 				aria-disabled={!canInteract}
@@ -874,9 +868,7 @@
 				class="absolute flex h-4 w-4 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [@media(pointer:coarse)]:h-7 [@media(pointer:coarse)]:w-7 {fadeOutLeft >=
 				100
 					? '-translate-x-full'
-					: '-translate-x-1/2'} {densityPointerClass} {editing === 'out' || hoveredFade === 'out'
-					? 'opacity-100'
-					: handleVisibilityClass}"
+					: '-translate-x-1/2'} {densityPointerClass} opacity-100"
 				disabled={!canInteract}
 				aria-disabled={!canInteract}
 				tabindex={canInteract ? 0 : -1}

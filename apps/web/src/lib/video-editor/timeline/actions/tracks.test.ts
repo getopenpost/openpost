@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDefaultTracks } from '../../project/defaults';
 import { commandHistory } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
+import { ensureOpenTrackForRange } from './track-placement';
 import {
 	addTrack,
 	createTrackGroup,
@@ -108,6 +109,23 @@ describe('timeline track actions', () => {
 			syncLock: false
 		});
 		expect(commandHistory.undoStack).toHaveLength(5);
+	});
+
+	it('compacts an empty caption row without copying inherited group visibility', () => {
+		const groupId = createTrackGroup(['track-video-overlay'], 'Captions')!;
+		toggleTrackVisibility(groupId);
+		const captionTrack = ensureOpenTrackForRange({
+			kind: 'video',
+			itemType: 'subtitle',
+			from: 0,
+			durationInFrames: 30,
+			label: 'Captions',
+			preferredTrackId: 'track-video-overlay'
+		});
+		toggleTrackVisibility(groupId);
+		const stored = timelineStore.tracks.find((track) => track.id === captionTrack.id)!;
+		expect(stored.visible).toBe(true);
+		expect(stored.height).toBe(48);
 	});
 
 	it('groups non-contiguous tracks into one ordered block and undoes atomically', () => {

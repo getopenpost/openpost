@@ -262,6 +262,7 @@
 		visibleTrackRows
 	} from '$lib/video-editor/timeline/utils/track-groups';
 	import TimelineTrackHeader from './timeline-track-header.svelte';
+	import { createTrackReorder } from './timeline-track-reorder.svelte';
 	import TimelineDensityOverview from './timeline-density-overview.svelte';
 	import TimelineNavigator from './timeline-navigator.svelte';
 	import AudioMixerPanel from './audio-mixer-panel.svelte';
@@ -436,6 +437,10 @@
 		selectedTransitionId?: string | null;
 	} = $props();
 	let scrollContainer = $state<HTMLDivElement | null>(null);
+	const trackReorder = createTrackReorder(
+		() => scrollContainer,
+		() => onedit()
+	);
 	let timelineViewport = $state({ scrollLeft: 0, width: 0 });
 	let timelineViewportAnimationFrame: number | null = null;
 	let visibleTimelineItemIds = $state<Set<string>>(new Set());
@@ -5238,7 +5243,7 @@
 							<TimelineVoiceoverOverlay {timelineX} pixelsPerFrame={pxPerFrame} />
 
 							<!-- Tracks -->
-							{#each visibleTrackRows(timelineStore.tracks) as track (track.id)}
+							{#each visibleTrackRows(trackReorder.tracks) as track (track.id)}
 								{@const parentTrack = track.parentTrackId
 									? timelineStore.tracks.find((candidate) => candidate.id === track.parentTrackId)
 									: undefined}
@@ -5374,6 +5379,7 @@
 											onmoveup={() => editTrack(() => moveTrack(track.id, -1))}
 											onmovedown={() => editTrack(() => moveTrack(track.id, 1))}
 											onrename={(name) => editTrack(() => renameTrack(track.id, name))}
+											onreorderpointerdown={(event) => trackReorder.start(event, track.id)}
 											onheightpointerdown={(event) => startTrackHeightResize(event, track.id)}
 											onheightkeydown={(event) => resizeTrackHeightFromKeyboard(event, track.id)}
 											onheightreset={(event) => resetTrackHeight(event, track.id)}

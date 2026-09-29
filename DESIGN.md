@@ -226,6 +226,8 @@ Keep editor copy quiet. Use short labels, values, and direct actions in the defa
 
 Editor panes must shrink within the window and scroll their own content. On phones, Assets uses the full area above the timeline; Program restores the preview. Timeline marker details, mixer, and beat controls share a bounded scrolling area that leaves the tracks and overview reachable.
 
+Fade handles appear only on selected, editable clips. New generated captions and imported subtitles start above video in compact rows. Track names expose a drag grip; reordering previews locally, commits once on drop, and cancels with Escape. Keyboard reordering remains available.
+
 The timeline uses a hybrid track model. The ordered primary sequence and project-wide markers remain semantic rails. Visual, audio, and caption rows render from the document's actual track arrays, so multiple tracks stay distinct and empty categories do not consume permanent lanes. Items on one track cannot overlap unless an explicit transition owns the shared interval; use another track for intentional compositing.
 
 ## Elevation & Depth

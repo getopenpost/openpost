@@ -7,6 +7,33 @@ import { collectSubtitleCues } from './subtitle-export';
 
 afterEach(() => timelineStore.__resetForTesting());
 
+it('places new captions above the top video on a compact track', () => {
+	timelineStore.setAll({
+		fps: 30,
+		tracks: createDefaultTracks(),
+		items: [
+			{
+				id: 'speech-video',
+				type: 'video',
+				trackId: 'track-video-overlay',
+				label: 'Speech',
+				mediaId: 'speech-media',
+				from: 0,
+				durationInFrames: 120,
+				sourceFps: 30
+			}
+		]
+	});
+	const id = addGeneratedSubtitleItem('speech-video', [
+		{ text: 'Hello', startSeconds: 0, endSeconds: 1 }
+	]);
+	const caption = timelineStore.itemById.get(id)!;
+	const track = timelineStore.tracks.find((track) => track.id === caption.trackId)!;
+	const videoTrack = timelineStore.tracks.find((track) => track.id === 'track-video-overlay')!;
+	expect(track.order).toBeLessThan(videoTrack.order);
+	expect(track.height).toBe(48);
+});
+
 it('renders generated captions at the speech position when the source starts later in the timeline', () => {
 	timelineStore.setAll({
 		fps: 30,

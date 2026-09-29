@@ -4,6 +4,43 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.5.2] - 2026-09-29
+
+### Fixed
+
+- Updated the Android app's Expo dependencies to the supported SDK patch versions.
+- Prevent blank Video Editor preview frames at cuts by preparing adjacent clips before playback reaches them.
+- Resume preview audio when playback starts, preventing silent or stalled video after the browser suspends its audio context.
+- Show timeline fade handles only on selected, editable clips.
+- Place new auto-captions and imported subtitles above video, with compact caption tracks.
+- Separating or unlinking audio no longer restores a second copy of the video's sound. Linked audio from a different recording source no longer silences embedded screen audio.
+- Clip context menus stay inside narrow phone screens when opened with the keyboard.
+- Video Editor property diamonds now add or remove a keyframe at the playhead, with a filled diamond at a saved key. Moving the playhead and changing an animated property creates the next key.
+- Adding a first keyframe preserves the current value, including text size, crop, audio gain, shape paths, and effect controls. Text, shape, and background inspectors follow and edit animated values at the playhead.
+- Scale and anchor keys preserve existing clip geometry and can be copied and pasted with both axes.
+- Modal backdrops stay dark when an older custom theme contains a light scrim color.
+
+### Added
+
+- Drag Video Editor track names to reorder layers. Escape cancels the drag, and Undo restores the previous order.
+- Detach audio from a video clip's context menu, then link or unlink the clips to edit them together or separately. Detaching preserves source timing, speed, volume automation, and audio processing, with Undo.
+
+### Improved
+
+- AI text accepts general system and user messages. AI decisions use Jev with recorded probability and usage. Shared text, image caption, and meme generation defaults now use Luna 6; explicit model settings stay unchanged.
+- Organize workflow canvases, rename steps in their header, and use node context menus to add, duplicate, or delete with undo.
+- Write values and insert searchable variable chips in one field editor. Recipes add editable groups of steps for drafts, review, digests, and data preparation.
+- Workflow drafts use the composer's Social Set picker and provider settings. Each run creates posts with the selected set's current accounts and defaults.
+- Workflow scheduling preserves native validation messages and destination outcomes.
+- Workflow keyboard shortcuts support undo, redo, save, node duplication and deletion. Canvas moves and organization can be undone without interfering with text fields or nested dialogs.
+- Node names and save status stay readable on narrow screens.
+- Workflow previews stay centered as cards resize. Node categories use distinct theme colors and clearer symbols across the canvas, templates, runs, and node picker.
+- The landing-page workflow tour shows a release branching into an announcement or a short update, each with a draft and review step.
+
+### Changed
+
+- Recorder microphone audio stays with the camera, or with the screen when the camera is off. Screen-only recordings mix system sound and microphone audio. Microphone-only recordings remain audio files.
+
 ## [7.4.2] - 2026-09-29
 
 ### Fixed

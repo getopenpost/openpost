@@ -13,6 +13,11 @@ function ensureRouting(): AudioMixerRouting | null {
 	return routing;
 }
 
+export function resumeAudioMixer(): void {
+	const context = getSharedPreviewAudioContext();
+	if (context?.state === 'suspended') void context.resume().catch(() => undefined);
+}
+
 export function attachAudioSourceToMixer(source: AudioNode, trackId: string): () => void {
 	const current = ensureRouting();
 	if (!current) return () => undefined;

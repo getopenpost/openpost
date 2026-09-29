@@ -15,6 +15,7 @@ import { cloneAnimationPreset, normalizeAnimationPresets } from './project/anima
 import { timelineStore } from './timeline/stores/timeline-store.svelte';
 import { commandHistory } from './timeline/commands/command-store.svelte';
 import { Clock } from './preview/clock';
+import { resumeAudioMixer } from './audio/audio-mixer';
 import { mediaPool } from './media/pool.svelte';
 import { sceneBrowser } from './media/scene-search/scene-browser.svelte';
 import { sequenceStore } from './sequences/sequence-store.svelte';
@@ -222,6 +223,7 @@ class EditorSession {
 	}
 
 	startPlayback(range?: { start: number; end: number; loop?: boolean }): void {
+		resumeAudioMixer();
 		this.transport.mode = 'normal';
 		this.clock.setRate(1);
 		this.clock.play(
@@ -233,6 +235,7 @@ class EditorSession {
 		direction: ShuttleDirection,
 		range: { start: number; end: number; loop?: boolean }
 	): void {
+		resumeAudioMixer();
 		const nextRate = this.clock.isPlaying
 			? getNextShuttleRate(this.clock.playbackRate, direction)
 			: direction;

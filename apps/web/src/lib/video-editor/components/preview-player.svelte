@@ -191,6 +191,8 @@
 	const prewarmPlanningFrame = $derived(
 		previewPrewarmPlanningFrame(displayFrame, editorSession.fps)
 	);
+	const PREPARED_VIDEO_LOOKAHEAD_SECONDS = 2.5;
+	const MAX_PREPARED_VIDEO_LAYERS = 2;
 	const previewRenderScale = $derived(
 		previewPlaybackSettings.previewQuality === 'auto' ? adaptivePreviewQuality.scale : 1
 	);
@@ -241,8 +243,9 @@
 		}
 		return null;
 	});
+	const orderedItems = $derived(paintOrder(timelineStore.items, timelineStore.tracks));
 	const activeItems = $derived.by(() =>
-		paintOrder(timelineStore.items, timelineStore.tracks).filter(
+		orderedItems.filter(
 			(item) =>
 				[
 					'video',
@@ -259,6 +262,25 @@
 					item.id === activeTransition?.incoming)
 		)
 	);
+	// Keep the nearest cuts decoded before they become visible. Mounting a video
+	// at its first displayed frame leaves a blank while its initial seek settles.
+	const mountedItems = $derived.by(() => {
+		const activeIds = new Set(activeItems.map((item) => item.id));
+		const nearby = orderedItems
+			.filter((item) => item.type === 'video' && !activeIds.has(item.id))
+			.map((item) => ({
+				item,
+				distance: Math.min(
+					Math.abs(item.from - displayFrame),
+					Math.abs(item.from + item.durationInFrames - 1 - displayFrame)
+				)
+			}))
+			.filter(({ distance }) => distance <= editorSession.fps * PREPARED_VIDEO_LOOKAHEAD_SECONDS)
+			.toSorted((left, right) => left.distance - right.distance)
+			.slice(0, MAX_PREPARED_VIDEO_LAYERS);
+		for (const { item } of nearby) activeIds.add(item.id);
+		return orderedItems.filter((item) => activeIds.has(item.id));
+	});
 	const previewMixPlan = $derived(
 		planNestedMixdown(
 			timelineStore.items,
@@ -1520,10 +1542,11 @@
 								{/if}
 							</div>
 						{/if}
-						{#each activeItems as item (item.id)}
+						{#each mountedItems as item (item.id)}
 							{@const itemMedia = mediaPool.get(item.mediaId ?? '')}
 							<PreviewLayer
 								{item}
+								active={activeItems.some((active) => active.id === item.id)}
 								{displayFrame}
 								url={itemMedia &&
 								shouldUseAutomaticProxy(itemMedia, previewPlaybackSettings.previewQuality) &&

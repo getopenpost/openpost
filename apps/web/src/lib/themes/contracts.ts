@@ -100,6 +100,7 @@ export const THEME_ICON_ROLES = [
 	'more-vertical',
 	'notification',
 	'organization',
+	'poll',
 	'publications',
 	'redo',
 	'refresh',

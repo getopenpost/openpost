@@ -84,6 +84,12 @@ for (const width of [1280, 390, 320]) {
         await page.getByRole("textbox", { name: "Post text", exact: true }).fill("Help us plan.");
         await page.screenshot({ path: testInfo.outputPath("before.png") });
         const add = page.getByRole("button", { name: "Add poll", exact: true });
+        const media = page.getByRole("button", { name: "Add media", exact: true });
+        await expect(add).toHaveText("");
+        await expect(add.locator("svg")).toHaveCount(1);
+        expect(
+          await media.evaluate((button) => button.nextElementSibling?.getAttribute("aria-label")),
+        ).toBe("Add poll");
         await add.focus();
         await page.keyboard.press("Enter");
         const poll = page.getByTestId("shared-poll-editor");

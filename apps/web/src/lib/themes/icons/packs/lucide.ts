@@ -59,6 +59,7 @@ const names = {
 	'more-vertical': 'ellipsis-vertical',
 	notification: 'bell',
 	organization: 'building-2',
+	poll: 'list-checks',
 	publications: 'files',
 	redo: 'redo-2',
 	refresh: 'refresh-cw',

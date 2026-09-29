@@ -27,7 +27,6 @@
 		onCustomizeText: (id: string) => void;
 		onLegacySettings: (id: string) => void;
 	} = $props();
-	let showUnavailable = $state(false);
 	const uid = $props.id();
 	const nativeCount = $derived(
 		destinations.filter(
@@ -46,25 +45,6 @@
 		{ value: 'omit', label: m.compose_poll_omit() },
 		{ value: 'custom', label: m.compose_poll_custom() }
 	]);
-	function addPoll() {
-		if (!nativeCount) {
-			showUnavailable = true;
-			return;
-		}
-		onChange({
-			question: '',
-			options: [
-				{ id: crypto.randomUUID(), text: '' },
-				{ id: crypto.randomUUID(), text: '' }
-			],
-			duration_seconds: 86400,
-			destinations: Object.fromEntries(
-				destinations
-					.filter((destination) => supportsNativePoll(destination.fields))
-					.map((destination) => [destination.id, { mode: 'native' as const }])
-			)
-		});
-	}
 	function setMode(id: string, mode: string) {
 		if (!value || (mode !== 'native' && mode !== 'text' && mode !== 'omit' && mode !== 'custom'))
 			return;
@@ -197,11 +177,4 @@
 				</p>{/if}
 		</div>
 	</section>
-{:else}
-	<Button variant="ghost" size="sm" class="my-1" onclick={addPoll}
-		><ThemeIcon role="add" class="size-4" />{m.compose_add_poll()}</Button
-	>
-	{#if showUnavailable}<p class="mb-3 text-sm text-muted-foreground" role="status">
-			{m.compose_poll_no_native()}
-		</p>{/if}
 {/if}

@@ -59,6 +59,7 @@ const names = {
 	'more-vertical': 'dots-vertical',
 	notification: 'bell',
 	organization: 'building',
+	poll: 'list-check',
 	publications: 'files',
 	redo: 'arrow-forward-up',
 	refresh: 'refresh',

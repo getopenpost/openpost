@@ -57,6 +57,7 @@ export const heroiconsNames = {
 	'more-vertical': 'ellipsis-vertical',
 	notification: 'bell',
 	organization: 'building-office-2',
+	poll: 'list-bullet',
 	publications: 'document-duplicate',
 	redo: 'arrow-uturn-right',
 	refresh: 'arrow-path',

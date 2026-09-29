@@ -339,6 +339,7 @@
 	let conflictDialogOpen = $state(false);
 	let linkUrl = $state('');
 	let composerSettingsOpen = $state(false);
+	let unavailablePollPostKey = $state<string | null>(null);
 
 	async function openVersionHistory() {
 		composerSettingsOpen = false;
@@ -1374,6 +1375,7 @@
 	}
 
 	function updateSharedPoll(post: PostItem, poll: SharedPoll | undefined) {
+		unavailablePollPostKey = null;
 		if (poll && !post.poll) {
 			poll = {
 				...poll,
@@ -4111,6 +4113,27 @@
 		scheduleAutoSave();
 	}
 
+	function addSharedPoll(post: PostItem) {
+		const nativeAccounts = selectedAccounts.filter((account) =>
+			supportsNativePoll(visibleSettings(account))
+		);
+		if (nativeAccounts.length === 0) {
+			unavailablePollPostKey = post.key;
+			return;
+		}
+		updateSharedPoll(post, {
+			question: '',
+			options: [
+				{ id: crypto.randomUUID(), text: '' },
+				{ id: crypto.randomUUID(), text: '' }
+			],
+			duration_seconds: 86400,
+			destinations: Object.fromEntries(
+				nativeAccounts.map((account) => [account.id, { mode: 'native' as const }])
+			)
+		});
+	}
+
 	function handleReorder(newItems: PostItem[]) {
 		if (newItems.every((post, index) => post.key === posts[index]?.key)) return;
 		undoReorderIDs = posts.map((post) => post.key);
@@ -6123,7 +6146,8 @@
 
 										<!-- Bottom bar -->
 										<div
-											class="flex items-center gap-2 pb-2 transition-opacity {activePostIndex === i
+											class="flex flex-wrap items-center gap-2 pb-2 transition-opacity {activePostIndex ===
+											i
 												? 'opacity-100'
 												: 'pointer-events-none opacity-0'}"
 										>
@@ -6145,6 +6169,16 @@
 											>
 												<ThemeIcon role="image" class="h-3.5 w-3.5" />
 											</button>
+											{#if !post.poll}
+												<button
+													type="button"
+													class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
+													onclick={() => addSharedPoll(post)}
+													aria-label={m.compose_add_poll()}
+												>
+													<ThemeIcon role="poll" class="h-3.5 w-3.5" />
+												</button>
+											{/if}
 
 											<ComposerCharCounter
 												content={getEditorContentForPost(post)}
@@ -6153,7 +6187,7 @@
 
 											<button
 												type="button"
-												class="-mx-2 flex min-h-11 items-center gap-1.5 px-2 text-xs text-muted-foreground transition-colors hover:text-foreground md:mx-0 md:min-h-7 md:px-0"
+												class="-mx-2 flex min-h-11 items-center gap-1.5 px-2 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground md:mx-0 md:min-h-7 md:px-0"
 												onclick={addPost}
 											>
 												<ThemeIcon role="add" class="h-3 w-3" />{m.compose_add_post()}
@@ -6209,6 +6243,11 @@
 												}
 											}}
 										/>
+										{#if unavailablePollPostKey === post.key && !post.poll}
+											<p class="mb-3 text-sm text-muted-foreground" role="status">
+												{m.compose_poll_no_native()}
+											</p>
+										{/if}
 
 										{#if i === 0 && !activeVariantAccountId && !isThread && postBuilderError}
 											<p class="border-t py-3 text-sm text-destructive" role="alert">

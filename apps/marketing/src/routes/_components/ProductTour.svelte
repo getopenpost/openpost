@@ -66,8 +66,8 @@
 			icon: '/assets/brand/features/workflows.svg',
 			lightSrc: '/assets/screenshots/workflows-light.webp',
 			darkSrc: '/assets/screenshots/workflows-dark.webp',
-			alt: 'OpenPost Workflows editor connecting a GitHub release to a draft and a review step',
-			caption: 'A new release becomes a draft. You review what goes out.'
+			alt: 'A GitHub release branches on breaking changes into AI-written announcements or short updates, each with a draft and review step',
+			caption: 'Different updates, different paths. You review what goes out.'
 		}
 	];
 	let selected = $state(0);

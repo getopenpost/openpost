@@ -1,21 +1,25 @@
 <script lang="ts">
 	import { workflowGraph } from './graph';
 	import type { Definition, Run } from './api';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import NodeIcon from './node-icon.svelte';
 	let { definition, run }: { definition: Definition; run?: Run } = $props();
 	const NODE_SIZE = 36;
 	const COLUMN_GAP = 58;
 	let width = $state(240);
 	const graph = $derived(workflowGraph(definition, run));
-	const columns = $derived(Math.max(2, Math.floor((width - 32 - NODE_SIZE) / COLUMN_GAP) + 1));
+	const columns = $derived(Math.max(1, Math.floor((width - 32 - NODE_SIZE) / COLUMN_GAP) + 1));
 	const nodes = $derived(graph.nodes.filter((node) => node.x / 300 < columns));
 	const hiddenCount = $derived(graph.nodes.length - nodes.length);
 	const top = $derived(Math.min(0, ...nodes.map((node) => node.y)));
 	const bottom = $derived(Math.max(0, ...nodes.map((node) => node.y)));
+	const graphWidth = $derived(
+		Math.max(0, ...nodes.map((node) => node.x / 300)) * COLUMN_GAP + NODE_SIZE
+	);
+	const left = $derived((width - graphWidth) / 2);
 	const preview = $derived(
 		nodes.map((node) => ({
 			...node,
-			x: 16 + (node.x / 300) * COLUMN_GAP,
+			x: left + (node.x / 300) * COLUMN_GAP,
 			y: top === bottom ? 38 : 12 + ((node.y - top) / (bottom - top)) * 52
 		}))
 	);
@@ -44,23 +48,23 @@
 		{/each}
 		{#each preview as node}
 			<g transform={`translate(${node.x} ${node.y})`}>
+				<foreignObject width={NODE_SIZE} height={NODE_SIZE}>
+					<div class="flex h-full items-center justify-center">
+						<NodeIcon icon={node.icon} category={node.category} />
+					</div>
+				</foreignObject>
 				<rect
 					width={NODE_SIZE}
 					height={NODE_SIZE}
 					rx={node.source ? 12 : 8}
-					fill="var(--card)"
+					fill="none"
 					stroke={node.state === 'failed'
 						? 'var(--destructive)'
 						: node.state === 'succeeded'
-							? 'var(--primary)'
-							: 'var(--border)'}
+							? 'var(--success)'
+							: 'none'}
 					stroke-width="1.5"
 				/>
-				<foreignObject width={NODE_SIZE} height={NODE_SIZE}>
-					<div class="flex h-full items-center justify-center text-foreground">
-						<ThemeIcon role={node.icon} class="size-5" />
-					</div>
-				</foreignObject>
 			</g>
 		{/each}
 	</svg>

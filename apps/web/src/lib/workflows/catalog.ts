@@ -4,6 +4,29 @@ import type { ThemeIconRole } from '$lib/themes';
 import { m } from '$lib/paraglide/messages';
 const literal = (value: Value['literal']): Value => ({ literal: value });
 const reference = (reference: string): Value => ({ reference });
+export type NodeCategory = 'triggers' | 'ai' | 'flow' | 'content' | 'tools' | 'data';
+
+export function actionCategory(kind: Step['kind']): NodeCategory {
+	if (['ai_text', 'ai_decision', 'build_draft'].includes(kind)) return 'ai';
+	if (['approval', 'wait', 'condition'].includes(kind)) return 'flow';
+	if (['create_draft', 'schedule', 'reply', 'metrics'].includes(kind)) return 'content';
+	if (['http_request', 'code', 'read_feed'].includes(kind)) return 'tools';
+	return 'data';
+}
+
+export function sourceIcon(kind: Definition['source']['kind']): ThemeIconRole {
+	return (
+		{
+			manual: 'launch',
+			github_release: 'github',
+			rss: 'download',
+			interval: 'time',
+			publication_created: 'compose',
+			rendition_published: 'send',
+			rendition_failed: 'feedback'
+		} as const
+	)[kind];
+}
 export function actionCatalog(): {
 	kind: Step['kind'];
 	label: string;
@@ -21,7 +44,7 @@ export function actionCatalog(): {
 			kind: 'code',
 			label: m.workflows_code(),
 			description: m.workflows_code_help(),
-			icon: 'settings'
+			icon: 'code'
 		},
 		{
 			kind: 'ai_text',
@@ -33,7 +56,7 @@ export function actionCatalog(): {
 			kind: 'ai_decision',
 			label: m.workflows_ai_decision(),
 			description: m.workflows_ai_decision_help(),
-			icon: 'filter'
+			icon: 'assistant'
 		},
 		{
 			kind: 'set_fields',
@@ -46,7 +69,7 @@ export function actionCatalog(): {
 			kind: 'parse_json',
 			label: m.workflows_parse_json(),
 			description: m.workflows_parse_json_help(),
-			icon: 'settings'
+			icon: 'code'
 		},
 		{
 			kind: 'list_filter',
@@ -58,7 +81,7 @@ export function actionCatalog(): {
 			kind: 'list_sort',
 			label: m.workflows_list_sort(),
 			description: m.workflows_list_sort_help(),
-			icon: 'settings'
+			icon: 'sort'
 		},
 		{
 			kind: 'list_limit',
@@ -119,7 +142,7 @@ export function actionCatalog(): {
 			kind: 'condition',
 			label: m.workflows_condition(),
 			description: m.workflows_condition_help(),
-			icon: 'filter'
+			icon: 'share'
 		},
 		{
 			kind: 'metrics',

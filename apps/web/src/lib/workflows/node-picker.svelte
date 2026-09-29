@@ -1,7 +1,8 @@
 <script lang="ts">
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { recipes } from './recipes';
-	import { actionCatalog, sourceLabel } from './catalog';
+	import { actionCatalog, actionCategory, sourceIcon, sourceLabel } from './catalog';
+	import NodeIcon from './node-icon.svelte';
 	import type { Step, Source } from './api';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
@@ -22,13 +23,6 @@
 		group = $state('all');
 	let input = $state<HTMLInputElement | null>(null);
 	let open = $state(true);
-	function category(kind: Step['kind']) {
-		if (['ai_text', 'ai_decision', 'build_draft'].includes(kind)) return 'ai';
-		if (['approval', 'wait', 'condition'].includes(kind)) return 'flow';
-		if (['create_draft', 'schedule', 'reply', 'metrics'].includes(kind)) return 'content';
-		if (['http_request', 'code', 'read_feed'].includes(kind)) return 'tools';
-		return 'data';
-	}
 	const groups = $derived([
 		{ id: 'all', label: m.workflows_all_nodes() },
 		{ id: 'recipes', label: m.workflows_recipes() },
@@ -42,7 +36,7 @@
 	const entries = $derived(
 		actionCatalog().filter(
 			(item) =>
-				(group === 'all' || category(item.kind) === group) &&
+				(group === 'all' || actionCategory(item.kind) === group) &&
 				`${item.label} ${item.description}`.toLowerCase().includes(search.toLowerCase())
 		)
 	);
@@ -126,19 +120,15 @@
 							type="button"
 							class="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 							onclick={() => onsource(kind)}
-							><ThemeIcon
-								role={kind === 'github_release' ? 'github' : 'download'}
-								class="size-5"
-							/>{sourceLabel(kind)}</button
+							><NodeIcon icon={sourceIcon(kind)} category="triggers" size="sm" />{sourceLabel(
+								kind
+							)}</button
 						>{/each}
 				{:else}{#each entries as entry}<button
 							type="button"
 							class="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 							onclick={() => onadd(entry.kind)}
-							><span
-								class="mt-1 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"
-								><ThemeIcon role={entry.icon} class="size-4" /></span
-							><span
+							><NodeIcon icon={entry.icon} category={actionCategory(entry.kind)} size="sm" /><span
 								><span class="block text-sm font-medium">{entry.label}</span><span
 									class="mt-1 block text-xs leading-5 text-muted-foreground"
 									>{entry.description}</span

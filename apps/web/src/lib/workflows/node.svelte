@@ -12,6 +12,7 @@
 <script lang="ts">
 	import { Handle, Position, type Node, type NodeProps } from '@xyflow/svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
+	import NodeIcon from './node-icon.svelte';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { m } from '$lib/paraglide/messages';
 	let { data: info, selected }: NodeProps<Node<WorkflowNodeData>> = $props();
@@ -70,9 +71,7 @@
 						: 'border-border'}"
 				aria-pressed={selected}
 			>
-				<span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"
-					><ThemeIcon role={info.icon} class="size-5" /></span
-				>
+				<NodeIcon icon={info.icon} category={info.category} size="lg" />
 				<span class="min-w-0"
 					><span class="block truncate text-sm font-medium">{info.label}</span><span
 						class="mt-1 block truncate text-xs text-muted-foreground"
@@ -129,7 +128,7 @@
 		class="!size-3 !border-2 !border-background !bg-muted-foreground"
 	/>
 	{#if info.branch}<span
-			class="pointer-events-none absolute -right-7 text-[10px] text-muted-foreground"
+			class="pointer-events-none absolute -right-7 rounded-sm bg-background px-0.5 text-[10px] text-muted-foreground"
 			style={`top:${port === 'then' ? 25 : 75}%;transform:translateY(-50%)`}
 			>{port === 'then' ? m.workflows_yes() : m.workflows_no()}</span
 		>{/if}

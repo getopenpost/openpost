@@ -75,8 +75,7 @@
 			sourceHandle: edge.port,
 			type: 'smoothstep',
 			markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--muted-foreground)' },
-			style: 'stroke: var(--muted-foreground); stroke-width: 1.5',
-			labelStyle: 'fill:var(--foreground)'
+			style: 'stroke: var(--muted-foreground); stroke-width: 1.5'
 		}))
 	);
 	function outputPort(handle: string | null | undefined): Port {
@@ -139,7 +138,12 @@
 				size={1}
 				patternColor="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
 			/>
-			<Controls showLock={false} position="bottom-left" orientation="horizontal" />
+			<Controls
+				showLock={false}
+				position="bottom-left"
+				orientation="horizontal"
+				fitViewOptions={{ padding: 0.2 }}
+			/>
 		</SvelteFlow>
 	{/key}
 </div>

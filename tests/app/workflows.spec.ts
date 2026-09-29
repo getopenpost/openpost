@@ -51,6 +51,38 @@ async function releaseTemplate(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: /^Needs attention/ }).click();
 }
 
+test("template graphs stay centered when their cards resize", async ({ page }) => {
+  await openWorkflows(page);
+  await page.getByRole("button", { name: "Start from a template", exact: true }).first().click();
+  const card = page
+    .getByRole("heading", { name: "Announce a GitHub release", exact: true })
+    .locator("../..");
+  const preview = card.locator('[aria-hidden="true"] > svg').first();
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 960 });
+    await expect
+      .poll(() =>
+        preview.evaluate((svg) => {
+          const frame = svg.getBoundingClientRect();
+          const nodes = Array.from(svg.querySelectorAll("g > rect"), (node) =>
+            node.getBoundingClientRect(),
+          );
+          const left = Math.min(...nodes.map((node) => node.left));
+          const right = Math.max(...nodes.map((node) => node.right));
+          const top = Math.min(...nodes.map((node) => node.top));
+          const bottom = Math.max(...nodes.map((node) => node.bottom));
+          return Math.max(
+            Math.abs((left + right) / 2 - (frame.left + frame.right) / 2),
+            Math.abs((top + bottom) / 2 - (frame.top + frame.bottom) / 2),
+          );
+        }),
+      )
+      .toBeLessThan(1);
+    await card.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/workflow-previews-${width}.png` });
+  }
+});
+
 test("workflow editor saves, previews without writes, and approves a native draft", async ({
   page,
 }) => {

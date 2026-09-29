@@ -65,6 +65,7 @@ apps/docs/content/docs/api-reference/*/
 /logs/
 test-results/
 playwright-report/
+.vitest-attachments/
 blob-report/
 coverage/
 *.tsbuildinfo

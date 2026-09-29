@@ -338,9 +338,7 @@
 								<div class="h-3 w-1/3 rounded-full bg-muted"></div>
 								<div class="h-20 rounded-[var(--theme-radius-md,var(--radius))] bg-muted"></div>
 							</div>
-							<div
-								class="absolute inset-0 grid place-items-center bg-[var(--theme-scrim,rgba(0,0,0,0.42))] p-4"
-							>
+							<div class="absolute inset-0 grid place-items-center bg-black/60 p-4">
 								<div
 									data-slot="dialog-content"
 									role="dialog"

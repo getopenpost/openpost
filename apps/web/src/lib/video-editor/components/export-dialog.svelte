@@ -720,7 +720,6 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		class="video-editor-theme !flex max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-0 text-[var(--video-editor-text)] shadow-2xl sm:max-w-md"
-		overlayProps={{ class: 'bg-scrim' }}
 		showCloseButton={!rendering}
 		onInteractOutside={(event) => {
 			if (rendering) event.preventDefault();

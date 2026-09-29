@@ -219,7 +219,7 @@ func validateTextBinding(text string, available map[string]bool, complete bool) 
 
 var requiredInputs = map[string][]string{
 	KindDraft: {"text"}, KindBuild: {"text"}, KindApproval: {"publication_id"}, KindSchedule: {"publication_id", "revision", "minutes"},
-	KindHTTP: {"url", "method"}, KindCode: {"code"}, KindAIText: {"text", "instructions"}, KindAIDecision: {"text", "instructions"}, KindFields: {"fields"}, KindText: {"text", "operation"}, KindJSON: {"text"}, KindFilter: {"items", "field", "operator", "right"}, KindSort: {"items", "field"}, KindLimit: {"items", "limit"}, KindMerge: {"first", "second"}, KindDate: {"date", "format"}, KindURL: {"url", "campaign", "source", "medium"}, KindFeed: {"url"},
+	KindHTTP: {"url", "method"}, KindCode: {"code"}, KindAIText: {"text"}, KindAIDecision: {"text", "instructions"}, KindFields: {"fields"}, KindText: {"text", "operation"}, KindJSON: {"text"}, KindFilter: {"items", "field", "operator", "right"}, KindSort: {"items", "field"}, KindLimit: {"items", "limit"}, KindMerge: {"first", "second"}, KindDate: {"date", "format"}, KindURL: {"url", "campaign", "source", "medium"}, KindFeed: {"url"},
 	KindReply: {"rendition_id", "text"}, KindWait: {"minutes"}, KindCondition: {"left", "operator", "right"}, KindMetrics: {"rendition_id"},
 }
 
@@ -345,7 +345,7 @@ var stepOutputFields = map[string][]string{
 	KindMetrics:    {"likes", "comments", "impressions", "observed_at"},
 	KindCondition:  {"matched"},
 	KindAIText:     {"text", "usage.*"},
-	KindAIDecision: {"matched", "reason", "usage.*"},
+	KindAIDecision: {"matched", "probability", "reason", "usage.*"},
 	KindHTTP:       {"status", "body.*", "headers.*"},
 	KindCode:       {"data.*"},
 	KindJSON:       {"data.*"},

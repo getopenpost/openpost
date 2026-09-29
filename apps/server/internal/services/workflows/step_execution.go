@@ -104,7 +104,7 @@ func (s *Service) evaluateStep(ctx context.Context, record runRecord, authority 
 }
 func (s *Service) evaluateExternalStep(ctx context.Context, record runRecord, step Step, progress stepProgress) (stepProgress, error) {
 	if record.Mode == ModePreview {
-		progress.result.Output = map[string]any{"preview": true, "text": textInput(progress.result.Inputs, "text"), "matched": true, "reason": "Preview only; AI was not called", "body": map[string]any{}, "status": 200}
+		progress.result.Output = map[string]any{"preview": true, "text": textInput(progress.result.Inputs, "text"), "matched": true, "probability": 0.75, "reason": "", "body": map[string]any{}, "status": 200}
 	} else {
 		output, err := s.externalEffect(ctx, record, step, progress.result.Inputs)
 		progress.result.Output = output

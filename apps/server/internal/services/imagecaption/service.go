@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DefaultModel         = "openai/gpt-5.6-luna"
+	DefaultModel         = "openai/gpt-6-luna"
 	maxAltTextCharacters = 300
 	// MaxPostContextCharacters bounds untrusted post text passed alongside an image.
 	MaxPostContextCharacters = 1000

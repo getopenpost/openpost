@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	DefaultModel = "openai/gpt-5.6-luna"
+	DefaultModel = "openai/gpt-6-luna"
 
 	DefaultCandidateCount = 3
 	MaxCandidateCount     = 4

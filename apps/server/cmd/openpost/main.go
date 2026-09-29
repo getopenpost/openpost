@@ -608,6 +608,7 @@ func main() {
 	profileHandler := handlers.NewProfileHandler(db, authenticator, storage)
 
 	var imageGenerator ai.Generator
+	var decisionGenerator ai.Decider
 	var contentGenerator ai.Generator
 	if cfg.OpenRouterAPIKey != "" {
 		imageConfig, contentConfig := openRouterConfigs(cfg)
@@ -618,6 +619,12 @@ func main() {
 		contentGenerator, err = ai.NewOpenRouter(contentConfig)
 		if err != nil {
 			fatalfWithDiagnostics(diagnosticsReporter, "failed to initialize OpenRouter text generator: %v", err)
+		}
+		decisionConfig := contentConfig
+		decisionConfig.Provider = "typesafe"
+		decisionGenerator, err = ai.NewOpenRouter(decisionConfig)
+		if err != nil {
+			fatalfWithDiagnostics(diagnosticsReporter, "failed to initialize workflow decisions: %v", err)
 		}
 	}
 
@@ -719,6 +726,7 @@ func main() {
 	organizationOwnershipService := organizationownership.NewService(db, notificationService, identityService)
 	workflowService := workflows.NewService(db, nil, tokenEncryptor)
 	workflowService.SetAI(contentGenerator, cfg.TextGenerationModel)
+	workflowService.SetDecisionAI(decisionGenerator, cfg.WorkflowDecisionModel)
 	var worker *queue.BackgroundWorker
 	var discordPresenceService *discordpresence.Service
 	if command.role.runsWorker() {

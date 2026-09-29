@@ -13,8 +13,9 @@ OpenPost's server-side AI features use OpenRouter. They are optional. Without an
 
 ```dotenv
 OPENROUTER_API_KEY=your-openrouter-key
-OPENPOST_TEXT_GENERATION_MODEL=openai/gpt-5.6-luna
-OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-5.6-luna
+OPENPOST_TEXT_GENERATION_MODEL=openai/gpt-6-luna
+OPENPOST_WORKFLOW_DECISION_MODEL=typesafe/jev-1.13
+OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-6-luna
 ```
 
 Run `docker compose up -d --force-recreate openpost` to recreate the container with the new environment.
@@ -33,3 +34,5 @@ Keep the key on the server. You can use `OPENROUTER_API_KEY_FILE` for a mounted 
 Post generation sends the idea and selected context to the configured model through OpenRouter. Automatic alt text sends a 400 px JPEG thumbnail and up to 1,000 characters of relevant post text, rather than the original image. Background removal, video editing, and local transcription run in the browser and do not require this key.
 
 If a request fails, check the container logs for an OpenRouter error, then check the key, model ID, balance, provider slug, and zero-retention setting. A text-only model may not be suitable for image captions.
+
+Workflow AI decisions use Jev through OpenRouter’s Decisions API. They route through TypeSafe and retain the content AI zero-data-retention requirement. Existing saved model settings take precedence over these defaults.

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -22,6 +23,12 @@ import (
 type generatorFunc func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error)
 
 func (f generatorFunc) Generate(ctx context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
+	return f(ctx, request)
+}
+
+type deciderFunc func(context.Context, ai.DecisionRequest) (ai.DecisionResult, error)
+
+func (f deciderFunc) Decide(ctx context.Context, request ai.DecisionRequest) (ai.DecisionResult, error) {
 	return f(ctx, request)
 }
 
@@ -67,16 +74,43 @@ func TestHTTPRequestUsesRotatedScopedSecretWithoutExposingIt(t *testing.T) {
 	require.Equal(t, 1, calls)
 }
 
+func TestAITextAcceptsGeneralMessages(t *testing.T) {
+	for _, system := range []string{"", "Reply in Portuguese."} {
+		t.Run(system, func(t *testing.T) {
+			s, actor := workflowTestService(t, nil)
+			s.SetAI(generatorFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
+				require.Equal(t, system, request.SystemPrompt)
+				require.Equal(t, "Explain gravity.", request.UserPrompt)
+				return ai.GenerateResult{Text: "An explanation", Model: "text-model"}, nil
+			}), "text-model")
+			inputs := map[string]Value{"text": literal("Explain gravity.")}
+			if system != "" {
+				inputs["instructions"] = literal(system)
+			}
+			workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "explain", Kind: KindAIText, Inputs: inputs}})
+			run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModeLive, map[string]any{}, workflow.Revision)
+			require.NoError(t, err)
+			runJob(t, s, run.ID)
+			final, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+			require.NoError(t, err)
+			require.Equal(t, StateSucceeded, final.State)
+			require.Equal(t, "An explanation", final.Steps[0].Output["text"])
+		})
+	}
+}
+
 func TestAIUsageSurvivesInvalidOutputAndProviderFailureWithoutReplay(t *testing.T) {
 	for _, providerFailure := range []bool{false, true} {
 		t.Run(fmt.Sprint(providerFailure), func(t *testing.T) {
 			s, actor := workflowTestService(t, nil)
 			calls := 0
 			cost := 0.002
-			s.SetAI(generatorFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
+			s.SetDecisionAI(deciderFunc(func(_ context.Context, request ai.DecisionRequest) (ai.DecisionResult, error) {
 				calls++
-				require.NotNil(t, request.ResponseSchema)
-				result := ai.GenerateResult{Text: "invalid decision", Model: "model", RequestID: "request-1", Usage: ai.Usage{InputTokens: 100, OutputTokens: 20, TotalTokens: 120, CostUSD: &cost}}
+				require.Equal(t, "configured-model", request.Model)
+				require.Equal(t, "Release notes", request.Input)
+				require.Equal(t, "Is this relevant?", request.Criteria)
+				result := ai.DecisionResult{Probability: math.NaN(), Model: "model", RequestID: "request-1", Usage: ai.Usage{InputTokens: 100, OutputTokens: 20, TotalTokens: 120, CostUSD: &cost}}
 				if providerFailure {
 					return result, errors.New("provider private error")
 				}
@@ -239,4 +273,38 @@ func TestSingleNodeTestDispatchesOnlySelectedNodeWithTypedData(t *testing.T) {
 	require.Zero(t, nativeCalls)
 	_, err = s.TestNode(t.Context(), actor, "ws", workflow.ID, WorkflowNodeTestRequest{ExpectedRevision: workflow.Revision, StepID: "draft"})
 	require.ErrorIs(t, err, ErrInvalid)
+}
+
+func TestAIDecisionRoutesAndRecordsEvidence(t *testing.T) {
+	for _, probability := range []float64{0.1, 0.9} {
+		t.Run(fmt.Sprint(probability), func(t *testing.T) {
+			s, actor := workflowTestService(t, nil)
+			calls := 0
+			s.SetDecisionAI(deciderFunc(func(context.Context, ai.DecisionRequest) (ai.DecisionResult, error) {
+				calls++
+				return ai.DecisionResult{Probability: probability, Model: "typesafe/jev-1.13", Usage: ai.Usage{InputTokens: 42, TotalTokens: 42}}, nil
+			}), "typesafe/jev-1.13")
+			workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "decision", Kind: KindAIDecision, Inputs: map[string]Value{"text": literal("A software bug"), "instructions": literal("Does this describe a bug?")}, Then: []Step{{ID: "yes", Kind: KindText, Inputs: map[string]Value{"text": literal("YES"), "operation": literal("lowercase")}}}, Else: []Step{{ID: "no", Kind: KindText, Inputs: map[string]Value{"text": literal("NO"), "operation": literal("lowercase")}}}}})
+			run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModeLive, map[string]any{}, workflow.Revision)
+			require.NoError(t, err)
+			for range 4 {
+				runJob(t, s, run.ID)
+			}
+			final, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+			require.NoError(t, err)
+			require.Equal(t, StateSucceeded, final.State)
+			require.Len(t, final.Steps, 2)
+			expected := "no"
+			if probability >= 0.5 {
+				expected = "yes"
+			}
+			require.Equal(t, expected, final.Steps[1].StepID)
+			require.Equal(t, probability, final.Steps[0].Output["probability"])
+			require.Equal(t, 1, calls)
+			var usage usageRecord
+			require.NoError(t, s.db.NewSelect().Model(&usage).Where("run_id = ?", run.ID).Scan(t.Context()))
+			require.Equal(t, StateSucceeded, usage.State)
+			require.Equal(t, int64(42), usage.TotalTokens)
+		})
+	}
 }

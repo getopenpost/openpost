@@ -22,12 +22,14 @@ import (
 )
 
 type Service struct {
-	generator ai.Generator
-	model     string
-	db        *bun.DB
-	actions   Actions
-	encryptor *servicecrypto.TokenEncryptor
-	client    *http.Client
+	decider       ai.Decider
+	decisionModel string
+	generator     ai.Generator
+	model         string
+	db            *bun.DB
+	actions       Actions
+	encryptor     *servicecrypto.TokenEncryptor
+	client        *http.Client
 }
 
 func NewService(db *bun.DB, actions Actions, encryptor *servicecrypto.TokenEncryptor) *Service {
@@ -292,4 +294,9 @@ func recordSourceBaseline(ctx context.Context, tx bun.Tx, id, fingerprint, sourc
 func (s *Service) SetAI(generator ai.Generator, model string) {
 	s.generator = generator
 	s.model = model
+}
+
+func (s *Service) SetDecisionAI(decider ai.Decider, model string) {
+	s.decider = decider
+	s.decisionModel = model
 }

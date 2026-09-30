@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.6.1] - 2026-09-30
+
+### Security
+
+- Update locked brace-expansion build dependencies to versions that fix the reported denial-of-service flaws.
+
+### Improved
+
+- Add polls from an icon beside the composer media button, keeping the writing area clear.
+
 ## [7.5.2] - 2026-09-29
 
 ### Fixed

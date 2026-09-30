@@ -369,11 +369,7 @@ func (t *TikTokAdapter) publishInboxVideoFromURL(ctx context.Context, accessToke
 
 func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken, mimeType string, data []byte) (string, error) {
 	videoSize := int64(len(data))
-	chunkSize := videoSize
-	if chunkSize > tiktokMaxChunkSize {
-		chunkSize = tiktokMaxChunkSize
-	}
-	totalChunks := (videoSize + chunkSize - 1) / chunkSize
+	chunkSize, totalChunks := tiktokUploadChunks(videoSize)
 	payload := map[string]any{
 		"source_info": map[string]any{
 			"source":            "FILE_UPLOAD",
@@ -390,9 +386,10 @@ func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken,
 	if uploadURL == "" {
 		return "", fmt.Errorf("tiktok inbox video init: missing upload_url")
 	}
-	for start := int64(0); start < videoSize; start += chunkSize {
+	for index := range totalChunks {
+		start := index * chunkSize
 		end := start + chunkSize
-		if end > videoSize {
+		if index == totalChunks-1 {
 			end = videoSize
 		}
 		chunk := data[start:end]
@@ -406,6 +403,17 @@ func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken,
 		}
 	}
 	return t.waitForPublishID(ctx, accessToken, publishID, nil)
+}
+
+// tiktokUploadChunks splits a FILE_UPLOAD the way TikTok's Media Transfer
+// Guide requires: total_chunk_count is video_size / chunk_size rounded down,
+// the final chunk carries the trailing bytes, and a video over the chunk
+// limit goes in several chunks. Spreading the bytes evenly over the fewest
+// chunks keeps every chunk within the limit and the remainder smaller than
+// the chunk count, so it never forms a chunk of its own.
+func tiktokUploadChunks(videoSize int64) (chunkSize, totalChunks int64) {
+	totalChunks = (videoSize + tiktokMaxChunkSize - 1) / tiktokMaxChunkSize
+	return videoSize / totalChunks, totalChunks
 }
 
 func (t *TikTokAdapter) initInboxVideo(ctx context.Context, accessToken string, payload map[string]any, req *PublishRequest) (string, error) {

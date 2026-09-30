@@ -234,6 +234,25 @@ export class ComposerSession {
 		return () => this.#listeners.delete(listener);
 	}
 
+	hydrate(loaded: Awaited<ReturnType<ComposerPublicationClient['load']>>): void {
+		this.#requireActive();
+		if (loaded.publication.workspace_id !== this.workspaceId) {
+			throw new ComposerSessionError('publication_workspace_mismatch');
+		}
+		this.#draft = structuredClone(loaded.draft);
+		this.#draftVersion += 1;
+		this.#patch({
+			publicationId: loaded.publication.id,
+			revision: loaded.publication.revision,
+			status: loaded.publication.status,
+			dirty: false,
+			conflict: null,
+			validationIssues: [],
+			delivery: [],
+			error: null
+		});
+	}
+
 	async load(publicationId: string): Promise<void> {
 		this.#requireActive();
 		const generation = this.#generation;
@@ -241,21 +260,7 @@ export class ComposerSession {
 		try {
 			const loaded = await this.#client.load(publicationId);
 			if (generation !== this.#generation) return;
-			if (loaded.publication.workspace_id !== this.workspaceId) {
-				throw new ComposerSessionError('publication_workspace_mismatch');
-			}
-			this.#draft = structuredClone(loaded.draft);
-			this.#draftVersion += 1;
-			this.#patch({
-				publicationId: loaded.publication.id,
-				revision: loaded.publication.revision,
-				status: loaded.publication.status,
-				dirty: false,
-				conflict: null,
-				validationIssues: [],
-				delivery: [],
-				error: null
-			});
+			this.hydrate(loaded);
 		} catch (cause) {
 			if (generation === this.#generation) this.#patch({ error: errorMessage(cause) });
 			throw cause;

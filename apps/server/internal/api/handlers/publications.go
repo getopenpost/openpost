@@ -2606,6 +2606,10 @@ func lockPublicationMutationTx(ctx context.Context, tx bun.Tx, publicationID str
 }
 
 func publicationMutationHTTPError(err error, fallback string) error {
+	var conflict *drafts.ConflictError
+	if errors.As(err, &conflict) {
+		return conflict
+	}
 	if category, ok := publicationservice.CategoryOf(err); ok {
 		switch category {
 		case publicationservice.ErrorInvalidInput:

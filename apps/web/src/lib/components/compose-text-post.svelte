@@ -184,7 +184,10 @@
 		type PublicationDraft
 	} from '$lib/composer/session';
 	import { composerErrorMessage } from '$lib/composer/error-presentation';
-	import { createComposerPublicationClient } from '$lib/composer/publication-client';
+	import {
+		createComposerPublicationClient,
+		publicationDraft
+	} from '$lib/composer/publication-client';
 	import { buildComposerPreview } from '$lib/compose-preview';
 	import ComposerPreview from '$lib/components/composer-preview.svelte';
 	import { openPreviewWindow, type PreviewWindowSession } from '$lib/preview-window';
@@ -518,7 +521,7 @@
 			workspaceCtx.settingsReady
 	);
 
-	async function sessionFor(workspaceId: string, existingPublicationId = '') {
+	function getComposerSession(workspaceId: string) {
 		if (!composerSession || composerSession.workspaceId !== workspaceId) {
 			unsubscribeComposerSession?.();
 			composerSession = new ComposerSession({
@@ -541,7 +544,7 @@
 							: m.compose_update_draft_failed(),
 						conflict: {
 							aggregate_type: 'publication',
-							aggregate_id: state.publicationId || existingPublicationId,
+							aggregate_id: state.publicationId || publicationId,
 							expected_revision: state.conflict.expectedRevision,
 							current_revision: state.conflict.currentRevision,
 							status: state.status || 'draft',
@@ -552,10 +555,15 @@
 				}
 			});
 		}
-		if (existingPublicationId && composerSession.snapshot.publicationId !== existingPublicationId) {
-			await composerSession.load(existingPublicationId);
-		}
 		return composerSession;
+	}
+
+	async function sessionFor(workspaceId: string, existingPublicationId = '') {
+		const session = getComposerSession(workspaceId);
+		if (existingPublicationId && session.snapshot.publicationId !== existingPublicationId) {
+			await session.load(existingPublicationId);
+		}
+		return session;
 	}
 
 	// --------------------------------------------------------------------------
@@ -2793,6 +2801,11 @@
 	}
 
 	async function initializeFromPublication(publication: Publication, resolveAfter = true) {
+		// Content and its revision must come from the same read, including cached drafts.
+		getComposerSession(publication.workspace_id).hydrate({
+			publication,
+			draft: publicationDraft(publication)
+		});
 		pasteMediaUploadQueue.reset();
 		clearAutoSaveTimer();
 		generationUndo = null;
@@ -3696,7 +3709,6 @@
 		if (loadError || !data) {
 			throw new Error(loadError?.detail || m.compose_update_draft_failed());
 		}
-		await composerSession?.load(data.id);
 		await initializeFromPublication(data);
 		error = '';
 		draftConflict = null;

@@ -1105,6 +1105,10 @@ func buildBlueskyFacets(text string, settings map[string]interface{}) []map[stri
 		})
 	}
 
+	return nonOverlappingBlueskyFacets(candidates)
+}
+
+func nonOverlappingBlueskyFacets(candidates []blueskyFacetCandidate) []map[string]interface{} {
 	// The relay rejects overlapping facets. Candidates arrive ordered by
 	// kind (links, then tags, then mentions), so keep the first span that
 	// claims a byte range and drop later overlaps.

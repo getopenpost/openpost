@@ -4,9 +4,7 @@ description: Post discussions and links to PieFed communities through its native
 icon: piefed
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
-PieFed shares OpenPost's community-posting experience with Lemmy: the community is the destination, and one rendition pairs one connected account with one concrete community. Underneath, PieFed is its own integration speaking PieFed's native alpha API.
+Choose a PieFed community for each post variant. OpenPost uses PieFed's native alpha API.
 
 ## Connect an instance account
 
@@ -14,25 +12,16 @@ PieFed needs no developer app or callback URL. Each person connects with their i
 
 1. In OpenPost, choose your workspace and open **Settings → Workspace → Social accounts → PieFed**.
 2. Enter the home instance address (such as `https://piefed.social`), your username, and your password.
-3. Publish a test discussion and open the resulting link from its publication details.
-
-<SetupScreenshot
-  src="/docs/assets/screenshots/connect-piefed-light.webp"
-  darkSrc="/docs/assets/screenshots/connect-piefed-dark.webp"
-  alt="OpenPost connection dialog for PieFed instance credentials"
-  width={976}
-  height={662}
-  caption="PieFed instance credentials in OpenPost. Screenshot uses example values."
-/>
+3. Publish a test discussion and open the resulting link from the post details.
 
 ## Post to a community
 
-A community post needs a community and a title written for that community. The body is Markdown-capable discussion text; an optional link or uploaded image can accompany it.
+Choose a community and enter a title. Add a Markdown body, a link, or an uploaded image.
 
-Search for the community, paste its address (`!name@instance`), or choose a saved destination. The community's description and posting warnings stay alongside the editor, and OpenPost rechecks posting restrictions before submission. A publication with an unresolved community cannot be scheduled. Replies, likes, and comment management work from the post's inbox in OpenPost.
+Search for a community, paste `!name@instance`, or choose a saved destination. Read its rules and warnings beside the editor. Resolve the community before scheduling. Use Inbox to reply, like, and manage comments.
 
-## If the connection fails
+## Troubleshoot
 
 - Check the home instance address, username, and password.
 - If a community cannot be resolved, check its exact address.
-- PieFed's API is versioned separately from Lemmy's. If publishing fails after a successful connection, open the failed rendition in OpenPost for the provider error.
+- PieFed's API is versioned separately from Lemmy's. If publishing fails after a successful connection, open the failed variant in OpenPost for the provider error.

@@ -4,7 +4,7 @@ description: Back up, upgrade, monitor, and recover a self-hosted instance.
 icon: ArchiveRestore
 ---
 
-The database holds accounts, schedules, and publication state. The media directory holds uploaded files. Back up both with the Compose file and `.env`; the latter contains the JWT and encryption secrets needed to read saved credentials. Keep backups private and off the server, and test a restore before relying on them.
+The database holds accounts, schedules, and post state. The media directory holds uploaded files. Back up both with the Compose file and `.env`; the latter contains the JWT and encryption secrets needed to read saved credentials. Keep backups private and off the server, and test a restore before relying on them.
 
 ## Back up the SQLite setup
 
@@ -35,7 +35,7 @@ The self-hosted `all` container applies database migrations at startup. If you n
 
 ## Restore
 
-On a replacement server, install Docker Compose and restore the data using the same storage layout. Extract the bind-mount archive into an empty directory, or restore the named volume from its volume backup before starting OpenPost. Check the image tag and paths in `docker-compose.yml`, and restore the same `.env` secrets. Start with `docker compose up -d`, check `/api/v1/ready`, sign in, open a saved publication with media, and inspect a scheduled post. Reconnect any provider whose external app or token was revoked since the backup.
+On a replacement server, install Docker Compose and restore the data using the same storage layout. Extract the bind-mount archive into an empty directory, or restore the named volume from its volume backup before starting OpenPost. Check the image tag and paths in `docker-compose.yml`, and restore the same `.env` secrets. Start with `docker compose up -d`, check `/api/v1/ready`, sign in, open a saved post with media, and inspect a scheduled post. Reconnect any provider whose external app or token was revoked since the backup.
 
 ## Check health
 
@@ -44,4 +44,4 @@ curl https://your-openpost-host.example/api/v1/health
 curl https://your-openpost-host.example/api/v1/ready
 ```
 
-`/health` shows that the process responds; `/ready` checks whether it can serve work with its required dependencies. Check readiness after every restart and from outside the reverse proxy. For a failed post, open the affected rendition, fix its provider or media issue, and retry it. For a failed startup, check logs, database connectivity, writable media storage, free disk space, and whether the original secret values are present.
+`/health` shows that the process responds; `/ready` checks whether it can serve work with its required dependencies. Check readiness after every restart and from outside the reverse proxy. For a failed post, open the affected variant, fix its provider or media issue, and retry it. For a failed startup, check the logs, database connection, writable media directory, disk space, and original secrets.

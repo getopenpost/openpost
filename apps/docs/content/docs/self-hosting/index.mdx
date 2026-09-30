@@ -4,9 +4,9 @@ description: Run OpenPost on your own server with Docker Compose.
 icon: docker
 ---
 
-This guide runs one OpenPost container with SQLite and local media storage. It is the shortest path for a personal or small-team instance. OpenPost runs its web and background work in the same container, so you do not need a separate queue service.
+Run OpenPost with Docker Compose, SQLite, and local media storage. One container serves the app and runs background jobs.
 
-## Before you start
+## What you need
 
 - Install Docker with the Compose plugin. Run the commands below on the server that will host OpenPost.
 - The published image supports `linux/amd64` and `linux/arm64`. Docker selects the native image for the host.
@@ -59,87 +59,41 @@ services:
 
 The example uses `latest`. For production, replace it with a release tag from [GitHub Releases](https://github.com/getopenpost/openpost/releases) and record that tag with your backups. Read [upgrades and backups](/self-hosting/maintenance) before changing it.
 
-Start it and check readiness:
+Start it:
 
 ```sh
 docker compose up -d
-curl http://localhost:8080/api/v1/ready
 ```
 
-The ready response should show `"status":"ready"` and `"database":"ok"`. It also reports storage when you use S3. If the request fails, inspect `docker compose logs --tail=100 openpost`. For a public server, check `https://your-domain.example/api/v1/ready` through the reverse proxy too.
+## Check your installation
 
-Open `http://localhost:8080` and create the first account. That account becomes the instance administrator. Create a workspace, then configure the [provider integrations](/self-hosting/integrations) you need. Once a provider is configured, connect your social account and follow the [first-post guide](/guides/quickstart).
+1. Run `curl -fsS http://localhost:8080/api/v1/ready`. Expect `"status":"ready"` and `"database":"ok"`. S3 deployments also report storage readiness. If it fails, check `docker compose logs --tail=100 openpost`.
+2. For a public instance, check the same path through your [HTTPS proxy](/self-hosting/reverse-proxy).
+3. Open the app and create the first account. It becomes the instance administrator. Create a workspace and [configure your social integrations](/self-hosting/integrations).
+4. Connect an account and [publish a test post](/guides/quickstart). Check the result in OpenPost and on the social network.
 
-After setup, set `OPENPOST_DISABLE_REGISTRATIONS=true` in `.env` and run `docker compose up -d` if the instance should stop accepting new self-service registrations. Existing accounts can still sign in.
+To close public signup afterward, set `OPENPOST_DISABLE_REGISTRATIONS=true` and recreate the container with `docker compose up -d --force-recreate openpost`. Existing accounts can still sign in.
 
-## Production requirements
+## Prepare for production
 
-Keep the proxy's HTTPS certificate valid and forward the original host and scheme. OAuth callback URLs must match the public origin exactly. Use a versioned image tag for upgrades, then [back up and test a restore](/self-hosting/maintenance). Back up `data/db`, `data/media`, the Compose file, and `.env` together. The `.env` file contains secrets, so protect the backup.
-
-When several people use the instance, decide who can register and set up [email delivery](/self-hosting/email) before requiring email verification. Set up each social provider in [provider integrations](/self-hosting/integrations); Bluesky and Discord webhooks need no developer app, while OAuth providers need their own credentials and often a public callback.
+Use a versioned image from [GitHub Releases](https://github.com/getopenpost/openpost/releases). [Back up and test a restore](/self-hosting/maintenance) of the database, media, deployment files, and secrets before relying on scheduled posts. Configure [email delivery](/self-hosting/email) before requiring email verification.
 
 ## Choose a platform
 
-<div className="provider-directory not-prose">
-  <a href="/docs/self-hosting/zimaos">
-    <img src="/docs/assets/logos/zimaos.png" className="docs-service-icon" alt="" />
-    <span>
-      <strong>ZimaOS</strong>
-      <small>Import a custom app</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/casaos">
-    <img src="/docs/assets/logos/casaos.svg" className="docs-service-icon" alt="" />
-    <span>
-      <strong>CasaOS</strong>
-      <small>Import a customized app</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/coolify">
-    <img src="/docs/assets/logos/coolify.svg" className="docs-service-icon" alt="" />
-    <span>
-      <strong>Coolify</strong>
-      <small>Deploy from Git</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/dokploy">
-    <img src="/docs/assets/logos/dokploy.svg" className="docs-service-icon" alt="" />
-    <span>
-      <strong>Dokploy</strong>
-      <small>Deploy a Compose service</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/portainer">
-    <img src="/docs/assets/logos/portainer.svg" className="docs-service-icon" alt="" />
-    <span>
-      <strong>Portainer</strong>
-      <small>Create a stack</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/dockge">
-    <img src="/docs/assets/logos/dockge.svg" className="docs-service-icon" alt="" />
-    <span>
-      <strong>Dockge</strong>
-      <small>Create a managed stack</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/nixos">
-    <img src="/docs/assets/logos/nixos.svg" className="docs-service-icon" alt="" />
-    <span>
-      <strong>NixOS</strong>
-      <small>Enable the maintained module</small>
-    </span>
-  </a>
-</div>
+Use an existing platform if it already manages your server:
 
-## Other install options
+| Platform                             | Installation method                        |
+| ------------------------------------ | ------------------------------------------ |
+| [Coolify](/self-hosting/coolify)     | Git repository with the Compose build pack |
+| [Dokploy](/self-hosting/dokploy)     | Compose service                            |
+| [Portainer](/self-hosting/portainer) | Docker Standalone stack                    |
+| [Dockge](/self-hosting/dockge)       | Stack with a Compose file and `.env`       |
+| [CasaOS](/self-hosting/casaos)       | Customized app import                      |
+| [ZimaOS](/self-hosting/zimaos)       | Custom app import                          |
+| [NixOS](/self-hosting/nixos)         | Podman service module with sops secrets    |
 
-- [Install the binary](/self-hosting/binary) on Linux, macOS, or Windows.
-- [Try the Docker image](/self-hosting/docker-run) without creating a Compose file.
-- [Configure HTTPS and public access](/self-hosting/reverse-proxy) for any installation.
+For other setups, [run the binary](/self-hosting/binary) or [try the Docker image](/self-hosting/docker-run).
 
-## Next steps
+## Configure optional services
 
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Set up AI](/self-hosting/ai) to generate content, or [email](/self-hosting/email) for mail delivery.
-- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.
+[Configuration](/self-hosting/configuration) covers URLs, storage, and registration. Add [AI generation](/self-hosting/ai) or [email delivery](/self-hosting/email) when needed.

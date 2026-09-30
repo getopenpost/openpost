@@ -4,11 +4,9 @@ description: Create a Threads API app and connect a Threads account to OpenPost.
 icon: threads
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
 OpenPost uses the Threads API and its own OAuth callback. A Threads app is configured separately from Facebook Login, even if you use the same Meta developer account.
 
-## Before you start
+## What you need
 
 - Set `OPENPOST_APP_URL` to your instance's public HTTPS origin. Set `OPENPOST_MEDIA_URL` to a public HTTPS address if you will publish images, videos, or carousels.
 - Have a [Meta developer account](https://developers.facebook.com/) and a Threads account for testing.
@@ -29,25 +27,9 @@ OpenPost uses the Threads API and its own OAuth callback. A Threads app is confi
 
 Meta's [Threads API documentation](https://developers.facebook.com/docs/threads/) and [official Threads API collection](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api) describe setup, consent, and publishing.
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/threads-use-case.png"
-  alt="Meta app creation with Access the Threads API selected"
-  width={992}
-  height={498}
-  caption="Choose the Threads API use case."
-/>
-
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/threads-callback.png"
-  alt="Threads API settings with OpenPost and the example OpenPost callback URL"
-  width={1737}
-  height={906}
-  caption="Register your own domain with the /api/v1/accounts/threads/callback path."
-/>
-
 ## Save the app in OpenPost
 
-Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
+[Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
 
 ```json
 [
@@ -66,8 +48,10 @@ Use this provider entry when [saving your app credentials](/self-hosting/integra
 2. Publish a short text post. Confirm its status in OpenPost and open it on Threads.
 3. If you need media, publish one image next. Meta fetches media from your public HTTPS address. Test carousels and other features separately. Optional Comments and replies and Analytics start disabled per account; location tagging requires its own granted permission.
 
-## If it does not work
+## Troubleshoot
 
-- **OAuth fails:** Compare the Threads API redirect URL with the JSON and public `OPENPOST_APP_URL` exactly. Check the app's tester roles, mode, and permissions.
-- **Text works but media fails:** Fetch the exact public media URL from outside your network and check HTTPS, file bytes, and media type. A localhost or private URL cannot work.
-- **Replies, insights, or locations are unavailable:** Check the corresponding Threads permission and account grant. Reconnect accounts authorized before that permission was added.
+| Problem                                         | Check                                                                                                                                           |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| OAuth fails                                     | Compare the Threads API redirect URL with the JSON and public `OPENPOST_APP_URL` exactly. Check the app's tester roles, mode, and permissions.  |
+| Text works but media fails                      | Fetch the exact public media URL from outside your network and check HTTPS, file bytes, and media type. A localhost or private URL cannot work. |
+| Replies, insights, or locations are unavailable | Check the corresponding Threads permission and account grant. Reconnect accounts authorized before that permission was added.                   |

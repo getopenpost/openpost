@@ -4,11 +4,9 @@ description: Configure Meta OAuth and connect a Facebook Page to OpenPost.
 icon: facebook
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
 OpenPost connects Facebook Pages, not personal timelines. A person signs in through Meta, grants Page permissions, and chooses a Page they can manage.
 
-## Before you start
+## What you need
 
 - Set `OPENPOST_APP_URL` to your instance's public HTTPS origin. Set `OPENPOST_MEDIA_URL` to a public HTTPS address before testing image, video, or Story posts.
 - Have a [Meta developer account](https://developers.facebook.com/) and a Facebook Page that your test user can manage. Pages in a Business Portfolio may require full control and business access.
@@ -23,22 +21,28 @@ OpenPost connects Facebook Pages, not personal timelines. A person signs in thro
    https://post.example.com/api/v1/accounts/facebook/callback
    ```
 
-3. Request `business_management`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_engagement`, `pages_manage_metadata`, `pages_manage_posts`, and `pages_messaging`. OpenPost asks for these during connection. Meta requires `pages_read_user_content` for comment access and `pages_manage_metadata` to read Messenger conversations through its Conversations API. Complete Meta's review for the permissions and people you intend to support. If you do not use Direct messages, the app may still show a request for `pages_messaging` because OpenPost's Facebook authorization flow includes it.
+3. Request the permissions OpenPost includes in consent:
+
+   ```text
+   business_management
+   pages_show_list
+   pages_read_engagement
+   pages_read_user_content
+   pages_manage_engagement
+   pages_manage_metadata
+   pages_manage_posts
+   pages_messaging
+   ```
+
+   Complete Meta's review for your intended users. Comment access needs `pages_read_user_content`; Messenger conversation reads need `pages_manage_metadata`. OpenPost requests `pages_messaging` even when you do not enable Direct messages.
+
 4. In **App settings → Basic**, copy the **App ID** and **App Secret**. Confirm your test user has a role on the app while it is in development mode and can manage the target Page.
 
 Meta's [Pages API overview](https://developers.facebook.com/docs/pages-api/) and [Facebook Login documentation](https://developers.facebook.com/docs/facebook-login/) describe Page access and OAuth configuration.
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/meta-use-cases.png"
-  alt="Meta app creation use-case picker showing Facebook Login, Pages, and Other"
-  width={1074}
-  height={996}
-  caption="Meta offers different app creation flows. Choose the flow that provides Facebook Login and the Page permissions listed above."
-/>
-
 ## Save the app in OpenPost
 
-Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
+[Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
 
 ```json
 [
@@ -57,8 +61,10 @@ Use this provider entry when [saving your app credentials](/self-hosting/integra
 2. Choose the Page returned by Meta. Publish a short text test and confirm its status in OpenPost and on the Page.
 3. Test an image or video separately if you need media publishing. Meta fetches the file from your public HTTPS media URL. Optional Comments and replies, Direct messages, and Analytics start disabled per Page; enable and verify only the features your approved app supports.
 
-## If it does not work
+## Troubleshoot
 
-- **Redirect mismatch:** Compare the Meta **Valid OAuth Redirect URI**, the JSON value, and `OPENPOST_APP_URL` exactly.
-- **No Page appears:** Confirm that the signed-in person can manage it, gave access to it in the consent flow, and that the app has the Page permissions. Check Business Portfolio access if applicable.
-- **Connected but a post fails:** Read Meta's permission or media error. Confirm `pages_manage_posts` is granted and, for media, fetch the URL from outside your network. Reconnect after changing permissions.
+| Problem                    | Check                                                                                                                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Redirect mismatch          | Compare the Meta **Valid OAuth Redirect URI**, the JSON value, and `OPENPOST_APP_URL` exactly.                                                                                    |
+| No Page appears            | Confirm that the signed-in person can manage it, gave access to it in the consent flow, and that the app has the Page permissions. Check Business Portfolio access if applicable. |
+| Connected but a post fails | Read Meta's permission or media error. Confirm `pages_manage_posts` is granted and, for media, fetch the URL from outside your network. Reconnect after changing permissions.     |

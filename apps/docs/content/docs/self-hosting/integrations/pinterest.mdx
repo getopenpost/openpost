@@ -4,13 +4,11 @@ description: Configure a Pinterest app and understand the approval needed to con
 icon: pinterest
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
+Normal Pinterest connections require an OpenPost record of your app's Standard approval. Publishing, discovery, and analytics each need current test evidence, including on self-hosted instances.
 
-Pinterest requires more setup than the other networks. Even on a self-hosted instance, OpenPost needs a record of your app's Standard approval before a normal account connection. Publishing, discovery, and analytics also need current test evidence for each operation. Saving credentials alone will not make those actions available.
+Follow [administrator readiness setup](/self-hosting/integrations#readiness-records-for-bot-apps-and-pinterest) alongside this guide.
 
-This guide prepares the app. If you need an integration you can configure and use immediately, choose another network from [social integrations](/self-hosting/integrations) while you complete Pinterest approval.
-
-## Before you start
+## What you need
 
 - Set `OPENPOST_APP_URL` to the public HTTPS origin of your instance.
 - Have a Pinterest business account to administer a [Pinterest developer app](https://developers.pinterest.com/apps/) and a separate account and board for testing.
@@ -30,25 +28,9 @@ This guide prepares the app. If you need an integration you can configure and us
 
 Pinterest documents [OAuth redirect matching and scopes](https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/).
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/pinterest-redirect.png"
-  alt="Pinterest redirect URI settings with an empty Redirect link field"
-  width={817}
-  height={319}
-  caption="Add your OpenPost callback in Redirect link. The original example address is hidden."
-/>
-
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/pinterest-credentials.png"
-  alt="Pinterest App id and masked App secret key fields"
-  width={814}
-  height={183}
-  caption="Copy the App ID and Secret key into your private provider configuration."
-/>
-
 ## Save the app in OpenPost
 
-Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
+[Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
 
 ```json
 [
@@ -69,10 +51,12 @@ Use this provider entry when [saving your app credentials](/self-hosting/integra
 
 Trial testing uses the administrator-only `certification_test` flow, which allows a first test without previous test evidence. It still checks app configuration, trial permission, account authorization, and provider policy. Trial Pins and boards are visible only to their creator.
 
-The [operator readiness guide](https://github.com/getopenpost/openpost/blob/main/docs/reference/providers/provider-launch-matrix.md#recording-certification-evidence) explains how administrators record approval and test results through the session-authenticated API. This is currently an operator API workflow, not a switch in the workspace settings.
+Record approval and results through the [administrator readiness API](/self-hosting/integrations#readiness-records-for-bot-apps-and-pinterest).
 
-## If it does not work
+## Troubleshoot
 
-- **Pinterest does not appear or connection is blocked:** Check the instance's provider runtime and certification controls before the OAuth details. A credential alone does not lift the gate.
-- **OAuth fails:** Confirm Trial or Standard access, requested scopes, and the exact redirect URI in both systems.
-- **Pin fails:** Confirm that the chosen board belongs to the connected account, `pins:write` is granted, and the media meets Pinterest's current requirements. Test each output type separately.
+| Problem                                            | Check                                                                                                                                                                            |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pinterest does not appear or connection is blocked | Check the instance's provider runtime and certification controls before the OAuth details. A credential alone does not lift the gate.                                            |
+| OAuth fails                                        | Confirm Trial or Standard access, requested scopes, and the exact redirect URI in both systems.                                                                                  |
+| Pin fails                                          | Confirm that the chosen board belongs to the connected account, `pins:write` is granted, and the media meets Pinterest's current requirements. Test each output type separately. |

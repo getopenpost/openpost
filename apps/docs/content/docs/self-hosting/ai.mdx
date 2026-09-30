@@ -4,7 +4,7 @@ description: Configure OpenRouter for post generation and media captions.
 icon: Sparkles
 ---
 
-OpenPost's server-side AI features use OpenRouter. They are optional. Without an OpenRouter key, people can still write, edit, schedule, and publish posts; the AI builder and automatic image captions are unavailable.
+Add an OpenRouter key to enable AI post generation and automatic image captions. Writing, scheduling, and publishing work without it.
 
 ## Add a key
 
@@ -20,19 +20,19 @@ OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-6-luna
 
 Run `docker compose up -d --force-recreate openpost` to recreate the container with the new environment.
 
-The text model builds publication copy from an idea. The image caption model writes suggested alt text. The shown IDs match this release's defaults; confirm that [OpenRouter still offers](https://openrouter.ai/models) them before relying on the example.
+The text model builds post copy from an idea. The image caption model writes suggested alt text. The shown IDs match this release's defaults; confirm that [OpenRouter still offers](https://openrouter.ai/models) them before relying on the example.
 
 You can leave the model values unset to use OpenPost's defaults. `OPENPOST_CONTENT_AI_PROVIDER` optionally selects an exact OpenRouter provider for text and meme generation. `OPENPOST_CONTENT_AI_REQUIRE_ZDR=true` restricts those requests to zero-retention endpoints. Use it only after checking that the selected model and provider support that policy. OpenRouter [documents its per-request zero-retention behavior](https://openrouter.ai/docs/guides/features/zdr). Image captions have separate `OPENPOST_IMAGE_CAPTION_PROVIDER` and `OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR` settings when you need different routing.
 
-Keep the key on the server. You can use `OPENROUTER_API_KEY_FILE` for a mounted secret file instead of putting the value in `.env`. Do not put it in a publication, prompt, log, or browser code.
+Keep the key in your server secret store. Use `OPENROUTER_API_KEY_FILE` for a mounted secret file. Do not include it in posts, prompts, or logs.
 
 ## Check the setup
 
-1. Open a new publication and ask the AI builder to turn a short idea into a draft. Review the generated copy before saving or publishing.
+1. Open a new post and ask the AI builder to turn a short idea into a draft. Review the generated copy before saving or publishing.
 2. Add an image with no existing alt text to the composer and generate a caption. Review it before publishing. Existing alt text is kept.
 
 Post generation sends the idea and selected context to the configured model through OpenRouter. Automatic alt text sends a 400 px JPEG thumbnail and up to 1,000 characters of relevant post text, rather than the original image. Background removal, video editing, and local transcription run in the browser and do not require this key.
 
 If a request fails, check the container logs for an OpenRouter error, then check the key, model ID, balance, provider slug, and zero-retention setting. A text-only model may not be suitable for image captions.
 
-Workflow AI decisions use Jev through OpenRouter’s Decisions API. They route through TypeSafe and retain the content AI zero-data-retention requirement. Existing saved model settings take precedence over these defaults.
+Workflow AI decisions use Jev through OpenRouter's Decisions API. They route through TypeSafe and retain the content AI zero-data-retention requirement. Existing saved model settings take precedence over these defaults.

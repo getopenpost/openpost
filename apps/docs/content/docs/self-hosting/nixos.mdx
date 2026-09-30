@@ -18,11 +18,11 @@ vps.openpost = {
   edition = "selfhost";
   domain = "post.example.com";
   timezone = "Europe/Lisbon";
-  image = "ghcr.io/getopenpost/openpost:4.31.1";
+  image = "ghcr.io/getopenpost/openpost:RELEASE_TAG";
 };
 ```
 
-Use the release you intend to run instead of copying the example tag unchanged. The module derives the public and media URLs from `domain`. `extraEnvironment`, `extraEnvironmentFiles`, and `extraOptions` cover settings not declared by the module.
+Replace `RELEASE_TAG` with the version from [GitHub Releases](https://github.com/getopenpost/openpost/releases) you intend to run. The module derives the public and media URLs from `domain`. `extraEnvironment`, `extraEnvironmentFiles`, and `extraOptions` cover settings not declared by the module.
 
 Define the sops placeholders referenced by the module, including the JWT secret and encryption key. It writes them as `0400` files under `/run/secrets/openpost_*` and passes the matching `*_FILE` settings to the container. Keep provider, AI, email, and storage credentials in the same secret boundary.
 
@@ -35,7 +35,4 @@ The image supports `linux/amd64` and `linux/arm64`. Podman selects the native im
 - Back up `/var/lib/openpost/data` with the encrypted sops source and record the image tag. Keep backups private and off the host.
 - To upgrade, change the image tag and run your normal NixOS switch. A rollback may also require the data backup made for the previous version.
 
-## Next steps
-
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.
+After installation, [configure social integrations](/self-hosting/integrations).

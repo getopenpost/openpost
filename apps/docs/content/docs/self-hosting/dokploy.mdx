@@ -10,18 +10,7 @@ Deploy OpenPost as a Dokploy Compose service with the supplied [`deploy/dokploy/
 
 1. In Dokploy, create a **Compose** service.
 2. Paste [`deploy/dokploy/docker-compose.yml`](https://github.com/getopenpost/openpost/blob/main/deploy/dokploy/docker-compose.yml) into the Compose definition.
-3. Add a domain pointing at the service's port `8080`, then set these environment variables:
-
-| Variable                         | What to enter                                             |
-| -------------------------------- | --------------------------------------------------------- |
-| `OPENPOST_APP_URL`               | `https://post.example.com`                                |
-| `OPENPOST_PUBLIC_URL`            | `https://post.example.com`                                |
-| `OPENPOST_MEDIA_URL`             | `https://post.example.com/media`                          |
-| `OPENPOST_JWT_SECRET`            | Fresh output of `openssl rand -base64 32`                 |
-| `OPENPOST_ENCRYPTION_KEY`        | A second, independent `openssl rand -base64 32` value     |
-| `OPENPOST_DISABLE_REGISTRATIONS` | `true` after creating the first administrator, or `false` |
-
-Generate each secret with `openssl rand -base64 32` and keep both stable across restarts and restores.
+3. Add a domain pointing at port `8080`. Enter the [public URLs](/self-hosting/configuration#public-addresses) and [secrets](/self-hosting/configuration#deployment-secrets) as environment variables.
 
 4. Deploy, then verify readiness:
 
@@ -29,17 +18,12 @@ Generate each secret with `openssl rand -base64 32` and keep both stable across 
 curl https://post.example.com/api/v1/ready
 ```
 
-Expect `"status":"ready"` and `"database":"ok"`. If it fails, inspect the service logs and confirm that all three URL variables use the same public origin.
+Expect `"status":"ready"` and `"database":"ok"`. Check the service logs if it fails.
 
 Open the app and create the first account. It becomes the instance administrator. Set `OPENPOST_DISABLE_REGISTRATIONS=true` afterward if you do not want public signups. The service stores SQLite and media in the `openpost_data` volume.
 
-## Updates and backups
+## Upgrade and back up
 
-Pin `image:` to a release tag. To upgrade, change the tag and redeploy, then check `/api/v1/ready`. Back up the `openpost_data` volume and environment values first, and record the current image tag.
+Pin the image to a release tag before production use. Back up the `openpost_data` volume and private environment settings before changing the tag and redeploying. Follow the [maintenance guide](/self-hosting/maintenance) for readiness checks and restores. Database migrations can require restoring a matching backup when rolling back.
 
-Keep backups private and off the server. A rollback may require the backup made for the previous version. Follow the [maintenance checklist](/self-hosting/maintenance).
-
-## Next steps
-
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.
+After installation, [configure social integrations](/self-hosting/integrations) and [email delivery](/self-hosting/email) if needed.

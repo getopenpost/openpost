@@ -12,12 +12,7 @@ Import OpenPost as a CasaOS customized app with the supplied [Compose file](http
 - Its local IP address. The Compose file uses `10.0.0.1` as an example.
 - A public HTTPS address before you connect social accounts.
 
-Generate two secrets and keep them private:
-
-```sh
-openssl rand -base64 32
-openssl rand -base64 32
-```
+Generate two [deployment secrets](/self-hosting/configuration#deployment-secrets) before importing the app.
 
 ## Import the app
 
@@ -38,13 +33,8 @@ Replace the three local URLs with your [public HTTPS addresses](/self-hosting/re
 curl https://post.example.com/api/v1/ready
 ```
 
-## Update and back up
+## Upgrade and back up
 
-Use a versioned image tag from [GitHub Releases](https://github.com/getopenpost/openpost/releases). Before changing it, stop OpenPost and back up the `openpost_data` volume with the edited Compose file. Import the updated definition, then check `/api/v1/ready`.
+Pin the image to a release tag. Before importing an updated definition, stop OpenPost and back up `openpost_data` with the edited Compose file. It contains your secrets, so keep the backup private and off the device. Follow the [maintenance guide](/self-hosting/maintenance) to check readiness and restore a matching database backup if a rollback needs it.
 
-Keep backups private and off the device. A rollback may require the backup made for the previous version because database migrations are not always backward compatible. See [Maintenance](/self-hosting/maintenance) for the restore checklist.
-
-## Next steps
-
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.
+After installation, [configure social integrations](/self-hosting/integrations).

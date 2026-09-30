@@ -4,11 +4,9 @@ description: Connect a Page-linked Instagram professional account through Meta O
 icon: instagram
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
 OpenPost uses the Instagram API with Facebook Login. It connects an Instagram Business or Creator account linked to a Facebook Page. It does not connect a personal Instagram account through Instagram-only login.
 
-## Before you start
+## What you need
 
 - Set `OPENPOST_APP_URL` to your instance's public HTTPS origin and `OPENPOST_MEDIA_URL` to a public HTTPS media address. Meta must fetch media before it can publish it.
 - Switch the target Instagram account to **Business** or **Creator** and link it to a Facebook Page. The person connecting it must be able to manage that Page.
@@ -23,22 +21,30 @@ OpenPost uses the Instagram API with Facebook Login. It connects an Instagram Bu
    https://post.example.com/api/v1/accounts/instagram/callback
    ```
 
-3. Request `business_management`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_manage_insights`, `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, and `pages_manage_metadata`. OpenPost requests this set during consent. `pages_read_user_content` comes from `instagram_basic`'s Page dependency chain. To read Instagram conversations, Meta requires `instagram_basic`, `instagram_manage_messages`, and `pages_manage_metadata`, and the Meta app must be owned by a verified business. Obtain the permissions and review level needed for your intended users and features.
+3. Request the permissions OpenPost includes in consent:
+
+   ```text
+   business_management
+   instagram_basic
+   instagram_content_publish
+   instagram_manage_comments
+   instagram_manage_messages
+   instagram_manage_insights
+   pages_show_list
+   pages_read_engagement
+   pages_read_user_content
+   pages_manage_metadata
+   ```
+
+   Complete Meta's review for your intended users. `instagram_basic` has a Page dependency on `pages_read_user_content`. Conversation reads need `instagram_basic`, `instagram_manage_messages`, and `pages_manage_metadata`, plus a Meta app owned by a verified business.
+
 4. Copy **App ID** and **App Secret** from **App settings → Basic**. Confirm the Instagram professional account is linked to the Page returned for your test user.
 
 Meta's [Instagram API documentation](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/) describes the Page-linked account model and permissions. Its [Content Publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/content-publishing/) describes media requirements.
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/meta-use-cases.png"
-  alt="Meta app creation with Facebook Login among the available use cases"
-  width={1074}
-  height={996}
-  caption="Use the Page-linked Facebook Login flow for OpenPost. Your Instagram account must be linked to a Facebook Page."
-/>
-
 ## Save the app in OpenPost
 
-Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
+[Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
 
 ```json
 [
@@ -57,8 +63,10 @@ Use this provider entry when [saving your app credentials](/self-hosting/integra
 2. Select the Instagram professional account returned by Meta.
 3. Publish one image with a short caption. Confirm the result in OpenPost and on Instagram. Test Reels, carousels, and Stories separately if you need them. OpenPost does not support text-only Instagram posts. Optional Comments and replies, Direct messages, and Analytics start disabled per account.
 
-## If it does not work
+## Troubleshoot
 
-- **No Instagram account appears:** Verify it is Business or Creator, linked to a Page the signed-in person can manage, and that the Page and Instagram permissions were granted. Check Business Portfolio access if applicable.
-- **Media creation fails:** Fetch a specific uploaded file URL under `OPENPOST_MEDIA_URL` from outside your network. It must be public HTTPS and return the correct file and media type.
-- **Permission or redirect error:** Check app review, the scopes granted in consent, and the exact redirect URI. Reconnect after changing permissions.
+| Problem                      | Check                                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No Instagram account appears | Verify it is Business or Creator, linked to a Page the signed-in person can manage, and that the Page and Instagram permissions were granted. Check Business Portfolio access if applicable. |
+| Media creation fails         | Fetch a specific uploaded file URL under `OPENPOST_MEDIA_URL` from outside your network. It must be public HTTPS and return the correct file and media type.                                 |
+| Permission or redirect error | Check app review, the scopes granted in consent, and the exact redirect URI. Reconnect after changing permissions.                                                                           |

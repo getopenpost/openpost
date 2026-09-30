@@ -4,11 +4,9 @@ description: Create a Google OAuth client and connect a YouTube channel for vide
 icon: youtube
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
+OpenPost connects a YouTube channel with Google OAuth and uploads one video per YouTube variant. Google controls who can authorize your app and whether API uploads can be public.
 
-OpenPost connects a YouTube channel with Google OAuth and uploads one video per YouTube rendition. Google controls who can authorize your app and whether API uploads can be public.
-
-## Before you start
+## What you need
 
 - Set `OPENPOST_APP_URL` to your instance's public HTTPS origin.
 - Use a Google account that has a YouTube channel. Have access to a [Google Cloud project](https://console.cloud.google.com/) where you can enable APIs and configure OAuth.
@@ -41,25 +39,9 @@ The [YouTube Analytics API](https://developers.google.com/youtube/analytics/refe
 
 Google documents [YouTube OAuth](https://developers.google.com/youtube/v3/guides/authentication) and the [web-server OAuth client flow](https://developers.google.com/identity/protocols/oauth2/web-server).
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/google-enable-api.png"
-  alt="Google Cloud APIs and Services with Enable APIs and services highlighted"
-  width={1136}
-  height={367}
-  caption="Enable YouTube Data API v3 in the project that owns your OAuth client."
-/>
-
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/youtube-callback.png"
-  alt="Google OAuth web application client with the example OpenPost YouTube redirect URI"
-  width={1297}
-  height={1213}
-  caption="Add the callback under Authorized redirect URIs. Replace post.example.com with your domain."
-/>
-
 ## Save the app in OpenPost
 
-Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
+[Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
 
 ```json
 [
@@ -75,14 +57,16 @@ Use this provider entry when [saving your app credentials](/self-hosting/integra
 ## Connect and test
 
 1. In **Settings → Workspace → Social accounts**, select **YouTube**. Sign in with the Google account that owns the target channel, grant consent, and choose the channel returned by Google.
-2. Create a publication with one video and select the connected channel. Start with a **private** upload and confirm that OpenPost reports the result and the video appears in YouTube Studio.
-3. Set title, description, privacy, and other YouTube options on the rendition as needed. Test public visibility separately: Google can keep API uploads private even when OpenPost requests another privacy level.
+2. Create a post with one video and select the connected channel. Start with a **private** upload and confirm that OpenPost reports the result and the video appears in YouTube Studio.
+3. Set title, description, privacy, and other YouTube options on the variant as needed. Test public visibility separately: Google can keep API uploads private even when OpenPost requests another privacy level.
 
-OpenPost also requests YouTube read, upload, broader YouTube, profile, email, and Analytics read scopes. Optional Comments and replies and Analytics start disabled per channel and need those permissions before you enable them.
+Optional Comments and replies and Analytics start disabled per channel. Enable them only with the required permissions.
 
-## If it does not work
+## Troubleshoot
 
-- **Google blocks consent:** Check the consent-screen audience, test-user list, requested scopes, and verification status.
-- **No channel appears:** Confirm the signed-in Google identity has a channel available to the app and select the right account in Google's chooser.
-- **Upload fails or stays private:** Confirm YouTube Data API v3 is enabled and read Google's error. A new unverified API project can only upload private videos until it passes the YouTube audit.
-- **Redirect mismatch:** Compare the authorized redirect URI with the JSON and public `OPENPOST_APP_URL` exactly. Reconnect after changing scopes.
+| Problem                       | Check                                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google blocks consent         | Check the consent-screen audience, test-user list, requested scopes, and verification status.                                                                  |
+| No channel appears            | Confirm the signed-in Google identity has a channel available to the app and select the right account in Google's chooser.                                     |
+| Upload fails or stays private | Confirm YouTube Data API v3 is enabled and read Google's error. A new unverified API project can only upload private videos until it passes the YouTube audit. |
+| Redirect mismatch             | Compare the authorized redirect URI with the JSON and public `OPENPOST_APP_URL` exactly. Reconnect after changing scopes.                                      |

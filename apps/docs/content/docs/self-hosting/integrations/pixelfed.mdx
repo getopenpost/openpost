@@ -4,9 +4,7 @@ description: Connect a Pixelfed instance for photo and album publishing.
 icon: pixelfed
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
-Pixelfed is photo-first publishing on the Fediverse. OpenPost connects to a Pixelfed instance through the same per-instance OAuth flow as Mastodon, but keeps Pixelfed's own identity, photo-first capabilities, and validation.
+Connect to the Pixelfed instance that hosts your account. No operator-created developer app is needed when automatic registration works.
 
 ## Connect a public instance
 
@@ -14,18 +12,9 @@ Pixelfed is photo-first publishing on the Fediverse. OpenPost connects to a Pixe
 2. Select **Continue to Pixelfed**, then enter the address of the instance that hosts your account, such as `https://pixelfed.social`. Do not enter your profile URL.
 3. Continue to the instance's authorization page and approve OpenPost.
 4. By default, Pixelfed shows an authorization code. Copy it and return to OpenPost. In the Pixelfed connection dialog, select **Code**, paste it into **Authorization code**, and select **Connect account**.
-5. Publish a single-photo test post and open the resulting link from its publication details.
+5. Publish a single-photo test post and open the resulting link from the post details.
 
 OpenPost registers the app on that instance through `POST /api/v1/apps` with `read write` scopes and keeps the client secret encrypted. The default redirect is `urn:ietf:wg:oauth:2.0:oob`, which makes Pixelfed display a code instead of redirecting to a callback.
-
-<SetupScreenshot
-  src="/docs/assets/screenshots/connect-pixelfed-light.webp"
-  darkSrc="/docs/assets/screenshots/connect-pixelfed-dark.webp"
-  alt="OpenPost connection dialog for Pixelfed server address"
-  width={976}
-  height={478}
-  caption="Pixelfed server address in OpenPost. Screenshot uses example values."
-/>
 
 ## Configure a fixed instance app
 
@@ -40,15 +29,15 @@ Use this path if you want to preconfigure a known instance or its app registrati
 
 3. Recreate OpenPost with `docker compose up -d --force-recreate openpost` to load the changed environment. The instance should appear as a choice when connecting Pixelfed.
 
-You can instead save a Pixelfed app in [Instance → Configuration → Provider apps](/self-hosting/integrations#save-your-provider-credentials).
+The Instance settings form does not offer Pixelfed app credentials. Use `PIXELFED_SERVERS` for a fixed instance.
 
 ## Publish photos and albums
 
-Design a photo or album, select Pixelfed, then review the images, caption, and alt text before publishing or scheduling. Pixelfed supports up to four photos per post. Alt text travels with each image; content warnings and sensitive-media flags are preserved, never silently dropped to make cross-posting succeed.
+Attach up to four photos. Review their order, caption, alt text, content warning, and sensitive-media flag before publishing or scheduling.
 
-Video is photo-first on Pixelfed: OpenPost warns when a video is attached because support depends on the instance and version. Polls, quotes, and interaction policies from Mastodon are not advertised for Pixelfed accounts.
+Video support depends on the instance and version. OpenPost warns when you attach video. Pixelfed accounts do not offer Mastodon polls, quotes, or interaction policies.
 
-## If the connection fails
+## Troubleshoot
 
 - Enter the instance origin, for example `https://pixelfed.example`, without a username or path. OpenPost accepts public HTTPS instances.
 - If app registration fails, ask the instance administrator whether it accepts new OAuth apps, or configure a fixed app for that instance.

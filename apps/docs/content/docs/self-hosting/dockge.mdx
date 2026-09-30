@@ -13,21 +13,9 @@ Create a Dockge stack with the supplied [`deploy/dockge/compose.yaml`](https://g
 
 ## Create the stack
 
-1. In Dockge, choose **Create Stack** and name it `openpost` (lowercase letters, numbers, underscores, and hyphens only).
+1. In Dockge, choose **Create Stack** and name it `openpost`. Stack names accept lowercase letters, numbers, underscores, and hyphens.
 2. Paste [`deploy/dockge/compose.yaml`](https://github.com/getopenpost/openpost/blob/main/deploy/dockge/compose.yaml) into the stack editor.
-3. Add a `.env` file to the stack with one line per `${...}` value:
-
-```dotenv
-OPENPOST_APP_URL=https://post.example.com
-OPENPOST_PUBLIC_URL=https://post.example.com
-OPENPOST_MEDIA_URL=https://post.example.com/media
-OPENPOST_JWT_SECRET=paste-openssl-rand-base64-32-output-here
-OPENPOST_ENCRYPTION_KEY=paste-a-second-independent-value-here
-OPENPOST_DISABLE_REGISTRATIONS=false
-```
-
-Generate each secret with `openssl rand -base64 32`. Keep both stable across restarts and restores.
-
+3. Add the [public URLs](/self-hosting/configuration#public-addresses) and [secrets](/self-hosting/configuration#deployment-secrets) to the stack's `.env`, with one line per `${...}` variable.
 4. Deploy the stack. Dockge stores its files under `/opt/stacks/openpost/` by default. Keep OpenPost secrets in the stack `.env`, not a shared `global.env`.
 5. Verify readiness:
 
@@ -35,17 +23,12 @@ Generate each secret with `openssl rand -base64 32`. Keep both stable across res
 curl https://post.example.com/api/v1/ready
 ```
 
-Expect `"status":"ready"` and `"database":"ok"`. If it fails, inspect the stack logs and confirm that all three URL variables use the same public origin.
+Expect `"status":"ready"` and `"database":"ok"`. Check the stack logs if it fails.
 
 Open the app and create the first account. It becomes the instance administrator. The stack stores SQLite and media in the `openpost_data` volume.
 
-## Updates and backups
+## Upgrade and back up
 
-Pin `image:` to a release tag. To upgrade, change the tag and redeploy, then check `/api/v1/ready`. Back up `openpost_data`, `compose.yaml`, and `.env` first, and record the current image tag.
+Pin the image to a release tag before production use. Back up the `openpost_data` volume and private environment settings before changing the tag and redeploying. Also keep `compose.yaml` and `.env` from the stack directory. Follow the [maintenance guide](/self-hosting/maintenance) for readiness checks and restores. Database migrations can require restoring a matching backup when rolling back.
 
-Keep backups private and off the server. A rollback may require the backup made for the previous version. Follow the [maintenance checklist](/self-hosting/maintenance).
-
-## Next steps
-
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.
+After installation, [configure social integrations](/self-hosting/integrations) and [email delivery](/self-hosting/email) if needed.

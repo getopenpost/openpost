@@ -10,144 +10,36 @@ If you use [OpenPost Hosted](https://app.openpo.st), go straight to [connecting 
 
 ## Choose a social network
 
-<div className="provider-directory not-prose">
-  <a href="/docs/self-hosting/integrations/bluesky">
-    <img src="/docs/assets/logos/bluesky.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Bluesky</strong>
-      <small>Handle and app password</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/mastodon">
-    <img src="/docs/assets/logos/mastodon.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Mastodon</strong>
-      <small>Connect through your server</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/pixelfed">
-    <img src="/docs/assets/logos/pixelfed.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Pixelfed</strong>
-      <small>Photo publishing on your server</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/peertube">
-    <img src="/docs/assets/logos/peertube.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>PeerTube</strong>
-      <small>Video publishing to a channel</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/lemmy">
-    <img src="/docs/assets/logos/lemmy.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Lemmy</strong>
-      <small>Post to communities</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/piefed">
-    <img src="/docs/assets/logos/piefed.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>PieFed</strong>
-      <small>Post to communities</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/discord">
-    <img src="/docs/assets/logos/discord.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Discord</strong>
-      <small>Channel webhook or server bot</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/telegram">
-    <img src="/docs/assets/logos/telegram.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Telegram</strong>
-      <small>Bot for a channel or group</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/linkedin">
-    <img src="/docs/assets/logos/linkedin.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>LinkedIn</strong>
-      <small>Personal profiles and Pages</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/x">
-    <img src="/docs/assets/logos/x.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>X</strong>
-      <small>Developer app with write access</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/facebook">
-    <img src="/docs/assets/logos/facebook.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Facebook</strong>
-      <small>Pages you manage</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/instagram">
-    <img src="/docs/assets/logos/instagram.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Instagram</strong>
-      <small>Professional account linked to a Page</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/threads">
-    <img src="/docs/assets/logos/threads.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Threads</strong>
-      <small>Threads API app</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/youtube">
-    <img src="/docs/assets/logos/youtube.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>YouTube</strong>
-      <small>Google OAuth and a YouTube channel</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/tiktok">
-    <img src="/docs/assets/logos/tiktok.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>TikTok</strong>
-      <small>Login Kit and Content Posting API</small>
-    </span>
-  </a>
-  <a href="/docs/self-hosting/integrations/pinterest">
-    <img src="/docs/assets/logos/pinterest.svg" className="docs-provider-icon" alt="" />
-    <span>
-      <strong>Pinterest</strong>
-      <small>Business account and API app</small>
-    </span>
-  </a>
-</div>
+| Network                                           | Connection requirements                                   |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| [Bluesky](/self-hosting/integrations/bluesky)     | Handle and app password                                   |
+| [Mastodon](/self-hosting/integrations/mastodon)   | Server OAuth, usually automatic app registration          |
+| [Pixelfed](/self-hosting/integrations/pixelfed)   | Instance OAuth for photo publishing                       |
+| [PeerTube](/self-hosting/integrations/peertube)   | Instance login and channel selection                      |
+| [Lemmy](/self-hosting/integrations/lemmy)         | Instance login and community selection                    |
+| [PieFed](/self-hosting/integrations/piefed)       | Instance login and community selection                    |
+| [Discord](/self-hosting/integrations/discord)     | Channel webhook, or bot app with readiness records        |
+| [Telegram](/self-hosting/integrations/telegram)   | Instance bot, HTTPS webhook, and readiness records        |
+| [LinkedIn](/self-hosting/integrations/linkedin)   | Developer app; approved Page access if needed             |
+| [X](/self-hosting/integrations/x)                 | OAuth 1.0a app with write access                          |
+| [Facebook](/self-hosting/integrations/facebook)   | Meta app and a Page you manage                            |
+| [Instagram](/self-hosting/integrations/instagram) | Meta app and a Page-linked professional account           |
+| [Threads](/self-hosting/integrations/threads)     | Threads API app                                           |
+| [YouTube](/self-hosting/integrations/youtube)     | Google OAuth client and YouTube channel                   |
+| [TikTok](/self-hosting/integrations/tiktok)       | Login Kit and Content Posting API access                  |
+| [Pinterest](/self-hosting/integrations/pinterest) | Business account, API app approval, and readiness records |
 
-Bluesky, Mastodon, and Discord webhooks do not need an operator-created developer app in the usual setup. Other networks need credentials for your instance. A developer app identifies your OpenPost server to the network; connecting an account lets that server publish for a particular person, Page, or channel.
+A developer app identifies your OpenPost instance. Connect each workspace's social accounts after configuring that app.
 
-Pinterest, Telegram, and Discord bot mode also need [administrator readiness records](#readiness-records-for-bot-apps-and-pinterest). Read that requirement before starting their setup.
+## What you need
 
-## Before you start
-
-- OpenPost runs at a stable public HTTPS address, such as `https://post.example.com`.
-- You can change the deployment configuration or sign in as the instance administrator.
-- You have access to the social account and any Page, business, or channel you want to manage.
-
-For networks that download your media, the media address must also work outside your network. Set the URLs in your deployment's `.env` file:
-
-```dotenv
-OPENPOST_APP_URL=https://post.example.com
-OPENPOST_PUBLIC_URL=https://post.example.com
-OPENPOST_MEDIA_URL=https://post.example.com/media
-```
-
-This example serves media through OpenPost. If you use a separate media host, keep its address in `OPENPOST_MEDIA_URL`. See [configuration](/self-hosting/configuration) for storage and URL options.
+1. Set your instance's [public HTTPS URLs](/self-hosting/configuration#public-addresses) and check [proxy and media access](/self-hosting/reverse-proxy).
+2. Sign in as the instance administrator or prepare to edit the deployment's secret settings.
+3. Follow the network's guide above. You need access to the destination account, Page, channel, or community.
 
 ## Save your provider credentials
 
-First follow your network's guide to create its app. Then choose one of these ways to save the credentials. You configure the developer app once per instance; each workspace connects its own social accounts afterward.
+Save the credentials from your network's guide using one method below.
 
 ### Use the OpenPost settings form
 
@@ -168,7 +60,7 @@ Set `OPENPOST_PROVIDER_APPS` to a JSON array. The provider guides include comple
 OPENPOST_PROVIDER_APPS='[{"provider":"linkedin","client_id":"YOUR_CLIENT_ID","client_secret":"YOUR_CLIENT_SECRET","redirect_uri":"https://post.example.com/api/v1/accounts/linkedin/callback"}]'
 ```
 
-Replace the example values with your app's credentials. When adding another network, append its object to the same array. Keep **one** `OPENPOST_PROVIDER_APPS` entry; a second definition can replace the first and make existing integrations disappear.
+Replace the example values. Append other providers to this same array. Keep one `OPENPOST_PROVIDER_APPS` entry so adding a network does not replace existing credentials.
 
 Use this method for Pinterest, Telegram, and Discord bot credentials, which the settings form does not yet expose. Bluesky passwords and Discord webhook URLs belong in the workspace connection dialog, not this registry.
 
@@ -188,7 +80,7 @@ For OAuth providers other than Mastodon's code flow, the callback has this form:
 https://post.example.com/api/v1/accounts/PROVIDER/callback
 ```
 
-Each network's guide gives the complete path. Copy it exactly into the developer portal and your OpenPost configuration. Use your own domain; callback paths from Postiz or another scheduler will not work with OpenPost.
+Copy the exact path from the provider guide into both the developer portal and OpenPost. Replace the example domain with yours.
 
 Mastodon normally returns an authorization code that you paste back into OpenPost. Bluesky, Telegram, and Discord webhooks use their own connection steps and do not use this callback pattern.
 
@@ -198,7 +90,7 @@ Mastodon normally returns an authorization code that you paste back into OpenPos
 2. Choose the configured network and complete its connection flow.
 3. Confirm the account, Page, or channel shown in OpenPost is the one you intended.
 4. Create a small post in a format the network supports. Use the provider guide's suggested test.
-5. Open the publication to check delivery, then check the post on the network itself.
+5. Open the post to check delivery, then check the post on the network itself.
 
 A successful sign-in confirms access to the account. It does not confirm that every publishing permission, media URL, or optional feature works. Test the formats you plan to use before filling your calendar.
 
@@ -206,10 +98,13 @@ If setup fails, use [connection troubleshooting](/self-hosting/integrations/trou
 
 ## Readiness records for bot apps and Pinterest
 
-Pinterest, Telegram, and Discord bot mode currently require administrator readiness records even on a self-hosted instance. A saved credential can be valid while connection or publishing remains unavailable. Discord channel webhooks do not need this workflow.
+Pinterest, Telegram, and Discord bot mode require administrator readiness records, including on self-hosted instances. Discord channel webhooks do not. Valid credentials alone do not enable a gated operation.
 
-An instance administrator records the app's approval status first, connects a test account, then records the results of local and live publishing tests. The first publishing test uses `certification_test` intent so it can run before prior test evidence exists. It still requires the correct app, approval or trial permission, account authorization, and enabled runtime controls. Normal immediate and scheduled publishing each need current evidence.
+1. Record the app's approval or permitted trial status using the [operator readiness guide](https://github.com/getopenpost/openpost/blob/main/docs/reference/providers/provider-launch-matrix.md#recording-certification-evidence).
+2. Connect a test account. For Telegram, follow its guide's webhook registration order first.
+3. Run the first publishing test with `certification_test` intent. It allows testing before earlier evidence exists, but still checks the app, account authorization, provider policy, and enabled runtime controls.
+4. Record local and live test results for each required operation. Normal immediate and scheduled publishing need their own current evidence.
 
-Use the [operator readiness guide](https://github.com/getopenpost/openpost/blob/main/docs/reference/providers/provider-launch-matrix.md#recording-certification-evidence) for the required records. While signed in as an instance administrator, open `/api/v1/docs` on your own OpenPost server to submit them through the API reference. Choose **The OpenPost instance serving this contract** as the server and leave `openpost_session` blank; the browser sends your session cookie. API tokens cannot perform these administrator operations.
+While signed in as an instance administrator, use `/api/v1/docs` on your own server to submit the records. Choose **The OpenPost instance serving this contract** as the server and leave `openpost_session` blank. The browser sends your session cookie. API tokens cannot perform these administrator operations.
 
-The provider pages explain the order for each network, including Telegram's webhook registration. These steps currently use the administrator API; there is no equivalent workspace settings form.
+There is no equivalent workspace settings form. Keep a provider unavailable until its required records and tests pass.

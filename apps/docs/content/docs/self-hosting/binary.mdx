@@ -6,13 +6,13 @@ icon: SquareTerminal
 
 OpenPost release binaries include the web app, API, and worker. Use one when you want to run OpenPost without a container runtime. Releases support Linux x86_64, macOS Apple Silicon, and Windows x86_64.
 
-## Before you start
+## What you need
 
 - Choose stable, private paths for the database, media, and `.env` file.
 - Put OpenPost behind HTTPS before connecting social accounts.
 - Run the binary as a service so it starts again after a reboot.
 
-## Install
+## Install OpenPost
 
 1. Download the asset for your platform from [GitHub Releases](https://github.com/getopenpost/openpost/releases).
 2. Create a private `.env` with the [binary environment template](https://github.com/getopenpost/openpost/blob/main/docs/reference/installation/binary.md#2-create-env). Set stable database and media paths, the three public URLs, and two independent secrets.
@@ -22,11 +22,8 @@ OpenPost release binaries include the web app, API, and worker. Use one when you
 
 Larger deployments can run `migrate` once, then start separate `web` and `worker` processes from the same release and configuration. The [binary reference](https://github.com/getopenpost/openpost/blob/main/docs/reference/installation/binary.md#5-run-it) covers these roles.
 
-## Updates and backups
+## Upgrade and back up
 
 Back up the database, media directory, and `.env` together. Stop the service, replace the binary, restore its ownership and permissions, then start the service and check `/api/v1/ready`. A rollback may also require the backup made for the previous version because database migrations are not always backward compatible.
 
-## Next steps
-
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.
+After installation, [configure social integrations](/self-hosting/integrations) and follow the [maintenance guide](/self-hosting/maintenance).

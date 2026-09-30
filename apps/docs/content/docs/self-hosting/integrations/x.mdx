@@ -4,11 +4,9 @@ description: Set up X OAuth 1.0a user authentication for a self-hosted instance.
 icon: x
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
 OpenPost uses X OAuth 1.0a user authentication to connect an account and publish on its behalf. Your X developer app needs the API access and user permissions for the actions you plan to use.
 
-## Before you start
+## What you need
 
 - Set `OPENPOST_APP_URL` to your instance's public HTTPS origin.
 - Have access to the [X Developer Portal](https://developer.x.com/en/portal/dashboard) and an X account for a real connection test.
@@ -28,17 +26,9 @@ OpenPost uses X OAuth 1.0a user authentication to connect an account and publish
 
 X explains [developer app permissions](https://docs.x.com/fundamentals/developer-apps) and the [OAuth 1.0a flow](https://docs.x.com/fundamentals/authentication/oauth-1-0a/overview).
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/x-user-authentication.png"
-  alt="X developer portal User authentication settings with Set up highlighted"
-  width={1668}
-  height={420}
-  caption="Open user authentication settings before choosing permissions and registering the callback."
-/>
-
 ## Save the app in OpenPost
 
-Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
+[Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
 
 ```json
 [
@@ -57,8 +47,10 @@ Use this provider entry when [saving your app credentials](/self-hosting/integra
 2. Publish a short text test. Confirm its status in OpenPost and open the post on X.
 3. If you need media, analytics, comments, or Direct messages, test each with the same X app and account. Optional account features start disabled and need to be enabled per account.
 
-## If it does not work
+## Troubleshoot
 
-- **OAuth fails:** Check that OAuth 1.0a is enabled and that the callback matches the configured URL exactly. Confirm you copied the API Key pair, not the OAuth 2.0 credentials.
-- **OAuth succeeds but a post fails:** Check app permission level, API plan, and the X error returned for that operation. Reconnect after changing permissions.
-- **Text or video rejected:** OpenPost uses the connected account's subscription tier when X provides it. When the tier is missing or stale, it applies standard limits until it can refresh the profile.
+| Problem                         | Check                                                                                                                                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OAuth fails                     | Check that OAuth 1.0a is enabled and that the callback matches the configured URL exactly. Confirm you copied the API Key pair, not the OAuth 2.0 credentials.              |
+| OAuth succeeds but a post fails | Check app permission level, API plan, and the X error returned for that operation. Reconnect after changing permissions.                                                    |
+| Text or video rejected          | OpenPost uses the connected account's subscription tier when X provides it. When the tier is missing or stale, it applies standard limits until it can refresh the profile. |

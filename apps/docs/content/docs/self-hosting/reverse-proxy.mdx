@@ -6,19 +6,15 @@ icon: Globe
 
 Run OpenPost behind HTTPS on a stable public origin. Social sign-in, passkeys, MCP, webhooks, and provider media downloads depend on that origin.
 
-## The three URLs
+## Set the public origin
 
-| Setting               | What to enter                                                                               |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `OPENPOST_APP_URL`    | The public origin users open, such as `https://post.example.com`. Callbacks derive from it. |
-| `OPENPOST_PUBLIC_URL` | The public origin used for server links and the Telegram webhook. Usually the same.         |
-| `OPENPOST_MEDIA_URL`  | A public media URL, such as `https://post.example.com/media`. Providers fetch from here.    |
+Set the [three public URL settings](/self-hosting/configuration#public-addresses) before registering callbacks. Use a dedicated subdomain, such as `https://post.example.com`. OpenPost does not support subpath hosting such as `https://example.com/openpost/`.
 
-Set all three before registering provider callbacks. If the origin changes, update each provider app and reconnect its accounts. OpenPost does not support subpath hosting such as `https://example.com/openpost/`; use a subdomain.
+If the origin changes, update each provider app and reconnect its accounts.
 
 ## What must be reachable
 
-- **OAuth callbacks** must match the provider portal exactly, including the scheme, host, path, and trailing slash. The [proxy reference](https://github.com/getopenpost/openpost/blob/main/docs/reference/installation/reverse-proxy.md#social-network-callback-urls) lists every callback.
+- **OAuth callbacks** must match the provider portal exactly, including the scheme, host, path, and trailing slash. Copy the path from the [provider guide](/self-hosting/integrations).
 - **Media URLs** must return the file without sign-in or an expiring link. Threads, Facebook, Instagram, and TikTok fetch media from `OPENPOST_MEDIA_URL`. TikTok also requires ownership proof for the domain or URL prefix.
 - **Webhooks and MCP** must remain reachable at their documented paths when those features are enabled.
 
@@ -32,7 +28,4 @@ Before connecting an account, confirm that `https://your-domain.example/api/v1/r
 
 A tunnel can provide the public origin for a trial. Set all three URLs to its stable HTTPS address and confirm it accepts the required upload size. For Traefik, route a dedicated subdomain to port `8080` and preserve the original host and scheme.
 
-## Next steps
-
-- [Fix a connection](/self-hosting/integrations/troubleshooting) when a callback, account, or media fetch fails.
-- [Back up your instance](/self-hosting/maintenance) before relying on it for scheduled posts.
+If a callback or media check fails, use [connection troubleshooting](/self-hosting/integrations/troubleshooting).

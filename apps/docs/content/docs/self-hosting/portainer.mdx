@@ -14,22 +14,8 @@ Deploy OpenPost with [Portainer Stacks](https://docs.portainer.io/user/docker/st
 ## Deploy
 
 1. In Portainer, open **Stacks → Add stack** and name it `openpost`.
-2. Add the Compose file with one of these methods:
-   - **Web editor:** paste the contents of `deploy/portainer/docker-compose.yml`.
-   - **Upload:** upload the same file.
-   - **Git repository:** point at this repository and set the Compose path to `deploy/portainer/docker-compose.yml`.
-3. Under **Environment variables**, add one entry per `${...}` value in the file (or use **Load variables from .env file** to upload them at once):
-
-| Variable                         | What to enter                                                              |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| `OPENPOST_APP_URL`               | `https://post.example.com`                                                 |
-| `OPENPOST_PUBLIC_URL`            | `https://post.example.com`                                                 |
-| `OPENPOST_MEDIA_URL`             | `https://post.example.com/media`                                           |
-| `OPENPOST_JWT_SECRET`            | Fresh output of `openssl rand -base64 32`                                  |
-| `OPENPOST_ENCRYPTION_KEY`        | A second, independent `openssl rand -base64 32` value                      |
-| `OPENPOST_DISABLE_REGISTRATIONS` | `true` once the first administrator exists (optional, defaults to `false`) |
-
-Generate each secret with `openssl rand -base64 32`. Keep both stable across restarts and restores, and do not commit them.
+2. Paste the Compose file into **Web editor**, upload it, or select **Git repository** with the path `deploy/portainer/docker-compose.yml`.
+3. Under **Environment variables**, add the [public URLs](/self-hosting/configuration#public-addresses) and [secrets](/self-hosting/configuration#deployment-secrets). Use **Load variables from .env file** if you keep them in a file.
 
 4. Select **Deploy the stack**, then verify readiness:
 
@@ -37,17 +23,12 @@ Generate each secret with `openssl rand -base64 32`. Keep both stable across res
 curl https://post.example.com/api/v1/ready
 ```
 
-Expect `"status":"ready"` and `"database":"ok"`. If it fails, inspect the stack logs and confirm that all three URL variables use the same public origin.
+Expect `"status":"ready"` and `"database":"ok"`. Check the stack logs if it fails.
 
 Open the app and create the first account. It becomes the instance administrator. The stack stores SQLite and media in the `openpost_data` volume.
 
-## Updates and backups
+## Upgrade and back up
 
-Pin `image:` to a release tag. To upgrade, change the tag and redeploy, then check `/api/v1/ready`. Back up the `openpost_data` volume and environment values first, and record the current image tag. Portainer stores the volume on the Docker host.
+Pin the image to a release tag before production use. Back up the `openpost_data` volume and private environment settings before changing the tag and redeploying. Follow the [maintenance guide](/self-hosting/maintenance) for readiness checks and restores. Database migrations can require restoring a matching backup when rolling back.
 
-Keep backups private and off the server. A rollback may require the backup made for the previous version. Follow the [maintenance checklist](/self-hosting/maintenance).
-
-## Next steps
-
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Set up email](/self-hosting/email) before requiring email verification.
+After installation, [configure social integrations](/self-hosting/integrations) and [email delivery](/self-hosting/email) if needed.

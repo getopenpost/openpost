@@ -4,9 +4,7 @@ description: Publish videos to a PeerTube channel with upload and transcoding st
 icon: peertube
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
-PeerTube accounts can own several channels, and each channel has its own subscribers. In OpenPost, the channel is the destination: you connect a channel when you connect the account, and each video is published to exactly one channel.
+Connect one PeerTube channel per OpenPost account. Each video publishes to that channel.
 
 ## Connect an instance account
 
@@ -17,26 +15,17 @@ PeerTube needs no developer app or callback URL. Each person connects with their
 3. If the account owns one channel, OpenPost connects it directly. If it owns several, pick the channel to connect. Each channel is a separate destination with its own videos and subscribers.
 4. Upload a short test video and follow its processing state before relying on scheduled delivery.
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/connect-peertube-light.webp"
-  darkSrc="/docs/assets/screenshots/connect-peertube-dark.webp"
-  alt="OpenPost connection dialog for PeerTube instance credentials"
-  width={976}
-  height={662}
-  caption="PeerTube instance credentials in OpenPost. Screenshot uses example values."
-/>
-
 ## Publish a video
 
-Give the video a title, a description, and a channel. Privacy (`public`, `unlisted`, `private`, `internal`), language, category, licence, tags, sensitivity flags, comment policy, and captions are validated against the connected instance.
+Add a title and description. Choose privacy, language, category, licence, tags, sensitivity, comments, and captions supported by your instance. Privacy options are `public`, `unlisted`, `private`, and `internal`.
 
-Uploads use PeerTube's resumable protocol, so an interrupted worker resumes from its last checkpoint instead of duplicating the video. Thumbnails and caption files are applied after the bytes land. Transcoding is asynchronous: OpenPost reports the video as published only after the instance confirms it, and keeps polling while it processes. A video that disappears from the instance is reported as failed, never silently re-uploaded.
+OpenPost resumes interrupted uploads and applies thumbnails and caption files afterward. It checks processing until PeerTube confirms publication. If the video disappears, OpenPost reports failure and does not upload it again.
 
 ## Read comments and check views
 
-Open the video's inbox in OpenPost to read comment threads and reply from the connected channel. Channel owners can moderate the conversation on their own videos. Views and likes are reported under their native names; PeerTube dislikes have no OpenPost counterpart and are omitted rather than relabelled.
+Open the video's Inbox to read, reply, and moderate comments on your channel. Analytics reports views and likes. It does not report PeerTube dislikes.
 
-## If the connection fails
+## Troubleshoot
 
 - Check the instance address, username, and password. PeerTube logins use the username, not the email address or channel name.
 - If the instance enforces upload quota, large or frequent uploads can be rejected. The provider error names the limit.

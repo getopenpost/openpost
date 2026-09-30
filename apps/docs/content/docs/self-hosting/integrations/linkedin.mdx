@@ -4,11 +4,9 @@ description: Connect LinkedIn member profiles and, with approved access, Organiz
 icon: linkedin
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
 OpenPost connects a LinkedIn member through OAuth. It can also offer Organization Pages when your LinkedIn app has Community Management access and the member administers those Pages.
 
-## Before you start
+## What you need
 
 - Use a public HTTPS address for OpenPost and set `OPENPOST_APP_URL` to that origin.
 - Have a [LinkedIn developer account](https://www.linkedin.com/developers/) and a LinkedIn member account for testing.
@@ -29,25 +27,9 @@ OpenPost connects a LinkedIn member through OAuth. It can also offer Organizatio
 
 LinkedIn describes [self-service products and permissions](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access) and [Organization roles](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-access-control-by-role).
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/linkedin-products.png"
-  alt="LinkedIn Products tab with Share on LinkedIn and Sign In with LinkedIn using OpenID Connect"
-  width={2436}
-  height={1356}
-  caption="Enable Share on LinkedIn and OpenID Connect for a personal profile. The Advertising API shown here is not required."
-/>
-
-<SetupScreenshot
-  src="/docs/assets/screenshots/integrations/linkedin-community-management.png"
-  alt="LinkedIn Community Management API access request"
-  width={736}
-  height={212}
-  caption="Organization Pages need Community Management access from LinkedIn."
-/>
-
 ## Save the app in OpenPost
 
-Use this provider entry when [saving your app credentials](/self-hosting/integrations#save-your-provider-credentials). Replace the example domain with your OpenPost address.
+[Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
 
 ```json
 [
@@ -60,9 +42,7 @@ Use this provider entry when [saving your app credentials](/self-hosting/integra
 ]
 ```
 
-Store the JSON in your deployment secret store, preferably as a file referenced by `OPENPOST_PROVIDER_APPS_FILE`. An instance administrator can instead save the ID, secret, and callback in **Settings → Instance → Configuration → Provider apps**. Environment entries take precedence over saved rows. Follow [saving provider credentials](/self-hosting/integrations#save-your-provider-credentials) to apply the change and reload OpenPost. See [self-hosted configuration](/self-hosting/configuration) for the instance settings.
-
-For Organization Pages, also set `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true` in the deployment environment and recreate the container. Leave it false if your app lacks the approved Page scopes. LinkedIn threads publish later segments as comments on the first post. Enable them only after LinkedIn approves [`w_member_social_feed`](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/network-update-social-actions), then reconnect the account.
+For approved Organization Page access, set `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true` and recreate the container. Otherwise leave it false. Threads use comments for later segments and require [`w_member_social_feed`](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/network-update-social-actions). Reconnect after adding that permission.
 
 ## Connect and test
 
@@ -70,8 +50,10 @@ For Organization Pages, also set `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true` 
 2. Select the member profile and, if enabled and offered, any eligible Organization Pages. Each selection becomes a separate OpenPost account.
 3. Publish a short text test to the intended account. Check its result in OpenPost and on LinkedIn before scheduling real content. Enable optional Comments and replies or Analytics per account only after checking your approved access.
 
-## If it does not work
+## Troubleshoot
 
-- **Redirect mismatch:** Compare the portal URL, JSON `redirect_uri`, and public `OPENPOST_APP_URL` character for character, including HTTPS and trailing slashes.
-- **No Organization Pages:** Confirm the Community Management approval, all three Page scopes, `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true`, and the member's approved Page administrator role.
-- **Connection works but publishing or analytics fails:** Review the LinkedIn response and app permissions. Reconnect the account after adding scopes. A connected member profile does not prove Page, comment, or analytics access.
+| Problem                                            | Check                                                                                                                                                                      |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Redirect mismatch                                  | Compare the portal URL, JSON `redirect_uri`, and public `OPENPOST_APP_URL` character for character, including HTTPS and trailing slashes.                                  |
+| No Organization Pages                              | Confirm the Community Management approval, all three Page scopes, `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true`, and the member's approved Page administrator role.       |
+| Connection works but publishing or analytics fails | Review the LinkedIn response and app permissions. Reconnect the account after adding scopes. A connected member profile does not prove Page, comment, or analytics access. |

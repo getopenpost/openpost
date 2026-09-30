@@ -9,27 +9,14 @@ Deploy OpenPost from Git with Coolify's [Docker Compose build pack](https://cool
 ## What you need
 
 - A Coolify project and environment.
-- A domain pointed at the server (for example `post.example.com`).
-- Two independent secrets generated with `openssl rand -base64 32`.
-
-Add these values under **Configuration → Environment Variables** with Runtime scope:
-
-| Variable                         | What to enter                                                              |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| `OPENPOST_APP_URL`               | `https://post.example.com`                                                 |
-| `OPENPOST_PUBLIC_URL`            | `https://post.example.com`                                                 |
-| `OPENPOST_MEDIA_URL`             | `https://post.example.com/media`                                           |
-| `OPENPOST_JWT_SECRET`            | Fresh output of `openssl rand -base64 32`                                  |
-| `OPENPOST_ENCRYPTION_KEY`        | A second, independent `openssl rand -base64 32` value                      |
-| `OPENPOST_DISABLE_REGISTRATIONS` | `true` once the first administrator exists (optional, defaults to `false`) |
-
-Keep both secrets stable across restarts and restores. Do not commit them to the repository.
+- A domain pointed at the server, such as `post.example.com`.
+- Two independent [deployment secrets](/self-hosting/configuration#deployment-secrets).
 
 ## Deploy
 
 1. Create a **Public Repository** resource with `https://github.com/getopenpost/openpost`. Use a deploy key or GitHub App for a private fork.
 2. Set the build pack to **Docker Compose**, with **Base Directory** `/` and **Docker Compose Location** `deploy/coolify/docker-compose.yml`.
-3. Enter the environment variables above.
+3. Under **Configuration → Environment Variables**, enter the [public URLs](/self-hosting/configuration#public-addresses) and [secrets](/self-hosting/configuration#deployment-secrets) with Runtime scope.
 4. Set the `openpost` service domain to `https://post.example.com:8080`. The port suffix tells Coolify where to route traffic; visitors still use normal HTTPS.
 5. Deploy, then verify:
 
@@ -37,17 +24,12 @@ Keep both secrets stable across restarts and restores. Do not commit them to the
 curl https://post.example.com/api/v1/ready
 ```
 
-Expect `"status":"ready"` and `"database":"ok"`. If it fails, inspect the deployment logs and confirm that all three URL variables use the same public origin.
+Expect `"status":"ready"` and `"database":"ok"`. Check the deployment logs if it fails.
 
 Open the app and create the first account. It becomes the instance administrator. The deployment stores SQLite and media in the `openpost_data` volume.
 
-## Updates and backups
+## Upgrade and back up
 
-Pin `image:` to a release tag, then redeploy that commit to upgrade. Before changing it, back up the `openpost_data` volume and environment values, and record the current image tag. Coolify stores the volume on its host, not inside the container.
+Pin the image to a release tag before production use. Back up the `openpost_data` volume and private environment settings before changing the tag and redeploying. Follow the [maintenance guide](/self-hosting/maintenance) for readiness checks and restores. Database migrations can require restoring a matching backup when rolling back.
 
-Keep backups private and off the server. A rollback may require the backup made for the previous version. Follow the [maintenance checklist](/self-hosting/maintenance).
-
-## Next steps
-
-- [Configure integrations](/self-hosting/integrations) for your social platforms.
-- [Set up email](/self-hosting/email) before requiring email verification.
+After installation, [configure social integrations](/self-hosting/integrations) and [email delivery](/self-hosting/email) if needed.

@@ -6,15 +6,6 @@ icon: Workflow
 
 Start with **Run preview** to check fields and branches. Fetch real source data or test a single node when you need to verify an integration.
 
-## Choose the right test
-
-| Action           | Uses real services?              | Runs later steps?                             |
-| ---------------- | -------------------------------- | --------------------------------------------- |
-| Run preview      | No, outputs are examples         | Yes, with simulated actions and skipped waits |
-| Fetch an example | Reads the selected source        | No                                            |
-| Test node        | Yes for HTTP, feed, and AI nodes | No                                            |
-| Run live         | Yes                              | Yes, including configured writes and waits    |
-
 ## Preview the path
 
 **Run preview** resolves your fields and conditions using example outputs for native actions. It creates no posts, invokes no AI generation, queues no replies, and skips waits and approvals. Metric values, HTTP responses, and AI decisions in a preview are examples.
@@ -23,7 +14,7 @@ Start with **Run preview** to check fields and branches. Fetch real source data 
 
 **Test node** makes a real call for the selected HTTP, feed, or AI node, or executes a data transformation. Later steps do not run. It uses the data shown in the inspector and records the result in run history. HTTP writes can change the remote service, and AI calls record usage. Node tests require a workspace administrator.
 
-Reading source examples is a real read from the selected source. It does not start a run or change which future items will be admitted.
+**Fetch an example** reads the source without starting a run or advancing which future items will start runs.
 
 ## Start a live run
 

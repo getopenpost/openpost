@@ -4,24 +4,35 @@ description: Add and configure steps, organize branches, and save workflow chang
 icon: Workflow
 ---
 
-Changes save automatically. **Saved** confirms the current draft reached the server. If another editor changes the same workflow, resolve the conflict before continuing.
+Open a workflow and select a node to configure it. Changes save automatically; **Saved** confirms the server received them. Resolve any edit conflict before continuing.
 
-## Add and configure steps
+## Add and arrange steps
 
-Draft edits take effect for automatic runs when you publish the workflow again. Runs already started retain their original definition. Select a node on the canvas, or focus it with the keyboard and press Enter. The editor fills the window. Select **Add step**, use a node's plus button, or drag its output dot to empty space to choose the next node. On a phone, switch between **Input**, **Configure step**, and **Output**, then use **Back to canvas**.
+- Select **Add step**, a node's plus button, or drag its output dot to empty space.
+- Select **Recipes** to insert connected steps, such as AI writing with review or review with scheduling. You can edit each inserted step.
+- Select **Organize** to tidy the canvas without changing execution order.
+- Right-click a node, or focus it and press Shift+F10, to configure, duplicate, delete, or add a step after it.
+- Rename a step in its configuration header.
 
-Use **Organize** at the top left to tidy the canvas without changing execution order. Right-click a node, or press Shift+F10 while it has focus, to configure, add after, duplicate, or delete it. Undo and redo apply to these edits and canvas moves. Rename a step directly in its modal header.
+On a phone, switch between **Input**, **Configure step**, and **Output**. Use **Back to canvas** when finished.
+
+Publish again to apply draft changes to future automatic runs. Existing runs keep the definition they started with.
+
+## Branches
+
+Conditions and AI decisions choose a Yes or No path, then continue with the following step. A step can use source data and earlier outputs on its own path. Missing data fails the step.
+
+Text equality is exact. Number and boolean comparisons accept values such as `10` and `true`. **Contains** ignores case. Numeric comparisons require finite numbers.
 
 ## Keyboard shortcuts
 
-Use Ctrl+Z to undo, Ctrl+Shift+Z or Ctrl+Y to redo, and Ctrl+S to save. On macOS, use Command instead of Ctrl. With a node focused, Delete or Backspace removes it and Ctrl+D duplicates it. Inside a text field, undo and redo affect that field only.
+| Action                   | Shortcut               |
+| ------------------------ | ---------------------- |
+| Open a focused node      | Enter                  |
+| Undo                     | Ctrl+Z                 |
+| Redo                     | Ctrl+Shift+Z or Ctrl+Y |
+| Save                     | Ctrl+S                 |
+| Duplicate a focused node | Ctrl+D                 |
+| Delete a focused node    | Delete or Backspace    |
 
-## Recipes and branches
-
-The **Recipes** category adds connected steps together: write a draft with AI and review it, review and schedule a post, or prepare a feed digest. Each inserted step remains editable. Recipes also include JavaScript presets for removing duplicates and joining text.
-
-A condition or AI decision has a Yes path and a No path. After the chosen path finishes, the run continues with the following step. Fields can refer to source data or an earlier step on the same path. Missing data fails the step instead of silently substituting an empty value.
-
-For equality conditions, a number or boolean from an earlier step accepts the corresponding entered value, such as `10` or `true`. Two text values use exact text equality. **Contains** ignores letter case. Numeric comparisons reject values that cannot be read as finite numbers.
-
-Next, [pass data between steps](/workflows/variables) and [preview the workflow](/workflows/testing).
+On macOS, use Command instead of Ctrl. Inside a text field, undo and redo affect that field.

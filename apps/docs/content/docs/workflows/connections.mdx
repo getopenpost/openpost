@@ -4,22 +4,25 @@ description: Save credentials, call external APIs, and handle interrupted reques
 icon: Workflow
 ---
 
-## Save a connection
+Open **Connections** from the Workflows library to save credentials. Administrator access is required. GitHub tokens, Bearer tokens, API key headers, and Basic authentication are supported. Saved secret values are encrypted and cannot be viewed again.
 
-Open **Connections** from the Workflows library to add or replace credentials. GitHub tokens, Bearer tokens, API key headers, and Basic authentication are supported. Secret values are encrypted and are never shown again after saving.
+## Call an API
 
-## Configure an HTTP request
+1. Save the credential with the API's exact HTTPS host.
+2. Add **HTTP request**, enter the URL, and select the connection.
+3. Set the method, query, headers, body, timeout, and response format. You can import a cURL request, then check the parsed fields.
+4. Start with a read-only `GET` and [test the node](/workflows/testing).
 
-Custom credentials are restricted to the exact HTTPS host you choose. Select the saved connection in an HTTP node. Configure the method, query parameters, headers, body, timeout, and response format, or import a cURL request. Unsupported flags, shell commands, and local file reads are rejected. Put authentication in Connections rather than the cURL command or raw headers.
+Keep authentication in Connections. cURL import rejects shell commands, local file reads, and unsupported flags.
 
-Requests reject private-network destinations, have a maximum 30-second timeout, and retain up to 256 KiB of response data. An interrupted external request stops for inspection rather than being sent again automatically. Verify its remote outcome before starting another run.
+Requests reject private-network destinations. The maximum timeout is 30 seconds; saved response data is limited to 256 KiB.
+
+An interrupted request stops for inspection. Check the remote service before running it again because the write may already have succeeded.
 
 ## Private GitHub repositories
 
-Save a GitHub access token with access to the intended repository and permission to read its contents. Select it on the GitHub trigger. Public repositories need no connection.
+Save a GitHub token with access to the intended repository and permission to read its contents. Select that connection on the trigger. Public repositories need no credentials.
 
-## Replace or remove credentials
+## Replace or delete a connection
 
-Replace a credential through **Connections**. To delete a connection, remove it from workflow drafts and pause active revisions that use it first.
-
-Follow [Turn an API response into a post](/workflows/examples/api-to-post) for a complete setup.
+Replace its credential through **Connections**. Before deleting it, remove it from workflow drafts and pause active revisions that use it.

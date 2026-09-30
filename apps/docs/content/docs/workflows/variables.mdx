@@ -4,35 +4,24 @@ description: Insert variables, inspect inputs and outputs, and transform workflo
 icon: Workflow
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
+Use variables to pass a trigger's data or an earlier step's result into another step.
 
-## Insert a variable
+## Insert a value
 
-Required fields and unavailable variables show an inline error and a **Needs attention** badge on the node. Select the badge to open its configuration.
+1. Open the step and select a field.
+2. Choose **Insert variable**, type `{{` for suggestions, or drag a field from the input panel.
+3. Choose the source field. Use **Edit variable syntax** when you need to inspect its path.
 
-Type a value and add variables wherever you need them. Select **Insert variable** to search available fields, type `{{` for suggestions, or drag an input field into the editor. Variables appear as chips in both short and long text fields; unavailable fields are marked invalid. **Edit variable syntax** exposes the underlying paths.
+Variables appear as chips. Unavailable fields show an error and **Needs attention** on the node.
 
-## Keep the right data type
+A single variable in a numeric, JSON, or condition field keeps its original type. Text fields and variables mixed with text convert values to text.
 
-The preview uses the current sample or run data. In numeric, JSON, and condition fields, a single variable preserves its original type. Text fields turn numeric and boolean variables into text. Mixing variables with text also produces text.
+## Inspect and transform data
 
-## Inspect inputs and outputs
+The step inspector shows input, configuration, and output. Choose structure, table, or JSON view; table view shows collections as rows. Phones use tabs for these panels.
 
-The node inspector opens in a large modal over the canvas, with input data on the left, settings in the middle, and output on the right. Switch between structure, table, and JSON views. Table view shows item collections as rows. On a phone, it opens as a sheet with three inspector tabs. Close it to return to the selected node.
+Data steps can edit fields, parse JSON, filter/sort/limit lists, merge values, format dates, or add UTM parameters. **Read RSS feed** fetches current feed items.
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/workflows-node-light.webp"
-  darkSrc="/docs/assets/screenshots/workflows-node-dark.webp"
-  alt="Create draft settings with source data on the left, variable chips in the post text, and output on the right"
-  width={1392}
-  height={900}
-  caption="Select a node to edit its fields and inspect data without leaving the canvas. Example source values are shown until you fetch or run with real data."
-/>
+**JavaScript** receives `input` and returns a JSON value. It has a two-second deadline and a 32 MiB heap, with no network, file, or environment access. Use **HTTP request** for API calls.
 
-## Transform data
-
-Data nodes edit fields, transform text, parse JSON, filter/sort/limit lists, merge data, format dates, and add UTM tracking parameters. **Read RSS feed** fetches current feed items inside a workflow, useful for a weekly digest.
-
-**JavaScript** receives the selected data as `input` and returns a JSON value. It runs in an isolated environment with a two-second deadline and a 32 MiB JavaScript heap. It cannot access the network, files, or host environment. Use **HTTP request** for API calls.
-
-For a worked JavaScript example, [turn an API response into a post](/workflows/examples/api-to-post).
+See [the API-to-post example](/workflows/examples/api-to-post) for a short transformation.

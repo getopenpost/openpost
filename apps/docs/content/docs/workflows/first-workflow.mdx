@@ -4,39 +4,23 @@ description: Create a release announcement that waits for review before publishi
 icon: Workflow
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
+Use **Announce a GitHub release** to create a draft for each new release. You need connected destination accounts and administrator access to activate it. A private repository also needs a [GitHub connection](/workflows/connections#private-github-repositories).
 
-Use **Announce a GitHub release** to prepare a draft when your product ships. This template stops at review so you can check the post before scheduling it.
+## Configure and activate
 
-## Before you start
+1. Open **More → Workflows → Start from a template**. Choose **Use template** under **Announce a GitHub release**.
+2. Open the trigger and enter `owner/repository`.
+3. Open **Create draft**. Write the post, use **Insert variable** for the release title, notes, or link, and select destination accounts.
+4. Keep **Review post** after the draft.
+5. Open **Test data**, use the sample or **Fetch an example**, then select **Run preview**. Check the resolved post text and accounts.
+6. Fix **Needs attention** warnings and select **Publish workflow**.
 
-Connect the destination accounts in your workspace. You need administrator access to activate the workflow. Public GitHub repositories need no credentials; private repositories need a [saved GitHub connection](/workflows/connections).
+Publishing the workflow activates it. This template has no scheduling step, so it creates drafts without publishing them.
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/workflows-light.webp"
-  darkSrc="/docs/assets/screenshots/workflows-dark.webp"
-  alt="A GitHub release branches on breaking changes into AI-written announcements or short updates, each with a draft and review step"
-  width={1440}
-  height={960}
-  caption="A release follows one of two writing paths, creates a draft, and waits for your review. This example does not publish the post."
-/>
+## Check the first draft
 
-## Configure the template
+GitHub checks every five minutes. Existing releases become the starting point at activation; only later releases start runs.
 
-1. Select **Start from a template**, then **Use template** under **Announce a GitHub release**.
-2. Open the trigger marked **Needs attention** and enter your GitHub repository as `owner/repository`.
-3. Select **Create draft** on the canvas.
-4. Write the post and use **Insert variable** to include the release title, notes, or link. Select the destination accounts. Check both the provider and account name, especially when you use the same handle on several networks.
-5. Keep **Review post** after the draft so each announcement waits for a decision.
-6. Close the node, open **Test data**, and use the supplied example or **Fetch an example**. Select **Run preview**, then inspect the inputs and outputs.
-7. Resolve any **Needs attention** warnings and select **Publish workflow** to start watching for future releases.
+After a new release appears, open **Runs**. Inspect the draft, use **Open post** to edit it, then return to the run to approve the current revision.
 
-**Publish workflow** activates the automation. It does not publish a social post. This template creates a draft and waits for review; it has no scheduling step. To publish the approved draft, open it in Publications and schedule it yourself, or [add a scheduling step](/workflows/review-and-schedule).
-
-Public GitHub repositories need no connection. For a private repository, a workspace administrator can save a GitHub access token on the **Connections** page. Give the token access to the intended repository and permission to read its contents. OpenPost stores it encrypted and does not include it in run data.
-
-## Check the first result
-
-After a new release appears, open **Runs** and inspect the draft. Open the post to check its text and destinations, then return to the run to review it. See [review and scheduling](/workflows/review-and-schedule) for the next step.
-
-Existing releases do not start runs at activation. Read [trigger timing](/workflows/triggers) if you are waiting for an announcement.
+Schedule it from Publications, or [add scheduling after review](/workflows/review-and-schedule#schedule-after-review).

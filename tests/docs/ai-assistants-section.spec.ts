@@ -2,17 +2,12 @@ import { expect, test } from "@playwright/test";
 
 const pages = [
   ["/mcp", "AI assistants"],
-  ["/mcp/choose-an-agent-connection", "Choose an agent connection"],
+  ["/mcp/chat-assistants", "Chat assistants"],
+  ["/mcp/coding-assistants", "Coding assistants"],
   ["/mcp/mcp-guide", "Connect with MCP"],
-  ["/mcp/mcp-guide/endpoints-and-tools", "Endpoints and tools"],
-  ["/mcp/mcp-guide/permissions-and-safety", "Permissions and safety"],
-  ["/mcp/mcp-guide/media", "Media and local files"],
-  ["/mcp/mcp-guide/self-hosted-and-local", "Self-hosted and local connections"],
-  ["/mcp/mcp-guide/use-cases", "MCP use cases"],
-  ["/mcp/skills", "OpenPost skills"],
-  ["/mcp/skills/install", "Install the OpenPost skill"],
-  ["/mcp/skills/openpost-cli", "How the CLI skill works"],
-  ["/mcp/skills/use-cases", "CLI skill use cases"],
+  ["/mcp/mcp-guide/media", "Upload media"],
+  ["/mcp/mcp-guide/use-cases", "Tasks and troubleshooting"],
+  ["/mcp/skills", "Install and use the OpenPost skill"],
 ] as const;
 
 test("every AI assistant overview, MCP, and skill guide renders", async ({ page }) => {
@@ -31,7 +26,8 @@ test("every AI assistant overview, MCP, and skill guide renders", async ({ page 
 test("the AI assistant overview reaches every focused guide", async ({ page, request }) => {
   await page.goto("/docs/mcp");
   const sectionLinks = [
-    "/mcp/choose-an-agent-connection",
+    "/mcp/chat-assistants#chatgpt",
+    "/mcp/coding-assistants#codex",
     "/mcp/mcp-guide",
     "/mcp/skills",
     "/automate/cli",
@@ -55,12 +51,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 960 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
 
-      for (const route of [
-        "/mcp",
-        "/mcp/choose-an-agent-connection",
-        "/mcp/mcp-guide/endpoints-and-tools",
-        "/mcp/skills/install",
-      ]) {
+      for (const route of ["/mcp", "/mcp/chat-assistants", "/mcp/mcp-guide", "/mcp/skills"]) {
         await page.goto(`/docs${route}`);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), route).toBe(width);
       }

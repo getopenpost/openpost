@@ -3,24 +3,18 @@ import { expect, test } from "@playwright/test";
 const pages = [
   ["/automate", "Automate"],
   ["/automate/sdk", "TypeScript SDK"],
-  ["/automate/sdk/setup", "Install and connect"],
-  ["/automate/sdk/publications", "Publications and Renditions"],
-  ["/automate/sdk/media", "Upload media"],
+  ["/automate/sdk/publications", "Create and publish posts"],
   ["/automate/sdk/reliability", "Jobs, conflicts, and errors"],
   ["/automate/api", "HTTP API"],
-  ["/automate/api/authentication", "Authentication and workspaces"],
-  ["/automate/api/publications", "Publications and Renditions"],
+  ["/automate/api/publications", "Create and publish posts"],
   ["/automate/api/media", "Media uploads"],
   ["/automate/api/reliability", "Revisions, retries, and jobs"],
   ["/automate/cli", "Command-line interface"],
-  ["/automate/cli/setup", "Install and sign in"],
   ["/automate/cli/publishing", "Create and publish content"],
   ["/automate/cli/scripts-and-ci", "Scripts and CI"],
   ["/automate/cli/inspect-and-recover", "Inspect and recover"],
   ["/automate/n8n", "n8n workflows"],
-  ["/automate/n8n/setup", "Install and connect"],
   ["/automate/n8n/build-a-workflow", "Build a publishing workflow"],
-  ["/automate/n8n/media", "Upload binary data"],
   ["/automate/n8n/reliability", "Retries and failures"],
 ] as const;
 
@@ -33,11 +27,6 @@ test("Automate groups are always-visible sidebar sections", async ({ page }) => 
     await expect(sidebar.getByRole("button", { name: section, exact: true })).toHaveCount(0);
   }
 
-  await expect(sidebar.getByRole("link", { name: "Install and connect", exact: true })).toHaveCount(
-    2,
-  );
-  await expect(sidebar.getByRole("link", { name: "Authentication and workspaces" })).toBeVisible();
-  await expect(sidebar.getByRole("link", { name: "Install and sign in" })).toBeVisible();
   await expect(sidebar.getByRole("link", { name: "Build a publishing workflow" })).toBeVisible();
 });
 

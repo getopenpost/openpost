@@ -4,31 +4,39 @@ description: Inspect results, resolve failures, and pause or cancel workflow wor
 icon: Workflow
 ---
 
-Run details show each step's input, output, result, and failure. Drafts, scheduled posts, and provider outcomes remain visible in **Publications**.
+Open **Runs** and select a run to inspect each step's input, output, result, or error. Open the created post in Publications to check destination delivery.
 
-## Pause, cancel, or delete
+## Pause or stop
 
-**Pause new runs** stops automatic admission. Existing runs continue. **Cancel remaining steps** stops the rest of one run; an action already accepted may finish. It does not delete a draft or cancel a publication already queued. Manage that post in Publications when needed.
+- **Pause new runs** stops automatic starts. Existing runs continue.
+- **Cancel remaining steps** stops the rest of one run. An accepted action may still finish. Created drafts and queued posts remain; manage them in Publications.
+- Delete a workflow after pausing it and finishing or cancelling active runs. Deletion removes run history, while created posts remain.
 
-Delete a workflow only after pausing it and finishing or cancelling its active runs. Deletion removes its run history; created posts remain. Remove a connection from workflow drafts and pause active revisions using it before deleting the connection.
+Editing a workflow changes future runs only after you publish it again. Before starting another live run, check whether the previous run created a post or sent a request.
 
-## Permissions
+## Fix a problem
 
-Workspace viewers can inspect workflows. Editors can configure and preview them. Administrators can publish workflows, start live runs, approve posts, cancel runs, and manage connections. Execution rechecks the activating user's access.
+| Problem                   | Next action                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------- |
+| Needs attention on a node | Fill required fields and replace missing variables.                                       |
+| No automatic runs         | Check activation and source access. GitHub and feeds wait for new items after activation. |
+| Waiting for review        | Inspect the current post revision and approve it.                                         |
+| Stale post revision       | Review the latest post and return to the run.                                             |
+| Interrupted HTTP request  | Check its remote outcome before starting another run.                                     |
+| Failed destination        | Open the post error and reconnect the account if needed.                                  |
 
-## Execution limits
+Metrics steps require successful, recent Analytics observations. Missing or stale metrics fail the step rather than becoming zero. Replies use the publishing queue and provider rules.
 
-A workflow supports up to 40 steps and four branch levels. A workspace supports 100 workflows and 1,000 active runs. Runs expire after 30 days. The run list shows the latest 50 runs. These are execution limits, separate from plan limits and provider capabilities.
+## Reposts
 
-## When a run needs attention
+Open a rule under **Reposts** to change accounts, delays, engagement gates, or repost cycles. Existing rules and per-post overrides remain available. Start from a one-day repost, a one-day and three-day cycle, or a repost after ten likes; new templates start paused.
 
-| What you see                           | What to do                                                                                                                                                                         |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Needs attention** on a node          | Open it, fill the marked fields, and fix missing variables. Fetch an example if you need to inspect the source shape.                                                              |
-| No automatic runs after activation     | Wait for a new source item. Items already present at activation are the starting point, not a backlog. Check that the workflow is active and the repository or feed is accessible. |
-| A run waiting for review               | Open **Runs**, inspect the post, and approve its current revision. A preview does not wait for approval.                                                                           |
-| A stale post revision                  | Open the post, review the latest changes, and return to the run. Do not schedule using an old revision.                                                                            |
-| An HTTP call with an uncertain outcome | Check the remote service before starting another run. The request might have succeeded even if its response was interrupted.                                                       |
-| A failed or disconnected destination   | Inspect the post in Publications and reconnect the account if needed. A successful workflow step does not prove every destination published.                                       |
+Enable the rule after choosing accounts. Pause it to stop new reposts; accepted reposts continue. **Do not repost** and **Custom** choices on individual posts take precedence.
 
-Changing a workflow fixes its draft, not a run that already started. Publish the updated draft for future automatic runs. Before starting another live run, check whether the failed run already created a post or sent a request.
+First comments stay in the post's destination settings. A follow-up workflow sends another reply, so avoid duplicating that comment.
+
+## Permissions and limits
+
+Viewers inspect workflows. Editors configure and preview them. Administrators activate workflows, start live runs, test nodes, approve posts, cancel runs, and manage connections. Execution rechecks the activating user's access.
+
+A workflow allows 40 steps and four nested branch levels. A workspace allows 100 workflows and 1,000 active runs. Runs expire after 30 days; the list shows the latest 50. These execution bounds are separate from plan and provider limits.

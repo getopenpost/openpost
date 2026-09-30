@@ -77,8 +77,6 @@ Bind the connection or developer token to one workspace when the assistant does 
 
 ### Review before publishing
 
-Start with `mcp:read` when the task is to inspect a schedule, check readiness, find delivery failures, or suggest changes. Move to `mcp:full` only for the step that needs a write.
-
 For write tasks, tell the assistant where to stop:
 
 ```text
@@ -86,10 +84,6 @@ Create an unpublished draft for my review. Do not schedule or publish it.
 ```
 
 Before publishing, check the workspace, destination accounts, text, media, and time. A scheduled or queued Post is not published. Ask the assistant to inspect the Post's variants and lifecycle events when delivery is partial or fails.
-
-### Protect credentials
-
-Use browser OAuth when the client supports it. Otherwise, store a developer token in the client's secure settings or environment. Never put an OpenPost token, provider credential, or server secret in a prompt.
 
 Recent MCP calls appear under **Settings > Personal > Developer access**. Use that activity to identify the client, tool, workspace, result, and failure reason.
 

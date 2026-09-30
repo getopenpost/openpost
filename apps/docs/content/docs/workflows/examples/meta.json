@@ -1,4 +1,4 @@
 {
   "title": "Examples",
-  "pages": ["!index", "feed-digest", "relevant-releases", "api-to-post"]
+  "pages": ["feed-digest", "relevant-releases", "api-to-post"]
 }

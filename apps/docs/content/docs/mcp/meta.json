@@ -2,5 +2,5 @@
   "title": "AI assistants",
   "icon": "Bot",
   "root": true,
-  "pages": ["index", "mcp-guide", "chat-assistants", "coding-assistants", "skills"]
+  "pages": ["index", "mcp-guide", "chat-assistants", "coding-assistants", "...skills"]
 }

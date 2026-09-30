@@ -1287,7 +1287,10 @@ export const faqs = [
 		question: 'Can I see how my posts perform?',
 		answer:
 			'Yes. See account growth and post results when your social network provides them. Available numbers, comments, and replies vary by connected account.',
-		learnMore: { label: 'Learn about results', href: 'https://openpo.st/docs/guides/results' }
+		learnMore: {
+			label: 'Learn about results',
+			href: 'https://openpo.st/docs/guides/analytics'
+		}
 	},
 	{
 		id: 'extra-charges',

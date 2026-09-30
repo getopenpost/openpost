@@ -3,14 +3,12 @@ import { expect, test } from "@playwright/test";
 const pages = [
   ["/image-editor", "Image Editor"],
   ["/image-editor/create-a-design", "Create a design"],
-  ["/image-editor/editor-layout", "Editor layout"],
   ["/image-editor/layers", "Layers"],
   ["/image-editor/pages-and-carousels", "Pages and carousels"],
   ["/image-editor/color-and-effects", "Color and effects"],
   ["/image-editor/templates-and-brand", "Templates and brand items"],
   ["/image-editor/export-and-publish", "Export and publish"],
   ["/image-editor/saving-and-recovery", "Saving and recovery"],
-  ["/image-editor/limits", "Limits"],
 ] as const;
 
 test("every Image Editor guide renders and its section links resolve", async ({
@@ -44,12 +42,15 @@ for (const scheme of ["light", "dark"] as const) {
       page.on("pageerror", (error) => errors.push(error.message));
       await page.setViewportSize({ width, height: 960 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.goto("/docs/image-editor");
+      await page.goto("/docs/image-editor/export-and-publish");
 
       const figure = page.locator(".setup-screenshot");
       await figure.scrollIntoViewIfNeeded();
       const image = figure.locator("img:visible").first();
-      await expect(image).toHaveAttribute("src", new RegExp(`image-editor-${scheme}\\.webp`));
+      await expect(image).toHaveAttribute(
+        "src",
+        new RegExp(`image-export-detail-${scheme}\\.webp`),
+      );
       await expect
         .poll(() => image.evaluate((item: HTMLImageElement) => item.naturalWidth))
         .toBeGreaterThan(0);

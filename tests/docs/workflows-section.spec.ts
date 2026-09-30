@@ -11,8 +11,6 @@ const routes = [
   ["/testing", "Preview and test"],
   ["/review-and-schedule", "Review and schedule posts"],
   ["/runs", "Manage runs"],
-  ["/reposts", "Reposts and first comments"],
-  ["/examples", "Workflow examples"],
   ["/examples/feed-digest", "Prepare a weekly feed digest"],
   ["/examples/relevant-releases", "Share only relevant releases"],
   ["/examples/api-to-post", "Turn an API response into a post"],
@@ -31,12 +29,11 @@ test("workflow guides are reachable from their own section and sidebar", async (
     page.getByRole("heading", { level: 1, name: "Workflows", exact: true }),
   ).toBeVisible();
   const sidebar = page.locator("#nd-sidebar");
-  await expect(sidebar.locator('a[href="/docs/workflows/examples"]')).toHaveCount(1);
   const checked = new Set<string>();
   for (const [suffix, heading] of routes.slice(1)) {
     await sidebar
       .getByRole("link", {
-        name: suffix === "/examples" ? "Choose an example" : heading,
+        name: heading,
         exact: true,
       })
       .click();
@@ -58,9 +55,9 @@ test("old workflow HTML and Markdown URLs reach the new guides", async ({ reques
     ["workflows", "/workflows"],
     ["workflows/", "/workflows"],
     ["workflows.md", "/workflows/index.md"],
-    ["workflow-examples", "/workflows/examples"],
-    ["workflow-examples/", "/workflows/examples"],
-    ["workflow-examples.md", "/workflows/examples/index.md"],
+    ["workflow-examples", "/workflows#examples"],
+    ["workflow-examples/", "/workflows#examples"],
+    ["workflow-examples.md", "/workflows/index.md#examples"],
   ]) {
     const response = await request.get(`/docs/automate/${oldPath}`, {
       maxRedirects: 0,

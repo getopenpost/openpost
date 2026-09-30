@@ -4,20 +4,26 @@ description: Generate text, choose a branch with AI, and inspect recorded usage.
 icon: Workflow
 ---
 
-## Write text
+Add **AI text** to generate text, or **AI decision** to choose a branch.
 
-The node picker groups content, flow, AI, data, and tool actions. Use **AI text** for any text task. Write a **User message** and, optionally, a **System message** for instructions such as tone or output format. It returns text that later steps can use. The **Write a draft with AI** recipe connects it to OpenPost draft creation and review.
+If AI is unavailable on your self-hosted instance, [configure an AI provider](/self-hosting/ai) first.
+
+## Generate text
+
+1. Add **AI text** and write the **User message**.
+2. Optionally add a **System message** for tone or output instructions.
+3. Pass its text output to a later step.
+
+The **Write a draft with AI** recipe connects generation to draft creation and review. **AI draft** uses your configured AI Builder to create the post.
 
 ## Choose a branch
 
-**AI decision** uses Jev to evaluate your input against written criteria. It returns a probability from 0 to 1 and takes the Yes path at 0.5 or above. It does not generate a written explanation. Token usage and provider-reported costs are recorded for both AI nodes.
+Write the criteria in **AI decision**. Jev returns a probability between 0 and 1. The Yes path runs at 0.5 or above; otherwise the No path runs. It returns no written explanation.
 
-**AI draft** uses the configured AI Builder to create a post. Choose its destinations as described in [review and scheduling](/workflows/review-and-schedule).
+[Test the node](/workflows/testing) against inputs you would accept and reject. Preview decisions are examples. Keep review before scheduling because real decisions can be wrong.
 
-## Inspect usage
+## Check usage
 
-Open a run and expand an AI step to see its recorded token usage and cost when the provider supplies it. Node tests also count as real AI calls. Preview runs use examples and do not call AI.
+Expand an AI step in **Runs** to see tokens and provider-reported cost. Node tests make real AI calls and count toward usage; previews do not.
 
-There is no workflow dollar spending cap yet. A missing cost is not a promise that a call was free. Start with a small set of inputs and inspect usage before enabling a frequent trigger.
-
-Follow [Share only relevant releases](/workflows/examples/relevant-releases) to test decisions against examples you would accept and reject.
+There is no workflow spending cap. Missing cost does not mean a call was free. Check a few runs before enabling frequent triggers.

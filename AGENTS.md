@@ -24,6 +24,7 @@ Load only the branch the task needs:
 | Substantial, ambiguous, or multi-ticket work                            | `agent-workflow`; the OpenPost Vikunja project for the current spec, priority, and execution state  |
 | Product scope, public copy, provider support, or capability claims      | `README.md` for current public claims and readiness; `PRODUCT.md` for purpose, terms, and scope     |
 | UI, visual, or user-facing copy changes                                 | `ux-consistency` and `DESIGN.md`; add `impeccable` for design critique                              |
+| Public documentation structure, prose, examples, or images              | `documentation` and `unslop`; preserve complete tasks, useful images, and old routes                |
 | Public SEO, search discovery, or agent access audits                    | `openpost-seo`; verify live findings against the marketing and documentation source owners          |
 | Interaction sounds                                                      | `cuelume`                                                                                           |
 | Repository ownership or an unfamiliar seam                              | `docs/agents/repository-map.md`, then confirm its paths and symbols with `rg`                       |
@@ -52,6 +53,8 @@ Install marketing module-download recovery in the client `init` hook, before hyd
 Public documentation uses Fumadocs in `apps/docs/`, with authored MDX under `content/docs/` and a static export in `out/`. Keep customer guides, built-in Workflows, external automation, self-hosting, and the generated API reference separate. Workflow tutorials and run controls belong in `content/docs/workflows/`; SDK, HTTP API, CLI, and n8n guides belong in `content/docs/automate/`. Engineering documentation belongs in `docs/development/`; operator reference details belong in `docs/reference/`. Generate API operation pages from `apps/web/openapi.json` on every docs build, never edit generated MDX.
 
 The public Cloudflare site composes marketing at `/` and documentation at `/docs` through `bun run build -- public-site`; `openpost-marketing` publishes `dist/public-site`. Keep docs base-path aware, reject output collisions, and keep the retired docs host only as a direct path-and-query-preserving redirect.
+
+Keep static redirects before wildcard or placeholder rules in the composed public site. Cloudflare counts every rule after the first dynamic rule against its 100-rule dynamic limit.
 
 Generate the media-limits guide with `scripts/sync-docs-openapi.mjs`; edit the capability catalogue or `apps/server/cmd/openpost-media-limits`, never the generated MDX.
 

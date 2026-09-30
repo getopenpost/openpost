@@ -4,34 +4,21 @@ description: Turn releases, feed items, and recurring tasks into posts with buil
 icon: Workflow
 ---
 
-Open **More → Workflows** in your workspace, or [open Workflows](https://app.openpo.st/workflows). Build an automation using your connected accounts, add a review step, and inspect each run.
+Open **More → Workflows** in your workspace. Workflows uses your connected accounts and workspace access.
 
-## Start with a draft
+[Build your first workflow](/workflows/first-workflow) to create a release announcement that waits for review.
 
-[Build your first workflow](/workflows/first-workflow) to turn a GitHub release into a draft that waits for review. You can preview it before activating it.
+## Build and run
 
-A **trigger** decides when a workflow starts. A **step** uses the trigger's data or an earlier step's output. A **run** is one execution, with its own inputs, results, and history.
+- [Edit the canvas](/workflows/editor) and [pass data between steps](/workflows/variables).
+- [Choose a trigger](/workflows/triggers), [use AI](/workflows/ai), or [call an API](/workflows/connections).
+- [Preview and test](/workflows/testing) before activating automatic runs.
+- [Review and schedule posts](/workflows/review-and-schedule), then [inspect runs or manage reposts](/workflows/runs).
 
-Publishing a workflow activates the automation. A social post reaches its destinations only when the workflow schedules it or you publish it from Publications.
-
-## Find your next task
-
-| Task                                         | Guide                                                       |
-| -------------------------------------------- | ----------------------------------------------------------- |
-| Add steps, branches, or recipes              | [Use the canvas](/workflows/editor)                         |
-| Choose when an automation starts             | [Choose a trigger](/workflows/triggers)                     |
-| Use source fields in post text or settings   | [Pass data between steps](/workflows/variables)             |
-| Generate text or filter updates              | [Use AI](/workflows/ai)                                     |
-| Connect an API or private repository         | [Connections and HTTP requests](/workflows/connections)     |
-| Check a workflow before activating it        | [Preview and test](/workflows/testing)                      |
-| Choose accounts and schedule approved posts  | [Review and schedule posts](/workflows/review-and-schedule) |
-| Inspect results, pause, or recover a failure | [Manage runs](/workflows/runs)                              |
-| Manage reposts and avoid duplicate replies   | [Reposts and first comments](/workflows/reposts)            |
-
-## Follow an example
+## Examples
 
 - [Prepare a weekly feed digest](/workflows/examples/feed-digest).
 - [Share only relevant releases](/workflows/examples/relevant-releases).
 - [Turn an API response into a post](/workflows/examples/api-to-post).
 
-If your automation runs outside OpenPost, use the [SDK, HTTP API, CLI, or n8n guides](/automate). [AI assistant setup](/mcp) has its own section. Built-in Workflows uses your workspace access and does not require a developer token.
+For automation outside OpenPost, use the [SDK, API, CLI, or n8n](/automate). To work through a chat or coding assistant, see [AI assistants](/mcp).

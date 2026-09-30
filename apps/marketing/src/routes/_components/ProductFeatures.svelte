@@ -12,28 +12,28 @@
 			title: 'Your media library',
 			icon: '/assets/brand/features/media.svg',
 			text: 'Keep templates, brand assets, and fonts ready to reuse. Find files with tags, collections, and favorites. Draft alt text with AI.',
-			href: 'https://openpo.st/docs/guides/media',
+			href: 'https://openpo.st/docs/guides/media-library',
 			link: 'Organize your media'
 		},
 		{
 			title: 'Grow your network',
 			icon: '/assets/brand/features/grow.svg',
 			text: 'Find people to follow on Bluesky and Mastodon. Review recommendations and mutual connections, then choose who to follow.',
-			href: 'https://openpo.st/docs/guides/results',
+			href: 'https://openpo.st/docs/guides/accounts#turn-on-optional-account-features',
 			link: 'Explore Grow'
 		},
 		{
 			title: 'Auto repost',
 			icon: '/assets/brand/features/repost.svg',
 			text: 'Give a post another turn. Manage repost rules in Workflows, with delays, engagement gates, and overrides for individual posts.',
-			href: 'https://openpo.st/docs/workflows/reposts',
+			href: 'https://openpo.st/docs/workflows/runs#reposts',
 			link: 'Set repost rules'
 		},
 		{
 			title: 'Inbox and DMs',
 			icon: '/assets/brand/features/inbox.svg',
 			text: 'Follow conversations and reply to comments and messages from supported connected accounts.',
-			href: 'https://openpo.st/docs/guides/results',
+			href: 'https://openpo.st/docs/guides/inbox',
 			link: 'See inbox support'
 		},
 		{
@@ -153,7 +153,7 @@
 				</p>
 				<a
 					class="focus-ring"
-					href="https://openpo.st/docs/guides/media#add-media-to-a-post"
+					href="https://openpo.st/docs/guides/media-library#add-media-to-a-post"
 					data-sveltekit-reload>Make a meme <ArrowUpRight size={17} /></a
 				>
 			</div>
@@ -187,7 +187,7 @@
 				Follow views, reach, engagement, and audience changes. Compare posts using the metrics your
 				connected platforms provide, then repurpose a post into a fresh draft.
 			</p>
-			<a class="focus-ring" href="https://openpo.st/docs/guides/results" data-sveltekit-reload
+			<a class="focus-ring" href="https://openpo.st/docs/guides/analytics" data-sveltekit-reload
 				>Explore analytics <ArrowUpRight size={17} /></a
 			>
 		</div>

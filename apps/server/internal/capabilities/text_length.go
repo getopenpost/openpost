@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -9,25 +10,53 @@ import (
 	"mvdan.cc/xurls/v2"
 )
 
-const xTransformedURLLength = 23
+const (
+	xTransformedURLLength = 23
+	mastodonURLLength     = 23
+)
 
-var xURLPattern = xurls.Relaxed()
+var (
+	xURLPattern                  = xurls.Relaxed()
+	mastodonURLPattern           = xurls.Strict()
+	mastodonRemoteMentionPattern = regexp.MustCompile(`(?i)(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z0-9]+`)
+	// mastodonLinkHost accepts an http(s) link whose host ends in a dot and a
+	// top-level domain, the part of twitter-text's validDomain Mastodon relies
+	// on to decide what counts as a link at all.
+	mastodonLinkHost = regexp.MustCompile(`(?i)^https?://(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)`)
+)
 
 // TextLength returns the provider's effective length for a post body.
 // X normalizes text to NFC, shortens every URL to 23 characters, weights
 // selected Unicode ranges as one character, and weights the rest as two.
 // Bluesky counts grapheme clusters, the unit its 300-character post limit
-// uses, and Threads counts UTF-8 bytes.
+// uses, Mastodon counts every link as 23 characters and every remote mention
+// as its username, and Threads counts UTF-8 bytes.
 func TextLength(provider, text string) int {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case ProviderX:
 		return xWeightedTextLength(norm.NFC.String(text))
 	case ProviderBluesky:
 		return uniseg.GraphemeClusterCount(text)
+	case ProviderMastodon:
+		return utf8.RuneCountInString(mastodonCountableText(text))
 	case ProviderThreads:
 		return len(text)
 	}
 	return utf8.RuneCountInString(text)
+}
+
+// mastodonCountableText applies the substitutions Mastodon makes before it
+// measures a status (countableText in its composer, StatusLengthValidator on
+// the server): each http(s) link becomes 23 characters and each
+// @user@domain mention becomes @user.
+func mastodonCountableText(text string) string {
+	text = mastodonURLPattern.ReplaceAllStringFunc(text, func(link string) string {
+		if !mastodonLinkHost.MatchString(link) {
+			return link
+		}
+		return strings.Repeat("x", mastodonURLLength)
+	})
+	return mastodonRemoteMentionPattern.ReplaceAllString(text, "${1}@${2}")
 }
 
 func xWeightedTextLength(text string) int {

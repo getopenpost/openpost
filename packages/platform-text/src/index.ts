@@ -4,6 +4,13 @@ export const X_PREMIUM_CHAR_LIMIT = 25_000;
 const X_TRANSFORMED_URL_LENGTH = 23;
 const X_URL_PATTERN =
   /(?:https?:\/\/|www\.)[^\s<>{}[\]"']+|(?<![@\p{L}\p{N}_])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+[\p{L}]{2,63}(?:[/?#][^\s<>{}[\]"']*)?/giu;
+const MASTODON_URL_LENGTH = 23;
+const MASTODON_URL_PATTERN = /https?:\/\/[^\s<>{}[\]"']+/giu;
+const MASTODON_REMOTE_MENTION_PATTERN = /(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z0-9]+/gi;
+// An http(s) link whose host ends in a dot and a top-level domain, the part of
+// twitter-text's validDomain Mastodon relies on to decide what is a link.
+const MASTODON_LINK_HOST =
+  /^https?:\/\/(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)/iu;
 const GRAPHEME_SEGMENTER = resolveGraphemeSegmenter();
 
 export interface PlatformLimitDefinition {
@@ -132,6 +139,7 @@ export const PLATFORM_LIMITS = {
 export function countPlatformText(platformKey: string, text: string): number {
   if (platformKey === "threads") return new TextEncoder().encode(text).length;
   if (platformKey === "bluesky") return graphemeSegments(text).length;
+  if (platformKey === "mastodon") return Array.from(mastodonCountableText(text)).length;
   if (platformKey !== "x") return Array.from(text).length;
   const normalized = text.normalize("NFC");
 
@@ -146,6 +154,35 @@ export function countPlatformText(platformKey: string, text: string): number {
     cursor = start + matchedURL.length;
   }
   return length + xWeightedTextSegmentLength(normalized.slice(cursor));
+}
+
+// Mastodon measures a status after counting each http(s) link as 23
+// characters and each @user@domain mention as @user.
+function mastodonCountableText(text: string): string {
+  return text
+    .replace(MASTODON_URL_PATTERN, (match) => {
+      const url = match.slice(0, mastodonURLEnd(match));
+      if (!MASTODON_LINK_HOST.test(url)) return match;
+      return "x".repeat(MASTODON_URL_LENGTH) + match.slice(url.length);
+    })
+    .replace(MASTODON_REMOTE_MENTION_PATTERN, "$1@$2");
+}
+
+// Trailing punctuation is not part of a link, except a ")" that closes a "("
+// inside it, as in https://en.wikipedia.org/wiki/Foo_(bar).
+function mastodonURLEnd(url: string): number {
+  let end = url.length;
+  while (end > 0) {
+    const character = url[end - 1];
+    if (character === ")") {
+      const body = url.slice(0, end);
+      if (body.split("(").length >= body.split(")").length) break;
+    } else if (!/[.,!?;:\]}]/u.test(character)) {
+      break;
+    }
+    end--;
+  }
+  return end;
 }
 
 function xWeightedTextSegmentLength(text: string): number {

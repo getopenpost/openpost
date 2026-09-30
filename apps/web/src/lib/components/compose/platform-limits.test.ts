@@ -18,6 +18,20 @@ describe('platform-limits', () => {
 		expect(platformTextLength('mastodon', '日本語')).toBe(3);
 	});
 
+	it('counts Mastodon links as 23 characters and remote mentions by username', () => {
+		const longURL = `https://example.com/${'a'.repeat(80)}`;
+		expect(platformTextLength('mastodon', 'Hello, world!')).toBe(13);
+		expect(platformTextLength('mastodon', `Read ${longURL}`)).toBe(28);
+		expect(platformTextLength('mastodon', `See ${longURL}.`)).toBe(28);
+		expect(platformTextLength('mastodon', 'www.example.com')).toBe(15);
+		expect(platformTextLength('mastodon', 'https://en.wikipedia.org/wiki/Foo_(bar)')).toBe(23);
+		expect(platformTextLength('mastodon', '(https://example.com/path)')).toBe(25);
+		expect(platformTextLength('mastodon', 'https://intranet/page')).toBe(21);
+		expect(platformTextLength('mastodon', '@alice@example.social hi')).toBe(9);
+		expect(platformTextLength('mastodon', '@alice hi')).toBe(9);
+		expect(platformTextLength('mastodon', `${'a'.repeat(450)} ${longURL}`)).toBe(474);
+	});
+
 	it('uses grapheme clusters for Bluesky', () => {
 		expect(platformTextLength('bluesky', 'Hello, world!')).toBe(13);
 		expect(platformTextLength('bluesky', '日本語')).toBe(3);

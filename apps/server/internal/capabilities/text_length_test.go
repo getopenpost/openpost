@@ -62,6 +62,42 @@ func TestTextLengthUsesGraphemesForBluesky(t *testing.T) {
 	require.Equal(t, "text_too_long", issues[0].Code)
 }
 
+func TestTextLengthCountsMastodonLinksAndRemoteMentionsLikeMastodon(t *testing.T) {
+	longURL := "https://example.com/" + strings.Repeat("a", 80)
+	tests := []struct {
+		name string
+		text string
+		want int
+	}{
+		{name: "ASCII", text: "Hello, world!", want: 13},
+		{name: "URL", text: "Read " + longURL, want: 28},
+		{name: "URL before punctuation", text: "See " + longURL + ".", want: 28},
+		{name: "no scheme", text: "www.example.com", want: 15},
+		{name: "balanced parentheses", text: "https://en.wikipedia.org/wiki/Foo_(bar)", want: 23},
+		{name: "URL in parentheses", text: "(https://example.com/path)", want: 25},
+		{name: "host without a domain", text: "https://intranet/page", want: 21},
+		{name: "remote mention", text: "@alice@example.social hi", want: 9},
+		{name: "local mention", text: "@alice hi", want: 9},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, TextLength(ProviderMastodon, test.text))
+		})
+	}
+
+	// 450 characters and a 100-character link are 474 characters for
+	// Mastodon, which counts every link as 23: within its 500 limit.
+	body := strings.Repeat("a", 450) + " " + longURL
+	issues := Validate(ProviderMastodon, models.ContentProfileShortText, body, "", "", nil, nil)
+	for _, issue := range issues {
+		require.NotEqual(t, "text_too_long", issue.Code, issue.Message)
+	}
+	issues = Validate(ProviderMastodon, models.ContentProfileShortText, strings.Repeat("a", 477)+" "+longURL, "", "", nil, nil)
+	require.NotEmpty(t, issues)
+	require.Equal(t, "text_too_long", issues[0].Code)
+}
+
 func TestTextLengthKeepsOtherProvidersAtCodePoints(t *testing.T) {
 	require.Equal(t, 3, TextLength(ProviderMastodon, "日本語"))
 	require.Equal(t, 5, TextLength(ProviderMastodon, "cafe\u0301"))

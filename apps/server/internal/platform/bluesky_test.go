@@ -79,6 +79,47 @@ func TestBuildBlueskyFacetsDropsOverlappingTagInsideLink(t *testing.T) {
 	requireFacet(t, facets, 0, 29, "app.bsky.richtext.facet#link", "uri", "https://example.com/#OpenPost")
 }
 
+// Hashtags follow TAG_REGEX in @atproto/api's rich-text detection: any
+// script, started by whitespace, not only digits, trailing punctuation
+// trimmed, and at most 64 graphemes (the lexicon's limit for a tag).
+func TestBuildBlueskyFacetsDetectsHashtagsLikeBluesky(t *testing.T) {
+	type tagFacet struct {
+		start, end int
+		tag        string
+	}
+	longTag := strings.Repeat("a", 64)
+	tests := []struct {
+		text string
+		want []tagFacet
+	}{
+		{text: "Bom dia #café", want: []tagFacet{{8, 14, "café"}}},
+		{text: "#日本語 です", want: []tagFacet{{0, 10, "日本語"}}},
+		{text: "Visit #São_Paulo!", want: []tagFacet{{6, 17, "São_Paulo"}}},
+		{text: "Join #open-source, today", want: []tagFacet{{5, 17, "open-source"}}},
+		{text: "こんにちは\u3000#東京", want: []tagFacet{{18, 25, "東京"}}},
+		{text: "＃OpenPost", want: []tagFacet{{0, 11, "OpenPost"}}},
+		{text: "#2024 is here", want: nil},
+		{text: "C#sharp", want: nil},
+		{text: "#" + longTag, want: []tagFacet{{0, 65, longTag}}},
+		{text: "#" + longTag + "a", want: nil},
+		{text: "#\uFE0F\u20E3 keycap", want: nil},
+		// 16 graphemes but 656 bytes: past the tag's 640-byte limit.
+		{text: "#" + strings.Repeat("e"+strings.Repeat("\u0301", 20), 16), want: nil},
+	}
+	for _, test := range tests {
+		var got []tagFacet
+		for _, facet := range buildBlueskyFacets(test.text, nil) {
+			features := facet["features"].([]map[string]string)
+			if features[0]["$type"] != "app.bsky.richtext.facet#tag" {
+				continue
+			}
+			index := facet["index"].(map[string]int)
+			got = append(got, tagFacet{index["byteStart"], index["byteEnd"], features[0]["tag"]})
+		}
+		require.Equal(t, test.want, got, "text %q", test.text)
+	}
+}
+
 func TestBuildBlueskyFacetsSkipsMalformedMentionDIDs(t *testing.T) {
 	facets := buildBlueskyFacets("hi @user.bsky.social", map[string]interface{}{
 		"mention_dids": "user.bsky.social=not-a-did",

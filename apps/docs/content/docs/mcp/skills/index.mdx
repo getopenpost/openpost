@@ -1,25 +1,91 @@
 ---
-title: OpenPost skills
-description: Give a compatible coding assistant OpenPost operating guidance.
+title: Install and use the OpenPost skill
+description: Give a coding assistant instructions for the OpenPost CLI.
 icon: PackageCheck
 ---
 
-An Agent Skill is a set of instructions and supporting reference files that a compatible assistant can load for a task. It does not add a network connection, install a CLI, or store credentials.
+The `openpost-cli` skill gives a terminal-capable assistant instructions for operating OpenPost. It does not install the CLI, provide a connection, or store credentials. Use it when your assistant supports Agent Skills. A working [MCP connection](/mcp/mcp-guide) does not need this skill.
 
-OpenPost currently publishes one public skill: `openpost-cli`. It teaches an assistant how to operate a running OpenPost instance through the `openpost` command.
+## Install the CLI
 
-The skill covers:
+Install the npm wrapper:
 
-- checking the current instance, identity, and workspace before an action;
-- choosing between text posts, threads, and format-first Posts;
-- checking provider readiness and capabilities;
-- treating schedule, publish, retry, moderation, and deletion commands as changes;
-- verifying saved objects, jobs, Variants, and lifecycle events after a change.
+```sh
+npm install -g @getopenpost/cli
+```
 
-Use the skill when a coding assistant supports Agent Skills and can run terminal commands. Use [MCP](/mcp/mcp-guide) instead when the assistant already has a working MCP connection. Use the [CLI directly](/automate/cli) for scripts, CI, or assistants that cannot load skills.
+Sign in and confirm the CLI context:
 
-## Continue
+```sh
+openpost auth login https://app.openpo.st
+openpost auth status --json
+openpost workspace list --json
+```
 
-- [Install the skill and CLI](/mcp/skills/install)
-- [Understand how the CLI skill works](/mcp/skills/openpost-cli)
-- [Try practical skill use cases](/mcp/skills/use-cases)
+For a self-hosted instance, replace the Hosted origin with your instance URL.
+
+## Install the skill
+
+Use the Agent Skills installer for a compatible assistant:
+
+```sh
+npx skills add https://github.com/getopenpost/openpost --skill openpost-cli
+```
+
+The skill is also published as a deterministic archive at [openpo.st/.well-known/agent-skills/openpost-cli.tar.gz](https://openpo.st/.well-known/agent-skills/openpost-cli.tar.gz) for clients that support Agent Skills discovery or archive installation.
+
+Installation controls differ by assistant. Follow the assistant's Agent Skills documentation when it does not support the `npx skills` command.
+
+## Check the setup
+
+Start a new assistant session so it can discover the skill. Ask it to use `openpost-cli` to inspect the current OpenPost context without making changes.
+
+The assistant should run commands such as:
+
+```sh
+openpost instance diagnostics --json
+openpost auth status --json
+openpost workspace list --json
+```
+
+If the `openpost` command is missing, install the CLI. If authentication is missing, sign in yourself. The skill should not install software or create credentials unless you explicitly ask for that action.
+
+## Use the skill
+
+### Confirm context
+
+The skill tells the assistant to inspect the active instance, identity, and available workspaces. It uses `--json` for reads so it can parse IDs and status fields instead of scraping terminal tables.
+
+When the saved context is missing or ambiguous, the assistant should pass an explicit `--profile`, `--instance`, or `--workspace` value. It should use the stored keyring token or environment token without printing it.
+
+### Choose a command
+
+The skill distinguishes the main CLI paths:
+
+- `openpost post` handles short text, text with media, and editable text drafts.
+- `openpost thread create` reads two or more posts separated by `---` from a Markdown file.
+- `openpost publication` handles format-first work such as link shares, image posts, carousels, stories, short video, long video, and provider-specific settings.
+
+It also directs the assistant to check provider readiness and capabilities before using a new destination or format.
+
+### Authorize changes
+
+The skill treats scheduling, publishing, retries, comment moderation, account disconnection, slot generation, and deletion as changes. The assistant should run them only when your request authorizes that effect.
+
+It should default to an unpublished draft when you did not ask to schedule or publish. It should not add `--force` after a revision conflict or bypass an interactive confirmation without your authorization.
+
+### Check results
+
+After a change, the assistant should read the saved object and current server state. For Post work, that includes the Post, lifecycle events, related job, and each destination Variant.
+
+The skill does not make the assistant infallible. Read the proposed command before a destructive or public action, and inspect the result in OpenPost.
+
+## Try a task
+
+```text
+Use the openpost-cli skill to create an unpublished LinkedIn link-share post in the Company workspace. Check readiness and capabilities, validate the saved post, and stop before scheduling.
+```
+
+For a thread, provide a Markdown file with two or more posts separated by `---` and ask for `openpost thread create`. To schedule reviewed work, specify the post, workspace, accounts, and exact time, such as `2026-10-02T14:00:00+01:00`.
+
+For a failure, ask the assistant to inspect the post, its variants, lifecycle events, and jobs without retrying. Authorize a retry only for the failed destination, then check its new state.

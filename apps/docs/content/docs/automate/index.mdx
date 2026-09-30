@@ -1,37 +1,20 @@
 ---
-title: Automate
-description: Use the SDK, HTTP API, CLI, or n8n to automate OpenPost outside the app.
+title: External automation
+description: Choose the SDK, HTTP API, CLI, or n8n for an integration.
 icon: Code2
 ---
 
-Choose the interface that fits where the work starts. Every option uses the same OpenPost accounts, workspaces, Publications, provider checks, and publishing jobs.
+Choose the interface for your integration. Each uses OpenPost's workspace permissions, provider checks, and publishing jobs.
 
-| Start here                              | Use when                                                                |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| [TypeScript SDK](/automate/sdk)         | You are writing JavaScript or TypeScript for Node.js, Bun, or Workers   |
-| [HTTP API](/automate/api)               | You need raw HTTP or are using another programming language             |
-| [Command-line interface](/automate/cli) | The work starts in a shell, script, CI job, or terminal-capable agent   |
-| [n8n workflows](/automate/n8n)          | You want a visual workflow started by a timer, webhook, or another node |
-| [AI assistants](/mcp)                   | You want ChatGPT, Claude, Cursor, or another assistant to use OpenPost  |
+| Interface                       | Use it for                                             |
+| ------------------------------- | ------------------------------------------------------ |
+| [TypeScript SDK](/automate/sdk) | JavaScript or TypeScript on Node.js, Bun, or Workers   |
+| [HTTP API](/automate/api)       | Other languages or raw HTTP requests                   |
+| [CLI](/automate/cli)            | Shell commands, scripts, and CI jobs                   |
+| [n8n](/automate/n8n)            | Visual workflows with timers, webhooks, or other nodes |
 
-For automation inside the app, use the separate [Workflows section](/workflows). It covers the canvas, triggers, review, and run history without a developer token.
+For automation in OpenPost, use [Workflows](/workflows). For an assistant operating your account, use [AI assistants](/mcp).
 
-## Keep automation predictable
+Start by listing the workspaces your credentials can access. Then create an unpublished draft and inspect its accounts, text, media, and settings before adding scheduling or publishing.
 
-Create, validate, schedule, and publish are separate steps. Creating a Publication does not publish it. Validate before scheduling or publishing, then inspect the Publication and its Renditions for the final provider result.
-
-For unattended scripts and external integrations, create a separate developer token for each integration. Give it only the scope it needs, bind it to one workspace when possible, set an expiry, and store it in the integration's secret store.
-
-## Start with a read
-
-When using an API, SDK, CLI, or external automation, begin by listing the workspaces the credential can access. Select the intended workspace before creating content. This catches the most common setup errors without changing anything.
-
-When a workflow writes, start by creating an unpublished draft. Add scheduling or publishing only after the draft appears in **Publications** with the expected accounts, text, media, and provider settings.
-
-## Build for retries
-
-Publishing can continue in a background job. Store returned Publication and job IDs, and read the current state instead of treating a successful request as proof that every provider published the content.
-
-Use the revision you last read when an operation asks for one. A conflict means someone changed the Publication. Read it again and reconcile the new version before retrying.
-
-The [API reference](/api-reference) remains the source for every HTTP operation and schema. The guides in this section explain common workflows and decisions.
+Use the guide's reliability page before running unattended work. It explains revisions, safe retries, and how to check each destination after a background job. The [API reference](/api-reference) lists the HTTP operations and schemas.

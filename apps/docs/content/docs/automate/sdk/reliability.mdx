@@ -25,12 +25,14 @@ try {
 } catch (error) {
   if (error instanceof OpenPostError && error.code === "conflict") {
     const current = await openpost.publications.get(id);
-    // Compare current with the intended change before trying again.
+    console.log(current.revision);
+    // Reconcile the current post with the intended change before retrying.
   }
 
   if (error instanceof OpenPostError && error.code === "rate_limited") {
-    await new Promise((resolve) => setTimeout(resolve, error.retryAfterMs ?? 1_000));
+    console.log("Wait before retrying:", error.retryAfterMs);
   }
+  throw error;
 }
 ```
 

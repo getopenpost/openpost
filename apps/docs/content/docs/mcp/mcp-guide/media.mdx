@@ -1,6 +1,6 @@
 ---
-title: Media and local files
-description: Give an MCP assistant existing media, a public URL, or a local file.
+title: Upload media
+description: Reuse workspace media or upload a public URL or local file.
 icon: Images
 ---
 
@@ -16,7 +16,7 @@ Use this path only when the media is already available at a public URL. Do not c
 
 ## Upload a local file
 
-A compatible MCP Apps client can open OpenPost's file picker through `render_local_media_upload`. This requires `mcp:full`.
+A compatible MCP Apps client can open the file picker through `render_local_media_upload` with read access. Creating the app-only upload ticket and uploading the file require `mcp:full`.
 
 The file travels from the app to OpenPost. Its bytes and upload credential do not enter the model's conversation context. The one-use upload ticket expires after ten minutes and is bound to the authenticated actor and selected workspace.
 

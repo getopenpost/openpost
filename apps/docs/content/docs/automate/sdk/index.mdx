@@ -1,6 +1,6 @@
 ---
 title: TypeScript SDK
-description: Build OpenPost scripts and services with @getopenpost/sdk.
+description: Install the SDK and make your first authenticated request.
 icon: Braces
 ---
 
@@ -8,18 +8,59 @@ Use `@getopenpost/sdk` for JavaScript or TypeScript services, scripts, and CI jo
 
 The SDK covers workspaces, accounts, Social Sets, Publications, Renditions, media, and jobs. Use the [HTTP API](/automate/api) when another language or an operation outside the SDK is a better fit.
 
-## Start here
+## Install
 
-1. [Install and connect](/automate/sdk/setup)
-2. [Create and publish content](/automate/sdk/publications)
-3. [Upload media](/automate/sdk/media)
-4. [Handle jobs, conflicts, and errors](/automate/sdk/reliability)
+```sh
+npm install @getopenpost/sdk
+```
 
-## Good uses
+Create a developer token in **Settings > Personal > Developer**. For an unattended service, create a separate token, give it only the scopes it needs, bind it to one workspace when possible, and set an expiry.
 
-- Turn a product event into a draft from an application backend.
-- Prepare account-specific Renditions before a release.
-- Upload generated images or video and attach their media IDs.
-- Schedule content from a CI job, then wait for the durable job result.
+## Configure the client
 
-Publications created through this package store and return `creation_source: "sdk"`. This distinguishes SDK-created records from raw API, CLI, MCP, web, and automatic posting.
+```ts
+import { OpenPost } from "@getopenpost/sdk";
+
+const openpost = new OpenPost({
+  token: process.env.OPENPOST_TOKEN,
+  workspaceId: process.env.OPENPOST_WORKSPACE_ID,
+});
+```
+
+The default origin is `https://app.openpo.st`. For self-hosting, set `baseUrl` to the OpenPost origin, without `/api/v1`:
+
+```ts
+const openpost = new OpenPost({
+  baseUrl: "https://social.example.com",
+  token: process.env.OPENPOST_TOKEN,
+  workspaceId: process.env.OPENPOST_WORKSPACE_ID,
+});
+```
+
+You can use environment variables instead of constructor options:
+
+| Variable                | Purpose                                      |
+| ----------------------- | -------------------------------------------- |
+| `OPENPOST_TOKEN`        | Developer token                              |
+| `OPENPOST_URL`          | OpenPost origin                              |
+| `OPENPOST_INSTANCE`     | Fallback name for the OpenPost origin        |
+| `OPENPOST_WORKSPACE_ID` | Default workspace ID                         |
+| `OPENPOST_WORKSPACE`    | Fallback workspace value shared with the CLI |
+
+The SDK rejects credentialed plain HTTP by default. For a local self-hosted instance, pass `allowInsecureHttp: true` only when you control the network.
+
+## Test access
+
+```ts
+const workspaces = await openpost.workspaces.list();
+console.log(workspaces.map(({ id, name }) => ({ id, name })));
+```
+
+Use an ID from this response as `workspaceId`. A workspace-bound token cannot access another workspace even if code passes its ID.
+
+New records store `creation_source: "sdk"`. The SDK sends its client identity to distinguish these posts from raw API requests.
+
+## Continue
+
+- [Create and publish content](/automate/sdk/publications)
+- [Handle jobs and errors](/automate/sdk/reliability)

@@ -1,6 +1,6 @@
 ---
-title: MCP use cases
-description: Use MCP for schedule reviews, drafts, publishing, and delivery checks.
+title: Tasks and troubleshooting
+description: Review schedules, create drafts, and diagnose connection or delivery failures.
 icon: ListChecks
 ---
 
@@ -11,10 +11,10 @@ Name the OpenPost workspace in every task after the first connection check. Tell
 Use `mcp:read`:
 
 ```text
-Review next week's scheduled Posts in the Personal workspace. Group them by destination, flag empty days and missing media, and do not change anything.
+Review next week's scheduled posts in the Personal workspace. Group them by destination, flag empty days and missing media, and do not change anything.
 ```
 
-The assistant can inspect Posts, Variants, connected accounts, media, and posting slots without gaining write access.
+The assistant can inspect posts, variants, connected accounts, media, and posting slots without gaining write access.
 
 ## Check provider readiness
 
@@ -51,9 +51,21 @@ Treat `scheduled` and `queued` as intermediate states. They do not prove that a 
 Use `mcp:read` first:
 
 ```text
-Inspect Post post_123, its Variants, and lifecycle events. Explain which destinations succeeded or failed and quote the saved failure reason. Do not retry anything.
+Inspect Post post_123, its variants, and lifecycle events. Explain which destinations succeeded or failed and quote the saved failure reason. Do not retry anything.
 ```
 
 `list_posts` already summarizes failures per Post as `failed_variant_count` with a curated `error_kind`, `error_action`, and `error_message`. Ask for `get_post` only when a failure needs full delivery detail.
 
 Grant `mcp:full` only if you then want the assistant to make a correction or retry an authorized destination.
+
+## Fix a connection
+
+| Problem                    | What to check                                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| No OpenPost tools          | Refresh the client's MCP metadata or start a new session. Enable the server's tools in the chat.                 |
+| Login expired              | Reconnect through OAuth or replace the expired developer token.                                                  |
+| Wrong workspace            | Check the signed-in account and token binding. A workspace-bound token cannot access another workspace.          |
+| Private server unreachable | Run the local bridge on a machine that can reach OpenPost, or provide a public HTTPS origin for cloud clients.   |
+| Bridge command missing     | Configure the absolute path returned by `command -v openpost-mcp`. Run it as the user who saved the CLI profile. |
+
+Inspect recent calls under **Settings > Personal > Developer access** for the client, tool, workspace, result, and failure reason.

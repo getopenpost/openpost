@@ -1,47 +1,159 @@
 ---
 title: Connect with MCP
-description: Give an AI assistant access to OpenPost through MCP.
+description: Choose an endpoint, sign in, and verify assistant access.
 icon: Plug
 ---
 
-MCP gives an AI assistant live OpenPost tools. The assistant can inspect accounts, media, Posts, Variants, schedules, and delivery results. With write access, it can also prepare drafts, change Posts, schedule work, publish, and manage supported comments.
+Connect your assistant to OpenPost, choose its permissions, and verify read access before making changes. MCP can inspect posts, variants, schedules, accounts, media, and delivery results. Full access also permits drafts, publishing, and supported comment actions.
 
-A Post is one piece of content with its schedule and status. A Variant is its per-channel version for one account. The direct tools are `create_post`, `list_posts`, `get_post`, `update_post`, `set_post_variants`, `reply_to_variant`, `validate_post`, `schedule_post`, `cancel_post`, `publish_post_now`, `list_post_events`, `list_variant_comments`, `get_post_metrics`, `get_dashboard_link`, and `search_docs`, with the `adapt_post_variants` prompt and the `post_id`, `variant_id`, and `variants[]` arguments.
+Use [Chat assistants](/mcp/chat-assistants) or [Coding assistants](/mcp/coding-assistants) for your client's exact configuration.
 
-Use MCP when your assistant supports a remote HTTP server or a local MCP command. You do not need the `openpost-cli` skill for an MCP connection.
+OpenPost offers two MCP endpoints. They use the same authentication, scopes, workspace checks, validation, and operation behavior.
 
-## Hosted endpoint
+## Choose an endpoint
 
-Most clients should connect to:
+### Direct tools
+
+Use the default endpoint for most clients:
 
 ```text
 https://app.openpo.st/mcp
 ```
 
-The client opens OpenPost sign-in through OAuth when it supports browser authentication. Choose `mcp:read` for review work. Choose `mcp:full` only when the assistant needs to create or change data.
+It lists each available operation as a separate tool. An assistant can call tools such as `list_workspaces`, `list_posts`, or `create_post` with the operation's own input schema.
 
-If the client cannot use OAuth, create a developer token in **Settings → Personal → Developer** and add it as a bearer token in the client's secure authentication settings. Do not paste the token into a conversation or commit it to a configuration file.
+Choose this endpoint when the client handles a full tool catalog well. It gives the assistant the clearest tool names and schemas at the start of the session.
 
-## First connection check
+### Compact tools
 
-After connecting, ask:
+Use the compact endpoint when the client has a strict tool or context limit:
+
+```text
+https://app.openpo.st/mcp/code
+```
+
+It exposes a small routing set:
+
+- `search_operations` finds matching OpenPost operations and returns their schemas and safety information.
+- `query_operation` runs only read-only operations.
+- `execute_operation` runs only operations that change state or interact with an external service. Requires `mcp:full`.
+- `render_scheduler_widget` renders structured OpenPost data in the ChatGPT Apps widget. Read-only; available with `mcp:read`.
+- `render_local_media_upload` opens the device file picker for a workspace. Read-only; available with `mcp:read`. Its one-use upload ticket tool is app-only and requires `mcp:full`.
+
+A read-only connection does not receive `execute_operation` or the upload ticket tool. Search results also exclude write operations. The server rejects an operation passed through the wrong execution tool.
+
+The compact endpoint does not run model-written code. It reduces the initial tool list and still sends each request through OpenPost's typed operation handlers.
+
+### Self-hosted tool mode
+
+Self-hosted operators can set `OPENPOST_MCP_MODE` to control the catalog at `/mcp`:
+
+| Value    | `/mcp` tool list                                                    |
+| -------- | ------------------------------------------------------------------- |
+| `direct` | Individual operation tools. This is the default.                    |
+| `search` | Compact search, read, and write tools, plus compatible app widgets. |
+| `both`   | Individual operation tools and the compact tools.                   |
+
+`/mcp/code` always uses the compact list. Changing the tool list does not change permissions.
+
+Some clients cache tool definitions. Refresh the MCP server metadata or start a new session after changing endpoints or modes.
+
+## Sign in
+
+Use browser OAuth when your client supports it. Otherwise create a developer token in **Settings > Personal > Developer** and store it in the client's secure authentication settings or environment. Never paste a token into a conversation or commit it to a config file.
+
+OpenPost checks the token scope and workspace access for every MCP operation. The client may add its own approval prompt, but client approval does not replace OpenPost permissions.
+
+## Choose a scope
+
+| Scope      | Access                                                                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `mcp:read` | Inspect workspaces, accounts, media, posts, schedules, readiness, comments, and lifecycle events. It cannot change OpenPost data. |
+| `mcp:full` | Includes read access and permits operations that create, edit, schedule, publish, upload, reply, or moderate.                     |
+
+OpenPost defaults an OAuth request with no scope to `mcp:full`. Select `mcp:read` explicitly for reviews and audits.
+
+Bind the connection or developer token to one workspace when the assistant does not need access to every workspace. A workspace-bound token cannot list or target another workspace.
+
+### Review before publishing
+
+Start with `mcp:read` when the task is to inspect a schedule, check readiness, find delivery failures, or suggest changes. Move to `mcp:full` only for the step that needs a write.
+
+For write tasks, tell the assistant where to stop:
+
+```text
+Create an unpublished draft for my review. Do not schedule or publish it.
+```
+
+Before publishing, check the workspace, destination accounts, text, media, and time. A scheduled or queued Post is not published. Ask the assistant to inspect the Post's variants and lifecycle events when delivery is partial or fails.
+
+### Protect credentials
+
+Use browser OAuth when the client supports it. Otherwise, store a developer token in the client's secure settings or environment. Never put an OpenPost token, provider credential, or server secret in a prompt.
+
+Recent MCP calls appear under **Settings > Personal > Developer access**. Use that activity to identify the client, tool, workspace, result, and failure reason.
+
+Use remote HTTP when the client can reach your OpenPost instance. Use the local bridge when a desktop client can reach the instance from your computer but the client's cloud service cannot.
+
+## Connect a self-hosted instance
+
+### Public HTTPS
+
+Replace the Hosted origin with your own origin and keep the MCP path:
+
+```text
+https://openpost.example.com/mcp
+```
+
+Use `/mcp/code` instead when you need the compact tool list. Your reverse proxy must serve the instance over HTTPS, preserve authorization headers, and forward POST requests to OpenPost. OAuth-aware clients also use the discovery paths under `/.well-known/`.
+
+### Private instance and local bridge
+
+Install the CLI and `openpost-mcp` bridge:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/getopenpost/openpost/main/scripts/install-cli.sh | sh -s -- --with-mcp
+```
+
+Sign in to the instance with a named CLI profile:
+
+```sh
+openpost --profile local auth login https://openpost.internal.example
+```
+
+Configure the MCP client to launch the bridge with the same profile:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "command": "openpost-mcp",
+      "args": ["--profile", "local"]
+    }
+  }
+}
+```
+
+The bridge reads the saved CLI profile and token, then forwards MCP messages to the instance's `/mcp` endpoint. The client starts the process, so you do not need to keep a separate terminal open.
+
+If the client cannot find the command, replace `openpost-mcp` with the path returned by:
+
+```sh
+command -v openpost-mcp
+```
+
+### Cloud clients
+
+A cloud client cannot use `localhost` or a private LAN address on your computer. Give it a public HTTPS instance if the product supports remote custom MCP servers. A local bridge works only when the MCP process runs on a machine that can reach OpenPost.
+
+Use the setup page for your client to confirm its transport and configuration format. Do not configure the remote endpoint and the local bridge under the same server name.
+
+## Verify the connection
+
+Ask the assistant:
 
 ```text
 List my OpenPost workspaces.
 ```
 
-Choose one of the returned workspaces, then ask:
-
-```text
-Review this week's scheduled Posts without changing anything.
-```
-
-This confirms the account, workspace, and read permissions before any write request.
-
-## Continue
-
-- [Choose the full or compact endpoint](/mcp/mcp-guide/endpoints-and-tools)
-- [Set permissions and approval rules](/mcp/mcp-guide/permissions-and-safety)
-- [Use local files or media URLs](/mcp/mcp-guide/media)
-- [Connect a self-hosted instance](/mcp/mcp-guide/self-hosted-and-local)
-- [Try practical read and write tasks](/mcp/mcp-guide/use-cases)
+Name a returned workspace and request its schedule without changes. This checks the account, workspace, and read permissions. Then use [Upload media](/mcp/mcp-guide/media) or [Tasks and troubleshooting](/mcp/mcp-guide/use-cases).

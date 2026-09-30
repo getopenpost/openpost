@@ -1,132 +1,25 @@
 ---
 title: AI assistants
-description: Choose how an AI assistant should work with OpenPost.
+description: Choose how an assistant connects to your OpenPost account.
 icon: Bot
 ---
 
-OpenPost supports three ways for an AI assistant to work with your account. Use one main connection for each task so the assistant has one clear instance, workspace, and permission boundary.
+Choose a connection your assistant can use. Keep one connection per task so the instance, workspace, and permissions are clear.
 
-| Connection           | Best for                                                                  | Start here                            |
-| -------------------- | ------------------------------------------------------------------------- | ------------------------------------- |
-| MCP                  | Chat and coding assistants with MCP support                               | [Connect with MCP](/mcp/mcp-guide)    |
-| `openpost-cli` skill | Coding assistants that support Agent Skills and can run terminal commands | [Use the OpenPost skill](/mcp/skills) |
-| Direct CLI           | Scripts, CI, and agents that can run commands but cannot load skills      | [CLI guide](/automate/cli)            |
+| Connection                    | Requirements                           | Use it for                                   |
+| ----------------------------- | -------------------------------------- | -------------------------------------------- |
+| [MCP](/mcp/mcp-guide)         | Remote HTTP MCP or a local MCP command | OpenPost tools inside a conversation         |
+| [OpenPost skill](/mcp/skills) | Agent Skills and terminal access       | OpenPost instructions for a coding assistant |
+| [CLI](/automate/cli)          | Terminal access                        | Scripts, CI, and exact command sequences     |
 
-Read [Choose an agent connection](/mcp/choose-an-agent-connection) for the differences, limits, and cases where each option is the wrong fit.
+MCP supplies live tool schemas and uses OAuth or a token. The skill supplies operating instructions for the installed CLI, which uses a saved profile or `OPENPOST_TOKEN`. It does not install the CLI, authenticate MCP, or store credentials. You do not need the skill when the assistant already has a working MCP connection.
 
-## Choose a setup
+## Choose your client
 
-Use the client guides in this section to add OpenPost through MCP. Each guide covers the client-specific configuration, sign-in, and a safe first request.
+Chat assistants: [ChatGPT](/mcp/chat-assistants#chatgpt), [Claude web](/mcp/chat-assistants#claude-web), [Claude Desktop](/mcp/chat-assistants#claude-desktop), [Grok](/mcp/chat-assistants#grok), and [Perplexity](/mcp/chat-assistants#perplexity).
 
-Start with a read request:
+Coding assistants: [Codex](/mcp/coding-assistants#codex), [Claude Code](/mcp/coding-assistants#claude-code), [Cursor](/mcp/coding-assistants#cursor), [VS Code and Copilot](/mcp/coding-assistants#vs-code-and-github-copilot), [Gemini CLI](/mcp/coding-assistants#gemini-cli), [Devin](/mcp/coding-assistants#devin), [Antigravity](/mcp/coding-assistants#antigravity), [OpenCode](/mcp/coding-assistants#opencode), [OpenClaw](/mcp/coding-assistants#openclaw), and [Hermes Agent](/mcp/coding-assistants#hermes-agent).
 
-```text
-List my OpenPost workspaces.
-```
+After connecting, ask the assistant to list your workspaces. Name one and request a schedule review without changes. Grant write access when you need a draft or another change.
 
-Then name the workspace and ask the assistant to review its schedule without making changes. Grant write access only when the assistant needs to create or change OpenPost data.
-
-<div className="mcp-clients not-prose">
-  <a href="/docs/mcp/chatgpt">
-    <img
-      src="/docs/clients/chatgpt.svg"
-      alt=""
-      width={24}
-      height={24}
-      className="docs-client-monochrome"
-    />
-    <span>ChatGPT</span>
-  </a>
-  <a href="/docs/mcp/claude">
-    <img src="/docs/clients/claude.svg" alt="" width={24} height={24} />
-    <span>Claude web</span>
-  </a>
-  <a href="/docs/mcp/claude-desktop">
-    <img src="/docs/clients/claude.svg" alt="" width={24} height={24} />
-    <span>Claude Desktop</span>
-  </a>
-  <a href="/docs/mcp/claude-code">
-    <img src="/docs/clients/claude.svg" alt="" width={24} height={24} />
-    <span>Claude Code</span>
-  </a>
-  <a href="/docs/mcp/cursor">
-    <img
-      src="/docs/clients/cursor.svg"
-      alt=""
-      width={24}
-      height={24}
-      className="docs-client-monochrome"
-    />
-    <span>Cursor</span>
-  </a>
-  <a href="/docs/mcp/codex">
-    <img src="/docs/clients/codex.svg" alt="" width={24} height={24} />
-    <span>Codex</span>
-  </a>
-  <a href="/docs/mcp/grok">
-    <img
-      src="/docs/clients/grok.svg"
-      alt=""
-      width={24}
-      height={24}
-      className="docs-client-monochrome"
-    />
-    <span>Grok</span>
-  </a>
-  <a href="/docs/mcp/devin">
-    <img
-      src="/docs/clients/devin.svg"
-      alt=""
-      width={24}
-      height={24}
-      className="docs-client-monochrome"
-    />
-    <span>Devin</span>
-  </a>
-  <a href="/docs/mcp/perplexity">
-    <img src="/docs/clients/perplexity.svg" alt="" width={24} height={24} />
-    <span>Perplexity</span>
-  </a>
-  <a href="/docs/mcp/gemini-cli">
-    <img src="/docs/clients/gemini.svg" alt="" width={24} height={24} />
-    <span>Gemini CLI</span>
-  </a>
-  <a href="/docs/mcp/github-copilot">
-    <img
-      src="/docs/clients/github-copilot.svg"
-      alt=""
-      width={24}
-      height={24}
-      className="docs-client-monochrome"
-    />
-    <span>GitHub Copilot</span>
-  </a>
-  <a href="/docs/mcp/vs-code">
-    <img src="/docs/clients/vscode.svg" alt="" width={24} height={24} />
-    <span>VS Code</span>
-  </a>
-  <a href="/docs/mcp/antigravity">
-    <img src="/docs/clients/antigravity.svg" alt="" width={24} height={24} />
-    <span>Antigravity</span>
-  </a>
-  <a href="/docs/mcp/opencode">
-    <img
-      src="/docs/clients/opencode.svg"
-      alt=""
-      width={24}
-      height={24}
-      className="docs-client-monochrome"
-    />
-    <span>OpenCode</span>
-  </a>
-  <a href="/docs/mcp/openclaw">
-    <img src="/docs/clients/openclaw.svg" alt="" width={24} height={24} />
-    <span>OpenClaw</span>
-  </a>
-  <a href="/docs/mcp/hermes">
-    <img src="/docs/clients/hermes.png" alt="" width={24} height={24} />
-    <span>Hermes Agent</span>
-  </a>
-</div>
-
-If you are building an integration instead of asking an assistant to operate your account, use the [TypeScript SDK](/automate/sdk) or [HTTP API](/automate/api).
+For an application integration, use the [SDK](/automate/sdk) or [HTTP API](/automate/api).

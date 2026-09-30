@@ -1,6 +1,6 @@
 ---
 title: Command-line interface
-description: Control OpenPost from a shell, script, CI job, or terminal-capable agent.
+description: Install the CLI, sign in, and choose a workspace.
 icon: Terminal
 ---
 
@@ -8,13 +8,61 @@ The `openpost` CLI controls a running Hosted or self-hosted OpenPost instance. I
 
 Use it when work starts in a terminal. For a long-running JavaScript or TypeScript service, use the [SDK](/automate/sdk). For a visual workflow, use [n8n](/automate/n8n).
 
-## Start here
+## Install
 
-1. [Install, sign in, and choose a workspace](/automate/cli/setup)
-2. [Create and publish content](/automate/cli/publishing)
-3. [Run the CLI in scripts and CI](/automate/cli/scripts-and-ci)
-4. [Inspect results and recover failures](/automate/cli/inspect-and-recover)
+Install the npm wrapper, which downloads and verifies the matching release binary:
 
-Run `openpost help` or `openpost <group> <command> --help` when this guide and an installed version differ. The installed help describes that binary.
+```sh
+npm install -g @getopenpost/cli
+```
 
-The CLI stores `creation_source: "cli"` on Publications it creates. Publication responses expose that source alongside web, API, SDK, MCP, and automatic posting sources.
+You can also download the binary from [GitHub Releases](https://github.com/getopenpost/openpost/releases).
+
+## Sign in
+
+Browser sign-in is the shortest path for an interactive shell:
+
+```sh
+openpost auth login https://app.openpo.st
+```
+
+For a headless shell, print the verification URL and code:
+
+```sh
+openpost auth login https://app.openpo.st --device
+```
+
+For CI, pass a developer token through stdin:
+
+```sh
+printf '%s\n' "$OPENPOST_TOKEN" | \
+  openpost auth login https://app.openpo.st --with-token
+```
+
+The CLI stores named instance profiles. Use them to keep Hosted, staging, and self-hosted credentials separate:
+
+```sh
+openpost instance add hosted https://app.openpo.st
+openpost instance use hosted
+openpost instance health
+```
+
+## Select a workspace
+
+```sh
+openpost workspace list
+openpost workspace use personal
+openpost account list
+```
+
+The selected workspace belongs to the active profile. You can override profile, instance, workspace, or token for one command with `--profile`, `--instance`, `--workspace`, or `--token`.
+
+Connect new social accounts in the web app at `<instance>/settings?tab=accounts`. The CLI does not collect provider credentials.
+
+Run `openpost help` or `openpost <group> <command> --help` for the installed version. New records store `creation_source: "cli"`.
+
+## Continue
+
+- [Create and publish content](/automate/cli/publishing)
+- [Run scripts and CI](/automate/cli/scripts-and-ci)
+- [Inspect and recover](/automate/cli/inspect-and-recover)

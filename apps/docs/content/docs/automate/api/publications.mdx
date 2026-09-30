@@ -1,9 +1,9 @@
 ---
-title: Publications and Renditions
-description: Create drafts, customize destinations, and run the Publication lifecycle over HTTP.
+title: Create and publish posts
+description: Create a draft, choose destination variants, and inspect delivery over HTTP.
 ---
 
-A Publication owns the source idea, schedule, and lifecycle. A Rendition is the destination-specific version for one connected account.
+The API calls a post a `Publication` and its destination variant a `Rendition`. A post owns the source text, schedule, and status. Each variant belongs to one connected account.
 
 ## Create a draft
 
@@ -56,7 +56,7 @@ Put a shared poll in a canonical segment's `settings.poll`. Choose a mode for ea
 
 `native` uses the shared poll, `text` appends the question and numbered answers, and `omit` keeps the rest of the destination post without a poll. For `custom`, include an independent `poll` object with question, options and duration inside that destination choice. Option IDs must be unique and stable. Answers contain one line each; commas remain part of the answer. Optional `multiple` and `hide_totals` flags require native destination support.
 
-Preserve the whole canonical `settings.poll` object when copying or editing a draft. Keep generated rendition bodies separate from authored `body_override` values to avoid duplicating poll text. Existing `poll_*` destination settings remain supported; `legacy` preserves such an independent poll when a shared poll is added. Poll choices are independent of text and media overrides.
+When editing or copying, preserve the whole `settings.poll` object. Keep generated rendition text out of `body_override` to avoid duplicated poll text. Existing `poll_*` settings remain supported. Use `legacy` to retain that destination's independent poll when adding a shared poll. Poll choices do not change text or media overrides.
 
 ## Validate and publish
 

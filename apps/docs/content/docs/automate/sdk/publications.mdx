@@ -1,9 +1,9 @@
 ---
-title: Publications and Renditions
-description: Create a draft, customize destinations, validate it, and publish it with the SDK.
+title: Create and publish posts
+description: Create a draft, attach media, customize variants, and inspect delivery.
 ---
 
-A Publication owns the source idea and lifecycle. A Rendition is the version for one connected account. Create a draft first, inspect it, then validate and schedule or publish it.
+The SDK calls a post a `Publication` and its destination variant a `Rendition`. Create a draft, inspect it, then validate and schedule or publish it.
 
 ## Create a draft
 
@@ -18,6 +18,44 @@ const draft = await openpost.publications.create({
 ```
 
 Omit `social_account_ids` to keep the draft without destinations. Pass `social_set_id` to copy that Social Set's accounts and saved destination defaults into the new Publication.
+
+## Upload and attach media
+
+`media.upload()` handles the OpenPost upload-session flow. It reserves the media record, sends the bytes to the returned storage target, and completes the record.
+
+```ts
+const bytes = new Uint8Array(await Bun.file("cover.png").arrayBuffer());
+
+const asset = await openpost.media.upload({
+  workspaceId: openpost.workspaceId(),
+  file: bytes,
+  filename: "cover.png",
+  mimeType: "image/png",
+  altText: "Product import screen with the completed file list",
+});
+```
+
+External storage targets receive only the upload headers returned by OpenPost. The SDK never sends your OpenPost bearer token to another origin.
+
+Attach the returned ID when you create a Publication:
+
+```ts
+const draft = await openpost.publications.create({
+  workspace_id: openpost.workspaceId(),
+  title: "Import walkthrough",
+  content_profile: "image_post",
+  source_text: "The new import flow is live.",
+  social_account_ids: ["acc_linkedin"],
+  media: [
+    {
+      media_id: asset.id,
+      alt_text: "Product import screen with the completed file list",
+    },
+  ],
+});
+```
+
+Use `media.list(workspaceId)` to inspect the library and `media.remove(id)` to remove an unused item. OpenPost still applies workspace quotas, file validation, provider limits, and media processing after the bytes arrive.
 
 ## Customize a destination
 

@@ -1,0 +1,132 @@
+---
+title: Chat assistants
+description: Connect your assistant to OpenPost through MCP.
+icon: MessagesSquare
+---
+
+Choose your client below. Use [MCP connection setup](/mcp/mcp-guide) for shared permissions, self-hosted URLs, and the local bridge. After setup, ask the assistant to list your workspaces, then review the schedule for a named workspace without changes.
+
+## ChatGPT
+
+You can connect OpenPost's remote MCP server in ChatGPT developer mode. Your account and workspace policy determine whether developer mode and custom connections are available. Start with read access to check the connection, then grant write access if you want ChatGPT to prepare or publish content.
+
+### Add OpenPost
+
+1. In ChatGPT, open **Settings > Security and login** and turn on **Developer mode** if your workspace allows it.
+2. Open [ChatGPT Plugins](https://chatgpt.com/plugins) and select the plus button. Name the connection `OpenPost`.
+3. Enter `https://app.openpo.st/mcp` as the remote MCP URL. Create the connection and review the tools it discovers.
+4. Complete OpenPost sign-in when prompted. Choose a workspace and `mcp:read` for review-only work, or `mcp:full` when ChatGPT needs to create, schedule, or publish.
+5. Start a new chat and add OpenPost from the tools menu.
+
+ChatGPT may ask you to confirm write actions. Inspect the draft and its accounts before scheduling or publishing.
+
+### If your server is private
+
+ChatGPT web cannot reach your laptop's `localhost` or a private LAN address directly. Use a public HTTPS OpenPost URL or OpenAI's [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) for a private server. The local `openpost-mcp` bridge is for desktop MCP clients, not a direct ChatGPT web connection.
+
+If the connection loses access, reopen it in ChatGPT Plugins and sign in again. If OpenPost's tool list changed, refresh the connection's metadata and start a new chat. An administrator may control access to connections and write tools in a managed workspace.
+
+See [OpenAI's developer-mode connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt) for current ChatGPT controls.
+
+## Claude web
+
+Use Claude's custom connector to review your schedule and prepare posts from a conversation. Your Claude account or organization must allow custom connectors.
+
+### Add the connector
+
+1. Open Claude's **Customize > Connectors**, or **Settings > Connectors** in interfaces that use that label.
+2. Choose **Add custom connector**, name it `OpenPost`, and enter:
+
+```text
+https://app.openpo.st/mcp
+```
+
+3. Add the connector and complete OpenPost's browser sign-in. Leave optional client credentials empty; OpenPost supports dynamic registration.
+4. Choose read-only access for reviews, or full access to create and publish. Enable OpenPost in the conversation's connector controls.
+
+### If it does not connect
+
+An organization owner may need to add or allow the connector first. Claude reaches remote servers from its cloud, so self-hosted OpenPost needs a public HTTPS URL. Reconnect from the connector settings if authorization expires.
+
+For terminal setup, see [Claude Code](/mcp/coding-assistants#claude-code).
+
+See [Claude custom connector setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+
+## Claude Desktop
+
+Claude Desktop supports a remote account connector and local tools. Choose the remote connector for Hosted; use the local bridge when your OpenPost instance is reachable only from your computer.
+
+### Remote connector
+
+Open **Settings > Connectors** and add `https://app.openpo.st/mcp` as a custom connector named `OpenPost`. Complete browser sign-in and enable it in the conversation. See [Claude web](#claude-web) for organization setup.
+
+Remote connectors run from Claude's cloud even when you use the desktop app. They cannot reach your computer's `localhost`.
+
+### Local bridge
+
+First [install and sign in to the OpenPost bridge](/mcp/mcp-guide#connect-a-self-hosted-instance). In Claude Desktop, open **Settings > Developer > Edit Config** and merge:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "command": "openpost-mcp",
+      "args": ["--profile", "local"]
+    }
+  }
+}
+```
+
+Use the absolute path from `command -v openpost-mcp` if needed. Fully restart Claude Desktop after saving.
+
+See [local MCP setup](https://modelcontextprotocol.io/docs/develop/connect-local-servers) for desktop configuration details.
+
+## Grok
+
+Grok can connect to OpenPost through a custom remote connector. Use a Grok account with access to custom connectors and an OpenPost account.
+
+### Add the connector
+
+1. Open [Grok Connectors](https://grok.com/connectors).
+2. Choose **New Connector > Custom** and name it `OpenPost`.
+3. Enter `https://app.openpo.st/mcp` as the server URL.
+4. Complete the supported sign-in flow. For OAuth, sign in to OpenPost and choose read-only or full access. If configuring a bearer header instead, use an OpenPost developer token with the matching MCP scope.
+
+### Grok Build CLI
+
+Grok Build is a separate client. Add its connection with:
+
+```sh
+grok mcp add --transport http openpost https://app.openpo.st/mcp
+```
+
+Complete OAuth when prompted. A Grok web connector does not configure the CLI automatically.
+
+### If it does not connect
+
+Grok's cloud connector needs public HTTPS. A self-hosted LAN address or `localhost` is not reachable from Grok web. Check access to custom connectors and reconnect if authorization expires.
+
+See [Grok connectors](https://docs.x.ai/grok/connectors) and [Grok Build MCP](https://docs.x.ai/build/features/mcp-servers).
+
+## Perplexity
+
+Use a Perplexity account with custom remote connectors enabled. An organization administrator may control which connectors you can add.
+
+### Add the remote connector
+
+1. Open **Account Settings > Connectors**.
+2. Add a **Custom connector** and choose **Remote**.
+3. Name it `OpenPost` and enter `https://app.openpo.st/mcp`.
+4. Select OAuth and complete the OpenPost sign-in. Choose read-only access for reviews or full access for changes.
+
+If your connector configuration uses a bearer header instead, create an OpenPost developer token with `mcp:read` or `mcp:full` and enter it in the connector's authentication settings, not in a conversation.
+
+### If it does not connect
+
+Check that your account exposes custom remote connectors and that the connector is enabled for this conversation. Reconnect after an expired authorization. Self-hosted OpenPost must have a publicly reachable HTTPS URL; Perplexity's cloud cannot reach your laptop's `localhost`.
+
+See [Perplexity's remote connector announcement](https://www.perplexity.ai/changelog/what-we-shipped---march-13-2026).
+
+## Verify access
+
+Request an unpublished draft for your first write and inspect it in OpenPost. Check the workspace, accounts, text, media, and time before approving a schedule or publish action. For missing tools, expired credentials, or delivery failures, use [Tasks and troubleshooting](/mcp/mcp-guide/use-cases).

@@ -2,28 +2,5 @@
   "title": "AI assistants",
   "icon": "Bot",
   "root": true,
-  "pages": [
-    "index",
-    "choose-an-agent-connection",
-    "mcp-guide",
-    "skills",
-    "---Chat assistants---",
-    "chatgpt",
-    "claude",
-    "claude-desktop",
-    "grok",
-    "perplexity",
-    "---Editors and agents---",
-    "cursor",
-    "codex",
-    "claude-code",
-    "devin",
-    "gemini-cli",
-    "github-copilot",
-    "vs-code",
-    "antigravity",
-    "opencode",
-    "openclaw",
-    "hermes"
-  ]
+  "pages": ["index", "mcp-guide", "chat-assistants", "coding-assistants", "skills"]
 }

@@ -1,0 +1,319 @@
+---
+title: Coding assistants
+description: Connect your assistant to OpenPost through MCP.
+icon: Terminal
+---
+
+Choose your client below. Use [MCP connection setup](/mcp/mcp-guide) for shared permissions, self-hosted URLs, and the local bridge. After setup, ask the assistant to list your workspaces, then review the schedule for a named workspace without changes.
+
+## Codex
+
+Codex CLI, its IDE extension, and the Codex desktop app share MCP configuration on the same host.
+
+### Add OpenPost
+
+Open **Settings > MCP servers > Add server** in the desktop app, choose **Streamable HTTP**, enter `https://app.openpo.st/mcp`, and save. Or add this entry to `~/.codex/config.toml` for Codex CLI:
+
+```toml
+[mcp_servers.openpost]
+url = "https://app.openpo.st/mcp"
+```
+
+In the desktop app, restart and choose **Authenticate** beside OpenPost. From Codex CLI, run:
+
+```sh
+codex mcp login openpost
+```
+
+Complete browser sign-in and start a new session. Use `codex mcp list` to inspect the connection.
+
+### If it does not connect
+
+Authenticate again if the login expired. Check that the configured URL ends in `/mcp`. For a private self-hosted server, use the [local bridge](/mcp/mcp-guide#connect-a-self-hosted-instance) with `command = "openpost-mcp"` and `args = ["--profile", "local"]` in the configuration. That bridge runs on the same machine as Codex.
+
+See [Codex MCP configuration](https://developers.openai.com/codex/mcp) for client settings.
+
+## Claude Code
+
+Add OpenPost as a remote server in an installed Claude Code. User scope makes it available across your projects.
+
+### Add the server
+
+```sh
+claude mcp add --transport http --scope user openpost https://app.openpo.st/mcp
+```
+
+Start Claude Code, run `/mcp`, select `openpost`, and complete browser sign-in.
+
+### Self-hosted OpenPost
+
+Replace the hosted origin with your server's HTTPS origin and keep `/mcp`. If you prefer the [local bridge](/mcp/mcp-guide#connect-a-self-hosted-instance), install and authenticate it first, then add it instead:
+
+```sh
+claude mcp add --scope user openpost -- openpost-mcp --profile local
+```
+
+Use one connection for `openpost`, not both. If authentication expires, use `/mcp` to reconnect. If the bridge is not found, configure its absolute executable path.
+
+See [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp).
+
+## Cursor
+
+Cursor supports remote Streamable HTTP MCP servers. Add OpenPost to your personal Cursor configuration, then let Cursor complete OAuth in the browser.
+
+### Configure the server
+
+Create or edit `~/.cursor/mcp.json` for all projects, or `.cursor/mcp.json` for one project:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "url": "https://app.openpo.st/mcp"
+    }
+  }
+}
+```
+
+Restart the Agent window, open Cursor's MCP or Customize view, and connect `openpost`. Complete the browser sign-in. For Cursor CLI, run `agent mcp login openpost`, then `agent mcp list-tools openpost`.
+
+### Token fallback
+
+If your version of Cursor does not offer OAuth, keep the token outside the file and use environment interpolation:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "url": "https://app.openpo.st/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:OPENPOST_MCP_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Create a developer token with the smallest OpenPost MCP scope, export `OPENPOST_MCP_TOKEN`, and restart Cursor. Do not commit a real token to a project-level config.
+
+### Test and fix the common failures
+
+Cursor Cloud Agents need a publicly reachable URL. The local bridge works only on a host that can reach OpenPost. Use `/mcp`, not `/api/v1/mcp`.
+
+For current client controls and plan availability, see [Cursor MCP documentation](https://cursor.com/docs/context/mcp).
+
+## VS Code and GitHub Copilot
+
+Use an installed VS Code with Copilot agent chat available. The editor manages the MCP connection and browser sign-in.
+
+### Add the server
+
+Open the Command Palette and run **MCP: Add Server**. Choose **HTTP**, enter `https://app.openpo.st/mcp`, and name the server `openpost`. Choose user configuration to use it across projects, or workspace configuration for this project.
+
+A workspace `.vscode/mcp.json` looks like this:
+
+```json
+{
+  "servers": {
+    "openpost": {
+      "type": "http",
+      "url": "https://app.openpo.st/mcp"
+    }
+  }
+}
+```
+
+The top-level key is `servers`, not `mcpServers`.
+
+### Authorize and test
+
+Start the server from its configuration and complete the OpenPost sign-in. Select read-only access for a first connection. In agent chat, enable the OpenPost tools and ask, "List my OpenPost workspaces."
+
+### If tools are missing
+
+Use **MCP: List Servers** to inspect the server status and output. Check that the current chat has the tools enabled. A new login can resolve an expired authorization.
+
+See [VS Code MCP setup](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
+
+Sign in to GitHub Copilot and enable the OpenPost tools in Copilot Chat agent mode. This configures Copilot in VS Code. GitHub's hosted coding agent has separate MCP configuration and authentication rules.
+
+## Gemini CLI
+
+Add OpenPost to an installed Gemini CLI, then authorize the connection in your browser.
+
+### Configure the server
+
+Merge this entry into `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "httpUrl": "https://app.openpo.st/mcp",
+      "oauth": { "enabled": true }
+    }
+  }
+}
+```
+
+Use `httpUrl` for Streamable HTTP. Gemini's `url` field selects SSE, which is a different transport.
+
+### Sign in and test
+
+Restart Gemini CLI and run:
+
+```text
+/mcp auth openpost
+```
+
+Complete the browser consent.
+
+### If it does not connect
+
+Run `/mcp auth openpost` again for an expired login. The browser callback must reach the machine running Gemini CLI. For a remote shell or private instance, consider the [local bridge](/mcp/mcp-guide#connect-a-self-hosted-instance).
+
+See [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/) for authentication and transport settings.
+
+## Devin
+
+Add OpenPost as a custom server in Devin's MCP marketplace. You need permission to configure integrations for your Devin organization.
+
+### Add OpenPost
+
+1. Open **Settings > MCP Marketplace > Add Your Own**.
+2. Name the server `OpenPost` and select **HTTP** transport.
+3. Enter `https://app.openpo.st/mcp`.
+4. Select **OAuth**, save, and start a Devin session. Complete OpenPost's sign-in when prompted.
+
+### If it does not connect
+
+Cloud Devin must reach your server over public HTTPS. It cannot reach `localhost` on your laptop. Check the server's HTTP transport, connection status, and authorization in the MCP settings.
+
+Devin's own MCP server exposes Devin to other clients. It is a different integration; the URL you enter here must be OpenPost's endpoint.
+
+See [Devin's MCP marketplace guide](https://docs.devin.ai/work-with-devin/mcp).
+
+## Antigravity
+
+Use the local bridge with Antigravity for Hosted or a self-hosted instance your computer can reach.
+
+### Install and authenticate
+
+Follow [the local bridge setup](/mcp/mcp-guide#connect-a-self-hosted-instance) to install `openpost-mcp` and sign in with the `local` profile. Use your Hosted or self-hosted origin during login.
+
+### Add the MCP configuration
+
+Open Antigravity's MCP configuration through **Settings > Customizations > Open MCP Config**, or **MCP Servers > Manage > View raw config** in the IDE. Merge:
+
+```json
+{
+  "mcpServers": {
+    "openpost": {
+      "command": "openpost-mcp",
+      "args": ["--profile", "local"]
+    }
+  }
+}
+```
+
+Use the full path from `command -v openpost-mcp` if needed. Save and refresh the MCP servers or restart the app.
+
+See [Antigravity setup](https://codelabs.developers.google.com/getting-started-google-antigravity) for its configuration controls.
+
+## OpenCode
+
+Add OpenPost as a remote server in OpenCode. OpenCode can open the browser sign-in when it first reaches a server that requires OAuth.
+
+### Configure the server
+
+Merge this entry into your OpenCode configuration, such as `opencode.json`:
+
+```json
+{
+  "mcp": {
+    "openpost": {
+      "type": "remote",
+      "url": "https://app.openpo.st/mcp"
+    }
+  }
+}
+```
+
+The server name belongs directly under `mcp`. OpenCode's current [MCP configuration guide](https://dev.opencode.ai/docs/mcp-servers/) uses this shape for remote servers.
+
+### Authorize and test
+
+```sh
+opencode mcp auth openpost
+opencode mcp list
+```
+
+Complete browser consent and start a session.
+
+### If it does not connect
+
+Use `opencode mcp debug openpost` to investigate authentication. Re-run `opencode mcp auth openpost` if your login expired. Check that the URL ends in `/mcp` and is reachable from the machine running OpenCode.
+
+See [OpenCode MCP configuration](https://dev.opencode.ai/docs/mcp-servers/) for the current schema.
+
+## OpenClaw
+
+Register OpenPost on the machine running OpenClaw. The current CLI uses `mcp set` to save a server definition.
+
+### Add and authorize
+
+```sh
+openclaw mcp set openpost \
+  '{"url":"https://app.openpo.st/mcp","transport":"streamable-http","auth":"oauth"}'
+openclaw mcp login openpost
+```
+
+Complete the printed sign-in instructions, then test the connection:
+
+```sh
+openclaw mcp doctor --probe
+```
+
+Restart the agent or gateway to refresh its tools.
+
+### If it does not connect
+
+If `mcp set` is unavailable, check your installed OpenClaw version against the current CLI guide. Run `openclaw mcp login openpost` again for an expired authorization. For a remote gateway, finish login on the host that stores the gateway's configuration.
+
+A self-hosted URL must be reachable from the OpenClaw host. A gateway running elsewhere cannot use `localhost` to reach your laptop.
+
+See [OpenClaw MCP commands](https://docs.openclaw.ai/cli/mcp).
+
+## Hermes Agent
+
+Configure the Hermes installation that runs your agent. A desktop app, CLI, or messaging gateway must read the same configuration and credentials.
+
+### Configure and sign in
+
+Merge this into `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  openpost:
+    url: "https://app.openpo.st/mcp"
+    auth: oauth
+```
+
+Then authenticate and test:
+
+```sh
+hermes mcp login openpost
+hermes mcp test openpost
+```
+
+Complete browser consent. Restart the session or use `/reload-mcp` to refresh its tools.
+
+### Remote gateways
+
+Authenticate as the operating-system user running the gateway. Otherwise the agent may not find your saved credentials. On SSH or a headless host, follow Hermes' [remote OAuth guide](https://hermes-agent.nousresearch.com/docs/guides/oauth-over-ssh) to complete the browser callback.
+
+See [Hermes MCP configuration](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp).
+
+## Verify access
+
+Request an unpublished draft for your first write and inspect it in OpenPost. Check the workspace, accounts, text, media, and time before approving a schedule or publish action. For missing tools, expired credentials, or delivery failures, use [Tasks and troubleshooting](/mcp/mcp-guide/use-cases).

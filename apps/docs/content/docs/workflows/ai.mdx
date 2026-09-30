@@ -1,0 +1,23 @@
+---
+title: Use AI
+description: Generate text, choose a branch with AI, and inspect recorded usage.
+icon: Workflow
+---
+
+## Write text
+
+The node picker groups content, flow, AI, data, and tool actions. Use **AI text** for any text task. Write a **User message** and, optionally, a **System message** for instructions such as tone or output format. It returns text that later steps can use. The **Write a draft with AI** recipe connects it to OpenPost draft creation and review.
+
+## Choose a branch
+
+**AI decision** uses Jev to evaluate your input against written criteria. It returns a probability from 0 to 1 and takes the Yes path at 0.5 or above. It does not generate a written explanation. Token usage and provider-reported costs are recorded for both AI nodes.
+
+**AI draft** uses the configured AI Builder to create a post. Choose its destinations as described in [review and scheduling](/workflows/review-and-schedule).
+
+## Inspect usage
+
+Open a run and expand an AI step to see its recorded token usage and cost when the provider supplies it. Node tests also count as real AI calls. Preview runs use examples and do not call AI.
+
+There is no workflow dollar spending cap yet. A missing cost is not a promise that a call was free. Start with a small set of inputs and inspect usage before enabling a frequent trigger.
+
+Follow [Share only relevant releases](/workflows/examples/relevant-releases) to test decisions against examples you would accept and reject.

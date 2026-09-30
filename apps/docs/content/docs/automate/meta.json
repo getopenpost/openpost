@@ -1,11 +1,9 @@
 {
   "title": "Automate",
-  "icon": "Workflow",
+  "icon": "Code2",
   "root": true,
   "pages": [
     "index",
-    "workflows",
-    "workflow-examples",
     "---TypeScript SDK---",
     "[Overview](/automate/sdk)",
     "...sdk",

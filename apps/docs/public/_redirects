@@ -64,3 +64,9 @@
 /self-hosting/integrations/bluesky-mastodon /self-hosting/integrations 301
 /self-hosting/integrations/discord-telegram /self-hosting/integrations 301
 /self-hosting/integrations/meta-platforms /self-hosting/integrations 301
+/automate/workflows /workflows 301
+/automate/workflows/ /workflows 301
+/automate/workflows.md /workflows/index.md 301
+/automate/workflow-examples /workflows/examples 301
+/automate/workflow-examples/ /workflows/examples 301
+/automate/workflow-examples.md /workflows/examples/index.md 301

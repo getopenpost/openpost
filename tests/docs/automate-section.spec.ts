@@ -2,8 +2,6 @@ import { expect, test } from "@playwright/test";
 
 const pages = [
   ["/automate", "Automate"],
-  ["/automate/workflows", "Workflows"],
-  ["/automate/workflow-examples", "Workflow examples"],
   ["/automate/sdk", "TypeScript SDK"],
   ["/automate/sdk/setup", "Install and connect"],
   ["/automate/sdk/publications", "Publications and Renditions"],
@@ -78,8 +76,6 @@ for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
 
       for (const route of [
-        "/automate/workflows",
-        "/automate/workflow-examples",
         "/automate/sdk/publications",
         "/automate/api/publications",
         "/automate/api/media",

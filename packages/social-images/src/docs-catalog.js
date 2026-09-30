@@ -181,7 +181,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "automate/index.mdx",
     "title": "Automate",
-    "description": "Run OpenPost from code, a shell, an agent, or a visual workflow.",
+    "description": "Use the SDK, HTTP API, CLI, or n8n to automate OpenPost outside the app.",
     "route": "/automate",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -344,38 +344,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "Install and connect",
     "description": "Configure the OpenPost TypeScript SDK for Hosted or self-hosted OpenPost.",
     "route": "/automate/sdk/setup",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "automate"
-    }
-  },
-  {
-    "page": "automate/workflow-examples.mdx",
-    "title": "Workflow examples",
-    "description": "Set up a feed digest, filter release announcements with AI, or turn an API response into a draft.",
-    "route": "/automate/workflow-examples",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "automate"
-    }
-  },
-  {
-    "page": "automate/workflows.mdx",
-    "title": "Workflows",
-    "description": "Build your first workflow with GitHub or RSS, create drafts for review, and inspect every run in OpenPost.",
-    "route": "/automate/workflows",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -1880,6 +1848,247 @@ export const docsPageCatalog = Object.freeze([
     "agentCorpus": {
       "membership": "included",
       "section": "video-editor"
+    }
+  },
+  {
+    "page": "workflows/ai.mdx",
+    "title": "Use AI",
+    "description": "Generate text, choose a branch with AI, and inspect recorded usage.",
+    "route": "/workflows/ai",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/connections.mdx",
+    "title": "Connections and HTTP requests",
+    "description": "Save credentials, call external APIs, and handle interrupted requests.",
+    "route": "/workflows/connections",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/editor.mdx",
+    "title": "Use the canvas",
+    "description": "Add and configure steps, organize branches, and save workflow changes.",
+    "route": "/workflows/editor",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/examples/api-to-post.mdx",
+    "title": "Turn an API response into a post",
+    "description": "Read an API, format its response, and create a draft for review.",
+    "route": "/workflows/examples/api-to-post",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/examples/feed-digest.mdx",
+    "title": "Prepare a weekly feed digest",
+    "description": "Collect several feed articles into one draft for review.",
+    "route": "/workflows/examples/feed-digest",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/examples/index.mdx",
+    "title": "Workflow examples",
+    "description": "Choose a template walkthrough for feeds, AI filtering, or API updates.",
+    "route": "/workflows/examples",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/examples/relevant-releases.mdx",
+    "title": "Share only relevant releases",
+    "description": "Filter GitHub releases with an AI decision before drafting a post.",
+    "route": "/workflows/examples/relevant-releases",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/first-workflow.mdx",
+    "title": "Build your first workflow",
+    "description": "Create a release announcement that waits for review before publishing.",
+    "route": "/workflows/first-workflow",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/index.mdx",
+    "title": "Workflows",
+    "description": "Turn releases, feed items, and recurring tasks into posts with built-in workflows.",
+    "route": "/workflows",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "workflows"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/reposts.mdx",
+    "title": "Reposts and first comments",
+    "description": "Manage existing repost rules and avoid duplicate follow-up replies.",
+    "route": "/workflows/reposts",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/review-and-schedule.mdx",
+    "title": "Review and schedule posts",
+    "description": "Choose destinations, review the current post revision, and schedule approved content.",
+    "route": "/workflows/review-and-schedule",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/runs.mdx",
+    "title": "Manage runs",
+    "description": "Inspect results, resolve failures, and pause or cancel workflow work.",
+    "route": "/workflows/runs",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/testing.mdx",
+    "title": "Preview and test",
+    "description": "Understand what previews, node tests, and live runs actually do.",
+    "route": "/workflows/testing",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/triggers.mdx",
+    "title": "Choose a trigger",
+    "description": "Start workflows from releases, feed items, intervals, or OpenPost publishing events.",
+    "route": "/workflows/triggers",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
+    "page": "workflows/variables.mdx",
+    "title": "Pass data between steps",
+    "description": "Insert variables, inspect inputs and outputs, and transform workflow data.",
+    "route": "/workflows/variables",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
     }
   }
 ]);

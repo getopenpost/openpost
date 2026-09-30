@@ -1,0 +1,24 @@
+---
+title: Turn an API response into a post
+description: Read an API, format its response, and create a draft for review.
+icon: Workflow
+---
+
+Open **More → Workflows → Start from a template**. Use **Turn an API response into a post** for updates from a service without a dedicated node.
+
+1. If the API needs authentication, save its credential in **Connections**, restricted to the API's exact HTTPS host.
+2. Open **HTTP request**, enter the URL, and select that connection. Start with a read-only `GET`. You can also import a cURL command, then review the parsed method, URL, headers, and body.
+3. Select **Test node** to inspect the real response. Choose **JSON** or **Table** to find the fields you need.
+4. Open **JavaScript** to format the selected response data. The supplied script only formats the JSON; it does not write finished social copy for you. Keep its output connected to **Create draft → Post text**.
+5. Choose destination accounts in **Create draft**, and keep **Review post** afterward.
+6. Run a preview. This template starts manually; **Run live** creates the draft. Change the trigger to an interval if you want recurring checks.
+
+JavaScript receives `input` and returns a JSON value. For an API response such as `{"title":"New reporting view","url":"https://example.com/updates/reporting"}`, this creates a short announcement:
+
+```js
+return `${input.title}\n\n${input.url}`;
+```
+
+HTTP node tests send real requests. Do not test a write method unless you intend its effect. Keep secrets in Connections, and inspect an interrupted request's remote outcome before trying again.
+
+Continue with [Review and schedule posts](/workflows/review-and-schedule).

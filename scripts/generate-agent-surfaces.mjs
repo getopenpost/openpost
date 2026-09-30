@@ -201,11 +201,8 @@ const documentationDiscoverySections = [
   ["user-guide", "User guide", "Create, schedule, publish, and review work in the OpenPost app."],
   ["video-editor", "Video Editor", "Create, edit, export, and publish video."],
   ["image-editor", "Image Editor", "Create, edit, export, and publish images and carousels."],
-  [
-    "automate",
-    "Automate",
-    "Build native workflows or use the SDK, HTTP API, CLI, or n8n with OpenPost.",
-  ],
+  ["workflows", "Workflows", "Build, test, and manage built-in content workflows."],
+  ["automate", "Automate", "Use the SDK, HTTP API, CLI, or n8n with OpenPost."],
   ["mcp", "AI assistants", "Connect an AI assistant to your OpenPost workspace."],
   ["self-hosting", "Self-hosting", "Run and maintain the complete OpenPost service."],
   ["api", "API", "Read the API guide and follow its authoritative OpenAPI JSON contract."],

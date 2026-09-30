@@ -1749,6 +1749,7 @@ test(
       ["user-guide", "User guide"],
       ["video-editor", "Video Editor"],
       ["image-editor", "Image Editor"],
+      ["workflows", "Workflows"],
       ["automate", "Automate"],
       ["mcp", "AI assistants"],
       ["self-hosting", "Self-hosting"],

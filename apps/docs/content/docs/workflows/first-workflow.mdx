@@ -1,0 +1,42 @@
+---
+title: Build your first workflow
+description: Create a release announcement that waits for review before publishing.
+icon: Workflow
+---
+
+import { SetupScreenshot } from "@/components/setup-screenshot";
+
+Use **Announce a GitHub release** to prepare a draft when your product ships. This template stops at review so you can check the post before scheduling it.
+
+## Before you start
+
+Connect the destination accounts in your workspace. You need administrator access to activate the workflow. Public GitHub repositories need no credentials; private repositories need a [saved GitHub connection](/workflows/connections).
+
+<SetupScreenshot
+  src="/docs/assets/screenshots/workflows-light.webp"
+  darkSrc="/docs/assets/screenshots/workflows-dark.webp"
+  alt="A GitHub release branches on breaking changes into AI-written announcements or short updates, each with a draft and review step"
+  width={1440}
+  height={960}
+  caption="A release follows one of two writing paths, creates a draft, and waits for your review. This example does not publish the post."
+/>
+
+## Configure the template
+
+1. Select **Start from a template**, then **Use template** under **Announce a GitHub release**.
+2. Open the trigger marked **Needs attention** and enter your GitHub repository as `owner/repository`.
+3. Select **Create draft** on the canvas.
+4. Write the post and use **Insert variable** to include the release title, notes, or link. Select the destination accounts. Check both the provider and account name, especially when you use the same handle on several networks.
+5. Keep **Review post** after the draft so each announcement waits for a decision.
+6. Close the node, open **Test data**, and use the supplied example or **Fetch an example**. Select **Run preview**, then inspect the inputs and outputs.
+7. Resolve any **Needs attention** warnings and select **Publish workflow** to start watching for future releases.
+
+**Publish workflow** activates the automation. It does not publish a social post. This template creates a draft and waits for review; it has no scheduling step. To publish the approved draft, open it in Publications and schedule it yourself, or [add a scheduling step](/workflows/review-and-schedule).
+
+Public GitHub repositories need no connection. For a private repository, a workspace administrator can save a GitHub access token on the **Connections** page. Give the token access to the intended repository and permission to read its contents. OpenPost stores it encrypted and does not include it in run data.
+
+## Check the first result
+
+After a new release appears, open **Runs** and inspect the draft. Open the post to check its text and destinations, then return to the run to review it. See [review and scheduling](/workflows/review-and-schedule) for the next step.
+
+Existing releases do not start runs at activation. Read [trigger timing](/workflows/triggers) if you are waiting for an announcement.

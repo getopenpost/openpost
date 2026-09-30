@@ -1,0 +1,36 @@
+---
+title: Preview and test
+description: Understand what previews, node tests, and live runs actually do.
+icon: Workflow
+---
+
+Start with **Run preview** to check fields and branches. Fetch real source data or test a single node when you need to verify an integration.
+
+## Choose the right test
+
+| Action           | Uses real services?              | Runs later steps?                             |
+| ---------------- | -------------------------------- | --------------------------------------------- |
+| Run preview      | No, outputs are examples         | Yes, with simulated actions and skipped waits |
+| Fetch an example | Reads the selected source        | No                                            |
+| Test node        | Yes for HTTP, feed, and AI nodes | No                                            |
+| Run live         | Yes                              | Yes, including configured writes and waits    |
+
+## Preview the path
+
+**Run preview** resolves your fields and conditions using example outputs for native actions. It creates no posts, invokes no AI generation, queues no replies, and skips waits and approvals. Metric values, HTTP responses, and AI decisions in a preview are examples.
+
+## Test one node
+
+**Test node** makes a real call for the selected HTTP, feed, or AI node, or executes a data transformation. Later steps do not run. It uses the data shown in the inspector and records the result in run history. HTTP writes can change the remote service, and AI calls record usage. Node tests require a workspace administrator.
+
+Reading source examples is a real read from the selected source. It does not start a run or change which future items will be admitted.
+
+## Start a live run
+
+**Run live** performs the saved draft's configured actions using the sample input currently shown. Use it only when you intend those actions to occur. It can create posts or queue work even while automatic runs are paused.
+
+## Activate automatic runs
+
+Resolve **Needs attention** warnings, confirm the selected accounts, then choose **Publish workflow**. This activates the saved definition for future trigger events. It does not publish a social post by itself.
+
+Use [Manage runs](/workflows/runs) to inspect the result and [Review and schedule posts](/workflows/review-and-schedule) when the run reaches approval.

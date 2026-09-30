@@ -2,6 +2,7 @@ export const documentationSections = [
   { id: "guides", label: "Guides", href: "/" },
   { id: "self-hosting", label: "Self-hosting", href: "/self-hosting" },
   { id: "mcp", label: "AI assistants", href: "/mcp" },
+  { id: "workflows", label: "Workflows", href: "/workflows" },
   { id: "automate", label: "Automate", href: "/automate" },
   { id: "video-editor", label: "Video Editor", href: "/video-editor" },
   { id: "image-editor", label: "Image Editor", href: "/image-editor" },

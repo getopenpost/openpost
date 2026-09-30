@@ -26,7 +26,7 @@
 			title: 'Auto repost',
 			icon: '/assets/brand/features/repost.svg',
 			text: 'Give a post another turn. Manage repost rules in Workflows, with delays, engagement gates, and overrides for individual posts.',
-			href: 'https://openpo.st/docs/automate/workflows#existing-reposts-and-first-comments',
+			href: 'https://openpo.st/docs/workflows/reposts',
 			link: 'Set repost rules'
 		},
 		{
@@ -221,7 +221,7 @@
 				Build a workflow from a GitHub release, an RSS feed, or a schedule. Turn updates into
 				drafts, add AI or conditions, and keep a review step before scheduling.
 			</p>
-			<a class="focus-ring" href="https://openpo.st/docs/automate/workflows" data-sveltekit-reload
+			<a class="focus-ring" href="https://openpo.st/docs/workflows" data-sveltekit-reload
 				>Build your first workflow <ArrowUpRight size={17} /></a
 			>
 		</div>

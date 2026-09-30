@@ -40,7 +40,10 @@ function pageTitle(page, source) {
 function pageSource(source) {
   const match = source.match(/^---\n([\s\S]*?)\n---\n?/u);
   if (!match) return { data: {}, body: source };
-  return { data: parseYaml(match[1]) ?? {}, body: source.slice(match[0].length) };
+  return {
+    data: parseYaml(match[1]) ?? {},
+    body: source.slice(match[0].length),
+  };
 }
 
 function plainText(value) {
@@ -111,6 +114,7 @@ const discoveryEntrypoints = new Map([
   ["video-editor/index.mdx", "video-editor"],
   ["image-editor/index.mdx", "image-editor"],
   ["automate/index.mdx", "automate"],
+  ["workflows/index.mdx", "workflows"],
   ["self-hosting/index.mdx", "self-hosting"],
   ["api-reference/index.mdx", "api"],
   ["mcp/index.mdx", "mcp"],
@@ -127,7 +131,11 @@ function corpusSection(page) {
   if (page.startsWith("api-reference/")) return "api";
   const topLevel = page.split("/", 1)[0];
   if (topLevel === "reference") return "api";
-  if (["video-editor", "image-editor", "automate", "self-hosting", "mcp"].includes(topLevel)) {
+  if (
+    ["video-editor", "image-editor", "workflows", "automate", "self-hosting", "mcp"].includes(
+      topLevel,
+    )
+  ) {
     return topLevel;
   }
   throw new Error(`${page}: documentation page needs a corpus section`);

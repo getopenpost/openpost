@@ -76,10 +76,9 @@ const navigationRegistry: readonly MarketingNavigationItem[] = [
 	},
 	{
 		label: 'Workflows',
-		href: 'https://openpo.st/docs/automate/workflows',
-		group: 'Learn',
+		href: 'https://openpo.st/docs/workflows',
 		footerGroup: 'Product',
-		surfaces: ['resources', 'footer']
+		surfaces: ['footer']
 	},
 	{
 		label: 'Video editor',

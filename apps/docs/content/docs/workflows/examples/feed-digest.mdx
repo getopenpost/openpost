@@ -1,0 +1,19 @@
+---
+title: Prepare a weekly feed digest
+description: Collect several feed articles into one draft for review.
+icon: Workflow
+---
+
+Open **More → Workflows → Start from a template**. Use **Turn feed articles into a digest** to collect several articles into one post.
+
+1. Open the interval trigger. The template runs every seven days; change the interval if needed. It is an interval from activation, not a particular weekday and clock time.
+2. Open **Read RSS feed** and enter the public HTTPS URL of the RSS or Atom feed.
+3. Open **Limit items** and choose how many items to keep. The template keeps five in the feed's returned order.
+4. Open **JavaScript**. The supplied code joins each item's title and link into a digest. Leave it as supplied for your first run.
+5. Open **Create draft** and choose the destination accounts. Its post text comes from the JavaScript step.
+6. Test the feed node to inspect real items, then run a preview of the workflow. Confirm the links and length suit your selected channels.
+7. Publish the workflow. Open **Runs** when a draft is waiting for review.
+
+This template reads the feed's current items on each run. It does not remember which articles appeared in a previous digest. Use the RSS trigger template if you want one draft per new item.
+
+Continue with [Review and schedule posts](/workflows/review-and-schedule).

@@ -1,0 +1,25 @@
+---
+title: Connections and HTTP requests
+description: Save credentials, call external APIs, and handle interrupted requests.
+icon: Workflow
+---
+
+## Save a connection
+
+Open **Connections** from the Workflows library to add or replace credentials. GitHub tokens, Bearer tokens, API key headers, and Basic authentication are supported. Secret values are encrypted and are never shown again after saving.
+
+## Configure an HTTP request
+
+Custom credentials are restricted to the exact HTTPS host you choose. Select the saved connection in an HTTP node. Configure the method, query parameters, headers, body, timeout, and response format, or import a cURL request. Unsupported flags, shell commands, and local file reads are rejected. Put authentication in Connections rather than the cURL command or raw headers.
+
+Requests reject private-network destinations, have a maximum 30-second timeout, and retain up to 256 KiB of response data. An interrupted external request stops for inspection rather than being sent again automatically. Verify its remote outcome before starting another run.
+
+## Private GitHub repositories
+
+Save a GitHub access token with access to the intended repository and permission to read its contents. Select it on the GitHub trigger. Public repositories need no connection.
+
+## Replace or remove credentials
+
+Replace a credential through **Connections**. To delete a connection, remove it from workflow drafts and pause active revisions that use it first.
+
+Follow [Turn an API response into a post](/workflows/examples/api-to-post) for a complete setup.

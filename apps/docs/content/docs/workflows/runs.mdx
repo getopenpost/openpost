@@ -1,0 +1,34 @@
+---
+title: Manage runs
+description: Inspect results, resolve failures, and pause or cancel workflow work.
+icon: Workflow
+---
+
+Run details show each step's input, output, result, and failure. Drafts, scheduled posts, and provider outcomes remain visible in **Publications**.
+
+## Pause, cancel, or delete
+
+**Pause new runs** stops automatic admission. Existing runs continue. **Cancel remaining steps** stops the rest of one run; an action already accepted may finish. It does not delete a draft or cancel a publication already queued. Manage that post in Publications when needed.
+
+Delete a workflow only after pausing it and finishing or cancelling its active runs. Deletion removes its run history; created posts remain. Remove a connection from workflow drafts and pause active revisions using it before deleting the connection.
+
+## Permissions
+
+Workspace viewers can inspect workflows. Editors can configure and preview them. Administrators can publish workflows, start live runs, approve posts, cancel runs, and manage connections. Execution rechecks the activating user's access.
+
+## Execution limits
+
+A workflow supports up to 40 steps and four branch levels. A workspace supports 100 workflows and 1,000 active runs. Runs expire after 30 days. The run list shows the latest 50 runs. These are execution limits, separate from plan limits and provider capabilities.
+
+## When a run needs attention
+
+| What you see                           | What to do                                                                                                                                                                         |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Needs attention** on a node          | Open it, fill the marked fields, and fix missing variables. Fetch an example if you need to inspect the source shape.                                                              |
+| No automatic runs after activation     | Wait for a new source item. Items already present at activation are the starting point, not a backlog. Check that the workflow is active and the repository or feed is accessible. |
+| A run waiting for review               | Open **Runs**, inspect the post, and approve its current revision. A preview does not wait for approval.                                                                           |
+| A stale post revision                  | Open the post, review the latest changes, and return to the run. Do not schedule using an old revision.                                                                            |
+| An HTTP call with an uncertain outcome | Check the remote service before starting another run. The request might have succeeded even if its response was interrupted.                                                       |
+| A failed or disconnected destination   | Inspect the post in Publications and reconnect the account if needed. A successful workflow step does not prove every destination published.                                       |
+
+Changing a workflow fixes its draft, not a run that already started. Publish the updated draft for future automatic runs. Before starting another live run, check whether the failed run already created a post or sent a request.

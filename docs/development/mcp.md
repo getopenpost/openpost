@@ -225,7 +225,7 @@ boundary.
 - `upload_media_from_url`: fetches a public HTTP(S) media URL and stores it through the configured media pipeline.
 - `upload_media_base64`: uploads local file bytes for clients without a file picker. Requires workspace editor access and `mcp:full`. Pass `workspace_id`, `filename`, and `content_base64`; optional fields are `mime_type` and `alt_text`. Standard base64 and `data:<mime-type>;base64,` URLs are accepted. Files are limited to 8 MiB decoded; the MCP JSON request limit is 12 MiB. Larger files use the local file picker or `upload_media_from_url`. Repeated bytes deduplicate within the workspace; this operation does not accept an idempotency key. Validation, quota, deduplication, processing, and usage accounting belong to the shared MediaHandler.
 
-  Public URL verification runs during upload and explicit validation. `list_media` returns stored state without network checks.
+  Public URL verification runs during upload and explicit validation. Failed checks expire after one minute. `list_media` returns stored state without network checks, and failures retain their HTTP status and error until a new check replaces them.
 
 - `render_local_media_upload`: opens the MCP Apps local file picker. The widget
   receives a one-use, ten-minute ticket bound to the workspace and authenticated

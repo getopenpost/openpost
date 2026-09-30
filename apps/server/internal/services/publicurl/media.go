@@ -15,7 +15,7 @@ import (
 
 const (
 	mediaURLLifetime       = 15 * time.Minute
-	failedMediaCheckMaxAge = 15 * time.Minute
+	failedMediaCheckMaxAge = time.Minute
 	readyMediaCheckMaxAge  = 24 * time.Hour
 	legacyMediaURLError    = "public media URL must use HTTPS"
 )

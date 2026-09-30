@@ -57,3 +57,19 @@ func TestRefreshPublicMediaStateRepairsLegacyRelativeURLFailure(t *testing.T) {
 	require.Equal(t, 200, persisted.PublicURLStatus)
 	require.Empty(t, persisted.PublicURLError)
 }
+
+func TestRefreshPublicMediaStateRecoversRecentFailure(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.MediaAttachment)(nil))
+	media := models.MediaAttachment{ID: "recent-failure", WorkspaceID: "ws-1", MimeType: "image/png", PublicURLStatus: 404, PublicURLError: "public media URL returned 404", PublicURLCheckedAt: time.Now().UTC().Add(-2 * time.Minute)}
+	_, err := db.NewInsert().Model(&media).Exec(t.Context())
+	require.NoError(t, err)
+	fixed := &fixedPublicMediaVerifier{result: publicurl.Result{Ready: true, StatusCode: 200, CheckedAt: time.Now().UTC()}}
+	verifier := publicurl.NewMediaVerifier("https://app.openpost.test/media", nil, nil)
+	verifier.SetVerifier(fixed)
+	require.NoError(t, refreshPublicMediaState(t.Context(), db, verifier, &media))
+	var persisted models.MediaAttachment
+	require.NoError(t, db.NewSelect().Model(&persisted).Where("id = ?", media.ID).Scan(t.Context()))
+	require.True(t, persisted.PublicURLReady)
+	require.Equal(t, 200, persisted.PublicURLStatus)
+	require.Empty(t, persisted.PublicURLError)
+}

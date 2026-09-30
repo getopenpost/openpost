@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.6.2] - 2026-09-30
+
+### Fixed
+
+- Bluesky hashtags are detected the way Bluesky detects them: tags in any script (`#café`, `#日本語`, `#São_Paulo`) are linked whole instead of being cut at the first non-ASCII letter or skipped, a tag must follow a space, number-only tags stay plain text, and a tag longer than 64 characters is left unlinked instead of producing a facet the post record does not allow.
+- Bluesky link facets cover the whole URL: links with commas, semicolons or `!` (map coordinates, Wikipedia titles such as `Washington,_D.C.`) are no longer cut at that character, and links on top-level domains longer than six letters (`.digital`, `.network`, `.software`) are linked instead of left as plain text.
+- Bluesky direct messages no longer bring in empty messages: entries that `chat.bsky.convo.getMessages` returns for a message the account deleted for itself (`deletedMessageView`) or for a group event such as a member joining (`systemMessageView`) are skipped instead of being stored as blank inbound messages that raise the unread count and send a new-message notification.
+- Prevent an older open composer from silently overwriting a newer draft and deleting its thread replies. Saves now use the revision of the content shown in the editor, so concurrent changes open the existing conflict dialog.
+- Preserve revision-conflict details in publication API responses so the composer can offer reload, save-as-copy, and overwrite recovery.
+- Mastodon posts are measured the way Mastodon measures them: every HTTP(S) link counts as 23 characters and a remote mention such as `@alice@example.social` counts as `@alice`, in publishing validation and in the composer counter. A post with a long link no longer shows as over the 500-character limit while Mastodon would accept it.
+- TikTok file uploads larger than 64 MiB follow TikTok's chunk rules: `total_chunk_count` is `video_size / chunk_size` rounded down and the final chunk carries the trailing bytes, instead of an extra small chunk of leftover bytes that the declared count does not allow.
+
 ## [7.6.1] - 2026-09-30
 
 ### Security

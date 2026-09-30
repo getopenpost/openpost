@@ -16,7 +16,12 @@ Authorization: Bearer <jwt-or-api-token>
 ```
 
 OpenPost accepts MCP `ping` requests and Streamable HTTP JSON-RPC
-notifications. Notification POSTs such as `notifications/initialized` return
+notifications. Successful tool calls retain their human summary and append the
+serialized `structuredContent` as a JSON text block for text-only clients, as
+recommended by the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#structured-content).
+Private `_meta` values, including upload credentials, never enter that text.
+
+Notification POSTs such as `notifications/initialized` return
 HTTP `202 Accepted` with no response body.
 
 ChatGPT Apps-compatible clients can also discover and load the scheduler and
@@ -217,14 +222,18 @@ boundary.
 - `hide_comment`: hides a supported provider comment.
 - `delete_comment`: permanently deletes a supported provider comment. Repeat the call with `confirm=true` to proceed.
 - `suggest_next_slot`: returns the next free configured posting slot for a workspace.
-- `upload_media_from_url`: fetches a public HTTP(S) media URL and stores it in a workspace.
+- `upload_media_from_url`: fetches a public HTTP(S) media URL and stores it through the configured media pipeline.
+- `upload_media_base64`: uploads local file bytes for clients without a file picker. Requires workspace editor access and `mcp:full`. Pass `workspace_id`, `filename`, and `content_base64`; optional fields are `mime_type` and `alt_text`. Standard base64 and `data:<mime-type>;base64,` URLs are accepted. Files are limited to 8 MiB decoded; the MCP JSON request limit is 12 MiB. Larger files use the local file picker or `upload_media_from_url`. Repeated bytes deduplicate within the workspace; this operation does not accept an idempotency key. Validation, quota, deduplication, processing, and usage accounting belong to the shared MediaHandler.
+
+  Public URL verification runs during upload and explicit validation. `list_media` returns stored state without network checks.
+
 - `render_local_media_upload`: opens the MCP Apps local file picker. The widget
   receives a one-use, ten-minute ticket bound to the workspace and authenticated
   actor. OpenPost consumes the ticket before reading the body, sanitizes the
   filename, and streams the file through the normal validation, quota, storage,
   deduplication, analysis, and usage pipeline.
 
-Every execute-mode mutation accepts an optional `idempotency_key` routed into
+Operations whose schemas include `idempotency_key` route it into
 the existing REST idempotency path (`mutationIdempotencyRequest` plus
 `idempotency.Execute` and the idempotent application methods), so a retried
 call replays the stored result instead of running the mutation again.

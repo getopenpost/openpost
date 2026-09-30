@@ -20,7 +20,7 @@ A compatible MCP Apps client can open the file picker through `render_local_medi
 
 The file travels from the app to OpenPost. Its bytes and upload credential do not enter the model's conversation context. The one-use upload ticket expires after ten minutes and is bound to the authenticated actor and selected workspace.
 
-The local picker works only in clients that support MCP Apps UI and app-only tool calls. If the client does not support it, upload the file in OpenPost first and ask the assistant to use the resulting media item.
+The local picker works only in clients that support MCP Apps UI and app-only tool calls. If your client can read local files but cannot show the picker, it can use `upload_media_base64` with `mcp:full` and workspace editor access. Pass `workspace_id`, `filename`, and `content_base64`; `mime_type` and `alt_text` are optional. Use standard base64 or a `data:<mime-type>;base64,` URL. The file must be 8 MiB or smaller, and the complete MCP request must fit within 12 MiB. This path sends the encoded file through the assistant's tool arguments. OpenPost applies the same validation, quota, storage, deduplication, and analysis checks. For larger files, upload in OpenPost first and ask the assistant to reuse the media item.
 
 ## Check the result
 

@@ -257,6 +257,15 @@ func TestMCPLocalMediaUploadTicketIsHiddenAndOneUse(t *testing.T) {
 	require.Equal(t, "https://app.openpost.test/mcp/media-upload", ticketResult.Result.Meta.Upload.URL)
 	authorization := ticketResult.Result.Meta.Upload.Headers["Authorization"]
 	require.True(t, strings.HasPrefix(authorization, "Upload "))
+	var publicResult struct {
+		Result struct {
+			Content    json.RawMessage `json:"content"`
+			Structured json.RawMessage `json:"structuredContent"`
+		} `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &publicResult))
+	require.NotContains(t, string(publicResult.Result.Content), authorization)
+	require.NotContains(t, string(publicResult.Result.Structured), authorization)
 
 	var stored models.MCPMediaUploadTicket
 	require.NoError(t, srv.db.NewSelect().Model(&stored).Scan(t.Context()))

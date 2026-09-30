@@ -90,7 +90,7 @@ const (
 	mcpScopeRead          = apitokens.ScopeMCPRead
 	mcpScopeFull          = apitokens.ScopeMCP
 	maxRemoteMediaBytes   = 50 * 1024 * 1024
-	maxMCPRequestBytes    = 2 * 1024 * 1024
+	maxMCPRequestBytes    = 12 * 1024 * 1024
 	mcpAppWidgetURI       = "ui://widget/openpost-scheduler-v1.html"
 	mcpUploadWidgetURI    = "ui://widget/openpost-local-upload-v1.html"
 	mcpAppWidgetMimeType  = "text/html;profile=mcp-app"
@@ -1219,7 +1219,7 @@ Workflow:
 1. Call search_operations to load the schemas for list_workspaces, list_provider_catalog, list_accounts, list_media, upload_media_from_url, and create_post as needed.
 2. If workspace_id is missing, call query_operation with list_workspaces and ask which workspace to use.
 3. Call query_operation with list_provider_catalog and list_accounts to choose available destinations matching these platform hints: %s.
-4. Call query_operation with list_media if the idea needs existing media, or call execute_operation with upload_media_from_url if the user supplied a public media URL.
+4. Call query_operation with list_media if the idea needs existing media, or call execute_operation with upload_media_from_url for a public media URL or upload_media_base64 for a local file up to 8 MiB when the client cannot show a file picker.
 5. Call execute_operation with create_post to create one concise draft and relevant media_ids. Do not schedule it until the user approves timing and destinations.
 6. Explain what you created and suggest the next scheduling step.
 
@@ -1380,6 +1380,7 @@ func mcpOperationCatalog() []mcpOperationDefinition {
 		mcpDeleteCommentTool(),
 		mcpSuggestNextSlotTool(),
 		mcpUploadMediaFromURLTool(),
+		mcpUploadMediaBase64Tool(),
 		mcpPostMetricsTool(),
 		mcpDashboardLinkTool(),
 		mcpSearchDocsTool(),
@@ -1736,7 +1737,7 @@ func mcpCreatePublicationTool() mcpOperationDefinition {
 	mediaSchema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"media_id":               map[string]any{"type": "string", "description": "Media attachment ID returned by list_media or upload_media_from_url."},
+			"media_id":               map[string]any{"type": "string", "description": "Media attachment ID returned by list_media, upload_media_from_url, or upload_media_base64."},
 			"role":                   map[string]any{"type": "string", "description": "Media role such as attachment, cover, or thumbnail."},
 			"alt_text":               map[string]any{"type": "string", "description": "Alt text override."},
 			"thumbnail_timestamp_ms": map[string]any{"type": "integer", "description": "Video thumbnail timestamp in milliseconds."},
@@ -1936,7 +1937,7 @@ func mcpReplyToRenditionTool() mcpOperationDefinition {
 func mcpPublicationMediaSchema() map[string]any {
 	return map[string]any{
 		"type": "object", "properties": map[string]any{
-			"media_id": map[string]any{"type": "string", "description": "Media attachment ID returned by list_media or upload_media_from_url."},
+			"media_id": map[string]any{"type": "string", "description": "Media attachment ID returned by list_media, upload_media_from_url, or upload_media_base64."},
 			"role": map[string]any{
 				"type": "string", "enum": []string{"attachment", "cover", "thumbnail"},
 				"description": "Media purpose within the provider output.",
@@ -2572,6 +2573,7 @@ var mcpToolStatuses = map[string]mcpToolStatus{
 	mcpToolDeleteComment:  {Invoking: "Queueing comment deletion", Invoked: "Comment deletion queued"},
 	mcpToolSuggestSlot:    {Invoking: "Finding next slot", Invoked: "Next slot found"},
 	mcpToolUploadURL:      {Invoking: "Uploading media", Invoked: "Media uploaded"},
+	mcpToolUploadBase64:   {Invoking: "Uploading media", Invoked: "Media uploaded"},
 	mcpToolPostMetrics:    {Invoking: "Loading post metrics", Invoked: "Post metrics loaded"},
 	mcpToolDashboardLink:  {Invoking: "Building dashboard link", Invoked: "Dashboard link ready"},
 	mcpToolSearchDocs:     {Invoking: "Searching docs", Invoked: "Docs found"},
@@ -2653,7 +2655,7 @@ func mcpToolOutputSchema(toolName string) map[string]any {
 		return mcpStructuredOutputSchema(map[string]any{
 			"suggestion": mcpOpenObjectSchema(),
 		}, "suggestion")
-	case mcpToolUploadURL:
+	case mcpToolUploadURL, mcpToolUploadBase64:
 		return mcpStructuredOutputSchema(map[string]any{
 			"media": mcpOpenObjectSchema(),
 		}, "media")
@@ -3004,6 +3006,9 @@ func (h *MCPHandler) callTool(ctx context.Context, principal *middleware.Princip
 	result, auditToolName, auditArgs, rpcErr := h.executeMCPTool(ctx, principal.UserID, principal.Scope, canonicalName, params.Arguments)
 	if rpcErr == nil {
 		rpcErr = validateMCPResult(canonicalName, auditToolName, result)
+		if rpcErr == nil {
+			result, rpcErr = mcpStructuredJSONText(result)
+		}
 	}
 	h.recordToolCall(ctx, principal, auditToolName, workspaceIDFromMCPArguments(auditArgs), time.Since(start), rpcErr)
 	return result, rpcErr
@@ -3259,7 +3264,7 @@ func (h *MCPHandler) callMCPOperation(ctx context.Context, userID, operation str
 	case mcpToolCreatePub, mcpToolListPubs, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolReplyRendition,
 		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolDeletePub,
 		mcpToolRetryFailed, mcpToolRetryOne, mcpToolPubEvents, mcpToolComments,
-		mcpToolReplyComment, mcpToolHideComment, mcpToolDeleteComment, mcpToolSuggestSlot, mcpToolUploadURL,
+		mcpToolReplyComment, mcpToolHideComment, mcpToolDeleteComment, mcpToolSuggestSlot, mcpToolUploadURL, mcpToolUploadBase64,
 		mcpToolGetMedia, mcpToolUpdateMedia, mcpToolDeleteMedia:
 		return h.callWorkspaceActionTool(ctx, userID, operation, args)
 	default:
@@ -3281,6 +3286,8 @@ func (h *MCPHandler) callWorkspaceActionTool(ctx context.Context, userID, toolNa
 		return h.suggestNextSlot(ctx, userID, args)
 	case mcpToolUploadURL:
 		return h.uploadMediaFromURL(ctx, userID, args)
+	case mcpToolUploadBase64:
+		return h.uploadMediaBase64(ctx, userID, args)
 	default:
 		return nil, &mcpError{Code: -32602, Message: "unknown tool"}
 	}
@@ -5742,6 +5749,7 @@ func (h *MCPHandler) uploadMediaFromURL(ctx context.Context, userID string, args
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid upload_media_from_url arguments"}
 	}
+	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
 	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, input.WorkspaceID); rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -5813,34 +5821,12 @@ func (h *MCPHandler) fetchAndStoreRemoteMedia(ctx context.Context, workspaceID, 
 	if rpcErr != nil {
 		return mcpMedia{}, rpcErr
 	}
-	mediaHandler := &MediaHandler{
-		db:      h.db,
-		storage: h.mediaStorage,
-		quota:   h.entitlement,
-		usage:   h.usage,
-	}
-	result, err := mediaHandler.processUploadBytes(ctx, mediaUploadBytesInput{
-		WorkspaceID:      workspaceID,
-		Filename:         filename,
-		DeclaredMimeType: declaredMimeType,
-		Size:             int64(len(content)),
-		Content:          content,
-		AltText:          altText,
+	media, rpcErr := h.storeMCPMediaBytes(ctx, mediaUploadBytesInput{
+		WorkspaceID: workspaceID, Filename: filename, DeclaredMimeType: declaredMimeType,
+		Size: int64(len(content)), Content: content, AltText: altText,
 	})
-	if err != nil {
-		return mcpMedia{}, &mcpError{Code: -32602, Message: err.Error()}
-	}
-
-	return mcpMedia{
-		ID:        stringFromMap(result, "id"),
-		MimeType:  stringFromMap(result, "mime_type"),
-		URL:       stringFromMap(result, "url"),
-		Size:      int64FromMap(result, "size"),
-		Deduped:   boolFromMap(result, "deduped"),
-		Filename:  filename,
-		AltText:   altText,
-		SourceURL: remote.String(),
-	}, nil
+	media.SourceURL = remote.String()
+	return media, rpcErr
 }
 
 func (h *MCPHandler) renderLocalMediaUpload(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
@@ -6147,19 +6133,6 @@ func boolFromMap(values map[string]interface{}, key string) bool {
 		return value
 	}
 	return false
-}
-
-func int64FromMap(values map[string]interface{}, key string) int64 {
-	switch value := values[key].(type) {
-	case int64:
-		return value
-	case int:
-		return int64(value)
-	case float64:
-		return int64(value)
-	default:
-		return 0
-	}
 }
 
 func newUUID() string {

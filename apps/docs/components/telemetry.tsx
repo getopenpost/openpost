@@ -1,6 +1,6 @@
 "use client";
-import { ChevronRight } from "lucide-react";
-import { useEffect, useSyncExternalStore } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import {
   captureTelemetryPageView,
@@ -9,7 +9,9 @@ import {
   installGlobalErrorCapture,
   setTelemetryPreference,
   subscribeTelemetryPreference,
-  type TelemetryPreference,
+  telemetryConsentCopy,
+  telemetryPreferencesEvent,
+  openTelemetryPreferences,
 } from "@openpost/telemetry";
 
 export function Telemetry() {
@@ -33,40 +35,95 @@ export function Telemetry() {
   useEffect(() => {
     captureTelemetryPageView(pathname);
   }, [pathname]);
-  return null;
+  return <CookieBanner />;
 }
 
-export function AnalyticsChoices() {
+function CookieBanner() {
   const preference = useSyncExternalStore(
     subscribeTelemetryPreference,
     getTelemetryPreference,
-    () => "undecided",
+    () => "unavailable",
   );
-  const choices: { value: TelemetryPreference; label: string }[] = [
-    { value: "cookieless", label: "Without cookies" },
-    { value: "persistent", label: "With cookies" },
-    { value: "off", label: "Off" },
-  ];
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const banner = useRef<HTMLElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const open = () => {
+      returnFocus.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setPreferencesOpen(true);
+    };
+    window.addEventListener(telemetryPreferencesEvent, open);
+    return () => window.removeEventListener(telemetryPreferencesEvent, open);
+  }, []);
+  useEffect(() => {
+    if (preferencesOpen) banner.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [preferencesOpen]);
+  if (preference !== "undecided" && !preferencesOpen) return null;
+  const copy = telemetryConsentCopy;
+  const close = () => {
+    setPreferencesOpen(false);
+    returnFocus.current?.focus();
+    returnFocus.current = null;
+  };
+  const choose = (next: "persistent" | "cookieless" | "off") => {
+    setTelemetryPreference(next);
+    close();
+  };
   return (
-    <details className="analytics-choices">
-      <summary>
-        <ChevronRight size={12} aria-hidden="true" />
-        Analytics choices
-      </summary>
-      <p>Choose how OpenPost measures visits to its public pages.</p>
-      <div role="group" aria-label="Analytics preference">
-        {choices.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={preference === value}
-            onClick={() => setTelemetryPreference(value)}
-          >
-            {label}
+    <section
+      ref={banner}
+      className="cookie-banner"
+      aria-labelledby="cookie-banner-title"
+      aria-live={preference === "undecided" ? "polite" : "off"}
+      data-testid="telemetry-consent"
+    >
+      <div className="cookie-banner-heading">
+        <h2 id="cookie-banner-title">{copy.title}</h2>
+        {preference !== "undecided" && (
+          <button type="button" onClick={close}>
+            {copy.closeLabel}
           </button>
-        ))}
+        )}
       </div>
-      <a href="https://openpo.st/privacy">Privacy policy</a>
-    </details>
+      <p>{copy.description}</p>
+      <a href="https://openpo.st/privacy">{copy.privacyLabel}</a>
+      <div className="cookie-banner-actions">
+        <button type="button" aria-pressed={preference === "off"} onClick={() => choose("off")}>
+          {copy.offLabel}
+        </button>
+        <button
+          type="button"
+          className="cookie-banner-accept"
+          aria-pressed={preference === "persistent"}
+          onClick={() => choose("persistent")}
+        >
+          {copy.allowLabel}
+        </button>
+      </div>
+      <details>
+        <summary>
+          {copy.optionsLabel}
+          <ChevronDown size={14} aria-hidden="true" />
+        </summary>
+        <p>{copy.cookielessDescription}</p>
+        <button
+          type="button"
+          aria-pressed={preference === "cookieless"}
+          onClick={() => choose("cookieless")}
+        >
+          {copy.cookielessLabel}
+        </button>
+      </details>
+    </section>
+  );
+}
+
+export function AnalyticsChoices() {
+  return (
+    <button type="button" className="analytics-choices" onClick={openTelemetryPreferences}>
+      <ChevronRight size={12} aria-hidden="true" />
+      Cookie preferences
+    </button>
   );
 }

@@ -4,6 +4,6 @@ export async function dismissTelemetryConsent(page: Page) {
   const consent = page.getByTestId("telemetry-consent");
   await consent.waitFor({ state: "visible", timeout: 2_000 }).catch(() => undefined);
   if (await consent.isVisible()) {
-    await consent.getByRole("button", { name: "Continue without cookies" }).click();
+    await consent.getByRole("button", { name: "Decline", exact: true }).click();
   }
 }

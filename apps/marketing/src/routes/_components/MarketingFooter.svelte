@@ -170,7 +170,7 @@
 					class="focus-ring inline-flex min-h-11 items-center rounded-md transition-colors hover:text-foreground"
 					onclick={openTelemetryPreferences}
 				>
-					Analytics choices
+					Cookie preferences
 				</button>
 				<a
 					class="focus-ring inline-flex min-h-11 items-center rounded-md transition-colors hover:text-foreground"

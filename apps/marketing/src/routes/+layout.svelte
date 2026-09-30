@@ -9,7 +9,8 @@
 	import {
 		captureTelemetryPageView,
 		configureTelemetry,
-		installGlobalErrorCapture
+		installGlobalErrorCapture,
+		telemetryConsentCopy
 	} from '@openpost/telemetry';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import MarketingFooter from './_components/MarketingFooter.svelte';
@@ -109,13 +110,4 @@
 	<MarketingFooter />
 </div>
 
-<TelemetryConsent
-	title="Analytics choices"
-	description="Allow first-party analytics cookies to connect visits and show what works. Without cookies, OpenPost counts limited activity without creating a person profile. We never use ads, session replay, or broad click tracking."
-	allowLabel="Allow analytics cookies"
-	cookielessLabel="Continue without cookies"
-	offLabel="Turn off optional analytics"
-	privacyLabel="Privacy policy"
-	privacyHref={resolve('/privacy')}
-	closeLabel="Close"
-/>
+<TelemetryConsent {...telemetryConsentCopy} privacyHref={resolve('/privacy')} />

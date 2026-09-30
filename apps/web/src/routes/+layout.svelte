@@ -522,9 +522,11 @@
 	<TelemetryConsent
 		title={m.telemetry_consent_title()}
 		description={m.telemetry_consent_description()}
-		allowLabel={m.telemetry_consent_allow()}
+		allowLabel={m.telemetry_consent_accept()}
 		cookielessLabel={m.telemetry_consent_cookieless()}
-		offLabel={m.telemetry_consent_off()}
+		cookielessDescription={m.telemetry_consent_cookieless_description()}
+		optionsLabel={m.telemetry_consent_options()}
+		offLabel={m.telemetry_consent_decline()}
 		privacyLabel={m.telemetry_consent_privacy()}
 		privacyHref="https://openpo.st/privacy"
 		closeLabel={m.common_close()}

@@ -341,8 +341,8 @@
 			service, error, and website telemetry. Before you choose, OpenPost sends no optional browser
 			telemetry. If you allow analytics cookies, first-party identity and sessions can continue
 			across OpenPost sibling subdomains. PostHog derives country for those browser events before
-			discarding the raw IP. If you continue without analytics cookies, OpenPost sends limited
-			personless events with daily server-hashed identity and no geography. You can also turn
+			discarding the raw IP. If you choose cookie-free analytics under More options, OpenPost sends
+			limited personless events with daily server-hashed identity and no geography. Decline turns
 			optional browser analytics fully off. Do Not Track and Global Privacy Control force that full
 			browser opt-out. The signed-in app and backend use opaque OpenPost identifiers for separately
 			disclosed service telemetry; the browser choice does not disable authoritative backend

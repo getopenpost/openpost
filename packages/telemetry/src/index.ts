@@ -2,6 +2,20 @@ export type TelemetrySurface = "app" | "marketing" | "docs";
 export type TelemetryPreference = "persistent" | "cookieless" | "off";
 export type TelemetryPreferenceStatus = TelemetryPreference | "undecided" | "unavailable";
 
+export const telemetryConsentCopy = {
+  title: "Cookies",
+  description:
+    "We use our own analytics cookies to understand how OpenPost is used and make it better. No ads or session recordings.",
+  allowLabel: "Accept",
+  offLabel: "Decline",
+  optionsLabel: "More options",
+  cookielessLabel: "Use cookie-free analytics",
+  cookielessDescription:
+    "We can count basic activity without analytics cookies or a personal profile.",
+  privacyLabel: "Details",
+  closeLabel: "Close",
+} as const;
+
 export * from "./chunk-recovery";
 import { extractFirstPartyAssetPath, isChunkLoadError } from "./chunk-recovery";
 

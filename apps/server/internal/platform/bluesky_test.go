@@ -73,6 +73,32 @@ func TestBuildBlueskyFacetsTrimsTrailingPunctuation(t *testing.T) {
 	requireFacet(t, facets, 4, 28, "app.bsky.richtext.facet#link", "uri", "https://example.com/path")
 }
 
+func TestBuildBlueskyFacetsSkipsALinkWithoutAHost(t *testing.T) {
+	for _, text := range []string{"https:///path", "see https://.", "https://?q=1"} {
+		require.Empty(t, buildBlueskyFacets(text, nil), "text %q", text)
+	}
+}
+
+func TestBuildBlueskyFacetsLinksTheWholeURL(t *testing.T) {
+	tests := []struct {
+		text string
+		uri  string
+	}{
+		{text: "Map https://www.google.com/maps/@37.5665,126.978,15z", uri: "https://www.google.com/maps/@37.5665,126.978,15z"},
+		{text: "https://en.wikipedia.org/wiki/Washington,_D.C.", uri: "https://en.wikipedia.org/wiki/Washington,_D.C"},
+		{text: "Read https://openpost.digital/blog today", uri: "https://openpost.digital/blog"},
+		{text: "Docs: https://example.com/a;b=1!c", uri: "https://example.com/a;b=1!c"},
+		{text: "詳しくはhttps://example.com/aboutをご覧ください", uri: "https://example.com/about"},
+		{text: "**https://example.com/bold**", uri: "https://example.com/bold"},
+	}
+	for _, test := range tests {
+		facets := buildBlueskyFacets(test.text, nil)
+		require.Len(t, facets, 1, "text %q", test.text)
+		start := strings.Index(test.text, test.uri)
+		requireFacet(t, facets, start, start+len(test.uri), "app.bsky.richtext.facet#link", "uri", test.uri)
+	}
+}
+
 func TestBuildBlueskyFacetsDropsOverlappingTagInsideLink(t *testing.T) {
 	facets := buildBlueskyFacets("https://example.com/#OpenPost", nil)
 	require.Len(t, facets, 1)

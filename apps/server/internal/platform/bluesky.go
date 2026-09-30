@@ -993,7 +993,10 @@ func copyPlatformSettings(source map[string]interface{}) map[string]interface{} 
 }
 
 var (
-	blueskyURLPattern     = regexp.MustCompile(`https?://[-A-Za-z0-9@:%._+~#=]{1,256}\.[A-Za-z0-9()]{1,6}\b[-A-Za-z0-9()@:%_+.~#?&/=]*`)
+	// blueskyURLPattern runs a link to the first character a URL cannot hold
+	// unencoded: RFC 3986's unreserved, reserved and "%" characters, less "*"
+	// so Markdown-style emphasis around a link stays outside it.
+	blueskyURLPattern     = regexp.MustCompile(`https?://[-A-Za-z0-9._~!$&'()+,;=:/?#\[\]@%]+`)
 	blueskyMentionPattern = regexp.MustCompile(`@([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?`)
 	blueskyHandlePattern  = regexp.MustCompile(`(?i)^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 	blueskyDIDPattern     = regexp.MustCompile(`^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$`)
@@ -1050,7 +1053,9 @@ func buildBlueskyFacets(text string, settings map[string]interface{}) []map[stri
 	for _, match := range blueskyURLPattern.FindAllStringIndex(text, -1) {
 		start, end := match[0], match[1]
 		uri := strings.TrimRight(text[start:end], ".,;:!?\")']}")
-		if uri == "" {
+		// A link needs a host: "https:///path" or a bare "https://" is not a
+		// URI the post record accepts.
+		if _, rest, _ := strings.Cut(uri, "://"); rest == "" || strings.IndexAny(rest, "/?#") == 0 {
 			continue
 		}
 		end = start + len(uri)

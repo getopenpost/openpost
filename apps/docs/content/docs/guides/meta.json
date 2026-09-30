@@ -3,22 +3,19 @@
   "icon": "BookOpen",
   "root": true,
   "pages": [
-    "---Start here---",
     "quickstart",
     "accounts",
     "workspaces",
-    "---Write and publish---",
+    "---Publish---",
     "publishing",
     "scheduling",
-    "---Create images and video---",
-    "media",
+    "---Media---",
     "media-library",
+    "screenshot-templates",
     "media-limits",
-    "---After publishing---",
-    "results",
+    "---Results---",
     "analytics",
     "inbox",
-    "---Troubleshoot---",
     "troubleshooting"
   ]
 }

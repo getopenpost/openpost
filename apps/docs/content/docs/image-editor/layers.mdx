@@ -3,8 +3,6 @@ title: Layers
 description: Add, select, arrange, group, hide, and lock design elements.
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
 Each text item, image, shape, paint stroke, or group is a layer. Layers near the top of the list appear in front of layers below them.
 
 ## Add content
@@ -30,19 +28,10 @@ Drag a layer in the Layers panel to change what covers what. Use the eye control
 
 Example: add a photo, then add a logo. Put the logo above the photo in Layers and lock the photo before positioning the logo.
 
-<SetupScreenshot
-  src="/docs/assets/screenshots/image-layers-detail-light.webp"
-  darkSrc="/docs/assets/screenshots/image-layers-detail-dark.webp"
-  alt="Layers panel with an image layer and reorder, hide, and lock controls"
-  width={678}
-  height={640}
-  caption="The Layers panel controls front-to-back order, visibility, and locking."
-/>
-
 ## Change the selected layer
 
-The Properties panel changes with the selected layer. Image layers expose crop and image adjustments. Text layers expose type controls. Shapes expose their fill and stroke. Common controls include opacity, position, size, rotation, blend mode, shadows, and masks.
+**Properties** shows the selected layer's controls. Images have crop and color controls; text has type controls; shapes have fill and stroke. Common controls include opacity, position, size, rotation, blend mode, shadows, and masks.
 
-To emphasize part of a text layer, select the characters on the canvas or in the text field, then change their weight, style, underline, or color in Properties. With no text selected, those controls set the default for the whole layer. The selected formatting stays with the text when you edit it and appears in previews and exports.
+To emphasize part of a text layer, select the characters on the canvas or in the text field, then change their weight, style, underline, or color in Properties. With no text selected, those controls set the default for the whole layer. Formatting stays with the text through edits and export.
 
 Undo and redo include layer changes. If a layer will be reused across designs, save the whole design as a template instead of copying flattened exports.

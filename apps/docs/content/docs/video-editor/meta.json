@@ -4,14 +4,10 @@
   "root": true,
   "pages": [
     "index",
-    "---Start---",
     "start",
-    "projects-and-storage",
-    "---Edit---",
     "timeline",
     "color-motion-and-effects",
     "transcript-and-audio",
-    "---Finish---",
     "export-and-publish",
     "quick-cut-and-recorder",
     "browser-and-recovery"

@@ -4,20 +4,9 @@ description: Edit spoken sections, add captions, and keep speech clear.
 icon: Captions
 ---
 
-import { SetupScreenshot } from "@/components/setup-screenshot";
-
 ## Transcribe speech
 
 Select a source clip and start transcription. It runs on your device. Parakeet is the default on supported WebGPU devices. Whisper Tiny, Base, Small, and Large v3 Turbo are also available. The chosen model downloads the first time you use it and remains cached until you remove it in **Models** or clear site data.
-
-<SetupScreenshot
-  src="/docs/assets/screenshots/video-transcript-light.webp"
-  darkSrc="/docs/assets/screenshots/video-transcript-dark.webp"
-  alt="Transcript panel ready to transcribe selected media"
-  width={1440}
-  height={960}
-  caption="The Transcript panel before transcription. Screenshot uses example media."
-/>
 
 Read the transcript before editing from it. Correct a word to update its timed caption. Select words to stage matching media ranges, review the strikethrough, then apply the cut once. Silence and filler-word suggestions show how much time they would remove before you accept them.
 

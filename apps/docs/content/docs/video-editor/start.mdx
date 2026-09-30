@@ -4,36 +4,43 @@ description: Pick a format, storage mode, and first source files.
 icon: CirclePlay
 ---
 
-Open [Video Editor](https://app.openpo.st/video-editor), then choose **New project**.
+Open [Video Editor](https://app.openpo.st/video-editor) and choose **New project**. Pick a format and name the project.
 
-## Choose a format
-
-Start with the format closest to where the video will be published. A vertical format suits Stories and short videos. A landscape format suits standard video posts and screen recordings. You can also enter custom dimensions.
-
-Name the project so you can find it again. The name does not become the publication text or exported filename unless you choose to reuse it.
+Use a vertical format for Stories and short videos, a landscape format for standard videos or screen recordings, or enter custom dimensions.
 
 ## Choose where it is saved
 
-For signed-in users, **Saved to OpenPost** is the default. It saves the project in the current Workspace and makes the authored edit available on other devices.
+| Choice            | Saved work                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| Saved to OpenPost | The project, revisions, and required original Project Assets in the current workspace |
+| Local only        | The edit, sources, recordings, and exports in a folder you choose                     |
 
-Choose **Local only** when the project and its sources should stay in a folder on this computer. Your browser will ask you to choose or reconnect that folder.
+**Saved to OpenPost** is the signed-in default. Select **Keep available offline** to retain the current revision and its originals on this device. Playhead position, panel layout, previews, downloaded models, folder access, and exports you have not uploaded do not sync.
 
-Read [Projects and storage](/video-editor/projects-and-storage) before working offline, moving to another computer, or clearing browser data.
+For **Local only**, choose a folder when the browser asks. Back up the whole folder and keep linked originals available. Clearing browser data can remove remembered folder access and temporary caches, but it does not delete the folder's files.
 
-## Add the first source
+Project Assets are separate from Workspace Media. Only exports you save or send to Media appear in that library.
 
-Open **Media** and select **Import media**. You can add video, audio, images, Lottie files, and supported subtitle tracks. Select an imported source to place it on the timeline.
+## Add your sources
 
-A collected local source is copied into the project. A linked source stays in its original location, so it must remain available when you edit or export. The editor checks for duplicates and prepares previews in the background.
+1. Open **Media → Import media** and add video, audio, images, Lottie files, or supported subtitle tracks.
+2. Select a source to place it on the timeline.
+3. Play it in the preview to check picture and sound before editing.
 
-If a ProRes source cannot play directly in the browser, the editor can use a local compatibility proxy for preview. Export still reads the original.
+Collected sources are copied into the project. Linked sources stay in their original location and must remain available for editing and export. Trimming and effects leave the originals unchanged.
 
-## Learn the layout
+A ProRes file that cannot play directly may use a local compatibility proxy for preview. Final export still needs the original.
 
-- **Media and tools** are in the left panel.
-- **Preview** shows the current frame and canvas controls.
-- **Properties** for the selection are in the right panel.
-- **Timeline** holds picture, sound, captions, and adjustment layers.
-- **Edit**, **Color**, and **Motion** switch the workspace without leaving the project.
+## Find the controls
 
-The side panels can be collapsed or docked at full height. The timeline expands into the space they leave. Panel layout, playhead position, selection, and zoom stay on this device.
+The left panel holds media and tools. The center shows the preview. **Properties** on the right changes the selected item. The timeline below holds clips, audio, captions, and adjustments.
+
+Use **Edit**, **Color**, and **Motion** to switch tasks. Collapse or dock side panels to make room. These layout choices, selection, zoom, and playhead position stay on this device.
+
+## Move or share a project
+
+Importing a local project into OpenPost checks its sources and uploads only originals used by the timeline. It leaves the local copy intact.
+
+Export an `.openpost.zip` bundle for a portable local copy with the project and required originals. Preview caches and downloaded models are not included.
+
+See [recovery](/video-editor/browser-and-recovery) for missing sources, save conflicts, and deleted projects.

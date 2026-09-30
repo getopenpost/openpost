@@ -28,6 +28,13 @@ export function scopeDocsRedirects(source) {
     .join("\n");
 }
 
+function prioritizeStaticRedirects(source) {
+  const rules = source.split("\n").filter((line) => line.trim());
+  const dynamic = (line) => /[*:]/u.test(line.trim().split(/\s+/u)[0]);
+  // Cloudflare counts every rule after the first wildcard toward its 100-rule dynamic limit.
+  return [...rules.filter((line) => !dynamic(line)), ...rules.filter(dynamic)].join("\n") + "\n";
+}
+
 export function scopeDocsHeaders(source) {
   return source
     .split("\n")
@@ -160,7 +167,7 @@ export async function composePublicSite({ marketingDirectory, docsDirectory, out
     writeFile(path.join(outputDirectory, "_headers"), composedHeaders, "utf8"),
     writeFile(
       path.join(outputDirectory, "_redirects"),
-      `${marketingRedirects.trimEnd()}\n${scopeDocsRedirects(docsRedirects).trimEnd()}\n`,
+      prioritizeStaticRedirects(`${marketingRedirects}\n${scopeDocsRedirects(docsRedirects)}`),
       "utf8",
     ),
   ]);

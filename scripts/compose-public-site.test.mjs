@@ -38,7 +38,10 @@ test("composes both builds and keeps control files at the deployment root", asyn
       path.join(marketing, "_headers"),
       "/\n  Vary: Accept\n/*.md\n  Content-Type: text/markdown; charset=utf-8\n  Vary: Accept\n",
     ),
-    writeFile(path.join(marketing, "_redirects"), "/features /#features 301\n"),
+    writeFile(
+      path.join(marketing, "_redirects"),
+      "/self-hosting/* /docs/self-hosting/:splat 301\n/features /#features 301\n",
+    ),
     writeFile(path.join(docs, "index.html"), "documentation"),
     writeFile(
       path.join(docs, "_headers"),
@@ -68,6 +71,11 @@ test("composes both builds and keeps control files at the deployment root", asyn
   assert.match(
     await readFile(path.join(output, "_redirects"), "utf8"),
     /\/docs\/usage \/docs\/guides\/quickstart 301/u,
+  );
+  const redirects = await readFile(path.join(output, "_redirects"), "utf8");
+  assert.ok(
+    redirects.indexOf("/docs/usage ") < redirects.indexOf("/self-hosting/* "),
+    "Static documentation redirects must precede wildcards to avoid Cloudflare's dynamic rule limit",
   );
   await assert.rejects(readFile(path.join(output, "docs/_headers"), "utf8"), /ENOENT/u);
 });

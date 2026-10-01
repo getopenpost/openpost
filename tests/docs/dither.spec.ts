@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { themeColorContrastRatio } from "../../apps/web/src/lib/themes/validation";
+import { expectBalancedDitherButton } from "../helpers/dither-button";
 
 test("documentation shares the dither interaction without changing reader layout", async ({
   page,
@@ -14,25 +14,17 @@ test("documentation shares the dither interaction without changing reader layout
     const mask = () => button.evaluate((el) => getComputedStyle(el, "::before").maskImage);
     await page.mouse.move(0, 0);
     await expect.poll(mask).toContain("data:image/svg+xml");
-    const colors = await button.evaluate((el) => ({
-      ink: getComputedStyle(el).color,
-      background: getComputedStyle(el).backgroundColor,
-      opacity: Number(getComputedStyle(el, "::before").opacity),
-    }));
-    expect(
-      themeColorContrastRatio(
-        colors.ink,
-        `color-mix(in srgb, ${colors.ink} ${colors.opacity * 100}%, ${colors.background})`,
-      ),
-    ).toBeGreaterThanOrEqual(4.5);
+    await expectBalancedDitherButton(button);
     const rest = await mask();
     await button.hover();
     expect(await mask()).not.toBe(rest);
+    await expectBalancedDitherButton(button);
     await page.mouse.move(0, 0);
     expect(await mask()).toBe(rest);
     await page.keyboard.press("Tab");
     await button.focus();
     expect(await mask()).not.toBe(rest);
+    await expectBalancedDitherButton(button);
     await page.screenshot({ path: `.impeccable/review/dither-unified/docs-${scheme}-1440.png` });
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 960 });

@@ -2,6 +2,7 @@ export const THEME_SCHEMES = ['light', 'dark'] as const;
 export type ThemeScheme = (typeof THEME_SCHEMES)[number];
 export type ThemeSchemePreference = ThemeScheme | 'system';
 
+export { DITHER_BUTTON_OPACITY as THEME_DITHER_BUTTON_OPACITY } from '@openpost/dither';
 export const THEME_DITHER_MAX_OPACITY = 0.22;
 
 export const THEME_FAMILY_IDS = [

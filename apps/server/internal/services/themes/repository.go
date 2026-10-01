@@ -120,7 +120,8 @@ func normalizeAndEncodeManifest(manifest ThemeManifest) (ThemeManifest, string, 
 }
 
 func decodeStoredManifest(raw string) (ThemeManifest, error) {
-	manifest, err := DecodeManifest([]byte(raw))
+	// Older palettes must remain editable when decorative contrast rules tighten.
+	manifest, err := decodeManifest([]byte(raw), validateStoredManifest)
 	if err != nil {
 		return ThemeManifest{}, fmt.Errorf("%w: %v", errStoredManifest, err)
 	}

@@ -37,6 +37,10 @@ const (
 )
 
 func NormalizeSchemeManifest(scheme ColorScheme, input ThemeSchemeManifest) (ThemeSchemeManifest, error) {
+	return normalizeSchemeManifest(scheme, input, validateAuthoredManifest)
+}
+
+func normalizeSchemeManifest(scheme ColorScheme, input ThemeSchemeManifest, validation manifestValidation) (ThemeSchemeManifest, error) {
 	if !validScheme(scheme) {
 		return ThemeSchemeManifest{}, invalidManifest("scheme", "must be light or dark")
 	}
@@ -44,7 +48,7 @@ func NormalizeSchemeManifest(scheme ColorScheme, input ThemeSchemeManifest) (The
 		return ThemeSchemeManifest{}, err
 	}
 	if input.Components.Button == "dither" {
-		if err := validateDitherActionContrast(input.Colors); err != nil {
+		if err := validateDitherActionContrast(input.Colors, validation); err != nil {
 			return ThemeSchemeManifest{}, err
 		}
 	}

@@ -1,3 +1,4 @@
+import { expectBalancedDitherButton } from "../helpers/dither-button";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
@@ -253,15 +254,18 @@ test("Dither button gradients respond to hover, focus, and press with reduced mo
     const texture = () => button.evaluate((el) => getComputedStyle(el, "::before").maskImage);
     await page.mouse.move(0, 0);
     await expect.poll(texture).toContain("data:image/svg+xml");
+    await expectBalancedDitherButton(button);
     const rest = await texture();
     await button.hover();
     await expect.poll(texture).not.toBe(rest);
+    await expectBalancedDitherButton(button);
     await page.mouse.move(0, 0);
     await expect.poll(texture).toBe(rest);
     await page.keyboard.press("Tab");
     await button.focus();
     await expect(button).toBeFocused();
     await expect.poll(texture).not.toBe(rest);
+    await expectBalancedDitherButton(button);
     await button.screenshot({
       path: `.impeccable/review/dither-polish/button-focus-${scheme}.png`,
     });

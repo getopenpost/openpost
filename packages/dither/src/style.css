@@ -27,7 +27,7 @@
   inset: 0;
   border-radius: inherit;
   background: currentColor;
-  opacity: var(--theme-dither-max-opacity, 0.22);
+  opacity: var(--dither-button-opacity, 0.16);
   mask-image: var(--dither-mask);
   mask-size: var(--dither-mask-size, 8px 64px);
   mask-repeat: repeat-x;

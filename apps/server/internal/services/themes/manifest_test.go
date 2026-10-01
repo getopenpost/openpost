@@ -34,6 +34,20 @@ func TestDitherRecipeRejectsUnreadableCustomActionTexture(t *testing.T) {
 	require.ErrorContains(t, err, "dither")
 }
 
+func TestDitherRecipeRejectsIndistinguishableCustomTexture(t *testing.T) {
+	manifest := *BuiltIns()["dither"].Schemes.Light
+	manifest.Colors.ActionFocal = "#7309cb"
+	manifest.Colors.ActionFocalHover = "#6b08b5"
+	manifest.Colors.ActionFocalActive = "#6007a5"
+	manifest.Colors.ActionFocalInk = "#6bdd0a"
+	manifest.Components.Button = "solid"
+	_, err := NormalizeSchemeManifest(SchemeLight, manifest)
+	require.NoError(t, err, "the palette is safe without the dither texture")
+	manifest.Components.Button = "dither"
+	_, err = NormalizeSchemeManifest(SchemeLight, manifest)
+	require.ErrorContains(t, err, "dither texture")
+}
+
 func TestDecodeStoredManifestRejectsClientSuppliedNativeDerivative(t *testing.T) {
 	manifest := BuiltIns()["workshop"]
 	manifest.Fonts = []ThemeFontFace{{

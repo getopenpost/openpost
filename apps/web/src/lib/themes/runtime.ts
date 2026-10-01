@@ -9,6 +9,7 @@ import {
 	THEME_COMPONENT_RECIPE_OPTIONS,
 	THEME_DENSITIES,
 	THEME_DITHER_MAX_OPACITY,
+	THEME_DITHER_BUTTON_OPACITY,
 	THEME_MOTION_RECIPE_KEYS,
 	THEME_PROTECTED_EDITOR_TOKEN_KEYS,
 	THEME_REDUCED_MOTION_OPTIONS,
@@ -502,6 +503,7 @@ export function themeSchemeToCssVariables(
 			? DITHER_GRADIENT_MASK
 			: 'none',
 		'--theme-dither-max-opacity': String(THEME_DITHER_MAX_OPACITY),
+		'--dither-button-opacity': String(THEME_DITHER_BUTTON_OPACITY),
 		'--background': colors.canvas,
 		'--foreground': colors.ink,
 		'--card': colors.surface,

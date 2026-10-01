@@ -157,6 +157,20 @@ describe('theme manifest value validation', () => {
 		expect(isSafeThemeSchemeManifestValues(manifest)).toBe(false);
 	});
 
+	it('rejects a readable custom palette whose dither cells have indistinguishable luminance', () => {
+		const manifest = resolveBuiltInTheme('dither', 'light').manifest;
+		Object.assign(manifest.colors, {
+			actionFocal: '#7309cb',
+			actionFocalHover: '#6b08b5',
+			actionFocalActive: '#6007a5',
+			actionFocalInk: '#6bdd0a'
+		});
+		manifest.components.button = 'solid';
+		expect(isSafeThemeSchemeManifestValues(manifest)).toBe(true);
+		manifest.components.button = 'dither';
+		expect(isSafeThemeSchemeManifestValues(manifest)).toBe(false);
+	});
+
 	it('keeps every built-in scheme inside the same safety floor', () => {
 		for (const theme of BUILT_IN_THEMES) {
 			for (const manifest of Object.values(theme.schemes)) {

@@ -27,7 +27,18 @@ var themeAssetSlots = []string{
 	"loading-illustration",
 }
 
+type manifestValidation uint8
+
+const (
+	validateAuthoredManifest manifestValidation = iota
+	validateStoredManifest
+)
+
 func DecodeManifest(raw []byte) (ThemeManifest, error) {
+	return decodeManifest(raw, validateAuthoredManifest)
+}
+
+func decodeManifest(raw []byte, validation manifestValidation) (ThemeManifest, error) {
 	if len(raw) == 0 || len(raw) > maxManifestBytes {
 		return ThemeManifest{}, fmt.Errorf("%w: manifest must contain at most %d bytes", ErrInvalidManifest, maxManifestBytes)
 	}
@@ -40,11 +51,15 @@ func DecodeManifest(raw []byte) (ThemeManifest, error) {
 	if decoder.Decode(&struct{}{}) == nil {
 		return ThemeManifest{}, fmt.Errorf("%w: multiple JSON values", ErrInvalidManifest)
 	}
-	return NormalizeManifest(manifest)
+	return normalizeManifest(manifest, validation)
+}
+
+func NormalizeManifest(input ThemeManifest) (ThemeManifest, error) {
+	return normalizeManifest(input, validateAuthoredManifest)
 }
 
 //nolint:gocyclo // The versioned manifest has independent required fields that remain explicit for schema review.
-func NormalizeManifest(input ThemeManifest) (ThemeManifest, error) {
+func normalizeManifest(input ThemeManifest, validation manifestValidation) (ThemeManifest, error) {
 	var err error
 	input, err = migrateManifest(input)
 	if err != nil {
@@ -80,7 +95,7 @@ func NormalizeManifest(input ThemeManifest) (ThemeManifest, error) {
 		if item.manifest == nil {
 			continue
 		}
-		normalized, err := NormalizeSchemeManifest(item.scheme, *item.manifest)
+		normalized, err := normalizeSchemeManifest(item.scheme, *item.manifest, validation)
 		if err != nil {
 			return ThemeManifest{}, err
 		}

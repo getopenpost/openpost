@@ -100,11 +100,14 @@ describe('built-in themes', () => {
 				for (const intent of ['actionFocal', 'actionPrimary', 'actionOrdinary'] as const) {
 					const ink = colors[`${intent}Ink`];
 					for (const state of [intent, `${intent}Hover`, `${intent}Active`] as const) {
-						const textured = `color-mix(in srgb, ${ink} 22%, ${colors[state]})`;
+						const textured = `color-mix(in srgb, ${ink} 16%, ${colors[state]})`;
 						expect(
 							themeColorContrastRatio(ink, textured),
 							`${id} ${scheme} ${state}`
 						).toBeGreaterThanOrEqual(4.5);
+						const textureContrast = themeColorContrastRatio(colors[state], textured)!;
+						expect(textureContrast, `${id} ${scheme} ${state}`).toBeGreaterThanOrEqual(1.18);
+						expect(textureContrast, `${id} ${scheme} ${state}`).toBeLessThanOrEqual(1.8);
 					}
 				}
 			}

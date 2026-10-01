@@ -140,6 +140,8 @@ The frontmatter tokens and values below define Workshop, the complete fallback a
 
 Marketing keeps its warm public canvas, protected identity, green, blue, and lilac authored sections, and original shared button colors in both schemes. Sparse Dither texture is an effect layer on the landing tour, authored panels, resources, and primary CTA surfaces. Texture does not replace the public palette or change button backgrounds and foregrounds.
 
+Dithered buttons use the same two-color Bayer treatment in the app, marketing, docs, and README. Mix the label ink into the fill at 16% opacity, and keep the cells at 2 CSS pixels. The texture pair stays between 1.18:1 and 1.8:1 contrast, a visual consistency range rather than an accessibility threshold. Text must meet 4.5:1 against both colors. Hover, focus, and press change coverage without increasing tint strength. Keep disabled buttons plain and hide decoration in forced-color mode.
+
 The public palette lives in `apps/marketing/src/routes/layout.css`. Paired `marketing-lilac`, `marketing-mint`, and `marketing-blue` surface and ink tokens distinguish authored examples, editor panels, and the tour. `marketing-soft-ink` supports secondary display text; `marketing-section` separates neutral sections. Each role has a deliberate light and dark value. These tokens belong to public compositions and do not change organization themes or authenticated app chrome.
 
 The landing page opens with a zoomable product tour using raw 2x screenshots, without the README frame or shadow. Later sections layer focused crops of actual editing, calendar, and analytics controls instead of repeating full app windows. Use colored panels and a tools-and-resources grid with concise copy. Keep trial terms and channel availability next to signup actions. Show only sourced testimonials. Label illustrative channel posts as examples and keep product-tour videos linked rather than embedded.
@@ -261,13 +263,13 @@ Ordered Bayer textures sit behind button labels, along card bottoms, inside char
 
 Shared empty states place an original static SVG wave field in a 120px by 64px symbol area behind a solid 40px icon tile. The field is decorative and hidden from assistive technology. Progress meters use the theme's small corner radius, while loading previews use the real Skeleton and ProgressMeter components. Existing reduced-motion behavior stays intact.
 
-`@openpost/dither` owns the Bayer thresholds, native-resolution SVG masks, and DOM lifecycle for Svelte and React. Every surface uses 2 CSS pixel cells. Buttons raise density and opacity on hover, keyboard focus, and press; animation stops when settled and snaps with reduced motion. Preserve the Dither Kit source attribution in the package `NOTICE.md`. Marketing panels and the documentation app link share this renderer while retaining their palettes.
+`@openpost/dither` owns the Bayer thresholds, native-resolution SVG masks, and DOM lifecycle for Svelte and React. Every surface uses 2 CSS pixel cells. Buttons raise density on hover, keyboard focus, and press while keeping their two colors fixed; animation stops when settled and snaps with reduced motion. Preserve the Dither Kit source attribution in the package `NOTICE.md`. Marketing panels and the documentation app link share this renderer while retaining their palettes.
 
 Dither buttons ease their pixel gradient on hover, keyboard focus, and press. Chart inspection emphasizes the selected day while preserving solid value boundaries and readable series labels. Tooltips stay within the visible chart viewport and dismiss with Escape. Motion uses the shared theme timings and reduced-motion rules.
 
 The theme editor offers a coordinated Dither accent hue for both schemes, plus color pickers beside the CSS values for individual tokens. The hue control retains the palette's lightness, neutral surfaces, status colors, and distinct chart series. Color pickers preserve each token's existing opacity, and swatches display it. Edit opacity directly in the adjacent CSS value. Changes use the existing draft, undo, publish, and assignment flow. The Dither gradient component supports horizontal and vertical fades, with an optional second color.
 
-Custom Dither button recipes must preserve text contrast after the texture is composited in every interaction state. Theme previews block interaction with `inert` so sample controls retain their normal appearance.
+Custom Dither button recipes must meet the text and texture contrast ranges in every interaction state. Stored palettes remain available for editing when decorative contrast rules tighten; imports, saves, and publishing enforce the current range. Theme previews block interaction with `inert` so sample controls retain their normal appearance.
 
 ### Buttons
 

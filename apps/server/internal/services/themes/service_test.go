@@ -396,6 +396,31 @@ func TestListFailsClosedWhenDraftStorageIsMissing(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnavailable)
 }
 
+func TestLegacyDitherDraftRemainsEditableButCannotPublishUnbalancedTexture(t *testing.T) {
+	service, db := newThemeTestService(t)
+	actor := Actor{UserID: "admin-1"}
+	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Legacy Dither", DuplicateBuiltInID: "dither"})
+	require.NoError(t, err)
+	manifest := theme.Draft.Manifest
+	manifest.Schemes.Light.Colors.ActionFocal = "#020cce"
+	manifest.Schemes.Light.Colors.ActionFocalHover = "#020bb9"
+	manifest.Schemes.Light.Colors.ActionFocalActive = "#010aa5"
+	manifest.Schemes.Light.Colors.ActionFocalInk = "#a0c142"
+	raw, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*draftRow)(nil)).Set("manifest_json = ?", string(raw)).Where("theme_id = ?", theme.Summary.Reference.ID).Exec(t.Context())
+	require.NoError(t, err)
+
+	page, err := service.List(t.Context(), actor, "org-1", PageOptions{})
+	require.NoError(t, err, "older palette styling must not make the library unavailable")
+	require.Len(t, page.Items, 1)
+	loaded, err := service.Get(t.Context(), actor, "org-1", theme.Summary.Reference.ID)
+	require.NoError(t, err)
+	require.Equal(t, manifest.Schemes.Light.Colors, loaded.Draft.Manifest.Schemes.Light.Colors)
+	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
+	require.ErrorContains(t, err, "dither texture")
+}
+
 func TestResolveFallsBackForCorruptStoredManifest(t *testing.T) {
 	service, db := newThemeTestService(t)
 	actor := Actor{UserID: "admin-1"}

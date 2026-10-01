@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "reac
 import {
   BodyText,
   Button,
-  Card,
+  ContentSection,
   ContentTitle,
   PageTitle,
   Screen,
@@ -134,7 +134,7 @@ export default function WorkspaceScreen() {
         ) : null}
 
         {hasData && list.length === 0 ? (
-          <Card style={styles.emptyState}>
+          <ContentSection style={styles.emptyState}>
             <ContentTitle>No workspaces found</ContentTitle>
             <BodyText>Create a workspace in the web app, then return here and try again.</BodyText>
             {emptyState ? (
@@ -154,13 +154,13 @@ export default function WorkspaceScreen() {
                 />
               </>
             ) : null}
-          </Card>
+          </ContentSection>
         ) : null}
 
         {list.length > 1 || (switching && list.length > 0) ? (
           <>
             <SectionHeader label="Your workspaces" />
-            <Card style={styles.list}>
+            <ContentSection style={styles.list}>
               {list.map((workspace, index) => (
                 <Pressable
                   key={workspace.id}
@@ -191,7 +191,7 @@ export default function WorkspaceScreen() {
                   ) : null}
                 </Pressable>
               ))}
-            </Card>
+            </ContentSection>
           </>
         ) : null}
 

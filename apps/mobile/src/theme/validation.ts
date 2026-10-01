@@ -1,4 +1,9 @@
 import {
+  DITHER_BUTTON_MIN_CONTRAST,
+  DITHER_BUTTON_MAX_CONTRAST,
+  DITHER_BUTTON_OPACITY,
+} from "@openpost/dither/paint";
+import {
   ACTION_INTENTS,
   NATIVE_CANVAS_TREATMENTS,
   NATIVE_COMPONENT_RECIPE_OPTIONS,
@@ -483,4 +488,80 @@ function boundedNumber(value: unknown, minimum: number, maximum: number): value 
   return (
     typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum
   );
+}
+
+const DITHER_TARGET_CONTRAST = 1.32;
+const DITHER_MIN_OPACITY_PERCENT = 8;
+const DITHER_MAX_OPACITY_PERCENT = 48;
+
+/** Native controls retain their semantic palette while keeping the two endpoints readable. */
+export function nativeDitherActionMaterial(
+  action: NativeActionStyle,
+  underlay: string,
+  options: { focusColor?: string } = {},
+): { ink: string; opacity: number; content: string; focus: string } | undefined {
+  const base = parseNativeColor(underlay);
+  const container = parseNativeColor(action.container);
+  const foreground = action.content;
+  const content = parseNativeColor(foreground);
+  if (!base || !container || !content || container[3] === 0) return undefined;
+  const background = compositeColor(container, base);
+  let best: { ink: string; opacity: number; content: string; distance: number } | undefined;
+  for (const ink of [foreground, "#000000", "#ffffff"]) {
+    const color = parseNativeColor(ink);
+    if (!color) continue;
+    for (
+      let percent = DITHER_MIN_OPACITY_PERCENT;
+      percent <= DITHER_MAX_OPACITY_PERCENT;
+      percent += 1
+    ) {
+      const opacity = percent / 100;
+      const endpoint = compositeColor([color[0], color[1], color[2], opacity], background);
+      const contrast = contrastRatio(background, endpoint);
+      if (contrast < DITHER_BUTTON_MIN_CONTRAST || contrast > DITHER_BUTTON_MAX_CONTRAST) continue;
+      const fallback =
+        contrastRatio([0, 0, 0, 1], endpoint) >= contrastRatio([255, 255, 255, 1], endpoint)
+          ? "#000000"
+          : "#ffffff";
+      const resolvedContent = readableThemeForeground(
+        foreground,
+        fallback,
+        serializeNativeColor(endpoint),
+        serializeNativeColor(background),
+      );
+      const resolved = parseNativeColor(resolvedContent)!;
+      if (
+        contrastRatio(resolved, endpoint) < MINIMUM_TEXT_CONTRAST ||
+        contrastRatio(resolved, background) < MINIMUM_TEXT_CONTRAST
+      )
+        continue;
+      const distance =
+        Math.abs(contrast - DITHER_TARGET_CONTRAST) +
+        Math.abs(opacity - DITHER_BUTTON_OPACITY) +
+        Math.hypot(resolved[0] - content[0], resolved[1] - content[1], resolved[2] - content[2]) /
+          255;
+      if (!best || distance < best.distance)
+        best = { ink, opacity, content: resolvedContent, distance };
+    }
+  }
+  if (!best) return undefined;
+  const ink = parseNativeColor(best.ink)!;
+  const endpoint = compositeColor([ink[0], ink[1], ink[2], best.opacity], background);
+  const requestedFocus = options.focusColor ?? foreground;
+  const focus = readableThemeForeground(
+    requestedFocus,
+    best.content,
+    serializeNativeColor(endpoint),
+    serializeNativeColor(background),
+  );
+  const resolvedFocus = parseNativeColor(focus)!;
+  return {
+    ink: best.ink,
+    opacity: best.opacity,
+    content: best.content,
+    focus:
+      contrastRatio(resolvedFocus, endpoint) >= 3 && contrastRatio(resolvedFocus, background) >= 3
+        ? focus
+        : best.content,
+  };
 }

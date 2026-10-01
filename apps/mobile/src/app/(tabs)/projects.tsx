@@ -14,7 +14,7 @@ import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "reac
 import {
   BodyText,
   Button,
-  Card,
+  ContentSection,
   ContentTitle,
   EmptyState,
   PageTitle,
@@ -310,7 +310,7 @@ export default function VideoProjectsScreen() {
           <PageTitle>Video Projects</PageTitle>
           <BodyText>Capture or import footage here, then finish the edit on the web.</BodyText>
         </View>
-        <Card style={{ gap: spacing.medium }}>
+        <ContentSection style={{ gap: spacing.medium }}>
           <ContentTitle>Prepare footage</ContentTitle>
           <BodyText>
             Original files stay unchanged. Trim, crop, rotation, audio, and cover choices travel
@@ -487,7 +487,7 @@ export default function VideoProjectsScreen() {
               accessibilityLabel="Upload large videos over cellular"
             />
           </View>
-        </Card>
+        </ContentSection>
         {message ? (
           <Text
             accessibilityLiveRegion="polite"
@@ -501,14 +501,14 @@ export default function VideoProjectsScreen() {
         ) : (
           <View style={{ gap: spacing.small }}>
             {projects.map((project) => (
-              <Card key={project.id} style={{ gap: spacing.extraSmall }}>
+              <ContentSection key={project.id} style={{ gap: spacing.extraSmall }}>
                 <ContentTitle>{project.name}</ContentTitle>
                 <BodyText>
                   {project.sync_status === "needs_attention"
                     ? project.attention_reason || "Needs attention"
                     : project.sync_status.replace("_", " ")}
                 </BodyText>
-              </Card>
+              </ContentSection>
             ))}
           </View>
         )}

@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet } from "react-native";
 
 import { Brand } from "@/components/brand";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
-import { BodyText, Button, Card, PageTitle, Screen } from "@/components/ui";
+import { BodyText, Button, ContentSection, PageTitle, Screen } from "@/components/ui";
 import { destinationState } from "@/lib/first-use";
 import { useAccounts, useWorkspaceId } from "@/lib/queries";
 import { getServer } from "@/lib/server";
@@ -73,7 +73,7 @@ export default function DestinationScreen() {
           <>
             <PageTitle>{state.title}</PageTitle>
             <BodyText style={styles.subtitle}>{state.body}</BodyText>
-            <Card style={styles.card}>
+            <ContentSection style={styles.card}>
               <Button
                 title={state.actions[0].label}
                 intent="focal"
@@ -86,7 +86,7 @@ export default function DestinationScreen() {
                 loading={accounts.isFetching}
                 onPress={() => void accounts.refetch()}
               />
-            </Card>
+            </ContentSection>
           </>
         ) : null}
 

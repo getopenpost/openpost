@@ -69,6 +69,12 @@ test("changed files route to their CI paths", () => {
       off: [],
     },
     {
+      name: "shared native dithering",
+      files: ["packages/dither/src/paint.ts"],
+      on: ["android", "frontend"],
+      off: [],
+    },
+    {
       name: "n8n package changes",
       files: ["packages/n8n-nodes-openpost/README.md"],
       on: ["n8n"],

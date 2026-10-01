@@ -11,6 +11,7 @@ const dependencyRoots = [
 
 config.watchFolders = [
   path.join(workspaceRoot, "packages", "api-contract"),
+  path.join(workspaceRoot, "packages", "dither"),
   path.join(workspaceRoot, "packages", "query-catalog"),
 ];
 config.resolver.nodeModulesPaths = dependencyRoots;
@@ -20,5 +21,4 @@ config.resolver.resolveRequest = (context, moduleName, platform) =>
     moduleName,
     platform,
   );
-
 module.exports = config;

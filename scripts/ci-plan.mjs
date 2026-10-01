@@ -94,7 +94,7 @@ function planFiltered(files, manifest, { full = false } = {}) {
       [".dockerignore", "bun.lock", "bunfig.toml", "package.json", "turbo.json"],
     ),
     android: matches(
-      ["apps/mobile/", "packages/api-contract/", "packages/query-catalog/"],
+      ["apps/mobile/", "packages/api-contract/", "packages/query-catalog/", "packages/dither/"],
       ["apps/web/openapi.json"],
     ),
     cache_contract: files.some(

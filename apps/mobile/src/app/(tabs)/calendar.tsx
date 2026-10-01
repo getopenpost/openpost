@@ -1,18 +1,26 @@
 import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import {
-  Card,
+  Button,
+  ContentSection,
   ContentTitle,
-  EmptyState,
   IconButton,
   PageTitle,
   Screen,
   StatusBadge,
 } from "@/components/ui";
-import { calendarWeeks } from "@/lib/calendar";
+import { calendarWeeks, shiftCalendarMonth } from "@/lib/calendar";
 import { calendarOccurrence, dayKey, statusColor } from "@/lib/format";
 import { useCalendarPublications } from "@/lib/queries";
 import { useNativeTheme } from "@/theme";
@@ -29,17 +37,23 @@ const WEEKDAYS = [
 
 export default function CalendarScreen() {
   const theme = useNativeTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stackedMonthControls = width < 480 || fontScale >= 1.4;
   const { colors, shape, spacing, typography } = theme.manifest;
   const today = useMemo(() => new Date(), []);
-  const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDay, setSelectedDay] = useState<string>(() => dayKey(today));
+  const [selectedDate, setSelectedDate] = useState(() => today);
+  const month = useMemo(
+    () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
+    [selectedDate],
+  );
+  const selectedDay = dayKey(selectedDate);
 
   const monthStart = month;
   const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 1);
   const publications = useCalendarPublications(monthStart.toISOString(), monthEnd.toISOString());
 
   const byDay = useMemo(() => {
-    const map = new Map<string, { id: string; title: string; status: string }[]>();
+    const map = new Map<string, { id: string; title: string; status: string; time: Date }[]>();
     for (const publication of publications.data ?? []) {
       const date = calendarOccurrence(publication);
       if (!date) continue;
@@ -50,9 +64,11 @@ export default function CalendarScreen() {
         id: publication.id,
         title: publication.title ?? excerpt(publication) ?? "Untitled",
         status: publication.status,
+        time: date,
       });
       map.set(key, list);
     }
+    for (const items of map.values()) items.sort((a, b) => a.time.getTime() - b.time.getTime());
     return map;
   }, [publications.data]);
 
@@ -70,8 +86,7 @@ export default function CalendarScreen() {
   const coldPending = !hasData && publications.isPending;
 
   function shiftMonth(delta: number) {
-    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
-    setSelectedDay("");
+    setSelectedDate((current) => shiftCalendarMonth(current, delta));
   }
 
   return (
@@ -87,10 +102,23 @@ export default function CalendarScreen() {
           },
         ]}
       >
-        <PageTitle style={styles.title}>
-          {month.toLocaleDateString("en", { month: "long" })}
-          <Text style={{ color: colors.onSurfaceVariant }}> {month.getFullYear()}</Text>
-        </PageTitle>
+        <PageTitle style={styles.title}>Calendar</PageTitle>
+        <IconButton label="Write a post" role="add" onPress={() => router.push("/(tabs)/drafts")} />
+      </View>
+      <View
+        style={[
+          styles.header,
+          { paddingHorizontal: spacing.extraLarge, paddingBottom: spacing.small },
+          stackedMonthControls && {
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: spacing.small,
+          },
+        ]}
+      >
+        <ContentTitle style={[styles.title, stackedMonthControls && { flex: 0 }]}>
+          {month.toLocaleDateString("en", { month: "long", year: "numeric" })}
+        </ContentTitle>
         <View style={[styles.nav, { gap: spacing.extraSmall }]}>
           <IconButton
             label="Previous month"
@@ -98,17 +126,12 @@ export default function CalendarScreen() {
             color={colors.primary}
             onPress={() => shiftMonth(-1)}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go to current month"
-            onPress={() => {
-              setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-              setSelectedDay(dayKey(today));
-            }}
-            style={({ pressed }) => [styles.todayButton, pressed && { opacity: 0.65 }]}
-          >
-            <Text style={[typography.labelLarge, { color: colors.primary }]}>Today</Text>
-          </Pressable>
+          <Button
+            title="Today"
+            intent="ordinary"
+            style={{ paddingHorizontal: spacing.medium }}
+            onPress={() => setSelectedDate(new Date())}
+          />
           <IconButton
             label="Next month"
             role="next"
@@ -199,7 +222,7 @@ export default function CalendarScreen() {
                           day: "numeric",
                         })}. ${items.length === 0 ? "Nothing planned" : `${items.length} planned`}`}
                         accessibilityState={{ selected: isSelected }}
-                        onPress={() => setSelectedDay(key)}
+                        onPress={() => setSelectedDate(date)}
                         style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]}
                       >
                         <View
@@ -249,27 +272,43 @@ export default function CalendarScreen() {
               ))}
             </View>
 
-            {selectedItems.length === 0 ? (
-              <EmptyState
-                title={selectedDayTitle}
-                body={selectedDay ? "Nothing planned." : "Choose a day to see its posts."}
-              />
-            ) : (
-              <Card style={[styles.daySheet, { gap: spacing.medium }]}>
-                <ContentTitle>{selectedDayTitle}</ContentTitle>
-                {selectedItems.map((item) => (
+            <ContentSection style={[styles.daySheet, { gap: spacing.medium }]}>
+              <ContentTitle>{selectedDayTitle}</ContentTitle>
+              {selectedItems.length === 0 ? (
+                <View style={{ gap: spacing.medium, alignItems: "flex-start" }}>
+                  <Text style={[typography.bodyLarge, { color: colors.onSurfaceVariant }]}>
+                    Nothing planned.
+                  </Text>
+                  <Button title="Write a post" onPress={() => router.push("/(tabs)/drafts")} />
+                </View>
+              ) : (
+                selectedItems.map((item) => (
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
+                    accessibilityLabel={`${item.time.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}, ${item.title}, ${item.status}`}
                     onPress={() =>
-                      router.push({
-                        pathname: "/publications/[id]",
-                        params: { id: item.id },
-                      })
+                      router.push({ pathname: "/publications/[id]", params: { id: item.id } })
                     }
-                    style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.5 }]}
+                    style={({ pressed }) => [
+                      styles.itemRow,
+                      {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: colors.outlineVariant,
+                        paddingVertical: spacing.medium,
+                      },
+                      pressed && { opacity: 0.5 },
+                    ]}
                   >
-                    <View style={{ flex: 1, gap: spacing.extraSmall }}>
+                    <Text
+                      style={[
+                        typography.labelLarge,
+                        { color: colors.onSurfaceVariant, minWidth: 56 },
+                      ]}
+                    >
+                      {item.time.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
+                    </Text>
+                    <View style={{ flex: 1, gap: spacing.small }}>
                       <Text
                         style={[typography.bodyLarge, { color: colors.onSurface }]}
                         numberOfLines={2}
@@ -279,9 +318,9 @@ export default function CalendarScreen() {
                       <StatusBadge status={item.status} />
                     </View>
                   </Pressable>
-                ))}
-              </Card>
-            )}
+                ))
+              )}
+            </ContentSection>
           </>
         ) : null}
       </ScrollView>
@@ -308,12 +347,6 @@ const styles = StyleSheet.create({
   nav: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  todayButton: {
-    minHeight: 48,
-    minWidth: 52,
-    alignItems: "center",
-    justifyContent: "center",
   },
   content: {
     width: "100%",

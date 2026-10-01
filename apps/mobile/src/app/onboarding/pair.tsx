@@ -3,7 +3,7 @@ import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { BodyText, Button, Card, Screen, useColors } from "@/components/ui";
+import { BodyText, Button, ContentSection, Screen, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { pollPairing, startPairing } from "@/lib/auth";
 import { getToken, subscribeToken } from "@/lib/api/token-store";
@@ -121,7 +121,7 @@ export default function PairScreen() {
 
         {phase === "starting" || phase === "waiting" ? (
           <>
-            <Card style={styles.codeCard}>
+            <ContentSection style={styles.codeCard}>
               {phase === "starting" ? (
                 <ActivityIndicator color={colors.primary} />
               ) : (
@@ -136,7 +136,7 @@ export default function PairScreen() {
                   {userCode}
                 </Text>
               )}
-            </Card>
+            </ContentSection>
             <BodyText style={styles.center}>Enter this code at</BodyText>
             <BodyText style={[styles.center, styles.url, { color: colors.onSurface }]}>
               {verificationUrl.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}

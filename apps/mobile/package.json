@@ -21,6 +21,7 @@
     "@expo/ui": "~57.0.21",
     "@noble/hashes": "^2.4.0",
     "@openpost/api-contract": "file:../../packages/api-contract",
+    "@openpost/dither": "file:../../packages/dither",
     "@openpost/query-catalog": "file:../../packages/query-catalog",
     "@openpost/video-project": "file:../../packages/video-project",
     "@react-native-community/datetimepicker": "9.1.0",

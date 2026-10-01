@@ -14,7 +14,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { ProtectedIcon } from "@/components/protected-icon";
 import { useShareIntentContext } from "expo-share-intent";
 
 import { BottomDrawer } from "@/components/bottom-drawer";
@@ -22,7 +21,7 @@ import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/compo
 import {
   BodyText,
   Button,
-  Card,
+  ContentSection,
   ContentTitle,
   EmptyState,
   IconButton,
@@ -265,113 +264,9 @@ export default function DraftsScreen() {
         <MenuButton onOpen={() => setMenuOpen(true)} />
       </View>
 
-      <View
-        style={[
-          styles.capture,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.outlineVariant,
-            borderRadius: shape.large,
-            marginHorizontal: spacing.extraLarge,
-            marginTop: spacing.small,
-            padding: spacing.medium,
-          },
-        ]}
-      >
-        <ContentTitle>Jot an idea</ContentTitle>
-        <TextField
-          ref={ideaInputRef}
-          value={idea}
-          onChangeText={setIdea}
-          accessibilityLabel="Draft idea"
-          placeholder="What are you building, learning, or launching?"
-          multiline
-          textAlignVertical="top"
-          imageKeyboard={{
-            onImageReceived: (attachment, context) => applyImage(attachment, context.focus),
-            onError: (message, context) => {
-              setCaptureError(message);
-              void errorHaptic();
-              context.focus();
-            },
-          }}
-          style={[
-            styles.ideaField,
-            typography.bodyLarge,
-            { backgroundColor: colors.surface, borderColor: "transparent" },
-          ]}
-        />
-        {image ? (
-          <View
-            style={[
-              styles.attachmentRow,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.outlineVariant,
-                borderRadius: shape.medium,
-                gap: spacing.medium,
-                padding: spacing.small,
-              },
-            ]}
-          >
-            <Image
-              source={{ uri: image.uri }}
-              style={[styles.attachmentThumb, { borderRadius: shape.small }]}
-              contentFit="cover"
-            />
-            <BodyText numberOfLines={1} style={{ color: colors.onSurface, flex: 1 }}>
-              {image.filename}
-            </BodyText>
-            <IconButton
-              label={`Remove ${image.filename}`}
-              role="delete"
-              color={colors.error}
-              onPress={() => setImage(null)}
-            />
-          </View>
-        ) : null}
-        <View style={[styles.attachRow, { gap: spacing.small }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={image ? "Replace image" : "Add image from library"}
-            disabled={createDraft.isPending}
-            onPress={() => void pickImage()}
-            style={({ pressed }) => [
-              styles.addTile,
-              { borderColor: colors.outlineVariant, borderRadius: shape.small },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <ProtectedIcon role="gallery" size={24} tintColor={colors.primary} />
-          </Pressable>
-          <BodyText>{image ? "Replace image" : "Add image"}</BodyText>
-        </View>
-        {captureError ? (
-          <BodyText accessibilityRole="alert" style={{ color: colors.error, marginTop: 6 }}>
-            {captureError}
-          </BodyText>
-        ) : null}
-        <View style={[styles.captureActions, { gap: spacing.small }]}>
-          <Button
-            title="Generate draft"
-            intent="focal"
-            onPress={() => void quickCapture(true)}
-            disabled={createDraft.isPending || idea.trim().length === 0}
-            loading={createDraft.isPending}
-            style={{ flex: 1 }}
-          />
-          <Button
-            title="Write it myself"
-            intent="quiet"
-            onPress={() => void quickCapture(false)}
-            disabled={createDraft.isPending || (idea.trim().length === 0 && !image)}
-          />
-        </View>
-      </View>
-
       <ScrollView
         contentContainerStyle={{
-          gap: spacing.medium,
+          gap: spacing.small,
           padding: spacing.extraLarge,
         }}
         refreshControl={
@@ -382,6 +277,96 @@ export default function DraftsScreen() {
           />
         }
       >
+        <View
+          style={[
+            {
+              backgroundColor: colors.background,
+              paddingBottom: spacing.extraLarge,
+            },
+          ]}
+        >
+          <TextField
+            ref={ideaInputRef}
+            value={idea}
+            onChangeText={setIdea}
+            accessibilityLabel="Draft idea"
+            placeholder="What are you building, learning, or launching?"
+            multiline
+            textAlignVertical="top"
+            imageKeyboard={{
+              onImageReceived: (attachment, context) => applyImage(attachment, context.focus),
+              onError: (message, context) => {
+                setCaptureError(message);
+                void errorHaptic();
+                context.focus();
+              },
+            }}
+            style={[
+              styles.ideaField,
+              typography.bodyLarge,
+              { backgroundColor: colors.background, borderColor: "transparent" },
+            ]}
+          />
+          {image ? (
+            <View
+              style={[
+                styles.attachmentRow,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.outlineVariant,
+                  borderRadius: shape.medium,
+                  gap: spacing.medium,
+                  padding: spacing.small,
+                },
+              ]}
+            >
+              <Image
+                source={{ uri: image.uri }}
+                style={[styles.attachmentThumb, { borderRadius: shape.small }]}
+                contentFit="cover"
+              />
+              <BodyText numberOfLines={1} style={{ color: colors.onSurface, flex: 1 }}>
+                {image.filename}
+              </BodyText>
+              <IconButton
+                label={`Remove ${image.filename}`}
+                role="delete"
+                color={colors.error}
+                onPress={() => setImage(null)}
+              />
+            </View>
+          ) : null}
+          <Button
+            title={image ? "Replace image" : "Add image"}
+            intent="ordinary"
+            disabled={createDraft.isPending}
+            onPress={() => void pickImage()}
+            style={{ alignSelf: "flex-start" }}
+          />
+          {captureError ? (
+            <BodyText accessibilityRole="alert" style={{ color: colors.error, marginTop: 6 }}>
+              {captureError}
+            </BodyText>
+          ) : null}
+          <View style={[styles.captureActions, { gap: spacing.small }]}>
+            <Button
+              title="Generate draft"
+              intent="focal"
+              onPress={() => void quickCapture(true)}
+              disabled={createDraft.isPending || idea.trim().length === 0}
+              loading={createDraft.isPending}
+              style={{ flex: 1, minWidth: 120 }}
+            />
+            <Button
+              title="Write it myself"
+              intent="ordinary"
+              style={{ flex: 1, minWidth: 120 }}
+              onPress={() => void quickCapture(false)}
+              disabled={createDraft.isPending || (idea.trim().length === 0 && !image)}
+            />
+          </View>
+        </View>
+
         <DelayedQueryPlaceholder
           pending={!hasDraftData && drafts.isPending}
           shape="list"
@@ -438,6 +423,7 @@ function MenuButton({ onOpen }: { onOpen: () => void }) {
 }
 
 function DraftRow({ draft, onOpen }: { draft: PublicationListItem; onOpen: () => void }) {
+  const theme = useNativeTheme();
   const excerpt = firstRenditionBody(draft) ?? draft.title ?? "Untitled draft";
   return (
     <Pressable
@@ -446,12 +432,21 @@ function DraftRow({ draft, onOpen }: { draft: PublicationListItem; onOpen: () =>
       onPress={onOpen}
     >
       {({ pressed }) => (
-        <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
+        <ContentSection
+          style={[
+            styles.row,
+            {
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: theme.manifest.colors.outlineVariant,
+            },
+            pressed && { opacity: 0.6 },
+          ]}
+        >
           <View style={{ flex: 1, gap: 4 }}>
-            <ContentTitle numberOfLines={1}>{excerpt}</ContentTitle>
+            <ContentTitle numberOfLines={2}>{excerpt}</ContentTitle>
             <BodyText>Edited {relativeTime(draft.updated_at)}</BodyText>
           </View>
-        </Card>
+        </ContentSection>
       )}
     </Pressable>
   );
@@ -579,11 +574,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  capture: {
-    borderWidth: StyleSheet.hairlineWidth,
-  },
   ideaField: {
-    minHeight: 104,
+    minHeight: 116,
     paddingHorizontal: 0,
     paddingTop: 10,
   },
@@ -597,21 +589,10 @@ const styles = StyleSheet.create({
     height: 64,
     width: 64,
   },
-  attachRow: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  addTile: {
-    alignItems: "center",
-    borderStyle: "dashed",
-    borderWidth: 1.5,
-    height: 64,
-    justifyContent: "center",
-    width: 64,
-  },
   captureActions: {
-    alignItems: "center",
+    alignItems: "stretch",
     flexDirection: "row",
+    flexWrap: "wrap",
   },
   row: {
     paddingVertical: 14,

@@ -8,7 +8,7 @@ import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/compo
 import {
   BodyText,
   Button,
-  Card,
+  ContentSection,
   EmptyState,
   PageTitle,
   Screen,
@@ -330,14 +330,14 @@ function Section({
       <Text
         accessibilityRole="header"
         style={[
-          typography.labelMedium,
+          typography.titleMedium,
           {
-            color: colors.onSurfaceVariant,
+            color: colors.onSurface,
             marginHorizontal: spacing.extraSmall,
           },
         ]}
       >
-        {title.toUpperCase()}
+        {title}
         {count > 0 ? ` · ${count}` : ""}
       </Text>
       {children}
@@ -360,7 +360,7 @@ function QueueRow({ publication }: { publication: PublicationListItem }) {
       }
     >
       {({ pressed }) => (
-        <Card
+        <ContentSection
           style={[
             styles.row,
             { gap: spacing.medium, paddingVertical: spacing.large },
@@ -377,7 +377,7 @@ function QueueRow({ publication }: { publication: PublicationListItem }) {
             </BodyText>
           </View>
           <StatusBadge status={publication.status} />
-        </Card>
+        </ContentSection>
       )}
     </Pressable>
   );
@@ -423,7 +423,7 @@ function FailedCard({
       )}
       onSwipeableOpen={onDismiss}
     >
-      <Card style={[styles.row, { gap: spacing.medium, paddingVertical: spacing.large }]}>
+      <ContentSection style={[styles.row, { gap: spacing.medium, paddingVertical: spacing.large }]}>
         <Pressable
           accessibilityRole="button"
           style={{ flex: 1 }}
@@ -459,7 +459,7 @@ function FailedCard({
           />
           <Button title="Dismiss" intent="quiet" onPress={onDismiss} />
         </View>
-      </Card>
+      </ContentSection>
     </Swipeable>
   );
 }

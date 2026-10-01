@@ -124,3 +124,9 @@ The release-signing plugin intentionally fails if Expo changes the Gradle templa
 - `src/app/`: Expo Router screens and native tabs
 
 For background on local production builds and APKs, see the [Expo local app development guide](https://docs.expo.dev/guides/local-app-development/), [local production guide](https://docs.expo.dev/guides/local-app-production/), and [APK guide](https://docs.expo.dev/build-reference/apk/).
+
+## UI
+
+Content sections sit on the screen canvas. Use cards only for isolated surfaces. Filled action and icon buttons use the shared `@openpost/dither/paint` Bayer gradient, with fixed endpoints and a density transition on press, hover, and keyboard focus. Reduced motion changes the state immediately. Native palettes keep text contrast at 4.5:1 and the two material colors between 1.18:1 and 1.8:1.
+
+The calendar shows a compact month above the selected day’s agenda. Posts appear in time order, and changing months preserves the selected day, clamped to the destination month.

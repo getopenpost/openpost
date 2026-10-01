@@ -128,11 +128,10 @@ function QueryPlaceholder({ shape, offline }: { shape: QueryPlaceholderShape; of
         </View>
         <View
           style={[
-            styles.placeholderCard,
+            styles.placeholderSection,
             {
-              backgroundColor: colors.surfaceContainer,
-              borderColor: colors.outlineVariant,
-              borderRadius: radii.medium,
+              backgroundColor: "transparent",
+              borderBottomColor: colors.outlineVariant,
             },
           ]}
         >
@@ -168,11 +167,10 @@ function QueryPlaceholder({ shape, offline }: { shape: QueryPlaceholderShape; of
         <View
           key={index}
           style={[
-            styles.placeholderCard,
+            styles.placeholderSection,
             {
-              backgroundColor: colors.surfaceContainer,
-              borderColor: colors.outlineVariant,
-              borderRadius: radii.medium,
+              backgroundColor: "transparent",
+              borderBottomColor: colors.outlineVariant,
             },
             shape === "editor" && index === 0 && styles.editorCard,
           ]}
@@ -224,10 +222,10 @@ const styles = StyleSheet.create({
     height: 28,
     marginBottom: 4,
   },
-  placeholderCard: {
+  placeholderSection: {
     minHeight: 76,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 16,
     gap: 10,
   },
   calendarWeekdays: {

@@ -2,7 +2,7 @@ import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
 
-import { BodyText, Button, Card, Screen, TextField, useColors } from "@/components/ui";
+import { BodyText, Button, ContentSection, Screen, TextField, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { login, verifyTotp } from "@/lib/auth";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
@@ -143,7 +143,7 @@ export default function LoginScreen() {
             style={styles.continue}
           />
 
-          <Card style={styles.pairCard}>
+          <ContentSection style={styles.pairCard}>
             <BodyText>Using single sign-on? Pair this device with a browser instead.</BodyText>
             <Button
               title="Pair with browser"
@@ -152,7 +152,7 @@ export default function LoginScreen() {
               disabled={busy}
               style={{ marginTop: 10 }}
             />
-          </Card>
+          </ContentSection>
 
           <Button
             title="Use a different server"

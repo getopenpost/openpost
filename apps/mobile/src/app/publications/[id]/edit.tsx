@@ -19,7 +19,7 @@ import {
 import {
   BodyText,
   Button,
-  Card,
+  ContentSection,
   IconButton,
   Screen,
   SectionHeader,
@@ -802,48 +802,23 @@ function Composer({
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.modalHeader, { borderBottomColor: colors.outlineVariant }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Cancel editing"
-          onPress={() => router.back()}
-          style={styles.headerAction}
-        >
-          <Text style={[typography.bodyLarge, { color: colors.primary }]}>Cancel</Text>
-        </Pressable>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <StatusBadge status={pub.status} />
-          {saveAndClose.isPending ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : null}
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Save draft"
-          accessibilityState={{ disabled: saveAndClose.isPending }}
+        <Button title="Cancel" intent="ordinary" onPress={() => router.back()} />
+        <Button
+          title="Done"
+          loading={saveAndClose.isPending}
+          accessibilityHint="Save draft and close the editor"
           onPress={() =>
             saveAndClose.mutate(
               captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
             )
           }
-          disabled={saveAndClose.isPending}
-          style={styles.headerAction}
-        >
-          <Text
-            style={[
-              typography.labelLarge,
-              {
-                color: saveAndClose.isPending ? colors.onSurfaceVariant : colors.primary,
-              },
-            ]}
-          >
-            Done
-          </Text>
-        </Pressable>
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <StatusBadge status={pub.status} />
         {statusMessage ? (
-          <Card accessibilityRole="alert">
+          <ContentSection accessibilityRole="alert">
             <BodyText
               style={[
                 typography.labelLarge,
@@ -852,7 +827,7 @@ function Composer({
             >
               {statusMessage}
             </BodyText>
-          </Card>
+          </ContentSection>
         ) : null}
         {actionError ? (
           <BodyText accessibilityRole="alert" style={{ color: colors.error }}>
@@ -915,8 +890,8 @@ function Composer({
           style={[
             styles.writingField,
             {
-              backgroundColor: colors.surface,
-              borderColor: colors.outlineVariant,
+              backgroundColor: colors.background,
+              borderColor: "transparent",
             },
           ]}
         />
@@ -1006,30 +981,8 @@ function Composer({
           ))}
         </View>
         <View style={styles.attachRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add photos or videos from library"
-            onPress={() => void pickFromLibrary()}
-            style={({ pressed }) => [
-              styles.addTile,
-              { borderColor: colors.outlineVariant },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <ProtectedIcon role="gallery" size={24} tintColor={colors.primary} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Take a photo"
-            onPress={() => void takePhoto()}
-            style={({ pressed }) => [
-              styles.addTile,
-              { borderColor: colors.outlineVariant },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <ProtectedIcon role="camera" size={24} tintColor={colors.primary} />
-          </Pressable>
+          <Button title="Add photos" intent="ordinary" onPress={() => void pickFromLibrary()} />
+          <Button title="Take photo" intent="ordinary" onPress={() => void takePhoto()} />
         </View>
 
         <SectionHeader label="Publishing" />
@@ -1039,7 +992,7 @@ function Composer({
           onPress={() => setDestinationDrawerOpen(true)}
         >
           {({ pressed }) => (
-            <Card style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
+            <ContentSection style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
               <View style={styles.settingIcon}>
                 <ThemeIcon role="account" size={22} tintColor={colors.primary} />
               </View>
@@ -1052,7 +1005,7 @@ function Composer({
                 </BodyText>
               </View>
               <ThemeIcon role="disclosure" size={20} tintColor={colors.onSurfaceVariant} />
-            </Card>
+            </ContentSection>
           )}
         </Pressable>
         <Pressable
@@ -1061,7 +1014,7 @@ function Composer({
           onPress={() => setScheduleDrawerOpen(true)}
         >
           {({ pressed }) => (
-            <Card style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
+            <ContentSection style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
               <View style={styles.settingIcon}>
                 <ThemeIcon role="calendar" size={22} tintColor={colors.primary} />
               </View>
@@ -1076,7 +1029,7 @@ function Composer({
                 </BodyText>
               </View>
               <ThemeIcon role="disclosure" size={20} tintColor={colors.onSurfaceVariant} />
-            </Card>
+            </ContentSection>
           )}
         </Pressable>
 
@@ -1191,9 +1144,9 @@ function Composer({
             <QueryNotice message="You are offline. Current destinations remain visible." offline />
           ) : null}
           {accountsLoadedEmpty && !destinationCatalogFailed ? (
-            <Card>
+            <ContentSection>
               <BodyText>No connected accounts. Connect them in the web app first.</BodyText>
-            </Card>
+            </ContentSection>
           ) : (
             <View style={styles.accountList}>
               {(accounts.data ?? []).map((account) => {
@@ -1275,7 +1228,7 @@ function Composer({
 
       {scheduleDrawerOpen ? (
         <BottomDrawer open title="Publish time" onDismiss={() => setScheduleDrawerOpen(false)}>
-          <Card style={styles.scheduleCard}>
+          <ContentSection style={styles.scheduleCard}>
             <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
               {scheduledAt ? formatDateTime(scheduledAt.toISOString()) : "Not scheduled"}
             </Text>
@@ -1326,7 +1279,7 @@ function Composer({
                 }}
               />
             ) : null}
-          </Card>
+          </ContentSection>
           <Button
             title="Schedule and queue"
             intent="focal"
@@ -1406,12 +1359,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerAction: {
-    minWidth: 48,
-    minHeight: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   content: {
     padding: 20,
     gap: 12,
@@ -1420,6 +1367,7 @@ const styles = StyleSheet.create({
   editorHeading: {
     alignItems: "flex-start",
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     gap: 12,
   },
@@ -1433,7 +1381,7 @@ const styles = StyleSheet.create({
   },
   writingField: {
     minHeight: 260,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 16,
   },
   attachRow: {
@@ -1482,15 +1430,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addTile: {
-    width: 64,
-    height: 64,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
   },

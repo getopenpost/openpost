@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { ModalBottomSheet } from "@swmansion/react-native-bottom-sheet";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import {
   KeyboardAwareScrollView,
   useReanimatedKeyboardAnimation,
@@ -8,7 +8,7 @@ import {
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ThemeIcon } from "@/components/theme-icon";
+import { IconButton } from "@/components/ui";
 import { drawerBottomPadding } from "@/lib/bottom-drawer-layout";
 import { useNativeTheme } from "@/theme";
 
@@ -73,19 +73,7 @@ export function BottomDrawer({
           >
             {title}
           </Text>
-          <Pressable
-            accessibilityLabel="Close"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={onDismiss}
-            style={({ pressed }) => [
-              styles.closeButton,
-              { backgroundColor: colors.background },
-              pressed && styles.pressed,
-            ]}
-          >
-            <ThemeIcon role="close" size={24} tintColor={colors.onSurface} />
-          </Pressable>
+          <IconButton label="Close" role="close" onPress={onDismiss} />
         </View>
         <KeyboardAwareScrollView
           bottomOffset={18}
@@ -104,13 +92,6 @@ export function BottomDrawer({
 }
 
 const styles = StyleSheet.create({
-  closeButton: {
-    alignItems: "center",
-    borderRadius: 999,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
   drawer: {
     flexShrink: 1,
     overflow: "hidden",
@@ -125,9 +106,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-  pressed: {
-    opacity: 0.72,
   },
   scroll: {
     flexShrink: 1,

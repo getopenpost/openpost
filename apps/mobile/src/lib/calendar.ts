@@ -18,3 +18,8 @@ export function calendarWeeks(month: Date): (Date | null)[][] {
   }
   return weeks;
 }
+
+export function shiftCalendarMonth(date: Date, delta: number): Date {
+  const finalDay = new Date(date.getFullYear(), date.getMonth() + delta + 1, 0).getDate();
+  return new Date(date.getFullYear(), date.getMonth() + delta, Math.min(date.getDate(), finalDay));
+}

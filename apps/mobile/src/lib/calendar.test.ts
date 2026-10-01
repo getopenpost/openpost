@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { calendarWeeks } from "./calendar";
+import { calendarWeeks, shiftCalendarMonth } from "./calendar";
 
 describe("calendarWeeks", () => {
   it("keeps every month in exact seven-day rows", () => {
@@ -27,4 +27,16 @@ describe("calendarWeeks", () => {
       null,
     ]);
   });
+});
+
+it("preserves the selected day when moving between months, clamping only when needed", () => {
+  for (const [year, month, day, delta, expected] of [
+    [2026, 0, 31, 1, [2026, 1, 28]],
+    [2024, 0, 31, 1, [2024, 1, 29]],
+    [2026, 11, 15, 1, [2027, 0, 15]],
+    [2026, 0, 15, -1, [2025, 11, 15]],
+  ] as const) {
+    const result = shiftCalendarMonth(new Date(year, month, day), delta);
+    expect([result.getFullYear(), result.getMonth(), result.getDate()]).toEqual([...expected]);
+  }
 });

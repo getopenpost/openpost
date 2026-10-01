@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./style.css": "./src/style.css"
+    "./style.css": "./src/style.css",
+    "./paint": "./src/paint.ts"
   },
   "scripts": {
     "check": "tsc --noEmit"

@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useRef } from "react";
+import { forwardRef, useCallback, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,9 @@ import {
 } from "react-native";
 import { Image, type ImageContentFit } from "expo-image";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
+
+import { DitherPressable } from "./dither-pressable";
+import { nativeDitherActionMaterial } from "@/theme/validation";
 
 import { STATUS_LABEL } from "@/lib/format";
 import { pressHaptic } from "@/lib/haptics";
@@ -102,6 +105,14 @@ export function Card({ children, style, ...props }: React.ComponentProps<typeof 
   );
 }
 
+/** Content groups sit on the canvas; reserve Card for an isolated surface. */
+export function ContentSection({ style, ...props }: React.ComponentProps<typeof View>) {
+  const { spacing } = useNativeTheme().manifest;
+  return (
+    <View {...props} style={[{ gap: spacing.small, paddingVertical: spacing.medium }, style]} />
+  );
+}
+
 export function SectionHeader({ label }: { label: string }) {
   const theme = useNativeTheme();
   return (
@@ -181,11 +192,25 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useNativeTheme();
-  const presentation = actionPresentation(theme.manifest, intent);
+  const presentation = actionPresentation(
+    theme.manifest,
+    intent === "quiet" || intent === "link" ? "ordinary" : intent,
+  );
   const inactive = disabled || loading;
+  const material = useMemo(
+    () =>
+      nativeDitherActionMaterial(presentation, theme.manifest.colors.background, {
+        focusColor: theme.manifest.colors.focus,
+      }),
+    [presentation, theme.manifest.colors.background, theme.manifest.colors.focus],
+  );
   const hasDepth = presentation.depth > 0;
   return (
-    <Pressable
+    <DitherPressable
+      radius={buttonRadius(theme.manifest)}
+      textureInk={material?.ink}
+      textureOpacity={material?.opacity}
+      focusColor={material?.focus ?? theme.manifest.colors.focus}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={title}
       accessibilityHint={accessibilityHint}
@@ -200,7 +225,7 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: pressed ? presentation.pressedContainer : presentation.container,
+          backgroundColor: presentation.container,
           borderColor: presentation.border,
           borderBottomColor: hasDepth ? presentation.depthColor : presentation.border,
           borderBottomWidth: hasDepth
@@ -210,13 +235,14 @@ export function Button({
           borderWidth: presentation.borderWidth,
           opacity: inactive ? presentation.disabledOpacity : 1,
           paddingHorizontal: theme.manifest.spacing.large,
+          paddingVertical: theme.manifest.spacing.small,
           transform: pressed && hasDepth ? [{ translateY: presentation.depth }] : undefined,
         },
         style,
       ]}
     >
-      {({ pressed }) => {
-        const contentColor = pressed ? presentation.pressedContent : presentation.content;
+      {() => {
+        const contentColor = material?.content ?? presentation.content;
         return loading ? (
           <ActivityIndicator color={contentColor} />
         ) : (
@@ -233,7 +259,7 @@ export function Button({
           </Text>
         );
       }}
-    </Pressable>
+    </DitherPressable>
   );
 }
 
@@ -359,21 +385,41 @@ export function IconButton({
 }) {
   const theme = useNativeTheme();
   const colors = theme.manifest.colors;
+  const presentation = actionPresentation(theme.manifest, "ordinary");
+  const material = useMemo(
+    () =>
+      nativeDitherActionMaterial(
+        { ...presentation, content: color ?? presentation.content },
+        colors.background,
+        { focusColor: colors.focus },
+      ),
+    [presentation, color, colors.background, colors.focus],
+  );
   return (
-    <Pressable
+    <DitherPressable
+      radius={buttonRadius(theme.manifest)}
+      textureInk={material?.ink}
+      textureOpacity={material?.opacity}
+      focusColor={material?.focus ?? theme.manifest.colors.focus}
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={4}
       onPressIn={() => void pressHaptic()}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.iconButton,
-        { borderRadius: theme.manifest.shape.full },
-        pressed && { backgroundColor: colors.primaryContainer },
+        {
+          borderRadius: buttonRadius(theme.manifest),
+          backgroundColor: presentation.container,
+        },
       ]}
     >
-      <ThemeIcon role={role} size={24} tintColor={color ?? colors.onSurface} />
-    </Pressable>
+      <ThemeIcon
+        role={role}
+        size={24}
+        tintColor={material?.content ?? color ?? presentation.content}
+      />
+    </DitherPressable>
   );
 }
 

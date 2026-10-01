@@ -9,6 +9,7 @@
         "@expo/ui": "~57.0.21",
         "@noble/hashes": "^2.4.0",
         "@openpost/api-contract": "file:../../packages/api-contract",
+        "@openpost/dither": "file:../../packages/dither",
         "@openpost/query-catalog": "file:../../packages/query-catalog",
         "@openpost/video-project": "file:../../packages/video-project",
         "@react-native-community/datetimepicker": "9.1.0",
@@ -351,6 +352,8 @@
     "@nolyfill/is-core-module": ["@nolyfill/is-core-module@1.0.39", "", {}, "sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA=="],
 
     "@openpost/api-contract": ["@openpost/api-contract@file:../../packages/api-contract", { "devDependencies": { "typescript": "5.9.3" } }],
+
+    "@openpost/dither": ["@openpost/dither@file:../../packages/dither", { "devDependencies": { "typescript": "^5.9.3" } }],
 
     "@openpost/query-catalog": ["@openpost/query-catalog@file:../../packages/query-catalog", { "devDependencies": { "@openpost/api-contract": "file:../api-contract", "@tanstack/query-core": "5.102.8", "typescript": "5.9.3", "vitest": "4.1.10" }, "peerDependencies": { "@tanstack/query-core": "5.102.8" } }],
 
@@ -1763,6 +1766,8 @@
     "@expo/ws-tunnel/ws": ["ws@8.21.3", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw=="],
 
     "@openpost/api-contract/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@openpost/dither/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@openpost/query-catalog/@openpost/api-contract": ["@openpost/api-contract@file:../../packages/api-contract", { "devDependencies": { "typescript": "5.9.3" } }],
 

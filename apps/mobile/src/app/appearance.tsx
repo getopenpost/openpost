@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BodyText, Card, IconButton, Screen, SectionHeader } from "@/components/ui";
+import { BodyText, ContentSection, IconButton, Screen, SectionHeader } from "@/components/ui";
 import { ThemeIcon } from "@/components/theme-icon";
 import {
   getToken,
@@ -149,7 +149,7 @@ export default function AppearanceScreen() {
           <View>
             <SectionHeader label="Color scheme" />
             <View accessibilityLabel="Color scheme" accessibilityRole="radiogroup">
-              <Card style={styles.optionList}>
+              <ContentSection style={styles.optionList}>
                 {APPEARANCE_OPTIONS.map((option, index) => {
                   const selected = preference === option.value;
                   const pending = preferencePending === option.value;
@@ -209,7 +209,7 @@ export default function AppearanceScreen() {
                     </Pressable>
                   );
                 })}
-              </Card>
+              </ContentSection>
             </View>
             {preferenceError ? (
               <BodyText
@@ -223,7 +223,7 @@ export default function AppearanceScreen() {
 
           <View>
             <SectionHeader label="Workspace theme" />
-            <Card
+            <ContentSection
               style={{
                 gap: spacing.medium,
                 paddingVertical: spacing.large,
@@ -274,7 +274,7 @@ export default function AppearanceScreen() {
                 <BodyText>Ask a workspace admin to choose a different published theme.</BodyText>
               ) : null}
               <BodyText>Create and edit themes in OpenPost on the web.</BodyText>
-            </Card>
+            </ContentSection>
           </View>
 
           {settings &&
@@ -284,7 +284,7 @@ export default function AppearanceScreen() {
             <View>
               <SectionHeader label="Choose a theme" />
               <View accessibilityLabel="Workspace theme" accessibilityRole="radiogroup">
-                <Card style={styles.optionList}>
+                <ContentSection style={styles.optionList}>
                   {settings.choices.map((choice, index) => (
                     <ThemeChoiceRow
                       choice={choice}
@@ -297,7 +297,7 @@ export default function AppearanceScreen() {
                       stackContent={appearanceLayout.stackContent}
                     />
                   ))}
-                </Card>
+                </ContentSection>
               </View>
               {settings.inherited ? (
                 <BodyText

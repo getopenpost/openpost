@@ -15,7 +15,14 @@ import {
 } from "react-native";
 
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
-import { BodyText, Button, Card, Screen, StatusBadge, SectionHeader } from "@/components/ui";
+import {
+  BodyText,
+  Button,
+  ContentSection,
+  Screen,
+  StatusBadge,
+  SectionHeader,
+} from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
 import { formatDateTime, platformLabel, statusColor } from "@/lib/format";
@@ -214,7 +221,7 @@ export default function PostScreen() {
           <QueryNotice message="You are offline. The current post remains visible." offline />
         ) : null}
 
-        <Card style={{ gap: spacing.small }}>
+        <ContentSection style={{ gap: spacing.small }}>
           <View style={[styles.headerRow, { gap: spacing.small }]}>
             <StatusBadge status={status} />
             {pub.scheduled_at ? <BodyText>{formatDateTime(pub.scheduled_at)}</BodyText> : null}
@@ -232,12 +239,12 @@ export default function PostScreen() {
               {body}
             </BodyText>
           ) : null}
-        </Card>
+        </ContentSection>
 
         <SectionHeader label={`Destinations · ${pub.renditions?.length ?? 0}`} />
         <View style={{ gap: spacing.small }}>
           {(pub.renditions ?? []).map((rendition) => (
-            <Card key={rendition.id}>
+            <ContentSection key={rendition.id}>
               <View style={styles.renditionRow}>
                 <View
                   style={[
@@ -283,7 +290,7 @@ export default function PostScreen() {
                   </Text>
                 </Pressable>
               ) : null}
-            </Card>
+            </ContentSection>
           ))}
         </View>
 
@@ -457,7 +464,7 @@ export default function PostScreen() {
         </View>
 
         {pickerStep && status === "scheduled" ? (
-          <Card style={{ marginTop: spacing.medium, gap: spacing.small }}>
+          <ContentSection style={{ marginTop: spacing.medium, gap: spacing.small }}>
             <DateTimePicker
               value={newDate ?? (pub.scheduled_at ? new Date(pub.scheduled_at) : nextHour())}
               mode={pickerStep}
@@ -482,7 +489,7 @@ export default function PostScreen() {
             {newDate && reschedule.isPending ? (
               <BodyText>Moving to {formatDateTime(newDate.toISOString())}...</BodyText>
             ) : null}
-          </Card>
+          </ContentSection>
         ) : null}
       </ScrollView>
     </Screen>

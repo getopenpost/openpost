@@ -73,7 +73,7 @@
   },
   "packageManager": "bun@1.3.11",
   "patchedDependencies": {
-    "expo-modules-jsi@57.0.7": "patches/expo-modules-jsi@57.0.7.patch",
-    "expo-modules-core@57.0.15": "patches/expo-modules-core@57.0.15.patch"
+    "expo-modules-jsi@57.1.1": "patches/expo-modules-jsi@57.1.1.patch",
+    "expo-modules-core@57.0.20": "patches/expo-modules-core@57.0.20.patch"
   }
 }

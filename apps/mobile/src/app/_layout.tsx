@@ -7,6 +7,7 @@ import { ShareIntentProvider } from "expo-share-intent";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { queryClient } from "@/lib/query-client";
@@ -162,34 +163,36 @@ export default function RootLayout() {
   }, [launch.hydrated, sessionIdentity]);
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <NativeThemeRuntime
-          contract={signedIn && activationMatchesSession ? activation.contract : null}
-          preference={preference}
-          stagedResources={signedIn && activationMatchesSession ? activation.resources : null}
-          workspaceId={signedIn ? workspaceId : null}
-        >
-          <LaunchSessionProvider
-            key={queryActorRevision}
-            value={{ state: launch.state, reload: launch.reload }}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <NativeThemeRuntime
+            contract={signedIn && activationMatchesSession ? activation.contract : null}
+            preference={preference}
+            stagedResources={signedIn && activationMatchesSession ? activation.resources : null}
+            workspaceId={signedIn ? workspaceId : null}
           >
-            <KeyboardProvider
-              navigationBarTranslucent
-              preload={false}
-              preserveEdgeToEdge
-              statusBarTranslucent
+            <LaunchSessionProvider
+              key={queryActorRevision}
+              value={{ state: launch.state, reload: launch.reload }}
             >
-              <BottomSheetProvider>
-                <ShareIntentProvider>
-                  <ThemedApplication />
-                </ShareIntentProvider>
-              </BottomSheetProvider>
-            </KeyboardProvider>
-          </LaunchSessionProvider>
-        </NativeThemeRuntime>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+              <KeyboardProvider
+                navigationBarTranslucent
+                preload={false}
+                preserveEdgeToEdge
+                statusBarTranslucent
+              >
+                <BottomSheetProvider>
+                  <ShareIntentProvider>
+                    <ThemedApplication />
+                  </ShareIntentProvider>
+                </BottomSheetProvider>
+              </KeyboardProvider>
+            </LaunchSessionProvider>
+          </NativeThemeRuntime>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

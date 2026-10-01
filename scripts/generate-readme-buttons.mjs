@@ -6,7 +6,13 @@ import { resolve } from "node:path";
 // dither overlay, icon plus label in a contrasting ink. Unlike the badges they
 // have no live counts, so the SVGs are checked in and only regenerated here.
 
-export const BUTTON_NAMES = ["start-trial", "self-host", "report-bug", "join-discord"];
+export const BUTTON_NAMES = [
+  "start-trial",
+  "join-waitlist",
+  "self-host",
+  "report-bug",
+  "join-discord",
+];
 
 const BUTTON_HEIGHT = 36;
 const BUTTON_RADIUS = 8;
@@ -20,6 +26,10 @@ const FONT_SIZE = 14;
 // of the README badges; blurple is Discord's brand color tuned for contrast.
 const COLORS = {
   "start-trial": {
+    light: ["#9ed9ad", "#102117"],
+    dark: ["#72d18d", "#102117"],
+  },
+  "join-waitlist": {
     light: ["#9ed9ad", "#102117"],
     dark: ["#72d18d", "#102117"],
   },
@@ -39,6 +49,7 @@ const COLORS = {
 
 const LABELS = {
   "start-trial": "Start a 14-day trial",
+  "join-waitlist": "Join the waitlist",
   "self-host": "Get started with self-hosting",
   "report-bug": "Report a bug",
   "join-discord": "Join Discord",
@@ -48,6 +59,7 @@ const LABELS = {
 // at these bounds when an SVG renderer falls back to Arial or system sans.
 const LABEL_WIDTHS = {
   "start-trial": 128,
+  "join-waitlist": 108,
   "self-host": 200,
   "report-bug": 88,
   "join-discord": 86,
@@ -102,7 +114,7 @@ const DISCORD_PATH =
 function iconMarkup(kind, x, y, ink) {
   const scale = ICON_SIZE / 24;
   const open = `<g transform="translate(${x} ${y}) scale(${scale.toFixed(4)})">`;
-  if (kind === "start-trial") {
+  if (kind === "start-trial" || kind === "join-waitlist") {
     return `${open}<path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z" fill="${ink}"/><path d="M19 1.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="${ink}"/></g>`;
   }
   if (kind === "self-host") {

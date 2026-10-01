@@ -115,7 +115,12 @@
 
 Hosted signups are temporarily on a waitlist while we finish the remaining social platform approvals. Existing accounts can still sign in.
 
-[Join the waitlist](https://app.openpo.st/register)
+<a href="https://app.openpo.st/register">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/buttons/join-waitlist-dark.svg">
+    <img src="./assets/buttons/join-waitlist-light.svg" alt="Join the waitlist" height="36">
+  </picture>
+</a>
 
 [View plans](https://openpo.st/pricing)
 

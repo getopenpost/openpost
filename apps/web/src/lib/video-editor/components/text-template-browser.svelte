@@ -103,7 +103,7 @@
 				{#if group.layout === 'single'}
 					<button
 						type="button"
-						class="template-card"
+						class="template-card w-full"
 						draggable="true"
 						onclick={insertPlainText}
 						ondragstart={(event) => startDrag(event, m.video_editor_text_default_label())}
@@ -119,10 +119,10 @@
 				{/if}
 				{#each TEXT_STYLE_PRESETS.filter((preset) => preset.layout === group.layout) as preset (preset.id)}
 					{@const copy = localizedTextStylePresetCopy(preset.id)}
-					<div class="relative min-w-0">
+					<div class="group/library-item relative min-w-0">
 						<button
 							type="button"
-							class="template-card"
+							class="template-card w-full"
 							draggable="true"
 							onclick={() => usePreset(preset.id)}
 							ondragstart={(event) => startDrag(event, copy.label, preset.id)}

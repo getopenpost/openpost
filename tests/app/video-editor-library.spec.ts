@@ -25,39 +25,47 @@ async function installLocalWorkspacePicker(page: Page): Promise<void> {
   });
 }
 
-test.describe("touch timer library", () => {
-  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
-  test("keeps favorite controls reachable on a small screen", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await createProject(page, "Touch timer library");
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole("button", { name: "Assets", exact: true }).click();
-    await page.getByRole("tab", { name: "Timers", exact: true }).click();
-    const ringCard = page.getByRole("button", { name: "Ring", exact: true }).last();
-    const cardBounds = await ringCard.boundingBox();
-    const previewBounds = await ringCard.locator("canvas").boundingBox();
-    expect(previewBounds!.y).toBeGreaterThanOrEqual(cardBounds!.y);
-    expect(previewBounds!.y + previewBounds!.height).toBeLessThanOrEqual(
-      cardBounds!.y + cardBounds!.height,
-    );
-    const favorite = page.getByRole("button", { name: "Favorite Ring", exact: true });
-    await favorite.scrollIntoViewIfNeeded();
-    const bounds = await favorite.boundingBox();
-    expect(bounds!.width).toBeGreaterThanOrEqual(44);
-    expect(bounds!.height).toBeGreaterThanOrEqual(44);
-    const cardAfterScroll = await ringCard.boundingBox();
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(
-      cardAfterScroll!.y + cardAfterScroll!.height,
-    );
-    await favorite.tap();
-    await expect(favorite).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("tab", { name: "Library", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Ring", exact: true }).first()).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      390,
-    );
-  });
-});
+for (const width of [390, 320]) {
+  for (const scheme of ["light", "dark"] as const) {
+    test.describe(`touch timer library at ${width}px in ${scheme}`, () => {
+      test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+      test("keeps favorite controls reachable on a small screen", async ({ page }, testInfo) => {
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+        await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await createProject(page, "Touch timer library");
+        await page.setViewportSize({ width, height: 844 });
+        await page.getByRole("button", { name: "Assets", exact: true }).click();
+        await page.getByRole("tab", { name: "Timers", exact: true }).click();
+        const ringCard = page.getByRole("button", { name: "Ring", exact: true }).last();
+        const cardBounds = await ringCard.boundingBox();
+        const previewBounds = await ringCard.locator("canvas").boundingBox();
+        expect(previewBounds!.y).toBeGreaterThanOrEqual(cardBounds!.y);
+        expect(previewBounds!.y + previewBounds!.height).toBeLessThanOrEqual(
+          cardBounds!.y + cardBounds!.height,
+        );
+        const favorite = page.getByRole("button", { name: "Favorite Ring", exact: true });
+        await favorite.scrollIntoViewIfNeeded();
+        const bounds = await favorite.boundingBox();
+        expect(bounds!.width).toBeGreaterThanOrEqual(44);
+        expect(bounds!.height).toBeGreaterThanOrEqual(44);
+        const cardAfterScroll = await ringCard.boundingBox();
+        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(
+          cardAfterScroll!.y + cardAfterScroll!.height,
+        );
+        await expect(favorite).toHaveCSS("opacity", "1");
+        await page.screenshot({ path: testInfo.outputPath(`timers-touch-${width}-${scheme}.png`) });
+        await favorite.tap();
+        await expect(favorite).toHaveAttribute("aria-pressed", "true");
+        await page.getByRole("tab", { name: "Library", exact: true }).click();
+        await expect(page.getByRole("button", { name: "Ring", exact: true }).first()).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+          width,
+        );
+      });
+    });
+  }
+}
 
 async function createProject(
   page: Page,
@@ -76,6 +84,74 @@ async function createProject(
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+}
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`library hearts follow the hovered or focused card in ${scheme}`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await createProject(page, "Contextual library favorites");
+    for (const tab of ["Effects", "Transition", "Text", "Timers"]) {
+      if (tab === "Timers") {
+        await page
+          .getByRole("navigation", { name: "Assets", exact: true })
+          .getByRole("button", { name: "More", exact: true })
+          .click();
+        await page.getByRole("menuitem", { name: tab, exact: true }).click();
+      } else {
+        await page.getByRole("tab", { name: tab, exact: true }).click();
+      }
+      const hearts = page.getByRole("button", { name: /^Favorite / });
+      const heart = hearts.first();
+      const card = heart.locator("..");
+      const item = card.getByRole("button").first();
+      await expect(heart).toBeAttached();
+      await page.mouse.move(1000, 100);
+      await page.getByRole("tab", { name: "Edit", exact: true }).focus();
+      await page.screenshot({ path: testInfo.outputPath(`${tab}-${scheme}-idle.png`) });
+      await expect(heart).toHaveCSS("opacity", "0");
+      await item.hover();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await expect(hearts.nth(1)).toHaveCSS("opacity", "0");
+      const bounds = await heart.boundingBox();
+      const itemBounds = await item.boundingBox();
+      expect(bounds!.x).toBeGreaterThanOrEqual(itemBounds!.x);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(itemBounds!.x + itemBounds!.width);
+      expect(bounds!.y).toBeGreaterThanOrEqual(itemBounds!.y);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(itemBounds!.y + itemBounds!.height);
+      await heart.hover();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await page.screenshot({ path: testInfo.outputPath(`${tab}-${scheme}-hover.png`) });
+      await page.mouse.move(1000, 100);
+      await expect(heart).toHaveCSS("opacity", "0");
+      await item.focus();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await page.keyboard.press("Tab");
+      await expect(heart).toBeFocused();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await heart.press("Enter");
+      await expect(heart).toHaveAttribute("aria-pressed", "true");
+      await page.getByRole("tab", { name: "Edit", exact: true }).focus();
+      await expect(heart).toHaveCSS("opacity", "0");
+    }
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Library", exact: true }).click();
+    const savedHeart = page.getByRole("button", { name: "Favorite Countdown", exact: true });
+    await expect(savedHeart).toHaveCSS("opacity", "0");
+    await page.getByRole("button", { name: "Countdown", exact: true }).first().hover();
+    await expect(savedHeart).toHaveCSS("opacity", "1");
+    await page.mouse.move(1000, 100);
+    await expect(savedHeart).toHaveCSS("opacity", "0");
+    await savedHeart.focus();
+    await expect(savedHeart).toHaveCSS("opacity", "1");
+  });
 }
 
 for (const scheme of ["light", "dark"] as const) {

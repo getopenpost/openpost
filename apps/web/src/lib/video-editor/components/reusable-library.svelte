@@ -267,7 +267,7 @@
 	<p class="text-xs text-[var(--video-editor-muted)]">{m.video_editor_library_local()}</p>
 	{#each entries as entry (entry.id)}
 		<div
-			class="flex flex-wrap items-center gap-1 border-b border-[var(--video-editor-border)] py-2"
+			class="group/library-item flex flex-wrap items-center gap-1 border-b border-[var(--video-editor-border)] py-2"
 		>
 			<Button
 				size="sm"
@@ -286,6 +286,7 @@
 			<Button
 				size="icon-xs"
 				variant="ghost"
+				class="pointer-events-none opacity-0 group-focus-within/library-item:pointer-events-auto group-focus-within/library-item:opacity-100 group-hover/library-item:pointer-events-auto group-hover/library-item:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
 				aria-label={m.video_editor_library_favorite({ name: entry.name })}
 				aria-pressed={entry.favorite}
 				onclick={() => videoLibrary.update(entry, { favorite: !entry.favorite }).catch(fail)}

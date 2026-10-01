@@ -47,7 +47,7 @@
 	<LibraryShelf kind="timer" {oninserted} {importAsset} />
 	<div class="grid grid-cols-2 gap-2">
 		{#each presets as preset}
-			<div class="relative min-w-0">
+			<div class="group/library-item relative min-w-0">
 				<Button
 					variant="outline"
 					class="h-auto min-h-20 w-full flex-col gap-2 py-3 md:h-auto [@media(pointer:coarse)]:h-auto"

@@ -178,11 +178,11 @@
 			<div class="effect-grid">
 				{#each group.items as item (item.id)}
 					{@const effectId = 'effectId' in item ? item.effectId : undefined}
-					<div class="relative min-w-0">
+					<div class="group/library-item relative min-w-0">
 						<button
 							type="button"
 							draggable="true"
-							class="effect-card"
+							class="effect-card w-full"
 							data-effect-catalog-id={item.id}
 							aria-label={item.label}
 							title={m.video_editor_effects_add_or_drag()}

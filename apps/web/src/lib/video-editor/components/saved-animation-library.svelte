@@ -184,7 +184,7 @@
 		<div class="preset-list">
 			{#each filteredPresets as preset (preset.id)}
 				{@const reason = compatibilityReason(preset)}
-				<article class="saved-card">
+				<article class="saved-card group/library-item">
 					<div>
 						<strong>{preset.name}</strong>
 						<LibraryFavorite

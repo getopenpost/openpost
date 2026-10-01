@@ -33,11 +33,17 @@ export function gradientSvg({
   for (let row = 0; row < rows; row++) {
     const fraction = (row + 0.5) / rows;
     const position = reverse ? 1 - fraction : fraction;
-    const density = kind === "button" ? 0.1 + 0.65 * position : position;
+    // Solid endpoints frame the dithered transition, including during interaction.
+    const density =
+      kind === "button" ? Math.max(0, Math.min(1, (position - 0.15) / 0.7)) : position;
     for (let column = 0; column < PERIOD; column++) {
       const x = horizontal ? row : column;
       const y = horizontal ? column : row;
-      const lit = density > ditherThreshold(x, y) - 0.1 * intensity;
+      const coverage =
+        kind === "button"
+          ? density + 0.4 * intensity * density * (1 - density)
+          : density + 0.1 * intensity;
+      const lit = coverage > ditherThreshold(x, y);
       const strength = (0.3 + density * 0.7) * (1 + 0.22 * intensity);
       // Buttons keep two fixed colors; interaction changes coverage, not contrast.
       const alpha = kind === "button" ? (lit ? 1 : 0) : Math.min(1, strength * (lit ? 1 : 0.4));

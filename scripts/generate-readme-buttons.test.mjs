@@ -73,3 +73,28 @@ test("README button texture stays visible and restrained without reducing text c
     }
   }
 });
+
+test("README gradients have solid ends with a dithered transition", async () => {
+  const { default: sharp } = await import("sharp");
+  for (const kind of BUTTON_NAMES) {
+    for (const mode of ["light", "dark"]) {
+      const { data, info } = await sharp(Buffer.from(renderButton(kind, mode)))
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const rowColors = (y, x = 20) =>
+        new Set(
+          Array.from({ length: 8 }, (_, i) => {
+            const offset = (y * info.width + x + i) * 4;
+            return [...data.subarray(offset, offset + 3)].join(",");
+          }),
+        );
+      const top = new Set([3, 4, 5].flatMap((y) => [...rowColors(y)]));
+      const bottom = new Set([4, 5, 6].flatMap((y) => [...rowColors(info.height - y)]));
+      assert.equal(top.size, 1, `${kind} ${mode}: solid top`);
+      assert.equal(bottom.size, 1, `${kind} ${mode}: solid bottom`);
+      assert.notEqual([...top][0], [...bottom][0], `${kind} ${mode}: distinct endpoints`);
+      assert.equal(rowColors(12, 3).size, 2, `${kind} ${mode}: dithered transition`);
+    }
+  }
+});

@@ -65,7 +65,7 @@ const LABEL_WIDTHS = {
 };
 
 function ditherPattern(height, ink) {
-  return `<pattern id="dither" width="8" height="${height}" patternUnits="userSpaceOnUse">${gradientSvg({ length: height, kind: "button", ink })}</pattern>`;
+  return `<pattern id="dither" width="8" height="${height}" patternUnits="userSpaceOnUse">${gradientSvg({ length: height, kind: "button", direction: ink === "#ffffff" ? "down" : "up", ink })}</pattern>`;
 }
 
 function escapeXML(value) {

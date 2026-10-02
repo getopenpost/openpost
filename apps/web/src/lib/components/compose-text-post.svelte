@@ -1990,9 +1990,8 @@
 						const sourceMedia = publicationMedia(
 							getVariantMediaIds(rendition.social_account_id, post.key) ?? post.mediaIds
 						);
-						return {
+						const override: NonNullable<ComposerRenditionSegment['source_overrides']>[number] = {
 							publication_segment_id: payload.segments[sourceIndex].id,
-							...(variant && !variant.contentInherited ? { body_override: variant.content } : {}),
 							media_inherited: variant?.mediaInherited ?? true,
 							media: sourceMedia.map(
 								(item) =>
@@ -2002,6 +2001,8 @@
 									}
 							)
 						};
+						if (variant && !variant.contentInherited) override.body_override = variant.content;
+						return override;
 					});
 				}
 				if (!contentInherited) renditionSegment.body_override = body;

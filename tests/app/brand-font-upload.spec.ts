@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
+test.use({ hasTouch: true });
+
 test("invalid brand fonts explain the file problem and allow a valid upload afterwards", async ({
   page,
   request,
@@ -15,10 +17,25 @@ test("invalid brand fonts explain the file problem and allow a valid upload afte
   await page.goto(`/settings?tab=brand&workspace=${workspace.id}`);
   await page.getByText("Add a custom font", { exact: true }).click();
   await page.getByRole("textbox", { name: "Family name", exact: true }).fill("Recovery Geist");
-  await page.getByRole("checkbox", { name: /I confirm that this workspace/ }).check();
+  const license = page.getByRole("checkbox", { name: /I confirm that this workspace/ });
+  await license.check();
   const input = page.getByLabel("Upload font", { exact: true });
+  await license.focus();
+  await page.keyboard.press("Tab");
+  await expect(input).toBeFocused();
+  const uploadLabel = input.locator("..");
+  expect(await uploadLabel.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe(
+    "none",
+  );
+  const bounds = (await uploadLabel.boundingBox())!;
+  expect(bounds.width).toBeGreaterThanOrEqual(44);
+  expect(bounds.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("font-upload-keyboard-focus.png") });
   const invalid = { name: "broken.ttf", mimeType: "font/ttf", buffer: Buffer.from("not a font") };
-  await input.setInputFiles(invalid);
+  const chooseFont = page.waitForEvent("filechooser");
+  await page.keyboard.press("Space");
+  await (await chooseFont).setFiles(invalid);
   const alert = page.getByRole("alert").filter({ hasText: /font|network/i });
   await expect(alert).toHaveText(
     "This font file could not be read. Choose a valid WOFF2, TTF, or OTF file.",

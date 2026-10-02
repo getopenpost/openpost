@@ -478,7 +478,7 @@
 					<span>{m.brand_license_ack()}</span>
 				</label>
 				<label
-					class="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border px-3 text-sm font-medium"
+					class="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border px-3 text-sm font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
 				>
 					{#if uploadingFont}
 						<ProtectedIcon icon="loading" class="mr-2 animate-spin" />

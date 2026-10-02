@@ -828,7 +828,7 @@ func insertLegacyRenditions(
 			CreatedAt:       publication.CreatedAt,
 			UpdatedAt:       publication.UpdatedAt,
 		}
-		if _, err := tx.NewInsert().Model(&rendition).Ignore().Exec(ctx); err != nil {
+		if _, err := tx.NewInsert().Model(&rendition).ExcludeColumn("position").Ignore().Exec(ctx); err != nil {
 			return err
 		}
 		for position, canonical := range segments {

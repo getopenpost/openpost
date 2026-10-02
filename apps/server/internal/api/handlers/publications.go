@@ -877,7 +877,7 @@ func (h *PublicationHandler) replaceAllPublicationRenditions(
 	if segmentInputs == nil {
 		segmentInputs = loadedInputs
 	}
-	return h.insertRenditions(ctx, tx, publication, segments, segmentInputs, renditionInputs, nil, accounts)
+	return h.insertRenditions(ctx, tx, publication, segments, segmentInputs, renditionInputs, nil, accounts, nil)
 }
 
 //nolint:gocyclo // The transaction preserves revision checks and both replacement and upsert semantics across renditions.
@@ -956,6 +956,10 @@ func (h *PublicationHandler) upsertRenditionsTx(
 		return PublicationResponse{}, h.publicationRevisionConflict(ctx, tx, publication, expectedRevision)
 	}
 	if len(renditions) > 0 {
+		positions, err := renditionUpsertPositionsTx(ctx, tx, publication.ID, renditions, accountMap)
+		if err != nil {
+			return PublicationResponse{}, err
+		}
 		targets := make(map[renditionservice.TargetIdentity]struct{}, len(renditions))
 		for _, input := range renditions {
 			account := accountMap[input.SocialAccountID]
@@ -979,7 +983,7 @@ func (h *PublicationHandler) upsertRenditionsTx(
 		if err != nil {
 			return PublicationResponse{}, err
 		}
-		if err := h.insertRenditions(ctx, tx, publication, segments, segmentInputs, renditions, nil, accountMap); err != nil {
+		if err := h.insertRenditions(ctx, tx, publication, segments, segmentInputs, renditions, nil, accountMap, positions); err != nil {
 			return PublicationResponse{}, err
 		}
 		now := time.Now().UTC()
@@ -1814,6 +1818,7 @@ func (h *PublicationHandler) insertRenditions(
 	inputs []RenditionInput,
 	defaultMedia []PublicationMediaInput,
 	accounts map[string]models.SocialAccount,
+	positions map[renditionservice.TargetIdentity]int,
 ) error {
 	now := time.Now().UTC()
 	if len(canonicalSegments) == 0 {
@@ -1836,7 +1841,7 @@ func (h *PublicationHandler) insertRenditions(
 		}}
 	}
 	seenTargets := make(map[renditionservice.TargetIdentity]struct{}, len(inputs))
-	for _, input := range inputs {
+	for position, input := range inputs {
 		account, ok := accounts[input.SocialAccountID]
 		if !ok {
 			return huma.Error400BadRequest("one or more social accounts are invalid, disconnected, or outside this workspace")
@@ -1850,6 +1855,9 @@ func (h *PublicationHandler) insertRenditions(
 			return huma.Error400BadRequest("each social account target may appear only once")
 		}
 		seenTargets[identity] = struct{}{}
+		if assigned, exists := positions[identity]; exists {
+			position = assigned
+		}
 		resolved := h.resolveRenditionCapability(ctx, tx, publication, account, input, canonicalInputs)
 		// Unlocked formats follow the current source shape. Requested output profiles
 		// are preserved by the resolver, including when their source becomes invalid.
@@ -1872,6 +1880,7 @@ func (h *PublicationHandler) insertRenditions(
 		rendition := &models.Rendition{
 			ID:              uuid.New().String(),
 			PublicationID:   publication.ID,
+			Position:        position,
 			SocialAccountID: input.SocialAccountID,
 			TargetKey:       targetKey,
 			Platform:        account.Platform,
@@ -3642,7 +3651,7 @@ func (h *PublicationHandler) loadRenditionActionOutcomes(
 	var renditions []models.Rendition
 	if err := db.NewSelect().Model(&renditions).
 		Where("publication_id = ?", publicationID).
-		Order("created_at ASC", "id ASC").
+		Order("position ASC", "id ASC").
 		Scan(ctx); err != nil {
 		return nil, err
 	}
@@ -3879,7 +3888,7 @@ func (h *PublicationHandler) replacePublicationJobsTx(
 		var renditions []models.Rendition
 		if err := tx.NewSelect().Model(&renditions).
 			Where("publication_id = ?", publicationID).
-			Order("created_at ASC").Scan(ctx); err != nil {
+			Order("position ASC", "id ASC").Scan(ctx); err != nil {
 			return "", err
 		}
 		hasOverride := false

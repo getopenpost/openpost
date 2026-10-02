@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { getPlatformName } from '$lib/utils';
 	import type { SocialAccount } from '$lib/api/client';
 
 	interface Props {
@@ -42,8 +43,8 @@
 			role="tab"
 			aria-selected={activeAccountId === account.id}
 			aria-label={custom
-				? `${accountLabel(account)}, ${m.compose_custom_state()}`
-				: accountLabel(account)}
+				? `${accountLabel(account)}, ${getPlatformName(account.platform)}, ${m.compose_custom_state()}`
+				: `${accountLabel(account)}, ${getPlatformName(account.platform)}`}
 			class="flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
 			class:border-foreground={activeAccountId === account.id}
 			class:border-transparent={activeAccountId !== account.id}

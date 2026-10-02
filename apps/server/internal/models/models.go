@@ -1505,6 +1505,7 @@ type PublicationSegmentMedia struct {
 type Rendition struct {
 	bun.BaseModel `bun:"table:renditions"`
 
+	Position         int       `bun:"position,notnull,default:0" json:"-"`
 	ID               string    `bun:",pk" json:"id"`
 	PublicationID    string    `bun:"publication_id,notnull" json:"publication_id"`
 	SocialAccountID  string    `bun:"social_account_id,notnull" json:"social_account_id"`

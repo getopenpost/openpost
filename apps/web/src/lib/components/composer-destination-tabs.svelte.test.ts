@@ -25,7 +25,7 @@ describe('Composer destination tabs', () => {
 	it('marks tabs with custom content and leaves shared tabs unmarked', async () => {
 		const onActivate = vi.fn();
 		const screen = await render(ComposerDestinationTabs, {
-			accounts: [socialAccount('acc-1', 'x', 'one'), socialAccount('acc-2', 'threads', 'two')],
+			accounts: [socialAccount('acc-1', 'x', 'one'), socialAccount('acc-2', 'threads', 'one')],
 			activeAccountId: null,
 			onActivate,
 			accountLabel: (account: SocialAccount) => `@${account.account_username}`,
@@ -39,9 +39,9 @@ describe('Composer destination tabs', () => {
 			screen.container.querySelectorAll('[data-testid="composer-destination-custom"]')
 		).toHaveLength(1);
 
-		const customButton = screen.getByRole('tab', { name: '@one, custom' });
+		const customButton = screen.getByRole('tab', { name: '@one, X, custom' });
 		expect(customButton.element().getAttribute('aria-selected')).toBe('false');
-		expect(screen.getByRole('tab', { name: '@two' })).toBeDefined();
+		expect(screen.getByRole('tab', { name: '@one, Threads' })).toBeDefined();
 
 		await customButton.click();
 		expect(onActivate).toHaveBeenCalledWith('acc-1');

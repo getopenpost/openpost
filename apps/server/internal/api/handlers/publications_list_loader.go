@@ -186,7 +186,7 @@ func (h *PublicationHandler) loadPublicationListRenditions(
 	if err := db.NewSelect().
 		Model(&renditions).
 		Where("publication_id IN (?)", bun.List(publicationIDs)).
-		Order("publication_id ASC", "created_at ASC").
+		Order("publication_id ASC", "position ASC", "id ASC").
 		Scan(ctx); err != nil {
 		return nil, nil, nil, huma.Error500InternalServerError("failed to load renditions")
 	}

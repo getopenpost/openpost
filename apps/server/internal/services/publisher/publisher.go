@@ -248,7 +248,7 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 			models.RenditionStatusFailed,
 		})).
 		Where("(status != ? OR error_retryable = ?)", models.RenditionStatusFailed, true).
-		Order("created_at ASC")
+		Order("position ASC", "id ASC")
 	if payload.RenditionID != "" {
 		query = query.Where("id = ?", payload.RenditionID)
 	}

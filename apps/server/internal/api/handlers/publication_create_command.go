@@ -161,6 +161,7 @@ func (command publicationApplication) persistCreateTx(
 		prepared.input.Renditions,
 		prepared.input.Media,
 		prepared.accounts,
+		nil,
 	); err != nil {
 		return PublicationResponse{}, err
 	}

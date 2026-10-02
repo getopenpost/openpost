@@ -1160,7 +1160,7 @@ func (commands publicationApplication) retryFailedRenditionsTx(
 		Where("rendition.status = ?", models.RenditionStatusFailed).
 		Where("delivery.state = ?", providerwrite.DeliveryRejected).
 		Where("delivery.retry_safety IN (?, ?)", platform.PublishRetrySafe, platform.PublishRetryIdempotent).
-		Order("rendition.created_at ASC", "rendition.id ASC").
+		Order("rendition.position ASC", "rendition.id ASC").
 		Scan(ctx); err != nil {
 		return err
 	}

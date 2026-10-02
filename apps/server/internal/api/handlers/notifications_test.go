@@ -275,6 +275,65 @@ func notificationCount(t *testing.T, db *bun.DB, id string) int {
 	return count
 }
 
+func TestNotificationReadStateMatchesUnreadCountAcrossMarkRead(t *testing.T) {
+	t.Parallel()
+	server := newNotificationTestServer(t)
+	server.seed(t)
+
+	type listedNotification struct {
+		ID     string     `json:"id"`
+		ReadAt *time.Time `json:"read_at"`
+	}
+	type inbox struct {
+		Items       []listedNotification `json:"items"`
+		UnreadCount int                  `json:"unread_count"`
+	}
+	list := func() inbox {
+		t.Helper()
+		response := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications?workspace_id=workspace-1", nil, "web-token")
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		var body inbox
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+		return body
+	}
+
+	before := list()
+	require.Equal(t, 2, before.UnreadCount)
+	require.Len(t, before.Items, 2)
+	for _, item := range before.Items {
+		require.Nil(t, item.ReadAt, "unread notification %s must not have a read timestamp", item.ID)
+	}
+
+	mark := jsonRequest(t, server.echo, http.MethodPost, "/api/v1/notifications/read", map[string]any{
+		"workspace_id": "workspace-1", "ids": []string{"workspace-one"},
+	}, "web-token")
+	require.Equal(t, http.StatusNoContent, mark.Code, mark.Body.String())
+	after := list()
+	require.Equal(t, 1, after.UnreadCount)
+	require.Len(t, after.Items, 2)
+	for _, item := range after.Items {
+		if item.ID == "workspace-one" {
+			require.NotNil(t, item.ReadAt)
+			require.False(t, item.ReadAt.IsZero())
+			continue
+		}
+		require.Equal(t, "account-wide", item.ID)
+		require.Nil(t, item.ReadAt)
+	}
+
+	markAll := jsonRequest(t, server.echo, http.MethodPost, "/api/v1/notifications/read", map[string]any{
+		"workspace_id": "workspace-1", "all": true,
+	}, "web-token")
+	require.Equal(t, http.StatusNoContent, markAll.Code, markAll.Body.String())
+	complete := list()
+	require.Zero(t, complete.UnreadCount)
+	require.Len(t, complete.Items, 2)
+	for _, item := range complete.Items {
+		require.NotNil(t, item.ReadAt)
+		require.False(t, item.ReadAt.IsZero())
+	}
+}
+
 func TestNotificationBulkActionsAreAuthorizedAndWorkspaceScoped(t *testing.T) {
 	t.Parallel()
 	server := newNotificationTestServer(t)

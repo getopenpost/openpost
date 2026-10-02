@@ -15089,7 +15089,7 @@ export interface components {
             id: string;
             payload_json: string;
             /** Format: date-time */
-            read_at: string;
+            read_at?: string;
             title: string;
             type: string;
             user_id: string;

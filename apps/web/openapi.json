@@ -22256,7 +22256,6 @@
 					"body",
 					"href",
 					"payload_json",
-					"read_at",
 					"created_at"
 				],
 				"type": "object"

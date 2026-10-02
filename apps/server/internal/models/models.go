@@ -1867,7 +1867,7 @@ type UserNotification struct {
 	Href        string               `bun:",notnull,default:''" json:"href"`
 	PayloadJSON string               `bun:"payload_json,notnull,default:'{}'" json:"payload_json"`
 	DedupKey    string               `bun:"dedup_key,notnull,default:''" json:"-"`
-	ReadAt      time.Time            `bun:"read_at,nullzero" json:"read_at"`
+	ReadAt      time.Time            `bun:"read_at,nullzero" json:"read_at,omitempty,omitzero"`
 	CreatedAt   time.Time            `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	Actions     []NotificationAction `bun:"-" json:"actions,omitempty"`
 }

@@ -122,9 +122,9 @@
 {#if preset === 'custom'}
 	{#each stops as hex, index (index)}
 		<div class="flex min-h-8 items-center gap-2 text-xs" class:opacity-50={disabled}>
-			<span class="w-20 shrink-0 truncate text-[var(--video-editor-muted)]">
-				{stopsLabel}
-				{index + 1}
+			<span class="flex min-w-0 flex-1 items-baseline gap-1 text-[var(--video-editor-muted)]">
+				<span class="min-w-0 truncate">{stopsLabel}</span>
+				<span class="shrink-0">{index + 1}</span>
 			</span>
 			<ColorPicker
 				label={`${effectLabel}: ${stopsLabel} ${index + 1}`}

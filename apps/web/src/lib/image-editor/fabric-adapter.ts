@@ -1875,7 +1875,10 @@ export class OpenPostFabricAdapter {
 				height,
 				objectCaching: false
 			});
-			setFabricRenderer(object, (context: CanvasRenderingContext2D) => {
+			const paintObject = object;
+			setFabricRenderer(paintObject, (context: CanvasRenderingContext2D) => {
+				const width = Math.max(1, paintObject.width);
+				const height = Math.max(1, paintObject.height);
 				context.save();
 				context.translate(-width / 2, -height / 2);
 				context.scale(
@@ -1892,9 +1895,11 @@ export class OpenPostFabricAdapter {
 				context.strokeStyle = paint.color;
 				context.globalAlpha = paint.opacity;
 				if (paint.kind === 'fill') {
+					context.beginPath();
 					for (const span of paint.spans) {
-						context.fillRect(span.x, span.y, span.width, 1);
+						context.rect(span.x, span.y, span.width, 1);
 					}
+					context.fill();
 				} else if (paint.points.length === 1) {
 					const point = paint.points[0];
 					context.beginPath();

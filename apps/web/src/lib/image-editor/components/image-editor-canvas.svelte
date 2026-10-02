@@ -1122,6 +1122,8 @@
 	}
 
 	function startAreaSelection(event: PointerEvent): boolean {
+		// Stage controls own their gesture, even when the viewport sees it during capture.
+		if (targetsPasteboardChrome(event.target)) return false;
 		const tool = editor.activeTool;
 		if (event.pointerType === 'touch' && stylusPointerID >= 0) {
 			event.preventDefault();

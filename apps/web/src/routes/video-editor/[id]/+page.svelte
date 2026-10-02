@@ -1001,7 +1001,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		);
 		const workspaceId = cloudStorage ? (workspaceCtx.currentWorkspace?.id ?? '') : '';
 		if (!projectId || (cloudStorage ? !workspaceId : gate.state !== 'ready')) return;
-		untrack(() => void editorSession.load(projectId, workspaceId));
+		const requestedWorkspace = page.url.searchParams.get('workspace');
+		untrack(() => {
+			if (requestedWorkspace === 'edit') changeEditorWorkspace('edit');
+			void editorSession.load(projectId, workspaceId);
+		});
 		return () => {
 			editorSession.pausePlayback();
 			editorSession.stopAutosaveTimers();

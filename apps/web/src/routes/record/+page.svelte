@@ -371,7 +371,7 @@
 					<p class="font-medium">{m.video_editor_saved_cloud()}</p>
 					<p class="mt-1 text-[var(--video-editor-muted)]">{lastCloudProject.name}</p>
 					<a
-						href={`/video-editor/${lastCloudProject.id}?storage=cloud`}
+						href={`/video-editor/${lastCloudProject.id}?storage=cloud&workspace=edit`}
 						class="mt-3 inline-flex min-h-11 items-center rounded border px-3 py-1.5 text-xs underline"
 					>
 						{m.editors_open_video()}

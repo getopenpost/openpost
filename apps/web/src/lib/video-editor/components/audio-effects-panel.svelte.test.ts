@@ -163,3 +163,43 @@ it('distinguishes default reset from clearing the rack and persists clear histor
 	await reopen(project);
 	expect(order()).toBeUndefined();
 });
+it('adds the same effect after removal and undo without a placeholder round trip, then cold reopens its independent instance', async () => {
+	const project = fixture();
+	const screen = await render(Fixture);
+	const add = screen.getByLabelText('Add audio effect', { exact: true });
+	async function addDistortion() {
+		add.element().focus();
+		await userEvent.keyboard('{Enter}');
+		await userEvent.keyboard('{End}{Enter}');
+	}
+	await addDistortion();
+	const first = timelineStore.itemById
+		.get('audio')!
+		.audioEffects!.find((effect) => effect.type === 'distortion')!;
+	expect(first).toMatchObject({ type: 'distortion', amount: 0.45 });
+	await screen.getByRole('button', { name: 'Remove Distortion', exact: true }).click();
+	expect(order()).toEqual(['pan', 'compressor', 'delay']);
+	await addDistortion();
+	const second = timelineStore.itemById
+		.get('audio')!
+		.audioEffects?.find((effect) => effect.type === 'distortion');
+	expect(second).toMatchObject({ type: 'distortion', amount: 0.45 });
+	expect(second!.id).not.toBe(first.id);
+	await expect.element(add).toHaveTextContent('Add effect…');
+	commandHistory.undo();
+	expect(order()).toEqual(['pan', 'compressor', 'delay']);
+	commandHistory.undo();
+	expect(timelineStore.itemById.get('audio')!.audioEffects?.at(-1)).toEqual(first);
+	commandHistory.undo();
+	expect(order()).toEqual(['pan', 'compressor', 'delay']);
+	await addDistortion();
+	const third = timelineStore.itemById.get('audio')!.audioEffects?.at(-1);
+	expect(third).toMatchObject({ type: 'distortion', amount: 0.45 });
+	expect(third!.id).not.toBe(first.id);
+	await reopen(project);
+	expect(timelineStore.itemById.get('audio')!.audioEffects?.at(-1)).toEqual(third);
+	expect(timelineStore.itemById.get('audio')!.audioEffects?.[0]).toMatchObject({
+		pan: -0.05,
+		enabled: false
+	});
+});

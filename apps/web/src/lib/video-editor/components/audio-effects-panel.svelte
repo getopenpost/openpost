@@ -33,6 +33,7 @@
 	} = $props();
 
 	let rackElement = $state<HTMLElement>();
+	let addType = $state('');
 	const effects = $derived(normalizeAudioEffects(item.audioEffects));
 	const rackScope = $derived(item.id);
 	const rackEntries = $derived(effects.map((effect) => ({ key: effect.id, effect })));
@@ -46,6 +47,7 @@
 	}
 
 	function addEffect(type: string): void {
+		addType = '';
 		if (!isAudioEffectType(type)) return;
 		const effect = createDefaultAudioEffect(type);
 		commit([...effects, effect]);
@@ -159,7 +161,7 @@
 	<div class="space-y-2 border-t border-[var(--video-editor-border)] p-2">
 		<div class="flex items-center gap-1">
 			<AppSelect
-				value=""
+				bind:value={addType}
 				options={[
 					{ value: '', label: m.video_editor_audio_effects_add_placeholder() },
 					...addOptions

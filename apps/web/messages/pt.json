@@ -3747,6 +3747,7 @@
 	"engagement_open_provider": "Abrir publicação no {platform}",
 	"engagement_open_attachment": "Abrir anexo",
 	"engagement_edited": "Editada",
+	"engagement_empty_reply_content": "Não há texto nem anexos disponíveis para esta resposta.",
 	"engagement_deleted_item": "Esta resposta foi eliminada na rede social.",
 	"engagement_like": "Gostar",
 	"engagement_unlike": "Remover gosto",

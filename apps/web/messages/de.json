@@ -3742,6 +3742,7 @@
 	"engagement_open_provider": "Open post on {platform}",
 	"engagement_open_attachment": "Open attachment",
 	"engagement_edited": "Edited",
+	"engagement_empty_reply_content": "Für diese Antwort sind kein Text und keine Anhänge verfügbar.",
 	"engagement_deleted_item": "This reply was deleted on the social network.",
 	"engagement_like": "Like",
 	"engagement_unlike": "Unlike",

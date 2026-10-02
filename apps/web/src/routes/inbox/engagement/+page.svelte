@@ -1090,9 +1090,15 @@
 													{m.engagement_deleted_item()}
 												</p>
 											{:else}
-												<p class="mt-2 max-w-3xl text-sm leading-6 whitespace-pre-wrap">
-													{item.body}
-												</p>
+												{#if item.body.trim()}
+													<p class="mt-2 max-w-3xl text-sm leading-6 whitespace-pre-wrap">
+														{item.body}
+													</p>
+												{:else if attachments.length === 0}
+													<p class="mt-2 text-sm text-muted-foreground">
+														{m.engagement_empty_reply_content()}
+													</p>
+												{/if}
 												{#if attachments.length}
 													<div class="mt-3 flex flex-wrap gap-2">
 														{#each attachments as attachment, index (`${attachment.url}:${index}`)}

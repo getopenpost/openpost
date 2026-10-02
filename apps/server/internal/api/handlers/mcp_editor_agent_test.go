@@ -1,12 +1,47 @@
 package handlers
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"testing"
 
+	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/services/editoragent"
+	"github.com/openpost/backend/internal/services/entitlements"
 )
+
+type editorAssistantTestGenerator struct{}
+
+func (editorAssistantTestGenerator) Generate(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
+	return ai.GenerateResult{}, nil
+}
+
+func TestHostedEditorAssistantRequiresCloudPaidPlanAndEditAccess(t *testing.T) {
+	db := workflowHandlerDB(t)
+	for _, test := range []struct {
+		name        string
+		edition     string
+		entitlement entitlements.Service
+		workspaceID string
+		userID      string
+		available   bool
+		reason      string
+	}{
+		{name: "paid editor", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", available: true},
+		{name: "free editor", edition: "cloud", entitlement: entitlements.NewCloudBootstrapService(), workspaceID: "ws", userID: "user", reason: "paid_plan_required"},
+		{name: "other user", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "other", reason: "no_edit_access"},
+		{name: "self hosted", edition: "selfhost", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", reason: "cloud_only"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			handler := NewEditorAgentAssistantHandler(db, workflowSession{}, test.entitlement, editorAssistantTestGenerator{}, "test-model", test.edition)
+			available, reason, err := handler.available(t.Context(), test.workspaceID, test.userID)
+			if err != nil || available != test.available || reason != test.reason {
+				t.Fatalf("availability = %v, %q, %v; want %v, %q", available, reason, err, test.available, test.reason)
+			}
+		})
+	}
+}
 
 func TestEditorAgentMCPValidatesSpecificActions(t *testing.T) {
 	base := map[string]any{

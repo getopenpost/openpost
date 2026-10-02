@@ -586,5 +586,4 @@ func TestSortRequiresOneComparableFieldTypeThroughSavedExecution(t *testing.T) {
 			require.Equal(t, scenario.want, names)
 		})
 	}
-
 }

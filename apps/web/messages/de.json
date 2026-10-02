@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "Elemente filtern",
 	"workflows_list_filter_help": "Behalte Elemente, die eine Bedingung erfüllen.",
 	"workflows_list_sort": "Elemente sortieren",
-	"workflows_list_sort_help": "Sortiere Elemente nach einem Text- oder Zahlenfeld.",
+	"workflows_list_sort_help": "Sortiere Elemente nach einem Text- oder Zahlenfeld. Verwende für alle Elemente denselben Typ.",
 	"workflows_list_limit": "Elemente begrenzen",
 	"workflows_list_limit_help": "Behalte die ersten Elemente einer Liste.",
 	"workflows_merge": "Daten zusammenführen",

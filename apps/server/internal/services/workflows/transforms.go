@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -231,11 +232,26 @@ func filterItems(items []any, inputs map[string]any) ([]any, error) {
 
 func sortItems(items []any, inputs map[string]any) ([]any, error) {
 	values := make([]any, len(items))
+	field := textInput(inputs, "field")
+	fieldType := ""
 	for i, item := range items {
-		value, err := resolveReference("item."+textInput(inputs, "field"), map[string]any{"item": item})
+		value, err := resolveReference("item."+field, map[string]any{"item": item})
 		if err != nil {
 			return nil, err
 		}
+		valueType := ""
+		switch value.(type) {
+		case float64:
+			valueType = "number"
+		case string:
+			valueType = "text"
+		default:
+			return nil, fmt.Errorf("item %d field %q must be text or a number", i+1, field)
+		}
+		if i > 0 && valueType != fieldType {
+			return nil, fmt.Errorf("field %q mixes text and numbers; use one type for every item", field)
+		}
+		fieldType = valueType
 		values[i] = value
 	}
 	indices := make([]int, len(items))
@@ -243,18 +259,12 @@ func sortItems(items []any, inputs map[string]any) ([]any, error) {
 		indices[i] = i
 	}
 	slices.SortStableFunc(indices, func(a, b int) int {
-		left, right := values[a], values[b]
-		order := strings.Compare(fmt.Sprint(left), fmt.Sprint(right))
-		if l, ok := left.(float64); ok {
-			if r, ok := right.(float64); ok {
-				order = 0
-				if l < r {
-					order = -1
-				}
-				if l > r {
-					order = 1
-				}
-			}
+		order := 0
+		switch left := values[a].(type) {
+		case float64:
+			order = cmp.Compare(left, values[b].(float64))
+		case string:
+			order = strings.Compare(left, values[b].(string))
 		}
 		if textInput(inputs, "direction") == "descending" {
 			order = -order

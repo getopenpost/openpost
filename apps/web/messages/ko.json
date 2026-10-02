@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "항목 필터링",
 	"workflows_list_filter_help": "조건에 맞는 항목만 남깁니다.",
 	"workflows_list_sort": "항목 정렬",
-	"workflows_list_sort_help": "텍스트 또는 숫자 필드를 기준으로 항목을 정렬합니다.",
+	"workflows_list_sort_help": "텍스트 또는 숫자 필드를 기준으로 항목을 정렬합니다. 모든 항목에 같은 유형을 사용하세요.",
 	"workflows_list_limit": "항목 수 제한",
 	"workflows_list_limit_help": "목록의 앞부분에서 지정한 수만큼 항목을 남깁니다.",
 	"workflows_merge": "데이터 병합",

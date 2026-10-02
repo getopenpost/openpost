@@ -528,3 +528,63 @@ func TestLiteralKeyReferencesRemainDistinctThroughSavedExecution(t *testing.T) {
 	require.Equal(t, map[string]any{"kept": float64(42), "added": true}, result.Steps[1].Output["data"])
 	require.Equal(t, map[string]any{"copied": "DOT", "copied_dot": "DOT"}, result.Steps[2].Output)
 }
+
+func TestSortRequiresOneComparableFieldTypeThroughSavedExecution(t *testing.T) {
+	mixed := []any{
+		map[string]any{"name": "A", "rank": 2},
+		map[string]any{"name": "B", "rank": 10},
+		map[string]any{"name": "C", "rank": "11"},
+	}
+	for _, order := range [][]int{{0, 1, 2}, {1, 2, 0}, {2, 0, 1}, {0, 2, 1}, {2, 1, 0}, {1, 0, 2}} {
+		t.Run(fmt.Sprint(order), func(t *testing.T) {
+			s, actor := workflowTestService(t, nil)
+			items := []any{mixed[order[0]], mixed[order[1]], mixed[order[2]]}
+			workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "sorted", Kind: KindSort, Inputs: map[string]Value{
+				"items": literal(items), "field": literal("rank"), "direction": literal("ascending"),
+			}}})
+			run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModePreview, nil, workflow.Revision)
+			require.NoError(t, err)
+			runJob(t, s, run.ID)
+			result, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+			require.NoError(t, err)
+			require.Equal(t, StateFailed, result.State)
+			require.Contains(t, result.Error, `field "rank" mixes text and numbers`)
+			require.Contains(t, result.Error, "use one type for every item")
+			require.Empty(t, result.Steps[0].Output)
+		})
+	}
+	for _, scenario := range []struct {
+		name      string
+		ranks     []any
+		direction string
+		want      []any
+	}{
+		{"numeric ascending", []any{10, 2, 2}, "ascending", []any{"B", "C", "A"}},
+		{"numeric descending", []any{2, 10, 2}, "descending", []any{"B", "A", "C"}},
+		{"text ascending", []any{"2", "10", "11"}, "ascending", []any{"B", "C", "A"}},
+		{"text descending", []any{"2", "10", "11"}, "descending", []any{"A", "C", "B"}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			s, actor := workflowTestService(t, nil)
+			items := make([]any, len(scenario.ranks))
+			for i, rank := range scenario.ranks {
+				items[i] = map[string]any{"name": string(rune('A' + i)), "rank": rank}
+			}
+			workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "sorted", Kind: KindSort, Inputs: map[string]Value{
+				"items": literal(items), "field": literal("rank"), "direction": literal(scenario.direction),
+			}}})
+			run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModePreview, nil, workflow.Revision)
+			require.NoError(t, err)
+			runJob(t, s, run.ID)
+			result, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+			require.NoError(t, err)
+			require.Equal(t, StateSucceeded, result.State, result.Error)
+			var names []any
+			for _, item := range result.Steps[0].Output["items"].([]any) {
+				names = append(names, item.(map[string]any)["name"])
+			}
+			require.Equal(t, scenario.want, names)
+		})
+	}
+
+}

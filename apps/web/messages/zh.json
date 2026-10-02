@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "筛选条目",
 	"workflows_list_filter_help": "仅保留符合条件的条目。",
 	"workflows_list_sort": "排序条目",
-	"workflows_list_sort_help": "按文本或数字字段对条目排序。",
+	"workflows_list_sort_help": "按文本或数字字段对条目排序。所有条目应使用相同类型。",
 	"workflows_list_limit": "限制条目数量",
 	"workflows_list_limit_help": "保留列表开头的指定数量条目。",
 	"workflows_merge": "合并数据",

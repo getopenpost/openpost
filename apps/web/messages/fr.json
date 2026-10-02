@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "Filtrer les éléments",
 	"workflows_list_filter_help": "Conservez les éléments qui remplissent une condition.",
 	"workflows_list_sort": "Trier les éléments",
-	"workflows_list_sort_help": "Triez les éléments selon un champ textuel ou numérique.",
+	"workflows_list_sort_help": "Triez les éléments selon un champ textuel ou numérique. Utilisez le même type pour tous les éléments.",
 	"workflows_list_limit": "Limiter les éléments",
 	"workflows_list_limit_help": "Conservez les premiers éléments d’une liste.",
 	"workflows_merge": "Fusionner les données",

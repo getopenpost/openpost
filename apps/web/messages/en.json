@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "Filter items",
 	"workflows_list_filter_help": "Keep items matching a condition.",
 	"workflows_list_sort": "Sort items",
-	"workflows_list_sort_help": "Order items by a text or numeric field.",
+	"workflows_list_sort_help": "Order items by a text or numeric field. Use the same type for every item.",
 	"workflows_list_limit": "Limit items",
 	"workflows_list_limit_help": "Keep the first items in a list.",
 	"workflows_merge": "Merge data",

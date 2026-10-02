@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "項目を絞り込む",
 	"workflows_list_filter_help": "条件に一致する項目を残します。",
 	"workflows_list_sort": "項目を並べ替え",
-	"workflows_list_sort_help": "テキストまたは数値のフィールドで項目を並べ替えます。",
+	"workflows_list_sort_help": "テキストまたは数値のフィールドで項目を並べ替えます。すべての項目で同じ型を使ってください。",
 	"workflows_list_limit": "項目数を制限",
 	"workflows_list_limit_help": "リストの先頭から指定した数の項目を残します。",
 	"workflows_merge": "データを結合",

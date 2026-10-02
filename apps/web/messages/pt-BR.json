@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "Filtrar itens",
 	"workflows_list_filter_help": "Mantenha os itens que cumprem uma condição.",
 	"workflows_list_sort": "Ordenar itens",
-	"workflows_list_sort_help": "Ordene itens por um campo de texto ou numérico.",
+	"workflows_list_sort_help": "Ordene os itens por um campo de texto ou numérico. Use o mesmo tipo em todos os itens.",
 	"workflows_list_limit": "Limitar itens",
 	"workflows_list_limit_help": "Mantenha os primeiros itens de uma lista.",
 	"workflows_merge": "Juntar dados",

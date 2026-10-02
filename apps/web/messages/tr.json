@@ -9447,7 +9447,7 @@
 	"workflows_list_filter": "Öğeleri filtrele",
 	"workflows_list_filter_help": "Bir koşulu karşılayan öğeleri tutun.",
 	"workflows_list_sort": "Öğeleri sırala",
-	"workflows_list_sort_help": "Öğeleri bir metin veya sayı alanına göre sıralayın.",
+	"workflows_list_sort_help": "Öğeleri bir metin veya sayı alanına göre sıralayın. Her öğe için aynı türü kullanın.",
 	"workflows_list_limit": "Öğe sayısını sınırla",
 	"workflows_list_limit_help": "Listenin ilk öğelerini tutun.",
 	"workflows_merge": "Verileri birleştir",

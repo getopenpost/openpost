@@ -41,6 +41,112 @@ const trend = Array.from({ length: 30 }, (_, index) => ({
   ],
 }));
 
+for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 390, 320]) {
+    test.describe(`account filter ${scheme} ${width}`, () => {
+      test.use({ colorScheme: scheme, hasTouch: width < 768 });
+      test("account filter keeps reset reachable after selecting the last account", async ({
+        page,
+        request,
+      }, testInfo) => {
+        const { token } = await registerUser(
+          request,
+          `analytics-filter-${randomUUID()}@example.com`,
+        );
+        const workspace = await createWorkspace(request, token, "Analytics filter");
+        await authenticatePage(page, token);
+        await page.setViewportSize({ width, height: 600 });
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+        const errors: string[] = [];
+        page.on("pageerror", (error) => errors.push(error.message));
+        const requests: string[] = [];
+        await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
+        await page.route("**/api/v1/analytics?**", (route) => {
+          requests.push(new URL(route.request().url()).searchParams.get("account_id") ?? "all");
+          return route.fulfill({
+            json: {
+              range_days: 30,
+              content_total: 0,
+              summary: {
+                followers: { value: 0, measured: 0 },
+                engagement: { value: 0, measured: 0 },
+                views: { value: 0, measured: 0 },
+                impressions: { value: 0, measured: 0 },
+                reach: { value: 0, measured: 0 },
+                published: 0,
+              },
+              accounts: Array.from({ length: 9 }, (_, index) => ({
+                id: `account-${index}`,
+                platform: platforms[index % platforms.length],
+                username: `account${index}`,
+                status: "ok",
+                account_supported: true,
+                content_supported: true,
+                metrics: {},
+              })),
+              content: [],
+              trends: {},
+              insights: [],
+            },
+          });
+        });
+        await page.goto(`/analytics?workspace=${workspace.id}`);
+        const filter = page.getByRole("button", { name: /^Account filter/ });
+        await filter.evaluate((element) => element.scrollIntoView({ block: "center" }));
+        await filter.focus();
+        await filter.press("Enter");
+        await filter.press("End");
+        await filter.press("Enter");
+        await expect(filter).toContainText("account8");
+        await expect.poll(() => requests.at(-1)).toBe("account-8");
+        await filter.evaluate((element) => element.scrollIntoView({ block: "center" }));
+        await filter.click();
+        const menu = page.getByRole("listbox");
+        await expect(menu).toBeVisible();
+        await expect.poll(async () => (await menu.boundingBox())!.y).toBeGreaterThanOrEqual(0);
+        await expect
+          .poll(async () => {
+            const bounds = (await menu.boundingBox())!;
+            return bounds.y + bounds.height;
+          })
+          .toBeLessThanOrEqual(600);
+        await menu.hover();
+        await page.mouse.wheel(0, -2000);
+        await page.mouse.move(1, 1);
+        await page.evaluate(async () => {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        });
+        const reset = menu.getByRole("option", { name: "All accounts", exact: true });
+        await expect(reset).toBeInViewport();
+        await expect
+          .poll(async () => {
+            const bounds = (await reset.boundingBox())!;
+            const menuBounds = (await menu.boundingBox())!;
+            return (
+              bounds.y >= menuBounds.y &&
+              bounds.y + bounds.height <= menuBounds.y + menuBounds.height
+            );
+          })
+          .toBe(true);
+        if (width < 768) expect((await reset.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        );
+        await page.screenshot({ path: testInfo.outputPath("account-reset-menu.png") });
+        if (width < 768) await reset.tap();
+        else await reset.click();
+        await expect(filter).toContainText("All accounts");
+        await filter.focus();
+        await filter.press("Enter");
+        await filter.press("Escape");
+        await expect(filter).toBeFocused();
+        expect(errors).toEqual([]);
+      });
+    });
+  }
+}
+
 for (const [themeID, scheme] of [
   ["dither", "light"],
   ["dither", "dark"],

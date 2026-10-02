@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		repostAutomationQueryOptions,
@@ -33,6 +34,20 @@
 		selectedRun = $state(''),
 		busy = $state(false),
 		error = $state('');
+	let runList = $state<HTMLDivElement | null>(null);
+	async function returnToRuns(event: MouseEvent) {
+		const action = event.currentTarget;
+		const ownedFocus = document.activeElement === action;
+		const origin = selectedRun;
+		const originWorkspace = workspaceID;
+		selectedRun = '';
+		await tick();
+		if (!ownedFocus || !(action instanceof HTMLElement)) return;
+		if (workspaceID !== originWorkspace || tab !== 'runs' || selectedRun) return;
+		if (document.activeElement !== action && document.activeElement !== document.body) return;
+		const card = runList?.querySelector<HTMLButtonElement>(`#workflow-run-${CSS.escape(origin)}`);
+		(card ?? runList)?.focus();
+	}
 	async function create(
 		name: string = m.workflows_untitled(),
 		definition: Definition = { schema: 1, source: { kind: 'manual' }, steps: [] }
@@ -184,7 +199,7 @@
 					</div>
 				{/each}
 			</div>
-		{:else if selectedRun}<Button variant="ghost" onclick={() => (selectedRun = '')}
+		{:else if selectedRun}<Button variant="ghost" onclick={returnToRuns}
 				><ThemeIcon role="arrow-left" class="size-4" />{m.workflows_runs()}</Button
 			><RunInspector {workspaceID} runID={selectedRun} />
 		{:else}
@@ -193,8 +208,15 @@
 				><RepostHistory {workspaceID} />
 			</details>
 			{#if runsQuery.error}<InlineNotice tone="error" message={String(runsQuery.error)} />{/if}
-			<div class="divide-y rounded-lg border bg-card">
+			<div
+				bind:this={runList}
+				role="region"
+				tabindex="-1"
+				aria-label={m.workflows_runs()}
+				class="divide-y rounded-lg border bg-card focus-visible:outline-2 focus-visible:outline-ring"
+			>
 				{#each runsQuery.data ?? [] as run (run.id)}<button
+						id={`workflow-run-${run.id}`}
 						type="button"
 						class="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 						onclick={() => (selectedRun = run.id)}

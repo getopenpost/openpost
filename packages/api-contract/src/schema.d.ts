@@ -12716,6 +12716,8 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             };
+            /** @description Authored canonical-source overrides for a single joined destination output */
+            source_overrides?: components["schemas"]["RenditionSourceOverride"][] | null;
             /** @description Destination segment title override */
             title?: string;
             /** @description Explicit destination title; omit or null to inherit */
@@ -12749,11 +12751,22 @@ export interface components {
             settings: {
                 [key: string]: unknown;
             };
+            source_overrides?: components["schemas"]["RenditionSourceOverride"][] | null;
             status: string;
             title: string;
             title_override?: string;
             url?: string;
             url_override?: string;
+        };
+        RenditionSourceOverride: {
+            /** @description Explicit source body; omit or null to inherit */
+            body_override?: string;
+            /** @description Independent source media, including an explicit empty list */
+            media?: components["schemas"]["PublicationMediaInput"][] | null;
+            /** @description Whether this source contributes its canonical media */
+            media_inherited: boolean;
+            /** @description Canonical source segment ID, or matching client reference in the same request */
+            publication_segment_id: string;
         };
         ReplaceMediaTagItemsInputBody: {
             /**

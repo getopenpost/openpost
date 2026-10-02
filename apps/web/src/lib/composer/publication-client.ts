@@ -338,6 +338,7 @@ function renditionSegmentInput(
 	const input: RenditionSegmentInput = {
 		id: segment.id,
 		publication_segment_id: segment.publication_segment_id,
+		source_overrides: segment.source_overrides,
 		body: segment.body_override ?? '',
 		title: segment.title,
 		description: segment.description,

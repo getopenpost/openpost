@@ -7,16 +7,11 @@ import (
 
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/publicationsource"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 )
 
-type PublicationMediaInput struct {
-	MediaID              string                 `json:"media_id" doc:"Media attachment ID"`
-	Role                 string                 `json:"role,omitempty" doc:"Media role: attachment, cover, thumbnail"`
-	AltText              string                 `json:"alt_text,omitempty" doc:"Alt text override"`
-	ThumbnailTimestampMS int                    `json:"thumbnail_timestamp_ms,omitempty" doc:"Video thumbnail timestamp"`
-	Settings             map[string]interface{} `json:"settings,omitempty" doc:"Media-item settings"`
-}
+type PublicationMediaInput = publicationsource.PublicationMediaInput
 
 type PublicationSegmentInput struct {
 	ID          string                  `json:"id,omitempty" doc:"Client segment reference on create, or an existing server segment ID on update"`
@@ -28,20 +23,23 @@ type PublicationSegmentInput struct {
 	Media       []PublicationMediaInput `json:"media,omitempty" doc:"Ordered canonical segment media"`
 }
 
+type RenditionSourceOverride = publicationsource.RenditionSourceOverride
+
 type RenditionSegmentInput struct {
-	ID                   string                  `json:"id,omitempty" doc:"Legacy client reference; replacement IDs are server-generated"`
-	PublicationSegmentID string                  `json:"publication_segment_id,omitempty" doc:"Server canonical segment ID, or its matching client segment reference in the same request"`
-	Body                 string                  `json:"body,omitempty" doc:"Destination segment body override"`
-	Title                string                  `json:"title,omitempty" doc:"Destination segment title override"`
-	Description          string                  `json:"description,omitempty" doc:"Destination segment description override"`
-	URL                  string                  `json:"url,omitempty" doc:"Destination segment URL override"`
-	BodyOverride         *string                 `json:"body_override,omitempty" doc:"Explicit destination body; omit or null to inherit"`
-	TitleOverride        *string                 `json:"title_override,omitempty" doc:"Explicit destination title; omit or null to inherit"`
-	DescriptionOverride  *string                 `json:"description_override,omitempty" doc:"Explicit destination description; omit or null to inherit"`
-	URLOverride          *string                 `json:"url_override,omitempty" doc:"Explicit destination URL; omit or null to inherit"`
-	MediaInherited       *bool                   `json:"media_inherited,omitempty" doc:"Whether destination media follows the canonical segment"`
-	Settings             map[string]interface{}  `json:"settings,omitempty" doc:"Segment-scoped destination settings"`
-	Media                []PublicationMediaInput `json:"media,omitempty" doc:"Destination segment ordered media"`
+	SourceOverrides      []RenditionSourceOverride `json:"source_overrides,omitempty" doc:"Authored canonical-source overrides for a single joined destination output"`
+	ID                   string                    `json:"id,omitempty" doc:"Legacy client reference; replacement IDs are server-generated"`
+	PublicationSegmentID string                    `json:"publication_segment_id,omitempty" doc:"Server canonical segment ID, or its matching client segment reference in the same request"`
+	Body                 string                    `json:"body,omitempty" doc:"Destination segment body override"`
+	Title                string                    `json:"title,omitempty" doc:"Destination segment title override"`
+	Description          string                    `json:"description,omitempty" doc:"Destination segment description override"`
+	URL                  string                    `json:"url,omitempty" doc:"Destination segment URL override"`
+	BodyOverride         *string                   `json:"body_override,omitempty" doc:"Explicit destination body; omit or null to inherit"`
+	TitleOverride        *string                   `json:"title_override,omitempty" doc:"Explicit destination title; omit or null to inherit"`
+	DescriptionOverride  *string                   `json:"description_override,omitempty" doc:"Explicit destination description; omit or null to inherit"`
+	URLOverride          *string                   `json:"url_override,omitempty" doc:"Explicit destination URL; omit or null to inherit"`
+	MediaInherited       *bool                     `json:"media_inherited,omitempty" doc:"Whether destination media follows the canonical segment"`
+	Settings             map[string]interface{}    `json:"settings,omitempty" doc:"Segment-scoped destination settings"`
+	Media                []PublicationMediaInput   `json:"media,omitempty" doc:"Destination segment ordered media"`
 }
 
 type RenditionInput struct {
@@ -215,30 +213,31 @@ type RenditionActionOutcome struct {
 }
 
 type RenditionSegmentResponse struct {
-	ID                   string                 `json:"id"`
-	PublicationSegmentID string                 `json:"publication_segment_id"`
-	Position             int                    `json:"position"`
-	Body                 string                 `json:"body"`
-	Title                string                 `json:"title"`
-	Description          string                 `json:"description"`
-	URL                  string                 `json:"url,omitempty"`
-	BodyOverride         *string                `json:"body_override,omitempty"`
-	TitleOverride        *string                `json:"title_override,omitempty"`
-	DescriptionOverride  *string                `json:"description_override,omitempty"`
-	URLOverride          *string                `json:"url_override,omitempty"`
-	MediaInherited       bool                   `json:"media_inherited"`
-	Settings             map[string]interface{} `json:"settings"`
-	Status               string                 `json:"status"`
-	ExternalID           string                 `json:"external_id,omitempty"`
-	ExternalURL          string                 `json:"external_url,omitempty"`
-	ErrorMessage         string                 `json:"error_message,omitempty"`
-	ErrorKind            string                 `json:"error_kind,omitempty"`
-	ErrorCode            string                 `json:"error_code,omitempty"`
-	ErrorHTTPStatus      int                    `json:"error_http_status,omitempty"`
-	ErrorRetryable       bool                   `json:"error_retryable"`
-	ErrorRetryAt         string                 `json:"error_retry_at,omitempty"`
-	ErrorAction          string                 `json:"error_action,omitempty"`
-	Media                []MediaSummary         `json:"media"`
+	SourceOverrides      []RenditionSourceOverride `json:"source_overrides,omitempty"`
+	ID                   string                    `json:"id"`
+	PublicationSegmentID string                    `json:"publication_segment_id"`
+	Position             int                       `json:"position"`
+	Body                 string                    `json:"body"`
+	Title                string                    `json:"title"`
+	Description          string                    `json:"description"`
+	URL                  string                    `json:"url,omitempty"`
+	BodyOverride         *string                   `json:"body_override,omitempty"`
+	TitleOverride        *string                   `json:"title_override,omitempty"`
+	DescriptionOverride  *string                   `json:"description_override,omitempty"`
+	URLOverride          *string                   `json:"url_override,omitempty"`
+	MediaInherited       bool                      `json:"media_inherited"`
+	Settings             map[string]interface{}    `json:"settings"`
+	Status               string                    `json:"status"`
+	ExternalID           string                    `json:"external_id,omitempty"`
+	ExternalURL          string                    `json:"external_url,omitempty"`
+	ErrorMessage         string                    `json:"error_message,omitempty"`
+	ErrorKind            string                    `json:"error_kind,omitempty"`
+	ErrorCode            string                    `json:"error_code,omitempty"`
+	ErrorHTTPStatus      int                       `json:"error_http_status,omitempty"`
+	ErrorRetryable       bool                      `json:"error_retryable"`
+	ErrorRetryAt         string                    `json:"error_retry_at,omitempty"`
+	ErrorAction          string                    `json:"error_action,omitempty"`
+	Media                []MediaSummary            `json:"media"`
 }
 
 type MediaSummary struct {

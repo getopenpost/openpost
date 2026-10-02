@@ -8,6 +8,7 @@ import (
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/publicationpoll"
+	"github.com/openpost/backend/internal/services/publicationsource"
 	"github.com/uptrace/bun"
 )
 
@@ -68,9 +69,7 @@ func refreshPublicationPolls(ctx context.Context, db bun.IDB, publicationID stri
 			owned[source.ID], _ = publicationpoll.Decode(values)
 		}
 	}
-	if len(owned) == 0 {
-		return nil
-	}
+	// Joined source overrides also inherit canonical text without a poll.
 	var renditions []models.Rendition
 	if err := db.NewSelect().Model(&renditions).Where("publication_id = ?", publicationID).Scan(ctx); err != nil {
 		return err
@@ -96,15 +95,16 @@ func refreshRenditionPolls(ctx context.Context, db bun.IDB, rendition models.Ren
 	for i := range segments {
 		segment := &segments[i]
 		previousPoll, wasOwned := owned[segment.PublicationSegmentID]
-		if !joined && !wasOwned {
+		joinedSource := joined || len(readRenditionSourceOverrides(segment.SourceOverridesJSON)) > 0
+		if !joinedSource && !wasOwned {
 			continue
 		}
 		source, ok := byID[segment.PublicationSegmentID]
 		if !ok {
 			continue
 		}
-		refreshPollSegment(segment, rendition, source, canonical, previousPoll, joined)
-		if _, err := db.NewUpdate().Model(segment).Column("body", "settings_json").Where("id = ?", segment.ID).Exec(ctx); err != nil {
+		refreshPollSegment(segment, rendition, source, canonical, previousPoll, joinedSource)
+		if _, err := db.NewUpdate().Model(segment).Column("body", "body_override", "settings_json").Where("id = ?", segment.ID).Exec(ctx); err != nil {
 			return err
 		}
 		if i == 0 {
@@ -119,9 +119,13 @@ func refreshRenditionPolls(ctx context.Context, db bun.IDB, rendition models.Ren
 func refreshPollSegment(segment *models.RenditionSegment, rendition models.Rendition, source models.PublicationSegment, canonical []models.PublicationSegment, previousPoll *publicationpoll.Draft, joined bool) {
 	body := source.Body
 	if joined {
-		body = joinedPublicationBody(canonical)
+		body = publicationsource.JoinedSourceBody(canonical, segment.SourceOverridesJSON, segment.BodyOverride)
+		if publicationsource.HasSourceOverrides(segment.SourceOverridesJSON) {
+			sourceBody := body
+			segment.BodyOverride = &sourceBody
+		}
 	}
-	if segment.BodyOverride != nil {
+	if !joined && segment.BodyOverride != nil {
 		body = *segment.BodyOverride
 	}
 	var values, sourceSettings map[string]any

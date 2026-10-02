@@ -152,15 +152,22 @@ function mergeServerAssignedDraftIdentity(
 			id: serverRendition?.id ?? rendition.id,
 			segments: (rendition.segments ?? []).map((segment, segmentIndex) => {
 				const serverSegment = serverRenditionSegments[segmentIndex];
+				const sourceOverrides = segment.source_overrides?.map((source) => ({
+					...source,
+					publication_segment_id:
+						canonicalIDs.get(source.publication_segment_id) ?? source.publication_segment_id
+				}));
 				return serverSegment?.id
 					? {
 							...segment,
+							source_overrides: sourceOverrides,
 							id: serverSegment.id,
 							publication_segment_id:
 								serverSegment.publication_segment_id ?? segment.publication_segment_id
 						}
 					: {
 							...segment,
+							source_overrides: sourceOverrides,
 							publication_segment_id:
 								canonicalIDs.get(segment.publication_segment_id ?? '') ??
 								segment.publication_segment_id

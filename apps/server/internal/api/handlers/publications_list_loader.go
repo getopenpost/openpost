@@ -378,6 +378,7 @@ func renditionSegmentResponses(
 		out = append(out, RenditionSegmentResponse{
 			ID:                   segment.ID,
 			PublicationSegmentID: segment.PublicationSegmentID,
+			SourceOverrides:      readRenditionSourceOverrides(segment.SourceOverridesJSON),
 			Position:             segment.Position,
 			Body:                 segment.Body,
 			Title:                segment.Title,

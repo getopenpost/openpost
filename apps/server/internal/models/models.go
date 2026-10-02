@@ -1548,6 +1548,7 @@ type RenditionSegment struct {
 	DescriptionOverride  *string   `bun:"description_override" json:"description_override,omitempty"`
 	URLOverride          *string   `bun:"url_override" json:"url_override,omitempty"`
 	MediaInherited       bool      `bun:"media_inherited,notnull,default:true" json:"media_inherited"`
+	SourceOverridesJSON  string    `bun:"source_overrides_json,notnull,default:'[]'" json:"source_overrides_json"`
 	SettingsJSON         string    `bun:"settings_json,notnull,default:'{}'" json:"settings_json"`
 	Status               string    `bun:"status,notnull,default:'draft'" json:"status"`
 	ExternalID           string    `bun:"external_id,notnull,default:''" json:"external_id"`

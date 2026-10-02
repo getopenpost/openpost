@@ -122,6 +122,7 @@ func TestCreatePublicationIdempotencyReplaysConflictsAndIsolatesTokens(t *testin
 func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
+		(*models.Job)(nil),
 		(*models.SocialAccount)(nil),
 		(*models.Publication)(nil),
 		(*models.MediaAttachment)(nil),
@@ -155,7 +156,8 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 
-	create := func(body string) PublicationResponse {
+	create := func(t *testing.T, body string) PublicationResponse {
+		t.Helper()
 		req := httptest.NewRequestWithContext(
 			ctx,
 			http.MethodPost,
@@ -186,8 +188,8 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 			"segments":[{"publication_segment_id":"segment-1","body":"Caption"}]
 		}]
 	}`
-	first := create(body)
-	second := create(body)
+	first := create(t, body)
+	second := create(t, body)
 
 	require.Len(t, first.Segments, 1)
 	require.Len(t, second.Segments, 1)
@@ -200,6 +202,57 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 		first.Segments[0].ID,
 		first.Renditions[0].Segments[0].PublicationSegmentID,
 	)
+	t.Run("joined source authorship survives canonical-only edits", func(t *testing.T) {
+		_, err := db.NewInsert().Model(&models.SocialAccount{ID: "joined-account", WorkspaceID: "workspace-1", Slug: "linkedin", Platform: "linkedin", AccountID: "joined", AccountUsername: "joined", AccessTokenEnc: []byte("token"), IsActive: true}).Exec(ctx)
+		require.NoError(t, err)
+		for _, id := range []string{"media-first", "media-continuation", "media-custom"} {
+			_, err := db.NewInsert().Model(&models.MediaAttachment{ID: id, WorkspaceID: "workspace-1", MimeType: "image/png", OriginalFilename: id + ".png", ProcessingStatus: "ready"}).Exec(ctx)
+			require.NoError(t, err)
+		}
+		joined := create(t, `{
+			"workspace_id":"workspace-1","title":"Joined sources","source_text":"First","intent":"thread","content_profile":"thread",
+			"segments":[{"id":"source-a","body":"First","media":[{"media_id":"media-first"}]},{"id":"source-b","body":"Inherited continuation","media":[{"media_id":"media-continuation"}]},{"id":"source-c","body":"Explicitly omitted","media":[{"media_id":"media-first"}]}],
+			"renditions":[{"social_account_id":"joined-account","output_profile":"linkedin.post","segments":[{
+				"publication_segment_id":"source-a",
+				"source_overrides":[
+					{"publication_segment_id":"source-a","body_override":"Independent first","media_inherited":false,"media":[{"media_id":"media-custom","alt_text":"Custom source image"}]},
+					{"publication_segment_id":"source-b","media_inherited":true},
+					{"publication_segment_id":"source-c","body_override":"","media_inherited":false,"media":[]}
+				]
+			}]}]
+		}`)
+		require.Len(t, joined.Renditions[0].Segments, 1)
+		segment := joined.Renditions[0].Segments[0]
+		require.Equal(t, "Independent first\n\nInherited continuation", segment.Body)
+		require.Len(t, segment.Media, 2)
+		require.Equal(t, []string{"media-custom", "media-continuation"}, []string{segment.Media[0].ID, segment.Media[1].ID})
+		require.Equal(t, "Custom source image", segment.Media[0].AltText)
+		require.Len(t, segment.SourceOverrides, 3)
+		require.Equal(t, joined.Segments[1].ID, segment.SourceOverrides[1].PublicationSegmentID)
+		require.Nil(t, segment.SourceOverrides[1].BodyOverride)
+		require.NotNil(t, segment.SourceOverrides[2].BodyOverride)
+		require.Empty(t, *segment.SourceOverrides[2].BodyOverride)
+		require.False(t, segment.SourceOverrides[2].MediaInherited)
+		updatedSources := []map[string]any{
+			{"id": joined.Segments[0].ID, "body": "Changed shared first", "media": []map[string]any{{"media_id": "media-first"}}},
+			{"id": joined.Segments[1].ID, "body": "Changed continuation", "media": []map[string]any{{"media_id": "media-continuation"}}},
+			{"id": joined.Segments[2].ID, "body": "Still omitted", "media": []map[string]any{{"media_id": "media-first"}}},
+		}
+		payload, err := json.Marshal(map[string]any{"expected_revision": joined.Revision, "segments": updatedSources})
+		require.NoError(t, err)
+		req := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/publications/"+joined.ID, bytes.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer web-token")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		var edited PublicationResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &edited))
+		require.Equal(t, "Independent first\n\nChanged continuation", edited.Renditions[0].Segments[0].Body)
+		require.Equal(t, "Independent first\n\nChanged continuation", *edited.Renditions[0].Segments[0].BodyOverride)
+		require.Len(t, edited.Renditions[0].Segments, 1)
+	})
+
 }
 
 func TestDeletePublicationRequiresConfirmationAndRevision(t *testing.T) {

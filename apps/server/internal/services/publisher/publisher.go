@@ -30,6 +30,7 @@ import (
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/openpost/backend/internal/services/publicationpoll"
+	"github.com/openpost/backend/internal/services/publicationsource"
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/usage"
@@ -664,7 +665,7 @@ func (s *Service) publishRenditionSegments(
 		}
 		for i := range segments {
 			segment := &segments[i]
-			if segment.PublicationSegmentID != source.ID {
+			if segment.PublicationSegmentID != source.ID || publicationsource.HasSourceOverrides(segment.SourceOverridesJSON) {
 				continue
 			}
 			body := source.Body
@@ -681,29 +682,27 @@ func (s *Service) publishRenditionSegments(
 			segment.SettingsJSON = mustPublisherJSON(resolvedSettings)
 		}
 	}
-	if hasPoll && len(segments) == 1 && len(canonical) > 1 {
+	for i := range segments {
+		segment := &segments[i]
+		joined := publicationsource.HasSourceOverrides(segment.SourceOverridesJSON) || len(segments) == 1 && len(canonical) > 1 && hasPoll
+		if !joined {
+			continue
+		}
 		var sources []map[string]any
-		var bodies []string
 		for _, source := range canonical {
 			var values map[string]any
 			_ = json.Unmarshal([]byte(source.SettingsJSON), &values)
 			sources = append(sources, values)
-			if body := strings.TrimSpace(source.Body); body != "" {
-				bodies = append(bodies, body)
-			}
 		}
-		body := strings.Join(bodies, "\n\n")
-		if segments[0].BodyOverride != nil {
-			body = *segments[0].BodyOverride
-		}
+		body := publicationsource.JoinedSourceBody(canonical, segment.SourceOverridesJSON, segment.BodyOverride)
 		var settings map[string]any
-		_ = json.Unmarshal([]byte(segments[0].SettingsJSON), &settings)
+		_ = json.Unmarshal([]byte(segment.SettingsJSON), &settings)
 		body, settings, pollErr := publicationpoll.ResolveJoined(sources, account.ID, rendition.Platform, rendition.OutputProfile, body, settings)
 		if pollErr != nil {
 			return pollErr
 		}
-		segments[0].Body = body
-		segments[0].SettingsJSON = mustPublisherJSON(settings)
+		segment.Body = body
+		segment.SettingsJSON = mustPublisherJSON(settings)
 	}
 
 	parentExternalID := ""

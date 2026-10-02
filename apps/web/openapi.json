@@ -16219,6 +16219,13 @@
 						"description": "Segment-scoped destination settings",
 						"type": "object"
 					},
+					"source_overrides": {
+						"description": "Authored canonical-source overrides for a single joined destination output",
+						"items": {
+							"$ref": "#/components/schemas/RenditionSourceOverride"
+						},
+						"type": ["array", "null"]
+					},
 					"title": {
 						"description": "Destination segment title override",
 						"type": "string"
@@ -16304,6 +16311,12 @@
 						"additionalProperties": {},
 						"type": "object"
 					},
+					"source_overrides": {
+						"items": {
+							"$ref": "#/components/schemas/RenditionSourceOverride"
+						},
+						"type": ["array", "null"]
+					},
 					"status": {
 						"type": "string"
 					},
@@ -16333,6 +16346,32 @@
 					"error_retryable",
 					"media"
 				],
+				"type": "object"
+			},
+			"RenditionSourceOverride": {
+				"additionalProperties": false,
+				"properties": {
+					"body_override": {
+						"description": "Explicit source body; omit or null to inherit",
+						"type": "string"
+					},
+					"media": {
+						"description": "Independent source media, including an explicit empty list",
+						"items": {
+							"$ref": "#/components/schemas/PublicationMediaInput"
+						},
+						"type": ["array", "null"]
+					},
+					"media_inherited": {
+						"description": "Whether this source contributes its canonical media",
+						"type": "boolean"
+					},
+					"publication_segment_id": {
+						"description": "Canonical source segment ID, or matching client reference in the same request",
+						"type": "string"
+					}
+				},
+				"required": ["publication_segment_id", "media_inherited"],
 				"type": "object"
 			},
 			"ReplaceMediaTagItemsInputBody": {

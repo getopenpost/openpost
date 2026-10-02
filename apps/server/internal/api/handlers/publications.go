@@ -1924,6 +1924,11 @@ func (h *PublicationHandler) insertRenditions(
 				}
 			}
 		}
+		for position, segment := range segmentInputs {
+			if len(segment.SourceOverrides) > 0 && (position != 0 || resolved.SegmentStrategy != "join") {
+				return huma.Error400BadRequest("source overrides belong to the first joined destination output")
+			}
+		}
 		if err := h.insertRenditionSegments(ctx, tx, rendition, canonicalSegments, canonicalInputs, segmentInputs); err != nil {
 			return err
 		}
@@ -1954,6 +1959,13 @@ func (h *PublicationHandler) insertRenditionSegments(
 			canonicalSegments,
 			canonicalInputs,
 		)
+		if len(input.SourceOverrides) > 0 {
+			var err error
+			input, err = normalizeJoinedSourceOverrides(input, canonicalSegments, canonicalInputs)
+			if err != nil {
+				return err
+			}
+		}
 		bodyOverride, effectiveBody := renditionTextOverride(input.BodyOverride, input.Body, canonical.Body)
 		titleOverride, effectiveTitle := renditionTextOverride(input.TitleOverride, input.Title, canonical.Title)
 		descriptionOverride, effectiveDescription := renditionTextOverride(input.DescriptionOverride, input.Description, canonical.Description)
@@ -1962,16 +1974,23 @@ func (h *PublicationHandler) insertRenditionSegments(
 		_ = json.Unmarshal([]byte(canonical.SettingsJSON), &sourceSettings)
 		// Drafts keep incomplete poll choices. Validation and delivery reject them.
 		effectiveBody, effectiveSettings, _ := publicationpoll.Resolve(sourceSettings, rendition.SocialAccountID, rendition.Platform, rendition.OutputProfile, effectiveBody, input.Settings)
-		if len(inputs) == 1 && len(canonicalSegments) > 1 {
+		if (len(inputs) == 1 || len(input.SourceOverrides) > 0) && len(canonicalSegments) > 1 {
 			baseBody := joinedPublicationBody(canonicalSegments)
 			bodyOverride, baseBody = renditionTextOverride(input.BodyOverride, input.Body, baseBody)
 			effectiveBody, effectiveSettings, _ = publicationpoll.ResolveJoined(publicationPollSources(canonicalSegments), rendition.SocialAccountID, rendition.Platform, rendition.OutputProfile, baseBody, input.Settings)
 		}
 
+		if position == 0 && len(input.SourceOverrides) > 0 {
+			rendition.Body = effectiveBody
+			if _, err := tx.NewUpdate().Model(rendition).Column("body").Where("id = ?", rendition.ID).Exec(ctx); err != nil {
+				return err
+			}
+		}
 		segment := &models.RenditionSegment{
 			ID:                   uuid.New().String(),
 			RenditionID:          rendition.ID,
 			PublicationSegmentID: canonical.ID,
+			SourceOverridesJSON:  mustJSON(input.SourceOverrides),
 			Position:             position,
 			Body:                 effectiveBody,
 			Title:                effectiveTitle,
@@ -1999,6 +2018,12 @@ func (h *PublicationHandler) insertRenditionSegments(
 		canonicalMedia := []PublicationMediaInput{}
 		if position < len(canonicalInputs) {
 			canonicalMedia = canonicalInputs[position].Media
+		}
+		if len(input.SourceOverrides) > 0 {
+			canonicalMedia = nil
+			for _, source := range canonicalInputs {
+				canonicalMedia = append(canonicalMedia, source.Media...)
+			}
 		}
 		mediaInherited := input.MediaInherited == nil && (len(mediaInputs) == 0 || publicationMediaInputsEqual(mediaInputs, canonicalMedia))
 		if input.MediaInherited != nil {
@@ -2054,7 +2079,7 @@ func canonicalPublicationSegment(
 	inputs []PublicationSegmentInput,
 ) models.PublicationSegment {
 	canonical := models.PublicationSegment{}
-	if position < len(segments) {
+	if position >= 0 && position < len(segments) {
 		canonical = segments[position]
 	}
 	if requestedID == "" {
@@ -2433,6 +2458,7 @@ func (h *PublicationHandler) loadRenditionSegmentResponsesWithDB(
 		out = append(out, RenditionSegmentResponse{
 			ID:                   segment.ID,
 			PublicationSegmentID: segment.PublicationSegmentID,
+			SourceOverrides:      readRenditionSourceOverrides(segment.SourceOverridesJSON),
 			Position:             segment.Position,
 			Body:                 segment.Body,
 			Title:                segment.Title,
@@ -4373,6 +4399,11 @@ func allPublicationMediaIDs(
 			out = append(out, item.MediaID)
 		}
 		for _, segment := range rendition.Segments {
+			for _, source := range segment.SourceOverrides {
+				for _, item := range source.Media {
+					out = append(out, item.MediaID)
+				}
+			}
 			for _, item := range segment.Media {
 				out = append(out, item.MediaID)
 			}

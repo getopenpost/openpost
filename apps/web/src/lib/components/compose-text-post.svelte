@@ -1939,9 +1939,15 @@
 			if (!source) continue;
 			rendition.segments = rendition.segments.map((segment, index) => {
 				const joinsSegments =
-					rendition.segments.length === 1 &&
+					index === 0 &&
 					posts.length > 1 &&
 					resolvedCapabilities[rendition.social_account_id]?.segment_strategy === 'join';
+				if (
+					index > 0 &&
+					posts.length > 1 &&
+					resolvedCapabilities[rendition.social_account_id]?.segment_strategy === 'join'
+				)
+					return segment;
 				const sourcePosts = joinsSegments ? posts : posts[index] ? [posts[index]] : [];
 				if (sourcePosts.length === 0) return segment;
 				const sourceVariants = sourcePosts.map((post) => source[post.key]).filter(Boolean);
@@ -1978,6 +1984,26 @@
 					media_inherited: mediaInherited,
 					media: mediaInherited ? segment.media : media
 				};
+				if (joinsSegments) {
+					renditionSegment.source_overrides = sourcePosts.map((post, sourceIndex) => {
+						const variant = source[post.key];
+						const sourceMedia = publicationMedia(
+							getVariantMediaIds(rendition.social_account_id, post.key) ?? post.mediaIds
+						);
+						return {
+							publication_segment_id: payload.segments[sourceIndex].id,
+							...(variant && !variant.contentInherited ? { body_override: variant.content } : {}),
+							media_inherited: variant?.mediaInherited ?? true,
+							media: sourceMedia.map(
+								(item) =>
+									media.find((candidate) => candidate.media_id === item.id) ?? {
+										media_id: item.id,
+										role: item.role || 'attachment'
+									}
+							)
+						};
+					});
+				}
 				if (!contentInherited) renditionSegment.body_override = body;
 				return renditionSegment;
 			});
@@ -2042,16 +2068,42 @@
 							(segment) => segment.publication_segment_id === canonical.id
 						)
 					: undefined;
-				const contentInherited = renditionSegment?.body_override === undefined;
-				const mediaInherited = renditionSegment?.media_inherited ?? true;
+				const legacyJoined =
+					posts.length > 1 &&
+					rendition.segments?.length === 1 &&
+					!rendition.segments[0].source_overrides?.length;
+				const joinedSource = (rendition.segments ?? [])
+					.flatMap((segment) => segment.source_overrides ?? [])
+					.find((source) => source.publication_segment_id === canonical?.id);
+				const suppressLegacyContinuation =
+					legacyJoined && index > 0 && rendition.segments?.[0]?.body_override !== undefined;
+				const contentInherited = suppressLegacyContinuation
+					? false
+					: joinedSource
+						? joinedSource.body_override === undefined
+						: renditionSegment?.body_override === undefined;
+				const suppressLegacyMedia =
+					legacyJoined && index > 0 && rendition.segments?.[0]?.media_inherited === false;
+				const mediaInherited = suppressLegacyMedia
+					? false
+					: (joinedSource?.media_inherited ?? renditionSegment?.media_inherited ?? true);
 				if (!contentInherited || !mediaInherited) hasOverride = true;
 				record[post.key] = {
-					content: contentInherited
-						? post.content
-						: (renditionSegment?.body_override ?? renditionSegment?.body ?? ''),
-					mediaIds: mediaInherited
-						? [...post.mediaIds]
-						: (renditionSegment?.media ?? []).map((item) => item.id),
+					content: suppressLegacyContinuation
+						? ''
+						: contentInherited
+							? post.content
+							: (joinedSource?.body_override ??
+								renditionSegment?.body_override ??
+								renditionSegment?.body ??
+								''),
+					mediaIds: suppressLegacyMedia
+						? []
+						: mediaInherited
+							? [...post.mediaIds]
+							: joinedSource
+								? (joinedSource.media ?? []).map((item) => item.media_id)
+								: (renditionSegment?.media ?? []).map((item) => item.id),
 					contentInherited,
 					mediaInherited
 				};

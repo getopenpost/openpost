@@ -145,6 +145,12 @@ export interface ComposerPublicationPayload {
 		media: Array<{ media_id: string; role: string }>;
 		segments: Array<{
 			publication_segment_id: string;
+			source_overrides?: Array<{
+				publication_segment_id: string;
+				body_override?: string;
+				media_inherited: boolean;
+				media?: PublicationMediaPayload[];
+			}>;
 			body: string;
 			title: string;
 			description: string;
@@ -329,7 +335,10 @@ export function buildPublicationPayload(
 				title: first?.title ?? title,
 				description: first?.description ?? '',
 				settings,
-				media: (first?.media ?? []).map(({ media_id, role }) => ({ media_id, role })),
+				media: (first?.media ?? []).map(({ media_id, role }) => ({
+					media_id,
+					role
+				})),
 				segments: renditionSegments
 			};
 			const scheduleOverride = input.scheduleOverridesByAccount?.[account.id];

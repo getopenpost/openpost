@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
+	import type { Snapshot } from '@sveltejs/kit';
+	import { auth } from '$lib/stores/auth';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { ContextMenu } from 'bits-ui';
 	import { page } from '$app/stores';
@@ -123,6 +125,70 @@
 	let dateFrom = $state('');
 	let dateTo = $state('');
 	let layoutMode = $state<'grid' | 'list'>('grid');
+	function captureDiscovery() {
+		return {
+			actorID: $auth.user?.id ?? '',
+			workspaceID: selectedWorkspaceId,
+			currentPage,
+			lifecycleView,
+			filter,
+			sort,
+			searchInput,
+			appliedSearch,
+			mediaType,
+			source,
+			selectedTagIDs: [...selectedTagIDs],
+			showUntagged,
+			aspect,
+			minWidth,
+			minHeight,
+			maxWidth,
+			maxHeight,
+			dateFrom,
+			dateTo,
+			layoutMode
+		};
+	}
+
+	function restoreDiscovery(saved: ReturnType<typeof captureDiscovery>) {
+		currentPage = saved.currentPage;
+		lifecycleView = saved.lifecycleView;
+		filter = saved.filter;
+		sort = saved.sort;
+		searchInput = saved.searchInput;
+		appliedSearch = saved.appliedSearch;
+		mediaType = saved.mediaType;
+		source = saved.source;
+		selectedTagIDs = [...saved.selectedTagIDs];
+		showUntagged = saved.showUntagged;
+		aspect = saved.aspect;
+		minWidth = saved.minWidth;
+		minHeight = saved.minHeight;
+		maxWidth = saved.maxWidth;
+		maxHeight = saved.maxHeight;
+		dateFrom = saved.dateFrom;
+		dateTo = saved.dateTo;
+		layoutMode = saved.layoutMode;
+	}
+
+	const initialDiscovery = captureDiscovery();
+	let discoveryOwner: { actorID: string; workspaceID: string } | null = null;
+
+	export const snapshot: Snapshot<ReturnType<typeof captureDiscovery>> = {
+		capture: captureDiscovery,
+		restore(saved) {
+			if (
+				!saved?.actorID ||
+				saved.actorID !== $auth.user?.id ||
+				!saved.workspaceID ||
+				saved.workspaceID !== selectedWorkspaceId
+			)
+				return;
+			restoreDiscovery(saved);
+			void loadMedia();
+		}
+	};
+
 	let tags = $state<MediaTag[]>([]);
 	let hubLoading = $state(false);
 	let hubError = $state('');
@@ -1206,7 +1272,15 @@
 
 	$effect(() => {
 		const workspaceID = selectedWorkspaceId;
+		const actorID = $auth.user?.id ?? '';
 		untrack(() => {
+			if (
+				discoveryOwner &&
+				(discoveryOwner.actorID !== actorID || discoveryOwner.workspaceID !== workspaceID)
+			) {
+				restoreDiscovery(initialDiscovery);
+			}
+			discoveryOwner = actorID && workspaceID ? { actorID, workspaceID } : null;
 			workspaceViewRevision++;
 			organizationSaveSequence++;
 			organizationSaving = false;

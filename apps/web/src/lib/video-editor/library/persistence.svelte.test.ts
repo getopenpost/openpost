@@ -6,6 +6,7 @@ import {
 	patchLibraryEntry
 } from './repository';
 import type { LibraryEntry } from './types';
+import { videoLibrary } from './library-store.svelte';
 
 it('keeps saved library items across reads and isolates workspace collections', async () => {
 	const id = crypto.randomUUID();
@@ -49,5 +50,25 @@ it('keeps saved library items across reads and isolates workspace collections', 
 		expect(await listLibraryEntries(entry.scope)).toEqual([]);
 	} finally {
 		await deleteLibraryEntry(id);
+	}
+});
+
+it('does not transfer a favorite when a deleted recipe is restored after an account change', async () => {
+	const priorScope = videoLibrary.scope;
+	const scope = `favorite-undo:${crypto.randomUUID()}`;
+	await videoLibrary.load(scope, '', 'first-user');
+	await videoLibrary.save('My fade', { kind: 'transition', presentation: 'fade' });
+	const deleted = $state.snapshot(videoLibrary.entries[0]);
+	try {
+		await videoLibrary.remove(deleted);
+		await videoLibrary.load(scope, '', 'second-user');
+		await videoLibrary.restore(deleted);
+		expect(videoLibrary.entries).toHaveLength(1);
+		expect(videoLibrary.entries[0].favorite).toBe(false);
+		await videoLibrary.load(scope, '', 'second-user');
+		expect(videoLibrary.entries[0].favorite).toBe(false);
+	} finally {
+		await deleteLibraryEntry(deleted.id);
+		await videoLibrary.load(priorScope);
 	}
 });

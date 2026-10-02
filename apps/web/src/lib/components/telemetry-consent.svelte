@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import {
 		setTelemetryPreference,
 		subscribeTelemetryPreference,
@@ -8,6 +7,7 @@
 		type TelemetryPreferenceStatus
 	} from '@openpost/telemetry';
 	import { Button } from '$lib/components/ui/button';
+	import { ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		title: string;
@@ -121,7 +121,7 @@
 				class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 			>
 				{optionsLabel}
-				<ChevronDown class="size-3.5 group-open:rotate-180" aria-hidden="true" />
+				<ThemeIcon role="chevron-down" class="size-3.5 group-open:rotate-180" />
 			</summary>
 			<p class="mb-3 leading-relaxed text-muted-foreground">{cookielessDescription}</p>
 			<Button

@@ -184,7 +184,7 @@
 
 	export function addKeyframeAtPlayhead(property: KeyframeProperty): void {
 		const item = selectedItem;
-		if (!item) return;
+		if (!item || !availableKeyframeProperties.includes(property)) return;
 		if (
 			timelineStore.currentFrame < item.from ||
 			timelineStore.currentFrame >= item.from + item.durationInFrames
@@ -308,6 +308,7 @@
 				setCurrentFrame(selectedItem.from + keyframe.frame);
 			}
 		} else if (matches('KEYFRAME_TOGGLE_AUTO')) {
+			if (!availableKeyframeProperties.includes(pendingKeyframeProperty)) return false;
 			const enabled = autoKeyframeStore.toggle(selectedItem.id, pendingKeyframeProperty);
 			emitEditorSound(enabled ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
 		} else if (matches('KEYFRAME_FIT')) fitActiveKeyframeView();

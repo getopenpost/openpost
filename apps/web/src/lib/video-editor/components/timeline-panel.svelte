@@ -4582,6 +4582,16 @@
 				})
 			: []
 	);
+	$effect(() => {
+		if (availableKeyframeProperties.includes(pendingKeyframeProperty)) return;
+		const property = availableKeyframeProperties.includes('opacity')
+			? 'opacity'
+			: availableKeyframeProperties[0];
+		if (property) pendingKeyframeProperty = property;
+	});
+	const hasPendingKeyframeProperty = $derived(
+		availableKeyframeProperties.includes(pendingKeyframeProperty)
+	);
 	const keyframePropertyOptions = $derived(
 		availableKeyframeProperties.map((property) => ({
 			value: property,
@@ -4800,26 +4810,29 @@
 					<AppSelect
 						class="h-7 w-36 text-xs"
 						value={pendingKeyframeProperty}
+						disabled={!hasPendingKeyframeProperty}
 						options={keyframePropertyOptions}
 						ariaLabel={m.video_editor_keyframe_property()}
 						onValueChange={(value) => keyframesPanel?.setPendingKeyframeProperty(value)}
 					/>
 					<button
 						type="button"
-						class="flex items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+						class="flex items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-40 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+						disabled={!hasPendingKeyframeProperty}
 						onclick={() => keyframesPanel?.addKeyframeAtPlayhead(pendingKeyframeProperty)}
 						><ProtectedIcon icon="editor-keyframe" class="size-2.5 fill-current" />
 						{m.video_editor_keyframe_add()}</button
 					>
 					<button
 						type="button"
-						class="rounded px-1.5 py-0.5 text-xs font-semibold text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] data-[active=true]:bg-[var(--video-editor-primary)] data-[active=true]:text-[var(--video-editor-primary-text)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+						class="rounded px-1.5 py-0.5 text-xs font-semibold text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] disabled:cursor-not-allowed disabled:opacity-40 data-[active=true]:bg-[var(--video-editor-primary)] data-[active=true]:text-[var(--video-editor-primary-text)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 						data-active={selectedItem
 							? autoKeyframeStore.isEnabled(selectedItem.id, pendingKeyframeProperty)
 							: false}
 						aria-pressed={selectedItem
 							? autoKeyframeStore.isEnabled(selectedItem.id, pendingKeyframeProperty)
 							: false}
+						disabled={!hasPendingKeyframeProperty}
 						aria-label={m.video_editor_property_auto_key({
 							property: keyframeLabel(pendingKeyframeProperty)
 						})}

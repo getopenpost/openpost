@@ -4,10 +4,20 @@ import { tick } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import TimelinePanel from './timeline-panel.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
-import { createDefaultTracks } from '../project/defaults';
+import { createBlankProject, createDefaultTracks } from '../project/defaults';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import { planMixdown } from '../media/render-plan';
+import { editorSession } from '../editor.svelte';
+import { sequenceStore } from '../sequences/sequence-store.svelte';
+import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { createProject, getProject } from '../workspace-fs/projects';
+import { createMedia } from '../workspace-fs/media';
+import { associateMediaWithProject } from '../workspace-fs/project-media';
+import { autoKeyframeStore } from '../timeline/stores/auto-keyframe-store.svelte';
+import ClipAudioCoreSection from './clip-audio-core-section.svelte';
+import fixtureUrl from '../../../../../../tests/app/fixtures/product-screenshots/study-sos-demo.mp4?url';
+import imageUrl from '../../../../../../tests/app/fixtures/product-screenshots/openpost-logo.png?url';
 import '../../../routes/layout.css';
 
 it.each([1280, 320])(
@@ -278,3 +288,201 @@ it('keeps focus on the track name after keyboard reordering', async () => {
 		timelineStore.__resetForTesting();
 	}
 });
+
+it('adds a visible volume key by default on audio and keeps visual defaults supported', async () => {
+	await page.viewport(1280, 900);
+	const project = createBlankProject('Default audio key');
+	project.timeline!.items = [
+		{
+			id: 'audio-key',
+			type: 'audio',
+			label: 'Audio key',
+			trackId: 'track-audio',
+			from: 0,
+			durationInFrames: 90,
+			volume: 0.25,
+			mediaId: 'key-source'
+		},
+		{
+			id: 'visual-key',
+			type: 'image',
+			label: 'Visual key',
+			trackId: 'track-video-main',
+			from: 0,
+			durationInFrames: 90,
+			transform: { opacity: 0.7 },
+			mediaId: 'key-image'
+		},
+		{
+			id: 'video-key',
+			type: 'video',
+			label: 'Video key',
+			trackId: 'track-video-overlay',
+			from: 0,
+			durationInFrames: 90,
+			transform: { opacity: 0.6 },
+			mediaId: 'key-source'
+		},
+		{
+			id: 'empty-key',
+			type: 'adjustment',
+			label: 'No properties',
+			trackId: 'track-video-main',
+			from: 120,
+			durationInFrames: 90
+		}
+	];
+	const previousRoot = getWorkspaceRoot();
+	const storage = await navigator.storage.getDirectory();
+	const directoryName = `default-audio-key-${crypto.randomUUID()}`;
+	setWorkspaceRoot(await storage.getDirectoryHandle(directoryName, { create: true }));
+	await createProject(project);
+	for (const media of [
+		{
+			id: 'key-source',
+			storageType: 'cloud' as const,
+			remoteUrl: fixtureUrl,
+			fileName: 'source.mp4',
+			fileSize: 185000,
+			mimeType: 'video/mp4',
+			duration: 8,
+			width: 640,
+			height: 360,
+			fps: 30,
+			codec: 'avc',
+			bitrate: 100000,
+			hasAudio: true,
+			tags: []
+		},
+		{
+			id: 'key-image',
+			storageType: 'cloud' as const,
+			remoteUrl: imageUrl,
+			fileName: 'image.png',
+			fileSize: 10000,
+			mimeType: 'image/png',
+			duration: 0,
+			width: 256,
+			height: 256,
+			fps: 0,
+			codec: '',
+			bitrate: 0,
+			hasAudio: false,
+			tags: []
+		}
+	]) {
+		await createMedia(media);
+		await associateMediaWithProject(project.id, media.id);
+	}
+	await editorSession.load(project.id);
+	expect(editorSession.loadError).toBe('');
+	editorSession.clock.seek(15);
+	const screen = await render(TimelinePanel, { onedit: () => editorSession.scheduleAutosave() });
+	let originalMounted = true;
+	screen.container.style.cssText = 'width:100%;height:650px;display:flex';
+	try {
+		await screen.getByRole('button', { name: /^Audio key\. Drag/ }).click();
+		await screen.getByRole('button', { name: 'Keyframes', exact: true }).click();
+		await userEvent.keyboard('{Tab}{Tab}');
+		await expect
+			.element(screen.getByRole('button', { name: 'Add key', exact: true }))
+			.toHaveFocus();
+		await userEvent.keyboard('{Enter}');
+		expect(timelineStore.itemById.get('audio-key')?.keyframes).toMatchObject({
+			volume: { frames: [15], values: [0.25] }
+		});
+		expect(timelineStore.itemById.get('audio-key')?.keyframes?.opacity).toBeUndefined();
+		await expect
+			.element(screen.getByRole('button', { name: 'volume keyframe at frame 15', exact: true }))
+			.toBeVisible();
+		commandHistory.undo();
+		await expect
+			.element(screen.getByRole('button', { name: 'volume keyframe at frame 15', exact: true }))
+			.not.toBeInTheDocument();
+		commandHistory.redo();
+		await expect
+			.element(screen.getByRole('button', { name: 'volume keyframe at frame 15', exact: true }))
+			.toBeVisible();
+		await screen.getByRole('button', { name: /^Visual key\. Drag/ }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Toggle auto-key for volume', exact: true }))
+			.not.toBeInTheDocument();
+		screen.getByRole('button', { name: 'Add key', exact: true }).element().focus();
+		await userEvent.keyboard('{Enter}');
+		expect(timelineStore.itemById.get('visual-key')?.keyframes).toMatchObject({
+			opacity: { frames: [15], values: [0.7] }
+		});
+		await screen.getByRole('button', { name: /^Video key\. Drag/ }).click();
+		await screen.getByRole('button', { name: 'Add key', exact: true }).click();
+		expect(timelineStore.itemById.get('video-key')?.keyframes).toMatchObject({
+			opacity: { frames: [15], values: [0.6] }
+		});
+		editorSession.clock.seek(135);
+		await screen.getByRole('button', { name: /^No properties\. Drag/ }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Add key', exact: true }))
+			.toBeDisabled();
+		await expect
+			.element(screen.getByRole('button', { name: 'Toggle auto-key for opacity', exact: true }))
+			.toBeDisabled();
+		editorSession.clock.seek(15);
+		await screen.getByRole('button', { name: /^Audio key\. Drag/ }).click();
+		await screen.getByRole('button', { name: 'Toggle auto-key for volume', exact: true }).click();
+		expect(autoKeyframeStore.isEnabled('audio-key', 'volume')).toBe(true);
+		expect(autoKeyframeStore.isEnabled('audio-key', 'opacity')).toBe(false);
+		await editorSession.saveNow();
+		const saved = await getProject(project.id);
+		expect(saved?.timeline?.items.find((item) => item.id === 'audio-key')?.keyframes).toMatchObject(
+			{ volume: { frames: [15], values: [0.25] } }
+		);
+		await screen.unmount();
+		screen.container.remove();
+		originalMounted = false;
+		editorSession.project = null;
+		sequenceStore.reset();
+		timelineStore.__resetForTesting();
+		mediaPool.clear();
+		await editorSession.load(project.id);
+		expect(editorSession.loadError).toBe('');
+		editorSession.clock.seek(15);
+		const reopened = await render(TimelinePanel, {
+			onedit: () => editorSession.scheduleAutosave()
+		});
+		reopened.container.style.cssText = 'width:100%;height:650px;display:flex';
+		try {
+			await reopened.getByRole('button', { name: /^Audio key\. Drag/ }).click();
+			await reopened.getByRole('button', { name: 'Keyframes', exact: true }).click();
+			await expect
+				.element(reopened.getByRole('button', { name: 'volume keyframe at frame 15', exact: true }))
+				.toBeVisible();
+			expect(timelineStore.itemById.get('audio-key')?.keyframes?.opacity).toBeUndefined();
+			const inspector = await render(ClipAudioCoreSection, {
+				audioItems: [timelineStore.itemById.get('audio-key')!],
+				onedit: vi.fn()
+			});
+			try {
+				await expect
+					.element(
+						inspector.getByRole('button', { name: 'Remove Gain (dB) keyframe', exact: true })
+					)
+					.toHaveAttribute('aria-pressed', 'true');
+			} finally {
+				await inspector.unmount();
+			}
+		} finally {
+			await reopened.unmount();
+			reopened.container.remove();
+		}
+	} finally {
+		if (originalMounted) await screen.unmount();
+		editorSession.stopAutosaveTimers();
+		autoKeyframeStore.reset();
+		editorSession.project = null;
+		setWorkspaceRoot(previousRoot);
+		await storage.removeEntry(directoryName, { recursive: true });
+		timelineStore.__resetForTesting();
+		sequenceStore.reset();
+		mediaPool.clear();
+		commandHistory.clearHistory();
+	}
+}, 30000);

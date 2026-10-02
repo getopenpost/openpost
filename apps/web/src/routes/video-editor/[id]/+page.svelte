@@ -1158,7 +1158,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	function handleGeneratedAudioInserted(itemId: string): void {
 		selectedItemId = itemId;
-		selectedItemIds = [itemId];
+		selectedItemIds = timelineStore.linkedSelectionEnabled
+			? expandSelectionWithLinkedItems(timelineStore.items, [itemId])
+			: [itemId];
 		selectedTransitionId = null;
 		editorSession.scheduleAutosave();
 		showToast(m.video_editor_local_ai_added(), 'success');

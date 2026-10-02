@@ -214,3 +214,66 @@ it('anchors the opposite corner when resizing rotated pixels and Escape cancels 
 	);
 	expect(editor.canUndo).toBe(false);
 });
+
+it.each(
+	[320, 390, 1280].flatMap((width) => ['light', 'dark'].map((scheme) => ({ width, scheme })))
+)(
+	'keeps selection exit and recovery actions visible at $width in $scheme',
+	async ({ width, scheme }) => {
+		await page.viewport(width, 900);
+		document.documentElement.classList.toggle('dark', scheme === 'dark');
+		const editor = floatingSelection();
+		const screen = await render(Fixture, { editor });
+		const toolbar = screen.getByTestId('image-editor-selection-options');
+		const insideToolbar = (name: string) => {
+			const action = screen
+				.getByRole('button', { name, exact: true })
+				.element()
+				.getBoundingClientRect();
+			const bounds = toolbar.element().getBoundingClientRect();
+			expect(action.left).toBeGreaterThanOrEqual(bounds.left);
+			expect(action.right).toBeLessThanOrEqual(bounds.right);
+			expect(action.top).toBeGreaterThanOrEqual(bounds.top);
+			expect(action.bottom).toBeLessThanOrEqual(bounds.bottom);
+			expect(bounds.left).toBeGreaterThanOrEqual(0);
+			expect(bounds.right).toBeLessThanOrEqual(width);
+		};
+		await expect.element(toolbar).toBeVisible();
+		insideToolbar('Cancel');
+		expect(toolbar.element().scrollWidth).toBeLessThanOrEqual(toolbar.element().clientWidth);
+		screen.getByRole('button', { name: 'Done', exact: true }).element().focus();
+		await userEvent.keyboard('{Tab}{Tab}');
+		await expect.element(screen.getByRole('button', { name: 'Cancel', exact: true })).toHaveFocus();
+		await userEvent.keyboard(' ');
+		expect(editor.floatingPixelSelection).toBeNull();
+		editor.applyPixelSelection(
+			rectanglePixelMask(400, 300, { x: 100, y: 80, width: 100, height: 80 }),
+			['paint'],
+			'replace'
+		);
+		await expect
+			.element(screen.getByRole('button', { name: 'Deselect', exact: true }))
+			.toBeVisible();
+		insideToolbar('Delete selected pixels');
+		insideToolbar('Deselect');
+		await screen.getByRole('button', { name: 'Deselect', exact: true }).click();
+		expect(editor.pixelSelection).toBeNull();
+		expect(editor.activePage?.layers).toHaveLength(1);
+		editor.activeTool = 'polygonal_lasso';
+		const surface = screen.getByTestId('image-editor-selection-surface');
+		for (const position of [
+			{ x: 40, y: 40 },
+			{ x: 80, y: 40 },
+			{ x: 80, y: 80 }
+		]) {
+			await userEvent.click(surface, { position });
+		}
+		insideToolbar('Cancel');
+		screen.getByRole('button', { name: 'Cancel', exact: true }).element().focus();
+		await userEvent.keyboard('{Enter}');
+		expect(editor.pixelSelection).toBeNull();
+		await expect
+			.element(screen.getByRole('button', { name: 'Done', exact: true }))
+			.not.toBeInTheDocument();
+	}
+);

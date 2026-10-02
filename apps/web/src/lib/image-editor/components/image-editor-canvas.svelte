@@ -1882,6 +1882,8 @@
 	}
 
 	function handleCanvasKeydown(event: KeyboardEvent): void {
+		if ((event.key === 'Enter' || event.code === 'Space') && targetsPasteboardChrome(event.target))
+			return;
 		if (event.key === 'Escape' && (layerPickerRef?.dismiss() ?? false)) {
 			event.preventDefault();
 			return;
@@ -2232,7 +2234,7 @@
 		{/if}
 		{#if isAreaSelectionTool() || editor.activeTool === 'pencil' || editor.activeTool === 'eraser' || editor.activeTool === 'magic_eraser' || editor.activeTool === 'bucket' || editor.activeTool === 'gradient'}
 			<div
-				class="absolute bottom-3 left-1/2 z-30 no-scrollbar flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur sm:top-3 sm:bottom-auto [&>*]:shrink-0"
+				class="absolute bottom-3 left-1/2 z-30 flex max-h-[calc(100%-1.5rem)] w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-start gap-0.5 overflow-y-auto rounded-lg border border-[var(--editor-border)] bg-[color-mix(in_oklch,var(--editor-canvas)_88%,transparent)] p-1 text-[var(--editor-text)] shadow-lg backdrop-blur sm:top-3 sm:bottom-auto [&>*]:max-w-full [&>*]:shrink-0 [@media(pointer:coarse)]:[&_button]:min-h-11 [@media(pointer:coarse)]:[&_button]:min-w-11"
 				data-testid="image-editor-selection-options"
 			>
 				{#if editor.activeTool === 'polygonal_lasso' && polygonalSelection}
@@ -2281,7 +2283,7 @@
 				{/if}
 				{#if isAreaSelectionTool()}
 					<div
-						class="flex items-center gap-0.5"
+						class="flex flex-wrap items-center gap-0.5"
 						role="group"
 						aria-label={m.image_editor_selection_mode()}
 					>
@@ -2587,9 +2589,9 @@
 							{m.image_editor_cut_pixels()}
 						</Button>
 						<Button
-							variant="ghost"
+							variant="destructive"
 							size="sm"
-							class="h-7 px-1.5 text-xs text-red-200 hover:text-destructive"
+							class="h-7 px-1.5 text-xs"
 							onclick={() => commitPixelContent('delete')}
 						>
 							{m.image_editor_delete_pixels()}

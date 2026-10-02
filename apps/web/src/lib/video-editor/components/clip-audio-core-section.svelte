@@ -86,9 +86,10 @@
 	}
 
 	function fadeLimit(): number {
+		if (audioItems.length === 0) return 0;
 		return Math.max(
 			0,
-			Math.min(5, ...audioItems.map((item) => item.durationInFrames / timelineStore.fps))
+			Math.min(...audioItems.map((item) => item.durationInFrames / timelineStore.fps))
 		);
 	}
 

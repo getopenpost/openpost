@@ -6,9 +6,12 @@
 	import type { SubtitleCue, SubtitleWord, TimelineItem } from '../project/types';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 	import { execute } from '../timeline/commands/command-store.svelte';
-	import { correctedCueTimingPatch, correctedSubtitleWord } from '../transcript/caption-correction';
 	import {
-		buildCueText,
+		correctedCueTimingPatch,
+		correctedSubtitleWord,
+		correctedCueWordText
+	} from '../transcript/caption-correction';
+	import {
 		getCueFormatFlags,
 		parseSubtitleCueText,
 		toggleCueFormat,
@@ -43,11 +46,7 @@
 		replaceCue(item, cue.id, {
 			...cue,
 			...corrected,
-			text: buildCueText(
-				corrected.words.map((word) => word.text).join(' '),
-				getCueFormatFlags(parseSubtitleCueText(cue.text)),
-				cue.text
-			)
+			text: correctedCueWordText(cue, corrected.words)
 		});
 	}
 	function deleteWord(item: TimelineItem, cue: SubtitleCue, wordId: string) {
@@ -59,11 +58,7 @@
 				? {
 						...cue,
 						words,
-						text: buildCueText(
-							words.map((word) => word.text).join(' '),
-							getCueFormatFlags(parseSubtitleCueText(cue.text)),
-							cue.text
-						),
+						text: correctedCueWordText(cue, words),
 						startFrame: Math.min(...words.map((word) => word.startFrame)),
 						endFrame: Math.max(...words.map((word) => word.endFrame))
 					}

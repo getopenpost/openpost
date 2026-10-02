@@ -1,4 +1,5 @@
 import type { SubtitleCue, SubtitleWord } from '../project/types';
+import { buildCueText, getCueFormatFlags, parseSubtitleCueText } from './subtitle-cue-format';
 
 function finiteFrame(value: number, fallback: number): number {
 	return Number.isFinite(value) ? Math.round(value) : fallback;
@@ -123,4 +124,28 @@ export function correctedSubtitleWord(
 		startFrame: Math.min(...words.map((word) => word.startFrame)),
 		endFrame: Math.max(...words.map((word) => word.endFrame))
 	};
+}
+
+/** Keep authored separators when timed word copy changes independently of cue layout. */
+export function correctedCueWordText(cue: SubtitleCue, words: SubtitleWord[]): string {
+	const original = cue.words ?? [];
+	if (
+		original.length === words.length &&
+		original.every(
+			(word, index) => word.id === words[index]?.id && word.text === words[index]?.text
+		)
+	)
+		return cue.text;
+	const parsed = parseSubtitleCueText(cue.text);
+	const plain = parsed.spans.map((span) => span.text).join('');
+	const tokens = [...plain.matchAll(/\S+/gu)];
+	const replacements = new Map(words.map((word) => [word.id, word.text]));
+	const aligned =
+		tokens.length === original.length &&
+		tokens.every((token, index) => token[0] === original[index]?.text);
+	let index = 0;
+	const text = aligned
+		? plain.replace(/\S+/gu, () => replacements.get(original[index++]!.id) ?? '')
+		: words.map((word) => word.text).join(' ');
+	return buildCueText(text, getCueFormatFlags(parsed), cue.text);
 }

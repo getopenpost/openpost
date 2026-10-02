@@ -32,7 +32,9 @@
 		source.selectedAudioTrackIndices?.[0] ?? source.audioStreams[0]?.index
 	);
 	const words = $derived(
-		source.transcript?.audioTrackIndex === audioTrackIndex ? source.transcript.words : []
+		source.transcript && source.transcript.audioTrackIndex === audioTrackIndex
+			? source.transcript.words
+			: []
 	);
 	let selected = $state<Set<number>>(new Set());
 	let anchor = $state<number | null>(null);
@@ -138,6 +140,9 @@
 
 <div class="flex h-full min-h-0 flex-col gap-3">
 	<p class="text-xs text-muted-foreground">{m.quick_cut_transcript_hint()}</p>
+	{#if source.audioStreams.length === 0}
+		<p class="text-xs text-muted-foreground" role="status">{m.quick_cut_stream_no_audio()}</p>
+	{/if}
 	<details open={words.length === 0}>
 		<summary class="cursor-pointer py-1 text-xs font-medium">{m.quick_cut_transcribe()}</summary>
 		<TranscriptionControls

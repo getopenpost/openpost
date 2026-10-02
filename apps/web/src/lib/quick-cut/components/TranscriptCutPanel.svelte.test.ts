@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import TranscriptCutPanel from './TranscriptCutPanel.svelte';
+import CleanupPanel from './CleanupPanel.svelte';
 import type { QuickCutSource } from '../types';
 
 const source: QuickCutSource = {
@@ -31,6 +32,34 @@ const source: QuickCutSource = {
 		]
 	}
 };
+
+test('opens the transcript panel for a video without audio and prevents transcription', async () => {
+	const screen = await render(TranscriptCutPanel, {
+		source: { ...source, audioStreams: [], audioCodec: null, transcript: undefined },
+		segments: [],
+		currentTime: 0,
+		onsave: vi.fn(),
+		onseek: vi.fn(),
+		onremove: vi.fn()
+	});
+	await expect
+		.element(screen.getByRole('button', { name: 'Create transcript', exact: true }))
+		.toBeDisabled();
+	await expect.element(screen.getByText('No audio tracks', { exact: true })).toBeVisible();
+});
+
+test('explains why cleanup is unavailable for a video without audio', async () => {
+	const screen = await render(CleanupPanel, {
+		source: { ...source, audioStreams: [], audioCodec: null, transcript: undefined },
+		onapply: vi.fn(),
+		onpreview: vi.fn(),
+		onreview: vi.fn()
+	});
+	await expect
+		.element(screen.getByRole('button', { name: 'Find cuts', exact: true }))
+		.toBeDisabled();
+	await expect.element(screen.getByText('No audio tracks', { exact: true })).toBeVisible();
+});
 
 test('selects words and removes their source ranges while preserving existing transcript cuts', async () => {
 	const onremove = vi.fn();

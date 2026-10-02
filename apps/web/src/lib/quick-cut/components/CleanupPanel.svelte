@@ -162,6 +162,9 @@
 				/></label
 			>{/if}
 	{/if}
+	{#if source.audioStreams.length === 0}
+		<p class="text-xs text-muted-foreground" role="status">{m.quick_cut_stream_no_audio()}</p>
+	{/if}
 	{#if busy}
 		<ProgressMeter fraction={progress} label={m.video_editor_cleanup_analyzing()} />
 		<Button size="sm" variant="outline" onclick={cancel}>{m.common_cancel()}</Button>

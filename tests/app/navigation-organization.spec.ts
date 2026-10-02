@@ -13,6 +13,11 @@ test("navigation separates work, workspace management, and personal preferences"
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/publications");
+  const workNavigation = page.getByTestId("sidebar-workspace-navigation");
+  for (const name of ["Publications", "Inbox", "Analytics", "Media"]) {
+    await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  await expect(page.getByTestId("sidebar-new-post-menu")).toHaveAccessibleName("Editors");
   await page.screenshot({ path: testInfo.outputPath("navigation-before.png") });
   await page.getByTestId("profile-menu-trigger").click();
   await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toBeVisible();
@@ -41,9 +46,7 @@ test("navigation separates work, workspace management, and personal preferences"
     .click();
   await expect(page).toHaveURL(/\/calendar$/);
   await page.goto("/media");
-  const workspaceFooter = page.getByTestId("sidebar-workspace-footer");
-  await workspaceFooter.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Publications", exact: true }).click();
+  await workNavigation.getByRole("button", { name: "Publications", exact: true }).click();
   await expect(page).toHaveURL(/\/calendar$/);
   await page.reload();
   await page
@@ -51,10 +54,19 @@ test("navigation separates work, workspace management, and personal preferences"
     .getByRole("link", { name: "List", exact: true })
     .click();
   await expect(page).toHaveURL(/\/publications$/);
+  const collapse = page.getByRole("button", { name: "Toggle sidebar", exact: true });
+  await collapse.focus();
+  await page.keyboard.press("Enter");
+  for (const name of ["Publications", "Inbox", "Analytics", "Media"]) {
+    await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Media", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/media$/);
   expect(errors).toEqual([]);
 });
 
-for (const width of [1440, 390, 320]) {
+for (const width of [1440, 1280, 390, 320]) {
   for (const scheme of ["light", "dark"] as const) {
     test(`navigation and preferences fit at ${width}px in ${scheme}`, async ({
       page,
@@ -63,7 +75,7 @@ for (const width of [1440, 390, 320]) {
       const auth = await registerUser(request, `nav-${width}-${randomUUID()}@example.com`);
       await createWorkspace(request, auth.token, "Navigation workspace");
       await authenticatePage(page, auth.token);
-      await page.setViewportSize({ width, height: 900 });
+      await page.setViewportSize({ width, height: width === 1280 ? 600 : 900 });
       await page.goto("/publications");
       if (width < 768) {
         await page
@@ -108,9 +120,11 @@ for (const width of [1440, 390, 320]) {
       await page.keyboard.press("Escape");
       await expect(dialog).not.toBeVisible();
       if (width >= 768) {
-        const sidebarFooter = page.getByTestId("sidebar-workspace-footer");
-        await sidebarFooter.getByRole("button", { name: "More", exact: true }).click();
-        const media = page.getByRole("menuitem", { name: "Media", exact: true });
+        const workNavigation = page.getByTestId("sidebar-workspace-navigation");
+        for (const name of ["Publications", "Inbox", "Analytics", "Media"]) {
+          await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
+        }
+        const media = workNavigation.getByRole("button", { name: "Media", exact: true });
         await expect(media).toBeVisible();
         const idle = await media.evaluate((element) => getComputedStyle(element).backgroundColor);
         await media.hover();
@@ -198,4 +212,45 @@ test("mobile menu preserves a keyboard choice made during opening", async ({ pag
       ),
   );
   await expect(page.getByRole("menuitem", { name: "Profile", exact: true })).toBeFocused();
+});
+
+test("short desktop planner keeps drafts reachable without scrolling the navigation", async ({
+  page,
+  request,
+}, testInfo) => {
+  const auth = await registerUser(request, `nav-short-${randomUUID()}@example.com`);
+  await createWorkspace(request, auth.token, "Short navigation workspace");
+  await authenticatePage(page, auth.token);
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto("/publications");
+  const planner = page.getByTestId("desktop-sidebar-planner");
+  const viewAll = planner.getByRole("button", { name: "View all", exact: true });
+  const month = page.getByTestId("sidebar-calendar-month");
+  await expect(month).toBeVisible();
+  const monthBounds = await month.boundingBox();
+  await page.mouse.move(monthBounds!.x + 5, monthBounds!.y + 5);
+  await page.mouse.wheel(0, 350);
+  await expect
+    .poll(async () => {
+      const control = await viewAll.boundingBox();
+      const viewport = await page.locator('[data-sidebar="content"]').boundingBox();
+      return (
+        control !== null &&
+        viewport !== null &&
+        control.y >= viewport.y &&
+        control.y + control.height <= viewport.y + viewport.height
+      );
+    })
+    .toBe(true);
+  for (const name of ["Publications", "Inbox", "Analytics", "Media"]) {
+    await expect(
+      page.getByTestId("sidebar-workspace-navigation").getByRole("button", { name, exact: true }),
+    ).toBeInViewport();
+  }
+  await page.screenshot({
+    path: testInfo.outputPath("short-planner-reachable.png"),
+    animations: "disabled",
+  });
+  await viewAll.click();
+  await expect(page).toHaveURL(/publications\?tab=drafts$/);
 });

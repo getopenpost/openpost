@@ -51,13 +51,13 @@
 		}))
 	);
 	const workspaceNavigationItems = $derived(
-		navigationItems.filter((item) => ['communications', 'analytics'].includes(item.id))
+		navigationItems.filter((item) =>
+			['publications', 'communications', 'analytics', 'media'].includes(item.id)
+		)
 	);
 	const sidebarNavigationItems = $derived(workspaceNavigationItems);
 	const moreNavigationItems = $derived(
-		navigationItems.filter((item) =>
-			['publications', 'media', 'growth', 'editors', 'workflows'].includes(item.id)
-		)
+		navigationItems.filter((item) => ['growth', 'editors', 'workflows'].includes(item.id))
 	);
 	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
 
@@ -219,7 +219,7 @@
 							variant="outline"
 							size="sm"
 							class="w-9 px-0 group-data-[collapsible=icon]:w-full"
-							aria-label={m.sidebar_new()}
+							aria-label={m.editors_title()}
 							data-testid="sidebar-new-post-menu"
 							><ThemeIcon role="chevron-down" class="size-4" /></Button
 						>{/snippet}
@@ -236,7 +236,7 @@
 		</div>
 	</Sidebar.Header>
 
-	<Sidebar.Content class={showDesktopPlanner ? 'overflow-hidden pt-2' : 'px-2 py-3'}>
+	<Sidebar.Content class={showDesktopPlanner ? 'overflow-y-auto pt-2' : 'px-2 py-3'}>
 		{#if showDesktopPlanner}
 			<SidebarPlanner onNavigate={navigate} />
 		{:else}

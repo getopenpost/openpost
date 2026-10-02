@@ -9604,5 +9604,6 @@
 	"workflows_cancelled_history_notice": "此运行已取消。下方步骤状态显示最后记录的状态。",
 	"video_editor_beat_none_found": "此片段中未找到节拍。",
 	"workflows_layout_session_only": "无法在此浏览器中保存画布位置。重新打开此工作流时，位置将重置。",
-	"workflows_no_preview_output": "运行预览以查看此节点的示例输出。"
+	"workflows_no_preview_output": "运行预览以查看此节点的示例输出。",
+	"workflows_output_outdated": "此结果生成后，配置或测试数据已更改。请重新运行以检查当前草稿。"
 }

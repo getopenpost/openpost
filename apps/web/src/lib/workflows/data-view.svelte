@@ -11,7 +11,9 @@
 		empty = m.workflows_no_output(),
 		draggable = false,
 		status = '',
-		error = ''
+		error = '',
+		caption = '',
+		notice = ''
 	}: {
 		label: string;
 		value?: unknown;
@@ -19,6 +21,8 @@
 		draggable?: boolean;
 		status?: string;
 		error?: string;
+		caption?: string;
+		notice?: string;
 	} = $props();
 	let mode = $state<'schema' | 'table' | 'json'>('schema');
 	const fields = $derived.by(() => {
@@ -75,6 +79,8 @@
 			/>
 		</div>{/if}
 	<div class="min-h-0 flex-1 overflow-auto p-3">
+		{#if caption}<p class="mb-3 text-xs text-muted-foreground">{caption}</p>{/if}
+		{#if notice}<InlineNotice tone="info" message={notice} class="mb-3" />{/if}
 		{#if error}<InlineNotice tone="error" message={error} class="mb-3" />{/if}
 		{#if value === undefined || value === null}<p
 				class="mx-auto max-w-60 py-12 text-center text-sm leading-6 text-muted-foreground"

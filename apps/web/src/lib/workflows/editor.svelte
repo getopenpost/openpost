@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { z } from 'zod';
+	import { stringify } from 'safe-stable-stringify';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { onMount, tick, untrack } from 'svelte';
 
@@ -16,6 +17,7 @@
 		testNode,
 		sampleSource,
 		type Workflow,
+		type Definition,
 		type Step,
 		type Connection,
 		type WorkflowData,
@@ -102,7 +104,7 @@
 	let selectedRun = $state('');
 	let canvas = $state<Canvas>();
 	let inspectorOrigin: HTMLElement | null = null;
-	let testInputs = $state.raw<Record<string, WorkflowData>>({});
+	let runContexts = $state.raw<Record<string, { definition: Definition; data: WorkflowData }>>({});
 	let pendingSave: Promise<void> | undefined;
 	const canEdit = $derived(workspaceCtx.currentWorkspace?.role !== 'viewer');
 	const canAdmin = $derived(workspaceCtx.currentWorkspace?.role === 'admin');
@@ -142,7 +144,8 @@
 				(reference) => reference.value.split('.')[0]
 			)
 		);
-		const priorInputs = inspectedRun?.mode === 'test' ? testInputs[inspectedRun.id] : undefined;
+		const priorInputs =
+			inspectedRun?.mode === 'test' ? runContexts[inspectedRun.id]?.data : undefined;
 		const data: InspectorInputs = {
 			...Object.fromEntries(Object.entries(priorInputs ?? {}).filter(([id]) => upstream.has(id))),
 			source: panel === 'runs' ? (inspectedRun?.source ?? parsedSample.value) : parsedSample.value
@@ -152,6 +155,25 @@
 			if (result.state === 'succeeded') data[result.step_id] = result.output;
 		}
 		return data;
+	});
+	const outputOutdated = $derived.by(() => {
+		if (panel === 'runs' || !selectedResult || !inspectedRun) return false;
+		const context = runContexts[inspectedRun.id];
+		if (inspectedRun.mode === 'test') {
+			// Node tests snapshot one step and omit its branches; its output proves only the supplied inputs.
+			const testedStep = findStep(inspectedRun.definition.steps ?? [], selectedID);
+			if (!step || !testedStep) return true;
+			const current = { kind: step.kind, inputs: step.inputs ?? {} };
+			const tested = { kind: testedStep.kind, inputs: testedStep.inputs ?? {} };
+			return (
+				stringify(current) !== stringify(tested) ||
+				Boolean(context && stringify(inputData) !== stringify(context.data))
+			);
+		}
+		return (
+			stringify(doc.definition) !== stringify(context?.definition ?? inspectedRun.definition) ||
+			stringify(parsedSample.value) !== stringify(context?.data.source ?? inspectedRun.source)
+		);
 	});
 	const issues = $derived(workflowIssues(doc.definition, inputData.source));
 	const references = $derived(
@@ -401,8 +423,9 @@
 		try {
 			await save();
 			const data = inputData;
+			const definition = structuredClone($state.snapshot(doc.definition));
 			const run = await testNode(initial.workspace_id, initial.id, record.revision, step.id, data);
-			testInputs = { ...testInputs, [run.id]: data };
+			runContexts = { ...runContexts, [run.id]: { definition, data } };
 			selectedRun = run.id;
 			dataTab = 'output';
 		} catch (cause) {
@@ -441,6 +464,7 @@
 				if (items?.length) sample = JSON.stringify(items[0], null, 2);
 				else error = m.workflows_no_source_items();
 			} else if (parsed.success) {
+				const definition = structuredClone($state.snapshot(doc.definition));
 				const run = await startRun(
 					initial.workspace_id,
 					initial.id,
@@ -448,6 +472,7 @@
 					kind,
 					parsed.data
 				);
+				runContexts = { ...runContexts, [run.id]: { definition, data: { source: parsed.data } } };
 				selectedRun = run.id;
 				inspector = false;
 				panel = 'runs';
@@ -927,6 +952,10 @@
 					>
 						<DataView
 							label={m.workflows_output()}
+							caption={selectedResult && inspectedRun
+								? m.workflows_run_revision({ revision: inspectedRun.workflow_revision })
+								: ''}
+							notice={outputOutdated ? m.workflows_output_outdated() : ''}
 							empty={inspectedStep?.kind === 'wait' && !selectedResult
 								? m.workflows_no_preview_output()
 								: m.workflows_no_output()}

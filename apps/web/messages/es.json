@@ -9604,5 +9604,6 @@
 	"workflows_cancelled_history_notice": "Esta ejecución se canceló. Los estados de los pasos muestran el último estado registrado.",
 	"video_editor_beat_none_found": "No se encontraron pulsos en este clip.",
 	"workflows_layout_session_only": "No se pudieron guardar las posiciones del lienzo en este navegador. Se restablecerán cuando vuelvas a abrir este flujo de trabajo.",
-	"workflows_no_preview_output": "Ejecuta la vista previa para ver la salida de ejemplo de este nodo."
+	"workflows_no_preview_output": "Ejecuta la vista previa para ver la salida de ejemplo de este nodo.",
+	"workflows_output_outdated": "La configuración o los datos de prueba cambiaron desde este resultado. Ejecuta de nuevo para comprobar el borrador actual."
 }

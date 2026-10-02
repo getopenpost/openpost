@@ -9604,5 +9604,6 @@
 	"workflows_cancelled_history_notice": "Dieser Lauf wurde abgebrochen. Die Schrittzustände unten zeigen den zuletzt gespeicherten Zustand.",
 	"video_editor_beat_none_found": "In diesem Clip wurden keine Beats gefunden.",
 	"workflows_layout_session_only": "Die Positionen auf der Arbeitsfläche konnten in diesem Browser nicht gespeichert werden. Beim erneuten Öffnen dieses Workflows werden sie zurückgesetzt.",
-	"workflows_no_preview_output": "Starte die Vorschau, um die Beispielausgabe dieses Knotens zu sehen."
+	"workflows_no_preview_output": "Starte die Vorschau, um die Beispielausgabe dieses Knotens zu sehen.",
+	"workflows_output_outdated": "Die Konfiguration oder Testdaten wurden seit diesem Ergebnis geändert. Starte erneut, um den aktuellen Entwurf zu prüfen."
 }

@@ -9604,5 +9604,6 @@
 	"workflows_cancelled_history_notice": "Cette exécution a été annulée. Les états des étapes ci-dessous indiquent le dernier état enregistré.",
 	"video_editor_beat_none_found": "Aucun temps musical trouvé dans ce clip.",
 	"workflows_layout_session_only": "Les positions des nœuds n’ont pas pu être enregistrées dans ce navigateur. Elles seront réinitialisées lorsque vous rouvrirez ce workflow.",
-	"workflows_no_preview_output": "Lancez un aperçu pour voir un exemple de sortie de ce nœud."
+	"workflows_no_preview_output": "Lancez un aperçu pour voir un exemple de sortie de ce nœud.",
+	"workflows_output_outdated": "La configuration ou les données de test ont changé depuis ce résultat. Relancez pour vérifier le brouillon actuel."
 }

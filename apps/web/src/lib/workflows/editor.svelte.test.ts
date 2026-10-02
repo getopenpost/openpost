@@ -555,3 +555,97 @@ it('guides an untested Wait node to its available simulated preview rather than 
 		.toBeVisible();
 	expect(post).not.toHaveBeenCalled();
 });
+
+it.each(['test', 'preview'] as const)(
+	'marks historical %s output after a draft input edit without changing its result',
+	async (mode) => {
+		await page.viewport(1280, 900);
+		const workflow: Workflow = {
+			...initial,
+			definition: {
+				...initial.definition,
+				steps: [
+					{
+						id: 'parse',
+						name: 'Parse sample',
+						kind: 'parse_json',
+						inputs: { text: { literal: '{"value":1}' } }
+					},
+					{ id: 'other', name: 'Other', kind: 'parse_json', inputs: { text: { literal: '{}' } } }
+				]
+			}
+		};
+		run = {
+			...run,
+			mode,
+			definition:
+				mode === 'test'
+					? { schema: 1, source: { kind: 'manual' }, steps: [workflow.definition.steps![0]] }
+					: workflow.definition,
+			steps: [
+				{
+					step_id: 'parse',
+					kind: 'parse_json',
+					name: 'Parse sample',
+					state: 'succeeded',
+					started_at: initial.created_at,
+					inputs: { text: '{"value":1}' },
+					output: { data: { value: 1 } }
+				}
+			]
+		};
+		// SAFETY: This save fixture returns the declared complete Workflow after the one independently authored literal change.
+		vi.spyOn(client, 'PUT').mockResolvedValue({
+			data: { ...workflow, revision: 2 },
+			response: new Response()
+		} as never);
+		// SAFETY: This complete immutable Run is the declared response of the public execution fixture.
+		post.mockResolvedValue({ data: run, response: new Response() } as never);
+		const originalRun = structuredClone(run);
+		const screen = await render(
+			Editor,
+			{ initial: workflow, accounts: [], connections: [] },
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
+		screen.container.style.height = '850px';
+		await screen.getByRole('button', { name: /^Parse sample/ }).click();
+		if (mode === 'test')
+			await page
+				.getByRole('dialog')
+				.getByRole('button', { name: 'Test node', exact: true })
+				.click();
+		else {
+			await page.getByRole('button', { name: 'Back to canvas', exact: true }).click();
+			await screen.getByRole('button', { name: 'Run preview', exact: true }).click();
+			await screen.getByRole('button', { name: 'Editor', exact: true }).click();
+			await screen.getByRole('button', { name: /^Parse sample/ }).click();
+		}
+		const output = page.getByRole('region', { name: 'Output', exact: true });
+		await output.getByRole('button', { name: 'JSON', exact: true }).click();
+		expect(JSON.parse(output.element().querySelector('pre')!.textContent!)).toEqual({
+			data: { value: 1 }
+		});
+		expect(
+			page
+				.getByText(
+					'Configuration or test data changed since this result. Run again to check the current draft.',
+					{ exact: true }
+				)
+				.query()
+		).toBeNull();
+		await page.getByRole('textbox', { name: 'Text', exact: true }).fill('{"value":2}');
+		await expect
+			.element(
+				output.getByText(
+					'Configuration or test data changed since this result. Run again to check the current draft.',
+					{ exact: true }
+				)
+			)
+			.toBeVisible();
+		await expect.element(output.getByText('Completed', { exact: true })).toBeVisible();
+		expect(JSON.parse(output.element().querySelector('pre')!.textContent!)).toEqual({
+			data: { value: 1 }
+		});
+		expect(run).toEqual(originalRun);
+	}
+);

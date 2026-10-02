@@ -144,6 +144,7 @@
         "onnxruntime-web": "1.26.0-dev.20260410-5e55544225",
         "openapi-fetch": "^0.17.0",
         "phonemizer": "1.2.1",
+        "safe-stable-stringify": "2.5.0",
         "shell-quote": "^1.10.0",
         "svelte-sonner": "^1.1.1",
         "tailwind-merge": "^3.5.0",

@@ -9604,5 +9604,6 @@
 	"workflows_cancelled_history_notice": "この実行はキャンセルされました。以下のステップ状態は最後に記録された状態を示しています。",
 	"video_editor_beat_none_found": "このクリップではビートが見つかりませんでした。",
 	"workflows_layout_session_only": "このブラウザーにキャンバスの位置を保存できませんでした。このワークフローを開き直すと位置がリセットされます。",
-	"workflows_no_preview_output": "プレビューを実行して、このノードのサンプル出力を確認します。"
+	"workflows_no_preview_output": "プレビューを実行して、このノードのサンプル出力を確認します。",
+	"workflows_output_outdated": "この結果の取得後に設定またはテストデータが変更されました。再実行して現在の下書きを確認してください。"
 }

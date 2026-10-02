@@ -566,16 +566,17 @@
 								>{m.workflows_runs()}</Button
 							>
 							<div class="h-60 overflow-hidden rounded-lg border">
-								{#if inspectedRun}<Canvas
-										definition={inspectedRun.definition}
+								<!-- Keep the immutable run alive while its canvas is torn down after query selection changes. -->
+								{#each inspectedRun ? [inspectedRun] : [] as run (run.id)}<Canvas
+										definition={run.definition}
 										{selectedID}
-										run={inspectedRun}
+										{run}
 										readonly
 										onselect={(id) => {
 											selectedID = id;
 											inspector = true;
 										}}
-									/>{/if}
+									/>{/each}
 							</div>
 							<div class="mt-4">
 								<RunInspector workspaceID={initial.workspace_id} runID={selectedRun} />

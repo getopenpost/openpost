@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync/atomic"
 	"testing"
@@ -24,12 +25,13 @@ type countingMessagingProvider struct {
 	fetchCount int32
 	sendCount  int32
 	support    platform.MessagingSupport
+	fetched    platform.FetchMessagesResult
 }
 
 func (f *countingMessagingProvider) MessagingSupport() platform.MessagingSupport { return f.support }
 func (f *countingMessagingProvider) FetchMessages(_ context.Context, _ string, _ platform.FetchMessagesRequest) (platform.FetchMessagesResult, error) {
 	atomic.AddInt32(&f.fetchCount, 1)
-	return platform.FetchMessagesResult{}, nil
+	return f.fetched, nil
 }
 func (f *countingMessagingProvider) SendMessage(_ context.Context, _ string, _ platform.SendMessageRequest) (platform.SendMessageResult, error) {
 	atomic.AddInt32(&f.sendCount, 1)
@@ -78,8 +80,15 @@ func newFeatureEnforcementDB(t *testing.T) *bun.DB {
 		(*models.GrowthSyncState)(nil),
 		(*models.ProviderWriteAttempt)(nil),
 	)
-	// Ensure dedupe index for growth (and any future dedupe jobs) exists in test DB
-	_, _ = db.ExecContext(context.Background(), `CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_dedupe_unique_idx ON jobs (type, scope_id, dedupe_key) WHERE status IN ('pending','processing') AND scope_id <> '' AND dedupe_key <> ''`)
+	// Include production job dedupe and communication identity constraints for durable work.
+	for _, statement := range []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_dedupe_unique_idx ON jobs (type, scope_id, dedupe_key) WHERE status IN ('pending','processing') AND scope_id <> '' AND dedupe_key <> ''`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS conversations_remote_idx ON conversations (social_account_id, remote_conversation_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS direct_messages_remote_idx ON direct_messages (conversation_id, remote_message_id) WHERE remote_message_id <> ''`,
+	} {
+		_, err := db.ExecContext(context.Background(), statement)
+		require.NoError(t, err)
+	}
 	return db
 }
 
@@ -98,88 +107,148 @@ func seedFeatureUserWorkspace(t *testing.T, db *bun.DB) {
 
 func TestFeatureGateMessagingEnforcement(t *testing.T) {
 	t.Parallel()
-	db := newFeatureEnforcementDB(t)
-	seedFeatureUserWorkspace(t, db)
-	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-msg", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "remote-msg", Slug: "acc-msg", AccessTokenEnc: []byte("tok"), GrantedScopes: "pages_messaging", IsActive: true, CreatedAt: time.Now().UTC()}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Conversation{ID: "conv-1", WorkspaceID: "ws-1", SocialAccountID: "acc-msg", Platform: "facebook", RemoteConversationID: "rem-conv-1", MessagingWindowExpiresAt: time.Now().UTC().Add(time.Hour), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(ctx)
-	require.NoError(t, err)
+	for _, legacy := range []struct{ name, state string }{
+		{name: "absent", state: "{}"},
+		{name: "false", state: `{"messages_enabled":"false"}`},
+	} {
+		t.Run(legacy.name, func(t *testing.T) {
+			db := newFeatureEnforcementDB(t)
+			seedFeatureUserWorkspace(t, db)
+			ctx := context.Background()
+			_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-msg", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "remote-msg", Slug: "acc-msg", AccessTokenEnc: []byte("tok"), CapabilityState: legacy.state, GrantedScopes: "pages_messaging", IsActive: true, CreatedAt: time.Now().UTC()}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.Conversation{ID: "conv-1", WorkspaceID: "ws-1", SocialAccountID: "acc-msg", Platform: "facebook", RemoteConversationID: "rem-conv-1", MessagingWindowExpiresAt: time.Now().UTC().Add(time.Hour), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(ctx)
+			require.NoError(t, err)
 
-	msgFake := &countingMessagingProvider{support: platform.MessagingSupport{Enabled: true, CanSend: true, RequiredScopes: []string{"pages_messaging"}}}
-	providers := map[string]platform.Adapter{"facebook": msgFake}
-	af := accountfeatures.NewService(db, providers, nil)
-	msgSvc := messagingservice.NewService(db, staticTokenSourceFeature{}, nil)
-	msgSvc.SetProvider("facebook", msgFake)
-	msgSvc.SetFeatureGate(af)
+			msgFake := &countingMessagingProvider{support: platform.MessagingSupport{Enabled: true, CanSend: true, RequiresOptIn: true, RequiredScopes: []string{"pages_messaging"}}}
+			msgFake.fetched = platform.FetchMessagesResult{Conversations: []platform.ProviderConversation{{
+				ID: "rem-conv-incoming", CounterpartRemoteID: "sender-1", CounterpartName: "Sender",
+				LastMessagePreview: "Incoming message", LastRemoteMessageID: "incoming-1",
+				ReplyWindowExpiresAt: time.Now().UTC().Add(time.Hour),
+				Messages:             []platform.ProviderMessage{{ID: "incoming-1", Direction: "inbound", AuthorRemoteID: "sender-1", Body: "Incoming message", RemoteCreatedAt: time.Now().UTC()}},
+			}}}
+			providers := map[string]platform.Adapter{"facebook": msgFake}
+			af := accountfeatures.NewService(db, providers, nil)
+			msgSvc := messagingservice.NewService(db, staticTokenSourceFeature{}, nil)
+			msgSvc.SetProvider("facebook", msgFake)
+			msgSvc.SetFeatureGate(af)
 
-	// Initially no preference -> fail closed: refresh should queue 0 and not call provider
-	queued, err := msgSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
-	require.NoError(t, err)
-	require.Equal(t, 0, queued, "disabled messaging should not queue sync")
-	require.Equal(t, 0, msgFake.FetchCount(), "zero provider contact while disabled")
-	// Sync job execution while disabled should also not call provider
-	// Create a fake job payload and try handle it while disabled
-	// First enable, queue job, then disable before execution
-	saveBody := []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: true}}
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), saveBody)
-	require.NoError(t, err)
-	// Now refresh should queue (activation already queued one, this adds another)
-	queued, err = msgSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
-	require.NoError(t, err)
-	require.Equal(t, 1, queued)
-	// Find job (at least one from activation + one from refresh)
-	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", "messages_sync").Scan(ctx))
-	require.GreaterOrEqual(t, len(jobs), 1)
-	// Disable before execution
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: false}})
-	require.NoError(t, err)
-	// Execute job while disabled -> should not call provider
-	msgFake.fetchCount = 0
-	err = msgSvc.HandleJob(ctx, "messages_sync", jobs[0].Payload)
-	require.NoError(t, err)
-	require.Equal(t, 0, msgFake.FetchCount(), "job queued while enabled then disabled before execution must not contact provider")
+			// Initially no preference -> fail closed: refresh should queue 0 and not call provider
+			queued, err := msgSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
+			require.NoError(t, err)
+			require.Equal(t, 0, queued, "disabled messaging should not queue sync")
+			require.Equal(t, 0, msgFake.FetchCount(), "zero provider contact while disabled")
+			// Save the canonical preference without writing a legacy opt-in.
+			saveBody := []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: true}}
+			_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), saveBody)
+			require.NoError(t, err)
+			var saved models.AccountFeature
+			require.NoError(t, db.NewSelect().Model(&saved).Where("social_account_id = ? AND feature = ?", "acc-msg", accountfeatures.FeatureMessaging).Scan(ctx))
+			require.True(t, saved.Enabled)
+			require.Equal(t, "user_save", saved.Source)
+			// The automatic sweep must queue fresh work, not rely on the activation job.
+			beforeSweep, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", messagingservice.JobTypeMessagesSync).Count(ctx)
+			require.NoError(t, err)
+			require.NoError(t, msgSvc.HandleJob(ctx, messagingservice.JobTypeSweep, "{}"))
+			var jobs []models.Job
+			require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", messagingservice.JobTypeMessagesSync).Order("created_at DESC").Scan(ctx))
+			require.Greater(t, len(jobs), beforeSweep, "automatic sweep must admit the canonical messaging preference")
+			queued, err = msgSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
+			require.NoError(t, err)
+			require.Equal(t, 1, queued)
+			// Consume the sweep's durable sync job and verify actual collected records.
+			require.NoError(t, msgSvc.HandleJob(ctx, messagingservice.JobTypeMessagesSync, jobs[0].Payload))
+			require.Equal(t, 1, msgFake.FetchCount())
+			var incoming models.DirectMessage
+			require.NoError(t, db.NewSelect().Model(&incoming).Where("remote_message_id = ?", "incoming-1").Scan(ctx))
+			require.Equal(t, "Incoming message", incoming.Body)
+			require.Equal(t, "inbound", incoming.Direction)
+			require.Equal(t, "ws-1", incoming.WorkspaceID)
+			var conversation models.Conversation
+			require.NoError(t, db.NewSelect().Model(&conversation).Where("id = ?", incoming.ConversationID).Scan(ctx))
+			require.Equal(t, "rem-conv-incoming", conversation.RemoteConversationID)
+			require.Equal(t, "acc-msg", conversation.SocialAccountID)
+			require.Equal(t, "ws-1", conversation.WorkspaceID)
+			require.Equal(t, "sender-1", conversation.CounterpartRemoteID)
+			var state models.MessagingSyncState
+			require.NoError(t, db.NewSelect().Model(&state).Where("social_account_id = ?", "acc-msg").Scan(ctx))
+			require.Equal(t, "ok", state.Status)
+			require.False(t, state.LastSuccessAt.IsZero())
+			// Canonical disable wins even when obsolete state says true.
+			_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("capability_state_json = ?", `{"messages_enabled":"true"}`).Where("id = ?", "acc-msg").Exec(ctx)
+			require.NoError(t, err)
+			noGate := messagingservice.NewService(db, staticTokenSourceFeature{}, nil)
+			noGate.SetProvider("facebook", msgFake)
+			queued, err = noGate.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
+			require.NoError(t, err)
+			require.Zero(t, queued, "a missing canonical feature gate must remain fail closed")
+			require.NoError(t, noGate.HandleJob(ctx, messagingservice.JobTypeMessagesSync, jobs[0].Payload))
+			require.Equal(t, 1, msgFake.FetchCount())
+			_, err = noGate.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "missing feature gate")
+			require.ErrorContains(t, err, "messaging is disabled")
+			// Disable before execution
+			_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: false}})
+			require.NoError(t, err)
+			queued, err = msgSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
+			require.NoError(t, err)
+			require.Zero(t, queued)
+			// Execute job while disabled -> should not call provider
+			msgFake.fetchCount = 0
+			err = msgSvc.HandleJob(ctx, "messages_sync", jobs[0].Payload)
+			require.NoError(t, err)
+			require.Equal(t, 0, msgFake.FetchCount(), "job queued while enabled then disabled before execution must not contact provider")
 
-	// User send enqueue while disabled should fail
-	_, err = msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "hello")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "messaging is disabled")
+			// User send enqueue while disabled should fail
+			_, err = msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "hello")
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "messaging is disabled")
 
-	// Re-enable and send should succeed and queue job
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: true}})
-	require.NoError(t, err)
-	msg, err := msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "hello2")
-	require.NoError(t, err)
-	require.NotNil(t, msg)
-	// Send job execution while enabled should call provider
-	var sendJobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&sendJobs).Where("type = ?", "message_send").Scan(ctx))
-	require.NotEmpty(t, sendJobs)
-	msgFake.sendCount = 0
-	err = msgSvc.HandleJob(ctx, "message_send", sendJobs[0].Payload)
-	// May need token source to succeed; staticTokenSource returns token, so provider should be called
-	require.NoError(t, err)
-	require.Equal(t, 1, msgFake.SendCount(), "enabled send job should contact provider")
-	// While disabled, send job should not contact
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: false}})
-	require.NoError(t, err)
-	// Queue new message while disabled should fail (already tested) but test job execution gate: create a send job while enabled then disable
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: true}})
-	require.NoError(t, err)
-	msg2, err := msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "hello3")
-	require.NoError(t, err)
-	require.NotNil(t, msg2)
-	var sendJobs2 []models.Job
-	require.NoError(t, db.NewSelect().Model(&sendJobs2).Where("type = ?", "message_send").Order("created_at DESC").Scan(ctx))
-	require.NotEmpty(t, sendJobs2)
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: false}})
-	require.NoError(t, err)
-	msgFake.sendCount = 0
-	// Find the latest send job payload
-	err = msgSvc.HandleJob(ctx, "message_send", sendJobs2[0].Payload)
-	require.Error(t, err)
-	require.Equal(t, 0, msgFake.SendCount(), "send job queued while enabled then disabled must not contact provider")
+			_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("capability_state_json = ?", legacy.state).Where("id = ?", "acc-msg").Exec(ctx)
+			require.NoError(t, err)
+			// Re-enable and send should succeed and queue job
+			_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: true}})
+			require.NoError(t, err)
+			_, err = msgSvc.QueueMessage(ctx, workspaceaccess.ActorFacts{UserID: "unrelated-user"}, "conv-1", "unauthorized")
+			require.ErrorIs(t, err, messagingservice.ErrAccessDenied)
+			msg, err := msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "hello2")
+			require.NoError(t, err)
+			require.NotNil(t, msg)
+			// Send job execution while enabled should call provider
+			var sendJobs []models.Job
+			require.NoError(t, db.NewSelect().Model(&sendJobs).Where("type = ?", "message_send").Scan(ctx))
+			require.NotEmpty(t, sendJobs)
+			msgFake.sendCount = 0
+			err = msgSvc.HandleJob(ctx, "message_send", sendJobs[0].Payload)
+			require.NoError(t, err)
+			require.Equal(t, 1, msgFake.SendCount(), "enabled send job should contact provider")
+			var sent models.DirectMessage
+			require.NoError(t, db.NewSelect().Model(&sent).Where("id = ?", msg.ID).Scan(ctx))
+			require.Equal(t, "sent", sent.SendStatus)
+			require.Equal(t, "mid-1", sent.RemoteMessageID)
+			// While disabled, send job should not contact
+			_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: false}})
+			require.NoError(t, err)
+			// Queue new message while disabled should fail (already tested) but test job execution gate: create a send job while enabled then disable
+			_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: true}})
+			require.NoError(t, err)
+			msg2, err := msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "hello3")
+			require.NoError(t, err)
+			require.NotNil(t, msg2)
+			queuedPayload, err := json.Marshal(map[string]string{"id": msg2.ID})
+			require.NoError(t, err)
+			var sendJobs2 []models.Job
+			require.NoError(t, db.NewSelect().Model(&sendJobs2).Where("type = ? AND payload = ?", messagingservice.JobTypeMessageSend, string(queuedPayload)).Scan(ctx))
+			require.Len(t, sendJobs2, 1)
+			_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-msg", Feature: "messaging", Enabled: false}})
+			require.NoError(t, err)
+			msgFake.sendCount = 0
+			_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("capability_state_json = ?", `{"messages_enabled":"true"}`).Where("id = ?", "acc-msg").Exec(ctx)
+			require.NoError(t, err)
+			err = msgSvc.HandleJob(ctx, "message_send", sendJobs2[0].Payload)
+			require.Error(t, err)
+			require.Equal(t, 0, msgFake.SendCount(), "send job queued while enabled then disabled must not contact provider")
+		})
+	}
 }
 
 func TestFeatureGateGrowEnforcement(t *testing.T) {
@@ -258,9 +327,9 @@ func TestFeatureGateUnknownMissingFailClosed(t *testing.T) {
 	db := newFeatureEnforcementDB(t)
 	seedFeatureUserWorkspace(t, db)
 	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-unk", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "remote-unk", Slug: "acc-unk", AccessTokenEnc: []byte("tok"), IsActive: true, CreatedAt: time.Now().UTC()}).Exec(ctx)
+	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-unk", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "remote-unk", Slug: "acc-unk", AccessTokenEnc: []byte("tok"), CapabilityState: `{"messages_enabled":"true"}`, IsActive: true, CreatedAt: time.Now().UTC()}).Exec(ctx)
 	require.NoError(t, err)
-	msgFake := &countingMessagingProvider{support: platform.MessagingSupport{Enabled: true, CanSend: true}}
+	msgFake := &countingMessagingProvider{support: platform.MessagingSupport{Enabled: true, CanSend: true, RequiresOptIn: true}}
 	af := accountfeatures.NewService(db, map[string]platform.Adapter{"facebook": msgFake}, nil)
 	msgSvc := messagingservice.NewService(db, staticTokenSourceFeature{}, nil)
 	msgSvc.SetProvider("facebook", msgFake)
@@ -271,6 +340,10 @@ func TestFeatureGateUnknownMissingFailClosed(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, queued)
 
+	_, err = db.NewInsert().Model(&models.Conversation{ID: "conv-unk", WorkspaceID: "ws-1", SocialAccountID: "acc-unk", Platform: "facebook", RemoteConversationID: "remote-conv-unk", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-unk", "no preference")
+	require.ErrorContains(t, err, "messaging is disabled")
 	// Save unknown feature should be rejected by BatchSave (already tested) but check IsEffectiveEnabled for unknown returns false with typed error
 	enabled, err := af.IsEffectiveEnabled(ctx, "acc-unk", "unknown_feature")
 	require.Error(t, err)
@@ -278,7 +351,7 @@ func TestFeatureGateUnknownMissingFailClosed(t *testing.T) {
 	require.False(t, enabled)
 
 	// Missing scope -> add required scope but not granted, then enabled but still ineffective
-	providersWithScope := map[string]platform.Adapter{"facebook": &countingMessagingProvider{support: platform.MessagingSupport{Enabled: true, CanSend: true, RequiredScopes: []string{"pages_messaging"}}}}
+	providersWithScope := map[string]platform.Adapter{"facebook": &countingMessagingProvider{support: platform.MessagingSupport{Enabled: true, CanSend: true, RequiresOptIn: true, RequiredScopes: []string{"pages_messaging"}}}}
 	af2 := accountfeatures.NewService(db, providersWithScope, nil)
 	msgProvider := providersWithScope["facebook"].(*countingMessagingProvider)
 	msgSvc2 := messagingservice.NewService(db, staticTokenSourceFeature{}, nil)
@@ -289,6 +362,22 @@ func TestFeatureGateUnknownMissingFailClosed(t *testing.T) {
 	queued, err = msgSvc2.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
 	require.NoError(t, err)
 	require.Equal(t, 0, queued, "missing scope should fail closed even when stored enabled")
+	// Queue while permission exists, then revoke it before the durable job executes.
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("granted_scopes = ?", "pages_messaging").Where("id = ?", "acc-unk").Exec(ctx)
+	require.NoError(t, err)
+	queued, err = msgSvc2.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
+	require.NoError(t, err)
+	require.Equal(t, 1, queued)
+	var jobs []models.Job
+	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", messagingservice.JobTypeMessagesSync).Scan(ctx))
+	require.NotEmpty(t, jobs)
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("granted_scopes = ?", "").Where("id = ?", "acc-unk").Exec(ctx)
+	require.NoError(t, err)
+	require.NoError(t, msgSvc2.HandleJob(ctx, messagingservice.JobTypeMessagesSync, jobs[0].Payload))
+	require.Zero(t, msgProvider.FetchCount())
+	_, err = msgSvc2.QueueMessage(ctx, workspaceAccessActor(), "conv-unk", "missing scope")
+	require.ErrorContains(t, err, "messaging is disabled")
+	require.Zero(t, msgProvider.SendCount())
 }
 
 func TestFeatureGateEnabledTransitionQueuesInitialWorkAndNoDuplicate(t *testing.T) {

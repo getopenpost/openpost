@@ -73,9 +73,6 @@ func (s *Service) queueMessageWithDB(ctx context.Context, db bun.IDB, conversati
 	if provider == nil || !provider.MessagingSupport().CanSend {
 		return nil, fmt.Errorf("sending messages is unsupported for this provider")
 	}
-	if provider.MessagingSupport().RequiresOptIn && !accountMessagesEnabled(account) {
-		return nil, fmt.Errorf("enable inbox sync for this account before sending messages")
-	}
 	if !conversation.MessagingWindowExpiresAt.IsZero() && !conversation.MessagingWindowExpiresAt.After(s.now()) {
 		return nil, fmt.Errorf("the provider reply window has closed")
 	}
@@ -125,9 +122,6 @@ func (s *Service) sendMessage(ctx context.Context, messageID string) error {
 	provider := s.provider(account)
 	if provider == nil || !provider.MessagingSupport().CanSend {
 		return fmt.Errorf("sending messages is unsupported for this provider")
-	}
-	if provider.MessagingSupport().RequiresOptIn && !accountMessagesEnabled(account) {
-		return fmt.Errorf("enable inbox sync for this account before sending messages")
 	}
 	if s.tokens == nil {
 		return errors.New("messaging token source is unavailable")

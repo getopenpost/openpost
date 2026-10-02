@@ -94,13 +94,6 @@ func (s *Service) syncProvider(ctx context.Context, account models.SocialAccount
 			attemptedAt: s.now(),
 		})
 	}
-	if provider.MessagingSupport().RequiresOptIn && !accountMessagesEnabled(account) {
-		return nil, s.states.record(ctx, syncStateUpdate{
-			account: account, status: syncStateDisabled,
-			failure:     syncStateFailure{code: "opt_in_required", message: "Enable inbox sync for this account to collect messages."},
-			attemptedAt: s.now(),
-		})
-	}
 	return provider, nil
 }
 

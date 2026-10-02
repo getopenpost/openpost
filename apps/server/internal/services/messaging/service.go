@@ -170,14 +170,6 @@ func (s *Service) refreshWorkspace(ctx context.Context, workspaceID string, forc
 			continue
 		}
 		support := provider.MessagingSupport()
-		if support.RequiresOptIn && !accountMessagesEnabled(account) {
-			_ = s.states.record(ctx, syncStateUpdate{
-				account: account, status: syncStateDisabled,
-				failure:     syncStateFailure{code: "opt_in_required", message: "Enable inbox sync for this account to collect messages."},
-				attemptedAt: now,
-			})
-			continue
-		}
 		if missing := platform.MissingAnalyticsScopes(account.GrantedScopes, support.RequiredScopes); len(missing) > 0 {
 			_ = s.states.record(ctx, syncStateUpdate{
 				account: account, status: syncStatePermissionRequired,
@@ -213,11 +205,6 @@ func (s *Service) enqueue(ctx context.Context, workspaceID, jobType, payload str
 	}
 	rows, err := result.RowsAffected()
 	return rows == 1, err
-}
-
-func accountMessagesEnabled(account models.SocialAccount) bool {
-	state := map[string]string{}
-	return json.Unmarshal([]byte(account.CapabilityState), &state) == nil && state["messages_enabled"] == "true"
 }
 
 func providerKey(account models.SocialAccount) string {

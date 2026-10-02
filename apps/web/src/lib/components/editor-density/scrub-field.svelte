@@ -134,8 +134,9 @@
 		const raw = event.currentTarget.value;
 		draft = raw;
 		const parsed = parseNumeric(raw);
-		// fallow-ignore-next-line code-duplication
-		if (parsed !== null) setLive(parsed);
+		if (parsed === null) return;
+		beginGesture();
+		onValueChange?.(clampValue(parsed, min, max));
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {

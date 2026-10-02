@@ -9595,5 +9595,6 @@
 	"messages_filtered_empty_description": "Wähle ein anderes Konto oder eine andere Plattform oder entferne die Filter.",
 	"messages_archived_empty_title": "Keine archivierten Unterhaltungen",
 	"messages_archived_empty_description": "Keine archivierten Unterhaltungen entsprechen diesen Filtern. Entferne die Filter, um zum Posteingang zurückzukehren.",
-	"messages_clear_filters": "Filter entfernen"
+	"messages_clear_filters": "Filter entfernen",
+	"workflows_cancelled_history_notice": "Dieser Lauf wurde abgebrochen. Die Schrittzustände unten zeigen den zuletzt gespeicherten Zustand."
 }

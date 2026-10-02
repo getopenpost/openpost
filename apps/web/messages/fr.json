@@ -9595,5 +9595,6 @@
 	"messages_filtered_empty_description": "Essayez un autre compte ou une autre plateforme, ou effacez les filtres.",
 	"messages_archived_empty_title": "Aucune conversation archivée",
 	"messages_archived_empty_description": "Aucune conversation archivée ne correspond à ces filtres. Effacez les filtres pour revenir à votre boîte de réception.",
-	"messages_clear_filters": "Effacer les filtres"
+	"messages_clear_filters": "Effacer les filtres",
+	"workflows_cancelled_history_notice": "Cette exécution a été annulée. Les états des étapes ci-dessous indiquent le dernier état enregistré."
 }

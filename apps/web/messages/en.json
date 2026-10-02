@@ -9595,5 +9595,6 @@
 	"messages_filtered_empty_description": "Try another account or platform, or clear the filters.",
 	"messages_archived_empty_title": "No archived conversations",
 	"messages_archived_empty_description": "No archived conversations match these filters. Clear the filters to return to your inbox.",
-	"messages_clear_filters": "Clear filters"
+	"messages_clear_filters": "Clear filters",
+	"workflows_cancelled_history_notice": "This run was cancelled. Step states below show the last recorded state."
 }

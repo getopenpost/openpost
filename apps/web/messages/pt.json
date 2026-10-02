@@ -9595,5 +9595,6 @@
 	"messages_filtered_empty_description": "Experimenta outra conta ou plataforma, ou limpa os filtros.",
 	"messages_archived_empty_title": "Sem conversas arquivadas",
 	"messages_archived_empty_description": "Nenhuma conversa arquivada corresponde a estes filtros. Limpa os filtros para voltar à caixa de entrada.",
-	"messages_clear_filters": "Limpar filtros"
+	"messages_clear_filters": "Limpar filtros",
+	"workflows_cancelled_history_notice": "Esta execução foi cancelada. Os estados dos passos abaixo mostram o último estado registado."
 }

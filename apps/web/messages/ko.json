@@ -9595,5 +9595,6 @@
 	"messages_filtered_empty_description": "다른 계정이나 플랫폼을 선택하거나 필터를 지우세요.",
 	"messages_archived_empty_title": "보관된 대화가 없습니다",
 	"messages_archived_empty_description": "이 필터와 일치하는 보관된 대화가 없습니다. 받은 편지함으로 돌아가려면 필터를 지우세요.",
-	"messages_clear_filters": "필터 지우기"
+	"messages_clear_filters": "필터 지우기",
+	"workflows_cancelled_history_notice": "이 실행은 취소되었습니다. 아래 단계 상태는 마지막으로 기록된 상태를 보여 줍니다."
 }

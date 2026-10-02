@@ -103,6 +103,10 @@
 				tone="info"
 				message={m.workflows_run_preview_notice()}
 			/>{/if}
+		{#if run.state === 'cancelled' && run.steps?.length}<InlineNotice
+				tone="info"
+				message={m.workflows_cancelled_history_notice()}
+			/>{/if}
 		{#if run.error}<InlineNotice tone="error" message={run.error} />{/if}
 		{#if run.wake_at}<p class="text-sm text-muted-foreground">
 				{m.workflows_waiting()}: {new Date(run.wake_at).toLocaleString()}

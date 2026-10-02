@@ -9595,5 +9595,6 @@
 	"messages_filtered_empty_description": "请尝试其他账号或平台，或清除筛选条件。",
 	"messages_archived_empty_title": "没有已归档的对话",
 	"messages_archived_empty_description": "没有符合这些筛选条件的已归档对话。清除筛选条件以返回收件箱。",
-	"messages_clear_filters": "清除筛选条件"
+	"messages_clear_filters": "清除筛选条件",
+	"workflows_cancelled_history_notice": "此运行已取消。下方步骤状态显示最后记录的状态。"
 }

@@ -238,6 +238,82 @@ it.each(
 	}
 );
 
+it.each(
+	[320, 390, 1280].flatMap((width) => ['light', 'dark'].map((scheme) => ({ width, scheme })))
+)(
+	'explains retained child states under a cancelled run at $width in $scheme',
+	async ({ width, scheme }) => {
+		await page.viewport(width, 900);
+		document.documentElement.classList.toggle('dark', scheme === 'dark');
+		run = {
+			...run,
+			mode: 'live',
+			state: 'cancelled',
+			revision: 4,
+			current_step_id: 'wait',
+			source: { body: '{"ok":true}' },
+			definition: {
+				...initial.definition,
+				steps: [
+					...(initial.definition.steps ?? []),
+					{ id: 'wait', name: 'Wait', kind: 'wait', inputs: { minutes: { literal: 1 } } }
+				]
+			},
+			steps: [
+				{
+					step_id: 'parse',
+					kind: 'parse_json',
+					name: 'Parse sample',
+					state: 'succeeded',
+					started_at: '2026-10-02T00:00:00Z',
+					completed_at: '2026-10-02T00:00:01Z',
+					inputs: { text: '{"ok":true}' },
+					output: { value: { ok: true } }
+				},
+				{
+					step_id: 'wait',
+					kind: 'wait',
+					name: 'Wait',
+					state: 'waiting',
+					started_at: '2026-10-02T00:00:01Z',
+					inputs: { minutes: 1 },
+					output: { until: '2026-10-02T00:01:00Z' }
+				}
+			]
+		};
+		// SAFETY: Both history endpoints return the complete immutable run fixture; no other GET is used by this case.
+		vi.mocked(client.GET).mockImplementation(
+			async (path) =>
+				({ data: path === '/workflow-runs' ? [run] : run, response: new Response() }) as never
+		);
+		const screen = await render(
+			Editor,
+			{ initial, accounts: [], connections: [] },
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
+		await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+		await screen.getByRole('button', { name: /^Cancelled/ }).click();
+		await expect
+			.element(
+				screen.getByText(
+					'This run was cancelled. Step states below show the last recorded state.',
+					{ exact: true }
+				)
+			)
+			.toBeVisible();
+		await expect.element(screen.getByText(/^Parse sample\s+Completed$/)).toBeVisible();
+		const waiting = screen.getByText(/^Wait\s+Waiting$/);
+		await expect.element(waiting).toBeVisible();
+		waiting.element().focus();
+		await userEvent.keyboard('{Enter}');
+		await expect.element(screen.getByText(/"minutes": 1/)).toBeVisible();
+		await expect
+			.element(screen.getByRole('button', { name: 'Cancel remaining steps', exact: true }))
+			.not.toBeInTheDocument();
+		expect(post).not.toHaveBeenCalled();
+	}
+);
+
 it.each(['Run preview', 'Test node'])(
 	'preserves literal JSON keys through %s sample admission',
 	async (action) => {

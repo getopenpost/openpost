@@ -9595,5 +9595,6 @@
 	"messages_filtered_empty_description": "Başka bir hesap veya platform deneyin ya da filtreleri temizleyin.",
 	"messages_archived_empty_title": "Arşivlenmiş konuşma yok",
 	"messages_archived_empty_description": "Bu filtrelerle eşleşen arşivlenmiş konuşma yok. Gelen kutunuza dönmek için filtreleri temizleyin.",
-	"messages_clear_filters": "Filtreleri temizle"
+	"messages_clear_filters": "Filtreleri temizle",
+	"workflows_cancelled_history_notice": "Bu çalıştırma iptal edildi. Aşağıdaki adım durumları son kaydedilen durumu gösterir."
 }

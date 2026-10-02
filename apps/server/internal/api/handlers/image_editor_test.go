@@ -6,14 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
@@ -1000,7 +1000,7 @@ func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T
 		{"other-workspace-token", "?confirm=true", http.StatusForbidden},
 		{"web-token", "?confirm=false", http.StatusBadRequest},
 	} {
-		request := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/image-editor/designs/%s/revisions/%s%s", head.Body.ID, checkpoints[0].ID, guard.query), nil)
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, fmt.Sprintf("/api/v1/image-editor/designs/%s/revisions/%s%s", head.Body.ID, checkpoints[0].ID, guard.query), nil)
 		if guard.token != "" {
 			request.Header.Set("Authorization", "Bearer "+guard.token)
 		}
@@ -1008,7 +1008,7 @@ func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T
 		e.ServeHTTP(response, request)
 		require.Equal(t, guard.status, response.Code, response.Body.String())
 	}
-	request := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/image-editor/designs/%s/revisions/%s?confirm=true", head.Body.ID, checkpoints[0].ID), nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, fmt.Sprintf("/api/v1/image-editor/designs/%s/revisions/%s?confirm=true", head.Body.ID, checkpoints[0].ID), nil)
 	request.Header.Set("Authorization", "Bearer web-token")
 	response := httptest.NewRecorder()
 	e.ServeHTTP(response, request)
@@ -1043,7 +1043,6 @@ func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T
 	mediaCount, err := reader.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", "checkpoint-media").Count(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, mediaCount)
-
 }
 
 func TestImageEditorRemoveCheckpointGuards(t *testing.T) {

@@ -138,7 +138,7 @@
 		queryMutationSessionIsCurrent,
 		type QueryMutationSession
 	} from '$lib/query/authorization-boundary';
-	import { editorHandoffReturnURL } from '$lib/editor-handoff';
+	import { editorHandoffReturnURL, loadEditorHandoff } from '$lib/editor-handoff';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes/contracts.js';
 	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
@@ -190,6 +190,13 @@
 		guestMode?: boolean;
 		onSaveToOpenPost?: () => void | Promise<void>;
 	} = $props();
+
+	const coverHandoff = $derived(
+		Boolean(returnToken && loadEditorHandoff(returnToken, 'image')?.purpose === 'destination_cover')
+	);
+	const attachLabel = $derived(
+		coverHandoff ? m.compose_cover_use_design() : m.image_editor_attach()
+	);
 
 	const editor = provideImageEditor(new ImageEditorController());
 	$effect(() => {
@@ -451,7 +458,7 @@
 		| undefined;
 	let exportPages = $derived.by(() => {
 		if (!editor.document) return [];
-		return exportAllPages
+		return exportAllPages && !(coverHandoff && exportMode === 'attach')
 			? editor.document.pages
 			: editor.document.pages.filter((page) => page.id === editor.activePageID);
 	});
@@ -659,6 +666,18 @@
 			coverPreviewMediaID = initial.cover_preview_media_id ?? '';
 		}
 	}
+
+	$effect(() => {
+		if (
+			coverHandoff &&
+			exportMode === 'attach' &&
+			editor.document?.export_defaults.format === 'webp'
+		) {
+			editor.mutate('Change cover export format', (document) => {
+				document.export_defaults.format = 'png';
+			});
+		}
+	});
 
 	function openExport(mode: 'download' | 'media' | 'attach'): void {
 		if (editor.floatingPixelSelection) editor.commitFloatingPixelSelection();
@@ -2803,9 +2822,10 @@
 			exportError = m.image_editor_export_budget_exceeded();
 			return;
 		}
-		const pageIDs = exportAllPages
-			? editor.document.pages.map((page) => page.id)
-			: [editor.activePageID];
+		const pageIDs =
+			exportAllPages && !(coverHandoff && exportMode === 'attach')
+				? editor.document.pages.map((page) => page.id)
+				: [editor.activePageID];
 		const preparedPages = preparedExportPages(editor.document, pageIDs);
 		if (!preparedPages) {
 			exportError = m.image_editor_export_preview_required();
@@ -3293,12 +3313,12 @@
 					variant="default"
 					size="sm"
 					class="size-11 px-0 sm:h-8 sm:w-auto sm:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
-					aria-label={returnToken ? m.image_editor_attach() : m.image_editor_export()}
+					aria-label={returnToken ? attachLabel : m.image_editor_export()}
 					onclick={() => openExport(returnToken && editor.canEdit ? 'attach' : 'download')}
 				>
 					<ThemeIcon role="download" class="size-3.5" />
 					<span class="hidden sm:inline"
-						>{#if returnToken}{m.image_editor_attach()}{:else}{m.image_editor_export()}{/if}</span
+						>{#if returnToken}{attachLabel}{:else}{m.image_editor_export()}{/if}</span
 					>
 				</Button>
 			</div>
@@ -4789,7 +4809,7 @@
 				</p>
 			{/if}
 
-			{#if (editor.document?.pages.length ?? 0) > 1}
+			{#if (editor.document?.pages.length ?? 0) > 1 && !(coverHandoff && exportMode === 'attach')}
 				<label class="flex min-h-11 items-center gap-2 rounded-lg border px-3">
 					<Checkbox bind:checked={exportAllPages} />
 					<span
@@ -4812,7 +4832,9 @@
 						options={[
 							{ value: 'png', label: 'PNG' },
 							{ value: 'jpeg', label: 'JPEG' },
-							{ value: 'webp', label: 'WebP' }
+							...(!(coverHandoff && exportMode === 'attach')
+								? [{ value: 'webp', label: 'WebP' }]
+								: [])
 						]}
 						class="h-10 w-full"
 					/>
@@ -4911,12 +4933,14 @@
 								<RadioGroup.Item
 									value="attach"
 									disabled={!editor.canEdit}
-									aria-label={m.image_editor_attach()}
+									aria-label={attachLabel}
 								/>
 								<span class="grid gap-0.5">
-									<span class="text-sm font-medium">{m.image_editor_attach()}</span>
+									<span class="text-sm font-medium">{attachLabel}</span>
 									<span class="text-xs text-muted-foreground"
-										>{m.image_editor_attach_description()}</span
+										>{coverHandoff
+											? m.compose_cover_return_description()
+											: m.image_editor_attach_description()}</span
 									>
 								</span>
 							</label>
@@ -4952,7 +4976,9 @@
 				{exportMode === 'download'
 					? m.image_editor_download()
 					: exportMode === 'attach'
-						? m.image_editor_export_attach()
+						? coverHandoff
+							? attachLabel
+							: m.image_editor_export_attach()
 						: m.image_editor_export_media()}
 			</Button>
 		</Dialog.Footer>

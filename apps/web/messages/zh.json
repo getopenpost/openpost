@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "预览剪切",
 	"recording_cleanup_apply": "应用更改",
 	"recording_cleanup_applied": "已应用录音整理",
-	"recording_cleanup_changed": "录音或设置已更改。请更新检查结果后再应用。"
+	"recording_cleanup_changed": "录音或设置已更改。请更新检查结果后再应用。",
+	"compose_cover_frames": "此视频的画面",
+	"compose_cover_frame_choose": "选择 {time} 的画面",
+	"compose_cover_frame_edit": "编辑此画面",
+	"compose_cover_design_title": "视频封面",
+	"compose_cover_target_changed": "发布目标或源视频已更改。编辑内容仍保留在图片编辑器中。",
+	"compose_cover_use_design": "用作封面",
+	"compose_cover_return_description": "将此页面用作所选发布目标的封面。视频仍保留为附件。"
 }

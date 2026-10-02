@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "Kesimi önizle",
 	"recording_cleanup_apply": "Değişiklikleri uygula",
 	"recording_cleanup_applied": "Kayıt temizleme uygulandı",
-	"recording_cleanup_changed": "Kayıt veya ayarlar değişti. Uygulamadan önce incelemeyi güncelleyin."
+	"recording_cleanup_changed": "Kayıt veya ayarlar değişti. Uygulamadan önce incelemeyi güncelleyin.",
+	"compose_cover_frames": "Bu videodan kareler",
+	"compose_cover_frame_choose": "{time} konumundaki kareyi seç",
+	"compose_cover_frame_edit": "Bu kareyi düzenle",
+	"compose_cover_design_title": "Video kapağı",
+	"compose_cover_target_changed": "Hedef veya kaynak video değişti. Düzenlemeniz Görsel Düzenleyicide duruyor.",
+	"compose_cover_use_design": "Kapak olarak kullan",
+	"compose_cover_return_description": "Bu sayfayı seçili hedefin kapağı olarak kullan. Video ekli kalır."
 }

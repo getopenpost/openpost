@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "Prévia do corte",
 	"recording_cleanup_apply": "Aplicar alterações",
 	"recording_cleanup_applied": "Limpeza da gravação aplicada",
-	"recording_cleanup_changed": "A gravação ou as configurações mudaram. Atualize a revisão antes de aplicar as alterações."
+	"recording_cleanup_changed": "A gravação ou as configurações mudaram. Atualize a revisão antes de aplicar as alterações.",
+	"compose_cover_frames": "Quadros deste vídeo",
+	"compose_cover_frame_choose": "Escolher quadro em {time}",
+	"compose_cover_frame_edit": "Editar este quadro",
+	"compose_cover_design_title": "Capa do vídeo",
+	"compose_cover_target_changed": "O destino ou o vídeo original mudou. A edição continua no Editor de Imagem.",
+	"compose_cover_use_design": "Usar como capa",
+	"compose_cover_return_description": "Usar esta página como capa do destino selecionado. O vídeo continua anexado."
 }

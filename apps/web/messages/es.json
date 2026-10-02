@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "Previsualizar corte",
 	"recording_cleanup_apply": "Aplicar cambios",
 	"recording_cleanup_applied": "Limpieza de grabación aplicada",
-	"recording_cleanup_changed": "La grabación o los ajustes han cambiado. Actualiza la revisión antes de aplicar los cambios."
+	"recording_cleanup_changed": "La grabación o los ajustes han cambiado. Actualiza la revisión antes de aplicar los cambios.",
+	"compose_cover_frames": "Fotogramas de este vídeo",
+	"compose_cover_frame_choose": "Elegir fotograma en {time}",
+	"compose_cover_frame_edit": "Editar este fotograma",
+	"compose_cover_design_title": "Portada del vídeo",
+	"compose_cover_target_changed": "El destino o el vídeo original ha cambiado. La edición sigue en el Editor de Imágenes.",
+	"compose_cover_use_design": "Usar como portada",
+	"compose_cover_return_description": "Usar esta página como portada del destino seleccionado. El vídeo sigue adjunto."
 }

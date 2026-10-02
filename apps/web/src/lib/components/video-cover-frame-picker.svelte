@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import { getAuthenticatedMediaByID } from '$lib/media-url';
@@ -23,10 +24,16 @@
 		label: string;
 		onTimestampChange?: (timestampMs: number) => void;
 		onFileChange?: (file: File, metadata: GeneratedCoverFrame) => void | Promise<void>;
+		onEditFrame?: (file: File, metadata: GeneratedCoverFrame) => Promise<void>;
 	}
 
-	let { mediaId, value, mode, label, onTimestampChange, onFileChange }: Props = $props();
+	let { mediaId, value, mode, label, onTimestampChange, onFileChange, onEditFrame }: Props =
+		$props();
 
+	let candidateVideo = $state<HTMLVideoElement>();
+	let candidates = $state<Array<{ timestamp: number; url: string }>>([]);
+	let candidateGeneration = 0;
+	let editing = $state(false);
 	let videoElement = $state<HTMLVideoElement>();
 	let durationMs = $state(0);
 	let timestampMs = $state(0);
@@ -42,6 +49,32 @@
 			? Number(value)
 			: null
 	);
+
+	async function loadCandidates() {
+		const video = candidateVideo;
+		if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+		const generation = ++candidateGeneration;
+		for (const candidate of candidates) URL.revokeObjectURL(candidate.url);
+		candidates = [];
+		try {
+			for (const fraction of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+				const timestamp = clampCoverFrameTimestamp(
+					video.duration * 1000 * fraction,
+					video.duration * 1000
+				);
+				const blob = await captureVideoFrame(video, timestamp, 240);
+				if (generation !== candidateGeneration) return;
+				candidates = [...candidates, { timestamp, url: URL.createObjectURL(blob) }];
+			}
+		} catch {
+			// The main preview and manual frame selection remain usable if sampling fails.
+		}
+	}
+
+	onDestroy(() => {
+		candidateGeneration += 1;
+		for (const candidate of candidates) URL.revokeObjectURL(candidate.url);
+	});
 
 	function handleLoadedMetadata() {
 		if (!videoElement || !Number.isFinite(videoElement.duration) || videoElement.duration <= 0) {
@@ -70,8 +103,28 @@
 		applyFailed = false;
 	}
 
+	async function editFrame() {
+		if (!videoElement || !ready || applying || editing || !onEditFrame) return;
+		editing = true;
+		applyFailed = false;
+		try {
+			const blob = await captureVideoFrame(videoElement, timestampMs);
+			await onEditFrame(
+				new File([blob], `cover-frame-${timestampMs}.jpg`, { type: 'image/jpeg' }),
+				{
+					sourceMediaId: mediaId,
+					timestampMs
+				}
+			);
+		} catch {
+			applyFailed = true;
+		} finally {
+			editing = false;
+		}
+	}
+
 	async function applyFrame() {
-		if (!videoElement || !ready || applying) return;
+		if (!videoElement || !ready || applying || editing) return;
 		applying = true;
 		applyFailed = false;
 		try {
@@ -95,6 +148,15 @@
 </script>
 
 <div class="mt-2 space-y-3 rounded-md border bg-muted/20 p-3">
+	<video
+		bind:this={candidateVideo}
+		src={sourceURL}
+		hidden
+		muted
+		playsinline
+		preload="metadata"
+		onloadedmetadata={loadCandidates}
+	></video>
 	<p class="text-xs text-muted-foreground">{m.compose_cover_frame_help()}</p>
 
 	<div class="overflow-hidden rounded-md bg-black">
@@ -120,12 +182,38 @@
 			{m.compose_cover_frame_loading()}
 		</p>
 	{:else}
+		{#if candidates.length > 0}
+			<div
+				class="grid grid-cols-3 gap-1 sm:grid-cols-5"
+				role="group"
+				aria-label={m.compose_cover_frames()}
+			>
+				{#each candidates as candidate (candidate.url)}
+					<button
+						type="button"
+						class="min-h-11 min-w-0 overflow-hidden rounded border border-transparent text-xs focus-visible:outline-2 focus-visible:outline-primary aria-pressed:border-primary"
+						aria-label={m.compose_cover_frame_choose({
+							time: formatCoverFrameTimestamp(candidate.timestamp)
+						})}
+						aria-pressed={timestampMs === candidate.timestamp}
+						disabled={applying || editing}
+						onclick={() => setTimestamp(candidate.timestamp)}
+					>
+						<img src={candidate.url} alt="" class="aspect-video w-full bg-black object-contain" />
+						<span class="block py-1 tabular-nums"
+							>{formatCoverFrameTimestamp(candidate.timestamp)}</span
+						>
+					</button>
+				{/each}
+			</div>
+		{/if}
 		<div class="space-y-2">
 			<Slider
 				value={timestampMs}
 				min={0}
 				max={Math.max(durationMs - 1, 0)}
 				step={100}
+				disabled={applying || editing}
 				ariaLabel={m.compose_cover_frame_time()}
 				onValueChange={setTimestamp}
 			/>
@@ -140,7 +228,7 @@
 			variant="outline"
 			size="sm"
 			class="min-h-11 w-full sm:w-auto"
-			disabled={applying}
+			disabled={applying || editing}
 			onclick={applyFrame}
 		>
 			{#if applying}
@@ -150,6 +238,19 @@
 				{m.compose_cover_frame_use()}
 			{/if}
 		</Button>
+		{#if mode === 'image' && onEditFrame}
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				class="min-h-11 w-full sm:ml-2 sm:w-auto"
+				disabled={applying || editing}
+				onclick={editFrame}
+			>
+				{#if editing}<ProtectedIcon icon="loading" class="size-4 animate-spin" />{/if}
+				{m.compose_cover_frame_edit()}
+			</Button>
+		{/if}
 	{/if}
 
 	{#if applyFailed}
@@ -164,9 +265,11 @@
 			})}
 		</p>
 	{:else if mode === 'image' && typeof value === 'string' && value}
-		<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-			<ProtectedIcon icon="success" class="size-3.5 text-success-foreground" />
-			{m.compose_cover_image_selected()}
-		</p>
+		<p class="text-xs text-muted-foreground">{m.compose_cover_image_selected()}</p>
+		<img
+			src={getAuthenticatedMediaByID(value)}
+			alt={m.compose_cover_image_selected()}
+			class="max-h-40 max-w-full rounded object-contain"
+		/>
 	{/if}
 </div>

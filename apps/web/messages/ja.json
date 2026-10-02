@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "カットをプレビュー",
 	"recording_cleanup_apply": "変更を適用",
 	"recording_cleanup_applied": "録音の調整を適用しました",
-	"recording_cleanup_changed": "録音または設定が変更されました。確認内容を更新してから適用してください。"
+	"recording_cleanup_changed": "録音または設定が変更されました。確認内容を更新してから適用してください。",
+	"compose_cover_frames": "この動画のフレーム",
+	"compose_cover_frame_choose": "{time} のフレームを選択",
+	"compose_cover_frame_edit": "このフレームを編集",
+	"compose_cover_design_title": "動画カバー",
+	"compose_cover_target_changed": "投稿先または元の動画が変更されました。編集内容は画像エディターに残っています。",
+	"compose_cover_use_design": "カバーとして使用",
+	"compose_cover_return_description": "このページを選択した投稿先のカバーとして使用します。動画は添付されたままです。"
 }

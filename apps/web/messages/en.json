@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "Preview cut",
 	"recording_cleanup_apply": "Apply changes",
 	"recording_cleanup_applied": "Recording cleanup applied",
-	"recording_cleanup_changed": "The recording or settings changed. Update the review before applying."
+	"recording_cleanup_changed": "The recording or settings changed. Update the review before applying.",
+	"compose_cover_frames": "Frames from this video",
+	"compose_cover_frame_choose": "Choose frame at {time}",
+	"compose_cover_frame_edit": "Edit this frame",
+	"compose_cover_design_title": "Video cover",
+	"compose_cover_target_changed": "The destination or source video changed. Your edit is still in Image Editor.",
+	"compose_cover_use_design": "Use as cover",
+	"compose_cover_return_description": "Return this page as the selected destination’s cover. The video stays attached."
 }

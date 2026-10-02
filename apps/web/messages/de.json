@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "Schnittvorschau",
 	"recording_cleanup_apply": "Änderungen anwenden",
 	"recording_cleanup_applied": "Aufnahmebereinigung angewendet",
-	"recording_cleanup_changed": "Die Aufnahme oder die Einstellungen wurden geändert. Aktualisiere die Prüfung, bevor du die Änderungen anwendest."
+	"recording_cleanup_changed": "Die Aufnahme oder die Einstellungen wurden geändert. Aktualisiere die Prüfung, bevor du die Änderungen anwendest.",
+	"compose_cover_frames": "Bilder aus diesem Video",
+	"compose_cover_frame_choose": "Bild bei {time} auswählen",
+	"compose_cover_frame_edit": "Dieses Bild bearbeiten",
+	"compose_cover_design_title": "Video-Cover",
+	"compose_cover_target_changed": "Das Ziel oder Quellvideo hat sich geändert. Deine Bearbeitung ist weiterhin im Bildeditor verfügbar.",
+	"compose_cover_use_design": "Als Cover verwenden",
+	"compose_cover_return_description": "Diese Seite als Cover für das ausgewählte Ziel verwenden. Das Video bleibt angehängt."
 }

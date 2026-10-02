@@ -9632,5 +9632,12 @@
 	"recording_cleanup_after": "Aperçu de la coupe",
 	"recording_cleanup_apply": "Appliquer les modifications",
 	"recording_cleanup_applied": "Nettoyage de l’enregistrement appliqué",
-	"recording_cleanup_changed": "L’enregistrement ou les réglages ont changé. Actualisez la révision avant d’appliquer les modifications."
+	"recording_cleanup_changed": "L’enregistrement ou les réglages ont changé. Actualisez la révision avant d’appliquer les modifications.",
+	"compose_cover_frames": "Images de cette vidéo",
+	"compose_cover_frame_choose": "Choisir l’image à {time}",
+	"compose_cover_frame_edit": "Modifier cette image",
+	"compose_cover_design_title": "Couverture de la vidéo",
+	"compose_cover_target_changed": "La destination ou la vidéo source a changé. Votre création est toujours dans l’éditeur d’images.",
+	"compose_cover_use_design": "Utiliser comme couverture",
+	"compose_cover_return_description": "Utiliser cette page comme couverture de la destination sélectionnée. La vidéo reste jointe."
 }

@@ -72,7 +72,12 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
     )
     .toBe(1);
 
-  await page.goto("/quick-cut");
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page).toHaveURL(/\/quick-cut$/u);
+  await expect(page.getByRole("button", { name: "Open videos", exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Project name" })).toHaveCount(0);
+  await page.reload();
   const savedProject = page.getByRole("listitem").filter({ hasText: "Launch trim" });
   await expect(savedProject).toBeVisible();
   await savedProject.getByRole("button", { name: /Launch trim/ }).click();

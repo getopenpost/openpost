@@ -365,8 +365,12 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 	async function performCloseProject(): Promise<void> {
 		await saveQueue;
-		if (saveState === 'error') return;
+		if (saveState === 'error') {
+			showToast(m.quick_cut_save_failed(), 'error');
+			return;
+		}
 		stopPreview();
+		await goto(resolveAppPath('/quick-cut'));
 		clearSourceUrls();
 		sources = [];
 		segments = [];
@@ -382,7 +386,6 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		currentTime = 0;
 		routeProjectRequest = '';
 		resetHistory();
-		await goto(resolveAppPath('/quick-cut'));
 		void loadCloudProjectList();
 		if (localGate.state === 'ready') {
 			try {

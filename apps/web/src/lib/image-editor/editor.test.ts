@@ -1557,6 +1557,8 @@ it.each(['erase', 'magic erase', 'restore', 'cut', 'delete', 'promote'] as const
 		child.shape = undefined;
 		child.image = {
 			media_id: 'image',
+			source_width: 2,
+			source_height: 2,
 			fit: 'cover',
 			crop: { x: 0, y: 0, width: 1, height: 1 },
 			adjustments: defaultImageAdjustments()

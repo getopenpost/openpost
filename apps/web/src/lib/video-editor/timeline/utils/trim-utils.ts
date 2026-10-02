@@ -17,7 +17,7 @@ import {
 	getMaxStartExtension,
 	getMaxTimelineDuration,
 	getSourceProperties,
-	isMediaItem,
+	hasSourceBoundaries,
 	timelineToSourceFrames
 } from './source-calculations';
 
@@ -31,7 +31,7 @@ interface TrimClampResult {
 /**
  * Calculate the clamped trim amount respecting source boundaries.
  *
- * For media items (video/audio), trimming is constrained by:
+ * For media clips and nested compositions, trimming is constrained by:
  * - Start handle: can't extend past source start (0)
  * - End handle: can't extend past source end (sourceDuration)
  * - Both: can't shrink below 1 frame duration
@@ -47,7 +47,7 @@ export function clampTrimAmount(
 	let clampedAmount = trimAmount;
 	let maxExtend: number | null = null;
 
-	if (isMediaItem(item)) {
+	if (hasSourceBoundaries(item)) {
 		const { sourceStart, sourceFps, speed, sourceDuration } = getSourceProperties(item);
 		const effectiveSourceFps = sourceFps ?? timelineFps;
 		if (hasVariableSpeed(item) || item.isReversed) {
@@ -194,7 +194,7 @@ export function calculateTrimSourceUpdate(
 	newDuration: number,
 	timelineFps: number = 30
 ): TrimSourceUpdate | null {
-	if (!isMediaItem(item)) return null;
+	if (!hasSourceBoundaries(item)) return null;
 
 	const { sourceStart, sourceEnd, sourceFps, speed, sourceDuration } = getSourceProperties(item);
 	const effectiveSourceFps = sourceFps ?? timelineFps;

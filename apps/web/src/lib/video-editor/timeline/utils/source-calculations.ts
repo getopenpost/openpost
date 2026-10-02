@@ -46,7 +46,7 @@ export interface SourceProperties {
 
 /** Extract source properties from a media item with defaults. */
 export function getSourceProperties(item: SourceCalculationItem): SourceProperties {
-	if (item.type !== 'video' && item.type !== 'audio' && item.type !== 'composition') {
+	if (!hasSourceBoundaries(item)) {
 		return {
 			sourceStart: 0,
 			sourceEnd: undefined,
@@ -287,9 +287,9 @@ export function resolveRateStretchDurationAndSpeed(
 	return { duration, speed };
 }
 
-/** A media item is one with source boundaries (video or audio). */
-export function isMediaItem(item: SourceCalculationItem): boolean {
-	return item.type === 'video' || item.type === 'audio';
+/** Source playback windows belong to media clips and nested compositions. */
+export function hasSourceBoundaries(item: SourceCalculationItem): boolean {
+	return item.type === 'video' || item.type === 'audio' || item.type === 'composition';
 }
 
 export interface SplitSourceBoundaries {

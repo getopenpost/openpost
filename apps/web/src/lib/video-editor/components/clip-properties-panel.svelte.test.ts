@@ -1,3 +1,9 @@
+import { TimelineFrameRenderer } from '../media/render-export';
+import { createBlankProject } from '../project/defaults';
+import { sequenceStore } from '../sequences/sequence-store.svelte';
+import { commandHistory } from '../timeline/commands/command-store.svelte';
+import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { createProject, getProject } from '../workspace-fs/projects';
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
@@ -242,4 +248,111 @@ it('marks collapsed appearance and crop groups when only keyframes change those 
 	await expect
 		.element(screen.getByRole('button', { name: 'Crop media: Active', exact: true }))
 		.toHaveAttribute('aria-expanded', 'false');
+});
+
+it('retains the surviving source phase when trimming a compound start through Properties', async () => {
+	const project = createBlankProject('Compound trim source phase');
+	project.metadata = { ...project.metadata, width: 64, height: 64, fps: 30 };
+	const tracks = createDefaultTracks();
+	project.timeline = {
+		...project.timeline!,
+		tracks,
+		compositions: [
+			{
+				id: 'phases',
+				name: 'Red then blue',
+				fps: 30,
+				width: 64,
+				height: 64,
+				durationInFrames: 90,
+				tracks,
+				transitions: [],
+				items: ['#ff0000', '#0000ff'].map((fillColor, index) => ({
+					id: `phase-${index}`,
+					type: 'shape' as const,
+					label: fillColor,
+					shapeType: 'rectangle' as const,
+					fillColor,
+					trackId: tracks[0]!.id,
+					from: index * 45,
+					durationInFrames: 45,
+					transform: { x: 0, y: 0, width: 64, height: 64 }
+				}))
+			}
+		],
+		items: [
+			{
+				id: 'wrapper',
+				type: 'composition',
+				label: 'Red then blue',
+				trackId: tracks[0]!.id,
+				from: 0,
+				durationInFrames: 90,
+				compositionId: 'phases',
+				compositionWidth: 64,
+				compositionHeight: 64,
+				sourceStart: 0,
+				sourceEnd: 90,
+				sourceDuration: 90,
+				sourceFps: 30
+			}
+		]
+	};
+	sequenceStore.reset();
+	timelineStore.__resetForTesting();
+	sequenceStore.load(project.timeline, project.metadata);
+	commandHistory.clearHistory();
+	async function survivingPixel() {
+		const renderer = new TimelineFrameRenderer({
+			...project,
+			timeline: sequenceStore.projectTimeline()
+		});
+		try {
+			const canvas = await renderer.render(48);
+			return Array.from(canvas.getContext('2d')!.getImageData(32, 32, 1, 1).data);
+		} finally {
+			renderer.dispose();
+		}
+	}
+	expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+	timelineStore._setCurrentFrame(30);
+	const screen = await render(ClipPropertiesPanel, { itemId: 'wrapper', onedit: vi.fn() });
+	const prior = getWorkspaceRoot();
+	const root = await navigator.storage.getDirectory();
+	const dir = `compound-trim-${crypto.randomUUID()}`;
+	try {
+		const trim = screen.getByRole('button', { name: 'Trim start to playhead', exact: true });
+		await trim.element().focus();
+		await userEvent.keyboard('{Enter}');
+		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+		expect(timelineStore.itemById.get('wrapper')).toMatchObject({
+			from: 30,
+			durationInFrames: 60,
+			sourceStart: 30,
+			sourceEnd: 90
+		});
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('wrapper')).toMatchObject({
+			from: 0,
+			durationInFrames: 90,
+			sourceStart: 0
+		});
+		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+		commandHistory.redo();
+		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+		setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
+		await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
+		await screen.unmount();
+		sequenceStore.reset();
+		timelineStore.__resetForTesting();
+		const loaded = (await getProject(project.id))!;
+		sequenceStore.load(loaded.timeline!, loaded.metadata);
+		expect(timelineStore.itemById.get('wrapper')?.sourceStart).toBe(30);
+		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+	} finally {
+		setWorkspaceRoot(prior);
+		await root.removeEntry(dir, { recursive: true }).catch(() => {});
+		sequenceStore.reset();
+		commandHistory.clearHistory();
+	}
 });

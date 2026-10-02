@@ -175,8 +175,43 @@ describe('removeSilenceFromItems', () => {
 		// Video splits in two and loses one segment; the linked audio twin is
 		// split too and its covered segment removed with the video's.
 		expect(result.splitCount).toBeGreaterThanOrEqual(2);
+		expect(result.removedRangeCount).toBe(1);
+		expect(result.removedItemCount).toBe(2);
 		const audioPieces = timelineStore.items.filter((i) => i.type === 'audio');
 		expect(audioPieces.length).toBe(2);
+	});
+
+	it('counts only applied source ranges when selected sources are locked or outside their window', () => {
+		const unlocked = mediaClip({ id: 'unlocked', durationInFrames: 90, sourceEnd: 90 });
+		const locked = mediaClip({ id: 'locked', trackId: 'locked-track', mediaId: 'locked-media' });
+		timelineStore._setTracks([
+			{
+				id: 'locked-track',
+				name: 'Locked',
+				kind: 'video',
+				order: 1,
+				height: 80,
+				locked: true,
+				visible: true,
+				muted: false,
+				solo: false
+			}
+		]);
+		timelineStore._setItems([unlocked, locked]);
+		const result = removeSilenceFromItems(['unlocked', 'locked'], {
+			'media-1': [
+				{ start: 1, end: 2 },
+				{ start: 5, end: 6 }
+			],
+			'locked-media': [{ start: 1, end: 2 }]
+		});
+		expect(result.removedRangeCount).toBe(1);
+		expect(timelineStore.itemById.get('locked')).toEqual(locked);
+		expect(
+			timelineStore.items
+				.filter((item) => item.mediaId === 'media-1')
+				.reduce((sum, item) => sum + item.durationInFrames, 0)
+		).toBe(60);
 	});
 
 	it('threshold constant matches FreeCut semantics', () => {

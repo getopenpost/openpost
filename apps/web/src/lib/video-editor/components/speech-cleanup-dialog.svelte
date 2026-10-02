@@ -445,7 +445,7 @@
 					)
 				: applySilenceRangeRemoval(itemIds, selectedSilenceRanges());
 		if (result.removedItemCount === 0) return;
-		onapplied(result.removedItemCount);
+		onapplied(result.removedRangeCount);
 		open = false;
 	}
 </script>

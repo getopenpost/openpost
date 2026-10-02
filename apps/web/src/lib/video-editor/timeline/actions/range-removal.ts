@@ -30,6 +30,7 @@ export interface SourceRange {
 
 export interface RangeRemovalResult {
 	analyzedItemCount: number;
+	/** Reviewed source ranges with at least one removed segment, counted once across linked tracks. */
 	removedRangeCount: number;
 	removedItemCount: number;
 	splitCount: number;
@@ -153,6 +154,7 @@ function removeTimelineRangesFromItems(
 			string,
 			{ participantIds: Set<string>; timelineRanges: SourceRange[] }
 		>();
+		const reviewedRanges: Array<SourceRange & { anchorId: string; key: string }> = [];
 		for (const anchor of anchors) {
 			const key = anchor.linkedGroupId ?? anchor.id;
 			let descriptor = descriptorsByGroup.get(key);
@@ -175,9 +177,16 @@ function removeTimelineRangesFromItems(
 			for (const range of rangesForItem(anchor)) {
 				const first = sourceSecondsToTimelineFrame(anchor, range.start, timelineFps);
 				const second = sourceSecondsToTimelineFrame(anchor, range.end, timelineFps);
-				descriptor.timelineRanges.push({
+				const timelineRange = {
 					start: Math.max(anchor.from, Math.min(first, second)),
 					end: Math.min(anchor.from + anchor.durationInFrames, Math.max(first, second))
+				};
+				descriptor.timelineRanges.push(timelineRange);
+				const owner = rangesByItemId?.[anchor.id] ? anchor.id : anchor.mediaId;
+				reviewedRanges.push({
+					...timelineRange,
+					anchorId: anchor.id,
+					key: JSON.stringify([owner, range.start, range.end])
 				});
 			}
 		}
@@ -234,7 +243,6 @@ function removeTimelineRangesFromItems(
 		// Remove every post-split segment mostly covered by a range.
 		const currentItems = timelineStore.items;
 		const idsToRemove = new Set<string>();
-		let removedRangeCount = 0;
 		for (const descriptor of anchorDescriptors) {
 			const ranges = descriptor.timelineRanges;
 			for (const candidate of currentItems) {
@@ -242,9 +250,6 @@ function removeTimelineRangesFromItems(
 				const span = { start: candidate.from, end: candidate.from + candidate.durationInFrames };
 				if (isMostlyInsideRanges(span, ranges)) {
 					idsToRemove.add(candidate.id);
-					for (const range of ranges) {
-						if (range.end > span.start && range.start < span.end) removedRangeCount += 1;
-					}
 				}
 			}
 		}
@@ -252,6 +257,23 @@ function removeTimelineRangesFromItems(
 		// Only participating pieces covered by the timeline interval are removed.
 		// Expanding the linked group here would also remove the retained pieces.
 		const removedSegments = timelineStore.items.filter((item) => idsToRemove.has(item.id));
+		const removedSourceRanges = new Set<string>();
+		for (const range of reviewedRanges) {
+			if (range.end <= range.start) continue;
+			const descriptor = anchorDescriptors.find((entry) =>
+				entry.participantIds.has(range.anchorId)
+			);
+			if (
+				removedSegments.some(
+					(item) =>
+						descriptor?.participantIds.has(item.id) &&
+						range.end > item.from &&
+						range.start < item.from + item.durationInFrames
+				)
+			) {
+				removedSourceRanges.add(range.key);
+			}
+		}
 		const editedTrackIds = new Set([
 			...directSyncTracks,
 			...removedSegments.map((item) => item.trackId)
@@ -308,7 +330,7 @@ function removeTimelineRangesFromItems(
 
 		return {
 			analyzedItemCount: anchors.length,
-			removedRangeCount,
+			removedRangeCount: removedSourceRanges.size,
 			removedItemCount: direct.removedItemCount + propagated.removedIds.length,
 			splitCount
 		};

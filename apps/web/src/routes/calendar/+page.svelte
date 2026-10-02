@@ -1347,7 +1347,10 @@
 					variant="muted"
 				/>
 			{:else}
-				<section class="space-y-5 xl:hidden" aria-label={m.calendar_month_grid()}>
+				<section
+					class="space-y-5 xl:hidden"
+					aria-label={viewMode === 'week' ? m.calendar_week_grid() : m.calendar_month_grid()}
+				>
 					{#if visibleItems.length > 0 && selectedEmptyDay}
 						<div
 							data-calendar-empty-day={selectedEmptyDay.key}
@@ -1358,7 +1361,7 @@
 								<div class="min-w-0">
 									<h2 class="text-sm font-semibold">{m.calendar_empty_date_heading()}</h2>
 									<p class="mt-1 text-xs text-muted-foreground">
-										{m.calendar_empty_date_body({ month: formatMonth(currentMonth) })}
+										{m.calendar_empty_date_body({ month: formatCalendarTitle() })}
 									</p>
 								</div>
 								<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -1370,7 +1373,7 @@
 										<Select.Trigger
 											class="min-h-11 w-full sm:min-h-9 sm:w-44"
 											aria-label={m.calendar_empty_date_picker({
-												month: formatMonth(currentMonth)
+												month: formatCalendarTitle()
 											})}
 										>
 											{formatEmptyDate(selectedEmptyDay.date)}

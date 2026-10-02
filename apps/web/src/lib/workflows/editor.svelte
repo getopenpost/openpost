@@ -927,6 +927,9 @@
 					>
 						<DataView
 							label={m.workflows_output()}
+							empty={inspectedStep?.kind === 'wait' && !selectedResult
+								? m.workflows_no_preview_output()
+								: m.workflows_no_output()}
 							value={selectedID === 'source'
 								? inputData.source
 								: selectedResult?.state === 'running'

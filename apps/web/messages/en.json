@@ -9602,5 +9602,6 @@
 	"messages_clear_filters": "Clear filters",
 	"workflows_cancelled_history_notice": "This run was cancelled. Step states below show the last recorded state.",
 	"video_editor_beat_none_found": "No beats were found in this clip.",
-	"workflows_layout_session_only": "Canvas positions could not be saved in this browser. They will reset when you reopen this workflow."
+	"workflows_layout_session_only": "Canvas positions could not be saved in this browser. They will reset when you reopen this workflow.",
+	"workflows_no_preview_output": "Run preview to see this node's sample output."
 }

@@ -9602,5 +9602,6 @@
 	"messages_clear_filters": "Filtreleri temizle",
 	"workflows_cancelled_history_notice": "Bu çalıştırma iptal edildi. Aşağıdaki adım durumları son kaydedilen durumu gösterir.",
 	"video_editor_beat_none_found": "Bu klipte vuruş bulunamadı.",
-	"workflows_layout_session_only": "Tuval konumları bu tarayıcıda kaydedilemedi. Bu iş akışını yeniden açtığınızda sıfırlanacak."
+	"workflows_layout_session_only": "Tuval konumları bu tarayıcıda kaydedilemedi. Bu iş akışını yeniden açtığınızda sıfırlanacak.",
+	"workflows_no_preview_output": "Bu düğümün örnek çıktısını görmek için önizlemeyi çalıştırın."
 }

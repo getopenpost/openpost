@@ -9602,5 +9602,6 @@
 	"messages_clear_filters": "Limpar filtros",
 	"workflows_cancelled_history_notice": "Esta execução foi cancelada. Os estados das etapas abaixo mostram o último estado registrado.",
 	"video_editor_beat_none_found": "Nenhuma batida foi encontrada neste clipe.",
-	"workflows_layout_session_only": "Não foi possível salvar as posições da tela neste navegador. Elas serão redefinidas quando você reabrir este fluxo de trabalho."
+	"workflows_layout_session_only": "Não foi possível salvar as posições da tela neste navegador. Elas serão redefinidas quando você reabrir este fluxo de trabalho.",
+	"workflows_no_preview_output": "Execute a prévia para ver a saída de exemplo deste nó."
 }

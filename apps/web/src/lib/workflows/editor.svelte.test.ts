@@ -528,3 +528,30 @@ it.each(['Run preview', 'Test node'])(
 		);
 	}
 );
+
+it('guides an untested Wait node to its available simulated preview rather than an unavailable node test', async () => {
+	await page.viewport(1280, 900);
+	const workflow: Workflow = {
+		...initial,
+		definition: {
+			schema: 1,
+			source: { kind: 'manual' },
+			steps: [{ id: 'wait', name: 'Wait audit', kind: 'wait', inputs: { minutes: { literal: 1 } } }]
+		}
+	};
+	const screen = await render(
+		Editor,
+		{ initial: workflow, accounts: [], connections: [] },
+		{
+			wrapper: QueryClientProvider,
+			wrapperProps: { client: queryClient }
+		}
+	);
+	screen.container.style.height = '850px';
+	await screen.getByRole('button', { name: /^Wait audit/ }).click();
+	expect(screen.getByRole('button', { name: 'Test node', exact: true }).query()).toBeNull();
+	await expect
+		.element(screen.getByText("Run preview to see this node's sample output.", { exact: true }))
+		.toBeVisible();
+	expect(post).not.toHaveBeenCalled();
+});

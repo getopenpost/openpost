@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PublicationViewSwitch from '$lib/components/publication-view-switch.svelte';
 	import CopyButton from '$lib/components/copy-button.svelte';
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes';
 	import type { ProtectedIconRole } from '$lib/themes/icons';
@@ -104,11 +104,9 @@
 		publicationView.rememberListTab(value);
 		if (page.route.id !== '/publications') return;
 		const url = new URL(page.url);
-		const tab = url.searchParams.get('tab');
-		if (tab === value || (tab === null && value === 'scheduled')) return;
 		if (value === 'scheduled') url.searchParams.delete('tab');
 		else url.searchParams.set('tab', value);
-		replaceState(url, page.state);
+		void goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 	const publicationPageSize = 40;
 	const jobPageSize = 50;

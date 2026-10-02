@@ -54,11 +54,13 @@ export function workflowIssues(definition: Definition, sourceData?: WorkflowData
 	const requiredSource =
 		source.kind === 'github_release'
 			? 'repository'
-			: source.kind === 'rss'
-				? 'url'
-				: source.kind === 'interval'
-					? 'interval_minutes'
-					: '';
+			: source.kind === 'interval'
+				? 'interval_minutes'
+				: '';
+	if (source.kind === 'rss') {
+		const message = feedURLIssue(source.url);
+		if (message) issues.push({ node: 'source', field: 'url', message });
+	}
 	if (requiredSource && !source[requiredSource])
 		issues.push({ node: 'source', field: requiredSource, message: m.workflows_required() });
 	if (
@@ -143,6 +145,20 @@ function urlIssue(value: Value['literal']): string {
 		const url = new URL(value);
 		if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
 			return m.workflows_invalid_url();
+	} catch {
+		return m.workflows_invalid_url();
+	}
+	return '';
+}
+
+export function feedURLIssue(value: string | undefined): string {
+	if (!value?.trim()) return m.workflows_required();
+	const authority = value.match(/^https?:\/\/([^/?#]*)/i)?.[1];
+	if (!authority || authority.includes('@') || value !== value.trim())
+		return m.workflows_invalid_url();
+	try {
+		const url = new URL(value);
+		if (!url.hostname) return m.workflows_invalid_url();
 	} catch {
 		return m.workflows_invalid_url();
 	}

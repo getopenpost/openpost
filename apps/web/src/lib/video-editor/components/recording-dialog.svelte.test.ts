@@ -87,7 +87,9 @@ it('imports immediately stopped captures with saving feedback instead of recover
 	const drawing = setInterval(() => canvas.getContext('2d')!.fillRect(0, 0, 160, 90), 33);
 	try {
 		await screen.getByRole('button', { name: 'Start recording', exact: true }).click();
-		await expect.poll(() => recorder.status).toBe('recording');
+		await expect
+			.element(screen.getByRole('button', { name: 'Stop recording', exact: true }))
+			.toBeVisible();
 		await expect.poll(() => manifestWaiting).toBe(true);
 		await screen.getByRole('button', { name: 'Stop recording', exact: true }).click();
 		releaseManifest();

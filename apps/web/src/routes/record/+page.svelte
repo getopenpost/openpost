@@ -48,6 +48,9 @@
 	let storageMode = $state<'cloud' | 'local'>('cloud');
 	let storageModeChosen = $state(false);
 	let savingRecovery = $state(false);
+	let savingRecording = $state(false);
+	let handoffError = $state<string | null>(null);
+	const handoffBusy = $derived(savingRecording || savingRecovery);
 	const cloudWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const cloudRepository = $derived(
 		cloudWorkspaceId ? recorderCloudRepository(cloudWorkspaceId) : null
@@ -155,6 +158,8 @@
 	});
 
 	async function handleStart(): Promise<void> {
+		if (handoffBusy) return;
+		handoffError = null;
 		if (!hasSelection) {
 			showToast(m.video_editor_recording_select_source(), 'error');
 			return;
@@ -184,6 +189,11 @@
 	}
 
 	async function handleStop(): Promise<void> {
+		if (handoffBusy) return;
+		const repository = cloudRepository;
+		const destination = storageMode;
+		savingRecording = true;
+		handoffError = null;
 		try {
 			const artifacts = await recorder.stop();
 			if (artifacts.length === 0) {
@@ -198,8 +208,7 @@
 				return { url, name, kind: a.kind, size: a.blob.size, scratchId: a.scratchId };
 			});
 			lastDownloads = [...lastDownloads, ...downloads];
-			const repository = cloudRepository;
-			if (storageMode === 'cloud' && repository) {
+			if (destination === 'cloud' && repository) {
 				const saved = await saveRecorderArtifactsToCloud(repository, artifacts);
 				lastCloudProject = { id: saved.projectId, name: saved.name };
 				for (const download of downloads) URL.revokeObjectURL(download.url);
@@ -225,8 +234,11 @@
 			);
 			await recorder.discardArtifacts(artifacts);
 			showToast(m.record_saved(), 'success');
-		} catch {
-			showToast(recorderErrorMessage(recorder.error), 'error');
+		} catch (error) {
+			handoffError = error instanceof Error ? error.message : recorderErrorMessage(recorder.error);
+			showToast(handoffError, 'error');
+		} finally {
+			savingRecording = false;
 		}
 	}
 
@@ -236,6 +248,8 @@
 	}
 
 	async function handleDiscardRecovery(): Promise<void> {
+		if (handoffBusy) return;
+		handoffError = null;
 		await recorder.clearRecoverableAndDiscard();
 		for (const download of lastDownloads) {
 			if (download.scratchId) URL.revokeObjectURL(download.url);
@@ -246,8 +260,9 @@
 	async function handleSaveRecoveryToCloud(): Promise<void> {
 		const repository = cloudRepository;
 		const artifacts = recorder.lastArtifacts;
-		if (!repository || artifacts.length === 0 || savingRecovery) return;
+		if (!repository || artifacts.length === 0 || handoffBusy) return;
 		savingRecovery = true;
+		handoffError = null;
 		try {
 			const saved = await saveRecorderArtifactsToCloud(repository, artifacts);
 			lastCloudProject = { id: saved.projectId, name: saved.name };
@@ -263,10 +278,8 @@
 			await recorder.discardArtifacts(artifacts);
 			showToast(m.video_editor_saved_cloud(), 'success');
 		} catch (error) {
-			showToast(
-				error instanceof Error ? error.message : m.video_editor_recording_failed(),
-				'error'
-			);
+			handoffError = error instanceof Error ? error.message : m.video_editor_recording_failed();
+			showToast(handoffError, 'error');
 		} finally {
 			savingRecovery = false;
 		}
@@ -276,7 +289,7 @@
 	const isCountdown = $derived(recorder.status === 'countdown');
 	const isStopping = $derived(recorder.status === 'stopping');
 	const captureBusy = $derived(
-		recorder.status === 'recording' || isCountdown || isRequesting || isStopping
+		recorder.status === 'recording' || isCountdown || isRequesting || isStopping || handoffBusy
 	);
 	const perMin = $derived(
 		estimateBytesPerMinute(
@@ -342,7 +355,11 @@
 			data-editor-protected="capture-preview"
 			aria-label={m.record_preview_empty()}
 		>
-			{#if recorder.screenStream || recorder.cameraStream}
+			{#if handoffBusy}
+				<div role="status" aria-live="polite" class="p-4 text-center text-sm">
+					{m.video_editor_saving()}
+				</div>
+			{:else if recorder.screenStream || recorder.cameraStream}
 				<div class="grid w-full gap-3 sm:grid-cols-2">
 					{#if recorder.screenStream}
 						<!-- svelte-ignore a11y_media_has_caption -->
@@ -438,12 +455,12 @@
 				</p>
 			{/if}
 
-			{#if recorder.error}
+			{#if handoffError || recorder.error}
 				<div
 					role="alert"
 					class="w-full rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive"
 				>
-					{recorderErrorMessage(recorder.error)}
+					{handoffError ?? recorderErrorMessage(recorder.error)}
 				</div>
 			{/if}
 		</section>
@@ -684,7 +701,7 @@
 					{m.common_cancel()}
 				</Button>
 			</div>
-		{:else}
+		{:else if !handoffBusy}
 			<div class="space-y-3 rounded-lg border border-[var(--video-editor-border)] p-3">
 				<div class="grid gap-2 text-xs">
 					{#if includeScreen}

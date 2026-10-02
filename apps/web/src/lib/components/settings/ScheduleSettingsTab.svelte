@@ -10,7 +10,6 @@
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
-	import { runDestructiveSequence } from '$lib/destructive-action';
 	import { client } from '$lib/api/client';
 	import { postingSchedulesQueryOptions, schedulingQueryKeys } from '@openpost/query-catalog';
 	import { queryClient } from '$lib/query/client';
@@ -388,40 +387,27 @@
 		const targets = Object.values(row.days).filter((schedule): schedule is PostingSchedule =>
 			Boolean(schedule)
 		);
-		const outcome = await runDestructiveSequence(targets, async (schedule) => {
-			if (!queryMutationSessionIsCurrent(view.session)) {
-				throw new Error(m.settings_action_failed());
-			}
-			const { error: err, response } = await client.DELETE('/posting-schedules/{id}', {
-				params: { path: { id: schedule.id } }
+		let failure: unknown;
+		try {
+			const { error: err, response } = await client.POST('/posting-schedules/batch-delete', {
+				body: { workspace_id: view.workspaceID, ids: targets.map((schedule) => schedule.id) }
 			});
 			settleQueryMutationSession(view.session, response);
-			if (err && response.status !== 404) {
-				throw new Error(err.detail || m.settings_action_failed());
-			}
-		});
+			if (err) throw new Error(err.detail || m.settings_action_failed());
+		} catch (error) {
+			failure = error;
+		}
+
 		const reconciled = await reconcileScheduleMutation(view);
 		if (!reconciled || !scheduleMutationViewIsCurrent(view)) return { ok: false };
-		if (outcome.error) {
-			const remainingIDs = new Set(outcome.remaining.map((schedule) => schedule.id));
-			if (pendingTimeRow === row) {
-				pendingTimeRow = {
-					...row,
-					days: Object.fromEntries(
-						Object.entries(row.days).filter(
-							([, schedule]) => schedule && remainingIDs.has(schedule.id)
-						)
-					)
-				};
-			}
-			await loadSchedules(view.workspaceID);
-			if (!scheduleMutationViewIsCurrent(view)) return { ok: false };
-			const message =
-				outcome.error instanceof Error ? outcome.error.message : m.settings_action_failed();
-			return { ok: false, message };
-		}
 		await loadSchedules(view.workspaceID);
 		if (!scheduleMutationViewIsCurrent(view)) return { ok: false };
+		if (failure) {
+			return {
+				ok: false,
+				message: failure instanceof Error ? failure.message : m.settings_action_failed()
+			};
+		}
 		return { ok: true, successMessage: m.settings_time_removed() };
 	}
 

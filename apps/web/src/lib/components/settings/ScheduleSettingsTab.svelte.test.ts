@@ -11,7 +11,7 @@ import ScheduleSettingsTab from './ScheduleSettingsTab.svelte';
 import '../../../routes/layout.css';
 
 const getMock = vi.spyOn(client, 'GET');
-const deleteMock = vi.spyOn(client, 'DELETE');
+const postMock = vi.spyOn(client, 'POST');
 const scheduleReadWorkspaces: string[] = [];
 
 describe('posting schedule mutation ownership', () => {
@@ -19,7 +19,7 @@ describe('posting schedule mutation ownership', () => {
 		await page.viewport(1280, 900);
 		queryClient.clear();
 		getMock.mockReset();
-		deleteMock.mockReset();
+		postMock.mockReset();
 		scheduleReadWorkspaces.length = 0;
 		auth.setUser(user('user-a'));
 		selectWorkspace('workspace-a');
@@ -40,7 +40,7 @@ describe('posting schedule mutation ownership', () => {
 	it('does not refresh or report an old row deletion in a new Workspace', async () => {
 		const deletion = deferred<{ error: undefined; response: Response }>();
 		// SAFETY: The deferred value matches the endpoint response used by this test.
-		deleteMock.mockReturnValue(deletion.promise as never);
+		postMock.mockReturnValue(deletion.promise as never);
 		const screen = await render(ScheduleSettingsTab);
 		const removeButton = [...screen.container.querySelectorAll<HTMLButtonElement>('button')].find(
 			(button) => button.ariaLabel === 'Remove the 9:00 AM row' && button.offsetParent !== null
@@ -49,8 +49,8 @@ describe('posting schedule mutation ownership', () => {
 		removeButton?.click();
 		await expect.element(page.getByRole('dialog')).toBeVisible();
 		await page.getByRole('dialog').getByRole('button', { name: 'Remove' }).click();
-		expect(deleteMock).toHaveBeenCalledWith('/posting-schedules/{id}', {
-			params: { path: { id: 'shared-schedule' } }
+		expect(postMock).toHaveBeenCalledWith('/posting-schedules/batch-delete', {
+			body: { workspace_id: 'workspace-a', ids: ['shared-schedule'] }
 		});
 
 		queryClient.setQueryData(schedulingQueryKeys.postingSchedules('workspace-b'), [

@@ -335,6 +335,57 @@ func (h *PostingScheduleHandler) DeleteSchedule(api huma.API) {
 	})
 }
 
+type BatchDeletePostingSchedulesInput struct {
+	Body struct {
+		WorkspaceID string   `json:"workspace_id" minLength:"1" doc:"Workspace owning the schedule slots"`
+		IDs         []string `json:"ids" minItems:"1" maxItems:"7" doc:"Schedule slot IDs from one weekly time row. Missing IDs are ignored for safe retries."`
+	}
+}
+
+func (h *PostingScheduleHandler) BatchDeleteSchedules(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "batch-delete-posting-schedules",
+		Method:      http.MethodPost,
+		Path:        "/posting-schedules/batch-delete",
+		Summary:     "Atomically delete a weekly posting time row",
+		Tags:        []string{tagPostingSchedules},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{400, 403, 500},
+	}, func(ctx context.Context, input *BatchDeletePostingSchedulesInput) (*DeletePostingScheduleOutput, error) {
+		if err := h.checkWorkspaceAdminAccess(ctx, input.Body.WorkspaceID, middleware.GetUserID(ctx)); err != nil {
+			return nil, err
+		}
+		for _, id := range input.Body.IDs {
+			if id == "" {
+				return nil, huma.Error400BadRequest("schedule IDs must not be empty")
+			}
+		}
+		err := h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+			var schedules []models.PostingSchedule
+			if err := tx.NewSelect().Model(&schedules).Where("id IN (?)", bun.List(input.Body.IDs)).Scan(ctx); err != nil {
+				return err
+			}
+			for _, schedule := range schedules {
+				if schedule.WorkspaceID != input.Body.WorkspaceID {
+					return huma.Error403Forbidden(errWorkspaceAccessDenied)
+				}
+			}
+			_, err := tx.NewDelete().Model((*models.PostingSchedule)(nil)).Where("workspace_id = ?", input.Body.WorkspaceID).Where("id IN (?)", bun.List(input.Body.IDs)).Exec(ctx)
+			return err
+		})
+		if err != nil {
+			var statusError huma.StatusError
+			if errors.As(err, &statusError) {
+				return nil, err
+			}
+			return nil, huma.Error500InternalServerError("failed to delete schedule row")
+		}
+		return &DeletePostingScheduleOutput{Body: struct {
+			Message string `json:"message" doc:"Success message"`
+		}{Message: "schedule row deleted successfully"}}, nil
+	})
+}
+
 type SuggestScheduleInput struct {
 	Body struct {
 		WorkspaceID string `json:"workspace_id" doc:"Workspace ID"`

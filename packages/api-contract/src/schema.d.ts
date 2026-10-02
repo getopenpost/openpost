@@ -3869,6 +3869,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/posting-schedules/batch-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Atomically delete a weekly posting time row */
+        post: operations["batch-delete-posting-schedules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/posting-schedules/next-slot": {
         parameters: {
             query?: never;
@@ -6723,6 +6740,18 @@ export interface components {
             deleted: number;
             /** @description IDs that could not be deleted (in use) */
             failed_ids: string[] | null;
+        };
+        BatchDeletePostingSchedulesInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/BatchDeletePostingSchedulesInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Schedule slot IDs from one weekly time row. Missing IDs are ignored for safe retries. */
+            ids: string[] | null;
+            /** @description Workspace owning the schedule slots */
+            workspace_id: string;
         };
         BeginEmailChangeInputBody: {
             /**
@@ -30406,6 +30435,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PostingScheduleResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "batch-delete-posting-schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchDeletePostingSchedulesInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletePostingScheduleOutputBody"];
                 };
             };
             /** @description Bad Request */

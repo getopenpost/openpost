@@ -397,6 +397,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	postingScheduleHandler.CreateSchedule(api)
 	postingScheduleHandler.UpdateSchedule(api)
 	postingScheduleHandler.DeleteSchedule(api)
+	postingScheduleHandler.BatchDeleteSchedules(api)
 	postingScheduleHandler.SuggestSchedule(api)
 	postingScheduleHandler.GetNextAvailableSlot(api)
 

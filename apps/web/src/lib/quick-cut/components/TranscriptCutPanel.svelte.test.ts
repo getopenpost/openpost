@@ -4,6 +4,7 @@ import { userEvent } from 'vitest/browser';
 import TranscriptCutPanel from './TranscriptCutPanel.svelte';
 import CleanupPanel from './CleanupPanel.svelte';
 import type { QuickCutSource } from '../types';
+import { handleGlobalPlayPauseShortcut } from '$lib/video-editor/settings/keyboard-shortcuts';
 
 const source: QuickCutSource = {
 	id: 'interview',
@@ -35,7 +36,12 @@ const source: QuickCutSource = {
 
 test('opens the transcript panel for a video without audio and prevents transcription', async () => {
 	const screen = await render(TranscriptCutPanel, {
-		source: { ...source, audioStreams: [], audioCodec: null, transcript: undefined },
+		source: {
+			...source,
+			audioStreams: [],
+			audioCodec: null,
+			transcript: undefined
+		},
 		segments: [],
 		currentTime: 0,
 		onsave: vi.fn(),
@@ -50,7 +56,12 @@ test('opens the transcript panel for a video without audio and prevents transcri
 
 test('explains why cleanup is unavailable for a video without audio', async () => {
 	const screen = await render(CleanupPanel, {
-		source: { ...source, audioStreams: [], audioCodec: null, transcript: undefined },
+		source: {
+			...source,
+			audioStreams: [],
+			audioCodec: null,
+			transcript: undefined
+		},
 		onapply: vi.fn(),
 		onpreview: vi.fn(),
 		onreview: vi.fn()
@@ -81,4 +92,28 @@ test('selects words and removes their source ranges while preserving existing tr
 		{ text: 'again', start: 1, end: 1.5 },
 		{ text: 'friends', start: 2, end: 2.5 }
 	]);
+});
+
+test('Space activates a transcript word instead of the global playback shortcut', async () => {
+	const toggle = vi.fn();
+	const listener = (event: KeyboardEvent) => handleGlobalPlayPauseShortcut(event, 'space', toggle);
+	window.addEventListener('keydown', listener, true);
+	try {
+		const screen = await render(TranscriptCutPanel, {
+			source,
+			segments: [{ id: 'kept', sourceId: source.id, start: 0, end: 10 }],
+			currentTime: 0,
+			onsave: vi.fn(),
+			onseek: vi.fn(),
+			onremove: vi.fn()
+		});
+		screen.getByRole('button', { name: 'Hello', exact: true }).element().focus();
+		await userEvent.keyboard(' ');
+		expect(toggle).not.toHaveBeenCalled();
+		await expect
+			.element(screen.getByRole('button', { name: 'Remove 1 words', exact: true }))
+			.toBeEnabled();
+	} finally {
+		window.removeEventListener('keydown', listener, true);
+	}
 });

@@ -715,13 +715,15 @@ export function editorShortcutTargetIsDisabled(
 	target: EventTarget | null,
 	{ allowControls = false }: { allowControls?: boolean } = {}
 ): boolean {
-	if (!(target instanceof HTMLElement)) return false;
-	if (target.isContentEditable) return true;
+	if (!(target instanceof Element)) return false;
+	if (target instanceof HTMLElement && target.isContentEditable) return true;
 	if (target.closest('[data-editor-shortcuts-disabled]')) return true;
 	if (target.closest('input, textarea, select, [contenteditable="true"]')) return true;
 	if (target.closest('[data-editor-shortcuts-enabled]')) return false;
 	if (target.closest('[data-editor-shortcuts-owned]')) return true;
-	return !allowControls && Boolean(target.closest('button, a, [role="slider"], [role="tab"]'));
+	return (
+		!allowControls && Boolean(target.closest('button, a, summary, [role="slider"], [role="tab"]'))
+	);
 }
 
 // Project commands remain available after using a toolbar or inspector control.
@@ -748,18 +750,6 @@ export function createShortcutMatcher(
 		);
 }
 
-function editorPlaybackTargetIsDisabled(target: EventTarget | null): boolean {
-	return (
-		target instanceof HTMLElement &&
-		(target.isContentEditable ||
-			Boolean(
-				target.closest(
-					'input, textarea, select, [contenteditable="true"], [data-editor-shortcuts-disabled]'
-				)
-			))
-	);
-}
-
 export function handleGlobalPlayPauseShortcut(
 	event: KeyboardEvent,
 	binding: string,
@@ -769,7 +759,7 @@ export function handleGlobalPlayPauseShortcut(
 		event.repeat ||
 		event.defaultPrevented ||
 		!eventMatchesShortcut(event, binding) ||
-		editorPlaybackTargetIsDisabled(event.target)
+		editorShortcutTargetIsDisabled(event.target)
 	) {
 		return false;
 	}

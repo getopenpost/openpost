@@ -1,3 +1,4 @@
+import { cloneImageEditorDocument } from './document';
 import type { ImageEditorDocument, ImageEditorLayer, ImageEditorPage } from './types';
 import {
 	changedRevisionOrderIDs,
@@ -31,6 +32,8 @@ export function summarizeImageEditorRevision(
 	target: ImageEditorDocument,
 	context: ImageEditorRevisionContext = {}
 ): ImageEditorRevisionChanges {
+	current = cloneImageEditorDocument(current);
+	target = cloneImageEditorDocument(target);
 	const currentPages = new Map(current.pages.map((page) => [page.id, page]));
 	const targetPages = new Map(target.pages.map((page) => [page.id, page]));
 	const changedPageIDs = new Set<string>();

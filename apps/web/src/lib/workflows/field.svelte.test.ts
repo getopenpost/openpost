@@ -1,5 +1,6 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { userEvent } from 'vitest/browser';
 import Field from './field.svelte';
 
 it('previews interpolated JSON as valid JSON', async () => {
@@ -61,4 +62,51 @@ it('preserves typed whole-value JSON references and hides malformed JSON preview
 	});
 	expect(screen.container.querySelector('pre')).toBeNull();
 	await expect.element(screen.getByRole('status')).toHaveTextContent('Enter valid JSON.');
+});
+
+it('replaces the empty list default with a typed array from the ordinary variable picker', async () => {
+	const onchange = vi.fn();
+	const screen = await render(Field, {
+		id: 'workflow-items',
+		label: 'Items',
+		json: true,
+		value: { literal: [] },
+		references: [{ value: 'parse.data', label: 'Parse JSON: data' }],
+		data: {
+			parse: {
+				data: [
+					{ title: 'B', score: 2 },
+					{ title: 'A', score: 1 }
+				]
+			}
+		},
+		onchange
+	});
+	await screen.getByRole('button', { name: 'Insert variable', exact: true }).click();
+	await screen.getByRole('option', { name: 'Parse JSON: data' }).click();
+	expect(onchange).toHaveBeenLastCalledWith({ reference: 'parse.data' });
+	await screen.rerender({ value: { reference: 'parse.data' } });
+	expect(JSON.parse(screen.container.querySelector('pre')!.textContent!)).toEqual([
+		{ title: 'B', score: 2 },
+		{ title: 'A', score: 1 }
+	]);
+	expect(screen.container.querySelector('[role="status"]')).toBeNull();
+});
+
+it('keeps caret insertion inside authored JSON rather than replacing the object', async () => {
+	const onchange = vi.fn();
+	const screen = await render(Field, {
+		id: 'workflow-fields',
+		label: 'Fields (JSON)',
+		json: true,
+		value: { literal: '{"copied":""}' },
+		references: [{ value: 'source.title', label: 'Title' }],
+		data: { source: { title: 'Café' } },
+		onchange
+	});
+	await screen.getByRole('textbox', { name: 'Fields (JSON)', exact: true }).click();
+	await userEvent.keyboard('{End}{ArrowLeft}{ArrowLeft}');
+	await screen.getByRole('button', { name: 'Insert variable', exact: true }).click();
+	await screen.getByRole('option', { name: /^Title/ }).click();
+	expect(onchange).toHaveBeenLastCalledWith({ literal: '{"copied":"{{source.title}}"}' });
 });

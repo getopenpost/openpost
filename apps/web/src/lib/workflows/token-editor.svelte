@@ -31,8 +31,10 @@
 		multiline = true,
 		invalid = false,
 		placeholder = '',
-		readonly = false
+		readonly = false,
+		variableInsertion = 'selection'
 	}: {
+		variableInsertion?: 'selection' | 'replace';
 		readonly?: boolean;
 		id: string;
 		label: string;
@@ -201,7 +203,15 @@
 	});
 	function insert(reference: string) {
 		if (!view || readonly) return;
-		view.dispatch(view.state.replaceSelection(`{{${reference}}}`));
+		const token = `{{${reference}}}`;
+		view.dispatch(
+			variableInsertion === 'replace'
+				? {
+						changes: { from: 0, to: view.state.doc.length, insert: token },
+						selection: { anchor: token.length }
+					}
+				: view.state.replaceSelection(token)
+		);
 		returnToEditor = true;
 		variablesOpen = false;
 	}

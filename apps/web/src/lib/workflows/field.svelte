@@ -134,6 +134,7 @@
 			{readonly}
 			{references}
 			{code}
+			variableInsertion={json && /^\s*(\[\s*\]|\{\s*\})\s*$/.test(text) ? 'replace' : 'selection'}
 			multiline={multiline || json}
 			{placeholder}
 			invalid={Boolean(issue)}

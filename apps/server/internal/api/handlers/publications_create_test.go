@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -209,7 +210,7 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 			_, err := db.NewInsert().Model(&models.MediaAttachment{ID: id, WorkspaceID: "workspace-1", MimeType: "image/png", OriginalFilename: id + ".png", ProcessingStatus: "ready"}).Exec(ctx)
 			require.NoError(t, err)
 		}
-		joined := create(t, `{
+		joinedBody := `{
 			"workspace_id":"workspace-1","title":"Joined sources","source_text":"First","intent":"thread","content_profile":"thread",
 			"segments":[{"id":"source-a","body":"First","media":[{"media_id":"media-first"}]},{"id":"source-b","body":"Inherited continuation","media":[{"media_id":"media-continuation"}]},{"id":"source-c","body":"Explicitly omitted","media":[{"media_id":"media-first"}]}],
 			"renditions":[{"social_account_id":"joined-account","output_profile":"linkedin.post","segments":[{
@@ -220,7 +221,8 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 					{"publication_segment_id":"source-c","body_override":"","media_inherited":false,"media":[]}
 				]
 			}]}]
-		}`)
+		}`
+		joined := create(t, joinedBody)
 		require.Len(t, joined.Renditions[0].Segments, 1)
 		segment := joined.Renditions[0].Segments[0]
 		require.Equal(t, "Independent first\n\nInherited continuation", segment.Body)
@@ -235,7 +237,7 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 		require.False(t, segment.SourceOverrides[2].MediaInherited)
 		updatedSources := []map[string]any{
 			{"id": joined.Segments[0].ID, "body": "Changed shared first", "media": []map[string]any{{"media_id": "media-first"}}},
-			{"id": joined.Segments[1].ID, "body": "Changed continuation", "media": []map[string]any{{"media_id": "media-continuation"}}},
+			{"id": joined.Segments[1].ID, "body": "Changed continuation", "media": []map[string]any{}},
 			{"id": joined.Segments[2].ID, "body": "Still omitted", "media": []map[string]any{{"media_id": "media-first"}}},
 		}
 		payload, err := json.Marshal(map[string]any{"expected_revision": joined.Revision, "segments": updatedSources})
@@ -251,6 +253,45 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 		require.Equal(t, "Independent first\n\nChanged continuation", edited.Renditions[0].Segments[0].Body)
 		require.Equal(t, "Independent first\n\nChanged continuation", *edited.Renditions[0].Segments[0].BodyOverride)
 		require.Len(t, edited.Renditions[0].Segments, 1)
+		require.Len(t, edited.Renditions[0].Segments[0].Media, 1)
+		require.Equal(t, "media-custom", edited.Renditions[0].Segments[0].Media[0].ID)
+		updatedSources[1]["media"] = []map[string]any{{"media_id": "media-first", "alt_text": "Replacement inherited image"}}
+		payload, err = json.Marshal(map[string]any{"expected_revision": edited.Revision, "segments": updatedSources})
+		require.NoError(t, err)
+		req = httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/publications/"+joined.ID, bytes.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer web-token")
+		req.Header.Set("Content-Type", "application/json")
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &edited))
+		require.Len(t, edited.Renditions[0].Segments[0].Media, 2)
+		require.Equal(t, "media-custom", edited.Renditions[0].Segments[0].Media[0].ID)
+		require.Equal(t, "media-first", edited.Renditions[0].Segments[0].Media[1].ID)
+		require.Equal(t, "Replacement inherited image", edited.Renditions[0].Segments[0].Media[1].AltText)
+		var aggregate []models.RenditionMedia
+		require.NoError(t, db.NewSelect().Model(&aggregate).Where("rendition_id = ?", edited.Renditions[0].ID).Order("display_order ASC").Scan(ctx))
+		require.Len(t, aggregate, 2)
+		require.Equal(t, []string{"media-custom", "media-first"}, []string{aggregate[0].MediaID, aggregate[1].MediaID})
+		_, err = db.NewInsert().Model(&models.MediaAttachment{ID: "foreign-media", WorkspaceID: "other-workspace", MimeType: "image/png", OriginalFilename: "foreign.png", ProcessingStatus: "ready"}).Exec(ctx)
+		require.NoError(t, err)
+		for _, invalid := range []struct {
+			name, body, message string
+		}{
+			{"unknown source", strings.Replace(joinedBody, `"publication_segment_id":"source-b"`, `"publication_segment_id":"unknown"`, 1), "source override does not match a canonical publication segment"},
+			{"duplicate source", strings.Replace(joinedBody, `"publication_segment_id":"source-b"`, `"publication_segment_id":"source-a"`, 1), "each joined source may appear only once"},
+			{"independent foreign media", strings.Replace(joinedBody, `"media_id":"media-custom"`, `"media_id":"foreign-media"`, 1), "outside this workspace"},
+		} {
+			t.Run(invalid.name, func(t *testing.T) {
+				req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications", strings.NewReader(invalid.body))
+				req.Header.Set("Authorization", "Bearer web-token")
+				req.Header.Set("Content-Type", "application/json")
+				rec := httptest.NewRecorder()
+				e.ServeHTTP(rec, req)
+				require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+				require.Contains(t, rec.Body.String(), invalid.message)
+			})
+		}
 	})
 
 }

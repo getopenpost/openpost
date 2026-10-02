@@ -92,6 +92,7 @@ func refreshRenditionPolls(ctx context.Context, db bun.IDB, rendition models.Ren
 		byID[source.ID] = source
 	}
 	joined := len(segments) == 1 && len(canonical) > 1
+	mediaChanged := false
 	for i := range segments {
 		segment := &segments[i]
 		previousPoll, wasOwned := owned[segment.PublicationSegmentID]
@@ -104,6 +105,12 @@ func refreshRenditionPolls(ctx context.Context, db bun.IDB, rendition models.Ren
 			continue
 		}
 		refreshPollSegment(segment, rendition, source, canonical, previousPoll, joinedSource)
+		if publicationsource.HasSourceOverrides(segment.SourceOverridesJSON) {
+			if err := refreshJoinedSourceMedia(ctx, db, segment, canonical); err != nil {
+				return err
+			}
+			mediaChanged = true
+		}
 		if _, err := db.NewUpdate().Model(segment).Column("body", "body_override", "settings_json").Where("id = ?", segment.ID).Exec(ctx); err != nil {
 			return err
 		}
@@ -112,6 +119,9 @@ func refreshRenditionPolls(ctx context.Context, db bun.IDB, rendition models.Ren
 				return err
 			}
 		}
+	}
+	if mediaChanged {
+		return refreshRenditionMediaProjection(ctx, db, rendition.ID)
 	}
 	return nil
 }

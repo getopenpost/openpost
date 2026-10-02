@@ -21,7 +21,10 @@ test("conversion thumbnail labels fit inside their artwork at every directory wi
           'a[href="/tools/jpg-to-webp"] .tool-visual, a[href="/tools/mp4-to-mkv"] .tool-visual, a[href="/tools/flac-to-mp3"] .tool-visual',
         );
       expect(await visuals.count()).toBe(3);
-      const overflow = await visuals.evaluateAll((visuals) =>
+      const mediaVisuals = page.locator(
+        '.tool-group[aria-label="Video"] .tool-visual, .tool-group[aria-label="Audio"] .tool-visual, .tool-group[aria-label="Convert"] .tool-visual',
+      );
+      const overflow = await mediaVisuals.evaluateAll((visuals) =>
         visuals.flatMap((visual) => {
           const bounds = visual.getBoundingClientRect();
           const walker = document.createTreeWalker(visual, NodeFilter.SHOW_TEXT);
@@ -30,6 +33,7 @@ test("conversion thumbnail labels fit inside their artwork at every directory wi
             if (!walker.currentNode.textContent?.trim()) continue;
             const range = document.createRange();
             range.selectNodeContents(walker.currentNode);
+            if (range.getClientRects().length === 0) continue;
             const text = range.getBoundingClientRect();
             if (
               text.left < bounds.left - 1 ||
@@ -46,14 +50,14 @@ test("conversion thumbnail labels fit inside their artwork at every directory wi
       for (const [index, family] of ["video", "audio", "image"].entries()) {
         const visual = visuals.nth(index);
         await visual.scrollIntoViewIfNeeded();
-        await expect
-          .poll(() =>
-            visual
-              .locator("img")
-              .evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
-          )
-          .toBe(true);
-        await visual.locator("img").evaluate((image: HTMLImageElement) => image.decode());
+        for (const image of await visual.locator("img").all()) {
+          await expect
+            .poll(() =>
+              image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0),
+            )
+            .toBe(true);
+          await image.evaluate((node: HTMLImageElement) => node.decode());
+        }
         await page.screenshot({
           path: testInfo.outputPath(`thumbnails-${family}-${width}-${theme}.png`),
         });

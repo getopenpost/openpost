@@ -139,12 +139,15 @@ export const mediaConversionTools = [
   },
 ];
 
-export function mediaToolArtwork(slug) {
-  if (slug === "image-converter" || imageConversions.some((tool) => tool.slug === slug))
-    return "image";
-  const tool = mediaConversionTools.find((tool) => tool.slug === slug);
-  if (!tool) return undefined;
-  return tool.category === "Audio" ? "audio" : "video";
+const thumbnailTones = ["mint", "lilac", "blue"];
+
+export function mediaToolThumbnailTone(slug) {
+  if (slug === "image-converter") return "mint";
+  const index = [...imageConversions, ...mediaConversionTools].findIndex(
+    (tool) => tool.slug === slug,
+  );
+  if (index < 0) return undefined;
+  return thumbnailTones[index % thumbnailTones.length];
 }
 
 export const mediaTools = [

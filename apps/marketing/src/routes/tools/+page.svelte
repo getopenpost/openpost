@@ -106,7 +106,7 @@
 				<h2>{group === 'Convert' ? 'Image converters' : group}</h2>
 				<div
 					class="tool-grid"
-					class:illustrated={group === 'Images' || group === 'Video' || group === 'Audio'}
+					class:illustrated={['Images', 'Video', 'Audio', 'Convert'].includes(group)}
 				>
 					{#each entries as tool (tool.slug)}
 						<a class="tool-card focus-ring" href={`/tools/${tool.slug}`}>

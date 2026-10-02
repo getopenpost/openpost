@@ -1,15 +1,8 @@
 <script lang="ts">
 	import {
-		ArrowDown,
-		SlidersHorizontal,
-		Film,
-		FileSearch,
-		Gauge,
-		VolumeX,
 		AtSign,
 		CalendarClock,
 		ClipboardPaste,
-		FileImage,
 		Flower2,
 		LetterText,
 		Link,
@@ -19,33 +12,15 @@
 		Type,
 		WandSparkles
 	} from '@lucide/svelte';
-	import {
-		previewTools,
-		imageConversions,
-		imageFormats,
-		mediaConversionTools,
-		mediaToolArtwork
-	} from '@openpost/social-images';
+	import { previewTools, mediaToolThumbnailTone } from '@openpost/social-images';
 	import { PlatformGlyph } from '@openpost/social-preview';
 	import ThemeImage from '../_components/ThemeImage.svelte';
+	import MediaToolThumbnail from './MediaToolThumbnail.svelte';
 	import type { MarketingToolSlug } from '../_marketing';
 
 	let { slug }: { slug: MarketingToolSlug } = $props();
-	const artworkSources = {
-		image: '/assets/marketing/tools/image.webp',
-		video: '/assets/marketing/tools/video.webp',
-		audio: '/assets/marketing/tools/audio.webp'
-	};
 	const platform = $derived(previewTools.find((tool) => tool.slug === slug)?.platform);
-	const conversion = $derived(imageConversions.find((tool) => tool.slug === slug));
-	const mediaTool = $derived(mediaConversionTools.find((tool) => tool.slug === slug));
-	const artwork = $derived(mediaToolArtwork(slug));
-	const inputFormat = $derived(
-		imageFormats.find((format) => format.id === conversion?.input)?.name
-	);
-	const outputFormat = $derived(
-		imageFormats.find((format) => format.id === conversion?.output)?.name
-	);
+	const tone = $derived(mediaToolThumbnailTone(slug));
 	const editor = $derived(
 		slug === 'social-media-image-editor'
 			? 'image-editor'
@@ -56,7 +31,6 @@
 	const icons = new Map([
 		['background-remover', WandSparkles],
 		['paste-image', ClipboardPaste],
-		['image-converter', FileImage],
 		['multi-platform-character-counter', LetterText],
 		['thread-splitter', Split],
 		['fediverse-handle-checker', AtSign],
@@ -70,11 +44,10 @@
 <div
 	class="thumbnail"
 	class:screenshot={editor}
-	class:paired={conversion || (mediaTool?.input && mediaTool?.output)}
 	class:checkerboard={slug === 'background-remover'}
-	class:mint={slug === 'image-color-picker' || slug === 'logo-maker' || artwork === 'image'}
-	class:blue={slug === 'quick-cut' || mediaTool?.category === 'Video'}
-	class:lilac={mediaTool?.category === 'Audio'}
+	class:mint={slug === 'image-color-picker' || slug === 'logo-maker' || tone === 'mint'}
+	class:blue={slug === 'quick-cut' || tone === 'blue'}
+	class:lilac={tone === 'lilac'}
 	aria-hidden="true"
 >
 	{#if editor}
@@ -87,31 +60,8 @@
 		/>
 	{:else if platform}
 		<PlatformGlyph {platform} />
-	{:else if artwork}
-		<img
-			class="tool-art"
-			src={artworkSources[artwork]}
-			alt=""
-			width="640"
-			height="640"
-			loading="lazy"
-			decoding="async"
-		/>
-		{#if conversion || (mediaTool?.input && mediaTool?.output)}
-			<span class="formats"
-				><span>{inputFormat ?? mediaTool?.input?.toUpperCase()}</span><ArrowDown size={14} /><span
-					>{outputFormat ?? mediaTool?.output?.toUpperCase()}</span
-				></span
-			>
-		{:else if mediaTool && (['inspect', 'mute', 'compress', 'extract'].includes(mediaTool.mode) || slug === 'video-codec-converter')}
-			<span class="operation">
-				{#if mediaTool.mode === 'inspect'}<FileSearch />
-				{:else if mediaTool.mode === 'mute'}<VolumeX />
-				{:else if mediaTool.mode === 'compress'}<Gauge />
-				{:else if mediaTool.mode === 'extract'}<Film />
-				{:else}<SlidersHorizontal />{/if}
-			</span>
-		{/if}
+	{:else if tone}
+		<MediaToolThumbnail {slug} />
 	{:else if slug === 'image-color-picker'}
 		<div class="palette">
 			<img
@@ -190,79 +140,9 @@
 		background: var(--marketing-blue);
 		color: var(--marketing-blue-ink);
 	}
-	.formats {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-		max-width: 100%;
-		align-items: center;
-		gap: 2px;
-		font-size: 18px;
-		font-weight: 650;
-		position: absolute;
-		right: 10%;
-		padding: 6px;
-		border-radius: 6px;
-		background: var(--background);
-		color: var(--foreground);
-	}
 	.lilac {
 		background: var(--marketing-lilac);
 		color: var(--marketing-lilac-ink);
-	}
-	.tool-art {
-		width: 88%;
-		height: 92%;
-		object-fit: contain;
-	}
-	.paired .tool-art {
-		position: absolute;
-		left: 4%;
-		width: 68%;
-	}
-	.operation {
-		position: absolute;
-		right: 14%;
-		bottom: 10%;
-		display: grid;
-		place-items: center;
-		width: 38px;
-		height: 38px;
-		border-radius: 50%;
-		background: var(--background);
-		color: var(--foreground);
-	}
-	.operation :global(svg) {
-		width: 22px;
-		height: 22px;
-	}
-	.formats > span {
-		white-space: nowrap;
-	}
-	.formats :global(svg) {
-		flex-shrink: 0;
-	}
-	@container (max-width: 100px) {
-		.paired .tool-art {
-			left: -8%;
-			width: 76%;
-		}
-		.formats {
-			right: 3px;
-			font-size: 11px;
-			padding: 3px;
-			gap: 0;
-		}
-		.operation {
-			right: 3px;
-			bottom: 3px;
-			width: 22px;
-			height: 22px;
-		}
-		.operation :global(svg) {
-			width: 14px;
-			height: 14px;
-		}
 	}
 	.palette {
 		width: 56%;
@@ -343,15 +223,6 @@
 		height: 20px;
 	}
 	@media (max-width: 599px) {
-		.formats {
-			flex-direction: column;
-			gap: 0;
-			font-size: 11px;
-		}
-		.formats :global(svg) {
-			width: 12px;
-			height: 12px;
-		}
 		.screenshot {
 			padding: 0;
 		}

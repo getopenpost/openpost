@@ -9,7 +9,7 @@ import {
   docsSocialImageKey,
   marketingSocialEntries,
   mediaConversionTools,
-  mediaToolArtwork,
+  mediaToolThumbnailTone,
   imageConversions,
 } from "../../packages/social-images/src/index.js";
 
@@ -180,7 +180,6 @@ function imagePathForEntry(entry) {
 }
 
 function motifForEntry(entry) {
-  if (entry.kind === "tool" && mediaToolArtwork(routeSegments(entry.path)[1])) return "media-art";
   if (imagePathForEntry(entry)) return "logo";
   if (entry.kind === "security" || /security|privacy|trust/.test(entry.path)) return "security";
   if (entry.path.startsWith("/api-reference")) return "api";
@@ -201,10 +200,9 @@ function motifForEntry(entry) {
 }
 
 function accentNameForEntry(entry, motif) {
-  if (motif === "media-art") {
-    const artwork = mediaToolArtwork(routeSegments(entry.path)[1]);
-    return artwork === "image" ? "green" : artwork === "audio" ? "lilac" : "blue";
-  }
+  const tone =
+    entry.kind === "tool" ? mediaToolThumbnailTone(routeSegments(entry.path)[1]) : undefined;
+  if (tone) return tone === "mint" ? "green" : tone;
   if (motif === "security") return "green";
   if (motif === "api" || motif === "connections") return "blue";
   if (motif === "video") return "blue";
@@ -545,31 +543,6 @@ function drawConversionMotif(context, entry, palette, accent) {
 }
 
 async function drawMotif(context, entry, palette, accent, motif) {
-  if (motif === "media-art") {
-    const slug = routeSegments(entry.path)[1];
-    const artwork = mediaToolArtwork(slug);
-    const image = await cachedImage(join(root, `assets/marketing/tools/${artwork}.webp`));
-    context.drawImage(image, 805, 135, 340, 340);
-    const tool = [...imageConversions, ...mediaConversionTools].find((tool) => tool.slug === slug);
-    if (tool?.input && tool?.output) {
-      context.fillStyle = palette.ink;
-      context.textAlign = "center";
-      setFont(context, 23, 600);
-      context.fillText(tool.input.toUpperCase(), 975, 495);
-      context.fillText(tool.output.toUpperCase(), 975, 552);
-      context.strokeStyle = palette.brand;
-      context.lineWidth = 3;
-      context.beginPath();
-      context.moveTo(975, 504);
-      context.lineTo(975, 523);
-      context.moveTo(968, 516);
-      context.lineTo(975, 523);
-      context.lineTo(982, 516);
-      context.stroke();
-      context.textAlign = "left";
-    }
-    return;
-  }
   if (motif === "logo") return drawLogoMotif(context, entry, palette, accent);
   if (motif === "conversion") return drawConversionMotif(context, entry, palette, accent);
   const drawers = {
@@ -601,7 +574,7 @@ export async function renderSocialCard(entry) {
   context.fillStyle = palette.background;
   context.fillRect(0, 0, SOCIAL_IMAGE_WIDTH, SOCIAL_IMAGE_HEIGHT);
   drawFrame(context, palette);
-  if (motif !== "media-art") drawDither(context, entry, 900, 214, palette.ink);
+  drawDither(context, entry, 900, 214, palette.ink);
   await drawBrand(context, surface);
 
   context.fillStyle = palette.ink;

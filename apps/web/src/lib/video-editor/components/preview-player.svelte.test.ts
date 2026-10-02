@@ -223,12 +223,15 @@ it('keeps active caption pixels after native entrance apply and undo without see
 		expect(timelineStore.itemById.get('caption')?.keyframes?.opacity?.frames).toEqual([0, 15]);
 		await nextPaint();
 		commandHistory.undo();
+		await nextPaint();
 		expect(timelineStore.currentFrame).toBe(53);
 		expect(timelineStore.itemById.get('caption')?.keyframes?.opacity).toBeUndefined();
 		await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
 		commandHistory.redo();
+		await nextPaint();
 		await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
 		commandHistory.undo();
+		await nextPaint();
 		await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
 		const prior = getWorkspaceRoot();
 		const root = await navigator.storage.getDirectory();
@@ -247,6 +250,7 @@ it('keeps active caption pixels after native entrance apply and undo without see
 			screen.container.style.cssText = 'display:flex;width:800px;height:500px';
 			monitor = screen.getByRole('application', { name: 'Program' }).element();
 			expect(timelineStore.itemById.get('caption')?.keyframes?.opacity).toBeUndefined();
+			await nextPaint();
 			await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
 		} finally {
 			setWorkspaceRoot(prior);

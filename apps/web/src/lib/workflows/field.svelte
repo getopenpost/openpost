@@ -68,6 +68,7 @@
 		if (code) return undefined;
 		if (value?.reference) return resolveDisplay(value.reference, data);
 		if (!text.includes('{{')) return undefined;
+		if (json) return jsonPreview(text);
 		return text.replace(referenceTokens(), (_token, ref: string) => {
 			const value = resolveDisplay(ref, data);
 			return value === undefined
@@ -77,6 +78,30 @@
 					: String(value);
 		});
 	});
+	function jsonPreview(authored: string): string | undefined {
+		try {
+			const parsed = JSON.parse(authored);
+			let available = true;
+			const preview = JSON.stringify(
+				parsed,
+				(_key, child) => {
+					if (typeof child !== 'string') return child;
+					return child.replace(referenceTokens(), (_token, reference: string) => {
+						const sample = resolveDisplay(reference, data);
+						if (sample === undefined || sample === null || typeof sample === 'object') {
+							available = false;
+							return '';
+						}
+						return String(sample);
+					});
+				},
+				2
+			);
+			return available ? preview : undefined;
+		} catch {
+			return undefined;
+		}
+	}
 	function write(next: string) {
 		const reference = !code && wholeReferenceToken(next.trim());
 		if (reference && (json || numeric || preserveReferenceType)) {

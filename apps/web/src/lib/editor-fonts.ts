@@ -12,6 +12,25 @@ export interface EditorBrandFont {
 	style: 'normal' | 'italic';
 }
 
+interface EditorFontSource {
+	readonly family: string;
+	readonly weight: string;
+	readonly style: string;
+	readonly source: string | Blob;
+}
+
+// SVG images cannot inherit the document FontFaceSet, so retain each loaded face's exact source.
+const registeredSources = new WeakMap<FontFace, EditorFontSource>();
+
+export function registeredEditorFontSources(family: string): EditorFontSource[] {
+	if (!globalThis.document?.fonts) return [];
+	return [...document.fonts].flatMap((face) => {
+		if (normalizedFamily(face.family) !== normalizedFamily(family)) return [];
+		const source = registeredSources.get(face);
+		return source ? [source] : [];
+	});
+}
+
 interface EditorBrandFontKit {
 	fonts: EditorBrandFont[];
 }
@@ -48,6 +67,7 @@ async function loadEditorBrandFont(font: EditorBrandFont): Promise<void> {
 		style: font.style
 	});
 	await face.load();
+	registeredSources.set(face, { family, weight: face.weight, style: face.style, source });
 	document.fonts.add(face);
 }
 
@@ -73,6 +93,12 @@ export async function loadEditorFontAsset(input: {
 		style: font.style
 	});
 	await face.load();
+	registeredSources.set(face, {
+		family: registeredFamily,
+		weight: face.weight,
+		style: face.style,
+		source: input.blob
+	});
 	document.fonts.add(face);
 }
 

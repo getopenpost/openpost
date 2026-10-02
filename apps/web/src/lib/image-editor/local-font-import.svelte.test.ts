@@ -178,7 +178,7 @@ it.each(['wrong declared type', 'wrong bytes', 'truncated font'])(
 	}
 );
 
-it('keeps two imported fonts with identical descriptors independent across reopen and export', async () => {
+it.each([false, true])('preserves font asset identity (curved: %s)', async (curved) => {
 	const family = `SharedFont_${crypto.randomUUID()}`;
 	const ids: string[] = [];
 	const sources = [fontURL, manropeURL];
@@ -205,6 +205,7 @@ it('keeps two imported fonts with identical descriptors independent across reope
 				text: {
 					...text.text!,
 					text: 'MMMM iii Portable123',
+					curve: curved ? { type: 'arc_up', strength: 0.65, offset: 0, reverse: false } : undefined,
 					font_family: family,
 					font_asset_id: 'font',
 					font_weight: 400,

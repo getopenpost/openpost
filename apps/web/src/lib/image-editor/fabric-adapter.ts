@@ -1,3 +1,4 @@
+import { renderCurvedText } from './curved-text';
 import { imageEditorTextFontFamily, loadImageEditorTextFont } from './fonts';
 import { hasEditorColorGrade } from '$lib/editor-color-grade/model';
 import { getAuthenticatedMediaURL } from '$lib/media-url';
@@ -437,6 +438,7 @@ export class OpenPostFabricAdapter {
 	private snapGridSize = 0;
 	private readonly staticMode: boolean;
 	private readonly renderScale: number;
+	private readonly curvedTextVersions = new WeakMap<FabricObject, number>();
 	private readonly selectionColor: string;
 	private readonly handleColor: string;
 	private onSelection: FabricAdapterOptions['onSelection'];
@@ -666,6 +668,8 @@ export class OpenPostFabricAdapter {
 					layerIsLockedIn(previous, previousLayers) !== layerIsLockedIn(layer, page.layers)
 				) {
 					this.updateObject(object, previous, layer);
+					await this.refreshCurvedText(object, layer);
+					if (sequence !== this.renderSequence) return;
 					this.refreshDecorations(layer, object);
 				}
 				this.layerSnapshots.set(layer.id, layer);
@@ -1475,7 +1479,15 @@ export class OpenPostFabricAdapter {
 		const edit = this.activeTextInput?.target === target ? this.activeTextInput.edit : undefined;
 		if (this.activeTextInput) this.activeTextInput.edit = undefined;
 		const value = this.onTextChange(layerID, target.text, edit);
-		if (value) this.applyTextRuns(target, value);
+		if (value) {
+			this.applyTextRuns(target, value);
+			const layer = this.page.layers.find((candidate) => candidate.id === layerID);
+			if (layer?.text?.curve) {
+				void this.refreshCurvedText(target, { ...layer, text: value })
+					.then(() => this.canvas?.requestRenderAll())
+					.catch(() => this.onRenderError(layerID));
+			}
+		}
 		this.onTextSelectionChange(layerID, target.selectionStart, target.selectionEnd);
 		const layer = this.page.layers.find((candidate) => candidate.id === layerID);
 		if (layer && (layer.effects?.stroke || layer.effects?.inner_shadow)) {
@@ -1782,7 +1794,8 @@ export class OpenPostFabricAdapter {
 			try {
 				await loadImageEditorTextFont(layer.text);
 			} catch {
-				if (layer.text.font_asset_id) this.onMissingMedia(layer.text.font_asset_id, layer.id);
+				if (layer.text.font_asset_id && (!layer.text.curve || layer.text.curve.type === 'none'))
+					this.onMissingMedia(layer.text.font_asset_id, layer.id);
 			}
 			const curve = layer.text.curve;
 			const pathData = curve
@@ -1823,6 +1836,7 @@ export class OpenPostFabricAdapter {
 				object = new this.fabric.Textbox(layer.text.text, textOptions);
 			}
 			if (isEditableFabricText(object)) this.applyTextRuns(object, layer.text);
+			await this.refreshCurvedText(object, layer);
 		}
 		if (layer.type === 'shape' && layer.shape) {
 			const shapeOptions = {
@@ -1970,6 +1984,31 @@ export class OpenPostFabricAdapter {
 		return object;
 	}
 
+	private async refreshCurvedText(object: FabricObject, layer: ImageEditorLayer): Promise<void> {
+		if (!layer.text?.curve || layer.text.curve.type === 'none' || !('path' in object)) return;
+		// SAFETY: curved text is created as Fabric IText by this adapter.
+		const textObject = object as InstanceType<FabricModule['IText']>;
+		const version = (this.curvedTextVersions.get(object) ?? 0) + 1;
+		this.curvedTextVersions.set(object, version);
+		const rendered = await renderCurvedText(layer.text, textObject, {
+			onMissingFont: (assetID) => this.onMissingMedia(assetID, layer.id)
+		});
+		if (this.curvedTextVersions.get(object) !== version) return;
+		Object.assign(textObject, {
+			_renderText: (context: CanvasRenderingContext2D) => {
+				context.drawImage(
+					rendered.image,
+					rendered.left,
+					rendered.top,
+					rendered.width,
+					rendered.height
+				);
+			},
+			_renderTextDecoration: () => {}
+		});
+		textObject.dirty = true;
+	}
+
 	private requiresObjectRebuild(previous: ImageEditorLayer, next: ImageEditorLayer): boolean {
 		if (previous.type !== next.type) return true;
 		if (next.type === 'shape') return previous.shape?.kind !== next.shape?.kind;
@@ -1977,6 +2016,12 @@ export class OpenPostFabricAdapter {
 		if (next.type === 'text') {
 			return (
 				JSON.stringify(previous.text?.curve) !== JSON.stringify(next.text?.curve) ||
+				Boolean(
+					next.text?.curve &&
+					next.text.curve.type !== 'none' &&
+					(previous.transform.width !== next.transform.width ||
+						previous.transform.height !== next.transform.height)
+				) ||
 				previous.text?.font_asset_id !== next.text?.font_asset_id ||
 				Boolean(
 					next.text?.font_asset_id &&

@@ -67,6 +67,7 @@ type Config struct {
 	ImageCaptionProvider     string
 	ImageCaptionRequireZDR   bool
 	TextGenerationModel      string
+	EditorAgentModel         string
 	WorkflowDecisionModel    string
 	MemeGeneratorEnabled     bool
 	MemeGenerationModel      string
@@ -265,6 +266,7 @@ func Load() *Config {
 		ImageCaptionRequireZDR:  getEnvBoolWithAliases(false, "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR"),
 		WorkflowDecisionModel:   strings.TrimSpace(getEnvDefault("OPENPOST_WORKFLOW_DECISION_MODEL", "typesafe/jev-1.13")),
 		TextGenerationModel:     strings.TrimSpace(getEnvDefault("OPENPOST_TEXT_GENERATION_MODEL", "openai/gpt-6-luna")),
+		EditorAgentModel:        strings.TrimSpace(getEnvDefault("OPENPOST_EDITOR_AGENT_MODEL", "openai/gpt-6-luna")),
 		MemeGeneratorEnabled:    getEnvBoolWithAliases(true, "OPENPOST_MEME_GENERATOR_ENABLED"),
 		MemeGenerationModel:     strings.TrimSpace(getEnvDefault("OPENPOST_MEME_GENERATION_MODEL", "openai/gpt-6-luna")),
 		ImageEditorEnabled: getEnvBoolWithAliases(

@@ -873,6 +873,8 @@ func main() {
 		MemeProvider:              memeProvider,
 		MemeSuggester:             memeSuggester,
 		PostBuilder:               postBuilder,
+		EditorAgentGenerator:      contentGenerator,
+		EditorAgentModel:          cfg.EditorAgentModel,
 		ContentBuilderEnabled:     publicationBuilderApplication != nil,
 		ContentDiscoveryEnabled:   publicationDiscoveryService != nil,
 		PublicationBuilder:        publicationBuilderApplication,

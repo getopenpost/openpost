@@ -38,7 +38,7 @@ The SvelteKit interface is embedded in the Go binary. A standalone Expo mobile a
 - Provider capabilities, media limits, review requirements, quotas, and live-account readiness vary. Product copy and UI must preserve those distinctions.
 - The web app supports light and dark appearance, ten translated locales, and responsive browser use. The native mobile app uses the same resolved theme semantics and supports light, dark, and system appearance on Android and iOS.
 - Self-hosted deployments must remain portable: embedded static assets, configurable storage, SQLite by default, PostgreSQL support, and no hard dependency on an external queue service.
-- OpenPost Image Editor remains a focused still-image editor. Video editing, animation, print color workflows, arbitrary remote assets, and low-level image-editor MCP operations are outside its product scope.
+- OpenPost Image Editor remains a focused still-image editor. Its supported page and layer operations are available to connected MCP clients through the same controller used by the web UI. Video editing inside Image Editor, animation, print color workflows, and arbitrary remote assets remain outside its product scope.
 
 ## Brand Commitments
 

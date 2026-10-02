@@ -122,6 +122,61 @@ newline-delimited JSON framing on stdin/stdout, accepts legacy `Content-Length`
 framing from older clients, advertises both Streamable HTTP response types, and
 forwards the negotiated `MCP-Protocol-Version` on later requests.
 
+### Connected editor tools
+
+The Image and Video Editors register a short-lived session while an editable
+project is open in a signed-in browser. Codex CLI, Claude Code, and other MCP
+clients can connect to the existing `/mcp` endpoint with OAuth or a workspace
+scoped `mcp:full` token. No OpenPost desktop runtime is required. Start with
+`editor_sessions` and `editor_reference`, then read `editor_context` and the
+relevant `timeline_inspect` or `image_inspect` output. The stable project, item,
+page, layer, and session IDs in those results are the targets for edits.
+
+`media_library` lists all Video Project sources, even those not on the timeline.
+`media_inspect` reads source metadata and available transcript words;
+`media_analyze` starts the editor's local source transcription and
+`media_analysis_status` reports its progress or result. Use
+`media_analysis_cancel` to stop a running transcription.
+`media_frame` decodes a source frame; `media_storyboard` samples 2 to 9
+source-video frames into a contact sheet with exact timestamps and coverage.
+Neither proves what happens between samples. `preview_render` returns an actual
+composited Video Editor frame or rendered Image Editor page as bounded JPEG
+image content. The preview requires the current revision and does not move the
+user's view. `editor_reveal` explicitly selects an item or layer or moves the
+playhead when the user wants to follow the agent's work.
+
+`video_edit` and `image_edit` require `project_id`, `expected_revision`, a
+stable `request_id`, and typed actions. Retry an identical request with the
+same key after a lost reply. A changed request with that key is rejected.
+Each short batch commits as one undoable change. Edits run in the open browser
+and appear in its existing timeline or canvas.
+`export_start` renders the active Video Editor sequence as MP4 or WebM into
+the Video Project's export storage, or one Image Editor page as PNG, JPEG, or
+WebP into Workspace Media. Pass the exact current authored revision and a
+stable request key. It returns an export ID immediately. Poll `export_status`
+for progress and the saved file path or Media ID, and use `export_cancel` to
+abort a running job. The result records the revision rendered, even if the
+user continues editing. These interactive jobs require the browser to remain
+open; their progress records are held in that browser session.
+The browser owns original local files. Source frames and rendered previews can
+cross the relay as bounded JPEG results to the MCP caller, and the paid Hosted
+assistant may send those previews to its configured model provider. The relay
+does not store original project files. Source transcript search reports missing
+analysis coverage, so an empty match list is not proof that speech is absent.
+`editor_work_status` and `editor_work_cancel` distinguish pending work from a
+committed edit.
+`editor_history_inspect`, `editor_history_undo`, and `editor_history_redo`
+operate only on the latest agent change when its revision still matches.
+
+When the browser closes or stops polling, the session expires. Queued requests
+fail with `editor_disconnected`; a leased request becomes `indeterminate`
+because its edit may have committed before the reply was lost. Inspect the
+project and receipt before submitting a new request key. Open the project
+again and start from the new session and revision. A connected-browser
+operation is interactive; future Workflow editing nodes need a durable
+headless executor and must not depend on these sessions. See
+[the editing contract](../specs/editor-agent-mcp.md).
+
 Recent MCP tool calls are available under **Settings → Personal → Developer access**. The same data is exposed to authenticated API clients at:
 
 ```txt

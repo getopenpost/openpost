@@ -44,6 +44,8 @@
 	import TemplatePreview from './template-preview.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { provideImageEditor, ImageEditorController } from '../editor.svelte';
+	import { connectEditorAgent } from '$lib/editor-agent/browser-relay';
+	import { handleImageAgentRequest } from '$lib/editor-agent/image-executor';
 	import {
 		completeImageEditorReturnToken,
 		createImageEditorDesign,
@@ -192,6 +194,19 @@
 	} = $props();
 
 	const editor = provideImageEditor(new ImageEditorController());
+	let agentConnectionStatus = $state<'connected' | 'disconnected' | 'working'>('disconnected');
+	$effect(() => {
+		const workspaceID = editor.workspaceID;
+		const projectID = editor.id;
+		if (guestMode || !editor.canEdit || !workspaceID || !projectID) return;
+		return connectEditorAgent({
+			workspaceID,
+			projectID,
+			kind: 'image',
+			handle: (request) => handleImageAgentRequest(editor, request),
+			onStatus: (status) => (agentConnectionStatus = status)
+		});
+	});
 	$effect(() => {
 		editor.setBrandKit(initialBrandKit);
 	});
@@ -3051,6 +3066,7 @@
 <div
 	class="image-editor-theme fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground"
 	data-testid="image-editor-shell"
+	data-agent-status={agentConnectionStatus}
 	{@attach initializeShell}
 >
 	<div class="sr-only" aria-live="polite">{statusAnnouncement}</div>
@@ -3115,6 +3131,24 @@
 			/>
 		{/snippet}
 		{#snippet actions()}
+			{#if agentConnectionStatus !== 'disconnected'}
+				<span
+					class="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+					role="status"
+					aria-live="polite"
+				>
+					<span
+						class="size-1.5 rounded-full bg-current {agentConnectionStatus === 'working'
+							? 'motion-safe:animate-pulse'
+							: ''}"
+					></span>
+					<span class="sr-only lg:not-sr-only">
+						{agentConnectionStatus === 'working'
+							? m.editor_agent_status_working()
+							: m.editor_agent_status_connected()}
+					</span>
+				</span>
+			{/if}
 			<SaveIndicator
 				saving={editor.saveState === 'saving'}
 				saved={editor.saveState === 'saved'}

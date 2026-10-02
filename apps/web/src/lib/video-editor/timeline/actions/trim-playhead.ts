@@ -8,9 +8,8 @@ import { isTrackEffectivelyLocked } from '../utils/track-groups';
 import type { TrimHandle } from '../utils/trim-utils';
 import { transitionsStore } from './transitions-store.svelte';
 
-function prepareTrim(itemId: string, edge: TrimHandle) {
+function prepareTrim(itemId: string, edge: TrimHandle, frame: number) {
 	const item = timelineStore.itemById.get(itemId);
-	const frame = timelineStore.currentFrame;
 	if (
 		!item ||
 		!['video', 'audio', 'image', 'composition'].includes(item.type) ||
@@ -52,12 +51,17 @@ function prepareTrim(itemId: string, edge: TrimHandle) {
 }
 
 export function canTrimItemToPlayhead(itemId: string, edge: TrimHandle): boolean {
-	return prepareTrim(itemId, edge) !== null;
+	return prepareTrim(itemId, edge, timelineStore.currentFrame) !== null;
 }
 
 /** A trim leaves the rest of the sequence in place and keeps the selected clip's identity. */
 export function trimItemToPlayhead(itemId: string, edge: TrimHandle): boolean {
-	const plan = prepareTrim(itemId, edge);
+	return trimItemToFrame(itemId, edge, timelineStore.currentFrame);
+}
+
+/** Exact-frame trim shared by the UI playhead action and external editor commands. */
+export function trimItemToFrame(itemId: string, edge: TrimHandle, frame: number): boolean {
+	const plan = prepareTrim(itemId, edge, frame);
 	if (!plan) return false;
 	return execute(edge === 'start' ? 'TRIM_ITEM_START' : 'TRIM_ITEM_END', () => {
 		let items: TimelineItem[] = timelineStore.items;

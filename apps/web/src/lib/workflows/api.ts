@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
 import { queryClient } from '$lib/query/client';
@@ -15,6 +16,7 @@ export type Value = components['schemas']['WorkflowValue'];
 export type Run = components['schemas']['WorkflowRun'];
 export type Source = components['schemas']['WorkflowSource'];
 export type Connection = components['schemas']['WorkflowConnection'];
+export type WorkflowSample = z.infer<ReturnType<typeof z.json>>;
 export type WorkflowData = components['schemas']['WorkflowNodeTestRequest']['data'];
 export type Save = components['schemas']['WorkflowSaveRequest'];
 

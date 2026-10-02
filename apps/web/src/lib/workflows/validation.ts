@@ -1,6 +1,6 @@
 import { referenceTokens, referenceParts } from './reference-path';
 /* oxlint-disable anti-slop/no-runtime-typeof -- This form validator checks arbitrary user-authored JSON literals before publishing or testing a workflow. */
-import type { Definition, Value, Step, WorkflowData } from './api';
+import type { Definition, Value, Step, WorkflowData, WorkflowSample } from './api';
 import { availableReferences } from './catalog';
 import { stepFields, type FieldSpec, type Reference } from './fields';
 import { m } from '$lib/paraglide/messages';
@@ -48,7 +48,7 @@ function interpolationIssue(text: string, references: Reference[]): string {
 			return m.workflows_invalid_variable({ reference: token[1] });
 	return '';
 }
-export function workflowIssues(definition: Definition, sourceData?: WorkflowData): Issue[] {
+export function workflowIssues(definition: Definition, sourceData?: WorkflowSample): Issue[] {
 	const issues: Issue[] = [];
 	const source = definition.source;
 	const requiredSource =

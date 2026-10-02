@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { z } from 'zod';
 	import { beforeNavigate, goto } from '$app/navigation';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 
 	import { createQuery } from '@tanstack/svelte-query';
 	import { workflowRunQueryOptions, workflowRunsQueryOptions } from '@openpost/query-catalog';
@@ -56,7 +56,7 @@
 		connections
 	}: { initial: Workflow; accounts: SocialAccount[]; connections: Connection[] } = $props();
 
-	type InspectorInputs = WorkflowData & { source: Run['source'] };
+	type InspectorInputs = WorkflowData;
 	let record = $state.raw(untrack(() => initial));
 	let doc = $state.raw(
 		untrack(() => ({
@@ -82,6 +82,7 @@
 	let sample = $state(
 		untrack(() => JSON.stringify(exampleSource(initial.definition.source.kind), null, 2))
 	);
+	let sampleRejected = $state(false);
 	const sourceKind = $derived(doc.definition.source.kind);
 	$effect(() => {
 		const kind = sourceKind;
@@ -116,13 +117,14 @@
 	const selectedResult = $derived(
 		inspectedRun?.steps?.find((result) => result.step_id === selectedID)
 	);
-	const inputData = $derived.by(() => {
-		let source: Run['source'];
+	const parsedSample = $derived.by(() => {
 		try {
-			source = JSON.parse(sample);
+			return { value: z.json().parse(JSON.parse(sample)), error: '' };
 		} catch {
-			source = {};
+			return { value: undefined, error: m.workflows_invalid_json() };
 		}
+	});
+	const inputData = $derived.by(() => {
 		const upstream = new Set(
 			availableReferences(doc.definition.steps ?? [], selectedID).map(
 				(reference) => reference.value.split('.')[0]
@@ -131,7 +133,7 @@
 		const priorInputs = inspectedRun?.mode === 'test' ? testInputs[inspectedRun.id] : undefined;
 		const data: InspectorInputs = {
 			...Object.fromEntries(Object.entries(priorInputs ?? {}).filter(([id]) => upstream.has(id))),
-			source: panel === 'runs' ? (inspectedRun?.source ?? source) : source
+			source: panel === 'runs' ? (inspectedRun?.source ?? parsedSample.value) : parsedSample.value
 		};
 		for (const result of inspectedRun?.steps ?? []) {
 			if (result.step_id === selectedID) break;
@@ -365,8 +367,18 @@
 				step.kind
 			)
 	);
+	async function showSampleError(message: string) {
+		sampleRejected = true;
+		error = message;
+		panel = 'test';
+		inspector = true;
+		await tick();
+		document.getElementById('workflow-sample-json')?.focus();
+	}
 	async function executeNode() {
 		if (!step) return;
+		if (parsedSample.error) return showSampleError(parsedSample.error);
+		sampleRejected = false;
 		busy = true;
 		error = '';
 		try {
@@ -383,6 +395,12 @@
 		}
 	}
 	async function action(kind: 'publish' | 'pause' | 'preview' | 'live' | 'sample') {
+		const parsed = z.record(z.string(), z.json()).safeParse(parsedSample.value);
+		if (kind === 'preview' || kind === 'live') {
+			if (parsedSample.error) return showSampleError(parsedSample.error);
+			if (!parsed.success) return showSampleError(m.workflows_sample_object());
+			sampleRejected = false;
+		}
 		busy = true;
 		error = '';
 		try {
@@ -401,9 +419,7 @@
 				const items = await sampleSource(initial.workspace_id, doc.definition.source);
 				if (items?.length) sample = JSON.stringify(items[0], null, 2);
 				else error = m.workflows_no_source_items();
-			} else {
-				const parsed = z.record(z.string(), z.json()).safeParse(JSON.parse(sample));
-				if (!parsed.success) throw new Error(m.workflows_sample_object());
+			} else if (parsed.success) {
 				const run = await startRun(
 					initial.workspace_id,
 					initial.id,
@@ -763,7 +779,7 @@
 						onclick={() => (inspector = false)}><ThemeIcon role="close" class="size-4" /></Button
 					>
 				</header>
-				{#if error}<div class="border-b p-3">
+				{#if error}<div id="workflow-inspector-error" class="border-b p-3">
 						<InlineNotice tone="error" message={error} />
 					</div>{/if}
 				<div class="flex border-b p-1 lg:hidden">
@@ -804,6 +820,12 @@
 									id="workflow-sample-json"
 									rows={14}
 									bind:value={sample}
+									aria-invalid={Boolean(parsedSample.error) || sampleRejected}
+									aria-describedby={sampleRejected ? 'workflow-inspector-error' : undefined}
+									oninput={() => {
+										error = '';
+										sampleRejected = false;
+									}}
 								/>{#if doc.definition.source.kind !== 'manual'}<Button
 										variant="outline"
 										disabled={busy}

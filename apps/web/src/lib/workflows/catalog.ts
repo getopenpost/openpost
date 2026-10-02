@@ -1,6 +1,6 @@
 import { appendReferencePath } from './reference-path';
 import { outputFields, type Reference } from './fields';
-import type { Definition, Step, Value, WorkflowData } from './api';
+import type { Definition, Step, Value, WorkflowData, WorkflowSample } from './api';
 import type { ThemeIconRole } from '$lib/themes';
 import { m } from '$lib/paraglide/messages';
 const literal = (value: Value['literal']): Value => ({ literal: value });
@@ -465,7 +465,7 @@ export function exampleSource(kind: Definition['source']['kind']): WorkflowData 
 export function availableReferences(
 	steps: Step[],
 	selectedID: string,
-	sourceData?: WorkflowData
+	sourceData?: WorkflowSample
 ): Reference[] {
 	const sources: Reference[] = (
 		sourceData === undefined

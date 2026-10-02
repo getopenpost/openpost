@@ -4,11 +4,13 @@
 
 	let {
 		isItalic,
+		disabled = false,
 		isUnderline,
 		ontoggleitalic,
 		ontoggleunderline
 	}: {
 		isItalic: boolean;
+		disabled?: boolean;
 		isUnderline: boolean;
 		ontoggleitalic: () => void;
 		ontoggleunderline: () => void;
@@ -21,6 +23,7 @@
 	aria-label={m.video_editor_text_span_style()}
 >
 	<Button
+		{disabled}
 		type="button"
 		size="sm"
 		class="h-[25px] rounded-none border-0 shadow-none"
@@ -31,6 +34,7 @@
 		{m.video_editor_text_italic()}
 	</Button>
 	<Button
+		{disabled}
 		type="button"
 		size="sm"
 		class="h-[25px] rounded-none border-0 border-l border-[var(--video-editor-border)] shadow-none"

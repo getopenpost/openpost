@@ -8,6 +8,7 @@
 	import EditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import type { TimelineItem } from '../project/types';
 	import { updateItemProperties } from '../timeline/actions/items';
+	import { isTrackEffectivelyLocked } from '../timeline/utils/track-groups';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 	import {
 		CAPTION_STYLE_PRESETS,
@@ -30,6 +31,7 @@
 	} = $props();
 
 	const activeItem = $derived(timelineStore.itemById.get(item.id) ?? item);
+	const locked = $derived(isTrackEffectivelyLocked(activeItem.trackId, timelineStore.tracks));
 	const activePreset = $derived(
 		detectActiveCaptionPreset(activeItem, canvasWidth, canvasHeight)?.id ?? null
 	);
@@ -41,8 +43,7 @@
 	]);
 
 	function commit(patch: Partial<TimelineItem>, command = 'UPDATE_CAPTION_STYLE'): void {
-		updateItemProperties(activeItem.id, patch, command);
-		onedit();
+		if (updateItemProperties(activeItem.id, patch, command)) onedit();
 	}
 
 	function applyPreset(id: CaptionStylePresetId): void {
@@ -68,7 +69,11 @@
 	}
 </script>
 
-<section class="video-editor-theme space-y-2" aria-labelledby={`caption-style-${activeItem.id}`}>
+<fieldset
+	disabled={locked}
+	class="video-editor-theme space-y-2"
+	aria-labelledby={`caption-style-${activeItem.id}`}
+>
 	<h3
 		id={`caption-style-${activeItem.id}`}
 		class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
@@ -273,7 +278,7 @@
 			ontoggleunderline={() => commit({ underline: !activeItem.underline })}
 		/>
 	</div>
-</section>
+</fieldset>
 
 <style>
 	.field-label {

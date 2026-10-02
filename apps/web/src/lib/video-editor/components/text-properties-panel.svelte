@@ -16,6 +16,7 @@
 		TextStylePresetId,
 		TimelineItem
 	} from '../project/types';
+	import { isTrackEffectivelyLocked } from '../timeline/utils/track-groups';
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 	import {
 		resolvePreExpressionItemAt,
@@ -53,6 +54,7 @@
 	} = $props();
 	const sourceItem = $derived(timelineStore.itemById.get(item.id) ?? item);
 	const activeItem = $derived(resolvePreExpressionItemAt(sourceItem, timelineStore.currentFrame));
+	const locked = $derived(isTrackEffectivelyLocked(sourceItem.trackId, timelineStore.tracks));
 	const selectedTextItemIds = $derived.by(() => {
 		const selectedIds = itemIds.length > 0 ? itemIds : [activeItem.id];
 		const textIds = selectedIds.filter((id) => timelineStore.itemById.get(id)?.type === 'text');
@@ -120,6 +122,7 @@
 	}
 
 	function commitItem(patch: Partial<TimelineItem>): void {
+		if (locked) return;
 		const values: Partial<Record<KeyframeProperty, number>> = {};
 		const staticPatch = { ...patch };
 		for (const property of getAnimatablePropertiesForItem(sourceItem)) {
@@ -166,6 +169,7 @@
 						{spanLabel(index, activeItem.textSpans.length)}
 					</label>
 					<Textarea
+						disabled={locked}
 						id={`text-span-${activeItem.id}-${index}`}
 						class="mt-1 min-h-9 resize-y text-xs"
 						value={span.text}
@@ -177,6 +181,7 @@
 							<label class="field-label col-span-2">
 								{m.video_editor_text_font()}
 								<EditorFontPicker
+									disabled={locked}
 									value={span.fontFamily ?? activeItem.fontFamily ?? 'Inter'}
 									onChange={({ family, assetID, weight, style }) =>
 										commitSpan(index, {
@@ -190,6 +195,7 @@
 							<label class="field-label">
 								{m.video_editor_property_size()}
 								<Input
+									disabled={locked}
 									class="field-input"
 									type="number"
 									min="8"
@@ -205,6 +211,7 @@
 							<label class="field-label">
 								{m.video_editor_property_weight()}
 								<AppSelect
+									disabled={locked}
 									value={String(span.fontWeight ?? activeItem.fontWeight ?? 400)}
 									options={weightSelectOptions}
 									ariaLabel={m.video_editor_property_weight()}
@@ -216,6 +223,7 @@
 							<label class="field-label">
 								{m.video_editor_property_tracking()}
 								<Input
+									disabled={locked}
 									class="field-input"
 									type="number"
 									min="-20"
@@ -229,6 +237,7 @@
 								/>
 							</label>
 							<ColorPicker
+								disabled={locked}
 								label={m.video_editor_text_color()}
 								value={span.color ?? activeItem.color ?? '#ffffff'}
 								live={false}
@@ -237,6 +246,7 @@
 						</div>
 						<div class="mt-2 flex gap-1">
 							<Button
+								disabled={locked}
 								type="button"
 								size="sm"
 								class="h-[22px]"
@@ -251,6 +261,7 @@
 									})}>{m.video_editor_text_italic()}</Button
 							>
 							<Button
+								disabled={locked}
 								type="button"
 								size="sm"
 								class="h-[22px]"
@@ -269,6 +280,7 @@
 	{:else}
 		{#if !activeItem.timer}
 			<Textarea
+				disabled={locked}
 				class="min-h-12 w-full resize-y text-xs"
 				value={activeItem.text ?? ''}
 				aria-label={m.video_editor_tool_text()}
@@ -279,6 +291,7 @@
 			<label class="field-label col-span-2">
 				{m.video_editor_text_font()}
 				<EditorFontPicker
+					disabled={locked}
 					value={activeItem.fontFamily ?? 'Inter'}
 					onChange={({ family, assetID, weight, style }) =>
 						commitItem({
@@ -290,6 +303,7 @@
 				/>
 			</label>
 			<TextStyleToggles
+				disabled={locked}
 				isItalic={activeItem.fontStyle === 'italic'}
 				isUnderline={activeItem.underline ?? false}
 				ontoggleitalic={() =>
@@ -305,6 +319,7 @@
 		<label class="field-label">
 			{m.video_editor_property_size()}
 			<Input
+				disabled={locked}
 				class="field-input"
 				type="number"
 				min="8"
@@ -317,6 +332,7 @@
 		<label class="field-label">
 			{m.video_editor_property_weight()}
 			<AppSelect
+				disabled={locked}
 				value={String(activeItem.fontWeight ?? 400)}
 				options={weightSelectOptions}
 				ariaLabel={m.video_editor_property_weight()}
@@ -325,6 +341,7 @@
 			/>
 		</label>
 		<ColorPicker
+			disabled={locked}
 			label={m.video_editor_text_color()}
 			value={activeItem.color ?? '#ffffff'}
 			live={false}
@@ -332,6 +349,7 @@
 		/>
 		<div class="text-[10px] text-[var(--video-editor-muted)]">
 			<ColorPicker
+				disabled={locked}
 				label={m.video_editor_text_background()}
 				value={activeItem.backgroundColor ?? '#000000'}
 				live={false}
@@ -340,7 +358,7 @@
 			<button
 				type="button"
 				class="mt-0.5 w-full rounded px-1 py-1 text-[9px] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-40"
-				disabled={!activeItem.backgroundColor}
+				disabled={locked || !activeItem.backgroundColor}
 				onclick={() => commitItem({ backgroundColor: undefined })}
 			>
 				{m.video_editor_text_clear_background()}
@@ -379,6 +397,7 @@
 		<div class="layout-switch" role="group" aria-label={m.video_editor_text_layout()}>
 			{#each [['single', m.video_editor_text_layout_single()], ['two', m.video_editor_text_layout_two()], ['three', m.video_editor_text_layout_three()]] as [value, label]}
 				<button
+					disabled={locked}
 					type="button"
 					class:active={layout === value}
 					aria-pressed={layout === value}
@@ -401,6 +420,7 @@
 				{#each TEXT_STYLE_PRESETS as preset (preset.id)}
 					{@const copy = localizedTextStylePresetCopy(preset.id)}
 					<button
+						disabled={locked}
 						type="button"
 						class:active={activeItem.textStylePresetId === preset.id}
 						aria-label={m.video_editor_text_apply_template({ name: copy.label })}
@@ -423,6 +443,7 @@
 		<label class="field-label block">
 			{m.video_editor_text_template_scale()}
 			<Input
+				disabled={locked}
 				class="field-input mt-0.5"
 				type="number"
 				min="0.5"
@@ -446,6 +467,7 @@
 		>
 			{#each ['none', 'shadow', 'outline', 'glow'] as presetId (presetId)}
 				<Button
+					disabled={locked}
 					type="button"
 					size="sm"
 					variant="outline"

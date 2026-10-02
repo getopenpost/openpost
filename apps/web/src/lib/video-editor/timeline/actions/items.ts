@@ -33,7 +33,7 @@ import { snapshotTimelineState } from '../utils/state-snapshot.svelte';
 import { canJoinMultipleItems, joinedTimelineItem } from '../join-items';
 import { clonePropertyRuntime } from './property-runtime';
 import { hasPathVertexKeyframes } from '../path-vertex-keyframes';
-import { effectiveMediaTracks } from '../utils/track-groups';
+import { effectiveMediaTracks, isTrackEffectivelyLocked } from '../utils/track-groups';
 import { sequenceStore } from '../../sequences/sequence-store.svelte';
 import { scaleItemKeyframes } from '../edit-constraints';
 import { scaleItemVectorKeyframes } from '../vector-keyframes';
@@ -424,11 +424,17 @@ export function updateItemProperties(
 	id: string,
 	patch: Partial<TimelineItem>,
 	commandType = 'UPDATE_ITEM'
-): void {
-	execute(commandType, () => {
-		const item = timelineStore.itemById.get(id);
-		if (item && pathTopologyChangeIsLocked(item, patch)) return;
+): boolean {
+	const item = timelineStore.itemById.get(id);
+	if (
+		!item ||
+		isTrackEffectivelyLocked(item.trackId, timelineStore.tracks) ||
+		pathTopologyChangeIsLocked(item, patch)
+	)
+		return false;
+	return execute(commandType, () => {
 		timelineStore._updateItems([{ id, patch }]);
+		return true;
 	});
 }
 

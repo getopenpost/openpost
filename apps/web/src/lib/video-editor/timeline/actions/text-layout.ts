@@ -25,6 +25,7 @@ import { buildTextItemLabelFromText } from '../../typography/text-item-spans';
 import { execute } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { isTrackEffectivelyLocked } from '../utils/track-groups';
+import { updateItemProperties } from './items';
 
 export type TextEffectPresetId = 'none' | 'shadow' | 'outline' | 'glow';
 
@@ -64,7 +65,10 @@ export function applyTextEffectPreset(
 ): number {
 	const items = [...new Set(itemIds)]
 		.map((itemId) => timelineStore.itemById.get(itemId))
-		.filter((item): item is TimelineItem => item?.type === 'text');
+		.filter(
+			(item): item is TimelineItem =>
+				item?.type === 'text' && !isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)
+		);
 	if (items.length === 0) return 0;
 
 	const effectColor = items[0]?.color ?? '#ffffff';
@@ -75,9 +79,11 @@ export function applyTextEffectPreset(
 	return items.length;
 }
 
-function currentTextItem(itemId: string): TimelineItem | undefined {
+function editableTextItem(itemId: string): TimelineItem | undefined {
 	const item = timelineStore.itemById.get(itemId);
-	return item?.type === 'text' ? item : undefined;
+	return item?.type === 'text' && !isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)
+		? item
+		: undefined;
 }
 
 function draftKey(layout: Exclude<TextLayoutMode, 'single'>): 'twoSpans' | 'threeSpans' {
@@ -93,11 +99,11 @@ function saveCurrentLayout(item: TimelineItem): TextLayoutDrafts {
 }
 
 function commitTextPatch(itemId: string, commandType: string, patch: Partial<TimelineItem>): void {
-	execute(commandType, () => timelineStore._updateItems([{ id: itemId, patch }]));
+	updateItemProperties(itemId, patch, commandType);
 }
 
 export function setTextItemLayout(itemId: string, layout: TextLayoutMode): boolean {
-	const item = currentTextItem(itemId);
+	const item = editableTextItem(itemId);
 	if (!item || getTextItemLayoutMode(item) === layout) return false;
 	const drafts = saveCurrentLayout(item);
 
@@ -140,7 +146,7 @@ export function setTextItemLayout(itemId: string, layout: TextLayoutMode): boole
 }
 
 export function updateTextSpan(itemId: string, index: number, patch: Partial<TextSpan>): boolean {
-	const item = currentTextItem(itemId);
+	const item = editableTextItem(itemId);
 	if (!item?.textSpans?.[index]) return false;
 	const spans = item.textSpans.map((span, spanIndex) =>
 		spanIndex === index ? { ...span, ...patch } : { ...span }
@@ -191,8 +197,8 @@ export function applyTextStylePreset(
 	styleScale = 1,
 	copyOverride?: TextStylePresetCopy
 ): boolean {
-	const item = currentTextItem(itemId);
-	if (!item || isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) return false;
+	const item = editableTextItem(itemId);
+	if (!item) return false;
 	if (item.textStylePresetId === presetId) {
 		commitTextPatch(
 			itemId,

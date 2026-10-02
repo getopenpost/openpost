@@ -276,14 +276,12 @@
 
 	function commitText(patch: Partial<TimelineItem>): void {
 		if (!itemId) return;
-		updateItemProperties(itemId, patch, 'UPDATE_CLIP_PROPERTIES');
-		onedit();
+		if (updateItemProperties(itemId, patch, 'UPDATE_CLIP_PROPERTIES')) onedit();
 	}
 
 	function commitAudioPatch(patch: Partial<TimelineItem>): void {
 		if (!audioItem) return;
-		updateItemProperties(audioItem.id, patch, 'UPDATE_CLIP_AUDIO');
-		onedit();
+		if (updateItemProperties(audioItem.id, patch, 'UPDATE_CLIP_AUDIO')) onedit();
 	}
 
 	function commitTextShadowColor(color: string): void {

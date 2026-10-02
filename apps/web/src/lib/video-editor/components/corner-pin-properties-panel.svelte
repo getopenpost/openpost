@@ -10,9 +10,12 @@
 		type CornerPinKey,
 		type CornerPinOffsets
 	} from '$lib/video-editor/preview/corner-pin';
+	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+	import { isTrackEffectivelyLocked } from '../timeline/utils/track-groups';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
 
 	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	const locked = $derived(isTrackEffectivelyLocked(item.trackId, timelineStore.tracks));
 	let open = $state(false);
 	let openItemId = $state('');
 	$effect(() => {
@@ -42,8 +45,7 @@
 	];
 
 	function commit(cornerPin: TimelineItemCornerPin | undefined): void {
-		updateItemProperties(item.id, { cornerPin }, 'UPDATE_CORNER_PIN');
-		onedit();
+		if (updateItemProperties(item.id, { cornerPin }, 'UPDATE_CORNER_PIN')) onedit();
 	}
 
 	function setCoordinate(corner: CornerPinKey, axis: 0 | 1, value: number): void {
@@ -62,6 +64,7 @@
 	/>
 	{#if item.cornerPin}
 		<button
+			disabled={locked}
 			type="button"
 			class="flex size-[22px] items-center justify-center rounded-[4px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 			aria-label={m.video_editor_corner_pin_reset()}
@@ -84,6 +87,7 @@
 			<div class="grid h-[25px] grid-cols-[1.5rem_1fr_1fr] items-center gap-1">
 				<span class="text-[10px] font-medium text-[var(--video-editor-text)]">{corner.label}</span>
 				<Input
+					disabled={locked}
 					type="number"
 					min="-2000"
 					max="2000"
@@ -95,6 +99,7 @@
 					onchange={(event) => setCoordinate(corner.key, 0, event.currentTarget.valueAsNumber)}
 				/>
 				<Input
+					disabled={locked}
 					type="number"
 					min="-2000"
 					max="2000"

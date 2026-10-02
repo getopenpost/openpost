@@ -3240,6 +3240,7 @@
 	"settings_passkey_removed": "Passkey removed",
 	"settings_saved": "Settings saved successfully",
 	"settings_time_added": "Time row added successfully",
+	"settings_time_already_exists": "所选日期均已设置此时间。",
 	"settings_schedule_deleted": "Schedule deleted successfully",
 	"settings_schedule_updated": "Schedule updated successfully",
 	"settings_time_removed": "Time row removed successfully",

@@ -3240,6 +3240,7 @@
 	"settings_passkey_removed": "Passkey removida",
 	"settings_saved": "Definições guardadas",
 	"settings_time_added": "Linha de hora adicionada",
+	"settings_time_already_exists": "Este horário já existe para todos os dias selecionados.",
 	"settings_schedule_deleted": "Horário eliminado",
 	"settings_schedule_updated": "Horário atualizado",
 	"settings_time_removed": "Linha de hora removida",

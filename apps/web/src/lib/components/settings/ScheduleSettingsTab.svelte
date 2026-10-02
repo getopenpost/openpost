@@ -321,6 +321,7 @@
 		}
 		newTimeError = '';
 		try {
+			let added = false;
 			for (const day of newTimeDays) {
 				const exists = schedules.some(
 					(schedule) =>
@@ -330,12 +331,14 @@
 				);
 				if (!exists) {
 					await createSchedule(workspaceID, day, parsed.hour, parsed.minute);
+					added = true;
 				}
 			}
 			if (isCurrentWorkspace(workspaceID)) {
 				await loadSchedules(workspaceID, true);
 				savedScheduleDraft = scheduleDraftSnapshot();
-				notify(m.settings_time_added());
+				if (added) notify(m.settings_time_added());
+				else showToast(m.settings_time_already_exists());
 			}
 		} catch (e) {
 			notify(e instanceof Error ? e.message : m.settings_action_failed(), 'error');

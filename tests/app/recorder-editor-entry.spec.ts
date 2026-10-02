@@ -18,6 +18,10 @@ test("an explicit recording handoff reveals persisted main-sequence media from r
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.addInitScript(() => {
+    Object.defineProperty(window, "showOpenFilePicker", {
+      configurable: true,
+      value: async () => [],
+    });
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
       value: async () => {

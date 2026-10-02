@@ -4,6 +4,52 @@ import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 const CLOUD_SAVE_TIMEOUT_MS = 15_000;
 
+test("header history actions close after the selected command becomes disabled", async ({
+  page,
+  request,
+}, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const auth = await registerUser(request, `history-menu-${randomUUID()}@example.com`);
+  await createWorkspace(request, auth.token, "History menu");
+  await authenticatePage(page, auth.token);
+  await newProject(page, "History menu proof");
+  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+  const header = page.getByRole("banner");
+  const more = header.getByRole("button", { name: "More actions", exact: true });
+  const summary = page.locator("[data-project-summary]");
+  await expect(summary).toContainText("1 clip");
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const command of ["Undo", "Redo"] as const) {
+        await more.click();
+        const action = page.getByRole("menuitem", { name: command, exact: true });
+        if (width === 1280) await action.click();
+        else {
+          await action.focus();
+          await action.press("Enter");
+        }
+        await expect(summary).toContainText(command === "Undo" ? "0 clips" : "1 clip");
+        await expect(page.getByRole("menu")).toHaveCount(0);
+        if (width !== 1280) await expect(more).toBeFocused();
+      }
+      await page.screenshot({ path: testInfo.outputPath(`history-menu-${scheme}-${width}.png`) });
+    }
+  }
+  await more.click();
+  await expect(page.getByRole("menuitem", { name: "Redo", exact: true })).toBeDisabled();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(header.getByRole("status")).toHaveAttribute("data-state", "saved");
+  await page.reload();
+  await expect(summary).toContainText("1 clip");
+  expect(errors).toEqual([]);
+});
+
 async function newProject(page: Page, name: string) {
   if (new URL(page.url()).pathname !== "/video-editor") await page.goto("/video-editor");
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();

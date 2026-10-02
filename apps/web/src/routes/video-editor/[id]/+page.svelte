@@ -2647,10 +2647,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						}}
 					/>
 					<DropdownMenu.Item onclick={saveProject}>{m.common_save()}</DropdownMenu.Item>
-					<DropdownMenu.Item disabled={!commandHistory.canUndo} onclick={undoProject}>
+					<DropdownMenu.Item disabled={!commandHistory.canUndo} onSelect={undoProject}>
 						{m.video_editor_undo()}
 					</DropdownMenu.Item>
-					<DropdownMenu.Item disabled={!commandHistory.canRedo} onclick={redoProject}>
+					<DropdownMenu.Item disabled={!commandHistory.canRedo} onSelect={redoProject}>
 						{m.video_editor_redo()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />

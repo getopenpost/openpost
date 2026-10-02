@@ -9645,5 +9645,6 @@
 	"editor_agent_auto": "自動",
 	"editor_agent_announcement": "製品発表",
 	"editor_agent_style": "スタイル",
-	"editor_agent_talking_head": "トーク動画"
+	"editor_agent_talking_head": "トーク動画",
+	"video_editor_caption_timing_invalid": "字幕のタイミングは{start}から{end}フレームの範囲内にし、終了を開始より後にしてください。"
 }

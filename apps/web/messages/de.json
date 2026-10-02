@@ -9645,5 +9645,6 @@
 	"editor_agent_auto": "Automatisch",
 	"editor_agent_announcement": "Produktankündigung",
 	"editor_agent_style": "Stil",
-	"editor_agent_talking_head": "Vor der Kamera"
+	"editor_agent_talking_head": "Vor der Kamera",
+	"video_editor_caption_timing_invalid": "Die Untertitelzeiten müssen zwischen Frame {start} und {end} liegen, mit dem Ende nach dem Anfang."
 }

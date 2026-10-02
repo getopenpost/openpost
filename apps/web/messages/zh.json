@@ -9645,5 +9645,6 @@
 	"editor_agent_auto": "自动",
 	"editor_agent_announcement": "产品公告",
 	"editor_agent_style": "风格",
-	"editor_agent_talking_head": "人物讲解"
+	"editor_agent_talking_head": "人物讲解",
+	"video_editor_caption_timing_invalid": "字幕时间须在第 {start} 到 {end} 帧之间，且结束时间须晚于开始时间。"
 }

@@ -9645,5 +9645,6 @@
 	"editor_agent_auto": "Otomatik",
 	"editor_agent_announcement": "Ürün duyurusu",
 	"editor_agent_style": "Stil",
-	"editor_agent_talking_head": "Konuşmacı"
+	"editor_agent_talking_head": "Konuşmacı",
+	"video_editor_caption_timing_invalid": "Altyazı zamanlarını {start} ile {end} kareleri arasında tutun; bitiş başlangıçtan sonra olmalıdır."
 }

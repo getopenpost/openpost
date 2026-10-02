@@ -9645,5 +9645,6 @@
 	"editor_agent_auto": "자동",
 	"editor_agent_announcement": "제품 발표",
 	"editor_agent_style": "스타일",
-	"editor_agent_talking_head": "발표자 영상"
+	"editor_agent_talking_head": "발표자 영상",
+	"video_editor_caption_timing_invalid": "자막 시간은 {start}에서 {end} 프레임 사이로 설정하고, 종료가 시작보다 뒤에 오도록 하세요."
 }

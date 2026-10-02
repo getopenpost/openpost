@@ -9645,5 +9645,6 @@
 	"editor_agent_auto": "Automático",
 	"editor_agent_announcement": "Anuncio de producto",
 	"editor_agent_style": "Estilo",
-	"editor_agent_talking_head": "Presentador"
+	"editor_agent_talking_head": "Presentador",
+	"video_editor_caption_timing_invalid": "Mantén los tiempos de los subtítulos entre los fotogramas {start} y {end}, con el final después del inicio."
 }

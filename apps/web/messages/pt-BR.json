@@ -9645,5 +9645,6 @@
 	"editor_agent_auto": "Automático",
 	"editor_agent_announcement": "Anúncio de produto",
 	"editor_agent_style": "Estilo",
-	"editor_agent_talking_head": "Apresentador"
+	"editor_agent_talking_head": "Apresentador",
+	"video_editor_caption_timing_invalid": "Mantenha os tempos das legendas entre os quadros {start} e {end}, com o fim após o início."
 }

@@ -344,6 +344,68 @@ describe('ComposerSession', () => {
 		expect(updates[0].segments?.[0]?.id).toBe('server-segment-1');
 	});
 
+	it('binds a newly added destination and its follow-up to the saved canonical source', async () => {
+		const updates: PublicationDraft[] = [];
+		const session = new ComposerSession({
+			workspaceId: 'workspace-1',
+			client: clientWith({
+				async update(_id, _revision, input) {
+					updates.push(input);
+					return {
+						id: 'publication-1',
+						workspace_id: 'workspace-1',
+						revision: 2,
+						status: 'draft'
+					};
+				}
+			})
+		});
+		const saved = draft('Shared text');
+		session.hydrate({
+			publication: {
+				id: 'publication-1',
+				workspace_id: 'workspace-1',
+				revision: 1,
+				status: 'draft'
+			},
+			draft: saved
+		});
+		const edited = draft('Shared text with an attachment');
+		edited.segments = [
+			{
+				id: 'legacy-segment:publication-1:0',
+				body: edited.source_text,
+				media: []
+			}
+		];
+		edited.renditions = [
+			{
+				social_account_id: 'new-account',
+				output_profile: 'instagram.story',
+				format_locked: true,
+				segments: [
+					{
+						publication_segment_id: 'legacy-segment:publication-1:0',
+						body: edited.source_text,
+						media: []
+					},
+					{
+						publication_segment_id: 'legacy-segment:publication-1:0',
+						body: 'Independent first comment',
+						media: []
+					}
+				]
+			}
+		];
+		session.edit(edited);
+		await session.save();
+		expect(updates[0].segments?.[0].id).toBe('segment-1');
+		expect(
+			updates[0].renditions?.[0].segments?.map((segment) => segment.publication_segment_id)
+		).toEqual(['segment-1', 'segment-1']);
+		expect(updates[0].renditions?.[0].id).toBeUndefined();
+	});
+
 	it('serializes queued saves and sends the last accepted revision', async () => {
 		let finishCreate!: (publication: {
 			id: string;

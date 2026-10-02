@@ -14,6 +14,8 @@ A preview resolves bindings and branches with explicitly simulated native output
 
 ## Durable boundaries
 
+Variable paths retain existing dot notation. JSON-quoted brackets identify literal keys: `source["a.b"]` selects the key `a.b`, while `source.a.b` selects nested `b` inside `a`. Brackets also accept array indexes, such as `source.items[0]`. Schema rows, variable chips, previews, saved bindings and execution share these identities. Copied branches remap only the step ID and retain the property path.
+
 `apps/server/internal/services/workflows/` owns definitions, sources, admission, and checkpoints. Database jobs execute one step at a time, including persisted timers and approval waits. A sweep restores runnable checkpoints after worker interruption. Run leases fence competing workers; workspace locks serialize admission, deletion, cancellation, and checkpoint writes where those operations intersect.
 
 `handlers/workflow_actions.go` adapts native publication, Builder, analytics, and reply commands. Stable run/step keys drive the existing native idempotency receipts. Builder recovery finds the original build by its key before resolving any current settings. Provider writes remain in the existing publishing and provider-write queues, with their readiness checks and authorization receipts. Scheduling retains the native per-rendition outcomes in its output, including receipt replay. Blocking validation details originate in the publication service and reach workflow errors without reimplementing provider checks.

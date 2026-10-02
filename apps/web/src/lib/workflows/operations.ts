@@ -1,3 +1,4 @@
+import { referenceTokens, referenceParts } from './reference-path';
 /* oxlint-disable anti-slop/no-runtime-typeof -- Workflow bindings contain authored JSON, including nested literal arrays and objects. */
 import type { Step, Value } from './api';
 
@@ -12,15 +13,12 @@ export function duplicateStep(original: Step): Step {
 	}
 	allocate(copy);
 	function reference(path: string) {
-		const [id, ...fields] = path.split('.');
-		return [ids.get(id) ?? id, ...fields].join('.');
+		const id = referenceParts(path)?.[0];
+		return id ? `${ids.get(id) ?? id}${path.slice(id.length)}` : path;
 	}
 	function literal(value: Value['literal']): Value['literal'] {
 		if (typeof value === 'string')
-			return value.replace(
-				/\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}/g,
-				(_token, path: string) => `{{${reference(path)}}}`
-			);
+			return value.replace(referenceTokens(), (_token, path: string) => `{{${reference(path)}}}`);
 		if (Array.isArray(value)) return value.map(literal);
 		if (value && typeof value === 'object')
 			return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, literal(child)]));

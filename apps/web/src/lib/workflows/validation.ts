@@ -1,3 +1,4 @@
+import { referenceTokens, referenceParts } from './reference-path';
 /* oxlint-disable anti-slop/no-runtime-typeof -- This form validator checks arbitrary user-authored JSON literals before publishing or testing a workflow. */
 import type { Definition, Value, Step, WorkflowData } from './api';
 import { availableReferences } from './catalog';
@@ -5,12 +6,16 @@ import { stepFields, type FieldSpec, type Reference } from './fields';
 import { m } from '$lib/paraglide/messages';
 export type Issue = { node: string; field: string; message: string };
 export function referenceExists(reference: string, references: Reference[]): boolean {
-	if (!/^[a-zA-Z][a-zA-Z0-9_-]*(\.[a-zA-Z0-9_-]+)+$/.test(reference)) return false;
-	if (reference.split('.').some((part) => ['__proto__', 'constructor', 'prototype'].includes(part)))
-		return false;
-	return references.some(
-		(item) => item.value === reference || (item.dynamic && reference.startsWith(`${item.value}.`))
-	);
+	const parts = referenceParts(reference);
+	if (!parts || parts.length < 2) return false;
+	return references.some((item) => {
+		const candidate = referenceParts(item.value);
+		return (
+			candidate &&
+			(item.dynamic || candidate.length === parts.length) &&
+			candidate.every((key, i) => parts[i] === key)
+		);
+	});
 }
 function missingValue(value: Value | undefined): boolean {
 	return (
@@ -35,7 +40,7 @@ function bindingIssue(value: Value | undefined, references: Reference[], require
 }
 
 function interpolationIssue(text: string, references: Reference[]): string {
-	const pattern = /\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}/g;
+	const pattern = referenceTokens();
 	const rest = text.replace(pattern, '');
 	if (rest.includes('{{') || rest.includes('}}')) return m.workflows_invalid_syntax();
 	for (const token of text.matchAll(pattern))
@@ -89,7 +94,9 @@ export function workflowIssues(definition: Definition, sourceData?: WorkflowData
 }
 export function resolveDisplay(reference: string, data: WorkflowData): Value['literal'] {
 	let value: Value['literal'] = data;
-	for (const part of reference.split('.')) {
+	const parts = referenceParts(reference);
+	if (!parts) return undefined;
+	for (const part of parts) {
 		if (
 			!value ||
 			typeof value !== 'object' ||

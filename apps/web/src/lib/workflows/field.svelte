@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { referenceTokens, wholeReferenceToken } from './reference-path';
 	/* oxlint-disable anti-slop/no-runtime-typeof -- Workflow literals are user-authored JSON; distinguish text from structured values for editing and previews. */
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -67,7 +68,7 @@
 		if (code) return undefined;
 		if (value?.reference) return resolveDisplay(value.reference, data);
 		if (!text.includes('{{')) return undefined;
-		return text.replace(/\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}/g, (_token, ref: string) => {
+		return text.replace(referenceTokens(), (_token, ref: string) => {
 			const value = resolveDisplay(ref, data);
 			return value === undefined
 				? m.workflows_value_unavailable()
@@ -77,7 +78,7 @@
 		});
 	});
 	function write(next: string) {
-		const reference = !code && next.trim().match(/^\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}$/)?.[1];
+		const reference = !code && wholeReferenceToken(next.trim());
 		if (reference && (json || numeric || preserveReferenceType)) {
 			onchange({ reference });
 			return;

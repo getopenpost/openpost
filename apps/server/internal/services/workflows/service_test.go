@@ -477,7 +477,7 @@ func TestExpiredWaitResumesOnceAfterRestart(t *testing.T) {
 
 func TestWorkflowRejectsBrokenTokensBeforeStarting(t *testing.T) {
 	s, actor := workflowTestService(t, nil)
-	for _, text := range []string{"Hello {{source.title", "Hello {{source.title + 1}}"} {
+	for _, text := range []string{"Hello {{source.title", "Hello {{source.title + 1}}", `{{source["invalid\q"]}}`, `{{source["constructor"]}}`} {
 		item := saveTestWorkflow(t, s, actor, []Step{{ID: "draft", Kind: KindDraft, Inputs: map[string]Value{"text": literal(text)}}})
 		_, err := s.Start(t.Context(), actor, "ws", item.ID, ModePreview, map[string]any{"title": "Release"}, item.Revision)
 		require.ErrorIs(t, err, ErrInvalid)
@@ -501,4 +501,30 @@ func TestWorkflowTransformsFeedItemsBeforeCreatingContent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, StateSucceeded, result.State, result.Error)
 	require.Equal(t, "Release | Behind the scenes", result.Steps[3].Inputs["text"])
+}
+
+func TestLiteralKeyReferencesRemainDistinctThroughSavedExecution(t *testing.T) {
+	s, actor := workflowTestService(t, nil)
+	workflow := saveTestWorkflow(t, s, actor, []Step{
+		{ID: "values", Kind: KindFields, Inputs: map[string]Value{"fields": literal(map[string]any{
+			"literal": `{{source["a.b"]}}`, "local.dot": `{{source["a.b"]}}`, "nested": "{{source.a.b}}",
+			"escaped": `{{source["quote\"key"]}}`, "array": `{{source.items[0]["x.y"]}}`,
+		})}},
+		{ID: "joined", Kind: KindMerge, Inputs: map[string]Value{"first": reference(`source["object.key"]`), "second": reference("source.legacy key")}},
+		{ID: "previous", Kind: KindFields, Inputs: map[string]Value{"fields": literal(map[string]any{"copied": `{{values["literal"]}}`, "copied_dot": `{{values["local.dot"]}}`})}},
+	})
+	run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModePreview, map[string]any{
+		"a.b": "DOT", "a": map[string]any{"b": "NEST"}, "quote\"key": "ESCAPED",
+		"items": []any{map[string]any{"x.y": "ARRAY"}}, "object.key": map[string]any{"kept": 42}, "legacy key": map[string]any{"added": true},
+	}, workflow.Revision)
+	require.NoError(t, err)
+	runJob(t, s, run.ID)
+	runJob(t, s, run.ID)
+	runJob(t, s, run.ID)
+	result, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+	require.NoError(t, err)
+	require.Equal(t, StateSucceeded, result.State, result.Error)
+	require.Equal(t, map[string]any{"literal": "DOT", "local.dot": "DOT", "nested": "NEST", "escaped": "ESCAPED", "array": "ARRAY"}, result.Steps[0].Output)
+	require.Equal(t, map[string]any{"kept": float64(42), "added": true}, result.Steps[1].Output["data"])
+	require.Equal(t, map[string]any{"copied": "DOT", "copied_dot": "DOT"}, result.Steps[2].Output)
 }

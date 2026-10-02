@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { referenceTokens } from './reference-path';
 	import { onMount } from 'svelte';
 	import { EditorState, Compartment } from '@codemirror/state';
 	import {
@@ -79,7 +80,7 @@
 	function extensions() {
 		const refs = references;
 		const matcher = new MatchDecorator({
-			regexp: /\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}/g,
+			regexp: referenceTokens(),
 			decoration: (match) =>
 				Decoration.replace({
 					widget: new Token(
@@ -125,7 +126,7 @@
 						autocompletion({
 							override: [
 								(context) => {
-									const match = context.matchBefore(/\{\{[\w. -]*/);
+									const match = context.matchBefore(/\{\{[^\n{}]*/);
 									if (!match && !context.explicit) return null;
 									return {
 										from: match?.from ?? context.pos,

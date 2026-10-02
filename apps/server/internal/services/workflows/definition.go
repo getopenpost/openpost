@@ -12,7 +12,7 @@ import (
 
 var stepIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`)
 var repositoryPattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$`)
-var fieldToken = regexp.MustCompile(`\{\{\s*([a-zA-Z][a-zA-Z0-9_.-]*)\s*\}\}`)
+var fieldToken = regexp.MustCompile(`\{\{\s*(` + referenceRoot + referenceComponent + `*)\s*\}\}`)
 
 func Validate(def Definition, complete bool) error {
 	if def.Schema != SchemaVersion {
@@ -79,7 +79,11 @@ func (v *definitionValidator) walk(steps []Step, available map[string]bool, dept
 		}
 		available[step.ID] = true
 		for _, field := range outputFields(step) {
-			available[step.ID+"."+field] = true
+			separator := "."
+			if strings.HasPrefix(field, "[") {
+				separator = ""
+			}
+			available[step.ID+separator+field] = true
 		}
 		if err := v.walk(step.Then, cloneSet(available), depth+1); err != nil {
 			return err
@@ -242,18 +246,21 @@ func cloneSet(values map[string]bool) map[string]bool {
 	return result
 }
 func validateReference(ref string, available map[string]bool) error {
-	parts := strings.Split(ref, ".")
+	parts, err := referenceParts(ref)
+	if err != nil {
+		return err
+	}
 	if len(parts) < 2 || len(parts) > 8 || !available[parts[0]] {
 		return invalid("field references must point to a preceding step on this path")
 	}
 	for _, part := range parts {
-		if part == "" || part == "__proto__" || part == "constructor" || part == "prototype" {
+		if part == "__proto__" || part == "constructor" || part == "prototype" {
 			return invalid("invalid field reference")
 		}
 	}
-	if parts[0] != "source" && !available[ref] {
+	if parts[0] != "source" && !available[formatReferenceParts(parts)] {
 		for i := 2; i <= len(parts); i++ {
-			if available[strings.Join(parts[:i], ".")+".*"] {
+			if available[formatReferenceParts(parts[:i])+".*"] {
 				return nil
 			}
 		}
@@ -372,14 +379,18 @@ func outputFields(step Step) []string {
 	}
 	keys := make([]string, 0, len(fields))
 	for key := range fields {
-		keys = append(keys, key+".*")
+		keys = append(keys, appendReferencePath("", key)+".*")
 	}
 	return keys
 }
 
 func resolveReference(ref string, values map[string]any) (any, error) {
+	parts, err := referenceParts(ref)
+	if err != nil {
+		return nil, err
+	}
 	var current any = values
-	for _, part := range strings.Split(ref, ".") {
+	for _, part := range parts {
 		if list, ok := current.([]any); ok {
 			index, err := strconv.Atoi(part)
 			if err != nil || index < 0 || index >= len(list) {

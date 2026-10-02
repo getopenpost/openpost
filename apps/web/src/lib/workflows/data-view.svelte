@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import Choice from './choice.svelte';
+	import { appendReferencePath } from './reference-path';
 	import { m } from '$lib/paraglide/messages';
 	let {
 		label,
@@ -26,7 +27,7 @@
 			if (result.length >= 200 || !value || typeof value !== 'object' || depth >= 5) return;
 			for (const [key, child] of Object.entries(value)) {
 				if (result.length >= 200) break;
-				const next = path ? `${path}.${key}` : key;
+				const next = appendReferencePath(path, key);
 				result.push({
 					path: next,
 					value: child,

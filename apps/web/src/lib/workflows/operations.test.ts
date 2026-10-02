@@ -14,7 +14,9 @@ describe('workflow branch duplication', () => {
 					id: 'draft',
 					kind: 'create_draft',
 					name: 'Draft',
-					inputs: { text: { literal: '{{source.body}} {{decision.matched}}' } }
+					inputs: {
+						text: { literal: '{{source.body}} {{decision.matched}} {{decision["matched.value"]}}' }
+					}
 				},
 				{
 					id: 'review',
@@ -40,7 +42,9 @@ describe('workflow branch duplication', () => {
 		expect(new Set([copy.id, draft.id, review.id, code.id]).size).toBe(4);
 		expect([copy.id, draft.id, review.id, code.id]).not.toContain('draft');
 		expect(copy.inputs!.left.reference).toBe('source.body');
-		expect(draft.inputs!.text.literal).toBe(`{{source.body}} {{${copy.id}.matched}}`);
+		expect(draft.inputs!.text.literal).toBe(
+			`{{source.body}} {{${copy.id}.matched}} {{${copy.id}["matched.value"]}}`
+		);
 		expect(review.inputs!.publication_id.reference).toBe(`${draft.id}.id`);
 		expect(code.inputs!.data.literal).toEqual({ list: [`{{${draft.id}.id}}`] });
 		expect(code.inputs!.code.literal).toBe('return "{{draft.id}}";');

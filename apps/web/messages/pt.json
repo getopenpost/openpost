@@ -3213,6 +3213,7 @@
 	"settings_time_picker_range_body": "Escolhe a primeira hora, a última hora e o intervalo apresentados quando defines uma hora no compositor.",
 	"settings_start_time": "Hora inicial",
 	"settings_end_time": "Hora final",
+	"settings_time_range_invalid": "A hora de fim deve ser igual ou posterior à hora de início.",
 	"settings_interval": "Intervalo",
 	"settings_save_changes": "Guardar alterações",
 	"settings_action_failed": "Não foi possível concluir a ação.",

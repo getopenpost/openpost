@@ -32,6 +32,30 @@ type workspaceTestServer struct {
 	recorder *telemetry.MemoryRecorder
 }
 
+func TestWorkspaceSettingsRejectInvertedComposerRangeWithoutSaving(t *testing.T) {
+	for _, body := range []map[string]any{
+		{"slot_start_hour": 23, "slot_end_hour": 22},
+		{"slot_start_hour": 23},
+		{"slot_end_hour": 4},
+	} {
+		t.Run(fmt.Sprint(body), func(t *testing.T) {
+			srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
+			srv.handler.UpdateWorkspaceSettings(srv.api)
+			seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
+			_, err := srv.db.NewUpdate().Model((*models.Workspace)(nil)).Set("slot_start_hour = 5").Set("slot_end_hour = 22").Where("id = ?", "ws-1").Exec(context.Background())
+			require.NoError(t, err)
+			response := srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", body, "web-token")
+			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+			var saved models.Workspace
+			require.NoError(t, srv.db.NewSelect().Model(&saved).Where("id = ?", "ws-1").Scan(context.Background()))
+			require.Equal(t, 5, saved.SlotStartHour)
+			require.Equal(t, 22, saved.SlotEndHour)
+			valid := srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", map[string]any{"slot_start_hour": 23, "slot_end_hour": 23}, "web-token")
+			require.Equal(t, http.StatusOK, valid.Code, valid.Body.String())
+		})
+	}
+}
+
 func newWorkspaceTestServer(t *testing.T, entitlement entitlements.Service) *workspaceTestServer {
 	return newWorkspaceTestServerWithAuthenticator(t, entitlement, testAuthenticator{})
 }

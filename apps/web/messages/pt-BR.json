@@ -3213,6 +3213,7 @@
 	"settings_time_picker_range_body": "Choose the first time, last time, and interval shown when you set a custom time in the composer.",
 	"settings_start_time": "Start time",
 	"settings_end_time": "End time",
+	"settings_time_range_invalid": "A hora de término deve ser igual ou posterior à hora de início.",
 	"settings_interval": "Interval",
 	"settings_save_changes": "Save changes",
 	"settings_action_failed": "The action could not be completed.",

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { schedulingQueryKeys, type PostingSchedule } from '@openpost/query-catalog';
 import { client, type User, type Workspace } from '$lib/api/client';
@@ -8,6 +8,7 @@ import { queryClient } from '$lib/query/client';
 import { auth } from '$lib/stores/auth';
 import { workspaceCtx } from '$lib/stores/workspace.svelte';
 import ScheduleSettingsTab from './ScheduleSettingsTab.svelte';
+import '../../../routes/layout.css';
 
 const getMock = vi.spyOn(client, 'GET');
 const deleteMock = vi.spyOn(client, 'DELETE');
@@ -63,6 +64,28 @@ describe('posting schedule mutation ownership', () => {
 		await new Promise((resolve) => setTimeout(resolve, 20));
 
 		expect(scheduleReadCount('workspace-b')).toBe(workspaceBReads);
+	});
+
+	it('explains an inverted composer range and allows correcting it', async () => {
+		const screen = await render(ScheduleSettingsTab);
+		await userEvent.click(screen.container.querySelector('#start-time') as HTMLElement);
+		await page.getByRole('option', { name: '23:00', exact: true }).click();
+		await userEvent.click(screen.container.querySelector('#end-time') as HTMLElement);
+		await page.getByRole('option', { name: '22:00', exact: true }).click();
+		await expect
+			.element(page.getByText('End time must be at or after start time.', { exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Save changes', exact: true }))
+			.toBeDisabled();
+		await userEvent.click(screen.container.querySelector('#end-time') as HTMLElement);
+		await page.getByRole('option', { name: '23:00', exact: true }).click();
+		await expect
+			.element(page.getByText('End time must be at or after start time.', { exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Save changes', exact: true }))
+			.toBeEnabled();
 	});
 
 	function scheduleReadCount(workspaceID: string) {

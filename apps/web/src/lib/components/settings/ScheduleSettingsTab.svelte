@@ -46,6 +46,9 @@
 		new Intl.DateTimeFormat(getLocaleTag(), { weekday: 'long', timeZone: 'UTC' })
 	);
 	let saving = $state(false);
+	const timeRangeInvalid = $derived(
+		workspaceCtx.settings.slot_start_hour > workspaceCtx.settings.slot_end_hour
+	);
 	let loadedScheduleWorkspaceID = '';
 	let scheduleRequestSequence = 0;
 	let removeTimeDialogOpen = $state(false);
@@ -110,6 +113,7 @@
 	}
 
 	async function saveSettings() {
+		if (timeRangeInvalid || intervalError) return;
 		saving = true;
 		try {
 			await workspaceCtx.saveSettings({
@@ -762,7 +766,12 @@
 					value={String(workspaceCtx.settings.slot_start_hour)}
 					onValueChange={(v) => (workspaceCtx.settings.slot_start_hour = Number(v))}
 				>
-					<Select.Trigger id="start-time" class="w-full">
+					<Select.Trigger
+						id="start-time"
+						class="w-full"
+						aria-invalid={timeRangeInvalid}
+						aria-describedby="time-range-error"
+					>
 						{workspaceCtx.settings.slot_start_hour.toString().padStart(2, '0')}:00
 					</Select.Trigger>
 					<Select.Content class="max-h-60 overflow-y-auto">
@@ -779,7 +788,12 @@
 					value={String(workspaceCtx.settings.slot_end_hour)}
 					onValueChange={(v) => (workspaceCtx.settings.slot_end_hour = Number(v))}
 				>
-					<Select.Trigger id="end-time" class="w-full">
+					<Select.Trigger
+						id="end-time"
+						class="w-full"
+						aria-invalid={timeRangeInvalid}
+						aria-describedby="time-range-error"
+					>
 						{workspaceCtx.settings.slot_end_hour.toString().padStart(2, '0')}:00
 					</Select.Trigger>
 					<Select.Content class="max-h-60 overflow-y-auto">
@@ -812,6 +826,11 @@
 				{/if}
 			</div>
 		</div>
+		<FieldFeedback
+			id="time-range-error"
+			error={timeRangeInvalid ? m.settings_time_range_invalid() : ''}
+			touched={true}
+		/>
 	</div>
 </section>
 
@@ -819,7 +838,7 @@
 	label={m.settings_save_changes()}
 	savingLabel={m.settings_save_changes()}
 	{saving}
-	disabled={!workspaceCtx.settingsDirty || Boolean(intervalError)}
+	disabled={!workspaceCtx.settingsDirty || Boolean(intervalError) || timeRangeInvalid}
 	onSave={saveSettings}
 />
 

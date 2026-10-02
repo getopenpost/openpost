@@ -1646,6 +1646,9 @@ func (h *WorkspaceHandler) UpdateWorkspaceSettings(api huma.API) {
 			}
 			workspace.SlotEndHour = *input.Body.SlotEndHour
 		}
+		if (input.Body.SlotStartHour != nil || input.Body.SlotEndHour != nil) && workspace.SlotStartHour > workspace.SlotEndHour {
+			return nil, huma.Error400BadRequest("slot_end_hour must be at or after slot_start_hour")
+		}
 		if input.Body.SlotIntervalMinutes != nil {
 			if *input.Body.SlotIntervalMinutes < 1 || *input.Body.SlotIntervalMinutes > 180 {
 				return nil, huma.Error400BadRequest("slot_interval_minutes must be between 1 and 180")

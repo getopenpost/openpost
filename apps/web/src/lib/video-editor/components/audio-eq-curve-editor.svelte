@@ -81,16 +81,17 @@
 
 	const WIDTH = 320;
 	const HEIGHT = 240;
-	const PADDING_X = 2;
-	const PADDING_TOP = 2;
+	const PADDING_X = 40;
+	const PADDING_TOP = 12;
 	const PADDING_BOTTOM = 24;
 	const MIN_FREQUENCY_HZ = 20;
 	const MAX_FREQUENCY_HZ = 19000;
-	const DISPLAY_DB_MAX = 0;
-	const DISPLAY_DB_MIN = -80;
-	const EQ_BASELINE_DB = -40;
-	const GRID_LEVELS_DB = [0, -10, -20, -30, -40, -50, -60, -70, -80] as const;
+	const DISPLAY_DB_MAX = 40;
+	const DISPLAY_DB_MIN = -40;
+	const NEUTRAL_GAIN_DB = 0;
+	const GRID_LEVELS_DB = [40, 30, 20, 10, 0, -10, -20, -30, -40] as const;
 	const GRID_FREQUENCIES_HZ = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] as const;
+	const LABEL_FREQUENCIES_HZ = [31, 125, 500, 2000, 8000, 16000] as const;
 	const KEYBOARD_GAIN_STEP_DB = 0.5;
 	const KEYBOARD_FREQUENCY_RATIO = 1.06;
 	const KEYBOARD_FREQUENCY_RATIO_FAST = 1.16;
@@ -214,7 +215,7 @@
 	}
 
 	function gainToY(gainDb: number): number {
-		return displayDbToY(EQ_BASELINE_DB + clampAudioEqGainDb(gainDb));
+		return displayDbToY(gainDb);
 	}
 
 	function yToGain(y: number): number {
@@ -222,7 +223,7 @@
 		const clamped = Math.max(PADDING_TOP, Math.min(HEIGHT - PADDING_BOTTOM, y));
 		const normalized = (clamped - PADDING_TOP) / plotHeight;
 		const displayDb = DISPLAY_DB_MAX - normalized * (DISPLAY_DB_MAX - DISPLAY_DB_MIN);
-		return Math.round(clampAudioEqGainDb(displayDb - EQ_BASELINE_DB) * 10) / 10;
+		return Math.round(clampAudioEqGainDb(displayDb) * 10) / 10;
 	}
 
 	function formatFrequency(frequencyHz: number): string {
@@ -388,6 +389,9 @@
 	onpointerup={finishDrag}
 	onpointercancel={cancelDrag}
 >
+	<span class="pointer-events-none absolute top-2 right-2 text-xs text-white/60"
+		>{m.video_editor_audio_eq_gain()}</span
+	>
 	<svg
 		viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
 		preserveAspectRatio="none"
@@ -402,8 +406,8 @@
 				x2={WIDTH - PADDING_X}
 				y2={displayDbToY(level)}
 				stroke="currentColor"
-				stroke-opacity={level === EQ_BASELINE_DB ? 0.28 : 0.1}
-				stroke-dasharray={level === EQ_BASELINE_DB ? undefined : '2 3'}
+				stroke-opacity={level === NEUTRAL_GAIN_DB ? 0.28 : 0.1}
+				stroke-dasharray={level === NEUTRAL_GAIN_DB ? undefined : '2 3'}
 			/>
 		{/each}
 		{#each GRID_FREQUENCIES_HZ as frequencyHz (frequencyHz)}
@@ -428,13 +432,13 @@
 
 	{#each GRID_LEVELS_DB as level (level)}
 		<span
-			class="pointer-events-none absolute left-1.5 -translate-y-1/2 text-xs leading-none text-white/35 tabular-nums"
+			class="pointer-events-none absolute left-1.5 -translate-y-1/2 text-xs leading-none text-white/60 tabular-nums"
 			style={`top: ${(displayDbToY(level) / HEIGHT) * 100}%`}>{level}</span
 		>
 	{/each}
-	{#each GRID_FREQUENCIES_HZ as frequencyHz (frequencyHz)}
+	{#each LABEL_FREQUENCIES_HZ as frequencyHz (frequencyHz)}
 		<span
-			class="pointer-events-none absolute bottom-1 -translate-x-1/2 text-xs leading-none text-white/40 tabular-nums"
+			class="pointer-events-none absolute bottom-1 -translate-x-1/2 text-xs leading-none text-white/60 tabular-nums"
 			style={`left: ${(frequencyToX(frequencyHz) / WIDTH) * 100}%`}
 			>{formatFrequency(frequencyHz)}</span
 		>
@@ -446,7 +450,7 @@
 				type="button"
 				data-eq-band={handle.id}
 				class={`absolute flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/60 bg-[oklch(0.72_0.14_45)] text-xs font-semibold text-black shadow-sm after:absolute after:-inset-3 after:content-[''] focus-visible:outline-2 focus-visible:outline-[oklch(0.78_0.14_45)] ${drag?.handleId === handle.id ? 'scale-110 bg-white' : ''}`}
-				style={`left: ${(frequencyToX(frequency(handle)) / WIDTH) * 100}%; top: ${((handle.kind === 'gain' ? gainToY(gain(handle)) : displayDbToY(EQ_BASELINE_DB)) / HEIGHT) * 100}%`}
+				style={`left: ${(frequencyToX(frequency(handle)) / WIDTH) * 100}%; top: ${((handle.kind === 'gain' ? gainToY(gain(handle)) : displayDbToY(NEUTRAL_GAIN_DB)) / HEIGHT) * 100}%`}
 				aria-label={`${handle.label} ${m.video_editor_audio_eq_response()}`}
 				title={`${handle.label}: ${gain(handle) >= 0 ? '+' : ''}${gain(handle).toFixed(1)} dB @ ${formatFrequency(frequency(handle))} Hz`}
 				onpointerdown={(event) => startDrag(handle, event)}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import {
 		ArrowDown,
-		AudioLines,
+		SlidersHorizontal,
 		Film,
 		FileSearch,
 		Gauge,
@@ -23,16 +23,23 @@
 		previewTools,
 		imageConversions,
 		imageFormats,
-		mediaConversionTools
+		mediaConversionTools,
+		mediaToolArtwork
 	} from '@openpost/social-images';
 	import { PlatformGlyph } from '@openpost/social-preview';
 	import ThemeImage from '../_components/ThemeImage.svelte';
 	import type { MarketingToolSlug } from '../_marketing';
 
 	let { slug }: { slug: MarketingToolSlug } = $props();
+	const artworkSources = {
+		image: '/assets/marketing/tools/image.webp',
+		video: '/assets/marketing/tools/video.webp',
+		audio: '/assets/marketing/tools/audio.webp'
+	};
 	const platform = $derived(previewTools.find((tool) => tool.slug === slug)?.platform);
 	const conversion = $derived(imageConversions.find((tool) => tool.slug === slug));
 	const mediaTool = $derived(mediaConversionTools.find((tool) => tool.slug === slug));
+	const artwork = $derived(mediaToolArtwork(slug));
 	const inputFormat = $derived(
 		imageFormats.find((format) => format.id === conversion?.input)?.name
 	);
@@ -63,8 +70,9 @@
 <div
 	class="thumbnail"
 	class:screenshot={editor}
+	class:paired={conversion || (mediaTool?.input && mediaTool?.output)}
 	class:checkerboard={slug === 'background-remover'}
-	class:mint={slug === 'image-color-picker' || slug === 'logo-maker'}
+	class:mint={slug === 'image-color-picker' || slug === 'logo-maker' || artwork === 'image'}
 	class:blue={slug === 'quick-cut' || mediaTool?.category === 'Video'}
 	class:lilac={mediaTool?.category === 'Audio'}
 	aria-hidden="true"
@@ -79,23 +87,31 @@
 		/>
 	{:else if platform}
 		<PlatformGlyph {platform} />
-	{:else if conversion}
-		<span class="formats"
-			><span>{inputFormat}</span><ArrowDown size={14} /><span>{outputFormat}</span></span
-		>
-	{:else if mediaTool}
-		<div class="media-example">
-			{#if mediaTool.mode === 'inspect'}<FileSearch />
-			{:else if mediaTool.mode === 'mute'}<VolumeX />
-			{:else if mediaTool.mode === 'compress'}<Gauge />
-			{:else if mediaTool.category === 'Audio'}<AudioLines />
-			{:else}<Film />{/if}
-			{#if mediaTool.input && mediaTool.output}<span class="formats"
-					><span>{mediaTool.input.toUpperCase()}</span><ArrowDown size={14} /><span
-						>{mediaTool.output.toUpperCase()}</span
-					></span
-				>{/if}
-		</div>
+	{:else if artwork}
+		<img
+			class="tool-art"
+			src={artworkSources[artwork]}
+			alt=""
+			width="640"
+			height="640"
+			loading="lazy"
+			decoding="async"
+		/>
+		{#if conversion || (mediaTool?.input && mediaTool?.output)}
+			<span class="formats"
+				><span>{inputFormat ?? mediaTool?.input?.toUpperCase()}</span><ArrowDown size={14} /><span
+					>{outputFormat ?? mediaTool?.output?.toUpperCase()}</span
+				></span
+			>
+		{:else if mediaTool && (['inspect', 'mute', 'compress', 'extract'].includes(mediaTool.mode) || slug === 'video-codec-converter')}
+			<span class="operation">
+				{#if mediaTool.mode === 'inspect'}<FileSearch />
+				{:else if mediaTool.mode === 'mute'}<VolumeX />
+				{:else if mediaTool.mode === 'compress'}<Gauge />
+				{:else if mediaTool.mode === 'extract'}<Film />
+				{:else}<SlidersHorizontal />{/if}
+			</span>
+		{/if}
 	{:else if slug === 'image-color-picker'}
 		<div class="palette">
 			<img
@@ -128,6 +144,7 @@
 
 <style>
 	.thumbnail {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -180,24 +197,44 @@
 		max-width: 100%;
 		align-items: center;
 		gap: 2px;
-		font-size: 12px;
+		font-size: 18px;
 		font-weight: 650;
+		position: absolute;
+		right: 10%;
+		padding: 6px;
+		border-radius: 6px;
+		background: var(--background);
+		color: var(--foreground);
 	}
 	.lilac {
 		background: var(--marketing-lilac);
 		color: var(--marketing-lilac-ink);
 	}
-	.media-example {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 20px;
-		max-width: 100%;
+	.tool-art {
+		width: 88%;
+		height: 92%;
+		object-fit: contain;
 	}
-	.media-example > :global(svg) {
-		width: 48px;
-		height: 48px;
-		stroke-width: 1.5;
+	.paired .tool-art {
+		position: absolute;
+		left: 4%;
+		width: 68%;
+	}
+	.operation {
+		position: absolute;
+		right: 14%;
+		bottom: 10%;
+		display: grid;
+		place-items: center;
+		width: 38px;
+		height: 38px;
+		border-radius: 50%;
+		background: var(--background);
+		color: var(--foreground);
+	}
+	.operation :global(svg) {
+		width: 22px;
+		height: 22px;
 	}
 	.formats > span {
 		white-space: nowrap;
@@ -206,12 +243,25 @@
 		flex-shrink: 0;
 	}
 	@container (max-width: 100px) {
-		.media-example {
-			flex-direction: column;
-			gap: 2px;
+		.paired .tool-art {
+			left: -8%;
+			width: 76%;
 		}
-		.media-example:has(.formats) > :global(svg) {
-			display: none;
+		.formats {
+			right: 3px;
+			font-size: 11px;
+			padding: 3px;
+			gap: 0;
+		}
+		.operation {
+			right: 3px;
+			bottom: 3px;
+			width: 22px;
+			height: 22px;
+		}
+		.operation :global(svg) {
+			width: 14px;
+			height: 14px;
 		}
 	}
 	.palette {

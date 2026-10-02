@@ -139,6 +139,14 @@ export const mediaConversionTools = [
   },
 ];
 
+export function mediaToolArtwork(slug) {
+  if (slug === "image-converter" || imageConversions.some((tool) => tool.slug === slug))
+    return "image";
+  const tool = mediaConversionTools.find((tool) => tool.slug === slug);
+  if (!tool) return undefined;
+  return tool.category === "Audio" ? "audio" : "video";
+}
+
 export const mediaTools = [
   {
     slug: "background-remover",

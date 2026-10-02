@@ -202,5 +202,6 @@ export interface MediaConversionTool extends MediaTool {
   output?: MediaOutputFormat;
 }
 export const mediaConversionTools: readonly MediaConversionTool[];
+export function mediaToolArtwork(slug: string): "image" | "video" | "audio" | undefined;
 export const videoFormats: readonly { id: VideoToolFormat; name: string }[];
 export const audioFormats: readonly { id: AudioToolFormat; name: string }[];

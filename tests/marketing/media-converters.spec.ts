@@ -43,8 +43,21 @@ test("conversion thumbnail labels fit inside their artwork at every directory wi
         }),
       );
       expect(overflow, `clipped labels at ${width}px in ${theme}`).toEqual([]);
-      await visuals.first().scrollIntoViewIfNeeded();
-      await page.screenshot({ path: testInfo.outputPath(`thumbnails-${width}-${theme}.png`) });
+      for (const [index, family] of ["video", "audio", "image"].entries()) {
+        const visual = visuals.nth(index);
+        await visual.scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            visual
+              .locator("img")
+              .evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
+          )
+          .toBe(true);
+        await visual.locator("img").evaluate((image: HTMLImageElement) => image.decode());
+        await page.screenshot({
+          path: testInfo.outputPath(`thumbnails-${family}-${width}-${theme}.png`),
+        });
+      }
     }
   }
 });
@@ -181,6 +194,7 @@ test.afterAll(async () => {
 
 function probe(path: string) {
   execFileSync("ffmpeg", ["-v", "error", "-xerror", "-i", path, "-f", "null", "-"]);
+  // SAFETY: ffprobe's successful -show_streams/-show_format JSON output supplies these fields.
   return JSON.parse(
     execFileSync("ffprobe", ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], {
       encoding: "utf8",

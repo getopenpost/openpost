@@ -7,6 +7,7 @@ export {
   imageConversions,
   imageFormats,
   mediaConversionTools,
+  mediaToolArtwork,
   videoFormats,
   audioFormats,
 } from "./media-tools.js";

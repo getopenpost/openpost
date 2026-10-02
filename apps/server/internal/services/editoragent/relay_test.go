@@ -33,7 +33,7 @@ func relayTestDB(t *testing.T) *bun.DB {
 			t.Fatal(err)
 		}
 	}
-	migration, err := os.ReadFile("../../database/migrations/149_editor_agent_relay.sql")
+	migration, err := os.ReadFile("../../database/migrations/150_editor_agent_relay.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

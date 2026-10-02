@@ -42,9 +42,7 @@ test("a hydrated draft retains format changes, shared media and a new follow-up 
       content_profile: "image_post",
       source_text: "Audit shared media",
       segments: [{ body: "Audit shared media" }],
-      renditions: [
-        { social_account_id: accountID, output_profile: "instagram.feed", format_locked: true },
-      ],
+      renditions: [],
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
@@ -100,6 +98,14 @@ test("a hydrated draft retains format changes, shared media and a new follow-up 
   );
   await authenticatePage(page, auth.token);
   await page.goto(`/publications/${publication.id}?workspace_id=${workspace.id}`);
+  await page.getByRole("button", { name: /^Accounts:/ }).click();
+  const destination = page
+    .getByTestId("composer-account-row")
+    .filter({ hasText: "auditmedia" })
+    .getByRole("checkbox");
+  await destination.uncheck();
+  await destination.check();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Add media", exact: true }).click();
   const picker = page.getByRole("dialog");
   await picker.getByRole("tab", { name: "Library", exact: true }).click();
@@ -117,7 +123,7 @@ test("a hydrated draft retains format changes, shared media and a new follow-up 
       const saved = await (await request.get(path, { headers })).json();
       return {
         sourceMedia: (saved.segments[0].media ?? []).map((item: { id: string }) => item.id),
-        bodies: saved.renditions[0].segments.map((segment: { body: string }) => segment.body),
+        bodies: saved.renditions[0]?.segments.map((segment: { body: string }) => segment.body),
       };
     })
     .toEqual({

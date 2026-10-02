@@ -5235,6 +5235,7 @@
 	"video_editor_restore_failed": "해당 프로젝트 버전을 복원하지 못했습니다.",
 	"video_editor_conflict_title": "이 프로젝트는 다른 곳에서 변경되었습니다",
 	"video_editor_conflict_preserved": "로컬 편집 내용은 이 브라우저에 그대로 저장되어 있습니다.",
+	"video_editor_conflict_copy_uploads_pending": "이 프로젝트의 미디어 업로드를 완료한 뒤 사본 저장을 다시 시도하세요. 로컬 편집 내용은 보존되었습니다.",
 	"video_editor_conflict_save_copy": "로컬 편집 내용을 사본으로 저장",
 	"video_editor_conflict_reload": "OpenPost 버전 불러오기",
 	"video_editor_project_invalid": "저장된 프로젝트 문서가 잘못되었습니다.",

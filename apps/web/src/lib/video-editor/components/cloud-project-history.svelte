@@ -7,6 +7,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import {
 		CloudVideoProjectRepository,
+		CloudProjectSourceUploadsPendingError,
 		type CloudVideoProjectConflict,
 		type CloudVideoProjectRevision
 	} from '$lib/video-editor/cloud/project-repository';
@@ -136,17 +137,26 @@
 		error = '';
 		try {
 			const copyName = m.video_editor_project_copy_name({ name: conflict.document.name });
-			const copy = await repository().create(copyName, {
-				...conflict.document,
-				id: crypto.randomUUID(),
-				name: copyName,
-				createdAt: Date.now(),
-				updatedAt: Date.now()
-			});
+			const copy = await repository().create(
+				copyName,
+				{
+					...conflict.document,
+					id: crypto.randomUUID(),
+					name: copyName,
+					createdAt: Date.now(),
+					updatedAt: Date.now()
+				},
+				{ sourceProjectId: projectId }
+			);
 			await repository().resolveConflict(projectId, conflict.id, 'keep_current');
+			await onreload();
+			open = false;
 			await goto(resolveAppPath(`/video-editor/${copy.id}?storage=cloud`));
-		} catch {
-			error = m.video_editor_restore_failed();
+		} catch (cause) {
+			error =
+				cause instanceof CloudProjectSourceUploadsPendingError
+					? m.video_editor_conflict_copy_uploads_pending()
+					: m.video_editor_restore_failed();
 		} finally {
 			working = false;
 		}

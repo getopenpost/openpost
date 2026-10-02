@@ -15,6 +15,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
+	"github.com/openpost/backend/internal/services/videoprojects"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -81,6 +82,111 @@ func TestCloudVideoProjectCreateLoadAndWorkspaceAuthorization(t *testing.T) {
 
 	otherWorkspace := server.request(t, "editor-token", http.MethodGet, "/api/v1/video-projects/"+project.ID+"?workspace_id=ws-2", nil)
 	require.Equal(t, http.StatusNotFound, otherWorkspace.Code, otherWorkspace.Body.String())
+}
+
+func TestCloudVideoProjectCopyRetainsIndependentAssetReferences(t *testing.T) {
+	server := newVideoProjectTestServer(t)
+	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"id": "original-project", "workspace_id": "ws-1", "name": "Original",
+		"document": map[string]any{"id": "original-project"},
+	})
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	asset := &models.ProjectAsset{
+		ID: "original-asset", ProjectID: "original-project", WorkspaceID: "ws-1",
+		StableMediaID: "clip-source", MediaID: "workspace-video", OriginalFilename: "recording.webm", MimeType: "video/webm",
+		Size: 1234, SHA256: "original-hash", Status: models.ProjectAssetStatusReady,
+		PreparationJSON: `{"duration":3}`, Required: true, UploadedByUserID: "user-editor",
+	}
+	_, err := server.db.NewInsert().Model(asset).Exec(t.Context())
+	require.NoError(t, err)
+	payload := map[string]any{
+		"id": "copied-project", "workspace_id": "ws-1", "name": "Conflict copy",
+		"source_project_id": "original-project",
+		"document": map[string]any{"id": "copied-project", "timeline": map[string]any{
+			"items": []any{map[string]any{"id": "clip", "mediaId": "clip-source"}},
+		}},
+	}
+	for range 2 {
+		copied := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", payload)
+		require.Equal(t, http.StatusOK, copied.Code, copied.Body.String())
+	}
+	var assets []models.ProjectAsset
+	require.NoError(t, server.db.NewSelect().Model(&assets).Where("project_id = ?", "copied-project").Scan(t.Context()))
+	require.Len(t, assets, 1, "copy must retain the clip source and retries must not duplicate it")
+	require.NotEqual(t, asset.ID, assets[0].ID)
+	require.Equal(t, asset.StableMediaID, assets[0].StableMediaID)
+	require.Equal(t, asset.MediaID, assets[0].MediaID)
+	require.Equal(t, asset.PreparationJSON, assets[0].PreparationJSON)
+	require.Equal(t, asset.SHA256, assets[0].SHA256)
+	require.Equal(t, asset.Status, assets[0].Status)
+	for _, transition := range []struct {
+		name   string
+		apply  func() error
+		status string
+		sync   string
+	}{
+		{"storage failure", func() error {
+			return videoprojects.MarkAssetNeedsStorageForMedia(t.Context(), server.db, "ws-1", asset.MediaID, "storage quota exceeded")
+		}, models.ProjectAssetStatusNeedsStorage, models.VideoProjectSyncNeedsAttention},
+		{"upload completion", func() error {
+			return videoprojects.CompleteAssetForMedia(t.Context(), server.db, "ws-1", asset.MediaID, "completed-hash")
+		}, models.ProjectAssetStatusReady, models.VideoProjectSyncSynced},
+	} {
+		require.NoError(t, transition.apply())
+		for _, projectID := range []string{"original-project", "copied-project"} {
+			var stored models.ProjectAsset
+			require.NoError(t, server.db.NewSelect().Model(&stored).Where("project_id = ?", projectID).Scan(t.Context()))
+			require.Equal(t, transition.status, stored.Status, "%s must reach %s", transition.name, projectID)
+			var project models.VideoProject
+			require.NoError(t, server.db.NewSelect().Model(&project).Where("id = ?", projectID).Scan(t.Context()))
+			require.Equal(t, transition.sync, project.SyncStatus, "%s must refresh %s", transition.name, projectID)
+		}
+	}
+	_, err = server.db.NewDelete().Model(asset).WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, server.db.NewSelect().Model(&assets).Where("project_id = ?", "copied-project").Scan(t.Context()))
+	require.Len(t, assets, 1, "removing an original reference must not remove the copy's reference")
+}
+
+func TestCloudVideoProjectCopyWaitsForUnlinkedSourceUploads(t *testing.T) {
+	server := newVideoProjectTestServer(t)
+	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"id": "uploading-project", "workspace_id": "ws-1", "name": "Uploading", "document": map[string]any{"id": "uploading-project"},
+	})
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	asset := &models.ProjectAsset{ID: "unlinked-source", ProjectID: "uploading-project", WorkspaceID: "ws-1", StableMediaID: "source", Status: models.ProjectAssetStatusUploading, Required: true}
+	_, err := server.db.NewInsert().Model(asset).Exec(t.Context())
+	require.NoError(t, err)
+	copied := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+		"id": "blocked-copy", "workspace_id": "ws-1", "name": "Copy", "source_project_id": "uploading-project", "document": map[string]any{"id": "blocked-copy"},
+	})
+	require.Equal(t, http.StatusConflict, copied.Code, copied.Body.String())
+	count, err := server.db.NewSelect().Model((*models.VideoProject)(nil)).Where("id = ?", "blocked-copy").Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count, "an unlinked source cannot leave a copy stuck uploading forever")
+}
+
+func TestCloudVideoProjectCopyRejectsMissingOrForeignSourcesWithoutCreatingAProject(t *testing.T) {
+	server := newVideoProjectTestServer(t)
+	foreign := &models.VideoProject{
+		ID: "foreign-source", WorkspaceID: "ws-2", Name: "Private source", DocumentJSON: `{}`,
+		CreatedByUserID: "user-editor", UpdatedByUserID: "user-editor",
+	}
+	_, err := server.db.NewInsert().Model(foreign).Exec(t.Context())
+	require.NoError(t, err)
+	for _, sourceID := range []string{"missing-source", "foreign-source"} {
+		t.Run(sourceID, func(t *testing.T) {
+			id := "copy-" + sourceID
+			copied := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
+				"id": id, "workspace_id": "ws-1", "name": "Copy", "source_project_id": sourceID,
+				"document": map[string]any{"id": id},
+			})
+			require.Equal(t, http.StatusNotFound, copied.Code, copied.Body.String())
+			count, err := server.db.NewSelect().Model((*models.VideoProject)(nil)).Where("id = ?", id).Count(t.Context())
+			require.NoError(t, err)
+			require.Zero(t, count, "failed source lookup must roll back the copy")
+		})
+	}
 }
 
 func TestCloudVideoProjectAssetDeleteRemovesAssetAndIsIdempotent(t *testing.T) {

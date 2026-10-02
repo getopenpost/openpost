@@ -5235,6 +5235,7 @@
 	"video_editor_restore_failed": "Não foi possível restaurar essa versão do projeto.",
 	"video_editor_conflict_title": "Este projeto mudou em outro lugar",
 	"video_editor_conflict_preserved": "Sua edição local continua salva neste navegador.",
+	"video_editor_conflict_copy_uploads_pending": "Conclua o envio dos arquivos deste projeto e tente salvar uma cópia novamente. Sua edição local foi mantida.",
 	"video_editor_conflict_save_copy": "Salvar edição local como cópia",
 	"video_editor_conflict_reload": "Carregar versão do OpenPost",
 	"video_editor_project_invalid": "O documento do projeto salvo é inválido.",

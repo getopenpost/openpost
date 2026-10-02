@@ -49,11 +49,12 @@ type VideoProjectResponse struct {
 
 type CreateVideoProjectInput struct {
 	Body struct {
-		ID          string         `json:"id,omitempty" maxLength:"160" doc:"Optional client-generated idempotent project ID"`
-		WorkspaceID string         `json:"workspace_id" minLength:"1" doc:"Owning Workspace ID"`
-		Name        string         `json:"name" minLength:"1" maxLength:"160" doc:"Project name"`
-		DeviceID    string         `json:"device_id,omitempty" maxLength:"160" doc:"Stable client device identifier"`
-		Document    map[string]any `json:"document" doc:"Portable authored project document without device view state"`
+		ID              string         `json:"id,omitempty" maxLength:"160" doc:"Optional client-generated idempotent project ID"`
+		WorkspaceID     string         `json:"workspace_id" minLength:"1" doc:"Owning Workspace ID"`
+		Name            string         `json:"name" minLength:"1" maxLength:"160" doc:"Project name"`
+		DeviceID        string         `json:"device_id,omitempty" maxLength:"160" doc:"Stable client device identifier"`
+		SourceProjectID string         `json:"source_project_id,omitempty" maxLength:"160" doc:"Copy asset references from a project in the same Workspace"`
+		Document        map[string]any `json:"document" doc:"Portable authored project document without device view state"`
 	}
 }
 
@@ -273,7 +274,7 @@ func (h *VideoProjectHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "create-video-project", Method: http.MethodPost, Path: videoProjectsPath,
 		Summary: "Create a Cloud Video Project", Tags: []string{"Video Projects"},
-		Middlewares: auth, Errors: []int{400, 403},
+		Middlewares: auth, Errors: []int{400, 403, 404, 409},
 	}, h.create)
 	huma.Register(api, huma.Operation{
 		OperationID: "list-video-projects", Method: http.MethodGet, Path: videoProjectsPath,
@@ -358,11 +359,12 @@ func (h *VideoProjectHandler) create(ctx context.Context, input *CreateVideoProj
 		return nil, huma.Error400BadRequest("Invalid project document")
 	}
 	project, err := h.service.Create(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), videoprojects.CreateInput{
-		ID:          input.Body.ID,
-		WorkspaceID: input.Body.WorkspaceID,
-		Name:        input.Body.Name,
-		Document:    document,
-		DeviceID:    input.Body.DeviceID,
+		ID:              input.Body.ID,
+		WorkspaceID:     input.Body.WorkspaceID,
+		Name:            input.Body.Name,
+		Document:        document,
+		DeviceID:        input.Body.DeviceID,
+		SourceProjectID: input.Body.SourceProjectID,
 	})
 	if err != nil {
 		return nil, videoProjectError(err, "create")
@@ -674,6 +676,8 @@ func videoProjectError(err error, action string) error {
 		return huma.Error403Forbidden("Workspace role does not allow this Video Project action")
 	case errors.Is(err, videoprojects.ErrNotFound):
 		return huma.Error404NotFound("Video Project not found")
+	case errors.Is(err, videoprojects.ErrSourceUploadsPending):
+		return huma.Error409Conflict("Finish uploading this project's media before making a copy. Your local edit has been kept.")
 	case errors.Is(err, videoprojects.ErrRevisionChanged):
 		return huma.Error409Conflict("Video Project changed while saving; retry the mutation")
 	default:

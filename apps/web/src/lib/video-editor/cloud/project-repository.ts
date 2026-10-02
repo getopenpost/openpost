@@ -199,6 +199,8 @@ function documentFromAPI<TDocument extends object>(value: CloudVideoProjectDocum
 	return result.data as TDocument;
 }
 
+export class CloudProjectSourceUploadsPendingError extends Error {}
+
 export class CloudVideoProjectRepository<TDocument extends object> {
 	readonly outbox = new VideoProjectMutationOutbox(new BrowserMutationStorage());
 
@@ -252,25 +254,34 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 		return project;
 	}
 
-	async create(name: string, document: TDocument): Promise<CloudVideoProject<TDocument>> {
-		return this.createWithId(crypto.randomUUID(), name, document);
+	async create(
+		name: string,
+		document: TDocument,
+		options: { sourceProjectId?: string } = {}
+	): Promise<CloudVideoProject<TDocument>> {
+		return this.createWithId(crypto.randomUUID(), name, document, options);
 	}
 
 	async createWithId(
 		id: string,
 		name: string,
-		document: TDocument
+		document: TDocument,
+		options: { sourceProjectId?: string } = {}
 	): Promise<CloudVideoProject<TDocument>> {
 		const portable = portableVideoProjectDocument({ ...document, id });
-		const { data, error } = await client.POST('/video-projects', {
+		const { data, error, response } = await client.POST('/video-projects', {
 			body: {
 				id,
 				workspace_id: this.workspaceId,
 				name,
 				device_id: deviceId(),
+				source_project_id: options.sourceProjectId,
 				document: portable
 			}
 		});
+		if (response.status === 409 && options.sourceProjectId) {
+			throw new CloudProjectSourceUploadsPendingError();
+		}
 		if (error || !data) throw new Error('Could not create Cloud Video Project');
 		queryClient.setQueryData(videoProjectQueryKeys.detail(this.workspaceId, data.id), data);
 		await this.invalidateLists();

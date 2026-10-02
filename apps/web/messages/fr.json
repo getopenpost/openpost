@@ -5235,6 +5235,7 @@
 	"video_editor_restore_failed": "Impossible de restaurer cette version du projet.",
 	"video_editor_conflict_title": "Ce projet a changé ailleurs",
 	"video_editor_conflict_preserved": "Votre montage local reste enregistré dans ce navigateur.",
+	"video_editor_conflict_copy_uploads_pending": "Terminez le téléversement des fichiers de ce projet, puis réessayez de sauvegarder une copie. Votre modification locale a été conservée.",
 	"video_editor_conflict_save_copy": "Enregistrer le montage local comme copie",
 	"video_editor_conflict_reload": "Charger la version OpenPost",
 	"video_editor_project_invalid": "Le document de projet enregistré est invalide.",

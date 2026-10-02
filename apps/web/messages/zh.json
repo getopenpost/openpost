@@ -5235,6 +5235,7 @@
 	"video_editor_restore_failed": "该项目版本恢复失败。",
 	"video_editor_conflict_title": "此项目已在其他地方更改",
 	"video_editor_conflict_preserved": "你的本地编辑仍保存在此浏览器中。",
+	"video_editor_conflict_copy_uploads_pending": "请完成此项目的媒体上传，然后再次尝试保存副本。本地编辑内容已保留。",
 	"video_editor_conflict_save_copy": "将本地编辑存为副本",
 	"video_editor_conflict_reload": "载入 OpenPost 版本",
 	"video_editor_project_invalid": "已保存的项目文档无效。",

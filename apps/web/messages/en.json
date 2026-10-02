@@ -5276,6 +5276,7 @@
 	"video_editor_restore_failed": "That project version could not be restored.",
 	"video_editor_conflict_title": "This project changed elsewhere",
 	"video_editor_conflict_preserved": "Your local edit remains saved in this browser.",
+	"video_editor_conflict_copy_uploads_pending": "Finish uploading this project's media, then try saving a copy again. Your local edit has been kept.",
 	"video_editor_conflict_save_copy": "Save local edit as a copy",
 	"video_editor_conflict_reload": "Load OpenPost version",
 	"video_editor_project_invalid": "The saved project document is invalid.",

@@ -5230,6 +5230,7 @@
 	"video_editor_restore_failed": "Diese Projektversion konnte nicht wiederhergestellt werden.",
 	"video_editor_conflict_title": "Dieses Projekt wurde woanders geändert",
 	"video_editor_conflict_preserved": "Deine lokale Bearbeitung bleibt in diesem Browser gespeichert.",
+	"video_editor_conflict_copy_uploads_pending": "Lade zuerst alle Mediendateien dieses Projekts hoch und versuche dann erneut, eine Kopie zu speichern. Deine lokale Bearbeitung wurde behalten.",
 	"video_editor_conflict_save_copy": "Lokale Bearbeitung als Kopie speichern",
 	"video_editor_conflict_reload": "OpenPost-Version laden",
 	"video_editor_project_invalid": "Das gespeicherte Projektdokument ist ungültig.",

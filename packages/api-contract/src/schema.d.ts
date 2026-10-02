@@ -8037,6 +8037,8 @@ export interface components {
             id?: string;
             /** @description Project name */
             name: string;
+            /** @description Copy asset references from a project in the same Workspace */
+            source_project_id?: string;
             /** @description Owning Workspace ID */
             workspace_id: string;
         };
@@ -35889,6 +35891,24 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

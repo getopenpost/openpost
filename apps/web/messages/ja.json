@@ -5235,6 +5235,7 @@
 	"video_editor_restore_failed": "そのプロジェクトのバージョンを復元できませんでした。",
 	"video_editor_conflict_title": "このプロジェクトは別の場所で変更されました",
 	"video_editor_conflict_preserved": "ローカルの編集内容はこのブラウザに保存されたままです。",
+	"video_editor_conflict_copy_uploads_pending": "このプロジェクトのメディアのアップロードが完了したら、コピーの保存をもう一度試してください。ローカルの編集内容は保持されています。",
 	"video_editor_conflict_save_copy": "ローカル編集をコピーとして保存",
 	"video_editor_conflict_reload": "OpenPost 版を読み込む",
 	"video_editor_project_invalid": "保存済みプロジェクトのドキュメントが不正です。",

@@ -5235,6 +5235,7 @@
 	"video_editor_restore_failed": "Esa versión del proyecto no pudo ser restaurada.",
 	"video_editor_conflict_title": "Este proyecto cambió en otros lugares",
 	"video_editor_conflict_preserved": "Tu edición local permanece guardada en este navegador.",
+	"video_editor_conflict_copy_uploads_pending": "Termina de subir los archivos de este proyecto y vuelve a intentar guardar una copia. Tu edición local se ha conservado.",
 	"video_editor_conflict_save_copy": "Guardar edición local como copia",
 	"video_editor_conflict_reload": "Cargar versión OpenPost",
 	"video_editor_project_invalid": "El documento de proyecto guardado no es válido.",

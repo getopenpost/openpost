@@ -5235,6 +5235,7 @@
 	"video_editor_restore_failed": "Bu proje sürümü geri yüklenemedi.",
 	"video_editor_conflict_title": "Bu proje başka bir yerden değişti",
 	"video_editor_conflict_preserved": "Yerel düzenlemeniz bu tarayıcıya kayıtlı olarak kalır.",
+	"video_editor_conflict_copy_uploads_pending": "Bu projenin medya dosyalarını yüklemeyi tamamlayın, ardından bir kopya kaydetmeyi yeniden deneyin. Yerel düzenlemeniz korundu.",
 	"video_editor_conflict_save_copy": "Yerel düzenlemeyi kopya olarak kaydet",
 	"video_editor_conflict_reload": "OpenPost sürümünü yükle",
 	"video_editor_project_invalid": "Kayıtlı proje belgesi geçersiz.",

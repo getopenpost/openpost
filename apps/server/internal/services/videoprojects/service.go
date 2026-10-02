@@ -33,10 +33,11 @@ const (
 )
 
 var (
-	ErrForbidden       = errors.New("video project access denied")
-	ErrNotFound        = errors.New("video project not found")
-	ErrInvalid         = errors.New("invalid video project request")
-	ErrRevisionChanged = errors.New("video project revision changed")
+	ErrForbidden            = errors.New("video project access denied")
+	ErrNotFound             = errors.New("video project not found")
+	ErrInvalid              = errors.New("invalid video project request")
+	ErrRevisionChanged      = errors.New("video project revision changed")
+	ErrSourceUploadsPending = errors.New("video project source uploads are incomplete")
 )
 
 type Service struct {
@@ -49,11 +50,12 @@ func NewService(db *bun.DB) *Service {
 }
 
 type CreateInput struct {
-	ID          string
-	WorkspaceID string
-	Name        string
-	Document    json.RawMessage
-	DeviceID    string
+	ID              string
+	WorkspaceID     string
+	Name            string
+	Document        json.RawMessage
+	DeviceID        string
+	SourceProjectID string
 }
 
 type ReserveAssetInput struct {
@@ -351,11 +353,8 @@ func BindAssetMediaWithDB(ctx context.Context, db bun.IDB, actor workspaceaccess
 
 func CompleteAssetForMedia(ctx context.Context, db *bun.DB, workspaceID, mediaID, sha256 string) error {
 	return db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		var asset models.ProjectAsset
-		if err := tx.NewSelect().Model(&asset).Where("workspace_id = ? AND media_id = ?", workspaceID, mediaID).Scan(txCtx); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
+		var assets []models.ProjectAsset
+		if err := tx.NewSelect().Model(&assets).Where("workspace_id = ? AND media_id = ?", workspaceID, mediaID).Scan(txCtx); err != nil {
 			return err
 		}
 		now := time.Now().UTC()
@@ -364,10 +363,20 @@ func CompleteAssetForMedia(ctx context.Context, db *bun.DB, workspaceID, mediaID
 			Set("sha256 = ?", strings.TrimSpace(sha256)).
 			Set("attention_reason = ''").
 			Set("updated_at = ?", now).
-			Where("id = ?", asset.ID).Exec(txCtx); err != nil {
+			Where("workspace_id = ? AND media_id = ?", workspaceID, mediaID).Exec(txCtx); err != nil {
 			return err
 		}
-		return refreshProjectSyncState(txCtx, tx, asset.ProjectID, now)
+		seen := make(map[string]bool, len(assets))
+		for _, asset := range assets {
+			if seen[asset.ProjectID] {
+				continue
+			}
+			seen[asset.ProjectID] = true
+			if err := refreshProjectSyncState(txCtx, tx, asset.ProjectID, now); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -397,11 +406,8 @@ func MarkAssetNeedsStorage(ctx context.Context, db *bun.DB, actor workspaceacces
 
 func MarkAssetNeedsStorageForMedia(ctx context.Context, db *bun.DB, workspaceID, mediaID, reason string) error {
 	return db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		var asset models.ProjectAsset
-		if err := tx.NewSelect().Model(&asset).Where("workspace_id = ? AND media_id = ?", workspaceID, mediaID).Scan(txCtx); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
+		var assets []models.ProjectAsset
+		if err := tx.NewSelect().Model(&assets).Where("workspace_id = ? AND media_id = ?", workspaceID, mediaID).Scan(txCtx); err != nil {
 			return err
 		}
 		now := time.Now().UTC()
@@ -409,10 +415,20 @@ func MarkAssetNeedsStorageForMedia(ctx context.Context, db *bun.DB, workspaceID,
 			Set("status = ?", models.ProjectAssetStatusNeedsStorage).
 			Set("attention_reason = ?", firstNonEmpty(reason, "storage quota exceeded")).
 			Set("updated_at = ?", now).
-			Where("id = ?", asset.ID).Exec(txCtx); err != nil {
+			Where("workspace_id = ? AND media_id = ?", workspaceID, mediaID).Exec(txCtx); err != nil {
 			return err
 		}
-		return refreshProjectSyncState(txCtx, tx, asset.ProjectID, now)
+		seen := make(map[string]bool, len(assets))
+		for _, asset := range assets {
+			if seen[asset.ProjectID] {
+				continue
+			}
+			seen[asset.ProjectID] = true
+			if err := refreshProjectSyncState(txCtx, tx, asset.ProjectID, now); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -630,15 +646,27 @@ func (s *Service) setTrashState(ctx context.Context, actor workspaceaccess.Actor
 	return result, nil
 }
 
-func (s *Service) Create(ctx context.Context, actor workspaceaccess.ActorFacts, input CreateInput) (*models.VideoProject, error) {
+func normalizeCreateInput(input CreateInput) (CreateInput, json.RawMessage, error) {
 	input.ID = strings.TrimSpace(input.ID)
 	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
 	input.Name = strings.TrimSpace(input.Name)
 	input.DeviceID = strings.TrimSpace(input.DeviceID)
+	input.SourceProjectID = strings.TrimSpace(input.SourceProjectID)
+	if input.SourceProjectID != "" && input.SourceProjectID == input.ID {
+		return input, nil, ErrInvalid
+	}
 	if input.WorkspaceID == "" || input.Name == "" || len(input.Name) > maxProjectNameBytes {
-		return nil, ErrInvalid
+		return input, nil, ErrInvalid
 	}
 	document, err := normalizeDocument(input.Document)
+	if err != nil {
+		return input, nil, err
+	}
+	return input, document, nil
+}
+
+func (s *Service) Create(ctx context.Context, actor workspaceaccess.ActorFacts, input CreateInput) (*models.VideoProject, error) {
+	input, document, err := normalizeCreateInput(input)
 	if err != nil {
 		return nil, err
 	}
@@ -677,6 +705,19 @@ func (s *Service) Create(ctx context.Context, actor workspaceaccess.ActorFacts, 
 		if _, err := tx.NewInsert().Model(project).Exec(txCtx); err != nil {
 			return err
 		}
+		if input.SourceProjectID != "" {
+			if err := copyProjectAssets(txCtx, tx, input.SourceProjectID, project); err != nil {
+				return err
+			}
+			status, attention, err := projectSyncState(txCtx, tx, project.ID)
+			if err != nil {
+				return err
+			}
+			project.SyncStatus, project.AttentionReason = status, attention
+			if _, err := tx.NewUpdate().Model(project).Column("sync_status", "attention_reason").WherePK().Exec(txCtx); err != nil {
+				return err
+			}
+		}
 		_, err := tx.NewInsert().Model(revision).Exec(txCtx)
 		return err
 	})
@@ -687,6 +728,31 @@ func (s *Service) Create(ctx context.Context, actor workspaceaccess.ActorFacts, 
 		return nil, fmt.Errorf("create video project: %w", err)
 	}
 	return project, nil
+}
+
+func copyProjectAssets(ctx context.Context, tx bun.Tx, sourceID string, project *models.VideoProject) error {
+	if _, err := loadProject(ctx, tx, project.WorkspaceID, sourceID, false); err != nil {
+		return err
+	}
+	var assets []models.ProjectAsset
+	if err := tx.NewSelect().Model(&assets).Where("project_id = ? AND workspace_id = ?", sourceID, project.WorkspaceID).Scan(ctx); err != nil {
+		return err
+	}
+	for index := range assets {
+		asset := &assets[index]
+		// Upload admission binds only the original asset ID. An unlinked copy cannot finish that upload.
+		if asset.MediaID == "" {
+			return ErrSourceUploadsPending
+		}
+		asset.ID = uuid.NewString()
+		asset.ProjectID = project.ID
+		asset.CreatedAt, asset.UpdatedAt = project.CreatedAt, project.CreatedAt
+	}
+	if len(assets) == 0 {
+		return nil
+	}
+	_, err := tx.NewInsert().Model(&assets).Exec(ctx)
+	return err
 }
 
 func (s *Service) Get(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, projectID string) (*models.VideoProject, error) {

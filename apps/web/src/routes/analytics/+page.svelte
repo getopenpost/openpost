@@ -871,7 +871,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row">
 						<div
-							class="flex min-h-11 items-center rounded-md border border-border p-1 sm:min-h-9"
+							class="flex min-h-11 flex-wrap items-center gap-1 rounded-md border border-border p-1 sm:min-h-9"
 							role="group"
 							aria-label={m.analytics_chart_metric_label()}
 						>
@@ -879,7 +879,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								<button
 									type="button"
 									class={[
-										'min-h-9 flex-1 rounded-sm px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-7',
+										'min-h-11 flex-auto rounded-sm px-2.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-7 [@media(pointer:coarse)]:min-h-11',
 										chartMetric === metric
 											? 'bg-secondary text-secondary-foreground'
 											: 'text-muted-foreground hover:text-foreground'

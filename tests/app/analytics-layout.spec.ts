@@ -269,6 +269,36 @@ for (const [themeID, scheme] of [
         expect((await refresh.boundingBox())!.width).toBe(refreshWidth);
         await expect(page.locator("html")).toHaveAttribute("data-theme-id", themeID);
         await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
+        const metrics = page.getByRole("group", { name: "Chart metric", exact: true });
+        await metrics.scrollIntoViewIfNeeded();
+        for (const metric of await metrics.getByRole("button").all()) {
+          const bounds = await metric.evaluate((button) => {
+            const range = document.createRange();
+            range.selectNodeContents(button);
+            const label = range.getBoundingClientRect();
+            const control = button.getBoundingClientRect();
+            return {
+              leftInset: label.left - control.left,
+              rightInset: control.right - label.right,
+              height: control.height,
+            };
+          });
+          expect(bounds.leftInset).toBeGreaterThanOrEqual(4);
+          expect(bounds.rightInset).toBeGreaterThanOrEqual(4);
+          if (width < 768) expect(bounds.height).toBeGreaterThanOrEqual(44);
+        }
+        const engagement = metrics.getByRole("button", { name: "Engagement", exact: true });
+        await engagement.focus();
+        await engagement.press("Enter");
+        await expect(engagement).toHaveAttribute("aria-pressed", "true");
+        await expect(
+          page.getByRole("img", { name: "Daily engagement", exact: true }),
+        ).toBeVisible();
+        const views = metrics.getByRole("button", { name: "Views", exact: true });
+        await views.focus();
+        await views.press("Enter");
+        await expect(views).toHaveAttribute("aria-pressed", "true");
+        await metrics.screenshot({ path: testInfo.outputPath("metric-controls.png") });
         await page.getByRole("img", { name: "Daily views" }).scrollIntoViewIfNeeded();
         await page.screenshot({ path: testInfo.outputPath("chart.png") });
         if (themeID === "dither") {

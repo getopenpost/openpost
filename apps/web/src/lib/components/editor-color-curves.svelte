@@ -287,16 +287,15 @@
 	}
 
 	function movePointByKeyboard(event: KeyboardEvent, index: number): void {
+		const deletingPoint = event.key === 'Delete' || event.key === 'Backspace';
+		// Protected endpoints still own deletion keys, so they cannot delete editor content.
+		if (deletingPoint) event.preventDefault();
 		if (!gpuEffect.enabled) return;
 		const points = draft[activeChannel];
 		const point = points[index];
 		if (!point) return;
-		if (
-			(event.key === 'Delete' || event.key === 'Backspace') &&
-			index > 0 &&
-			index < points.length - 1
-		) {
-			event.preventDefault();
+		if (deletingPoint) {
+			if (index === 0 || index === points.length - 1) return;
 			cancelKeyboardCommit();
 			commitChannel(
 				activeChannel,

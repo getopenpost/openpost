@@ -4,6 +4,10 @@ import { userEvent } from 'vitest/browser';
 import '../../routes/layout.css';
 import EditorColorCurves from './editor-color-curves.svelte';
 import type { GpuParamValues } from '$lib/video-editor/effects/gpu/types';
+import {
+	createShortcutMatcher,
+	DEFAULT_EDITOR_SHORTCUTS
+} from '$lib/video-editor/settings/keyboard-shortcuts';
 
 it('keeps compact curve markers, hit targets, and strokes in screen space', async () => {
 	await render(EditorColorCurves, {
@@ -70,7 +74,7 @@ describe('curve point slider keyboard', () => {
 		// SAFETY: curve-point slider locators resolve to HTMLElement hosts, which support focus().
 		(point.element() as HTMLElement).focus();
 		await expect.element(point).toHaveFocus();
-		return { point, ondraft, oncommit };
+		return { screen, point, ondraft, oncommit };
 	}
 
 	function middleOutput(call: [GpuParamValues | null] | undefined): number {
@@ -82,6 +86,52 @@ describe('curve point slider keyboard', () => {
 		const parsed = JSON.parse(raw) as Array<[number, number]>;
 		return parsed[1]![1]!;
 	}
+
+	it.each(['Delete', 'Backspace'])(
+		'keeps %s on protected endpoints inside the curve editor',
+		async (key) => {
+			const { screen, oncommit } = await renderWithMiddlePoint();
+			const deleteSelection = vi.fn();
+			const handled: boolean[] = [];
+			const listener = (event: KeyboardEvent) => {
+				if (event.key !== key) return;
+				handled.push(event.defaultPrevented);
+				if (
+					createShortcutMatcher(event, DEFAULT_EDITOR_SHORTCUTS)?.(
+						'DELETE_SELECTED',
+						'RIPPLE_DELETE'
+					)
+				) {
+					deleteSelection();
+				}
+			};
+			window.addEventListener('keydown', listener);
+			try {
+				for (const name of ['Master curve point 1', 'Master curve point 3']) {
+					const endpoint = screen.getByRole('slider', { name });
+					(endpoint.element() as SVGElement).focus();
+					await expect.element(endpoint).toHaveFocus();
+					await userEvent.keyboard(`{${key}}`);
+					await expect.element(endpoint).toBeVisible();
+				}
+				expect(handled).toEqual([true, true]);
+				expect(deleteSelection).not.toHaveBeenCalled();
+				expect(oncommit).not.toHaveBeenCalled();
+			} finally {
+				window.removeEventListener('keydown', listener);
+			}
+		}
+	);
+
+	it.each(['Delete', 'Backspace'])('removes an interior point with %s', async (key) => {
+		const { oncommit } = await renderWithMiddlePoint();
+		await userEvent.keyboard(`{${key}}`);
+		expect(oncommit).toHaveBeenCalledOnce();
+		expect(JSON.parse(oncommit.mock.calls[0]![0].masterPoints as string)).toEqual([
+			[0, 0],
+			[1, 1]
+		]);
+	});
 
 	it('moves output in large steps with PageUp and PageDown', async () => {
 		const { ondraft } = await renderWithMiddlePoint();

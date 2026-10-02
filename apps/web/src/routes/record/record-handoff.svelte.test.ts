@@ -135,7 +135,10 @@ it('finishes a normal cloud handoff once before releasing scratch and exposing i
 				document,
 				workspaceId: workspace.id,
 				headRevision: 1,
-				syncStatus: 'synced'
+				syncStatus: 'synced',
+				attentionReason: '',
+				trashedAt: '',
+				updatedAt: '2026-10-02T10:00:00Z'
 			};
 		});
 	const reserve = vi

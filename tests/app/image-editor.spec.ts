@@ -258,27 +258,75 @@ test("guest camera capture supports crop controls and undo without workspace wri
   expect(cropErrors).toEqual([]);
 });
 
-test("Image Editor keeps Export as the rightmost visible header action", async ({ page }) => {
+test("Image Editor keeps Export rightmost and saved feedback clear at narrow widths", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("/image-editor");
   await page.getByRole("button", { name: "New project", exact: true }).click();
-
   const header = page.getByRole("banner");
-  const exportButton = header.getByRole("button", {
-    name: "Export",
-    exact: true,
-  });
-  const exportBox = await exportButton.boundingBox();
-  expect(exportBox).not.toBeNull();
-
-  for (const button of [
-    header.getByRole("button", { name: "More actions", exact: true }),
-    header.getByRole("button", { name: "Save to OpenPost", exact: true }),
-  ]) {
-    await expect(button).toBeVisible();
-    const box = await button.boundingBox();
-    if (box) expect(exportBox!.x).toBeGreaterThan(box.x);
+  const saved = page.getByTestId("image-editor-save-indicator");
+  await page.getByRole("textbox", { name: "Design title" }).fill("Saved header project");
+  await page.keyboard.press("Tab");
+  await expect(saved).toHaveAttribute("data-state", "saved");
+  const cdp = await page.context().newCDPSession(page);
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.evaluate(
+      (dark) => document.documentElement.classList.toggle("dark", dark),
+      scheme === "dark",
+    );
+    for (const width of [1600, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await cdp.send("Emulation.setTouchEmulationEnabled", {
+        enabled: width !== 1600,
+        maxTouchPoints: 1,
+      });
+      await expect
+        .poll(() => page.evaluate(() => matchMedia("(pointer:coarse)").matches))
+        .toBe(width !== 1600);
+      const exportButton = header.getByRole("button", { name: "Export", exact: true });
+      const exportBox = await exportButton.boundingBox();
+      expect(exportBox).not.toBeNull();
+      for (const button of [
+        header.getByRole("button", { name: "More actions", exact: true }),
+        ...(width === 1600
+          ? [header.getByRole("button", { name: "Save to OpenPost", exact: true })]
+          : []),
+      ]) {
+        await expect(button).toBeVisible();
+        const box = await button.boundingBox();
+        if (box) expect(exportBox!.x).toBeGreaterThan(box.x);
+      }
+      const status = await saved.boundingBox();
+      const color = await header.getByRole("tab", { name: "Color", exact: true }).boundingBox();
+      expect(status).not.toBeNull();
+      expect(color).not.toBeNull();
+      expect(
+        status!.x >= color!.x + color!.width ||
+          status!.x + status!.width <= color!.x ||
+          status!.y >= color!.y + color!.height ||
+          status!.y + status!.height <= color!.y,
+      ).toBe(true);
+      await expect
+        .poll(() =>
+          header.evaluate((element) =>
+            [...element.querySelectorAll("button")].every((button) => {
+              const bounds = button.getBoundingClientRect();
+              return !bounds.width || (bounds.left >= 0 && bounds.right <= innerWidth);
+            }),
+          ),
+        )
+        .toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`image-header-${width}-${scheme}.png`) });
+    }
   }
+  await header.getByRole("tab", { name: "Color", exact: true }).click();
+  await page.keyboard.press("Home");
+  await expect(header.getByRole("tab", { name: "Edit", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });
 
 test("signed-in creators can use built-in templates in their workspace", async ({

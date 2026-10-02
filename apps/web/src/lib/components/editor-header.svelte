@@ -13,9 +13,11 @@
 </script>
 
 <header class="editor-header">
-	<div class="flex min-w-0 items-center gap-2">{@render identity()}</div>
-	<div class="flex min-w-0 justify-center">{@render workspaces()}</div>
-	<div class="flex min-w-0 items-center justify-end gap-1 text-xs text-muted-foreground">
+	<div class="editor-header-identity flex min-w-0 items-center gap-2">{@render identity()}</div>
+	<div class="editor-header-workspaces flex min-w-0 justify-center">{@render workspaces()}</div>
+	<div
+		class="editor-header-actions flex min-w-0 items-center justify-end gap-1 text-xs text-muted-foreground"
+	>
 		{@render actions()}
 	</div>
 </header>
@@ -32,6 +34,27 @@
 		border-bottom: 1px solid var(--border);
 		background: var(--card);
 	}
+	@media (max-width: 359px) {
+		.editor-header:has(:global([role='tablist'])) {
+			grid-template-columns: minmax(0, 1fr) auto;
+			height: auto;
+			padding-block: 4px;
+			row-gap: 4px;
+		}
+		.editor-header:has(:global([role='tablist'])) .editor-header-identity {
+			grid-row: 1;
+			grid-column: 1;
+		}
+		.editor-header:has(:global([role='tablist'])) .editor-header-actions {
+			grid-row: 1;
+			grid-column: 2;
+		}
+		.editor-header:has(:global([role='tablist'])) .editor-header-workspaces {
+			grid-row: 2;
+			grid-column: 1 / -1;
+		}
+	}
+
 	@media (min-width: 768px) {
 		.editor-header {
 			grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -47,7 +70,7 @@
 			min-width: 44px;
 		}
 		.editor-header {
-			height: 56px;
+			min-height: 56px;
 		}
 	}
 </style>

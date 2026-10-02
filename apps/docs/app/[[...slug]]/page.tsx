@@ -5,7 +5,8 @@ import { source, documentationIcon } from "@/lib/source";
 import { openapi } from "@/lib/openapi";
 import { operationDocument } from "@/lib/api-document";
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
-import { MarkdownCopyButton, ViewOptionsPopover } from "fumadocs-ui/layouts/docs/page";
+import { MarkdownCopyButton } from "fumadocs-ui/layouts/docs/page";
+import { PageOptions } from "@/components/page-options";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -58,13 +59,13 @@ export default async function Page({ params }: Props) {
             </MarkdownCopyButton>
           )}
           {!page.data._openapi && (
-            <ViewOptionsPopover
+            <PageOptions
               aria-label="Open page options"
               markdownUrl={`/${page.path.replace(/\.mdx?$/, ".md")}`}
               githubUrl={`https://github.com/getopenpost/openpost/edit/main/apps/docs/content/docs/${page.path}`}
             >
               Ask AI
-            </ViewOptionsPopover>
+            </PageOptions>
           )}
         </div>
       </div>

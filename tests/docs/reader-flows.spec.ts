@@ -1,22 +1,61 @@
 import { test, expect } from "@playwright/test";
 
-test("page options provide working document and assistant links", async ({ page }) => {
-  await page.goto("/docs/mcp/coding-assistants");
-  const trigger = page.getByRole("button", { name: "Open page options" });
-  await trigger.click();
-  const chatGPT = page.getByRole("link", { name: "Open in ChatGPT" });
-  const href = new URL((await chatGPT.getAttribute("href"))!);
-  expect(href.origin).toBe("https://chatgpt.com");
-  expect(href.searchParams.get("prompt")).toContain("/mcp/coding-assistants");
-  await expect(page.getByRole("link", { name: "Open in Claude" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open in Cursor" })).toBeVisible();
-  const markdown = page.getByRole("link", { name: "View as Markdown" });
-  const response = await page.request.get((await markdown.getAttribute("href"))!);
-  expect(response.ok()).toBe(true);
-  expect(await response.text()).toContain("# Coding assistants");
-  await page.keyboard.press("Escape");
-  await expect(chatGPT).not.toBeVisible();
-  await expect(trigger).toBeFocused();
+test("page options provide working document and assistant links", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const width of [1280, 390, 320]) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [route, title] of [
+        ["/docs/mcp/coding-assistants", "Coding assistants"],
+        ["/docs/video-editor/quick-cut-and-recorder", "Quick Cut and Recorder"],
+      ]) {
+        await page.goto(route);
+        const trigger = page.getByRole("button", { name: "Open page options" });
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+        for (const [name, origin, parameter] of [
+          ["Scira AI", "https://scira.ai", "q"],
+          ["ChatGPT", "https://chatgpt.com", "prompt"],
+          ["Claude", "https://claude.ai", "q"],
+          ["Cursor", "https://cursor.com", "text"],
+        ]) {
+          const link = page.getByRole("link", {
+            name: new RegExp(`Open in ${name}$`),
+          });
+          await expect(link).toBeVisible();
+          const href = new URL((await link.getAttribute("href"))!);
+          expect(href.origin).toBe(origin);
+          expect(href.searchParams.get(parameter)).toContain(
+            `${new URL(page.url()).origin}${route}`,
+          );
+        }
+        const document = await page.request.get(route);
+        expect(document.ok()).toBe(true);
+        expect(await document.text()).toContain(title);
+        const markdown = page.getByRole("link", { name: "View as Markdown" });
+        const response = await page.request.get((await markdown.getAttribute("href"))!);
+        expect(response.ok()).toBe(true);
+        expect(new URL(response.url()).pathname).toBe(`${route}.md`);
+        expect(await response.text()).toContain(`# ${title}`);
+        if (route.includes("quick-cut")) {
+          await page.screenshot({
+            path: testInfo.outputPath(`options-${width}-${scheme}.png`),
+          });
+        }
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("link", { name: "Open in ChatGPT" })).not.toBeVisible();
+        await expect(trigger).toBeFocused();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+          false,
+        );
+      }
+    }
+  }
+  expect(errors).toEqual([]);
 });
 
 for (const width of [320, 390]) {

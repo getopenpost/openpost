@@ -20,6 +20,7 @@
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
+	import { canCreateTrackGroup, createTrackGroup } from '$lib/video-editor/timeline/actions/tracks';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		duplicateItems,
@@ -967,32 +968,21 @@
 		onedit();
 		status = m.video_editor_motion_pasted();
 	}
+	const groupingTrackIds = $derived.by(() => {
+		const ids = new Set(expandMotionLayerItemIds(motionPlan, [...selectedItemIds]));
+		return [
+			...new Set(timelineStore.items.filter((item) => ids.has(item.id)).map((item) => item.trackId))
+		];
+	});
+	const canGroupSelection = $derived(
+		selectedItemIds.size > 1 && canCreateTrackGroup(groupingTrackIds)
+	);
 	function groupSelected(): void {
-		if (selectedItemIds.size < 2) return;
-		const ids = expandMotionLayerItemIds(motionPlan, [...selectedItemIds]);
-		const selectedTracks = new Set(
-			timelineStore.items.filter((i) => ids.includes(i.id)).map((i) => i.trackId)
-		);
-		if (selectedTracks.size === 0) return;
-		const before = captureSnapshot();
-		const groupId = crypto.randomUUID();
-		const groupTrack: TimelineTrack = {
-			id: groupId,
-			name: m.video_editor_composition_timeline_new_group(),
-			isGroup: true,
-			height: ROW_H,
-			locked: false,
-			visible: true,
-			muted: false,
-			solo: false,
-			order: Math.min(...[...selectedTracks].map((tid) => trackById.get(tid)?.order ?? 0))
-		};
-		const newTracks = timelineStore.tracks.map((t) =>
-			selectedTracks.has(t.id) ? { ...t, parentTrackId: groupId } : t
-		);
-		timelineStore._setTracks([...newTracks, groupTrack]);
-		commandHistory.addUndoEntry({ type: 'GROUP_TRACKS' }, before);
-		onedit();
+		if (!canGroupSelection) return;
+		if (
+			createTrackGroup(groupingTrackIds, m.video_editor_composition_timeline_new_group()) !== null
+		)
+			onedit();
 	}
 	function ungroupTrack(groupId: string): void {
 		const before = captureSnapshot();
@@ -3370,7 +3360,7 @@
 						<ContextMenu.Item onclick={() => renameStart(contextLayer.id, itemLabel(contextLayer))}>
 							{m.video_editor_composition_timeline_rename()}
 						</ContextMenu.Item>
-						<ContextMenu.Item disabled={selectedItemIds.size < 2} onclick={groupSelected}>
+						<ContextMenu.Item disabled={!canGroupSelection} onclick={groupSelected}>
 							{m.video_editor_composition_timeline_group()}
 						</ContextMenu.Item>
 					{/if}
@@ -3687,7 +3677,7 @@
 					size="sm"
 					variant="ghost"
 					aria-label={m.video_editor_composition_timeline_group()}
-					disabled={selectedItemIds.size < 2}
+					disabled={!canGroupSelection}
 					onclick={groupSelected}
 					data-testid="composition-group"
 					><ProtectedIcon

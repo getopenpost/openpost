@@ -53,11 +53,25 @@ export function addTrack(kind: TrackKind, name: string): string {
 	});
 }
 
-export function createTrackGroup(trackIds: readonly string[], name: string): string | null {
-	const uniqueIds = [...new Set(trackIds)];
+function tracksForNewGroup(trackIds: readonly string[]): TimelineTrack[] {
+	const ids = new Set(trackIds);
 	const selected = timelineStore.tracks
-		.filter((track) => uniqueIds.includes(track.id) && !isTrackGroup(track))
+		.filter((track) => ids.has(track.id) && !isTrackGroup(track))
 		.sort((left, right) => left.order - right.order);
+	const parentId = selected[0]?.parentTrackId;
+	if (!parentId || selected.some((track) => track.parentTrackId !== parentId)) return selected;
+	const parent = timelineStore.tracks.find((track) => track.id === parentId);
+	if (!parent || !isTrackGroup(parent)) return selected;
+	// Grouping all of a group's children again must preserve its identity and state.
+	return trackChildren(timelineStore.tracks, parentId).length === selected.length ? [] : selected;
+}
+
+export function canCreateTrackGroup(trackIds: readonly string[]): boolean {
+	return tracksForNewGroup(trackIds).length > 0;
+}
+
+export function createTrackGroup(trackIds: readonly string[], name: string): string | null {
+	const selected = tracksForNewGroup(trackIds);
 	if (selected.length === 0) return null;
 	return execute('CREATE_TRACK_GROUP', () => {
 		const groupId = crypto.randomUUID();

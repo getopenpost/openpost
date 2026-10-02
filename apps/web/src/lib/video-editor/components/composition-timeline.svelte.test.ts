@@ -10,6 +10,7 @@ import { COMPOSITION_CONTROLS_VERSION } from '$lib/video-editor/project/types';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 import CompositionTimeline from './composition-timeline.svelte';
+import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 import SelectionFixture from './composition-selection.fixture.svelte';
 
 it('seeks between Motion ruler labels using the same scale as the labels', async () => {
@@ -776,3 +777,94 @@ it.each(['solid', 'gradient'] as const)(
 		}
 	}
 );
+
+it('keeps an existing Motion group intact when Group is repeated and undoes once', async () => {
+	const id = 'motion-repeat-group';
+	const tracks = ['a', 'b', 'c'].map((id, order) => ({
+		id,
+		name: id,
+		order,
+		height: 64,
+		locked: false,
+		visible: true,
+		muted: false,
+		solo: false
+	}));
+	const items = ['a', 'b', 'c'].map((id) => ({
+		id,
+		trackId: id,
+		type: 'text' as const,
+		text: id,
+		label: id,
+		from: 0,
+		durationInFrames: 300
+	}));
+	sequenceStore.addComposition({
+		id,
+		name: id,
+		editorKind: 'composite-2d',
+		items,
+		tracks,
+		transitions: [],
+		fps: 30,
+		width: 1920,
+		height: 1080,
+		durationInFrames: 300
+	});
+	sequenceStore.switchTo(id);
+	const onedit = vi.fn();
+	try {
+		const screen = await render(SelectionFixture, { onedit });
+		const first = screen.getByTestId('composition-layer-a');
+		first.element().focus();
+		await userEvent.keyboard('{Enter}');
+		screen.getByTestId('composition-layer-b').element().focus();
+		await userEvent.keyboard('{Control>}{Enter}{/Control}');
+		await expect.element(first).toHaveAttribute('aria-pressed', 'true');
+		await expect
+			.element(screen.getByTestId('composition-layer-b'))
+			.toHaveAttribute('aria-pressed', 'true');
+		await screen.getByTestId('composition-group').click();
+		const initialGroup = timelineStore.tracks.find((track) => track.isGroup)!;
+		expect(initialGroup).toBeDefined();
+		first.element().focus();
+		await userEvent.keyboard('{Control>}g{/Control}');
+		expect(timelineStore.tracks.filter((track) => track.isGroup).map((track) => track.id)).toEqual([
+			initialGroup.id
+		]);
+		expect(
+			timelineStore.tracks
+				.filter((track) => track.parentTrackId === initialGroup.id)
+				.map((track) => track.id)
+		).toEqual(['a', 'b']);
+		expect(timelineStore.tracks.find((track) => track.id === 'c')?.parentTrackId).toBeUndefined();
+		await expect.element(screen.getByTestId('composition-group')).toBeDisabled();
+		expect(onedit).toHaveBeenCalledTimes(1);
+		commandHistory.undo();
+		expect(timelineStore.tracks).toEqual(tracks);
+		commandHistory.redo();
+		expect(timelineStore.tracks.filter((track) => track.isGroup).map((track) => track.id)).toEqual([
+			initialGroup.id
+		]);
+		expect(timelineStore.items).toEqual(items);
+		first.element().focus();
+		await userEvent.keyboard('{Control>}a{/Control}');
+		await screen.getByTestId('composition-group').click();
+		const regrouped = timelineStore.tracks.filter((track) => track.isGroup);
+		expect(regrouped).toHaveLength(1);
+		expect(regrouped[0]!.id).not.toBe(initialGroup.id);
+		expect(
+			timelineStore.tracks
+				.filter((track) => track.parentTrackId === regrouped[0]!.id)
+				.map((track) => track.id)
+		).toEqual(['a', 'b', 'c']);
+		commandHistory.undo();
+		expect(timelineStore.tracks.filter((track) => track.isGroup).map((track) => track.id)).toEqual([
+			initialGroup.id
+		]);
+	} finally {
+		commandHistory.clearHistory();
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(id);
+	}
+});

@@ -6800,6 +6800,7 @@
 	"video_editor_export_preset_social": "Sosyal",
 	"video_editor_export_preset_draft": "Taslak önizleme",
 	"video_editor_export_resolution": "Çözünürlük",
+	"video_editor_export_sequence_resolution": "Sekans boyutu ({width} × {height})",
 	"video_editor_export_range": "Giriş/çıkış aralığını kullan",
 	"video_editor_export_subtitles": "Altyazılar",
 	"video_editor_export_subtitles_none": "Yok",

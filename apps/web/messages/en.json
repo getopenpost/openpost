@@ -6841,6 +6841,7 @@
 	"video_editor_export_preset_social": "Social",
 	"video_editor_export_preset_draft": "Draft preview",
 	"video_editor_export_resolution": "Resolution",
+	"video_editor_export_sequence_resolution": "Sequence size ({width} × {height})",
 	"video_editor_export_range": "Use In / Out range",
 	"video_editor_export_subtitles": "Subtitles",
 	"video_editor_export_subtitles_none": "None",

@@ -6800,6 +6800,7 @@
 	"video_editor_export_preset_social": "Redes sociais",
 	"video_editor_export_preset_draft": "Prévia de rascunho",
 	"video_editor_export_resolution": "Resolução",
+	"video_editor_export_sequence_resolution": "Tamanho da sequência ({width} × {height})",
 	"video_editor_export_range": "Usar intervalo de entrada / saída",
 	"video_editor_export_subtitles": "Legendas",
 	"video_editor_export_subtitles_none": "Nenhuma",

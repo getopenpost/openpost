@@ -179,7 +179,12 @@
 	const resolutionOptions = $derived([
 		{
 			value: 'source',
-			label: `${exportProject?.metadata.width} × ${exportProject?.metadata.height}`
+			label: exportProject
+				? m.video_editor_export_sequence_resolution({
+						width: exportProject.metadata.width,
+						height: exportProject.metadata.height
+					})
+				: ''
 		},
 		{ value: '1920x1080', label: '1920 × 1080' },
 		{ value: '1280x720', label: '1280 × 720' },

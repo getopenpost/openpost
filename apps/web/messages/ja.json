@@ -6800,6 +6800,7 @@
 	"video_editor_export_preset_social": "SNS",
 	"video_editor_export_preset_draft": "ドラフトプレビュー",
 	"video_editor_export_resolution": "解像度",
+	"video_editor_export_sequence_resolution": "シーケンスサイズ（{width} × {height}）",
 	"video_editor_export_range": "イン・アウト範囲を使用",
 	"video_editor_export_subtitles": "字幕",
 	"video_editor_export_subtitles_none": "なし",

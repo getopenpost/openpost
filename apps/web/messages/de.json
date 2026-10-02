@@ -6795,6 +6795,7 @@
 	"video_editor_export_preset_social": "Social",
 	"video_editor_export_preset_draft": "Entwurfsvorschau",
 	"video_editor_export_resolution": "Auflösung",
+	"video_editor_export_sequence_resolution": "Sequenzgröße ({width} × {height})",
 	"video_editor_export_range": "Ein-/Auspunkt-Bereich verwenden",
 	"video_editor_export_subtitles": "Untertitel",
 	"video_editor_export_subtitles_none": "Keine",

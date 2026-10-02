@@ -6800,6 +6800,7 @@
 	"video_editor_export_preset_social": "소셜",
 	"video_editor_export_preset_draft": "초안 미리보기",
 	"video_editor_export_resolution": "해상도",
+	"video_editor_export_sequence_resolution": "시퀀스 크기({width} × {height})",
 	"video_editor_export_range": "인/아웃 범위 사용",
 	"video_editor_export_subtitles": "자막",
 	"video_editor_export_subtitles_none": "없음",

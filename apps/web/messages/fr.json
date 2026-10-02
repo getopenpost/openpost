@@ -6800,6 +6800,7 @@
 	"video_editor_export_preset_social": "Réseaux sociaux",
 	"video_editor_export_preset_draft": "Aperçu brouillon",
 	"video_editor_export_resolution": "Résolution",
+	"video_editor_export_sequence_resolution": "Taille de la séquence ({width} × {height})",
 	"video_editor_export_range": "Utiliser la plage In/Out",
 	"video_editor_export_subtitles": "Sous-titres",
 	"video_editor_export_subtitles_none": "Aucun",

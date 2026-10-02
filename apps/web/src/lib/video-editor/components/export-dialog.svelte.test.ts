@@ -165,6 +165,49 @@ describe('ExportDialog', () => {
 			.toHaveTextContent('1600 × 900');
 	});
 
+	it('distinguishes sequence size from fixed full HD and queues each explicit choice', async () => {
+		const project = projectFixture();
+		sequenceStore.load(project.timeline!, project.metadata);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await screen.getByRole('button', { name: 'Resolution', exact: true }).click();
+		await expect
+			.element(screen.getByRole('option', { name: '1280 × 720', exact: true }))
+			.toBeVisible();
+		expect(
+			Array.from(document.querySelectorAll('[role=option]')).filter(
+				(option) => option.textContent?.trim() === '1920 × 1080'
+			)
+		).toHaveLength(1);
+		await screen.getByRole('option', { name: 'Sequence size (1920 × 1080)', exact: true }).click();
+		await screen.getByRole('button', { name: 'Sequences', exact: true }).click();
+		await screen.getByRole('option', { name: 'Portrait cut', exact: true }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Resolution', exact: true }))
+			.toHaveTextContent('Sequence size (1080 × 1920)');
+		await screen.getByRole('button', { name: 'Add to queue' }).click();
+		await screen.getByRole('menuitem', { name: 'Add current range' }).click();
+		expect(get(renderQueueStore).jobs[0]?.settings).toMatchObject({ width: 1080, height: 1920 });
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await screen.getByRole('button', { name: 'Sequences', exact: true }).click();
+		await screen.getByRole('option', { name: 'Portrait cut', exact: true }).click();
+		await screen.getByRole('button', { name: 'Resolution', exact: true }).click();
+		await expect
+			.element(screen.getByRole('option', { name: 'Sequence size (1080 × 1920)', exact: true }))
+			.toBeVisible();
+		await screen.getByRole('option', { name: '1920 × 1080', exact: true }).click();
+		await screen.getByRole('button', { name: 'Add to queue' }).click();
+		await screen.getByRole('menuitem', { name: 'Add current range' }).click();
+		expect(get(renderQueueStore).jobs).toHaveLength(2);
+		expect(get(renderQueueStore).jobs[1]?.settings).toMatchObject({ width: 1920, height: 1080 });
+		expect(get(renderQueueStore).jobs[1]?.snapshot).toMatchObject({ width: 1080, height: 1920 });
+	});
+
 	it('keeps the dialog open with a recovery step when queue submission fails', async () => {
 		const project = projectFixture();
 		Object.defineProperty(project.timeline!.items[0]!, 'unsupported', {

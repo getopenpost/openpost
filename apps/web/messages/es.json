@@ -6800,6 +6800,7 @@
 	"video_editor_export_preset_social": "Redes sociales",
 	"video_editor_export_preset_draft": "Vista previa de borrador",
 	"video_editor_export_resolution": "Resolución",
+	"video_editor_export_sequence_resolution": "Tamaño de secuencia ({width} × {height})",
 	"video_editor_export_range": "Usar dentro / fuera del rango",
 	"video_editor_export_subtitles": "Subtítulos",
 	"video_editor_export_subtitles_none": "Ninguno",

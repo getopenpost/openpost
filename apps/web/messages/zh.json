@@ -6800,6 +6800,7 @@
 	"video_editor_export_preset_social": "社交媒体",
 	"video_editor_export_preset_draft": "草稿预览",
 	"video_editor_export_resolution": "分辨率",
+	"video_editor_export_sequence_resolution": "序列尺寸（{width} × {height}）",
 	"video_editor_export_range": "使用入点/出点范围",
 	"video_editor_export_subtitles": "字幕",
 	"video_editor_export_subtitles_none": "无",

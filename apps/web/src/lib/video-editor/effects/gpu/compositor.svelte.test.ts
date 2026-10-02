@@ -50,8 +50,13 @@ describe('GPU effect texture reuse', () => {
 		const red = solidLut(255, 0, 0);
 		try {
 			expect(render(red)).toEqual([255, 0, 0, 255]);
-			// A 2-cube cannot fill a 3-cube. Invalid data must use the identity fallback.
+			// A 2-cube cannot fill a 3-cube. Invalid data must preserve the source exactly.
 			expect(render({ ...red, lutSize: 3 })).toEqual([80, 120, 160, 255]);
+			expect(render({ lutSize: 3, lutData: '', intensity: 1 })).toEqual([80, 120, 160, 255]);
+			expect(render({ lutSize: 3, lutData: '!', intensity: 1 })).toEqual([80, 120, 160, 255]);
+			const blue = solidLut(0, 0, 255, 3);
+			expect(render(blue)).toEqual([0, 0, 255, 255]);
+			expect(render({ ...blue, intensity: 0 })).toEqual([80, 120, 160, 255]);
 			expect(render(red)).toEqual([255, 0, 0, 255]);
 		} finally {
 			compositor.dispose();

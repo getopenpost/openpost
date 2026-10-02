@@ -19,6 +19,8 @@ import { getProxy, clearProxyCache } from './proxy-client';
 import { createTextMotionEffect } from '../timeline/text-motion-presets';
 import { ItemRasterizer } from './item-rasterizer';
 import { createFloat32WavBlob } from '../local-ai/audio';
+import { encodeLutData } from '../effects/gpu/lut';
+import type { GpuParamValues } from '../effects/gpu/types';
 
 const FPS = 30;
 const FRAME_COUNT = 60;
@@ -196,6 +198,66 @@ describe('timeline rendering', () => {
 			input?.dispose();
 			renderer.dispose();
 			URL.revokeObjectURL(url);
+		}
+	});
+
+	it('preserves invalid LUT pixels in preview and encoded output while applying a valid three-cube', async () => {
+		const blueData = new Uint8Array(3 ** 3 * 4);
+		for (let offset = 0; offset < blueData.length; offset += 4)
+			blueData.set([0, 0, 255, 255], offset);
+		const blue = { lutSize: 3, lutData: encodeLutData(blueData), intensity: 1 };
+		const variants: Array<{ params: GpuParamValues | null; pixel: number[]; enabled?: boolean }> = [
+			{ params: null, pixel: [80, 120, 160, 255] },
+			{ params: { lutSize: 3, lutData: '', intensity: 1 }, pixel: [80, 120, 160, 255] },
+			{ params: blue, pixel: [0, 0, 255, 255] },
+			{ params: { ...blue, intensity: 0 }, pixel: [80, 120, 160, 255] },
+			{ params: blue, pixel: [80, 120, 160, 255], enabled: false }
+		];
+		let baseline: number[][] | undefined;
+		for (const { params, pixel, enabled = true } of variants) {
+			const project = sourceProject();
+			project.duration = 0.1;
+			project.timeline!.items = [
+				{
+					id: 'shape',
+					type: 'shape',
+					trackId: 'v',
+					from: 0,
+					durationInFrames: 3,
+					label: 'LUT source',
+					shapeType: 'rectangle',
+					fillColor: '#5078a0',
+					effects: params ? [{ id: 'lut', type: 'gpu', effectId: 'gpu-lut', enabled, params }] : []
+				}
+			];
+			const renderer = new TimelineFrameRenderer(project);
+			let input: Input | undefined;
+			try {
+				const frame = await renderer.render(0);
+				expect([...frame.getContext('2d')!.getImageData(32, 32, 1, 1).data]).toEqual(pixel);
+				const artifact = await renderMultiTrackVideoArtifact(project, {
+					format: 'webm',
+					codec: 'vp9',
+					quality: 'draft'
+				});
+				input = new Input({ source: new BlobSource(artifact.blob), formats: ALL_FORMATS });
+				const video = (await input.getPrimaryVideoTrack())!;
+				const decoded: number[][] = [];
+				for await (const { canvas } of new CanvasSink(video, { poolSize: 1 }).canvases())
+					decoded.push([...canvas.getContext('2d')!.getImageData(32, 32, 1, 1).data]);
+				expect(decoded).toHaveLength(3);
+				if (!params) baseline = decoded;
+				else if (pixel[0] === 80) expect(decoded).toEqual(baseline);
+				else
+					for (const encodedPixel of decoded) {
+						expect(encodedPixel[0]).toBeLessThan(10);
+						expect(encodedPixel[1]).toBeLessThan(10);
+						expect(encodedPixel[2]).toBeGreaterThan(245);
+					}
+			} finally {
+				input?.dispose();
+				renderer.dispose();
+			}
 		}
 	});
 

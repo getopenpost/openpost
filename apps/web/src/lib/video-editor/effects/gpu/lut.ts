@@ -255,6 +255,7 @@ uniform float u_lutSize;
 uniform float u_intensity;
 vec4 lutFragment(vec2 vUv) {
   vec4 source = texture(uInputTex, vUv);
+  if (textureSize(uDataTex, 0).x < 2) return source;
   float size = max(2.0, u_lutSize);
   vec3 coords = (clamp(source.rgb, vec3(0.0), vec3(1.0)) * (size - 1.0) + 0.5) / size;
   vec3 graded = texture(uDataTex, coords).rgb;
@@ -288,16 +289,12 @@ vec4 lutFragment(vec2 vUv) {
 						return { width: size, height: size, depth: size, data };
 					}
 				} catch {
-					// fall through to identity
+					// Invalid data uses the bypass texture below.
 				}
 			}
-			const fallbackSize = size >= MIN_LUT_SIZE && size <= MAX_LUT_SIZE ? size : 2;
-			return {
-				width: fallbackSize,
-				height: fallbackSize,
-				depth: fallbackSize,
-				data: createIdentityLutData(fallbackSize)
-			};
+			// Valid cubes have at least two samples per axis. A one-texel marker
+			// bypasses grading instead of sampling a quantized identity cube.
+			return { width: 1, height: 1, depth: 1, data: new Uint8Array(4) };
 		}
 	}
 };

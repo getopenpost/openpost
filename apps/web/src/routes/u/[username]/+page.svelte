@@ -95,10 +95,22 @@
 			.join('');
 	});
 	const showRecentActivity: Attachment<HTMLElement> = (node) => {
-		const frame = requestAnimationFrame(() => {
-			node.scrollLeft = Math.max(0, node.scrollWidth - node.clientWidth);
-		});
-		return () => cancelAnimationFrame(frame);
+		let followsRecent = true;
+		const revealRecent = () => {
+			if (followsRecent) node.scrollLeft = Math.max(0, node.scrollWidth - node.clientWidth);
+		};
+		const trackScroll = () => {
+			followsRecent = node.scrollWidth - node.clientWidth - node.scrollLeft <= 1;
+		};
+		const frame = requestAnimationFrame(revealRecent);
+		const observer = new ResizeObserver(revealRecent);
+		observer.observe(node);
+		node.addEventListener('scroll', trackScroll, { passive: true });
+		return () => {
+			cancelAnimationFrame(frame);
+			observer.disconnect();
+			node.removeEventListener('scroll', trackScroll);
+		};
 	};
 
 	function formatNumber(value: number): string {
@@ -288,7 +300,14 @@
 						{/if}
 					</div>
 					<p class="sr-only">One square per day. Stronger color means more publications.</p>
-					<div class="activity-scroll mt-4 overflow-x-auto pb-2" {@attach showRecentActivity}>
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need this scroll region to reach older activity dates.) -->
+					<div
+						class="activity-scroll focus-ring mt-4 overflow-x-auto rounded-sm pb-2"
+						role="region"
+						aria-labelledby="activity-title"
+						tabindex="0"
+						{@attach showRecentActivity}
+					>
 						<div class="activity-field">
 							<div class="activity-months" aria-hidden="true">
 								{#each monthLabels as month (`${month.label}-${month.column}`)}

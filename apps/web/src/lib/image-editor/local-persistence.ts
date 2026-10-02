@@ -33,6 +33,7 @@ const IMAGE_EDITOR_DB_NAME = 'openpost-studio';
 const DB_VERSION = 2;
 const OPFS_DIRECTORY = 'openpost-image-editor-media';
 const LOCAL_DESIGN_PREFIX = 'local_design_';
+const MAX_LOCAL_FONT_BYTES = 10 * 1024 * 1024;
 
 export interface LocalImageEditorDesign {
 	id: string;
@@ -55,6 +56,7 @@ interface LocalImageEditorMedia {
 	storage: 'opfs' | 'indexeddb';
 	blob?: Blob;
 	provenance?: StockMediaProvenance;
+	asset_kind?: 'brand_font';
 }
 
 interface PixelSize {
@@ -287,7 +289,9 @@ export async function listGuestImageEditorMedia(
 	designID: string,
 	search = ''
 ): Promise<ImageEditorMediaItem[]> {
-	const records = await listGuestMediaRecords(designID);
+	const records = (await listGuestMediaRecords(designID)).filter(
+		(record) => record.asset_kind !== 'brand_font'
+	);
 	const query = search.trim().toLocaleLowerCase();
 	const filtered = query
 		? records.filter((record) => record.name.toLocaleLowerCase().includes(query))
@@ -298,6 +302,18 @@ export async function listGuestImageEditorMedia(
 		.map(guestMediaItem);
 }
 
+export async function storeGuestImageEditorProjectMedia(
+	designID: string,
+	document: ImageEditorDocument,
+	entry: { id: string; file: File }
+): Promise<ImageEditorMediaItem> {
+	const isFont = document.pages.some((page) =>
+		page.layers.some((layer) => layer.text?.font_asset_id === entry.id)
+	);
+	if (isFont) return await storeGuestImageEditorFont(designID, entry.file);
+	return await storeGuestImageEditorMedia(designID, entry.file);
+}
+
 export async function storeGuestImageEditorMedia(
 	designID: string,
 	file: File,
@@ -306,6 +322,62 @@ export async function storeGuestImageEditorMedia(
 	const mediaGeneration = localImageEditorMediaGeneration(designID);
 	assertSupportedGuestImage(file);
 	const dimensions = await imageDimensions(file);
+	return await storeGuestAsset(designID, file, dimensions, options, mediaGeneration);
+}
+
+async function storeGuestImageEditorFont(
+	designID: string,
+	file: File
+): Promise<ImageEditorMediaItem> {
+	const mediaGeneration = localImageEditorMediaGeneration(designID);
+	if (!file.size || file.size > MAX_LOCAL_FONT_BYTES)
+		throw new Error(m.brand_font_missing_recovery());
+	const bytes = await file.arrayBuffer();
+	const signature = new DataView(bytes).byteLength >= 4 ? new DataView(bytes).getUint32(0) : 0;
+	const formats = [
+		{ signatures: [0x774f4632], type: 'font/woff2', extension: 'woff2', declared: ['font/woff2'] },
+		{
+			signatures: [0x00010000, 0x74727565],
+			type: 'font/ttf',
+			extension: 'ttf',
+			declared: ['font/ttf', 'font/sfnt', 'application/x-font-ttf', 'application/font-sfnt']
+		},
+		{
+			signatures: [0x4f54544f],
+			type: 'font/otf',
+			extension: 'otf',
+			declared: ['font/otf', 'font/sfnt', 'application/x-font-opentype', 'application/font-sfnt']
+		}
+	];
+	const format = formats.find((candidate) => candidate.signatures.includes(signature));
+	if (!format || !format.declared.includes(file.type.toLowerCase()))
+		throw new Error(m.brand_font_missing_recovery());
+	try {
+		await new FontFace(`OpenPostFontCheck_${crypto.randomUUID()}`, bytes).load();
+	} catch {
+		throw new Error(m.brand_font_missing_recovery());
+	}
+	const name = `${file.name.replace(/\.[^.]+$/u, '') || 'font'}.${format.extension}`;
+	const normalized = new File([bytes], name, {
+		type: format.type,
+		lastModified: file.lastModified
+	});
+	return await storeGuestAsset(
+		designID,
+		normalized,
+		{ width: 0, height: 0 },
+		{ assetKind: 'brand_font' },
+		mediaGeneration
+	);
+}
+
+async function storeGuestAsset(
+	designID: string,
+	file: File,
+	dimensions: PixelSize,
+	options: { provenance?: StockMediaProvenance; assetKind?: 'brand_font' },
+	mediaGeneration: number
+): Promise<ImageEditorMediaItem> {
 	const id = `local_media_${crypto.randomUUID()}`;
 	const record: LocalImageEditorMedia = {
 		id,
@@ -318,7 +390,8 @@ export async function storeGuestImageEditorMedia(
 		created_at: new Date().toISOString(),
 		storage: 'indexeddb',
 		blob: file,
-		provenance: options.provenance
+		provenance: options.provenance,
+		asset_kind: options.assetKind
 	};
 	if (await writeOPFSFile(id, file)) {
 		record.storage = 'opfs';
@@ -362,6 +435,7 @@ export async function getGuestImageEditorMediaForMigration(mediaID: string): Pro
 	name: string;
 	mimeType: string;
 	provenance?: StockMediaProvenance;
+	assetKind: 'brand_font' | 'library';
 }> {
 	const record = await getGuestMediaRecord(mediaID);
 	if (!record) throw new Error(m.image_editor_public_image_missing());
@@ -369,7 +443,8 @@ export async function getGuestImageEditorMediaForMigration(mediaID: string): Pro
 		blob: await getGuestImageEditorMediaBlob(mediaID),
 		name: record.name,
 		mimeType: record.mime_type,
-		provenance: record.provenance
+		provenance: record.provenance,
+		assetKind: record.asset_kind ?? 'library'
 	};
 }
 
@@ -497,7 +572,36 @@ async function warmGuestImageEditorMedia(document: ImageEditorDocument): Promise
 			}
 		})
 	);
-	return results.filter(Boolean);
+	const missing = new Set(results.filter(Boolean));
+	for (const layer of document.pages.flatMap((page) => page.layers)) {
+		const text = layer.text;
+		if (
+			!text?.font_asset_id ||
+			!isLocalImageEditorMediaID(text.font_asset_id) ||
+			missing.has(text.font_asset_id)
+		)
+			continue;
+		try {
+			const blob = await getGuestImageEditorMediaBlob(text.font_asset_id);
+			const existing = [...globalThis.document.fonts].find(
+				(face) =>
+					face.family === text.font_family &&
+					face.weight === String(text.font_weight) &&
+					face.style === (text.font_style ?? 'normal') &&
+					face.status === 'loaded'
+			);
+			if (existing) continue;
+			const face = new FontFace(text.font_family, await blob.arrayBuffer(), {
+				weight: String(text.font_weight),
+				style: text.font_style ?? 'normal'
+			});
+			await face.load();
+			globalThis.document.fonts.add(face);
+		} catch {
+			missing.add(text.font_asset_id);
+		}
+	}
+	return [...missing];
 }
 
 async function warmGuestMediaRecord(record: LocalImageEditorMedia): Promise<void> {
@@ -549,7 +653,7 @@ function guestMediaItem(record: LocalImageEditorMedia): ImageEditorMediaItem {
 		duration_ms: 0,
 		frame_rate: 0,
 		source: 'local',
-		asset_kind: 'library',
+		asset_kind: record.asset_kind ?? 'library',
 		provenance: record.provenance,
 		tags: []
 	};

@@ -34,6 +34,7 @@ export async function migrateGuestImageEditorDesign(
 			file: new File([media.blob], media.name, { type: media.mimeType }),
 			source: media.provenance ? 'stock_import' : 'upload',
 			retentionClass: 'library',
+			assetKind: media.assetKind,
 			stockProvenance: media.provenance
 		});
 		replacements.set(mediaID, uploaded.id);

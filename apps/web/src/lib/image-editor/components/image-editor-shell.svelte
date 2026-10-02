@@ -69,7 +69,11 @@
 		loadLocalImageEditorRecovery,
 		storeLocalImageEditorRecovery
 	} from '../recovery';
-	import { saveGuestImageEditorDesign, storeGuestImageEditorMedia } from '../local-persistence';
+	import {
+		saveGuestImageEditorDesign,
+		storeGuestImageEditorMedia,
+		storeGuestImageEditorProjectMedia
+	} from '../local-persistence';
 	import {
 		releaseLocalImageEditorMediaForDesign,
 		retainLocalImageEditorMediaForDesign
@@ -1577,7 +1581,11 @@
 						done: index + 1,
 						total
 					});
-					const uploaded = await storeGuestImageEditorMedia(recovery.guestDesignID, entry.file);
+					const uploaded = await storeGuestImageEditorProjectMedia(
+						recovery.guestDesignID,
+						parsed.document,
+						entry
+					);
 					recovery.replacements.set(entry.id, uploaded.id);
 				}
 				controller.signal.throwIfAborted();

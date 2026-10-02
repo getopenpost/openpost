@@ -5,6 +5,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
+	import { localImageEditorMediaURL } from '../local-media-url';
+	import { hasRegisteredImageEditorBrandFont } from '../fonts';
 	import { useImageEditor } from '../editor.svelte';
 	import { textGraphemeOffset, textRunStyleAt, type ImageEditorTextEdit } from '../text-runs';
 
@@ -23,7 +25,20 @@
 	let brandTextStyles = $derived(editor.brandKit?.text_styles ?? []);
 	let missingFontAsset = $derived(
 		layer?.text?.font_asset_id &&
-			!brandFonts.some((font) => font.media_id === layer?.text?.font_asset_id)
+			!brandFonts.some((font) => font.media_id === layer?.text?.font_asset_id) &&
+			!(
+				localImageEditorMediaURL(layer.text.font_asset_id) &&
+				hasRegisteredImageEditorBrandFont(
+					{
+						id: layer.text.font_asset_id,
+						media_id: layer.text.font_asset_id,
+						family: layer.text.font_family,
+						weight: layer.text.font_weight,
+						style: layer.text.font_style ?? 'normal'
+					},
+					document.fonts
+				)
+			)
 			? layer.text.font_asset_id
 			: ''
 	);

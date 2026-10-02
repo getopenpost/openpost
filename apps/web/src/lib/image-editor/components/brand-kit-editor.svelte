@@ -212,7 +212,11 @@
 					style: fontStyle
 				}
 			);
-			await face.load();
+			try {
+				await face.load();
+			} catch {
+				throw new Error(m.brand_font_file_invalid());
+			}
 			const uploaded = await uploadMediaFile({
 				workspaceId: kit.workspace_id,
 				file: new File([file], file.name, {
@@ -487,7 +491,11 @@
 						class="sr-only !size-px !p-0"
 						accept=".woff2,.ttf,.otf,font/woff2,font/ttf,font/otf"
 						disabled={uploadingFont}
-						onchange={(event) => uploadBrandFont(event.currentTarget.files?.[0])}
+						onchange={(event) => {
+							const file = event.currentTarget.files?.[0];
+							event.currentTarget.value = '';
+							void uploadBrandFont(file);
+						}}
 					/>
 				</label>
 			</div>

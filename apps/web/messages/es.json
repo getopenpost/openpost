@@ -4960,7 +4960,7 @@
 	"video_editor_shape_mask_feather": "Pluma (px)",
 	"video_editor_shape_mask_opacity": "Opacidad de la máscara (%)",
 	"video_editor_shape_mask_invert": "Invertir máscara",
-	"video_editor_shape_mask_path_hint": "Edite esta máscara con la herramienta Path en el lienzo.",
+	"video_editor_shape_mask_path_hint": "Seleccione Editar máscara en la barra de herramientas del lienzo para editar esta máscara.",
 	"video_editor_corner_pin": "Alfiler de esquina",
 	"video_editor_corner_pin_hint": "Arrastre las cuatro esquinas del lienzo o introduzca los desplazamiento de píxeles locales.",
 	"video_editor_corner_pin_reset": "Reiniciar",

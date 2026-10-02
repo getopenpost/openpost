@@ -4955,7 +4955,7 @@
 	"video_editor_shape_mask_feather": "Weiche Kante (px)",
 	"video_editor_shape_mask_opacity": "Maskendeckkraft (%)",
 	"video_editor_shape_mask_invert": "Maske invertieren",
-	"video_editor_shape_mask_path_hint": "Bearbeite diese Maske mit dem Pfad-Werkzeug auf dem Canvas.",
+	"video_editor_shape_mask_path_hint": "Wähle Maske bearbeiten in der Canvas-Werkzeugleiste, um diese Maske zu bearbeiten.",
 	"video_editor_corner_pin": "Eck-Pin",
 	"video_editor_corner_pin_hint": "Drag der four Canvas corners oder enter Lokal pixel offsets.",
 	"video_editor_corner_pin_reset": "Zurücksetzen",

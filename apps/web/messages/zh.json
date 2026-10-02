@@ -4960,7 +4960,7 @@
 	"video_editor_shape_mask_feather": "羽化 (px)",
 	"video_editor_shape_mask_opacity": "蒙版不透明度（%）",
 	"video_editor_shape_mask_invert": "反相蒙版",
-	"video_editor_shape_mask_path_hint": "使用画布上的路径工具编辑此蒙版。",
+	"video_editor_shape_mask_path_hint": "在画布工具栏中选择编辑遮罩来编辑此蒙版。",
 	"video_editor_corner_pin": "四角变形",
 	"video_editor_corner_pin_hint": "拖动画布四角，或输入局部像素偏移。",
 	"video_editor_corner_pin_reset": "重置",

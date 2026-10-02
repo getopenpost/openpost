@@ -10,6 +10,8 @@
 	import { hasPathVertexKeyframes } from '$lib/video-editor/timeline/path-vertex-keyframes';
 	import { pathVertexSelectionStore } from '$lib/video-editor/timeline/stores/path-vertex-selection-store.svelte';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import {
 		closestPathSegment,
 		fitDrawnPath,
@@ -31,6 +33,7 @@
 		currentFrame,
 		boxStyle,
 		screenScale,
+		toolbarContext = 'path',
 		onedit
 	}: {
 		item: TimelineItem;
@@ -39,6 +42,7 @@
 		currentFrame: number;
 		boxStyle: string;
 		screenScale: number;
+		toolbarContext?: 'path' | 'mask';
 		onedit: () => void;
 	} = $props();
 
@@ -674,16 +678,31 @@
 			</ContextMenu.Root>
 		{/each}
 	</svg>
+</div>
 
-	<div
-		class="absolute top-full left-1/2 mt-2 flex max-w-[min(34rem,90vw)] -translate-x-1/2 flex-col items-center gap-1"
-	>
-		<div
-			class="flex min-h-8 max-w-[min(30rem,90vw)] flex-nowrap items-center justify-start gap-0.5 overflow-x-auto rounded bg-black/85 p-0.5 text-[10px] text-white shadow-lg [&>button]:shrink-0 [&>button]:whitespace-nowrap"
-			title={drawing
-				? m.video_editor_path_draw_hint()
-				: `${m.video_editor_path_edit_hint()} ${m.video_editor_path_selection_hint()}`}
+<div
+	class="pointer-events-auto absolute right-2 bottom-2 flex max-w-[calc(100%_-_1rem)] flex-col items-center gap-1"
+	class:left-2={toolbarContext === 'path'}
+>
+	{#if topologyLocked || status}
+		<output
+			class="max-w-full rounded bg-black/85 px-2 py-1 text-center text-[10px] text-amber-100 shadow-lg"
+			aria-live="polite"
 		>
+			{status || m.video_editor_path_topology_locked()}
+		</output>
+	{/if}
+	<div
+		class="flex min-h-8 max-w-full flex-wrap items-center justify-center gap-0.5 rounded bg-black/85 p-0.5 text-[10px] text-white shadow-lg [&_button]:min-h-[25px] [&_button]:shrink-0 [&_button]:whitespace-nowrap [@media(pointer:coarse)]:[&_button]:min-h-11 [@media(pointer:coarse)]:[&_button]:min-w-11"
+		role="toolbar"
+		aria-label={toolbarContext === 'mask'
+			? m.image_editor_more_actions()
+			: m.video_editor_canvas_tool_path()}
+		title={drawing
+			? m.video_editor_path_draw_hint()
+			: `${m.video_editor_path_edit_hint()} ${m.video_editor_path_selection_hint()}`}
+	>
+		{#if toolbarContext === 'path'}
 			<button
 				type="button"
 				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white aria-pressed:bg-[oklch(0.66_0.14_45_/_0.35)]"
@@ -697,85 +716,71 @@
 				aria-pressed={!drawing}
 				onclick={() => setPathToolMode('edit')}>{m.video_editor_path_edit_mode()}</button
 			>
-			{#if drawing}
-				{#if !mustClose}
-					<button
-						type="button"
-						class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
-						disabled={storedVertices.length < 2}
-						onclick={() => finishDrawing(false)}>{m.video_editor_path_finish_open()}</button
-					>
-				{/if}
-				<button
-					type="button"
-					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
-					disabled={storedVertices.length < 3}
-					onclick={() => finishDrawing(true)}>{m.video_editor_path_finish_closed()}</button
-				>
-			{:else}
-				<button
-					type="button"
-					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
-					disabled={selectedIndex === null || topologyLocked}
-					onclick={insertAfterSelected}>{m.video_editor_path_add_point()}</button
-				>
-				<button
-					type="button"
-					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
-					disabled={selectedIndex === null || topologyLocked}
-					onclick={removeSelected}>{m.video_editor_path_delete_point()}</button
-				>
-				<button
+		{/if}
+		{#if drawing}
+			{#if !mustClose}<button
 					type="button"
 					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
-					disabled={!canConvertSelectedToCurve}
-					onclick={() => convertSelectedVertices('curve')}
-					>{m.video_editor_path_convert_curve()}</button
-				>
-				<button
-					type="button"
-					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
-					disabled={!canConvertSelectedToCorner}
-					onclick={() => convertSelectedVertices('corner')}
-					>{m.video_editor_path_convert_corner()}</button
-				>
-				<button
-					type="button"
-					class="rounded bg-[oklch(0.66_0.14_45_/_0.22)] px-2 py-1 hover:bg-[oklch(0.66_0.14_45_/_0.35)] focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
-					disabled={selectedIndices.length === 0}
-					onclick={keySelectedVertices}>{m.video_editor_path_key_selected()}</button
-				>
-				<button
-					type="button"
-					class="rounded bg-[oklch(0.66_0.14_45_/_0.22)] px-2 py-1 hover:bg-[oklch(0.66_0.14_45_/_0.35)] focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
-					disabled={storedVertices.length === 0}
-					onclick={keyAllVertices}>{m.video_editor_path_key_all()}</button
-				>
-				<button
-					type="button"
-					class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
-					aria-pressed={showAllLanes}
-					onclick={() => pathVertexSelectionStore.setShowAll(item.id, !showAllLanes)}
-					>{showAllLanes
-						? m.video_editor_path_show_selected_lanes()
-						: m.video_editor_path_show_all_lanes()}</button
-				>
-				{#if topologyLocked}
-					<button
-						type="button"
-						class="rounded px-2 py-1 text-red-200 hover:bg-red-400/15 focus-visible:outline-2 focus-visible:outline-white"
-						onclick={clearPathKeys}>{m.video_editor_path_clear_keys()}</button
-					>
-				{/if}
-			{/if}
-		</div>
-		{#if topologyLocked || status}
-			<output
-				class="h-6 max-w-[min(20rem,80vw)] truncate rounded bg-black/85 px-2 text-center text-[10px] leading-6 text-amber-100 shadow-lg"
-				aria-live="polite"
+					disabled={storedVertices.length < 2}
+					onclick={() => finishDrawing(false)}>{m.video_editor_path_finish_open()}</button
+				>{/if}
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40"
+				disabled={storedVertices.length < 3}
+				onclick={() => finishDrawing(true)}>{m.video_editor_path_finish_closed()}</button
 			>
-				{status || m.video_editor_path_topology_locked()}
-			</output>
+		{:else}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger
+					class="flex size-7 items-center justify-center rounded hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
+					aria-label={m.image_editor_more_actions()}
+					><ThemeIcon role="more-horizontal" class="size-3.5" /></DropdownMenu.Trigger
+				>
+				<DropdownMenu.Content
+					side="top"
+					align="end"
+					class="w-56 max-w-[calc(100vw-1rem)] [@media(pointer:coarse)]:[&_[role^=menuitem]]:min-h-11"
+				>
+					{#if toolbarContext === 'path'}
+						<DropdownMenu.Item
+							disabled={!canConvertSelectedToCurve}
+							onSelect={() => convertSelectedVertices('curve')}
+						>
+							{m.video_editor_path_convert_curve()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Item
+							disabled={!canConvertSelectedToCorner}
+							onSelect={() => convertSelectedVertices('corner')}
+						>
+							{m.video_editor_path_convert_corner()}
+						</DropdownMenu.Item>
+					{/if}
+					<DropdownMenu.Item
+						disabled={selectedIndex === null || topologyLocked}
+						onSelect={insertAfterSelected}>{m.video_editor_path_add_point()}</DropdownMenu.Item
+					>
+					{#if toolbarContext === 'path'}<DropdownMenu.Item
+							disabled={!canDeleteSelected}
+							onSelect={removeSelected}>{m.video_editor_path_delete_point()}</DropdownMenu.Item
+						>{/if}
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item disabled={selectedIndices.length === 0} onSelect={keySelectedVertices}
+						>{m.video_editor_path_key_selected()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item disabled={storedVertices.length === 0} onSelect={keyAllVertices}
+						>{m.video_editor_path_key_all()}</DropdownMenu.Item
+					>
+					<DropdownMenu.CheckboxItem
+						checked={showAllLanes}
+						onCheckedChange={(checked) => pathVertexSelectionStore.setShowAll(item.id, checked)}
+						>{m.video_editor_path_show_all_lanes()}</DropdownMenu.CheckboxItem
+					>
+					{#if topologyLocked}<DropdownMenu.Separator /><DropdownMenu.Item onSelect={clearPathKeys}
+							>{m.video_editor_path_clear_keys()}</DropdownMenu.Item
+						>{/if}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
 		{/if}
 	</div>
 </div>

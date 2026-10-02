@@ -4960,7 +4960,7 @@
 	"video_editor_shape_mask_feather": "Yumuşatma (px)",
 	"video_editor_shape_mask_opacity": "Maske opaklığı (%)",
 	"video_editor_shape_mask_invert": "Maskeyi ters çevir",
-	"video_editor_shape_mask_path_hint": "Bu maskeyi tuvaldeki Yol aracıyla düzenleyin.",
+	"video_editor_shape_mask_path_hint": "Bu maskeyi düzenlemek için tuval araç çubuğunda Maskeyi düzenle seçeneğini seçin.",
 	"video_editor_corner_pin": "Köşe sabitleme",
 	"video_editor_corner_pin_hint": "Tuvalin dört köşesini sürükleyin veya yerel piksel ofsetlerini girin.",
 	"video_editor_corner_pin_reset": "Sıfırla",

@@ -5001,7 +5001,7 @@
 	"video_editor_shape_mask_feather": "Feather (px)",
 	"video_editor_shape_mask_opacity": "Mask opacity (%)",
 	"video_editor_shape_mask_invert": "Invert mask",
-	"video_editor_shape_mask_path_hint": "Edit this mask with the Path tool on the canvas.",
+	"video_editor_shape_mask_path_hint": "Choose Edit mask in the canvas toolbar to edit this mask.",
 	"video_editor_corner_pin": "Corner pin",
 	"video_editor_corner_pin_hint": "Drag the four canvas corners or enter local pixel offsets.",
 	"video_editor_corner_pin_reset": "Reset",

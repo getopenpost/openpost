@@ -4960,7 +4960,7 @@
 	"video_editor_shape_mask_feather": "Suavização (px)",
 	"video_editor_shape_mask_opacity": "Opacidade da máscara (%)",
 	"video_editor_shape_mask_invert": "Inverter máscara",
-	"video_editor_shape_mask_path_hint": "Edite esta máscara com a ferramenta Traçado na tela.",
+	"video_editor_shape_mask_path_hint": "Escolha Editar máscara na barra de ferramentas da tela para editar esta máscara.",
 	"video_editor_corner_pin": "Fixação de cantos",
 	"video_editor_corner_pin_hint": "Arraste os quatro cantos na tela ou informe deslocamentos em pixels locais.",
 	"video_editor_corner_pin_reset": "Redefinir",

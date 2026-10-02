@@ -949,7 +949,7 @@
 
 <div bind:this={root} class="pointer-events-none absolute inset-0 z-20" data-on-canvas-tools>
 	<div
-		class="pointer-events-auto absolute top-2 left-1/2 z-30 flex h-8 max-w-[calc(100%_-_1rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-md border border-white/15 bg-black/80 p-0.5 text-white shadow-lg backdrop-blur"
+		class="pointer-events-auto absolute top-2 left-1/2 z-30 flex min-h-8 max-w-[calc(100%_-_1rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-md border border-white/15 bg-black/80 p-0.5 text-white shadow-lg backdrop-blur"
 		role="toolbar"
 		aria-label={m.video_editor_canvas_tools()}
 		title={`${m.video_editor_resize_modifier_hint()} ${m.video_editor_rotation_modifier_hint()}`}
@@ -957,7 +957,7 @@
 		<button
 			type="button"
 			class:active={activeTool === 'transform'}
-			class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+			class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 			aria-label={m.video_editor_canvas_tool_transform()}
 			title={m.video_editor_canvas_tool_transform()}
 			onclick={() => setTool('transform')}
@@ -967,7 +967,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'crop'}
-				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 				aria-label={m.video_editor_canvas_tool_crop()}
 				title={m.video_editor_canvas_tool_crop()}
 				onclick={() => setTool('crop')}><ProtectedIcon icon="editor-crop" class="size-4" /></button
@@ -976,7 +976,7 @@
 		<button
 			type="button"
 			class:active={activeTool === 'anchor'}
-			class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+			class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 			aria-label={m.video_editor_canvas_tool_anchor()}
 			title={m.video_editor_canvas_tool_anchor()}
 			onclick={() => setTool('anchor')}><ProtectedIcon icon="editor-focus" class="size-4" /></button
@@ -985,7 +985,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'text'}
-				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 				aria-label={m.video_editor_canvas_tool_text()}
 				title={m.video_editor_canvas_tool_text()}
 				onclick={() => setTool('text')}><ProtectedIcon icon="editor-text" class="size-4" /></button
@@ -995,7 +995,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'motion'}
-				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 				aria-label={m.video_editor_canvas_tool_motion()}
 				title={m.video_editor_canvas_tool_motion()}
 				onclick={() => setTool('motion')}
@@ -1006,7 +1006,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'mask'}
-				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 				aria-label={m.video_editor_canvas_tool_mask()}
 				title={m.video_editor_canvas_tool_mask()}
 				onclick={() => setTool('mask')}><ProtectedIcon icon="editor-mask" class="size-4" /></button
@@ -1015,7 +1015,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'path'}
-				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 				aria-label={m.video_editor_canvas_tool_path()}
 				title={m.video_editor_canvas_tool_path()}
 				onclick={() => setTool('path')}><ProtectedIcon icon="editor-path" class="size-4" /></button
@@ -1025,7 +1025,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'corner-pin'}
-				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.76_0.13_220)] [&.active]:text-black [@media(pointer:coarse)]:size-8"
+				class="flex size-7 shrink-0 items-center justify-center rounded-[4px] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.76_0.13_220)] [&.active]:text-black [@media(pointer:coarse)]:size-11"
 				aria-label={m.video_editor_canvas_tool_corner_pin()}
 				title={m.video_editor_canvas_tool_corner_pin()}
 				onclick={() => setTool('corner-pin')}

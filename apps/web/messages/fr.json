@@ -4960,7 +4960,7 @@
 	"video_editor_shape_mask_feather": "Adoucissement (px)",
 	"video_editor_shape_mask_opacity": "Opacité du masque (%)",
 	"video_editor_shape_mask_invert": "Inverser le masque",
-	"video_editor_shape_mask_path_hint": "Modifiez ce masque avec l'outil Tracé sur le canevas.",
+	"video_editor_shape_mask_path_hint": "Choisissez Modifier le masque dans la barre d’outils du canevas pour modifier ce masque.",
 	"video_editor_corner_pin": "Punaisage des coins",
 	"video_editor_corner_pin_hint": "Faites glisser les quatre coins du canevas ou saisissez des décalages en pixels locaux.",
 	"video_editor_corner_pin_reset": "Réinitialiser",

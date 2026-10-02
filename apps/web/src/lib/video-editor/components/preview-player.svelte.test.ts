@@ -1,4 +1,9 @@
 import { page } from 'vitest/browser';
+import MotionPresetsPanel from './motion-presets-panel.svelte';
+import { commandHistory } from '../timeline/commands/command-store.svelte';
+import { setCurrentFrame } from '../timeline/actions/items';
+import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { createProject, getProject } from '../workspace-fs/projects';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import PreviewPlayer from './preview-player.svelte';
@@ -150,6 +155,108 @@ it('keeps a scrubbed timer within its authored size and updates its pixels durin
 		await screen.unmount();
 		await page.viewport(1280, 900);
 		timelinePreviewScrub.clear();
+		timelineStore.__resetForTesting();
+		editorSession.project = null;
+	}
+});
+
+it('keeps active caption pixels after native entrance apply and undo without seeking', async () => {
+	await page.viewport(1000, 650);
+	const project = createBlankProject('Caption animation undo');
+	project.metadata = { width: 640, height: 360, fps: 30 };
+	project.timeline!.items = [
+		{
+			id: 'caption',
+			type: 'subtitle',
+			label: 'Caption',
+			trackId: 'track-video-main',
+			from: 0,
+			durationInFrames: 180,
+			fontFamily: 'Courier New',
+			fontSize: 60,
+			color: '#ffffff',
+			textAlign: 'center',
+			verticalAlign: 'middle',
+			transform: { width: 640, height: 160, x: 0, y: 0 },
+			cues: [{ id: 'cue', text: '<b><i>VISIBLE\nCAPTION</i></b>', startFrame: 31, endFrame: 146 }]
+		}
+	];
+	editorSession.project = project;
+	sequenceStore.load(project.timeline!, project.metadata);
+	setCurrentFrame(53);
+	commandHistory.clearHistory();
+	let screen = await render(PreviewPlayer, {
+		selectedItemId: 'caption',
+		selectedItemIds: ['caption'],
+		onedit: () => {}
+	});
+	screen.container.style.cssText = 'display:flex;width:800px;height:500px';
+	const panel = await render(MotionPresetsPanel, {
+		itemId: 'caption',
+		frameWidth: 640,
+		frameHeight: 360,
+		fps: 30,
+		onedit: () => {}
+	});
+	let monitor = screen.getByRole('application', { name: 'Program' }).element();
+	function visibleWhitePixels() {
+		let count = 0;
+		for (const canvas of monitor.querySelectorAll('canvas')) {
+			if (!canvas.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+			const context = canvas.getContext('2d');
+			if (!context) continue;
+			const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+			for (let offset = 0; offset < data.length; offset += 4)
+				if (
+					data[offset]! > 220 &&
+					data[offset + 1]! > 220 &&
+					data[offset + 2]! > 220 &&
+					data[offset + 3]! > 128
+				)
+					count++;
+		}
+		return count;
+	}
+	try {
+		await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
+		await panel.getByRole('button', { name: 'Replace Fade in', exact: true }).click();
+		expect(timelineStore.itemById.get('caption')?.keyframes?.opacity?.frames).toEqual([0, 15]);
+		await nextPaint();
+		commandHistory.undo();
+		expect(timelineStore.currentFrame).toBe(53);
+		expect(timelineStore.itemById.get('caption')?.keyframes?.opacity).toBeUndefined();
+		await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
+		commandHistory.redo();
+		await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
+		commandHistory.undo();
+		await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
+		const prior = getWorkspaceRoot();
+		const root = await navigator.storage.getDirectory();
+		const dir = `caption-undo-${crypto.randomUUID()}`;
+		setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
+		try {
+			await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
+			await screen.unmount();
+			sequenceStore.reset();
+			timelineStore.__resetForTesting();
+			const loaded = (await getProject(project.id))!;
+			editorSession.project = loaded;
+			sequenceStore.load(loaded.timeline!, loaded.metadata);
+			setCurrentFrame(53);
+			screen = await render(PreviewPlayer, { onedit: () => {} });
+			screen.container.style.cssText = 'display:flex;width:800px;height:500px';
+			monitor = screen.getByRole('application', { name: 'Program' }).element();
+			expect(timelineStore.itemById.get('caption')?.keyframes?.opacity).toBeUndefined();
+			await expect.poll(visibleWhitePixels).toBeGreaterThan(100);
+		} finally {
+			setWorkspaceRoot(prior);
+			await root.removeEntry(dir, { recursive: true });
+		}
+	} finally {
+		await panel.unmount();
+		await screen.unmount();
+		commandHistory.clearHistory();
+		sequenceStore.reset();
 		timelineStore.__resetForTesting();
 		editorSession.project = null;
 	}

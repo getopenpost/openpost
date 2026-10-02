@@ -1190,7 +1190,7 @@
 			type:
 				kind === 'text'
 					? 'text'
-					: kind === 'shape'
+					: kind === 'shape' || kind === 'solid' || kind === 'gradient'
 						? 'shape'
 						: kind === 'controller'
 							? 'controller'
@@ -1206,6 +1206,7 @@
 			base.shapeType = 'rectangle';
 		}
 		if (kind === 'gradient') {
+			base.shapeType = 'rectangle';
 			base.fillType = 'linear';
 			base.gradientStartColor = '#ff3b30';
 			base.gradientEndColor = '#007aff';

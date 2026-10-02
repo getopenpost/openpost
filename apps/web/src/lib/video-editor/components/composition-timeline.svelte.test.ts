@@ -1,3 +1,6 @@
+import { TimelineFrameRenderer } from '../media/render-export';
+import type { Project } from '../project/types';
+import PreviewLayer from './preview-layer.svelte';
 import { expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
@@ -701,3 +704,75 @@ it('retains marquee selection after pointer release and its browser click', asyn
 		sequenceStore.deleteCompositionAndReferences(id);
 	}
 });
+
+it.each(['solid', 'gradient'] as const)(
+	'renders the generated Motion %s without a media source',
+	async (kind) => {
+		const id = `generated-${kind}`;
+		const composition = {
+			id,
+			name: 'Generated layer',
+			editorKind: 'composite-2d' as const,
+			items: [],
+			tracks: [],
+			transitions: [],
+			fps: 30,
+			width: 64,
+			height: 64,
+			durationInFrames: 30
+		};
+		sequenceStore.addComposition(composition);
+		sequenceStore.switchTo(id);
+		let renderer: TimelineFrameRenderer | undefined;
+		try {
+			const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+			await screen.getByTestId(`add-layer-${kind}`).click();
+			const project: Project = {
+				id: 'generated-layer',
+				name: 'Generated layer',
+				description: '',
+				createdAt: 0,
+				updatedAt: 0,
+				duration: 1,
+				metadata: { width: 64, height: 64, fps: 30 },
+				timeline: { items: timelineStore.items, tracks: timelineStore.tracks, transitions: [] }
+			};
+			renderer = new TimelineFrameRenderer(project);
+			const canvas = await renderer.render(0);
+			const pixels = canvas.getContext('2d')!;
+			const left = pixels.getImageData(1, 32, 1, 1).data;
+			const right = pixels.getImageData(62, 32, 1, 1).data;
+			expect(left[0]).toBeGreaterThan(240);
+			expect(left[3]).toBe(255);
+			const previewScreen = await render(PreviewLayer, {
+				item: timelineStore.items[0]!,
+				displayFrame: 0,
+				canvasWidth: 64,
+				canvasHeight: 64,
+				selected: false,
+				onselect: () => {}
+			});
+			const preview = previewScreen.container.querySelector('canvas')!;
+			await expect
+				.poll(() => preview.getContext('2d')!.getImageData(1, 32, 1, 1).data[0])
+				.toBeGreaterThan(240);
+
+			const previewRight = preview.getContext('2d')!.getImageData(62, 32, 1, 1).data;
+			if (kind === 'solid') {
+				expect(previewRight[0]).toBeGreaterThan(240);
+				expect(previewRight[2]).toBeLessThan(80);
+				expect(right[0]).toBeGreaterThan(240);
+				expect(right[2]).toBeLessThan(80);
+			} else {
+				expect(previewRight[2]).toBeGreaterThan(240);
+				expect(previewRight[0]).toBeLessThan(30);
+				expect(right[2]).toBeGreaterThan(240);
+				expect(right[0]).toBeLessThan(30);
+			}
+		} finally {
+			renderer?.dispose();
+			timelineStore.__resetForTesting();
+			sequenceStore.deleteCompositionAndReferences(id);
+		}
+	}
+);

@@ -18,11 +18,8 @@ export function collectAdjustmentLayers(
 ): AdjustmentLayerScope[] {
 	const resolvedTracks = effectiveMediaTracks(tracks);
 	const orderByTrack = new Map(resolvedTracks.map((track) => [track.id, track.order]));
-	const anySolo = resolvedTracks.some((track) => track.solo);
 	const visibleTracks = new Set(
-		resolvedTracks
-			.filter((track) => (anySolo ? track.solo : track.visible !== false))
-			.map((track) => track.id)
+		resolvedTracks.filter((track) => track.visible !== false).map((track) => track.id)
 	);
 	return items.flatMap((item) =>
 		item.type === 'adjustment' &&

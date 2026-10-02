@@ -235,12 +235,21 @@ describe('transitionBlendAtFrame', () => {
 		expect(ordered.map((entry) => entry.id)).toEqual(['shown-item']);
 	});
 
-	it('renders only solo tracks when any track is soloed', () => {
+	it('keeps visual layering and hidden tracks independent of audio solo', () => {
 		const ordered = paintOrder(
-			[item({ id: 'normal-item', trackId: 'normal' }), item({ id: 'solo-item', trackId: 'solo' })],
-			[track('normal', 'video', 0), track('solo', 'video', 1, { solo: true })]
+			[
+				item({ id: 'overlay', trackId: 'overlay' }),
+				item({ id: 'base', trackId: 'base' }),
+				item({ id: 'hidden', trackId: 'hidden' })
+			],
+			[
+				track('overlay', 'video', 0),
+				track('base', 'video', 1),
+				track('hidden', 'video', 2, { visible: false, solo: true }),
+				track('audio', 'audio', 3, { solo: true })
+			]
 		);
 
-		expect(ordered.map((entry) => entry.id)).toEqual(['solo-item']);
+		expect(ordered.map((entry) => entry.id)).toEqual(['base', 'overlay']);
 	});
 });

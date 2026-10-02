@@ -695,6 +695,7 @@ export function transitionBlendAtFrame(
 /**
  * Items sorted bottom-layer-first for painting: tracks later in the order
  * list paint first, so the overlay track (order 0) ends up topmost.
+ * Mute and solo affect audibility, not visual visibility.
  */
 export function paintOrder(
 	items: TimelineItem[] = [],
@@ -702,11 +703,10 @@ export function paintOrder(
 ): TimelineItem[] {
 	const resolvedTracks = effectiveMediaTracks(tracks);
 	const trackById = new Map(resolvedTracks.map((track) => [track.id, track]));
-	const anySolo = resolvedTracks.some((track) => track.solo);
 	return items
 		.filter((item) => {
 			const track = trackById.get(item.trackId);
-			return track !== undefined && (anySolo ? track.solo : track.visible !== false);
+			return track !== undefined && track.visible !== false;
 		})
 		.sort(
 			(a, b) => (trackById.get(b.trackId)?.order ?? 0) - (trackById.get(a.trackId)?.order ?? 0)

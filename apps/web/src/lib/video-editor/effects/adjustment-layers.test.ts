@@ -63,6 +63,20 @@ const clip: TimelineItem = {
 };
 
 describe('sequence color grade scope', () => {
+	it('keeps visible adjustment layers when an audio track is soloed', () => {
+		const visible = adjustment(false);
+		const hidden = { ...adjustment(false), id: 'hidden-grade', trackId: 'hidden' };
+		const layers = collectAdjustmentLayers(
+			[visible, hidden],
+			[
+				...tracks,
+				{ ...tracks[0]!, id: 'hidden', visible: false, solo: true },
+				{ ...tracks[0]!, id: 'audio', kind: 'audio', solo: true }
+			]
+		);
+		expect(layers.map(({ layer }) => layer.id)).toEqual(['bounded-grade']);
+	});
+
 	it('bypasses color only for the selected effect owner', () => {
 		const bounded = adjustment(false);
 		bounded.durationInFrames = 200;

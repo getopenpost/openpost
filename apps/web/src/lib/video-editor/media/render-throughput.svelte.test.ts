@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	ALL_FORMATS,
+	AudioBufferSink,
 	BlobSource,
 	BufferTarget,
 	CanvasSink,
@@ -17,6 +18,7 @@ import type { Project } from '../project/types';
 import { getProxy, clearProxyCache } from './proxy-client';
 import { createTextMotionEffect } from '../timeline/text-motion-presets';
 import { ItemRasterizer } from './item-rasterizer';
+import { createFloat32WavBlob } from '../local-ai/audio';
 
 const FPS = 30;
 const FRAME_COUNT = 60;
@@ -103,6 +105,100 @@ afterEach(() => {
 });
 
 describe('timeline rendering', () => {
+	it('keeps visual pixels in the frame and encoded export when an audio track is soloed', async () => {
+		const project = sourceProject();
+		project.duration = 0.1;
+		const timeline = project.timeline!;
+		timeline.tracks.push({
+			...timeline.tracks[0]!,
+			id: 'a',
+			name: 'Audio',
+			kind: 'audio',
+			order: 1,
+			solo: true
+		});
+		timeline.items = [
+			{
+				id: 'red',
+				type: 'shape',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 3,
+				label: 'Red rectangle',
+				shapeType: 'rectangle',
+				fillColor: '#ff0000'
+			},
+			{
+				id: 'tone',
+				type: 'audio',
+				trackId: 'a',
+				mediaId: 'tone',
+				from: 0,
+				durationInFrames: 3,
+				label: 'Solo tone'
+			}
+		];
+		const tone = createFloat32WavBlob(
+			[Float32Array.from({ length: 4800 }, (_, index) => Math.sin((index * Math.PI) / 24) * 0.2)],
+			48000
+		);
+		const url = URL.createObjectURL(tone);
+		mediaPool.upsert(
+			{
+				id: 'tone',
+				storageType: 'cloud',
+				remoteUrl: url,
+				fileName: 'tone.wav',
+				fileSize: tone.size,
+				mimeType: tone.type,
+				duration: 0.1,
+				width: 0,
+				height: 0,
+				fps: 0,
+				codec: 'pcm-f32',
+				bitrate: 1_536_000,
+				audioCodec: 'pcm-f32',
+				tags: []
+			},
+			'ready'
+		);
+		const renderer = new TimelineFrameRenderer(project);
+		let input: Input | undefined;
+		try {
+			const frame = await renderer.render(0);
+			expect
+				.soft([...frame.getContext('2d')!.getImageData(32, 32, 1, 1).data])
+				.toEqual([255, 0, 0, 255]);
+			const artifact = await renderMultiTrackVideoArtifact(project, {
+				format: 'webm',
+				codec: 'vp9',
+				quality: 'draft'
+			});
+			input = new Input({ source: new BlobSource(artifact.blob), formats: ALL_FORMATS });
+			const audio = (await input.getPrimaryAudioTrack())!;
+			expect(audio).not.toBeNull();
+			let audible = false;
+			for await (const { buffer } of new AudioBufferSink(audio).buffers()) {
+				audible ||= buffer.getChannelData(0).some((sample) => Math.abs(sample) > 0.05);
+			}
+			expect(audible).toBe(true);
+			const video = (await input.getPrimaryVideoTrack())!;
+			let count = 0;
+			for await (const { canvas } of new CanvasSink(video, { poolSize: 1 }).canvases()) {
+				const pixel = canvas.getContext('2d')!.getImageData(32, 32, 1, 1).data;
+				expect(pixel[0]).toBeGreaterThan(245);
+				expect(pixel[1]).toBeLessThan(10);
+				expect(pixel[2]).toBeLessThan(10);
+				count++;
+			}
+			expect(count).toBe(3);
+		} finally {
+			input?.dispose();
+			renderer.dispose();
+			URL.revokeObjectURL(url);
+		}
+	});
+
 	it('bounds retained raster memory after compositing and releases it on disposal', () => {
 		const rasterizer = new ItemRasterizer(2048, 2048, FPS);
 		const canvases: OffscreenCanvas[] = [];

@@ -36,6 +36,9 @@
 	type PromptsQueryParams = NonNullable<operations['get-random-prompt']['parameters']['query']>;
 
 	let selectedCategory = $state<string>('all');
+	let randomPrompt = $state.raw<Prompt | null>(null);
+	let randomLoading = $state(false);
+	let randomSequence = 0;
 	let showAddPrompt = $state(false);
 	let newPromptText = $state('');
 	let newPromptExample = $state('');
@@ -83,6 +86,9 @@
 		if (mutationWorkspaceID === workspaceID) return;
 		mutationWorkspaceID = workspaceID;
 		mutationSequence += 1;
+		randomSequence += 1;
+		randomPrompt = null;
+		randomLoading = false;
 		showAddPrompt = false;
 		newPromptText = '';
 		newPromptExample = '';
@@ -176,23 +182,33 @@
 	}
 
 	async function getRandomPrompt() {
-		if (!workspaceCtx.currentWorkspace) return;
+		if (!workspaceID || randomLoading) return;
+		const session = captureQueryMutationSession();
+		const sequence = ++randomSequence;
+		const selectedWorkspace = workspaceID;
+		const category = selectedCategory;
+		const isCurrent = () =>
+			sequence === randomSequence &&
+			selectedWorkspace === workspaceID &&
+			category === selectedCategory &&
+			queryMutationSessionIsCurrent(session);
+		randomLoading = true;
 		try {
-			const params: PromptsQueryParams = { workspace_id: workspaceCtx.currentWorkspace.id };
-			if (selectedCategory !== 'all') {
-				params.category = selectedCategory;
-			}
+			const params: PromptsQueryParams = { workspace_id: selectedWorkspace };
+			if (category !== 'all') params.category = category;
 			const { data, error: err } = await client.GET('/prompts/random', {
 				params: { query: params }
 			});
+			if (!isCurrent()) return;
 			if (err) throw new Error(err.detail || m.prompts_random_failed());
 			if (!data) throw new Error(m.prompts_random_failed());
-			ui.setPrompt({ text: data.text, example: data.example });
-			goto(resolve('/'));
+			randomPrompt = data;
 		} catch (e) {
-			console.error('Failed to get random prompt:', e);
+			if (!isCurrent()) return;
 			toastTone = 'error';
 			toastMessage = e instanceof Error ? e.message : m.prompts_random_failed();
+		} finally {
+			if (sequence === randomSequence) randomLoading = false;
 		}
 	}
 
@@ -237,6 +253,9 @@
 			value={selectedCategory}
 			onValueChange={(value) => {
 				selectedCategory = value;
+				randomSequence += 1;
+				randomPrompt = null;
+				randomLoading = false;
 			}}
 		>
 			<Select.Trigger class="w-40">
@@ -249,7 +268,14 @@
 				{/each}
 			</Select.Content>
 		</Select.Root>
-		<Button onclick={getRandomPrompt} variant="outline" class="gap-2">
+		<Button
+			onclick={getRandomPrompt}
+			variant="outline"
+			class="gap-2"
+			disabled={!workspaceID}
+			aria-disabled={randomLoading}
+			aria-busy={randomLoading}
+		>
 			<ProtectedIcon icon="editor-shuffle" class="size-4" />
 			{m.prompts_random()}
 		</Button>
@@ -260,6 +286,28 @@
 	{/snippet}
 
 	<div class="space-y-6">
+		{#if randomLoading}
+			<p class="text-sm text-muted-foreground" role="status">{m.common_loading()}</p>
+		{/if}
+		{#if randomPrompt}
+			<section
+				class="rounded-md border bg-card p-4"
+				aria-label={m.compose_writing_prompt()}
+				aria-live="polite"
+			>
+				<h2 class="text-sm font-semibold">{m.compose_writing_prompt()}</h2>
+				<p class="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{randomPrompt.text}</p>
+				{#if randomPrompt.example}
+					<div class="mt-3 border-t pt-3">
+						<h3 class="text-xs font-medium text-muted-foreground">{m.prompts_example_label()}</h3>
+						<p class="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{randomPrompt.example}</p>
+					</div>
+				{/if}
+				<Button class="mt-3 gap-2" onclick={() => randomPrompt && usePrompt(randomPrompt)}>
+					<ThemeIcon role="add" class="size-4" />{m.sidebar_new_post()}
+				</Button>
+			</section>
+		{/if}
 		{#if categoriesError}
 			<InlineNotice tone="error" message={categoriesError}>
 				{#snippet actions()}

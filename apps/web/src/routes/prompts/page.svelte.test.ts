@@ -41,6 +41,58 @@ describe('prompts page', () => {
 
 	afterEach(() => vi.useRealTimers());
 
+	it.each(['Workspace', 'category'])(
+		'ignores a random choice after its %s changes',
+		async (scope) => {
+			const choice = deferred<{ data: Prompt; error: undefined; response: Response }>();
+			getMock.mockImplementation(async (path, request) => {
+				if (path === '/prompts/random') {
+					// SAFETY: The fixture matches the random prompt response consumed by this page.
+					return choice.promise as never;
+				}
+				if (path === '/prompts/categories') {
+					// SAFETY: The fixture contains every response field consumed by the component.
+					return response({ categories: ['Ideas'] }) as never;
+				}
+				if (path !== '/prompts') throw new Error(`Unexpected GET ${path}`);
+				const workspaceID = requestWorkspaceID(request);
+				promptReadWorkspaces.push(workspaceID);
+				// SAFETY: The fixture contains every response field consumed by the component.
+				return response([prompt(workspaceID)]) as never;
+			});
+			const screen = await render(
+				PromptsPage,
+				{},
+				{
+					wrapper: QueryClientProvider,
+					wrapperProps: { client: queryClient }
+				}
+			);
+			const random = screen.getByRole('button', { name: 'Random', exact: true });
+			await random.click();
+			await expect.element(random).toHaveAttribute('aria-busy', 'true');
+			if (scope === 'Workspace') {
+				queryClient.setQueryData(promptQueryKeys.list('workspace-b'), [prompt('workspace-b')]);
+				selectWorkspace('workspace-b');
+				await expect.element(screen.getByText('workspace-b prompt')).toBeVisible();
+			} else {
+				await screen.getByRole('button', { name: 'All categories', exact: true }).click();
+				await screen.getByRole('option', { name: 'Ideas', exact: true }).click();
+			}
+			choice.resolve({
+				data: { ...prompt('workspace-a'), text: 'Old random choice' },
+				error: undefined,
+				response: new Response(null, { status: 200 })
+			});
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			await expect
+				.element(screen.getByRole('region', { name: 'Writing prompt', exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(random).toBeEnabled();
+			expect(postMock).not.toHaveBeenCalled();
+		}
+	);
+
 	it('does not refresh or report an old prompt creation in a new Workspace', async () => {
 		const creation = deferred<{ data: Prompt; error: undefined; response: Response }>();
 		// SAFETY: The deferred value matches the endpoint response used by this test.

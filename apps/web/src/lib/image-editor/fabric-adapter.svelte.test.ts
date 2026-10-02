@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import type { Canvas, IText } from 'fabric';
 import { renderImageEditorPage } from './static-renderer';
 import { OpenPostFabricAdapter } from './fabric-adapter';
@@ -240,6 +241,49 @@ it('uses the Fabric textarea edit position for repeated text', async () => {
 		);
 		expect(updated?.runs).toEqual([{ start: 2, end: 3, font_weight: 700 }]);
 		target.exitEditing();
+	} finally {
+		mounted.adapter.dispose();
+	}
+});
+
+it('continues canvas typing from inspector text changes during active editing', async () => {
+	const layer: ImageEditorLayer = {
+		...renderLayer('text', 20, 20, 300, 100),
+		type: 'text',
+		shape: undefined,
+		text: {
+			text: 'New text',
+			font_family: 'Arial',
+			font_weight: 400,
+			font_style: 'normal',
+			font_size: 24,
+			color: '#000000',
+			align: 'left',
+			line_height: 1.1,
+			letter_spacing: 0,
+			stroke_width: 0,
+			shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 }
+		}
+	};
+	const page = pageFixture([layer]);
+	const onTextChange = vi.fn();
+	const mounted = await mountAdapter(documentFixture(page), page, { onTextChange });
+	try {
+		mounted.adapter.enterTextEditing(layer.id);
+		const textarea = document.activeElement;
+		expect(textarea).toBeInstanceOf(HTMLTextAreaElement);
+		if (!(textarea instanceof HTMLTextAreaElement)) throw new Error('Text editor did not open');
+		const changed = structuredClone(page);
+		changed.layers[0].text!.text = 'Fresh 👨‍👩‍👧‍👦 café\nمرحبا';
+		await mounted.adapter.sync(documentFixture(changed), changed);
+		textarea.focus();
+		textarea.setSelectionRange(0, 5);
+		await userEvent.keyboard('{Backspace}');
+		expect(onTextChange).toHaveBeenCalledWith(
+			'text',
+			' 👨‍👩‍👧‍👦 café\nمرحبا',
+			expect.objectContaining({ previousText: 'Fresh 👨‍👩‍👧‍👦 café\nمرحبا', start: 0, end: 5 })
+		);
 	} finally {
 		mounted.adapter.dispose();
 	}

@@ -76,6 +76,8 @@ interface EditableFabricText extends FabricObject {
 	): { lineIndex: number; charIndex: number };
 	initDimensions(): void;
 	enterEditing(): void;
+	setSelectionStart(index: number): void;
+	setSelectionEnd(index: number): void;
 	selectAll?(): void;
 	isEditing?: boolean;
 }
@@ -2027,6 +2029,8 @@ export class OpenPostFabricAdapter {
 		} else if (layer.type === 'text' && layer.text) {
 			if (!isEditableFabricText(object)) return;
 			const textObject = object;
+			const text = layer.text.curve ? curvedTextContent(layer.text.text) : layer.text.text;
+			const textChanged = textObject.text !== text;
 			textObject.set({
 				...common,
 				scaleX: 1,
@@ -2034,7 +2038,7 @@ export class OpenPostFabricAdapter {
 				left: layer.transform.x,
 				top: layer.transform.y,
 				width: layer.transform.width,
-				text: layer.text.curve ? curvedTextContent(layer.text.text) : layer.text.text,
+				text,
 				fontFamily: layer.text.font_family,
 				fontWeight: layer.text.font_weight,
 				fontStyle: layer.text.font_style,
@@ -2051,6 +2055,17 @@ export class OpenPostFabricAdapter {
 				backgroundColor: layer.text.highlight_color
 			});
 			this.applyTextRuns(textObject, layer.text);
+			if (textChanged && textObject.isEditing && textObject.hiddenTextarea) {
+				// Fabric's model setter does not update the input that owns the next canvas edit.
+				textObject.hiddenTextarea.value = text;
+				const length = textGraphemes(text).length;
+				textObject.setSelectionStart(Math.min(textObject.selectionStart, length));
+				textObject.setSelectionEnd(Math.min(textObject.selectionEnd, length));
+				if (this.activeTextInput?.target === textObject) {
+					this.activeTextInput.edit = undefined;
+					this.activeTextInput.compositionRange = null;
+				}
+			}
 		} else if (layer.type === 'shape' && layer.shape) {
 			object.set({
 				...common,

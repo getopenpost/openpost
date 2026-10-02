@@ -4252,6 +4252,7 @@
 	"video_editor_clip": "Clipe",
 	"video_editor_clip_speed": "Velocidade",
 	"video_editor_clip_speed_curve": "Curva de velocidade",
+	"video_editor_speed_point_occupied": "Já existe um ponto no cursor de reprodução. Move o cursor para adicionar outro.",
 	"video_editor_clip_gain_db": "Ganho (dB)",
 	"video_editor_audio_pitch": "Tom",
 	"video_editor_audio_semitones": "Semitons",

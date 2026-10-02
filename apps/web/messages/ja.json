@@ -4252,6 +4252,7 @@
 	"video_editor_clip": "クリップ",
 	"video_editor_clip_speed": "速度",
 	"video_editor_clip_speed_curve": "速度カーブ",
+	"video_editor_speed_point_occupied": "再生ヘッドの位置には既にポイントがあります。別のポイントを追加するには再生ヘッドを移動してください。",
 	"video_editor_clip_gain_db": "ゲイン（dB）",
 	"video_editor_audio_pitch": "ピッチ",
 	"video_editor_audio_semitones": "半音",

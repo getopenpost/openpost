@@ -4247,6 +4247,7 @@
 	"video_editor_clip": "Clip",
 	"video_editor_clip_speed": "Geschwindigkeit",
 	"video_editor_clip_speed_curve": "Geschwindigkeitskurve",
+	"video_editor_speed_point_occupied": "Am Abspielkopf ist bereits ein Punkt vorhanden. Verschiebe den Abspielkopf, um einen weiteren hinzuzufügen.",
 	"video_editor_clip_gain_db": "Gain (dB)",
 	"video_editor_audio_pitch": "Tonhöhe",
 	"video_editor_audio_semitones": "Halbtöne",

@@ -4252,6 +4252,7 @@
 	"video_editor_clip": "Klip",
 	"video_editor_clip_speed": "Hız",
 	"video_editor_clip_speed_curve": "Hız eğrisi",
+	"video_editor_speed_point_occupied": "Oynatma kafasında zaten bir nokta var. Başka bir nokta eklemek için oynatma kafasını taşıyın.",
 	"video_editor_clip_gain_db": "Kazanç (dB)",
 	"video_editor_audio_pitch": "Perde",
 	"video_editor_audio_semitones": "Yarım ton",

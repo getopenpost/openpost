@@ -1165,6 +1165,7 @@ export function setItemsSpeedLive(itemIds: string[], speed: number): SetItemsSpe
 
 export interface SpeedRampEditResult {
 	changed: string[];
+	occupied?: number;
 	locked: number;
 	pointId?: string;
 }
@@ -1234,6 +1235,7 @@ export function addItemsSpeedPoint(itemIds: string[], timelineFrame: number): Sp
 	const startId = crypto.randomUUID();
 	const endId = crypto.randomUUID();
 	const updates: Array<{ id: string; patch: Partial<TimelineItem> }> = [];
+	let occupied = 0;
 	for (const candidate of targets) {
 		if (
 			timelineFrame < candidate.from ||
@@ -1254,7 +1256,10 @@ export function addItemsSpeedPoint(itemIds: string[], timelineFrame: number): Sp
 			)
 		);
 		const existing = candidate.speedRamp ?? [];
-		if (existing.some((point) => point.sourceFrame === sourceFrame)) continue;
+		if (existing.some((point) => point.sourceFrame === sourceFrame)) {
+			occupied += 1;
+			continue;
+		}
 		const baseSpeed = candidate.speed ?? 1;
 		const initial =
 			existing.length > 0
@@ -1289,12 +1294,12 @@ export function addItemsSpeedPoint(itemIds: string[], timelineFrame: number): Sp
 			patch: speedRampUpdate(candidate, speedRamp)
 		});
 	}
-	if (updates.length === 0) return { changed: [], locked, pointId };
+	if (updates.length === 0) return { changed: [], locked, pointId, occupied };
 	execute('ADD_ITEMS_SPEED_POINT', () => {
 		timelineStore._updateItems(updates);
 		pruneInvalidTransitions();
 	});
-	return { changed: updates.map((update) => update.id), locked, pointId };
+	return { changed: updates.map((update) => update.id), locked, pointId, occupied };
 }
 
 export function updateItemsSpeedPoint(

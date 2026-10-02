@@ -4252,6 +4252,7 @@
 	"video_editor_clip": "片段",
 	"video_editor_clip_speed": "速度",
 	"video_editor_clip_speed_curve": "速度曲线",
+	"video_editor_speed_point_occupied": "播放头位置已有控制点。请移动播放头以添加其他控制点。",
 	"video_editor_clip_gain_db": "增益（dB）",
 	"video_editor_audio_pitch": "音高",
 	"video_editor_audio_semitones": "半音",

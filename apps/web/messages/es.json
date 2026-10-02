@@ -4252,6 +4252,7 @@
 	"video_editor_clip": "Clip",
 	"video_editor_clip_speed": "Velocidad",
 	"video_editor_clip_speed_curve": "Curva de velocidad",
+	"video_editor_speed_point_occupied": "Ya existe un punto en el cabezal de reproducción. Muévelo para añadir otro.",
 	"video_editor_clip_gain_db": "Ganancia (dB)",
 	"video_editor_audio_pitch": "Tono",
 	"video_editor_audio_semitones": "Semitonos",

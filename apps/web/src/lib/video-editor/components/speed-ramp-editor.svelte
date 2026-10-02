@@ -15,6 +15,7 @@
 	let { itemId, itemIds, onedit }: { itemId: string; itemIds: string[]; onedit: () => void } =
 		$props();
 
+	let collision = $state.raw<{ item: TimelineItem | undefined; frame: number } | null>(null);
 	const selectedIds = $derived(itemIds.length > 0 ? itemIds : [itemId]);
 	const item = $derived(timelineStore.itemById.get(itemId));
 	const points = $derived(
@@ -51,6 +52,10 @@
 
 	function addPoint(): void {
 		const result = addItemsSpeedPoint(selectedIds, timelineStore.currentFrame);
+		collision =
+			result.changed.length === 0 && result.occupied
+				? { item, frame: timelineStore.currentFrame }
+				: null;
 		if (result.changed.length > 0) onedit();
 	}
 
@@ -112,6 +117,11 @@
 		</button>
 	</div>
 
+	{#if collision && collision.item === item && collision.frame === timelineStore.currentFrame}
+		<p role="status" class="text-[10px] text-[var(--video-editor-muted)]">
+			{m.video_editor_speed_point_occupied()}
+		</p>
+	{/if}
 	{#if points.length > 0}
 		<svg
 			viewBox="0 0 200 50"

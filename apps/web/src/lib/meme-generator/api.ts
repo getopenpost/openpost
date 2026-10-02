@@ -135,15 +135,13 @@ export async function suggestMemes({
 }
 
 function recipeBody(input: MemeRecipeInput) {
-	const body: Omit<components['schemas']['RenderMemeInputBody'], 'retention_class'> = {
+	const body: components['schemas']['PreviewMemeInputBody'] = {
 		workspace_id: input.workspaceId,
 		template_id: input.templateId,
 		captions: input.captions,
 		overlay_media_ids: input.overlayMediaIds,
 		format: input.format
 	};
-	if (input.altText) body.alt_text = input.altText;
-	if (input.parentMediaId) body.parent_media_id = input.parentMediaId;
 	return body;
 }
 
@@ -171,7 +169,12 @@ function retryableMemePreviewStatus(status: number): boolean {
 
 export async function renderMeme(input: MemeRecipeInput): Promise<MemeRenderResult> {
 	const result = await client.POST('/memes/render', {
-		body: { ...recipeBody(input), retention_class: input.retentionClass ?? 'temporary' },
+		body: {
+			...recipeBody(input),
+			retention_class: input.retentionClass ?? 'temporary',
+			alt_text: input.altText,
+			parent_media_id: input.parentMediaId
+		},
 		signal: input.signal
 	});
 	return responseData(result.data, result.error, result.response, m.meme_generator_render_failed());

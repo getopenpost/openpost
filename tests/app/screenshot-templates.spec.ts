@@ -520,6 +520,26 @@ test("memes share template drafts, history, media exports and editable recipes",
   const pixels = await inspectPNG(page, png);
   expect(pixels.opaque).toBeGreaterThan(1000);
   expect(page.url()).toBe(draftURL);
+  await page.goto(`/templates?media=${media.id}`);
+  await page.getByRole("button", { name: "Edit a copy", exact: true }).click();
+  await expect(page).toHaveURL(/\/templates\/[^?]+$/);
+  await expect(caption).toHaveValue("Ship the shared editor");
+  await page.reload();
+  await expect(caption).toHaveValue("Ship the shared editor", { timeout: 30000 });
+  await expect(page.getByRole("button", { name: "Save to Media", exact: true })).toBeEnabled({
+    timeout: 30000,
+  });
+  const renderResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/memes/render") && response.ok(),
+  );
+  const copiedPNG = await downloadPNG(page);
+  expect(await inspectPNG(page, copiedPNG)).toEqual(pixels);
+  await page.getByRole("button", { name: "Save to Media", exact: true }).click();
+  const copiedMedia = (await (await renderResponse).json()).media;
+  const copiedRecipe = await page.request.get(`/api/v1/memes/recipes/${copiedMedia.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect((await copiedRecipe.json()).recipe.parent_media_id).toBe(media.id);
 });
 
 test("animated meme returns to its publication through Templates", async ({ page }) => {

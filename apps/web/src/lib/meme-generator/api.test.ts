@@ -89,7 +89,9 @@ describe('meme generator API', () => {
 			templateId: 'fry',
 			captions: ['not sure if', 'a unit test'],
 			overlayMediaIds: [],
-			format: 'webp'
+			format: 'webp',
+			altText: 'An edited meme',
+			parentMediaId: 'original-media'
 		});
 
 		expect(memePreviewDataURL(result)).toBe('data:image/webp;base64,bWVtZQ==');

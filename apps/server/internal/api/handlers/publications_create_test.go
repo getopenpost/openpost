@@ -345,7 +345,6 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 			})
 		}
 	})
-
 }
 
 func TestDeletePublicationRequiresConfirmationAndRevision(t *testing.T) {

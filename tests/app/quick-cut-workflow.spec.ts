@@ -25,7 +25,7 @@ async function seek(page: Page, time: number) {
 test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edited duration", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(180_000);
   const auth = await registerUser(request, `quick-workflow-${Date.now()}@example.com`);
   await createWorkspace(request, auth.token, "Quick workflow");
@@ -38,6 +38,88 @@ test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edit
   await page.getByRole("button", { name: "Open videos", exact: true }).click();
   await (await chooser).setFiles(fixture);
   await expect(page.locator("video")).toBeVisible();
+  await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+
+  await page.getByRole("button", { name: "Segment 1", exact: true }).click();
+  const markIn = page.getByRole("textbox", { name: "Mark in 1", exact: true });
+  const markOut = page.getByRole("textbox", { name: "Mark out 1", exact: true });
+  await expect(markOut).toBeVisible();
+  const originalOut = await markOut.inputValue();
+  await markIn.fill("1");
+  await markIn.press("Tab");
+  await expect(markIn).toHaveValue("00:01.00");
+  await markOut.fill("banana");
+  await markOut.press("Tab");
+  await expect(markOut).toHaveValue(originalOut);
+  await expect(
+    page.getByRole("status").filter({ hasText: "Enter seconds or a timecode" }),
+  ).toBeVisible();
+  await markOut.fill("0");
+  await markOut.press("Tab");
+  await expect(markOut).toHaveValue(originalOut);
+  await expect(page.getByText("Keep at least 0.05 seconds.", { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => {
+      const bounds = await page
+        .getByText("Keep at least 0.05 seconds.", { exact: true })
+        .boundingBox();
+      return !!bounds && bounds.y >= 0 && bounds.y + bounds.height <= page.viewportSize()!.height;
+    })
+    .toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("qct-rejected-restored.png") });
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(markIn).toHaveValue("00:00.00");
+  await expect(markOut).toHaveValue(originalOut);
+  await markIn.fill("2");
+  await markIn.press("Escape");
+  await expect(markIn).toHaveValue("00:00.00");
+  await markIn.press("Tab");
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  await expect(page.getByRole("img", { name: /Saved to OpenPost/ })).toBeVisible();
+  await page.reload();
+  await expect(markIn).toHaveValue("00:00.00");
+  await expect(markOut).toHaveValue(originalOut);
+  await expect(page.getByRole("img", { name: /Saved to OpenPost/ })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("qct-cold-restored.png") });
+  await page
+    .locator("summary")
+    .filter({ hasText: /^Segment files$/ })
+    .click();
+  await page.getByRole("button", { name: "Segment files", exact: true }).click();
+  const importSegments = page.getByRole("menuitem", { name: /^Import segments/ });
+  await expect(importSegments).toBeVisible();
+  const [segmentChooser] = await Promise.all([
+    page.waitForEvent("filechooser", { timeout: 15_000 }),
+    importSegments.click(),
+  ]);
+  await segmentChooser.setFiles({
+    name: "overlap.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("start,end,name\n0,1,Overlapping part\n"),
+  });
+  await expect(
+    page.getByText("Ranges overlap. Adjust or remove an existing range before trying again.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Segment 2", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  await expect
+    .poll(async () => {
+      const bounds = await page
+        .getByText("Ranges overlap. Adjust or remove an existing range before trying again.", {
+          exact: true,
+        })
+        .boundingBox();
+      return !!bounds && bounds.y >= 0 && bounds.y + bounds.height <= page.viewportSize()!.height;
+    })
+    .toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("qci-rejected-import.png") });
+  await expect(markIn).toHaveValue("00:00.00");
+  await expect(markOut).toHaveValue(originalOut);
+  await page.reload();
+  await expect(markIn).toHaveValue("00:00.00");
+  await expect(markOut).toHaveValue(originalOut);
   await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
 
   // The playhead follows pointer input without waiting for a slow decoder.
@@ -68,6 +150,21 @@ test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edit
   ).toBeVisible();
   await page.getByRole("button", { name: "Remove selection", exact: true }).click();
   await expect(page.getByRole("button", { name: "Segment 2", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Segment 2", exact: true }).click();
+  const secondIn = page.getByRole("textbox", { name: "Mark in 2", exact: true });
+  await secondIn.fill("1");
+  await secondIn.press("Tab");
+  await expect(secondIn).toHaveValue("00:03.00");
+  await expect(
+    page.getByText("Ranges overlap. Adjust or remove an existing range before trying again.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: "Ranges overlap." })
+    .getByRole("button", { name: "Close toast" })
+    .click();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(page.getByRole("button", { name: "Segment 2", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Redo", exact: true }).click();

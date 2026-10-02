@@ -69,14 +69,17 @@ test('edits one segment cut strategy without changing the project default', asyn
 });
 
 test('renders timecode inputs with shared Input primitive and preserves bindings', async () => {
+	const original = createSegment(1.25, 3.5, { id: 'range', sourceId: source.id });
 	const screen = await render(SegmentList, {
-		segments: [createSegment(1.25, 3.5, { id: 'range', sourceId: source.id })],
+		segments: [original],
 		sources: [source],
 		selectedId: 'range',
 		defaultCutMode: 'nearestKeyframe',
 		onSelect: vi.fn(),
 		onRemove: vi.fn(),
-		onUpdate: vi.fn(),
+		onUpdate: (_id, patch) => {
+			void screen.rerender({ segments: [{ ...original, ...patch }] });
+		},
 		onMove: vi.fn(),
 		exporting: false,
 		canExportIndividually: true,
@@ -88,6 +91,13 @@ test('renders timecode inputs with shared Input primitive and preserves bindings
 	await expect.element(screen.getByRole('textbox', { name: 'Mark out 1' })).toBeVisible();
 	await expect.element(screen.getByRole('textbox', { name: 'Mark in 1' })).toHaveValue('00:01.25');
 	await expect.element(screen.getByRole('textbox', { name: 'Mark out 1' })).toHaveValue('00:03.50');
+	const end = screen.getByRole('textbox', { name: 'Mark out 1' });
+	await end.fill('5');
+	await userEvent.keyboard('{Enter}');
+	await expect.element(end).toHaveValue('00:05.00');
+	await expect.element(screen.getByText('00:01.25 → 00:05.00')).toBeVisible();
+	await screen.rerender({ segments: [original] });
+	await expect.element(end).toHaveValue('00:03.50');
 });
 
 test('offers segment actions by right click and keyboard context menu', async () => {
@@ -256,4 +266,38 @@ test('focuses the next or previous segment after removal and the list when none 
 	screen.getByRole('button', { name: 'Remove segment', exact: true }).element().focus();
 	await userEvent.keyboard('{Enter}');
 	await expect.element(screen.getByRole('list', { name: 'Segments', exact: true })).toHaveFocus();
+});
+
+test('restores accepted times after rejected native edits and cancels drafts with Escape', async () => {
+	const onUpdate = vi.fn();
+	const screen = await render(SegmentList, {
+		segments: [createSegment(1, 8, { id: 'range', sourceId: source.id })],
+		sources: [source],
+		selectedId: 'range',
+		defaultCutMode: 'nearestKeyframe',
+		onSelect: vi.fn(),
+		onRemove: vi.fn(),
+		onUpdate,
+		onMove: vi.fn(),
+		exporting: false,
+		canExportIndividually: true,
+		onPreview: vi.fn(),
+		onExport: vi.fn()
+	});
+	const end = screen.getByRole('textbox', { name: 'Mark out 1' });
+	for (const rejected of ['banana', '0']) {
+		await end.fill(rejected);
+		await userEvent.keyboard(rejected === 'banana' ? '{Tab}' : '{Enter}');
+		await expect.element(end).toHaveValue('00:08.00');
+		await expect.element(screen.getByText('00:01.00 → 00:08.00')).toBeVisible();
+	}
+	expect(onUpdate).toHaveBeenCalledExactlyOnceWith('range', { end: 0 });
+	await end.fill('6');
+	await userEvent.keyboard('{Escape}');
+	await expect.element(end).toHaveValue('00:08.00');
+	await userEvent.keyboard('{Tab}');
+	expect(onUpdate).toHaveBeenCalledTimes(1);
+	await screen.rerender({ segments: [createSegment(0, 8, { id: 'range', sourceId: source.id })] });
+	await expect.element(screen.getByRole('textbox', { name: 'Mark in 1' })).toHaveValue('00:00.00');
+	await expect.element(end).toHaveValue('00:08.00');
 });

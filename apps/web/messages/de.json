@@ -9586,5 +9586,7 @@
 	"workflows_recipe_join_help": "Eine Liste mit einem bearbeitbaren Trennzeichen zu Text verbinden.",
 	"workflows_text_input": "Text",
 	"workflows_set_help": "Jeder Lauf verwendet die aktuellen Konten und Vorgaben dieses Sets. Bestehende Beiträge behalten ihre Einstellungen.",
-	"workflows_set_missing": "Dieses Social Set ist nicht mehr verfügbar. Wähle ein anderes Set oder einzelne Konten."
+	"workflows_set_missing": "Dieses Social Set ist nicht mehr verfügbar. Wähle ein anderes Set oder einzelne Konten.",
+	"quick_cut_time_invalid": "Gib Sekunden oder einen Timecode ein, etwa 00:01.50.",
+	"quick_cut_overlap_rejected": "Bereiche überschneiden sich. Passe einen vorhandenen Bereich an oder entferne ihn, bevor du es erneut versuchst."
 }

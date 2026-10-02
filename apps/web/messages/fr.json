@@ -9586,5 +9586,7 @@
 	"workflows_recipe_join_help": "Assembler une liste en texte avec un séparateur modifiable.",
 	"workflows_text_input": "Texte",
 	"workflows_set_help": "Chaque exécution utilise les comptes et réglages actuels de cet ensemble. Les publications existantes conservent leurs réglages.",
-	"workflows_set_missing": "Cet ensemble social n’est plus disponible. Choisissez un autre ensemble ou des comptes individuels."
+	"workflows_set_missing": "Cet ensemble social n’est plus disponible. Choisissez un autre ensemble ou des comptes individuels.",
+	"quick_cut_time_invalid": "Saisissez des secondes ou un code temporel, comme 00:01.50.",
+	"quick_cut_overlap_rejected": "Les plages se chevauchent. Ajustez ou supprimez une plage existante avant de réessayer."
 }

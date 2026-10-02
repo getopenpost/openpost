@@ -7,7 +7,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { CutMode, QuickCutSegment, QuickCutSource } from '../types';
-	import { formatTimecode, parseTimecode } from '../model';
+	import { formatTimecode } from '../model';
+	import SegmentTimeInput from './SegmentTimeInput.svelte';
 
 	let {
 		segments,
@@ -64,16 +65,6 @@
 		const segment = segments[index];
 		const neighborId = segments[index + 1]?.id ?? segments[index - 1]?.id;
 		void mutateWithFocus(event, () => onRemove(segment.id), neighborId);
-	}
-
-	function commitTime(id: string, field: 'start' | 'end', value: string, sourceId: string) {
-		const parsed = parseTimecode(value);
-		if (parsed === null) return;
-		const src = sourceById.get(sourceId);
-		const duration = src?.duration ?? 0;
-		const clamped = Math.max(0, Math.min(duration, parsed));
-		if (field === 'start') onUpdate(id, { start: clamped });
-		else onUpdate(id, { end: clamped });
 	}
 
 	function parseCutMode(value: string): CutMode | undefined {
@@ -186,25 +177,20 @@
 							<div class="grid min-w-0 grid-cols-2 gap-3">
 								<label class="flex min-w-0 flex-col gap-1 text-xs">
 									<span class="text-muted-foreground">{m.quick_cut_in()}</span>
-									<Input
-										type="text"
-										inputmode="decimal"
-										value={formatTimecode(seg.start)}
+									<SegmentTimeInput
+										value={seg.start}
+										duration={src?.duration ?? 0}
 										aria-label={`${m.quick_cut_in()} ${index + 1}`}
-										onchange={(e) =>
-											commitTime(seg.id, 'start', e.currentTarget.value, seg.sourceId)}
-										class="h-7 min-h-7 min-w-0 font-mono text-xs tabular-nums [@media(pointer:coarse)]:min-h-11"
+										onCommit={(start) => onUpdate(seg.id, { start })}
 									/>
 								</label>
 								<label class="flex min-w-0 flex-col gap-1 text-xs">
 									<span class="text-muted-foreground">{m.quick_cut_out()}</span>
-									<Input
-										type="text"
-										inputmode="decimal"
-										value={formatTimecode(seg.end)}
+									<SegmentTimeInput
+										value={seg.end}
+										duration={src?.duration ?? 0}
 										aria-label={`${m.quick_cut_out()} ${index + 1}`}
-										onchange={(e) => commitTime(seg.id, 'end', e.currentTarget.value, seg.sourceId)}
-										class="h-7 min-h-7 min-w-0 font-mono text-xs tabular-nums [@media(pointer:coarse)]:min-h-11"
+										onCommit={(end) => onUpdate(seg.id, { end })}
 									/>
 								</label>
 							</div>

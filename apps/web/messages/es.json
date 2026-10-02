@@ -9586,5 +9586,7 @@
 	"workflows_recipe_join_help": "Une una lista en un texto con un separador editable.",
 	"workflows_text_input": "Texto",
 	"workflows_set_help": "Cada ejecución usa las cuentas y los valores predeterminados actuales de este conjunto. Las publicaciones existentes conservan sus ajustes.",
-	"workflows_set_missing": "Este conjunto social ya no está disponible. Elige otro conjunto o cuentas individuales."
+	"workflows_set_missing": "Este conjunto social ya no está disponible. Elige otro conjunto o cuentas individuales.",
+	"quick_cut_time_invalid": "Introduce segundos o un código de tiempo, como 00:01.50.",
+	"quick_cut_overlap_rejected": "Los intervalos se superponen. Ajusta o elimina un intervalo existente antes de volver a intentarlo."
 }

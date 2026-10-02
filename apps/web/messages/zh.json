@@ -9586,5 +9586,7 @@
 	"workflows_recipe_join_help": "使用可编辑的分隔符将列表合并为文本。",
 	"workflows_text_input": "文本",
 	"workflows_set_help": "每次运行都使用此组合当前的账号和默认设置。现有帖子的设置保持不变。",
-	"workflows_set_missing": "此社交账号组合已不可用。请选择其他组合或单独选择账号。"
+	"workflows_set_missing": "此社交账号组合已不可用。请选择其他组合或单独选择账号。",
+	"quick_cut_time_invalid": "输入秒数或时间码，例如 00:01.50。",
+	"quick_cut_overlap_rejected": "范围重叠。请调整或删除现有范围后重试。"
 }

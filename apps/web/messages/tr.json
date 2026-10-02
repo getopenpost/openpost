@@ -9586,5 +9586,7 @@
 	"workflows_recipe_join_help": "Bir listeyi düzenlenebilir bir ayırıcıyla metne dönüştürün.",
 	"workflows_text_input": "Metin",
 	"workflows_set_help": "Her çalıştırma bu setin güncel hesaplarını ve varsayılan ayarlarını kullanır. Mevcut gönderiler ayarlarını korur.",
-	"workflows_set_missing": "Bu sosyal set artık kullanılamıyor. Başka bir set veya tek tek hesaplar seçin."
+	"workflows_set_missing": "Bu sosyal set artık kullanılamıyor. Başka bir set veya tek tek hesaplar seçin.",
+	"quick_cut_time_invalid": "Saniye veya 00:01.50 gibi bir zaman kodu girin.",
+	"quick_cut_overlap_rejected": "Aralıklar çakışıyor. Tekrar denemeden önce mevcut bir aralığı düzenleyin veya kaldırın."
 }

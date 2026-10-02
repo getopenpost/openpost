@@ -931,7 +931,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		const candidate = next.find((segment) => segment.id === id);
 		if (!candidate || !validateSegmentForProject(candidate)) return;
 		if (hasOverlap(next)) {
-			showToast(m.quick_cut_overlap_error(), 'error');
+			showToast(m.quick_cut_overlap_rejected(), 'error');
 			return;
 		}
 		segments = next;
@@ -947,7 +947,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		const error = validateSegment(segment, source.duration)[0];
 		if (!error) return true;
 		const message =
-			error.kind === 'zero_length'
+			error.kind === 'zero_length' || error.kind === 'end_not_after_start'
 				? m.quick_cut_segment_too_short({ seconds: MIN_SEGMENT_DURATION_SECONDS })
 				: error.kind === 'end_beyond_duration'
 					? m.quick_cut_segment_outside_source()
@@ -1469,7 +1469,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				{ sourceId: activeSource.id, duration: activeSource.duration }
 			);
 			const next = [...segments, ...imported];
-			if (hasOverlap(next)) throw new Error(m.quick_cut_overlap_error());
+			if (hasOverlap(next)) throw new Error(m.quick_cut_overlap_rejected());
 			const errors = validateSegments(next, 0, sources);
 			if (errors.length > 0) throw new Error(errors[0]!.message);
 			segments = next;

@@ -9586,5 +9586,7 @@
 	"workflows_recipe_join_help": "Join a list into text with an editable separator.",
 	"workflows_text_input": "Text",
 	"workflows_set_help": "Each run uses this set's current accounts and defaults. Existing posts keep their settings.",
-	"workflows_set_missing": "This Social Set is no longer available. Choose another set or individual accounts."
+	"workflows_set_missing": "This Social Set is no longer available. Choose another set or individual accounts.",
+	"quick_cut_time_invalid": "Enter seconds or a timecode, such as 00:01.50.",
+	"quick_cut_overlap_rejected": "Ranges overlap. Adjust or remove an existing range before trying again."
 }

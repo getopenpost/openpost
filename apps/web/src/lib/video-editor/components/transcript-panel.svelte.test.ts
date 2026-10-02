@@ -128,12 +128,13 @@ it('deletes a selected spoken range immediately and restores it with undo', asyn
 	await userEvent.keyboard('{Shift>}');
 	await screen.getByRole('button', { name: 'world', exact: true }).click();
 	await userEvent.keyboard('{/Shift}');
-	await screen.getByRole('button', { name: 'Delete from video', exact: true }).click();
+	await userEvent.keyboard('{Delete}');
 	expect(
 		timelineStore.items
 			.filter((item) => item.type === 'video')
 			.reduce((sum, item) => sum + item.durationInFrames, 0)
 	).toBe(120);
+	await expect.element(screen.getByRole('status')).toHaveTextContent('Words cut: 2');
 	commandHistory.undo();
 	expect(timelineStore.itemById.get('speech')?.durationInFrames).toBe(180);
 	await expect.element(screen.getByRole('button', { name: 'world', exact: true })).toBeVisible();
@@ -267,4 +268,42 @@ it('keeps words clickable in a short transcript pane', async () => {
 	} finally {
 		host.remove();
 	}
+});
+
+it('explains retained locked captions after cutting editable source words', async () => {
+	speech();
+	const caption = timelineStore.items.find((item) => item.type === 'subtitle')!;
+	timelineStore._setTracks(
+		timelineStore.tracks.map((track) => ({ ...track, locked: track.id === caption.trackId }))
+	);
+	const before = JSON.parse(JSON.stringify(caption));
+	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
+	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
+	await expect
+		.element(screen.getByRole('button', { name: 'Correct transcript', exact: true }))
+		.toBeDisabled();
+	const cut = screen.getByRole('button', { name: 'Delete from video', exact: true });
+	await expect.element(cut).toBeEnabled();
+	await cut.click();
+	expect(timelineStore.itemById.get(caption.id)).toEqual(before);
+	expect(
+		timelineStore.items
+			.filter((item) => item.type === 'video')
+			.map((item) => [item.sourceStart, item.sourceEnd, item.durationInFrames])
+	).toEqual([
+		[0, 6, 6],
+		[36, 180, 144]
+	]);
+	await expect.element(screen.getByRole('button', { name: 'Hello', exact: true })).toBeVisible();
+	await expect
+		.element(screen.getByRole('status'))
+		.toHaveTextContent(
+			'Words cut: 1 Locked captions were kept. Unlock their tracks to update them.'
+		);
+	commandHistory.undo();
+	expect(timelineStore.itemById.get('speech')?.durationInFrames).toBe(180);
+	expect(timelineStore.itemById.get(caption.id)).toEqual(before);
+	commandHistory.redo();
+	expect(timelineStore.items.filter((item) => item.type === 'video')).toHaveLength(2);
+	expect(timelineStore.itemById.get(caption.id)).toEqual(before);
 });

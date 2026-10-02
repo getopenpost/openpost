@@ -9616,5 +9616,6 @@
 	"workflows_connection_loop": "This connection would create a loop. Connect to a step outside this branch.",
 	"workflows_port_input": "{node}: input",
 	"workflows_port_output": "{node}: output",
-	"workflows_port_branch_output": "{node}: {branch} output"
+	"workflows_port_branch_output": "{node}: {branch} output",
+	"video_editor_transcript_cut_locked_captions": "Locked captions were kept. Unlock their tracks to update them."
 }

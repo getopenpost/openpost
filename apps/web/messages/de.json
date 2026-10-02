@@ -9616,5 +9616,6 @@
 	"workflows_connection_loop": "Diese Verbindung würde eine Schleife erzeugen. Verbinde mit einem Schritt außerhalb dieses Zweigs.",
 	"workflows_port_input": "{node}: Eingang",
 	"workflows_port_output": "{node}: Ausgang",
-	"workflows_port_branch_output": "{node}: Ausgang {branch}"
+	"workflows_port_branch_output": "{node}: Ausgang {branch}",
+	"video_editor_transcript_cut_locked_captions": "Gesperrte Untertitel wurden beibehalten. Entsperre ihre Spuren, um sie zu bearbeiten."
 }

@@ -9616,5 +9616,6 @@
 	"workflows_connection_loop": "Cette connexion créerait une boucle. Reliez une étape hors de cette branche.",
 	"workflows_port_input": "{node} : entrée",
 	"workflows_port_output": "{node} : sortie",
-	"workflows_port_branch_output": "{node} : sortie {branch}"
+	"workflows_port_branch_output": "{node} : sortie {branch}",
+	"video_editor_transcript_cut_locked_captions": "Les sous-titres verrouillés ont été conservés. Déverrouillez leurs pistes pour les modifier."
 }

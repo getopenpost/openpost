@@ -257,9 +257,12 @@
 	}
 	function deleteVideo() {
 		if (!canCut) return;
+		const count = selected.length;
+		const retainedLockedCaptions = selectedCues.some(({ item }) => lockedTracks.has(item.trackId));
 		const result = applyTranscriptTargetRangeRemoval(buildTranscriptSelectionRanges(sourceWords));
 		if (!result.removedItemCount) return;
-		status = m.video_editor_transcript_cut_words({ count: selected.length });
+		status = m.video_editor_transcript_cut_words({ count });
+		if (retainedLockedCaptions) status += ` ${m.video_editor_transcript_cut_locked_captions()}`;
 		clearSelection();
 		onedit();
 	}

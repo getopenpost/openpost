@@ -9616,5 +9616,6 @@
 	"workflows_connection_loop": "이 연결은 반복을 만듭니다. 이 분기 밖의 단계에 연결하세요.",
 	"workflows_port_input": "{node}: 입력",
 	"workflows_port_output": "{node}: 출력",
-	"workflows_port_branch_output": "{node}: {branch} 출력"
+	"workflows_port_branch_output": "{node}: {branch} 출력",
+	"video_editor_transcript_cut_locked_captions": "잠긴 자막은 유지되었습니다. 업데이트하려면 해당 트랙의 잠금을 해제하세요."
 }

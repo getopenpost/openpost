@@ -9616,5 +9616,6 @@
 	"workflows_connection_loop": "Esta conexão criaria um ciclo. Conecte a uma etapa fora deste ramo.",
 	"workflows_port_input": "{node}: entrada",
 	"workflows_port_output": "{node}: saída",
-	"workflows_port_branch_output": "{node}: saída {branch}"
+	"workflows_port_branch_output": "{node}: saída {branch}",
+	"video_editor_transcript_cut_locked_captions": "As legendas bloqueadas foram mantidas. Desbloqueie as faixas para atualizá-las."
 }

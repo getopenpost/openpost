@@ -84,7 +84,9 @@
 >
 	<div class="flex flex-col gap-2 border-t border-[var(--video-editor-border)] p-2">
 		{#each corners as corner (corner.key)}
-			<div class="grid h-[25px] grid-cols-[1.5rem_1fr_1fr] items-center gap-1">
+			<div
+				class="grid h-[25px] grid-cols-[1.5rem_1fr_1fr] items-center gap-1 [@media(pointer:coarse)]:h-11"
+			>
 				<span class="text-[10px] font-medium text-[var(--video-editor-text)]">{corner.label}</span>
 				<Input
 					disabled={locked}

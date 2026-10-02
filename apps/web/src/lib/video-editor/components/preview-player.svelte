@@ -644,7 +644,16 @@
 		void colorPreviewStore.comparisonItemIds;
 		// Effect edits replace these arrays in place on the timeline items.
 		// Read them here because the animation-frame callback is not reactive.
-		for (const item of activeItems) void item.effects;
+		for (const item of activeItems) {
+			void item.effects;
+			// Masks have no visible source raster to announce changes to their matte settings.
+			if (item.type === 'shape' && item.isMask === true) {
+				void item.maskInvert;
+				void item.maskType;
+				void item.maskFeather;
+				void item.maskOpacity;
+			}
+		}
 		for (const { layer } of adjustmentLayers) void layer.effects;
 		scheduleStackFrame();
 	});

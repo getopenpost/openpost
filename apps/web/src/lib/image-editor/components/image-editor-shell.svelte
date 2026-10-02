@@ -2334,6 +2334,10 @@
 				editor.document &&
 				prepareRasterOperation(editor.document, editor.activePageID, editor.selectedLayerIDs, id)
 			);
+		if (id === 'delete' || id === 'cut') {
+			const targets = editor.pixelSelection?.targetLayerIDs ?? editor.selectedLayerIDs;
+			if (targets.length && targets.every((layerID) => editor.isLayerLocked(layerID))) return false;
+		}
 		const availability = imageEditorCommand(id).availability;
 		if (availability === 'always') return true;
 		if (availability === 'editable') return editor.canEdit;
@@ -2350,9 +2354,18 @@
 				editor.selectedLayers.length === 1 && !editor.isLayerLocked(editor.selectedLayers[0].id)
 			);
 		}
-		if (availability === 'multi_selection') return editor.selectedLayers.length >= 2;
+		if (availability === 'multi_selection')
+			return (
+				editor.selectedLayers.length >= 2 &&
+				editor.selectedLayers.every((layer) => !editor.isLayerLocked(layer.id))
+			);
 		if (availability === 'group_selection') {
-			return editor.selectedLayers.some((layer) => layer.type === 'group');
+			return (
+				editor.selectedLayers.some((layer) => layer.type === 'group') &&
+				editor.selectedLayers
+					.filter((layer) => layer.type === 'group')
+					.every((layer) => !editor.isLayerLocked(layer.id))
+			);
 		}
 		if (availability === 'clipboard') return copiedLayers.length > 0 || editor.canEdit;
 		if (availability === 'crop_target') {

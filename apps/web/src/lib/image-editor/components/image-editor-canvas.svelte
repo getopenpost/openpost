@@ -624,7 +624,7 @@
 		const document = editor.document;
 		const id = editor.selectedLayerIDs.at(-1);
 		const layer = editor.activePage?.layers.find((candidate) => candidate.id === id);
-		if (!document || !id || !layer || layer.locked || !adapter) return false;
+		if (!document || !id || !layer || editor.isLayerLocked(id) || !adapter) return false;
 		const mask = adapter.layerAlphaPixelMask(
 			id,
 			editor.activePageDimensions.width,
@@ -790,11 +790,15 @@
 	function erasableTargetID(point: SelectionPoint): string | null {
 		const selectedID = editor.selectedLayerIDs.at(-1);
 		const selected = editor.activePage?.layers.find((layer) => layer.id === selectedID);
-		if (selected && ['image', 'paint'].includes(selected.type) && !selected.locked)
+		if (
+			selected &&
+			['image', 'paint'].includes(selected.type) &&
+			!editor.isLayerLocked(selected.id)
+		)
 			return selected.id;
 		const hitID = adapter?.topmostLayerIDAtPoint(point);
 		const hit = editor.activePage?.layers.find((layer) => layer.id === hitID);
-		if (!hit || !['image', 'paint'].includes(hit.type) || hit.locked) return null;
+		if (!hit || !['image', 'paint'].includes(hit.type) || editor.isLayerLocked(hit.id)) return null;
 		editor.selectLayer(hit.id);
 		return hit.id;
 	}
@@ -967,7 +971,7 @@
 	function selectionTargetIDs(point: SelectionPoint): string[] {
 		const activeID = editor.selectedLayerIDs.at(-1);
 		const active = editor.activePage?.layers.find((layer) => layer.id === activeID);
-		if (activeID && active && !active.locked) return [activeID];
+		if (activeID && active && !editor.isLayerLocked(active.id)) return [activeID];
 		const hitID = adapter?.topmostLayerIDAtPoint(point);
 		if (!hitID) return [];
 		editor.selectLayer(hitID);
@@ -990,7 +994,9 @@
 	function hasLockedMagicTarget(point: SelectionPoint): boolean {
 		const activeID = editor.selectedLayerIDs.at(-1);
 		const active = editor.activePage?.layers.find((layer) => layer.id === activeID);
-		return Boolean(active?.locked || adapter?.lockedLayerIDAtPoint(point));
+		return Boolean(
+			(active && editor.isLayerLocked(active.id)) || adapter?.lockedLayerIDAtPoint(point)
+		);
 	}
 
 	function magicNoTargetMessage(point: SelectionPoint, fallback: string): string {
@@ -1161,7 +1167,8 @@
 					points: [point],
 					current: point,
 					mode,
-					targetLayerIDs: selectedID && selected && !selected.locked ? [selectedID] : [],
+					targetLayerIDs:
+						selectedID && selected && !editor.isLayerLocked(selected.id) ? [selectedID] : [],
 					pageID: editor.activePageID
 				};
 			} else if (event.detail >= 2) {

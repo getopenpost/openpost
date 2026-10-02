@@ -182,7 +182,8 @@
 	}
 
 	function startPointerReorder(event: PointerEvent, id: string): void {
-		if (!editor.canEdit || renamingID === id || touchIdentifier >= 0) return;
+		if (!editor.canEdit || editor.isLayerLocked(id) || renamingID === id || touchIdentifier >= 0)
+			return;
 		event.preventDefault();
 		event.stopPropagation();
 		editor.selectLayer(id);
@@ -236,7 +237,7 @@
 
 	function startTouchReorder(event: TouchEvent, id: string): void {
 		const touch = event.changedTouches[0];
-		if (!touch || !editor.canEdit || renamingID === id) return;
+		if (!touch || !editor.canEdit || editor.isLayerLocked(id) || renamingID === id) return;
 		event.stopPropagation();
 		touchIdentifier = touch.identifier;
 		pointerID = -1;
@@ -425,6 +426,7 @@
 			{#each items as item (item.layer.id)}
 				{@const layer = item.layer}
 				{@const layerGlyphRef = layerIcon(layer)}
+				{@const effectivelyLocked = editor.isLayerLocked(layer.id)}
 				{@const groupDestinations = editor.groupDestinationsForLayer(layer.id)}
 				<div
 					animate:flip={{ duration: prefersReducedMotion.current ? 0 : 160 }}
@@ -453,7 +455,7 @@
 										state: `${layer.locked ? m.image_editor_locked_state() : ''}${layer.visible ? '' : m.image_editor_hidden_state()}`
 									})}
 									tabindex={focusedLayerID === layer.id && renamingID !== layer.id ? 0 : -1}
-									draggable={editor.canEdit && renamingID !== layer.id}
+									draggable={editor.canEdit && !effectivelyLocked && renamingID !== layer.id}
 									class="image-editor-layer-row group flex min-h-8 items-center gap-1 rounded-md pr-1 text-sm {editor.selectedLayerIDs.includes(
 										layer.id
 									)
@@ -529,7 +531,7 @@
 										class="image-editor-layer-grip flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
 										aria-label={m.image_editor_reorder_layer({ name: layer.name })}
 										title={m.image_editor_reorder_layer({ name: layer.name })}
-										disabled={!editor.canEdit || renamingID === layer.id}
+										disabled={!editor.canEdit || effectivelyLocked || renamingID === layer.id}
 										data-testid="image-editor-layer-drag-handle"
 										onclick={(event) => event.stopPropagation()}
 										oncontextmenu={(event) => event.preventDefault()}
@@ -577,6 +579,7 @@
 											variant="ghost"
 											size="icon-xs"
 											class="image-editor-mobile-order-button"
+											disabled={effectivelyLocked}
 											aria-label={m.image_editor_move_layer_up({ name: layer.name })}
 											title={m.image_editor_move_layer_up({ name: layer.name })}
 											onclick={(event) => {
@@ -591,6 +594,7 @@
 											variant="ghost"
 											size="icon-xs"
 											class="image-editor-mobile-order-button"
+											disabled={effectivelyLocked}
 											aria-label={m.image_editor_move_layer_down({ name: layer.name })}
 											title={m.image_editor_move_layer_down({ name: layer.name })}
 											onclick={(event) => {
@@ -661,7 +665,8 @@
 								<ContextMenu.Separator class="my-1 h-px bg-border" />
 								<ContextMenu.Item
 									class="image-editor-context-item"
-									disabled={editor.selectedLayers.length < 2}
+									disabled={editor.selectedLayers.length < 2 ||
+										editor.selectedLayers.some((selected) => editor.isLayerLocked(selected.id))}
 									onclick={() => editor.groupSelected()}
 								>
 									<ProtectedIcon icon="editor-group" class="size-4" />
@@ -669,7 +674,10 @@
 								</ContextMenu.Item>
 								<ContextMenu.Item
 									class="image-editor-context-item"
-									disabled={!editor.selectedLayers.some((selected) => selected.type === 'group')}
+									disabled={!editor.selectedLayers.some((selected) => selected.type === 'group') ||
+										editor.selectedLayers
+											.filter((selected) => selected.type === 'group')
+											.some((selected) => editor.isLayerLocked(selected.id))}
 									onclick={() => editor.ungroupSelected()}
 								>
 									<ProtectedIcon icon="editor-ungroup" class="size-4" />
@@ -699,6 +707,7 @@
 								{#if layer.parent_id}
 									<ContextMenu.Item
 										class="image-editor-context-item"
+										disabled={effectivelyLocked}
 										onclick={() => editor.moveLayerOutOfGroup(layer.id)}
 									>
 										<ProtectedIcon icon="editor-ungroup" class="size-4" />
@@ -708,6 +717,7 @@
 								<ContextMenu.Separator class="my-1 h-px bg-border" />
 								<ContextMenu.Item
 									class="image-editor-context-item"
+									disabled={effectivelyLocked}
 									onclick={() => editor.reorderLayer(layer.id, 'front')}
 								>
 									<ProtectedIcon icon="editor-arrange-front" class="size-4" />
@@ -715,18 +725,21 @@
 								</ContextMenu.Item>
 								<ContextMenu.Item
 									class="image-editor-context-item"
+									disabled={effectivelyLocked}
 									onclick={() => editor.reorderLayer(layer.id, 'forward')}
 								>
 									{m.image_editor_bring_forward()}
 								</ContextMenu.Item>
 								<ContextMenu.Item
 									class="image-editor-context-item"
+									disabled={effectivelyLocked}
 									onclick={() => editor.reorderLayer(layer.id, 'backward')}
 								>
 									{m.image_editor_send_backward()}
 								</ContextMenu.Item>
 								<ContextMenu.Item
 									class="image-editor-context-item"
+									disabled={effectivelyLocked}
 									onclick={() => editor.reorderLayer(layer.id, 'back')}
 								>
 									<ProtectedIcon icon="editor-arrange-back" class="size-4" />
@@ -751,6 +764,7 @@
 								<ContextMenu.Separator class="my-1 h-px bg-border" />
 								<ContextMenu.Item
 									class="image-editor-context-item text-destructive"
+									disabled={effectivelyLocked}
 									onclick={() => editor.deleteSelected()}
 								>
 									<ThemeIcon role="delete" class="size-4" />

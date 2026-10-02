@@ -286,3 +286,50 @@ it('gives an owned page drag precedence over an image file attached by the brows
 	expect(imported).toHaveBeenCalledExactlyOnceWith([file], { x: 540, y: 540 }, 'second');
 	expect(editor.activePageID).toBe('second');
 });
+
+it('keeps a locked ancestor child selectable while rejecting keyboard and pointer reorder, then unlocks and persists recovery', async () => {
+	const editor = setup();
+	editor.moveLayerToGroup('Other', 'Group');
+	editor.updateLayer('Group', { locked: true });
+	const stored = await createGuestImageEditorDesignFromDocument(editor.document!);
+	try {
+		editor.load(stored);
+		const changed = vi.fn();
+		editor.onChange(changed);
+		const screen = await render(Fixture, { editor });
+		const child = screen.getByRole('treeitem', { name: /^Child,/ });
+		await child.click();
+		const baseline = JSON.stringify(editor.document);
+		await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+		expect(JSON.stringify(editor.document)).toBe(baseline);
+		await userEvent.dragAndDrop(child, screen.getByRole('treeitem', { name: /^Other,/ }));
+		expect(JSON.stringify(editor.document)).toBe(baseline);
+		expect(editor.selectedLayerIDs).toEqual(['Child']);
+		expect(changed).not.toHaveBeenCalled();
+		await expect.element(screen.getByRole('button', { name: 'Reorder Child' })).toBeDisabled();
+		await expect.element(screen.getByRole('button', { name: 'Move Child up' })).toBeDisabled();
+		await expect.element(screen.getByRole('button', { name: 'Move Child down' })).toBeDisabled();
+		await screen.getByRole('button', { name: 'Unlock Group', exact: true }).click();
+		await child.click();
+		await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+		expect(editor.activePage?.layers.map((layer) => layer.id)).toEqual(['Child', 'Other', 'Group']);
+		expect(editor.undoLabel).toBe('Reorder layer');
+		editor.undo();
+		expect(editor.activePage?.layers.map((layer) => layer.id)).toEqual(['Other', 'Child', 'Group']);
+		editor.redo();
+		expect(editor.selectedLayerIDs).toEqual(['Child']);
+		await saveGuestImageEditorDesign(stored.id, editor.document!);
+		const reopened = new ImageEditorController();
+		reopened.load(await loadGuestImageEditorDesign(stored.id));
+		expect(
+			reopened.activePage?.layers.map((layer) => [layer.id, layer.parent_id, layer.locked])
+		).toEqual([
+			['Child', 'Group', false],
+			['Other', 'Group', false],
+			['Group', undefined, false]
+		]);
+		expect(await listGuestImageEditorMedia(stored.id)).toEqual([]);
+	} finally {
+		await deleteGuestImageEditorDesign(stored.id);
+	}
+});

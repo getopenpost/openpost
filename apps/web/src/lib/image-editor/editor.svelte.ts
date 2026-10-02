@@ -124,6 +124,21 @@ interface PageColorGradeGesture {
 	key: keyof EditorColorGrade;
 }
 
+function layerIsEffectivelyLocked(
+	layer: ImageEditorLayer,
+	layers: readonly ImageEditorLayer[]
+): boolean {
+	let current: ImageEditorLayer | undefined = layer;
+	const visited = new Set<string>();
+	while (current) {
+		if (current.locked) return true;
+		if (!current.parent_id || visited.has(current.parent_id)) break;
+		visited.add(current.parent_id);
+		current = layers.find((candidate) => candidate.id === current?.parent_id);
+	}
+	return false;
+}
+
 function previewImageLayers(
 	document: ImageEditorDocument,
 	layerIDs: ReadonlySet<string>,
@@ -133,7 +148,8 @@ function previewImageLayers(
 	const pages = document.pages.map((page) => {
 		let pageChanged = false;
 		const layers = page.layers.map((layer) => {
-			if (!layerIDs.has(layer.id) || layer.locked || !layer.image) return layer;
+			if (!layerIDs.has(layer.id) || layerIsEffectivelyLocked(layer, page.layers) || !layer.image)
+				return layer;
 			pageChanged = true;
 			return update(layer);
 		});
@@ -355,7 +371,7 @@ export class ImageEditorController {
 	get selectedTransform(): ImageEditorLayer['transform'] | null {
 		const roots = this.selectedRootLayers();
 		const layers = this.activePage?.layers ?? [];
-		const editableRoots = roots.filter((layer) => !this.layerIsEffectivelyLocked(layer, layers));
+		const editableRoots = roots.filter((layer) => !layerIsEffectivelyLocked(layer, layers));
 		const transformRoots = editableRoots.length > 0 ? editableRoots : roots;
 		if (transformRoots.length === 1) return transformRoots[0].transform;
 		return imageEditorCollectiveTransform(transformRoots.map((layer) => layer.transform));
@@ -747,7 +763,13 @@ export class ImageEditorController {
 			data: Uint8Array;
 		}>
 	): boolean {
-		if (!this.document || !this.pixelSelection || projections.length === 0) return false;
+		if (
+			!this.document ||
+			!this.pixelSelection ||
+			projections.length === 0 ||
+			projections.every((projection) => this.isLayerLocked(projection.id))
+		)
+			return false;
 		if (this.floatingPixelSelection) this.commitFloatingPixelSelection();
 		const beforeDocument = cloneImageEditorDocument(this.document);
 		const nextDocument = cloneImageEditorDocument(this.document);
@@ -979,7 +1001,13 @@ export class ImageEditorController {
 			data: Uint8Array;
 		}>
 	): boolean {
-		if (!this.document || !this.pixelSelection || projections.length === 0) return false;
+		if (
+			!this.document ||
+			!this.pixelSelection ||
+			projections.length === 0 ||
+			projections.every((projection) => this.isLayerLocked(projection.id))
+		)
+			return false;
 		if (this.floatingPixelSelection) this.commitFloatingPixelSelection();
 		const before = this.document;
 		let promotedIDs: string[] = [];
@@ -1016,7 +1044,12 @@ export class ImageEditorController {
 		for (const projection of projections) {
 			const targetIndex = page.layers.findIndex((layer) => layer.id === projection.id);
 			const target = page.layers[targetIndex];
-			if (!target || target.locked || !['image', 'paint'].includes(target.type)) continue;
+			if (
+				!target ||
+				layerIsEffectivelyLocked(target, page.layers) ||
+				!['image', 'paint'].includes(target.type)
+			)
+				continue;
 			let selected = projection.data;
 			if (target.paint) {
 				const paint = pixelSpansToMask(target.paint.spans, projection.width, projection.height);
@@ -1140,9 +1173,7 @@ export class ImageEditorController {
 			this.applyPixelSelection(mask, this.selectedLayerIDs.slice(-1), 'replace');
 			return;
 		}
-		this.selectedLayerIDs = this.layerSelectionOrder().filter(
-			(id) => !this.activePage?.layers.find((layer) => layer.id === id)?.locked
-		);
+		this.selectedLayerIDs = this.layerSelectionOrder().filter((id) => !this.isLayerLocked(id));
 		this.selectionAnchorID = this.selectedLayerIDs.at(-1) ?? '';
 	}
 
@@ -1302,7 +1333,7 @@ export class ImageEditorController {
 	): void {
 		if (points.length === 0) return;
 		const layer = this.activePage?.layers.find((candidate) => candidate.id === id);
-		if (!layer || !['image', 'paint'].includes(layer.type) || layer.locked) return;
+		if (!layer || !['image', 'paint'].includes(layer.type) || this.isLayerLocked(id)) return;
 		this.mutate(m.image_editor_erase(), (document) => {
 			const target = document.pages
 				.find((page) => page.id === this.activePageID)
@@ -1347,7 +1378,7 @@ export class ImageEditorController {
 
 	restoreImageEraseMask(id: string): void {
 		const layer = this.activePage?.layers.find((candidate) => candidate.id === id);
-		if (layer?.type !== 'image' || layer.locked || !layer.erase_mask) return;
+		if (layer?.type !== 'image' || this.isLayerLocked(id) || !layer.erase_mask) return;
 		this.mutate(m.image_editor_restore_erased_image(), (document) => {
 			const target = document.pages
 				.find((page) => page.id === this.activePageID)
@@ -1358,7 +1389,7 @@ export class ImageEditorController {
 
 	addMagicErase(id: string, sourceWidth: number, sourceHeight: number, maskData: Uint8Array): void {
 		const layer = this.activePage?.layers.find((candidate) => candidate.id === id);
-		if (!layer || !['image', 'paint'].includes(layer.type) || layer.locked) return;
+		if (!layer || !['image', 'paint'].includes(layer.type) || this.isLayerLocked(id)) return;
 		const spans = pixelMaskToSpans(maskData, sourceWidth, sourceHeight);
 		if (spans.length === 0) return;
 		this.mutate(m.image_editor_magic_erase(), (document) => {
@@ -1682,7 +1713,7 @@ export class ImageEditorController {
 	isLayerLocked(id: string): boolean {
 		const layers = this.activePage?.layers ?? [];
 		const layer = layers.find((candidate) => candidate.id === id);
-		return Boolean(layer && this.layerIsEffectivelyLocked(layer, layers));
+		return Boolean(layer && layerIsEffectivelyLocked(layer, layers));
 	}
 
 	updateLayer(id: string, updates: Partial<ImageEditorLayer>, coalesceKey?: string): void {
@@ -1757,7 +1788,7 @@ export class ImageEditorController {
 		this.mutate(m.image_editor_crop(), (document) => {
 			const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 			const target = page?.layers.find((candidate) => candidate.id === id);
-			if (!page || !target?.image || this.layerIsEffectivelyLocked(target, page.layers)) return;
+			if (!page || !target?.image || layerIsEffectivelyLocked(target, page.layers)) return;
 			target.transform = structuredClone(result.transform);
 			target.image.crop = result.crop;
 			this.recalculateAncestorBounds(page, target.parent_id);
@@ -1789,7 +1820,7 @@ export class ImageEditorController {
 				const page = document.pages.find((item) => item.id === this.activePageID);
 				if (!page) return;
 				const layer = page.layers.find((item) => item.id === id);
-				if (!layer || this.layerIsEffectivelyLocked(layer, page.layers)) return;
+				if (!layer || layerIsEffectivelyLocked(layer, page.layers)) return;
 				this.applyTransformToLayer(page, layer, updates);
 			},
 			coalesceKey
@@ -1803,7 +1834,7 @@ export class ImageEditorController {
 	): ImageEditorPartialApplicationResult {
 		const roots = this.selectedRootLayers();
 		const layers = this.activePage?.layers ?? [];
-		const editableRoots = roots.filter((layer) => !this.layerIsEffectivelyLocked(layer, layers));
+		const editableRoots = roots.filter((layer) => !layerIsEffectivelyLocked(layer, layers));
 		const result: ImageEditorPartialApplicationResult = {
 			applied: editableRoots.length,
 			skippedLocked: roots.length - editableRoots.length,
@@ -1882,7 +1913,7 @@ export class ImageEditorController {
 
 	nudgeSelected(deltaX: number, deltaY: number): void {
 		if (!deltaX && !deltaY) return;
-		const movableRoots = this.selectedRootLayers().filter((layer) => !layer.locked);
+		const movableRoots = this.selectedRootLayers().filter((layer) => !this.isLayerLocked(layer.id));
 		if (movableRoots.length === 0) return;
 		const movableIDs = this.idsWithDescendants(movableRoots.map((layer) => layer.id));
 		this.mutate(
@@ -1903,7 +1934,7 @@ export class ImageEditorController {
 
 	deleteSelected(): void {
 		const page = this.activePage;
-		const roots = this.selectedRootLayers().filter((layer) => !layer.locked);
+		const roots = this.selectedRootLayers().filter((layer) => !this.isLayerLocked(layer.id));
 		if (!page || roots.length === 0) return;
 		const ids = this.idsWithDescendants(roots.map((layer) => layer.id));
 		const nearestIndex = Math.min(
@@ -1923,7 +1954,7 @@ export class ImageEditorController {
 			...(start >= 0 ? [remaining[start]] : []),
 			...remaining.slice(0, Math.max(0, start)).reverse(),
 			...remaining.slice(start + 1)
-		].find((layer) => !layer.locked && layer.visible);
+		].find((layer) => !this.isLayerLocked(layer.id) && layer.visible);
 		this.selectedLayerIDs = candidate ? [candidate.id] : [];
 		this.selectionAnchorID = candidate?.id ?? '';
 	}
@@ -2023,7 +2054,7 @@ export class ImageEditorController {
 
 	groupSelected(): void {
 		const roots = this.selectedRootLayers();
-		if (roots.length < 2) return;
+		if (roots.length < 2 || roots.some((layer) => this.isLayerLocked(layer.id))) return;
 		const groupID = imageEditorID('layer');
 		const selected = new SvelteSet(roots.map((layer) => layer.id));
 		const bounds = this.selectionBounds(roots);
@@ -2055,7 +2086,7 @@ export class ImageEditorController {
 		const groupIDs = new SvelteSet(
 			this.selectedLayers.filter((layer) => layer.type === 'group').map((l) => l.id)
 		);
-		if (groupIDs.size === 0) return;
+		if (groupIDs.size === 0 || [...groupIDs].some((id) => this.isLayerLocked(id))) return;
 		const childIDs =
 			this.activePage?.layers
 				.filter((layer) => layer.parent_id && groupIDs.has(layer.parent_id))
@@ -2083,20 +2114,20 @@ export class ImageEditorController {
 	groupDestinationsForLayer(id: string): ImageEditorLayer[] {
 		const page = this.activePage;
 		const source = page?.layers.find((layer) => layer.id === id);
-		if (!page || !source) return [];
+		if (!page || !source || this.isLayerLocked(id)) return [];
 		const blocked = this.idsWithDescendants([id]);
 		return page.layers.filter(
 			(layer) =>
 				layer.type === 'group' &&
 				!blocked.has(layer.id) &&
-				!this.layerIsEffectivelyLocked(layer, page.layers)
+				!layerIsEffectivelyLocked(layer, page.layers)
 		);
 	}
 
 	moveLayerToGroup(id: string, parentID?: string): boolean {
 		const page = this.activePage;
 		const source = page?.layers.find((layer) => layer.id === id);
-		if (!page || !source || this.layerIsEffectivelyLocked(source, page.layers)) return false;
+		if (!page || !source || layerIsEffectivelyLocked(source, page.layers)) return false;
 		const nextParentID = parentID || undefined;
 		if (source.parent_id === nextParentID) return false;
 		if (nextParentID) {
@@ -2131,6 +2162,7 @@ export class ImageEditorController {
 	}
 
 	reorderLayer(id: string, direction: 'front' | 'forward' | 'backward' | 'back'): void {
+		if (this.isLayerLocked(id)) return;
 		this.mutate('Reorder layer', (document) => {
 			const page = document.pages.find((item) => item.id === this.activePageID);
 			if (!page) return;
@@ -2150,7 +2182,7 @@ export class ImageEditorController {
 	}
 
 	moveLayerRelative(id: string, targetID: string, position: 'above' | 'below'): void {
-		if (id === targetID) return;
+		if (id === targetID || this.isLayerLocked(id)) return;
 		const page = this.activePage;
 		const source = page?.layers.find((layer) => layer.id === id);
 		const target = page?.layers.find((layer) => layer.id === targetID);
@@ -2168,7 +2200,11 @@ export class ImageEditorController {
 	}
 
 	alignSelected(alignment: 'left' | 'center_x' | 'right' | 'top' | 'center_y' | 'bottom'): void {
-		if (this.selectedLayers.length < 2) return;
+		if (
+			this.selectedLayers.length < 2 ||
+			this.selectedLayers.some((layer) => this.isLayerLocked(layer.id))
+		)
+			return;
 		const bounds = this.selectionBounds();
 		const ids = new SvelteSet(this.selectedLayerIDs);
 		this.mutate('Align layers', (document) => {
@@ -2195,7 +2231,7 @@ export class ImageEditorController {
 
 	distributeSelected(axis: 'horizontal' | 'vertical'): void {
 		const selected = [...this.selectedLayers];
-		if (selected.length < 3) return;
+		if (selected.length < 3 || selected.some((layer) => this.isLayerLocked(layer.id))) return;
 		selected.sort((a, b) =>
 			axis === 'horizontal'
 				? a.transform.x + a.transform.width / 2 - (b.transform.x + b.transform.width / 2)
@@ -2310,7 +2346,7 @@ export class ImageEditorController {
 			skippedUnsupported: 0
 		};
 		for (const layer of this.selectedLayers) {
-			if (layer.locked) result.skippedLocked += 1;
+			if (this.isLayerLocked(layer.id)) result.skippedLocked += 1;
 			else if (!layer.text) result.skippedUnsupported += 1;
 			else result.applied += 1;
 		}
@@ -2318,7 +2354,8 @@ export class ImageEditorController {
 			const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 			if (!page) return;
 			for (const layer of page.layers) {
-				if (!ids.has(layer.id) || layer.locked || !layer.text) continue;
+				if (!ids.has(layer.id) || layerIsEffectivelyLocked(layer, page.layers) || !layer.text)
+					continue;
 				layer.text = {
 					...layer.text,
 					font_family: style.font_family,
@@ -2343,7 +2380,7 @@ export class ImageEditorController {
 			skippedUnsupported: 0
 		};
 		for (const layer of this.selectedLayers) {
-			if (layer.locked) result.skippedLocked += 1;
+			if (this.isLayerLocked(layer.id)) result.skippedLocked += 1;
 			else result.applied += 1;
 		}
 		this.mutate(
@@ -2351,7 +2388,8 @@ export class ImageEditorController {
 			(document) => {
 				const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 				for (const layer of page?.layers ?? []) {
-					if (ids.has(layer.id) && !layer.locked) layer.opacity = Math.max(0, Math.min(1, opacity));
+					if (ids.has(layer.id) && !layerIsEffectivelyLocked(layer, page?.layers ?? []))
+						layer.opacity = Math.max(0, Math.min(1, opacity));
 				}
 			},
 			`opacity:${[...ids].sort().join(',')}`
@@ -2398,7 +2436,7 @@ export class ImageEditorController {
 			const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 			if (!page) return;
 			for (const layer of page.layers) {
-				if (!ids.has(layer.id) || layer.locked) continue;
+				if (!ids.has(layer.id) || layerIsEffectivelyLocked(layer, page.layers)) continue;
 				if (this.eyedropperTarget === 'selected_fill') {
 					if (layer.shape) layer.shape.fill = colorWithAlpha;
 					else if (layer.text) layer.text.color = colorWithAlpha;
@@ -2522,21 +2560,6 @@ export class ImageEditorController {
 
 	private selectedWithDescendants(): SvelteSet<string> {
 		return this.idsWithDescendants(this.selectedRootLayers().map((layer) => layer.id));
-	}
-
-	private layerIsEffectivelyLocked(
-		layer: ImageEditorLayer,
-		layers: readonly ImageEditorLayer[]
-	): boolean {
-		let current: ImageEditorLayer | undefined = layer;
-		const visited = new Set<string>();
-		while (current) {
-			if (current.locked) return true;
-			if (!current.parent_id || visited.has(current.parent_id)) break;
-			visited.add(current.parent_id);
-			current = layers.find((candidate) => candidate.id === current?.parent_id);
-		}
-		return false;
 	}
 
 	private applyTransformToLayer(

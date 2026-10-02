@@ -38,6 +38,9 @@
 	let selectionLocked = $derived(
 		editor.selectedLayers.every((item) => editor.isLayerLocked(item.id))
 	);
+	let anySelectionLocked = $derived(
+		editor.selectedLayers.some((item) => editor.isLayerLocked(item.id))
+	);
 	let textRange = $derived(
 		editor.textRange?.pageID === editor.activePageID && editor.textRange.layerID === layer?.id
 			? editor.textRange
@@ -404,6 +407,7 @@
 											{...props}
 											variant="destructive"
 											size="icon-sm"
+											disabled={selectionLocked}
 											onclick={() => editor.deleteSelected()}
 											aria-label={m.image_editor_delete_layer()}><ThemeIcon role="delete" /></Button
 										>
@@ -443,28 +447,45 @@
 									{m.image_editor_transform_layers()}
 								</p>
 								<div class="grid grid-cols-3 gap-1">
-									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('left')}
+									<Button
+										variant="outline"
+										size="xs"
+										disabled={anySelectionLocked}
+										onclick={() => editor.alignSelected('left')}
 										>{m.image_editor_align_left()}</Button
 									>
 									<Button
 										variant="outline"
 										size="xs"
+										disabled={anySelectionLocked}
 										onclick={() => editor.alignSelected('center_x')}
 										>{m.image_editor_align_center()}</Button
-									>
-									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('right')}
-										>{m.image_editor_align_right()}</Button
-									>
-									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('top')}
-										>{m.image_editor_align_top()}</Button
 									>
 									<Button
 										variant="outline"
 										size="xs"
+										disabled={anySelectionLocked}
+										onclick={() => editor.alignSelected('right')}
+										>{m.image_editor_align_right()}</Button
+									>
+									<Button
+										variant="outline"
+										size="xs"
+										disabled={anySelectionLocked}
+										onclick={() => editor.alignSelected('top')}>{m.image_editor_align_top()}</Button
+									>
+									<Button
+										variant="outline"
+										size="xs"
+										disabled={anySelectionLocked}
 										onclick={() => editor.alignSelected('center_y')}
 										>{m.image_editor_align_middle()}</Button
 									>
-									<Button variant="outline" size="xs" onclick={() => editor.alignSelected('bottom')}
+									<Button
+										variant="outline"
+										size="xs"
+										disabled={anySelectionLocked}
+										onclick={() => editor.alignSelected('bottom')}
 										>{m.image_editor_align_bottom()}</Button
 									>
 								</div>
@@ -473,12 +494,14 @@
 										<Button
 											variant="outline"
 											size="xs"
+											disabled={anySelectionLocked}
 											onclick={() => editor.distributeSelected('horizontal')}
 											>{m.image_editor_distribute_x()}</Button
 										>
 										<Button
 											variant="outline"
 											size="xs"
+											disabled={anySelectionLocked}
 											onclick={() => editor.distributeSelected('vertical')}
 											>{m.image_editor_distribute_y()}</Button
 										>

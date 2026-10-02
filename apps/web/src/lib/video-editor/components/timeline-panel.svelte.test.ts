@@ -486,3 +486,46 @@ it('adds a visible volume key by default on audio and keeps visual defaults supp
 		commandHistory.clearHistory();
 	}
 }, 30000);
+
+it.each([390, 320])('keeps the focused Add key control visible at %ipx', async (width) => {
+	await page.viewport(width, 900);
+	timelineStore.__resetForTesting();
+	commandHistory.clearHistory();
+	timelineStore._setTracks(createDefaultTracks());
+	timelineStore._setItems([
+		{
+			id: 'focus-audio',
+			type: 'audio',
+			label: 'Focus audio',
+			trackId: 'track-audio',
+			from: 0,
+			durationInFrames: 90,
+			volume: 1
+		}
+	]);
+	const screen = await render(TimelinePanel, { onedit: vi.fn() });
+	screen.container.style.cssText = 'width:100%;height:650px;display:flex';
+	try {
+		screen
+			.getByRole('button', { name: /^Focus audio\. Drag/ })
+			.element()
+			.focus();
+		await userEvent.keyboard('{Enter}');
+		screen.getByRole('button', { name: 'Keyframes', exact: true }).element().focus();
+		await userEvent.keyboard('{Enter}{Tab}{Tab}');
+		const add = screen.getByRole('button', { name: 'Add key', exact: true });
+		await expect.element(add).toHaveFocus();
+		await expect
+			.poll(() => add.element().getBoundingClientRect().left)
+			.toBeGreaterThanOrEqual(-0.5);
+		await expect
+			.poll(() => add.element().getBoundingClientRect().right)
+			.toBeLessThanOrEqual(width + 0.5);
+		expect(commandHistory.canUndo).toBe(false);
+	} finally {
+		await screen.unmount();
+		await page.viewport(1280, 900);
+		timelineStore.__resetForTesting();
+		commandHistory.clearHistory();
+	}
+});

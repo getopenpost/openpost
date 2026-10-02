@@ -4637,7 +4637,17 @@
 <svelte:window onkeydown={onPanelKeydown} />
 
 <div class="flex size-full min-h-0 flex-col">
-	<div class="flex max-w-full min-w-0 shrink-0 items-center gap-2 overflow-x-auto px-3 py-1">
+	<div
+		class="flex max-w-full min-w-0 shrink-0 scroll-px-1 items-center gap-2 overflow-x-auto px-3 py-1"
+		onfocusin={(event) => {
+			const target = event.target;
+			if (!(target instanceof HTMLElement)) return;
+			requestAnimationFrame(() => {
+				if (target.isConnected && document.activeElement === target)
+					target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			});
+		}}
+	>
 		<span class="text-xs text-[var(--video-editor-muted)]">{m.video_editor_timeline()}</span>
 		<div class="flex items-center gap-0.5 border-l border-[var(--video-editor-border)] pl-2">
 			<Button

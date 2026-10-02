@@ -27,6 +27,7 @@
 		) => void | Promise<void>;
 	} = $props();
 
+	const PAGE_DRAG_TYPE = 'application/x-openpost-image-editor-page';
 	const editor = useImageEditor();
 	const expanded = $derived(editor.pagesExpanded && !compact);
 	let draggingID = $state('');
@@ -71,9 +72,14 @@
 		if (changed) editor.fitZoom();
 	}
 
-	function beginPageDrag(page: ImageEditorPage): void {
+	function beginPageDrag(event: DragEvent, page: ImageEditorPage): void {
 		cancelReorder();
 		draggingID = page.id;
+		if (event.dataTransfer) {
+			event.dataTransfer.clearData();
+			event.dataTransfer.setData(PAGE_DRAG_TYPE, page.id);
+			event.dataTransfer.effectAllowed = 'move';
+		}
 	}
 
 	function endPageDrag(): void {
@@ -203,7 +209,11 @@
 
 	function handlePageDragOver(event: DragEvent, pageID: string): void {
 		event.preventDefault();
-		if (draggingID && draggingID !== pageID) insertionPageID = pageID;
+		if (draggingID) {
+			if (draggingID !== pageID) insertionPageID = pageID;
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+			return;
+		}
 		if (!containsExternalImageDrag(event.dataTransfer)) return;
 		externalDropPageID = pageID;
 		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
@@ -211,9 +221,16 @@
 
 	function handlePageDrop(event: DragEvent, pageID: string, index: number): void {
 		event.preventDefault();
-		const files = externalFiles(event.dataTransfer);
+		event.stopPropagation();
 		externalDropPageID = '';
 		insertionPageID = '';
+		if (draggingID) {
+			const pageToMove = draggingID;
+			endPageDrag();
+			commitPageMove(pageToMove, index, 'dropped');
+			return;
+		}
+		const files = externalFiles(event.dataTransfer);
 		if (files.length > 0 && editor.canEdit && editor.document) {
 			const page = pages.find((candidate) => candidate.id === pageID);
 			if (!page) return;
@@ -228,8 +245,6 @@
 			);
 			return;
 		}
-		if (draggingID) commitPageMove(draggingID, index, 'dropped');
-		draggingID = '';
 	}
 </script>
 
@@ -260,7 +275,7 @@
 						? 'ring-2 ring-primary'
 						: ''} {externalDropPageID === page.id ? 'bg-primary/10 ring-2 ring-primary' : ''}"
 					onclick={() => selectPage(page)}
-					ondragstart={() => beginPageDrag(page)}
+					ondragstart={(event) => beginPageDrag(event, page)}
 					ondragend={endPageDrag}
 					ondragover={(event) => handlePageDragOver(event, page.id)}
 					ondragleave={() => (externalDropPageID = '')}

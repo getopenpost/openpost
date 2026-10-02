@@ -5,6 +5,13 @@ import { ImageEditorController } from '../editor.svelte';
 import { blankImageEditorDocument, blankImageEditorPage, defaultTransform } from '../document';
 import type { ImageEditorLayer } from '../types';
 import Fixture from './editor-interactions.fixture.svelte';
+import {
+	createGuestImageEditorDesignFromDocument,
+	saveGuestImageEditorDesign,
+	loadGuestImageEditorDesign,
+	deleteGuestImageEditorDesign,
+	listGuestImageEditorMedia
+} from '../local-persistence';
 import '../../../routes/layout.css';
 function setup() {
 	const editor = new ImageEditorController();
@@ -157,4 +164,125 @@ it('exposes the current page and renames it inline', async () => {
 	expect(editor.activePage?.name).toBe('Launch cover');
 	editor.undo();
 	expect(editor.activePage?.name).toBe('First');
+});
+
+it('reorders from the rendered thumbnail without importing it and commits one history entry', async () => {
+	await page.viewport(320, 800);
+	const editor = setup();
+	const local = await createGuestImageEditorDesignFromDocument(editor.document!);
+	try {
+		editor.load(local);
+		const imported = vi.fn();
+		const changed = vi.fn();
+		editor.onChange(changed);
+		const screen = await render(Fixture, { editor, onExternalFiles: imported });
+		const first = screen.getByRole('button', { name: /Page 1: First/ });
+		const third = screen.getByRole('button', { name: /Page 3: Third/ });
+		await expect.poll(() => third.element().querySelector('img')).not.toBeNull();
+		const source = third.element();
+		let dragOwner: EventTarget | null = null;
+		source.addEventListener(
+			'dragstart',
+			(event) => {
+				dragOwner = event.target;
+			},
+			{ once: true }
+		);
+		await userEvent.dragAndDrop(source.querySelector('img')!, first);
+		await expect.element(screen.getByRole('button', { name: /Page 1: Third/ })).toHaveFocus();
+		await Promise.all(
+			screen.container
+				.getAnimations({ subtree: true })
+				.map((animation) => animation.finished.catch(() => undefined))
+		);
+		const bounds = source.getBoundingClientRect();
+		const stripBounds = source.parentElement!.getBoundingClientRect();
+		expect(bounds.left).toBeGreaterThanOrEqual(stripBounds.left);
+		expect(bounds.right).toBeLessThanOrEqual(stripBounds.right);
+		expect(dragOwner).toBe(source);
+		expect(editor.document?.pages.map((p) => p.id)).toEqual(['third', 'first', 'second']);
+		expect(editor.activePageID).toBe('first');
+		expect(imported).not.toHaveBeenCalled();
+		expect(changed).toHaveBeenCalledOnce();
+		expect(editor.document?.pages.map((p) => p.layers.length)).toEqual([0, 3, 0]);
+		editor.undo();
+		expect(editor.document?.pages.map((p) => p.id)).toEqual(['first', 'second', 'third']);
+		expect(editor.canUndo).toBe(false);
+		editor.redo();
+		expect(editor.document?.pages.map((p) => p.id)).toEqual(['third', 'first', 'second']);
+		expect(editor.activePageID).toBe('first');
+		await saveGuestImageEditorDesign(local.id, editor.document!);
+		const reopened = await loadGuestImageEditorDesign(local.id);
+		const cold = new ImageEditorController();
+		cold.load(reopened);
+		expect(cold.document?.pages.map((p) => [p.id, p.layers.length])).toEqual([
+			['third', 0],
+			['first', 3],
+			['second', 0]
+		]);
+		expect(await listGuestImageEditorMedia(local.id)).toEqual([]);
+	} finally {
+		await deleteGuestImageEditorDesign(local.id);
+		await page.viewport(1280, 900);
+	}
+});
+
+it('keeps label and thumbnail outside drops inert and label reorders preserve active identity', async () => {
+	const editor = setup();
+	const imported = vi.fn();
+	const changed = vi.fn();
+	editor.onChange(changed);
+	const screen = await render(Fixture, { editor, onExternalFiles: imported });
+	const third = screen.getByRole('button', { name: /Page 3: Third/ });
+	await expect.poll(() => third.element().querySelector('img')).not.toBeNull();
+	for (const origin of [third.element().querySelector('img')!, third.element().lastElementChild!]) {
+		await userEvent.dragAndDrop(origin, screen.container, { targetPosition: { x: 10, y: 10 } });
+		expect(editor.document?.pages.map((p) => p.id)).toEqual(['first', 'second', 'third']);
+		expect(editor.activePageID).toBe('first');
+		expect(editor.canUndo).toBe(false);
+		expect(changed).not.toHaveBeenCalled();
+		expect(imported).not.toHaveBeenCalled();
+	}
+	await userEvent.dragAndDrop(
+		third.element().lastElementChild!,
+		screen.getByRole('button', { name: /Page 1: First/ })
+	);
+	expect(editor.document?.pages.map((p) => p.id)).toEqual(['third', 'first', 'second']);
+	expect(editor.activePageID).toBe('first');
+	expect(changed).toHaveBeenCalledOnce();
+	editor.undo();
+	expect(editor.canUndo).toBe(false);
+});
+
+it('gives an owned page drag precedence over an image file attached by the browser', async () => {
+	const editor = setup();
+	const imported = vi.fn();
+	const screen = await render(Fixture, { editor, onExternalFiles: imported });
+	const preview = document.createElement('canvas');
+	preview.width = preview.height = 2;
+	const image = await new Promise<Blob>((resolve) => preview.toBlob((blob) => resolve(blob!)));
+	const transfer = new DataTransfer();
+	transfer.items.add(new File([image], 'thumbnail.png', { type: 'image/png' }));
+	screen
+		.getByRole('button', { name: /Page 3: Third/ })
+		.element()
+		.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+	screen
+		.getByRole('button', { name: /Page 1: First/ })
+		.element()
+		.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
+	expect(editor.document?.pages.map((p) => p.id)).toEqual(['third', 'first', 'second']);
+	expect(editor.activePageID).toBe('first');
+	expect(imported).not.toHaveBeenCalled();
+	editor.undo();
+	expect(editor.canUndo).toBe(false);
+	const external = new DataTransfer();
+	const file = new File([image], 'external.png', { type: 'image/png' });
+	external.items.add(file);
+	screen
+		.getByRole('button', { name: /Page 2: Second/ })
+		.element()
+		.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: external }));
+	expect(imported).toHaveBeenCalledExactlyOnceWith([file], { x: 540, y: 540 }, 'second');
+	expect(editor.activePageID).toBe('second');
 });

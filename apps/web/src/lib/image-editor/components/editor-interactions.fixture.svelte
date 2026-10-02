@@ -3,7 +3,10 @@
 	import { provideImageEditor, type ImageEditorController } from '../editor.svelte';
 	import LayerTree from './layer-tree.svelte';
 	import PageStrip from './page-strip.svelte';
-	let { editor }: { editor: ImageEditorController } = $props();
+	let {
+		editor,
+		onExternalFiles
+	}: { editor: ImageEditorController; onExternalFiles?: (files: File[]) => void } = $props();
 	provideImageEditor(untrack(() => editor));
 </script>
 
@@ -12,5 +15,5 @@
 	style="height: 600px; display: flex; flex-direction: column;"
 >
 	<div style="height: 380px;"><LayerTree /></div>
-	<div style="height: 180px;"><PageStrip /></div>
+	<div style="height: 180px;"><PageStrip {onExternalFiles} /></div>
 </div>

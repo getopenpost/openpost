@@ -149,7 +149,12 @@
 			style:height={pageSize.width / pageSize.height >= 4 / 3 ? 'auto' : '100%'}
 		>
 			{#if cached}
-				{#if imageURL}<img src={imageURL} alt="" class="block size-full object-contain" />{/if}
+				{#if imageURL}<img
+						src={imageURL}
+						alt=""
+						draggable={false}
+						class="block size-full object-contain"
+					/>{/if}
 			{:else}
 				{#key dimensionKey}
 					<canvas {@attach attachPreview} class="block size-full" aria-hidden="true"></canvas>

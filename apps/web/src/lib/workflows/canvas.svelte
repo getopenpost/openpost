@@ -11,6 +11,7 @@
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 	import { mode } from 'mode-watcher';
+	import { untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	const narrow = new MediaQuery('(max-width: 639px)');
 	import WorkflowNode, { type WorkflowNodeData } from './node.svelte';
@@ -136,11 +137,13 @@
 		</div>
 	{/if}
 	{#key layoutVersion}
+		<!-- Canvas selection events must not subscribe to the authored selection they update. -->
 		<SvelteFlow
-			onselectionchange={({ nodes: selected }) => {
-				const node = selected[0];
-				if (!readonly && node && node.id !== selectedID) onselection?.(node.id);
-			}}
+			onselectionchange={({ nodes: selected }) =>
+				untrack(() => {
+					const node = selected[0];
+					if (!readonly && node && node.id !== selectedID) onselection?.(node.id);
+				})}
 			onkeydown={(event) => {
 				if (readonly || !event.defaultPrevented || !event.key.startsWith('Arrow')) return;
 				const target = event.target;

@@ -682,3 +682,25 @@ it.each([
 		expect(post).not.toHaveBeenCalled();
 	}
 );
+
+it('keeps a newly inserted step selected during the picker-to-inspector handoff', async () => {
+	const workflow: Workflow = {
+		...initial,
+		id: 'picker-handoff',
+		definition: { schema: 1, source: { kind: 'manual' }, steps: [] }
+	};
+	const screen = await render(
+		Editor,
+		{ initial: workflow, accounts: [], connections: [] },
+		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+	);
+	screen.container.style.height = '850px';
+	await screen.getByRole('button', { name: 'Add step', exact: true }).click();
+	await page
+		.getByRole('complementary', { name: 'What happens next?' })
+		.getByRole('button', { name: /^Create draft / })
+		.click();
+	await expect
+		.element(page.getByRole('textbox', { name: 'Step name', exact: true }))
+		.toHaveValue('Create draft');
+});

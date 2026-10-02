@@ -9590,5 +9590,10 @@
 	"quick_cut_time_invalid": "Enter seconds or a timecode, such as 00:01.50.",
 	"quick_cut_overlap_rejected": "Ranges overlap. Adjust or remove an existing range before trying again.",
 	"video_editor_gpu_pixel_sort_empty_range": "No pixels match this range. Set Threshold Low at or below Threshold High.",
-	"video_editor_gpu_ascii_empty_custom": "This custom set has no visible characters. Add a character or choose another character set."
+	"video_editor_gpu_ascii_empty_custom": "This custom set has no visible characters. Add a character or choose another character set.",
+	"messages_filtered_empty_title": "No matching conversations",
+	"messages_filtered_empty_description": "Try another account or platform, or clear the filters.",
+	"messages_archived_empty_title": "No archived conversations",
+	"messages_archived_empty_description": "No archived conversations match these filters. Clear the filters to return to your inbox.",
+	"messages_clear_filters": "Clear filters"
 }

@@ -9590,5 +9590,10 @@
 	"quick_cut_time_invalid": "Digite segundos ou um código de tempo, como 00:01.50.",
 	"quick_cut_overlap_rejected": "Os intervalos se sobrepõem. Ajuste ou remova um intervalo existente antes de tentar novamente.",
 	"video_editor_gpu_pixel_sort_empty_range": "Nenhum pixel corresponde a este intervalo. O limite inferior deve ser menor ou igual ao limite superior.",
-	"video_editor_gpu_ascii_empty_custom": "Este conjunto personalizado não tem caracteres visíveis. Adicione um caractere ou escolha outro conjunto de caracteres."
+	"video_editor_gpu_ascii_empty_custom": "Este conjunto personalizado não tem caracteres visíveis. Adicione um caractere ou escolha outro conjunto de caracteres.",
+	"messages_filtered_empty_title": "Nenhuma conversa corresponde aos filtros",
+	"messages_filtered_empty_description": "Experimente outra conta ou plataforma, ou limpe os filtros.",
+	"messages_archived_empty_title": "Nenhuma conversa arquivada",
+	"messages_archived_empty_description": "Nenhuma conversa arquivada corresponde a estes filtros. Limpe os filtros para voltar à caixa de entrada.",
+	"messages_clear_filters": "Limpar filtros"
 }

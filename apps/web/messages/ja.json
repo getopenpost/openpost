@@ -9590,5 +9590,10 @@
 	"quick_cut_time_invalid": "秒数または 00:01.50 のようなタイムコードを入力してください。",
 	"quick_cut_overlap_rejected": "範囲が重複しています。既存の範囲を調整または削除してから再試行してください。",
 	"video_editor_gpu_pixel_sort_empty_range": "この範囲に一致するピクセルはありません。下限のしきい値を上限以下に設定してください。",
-	"video_editor_gpu_ascii_empty_custom": "このカスタムセットには表示できる文字がありません。文字を追加するか、別の文字セットを選んでください。"
+	"video_editor_gpu_ascii_empty_custom": "このカスタムセットには表示できる文字がありません。文字を追加するか、別の文字セットを選んでください。",
+	"messages_filtered_empty_title": "一致する会話はありません",
+	"messages_filtered_empty_description": "別のアカウントやプラットフォームを選ぶか、フィルターを解除してください。",
+	"messages_archived_empty_title": "アーカイブ済みの会話はありません",
+	"messages_archived_empty_description": "このフィルターに一致するアーカイブ済みの会話はありません。受信トレイに戻るにはフィルターを解除してください。",
+	"messages_clear_filters": "フィルターを解除"
 }

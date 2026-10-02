@@ -9590,5 +9590,10 @@
 	"quick_cut_time_invalid": "Saniye veya 00:01.50 gibi bir zaman kodu girin.",
 	"quick_cut_overlap_rejected": "Aralıklar çakışıyor. Tekrar denemeden önce mevcut bir aralığı düzenleyin veya kaldırın.",
 	"video_editor_gpu_pixel_sort_empty_range": "Bu aralıkla eşleşen piksel yok. Alt eşik, üst eşikten küçük veya eşit olmalıdır.",
-	"video_editor_gpu_ascii_empty_custom": "Bu özel kümede görünür karakter yok. Bir karakter ekleyin veya başka bir karakter kümesi seçin."
+	"video_editor_gpu_ascii_empty_custom": "Bu özel kümede görünür karakter yok. Bir karakter ekleyin veya başka bir karakter kümesi seçin.",
+	"messages_filtered_empty_title": "Eşleşen konuşma yok",
+	"messages_filtered_empty_description": "Başka bir hesap veya platform deneyin ya da filtreleri temizleyin.",
+	"messages_archived_empty_title": "Arşivlenmiş konuşma yok",
+	"messages_archived_empty_description": "Bu filtrelerle eşleşen arşivlenmiş konuşma yok. Gelen kutunuza dönmek için filtreleri temizleyin.",
+	"messages_clear_filters": "Filtreleri temizle"
 }

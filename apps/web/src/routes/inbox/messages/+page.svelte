@@ -200,6 +200,7 @@
 	const messagingAllDisabled = $derived(
 		accounts.length > 0 && allFeatureEffectiveDisabled(messagingFeatures, 'messaging')
 	);
+	const hasConversationFilters = $derived(Boolean(platformFilter || accountFilter || archived));
 	const messagingReason = $derived(collectiveDisabledReason(messagingFeatures, 'messaging'));
 	const messagingEmptyIsFeatureDisabled = $derived(
 		messagingAllDisabled && conversations.length === 0 && !loading && !error
@@ -274,6 +275,13 @@
 	function clearSelectedConversation() {
 		selectedId = '';
 		selectedFallback = undefined;
+	}
+
+	function clearConversationFilters() {
+		platformFilter = '';
+		accountFilter = '';
+		archived = false;
+		clearSelectedConversation();
 	}
 
 	async function loadOlderMessages() {
@@ -858,11 +866,24 @@
 					{messagingReason}
 				</p>
 			{/if}
+		{:else if conversationsQuery.data && conversations.length === 0 && hasConversationFilters}
+			<EmptyState
+				themeIconRole="inbox"
+				title={archived ? m.messages_archived_empty_title() : m.messages_filtered_empty_title()}
+				description={archived
+					? m.messages_archived_empty_description()
+					: m.messages_filtered_empty_description()}
+				actionLabel={m.messages_clear_filters()}
+				onAction={clearConversationFilters}
+				variant="muted"
+			/>
 		{:else if conversationsQuery.data && conversations.length === 0}
 			<EmptyState
 				themeIconRole="inbox"
 				title={m.messages_empty_title()}
 				description={m.messages_empty_description()}
+				actionLabel={m.feature_disabled_open_details()}
+				actionHref="/settings?tab=accounts"
 				variant="muted"
 			/>
 		{:else}

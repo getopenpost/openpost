@@ -9590,5 +9590,10 @@
 	"quick_cut_time_invalid": "输入秒数或时间码，例如 00:01.50。",
 	"quick_cut_overlap_rejected": "范围重叠。请调整或删除现有范围后重试。",
 	"video_editor_gpu_pixel_sort_empty_range": "没有像素匹配此范围。请将下限阈值设为小于或等于上限阈值。",
-	"video_editor_gpu_ascii_empty_custom": "此自定义字符集没有可见字符。请添加字符或选择其他字符集。"
+	"video_editor_gpu_ascii_empty_custom": "此自定义字符集没有可见字符。请添加字符或选择其他字符集。",
+	"messages_filtered_empty_title": "没有匹配的对话",
+	"messages_filtered_empty_description": "请尝试其他账号或平台，或清除筛选条件。",
+	"messages_archived_empty_title": "没有已归档的对话",
+	"messages_archived_empty_description": "没有符合这些筛选条件的已归档对话。清除筛选条件以返回收件箱。",
+	"messages_clear_filters": "清除筛选条件"
 }

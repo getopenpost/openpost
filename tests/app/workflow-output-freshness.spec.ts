@@ -138,10 +138,29 @@ for (const mode of ["test", "preview"] as const) {
     expect(await (await request.get(runURL, { headers })).json()).toEqual(original);
     await page.reload();
     await page.getByRole("button", { name: "Runs", exact: true }).click();
-    await page
-      .getByRole("button", { name: /^Completed/ })
-      .last()
-      .click();
+    const historicCard = page.getByRole("button", { name: /^Completed/ }).last();
+    for (const width of [320, 390, 1280]) {
+      for (const colorScheme of ["light", "dark"] as const) {
+        await page.setViewportSize({ width, height: 850 });
+        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+        await expect(
+          historicCard.getByText(mode === "test" ? "Test node" : "Preview", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          historicCard.getByText(`Workflow revision ${original.workflow_revision}`, {
+            exact: true,
+          }),
+        ).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        );
+        await page.screenshot({
+          path: testInfo.outputPath(`history-${mode}-${width}-${colorScheme}.png`),
+        });
+      }
+    }
+    await historicCard.focus();
+    await page.keyboard.press("Enter");
     await page
       .locator('.svelte-flow__node[data-id="parse"]')
       .getByRole("button", { name: /^Audit parse / })

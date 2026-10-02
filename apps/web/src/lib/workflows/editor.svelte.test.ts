@@ -649,3 +649,36 @@ it.each(['test', 'preview'] as const)(
 		expect(run).toEqual(originalRun);
 	}
 );
+
+it.each([
+	{ mode: 'preview' as const, label: 'Preview', width: 1280 },
+	{ mode: 'live' as const, label: 'Live', width: 390 },
+	{ mode: 'test' as const, label: 'Test node', width: 320 }
+])(
+	'identifies $mode and its revision before opening run history',
+	async ({ mode, label, width }) => {
+		await page.viewport(width, 900);
+		run = { ...run, mode, workflow_revision: 7 };
+		vi.mocked(client.GET).mockImplementation(
+			async (path) =>
+				({ data: path === '/workflow-runs' ? [run] : run, response: new Response() }) as never
+		);
+		const screen = await render(
+			Editor,
+			{ initial, accounts: [], connections: [] },
+			{
+				wrapper: QueryClientProvider,
+				wrapperProps: { client: queryClient }
+			}
+		);
+		await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+		const card = screen.getByRole('button', { name: /^Completed/ });
+		await expect.element(card).toBeVisible();
+		await expect.element(card.getByText(label, { exact: true })).toBeVisible();
+		await expect.element(card.getByText('Workflow revision 7', { exact: true })).toBeVisible();
+		card.element().focus();
+		await userEvent.keyboard('{Enter}');
+		await expect.element(screen.getByText(`Workflow revision 7 · ${label}`)).toBeVisible();
+		expect(post).not.toHaveBeenCalled();
+	}
+);

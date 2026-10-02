@@ -614,6 +614,14 @@
 								onclick={() => (selectedRun = run.id)}
 								><GraphPreview definition={run.definition} {run} /><span
 									class="mt-2 block text-sm font-medium">{runStateLabel(run.state)}</span
+								><span class="mt-1 block text-xs text-muted-foreground"
+									>{run.mode === 'preview'
+										? m.workflows_preview()
+										: run.mode === 'test'
+											? m.workflows_test_node()
+											: m.workflows_live()}</span
+								><span class="block text-xs text-muted-foreground"
+									>{m.workflows_run_revision({ revision: run.workflow_revision })}</span
 								><span class="block text-xs text-muted-foreground"
 									>{new Date(run.created_at).toLocaleString()}</span
 								></button

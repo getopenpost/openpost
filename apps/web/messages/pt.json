@@ -4253,6 +4253,8 @@
 	"video_editor_clip_speed": "Velocidade",
 	"video_editor_clip_speed_curve": "Curva de velocidade",
 	"video_editor_speed_point_occupied": "Já existe um ponto no cursor de reprodução. Move o cursor para adicionar outro.",
+	"video_editor_speed_point_time": "Fotograma de origem {index}",
+	"video_editor_speed_curve_hint": "Arrasta os pontos para alterar o tempo de origem e a velocidade. As setas ajustam o ponto focado; Shift faz alterações maiores.",
 	"video_editor_clip_gain_db": "Ganho (dB)",
 	"video_editor_audio_pitch": "Tom",
 	"video_editor_audio_semitones": "Semitons",

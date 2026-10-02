@@ -4289,6 +4289,8 @@
 	"video_editor_clip_speed": "Speed",
 	"video_editor_clip_speed_curve": "Speed curve",
 	"video_editor_speed_point_occupied": "A point already exists at the playhead. Move the playhead to add another.",
+	"video_editor_speed_point_time": "Source frame {index}",
+	"video_editor_speed_curve_hint": "Drag points to change source time and speed. Arrow keys adjust the focused point; Shift makes larger changes.",
 	"video_editor_clip_gain_db": "Gain (dB)",
 	"video_editor_audio_pitch": "Pitch",
 	"video_editor_audio_semitones": "Semitones",

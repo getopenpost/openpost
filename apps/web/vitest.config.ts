@@ -42,7 +42,13 @@ export default defineConfig({
 						enabled: true,
 						commands: {
 							dragPointer: defineBrowserCommand(
-								async ({ page, iframe }, selector: string, dx: number, dy: number) => {
+								async (
+									{ page, iframe },
+									selector: string,
+									dx: number,
+									dy: number,
+									options?: { cancel?: boolean }
+								) => {
 									const bounds = await iframe.locator(selector).boundingBox();
 									if (!bounds) throw new Error('Pointer drag target is not visible');
 									const x = bounds.x + bounds.width / 2;
@@ -51,6 +57,7 @@ export default defineConfig({
 									await page.mouse.down();
 									try {
 										await page.mouse.move(x + dx, y + dy, { steps: 8 });
+										if (options?.cancel) await page.keyboard.press('Escape');
 									} finally {
 										await page.mouse.up();
 									}

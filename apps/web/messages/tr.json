@@ -4253,6 +4253,8 @@
 	"video_editor_clip_speed": "Hız",
 	"video_editor_clip_speed_curve": "Hız eğrisi",
 	"video_editor_speed_point_occupied": "Oynatma kafasında zaten bir nokta var. Başka bir nokta eklemek için oynatma kafasını taşıyın.",
+	"video_editor_speed_point_time": "Kaynak kare {index}",
+	"video_editor_speed_curve_hint": "Kaynak zamanı ve hızı değiştirmek için noktaları sürükleyin. Ok tuşları odaklanan noktayı ayarlar; Shift daha büyük değişiklikler yapar.",
 	"video_editor_clip_gain_db": "Kazanç (dB)",
 	"video_editor_audio_pitch": "Perde",
 	"video_editor_audio_semitones": "Yarım ton",

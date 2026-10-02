@@ -4253,6 +4253,8 @@
 	"video_editor_clip_speed": "Vitesse",
 	"video_editor_clip_speed_curve": "Courbe de vitesse",
 	"video_editor_speed_point_occupied": "Un point existe déjà à la tête de lecture. Déplacez-la pour en ajouter un autre.",
+	"video_editor_speed_point_time": "Image source {index}",
+	"video_editor_speed_curve_hint": "Faites glisser les points pour modifier le temps source et la vitesse. Les flèches ajustent le point actif ; Maj applique des changements plus importants.",
 	"video_editor_clip_gain_db": "Gain (dB)",
 	"video_editor_audio_pitch": "Hauteur",
 	"video_editor_audio_semitones": "Demi-tons",

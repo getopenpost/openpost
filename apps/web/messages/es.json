@@ -4253,6 +4253,8 @@
 	"video_editor_clip_speed": "Velocidad",
 	"video_editor_clip_speed_curve": "Curva de velocidad",
 	"video_editor_speed_point_occupied": "Ya existe un punto en el cabezal de reproducción. Muévelo para añadir otro.",
+	"video_editor_speed_point_time": "Fotograma de origen {index}",
+	"video_editor_speed_curve_hint": "Arrastra los puntos para cambiar el tiempo de origen y la velocidad. Las flechas ajustan el punto enfocado; Mayús aplica cambios mayores.",
 	"video_editor_clip_gain_db": "Ganancia (dB)",
 	"video_editor_audio_pitch": "Tono",
 	"video_editor_audio_semitones": "Semitonos",

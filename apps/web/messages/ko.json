@@ -4253,6 +4253,8 @@
 	"video_editor_clip_speed": "속도",
 	"video_editor_clip_speed_curve": "속도 곡선",
 	"video_editor_speed_point_occupied": "재생 헤드 위치에 이미 포인트가 있습니다. 다른 포인트를 추가하려면 재생 헤드를 이동하세요.",
+	"video_editor_speed_point_time": "소스 프레임 {index}",
+	"video_editor_speed_curve_hint": "포인트를 드래그하여 소스 시간과 속도를 변경하세요. 화살표 키로 포커스된 포인트를 조정하고 Shift 키로 변경 폭을 늘릴 수 있습니다.",
 	"video_editor_clip_gain_db": "게인(dB)",
 	"video_editor_audio_pitch": "피치",
 	"video_editor_audio_semitones": "반음",

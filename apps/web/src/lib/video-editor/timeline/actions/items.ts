@@ -1302,10 +1302,29 @@ export function addItemsSpeedPoint(itemIds: string[], timelineFrame: number): Sp
 	return { changed: updates.map((update) => update.id), locked, pointId, occupied };
 }
 
+export function speedPointSourceFrameRange(
+	item: TimelineItem,
+	pointId: string
+): { min: number; max: number } | null {
+	const points = [...(item.speedRamp ?? [])].sort((a, b) => a.sourceFrame - b.sourceFrame);
+	const index = points.findIndex((point) => point.id === pointId);
+	if (index < 0) return null;
+	const min = Math.ceil(
+		Math.max(item.sourceStart ?? 0, index > 0 ? points[index - 1]!.sourceFrame + 1 : 0)
+	);
+	const max = Math.floor(
+		Math.min(
+			item.sourceEnd ?? points.at(-1)!.sourceFrame,
+			index < points.length - 1 ? points[index + 1]!.sourceFrame - 1 : Infinity
+		)
+	);
+	return min <= max ? { min, max } : null;
+}
+
 export function updateItemsSpeedPoint(
 	itemIds: string[],
 	pointId: string,
-	patch: { speed?: number; easing?: EasingType }
+	patch: { sourceFrame?: number; speed?: number; easing?: EasingType }
 ): SpeedRampEditResult {
 	const { targets, locked } = speedRampTargets(itemIds);
 	if (targets.length === 0 || locked > 0) return { changed: [], locked, pointId };
@@ -1314,11 +1333,25 @@ export function updateItemsSpeedPoint(
 		const current = candidate.speedRamp ?? [];
 		const currentPoint = current.find((point) => point.id === pointId);
 		if (!currentPoint) continue;
+		if (patch.sourceFrame !== undefined && !Number.isFinite(patch.sourceFrame)) continue;
+		const range = speedPointSourceFrameRange(candidate, pointId);
+		if (patch.sourceFrame !== undefined && !range) continue;
+		const nextSourceFrame =
+			patch.sourceFrame === undefined
+				? currentPoint.sourceFrame
+				: Math.max(range!.min, Math.min(range!.max, Math.round(patch.sourceFrame)));
 		const nextSpeed = patch.speed === undefined ? currentPoint.speed : clampSpeed(patch.speed);
 		const nextEasing = patch.easing ?? currentPoint.easing;
-		if (nextSpeed === currentPoint.speed && nextEasing === currentPoint.easing) continue;
+		if (
+			nextSourceFrame === currentPoint.sourceFrame &&
+			nextSpeed === currentPoint.speed &&
+			nextEasing === currentPoint.easing
+		)
+			continue;
 		const speedRamp = current.map((point) =>
-			point.id === pointId ? { ...point, speed: nextSpeed, easing: nextEasing } : point
+			point.id === pointId
+				? { ...point, sourceFrame: nextSourceFrame, speed: nextSpeed, easing: nextEasing }
+				: point
 		);
 		updates.push({
 			id: candidate.id,

@@ -539,11 +539,10 @@ export async function preflightExport(
 			const usage = est.usage ?? 0;
 			if (quota === 0) storageState = 'unknown';
 			else {
-				const reserve = 50 * 1024 * 1024;
 				const needsWorkingArtifacts =
 					requiresTranscode || perSegment.some((segment) => segment.requiresTranscode);
 				const headroom =
-					estimatedBytes * (needsWorkingArtifacts ? TRANSCODE_STORAGE_MULTIPLIER : 1) + reserve;
+					estimatedBytes * (needsWorkingArtifacts ? TRANSCODE_STORAGE_MULTIPLIER : 1);
 				if (usage + headroom > quota) storageState = 'insufficient';
 				else storageState = 'ok';
 			}

@@ -58,6 +58,43 @@ function makeSource(id: string, overrides: Partial<QuickCutSource> = {}): QuickC
 }
 
 describe('quick-cut preflight', () => {
+	it('admits a small export when its working files fit below 50 MB of free quota', async () => {
+		vi.stubGlobal('navigator', {
+			storage: { estimate: async () => ({ quota: 1024 * 1024, usage: 0 }) }
+		});
+		try {
+			const source = makeSource('small', { size: 112_000, duration: 3 });
+			const segment = createSegment(0.5, 2.5, { sourceId: source.id });
+			for (const cutMode of ['nearestKeyframe', 'exact'] as const) {
+				const result = await preflightExport([source], [segment], cutMode, true);
+				expect(result.eligible).toBe(true);
+			}
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it('rejects an export whose required working files exceed remaining quota', async () => {
+		vi.stubGlobal('navigator', {
+			storage: { estimate: async () => ({ quota: 1024 * 1024, usage: 100_000 }) }
+		});
+		try {
+			const source = makeSource('large', { size: 2 * 1024 * 1024, duration: 3 });
+			const result = await preflightExport(
+				[source],
+				[createSegment(0, 3, { sourceId: source.id })],
+				'exact',
+				true
+			);
+			expect(result).toMatchObject({
+				eligible: false,
+				reason: 'Not enough storage for this export.'
+			});
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it('includes synchronous planning in the export preflight trace', async () => {
 		const source = makeSource('profiled');
 		const entries: { name: string; duration: number }[] = [];

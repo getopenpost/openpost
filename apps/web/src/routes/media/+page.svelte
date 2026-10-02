@@ -867,6 +867,13 @@
 			});
 			if (!reconciled) return { ok: false, remainingIDs: ids };
 			if (mediaMutationViewIsCurrent(context)) {
+				if (
+					selectedMedia &&
+					ids.includes(selectedMedia.id) &&
+					!remainingIDSet.has(selectedMedia.id)
+				) {
+					handleUsageDialogOpenChange(false);
+				}
 				await loadMedia(context.workspaceID, false, context);
 			}
 
@@ -2085,13 +2092,6 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-<DestructiveConfirmDialog
-	bind:open={deleteDialogOpen}
-	title={deletionTitle(deletionRequest)}
-	description={deletionDescription(deletionRequest)}
-	onConfirm={confirmLibraryDeletion}
-/>
-
 <MediaOrganizationDialog
 	bind:open={organizationDialogOpen}
 	workspaceId={selectedWorkspaceId}
@@ -2139,6 +2139,13 @@
 	onDownload={downloadMedia}
 	onDelete={requestDeleteMedia}
 	onShowUsage={showUsage}
+/>
+
+<DestructiveConfirmDialog
+	bind:open={deleteDialogOpen}
+	title={deletionTitle(deletionRequest)}
+	description={deletionDescription(deletionRequest)}
+	onConfirm={confirmLibraryDeletion}
 />
 
 <RenameDialog

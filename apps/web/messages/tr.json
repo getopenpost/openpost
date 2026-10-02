@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "Öğe sayısını sınırla",
 	"workflows_list_limit_help": "Listenin ilk öğelerini tutun.",
 	"workflows_merge": "Verileri birleştir",
-	"workflows_merge_help": "İki listeyi art arda ekleyin veya iki nesneyi birleştirin.",
+	"workflows_merge_help": "İkinci listeyi birinci listenin sonuna ekleyin. Nesnelerde ikinci girdi, iç içe nesnelerin ve listelerin tamamı dahil olmak üzere eşleşen üst düzey değerlerin yerini alır.",
 	"workflows_date": "Tarihi biçimlendir",
 	"workflows_date_help": "ISO tarihini seçilen saat diliminde biçimlendirin.",
 	"workflows_tracking_link": "Takip bağlantısı",

@@ -18,6 +18,8 @@ Variable paths retain existing dot notation. JSON-quoted brackets identify liter
 
 Sort items requires the selected field to contain one type throughout the list: numbers sort numerically, text sorts lexically, and equal values retain input order. Mixed text and numbers fail with guidance instead of coercing provider values.
 
+Merge appends the second list to the first. For objects, the second input replaces conflicting top-level values, including entire nested objects and lists; it does not recursively merge them. Unconflicted values remain unchanged.
+
 `apps/server/internal/services/workflows/` owns definitions, sources, admission, and checkpoints. Database jobs execute one step at a time, including persisted timers and approval waits. A sweep restores runnable checkpoints after worker interruption. Run leases fence competing workers; workspace locks serialize admission, deletion, cancellation, and checkpoint writes where those operations intersect.
 
 `handlers/workflow_actions.go` adapts native publication, Builder, analytics, and reply commands. Stable run/step keys drive the existing native idempotency receipts. Builder recovery finds the original build by its key before resolving any current settings. Provider writes remain in the existing publishing and provider-write queues, with their readiness checks and authorization receipts. Scheduling retains the native per-rendition outcomes in its output, including receipt replay. Blocking validation details originate in the publication service and reach workflow errors without reimplementing provider checks.

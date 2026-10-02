@@ -32,6 +32,9 @@
 </script>
 
 <div class="space-y-5">
+	{#if step.kind === 'merge'}<p class="text-xs leading-5 text-muted-foreground">
+			{m.workflows_merge_help()}
+		</p>{/if}
 	{#if step.kind === 'http_request'}<CurlImport onimport={oninputs} />
 		<div class="space-y-2">
 			<Label for="request-connection">{m.workflows_connection()}</Label><Choice

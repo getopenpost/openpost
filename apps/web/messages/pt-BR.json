@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "Limitar itens",
 	"workflows_list_limit_help": "Mantenha os primeiros itens de uma lista.",
 	"workflows_merge": "Juntar dados",
-	"workflows_merge_help": "Junte duas listas ou combine dois objetos.",
+	"workflows_merge_help": "Acrescente a segunda lista à primeira. Nos objetos, a segunda entrada substitui os valores correspondentes do primeiro nível, incluindo objetos e listas aninhados completos.",
 	"workflows_date": "Formatar data",
 	"workflows_date_help": "Formate uma data ISO no fuso horário escolhido.",
 	"workflows_tracking_link": "Conexão de rastreio",

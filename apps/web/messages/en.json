@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "Limit items",
 	"workflows_list_limit_help": "Keep the first items in a list.",
 	"workflows_merge": "Merge data",
-	"workflows_merge_help": "Append two lists or combine two objects.",
+	"workflows_merge_help": "Append the second list to the first. For objects, the second input replaces matching top-level values, including entire nested objects and lists.",
 	"workflows_date": "Format date",
 	"workflows_date_help": "Format an ISO date in a chosen timezone.",
 	"workflows_tracking_link": "Tracking link",

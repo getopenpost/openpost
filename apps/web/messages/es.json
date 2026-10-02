@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "Limitar elementos",
 	"workflows_list_limit_help": "Conserva los primeros elementos de una lista.",
 	"workflows_merge": "Combinar datos",
-	"workflows_merge_help": "Une dos listas o combina dos objetos.",
+	"workflows_merge_help": "Añade la segunda lista a la primera. En los objetos, la segunda entrada reemplaza los valores coincidentes del primer nivel, incluidos los objetos y las listas anidados completos.",
 	"workflows_date": "Dar formato a una fecha",
 	"workflows_date_help": "Da formato a una fecha ISO en la zona horaria elegida.",
 	"workflows_tracking_link": "Enlace de seguimiento",

@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "항목 수 제한",
 	"workflows_list_limit_help": "목록의 앞부분에서 지정한 수만큼 항목을 남깁니다.",
 	"workflows_merge": "데이터 병합",
-	"workflows_merge_help": "두 목록을 이어 붙이거나 두 객체를 합칩니다.",
+	"workflows_merge_help": "두 번째 목록을 첫 번째 목록 뒤에 추가합니다. 객체에서는 두 번째 입력이 같은 최상위 키의 값을 대체하며, 중첩된 객체와 목록도 통째로 대체합니다.",
 	"workflows_date": "날짜 형식 지정",
 	"workflows_date_help": "ISO 날짜를 선택한 시간대와 형식으로 표시합니다.",
 	"workflows_tracking_link": "추적 링크",

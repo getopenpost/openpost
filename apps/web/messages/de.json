@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "Elemente begrenzen",
 	"workflows_list_limit_help": "Behalte die ersten Elemente einer Liste.",
 	"workflows_merge": "Daten zusammenführen",
-	"workflows_merge_help": "Hänge zwei Listen aneinander oder führe zwei Objekte zusammen.",
+	"workflows_merge_help": "Hänge die zweite Liste an die erste an. Bei Objekten ersetzt die zweite Eingabe übereinstimmende Werte auf der obersten Ebene, einschließlich ganzer verschachtelter Objekte und Listen.",
 	"workflows_date": "Datum formatieren",
 	"workflows_date_help": "Formatiere ein ISO-Datum in der gewählten Zeitzone.",
 	"workflows_tracking_link": "Tracking-Link",

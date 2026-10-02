@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "限制条目数量",
 	"workflows_list_limit_help": "保留列表开头的指定数量条目。",
 	"workflows_merge": "合并数据",
-	"workflows_merge_help": "连接两个列表，或合并两个对象。",
+	"workflows_merge_help": "将第二个列表追加到第一个列表末尾。对于对象，第二个输入会替换匹配的顶层值，包括整个嵌套对象和列表。",
 	"workflows_date": "设置日期格式",
 	"workflows_date_help": "将 ISO 日期转换为所选时区的指定格式。",
 	"workflows_tracking_link": "跟踪链接",

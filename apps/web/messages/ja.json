@@ -9452,7 +9452,7 @@
 	"workflows_list_limit": "項目数を制限",
 	"workflows_list_limit_help": "リストの先頭から指定した数の項目を残します。",
 	"workflows_merge": "データを結合",
-	"workflows_merge_help": "2つのリストを連結するか、2つのオブジェクトを結合します。",
+	"workflows_merge_help": "2番目のリストを最初のリストの末尾に追加します。オブジェクトでは、2番目の入力が同じ最上位キーの値を置き換えます。入れ子のオブジェクトやリストも全体が置き換わります。",
 	"workflows_date": "日付の形式を変更",
 	"workflows_date_help": "ISO形式の日付を、指定したタイムゾーンと表示形式に変換します。",
 	"workflows_tracking_link": "トラッキングリンク",

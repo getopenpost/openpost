@@ -60,7 +60,7 @@ Keep static redirects before wildcard or placeholder rules in the composed publi
 
 Generate the media-limits guide with `scripts/sync-docs-openapi.mjs`; edit the capability catalogue or `apps/server/cmd/openpost-media-limits`, never the generated MDX.
 
-Verify docs reader interactions against the static export with `bunx playwright test --config tests/docs/playwright.config.ts` after `bun run build -- docs`. Use shared Fumadocs controls and SVG icons for page actions, search, and navigation.
+Verify docs reader interactions against the static export with `bunx playwright test --config tests/docs/playwright.config.ts` after `bun run build -- docs`. Use shared Fumadocs controls and SVG icons for page actions, search, and navigation. Documentation copy controls belong to `apps/docs/components/documentation-copy.tsx`; retain the exact source text for recovery and show success only after the clipboard write completes.
 
 Each social network has one self-hosting integration guide. Keep shared credential setup in the integration index and link provider-specific steps to it. Use `SetupScreenshot` for expandable setup screenshots, preserve source attribution and licenses for reused portal images, and label edited example values. Capture OpenPost connection dialogs through `tests/app/product-screenshots.spec.ts` in both schemes. Generated screenshots illustrate setup, never provider approval.
 

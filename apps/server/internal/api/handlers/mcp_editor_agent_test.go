@@ -1,11 +1,17 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/services/editoragent"
 	"github.com/openpost/backend/internal/services/entitlements"
@@ -15,6 +21,20 @@ type editorAssistantTestGenerator struct{}
 
 func (editorAssistantTestGenerator) Generate(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 	return ai.GenerateResult{}, nil
+}
+
+type editorAssistantSequenceGenerator struct {
+	responses []editorAssistantDecision
+	calls     int
+}
+
+func (g *editorAssistantSequenceGenerator) Generate(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
+	if request.Model != "test-model" || request.ResponseSchema == nil || g.calls >= len(g.responses) {
+		return ai.GenerateResult{}, ai.ErrEmptyResponse
+	}
+	response, _ := json.Marshal(g.responses[g.calls])
+	g.calls++
+	return ai.GenerateResult{Text: string(response), Usage: ai.Usage{InputTokens: 10, OutputTokens: 5}}, nil
 }
 
 func TestHostedEditorAssistantRequiresCloudPaidPlanAndEditAccess(t *testing.T) {
@@ -67,6 +87,56 @@ func TestHostedEditorAssistantStopCancelsQueuedEdit(t *testing.T) {
 	leased, err := relay.LeaseNext(t.Context(), session.ID, "user", session.Epoch)
 	if err != nil || leased != nil {
 		t.Fatalf("browser received stopped edit: request=%v err=%v", leased, err)
+	}
+}
+
+func TestHostedEditorAssistantHTTPUsesPaidToolLoopAndAccountsUsage(t *testing.T) {
+	db := workflowHandlerDB(t)
+	relay := editoragent.NewRelay(db)
+	session, err := relay.Register(t.Context(), "ws", "user", "project", "video")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := relay.Enqueue(t.Context(), session, "user", "completed-key", "editor_context", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := relay.LeaseNext(t.Context(), session.ID, "user", session.Epoch); err != nil {
+		t.Fatal(err)
+	}
+	if err := relay.Respond(t.Context(), session.ID, "user", session.Epoch, request.ID, json.RawMessage(`{"revision":"current"}`), json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	arguments, _ := json.Marshal(map[string]string{"request_id": request.ID})
+	generator := &editorAssistantSequenceGenerator{responses: []editorAssistantDecision{
+		{Kind: "tool", Operation: "editor_work_status", ArgumentsJSON: string(arguments)},
+		{Kind: "final", Message: "The editor is at revision current."},
+	}}
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	NewEditorAgentAssistantHandler(db, workflowSession{}, entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), generator, "test-model", "cloud").RegisterRoutes(api)
+	body, _ := json.Marshal(map[string]string{
+		"workspace_id": "ws", "session_id": session.ID, "project_id": "project", "prompt": "Check the editor",
+	})
+	httpRequest := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/editor-agent/assistant", bytes.NewReader(body))
+	httpRequest.Header.Set("Authorization", "Bearer session")
+	httpRequest.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, httpRequest)
+	if response.Code != http.StatusOK {
+		t.Fatalf("assistant status = %d: %s", response.Code, response.Body.String())
+	}
+	var result struct {
+		Reply        string                `json:"reply"`
+		Steps        []editorAssistantStep `json:"steps"`
+		InputTokens  int64                 `json:"input_tokens"`
+		OutputTokens int64                 `json:"output_tokens"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if generator.calls != 2 || result.Reply != "The editor is at revision current." || len(result.Steps) != 1 || string(result.Steps[0].Result) != `{"revision":"current"}` || result.InputTokens != 20 || result.OutputTokens != 10 {
+		t.Fatalf("assistant did not inspect the real receipt and account for both model calls: %#v, calls=%d", result, generator.calls)
 	}
 }
 

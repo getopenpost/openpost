@@ -2,7 +2,7 @@
 	import PublicationViewSwitch from '$lib/components/publication-view-switch.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -133,6 +133,8 @@
 	let selectedEmptyDateKey = $state('');
 	let selectedMonthDayKey = $state('');
 	let monthDayOpen = $state(false);
+	let calendarContent: HTMLElement | undefined = $state();
+	let todayReveal = $state<{ scope: string; day: string } | null>(null);
 	let activeRequest = 0;
 	let dataRevision = 0;
 	let completedLoadKey = $state('');
@@ -517,10 +519,37 @@
 		viewMode = nextView;
 	}
 
+	$effect(() => {
+		const request = todayReveal;
+		const content = calendarContent;
+		if (!request || !content) return;
+		if (request.scope !== loadKey) {
+			todayReveal = null;
+			return;
+		}
+		if (initialLoading) return;
+		let cancelled = false;
+		void tick().then(() => {
+			if (cancelled || todayReveal !== request || request.scope !== loadKey) return;
+			const targets = content.querySelectorAll<HTMLElement>(
+				`[data-calendar-agenda-day="${request.day}"], [data-calendar-day="${request.day}"], [data-calendar-empty-day="${request.day}"]`
+			);
+			const target = Array.from(targets).find((element) => element.getClientRects().length > 0);
+			if (target) target.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+			else content.scrollTo({ top: 0, behavior: 'instant' });
+			todayReveal = null;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	function goToToday() {
 		monthDayOpen = false;
 		const today = workspaceTodayDate(viewerTimeZone);
 		currentMonth = viewMode === 'month' ? startOfMonth(today) : today;
+		selectedEmptyDateKey = workspaceTodayKey;
+		todayReveal = { scope: loadKey, day: workspaceTodayKey };
 	}
 
 	function openItem(item: CalendarItem) {
@@ -1305,7 +1334,7 @@
 			</div>
 		{/if}
 
-		<div data-calendar-content class="min-h-0 flex-1 overflow-auto">
+		<div bind:this={calendarContent} data-calendar-content class="min-h-0 flex-1 overflow-auto">
 			{#if initialLoading}
 				<PageLoading layout="calendar" label={m.common_loading()} />
 			{:else if loadError && completedLoadKey !== loadKey}
@@ -1320,7 +1349,11 @@
 			{:else}
 				<section class="space-y-5 xl:hidden" aria-label={m.calendar_month_grid()}>
 					{#if visibleItems.length > 0 && selectedEmptyDay}
-						<div data-testid="calendar-empty-date-create" class="rounded-lg border bg-muted/20 p-3">
+						<div
+							data-calendar-empty-day={selectedEmptyDay.key}
+							data-testid="calendar-empty-date-create"
+							class="rounded-lg border bg-muted/20 p-3"
+						>
 							<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 								<div class="min-w-0">
 									<h2 class="text-sm font-semibold">{m.calendar_empty_date_heading()}</h2>
@@ -1361,7 +1394,7 @@
 					{/if}
 
 					{#each agendaDays as entry (entry.day.key)}
-						<section>
+						<section data-calendar-agenda-day={entry.day.key}>
 							<div class="mb-2 flex items-center justify-between gap-3">
 								<h2 class="text-sm font-semibold">{formatAgendaDate(entry.day.date)}</h2>
 								<Button

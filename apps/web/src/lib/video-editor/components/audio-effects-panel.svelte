@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
@@ -30,10 +31,11 @@
 		open?: boolean;
 	} = $props();
 
+	let rackElement = $state<HTMLElement>();
 	const effects = $derived(normalizeAudioEffects(item.audioEffects));
 
-	function commit(next: AudioEffect[]): void {
-		updateItemProperties(
+	function commit(next: AudioEffect[]): boolean {
+		return updateItemProperties(
 			item.id,
 			next.length > 0 ? { audioEffects: next } : { audioEffects: undefined },
 			'UPDATE_CLIP_AUDIO_EFFECTS'
@@ -70,8 +72,24 @@
 		commit([]);
 	}
 
-	function move(from: number, to: number): void {
-		commit(reorderAudioEffects(effects, from, to));
+	async function move(event: MouseEvent, from: number, to: number): Promise<void> {
+		const action = event.currentTarget;
+		const ownedFocus = document.activeElement === action;
+		const itemId = item.id;
+		const effectId = effects[from]?.id;
+		if (!effectId || !commit(reorderAudioEffects(effects, from, to))) return;
+		await tick();
+		if (!ownedFocus || !(action instanceof HTMLElement) || item.id !== itemId) return;
+		if (document.activeElement !== action && document.activeElement !== document.body) return;
+		if (action.isConnected && !action.matches(':disabled')) {
+			action.focus();
+			return;
+		}
+		rackElement
+			?.querySelector<HTMLButtonElement>(
+				`[data-effect-id="${CSS.escape(effectId)}"] [data-reorder-direction]:not(:disabled)`
+			)
+			?.focus();
 	}
 
 	type EffectPatchMap = {
@@ -211,9 +229,14 @@
 				</label>
 			{/snippet}
 
-			<ul class="space-y-1" aria-label={m.video_editor_audio_effects_rack_aria()}>
+			<ul
+				bind:this={rackElement}
+				class="space-y-1"
+				aria-label={m.video_editor_audio_effects_rack_aria()}
+			>
 				{#each effects as effect, index (effect.id)}
 					<li
+						data-effect-id={effect.id}
 						class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)]"
 					>
 						<details class="group/effect">
@@ -273,7 +296,8 @@
 										aria-label={m.video_editor_audio_effects_move_up({
 											name: labelFor(effect.type)
 										})}
-										onclick={() => move(index, index - 1)}>↑</Button
+										data-reorder-direction="up"
+										onclick={(event) => move(event, index, index - 1)}>↑</Button
 									>
 									<Button
 										type="button"
@@ -284,7 +308,8 @@
 										aria-label={m.video_editor_audio_effects_move_down({
 											name: labelFor(effect.type)
 										})}
-										onclick={() => move(index, index + 1)}>↓</Button
+										data-reorder-direction="down"
+										onclick={(event) => move(event, index, index + 1)}>↓</Button
 									>
 									<span class="ml-1 self-center text-xs text-[var(--video-editor-muted)]"
 										>{m.video_editor_audio_effects_order({

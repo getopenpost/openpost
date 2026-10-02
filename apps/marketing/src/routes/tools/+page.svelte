@@ -10,6 +10,7 @@
 		'All tools',
 		'Images',
 		'Video',
+		'Audio',
 		'Previews',
 		'Convert',
 		'Writing & planning'
@@ -23,7 +24,26 @@
 		['paste-image', 'Paste an image from your clipboard and download it as a file.'],
 		['logo-maker', 'Choose an icon and colors. Download your logo as PNG or SVG.'],
 		['quick-cut', 'Trim and join compatible video segments without re-encoding.'],
-		['image-converter', 'Convert PNG, JPEG, and WebP images at their original size.']
+		['image-converter', 'Convert PNG, JPEG, and WebP images at their original size.'],
+		['video-converter', 'Change video containers and codecs on your device.'],
+		['mp4-to-mkv', 'Move compatible MP4 tracks into a Matroska container.'],
+		['mkv-to-mp4', 'Save the primary MKV tracks in an MP4 container.'],
+		['mp4-to-webm', 'Convert a clip to WebM for web playback.'],
+		['webm-to-mp4', 'Save a WebM recording as MP4. Choose compatible codecs.'],
+		['mov-to-mp4', 'Convert a supported camera or editing file to MP4.'],
+		['video-codec-converter', 'Choose a video codec and bitrate supported by your device.'],
+		['video-compressor', 'Reduce bitrate or resolution and compare the file size.'],
+		['remove-audio-from-video', 'Remove the soundtrack and download a silent clip.'],
+		['audio-converter', 'Change audio formats and choose output quality.'],
+		['mp3-to-wav', 'Decode compressed audio to WAV for editing.'],
+		['wav-to-mp3', 'Make a smaller MP3 copy of uncompressed audio.'],
+		['m4a-to-mp3', 'Convert supported M4A audio to MP3.'],
+		['mp3-to-m4a', 'Re-encode MP3 audio to AAC in an M4A file.'],
+		['flac-to-mp3', 'Make a smaller MP3 delivery copy of lossless audio.'],
+		['flac-to-wav', 'Decode FLAC audio to uncompressed WAV.'],
+		['ogg-to-mp3', 'Convert Ogg audio for players that need MP3.'],
+		['extract-audio-from-video', 'Save a video soundtrack as an audio file.'],
+		['media-info', 'Check codecs, dimensions, duration and audio channels.']
 	]);
 	const featured = [
 		'social-media-image-editor',
@@ -52,7 +72,7 @@
 			straight to work.
 		</p>
 		<p class="privacy">
-			<ShieldCheck size={18} aria-hidden="true" /> No account required. Image tools run on your device,
+			<ShieldCheck size={18} aria-hidden="true" /> No account required. Media tools run on your device,
 			with no watermark or paid download.
 		</p>
 	</header>
@@ -84,7 +104,10 @@
 		{#if entries.length}
 			<section class="tool-group" aria-label={group}>
 				<h2>{group === 'Convert' ? 'Image converters' : group}</h2>
-				<div class="tool-grid" class:illustrated={group === 'Images' || group === 'Video'}>
+				<div
+					class="tool-grid"
+					class:illustrated={group === 'Images' || group === 'Video' || group === 'Audio'}
+				>
 					{#each entries as tool (tool.slug)}
 						<a class="tool-card focus-ring" href={`/tools/${tool.slug}`}>
 							<div class="tool-visual"><ToolThumbnail slug={tool.slug} /></div>

@@ -1,6 +1,11 @@
 <script lang="ts">
 	import {
-		ArrowRight,
+		ArrowDown,
+		AudioLines,
+		Film,
+		FileSearch,
+		Gauge,
+		VolumeX,
 		AtSign,
 		CalendarClock,
 		ClipboardPaste,
@@ -14,7 +19,12 @@
 		Type,
 		WandSparkles
 	} from '@lucide/svelte';
-	import { previewTools, imageConversions, imageFormats } from '@openpost/social-images';
+	import {
+		previewTools,
+		imageConversions,
+		imageFormats,
+		mediaConversionTools
+	} from '@openpost/social-images';
 	import { PlatformGlyph } from '@openpost/social-preview';
 	import ThemeImage from '../_components/ThemeImage.svelte';
 	import type { MarketingToolSlug } from '../_marketing';
@@ -22,6 +32,7 @@
 	let { slug }: { slug: MarketingToolSlug } = $props();
 	const platform = $derived(previewTools.find((tool) => tool.slug === slug)?.platform);
 	const conversion = $derived(imageConversions.find((tool) => tool.slug === slug));
+	const mediaTool = $derived(mediaConversionTools.find((tool) => tool.slug === slug));
 	const inputFormat = $derived(
 		imageFormats.find((format) => format.id === conversion?.input)?.name
 	);
@@ -54,7 +65,8 @@
 	class:screenshot={editor}
 	class:checkerboard={slug === 'background-remover'}
 	class:mint={slug === 'image-color-picker' || slug === 'logo-maker'}
-	class:blue={slug === 'quick-cut'}
+	class:blue={slug === 'quick-cut' || mediaTool?.category === 'Video'}
+	class:lilac={mediaTool?.category === 'Audio'}
 	aria-hidden="true"
 >
 	{#if editor}
@@ -68,7 +80,22 @@
 	{:else if platform}
 		<PlatformGlyph {platform} />
 	{:else if conversion}
-		<span class="formats">{inputFormat}<ArrowRight size={16} />{outputFormat}</span>
+		<span class="formats"
+			><span>{inputFormat}</span><ArrowDown size={14} /><span>{outputFormat}</span></span
+		>
+	{:else if mediaTool}
+		<div class="media-example">
+			{#if mediaTool.mode === 'inspect'}<FileSearch />
+			{:else if mediaTool.mode === 'mute'}<VolumeX />
+			{:else if mediaTool.mode === 'compress'}<Gauge />
+			{:else if mediaTool.category === 'Audio'}<AudioLines />
+			{:else}<Film />{/if}
+			{#if mediaTool.input && mediaTool.output}<span class="formats"
+					><span>{mediaTool.input.toUpperCase()}</span><ArrowDown size={14} /><span
+						>{mediaTool.output.toUpperCase()}</span
+					></span
+				>{/if}
+		</div>
 	{:else if slug === 'image-color-picker'}
 		<div class="palette">
 			<img
@@ -106,6 +133,7 @@
 		justify-content: center;
 		width: 100%;
 		height: 100%;
+		container-type: inline-size;
 		overflow: hidden;
 		background: var(--marketing-section);
 		color: var(--foreground);
@@ -147,10 +175,44 @@
 	}
 	.formats {
 		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		max-width: 100%;
 		align-items: center;
-		gap: 8px;
+		gap: 2px;
 		font-size: 12px;
 		font-weight: 650;
+	}
+	.lilac {
+		background: var(--marketing-lilac);
+		color: var(--marketing-lilac-ink);
+	}
+	.media-example {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 20px;
+		max-width: 100%;
+	}
+	.media-example > :global(svg) {
+		width: 48px;
+		height: 48px;
+		stroke-width: 1.5;
+	}
+	.formats > span {
+		white-space: nowrap;
+	}
+	.formats :global(svg) {
+		flex-shrink: 0;
+	}
+	@container (max-width: 100px) {
+		.media-example {
+			flex-direction: column;
+			gap: 2px;
+		}
+		.media-example:has(.formats) > :global(svg) {
+			display: none;
+		}
 	}
 	.palette {
 		width: 56%;
@@ -239,7 +301,6 @@
 		.formats :global(svg) {
 			width: 12px;
 			height: 12px;
-			transform: rotate(90deg);
 		}
 		.screenshot {
 			padding: 0;

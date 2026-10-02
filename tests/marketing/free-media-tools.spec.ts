@@ -146,7 +146,7 @@ test("find a converter, clear an empty search, and open Quick Cut", async ({ pag
   await expect(main.getByRole("heading", { name: "No tools match that search." })).toBeVisible();
   await main.getByRole("button", { name: "Show all tools" }).click();
   await main.getByRole("button", { name: "Video", exact: true }).click();
-  await expect(main.getByRole("link")).toHaveCount(2);
+  await expect(main.getByRole("link", { name: /^Quick Cut/ })).toBeVisible();
   await main.getByRole("link", { name: /^Quick Cut/ }).click();
   await expect(main.getByRole("link", { name: "Open Quick Cut" })).toHaveAttribute(
     "href",
@@ -167,6 +167,9 @@ test("supported tool pages are discoverable without JavaScript", async ({ browse
     "image-converter",
     "webp-to-png",
     "jpg-to-webp",
+    "mp4-to-mkv",
+    "audio-converter",
+    "media-info",
   ]) {
     await expect(page.getByRole("main").locator(`a[href="/tools/${slug}"]`)).toHaveCount(1);
   }

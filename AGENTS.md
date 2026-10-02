@@ -50,6 +50,8 @@ Public marketing speaks to Cloud customers creating content and running a busine
 
 Install marketing module-download recovery in the client `init` hook, before hydration imports run. A layout mount callback cannot recover failures that precede its own mount.
 
+Public media-tool routes, format pairs and metadata come from `packages/social-images/src/media-tools.js`. Browser video/audio conversion stays behind the marketing `local-media.ts` adapter, loads only on tool routes, bounds inputs and output writes, and rejects failed selected tracks. The UI and guides explicitly disclose primary-track selection and omitted subtitles or attachments.
+
 Public documentation uses Fumadocs in `apps/docs/`, with authored MDX under `content/docs/` and a static export in `out/`. Keep customer guides, built-in Workflows, external automation, self-hosting, and the generated API reference separate. Workflow tutorials and run controls belong in `content/docs/workflows/`; SDK, HTTP API, CLI, and n8n guides belong in `content/docs/automate/`. Engineering documentation belongs in `docs/development/`; operator reference details belong in `docs/reference/`. Generate API operation pages from `apps/web/openapi.json` on every docs build, never edit generated MDX.
 
 The public Cloudflare site composes marketing at `/` and documentation at `/docs` through `bun run build -- public-site`; `openpost-marketing` publishes `dist/public-site`. Keep docs base-path aware, reject output collisions, and keep the retired docs host only as a direct path-and-query-preserving redirect.

@@ -8,6 +8,8 @@ import yaml from "js-yaml";
 import {
   docsSocialImageKey,
   marketingSocialEntries,
+  mediaConversionTools,
+  imageConversions,
 } from "../../packages/social-images/src/index.js";
 
 export const SOCIAL_IMAGE_WIDTH = 1200;
@@ -182,6 +184,11 @@ function motifForEntry(entry) {
   if (entry.path.startsWith("/api-reference")) return "api";
   if (entry.path.startsWith("/mcp")) return "connections";
   if (entry.path.startsWith("/self-hosting")) return "server";
+  const slug = routeSegments(entry.path)[1];
+  const converter = mediaConversionTools.find((tool) => tool.slug === slug);
+  if (imageConversions.some((tool) => tool.slug === slug) || converter?.input) return "conversion";
+  if (converter?.category === "Audio") return "audio";
+  if (converter && converter.mode !== "inspect") return "video";
   if (entry.kind === "tool" || entry.kind === "tools-index") return "tools";
   if (entry.path.includes("schedul") || entry.path.includes("calendar")) return "calendar";
   if (entry.path.includes("analytics") || entry.path.includes("results")) return "analytics";
@@ -194,6 +201,8 @@ function motifForEntry(entry) {
 function accentNameForEntry(entry, motif) {
   if (motif === "security") return "green";
   if (motif === "api" || motif === "connections") return "blue";
+  if (motif === "video") return "blue";
+  if (motif === "audio" || motif === "conversion") return "lilac";
   if (motif === "media" || motif === "tools") return "lilac";
   if (motif === "calendar" || motif === "analytics") return "yellow";
   if (entry.kind === "platform" || motif === "logo") return "blue";
@@ -484,8 +493,54 @@ function drawMediaMotif(context, palette, accent) {
   context.fill();
 }
 
+function drawAudioMotif(context, palette, accent) {
+  drawMotifBase(context, palette, accent);
+  context.fillStyle = palette.brand;
+  for (const [index, height] of [36, 76, 112, 64, 92, 44].entries()) {
+    roundedRect(context, 920 + index * 21, 277 - height / 2, 10, height, 5);
+    context.fill();
+  }
+}
+
+function drawVideoMotif(context, palette, accent) {
+  drawMotifBase(context, palette, accent);
+  context.fillStyle = palette.background;
+  roundedRect(context, 908, 216, 138, 122, 14);
+  context.fill();
+  context.fillStyle = palette.brand;
+  for (const y of [228, 314]) for (const x of [923, 952, 981, 1010]) context.fillRect(x, y, 14, 12);
+  context.beginPath();
+  context.moveTo(965, 253);
+  context.lineTo(997, 277);
+  context.lineTo(965, 301);
+  context.closePath();
+  context.fill();
+}
+
+function drawConversionMotif(context, entry, palette, accent) {
+  drawMotifBase(context, palette, accent);
+  const slug = routeSegments(entry.path)[1];
+  const tool = [...imageConversions, ...mediaConversionTools].find((tool) => tool.slug === slug);
+  context.fillStyle = palette.ink;
+  setFont(context, 30, 600);
+  context.textAlign = "center";
+  context.fillText(tool.input.toUpperCase(), 977, 240);
+  context.fillText(tool.output.toUpperCase(), 977, 333);
+  context.textAlign = "left";
+  context.strokeStyle = palette.brand;
+  context.lineWidth = 5;
+  context.beginPath();
+  context.moveTo(977, 256);
+  context.lineTo(977, 290);
+  context.moveTo(963, 276);
+  context.lineTo(977, 290);
+  context.lineTo(991, 276);
+  context.stroke();
+}
+
 async function drawMotif(context, entry, palette, accent, motif) {
   if (motif === "logo") return drawLogoMotif(context, entry, palette, accent);
+  if (motif === "conversion") return drawConversionMotif(context, entry, palette, accent);
   const drawers = {
     workflow: drawWorkflowMotif,
     document: drawDocumentMotif,
@@ -497,6 +552,8 @@ async function drawMotif(context, entry, palette, accent, motif) {
     calendar: drawCalendarMotif,
     analytics: drawAnalyticsMotif,
     media: drawMediaMotif,
+    audio: drawAudioMotif,
+    video: drawVideoMotif,
   };
   drawers[motif](context, palette, accent);
 }

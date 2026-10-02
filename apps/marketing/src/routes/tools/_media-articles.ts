@@ -2,8 +2,10 @@ import {
 	imageConversions,
 	imageFormats,
 	mediaTools,
+	mediaConversionTools,
 	type MediaToolSlug
 } from '@openpost/social-images';
+import { mediaConversionGuide } from './_media-conversion-guides';
 
 const localPrivacy =
 	'Your images are processed on your device, not uploaded. Download your result before leaving this page. Browser memory and format support still apply.';
@@ -139,11 +141,13 @@ const guides: ToolGuides = {
 };
 
 const articleEntries = mediaTools.map((tool) => {
+	const mediaTool = mediaConversionTools.find((item) => item.slug === tool.slug);
 	const conversion = imageConversions.find((item) => item.slug === tool.slug);
 	const input = imageFormats.find((format) => format.id === conversion?.input);
 	const output = imageFormats.find((format) => format.id === conversion?.output);
-	const guide: (typeof guides)[string] =
-		conversion && input && output
+	const guide: (typeof guides)[string] = mediaTool
+		? mediaConversionGuide(mediaTool)
+		: conversion && input && output
 			? {
 					steps: [
 						`Choose, drop, or paste your ${input.name} image.`,

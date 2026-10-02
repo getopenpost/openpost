@@ -2,7 +2,14 @@ import { previewTools } from "./preview-tools.js";
 export { previewTools } from "./preview-tools.js";
 import { marketingGuides } from "./guides.js";
 import { mediaTools } from "./media-tools.js";
-export { mediaTools, imageConversions, imageFormats } from "./media-tools.js";
+export {
+  mediaTools,
+  imageConversions,
+  imageFormats,
+  mediaConversionTools,
+  videoFormats,
+  audioFormats,
+} from "./media-tools.js";
 export { marketingGuides } from "./guides.js";
 import { docsPageCatalog } from "./docs-catalog.js";
 import { docsRouteFromPage } from "./docs-route.js";
@@ -196,7 +203,7 @@ const staticMarketingEntries = [
     title: "Free image, video and social media tools - OpenPost",
     socialTitle: "Useful social tools. No account required.",
     description:
-      "Remove backgrounds, pick image colors, convert PNG, JPEG and WebP, make a logo, or cut a video. Free browser tools, no account required.",
+      "Remove backgrounds, convert images, video and audio, inspect codecs, make a logo, or cut a video. Free browser tools, no account required.",
     label: "OpenPost free tools",
     kind: "tools-index",
     agentRepresentation: "static",

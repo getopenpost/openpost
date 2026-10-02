@@ -116,6 +116,7 @@ export type ImageConversionSlug =
   | "webp-to-jpg";
 export type MediaToolSlug =
   | ImageConversionSlug
+  | MediaConversionToolSlug
   | "background-remover"
   | "image-color-picker"
   | "paste-image"
@@ -127,7 +128,7 @@ export interface MediaTool {
   name: string;
   title: string;
   description: string;
-  category: "Images" | "Video" | "Convert";
+  category: "Images" | "Video" | "Audio" | "Convert";
 }
 export interface ImageConversion extends MediaTool {
   slug: ImageConversionSlug;
@@ -170,3 +171,36 @@ export interface PreviewTool {
   description: string;
 }
 export const previewTools: readonly PreviewTool[];
+
+export type VideoToolFormat = "mp4" | "mkv" | "webm" | "mov";
+export type AudioToolFormat = "mp3" | "wav" | "m4a" | "ogg" | "flac";
+export type MediaOutputFormat = VideoToolFormat | AudioToolFormat;
+export type MediaConversionToolSlug =
+  | "video-converter"
+  | "video-codec-converter"
+  | "video-compressor"
+  | "mp4-to-mkv"
+  | "mkv-to-mp4"
+  | "mp4-to-webm"
+  | "webm-to-mp4"
+  | "mov-to-mp4"
+  | "audio-converter"
+  | "mp3-to-wav"
+  | "wav-to-mp3"
+  | "m4a-to-mp3"
+  | "mp3-to-m4a"
+  | "flac-to-mp3"
+  | "flac-to-wav"
+  | "ogg-to-mp3"
+  | "extract-audio-from-video"
+  | "remove-audio-from-video"
+  | "media-info";
+export interface MediaConversionTool extends MediaTool {
+  slug: MediaConversionToolSlug;
+  mode: "video" | "audio" | "extract" | "mute" | "compress" | "inspect";
+  input?: MediaOutputFormat;
+  output?: MediaOutputFormat;
+}
+export const mediaConversionTools: readonly MediaConversionTool[];
+export const videoFormats: readonly { id: VideoToolFormat; name: string }[];
+export const audioFormats: readonly { id: AudioToolFormat; name: string }[];

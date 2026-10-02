@@ -13,7 +13,7 @@
 	import UtmLinkBuilder from '../../_components/tools/UtmLinkBuilder.svelte';
 	import VideoEditorLauncher from '../../_components/tools/VideoEditorLauncher.svelte';
 	import QuickCutLauncher from '../../_components/tools/QuickCutLauncher.svelte';
-	import { imageConversions, previewTools } from '@openpost/social-images';
+	import { imageConversions, previewTools, mediaConversionTools } from '@openpost/social-images';
 	import { getTool } from '../../_marketing';
 
 	const slug = $derived.by(() => {
@@ -22,6 +22,7 @@
 		return tool.slug;
 	});
 	const previewTool = $derived(previewTools.find((item) => item.slug === slug));
+	const mediaTool = $derived(mediaConversionTools.find((item) => item.slug === slug));
 	const conversion = $derived(imageConversions.find((item) => item.slug === slug));
 </script>
 
@@ -54,6 +55,10 @@
 		<UtmLinkBuilder />
 	{:else if slug === 'quick-cut'}
 		<QuickCutLauncher />
+	{:else if mediaTool}
+		{#await import('../../_components/tools/MediaConverter.svelte')}{@render loadingTool()}{:then module}{#key slug}<module.default
+					tool={mediaTool}
+				/>{/key}{:catch}{@render failedTool()}{/await}
 	{:else if slug === 'logo-maker'}
 		{#await import('../../_components/tools/LogoMaker.svelte')}{@render loadingTool()}{:then module}<module.default
 			/>{:catch}{@render failedTool()}{/await}

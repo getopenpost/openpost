@@ -1,3 +1,4 @@
+import { imageEditorTextFontFamily, loadImageEditorTextFont } from './fonts';
 import { hasEditorColorGrade } from '$lib/editor-color-grade/model';
 import { getAuthenticatedMediaURL } from '$lib/media-url';
 import type {
@@ -1778,6 +1779,11 @@ export class OpenPostFabricAdapter {
 			});
 		}
 		if (layer.type === 'text' && layer.text) {
+			try {
+				await loadImageEditorTextFont(layer.text);
+			} catch {
+				if (layer.text.font_asset_id) this.onMissingMedia(layer.text.font_asset_id, layer.id);
+			}
 			const curve = layer.text.curve;
 			const pathData = curve
 				? createTextCurvePath(layer.transform.width, layer.transform.height, curve)
@@ -1785,7 +1791,7 @@ export class OpenPostFabricAdapter {
 			const textOptions = {
 				...options,
 				width: layer.transform.width,
-				fontFamily: layer.text.font_family,
+				fontFamily: imageEditorTextFontFamily(layer.text),
 				fontWeight: layer.text.font_weight,
 				fontStyle: layer.text.font_style,
 				underline: layer.text.underline,
@@ -1969,7 +1975,16 @@ export class OpenPostFabricAdapter {
 		if (next.type === 'shape') return previous.shape?.kind !== next.shape?.kind;
 		if (next.type === 'paint') return JSON.stringify(previous.paint) !== JSON.stringify(next.paint);
 		if (next.type === 'text') {
-			return JSON.stringify(previous.text?.curve) !== JSON.stringify(next.text?.curve);
+			return (
+				JSON.stringify(previous.text?.curve) !== JSON.stringify(next.text?.curve) ||
+				previous.text?.font_asset_id !== next.text?.font_asset_id ||
+				Boolean(
+					next.text?.font_asset_id &&
+					(previous.text?.font_family !== next.text.font_family ||
+						previous.text?.font_weight !== next.text.font_weight ||
+						previous.text?.font_style !== next.text.font_style)
+				)
+			);
 		}
 		if (next.type !== 'image') return false;
 		return (
@@ -2039,7 +2054,7 @@ export class OpenPostFabricAdapter {
 				top: layer.transform.y,
 				width: layer.transform.width,
 				text,
-				fontFamily: layer.text.font_family,
+				fontFamily: imageEditorTextFontFamily(layer.text),
 				fontWeight: layer.text.font_weight,
 				fontStyle: layer.text.font_style,
 				underline: layer.text.underline,

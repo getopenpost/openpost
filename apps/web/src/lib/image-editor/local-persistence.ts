@@ -14,6 +14,7 @@ import {
 	releaseLocalImageEditorMedia
 } from './local-media-url';
 import { m } from '$lib/paraglide/messages';
+import { loadImageEditorTextFont } from './fonts';
 import type { StockMediaProvenance } from '$lib/stock-media';
 import { IMAGE_COLOR_GRADE_VERSION } from '$lib/editor-color-grade/model';
 import type {
@@ -583,20 +584,7 @@ async function warmGuestImageEditorMedia(document: ImageEditorDocument): Promise
 			continue;
 		try {
 			const blob = await getGuestImageEditorMediaBlob(text.font_asset_id);
-			const existing = [...globalThis.document.fonts].find(
-				(face) =>
-					face.family === text.font_family &&
-					face.weight === String(text.font_weight) &&
-					face.style === (text.font_style ?? 'normal') &&
-					face.status === 'loaded'
-			);
-			if (existing) continue;
-			const face = new FontFace(text.font_family, await blob.arrayBuffer(), {
-				weight: String(text.font_weight),
-				style: text.font_style ?? 'normal'
-			});
-			await face.load();
-			globalThis.document.fonts.add(face);
+			await loadImageEditorTextFont(text, blob);
 		} catch {
 			missing.add(text.font_asset_id);
 		}

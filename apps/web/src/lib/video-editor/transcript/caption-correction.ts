@@ -138,14 +138,26 @@ export function correctedCueWordText(cue: SubtitleCue, words: SubtitleWord[]): s
 		return cue.text;
 	const parsed = parseSubtitleCueText(cue.text);
 	const plain = parsed.spans.map((span) => span.text).join('');
-	const tokens = [...plain.matchAll(/\S+/gu)];
 	const replacements = new Map(words.map((word) => [word.id, word.text]));
-	const aligned =
-		tokens.length === original.length &&
-		tokens.every((token, index) => token[0] === original[index]?.text);
-	let index = 0;
-	const text = aligned
-		? plain.replace(/\S+/gu, () => replacements.get(original[index++]!.id) ?? '')
-		: words.map((word) => word.text).join(' ');
+	let cursor = 0;
+	let text = '';
+	let aligned = true;
+	for (const word of original) {
+		const separator = plain.slice(cursor).match(/^\s*/u)![0];
+		text += separator;
+		cursor += separator.length;
+		if (
+			!plain.startsWith(word.text, cursor) ||
+			(cursor + word.text.length < plain.length &&
+				!/^\s/u.test(plain.slice(cursor + word.text.length)))
+		) {
+			aligned = false;
+			break;
+		}
+		text += replacements.get(word.id) ?? '';
+		cursor += word.text.length;
+	}
+	if (aligned && /^\s*$/u.test(plain.slice(cursor))) text += plain.slice(cursor);
+	else text = words.map((word) => word.text).join(' ');
 	return buildCueText(text, getCueFormatFlags(parsed), cue.text);
 }

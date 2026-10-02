@@ -77,21 +77,26 @@ it('preserves authored line breaks when editing one transcript word, including u
 	await screen.getByRole('button', { name: 'Bold', exact: true }).click();
 	await screen.getByRole('button', { name: 'Timing', exact: true }).click();
 	const word = screen.getByRole('textbox', { name: 'Transcript word', exact: true }).first();
-	await word.fill('Olá?');
+	await word.fill('Olá? amigo');
 	await userEvent.keyboard('{Tab}');
 	const caption = () => timelineStore.items.find((item) => item.type === 'subtitle')!.cues![0]!;
-	expect(caption().text).toBe('<b>Olá? 👩🏽‍💻 café,\nمرحبا 東京!</b>');
+	expect(caption().text).toBe('<b>Olá? amigo 👩🏽‍💻 café,\nمرحبا 東京!</b>');
 	commandHistory.undo();
 	expect(caption().text).toBe('<b>Olá! 👩🏽‍💻 café,\nمرحبا 東京!</b>');
 	commandHistory.redo();
+	await screen.getByRole('textbox', { name: 'Transcript word', exact: true }).nth(2).fill('café!');
+	await userEvent.keyboard('{Tab}');
+	expect(caption().text).toBe('<b>Olá? amigo 👩🏽‍💻 café!\nمرحبا 東京!</b>');
+	commandHistory.undo();
+	expect(caption().text).toBe('<b>Olá? amigo 👩🏽‍💻 café,\nمرحبا 東京!</b>');
 	const start = screen.getByRole('spinbutton', { name: 'Word start frame', exact: true }).first();
 	await start.fill(String(caption().words![0]!.startFrame + 1));
 	await userEvent.keyboard('{Tab}');
-	expect(caption().text).toBe('<b>Olá? 👩🏽‍💻 café,\nمرحبا 東京!</b>');
+	expect(caption().text).toBe('<b>Olá? amigo 👩🏽‍💻 café,\nمرحبا 東京!</b>');
 	await screen.getByRole('button', { name: 'Correct transcript', exact: true }).click();
 	await expect
 		.element(screen.getByRole('textbox', { name: 'Caption line' }))
-		.toHaveValue('Olá? 👩🏽‍💻 café,\nمرحبا 東京!');
+		.toHaveValue('Olá? amigo 👩🏽‍💻 café,\nمرحبا 東京!');
 	const prior = getWorkspaceRoot();
 	const root = await navigator.storage.getDirectory();
 	const dir = `caption-layout-${crypto.randomUUID()}`;
@@ -104,11 +109,11 @@ it('preserves authored line breaks when editing one transcript word, including u
 		const loaded = (await getProject(project.id))!;
 		sequenceStore.load(loaded.timeline!, loaded.metadata);
 		const reopened = await render(TranscriptPanel, { onedit: vi.fn() });
-		await reopened.getByRole('button', { name: 'Olá?', exact: true }).click();
+		await reopened.getByRole('button', { name: 'Olá? amigo', exact: true }).click();
 		await reopened.getByRole('button', { name: 'Correct transcript', exact: true }).click();
 		await expect
 			.element(reopened.getByRole('textbox', { name: 'Caption line' }))
-			.toHaveValue('Olá? 👩🏽‍💻 café,\nمرحبا 東京!');
+			.toHaveValue('Olá? amigo 👩🏽‍💻 café,\nمرحبا 東京!');
 	} finally {
 		setWorkspaceRoot(prior);
 		await root.removeEntry(dir, { recursive: true });

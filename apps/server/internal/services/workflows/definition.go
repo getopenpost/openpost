@@ -404,8 +404,11 @@ func resolveReference(ref string, values map[string]any) (any, error) {
 			return nil, fmt.Errorf("field %s is unavailable", ref)
 		}
 		current, ok = object[part]
-		if !ok || current == nil {
+		if !ok {
 			return nil, fmt.Errorf("field %s is missing", ref)
+		}
+		if current == nil {
+			return nil, fmt.Errorf("field %s is null; provide a non-null value", ref)
 		}
 	}
 	return current, nil

@@ -587,3 +587,49 @@ func TestSortRequiresOneComparableFieldTypeThroughSavedExecution(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterDistinguishesNullFromMissingThroughSavedExecution(t *testing.T) {
+	for _, scenario := range []struct {
+		name      string
+		item      map[string]any
+		wantError string
+	}{
+		{"present null", map[string]any{"value": nil}, "field item.value is null; provide a non-null value"},
+		{"absent", map[string]any{}, "field item.value is missing"},
+		{"numeric recovery", map[string]any{"value": 2}, ""},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			s, actor := workflowTestService(t, nil)
+			workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "filtered", Kind: KindFilter, Inputs: map[string]Value{
+				"items": literal([]any{scenario.item}), "field": literal("value"), "operator": literal("equals"), "right": literal(2),
+			}}})
+			run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModePreview, nil, workflow.Revision)
+			require.NoError(t, err)
+			runJob(t, s, run.ID)
+			result, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+			require.NoError(t, err)
+			if scenario.wantError != "" {
+				require.Equal(t, StateFailed, result.State)
+				require.Equal(t, scenario.wantError, result.Error)
+				require.Empty(t, result.Steps[0].Output)
+				return
+			}
+			require.Equal(t, StateSucceeded, result.State, result.Error)
+			require.Equal(t, []any{map[string]any{"value": float64(2)}}, result.Steps[0].Output["items"])
+		})
+	}
+	t.Run("existing null array equality", func(t *testing.T) {
+		s, actor := workflowTestService(t, nil)
+		workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "compare", Kind: KindCondition, Inputs: map[string]Value{
+			"left": reference("source.values.0"), "operator": literal("equals"), "right": reference("source.values.1"),
+		}}})
+		run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModePreview, map[string]any{"values": []any{nil, nil}}, workflow.Revision)
+		require.NoError(t, err)
+		runJob(t, s, run.ID)
+		result, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+		require.NoError(t, err)
+		require.Equal(t, StateSucceeded, result.State, result.Error)
+		require.Equal(t, true, result.Steps[0].Output["matched"])
+	})
+
+}

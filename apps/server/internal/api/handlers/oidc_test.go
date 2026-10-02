@@ -253,3 +253,32 @@ func TestOIDCPolicyContractOnlyAdvertisesSupportedAPITokenModes(t *testing.T) {
 		require.Equal(t, []any{"scoped", "deny"}, apiTokenMode.Enum, schemaName)
 	}
 }
+
+func TestOrganizationSSOEmptyListsRemainReadable(t *testing.T) {
+	t.Parallel()
+	db := createHandlerTestDB(t,
+		(*models.Organization)(nil), (*models.OrganizationMember)(nil),
+		(*models.OrganizationSSOPolicy)(nil), (*models.IdentityProviderDomain)(nil),
+		(*models.IdentityAuditEvent)(nil),
+	)
+	now := time.Now().UTC()
+	for _, row := range []any{
+		&models.Organization{ID: "organization-1", Name: "Empty SSO", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now},
+		&models.OrganizationMember{OrganizationID: "organization-1", UserID: "user-1", Role: models.OrganizationRoleOwner, CreatedAt: now},
+	} {
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	authenticator := passwordReauthTestAuthenticator{}
+	authHandler := NewAuthHandler(db, auth.NewService("empty-sso-list-test"), authenticator, nil, nil, false)
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewOIDCHandler(identity.NewService(db, nil, identity.Config{}), authHandler, authenticator).registerAdministrationRoutes(api)
+	for _, path := range []string{"sso-domains", "identity-audit-events"} {
+		t.Run(path, func(t *testing.T) {
+			response := jsonRequest(t, e, http.MethodGet, "/api/v1/organizations/organization-1/"+path, nil, "web-token")
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.JSONEq(t, "[]", response.Body.String(), "empty lists must remain usable by the settings client")
+		})
+	}
+}

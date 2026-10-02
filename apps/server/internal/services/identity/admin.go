@@ -411,7 +411,7 @@ func NormalizePolicyInput(input Policy) (Policy, error) {
 }
 
 func (s *Service) ListDomains(ctx context.Context, organizationID string) ([]models.IdentityProviderDomain, error) {
-	var domains []models.IdentityProviderDomain
+	domains := []models.IdentityProviderDomain{}
 	err := s.db.NewSelect().
 		Model(&domains).
 		Where("organization_id = ?", organizationID).
@@ -583,7 +583,7 @@ func (s *Service) ListAudit(ctx context.Context, organizationID string, limit in
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	var events []models.IdentityAuditEvent
+	events := []models.IdentityAuditEvent{}
 	err := s.db.NewSelect().Model(&events).
 		Where("organization_id = ?", organizationID).
 		Order("created_at DESC").

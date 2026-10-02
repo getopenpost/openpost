@@ -26,11 +26,11 @@ function response(id: string, revision: number, title: string): ImageEditorDocum
 }
 
 describe('Image Editor conflict recovery', () => {
-	it('keeps the duplicate title while saving the complete local document', async () => {
-		const local = response('source', 4, 'Campaign').document;
+	it('preserves the pending local title with the complete local document', async () => {
+		const local = response('source', 4, 'Pending café title').document;
 		local.pages.push(blankImageEditorPage('Page 2'));
 		const duplicate = vi.fn().mockResolvedValue(response('copy', 1, 'Campaign copy'));
-		const saved = response('copy', 2, 'Campaign copy');
+		const saved = response('copy', 2, 'Pending café title');
 		const save = vi.fn(
 			async (
 				_workspaceID: string,
@@ -42,19 +42,23 @@ describe('Image Editor conflict recovery', () => {
 
 		await expect(
 			saveImageEditorConflictCopy('workspace-1', 'source', local, { duplicate, save })
-		).resolves.toBe(saved);
+		).resolves.toMatchObject({
+			id: 'copy',
+			revision: 2,
+			document: { title: 'Pending café title' }
+		});
 		expect(duplicate).toHaveBeenCalledWith('workspace-1', 'source');
 		expect(save).toHaveBeenCalledOnce();
 		const [workspaceID, copyID, copyRevision, savedDocument] = save.mock.calls[0];
 		expect(workspaceID).toBe('workspace-1');
 		expect(copyID).toBe('copy');
 		expect(copyRevision).toBe(1);
-		expect(savedDocument.title).toBe('Campaign copy');
+		expect(savedDocument.title).toBe('Pending café title');
 		expect(savedDocument.pages.map((page) => page.name)).toEqual(['Page 1', 'Page 2']);
 		expect(savedDocument.pages.map((page) => page.id)).not.toEqual(
 			local.pages.map((page) => page.id)
 		);
-		expect(local.title).toBe('Campaign');
+		expect(local.title).toBe('Pending café title');
 	});
 
 	it('does not attempt to save when the durable duplicate cannot be created', async () => {

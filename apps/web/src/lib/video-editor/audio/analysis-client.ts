@@ -32,6 +32,20 @@ export function analyzeAudioBlob(
 			cleanup();
 			reject(new Error(event.message || 'Audio analysis failed'));
 		};
-		worker.postMessage({ blob, options: settings });
+		try {
+			// Reactive selections must become plain wire data without changing the chosen streams.
+			worker.postMessage({
+				blob,
+				options: {
+					...settings,
+					audioTrackIndices: settings.audioTrackIndices
+						? Array.from(settings.audioTrackIndices)
+						: undefined
+				}
+			});
+		} catch (error) {
+			cleanup();
+			reject(error);
+		}
 	});
 }

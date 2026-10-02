@@ -6087,6 +6087,7 @@
 									: ''}"
 								role="region"
 								aria-label={m.compose_drop_zone({ number: i + 1 })}
+								onfocusin={() => setActivePost(i)}
 								ondragover={handleDragOver}
 								ondragleave={handleDragLeave}
 								ondrop={(e) => handleDrop(e, i)}

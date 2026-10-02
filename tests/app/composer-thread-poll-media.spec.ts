@@ -38,9 +38,9 @@ test("media on a follow-up preserves the first post's native poll", async ({
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
   const media = await uploaded.json();
   const attachPhoto = async (postIndex: number) => {
+    await page.getByRole("textbox", { name: "Post text", exact: true }).nth(postIndex).click();
     const addMedia = page.getByRole("button", { name: "Add media", exact: true }).nth(postIndex);
-    await addMedia.focus();
-    await page.keyboard.press("Enter");
+    await addMedia.click();
     const picker = page.getByRole("dialog");
     await picker.getByRole("tab", { name: "Library", exact: true }).click();
     await picker.getByRole("button", { name: "Select audit-thread-poll.png", exact: true }).click();

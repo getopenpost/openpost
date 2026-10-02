@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -35,6 +36,24 @@ func TestEditorAgentMCPValidatesSpecificActions(t *testing.T) {
 				t.Fatalf("validation allowed=%v, want %v: %#v", err == nil, test.allowed, err)
 			}
 		})
+	}
+}
+
+func TestEditorAudioPreviewReturnsBoundedMCPAudioContent(t *testing.T) {
+	wav := make([]byte, 44)
+	copy(wav[:4], "RIFF")
+	copy(wav[8:12], "WAVE")
+	encoded := base64.StdEncoding.EncodeToString(wav)
+	result := editorAgentToolResult(map[string]any{"request": &editoragent.Request{
+		Status: "completed", Result: json.RawMessage(`{"audio_base64":"` + encoded + `","start_frame":0}`),
+	}})
+	content := result["content"].([]mcpContent)
+	if len(content) != 2 || content[1].Type != "audio" || content[1].MimeType != "audio/wav" || content[1].Data != encoded {
+		t.Fatalf("WAV preview was not returned as audio content: %#v", content)
+	}
+	receipt := result["structuredContent"].(map[string]any)["request"].(*editoragent.Request)
+	if string(receipt.Result) != `{"start_frame":0}` {
+		t.Fatalf("audio bytes leaked into the structured receipt: %s", receipt.Result)
 	}
 }
 

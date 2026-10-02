@@ -60,6 +60,31 @@ async function mcpPreview(
   return { receipt: payload.result.structuredContent.request, image };
 }
 
+function testToneWAV(): Buffer {
+  const sampleRate = 48_000;
+  const sampleCount = sampleRate;
+  const wav = Buffer.alloc(44 + sampleCount * 2);
+  wav.write("RIFF", 0);
+  wav.writeUInt32LE(wav.length - 8, 4);
+  wav.write("WAVEfmt ", 8);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(sampleCount * 2, 40);
+  for (let index = 0; index < sampleCount; index += 1) {
+    wav.writeInt16LE(
+      Math.round(Math.sin((index * Math.PI * 2 * 440) / sampleRate) * 6000),
+      44 + index * 2,
+    );
+  }
+  return wav;
+}
+
 test("MCP edits the open Video Editor live with retry and stale revision protection", async ({
   page,
   request,
@@ -306,6 +331,117 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
     ),
   ).toBe(true);
   expect(storyboard.receipt.result.provenance).toContain("source frames");
+  const tone = testToneWAV().toString("base64");
+  await page.evaluate(async (encoded) => {
+    const root = await navigator.storage.getDirectory();
+    const imports = await root.getDirectoryHandle("test-imports", { create: true });
+    const handle = await imports.getFileHandle("tone.wav", { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0)));
+    await writable.close();
+    Object.defineProperty(window, "showOpenFilePicker", {
+      configurable: true,
+      value: async () => [handle],
+    });
+  }, tone);
+  await page.getByRole("button", { name: "Import media", exact: true }).click();
+  await expect
+    .poll(async () => {
+      const library = await mcpTool(request, token, "media_library", scope);
+      return library.request.result.media.find(
+        (entry: { file_name: string }) => entry.file_name === "tone.wav",
+      )?.preparation_status;
+    })
+    .toBe("ready");
+  const withTone = await mcpTool(request, token, "media_library", scope);
+  const toneID = withTone.request.result.media.find(
+    (entry: { file_name: string }) => entry.file_name === "tone.wav",
+  ).media_id;
+  const beforeAudio = await mcpTool(request, token, "timeline_inspect", scope);
+  const audioTrack = beforeAudio.request.result.tracks.find(
+    (entry: { kind: string }) => entry.kind === "audio",
+  );
+  expect(audioTrack?.id).toBeTruthy();
+  const insertedAudio = await mcpTool(request, token, "video_edit", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: beforeAudio.request.result.revision,
+    request_id: randomUUID(),
+    actions: [
+      { kind: "media.insert", value: { media_id: toneID, frame: 0, track_id: audioTrack.id } },
+    ],
+  });
+  expect(insertedAudio.request.result.status).toBe("committed");
+  const audioResponse = await request.post("/mcp", {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      jsonrpc: "2.0",
+      id: randomUUID(),
+      method: "tools/call",
+      params: {
+        name: "preview_audio",
+        arguments: {
+          ...scope,
+          project_id: projectId,
+          expected_revision: insertedAudio.request.result.after_revision,
+          start_frame: 0,
+          end_frame: 30,
+        },
+      },
+    },
+  });
+  expect(audioResponse.ok()).toBeTruthy();
+  let audioPayload = await audioResponse.json();
+  expect(audioPayload.error).toBeUndefined();
+  if (["queued", "leased"].includes(audioPayload.result.structuredContent.request.status)) {
+    const requestID = audioPayload.result.structuredContent.request.id;
+    await expect
+      .poll(
+        async () => {
+          const statusResponse = await request.post("/mcp", {
+            headers: { Authorization: `Bearer ${token}` },
+            data: {
+              jsonrpc: "2.0",
+              id: randomUUID(),
+              method: "tools/call",
+              params: {
+                name: "editor_work_status",
+                arguments: { workspace_id: workspace.id, request_id: requestID },
+              },
+            },
+          });
+          expect(statusResponse.ok()).toBeTruthy();
+          audioPayload = await statusResponse.json();
+          return audioPayload.result.structuredContent.request.status;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe("completed");
+  }
+  expect(
+    audioPayload.result.structuredContent.request.status,
+    JSON.stringify(audioPayload.result.structuredContent.request.error),
+  ).toBe("completed");
+  const audioBlock = audioPayload.result.content.find(
+    (entry: { type: string }) => entry.type === "audio",
+  );
+  expect(audioBlock?.mimeType).toBe("audio/wav");
+  const mixedAudio = Buffer.from(audioBlock.data, "base64");
+  expect(mixedAudio.toString("ascii", 0, 4)).toBe("RIFF");
+  expect(mixedAudio.toString("ascii", 8, 12)).toBe("WAVE");
+  expect(mixedAudio.length).toBeGreaterThan(1000);
+  const dataChunk = mixedAudio.indexOf(Buffer.from("data"));
+  expect(dataChunk).toBeGreaterThan(0);
+  const sampleStart = dataChunk + 8;
+  const sampleEnd = Math.min(
+    mixedAudio.length,
+    sampleStart + mixedAudio.readUInt32LE(dataChunk + 4),
+  );
+  let peak = 0;
+  for (let offset = sampleStart; offset + 1 < sampleEnd; offset += 2) {
+    peak = Math.max(peak, Math.abs(mixedAudio.readInt16LE(offset)));
+  }
+  expect(peak).toBeGreaterThan(1000);
   const current = await mcpTool(request, token, "editor_context", scope);
   const graphics = await mcpTool(request, token, "video_edit", {
     ...scope,

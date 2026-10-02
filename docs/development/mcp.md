@@ -144,6 +144,10 @@ composited Video Editor frame or rendered Image Editor page as bounded JPEG
 image content. The preview requires the current revision and does not move the
 user's view. `editor_reveal` explicitly selects an item or layer or moves the
 playhead when the user wants to follow the agent's work.
+For audio-capable MCP clients, `preview_audio` renders up to four seconds of
+the actual Video Editor timeline mix as WAV content at the current revision.
+The Hosted assistant does not receive that audio because its configured model
+input path currently supports images, not audio.
 
 `scene_analysis_status` checks cached visual analysis. `scene_analyze` starts
 the editor's cancellable local scene detection and captioning for a named
@@ -166,8 +170,8 @@ for progress and the saved file path or Media ID, and use `export_cancel` to
 abort a running job. The result records the revision rendered, even if the
 user continues editing. These interactive jobs require the browser to remain
 open; their progress records are held in that browser session.
-The browser owns original local files. Source frames and rendered previews can
-cross the relay as bounded JPEG results; transcript words and scene captions
+The browser owns original local files. Source frames, rendered previews, and
+short audio previews can cross the relay as bounded media results; transcript words and scene captions
 can cross as bounded text results. The paid Hosted assistant may send these
 results to its configured model provider. The relay does not store original
 project files. Source transcript search reports missing

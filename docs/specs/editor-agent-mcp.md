@@ -43,7 +43,8 @@ The initial MCP surface groups exact domain operations behind typed edit tools. 
 | `timeline_resolve`                                     | Source/evidence references mapped to exact occurrences and authored frame ranges at a revision.                                       |
 | `edit_preview`                                         | A validated, revision-bound change plan with all affected entities, actual timing, conflicts, and consequences. No authored mutation. |
 | `video_edit`, `image_edit`                             | A typed, short atomic operation batch or still-valid plan; change receipt and immediate live document update.                         |
-| `preview_render`                                       | Actual composed video frames/short AV preview or rendered image page, with revision and fidelity limits.                              |
+| `preview_render`                                       | An actual composed video frame or rendered image page, with revision and fidelity limits.                                             |
+| `preview_audio`                                        | A bounded interval of the actual composed video audio mix, with source revision and frame range.                                      |
 | `output_check`                                         | Deterministic requirement checks with explicit coverage and unsupported checks.                                                       |
 | `history_inspect`, `history_revert`, `history_reapply` | Actor-aware receipts and dependency-checked reversal.                                                                                 |
 | `work_status`, `work_cancel`                           | Job and run lifecycle with completed versus pending edits distinguished.                                                              |

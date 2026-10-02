@@ -207,6 +207,17 @@ func mcpEditorPreviewTool() mcpOperationDefinition {
 		mcpOperationQuery, fields, "session_id", "project_id", "expected_revision")
 }
 
+func mcpEditorAudioPreviewTool() mcpOperationDefinition {
+	fields := editorAgentSessionField()
+	fields["project_id"] = map[string]any{"type": "string", "minLength": 1}
+	fields["expected_revision"] = map[string]any{"type": "string", "minLength": 1}
+	fields["start_frame"] = map[string]any{"type": "integer", "minimum": 0}
+	fields["end_frame"] = map[string]any{"type": "integer", "minimum": 1}
+	return editorAgentTool("preview_audio", "Listen to the composed video mix",
+		"Render up to four seconds of the actual timeline audio mix as bounded WAV content at the exact authored revision. Requires an audible range. Does not move the playhead. Audio-capable MCP clients can listen before changing gain, fades, or timing.",
+		mcpOperationQuery, fields, "session_id", "project_id", "expected_revision", "start_frame", "end_frame")
+}
+
 func mcpEditorExportStartTool() mcpOperationDefinition {
 	fields := editorAgentSessionField()
 	fields["project_id"] = map[string]any{"type": "string", "minLength": 1}
@@ -395,7 +406,7 @@ func (h *MCPHandler) callEditorAgentTool(ctx context.Context, userID, operation 
 	edit := operation == "video_edit" || operation == "image_edit" || operation == "editor_reveal" || operation == "media_analyze" || operation == "media_analysis_cancel" || operation == "scene_analyze" || operation == "scene_analysis_cancel" || operation == "export_start" || operation == "export_cancel" || operation == "editor_history_undo" || operation == "editor_history_redo" || operation == "editor_work_cancel"
 	var allowed bool
 	var err error
-	if edit || operation == "preview_render" {
+	if edit || operation == "preview_render" || operation == "preview_audio" {
 		allowed, err = workspaceEditAllowed(ctx, h.db, workspaceID, userID)
 	} else {
 		allowed, err = workspaceReadAllowed(ctx, h.db, workspaceID, userID)
@@ -415,7 +426,7 @@ func (h *MCPHandler) callEditorAgentTool(ctx context.Context, userID, operation 
 		}
 		names := []string{"editor_sessions", "editor_context", "editor_reveal", "preview_render", "export_start", "export_status", "export_cancel", "editor_history_inspect", "editor_history_undo", "editor_history_redo", "editor_work_status", "editor_work_cancel"}
 		if kind == "video" {
-			names = append(names, "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "scene_analyze", "scene_analysis_status", "scene_analysis_cancel", "scene_search", "scene_inspect", "video_edit")
+			names = append(names, "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "scene_analyze", "scene_analysis_status", "scene_analysis_cancel", "scene_search", "scene_inspect", "preview_audio", "video_edit")
 		} else {
 			names = append(names, "image_inspect", "image_edit")
 		}
@@ -479,10 +490,10 @@ func (h *MCPHandler) callEditorAgentTool(ctx context.Context, userID, operation 
 	}
 	if operation == "video_edit" && session.EditorKind != "video" || operation == "image_edit" && session.EditorKind != "image" ||
 		operation == "timeline_inspect" && session.EditorKind != "video" || operation == "image_inspect" && session.EditorKind != "image" ||
-		(operation == "media_library" || operation == "media_analyze" || operation == "media_analysis_status" || operation == "media_analysis_cancel" || operation == "media_search" || operation == "media_inspect" || operation == "media_frame" || operation == "media_storyboard" || operation == "scene_analyze" || operation == "scene_analysis_status" || operation == "scene_analysis_cancel" || operation == "scene_search" || operation == "scene_inspect") && session.EditorKind != "video" {
+		(operation == "media_library" || operation == "media_analyze" || operation == "media_analysis_status" || operation == "media_analysis_cancel" || operation == "media_search" || operation == "media_inspect" || operation == "media_frame" || operation == "media_storyboard" || operation == "scene_analyze" || operation == "scene_analysis_status" || operation == "scene_analysis_cancel" || operation == "scene_search" || operation == "scene_inspect" || operation == "preview_audio") && session.EditorKind != "video" {
 		return nil, &mcpError{Code: -32602, Message: "editor kind does not match the operation"}
 	}
-	if edit || operation == "export_status" {
+	if edit || operation == "export_status" || operation == "preview_render" || operation == "preview_audio" {
 		projectID, _ := args["project_id"].(string)
 		if projectID != session.ProjectID {
 			return nil, &mcpError{Code: -32602, Message: "project_id does not match the connected editor"}
@@ -527,10 +538,19 @@ func editorAgentToolResult(output map[string]any) map[string]any {
 				} else {
 					result["image_error"] = "preview image could not be validated"
 				}
-				cloned := *request
-				cloned.Result, _ = json.Marshal(result)
-				output["request"] = &cloned
 			}
+			if encoded, ok := result["audio_base64"].(string); ok {
+				delete(result, "audio_base64")
+				bytes, err := base64.StdEncoding.DecodeString(encoded)
+				if err == nil && len(bytes) >= 44 && len(bytes) <= 1024*1024 && string(bytes[:4]) == "RIFF" && string(bytes[8:12]) == "WAVE" {
+					content = append(content, mcpContent{Type: "audio", Data: encoded, MimeType: "audio/wav"})
+				} else {
+					result["audio_error"] = "preview audio could not be validated"
+				}
+			}
+			cloned := *request
+			cloned.Result, _ = json.Marshal(result)
+			output["request"] = &cloned
 		}
 	}
 	return map[string]any{

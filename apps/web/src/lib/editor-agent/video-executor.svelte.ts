@@ -40,8 +40,11 @@ import { sourceFrameToTimelineOffset } from '$lib/video-editor/timeline/source-t
 import { expandSelectionWithLinkedItems } from '$lib/video-editor/timeline/utils/linked-items';
 import { captureSnapshot } from '$lib/video-editor/timeline/commands/snapshot.svelte';
 import { createExportableSequences } from '$lib/video-editor/export/exportable-sequences';
-import { renderTimelineFrame } from '$lib/video-editor/media/render-export';
-import { encodeEditorPreview } from './preview';
+import {
+	renderTimelineAudioArtifact,
+	renderTimelineFrame
+} from '$lib/video-editor/media/render-export';
+import { encodeEditorAudioPreview, encodeEditorPreview } from './preview';
 import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny';
 import { resolveMediaBlob } from '$lib/video-editor/media/import.svelte';
 import { ensureProResDecoderForCodec } from '$lib/video-editor/media/prores-decoder';
@@ -1014,6 +1017,58 @@ export async function handleVideoAgentRequest(
 				frame,
 				provenance: 'composited export renderer at preview resolution',
 				...(await encodeEditorPreview(blob))
+			};
+		}
+		case 'preview_audio': {
+			const args = request.arguments;
+			if (args.project_id !== editorSession.project.id || args.expected_revision !== revision)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Audio preview target or revision changed'
+				);
+			const startFrame = exactInteger(args.start_frame, 'start_frame');
+			const endFrame = exactInteger(args.end_frame, 'end_frame');
+			const activeID = sequenceStore.activeSequenceId;
+			const exportable = createExportableSequences(
+				$state.snapshot(editorSession.project),
+				captureSnapshot(),
+				activeID
+			).find((entry) => entry.id === activeID);
+			if (!exportable)
+				throw new EditorAgentOperationError('render_unavailable', 'Active sequence is unavailable');
+			const fps = exportable.project.metadata.fps;
+			if (
+				endFrame <= startFrame ||
+				endFrame > exportable.durationInFrames ||
+				endFrame - startFrame > Math.ceil(4 * fps)
+			)
+				invalid('Audio preview range must be within the active sequence and at most four seconds');
+			let blob: Blob;
+			try {
+				const artifact = await renderTimelineAudioArtifact(exportable.project, {
+					format: 'wav',
+					range: { startFrame, endFrame }
+				});
+				blob = artifact.blob;
+			} catch (error) {
+				if (error instanceof Error && /no audible clips|audio mix is empty/i.test(error.message))
+					throw new EditorAgentOperationError('no_audio', 'The requested range has no audible mix');
+				throw error;
+			}
+			if (JSON.stringify(authoredDocument()) !== startingJSON)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Sequence changed while rendering audio'
+				);
+			return {
+				project_id: editorSession.project.id,
+				sequence_id: activeID ?? 'root',
+				revision,
+				start_frame: startFrame,
+				end_frame: endFrame,
+				fps,
+				provenance: 'composited timeline audio export renderer',
+				...(await encodeEditorAudioPreview(blob))
 			};
 		}
 		case 'export_start': {

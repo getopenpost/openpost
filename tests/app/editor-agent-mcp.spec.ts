@@ -254,6 +254,25 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
     (entry: { file_name: string }) => entry.file_name === "video-editor.mp4",
   );
   expect(videoSource.duration_seconds).toBeGreaterThan(0);
+  const visualStatus = await mcpTool(request, token, "scene_analysis_status", {
+    ...scope,
+    media_id: videoSource.media_id,
+  });
+  expect(visualStatus.request.result.media_id).toBe(videoSource.media_id);
+  const visualSearch = await mcpTool(request, token, "scene_search", {
+    ...scope,
+    query: "a tram on a street",
+    media_id: videoSource.media_id,
+  });
+  expect(visualSearch.request.result.ranker).toBe("keyword_fuzzy");
+  if (visualStatus.request.result.status === "unavailable") {
+    expect(visualSearch.request.result.missing_analysis_media_ids).toContain(videoSource.media_id);
+    const visualInspect = await mcpTool(request, token, "scene_inspect", {
+      ...scope,
+      media_id: videoSource.media_id,
+    });
+    expect(visualInspect.request.result.coverage).toBe("not_analyzed");
+  }
   const speechCoverage = await mcpTool(request, token, "media_search", {
     ...scope,
     query: "an untranscribed phrase",

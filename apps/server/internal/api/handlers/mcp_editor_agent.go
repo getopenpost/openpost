@@ -121,6 +121,54 @@ func mcpMediaStoryboardTool() mcpOperationDefinition {
 		mcpOperationQuery, fields, "session_id", "media_id")
 }
 
+func mcpSceneSearchTool() mcpOperationDefinition {
+	fields := editorAgentSessionField()
+	fields["query"] = map[string]any{"type": "string", "minLength": 1, "maxLength": 200}
+	fields["media_id"] = map[string]any{"type": "string", "minLength": 1}
+	fields["limit"] = map[string]any{"type": "integer", "minimum": 1, "maximum": 50}
+	return editorAgentTool("scene_search", "Search analyzed visual scenes",
+		"Rank cached source-scene captions by keyword and fuzzy text. Returns source ranges, scores, analysis versions, and media without scene coverage. An empty result with coverage gaps is not proof of absence. Inspect source frames before editing.",
+		mcpOperationQuery, fields, "session_id", "query")
+}
+
+func mcpSceneInspectTool() mcpOperationDefinition {
+	fields := editorAgentSessionField()
+	fields["media_id"] = map[string]any{"type": "string", "minLength": 1}
+	fields["offset"] = map[string]any{"type": "integer", "minimum": 0}
+	fields["limit"] = map[string]any{"type": "integer", "minimum": 1, "maximum": 100}
+	return editorAgentTool("scene_inspect", "Inspect source-scene analysis",
+		"Read a bounded page of detected source scenes with exact source ranges, representative sample times, captions where available, and analysis coverage. Scenes are source evidence, not final composed output; within-shot events may be missed.",
+		mcpOperationQuery, fields, "session_id", "media_id")
+}
+
+func mcpSceneAnalyzeTool() mcpOperationDefinition {
+	fields := editorAgentSessionField()
+	fields["project_id"] = map[string]any{"type": "string", "minLength": 1}
+	fields["expected_revision"] = map[string]any{"type": "string", "minLength": 1}
+	fields["request_id"] = map[string]any{"type": "string", "minLength": 1, "maxLength": 160}
+	fields["media_id"] = map[string]any{"type": "string", "minLength": 1}
+	return editorAgentTool("scene_analyze", "Analyze source scenes locally",
+		"Start the Video Editor's existing cancellable, device-local scene detection and captioning job for a named video or image source. Returns immediately; poll scene_analysis_status. The original media remains in the browser.",
+		mcpOperationExecute, fields, "session_id", "project_id", "expected_revision", "request_id", "media_id")
+}
+
+func mcpSceneAnalysisStatusTool() mcpOperationDefinition {
+	fields := editorAgentSessionField()
+	fields["media_id"] = map[string]any{"type": "string", "minLength": 1}
+	return editorAgentTool("scene_analysis_status", "Visual analysis status",
+		"Read source-scene analysis progress, version, scene count, caption coverage, and errors for one project source.",
+		mcpOperationQuery, fields, "session_id", "media_id")
+}
+
+func mcpSceneAnalysisCancelTool() mcpOperationDefinition {
+	fields := editorAgentSessionField()
+	fields["project_id"] = map[string]any{"type": "string", "minLength": 1}
+	fields["media_id"] = map[string]any{"type": "string", "minLength": 1}
+	return editorAgentTool("scene_analysis_cancel", "Cancel visual analysis",
+		"Cancel the running source-scene analysis on the connected device. Any already persisted analysis remains available.",
+		mcpOperationExecute, fields, "session_id", "project_id", "media_id")
+}
+
 func mcpMediaAnalyzeTool() mcpOperationDefinition {
 	fields := editorAgentSessionField()
 	fields["project_id"] = map[string]any{"type": "string", "minLength": 1}
@@ -344,7 +392,7 @@ func (h *MCPHandler) callEditorAgentTool(ctx context.Context, userID, operation 
 	if workspaceID == "" || (mcpWorkspaceScopeFromContext(ctx) != "" && mcpWorkspaceScopeFromContext(ctx) != workspaceID) {
 		return nil, &mcpError{Code: -32602, Message: "workspace_id is missing or outside token scope"}
 	}
-	edit := operation == "video_edit" || operation == "image_edit" || operation == "editor_reveal" || operation == "media_analyze" || operation == "media_analysis_cancel" || operation == "export_start" || operation == "export_cancel" || operation == "editor_history_undo" || operation == "editor_history_redo" || operation == "editor_work_cancel"
+	edit := operation == "video_edit" || operation == "image_edit" || operation == "editor_reveal" || operation == "media_analyze" || operation == "media_analysis_cancel" || operation == "scene_analyze" || operation == "scene_analysis_cancel" || operation == "export_start" || operation == "export_cancel" || operation == "editor_history_undo" || operation == "editor_history_redo" || operation == "editor_work_cancel"
 	var allowed bool
 	var err error
 	if edit || operation == "preview_render" {
@@ -367,7 +415,7 @@ func (h *MCPHandler) callEditorAgentTool(ctx context.Context, userID, operation 
 		}
 		names := []string{"editor_sessions", "editor_context", "editor_reveal", "preview_render", "export_start", "export_status", "export_cancel", "editor_history_inspect", "editor_history_undo", "editor_history_redo", "editor_work_status", "editor_work_cancel"}
 		if kind == "video" {
-			names = append(names, "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "video_edit")
+			names = append(names, "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "scene_analyze", "scene_analysis_status", "scene_analysis_cancel", "scene_search", "scene_inspect", "video_edit")
 		} else {
 			names = append(names, "image_inspect", "image_edit")
 		}
@@ -386,6 +434,7 @@ func (h *MCPHandler) callEditorAgentTool(ctx context.Context, userID, operation 
 		if kind == "video" {
 			recipes = append(recipes,
 				map[string]any{"task": "Find and cut a spoken passage", "steps": []string{"List media_library, then use media_search for the exact phrase", "Check transcript coverage and distinguish repeated item IDs", "Inspect the chosen item and source words", "Use source and timeline frames from the same occurrence", "Edit and render frames around the cut"}},
+				map[string]any{"task": "Find a visual shot", "steps": []string{"List media_library and inspect scene_analysis_status for each likely source", "Start scene_analyze where needed, then wait for caption coverage", "Use scene_search for candidates and scene_inspect for exact source ranges", "Sample within long scenes with media_storyboard or media_frame", "Find the desired occurrence with timeline_inspect, edit by stable item ID, then verify preview_render"}},
 				map[string]any{"task": "Assemble imported media", "steps": []string{"List media_library for stable media IDs and preparation status", "Inspect tracks with timeline_inspect", "Decode representative media_frame samples", "Insert on a compatible unlocked track with media.insert", "Check the resulting sequence with preview_render"}})
 		} else {
 			recipes = append(recipes, map[string]any{"task": "Build a layered design", "steps": []string{"Read image_inspect for page IDs and dimensions", "Add text or shapes in a short image_edit batch", "Inspect layer IDs and apply styles, transform, and order", "Render the page with preview_render", "Undo the head batch if the result is wrong"}})
@@ -430,7 +479,7 @@ func (h *MCPHandler) callEditorAgentTool(ctx context.Context, userID, operation 
 	}
 	if operation == "video_edit" && session.EditorKind != "video" || operation == "image_edit" && session.EditorKind != "image" ||
 		operation == "timeline_inspect" && session.EditorKind != "video" || operation == "image_inspect" && session.EditorKind != "image" ||
-		(operation == "media_library" || operation == "media_analyze" || operation == "media_analysis_status" || operation == "media_analysis_cancel" || operation == "media_search" || operation == "media_inspect" || operation == "media_frame" || operation == "media_storyboard") && session.EditorKind != "video" {
+		(operation == "media_library" || operation == "media_analyze" || operation == "media_analysis_status" || operation == "media_analysis_cancel" || operation == "media_search" || operation == "media_inspect" || operation == "media_frame" || operation == "media_storyboard" || operation == "scene_analyze" || operation == "scene_analysis_status" || operation == "scene_analysis_cancel" || operation == "scene_search" || operation == "scene_inspect") && session.EditorKind != "video" {
 		return nil, &mcpError{Code: -32602, Message: "editor kind does not match the operation"}
 	}
 	if edit || operation == "export_status" {

@@ -169,7 +169,7 @@ func editorAssistantAllowedOperation(kind, operation string) bool {
 	switch operation {
 	case "editor_context", "editor_reveal", "preview_render", "export_start", "export_status", "export_cancel", "editor_history_inspect", "editor_history_undo", "editor_history_redo", "editor_work_status", "editor_work_cancel":
 		return true
-	case "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "video_edit":
+	case "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "scene_analyze", "scene_analysis_status", "scene_analysis_cancel", "scene_search", "scene_inspect", "video_edit":
 		return kind == "video"
 	case "image_inspect", "image_edit":
 		return kind == "image"
@@ -181,7 +181,7 @@ func editorAssistantAllowedOperation(kind, operation string) bool {
 func editorAssistantToolGuide(kind string) string {
 	names := []string{"editor_context", "editor_reveal", "preview_render", "export_start", "export_status", "export_cancel", "editor_history_inspect", "editor_history_undo", "editor_history_redo", "editor_work_status", "editor_work_cancel"}
 	if kind == "video" {
-		names = append(names, "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "video_edit")
+		names = append(names, "timeline_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "scene_analyze", "scene_analysis_status", "scene_analysis_cancel", "scene_search", "scene_inspect", "video_edit")
 	} else {
 		names = append(names, "image_inspect", "image_edit")
 	}
@@ -219,9 +219,9 @@ func (h *EditorAgentAssistantHandler) execute(ctx context.Context, userID, works
 	if operation != "editor_work_status" && operation != "editor_work_cancel" {
 		args["session_id"] = sessionID
 	}
-	if operation == "video_edit" || operation == "image_edit" || operation == "editor_reveal" || operation == "media_analyze" || operation == "media_analysis_cancel" || operation == "export_start" || operation == "export_status" || operation == "export_cancel" || operation == "editor_history_undo" || operation == "editor_history_redo" {
+	if operation == "video_edit" || operation == "image_edit" || operation == "editor_reveal" || operation == "media_analyze" || operation == "media_analysis_cancel" || operation == "scene_analyze" || operation == "scene_analysis_cancel" || operation == "export_start" || operation == "export_status" || operation == "export_cancel" || operation == "editor_history_undo" || operation == "editor_history_redo" {
 		args["project_id"] = projectID
-		if operation != "editor_reveal" && operation != "media_analyze" && operation != "media_analysis_cancel" && operation != "export_status" && operation != "export_cancel" {
+		if operation != "editor_reveal" && operation != "media_analyze" && operation != "media_analysis_cancel" && operation != "scene_analysis_cancel" && operation != "export_status" && operation != "export_cancel" {
 			args["request_id"] = requestKey
 		}
 	}

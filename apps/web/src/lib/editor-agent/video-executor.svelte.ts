@@ -53,6 +53,11 @@ import { EFFECT_DEFINITIONS, type CssFilterType } from '$lib/video-editor/effect
 import { addSubtitleItemFromSrt } from '$lib/video-editor/transcript/captions';
 import { renderVideoExport } from '$lib/video-editor/media/render-execution';
 import { cancelEditorExport, editorExportStatus, startEditorExport } from './export-jobs';
+import { sceneBrowser } from '$lib/video-editor/media/scene-search/scene-browser.svelte';
+import { isSceneAnalyzableMedia } from '$lib/video-editor/media/scene-search/scene-analysis-client';
+import { sceneAnalysisMatchesMedia } from '$lib/video-editor/workspace-fs/scene-analysis';
+import { rankScenes } from '$lib/video-editor/media/scene-search/rank';
+import type { SceneAnalysis } from '$lib/video-editor/media/scene-search/types';
 
 interface AgentAction {
 	kind: string;
@@ -73,6 +78,11 @@ const analysisJobs = new Map<
 	string,
 	{ projectID: string; status: 'running' | 'completed' | 'failed' | 'cancelled'; error?: string }
 >();
+const cancelledSceneJobs = new Set<string>();
+
+function sceneJobKey(mediaID: string): string {
+	return `${editorSession.project?.id ?? ''}:${mediaID}`;
+}
 
 function currentAgentChange(): AgentChange | null {
 	return latestAgentChange?.projectID === editorSession.project?.id &&
@@ -136,6 +146,40 @@ export async function videoAgentRevision(): Promise<string> {
 
 function normalizedWord(value: string): string {
 	return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function sceneVersion(analysis: SceneAnalysis): string {
+	return `${analysis.schemaVersion}:${analysis.detectorVersion}:${analysis.contentHash ?? analysis.sourceFileSize}:${analysis.analyzedAt}`;
+}
+
+async function currentSceneAnalysis(mediaID: string): Promise<SceneAnalysis | null> {
+	const media = mediaPool.get(mediaID);
+	if (!media)
+		throw new EditorAgentOperationError('missing_source', `Media ${mediaID} is unavailable`);
+	if (!isSceneAnalyzableMedia(media))
+		throw new EditorAgentOperationError(
+			'unsupported',
+			'Visual scene analysis requires video or image media'
+		);
+	await sceneBrowser.load(mediaID);
+	const analysis = sceneBrowser.analysis(mediaID);
+	return analysis && sceneAnalysisMatchesMedia(analysis, media) ? analysis : null;
+}
+
+function sceneSummary(analysis: SceneAnalysis): Record<string, unknown> {
+	return {
+		analysis_version: sceneVersion(analysis),
+		method: analysis.method,
+		sample_interval_seconds: analysis.sampleIntervalSec,
+		analyzed_at: new Date(analysis.analyzedAt).toISOString(),
+		scene_count: analysis.scenes.length,
+		captioned_scene_count: analysis.scenes.filter((scene) => scene.text.trim()).length,
+		caption_model: analysis.captionModel ?? null,
+		limitations: [
+			'Scene boundaries and captions are sampled source evidence, not continuous observation.',
+			'Inspect frames within a long scene before claiming an event is absent.'
+		]
+	};
 }
 
 async function searchSourceSpeech(
@@ -1339,6 +1383,165 @@ export async function handleVideoAgentRequest(
 					'Sequence changed while decoding storyboard'
 				);
 			return result;
+		}
+		case 'scene_analyze': {
+			const args = request.arguments;
+			if (args.project_id !== editorSession.project.id || args.expected_revision !== revision)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Visual analysis target or revision changed'
+				);
+			const mediaID = exactString(args.media_id, 'media_id');
+			const media = mediaPool.get(mediaID);
+			if (!media)
+				throw new EditorAgentOperationError('missing_source', `Media ${mediaID} is unavailable`);
+			if (!isSceneAnalyzableMedia(media))
+				throw new EditorAgentOperationError(
+					'unsupported',
+					'Visual scene analysis requires video or image media'
+				);
+			const existing = await currentSceneAnalysis(mediaID);
+			if (existing?.captionModel && existing.scenes.every((scene) => scene.text.trim()))
+				return { media_id: mediaID, status: 'completed', ...sceneSummary(existing) };
+			if (!sceneBrowser.progress(mediaID)) {
+				const key = sceneJobKey(mediaID);
+				cancelledSceneJobs.delete(key);
+				void sceneBrowser
+					.analyze(media)
+					.then(() => cancelledSceneJobs.delete(key))
+					.catch(() => {});
+			}
+			return {
+				media_id: mediaID,
+				status: 'running',
+				progress: sceneBrowser.progress(mediaID) ?? null
+			};
+		}
+		case 'scene_analysis_status': {
+			const mediaID = exactString(request.arguments.media_id, 'media_id');
+			const analysis = await currentSceneAnalysis(mediaID);
+			const progress = sceneBrowser.progress(mediaID);
+			let status = 'unavailable';
+			if (progress) status = 'running';
+			else if (cancelledSceneJobs.has(sceneJobKey(mediaID))) status = 'cancelled';
+			else if (sceneBrowser.error(mediaID)) status = 'failed';
+			else if (analysis)
+				status =
+					analysis.captionModel && analysis.scenes.every((scene) => scene.text.trim())
+						? 'completed'
+						: 'partial';
+			return {
+				media_id: mediaID,
+				status,
+				progress: progress ?? null,
+				error: sceneBrowser.error(mediaID) ?? null,
+				analysis: analysis ? sceneSummary(analysis) : null
+			};
+		}
+		case 'scene_analysis_cancel': {
+			if (request.arguments.project_id !== editorSession.project.id)
+				throw new EditorAgentOperationError(
+					'wrong_project',
+					'Project changed while cancelling visual analysis'
+				);
+			const mediaID = exactString(request.arguments.media_id, 'media_id');
+			if (!mediaPool.get(mediaID))
+				throw new EditorAgentOperationError('missing_source', `Media ${mediaID} is unavailable`);
+			const running = Boolean(sceneBrowser.progress(mediaID));
+			if (running) {
+				cancelledSceneJobs.add(sceneJobKey(mediaID));
+				sceneBrowser.cancel(mediaID);
+			}
+			return { media_id: mediaID, status: running ? 'cancel_requested' : 'no_change' };
+		}
+		case 'scene_inspect': {
+			const mediaID = exactString(request.arguments.media_id, 'media_id');
+			const offset =
+				request.arguments.offset === undefined
+					? 0
+					: exactInteger(request.arguments.offset, 'offset');
+			const limit =
+				request.arguments.limit === undefined ? 30 : exactInteger(request.arguments.limit, 'limit');
+			if (limit < 1 || limit > 100) invalid('limit must be from 1 to 100');
+			const analysis = await currentSceneAnalysis(mediaID);
+			if (!analysis)
+				return { media_id: mediaID, status: 'unavailable', scenes: [], coverage: 'not_analyzed' };
+			return {
+				media_id: mediaID,
+				status: 'available',
+				...sceneSummary(analysis),
+				scenes: analysis.scenes.slice(offset, offset + limit).map((scene) => ({
+					scene_id: scene.id,
+					start_seconds: scene.startSec,
+					end_seconds: scene.endSec,
+					sample_seconds: scene.timeSec,
+					caption: scene.text || null,
+					visual_description: scene.sceneData ?? null
+				})),
+				offset,
+				has_more: offset + limit < analysis.scenes.length
+			};
+		}
+		case 'scene_search': {
+			const query = exactString(request.arguments.query, 'query');
+			const mediaID =
+				request.arguments.media_id === undefined
+					? null
+					: exactString(request.arguments.media_id, 'media_id');
+			const limit =
+				request.arguments.limit === undefined ? 20 : exactInteger(request.arguments.limit, 'limit');
+			if (limit < 1 || limit > 50) invalid('limit must be from 1 to 50');
+			const sources = mediaID
+				? [mediaID]
+				: mediaPool.mediaList.filter(isSceneAnalyzableMedia).map((media) => media.id);
+			const analyses = await Promise.all(sources.map((id) => currentSceneAnalysis(id)));
+			const missingMediaIDs = sources.filter((_id, index) => !analyses[index]);
+			const captionGapMediaIDs = sources.filter((_id, index) =>
+				analyses[index]?.scenes.some((scene) => !scene.text.trim())
+			);
+			const scenes = analyses.flatMap(
+				(analysis, index) =>
+					analysis?.scenes.map((scene) => ({
+						id: scene.id,
+						mediaId: scene.mediaId,
+						mediaFileName: mediaPool.get(sources[index]!)?.fileName ?? scene.mediaId,
+						timeSec: scene.timeSec,
+						text: scene.text
+					})) ?? []
+			);
+			const byID = new Map(
+				analyses.flatMap(
+					(analysis) =>
+						analysis?.scenes.map((scene) => [scene.id, { scene, analysis }] as const) ?? []
+				)
+			);
+			const matches = rankScenes(query, scenes)
+				.slice(0, limit)
+				.map((match) => {
+					const evidence = byID.get(match.id)!;
+					return {
+						scene_id: match.id,
+						media_id: match.mediaId,
+						score: match.score,
+						caption: match.text,
+						start_seconds: evidence.scene.startSec,
+						end_seconds: evidence.scene.endSec,
+						sample_seconds: evidence.scene.timeSec,
+						analysis_version: sceneVersion(evidence.analysis)
+					};
+				});
+			return {
+				query,
+				ranker: 'keyword_fuzzy',
+				matches,
+				analyzed_media_ids: sources.filter((_id, index) => analyses[index]),
+				missing_analysis_media_ids: missingMediaIDs,
+				missing_caption_media_ids: captionGapMediaIDs,
+				coverage:
+					missingMediaIDs.length || captionGapMediaIDs.length ? 'partial' : 'analyzed_scenes_only',
+				limitations:
+					'Scene captions and boundaries are sampled; no search result can prove an event absent between samples.'
+			};
 		}
 		default:
 			throw new EditorAgentOperationError(

@@ -145,6 +145,14 @@ image content. The preview requires the current revision and does not move the
 user's view. `editor_reveal` explicitly selects an item or layer or moves the
 playhead when the user wants to follow the agent's work.
 
+`scene_analysis_status` checks cached visual analysis. `scene_analyze` starts
+the editor's cancellable local scene detection and captioning for a named
+source; `scene_analysis_cancel` stops it. `scene_inspect` returns bounded source
+ranges and descriptions. `scene_search` ranks available captions by keyword
+and fuzzy text, and reports sources without analysis or captions. Long shots
+can change between detected cuts, so use `media_storyboard` or `media_frame`
+inside a candidate range before making a precise claim.
+
 `video_edit` and `image_edit` require `project_id`, `expected_revision`, a
 stable `request_id`, and typed actions. Retry an identical request with the
 same key after a lost reply. A changed request with that key is rejected.
@@ -159,9 +167,10 @@ abort a running job. The result records the revision rendered, even if the
 user continues editing. These interactive jobs require the browser to remain
 open; their progress records are held in that browser session.
 The browser owns original local files. Source frames and rendered previews can
-cross the relay as bounded JPEG results to the MCP caller, and the paid Hosted
-assistant may send those previews to its configured model provider. The relay
-does not store original project files. Source transcript search reports missing
+cross the relay as bounded JPEG results; transcript words and scene captions
+can cross as bounded text results. The paid Hosted assistant may send these
+results to its configured model provider. The relay does not store original
+project files. Source transcript search reports missing
 analysis coverage, so an empty match list is not proof that speech is absent.
 `editor_work_status` and `editor_work_cancel` distinguish pending work from a
 committed edit.

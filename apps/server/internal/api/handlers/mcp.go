@@ -1402,6 +1402,11 @@ func mcpOperationCatalog() []mcpOperationDefinition {
 		mcpMediaAnalysisCancelTool(),
 		mcpMediaFrameTool(),
 		mcpMediaStoryboardTool(),
+		mcpSceneAnalyzeTool(),
+		mcpSceneAnalysisStatusTool(),
+		mcpSceneAnalysisCancelTool(),
+		mcpSceneSearchTool(),
+		mcpSceneInspectTool(),
 		mcpEditorPreviewTool(),
 		mcpEditorExportStartTool(),
 		mcpEditorExportStatusTool(),
@@ -2618,7 +2623,7 @@ func mcpToolInvocationStatus(toolName string) mcpToolStatus {
 
 //nolint:gocyclo // Tool cases are a flat schema catalog, not nested control flow.
 func mcpToolOutputSchema(toolName string) map[string]any {
-	if strings.HasPrefix(toolName, "editor_") || toolName == "timeline_inspect" || toolName == "image_inspect" || toolName == "media_library" || toolName == "media_analyze" || toolName == "media_analysis_status" || toolName == "media_analysis_cancel" || toolName == "media_search" || toolName == "media_inspect" || toolName == "media_frame" || toolName == "media_storyboard" || toolName == "preview_render" || toolName == "video_edit" || toolName == "image_edit" || toolName == "export_start" || toolName == "export_status" || toolName == "export_cancel" {
+	if strings.HasPrefix(toolName, "editor_") || toolName == "timeline_inspect" || toolName == "image_inspect" || toolName == "media_library" || toolName == "media_analyze" || toolName == "media_analysis_status" || toolName == "media_analysis_cancel" || toolName == "media_search" || toolName == "media_inspect" || toolName == "media_frame" || toolName == "media_storyboard" || strings.HasPrefix(toolName, "scene_") || toolName == "preview_render" || toolName == "video_edit" || toolName == "image_edit" || toolName == "export_start" || toolName == "export_status" || toolName == "export_cancel" {
 		return mcpOpenObjectSchema()
 	}
 	if toolName == mcpToolListPubs {
@@ -3291,7 +3296,7 @@ func (h *MCPHandler) callMCPOperation(ctx context.Context, userID, operation str
 		return h.renderLocalMediaUpload(ctx, userID, args)
 	case mcpToolCreateTicket:
 		return h.createLocalMediaUploadTicket(ctx, userID, args)
-	case "editor_sessions", "editor_reference", "editor_context", "editor_reveal", "timeline_inspect", "image_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "preview_render", "video_edit", "image_edit", "export_start", "export_status", "export_cancel", "editor_work_status", "editor_work_cancel", "editor_history_inspect", "editor_history_undo", "editor_history_redo":
+	case "editor_sessions", "editor_reference", "editor_context", "editor_reveal", "timeline_inspect", "image_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "scene_analyze", "scene_analysis_status", "scene_analysis_cancel", "scene_search", "scene_inspect", "preview_render", "video_edit", "image_edit", "export_start", "export_status", "export_cancel", "editor_work_status", "editor_work_cancel", "editor_history_inspect", "editor_history_undo", "editor_history_redo":
 		return h.callEditorAgentTool(ctx, userID, operation, args)
 	case mcpToolCreatePub, mcpToolListPubs, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolReplyRendition,
 		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolDeletePub,

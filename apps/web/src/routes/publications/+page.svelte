@@ -13,6 +13,7 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { auth, type AuthIdentityToken } from '$lib/stores/auth';
 	import { ui } from '$lib/stores/ui.svelte';
+	import { publicationActivityOccurrence } from '$lib/publication-calendar';
 	import { publicationView, isPublicationListTab } from '$lib/stores/publication-view.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -799,7 +800,7 @@
 							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
 								<span class={['font-medium', statusClass(post)]}>{statusLabel(post)}</span>
 								<span class="text-muted-foreground">
-									{formatDateTime(post.actual_run_at || post.scheduled_at || post.created_at)}
+									{formatDateTime(publicationActivityOccurrence(post))}
 								</span>
 								{#if post.isThread}
 									<span class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">

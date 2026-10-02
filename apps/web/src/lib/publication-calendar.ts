@@ -2,11 +2,12 @@ export interface CalendarPublication {
 	status: string;
 	scheduled_at?: string;
 	actual_run_at?: string;
-	updated_at: string;
+	updated_at?: string;
 	created_at: string;
 }
 
 export function publicationCalendarOccurrence(publication: CalendarPublication): string | null {
+	// Queued dispatch may be randomized; planned views retain the authored schedule.
 	if (publication.status === 'scheduled' || publication.status === 'publishing') {
 		return publication.scheduled_at || null;
 	}
@@ -20,4 +21,13 @@ export function publicationCalendarOccurrence(publication: CalendarPublication):
 		);
 	}
 	return null;
+}
+
+export function publicationActivityOccurrence(publication: CalendarPublication): string {
+	return (
+		publicationCalendarOccurrence(publication) ||
+		publication.actual_run_at ||
+		publication.scheduled_at ||
+		publication.created_at
+	);
 }

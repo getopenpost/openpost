@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "Nenhuma batida foi encontrada neste clipe.",
 	"workflows_layout_session_only": "Não foi possível salvar as posições da tela neste navegador. Elas serão redefinidas quando você reabrir este fluxo de trabalho.",
 	"workflows_no_preview_output": "Execute a prévia para ver a saída de exemplo deste nó.",
-	"workflows_output_outdated": "A configuração ou os dados de teste mudaram desde este resultado. Execute novamente para verificar o rascunho atual."
+	"workflows_output_outdated": "A configuração ou os dados de teste mudaram desde este resultado. Execute novamente para verificar o rascunho atual.",
+	"workflows_connection_loop": "Esta conexão criaria um ciclo. Conecte a uma etapa fora deste ramo.",
+	"workflows_port_input": "{node}: entrada",
+	"workflows_port_output": "{node}: saída",
+	"workflows_port_branch_output": "{node}: saída {branch}"
 }

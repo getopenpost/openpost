@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "No se encontraron pulsos en este clip.",
 	"workflows_layout_session_only": "No se pudieron guardar las posiciones del lienzo en este navegador. Se restablecerán cuando vuelvas a abrir este flujo de trabajo.",
 	"workflows_no_preview_output": "Ejecuta la vista previa para ver la salida de ejemplo de este nodo.",
-	"workflows_output_outdated": "La configuración o los datos de prueba cambiaron desde este resultado. Ejecuta de nuevo para comprobar el borrador actual."
+	"workflows_output_outdated": "La configuración o los datos de prueba cambiaron desde este resultado. Ejecuta de nuevo para comprobar el borrador actual.",
+	"workflows_connection_loop": "Esta conexión crearía un ciclo. Conecta a un paso fuera de esta rama.",
+	"workflows_port_input": "{node}: entrada",
+	"workflows_port_output": "{node}: salida",
+	"workflows_port_branch_output": "{node}: salida {branch}"
 }

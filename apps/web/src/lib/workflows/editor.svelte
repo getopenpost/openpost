@@ -42,7 +42,7 @@
 	import DataView from './data-view.svelte';
 	import GraphPreview from './graph-preview.svelte';
 	import { workflowIssues } from './validation';
-	import type { Port } from './graph';
+	import { connectionWouldLoop, type Port } from './graph';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -680,9 +680,9 @@
 						inspector = false;
 					}}
 					onconnect={(source, target, port) => {
-						if (source === target || target === 'source') return;
+						if (target === 'source' || connectionWouldLoop(doc.definition, source, target)) return;
 						const moving = findStep(doc.definition.steps ?? [], target);
-						if (!moving || findStep([moving], source)) return;
+						if (!moving) return;
 						change((next) => {
 							let moved: Step | undefined;
 							editSteps(next.definition.steps ?? [], target, (step, siblings, index) => {

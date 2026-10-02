@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "Aucun temps musical trouvé dans ce clip.",
 	"workflows_layout_session_only": "Les positions des nœuds n’ont pas pu être enregistrées dans ce navigateur. Elles seront réinitialisées lorsque vous rouvrirez ce workflow.",
 	"workflows_no_preview_output": "Lancez un aperçu pour voir un exemple de sortie de ce nœud.",
-	"workflows_output_outdated": "La configuration ou les données de test ont changé depuis ce résultat. Relancez pour vérifier le brouillon actuel."
+	"workflows_output_outdated": "La configuration ou les données de test ont changé depuis ce résultat. Relancez pour vérifier le brouillon actuel.",
+	"workflows_connection_loop": "Cette connexion créerait une boucle. Reliez une étape hors de cette branche.",
+	"workflows_port_input": "{node} : entrée",
+	"workflows_port_output": "{node} : sortie",
+	"workflows_port_branch_output": "{node} : sortie {branch}"
 }

@@ -1,6 +1,7 @@
 import type { Definition, Step, Run } from './api';
 import type { ThemeIconRole } from '$lib/themes';
 import {
+	findStep,
 	actionCatalog,
 	actionCategory,
 	sourceIcon,
@@ -101,4 +102,11 @@ export function workflowGraph(
 	}
 	sequence(definition.steps ?? [], 300, 0, [{ id: 'source', port: 'after' }]);
 	return { nodes, edges };
+}
+
+// Connections move a step and its branch, rather than authoring an arbitrary DAG.
+export function connectionWouldLoop(definition: Definition, source: string, target: string) {
+	if (source === target) return true;
+	const moving = findStep(definition.steps ?? [], target);
+	return Boolean(moving && findStep([moving], source));
 }

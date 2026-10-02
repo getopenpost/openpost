@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "Bu klipte vuruş bulunamadı.",
 	"workflows_layout_session_only": "Tuval konumları bu tarayıcıda kaydedilemedi. Bu iş akışını yeniden açtığınızda sıfırlanacak.",
 	"workflows_no_preview_output": "Bu düğümün örnek çıktısını görmek için önizlemeyi çalıştırın.",
-	"workflows_output_outdated": "Bu sonuçtan sonra yapılandırma veya test verileri değişti. Geçerli taslağı kontrol etmek için yeniden çalıştırın."
+	"workflows_output_outdated": "Bu sonuçtan sonra yapılandırma veya test verileri değişti. Geçerli taslağı kontrol etmek için yeniden çalıştırın.",
+	"workflows_connection_loop": "Bu bağlantı bir döngü oluşturur. Bu dalın dışındaki bir adıma bağlayın.",
+	"workflows_port_input": "{node}: giriş",
+	"workflows_port_output": "{node}: çıkış",
+	"workflows_port_branch_output": "{node}: {branch} çıkışı"
 }

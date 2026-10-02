@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "Não foram encontradas batidas neste clip.",
 	"workflows_layout_session_only": "Não foi possível guardar as posições dos nós neste navegador. Serão repostas ao reabrir este fluxo de trabalho.",
 	"workflows_no_preview_output": "Execute a pré-visualização para ver a saída de exemplo deste nó.",
-	"workflows_output_outdated": "A configuração ou os dados de teste mudaram desde este resultado. Execute novamente para verificar o rascunho atual."
+	"workflows_output_outdated": "A configuração ou os dados de teste mudaram desde este resultado. Execute novamente para verificar o rascunho atual.",
+	"workflows_connection_loop": "Esta ligação criaria um ciclo. Ligue a um passo fora deste ramo.",
+	"workflows_port_input": "{node}: entrada",
+	"workflows_port_output": "{node}: saída",
+	"workflows_port_branch_output": "{node}: saída {branch}"
 }

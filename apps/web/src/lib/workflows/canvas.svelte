@@ -14,7 +14,8 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	const narrow = new MediaQuery('(max-width: 639px)');
 	import WorkflowNode, { type WorkflowNodeData } from './node.svelte';
-	import { workflowGraph, type Port } from './graph';
+	import { workflowGraph, connectionWouldLoop, type Port } from './graph';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import type { Definition, Run } from './api';
 	import type { Issue } from './validation';
 	import { m } from '$lib/paraglide/messages';
@@ -48,6 +49,7 @@
 		readonly?: boolean;
 	} = $props();
 	let layoutVersion = $state(0);
+	let connectionWarning = $state(false);
 	export function organize() {
 		onlayout?.({});
 		layoutVersion++;
@@ -87,7 +89,23 @@
 	function outputPort(handle: string | null | undefined): Port {
 		return handle === 'then' || handle === 'else' ? handle : 'after';
 	}
-	const connectEnd: OnConnectEnd = (event, state) => {
+	function validConnection(connection: Pick<Connection, 'source' | 'target'>) {
+		return (
+			!readonly &&
+			connection.target !== 'source' &&
+			!connectionWouldLoop(definition, connection.source, connection.target)
+		);
+	}
+	const connectEnd: OnConnectEnd = (_event, state) => {
+		if (readonly) return;
+		if (!state.isValid && state.fromHandle && state.toHandle) {
+			const source = state.fromHandle.type === 'source' ? state.fromNode?.id : state.toNode?.id;
+			const target = state.fromHandle.type === 'target' ? state.fromNode?.id : state.toNode?.id;
+			connectionWarning = Boolean(
+				source && target && connectionWouldLoop(definition, source, target)
+			);
+			return;
+		}
 		if (
 			!readonly &&
 			!state.isValid &&
@@ -98,12 +116,25 @@
 			onadd?.(state.fromNode.id, outputPort(state.fromHandle.id));
 	};
 	function connect(connection: Connection) {
-		if (!readonly)
+		if (validConnection(connection))
 			onconnect?.(connection.source, connection.target, outputPort(connection.sourceHandle));
 	}
 </script>
 
-<div class="workflow-canvas h-full min-h-0 bg-background" aria-label={m.workflows_canvas()}>
+<div
+	class="workflow-canvas relative h-full min-h-0 bg-background"
+	aria-label={m.workflows_canvas()}
+>
+	{#if connectionWarning}
+		<div class="absolute top-16 right-3 left-3 z-10 max-w-xl">
+			<InlineNotice
+				tone="warning"
+				message={m.workflows_connection_loop()}
+				onDismiss={() => (connectionWarning = false)}
+				dismissLabel={m.common_close()}
+			/>
+		</div>
+	{/if}
 	{#key layoutVersion}
 		<SvelteFlow
 			onselectionchange={({ nodes: selected }) => {
@@ -145,8 +176,16 @@
 			nodesConnectable={!readonly}
 			edgesFocusable={false}
 			deleteKey={[]}
+			isValidConnection={validConnection}
+			onconnectstart={() => (connectionWarning = false)}
+			onclickconnectstart={() => (connectionWarning = false)}
 			onconnectend={connectEnd}
-			onconnect={connect}
+			onclickconnectend={connectEnd}
+			onbeforeconnect={(connection) => {
+				// The authored document projects edges; XYFlow must not keep an independent edge.
+				connect(connection);
+				return false;
+			}}
 			colorMode={mode.current ?? 'light'}
 			ariaLabelConfig={{
 				'controls.ariaLabel': m.image_editor_zoom(),

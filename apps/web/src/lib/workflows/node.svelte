@@ -21,6 +21,7 @@
 
 {#if !info.source}<Handle
 		type="target"
+		aria-label={m.workflows_port_input({ node: info.label })}
 		position={Position.Left}
 		isConnectable={!info.readonly}
 		class="!z-10 !size-3 !border-2 !border-background !bg-muted-foreground"
@@ -122,6 +123,12 @@
 	<Handle
 		id={port}
 		type="source"
+		aria-label={port === 'after'
+			? m.workflows_port_output({ node: info.label })
+			: m.workflows_port_branch_output({
+					node: info.label,
+					branch: port === 'then' ? m.workflows_yes() : m.workflows_no()
+				})}
 		position={Position.Right}
 		isConnectable={!info.readonly}
 		style={`top:${port === 'then' ? 25 : port === 'else' ? 75 : 50}%`}

@@ -329,7 +329,7 @@ async function openNodeSample(workflow = initial) {
 			wrapperProps: { client: queryClient }
 		}
 	);
-	await screen.getByRole('button', { name: /^Parse sample/ }).click();
+	await screen.getByRole('button', { name: /^Parse sample / }).click();
 	await page.getByRole('button', { name: 'Back to canvas', exact: true }).click();
 	await screen.getByRole('button', { name: 'Test data', exact: true }).click();
 	return page.getByRole('dialog');
@@ -548,7 +548,7 @@ it('guides an untested Wait node to its available simulated preview rather than 
 		}
 	);
 	screen.container.style.height = '850px';
-	await screen.getByRole('button', { name: /^Wait audit/ }).click();
+	await screen.getByRole('button', { name: /^Wait audit / }).click();
 	expect(screen.getByRole('button', { name: 'Test node', exact: true }).query()).toBeNull();
 	await expect
 		.element(screen.getByText("Run preview to see this node's sample output.", { exact: true }))
@@ -608,7 +608,7 @@ it.each(['test', 'preview'] as const)(
 			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
 		);
 		screen.container.style.height = '850px';
-		await screen.getByRole('button', { name: /^Parse sample/ }).click();
+		await screen.getByRole('button', { name: /^Parse sample / }).click();
 		if (mode === 'test')
 			await page
 				.getByRole('dialog')
@@ -618,7 +618,7 @@ it.each(['test', 'preview'] as const)(
 			await page.getByRole('button', { name: 'Back to canvas', exact: true }).click();
 			await screen.getByRole('button', { name: 'Run preview', exact: true }).click();
 			await screen.getByRole('button', { name: 'Editor', exact: true }).click();
-			await screen.getByRole('button', { name: /^Parse sample/ }).click();
+			await screen.getByRole('button', { name: /^Parse sample / }).click();
 		}
 		const output = page.getByRole('region', { name: 'Output', exact: true });
 		await output.getByRole('button', { name: 'JSON', exact: true }).click();

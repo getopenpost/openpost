@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "In diesem Clip wurden keine Beats gefunden.",
 	"workflows_layout_session_only": "Die Positionen auf der Arbeitsfläche konnten in diesem Browser nicht gespeichert werden. Beim erneuten Öffnen dieses Workflows werden sie zurückgesetzt.",
 	"workflows_no_preview_output": "Starte die Vorschau, um die Beispielausgabe dieses Knotens zu sehen.",
-	"workflows_output_outdated": "Die Konfiguration oder Testdaten wurden seit diesem Ergebnis geändert. Starte erneut, um den aktuellen Entwurf zu prüfen."
+	"workflows_output_outdated": "Die Konfiguration oder Testdaten wurden seit diesem Ergebnis geändert. Starte erneut, um den aktuellen Entwurf zu prüfen.",
+	"workflows_connection_loop": "Diese Verbindung würde eine Schleife erzeugen. Verbinde mit einem Schritt außerhalb dieses Zweigs.",
+	"workflows_port_input": "{node}: Eingang",
+	"workflows_port_output": "{node}: Ausgang",
+	"workflows_port_branch_output": "{node}: Ausgang {branch}"
 }

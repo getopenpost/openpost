@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "No beats were found in this clip.",
 	"workflows_layout_session_only": "Canvas positions could not be saved in this browser. They will reset when you reopen this workflow.",
 	"workflows_no_preview_output": "Run preview to see this node's sample output.",
-	"workflows_output_outdated": "Configuration or test data changed since this result. Run again to check the current draft."
+	"workflows_output_outdated": "Configuration or test data changed since this result. Run again to check the current draft.",
+	"workflows_connection_loop": "This connection would create a loop. Connect to a step outside this branch.",
+	"workflows_port_input": "{node}: input",
+	"workflows_port_output": "{node}: output",
+	"workflows_port_branch_output": "{node}: {branch} output"
 }

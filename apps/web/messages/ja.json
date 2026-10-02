@@ -9611,5 +9611,9 @@
 	"video_editor_beat_none_found": "このクリップではビートが見つかりませんでした。",
 	"workflows_layout_session_only": "このブラウザーにキャンバスの位置を保存できませんでした。このワークフローを開き直すと位置がリセットされます。",
 	"workflows_no_preview_output": "プレビューを実行して、このノードのサンプル出力を確認します。",
-	"workflows_output_outdated": "この結果の取得後に設定またはテストデータが変更されました。再実行して現在の下書きを確認してください。"
+	"workflows_output_outdated": "この結果の取得後に設定またはテストデータが変更されました。再実行して現在の下書きを確認してください。",
+	"workflows_connection_loop": "この接続はループを作成します。この分岐の外にあるステップに接続してください。",
+	"workflows_port_input": "{node}: 入力",
+	"workflows_port_output": "{node}: 出力",
+	"workflows_port_branch_output": "{node}: {branch} 出力"
 }

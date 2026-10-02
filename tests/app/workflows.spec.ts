@@ -489,7 +489,7 @@ test("missing source variables mark both the field and its canvas node", async (
       .soft(page.getByRole("button", { name: /^Create draft.*Needs attention/ }))
       .toBeVisible();
     await page
-      .getByRole("button", { name: /^Create draft/ })
+      .getByRole("button", { name: /^Create draft / })
       .first()
       .click();
   }
@@ -565,7 +565,7 @@ test("inserting a variable preserves JSON and its nested outputs remain usable",
       .getByText("A new release", { exact: true }),
   ).toBeVisible({ timeout: 30000 });
   await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-  await page.getByRole("button", { name: /^Announcement/ }).click();
+  await page.getByRole("button", { name: /^Announcement / }).click();
   await expect(page.getByLabel("Post text", { exact: true })).toHaveAttribute(
     "aria-invalid",
     "false",

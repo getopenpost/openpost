@@ -760,6 +760,8 @@ export interface TimelineItem
 	timer?: TimerSettings;
 	text?: string;
 	textSpans?: TextSpan[];
+	/** Derived local layout bounds for inherited text rendering, never authored. */
+	textLayoutSize?: { width: number; height: number };
 	spanLayout?: TextSpanLayout;
 	textLayoutDrafts?: TextLayoutDrafts;
 	textStylePresetId?: TextStylePresetId;

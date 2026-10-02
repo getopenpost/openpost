@@ -37,8 +37,14 @@ export class ItemRasterizer {
 		const cue =
 			item.type === 'subtitle' ? selectCuesAtFrame(item.cues ?? [], cueFrame)[0] : undefined;
 		if (item.type === 'subtitle' && !cue) return null;
-		const width = Math.max(1, Math.round(item.transform?.width ?? this.width));
-		const height = Math.max(1, Math.round(item.transform?.height ?? this.height));
+		const width = Math.max(
+			1,
+			Math.round(item.textLayoutSize?.width ?? item.transform?.width ?? this.width)
+		);
+		const height = Math.max(
+			1,
+			Math.round(item.textLayoutSize?.height ?? item.transform?.height ?? this.height)
+		);
 		const karaoke = item.captionHighlightMode === 'karaoke' && !!cue?.words?.length;
 		const animated =
 			item.type === 'text' &&

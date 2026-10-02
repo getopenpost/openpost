@@ -625,12 +625,19 @@
 
 	function paintRaster(canvas: HTMLCanvasElement): void {
 		if (!['text', 'subtitle', 'shape'].includes(resolved.type)) return;
-		const width = Math.max(1, Math.round(transform.width ?? canvasWidth));
-		const height = Math.max(1, Math.round(transform.height ?? canvasHeight));
+		const width = Math.max(
+			1,
+			Math.round(resolved.textLayoutSize?.width ?? transform.width ?? canvasWidth)
+		);
+		const height = Math.max(
+			1,
+			Math.round(resolved.textLayoutSize?.height ?? transform.height ?? canvasHeight)
+		);
 		const rasterKey = JSON.stringify([
 			resolved.type,
 			resolved.text,
 			resolved.textSpans,
+			resolved.textLayoutSize,
 			resolved.timer,
 			resolved.spanLayout,
 			resolved.label,

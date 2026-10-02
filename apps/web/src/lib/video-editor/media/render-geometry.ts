@@ -28,6 +28,9 @@ export function scaleItemForCanvas(
 	const transform = item.transform;
 	return {
 		...item,
+		textLayoutSize: item.textLayoutSize
+			? { width: item.textLayoutSize.width * scaleX, height: item.textLayoutSize.height * scaleY }
+			: undefined,
 		transform: transform
 			? {
 					...transform,

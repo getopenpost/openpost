@@ -170,8 +170,19 @@ export function resolveAnimatedItemAt(
 				motionContext.frameHeight
 			)
 	});
+	const local = resolvedTransformForItem(
+		resolved,
+		motionContext.frameWidth,
+		motionContext.frameHeight
+	);
 	return {
 		...resolved,
+		...(resolved.type === 'text' && {
+			textLayoutSize: {
+				width: local.width,
+				height: local.height
+			}
+		}),
 		transform: {
 			...resolved.transform,
 			x: world.x,

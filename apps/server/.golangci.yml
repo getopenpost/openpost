@@ -93,6 +93,16 @@ linters:
       - linters:
           - dupl
         path: internal/api/handlers/.*\.go
+      # Retain the attributed upstream ICO/BMP parser algorithms. Complexity
+      # exclusions apply only to these three functions; all other checks remain.
+      - linters:
+          - gocyclo
+        path: internal/mediacodec/ico/internal/bmp/reader\.go
+        source: '^func \(d \*decoder\) (DecodeConfig|decodeRLE)\('
+      - linters:
+          - gocyclo
+        path: internal/mediacodec/ico/internal/icondir/decoder\.go
+        source: '^func decodePNGHeader\('
     paths:
       - third_party$
       - builtin$

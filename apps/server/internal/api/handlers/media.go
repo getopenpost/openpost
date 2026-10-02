@@ -24,11 +24,13 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/disintegration/imaging"
+	"github.com/gen2brain/avif"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/idempotency"
+	"github.com/openpost/backend/internal/mediacodec/ico"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/entitlements"
@@ -2110,14 +2112,33 @@ func validateMediaImageContent(mimeType string, content []byte) error {
 	if !strings.HasPrefix(mimeType, "image/") {
 		return nil
 	}
-	config, _, err := image.DecodeConfig(bytes.NewReader(content))
+	var config image.Config
+	var err error
+	switch mimeType {
+	case "image/x-icon", "image/vnd.microsoft.icon":
+		config, err = ico.DecodeConfig(content)
+	case "image/avif":
+		config, err = avif.DecodeConfig(bytes.NewReader(content))
+	default:
+		config, _, err = image.DecodeConfig(bytes.NewReader(content))
+	}
 	if err != nil {
 		return errors.New("image file could not be decoded")
 	}
 	if config.Width <= 0 || config.Height <= 0 || int64(config.Width) > mediaUploadMaxImagePixels/int64(config.Height) {
 		return fmt.Errorf("image cannot exceed %d pixels", mediaUploadMaxImagePixels)
 	}
-	if _, err := imaging.Decode(bytes.NewReader(content)); err != nil {
+	// Keep the seekable reader for ICO; its directory offsets must not cause
+	// allocation from untrusted entry-size fields before pixel validation.
+	switch mimeType {
+	case "image/x-icon", "image/vnd.microsoft.icon":
+		_, err = ico.Decode(content)
+	case "image/avif":
+		_, err = avif.Decode(bytes.NewReader(content))
+	default:
+		_, err = imaging.Decode(bytes.NewReader(content))
+	}
+	if err != nil {
 		return errors.New("image file could not be decoded")
 	}
 	return nil
@@ -3770,7 +3791,11 @@ func (h *MediaHandler) processImage(ctx context.Context, content []byte, mediaID
 	var err error
 
 	switch strings.ToLower(mimeType) {
-	case "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/tiff":
+	case "image/x-icon", "image/vnd.microsoft.icon":
+		img, err = ico.Decode(content)
+	case "image/avif":
+		img, err = avif.Decode(reader)
+	case "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/tiff", "image/bmp":
 		img, err = imaging.Decode(reader)
 	default:
 		return 0, 0, Thumbnails{}, errors.New("unsupported image format")

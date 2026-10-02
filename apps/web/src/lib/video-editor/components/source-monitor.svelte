@@ -658,10 +658,8 @@
 		) {
 			return;
 		}
-		if (editorShortcutTargetIsDisabled(event.target)) {
-			if (monitorElement?.contains(event.target)) event.stopImmediatePropagation();
-			return;
-		}
+		// Focused controls must receive their own keys after this capture listener returns.
+		if (editorShortcutTargetIsDisabled(event.target)) return;
 		if (!isGlobalEditShortcut && !isLocal && !isShuttleShortcut) return;
 		if (isLocal && isShuttleShortcut) {
 			if (isShuttlePause) {

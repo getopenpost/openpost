@@ -56,7 +56,6 @@
 				value={{ literal: source.interval_minutes ?? '' }}
 				onchange={(value) => onchange({ ...source, interval_minutes: Number(value.literal) })}
 			/>
-			<p class="text-xs text-muted-foreground">{m.workflows_interval_help()}</p>
 		</div>
 	{:else if source.kind === 'github_release'}
 		<div class="space-y-2">

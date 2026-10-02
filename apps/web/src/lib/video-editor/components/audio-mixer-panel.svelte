@@ -238,12 +238,12 @@
 		let next: number | null = null;
 		const current = targetDb(target);
 		const step = event.shiftKey ? 0.1 : 1;
-		if (event.key === 'ArrowUp') next = current + step;
-		if (event.key === 'ArrowDown') next = current - step;
+		if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = current + step;
+		if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = current - step;
 		if (event.key === 'PageUp') next = current + 6;
 		if (event.key === 'PageDown') next = current - 6;
-		if (event.key === 'Home') next = MIXER_MAX_DB;
-		if (event.key === 'End') next = MIXER_MIN_DB;
+		if (event.key === 'Home') next = MIXER_MIN_DB;
+		if (event.key === 'End') next = MIXER_MAX_DB;
 		if (event.key === '0') next = 0;
 		if (next === null) return;
 		event.preventDefault();
@@ -458,12 +458,13 @@
 						class="fader disabled:cursor-not-allowed disabled:opacity-40"
 						class:pointer-events-none={locked}
 						role="slider"
+						aria-orientation="vertical"
 						tabindex={locked ? -1 : 0}
 						aria-label={m.video_editor_mixer_track_volume({ name: track.name })}
 						aria-valuemin={MIXER_MIN_DB}
 						aria-valuemax={MIXER_MAX_DB}
 						aria-valuenow={db}
-						aria-valuetext={formatMixerDb(db)}
+						aria-valuetext={`${formatMixerDb(db)} dB`}
 						onpointerdown={(event) => startFader(event, target)}
 						onpointermove={moveFader}
 						onpointerup={finishFader}
@@ -530,12 +531,13 @@
 				<div
 					class="fader"
 					role="slider"
+					aria-orientation="vertical"
 					tabindex="0"
 					aria-label={m.video_editor_mixer_master_volume()}
 					aria-valuemin={MIXER_MIN_DB}
 					aria-valuemax={MIXER_MAX_DB}
 					aria-valuenow={timelineStore.masterVolumeDb}
-					aria-valuetext={formatMixerDb(timelineStore.masterVolumeDb)}
+					aria-valuetext={`${formatMixerDb(timelineStore.masterVolumeDb)} dB`}
 					onpointerdown={(event) => startFader(event, MASTER_TARGET)}
 					onpointermove={moveFader}
 					onpointerup={finishFader}

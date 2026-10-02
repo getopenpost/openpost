@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import '../../../routes/layout.css';
 import type { TimelineTrack } from '$lib/video-editor/project/types';
@@ -48,6 +48,43 @@ beforeEach(async () => {
 });
 
 describe('AudioMixerPanel', () => {
+	it('exposes vertical decibel faders with consistent keyboard limits', async () => {
+		const screen = await render(AudioMixerPanel);
+		for (const name of ['Dialogue volume', 'Master output volume']) {
+			const fader = screen.getByRole('slider', { name, exact: true });
+			await expect.element(fader).toHaveAttribute('aria-orientation', 'vertical');
+			await expect.element(fader).toHaveAttribute('aria-valuetext', '+0.0 dB');
+			fader.element().focus();
+			await userEvent.keyboard('{ArrowDown}');
+			await expect
+				.poll(() => Number(fader.element().getAttribute('aria-valuenow')))
+				.toBeCloseTo(-1, 8);
+			await expect.element(fader).toHaveAttribute('aria-valuetext', '-1.0 dB');
+			await userEvent.keyboard('{ArrowRight}');
+			await expect
+				.poll(() => Number(fader.element().getAttribute('aria-valuenow')))
+				.toBeCloseTo(0, 8);
+			await userEvent.keyboard('{Home}');
+			await expect
+				.poll(() => Number(fader.element().getAttribute('aria-valuenow')))
+				.toBeCloseTo(-60, 8);
+			await expect.element(fader).toHaveAttribute('aria-valuetext', '-inf dB');
+			await userEvent.keyboard('{ArrowLeft}');
+			await expect
+				.poll(() => Number(fader.element().getAttribute('aria-valuenow')))
+				.toBeCloseTo(-60, 8);
+			await userEvent.keyboard('{End}');
+			await expect
+				.poll(() => Number(fader.element().getAttribute('aria-valuenow')))
+				.toBeCloseTo(12, 8);
+			await userEvent.keyboard('{ArrowUp}');
+			await expect
+				.poll(() => Number(fader.element().getAttribute('aria-valuenow')))
+				.toBeCloseTo(12, 8);
+			expect(document.activeElement).toBe(fader.element());
+		}
+	});
+
 	it('commits one pointer gesture, cancels Escape, and supports one-step undo', async () => {
 		const screen = await render(AudioMixerPanel);
 		const fader = screen.getByRole('slider', { name: 'Dialogue volume' }).element();

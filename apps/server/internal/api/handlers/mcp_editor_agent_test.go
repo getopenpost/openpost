@@ -43,6 +43,33 @@ func TestHostedEditorAssistantRequiresCloudPaidPlanAndEditAccess(t *testing.T) {
 	}
 }
 
+func TestHostedEditorAssistantStopCancelsQueuedEdit(t *testing.T) {
+	db := workflowHandlerDB(t)
+	relay := editoragent.NewRelay(db)
+	session, err := relay.Register(t.Context(), "ws", "user", "project", "video")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := relay.Enqueue(t.Context(), session, "user", "stop-key", "video_edit", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	handler := &EditorAgentAssistantHandler{db: db}
+	if _, err := handler.waitForEditorRequest(ctx, request.ID, "ws", "user"); err != context.Canceled {
+		t.Fatalf("wait error = %v, want cancellation", err)
+	}
+	stopped, err := relay.GetRequest(t.Context(), request.ID, "ws", "user")
+	if err != nil || stopped.Status != "cancelled" {
+		t.Fatalf("queued edit remained executable: status=%v err=%v", stopped, err)
+	}
+	leased, err := relay.LeaseNext(t.Context(), session.ID, "user", session.Epoch)
+	if err != nil || leased != nil {
+		t.Fatalf("browser received stopped edit: request=%v err=%v", leased, err)
+	}
+}
+
 func TestEditorAgentMCPValidatesSpecificActions(t *testing.T) {
 	base := map[string]any{
 		"workspace_id": "workspace", "session_id": "session", "project_id": "project",

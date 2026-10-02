@@ -245,7 +245,7 @@ func (h *EditorAgentAssistantHandler) execute(ctx context.Context, userID, works
 		return nil, nil, errors.New("editor tool returned no request receipt")
 	}
 	if request.Status == "queued" || request.Status == "leased" || request.Status == "cancel_requested" {
-		settled, err := editoragent.NewRelay(h.db).Wait(ctx, request.ID, workspaceID, userID, 18*time.Second)
+		settled, err := h.waitForEditorRequest(ctx, request.ID, workspaceID, userID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -274,6 +274,20 @@ func (h *EditorAgentAssistantHandler) execute(ctx context.Context, userID, works
 		}
 	}
 	return request.Result, preview, nil
+}
+
+func (h *EditorAgentAssistantHandler) waitForEditorRequest(ctx context.Context, requestID, workspaceID, userID string) (*editoragent.Request, error) {
+	relay := editoragent.NewRelay(h.db)
+	request, err := relay.Wait(ctx, requestID, workspaceID, userID, 18*time.Second)
+	if !errors.Is(err, context.Canceled) {
+		return request, err
+	}
+	// The browser may already be applying a leased operation. Cancel queued work
+	// and mark leased work as cancellation requested so retries must inspect it.
+	cancelCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, _ = relay.Cancel(cancelCtx, requestID, workspaceID, userID)
+	return nil, err
 }
 
 func (h *EditorAgentAssistantHandler) run(ctx context.Context, input *editorAssistantInput) (*editorAssistantOutput, error) {

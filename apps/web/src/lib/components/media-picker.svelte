@@ -838,22 +838,6 @@
 				</div>
 			{/if}
 		</div>
-
-		{#if error}
-			<div
-				class="mx-4 mb-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
-				role="alert"
-			>
-				{error}
-			</div>
-		{/if}
-		<div class="flex flex-col-reverse gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end">
-			<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
-			<Button onclick={confirm} disabled={actionLoading || selectedIDs.length === 0}>
-				{#if actionLoading}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
-				{m.media_picker_add_media()}
-			</Button>
-		</div>
 	{:else if pickerMode === 'meme'}
 		<div class="meme-picker-body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0">
 			<MemeGenerator
@@ -887,6 +871,23 @@
 					/>
 				</div>
 			{/key}
+		</div>
+	{/if}
+	{#if pickerMode !== 'meme' && (pickerMode === 'library' || selectedIDs.length > 0)}
+		{#if error}
+			<div
+				class="mx-4 mb-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+				role="alert"
+			>
+				{error}
+			</div>
+		{/if}
+		<div class="flex flex-col-reverse gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end">
+			<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
+			<Button onclick={confirm} disabled={actionLoading || selectedIDs.length === 0}>
+				{#if actionLoading}<ProtectedIcon icon="loading" class="animate-spin" />{/if}
+				{m.media_picker_add_media()}
+			</Button>
 		</div>
 	{/if}
 {/snippet}

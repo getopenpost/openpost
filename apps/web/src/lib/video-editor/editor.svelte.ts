@@ -106,6 +106,10 @@ class EditorSession {
 		});
 	}
 
+	get storageWorkspaceId(): string {
+		return this.projectState ? this.cloudWorkspaceId : '';
+	}
+
 	get isPlaying(): boolean {
 		return this.transport.playing;
 	}

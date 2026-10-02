@@ -4,6 +4,8 @@ import { resolveMediaBlob } from '../media/resolve-media-blob';
 import type { MediaMetadata } from '../media/types';
 import type { TimelineItem } from '../project/types';
 import {
+	captureSourceTranscriptStorage,
+	type SourceTranscriptStorage,
 	deleteSourceTranscript,
 	getSourceTranscript,
 	saveSourceTranscript,
@@ -56,6 +58,7 @@ export interface TranscriptionServiceDependencies {
 	saveSourceTranscript: typeof saveSourceTranscript;
 	deleteSourceTranscript: typeof deleteSourceTranscript;
 	getCanvas?: () => GeneratedCaptionCanvas;
+	getStorage?: () => SourceTranscriptStorage;
 }
 
 interface TranscriptionTarget {
@@ -82,6 +85,7 @@ interface SourceTranscriptionTarget {
 interface QueuedTranscriptionJob {
 	id: string;
 	requestKey: string;
+	storage: SourceTranscriptStorage;
 	media: MediaMetadata;
 	selection: TranscriptionSelection;
 	sourceStartSeconds: number;
@@ -101,6 +105,7 @@ const DEFAULT_DEPENDENCIES: TranscriptionServiceDependencies = {
 	getSourceTranscript,
 	saveSourceTranscript,
 	deleteSourceTranscript,
+	getStorage: () => captureSourceTranscriptStorage(editorSession.storageWorkspaceId),
 	getCanvas: () => ({
 		width: sequenceStore.activeWidth ?? editorSession.project?.metadata.width ?? 1920,
 		height: sequenceStore.activeHeight ?? editorSession.project?.metadata.height ?? 1080
@@ -165,6 +170,7 @@ export class TranscriptionService {
 	>();
 	private readonly sourceTranscriptLoads = new Map<string, Promise<SourceTranscript | null>>();
 	private active: QueuedTranscriptionJob | null = null;
+	private storage: SourceTranscriptStorage | null = null;
 	private failures = $state<Record<string, string>>({});
 	private resetting = false;
 	private resetGeneration = 0;
@@ -216,6 +222,7 @@ export class TranscriptionService {
 		if (media.audioCodecSupported === false) {
 			return Promise.reject(new Error(m.video_editor_transcribe_unsupported_audio()));
 		}
+		this.captureStorage();
 		const source = captureTranscriptionSource(item);
 		const key = requestKey(
 			source.mediaId,
@@ -266,6 +273,7 @@ export class TranscriptionService {
 		if (media.audioCodecSupported === false) {
 			return Promise.reject(new Error(m.video_editor_transcribe_unsupported_audio()));
 		}
+		this.captureStorage();
 		const sourceStartSeconds = 0;
 		const sourceEndSeconds = Math.max(0, media.duration);
 		const key = requestKey(media.id, sourceStartSeconds, sourceEndSeconds, selection);
@@ -313,7 +321,10 @@ export class TranscriptionService {
 	}
 
 	async deleteMediaTranscript(mediaId: string): Promise<void> {
-		await this.dependencies.deleteSourceTranscript(mediaId);
+		const storage = this.captureStorage();
+		const generation = this.resetGeneration;
+		await this.dependencies.deleteSourceTranscript(mediaId, storage);
+		if (generation !== this.resetGeneration) return;
 		this.sourceTranscriptState[mediaId] = { status: 'idle' };
 	}
 
@@ -353,6 +364,7 @@ export class TranscriptionService {
 		this.pendingClipEnqueues.clear();
 		this.sourceTranscriptLoads.clear();
 		this.sourceTranscriptState = {};
+		this.storage = null;
 		this.resetting = false;
 	}
 
@@ -426,6 +438,24 @@ export class TranscriptionService {
 		return target.promise;
 	}
 
+	private captureStorage(): SourceTranscriptStorage {
+		const next = (this.dependencies.getStorage ?? DEFAULT_DEPENDENCIES.getStorage!)();
+		const previous = this.storage;
+		const sameStorage =
+			previous &&
+			(next.kind === 'local'
+				? previous.kind === 'local' && previous.root === next.root
+				: previous.kind === 'cloud' &&
+					previous.workspaceId === next.workspaceId &&
+					previous.actorId === next.actorId &&
+					previous.session.boundaryRevision === next.session.boundaryRevision &&
+					previous.session.authorizationIdentity?.epoch ===
+						next.session.authorizationIdentity?.epoch);
+		if (previous && !sameStorage) this.reset();
+		this.storage = next;
+		return next;
+	}
+
 	private createJob(
 		media: MediaMetadata,
 		selection: TranscriptionSelection,
@@ -436,6 +466,7 @@ export class TranscriptionService {
 		return {
 			id: crypto.randomUUID(),
 			requestKey: key,
+			storage: this.captureStorage(),
 			media,
 			selection,
 			sourceStartSeconds,
@@ -451,6 +482,7 @@ export class TranscriptionService {
 	}
 
 	private async loadSourceTranscript(media: MediaMetadata): Promise<SourceTranscript | null> {
+		const storage = this.captureStorage();
 		const current = this.sourceTranscriptState[media.id];
 		if (current?.status === 'ready') return current.transcript ?? null;
 		if (current?.status === 'idle') return null;
@@ -459,11 +491,12 @@ export class TranscriptionService {
 		const generation = this.resetGeneration;
 		this.sourceTranscriptState[media.id] = { status: 'loading' };
 		const load = this.dependencies
-			.getSourceTranscript(media.id)
+			.getSourceTranscript(media.id, storage)
 			.then(async (transcript) => {
 				if (generation !== this.resetGeneration) return null;
 				if (transcript && !sourceTranscriptMatchesMedia(transcript, media)) {
-					await this.dependencies.deleteSourceTranscript(media.id);
+					await this.dependencies.deleteSourceTranscript(media.id, storage);
+					if (generation !== this.resetGeneration) return null;
 					transcript = null;
 				}
 				this.sourceTranscriptState[media.id] = transcript
@@ -702,7 +735,6 @@ export class TranscriptionService {
 	): Promise<void> {
 		if (this.jobsByRequestKey.get(job.requestKey)?.id !== job.id) return;
 		this.jobsByRequestKey.delete(job.requestKey);
-		if (this.active?.id === job.id) this.active = null;
 		let resultError = error;
 		let sourceTranscript: SourceTranscript | undefined;
 		if (!resultError && (!words || words.length === 0)) {
@@ -710,12 +742,17 @@ export class TranscriptionService {
 		}
 		if (!resultError && words && job.sourceTarget) {
 			try {
+				const generation = this.resetGeneration;
 				sourceTranscript = await this.dependencies.saveSourceTranscript({
 					media: job.media,
 					selection: job.selection,
 					resolvedModel: job.fallback?.model ?? job.selection.model,
-					words
+					words,
+					storage: job.storage,
+					signal: job.controller.signal
 				});
+				if (generation !== this.resetGeneration || job.controller.signal.aborted)
+					throw abortError();
 				this.sourceTranscriptState[job.media.id] = {
 					status: 'ready',
 					transcript: sourceTranscript
@@ -755,6 +792,7 @@ export class TranscriptionService {
 		if (job.sourceTarget) {
 			this.settleSourceTarget(job, job.sourceTarget, resultError, sourceTranscript);
 		}
+		if (this.active?.id === job.id) this.active = null;
 		if (!this.resetting) void this.drain();
 	}
 

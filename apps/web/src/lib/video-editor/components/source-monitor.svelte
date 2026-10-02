@@ -534,7 +534,7 @@
 				startCustomAudio(mediaElement.currentTime);
 			}
 		}
-		if (next >= outPoint) {
+		if (playing && next >= outPoint) {
 			seek(outPoint - 1);
 			pause();
 			return;

@@ -9617,5 +9617,20 @@
 	"workflows_port_input": "{node}: 入力",
 	"workflows_port_output": "{node}: 出力",
 	"workflows_port_branch_output": "{node}: {branch} 出力",
-	"video_editor_transcript_cut_locked_captions": "ロックされた字幕は保持されました。更新するには、そのトラックのロックを解除してください。"
+	"video_editor_transcript_cut_locked_captions": "ロックされた字幕は保持されました。更新するには、そのトラックのロックを解除してください。",
+	"recording_cleanup_action": "録音を整える",
+	"recording_cleanup_tab": "録音",
+	"recording_cleanup_hint": "間、フィラー、言い直しの可能性がある箇所を確認します。削除する前に聞いてください。",
+	"recording_cleanup_voice": "音声を整える",
+	"recording_cleanup_voice_hint": "一定のノイズを減らし、音量の変化を滑らかにします。既存の音声エフェクトは維持されます。",
+	"recording_cleanup_without_transcript": "字幕を追加すると、フィラーや言い直しを見つけられます。字幕がない場合は、音声の間のみを確認します。",
+	"recording_cleanup_add_captions": "字幕を追加",
+	"recording_cleanup_no_changes": "カットの提案はありません",
+	"recording_cleanup_possible_restart": "言い直しの可能性があります。含める前に確認してください。",
+	"recording_cleanup_restart_context": "残す部分：{text}",
+	"recording_cleanup_preview_cut": "カットをプレビュー：{label}",
+	"recording_cleanup_after": "カットをプレビュー",
+	"recording_cleanup_apply": "変更を適用",
+	"recording_cleanup_applied": "録音の調整を適用しました",
+	"recording_cleanup_changed": "録音または設定が変更されました。確認内容を更新してから適用してください。"
 }

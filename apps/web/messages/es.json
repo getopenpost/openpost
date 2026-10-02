@@ -9617,5 +9617,20 @@
 	"workflows_port_input": "{node}: entrada",
 	"workflows_port_output": "{node}: salida",
 	"workflows_port_branch_output": "{node}: salida {branch}",
-	"video_editor_transcript_cut_locked_captions": "Se conservaron los subtítulos bloqueados. Desbloquea sus pistas para actualizarlos."
+	"video_editor_transcript_cut_locked_captions": "Se conservaron los subtítulos bloqueados. Desbloquea sus pistas para actualizarlos.",
+	"recording_cleanup_action": "Limpiar grabación",
+	"recording_cleanup_tab": "Grabación",
+	"recording_cleanup_hint": "Revisa las pausas, las muletillas y los posibles inicios repetidos. Escucha antes de eliminar nada.",
+	"recording_cleanup_voice": "Limpiar voz",
+	"recording_cleanup_voice_hint": "Reduce el ruido constante y suaviza los cambios de volumen. Se conservan los efectos de audio existentes.",
+	"recording_cleanup_without_transcript": "Añade subtítulos para encontrar muletillas e inicios repetidos. Sin subtítulos, solo se comprueban las pausas del audio.",
+	"recording_cleanup_add_captions": "Añadir subtítulos",
+	"recording_cleanup_no_changes": "No se sugieren cortes",
+	"recording_cleanup_possible_restart": "Posible inicio repetido. Revísalo antes de incluirlo.",
+	"recording_cleanup_restart_context": "Conservar: {text}",
+	"recording_cleanup_preview_cut": "Previsualizar corte: {label}",
+	"recording_cleanup_after": "Previsualizar corte",
+	"recording_cleanup_apply": "Aplicar cambios",
+	"recording_cleanup_applied": "Limpieza de grabación aplicada",
+	"recording_cleanup_changed": "La grabación o los ajustes han cambiado. Actualiza la revisión antes de aplicar los cambios."
 }

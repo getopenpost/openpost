@@ -9617,5 +9617,20 @@
 	"workflows_port_input": "{node}: input",
 	"workflows_port_output": "{node}: output",
 	"workflows_port_branch_output": "{node}: {branch} output",
-	"video_editor_transcript_cut_locked_captions": "Locked captions were kept. Unlock their tracks to update them."
+	"video_editor_transcript_cut_locked_captions": "Locked captions were kept. Unlock their tracks to update them.",
+	"recording_cleanup_action": "Clean up recording",
+	"recording_cleanup_tab": "Recording",
+	"recording_cleanup_hint": "Review pauses, filler words and possible repeated starts. Listen before removing anything.",
+	"recording_cleanup_voice": "Clean voice",
+	"recording_cleanup_voice_hint": "Reduce steady noise and smooth volume changes. Your existing audio effects stay in place.",
+	"recording_cleanup_without_transcript": "Add captions to find filler words and repeated starts. Without captions, only audio pauses are checked.",
+	"recording_cleanup_add_captions": "Add captions",
+	"recording_cleanup_no_changes": "No cuts suggested",
+	"recording_cleanup_possible_restart": "Possible repeated start. Review before including.",
+	"recording_cleanup_restart_context": "Keep: {text}",
+	"recording_cleanup_preview_cut": "Preview cut: {label}",
+	"recording_cleanup_after": "Preview cut",
+	"recording_cleanup_apply": "Apply changes",
+	"recording_cleanup_applied": "Recording cleanup applied",
+	"recording_cleanup_changed": "The recording or settings changed. Update the review before applying."
 }

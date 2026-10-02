@@ -9617,5 +9617,20 @@
 	"workflows_port_input": "{node}: Eingang",
 	"workflows_port_output": "{node}: Ausgang",
 	"workflows_port_branch_output": "{node}: Ausgang {branch}",
-	"video_editor_transcript_cut_locked_captions": "Gesperrte Untertitel wurden beibehalten. Entsperre ihre Spuren, um sie zu bearbeiten."
+	"video_editor_transcript_cut_locked_captions": "Gesperrte Untertitel wurden beibehalten. Entsperre ihre Spuren, um sie zu bearbeiten.",
+	"recording_cleanup_action": "Aufnahme bereinigen",
+	"recording_cleanup_tab": "Aufnahme",
+	"recording_cleanup_hint": "Prüfe Pausen, Füllwörter und mögliche wiederholte Satzanfänge. Höre sie dir an, bevor du etwas entfernst.",
+	"recording_cleanup_voice": "Stimme bereinigen",
+	"recording_cleanup_voice_hint": "Reduziere gleichmäßiges Rauschen und gleiche Lautstärkeschwankungen aus. Deine vorhandenen Audioeffekte bleiben erhalten.",
+	"recording_cleanup_without_transcript": "Füge Untertitel hinzu, um Füllwörter und wiederholte Satzanfänge zu finden. Ohne Untertitel werden nur Audiopausen geprüft.",
+	"recording_cleanup_add_captions": "Untertitel hinzufügen",
+	"recording_cleanup_no_changes": "Keine Schnitte vorgeschlagen",
+	"recording_cleanup_possible_restart": "Möglicherweise wiederholter Satzanfang. Vor dem Einbeziehen prüfen.",
+	"recording_cleanup_restart_context": "Behalten: {text}",
+	"recording_cleanup_preview_cut": "Schnittvorschau: {label}",
+	"recording_cleanup_after": "Schnittvorschau",
+	"recording_cleanup_apply": "Änderungen anwenden",
+	"recording_cleanup_applied": "Aufnahmebereinigung angewendet",
+	"recording_cleanup_changed": "Die Aufnahme oder die Einstellungen wurden geändert. Aktualisiere die Prüfung, bevor du die Änderungen anwendest."
 }

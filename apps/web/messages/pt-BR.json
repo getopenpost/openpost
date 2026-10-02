@@ -9617,5 +9617,20 @@
 	"workflows_port_input": "{node}: entrada",
 	"workflows_port_output": "{node}: saída",
 	"workflows_port_branch_output": "{node}: saída {branch}",
-	"video_editor_transcript_cut_locked_captions": "As legendas bloqueadas foram mantidas. Desbloqueie as faixas para atualizá-las."
+	"video_editor_transcript_cut_locked_captions": "As legendas bloqueadas foram mantidas. Desbloqueie as faixas para atualizá-las.",
+	"recording_cleanup_action": "Limpar gravação",
+	"recording_cleanup_tab": "Gravação",
+	"recording_cleanup_hint": "Revise as pausas, as palavras de preenchimento e os possíveis inícios repetidos. Ouça antes de remover qualquer coisa.",
+	"recording_cleanup_voice": "Limpar voz",
+	"recording_cleanup_voice_hint": "Reduza o ruído constante e suavize as mudanças de volume. Seus efeitos de áudio existentes são mantidos.",
+	"recording_cleanup_without_transcript": "Adicione legendas para encontrar palavras de preenchimento e inícios repetidos. Sem legendas, apenas as pausas do áudio são verificadas.",
+	"recording_cleanup_add_captions": "Adicionar legendas",
+	"recording_cleanup_no_changes": "Nenhum corte sugerido",
+	"recording_cleanup_possible_restart": "Possível início repetido. Revise antes de incluir.",
+	"recording_cleanup_restart_context": "Manter: {text}",
+	"recording_cleanup_preview_cut": "Prévia do corte: {label}",
+	"recording_cleanup_after": "Prévia do corte",
+	"recording_cleanup_apply": "Aplicar alterações",
+	"recording_cleanup_applied": "Limpeza da gravação aplicada",
+	"recording_cleanup_changed": "A gravação ou as configurações mudaram. Atualize a revisão antes de aplicar as alterações."
 }

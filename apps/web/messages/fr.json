@@ -9617,5 +9617,20 @@
 	"workflows_port_input": "{node} : entrée",
 	"workflows_port_output": "{node} : sortie",
 	"workflows_port_branch_output": "{node} : sortie {branch}",
-	"video_editor_transcript_cut_locked_captions": "Les sous-titres verrouillés ont été conservés. Déverrouillez leurs pistes pour les modifier."
+	"video_editor_transcript_cut_locked_captions": "Les sous-titres verrouillés ont été conservés. Déverrouillez leurs pistes pour les modifier.",
+	"recording_cleanup_action": "Nettoyer l’enregistrement",
+	"recording_cleanup_tab": "Enregistrement",
+	"recording_cleanup_hint": "Vérifiez les pauses, les mots de remplissage et les débuts de phrase répétés possibles. Écoutez avant de supprimer quoi que ce soit.",
+	"recording_cleanup_voice": "Nettoyer la voix",
+	"recording_cleanup_voice_hint": "Réduisez le bruit constant et atténuez les variations de volume. Vos effets audio existants sont conservés.",
+	"recording_cleanup_without_transcript": "Ajoutez des sous-titres pour repérer les mots de remplissage et les débuts de phrase répétés. Sans sous-titres, seules les pauses audio sont vérifiées.",
+	"recording_cleanup_add_captions": "Ajouter des sous-titres",
+	"recording_cleanup_no_changes": "Aucune coupe suggérée",
+	"recording_cleanup_possible_restart": "Début de phrase peut-être répété. Vérifiez avant de l’inclure.",
+	"recording_cleanup_restart_context": "Garder : {text}",
+	"recording_cleanup_preview_cut": "Aperçu de la coupe : {label}",
+	"recording_cleanup_after": "Aperçu de la coupe",
+	"recording_cleanup_apply": "Appliquer les modifications",
+	"recording_cleanup_applied": "Nettoyage de l’enregistrement appliqué",
+	"recording_cleanup_changed": "L’enregistrement ou les réglages ont changé. Actualisez la révision avant d’appliquer les modifications."
 }

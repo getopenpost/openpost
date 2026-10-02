@@ -9617,5 +9617,20 @@
 	"workflows_port_input": "{node}：输入",
 	"workflows_port_output": "{node}：输出",
 	"workflows_port_branch_output": "{node}：{branch}输出",
-	"video_editor_transcript_cut_locked_captions": "已保留锁定的字幕。要更新字幕，请解锁对应轨道。"
+	"video_editor_transcript_cut_locked_captions": "已保留锁定的字幕。要更新字幕，请解锁对应轨道。",
+	"recording_cleanup_action": "整理录音",
+	"recording_cleanup_tab": "录音",
+	"recording_cleanup_hint": "检查停顿、语气词和可能重复的开头。删除前请先试听。",
+	"recording_cleanup_voice": "净化人声",
+	"recording_cleanup_voice_hint": "减少持续噪声，让音量变化更平稳。现有音频效果会保留。",
+	"recording_cleanup_without_transcript": "添加字幕以查找语气词和重复的开头。没有字幕时，只检查音频停顿。",
+	"recording_cleanup_add_captions": "添加字幕",
+	"recording_cleanup_no_changes": "没有建议的剪切",
+	"recording_cleanup_possible_restart": "可能是重复的开头。纳入前请先检查。",
+	"recording_cleanup_restart_context": "保留：{text}",
+	"recording_cleanup_preview_cut": "预览剪切：{label}",
+	"recording_cleanup_after": "预览剪切",
+	"recording_cleanup_apply": "应用更改",
+	"recording_cleanup_applied": "已应用录音整理",
+	"recording_cleanup_changed": "录音或设置已更改。请更新检查结果后再应用。"
 }

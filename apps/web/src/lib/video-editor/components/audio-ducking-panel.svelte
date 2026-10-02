@@ -60,7 +60,10 @@
 
 	function commitDuckDb(value: number): void {
 		const clamped = Math.min(0, Math.max(DUCKING_MIN_DB, Number.isFinite(value) ? value : -9));
-		if (clamped >= 0) return;
+		if (clamped >= 0) {
+			commit(undefined);
+			return;
+		}
 		commit({
 			duckOthersDb: clamped,
 			attackSec,

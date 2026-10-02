@@ -393,9 +393,8 @@ export class CanvasStackCompositor {
 
 	beginFrame(width: number, height: number, backgroundColor: string | null): void {
 		this.resize(width, height);
-		if (backgroundColor === null) {
-			this.context.clearRect(0, 0, this.width, this.height);
-		} else {
+		this.context.clearRect(0, 0, this.width, this.height);
+		if (backgroundColor !== null) {
 			this.context.fillStyle = backgroundColor;
 			this.context.fillRect(0, 0, this.width, this.height);
 		}

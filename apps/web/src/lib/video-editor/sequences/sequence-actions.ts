@@ -379,6 +379,7 @@ export function createCompoundClip(
 			id: compositionId,
 			name,
 			editorKind,
+			...(editorKind === 'composite-2d' && { backgroundColor: '#00000000' }),
 			items: selected.map((item) => {
 				const snapshot = snapshotTimelineState(item);
 				const propertyLinks = snapshot.propertyLinks?.filter((link) =>

@@ -9597,5 +9597,6 @@
 	"messages_archived_empty_title": "アーカイブ済みの会話はありません",
 	"messages_archived_empty_description": "このフィルターに一致するアーカイブ済みの会話はありません。受信トレイに戻るにはフィルターを解除してください。",
 	"messages_clear_filters": "フィルターを解除",
-	"workflows_cancelled_history_notice": "この実行はキャンセルされました。以下のステップ状態は最後に記録された状態を示しています。"
+	"workflows_cancelled_history_notice": "この実行はキャンセルされました。以下のステップ状態は最後に記録された状態を示しています。",
+	"video_editor_beat_none_found": "このクリップではビートが見つかりませんでした。"
 }

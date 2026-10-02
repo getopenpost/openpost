@@ -9597,5 +9597,6 @@
 	"messages_archived_empty_title": "Keine archivierten Unterhaltungen",
 	"messages_archived_empty_description": "Keine archivierten Unterhaltungen entsprechen diesen Filtern. Entferne die Filter, um zum Posteingang zurückzukehren.",
 	"messages_clear_filters": "Filter entfernen",
-	"workflows_cancelled_history_notice": "Dieser Lauf wurde abgebrochen. Die Schrittzustände unten zeigen den zuletzt gespeicherten Zustand."
+	"workflows_cancelled_history_notice": "Dieser Lauf wurde abgebrochen. Die Schrittzustände unten zeigen den zuletzt gespeicherten Zustand.",
+	"video_editor_beat_none_found": "In diesem Clip wurden keine Beats gefunden."
 }

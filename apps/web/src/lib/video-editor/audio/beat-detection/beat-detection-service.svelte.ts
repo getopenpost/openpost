@@ -151,6 +151,10 @@ export class BeatDetectionService {
 			this.beatFrames = markers.map((marker) => marker.frame);
 			this.beatSourceItemId = item.id;
 			const inserted = addBeatMarkersAtomic(markers);
+			const emptyMessage =
+				markers.length === 0
+					? m.video_editor_beat_none_found()
+					: (m.video_editor_beat_no_new_markers?.() ?? 'No new markers - beats already marked.');
 			this.status = 'success';
 			this.progress = null;
 			this.lastResult = {
@@ -162,7 +166,7 @@ export class BeatDetectionService {
 					inserted > 0
 						? (m.video_editor_beat_success?.({ count: inserted }) ??
 							`Added ${inserted} beat markers.`)
-						: (m.video_editor_beat_no_new_markers?.() ?? 'No new markers - beats already marked.')
+						: emptyMessage
 			};
 			return this.lastResult;
 		} catch (error) {

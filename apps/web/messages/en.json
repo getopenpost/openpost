@@ -9597,5 +9597,6 @@
 	"messages_archived_empty_title": "No archived conversations",
 	"messages_archived_empty_description": "No archived conversations match these filters. Clear the filters to return to your inbox.",
 	"messages_clear_filters": "Clear filters",
-	"workflows_cancelled_history_notice": "This run was cancelled. Step states below show the last recorded state."
+	"workflows_cancelled_history_notice": "This run was cancelled. Step states below show the last recorded state.",
+	"video_editor_beat_none_found": "No beats were found in this clip."
 }

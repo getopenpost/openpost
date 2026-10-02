@@ -9597,5 +9597,6 @@
 	"messages_archived_empty_title": "No hay conversaciones archivadas",
 	"messages_archived_empty_description": "Ninguna conversación archivada coincide con estos filtros. Borra los filtros para volver a tu bandeja de entrada.",
 	"messages_clear_filters": "Borrar filtros",
-	"workflows_cancelled_history_notice": "Esta ejecución se canceló. Los estados de los pasos muestran el último estado registrado."
+	"workflows_cancelled_history_notice": "Esta ejecución se canceló. Los estados de los pasos muestran el último estado registrado.",
+	"video_editor_beat_none_found": "No se encontraron pulsos en este clip."
 }

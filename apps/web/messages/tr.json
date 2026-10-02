@@ -9597,5 +9597,6 @@
 	"messages_archived_empty_title": "Arşivlenmiş konuşma yok",
 	"messages_archived_empty_description": "Bu filtrelerle eşleşen arşivlenmiş konuşma yok. Gelen kutunuza dönmek için filtreleri temizleyin.",
 	"messages_clear_filters": "Filtreleri temizle",
-	"workflows_cancelled_history_notice": "Bu çalıştırma iptal edildi. Aşağıdaki adım durumları son kaydedilen durumu gösterir."
+	"workflows_cancelled_history_notice": "Bu çalıştırma iptal edildi. Aşağıdaki adım durumları son kaydedilen durumu gösterir.",
+	"video_editor_beat_none_found": "Bu klipte vuruş bulunamadı."
 }

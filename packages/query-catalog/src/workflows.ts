@@ -1,3 +1,5 @@
+import type { QueryClient, QueryFunctionContext } from "@tanstack/query-core";
+import { throwIfAborted } from "./caller-abort";
 import type { components } from "@openpost/api-contract";
 import { openPostWorkspaceKey } from "./keys";
 import { openPostQueryPolicy, queryStaleTime } from "./policies";
@@ -37,20 +39,30 @@ export function workflowQueryOptions(api: WorkflowQueryAPI, ws: string, id: stri
   };
 }
 export function workflowRunsQueryOptions(api: WorkflowQueryAPI, ws: string, id = "") {
+  const queryKey = workflowQueryKeys.runs(ws, id);
   return {
     ...openPostQueryPolicy(queryStaleTime),
-    queryKey: workflowQueryKeys.runs(ws, id),
+    queryKey,
     enabled: Boolean(ws),
-    queryFn: ({ signal }: { signal: AbortSignal }) => api.runs(ws, id, signal),
+    queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
+      const runs = await api.runs(ws, id, signal);
+      throwIfAborted(signal);
+      return runs.map((run) => reconcileWorkflowRun(client, ws, run));
+    },
     refetchInterval: 15000,
   };
 }
 export function workflowRunQueryOptions(api: WorkflowQueryAPI, ws: string, id: string) {
+  const queryKey = workflowQueryKeys.run(ws, id);
   return {
     ...openPostQueryPolicy(queryStaleTime),
-    queryKey: workflowQueryKeys.run(ws, id),
+    queryKey,
     enabled: Boolean(ws && id),
-    queryFn: ({ signal }: { signal: AbortSignal }) => api.run(ws, id, signal),
+    queryFn: async ({ client, signal }: QueryFunctionContext<typeof queryKey>) => {
+      const run = await api.run(ws, id, signal);
+      throwIfAborted(signal);
+      return reconcileWorkflowRun(client, ws, run);
+    },
   };
 }
 export function workflowConnectionsQueryOptions(api: WorkflowQueryAPI, ws: string) {
@@ -60,4 +72,34 @@ export function workflowConnectionsQueryOptions(api: WorkflowQueryAPI, ws: strin
     enabled: Boolean(ws),
     queryFn: ({ signal }: { signal: AbortSignal }) => api.connections(ws, signal),
   };
+}
+
+function reconcileWorkflowRun(client: QueryClient, workspaceID: string, incoming: WorkflowRun) {
+  if (incoming.workspace_id !== workspaceID) return incoming;
+  const detailKey = workflowQueryKeys.run(workspaceID, incoming.id);
+  const current = client.getQueryData<WorkflowRun>(detailKey);
+  // Durable state/step writes increment revision. Equal-revision reads remain authoritative, including lease acquisition changing queued to running.
+  const run =
+    current?.workspace_id === workspaceID &&
+    current.workflow_id === incoming.workflow_id &&
+    current.revision > incoming.revision
+      ? current
+      : incoming;
+  client.setQueryData(detailKey, run);
+  for (const key of [
+    workflowQueryKeys.runs(workspaceID),
+    workflowQueryKeys.runs(workspaceID, run.workflow_id),
+  ]) {
+    client.setQueryData<WorkflowRun[]>(key, (runs) =>
+      runs?.map((listed) =>
+        listed.id === run.id &&
+        listed.workspace_id === workspaceID &&
+        listed.workflow_id === run.workflow_id &&
+        listed.revision <= run.revision
+          ? run
+          : listed,
+      ),
+    );
+  }
+  return run;
 }

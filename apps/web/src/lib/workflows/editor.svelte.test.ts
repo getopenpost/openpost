@@ -200,3 +200,40 @@ it.each([{ value: 7 }, { value: null }, { value: [true, 'é', { value: null }] }
 		});
 	}
 );
+
+it.each(
+	[320, 390, 1280].flatMap((width) => ['light', 'dark'].map((scheme) => ({ width, scheme })))
+)(
+	'updates the saved-run card from the selected newer run at $width in $scheme',
+	async ({ width, scheme }) => {
+		await page.viewport(width, 900);
+		document.documentElement.classList.toggle('dark', scheme === 'dark');
+		const queued: Run = { ...run, mode: 'test', state: 'queued', revision: 1 };
+		run = { ...queued, state: 'succeeded', revision: 2 };
+		// SAFETY: The editor reads only the run list and run detail in this case; both fixtures satisfy their declared response shapes.
+		vi.mocked(client.GET).mockImplementation(
+			async (path) =>
+				({ data: path === '/workflow-runs' ? [queued] : run, response: new Response() }) as never
+		);
+		const screen = await render(
+			Editor,
+			{ initial, accounts: [], connections: [] },
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
+		await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+		await screen.getByRole('button', { name: /^Queued/ }).click();
+		await expect.element(screen.getByText('Workflow revision 1 · Test node')).toBeVisible();
+		await expect.element(screen.getByText('Completed', { exact: true }).last()).toBeVisible();
+		if (width === 1280)
+			await expect.element(screen.getByRole('button', { name: /^Completed/ })).toBeVisible();
+		const back = screen.getByRole('main').getByRole('button', { name: 'Runs', exact: true });
+		await back.click();
+		await expect.element(screen.getByRole('button', { name: /^Completed/ })).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: /^Queued/ })).not.toBeInTheDocument();
+		await screen.getByRole('button', { name: /^Completed/ }).click();
+		back.element().focus();
+		await userEvent.keyboard('{Enter}');
+		await expect.element(screen.getByRole('button', { name: /^Completed/ })).toBeVisible();
+		expect(post).not.toHaveBeenCalled();
+	}
+);

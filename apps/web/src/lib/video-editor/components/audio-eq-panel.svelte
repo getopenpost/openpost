@@ -1,6 +1,7 @@
 <script lang="ts">
 	/* oxlint-disable anti-slop/no-known-value-widening, anti-slop/no-unknown-parameters, anti-slop/require-safety-comment-for-type-assertion -- The six typed band definitions map resolved EQ keys to flat persisted timeline keys. */
 	import { Input } from '$lib/components/ui/input';
+	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
@@ -55,6 +56,8 @@
 		title?: string;
 		open?: boolean;
 	} = $props();
+	// Settings refreshes must preserve the user's disclosure state.
+	let expanded = $state(untrack(() => open));
 
 	interface BandDefinition {
 		key: 'band1' | 'low' | 'lowMid' | 'highMid' | 'high' | 'band6';
@@ -343,7 +346,7 @@
 </script>
 
 <details
-	{open}
+	bind:open={expanded}
 	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
 >
 	<summary

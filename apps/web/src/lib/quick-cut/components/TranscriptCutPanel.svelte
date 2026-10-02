@@ -141,6 +141,13 @@
 	<p class="text-xs text-muted-foreground">{m.quick_cut_transcript_hint()}</p>
 	{#if source.audioStreams.length === 0}
 		<p class="text-xs text-muted-foreground" role="status">{m.quick_cut_stream_no_audio()}</p>
+	{:else if source.selectedAudioTrackIndices?.length === 0}
+		<p class="text-xs text-muted-foreground" role="status">
+			{m.quick_cut_transcript_audio_unselected({
+				export: m.quick_cut_export(),
+				tracks: m.quick_cut_tracks()
+			})}
+		</p>
 	{/if}
 	<details open={words.length === 0}>
 		<summary class="cursor-pointer py-1 text-xs font-medium">{m.quick_cut_transcribe()}</summary>

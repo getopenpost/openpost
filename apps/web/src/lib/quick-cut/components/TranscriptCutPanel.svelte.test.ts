@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import TranscriptCutPanel from './TranscriptCutPanel.svelte';
+import StreamSelector from './StreamSelector.svelte';
 import CleanupPanel from './CleanupPanel.svelte';
 import type { QuickCutSource } from '../types';
 import { TranscriptionJob } from '$lib/video-editor/transcript/engine/transcriber';
@@ -221,4 +222,55 @@ test('does not report an empty successful result after transcription is cancelle
 	} finally {
 		collect.mockRestore();
 	}
+});
+
+test('explains audio deselection and clears the guidance when a source track is enabled again', async () => {
+	let input = {
+		...source,
+		file: new File(['owned fixture'], 'interview.mp4', { type: 'video/mp4' }),
+		transcript: undefined
+	};
+	const panel = await render(TranscriptCutPanel, {
+		source: input,
+		segments: [],
+		currentTime: 0,
+		onsave: vi.fn(),
+		onseek: vi.fn(),
+		onremove: vi.fn()
+	});
+	const selector = await render(StreamSelector, {
+		source: input,
+		onChange: async (patch) => {
+			input = { ...input, ...patch };
+			await selector.rerender({ source: input });
+			await panel.rerender({ source: input });
+		}
+	});
+	const audio = selector.getByRole('checkbox', { name: 'Audio 1 Interview.mp4', exact: true });
+	await expect
+		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }))
+		.toBeEnabled();
+	audio.element().focus();
+	await userEvent.keyboard(' ');
+	await expect
+		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }))
+		.toBeDisabled();
+	await expect
+		.element(panel.getByRole('status'))
+		.toHaveTextContent(
+			'No source audio is selected. Enable an audio track under Export → Video and audio tracks to create a transcript.'
+		);
+	await expect.element(audio).toHaveFocus();
+	await userEvent.keyboard(' ');
+	await expect
+		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }))
+		.toBeEnabled();
+	await expect
+		.element(
+			panel.getByText(
+				'No source audio is selected. Enable an audio track under Export → Video and audio tracks to create a transcript.',
+				{ exact: true }
+			)
+		)
+		.not.toBeInTheDocument();
 });

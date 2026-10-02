@@ -9028,6 +9028,7 @@
 	"quick_cut_keep_selection": "選択部分を残す",
 	"quick_cut_transcript_hint": "単語を選択して動画から削除します。Shiftキーを押しながらクリックするとフレーズを選択できます。字幕は追加されません。",
 	"quick_cut_transcript_no_speech": "この音声から話し声が見つかりませんでした。言語を確認するか、話し声のある音声を選んで、もう一度試してください。",
+	"quick_cut_transcript_audio_unselected": "元の音声が選択されていません。文字起こしを作成するには、{export} → {tracks} で音声トラックを有効にしてください。",
 	"quick_cut_remove_words": "{count}語を削除",
 	"quick_cut_transcribe": "文字起こしを作成",
 	"quick_cut_breathing_room": "発話の前後に残す時間 (ms)",

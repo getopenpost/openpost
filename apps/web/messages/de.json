@@ -9028,6 +9028,7 @@
 	"quick_cut_keep_selection": "Auswahl behalten",
 	"quick_cut_transcript_hint": "Wähle Wörter aus, um sie aus dem Video zu entfernen. Wähle mit Umschalt und Klick einen Satz aus. Es werden keine Untertitel hinzugefügt.",
 	"quick_cut_transcript_no_speech": "In dieser Audiospur wurde keine Sprache gefunden. Prüfe die Sprache oder wähle Audio mit Sprache und versuche es erneut.",
+	"quick_cut_transcript_audio_unselected": "Es ist kein Quellaudio ausgewählt. Aktiviere unter {export} → {tracks} eine Audiospur, um ein Transkript zu erstellen.",
 	"quick_cut_remove_words": "{count} Wörter entfernen",
 	"quick_cut_transcribe": "Transkript erstellen",
 	"quick_cut_breathing_room": "Puffer um Sprache (ms)",

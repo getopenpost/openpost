@@ -9028,6 +9028,7 @@
 	"quick_cut_keep_selection": "保留所选部分",
 	"quick_cut_transcript_hint": "选择单词即可从视频中删除。按住 Shift 点击可选择短语。不会添加字幕。",
 	"quick_cut_transcript_no_speech": "此音频中未找到语音。请检查语言或选择包含语音的音频，然后重试。",
+	"quick_cut_transcript_audio_unselected": "未选择源音频。请在 {export} → {tracks} 中启用音轨以创建转录。",
 	"quick_cut_remove_words": "删除 {count} 个词",
 	"quick_cut_transcribe": "创建转录",
 	"quick_cut_breathing_room": "语音前后保留时间 (ms)",

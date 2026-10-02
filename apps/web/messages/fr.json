@@ -9028,6 +9028,7 @@
 	"quick_cut_keep_selection": "Garder la sélection",
 	"quick_cut_transcript_hint": "Sélectionnez des mots pour les supprimer de la vidéo. Maintenez Maj et cliquez pour sélectionner une phrase. Aucun sous-titre n’est ajouté.",
 	"quick_cut_transcript_no_speech": "Aucune parole n’a été trouvée dans cet audio. Vérifiez la langue ou choisissez un audio contenant des paroles, puis réessayez.",
+	"quick_cut_transcript_audio_unselected": "Aucun audio source n’est sélectionné. Activez une piste audio dans {export} → {tracks} pour créer une transcription.",
 	"quick_cut_remove_words": "Supprimer {count} mots",
 	"quick_cut_transcribe": "Créer une transcription",
 	"quick_cut_breathing_room": "Garder autour de la parole (ms)",

@@ -223,6 +223,58 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 			}]}]
 		}`
 		joined := create(t, joinedBody)
+		mixedRepeatedBody := strings.Replace(joinedBody, `"media_id":"media-continuation"`, `"media_id":"media-custom","alt_text":"Later inherited image","settings":{"audit":"later"}`, 1)
+		mixedRepeatedBody = strings.Replace(mixedRepeatedBody, `"alt_text":"Custom source image"`, `"alt_text":"Custom source image","settings":{"audit":"first"}`, 1)
+		inheritedRepeatedBody := strings.Replace(joinedBody, `"media_id":"media-continuation"`, `"media_id":"media-first","alt_text":"Later inherited image","settings":{"audit":"later"}`, 1)
+		inheritedRepeatedBody = strings.Replace(inheritedRepeatedBody, `"media_id":"media-first"`, `"media_id":"media-first","alt_text":"Canonical first image","settings":{"audit":"first"}`, 1)
+		inheritedRepeatedBody = strings.Replace(inheritedRepeatedBody, `"body_override":"Independent first","media_inherited":false,"media":[{"media_id":"media-custom","alt_text":"Custom source image"}]`, `"body_override":"Independent first","media_inherited":true`, 1)
+		for _, repeated := range []struct {
+			name, body, mediaID, altText string
+			inherited                    bool
+		}{
+			{"mixed repeated media", mixedRepeatedBody, "media-custom", "Custom source image", false},
+			{"inherited repeated media", inheritedRepeatedBody, "media-first", "Canonical first image", true},
+			{"all inherited repeated media", strings.Replace(inheritedRepeatedBody, `"body_override":"","media_inherited":false,"media":[]`, `"body_override":"","media_inherited":true`, 1), "media-first", "Canonical first image", true},
+		} {
+			t.Run(repeated.name, func(t *testing.T) {
+				post := create(t, repeated.body)
+				require.Len(t, post.Segments[0].Media, 1)
+				require.Len(t, post.Segments[1].Media, 1)
+				output := post.Renditions[0].Segments[0]
+				require.Len(t, output.Media, 1)
+				require.Equal(t, repeated.mediaID, output.Media[0].ID)
+				require.Equal(t, repeated.altText, output.Media[0].AltText)
+				require.Equal(t, "first", output.Media[0].Settings["audit"])
+				require.Len(t, output.SourceOverrides, 3)
+				require.Equal(t, repeated.inherited, output.SourceOverrides[0].MediaInherited)
+				if !repeated.inherited {
+					require.Equal(t, repeated.mediaID, output.SourceOverrides[0].Media[0].MediaID)
+				}
+				sources := []map[string]any{
+					{"id": post.Segments[0].ID, "body": "Changed first", "media": []map[string]any{{"media_id": "media-first", "alt_text": repeated.altText, "settings": map[string]any{"audit": "first"}}}},
+					{"id": post.Segments[1].ID, "body": "Changed second", "media": []map[string]any{{"media_id": repeated.mediaID, "alt_text": "Later replacement image", "settings": map[string]any{"audit": "later"}}}},
+					{"id": post.Segments[2].ID, "body": "Omitted", "media": []map[string]any{}},
+				}
+				payload, err := json.Marshal(map[string]any{"expected_revision": post.Revision, "segments": sources})
+				require.NoError(t, err)
+				req := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/publications/"+post.ID, bytes.NewReader(payload))
+				req.Header.Set("Authorization", "Bearer web-token")
+				req.Header.Set("Content-Type", "application/json")
+				rec := httptest.NewRecorder()
+				e.ServeHTTP(rec, req)
+				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+				var updated PublicationResponse
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &updated))
+				require.Len(t, updated.Segments[0].Media, 1)
+				require.Len(t, updated.Segments[1].Media, 1)
+				output = updated.Renditions[0].Segments[0]
+				require.Len(t, output.Media, 1)
+				require.Equal(t, repeated.mediaID, output.Media[0].ID)
+				require.Equal(t, repeated.altText, output.Media[0].AltText)
+				require.Equal(t, "first", output.Media[0].Settings["audit"])
+				require.Len(t, output.SourceOverrides, 3)
+			})
+		}
 		require.Len(t, joined.Renditions[0].Segments, 1)
 		segment := joined.Renditions[0].Segments[0]
 		require.Equal(t, "Independent first\n\nInherited continuation", segment.Body)

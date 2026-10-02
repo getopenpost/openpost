@@ -131,7 +131,21 @@ func projectJoinedSourceOverrides(input RenditionSegmentInput, canonical []model
 	body := strings.Join(bodies, "\n\n")
 	input.Body = body
 	input.BodyOverride = &body
-	input.Media = media
+	input.Media = uniqueJoinedMedia(media)
 	input.MediaInherited = &inherited
 	return input
+}
+
+// One output attaches a media ID once; its first authored source owns item settings.
+func uniqueJoinedMedia(media []PublicationMediaInput) []PublicationMediaInput {
+	out := make([]PublicationMediaInput, 0, len(media))
+	seen := make(map[string]bool, len(media))
+	for _, item := range media {
+		if seen[item.MediaID] {
+			continue
+		}
+		seen[item.MediaID] = true
+		out = append(out, item)
+	}
+	return out
 }

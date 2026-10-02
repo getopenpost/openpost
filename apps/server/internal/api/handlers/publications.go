@@ -2020,10 +2020,7 @@ func (h *PublicationHandler) insertRenditionSegments(
 			canonicalMedia = canonicalInputs[position].Media
 		}
 		if len(input.SourceOverrides) > 0 {
-			canonicalMedia = nil
-			for _, source := range canonicalInputs {
-				canonicalMedia = append(canonicalMedia, source.Media...)
-			}
+			canonicalMedia = input.Media
 		}
 		mediaInherited := input.MediaInherited == nil && (len(mediaInputs) == 0 || publicationMediaInputsEqual(mediaInputs, canonicalMedia))
 		if input.MediaInherited != nil {

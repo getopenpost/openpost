@@ -418,6 +418,10 @@ func (h *PublicationHandler) deleteRenditionTx(
 	if len(renditions) > 1 {
 		return false, huma.Error409Conflict("target_key is required when an account has multiple publication destinations")
 	}
+	before, err := h.loadPublicationRevisionResponseTx(ctx, tx, current)
+	if err != nil {
+		return false, err
+	}
 	renditionIDs := []string{renditions[0].ID}
 	if err := h.cancelPendingReplyJobsForDeletedTargetsTx(ctx, tx, publicationID, renditionIDs); err != nil {
 		return false, err
@@ -430,13 +434,14 @@ func (h *PublicationHandler) deleteRenditionTx(
 	if err != nil || count == 0 {
 		return false, err
 	}
-	return true, h.recordRenditionDeletionTx(ctx, tx, current, input.ExpectedRevision, userID)
+	return true, h.recordRenditionDeletionTx(ctx, tx, current, before, input.ExpectedRevision, userID)
 }
 
 func (h *PublicationHandler) recordRenditionDeletionTx(
 	ctx context.Context,
 	tx bun.Tx,
 	current *models.Publication,
+	before publicationRevisionSnapshot,
 	expectedRevision int,
 	userID string,
 ) error {
@@ -449,7 +454,11 @@ func (h *PublicationHandler) recordRenditionDeletionTx(
 	}
 	current.Revision = nextRevision
 	current.UpdatedAt = now
-	fields := []string{"destinations", "destination overrides", "media"}
+	after, err := h.loadPublicationRevisionResponseTx(ctx, tx, current)
+	if err != nil {
+		return err
+	}
+	fields := publicationservice.ChangedAuthoredDomains(before.authored, after.authored)
 	if err := h.syncTextPostRevisionsTx(ctx, tx, current.ID, expectedRevision, nextRevision, fields, userID, now); err != nil {
 		return err
 	}
@@ -746,38 +755,6 @@ func applyPublicationFieldUpdates(publication *models.Publication, input Publica
 	}
 }
 
-//nolint:gocyclo
-func publicationChangedDomains(input PublicationUpdateBody) []string {
-	var domains []string
-	if input.Title != nil || input.Intent != nil || input.CreationPreset != nil || input.ContentProfile != nil ||
-		input.SourceText != nil || input.SourceURL != nil || input.Goal != nil ||
-		input.Audience != nil || input.Segments != nil {
-		domains = append(domains, "content")
-	}
-	if input.Segments != nil {
-		domains = append(domains, "segments", "media")
-	}
-	if input.Renditions != nil {
-		domains = append(domains, "destinations", "destination overrides", "media")
-	}
-	if input.SocialSetID != nil {
-		domains = append(domains, "destinations")
-	}
-	if input.ScheduledAt != nil || input.ClearSchedule || input.RandomDelayMinutes != nil || input.InheritRandomDelay {
-		domains = append(domains, "schedule")
-	}
-	if input.Metadata != nil {
-		domains = append(domains, "settings")
-	}
-	if input.RepostOverride != nil {
-		domains = append(domains, "repost automation")
-	}
-	if len(domains) == 0 {
-		domains = append(domains, "draft")
-	}
-	return drafts.UniqueDomains(domains)
-}
-
 func (h *PublicationHandler) publicationRevisionConflict(
 	ctx context.Context,
 	db bun.IDB,
@@ -955,6 +932,11 @@ func (h *PublicationHandler) upsertRenditionsTx(
 	if publication.Revision != expectedRevision {
 		return PublicationResponse{}, h.publicationRevisionConflict(ctx, tx, publication, expectedRevision)
 	}
+	response, err := h.loadPublicationRevisionResponseTx(ctx, tx, publication)
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	before := response
 	if len(renditions) > 0 {
 		positions, err := renditionUpsertPositionsTx(ctx, tx, publication.ID, renditions, accountMap)
 		if err != nil {
@@ -999,7 +981,11 @@ func (h *PublicationHandler) upsertRenditionsTx(
 		}
 		publication.Revision = nextRevision
 		publication.UpdatedAt = now
-		changedDomains := []string{"destinations", "destination overrides", "media"}
+		response, err = h.loadPublicationRevisionResponseTx(ctx, tx, publication)
+		if err != nil {
+			return PublicationResponse{}, err
+		}
+		changedDomains := publicationservice.ChangedAuthoredDomains(before.authored, response.authored)
 		if err := h.syncTextPostRevisionsTx(ctx, tx, publication.ID, expectedRevision, nextRevision, changedDomains, userID, now); err != nil {
 			return PublicationResponse{}, err
 		}
@@ -1007,14 +993,7 @@ func (h *PublicationHandler) upsertRenditionsTx(
 			return PublicationResponse{}, err
 		}
 	}
-	responses, err := h.loadPublicationResponsesWithDB(ctx, tx, []models.Publication{*publication})
-	if err != nil {
-		return PublicationResponse{}, err
-	}
-	if len(responses) != 1 {
-		return PublicationResponse{}, errors.New("failed to load updated publication")
-	}
-	return responses[0], nil
+	return response.response, nil
 }
 
 func (h *PublicationHandler) validatePublication(api huma.API) {

@@ -217,3 +217,19 @@ func ResolveJoined(sources []map[string]any, accountID, provider, outputProfile,
 	}
 	return body, settings, nil
 }
+
+// AuthoredDestinationSettings removes fields generated from a canonical poll.
+// Legacy destination polls retain their own authored provider fields.
+func AuthoredDestinationSettings(source map[string]any, accountID string, settings map[string]any) map[string]any {
+	draft, err := Decode(source)
+	if err != nil || draft == nil || draft.Destinations[accountID].Mode == ModeLegacy {
+		return settings
+	}
+	values := maps.Clone(settings)
+	for key := range values {
+		if strings.HasPrefix(key, "poll_") {
+			delete(values, key)
+		}
+	}
+	return values
+}

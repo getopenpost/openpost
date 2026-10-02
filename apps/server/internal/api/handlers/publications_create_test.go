@@ -223,6 +223,36 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 			}]}]
 		}`
 		joined := create(t, joinedBody)
+		originalRenditionID := joined.Renditions[0].ID
+		unchangedPayload, err := json.Marshal(map[string]any{
+			"expected_revision": joined.Revision,
+			"renditions":        []map[string]any{{"social_account_id": "joined-account", "output_profile": joined.Renditions[0].OutputProfile, "format_locked": joined.Renditions[0].FormatLocked, "settings": joined.Renditions[0].Settings, "segments": []map[string]any{{"publication_segment_id": joined.Segments[0].ID, "source_overrides": joined.Renditions[0].Segments[0].SourceOverrides}}}},
+		})
+		require.NoError(t, err)
+		unchangedRequest := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/publications/"+joined.ID, bytes.NewReader(unchangedPayload))
+		unchangedRequest.Header.Set("Authorization", "Bearer web-token")
+		unchangedRequest.Header.Set("Content-Type", "application/json")
+		unchangedResponse := httptest.NewRecorder()
+		e.ServeHTTP(unchangedResponse, unchangedRequest)
+		require.Equal(t, http.StatusOK, unchangedResponse.Code, unchangedResponse.Body.String())
+		require.NoError(t, json.Unmarshal(unchangedResponse.Body.Bytes(), &joined))
+		require.NotEqual(t, originalRenditionID, joined.Renditions[0].ID)
+		unchangedHistoryRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/publications/"+joined.ID+"/events", nil)
+		unchangedHistoryRequest.Header.Set("Authorization", "Bearer web-token")
+		unchangedHistoryResponse := httptest.NewRecorder()
+		e.ServeHTTP(unchangedHistoryResponse, unchangedHistoryRequest)
+		require.Equal(t, http.StatusOK, unchangedHistoryResponse.Code, unchangedHistoryResponse.Body.String())
+		var unchangedEvents []PublicationLifecycleEventResponse
+		require.NoError(t, json.Unmarshal(unchangedHistoryResponse.Body.Bytes(), &unchangedEvents))
+		unchangedRevisionFound := false
+		for _, event := range unchangedEvents {
+			if event.Revision == joined.Revision {
+				unchangedRevisionFound = true
+				require.Empty(t, event.ChangedDomains)
+				break
+			}
+		}
+		require.True(t, unchangedRevisionFound)
 		mixedRepeatedBody := strings.Replace(joinedBody, `"media_id":"media-continuation"`, `"media_id":"media-custom","alt_text":"Later inherited image","settings":{"audit":"later"}`, 1)
 		mixedRepeatedBody = strings.Replace(mixedRepeatedBody, `"alt_text":"Custom source image"`, `"alt_text":"Custom source image","settings":{"audit":"first"}`, 1)
 		inheritedRepeatedBody := strings.Replace(joinedBody, `"media_id":"media-continuation"`, `"media_id":"media-first","alt_text":"Later inherited image","settings":{"audit":"later"}`, 1)
@@ -302,6 +332,22 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var edited PublicationResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &edited))
+		historyRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/publications/"+joined.ID+"/events", nil)
+		historyRequest.Header.Set("Authorization", "Bearer web-token")
+		historyResponse := httptest.NewRecorder()
+		e.ServeHTTP(historyResponse, historyRequest)
+		require.Equal(t, http.StatusOK, historyResponse.Code, historyResponse.Body.String())
+		var events []PublicationLifecycleEventResponse
+		require.NoError(t, json.Unmarshal(historyResponse.Body.Bytes(), &events))
+		foundRevision := false
+		for _, event := range events {
+			if event.Revision == edited.Revision {
+				foundRevision = true
+				require.Equal(t, []string{"content", "media"}, event.ChangedDomains)
+				break
+			}
+		}
+		require.True(t, foundRevision, "updated revision is exposed through public history")
 		require.Equal(t, "Independent first\n\nChanged continuation", edited.Renditions[0].Segments[0].Body)
 		require.Equal(t, "Independent first\n\nChanged continuation", *edited.Renditions[0].Segments[0].BodyOverride)
 		require.Len(t, edited.Renditions[0].Segments, 1)

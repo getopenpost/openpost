@@ -136,9 +136,10 @@ it('isolates persisted transcripts by account and Workspace and keeps local fold
 	const folder = await root.getDirectoryHandle(folderName, { create: true });
 	const storage = captureSourceTranscriptStorage(workspace);
 	let activeWorkspace = workspace;
+	const transcribe = vi.fn(async () => [{ text: 'New scope', startSeconds: 0.1, endSeconds: 0.6 }]);
 	const service = new TranscriptionService({
-		resolveSource: vi.fn(),
-		transcribe: vi.fn(),
+		resolveSource: async () => new Blob(['wave']),
+		transcribe,
 		getSourceTranscript,
 		saveSourceTranscript,
 		deleteSourceTranscript,
@@ -151,6 +152,26 @@ it('isolates persisted transcripts by account and Workspace and keeps local fold
 		await saveSourceTranscript({ ...input, storage });
 		expect((await service.hydrateSourceTranscript(media.id))?.words).toEqual(words);
 		activeWorkspace = crypto.randomUUID();
+		timelineStore._setTracks(createBlankProject('Scope').timeline!.tracks);
+		timelineStore._setItems([
+			{
+				id: 'clip',
+				type: 'audio',
+				mediaId: media.id,
+				label: 'Speech',
+				trackId: 'track-audio',
+				from: 0,
+				durationInFrames: 60,
+				sourceStart: 0,
+				sourceEnd: 60,
+				sourceFps: 30
+			}
+		]);
+		const newCaption = await service.enqueue('clip', selection);
+		expect(timelineStore.itemById.get(newCaption.subtitleItemId)?.cues?.[0]?.text).toBe(
+			'New scope'
+		);
+		expect(transcribe).toHaveBeenCalledTimes(1);
 		expect(await service.hydrateSourceTranscript(media.id)).toBeNull();
 		activeWorkspace = workspace;
 		expect((await service.hydrateSourceTranscript(media.id))?.words).toEqual(words);
@@ -339,5 +360,53 @@ it('runs Generate transcript from the Cloud Media menu and retains it after remo
 		await transcripts.removeEntry(actor, { recursive: true });
 		dispose();
 		setWorkspaceRoot(previous);
+	}
+});
+
+it('admits a new same-media source job after switching Workspace without a hydration step', async () => {
+	const actor = crypto.randomUUID();
+	let workspace = crypto.randomUUID();
+	const previousWorkspace = workspace;
+	const dispose = registerQueryAuthorizationBoundary({
+		captureIdentity: () => ({ userID: actor, epoch: 1 }),
+		isIdentityCurrent: (identity) => identity?.userID === actor,
+		settleUnauthorized: () => {}
+	});
+	const firstEngine = Promise.withResolvers<typeof words>();
+	const transcribe = vi
+		.fn()
+		.mockImplementationOnce(() => firstEngine.promise)
+		.mockResolvedValueOnce([{ text: 'New Workspace', startSeconds: 0.2, endSeconds: 0.8 }]);
+	const service = new TranscriptionService({
+		resolveSource: async () => new Blob(['wave']),
+		transcribe,
+		getSourceTranscript,
+		saveSourceTranscript,
+		deleteSourceTranscript,
+		getStorage: () => captureSourceTranscriptStorage(workspace)
+	});
+	mediaPool.upsert(media, 'ready');
+	const first = service.enqueueMedia(media.id, selection);
+	const firstOutcome = first.catch((error: Error) => error);
+	try {
+		await expect.poll(() => transcribe.mock.calls.length).toBe(1);
+		workspace = crypto.randomUUID();
+		const second = service.enqueueMedia(media.id, selection);
+		expect(second).not.toBe(first);
+		expect(await firstOutcome).toMatchObject({ name: 'AbortError' });
+		expect((await second).words[0]?.text).toBe('New Workspace');
+		firstEngine.resolve(words);
+		expect((await service.hydrateSourceTranscript(media.id))?.words[0]?.text).toBe('New Workspace');
+		expect(
+			await getSourceTranscript(media.id, captureSourceTranscriptStorage(previousWorkspace))
+		).toBeNull();
+		expect(transcribe).toHaveBeenCalledTimes(2);
+	} finally {
+		firstEngine.resolve(words);
+		service.reset();
+		const root = await navigator.storage.getDirectory();
+		const transcripts = await root.getDirectoryHandle('openpost-source-transcripts');
+		await transcripts.removeEntry(actor, { recursive: true });
+		dispose();
 	}
 });

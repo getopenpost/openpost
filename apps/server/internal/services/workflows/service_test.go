@@ -631,5 +631,4 @@ func TestFilterDistinguishesNullFromMissingThroughSavedExecution(t *testing.T) {
 		require.Equal(t, StateSucceeded, result.State, result.Error)
 		require.Equal(t, true, result.Steps[0].Output["matched"])
 	})
-
 }

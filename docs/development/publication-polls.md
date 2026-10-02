@@ -43,6 +43,8 @@ Native validation uses the provider catalogue, then account-resolved constraints
 
 Each thread segment owns its poll. A destination that joins a thread may use explicit text or omit choices. It cannot carry native, custom or legacy polls across the join. Joined text versions append poll blocks in source order after the combined body. The preview follows the same order. The composer blocks conversion to one post when later segments contain shared polls, preserving their content for an explicit decision.
 
+Resolved capabilities include segment-scoped fields applicable to any effective post in a preserved thread. The composer and validation still check media on the poll's own post. Media on another post cannot hide its native poll fields. Joined outputs use their combined media shape; Social Set presets retain only fields common to every supported shape.
+
 Removing the shared poll clears only generated poll text and settings. Independent legacy settings remain with their destination.
 
 ## Verification
@@ -52,3 +54,4 @@ Removing the shared poll clears only generated poll text and settings. Independe
 - `linkedin_test.go` checks the outgoing poll payload, question, commas and duration aliases.
 - `compose-preview.test.ts` checks per-segment options and comma preservation.
 - `tests/app/composer-polls.spec.ts` checks editing, saving, reopening and editable text versions in both schemes at desktop, 390px and 320px. Provider readiness is a fixture; persistence uses the real API. It does not post to social networks.
+- `capability_destination_media_test.go` checks the real resolver's mixed thread fields, account limits, joined outputs and all-media exclusions. `tests/app/composer-thread-poll-media.spec.ts` checks real capability resolution, thread authoring, persisted poll projection, cold reopening and same-post media refusal. Synthetic credentials cannot publish.

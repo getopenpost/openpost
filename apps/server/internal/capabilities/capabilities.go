@@ -753,9 +753,11 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 		message := fmt.Sprintf("Choose how this content should be published on %s", providerDisplayName(provider))
 		issues = append(issues, validationIssue("format_selection_required", message, provider, selected.Profile, "output_profile"))
 	}
+	segmentStrategy := destinationSegmentStrategy(*selected, len(input.Segments))
+	effectiveSegments := destinationSegments(input.Segments, segmentStrategy)
 	activeSettings := make([]SettingDefinition, 0, len(selected.Settings))
 	for _, setting := range selected.Settings {
-		if settingApplies(setting, intent, selected.OutputProfile, shape) {
+		if resolvedSettingApplies(setting, intent, selected.OutputProfile, shape, input, effectiveSegments) {
 			activeSettings = append(activeSettings, setting)
 		}
 	}
@@ -764,8 +766,6 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 	}
 	selected.Settings = activeSettings
 	effectiveSettings := NormalizeResolvedSettings(provider, selected.Profile, input.Settings)
-	segmentStrategy := destinationSegmentStrategy(*selected, len(input.Segments))
-	effectiveSegments := destinationSegments(input.Segments, segmentStrategy)
 	for _, segment := range effectiveSegments {
 		segmentIssues := validateCapability(
 			*selected,
@@ -801,6 +801,21 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 		SettingGroups: groupSettings(activeSettings),
 		Issues:        issues,
 	}
+}
+
+func resolvedSettingApplies(setting SettingDefinition, intent, outputProfile, shape string, input ResolveInput, segments []ResolveSegment) bool {
+	if setting.Scope != SettingScopeSegment || input.Context == ResolveContextSocialSetDefaults || len(segments) == 0 {
+		return settingApplies(setting, intent, outputProfile, shape)
+	}
+	// Preserved posts own their media independently. Joined destinations have
+	// one effective segment, so its combined media still determines eligibility.
+	preset := normalizeIntent(firstNonEmptyCapability(input.CreationPreset, input.Intent))
+	for _, segment := range segments {
+		if settingApplies(setting, intent, outputProfile, intendedMediaShape(preset, resolveMediaShape([]ResolveSegment{segment}, input.SourceURL))) {
+			return true
+		}
+	}
+	return false
 }
 
 func commonDefaultSettings(catalog []Capability, provider, outputProfile string, selected []SettingDefinition) []SettingDefinition {

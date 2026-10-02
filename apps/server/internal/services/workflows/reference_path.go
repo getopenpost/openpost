@@ -15,17 +15,7 @@ var referencePart = regexp.MustCompile(`^(?:([a-zA-Z][a-zA-Z0-9_-]*)|\.([a-zA-Z0
 
 func referenceParts(reference string) ([]string, error) {
 	if !referenceSyntax.MatchString(reference) {
-		// Older whole-value references allowed raw property names after dots.
-		parts := strings.Split(reference, ".")
-		if len(parts) < 2 || len(parts) > 8 || !stepIDPattern.MatchString(parts[0]) {
-			return nil, invalid("invalid field reference")
-		}
-		for _, part := range parts {
-			if part == "" || part == "__proto__" || part == "constructor" || part == "prototype" {
-				return nil, invalid("invalid field reference")
-			}
-		}
-		return parts, nil
+		return legacyReferenceParts(reference)
 	}
 	var parts []string
 	for rest := reference; rest != ""; {
@@ -53,6 +43,20 @@ func referenceParts(reference string) ([]string, error) {
 	}
 	if len(parts) > 8 {
 		return nil, fmt.Errorf("%w: field reference exceeds eight components", ErrInvalid)
+	}
+	return parts, nil
+}
+
+func legacyReferenceParts(reference string) ([]string, error) {
+	// Older whole-value references allowed raw property names after dots.
+	parts := strings.Split(reference, ".")
+	if len(parts) < 2 || len(parts) > 8 || !stepIDPattern.MatchString(parts[0]) {
+		return nil, invalid("invalid field reference")
+	}
+	for _, part := range parts {
+		if part == "" || part == "__proto__" || part == "constructor" || part == "prototype" {
+			return nil, invalid("invalid field reference")
+		}
 	}
 	return parts, nil
 }

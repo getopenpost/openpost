@@ -8060,6 +8060,7 @@
 	"video_editor_audio_effects_add_placeholder": "Add effect…",
 	"video_editor_audio_effects_add_aria": "Add audio effect",
 	"video_editor_audio_effects_reset": "Reset",
+	"video_editor_audio_effects_clear": "Clear effects",
 	"video_editor_audio_effects_reorder": "Reorder {name}",
 	"video_editor_audio_effects_empty": "Add compressor, pan, reverb, delay, chorus, flanger, or distortion. Effects run in order and apply to preview and export.",
 	"video_editor_audio_effects_rack_aria": "Audio effect rack",

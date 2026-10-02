@@ -71,7 +71,7 @@
 		);
 	}
 
-	function resetAll(): void {
+	function clearAll(): void {
 		commit([]);
 	}
 
@@ -174,7 +174,7 @@
 					size="sm"
 					variant="ghost"
 					class="h-[25px] px-2 text-xs"
-					onclick={resetAll}>{m.video_editor_audio_effects_reset()}</Button
+					onclick={clearAll}>{m.video_editor_audio_effects_clear()}</Button
 				>
 			{/if}
 		</div>

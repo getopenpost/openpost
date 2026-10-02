@@ -8024,6 +8024,7 @@
 	"video_editor_audio_effects_add_placeholder": "효과 추가…",
 	"video_editor_audio_effects_add_aria": "오디오 효과 추가",
 	"video_editor_audio_effects_reset": "초기화",
+	"video_editor_audio_effects_clear": "효과 지우기",
 	"video_editor_audio_effects_reorder": "{name} 순서 변경",
 	"video_editor_audio_effects_empty": "컴프레서, 팬, 리버브, 딜레이, 코러스, 플랜저 또는 디스토션을 추가하세요. 효과는 순서대로 미리보기와 내보내기에 적용됩니다.",
 	"video_editor_audio_effects_rack_aria": "오디오 효과 랙",

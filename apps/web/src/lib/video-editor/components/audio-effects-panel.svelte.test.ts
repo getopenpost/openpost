@@ -21,7 +21,7 @@ function fixture() {
 			trackId: 'track-audio-main',
 			from: 0,
 			durationInFrames: 240,
-			volume: -3,
+			volume: 1,
 			audioEffects: [
 				{ ...createDefaultAudioEffect('pan', 'pan'), type: 'pan', pan: -0.05, enabled: false },
 				createDefaultAudioEffect('compressor', 'compressor'),
@@ -140,4 +140,26 @@ it('does not steal later focus when a handle drop commits', async () => {
 	await expect
 		.element(screen.getByRole('button', { name: 'Elsewhere', exact: true }))
 		.toHaveFocus();
+});
+it('distinguishes default reset from clearing the rack and persists clear history', async () => {
+	const project = fixture();
+	const screen = await render(Fixture);
+	const original = JSON.parse(JSON.stringify(timelineStore.itemById.get('audio')!.audioEffects));
+	await screen.getByRole('button', { name: 'Reset Pan', exact: true }).click();
+	expect(timelineStore.itemById.get('audio')!.audioEffects?.[0]).toMatchObject({
+		id: 'pan',
+		pan: 0,
+		enabled: false
+	});
+	expect(order()).toEqual(['pan', 'compressor', 'delay']);
+	commandHistory.undo();
+	await screen.getByRole('button', { name: 'Clear effects', exact: true }).click();
+	expect(order()).toBeUndefined();
+	expect(timelineStore.itemById.get('audio')!.volume).toBe(1);
+	expect(commandHistory.undoStack).toHaveLength(1);
+	commandHistory.undo();
+	expect(timelineStore.itemById.get('audio')!.audioEffects).toEqual(original);
+	commandHistory.redo();
+	await reopen(project);
+	expect(order()).toBeUndefined();
 });

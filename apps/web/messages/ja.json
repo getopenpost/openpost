@@ -8024,6 +8024,7 @@
 	"video_editor_audio_effects_add_placeholder": "エフェクトを追加…",
 	"video_editor_audio_effects_add_aria": "オーディオエフェクトを追加",
 	"video_editor_audio_effects_reset": "リセット",
+	"video_editor_audio_effects_clear": "エフェクトを消去",
 	"video_editor_audio_effects_reorder": "{name}を並べ替える",
 	"video_editor_audio_effects_empty": "コンプレッサー、パン、リバーブ、ディレイ、コーラス、フランジャー、ディストーションを追加します。エフェクトは順番にプレビューと書き出しに適用されます。",
 	"video_editor_audio_effects_rack_aria": "オーディオエフェクトラック",

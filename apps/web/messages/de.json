@@ -8019,6 +8019,7 @@
 	"video_editor_audio_effects_add_placeholder": "Effekt hinzufügen…",
 	"video_editor_audio_effects_add_aria": "Audioeffekt hinzufügen",
 	"video_editor_audio_effects_reset": "Zurücksetzen",
+	"video_editor_audio_effects_clear": "Effekte löschen",
 	"video_editor_audio_effects_reorder": "{name} neu anordnen",
 	"video_editor_audio_effects_empty": "Füge Kompressor, Panorama, Reverb, Delay, Chorus, Flanger oder Distortion hinzu. Effekte laufen in Reihenfolge und gelten für Vorschau und Export.",
 	"video_editor_audio_effects_rack_aria": "Audioeffekt-Rack",

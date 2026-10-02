@@ -8024,6 +8024,7 @@
 	"video_editor_audio_effects_add_placeholder": "Añadir efecto…",
 	"video_editor_audio_effects_add_aria": "Añadir efecto de audio",
 	"video_editor_audio_effects_reset": "Restablecer",
+	"video_editor_audio_effects_clear": "Borrar efectos",
 	"video_editor_audio_effects_reorder": "Reordenar {name}",
 	"video_editor_audio_effects_empty": "Añade compresor, panorama, reverberación, retardo, coro, flanger o distorsión. Los efectos se aplican en orden a la vista previa y la exportación.",
 	"video_editor_audio_effects_rack_aria": "Rack de efectos de audio",

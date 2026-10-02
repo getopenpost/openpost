@@ -8024,6 +8024,7 @@
 	"video_editor_audio_effects_add_placeholder": "添加效果…",
 	"video_editor_audio_effects_add_aria": "添加音频效果",
 	"video_editor_audio_effects_reset": "重置",
+	"video_editor_audio_effects_clear": "清除效果",
 	"video_editor_audio_effects_reorder": "重新排序{name}",
 	"video_editor_audio_effects_empty": "添加压缩器、声像、混响、延迟、合唱、镶边或失真。效果按顺序应用于预览和导出。",
 	"video_editor_audio_effects_rack_aria": "音频效果机架",

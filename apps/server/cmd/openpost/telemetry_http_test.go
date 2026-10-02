@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -136,4 +137,67 @@ func TestTelemetryServerDeadlineWithActiveRequestRemainsFailure(t *testing.T) {
 	require.Len(t, recorder.Exceptions, 1)
 	require.Equal(t, "OpenPost HTTP 500", recorder.Exceptions[0].Title)
 	require.Equal(t, http.StatusInternalServerError, recorder.Exceptions[0].Properties["status"])
+}
+
+func TestTelemetryIndependentStreamFailureSurvivesCancelledRequestWithRealSDK(t *testing.T) {
+	batches := make(chan []map[string]any, 1)
+	sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Batch []map[string]any `json:"batch"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode telemetry batch: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		batches <- body.Batch
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer sink.Close()
+	recorder, err := telemetry.New(telemetry.Config{
+		Enabled:         true,
+		ProjectToken:    "test-public-project-token",
+		Endpoint:        sink.URL,
+		BrowserEndpoint: sink.URL,
+		Environment:     "test",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = recorder.Close() })
+	e := echo.New()
+	e.Use(echo.WrapMiddleware(recorder.WrapHTTP))
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		HandleError:   true,
+		LogValuesFunc: func(echo.Context, middleware.RequestLoggerValues) error { return nil },
+	}))
+	installTelemetryErrorHandler(e, recorder, nil)
+	e.GET("/media/:id", func(c echo.Context) error {
+		ctx, cancel := context.WithCancel(c.Request().Context())
+		cancel()
+		c.SetRequest(c.Request().WithContext(ctx))
+		return c.Stream(http.StatusOK, "video/mp4", iotest.ErrReader(errors.New("storage unavailable")))
+	})
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/media/private-id?token=secret", nil)
+	const sessionID = "0198a123-4567-7abc-8def-0123456789ab"
+	request.Header.Set("X-PostHog-Session-Id", sessionID)
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.NoError(t, recorder.Close())
+	select {
+	case batch := <-batches:
+		require.Len(t, batch, 1)
+		require.Equal(t, "$exception", batch[0]["event"])
+		properties, ok := batch[0]["properties"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, sessionID, properties["$session_id"])
+		require.Equal(t, "/media/:id", properties["route"])
+		require.Equal(t, float64(http.StatusOK), properties["status"])
+		require.Equal(t, true, properties["response_committed"])
+		require.Equal(t, true, properties["request_context_done"])
+		for _, privateKey := range []string{"url", "query", "$current_url", "$ip", "$user_agent"} {
+			require.NotContains(t, properties, privateKey)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("queued stream failure did not reach the local telemetry receiver")
+	}
 }

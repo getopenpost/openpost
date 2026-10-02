@@ -387,6 +387,7 @@
 	--theme-asset-background-texture: none;
 	--theme-dither-mask: none;
 	--theme-dither-max-opacity: 0.22;
+	--dither-button-opacity: 0.16;
 	--theme-asset-sidebar-decoration: none;
 	--theme-asset-header-decoration: none;
 	--theme-asset-empty-state-illustration: none;
@@ -604,6 +605,7 @@
 	--theme-asset-background-texture: none;
 	--theme-dither-mask: none;
 	--theme-dither-max-opacity: 0.22;
+	--dither-button-opacity: 0.16;
 	--theme-asset-sidebar-decoration: none;
 	--theme-asset-header-decoration: none;
 	--theme-asset-empty-state-illustration: none;

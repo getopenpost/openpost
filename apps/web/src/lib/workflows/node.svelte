@@ -23,7 +23,7 @@
 		type="target"
 		position={Position.Left}
 		isConnectable={!info.readonly}
-		class="!size-3 !border-2 !border-background !bg-muted-foreground"
+		class="!z-10 !size-3 !border-2 !border-background !bg-muted-foreground"
 	/>{/if}
 <div class="relative">
 	<ContextMenu.Root>

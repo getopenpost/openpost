@@ -9199,6 +9199,7 @@
 	"video_editor_library_move_up": "Move {name} up",
 	"video_editor_library_remove": "Remove {name} from library",
 	"video_editor_library_empty": "Favorite items in the galleries or save a timeline selection.",
+	"video_editor_library_no_results": "No library items match these filters.",
 	"video_editor_library_select_target": "Select a compatible clip to apply this item.",
 	"video_editor_repeat": "Repeat selection",
 	"video_editor_repeat_copies": "Additional copies",

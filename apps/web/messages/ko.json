@@ -9199,6 +9199,7 @@
 	"video_editor_library_move_up": "{name} 위로 이동",
 	"video_editor_library_remove": "라이브러리에서 {name} 삭제",
 	"video_editor_library_empty": "갤러리에서 즐겨찾기를 추가하거나 타임라인 선택 항목을 저장하세요.",
+	"video_editor_library_no_results": "이 필터와 일치하는 라이브러리 항목이 없습니다.",
 	"video_editor_library_select_target": "호환되는 클립을 선택하세요.",
 	"video_editor_repeat": "선택 항목 반복",
 	"video_editor_repeat_copies": "추가 복사본",

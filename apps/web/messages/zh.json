@@ -9199,6 +9199,7 @@
 	"video_editor_library_move_up": "上移 {name}",
 	"video_editor_library_remove": "从素材库移除 {name}",
 	"video_editor_library_empty": "在图库中收藏项目，或保存时间轴上的选定内容。",
+	"video_editor_library_no_results": "没有与这些筛选条件匹配的素材库项目。",
 	"video_editor_library_select_target": "请选择兼容的片段。",
 	"video_editor_repeat": "重复所选项",
 	"video_editor_repeat_copies": "额外副本数",

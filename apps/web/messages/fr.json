@@ -9199,6 +9199,7 @@
 	"video_editor_library_move_up": "Monter {name}",
 	"video_editor_library_remove": "Retirer {name} de la bibliothèque",
 	"video_editor_library_empty": "Ajoutez des favoris dans les galeries ou enregistrez une sélection.",
+	"video_editor_library_no_results": "Aucun élément de la bibliothèque ne correspond à ces filtres.",
 	"video_editor_library_select_target": "Sélectionnez un clip compatible.",
 	"video_editor_repeat": "Répéter la sélection",
 	"video_editor_repeat_copies": "Copies supplémentaires",

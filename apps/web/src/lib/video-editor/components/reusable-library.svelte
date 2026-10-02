@@ -41,6 +41,7 @@
 	} = $props();
 	let view = $state('favorites');
 	let query = $state('');
+	let searchInput = $state<HTMLInputElement | null>(null);
 	let collection = $state('');
 	let saveOpen = $state(false);
 	let name = $state('');
@@ -206,6 +207,7 @@
 	</div>
 	<Input
 		type="search"
+		bind:ref={searchInput}
 		bind:value={query}
 		placeholder={m.video_editor_library_search()}
 		aria-label={m.video_editor_library_search()}
@@ -298,7 +300,8 @@
 							{...props}
 							size="icon-xs"
 							variant="ghost"
-							aria-label={entry.name}><ThemeIcon role="more-horizontal" /></Button
+							aria-label={m.video_editor_media_more_actions({ name: entry.name })}
+							><ThemeIcon role="more-horizontal" /></Button
 						>{/snippet}</DropdownMenu.Trigger
 				>
 				<DropdownMenu.Content class="video-editor-theme">
@@ -338,8 +341,21 @@
 				</form>
 			{/if}
 		</div>
-	{:else}<p class="text-xs text-[var(--video-editor-muted)]">
-			{m.video_editor_library_empty()}
-		</p>{/each}
+	{:else}
+		{#if query.trim() || collection}
+			<p class="text-xs text-[var(--video-editor-muted)]">{m.video_editor_library_no_results()}</p>
+			<Button
+				size="sm"
+				variant="outline"
+				onclick={() => {
+					query = '';
+					collection = '';
+					searchInput?.focus();
+				}}>{m.messages_clear_filters()}</Button
+			>
+		{:else}
+			<p class="text-xs text-[var(--video-editor-muted)]">{m.video_editor_library_empty()}</p>
+		{/if}
+	{/each}
 	<RepeatSelection {selectedIds} {oninserted} />
 </div>

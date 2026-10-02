@@ -9199,6 +9199,7 @@
 	"video_editor_library_move_up": "Mover {name} para cima",
 	"video_editor_library_remove": "Remover {name} da biblioteca",
 	"video_editor_library_empty": "Marque favoritos nas galerias ou salve uma seleção da linha do tempo.",
+	"video_editor_library_no_results": "Nenhum item da biblioteca corresponde a estes filtros.",
 	"video_editor_library_select_target": "Selecione um clipe compatível.",
 	"video_editor_repeat": "Repetir seleção",
 	"video_editor_repeat_copies": "Cópias adicionais",

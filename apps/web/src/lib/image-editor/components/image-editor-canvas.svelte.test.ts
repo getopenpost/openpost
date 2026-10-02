@@ -277,3 +277,72 @@ it.each(
 			.not.toBeInTheDocument();
 	}
 );
+
+it.each([1, 2])(
+	'erases only the clicked disconnected painted island at %sx layer size',
+	async (scale) => {
+		await page.viewport(1280, 900);
+		const editor = new ImageEditorController();
+		const document = blankImageEditorDocument({
+			key: 'custom',
+			name: 'Paint islands',
+			default_format: 'png',
+			profiles: [],
+			width_px: 400,
+			height_px: 300
+		});
+		const spans = Array.from({ length: 20 }, (_, y) => [
+			{ x: 4, y: y + 4, width: 20 },
+			{ x: 50, y: y + 4, width: 20 }
+		]).flat();
+		document.pages[0].layers = [
+			{
+				id: 'paint',
+				name: 'Copied paint islands',
+				type: 'paint',
+				visible: true,
+				locked: false,
+				opacity: 1,
+				transform: defaultTransform(80 * scale, 40 * scale, 100, 80),
+				paint: {
+					kind: 'fill',
+					color: '#f97316',
+					size: 1,
+					opacity: 1,
+					source_width: 80,
+					source_height: 40,
+					points: [],
+					spans
+				}
+			}
+		];
+		editor.load({
+			id: 'paint-islands-design',
+			workspace_id: 'local',
+			created_by_id: 'test',
+			revision: 1,
+			can_edit: true,
+			created_at: '2026-10-02',
+			updated_at: '2026-10-02',
+			document
+		});
+		editor.selectLayer('paint');
+		editor.activeTool = 'magic_eraser';
+		editor.magicEraserTolerance = 32;
+		editor.magicEraserContiguous = true;
+		const screen = await render(Fixture, { editor });
+		const surface = screen.getByTestId('image-editor-selection-surface');
+		await expect.poll(() => screen.container.querySelector('.upper-canvas')).not.toBeNull();
+		editor.zoom = 1;
+		await expect.poll(() => surface.element().getBoundingClientRect().width).toBeCloseTo(400, 1);
+		await surface.click({ position: { x: 100 + 10 * scale, y: 80 + 10 * scale } });
+		await expect
+			.poll(() => editor.activePage!.layers[0].paint!.spans)
+			.toEqual(Array.from({ length: 20 }, (_, y) => ({ x: 50, y: y + 4, width: 20 })));
+		editor.undo();
+		expect(editor.activePage!.layers[0].paint!.spans).toEqual(spans);
+		editor.redo();
+		await surface.click({ position: { x: 100 + 60 * scale, y: 80 + 10 * scale } });
+		await expect.poll(() => editor.activePage!.layers[0].paint!.spans).toEqual([]);
+	}
+);

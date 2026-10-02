@@ -1074,20 +1074,31 @@ export class OpenPostFabricAdapter {
 		const object = this.objectByLayerID.get(id);
 		const geometry = this.layerLocalGeometry(id, point);
 		if (!object || !geometry) return null;
-		const canvas = object.toCanvasElement({
-			withoutTransform: true,
-			withoutShadow: true,
-			enableRetinaScaling: false
-		});
-		const context = canvas.getContext('2d', { willReadFrequently: true });
-		if (!context || canvas.width <= 0 || canvas.height <= 0) return null;
-		return {
-			image: context.getImageData(0, 0, canvas.width, canvas.height),
-			point: {
-				x: (geometry.point.x / geometry.width) * canvas.width,
-				y: (geometry.point.y / geometry.height) * canvas.height
+		const paint = this.page.layers.find((layer) => layer.id === id)?.paint;
+		const displaySize = { width: object.width, height: object.height };
+		try {
+			// Erase masks address authored paint pixels, independently of the layer's display size.
+			if (paint) object.set({ width: paint.source_width, height: paint.source_height });
+			const canvas = object.toCanvasElement({
+				withoutTransform: true,
+				withoutShadow: true,
+				enableRetinaScaling: false
+			});
+			const context = canvas.getContext('2d', { willReadFrequently: true });
+			if (!context || canvas.width <= 0 || canvas.height <= 0) return null;
+			return {
+				image: context.getImageData(0, 0, canvas.width, canvas.height),
+				point: {
+					x: (geometry.point.x / geometry.width) * canvas.width,
+					y: (geometry.point.y / geometry.height) * canvas.height
+				}
+			};
+		} finally {
+			if (paint) {
+				object.set(displaySize);
+				object.setCoords();
 			}
-		};
+		}
 	}
 
 	localEraseStroke(
@@ -1873,6 +1884,7 @@ export class OpenPostFabricAdapter {
 				...options,
 				width,
 				height,
+				strokeWidth: 0,
 				objectCaching: false
 			});
 			const paintObject = object;

@@ -1602,7 +1602,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		};
 	}
 
-	let exporting = $state(false);
+	let exportDialog: ReturnType<typeof ExportDialog> | undefined = $state();
 	let sending = $state(false);
 	let sentExport = $state<{ composerHref: string } | null>(null);
 
@@ -1614,27 +1614,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			: '/';
 		return resolveAppPath(`${path}?${query}`);
 	}
-	async function handleExport(): Promise<void> {
-		if (!displayedProject) return;
-		exporting = true;
-		try {
-			editorSession.pausePlayback();
-			await editorSession.saveNow();
-			const project = activeRenderProject();
-			if (!project) return;
-			const result = await renderVideoExport(project, {
-				format: 'mp4',
-				codec: 'avc',
-				width: project.metadata.width,
-				height: project.metadata.height,
-				subtitleMode: 'burn'
-			});
-			showToast(m.video_editor_export_done({ name: result.fileName }), 'success');
-		} catch (err) {
-			showToast(err instanceof Error ? err.message : String(err), 'error');
-		} finally {
-			exporting = false;
-		}
+	function handleExport(): void {
+		exportDialog?.openExportDialog();
 	}
 
 	const renderProject = $derived(activeRenderProject());
@@ -2269,7 +2250,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			saveProject();
 		} else if (matches('EXPORT')) {
 			event.preventDefault();
-			if (!exporting && timelineStore.items.length > 0) void handleExport();
+			handleExport();
 		} else if (matches('OPEN_SETTINGS')) {
 			event.preventDefault();
 			settingsOpen = true;
@@ -2712,11 +2693,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							{m.video_editor_history()}
 						</DropdownMenu.Item>
 					{/if}
-					<DropdownMenu.Item
-						disabled={exporting || timelineStore.items.length === 0}
-						onclick={() => void handleExport()}
-					>
-						{m.video_editor_export()}
+					<DropdownMenu.Item disabled={!displayedProject} onclick={handleExport}>
+						{m.common_export()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item
 						disabled={sending || timelineStore.items.length === 0 || !workspaceCtx.currentWorkspace}
@@ -2738,6 +2716,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 			<ExportDialog
+				bind:this={exportDialog}
 				project={displayedProject}
 				disabled={!displayedProject}
 				triggerLabel={m.common_export()}

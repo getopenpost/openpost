@@ -432,8 +432,8 @@
 		}
 	}
 
-	function openExportDialog(): void {
-		if (!project) return;
+	export function openExportDialog(): void {
+		if (!project || open) return;
 		const snapshot = captureSnapshot();
 		exportableSequences = createExportableSequences(
 			$state.snapshot(project),

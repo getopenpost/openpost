@@ -4,6 +4,7 @@ import type { MediaPage, MediaUploadResult } from "../types.js";
 
 export type MediaSource =
   | "upload"
+  | "media_copy"
   | "camera"
   | "image_editor_export"
   | "image_editor_edit"

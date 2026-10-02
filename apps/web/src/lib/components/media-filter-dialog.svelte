@@ -95,6 +95,7 @@
 					options={[
 						{ value: 'all', label: m.media_all_sources() },
 						{ value: 'upload', label: m.media_uploads() },
+						{ value: 'media_copy', label: m.media_copies() },
 						{ value: 'camera', label: m.media_camera() },
 						{ value: 'screenshot_template', label: m.templates_title() },
 						{ value: 'image_editor_export', label: m.media_image_editor_exports() },

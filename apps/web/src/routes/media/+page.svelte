@@ -978,7 +978,7 @@
 			await uploadMediaFile({
 				workspaceId: selectedWorkspaceId,
 				file: duplicated,
-				source: 'image_editor_edit',
+				source: 'media_copy',
 				parentMediaId: media.id,
 				tagId: uploadTagID()
 			});

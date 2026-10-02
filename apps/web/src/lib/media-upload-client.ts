@@ -14,6 +14,7 @@ export interface UploadMediaFileOptions {
 	altText?: string;
 	source?:
 		| 'upload'
+		| 'media_copy'
 		| 'camera'
 		| 'image_editor_export'
 		| 'image_editor_edit'

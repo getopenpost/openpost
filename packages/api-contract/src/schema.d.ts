@@ -7776,7 +7776,7 @@ export interface components {
              * @description Media provenance
              * @enum {string}
              */
-            source?: "upload" | "camera" | "image_editor_export" | "image_editor_edit" | "background_removal" | "video_editor_source" | "video_editor_export" | "stock_import" | "meme_generator" | "screenshot_template";
+            source?: "upload" | "media_copy" | "camera" | "image_editor_export" | "image_editor_edit" | "background_removal" | "video_editor_source" | "video_editor_export" | "stock_import" | "meme_generator" | "screenshot_template";
             /** @description License and creator provenance for a selected stock asset */
             stock_provenance?: components["schemas"]["StockMediaProvenance"];
             /** @description Optional tag to assign to this upload */

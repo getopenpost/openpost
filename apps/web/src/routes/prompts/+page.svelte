@@ -20,6 +20,7 @@
 	import { promptQueryAPI } from '$lib/query/prompts';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
+	import { auth } from '$lib/stores/auth';
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Select from '$lib/components/ui/select';
@@ -40,6 +41,14 @@
 	let randomLoading = $state(false);
 	let randomSequence = 0;
 	let showAddPrompt = $state(false);
+	let editingPrompt = $state.raw<Prompt | null>(null);
+	let editorContent = $state<HTMLDivElement | null>(null);
+	let categoryFilter = $state<HTMLButtonElement | null>(null);
+	let editorOrigin: {
+		target: EventTarget | null;
+		workspaceID: string;
+		session: QueryMutationSession;
+	} | null = null;
 	let newPromptText = $state('');
 	let newPromptExample = $state('');
 	let newPromptCategory = $state('');
@@ -50,6 +59,7 @@
 	let promptToDelete = $state.raw<Prompt | null>(null);
 	let mutationSequence = 0;
 	let mutationWorkspaceID = '';
+	let mutationActorID = '';
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 
 	interface PromptMutationView {
@@ -83,13 +93,17 @@
 	);
 
 	$effect(() => {
-		if (mutationWorkspaceID === workspaceID) return;
+		const actorID = $auth.user?.id ?? '';
+		if (mutationWorkspaceID === workspaceID && mutationActorID === actorID) return;
 		mutationWorkspaceID = workspaceID;
+		mutationActorID = actorID;
 		mutationSequence += 1;
 		randomSequence += 1;
 		randomPrompt = null;
 		randomLoading = false;
 		showAddPrompt = false;
+		editingPrompt = null;
+		editorOrigin = null;
 		newPromptText = '';
 		newPromptExample = '';
 		newPromptCategory = '';
@@ -115,37 +129,97 @@
 		);
 	}
 
-	async function addPrompt() {
+	function canEditPrompt(prompt: Prompt): boolean {
+		if (prompt.is_built_in) return false;
+		const isCreator = prompt.user_id === $auth.user?.id;
+		if (!prompt.workspace_id) return isCreator;
+		const workspace = workspaceCtx.currentWorkspace;
+		return Boolean(
+			workspace?.id === prompt.workspace_id &&
+			workspace.can_edit &&
+			(isCreator || workspace.role === 'admin')
+		);
+	}
+
+	function openPromptEditor(prompt: Prompt | null, event?: MouseEvent) {
+		if (prompt && !canEditPrompt(prompt)) return;
+		mutationSequence += 1;
+		editingPrompt = prompt;
+		newPromptText = prompt?.text ?? '';
+		newPromptExample = prompt?.example ?? '';
+		newPromptCategory = prompt?.category ?? categories[0] ?? '';
+		editorOrigin = {
+			target: event?.currentTarget ?? null,
+			workspaceID,
+			session: captureQueryMutationSession()
+		};
+		submitting = false;
+		showAddPrompt = true;
+	}
+
+	function closePromptEditor() {
+		mutationSequence += 1;
+		submitting = false;
+		showAddPrompt = false;
+	}
+
+	function restorePromptEditorFocus(event: Event) {
+		event.preventDefault();
+		if (
+			!editorOrigin ||
+			editorOrigin.workspaceID !== workspaceID ||
+			!queryMutationSessionIsCurrent(editorOrigin.session)
+		)
+			return;
+		const active = document.activeElement;
+		if (active && active !== document.body && !editorContent?.contains(active)) return;
+		const target = editorOrigin.target;
+		if (target instanceof HTMLElement && target.isConnected) target.focus();
+		else categoryFilter?.focus();
+	}
+
+	async function savePrompt() {
 		if (!workspaceCtx.currentWorkspace || !newPromptText.trim() || !newPromptCategory) return;
 		const view = capturePromptMutationView();
+		const target = editingPrompt;
 		const text = newPromptText.trim();
 		const example = newPromptExample.trim();
 		const category = newPromptCategory;
 		submitting = true;
 		try {
-			const { error: err, response } = await client.POST('/prompts', {
-				body: {
-					workspace_id: view.workspaceID,
-					text,
-					example,
-					category
-				}
-			});
+			const result = target
+				? await client.PUT('/prompts/{id}', {
+						params: { path: { id: target.id } },
+						body: { text, example, category }
+					})
+				: await client.POST('/prompts', {
+						body: { workspace_id: view.workspaceID, text, example, category }
+					});
+			const { error: err, response } = result;
 			settleQueryMutationSession(view.session, response);
-			if (err) throw new Error(err.detail || m.prompts_create_failed());
+			if (err)
+				throw new Error(
+					err.detail || (target ? m.prompts_save_failed() : m.prompts_create_failed())
+				);
 			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
 				invalidate: [{ queryKey: promptQueryKeys.lists(view.workspaceID) }]
 			});
 			if (!reconciled || !promptMutationViewIsCurrent(view)) return;
+			if (target && randomPrompt?.id === target.id && result.data) randomPrompt = result.data;
 			showAddPrompt = false;
 			newPromptText = '';
 			newPromptExample = '';
 			toastTone = 'success';
-			toastMessage = m.prompts_created();
+			toastMessage = target ? m.prompts_saved() : m.prompts_created();
 		} catch (e) {
 			if (!promptMutationViewIsCurrent(view)) return;
 			toastTone = 'error';
-			toastMessage = e instanceof Error ? e.message : m.prompts_create_failed();
+			toastMessage =
+				e instanceof Error
+					? e.message
+					: target
+						? m.prompts_save_failed()
+						: m.prompts_create_failed();
 		} finally {
 			if (view.sequence === mutationSequence) submitting = false;
 		}
@@ -258,7 +332,7 @@
 				randomLoading = false;
 			}}
 		>
-			<Select.Trigger class="w-40">
+			<Select.Trigger bind:ref={categoryFilter} class="w-40">
 				{selectedCategory === 'all' ? m.prompts_all_categories() : selectedCategory}
 			</Select.Trigger>
 			<Select.Content>
@@ -279,7 +353,7 @@
 			<ProtectedIcon icon="editor-shuffle" class="size-4" />
 			{m.prompts_random()}
 		</Button>
-		<Button onclick={() => (showAddPrompt = true)} class="gap-2">
+		<Button onclick={(event) => openPromptEditor(null, event)} class="gap-2">
 			<ThemeIcon role="add" class="size-4" />
 			{m.prompts_add()}
 		</Button>
@@ -337,7 +411,7 @@
 				title={m.prompts_empty()}
 				description={m.prompts_empty_body()}
 				actionLabel={m.prompts_add()}
-				onAction={() => (showAddPrompt = true)}
+				onAction={() => openPromptEditor(null)}
 				variant="dashed"
 				size="lg"
 			/>
@@ -387,17 +461,29 @@
 										<span class="text-xs text-muted-foreground">
 											{prompt.is_built_in ? m.prompts_built_in() : m.prompts_custom()}
 										</span>
-										{#if !prompt.is_built_in}
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												class="text-muted-foreground hover:text-destructive"
-												onclick={() => requestDeletePrompt(prompt)}
-												aria-label={m.prompts_delete()}
-											>
-												<ThemeIcon role="delete" class="size-3.5" />
-											</Button>
-										{/if}
+										<div class="flex items-center gap-1">
+											{#if canEditPrompt(prompt)}
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													onclick={(event) => openPromptEditor(prompt, event)}
+													aria-label={m.prompts_edit_title()}
+												>
+													<ThemeIcon role="edit" class="size-3.5" />
+												</Button>
+											{/if}
+											{#if !prompt.is_built_in}
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													class="text-muted-foreground hover:text-destructive"
+													onclick={() => requestDeletePrompt(prompt)}
+													aria-label={m.prompts_delete()}
+												>
+													<ThemeIcon role="delete" class="size-3.5" />
+												</Button>
+											{/if}
+										</div>
 									</div>
 								</article>
 							{/each}
@@ -407,16 +493,27 @@
 			</div>
 		{/if}
 
-		<Dialog.Root bind:open={showAddPrompt}>
-			<Dialog.Content class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+		<Dialog.Root
+			bind:open={showAddPrompt}
+			onOpenChange={(open) => {
+				if (!open) closePromptEditor();
+			}}
+		>
+			<Dialog.Content
+				bind:ref={editorContent}
+				onCloseAutoFocus={restorePromptEditorFocus}
+				class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md"
+			>
 				<form
 					onsubmit={(event) => {
 						event.preventDefault();
-						void addPrompt();
+						void savePrompt();
 					}}
 				>
 					<Dialog.Header>
-						<Dialog.Title>{m.prompts_add_title()}</Dialog.Title>
+						<Dialog.Title
+							>{editingPrompt ? m.prompts_edit_title() : m.prompts_add_title()}</Dialog.Title
+						>
 						<Dialog.Description>{m.prompts_description()}</Dialog.Description>
 					</Dialog.Header>
 					<div class="space-y-4 py-4">
@@ -459,9 +556,7 @@
 						</div>
 					</div>
 					<Dialog.Footer>
-						<Button onclick={() => (showAddPrompt = false)} variant="outline"
-							>{m.common_cancel()}</Button
-						>
+						<Button onclick={closePromptEditor} variant="outline">{m.common_cancel()}</Button>
 						<Button
 							type="submit"
 							disabled={!newPromptText.trim() || !newPromptCategory || submitting}
@@ -469,7 +564,7 @@
 							{#if submitting}
 								<ProtectedIcon icon="loading" class="mr-2 h-4 w-4 animate-spin" />
 							{/if}
-							{m.prompts_add()}
+							{editingPrompt ? m.common_save() : m.prompts_add()}
 						</Button>
 					</Dialog.Footer>
 				</form>

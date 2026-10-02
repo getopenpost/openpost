@@ -21741,6 +21741,37 @@
 				},
 				"type": "object"
 			},
+			"UpdatePromptInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/UpdatePromptInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"category": {
+						"description": "Prompt category",
+						"maxLength": 50,
+						"minLength": 1,
+						"type": "string"
+					},
+					"example": {
+						"description": "Full example post for the prompt",
+						"maxLength": 2000,
+						"type": "string"
+					},
+					"text": {
+						"description": "Prompt text",
+						"maxLength": 500,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["text", "example", "category"],
+				"type": "object"
+			},
 			"UpdateScreenshotTemplateDesignInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -44172,6 +44203,95 @@
 					}
 				},
 				"summary": "Delete a custom prompt",
+				"tags": ["Prompts"]
+			},
+			"put": {
+				"operationId": "update-prompt",
+				"parameters": [
+					{
+						"description": "Prompt ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Prompt ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdatePromptInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PromptResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Update a custom writing prompt",
 				"tags": ["Prompts"]
 			}
 		},

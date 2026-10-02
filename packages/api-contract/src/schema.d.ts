@@ -4002,7 +4002,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Update a custom writing prompt */
+        put: operations["update-prompt"];
         post?: never;
         /** Delete a custom prompt */
         delete: operations["delete-prompt"];
@@ -14830,6 +14831,20 @@ export interface components {
             public_profile_visible_fields?: string[];
             /** @description Unique public username */
             username?: string;
+        };
+        UpdatePromptInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/UpdatePromptInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Prompt category */
+            category: string;
+            /** @description Full example post for the prompt */
+            example: string;
+            /** @description Prompt text */
+            text: string;
         };
         UpdateScreenshotTemplateDesignInputBody: {
             /**
@@ -31026,6 +31041,78 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Prompt ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePromptInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -90,6 +91,53 @@ func TestPromptReadsFilterCredentialAccessibleActiveMemberships(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, unboundExplicit.Code, unboundExplicit.Body.String())
 }
 
+func TestPromptUpdatesRespectCreatorAdminAndCredentialWorkspace(t *testing.T) {
+	cases := []struct {
+		name, token, promptID string
+		admin                 bool
+		want                  int
+	}{
+		{name: "personal creator", token: "unbound-token", promptID: "prompt-personal", want: http.StatusOK},
+		{name: "scoped credential cannot edit personal", token: "bound-token", promptID: "prompt-personal", want: http.StatusForbidden},
+		{name: "SSO unbound credential", token: "unbound-token", promptID: "prompt-sso", want: http.StatusForbidden},
+		{name: "SSO bound creator", token: "bound-token", promptID: "prompt-sso", want: http.StatusOK},
+		{name: "inactive creator", token: "unbound-token", promptID: "prompt-inactive", want: http.StatusForbidden},
+		{name: "editor cannot edit other author", token: "unbound-token", promptID: "prompt-public", want: http.StatusForbidden},
+		{name: "same workspace admin", token: "unbound-token", promptID: "prompt-public", admin: true, want: http.StatusOK},
+		{name: "admin credential bound elsewhere", token: "bound-token", promptID: "prompt-public", admin: true, want: http.StatusForbidden},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := newPromptCredentialTestServer(t, workspaceTestAuthenticator{
+				"unbound-token": {UserID: "user-1", Email: "user@example.com", Scope: apitokens.ScopeCLI, TokenID: promptCredentialUnboundTokenID},
+				"bound-token":   {UserID: "user-1", Email: "user@example.com", Scope: apitokens.ScopeCLI, TokenID: promptCredentialBoundTokenID, WorkspaceID: promptCredentialSSOWorkspaceID},
+			})
+			seedPromptCredentialFixture(t, server.db)
+			_, err := server.db.NewInsert().Model(&models.User{ID: "user-2", Email: "other@example.com", PasswordHash: "hash"}).Exec(t.Context())
+			require.NoError(t, err)
+			if tc.admin {
+				_, err = server.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleAdmin).Where("workspace_id = ?", promptCredentialPublicWorkspaceID).Where("user_id = ?", "user-1").Exec(t.Context())
+				require.NoError(t, err)
+			}
+			var before models.Prompt
+			require.NoError(t, server.db.NewSelect().Model(&before).Where("id = ?", tc.promptID).Scan(t.Context()))
+			body := []byte(`{"text":"Corrected Café","example":"","category":"Developer"}`)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/prompts/"+tc.promptID, bytes.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+tc.token)
+			req.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			server.echo.ServeHTTP(response, req)
+			require.Equal(t, tc.want, response.Code, response.Body.String())
+			var after models.Prompt
+			require.NoError(t, server.db.NewSelect().Model(&after).Where("id = ?", tc.promptID).Scan(t.Context()))
+			if tc.want == http.StatusOK {
+				before.Text, before.Example, before.Category = "Corrected Café", "", "Developer"
+			}
+			require.Equal(t, before, after)
+		})
+	}
+}
+
 func newPromptCredentialTestServer(
 	t *testing.T,
 	authenticator workspaceTestAuthenticator,
@@ -111,6 +159,7 @@ func newPromptCredentialTestServer(
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewPromptHandler(db, authenticator)
 	handler.ListPrompts(api)
+	handler.UpdatePrompt(api)
 	handler.GetRandomPrompt(api)
 	return &promptCredentialTestServer{echo: e, db: db}
 }

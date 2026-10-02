@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -378,6 +379,84 @@ func (h *PromptHandler) CreatePrompt(api huma.API) {
 			CreatedAt:   prompt.CreatedAt.Format(time.RFC3339),
 		}}, nil
 	})
+}
+
+type UpdatePromptInput struct {
+	PathID string `path:"id" doc:"Prompt ID"`
+	Body   struct {
+		Text     string `json:"text" minLength:"1" maxLength:"500" doc:"Prompt text"`
+		Example  string `json:"example" maxLength:"2000" doc:"Full example post for the prompt"`
+		Category string `json:"category" minLength:"1" maxLength:"50" doc:"Prompt category"`
+	}
+}
+
+type UpdatePromptOutput struct{ Body PromptResponse }
+
+func (h *PromptHandler) UpdatePrompt(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "update-prompt", Method: http.MethodPut, Path: "/prompts/{id}",
+		Summary: "Update a custom writing prompt", Tags: []string{tagPrompts},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{400, 403, 404},
+	}, func(ctx context.Context, input *UpdatePromptInput) (*UpdatePromptOutput, error) {
+		prompt, err := h.promptForUpdate(ctx, input.PathID, middleware.GetUserID(ctx))
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(input.Body.Text) == "" || strings.TrimSpace(input.Body.Category) == "" {
+			return nil, huma.Error400BadRequest("prompt text and category must not be blank")
+		}
+		prompt.Text, prompt.Example, prompt.Category = input.Body.Text, input.Body.Example, input.Body.Category
+		result, err := h.db.NewUpdate().Model(prompt).Column("text", "example", "category").WherePK().Exec(ctx)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to update prompt")
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to update prompt")
+		}
+		if affected == 0 {
+			return nil, huma.Error404NotFound("prompt not found")
+		}
+		return &UpdatePromptOutput{Body: PromptResponse{
+			ID: prompt.ID, WorkspaceID: prompt.WorkspaceID, UserID: prompt.UserID,
+			Text: prompt.Text, Example: prompt.Example, Category: prompt.Category,
+			IsBuiltIn: prompt.IsBuiltIn, CreatedAt: prompt.CreatedAt.Format(time.RFC3339),
+		}}, nil
+	})
+}
+
+func (h *PromptHandler) promptForUpdate(ctx context.Context, id, userID string) (*models.Prompt, error) {
+	var prompt models.Prompt
+	if err := h.db.NewSelect().Model(&prompt).Where("id = ?", id).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, huma.Error404NotFound("prompt not found")
+		}
+		return nil, huma.Error500InternalServerError("failed to fetch prompt")
+	}
+	if prompt.IsBuiltIn {
+		return nil, huma.Error400BadRequest("cannot update built-in prompts")
+	}
+	if prompt.WorkspaceID == "" {
+		if middleware.GetWorkspaceID(ctx) != "" || prompt.UserID != userID {
+			return nil, huma.Error403Forbidden("you do not have permission to update this prompt")
+		}
+		return &prompt, nil
+	}
+	if err := h.checkWorkspaceEditAccess(ctx, prompt.WorkspaceID, userID); err != nil {
+		return nil, err
+	}
+	if prompt.UserID == userID {
+		return &prompt, nil
+	}
+	allowed, err := workspaceAdminAllowed(ctx, h.db, prompt.WorkspaceID, userID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError(errValidateWorkspaceAccess)
+	}
+	if !allowed {
+		return nil, huma.Error403Forbidden("you do not have permission to update this prompt")
+	}
+	return &prompt, nil
 }
 
 type DeletePromptInput struct {

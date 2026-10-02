@@ -404,6 +404,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	promptHandler := handlers.NewPromptHandler(deps.DB, deps.Authenticator)
 	promptHandler.ListPrompts(api)
 	promptHandler.CreatePrompt(api)
+	promptHandler.UpdatePrompt(api)
 	promptHandler.DeletePrompt(api)
 	promptHandler.GetRandomPrompt(api)
 	promptHandler.GetCategories(api)

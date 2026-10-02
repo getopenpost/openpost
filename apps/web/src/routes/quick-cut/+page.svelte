@@ -1810,7 +1810,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
 				{#if sources.length > 0}
-					<Button size="sm" onclick={() => (panel = 'export')}>
+					<Button size="sm" aria-label={m.common_export()} onclick={() => (panel = 'export')}>
 						<ThemeIcon role="download" class="size-3.5" />
 						<span class="hidden sm:inline">{m.common_export()}</span>
 					</Button>

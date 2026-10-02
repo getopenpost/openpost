@@ -199,6 +199,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		generation: number;
 		segments: QuickCutSegment[];
 		index: number;
+		transitioning: boolean;
 		repeat: boolean;
 	} | null>(null);
 	let previewGeneration = 0;
@@ -1017,6 +1018,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		if (!run || run.generation !== generation || index < 0 || index >= run.segments.length) return;
 		const segment = run.segments[index];
 		if (!segment || segment.enabled === false) return;
+		run.transitioning = true;
 		run.index = index;
 		try {
 			const element = await waitForPreviewSource(segment.sourceId, generation);
@@ -1048,7 +1050,9 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			});
 			if (generation !== previewGeneration) return;
 			await element.play();
+			if (generation === previewGeneration && previewRun === run) run.transitioning = false;
 		} catch (error) {
+			if (generation !== previewGeneration || previewRun !== run) return;
 			if (error instanceof DOMException && error.name === 'AbortError') return;
 			previewRun = null;
 			showToast(error instanceof Error ? error.message : String(error), 'error');
@@ -1059,7 +1063,13 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		const playable = requested.filter((segment) => segment.enabled !== false);
 		if (playable.length === 0) return;
 		stopPreview();
-		previewRun = { generation: previewGeneration, segments: playable, index: 0, repeat };
+		previewRun = {
+			generation: previewGeneration,
+			segments: playable,
+			index: 0,
+			transitioning: true,
+			repeat
+		};
 		void playPreviewIndex(previewGeneration, 0);
 	}
 
@@ -1531,7 +1541,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			reviewEnd = null;
 		}
 		const run = previewRun;
-		if (!run || run.generation !== previewGeneration) return;
+		if (!run || run.generation !== previewGeneration || run.transitioning) return;
 		const segment = run.segments[run.index];
 		if (!segment || segment.sourceId !== activeSourceId) return;
 		if (currentTime < segment.end - 0.02) return;

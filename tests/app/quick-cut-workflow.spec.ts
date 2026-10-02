@@ -208,6 +208,87 @@ test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edit
   expect(duration).toBeCloseTo(5, 1);
 });
 
+test("reordered whole-edit preview plays the final short source range and cancels cleanly", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() =>
+    Object.defineProperty(window, "showOpenFilePicker", { configurable: true, value: undefined }),
+  );
+  await page.goto("/quick-cut");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Open videos", exact: true }).click();
+  await (await chooser).setFiles(fixture);
+  const video = page.locator("video");
+  await expect(video).toBeVisible();
+  await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  await page.getByRole("button", { name: "Segment 1", exact: true }).click();
+  const out = page.getByRole("textbox", { name: "Mark out 1", exact: true });
+  await out.fill("8");
+  await out.press("Tab");
+  await seek(page, 1);
+  await page.getByRole("button", { name: /^Mark in/ }).click();
+  await seek(page, 3);
+  await page.getByRole("button", { name: /^Mark out/ }).click();
+  await page.getByRole("button", { name: "Remove selection", exact: true }).click();
+  await page.getByRole("button", { name: "Move down", exact: true }).first().click();
+  await page.getByRole("button", { name: "Segment 1", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Mark in 1", exact: true })).toHaveValue(
+    "00:03.00",
+  );
+  await page.getByRole("button", { name: "Segment 2", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Mark out 2", exact: true })).toHaveValue(
+    "00:01.00",
+  );
+  const preview = page.getByRole("button", { name: "Preview edit", exact: true });
+  await preview.focus();
+  await preview.press("Enter");
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+    .toBeGreaterThan(3);
+  // Observe a presented decoded frame in the final source range, not merely a seek assignment.
+  await video.evaluate(
+    (element: HTMLVideoElement) =>
+      new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Final short part never presented a progressing frame")),
+          12_000,
+        );
+        const frame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
+          if (metadata.mediaTime > 0.2 && metadata.mediaTime < 1) {
+            clearTimeout(timeout);
+            resolve();
+          } else element.requestVideoFrameCallback(frame);
+        };
+        element.requestVideoFrameCallback(frame);
+      }),
+  );
+  await expect
+    .poll(
+      () =>
+        video.evaluate(
+          (element: HTMLVideoElement) => element.paused && element.currentTime >= 0.98,
+        ),
+      { timeout: 3000 },
+    )
+    .toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("qcr-final-short-part.png") });
+  await preview.click();
+  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  const stopped = await video.evaluate((element: HTMLVideoElement) => element.currentTime);
+  await page.waitForTimeout(350);
+  expect(await video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeCloseTo(
+    stopped,
+    2,
+  );
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.getByRole("button", { name: "Segment 1", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Mark in 1", exact: true })).toHaveValue(
+    "00:00.00",
+  );
+});
+
 test("guest Quick Cut keeps unsaved local work explicit", async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() =>

@@ -9617,5 +9617,7 @@
 	"workflows_port_input": "{node}: entrada",
 	"workflows_port_output": "{node}: salida",
 	"workflows_port_branch_output": "{node}: salida {branch}",
-	"video_editor_transcript_cut_locked_captions": "Se conservaron los subtítulos bloqueados. Desbloquea sus pistas para actualizarlos."
+	"video_editor_transcript_cut_locked_captions": "Se conservaron los subtítulos bloqueados. Desbloquea sus pistas para actualizarlos.",
+	"stock_media_preview": "Vista previa",
+	"stock_media_view_source": "Ver fuente"
 }

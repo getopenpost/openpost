@@ -9617,5 +9617,7 @@
 	"workflows_port_input": "{node}：输入",
 	"workflows_port_output": "{node}：输出",
 	"workflows_port_branch_output": "{node}：{branch}输出",
-	"video_editor_transcript_cut_locked_captions": "已保留锁定的字幕。要更新字幕，请解锁对应轨道。"
+	"video_editor_transcript_cut_locked_captions": "已保留锁定的字幕。要更新字幕，请解锁对应轨道。",
+	"stock_media_preview": "预览",
+	"stock_media_view_source": "查看来源"
 }

@@ -9617,5 +9617,7 @@
 	"workflows_port_input": "{node}: Eingang",
 	"workflows_port_output": "{node}: Ausgang",
 	"workflows_port_branch_output": "{node}: Ausgang {branch}",
-	"video_editor_transcript_cut_locked_captions": "Gesperrte Untertitel wurden beibehalten. Entsperre ihre Spuren, um sie zu bearbeiten."
+	"video_editor_transcript_cut_locked_captions": "Gesperrte Untertitel wurden beibehalten. Entsperre ihre Spuren, um sie zu bearbeiten.",
+	"stock_media_preview": "Vorschau",
+	"stock_media_view_source": "Quelle ansehen"
 }

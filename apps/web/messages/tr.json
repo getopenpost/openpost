@@ -9617,5 +9617,7 @@
 	"workflows_port_input": "{node}: giriş",
 	"workflows_port_output": "{node}: çıkış",
 	"workflows_port_branch_output": "{node}: {branch} çıkışı",
-	"video_editor_transcript_cut_locked_captions": "Kilitli altyazılar korundu. Güncellemek için izlerinin kilidini açın."
+	"video_editor_transcript_cut_locked_captions": "Kilitli altyazılar korundu. Güncellemek için izlerinin kilidini açın.",
+	"stock_media_preview": "Önizleme",
+	"stock_media_view_source": "Kaynağı görüntüle"
 }

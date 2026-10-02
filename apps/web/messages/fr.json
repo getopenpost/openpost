@@ -9617,5 +9617,7 @@
 	"workflows_port_input": "{node} : entrée",
 	"workflows_port_output": "{node} : sortie",
 	"workflows_port_branch_output": "{node} : sortie {branch}",
-	"video_editor_transcript_cut_locked_captions": "Les sous-titres verrouillés ont été conservés. Déverrouillez leurs pistes pour les modifier."
+	"video_editor_transcript_cut_locked_captions": "Les sous-titres verrouillés ont été conservés. Déverrouillez leurs pistes pour les modifier.",
+	"stock_media_preview": "Aperçu",
+	"stock_media_view_source": "Voir la source"
 }

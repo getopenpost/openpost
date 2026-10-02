@@ -9617,5 +9617,7 @@
 	"workflows_port_input": "{node}: entrada",
 	"workflows_port_output": "{node}: saída",
 	"workflows_port_branch_output": "{node}: saída {branch}",
-	"video_editor_transcript_cut_locked_captions": "As legendas bloqueadas foram mantidas. Desbloqueie as faixas para atualizá-las."
+	"video_editor_transcript_cut_locked_captions": "As legendas bloqueadas foram mantidas. Desbloqueie as faixas para atualizá-las.",
+	"stock_media_preview": "Pré-visualizar",
+	"stock_media_view_source": "Ver fonte"
 }

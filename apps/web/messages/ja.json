@@ -9617,5 +9617,7 @@
 	"workflows_port_input": "{node}: 入力",
 	"workflows_port_output": "{node}: 出力",
 	"workflows_port_branch_output": "{node}: {branch} 出力",
-	"video_editor_transcript_cut_locked_captions": "ロックされた字幕は保持されました。更新するには、そのトラックのロックを解除してください。"
+	"video_editor_transcript_cut_locked_captions": "ロックされた字幕は保持されました。更新するには、そのトラックのロックを解除してください。",
+	"stock_media_preview": "プレビュー",
+	"stock_media_view_source": "提供元を表示"
 }

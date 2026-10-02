@@ -8,6 +8,8 @@ import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { renderQueueStore } from '../export/render-queue-store';
 import ExportDialog from './export-dialog.svelte';
+import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { renderVideoExport } from '../media/render-execution';
 
 const tracks: TimelineTrack[] = [
 	{
@@ -162,6 +164,48 @@ describe('ExportDialog', () => {
 			await expect.element(screen.getByRole('button', { name: new RegExp(name) })).toBeVisible();
 		}
 	});
+
+	it('shows actual export progress without idle readiness and recovers on cancellation', async () => {
+		const previousRoot = getWorkspaceRoot();
+		const opfs = await navigator.storage.getDirectory();
+		const directory = `export-progress-${crypto.randomUUID()}`;
+		setWorkspaceRoot(await opfs.getDirectoryHandle(directory, { create: true }));
+		const project = projectFixture();
+		project.metadata.width = 480;
+		project.metadata.height = 270;
+		project.timeline!.compositions = [];
+		project.timeline!.topLevelSequenceIds = [];
+		sequenceStore.load(project.timeline!, project.metadata);
+		const onerror = vi.fn();
+		const ondone = vi.fn();
+		const screen = await render(ExportDialog, {
+			project,
+			ondone,
+			onerror,
+			renderVideo: renderVideoExport
+		});
+		try {
+			await screen.getByRole('button', { name: 'Render full video' }).click();
+			await expect.element(screen.getByText('Ready to render', { exact: true })).toBeVisible();
+			await expect.element(screen.getByRole('button', { name: 'Render now' })).toBeEnabled();
+			await screen.getByRole('button', { name: 'Render now' }).click();
+			await expect
+				.element(screen.getByRole('status').getByText('Rendering frames', { exact: true }))
+				.toBeVisible();
+			expect(screen.getByRole('dialog').element().textContent).not.toContain('Ready to render');
+			await expect
+				.element(screen.getByRole('progressbar', { name: 'Export progress' }))
+				.toBeVisible();
+		} finally {
+			await screen.getByRole('button', { name: 'Cancel export' }).click();
+			await expect.element(screen.getByText('Ready to render', { exact: true })).toBeVisible();
+			setWorkspaceRoot(previousRoot);
+			await opfs.removeEntry(directory, { recursive: true });
+		}
+		expect(onerror).not.toHaveBeenCalled();
+		expect(ondone).not.toHaveBeenCalled();
+		await expect.element(screen.getByRole('button', { name: 'Render now' })).toBeEnabled();
+	}, 60_000);
 
 	it('exports another sequence at its own dimensions without navigating away from Main', async () => {
 		const project = projectFixture();

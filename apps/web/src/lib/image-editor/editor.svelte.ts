@@ -27,6 +27,7 @@ import {
 	type ImageEditorCollectiveTransformKey
 } from './collective-transform';
 import { ImageEditorHistory } from './history';
+import { scaleImageEditorText } from './resize';
 import { editTextWithRuns, styleTextRange, type ImageEditorTextEdit } from './text-runs';
 import {
 	rasterResultLayer,
@@ -1837,6 +1838,7 @@ export class ImageEditorController {
 				if (!selection) return;
 				for (const layer of page.layers) {
 					if (!affectedIDs.has(layer.id)) continue;
+					const previous = layer.transform;
 					layer.transform = transformImageEditorCollectiveMember(
 						layer.transform,
 						selection,
@@ -1844,6 +1846,15 @@ export class ImageEditorController {
 						value,
 						preserveAspect
 					);
+					if (layer.text && (key === 'width' || key === 'height')) {
+						layer.text = scaleImageEditorText(
+							layer.text,
+							Math.min(
+								layer.transform.width / Math.max(1, previous.width),
+								layer.transform.height / Math.max(1, previous.height)
+							)
+						);
+					}
 				}
 				this.recalculateAllGroupBounds(page);
 			},
@@ -2550,6 +2561,7 @@ export class ImageEditorController {
 			child.transform.y = next.y + relativeX * Math.sin(radians) + relativeY * Math.cos(radians);
 			child.transform.width *= scaleX;
 			child.transform.height *= scaleY;
+			if (child.text) child.text = scaleImageEditorText(child.text, Math.min(scaleX, scaleY));
 			child.transform.rotation = normalizeImageEditorRotation(
 				child.transform.rotation + rotationDelta
 			);

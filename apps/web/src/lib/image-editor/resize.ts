@@ -2,7 +2,8 @@ import type {
 	ImageEditorDocument,
 	ImageEditorGradientValue,
 	ImageEditorLayer,
-	ImageEditorPaintPoint
+	ImageEditorPaintPoint,
+	ImageEditorTextValue
 } from './types';
 import { IMAGE_EDITOR_LIMITS } from './types';
 import { imageEditorPageDimensions } from './page-dimensions';
@@ -108,6 +109,24 @@ function resizeGeometry(
 	};
 }
 
+export function scaleImageEditorText(
+	text: ImageEditorTextValue,
+	scale: number
+): ImageEditorTextValue {
+	if (scale === 1) return text;
+	return {
+		...text,
+		font_size: text.font_size * scale,
+		stroke_width: text.stroke_width * scale,
+		shadow: {
+			...text.shadow,
+			blur: text.shadow.blur * scale,
+			offset_x: text.shadow.offset_x * scale,
+			offset_y: text.shadow.offset_y * scale
+		}
+	};
+}
+
 function resizeLayer(layer: ImageEditorLayer, geometry: ResizeGeometry): ImageEditorLayer {
 	const styleScale = geometry.styleScale;
 	const resized: ImageEditorLayer = {
@@ -121,17 +140,7 @@ function resizeLayer(layer: ImageEditorLayer, geometry: ResizeGeometry): ImageEd
 		}
 	};
 	if (layer.text) {
-		resized.text = {
-			...layer.text,
-			font_size: layer.text.font_size * styleScale,
-			stroke_width: layer.text.stroke_width * styleScale,
-			shadow: {
-				...layer.text.shadow,
-				blur: layer.text.shadow.blur * styleScale,
-				offset_x: layer.text.shadow.offset_x * styleScale,
-				offset_y: layer.text.shadow.offset_y * styleScale
-			}
-		};
+		resized.text = scaleImageEditorText(layer.text, styleScale);
 	}
 	if (layer.shape) {
 		resized.shape = {

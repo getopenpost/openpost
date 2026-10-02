@@ -1,3 +1,4 @@
+import type {} from '@vitest/browser-playwright';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cdp, page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';

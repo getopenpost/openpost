@@ -108,12 +108,18 @@ for (const mode of ["test", "preview"] as const) {
     await expect(output.getByText(warning, { exact: true })).toHaveCount(0);
     const field = page.getByRole("textbox", { name: "Text", exact: true });
     await field.fill('{"value":2}');
+    await expect(field).toHaveText('{"value":2}');
+    await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+      "Audit parse",
+    );
     await expect(output.getByText(warning, { exact: true })).toBeVisible();
     await checkOutput(1);
     for (const width of [320, 390, 1280]) {
       for (const colorScheme of ["light", "dark"] as const) {
         await page.setViewportSize({ width, height: 850 });
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+        if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+        else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
         if (width < 1024) await page.getByRole("button", { name: "Output", exact: true }).click();
         await expect(output.getByText(warning, { exact: true })).toBeVisible();
         await page.screenshot({
@@ -143,6 +149,8 @@ for (const mode of ["test", "preview"] as const) {
       for (const colorScheme of ["light", "dark"] as const) {
         await page.setViewportSize({ width, height: 850 });
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+        if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+        else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
         await expect(
           historicCard.getByText(mode === "test" ? "Test node" : "Preview", { exact: true }),
         ).toBeVisible();

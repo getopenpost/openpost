@@ -104,6 +104,7 @@
 	let selectedRun = $state('');
 	let canvas = $state<Canvas>();
 	let inspectorOrigin: HTMLElement | null = null;
+	let inspectorElement = $state<HTMLDivElement | null>(null);
 	let runContexts = $state.raw<Record<string, { definition: Definition; data: WorkflowData }>>({});
 	let pendingSave: Promise<void> | undefined;
 	const canEdit = $derived(workspaceCtx.currentWorkspace?.role !== 'viewer');
@@ -778,13 +779,22 @@
 			/>{/if}
 		<Dialog.Root bind:open={inspector}>
 			<Dialog.Content
+				bind:ref={inspectorElement}
 				data-workflow-inspector
 				showCloseButton={false}
 				class="top-auto bottom-0 left-0 flex h-[calc(100dvh-0.75rem)] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-xl rounded-b-none p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:h-[min(900px,calc(100dvh-3rem))] sm:w-[calc(100vw-3rem)] sm:max-w-[1600px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
-				onOpenAutoFocus={() => {
+				onOpenAutoFocus={(event) => {
+					// A delayed initial focus can interrupt typing in a field the user already chose.
+					event.preventDefault();
 					dataTab = panel === 'runs' ? 'output' : 'configure';
+					if (inspectorElement?.contains(document.activeElement)) return;
 					inspectorOrigin =
 						document.activeElement instanceof HTMLElement ? document.activeElement : null;
+					inspectorElement
+						?.querySelector<HTMLElement>(
+							'input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [contenteditable="true"]'
+						)
+						?.focus();
 				}}
 				onCloseAutoFocus={(event) => {
 					event.preventDefault();

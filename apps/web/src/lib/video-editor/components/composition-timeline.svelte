@@ -867,6 +867,8 @@
 	}
 	function beginParentPick(childId: string, event: PointerEvent): void {
 		if (event.button !== 0) return;
+		const child = timelineStore.itemById.get(childId);
+		if (!child || isLocked(child)) return;
 		const target = event.currentTarget;
 		if (!(target instanceof HTMLElement)) return;
 		event.preventDefault();
@@ -891,11 +893,13 @@
 					const result = setTransformParent(pendingParent, targetId);
 					if (!result.ok) {
 						status =
-							result.reason === 'cycle'
-								? m.video_editor_motion_parent_cycle()
-								: result.reason === 'duplicate-transform'
-									? m.video_editor_motion_parent_duplicate()
-									: m.video_editor_motion_parent_failed();
+							result.reason === 'locked-child'
+								? m.video_editor_motion_track_locked()
+								: result.reason === 'cycle'
+									? m.video_editor_motion_parent_cycle()
+									: result.reason === 'duplicate-transform'
+										? m.video_editor_motion_parent_duplicate()
+										: m.video_editor_motion_parent_failed();
 					} else {
 						status = m.video_editor_composition_timeline_parent_linked();
 						onedit();
@@ -2867,6 +2871,7 @@
 															aria-label={m.video_editor_motion_parent_none()}
 															onclick={() => detachParent(item.id)}
 															data-testid={`parent-detach-${item.id}`}
+															disabled={isLocked(item)}
 															class="icon-btn"><ThemeIcon role="unlink" class="size-3" /></Button
 														>
 													{:else}
@@ -2877,6 +2882,7 @@
 																name: itemLabel(item)
 															})}
 															data-testid={`parent-pick-${item.id}`}
+															disabled={isLocked(item)}
 															onpointerdown={(event) => beginParentPick(item.id, event)}
 															class="icon-btn"><ThemeIcon role="link" class="size-3" /></Button
 														>

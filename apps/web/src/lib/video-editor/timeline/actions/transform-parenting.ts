@@ -7,6 +7,7 @@ import {
 	type AnimatedItemMotionContext
 } from '../animated-properties';
 import { execute } from '../commands/command-store.svelte';
+import { isTrackEffectivelyLocked } from '../utils/track-groups';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import {
 	createTransformParentBinding,
@@ -20,6 +21,7 @@ export type SetTransformParentResult =
 	| {
 			ok: false;
 			reason:
+				| 'locked-child'
 				| 'missing-child'
 				| 'missing-parent'
 				| 'unsupported-child'
@@ -72,6 +74,9 @@ export function setTransformParent(
 ): SetTransformParentResult {
 	const child = timelineStore.itemById.get(childItemId);
 	if (!child) return { ok: false, reason: 'missing-child' };
+	if (isTrackEffectivelyLocked(child.trackId, timelineStore.tracks)) {
+		return { ok: false, reason: 'locked-child' };
+	}
 	const parent = timelineStore.itemById.get(parentItemId);
 	if (!parent) return { ok: false, reason: 'missing-parent' };
 	if (!canParticipate(child)) return { ok: false, reason: 'unsupported-child' };
@@ -107,6 +112,7 @@ export function setTransformParent(
 export function detachTransformParent(childItemId: string): boolean {
 	const child = timelineStore.itemById.get(childItemId);
 	if (!child?.transformParent?.parentItemId) return false;
+	if (isTrackEffectivelyLocked(child.trackId, timelineStore.tracks)) return false;
 	const transformParent = detachedTransformParentBinding(child);
 	if (!transformParent) return false;
 	execute(

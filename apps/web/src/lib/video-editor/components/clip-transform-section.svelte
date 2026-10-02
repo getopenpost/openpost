@@ -23,6 +23,7 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { isTrackEffectivelyLocked } from '../timeline/utils/track-groups';
 	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
 
 	let {
@@ -40,6 +41,9 @@
 					candidate !== undefined && candidate.type !== 'audio' && candidate.type !== 'adjustment'
 			);
 	});
+	const locked = $derived(
+		items.some((item) => isTrackEffectivelyLocked(item.trackId, timelineStore.tracks))
+	);
 	const selectedIds = $derived(items.map((item) => item.id));
 	const blendOptions = $derived(getBlendModeOptions());
 	let gesture = $state<TimelineSnapshot | null>(null);
@@ -111,11 +115,12 @@
 	}
 
 	function beginGesture(): void {
+		if (locked) return;
 		gesture ??= beginAnimatedPropertyEdit();
 	}
 
 	function writeLive(property: KeyframeProperty, value: number): void {
-		if (!Number.isFinite(value)) return;
+		if (locked || !Number.isFinite(value)) return;
 		beginGesture();
 		const values = valuesFor(property, value);
 		for (const item of items) {
@@ -126,7 +131,7 @@
 	}
 
 	function commitGesture(property: KeyframeProperty, value: number): void {
-		if (!Number.isFinite(value) || items.length === 0) return;
+		if (locked || !Number.isFinite(value) || items.length === 0) return;
 		if (!gesture) writeLive(property, value);
 		const before = gesture;
 		if (!before) return;
@@ -146,6 +151,7 @@
 	function reset(
 		valuesForItem: (item: TimelineItem) => Partial<Record<KeyframeProperty, number>>
 	): void {
+		if (locked) return;
 		let changed = false;
 		executeAtomic('RESET_CLIP_TRANSFORM', () => {
 			for (const item of items) {
@@ -178,12 +184,13 @@
 	}
 
 	function toggleAspectLock(): void {
-		const locked = !aspectLocked();
+		if (locked) return;
+		const nextAspectLocked = !aspectLocked();
 		executeAtomic('SET_CLIP_ASPECT_LOCK', () => {
 			for (const item of items) {
 				updateItemProperties(
 					item.id,
-					{ transform: { ...item.transform, aspectRatioLocked: locked } },
+					{ transform: { ...item.transform, aspectRatioLocked: nextAspectLocked } },
 					'SET_CLIP_ASPECT_LOCK'
 				);
 			}
@@ -192,6 +199,7 @@
 	}
 
 	function toggleFlip(property: 'flipHorizontal' | 'flipVertical'): void {
+		if (locked) return;
 		const enabled = items.every((item) => item.transform?.[property] === true);
 		executeAtomic('FLIP_CLIPS', () => {
 			for (const item of items) {
@@ -217,7 +225,7 @@
 
 	function setBlendMode(value: string): void {
 		const mode = ALL_BLEND_MODES.find((candidate) => candidate === value);
-		if (!mode || hasShapeMask()) return;
+		if (locked || !mode || hasShapeMask()) return;
 		let changed = false;
 		executeAtomic('SET_ITEM_BLEND_MODE', () => {
 			for (const item of items) {
@@ -245,6 +253,7 @@
 				>{shortLabel}</span
 			>
 			<ScrubbableNumberInput
+				disabled={locked}
 				{ariaLabel}
 				value={mixedValue(property)}
 				placeholder={m.video_editor_property_mixed()}
@@ -308,6 +317,7 @@
 					</div>
 					<button
 						type="button"
+						disabled={locked}
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 						aria-label={m.video_editor_property_reset_position()}
 						onclick={() => reset(() => ({ x: 0, y: 0 }))}
@@ -332,6 +342,7 @@
 					</div>
 					<button
 						type="button"
+						disabled={locked}
 						class:active={aspectLocked()}
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
 						aria-label={aspectLocked()
@@ -347,6 +358,7 @@
 					</button>
 					<button
 						type="button"
+						disabled={locked}
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 						aria-label={m.video_editor_property_reset_size()}
 						onclick={resetSize}
@@ -365,6 +377,7 @@
 				<div class="flex min-w-0 items-center gap-1">
 					<div class="min-w-0 flex-1">
 						<SliderRow
+							disabled={locked}
 							showLabel={false}
 							label={m.video_editor_rotation()}
 							value={mixedValue('rotation') ?? 0}
@@ -390,6 +403,7 @@
 					/>
 					<button
 						type="button"
+						disabled={locked}
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 						aria-label={m.video_editor_property_reset_rotation()}
 						onclick={() => reset(() => ({ rotation: 0 }))}
@@ -429,6 +443,7 @@
 						</div>
 						<button
 							type="button"
+							disabled={locked}
 							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 							aria-label={m.video_editor_property_reset_anchor()}
 							onclick={() =>
@@ -450,6 +465,7 @@
 				<div class="grid grid-cols-2 gap-1">
 					<Button
 						type="button"
+						disabled={locked}
 						size="sm"
 						variant="ghost"
 						class="h-[22px] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
@@ -458,6 +474,7 @@
 					>
 					<Button
 						type="button"
+						disabled={locked}
 						size="sm"
 						variant="ghost"
 						class="h-[22px] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
@@ -493,6 +510,7 @@
 					<div class="flex min-w-0 items-center gap-1">
 						<div class="min-w-0 flex-1">
 							<SliderRow
+								disabled={locked}
 								showLabel={false}
 								label={m.video_editor_clip_opacity()}
 								value={(mixedValue('opacity') ?? 1) * 100}
@@ -518,6 +536,7 @@
 						/>
 						<button
 							type="button"
+							disabled={locked}
 							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 							aria-label={m.video_editor_property_reset_opacity()}
 							onclick={() => reset(() => ({ opacity: 1 }))}
@@ -536,7 +555,7 @@
 						options={blendOptions}
 						placeholder={m.video_editor_property_mixed()}
 						ariaLabel={m.video_editor_blend_mode()}
-						disabled={hasShapeMask()}
+						disabled={locked || hasShapeMask()}
 						onValueChange={setBlendMode}
 					/>
 				</div>
@@ -555,6 +574,7 @@
 						)}
 						<button
 							type="button"
+							disabled={locked}
 							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
 							aria-label={m.video_editor_property_reset_radius()}
 							onclick={() => reset(() => ({ cornerRadius: 0 }))}

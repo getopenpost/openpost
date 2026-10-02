@@ -11,6 +11,7 @@
 		setTransformParent
 	} from '$lib/video-editor/timeline/actions/transform-parenting';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { isTrackEffectivelyLocked } from '../timeline/utils/track-groups';
 	import ClipPropertiesPanel from './clip-properties-panel.svelte';
 	import MotionPresetsPanel from './motion-presets-panel.svelte';
 	import TextMotionPanel from './text-motion-panel.svelte';
@@ -48,6 +49,9 @@
 	} = $props();
 
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
+	const locked = $derived(
+		item ? isTrackEffectivelyLocked(item.trackId, timelineStore.tracks) : false
+	);
 	const supportsMotion = $derived(
 		item !== undefined &&
 			[
@@ -86,7 +90,7 @@
 	}
 
 	function changeParent(value: string): void {
-		if (!itemId) return;
+		if (!itemId || locked) return;
 		parentError = '';
 		const parentItemId = value;
 		if (!parentItemId) {
@@ -99,11 +103,13 @@
 			return;
 		}
 		parentError =
-			result.reason === 'cycle'
-				? m.video_editor_motion_parent_cycle()
-				: result.reason === 'duplicate-transform'
-					? m.video_editor_motion_parent_duplicate()
-					: m.video_editor_motion_parent_failed();
+			result.reason === 'locked-child'
+				? m.video_editor_motion_track_locked()
+				: result.reason === 'cycle'
+					? m.video_editor_motion_parent_cycle()
+					: result.reason === 'duplicate-transform'
+						? m.video_editor_motion_parent_duplicate()
+						: m.video_editor_motion_parent_failed();
 	}
 </script>
 
@@ -139,6 +145,7 @@
 				{m.video_editor_motion_parent_label()}
 			</label>
 			<Select.Root
+				disabled={locked}
 				type="single"
 				value={item?.transformParent?.parentItemId ?? ''}
 				onValueChange={changeParent}

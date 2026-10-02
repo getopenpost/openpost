@@ -1,14 +1,36 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { userEvent } from 'vitest/browser';
 import '../../../routes/layout.css';
 import { keyboardShortcuts } from '../settings/keyboard-shortcuts.svelte';
 import KeyboardShortcutEditor from './keyboard-shortcut-editor.svelte';
+import EditorSettingsDialog from './editor-settings-dialog.svelte';
 
 beforeEach(() => {
 	keyboardShortcuts.resetAll();
 });
 
 describe('KeyboardShortcutEditor', () => {
+	it('cancels shortcut capture before Escape dismisses Settings', async () => {
+		const screen = await render(EditorSettingsDialog, { open: true });
+		const dialog = screen.getByRole('dialog', { name: 'Editor settings' });
+		await dialog.getByRole('button', { name: 'Shortcuts', exact: true }).click();
+		const play = dialog.getByRole('group', { name: 'Play or pause', exact: true });
+		for (const conflict of [false, true]) {
+			await play.getByRole('button', { name: 'Change', exact: true }).click();
+			if (conflict) {
+				await userEvent.keyboard('{ArrowRight}');
+				await expect.element(dialog.getByText(/Already used by.*Next frame/)).toBeVisible();
+			}
+			await userEvent.keyboard('{Escape}');
+			await expect.element(dialog).toBeVisible();
+			await expect.element(play.getByRole('button', { name: 'Change', exact: true })).toBeVisible();
+			expect(keyboardShortcuts.bindings.PLAY_PAUSE).toBe('space');
+		}
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).not.toBeInTheDocument();
+	});
+
 	it('groups alternate bindings and filters commands from an accessible keyboard', async () => {
 		const screen = await render(KeyboardShortcutEditor);
 

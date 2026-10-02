@@ -411,7 +411,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={captureKeydown} />
+<svelte:window onkeydowncapture={captureKeydown} />
 
 <section class="space-y-4" data-editor-shortcuts-disabled aria-labelledby="shortcut-settings-title">
 	<div class="flex flex-wrap items-start justify-between gap-3">

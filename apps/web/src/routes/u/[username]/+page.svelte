@@ -97,11 +97,16 @@
 	});
 	const showRecentActivity: Attachment<HTMLElement> = (node) => {
 		let followsRecent = true;
+		let knownScrollEnd = Math.max(0, node.scrollWidth - node.clientWidth);
 		const revealRecent = () => {
-			if (followsRecent) node.scrollLeft = Math.max(0, node.scrollWidth - node.clientWidth);
+			knownScrollEnd = Math.max(0, node.scrollWidth - node.clientWidth);
+			if (followsRecent) node.scrollLeft = knownScrollEnd;
 		};
 		const trackScroll = () => {
-			followsRecent = node.scrollWidth - node.clientWidth - node.scrollLeft <= 1;
+			const scrollEnd = Math.max(0, node.scrollWidth - node.clientWidth);
+			// Resize can clamp scrolling before its observer runs. That is not a request for older dates.
+			if (scrollEnd !== knownScrollEnd) return;
+			followsRecent = scrollEnd - node.scrollLeft <= 1;
 		};
 		const frame = requestAnimationFrame(revealRecent);
 		const observer = new ResizeObserver(revealRecent);

@@ -65,7 +65,16 @@ export interface AuthStoreDependencies {
 	notificationInbox: Pick<typeof notificationInbox, 'clear'>;
 	identifyTelemetryUser: typeof identifyTelemetryUser;
 	resetTelemetryIdentity: typeof resetTelemetryIdentity;
-	queryClient: Pick<QueryClient, 'clear' | 'fetchQuery' | 'setQueryData' | 'setQueriesData'>;
+	queryClient: Pick<
+		QueryClient,
+		| 'clear'
+		| 'fetchQuery'
+		| 'setQueryData'
+		| 'setQueriesData'
+		| 'getQueriesData'
+		| 'getQueryState'
+		| 'invalidateQueries'
+	>;
 	appBootstrapQueryAPI: AppBootstrapQueryAPI;
 	resetWorkspaceState: () => void;
 }
@@ -166,18 +175,27 @@ export function createAuthStore(dependencyOverrides: Partial<AuthStoreDependenci
 		return releaseAction;
 	};
 	const syncBootstrapUser = (user: User | null) => {
-		queryClient.setQueriesData<AppBootstrap>({ queryKey: bootstrapRoot }, (bootstrap) => {
-			if (!bootstrap) return bootstrap;
-			if (user) return { ...bootstrap, authenticated: true, user };
-			return {
-				...bootstrap,
-				authenticated: false,
-				user: null,
-				workspaces: [],
-				selected_workspace_id: null,
-				selected_workspace_settings: null
-			};
-		});
+		for (const [queryKey, bootstrap] of queryClient.getQueriesData<AppBootstrap>({
+			queryKey: bootstrapRoot
+		})) {
+			if (!bootstrap) continue;
+			const state = queryClient.getQueryState(queryKey);
+			const updated = user
+				? { ...bootstrap, authenticated: true, user }
+				: {
+						...bootstrap,
+						authenticated: false,
+						user: null,
+						workspaces: [],
+						selected_workspace_id: null,
+						selected_workspace_settings: null
+					};
+			// A user projection does not refetch the workspace inventory or its settings.
+			queryClient.setQueryData(queryKey, updated, { updatedAt: state?.dataUpdatedAt });
+			if (state?.isInvalidated) {
+				void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+			}
+		}
 	};
 	const repairSupersededBootstrap = () => {
 		queryClient.setQueriesData<AppBootstrap>({ queryKey: bootstrapRoot }, (bootstrap) => {

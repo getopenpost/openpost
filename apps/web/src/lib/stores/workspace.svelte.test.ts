@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { client, type Workspace } from '$lib/api/client';
 import {
 	billingQueryKeys,
+	workspaceCreationCachePlan,
 	developerQueryKeys,
 	openPostBootstrapQueryKeys,
 	openPostQueryKeys,
 	workspaceSettingsQueryKeys
 } from '@openpost/query-catalog';
+import { executeQueryCachePlan } from '$lib/query/cache-plan';
 import { queryClient } from '$lib/query/client';
 import { createAuthStore } from './auth';
 import { WorkspaceContext } from './workspace.svelte';
@@ -161,6 +163,48 @@ describe('workspace settings state', () => {
 		).toHaveLength(0);
 		expect(context.currentWorkspace?.id).toBe(workspaceA.id);
 		expect(context.settingsReady).toBe(true);
+		auth.clearLocal();
+	});
+
+	it('retains a created workspace when an earlier workspace bootstrap is reused', async () => {
+		localStorage.setItem('openpost_current_workspace', JSON.stringify(workspaceA));
+		let inventory = [workspaceA];
+		mocks.get.mockImplementation((path, options) => {
+			if (path !== '/app/bootstrap') return { data: settings('Europe/Lisbon'), error: null };
+			const preferred = options.params.query.preferred_workspace_id;
+			return {
+				data: bootstrap(
+					inventory,
+					preferred,
+					settings(preferred === workspaceB.id ? 'America/New_York' : 'Europe/Lisbon')
+				),
+				error: null
+			};
+		});
+		const auth = createAuthStore({
+			isBrowser: true,
+			getPasskeyAssertion: vi.fn(),
+			notificationInbox: { clear: vi.fn() },
+			identifyTelemetryUser: vi.fn(),
+			resetTelemetryIdentity: vi.fn()
+		});
+		const context = new WorkspaceContext();
+		await auth.initialize({ preferredWorkspaceID: workspaceA.id });
+		await context.initialize();
+		inventory = [workspaceA, workspaceB];
+		await executeQueryCachePlan(queryClient, workspaceCreationCachePlan());
+		const projection = auth.captureUserProjection(bootstrapUser.id);
+		const refreshed = await context.loadWorkspaces(workspaceB.id);
+		expect(auth.projectBootstrap(refreshed, projection)).toBe(true);
+		expect(context.settings.timezone).toBe('America/New_York');
+		await context.setWorkspace(workspaceA);
+		await context.initialize();
+		expect(context.workspaces.map((workspace) => workspace.id)).toEqual([
+			workspaceA.id,
+			workspaceB.id
+		]);
+		expect(context.currentWorkspace?.id).toBe(workspaceA.id);
+		expect(context.settings.timezone).toBe('Europe/Lisbon');
 		auth.clearLocal();
 	});
 

@@ -5,7 +5,9 @@ import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 // selection from dialog mount state in create-workspace-dialog.svelte (the
 // selection guard now checks only the actor identity, so bootstrap-invalidation
 // remounts mid-flight no longer abort selection). Re-enabled to prove it end to end.
-test("workspace switcher creates and selects a workspace", async ({ page, request }) => {
+test("workspace switcher creates and selects a workspace", async ({ page, request }, testInfo) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   const unique = Date.now().toString(36);
   const email = `workspace-create-${unique}@example.com`;
   const firstName = `Personal ${unique}`;
@@ -21,6 +23,8 @@ test("workspace switcher creates and selects a workspace", async ({ page, reques
     .getByRole("button", { name: new RegExp(`${firstName}|${newName}`) })
     .first();
   await expect(workspaceButton).toBeVisible();
+  await page.reload();
+  await expect(workspaceButton).toContainText(firstName);
 
   await workspaceButton.click();
   await page.getByRole("menuitem", { name: "Create workspace" }).click();
@@ -41,6 +45,67 @@ test("workspace switcher creates and selects a workspace", async ({ page, reques
 
   await workspaceButton.click();
   await expect(page.getByRole("menuitem", { name: new RegExp(newName) })).toBeVisible();
+  await page.getByRole("menuitem", { name: new RegExp(firstName) }).click();
+  await expect(workspaceButton).toContainText(firstName);
+  await page
+    .getByTestId("sidebar-workspace-footer")
+    .getByRole("button", { name: "Inbox", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/inbox\/engagement/);
+  await expect(page.getByRole("heading", { name: "No engagement yet", exact: true })).toBeVisible();
+  await workspaceButton.click();
+  await expect(page.getByRole("menuitem", { name: new RegExp(newName) })).toBeVisible();
+  await page.getByRole("menuitem", { name: new RegExp(newName) }).click();
+  await expect(workspaceButton).toContainText(newName);
+  await page.reload();
+  await expect(workspaceButton).toContainText(newName);
+  await workspaceButton.click();
+  await expect(page.getByRole("menuitem", { name: new RegExp(firstName) })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: new RegExp(newName) })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  for (const scheme of ["light", "dark"] as const) {
+    await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.reload();
+      if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
+      else await expect(page.locator("html")).not.toHaveClass(/dark/);
+      const trigger =
+        width === 1440
+          ? workspaceButton
+          : page
+              .locator('[data-slot="mobile-bottom-nav"]')
+              .getByRole("button", { name: "More", exact: true });
+      await expect(trigger).toBeVisible();
+      await trigger.focus();
+      await page.keyboard.press("Enter");
+      if (width !== 1440) {
+        const workspaceItem = page.getByRole("menuitem", { name: "Workspace", exact: true });
+        await workspaceItem.focus();
+        await page.keyboard.press("Enter");
+      }
+      await expect(page.getByRole("menuitem", { name: new RegExp(firstName) })).toBeVisible();
+      const createdItem = page.getByRole("menuitem", { name: new RegExp(newName) });
+      await expect(createdItem).toBeVisible();
+      await page.keyboard.press("Home");
+      await page.keyboard.press("ArrowDown");
+      if (width !== 1440) await page.keyboard.press("ArrowDown");
+      await expect(createdItem).toBeFocused();
+      const screenshotPath = testInfo.outputPath(`workspace-list-${width}-${scheme}.png`);
+      await page.screenshot({ path: screenshotPath });
+      await expect(createdItem).toBeFocused();
+      await testInfo.attach(`workspace-list-${width}-${scheme}`, {
+        path: screenshotPath,
+        contentType: "image/png",
+      });
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("menu")).toBeHidden();
+      await expect(trigger).toBeFocused();
+    }
+  }
+  expect(pageErrors).toEqual([]);
 });
 
 test("workspace-scoped pages reload when the sidebar workspace changes", async ({

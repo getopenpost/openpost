@@ -55,7 +55,12 @@ function projectFixture(): Project {
 		createdAt: 1,
 		updatedAt: 1,
 		duration: 4,
-		metadata: { width: 1920, height: 1080, fps: 30, backgroundColor: '#111111' },
+		metadata: {
+			width: 1920,
+			height: 1080,
+			fps: 30,
+			backgroundColor: '#111111'
+		},
 		timeline: {
 			tracks,
 			items: [shape('main-shape', 120)],
@@ -128,6 +133,36 @@ describe('ExportDialog', () => {
 		await expect.element(screen.getByRole('heading', { name: 'Export video' })).toBeVisible();
 	});
 
+	it('shows only audio-relevant decisions for WAV and restores video settings afterward', async () => {
+		const project = projectFixture();
+		sequenceStore.load(project.timeline!, project.metadata);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await screen.getByText('WebM', { exact: true }).click();
+		await screen.getByRole('option', { name: 'Audio only: WAV', exact: true }).click();
+		await expect
+			.element(screen.getByRole('heading', { name: 'Export', exact: true }))
+			.toBeVisible();
+		for (const name of ['Resolution', 'Quality', 'Subtitles', 'Codec']) {
+			await expect
+				.element(screen.getByRole('button', { name: new RegExp(name) }))
+				.not.toBeInTheDocument();
+		}
+		await expect.element(screen.getByText('Resolution: 1920 × 1080')).not.toBeInTheDocument();
+		await expect.element(screen.getByText('Audio only: WAV', { exact: true })).toBeVisible();
+		await screen.getByText('Audio only: WAV', { exact: true }).click();
+		await screen.getByRole('option', { name: 'WebM', exact: true }).click();
+		await expect.element(screen.getByRole('heading', { name: 'Export video' })).toBeVisible();
+		for (const name of ['Resolution', 'Quality', 'Subtitles', 'Codec']) {
+			await expect.element(screen.getByRole('button', { name: new RegExp(name) })).toBeVisible();
+		}
+	});
+
 	it('exports another sequence at its own dimensions without navigating away from Main', async () => {
 		const project = projectFixture();
 		sequenceStore.load(project.timeline!, project.metadata);
@@ -157,7 +192,11 @@ describe('ExportDialog', () => {
 		await vi.waitFor(() => expect(renderVideo).toHaveBeenCalledOnce());
 		const [renderedProject, options] = renderVideo.mock.calls[0]!;
 		expect(renderedProject.name).toBe('Portrait cut');
-		expect(renderedProject.metadata).toMatchObject({ width: 1080, height: 1920, fps: 30 });
+		expect(renderedProject.metadata).toMatchObject({
+			width: 1080,
+			height: 1920,
+			fps: 30
+		});
 		expect(renderedProject.timeline?.items[0]?.id).toBe('portrait-shape');
 		expect(options).toMatchObject({
 			width: 1080,

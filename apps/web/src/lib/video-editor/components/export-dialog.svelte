@@ -730,7 +730,7 @@
 	>
 		<header class="shrink-0 border-b border-[var(--video-editor-border)] px-3 py-3 pr-12">
 			<Dialog.Title id="export-title" class="text-base font-semibold"
-				>{m.video_editor_export_title()}</Dialog.Title
+				>{isAudioFormat ? m.common_export() : m.video_editor_export_title()}</Dialog.Title
 			>
 		</header>
 		<div
@@ -758,11 +758,13 @@
 						class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--video-editor-muted)] tabular-nums"
 						aria-live="polite"
 					>
-						<span
-							>{m.video_editor_export_resolution()}: {selectedSequence.project.metadata.width} × {selectedSequence
-								.project.metadata.height}</span
-						>
-						<span>{selectedSequence.project.metadata.fps} fps</span>
+						{#if !isAudioFormat}
+							<span
+								>{m.video_editor_export_resolution()}: {selectedSequence.project.metadata.width} × {selectedSequence
+									.project.metadata.height}</span
+							>
+							<span>{selectedSequence.project.metadata.fps} fps</span>
+						{/if}
 						<span
 							>{m.video_editor_project_duration({
 								duration: formatMediaDuration(
@@ -820,29 +822,31 @@
 						/>
 					</label>
 				{/if}
-				<label class="text-xs text-muted-foreground">
-					{#if isSequenceFormat && (format === 'jpeg-sequence' || format === 'webp-sequence')}
-						{m.video_editor_export_jpeg_quality()}
-					{:else}
-						{m.video_editor_export_quality()}
-					{/if}
-					<AppSelect
-						class="mt-1 h-8 w-full text-sm"
-						value={quality}
-						options={qualityOptions}
-						disabled={rendering}
-						onValueChange={setQuality}
-					/>
-				</label>
-				<label class="text-xs text-muted-foreground">
-					{m.video_editor_export_resolution()}<AppSelect
-						class="mt-1 h-8 w-full text-sm"
-						bind:value={resolution}
-						options={resolutionOptions}
-						disabled={rendering}
-					/>
-				</label>
-				{#if !isSequenceFormat}
+				{#if !isAudioFormat}
+					<label class="text-xs text-muted-foreground">
+						{#if isSequenceFormat && (format === 'jpeg-sequence' || format === 'webp-sequence')}
+							{m.video_editor_export_jpeg_quality()}
+						{:else}
+							{m.video_editor_export_quality()}
+						{/if}
+						<AppSelect
+							class="mt-1 h-8 w-full text-sm"
+							value={quality}
+							options={qualityOptions}
+							disabled={rendering}
+							onValueChange={setQuality}
+						/>
+					</label>
+					<label class="text-xs text-muted-foreground">
+						{m.video_editor_export_resolution()}<AppSelect
+							class="mt-1 h-8 w-full text-sm"
+							bind:value={resolution}
+							options={resolutionOptions}
+							disabled={rendering}
+						/>
+					</label>
+				{/if}
+				{#if !isSequenceFormat && !isAudioFormat}
 					<label class="text-xs text-muted-foreground">
 						{m.video_editor_export_subtitles()}<AppSelect
 							class="mt-1 h-8 w-full text-sm"

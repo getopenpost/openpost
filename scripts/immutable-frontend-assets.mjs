@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { constants, createReadStream } from "node:fs";
+import { constants } from "node:fs";
 import { copyFile, cp, link, lstat, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -93,7 +93,7 @@ async function expectedImmutableFrontendAssets(sourceRoot) {
 
 async function sha256File(pathname) {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(pathname)) hash.update(chunk);
+  hash.update(await readFile(pathname));
   return hash.digest("hex");
 }
 

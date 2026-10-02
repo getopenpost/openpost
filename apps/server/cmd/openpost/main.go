@@ -1131,6 +1131,7 @@ func closeTelemetry(recorder telemetry.Recorder) {
 }
 
 const telemetryPanicCapturedKey = "openpost.telemetry.panic-captured"
+const telemetryHTTPErrorHandledKey = "openpost.telemetry.http-error-handled"
 
 // diagnosticsCapturedKey marks requests already reported through the
 // diagnostics channel (panic capture or error handler) so the final-status
@@ -1243,41 +1244,69 @@ func capturePanics(recorder telemetry.Recorder, diagnosticsReporter *diagnostics
 func installTelemetryErrorHandler(e *echo.Echo, recorder telemetry.Recorder, diagnosticsReporter *diagnostics.Reporter) {
 	defaultHandler := e.DefaultHTTPErrorHandler
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		defer defaultHandler(err, c)
+		// The request logger and Echo can both route the same failure here.
+		if handled, _ := c.Get(telemetryHTTPErrorHandledKey).(bool); handled {
+			return
+		}
+		c.Set(telemetryHTTPErrorHandledKey, true)
+		if panicCaptured, _ := c.Get(telemetryPanicCapturedKey).(bool); panicCaptured {
+			return
+		}
+		if requestErr := c.Request().Context().Err(); requestErr != nil && errors.Is(err, requestErr) {
+			return
+		}
+
 		status := http.StatusInternalServerError
-		var httpError *echo.HTTPError
-		if errors.As(err, &httpError) {
-			status = httpError.Code
-		}
-		panicCaptured, _ := c.Get(telemetryPanicCapturedKey).(bool)
-		if status >= http.StatusInternalServerError && !panicCaptured {
-			c.Set(diagnosticsCapturedKey, true)
-			if diagnosticsReporter != nil {
-				diagnosticsReporter.Report(diagnostics.Report{
-					Surface:    diagnostics.SurfaceBackend,
-					Operation:  normalizedRequestRoute(c.Path()),
-					ErrorCode:  diagnostics.CodeAPI5xx,
-					HTTPStatus: status,
-					FirstSeen:  time.Now().UTC(),
-					LastSeen:   time.Now().UTC(),
-				})
+		if c.Response().Committed {
+			status = c.Response().Status
+		} else {
+			var httpError *echo.HTTPError
+			if errors.As(err, &httpError) {
+				status = httpError.Code
 			}
-			captureErr := recorder.CaptureException(c.Request().Context(), telemetry.Exception{
-				Title:       "OpenPost HTTP " + strconv.Itoa(status),
-				Description: "An HTTP request failed",
-				Properties: map[string]any{
-					"method":         c.Request().Method,
-					"route":          normalizedRequestRoute(c.Path()),
-					"status":         status,
-					"request_id":     c.Response().Header().Get(echo.HeaderXRequestID),
-					"error_type":     telemetry.ErrorType(err),
-					"error_boundary": "http_error",
-				},
+		}
+		if status < http.StatusInternalServerError && !c.Response().Committed {
+			return
+		}
+		title := "OpenPost HTTP " + strconv.Itoa(status)
+		description := "An HTTP request failed"
+		boundary := "http_error"
+		code := diagnostics.CodeAPI5xx
+		if status < http.StatusInternalServerError {
+			title = "OpenPost HTTP response stream failed"
+			description = "An HTTP response failed after headers were sent"
+			boundary = "http_stream_error"
+			code = diagnostics.CodeHTTPStreamFailed
+		}
+		c.Set(diagnosticsCapturedKey, true)
+		if diagnosticsReporter != nil {
+			diagnosticsReporter.Report(diagnostics.Report{
+				Surface:    diagnostics.SurfaceBackend,
+				Operation:  normalizedRequestRoute(c.Path()),
+				ErrorCode:  code,
+				HTTPStatus: status,
+				FirstSeen:  time.Now().UTC(),
+				LastSeen:   time.Now().UTC(),
 			})
-			if captureErr != nil {
-				log.Printf("Failed to enqueue HTTP error telemetry: %v", captureErr)
-			}
 		}
-		defaultHandler(err, c)
+		captureErr := recorder.CaptureException(c.Request().Context(), telemetry.Exception{
+			Title:       title,
+			Description: description,
+			Properties: map[string]any{
+				"method":               c.Request().Method,
+				"route":                normalizedRequestRoute(c.Path()),
+				"status":               status,
+				"request_id":           c.Response().Header().Get(echo.HeaderXRequestID),
+				"error_type":           telemetry.ErrorType(err),
+				"error_boundary":       boundary,
+				"response_committed":   c.Response().Committed,
+				"request_context_done": c.Request().Context().Err() != nil,
+			},
+		})
+		if captureErr != nil {
+			log.Printf("Failed to enqueue HTTP error telemetry: %v", captureErr)
+		}
 	}
 }
 

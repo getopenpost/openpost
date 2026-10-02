@@ -35,6 +35,7 @@ import (
 // can aggregate without inspecting free-form text.
 const (
 	CodeAPI5xx                    = "api_5xx"
+	CodeHTTPStreamFailed          = "http_stream_failed"
 	CodeHTTPPanic                 = "http_panic"
 	CodeWorkerPanic               = "worker_panic"
 	CodeWorkerFailed              = "worker_failed"
@@ -51,6 +52,7 @@ const (
 
 var allowedErrorCodes = map[string]struct{}{
 	CodeAPI5xx:                    {},
+	CodeHTTPStreamFailed:          {},
 	CodeHTTPPanic:                 {},
 	CodeWorkerPanic:               {},
 	CodeWorkerFailed:              {},

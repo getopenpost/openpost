@@ -1937,7 +1937,9 @@
 		}
 		if (
 			tool === 'crop' &&
-			!editor.selectedLayers.some((layer) => layer.type === 'image' && !layer.locked)
+			!editor.selectedLayers.some(
+				(layer) => layer.type === 'image' && !editor.isLayerLocked(layer.id)
+			)
 		)
 			return;
 		assetOverlayOpen = false;
@@ -2319,7 +2321,9 @@
 			return Boolean(editor.pixelSelection && !editor.floatingPixelSelection);
 		}
 		if (availability === 'layer_selection') {
-			return editor.selectedLayers.length === 1 && !editor.selectedLayers[0].locked;
+			return (
+				editor.selectedLayers.length === 1 && !editor.isLayerLocked(editor.selectedLayers[0].id)
+			);
 		}
 		if (availability === 'multi_selection') return editor.selectedLayers.length >= 2;
 		if (availability === 'group_selection') {
@@ -2329,11 +2333,15 @@
 		if (availability === 'crop_target') {
 			return (
 				editor.canEdit &&
-				editor.selectedLayers.some((layer) => layer.type === 'image' && !layer.locked)
+				editor.selectedLayers.some(
+					(layer) => layer.type === 'image' && !editor.isLayerLocked(layer.id)
+				)
 			);
 		}
 		if (availability === 'image_selection') {
-			return Boolean(editor.selectedLayers.some((layer) => layer.image && !layer.locked));
+			return Boolean(
+				editor.selectedLayers.some((layer) => layer.image && !editor.isLayerLocked(layer.id))
+			);
 		}
 		if (availability === 'project_idle') return !projectBusy;
 		if (availability === 'guides') {
@@ -2659,7 +2667,9 @@
 	}
 
 	async function removeBackground(optimizeLarge = false): Promise<void> {
-		const layer = editor.selectedLayers.find((candidate) => candidate.image && !candidate.locked);
+		const layer = editor.selectedLayers.find(
+			(candidate) => candidate.image && !editor.isLayerLocked(candidate.id)
+		);
 		if (!layer?.image || backgroundBusy) return;
 		backgroundBusy = true;
 		const finishMetric = startImageEditorMetric('background_removal');

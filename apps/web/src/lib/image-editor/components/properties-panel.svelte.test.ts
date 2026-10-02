@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { ImageEditorController } from '../editor.svelte';
 import { blankImageEditorDocument, defaultImageAdjustments, defaultTransform } from '../document';
@@ -119,4 +120,77 @@ it('targets selected images first and keeps advanced color tools behind a disclo
 		.toHaveAttribute('aria-expanded', 'false');
 	await expect.element(screen.getByText('Tone')).toBeVisible();
 	await expect.element(screen.getByLabelText('Scopes', { exact: true })).not.toBeVisible();
+});
+
+it.each(['layer', 'group'])(
+	'disables %s-locked text editing and restores editing after unlock and Undo',
+	async (lockOwner) => {
+		const authored = setup([]);
+		authored.addText();
+		const text = structuredClone(authored.selectedLayers[0]);
+		text.locked = lockOwner === 'layer';
+		text.text!.text = 'Original 東京';
+		const group: ImageEditorLayer = {
+			...shape('Group', 0),
+			type: 'group',
+			shape: undefined,
+			locked: true
+		};
+		if (lockOwner === 'group') text.parent_id = group.id;
+		const lockID = lockOwner === 'group' ? group.id : text.id;
+		const editor = setup(lockOwner === 'group' ? [group, text] : [text]);
+		editor.selectLayer(text.id);
+		const screen = await render(Fixture, { editor });
+		const input = screen.getByLabelText('Text', { exact: true });
+		await expect.element(input).toBeDisabled();
+		await expect.element(input).toHaveValue('Original 東京');
+		await expect.element(screen.getByLabelText('Size', { exact: true })).toBeDisabled();
+		expect(editor.canUndo).toBe(false);
+
+		editor.updateLayer(lockID, { locked: false });
+		await expect.element(input).toBeEnabled();
+		await input.fill('Edited مرحبا');
+		await input.click();
+		await userEvent.tab();
+		await expect.element(input).not.toHaveFocus();
+		expect(editor.selectedLayers[0].text?.text).toBe('Edited مرحبا');
+		editor.undo();
+		await expect.element(input).toHaveValue('Original 東京');
+		editor.redo();
+		await expect.element(input).toHaveValue('Edited مرحبا');
+		editor.updateLayer(lockID, { locked: true });
+		const cold = setup(JSON.parse(JSON.stringify(editor.activePage!.layers)));
+		cold.selectLayer(text.id);
+		expect(cold.selectedLayers[0].text?.text).toBe('Edited مرحبا');
+		expect(cold.isLayerLocked(text.id)).toBe(true);
+		await expect.element(input).toBeDisabled();
+	}
+);
+
+it('disables locked shape radius and preserves accepted edits through Undo and reload', async () => {
+	const rounded = shape('Rounded', 0);
+	rounded.locked = true;
+	rounded.shape!.kind = 'rounded_rectangle';
+	rounded.shape!.radius = 32;
+	const editor = setup([rounded]);
+	editor.selectLayer(rounded.id);
+	const screen = await render(Fixture, { editor });
+	const radius = screen.getByLabelText('Corner radius', { exact: true });
+	await expect.element(radius).toBeDisabled();
+	await expect.element(radius).toHaveValue(32);
+	expect(editor.canUndo).toBe(false);
+
+	editor.updateLayer(rounded.id, { locked: false });
+	await expect.element(radius).toBeEnabled();
+	await radius.fill('80');
+	expect(editor.selectedLayers[0].shape?.radius).toBe(80);
+	editor.undo();
+	await expect.element(radius).toHaveValue(32);
+	editor.redo();
+	await expect.element(radius).toHaveValue(80);
+	editor.updateLayer(rounded.id, { locked: true });
+	const cold = setup(JSON.parse(JSON.stringify(editor.activePage!.layers)));
+	cold.selectLayer(rounded.id);
+	expect(cold.selectedLayers[0]).toMatchObject({ locked: true, shape: { radius: 80 } });
+	await expect.element(radius).toBeDisabled();
 });

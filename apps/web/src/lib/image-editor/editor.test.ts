@@ -1312,22 +1312,27 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		});
 	});
 
-	it('resolves an image aspect ratio when media dimensions arrive after insertion', () => {
-		const editor = new ImageEditorController();
-		editor.load(response());
+	it.each([false, true])(
+		'resolves pending image dimensions without changing the lock (%s)',
+		(locked) => {
+			const editor = new ImageEditorController();
+			editor.load(response());
 
-		editor.addImage({ id: 'media', name: 'Deferred image' });
-		const pending = editor.selectedLayers[0];
-		expect(pending.image?.intrinsic_pending).toBe(true);
+			editor.addImage({ id: 'media', name: 'Deferred image' });
+			const pending = editor.selectedLayers[0];
+			expect(pending.image?.intrinsic_pending).toBe(true);
+			editor.updateLayer(pending.id, { locked });
 
-		editor.resolveImageDimensions(pending.id, 1200, 800);
+			editor.resolveImageDimensions(pending.id, 1200, 800);
 
-		const image = editor.selectedLayers[0];
-		expect(image.transform.width / image.transform.height).toBeCloseTo(3 / 2);
-		expect(image.image?.source_width).toBe(1200);
-		expect(image.image?.source_height).toBe(800);
-		expect(image.image?.intrinsic_pending).toBe(false);
-	});
+			const image = editor.selectedLayers[0];
+			expect(image.transform.width / image.transform.height).toBeCloseTo(3 / 2);
+			expect(image.image?.source_width).toBe(1200);
+			expect(image.image?.source_height).toBe(800);
+			expect(image.image?.intrinsic_pending).toBe(false);
+			expect(image.locked).toBe(locked);
+		}
+	);
 
 	it('adds gradients as selection-clipped paint layers', () => {
 		const editor = new ImageEditorController();
@@ -1452,4 +1457,42 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		]);
 		expect(editor.selectedLayers[0].erase_mask).toBeUndefined();
 	});
+});
+
+it('protects locked authored properties while allowing layer management and unlock recovery', () => {
+	const editor = new ImageEditorController();
+	const initial = response();
+	const locked = initial.document.pages[0].layers[0];
+	locked.locked = true;
+	locked.shape!.radius = 32;
+	editor.load(initial);
+	editor.selectLayer(locked.id);
+	const baseline = JSON.stringify(editor.document);
+	editor.updateLayer(locked.id, { shape: { ...locked.shape!, radius: 80 } });
+	editor.updateLayer(locked.id, { locked: false, opacity: 0.2 });
+	expect(JSON.stringify(editor.document)).toBe(baseline);
+	expect(editor.canUndo).toBe(false);
+	editor.updateLayer(locked.id, { name: 'Renamed', visible: false });
+	expect(editor.selectedLayers[0]).toMatchObject({ name: 'Renamed', visible: false, locked: true });
+	editor.updateLayer(locked.id, { locked: false });
+	editor.updateLayer(locked.id, { shape: { ...locked.shape!, radius: 80 } });
+	expect(editor.selectedLayers[0].shape?.radius).toBe(80);
+	editor.undo();
+	expect(editor.selectedLayers[0].shape?.radius).toBe(32);
+	editor.redo();
+	expect(editor.selectedLayers[0].shape?.radius).toBe(80);
+
+	editor.addText();
+	const textID = editor.selectedLayers[0].id;
+	editor.selectLayer(locked.id, 'toggle');
+	editor.groupSelected();
+	const groupID = editor.selectedLayers[0].id;
+	editor.updateLayer(groupID, { locked: true });
+	const grouped = JSON.stringify(editor.document);
+	const originalText = editor.activePage!.layers.find((layer) => layer.id === textID)!.text!;
+	expect(editor.updateTextContent(textID, 'Rejected')).toEqual(originalText);
+	editor.updateTextStyle(textID, 'font_weight', 400);
+	editor.updateTransform(textID, { x: 0 });
+	editor.updateLayer(locked.id, { shape: { ...locked.shape!, radius: 99 } });
+	expect(JSON.stringify(editor.document)).toBe(grouped);
 });

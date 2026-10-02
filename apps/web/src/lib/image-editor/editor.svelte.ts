@@ -1648,20 +1648,26 @@ export class ImageEditorController {
 		const maxWidth = this.activePageDimensions.width * 0.72;
 		const maxHeight = this.activePageDimensions.height * 0.72;
 		const { width, height } = fitImageSize(sourceWidth, sourceHeight, maxWidth, maxHeight);
-		this.updateLayer(id, {
-			transform: {
-				...layer.transform,
-				x: (this.activePageDimensions.width - width) / 2,
-				y: (this.activePageDimensions.height - height) / 2,
-				width,
-				height
-			},
-			image: {
-				...layer.image,
-				source_width: sourceWidth,
-				source_height: sourceHeight,
-				intrinsic_pending: false
-			}
+		this.mutate('Resolve image dimensions', (document) => {
+			const target = document.pages
+				.find((page) => page.id === this.activePageID)
+				?.layers.find((candidate) => candidate.id === id);
+			if (!target?.image?.intrinsic_pending) return;
+			Object.assign(target, {
+				transform: {
+					...layer.transform,
+					x: (this.activePageDimensions.width - width) / 2,
+					y: (this.activePageDimensions.height - height) / 2,
+					width,
+					height
+				},
+				image: {
+					...layer.image,
+					source_width: sourceWidth,
+					source_height: sourceHeight,
+					intrinsic_pending: false
+				}
+			});
 		});
 	}
 
@@ -1673,7 +1679,18 @@ export class ImageEditorController {
 		if (pageID === this.activePageID) this.selectedLayerIDs = [layer.id];
 	}
 
+	isLayerLocked(id: string): boolean {
+		const layers = this.activePage?.layers ?? [];
+		const layer = layers.find((candidate) => candidate.id === id);
+		return Boolean(layer && this.layerIsEffectivelyLocked(layer, layers));
+	}
+
 	updateLayer(id: string, updates: Partial<ImageEditorLayer>, coalesceKey?: string): void {
+		if (
+			this.isLayerLocked(id) &&
+			Object.keys(updates).some((key) => key !== 'locked' && key !== 'visible' && key !== 'name')
+		)
+			return;
 		this.mutate(
 			'Change layer',
 			(document) => {
@@ -1697,7 +1714,7 @@ export class ImageEditorController {
 		edit?: ImageEditorTextEdit
 	): ImageEditorLayer['text'] {
 		const layer = this.activePage?.layers.find((item) => item.id === id);
-		if (!layer?.text || layer.locked) return layer?.text;
+		if (!layer?.text || this.isLayerLocked(id)) return layer?.text;
 		const next = editTextWithRuns(layer.text, text, edit);
 		this.updateLayer(id, { text: next }, `text:${id}`);
 		return next;
@@ -1710,7 +1727,7 @@ export class ImageEditorController {
 		coalesceKey?: string
 	): void {
 		const layer = this.activePage?.layers.find((item) => item.id === id);
-		if (!layer?.text || layer.locked) return;
+		if (!layer?.text || this.isLayerLocked(id)) return;
 		const range =
 			this.textRange?.pageID === this.activePageID && this.textRange.layerID === id
 				? this.textRange
@@ -1725,7 +1742,7 @@ export class ImageEditorController {
 
 	applyImageCrop(id: string, window: ImageEditorCropWindow): void {
 		const layer = this.activePage?.layers.find((candidate) => candidate.id === id);
-		if (!layer?.image || layer.locked) return;
+		if (!layer?.image || this.isLayerLocked(id)) return;
 		const result = applyImageEditorCropWindow(layer, window);
 		this.applyImageCropState(id, result);
 	}
@@ -1740,7 +1757,7 @@ export class ImageEditorController {
 		this.mutate(m.image_editor_crop(), (document) => {
 			const page = document.pages.find((candidate) => candidate.id === this.activePageID);
 			const target = page?.layers.find((candidate) => candidate.id === id);
-			if (!page || !target?.image || target.locked) return;
+			if (!page || !target?.image || this.layerIsEffectivelyLocked(target, page.layers)) return;
 			target.transform = structuredClone(result.transform);
 			target.image.crop = result.crop;
 			this.recalculateAncestorBounds(page, target.parent_id);
@@ -1749,7 +1766,7 @@ export class ImageEditorController {
 
 	resetImageCrop(id: string): void {
 		const layer = this.activePage?.layers.find((candidate) => candidate.id === id);
-		if (!layer?.image || layer.locked) return;
+		if (!layer?.image || this.isLayerLocked(id)) return;
 		const result = resetImageEditorCrop(layer);
 		this.mutate(m.image_editor_reset_crop(), (document) => {
 			const page = document.pages.find((candidate) => candidate.id === this.activePageID);
@@ -1772,7 +1789,7 @@ export class ImageEditorController {
 				const page = document.pages.find((item) => item.id === this.activePageID);
 				if (!page) return;
 				const layer = page.layers.find((item) => item.id === id);
-				if (!layer || layer.locked) return;
+				if (!layer || this.layerIsEffectivelyLocked(layer, page.layers)) return;
 				this.applyTransformToLayer(page, layer, updates);
 			},
 			coalesceKey

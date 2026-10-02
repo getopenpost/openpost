@@ -44,7 +44,7 @@
 	});
 
 	function apply(): void {
-		if (!preset || !compatible || !editor.canEdit || layer.locked) return;
+		if (!preset || !compatible || !editor.canEdit || editor.isLayerLocked(layer.id)) return;
 		editor.updateLayer(layer.id, { effects: structuredClone($state.snapshot(preset.effects)) });
 		feedback = m.image_editor_effect_preset_applied();
 	}
@@ -123,7 +123,7 @@
 			<Button
 				variant="outline"
 				size="xs"
-				disabled={!compatible || !editor.canEdit || layer.locked || busy}
+				disabled={!compatible || !editor.canEdit || editor.isLayerLocked(layer.id) || busy}
 				onclick={apply}>{m.image_editor_effect_preset_apply()}</Button
 			>
 		</div>

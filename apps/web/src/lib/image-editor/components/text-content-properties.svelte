@@ -10,6 +10,7 @@
 
 	const editor = useImageEditor();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
+	let layerLocked = $derived(layer ? editor.isLayerLocked(layer.id) : false);
 	let textRange = $derived(
 		editor.textRange?.pageID === editor.activePageID && editor.textRange.layerID === layer?.id
 			? editor.textRange
@@ -101,7 +102,7 @@
 				<AppSelect
 					value=""
 					ariaLabel={m.image_editor_apply_text_style()}
-					disabled={!editor.canEdit || layer.locked}
+					disabled={!editor.canEdit || layerLocked}
 					onValueChange={applyTextStyle}
 					options={brandTextStyles.map((style) => ({
 						value: style.id,
@@ -119,6 +120,7 @@
 					variant="outline"
 					size="xs"
 					class="mt-2"
+					disabled={!editor.canEdit || layerLocked}
 					onclick={() =>
 						editor.updateLayer(layer.id, {
 							text: {
@@ -137,7 +139,7 @@
 			<Textarea
 				class="min-h-20"
 				value={layer.text.text}
-				disabled={!editor.canEdit}
+				disabled={!editor.canEdit || layerLocked}
 				onselect={(event) => selectTextRange(event.currentTarget)}
 				oncompositionstart={(event) => {
 					compositionStart = textGraphemeOffset(
@@ -188,7 +190,7 @@
 			<span>{m.image_editor_font_family()}</span>
 			<ImageEditorFontPicker
 				value={layer.text.font_family}
-				disabled={!editor.canEdit}
+				disabled={!editor.canEdit || layerLocked}
 				{brandFonts}
 				onChange={(font) =>
 					editor.updateLayer(layer.id, {
@@ -209,7 +211,7 @@
 					type="number"
 					min="1"
 					value={layer.text.font_size}
-					disabled={!editor.canEdit}
+					disabled={!editor.canEdit || layerLocked}
 					oninput={(event) =>
 						editor.updateLayer(
 							layer.id,
@@ -228,7 +230,7 @@
 				<AppSelect
 					value={String(selectedStyle?.font_weight ?? layer.text.font_weight)}
 					ariaLabel={m.image_editor_weight()}
-					disabled={!editor.canEdit}
+					disabled={!editor.canEdit || layerLocked}
 					onValueChange={(value) => editor.updateTextStyle(layer.id, 'font_weight', Number(value))}
 					options={fontWeightOptions}
 					class="h-7 w-full"

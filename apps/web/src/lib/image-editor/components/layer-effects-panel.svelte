@@ -26,6 +26,7 @@
 
 	let { layer }: { layer: ImageEditorLayer } = $props();
 	const editor = useImageEditor();
+	let layerLocked = $derived(editor.isLayerLocked(layer.id));
 	let brandColors = $derived(editor.brandKit?.colors ?? []);
 	let canMask = $derived(
 		(layer.type === 'image' || layer.type === 'shape') && layer.shape?.kind !== 'line'
@@ -182,7 +183,7 @@
 			<Button
 				variant={shadow ? 'secondary' : 'ghost'}
 				size="icon-xs"
-				disabled={!editor.canEdit}
+				disabled={!editor.canEdit || layerLocked}
 				onclick={() => toggleShadow(kind)}
 				aria-label={shadow
 					? kind === 'drop_shadow'
@@ -222,7 +223,7 @@
 					<ColorPicker
 						label={m.image_editor_shadow_color()}
 						value={shadow.color}
-						disabled={!editor.canEdit}
+						disabled={!editor.canEdit || layerLocked}
 						{brandColors}
 						recentColors={editor.recentColors}
 						onChange={(color) => updateShadow(kind, { color }, `${kind}-color:${layer.id}`)}
@@ -236,7 +237,7 @@
 						min={0}
 						max={1}
 						step={0.01}
-						disabled={!editor.canEdit}
+						disabled={!editor.canEdit || layerLocked}
 						ariaLabel={m.image_editor_shadow_opacity({ value: Math.round(shadow.opacity * 100) })}
 						onValueChange={(opacity) =>
 							updateShadow(kind, { opacity }, `${kind}-opacity:${layer.id}`)}
@@ -250,7 +251,7 @@
 							min={0}
 							max={100}
 							step={1}
-							disabled={!editor.canEdit}
+							disabled={!editor.canEdit || layerLocked}
 							ariaLabel={m.image_editor_shadow_blur()}
 							onValueChange={(blur) => updateShadow(kind, { blur }, `${kind}-blur:${layer.id}`)}
 						/>
@@ -262,7 +263,7 @@
 							min={0}
 							max={200}
 							step={1}
-							disabled={!editor.canEdit}
+							disabled={!editor.canEdit || layerLocked}
 							ariaLabel={m.image_editor_shadow_distance()}
 							onValueChange={(distance) =>
 								updateShadow(kind, { distance }, `${kind}-distance:${layer.id}`)}
@@ -277,7 +278,7 @@
 						max={180}
 						step={1}
 						size={28}
-						disabled={!editor.canEdit}
+						disabled={!editor.canEdit || layerLocked}
 						onValueChange={(angle) => updateShadow(kind, { angle }, `${kind}-angle:${layer.id}`)}
 					/>
 					<span class="text-xs tabular-nums"
@@ -317,7 +318,7 @@
 			<AppSelect
 				value={currentEffects().blend_mode}
 				ariaLabel={m.image_editor_blend_mode()}
-				disabled={!editor.canEdit}
+				disabled={!editor.canEdit || layerLocked}
 				onValueChange={(value) => setBlendMode(value as ImageEditorBlendMode)}
 				options={blendModes.map((mode) => ({ value: mode, label: blendLabel(mode) }))}
 				class="h-7 w-full"
@@ -332,7 +333,7 @@
 					<Button
 						variant={stroke ? 'secondary' : 'ghost'}
 						size="icon-xs"
-						disabled={!editor.canEdit}
+						disabled={!editor.canEdit || layerLocked}
 						onclick={toggleStroke}
 						aria-label={stroke ? m.image_editor_remove_border() : m.image_editor_add_border()}
 						title={stroke ? m.image_editor_remove_border() : m.image_editor_add_border()}
@@ -345,7 +346,7 @@
 						<ColorPicker
 							label={m.image_editor_border_color()}
 							value={stroke.color}
-							disabled={!editor.canEdit}
+							disabled={!editor.canEdit || layerLocked}
 							{brandColors}
 							recentColors={editor.recentColors}
 							onChange={(color) => updateStroke({ color }, `stroke-color:${layer.id}`)}
@@ -364,7 +365,7 @@
 							<AppSelect
 								value={stroke.position}
 								ariaLabel={m.image_editor_border_position()}
-								disabled={!editor.canEdit}
+								disabled={!editor.canEdit || layerLocked}
 								onValueChange={(value) =>
 									updateStroke({
 										position: value as ImageEditorLayerStrokeEffect['position']
@@ -384,7 +385,7 @@
 								min={1}
 								max={200}
 								step={1}
-								disabled={!editor.canEdit}
+								disabled={!editor.canEdit || layerLocked}
 								ariaLabel={m.image_editor_stroke_width()}
 								onValueChange={(width) => updateStroke({ width }, `stroke-width:${layer.id}`)}
 							/>
@@ -396,7 +397,7 @@
 								min={0}
 								max={1}
 								step={0.01}
-								disabled={!editor.canEdit}
+								disabled={!editor.canEdit || layerLocked}
 								ariaLabel={m.image_editor_opacity({
 									value: Math.round(stroke.opacity * 100)
 								})}
@@ -415,7 +416,7 @@
 					<AppSelect
 						value={layer.mask?.shape ?? 'none'}
 						ariaLabel={m.image_editor_mask()}
-						disabled={!editor.canEdit}
+						disabled={!editor.canEdit || layerLocked}
 						onValueChange={setMask}
 						options={[
 							{ value: 'none', label: m.image_editor_mask_none() },
@@ -436,7 +437,7 @@
 							min={0}
 							max={Math.max(1, Math.min(layer.transform.width, layer.transform.height) / 2 - 1)}
 							step={1}
-							disabled={!editor.canEdit}
+							disabled={!editor.canEdit || layerLocked}
 							ariaLabel={m.image_editor_mask_inset()}
 							onValueChange={(inset) => updateMask({ inset }, `mask-inset:${layer.id}`)}
 						/>
@@ -449,7 +450,7 @@
 								min={0}
 								max={Math.max(1, Math.min(layer.transform.width, layer.transform.height) / 2)}
 								step={1}
-								disabled={!editor.canEdit}
+								disabled={!editor.canEdit || layerLocked}
 								ariaLabel={m.image_editor_mask_radius()}
 								onValueChange={(radius) => updateMask({ radius }, `mask-radius:${layer.id}`)}
 							/>

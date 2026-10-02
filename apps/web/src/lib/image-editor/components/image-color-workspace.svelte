@@ -89,11 +89,13 @@
 	];
 
 	const selectedImageLayers = $derived(
-		editor.selectedLayers.filter((layer) => layer.type === 'image' && layer.image && !layer.locked)
+		editor.selectedLayers.filter(
+			(layer) => layer.type === 'image' && layer.image && !editor.isLayerLocked(layer.id)
+		)
 	);
 	const pageImageLayers = $derived(
 		(editor.activePage?.layers ?? []).filter(
-			(layer) => layer.type === 'image' && layer.image && !layer.locked
+			(layer) => layer.type === 'image' && layer.image && !editor.isLayerLocked(layer.id)
 		)
 	);
 	const targetLayers = $derived(scope === 'page' ? pageImageLayers : selectedImageLayers);
@@ -222,7 +224,7 @@
 		editor.mutate(m.image_editor_adjustments(), (document) => {
 			for (const page of document.pages) {
 				for (const layer of page.layers) {
-					if (!ids.has(layer.id) || layer.locked || !layer.image) continue;
+					if (!ids.has(layer.id) || editor.isLayerLocked(layer.id) || !layer.image) continue;
 					layer.image.color_grade_version = IMAGE_COLOR_GRADE_VERSION;
 					layer.image.adjustments = { ...defaultImageAdjustments(), ...adjustments };
 				}

@@ -44,6 +44,7 @@ const logger = createLogger('EditorSession');
 
 class EditorSession {
 	private projectState = $state<Project | null>(null);
+	private unsubscribePlayhead: (() => void) | null = null;
 	loading = $state(true);
 	loadError = $state('');
 	saving = $state(false);
@@ -82,6 +83,14 @@ class EditorSession {
 	}
 
 	set project(project: Project | null) {
+		if (project && !this.unsubscribePlayhead) {
+			this.unsubscribePlayhead = commandHistory.onPlayheadReconciled((frame) =>
+				this.clock.seek(frame)
+			);
+		} else if (!project) {
+			this.unsubscribePlayhead?.();
+			this.unsubscribePlayhead = null;
+		}
 		this.projectState = project;
 		if (project) sequenceStore._setRootResolution(project.metadata);
 	}

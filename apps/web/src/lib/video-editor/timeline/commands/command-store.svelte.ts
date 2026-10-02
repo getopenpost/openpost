@@ -22,10 +22,35 @@ class CommandHistory {
 	redoStack = $state<CommandEntry[]>([]);
 	private activeContext = 'root';
 	private atomicDepth = 0;
+	private readonly playheadListeners = new Set<(frame: number) => void>();
 	private readonly contextHistory = new Map<
 		string,
 		{ undoStack: CommandEntry[]; redoStack: CommandEntry[] }
 	>();
+
+	/** Keep the active transport aligned with an edit that shortens its timeline. */
+	onPlayheadReconciled(listener: (frame: number) => void): () => void {
+		this.playheadListeners.add(listener);
+		return () => this.playheadListeners.delete(listener);
+	}
+
+	private reconcilePlayhead(previousItems: TimelineSnapshot['items']): void {
+		const previousEnd = previousItems.reduce(
+			(end, item) => Math.max(end, item.from + item.durationInFrames),
+			0
+		);
+		const end = timelineStore.maxItemEndFrame;
+		if (end >= previousEnd || timelineStore.currentFrame < end) return;
+		const frame = Math.max(0, end - 1);
+		timelineStore._setCurrentFrame(frame);
+		for (const listener of this.playheadListeners) {
+			try {
+				listener(frame);
+			} catch (error) {
+				logger.error('playhead reconciliation listener failed', error);
+			}
+		}
+	}
 
 	get canUndo(): boolean {
 		return this.undoStack.length > 0;
@@ -66,12 +91,13 @@ class CommandHistory {
 		} finally {
 			this.atomicDepth = 0;
 		}
-		const afterSnapshot = captureSnapshot();
 		if (commitWhen && !commitWhen(result)) {
-			restoreSnapshot(beforeSnapshot, afterSnapshot.sequenceRegistry);
+			restoreSnapshot(beforeSnapshot, captureSnapshot().sequenceRegistry);
 			keyframeSelectionStore.restoreSelection(beforeKeyframeSelection);
 			return result;
 		}
+		this.reconcilePlayhead(beforeSnapshot.items);
+		const afterSnapshot = captureSnapshot();
 		if (!snapshotsEqual(beforeSnapshot, afterSnapshot)) {
 			this.push(command, beforeSnapshot, afterSnapshot);
 		}
@@ -80,6 +106,7 @@ class CommandHistory {
 
 	/** Commit a gesture that captured its own "before" snapshot at drag start. */
 	addUndoEntry(command: TimelineCommand, beforeSnapshot: TimelineSnapshot): void {
+		this.reconcilePlayhead(beforeSnapshot.items);
 		const afterSnapshot = captureSnapshot();
 		if (!snapshotsEqual(beforeSnapshot, afterSnapshot)) {
 			this.push(command, beforeSnapshot, afterSnapshot);
@@ -103,9 +130,11 @@ class CommandHistory {
 		if (this.undoStack.length === 0) return;
 		const entry = this.undoStack[this.undoStack.length - 1];
 		if (!entry) return;
+		const previousItems = timelineStore.items;
 		restoreSnapshot(entry.beforeSnapshot, entry.afterSnapshot.sequenceRegistry, {
 			preserveView: true
 		});
+		this.reconcilePlayhead(previousItems);
 		this.undoStack = this.undoStack.slice(0, -1);
 		this.redoStack = [...this.redoStack, entry];
 		logger.debug(`undo ${entry.command.type}`);
@@ -115,9 +144,11 @@ class CommandHistory {
 		if (this.redoStack.length === 0) return;
 		const entry = this.redoStack[this.redoStack.length - 1];
 		if (!entry) return;
+		const previousItems = timelineStore.items;
 		restoreSnapshot(entry.afterSnapshot, entry.beforeSnapshot.sequenceRegistry, {
 			preserveView: true
 		});
+		this.reconcilePlayhead(previousItems);
 		this.redoStack = this.redoStack.slice(0, -1);
 		this.undoStack = [...this.undoStack, entry];
 		logger.debug(`redo ${entry.command.type}`);

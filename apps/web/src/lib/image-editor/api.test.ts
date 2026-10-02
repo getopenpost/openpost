@@ -6,6 +6,7 @@ import { registerQueryAuthorizationBoundary } from '$lib/query/authorization-bou
 import {
 	createImageEditorDesign,
 	deleteImageEditorDesign,
+	deleteImageEditorCheckpoint,
 	deleteImageEditorEffectPreset,
 	ImageEditorWorkspaceMismatchError,
 	saveImageEditorBrandKit,
@@ -192,6 +193,37 @@ describe('Image Editor mutation cache reconciliation', () => {
 			);
 		}
 	);
+
+	it('removes only the confirmed checkpoint cache after server admission', async () => {
+		const removed = imageEditorQueryKeys.revision('workspace-1', 'design-1', 'remove');
+		const kept = imageEditorQueryKeys.revision('workspace-1', 'design-1', 'keep');
+		const head = imageEditorQueryKeys.design('workspace-1', 'design-1');
+		queryClient.setQueryData(removed, { summary: { id: 'remove' } });
+		queryClient.setQueryData(kept, { summary: { id: 'keep' } });
+		queryClient.setQueryData(head, designFixture());
+		mocks.delete.mockResolvedValueOnce({
+			error: { detail: 'Not permitted' },
+			response: new Response(null, { status: 403 })
+		});
+		await expect(
+			deleteImageEditorCheckpoint('workspace-1', 'design-1', 'remove')
+		).rejects.toThrow();
+		expect(queryClient.getQueryData(removed)).toEqual({ summary: { id: 'remove' } });
+		mocks.delete.mockResolvedValue({
+			data: { deleted: true },
+			response: new Response(null, { status: 200 })
+		});
+		await deleteImageEditorCheckpoint('workspace-1', 'design-1', 'remove');
+		expect(mocks.delete).toHaveBeenCalledWith(
+			'/image-editor/designs/{id}/revisions/{revision_id}',
+			{
+				params: { path: { id: 'design-1', revision_id: 'remove' }, query: { confirm: true } }
+			}
+		);
+		expect(queryClient.getQueryData(removed)).toBeUndefined();
+		expect(queryClient.getQueryData(kept)).toEqual({ summary: { id: 'keep' } });
+		expect(queryClient.getQueryData(head)).toEqual(designFixture());
+	});
 
 	it('removes a deleted design and its revisions without touching another Workspace', async () => {
 		const designKey = imageEditorQueryKeys.design('workspace-1', 'design-1');

@@ -28,6 +28,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
 	import ImageEditorGuideDialog from './image-editor-guide-dialog.svelte';
+	import CheckpointRemove from './checkpoint-remove.svelte';
 	import ImageEditorResizeDialog from './image-editor-resize-dialog.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { Input } from '$lib/components/ui/input';
@@ -49,6 +50,7 @@
 		createImageEditorCheckpoint,
 		createImageEditorTemplate,
 		restoreImageEditorRevision,
+		deleteImageEditorCheckpoint,
 		saveImageEditorDesign,
 		updateImageEditorTemplate
 	} from '../api';
@@ -1828,6 +1830,21 @@
 			} else {
 				historyError = cause instanceof Error ? cause.message : m.image_editor_checkpoint_failed();
 			}
+		} finally {
+			if (operationSequence === historyMutationSequence) historyBusy = false;
+		}
+	}
+
+	async function removeCheckpoint(revision: ImageEditorRevisionSummary): Promise<void> {
+		if (!editor.canEdit || historyBusy || revision.kind !== 'checkpoint') return;
+		const view = captureEditorMutationView();
+		const operationSequence = ++historyMutationSequence;
+		historyBusy = true;
+		try {
+			await deleteImageEditorCheckpoint(editor.workspaceID, editor.id, revision.id);
+			if (!editorMutationViewIsCurrent(view)) return;
+			revisions = revisions.filter((entry) => entry.id !== revision.id);
+			if (revisionPreview?.summary.id === revision.id) invalidateRevisionPreview();
 		} finally {
 			if (operationSequence === historyMutationSequence) historyBusy = false;
 		}
@@ -4523,6 +4540,12 @@
 								!imageEditorRevisionHasChanges(revisionChanges)}
 							onclick={() => (restoreConfirmOpen = true)}>{m.version_restore_version()}</Button
 						>
+						<CheckpointRemove
+							revision={revisionPreview.summary}
+							canEdit={editor.canEdit}
+							disabled={historyBusy || revisionPreviewBusy}
+							onremove={removeCheckpoint}
+						/>
 					</div>
 				{/if}
 			</section>

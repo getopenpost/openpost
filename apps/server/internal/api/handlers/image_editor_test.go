@@ -6,6 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/labstack/echo/v4"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -954,4 +958,138 @@ func TestImageEditorSavesWheelsAndCurves(t *testing.T) {
 	require.Equal(t, 0.5, grade.Wheels.OffsetAmount)
 	require.NotNil(t, grade.Curves)
 	require.Equal(t, "[[0,0],[1,0.5]]", grade.Curves.MasterPoints)
+}
+
+func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	create := &CreateImageEditorDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Keep current design"
+	create.Body.PresetKey = "instagram-square"
+	head, err := handler.createDesign(ctx, create)
+	require.NoError(t, err)
+	_, err = handler.db.NewInsert().Model(&models.MediaAttachment{ID: "checkpoint-media", WorkspaceID: "workspace-1", FilePath: "preview.webp", MimeType: "image/webp", ProcessingStatus: mediaReadyStatus, OriginalFilename: "preview.webp", FileHash: "checkpoint-hash", Source: "image_editor_edit", AssetKind: "design_preview"}).Exec(ctx)
+	require.NoError(t, err)
+	update := &UpdateImageEditorDesignInput{PathID: head.Body.ID}
+	update.Body.ExpectedRevision = head.Body.Revision
+	update.Body.Document = head.Body.Document
+	update.Body.CoverPreviewID = "checkpoint-media"
+	saved, err := handler.updateDesign(ctx, update)
+	require.NoError(t, err)
+	head.Body = saved.Body
+	checkpoints := make([]ImageEditorRevisionSummary, 0, 2)
+	for _, name := range []string{"Remove only this", "Keep this"} {
+		input := &CreateImageEditorCheckpointInput{PathID: head.Body.ID}
+		input.Body.Name = name
+		input.Body.ExpectedRevision = head.Body.Revision
+		saved, err := handler.createCheckpoint(ctx, input)
+		require.NoError(t, err)
+		checkpoints = append(checkpoints, saved.Body)
+	}
+
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	handler.RegisterRoutes(api)
+	for _, guard := range []struct {
+		token  string
+		query  string
+		status int
+	}{
+		{"", "?confirm=true", http.StatusUnauthorized},
+		{"other-workspace-token", "?confirm=true", http.StatusForbidden},
+		{"web-token", "?confirm=false", http.StatusBadRequest},
+	} {
+		request := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/image-editor/designs/%s/revisions/%s%s", head.Body.ID, checkpoints[0].ID, guard.query), nil)
+		if guard.token != "" {
+			request.Header.Set("Authorization", "Bearer "+guard.token)
+		}
+		response := httptest.NewRecorder()
+		e.ServeHTTP(response, request)
+		require.Equal(t, guard.status, response.Code, response.Body.String())
+	}
+	request := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/image-editor/designs/%s/revisions/%s?confirm=true", head.Body.ID, checkpoints[0].ID), nil)
+	request.Header.Set("Authorization", "Bearer web-token")
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	reader := NewImageEditorHandler(handler.db, testAuthenticator{}, true, "")
+	list, err := reader.listRevisions(ctx, &ListImageEditorRevisionsInput{PathID: head.Body.ID})
+	require.NoError(t, err)
+	var keptIDs []string
+	for _, revision := range list.Body.Revisions {
+		if revision.Kind == "checkpoint" {
+			keptIDs = append(keptIDs, revision.ID)
+		}
+	}
+	require.Equal(t, []string{checkpoints[1].ID}, keptIDs)
+	_, err = reader.getRevision(ctx, &GetImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: checkpoints[0].ID})
+	require.Error(t, err)
+	kept, err := reader.getRevision(ctx, &GetImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: checkpoints[1].ID})
+	require.NoError(t, err)
+	require.Equal(t, head.Body.Document, kept.Body.Document)
+	current, err := reader.documentResponse(ctx, head.Body.ID)
+	require.NoError(t, err)
+	require.Equal(t, head.Body, *current)
+	refs, err := handler.db.NewSelect().Model((*models.DesignRevisionMediaReference)(nil)).Where("revision_id = ?", checkpoints[0].ID).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, refs)
+	refs, err = handler.db.NewSelect().Model((*models.DesignRevisionMediaReference)(nil)).Where("revision_id = ?", checkpoints[1].ID).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, refs)
+	index, err := handler.db.NewSelect().Model((*models.DesignRevisionMediaIndexState)(nil)).Where("revision_id = ?", checkpoints[0].ID).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, index)
+	mediaCount, err := reader.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", "checkpoint-media").Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, mediaCount)
+
+}
+
+func TestImageEditorRemoveCheckpointGuards(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	input := &CreateImageEditorDesignInput{}
+	input.Body.WorkspaceID = "workspace-1"
+	input.Body.PresetKey = "instagram-square"
+	head, err := handler.createDesign(ctx, input)
+	require.NoError(t, err)
+	checkpointInput := &CreateImageEditorCheckpointInput{PathID: head.Body.ID}
+	checkpointInput.Body.Name = "Keep unless confirmed"
+	checkpointInput.Body.ExpectedRevision = head.Body.Revision
+	checkpoint, err := handler.createCheckpoint(ctx, checkpointInput)
+	require.NoError(t, err)
+	other, err := handler.createDesign(ctx, input)
+	require.NoError(t, err)
+	autosave := &models.DesignRevision{ID: "autosave-protected", DesignDocumentID: head.Body.ID, Revision: 1, Kind: "autosave", Snapshot: []byte("unused"), CreatedByID: "user-1", CreatedAt: time.Now().UTC()}
+	_, err = handler.db.NewInsert().Model(autosave).Exec(ctx)
+	require.NoError(t, err)
+	for _, test := range []struct {
+		name   string
+		ctx    context.Context
+		input  DeleteImageEditorRevisionInput
+		status int
+	}{
+		{"confirmation", ctx, DeleteImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: checkpoint.Body.ID}, 400},
+		{"viewer", context.WithValue(ctx, middleware.UserIDKey, "viewer-1"), DeleteImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: checkpoint.Body.ID, Confirm: true}, 403},
+		{"non-member", context.WithValue(ctx, middleware.UserIDKey, "outsider"), DeleteImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: checkpoint.Body.ID, Confirm: true}, 403},
+		{"other design", ctx, DeleteImageEditorRevisionInput{PathID: other.Body.ID, RevisionID: checkpoint.Body.ID, Confirm: true}, 404},
+		{"recovery version", ctx, DeleteImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: autosave.ID, Confirm: true}, 400},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := handler.deleteRevision(test.ctx, &test.input)
+			var status huma.StatusError
+			require.ErrorAs(t, err, &status)
+			require.Equal(t, test.status, status.GetStatus())
+		})
+	}
+	handler.enabled = false
+	_, err = handler.deleteRevision(ctx, &DeleteImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: checkpoint.Body.ID, Confirm: true})
+	var status huma.StatusError
+	require.ErrorAs(t, err, &status)
+	require.Equal(t, 404, status.GetStatus())
+	handler.enabled = true
+	kept, err := handler.getRevision(ctx, &GetImageEditorRevisionInput{PathID: head.Body.ID, RevisionID: checkpoint.Body.ID})
+	require.NoError(t, err)
+	require.Equal(t, checkpoint.Body.ID, kept.Body.Summary.ID)
 }

@@ -2643,7 +2643,11 @@ export interface paths {
         get: operations["get-image-editor-design-revision"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Remove a named OpenPost Image Editor checkpoint
+         * @description Removes only the selected named checkpoint and its snapshot references. The current design and other versions remain unchanged.
+         */
+        delete: operations["delete-image-editor-design-checkpoint"];
         options?: never;
         head?: never;
         patch?: never;
@@ -8219,6 +8223,15 @@ export interface components {
              * Format: uri
              * @description A URL to the JSON Schema for this object.
              * @example https://example.com/api/v1/schemas/DeleteImageEditorDesignOutputBody.json
+             */
+            readonly $schema?: string;
+            deleted: boolean;
+        };
+        DeleteImageEditorRevisionOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/DeleteImageEditorRevisionOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -25326,6 +25339,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImageEditorRevisionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-image-editor-design-checkpoint": {
+        parameters: {
+            query: {
+                /** @description Confirm permanent removal of this named checkpoint */
+                confirm: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteImageEditorRevisionOutputBody"];
                 };
             };
             /** @description Bad Request */

@@ -514,6 +514,18 @@ type GetImageEditorRevisionOutput struct {
 	Body ImageEditorRevisionResponse
 }
 
+type DeleteImageEditorRevisionInput struct {
+	PathID     string `path:"id"`
+	RevisionID string `path:"revision_id"`
+	Confirm    bool   `query:"confirm" required:"true" doc:"Confirm permanent removal of this named checkpoint"`
+}
+
+type DeleteImageEditorRevisionOutput struct {
+	Body struct {
+		Deleted bool `json:"deleted"`
+	}
+}
+
 type CreateImageEditorCheckpointInput struct {
 	PathID string `path:"id"`
 	Body   struct {
@@ -735,6 +747,17 @@ func (h *ImageEditorHandler) registerRevisions(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{400, 403, 404},
 	}, h.getRevision)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "delete-image-editor-design-checkpoint",
+		Method:      http.MethodDelete,
+		Path:        "/image-editor/designs/{id}/revisions/{revision_id}",
+		Summary:     "Remove a named OpenPost Image Editor checkpoint",
+		Description: "Removes only the selected named checkpoint and its snapshot references. The current design and other versions remain unchanged.",
+		Tags:        []string{tagImageEditor},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{400, 403, 404},
+	}, h.deleteRevision)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "create-image-editor-design-checkpoint",
@@ -1377,6 +1400,61 @@ func (h *ImageEditorHandler) loadImageEditorRevisionSnapshot(
 		return nil, imageEditorRevisionSnapshot{}, huma.Error400BadRequest("OpenPost Image Editor revision is corrupt")
 	}
 	return &revision, snapshot, nil
+}
+
+func (h *ImageEditorHandler) deleteRevision(ctx context.Context, input *DeleteImageEditorRevisionInput) (*DeleteImageEditorRevisionOutput, error) {
+	if err := h.ensureEnabled(); err != nil {
+		return nil, err
+	}
+	document, err := h.loadDocument(ctx, input.PathID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := h.requireAccess(ctx, document.WorkspaceID, true); err != nil {
+		return nil, err
+	}
+	if !input.Confirm {
+		return nil, huma.Error400BadRequest("checkpoint removal requires confirmation")
+	}
+	err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var revision models.DesignRevision
+		query := tx.NewSelect().Model(&revision).Where("id = ? AND design_document_id = ?", input.RevisionID, document.ID)
+		if tx.Dialect().Name() == dialect.PG {
+			query = query.For("UPDATE")
+		}
+		if err := query.Scan(txCtx); errors.Is(err, sql.ErrNoRows) {
+			return huma.Error404NotFound("OpenPost Image Editor checkpoint not found")
+		} else if err != nil {
+			return err
+		}
+		if revision.Kind != "checkpoint" {
+			return huma.Error400BadRequest("only named checkpoints can be removed")
+		}
+		var mediaIDs []string
+		if err := tx.NewSelect().Model((*models.DesignRevisionMediaReference)(nil)).Column("media_id").Where("revision_id = ?", revision.ID).Scan(txCtx, &mediaIDs); err != nil {
+			return err
+		}
+		if _, err := tx.NewDelete().Model((*models.DesignRevisionMediaReference)(nil)).Where("revision_id = ?", revision.ID).Exec(txCtx); err != nil {
+			return err
+		}
+		if _, err := tx.NewDelete().Model((*models.DesignRevisionMediaIndexState)(nil)).Where("revision_id = ?", revision.ID).Exec(txCtx); err != nil {
+			return err
+		}
+		if _, err := tx.NewDelete().Model(&revision).WherePK().Exec(txCtx); err != nil {
+			return err
+		}
+		return medialifecycle.TouchWithDB(txCtx, tx, mediaIDs, time.Now().UTC())
+	})
+	if err != nil {
+		var status huma.StatusError
+		if errors.As(err, &status) {
+			return nil, err
+		}
+		return nil, huma.Error500InternalServerError("failed to remove OpenPost Image Editor checkpoint")
+	}
+	out := &DeleteImageEditorRevisionOutput{}
+	out.Body.Deleted = true
+	return out, nil
 }
 
 func (h *ImageEditorHandler) createCheckpoint(ctx context.Context, input *CreateImageEditorCheckpointInput) (*CreateImageEditorCheckpointOutput, error) {

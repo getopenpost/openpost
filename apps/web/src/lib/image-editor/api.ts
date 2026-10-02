@@ -472,6 +472,35 @@ export async function createImageEditorCheckpoint(
 	return revision;
 }
 
+export async function deleteImageEditorCheckpoint(
+	workspaceID: string,
+	id: string,
+	revisionID: string
+): Promise<void> {
+	const session = captureQueryMutationSession();
+	const { error, response } = await client.DELETE(
+		'/image-editor/designs/{id}/revisions/{revision_id}',
+		{
+			params: { path: { id, revision_id: revisionID }, query: { confirm: true } }
+		}
+	);
+	settleImageEditorMutation(session, response);
+	if (error)
+		throw new ImageEditorAPIError(
+			problemMessage(error, 'Could not remove the checkpoint.'),
+			response.status
+		);
+	await reconcileQueryMutation(queryClient, session, {
+		cancel: [{ queryKey: imageEditorQueryKeys.revision(workspaceID, id, revisionID) }],
+		reconcile: () =>
+			queryClient.removeQueries({
+				queryKey: imageEditorQueryKeys.revision(workspaceID, id, revisionID),
+				exact: true
+			})
+	});
+	await reconcileImageEditorRevisions(session, workspaceID, id);
+}
+
 export async function restoreImageEditorRevision(
 	workspaceID: string,
 	id: string,

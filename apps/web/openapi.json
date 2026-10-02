@@ -5570,6 +5570,25 @@
 				"required": ["deleted"],
 				"type": "object"
 			},
+			"DeleteImageEditorRevisionOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/api/v1/schemas/DeleteImageEditorRevisionOutputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"deleted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["deleted"],
+				"type": "object"
+			},
 			"DeleteImageEditorTemplateOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -36110,6 +36129,103 @@
 			}
 		},
 		"/image-editor/designs/{id}/revisions/{revision_id}": {
+			"delete": {
+				"description": "Removes only the selected named checkpoint and its snapshot references. The current design and other versions remain unchanged.",
+				"operationId": "delete-image-editor-design-checkpoint",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "revision_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"description": "Confirm permanent removal of this named checkpoint",
+						"explode": false,
+						"in": "query",
+						"name": "confirm",
+						"required": true,
+						"schema": {
+							"description": "Confirm permanent removal of this named checkpoint",
+							"type": "boolean"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeleteImageEditorRevisionOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Remove a named OpenPost Image Editor checkpoint",
+				"tags": ["OpenPost Image Editor"]
+			},
 			"get": {
 				"operationId": "get-image-editor-design-revision",
 				"parameters": [

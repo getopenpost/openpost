@@ -44,7 +44,12 @@ export async function deleteLibraryEntry(id: string): Promise<void> {
 
 export async function patchLibraryEntry(
 	id: string,
-	patch: Partial<Pick<LibraryEntry, 'favorite' | 'name' | 'collection' | 'position' | 'lastUsed'>>
+	patch: Partial<
+		Pick<
+			LibraryEntry,
+			'favorite' | 'favoriteOwnerID' | 'name' | 'collection' | 'position' | 'lastUsed'
+		>
+	>
 ): Promise<LibraryEntry | undefined> {
 	const db = await database();
 	try {

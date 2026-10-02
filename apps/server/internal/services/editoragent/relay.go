@@ -165,6 +165,10 @@ func (r *Relay) BrowserRequest(ctx context.Context, sessionID, userID, epoch, re
 	return request, err
 }
 
+func (r *Request) matchesPayload(sessionID, operation string, arguments json.RawMessage) bool {
+	return r.SessionID == sessionID && r.Operation == operation && string(r.Arguments) == string(arguments)
+}
+
 func (r *Relay) Enqueue(ctx context.Context, session *Session, callerID, requestKey, operation string, arguments json.RawMessage) (*Request, error) {
 	if session == nil || callerID == "" || requestKey == "" || operation == "" || !json.Valid(arguments) || len(arguments) > 256*1024 {
 		return nil, errors.New("invalid editor request")
@@ -178,7 +182,7 @@ func (r *Relay) Enqueue(ctx context.Context, session *Session, callerID, request
 	err := r.db.NewSelect().Model(&existing).
 		Where("workspace_id = ? AND caller_user_id = ? AND request_key = ?", session.WorkspaceID, callerID, requestKey).Scan(ctx)
 	if err == nil {
-		if existing.Operation != operation || string(existing.Arguments) != string(arguments) || existing.SessionID != session.ID {
+		if !existing.matchesPayload(session.ID, operation, arguments) {
 			return nil, ErrRequestConflict
 		}
 		return &existing, nil
@@ -198,7 +202,7 @@ func (r *Relay) Enqueue(ctx context.Context, session *Session, callerID, request
 		var winner Request
 		if lookupErr := r.db.NewSelect().Model(&winner).
 			Where("workspace_id = ? AND caller_user_id = ? AND request_key = ?", session.WorkspaceID, callerID, requestKey).Scan(ctx); lookupErr == nil {
-			if winner.Operation != operation || string(winner.Arguments) != string(arguments) || winner.SessionID != session.ID {
+			if !winner.matchesPayload(session.ID, operation, arguments) {
 				return nil, ErrRequestConflict
 			}
 			return &winner, nil

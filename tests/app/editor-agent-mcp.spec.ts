@@ -197,11 +197,139 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
       {
         kind: "text.style",
         target_id: edit.request.result.changed_ids[0],
-        value: { color: "#ff0000", font_size: 48 },
+        value: { color: "#ff0000", font_size: 48, font_family: "Georgia" },
       },
     ],
   });
   expect(styled.request.result.status, JSON.stringify(styled.request.error)).toBe("committed");
+
+  const capture = await mcpTool(request, token, "style_capture", scope);
+  expect(capture.request.result.definition.typography).toMatchObject({
+    color: "#ff0000",
+    font_size: 48,
+    font_family: "Georgia",
+  });
+  const missingStyleTarget = await mcpTool(request, token, "style_preview", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: styled.request.result.after_revision,
+    request_id: randomUUID(),
+    frame: 0,
+    target_ids: ["missing-text"],
+    definition: capture.request.result.definition,
+  });
+  expect(missingStyleTarget.request.status).toBe("failed");
+  expect(missingStyleTarget.request.error.code).toBe("missing_target");
+  const stylePreview = await mcpPreview(
+    request,
+    token,
+    {
+      ...scope,
+      project_id: projectId,
+      expected_revision: styled.request.result.after_revision,
+      request_id: randomUUID(),
+      frame: 0,
+      definition: {
+        ...capture.request.result.definition,
+        typography: { color: "#0000ff", font_size: 72 },
+      },
+    },
+    "style_preview",
+  );
+  expect(stylePreview.receipt.result.provenance).toContain("live project unchanged");
+  expect((await mcpTool(request, token, "editor_context", scope)).request.result.revision).toBe(
+    styled.request.result.after_revision,
+  );
+  const savedBlock = await mcpTool(request, token, "library_save", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: styled.request.result.after_revision,
+    request_id: randomUUID(),
+    name: "Reusable title",
+    target_ids: [edit.request.result.changed_ids[0]],
+    slots: [{ name: "heading", target_id: edit.request.result.changed_ids[0], max_characters: 24 }],
+  });
+  expect(savedBlock.request.status, JSON.stringify(savedBlock.request.error)).toBe("completed");
+  const savedEntry = savedBlock.request.result.entry;
+  const tooLong = await mcpTool(request, token, "library_apply", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: styled.request.result.after_revision,
+    request_id: randomUUID(),
+    entry_id: savedEntry.id,
+    version: savedEntry.version,
+    fills: { heading: "This is far too long for the explicitly bounded slot" },
+  });
+  expect(tooLong.request.status).toBe("failed");
+  expect((await mcpTool(request, token, "editor_context", scope)).request.result.revision).toBe(
+    styled.request.result.after_revision,
+  );
+  const appliedBlock = await mcpTool(request, token, "library_apply", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: styled.request.result.after_revision,
+    request_id: randomUUID(),
+    entry_id: savedEntry.id,
+    version: savedEntry.version,
+    fills: { heading: "Replacement title" },
+  });
+  expect(appliedBlock.request.status, JSON.stringify(appliedBlock.request.error)).toBe("completed");
+  const blockItems = (await mcpTool(request, token, "timeline_inspect", scope)).request.result
+    .items;
+  expect(
+    blockItems.filter((item: { text?: string }) => item.text === "Agent live title"),
+  ).toHaveLength(1);
+  expect(
+    blockItems.filter((item: { text?: string }) => item.text === "Replacement title"),
+  ).toHaveLength(1);
+  const undoBlock = await mcpTool(request, token, "editor_history_undo", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: appliedBlock.request.result.after_revision,
+    request_id: randomUUID(),
+  });
+  expect(undoBlock.request.result.status).toBe("undone");
+  const stored = await mcpTool(request, token, "library_inspect", {
+    ...scope,
+    entry_id: savedEntry.id,
+  });
+  expect(stored.request.result.entries[0].version).toBe(savedEntry.version);
+  const preference = await mcpTool(request, token, "preferences_set", {
+    workspace_id: workspace.id,
+    expected_revision: 0,
+    preference: {
+      project_id: "",
+      context: "",
+      editor_kind: "video",
+      rule: "Use simple captions",
+      source_instruction: "Always use simple captions",
+      enabled: true,
+    },
+  });
+  expect(preference.result.saved.revision).toBe(1);
+  await page.locator('[data-left-panel-tab="ai"]:visible').click();
+  const chat = page.getByTestId("hosted-editor-chat-panel");
+  await expect(chat).toBeVisible();
+  await chat.getByRole("button", { name: "Preferences", exact: true }).click();
+  const memory = page.getByTestId("editor-preferences");
+  await expect(memory.getByText("Use simple captions", { exact: true })).toBeVisible();
+  await memory.getByRole("button", { name: "Edit", exact: true }).click();
+  await memory.getByRole("textbox").fill("Use large, simple captions");
+  await memory.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(memory.getByText("Use large, simple captions", { exact: true })).toBeVisible();
+  await page
+    .locator("[data-sonner-toast]")
+    .getByRole("button", { name: "Undo", exact: true })
+    .click();
+  await expect(memory.getByText("Use simple captions", { exact: true })).toBeVisible();
+  await chat.getByRole("button", { name: "Preferences", exact: true }).click();
+  await chat.getByRole("button", { name: "Style", exact: true }).click();
+  await page.getByRole("option", { name: "Clean demo", exact: true }).click();
+  await expect(chat.getByRole("button", { name: "Style", exact: true })).toContainText(
+    "Clean demo",
+  );
+  await page.screenshot({ path: testInfo.outputPath("assistant-desktop-light.png") });
+  await page.getByRole("tab", { name: "Media pool", exact: true }).click();
 
   const bytes = (
     await readFile(
@@ -574,6 +702,46 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await page.screenshot({ path: testInfo.outputPath("video-phone-390-light.png") });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.screenshot({ path: testInfo.outputPath("video-phone-320-light.png") });
+  const candidates = (await mcpTool(request, token, "library_search", scope)).request.result
+    .entries;
+  const foreignFavorite = candidates.find(
+    (entry: { kind: string; favorite: boolean }) => entry.kind === "text" && !entry.favorite,
+  );
+  expect(foreignFavorite).toBeDefined();
+  const inspectedFavorite = (
+    await mcpTool(request, token, "library_inspect", { ...scope, entry_id: foreignFavorite.id })
+  ).request.result.entries[0];
+  await page.evaluate(
+    async ({ id, name, recipe, scope }) => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const open = indexedDB.open("openpost-video-library", 1);
+        open.onsuccess = () => resolve(open.result);
+        open.onerror = () => reject(open.error);
+      });
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction("entries", "readwrite");
+        transaction.objectStore("entries").put({
+          id,
+          name,
+          recipe,
+          scope,
+          collection: "Text",
+          position: 0,
+          favorite: true,
+          favoriteOwnerID: "another-user",
+        });
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+      database.close();
+    },
+    {
+      id: foreignFavorite.id,
+      name: foreignFavorite.name,
+      recipe: inspectedFavorite.recipe,
+      scope: workspace.id,
+    },
+  );
   await page.evaluate(() => localStorage.setItem("mode-watcher-mode", "dark"));
   await page.reload();
   await expect(page.locator(".video-editor-theme")).toHaveAttribute(
@@ -581,6 +749,30 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
     "connected",
   );
   await page.screenshot({ path: testInfo.outputPath("video-phone-320-dark.png") });
+  const reconnected = (
+    await mcpTool(request, token, "editor_sessions", { workspace_id: workspace.id })
+  ).sessions.find((entry: { project_id: string }) => entry.project_id === projectId);
+  const personalFavorites = (
+    await mcpTool(request, token, "library_search", {
+      workspace_id: workspace.id,
+      session_id: reconnected.id,
+      favorites_only: true,
+    })
+  ).request.result.entries;
+  expect(personalFavorites.some((entry: { id: string }) => entry.id === foreignFavorite.id)).toBe(
+    false,
+  );
+  const personalMetadata = await mcpTool(request, token, "preferences_get", {
+    workspace_id: workspace.id,
+    project_id: projectId,
+    editor_kind: "video",
+  });
+  expect(
+    personalMetadata.result.favorites.some(
+      (entry: { entry_id: string; favorite: boolean }) =>
+        entry.entry_id === foreignFavorite.id && entry.favorite,
+    ),
+  ).toBe(false);
 });
 
 test("MCP edits a layered image through the open design controller", async ({
@@ -657,7 +849,7 @@ test("MCP edits a layered image through the open design controller", async ({
       {
         kind: "text.style",
         target_id: edit.request.result.changed_ids[0],
-        value: { page_id: pageID, color: "#ff0000", font_size: 48 },
+        value: { page_id: pageID, color: "#ff0000", font_size: 48, font_family: "Georgia" },
       },
       { kind: "shape.add", value: { page_id: pageID, kind: "ellipse" } },
     ],
@@ -827,6 +1019,64 @@ test("MCP edits a layered image through the open design controller", async ({
   expect((await exportedImage.body()).subarray(0, 8)).toEqual(
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
   );
+  const imageStyle = await mcpTool(request, token, "style_capture", scope);
+  const imageRevision = (await mcpTool(request, token, "editor_context", scope)).request.result
+    .revision;
+  const imageStylePreview = await mcpPreview(
+    request,
+    token,
+    {
+      ...scope,
+      project_id: projectId,
+      expected_revision: imageRevision,
+      request_id: randomUUID(),
+      definition: {
+        ...imageStyle.request.result.definition,
+        typography: { color: "#0000ff", font_size: 60 },
+      },
+    },
+    "style_preview",
+  );
+  expect(imageStylePreview.receipt.result.provenance).toContain("live design unchanged");
+  const imageTemplate = await mcpTool(request, token, "library_save", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: imageRevision,
+    request_id: randomUUID(),
+    name: "Reusable image title",
+    slots: [{ name: "heading", target_id: edit.request.result.changed_ids[0], max_characters: 25 }],
+  });
+  expect(imageTemplate.request.status, JSON.stringify(imageTemplate.request.error)).toBe(
+    "completed",
+  );
+  const templateEntry = imageTemplate.request.result.entry;
+  const imageReuse = await mcpTool(request, token, "library_apply", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: imageRevision,
+    request_id: randomUUID(),
+    entry_id: templateEntry.id,
+    version: templateEntry.version,
+    fills: { heading: "Independent template" },
+  });
+  expect(imageReuse.request.status, JSON.stringify(imageReuse.request.error)).toBe("completed");
+  const reusedDocument = (await mcpTool(request, token, "image_inspect", scope)).request.result;
+  expect(reusedDocument.page_summaries).toHaveLength(2);
+  const reusedPage = reusedDocument.pages[0];
+  expect(reusedPage.id).not.toBe(pageID);
+  expect(
+    reusedPage.layers.some((layer: { text?: string }) => layer.text === "Independent template"),
+  ).toBe(true);
+  const templateUndo = await mcpTool(request, token, "editor_history_undo", {
+    ...scope,
+    project_id: projectId,
+    expected_revision: imageReuse.request.result.after_revision,
+    request_id: randomUUID(),
+  });
+  expect(templateUndo.request.result.status).toBe("undone");
+  expect(
+    (await mcpTool(request, token, "image_inspect", scope)).request.result.page_summaries,
+  ).toHaveLength(1);
   await page.screenshot({ path: testInfo.outputPath("image-after-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(

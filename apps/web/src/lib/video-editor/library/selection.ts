@@ -137,7 +137,8 @@ export async function applyLibraryTextStyle(
 	recipe: Extract<LibraryRecipe, { kind: 'selection' }>,
 	name: string,
 	selectedIds: string[],
-	importAsset?: ProjectAssetImporter
+	importAsset?: ProjectAssetImporter,
+	beforeCommit?: () => void
 ): Promise<void> {
 	const targets = selectedIds.filter((id) => timelineStore.itemById.get(id)?.type === 'text');
 	if (!targets.length) throw new Error('Select text to apply this style.');
@@ -166,6 +167,7 @@ export async function applyLibraryTextStyle(
 		'borderRadius'
 	] as const;
 	const patch = Object.fromEntries(fields.map((field) => [field, source[field]]));
+	beforeCommit?.();
 	executeAtomic('APPLY_LIBRARY_TEXT_STYLE', () => {
 		for (const id of targets) {
 			const item = timelineStore.itemById.get(id);
@@ -195,7 +197,8 @@ export async function insertLibrarySelection(
 	recipe: Extract<LibraryRecipe, { kind: 'selection' }>,
 	name: string,
 	importAsset?: ProjectAssetImporter,
-	placement?: { from: number; trackId: string }
+	placement?: { from: number; trackId: string },
+	beforeCommit?: () => void
 ): Promise<string[]> {
 	const from = placement?.from ?? timelineStore.currentFrame;
 	const project = await prepareLibrarySelection(recipe, name, importAsset);
@@ -221,6 +224,7 @@ export async function insertLibrarySelection(
 		)
 			throw new Error('The drop position is no longer available.');
 	}
+	beforeCommit?.();
 	return executeAtomic('INSERT_LIBRARY_ITEM', () => {
 		for (const composition of timeline.compositions ?? [])
 			sequenceStore.addComposition(composition);

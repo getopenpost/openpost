@@ -1,5 +1,7 @@
 /* oxlint-disable anti-slop/no-shape-in-symbol-names, anti-slop/no-unsafe-dictionary-type, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-known-value-widening, anti-slop/require-safety-comment-for-type-assertion -- This browser executor validates the MCP JSON operation payload and returns editor-specific evidence with the existing timeline action owners. */
 import { editorSession } from '$lib/video-editor/editor.svelte';
+import { projectFontAssets } from '$lib/video-editor/typography/project-font-assets';
+import type { TextStyleFields, TimelineItem } from '$lib/video-editor/project/types';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
@@ -60,6 +62,14 @@ import { sceneBrowser } from '$lib/video-editor/media/scene-search/scene-browser
 import { isSceneAnalyzableMedia } from '$lib/video-editor/media/scene-search/scene-analysis-client';
 import { sceneAnalysisMatchesMedia } from '$lib/video-editor/workspace-fs/scene-analysis';
 import { rankScenes } from '$lib/video-editor/media/scene-search/rank';
+import { videoAgentLibrary, videoLibraryRecord } from './video-library.svelte';
+import { videoLibrary } from '$lib/video-editor/library/library-store.svelte';
+import { applyLibraryEntry } from '$lib/video-editor/library/apply';
+import { captureLibrarySelection } from '$lib/video-editor/library/selection';
+import type { LibraryTextSlot } from '$lib/video-editor/library/types';
+import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+import type { EditorStyleDefinition } from './preferences';
+import { observedStyle, videoStylePatch, validateStyleFont } from './style';
 import type { SceneAnalysis } from '$lib/video-editor/media/scene-search/types';
 
 interface AgentAction {
@@ -74,6 +84,7 @@ interface AgentChange {
 	before: string;
 	after: string;
 	undone: boolean;
+	commandType: string | null;
 }
 
 let latestAgentChange: AgentChange | null = null;
@@ -88,7 +99,8 @@ function sceneJobKey(mediaID: string): string {
 }
 
 function currentAgentChange(): AgentChange | null {
-	return latestAgentChange?.projectID === editorSession.project?.id &&
+	return latestAgentChange &&
+		latestAgentChange.projectID === editorSession.project?.id &&
 		latestAgentChange.sequenceID === (sequenceStore.activeSequenceId ?? 'root')
 		? latestAgentChange
 		: null;
@@ -489,11 +501,11 @@ async function sourceAnalysisStatus(mediaID: string): Promise<Record<string, unk
 	return {
 		media_id: mediaID,
 		status:
-			current?.projectID === editorSession.project?.id && current.status === 'running'
+			current && current.projectID === editorSession.project?.id && current.status === 'running'
 				? 'running'
 				: transcript && sourceTranscriptMatchesMedia(transcript, media)
 					? 'completed'
-					: current?.projectID === editorSession.project?.id
+					: current && current.projectID === editorSession.project?.id
 						? current.status
 						: 'unavailable',
 		analysis_version:
@@ -504,7 +516,7 @@ async function sourceAnalysisStatus(mediaID: string): Promise<Record<string, unk
 			transcript && sourceTranscriptMatchesMedia(transcript, media)
 				? transcript.words.length
 				: undefined,
-		error: current?.projectID === editorSession.project?.id ? current.error : undefined
+		error: current && current.projectID === editorSession.project?.id ? current.error : undefined
 	};
 }
 
@@ -672,10 +684,25 @@ function applyAction(action: AgentAction): string[] {
 		case 'text.style': {
 			const id = exactString(targetID, 'target_id');
 			const current = item(id);
-			if (current.type !== 'text') invalid(`${id} is not a text item`);
+			if (current.type !== 'text' && current.type !== 'subtitle')
+				invalid(`${id} is not a text or caption item`);
 			const value = valueObject(action);
-			const patch: { color?: string; fontSize?: number; textAlign?: 'left' | 'center' | 'right' } =
-				{};
+			const patch: TextStyleFields & { textSpans?: TimelineItem['textSpans'] } = {};
+			if (value.font_family !== undefined || value.font_asset_id !== undefined) {
+				const font = {
+					font_family:
+						value.font_family === undefined
+							? current.fontFamily
+							: exactString(value.font_family, 'font_family'),
+					font_asset_id:
+						value.font_asset_id === undefined
+							? undefined
+							: exactString(value.font_asset_id, 'font_asset_id')
+				};
+				validateStyleFont(font, projectFontAssets(editorSession.project!));
+				patch.fontFamily = font.font_family;
+				patch.fontAssetId = font.font_asset_id;
+			}
 			if (value.color !== undefined) {
 				if (
 					typeof value.color !== 'string' ||
@@ -700,6 +727,9 @@ function applyAction(action: AgentAction): string[] {
 				patch.textAlign = value.align;
 			}
 			if (!Object.keys(patch).length) invalid('No text style fields were provided');
+			const spanPatch = { ...patch };
+			if (current.textSpans)
+				patch.textSpans = current.textSpans.map((span) => ({ ...span, ...spanPatch }));
 			if (!updateItemProperties(id, patch)) invalid(`Could not style ${id}`);
 			return [id];
 		}
@@ -910,7 +940,8 @@ function applyAction(action: AgentAction): string[] {
 
 export async function handleVideoAgentRequest(
 	request: EditorAgentRequest,
-	revealItem?: (id: string) => void
+	revealItem?: (id: string) => void,
+	importAsset?: ProjectAssetImporter
 ): Promise<Record<string, unknown>> {
 	if (!editorSession.project || editorSession.loading)
 		throw new EditorAgentOperationError('editor_unavailable', 'Video project is still loading');
@@ -943,13 +974,13 @@ export async function handleVideoAgentRequest(
 					change &&
 					!change.undone &&
 					change.after === revision &&
-					commandHistory.getLastCommandType() === 'EDITOR_AGENT_EDIT'
+					commandHistory.getLastCommandType() === change.commandType
 				),
 				can_redo_agent_change: Boolean(
 					change &&
 					change.undone &&
 					change.before === revision &&
-					commandHistory.redoStack.at(-1)?.command.type === 'EDITOR_AGENT_EDIT'
+					commandHistory.redoStack.at(-1)?.command.type === change.commandType
 				),
 				latest_agent_change: change
 					? { before_revision: change.before, after_revision: change.after, undone: change.undone }
@@ -980,11 +1011,12 @@ export async function handleVideoAgentRequest(
 				view_state_only: true
 			};
 		}
+		case 'style_preview':
 		case 'preview_render': {
 			const args = request.arguments;
 			if (args.project_id !== editorSession.project.id || args.expected_revision !== revision)
 				throw new EditorAgentOperationError('stale_revision', 'Preview target or revision changed');
-			const frame = exactInteger(args.frame, 'frame');
+			const frame = exactInteger(args.frame ?? timelineStore.currentFrame, 'frame');
 			const activeID = sequenceStore.activeSequenceId;
 			const exportable = createExportableSequences(
 				$state.snapshot(editorSession.project),
@@ -1000,6 +1032,38 @@ export async function handleVideoAgentRequest(
 				1,
 				Math.round((width * exportable.project.metadata.height) / exportable.project.metadata.width)
 			);
+			if (request.operation === 'style_preview') {
+				const definition = args.definition as EditorStyleDefinition;
+				validateStyleFont(definition.typography, projectFontAssets(exportable.project));
+				validateStyleFont(definition.captions, projectFontAssets(exportable.project));
+				const targets = new Set((args.target_ids ?? []) as string[]);
+				for (const id of targets) {
+					const target = exportable.project.timeline?.items.find((item) => item.id === id);
+					if (!target)
+						throw new EditorAgentOperationError(
+							'missing_target',
+							`Style target ${id} does not exist`
+						);
+					if (target.type !== 'text' && target.type !== 'subtitle')
+						invalid(`Style target ${id} is not text or captions`);
+				}
+				if (
+					!Object.keys(videoStylePatch(definition.typography)).length &&
+					!Object.keys(videoStylePatch(definition.captions)).length
+				)
+					invalid('This style has no authored typography to preview');
+				for (const item of exportable.project.timeline?.items ?? []) {
+					if (targets.size && !targets.has(item.id)) continue;
+					if (item.type === 'text' || item.type === 'subtitle') {
+						const patch = videoStylePatch(
+							item.type === 'subtitle' ? definition.captions : definition.typography
+						);
+						Object.assign(item, patch);
+						if (item.textSpans)
+							item.textSpans = item.textSpans.map((span) => ({ ...span, ...patch }));
+					}
+				}
+			}
 			const blob = await renderTimelineFrame(exportable.project, frame, {
 				width,
 				height,
@@ -1015,7 +1079,10 @@ export async function handleVideoAgentRequest(
 				sequence_id: activeID ?? 'root',
 				revision,
 				frame,
-				provenance: 'composited export renderer at preview resolution',
+				provenance:
+					request.operation === 'style_preview'
+						? 'proposed style on a copy; live project unchanged'
+						: 'composited export renderer at preview resolution',
 				...(await encodeEditorPreview(blob))
 			};
 		}
@@ -1092,24 +1159,26 @@ export async function handleVideoAgentRequest(
 				);
 			const projectID = editorSession.project.id;
 			const format = args.format;
-			return startEditorExport(projectID, revision, async (signal, progress) => {
-				const artifact = await renderVideoExport(exportable.project, {
-					format,
-					quality: 'standard',
-					subtitleMode: 'burn',
-					signal,
-					onProgress: (value) => progress(value.progress, value.phase)
-				});
-				return {
-					project_id: projectID,
-					sequence_id: activeID ?? 'root',
-					revision,
-					file_name: artifact.fileName,
-					saved_path: artifact.relPath,
-					file_size: artifact.blob.size,
-					storage: 'video_project_exports'
-				};
-			});
+			return {
+				...startEditorExport(projectID, revision, async (signal, progress) => {
+					const artifact = await renderVideoExport(exportable.project, {
+						format,
+						quality: 'standard',
+						subtitleMode: 'burn',
+						signal,
+						onProgress: (value) => progress(value.progress, value.phase)
+					});
+					return {
+						project_id: projectID,
+						sequence_id: activeID ?? 'root',
+						revision,
+						file_name: artifact.fileName,
+						saved_path: artifact.relPath,
+						file_size: artifact.blob.size,
+						storage: 'video_project_exports'
+					};
+				})
+			};
 		}
 		case 'export_status':
 		case 'export_cancel': {
@@ -1154,11 +1223,11 @@ export async function handleVideoAgentRequest(
 				(undo &&
 					(change.undone ||
 						change.after !== revision ||
-						commandHistory.getLastCommandType() !== 'EDITOR_AGENT_EDIT')) ||
+						commandHistory.getLastCommandType() !== change.commandType)) ||
 				(!undo &&
 					(!change.undone ||
 						change.before !== revision ||
-						commandHistory.redoStack.at(-1)?.command.type !== 'EDITOR_AGENT_EDIT'))
+						commandHistory.redoStack.at(-1)?.command.type !== change.commandType))
 			)
 				throw new EditorAgentOperationError(
 					'history_conflict',
@@ -1168,6 +1237,8 @@ export async function handleVideoAgentRequest(
 			else commandHistory.redo();
 			change.undone = undo;
 			const nextRevision = await videoAgentRevision();
+			if (undo) change.before = nextRevision;
+			else change.after = nextRevision;
 			editorSession.scheduleAutosave();
 			return {
 				status: undo ? 'undone' : 'redone',
@@ -1242,6 +1313,213 @@ export async function handleVideoAgentRequest(
 				marker_count: timelineStore.markers.length
 			};
 		}
+		case 'style_capture':
+			return {
+				project_id: editorSession.project.id,
+				revision,
+				definition: observedStyle(
+					timelineStore.items
+						.filter((item) => item.type === 'text')
+						.map((item) => ({
+							font_family: item.fontFamily,
+							font_asset_id: item.fontAssetId,
+							font_size: item.fontSize,
+							color: item.color,
+							align: item.textAlign
+						})),
+					timelineStore.items
+						.filter((item) => item.type === 'subtitle')
+						.map((item) => ({
+							font_family: item.fontFamily,
+							font_asset_id: item.fontAssetId,
+							font_size: item.fontSize,
+							color: item.color,
+							align: item.textAlign
+						})),
+					editorSession.project.id,
+					revision
+				)
+			};
+		case 'library_search':
+		case 'library_inspect': {
+			const args = request.arguments;
+			const query = String(args.query ?? '')
+				.toLocaleLowerCase()
+				.trim();
+			const entries = videoAgentLibrary()
+				.filter((entry) =>
+					request.operation === 'library_inspect'
+						? entry.id === args.entry_id
+						: (!args.favorites_only || entry.favorite) &&
+							`${entry.name} ${entry.collection} ${entry.recipe.kind}`
+								.toLocaleLowerCase()
+								.includes(query)
+				)
+				.toSorted((a, b) => Number(b.favorite) - Number(a.favorite));
+			if (request.operation === 'library_inspect' && !entries.length)
+				invalid('Library entry is unavailable on this device');
+			return {
+				revision,
+				entries: await Promise.all(
+					entries
+						.slice(0, 30)
+						.map((entry) => videoLibraryRecord(entry, request.operation === 'library_inspect'))
+				),
+				truncated: entries.length > 30
+			};
+		}
+		case 'library_save': {
+			const args = request.arguments;
+			if (
+				args.project_id !== editorSession.project.id ||
+				args.expected_revision !== revision ||
+				JSON.stringify(authoredDocument()) !== startingJSON
+			)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Project changed before library save'
+				);
+			const ids = (args.target_ids ?? []) as string[];
+			if (!ids.length) invalid('Choose exact items to save');
+			const recipe = await captureLibrarySelection(ids);
+			if (JSON.stringify(authoredDocument()) !== startingJSON)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Project changed while capturing the selection'
+				);
+			const slots = (args.slots ?? []) as LibraryTextSlot[];
+			const names = new Set<string>();
+			for (const slot of slots) {
+				if (
+					names.has(slot.name) ||
+					!recipe.project.timeline?.items.some(
+						(item) => item.id === slot.target_id && item.type === 'text'
+					)
+				)
+					invalid('Each slot needs a unique name and an exact selected text item');
+				names.add(slot.name);
+			}
+			const id = crypto.randomUUID();
+			await videoLibrary.save(exactString(args.name, 'name'), recipe, '', false, id, slots);
+			const entry = videoAgentLibrary().find((entry) => entry.id === id)!;
+			return {
+				status: 'saved',
+				entry: await videoLibraryRecord(entry, true),
+				project_unchanged: true
+			};
+		}
+		case 'library_apply': {
+			const args = request.arguments;
+			if (
+				args.project_id !== editorSession.project.id ||
+				args.expected_revision !== revision ||
+				JSON.stringify(authoredDocument()) !== startingJSON
+			)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Project changed before library apply'
+				);
+			const entry = videoAgentLibrary().find((entry) => entry.id === args.entry_id);
+			if (!entry) invalid('Library entry is unavailable on this device');
+			const record = await videoLibraryRecord(entry);
+			if (record.version !== args.version || !record.available)
+				invalid('Library entry changed or has unavailable sources; inspect it again');
+			if (args.frame !== undefined && !args.track_id)
+				invalid('Choose a track when specifying a placement frame');
+			const fills = (args.fills ?? {}) as Record<string, string>;
+			const slots = entry.slots ?? [];
+			if (Object.keys(fills).some((name) => !slots.some((slot) => slot.name === name)))
+				invalid('Unknown template slot');
+			const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+			for (const slot of slots) {
+				const text = fills[slot.name];
+				if (!text?.trim() || Array.from(segmenter.segment(text)).length > slot.max_characters)
+					invalid(
+						`Slot ${slot.name} requires readable text within ${slot.max_characters} characters`
+					);
+				if (entry.recipe.kind !== 'selection') invalid('This entry does not support slots');
+				const target = entry.recipe.project.timeline?.items.find(
+					(item) => item.id === slot.target_id
+				);
+				if (!target) invalid('Template slot target is missing');
+				target.text = text;
+				target.textSpans = undefined;
+			}
+			const ids = (args.target_ids ?? []) as string[];
+			for (const id of ids) item(id);
+			if ((entry.recipe.kind === 'selection' || entry.recipe.kind === 'timer') && ids.length)
+				invalid('This recipe inserts new content; choose a placement instead of target IDs');
+			if (
+				(entry.recipe.kind === 'text' || entry.recipe.kind === 'text-style') &&
+				ids.some((id) => item(id).type !== 'text')
+			)
+				invalid('Text styles require exact text items');
+			const projectId = editorSession.project.id;
+			const sequenceId = sequenceStore.activeSequenceId;
+			const beforeTimeline = JSON.stringify(captureSnapshot());
+			const beforeCommit = () => {
+				if (
+					editorSession.project?.id !== projectId ||
+					sequenceStore.activeSequenceId !== sequenceId ||
+					JSON.stringify(captureSnapshot()) !== beforeTimeline
+				)
+					throw new EditorAgentOperationError(
+						'stale_revision',
+						'Timeline changed while preparing library assets'
+					);
+				for (const id of ids) item(id);
+			};
+			let changedIDs: string[];
+			if (entry.recipe.kind === 'transition') {
+				if (ids.length !== 2) invalid('Choose exactly two adjacent video items');
+				beforeCommit();
+				const recipe = entry.recipe;
+				changedIDs = executeAtomic('EDITOR_AGENT_EDIT', () => {
+					if (
+						!addTransition(ids[0]!, ids[1]!, 'crossfade', undefined, {
+							presentation: recipe.presentation,
+							direction: recipe.direction
+						})
+					)
+						invalid('These items cannot use this transition');
+					return ids;
+				});
+			} else {
+				changedIDs = await applyLibraryEntry(entry, {
+					selectedIds: ids,
+					origin: 'agent',
+					importAsset,
+					placement: args.track_id
+						? {
+								from: exactInteger(args.frame ?? timelineStore.currentFrame, 'frame'),
+								trackId: exactString(args.track_id, 'track_id')
+							}
+						: undefined,
+					beforeCommit
+				});
+			}
+			const nextRevision = await videoAgentRevision();
+			if (nextRevision !== revision) {
+				editorSession.scheduleAutosave();
+				latestAgentChange = {
+					projectID: projectId,
+					sequenceID: sequenceId ?? 'root',
+					before: revision,
+					after: nextRevision,
+					undone: false,
+					commandType: commandHistory.getLastCommandType()
+				};
+			}
+			return {
+				status: nextRevision === revision ? 'no_change' : 'committed',
+				before_revision: revision,
+				after_revision: nextRevision,
+				changed_ids: changedIDs.length ? changedIDs : ids,
+				library_id: entry.id,
+				library_version: record.version,
+				undo_available: nextRevision !== revision && commandHistory.canUndo
+			};
+		}
 		case 'video_edit': {
 			const args = request.arguments;
 			if (args.project_id !== editorSession.project.id)
@@ -1274,7 +1552,8 @@ export async function handleVideoAgentRequest(
 					sequenceID: sequenceStore.activeSequenceId ?? 'root',
 					before: revision,
 					after: nextRevision,
-					undone: false
+					undone: false,
+					commandType: commandHistory.getLastCommandType()
 				};
 			return {
 				status: nextRevision === revision ? 'no_change' : 'committed',

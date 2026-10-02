@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node}：{branch}输出",
 	"video_editor_transcript_cut_locked_captions": "已保留锁定的字幕。要更新字幕，请解锁对应轨道。",
 	"stock_media_preview": "预览",
-	"stock_media_view_source": "查看来源"
+	"stock_media_view_source": "查看来源",
+	"editor_agent_learn_choices": "根据我的手动选择推荐风格",
+	"editor_agent_remember_placeholder": "要记住的编辑规则",
+	"editor_agent_match": "保持项目风格",
+	"editor_agent_style_help": "用于后续编辑。现有内容保持不变。",
+	"editor_agent_forget_project": "忘记此项目的选择",
+	"editor_agent_preferences_empty": "暂无保存的编辑规则。请让助手记住某个选择。",
+	"editor_agent_preferences_changed": "偏好已更新",
+	"editor_agent_preferences": "偏好设置",
+	"editor_agent_forget_choices": "忘记所有学到的选择",
+	"editor_agent_clean_demo": "简洁演示",
+	"editor_agent_calm_explainer": "平静解说",
+	"editor_agent_fast_short": "快节奏短片",
+	"editor_agent_sync_failed": "已保存到此设备。收藏同步失败。",
+	"editor_agent_auto": "自动",
+	"editor_agent_announcement": "产品公告",
+	"editor_agent_style": "风格",
+	"editor_agent_talking_head": "人物讲解"
 }

@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node}: Ausgang {branch}",
 	"video_editor_transcript_cut_locked_captions": "Gesperrte Untertitel wurden beibehalten. Entsperre ihre Spuren, um sie zu bearbeiten.",
 	"stock_media_preview": "Vorschau",
-	"stock_media_view_source": "Quelle ansehen"
+	"stock_media_view_source": "Quelle ansehen",
+	"editor_agent_learn_choices": "Stile aus meinen manuellen Entscheidungen vorschlagen",
+	"editor_agent_remember_placeholder": "Eine Bearbeitungsregel zum Merken",
+	"editor_agent_match": "Projektstil beibehalten",
+	"editor_agent_style_help": "Gilt für zukünftige Änderungen. Bestehende Inhalte bleiben unverändert.",
+	"editor_agent_forget_project": "Auswahl dieses Projekts vergessen",
+	"editor_agent_preferences_empty": "Keine gespeicherten Regeln. Bitte den Assistenten, sich eine Auswahl zu merken.",
+	"editor_agent_preferences_changed": "Einstellungen aktualisiert",
+	"editor_agent_preferences": "Einstellungen",
+	"editor_agent_forget_choices": "Alle erlernten Entscheidungen vergessen",
+	"editor_agent_clean_demo": "Klare Demo",
+	"editor_agent_calm_explainer": "Ruhige Erklärung",
+	"editor_agent_fast_short": "Schnelles Kurzvideo",
+	"editor_agent_sync_failed": "Auf diesem Gerät gespeichert. Favoritensynchronisierung fehlgeschlagen.",
+	"editor_agent_auto": "Automatisch",
+	"editor_agent_announcement": "Produktankündigung",
+	"editor_agent_style": "Stil",
+	"editor_agent_talking_head": "Vor der Kamera"
 }

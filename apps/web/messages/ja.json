@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node}: {branch} 出力",
 	"video_editor_transcript_cut_locked_captions": "ロックされた字幕は保持されました。更新するには、そのトラックのロックを解除してください。",
 	"stock_media_preview": "プレビュー",
-	"stock_media_view_source": "提供元を表示"
+	"stock_media_view_source": "提供元を表示",
+	"editor_agent_learn_choices": "手動の選択からスタイルを提案する",
+	"editor_agent_remember_placeholder": "覚えておく編集ルール",
+	"editor_agent_match": "プロジェクトに合わせる",
+	"editor_agent_style_help": "今後の編集に適用します。既存の内容は変わりません。",
+	"editor_agent_forget_project": "このプロジェクトの選択を忘れる",
+	"editor_agent_preferences_empty": "保存した編集ルールはありません。選択を覚えるようアシスタントに伝えてください。",
+	"editor_agent_preferences_changed": "設定を更新しました",
+	"editor_agent_preferences": "設定",
+	"editor_agent_forget_choices": "学習した選択をすべて忘れる",
+	"editor_agent_clean_demo": "シンプルなデモ",
+	"editor_agent_calm_explainer": "落ち着いた解説",
+	"editor_agent_fast_short": "テンポの速い短編",
+	"editor_agent_sync_failed": "この端末に保存しました。お気に入りの同期に失敗しました。",
+	"editor_agent_auto": "自動",
+	"editor_agent_announcement": "製品発表",
+	"editor_agent_style": "スタイル",
+	"editor_agent_talking_head": "トーク動画"
 }

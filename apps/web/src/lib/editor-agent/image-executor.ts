@@ -20,6 +20,11 @@ import {
 	IMAGE_COLOR_GRADE_VERSION
 } from '$lib/editor-color-grade/model';
 import type { ImageEditorImageAdjustments } from '$lib/image-editor/types';
+import { queryImageEditorTemplates, queryImageEditorBrandKit } from '$lib/query/image-editor';
+import { createImageEditorTemplate } from '$lib/image-editor/api';
+import { queryEditorPreferences, type EditorStyleDefinition } from './preferences';
+import { observedStyle, imageStylePatch, validateStyleFont } from './style';
+import { cloneImageEditorPage } from '$lib/image-editor/document';
 import { cloneImageEditorDocument } from '$lib/image-editor/document';
 
 interface ImageAction {
@@ -47,6 +52,18 @@ function authoredImageJSON(editor: ImageEditorController): string {
 		}
 	}
 	return editorCanonicalJSON(document);
+}
+
+function documentFonts(
+	document: NonNullable<ImageEditorController['document']>
+): Array<{ id: string; family: string }> {
+	return document.pages.flatMap((page) =>
+		page.layers.flatMap((layer) =>
+			layer.text?.font_asset_id
+				? [{ id: layer.text.font_asset_id, family: layer.text.font_family }]
+				: []
+		)
+	);
 }
 
 function invalid(message: string): never {
@@ -178,6 +195,22 @@ function applyImageAction(
 			if (!layer.text) invalid(`${layer.id} is not a text layer`);
 			const style = { ...layer.text };
 			let changes = 0;
+			if (value.font_family !== undefined || value.font_asset_id !== undefined) {
+				const font = {
+					font_family:
+						value.font_family === undefined
+							? style.font_family
+							: stringValue(value.font_family, 'font_family'),
+					font_asset_id:
+						value.font_asset_id === undefined
+							? undefined
+							: stringValue(value.font_asset_id, 'font_asset_id')
+				};
+				validateStyleFont(font, documentFonts(editor.document!));
+				style.font_family = font.font_family;
+				style.font_asset_id = font.font_asset_id;
+				changes++;
+			}
 			if (value.color !== undefined) {
 				style.color = hexColor(value.color, 'color');
 				if (style.runs) style.runs = style.runs.map((run) => ({ ...run, color: style.color }));
@@ -581,15 +614,36 @@ export async function handleImageAgentRequest(
 					: null
 			};
 		}
+		case 'style_preview':
 		case 'preview_render': {
 			const args = request.arguments;
 			if (args.project_id !== editor.id || args.expected_revision !== revision)
 				throw new EditorAgentOperationError('stale_revision', 'Preview target or revision changed');
-			const pageID = stringValue(args.page_id, 'page_id');
+			const pageID = stringValue(args.page_id ?? editor.activePageID, 'page_id');
 			const pageIndex = editor.document.pages.findIndex((entry) => entry.id === pageID);
 			if (pageIndex < 0)
 				throw new EditorAgentOperationError('missing_target', `Page ${pageID} does not exist`);
 			const document = JSON.parse(startingJSON) as NonNullable<typeof editor.document>;
+			if (request.operation === 'style_preview') {
+				const definition = args.definition as EditorStyleDefinition;
+				const style = definition.typography;
+				validateStyleFont(style, documentFonts(document));
+				if (!Object.keys(style).length) invalid('This style has no authored typography to preview');
+				const targets = new Set((args.target_ids ?? []) as string[]);
+				for (const id of targets) {
+					const target = document.pages[pageIndex]!.layers.find((layer) => layer.id === id);
+					if (!target)
+						throw new EditorAgentOperationError(
+							'missing_target',
+							`Style target ${id} does not exist on this page`
+						);
+					if (!target.text) invalid(`Style target ${id} is not a text layer`);
+				}
+				for (const layer of document.pages[pageIndex]!.layers) {
+					if (!layer.text || (targets.size && !targets.has(layer.id))) continue;
+					layer.text = imageStylePatch(layer.text, style);
+				}
+			}
 			const rendered = await renderImageEditorPage(document, document.pages[pageIndex]!, pageIndex);
 			if (authoredImageJSON(editor) !== startingJSON)
 				throw new EditorAgentOperationError(
@@ -600,7 +654,10 @@ export async function handleImageAgentRequest(
 				project_id: editor.id,
 				page_id: pageID,
 				revision,
-				provenance: 'static export renderer at preview resolution',
+				provenance:
+					request.operation === 'style_preview'
+						? 'proposed style on a copy; live design unchanged'
+						: 'static export renderer at preview resolution',
 				...(await encodeEditorPreview(rendered.blob))
 			};
 		}
@@ -618,33 +675,35 @@ export async function handleImageAgentRequest(
 			document.export_defaults.format = args.format;
 			const projectID = editor.id;
 			const workspaceID = editor.workspaceID;
-			return startEditorExport(projectID, revision, async (signal, progress) => {
-				const rendered = await renderImageEditorPage(
-					document,
-					document.pages[pageIndex]!,
-					pageIndex,
-					signal
-				);
-				progress(0.75, 'uploading');
-				const uploaded = await uploadMediaFile({
-					workspaceId: workspaceID,
-					file: new File([rendered.blob], rendered.filename, { type: rendered.blob.type }),
-					source: 'image_editor_export',
-					designDocumentId: projectID,
-					designPageId: pageID,
-					retentionClass: 'library',
-					signal
-				});
-				return {
-					project_id: projectID,
-					page_id: pageID,
-					revision,
-					media_id: uploaded.id,
-					file_name: rendered.filename,
-					file_size: rendered.blob.size,
-					storage: 'workspace_media'
-				};
-			});
+			return {
+				...startEditorExport(projectID, revision, async (signal, progress) => {
+					const rendered = await renderImageEditorPage(
+						document,
+						document.pages[pageIndex]!,
+						pageIndex,
+						signal
+					);
+					progress(0.75, 'uploading');
+					const uploaded = await uploadMediaFile({
+						workspaceId: workspaceID,
+						file: new File([rendered.blob], rendered.filename, { type: rendered.blob.type }),
+						source: 'image_editor_export',
+						designDocumentId: projectID,
+						designPageId: pageID,
+						retentionClass: 'library',
+						signal
+					});
+					return {
+						project_id: projectID,
+						page_id: pageID,
+						revision,
+						media_id: uploaded.id,
+						file_name: rendered.filename,
+						file_size: rendered.blob.size,
+						storage: 'workspace_media'
+					};
+				})
+			};
 		}
 		case 'export_status':
 		case 'export_cancel': {
@@ -766,6 +825,231 @@ export async function handleImageAgentRequest(
 						full_layer_truncated: layerID ? JSON.stringify(selected[0]).length > 128_000 : undefined
 					}
 				]
+			};
+		}
+		case 'style_capture': {
+			const texts = editor.document.pages.flatMap((page) =>
+				page.layers
+					.filter((layer) => layer.text)
+					.map((layer) => ({
+						font_family: layer.text!.font_family,
+						font_asset_id: layer.text!.font_asset_id,
+						font_size: layer.text!.font_size,
+						color: layer.text!.color,
+						align: layer.text!.align
+					}))
+			);
+			return {
+				project_id: editor.id,
+				revision,
+				definition: observedStyle(texts, [], editor.id, revision)
+			};
+		}
+		case 'library_search':
+		case 'library_inspect':
+		case 'library_apply': {
+			const args = request.arguments;
+			const templates = await queryImageEditorTemplates(editor.workspaceID);
+			const kit = await queryImageEditorBrandKit(editor.workspaceID);
+			const preferences = await queryEditorPreferences(editor.workspaceID, editor.id, 'image');
+			const records = [
+				...(await Promise.all(
+					templates.map(async (template) => ({
+						id: `template:${template.id}`,
+						name: template.name,
+						kind: 'template',
+						version: await editorAuthoredRevision(template.document),
+						slots: template.document.template_slots ?? [],
+						document: template.document
+					}))
+				)),
+				...(await Promise.all(
+					kit.text_styles.map(async (style) => ({
+						id: `text-style:${style.id}`,
+						name: style.name,
+						kind: 'text-style',
+						version: await editorAuthoredRevision(style),
+						slots: [],
+						style
+					}))
+				)),
+				...(await Promise.all(
+					(kit.effect_presets ?? []).map(async (preset) => ({
+						id: `effects:${preset.id}`,
+						name: preset.name,
+						kind: 'effects',
+						version: await editorAuthoredRevision(preset),
+						slots: [],
+						effects: preset.effects
+					}))
+				))
+			];
+			if (request.operation !== 'library_apply') {
+				const query = String(args.query ?? '')
+					.trim()
+					.toLocaleLowerCase();
+				const entries = records
+					.map((record) => ({
+						...record,
+						favorite: (preferences.favorites ?? []).some(
+							(favorite) => favorite.favorite && favorite.entry_id === record.id
+						),
+						available: true,
+						device_local: false
+					}))
+					.filter((record) =>
+						request.operation === 'library_inspect'
+							? record.id === args.entry_id
+							: (!args.favorites_only || record.favorite) &&
+								`${record.name} ${record.kind}`.toLocaleLowerCase().includes(query)
+					)
+					.toSorted((a, b) => Number(b.favorite) - Number(a.favorite));
+				if (request.operation === 'library_inspect' && !entries.length)
+					invalid('Library entry is unavailable');
+				return {
+					revision,
+					brand_kit: kit,
+					entries: entries.slice(0, 30).map((record) =>
+						request.operation === 'library_inspect'
+							? record
+							: {
+									id: record.id,
+									name: record.name,
+									kind: record.kind,
+									version: record.version,
+									slots: record.slots,
+									favorite: record.favorite,
+									available: true,
+									device_local: false
+								}
+					),
+					truncated: entries.length > 30
+				};
+			}
+			if (
+				args.project_id !== editor.id ||
+				args.expected_revision !== revision ||
+				authoredImageJSON(editor) !== startingJSON
+			)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Design changed while resolving the library'
+				);
+			const entry = records.find((record) => record.id === args.entry_id);
+			if (!entry || entry.version !== args.version)
+				invalid('Library entry changed or is unavailable; inspect again');
+			const ids = (args.target_ids ?? []) as string[];
+			const fills = (args.fills ?? {}) as Record<string, string>;
+			if (Object.keys(fills).some((name) => !entry.slots.some((slot) => slot.name === name)))
+				invalid('Unknown template slot');
+			const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+			if ('document' in entry) {
+				if (((args.target_ids ?? []) as string[]).length)
+					invalid('Templates create independent pages; do not supply layer target IDs');
+				const document = cloneImageEditorDocument(entry.document);
+				for (const slot of entry.slots) {
+					const text = fills[slot.name];
+					if (!text?.trim() || Array.from(segmenter.segment(text)).length > slot.max_characters)
+						invalid(
+							`Slot ${slot.name} requires readable text within ${slot.max_characters} characters`
+						);
+					const layer = document.pages
+						.flatMap((page) => page.layers)
+						.find((layer) => layer.id === slot.target_id);
+					if (!layer?.text) invalid('Template slot target is unavailable');
+					layer.text.text = text;
+					layer.text.runs = undefined;
+				}
+				const sourceIDs = document.pages.flatMap((page) =>
+					page.layers.flatMap((layer) => (layer.image?.media_id ? [layer.image.media_id] : []))
+				);
+				if (sourceIDs.length) {
+					const sources = await queryMediaMetadata(editor.workspaceID, [...new Set(sourceIDs)], {
+						force: true
+					});
+					if (sourceIDs.some((id) => !sources.media.some((source) => source.id === id)))
+						invalid('Template media is unavailable in this Workspace');
+				}
+				if (authoredImageJSON(editor) !== startingJSON)
+					throw new EditorAgentOperationError(
+						'stale_revision',
+						'Design changed while resolving template media'
+					);
+				const pages = document.pages.map((page) => ({
+					...cloneImageEditorPage(page, page.name),
+					width_px: page.width_px ?? document.width_px,
+					height_px: page.height_px ?? document.height_px
+				}));
+				if (pages.length + editor.document.pages.length > IMAGE_EDITOR_LIMITS.maxPages)
+					invalid('Template exceeds the page limit');
+				editor.mutate('Apply template', (draft) => {
+					draft.pages.push(...pages);
+				});
+				editor.clearPixelSelection();
+				editor.activePageID = pages[0]!.id;
+				editor.selectedLayerIDs = [];
+				editor.fitZoom();
+			} else {
+				if (!ids.length) invalid('Choose exact layers for this style or effect');
+				for (const id of ids) activeLayer(editor, editor.activePageID, id);
+				editor.runAtomicEdits('Apply library entry', () => {
+					for (const id of ids) {
+						const layer = activeLayer(editor, editor.activePageID, id);
+						if ('style' in entry) {
+							if (!layer.text) invalid('Text styles require text layers');
+							const { id: _id, name: _name, ...style } = entry.style;
+							editor.updateLayer(id, {
+								text: {
+									...layer.text,
+									...style,
+									font_style: style.font_style === 'italic' ? 'italic' : 'normal'
+								}
+							});
+						} else editor.updateLayer(id, { effects: structuredClone(entry.effects) });
+					}
+				});
+			}
+			const nextRevision = await editorAuthoredRevision(JSON.parse(authoredImageJSON(editor)));
+			if (nextRevision !== revision)
+				latestAgentChanges.set(editor, { before: revision, after: nextRevision, undone: false });
+			return {
+				status: nextRevision === revision ? 'no_change' : 'committed',
+				before_revision: revision,
+				after_revision: nextRevision,
+				library_id: entry.id,
+				library_version: entry.version,
+				undo_available: nextRevision !== revision && editor.canUndo
+			};
+		}
+		case 'library_save': {
+			const args = request.arguments;
+			if (
+				args.project_id !== editor.id ||
+				args.expected_revision !== revision ||
+				authoredImageJSON(editor) !== startingJSON
+			)
+				throw new EditorAgentOperationError(
+					'stale_revision',
+					'Design changed before template save'
+				);
+			const document = cloneImageEditorDocument(editor.document);
+			document.template_slots = (args.slots ?? []) as NonNullable<typeof document.template_slots>;
+			const template = await createImageEditorTemplate({
+				workspace_id: editor.workspaceID,
+				name: stringValue(args.name, 'name'),
+				category: 'Saved',
+				document
+			});
+			return {
+				status: 'saved',
+				entry: {
+					id: `template:${template.id}`,
+					name: template.name,
+					kind: 'template',
+					version: await editorAuthoredRevision(template.document),
+					slots: template.document.template_slots ?? []
+				},
+				project_unchanged: true
 			};
 		}
 		case 'image_edit': {

@@ -23,6 +23,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
 	import { toast } from 'svelte-sonner';
 	import { showToast } from '$lib/toast';
+	import { auth } from '$lib/stores/auth';
 	import { ui } from '$lib/stores/ui.svelte';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -239,10 +240,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			projectID: connectedProjectID,
 			kind: 'video',
 			handle: (request) =>
-				handleVideoAgentRequest(request, (itemID) => {
-					selectedItemId = itemID;
-					selectedItemIds = [itemID];
-				}),
+				handleVideoAgentRequest(
+					request,
+					(itemID) => {
+						selectedItemId = itemID;
+						selectedItemIds = [itemID];
+					},
+					cloudStorage ? importCloudEditorProjectAsset : undefined
+				),
 			onSession: (sessionID) => (agentSessionID = sessionID),
 			onStatus: (status) => (agentConnectionStatus = status)
 		});
@@ -523,7 +528,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let unsupportedAudioResolve: ((decision: 'import' | 'cancel') => void) | null = null;
 	$effect(() => {
 		const scope = cloudStorage ? workspaceCtx.currentWorkspace?.id : 'local';
-		if (scope) void videoLibrary.load(scope).catch((error) => toast.error(String(error)));
+		if (scope)
+			void videoLibrary
+				.load(scope, workspaceCtx.currentWorkspace?.id, $auth.user?.id)
+				.catch((error) => toast.error(String(error)));
 	});
 	type LeftPanel =
 		| 'library'
@@ -1988,6 +1996,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			}
 			if (updateTransitionPresentation(selectedTransition.id, presentation, direction)) {
 				editorSession.scheduleAutosave();
+				videoLibrary.recordChoice(`${videoLibrary.scope}:transition:${presentation}`, presentation);
 			} else {
 				showToast(m.video_editor_agent_error_transition_failed(), 'error');
 			}
@@ -2025,7 +2034,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					{ presentation, direction }
 				);
 			}
-			selectedTransitionId = id ?? null;
+			if (!id) return;
+			videoLibrary.recordChoice(`${videoLibrary.scope}:transition:${presentation}`, presentation);
+			selectedTransitionId = id;
 			selectedItemId = null;
 			selectedItemIds = [];
 			editorSession.scheduleAutosave();

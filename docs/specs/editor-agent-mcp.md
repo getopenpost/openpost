@@ -1,115 +1,104 @@
 # Agentic Image and Video Editing
 
-Status: implementation contract. This document records the agreed product behavior and the work required to deliver it. It does not assert that a tool exists until the shared operation catalog advertises it.
+The connected editor is the execution boundary. Codex CLI, Claude Code and the built-in assistant use the same MCP operations and the same editor actions as the web UI. No OpenPost installation is required. Keep the browser project open while editing or rendering.
 
-## Outcome
+This document records the delivered contract and the boundary for future work. The operation catalog returned by `editor_reference` is authoritative for supported actions, fields and limits.
 
-A user can ask Codex CLI, Claude Code, or the paid Hosted assistant to edit an OpenPost Video or Image project. They can watch completed edits appear in the open browser editor, inspect the result, stop the run, and undo the assistant's work. The same authored-editing operations serve manual UI, MCP, and the Hosted assistant. No OpenPost desktop installation is required for the initial connected-browser path. The browser remains the editing and rendering executor for local projects and locally available assets. When it disconnects, pending execution stops and the client receives a recoverable disconnected state.
+## Experience
 
-The Hosted assistant replaces the existing Video Editor assistant for paid Hosted users. Its model runs through the maintained OpenRouter adapter and uses the same operation catalog as external MCP clients. Model selection is configurable and must be evaluated with real editing tasks; no model name is hard-coded into the editing domain. Image and Video Editor share session, evidence, revision, job, and history contracts, but keep separate document and operation schemas.
+The user opens a project, connects an external agent or uses Assistant, and asks for an edit. The agent inspects the actual document and relevant media, applies a short edit, checks the composed result and continues. Completed edits appear immediately in the open editor. Inspection does not change selection, the playhead or the viewport. `editor_reveal` changes the view explicitly.
 
-Local-first describes where original project files and media processing live. An external assistant connected to Hosted is a separate transport choice. Source frames, rendered previews, transcript text, and bounded results may cross the relay to that assistant. The paid Hosted assistant may send those results to its configured model provider. The original project need not be uploaded merely because a remote MCP client invokes an operation.
+Assistant has a compact style selector, with Match project as the default, Auto, five starting styles and saved styles. A style applies to future requests. Choosing one never restyles the project. Preferences opens beside the conversation and supports editing, disabling, deleting and undoing saved rules. Learning can be switched off. Resetting project or personal choice history does not delete explicit rules, favorites or styles.
 
-## Domain contract
+The built-in assistant requires a signed-in user with edit access. Hosted also requires the organization's existing active paid-plan entitlement. External MCP does not buy inference from OpenPost and is available through ordinary workspace authorization. Self-hosted Assistant uses the instance's configured AI provider and model, without Hosted billing. `OPENROUTER_API_KEY` and `OPENPOST_EDITOR_AGENT_MODEL` configure inference through the existing AI adapter.
 
-- A Project Asset is a source file. A clip occurrence is one use of an asset within a particular sequence or nested composition path. Source range and sequence range are distinct. Image pages and layers are separate authored entities.
-- Authored video ranges use half-open integer frame intervals with a sequence ID and explicit frame rate. Source ranges use presentation timestamps and their timebase. Source words and scenes are qualified by media identity and an immutable analysis version. Image coordinates state whether they are page, layer, or source-image pixels.
-- Existing `c1`-style, order-derived clip aliases can appear as display labels only. Operations require stable entity IDs or revision-bound evidence handles. A repeated source passage yields one handle per occurrence.
-- Inspection never changes authored state or the user's playhead, selection, panels, or viewport. `editor_reveal` changes view state explicitly. View state remains device-local.
-- A missing or ambiguous target, stale revision or analysis, locked object, unsupported capability, or unavailable source is a typed failure. Nothing falls back to the current selection or all media. A verified already-satisfied operation returns `no_change` with no history entry.
-- Retryable mutations use an idempotency key and expected authored revision. Repeating a key with identical arguments returns the original receipt; reusing it with different arguments fails.
-- All editing mutations run through the same owner as manual UI actions, including lock checks, linked media, ripple effects, transition repair, caption reconciliation, asset import, and save feedback. No raw document patches or arbitrary script execution are exposed to an editing model.
-- A short coherent batch is atomic and yields one history change. A creative run comprises multiple visible batches. The run, pass, and change have separate IDs. Export, analysis, and preparation are jobs pinned to a source or project revision. Their late results cannot author into a stopped run or another project.
-- A committed change immediately updates the open editor's authored state. A receipt distinguishes document commit, preview rendered at that revision, local persistence, and Cloud persistence. The UI identifies the current action, shows changed objects, and provides optional Follow assistant behavior.
-- Stop cancels uncommitted work and leaves already committed edits intact. Head undo reverses the current history entry. Selective revert creates a new change and succeeds only when later work, including human edits, can be preserved. Otherwise it reports the affected dependency conflict. Whole snapshots are not selective revert.
-- Every evidence result states its source/composition identity, revision or analysis version, examined ranges and samples, provenance, omissions, and unavailable dependencies. Search returns candidates and coverage, not certainty. Source thumbnails cannot verify final composited pixels or audio.
-- An operation receipt reports actual frames, created/changed/removed IDs, linked and ripple consequences, affected ranges/pages, warnings, save state, preview state, and an undo reference. A successful operation alone does not establish visual quality.
+## Document and history contract
 
-## Tool surface
+- Stable project, sequence, page, item and layer IDs identify targets. Display aliases never identify edits.
+- Video timing uses integer sequence frames. Source evidence uses source seconds and analysis versions. A repeated source can have several timeline occurrences; inspect their IDs and source windows before choosing one.
+- Mutations require the exact project, authored revision and a request key. Repeating a key with identical arguments returns the original receipt. Different arguments with the same key fail.
+- Short `video_edit` and `image_edit` batches are atomic and create one history entry. The underlying timeline actions and Image Editor controller own locks, links, collision admission, transition repair and persistence.
+- Missing, stale, locked, ambiguous or unsupported targets fail explicitly. Nothing silently falls back to selection or all media.
+- A change receipt reports the committed revision and affected IDs. A composed preview or completed export establishes rendered output separately. Autosave remains owned by the editor.
+- Stop cancels queued work and leaves completed edits intact. A lost response after execution may be indeterminate; inspect the document and receipt before retrying with a new key.
+- `editor_history_undo` and `editor_history_redo` affect the latest agent change only while the matching history entry and revision remain current. Later human work blocks agent undo. Older selective reversal is outside this delivery; use normal editor history to review those changes.
 
-The initial MCP surface groups exact domain operations behind typed edit tools. The catalog owns schemas, support checks, documentation, and result types; adapters may present relevant operations directly to models without changing semantics.
+## Tool catalog
 
-| Tool                                                   | Required result or effect                                                                                                             |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `editor_sessions`                                      | Connected editor sessions, project identity, permission scope, and capabilities.                                                      |
-| `editor_context`                                       | Current project, authored revision, active sequence/page, selection, playhead, save state, missing assets, and work.                  |
-| `editor_reference`                                     | Filtered operation schemas, units, prerequisites, consequences, errors, examples, and common-task recipes.                            |
-| `project_create`, `project_open`, `project_inspect`    | Explicit project lifecycle and paginated inventory. Opening respects active work.                                                     |
-| `timeline_inspect`, `image_inspect`                    | Bounded authored structure with stable IDs, effective locks, dependencies, and timing/layout.                                         |
-| `media_import`                                         | Authorized source import, asset identity, and readiness.                                                                              |
-| `media_analyze`                                        | Requested and available source transcription, scene, visual, screen-text, or audio analysis; cached result or cancellable job.        |
-| `media_search`                                         | Ranked candidate ranges with evidence references and full coverage or gap reporting.                                                  |
-| `media_inspect`                                        | Bounded source frames, transcript, audio, metadata, and analysis provenance.                                                          |
-| `timeline_resolve`                                     | Source/evidence references mapped to exact occurrences and authored frame ranges at a revision.                                       |
-| `edit_preview`                                         | A validated, revision-bound change plan with all affected entities, actual timing, conflicts, and consequences. No authored mutation. |
-| `video_edit`, `image_edit`                             | A typed, short atomic operation batch or still-valid plan; change receipt and immediate live document update.                         |
-| `preview_render`                                       | An actual composed video frame or rendered image page, with revision and fidelity limits.                                             |
-| `preview_audio`                                        | A bounded interval of the actual composed video audio mix, with source revision and frame range.                                      |
-| `output_check`                                         | Deterministic requirement checks with explicit coverage and unsupported checks.                                                       |
-| `history_inspect`, `history_revert`, `history_reapply` | Actor-aware receipts and dependency-checked reversal.                                                                                 |
-| `work_status`, `work_cancel`                           | Job and run lifecycle with completed versus pending edits distinguished.                                                              |
-| `editor_reveal`                                        | Explicit, device-local seek, selection, or reveal.                                                                                    |
-| `library_search`, `library_inspect`, `library_save`    | Favorites, recipes, dependencies, previews, and explicit reusable saves.                                                              |
-| `export_start`                                         | Export of a named immutable revision with progress and artifact identity.                                                             |
+Tools use the existing MCP discovery, query and execute entry points. Large evidence results use bounded image or audio content rather than original media files.
 
-Each editing operation receives `session_id`, `project_id`, explicit sequence/page and target IDs, `expected_revision`, `request_id`, optional `run_id`, and operation-specific arguments. The server validates a discriminated operation schema, not an arbitrary `args` bag. Advanced operation descriptions are discoverable on demand. An operation may only be advertised when its actual owner, browser capabilities, assets, and permission scope support it.
+| Tools                                                                                              | Purpose                                                                             |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `editor_sessions`, `editor_context`, `editor_reference`                                            | Find an open authorized project, its revision and available operations.             |
+| `timeline_inspect`, `image_inspect`                                                                | Inspect authored structure, stable IDs, effective locks and dependencies.           |
+| `media_library`, `media_inspect`, `media_search`                                                   | Inspect project sources, transcript evidence, source windows and analysis coverage. |
+| `media_analyze`, `media_analysis_status`, `media_analysis_cancel`                                  | Run and inspect local source transcription.                                         |
+| `media_frame`, `media_storyboard`                                                                  | Decode source frames or a bounded contact sheet with sample timestamps.             |
+| `scene_analyze`, `scene_analysis_status`, `scene_analysis_cancel`, `scene_search`, `scene_inspect` | Inspect locally detected and captioned source scenes with coverage and provenance.  |
+| `video_edit`, `image_edit`                                                                         | Apply a short typed batch through the existing editor owner.                        |
+| `preview_render`, `preview_audio`                                                                  | Inspect composed pixels or up to four seconds of the actual video audio mix.        |
+| `editor_reveal`                                                                                    | Explicitly seek or select in the user's view.                                       |
+| `library_search`, `library_inspect`, `library_apply`, `library_save`                               | Find, inspect, apply and explicitly save existing recipes.                          |
+| `style_capture`, `style_preview`, `style_list`, `style_inspect`, `style_save`, `style_archive`     | Capture authored values, preview a copy and manage versioned styles.                |
+| `preferences_get`, `preferences_set`, `preferences_remove`                                         | Inspect and manage explicit scoped editing rules.                                   |
+| `editor_history_inspect`, `editor_history_undo`, `editor_history_redo`                             | Inspect and reverse the latest safe agent change.                                   |
+| `editor_work_status`, `editor_work_cancel`                                                         | Recover a request receipt or cancel pending work.                                   |
+| `export_start`, `export_status`, `export_cancel`                                                   | Render the identified revision, inspect progress and obtain an export artifact.     |
 
-### Initial video operation catalog
+### Frequent video actions
 
-- Sequences: create, duplicate, configure, rename, remove, assemble ordered source passages, nest.
-- Tracks: create, configure with explicit setters, reorder, group, ungroup, remove.
-- Clips: insert, duplicate, move, split, join, trim, slip, lift/ripple remove, close gaps, retime, set speed points.
-- Relationships: link, unlink, detach audio, create/dissolve compound, set transform parent.
-- Appearance: set static transforms and crop, apply layouts, add/configure/reorder/remove effects, set clip or sequence grade, set/remove keyframes and easing, apply animation.
-- Graphics: insert/edit/style text, create/correct/style source-linked captions, insert shape, background, timer, or library recipe.
-- Sound: set gain and mute, fades, ducking, and supported processing by explicit units and targets.
-- Transitions and markers: add, configure, remove.
+The typed batch supports media insertion, text, shapes, backgrounds, markers, SRT captions, caption correction, text styling, transforms, supported effects, track creation and renaming, clip duplication, split, move, trim, speed, lift or ripple removal, gain, audio and visual fades, and supported transitions. Library apply also reuses text presets, effects, transitions, timers, saved animations, text styles and reusable selections.
 
-`remove` declares lift versus ripple, linked-item policy, and ripple scope. `move` declares collision behavior. `trim` returns the actual source window and affected transitions. `transform.set` declares static versus keyed editing and never inherits hidden auto-key mode. Caption text changes do not delete speech. The catalog's schemas specify valid effects and parameters rather than accepting arbitrary timeline item properties.
+Media insertion uses a Project Asset already available to the open project. External media uploads use the existing authorized Media operations and the normal project import UI. Project creation/opening, advanced sequence authoring, arbitrary GPU parameters, masks and arbitrary script execution are not advertised as editor tools. Extend the typed catalog through the owning editor action when adding support.
 
-### Initial image operation catalog
+### Frequent image actions
 
-- Pages: create, duplicate, resize, reorder, remove, set background.
-- Layers: insert, duplicate, remove, reorder, configure, group, ungroup, align, distribute, transform.
-- Text: edit grapheme-indexed text and run styles, using existing asset-specific font identity.
-- Appearance: crop, mask, grade, configure effects, apply supported library recipes.
-- Raster: only implemented operations such as remove background, rasterize, merge, or flatten, with explicit source and page pixel coordinates.
+The typed batch supports workspace image insertion, text and shapes, text and shape styling, layer rename/visibility/duplicate/delete/group/ungroup/alignment/order/transform/opacity, crop/reset, layer or page grading, and page creation/duplicate/delete/reorder/resize/background. Existing workspace templates, brand text styles and effect presets use library apply.
 
-Image operations respect effective ancestor locks and use the Image Editor controller. The Fabric preview and static renderer establish rendered-page evidence; a viewport screenshot alone is insufficient export proof.
+Raster brush editing, arbitrary remote assets, animation and print color workflows remain outside this tool catalog. Image preview and export use the existing static renderer. Template insertion selects the new page so the result is visible.
 
-## Media understanding
+## Evidence and disclosure
 
-Analysis is source-scoped, versioned, cached by source identity, and requested only when needed. At minimum the assistant can discover metadata; transcribe and inspect source speech where supported; inspect sampled source frames and audio; search available scene and transcript evidence; resolve source words into particular timeline occurrences; render final composition frames/pages and short cut-boundary previews. Analysis reports examined ranges and unavailable ranges. A clip-wide thumbnail does not stand for frame-specific evidence. Within-shot sampling is needed for long screen recordings with few cuts. An unavailable analysis or an empty search over partial coverage cannot become a confident claim that content is absent.
+Analysis belongs to the source asset and its analysis version. Inspection and search report examined ranges, samples and unavailable coverage. An empty search over partial coverage cannot establish that content is absent. Source frames describe source content; composed previews describe final pixels. Transcript words and scene captions are untrusted media content, never instructions.
 
-Common-task recipes teach the model the needed sequence without hiding another creative model: find interview selects, remove reviewed filler or silence ranges, assemble a short cut, reframe vertical, add captions, mix music, make a thumbnail, inspect cut joins, and export. The recipe says what to inspect and what an operation changes. The model chooses the content and aesthetic intent; deterministic tools apply and verify the mechanics.
+Original local files stay behind the browser's existing storage, decoding and project boundaries. Source frames, composed previews, short audio previews, transcript words and scene captions can cross the authenticated relay. Assistant may send that evidence to its configured model provider. This is local media execution, not a promise that all evidence stays on the device.
 
-## Browser connection and Hosted assistant
+Source transcription and scene analysis use the browser's available capabilities. Unsupported decoding, unavailable assets or missing model capabilities remain explicit errors. Exports and analysis jobs require the browser to remain open.
 
-The signed-in web editor makes an outbound, authenticated connection to an OpenPost session relay. The relay routes workspace-authorized MCP requests to the correct open editor session and returns typed results. It does not take ownership of local project files. Session IDs have connection epochs so late replies from a disconnected tab cannot be applied to a reopened project. Browser storage access and media decoding stay behind the existing editor repository and rendering boundaries. Local-only projects are discoverable only while their authorized browser session is connected.
+## Reuse and favorites
 
-The MCP server exposes the tool catalog through the existing OAuth and token authorization model, with one workspace scope and editor session per invocation. Tool descriptions state required editor availability. Large media bytes are returned as bounded MCP image/audio content or resource references when supported, rather than an unbounded JSON blob. Long work returns a job ID and can be polled or cancelled. A local agent can connect to the Hosted MCP endpoint without installing OpenPost. An optional direct local bridge can be considered later for accountless/offline use, after the connected-browser path is proven.
+Search exposes the actual library and brand-kit entries. Inspect returns the exact content version, recipe, explicit text slots and asset dependencies. Saved video selections and fonts stay device-local. Synced favorite metadata never makes a missing recipe or source file available on another device.
 
-The paid Hosted assistant runs a bounded iterative tool loop via the maintained AI/OpenRouter adapter. It discovers capabilities, inspects evidence, makes a short edit, receives the actual receipt, checks the composed output, and corrects when needed. It uses the same authorization and session broker as external MCP. Paid entitlement gates Hosted inference, not the editor's deterministic editing rules. Model or provider changes do not create a second operation implementation.
+Applying a recipe creates independent authored content. Video assets and fonts enter through the destination project's existing import boundary. Image templates retain workspace Media IDs. Later recipe changes cannot rewrite inserted instances.
 
-## Workflow reuse boundary
+Text slots are declared when saving a recipe. Each has a name, exact text target and maximum character count. Apply requires every slot, rejects unknown slots and rejects text beyond the declared bound. The agent must preserve source meaning and readability, rephrase with the user or choose another recipe when the content does not fit. Ordinary text is never guessed to be a placeholder.
 
-Workflow nodes will need deterministic editing too. The reusable unit is a versioned operation and receipt, not an MCP request or browser polling endpoint. Keep operation names, validated arguments, project revision checks, media references, and results independent of the caller. MCP, the Hosted assistant, manual UI, and future Workflow nodes may submit the same domain command through their respective admission and execution adapters. A Workflow run records an immutable input snapshot and stable run/step ID, then invokes a durable worker against assets available to that worker. It cannot depend on a user's open tab, local-only media, view selection, or the editor's in-memory undo stack. A browser-connected tool may use the live browser executor for interactive work, but that transport must never be presented as a durable Workflow node. Define the headless execution and rendering adapter before advertising any video/image node. Workflow retries use their run/step identity for idempotency, and late job results respect the Workflow cancellation fence. Changes authored by a Workflow appear in an open editor through the normal project revision/conflict path, not by silently patching its state.
+Favorites rank useful candidates. They do not require their use. Agent-created recipes are not automatically favorited.
 
-## Reuse and style
+## Preferences and styles
 
-Expose existing library favorites, reusable selections, text styles, transitions, effects, animations, fonts, and brand assets with their actual dependencies and device availability. Applying a recipe creates an independent authored instance and imports needed assets through the destination project's existing boundary. Favorites inform suggestions; they do not mandate application. Temporary instructions apply to one run. A durable named style requires an explicit save and remains editable. Inferred preferences can later rank suggestions but do not silently become rules. Style learning and broad reference-video imitation follow the core editing path.
+Current instructions take priority, followed by shared project rules, the explicitly selected style, brand-kit defaults, explicit personal rules, suggestions from deliberate choices and built-in defaults. Rules outside the current content context do not apply. Disabled rules remain inspectable but cannot guide edits.
 
-## Delivery and verification
+An ordinary correction changes the current edit. Only an explicit instruction such as "remember", "always use" or "save this style" creates persistent state. Store the source instruction with the rule or style so the user can inspect why it exists.
 
-The first complete delivery must cover both Video and Image Editor, external MCP editing from Codex CLI or Claude Code, and replacement of the Hosted Video Editor assistant for paid users. Verify these end-user tasks through the real UI and MCP boundary:
+Personal rules belong to one user in one workspace. Project rules are shared with editors of that project. Styles may be personal or workspace-shared. Optimistic revisions protect rule changes. Styles have immutable numbered definitions; requests pin the selected version. Archive removes a style from the selector while preserving exact versions for prior work and an undo path.
 
-1. Inspect a project with repeated source footage; select and edit only the requested occurrence. Verify timebase and stale-reference errors.
-2. Assemble a short cut, remove reviewed speech/silence ranges, reframe it, add/edit captions and graphics, configure audio, inspect final composed frames/audio, and export the identified revision.
-3. Create or edit a layered image, including page size, text, layer order/layout, appearance, rendered preview, and export.
-4. Observe every committed agent step in the open editor, with save/render state distinguished. Browsing the editor during agent inspection does not move the user's view.
-5. Retry a mutation after a lost reply without duplication. Reject stale, locked, missing, ambiguous, or unsupported operations without collateral edits.
-6. Stop during a long job. Keep completed edits; prevent late authoring. Undo the head change, selectively revert a safe older change, and report a conflict when later human work depends on it.
-7. Inspect and apply available favorites or templates. Report missing device-local recipes or assets accurately.
-8. Prove paid Hosted entitlement, OpenRouter tool-loop accounting, Workspace authorization, that original local project files remain in the connected browser unless explicitly imported or exported, and that preview/transcript disclosure matches the documented transport.
+`style_capture` records observed authored typography, captions and text colors with the source project and revision. Font assets retain their exact identity. Applying or previewing another font requires a shipped design font or an available font already imported into the project. Interpretations are separate from those values. `style_preview` renders a temporary copy without changing the live document. To learn from reference media, inspect its source evidence and save any interpretation explicitly through `style_save`; reference analysis does not create persistent rules by itself.
 
-Unit and integration tests should protect observable behavior at the shared operation and transport boundaries. Browser tests should exercise real timeline/canvas changes in both themes and at desktop and phone widths. Existing editor checks, backend tests, contract generation, and MCP compatibility tests remain required for their affected surfaces. Use focused gates first, then complete the repository's required gates. Do not treat a successful tool response as proof that a composed frame rendered or an export saved.
+Choice learning stores only entry identity, name, project, editor kind, context and last-use date. A successful manual library choice in three distinct projects may rank that entry as a suggestion. Repeating it in one project does not qualify. Agent actions, lack of undo, exports and ordinary corrections do not qualify. Observations expire after 90 days and can be reset. Turning learning off stops recording and suggestion ranking.
+
+## AI accounting
+
+Every built-in Assistant provider attempt gets a durable usage record before dispatch. Completion, failure and invalid output are recorded independently of parsing and browser lifetime. Known provider/model identity, token counts and cost belong to that record. Unknown counts or cost remain null. A process crash can leave a dispatched attempt with unknown outcome; it is never counted as zero usage.
+
+The usage API returns the signed-in user's recent calls in the workspace. There is no new account quota or arbitrary per-minute editor limit in this delivery. Future quotas can use these durable records and the shared entitlement owner.
+
+## Workflow boundary
+
+Future Workflow nodes can reuse the versioned command contract and immutable recipe/style snapshots. They need a durable headless executor and renderer with access to their assets. The connected-browser relay, device-local library and in-memory undo stack cannot be advertised as unattended Workflow nodes. A Workflow must pin versions and retain its own run/step identity and cancellation fence. Do not add a second editing implementation to the Hosted assistant.
+
+## Verification
+
+Exercise editing through real MCP requests and the browser UI. The acceptance boundary includes live authored changes, composed previews, actual export bytes, stale and locked rejection, retry identity, safe undo/redo, independent template copies, explicit slot failures, non-mutating style previews, scoped preferences, distinct-project learning and durable AI usage after cancellation or invalid output.
+
+Check both schemes, desktop and phone widths, keyboard access, touch controls, overflow and console errors. Backend checks cover authorization and the paid Hosted loop over HTTP with a deterministic generator. Live model quality requires configured provider credentials and representative editing tasks; transport tests alone do not prove it.

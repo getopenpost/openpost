@@ -181,6 +181,29 @@ committed edit.
 `editor_history_inspect`, `editor_history_undo`, and `editor_history_redo`
 operate only on the latest agent change when its revision still matches.
 
+`library_search` and `library_inspect` expose the existing libraries, favorites,
+recipes, explicit text slots and asset dependencies. `library_apply` requires the
+inspected content version and creates independent undoable content.
+`library_save` saves only at the user's explicit request. Device-local video
+recipes and fonts remain available only on that device; synced favorite metadata
+does not sync their files.
+
+`style_capture` records authored typography and palette at a revision.
+`style_preview` renders a copy without changing the live document.
+`style_list`, `style_inspect`, `style_save` and `style_archive` manage immutable
+style versions. `preferences_get`, `preferences_set` and `preferences_remove`
+manage explicit personal rules and shared project rules. A correction alone does
+not create a persistent preference. Manual library choices across three distinct
+projects can rank suggestions, with learning off and reset controls in Assistant
+Preferences. Agent outputs do not count as those choices.
+
+The built-in Assistant uses these same operations through the configured AI
+adapter. Hosted requires a signed-in editor with the existing paid-plan
+entitlement. Self-hosted instances use their configured provider key and model.
+External MCP has ordinary workspace authorization and no OpenPost inference
+charge. Built-in provider attempts are durably recorded before response parsing;
+unknown usage remains unknown. This delivery adds no account quota.
+
 When the browser closes or stops polling, the session expires. Queued requests
 fail with `editor_disconnected`; a leased request becomes `indeterminate`
 because its edit may have committed before the reply was lost. Inspect the

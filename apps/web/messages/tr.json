@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node}: {branch} çıkışı",
 	"video_editor_transcript_cut_locked_captions": "Kilitli altyazılar korundu. Güncellemek için izlerinin kilidini açın.",
 	"stock_media_preview": "Önizleme",
-	"stock_media_view_source": "Kaynağı görüntüle"
+	"stock_media_view_source": "Kaynağı görüntüle",
+	"editor_agent_learn_choices": "Manuel seçimlerimden stil öner",
+	"editor_agent_remember_placeholder": "Hatırlanacak düzenleme kuralı",
+	"editor_agent_match": "Proje stilini koru",
+	"editor_agent_style_help": "Gelecek düzenlemelerde kullanılır. Mevcut içerik aynı kalır.",
+	"editor_agent_forget_project": "Bu projenin seçimlerini unut",
+	"editor_agent_preferences_empty": "Kayıtlı düzenleme kuralı yok. Asistandan bir seçimi hatırlamasını isteyin.",
+	"editor_agent_preferences_changed": "Tercihler güncellendi",
+	"editor_agent_preferences": "Tercihler",
+	"editor_agent_forget_choices": "Öğrenilen tüm seçimleri unut",
+	"editor_agent_clean_demo": "Sade demo",
+	"editor_agent_calm_explainer": "Sakin açıklama",
+	"editor_agent_fast_short": "Hızlı kısa video",
+	"editor_agent_sync_failed": "Bu cihaza kaydedildi. Favoriler eşitlenemedi.",
+	"editor_agent_auto": "Otomatik",
+	"editor_agent_announcement": "Ürün duyurusu",
+	"editor_agent_style": "Stil",
+	"editor_agent_talking_head": "Konuşmacı"
 }

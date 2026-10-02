@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node} : sortie {branch}",
 	"video_editor_transcript_cut_locked_captions": "Les sous-titres verrouillés ont été conservés. Déverrouillez leurs pistes pour les modifier.",
 	"stock_media_preview": "Aperçu",
-	"stock_media_view_source": "Voir la source"
+	"stock_media_view_source": "Voir la source",
+	"editor_agent_learn_choices": "Suggérer des styles à partir de mes choix manuels",
+	"editor_agent_remember_placeholder": "Une règle de montage à retenir",
+	"editor_agent_match": "Conserver le style du projet",
+	"editor_agent_style_help": "Utilisé pour les prochaines modifications. Le contenu existant reste inchangé.",
+	"editor_agent_forget_project": "Oublier les choix de ce projet",
+	"editor_agent_preferences_empty": "Aucune règle enregistrée. Demandez à l'assistant de retenir un choix.",
+	"editor_agent_preferences_changed": "Préférences mises à jour",
+	"editor_agent_preferences": "Préférences",
+	"editor_agent_forget_choices": "Oublier tous les choix appris",
+	"editor_agent_clean_demo": "Démo simple",
+	"editor_agent_calm_explainer": "Explication calme",
+	"editor_agent_fast_short": "Vidéo courte et rapide",
+	"editor_agent_sync_failed": "Enregistré sur cet appareil. La synchronisation des favoris a échoué.",
+	"editor_agent_auto": "Automatique",
+	"editor_agent_announcement": "Annonce de produit",
+	"editor_agent_style": "Style",
+	"editor_agent_talking_head": "Face caméra"
 }

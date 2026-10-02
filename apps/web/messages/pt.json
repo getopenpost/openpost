@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node}: saída {branch}",
 	"video_editor_transcript_cut_locked_captions": "As legendas bloqueadas foram mantidas. Desbloqueie as respetivas faixas para as atualizar.",
 	"stock_media_preview": "Pré-visualizar",
-	"stock_media_view_source": "Ver fonte"
+	"stock_media_view_source": "Ver fonte",
+	"editor_agent_learn_choices": "Sugerir estilos a partir das minhas escolhas manuais",
+	"editor_agent_remember_placeholder": "Uma regra de edição a lembrar",
+	"editor_agent_match": "Manter o estilo do projeto",
+	"editor_agent_style_help": "Usado nas próximas edições. O conteúdo existente mantém-se.",
+	"editor_agent_forget_project": "Esquecer as escolhas deste projeto",
+	"editor_agent_preferences_empty": "Sem regras guardadas. Pede ao assistente para lembrar uma escolha.",
+	"editor_agent_preferences_changed": "Preferências atualizadas",
+	"editor_agent_preferences": "Preferências",
+	"editor_agent_forget_choices": "Esquecer todas as escolhas aprendidas",
+	"editor_agent_clean_demo": "Demonstração simples",
+	"editor_agent_calm_explainer": "Explicação calma",
+	"editor_agent_fast_short": "Vídeo curto e rápido",
+	"editor_agent_sync_failed": "Guardado neste dispositivo. Falhou a sincronização dos favoritos.",
+	"editor_agent_auto": "Automático",
+	"editor_agent_announcement": "Anúncio de produto",
+	"editor_agent_style": "Estilo",
+	"editor_agent_talking_head": "Apresentador"
 }

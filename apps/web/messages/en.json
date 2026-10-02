@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node}: {branch} output",
 	"video_editor_transcript_cut_locked_captions": "Locked captions were kept. Unlock their tracks to update them.",
 	"stock_media_preview": "Preview",
-	"stock_media_view_source": "View source"
+	"stock_media_view_source": "View source",
+	"editor_agent_learn_choices": "Suggest styles from my manual choices",
+	"editor_agent_remember_placeholder": "An editing rule to remember",
+	"editor_agent_match": "Match project",
+	"editor_agent_style_help": "Used for future edits. Existing content stays as it is.",
+	"editor_agent_forget_project": "Forget this project's choices",
+	"editor_agent_preferences_empty": "No saved editing rules. Ask the assistant to remember a choice.",
+	"editor_agent_preferences_changed": "Preferences updated",
+	"editor_agent_preferences": "Preferences",
+	"editor_agent_forget_choices": "Forget all learned choices",
+	"editor_agent_clean_demo": "Clean demo",
+	"editor_agent_calm_explainer": "Calm explainer",
+	"editor_agent_fast_short": "Fast short",
+	"editor_agent_sync_failed": "Saved on this device. Favorite sync failed.",
+	"editor_agent_auto": "Auto",
+	"editor_agent_announcement": "Product announcement",
+	"editor_agent_style": "Style",
+	"editor_agent_talking_head": "Talking head"
 }

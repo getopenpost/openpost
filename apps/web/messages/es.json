@@ -9628,5 +9628,22 @@
 	"workflows_port_branch_output": "{node}: salida {branch}",
 	"video_editor_transcript_cut_locked_captions": "Se conservaron los subtítulos bloqueados. Desbloquea sus pistas para actualizarlos.",
 	"stock_media_preview": "Vista previa",
-	"stock_media_view_source": "Ver fuente"
+	"stock_media_view_source": "Ver fuente",
+	"editor_agent_learn_choices": "Sugerir estilos a partir de mis elecciones manuales",
+	"editor_agent_remember_placeholder": "Una regla de edición para recordar",
+	"editor_agent_match": "Mantener el estilo del proyecto",
+	"editor_agent_style_help": "Se usa en futuras ediciones. El contenido existente se mantiene.",
+	"editor_agent_forget_project": "Olvidar las elecciones de este proyecto",
+	"editor_agent_preferences_empty": "No hay reglas guardadas. Pide al asistente que recuerde una elección.",
+	"editor_agent_preferences_changed": "Preferencias actualizadas",
+	"editor_agent_preferences": "Preferencias",
+	"editor_agent_forget_choices": "Olvidar todas las elecciones aprendidas",
+	"editor_agent_clean_demo": "Demostración sencilla",
+	"editor_agent_calm_explainer": "Explicación tranquila",
+	"editor_agent_fast_short": "Vídeo corto y rápido",
+	"editor_agent_sync_failed": "Guardado en este dispositivo. Falló la sincronización de favoritos.",
+	"editor_agent_auto": "Automático",
+	"editor_agent_announcement": "Anuncio de producto",
+	"editor_agent_style": "Estilo",
+	"editor_agent_talking_head": "Presentador"
 }

@@ -326,7 +326,14 @@ type ImageEditorExportDefaults struct {
 	MatteColor string  `json:"matte_color"`
 }
 
+type ImageEditorTemplateSlot struct {
+	Name          string `json:"name" minLength:"1" maxLength:"100"`
+	TargetID      string `json:"target_id" minLength:"1"`
+	MaxCharacters int    `json:"max_characters" minimum:"1" maximum:"2000"`
+}
+
 type ImageEditorDocumentPayload struct {
+	TemplateSlots    []ImageEditorTemplateSlot `json:"template_slots,omitempty" maxItems:"20"`
 	SchemaVersion    int                       `json:"schema_version"`
 	Title            string                    `json:"title"`
 	PresetKey        string                    `json:"preset_key"`
@@ -2194,6 +2201,24 @@ func validateImageEditorPayload(payload ImageEditorDocumentPayload) error {
 		(payload.ExportDefaults.MatteColor != "" &&
 			!imageEditorHexColor.MatchString(payload.ExportDefaults.MatteColor)) {
 		return fmt.Errorf("image editor export defaults are invalid")
+	}
+	if len(payload.TemplateSlots) > 20 {
+		return fmt.Errorf("too many template slots")
+	}
+	slotNames := map[string]bool{}
+	for _, slot := range payload.TemplateSlots {
+		found := false
+		for _, page := range payload.Pages {
+			for _, layer := range page.Layers {
+				if layer.ID == slot.TargetID && layer.Text != nil {
+					found = true
+				}
+			}
+		}
+		if !found || strings.TrimSpace(slot.Name) == "" || len(slot.Name) > 100 || slotNames[slot.Name] || slot.MaxCharacters < 1 || slot.MaxCharacters > 2000 {
+			return fmt.Errorf("invalid template text slot")
+		}
+		slotNames[slot.Name] = true
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil || len(encoded) > imageEditorMaxDocumentBytes {

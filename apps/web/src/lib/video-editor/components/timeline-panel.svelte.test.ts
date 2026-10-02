@@ -1,3 +1,5 @@
+import { TimelineFrameRenderer } from '../media/render-export';
+import { dissolveCompoundClip } from '../sequences/sequence-actions';
 import { expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { tick } from 'svelte';
@@ -525,6 +527,130 @@ it.each([390, 320])('keeps the focused Add key control visible at %ipx', async (
 	} finally {
 		await screen.unmount();
 		await page.viewport(1280, 900);
+		timelineStore.__resetForTesting();
+		commandHistory.clearHistory();
+	}
+});
+
+it('dissolves the selected compound with its published text and retains it after reopen', async () => {
+	const project = createBlankProject('Published compound dissolve');
+	project.metadata = { ...project.metadata, width: 320, height: 180, fps: 30 };
+	const tracks = createDefaultTracks();
+	project.timeline = {
+		...project.timeline!,
+		tracks,
+		compositions: [
+			{
+				id: 'source',
+				name: 'Source title',
+				fps: 30,
+				width: 320,
+				height: 180,
+				durationInFrames: 90,
+				tracks,
+				transitions: [],
+				items: ['Inner A', 'Later B'].map((text, index) => ({
+					id: `title-${index}`,
+					type: 'text' as const,
+					label: text,
+					text,
+					trackId: tracks[0]!.id,
+					from: index * 45,
+					durationInFrames: 45,
+					fontFamily: 'Arial',
+					fontSize: 30,
+					color: '#ffffff',
+					transform: { x: 0, y: 0, width: 320, height: 180 }
+				})),
+				compositionControls: {
+					version: 1,
+					controls: [
+						{
+							id: 'headline',
+							name: 'Headline',
+							targetItemId: 'title-0',
+							property: 'text.text',
+							kind: 'text',
+							defaultValue: 'Inner A'
+						}
+					]
+				}
+			}
+		],
+		items: ['Instance one', 'Instance two'].map((text, index) => ({
+			id: `instance-${index}`,
+			type: 'composition' as const,
+			label: text,
+			trackId: tracks[0]!.id,
+			from: index * 90,
+			durationInFrames: 90,
+			compositionId: 'source',
+			compositionWidth: 320,
+			compositionHeight: 180,
+			sourceStart: 0,
+			sourceEnd: 90,
+			sourceDuration: 90,
+			sourceFps: 30,
+			compositionControlOverrides: { headline: text }
+		}))
+	};
+	sequenceStore.reset();
+	timelineStore.__resetForTesting();
+	sequenceStore.load(project.timeline, project.metadata);
+	commandHistory.clearHistory();
+	async function frame() {
+		const renderer = new TimelineFrameRenderer({
+			...project,
+			timeline: sequenceStore.projectTimeline()
+		});
+		try {
+			const canvas = await renderer.render(121);
+			return new Uint8ClampedArray(canvas.getContext('2d')!.getImageData(0, 0, 320, 180).data);
+		} finally {
+			renderer.dispose();
+		}
+	}
+	const before = await frame();
+	expect(before.some((value, index) => index % 4 === 0 && value > 200)).toBe(true);
+	const screen = await render(TimelinePanel, {
+		onedit: vi.fn(),
+		ondissolvecompound: dissolveCompoundClip
+	});
+	screen.container.style.cssText = 'width:100%;height:650px;display:flex';
+	const prior = getWorkspaceRoot();
+	const root = await navigator.storage.getDirectory();
+	const dir = `compound-dissolve-${crypto.randomUUID()}`;
+	try {
+		await screen.getByRole('button', { name: /^Instance two\. Drag/ }).click();
+		await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+		await page.getByRole('menuitem', { name: 'Dissolve compound clip', exact: true }).click();
+		expect(
+			timelineStore.items.filter((item) => item.type === 'text').map((item) => item.text)
+		).toEqual(['Instance two', 'Later B']);
+		expect(timelineStore.itemById.get('instance-0')?.compositionControlOverrides).toEqual({
+			headline: 'Instance one'
+		});
+		expect(sequenceStore.compositionById.get('source')?.items[0]?.text).toBe('Inner A');
+		expect((await frame()).filter((value, index) => value !== before[index]).length).toBe(0);
+		commandHistory.undo();
+		expect(timelineStore.items).toHaveLength(2);
+		commandHistory.redo();
+		expect((await frame()).filter((value, index) => value !== before[index]).length).toBe(0);
+		setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
+		await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
+		await screen.unmount();
+		sequenceStore.reset();
+		timelineStore.__resetForTesting();
+		const loaded = (await getProject(project.id))!;
+		sequenceStore.load(loaded.timeline!, loaded.metadata);
+		expect(
+			timelineStore.items.filter((item) => item.type === 'text').map((item) => item.text)
+		).toEqual(['Instance two', 'Later B']);
+		expect((await frame()).filter((value, index) => value !== before[index]).length).toBe(0);
+	} finally {
+		setWorkspaceRoot(prior);
+		await root.removeEntry(dir, { recursive: true }).catch(() => {});
+		sequenceStore.reset();
 		timelineStore.__resetForTesting();
 		commandHistory.clearHistory();
 	}

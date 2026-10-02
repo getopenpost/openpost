@@ -67,10 +67,12 @@ for (const { control, width, scheme } of cases) {
     await expect(page.getByRole("button", { name: "Copied Text", exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
     await expect(button).toBeFocused();
-    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    expect(
-      (await page.getByRole("button", { name: "Retry copy" }).boundingBox())!.height,
-    ).toBeGreaterThanOrEqual(44);
+    await expect.poll(async () => (await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expect
+      .poll(
+        async () => (await page.getByRole("button", { name: "Retry copy" }).boundingBox())!.height,
+      )
+      .toBeGreaterThanOrEqual(44);
     const manual = page.getByRole("textbox", { name: "Text to copy", exact: true });
     await expect(manual).toHaveValue(expected);
     await manual.focus();

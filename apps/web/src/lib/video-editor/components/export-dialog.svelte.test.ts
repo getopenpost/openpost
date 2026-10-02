@@ -10,6 +10,7 @@ import { renderQueueStore } from '../export/render-queue-store';
 import ExportDialog from './export-dialog.svelte';
 import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
 import { renderVideoExport } from '../media/render-execution';
+import { loadProjectRenderQueue, saveProjectRenderQueue } from '../export/render-queue-persistence';
 
 const tracks: TimelineTrack[] = [
 	{
@@ -102,6 +103,66 @@ describe('ExportDialog', () => {
 			settings: { range: { startFrame: 0, endFrame: 120 } }
 		});
 		await expect.element(screen.getByRole('button', { name: 'Exports (1)' })).toBeVisible();
+	});
+
+	it('keeps chosen resolution with quality when reopening the same project and persists exact queued dimensions', async () => {
+		const project = projectFixture();
+		sequenceStore.load(project.timeline!, project.metadata);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await screen.getByRole('button', { name: 'Draft preview', exact: true }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Resolution', exact: true }))
+			.toHaveTextContent('854 × 480');
+		await screen.getByRole('button', { name: 'Cancel export' }).click();
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Quality', exact: true }))
+			.toHaveTextContent('Draft');
+		await expect
+			.element(screen.getByRole('button', { name: 'Resolution', exact: true }))
+			.toHaveTextContent('854 × 480');
+		await expect
+			.element(screen.getByRole('button', { name: 'Draft preview', exact: true }))
+			.toHaveAttribute('aria-pressed', 'true');
+		await screen.getByRole('button', { name: 'Add to queue' }).click();
+		await screen.getByRole('menuitem', { name: 'Add current range' }).click();
+		const previousRoot = getWorkspaceRoot();
+		const opfs = await navigator.storage.getDirectory();
+		const directory = `export-settings-${crypto.randomUUID()}`;
+		setWorkspaceRoot(await opfs.getDirectoryHandle(directory, { create: true }));
+		try {
+			await saveProjectRenderQueue(project.id, get(renderQueueStore).jobs, true);
+			renderQueueStore.clearAll();
+			const saved = await loadProjectRenderQueue(project.id);
+			expect(saved.jobs).toHaveLength(1);
+			expect(saved.jobs[0]?.settings).toMatchObject({
+				quality: 'draft',
+				width: 854,
+				height: 480,
+				range: { startFrame: 0, endFrame: 120 }
+			});
+			renderQueueStore.hydrate(saved.jobs, saved.isPaused);
+			expect(get(renderQueueStore).isPaused).toBe(true);
+		} finally {
+			setWorkspaceRoot(previousRoot);
+			await opfs.removeEntry(directory, { recursive: true });
+		}
+		const otherProject = projectFixture();
+		otherProject.id = 'other-project';
+		otherProject.metadata.width = 1600;
+		otherProject.metadata.height = 900;
+		sequenceStore.load(otherProject.timeline!, otherProject.metadata);
+		await screen.rerender({ project: otherProject });
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Resolution', exact: true }))
+			.toHaveTextContent('1600 × 900');
 	});
 
 	it('keeps the dialog open with a recovery step when queue submission fails', async () => {

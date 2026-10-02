@@ -126,6 +126,7 @@
 	let codecSupport = $state<Partial<Record<VideoCodec, boolean>>>({});
 	let codecFallback = $state<{ from: VideoCodec; to: VideoCodec } | null>(null);
 	let resolution = $state('source');
+	let resolutionProjectId: string | null = null;
 	let useRange = $state(false);
 	let subtitleMode = $state<NonNullable<RenderExportOptions['subtitleMode']>>('burn');
 	let sequenceDestination = $state<'directory' | 'zip'>(
@@ -435,7 +436,10 @@
 			sequenceStore.activeSequenceId
 		);
 		selectedSequenceId = sequenceStore.activeSequenceId;
-		resolution = 'source';
+		if (resolutionProjectId !== project.id) {
+			resolution = 'source';
+			resolutionProjectId = project.id;
+		}
 		useRange = false;
 		codecFallback = null;
 		queueSubmissionError = null;

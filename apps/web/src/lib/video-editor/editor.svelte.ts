@@ -25,6 +25,7 @@ import { mediaRecovery } from './media/media-recovery.svelte';
 import { PeriodicAutosaveController } from './settings/periodic-autosave';
 import { getNextShuttleRate, type ShuttleDirection } from './preview/shuttle';
 import { unsupportedProjectSchemaVersion } from './project/project-editability';
+import { migrateProjectDocument } from './project/defaults';
 import { loadProjectFontAssets } from './typography/project-font-assets';
 import { m } from '$lib/paraglide/messages';
 import {
@@ -146,7 +147,7 @@ class EditorSession {
 			mediaPool.clear();
 			mediaRecovery.reset();
 			const cloudProject = this.cloudRepository ? await this.cloudRepository.get(projectId) : null;
-			const project = cloudProject?.document ?? (await getProject(projectId));
+			let project = cloudProject?.document ?? (await getProject(projectId));
 			if (!project) {
 				this.loadError = 'Project not found';
 				return;
@@ -159,6 +160,8 @@ class EditorSession {
 				});
 				return;
 			}
+			const migration = cloudProject ? migrateProjectDocument(project) : null;
+			if (migration) project = migration.project;
 			this.project = {
 				...project,
 				animationPresets: normalizeAnimationPresets(project.animationPresets)
@@ -193,6 +196,10 @@ class EditorSession {
 			}
 			await mediaRecovery.scan(media, timelineStore.items);
 			this.configurePeriodicAutosave();
+			if (migration?.migrated) {
+				this.projectDirty = true;
+				this.scheduleAutosave();
+			}
 		} catch (error) {
 			this.loadError = error instanceof Error ? error.message : String(error);
 		} finally {

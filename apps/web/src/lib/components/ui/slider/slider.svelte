@@ -10,6 +10,7 @@
 		disabled = false,
 		ariaLabel,
 		ariaValueText,
+		ariaDescribedBy,
 		onValueChange,
 		onValueCommit,
 		onValueCancel,
@@ -25,6 +26,7 @@
 		disabled?: boolean;
 		ariaLabel?: string;
 		ariaValueText?: string;
+		ariaDescribedBy?: string;
 		onValueChange?: (value: number) => void;
 		onValueCommit?: (value: number) => void;
 		onValueCancel?: () => void;
@@ -136,6 +138,7 @@
 				index={thumb.index}
 				aria-label={ariaLabel}
 				aria-valuetext={ariaValueText}
+				aria-describedby={ariaDescribedBy}
 				data-slot="slider-thumb"
 				class="relative block size-11 shrink-0 rounded-full border-0 bg-transparent shadow-none ring-ring/50 transition-[color,box-shadow] after:absolute after:top-1/2 after:left-1/2 after:size-3.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:border-2 after:border-primary after:bg-background after:shadow-sm after:content-[''] hover:ring-4 focus-visible:ring-4 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 md:size-3.5 md:border-2 md:border-primary md:bg-background md:shadow-sm md:after:hidden [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:border-0 [@media(pointer:coarse)]:bg-transparent [@media(pointer:coarse)]:shadow-none [@media(pointer:coarse)]:after:block"
 			/>

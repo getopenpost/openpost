@@ -143,6 +143,8 @@
 			: m.video_editor_effects_add()
 	);
 
+	const panelId = $props.id();
+
 	/** In-flight slider values so dragging stays smooth before the undoable commit. */
 	let draftAmounts = $state<Record<string, number>>({});
 	let pendingKind = $state('brightness');
@@ -360,6 +362,29 @@
 	function resolvedGpuEffect(effect: GpuEffect): GpuEffect {
 		const resolved = resolvedEffects.find((candidate) => candidate.id === effect.id);
 		return resolved?.type === 'gpu' ? resolved : effect;
+	}
+
+	function gpuRecovery(effect: GpuEffect): { message: string; params: string[] } | null {
+		if (effect.effectId === 'gpu-pixel-sort' || effect.effectId === 'gpu-pixel-sort-hq') {
+			const schema = getGpuEffect(effect.effectId)?.schema ?? [];
+			const low = Number(
+				effect.params.low ?? schema.find((param) => param.name === 'low')?.default
+			);
+			const high = Number(
+				effect.params.high ?? schema.find((param) => param.name === 'high')?.default
+			);
+			return low > high
+				? { message: m.video_editor_gpu_pixel_sort_empty_range(), params: ['low', 'high'] }
+				: null;
+		}
+		if (
+			effect.effectId === 'gpu-ascii' &&
+			effect.params.charSet === 'custom' &&
+			String(effect.params.customChars ?? '').trim().length === 0
+		) {
+			return { message: m.video_editor_gpu_ascii_empty_custom(), params: ['customChars'] };
+		}
+		return null;
 	}
 
 	function effectRelativeFrame(): number | null {
@@ -972,6 +997,8 @@
 							{/if}
 							{#if gpuDefinition && effect.type === 'gpu'}
 								{@const resolvedEffect = resolvedGpuEffect(effect)}
+								{@const recovery = gpuRecovery(resolvedEffect)}
+								{@const recoveryId = `${panelId}-gpu-recovery-${effect.id}`}
 								{#if getSpatialPointEffectConfig(effect.effectId)}
 									<button
 										type="button"
@@ -1065,11 +1092,23 @@
 									/>
 								{:else}
 									<div class="mt-1 flex flex-col gap-1">
+										{#if recovery}
+											<p
+												id={recoveryId}
+												role="status"
+												class="mb-1 text-xs leading-relaxed text-[var(--video-editor-muted)]"
+											>
+												{recovery.message}
+											</p>
+										{/if}
 										{#each gpuDefinition.schema as param (param.name)}
 											{#if !param.visibleWhen || param.visibleWhen(effect.params)}
 												<GpuParamControl
 													{param}
 													value={resolvedEffect.params[param.name]}
+													descriptionId={recovery?.params.includes(param.name)
+														? recoveryId
+														: undefined}
 													effectLabel={effectLabel(effect)}
 													oncommit={(value) => commitGpuParam(effect, param.name, value)}
 													keyframe={effectKeyframeControl(effect, param.name)}

@@ -9588,5 +9588,7 @@
 	"workflows_set_help": "Her çalıştırma bu setin güncel hesaplarını ve varsayılan ayarlarını kullanır. Mevcut gönderiler ayarlarını korur.",
 	"workflows_set_missing": "Bu sosyal set artık kullanılamıyor. Başka bir set veya tek tek hesaplar seçin.",
 	"quick_cut_time_invalid": "Saniye veya 00:01.50 gibi bir zaman kodu girin.",
-	"quick_cut_overlap_rejected": "Aralıklar çakışıyor. Tekrar denemeden önce mevcut bir aralığı düzenleyin veya kaldırın."
+	"quick_cut_overlap_rejected": "Aralıklar çakışıyor. Tekrar denemeden önce mevcut bir aralığı düzenleyin veya kaldırın.",
+	"video_editor_gpu_pixel_sort_empty_range": "Bu aralıkla eşleşen piksel yok. Alt eşik, üst eşikten küçük veya eşit olmalıdır.",
+	"video_editor_gpu_ascii_empty_custom": "Bu özel kümede görünür karakter yok. Bir karakter ekleyin veya başka bir karakter kümesi seçin."
 }

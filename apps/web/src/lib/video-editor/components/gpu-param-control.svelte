@@ -14,12 +14,14 @@
 		param,
 		value,
 		effectLabel,
+		descriptionId,
 		oncommit,
 		keyframe
 	}: {
 		param: GpuParamSchema;
 		value: GpuParamValue | undefined;
 		effectLabel: string;
+		descriptionId?: string;
 		oncommit: (value: GpuParamValue) => void;
 		keyframe?: {
 			autoEnabled: boolean;
@@ -120,6 +122,7 @@
 			step={param.step}
 			value={draftNumber}
 			ariaLabel={`${effectLabel}: ${localizedParamLabel}`}
+			ariaDescribedBy={descriptionId}
 			onValueChange={(next) => {
 				draftNumber = next;
 			}}
@@ -130,6 +133,7 @@
 		/>
 		<ScrubbableNumberInput
 			ariaLabel={`${effectLabel}: ${localizedParamLabel}`}
+			ariaDescribedBy={descriptionId}
 			value={draftNumber}
 			min={param.min}
 			max={param.max}
@@ -152,6 +156,7 @@
 		<Checkbox
 			checked={booleanValue}
 			aria-label={`${effectLabel}: ${localizedParamLabel}`}
+			aria-describedby={descriptionId}
 			onCheckedChange={(checked) => oncommit(checked === true)}
 		/>
 	</label>
@@ -212,6 +217,7 @@
 			value={draftText}
 			maxlength={param.maxLength}
 			aria-label={`${effectLabel}: ${localizedParamLabel}`}
+			aria-describedby={descriptionId}
 			onfocus={() => (editingText = true)}
 			oninput={(event) => (draftText = event.currentTarget.value)}
 			onblur={commitText}

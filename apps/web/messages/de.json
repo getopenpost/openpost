@@ -9588,5 +9588,7 @@
 	"workflows_set_help": "Jeder Lauf verwendet die aktuellen Konten und Vorgaben dieses Sets. Bestehende Beiträge behalten ihre Einstellungen.",
 	"workflows_set_missing": "Dieses Social Set ist nicht mehr verfügbar. Wähle ein anderes Set oder einzelne Konten.",
 	"quick_cut_time_invalid": "Gib Sekunden oder einen Timecode ein, etwa 00:01.50.",
-	"quick_cut_overlap_rejected": "Bereiche überschneiden sich. Passe einen vorhandenen Bereich an oder entferne ihn, bevor du es erneut versuchst."
+	"quick_cut_overlap_rejected": "Bereiche überschneiden sich. Passe einen vorhandenen Bereich an oder entferne ihn, bevor du es erneut versuchst.",
+	"video_editor_gpu_pixel_sort_empty_range": "Kein Pixel passt zu diesem Bereich. Der untere Schwellenwert muss kleiner oder gleich dem oberen sein.",
+	"video_editor_gpu_ascii_empty_custom": "Dieser eigene Zeichensatz enthält keine sichtbaren Zeichen. Füge ein Zeichen hinzu oder wähle einen anderen Zeichensatz."
 }

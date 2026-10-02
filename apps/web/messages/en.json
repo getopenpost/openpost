@@ -9588,5 +9588,7 @@
 	"workflows_set_help": "Each run uses this set's current accounts and defaults. Existing posts keep their settings.",
 	"workflows_set_missing": "This Social Set is no longer available. Choose another set or individual accounts.",
 	"quick_cut_time_invalid": "Enter seconds or a timecode, such as 00:01.50.",
-	"quick_cut_overlap_rejected": "Ranges overlap. Adjust or remove an existing range before trying again."
+	"quick_cut_overlap_rejected": "Ranges overlap. Adjust or remove an existing range before trying again.",
+	"video_editor_gpu_pixel_sort_empty_range": "No pixels match this range. Set Threshold Low at or below Threshold High.",
+	"video_editor_gpu_ascii_empty_custom": "This custom set has no visible characters. Add a character or choose another character set."
 }

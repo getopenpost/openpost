@@ -5,6 +5,7 @@
 
 	let {
 		ariaLabel,
+		ariaDescribedBy,
 		value,
 		min,
 		max,
@@ -19,6 +20,7 @@
 		oncancel
 	}: {
 		ariaLabel: string;
+		ariaDescribedBy?: string;
 		value: number | null;
 		min?: number;
 		max?: number;
@@ -161,6 +163,7 @@
 	autocomplete="off"
 	{disabled}
 	aria-label={ariaLabel}
+	aria-describedby={ariaDescribedBy}
 	{placeholder}
 	value={displayValue}
 	class="cursor-ew-resize touch-none select-none focus:cursor-text focus:select-auto {className}"

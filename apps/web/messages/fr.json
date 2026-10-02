@@ -9588,5 +9588,7 @@
 	"workflows_set_help": "Chaque exécution utilise les comptes et réglages actuels de cet ensemble. Les publications existantes conservent leurs réglages.",
 	"workflows_set_missing": "Cet ensemble social n’est plus disponible. Choisissez un autre ensemble ou des comptes individuels.",
 	"quick_cut_time_invalid": "Saisissez des secondes ou un code temporel, comme 00:01.50.",
-	"quick_cut_overlap_rejected": "Les plages se chevauchent. Ajustez ou supprimez une plage existante avant de réessayer."
+	"quick_cut_overlap_rejected": "Les plages se chevauchent. Ajustez ou supprimez une plage existante avant de réessayer.",
+	"video_editor_gpu_pixel_sort_empty_range": "Aucun pixel ne correspond à cette plage. Le seuil bas doit être inférieur ou égal au seuil haut.",
+	"video_editor_gpu_ascii_empty_custom": "Ce jeu personnalisé ne contient aucun caractère visible. Ajoutez un caractère ou choisissez un autre jeu de caractères."
 }

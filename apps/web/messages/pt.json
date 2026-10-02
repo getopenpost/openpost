@@ -9588,5 +9588,7 @@
 	"workflows_set_help": "Cada execução usa as contas e predefinições atuais deste conjunto. As publicações existentes mantêm as suas definições.",
 	"workflows_set_missing": "Este conjunto social já não está disponível. Escolhe outro conjunto ou contas individuais.",
 	"quick_cut_time_invalid": "Introduza segundos ou um código de tempo, como 00:01.50.",
-	"quick_cut_overlap_rejected": "Os intervalos sobrepõem-se. Ajuste ou remova um intervalo existente antes de tentar novamente."
+	"quick_cut_overlap_rejected": "Os intervalos sobrepõem-se. Ajuste ou remova um intervalo existente antes de tentar novamente.",
+	"video_editor_gpu_pixel_sort_empty_range": "Nenhum píxel corresponde a este intervalo. O limite inferior deve ser menor ou igual ao limite superior.",
+	"video_editor_gpu_ascii_empty_custom": "Este conjunto personalizado não tem caracteres visíveis. Adiciona um carácter ou escolhe outro conjunto de caracteres."
 }

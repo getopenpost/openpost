@@ -910,6 +910,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		mobileEditPane = 'assets';
 	}
 
+	function openSourceMonitor(mediaId: string): void {
+		sourceMediaId = mediaId;
+		mobileEditPane = 'program';
+		if (editorViewportWidth >= 1024) return;
+		void tick().then(() => {
+			if (sourceMediaId !== mediaId || mobileEditPane !== 'program') return;
+			document.querySelector<HTMLButtonElement>('[data-source-monitor] button')?.focus();
+		});
+	}
+
 	function persistPanelSize(
 		key:
 			| 'assetBrowserWidth'
@@ -3169,7 +3179,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													deleteProjectMedia={cloudStorage ? deleteCloudProjectMedia : undefined}
 													onUnsupportedAudio={requestUnsupportedAudioDecision}
 													onsequenceopen={handleTabSwitchSelection}
-													onsourceopen={(mediaId) => (sourceMediaId = mediaId)}
+													onsourceopen={openSourceMonitor}
 													onextractsubtitles={openEmbeddedSubtitlePicker}
 													onimport={handleImport}
 													importProjectAsset={cloudStorage

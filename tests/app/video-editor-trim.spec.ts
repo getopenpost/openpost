@@ -157,6 +157,30 @@ for (const scheme of ["light", "dark"] as const) {
         .click();
       await page.getByRole("menuitem", { name: "Add at end of sequence", exact: true }).click();
       await expect(clips).toHaveCount(2);
+      for (const width of [390, 320]) {
+        await page.setViewportSize({ width, height: 844 });
+        const panels = page.getByRole("navigation", { name: "Editor panels" });
+        await panels.getByRole("button", { name: "Assets", exact: true }).click();
+        const sourceCard = page.getByRole("button", {
+          name: "Source: lisbon-tram.png",
+          exact: true,
+        });
+        if (width === 390) await sourceCard.click();
+        else {
+          await sourceCard.focus();
+          await sourceCard.press("Enter");
+        }
+        await expect(panels.getByRole("button", { name: "Program", exact: true })).toHaveAttribute(
+          "aria-pressed",
+          "true",
+        );
+        await expect(page.getByRole("region", { name: "Source", exact: true })).toBeVisible();
+        const close = page.getByRole("button", { name: "Close source monitor", exact: true });
+        await expect(close).toBeFocused();
+        await page.screenshot({ path: testInfo.outputPath(`source-open-${scheme}-${width}.png`) });
+        await close.click();
+      }
+      await page.setViewportSize({ width: 1280, height: 800 });
       await page.getByRole("button", { name: "Source: lisbon-tram.png", exact: true }).click();
       const source = page.getByRole("region", { name: "Source", exact: true });
       const position = source.getByRole("slider", { name: "Source position", exact: true });

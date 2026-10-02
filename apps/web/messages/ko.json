@@ -9027,6 +9027,7 @@
 	"quick_cut_remove_selection": "선택 부분 삭제",
 	"quick_cut_keep_selection": "선택 부분 유지",
 	"quick_cut_transcript_hint": "단어를 선택해 영상에서 삭제하세요. Shift 키를 누른 채 클릭하면 구절을 선택할 수 있습니다. 자막은 추가되지 않습니다.",
+	"quick_cut_transcript_no_speech": "이 오디오에서 음성을 찾지 못했습니다. 언어를 확인하거나 음성이 있는 오디오를 선택한 후 다시 시도하세요.",
 	"quick_cut_remove_words": "{count}개 단어 삭제",
 	"quick_cut_transcribe": "대본 만들기",
 	"quick_cut_breathing_room": "발화 전후 여유 (ms)",

@@ -31,11 +31,10 @@
 	const audioTrackIndex = $derived(
 		source.selectedAudioTrackIndices?.[0] ?? source.audioStreams[0]?.index
 	);
-	const words = $derived(
-		source.transcript && source.transcript.audioTrackIndex === audioTrackIndex
-			? source.transcript.words
-			: []
+	const transcript = $derived(
+		source.transcript?.audioTrackIndex === audioTrackIndex ? source.transcript : undefined
 	);
+	const words = $derived(transcript?.words ?? []);
 	let selected = $state<Set<number>>(new Set());
 	let anchor = $state<number | null>(null);
 	let busy = $state(false);
@@ -157,6 +156,9 @@
 		/>
 	</details>
 	{#if error}<p role="alert" class="text-xs text-destructive">{error}</p>{/if}
+	{#if transcript && words.length === 0 && !busy && !error}
+		<p role="status" class="text-xs text-muted-foreground">{m.quick_cut_transcript_no_speech()}</p>
+	{/if}
 	{#if words.length > 0}
 		<div class="flex items-center gap-2">
 			<Button size="sm" disabled={selected.size === 0 || disabled} onclick={remove}

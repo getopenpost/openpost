@@ -9027,6 +9027,7 @@
 	"quick_cut_remove_selection": "Seçimi kaldır",
 	"quick_cut_keep_selection": "Seçimi koru",
 	"quick_cut_transcript_hint": "Videodan kaldırmak için sözcükleri seçin. Bir ifadeyi seçmek için Shift tuşuyla tıklayın. Altyazı eklenmez.",
+	"quick_cut_transcript_no_speech": "Bu seste konuşma bulunamadı. Dili kontrol edin veya konuşma içeren bir ses seçip tekrar deneyin.",
 	"quick_cut_remove_words": "{count} sözcüğü kaldır",
 	"quick_cut_transcribe": "Döküm oluştur",
 	"quick_cut_breathing_room": "Konuşma çevresinde koru (ms)",

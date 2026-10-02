@@ -9027,6 +9027,7 @@
 	"quick_cut_remove_selection": "Remover seleção",
 	"quick_cut_keep_selection": "Manter seleção",
 	"quick_cut_transcript_hint": "Seleciona palavras para as remover do vídeo. Usa Shift e clica para selecionar uma frase. Não são adicionadas legendas.",
+	"quick_cut_transcript_no_speech": "Não foi encontrada fala neste áudio. Verifica o idioma ou escolhe áudio com fala e tenta novamente.",
 	"quick_cut_remove_words": "Remover {count} palavras",
 	"quick_cut_transcribe": "Criar transcrição",
 	"quick_cut_breathing_room": "Manter à volta da fala (ms)",

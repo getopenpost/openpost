@@ -20,6 +20,7 @@
 	} from '@openpost/query-catalog';
 	import { authQueryAPI } from '$lib/query/auth';
 	import { publicProfileQueryAPI } from '$lib/query/public-profiles';
+	import { auth } from '$lib/stores/auth';
 
 	type ActivityCell = NonNullable<PublicProfile['activity']>[number] | null;
 
@@ -155,10 +156,17 @@
 					>OpenPost</span
 				>
 			</a>
-			<Button href={resolve('/register' as const)} variant="outline" size="sm">
-				Create your profile
-				<ArrowRight data-icon="inline-end" />
-			</Button>
+			{#if $auth.isAuthenticated}
+				<Button href={`${resolve('/settings' as const)}?tab=profile`} variant="outline" size="sm">
+					{m.settings_profile()}
+					<ArrowRight data-icon="inline-end" />
+				</Button>
+			{:else if !$auth.isLoading}
+				<Button href={resolve('/register' as const)} variant="outline" size="sm">
+					Create your profile
+					<ArrowRight data-icon="inline-end" />
+				</Button>
+			{/if}
 		</div>
 	</header>
 

@@ -44,11 +44,18 @@
 		if (session && (session.source !== items || session.scope !== scope)) cancel();
 	});
 	function focusHandle(key: string, mode: Session['mode'] = 'keyboard') {
-		void tick().then(() =>
+		const handle = root?.querySelector<HTMLButtonElement>(
+			`[data-reorder-key="${CSS.escape(key)}"]`
+		);
+		const ownedFocus = document.activeElement === handle;
+		const originScope = scope;
+		void tick().then(() => {
+			if (!ownedFocus || scope !== originScope) return;
+			if (document.activeElement !== handle && document.activeElement !== document.body) return;
 			root
 				?.querySelector<HTMLButtonElement>(`[data-reorder-key="${CSS.escape(key)}"]`)
-				?.focus({ preventScroll: mode === 'pointer' })
-		);
+				?.focus({ preventScroll: mode === 'pointer' });
+		});
 	}
 	function begin(key: string, mode: Session['mode']) {
 		session = { key, mode, source: items, scope };

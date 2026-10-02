@@ -8024,6 +8024,7 @@
 	"video_editor_audio_effects_add_placeholder": "Efekt ekle…",
 	"video_editor_audio_effects_add_aria": "Ses efekti ekle",
 	"video_editor_audio_effects_reset": "Sıfırla",
+	"video_editor_audio_effects_reorder": "{name} öğesini yeniden sırala",
 	"video_editor_audio_effects_empty": "Kompresör, pan, reverb, gecikme, koro, flanger veya distorsiyon ekleyin. Efektler sırasıyla önizleme ve dışa aktarmaya uygulanır.",
 	"video_editor_audio_effects_rack_aria": "Ses efekt rafı",
 	"video_editor_audio_effects_compressor": "Kompresör",

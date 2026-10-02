@@ -95,3 +95,49 @@ it('does not reclaim focus moved elsewhere during a reorder commit', async () =>
 		.element(screen.getByRole('button', { name: 'Elsewhere', exact: true }))
 		.toHaveFocus();
 });
+it('makes the collapsed effect handle reorder with a real pointer drop and one history entry', async () => {
+	const project = fixture();
+	const screen = await render(Fixture);
+	await screen
+		.getByRole('button', { name: 'Reorder Pan', exact: true })
+		.dropTo(screen.getByRole('button', { name: 'Reorder Delay', exact: true }));
+	expect(order()).toEqual(['compressor', 'delay', 'pan']);
+	expect(commandHistory.undoStack).toHaveLength(1);
+	commandHistory.undo();
+	expect(order()).toEqual(['pan', 'compressor', 'delay']);
+	commandHistory.redo();
+	await reopen(project);
+	expect(order()).toEqual(['compressor', 'delay', 'pan']);
+});
+it('previews handle ordering locally, cancels with Escape and commits on keyboard drop', async () => {
+	fixture();
+	const screen = await render(Fixture);
+	await screen.getByRole('button', { name: 'Reorder Pan', exact: true }).click();
+	await userEvent.keyboard(' {ArrowDown}');
+	await expect
+		.element(screen.getByRole('list', { name: 'Audio effect rack', exact: true }))
+		.toHaveTextContent(/Compressor.*Pan.*Delay/s);
+	expect(order()).toEqual(['pan', 'compressor', 'delay']);
+	expect(commandHistory.canUndo).toBe(false);
+	await userEvent.keyboard('{Escape}');
+	await expect
+		.element(screen.getByRole('list', { name: 'Audio effect rack', exact: true }))
+		.toHaveTextContent(/Pan.*Compressor.*Delay/s);
+	await userEvent.keyboard(' {ArrowDown} ');
+	expect(order()).toEqual(['compressor', 'pan', 'delay']);
+	expect(commandHistory.undoStack).toHaveLength(1);
+	await expect
+		.element(screen.getByRole('button', { name: 'Reorder Pan', exact: true }))
+		.toHaveFocus();
+});
+it('does not steal later focus when a handle drop commits', async () => {
+	fixture();
+	const screen = await render(Fixture, { focusAfterOrder: true });
+	const handle = screen.getByRole('button', { name: 'Reorder Pan', exact: true });
+	await handle.click();
+	await userEvent.keyboard(' {ArrowDown} ');
+	expect(order()).toEqual(['compressor', 'pan', 'delay']);
+	await expect
+		.element(screen.getByRole('button', { name: 'Elsewhere', exact: true }))
+		.toHaveFocus();
+});

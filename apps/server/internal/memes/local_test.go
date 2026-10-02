@@ -170,3 +170,34 @@ func TestBuiltinProviderRendersEveryCatalogTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestBuiltinRenderPreservesUnicodeCaptionPixels(t *testing.T) {
+	t.Parallel()
+	provider, err := NewBuiltinProvider()
+	require.NoError(t, err)
+	blank, err := provider.Render(t.Context(), RenderRequest{TemplateID: "chair", Text: []string{"", "", "", "", "", ""}, Extension: "png"})
+	require.NoError(t, err)
+	for _, pair := range [][2]string{{"東京", "大阪"}, {"مرحبا", "جميلة"}, {"👩🏽‍💻", "👩🏽‍🔧"}} {
+		t.Run(pair[0], func(t *testing.T) {
+			t.Parallel()
+			rendered, err := provider.Render(t.Context(), RenderRequest{TemplateID: "chair", Text: []string{pair[0], "", "", "", "", ""}, Extension: "png"})
+			require.NoError(t, err)
+			original, _, err := image.Decode(bytes.NewReader(blank.Data))
+			require.NoError(t, err)
+			actual, _, err := image.Decode(bytes.NewReader(rendered.Data))
+			require.NoError(t, err)
+			changed := 0
+			for y := 120; y < 198; y++ {
+				for x := 0; x < 356; x++ {
+					if original.At(x, y) != actual.At(x, y) {
+						changed++
+					}
+				}
+			}
+			require.Greater(t, changed, 100, "caption must produce visible ink in its slot")
+			other, err := provider.Render(t.Context(), RenderRequest{TemplateID: "chair", Text: []string{pair[1], "", "", "", "", ""}, Extension: "png"})
+			require.NoError(t, err)
+			require.NotEqual(t, rendered.Data, other.Data, "distinct captions must not collapse to identical missing-glyph boxes")
+		})
+	}
+}

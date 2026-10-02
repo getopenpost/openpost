@@ -233,6 +233,9 @@ func (p *BuiltinProvider) drawBuiltinCaption(canvas *image.NRGBA, field builtinT
 	if width < 1 || height < 1 {
 		return nil
 	}
+	if p.captionNeedsShaping(field.Font, value) {
+		return p.drawShapedCaption(canvas, field, value)
+	}
 	fontSource := p.builtinFont(field.Font, value)
 	maxFontSize := canvas.Bounds().Dy() / 9
 	if field.Angle != 0 {

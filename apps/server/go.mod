@@ -18,6 +18,8 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/gen2brain/avif v0.6.0
 	github.com/go-jose/go-jose/v4 v4.1.4
+	github.com/go-text/render v0.2.1
+	github.com/go-text/typesetting v0.3.5
 	github.com/go-webauthn/webauthn v0.17.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
@@ -90,6 +92,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
+	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

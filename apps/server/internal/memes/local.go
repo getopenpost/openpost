@@ -15,6 +15,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	textfont "github.com/go-text/typesetting/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
 )
@@ -102,13 +103,14 @@ type builtinSemanticRecord struct {
 // BuiltinProvider renders the pinned OpenPost catalog entirely in-process.
 // Its state is immutable after construction and safe for concurrent use.
 type BuiltinProvider struct {
-	files       fs.FS
-	manifest    builtinManifest
-	byID        map[string]builtinTemplateManifest
-	templates   []Template
-	refreshedAt time.Time
-	revision    string
-	fonts       map[string]*sfnt.Font
+	files        fs.FS
+	manifest     builtinManifest
+	byID         map[string]builtinTemplateManifest
+	templates    []Template
+	refreshedAt  time.Time
+	revision     string
+	fonts        map[string]*sfnt.Font
+	shapingFonts map[string]*textfont.Font
 }
 
 func NewBuiltinProvider() (*BuiltinProvider, error) {
@@ -134,7 +136,7 @@ func NewBuiltinProvider() (*BuiltinProvider, error) {
 	if len(semantics) != len(manifest.Templates) {
 		return nil, fmt.Errorf("built-in meme semantics cover %d of %d templates", len(semantics), len(manifest.Templates))
 	}
-	fonts, err := loadBuiltinFonts(builtinCatalogFS)
+	fonts, err := loadBuiltinFontSet(builtinCatalogFS)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +145,7 @@ func NewBuiltinProvider() (*BuiltinProvider, error) {
 		files: builtinCatalogFS, manifest: manifest,
 		byID:        make(map[string]builtinTemplateManifest, len(manifest.Templates)),
 		templates:   make([]Template, 0, len(manifest.Templates)),
-		refreshedAt: refreshedAt.UTC(), fonts: fonts,
+		refreshedAt: refreshedAt.UTC(), fonts: fonts.legacy, shapingFonts: fonts.shaping,
 		revision: builtinCatalogRevision(data, semanticData),
 	}
 	for _, source := range manifest.Templates {
@@ -351,21 +353,39 @@ func validBuiltinTextField(field builtinTextField) bool {
 	return field.AnchorX+field.ScaleX <= 1.5 && field.AnchorY+field.ScaleY <= 1.5
 }
 
-func loadBuiltinFonts(files fs.FS) (map[string]*sfnt.Font, error) {
-	paths := map[string]string{
-		"thick":    "TitilliumWeb-Black.ttf",
-		"thin":     "TitilliumWeb-SemiBold.ttf",
-		"comic":    "Kalam-Regular.ttf",
-		"notosans": "NotoSans-Bold.ttf",
-		"he":       "NotoSansHebrew-Bold.ttf",
-		"impact":   "Impact.ttf",
-		"segoe":    "Segoe UI Bold.ttf",
-		"jp":       "HG-Mincho-B.ttc",
-		"tahoma":   "Tahoma-Bold.ttf",
-		"microflf": "MicroFLF-Bold.ttf",
+type builtinFontSet struct {
+	legacy  map[string]*sfnt.Font
+	shaping map[string]*textfont.Font
+}
+
+func loadBuiltinFontSet(files fs.FS) (builtinFontSet, error) {
+	legacy, err := loadBuiltinFonts(files)
+	if err != nil {
+		return builtinFontSet{}, err
 	}
-	result := make(map[string]*sfnt.Font, len(paths))
-	for name, filename := range paths {
+	shaping, err := loadBuiltinShapingFonts(files)
+	if err != nil {
+		return builtinFontSet{}, err
+	}
+	return builtinFontSet{legacy: legacy, shaping: shaping}, nil
+}
+
+var builtinFontFiles = map[string]string{
+	"thick":    "TitilliumWeb-Black.ttf",
+	"thin":     "TitilliumWeb-SemiBold.ttf",
+	"comic":    "Kalam-Regular.ttf",
+	"notosans": "NotoSans-Bold.ttf",
+	"he":       "NotoSansHebrew-Bold.ttf",
+	"impact":   "Impact.ttf",
+	"segoe":    "Segoe UI Bold.ttf",
+	"jp":       "HG-Mincho-B.ttc",
+	"tahoma":   "Tahoma-Bold.ttf",
+	"microflf": "MicroFLF-Bold.ttf",
+}
+
+func loadBuiltinFonts(files fs.FS) (map[string]*sfnt.Font, error) {
+	result := make(map[string]*sfnt.Font, len(builtinFontFiles))
+	for name, filename := range builtinFontFiles {
 		data, err := fs.ReadFile(files, "catalog/fonts/"+filename)
 		if err != nil {
 			return nil, fmt.Errorf("load built-in meme font %s: %w", name, err)

@@ -57,6 +57,7 @@
 	}: { initial: Workflow; accounts: SocialAccount[]; connections: Connection[] } = $props();
 
 	type InspectorInputs = WorkflowData;
+	type ParsedSample = { value: WorkflowData[string]; error: string };
 	let record = $state.raw(untrack(() => initial));
 	let doc = $state.raw(
 		untrack(() => ({
@@ -117,9 +118,12 @@
 	const selectedResult = $derived(
 		inspectedRun?.steps?.find((result) => result.step_id === selectedID)
 	);
-	const parsedSample = $derived.by(() => {
+	const parsedSample = $derived.by((): ParsedSample => {
 		try {
-			return { value: z.json().parse(JSON.parse(sample)), error: '' };
+			const value = JSON.parse(sample);
+			// Keep the decoded value; record-schema clones omit prototype-named data keys.
+			z.json().parse(value);
+			return { value, error: '' };
 		} catch {
 			return { value: undefined, error: m.workflows_invalid_json() };
 		}
@@ -395,7 +399,11 @@
 		}
 	}
 	async function action(kind: 'publish' | 'pause' | 'preview' | 'live' | 'sample') {
-		const parsed = z.record(z.string(), z.json()).safeParse(parsedSample.value);
+		const parsed = z
+			.instanceof(Object)
+			.refine((value) => !Array.isArray(value))
+			.transform((value) => Object.fromEntries(Object.entries(value)))
+			.safeParse(parsedSample.value);
 		if (kind === 'preview' || kind === 'live') {
 			if (parsedSample.error) return showSampleError(parsedSample.error);
 			if (!parsed.success) return showSampleError(m.workflows_sample_object());

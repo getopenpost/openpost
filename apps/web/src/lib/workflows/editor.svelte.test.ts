@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi, type MockInstance } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
@@ -47,7 +47,7 @@ const workspace: Workspace = {
 	sso_identity_linked: true
 };
 let run: Run;
-let post: ReturnType<typeof vi.spyOn<typeof client, 'POST'>>;
+let post: MockInstance<typeof client.POST>;
 
 beforeEach(() => {
 	queryClient.clear();
@@ -235,5 +235,29 @@ it.each(
 		await userEvent.keyboard('{Enter}');
 		await expect.element(screen.getByRole('button', { name: /^Completed/ })).toBeVisible();
 		expect(post).not.toHaveBeenCalled();
+	}
+);
+
+it.each(['Run preview', 'Test node'])(
+	'preserves literal JSON keys through %s sample admission',
+	async (action) => {
+		await page.viewport(1280, 900);
+		document.documentElement.classList.remove('dark');
+		const dialog = await openNodeSample();
+		const value = JSON.parse(
+			'{"body":"{}","__proto__":{"label":"data"},"constructor":"literal","nested":{"__proto__":"keep"},"a.b":"dot"}'
+		);
+		await dialog.getByRole('textbox', { name: 'Sample input (JSON)' }).fill(JSON.stringify(value));
+		await dialog.getByRole('button', { name: action, exact: true }).click();
+		expect(post).toHaveBeenCalledExactlyOnceWith(
+			action === 'Run preview' ? '/workflows/{id}/runs' : '/workflows/{id}/test-node',
+			{
+				params: { query: { workspace_id: initial.workspace_id }, path: { id: initial.id } },
+				body:
+					action === 'Run preview'
+						? { expected_revision: 1, mode: 'preview', source: value }
+						: { expected_revision: 1, step_id: 'parse', data: { source: value } }
+			}
+		);
 	}
 );

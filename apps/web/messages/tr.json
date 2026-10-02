@@ -9598,5 +9598,6 @@
 	"messages_archived_empty_description": "Bu filtrelerle eşleşen arşivlenmiş konuşma yok. Gelen kutunuza dönmek için filtreleri temizleyin.",
 	"messages_clear_filters": "Filtreleri temizle",
 	"workflows_cancelled_history_notice": "Bu çalıştırma iptal edildi. Aşağıdaki adım durumları son kaydedilen durumu gösterir.",
-	"video_editor_beat_none_found": "Bu klipte vuruş bulunamadı."
+	"video_editor_beat_none_found": "Bu klipte vuruş bulunamadı.",
+	"workflows_layout_session_only": "Tuval konumları bu tarayıcıda kaydedilemedi. Bu iş akışını yeniden açtığınızda sıfırlanacak."
 }

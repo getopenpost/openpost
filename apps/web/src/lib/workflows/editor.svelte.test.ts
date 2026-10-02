@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi, type MockInstance } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { commands, page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { QueryClientProvider } from '@tanstack/svelte-query';
 import { client, type Workspace } from '$lib/api/client';
@@ -8,6 +8,12 @@ import { workspaceCtx } from '$lib/stores/workspace.svelte';
 import Editor from './editor.svelte';
 import type { Workflow, Run } from './api';
 import '../../routes/layout.css';
+
+declare module 'vitest/browser' {
+	interface BrowserCommands {
+		dragPointer(selector: string, dx: number, dy: number): Promise<void>;
+	}
+}
 
 const initial: Workflow = {
 	id: 'sample-json',
@@ -51,6 +57,7 @@ let post: MockInstance<typeof client.POST>;
 
 beforeEach(() => {
 	queryClient.clear();
+	localStorage.clear();
 	workspaceCtx.currentWorkspace = workspace;
 	run = {
 		id: 'run',
@@ -76,6 +83,190 @@ beforeEach(() => {
 	post = vi
 		.spyOn(client, 'POST')
 		.mockResolvedValue({ data: run, response: new Response() } as never);
+});
+async function openLayout(workflow = initial) {
+	const screen = await render(
+		Editor,
+		{ initial: workflow, accounts: [], connections: [] },
+		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+	);
+	screen.container.style.height = '850px';
+	const node = screen.container.querySelector<HTMLElement>('.svelte-flow__node[data-id="parse"]')!;
+	await expect.element(node).toBeVisible();
+	await expect
+		.poll(() => {
+			const viewport = screen.container.querySelector<HTMLElement>('.svelte-flow__viewport')!;
+			return new DOMMatrixReadOnly(viewport.style.transform).m42;
+		})
+		.not.toBe(0);
+	return { screen, node };
+}
+
+function nodePosition(node: HTMLElement) {
+	const transform = new DOMMatrixReadOnly(node.style.transform);
+	return { x: transform.m41, y: transform.m42 };
+}
+
+async function focusCanvasNode(node: HTMLElement) {
+	for (let count = 0; document.activeElement !== node && count < 40; count++) {
+		await userEvent.keyboard('{Tab}');
+	}
+	expect(document.activeElement).toBe(node);
+}
+
+it('retains pointer placement locally on reopen without saving authored workflow content', async () => {
+	await page.viewport(1280, 900);
+	const put = vi.spyOn(client, 'PUT');
+	const { screen, node } = await openLayout();
+	const baseline = nodePosition(node);
+	await commands.dragPointer('.svelte-flow__node[data-id="parse"]', 60, 50);
+	await expect.poll(() => nodePosition(node)).not.toEqual(baseline);
+	const moved = nodePosition(node);
+	await screen.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect.poll(() => nodePosition(node)).toEqual(baseline);
+	await screen.getByRole('button', { name: 'Redo', exact: true }).click();
+	await expect.poll(() => nodePosition(node)).toEqual(moved);
+	await userEvent.keyboard('{Control>}s{/Control}');
+	expect(put).not.toHaveBeenCalled();
+	await screen.unmount();
+	const reopened = await openLayout();
+	await expect.poll(() => nodePosition(reopened.node)).toEqual(moved);
+	await reopened.screen.getByRole('button', { name: 'Organize', exact: true }).click();
+	const organizedNode = () =>
+		reopened.screen.container.querySelector<HTMLElement>('.svelte-flow__node[data-id="parse"]')!;
+	await expect.poll(() => nodePosition(organizedNode())).toEqual(baseline);
+	await reopened.screen.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect.poll(() => nodePosition(organizedNode())).toEqual(moved);
+	await reopened.screen.getByRole('button', { name: 'Redo', exact: true }).click();
+	await expect.poll(() => nodePosition(organizedNode())).toEqual(baseline);
+	await reopened.screen.unmount();
+	const organized = await openLayout();
+	await expect.poll(() => nodePosition(organized.node)).toEqual(baseline);
+	expect(put).not.toHaveBeenCalled();
+});
+
+it.each([390, 1280].flatMap((width) => ['light', 'dark'].map((scheme) => ({ width, scheme }))))(
+	'records keyboard placement in local Undo history and retains it at $width in $scheme',
+	async ({ width, scheme }) => {
+		await page.viewport(width, 900);
+		document.documentElement.classList.toggle('dark', scheme === 'dark');
+		const put = vi.spyOn(client, 'PUT');
+		const { screen, node } = await openLayout();
+		const baseline = nodePosition(node);
+		await focusCanvasNode(node);
+		await userEvent.keyboard('{Enter}{ArrowRight}');
+		await expect.poll(() => nodePosition(node)).toEqual({ x: baseline.x + 5, y: baseline.y });
+		await userEvent.keyboard('{ArrowDown}');
+		const moved = { x: baseline.x + 5, y: baseline.y + 5 };
+		await expect.poll(() => nodePosition(node)).toEqual(moved);
+		if (width === 1280)
+			await expect.element(screen.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
+		await userEvent.keyboard('{Control>}z{/Control}');
+		await expect.poll(() => nodePosition(node)).toEqual({ x: baseline.x + 5, y: baseline.y });
+		await userEvent.keyboard('{Control>}{Shift>}z{/Shift}{/Control}');
+		await expect.poll(() => nodePosition(node)).toEqual(moved);
+		await userEvent.keyboard('{Tab}{ArrowLeft}');
+		await expect.poll(() => nodePosition(node)).toEqual({ x: baseline.x, y: baseline.y + 5 });
+		await userEvent.keyboard('{Control>}z{/Control}');
+		await expect.poll(() => nodePosition(node)).toEqual(moved);
+		await screen.unmount();
+		const reopened = await openLayout();
+		await expect.poll(() => nodePosition(reopened.node)).toEqual(moved);
+		await expect
+			.element(reopened.screen.getByText('Saved in this browser', { exact: true }))
+			.toBeVisible();
+		expect(put).not.toHaveBeenCalled();
+	}
+);
+
+it('keeps placement Undo usable and explains session-only positions when browser storage is blocked', async () => {
+	await page.viewport(390, 900);
+	vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+		throw new DOMException('Storage blocked', 'SecurityError');
+	});
+	const { screen, node } = await openLayout();
+	const baseline = nodePosition(node);
+	await focusCanvasNode(node);
+	await userEvent.keyboard('{Enter}{ArrowRight}');
+	await expect.poll(() => nodePosition(node)).toEqual({ x: baseline.x + 5, y: baseline.y });
+	await expect
+		.element(
+			screen.getByText(
+				'Canvas positions could not be saved in this browser. They will reset when you reopen this workflow.',
+				{ exact: true }
+			)
+		)
+		.toBeVisible();
+	await expect
+		.element(screen.getByText('Saved in this browser', { exact: true }))
+		.not.toBeInTheDocument();
+	await userEvent.keyboard('{Control>}z{/Control}');
+	await expect.poll(() => nodePosition(node)).toEqual(baseline);
+	await screen.unmount();
+	const reopened = await openLayout();
+	await expect.poll(() => nodePosition(reopened.node)).toEqual(baseline);
+});
+
+it('keeps positions scoped to the owning workflow and workspace', async () => {
+	await page.viewport(1280, 900);
+	const { screen, node } = await openLayout();
+	const baseline = nodePosition(node);
+	await focusCanvasNode(node);
+	await userEvent.keyboard('{Enter}{ArrowRight}');
+	const moved = { x: baseline.x + 5, y: baseline.y };
+	await expect.poll(() => nodePosition(node)).toEqual(moved);
+	await screen.unmount();
+	const other = await openLayout({ ...initial, id: 'other-workflow' });
+	await expect.poll(() => nodePosition(other.node)).toEqual(baseline);
+	await other.screen.unmount();
+	workspaceCtx.currentWorkspace = { ...workspace, id: 'workspace-b' };
+	const otherWorkspace = await openLayout({
+		...initial,
+		workspace_id: 'workspace-b'
+	});
+	await expect.poll(() => nodePosition(otherWorkspace.node)).toEqual(baseline);
+	await otherWorkspace.screen.unmount();
+	workspaceCtx.currentWorkspace = workspace;
+	const original = await openLayout();
+	await expect.poll(() => nodePosition(original.node)).toEqual(moved);
+});
+
+it('keeps immutable run layout read-only and separate from device-local editor positions', async () => {
+	await page.viewport(1280, 900);
+	// SAFETY: These history reads return the complete declared immutable run or its list; no other GET occurs in this case.
+	vi.mocked(client.GET).mockImplementation(
+		async (path) =>
+			({
+				data: path === '/workflow-runs' ? [run] : run,
+				response: new Response()
+			}) as never
+	);
+	const put = vi.spyOn(client, 'PUT');
+	const definition = structuredClone(initial.definition);
+	const { screen, node } = await openLayout();
+	const baseline = nodePosition(node);
+	await focusCanvasNode(node);
+	await userEvent.keyboard('{Enter}{ArrowRight}');
+	const moved = { x: baseline.x + 5, y: baseline.y };
+	await expect.poll(() => nodePosition(node)).toEqual(moved);
+	await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+	await screen.getByRole('button', { name: /^Completed/ }).click();
+	const runNode = screen.container.querySelector<HTMLElement>(
+		'.svelte-flow__node[data-id="parse"]'
+	)!;
+	await expect.element(runNode).toBeVisible();
+	await focusCanvasNode(runNode);
+	await userEvent.keyboard('{Enter}{ArrowRight}');
+	await expect.poll(() => nodePosition(runNode)).toEqual(baseline);
+	await screen.getByRole('button', { name: 'Editor', exact: true }).click();
+	const editedNode = screen.container.querySelector<HTMLElement>(
+		'.svelte-flow__node[data-id="parse"]'
+	)!;
+	await expect.poll(() => nodePosition(editedNode)).toEqual(moved);
+	expect(initial.definition).toEqual(definition);
+	expect(run.definition).toEqual(definition);
+	expect(put).not.toHaveBeenCalled();
+	expect(post).not.toHaveBeenCalled();
 });
 afterEach(() => {
 	queryClient.clear();

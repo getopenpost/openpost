@@ -9598,5 +9598,6 @@
 	"messages_archived_empty_description": "이 필터와 일치하는 보관된 대화가 없습니다. 받은 편지함으로 돌아가려면 필터를 지우세요.",
 	"messages_clear_filters": "필터 지우기",
 	"workflows_cancelled_history_notice": "이 실행은 취소되었습니다. 아래 단계 상태는 마지막으로 기록된 상태를 보여 줍니다.",
-	"video_editor_beat_none_found": "이 클립에서 비트를 찾을 수 없습니다."
+	"video_editor_beat_none_found": "이 클립에서 비트를 찾을 수 없습니다.",
+	"workflows_layout_session_only": "이 브라우저에 캔버스 위치를 저장하지 못했습니다. 이 워크플로를 다시 열면 위치가 초기화됩니다."
 }

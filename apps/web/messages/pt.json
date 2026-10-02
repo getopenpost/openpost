@@ -9598,5 +9598,6 @@
 	"messages_archived_empty_description": "Nenhuma conversa arquivada corresponde a estes filtros. Limpa os filtros para voltar à caixa de entrada.",
 	"messages_clear_filters": "Limpar filtros",
 	"workflows_cancelled_history_notice": "Esta execução foi cancelada. Os estados dos passos abaixo mostram o último estado registado.",
-	"video_editor_beat_none_found": "Não foram encontradas batidas neste clip."
+	"video_editor_beat_none_found": "Não foram encontradas batidas neste clip.",
+	"workflows_layout_session_only": "Não foi possível guardar as posições dos nós neste navegador. Serão repostas ao reabrir este fluxo de trabalho."
 }

@@ -9598,5 +9598,6 @@
 	"messages_archived_empty_description": "没有符合这些筛选条件的已归档对话。清除筛选条件以返回收件箱。",
 	"messages_clear_filters": "清除筛选条件",
 	"workflows_cancelled_history_notice": "此运行已取消。下方步骤状态显示最后记录的状态。",
-	"video_editor_beat_none_found": "此片段中未找到节拍。"
+	"video_editor_beat_none_found": "此片段中未找到节拍。",
+	"workflows_layout_session_only": "无法在此浏览器中保存画布位置。重新打开此工作流时，位置将重置。"
 }

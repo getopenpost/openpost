@@ -1,4 +1,4 @@
-import { playwright } from '@vitest/browser-playwright';
+import { defineBrowserCommand, playwright } from '@vitest/browser-playwright';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
@@ -40,6 +40,23 @@ export default defineConfig({
 					maxWorkers: 1,
 					browser: {
 						enabled: true,
+						commands: {
+							dragPointer: defineBrowserCommand(
+								async ({ page, iframe }, selector: string, dx: number, dy: number) => {
+									const bounds = await iframe.locator(selector).boundingBox();
+									if (!bounds) throw new Error('Pointer drag target is not visible');
+									const x = bounds.x + bounds.width / 2;
+									const y = bounds.y + bounds.height / 2;
+									await page.mouse.move(x, y);
+									await page.mouse.down();
+									try {
+										await page.mouse.move(x + dx, y + dy, { steps: 8 });
+									} finally {
+										await page.mouse.up();
+									}
+								}
+							)
+						},
 						// The interactive runner scales its iframe into a sidebar. Headless
 						// fixtures need their actual viewport for layout and video playback.
 						ui: runRealMusicModel,

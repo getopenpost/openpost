@@ -9598,5 +9598,6 @@
 	"messages_archived_empty_description": "Keine archivierten Unterhaltungen entsprechen diesen Filtern. Entferne die Filter, um zum Posteingang zurückzukehren.",
 	"messages_clear_filters": "Filter entfernen",
 	"workflows_cancelled_history_notice": "Dieser Lauf wurde abgebrochen. Die Schrittzustände unten zeigen den zuletzt gespeicherten Zustand.",
-	"video_editor_beat_none_found": "In diesem Clip wurden keine Beats gefunden."
+	"video_editor_beat_none_found": "In diesem Clip wurden keine Beats gefunden.",
+	"workflows_layout_session_only": "Die Positionen auf der Arbeitsfläche konnten in diesem Browser nicht gespeichert werden. Beim erneuten Öffnen dieses Workflows werden sie zurückgesetzt."
 }

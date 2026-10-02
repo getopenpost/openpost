@@ -9598,5 +9598,6 @@
 	"messages_archived_empty_description": "Aucune conversation archivée ne correspond à ces filtres. Effacez les filtres pour revenir à votre boîte de réception.",
 	"messages_clear_filters": "Effacer les filtres",
 	"workflows_cancelled_history_notice": "Cette exécution a été annulée. Les états des étapes ci-dessous indiquent le dernier état enregistré.",
-	"video_editor_beat_none_found": "Aucun temps musical trouvé dans ce clip."
+	"video_editor_beat_none_found": "Aucun temps musical trouvé dans ce clip.",
+	"workflows_layout_session_only": "Les positions des nœuds n’ont pas pu être enregistrées dans ce navigateur. Elles seront réinitialisées lorsque vous rouvrirez ce workflow."
 }

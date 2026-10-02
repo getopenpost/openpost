@@ -50,6 +50,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
+	import { readCanvasPositions, writeCanvasPositions, type CanvasPositions } from './view-storage';
 	let {
 		initial,
 		accounts,
@@ -77,7 +78,14 @@
 		saveFailed = $state(false),
 		busy = $state(false),
 		saving = $state(false);
-	let positions = $state.raw<Record<string, { x: number; y: number }>>({});
+	let positions = $state.raw<CanvasPositions>(
+		untrack(() => readCanvasPositions(initial.workspace_id, initial.id))
+	);
+	let layoutStored = $state(true);
+	$effect(() => {
+		if (workspaceCtx.currentWorkspace?.id !== initial.workspace_id) return;
+		layoutStored = writeCanvasPositions(initial.workspace_id, record.id, positions);
+	});
 	let history = $state.raw<string[]>([]),
 		future = $state.raw<string[]>([]);
 	let sample = $state(
@@ -179,7 +187,12 @@
 		doc = next;
 	}
 	function moveNodes(next: typeof positions) {
-		if (!canEdit || JSON.stringify(next) === JSON.stringify(positions)) return;
+		if (
+			!canEdit ||
+			workspaceCtx.currentWorkspace?.id !== initial.workspace_id ||
+			JSON.stringify(next) === JSON.stringify(positions)
+		)
+			return;
 		remember(snapshot());
 		positions = next;
 	}
@@ -618,6 +631,7 @@
 					{issues}
 					{selectedID}
 					run={inspectedRun}
+					onselection={(id) => (selectedID = id)}
 					readonly={!canEdit}
 					onselect={(id) => {
 						selectedID = id;
@@ -659,6 +673,13 @@
 					<Button variant="outline" size="sm" onclick={() => canvas?.organize()}
 						><ThemeIcon role="repeat" class="size-4" />{m.workflows_organize()}</Button
 					>
+					{#if Object.keys(positions).length}<span
+							class="max-w-sm rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground"
+							role="status"
+							>{layoutStored
+								? m.version_saved_in_browser()
+								: m.workflows_layout_session_only()}</span
+						>{/if}
 					{#if issues.length}<Button
 							variant="outline"
 							size="sm"

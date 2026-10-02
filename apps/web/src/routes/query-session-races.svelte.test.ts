@@ -411,22 +411,24 @@ describe('route mutation sessions', () => {
 		putMock.mockReturnValue(reschedule.promise);
 
 		const screen = await renderWithQuery(CalendarPage);
-		await expect.element(screen.getByText('Workspace A launch').first()).toBeVisible();
-		const source = document.querySelector<HTMLElement>('[data-calendar-item]');
+		const originEvent = screen.getByRole('button', { name: 'Workspace A launch', exact: true });
+		await expect.element(originEvent).toBeVisible();
+		const source = originEvent.element();
 		const target = document.querySelector<HTMLElement>(
 			`[data-calendar-day="${targetAt.slice(0, 10)}"]`
 		);
-		expect(source).not.toBeNull();
 		expect(target).not.toBeNull();
 		const transfer = new DataTransfer();
-		source!.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+		source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
 		target!.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
 		await vi.waitFor(() => expect(putMock).toHaveBeenCalledOnce());
 
 		workspaceCtx.currentWorkspace = workspaceB;
 		workspaceCtx.workspaces = [workspaceB];
 		workspaceCtx.settingsWorkspaceID = workspaceB.id;
-		await expect.element(screen.getByText('Workspace B launch').first()).toBeVisible();
+		await expect
+			.element(screen.getByRole('button', { name: 'Workspace B launch', exact: true }))
+			.toBeVisible();
 		reschedule.resolve({
 			data: { ...publications.get(workspace.id)!, scheduled_at: targetAt, revision: 2 },
 			response: new Response()
@@ -439,7 +441,9 @@ describe('route mutation sessions', () => {
 				)
 			).toMatchObject({ scheduled_at: targetAt })
 		);
-		await expect.element(screen.getByText('Workspace B launch').first()).toBeVisible();
+		await expect
+			.element(screen.getByRole('button', { name: 'Workspace B launch', exact: true }))
+			.toBeVisible();
 		await expect.element(screen.getByText('Workspace A launch').first()).not.toBeInTheDocument();
 	});
 

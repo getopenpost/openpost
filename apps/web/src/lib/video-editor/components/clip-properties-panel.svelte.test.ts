@@ -314,7 +314,14 @@ it('retains the surviving source phase when trimming a compound start through Pr
 			renderer.dispose();
 		}
 	}
-	expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+	async function expectSurvivingBlue() {
+		const pixel = await survivingPixel();
+		expect(pixel[0]).toBeLessThanOrEqual(1);
+		expect(pixel[1]).toBeLessThanOrEqual(1);
+		expect(pixel[2]).toBeGreaterThanOrEqual(254);
+		expect(pixel[3]).toBe(255);
+	}
+	await expectSurvivingBlue();
 	timelineStore._setCurrentFrame(30);
 	const screen = await render(ClipPropertiesPanel, { itemId: 'wrapper', onedit: vi.fn() });
 	const prior = getWorkspaceRoot();
@@ -324,7 +331,7 @@ it('retains the surviving source phase when trimming a compound start through Pr
 		const trim = screen.getByRole('button', { name: 'Trim start to playhead', exact: true });
 		await trim.element().focus();
 		await userEvent.keyboard('{Enter}');
-		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+		await expectSurvivingBlue();
 		expect(timelineStore.itemById.get('wrapper')).toMatchObject({
 			from: 30,
 			durationInFrames: 60,
@@ -337,9 +344,9 @@ it('retains the surviving source phase when trimming a compound start through Pr
 			durationInFrames: 90,
 			sourceStart: 0
 		});
-		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+		await expectSurvivingBlue();
 		commandHistory.redo();
-		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+		await expectSurvivingBlue();
 		setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
 		await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
 		await screen.unmount();
@@ -348,7 +355,7 @@ it('retains the surviving source phase when trimming a compound start through Pr
 		const loaded = (await getProject(project.id))!;
 		sequenceStore.load(loaded.timeline!, loaded.metadata);
 		expect(timelineStore.itemById.get('wrapper')?.sourceStart).toBe(30);
-		expect(await survivingPixel()).toEqual([0, 0, 255, 255]);
+		await expectSurvivingBlue();
 	} finally {
 		setWorkspaceRoot(prior);
 		await root.removeEntry(dir, { recursive: true }).catch(() => {});

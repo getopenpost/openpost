@@ -91,6 +91,7 @@ test("documentation corpus policy is complete canonical metadata", () => {
     "cli",
     "mcp",
     "automate",
+    "workflows",
     "video-editor",
     "image-editor",
     "installation",

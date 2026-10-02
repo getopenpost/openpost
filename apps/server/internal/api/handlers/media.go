@@ -48,6 +48,7 @@ const (
 	ThumbnailSizeSM                   = 150
 	ThumbnailSizeMD                   = 400
 	MaxBufferedMediaUploadBytes int64 = 50 * 1024 * 1024
+	mediaUploadMaxImagePixels   int64 = 64_000_000
 	MaxMediaUploadBytes         int64 = 16 * 1024 * 1024 * 1024
 	MaxDirectMediaUploadBytes   int64 = 5_000_000_000
 	MediaUploadSessionTTL             = 15 * time.Minute
@@ -1726,6 +1727,14 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 		return result, huma.Error400BadRequest(err.Error())
 	}
 
+	if err := validateMediaImageContent(detectedMediaMimeType(inspection.Prefix, media.MimeType), validationContent); err != nil {
+		h.markMediaUploadFailed(ctx, media.ID)
+		if cleanupErr := h.rollbackMediaRecord(ctx, &media); cleanupErr != nil {
+			log.Printf("failed to roll back invalid image upload %s: %v", media.ID, cleanupErr)
+		}
+		return result, huma.Error400BadRequest(err.Error())
+	}
+
 	fileHash := inspection.FileHash
 	if duplicate, found, err := h.deduplicateDirectMediaUpload(ctx, workspaceID, fileHash, media); err != nil {
 		return result, err
@@ -2097,6 +2106,23 @@ func declaredM4AMediaMimeType(content []byte, sniffed, declared string) string {
 	return ""
 }
 
+func validateMediaImageContent(mimeType string, content []byte) error {
+	if !strings.HasPrefix(mimeType, "image/") {
+		return nil
+	}
+	config, _, err := image.DecodeConfig(bytes.NewReader(content))
+	if err != nil {
+		return errors.New("image file could not be decoded")
+	}
+	if config.Width <= 0 || config.Height <= 0 || int64(config.Width) > mediaUploadMaxImagePixels/int64(config.Height) {
+		return fmt.Errorf("image cannot exceed %d pixels", mediaUploadMaxImagePixels)
+	}
+	if _, err := imaging.Decode(bytes.NewReader(content)); err != nil {
+		return errors.New("image file could not be decoded")
+	}
+	return nil
+}
+
 func validateMediaAssetContent(assetKind, filename, declaredMimeType string, content []byte) error {
 	if isSVGMediaUpload(filename, declaredMimeType, content) {
 		return errors.New("SVG upload could not be processed")
@@ -2444,6 +2470,17 @@ func (h *MediaHandler) reusableMediaForClientHash(
 	}
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to check reusable workspace media")
+	}
+	if strings.HasPrefix(media.MimeType, "image/") {
+		stored, openErr := h.storage.Open(ctx, filepath.Base(media.FilePath))
+		if openErr != nil {
+			return nil, nil
+		}
+		content, readErr := io.ReadAll(io.LimitReader(stored, MaxBufferedMediaUploadBytes+1))
+		_ = stored.Close()
+		if readErr != nil || int64(len(content)) > MaxBufferedMediaUploadBytes || validateMediaImageContent(media.MimeType, content) != nil {
+			return nil, nil
+		}
 	}
 	return &media, nil
 }
@@ -3385,6 +3422,27 @@ func (h *MediaHandler) processStreamUpload(
 		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return nil, errors.New("uploaded media size does not match declared size")
 	}
+	if strings.HasPrefix(mimeType, "image/") {
+		stored, openErr := h.storage.Open(ctx, objectKey)
+		if openErr != nil {
+			_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
+			return nil, errors.New("failed to read uploaded image")
+		}
+		content, readErr := io.ReadAll(io.LimitReader(stored, MaxBufferedMediaUploadBytes+1))
+		_ = stored.Close()
+		if readErr != nil {
+			_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
+			return nil, errors.New("failed to read uploaded image")
+		}
+		if int64(len(content)) > MaxBufferedMediaUploadBytes {
+			_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
+			return nil, errors.New("image file size exceeds 50MB limit")
+		}
+		if err := validateMediaImageContent(mimeType, content); err != nil {
+			_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
+			return nil, err
+		}
+	}
 	fileHash := hex.EncodeToString(hasher.Sum(nil))
 	if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 		if existing, found, duplicateErr := h.findDuplicateMedia(ctx, input.WorkspaceID, fileHash, mediaID); duplicateErr != nil {
@@ -3526,6 +3584,10 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 		if mimeType == "" {
 			mimeType = defaultMediaMimeType
 		}
+	}
+
+	if err := validateMediaImageContent(mimeType, input.Content); err != nil {
+		return nil, err
 	}
 
 	var existing models.MediaAttachment

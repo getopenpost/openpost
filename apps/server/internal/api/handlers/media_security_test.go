@@ -3,12 +3,21 @@ package handlers
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"hash/crc32"
+	"image"
+	"image/color"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -25,7 +34,7 @@ func TestMediaUploadRejectsActiveContent(t *testing.T) {
 		for _, transport := range []string{"session", "session-dedup", "multipart", "batch", "stream"} {
 			t.Run(payload.name+"/"+transport, func(t *testing.T) {
 				if transport == "stream" {
-					assertMCPActiveUploadRejected(t, payload.content)
+					assertMCPUploadRejected(t, payload.content, "HTML and XML")
 					return
 				}
 				storage := newFakeDirectUploadStorage()
@@ -112,7 +121,7 @@ func TestMediaUploadSessionRejectsActiveDeclarations(t *testing.T) {
 	}
 }
 
-func assertMCPActiveUploadRejected(t *testing.T, content string) {
+func assertMCPUploadRejected(t *testing.T, content, expected string) {
 	t.Helper()
 	srv := newMCPTestServer(t)
 	srv.handler.auth = mcpScopeAuthenticator{"mcp-token": {UserID: "user-1", Scope: "mcp:full", WorkspaceID: "ws-1", SessionID: "session-1", ClientID: "client-1"}}
@@ -136,7 +145,7 @@ func assertMCPActiveUploadRejected(t *testing.T, content string) {
 	result := httptest.NewRecorder()
 	srv.echo.ServeHTTP(result, req)
 	require.Equal(t, http.StatusBadRequest, result.Code, result.Body.String())
-	require.Contains(t, result.Body.String(), "HTML and XML")
+	require.Contains(t, result.Body.String(), expected)
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, count)
@@ -165,4 +174,114 @@ func TestStoredPassiveMediaKeepsInlineContentType(t *testing.T) {
 			require.Equal(t, "nosniff", response.Header().Get("X-Content-Type-Options"))
 		})
 	}
+}
+
+func TestMediaUploadRequiresDecodedImagePixels(t *testing.T) {
+	var valid bytes.Buffer
+	require.NoError(t, png.Encode(&valid, image.NewRGBA(image.Rect(0, 0, 2, 2))))
+	var jpegData, gifData bytes.Buffer
+	require.NoError(t, jpeg.Encode(&jpegData, image.NewRGBA(image.Rect(0, 0, 2, 2)), nil))
+	frame := image.NewPaletted(image.Rect(0, 0, 2, 2), color.Palette{color.Black, color.White})
+	require.NoError(t, gif.EncodeAll(&gifData, &gif.GIF{Image: []*image.Paletted{frame, frame}, Delay: []int{1, 1}}))
+	webpData, err := os.ReadFile("testdata/admission.webp")
+	require.NoError(t, err)
+	oversized := append([]byte(nil), valid.Bytes()...)
+	binary.BigEndian.PutUint32(oversized[16:20], 100000)
+	binary.BigEndian.PutUint32(oversized[20:24], 100000)
+	binary.BigEndian.PutUint32(oversized[29:33], crc32.ChecksumIEEE(oversized[12:29]))
+	for _, payload := range []struct {
+		name      string
+		content   []byte
+		valid     bool
+		errorText string
+	}{
+		{"signature", append([]byte("\x89PNG\r\n\x1a\n"), []byte("This signature has no pixels")...), false, "image file could not be decoded"},
+		{"truncated", valid.Bytes()[:len(valid.Bytes())-20], false, "image file could not be decoded"},
+		{"validPNG", valid.Bytes(), true, ""},
+		{"validJPEGwrongExtension", jpegData.Bytes(), true, ""},
+		{"validAnimatedGIF", gifData.Bytes(), true, ""},
+		{"validWebP", webpData, true, ""},
+		{"oversized", oversized, false, "image cannot exceed"},
+	} {
+		transports := []string{"session", "multipart", "batch"}
+		if !payload.valid {
+			transports = append(transports, "stream")
+		}
+		for _, transport := range transports {
+			t.Run(payload.name+"/"+transport, func(t *testing.T) {
+				if transport == "stream" {
+					assertMCPUploadRejected(t, string(payload.content), payload.errorText)
+					return
+				}
+				storage := newFakeDirectUploadStorage()
+				srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+				var response *httptest.ResponseRecorder
+				if transport == "session" {
+					id := srv.createUploadSession(t, "pixels.png", "image/png", int64(len(payload.content)))
+					storage.objects[id+".png"] = payload.content
+					response = srv.postJSON(t, "/api/v1/media/upload-session/"+id+"/complete", map[string]any{"workspace_id": "ws-1"})
+				} else {
+					var body bytes.Buffer
+					writer := multipart.NewWriter(&body)
+					require.NoError(t, writer.WriteField("workspace_id", "ws-1"))
+					field, path := "file", "/api/v1/media/upload"
+					if transport == "batch" {
+						field, path = "files", "/api/v1/media/batch-upload"
+					}
+					part, err := writer.CreatePart(textproto.MIMEHeader{"Content-Disposition": {`form-data; name="` + field + `"; filename="pixels.png"`}, "Content-Type": {"image/png"}})
+					require.NoError(t, err)
+					_, err = part.Write(payload.content)
+					require.NoError(t, err)
+					require.NoError(t, writer.Close())
+					req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, &body)
+					req.Header.Set("Authorization", "Bearer web-token")
+					req.Header.Set("Content-Type", writer.FormDataContentType())
+					response = httptest.NewRecorder()
+					srv.echo.ServeHTTP(response, req)
+				}
+				switch {
+				case payload.valid:
+					require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+				case transport == "batch":
+					require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+					require.Contains(t, response.Body.String(), payload.errorText)
+				default:
+					require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+					require.Contains(t, response.Body.String(), payload.errorText)
+				}
+				ready, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("processing_status = ?", "ready").Count(t.Context())
+				require.NoError(t, err)
+				if payload.valid {
+					require.Equal(t, 1, ready)
+					var media models.MediaAttachment
+					require.NoError(t, srv.db.NewSelect().Model(&media).Where("processing_status = ?", "ready").Scan(t.Context()))
+					require.Equal(t, 2, media.Width)
+					require.Equal(t, 2, media.Height)
+					require.Equal(t, payload.content, storage.objects[filepath.Base(media.FilePath)])
+				} else {
+					require.Zero(t, ready)
+					require.Empty(t, storage.objects)
+				}
+			})
+		}
+	}
+}
+
+func TestMediaUploadSessionDoesNotReuseCorruptReadyImage(t *testing.T) {
+	content := []byte("\x89PNG\r\n\x1a\nno image pixels")
+	hash := sha256.Sum256(content)
+	storage := newFakeDirectUploadStorage()
+	storage.objects["legacy.png"] = content
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "legacy", WorkspaceID: "ws-1", FilePath: "legacy.png", FileHash: hex.EncodeToString(hash[:]), Size: int64(len(content)), AssetKind: "library", MimeType: "image/png", ProcessingStatus: "ready"}).Exec(t.Context())
+	require.NoError(t, err)
+	response := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{"workspace_id": "ws-1", "filename": "pixels.png", "mime_type": "image/png", "size": len(content), "client_sha256": hex.EncodeToString(hash[:])})
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var result struct {
+		Deduped bool   `json:"deduped"`
+		MediaID string `json:"media_id"`
+	}
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+	require.False(t, result.Deduped)
+	require.NotEqual(t, "legacy", result.MediaID)
 }

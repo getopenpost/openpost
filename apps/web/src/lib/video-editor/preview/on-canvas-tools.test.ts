@@ -49,7 +49,7 @@ describe('on-canvas anchor geometry', () => {
 		);
 		expect(next.anchorX).toBeCloseTo(120);
 		expect(next.anchorY).toBeCloseTo(50);
-		expect(next.x).toBeCloseTo(-10);
+		expect(next.x).toBeCloseTo(10);
 		expect(next.y).toBeCloseTo(40);
 	});
 });

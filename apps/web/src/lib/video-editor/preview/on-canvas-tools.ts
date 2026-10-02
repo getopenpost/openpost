@@ -434,11 +434,15 @@ export function calculateAnchorDrag(
 		x: currentPoint.x - startPoint.x,
 		y: currentPoint.y - startPoint.y
 	};
-	const localDelta = rotateVector(worldDelta, -startTransform.rotation);
+	const scaleX = (startTransform.scaleX ?? 1) * (startTransform.flipHorizontal ? -1 : 1);
+	const scaleY = (startTransform.scaleY ?? 1) * (startTransform.flipVertical ? -1 : 1);
+	if (!scaleX || !scaleY) return { ...startTransform };
+	const rotatedDelta = rotateVector(worldDelta, -startTransform.rotation);
+	const localDelta = { x: rotatedDelta.x / scaleX, y: rotatedDelta.y / scaleY };
 	return {
 		...startTransform,
-		x: startTransform.x + worldDelta.x - localDelta.x,
-		y: startTransform.y + worldDelta.y - localDelta.y,
+		x: startTransform.x + worldDelta.x,
+		y: startTransform.y + worldDelta.y,
 		anchorX: (startTransform.anchorX ?? startTransform.width / 2) + localDelta.x,
 		anchorY: (startTransform.anchorY ?? startTransform.height / 2) + localDelta.y
 	};

@@ -577,11 +577,11 @@
 		const end = workspaceCtx.settings.slot_end_hour;
 		const interval = workspaceCtx.settings.slot_interval_minutes;
 		const slots: string[] = [];
-		for (let hour = start; hour <= end; hour++) {
-			for (let min = 0; min < 60; min += interval) {
-				if (hour === end && min > 0) break;
-				slots.push(`${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
-			}
+		if (!Number.isInteger(interval) || interval < 1) return slots;
+		for (let minutes = start * 60; minutes <= end * 60; minutes += interval) {
+			const hour = Math.floor(minutes / 60);
+			const minute = minutes % 60;
+			slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
 		}
 		return slots;
 	});

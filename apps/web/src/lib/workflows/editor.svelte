@@ -42,6 +42,7 @@
 	import DataView from './data-view.svelte';
 	import GraphPreview from './graph-preview.svelte';
 	import { workflowIssues } from './validation';
+	import { stepFields } from './fields';
 	import { connectionWouldLoop, type Port } from './graph';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -418,6 +419,24 @@
 	async function executeNode() {
 		if (!step) return;
 		if (parsedSample.error) return showSampleError(parsedSample.error);
+		const issue = issues.find((issue) => issue.node === step.id);
+		if (issue) {
+			const field = stepFields(step.kind, step.inputs).find((field) => field.key === issue.field);
+			const origin = document.activeElement;
+			const stepID = step.id;
+			error = field ? `${field.label}: ${issue.message}` : issue.message;
+			dataTab = 'configure';
+			await tick();
+			if (
+				inspector &&
+				panel === 'configure' &&
+				selectedID === stepID &&
+				workspaceCtx.currentWorkspace?.id === initial.workspace_id &&
+				document.activeElement === origin
+			)
+				document.getElementById(`workflow-${issue.field}`)?.focus();
+			return;
+		}
 		sampleRejected = false;
 		busy = true;
 		error = '';

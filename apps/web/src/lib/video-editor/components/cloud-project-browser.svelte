@@ -44,6 +44,7 @@
 	} = $props();
 
 	let query = $state('');
+	let searchInput = $state<HTMLInputElement | null>(null);
 	let busyProjectId = $state<string | null>(null);
 	const visible = $derived(
 		projects.filter((project) =>
@@ -86,6 +87,7 @@
 		<div class="mt-4">
 			<Input
 				bind:value={query}
+				bind:ref={searchInput}
 				aria-label={m.video_editor_project_search()}
 				placeholder={m.video_editor_project_search()}
 			/>
@@ -103,10 +105,24 @@
 				>{m.common_retry()}</Button
 			>
 		</div>
-	{:else if visible.length === 0}
+	{:else if projects.length === 0}
 		<p class="mt-8 text-center text-sm text-[var(--video-editor-muted)]">
 			{m.video_editor_cloud_empty()}
 		</p>
+	{:else if visible.length === 0}
+		<div class="mt-8 text-center">
+			<p class="text-sm text-[var(--video-editor-muted)]" role="status">
+				{m.video_editor_projects_no_match()}
+			</p>
+			<Button
+				class="mt-3"
+				variant="outline"
+				onclick={() => {
+					query = '';
+					searchInput?.focus();
+				}}>{m.media_clear_search()}</Button
+			>
+		</div>
 	{:else}
 		<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each visible as project (project.id)}

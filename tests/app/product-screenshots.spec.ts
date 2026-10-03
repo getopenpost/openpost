@@ -1631,7 +1631,7 @@ test.describe("product screenshot capture", () => {
       }
       await page.setViewportSize(captureViewport);
       await page.goto(`/calendar?workspace=${workspace.id}`);
-      await expect(page.getByRole("heading", { name: "Publications", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
       await expect(
         page.locator('[data-slot="page-navigation"]').getByText("August 2026", { exact: true }),
       ).toBeVisible();

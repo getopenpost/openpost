@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
 
-test("week agenda and empty-date guidance describe the displayed cross-month range", async ({
+test("Calendar keeps the chosen date across Month and Week and opens the composer on that date", async ({
   page,
   request,
 }, testInfo) => {
@@ -14,11 +14,10 @@ test("week agenda and empty-date guidance describe the displayed cross-month ran
   await page.emulateMedia({ reducedMotion: "reduce" });
   const auth = await registerUser(request, `agenda-labels-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, auth.token, "Agenda labels");
-  const headers = { Authorization: `Bearer ${auth.token}` };
   expect(
     (
       await request.patch(`/api/v1/workspaces/${workspace.id}/settings`, {
-        headers,
+        headers: { Authorization: `Bearer ${auth.token}` },
         data: { timezone: "UTC", week_start: 0 },
       })
     ).ok(),
@@ -42,35 +41,45 @@ test("week agenda and empty-date guidance describe the displayed cross-month ran
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.reload();
-      const week = page.getByRole("button", { name: "Week", exact: true });
-      await week.focus();
-      await page.keyboard.press("Enter");
-      const range = await page.locator("main p[aria-live='polite']").innerText();
-      expect(range).toMatch(/Sep 27.*Oct 3, 2026/);
-      await expect(page.getByText("Audit cross-month week", { exact: true })).toBeVisible();
-      await page.screenshot({
-        path: testInfo.outputPath(`week-before-assert-${width}-${scheme}.png`),
-      });
-      const agenda = page.getByRole("region", { name: "Weekly publishing calendar", exact: true });
-      await expect(agenda).toBeVisible();
+      await page.goto("/calendar");
+      const picker = page.getByTestId("calendar-date-picker");
+      const chosenDate = picker.getByRole("button", { name: "Monday, Sep 28", exact: true });
+      await chosenDate.click();
+      await expect(chosenDate).toHaveAccessibleDescription("1 post");
+      await page.getByRole("button", { name: "Week", exact: true }).click();
+      await expect(page.locator("main p[aria-live='polite']")).toHaveText(/Sep 27.*Oct 3, 2026/);
+      await expect(chosenDate).toHaveAttribute("aria-pressed", "true");
+      await chosenDate.focus();
+      await page.keyboard.press("ArrowUp");
+      const previousWeekDate = picker.getByRole("button", { name: "Monday, Sep 21", exact: true });
+      await expect(previousWeekDate).toBeFocused();
+      await page.keyboard.press("ArrowDown");
+      await expect(chosenDate).toBeFocused();
+      await expect(page.getByRole("button", { name: /Audit cross-month week/ })).toBeVisible();
+      const selectionColor = await chosenDate.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      );
+      const nextMonthDate = picker.getByRole("button", { name: "Thursday, Oct 1", exact: true });
+      await nextMonthDate.click();
+      await expect(nextMonthDate).toHaveAttribute("aria-pressed", "true");
+      await expect(chosenDate).toHaveAttribute("aria-pressed", "false");
+      await expect
+        .poll(() => nextMonthDate.evaluate((element) => getComputedStyle(element).backgroundColor))
+        .toBe(selectionColor);
       await expect(
-        agenda.getByText(`Choose an open date in ${range}.`, { exact: true }),
+        page.getByRole("heading", { name: "Thursday, Oct 1", exact: true }),
       ).toBeVisible();
-      const picker = agenda.getByRole("button", { name: `Empty date in ${range}`, exact: true });
-      await picker.click();
-      await expect(page.getByRole("option", { name: "Thu, Oct 1", exact: true })).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(picker).toBeFocused();
+      await expect(page.getByRole("button", { name: /Audit cross-month week/ })).toHaveCount(0);
+      await page.screenshot({ path: testInfo.outputPath(`week-${width}-${scheme}.png`) });
       await page.getByRole("button", { name: "Month", exact: true }).click();
-      const month = page.getByRole("region", { name: "Monthly publishing calendar", exact: true });
-      await expect(month).toBeVisible();
       await expect(
-        month.getByText("Choose an open date in September 2026.", { exact: true }),
-      ).toBeVisible();
+        picker.getByRole("button", { name: "Thursday, Oct 1", exact: true }),
+      ).toHaveAttribute("aria-pressed", "true");
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
         false,
       );
+      await page.getByRole("button", { name: "Create post", exact: true }).click();
+      await expect(page).toHaveURL(/date=2026-10-01/);
     }
   }
   expect(errors).toEqual([]);

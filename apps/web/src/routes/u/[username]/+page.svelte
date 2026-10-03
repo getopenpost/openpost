@@ -341,7 +341,7 @@
 										class:level-3={day?.level === 3}
 										class:level-4={day?.level === 4}
 										style:--cell-delay={`${Math.min(index, 90) * 7}ms`}
-										title={day ? `${day.date}: ${plural(day.count, 'publication')}` : undefined}
+										title={day ? `${day.date}: ${plural(day.count, 'post')}` : undefined}
 									></i>
 								{/each}
 							</div>

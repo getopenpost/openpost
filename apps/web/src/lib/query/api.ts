@@ -61,7 +61,7 @@ export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQuery
 			if (page.search?.trim()) query.search = page.search.trim();
 			const { data, response } = await queryGET({
 				signal,
-				fallback: 'Unable to load publications',
+				fallback: 'Unable to load posts',
 				request: (requestSignal) =>
 					transport.GET('/publications', {
 						params: { query },

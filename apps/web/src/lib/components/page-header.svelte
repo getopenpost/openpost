@@ -14,6 +14,7 @@
 		description?: string;
 		meta?: Snippet;
 		actions?: Snippet;
+		actionLayout?: 'responsive' | 'inline';
 		contentClass?: string;
 		titleClass?: string;
 		class?: string;
@@ -27,6 +28,7 @@
 		description,
 		meta,
 		actions,
+		actionLayout = 'responsive',
 		contentClass,
 		titleClass,
 		class: className
@@ -37,7 +39,11 @@
 	data-slot="page-header"
 	data-theme-header
 	data-testid="page-header"
-	class={cn('page-header flex min-w-0 flex-col', className)}
+	class={cn(
+		'page-header flex min-w-0 flex-col',
+		actionLayout === 'inline' && 'page-header-inline',
+		className
+	)}
 >
 	<div class={cn('min-w-0', contentClass)}>
 		{#if eyebrow}
@@ -82,6 +88,16 @@
 </header>
 
 <style>
+	.page-header-inline {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.page-header-inline .page-header-actions {
+		width: auto;
+		justify-content: flex-end;
+	}
+
 	@container (min-width: 44rem) {
 		.page-header {
 			flex-direction: row;

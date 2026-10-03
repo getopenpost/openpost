@@ -236,11 +236,11 @@ function ThemedApplication() {
           name="publications/[id]/edit"
           options={{
             presentation: "modal",
-            title: "Edit publication",
+            title: "Edit post",
             headerShown: false,
           }}
         />
-        <Stack.Screen name="publications/[id]" options={{ title: "Publication" }} />
+        <Stack.Screen name="publications/[id]" options={{ title: "Post" }} />
       </Stack>
     </ThemeProvider>
   );

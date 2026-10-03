@@ -19,7 +19,7 @@ export class PublicationWorkspaceMismatchError extends Error {
 		readonly expectedWorkspaceId: string,
 		readonly actualWorkspaceId: string
 	) {
-		super('Publication does not belong to the requested Workspace');
+		super('Post does not belong to the requested Workspace');
 		this.name = 'PublicationWorkspaceMismatchError';
 	}
 }

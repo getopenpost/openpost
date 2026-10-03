@@ -55,7 +55,7 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
   const newAction = navigation.getByRole("button", { name: "New" });
   await expect(newAction).toBeVisible();
   expect((await newAction.textContent())?.trim()).toBe("");
-  for (const label of ["Inbox", "Publications", "Media", "More"]) {
+  for (const label of ["Inbox", "Posts", "Media", "More"]) {
     expect((await navigation.getByRole("button", { name: label }).textContent())?.trim()).toBe("");
   }
   const navigationBounds = await navigation.boundingBox();

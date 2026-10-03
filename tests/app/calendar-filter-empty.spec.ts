@@ -50,10 +50,17 @@ test("Calendar explains filtered emptiness and clears filters without changing d
         await page.getByRole("button", { name: view, exact: true }).click();
         const range = page.getByRole("main").locator('p[aria-live="polite"]');
         const before = await range.innerText();
+        await page.getByRole("button", { name: /^Filters\b/ }).click();
         const status = page.getByRole("button", { name: "All posts", exact: true });
         await status.focus();
         await page.keyboard.press("Enter");
-        await page.getByRole("menuitemradio", { name: "Published", exact: true }).click();
+        await expect(
+          page.getByRole("menuitemradio", { name: "All posts", exact: true }),
+        ).toBeFocused();
+        await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("Enter");
+        await page.getByRole("button", { name: /^Filters\b/ }).click();
         await expect(
           page.getByRole("button", { name: /Audit scheduled filter recovery/ }),
         ).toHaveCount(0);
@@ -66,15 +73,19 @@ test("Calendar explains filtered emptiness and clears filters without changing d
             { exact: true },
           ),
         ).toBeVisible();
-        const clear = page.getByRole("button", { name: "Clear filters", exact: true });
+        const clear = page
+          .getByRole("main")
+          .getByRole("button", { name: "Clear filters", exact: true });
         await clear.focus();
         await page.keyboard.press("Enter");
+        await page.getByRole("button", { name: /^Filters\b/ }).click();
         await expect(status).toBeVisible();
         await expect(
           page.getByRole("button", { name: /Audit scheduled filter recovery/ }).first(),
         ).toBeVisible();
         await expect(range).toHaveText(before);
         await expect(clear).toHaveCount(0);
+        await page.getByRole("button", { name: /^Filters\b/ }).click();
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
           false,
         );
@@ -82,11 +93,13 @@ test("Calendar explains filtered emptiness and clears filters without changing d
     }
   }
   await page.setViewportSize({ width: 390, height: 850 });
+  await page.getByRole("button", { name: /^Filters\b/ }).click();
   await page.getByRole("button", { name: "All workspaces", exact: true }).click();
   await page
     .getByRole("menuitemcheckbox", { name: "Calendar Filter Recovery", exact: true })
     .click();
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^Filters\b/ }).click();
   await expect(page.getByRole("button", { name: /Audit scheduled filter recovery/ })).toHaveCount(
     0,
   );
@@ -94,19 +107,24 @@ test("Calendar explains filtered emptiness and clears filters without changing d
   await page.getByRole("menuitemradio", { name: "Bluesky", exact: true }).click();
   await page.getByRole("button", { name: "All posts", exact: true }).click();
   await page.getByRole("menuitemradio", { name: "Published", exact: true }).click();
-  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await page.getByRole("button", { name: /^Filters\b/ }).click();
+  await page.getByRole("main").getByRole("button", { name: "Clear filters", exact: true }).click();
+  await page.getByRole("button", { name: /^Filters\b/ }).click();
   for (const name of ["All workspaces", "All platforms", "All posts"]) {
     await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
   }
   await expect(
     page.getByRole("button", { name: /Audit scheduled filter recovery/ }).first(),
   ).toBeVisible();
+  await page.getByRole("button", { name: /^Filters\b/ }).click();
   await page.getByRole("button", { name: "Month", exact: true }).click();
   await page.getByRole("button", { name: "Next month", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "No posts in this view", exact: true }),
+    page.getByRole("heading", { name: "No posts on this day", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Clear filters", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("main").getByRole("button", { name: "Clear filters", exact: true }),
+  ).toHaveCount(0);
   expect(errors).toEqual([]);
   const result = await request.get(`/api/v1/publications/${publication.id}`, { headers });
   const stored = await result.json();

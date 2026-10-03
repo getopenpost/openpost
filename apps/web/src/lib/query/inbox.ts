@@ -68,7 +68,7 @@ export function createInboxQueryAPI(transport: QueryTransport): InboxQueryAPI {
 		async listPublications(workspaceId, filters, cursor, signal) {
 			const { data, response } = await queryGET({
 				signal,
-				fallback: 'Could not load publications.',
+				fallback: 'Could not load posts.',
 				request: async (requestSignal) => {
 					const result = await transport.GET('/publications', {
 						params: {

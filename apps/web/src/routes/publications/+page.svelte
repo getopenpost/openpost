@@ -935,13 +935,14 @@
 <Tabs value={activeTab} onValueChange={selectActivityTab} class="min-w-0 flex-1">
 	<PageContainer
 		title={m.activity_title()}
-		description={m.activity_description()}
+		headerActionLayout="inline"
 		themeIconRole="publications"
 		loading={initialLoading}
 		loadingLayout="list"
 		loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
 	>
 		{#snippet navigation()}
+			<div class="mb-3"><PublicationViewSwitch view="list" /></div>
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<TabsList
 					class="no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden sm:w-auto"
@@ -977,8 +978,6 @@
 			</div>
 		{/snippet}
 		{#snippet actions()}
-			<PublicationViewSwitch view="list" />
-
 			<Button variant="focal" size="sm" onclick={() => goto(resolveAppPath('/'))}>
 				<ThemeIcon role="add" class="mr-1.5 size-3.5" />
 				{m.activity_new_post()}

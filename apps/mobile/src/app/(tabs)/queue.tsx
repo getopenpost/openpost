@@ -442,7 +442,7 @@ function FailedCard({
             {errors.slice(0, 2).map((error, index) => (
               <BodyText key={index} numberOfLines={2}>
                 {error.platform ? `${platformLabel(error.platform)}: ` : ""}
-                {error.message ?? "Publication failed"}
+                {error.message ?? "Post failed"}
               </BodyText>
             ))}
             <BodyText>{relativeTime(publication.updated_at)}</BodyText>

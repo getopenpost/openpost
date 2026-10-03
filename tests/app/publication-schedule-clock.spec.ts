@@ -121,6 +121,10 @@ for (const clock of clocks) {
       await authenticatePage(page, auth.token);
       await page.goto("/calendar");
       for (const fixture of fixtures) {
+        await page
+          .getByTestId("calendar-date-picker")
+          .getByRole("button", { name: new RegExp(`${fixture.day}$`) })
+          .click();
         const item = page.getByRole("button").filter({ hasText: fixture.text });
         await expect(item).toContainText(fixture.time);
         await expect(item.locator("xpath=ancestor::section[1]").getByRole("heading")).toContainText(
@@ -153,9 +157,13 @@ for (const clock of clocks) {
           const calendar = page.getByRole("link", { name: "Calendar", exact: true });
           await calendar.focus();
           await page.keyboard.press("Enter");
-          await expect(
-            page.getByRole("heading", { name: "Publications", exact: true }),
-          ).toBeVisible();
+          await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
+          if (width < 1280) {
+            await page
+              .getByTestId("calendar-date-picker")
+              .getByRole("button", { name: new RegExp(`${fixtures[0].day}$`) })
+              .click();
+          }
           await expect(
             page.getByRole("button").filter({ hasText: fixtures[0].text }),
           ).toContainText(clock.scheduledTime);

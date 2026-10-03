@@ -40,7 +40,7 @@ test("unknown documents return 404 with a complete recovery page", async ({ page
   await expect(page.getByText("HTTP 404")).toBeVisible();
   await expect(page.getByRole("link", { name: "OpenPost home" })).toBeVisible();
   await expect(page.getByRole("link", { name: "New post" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Publications" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Posts" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Calendar" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Media" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Documentation" })).toHaveAttribute(

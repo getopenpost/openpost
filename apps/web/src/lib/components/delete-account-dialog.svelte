@@ -131,7 +131,6 @@
 				{m.settings_delete_impact({
 					workspaces: impact.workspaces,
 					accounts: impact.social_accounts,
-					posts: impact.posts,
 					publications: impact.publications,
 					media: impact.media
 				})}

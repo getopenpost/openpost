@@ -30,7 +30,7 @@ test("the default Dither workspace keeps real app controls usable in both scheme
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       for (const surface of [
         { path: "/media", name: "media", heading: "Media" },
-        { path: "/publications?tab=drafts", name: "publications", heading: "Publications" },
+        { path: "/publications?tab=drafts", name: "publications", heading: "Posts" },
         { path: "/image-editor", name: "image-editor", heading: "Image Editor" },
         { path: "/video-editor", name: "video-editor", heading: "Video Editor" },
       ]) {

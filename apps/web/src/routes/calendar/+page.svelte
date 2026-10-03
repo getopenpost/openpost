@@ -45,7 +45,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Select from '$lib/components/ui/select';
+	import * as Popover from '$lib/components/ui/popover';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { getLocaleTag } from '$lib/i18n';
@@ -130,10 +130,14 @@
 	let weekDragOverlayElement: HTMLDivElement | undefined = $state();
 	let weekScrollElement: HTMLElement | undefined = $state();
 	let weekBodyElement: HTMLElement | undefined = $state();
-	let selectedEmptyDateKey = $state('');
+	let selectedCompactDateKey = $state('');
+	let focusedCompactDateKey = $state('');
+	let pendingCompactFocus = $state('');
 	let selectedMonthDayKey = $state('');
 	let monthDayOpen = $state(false);
 	let calendarContent: HTMLElement | undefined = $state();
+	let filtersTriggerElement = $state<HTMLElement | null>(null);
+	let workspaceFilterTriggerElement = $state<HTMLElement | null>(null);
 	let todayReveal = $state<{ scope: string; day: string } | null>(null);
 	let activeRequest = 0;
 	let dataRevision = 0;
@@ -245,30 +249,65 @@
 	const selectedMonthDayItems = $derived(
 		selectedMonthDay ? (itemsByDay.get(selectedMonthDay.key) ?? []) : []
 	);
-	const agendaDays = $derived.by(() =>
-		displayDays
-			.filter((day) => viewMode === 'week' || !day.outsideMonth)
-			.map((day) => ({ day, items: itemsByDay.get(day.key) ?? [] }))
-			.filter((entry) => entry.items.length > 0)
+	const selectedCompactDay = $derived(
+		displayDays.find((day) => day.key === selectedCompactDateKey) ??
+			displayDays.find((day) => day.today) ??
+			displayDays.find((day) => !day.outsideMonth) ??
+			displayDays[0]
 	);
-	const emptyMonthDays = $derived(
-		displayDays.filter(
-			(day) =>
-				(viewMode === 'week' || !day.outsideMonth) &&
-				day.key >= workspaceTodayKey &&
-				(itemsByDay.get(day.key)?.length ?? 0) === 0
-		)
+	const compactDayItems = $derived(itemsByDay.get(selectedCompactDay.key) ?? []);
+	const compactTabStop = $derived(
+		displayDays.some((day) => day.key === focusedCompactDateKey)
+			? focusedCompactDateKey
+			: selectedCompactDay.key
 	);
-	const monthAllowsCreate = $derived(
-		displayDays.some((day) => (viewMode === 'week' || !day.outsideMonth) && !isPastDay(day))
+	const activeFilterCount = $derived(
+		Number(selectedStatus !== 'all') +
+			Number(selectedPlatform !== 'all') +
+			Number(selectedWorkspaceIds.length > 0 && selectedWorkspaceIds.length !== workspaces.length)
 	);
-	const selectedEmptyDay = $derived.by(
-		() =>
-			emptyMonthDays.find((day) => day.key === selectedEmptyDateKey) ??
-			emptyMonthDays.find((day) => day.today) ??
-			emptyMonthDays[0] ??
-			null
-	);
+
+	async function onCompactDateKeyDown(event: KeyboardEvent, day: CalendarDay) {
+		const index = displayDays.findIndex((entry) => entry.key === day.key);
+		const rowStart = Math.floor(index / 7) * 7;
+		const targetIndexes: Record<string, number> = {
+			ArrowLeft: index - 1,
+			ArrowRight: index + 1,
+			ArrowUp: index - 7,
+			ArrowDown: index + 7,
+			Home: rowStart,
+			End: rowStart + 6
+		};
+		const targetIndex = targetIndexes[event.key];
+		if (targetIndex === undefined) return;
+		event.preventDefault();
+		const target = displayDays[targetIndex];
+		if (!target) {
+			const date = addDays(day.date, targetIndex - index);
+			const key = dateKey(date);
+			focusedCompactDateKey = key;
+			pendingCompactFocus = key;
+			currentMonth = viewMode === 'week' ? date : startOfMonth(date);
+			return;
+		}
+		focusedCompactDateKey = target.key;
+		await tick();
+		calendarContent
+			?.querySelector<HTMLButtonElement>(`[data-calendar-date="${target.key}"]`)
+			?.focus();
+	}
+	$effect(() => {
+		const key = pendingCompactFocus;
+		if (!key || initialLoading || completedLoadKey !== loadKey) return;
+		void tick().then(() => {
+			if (pendingCompactFocus !== key || completedLoadKey !== loadKey || initialLoading) return;
+			const active = document.activeElement;
+			if (active === document.body || active?.hasAttribute('data-calendar-date')) {
+				calendarContent?.querySelector<HTMLButtonElement>(`[data-calendar-date="${key}"]`)?.focus();
+			}
+			pendingCompactFocus = '';
+		});
+	});
 	const weekHours = Array.from({ length: 24 }, (_, hour) => hour);
 	const selectedWorkspaceLabel = $derived.by(() => {
 		if (selectedWorkspaceIds.length === 0 || selectedWorkspaceIds.length === workspaces.length) {
@@ -523,12 +562,7 @@
 		weekDragController.cancel();
 		monthDayOpen = false;
 		if (nextView === 'week') {
-			const today = workspaceTodayDate(viewerTimeZone);
-			currentMonth =
-				today.getFullYear() === currentMonth.getFullYear() &&
-				today.getMonth() === currentMonth.getMonth()
-					? today
-					: new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1, 12);
+			currentMonth = selectedCompactDay.date;
 		} else {
 			currentMonth = startOfMonth(currentMonth);
 		}
@@ -564,7 +598,8 @@
 		monthDayOpen = false;
 		const today = workspaceTodayDate(viewerTimeZone);
 		currentMonth = viewMode === 'month' ? startOfMonth(today) : today;
-		selectedEmptyDateKey = workspaceTodayKey;
+		selectedCompactDateKey = workspaceTodayKey;
+		focusedCompactDateKey = workspaceTodayKey;
 		todayReveal = { scope: loadKey, day: workspaceTodayKey };
 	}
 
@@ -603,10 +638,6 @@
 		const workspaceId = composeWorkspaceId();
 		if (workspaceId) params.set('workspace_id', workspaceId);
 		goto(resolve(`/?${params.toString()}`));
-	}
-
-	function createPostOnSelectedEmptyDate() {
-		if (selectedEmptyDay) createPostOnDate(selectedEmptyDay.date);
 	}
 
 	function onDragStart(event: DragEvent, item: CalendarItem) {
@@ -1092,14 +1123,6 @@
 		});
 	}
 
-	function formatEmptyDate(value: Date) {
-		return formatWorkspaceDate(value, {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
-
 	function formatLongDateTime(value: string) {
 		return new Date(value).toLocaleString(getLocaleTag(), {
 			month: 'short',
@@ -1108,6 +1131,12 @@
 			minute: '2-digit',
 			timeZone: viewerTimeZone
 		});
+	}
+
+	function formatDayPostCount(count: number) {
+		return count === 1
+			? m.activity_thread_post_one({ count })
+			: m.calendar_day_posts_summary({ count });
 	}
 
 	function itemTone(item: CalendarItem) {
@@ -1119,7 +1148,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.calendar_page_title()}</title>
+	<title>{m.activity_title()} · {m.sidebar_calendar()} · {m.common_openpost()}</title>
 </svelte:head>
 
 <div
@@ -1128,190 +1157,212 @@
 >
 	<PageContainer
 		contentLayout="fill"
+		headerActionLayout="inline"
 		themeIconRole="publications"
 		title={m.activity_title()}
-		description={m.activity_description()}
 	>
 		{#snippet actions()}
-			<PublicationViewSwitch view="calendar" />
-
 			<Button href={resolve('/')} variant="focal" size="sm"
 				><ThemeIcon role="add" class="mr-1.5 size-3.5" />{m.activity_new_post()}</Button
 			>
 		{/snippet}
 		{#snippet navigation()}
-			<div class="flex flex-wrap items-center gap-2">
-				<p class="mr-auto min-w-40 text-sm font-medium" aria-live="polite">
-					{formatCalendarTitle()}
-				</p>
-				<div class="inline-flex rounded-md border bg-card p-1">
-					<Tooltip.Root>
-						<Tooltip.Trigger>
-							{#snippet child({ props })}
-								<Button
-									{...props}
-									variant="ghost"
-									size="icon-sm"
-									aria-label={viewMode === 'month'
-										? m.calendar_previous_month()
-										: m.calendar_previous_week()}
-									onclick={() => changeMonth(-1)}
-								>
-									<ThemeIcon role="chevron-left" class="size-4" />
-								</Button>
-							{/snippet}
-						</Tooltip.Trigger>
-						<Tooltip.Content>
-							{viewMode === 'month' ? m.calendar_previous_month() : m.calendar_previous_week()}
-						</Tooltip.Content>
-					</Tooltip.Root>
-					<Button variant="ghost" size="sm" onclick={goToToday}>{m.calendar_today()}</Button>
-					<Tooltip.Root>
-						<Tooltip.Trigger>
-							{#snippet child({ props })}
-								<Button
-									{...props}
-									variant="ghost"
-									size="icon-sm"
-									aria-label={viewMode === 'month'
-										? m.calendar_next_month()
-										: m.calendar_next_week()}
-									onclick={() => changeMonth(1)}
-								>
-									<ThemeIcon role="chevron-right" class="size-4" />
-								</Button>
-							{/snippet}
-						</Tooltip.Trigger>
-						<Tooltip.Content>
-							{viewMode === 'month' ? m.calendar_next_month() : m.calendar_next_week()}
-						</Tooltip.Content>
-					</Tooltip.Root>
-				</div>
-
-				<div class="inline-flex rounded-md border bg-card p-1">
-					<Button
-						variant={viewMode === 'month' ? 'secondary' : 'ghost'}
-						size="sm"
-						class="min-w-11 gap-1.5 md:min-w-8 2xl:min-w-0"
-						aria-label={m.calendar_month_view()}
-						onclick={() => changeView('month')}
-					>
-						<ThemeIcon role="calendar" class="size-3.5" />
-						<span class="hidden 2xl:inline">{m.calendar_month_view()}</span>
-					</Button>
-					<Button
-						variant={viewMode === 'week' ? 'secondary' : 'ghost'}
-						size="sm"
-						class="min-w-11 gap-1.5 md:min-w-8 2xl:min-w-0"
-						aria-label={m.calendar_week_view()}
-						onclick={() => changeView('week')}
-					>
-						<ThemeIcon role="layout" class="size-3.5" />
-						<span class="hidden 2xl:inline">{m.calendar_week_view()}</span>
-					</Button>
-				</div>
-
-				<Button
-					variant="outline"
-					size="icon-sm"
-					aria-label={m.common_refresh()}
-					disabled={loading || Boolean(reschedulingKey)}
-					onclick={() => loadCalendarData(loadKey, true)}
-				>
-					<ThemeIcon role="refresh" class={cn('size-4', loading && 'animate-spin')} />
-				</Button>
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button {...props} variant="outline" class="max-w-64 justify-start">
-								<span class="truncate">{selectedWorkspaceLabel}</span>
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content class="w-64" align="end">
-						<DropdownMenu.Label>{m.calendar_workspace_filter()}</DropdownMenu.Label>
-						<DropdownMenu.CheckboxItem
-							checked={selectedWorkspaceIds.length === 0}
-							onCheckedChange={() => (selectedWorkspaceIds = [])}
-							class="gap-2"
+			<div class="space-y-3">
+				<PublicationViewSwitch view="calendar" />
+				<div class="flex flex-wrap items-center gap-2">
+					<div class="flex min-w-0 flex-1 items-center gap-1">
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label={viewMode === 'month'
+								? m.calendar_previous_month()
+								: m.calendar_previous_week()}
+							onclick={() => changeMonth(-1)}
 						>
-							<span>{m.calendar_all_workspaces()}</span>
-						</DropdownMenu.CheckboxItem>
-						<DropdownMenu.Separator />
-						{#each workspaces as workspace (workspace.id)}
-							<DropdownMenu.CheckboxItem
-								checked={workspaceSelected(workspace.id)}
-								onCheckedChange={() => toggleWorkspace(workspace.id)}
-								class="gap-2"
+							<ThemeIcon role="chevron-left" class="size-4" />
+						</Button>
+						<p class="min-w-0 flex-1 text-sm font-semibold sm:flex-none sm:px-2" aria-live="polite">
+							{formatCalendarTitle()}
+						</p>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label={viewMode === 'month' ? m.calendar_next_month() : m.calendar_next_week()}
+							onclick={() => changeMonth(1)}
+						>
+							<ThemeIcon role="chevron-right" class="size-4" />
+						</Button>
+						<Button variant="outline" size="sm" onclick={goToToday}>{m.calendar_today()}</Button>
+					</div>
+					<div class="flex w-full items-center justify-between gap-2 sm:w-auto">
+						<div
+							class="inline-flex gap-0.5 rounded-md bg-muted p-0.5"
+							role="group"
+							aria-label={m.sidebar_calendar()}
+						>
+							<Button
+								variant="ghost"
+								size="sm"
+								class={cn(viewMode === 'month' && 'bg-background text-foreground')}
+								aria-pressed={viewMode === 'month'}
+								onclick={() => changeView('month')}>{m.calendar_month_view()}</Button
 							>
-								<span class="h-2 w-2 rounded-full" style={workspaceDotStyle(workspace.id)}></span>
-								<span class="truncate">{workspace.name}</span>
-							</DropdownMenu.CheckboxItem>
-						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
+							<Button
+								variant="ghost"
+								size="sm"
+								class={cn(viewMode === 'week' && 'bg-background text-foreground')}
+								aria-pressed={viewMode === 'week'}
+								onclick={() => changeView('week')}>{m.calendar_week_view()}</Button
+							>
+						</div>
+						<div class="flex items-center gap-1">
+							<Popover.Root>
+								<Popover.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											bind:ref={filtersTriggerElement}
+											variant="outline"
+											size="sm"
+											class="gap-1.5"
+										>
+											<ThemeIcon role="filter" class="size-4" />
+											{m.media_filters()}
+											{#if activeFilterCount}<span class="rounded-sm bg-muted px-1.5 text-xs"
+													>{activeFilterCount}</span
+												>{/if}
+										</Button>
+									{/snippet}
+								</Popover.Trigger>
+								<Popover.Content
+									align="end"
+									class="w-72 space-y-2"
+									data-calendar-filters
+									onOpenAutoFocus={(event) => {
+										// Keep a choice made while the popover's opening animation finishes.
+										event.preventDefault();
+										if (document.activeElement === filtersTriggerElement)
+											workspaceFilterTriggerElement?.focus();
+									}}
+								>
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button
+													{...props}
+													bind:ref={workspaceFilterTriggerElement}
+													variant="outline"
+													class="w-full justify-between"
+												>
+													<span class="truncate">{selectedWorkspaceLabel}</span>
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content class="w-64" align="end">
+											<DropdownMenu.Label>{m.calendar_workspace_filter()}</DropdownMenu.Label>
+											<DropdownMenu.CheckboxItem
+												checked={selectedWorkspaceIds.length === 0}
+												onCheckedChange={() => (selectedWorkspaceIds = [])}
+												class="gap-2"
+											>
+												<span>{m.calendar_all_workspaces()}</span>
+											</DropdownMenu.CheckboxItem>
+											<DropdownMenu.Separator />
+											{#each workspaces as workspace (workspace.id)}
+												<DropdownMenu.CheckboxItem
+													checked={workspaceSelected(workspace.id)}
+													onCheckedChange={() => toggleWorkspace(workspace.id)}
+													class="gap-2"
+												>
+													<span class="h-2 w-2 rounded-full" style={workspaceDotStyle(workspace.id)}
+													></span>
+													<span class="truncate">{workspace.name}</span>
+												</DropdownMenu.CheckboxItem>
+											{/each}
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
 
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button {...props} variant="outline" class="max-w-48 justify-start">
-								<span class="truncate">
-									{selectedPlatform === 'all'
-										? m.calendar_all_platforms()
-										: platformLabel(selectedPlatform)}
-								</span>
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button {...props} variant="outline" class="w-full justify-between">
+													<span class="truncate">
+														{selectedPlatform === 'all'
+															? m.calendar_all_platforms()
+															: platformLabel(selectedPlatform)}
+													</span>
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content class="w-52" align="end">
+											<DropdownMenu.Label>{m.calendar_platform_filter()}</DropdownMenu.Label>
+											<DropdownMenu.RadioGroup bind:value={selectedPlatform}>
+												<DropdownMenu.RadioItem value="all" class="gap-2">
+													<span>{m.calendar_all_platforms()}</span>
+												</DropdownMenu.RadioItem>
+												{#each availablePlatforms as platform (platform)}
+													<DropdownMenu.RadioItem value={platform} class="gap-2">
+														<PlatformIcon {platform} class="size-4" />
+														<span>{platformLabel(platform)}</span>
+													</DropdownMenu.RadioItem>
+												{/each}
+											</DropdownMenu.RadioGroup>
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
+
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button {...props} variant="outline" class="w-full justify-between">
+													<span class="truncate">{statusFilterLabel()}</span>
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content class="w-48" align="end">
+											<DropdownMenu.Label>{m.calendar_status_filter()}</DropdownMenu.Label>
+											<DropdownMenu.RadioGroup bind:value={selectedStatus}>
+												<DropdownMenu.RadioItem value="all">
+													{m.calendar_status_all()}
+												</DropdownMenu.RadioItem>
+												<DropdownMenu.RadioItem value="scheduled">
+													{m.calendar_status_scheduled()}
+												</DropdownMenu.RadioItem>
+												<DropdownMenu.RadioItem value="published">
+													{m.calendar_status_published()}
+												</DropdownMenu.RadioItem>
+											</DropdownMenu.RadioGroup>
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
+
+									{#if hasSelectedFilters}
+										<Button variant="ghost" size="sm" class="w-full" onclick={clearFilters}
+											>{m.messages_clear_filters()}</Button
+										>
+									{/if}
+									<div class="border-t pt-2">
+										<Button
+											variant="ghost"
+											size="sm"
+											class="w-full justify-start gap-2"
+											href={resolve('/settings') + '?tab=schedule#posting-schedule'}
+										>
+											<ThemeIcon role="settings" class="size-4" />{m.settings_posting_schedule()}
+										</Button>
+									</div>
+								</Popover.Content>
+							</Popover.Root>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								aria-label={m.common_refresh()}
+								disabled={loading || Boolean(reschedulingKey)}
+								onclick={() => loadCalendarData(loadKey, true)}
+							>
+								<ThemeIcon role="refresh" class={cn('size-4', loading && 'animate-spin')} />
 							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content class="w-52" align="end">
-						<DropdownMenu.Label>{m.calendar_platform_filter()}</DropdownMenu.Label>
-						<DropdownMenu.RadioGroup bind:value={selectedPlatform}>
-							<DropdownMenu.RadioItem value="all" class="gap-2">
-								<span>{m.calendar_all_platforms()}</span>
-							</DropdownMenu.RadioItem>
-							{#each availablePlatforms as platform (platform)}
-								<DropdownMenu.RadioItem value={platform} class="gap-2">
-									<PlatformIcon {platform} class="size-4" />
-									<span>{platformLabel(platform)}</span>
-								</DropdownMenu.RadioItem>
-							{/each}
-						</DropdownMenu.RadioGroup>
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button {...props} variant="outline" class="max-w-44 justify-start">
-								<span class="truncate">{statusFilterLabel()}</span>
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content class="w-48" align="end">
-						<DropdownMenu.Label>{m.calendar_status_filter()}</DropdownMenu.Label>
-						<DropdownMenu.RadioGroup bind:value={selectedStatus}>
-							<DropdownMenu.RadioItem value="all">
-								{m.calendar_status_all()}
-							</DropdownMenu.RadioItem>
-							<DropdownMenu.RadioItem value="scheduled">
-								{m.calendar_status_scheduled()}
-							</DropdownMenu.RadioItem>
-							<DropdownMenu.RadioItem value="published">
-								{m.calendar_status_published()}
-							</DropdownMenu.RadioItem>
-						</DropdownMenu.RadioGroup>
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-
-				<Button
-					variant="outline"
-					class="gap-1.5"
-					aria-label={m.calendar_open_queue()}
-					href={resolve('/settings') + '?tab=schedule#posting-schedule'}
-				>
-					<ThemeIcon role="layout" class="size-4" />
-					<span class="hidden 2xl:inline">{m.calendar_open_queue()}</span>
-				</Button>
+						</div>
+					</div>
+				</div>
 			</div>
 		{/snippet}
 
@@ -1350,7 +1401,11 @@
 			</div>
 		{/if}
 
-		<div bind:this={calendarContent} data-calendar-content class="min-h-0 flex-1 overflow-auto">
+		<div
+			bind:this={calendarContent}
+			data-calendar-content
+			class="-mx-4 min-h-0 flex-1 overflow-auto px-4 sm:mx-0 sm:px-0"
+		>
 			{#if initialLoading}
 				<PageLoading layout="calendar" label={m.common_loading()} />
 			{:else if loadError && completedLoadKey !== loadKey}
@@ -1377,99 +1432,125 @@
 					</InlineNotice>
 				{/if}
 				<section
-					class="space-y-5 xl:hidden"
+					class="grid min-w-0 gap-5 sm:grid-cols-[minmax(20rem,22rem)_minmax(0,1fr)] xl:hidden"
 					aria-label={viewMode === 'week' ? m.calendar_week_grid() : m.calendar_month_grid()}
 				>
-					{#if visibleItems.length > 0 && selectedEmptyDay}
-						<div
-							data-calendar-empty-day={selectedEmptyDay.key}
-							data-testid="calendar-empty-date-create"
-							class="rounded-lg border bg-muted/20 p-3"
-						>
-							<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-								<div class="min-w-0">
-									<h2 class="text-sm font-semibold">{m.calendar_empty_date_heading()}</h2>
-									<p class="mt-1 text-xs text-muted-foreground">
-										{m.calendar_empty_date_body({ month: formatCalendarTitle() })}
-									</p>
-								</div>
-								<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-									<Select.Root
-										type="single"
-										value={selectedEmptyDay.key}
-										onValueChange={(value) => value && (selectedEmptyDateKey = value)}
-									>
-										<Select.Trigger
-											class="min-h-11 w-full sm:min-h-9 sm:w-44"
-											aria-label={m.calendar_empty_date_picker({
-												month: formatCalendarTitle()
-											})}
-										>
-											{formatEmptyDate(selectedEmptyDay.date)}
-										</Select.Trigger>
-										<Select.Content>
-											{#each emptyMonthDays as day (day.key)}
-												<Select.Item value={day.key}>{formatEmptyDate(day.date)}</Select.Item>
-											{/each}
-										</Select.Content>
-									</Select.Root>
-									<Button
-										class="min-h-11 w-full gap-2 sm:min-h-9 sm:w-auto"
-										onclick={createPostOnSelectedEmptyDate}
-									>
-										<ThemeIcon role="add" class="size-4" />
-										{m.calendar_create_post()}
-									</Button>
-								</div>
-							</div>
-						</div>
-					{/if}
-
-					{#each agendaDays as entry (entry.day.key)}
-						<section data-calendar-agenda-day={entry.day.key}>
-							<div class="mb-2 flex items-center justify-between gap-3">
-								<h2 class="text-sm font-semibold">{formatAgendaDate(entry.day.date)}</h2>
-								<Button
-									variant="ghost"
-									size="icon-sm"
-									aria-label={`${m.calendar_create_post()} ${entry.day.key}`}
-									disabled={isPastDay(entry.day)}
-									onclick={() => createPostOnDate(entry.day.date)}
+					<div
+						data-testid="calendar-date-picker"
+						class="compact-calendar -mx-4 self-start border-y bg-card px-1 py-2 sm:mx-0 sm:rounded-lg sm:border sm:px-2"
+					>
+						<div class="grid grid-cols-7">
+							{#each weekdayLabels as label (label)}
+								<span class="py-2 text-center text-xs font-medium text-muted-foreground"
+									>{label}</span
 								>
-									<ThemeIcon role="add" class="size-4" />
-								</Button>
+							{/each}
+						</div>
+						<div class="grid grid-cols-7">
+							{#each displayDays as day (day.key)}
+								{@const dayItems = itemsByDay.get(day.key) ?? []}
+								<button
+									type="button"
+									data-calendar-date={day.key}
+									tabindex={compactTabStop === day.key ? 0 : -1}
+									aria-label={formatAgendaDate(day.date)}
+									aria-describedby={`calendar-date-count-${day.key}`}
+									aria-pressed={selectedCompactDay.key === day.key}
+									aria-current={day.today ? 'date' : undefined}
+									class={cn(
+										'relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-md text-sm tabular-nums hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',
+										day.outsideMonth && 'text-muted-foreground',
+										day.today && 'font-bold underline underline-offset-4',
+										selectedCompactDay.key === day.key &&
+											'bg-primary text-primary-foreground hover:bg-primary'
+									)}
+									onclick={() => {
+										selectedCompactDateKey = day.key;
+										focusedCompactDateKey = day.key;
+									}}
+									onkeydown={(event) => void onCompactDateKeyDown(event, day)}
+								>
+									<span>{day.date.getDate()}</span>
+									<span class="flex h-1 items-center gap-0.5" aria-hidden="true">
+										{#each dayItems.slice(0, 3) as item (item.key)}<span
+												class="size-1 rounded-full bg-current"
+											></span>{/each}
+									</span>
+									<span class="sr-only" id={`calendar-date-count-${day.key}`}
+										>{formatDayPostCount(dayItems.length)}</span
+									>
+								</button>
+							{/each}
+						</div>
+					</div>
+					<section
+						class="min-w-0"
+						data-calendar-agenda-day={selectedCompactDay.key}
+						aria-label={formatAgendaDate(selectedCompactDay.date)}
+					>
+						<div class="mb-2 flex items-center justify-between gap-3">
+							<div class="min-w-0">
+								<h2 class="text-sm font-semibold">{formatAgendaDate(selectedCompactDay.date)}</h2>
+								<p class="mt-1 text-xs text-muted-foreground">
+									{formatDayPostCount(compactDayItems.length)}
+								</p>
 							</div>
-							<div class="divide-y overflow-hidden rounded-lg border bg-card">
-								{#each entry.items as item (item.key)}
+							{#if !isPastDay(selectedCompactDay)}
+								<Button
+									variant="outline"
+									size="sm"
+									class="gap-1.5"
+									onclick={() => createPostOnDate(selectedCompactDay.date)}
+									><ThemeIcon role="add" class="size-4" />{m.calendar_create_post()}</Button
+								>
+							{/if}
+						</div>
+						{#if compactDayItems.length === 0}
+							<EmptyState
+								themeIconRole="calendar"
+								title={m.calendar_no_posts_on_day()}
+								size="sm"
+								variant="muted"
+							/>
+						{:else}
+							<div class="divide-y border-y">
+								{#each compactDayItems as item (item.key)}
 									<button
 										type="button"
-										class="flex w-full items-start gap-3 p-3 text-left transition-colors hover:bg-muted/45 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+										class="flex w-full items-start gap-3 py-4 text-left transition-colors hover:bg-muted/45 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 										onclick={() => openItem(item)}
 									>
-										<div class="w-14 shrink-0 pt-0.5 text-sm font-medium text-muted-foreground">
-											{formatTime(item.occursAt)}
-										</div>
-										<div class="min-w-0 flex-1">
-											<p class="line-clamp-2 text-sm leading-snug font-medium">{item.title}</p>
-											<div
-												class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
+										<time
+											datetime={item.occursAt}
+											class="w-14 shrink-0 pt-0.5 text-xs font-medium text-muted-foreground tabular-nums"
+											>{formatTime(item.occursAt)}</time
+										>
+										<span class="min-w-0 flex-1">
+											<span class="line-clamp-2 block text-sm leading-snug font-medium"
+												>{item.title}</span
 											>
+											<span
+												class="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+											>
+												<Badge
+													>{item.status === 'published'
+														? m.calendar_status_published()
+														: m.calendar_status_scheduled()}</Badge
+												>
 												<span>{item.workspaceName}</span>
-												{#each item.accounts.slice(0, 3) as account (account.id)}
-													<span
-														class="inline-flex max-w-28 items-center gap-1 rounded-full bg-muted px-2 py-0.5"
-													>
-														<PlatformIcon platform={account.platform} class="size-3" />
-														<span class="truncate">{account.label}</span>
-													</span>
-												{/each}
-											</div>
-										</div>
+												{#each item.accounts.slice(0, 3) as account (account.id)}<span
+														class="inline-flex max-w-28 items-center gap-1"
+														><PlatformIcon platform={account.platform} class="size-3" /><span
+															class="truncate">{account.label}</span
+														></span
+													>{/each}
+											</span>
+										</span>
 									</button>
 								{/each}
 							</div>
-						</section>
-					{/each}
+						{/if}
+					</section>
 				</section>
 
 				{#if viewMode === 'month'}
@@ -1739,19 +1820,6 @@
 						</div>
 					</section>
 				{/if}
-
-				{#if visibleItems.length === 0 && !filteredEmpty}
-					<div class="mt-5 xl:hidden">
-						<EmptyState
-							themeIconRole="calendar"
-							title={m.calendar_no_scheduled_title()}
-							description={m.calendar_no_scheduled_body()}
-							actionLabel={monthAllowsCreate ? m.calendar_create_post() : undefined}
-							onAction={monthAllowsCreate ? createPostOnSelectedEmptyDate : undefined}
-							variant="dashed"
-						/>
-					</div>
-				{/if}
 			{/if}
 		</div>
 	</PageContainer>
@@ -1778,7 +1846,7 @@
 						{selectedMonthDay ? formatAgendaDate(selectedMonthDay.date) : ''}
 					</Sheet.Title>
 					<Sheet.Description class="mt-1 text-sm">
-						{m.calendar_day_posts_summary({ count: selectedMonthDayItems.length })}
+						{formatDayPostCount(selectedMonthDayItems.length)}
 					</Sheet.Description>
 				</div>
 				{#if selectedMonthDay && !isPastDay(selectedMonthDay)}

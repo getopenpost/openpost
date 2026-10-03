@@ -3,9 +3,11 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
-async function openPublicationsFromSidebar(page: Page) {
-  await page.getByTestId("sidebar-workspace-footer").getByRole("button", { name: "More" }).click();
-  await page.getByRole("menuitem", { name: "Publications", exact: true }).click();
+async function openPostsFromSidebar(page: Page) {
+  await page
+    .getByTestId("sidebar-workspace-navigation")
+    .getByRole("button", { name: "Posts", exact: true })
+    .click();
 }
 
 test("create a theme, reopen its draft, publish, apply, and return to Appearance", async ({
@@ -66,14 +68,14 @@ test("create a theme, reopen its draft, publish, apply, and return to Appearance
   await page.getByRole("button", { name: "Apply My theme", exact: true }).click();
   await expect(page.getByRole("button", { name: "Applied My theme", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop testing" })).toHaveCount(0);
-  await openPublicationsFromSidebar(page);
+  await openPostsFromSidebar(page);
   await expect(page).toHaveURL(/\/publications(?:\?|$)/);
   await page.goBack();
   await expect(page.getByRole("button", { name: "Test Notebook", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Test Notebook", exact: true }).click();
   await page.getByRole("button", { name: "Apply Notebook", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme-id", "notebook");
-  await openPublicationsFromSidebar(page);
+  await openPostsFromSidebar(page);
   await expect(page).toHaveURL(/\/publications(?:\?|$)/);
   await page.goBack();
   await expect(page.getByRole("button", { name: "Create theme", exact: true })).toBeEnabled();
@@ -152,7 +154,7 @@ test("tests every built-in theme and restores the saved theme when leaving Appea
     await page.getByRole("button", { name: `Test ${theme.name}`, exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme-id", theme.reference.id);
   }
-  await openPublicationsFromSidebar(page);
+  await openPostsFromSidebar(page);
   await expect(page).toHaveURL(/\/publications(?:\?|$)/);
   await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
   await page.goBack();

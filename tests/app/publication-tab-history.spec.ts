@@ -65,7 +65,7 @@ test("publication tab selection keeps the visible URL, reload and history in agr
   }
 
   const failed = page.getByRole("tab", { name: "Failed", exact: true });
-  const view = page.getByRole("navigation", { name: "Publication view" });
+  const view = page.getByRole("navigation", { name: "Post view" });
   await page.goto("/publications?tab=failed");
   await expect(failed).toHaveAttribute("aria-selected", "true");
   await view.getByRole("link", { name: "Calendar", exact: true }).focus();

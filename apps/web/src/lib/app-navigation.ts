@@ -48,7 +48,7 @@ export const primaryNavigation: PrimaryNavigationItem[] = [
 	{ id: 'calendar', label: 'Calendar', href: '/calendar', family: 'calendar', mobile: true },
 	{
 		id: 'publications',
-		label: 'Publications',
+		label: 'Posts',
 		href: '/publications',
 		family: 'publications',
 		mobile: true

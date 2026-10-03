@@ -17,7 +17,7 @@ test("publications keeps the main workflow clear across list, search, and calend
   await authenticatePage(page, auth.token);
 
   await page.goto("/publications?tab=drafts");
-  await expect(page.getByRole("heading", { name: "Publications" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Search posts" })).toBeVisible();
   const selectedTab = page.getByRole("tab", { name: "Drafts", exact: true });
   await expect(selectedTab).toHaveCSS("border-radius", "0px");
@@ -36,7 +36,7 @@ test("publications keeps the main workflow clear across list, search, and calend
       true,
     );
     await page.screenshot({
-      path: `.impeccable/review/dither-migration/publications-${width}-${scheme}.png`,
+      path: `.impeccable/review/posts/list-${width}-${scheme}.png`,
       fullPage: true,
     });
   }
@@ -52,7 +52,7 @@ test("publications keeps the main workflow clear across list, search, and calend
   await page.goto("/publications?tab=drafts");
   await page.getByRole("link", { name: "Calendar" }).click();
   await expect(page).toHaveURL(/\/calendar$/);
-  await expect(page.getByRole("heading", { name: "Publications" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
   for (const [width, scheme] of [
     [1440, "light"],
     [390, "dark"],
@@ -65,7 +65,7 @@ test("publications keeps the main workflow clear across list, search, and calend
       true,
     );
     await page.screenshot({
-      path: `.impeccable/review/dither-migration/calendar-${width}-${scheme}.png`,
+      path: `.impeccable/review/posts/calendar-${width}-${scheme}.png`,
       fullPage: true,
     });
   }

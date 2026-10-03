@@ -11,6 +11,7 @@
 		ResolvedTranscriptionEngine
 	} from '$lib/video-editor/transcript/engine/types';
 	import type { QuickCutSource, QuickCutSegment } from '../types';
+	import { getSelectedAudioStreams } from '../model';
 	let {
 		source,
 		segments,
@@ -28,8 +29,10 @@
 		onremove: (sourceId: string, ranges: Array<{ start: number; end: number }>) => void;
 		onseek: (time: number) => void;
 	} = $props();
+	const audioStreams = $derived(getSelectedAudioStreams(source));
 	const audioTrackIndex = $derived(
-		source.selectedAudioTrackIndices?.[0] ?? source.audioStreams[0]?.index
+		audioStreams.find((stream) => stream.index === source.transcript?.audioTrackIndex)?.index ??
+			audioStreams[0]?.index
 	);
 	const transcript = $derived(
 		source.transcript?.audioTrackIndex === audioTrackIndex ? source.transcript : undefined

@@ -358,7 +358,7 @@ type RenderMemeInput struct {
 		Captions        []string `json:"captions" required:"true" minItems:"1" maxItems:"16" maxLength:"200" doc:"Caption values in template order"`
 		OverlayMediaIDs []string `json:"overlay_media_ids,omitempty" maxItems:"8" maxLength:"80" doc:"Workspace media IDs for replaceable image slots"`
 		Format          string   `json:"format,omitempty" default:"png" enum:"png,jpg,jpeg,gif,webp" doc:"Rendered image format"`
-		Filename        string   `json:"filename,omitempty" maxLength:"255" doc:"Output filename; its extension must match the selected format. Defaults to the template-based filename."`
+		Filename        string   `json:"filename,omitempty" maxLength:"255" doc:"Output filename; its extension must match the rendered format (.jpg for jpg or jpeg). Defaults to the template-based filename."`
 		AltText         string   `json:"alt_text,omitempty" maxLength:"500" doc:"Alternative text saved with the media"`
 		ParentMediaID   string   `json:"parent_media_id,omitempty" maxLength:"80" doc:"Prior generated media when this is an edited version"`
 	}

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"io"
 	"net/http"
@@ -495,12 +496,15 @@ func TestMemeRenderPreservesRequestedFilenameAndRejectsInvalidNames(t *testing.T
 	for _, tc := range []struct {
 		name     string
 		filename string
+		format   string
 		want     string
 		status   int
 	}{
 		{name: "legacy", want: "meme-drake.png", status: http.StatusOK},
 		{name: "authored Unicode", filename: "Audit café named meme.png", want: "Audit café named meme.png", status: http.StatusOK},
 		{name: "extension inferred", filename: "Named meme", want: "Named meme.png", status: http.StatusOK},
+		{name: "JPEG canonical extension", filename: "Named meme.jpg", format: "jpeg", want: "Named meme.jpg", status: http.StatusOK},
+		{name: "JPEG noncanonical extension", filename: "Named meme.jpeg", format: "jpeg", status: http.StatusBadRequest},
 		{name: "path separator", filename: "../other.png", status: http.StatusBadRequest},
 		{name: "control character", filename: "bad\nname.png", status: http.StatusBadRequest},
 		{name: "wrong extension", filename: "named.gif", status: http.StatusBadRequest},
@@ -509,6 +513,12 @@ func TestMemeRenderPreservesRequestedFilenameAndRejectsInvalidNames(t *testing.T
 			t.Parallel()
 			srv := newMemeHandlerTestServer(t, nil)
 			body := map[string]any{"workspace_id": "ws-1", "template_id": "drake", "captions": []string{"A", "B"}}
+			if tc.format != "" {
+				body["format"] = tc.format
+				var data bytes.Buffer
+				require.NoError(t, jpeg.Encode(&data, image.NewNRGBA(image.Rect(0, 0, 1, 1)), nil))
+				srv.provider.renderedData = data.Bytes()
+			}
 			if tc.filename != "" {
 				body["filename"] = tc.filename
 			}

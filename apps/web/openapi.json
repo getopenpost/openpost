@@ -16737,7 +16737,7 @@
 						"type": ["array", "null"]
 					},
 					"filename": {
-						"description": "Output filename; its extension must match the selected format. Defaults to the template-based filename.",
+						"description": "Output filename; its extension must match the rendered format (.jpg for jpg or jpeg). Defaults to the template-based filename.",
 						"maxLength": 255,
 						"type": "string"
 					},

@@ -13292,7 +13292,7 @@ export interface components {
             alt_text?: string;
             /** @description Caption values in template order */
             captions: string[] | null;
-            /** @description Output filename; its extension must match the selected format. Defaults to the template-based filename. */
+            /** @description Output filename; its extension must match the rendered format (.jpg for jpg or jpeg). Defaults to the template-based filename. */
             filename?: string;
             /**
              * @description Rendered image format

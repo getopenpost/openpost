@@ -30,10 +30,11 @@ test("editor audit controls fit desktop and phone widths in both schemes", async
   expect(errors).toEqual([]);
 });
 
-test("workspace template opens immediately with its pages and editable title", async ({
+test("ordinary start page opens workspace templates with their pages and editable title", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
+  test.setTimeout(60_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.stack || error.message));
   const auth = await registerUser(request, `image-template-audit-${randomUUID()}@example.com`);
@@ -67,11 +68,43 @@ test("workspace template opens immediately with its pages and editable title", a
   });
   expect(templateResponse.ok()).toBe(true);
   await authenticatePage(page, auth.token);
-  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+  await page.goto("/image-editor");
+  await expect(page.getByRole("button", { name: "Saved to OpenPost", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Workspace templates", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Starter templates", exact: true })).toBeVisible();
   const showAll = page.getByRole("button", { name: /Show all .* templates/ });
   if (await showAll.isVisible()) await showAll.click();
-  await page.getByRole("button", { name: /^Audit workspace template/ }).click();
+  const workspaceCard = page.getByRole("button", { name: /^Audit workspace template/ });
+  await page.getByRole("button", { name: "Local only", exact: true }).click();
+  await expect(workspaceCard).toBeVisible();
+  await expect(workspaceCard).toHaveAccessibleName(
+    "Audit workspace template: Create design, Saved to OpenPost",
+  );
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.evaluate(
+      (value) => document.documentElement.classList.toggle("dark", value === "dark"),
+      scheme,
+    );
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      const section = page.getByRole("region", { name: "Workspace templates", exact: true });
+      await section.scrollIntoViewIfNeeded();
+      await section.screenshot({
+        path: testInfo.outputPath(`workspace-templates-${width}-${scheme}.png`),
+      });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByRole("button", { name: "Local only", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await workspaceCard.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/image-editor\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("application", { name: "Design canvas" }))
     .toBeVisible()
     .catch((error) => {
@@ -82,6 +115,31 @@ test("workspace template opens immediately with its pages and editable title", a
   ).toBeVisible();
   await page.getByRole("textbox", { name: "Design title" }).fill("Opened template");
   await expect(page).toHaveTitle("Opened template");
+  const copyID = new URL(page.url()).pathname.split("/").at(-1)!;
+  await expect
+    .poll(async () => {
+      const copy = await request.get(`/api/v1/image-editor/designs/${copyID}`, { headers });
+      return (await copy.json()).document.title;
+    })
+    .toBe("Opened template");
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue("Opened template");
+  const unchangedTemplate = await request.get(
+    `/api/v1/image-editor/templates?workspace_id=${workspace.id}`,
+    { headers },
+  );
+  expect(unchangedTemplate.ok()).toBe(true);
+  const inventory = await unchangedTemplate.json();
+  const savedTemplate = inventory.templates.find(
+    (template: { name: string }) => template.name === "Audit workspace template",
+  );
+  expect(savedTemplate.document.title).toBe("Template source");
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: "Local only", exact: true }).click();
+  await expect(workspaceCard).toBeVisible();
+  await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
+  await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+  expect(errors).toEqual([]);
 });
 
 test("failed cloud and recovery saves stay visible and protect unsaved work", async ({

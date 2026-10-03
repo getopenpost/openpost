@@ -4,7 +4,8 @@
 	import {
 		imageEditorConfigQueryOptions,
 		imageEditorDesignCatalogQueryOptions,
-		imageEditorPublicTemplatesQueryOptions
+		imageEditorPublicTemplatesQueryOptions,
+		imageEditorTemplatesQueryOptions
 	} from '@openpost/query-catalog';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
@@ -83,6 +84,12 @@
 	const configQuery = createQuery(() => imageEditorConfigQueryOptions(imageEditorQueryAPI));
 	const templatesQuery = createQuery(() =>
 		imageEditorPublicTemplatesQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI)
+	);
+	const workspaceTemplatesQuery = createQuery(() =>
+		imageEditorTemplatesQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI, workspaceID)
+	);
+	const workspaceTemplates = $derived(
+		workspaceID ? (workspaceTemplatesQuery.data ?? []).filter((template) => !template.built_in) : []
 	);
 	let enabled = $derived(configQuery.data?.enabled ?? true);
 	let presets = $derived<ImageEditorPreset[]>(configQuery.data?.presets ?? []);
@@ -226,12 +233,12 @@
 	}
 
 	async function startTemplate(template: ImageEditorTemplate): Promise<void> {
-		if (creating) return;
+		if (creating || (!template.built_in && !workspaceID)) return;
 		creating = template.id;
 		error = '';
 		try {
 			void requestGuestImageEditorPersistence();
-			const targetWorkspace = storageMode === 'cloud' ? workspaceID : '';
+			const targetWorkspace = !template.built_in || storageMode === 'cloud' ? workspaceID : '';
 			const design = targetWorkspace
 				? await instantiateImageEditorTemplate(template.id, targetWorkspace, templateName(template))
 				: await createGuestImageEditorDesignFromTemplate(template, templateName(template));
@@ -357,6 +364,34 @@
 		}
 	}
 </script>
+
+{#snippet templateCard(template: ImageEditorTemplate)}
+	<button
+		type="button"
+		class="min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+		onclick={() => startTemplate(template)}
+		aria-label={template.built_in
+			? templateName(template)
+			: `${templateName(template)}: ${m.media_create_design()}, ${m.video_editor_saved_cloud()}`}
+		disabled={Boolean(creating)}
+	>
+		<div class="aspect-square overflow-hidden border-b">
+			<TemplatePreview document={template.document} label={templateName(template)} compact />
+		</div>
+		<div class="flex min-h-16 items-center gap-2 p-3">
+			<div class="min-w-0 flex-1">
+				<span class="block text-sm leading-snug font-medium">{templateName(template)}</span>
+				{#if !template.built_in}<span class="mt-1 block text-xs text-muted-foreground"
+						>{m.media_create_design()} · {m.video_editor_saved_cloud()}</span
+					>{/if}
+			</div>
+			{#if creating === template.id}<ProtectedIcon
+					icon="loading"
+					class="size-4 animate-spin"
+				/>{/if}
+		</div>
+	</button>
+{/snippet}
 
 <svelte:head>
 	<title>{m.image_editor_public_meta_title()}</title>
@@ -625,6 +660,37 @@
 				</section>
 			</details>
 
+			{#if workspaceID && (workspaceTemplates.length > 0 || workspaceTemplatesQuery.isPending || workspaceTemplatesQuery.isError)}
+				<section class="mt-12" aria-labelledby="workspace-templates-heading">
+					<div class="mb-4">
+						<h2 id="workspace-templates-heading" class="text-lg font-semibold">
+							{m.image_editor_workspace_templates()}
+						</h2>
+						<p class="mt-1 text-sm text-muted-foreground">
+							{m.image_editor_workspace_templates_body()}
+						</p>
+					</div>
+					{#if workspaceTemplatesQuery.isError}
+						<InlineNotice tone="error" message={m.image_editor_templates_load_failed()}>
+							{#snippet actions()}<Button
+									size="sm"
+									variant="outline"
+									onclick={() => void workspaceTemplatesQuery.refetch()}>{m.common_retry()}</Button
+								>{/snippet}
+						</InlineNotice>
+					{:else if workspaceTemplatesQuery.isPending && !workspaceTemplatesQuery.data}
+						<p role="status" class="text-sm text-muted-foreground">{m.media_loading_templates()}</p>
+					{/if}
+					{#if workspaceTemplates.length > 0}<div
+							class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+						>
+							{#each workspaceTemplates as template (template.id)}{@render templateCard(
+									template
+								)}{/each}
+						</div>{/if}
+				</section>
+			{/if}
+
 			<section class="mt-12" aria-labelledby="templates-heading">
 				<div class="mb-4">
 					<h2 id="templates-heading" class="text-lg font-semibold">
@@ -636,30 +702,7 @@
 				</div>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 					{#each templates as template (template.id)}
-						<button
-							type="button"
-							class="min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
-							onclick={() => startTemplate(template)}
-							aria-label={templateName(template)}
-							disabled={Boolean(creating)}
-						>
-							<div class="aspect-square overflow-hidden border-b">
-								<TemplatePreview
-									document={template.document}
-									label={templateName(template)}
-									compact
-								/>
-							</div>
-							<div class="flex min-h-16 items-center gap-2 p-3">
-								<span class="min-w-0 flex-1 text-sm leading-snug font-medium">
-									{templateName(template)}
-								</span>
-								{#if creating === template.id}<ProtectedIcon
-										icon="loading"
-										class="size-4 animate-spin"
-									/>{/if}
-							</div>
-						</button>
+						{@render templateCard(template)}
 					{/each}
 				</div>
 			</section>

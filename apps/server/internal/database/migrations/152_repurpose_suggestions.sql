@@ -1,0 +1,25 @@
+CREATE TABLE repurpose_suggestions (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source_id TEXT NOT NULL,
+    source_revision TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    generation INTEGER NOT NULL,
+    state TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    authority_json TEXT NOT NULL,
+    request_json TEXT NOT NULL,
+    candidates_json TEXT NOT NULL DEFAULT '[]',
+    error_message TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    provider_request_id TEXT NOT NULL DEFAULT '',
+    usage_json TEXT NOT NULL DEFAULT '{}',
+    lease_token TEXT NOT NULL DEFAULT '',
+    lease_expires_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    UNIQUE(workspace_id, user_id, idempotency_key)
+);
+CREATE INDEX repurpose_suggestions_actor_active ON repurpose_suggestions(user_id, state);

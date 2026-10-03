@@ -40,3 +40,5 @@ export * from "./screenshot-templates";
 export * from "./workflows";
 
 export * from "./editor-agent";
+
+export * from "./repurpose";

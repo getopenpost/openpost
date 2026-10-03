@@ -80,6 +80,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
+	"github.com/openpost/backend/internal/services/repurpose"
 	"github.com/openpost/backend/internal/services/sessions"
 	"github.com/openpost/backend/internal/services/sourcecontext"
 	telegramservice "github.com/openpost/backend/internal/services/telegram"
@@ -655,6 +656,7 @@ func main() {
 		)
 	}
 
+	repurposeSuggestions := repurpose.New(db, contentGenerator, cfg.TextGenerationModel)
 	var publicSourceLoader sourcecontext.Loader
 	var publicationBuilderApplication *publicationbuilder.Application
 	var publicationBuilderService *publicationbuilder.Service
@@ -759,6 +761,7 @@ func main() {
 		worker.SetGrowthService(growthService)
 		worker.SetPostImportService(postImportService)
 		worker.SetPublicationBuilderService(publicationBuilderApplication)
+		worker.SetRepurposeSuggestionsService(repurposeSuggestions)
 		worker.SetAccountPreflightService(accountPreflightService)
 		worker.SetExternalWebhookService(externalWebhookService)
 		worker.SetTelemetry(telemetryRecorder)
@@ -878,6 +881,7 @@ func main() {
 		ContentBuilderEnabled:     publicationBuilderApplication != nil,
 		ContentDiscoveryEnabled:   publicationDiscoveryService != nil,
 		PublicationBuilder:        publicationBuilderApplication,
+		RepurposeSuggestions:      repurposeSuggestions,
 		PublicationPlanner:        publicationBuilderService,
 		PublicationDiscovery:      publicationDiscoveryService,
 		Entitlement:               entitlementService,

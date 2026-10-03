@@ -1,4 +1,4 @@
-export const PROTECTED_ICON_ROLES = [
+const PROTECTED_ICON_ROLES = [
 	'cookie',
 	'editor-zoom-in',
 	'editor-zoom-out',

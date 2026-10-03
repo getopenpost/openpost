@@ -659,6 +659,7 @@ it.each([
 	async ({ mode, label, width }) => {
 		await page.viewport(width, 900);
 		run = { ...run, mode, workflow_revision: 7 };
+		// SAFETY: These history requests return the complete typed Run fixture or its list.
 		vi.mocked(client.GET).mockImplementation(
 			async (path) =>
 				({ data: path === '/workflow-runs' ? [run] : run, response: new Response() }) as never

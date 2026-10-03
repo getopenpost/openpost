@@ -21,7 +21,7 @@
 		axis === 'horizontal' ? editor.activePageDimensions.height : editor.activePageDimensions.width
 	);
 	const positionValid = $derived(
-		typeof position === 'number' &&
+		position !== undefined &&
 			Number.isFinite(position) &&
 			position >= 0 &&
 			position <= positionLimit
@@ -35,7 +35,7 @@
 	});
 
 	function addGuide(): void {
-		if (!positionValid || typeof position !== 'number') return;
+		if (!positionValid || position === undefined) return;
 		editor.addGuide(axis, position);
 		open = false;
 	}

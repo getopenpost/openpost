@@ -109,7 +109,9 @@ describe('curve point slider keyboard', () => {
 			try {
 				for (const name of ['Master curve point 1', 'Master curve point 3']) {
 					const endpoint = screen.getByRole('slider', { name });
-					(endpoint.element() as SVGElement).focus();
+					const element = endpoint.element();
+					if (!(element instanceof SVGElement)) throw new Error('Expected an SVG curve point');
+					element.focus();
 					await expect.element(endpoint).toHaveFocus();
 					await userEvent.keyboard(`{${key}}`);
 					await expect.element(endpoint).toBeVisible();
@@ -127,7 +129,7 @@ describe('curve point slider keyboard', () => {
 		const { oncommit } = await renderWithMiddlePoint();
 		await userEvent.keyboard(`{${key}}`);
 		expect(oncommit).toHaveBeenCalledOnce();
-		expect(JSON.parse(oncommit.mock.calls[0]![0].masterPoints as string)).toEqual([
+		expect(JSON.parse(String(oncommit.mock.calls[0]![0].masterPoints))).toEqual([
 			[0, 0],
 			[1, 1]
 		]);

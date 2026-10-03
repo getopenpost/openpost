@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { userProfileDefaults } from '$lib/test-fixtures/user-profile';
-import { page, userEvent } from 'vitest/browser';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { schedulingQueryKeys, type PostingSchedule } from '@openpost/query-catalog';
 import { client, type User, type Workspace } from '$lib/api/client';
@@ -67,10 +67,10 @@ describe('posting schedule mutation ownership', () => {
 	});
 
 	it('explains an inverted composer range and allows correcting it', async () => {
-		const screen = await render(ScheduleSettingsTab);
-		await userEvent.click(screen.container.querySelector('#start-time') as HTMLElement);
+		await render(ScheduleSettingsTab);
+		await page.getByLabelText('Start time', { exact: true }).click();
 		await page.getByRole('option', { name: '23:00', exact: true }).click();
-		await userEvent.click(screen.container.querySelector('#end-time') as HTMLElement);
+		await page.getByLabelText('End time', { exact: true }).click();
 		await page.getByRole('option', { name: '22:00', exact: true }).click();
 		await expect
 			.element(page.getByText('End time must be at or after start time.', { exact: true }))
@@ -78,7 +78,7 @@ describe('posting schedule mutation ownership', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Save changes', exact: true }))
 			.toBeDisabled();
-		await userEvent.click(screen.container.querySelector('#end-time') as HTMLElement);
+		await page.getByLabelText('End time', { exact: true }).click();
 		await page.getByRole('option', { name: '23:00', exact: true }).click();
 		await expect
 			.element(page.getByText('End time must be at or after start time.', { exact: true }))

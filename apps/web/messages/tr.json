@@ -9711,5 +9711,6 @@
 	"repurpose_created": "Oluşturulan klipler: {count}.",
 	"repurpose_source_missing": "Kaynak dosya kullanılamıyor. Yeniden bağlayıp tekrar deneyin.",
 	"repurpose_folder_missing": "Klip oluşturmadan önce yerel bir klasör seçin.",
-	"repurpose_transcript_storage_failed": "Projeniz kullanılabilir durumda, ancak transkript bu cihaza kaydedilemedi. Projeyi düzenlemeye ve dışa aktarmaya devam edebilirsiniz."
+	"repurpose_transcript_storage_failed": "Projeniz kullanılabilir durumda, ancak transkript bu cihaza kaydedilemedi. Projeyi düzenlemeye ve dışa aktarmaya devam edebilirsiniz.",
+	"image_editor_text_range_scope": "Yazı tipi ve boyutu tüm metin katmanına uygulanır."
 }

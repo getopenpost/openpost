@@ -9711,5 +9711,6 @@
 	"repurpose_created": "Erstellte Clips: {count}.",
 	"repurpose_source_missing": "Die Quelldatei ist nicht verfügbar. Verknüpfe sie erneut und versuche es noch einmal.",
 	"repurpose_folder_missing": "Wähle einen lokalen Ordner aus, bevor du Clips erstellst.",
-	"repurpose_transcript_storage_failed": "Dein Projekt ist verfügbar, aber das Transkript konnte auf diesem Gerät nicht gespeichert werden. Du kannst es weiterhin bearbeiten und exportieren."
+	"repurpose_transcript_storage_failed": "Dein Projekt ist verfügbar, aber das Transkript konnte auf diesem Gerät nicht gespeichert werden. Du kannst es weiterhin bearbeiten und exportieren.",
+	"image_editor_text_range_scope": "Schriftfamilie und Schriftgröße gelten für die gesamte Textebene."
 }

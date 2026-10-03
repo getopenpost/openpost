@@ -14,11 +14,13 @@
 		value,
 		disabled = false,
 		brandFonts = [],
+		ariaDescribedby,
 		onChange
 	}: {
 		value: string;
 		disabled?: boolean;
 		brandFonts?: EditorBrandFont[];
+		ariaDescribedby?: string;
 		onChange: (font: EditorFontSelection) => void;
 	} = $props();
 
@@ -88,6 +90,7 @@
 				disabled={disabled || pending}
 				aria-busy={pending}
 				aria-label={m.image_editor_font_family()}
+				aria-describedby={ariaDescribedby}
 				data-editor-font-picker
 			>
 				<span class="truncate" style:font-family={selectedFamily}>{selectedLabel}</span>

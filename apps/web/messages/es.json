@@ -9711,5 +9711,6 @@
 	"repurpose_created": "Clips creados: {count}.",
 	"repurpose_source_missing": "El archivo de origen no está disponible. Vuelve a conectarlo e inténtalo de nuevo.",
 	"repurpose_folder_missing": "Elige una carpeta local antes de crear clips.",
-	"repurpose_transcript_storage_failed": "Tu proyecto está disponible, pero no se pudo guardar su transcripción en este dispositivo. Puedes seguir editándolo y exportándolo."
+	"repurpose_transcript_storage_failed": "Tu proyecto está disponible, pero no se pudo guardar su transcripción en este dispositivo. Puedes seguir editándolo y exportándolo.",
+	"image_editor_text_range_scope": "La familia y el tamaño de fuente afectan a toda la capa de texto."
 }

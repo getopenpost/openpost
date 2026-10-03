@@ -9711,5 +9711,6 @@
 	"repurpose_created": "已创建片段：{count}。",
 	"repurpose_source_missing": "源文件不可用。请重新连接后重试。",
 	"repurpose_folder_missing": "创建片段前，请选择本地文件夹。",
-	"repurpose_transcript_storage_failed": "项目仍然可用，但无法在此设备上保存转录文本。你仍可继续编辑和导出项目。"
+	"repurpose_transcript_storage_failed": "项目仍然可用，但无法在此设备上保存转录文本。你仍可继续编辑和导出项目。",
+	"image_editor_text_range_scope": "字体和字号会应用于整个文字图层。"
 }

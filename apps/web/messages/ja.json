@@ -9711,5 +9711,6 @@
 	"repurpose_created": "作成したクリップ：{count}",
 	"repurpose_source_missing": "元のファイルを利用できません。再接続して、もう一度お試しください。",
 	"repurpose_folder_missing": "クリップを作成する前にローカルフォルダーを選択してください。",
-	"repurpose_transcript_storage_failed": "プロジェクトは利用できますが、この端末に文字起こしを保存できませんでした。編集と書き出しは引き続き行えます。"
+	"repurpose_transcript_storage_failed": "プロジェクトは利用できますが、この端末に文字起こしを保存できませんでした。編集と書き出しは引き続き行えます。",
+	"image_editor_text_range_scope": "フォントと文字サイズはテキストレイヤー全体に適用されます。"
 }

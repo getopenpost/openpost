@@ -14,7 +14,12 @@ async function readAnnotationGeometry(annotation: Locator) {
     );
     return {
       text: target.textContent,
-      target: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+      target: {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+      },
       circle: { left: start.x, top: start.y, right: end.x, bottom: end.y },
     };
   });
@@ -24,6 +29,10 @@ test("decorative circles follow settled responsive heading geometry @desktop", a
   page,
 }, testInfo) => {
   test.setTimeout(90_000);
+  // Exercise the narrow end of the decorative ellipse's random radius variation.
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     for (const route of [
@@ -83,6 +92,9 @@ test("decorative circles follow settled responsive heading geometry @desktop", a
             ),
           });
         }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+          width,
+        );
       }
     }
   }

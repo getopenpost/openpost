@@ -158,7 +158,7 @@ test("receipt and status templates expose their own fields and update artwork", 
 test("standalone export opens a new publication with its image", async ({ page }) => {
   await openTemplates(page);
   await page.getByRole("button", { name: "Messages", exact: true }).click();
-  await page.getByRole("button", { name: "Add to publication", exact: true }).click();
+  await page.getByRole("button", { name: "Add to post", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Post text", exact: true })).toBeVisible({
     timeout: 15000,
   });
@@ -176,7 +176,7 @@ test("composer round trip preserves text and attaches the template export", asyn
   await expect(page).toHaveURL(/\/templates\?.*return_token=/);
   await page.getByRole("button", { name: "Messages", exact: true }).click();
   await page.getByRole("textbox", { name: "Message 1", exact: true }).fill("A custom screenshot.");
-  await page.getByRole("button", { name: "Return to publication", exact: true }).click();
+  await page.getByRole("button", { name: "Return to post", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Post text", exact: true })).toHaveValue(
     "Keep this publication and its text.",
     { timeout: 15000 },
@@ -582,7 +582,7 @@ test("animated meme returns to its publication through Templates", async ({ page
     }
     await route.continue();
   });
-  await page.getByRole("button", { name: "Return to publication", exact: true }).click();
+  await page.getByRole("button", { name: "Return to post", exact: true }).click();
   await expect(page.getByText("Try the attachment again", { exact: true })).toBeVisible({
     timeout: 30000,
   });

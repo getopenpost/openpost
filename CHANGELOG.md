@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.8.8] - 2026-10-03
+
+### Fixed
+
+- Theme thumbnails keep their button colors together when switching between light and dark mode, avoiding a brief low-contrast texture.
+- Keep Undo responsive after pressing an arrow key at an Image Editor mask limit, without losing fractional authored values.
+- Allow npm registry propagation to finish before marking an accepted SDK or CLI publication as failed, while preserving integrity checks and publishing each version only once.
+- Point the npm CLI wrapper at the v7.8.8 release binaries and keep its package version in sync.
+
 ## [7.8.7] - 2026-10-03
 
 ### Fixed

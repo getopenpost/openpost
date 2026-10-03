@@ -6,7 +6,10 @@ import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
+import { WebThemeRuntime } from '$lib/themes/runtime';
+import { resolveBuiltInTheme } from '$lib/themes/builtins';
+import '../../../routes/layout.css';
 import { m } from '$lib/paraglide/messages';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
@@ -34,6 +37,105 @@ function textItem(): TimelineItem {
 afterEach(() => {
 	timelineStore.__resetForTesting();
 });
+
+it('names the published text override in the inspector through keyboard edits, history and cold reopen', async () => {
+	const project = createBlankProject('Named published override');
+	const sourceText = { ...textItem(), id: 'source-text', text: 'Source headline' };
+	project.timeline!.compositions = [
+		{
+			id: 'source',
+			name: 'Published banner',
+			editorKind: 'composite-2d',
+			items: [sourceText],
+			tracks: createDefaultTracks(),
+			transitions: [],
+			fps: 30,
+			width: 1920,
+			height: 1080,
+			durationInFrames: 90,
+			compositionControls: {
+				version: 1,
+				controls: [
+					{
+						id: 'headline',
+						name: 'Headline',
+						targetItemId: sourceText.id,
+						property: 'text.text',
+						kind: 'text',
+						defaultValue: 'Source headline'
+					}
+				]
+			}
+		}
+	];
+	project.timeline!.items = ['first', 'second'].map((id, index) => ({
+		id,
+		type: 'composition',
+		label: 'Banner instance',
+		compositionId: 'source',
+		trackId: 'track-video-main',
+		from: index * 90,
+		durationInFrames: 90
+	}));
+	sequenceStore.load(project.timeline!, project.metadata);
+	commandHistory.clearHistory();
+	const previousRoot = getWorkspaceRoot();
+	const root = await navigator.storage.getDirectory();
+	const dir = `named-override-${crypto.randomUUID()}`;
+	let screen = await render(ClipPropertiesPanel, { itemId: 'first', onedit: vi.fn() });
+	const theme = new WebThemeRuntime();
+	try {
+		await page.viewport(1280, 720);
+		screen.container.style.maxWidth = '320px';
+		await theme.apply(resolveBuiltInTheme('dither', 'light'), document.documentElement);
+		await expect.element(screen.getByText('Headline', { exact: true })).toBeVisible();
+		screen.getByText('Headline', { exact: true }).element().scrollIntoView();
+		await page.screenshot({ path: 'mn001-before-edit.png' });
+		const field = screen.getByRole('textbox', { name: 'Headline', exact: true });
+		await expect.element(field).toHaveValue('Source headline');
+		await field.click();
+		await field.fill('');
+		await userEvent.keyboard('Instance headline{Tab}');
+		await expect.element(field).toHaveValue('Instance headline');
+		expect(timelineStore.itemById.get('first')?.compositionControlOverrides).toEqual({
+			headline: 'Instance headline'
+		});
+		expect(timelineStore.itemById.get('second')?.compositionControlOverrides).toBeUndefined();
+		expect(sequenceStore.compositionById.get('source')?.items[0]?.text).toBe('Source headline');
+		commandHistory.undo();
+		await expect.element(field).toHaveValue('Source headline');
+		commandHistory.redo();
+		await expect.element(field).toHaveValue('Instance headline');
+		setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
+		await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
+		await screen.unmount();
+		sequenceStore.reset();
+		const loaded = (await getProject(project.id))!;
+		sequenceStore.load(loaded.timeline!, loaded.metadata);
+		commandHistory.clearHistory();
+		screen = await render(ClipPropertiesPanel, { itemId: 'first', onedit: vi.fn() });
+		const reopenedField = screen.getByRole('textbox', { name: 'Headline', exact: true });
+		await expect.element(reopenedField).toHaveValue('Instance headline');
+		for (const scheme of ['light', 'dark'] as const) {
+			await theme.apply(resolveBuiltInTheme('dither', scheme), document.documentElement);
+			for (const width of [1280, 390, 320]) {
+				await page.viewport(width, 720);
+				screen.container.style.maxWidth = '320px';
+				reopenedField.element().focus();
+				await expect.element(reopenedField).toHaveFocus();
+				await expect.element(reopenedField).toHaveValue('Instance headline');
+				await page.screenshot({ path: `mn001-${scheme}-${width}.png` });
+			}
+		}
+	} finally {
+		await screen.unmount();
+		theme.clear(document.documentElement);
+		setWorkspaceRoot(previousRoot);
+		await root.removeEntry(dir, { recursive: true }).catch(() => {});
+		sequenceStore.reset();
+		commandHistory.clearHistory();
+	}
+}, 30_000);
 
 it.each([false, true])(
 	'edits only selected recording audio, include camera: %s',

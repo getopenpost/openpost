@@ -99,6 +99,7 @@
 						{#if control.kind === 'text'}
 							<Input
 								class="h-8 min-w-0 flex-1 text-xs"
+								aria-label={control.name}
 								value={value(control)}
 								onchange={(event) => setValue(control, event.currentTarget.value)}
 							/>

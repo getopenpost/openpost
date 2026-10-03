@@ -5976,7 +5976,6 @@
 		{timeSlots}
 		timezone={scheduleTimezoneLabel}
 		weekStartsOn={workspaceCtx.weekStartsOn}
-		selectedDisplay={formatScheduledDisplay()}
 		externalError={scheduleInputError}
 		suggesting={suggestingSlot}
 		submitting={isSubmitting}

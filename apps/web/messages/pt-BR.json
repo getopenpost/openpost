@@ -9734,5 +9734,6 @@
 	"video_editor_conflict_origin_this_browser": "Deste navegador",
 	"video_editor_conflict_origin_another_device": "De outro navegador ou dispositivo",
 	"video_editor_conflict_saved_revision": "Edição em conflito na revisão salva {revision}",
-	"calendar_no_posts_on_day": "Nenhum post neste dia"
+	"calendar_no_posts_on_day": "Nenhum post neste dia",
+	"compose_schedule_publish_time": "Horário de envio"
 }

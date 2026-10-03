@@ -9724,7 +9724,7 @@
 	"checkout_payment_open": "Secure payment is open. Complete checkout in the Paddle window.",
 	"video_editor_track_group_merge": "Merge tracks into one group (replaces group names)",
 	"video_editor_project_bundle_folder_required": "Project bundle imports require a connected local folder.",
-	"compose_schedule_saved_slots": "Saved time slots",
+	"compose_schedule_saved_slots": "Saved times",
 	"compose_schedule_empty_day": "No scheduled or published posts on this day.",
 	"video_editor_history_inspect": "Inspect version",
 	"video_editor_history_comparison": "Compared with the latest saved version.",
@@ -9734,5 +9734,6 @@
 	"video_editor_conflict_origin_this_browser": "From this browser",
 	"video_editor_conflict_origin_another_device": "From another browser or device",
 	"video_editor_conflict_saved_revision": "Conflicting edit at saved revision {revision}",
-	"calendar_no_posts_on_day": "No posts on this day"
+	"calendar_no_posts_on_day": "No posts on this day",
+	"compose_schedule_publish_time": "Publish time"
 }

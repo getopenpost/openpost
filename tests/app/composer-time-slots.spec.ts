@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import {
   authenticatePage,
   clickComposerDeliveryAction,
@@ -26,7 +27,11 @@ test("composer advances saved time slots across hour boundaries", async ({
   await clickComposerDeliveryAction(page, "Schedule");
   const dialog = page.getByTestId("schedule-dialog-shell");
   await dialog.getByRole("button", { name: "Tomorrow 09:00", exact: true }).click();
-  await expect(dialog.getByTestId("schedule-dialog-time-list").getByRole("button")).toHaveText([
+  const savedTimes = dialog.getByRole("button", { name: "Saved times", exact: true });
+  await savedTimes.focus();
+  await page.keyboard.press("Enter");
+  const slots = page.getByTestId("schedule-dialog-time-list");
+  await expect(slots.getByRole("button")).toHaveText([
     "05:00",
     "06:30",
     "08:00",
@@ -41,23 +46,29 @@ test("composer advances saved time slots across hour boundaries", async ({
     "21:30",
     "23:00",
   ]);
-  await dialog.getByRole("button", { name: "06:30", exact: true }).focus();
+  await slots.getByRole("button", { name: "06:30", exact: true }).focus();
   await page.keyboard.press("Enter");
+  await expect(dialog.getByLabel("Publish time", { exact: true })).toHaveValue("06:30");
+  await expect(slots).not.toBeVisible();
+  await expect(savedTimes).toBeFocused();
   await expect(dialog.getByRole("button", { name: "Schedule", exact: true })).toBeDisabled();
   await page.screenshot({ path: info.outputPath("ninety-minute-slots.png") });
   for (const width of [390, 320]) {
     for (const colorScheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await expect(dialog.getByTestId("schedule-dialog-time-list").getByRole("button")).toHaveCount(
-        13,
-      );
+      await savedTimes.click();
+      await expect(slots.getByRole("button")).toHaveCount(13);
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
         .toBe(true);
-      await dialog.getByRole("button", { name: "06:30", exact: true }).focus();
-      await expect(dialog.getByRole("button", { name: "06:30", exact: true })).toBeFocused();
+      await slots.getByRole("button", { name: "06:30", exact: true }).focus();
+      await expect(slots.getByRole("button", { name: "06:30", exact: true })).toBeFocused();
       await page.screenshot({ path: info.outputPath(`slots-${width}-${colorScheme}.png`) });
+      await page.keyboard.press("Escape");
+      await expect(slots).not.toBeVisible();
+      await expect(savedTimes).toBeFocused();
+      await expect(dialog).toBeVisible();
     }
   }
 });
@@ -193,12 +204,13 @@ test.describe("schedule history on touch screens", () => {
     await expect(agenda.getByText("Published", { exact: true })).toHaveCount(2);
     await expect(agenda.getByText("An earlier lesson", { exact: true })).toHaveCount(1);
     await expect(dialog.getByRole("button", { name: "Schedule", exact: true })).toBeDisabled();
-    await expect(dialog.getByLabel("Time", { exact: true })).toBeDisabled();
+    await expect(dialog.locator("input[type=time]")).toHaveCount(0);
+    await expect(dialog.getByText(/^Selected /)).toHaveCount(0);
     await dialog.getByRole("button", { name: "Tomorrow 09:00", exact: true }).click();
     await expect(agenda.getByText("A planned update", { exact: true })).toBeVisible();
     await expect(agenda.getByRole("time")).toHaveText("09:00");
     await expect(agenda.getByText("Scheduled", { exact: true })).toBeVisible();
-    const time = dialog.getByLabel("Time", { exact: true });
+    const time = dialog.getByLabel("Publish time", { exact: true });
     await expect(time).toHaveValue("09:00");
     await time.fill("14:37");
     await expect(time).toHaveValue("14:37");
@@ -208,6 +220,28 @@ test.describe("schedule history on touch screens", () => {
       for (const colorScheme of ["light", "dark"] as const) {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+        await dialog.locator('[data-bits-day][data-value="2026-10-16"]').click();
+        await expect(time).toHaveValue("14:37");
+        await expect(
+          agenda.getByRole("heading", { name: "Friday, Oct 16", exact: true }),
+        ).toBeVisible();
+        await expect(agenda.getByText("A planned update", { exact: true })).toBeVisible();
+        if (width === 320 && colorScheme === "dark") {
+          const accessibility = await new AxeBuilder({ page })
+            .include('[data-testid="schedule-dialog-shell"]')
+            .analyze();
+          expect(accessibility.violations).toEqual([]);
+        }
+        await dialog.screenshot({
+          path: info.outputPath(`schedule-future-${width}-${colorScheme}.png`),
+        });
+        const savedTimes = dialog.getByRole("button", { name: "Saved times", exact: true });
+        await savedTimes.click();
+        await expect(page.getByTestId("schedule-dialog-time-list")).toBeVisible();
+        await dialog.locator('[data-bits-day][data-value="2026-10-14"]').click();
+        await expect(page.getByTestId("schedule-dialog-time-list")).not.toBeVisible();
+        await expect(dialog.locator("input[type=time]")).toHaveCount(0);
+        await expect(dialog.getByText(/^Selected /)).toHaveCount(0);
         await expect(agenda.getByText("A shipped update", { exact: true })).toBeVisible();
         await expect
           .poll(() => dialog.evaluate((el) => el.scrollWidth <= el.clientWidth))
@@ -216,7 +250,22 @@ test.describe("schedule history on touch screens", () => {
         const bounds = await dateTarget.boundingBox();
         expect(bounds?.width).toBeGreaterThanOrEqual(44);
         expect(bounds?.height).toBeGreaterThanOrEqual(44);
-        await page.screenshot({
+        if (width < 640) {
+          const lastPost = agenda.getByRole("listitem").last();
+          await expect(lastPost).toContainText("An earlier lesson");
+          await lastPost.scrollIntoViewIfNeeded();
+          const postBounds = await lastPost.boundingBox();
+          const bodyBounds = await page.getByTestId("schedule-dialog-body").boundingBox();
+          expect(postBounds).not.toBeNull();
+          expect(bodyBounds).not.toBeNull();
+          expect(postBounds!.y + postBounds!.height).toBeLessThanOrEqual(
+            bodyBounds!.y + bodyBounds!.height,
+          );
+          await expect(
+            dialog.getByRole("button", { name: "Cancel", exact: true }),
+          ).toBeInViewport();
+        }
+        await dialog.screenshot({
           path: info.outputPath(`schedule-history-${width}-${colorScheme}.png`),
         });
       }

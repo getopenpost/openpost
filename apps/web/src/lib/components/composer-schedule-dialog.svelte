@@ -13,11 +13,11 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
+	import * as Popover from '$lib/components/ui/popover';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
-	import EmptyState from '$lib/components/empty-state.svelte';
 	import { parseNaturalScheduleInput } from './compose/schedule-language';
 	import {
 		workspaceClock,
@@ -33,7 +33,6 @@
 		timeSlots: string[];
 		timezone: string;
 		weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6;
-		selectedDisplay: string;
 		externalError?: string;
 		suggesting?: boolean;
 		submitting?: boolean;
@@ -54,7 +53,6 @@
 		timeSlots,
 		timezone,
 		weekStartsOn,
-		selectedDisplay,
 		externalError = '',
 		suggesting = false,
 		submitting = false,
@@ -69,6 +67,7 @@
 
 	let scheduleInput = $state('');
 	let inputError = $state('');
+	let timeSlotsOpen = $state(false);
 	let browsedDate = $state<CalendarDate>();
 	let visibleMonth = $state<DateValue>();
 	const isPastDay = $derived(
@@ -77,7 +76,7 @@
 	const agendaDate = $derived(browsedDate ?? workspaceClock(timezone).date);
 	const agendaDateLabel = $derived(
 		agendaDate.toDate(timezone).toLocaleDateString(getLocaleTag(), {
-			weekday: 'short',
+			weekday: 'long',
 			month: 'short',
 			day: 'numeric',
 			timeZone: timezone
@@ -116,6 +115,10 @@
 			if (entry.date) counts.set(entry.date, (counts.get(entry.date) ?? 0) + 1);
 		}
 		return counts;
+	});
+
+	$effect(() => {
+		if (!open || isPastDay) timeSlotsOpen = false;
 	});
 
 	$effect(() => {
@@ -192,6 +195,7 @@
 			selectedDate = new CalendarDate(today.year, today.month, today.day);
 		}
 		selectedTime = time;
+		timeSlotsOpen = false;
 		scheduleInput = '';
 		inputError = '';
 	}
@@ -335,56 +339,79 @@
 				<section
 					data-testid="schedule-dialog-agenda"
 					aria-label={agendaDateLabel}
-					class="mx-3 flex min-w-0 flex-col gap-3 border-t pt-3 sm:mx-0 sm:max-h-[22rem] sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5"
+					class="mx-3 flex min-w-0 flex-col rounded-lg border bg-card p-3 sm:mx-0 sm:p-4"
 				>
-					<div
-						class="order-last space-y-2 border-t pt-3 sm:order-first sm:border-t-0 sm:border-b sm:pt-0 sm:pb-3"
-					>
-						<div class="flex items-center justify-between gap-3">
-							<Label for="composer-schedule-time">{m.compose_time()}</Label>
-							<Input
-								id="composer-schedule-time"
-								type="time"
-								step="60"
-								value={selectedTime ?? ''}
-								disabled={isPastDay}
-								oninput={(event) => selectTime(event.currentTarget.value)}
-								class="w-32 tabular-nums"
-							/>
-						</div>
-						{#if isPastDay}
-							<p class="text-xs text-muted-foreground">{m.compose_schedule_future()}</p>
-						{:else}
-							<p class="text-xs text-muted-foreground">{m.compose_schedule_saved_slots()}</p>
-							<div data-testid="schedule-dialog-time-list" class="max-h-28 overflow-y-auto">
-								{#if timeSlots.length === 0}
-									<p class="py-2 text-xs text-muted-foreground">
-										{m.compose_no_remaining_slots_today()}
-									</p>
-								{:else}
-									<div class="grid grid-cols-4 gap-1">
-										{#each timeSlots as time (time)}
-											<Button
-												type="button"
-												variant={selectedTime === time ? 'default' : 'ghost'}
-												size="sm"
-												onclick={() => selectTime(time)}
-												aria-pressed={selectedTime === time}
-												class="tabular-nums">{time}</Button
-											>
-										{/each}
-									</div>
+					<div class="flex items-baseline justify-between gap-3">
+						<h2 class="text-base font-semibold">{agendaDateLabel}</h2>
+						{#if postsQuery.data}<span class="shrink-0 text-xs text-muted-foreground"
+								>{dayEntries.length === 1
+									? m.activity_thread_post_one({ count: 1 })
+									: m.calendar_day_posts_summary({ count: dayEntries.length })}</span
+							>{/if}
+					</div>
+					{#if isPastDay}
+						<p class="mt-2 text-sm text-muted-foreground">{m.compose_schedule_future()}</p>
+					{:else}
+						<div class="mt-3 space-y-2">
+							<div class="flex items-center justify-between gap-2">
+								<Label for="composer-schedule-time">{m.compose_schedule_publish_time()}</Label>
+								<Popover.Root bind:open={timeSlotsOpen}>
+									<Popover.Trigger>
+										{#snippet child({ props })}
+											<Button {...props} variant="ghost" size="xs" class="gap-1.5">
+												{m.compose_schedule_saved_slots()}
+												<ThemeIcon role="chevron-down" class="size-3" />
+											</Button>
+										{/snippet}
+									</Popover.Trigger>
+									<Popover.Content align="end" class="w-72 p-2">
+										<div data-testid="schedule-dialog-time-list" class="max-h-60 overflow-y-auto">
+											{#if timeSlots.length === 0}
+												<p class="p-3 text-sm text-muted-foreground">
+													{m.compose_no_remaining_slots_today()}
+												</p>
+											{:else}
+												<div class="grid grid-cols-3 gap-1">
+													{#each timeSlots as time (time)}
+														<Button
+															type="button"
+															variant={selectedTime === time ? 'default' : 'ghost'}
+															size="sm"
+															onclick={() => selectTime(time)}
+															aria-pressed={selectedTime === time}
+															class="tabular-nums">{time}</Button
+														>
+													{/each}
+												</div>
+											{/if}
+										</div>
+									</Popover.Content>
+								</Popover.Root>
+							</div>
+							<div class="flex items-center gap-2">
+								<Input
+									id="composer-schedule-time"
+									type="time"
+									step="60"
+									value={selectedTime ?? ''}
+									oninput={(event) => selectTime(event.currentTarget.value)}
+									class="h-12 text-lg font-medium tabular-nums md:text-lg"
+								/>
+								{#if selectedDate || selectedTime}
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon"
+										aria-label={m.compose_clear_schedule()}
+										title={m.compose_clear_schedule()}
+										onclick={clearSchedule}><ThemeIcon role="close" class="size-4" /></Button
+									>
 								{/if}
 							</div>
-						{/if}
-					</div>
-					<div class="min-w-0 sm:flex sm:min-h-0 sm:flex-1 sm:flex-col">
-						<div class="mb-3 flex items-baseline justify-between gap-2">
-							<h3 class="text-sm font-medium">{agendaDateLabel}</h3>
-							{#if postsQuery.data}<span class="text-xs text-muted-foreground"
-									>{m.calendar_day_posts_summary({ count: dayEntries.length })}</span
-								>{/if}
 						</div>
+					{/if}
+					<div class="mt-4 min-h-0 border-t pt-3">
+						<h3 class="mb-1 text-sm font-medium">{m.sidebar_activity()}</h3>
 						{#if postsQuery.isError}
 							<InlineNotice tone="error" message={m.calendar_failed_load()} />
 							<Button variant="ghost" size="sm" onclick={() => postsQuery.refetch()}
@@ -394,31 +421,29 @@
 						{#if showLoading.current}
 							<PageLoading layout="list" items={2} label={m.common_loading()} defer={false} />
 						{:else if postsQuery.data && dayEntries.length === 0}
-							<EmptyState
-								themeIconRole="calendar"
-								title={m.compose_schedule_empty_day()}
-								size="sm"
-								headingLevel={4}
-							/>
+							<p class="py-3 text-sm text-muted-foreground">{m.compose_schedule_empty_day()}</p>
 						{:else}
-							<ul class="max-h-40 divide-y overflow-y-auto sm:min-h-0 sm:flex-1">
+							<ul class="max-h-56 divide-y overflow-y-auto">
 								{#each dayEntries as { post, occursAt } (post.id)}
-									<li class="space-y-1.5 py-3 first:pt-0">
-										<div class="flex items-center justify-between gap-2 text-xs">
-											<time datetime={occursAt} class="font-medium tabular-nums"
-												>{formatPostTime(occursAt)}</time
-											>
-											<span class="text-muted-foreground">{mediaUsageStatusLabel(post.status)}</span
-											>
+									<li class="grid grid-cols-[3rem_minmax(0,1fr)] gap-3 py-3">
+										<time
+											datetime={occursAt}
+											class="pt-0.5 text-xs font-medium text-muted-foreground tabular-nums"
+											>{formatPostTime(occursAt)}</time
+										>
+										<div class="min-w-0">
+											<p class="line-clamp-2 text-sm font-medium wrap-anywhere">
+												{post.title || post.source_text || m.calendar_untitled_post()}
+											</p>
+											<p class="mt-1 text-xs text-muted-foreground">
+												{mediaUsageStatusLabel(post.status)}
+											</p>
+											{#if post.title && post.source_text && post.source_text !== post.title}<p
+													class="mt-1 line-clamp-2 text-xs wrap-anywhere text-muted-foreground"
+												>
+													{post.source_text}
+												</p>{/if}
 										</div>
-										<p class="line-clamp-2 text-sm font-medium wrap-anywhere">
-											{post.title || post.source_text || m.calendar_untitled_post()}
-										</p>
-										{#if post.title && post.source_text && post.source_text !== post.title}<p
-												class="line-clamp-2 text-xs wrap-anywhere text-muted-foreground"
-											>
-												{post.source_text}
-											</p>{/if}
 									</li>
 								{/each}
 							</ul>
@@ -477,22 +502,11 @@
 					</div>
 				</details>
 			{/if}
-
-			<div class="mx-3 flex flex-wrap items-center justify-between gap-3 text-sm sm:mx-0">
-				<div class="text-muted-foreground">
-					{selectedDate && selectedTime
-						? m.compose_selected_schedule({ schedule: selectedDisplay })
-						: m.compose_select_date_time()}
-				</div>
-				{#if selectedDate || selectedTime}
-					<Button type="button" variant="ghost" size="sm" onclick={clearSchedule}>
-						{m.compose_clear_schedule()}
-					</Button>
-				{/if}
-			</div>
 		</div>
 
-		<Dialog.Footer class="shrink-0 border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+		<Dialog.Footer
+			class="shrink-0 flex-row justify-end border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+		>
 			<Button type="button" variant="outline" onclick={close}>{m.common_cancel()}</Button>
 			<Button
 				type="button"

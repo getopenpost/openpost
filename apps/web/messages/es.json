@@ -9724,7 +9724,7 @@
 	"checkout_payment_open": "El pago seguro está abierto. Completa la compra en la ventana de Paddle.",
 	"video_editor_track_group_merge": "Unir pistas en un solo grupo (reemplaza los nombres de los grupos)",
 	"video_editor_project_bundle_folder_required": "La importación de paquetes de proyecto requiere una carpeta local conectada.",
-	"compose_schedule_saved_slots": "Horarios guardados",
+	"compose_schedule_saved_slots": "Horas guardadas",
 	"compose_schedule_empty_day": "No hay publicaciones programadas o publicadas este día.",
 	"video_editor_history_inspect": "Inspeccionar versión",
 	"video_editor_history_comparison": "Comparación con la última versión guardada.",
@@ -9734,5 +9734,6 @@
 	"video_editor_conflict_origin_this_browser": "Desde este navegador",
 	"video_editor_conflict_origin_another_device": "Desde otro navegador o dispositivo",
 	"video_editor_conflict_saved_revision": "Edición en conflicto en la revisión guardada {revision}",
-	"calendar_no_posts_on_day": "No hay posts este día"
+	"calendar_no_posts_on_day": "No hay posts este día",
+	"compose_schedule_publish_time": "Hora de envío"
 }

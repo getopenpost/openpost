@@ -9724,7 +9724,7 @@
 	"checkout_payment_open": "安全な支払い画面が開いています。Paddleのウィンドウで手続きを完了してください。",
 	"video_editor_track_group_merge": "トラックを1つのグループにまとめる（グループ名を置き換え）",
 	"video_editor_project_bundle_folder_required": "プロジェクトバンドルを読み込むには、ローカルフォルダーへの接続が必要です。",
-	"compose_schedule_saved_slots": "保存済みの時間枠",
+	"compose_schedule_saved_slots": "保存した時刻",
 	"compose_schedule_empty_day": "この日に予約済みまたは公開済みの投稿はありません。",
 	"video_editor_history_inspect": "バージョンを確認",
 	"video_editor_history_comparison": "最後に保存したバージョンとの比較。",
@@ -9734,5 +9734,6 @@
 	"video_editor_conflict_origin_this_browser": "このブラウザーから",
 	"video_editor_conflict_origin_another_device": "別のブラウザーまたはデバイスから",
 	"video_editor_conflict_saved_revision": "保存済みリビジョン {revision} で競合する編集",
-	"calendar_no_posts_on_day": "この日の投稿はありません"
+	"calendar_no_posts_on_day": "この日の投稿はありません",
+	"compose_schedule_publish_time": "投稿時刻"
 }

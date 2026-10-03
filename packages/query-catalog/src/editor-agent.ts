@@ -22,3 +22,20 @@ export function editorPreferencesQueryOptions<T>(
     queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) => api.getPreferences(signal),
   };
 }
+
+export const editorAssistantStatusQueryKeys = {
+  workspace: (workspaceId: string) => openPostWorkspaceKey(workspaceId, "editor-assistant-status"),
+};
+
+export function editorAssistantStatusQueryOptions<T>(
+  api: { getStatus: (signal: AbortSignal) => Promise<T> },
+  workspaceId: string,
+) {
+  const queryKey = editorAssistantStatusQueryKeys.workspace(workspaceId);
+  return {
+    ...openPostQueryPolicy(),
+    queryKey,
+    enabled: Boolean(workspaceId),
+    queryFn: ({ signal }: QueryFunctionContext<typeof queryKey>) => api.getStatus(signal),
+  };
+}

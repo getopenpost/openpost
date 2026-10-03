@@ -1,45 +1,15 @@
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/types';
 import { queryClient } from '$lib/query/client';
-import { editorPreferencesQueryOptions, editorPreferencesQueryKeys } from '@openpost/query-catalog';
+import { editorPreferencesQueryKeys } from '@openpost/query-catalog';
 
 export type EditorPreferences = components['schemas']['Context'];
 export type EditorPreference = components['schemas']['Preference'];
 export type EditorStyle = components['schemas']['Style'];
 export type EditorStyleDefinition = components['schemas']['StyleDefinition'];
 
-export function queryEditorPreferences(
-	workspaceId: string,
-	projectId: string,
-	kind: 'video' | 'image',
-	context = ''
-) {
-	return queryClient.query(
-		editorPreferencesQueryOptions(
-			{
-				getPreferences: async (signal) => {
-					const { data, error } = await client.GET('/editor-agent/preferences', {
-						params: {
-							query: {
-								workspace_id: workspaceId,
-								project_id: projectId,
-								editor_kind: kind,
-								context
-							}
-						},
-						signal
-					});
-					if (error || !data) throw new Error(error?.detail || 'Could not load editor preferences');
-					return data;
-				}
-			},
-			workspaceId,
-			projectId,
-			kind,
-			context
-		)
-	);
-}
+export { queryEditorPreferences } from '$lib/query/editor-agent';
+
 export async function saveEditorPreference(
 	workspaceId: string,
 	preference: EditorPreference,

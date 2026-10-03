@@ -1,6 +1,7 @@
 <script lang="ts">
 	/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion -- These fetches target Huma-generated responses from OpenPost's own authenticated editor assistant endpoints. */
 	import { onDestroy } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -16,6 +17,7 @@
 		type EditorStyle,
 		saveEditorPreference
 	} from './preferences';
+	import { editorAssistantStatusOptions } from '$lib/query/editor-agent';
 	import { queryClient } from '$lib/query/client';
 	import { editorPreferencesQueryKeys } from '@openpost/query-catalog';
 
@@ -41,8 +43,18 @@
 		}>;
 	}
 
-	let available = $state<boolean | null>(null);
-	let unavailableReason = $state('');
+	const assistantStatus = createQuery(
+		() => editorAssistantStatusOptions(workspaceId, m.editor_agent_unavailable()),
+		() => queryClient
+	);
+	let available = $derived(
+		!workspaceId
+			? false
+			: (assistantStatus.data?.available ?? (assistantStatus.isError ? false : null))
+	);
+	let unavailableReason = $derived(
+		assistantStatus.data?.reason ?? assistantStatus.error?.message ?? ''
+	);
 	let messages = $state<ChatMessage[]>([]);
 	let input = $state('');
 	let busy = $state(false);
@@ -165,30 +177,6 @@
 		undoneRules = [];
 		preferencesOpen = false;
 		preferences = null;
-	});
-
-	$effect(() => {
-		const workspace = workspaceId;
-		available = workspace ? null : false;
-		unavailableReason = '';
-		if (!workspace) return;
-		const controller = new AbortController();
-		void (async () => {
-			try {
-				const { data: result, error } = await client.GET('/editor-agent/assistant/status', {
-					params: { query: { workspace_id: workspace } },
-					signal: controller.signal
-				});
-				if (error || !result) throw new Error(error?.detail || m.editor_agent_unavailable());
-				available = result.available;
-				unavailableReason = result.reason ?? '';
-			} catch (error) {
-				if (controller.signal.aborted) return;
-				available = false;
-				unavailableReason = error instanceof Error ? error.message : 'unavailable';
-			}
-		})();
-		return () => controller.abort();
 	});
 
 	async function send(): Promise<void> {

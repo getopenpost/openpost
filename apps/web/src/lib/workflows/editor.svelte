@@ -690,7 +690,7 @@
 									/>{/each}
 							</div>
 							<div class="mt-4">
-								<RunInspector workspaceID={initial.workspace_id} runID={selectedRun} />
+								<RunInspector workspaceID={initial.workspace_id} runID={selectedRun} {accounts} />
 							</div>{/if}
 					</div>
 				</div>

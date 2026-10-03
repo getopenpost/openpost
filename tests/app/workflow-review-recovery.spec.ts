@@ -149,3 +149,73 @@ test("stale approval explains the changed post and refreshes the displayed revis
   expect(run.state).toBe("awaiting_approval");
   expect(run.steps[0].state).toBe("awaiting_approval");
 });
+
+test("review destinations show resolved account names and each distinct content field once", async ({
+  page,
+  request,
+}, info) => {
+  const fixture = await pendingReview(request);
+  await authenticatePage(page, fixture.auth.token);
+  await page.goto(`/workflows/${fixture.workflow.id}`);
+  for (const width of [1280, 390, 320])
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.reload();
+      await page
+        .locator("[data-workflow-editor] > header")
+        .getByRole("button", { name: "Runs", exact: true })
+        .click();
+      await page.locator("aside button").filter({ hasText: "Needs approval" }).click();
+      const approval = page.locator("section").filter({
+        has: page.getByRole("heading", { name: "Review post", exact: true }),
+      });
+      const destinations = approval.locator("article");
+      await expect(destinations).toHaveCount(2);
+      await expect(destinations.nth(0).getByRole("heading", { level: 5 })).toHaveAccessibleName(
+        "@review-founder · Bluesky",
+      );
+      await expect(destinations.nth(1).getByRole("heading", { level: 5 })).toHaveAccessibleName(
+        "@review-founder · Threads",
+      );
+      for (const destination of await destinations.all())
+        await expect(destination.getByText("Review duplicate 東京", { exact: true })).toHaveCount(
+          1,
+        );
+      await page.screenshot({
+        path: info.outputPath(`review-content-${width}-${scheme}.png`),
+      });
+    }
+  const updated = await request.put(`/api/v1/publications/${fixture.publication.id}`, {
+    headers: fixture.headers,
+    data: {
+      expected_revision: fixture.publication.revision,
+      renditions: fixture.publication.renditions.map(
+        (rendition: {
+          social_account_id: string;
+          output_profile: string;
+          segments: { publication_segment_id: string }[];
+        }) => ({
+          social_account_id: rendition.social_account_id,
+          output_profile: rendition.output_profile,
+          segments: rendition.segments.map((segment) => ({
+            publication_segment_id: segment.publication_segment_id,
+            title_override: "Distinct review title",
+          })),
+        }),
+      ),
+    },
+  });
+  expect(updated.ok(), await updated.text()).toBe(true);
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  const content = page.locator("section article");
+  for (const destination of await content.all()) {
+    await expect(destination.getByText("Distinct review title", { exact: true })).toHaveCount(1);
+    await expect(destination.getByText("Review duplicate 東京", { exact: true })).toHaveCount(1);
+    await expect(destination.getByText("Title", { exact: true })).toBeVisible();
+    await expect(destination.getByText("Body", { exact: true })).toBeVisible();
+  }
+  await page.screenshot({
+    path: info.outputPath("review-distinct-fields-320-dark.png"),
+  });
+});

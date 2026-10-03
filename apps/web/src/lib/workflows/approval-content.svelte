@@ -1,11 +1,17 @@
 <script lang="ts">
+	import type { SocialAccount } from '$lib/api/client';
+	import { accountContextLabel } from '$lib/components/account-presentation';
 	import type { components } from '$lib/api/types';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import MediaPreviewImage from '$lib/components/media-preview-image.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
-	let { publication }: { publication: components['schemas']['PublicationResponse'] } = $props();
+	let {
+		publication,
+		accounts
+	}: { publication: components['schemas']['PublicationResponse']; accounts: SocialAccount[] } =
+		$props();
 	type Content = {
 		title?: string;
 		body?: string;
@@ -17,9 +23,21 @@
 
 {#snippet content(value: Content)}
 	<div class="space-y-2 text-sm break-words">
-		{#if value.title}<p class="font-medium">{value.title}</p>{/if}
-		{#if value.body}<p class="whitespace-pre-wrap">{value.body}</p>{/if}
-		{#if value.description}<p class="whitespace-pre-wrap">{value.description}</p>{/if}
+		{#if value.title && value.title !== value.body}<div>
+				<p class="text-xs text-muted-foreground">{m.compose_publication_title()}</p>
+				<p class="font-medium">{value.title}</p>
+			</div>{/if}
+		{#if value.body}<div>
+				{#if value.title && value.title !== value.body}<p class="text-xs text-muted-foreground">
+						{m.compose_body()}
+					</p>{/if}
+				<p class="whitespace-pre-wrap">{value.body}</p>
+			</div>{/if}
+		{#if value.description && value.description !== value.body && value.description !== value.title}<div
+			>
+				<p class="text-xs text-muted-foreground">{m.compose_description()}</p>
+				<p class="whitespace-pre-wrap">{value.description}</p>
+			</div>{/if}
 		{#if value.url}<p class="break-all text-muted-foreground">{value.url}</p>{/if}
 		{#each value.media ?? [] as media (media.id)}
 			<figure class="overflow-hidden rounded-md border">
@@ -54,11 +72,15 @@
 			{m.publication_destinations_heading()}
 		</h4>
 		{#each publication.renditions as rendition (rendition.id)}
+			{@const account = accounts.find((account) => account.id === rendition.social_account_id)}
 			<article class="space-y-3 border-t pt-3">
 				<h5 class="flex items-center gap-2 text-sm font-medium">
-					<PlatformIcon platform={rendition.platform} class="size-4" />{getPlatformName(
-						rendition.platform
-					)}<span class="truncate text-xs text-muted-foreground">{rendition.target_key}</span>
+					<PlatformIcon platform={rendition.platform} class="size-4 shrink-0" /><span
+						class="min-w-0 break-words"
+						>{account
+							? accountContextLabel(account, [])
+							: getPlatformName(rendition.platform)}</span
+					>
 				</h5>
 				{#if rendition.segments?.length}
 					{#each rendition.segments as segment (segment.id)}<div class="border-l-2 pl-3">

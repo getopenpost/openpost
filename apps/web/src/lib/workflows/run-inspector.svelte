@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { z } from 'zod';
+	import type { SocialAccount } from '$lib/api/client';
 	import { untrack } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
@@ -18,7 +19,11 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
-	let { workspaceID, runID }: { workspaceID: string; runID: string } = $props();
+	let {
+		workspaceID,
+		runID,
+		accounts
+	}: { workspaceID: string; runID: string; accounts: SocialAccount[] } = $props();
 	const usageSchema = z.object({ total_tokens: z.number(), cost_usd: z.number().nullish() });
 	const canAdmin = $derived(workspaceCtx.currentWorkspace?.role === 'admin');
 	const runQuery = createQuery(() => ({
@@ -143,7 +148,7 @@
 					<p class="text-xs text-muted-foreground">
 						{m.workflows_post_revision_label({ revision: publicationQuery.data.revision })}
 					</p>
-					<ApprovalContent publication={publicationQuery.data} />
+					<ApprovalContent publication={publicationQuery.data} {accounts} />
 					<div class="flex flex-wrap gap-2">
 						<Button variant="outline" disabled={busy || refreshing} onclick={refreshPost}
 							>{m.common_refresh()}</Button

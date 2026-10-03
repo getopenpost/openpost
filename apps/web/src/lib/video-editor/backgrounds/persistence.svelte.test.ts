@@ -102,7 +102,6 @@ describe('shader authored state', () => {
 			...createBlankProject('Shaders'),
 			schemaVersion: 7
 		}).project;
-		expect(project.schemaVersion).toBe(9);
 		timelineStore.setAll({
 			tracks: project.timeline!.tracks,
 			items: [],

@@ -145,13 +145,22 @@ it('reports reviewed source sections once when cleanup cuts linked tracks', asyn
 		canvas.width = 64;
 		canvas.height = 36;
 		const context = canvas.getContext('2d')!;
-		if (video && video.readyState >= 2 && video.checkVisibility({ checkOpacity: true }))
-			context.drawImage(video, 0, 0, 64, 36);
+		// A pending seek can retain visible pixels while readyState drops to HAVE_METADATA.
+		if (
+			video &&
+			video.videoWidth > 0 &&
+			video.checkVisibility({ visibilityProperty: true, opacityProperty: true })
+		)
+			try {
+				context.drawImage(video, 0, 0, 64, 36);
+			} catch (error) {
+				if (!(error instanceof DOMException) || error.name !== 'InvalidStateError') throw error;
+			}
 		if (
 			fallback &&
 			!fallback.hidden &&
 			fallback.width &&
-			fallback.checkVisibility({ checkOpacity: true })
+			fallback.checkVisibility({ visibilityProperty: true, opacityProperty: true })
 		)
 			context.drawImage(fallback, 0, 0, 64, 36);
 		return context

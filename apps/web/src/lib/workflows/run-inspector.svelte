@@ -59,7 +59,28 @@
 		publicationDetailQueryOptions(queryAPI, workspaceID, publicationID, 'live')
 	);
 	let busy = $state(false),
+		refreshing = $state(false),
 		error = $state('');
+	async function refreshPost() {
+		const selectedRun = runID,
+			selectedPost = publicationID,
+			selectedWorkspace = workspaceID;
+		if (!selectedPost || workspaceCtx.currentWorkspace?.id !== selectedWorkspace) return;
+		refreshing = true;
+		try {
+			const result = await publicationQuery.refetch();
+			if (
+				runID !== selectedRun ||
+				publicationID !== selectedPost ||
+				workspaceID !== selectedWorkspace ||
+				workspaceCtx.currentWorkspace?.id !== selectedWorkspace
+			)
+				return;
+			error = result.error ? String(result.error) : '';
+		} finally {
+			refreshing = false;
+		}
+	}
 	async function act(action: 'approve' | 'cancel') {
 		if (!run) return;
 		busy = true;
@@ -124,10 +145,13 @@
 					</p>
 					<ApprovalContent publication={publicationQuery.data} />
 					<div class="flex flex-wrap gap-2">
+						<Button variant="outline" disabled={busy || refreshing} onclick={refreshPost}
+							>{m.common_refresh()}</Button
+						>
 						<Button variant="outline" href={`/publications/${publicationID}`}
 							>{m.workflows_edit()}</Button
 						><Button
-							disabled={!canAdmin || busy || publicationQuery.data.status !== 'draft'}
+							disabled={!canAdmin || busy || refreshing || publicationQuery.data.status !== 'draft'}
 							onclick={() => act('approve')}>{m.workflows_approve()}</Button
 						>
 					</div>

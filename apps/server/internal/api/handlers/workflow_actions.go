@@ -119,7 +119,7 @@ func (a workflowActions) approval(ctx context.Context, input workflows.EffectReq
 			return nil, err
 		}
 		if publication.Revision != expected {
-			return nil, fmt.Errorf("%w: the post changed; review its current revision before approving", workflows.ErrConflict)
+			return nil, workflows.ErrPostRevision
 		}
 	}
 	if publication.Status != "draft" {

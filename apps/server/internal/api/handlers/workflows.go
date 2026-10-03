@@ -181,7 +181,7 @@ func workflowHTTPError(err error) error {
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, workflows.ErrAccess):
 		return huma.Error403Forbidden(err.Error())
-	case errors.Is(err, workflows.ErrConflict), errors.Is(err, workflows.ErrState):
+	case errors.Is(err, workflows.ErrConflict), errors.Is(err, workflows.ErrState), errors.Is(err, workflows.ErrPostRevision):
 		return huma.Error409Conflict(err.Error())
 	case errors.Is(err, workflows.ErrInvalid):
 		return huma.Error400BadRequest(err.Error())

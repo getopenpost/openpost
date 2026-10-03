@@ -54,11 +54,12 @@ const (
 )
 
 var (
-	ErrNotFound = errors.New("workflow not found")
-	ErrConflict = errors.New("workflow changed; reload before saving")
-	ErrAccess   = errors.New("workspace access no longer permits this workflow")
-	ErrInvalid  = errors.New("invalid workflow")
-	ErrState    = errors.New("workflow run is no longer in the expected state")
+	ErrNotFound     = errors.New("workflow not found")
+	ErrConflict     = errors.New("workflow changed; reload before saving")
+	ErrPostRevision = errors.New("the post changed; refresh the post and review its current revision before approving")
+	ErrAccess       = errors.New("workspace access no longer permits this workflow")
+	ErrInvalid      = errors.New("invalid workflow")
+	ErrState        = errors.New("workflow run is no longer in the expected state")
 )
 
 type WorkflowDefinition struct {

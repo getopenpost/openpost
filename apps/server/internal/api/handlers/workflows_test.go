@@ -97,7 +97,12 @@ func TestWorkflowHTTPPreviewAndLiveDraftApproval(t *testing.T) {
 	require.Equal(t, "A real native draft", post.SourceText)
 	_, err = db.NewUpdate().Model((*models.Publication)(nil)).Set("revision = revision + 1, source_text = ?", "Edited after review").Where("id = ?", post.ID).Exec(t.Context())
 	require.NoError(t, err)
-	request(http.MethodPost, "/workflow-runs/"+live.ID+"/approve?workspace_id=ws", map[string]any{"expected_revision": live.Revision, "publication_revision": post.Revision}, http.StatusConflict)
+	conflict := request(http.MethodPost, "/workflow-runs/"+live.ID+"/approve?workspace_id=ws", map[string]any{"expected_revision": live.Revision, "publication_revision": post.Revision}, http.StatusConflict)
+	var problem struct {
+		Detail string `json:"detail"`
+	}
+	require.NoError(t, json.Unmarshal(conflict, &problem))
+	require.Equal(t, "the post changed; refresh the post and review its current revision before approving", problem.Detail)
 	request(http.MethodPost, "/workflow-runs/"+live.ID+"/approve?workspace_id=ws", map[string]any{"expected_revision": live.Revision, "publication_revision": post.Revision + 1}, http.StatusOK)
 	request(http.MethodPost, "/workflow-runs/"+live.ID+"/approve?workspace_id=ws", map[string]any{"expected_revision": live.Revision, "publication_revision": post.Revision + 1}, http.StatusConflict)
 	request(http.MethodGet, "/workflow-runs/"+live.ID+"?workspace_id=other", nil, http.StatusForbidden)

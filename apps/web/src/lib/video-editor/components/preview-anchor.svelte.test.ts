@@ -137,7 +137,8 @@ it.each([
 			return { left, right, top, bottom };
 		}
 		try {
-			await expect.poll(letterBounds).not.toBeNull();
+			// The first composited frame includes asynchronous font and canvas startup.
+			await expect.poll(letterBounds, { timeout: 5000 }).not.toBeNull();
 			const before = letterBounds();
 			await screen.getByRole('button', { name: 'Anchor', exact: true }).click();
 			const handle = screen.getByRole('button', { name: 'Move anchor point', exact: true });
@@ -188,7 +189,7 @@ it.each([
 			await new Promise<void>((resolve) =>
 				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
 			);
-			await expect.poll(letterBounds).toEqual(before);
+			await expect.poll(letterBounds, { timeout: 5000 }).toEqual(before);
 		} finally {
 			await screen.unmount();
 			screen.container.remove();

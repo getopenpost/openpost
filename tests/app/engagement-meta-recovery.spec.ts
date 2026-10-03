@@ -55,7 +55,7 @@ test("persisted Meta permission outcomes offer account recovery and disappear af
         popup.getByRole("button", { name: "Refresh engagement", exact: true }),
       ).toHaveCount(0);
       await expect(
-        popup.getByText("OpenPost will retry collection for 1 posts.", { exact: true }),
+        popup.getByText("OpenPost will retry collection for 1 post.", { exact: true }),
       ).toHaveCount(0);
       await page.screenshot({ path: info.outputPath(`meta-permission-${width}-${scheme}.png`) });
       await page.keyboard.press("Escape");

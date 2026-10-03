@@ -704,10 +704,21 @@
 		count: number
 	) {
 		if (kind === 'disabled') return m.engagement_feature_disabled_title();
-		if (kind === 'reconnect') return m.engagement_recovery_reconnect({ count });
-		if (kind === 'retry') return m.engagement_recovery_retry({ count });
-		if (kind === 'unavailable') return m.engagement_recovery_unavailable({ count });
-		return m.engagement_recovery_investigate({ count });
+		if (kind === 'reconnect')
+			return count === 1
+				? m.engagement_recovery_reconnect_one({ count })
+				: m.engagement_recovery_reconnect({ count });
+		if (kind === 'retry')
+			return count === 1
+				? m.engagement_recovery_retry_one({ count })
+				: m.engagement_recovery_retry({ count });
+		if (kind === 'unavailable')
+			return count === 1
+				? m.engagement_recovery_unavailable_one({ count })
+				: m.engagement_recovery_unavailable({ count });
+		return count === 1
+			? m.engagement_recovery_investigate_one({ count })
+			: m.engagement_recovery_investigate({ count });
 	}
 
 	function orderThread(source: EngagementItem[]) {

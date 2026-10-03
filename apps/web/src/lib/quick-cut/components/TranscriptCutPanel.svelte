@@ -172,7 +172,9 @@
 	{#if words.length > 0}
 		<div class="flex items-center gap-2">
 			<Button size="sm" disabled={selected.size === 0 || disabled} onclick={remove}
-				>{m.quick_cut_remove_words({ count: selected.size })}</Button
+				>{selected.size === 1
+					? m.quick_cut_remove_word()
+					: m.quick_cut_remove_words({ count: selected.size })}</Button
 			>
 			<Button
 				size="sm"

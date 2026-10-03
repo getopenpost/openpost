@@ -117,7 +117,11 @@ test('Space activates a transcript word instead of the global playback shortcut'
 		await userEvent.keyboard(' ');
 		expect(toggle).not.toHaveBeenCalled();
 		await expect
-			.element(screen.getByRole('button', { name: 'Remove 1 words', exact: true }))
+			.element(screen.getByRole('button', { name: 'Remove word', exact: true }))
+			.toBeEnabled();
+		await screen.getByRole('button', { name: 'again', exact: true }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Remove 2 words', exact: true }))
 			.toBeEnabled();
 	} finally {
 		window.removeEventListener('keydown', listener, true);
@@ -316,7 +320,7 @@ test('keeps the cached transcript target when another audio stream is retained a
 	await expect.element(first).toHaveFocus();
 	await expect.element(panel.getByRole('button', { name: 'Hello', exact: true })).toBeVisible();
 	await panel.getByRole('button', { name: 'again', exact: true }).click();
-	await panel.getByRole('button', { name: 'Remove 1 words', exact: true }).click();
+	await panel.getByRole('button', { name: 'Remove word', exact: true }).click();
 	expect(onremove).toHaveBeenCalledExactlyOnceWith('interview', [
 		{ text: 'again', start: 1, end: 1.5 }
 	]);

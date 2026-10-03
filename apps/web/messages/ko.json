@@ -9671,5 +9671,6 @@
 	"editor_agent_talking_head": "발표자 영상",
 	"video_editor_caption_timing_invalid": "자막 시간은 {start}에서 {end} 프레임 사이로 설정하고, 종료가 시작보다 뒤에 오도록 하세요.",
 	"workflows_inspect_build": "생성 확인",
-	"workflows_build_details": "생성 세부 정보"
+	"workflows_build_details": "생성 세부 정보",
+	"quick_cut_remove_word": "단어 삭제"
 }

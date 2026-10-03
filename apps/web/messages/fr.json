@@ -9671,5 +9671,6 @@
 	"editor_agent_talking_head": "Face caméra",
 	"video_editor_caption_timing_invalid": "Gardez le minutage des sous-titres entre les images {start} et {end}, avec la fin après le début.",
 	"workflows_inspect_build": "Examiner la génération",
-	"workflows_build_details": "Détails de la génération"
+	"workflows_build_details": "Détails de la génération",
+	"quick_cut_remove_word": "Supprimer le mot"
 }

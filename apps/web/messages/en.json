@@ -9671,5 +9671,6 @@
 	"editor_agent_talking_head": "Talking head",
 	"video_editor_caption_timing_invalid": "Keep caption timing between {start} and {end} frames, with the end after the start.",
 	"workflows_inspect_build": "Inspect build",
-	"workflows_build_details": "Build details"
+	"workflows_build_details": "Build details",
+	"quick_cut_remove_word": "Remove word"
 }

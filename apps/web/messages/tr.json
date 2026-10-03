@@ -9671,5 +9671,6 @@
 	"editor_agent_talking_head": "Konuşmacı",
 	"video_editor_caption_timing_invalid": "Altyazı zamanlarını {start} ile {end} kareleri arasında tutun; bitiş başlangıçtan sonra olmalıdır.",
 	"workflows_inspect_build": "Oluşturmayı incele",
-	"workflows_build_details": "Oluşturma ayrıntıları"
+	"workflows_build_details": "Oluşturma ayrıntıları",
+	"quick_cut_remove_word": "Sözcüğü kaldır"
 }

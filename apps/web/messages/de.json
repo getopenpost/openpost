@@ -9671,5 +9671,6 @@
 	"editor_agent_talking_head": "Vor der Kamera",
 	"video_editor_caption_timing_invalid": "Die Untertitelzeiten müssen zwischen Frame {start} und {end} liegen, mit dem Ende nach dem Anfang.",
 	"workflows_inspect_build": "Build prüfen",
-	"workflows_build_details": "Build-Details"
+	"workflows_build_details": "Build-Details",
+	"quick_cut_remove_word": "Wort entfernen"
 }

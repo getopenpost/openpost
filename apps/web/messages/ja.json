@@ -9671,5 +9671,6 @@
 	"editor_agent_talking_head": "トーク動画",
 	"video_editor_caption_timing_invalid": "字幕のタイミングは{start}から{end}フレームの範囲内にし、終了を開始より後にしてください。",
 	"workflows_inspect_build": "生成を確認",
-	"workflows_build_details": "生成の詳細"
+	"workflows_build_details": "生成の詳細",
+	"quick_cut_remove_word": "単語を削除"
 }

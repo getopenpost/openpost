@@ -264,6 +264,10 @@
 	</Button>
 {/snippet}
 
+{#snippet returnHomeAction()}
+	<Button variant="outline" size="sm" href={resolve('/')}>{m.auth_account_deleted_home()}</Button>
+{/snippet}
+
 <StandaloneShell
 	title={completed === 'approved'
 		? m.cli_authorize_approved()
@@ -280,8 +284,8 @@
 		<InlineNotice
 			tone="error"
 			message={error}
-			actions={sessionLoadFailed ? retryLoadAction : undefined}
-			class="mb-4"
+			actions={!userCode ? returnHomeAction : sessionLoadFailed ? retryLoadAction : undefined}
+			class={!userCode ? 'mb-4 flex-col items-stretch sm:flex-row sm:items-center' : 'mb-4'}
 		/>
 	{/if}
 	{#if completed}

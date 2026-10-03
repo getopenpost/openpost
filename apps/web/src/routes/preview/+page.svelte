@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { page } from '$app/stores';
 	import {
@@ -69,6 +70,7 @@
 		<section>
 			<h1>{m.compose_preview()}</h1>
 			<p>{m.preview_invalid_link()}</p>
+			<Button class="mt-4" href={resolve('/')}>{m.video_editor_open_composer()}</Button>
 		</section>
 	</main>
 {:else if model}

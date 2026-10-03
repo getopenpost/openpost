@@ -241,14 +241,16 @@
 {/snippet}
 
 {#snippet retryInvitation()}
-	<Button
-		variant="outline"
-		size="sm"
-		onclick={() => acceptInvitation(invitationKey, true)}
-		disabled={!invitationKey || loading}
-	>
-		{m.common_retry()}
-	</Button>
+	{#if invitationKey}
+		<Button
+			variant="outline"
+			size="sm"
+			onclick={() => acceptInvitation(invitationKey, true)}
+			disabled={loading}>{m.common_retry()}</Button
+		>
+	{:else}
+		<Button variant="outline" size="sm" href={resolve('/')}>{m.auth_account_deleted_home()}</Button>
+	{/if}
 {/snippet}
 
 {#snippet retryWorkspaceRefresh()}
@@ -274,7 +276,12 @@
 >
 	{#if error}
 		<div data-testid="invite-error">
-			<InlineNotice tone="error" message={error} actions={retryInvitation} />
+			<InlineNotice
+				tone="error"
+				message={error}
+				actions={retryInvitation}
+				class={!invitationKey ? 'flex-col items-stretch sm:flex-row sm:items-center' : undefined}
+			/>
 		</div>
 	{/if}
 	{#if accepted}

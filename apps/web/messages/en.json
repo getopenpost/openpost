@@ -9713,5 +9713,6 @@
 	"repurpose_folder_missing": "Choose a local folder before creating clips.",
 	"repurpose_transcript_storage_failed": "Your project is available, but its transcript could not be kept on this device. You can still edit and export it.",
 	"image_editor_text_range_scope": "Font family and size affect the whole text layer.",
-	"compose_settings_add_video_hint": "Add a video in {all}, or customize this version to add separate media. Then reopen settings to enter its title and choose video options."
+	"compose_settings_add_video_hint": "Add a video in {all}, or customize this version to add separate media. Then reopen settings to enter its title and choose video options.",
+	"video_editor_shortcuts_playback_scope": "Shuttle controls Source when it is focused or hovered, otherwise Program. Focused sliders, buttons and text fields keep their own keys."
 }

@@ -9713,5 +9713,6 @@
 	"repurpose_folder_missing": "Klip oluşturmadan önce yerel bir klasör seçin.",
 	"repurpose_transcript_storage_failed": "Projeniz kullanılabilir durumda, ancak transkript bu cihaza kaydedilemedi. Projeyi düzenlemeye ve dışa aktarmaya devam edebilirsiniz.",
 	"image_editor_text_range_scope": "Yazı tipi ve boyutu tüm metin katmanına uygulanır.",
-	"compose_settings_add_video_hint": "{all} bölümüne bir video ekleyin veya ayrı medya eklemek için bu sürümü özelleştirin. Ardından başlığı girmek ve video seçeneklerini belirlemek için ayarları yeniden açın."
+	"compose_settings_add_video_hint": "{all} bölümüne bir video ekleyin veya ayrı medya eklemek için bu sürümü özelleştirin. Ardından başlığı girmek ve video seçeneklerini belirlemek için ayarları yeniden açın.",
+	"video_editor_shortcuts_playback_scope": "Shuttle, odaklanıldığında veya üzerine gelindiğinde Kaynak bölümünü, aksi halde Program bölümünü kontrol eder. Odaklanmış kaydırıcılar, düğmeler ve metin alanları kendi tuşlarını kullanır."
 }

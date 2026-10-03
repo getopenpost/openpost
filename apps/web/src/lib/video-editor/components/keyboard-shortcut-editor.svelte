@@ -669,6 +669,11 @@
 				>
 					{sectionLabels[section]()}
 				</div>
+				{#if section === 'playback'}
+					<p class="px-3 pt-3 text-xs text-[var(--video-editor-muted)]">
+						{m.video_editor_shortcuts_playback_scope()}
+					</p>
+				{/if}
 				{#each groups as group (group.primaryId)}
 					{@const ids = [group.primaryId, ...group.alternateIds]}
 					<div

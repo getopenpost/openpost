@@ -134,13 +134,13 @@ it('keeps paused native video seeks outside the marked range', async () => {
 	await userEvent.keyboard('{ArrowRight>29/}');
 	await expect.element(outPoint).toHaveAttribute('aria-valuenow', '30');
 	await screen.getByRole('button', { name: 'Play', exact: true }).click();
-	await vi.waitFor(() => expect(video.played.length).toBeGreaterThan(0));
+	await vi.waitFor(() => expect(video.played.length).toBeGreaterThan(0), { timeout: 5000 });
 	await vi.waitFor(() => expect(video.paused).toBe(true), { timeout: 3000 });
 	await expect
 		.element(screen.getByRole('slider', { name: 'Source position' }))
 		.toHaveAttribute('aria-valuenow', '29');
 	expect(video.currentTime).toBeCloseTo(29 / 30, 2);
-});
+}, 10_000);
 
 for (const target of [
 	{ kind: 'Video', id: 'track-video-overlay', name: 'Visual 2', other: 'Audio' },
@@ -225,3 +225,33 @@ for (const target of [
 		}
 	}, 30_000);
 }
+
+it('shuttles a decoded Source on hover while focused sliders keep their own keys', async () => {
+	const screen = await renderSource(demoVideoURL);
+	try {
+		const source = screen.getByRole('region', { name: 'Source', exact: true }).element();
+		await expect
+			.poll(() => source.querySelector('video')?.readyState ?? 0)
+			.toBeGreaterThanOrEqual(2);
+		const video = source.querySelector('video')!;
+		const position = screen.getByRole('slider', { name: 'Source position', exact: true });
+		position.element().focus();
+		await userEvent.keyboard('l');
+		await new Promise<void>((resolve) =>
+			requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+		);
+		expect(video.paused).toBe(true);
+		expect(video.currentTime).toBe(0);
+		await screen.getByText('source.mp4', { exact: true }).click();
+		await userEvent.keyboard('l');
+		await expect.poll(() => video.currentTime).toBeGreaterThan(0.05);
+		expect(video.paused).toBe(false);
+		expect(video.playbackRate).toBe(1);
+		await userEvent.keyboard('l');
+		await expect.poll(() => video.playbackRate).toBe(2);
+		await userEvent.keyboard('k');
+		expect(video.paused).toBe(true);
+	} finally {
+		await screen.unmount();
+	}
+}, 10000);

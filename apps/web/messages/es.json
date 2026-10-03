@@ -9713,5 +9713,6 @@
 	"repurpose_folder_missing": "Elige una carpeta local antes de crear clips.",
 	"repurpose_transcript_storage_failed": "Tu proyecto está disponible, pero no se pudo guardar su transcripción en este dispositivo. Puedes seguir editándolo y exportándolo.",
 	"image_editor_text_range_scope": "La familia y el tamaño de fuente afectan a toda la capa de texto.",
-	"compose_settings_add_video_hint": "Añade un vídeo en {all} o personaliza esta versión para añadir contenido multimedia separado. Después, vuelve a abrir los ajustes para introducir su título y elegir las opciones del vídeo."
+	"compose_settings_add_video_hint": "Añade un vídeo en {all} o personaliza esta versión para añadir contenido multimedia separado. Después, vuelve a abrir los ajustes para introducir su título y elegir las opciones del vídeo.",
+	"video_editor_shortcuts_playback_scope": "El shuttle controla Fuente cuando tiene el foco o el puntero encima; de lo contrario, Programa. Los controles deslizantes, botones y campos de texto con foco conservan sus propias teclas."
 }

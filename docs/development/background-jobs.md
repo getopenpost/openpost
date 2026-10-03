@@ -22,3 +22,11 @@ Workers recover jobs left in `processing` by dead workers after the stale lock w
 - The response body stays a raw job array for existing clients.
 - Pagination metadata is returned through `X-Total-Count`, `X-Limit`, `X-Offset`, `X-Next-Offset`, and `X-Has-More`.
 - The CLI mirrors this with `openpost jobs list --limit 50 --offset 50`.
+
+## Reply collection outcomes
+
+A successful `engagement_sync` job means the collection outcome was saved. It does not prove the provider returned replies. Collection cadence and provider backoff belong to `engagement_sync_states`, rather than a second queue retry loop.
+
+Inspect `sync_states` in `GET /api/v1/engagement?workspace_id=...` for each post's status, error code and next collection time. A successful provider read clears that post's error, including when no new replies exist. Other failed posts retain their state.
+
+Worker logs report failed collection with the rendition, account, platform, recovery status, stable provider code, and bounded subcode or trace ID when available. They never include provider response text, request URLs or credentials. Meta permission and expired-token codes require account recovery, even when Graph reports HTTP 400.

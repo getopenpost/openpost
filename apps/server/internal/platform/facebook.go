@@ -710,21 +710,15 @@ func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID 
 	fields := facebookCommentFields + ",comments.order(reverse_chronological){" + replyFields + ",comments.order(reverse_chronological){" + replyFields + "}}"
 	endpoint := f.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&order=reverse_chronological&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
-	if err != nil {
+	if err = metaCommentReadError(respBody, err); err != nil {
 		return nil, fmt.Errorf("facebook comments: %w", err)
 	}
 
 	var result struct {
-		Data  []facebookGraphComment `json:"data"`
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
+		Data []facebookGraphComment `json:"data"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("decoding facebook comments: %w", err)
-	}
-	if result.Error.Message != "" {
-		return nil, fmt.Errorf("facebook comments: %s", result.Error.Message)
 	}
 	return collectFacebookComments(result.Data, pageID, ""), nil
 }

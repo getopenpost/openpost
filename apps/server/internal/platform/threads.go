@@ -309,7 +309,7 @@ func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string
 	// holds replies at every depth, each naming the post or reply it answers.
 	endpoint := "https://graph.threads.net/v1.0/" + externalID + "/conversation?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, "GET", endpoint, nil, nil)
-	if err != nil {
+	if err = metaCommentReadError(respBody, err); err != nil {
 		return nil, fmt.Errorf("threads replies: %w", err)
 	}
 	var result struct {
@@ -324,15 +324,9 @@ func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string
 				ID string `json:"id"`
 			} `json:"replied_to"`
 		} `json:"data"`
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("decoding threads replies: %w", err)
-	}
-	if result.Error.Message != "" {
-		return nil, fmt.Errorf("threads replies: %s", result.Error.Message)
 	}
 
 	comments := make([]Comment, 0, len(result.Data))

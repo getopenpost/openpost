@@ -623,21 +623,15 @@ func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, accoun
 	fields := instagramCommentFields + ",replies{" + instagramCommentFields + ",parent_id}"
 	endpoint := i.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
-	if err != nil {
+	if err = metaCommentReadError(respBody, err); err != nil {
 		return nil, fmt.Errorf("instagram comments: %w", err)
 	}
 
 	var result struct {
-		Data  []instagramGraphComment `json:"data"`
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
+		Data []instagramGraphComment `json:"data"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("decoding instagram comments: %w", err)
-	}
-	if result.Error.Message != "" {
-		return nil, fmt.Errorf("instagram comments: %s", result.Error.Message)
 	}
 
 	accountID = strings.TrimSpace(accountID)

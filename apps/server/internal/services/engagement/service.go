@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"sync"
@@ -318,13 +319,7 @@ func (s *Service) syncEngagement(ctx context.Context, renditionID string) error 
 	}
 	comments, err := commenter.ListComments(ctx, token, account.AccountID, rendition.ExternalID)
 	if err != nil {
-		status, code, message, cadence := classifyEngagementReadError(err)
-		if account.Platform == "x" {
-			if blockErr := s.blockXReadsForError(ctx, account, err, cadence); blockErr != nil {
-				return blockErr
-			}
-		}
-		return s.recordState(ctx, rendition.ID, account, status, code, message, true, cadence, 0)
+		return s.recordReadFailure(ctx, rendition.ID, account, err, readFailureOptions{backfillComplete: true})
 	}
 	now := s.now()
 	var publication models.Publication
@@ -375,11 +370,7 @@ func (s *Service) syncXEngagement(
 			SinceID: cursor.SinceID, NextToken: cursor.NextToken, Limit: xCommentPageSize,
 		})
 		if err != nil {
-			status, code, message, cadence := classifyEngagementReadError(err)
-			if blockErr := s.blockXReadsForError(ctx, account, err, cadence); blockErr != nil {
-				return blockErr
-			}
-			return s.recordState(ctx, rendition.ID, account, status, code, message, cursor.NextToken == "", cadence, 0)
+			return s.recordReadFailure(ctx, rendition.ID, account, err, readFailureOptions{backfillComplete: cursor.NextToken == ""})
 		}
 		totalComments += len(page.Comments)
 		cursor.PendingHighID = maxProviderID(cursor.PendingHighID, page.HighestID)
@@ -1795,6 +1786,26 @@ func (s *Service) loadState(ctx context.Context, renditionID string) *models.Eng
 		return nil
 	}
 	return &state
+}
+
+type readFailureOptions struct {
+	backfillComplete bool
+}
+
+// Provider outcomes are scheduled through sync state, not the queue's retry
+// policy. Log the persisted failure separately from successful job handling.
+func (s *Service) recordReadFailure(ctx context.Context, renditionID string, account models.SocialAccount, readErr error, options readFailureOptions) error {
+	status, code, message, cadence := classifyEngagementReadError(readErr)
+	if account.Platform == "x" {
+		if err := s.blockXReadsForError(ctx, account, readErr, cadence); err != nil {
+			return err
+		}
+	}
+	if err := s.recordState(ctx, renditionID, account, status, code, message, options.backfillComplete, cadence, 0); err != nil {
+		return err
+	}
+	log.Printf("[Engagement] collection failed rendition=%s account=%s platform=%s status=%s code=%s retry_in=%s %s", renditionID, account.ID, account.Platform, status, code, cadence, platform.ProviderErrorDiagnostic(readErr))
+	return nil
 }
 
 func (s *Service) recordState(ctx context.Context, renditionID string, account models.SocialAccount, status, code, message string, backfillComplete bool, cadence time.Duration, emptyStreak int) error {

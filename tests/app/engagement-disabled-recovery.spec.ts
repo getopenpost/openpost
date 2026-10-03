@@ -194,9 +194,16 @@ test("collection recovery explains zero, one and several affected posts", async 
         .toBe(scheme === "dark");
       for (const width of [390, 320]) {
         await page.setViewportSize({ width, height: 844 });
-        const bounds = (await popup.boundingBox())!;
-        expect(bounds.x).toBeGreaterThanOrEqual(0);
-        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+        // Floating UI repositions the open popup after the viewport resize event.
+        await expect
+          .poll(async () => (await popup.boundingBox())?.x ?? -1)
+          .toBeGreaterThanOrEqual(0);
+        await expect
+          .poll(async () => {
+            const bounds = await popup.boundingBox();
+            return bounds ? bounds.x + bounds.width : Infinity;
+          })
+          .toBeLessThanOrEqual(width);
         await page.screenshot({
           path: testInfo.outputPath(`recovery-${affected}-${width}-${scheme}.png`),
           animations: "disabled",

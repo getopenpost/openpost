@@ -1,13 +1,27 @@
 import { expect, test } from "bun:test";
 import { cpSync, mkdtempSync, mkdirSync, appendFileSync, rmSync, symlinkSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const check = fileURLToPath(new URL("./check-braces-security-patch.mjs", import.meta.url));
 
-test("security admission accepts the installed patch and rejects changed artifacts", () => {
+async function runCheck(cwd) {
+  const child = Bun.spawn([process.execPath, check], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+    signal: AbortSignal.timeout(2000),
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  return { exitCode, stdout, stderr };
+}
+
+test("security admission accepts the installed patch and rejects changed artifacts", async () => {
   const fixture = mkdtempSync(path.join(tmpdir(), "openpost-braces-admission-"));
   try {
     mkdirSync(path.join(fixture, "node_modules"));
@@ -15,21 +29,21 @@ test("security admission accepts the installed patch and rejects changed artifac
     cpSync(fileURLToPath(new URL("../node_modules/braces", import.meta.url)), installed, {
       recursive: true,
     });
-    const run = () => Bun.spawnSync([process.execPath, check], { cwd: fixture });
-    expect(run().exitCode).toBe(0);
+    const run = () => runCheck(fixture);
+    expect((await run()).exitCode).toBe(0);
     const nested = path.join(fixture, "node_modules/parent/node_modules/braces");
     cpSync(installed, nested, { recursive: true });
-    expect(run().exitCode).toBe(0);
+    expect((await run()).exitCode).toBe(0);
     appendFileSync(path.join(nested, "lib/parse.js"), "\n// Changed artifact\n");
-    const rejected = run();
+    const rejected = await run();
     expect(rejected.exitCode).not.toBe(0);
-    expect(rejected.stderr.toString()).toContain("Unverified Braces security artifact");
+    expect(rejected.stderr).toContain("Unverified Braces security artifact");
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-test("security admission handles workspace cycles and symlinked Braces in the Bun store", () => {
+test("security admission handles workspace cycles and symlinked Braces in the Bun store", async () => {
   const fixture = mkdtempSync(path.join(tmpdir(), "openpost-braces-cycle-"));
   try {
     const installed = path.join(fixture, "node_modules/.bun/braces@3.0.3/node_modules/braces");
@@ -43,21 +57,11 @@ test("security admission handles workspace cycles and symlinked Braces in the Bu
     cpSync(installed, external, { recursive: true });
     mkdirSync(path.join(fixture, "node_modules/linked/node_modules"), { recursive: true });
     symlinkSync(external, path.join(fixture, "node_modules/linked/node_modules/braces"));
-    const result = spawnSync(process.execPath, [check], {
-      cwd: fixture,
-      timeout: 2000,
-      encoding: "utf8",
-    });
-    expect(result.error).toBeUndefined();
-    expect(result.status, result.stderr).toBe(0);
+    const result = await runCheck(fixture);
+    expect(result.exitCode, result.stderr).toBe(0);
     appendFileSync(path.join(external, "lib/parse.js"), "\n// Changed linked artifact\n");
-    const rejected = spawnSync(process.execPath, [check], {
-      cwd: fixture,
-      timeout: 2000,
-      encoding: "utf8",
-    });
-    expect(rejected.error).toBeUndefined();
-    expect(rejected.status).not.toBe(0);
+    const rejected = await runCheck(fixture);
+    expect(rejected.exitCode).not.toBe(0);
     expect(rejected.stderr).toContain("Unverified Braces security artifact");
   } finally {
     rmSync(fixture, { recursive: true, force: true });

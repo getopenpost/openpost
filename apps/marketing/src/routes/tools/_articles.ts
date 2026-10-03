@@ -307,10 +307,10 @@ const authoredArticles = {
 	'fediverse-handle-checker': {
 		title: 'Social handle checker',
 		description: 'Check a Bluesky or Mastodon handle before you share it.',
-		privacy: 'Format checks stay local. Live checks contact the selected server.',
+		privacy: 'Format checks stay local. Live checks contact the account server or Bluesky API.',
 		steps: [
 			'Paste the handle you want to check.',
-			'Choose Bluesky or Mastodon.',
+			'Review the automatically detected handle type.',
 			'Review its format, or run the optional live check.'
 		],
 		sections: [
@@ -324,7 +324,7 @@ const authoredArticles = {
 			{
 				title: 'A format check and a live check answer different questions',
 				paragraphs: [
-					'The local check asks whether the text looks like the kind of handle you selected. It can help catch missing parts and obvious formatting mistakes without contacting another service.',
+					'The local check asks whether the text looks like a Bluesky handle or Mastodon-style address. It can help catch missing parts and obvious formatting mistakes without contacting another service.',
 					'An optional live check asks the relevant public service about the address. That request leaves your browser, and the server may receive your IP address. A network error does not necessarily mean the handle is wrong: servers can be unavailable, private, or unable to accept browser requests.'
 				]
 			},

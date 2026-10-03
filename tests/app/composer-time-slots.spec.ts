@@ -28,6 +28,22 @@ test("composer advances saved time slots across hour boundaries", async ({
   const dialog = page.getByTestId("schedule-dialog-shell");
   await dialog.getByRole("button", { name: "Tomorrow 09:00", exact: true }).click();
   const savedTimes = dialog.getByRole("button", { name: "Saved times", exact: true });
+  // Choose the second slot as opening first enters the list, before deferred focus runs.
+  await page.evaluate(() => {
+    const chooseSecond = (event: FocusEvent) => {
+      const button = event.target as HTMLElement;
+      if (!button.closest('[data-testid="schedule-dialog-time-list"]')) return;
+      document.removeEventListener("focusin", chooseSecond);
+      queueMicrotask(() =>
+        document
+          .querySelector<HTMLButtonElement>(
+            '[data-testid="schedule-dialog-time-list"] button:nth-child(2)',
+          )
+          ?.focus(),
+      );
+    };
+    document.addEventListener("focusin", chooseSecond);
+  });
   await savedTimes.focus();
   await page.keyboard.press("Enter");
   const slots = page.getByTestId("schedule-dialog-time-list");
@@ -46,7 +62,13 @@ test("composer advances saved time slots across hour boundaries", async ({
     "21:30",
     "23:00",
   ]);
-  await slots.getByRole("button", { name: "06:30", exact: true }).focus();
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  await expect(slots.getByRole("button", { name: "06:30", exact: true })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(dialog.getByLabel("Publish time", { exact: true })).toHaveValue("06:30");
   await expect(slots).not.toBeVisible();

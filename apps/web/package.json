@@ -141,6 +141,7 @@
 		"safe-stable-stringify": "2.5.0",
 		"shell-quote": "^1.10.0",
 		"svelte-sonner": "^1.1.1",
+		"tabbable": "^6.5.0",
 		"tailwind-merge": "^3.5.0",
 		"tailwind-variants": "^3.2.2",
 		"torph": "^0.1.1",

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { preserveOpeningFocus } from '../opening-focus';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 	import DropdownMenuPortal from './dropdown-menu-portal.svelte';
 	import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
@@ -18,19 +19,7 @@
 	} = $props();
 
 	function handleOpenAutoFocus(event: Event) {
-		onOpenAutoFocus?.(event);
-		if (event.defaultPrevented) return;
-		event.preventDefault();
-		const content = ref;
-		const previousFocus = document.activeElement;
-		// Bits defers opening focus to a frame. A keyboard choice made before that
-		// frame must keep focus instead of being reset to the first item.
-		requestAnimationFrame(() => {
-			if (!content || ref !== content || !content.isConnected) return;
-			if (content.dataset.state !== 'open' || content.contains(document.activeElement)) return;
-			if (document.activeElement !== previousFocus) return;
-			content.focus();
-		});
+		preserveOpeningFocus(event, () => ref, onOpenAutoFocus);
 	}
 </script>
 

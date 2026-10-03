@@ -49,13 +49,21 @@ function walk(dir: string, out: string[]): void {
 	}
 }
 
-function isGuardedLine(line: string): boolean {
+function isGuardedLine(line: string, token: string): boolean {
 	if (line.includes('motion-reduce:animate-none')) return true;
 	if (line.includes('motion-essential:')) return true;
-	return false;
+	return !line.replaceAll(`motion-safe:${token}`, '').includes(token);
 }
 
 describe('reduced-motion policy', () => {
+	it.each([
+		['motion-safe:animate-pulse', true],
+		['hover:motion-safe:animate-pulse', true],
+		['motion-safe:animate-pulse animate-pulse', false]
+	])('recognizes guarded animation tokens in %s', (line, expected) => {
+		expect(isGuardedLine(line, 'animate-pulse')).toBe(expected);
+	});
+
 	it('guards every nonessential animate in Video Editor, Quick Cut, and Record Svelte UI', () => {
 		const allFiles: string[] = [];
 		for (const root of SCANNED_ROOTS) {
@@ -72,7 +80,7 @@ describe('reduced-motion policy', () => {
 				for (const token of TARGET_ANIMATIONS) {
 					if (line.includes(token)) {
 						// motion-reduce guard must be on same line (class string) or an explicit essential marker
-						if (isGuardedLine(line)) continue;
+						if (isGuardedLine(line, token)) continue;
 						const key = `${rel}:${idx + 1}`;
 						if (ESSENTIAL_ALLOWLIST.has(key)) continue;
 						violations.push({

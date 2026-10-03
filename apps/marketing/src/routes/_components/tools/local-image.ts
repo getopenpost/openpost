@@ -75,6 +75,17 @@ export async function decodeLocalImage(file: File): Promise<ImageBitmap> {
 	}
 }
 
+export async function validatePreviewImage(source: string): Promise<void> {
+	const image = new Image();
+	image.src = source;
+	try {
+		await image.decode();
+		if (!image.naturalWidth || !image.naturalHeight) throw new LocalImageError('decode');
+	} catch {
+		throw new LocalImageError('decode');
+	}
+}
+
 export function canvasFromBitmap(
 	bitmap: CanvasImageSource,
 	width: number,

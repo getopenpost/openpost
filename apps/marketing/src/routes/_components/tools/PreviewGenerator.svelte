@@ -26,6 +26,7 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { validatePreviewImage } from './local-image';
 
 	interface LocalMedia extends PreviewMedia {
 		name: string;
@@ -65,6 +66,8 @@
 	let cardKind = $state<PreviewCard['kind']>('link');
 	let formatTitle = $state('Your post title');
 	let mediaError = $state('');
+	let mediaLoading = $state(false);
+	let mediaSelectionVersion = 0;
 	let localMediaInput = $state<HTMLInputElement | null>(null);
 	let optionsOpen = $state(false);
 
@@ -241,10 +244,12 @@
 		reconcileMediaSelection();
 	}
 
-	function chooseFiles(event: Event) {
+	async function chooseFiles(event: Event): Promise<void> {
 		// SAFETY: chooseFiles is bound to the file input change event in this component.
 		const input = event.currentTarget as HTMLInputElement;
 		const files = Array.from(input.files ?? []);
+		const selectionVersion = ++mediaSelectionVersion;
+		mediaLoading = false;
 		mediaError = '';
 		if (files.length === 0) return;
 		const kinds = files.map(mediaKindForFile);
@@ -277,8 +282,7 @@
 			input.value = '';
 			return;
 		}
-		clearLocalMedia();
-		localMedia = files.map((file, index) => ({
+		const candidateMedia: LocalMedia[] = files.map((file, index) => ({
 			id: `local-${index}-${file.name}`,
 			name: file.name,
 			local: true,
@@ -287,9 +291,31 @@
 			alt: altText
 		}));
 		input.value = '';
+		mediaLoading = true;
+		let committed = false;
+		try {
+			for (const media of candidateMedia) {
+				if (selectionVersion !== mediaSelectionVersion) return;
+				if (media.kind === 'image') await validatePreviewImage(media.src);
+			}
+			if (selectionVersion !== mediaSelectionVersion) return;
+			clearLocalMedia();
+			localMedia = candidateMedia;
+			committed = true;
+		} catch {
+			if (selectionVersion === mediaSelectionVersion) {
+				mediaError =
+					'An image could not be decoded. Choose another image. Your current media is unchanged.';
+			}
+		} finally {
+			if (!committed) for (const media of candidateMedia) URL.revokeObjectURL(media.src);
+			if (selectionVersion === mediaSelectionVersion) mediaLoading = false;
+		}
 	}
 
 	function reconcileMediaSelection() {
+		mediaSelectionVersion++;
+		mediaLoading = false;
 		const allowed = mediaKindsFor(selectedPlatform, selectedFormat);
 
 		if (!allowed.includes(publicMediaKind)) {
@@ -339,18 +365,24 @@
 	function moveMedia(index: number, direction: -1 | 1) {
 		const next = index + direction;
 		if (next < 0 || next >= localMedia.length) return;
+		mediaSelectionVersion++;
+		mediaLoading = false;
 		const reordered = [...localMedia];
 		[reordered[index], reordered[next]] = [reordered[next], reordered[index]];
 		localMedia = reordered;
 	}
 
 	function removeMedia(id: string) {
+		mediaSelectionVersion++;
+		mediaLoading = false;
 		const item = localMedia.find((media) => media.id === id);
 		if (item) URL.revokeObjectURL(item.src);
 		localMedia = localMedia.filter((media) => media.id !== id);
 	}
 
 	function clearLocalMedia() {
+		mediaSelectionVersion++;
+		mediaLoading = false;
 		for (const media of localMedia) URL.revokeObjectURL(media.src);
 		localMedia = [];
 	}
@@ -665,6 +697,9 @@
 					Choose local media
 				</Button>
 				<p class="mt-2 text-xs leading-5 text-muted-foreground">Files stay in this browser.</p>
+				{#if mediaLoading}<p role="status" class="mt-2 text-xs text-muted-foreground">
+						Checking local images…
+					</p>{/if}
 				{#if mediaError}<p role="alert" class="mt-2 text-sm text-destructive">
 						{mediaError}
 					</p>{/if}

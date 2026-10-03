@@ -29,16 +29,22 @@
 	let windowStart = $state('09:00');
 	let windowEnd = $state('17:00');
 	let copied = $state(false);
+	const MAX_POSTS_PER_WEEK = 14;
+	const validPostCount = $derived(
+		Number.isInteger(postsPerWeek) && postsPerWeek >= 1 && postsPerWeek <= MAX_POSTS_PER_WEEK
+	);
 
 	const slots = $derived(
-		buildPostingPlan({
-			audienceTimezone,
-			localTimezone,
-			days: selectedDays,
-			postsPerWeek,
-			windowStart,
-			windowEnd
-		})
+		validPostCount
+			? buildPostingPlan({
+					audienceTimezone,
+					localTimezone,
+					days: selectedDays,
+					postsPerWeek,
+					windowStart,
+					windowEnd
+				})
+			: []
 	);
 	const validWindow = $derived(windowEnd > windowStart);
 	const adjustedSlotCount = $derived(slots.filter((slot) => slot.adjustedForTimezone).length);
@@ -137,7 +143,9 @@
 					type="number"
 					bind:value={postsPerWeek}
 					min="1"
-					max="14"
+					max={MAX_POSTS_PER_WEEK}
+					aria-invalid={!validPostCount}
+					aria-describedby={!validPostCount ? 'planner-post-count-guidance' : undefined}
 					class="h-11"
 				/>
 			</label>
@@ -208,7 +216,17 @@
 			</div>
 		{/if}
 
-		{#if !validWindow}
+		{#if !validPostCount}
+			<div
+				id="planner-post-count-guidance"
+				role="status"
+				class="mt-5 rounded-xl border border-dashed bg-muted/15 p-8 text-center"
+			>
+				<p class="font-medium">
+					Choose a whole number from 1 to {MAX_POSTS_PER_WEEK} posts per week.
+				</p>
+			</div>
+		{:else if !validWindow}
 			<div
 				class="mt-5 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-4 text-sm text-destructive"
 			>

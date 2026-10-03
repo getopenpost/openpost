@@ -62,3 +62,7 @@ function parseSemanticPayload(raw: string): SemanticNotificationPayload {
 		return {};
 	}
 }
+
+export function isSafeLocalNotificationHref(href: string | undefined): href is string {
+	return Boolean(href?.startsWith('/') && !href.startsWith('//') && !href.includes('\\'));
+}

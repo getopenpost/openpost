@@ -24,18 +24,20 @@ describe('notification bell unread badge', () => {
 		});
 	});
 
-	it('keeps the unread badge presentational because the link label announces the count', async () => {
+	it('keeps the unread badge presentational because the button label announces the count', async () => {
 		const screen = await render(NotificationBell, {}, { wrapper: Sidebar.Provider });
-		const link = screen.getByRole('link', { name: `Notifications, ${UNREAD_COUNT} unread` });
-		await expect.element(link).toBeVisible();
-		const badge = link.getByText(String(UNREAD_COUNT));
-		// The badge sits inside an already-named link, so it must not carry its own
+		const button = screen.getByRole('button', { name: `Notifications, ${UNREAD_COUNT} unread` });
+		await expect.element(button).toBeVisible();
+		const badge = button.getByText(String(UNREAD_COUNT));
+		// The badge sits inside an already-named button, so it must not carry its own
 		// aria-label on a role-less span (silently ignored); it is hidden instead.
 		await expect.element(badge).toHaveAttribute('aria-hidden', 'true');
 		expect(
 			screen.container.querySelector('[aria-label="3 unread notifications"]'),
-			'Expected no nested labeled badge inside the named link'
+			'Expected no nested labeled badge inside the named button'
 		).toBeNull();
+		await button.click();
+		await expect.element(button).toHaveAttribute('aria-expanded', 'true');
 	});
 });
 

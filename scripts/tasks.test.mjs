@@ -141,6 +141,18 @@ test("structural gate rejects unused exports while complexity stays advisory", (
       const result = spawnSync("git", args, { cwd: fixture, encoding: "utf8" });
       assert.equal(result.status, 0, result.stderr);
     }
+    const unchanged = spawnSync("bun", [adapter, "audit", "--base", "HEAD"], {
+      cwd: fixture,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${path.dirname(fallow)}:${process.env.PATH}` },
+    });
+    assert.equal(unchanged.status, 0, unchanged.stdout + unchanged.stderr);
+    const unchangedAudit = JSON.parse(
+      readFileSync(path.join(fixture, "test-results/fallow/root.json"), "utf8"),
+    );
+    assert.equal(unchangedAudit.changed_files_count, 0);
+    assert.equal(unchangedAudit.summary.dead_code_issues, 0);
+    assert.equal(unchangedAudit.dead_code, undefined);
     const decisions = Array.from(
       { length: 40 },
       (_, index) => `if (value === ${index}) return ${index};`,

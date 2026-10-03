@@ -23,13 +23,23 @@ try {
   process.exit(2);
 }
 const attribution = audit.attribution;
+// Fallow omits analysis sections when the selected Git range has no changes.
+const emptyDiff =
+  audit.changed_files_count === 0 &&
+  audit.verdict === "pass" &&
+  audit.dead_code === undefined &&
+  audit.summary?.dead_code_issues === 0 &&
+  audit.summary.dead_code_has_errors === false &&
+  attribution?.dead_code_introduced === 0 &&
+  attribution.dead_code_inherited === 0;
 if (
   audit.kind !== "audit" ||
   audit.schema_version !== 11 ||
   attribution?.gate !== "new-only" ||
-  !Number.isSafeInteger(audit.dead_code?.total_issues) ||
-  audit.dead_code.total_issues < 0 ||
-  audit.summary?.dead_code_issues !== audit.dead_code.total_issues ||
+  (!emptyDiff &&
+    (!Number.isSafeInteger(audit.dead_code?.total_issues) ||
+      audit.dead_code.total_issues < 0 ||
+      audit.summary?.dead_code_issues !== audit.dead_code.total_issues)) ||
   !Number.isSafeInteger(attribution.dead_code_introduced) ||
   attribution.dead_code_introduced < 0 ||
   !Number.isSafeInteger(attribution.dead_code_inherited) ||

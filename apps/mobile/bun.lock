@@ -60,6 +60,7 @@
   },
   "patchedDependencies": {
     "expo-modules-jsi@57.1.1": "patches/expo-modules-jsi@57.1.1.patch",
+    "braces@3.0.3": "../../patches/braces@3.0.3.patch",
     "expo-modules-core@57.0.20": "patches/expo-modules-core@57.0.20.patch",
   },
   "overrides": {

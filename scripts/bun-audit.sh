@@ -13,6 +13,10 @@ set -euo pipefail
 # Remove this exception when adm-zip publishes a fix.
 # The advisory endpoint occasionally times out from CI runners; retry a
 # few times before failing the gate.
+# GHSA-vfj7-8cjw-p6xm has no patched npm release. Permit only the exact
+# upstream depth-bound patch, verified across every installed Braces copy.
+# Remove this admission when a fixed upstream release replaces the patch.
+bun "$(dirname "${BASH_SOURCE[0]}")/check-braces-security-patch.mjs"
 attempt=1
 while [ "$attempt" -le 3 ]; do
   if bun audit --prod --audit-level low \
@@ -28,7 +32,8 @@ while [ "$attempt" -le 3 ]; do
   --ignore GHSA-67mh-4wv8-2f99 \
   --ignore GHSA-w5hq-g745-h8pq \
   --ignore GHSA-528h-pc64-c93x \
-  --ignore GHSA-vwc7-r8mq-g2x9
+  --ignore GHSA-vwc7-r8mq-g2x9 \
+  --ignore GHSA-vfj7-8cjw-p6xm
   then
     break
   fi

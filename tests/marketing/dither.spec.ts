@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { expectBalancedDitherButton } from "../helpers/dither-button";
+import { dismissTelemetryConsent } from "./helpers";
 
 test("CTA dithering changes pixel density on hover and keyboard focus @desktop", async ({
   page,
@@ -7,6 +8,7 @@ test("CTA dithering changes pixel density on hover and keyboard focus @desktop",
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.goto("/");
+    await dismissTelemetryConsent(page);
     const button = page.getByRole("link", { name: "Start your free trial" }).first();
     await expect(button).toBeVisible();
     const mask = () => button.evaluate((el) => getComputedStyle(el, "::before").maskImage);

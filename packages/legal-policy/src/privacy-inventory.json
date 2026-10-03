@@ -1133,6 +1133,18 @@
       "source_refs": ["apps/web/src/lib/video-editor/workspace-fs/export-storage.ts"]
     },
     {
+      "id": "opfs-source-transcripts",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor and Quick Cut",
+      "identifier_kind": "exact",
+      "identifier": "openpost-source-transcripts",
+      "purpose": "Stores source words, timing, transcription settings, and media identity so Cloud projects can reuse speech analysis in this browser.",
+      "scope": "Application origin and browser profile, separated by user and Workspace.",
+      "duration": "Until the transcript is deleted, the browser evicts it, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/video-editor/workspace-fs/source-transcripts.ts"]
+    },
+    {
       "id": "opfs-capability-probe",
       "technology": "OPFS",
       "owner": "OpenPost Video Editor capability gate",

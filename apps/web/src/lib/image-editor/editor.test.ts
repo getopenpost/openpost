@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { themeColorContrastRatio } from '$lib/themes/validation';
 import { defaultEditorColorWheels } from '$lib/editor-color-grade/model';
 import { defaultImageAdjustments } from './document';
 import { ImageEditorController } from './editor.svelte';
@@ -61,6 +62,28 @@ function response(): ImageEditorDocumentResponse {
 }
 
 describe('OpenPost Image Editor editor layer interactions', () => {
+	it('keeps new cover text readable over light and dark frames without restyling other designs', () => {
+		const editor = new ImageEditorController({ textAppearance: () => 'over-image' });
+		const initial = response();
+		editor.load(initial);
+		editor.addText('A product update');
+		const text = editor.selectedLayers[0].text!;
+		for (const frameColor of ['#000000', '#ffffff']) {
+			expect(
+				themeColorContrastRatio(text.color, text.highlight_color ?? 'transparent', frameColor)
+			).toBeGreaterThanOrEqual(4.5);
+		}
+		const authored = editor.document!;
+		editor.undo();
+		expect(editor.document!.pages[0].layers).toEqual(initial.document.pages[0].layers);
+		const reopened = new ImageEditorController();
+		reopened.load({ ...initial, document: authored });
+		expect(reopened.document!.pages[0].layers.at(-1)!.text).toEqual(text);
+		reopened.addText('Ordinary text');
+		expect(reopened.selectedLayers[0].text).toMatchObject({ color: '#1c1917' });
+		expect(reopened.selectedLayers[0].text!.highlight_color).toBeUndefined();
+	});
+
 	it('drops an old text range when direct page or layer selection changes', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());

@@ -84,6 +84,7 @@ import {
 } from '$lib/editor-color-grade/model';
 
 const IMAGE_EDITOR_CONTEXT = Symbol('openpost-image-editor-editor');
+const DEFAULT_TEXT_COLOR = '#1c1917';
 enablePatches();
 const imageEditorImmer = new Immer({ autoFreeze: false });
 
@@ -211,6 +212,12 @@ export function imageEditorMixedValue<T>(values: readonly T[]): ImageEditorMixed
 }
 
 export class ImageEditorController {
+	private readonly textAppearance?: () => 'standard' | 'over-image';
+
+	constructor(options: { textAppearance?: () => 'standard' | 'over-image' } = {}) {
+		this.textAppearance = options.textAppearance;
+	}
+
 	private atomicEdits: { estimatedBytes: number } | null = null;
 	id = $state('');
 	workspaceID = $state('');
@@ -1229,6 +1236,7 @@ export class ImageEditorController {
 
 	addText(content: string = m.image_editor_new_text()): void {
 		if (!this.document) return;
+		const overImage = this.textAppearance?.() === 'over-image';
 		const layer: ImageEditorLayer = {
 			id: imageEditorID('layer'),
 			type: 'text',
@@ -1251,7 +1259,8 @@ export class ImageEditorController {
 				strike: false,
 				wrap: 'word',
 				font_size: Math.max(32, Math.round(this.activePageDimensions.width / 12)),
-				color: '#1c1917',
+				color: overImage ? '#ffffff' : DEFAULT_TEXT_COLOR,
+				highlight_color: overImage ? DEFAULT_TEXT_COLOR : undefined,
 				align: 'center',
 				line_height: 1.1,
 				letter_spacing: 0,

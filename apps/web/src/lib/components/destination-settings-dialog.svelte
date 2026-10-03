@@ -63,6 +63,11 @@
 			file: File,
 			metadata?: GeneratedCoverFrame
 		) => void | Promise<void>;
+		onEditCover?: (
+			setting: SettingDefinition,
+			file: File,
+			metadata: GeneratedCoverFrame
+		) => Promise<void>;
 		onRemove?: () => void;
 	}
 
@@ -88,6 +93,7 @@
 		onOptionLoadMore,
 		onRetry,
 		onFileChange,
+		onEditCover,
 		onRemove
 	}: Props = $props();
 
@@ -676,13 +682,15 @@
 											onChange={(value) => onChange(setting.key, value)}
 										/>
 									{:else if control === 'cover_frame' && videoMediaItem}
-										<VideoCoverFramePicker
-											mediaId={videoMediaItem.id}
-											value={values[setting.key]}
-											mode="timestamp"
-											label={settingLabel(setting)}
-											onTimestampChange={(timestampMs) => onChange(setting.key, timestampMs)}
-										/>
+										{#key videoMediaItem.id}
+											<VideoCoverFramePicker
+												mediaId={videoMediaItem.id}
+												value={values[setting.key]}
+												mode="timestamp"
+												label={settingLabel(setting)}
+												onTimestampChange={(timestampMs) => onChange(setting.key, timestampMs)}
+											/>
+										{/key}
 									{:else if ['media_picker', 'captions_file'].includes(control) && onFileChange}
 										<Input
 											id="destination-setting-{setting.key}"
@@ -705,13 +713,18 @@
 											</p>
 										{/if}
 										{#if supportsGeneratedCover(setting) && videoMediaItem}
-											<VideoCoverFramePicker
-												mediaId={videoMediaItem.id}
-												value={values[setting.key]}
-												mode="image"
-												label={settingLabel(setting)}
-												onFileChange={(file, metadata) => onFileChange?.(setting, file, metadata)}
-											/>
+											{#key videoMediaItem.id}
+												<VideoCoverFramePicker
+													mediaId={videoMediaItem.id}
+													value={values[setting.key]}
+													mode="image"
+													label={settingLabel(setting)}
+													onFileChange={(file, metadata) => onFileChange?.(setting, file, metadata)}
+													onEditFrame={onEditCover
+														? (file, metadata) => onEditCover!(setting, file, metadata)
+														: undefined}
+												/>
+											{/key}
 										{/if}
 									{:else if setting.type === 'textarea' || control === 'follow_up'}
 										<Textarea

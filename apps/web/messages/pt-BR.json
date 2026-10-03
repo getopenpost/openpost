@@ -9675,5 +9675,6 @@
 	"quick_cut_remove_word": "Remover palavra",
 	"image_editor_trash_restore_independent": "Os designs restaurados são salvos separadamente das edições abertas em Mídia.",
 	"workflows_node_keyboard_help": "Enter ou Espaço seleciona um nó. As setas o movem; Escape limpa a seleção. Use o botão da etapa para configurá-la ou excluí-la.",
-	"workflows_node_keyboard_readonly_help": "Enter ou Espaço seleciona um nó. Escape limpa a seleção. Use o botão da etapa para inspecioná-la."
+	"workflows_node_keyboard_readonly_help": "Enter ou Espaço seleciona um nó. Escape limpa a seleção. Use o botão da etapa para inspecioná-la.",
+	"workflows_no_variable_match": "Não há variáveis correspondentes. Tente outra pesquisa."
 }

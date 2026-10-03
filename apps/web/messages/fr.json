@@ -9675,5 +9675,6 @@
 	"quick_cut_remove_word": "Supprimer le mot",
 	"image_editor_trash_restore_independent": "Les créations restaurées sont enregistrées séparément des modifications ouvertes depuis Médias.",
 	"workflows_node_keyboard_help": "Entrée ou Espace sélectionne un nœud. Les flèches le déplacent ; Échap efface la sélection. Utilisez le bouton de l’étape pour la configurer ou la supprimer.",
-	"workflows_node_keyboard_readonly_help": "Entrée ou Espace sélectionne un nœud. Échap efface la sélection. Utilisez le bouton de l’étape pour l’examiner."
+	"workflows_node_keyboard_readonly_help": "Entrée ou Espace sélectionne un nœud. Échap efface la sélection. Utilisez le bouton de l’étape pour l’examiner.",
+	"workflows_no_variable_match": "Aucune variable correspondante. Essayez une autre recherche."
 }

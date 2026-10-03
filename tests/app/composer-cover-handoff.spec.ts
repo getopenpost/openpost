@@ -114,10 +114,7 @@ test("an edited source frame returns only to its destination cover and survives 
   const cdp = await page.context().newCDPSession(page);
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await page.evaluate((mode) => {
-      localStorage.setItem("mode-watcher-mode", mode);
-      document.documentElement.classList.toggle("dark", mode === "dark");
-    }, scheme);
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
     for (const width of [1440, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await cdp.send("Emulation.setTouchEmulationEnabled", {
@@ -187,10 +184,7 @@ test("an edited source frame returns only to its destination cover and survives 
   expect(result.segments[0].media.map((item: any) => item.id)).toEqual([setup.video.id]);
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await page.evaluate((mode) => {
-      localStorage.setItem("mode-watcher-mode", mode);
-      document.documentElement.classList.toggle("dark", mode === "dark");
-    }, scheme);
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
     for (const width of [1440, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await dialog

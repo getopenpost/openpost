@@ -26,11 +26,11 @@ export function captureSourceTranscriptStorage(workspaceId = ''): SourceTranscri
 	return { kind: 'cloud', workspaceId, actorId, session };
 }
 
-async function transcriptRoot(
+export async function sourceTranscriptRoot(
 	storage: SourceTranscriptStorage,
 	signal?: AbortSignal
 ): Promise<FileSystemDirectoryHandle> {
-	assertStorageCurrent(storage, signal);
+	assertSourceTranscriptStorageCurrent(storage, signal);
 	if (storage.kind === 'local') {
 		if (!storage.root) throw new Error('Local transcript storage requires a workspace folder.');
 		return storage.root;
@@ -41,11 +41,14 @@ async function transcriptRoot(
 	});
 	const actor = await transcripts.getDirectoryHandle(storage.actorId, { create: true });
 	const workspace = await actor.getDirectoryHandle(storage.workspaceId, { create: true });
-	assertStorageCurrent(storage, signal);
+	assertSourceTranscriptStorageCurrent(storage, signal);
 	return workspace;
 }
 
-function assertStorageCurrent(storage: SourceTranscriptStorage, signal?: AbortSignal): void {
+export function assertSourceTranscriptStorageCurrent(
+	storage: SourceTranscriptStorage,
+	signal?: AbortSignal
+): void {
 	signal?.throwIfAborted();
 	if (storage.kind === 'cloud' && !queryMutationSessionIsCurrent(storage.session)) {
 		throw new DOMException('Transcription session changed', 'AbortError');
@@ -108,10 +111,10 @@ export async function getSourceTranscript(
 ): Promise<SourceTranscript | null> {
 	try {
 		const transcript = await readJson<SourceTranscript>(
-			await transcriptRoot(storage),
+			await sourceTranscriptRoot(storage),
 			sourceTranscriptPath(mediaId)
 		);
-		assertStorageCurrent(storage);
+		assertSourceTranscriptStorageCurrent(storage);
 		return transcript?.schemaVersion === 1 && transcript.mediaId === mediaId ? transcript : null;
 	} catch (error) {
 		if (error instanceof WorkspaceFileCorruptError) return null;
@@ -124,7 +127,7 @@ export async function saveSourceTranscript(
 ): Promise<SourceTranscript> {
 	const now = Date.now();
 	const storage = input.storage ?? captureSourceTranscriptStorage();
-	const root = await transcriptRoot(storage, input.signal);
+	const root = await sourceTranscriptRoot(storage, input.signal);
 	const previous = await getSourceTranscript(input.media.id, storage);
 	const transcript: SourceTranscript = {
 		schemaVersion: 1,
@@ -140,9 +143,9 @@ export async function saveSourceTranscript(
 		createdAt: input.createdAt ?? previous?.createdAt ?? now,
 		updatedAt: now
 	};
-	assertStorageCurrent(storage, input.signal);
+	assertSourceTranscriptStorageCurrent(storage, input.signal);
 	await writeJsonAtomic(root, sourceTranscriptPath(input.media.id), transcript);
-	assertStorageCurrent(storage, input.signal);
+	assertSourceTranscriptStorageCurrent(storage, input.signal);
 	return transcript;
 }
 
@@ -150,7 +153,7 @@ export async function deleteSourceTranscript(
 	mediaId: string,
 	storage = captureSourceTranscriptStorage()
 ): Promise<void> {
-	const root = await transcriptRoot(storage);
-	assertStorageCurrent(storage);
+	const root = await sourceTranscriptRoot(storage);
+	assertSourceTranscriptStorageCurrent(storage);
 	await removeEntry(root, sourceTranscriptPath(mediaId));
 }

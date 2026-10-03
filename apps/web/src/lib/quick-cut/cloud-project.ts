@@ -106,7 +106,11 @@ export function quickCutCloudDocument(project: QuickCutProject): QuickCutCloudDo
 		schemaFamily: 'quick-cut',
 		schemaVersion: 1,
 		timeline: {
-			sources: structuredClone(project.sources),
+			sources: project.sources.map((source) => {
+				const saved = structuredClone(source);
+				delete saved.transcript;
+				return saved;
+			}),
 			segments: structuredClone(project.segments),
 			markers: project.markers ? structuredClone(project.markers) : undefined
 		},

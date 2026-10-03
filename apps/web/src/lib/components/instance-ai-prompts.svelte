@@ -11,6 +11,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { getLocaleTag } from '$lib/i18n';
+	import { getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
@@ -33,18 +34,6 @@
 	interface Props {
 		active: boolean;
 	}
-
-	const platformLabels = new Map([
-		['x', 'X'],
-		['linkedin', 'LinkedIn'],
-		['threads', 'Threads'],
-		['facebook', 'Facebook'],
-		['instagram', 'Instagram'],
-		['youtube', 'YouTube'],
-		['tiktok', 'TikTok'],
-		['mastodon', 'Mastodon'],
-		['bluesky', 'Bluesky']
-	]);
 
 	let { active }: Props = $props();
 	const unsavedChanges = getOptionalUnsavedChanges();
@@ -124,7 +113,7 @@
 	function promptLabel(prompt: Prompt) {
 		return prompt.kind === 'base'
 			? m.settings_ai_prompts_base()
-			: (platformLabels.get(prompt.platform ?? '') ?? prompt.platform ?? prompt.key);
+			: getPlatformName(prompt.platform || prompt.key);
 	}
 
 	function promptDescription(prompt: Prompt) {

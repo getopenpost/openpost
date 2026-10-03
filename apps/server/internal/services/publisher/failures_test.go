@@ -69,6 +69,8 @@ func TestClassifyMetaFailuresUseDistinctRecoveryActions(t *testing.T) {
 		{"format rejection", &platform.HTTPError{StatusCode: 400, Code: "meta:media_format:2207085"}, FailureValidation, false, FailureActionEdit, "format, duration"},
 		{"daily limit", &platform.HTTPError{StatusCode: 400, Code: "meta:media_rejected:2207042"}, FailureValidation, false, FailureActionEdit, "25 posts per day"},
 		{"outage retries", &platform.HTTPError{StatusCode: 503, Code: "meta:transient"}, FailureProviderServer, true, FailureActionRetry, "temporarily unavailable"},
+		{"temporary posting block retries", &platform.HTTPError{StatusCode: 429, Code: "meta:rate_limit:368:1390008", Subcode: "1390008"}, FailureRateLimited, true, FailureActionRetry, "temporarily limited"},
+		{"other policy block never retries", &platform.HTTPError{StatusCode: 400, Code: "meta:368", Subcode: "1390009"}, FailureValidation, false, FailureActionEdit, "destination settings"},
 		{"rate limit retries", &platform.HTTPError{StatusCode: 429, Code: "meta:transient"}, FailureRateLimited, true, FailureActionRetry, "rate limiting"},
 	}
 	for _, test := range tests {
@@ -104,4 +106,12 @@ func TestDiscordAttachmentPermissionFailureExplainsHowToPublish(t *testing.T) {
 	require.Equal(t, FailureActionProvider, failure.Action)
 	require.Contains(t, failure.Message, "Attach Files")
 	require.Contains(t, failure.Message, "remove the attachments")
+}
+
+func TestPinterestBoardFailureIsTerminalAndNamesBoard(t *testing.T) {
+	failure := ClassifyFailure(&platform.HTTPError{StatusCode: 403, Code: "pinterest:board_permission:29"})
+	require.Equal(t, FailurePermission, failure.Kind)
+	require.False(t, failure.Retryable)
+	require.Equal(t, FailureActionEdit, failure.Action)
+	require.Contains(t, failure.Message, "selected board")
 }

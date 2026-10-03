@@ -358,3 +358,40 @@ func TestPinterestPublishTargetValidationRejectsForeignStaleAndMismatchedTargets
 	}))
 	require.Zero(t, mutations)
 }
+
+func TestPinterestPinCreateReportsLostBoardPermission(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	for _, profile := range []string{"image_post", "short_video"} {
+		t.Run(profile, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				switch req.URL.Path {
+				case "/v5/user_account":
+					return jsonResponse(req, `{"username":"openpost","account_type":"BUSINESS"}`), nil
+				case "/v5/boards/board-owned":
+					return jsonResponse(req, `{"id":"board-owned","name":"Owned","owner":{"username":"openpost"}}`), nil
+				case "/v5/pins":
+					response := jsonResponse(req, `{"code":29,"message":"secret provider detail"}`)
+					response.StatusCode = 403
+					return response, nil
+				default:
+					t.Fatalf("unexpected request: %s", req.URL)
+					return nil, nil
+				}
+			})}
+			req := &PublishRequest{Profile: profile, Content: "Launch", Settings: map[string]interface{}{"board_id": "board-owned"}, PlatformMediaIDs: []string{"https://media.example/photo.jpg"}, Media: []MediaItem{{MimeType: "image/jpeg"}}}
+			if profile == "short_video" {
+				req.PlatformMediaIDs = []string{"123456"}
+				req.Media = []MediaItem{{MimeType: "video/mp4"}}
+				req.Settings["cover_media_id"] = "https://media.example/cover.jpg"
+			}
+			req.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error { return nil })
+			_, err := NewPinterestAdapter("", "", "").Publish(t.Context(), "access", "openpost", req)
+			var providerErr *HTTPError
+			require.ErrorAs(t, err, &providerErr)
+			require.Equal(t, "pinterest:board_permission:29", providerErr.Code)
+			require.Equal(t, 403, providerErr.StatusCode)
+			require.NotContains(t, err.Error(), "secret provider detail")
+		})
+	}
+}

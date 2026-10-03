@@ -59,6 +59,9 @@ func TestNormalizeMetaPublishErrorClassifiesSubcodes(t *testing.T) {
 			code:       "meta:nonexistent:100:33",
 			subcode:    "33",
 		},
+		{name: "temporary posting block", body: `{"error":{"code":368,"error_subcode":1390008}}`, statusCode: http.StatusTooManyRequests, code: "meta:rate_limit:368:1390008", subcode: "1390008"},
+		{name: "other policy block stays terminal", body: `{"error":{"code":368,"error_subcode":1390009}}`, statusCode: http.StatusBadRequest, code: "meta:368", subcode: "1390009"},
+		{name: "policy block without subcode stays terminal", body: `{"error":{"code":368}}`, statusCode: http.StatusBadRequest, code: "meta:368"},
 		{
 			name:       "100 without subcode keeps the generic mapping",
 			body:       `{"error":{"code":100}}`,

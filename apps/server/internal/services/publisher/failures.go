@@ -139,6 +139,10 @@ func classifyProviderHTTPFailure(err error) (Failure, bool) {
 		return Failure{}, false
 	}
 	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
+	if code == "pinterest:board_permission:29" {
+		failure.Message = "This Pinterest account cannot publish to the selected board. Choose another board or reconnect the account if its access changed."
+		failure.Action = FailureActionEdit
+	}
 	if kind == FailurePermission && code == "discord_attach_files_permission_lost" {
 		failure.Message = "Allow Attach Files for the bot in this Discord channel, or remove the attachments."
 	}
@@ -184,6 +188,9 @@ func classifyMetaFailure(providerErr *platform.HTTPError) (Failure, bool) {
 		kind = FailurePermission
 	case code == "meta:nonexistent:100:33":
 		kind = FailureValidation
+	case code == "meta:rate_limit:368:1390008":
+		kind = FailureRateLimited
+		retryable = true
 	case code == "meta:media_silent_audio:2207082":
 		kind = FailureProviderProcessing
 		retryable = true

@@ -157,6 +157,7 @@ func applyMetaMapping(providerErr *HTTPError, mapping metaMapping) {
 // metaExactMappings classifies {code, subcode} pairs where the subcode
 // changes the recovery action (Postiz #2127).
 var metaExactMappings = map[metaCodeKey]metaMapping{
+	{code: "368", subcode: "1390008"}: {status: http.StatusTooManyRequests, code: "meta:rate_limit:368:1390008"},
 	// Meta put the account behind a security checkpoint. The token is still
 	// valid, so a refresh cannot help; the user must log in at facebook.com,
 	// complete the check, then reconnect.
@@ -216,6 +217,7 @@ func MetaFailureMessage(code string) string {
 }
 
 var metaFailureMessages = map[string]string{
+	"meta:rate_limit:368:1390008":     "Facebook temporarily limited posting for this account. OpenPost will retry later.",
 	"meta:checkpoint:190:459":         "Facebook asked for a security check. Log in at facebook.com, complete it, then reconnect this account and try again.",
 	"meta:checkpoint:instagram":       "Instagram asked for a login check. Log in at instagram.com, follow its instructions, then reconnect this account.",
 	"meta:missing_page_role:190:492":  "Your Facebook user no longer has a role on this Page. Ask a Page admin to grant you a role, then reconnect this account.",

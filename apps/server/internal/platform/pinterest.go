@@ -910,7 +910,7 @@ func (p *PinterestAdapter) publishPinterestImages(ctx context.Context, accessTok
 	}
 	body, err := DoJSON(ctx, http.MethodPost, pinterestAPIBaseURL+"/pins", payload, bearerHeaders(accessToken))
 	if err != nil {
-		return prepared, fmt.Errorf("creating pinterest Pin: %w", err)
+		return prepared, fmt.Errorf("creating pinterest Pin: %w", normalizePinterestPinCreateError(err))
 	}
 	var response struct {
 		ID string `json:"id"`
@@ -951,7 +951,7 @@ func (p *PinterestAdapter) publishPinterestVideo(ctx context.Context, accessToke
 	}
 	body, err := DoJSON(ctx, http.MethodPost, pinterestAPIBaseURL+"/pins", payload, bearerHeaders(accessToken))
 	if err != nil {
-		return prepared, fmt.Errorf("pinterest create video Pin: %w", err)
+		return prepared, fmt.Errorf("pinterest create video Pin: %w", normalizePinterestPinCreateError(err))
 	}
 	var response struct {
 		ID string `json:"id"`
@@ -1475,4 +1475,13 @@ func paginatePinterestOptions(options []DestinationOption, search, cursor string
 		page.NextCursor = strconv.Itoa(end)
 	}
 	return page
+}
+
+func normalizePinterestPinCreateError(err error) error {
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) && providerErr.Code == "29" {
+		providerErr.StatusCode = http.StatusForbidden
+		providerErr.Code = "pinterest:board_permission:29"
+	}
+	return err
 }

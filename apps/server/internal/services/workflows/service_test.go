@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
@@ -31,10 +30,7 @@ func (f responseTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 
 func workflowTestService(t *testing.T, actions Actions) (*Service, workspaceaccess.ActorFacts) {
 	t.Helper()
-	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:workflow-%d?mode=memory&cache=shared", time.Now().UnixNano()))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newWorkflowSchemaTestDB(t)
 	now := time.Now().UTC()
 	for _, row := range []any{
 		&models.User{ID: "user", Email: "workflow@example.com", PasswordHash: "hash", CreatedAt: now},

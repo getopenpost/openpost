@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"sync/atomic"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
@@ -22,10 +20,7 @@ import (
 
 func TestHostedWaitlistPersistsOnceAndRetriesDiscordWithoutCreatingAnAccount(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.InitDBWithDriver("sqlite", filepath.Join(t.TempDir(), "waitlist.db"))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 	var attempts atomic.Int32
 	discord := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload struct {

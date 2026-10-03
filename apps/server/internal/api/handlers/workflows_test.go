@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/workflows"
@@ -31,10 +29,7 @@ func (workflowSession) AuthenticateBearer(context.Context, string) (*middleware.
 
 func workflowHandlerDB(t *testing.T) *bun.DB {
 	t.Helper()
-	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:workflow-http-%d?mode=memory&cache=shared", time.Now().UnixNano()))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 	now := time.Now().UTC()
 	for _, row := range []any{
 		&models.User{ID: "user", Email: "workflow-http@example.com", PasswordHash: "hash", CreatedAt: now},

@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,12 +12,9 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/ai"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/repurpose"
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type repurposeGenerator struct{}
@@ -28,12 +24,7 @@ func (repurposeGenerator) Generate(context.Context, ai.GenerateRequest) (ai.Gene
 }
 
 func TestRepurposeHTTPReviewBoundary(t *testing.T) {
-	connection, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	db := bun.NewDB(connection, sqlitedialect.New())
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := newHandlerSchemaTestDB(t)
 	for _, model := range []any{
 		&models.User{ID: "user-1", Email: "one@example.com"}, &models.User{ID: "user-2", Email: "two@example.com"},
 		&models.Workspace{ID: "ws-1", OrganizationID: "org-1", Name: "Main"}, &models.Workspace{ID: "ws-2", OrganizationID: "org-2", Name: "Other"},
@@ -74,7 +65,7 @@ func TestRepurposeHTTPReviewBoundary(t *testing.T) {
 	response = invoke(http.MethodPost, path+"/retry", "web-token", `{"revision":2}`)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	require.Equal(t, http.StatusUnprocessableEntity, invoke(http.MethodPost, path+"/cancel", "web-token", `{"revision":0}`).Code)
-	_, err = db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleViewer).Where("user_id = ?", "user-1").Exec(t.Context())
+	_, err := db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleViewer).Where("user_id = ?", "user-1").Exec(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, http.StatusForbidden, invoke(http.MethodPost, path+"/cancel", "web-token", `{"revision":3}`).Code)
 	require.Equal(t, http.StatusForbidden, invoke(http.MethodPost, "/api/v1/repurpose-suggestions", "web-token", body).Code)

@@ -167,18 +167,6 @@ func (d *Decoder) Best() (*Entry, error) {
 	return best, nil
 }
 
-func (d *Decoder) DecodeAll() ([]*Entry, []image.Image, error) {
-	mm := make([]image.Image, len(d.entries))
-	var err error
-	for i, e := range d.entries {
-		mm[i], err = d.Decode(e)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	return d.entries, mm, nil
-}
-
 func (d *Decoder) Decode(e *Entry) (image.Image, error) {
 	r, isPNG, err := d.reader(e)
 	if err != nil {

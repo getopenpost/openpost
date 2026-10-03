@@ -324,13 +324,11 @@
 									class="relative focus-visible:ring-2 focus-visible:outline-none"
 									title={count ? m.calendar_day_posts_summary({ count }) : undefined}
 								>
-									{#snippet children()}
-										{day.day}
-										{#if count > 0}<span
-												aria-hidden="true"
-												class="absolute bottom-1 size-1 rounded-full bg-current"
-											></span>{/if}
-									{/snippet}
+									{day.day}
+									{#if count > 0}<span
+											aria-hidden="true"
+											class="absolute bottom-1 size-1 rounded-full bg-current"
+										></span>{/if}
 								</Day>
 							{/snippet}
 						</Calendar>

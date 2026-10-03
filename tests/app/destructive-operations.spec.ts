@@ -101,9 +101,7 @@ test("Organization Owner reviews and permanently deletes the complete Organizati
   await expect(dialog.getByText("Cleanup jobs: 0")).toBeVisible();
   await expect(dialog.getByText("Access removed")).toBeVisible();
   await expect(dialog.getByText("Organization membership for every member")).toBeVisible();
-  await expect(
-    dialog.getByText("Publications, drafts, schedules, analytics, and messages"),
-  ).toBeVisible();
+  await expect(dialog.getByText("Posts, drafts, schedules, analytics, and messages")).toBeVisible();
   await expect(
     dialog.getByText("Minimum audit evidence without deleted content or credentials"),
   ).toBeVisible();

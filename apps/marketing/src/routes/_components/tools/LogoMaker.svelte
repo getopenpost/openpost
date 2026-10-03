@@ -143,7 +143,7 @@
 				`logo-${exportSize}.svg`
 			);
 			exportState = 'done';
-			statusMessage = 'SVG downloaded.';
+			statusMessage = 'SVG download started.';
 		} catch {
 			exportState = 'failed';
 			statusMessage = 'The SVG could not be created.';
@@ -195,7 +195,7 @@
 			else downloadBlob(blob, `logo-${requestedSize}.png`);
 			if (requestedGeneration !== generation || requestedSize !== exportSize) return;
 			exportState = 'done';
-			statusMessage = mode === 'copy' ? 'PNG copied.' : 'PNG downloaded.';
+			statusMessage = mode === 'copy' ? 'PNG copied.' : 'PNG download started.';
 		} catch {
 			if (requestedGeneration !== generation) return;
 			exportState = 'failed';

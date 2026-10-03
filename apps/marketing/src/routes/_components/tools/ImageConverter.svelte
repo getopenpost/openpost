@@ -115,7 +115,7 @@
 		link.download = `${fileName}.${outputFormat === 'jpeg' ? 'jpg' : outputFormat}`;
 		link.click();
 		setTimeout(() => URL.revokeObjectURL(url), 30_000);
-		status = `Downloaded ${link.download} at ${width} by ${height} pixels.`;
+		status = `Download started for ${link.download} at ${width} by ${height} pixels.`;
 	}
 
 	async function copyPNG(): Promise<void> {

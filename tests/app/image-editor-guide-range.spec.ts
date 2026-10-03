@@ -9,9 +9,14 @@ test("guide dialog retains invalid positions and admits the selected page axis r
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/image-editor");
   await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
+  await page.clock.install();
   const open = async () => {
     await page.getByRole("menubar").getByRole("menuitem", { name: "View", exact: true }).click();
+    await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 1000)));
     await page.getByRole("menuitem", { name: /Add guide/ }).click();
+    // Menu close restores focus before the dialog's deferred opening focus.
+    await page.clock.runFor(32);
+    await page.clock.resume();
     await expect(
       page.getByRole("dialog").getByRole("radio", { name: "Vertical", exact: true }),
     ).toBeFocused();

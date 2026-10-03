@@ -18,6 +18,7 @@
 		children,
 		showCloseButton = true,
 		onOpenAutoFocus,
+		trapFocus = true,
 		...restProps
 	}: WithoutChildrenOrChild<DialogPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DialogPortal>>;
@@ -27,7 +28,7 @@
 	} = $props();
 
 	function handleOpenAutoFocus(event: Event) {
-		preserveOpeningFocus(event, () => ref, onOpenAutoFocus);
+		preserveOpeningFocus(event, () => ref, onOpenAutoFocus, { trapFocus });
 	}
 </script>
 
@@ -35,6 +36,7 @@
 	<Dialog.Overlay {...overlayProps} />
 	<DialogPrimitive.Content
 		bind:ref
+		{trapFocus}
 		data-slot="dialog-content"
 		onOpenAutoFocus={handleOpenAutoFocus}
 		class={cn(

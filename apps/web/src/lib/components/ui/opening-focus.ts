@@ -3,7 +3,8 @@ import { tabbable } from 'tabbable';
 export function preserveOpeningFocus(
 	event: Event,
 	getContent: () => HTMLElement | null,
-	onOpenAutoFocus?: (event: Event) => void
+	onOpenAutoFocus?: (event: Event) => void,
+	{ trapFocus = false }: { trapFocus?: boolean } = {}
 ) {
 	onOpenAutoFocus?.(event);
 	if (event.defaultPrevented) return;
@@ -17,7 +18,10 @@ export function preserveOpeningFocus(
 		if (getContent() !== content || !content.isConnected || content.dataset.state !== 'open')
 			return;
 		const active = content.ownerDocument.activeElement;
-		if (content.contains(active) || active !== previousFocus) return;
+		if (content.contains(active)) return;
+		// Closing a menu can restore outside focus while its dialog opens.
+		// Trapped surfaces must still move focus inside after that restoration.
+		if (!trapFocus && active !== previousFocus) return;
 		const first = tabbable(content, { includeContainer: false, getShadowRoot: true })[0];
 		(first ?? content).focus();
 	});

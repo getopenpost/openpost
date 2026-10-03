@@ -23,9 +23,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
 	import { toast } from 'svelte-sonner';
 	import { showToast } from '$lib/toast';
+	import { auth } from '$lib/stores/auth';
 	import { ui } from '$lib/stores/ui.svelte';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
+	import { connectEditorAgent } from '$lib/editor-agent/browser-relay';
+	import { handleVideoAgentRequest } from '$lib/editor-agent/video-executor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		addAdjustmentLayer,
@@ -225,6 +228,30 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			? editorSession.project
 			: null
 	);
+	const connectedAgentProjectID = $derived(displayedProject?.id ?? '');
+	let agentConnectionStatus = $state<'connected' | 'disconnected' | 'working'>('disconnected');
+	let agentSessionID = $state<string | null>(null);
+	$effect(() => {
+		const workspaceID = workspaceCtx.currentWorkspace?.id;
+		const connectedProjectID = connectedAgentProjectID;
+		if (!workspaceID || !connectedProjectID) return;
+		return connectEditorAgent({
+			workspaceID,
+			projectID: connectedProjectID,
+			kind: 'video',
+			handle: (request) =>
+				handleVideoAgentRequest(
+					request,
+					(itemID) => {
+						selectedItemId = itemID;
+						selectedItemIds = [itemID];
+					},
+					cloudStorage ? importCloudEditorProjectAsset : undefined
+				),
+			onSession: (sessionID) => (agentSessionID = sessionID),
+			onStatus: (status) => (agentConnectionStatus = status)
+		});
+	});
 	const gate = createWorkspaceGate();
 	let colorPickerBrandColors = $state.raw<ColorPickerPreset[]>([]);
 	let editorBrandFonts = $state.raw<EditorBrandFont[]>([]);
@@ -501,7 +528,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let unsupportedAudioResolve: ((decision: 'import' | 'cancel') => void) | null = null;
 	$effect(() => {
 		const scope = cloudStorage ? workspaceCtx.currentWorkspace?.id : 'local';
-		if (scope) void videoLibrary.load(scope).catch((error) => toast.error(String(error)));
+		if (scope)
+			void videoLibrary
+				.load(scope, workspaceCtx.currentWorkspace?.id, $auth.user?.id)
+				.catch((error) => toast.error(String(error)));
 	});
 	type LeftPanel =
 		| 'library'
@@ -1966,6 +1996,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			}
 			if (updateTransitionPresentation(selectedTransition.id, presentation, direction)) {
 				editorSession.scheduleAutosave();
+				videoLibrary.recordChoice(`${videoLibrary.scope}:transition:${presentation}`, presentation);
 			} else {
 				showToast(m.video_editor_agent_error_transition_failed(), 'error');
 			}
@@ -2003,7 +2034,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					{ presentation, direction }
 				);
 			}
-			selectedTransitionId = id ?? null;
+			if (!id) return;
+			videoLibrary.recordChoice(`${videoLibrary.scope}:transition:${presentation}`, presentation);
+			selectedTransitionId = id;
 			selectedItemId = null;
 			selectedItemIds = [];
 			editorSession.scheduleAutosave();
@@ -2457,6 +2490,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 <div
 	class="video-editor-theme flex h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
+	data-agent-status={agentConnectionStatus}
 >
 	<EditorHeader>
 		{#snippet identity()}
@@ -2516,6 +2550,24 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				<ThemeIcon role="sparkles" class="size-3.5" />
 				<span class="hidden 2xl:inline">{m.recording_cleanup_action()}</span>
 			</Button>
+			{#if agentConnectionStatus !== 'disconnected'}
+				<span
+					class="inline-flex items-center gap-1.5 text-xs text-[var(--video-editor-text-muted)]"
+					role="status"
+					aria-live="polite"
+				>
+					<span
+						class="size-1.5 rounded-full bg-current {agentConnectionStatus === 'working'
+							? 'motion-safe:animate-pulse'
+							: ''}"
+					></span>
+					<span class="sr-only lg:not-sr-only">
+						{agentConnectionStatus === 'working'
+							? m.editor_agent_status_working()
+							: m.editor_agent_status_connected()}
+					</span>
+				</span>
+			{/if}
 			{#if editorSession.saveError}
 				<Button
 					type="button"
@@ -3161,16 +3213,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												>
 													<EditorAssistantPanel
 														{projectId}
+														sessionId={agentSessionID}
 														oninserted={handleGeneratedAudioInserted}
-														onselectitems={(ids) => {
-															selectedItemIds = ids;
-															selectedItemId = ids[0] ?? null;
-															selectedTransitionId = null;
-														}}
-														onopensilence={(ids) => openAgentSpeechCleanup('silence', ids)}
-														onopenfillers={(ids) => openAgentSpeechCleanup('fillers', ids)}
-														selectedIds={selectedLeftPanelItemIds}
-														onautosave={() => editorSession.scheduleAutosave()}
 														{textVoiceRequest}
 														importProjectAsset={cloudStorage
 															? importCloudEditorProjectAsset

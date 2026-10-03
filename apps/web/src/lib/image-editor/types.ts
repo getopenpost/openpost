@@ -284,6 +284,7 @@ export interface ImageEditorPage {
 }
 
 export interface ImageEditorDocument {
+	template_slots?: Array<{ name: string; target_id: string; max_characters: number }>;
 	schema_version: 1 | typeof IMAGE_EDITOR_SCHEMA_VERSION;
 	title: string;
 	preset_key: string;

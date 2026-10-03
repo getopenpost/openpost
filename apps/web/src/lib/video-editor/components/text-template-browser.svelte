@@ -2,6 +2,7 @@
 <script lang="ts">
 	import LibraryShelf from './library-shelf.svelte';
 	import type { ProjectAssetImporter } from '../media/types';
+	import { videoLibrary } from '../library/library-store.svelte';
 	import LibraryFavorite from './library-favorite.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
@@ -63,11 +64,20 @@
 					1,
 					copy
 				)
-			)
+			) {
 				onapplied();
+				videoLibrary.recordChoice(
+					`${videoLibrary.scope}:text:${presetId}`,
+					TEXT_STYLE_PRESETS.find((preset) => preset.id === presetId)?.label ?? presetId
+				);
+			}
 			return;
 		}
 		oninserted(addTextTemplateItem(presetId, copy));
+		videoLibrary.recordChoice(
+			`${videoLibrary.scope}:text:${presetId}`,
+			TEXT_STYLE_PRESETS.find((preset) => preset.id === presetId)?.label ?? presetId
+		);
 	}
 
 	function startDrag(

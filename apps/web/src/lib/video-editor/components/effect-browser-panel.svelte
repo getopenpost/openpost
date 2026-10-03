@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { videoLibrary } from '../library/library-store.svelte';
 	import LibraryShelf from './library-shelf.svelte';
 	import LibraryFavorite from './library-favorite.svelte';
 	import { onDestroy } from 'svelte';
@@ -114,13 +115,15 @@
 		onedit();
 	}
 
-	function apply(label: string, effects: readonly EffectTemplate[]): void {
+	function apply(label: string, effects: readonly EffectTemplate[], id: string): void {
 		const targets = compatibleSelection();
 		if (targets.length > 0 && addEffectTemplates(targets, effects.map(cloneTemplate))) {
 			onedit();
+			videoLibrary.recordChoice(`${videoLibrary.scope}:effects:${id}`, label);
 			return;
 		}
 		createAdjustment(label, effects);
+		videoLibrary.recordChoice(`${videoLibrary.scope}:effects:${id}`, label);
 	}
 
 	function startDrag(event: DragEvent, label: string, effects: readonly EffectTemplate[]): void {
@@ -187,7 +190,7 @@
 							aria-label={item.label}
 							title={m.video_editor_effects_add_or_drag()}
 							onclick={(event) => {
-								if (event.detail <= 1) apply(item.label, item.effects);
+								if (event.detail <= 1) apply(item.label, item.effects, item.id);
 							}}
 							ondragstart={(event) => startDrag(event, item.label, item.effects)}
 							ondragend={clearEffectDragData}

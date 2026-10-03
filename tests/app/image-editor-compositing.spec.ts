@@ -52,6 +52,7 @@ for (const storage of ["guest", "cloud"] as const) {
       .getByRole("banner")
       .getByRole("button", { name: "More actions", exact: true })
       .click();
+    await page.getByRole("menuitem", { name: "Layer", exact: true }).click();
     const bakeHelp = page.getByText("Bakes pixels inside the page.", { exact: false });
     await bakeHelp.evaluate((element) => element.scrollIntoView({ block: "center" }));
     await expect(bakeHelp).toBeInViewport({ ratio: 1 });
@@ -66,6 +67,7 @@ for (const storage of ["guest", "cloud"] as const) {
       .getByRole("banner")
       .getByRole("button", { name: "More actions", exact: true })
       .click();
+    await page.getByRole("menuitem", { name: "Layer", exact: true }).click();
     await expect(
       page.getByRole("menuitem", { name: "Rasterize to image", exact: true }),
     ).toBeVisible();

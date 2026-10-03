@@ -178,15 +178,24 @@
 					class:outage={status.severity === 'outage'}
 					class:operational={status.severity === 'operational'}
 				>
-					<h2>{status.headline}</h2>
+					{#if status.headline?.trim()}<h2>{status.headline}</h2>{/if}
 					<div class="updates">
-						{#each status.updates ?? [] as update (update.id)}<div
-								class="update"
-								data-content-id={update.id}
-							>
-								<p><strong>{update.stage}</strong> · {update.text}</p>
-								<div class="update-time">{update.timestamp}</div>
-							</div>{/each}
+						{#each status.updates ?? [] as update (update.id)}
+							{@const hasStage = Boolean(update.stage?.trim())}
+							{@const hasText = Boolean(update.text?.trim())}
+							{@const hasTimestamp = Boolean(update.timestamp?.trim())}
+							{#if hasStage || hasText || hasTimestamp}
+								<div class="update" data-content-id={update.id}>
+									{#if hasStage || hasText}
+										<p>
+											{#if hasStage}<strong>{update.stage}</strong
+												>{/if}{#if hasStage && hasText}{' · '}{/if}{#if hasText}{update.text}{/if}
+										</p>
+									{/if}
+									{#if hasTimestamp}<div class="update-time">{update.timestamp}</div>{/if}
+								</div>
+							{/if}
+						{/each}
 					</div>
 				</div>
 			</div>

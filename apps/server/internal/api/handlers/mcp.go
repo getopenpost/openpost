@@ -417,8 +417,10 @@ type mcpError struct {
 }
 
 type mcpContent struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	Data     string `json:"data,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
 }
 
 type mcpHTTPFailure struct {
@@ -717,7 +719,7 @@ func (h *MCPHandler) mcpActiveToolMode() mcpToolMode {
 }
 
 func (h *MCPHandler) mcpInstructions(scope string, mode mcpToolMode) string {
-	const shared = " All delegated operations retain the same authorization, workspace scoping, schema validation, quota, and audit controls."
+	const shared = " Connected Image and Video Editors expose editor_sessions, editor_context, structure and media inspection, and guarded live edits. Call editor_sessions first, then inspect stable IDs and the authored revision. A local project is available only while its browser editor remains connected. Each edit needs an explicit project ID, expected revision, and retry key. All delegated operations retain the same authorization, workspace scoping, schema validation, quota, and audit controls."
 	var base string
 	switch mode {
 	case mcpToolModeSearch:
@@ -1387,6 +1389,50 @@ func mcpOperationCatalog() []mcpOperationDefinition {
 		mcpGetMediaTool(),
 		mcpUpdateMediaTool(),
 		mcpDeleteMediaTool(),
+		mcpEditorSessionsTool(),
+		mcpEditorReferenceTool(),
+		mcpEditorContextTool(),
+		mcpEditorLibraryTool("library_search"),
+		mcpEditorLibraryTool("library_inspect"),
+		mcpEditorLibraryTool("library_apply"),
+		mcpEditorLibraryTool("library_save"),
+		mcpEditorLibraryTool("style_capture"),
+		mcpEditorLibraryTool("style_preview"),
+		mcpEditorPersonalizationTool("style_list"),
+		mcpEditorPersonalizationTool("style_inspect"),
+		mcpEditorPersonalizationTool("style_save"),
+		mcpEditorPersonalizationTool("style_archive"),
+		mcpEditorPersonalizationTool("preferences_get"),
+		mcpEditorPersonalizationTool("preferences_set"),
+		mcpEditorPersonalizationTool("preferences_remove"),
+		mcpTimelineInspectTool(),
+		mcpImageInspectTool(),
+		mcpMediaSearchEditorTool(),
+		mcpMediaInspectEditorTool(),
+		mcpMediaLibraryTool(),
+		mcpMediaAnalyzeTool(),
+		mcpMediaAnalysisStatusTool(),
+		mcpMediaAnalysisCancelTool(),
+		mcpMediaFrameTool(),
+		mcpMediaStoryboardTool(),
+		mcpSceneAnalyzeTool(),
+		mcpSceneAnalysisStatusTool(),
+		mcpSceneAnalysisCancelTool(),
+		mcpSceneSearchTool(),
+		mcpSceneInspectTool(),
+		mcpEditorPreviewTool(),
+		mcpEditorAudioPreviewTool(),
+		mcpEditorExportStartTool(),
+		mcpEditorExportStatusTool(),
+		mcpEditorExportCancelTool(),
+		mcpEditorRevealTool(),
+		mcpVideoEditTool(),
+		mcpImageEditTool(),
+		mcpEditorWorkStatusTool(),
+		mcpEditorWorkCancelTool(),
+		mcpEditorHistoryInspectTool(),
+		mcpEditorHistoryUndoTool(),
+		mcpEditorHistoryRedoTool(),
 	}
 }
 
@@ -2591,6 +2637,9 @@ func mcpToolInvocationStatus(toolName string) mcpToolStatus {
 
 //nolint:gocyclo // Tool cases are a flat schema catalog, not nested control flow.
 func mcpToolOutputSchema(toolName string) map[string]any {
+	if strings.HasPrefix(toolName, "editor_") || strings.HasPrefix(toolName, "library_") || strings.HasPrefix(toolName, "style_") || strings.HasPrefix(toolName, "preferences_") || toolName == "timeline_inspect" || toolName == "image_inspect" || toolName == "media_library" || toolName == "media_analyze" || toolName == "media_analysis_status" || toolName == "media_analysis_cancel" || toolName == "media_search" || toolName == "media_inspect" || toolName == "media_frame" || toolName == "media_storyboard" || strings.HasPrefix(toolName, "scene_") || toolName == "preview_render" || toolName == "preview_audio" || toolName == "video_edit" || toolName == "image_edit" || toolName == "export_start" || toolName == "export_status" || toolName == "export_cancel" {
+		return mcpOpenObjectSchema()
+	}
 	if toolName == mcpToolListPubs {
 		return mcpStructuredOutputSchema(map[string]any{
 			"publications": mcpArraySchema(mcpOpenObjectSchema()),
@@ -3261,6 +3310,8 @@ func (h *MCPHandler) callMCPOperation(ctx context.Context, userID, operation str
 		return h.renderLocalMediaUpload(ctx, userID, args)
 	case mcpToolCreateTicket:
 		return h.createLocalMediaUploadTicket(ctx, userID, args)
+	case "editor_sessions", "editor_reference", "editor_context", "editor_reveal", "timeline_inspect", "image_inspect", "media_library", "media_analyze", "media_analysis_status", "media_analysis_cancel", "media_search", "media_inspect", "media_frame", "media_storyboard", "scene_analyze", "scene_analysis_status", "scene_analysis_cancel", "scene_search", "scene_inspect", "preview_render", "preview_audio", "video_edit", "image_edit", "export_start", "export_status", "export_cancel", "editor_work_status", "editor_work_cancel", "editor_history_inspect", "editor_history_undo", "editor_history_redo", "library_search", "library_inspect", "library_apply", "library_save", "style_capture", "style_preview", "style_list", "style_inspect", "style_save", "preferences_get", "preferences_set", "preferences_remove", "style_archive":
+		return h.callEditorAgentTool(ctx, userID, operation, args)
 	case mcpToolCreatePub, mcpToolListPubs, mcpToolGetPub, mcpToolUpdatePub, mcpToolPubRenditions, mcpToolReplyRendition,
 		mcpToolValidatePub, mcpToolSchedulePub, mcpToolCancelPub, mcpToolPublishPubNow, mcpToolDeletePub,
 		mcpToolRetryFailed, mcpToolRetryOne, mcpToolPubEvents, mcpToolComments,

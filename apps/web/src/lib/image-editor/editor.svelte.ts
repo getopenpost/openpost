@@ -211,6 +211,7 @@ export function imageEditorMixedValue<T>(values: readonly T[]): ImageEditorMixed
 }
 
 export class ImageEditorController {
+	private atomicEdits: { estimatedBytes: number } | null = null;
 	id = $state('');
 	workspaceID = $state('');
 	revision = $state(0);
@@ -454,12 +455,18 @@ export class ImageEditorController {
 		if (this.imageAdjustmentGesture) this.commitImageAdjustmentGesture();
 		if (this.pageColorGradeGesture) this.commitPageColorGradeGesture();
 		if (this.floatingPixelSelection) this.commitFloatingPixelSelection();
-		this.history.updateCurrentContext(this.historyContext());
+		if (!this.atomicEdits) this.history.updateCurrentContext(this.historyContext());
 		const before = this.document;
 		const [next, patches, inversePatches] = imageEditorImmer.produceWithPatches(before, (draft) => {
 			mutation(draft);
 		});
 		if (patches.length === 0) return;
+		if (this.atomicEdits) {
+			this.atomicEdits.estimatedBytes +=
+				(JSON.stringify(patches).length + JSON.stringify(inversePatches).length) * 2;
+			this.document = next;
+			return;
+		}
 		this.history.checkpointShared(
 			label,
 			before,
@@ -472,6 +479,49 @@ export class ImageEditorController {
 		this.document = next;
 		this.historyRevision++;
 		this.emitChange();
+	}
+
+	/** Apply controller actions as one visible and undoable document change. */
+	runAtomicEdits<T>(label: string, action: () => T): T {
+		if (
+			!this.document ||
+			!this.canEdit ||
+			this.atomicEdits ||
+			this.imageAdjustmentGesture ||
+			this.pageColorGradeGesture ||
+			this.floatingPixelSelection
+		)
+			throw new Error('Finish the current image edit before applying an agent batch');
+		const before = this.document;
+		const beforeContext = this.historyContext();
+		const beforeTextRange = this.textRange;
+		this.history.updateCurrentContext(beforeContext);
+		this.atomicEdits = { estimatedBytes: 0 };
+		try {
+			const result = action();
+			const after = this.document;
+			if (after !== before && after) {
+				this.history.checkpointShared(
+					label,
+					before,
+					after,
+					this.atomicEdits.estimatedBytes,
+					undefined,
+					beforeContext,
+					this.historyContext()
+				);
+				this.historyRevision++;
+				this.emitChange();
+			}
+			return result;
+		} catch (error) {
+			this.document = before;
+			this.restoreHistoryContext(beforeContext);
+			this.textRange = beforeTextRange;
+			throw error;
+		} finally {
+			this.atomicEdits = null;
+		}
 	}
 
 	beginImageAdjustmentGesture(
@@ -1177,12 +1227,12 @@ export class ImageEditorController {
 		this.selectionAnchorID = this.selectedLayerIDs.at(-1) ?? '';
 	}
 
-	addText(): void {
+	addText(content: string = m.image_editor_new_text()): void {
 		if (!this.document) return;
 		const layer: ImageEditorLayer = {
 			id: imageEditorID('layer'),
 			type: 'text',
-			name: m.image_editor_new_text(),
+			name: content,
 			visible: true,
 			locked: false,
 			opacity: 1,
@@ -1193,7 +1243,7 @@ export class ImageEditorController {
 				this.activePageDimensions.height * 0.42
 			),
 			text: {
-				text: m.image_editor_new_text(),
+				text: content,
 				font_family: 'Geist Variable',
 				font_weight: 700,
 				font_style: 'normal',

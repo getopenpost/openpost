@@ -20,6 +20,7 @@ const (
 	LimitFeatureEngagement         LimitKey = "feature_engagement"
 	LimitFeatureAnalytics          LimitKey = "feature_analytics"
 	LimitFeatureGrow               LimitKey = "feature_grow"
+	LimitFeatureEditorAssistant    LimitKey = "feature_editor_assistant"
 )
 
 type Request struct {
@@ -69,6 +70,7 @@ func NewCloudBootstrapService() *StaticService {
 			LimitMediaBytesUploadedMonthly: 0,
 			LimitProviderWriteCallsMonthly: 0,
 			LimitTeamMembers:               0,
+			LimitFeatureEditorAssistant:    0,
 		},
 	})
 }

@@ -15,6 +15,7 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	const narrow = new MediaQuery('(max-width: 639px)');
 	import WorkflowNode, { type WorkflowNodeData } from './node.svelte';
+	import RevealStep from './reveal-step.svelte';
 	import { workflowGraph, connectionWouldLoop, type Port } from './graph';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import type { Definition, Run } from './api';
@@ -50,6 +51,9 @@
 		readonly?: boolean;
 	} = $props();
 	let layoutVersion = $state(0);
+	let canvasElement = $state<HTMLDivElement>();
+	let revealID = $state('');
+	let previousIDs: Set<string> | undefined;
 	let connectionWarning = $state(false);
 	export function organize() {
 		onlayout?.({});
@@ -57,6 +61,13 @@
 	}
 	const nodeTypes = { workflow: WorkflowNode };
 	const graph = $derived(workflowGraph(definition, run, issues));
+	$effect(() => {
+		const ids = graph.nodes.map((node) => node.id);
+		const selected = selectedID;
+		if (!readonly && previousIDs && !previousIDs.has(selected) && ids.includes(selected))
+			revealID = selected;
+		previousIDs = new Set(ids);
+	});
 	const projectedNodes = $derived<Node<WorkflowNodeData>[]>(
 		graph.nodes.map((node) => ({
 			id: node.id,
@@ -123,6 +134,7 @@
 </script>
 
 <div
+	bind:this={canvasElement}
 	class="workflow-canvas relative h-full min-h-0 bg-background"
 	aria-label={m.workflows_canvas()}
 >
@@ -197,6 +209,13 @@
 				'controls.fitView.ariaLabel': m.image_editor_fit_canvas()
 			}}
 		>
+			<RevealStep
+				id={!readonly && selectedID === revealID ? revealID : ''}
+				canvas={canvasElement}
+				onreveal={(id) => {
+					if (revealID === id) revealID = '';
+				}}
+			/>
 			<Background
 				gap={24}
 				size={1}

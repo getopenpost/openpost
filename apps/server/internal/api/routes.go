@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/api/handlers"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/capabilities"
@@ -81,6 +82,8 @@ type RouteDeps struct {
 	MemeProvider                 memes.Provider
 	MemeSuggester                memegeneration.Suggester
 	PostBuilder                  postgeneration.Builder
+	EditorAgentGenerator         ai.Generator
+	EditorAgentModel             string
 	ContentBuilderEnabled        bool
 	ContentDiscoveryEnabled      bool
 	PublicationBuilder           *publicationbuilder.Application
@@ -324,6 +327,9 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	socialSetHandler.SetCapabilityResolver(capabilityResolverHandler)
 	socialSetHandler.RegisterRoutes(api)
 	handlers.NewVideoProjectHandler(deps.DB, deps.Authenticator, deps.MediaStorage).RegisterRoutes(api)
+	handlers.NewEditorAgentHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
+	handlers.NewEditorPreferencesHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
+	handlers.NewEditorAgentAssistantHandler(deps.DB, deps.Authenticator, deps.Entitlement, deps.EditorAgentGenerator, deps.EditorAgentModel, deps.Edition).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)
 	commentHandler := handlers.NewCommentHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenEncryptor)
 	providerRegistrars = append(providerRegistrars, commentHandler.SetProvider)

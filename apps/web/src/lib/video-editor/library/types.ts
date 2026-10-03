@@ -24,12 +24,20 @@ export type LibraryRecipe =
 	| { kind: 'effects'; effects: EffectTemplate[] }
 	| { kind: 'animation'; preset: AnimationPreset };
 
+export interface LibraryTextSlot {
+	name: string;
+	target_id: string;
+	max_characters: number;
+}
+
 export interface LibraryEntry {
+	slots?: LibraryTextSlot[];
 	id: string;
 	scope: string;
 	name: string;
 	collection: string;
 	favorite: boolean;
+	favoriteOwnerID?: string;
 	position: number;
 	lastUsed?: number;
 	recipe: LibraryRecipe;

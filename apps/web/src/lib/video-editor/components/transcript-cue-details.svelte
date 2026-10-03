@@ -8,6 +8,7 @@
 	import { execute } from '../timeline/commands/command-store.svelte';
 	import {
 		correctedCueTimingPatch,
+		captionTimingBounds,
 		correctedSubtitleWord,
 		correctedCueWordText
 	} from '../transcript/caption-correction';
@@ -22,6 +23,58 @@
 		entries,
 		onedit
 	}: { entries: Array<{ item: TimelineItem; cue: SubtitleCue }>; onedit: () => void } = $props();
+	let timingFeedback = $derived<Record<string, string>>(
+		Object.fromEntries(entries.map(({ item, cue }) => [`${item.id}:${cue.id}`, '']))
+	);
+	function timingRejected(
+		item: TimelineItem,
+		cue: SubtitleCue,
+		input: HTMLInputElement,
+		accepted: number
+	): void {
+		input.value = String(accepted);
+		timingFeedback = {
+			...timingFeedback,
+			[`${item.id}:${cue.id}`]: m.video_editor_caption_timing_invalid(captionTimingBounds(item))
+		};
+	}
+	function updateCueTiming(
+		item: TimelineItem,
+		cue: SubtitleCue,
+		input: HTMLInputElement,
+		field: 'startFrame' | 'endFrame'
+	): void {
+		const next = correctedCueTimingPatch(
+			cue,
+			field === 'startFrame' ? input.valueAsNumber : cue.startFrame,
+			field === 'endFrame' ? input.valueAsNumber : cue.endFrame,
+			captionTimingBounds(item)
+		);
+		if (!next) {
+			timingRejected(item, cue, input, cue[field]);
+			return;
+		}
+		timingFeedback = { ...timingFeedback, [`${item.id}:${cue.id}`]: '' };
+		if (next.startFrame === cue.startFrame && next.endFrame === cue.endFrame) return;
+		replaceCue(item, cue.id, { ...cue, ...next });
+	}
+	function updateWordTiming(
+		item: TimelineItem,
+		cue: SubtitleCue,
+		word: SubtitleWord,
+		input: HTMLInputElement,
+		field: 'startFrame' | 'endFrame'
+	): void {
+		if (input.valueAsNumber === word[field]) {
+			timingFeedback = { ...timingFeedback, [`${item.id}:${cue.id}`]: '' };
+			return;
+		}
+		if (!updateWord(item, cue, word.id, { [field]: input.valueAsNumber })) {
+			timingRejected(item, cue, input, word[field]);
+			return;
+		}
+		timingFeedback = { ...timingFeedback, [`${item.id}:${cue.id}`]: '' };
+	}
 	function replaceCue(item: TimelineItem, cueId: string, next: SubtitleCue | null) {
 		execute('EDIT_CUE', () =>
 			timelineStore._updateItems([
@@ -40,14 +93,15 @@
 		cue: SubtitleCue,
 		wordId: string,
 		patch: Partial<SubtitleWord>
-	) {
-		const corrected = correctedSubtitleWord(cue, wordId, patch);
-		if (!corrected) return;
+	): boolean {
+		const corrected = correctedSubtitleWord(cue, wordId, patch, captionTimingBounds(item));
+		if (!corrected) return false;
 		replaceCue(item, cue.id, {
 			...cue,
 			...corrected,
 			text: correctedCueWordText(cue, corrected.words)
 		});
+		return true;
 	}
 	function deleteWord(item: TimelineItem, cue: SubtitleCue, wordId: string) {
 		const words = cue.words?.filter((word) => word.id !== wordId) ?? [];
@@ -76,6 +130,8 @@
 	<div class="space-y-3 py-2">
 		{#each entries as { item, cue } (`${item.id}:${cue.id}`)}
 			{@const flags = getCueFormatFlags(parseSubtitleCueText(cue.text))}
+			{@const bounds = captionTimingBounds(item)}
+			{@const feedbackId = `caption-timing-${item.id}-${cue.id}`}
 			<section class="space-y-2" aria-label={parseSubtitleCueText(cue.text).plainText}>
 				<p class="text-xs text-muted-foreground">{parseSubtitleCueText(cue.text).plainText}</p>
 				<div class="flex flex-wrap gap-1">
@@ -98,30 +154,31 @@
 					<label class="space-y-1 text-xs"
 						>{m.video_editor_adjust_caption_start()}<Input
 							type="number"
-							min="0"
+							min={bounds.start}
+							max={bounds.end}
 							step="1"
 							value={cue.startFrame}
-							onchange={(event) =>
-								replaceCue(item, cue.id, {
-									...cue,
-									...correctedCueTimingPatch(cue, Number(event.currentTarget.value), cue.endFrame)
-								})}
+							aria-describedby={timingFeedback[`${item.id}:${cue.id}`] ? feedbackId : undefined}
+							onchange={(event) => updateCueTiming(item, cue, event.currentTarget, 'startFrame')}
 						/></label
 					>
 					<label class="space-y-1 text-xs"
 						>{m.video_editor_adjust_caption_end()}<Input
 							type="number"
-							min="0"
+							min={bounds.start}
+							max={bounds.end}
 							step="1"
 							value={cue.endFrame}
-							onchange={(event) =>
-								replaceCue(item, cue.id, {
-									...cue,
-									...correctedCueTimingPatch(cue, cue.startFrame, Number(event.currentTarget.value))
-								})}
+							aria-describedby={timingFeedback[`${item.id}:${cue.id}`] ? feedbackId : undefined}
+							onchange={(event) => updateCueTiming(item, cue, event.currentTarget, 'endFrame')}
 						/></label
 					>
 				</div>
+				{#if timingFeedback[`${item.id}:${cue.id}`]}
+					<p id={feedbackId} role="status" class="text-xs text-muted-foreground">
+						{timingFeedback[`${item.id}:${cue.id}`]}
+					</p>
+				{/if}
 				{#if cue.words?.length}
 					<Disclosure label={m.video_editor_composition_timeline_timing()}>
 						<div class="space-y-2">
@@ -139,25 +196,29 @@
 									<label class="text-xs"
 										>{m.video_editor_transcript_word_start()}<Input
 											type="number"
-											min="0"
+											min={bounds.start}
+											max={bounds.end}
 											step="1"
 											value={word.startFrame}
+											aria-describedby={timingFeedback[`${item.id}:${cue.id}`]
+												? feedbackId
+												: undefined}
 											onchange={(event) =>
-												updateWord(item, cue, word.id, {
-													startFrame: Number(event.currentTarget.value)
-												})}
+												updateWordTiming(item, cue, word, event.currentTarget, 'startFrame')}
 										/></label
 									>
 									<label class="text-xs"
 										>{m.video_editor_transcript_word_end()}<Input
 											type="number"
-											min="0"
+											min={bounds.start}
+											max={bounds.end}
 											step="1"
 											value={word.endFrame}
+											aria-describedby={timingFeedback[`${item.id}:${cue.id}`]
+												? feedbackId
+												: undefined}
 											onchange={(event) =>
-												updateWord(item, cue, word.id, {
-													endFrame: Number(event.currentTarget.value)
-												})}
+												updateWordTiming(item, cue, word, event.currentTarget, 'endFrame')}
 										/></label
 									>
 									<Button

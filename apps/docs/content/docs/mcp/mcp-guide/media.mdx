@@ -25,3 +25,15 @@ The local picker works only in clients that support MCP Apps UI and app-only too
 ## Check the result
 
 After an upload, ask the assistant to confirm the media item's ID, type, dimensions or duration, and analysis state. Add alt text before publishing an image when the destination supports it.
+
+## Edit an open project
+
+Sign in to the workspace and open an Image Editor or Video Editor project. Connect [Codex or Claude Code](/mcp/coding-assistants) with editing access, then ask the assistant to find that open project. No OpenPost desktop installation is needed.
+
+For example: "In my open video, make the title larger, use a favorite text style that fits, and show me the result." The assistant can inspect the actual timeline or layers, reuse available templates, apply supported edits and render a preview. Changes appear live in the editor and use its normal history.
+
+Keep the browser project open while the assistant edits or exports. Local sources stay in the browser, but sampled frames, short audio previews, transcripts and scene captions may reach your assistant's model provider. Missing sources or incomplete analysis remain visible limitations.
+
+Use "remember this choice" or "save this style" only when you want a persistent preference. Ordinary corrections affect the current edit. The built-in Assistant offers a style selector and Preferences for changing or forgetting rules and turning choice learning off. Choosing a style affects future requests and does not restyle existing content.
+
+The built-in Assistant on Hosted requires a signed-in editor on an active paid plan. External MCP uses ordinary workspace permissions. Self-hosted Assistant uses the instance's configured AI provider. Unattended editing with the browser closed is not supported.

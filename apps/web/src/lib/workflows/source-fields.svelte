@@ -9,6 +9,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
+	import { feedURLIssue } from './validation';
 	let {
 		source,
 		connections,
@@ -20,6 +21,7 @@
 		accounts: SocialAccount[];
 		onchange: (source: Source) => void;
 	} = $props();
+	const feedIssue = $derived(feedURLIssue(source.url));
 </script>
 
 <div class="space-y-5">
@@ -54,7 +56,6 @@
 				value={{ literal: source.interval_minutes ?? '' }}
 				onchange={(value) => onchange({ ...source, interval_minutes: Number(value.literal) })}
 			/>
-			<p class="text-xs text-muted-foreground">{m.workflows_interval_help()}</p>
 		</div>
 	{:else if source.kind === 'github_release'}
 		<div class="space-y-2">
@@ -104,12 +105,12 @@
 				id="workflow-feed"
 				type="url"
 				value={source.url ?? ''}
-				aria-invalid={!source.url?.trim()}
-				aria-describedby={!source.url?.trim() ? 'workflow-feed-error' : undefined}
+				aria-invalid={!!feedIssue}
+				aria-describedby={feedIssue ? 'workflow-feed-error' : undefined}
 				placeholder="https://example.com/feed.xml"
 				oninput={(event) => onchange({ ...source, url: event.currentTarget.value })}
-			/>{#if !source.url?.trim()}<p id="workflow-feed-error" class="text-xs text-destructive">
-					{m.workflows_required()}
+			/>{#if feedIssue}<p id="workflow-feed-error" class="text-xs text-destructive">
+					{feedIssue}
 				</p>{/if}
 		</div>
 	{:else if source.kind === 'rendition_published' || source.kind === 'rendition_failed'}

@@ -122,6 +122,97 @@ newline-delimited JSON framing on stdin/stdout, accepts legacy `Content-Length`
 framing from older clients, advertises both Streamable HTTP response types, and
 forwards the negotiated `MCP-Protocol-Version` on later requests.
 
+### Connected editor tools
+
+The Image and Video Editors register a short-lived session while an editable
+project is open in a signed-in browser. Codex CLI, Claude Code, and other MCP
+clients can connect to the existing `/mcp` endpoint with OAuth or a workspace
+scoped `mcp:full` token. No OpenPost desktop runtime is required. Start with
+`editor_sessions` and `editor_reference`, then read `editor_context` and the
+relevant `timeline_inspect` or `image_inspect` output. The stable project, item,
+page, layer, and session IDs in those results are the targets for edits.
+
+`media_library` lists all Video Project sources, even those not on the timeline.
+`media_inspect` reads source metadata and available transcript words;
+`media_analyze` starts the editor's local source transcription and
+`media_analysis_status` reports its progress or result. Use
+`media_analysis_cancel` to stop a running transcription.
+`media_frame` decodes a source frame; `media_storyboard` samples 2 to 9
+source-video frames into a contact sheet with exact timestamps and coverage.
+Neither proves what happens between samples. `preview_render` returns an actual
+composited Video Editor frame or rendered Image Editor page as bounded JPEG
+image content. The preview requires the current revision and does not move the
+user's view. `editor_reveal` explicitly selects an item or layer or moves the
+playhead when the user wants to follow the agent's work.
+For audio-capable MCP clients, `preview_audio` renders up to four seconds of
+the actual Video Editor timeline mix as WAV content at the current revision.
+The Hosted assistant does not receive that audio because its configured model
+input path currently supports images, not audio.
+
+`scene_analysis_status` checks cached visual analysis. `scene_analyze` starts
+the editor's cancellable local scene detection and captioning for a named
+source; `scene_analysis_cancel` stops it. `scene_inspect` returns bounded source
+ranges and descriptions. `scene_search` ranks available captions by keyword
+and fuzzy text, and reports sources without analysis or captions. Long shots
+can change between detected cuts, so use `media_storyboard` or `media_frame`
+inside a candidate range before making a precise claim.
+
+`video_edit` and `image_edit` require `project_id`, `expected_revision`, a
+stable `request_id`, and typed actions. Retry an identical request with the
+same key after a lost reply. A changed request with that key is rejected.
+Each short batch commits as one undoable change. Edits run in the open browser
+and appear in its existing timeline or canvas.
+`export_start` renders the active Video Editor sequence as MP4 or WebM into
+the Video Project's export storage, or one Image Editor page as PNG, JPEG, or
+WebP into Workspace Media. Pass the exact current authored revision and a
+stable request key. It returns an export ID immediately. Poll `export_status`
+for progress and the saved file path or Media ID, and use `export_cancel` to
+abort a running job. The result records the revision rendered, even if the
+user continues editing. These interactive jobs require the browser to remain
+open; their progress records are held in that browser session.
+The browser owns original local files. Source frames, rendered previews, and
+short audio previews can cross the relay as bounded media results; transcript words and scene captions
+can cross as bounded text results. The paid Hosted assistant may send these
+results to its configured model provider. The relay does not store original
+project files. Source transcript search reports missing
+analysis coverage, so an empty match list is not proof that speech is absent.
+`editor_work_status` and `editor_work_cancel` distinguish pending work from a
+committed edit.
+`editor_history_inspect`, `editor_history_undo`, and `editor_history_redo`
+operate only on the latest agent change when its revision still matches.
+
+`library_search` and `library_inspect` expose the existing libraries, favorites,
+recipes, explicit text slots and asset dependencies. `library_apply` requires the
+inspected content version and creates independent undoable content.
+`library_save` saves only at the user's explicit request. Device-local video
+recipes and fonts remain available only on that device; synced favorite metadata
+does not sync their files.
+
+`style_capture` records authored typography and palette at a revision.
+`style_preview` renders a copy without changing the live document.
+`style_list`, `style_inspect`, `style_save` and `style_archive` manage immutable
+style versions. `preferences_get`, `preferences_set` and `preferences_remove`
+manage explicit personal rules and shared project rules. A correction alone does
+not create a persistent preference. Manual library choices across three distinct
+projects can rank suggestions, with learning off and reset controls in Assistant
+Preferences. Agent outputs do not count as those choices.
+
+The built-in Assistant uses these same operations through the configured AI
+adapter. Hosted requires a signed-in editor with the existing paid-plan
+entitlement. Self-hosted instances use their configured provider key and model.
+External MCP has ordinary workspace authorization and no OpenPost inference
+charge. Built-in provider attempts are durably recorded before response parsing;
+unknown usage remains unknown. This delivery adds no account quota.
+
+When the browser closes or stops polling, the session expires. Queued requests
+fail with `editor_disconnected`; a leased request becomes `indeterminate`
+because its edit may have committed before the reply was lost. Inspect the
+project and receipt before submitting a new request key. Open the project
+again and start from the new session and revision. A connected-browser
+operation is interactive; future Workflow editing nodes need a durable
+headless executor and must not depend on these sessions. See
+[the editing contract](../specs/editor-agent-mcp.md).
+
 Recent MCP tool calls are available under **Settings → Personal → Developer access**. The same data is exposed to authenticated API clients at:
 
 ```txt

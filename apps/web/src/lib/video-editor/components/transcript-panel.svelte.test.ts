@@ -2,6 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 import { addGeneratedSubtitleItem } from '../transcript/transcribe-action';
+import { addSubtitleItemFromSrt } from '../transcript/captions';
+import { trimItemStart } from '../timeline/actions/items';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { createBlankProject, createDefaultTracks } from '../project/defaults';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
@@ -306,4 +308,171 @@ it('explains retained locked captions after cutting editable source words', asyn
 	commandHistory.redo();
 	expect(timelineStore.items.filter((item) => item.type === 'video')).toHaveLength(2);
 	expect(timelineStore.itemById.get(caption.id)).toEqual(before);
+});
+
+it('rejects beyond-clip caption timing without hiding transcript words and persists a valid retime', async () => {
+	speech();
+	const project = createBlankProject('Caption timing bounds');
+	sequenceStore.load(
+		{ ...project.timeline!, tracks: timelineStore.tracks, items: timelineStore.items },
+		project.metadata
+	);
+	const onedit = vi.fn();
+	const screen = await render(TranscriptPanel, { onedit });
+	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
+	await screen.getByRole('button', { name: 'Caption style', exact: true }).click();
+	const caption = () => timelineStore.items.find((item) => item.type === 'subtitle')!.cues![0]!;
+	const before = JSON.stringify(caption());
+	const end = screen.getByRole('spinbutton', { name: 'Adjust caption end', exact: true });
+	await end.fill('400');
+	await userEvent.keyboard('{Tab}');
+	expect(JSON.stringify(caption())).toBe(before);
+	expect(commandHistory.undoStack).toHaveLength(0);
+	expect(onedit).not.toHaveBeenCalled();
+	await expect.element(end).toHaveValue(150);
+	await expect.element(screen.getByRole('button', { name: 'again', exact: true })).toBeVisible();
+	await expect
+		.element(
+			screen.getByText(
+				'Keep caption timing between 0 and 180 frames, with the end after the start.',
+				{ exact: true }
+			)
+		)
+		.toHaveTextContent(
+			'Keep caption timing between 0 and 180 frames, with the end after the start.'
+		);
+	await expect
+		.element(end)
+		.toHaveAccessibleDescription(
+			'Keep caption timing between 0 and 180 frames, with the end after the start.'
+		);
+	await screen.getByRole('button', { name: 'Timing', exact: true }).click();
+	const lastWordEnd = screen
+		.getByRole('spinbutton', { name: 'Word end frame', exact: true })
+		.last();
+	await lastWordEnd.fill('400');
+	await userEvent.keyboard('{Tab}');
+	expect(JSON.stringify(caption())).toBe(before);
+	await expect.element(lastWordEnd).toHaveValue(150);
+	const firstWordStart = screen
+		.getByRole('spinbutton', { name: 'Word start frame', exact: true })
+		.first();
+	await firstWordStart.fill('-5');
+	await userEvent.keyboard('{Tab}');
+	expect(JSON.stringify(caption())).toBe(before);
+	await expect.element(firstWordStart).toHaveValue(6);
+	expect(commandHistory.undoStack).toHaveLength(0);
+	expect(onedit).not.toHaveBeenCalled();
+	await end.fill('170');
+	await userEvent.keyboard('{Tab}');
+	expect(caption().endFrame).toBe(170);
+	expect(onedit).toHaveBeenCalledTimes(1);
+	expect(caption().words!.at(-1)!.endFrame).toBe(170);
+	expect(timelineStore.itemById.get('speech')!.durationInFrames).toBe(180);
+	commandHistory.undo();
+	expect(JSON.stringify(caption())).toBe(before);
+	commandHistory.redo();
+	expect(caption().endFrame).toBe(170);
+	const prior = getWorkspaceRoot();
+	const root = await navigator.storage.getDirectory();
+	const dir = `caption-bounds-${crypto.randomUUID()}`;
+	setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
+	try {
+		await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
+		await screen.unmount();
+		sequenceStore.reset();
+		timelineStore.__resetForTesting();
+		const saved = (await getProject(project.id))!;
+		sequenceStore.load(saved.timeline!, saved.metadata);
+		const reopened = await render(TranscriptPanel, { onedit: vi.fn() });
+		await expect
+			.element(reopened.getByRole('button', { name: 'again', exact: true }))
+			.toBeVisible();
+		await reopened.getByRole('button', { name: 'Hello', exact: true }).click();
+		await reopened.getByRole('button', { name: 'Caption style', exact: true }).click();
+		await expect
+			.element(reopened.getByRole('spinbutton', { name: 'Adjust caption end', exact: true }))
+			.toHaveValue(170);
+		await reopened.unmount();
+	} finally {
+		sequenceStore.reset();
+		setWorkspaceRoot(prior);
+		await root.removeEntry(dir, { recursive: true });
+	}
+});
+
+it('rejects an inverted caption end without compressing words and still admits an explicit one-frame cue', async () => {
+	speech();
+	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
+	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
+	await screen.getByRole('button', { name: 'Caption style', exact: true }).click();
+	await screen.getByRole('spinbutton', { name: 'Adjust caption start', exact: true }).fill('31');
+	await userEvent.keyboard('{Tab}');
+	const caption = () => timelineStore.items.find((item) => item.type === 'subtitle')!.cues![0]!;
+	const before = JSON.stringify(caption());
+	const history = commandHistory.undoStack.length;
+	const end = screen.getByRole('spinbutton', { name: 'Adjust caption end', exact: true });
+	await end.fill('10');
+	await userEvent.keyboard('{Tab}');
+	expect(JSON.stringify(caption())).toBe(before);
+	expect(commandHistory.undoStack).toHaveLength(history);
+	await expect.element(end).toHaveValue(150);
+	await expect
+		.element(
+			screen.getByText(
+				'Keep caption timing between 0 and 180 frames, with the end after the start.',
+				{ exact: true }
+			)
+		)
+		.toBeVisible();
+	await end.fill('32');
+	await userEvent.keyboard('{Tab}');
+	expect([caption().startFrame, caption().endFrame]).toEqual([31, 32]);
+	expect(caption().words!.map((word) => [word.startFrame, word.endFrame])).toEqual([
+		[31, 32],
+		[31, 32],
+		[31, 32]
+	]);
+	commandHistory.undo();
+	expect(JSON.stringify(caption())).toBe(before);
+	commandHistory.redo();
+	expect(caption().endFrame).toBe(32);
+	commandHistory.undo();
+	commandHistory.undo();
+	expect([caption().startFrame, caption().endFrame]).toEqual([6, 150]);
+	await expect.element(end).toHaveValue(150);
+});
+
+it('uses sequence frames for imported captions after a timeline start trim', async () => {
+	timelineStore.setAll({ fps: 30, tracks: createDefaultTracks(), items: [] });
+	const id = addSubtitleItemFromSrt('1\n00:00:10,200 --> 00:00:15,000\nImported line');
+	expect(trimItemStart(id, 300)).toBe(true);
+	commandHistory.clearHistory();
+	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
+	await screen.getByRole('button', { name: 'Imported line', exact: true }).click();
+	await screen.getByRole('button', { name: 'Caption style', exact: true }).click();
+	const start = screen.getByRole('spinbutton', { name: 'Adjust caption start', exact: true });
+	await expect.element(start).toHaveValue(306);
+	await start.fill('200');
+	await userEvent.keyboard('{Tab}');
+	await expect.element(start).toHaveValue(306);
+	expect(commandHistory.undoStack).toHaveLength(0);
+	await expect
+		.element(start)
+		.toHaveAccessibleDescription(
+			'Keep caption timing between 300 and 450 frames, with the end after the start.'
+		);
+	await start.fill('330');
+	await userEvent.keyboard('{Tab}');
+	expect(timelineStore.itemById.get(id)!.cues![0]!.startFrame).toBe(330);
+	await screen.getByRole('button', { name: 'Imported line', exact: true }).click();
+	expect(timelineStore.currentFrame).toBe(330);
+	commandHistory.undo();
+	expect(timelineStore.itemById.get(id)!.cues![0]!.startFrame).toBe(306);
+	commandHistory.redo();
+	expect(timelineStore.itemById.get(id)!.cues![0]!.startFrame).toBe(330);
+	expect([
+		timelineStore.itemById.get(id)!.from,
+		timelineStore.itemById.get(id)!.durationInFrames
+	]).toEqual([300, 150]);
 });

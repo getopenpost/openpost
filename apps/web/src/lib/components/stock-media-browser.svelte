@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -60,6 +60,8 @@
 	let loading = $state(true);
 	let searching = $state(false);
 	let selecting = $state('');
+	let previewing = $state('');
+	let previewVideo = $state.raw<HTMLVideoElement>();
 	let error = $state('');
 	let searched = $state(false);
 	let filtersOpen = $state(false);
@@ -82,6 +84,33 @@
 	onMount(() => {
 		void initialize();
 	});
+
+	onDestroy(closePreview);
+
+	function closePreview(): void {
+		previewVideo?.pause();
+		previewing = '';
+	}
+
+	function togglePreview(asset: StockAsset): void {
+		const key = `${asset.provider}:${asset.external_id}`;
+		const closing = previewing === key;
+		closePreview();
+		if (!closing) previewing = key;
+	}
+
+	function handlePreviewKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Escape' || !previewing) return;
+		event.preventDefault();
+		event.stopPropagation();
+		closePreview();
+		if (event.currentTarget instanceof HTMLElement) {
+			event.currentTarget
+				.closest('article')
+				?.querySelector<HTMLButtonElement>('[data-stock-preview-toggle]')
+				?.focus();
+		}
+	}
 
 	const currentProvider = $derived(providers.find((item) => item.key === provider));
 	const availableFilters = $derived(
@@ -162,6 +191,7 @@
 	}
 
 	function changeProvider(value: string): void {
+		closePreview();
 		provider = value;
 		resetFilters();
 		results = [];
@@ -169,6 +199,7 @@
 	}
 
 	function changeKind(value: string): void {
+		closePreview();
 		kind = value === 'video' ? 'video' : 'photo';
 		if (!currentProvider || !supportsKind(currentProvider, kind)) {
 			provider = providers.find((item) => supportsKind(item, kind))?.key ?? '';
@@ -180,6 +211,7 @@
 
 	async function search(reset = true): Promise<void> {
 		if (!query.trim() || !provider || searching) return;
+		closePreview();
 		searching = true;
 		error = '';
 		searched = true;
@@ -602,7 +634,19 @@
 						ondragend={onDragEnd}
 					>
 						<div class="relative aspect-[4/3] overflow-hidden bg-muted">
-							{#if asset.thumbnail_url}
+							{#if previewing === `${asset.provider}:${asset.external_id}` && asset.preview_url}
+								<video
+									bind:this={previewVideo}
+									src={asset.preview_url}
+									aria-label={asset.title || asset.kind}
+									class="size-full object-contain"
+									controls
+									muted
+									onkeydown={handlePreviewKeydown}
+									playsinline
+									preload="metadata"
+								></video>
+							{:else if asset.thumbnail_url}
 								<img
 									src={asset.thumbnail_url}
 									alt={asset.title}
@@ -615,7 +659,7 @@
 									<ProtectedIcon icon="media-image" class="size-5 text-muted-foreground" />
 								</div>
 							{/if}
-							{#if asset.kind === 'video'}
+							{#if asset.kind === 'video' && previewing !== `${asset.provider}:${asset.external_id}`}
 								<span
 									class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-black/75 text-white"
 								>
@@ -649,6 +693,33 @@
 									{m.stock_media_by({ creator: asset.creator_name })}
 								</Button>
 							</p>
+							{#if asset.kind === 'video'}
+								<div class="flex flex-wrap gap-2">
+									{#if asset.preview_url}
+										<Button
+											data-stock-preview-toggle
+											onkeydown={handlePreviewKeydown}
+											variant="outline"
+											size="sm"
+											aria-expanded={previewing === `${asset.provider}:${asset.external_id}`}
+											onclick={() => togglePreview(asset)}
+										>
+											{previewing === `${asset.provider}:${asset.external_id}`
+												? m.common_close()
+												: m.stock_media_preview()}
+										</Button>
+									{/if}
+									{#if asset.source_url}
+										<Button
+											href={asset.source_url}
+											target="_blank"
+											rel="noreferrer"
+											variant="link"
+											size="sm">{m.stock_media_view_source()}</Button
+										>
+									{/if}
+								</div>
+							{/if}
 							<Button
 								variant="outline"
 								size="sm"

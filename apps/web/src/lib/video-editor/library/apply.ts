@@ -9,29 +9,49 @@ import { applyTextStylePreset } from '../timeline/actions/text-layout';
 import { localizedTextStylePresetCopy } from '../typography/text-style-preset-copy';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
+import { videoLibrary } from './library-store.svelte';
+import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { executeAtomic } from '../timeline/commands/command-store.svelte';
 import { m } from '$lib/paraglide/messages';
 
+interface LibraryApplyOptions {
+	selectedIds: string[];
+	importAsset?: ProjectAssetImporter;
+	placement?: { from: number; trackId: string };
+	beforeCommit?: () => void;
+	origin?: 'user' | 'agent';
+}
 export async function applyLibraryEntry(
 	entry: LibraryEntry,
-	options: {
-		selectedIds: string[];
-		importAsset?: ProjectAssetImporter;
-		placement?: { from: number; trackId: string };
-	}
+	options: LibraryApplyOptions
 ): Promise<string[]> {
+	const before = commandHistory.undoStack.at(-1);
+	const ids = await applyRecipe(entry, options);
+	if (options.origin !== 'agent' && commandHistory.undoStack.at(-1) !== before)
+		videoLibrary.recordChoice(entry.id, entry.name);
+	return ids;
+}
+async function applyRecipe(entry: LibraryEntry, options: LibraryApplyOptions): Promise<string[]> {
 	const recipe = entry.recipe;
 	if (recipe.kind === 'text-style') {
 		await applyLibraryTextStyle(
 			recipe.selection,
 			entry.name,
 			options.selectedIds,
-			options.importAsset
+			options.importAsset,
+			options.beforeCommit
 		);
 		return [];
 	}
 	if (recipe.kind === 'selection')
-		return insertLibrarySelection(recipe, entry.name, options.importAsset, options.placement);
+		return insertLibrarySelection(
+			recipe,
+			entry.name,
+			options.importAsset,
+			options.placement,
+			options.beforeCommit
+		);
+	options.beforeCommit?.();
 	if (recipe.kind === 'timer') return [addTimer(recipe.timer, entry.name, options.placement)];
 	const selectedIds = options.selectedIds;
 	if (recipe.kind === 'text') {

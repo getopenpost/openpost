@@ -584,8 +584,16 @@
 	}
 </script>
 
-{#if loading && loadedKey !== organizationID}
+{#if (loading || !error) && (loadedKey !== organizationID || !policy)}
 	<PageLoading layout="settings" label={m.common_loading()} items={6} />
+{:else if loadedKey !== organizationID || !policy}
+	<InlineNotice tone="error" message={error}>
+		{#snippet actions()}
+			<Button variant="outline" size="sm" onclick={() => void load(organizationID)}>
+				{m.common_retry()}
+			</Button>
+		{/snippet}
+	</InlineNotice>
 {:else}
 	<div class="space-y-10">
 		{#if error}

@@ -2021,7 +2021,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	let speechCleanupOpen = $state(false);
-	let speechCleanupMode = $state<'fillers' | 'silence'>('fillers');
+	let speechCleanupMode = $state<'recording' | 'fillers' | 'silence'>('recording');
 	let speechCleanupTargetIds = $state<string[] | null>(null);
 	const speechCleanupItemIds = $derived.by(() => {
 		if (speechCleanupTargetIds && speechCleanupTargetIds.length > 0) {
@@ -2044,7 +2044,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					.map((item) => item.id);
 	});
 
-	function openSpeechCleanup(mode: 'fillers' | 'silence'): void {
+	function openSpeechCleanup(mode: 'recording' | 'fillers' | 'silence'): void {
 		editorSession.pausePlayback();
 		speechCleanupTargetIds = null;
 		speechCleanupMode = mode;
@@ -2062,12 +2062,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (!speechCleanupOpen) speechCleanupTargetIds = null;
 	});
 
-	function handleSpeechCleanupApplied(removedCount: number): void {
+	function handleSpeechCleanupApplied(removedCount: number, appliedMode = speechCleanupMode): void {
 		editorSession.scheduleAutosave();
 		showToast(
-			removedCount === 1
-				? m.video_editor_cleanup_done_one()
-				: m.video_editor_cleanup_done_many({ count: removedCount }),
+			appliedMode === 'recording'
+				? m.recording_cleanup_applied()
+				: removedCount === 1
+					? m.video_editor_cleanup_done_one()
+					: m.video_editor_cleanup_done_many({ count: removedCount }),
 			'success'
 		);
 	}
@@ -2502,6 +2504,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			</div>
 		{/snippet}
 		{#snippet actions()}
+			<Button
+				variant="outline"
+				size="sm"
+				class="hidden size-8 xl:inline-flex 2xl:w-auto 2xl:px-2 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+				aria-label={m.recording_cleanup_action()}
+				title={m.recording_cleanup_action()}
+				disabled={speechCleanupItemIds.length === 0}
+				onclick={() => openSpeechCleanup('recording')}
+			>
+				<ThemeIcon role="sparkles" class="size-3.5" />
+				<span class="hidden 2xl:inline">{m.recording_cleanup_action()}</span>
+			</Button>
 			{#if editorSession.saveError}
 				<Button
 					type="button"
@@ -2651,6 +2665,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{m.video_editor_redo()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
+					<DropdownMenu.Item
+						disabled={speechCleanupItemIds.length === 0}
+						onclick={() => openSpeechCleanup('recording')}
+					>
+						{m.recording_cleanup_action()}
+					</DropdownMenu.Item>
 					<DropdownMenu.Label>{m.video_editor_clip()}</DropdownMenu.Label>
 					<DropdownMenu.Item disabled={!selectedItemId} onclick={handleSplit}>
 						{m.video_editor_split()}
@@ -3638,30 +3658,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												onedit={() => editorSession.scheduleAutosave()}
 											/>
 										</div>
-										<div
-											class="mt-3 grid grid-cols-2 gap-1 border-t border-[var(--video-editor-border)] pt-3"
+										<Button
+											size="sm"
+											variant="outline"
+											class="mt-3 w-full [@media(pointer:coarse)]:min-h-11"
+											disabled={speechCleanupItemIds.length === 0}
+											onclick={() => openSpeechCleanup('recording')}
 										>
-											<Button
-												size="sm"
-												variant="outline"
-												class="min-h-11 lg:min-h-8"
-												disabled={speechCleanupItemIds.length === 0}
-												aria-label={m.video_editor_filler_review()}
-												onclick={() => openSpeechCleanup('fillers')}
-											>
-												{m.video_editor_cleanup_fillers_short()}
-											</Button>
-											<Button
-												size="sm"
-												variant="outline"
-												class="min-h-11 lg:min-h-8"
-												disabled={speechCleanupItemIds.length === 0}
-												aria-label={m.video_editor_silence_review()}
-												onclick={() => openSpeechCleanup('silence')}
-											>
-												{m.video_editor_cleanup_silence_short()}
-											</Button>
-										</div>
+											<ThemeIcon role="sparkles" class="size-3.5" />
+											{m.recording_cleanup_action()}
+										</Button>
 									{:else if sequenceStore.activeSequenceId === null}
 										<ProjectCanvasPanel onedit={() => editorSession.scheduleAutosave()} />
 									{:else}

@@ -10,6 +10,7 @@ test("removing a named checkpoint preserves the current design and other saved v
   const workspace = await createWorkspace(request, auth.token, "Checkpoint removal");
   const headers = { Authorization: `Bearer ${auth.token}` };
   await authenticatePage(page, auth.token);
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`/image-editor/new?workspace=${workspace.id}`);
   await page.getByRole("button", { name: "New project", exact: true }).click();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
@@ -39,17 +40,27 @@ test("removing a named checkpoint preserves the current design and other saved v
   await history.getByRole("button", { name: /^Remove café checkpoint/ }).click();
   await history.getByRole("button", { name: "Remove checkpoint", exact: true }).click();
   const confirmation = page.getByRole("dialog", { name: "Remove checkpoint", exact: true });
-  await confirmation.getByRole("button", { name: "Cancel", exact: true }).press("Enter");
+  await expect(confirmation.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(
     history.getByRole("button", { name: "Remove checkpoint", exact: true }),
   ).toBeFocused();
+  await page.clock.install();
+  await page.clock.pauseAt(new Date());
   await history.getByRole("button", { name: "Remove checkpoint", exact: true }).press("Enter");
+  const remove = confirmation.getByRole("button", { name: "Remove checkpoint", exact: true });
+  await remove.focus();
+  await expect(remove).toBeFocused();
+  // A keyboard choice made before opening autofocus must survive its next frame.
+  await page.clock.runFor(32);
+  await expect(remove).toBeFocused();
+  await page.clock.resume();
   const removed = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&
       response.url().includes(`/image-editor/designs/${id}/revisions/`),
   );
-  await confirmation.getByRole("button", { name: "Remove checkpoint", exact: true }).press("Enter");
+  await page.keyboard.press("Enter");
   expect((await removed).ok()).toBeTruthy();
   await expect(confirmation).toHaveCount(0);
   await expect(history.getByRole("button", { name: /^Remove café checkpoint/ })).toHaveCount(0);

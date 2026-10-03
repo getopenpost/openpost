@@ -251,103 +251,108 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col" data-testid="hosted-editor-chat-panel">
-	<div class="shrink-0 border-b border-border p-3">
-		<div class="flex min-w-0 items-center gap-2">
-			<AppSelect
-				value={styleChoice}
-				options={styleOptions}
-				ariaLabel={m.editor_agent_style()}
-				onValueChange={(value) => {
-					styleChoice = value;
-					pinnedStyle =
-						(preferences?.styles ?? []).find((style) => `${style.id}@${style.version}` === value) ??
-						null;
-				}}
-				disabled={busy}
-				class="min-w-0 flex-1"
-			/>
-			<Button
-				variant="ghost"
-				size="sm"
-				aria-expanded={preferencesOpen}
-				onclick={() => (preferencesOpen = !preferencesOpen)}>{m.editor_agent_preferences()}</Button
-			>
-		</div>
-		<p class="mt-1 text-xs text-muted-foreground">{m.editor_agent_style_help()}</p>
-	</div>
-	{#if preferencesOpen}<div class="max-h-[45%] shrink-0 overflow-y-auto">
-			<PreferencesPanel
-				{workspaceId}
-				{projectId}
-				{kind}
-				revision={preferencesRevision}
-				onchange={(data) => {
-					preferences = data;
-					if (pinnedStyle && !data.styles?.some((style) => style.id === pinnedStyle?.id)) {
-						pinnedStyle = null;
-						styleChoice = 'match';
-					}
-				}}
-			/>
-		</div>{/if}
-	<div
-		class="min-h-0 flex-1 space-y-3 overflow-y-auto p-3"
-		role="log"
-		aria-label={m.video_editor_agent_assistant()}
-	>
-		{#if available === null}
-			<p class="text-xs text-muted-foreground">{m.common_loading()}</p>
-		{:else if !available}
-			<p class="text-xs text-muted-foreground">
-				{unavailableReason === 'paid_plan_required'
-					? m.editor_agent_paid_plan_required()
-					: m.editor_agent_unavailable()}
-			</p>
-		{:else}
-			<p class="text-xs text-muted-foreground">{m.editor_agent_hosted_intro()}</p>
-			{#if !sessionId}<p class="text-xs text-muted-foreground">
-					{m.editor_agent_connecting()}
-				</p>{/if}
-		{/if}
-		{#each messages as message, index (index)}
-			<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
-				<p
-					class="max-w-[85%] rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs break-words whitespace-pre-wrap"
+	<div class="min-h-0 flex-1 overflow-y-auto">
+		<div class="border-b border-border p-3">
+			<div class="flex min-w-0 items-center gap-2">
+				<AppSelect
+					value={styleChoice}
+					options={styleOptions}
+					ariaLabel={m.editor_agent_style()}
+					onValueChange={(value) => {
+						styleChoice = value;
+						pinnedStyle =
+							(preferences?.styles ?? []).find(
+								(style) => `${style.id}@${style.version}` === value
+							) ?? null;
+					}}
+					disabled={busy}
+					class="min-w-0 flex-1"
+				/>
+				<Button
+					variant="ghost"
+					size="sm"
+					aria-expanded={preferencesOpen}
+					onclick={() => (preferencesOpen = !preferencesOpen)}
+					>{m.editor_agent_preferences()}</Button
 				>
-					{message.content}
-				</p>
 			</div>
-			{#each message.preferences ?? [] as receipt (receipt.saved.id)}
-				{@const rule = receipt.saved}
-				<div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-					<span class="min-w-0 break-words">{rule.rule}</span>
-					<Button
-						size="sm"
-						variant="ghost"
-						disabled={undoneRules.includes(rule.id!)}
-						onclick={() => void undoRule(rule, receipt.previous, receipt.deleted)}
-						>{m.video_editor_undo()}</Button
+			<p class="mt-1 text-xs text-muted-foreground">{m.editor_agent_style_help()}</p>
+		</div>
+		{#if preferencesOpen}<div>
+				<PreferencesPanel
+					{workspaceId}
+					{projectId}
+					{kind}
+					revision={preferencesRevision}
+					onchange={(data) => {
+						preferences = data;
+						if (pinnedStyle && !data.styles?.some((style) => style.id === pinnedStyle?.id)) {
+							pinnedStyle = null;
+							styleChoice = 'match';
+						}
+					}}
+				/>
+			</div>{/if}
+		<div class="space-y-3 p-3" role="log" aria-label={m.video_editor_agent_assistant()}>
+			{#if available === null}
+				<p class="text-xs text-muted-foreground">{m.common_loading()}</p>
+			{:else if !available}
+				<p class="text-xs text-muted-foreground">
+					{unavailableReason === 'paid_plan_required'
+						? m.editor_agent_paid_plan_required()
+						: m.editor_agent_unavailable()}
+				</p>
+			{:else}
+				<p class="text-xs text-muted-foreground">{m.editor_agent_hosted_intro()}</p>
+				{#if !sessionId}<p class="text-xs text-muted-foreground">
+						{m.editor_agent_connecting()}
+					</p>{/if}
+			{/if}
+			{#each messages as message, index (index)}
+				<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
+					<p
+						class="max-w-[85%] rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs break-words whitespace-pre-wrap"
 					>
+						{message.content}
+					</p>
 				</div>
+				{#each message.preferences ?? [] as receipt (receipt.saved.id)}
+					{@const rule = receipt.saved}
+					<div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+						<span class="min-w-0 break-words">{rule.rule}</span>
+						<Button
+							size="sm"
+							variant="ghost"
+							disabled={undoneRules.includes(rule.id!)}
+							onclick={() => void undoRule(rule, receipt.previous, receipt.deleted)}
+							>{m.video_editor_undo()}</Button
+						>
+					</div>
+				{/each}
 			{/each}
-		{/each}
-		{#if status}<p role="status" class="text-xs text-muted-foreground">{status}</p>{/if}
+			{#if status}<p role="status" class="text-xs text-muted-foreground">{status}</p>{/if}
+		</div>
 	</div>
-	<div class="shrink-0 border-t border-border p-3">
+	<div class="flex shrink-0 items-end gap-2 border-t border-border p-2 sm:block sm:p-3">
 		<Textarea
 			bind:value={input}
+			class="h-11 min-h-11 min-w-0 flex-1 sm:h-auto sm:max-h-32 sm:min-h-16"
 			placeholder={m.video_editor_agent_placeholder()}
 			aria-label={m.video_editor_agent_placeholder()}
 			rows={3}
 			disabled={!available || !sessionId || busy}
 			onkeydown={handleKeydown}
 		/>
-		<div class="mt-2 flex justify-end gap-2">
+		<div class="flex shrink-0 justify-end gap-2 sm:mt-2">
 			{#if busy}
-				<Button variant="outline" onclick={() => requestAbort?.abort()}>{m.common_cancel()}</Button>
+				<Button class="h-11 sm:h-9" variant="outline" onclick={() => requestAbort?.abort()}
+					>{m.common_cancel()}</Button
+				>
 			{:else}
-				<Button disabled={!available || !sessionId || !input.trim()} onclick={() => void send()}
-					>{m.video_editor_agent_run()}</Button
+				<Button
+					class="h-11 sm:h-9"
+					disabled={!available || !sessionId || !input.trim()}
+					onclick={() => void send()}>{m.video_editor_agent_run()}</Button
 				>
 			{/if}
 		</div>

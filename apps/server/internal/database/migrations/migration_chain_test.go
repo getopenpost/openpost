@@ -199,11 +199,12 @@ func TestMultiStageRepostMigrationPreservesLegacyExecutions(t *testing.T) {
 	}
 	_, err = db.NewInsert().Model(publication).Exec(ctx)
 	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Rendition{
-		ID: "rendition-1", PublicationID: publication.ID, SocialAccountID: source.ID,
-		TargetKey: "x:source-provider", Platform: "x", Profile: models.ContentProfileShortText,
-		Status: models.RenditionStatusPublished, ExternalID: "source-post-1",
-	}).Exec(ctx)
+	// Seed the historical schema without fields introduced by later migrations.
+	_, err = db.ExecContext(ctx, `INSERT INTO renditions (
+		id, publication_id, social_account_id, target_key, platform, profile, status, external_id
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"rendition-1", publication.ID, source.ID, "x:source-provider", "x",
+		models.ContentProfileShortText, models.RenditionStatusPublished, "source-post-1")
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `INSERT INTO repost_executions (
 		id, workspace_id, publication_id, rendition_id, source_account_id, target_account_id,

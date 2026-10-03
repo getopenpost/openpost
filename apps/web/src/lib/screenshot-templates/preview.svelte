@@ -189,7 +189,7 @@
 									{#if hasStage || hasText}
 										<p>
 											{#if hasStage}<strong>{update.stage}</strong
-												>{/if}{#if hasStage && hasText}&#32;·&#32;{/if}{#if hasText}{update.text}{/if}
+												>{/if}{#if hasStage && hasText}&nbsp;·&nbsp;{/if}{#if hasText}{update.text}{/if}
 										</p>
 									{/if}
 									{#if hasTimestamp}<div class="update-time">{update.timestamp}</div>{/if}

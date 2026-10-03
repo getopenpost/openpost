@@ -211,6 +211,94 @@ test("the exhaustive local image check uses the host's supported architecture", 
   );
 });
 
+for (const [workflow, job, step, output] of [
+  [
+    ci,
+    "image",
+    "Publish the validated candidate and record its digest",
+    "image-linux-amd64-digest.txt",
+  ],
+  [ci, "image-index", "Publish the multi-architecture candidate", "image-digest.txt"],
+  [release, "promote-image", "Add release tags without rebuilding", "step-output.txt"],
+]) {
+  test(`${job} drains image inspection output and records only its top-level digest`, () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "openpost-image-digest-"));
+    const digest = `sha256:${"a".repeat(64)}`;
+    const amd64 = `sha256:${"b".repeat(64)}`;
+    const arm64 = `sha256:${"c".repeat(64)}`;
+    try {
+      mkdirSync(path.join(directory, "bin"));
+      mkdirSync(path.join(directory, "tested-platforms"));
+      writeFileSync(path.join(directory, "tested-platforms/image-linux-amd64-digest.txt"), amd64);
+      writeFileSync(path.join(directory, "tested-platforms/image-linux-arm64-digest.txt"), arm64);
+      const docker = path.join(directory, "bin/docker");
+      writeFileSync(
+        docker,
+        `#!/bin/sh
+case "$*" in
+  "push "*|"buildx imagetools create "*) exit 0 ;;
+  "buildx imagetools inspect --raw "*) cat "$RAW_MANIFEST" ;;
+  "buildx imagetools inspect "*) cat "$INSPECT_OUTPUT" ;;
+  *) exit 1 ;;
+esac
+`,
+      );
+      chmodSync(docker, 0o755);
+      const inspection = path.join(directory, "inspection.txt");
+      // Exceed pipe capacity so an early consumer exit interrupts a later CLI write.
+      const manifests = `  Name: example/image\n  Digest: ${amd64}\n`.repeat(32_768);
+      writeFileSync(inspection, `Name: example/image\nDigest: ${digest}\nManifests:\n${manifests}`);
+      const manifest = path.join(directory, "manifest.json");
+      writeFileSync(
+        manifest,
+        JSON.stringify(
+          job === "image"
+            ? { schemaVersion: 2 }
+            : {
+                manifests: [
+                  { digest: amd64, platform: { os: "linux", architecture: "amd64" } },
+                  { digest: arm64, platform: { os: "linux", architecture: "arm64" } },
+                ],
+              },
+        ),
+      );
+      const command = workflowStepScript(workflow, job, step).replaceAll(
+        "${{ matrix.arch }}",
+        "amd64",
+      );
+      const run = () =>
+        spawnSync("bash", ["-e", "-o", "pipefail", "-c", command], {
+          cwd: directory,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PATH: `${directory}/bin:${process.env.PATH}`,
+            RAW_MANIFEST: manifest,
+            INSPECT_OUTPUT: inspection,
+            GITHUB_REPOSITORY: "example/image",
+            GITHUB_SHA: "d".repeat(40),
+            GITHUB_REF_NAME: "v1.0.0",
+            GITHUB_OUTPUT: path.join(directory, "step-output.txt"),
+            REGISTRY: "example.invalid",
+            IMAGE_NAME: "example/image",
+            SOURCE_DIGEST: digest,
+          },
+        });
+      const result = run();
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        readFileSync(path.join(directory, output), "utf8").trim(),
+        job === "promote-image" ? `digest=${digest}` : digest,
+      );
+
+      writeFileSync(inspection, `Digest: invalid\n${manifests}`);
+      assert.notEqual(run().status, 0, "invalid or mismatched image identity must still fail");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+}
+
 test("only container image CI jobs can write packages", () => {
   const jobs = load(ci).jobs;
   assert.deepEqual(

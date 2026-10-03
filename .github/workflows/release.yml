@@ -431,7 +431,7 @@ jobs:
             --tag "${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME}" \
             --tag "${REGISTRY}/${IMAGE_NAME}:latest" \
             "$source_image"
-          promoted_digest="$(docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME}" | awk '$1 == "Digest:" { print $2; exit }')"
+          promoted_digest="$(docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME}" | awk '$1 == "Digest:" && !found { print $2; found = 1 }')"
           [[ "$promoted_digest" == "$SOURCE_DIGEST" ]] || {
             echo "Promoted digest $promoted_digest does not match verified candidate $SOURCE_DIGEST." >&2
             exit 1

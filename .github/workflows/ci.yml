@@ -1001,7 +1001,7 @@ jobs:
               | if length == 1 then .[0].digest else empty end
             ' <<< "$raw_manifest")"
           else
-            digest="$(docker buildx imagetools inspect "$image" | awk '$1 == "Digest:" { print $2; exit }')"
+            digest="$(docker buildx imagetools inspect "$image" | awk '$1 == "Digest:" && !found { print $2; found = 1 }')"
           fi
           [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Published candidate did not resolve to a registry digest." >&2; exit 1; }
           printf '%s\n' "$digest" > "image-linux-${{ matrix.arch }}-digest.txt"
@@ -1072,7 +1072,7 @@ jobs:
             --tag "$candidate" \
             "${repository}@${amd64_digest}" \
             "${repository}@${arm64_digest}"
-          digest="$(docker buildx imagetools inspect "$candidate" | awk '$1 == "Digest:" { print $2; exit }')"
+          digest="$(docker buildx imagetools inspect "$candidate" | awk '$1 == "Digest:" && !found { print $2; found = 1 }')"
           [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || {
             echo "Published candidate index did not resolve to a registry digest." >&2
             exit 1

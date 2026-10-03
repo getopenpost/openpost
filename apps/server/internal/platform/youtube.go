@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/providerlimits"
 )
 
 const (
@@ -414,8 +416,6 @@ func (y *YouTubeAdapter) UploadMediaResumable(
 	return videoID, nil
 }
 
-const youtubeDescriptionMaxBytes = 5000
-
 func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, error) {
 	if !isVideoMime(req.MimeType) {
 		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube upload requires a video attachment")
@@ -433,8 +433,8 @@ func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, er
 	if strings.ContainsAny(firstNonEmptyString(settingString(req.Settings, "title"), strings.TrimSpace(req.Title)), "<>") {
 		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube titles cannot contain <> characters")
 	}
-	if len([]rune(strings.TrimSpace(req.Description))) > youtubeDescriptionMaxBytes {
-		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube descriptions are limited to %d characters", youtubeDescriptionMaxBytes)
+	if err := providerlimits.ValidateYouTubeDescription(req.Description); err != nil {
+		return youtubeVideoInsertRequest{}, err
 	}
 	privacy := settingString(req.Settings, "privacy")
 	switch privacy {

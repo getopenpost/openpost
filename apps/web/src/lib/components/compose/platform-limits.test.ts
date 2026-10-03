@@ -41,12 +41,12 @@ describe('platform-limits', () => {
 		expect(platformTextLength('bluesky', '👨‍👩‍👧‍👦')).toBe(1);
 	});
 
-	it('uses UTF-8 bytes for Threads', () => {
-		expect(platformTextLength('threads', 'OpenPost')).toBe(8);
-		expect(platformTextLength('threads', 'é')).toBe(2);
-		expect(platformTextLength('threads', '’')).toBe(3);
-		expect(platformTextLength('threads', '👋')).toBe(4);
-		expect(platformTextLength('threads', '👨‍👩‍👧‍👦')).toBe(25);
+	it.each(['threads', 'youtube'])('uses UTF-8 bytes for %s', (platform) => {
+		expect(platformTextLength(platform, 'OpenPost')).toBe(8);
+		expect(platformTextLength(platform, 'é')).toBe(2);
+		expect(platformTextLength(platform, '’')).toBe(3);
+		expect(platformTextLength(platform, '👋')).toBe(4);
+		expect(platformTextLength(platform, '👨‍👩‍👧‍👦')).toBe(25);
 	});
 
 	it('does not invent a limit when no destination uses the shared text', () => {

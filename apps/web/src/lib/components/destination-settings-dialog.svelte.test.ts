@@ -466,3 +466,27 @@ describe('DestinationSettingsDialog', () => {
 		await vi.waitFor(() => expect(onFileChange).toHaveBeenCalledWith(expect.anything(), file));
 	});
 });
+
+it.each([
+	{ text: '😀'.repeat(1250), bytes: 5000, invalid: false },
+	{ text: '😀'.repeat(1251), bytes: 5004, invalid: true },
+	{ text: 'Launch <now>', bytes: 12, invalid: true }
+])(
+	'shows YouTube description byte usage and validity ($bytes bytes)',
+	async ({ text, bytes, invalid }) => {
+		const screen = await render(DestinationSettingsDialog, {
+			props: {
+				open: true,
+				account: youtubeAccount,
+				settings: [setting('description', 'Description', { type: 'textarea' })],
+				values: { description: text },
+				onChange: vi.fn()
+			}
+		});
+		await expect.element(screen.getByText(`${bytes} / 5000 bytes`, { exact: true })).toBeVisible();
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Description', exact: true }))
+			.toHaveAttribute('aria-invalid', String(invalid));
+		await screen.getByRole('button', { name: 'Done', exact: true }).click();
+	}
+);

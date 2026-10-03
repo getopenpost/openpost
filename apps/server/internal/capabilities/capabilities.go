@@ -451,8 +451,8 @@ func All() []Capability {
 		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileStory, Label: "Instagram Story", Media: publicStory, RequiresPublicMedia: true, RequiresAppReview: true, Settings: instagramSettings()}),
 		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileShortVideo, Label: "Instagram Reel", TextLimit: 2200, Media: publicShortVideo, RequiresPublicMedia: true, Settings: instagramSettings()}),
 
-		defaultQueued(Capability{Provider: ProviderYouTube, Profile: models.ContentProfileShortVideo, Label: "YouTube Short", TextLimit: 5000, TitleRequired: true, DescriptionRequired: false, Media: shortVideo, Settings: youtubeSettings(), Caveats: []string{"Unaudited Google projects can force uploads private."}}),
-		defaultQueued(Capability{Provider: ProviderYouTube, Profile: models.ContentProfileLongVideo, Label: "YouTube video", TextLimit: 5000, TitleRequired: true, DescriptionRequired: false, Media: longVideo, Settings: youtubeSettings(), Caveats: []string{"Unaudited Google projects can force uploads private."}}),
+		defaultQueued(Capability{Provider: ProviderYouTube, Profile: models.ContentProfileShortVideo, Label: "YouTube Short", TextLimit: providerlimits.YouTubeDescriptionMaxBytes, TitleRequired: true, DescriptionRequired: false, Media: shortVideo, Settings: youtubeSettings(), Caveats: []string{"Unaudited Google projects can force uploads private."}}),
+		defaultQueued(Capability{Provider: ProviderYouTube, Profile: models.ContentProfileLongVideo, Label: "YouTube video", TextLimit: providerlimits.YouTubeDescriptionMaxBytes, TitleRequired: true, DescriptionRequired: false, Media: longVideo, Settings: youtubeSettings(), Caveats: []string{"Unaudited Google projects can force uploads private."}}),
 
 		defaultQueued(Capability{Provider: ProviderTikTok, Profile: models.ContentProfileShortVideo, Label: "TikTok video", TextLimit: 2200, Media: tiktokVideo, RequiresPublicMedia: true, RequiresAppReview: true, Settings: tiktokSettings()}),
 		defaultQueued(Capability{Provider: ProviderTikTok, Profile: models.ContentProfileCarousel, Label: "TikTok photo post", TextLimit: 4000, Media: tiktokPhotos, RequiresPublicMedia: true, RequiresAppReview: true, Settings: tiktokSettings()}),
@@ -1611,7 +1611,18 @@ func validateCapability(capability Capability, body, title, description string, 
 	provider := capability.Provider
 	profile := capability.Profile
 	issues := []ValidationIssue{}
-	if capability.TextLimit > 0 && TextLength(provider, body) > capability.TextLimit {
+	if provider == ProviderYouTube {
+		value, field := body, "body"
+		if setting := settingsValue(settings, "description"); setting != "" {
+			value, field = setting, "settings.description"
+		}
+		if strings.TrimSpace(description) != "" {
+			value, field = description, "description"
+		}
+		if err := providerlimits.ValidateYouTubeDescription(value); err != nil {
+			issues = append(issues, ValidationIssue{Severity: "error", Code: "description_invalid", Message: err.Error(), Provider: provider, Profile: profile, Field: field})
+		}
+	} else if capability.TextLimit > 0 && TextLength(provider, body) > capability.TextLimit {
 		issues = append(issues, ValidationIssue{Severity: "error", Code: "text_too_long", Message: fmt.Sprintf("Text is over the %d character limit", capability.TextLimit), Provider: provider, Profile: profile, Field: "body"})
 	}
 	if capability.TitleRequired && strings.TrimSpace(title) == "" {
@@ -1897,6 +1908,9 @@ func validDefaultSettingType(field SettingDefinition, value any) bool {
 
 func validateTextConstraint(capability Capability, field, value string, constraint TextConstraint) []ValidationIssue {
 	length := TextLength(capability.Provider, value)
+	if capability.Provider == ProviderYouTube && (field == "title" || field == "alt_text") {
+		length = len([]rune(value))
+	}
 	if constraint.Required && strings.TrimSpace(value) == "" {
 		return []ValidationIssue{{Severity: "error", Code: field + "_required", Message: capabilityFieldLabel(field) + " is required", Provider: capability.Provider, Profile: capability.Profile, Field: field}}
 	}
@@ -2596,7 +2610,7 @@ func youtubeSettings() []SettingField {
 	return []SettingField{
 		{Key: "privacy", Label: "Privacy", Type: "select", Required: true, Options: []string{"public", "unlisted", "private"}},
 		{Key: "title", Label: "Title", Type: "text", Required: true, Constraints: SettingConstraint{MaxLength: 100}},
-		{Key: "description", Label: "Description", Type: "textarea"},
+		{Key: "description", Label: "Description", Type: "textarea", Help: "Up to 5,000 UTF-8 bytes. Cannot contain < or >."},
 		{Key: "tags", Label: "Tags", Type: "tags", Help: "Add terms that help people find the video."},
 		{Key: "category_id", Label: "Category", Type: "select", Control: "remote_picker", Required: true, OptionsSource: "youtube_categories"},
 		{Key: "playlist_id", Label: "Playlist", Type: "select", Control: "remote_picker", OptionsSource: "youtube_playlists"},

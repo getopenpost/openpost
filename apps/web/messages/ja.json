@@ -2454,6 +2454,8 @@
 	"compose_renditions_body": "One version for each selected account.",
 	"compose_rendition_title": "Account version title",
 	"compose_body": "Body",
+	"compose_description_bytes": "{count} / {limit} バイト",
+	"compose_description_angle_brackets": "説明に < または > は使用できません。",
 	"compose_description": "Description",
 	"platform_preview_username": "username",
 	"platform_preview_display_name": "Display name",

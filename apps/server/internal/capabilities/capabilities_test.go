@@ -800,3 +800,50 @@ func TestThreadVideoAttachmentsAgreeWithPublisher(t *testing.T) {
 		}
 	}
 }
+
+func TestYouTubeDescriptionValidationMatchesUploadContract(t *testing.T) {
+	for _, fixture := range []struct {
+		name, text string
+		invalid    bool
+	}{
+		{"accent boundary", strings.Repeat("é", 2500), false},
+		{"accent overflow", strings.Repeat("é", 2501), true},
+		{"CJK boundary", strings.Repeat("界", 1666) + "ab", false},
+		{"CJK overflow", strings.Repeat("界", 1667), true},
+		{"emoji boundary", strings.Repeat("😀", 1250), false},
+		{"emoji overflow", strings.Repeat("😀", 1251), true},
+		{"opening bracket", "Launch <now", true}, {"closing bracket", "Launch now>", true},
+	} {
+		for _, source := range []string{"body", "description", "setting"} {
+			t.Run(fixture.name+"/"+source, func(t *testing.T) {
+				body, description := "", ""
+				settings := map[string]any{"title": "Launch", "privacy": "private", "category_id": "22"}
+				switch source {
+				case "body":
+					body = fixture.text
+				case "description":
+					description = fixture.text
+				case "setting":
+					settings["description"] = fixture.text
+				}
+				issues := Validate(ProviderYouTube, models.ContentProfileLongVideo, body, "Launch", description, []MediaItem{{ID: "video", MimeType: "video/mp4", Size: 1024, AnalysisStatus: "ready"}}, settings)
+				var relevant []ValidationIssue
+				for _, issue := range issues {
+					if issue.Field == "body" || issue.Field == "description" || issue.Field == "settings.description" {
+						relevant = append(relevant, issue)
+					}
+				}
+				if fixture.invalid {
+					require.NotEmpty(t, relevant)
+				} else {
+					require.Empty(t, relevant)
+				}
+			})
+		}
+	}
+}
+
+func TestYouTubeExplicitDescriptionWinsOverDestinationSetting(t *testing.T) {
+	issues := Validate(ProviderYouTube, models.ContentProfileLongVideo, "Body", "Title", strings.Repeat("😀", 1251), []MediaItem{{ID: "video", MimeType: "video/mp4", Size: 1024, AnalysisStatus: "ready"}}, map[string]any{"privacy": "private", "title": "Title", "category_id": "22", "description": "Default description"})
+	requireIssueCode(t, issues, "description_invalid")
+}

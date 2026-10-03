@@ -2454,6 +2454,8 @@
 	"compose_renditions_body": "One version for each selected account.",
 	"compose_rendition_title": "Account version title",
 	"compose_body": "Body",
+	"compose_description_bytes": "{count} / {limit} 바이트",
+	"compose_description_angle_brackets": "설명에 < 또는 >를 사용할 수 없습니다.",
 	"compose_description": "Description",
 	"platform_preview_username": "username",
 	"platform_preview_display_name": "Display name",

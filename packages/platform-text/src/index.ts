@@ -1,3 +1,5 @@
+export const YOUTUBE_DESCRIPTION_MAX_BYTES = 5000;
+
 export const DEFAULT_PLATFORM_CHAR_LIMIT = 280;
 export const X_STANDARD_CHAR_LIMIT = 280;
 export const X_PREMIUM_CHAR_LIMIT = 25_000;
@@ -109,7 +111,7 @@ export const PLATFORM_LIMITS = {
   youtube: {
     key: "youtube",
     name: "YouTube",
-    charLimit: 5000,
+    charLimit: YOUTUBE_DESCRIPTION_MAX_BYTES,
     media: "Exactly one video",
     note: "Private by default. Unaudited Google projects may force private uploads.",
   },
@@ -137,6 +139,7 @@ export const PLATFORM_LIMITS = {
 } satisfies Record<string, PlatformLimitDefinition>;
 
 export function countPlatformText(platformKey: string, text: string): number {
+  if (platformKey === "youtube") return new TextEncoder().encode(text.trim()).length;
   if (platformKey === "threads") return new TextEncoder().encode(text).length;
   if (platformKey === "bluesky") return graphemeSegments(text).length;
   if (platformKey === "mastodon") return Array.from(mastodonCountableText(text)).length;

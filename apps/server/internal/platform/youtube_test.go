@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -724,13 +725,13 @@ func TestPrepareYouTubeUploadRejectsProviderInvalidFields(t *testing.T) {
 	}
 
 	long := base()
-	long.Description = strings.Repeat("é", 5000)
+	long.Description = strings.Repeat("é", 2500)
 	if _, err := prepareYouTubeUpload(long); err != nil {
-		t.Fatalf("5000-character multibyte description rejected: %v", err)
+		t.Fatalf("5000-byte multibyte description rejected: %v", err)
 	}
-	long.Description = strings.Repeat("é", 5001)
+	long.Description = strings.Repeat("é", 2501)
 	if _, err := prepareYouTubeUpload(long); err == nil || !strings.Contains(err.Error(), "5000") {
-		t.Fatalf("expected description character error, got %v", err)
+		t.Fatalf("expected description byte error, got %v", err)
 	}
 
 	settingTitle := base()
@@ -757,5 +758,25 @@ func TestValidateMediaYouTubeRequiresOneVideo(t *testing.T) {
 	issues = ValidateMedia(providerYouTube, []MediaItem{{ID: "video", MimeType: "video/mp4"}})
 	if len(issues) != 0 {
 		t.Fatalf("expected no issues for one video, got %#v", issues)
+	}
+}
+
+func TestYouTubeUploadRejectsInvalidDescriptionsBeforeNetwork(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("invalid description reached provider: %s", req.URL)
+		return nil, nil
+	})}
+	for _, description := range []string{strings.Repeat("é", 2501), strings.Repeat("界", 1667), strings.Repeat("😀", 1251), "Launch <now", "Launch now>"} {
+		t.Run(fmt.Sprintf("bytes=%d", len(description)), func(t *testing.T) {
+			req := UploadMediaRequest{Reader: strings.NewReader("video-bytes"), MimeType: "video/mp4", Size: 11, Title: "Launch", Description: description, Settings: map[string]interface{}{"privacy": "public", "category_id": "22"}, OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader("video-bytes"[offset:])), nil
+			}}
+			_, err := NewYouTubeAdapter("", "", "").UploadMediaResumable(t.Context(), "access", "account", req, ResumableMediaUploadState{}, func(ResumableMediaUploadState) error { return nil })
+			if err == nil || !strings.Contains(err.Error(), "description") {
+				t.Fatalf("expected description rejection, got %v", err)
+			}
+		})
 	}
 }

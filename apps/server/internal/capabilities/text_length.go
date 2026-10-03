@@ -30,7 +30,7 @@ var (
 // selected Unicode ranges as one character, and weights the rest as two.
 // Bluesky counts grapheme clusters, the unit its 300-character post limit
 // uses, Mastodon counts every link as 23 characters and every remote mention
-// as its username, and Threads counts UTF-8 bytes.
+// as its username. Threads and YouTube descriptions count UTF-8 bytes.
 func TextLength(provider, text string) int {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case ProviderX:
@@ -39,6 +39,8 @@ func TextLength(provider, text string) int {
 		return uniseg.GraphemeClusterCount(text)
 	case ProviderMastodon:
 		return utf8.RuneCountInString(mastodonCountableText(text))
+	case ProviderYouTube:
+		return len(strings.TrimSpace(text))
 	case ProviderThreads:
 		return len(text)
 	}

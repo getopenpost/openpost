@@ -2454,6 +2454,8 @@
 	"compose_renditions_body": "Uma versão por conta selecionada.",
 	"compose_rendition_title": "Título da versão da conta",
 	"compose_body": "Conteúdo",
+	"compose_description_bytes": "{count} / {limit} bytes",
+	"compose_description_angle_brackets": "A descrição não pode conter < ou >.",
 	"compose_description": "Descrição",
 	"platform_preview_username": "utilizador",
 	"platform_preview_display_name": "Nome de apresentação",

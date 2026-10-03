@@ -353,3 +353,27 @@ func EnsureActiveDedupeIndex(ctx context.Context, db bun.IDB) error {
 		Exec(ctx)
 	return err
 }
+
+// RepurposePayload identifies an immutable source analysis attempt.
+type RepurposePayload struct {
+	SuggestionID string `json:"suggestion_id"`
+	Generation   int    `json:"generation"`
+}
+
+func DecodeRepurposePayload(payload string) (RepurposePayload, error) {
+	var decoded RepurposePayload
+	if err := json.Unmarshal([]byte(payload), &decoded); err != nil {
+		return decoded, &InvalidPayloadError{err: err}
+	}
+	if strings.TrimSpace(decoded.SuggestionID) == "" || decoded.Generation < 1 {
+		return decoded, &InvalidPayloadError{err: errors.New("suggestion_id and generation are required")}
+	}
+	return decoded, nil
+}
+func repurposeIdentity(payload string) (Identity, error) {
+	decoded, err := DecodeRepurposePayload(payload)
+	if err != nil {
+		return Identity{}, err
+	}
+	return Identity{ScopeID: decoded.SuggestionID, DedupeKey: fmt.Sprint(decoded.Generation)}, nil
+}

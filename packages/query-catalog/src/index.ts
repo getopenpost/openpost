@@ -41,4 +41,5 @@ export * from "./workflows";
 
 export * from "./editor-agent";
 
+export * from "./repurpose";
 export * from "./publication-builds";

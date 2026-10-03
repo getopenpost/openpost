@@ -41,27 +41,24 @@ const audioStreamSchema = z.object({
 	channels: z.number().nullable()
 });
 
+export const quickCutTranscriptSchema = z.object({
+	audioTrackIndex: z.number().int().nonnegative(),
+	words: z
+		.array(
+			z
+				.object({
+					text: z.string().max(10000),
+					start: z.number().nonnegative(),
+					end: z.number().nonnegative(),
+					confidence: z.number().optional()
+				})
+				.refine((word) => word.end > word.start, 'Transcript word must have a positive duration')
+		)
+		.max(200000)
+});
+
 const sourceMetaSchema = z.object({
-	transcript: z
-		.object({
-			audioTrackIndex: z.number().int().nonnegative(),
-			words: z
-				.array(
-					z
-						.object({
-							text: z.string().max(10000),
-							start: z.number().nonnegative(),
-							end: z.number().nonnegative(),
-							confidence: z.number().optional()
-						})
-						.refine(
-							(word) => word.end > word.start,
-							'Transcript word must have a positive duration'
-						)
-				)
-				.max(200000)
-		})
-		.optional(),
+	transcript: quickCutTranscriptSchema.optional(),
 	id: z.string().min(1).max(64),
 	name: z.string().min(1).max(MAX_NAME_LENGTH),
 	size: z

@@ -6,11 +6,13 @@
 	let {
 		value,
 		duration,
+		disabled = false,
 		'aria-label': label,
 		onCommit
 	}: {
 		value: number;
 		duration: number;
+		disabled?: boolean;
 		'aria-label': string;
 		onCommit: (value: number) => void;
 	} = $props();
@@ -46,6 +48,7 @@
 </script>
 
 <Input
+	{disabled}
 	type="text"
 	inputmode="decimal"
 	bind:value={draft}

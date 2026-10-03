@@ -34,6 +34,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
+	"github.com/openpost/backend/internal/services/repurpose"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/videoprocessing"
 	"github.com/openpost/backend/internal/services/waitlist"
@@ -81,6 +82,7 @@ type BackgroundWorker struct {
 	video                 *videoprocessing.Service
 	growth                *growthservice.Service
 	publicationBuilder    *publicationbuilder.Application
+	repurposeSuggestions  *repurpose.Service
 	postImports           *postimportservice.Service
 	accountPreflight      *accountpreflightservice.Service
 	externalWebhooks      *externalwebhooks.Service
@@ -217,6 +219,16 @@ func (w *BackgroundWorker) SetPublicationBuilderService(service *publicationbuil
 			return publicationbuilder.ErrRuntimeUnavailable
 		}
 		return w.publicationBuilder.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
+func (w *BackgroundWorker) SetRepurposeSuggestionsService(service *repurpose.Service) {
+	w.repurposeSuggestions = service
+	w.executors[jobregistry.ExecuteRepurposeSuggestions] = func(ctx context.Context, job *models.Job) error {
+		if service == nil {
+			return repurpose.ErrUnavailable
+		}
+		return service.HandleJob(ctx, job.Payload)
 	}
 }
 
@@ -780,14 +792,21 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 
 	var rows int64
 	var dbErr error
-	if job.Status == jobStatusFailed && job.Type == jobregistry.TypePublicationBuild && w.publicationBuilder != nil {
+	var markTerminalFailure func(context.Context, bun.IDB, string) error
+	switch {
+	case job.Status == jobStatusFailed && job.Type == jobregistry.TypePublicationBuild && w.publicationBuilder != nil:
+		markTerminalFailure = w.publicationBuilder.MarkTerminalJobFailure
+	case job.Status == jobStatusFailed && job.Type == jobregistry.TypeRepurposeSuggestions && w.repurposeSuggestions != nil:
+		markTerminalFailure = w.repurposeSuggestions.MarkTerminalJobFailure
+	}
+	if markTerminalFailure != nil {
 		dbErr = w.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 			var err error
 			rows, err = persistFailure(tx)
 			if err != nil || rows == 0 {
 				return err
 			}
-			return w.publicationBuilder.MarkTerminalJobFailure(txCtx, tx, job.Payload)
+			return markTerminalFailure(txCtx, tx, job.Payload)
 		})
 	} else {
 		rows, dbErr = persistFailure(w.db)
@@ -940,19 +959,15 @@ type classifiedJobFailure struct {
 }
 
 func (w *BackgroundWorker) classifyJobFailure(ctx context.Context, job *models.Job, processErr error) classifiedJobFailure {
+	if job.Type == jobregistry.TypeRepurposeSuggestions {
+		return classifyRepurposeFailure(processErr)
+	}
+
 	if continuation, ok := classifyJobContinuation(processErr); ok {
 		return continuation
 	}
 	if job.Type == jobregistry.TypePublicationBuild {
-		switch {
-		case errors.Is(processErr, publicationbuilder.ErrRuntimeUnavailable):
-			return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is temporarily unavailable. OpenPost will retry when it is configured.", preserveAttempts: true}
-		case errors.Is(processErr, publicationbuilder.ErrTooManyActiveBuilds):
-			return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is waiting for an active build slot.", preserveAttempts: true}
-		case errors.Is(processErr, publicationbuilder.ErrBuildLeaseActive):
-			return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is waiting for the active generation lease.", preserveAttempts: true}
-		}
-		return classifiedJobFailure{retryable: true, message: "Publication Builder could not complete this build. OpenPost will retry when possible."}
+		return classifyPublicationBuildFailure(processErr)
 	}
 	result := classifiedJobFailure{retryable: true, message: processErr.Error()}
 	definition, ok := jobregistry.Lookup(job.Type)
@@ -987,6 +1002,25 @@ func (w *BackgroundWorker) classifyJobFailure(ctx context.Context, job *models.J
 		result.retryable = !jobregistry.IsInvalidPayload(processErr)
 	}
 	return result
+}
+
+func classifyPublicationBuildFailure(processErr error) classifiedJobFailure {
+	switch {
+	case errors.Is(processErr, publicationbuilder.ErrRuntimeUnavailable):
+		return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is temporarily unavailable. OpenPost will retry when it is configured.", preserveAttempts: true}
+	case errors.Is(processErr, publicationbuilder.ErrTooManyActiveBuilds):
+		return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is waiting for an active build slot.", preserveAttempts: true}
+	case errors.Is(processErr, publicationbuilder.ErrBuildLeaseActive):
+		return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is waiting for the active generation lease.", preserveAttempts: true}
+	}
+	return classifiedJobFailure{retryable: true, message: "Publication Builder could not complete this build. OpenPost will retry when possible."}
+}
+
+func classifyRepurposeFailure(err error) classifiedJobFailure {
+	if errors.Is(err, repurpose.ErrLeaseActive) || errors.Is(err, repurpose.ErrUnavailable) {
+		return classifiedJobFailure{retryable: true, retryAfter: time.Minute, message: "Clip analysis is waiting for an available worker.", preserveAttempts: true}
+	}
+	return classifiedJobFailure{retryable: !jobregistry.IsInvalidPayload(err), message: "Clip analysis was interrupted. OpenPost will retry when possible."}
 }
 
 func classifyJobContinuation(processErr error) (classifiedJobFailure, bool) {

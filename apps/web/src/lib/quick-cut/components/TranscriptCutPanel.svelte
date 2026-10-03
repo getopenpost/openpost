@@ -12,11 +12,19 @@
 	} from '$lib/video-editor/transcript/engine/types';
 	import type { QuickCutSource, QuickCutSegment } from '../types';
 	import { formatTimecode, getSelectedAudioStreams } from '../model';
+	import {
+		assertSourceTranscriptStorageCurrent,
+		captureSourceTranscriptStorage
+	} from '$lib/video-editor/workspace-fs/source-transcripts';
+	import { saveQuickCutSourceTranscript } from '../transcript-cache';
+	import { showToast } from '$lib/toast';
 	let {
 		source,
 		segments,
 		currentTime,
 		disabled = false,
+		transcriptionOnly = false,
+		workspaceId = '',
 		onsave,
 		onremove,
 		oneditcuts,
@@ -26,6 +34,8 @@
 		segments: QuickCutSegment[];
 		currentTime: number;
 		disabled?: boolean;
+		transcriptionOnly?: boolean;
+		workspaceId?: string;
 		onsave: (sourceId: string, transcript: NonNullable<QuickCutSource['transcript']>) => void;
 		onremove: (sourceId: string, ranges: Array<{ start: number; end: number }>) => void;
 		onseek: (time: number) => void;
@@ -79,10 +89,14 @@
 		error = '';
 		selected = new Set();
 		try {
-			const file = source.file ?? (await source.handle?.getFile());
-			if (!file || audioTrackIndex === undefined) return;
+			const capturedSource = { ...source };
+			const storage = captureSourceTranscriptStorage(workspaceId);
 			const sourceId = source.id;
 			const trackIndex = audioTrackIndex;
+			const duration = source.duration;
+			const file = capturedSource.file ?? (await capturedSource.handle?.getFile());
+			request.signal.throwIfAborted();
+			if (!file || trackIndex === undefined) return;
 			progress = { stage: 'decoding', progress: 0 };
 			const job = new BrowserTranscriber().transcribe(file, {
 				...selection,
@@ -94,7 +108,7 @@
 			});
 			const transcript = await job.collect();
 			request.signal.throwIfAborted();
-			onsave(sourceId, {
+			const savedTranscript = {
 				audioTrackIndex: trackIndex,
 				words: transcript
 					.flatMap((segment) =>
@@ -108,10 +122,25 @@
 							Number.isFinite(word.end) &&
 							word.end > word.start &&
 							word.start >= 0 &&
-							word.start < source.duration
+							word.start < duration
 					)
-					.map((word) => ({ ...word, end: Math.min(source.duration, word.end) }))
-			});
+					.map((word) => ({ ...word, end: Math.min(duration, word.end) }))
+			};
+			let cacheUnavailable = false;
+			try {
+				await saveQuickCutSourceTranscript(
+					capturedSource,
+					savedTranscript,
+					storage,
+					request.signal
+				);
+			} catch (cause) {
+				if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+				cacheUnavailable = true;
+			}
+			assertSourceTranscriptStorageCurrent(storage, request.signal);
+			onsave(sourceId, savedTranscript);
+			if (cacheUnavailable) showToast(m.repurpose_transcript_storage_failed(), 'warning');
 		} catch (cause) {
 			if (!request.signal.aborted) error = cause instanceof Error ? cause.message : String(cause);
 		} finally {
@@ -144,7 +173,9 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-3">
-	<p class="text-xs text-muted-foreground">{m.quick_cut_transcript_hint()}</p>
+	{#if !transcriptionOnly}<p class="text-xs text-muted-foreground">
+			{m.quick_cut_transcript_hint()}
+		</p>{/if}
 	{#if source.audioStreams.length === 0}
 		<p class="text-xs text-muted-foreground" role="status">{m.quick_cut_stream_no_audio()}</p>
 	{:else if source.selectedAudioTrackIndices?.length === 0}
@@ -172,7 +203,7 @@
 	{#if transcript && words.length === 0 && !busy && !error}
 		<p role="status" class="text-xs text-muted-foreground">{m.quick_cut_transcript_no_speech()}</p>
 	{/if}
-	{#if words.length > 0}
+	{#if words.length > 0 && !transcriptionOnly}
 		{#if removedWords.length > 0}
 			<div class="flex shrink-0 flex-col items-start gap-2 text-xs text-muted-foreground">
 				<p role="status">{m.quick_cut_transcript_restore_hint({ cuts: m.quick_cut_cuts() })}</p>

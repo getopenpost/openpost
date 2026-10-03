@@ -34,6 +34,7 @@ const (
 	TypeGrowthDiscovery         = "growth_discovery"
 	TypeGrowthFollow            = "growth_follow"
 	TypePublicationBuild        = "publication_build"
+	TypeRepurposeSuggestions    = "repurpose_suggestions"
 	TypeBotIngress              = "bot_ingress"
 	TypeScheduledAccountCheck   = "scheduled_account_preflight"
 	TypeExternalWebhookDelivery = "external_webhook_delivery"
@@ -65,6 +66,7 @@ const (
 	ExecuteVideo                 ExecutionKind = "video"
 	ExecuteGrowth                ExecutionKind = "growth"
 	ExecutePublicationBuild      ExecutionKind = "publication_build"
+	ExecuteRepurposeSuggestions  ExecutionKind = "repurpose_suggestions"
 	ExecuteBotIngress            ExecutionKind = "bot_ingress"
 	ExecuteScheduledAccountCheck ExecutionKind = "scheduled_account_preflight"
 	ExecuteExternalWebhook       ExecutionKind = "external_webhook"
@@ -160,6 +162,9 @@ var definitions = map[string]Definition{
 		"Growth discovery failed. OpenPost will retry when the failure is temporary.", ""),
 	TypeGrowthFollow: providerWriteDefinition(TypeGrowthFollow, ExecuteGrowth,
 		"The provider follow failed. OpenPost did not retry because the provider result may be ambiguous."),
+	TypeRepurposeSuggestions: {
+		Type: TypeRepurposeSuggestions, DefaultMaxAttempts: 3, Execution: ExecuteRepurposeSuggestions, Failure: FailureDefault, Recovery: RecoveryRequeue, identity: repurposeIdentity,
+	},
 	TypePublicationBuild: {
 		Type: TypePublicationBuild, DefaultMaxAttempts: 2,
 		Execution: ExecutePublicationBuild, Failure: FailureDefault, Recovery: RecoveryRequeue,

@@ -52,6 +52,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicationdiscovery"
 	"github.com/openpost/backend/internal/services/publicurl"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
+	"github.com/openpost/backend/internal/services/repurpose"
 	"github.com/openpost/backend/internal/services/sessions"
 	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/openpost/backend/internal/services/updatestatus"
@@ -87,6 +88,7 @@ type RouteDeps struct {
 	ContentBuilderEnabled        bool
 	ContentDiscoveryEnabled      bool
 	PublicationBuilder           *publicationbuilder.Application
+	RepurposeSuggestions         *repurpose.Service
 	PublicationPlanner           *publicationbuilder.Service
 	PublicationDiscovery         publicationdiscovery.Discoverer
 	PublicMediaVerifier          *publicurl.MediaVerifier
@@ -318,6 +320,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationBuildHandler.SetCapabilityResolver(capabilityResolverHandler)
 	publicationBuildHandler.SetPlanner(deps.PublicationPlanner)
 	publicationBuildHandler.RegisterRoutes(api)
+	handlers.NewRepurposeHandler(deps.RepurposeSuggestions, deps.Authenticator).RegisterRoutes(api)
 	registerWorkflowRoutes(api, deps, publicationHandler, publicationBuildHandler)
 	handlers.NewPublicationDiscoveryHandler(deps.DB, deps.Authenticator, deps.PublicationDiscovery).RegisterRoutes(api)
 	handlers.NewVoiceProfileHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)

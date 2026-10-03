@@ -413,6 +413,12 @@
 		void loadMCPActivity({ refresh: true });
 	}
 
+	function workspaceLabel(workspaceID: string) {
+		return (
+			workspaceCtx.workspaces.find((workspace) => workspace.id === workspaceID)?.name || workspaceID
+		);
+	}
+
 	function formatDateTime(value: string): string {
 		return new Intl.DateTimeFormat(getLocaleTag(), {
 			dateStyle: 'medium',
@@ -723,7 +729,7 @@
 						})}
 						{#if token.workspace_id}
 							· {m.settings_token_workspace()}
-							<span class="font-mono">{token.workspace_id}</span>
+							<span>{workspaceLabel(token.workspace_id)}</span>
 						{:else}
 							· {m.settings_all_workspaces()}
 						{/if}
@@ -807,7 +813,7 @@
 								{formatDateTime(call.created_at)} · {call.duration_ms} ms
 								{#if call.workspace_id}
 									· {m.settings_mcp_workspace()}
-									<span class="font-mono">{call.workspace_id}</span>
+									<span>{workspaceLabel(call.workspace_id)}</span>
 								{/if}
 							</p>
 							{#if call.client_name || call.client_scope}

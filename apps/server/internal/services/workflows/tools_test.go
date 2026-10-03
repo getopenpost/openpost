@@ -311,3 +311,44 @@ func TestAIDecisionRoutesAndRecordsEvidence(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPJSONFailureRetainsSafeDiagnosisWithoutRepeatingRequest(t *testing.T) {
+	s, actor := workflowTestService(t, nil)
+	secret := "private-test-secret"
+	connection, err := s.SaveCredential(t.Context(), actor, "ws", WorkflowCredentialRequest{Name: "Audit HTTP", Kind: "bearer", Host: "8.8.8.8", Token: secret})
+	require.NoError(t, err)
+	calls := 0
+	s.client = &http.Client{Transport: responseTransport(func(request *http.Request) (*http.Response, error) {
+		calls++
+		require.Equal(t, "Bearer "+secret, request.Header.Get("Authorization"))
+		return &http.Response{StatusCode: http.StatusBadGateway, Header: http.Header{"Content-Type": []string{"text/html; secret=" + secret + "; padding=" + strings.Repeat("x", 1000)}, "Set-Cookie": []string{secret}}, Body: io.NopCloser(strings.NewReader("<html>private-response-body " + secret + "</html>"))}, nil
+	})}
+	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "request", Kind: KindHTTP, Inputs: map[string]Value{"method": literal("GET"), "url": literal("https://8.8.8.8/data"), "response_format": literal("json"), "connection_id": literal(connection.ID)}}})
+	run, err := s.TestNode(t.Context(), actor, "ws", workflow.ID, WorkflowNodeTestRequest{ExpectedRevision: workflow.Revision, StepID: "request", Data: map[string]any{}})
+	require.NoError(t, err)
+	runJob(t, s, run.ID)
+	runJob(t, s, run.ID)
+	final, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, final.State)
+	require.Len(t, final.Steps, 1)
+	require.Equal(t, float64(502), final.Steps[0].Output["status"])
+	require.Contains(t, final.Error, "HTTP 502")
+	require.Contains(t, final.Error, "Text or Auto detect")
+	require.NotContains(t, final.Steps[0].Output, "body")
+	headers := final.Steps[0].Output["headers"].(map[string]any)
+	require.Len(t, headers, 1)
+	require.Contains(t, headers["Content-Type"], "text/html")
+	require.LessOrEqual(t, len(headers["Content-Type"].(string)), 256)
+	encoded, err := json.Marshal(final)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), secret)
+	require.NotContains(t, string(encoded), "private-response-body")
+	var receipt externalEffectRecord
+	require.NoError(t, s.db.NewSelect().Model(&receipt).Where("run_id = ?", run.ID).Scan(t.Context()))
+	require.Equal(t, StateFailed, receipt.State)
+	require.Contains(t, receipt.OutputJSON, `"status":502`)
+	require.NotContains(t, receipt.OutputJSON, secret)
+	require.NotContains(t, receipt.OutputJSON, "private-response-body")
+	require.Equal(t, 1, calls)
+}

@@ -46,7 +46,7 @@ Limits are enforced in the service: 40 steps, four nested branch levels, 100 wor
 
 ## Custom tools and usage
 
-HTTP nodes support method, query, headers, body, timeout and response format. cURL import parses supported options into these fields and rejects shell constructs, file reads and unsupported flags. HTTP and feed reads use the shared public-network guard. HTTP output is bounded to 256 KiB, with a 30-second maximum timeout. Feed-node output is also bounded to 256 KiB; RSS triggers process larger feeds one entry at a time.
+HTTP nodes support method, query, headers, body, timeout and response format. cURL import parses supported options into these fields and rejects shell constructs, file reads and unsupported flags. HTTP and feed reads use the shared public-network guard. HTTP output is bounded to 256 KiB, with a 30-second maximum timeout. Feed-node output is also bounded to 256 KiB; RSS triggers process larger feeds one entry at a time. JSON parse failures retain the HTTP status and redacted Content-Type, capped at 256 bytes, without retaining the malformed response body. The failure explains how to choose a text response format or correct the remote JSON.
 
 GitHub, Bearer, API-header and Basic credentials live in workspace connections. Custom credentials bind to one exact HTTPS host. Rotation retains the connection ID. Authentication headers cannot be stored directly in workflow definitions. Raw and encoded secret values are removed from response bodies and permitted headers before persistence.
 

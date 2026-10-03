@@ -17,6 +17,8 @@ import (
 	"github.com/openpost/backend/internal/netguard"
 )
 
+const maxResponseDiagnosticHeaderBytes = 256
+
 var headerNamePattern = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9a-zA-Z-]+$")
 
 func forbiddenHeader(name string) bool {
@@ -183,7 +185,12 @@ func decodeHTTPResponse(response *http.Response, secret, format string) (map[str
 
 	if format == "json" || (format != "text" && strings.Contains(response.Header.Get("Content-Type"), "json")) {
 		if err := json.Unmarshal([]byte(text), &body); err != nil {
-			return nil, errors.New("response is not valid JSON")
+			headers := map[string]string{}
+			if contentType := response.Header.Get("Content-Type"); contentType != "" {
+				safeType := redactResponse(contentType, secret).(string)
+				headers["Content-Type"] = strings.ToValidUTF8(safeType[:min(len(safeType), maxResponseDiagnosticHeaderBytes)], "")
+			}
+			return map[string]any{"status": response.StatusCode, "headers": headers}, fmt.Errorf("response is not valid JSON (HTTP %d); choose Text or Auto detect for a text response, or correct the remote JSON response", response.StatusCode)
 		}
 	}
 	body = redactResponse(body, secret)

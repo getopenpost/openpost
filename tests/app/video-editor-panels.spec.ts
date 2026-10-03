@@ -44,6 +44,76 @@ async function createProject(
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
 }
 
+test("animation application settings survive inspector tab switches without creating history", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await createProject(page, "Animation application settings");
+  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  const inspector = page.locator("#video-editor-tools-panel");
+  const animation = inspector.locator('[data-edit-inspector-tab="motion"]');
+  const saveIndicator = page.getByRole("banner").locator('[role="status"][data-state]');
+  const duration = inspector.getByRole("slider", { name: "Duration", exact: true });
+  const intensity = inspector.getByRole("slider", { name: "Intensity", exact: true });
+  const stagger = inspector.getByRole("slider", { name: "Stagger frames", exact: true });
+  for (const scheme of ["light", "dark"] as const) {
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await page.reload();
+    await page.locator("[data-timeline-item-id]").click();
+    await animation.click();
+    const originalSaveState = (await saveIndicator.getAttribute("data-state")) ?? "";
+    expect(["idle", "saved"]).toContain(originalSaveState);
+    await duration.press("End");
+    await intensity.press("Home");
+    await stagger.press("ArrowRight");
+    await stagger.press("ArrowRight");
+    await inspector.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(duration).toHaveAttribute("aria-valuenow", "3");
+    await expect(intensity).toHaveAttribute("aria-valuenow", "0");
+    await expect(stagger).toHaveAttribute("aria-valuenow", "2");
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await animation.focus();
+      await animation.press("Home");
+      await expect(inspector.locator('[data-edit-inspector-tab="properties"]')).toBeFocused();
+      await page.keyboard.press("ArrowRight");
+      await expect(animation).toBeFocused();
+      await expect(duration).toHaveAttribute("aria-valuenow", "3");
+      await expect(intensity).toHaveAttribute("aria-valuenow", "0");
+      await expect(stagger).toHaveAttribute("aria-valuenow", "2");
+      await expect(inspector.getByRole("button", { name: "Add", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await stagger.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(`animation-settings-${scheme}-${width}.png`),
+      });
+    }
+    await expect(saveIndicator).toHaveAttribute("data-state", originalSaveState);
+  }
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await expect(
+    page.getByRole("banner").getByRole("button", { name: "Undo", exact: true }),
+  ).toBeDisabled();
+  await page.reload();
+  await page.locator("[data-timeline-item-id]").click();
+  await animation.click();
+  await expect(duration).toHaveAttribute("aria-valuenow", "1");
+  await expect(intensity).toHaveAttribute("aria-valuenow", "1");
+  await expect(stagger).toHaveAttribute("aria-valuenow", "0");
+  await expect(inspector.getByRole("button", { name: "Replace", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
 for (const scheme of ["light", "dark"] as const) {
   test(`Color keeps its viewer and complete wheels usable on a laptop in ${scheme}`, async ({
     page,

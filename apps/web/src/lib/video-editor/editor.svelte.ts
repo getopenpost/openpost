@@ -21,6 +21,11 @@ import { sceneBrowser } from './media/scene-search/scene-browser.svelte';
 import { sequenceStore } from './sequences/sequence-store.svelte';
 import { readSequenceView, writeSequenceView } from './sequences/sequence-view-storage';
 import { editorSettings } from './settings/editor-settings.svelte';
+import {
+	DEFAULT_MOTION_GENERATOR_SETTINGS,
+	type MotionGeneratorSettings
+} from './timeline/motion-generator';
+import type { MotionPresetApplyMode } from './timeline/actions/motion-presets';
 import { mediaRecovery } from './media/media-recovery.svelte';
 import { PeriodicAutosaveController } from './settings/periodic-autosave';
 import { getNextShuttleRate, type ShuttleDirection } from './preview/shuttle';
@@ -52,6 +57,13 @@ class EditorSession {
 	saveConflict = $state(false);
 	projectDirty = $state(false);
 	missingFontAssetIds = $state<string[]>([]);
+	motionPresetApplication = $state<{
+		mode: MotionPresetApplyMode;
+		settings: MotionGeneratorSettings;
+	}>({
+		mode: 'replace',
+		settings: { ...DEFAULT_MOTION_GENERATOR_SETTINGS }
+	});
 
 	clock = new Clock({ fps: 30, canSeek: () => !timelineStore.seekLocked });
 	private transport = $state<ReactiveTransportState>({
@@ -141,6 +153,10 @@ class EditorSession {
 			}
 		}
 		this.stopAutosaveTimers();
+		this.motionPresetApplication = {
+			mode: 'replace',
+			settings: { ...DEFAULT_MOTION_GENERATOR_SETTINGS }
+		};
 		this.project = null;
 		this.projectId = projectId;
 		this.cloudWorkspaceId = cloudWorkspaceId;

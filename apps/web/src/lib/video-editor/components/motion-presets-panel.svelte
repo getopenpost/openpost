@@ -16,8 +16,7 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import {
 		applyMotionPreset,
-		canApplyMotionPreset,
-		type MotionPresetApplyMode
+		canApplyMotionPreset
 	} from '$lib/video-editor/timeline/actions/motion-presets';
 	import {
 		MOTION_PRESET_CATEGORIES,
@@ -87,10 +86,11 @@
 		onedit: () => void;
 	} = $props();
 
-	let mode = $state<MotionPresetApplyMode>('replace');
-	let durationScale = $state(1);
-	let intensityScale = $state(1);
-	let staggerFrames = $state(0);
+	const application = $derived(editorSession.motionPresetApplication);
+	const mode = $derived(application.mode);
+	const durationScale = $derived(application.settings.durationScale);
+	const intensityScale = $derived(application.settings.intensityScale);
+	const staggerFrames = $derived(application.settings.staggerFrames);
 	let status = $state('');
 	let modifierEditSnapshot = $state<TimelineSnapshot | null>(null);
 	let modifierEditType = $state<MotionModifierType | null>(null);
@@ -632,7 +632,7 @@
 			type="button"
 			class:active={mode === 'replace'}
 			aria-pressed={mode === 'replace'}
-			onclick={() => (mode = 'replace')}
+			onclick={() => (application.mode = 'replace')}
 		>
 			{m.video_editor_motion_replace()}
 		</button>
@@ -640,7 +640,7 @@
 			type="button"
 			class:active={mode === 'add'}
 			aria-pressed={mode === 'add'}
-			onclick={() => (mode = 'add')}
+			onclick={() => (application.mode = 'add')}
 		>
 			{m.video_editor_motion_add()}
 		</button>
@@ -657,7 +657,7 @@
 				min={0.25}
 				max={3}
 				step={0.05}
-				bind:value={durationScale}
+				bind:value={() => durationScale, (value) => (application.settings.durationScale = value)}
 				ariaLabel={m.video_editor_motion_duration()}
 			/>
 		</label>
@@ -668,7 +668,7 @@
 				min={0}
 				max={2}
 				step={0.05}
-				bind:value={intensityScale}
+				bind:value={() => intensityScale, (value) => (application.settings.intensityScale = value)}
 				ariaLabel={m.video_editor_motion_intensity()}
 			/>
 		</label>
@@ -679,7 +679,7 @@
 				min={0}
 				max={30}
 				step={1}
-				bind:value={staggerFrames}
+				bind:value={() => staggerFrames, (value) => (application.settings.staggerFrames = value)}
 				ariaLabel={m.video_editor_motion_stagger()}
 			/>
 		</label>

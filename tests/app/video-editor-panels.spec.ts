@@ -618,7 +618,7 @@ test("Color palettes explain their action and landscape workspaces retain a usab
 });
 
 for (const scheme of ["light", "dark"] as const) {
-  test(`Transcript has room to read and edit on phones in ${scheme}`, async ({
+  test(`Transcript fills the phone Assets pane and keeps its controls usable in ${scheme}`, async ({
     page,
   }, testInfo) => {
     test.setTimeout(90_000);
@@ -631,13 +631,37 @@ for (const scheme of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Assets", exact: true }).click();
       const transcript = page.getByRole("region", { name: "Transcript", exact: true });
       await expect(transcript).toBeVisible();
-      expect((await transcript.boundingBox())!.height).toBeGreaterThan(300);
+      const assetsBounds = (await page.locator("#video-editor-assets-panel").boundingBox())!;
+      const transcriptBounds = (await transcript.boundingBox())!;
+      expect(
+        Math.abs(
+          transcriptBounds.y + transcriptBounds.height - assetsBounds.y - assetsBounds.height,
+        ),
+      ).toBeLessThanOrEqual(1);
+      await expect(transcript.getByText("No captions yet.", { exact: true })).toBeInViewport({
+        ratio: 1,
+      });
       expect(
         await transcript.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
       ).toBe(true);
       await expect(page.getByRole("searchbox", { name: "Search transcript" })).toBeInViewport({
         ratio: 1,
       });
+      const search = transcript.getByRole("searchbox", { name: "Search transcript" });
+      await search.focus();
+      await page.keyboard.type("No caption fixture");
+      await expect(search).toHaveValue("No caption fixture");
+      await page.keyboard.press("Enter");
+      await expect(transcript.getByText("No matches", { exact: true })).toBeVisible();
+      await search.fill("");
+      const options = transcript.getByRole("button", { name: "Transcript options", exact: true });
+      await options.press("Enter");
+      await expect(options).toHaveAttribute("aria-expanded", "true");
+      await expect(
+        transcript.getByRole("button", { name: "Auto-scroll", exact: true }),
+      ).toBeInViewport({ ratio: 1 });
+      await options.press("Enter");
+      await expect(options).toHaveAttribute("aria-expanded", "false");
       await page.screenshot({ path: testInfo.outputPath(`transcript-${width}-${scheme}.png`) });
       await page.getByRole("button", { name: "Program", exact: true }).click();
       await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({

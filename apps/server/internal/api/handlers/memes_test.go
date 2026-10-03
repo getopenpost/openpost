@@ -371,19 +371,47 @@ func TestMemePreviewLoadsWorkspaceOverlayBytesWithoutPublicURLAndDoesNotPersist(
 func TestMemePreviewRejectsOversizedOverlayBeforeCallingProvider(t *testing.T) {
 	t.Parallel()
 
-	srv := newMemeHandlerTestServer(t, nil)
-	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{
-		ID: "overlay-large", WorkspaceID: "ws-1", FilePath: "overlay-large.png",
-		MimeType: "image/png", ProcessingStatus: mediaReadyStatus,
-		Size: maxMemeOverlayBytes + 1, Width: 1, Height: 1,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	response := srv.request(t, http.MethodPost, "/api/v1/memes/preview", map[string]any{
-		"workspace_id": "ws-1", "template_id": "3hd",
-		"captions": []string{"one", "two", "three"}, "overlay_media_ids": []string{"overlay-large"},
-	})
-	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
-	require.Empty(t, srv.provider.renderedRequests())
+	for _, testCase := range []struct {
+		name          string
+		size          int64
+		width, height int
+	}{
+		{name: "bytes", size: 10*1024*1024 + 1, width: 1, height: 1},
+		{name: "pixels", size: 100, width: 4000, height: 3250},
+		{name: "side", size: 100, width: 6001, height: 1},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			srv := newMemeHandlerTestServer(t, nil)
+			_, err := srv.db.NewInsert().Model(&models.MediaAttachment{
+				ID: "overlay-large", WorkspaceID: "ws-1", FilePath: "overlay-large.png",
+				MimeType: "image/png", ProcessingStatus: mediaReadyStatus,
+				Size: testCase.size, Width: testCase.width, Height: testCase.height,
+			}).Exec(t.Context())
+			require.NoError(t, err)
+			input := map[string]any{
+				"workspace_id": "ws-1", "template_id": "3hd",
+				"captions": []string{"one", "two", "three"}, "overlay_media_ids": []string{"overlay-large"},
+			}
+			response := srv.request(t, http.MethodPost, "/api/v1/memes/preview", input)
+			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+			require.Contains(t, response.Body.String(), "at most 10 MiB, 6000 pixels per side, and 12 million pixels")
+			require.Contains(t, response.Body.String(), "Resize the image or choose a smaller one.")
+			require.Empty(t, srv.provider.renderedRequests())
+
+			data := validMemePNG(t)
+			_, err = srv.db.NewInsert().Model(&models.MediaAttachment{
+				ID: "overlay-small", WorkspaceID: "ws-1", FilePath: "overlay-small.png",
+				MimeType: "image/png", ProcessingStatus: mediaReadyStatus,
+				Size: int64(len(data)), Width: 1, Height: 1,
+			}).Exec(t.Context())
+			require.NoError(t, err)
+			srv.storage.objects["overlay-small.png"] = data
+			input["overlay_media_ids"] = []string{"overlay-small"}
+			response = srv.request(t, http.MethodPost, "/api/v1/memes/preview", input)
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.Len(t, srv.provider.renderedRequests(), 1)
+		})
+	}
 }
 
 func TestMemeRenderImportsMediaPersistsImmutableRecipeAndAllowsRecipeRead(t *testing.T) {

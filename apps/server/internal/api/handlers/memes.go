@@ -937,11 +937,13 @@ func (h *MemeHandler) loadOverlayImages(ctx context.Context, workspaceID string,
 			return nil, huma.Error400BadRequest("overlay media must be a ready PNG, JPEG, GIF, or WebP image")
 		}
 		pixels := int64(media.Width) * int64(media.Height)
-		if media.Size <= 0 || media.Size > maxMemeOverlayBytes ||
-			media.Width <= 0 || media.Height <= 0 ||
+		if media.Size <= 0 || media.Width <= 0 || media.Height <= 0 || pixels <= 0 {
+			return nil, huma.Error400BadRequest("overlay media must contain a valid bounded image")
+		}
+		if media.Size > maxMemeOverlayBytes ||
 			media.Width > maxMemeImageDimension || media.Height > maxMemeImageDimension ||
-			pixels <= 0 || pixels > maxMemeImagePixels {
-			return nil, huma.Error400BadRequest("overlay image is too large for meme rendering")
+			pixels > maxMemeImagePixels {
+			return nil, memeOverlaySizeError()
 		}
 		declaredTotalBytes += media.Size
 		if declaredTotalBytes > maxMemeOverlayTotalBytes {
@@ -956,8 +958,11 @@ func (h *MemeHandler) loadOverlayImages(ctx context.Context, workspaceID string,
 		if readErr != nil || closeErr != nil {
 			return nil, huma.Error500InternalServerError("failed to read overlay media")
 		}
-		if len(data) == 0 || len(data) > maxMemeOverlayBytes {
-			return nil, huma.Error400BadRequest("overlay image is too large for meme rendering")
+		if len(data) == 0 {
+			return nil, huma.Error400BadRequest("overlay media must contain a valid bounded image")
+		}
+		if len(data) > maxMemeOverlayBytes {
+			return nil, memeOverlaySizeError()
 		}
 		loadedTotalBytes += int64(len(data))
 		if loadedTotalBytes > maxMemeOverlayTotalBytes {
@@ -965,14 +970,23 @@ func (h *MemeHandler) loadOverlayImages(ctx context.Context, workspaceID string,
 		}
 		config, _, decodeErr := image.DecodeConfig(bytes.NewReader(data))
 		actualPixels := int64(config.Width) * int64(config.Height)
-		if decodeErr != nil || config.Width <= 0 || config.Height <= 0 ||
-			config.Width > maxMemeImageDimension || config.Height > maxMemeImageDimension ||
-			actualPixels <= 0 || actualPixels > maxMemeImagePixels {
+		if decodeErr != nil || config.Width <= 0 || config.Height <= 0 || actualPixels <= 0 {
 			return nil, huma.Error400BadRequest("overlay media must contain a valid bounded image")
+		}
+		if config.Width > maxMemeImageDimension || config.Height > maxMemeImageDimension ||
+			actualPixels > maxMemeImagePixels {
+			return nil, memeOverlaySizeError()
 		}
 		result = append(result, memes.OverlayImage{Data: data, MIMEType: mimeType})
 	}
 	return result, nil
+}
+
+func memeOverlaySizeError() error {
+	return huma.Error400BadRequest(fmt.Sprintf(
+		"Meme overlay images must be at most %d MiB, %d pixels per side, and %d million pixels. Resize the image or choose a smaller one.",
+		maxMemeOverlayBytes/(1024*1024), maxMemeImageDimension, maxMemeImagePixels/1_000_000,
+	))
 }
 
 func (h *MemeHandler) rankSuggestionTemplates(ctx context.Context, idea string, count int) (memes.Catalog, []memes.Template, error) {

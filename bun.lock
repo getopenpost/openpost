@@ -216,7 +216,7 @@
     },
     "packages/cli": {
       "name": "@getopenpost/cli",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "bin": {
         "openpost": "./bin/openpost.js",
         "openpost-mcp": "./bin/openpost-mcp.js",

@@ -40,6 +40,7 @@
 	]);
 
 	let mobileOpen = $state(false);
+	let mobileTrigger = $state<HTMLButtonElement | null>(null);
 	let hydrated = $state(false);
 	onMount(() => {
 		hydrated = true;
@@ -67,6 +68,18 @@
 		return { href: href.startsWith('/') ? resolve(href as '/') : href };
 	}
 </script>
+
+<svelte:window
+	onkeydown={(event) => {
+		if (!mobileOpen || event.key !== 'Escape' || event.defaultPrevented) return;
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		if (target !== mobileTrigger && !target.closest('#mobile-navigation')) return;
+		event.preventDefault();
+		mobileOpen = false;
+		mobileTrigger?.focus();
+	}}
+/>
 
 <header class="marketing-nav sticky top-0 z-40">
 	<div class="marketing-shell flex min-h-16 items-center justify-between gap-4">
@@ -329,6 +342,7 @@
 			aria-expanded={mobileOpen}
 			disabled={!hydrated}
 			aria-controls="mobile-navigation"
+			bind:ref={mobileTrigger}
 			onclick={() => (mobileOpen = !mobileOpen)}
 		>
 			{#if mobileOpen}<X />{:else}<Menu />{/if}

@@ -3,6 +3,7 @@ import { SectionNav } from "@/components/section-nav";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
 import { BrandMark } from "@/components/brand-mark";
+import { SidebarKeyboard } from "@/components/sidebar-keyboard";
 import { Github } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           },
         ]}
       >
+        <SidebarKeyboard />
         {children}
       </DocsLayout>
     </>

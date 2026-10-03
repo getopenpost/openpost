@@ -237,6 +237,7 @@
 	import {
 		addTrack,
 		createTrackGroup,
+		canCreateTrackGroup,
 		moveTrack,
 		renameTrack,
 		removeTrackGroupWithContents,
@@ -447,6 +448,13 @@
 	let visibleTimelineItemIds = $state<Set<string>>(new Set());
 	let timelineItemObserver: IntersectionObserver | null = null;
 	let selectedTrackIds = $state<string[]>([]);
+	const replacesGroupNames = $derived(
+		timelineStore.tracks.some((track) => {
+			if (!track.isGroup) return false;
+			const children = trackChildren(timelineStore.tracks, track.id);
+			return children.length > 0 && children.every((child) => selectedTrackIds.includes(child.id));
+		})
+	);
 	type TimelineContextTarget =
 		| { kind: 'items'; itemIds: string[]; primaryId: string }
 		| { kind: 'transition'; transitionId: string }
@@ -4720,10 +4728,13 @@
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Item
-						disabled={selectedTrackIds.length === 0}
+						disabled={!canCreateTrackGroup(selectedTrackIds)}
+						class="max-w-[calc(100vw-2rem)] whitespace-normal"
 						onclick={createGroupFromSelection}
 					>
-						{m.video_editor_track_group_selected()}
+						{replacesGroupNames
+							? m.video_editor_track_group_merge()
+							: m.video_editor_track_group_selected()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.CheckboxItem

@@ -9719,5 +9719,6 @@
 	"calendar_no_matching_body": "No posts match the selected dates and filters. Try another date range or clear the filters.",
 	"media_dimensions_range_invalid": "Minimum dimensions must not exceed their maximums. Use 0 for no maximum.",
 	"media_date_range_invalid": "To date must be on or after From date.",
-	"checkout_payment_open": "Secure payment is open. Complete checkout in the Paddle window."
+	"checkout_payment_open": "Secure payment is open. Complete checkout in the Paddle window.",
+	"video_editor_track_group_merge": "Merge tracks into one group (replaces group names)"
 }

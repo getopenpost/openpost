@@ -9719,5 +9719,6 @@
 	"calendar_no_matching_body": "Seçilen tarihler ve filtrelerle eşleşen gönderi yok. Başka bir tarih aralığı deneyin veya filtreleri temizleyin.",
 	"media_dimensions_range_invalid": "Minimum boyutlar maksimum boyutları aşmamalıdır. Üst sınır olmaması için 0 kullanın.",
 	"media_date_range_invalid": "Bitiş tarihi başlangıç tarihiyle aynı veya daha sonraki bir tarih olmalıdır.",
-	"checkout_payment_open": "Güvenli ödeme açıldı. Paddle penceresinde ödeme işlemini tamamlayın."
+	"checkout_payment_open": "Güvenli ödeme açıldı. Paddle penceresinde ödeme işlemini tamamlayın.",
+	"video_editor_track_group_merge": "Parçaları tek grupta birleştir (grup adlarını değiştirir)"
 }

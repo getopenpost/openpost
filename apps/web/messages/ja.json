@@ -9719,5 +9719,6 @@
 	"calendar_no_matching_body": "選択した日付とフィルターに一致する投稿はありません。別の期間を選ぶか、フィルターを解除してください。",
 	"media_dimensions_range_invalid": "最小サイズは最大サイズ以下にしてください。上限を設けない場合は0を指定してください。",
 	"media_date_range_invalid": "終了日は開始日以降にしてください。",
-	"checkout_payment_open": "安全な支払い画面が開いています。Paddleのウィンドウで手続きを完了してください。"
+	"checkout_payment_open": "安全な支払い画面が開いています。Paddleのウィンドウで手続きを完了してください。",
+	"video_editor_track_group_merge": "トラックを1つのグループにまとめる（グループ名を置き換え）"
 }

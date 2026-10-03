@@ -9719,5 +9719,6 @@
 	"calendar_no_matching_body": "没有符合所选日期和筛选条件的帖子。请尝试其他日期范围或清除筛选条件。",
 	"media_dimensions_range_invalid": "最小尺寸不能超过最大尺寸。不设上限时请使用0。",
 	"media_date_range_invalid": "结束日期不能早于开始日期。",
-	"checkout_payment_open": "安全付款已打开。请在Paddle窗口中完成结账。"
+	"checkout_payment_open": "安全付款已打开。请在Paddle窗口中完成结账。",
+	"video_editor_track_group_merge": "将轨道合并为一个组（替换组名）"
 }

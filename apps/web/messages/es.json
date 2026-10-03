@@ -9719,5 +9719,6 @@
 	"calendar_no_matching_body": "Ninguna publicación coincide con las fechas y los filtros seleccionados. Prueba otro intervalo de fechas o borra los filtros.",
 	"media_dimensions_range_invalid": "Las dimensiones mínimas no pueden superar las máximas. Usa 0 para no establecer un máximo.",
 	"media_date_range_invalid": "La fecha Hasta debe ser igual o posterior a la fecha Desde.",
-	"checkout_payment_open": "El pago seguro está abierto. Completa la compra en la ventana de Paddle."
+	"checkout_payment_open": "El pago seguro está abierto. Completa la compra en la ventana de Paddle.",
+	"video_editor_track_group_merge": "Unir pistas en un solo grupo (reemplaza los nombres de los grupos)"
 }

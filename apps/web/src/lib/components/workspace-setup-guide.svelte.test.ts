@@ -40,9 +40,9 @@ describe('WorkspaceSetupGuide', () => {
 		const guide = screen.getByTestId('workspace-setup-guide-home');
 		await expect.element(guide).toBeVisible();
 		await expect.element(guide).toHaveTextContent('3 of 4 complete');
-		await expect.element(guide).toHaveTextContent('Schedule or submit your first Publication');
+		await expect.element(guide).toHaveTextContent('Schedule or submit your first post');
 		await expect
-			.element(screen.getByRole('link', { name: 'Create a Publication' }))
+			.element(screen.getByRole('link', { name: 'Create a post' }))
 			.toHaveAttribute('href', '/');
 		expect(mocks.get).toHaveBeenCalledWith('/workspaces/{id}/setup', {
 			params: { path: { id: 'workspace-1' } },

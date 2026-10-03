@@ -75,7 +75,7 @@ it('exposes the publication recovery queue as a named group', async () => {
 		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
 	);
 	await screen.getByRole('tab', { name: /Failed/ }).click();
-	const group = screen.getByRole('group', { name: 'Publication recovery queue' });
+	const group = screen.getByRole('group', { name: 'Post recovery queue' });
 	await expect.element(group).toBeVisible();
 	await expect.element(group.getByRole('button', { name: 'Retry destination' })).toBeVisible();
 });

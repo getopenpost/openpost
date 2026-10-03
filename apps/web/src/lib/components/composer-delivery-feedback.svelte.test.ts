@@ -77,7 +77,7 @@ it('keeps mixed destination outcomes and canonical recovery actions visible', as
 	await screen.getByRole('button', { name: 'Retry destination' }).click();
 	expect(onRetry).toHaveBeenCalledWith('failed');
 	await expect
-		.element(screen.getByRole('link', { name: 'View publication' }))
+		.element(screen.getByRole('link', { name: 'View post' }))
 		.toHaveAttribute('href', '/publications/publication-1');
 	await screen.getByRole('button', { name: 'Create another' }).click();
 	expect(onCreateAnother).toHaveBeenCalledOnce();

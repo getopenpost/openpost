@@ -79,6 +79,15 @@ for (const destinationOnly of [false, true]) {
     };
     await authenticatePage(page, auth.token);
     await page.route("**/api/v1/accounts?**", (route) => route.fulfill({ json: [account] }));
+    // Sidebar lists seed the detail cache, so every read must describe the same saved post.
+    await page.route("**/api/v1/publications?**", async (route) => {
+      const response = await route.fetch();
+      const publications = (await response.json()) as { id: string }[];
+      await route.fulfill({
+        response,
+        json: publications.map((item) => (item.id === publication.id ? publication : item)),
+      });
+    });
     const saves: CapturedPublication[] = [];
     await page.route(`**/api/v1/publications/${created.id}`, async (route) => {
       if (route.request().method() === "GET") return route.fulfill({ json: publication });

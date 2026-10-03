@@ -9714,5 +9714,6 @@
 	"repurpose_transcript_storage_failed": "Seu projeto está disponível, mas não foi possível salvar a transcrição neste dispositivo. Você ainda pode editá-lo e exportá-lo.",
 	"image_editor_text_range_scope": "A família e o tamanho da fonte se aplicam a toda a camada de texto.",
 	"compose_settings_add_video_hint": "Adicione um vídeo em {all} ou personalize esta versão para adicionar mídia separada. Depois, abra as configurações novamente para inserir o título e escolher as opções do vídeo.",
-	"video_editor_shortcuts_playback_scope": "O shuttle controla Fonte quando está em foco ou sob o cursor; caso contrário, Programa. Controles deslizantes, botões e campos de texto em foco mantêm suas próprias teclas."
+	"video_editor_shortcuts_playback_scope": "O shuttle controla Fonte quando está em foco ou sob o cursor; caso contrário, Programa. Controles deslizantes, botões e campos de texto em foco mantêm suas próprias teclas.",
+	"calendar_no_matching_body": "Nenhuma publicação corresponde às datas e aos filtros selecionados. Tente outro intervalo de datas ou limpe os filtros."
 }

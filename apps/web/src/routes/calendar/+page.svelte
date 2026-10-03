@@ -214,6 +214,22 @@
 			return inVisibleMonth && platformMatches && statusMatches;
 		})
 	);
+	const hasSelectedFilters = $derived(
+		selectedStatus !== 'all' ||
+			selectedPlatform !== 'all' ||
+			(selectedWorkspaceIds.length > 0 &&
+				workspaces.some((workspace) => !selectedWorkspaceIds.includes(workspace.id)))
+	);
+	const filteredEmpty = $derived(
+		!loading && !loadError && hasSelectedFilters && visibleItems.length === 0
+	);
+
+	function clearFilters() {
+		selectedStatus = 'all';
+		selectedPlatform = 'all';
+		selectedWorkspaceIds = [];
+	}
+
 	const itemsByDay = $derived.by(() => {
 		const map = new SvelteMap<string, CalendarItem[]>();
 		for (const item of visibleItems) {
@@ -1347,6 +1363,19 @@
 					variant="muted"
 				/>
 			{:else}
+				{#if filteredEmpty}
+					<InlineNotice
+						tone="info"
+						class="mb-5 flex-col items-stretch sm:flex-row sm:items-center"
+						message={m.calendar_no_matching_body()}
+					>
+						{#snippet actions()}
+							<Button variant="outline" size="sm" onclick={clearFilters}
+								>{m.messages_clear_filters()}</Button
+							>
+						{/snippet}
+					</InlineNotice>
+				{/if}
 				<section
 					class="space-y-5 xl:hidden"
 					aria-label={viewMode === 'week' ? m.calendar_week_grid() : m.calendar_month_grid()}
@@ -1711,7 +1740,7 @@
 					</section>
 				{/if}
 
-				{#if visibleItems.length === 0}
+				{#if visibleItems.length === 0 && !filteredEmpty}
 					<div class="mt-5 xl:hidden">
 						<EmptyState
 							themeIconRole="calendar"

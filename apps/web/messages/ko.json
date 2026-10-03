@@ -9714,5 +9714,6 @@
 	"repurpose_transcript_storage_failed": "프로젝트는 사용할 수 있지만 이 기기에 대본을 저장하지 못했습니다. 계속 편집하고 내보낼 수 있습니다.",
 	"image_editor_text_range_scope": "글꼴과 글자 크기는 전체 텍스트 레이어에 적용됩니다.",
 	"compose_settings_add_video_hint": "{all}에서 동영상을 추가하거나 이 버전을 맞춤 설정하여 별도의 미디어를 추가하세요. 그런 다음 설정을 다시 열어 제목을 입력하고 동영상 옵션을 선택하세요.",
-	"video_editor_shortcuts_playback_scope": "셔틀은 소스에 포커스가 있거나 마우스가 올라가 있으면 소스를, 그 외에는 프로그램을 제어합니다. 포커스된 슬라이더, 버튼, 텍스트 필드는 자체 키 동작을 유지합니다."
+	"video_editor_shortcuts_playback_scope": "셔틀은 소스에 포커스가 있거나 마우스가 올라가 있으면 소스를, 그 외에는 프로그램을 제어합니다. 포커스된 슬라이더, 버튼, 텍스트 필드는 자체 키 동작을 유지합니다.",
+	"calendar_no_matching_body": "선택한 날짜와 필터에 일치하는 게시물이 없습니다. 다른 기간을 선택하거나 필터를 지워 보세요."
 }

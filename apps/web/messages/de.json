@@ -9714,5 +9714,6 @@
 	"repurpose_transcript_storage_failed": "Dein Projekt ist verfügbar, aber das Transkript konnte auf diesem Gerät nicht gespeichert werden. Du kannst es weiterhin bearbeiten und exportieren.",
 	"image_editor_text_range_scope": "Schriftfamilie und Schriftgröße gelten für die gesamte Textebene.",
 	"compose_settings_add_video_hint": "Füge unter {all} ein Video hinzu oder passe diese Version an, um separate Medien hinzuzufügen. Öffne dann die Einstellungen erneut, um den Titel einzugeben und Videooptionen auszuwählen.",
-	"video_editor_shortcuts_playback_scope": "Der Shuttle steuert Quelle, wenn sie fokussiert ist oder der Zeiger darüber liegt, sonst Programm. Fokussierte Schieberegler, Schaltflächen und Textfelder behalten ihre eigenen Tasten."
+	"video_editor_shortcuts_playback_scope": "Der Shuttle steuert Quelle, wenn sie fokussiert ist oder der Zeiger darüber liegt, sonst Programm. Fokussierte Schieberegler, Schaltflächen und Textfelder behalten ihre eigenen Tasten.",
+	"calendar_no_matching_body": "Keine Beiträge entsprechen den ausgewählten Daten und Filtern. Wähle einen anderen Zeitraum oder lösche die Filter."
 }

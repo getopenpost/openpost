@@ -31,9 +31,9 @@ test("Select allows ruler guide dragging, one undo and persisted keyboard recove
   await guide.press("ArrowRight");
   await expect(guide).toHaveAccessibleName(/Vertical guide at 325 pixels/);
   await page.screenshot({ path: testInfo.outputPath("guide-select.png") });
-  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toContainText(
-    "Saved on this device",
-  );
+  const saveStatus = page.getByRole("banner").locator('[role="status"][data-state]');
+  await expect(saveStatus).toHaveAttribute("data-state", "saved");
+  await expect(saveStatus).toContainText("Saved on this device");
   await page.reload();
   await expect(guide).toHaveAccessibleName(/Vertical guide at 325 pixels/);
   const horizontal = page.getByRole("button", {

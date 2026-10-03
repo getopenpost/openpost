@@ -9722,6 +9722,8 @@
 	"checkout_payment_open": "Güvenli ödeme açıldı. Paddle penceresinde ödeme işlemini tamamlayın.",
 	"video_editor_track_group_merge": "Parçaları tek grupta birleştir (grup adlarını değiştirir)",
 	"video_editor_project_bundle_folder_required": "Proje paketi içe aktarmak için bağlı bir yerel klasör gerekir.",
+	"compose_schedule_saved_slots": "Kayıtlı zaman aralıkları",
+	"compose_schedule_empty_day": "Bu gün için planlanmış veya yayınlanmış gönderi yok.",
 	"video_editor_history_inspect": "Sürümü incele",
 	"video_editor_history_comparison": "Son kaydedilen sürümle karşılaştırılır.",
 	"video_editor_history_track_changes": "Parçalar: {added} eklendi, {removed} kaldırıldı, {changed} değişti",

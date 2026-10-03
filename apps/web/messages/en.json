@@ -9722,6 +9722,8 @@
 	"checkout_payment_open": "Secure payment is open. Complete checkout in the Paddle window.",
 	"video_editor_track_group_merge": "Merge tracks into one group (replaces group names)",
 	"video_editor_project_bundle_folder_required": "Project bundle imports require a connected local folder.",
+	"compose_schedule_saved_slots": "Saved time slots",
+	"compose_schedule_empty_day": "No scheduled or published posts on this day.",
 	"video_editor_history_inspect": "Inspect version",
 	"video_editor_history_comparison": "Compared with the latest saved version.",
 	"video_editor_history_track_changes": "Tracks: {added} added, {removed} removed, {changed} changed",

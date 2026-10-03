@@ -5969,6 +5969,7 @@
 	{/if}
 
 	<ComposerScheduleDialog
+		workspaceId={selectedWorkspaceId}
 		bind:open={showScheduleDialog}
 		bind:selectedDate
 		bind:selectedTime

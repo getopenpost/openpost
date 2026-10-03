@@ -9722,6 +9722,8 @@
 	"checkout_payment_open": "Die sichere Zahlung ist geöffnet. Schließe den Kauf im Paddle-Fenster ab.",
 	"video_editor_track_group_merge": "Spuren zu einer Gruppe zusammenführen (ersetzt Gruppennamen)",
 	"video_editor_project_bundle_folder_required": "Der Import von Projektpaketen erfordert einen verbundenen lokalen Ordner.",
+	"compose_schedule_saved_slots": "Gespeicherte Zeitfenster",
+	"compose_schedule_empty_day": "Keine geplanten oder veröffentlichten Beiträge an diesem Tag.",
 	"video_editor_history_inspect": "Version ansehen",
 	"video_editor_history_comparison": "Vergleich mit der zuletzt gespeicherten Version.",
 	"video_editor_history_track_changes": "Spuren: {added} hinzugefügt, {removed} entfernt, {changed} geändert",

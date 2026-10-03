@@ -1,20 +1,35 @@
 <script lang="ts">
-	import { CalendarDate } from '@internationalized/date';
+	import { CalendarDate, type DateValue } from '@internationalized/date';
 	import { Button } from '$lib/components/ui/button';
-	import { Calendar } from '$lib/components/ui/calendar';
+	import { Calendar, Day } from '$lib/components/ui/calendar';
+	import { Label } from '$lib/components/ui/label';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { schedulingPublicationsQueryOptions } from '@openpost/query-catalog';
+	import { schedulingQueryAPI } from '$lib/query/scheduling';
+	import { createDelayedVisibility } from '$lib/query/presentation.svelte';
+	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
+	import { mediaUsageStatusLabel } from '$lib/media-presentation';
+	import { getLocaleTag } from '$lib/i18n';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import PageLoading from '$lib/components/page-loading.svelte';
+	import EmptyState from '$lib/components/empty-state.svelte';
 	import { parseNaturalScheduleInput } from './compose/schedule-language';
-	import { workspaceClock, workspaceScheduleToISO } from './compose/schedule-timezone';
+	import {
+		workspaceClock,
+		workspaceScheduleToISO,
+		workspaceDateKeyFromISO
+	} from './compose/schedule-timezone';
 
 	interface Props {
 		open?: boolean;
 		selectedDate?: CalendarDate;
 		selectedTime?: string | null;
+		workspaceId: string;
 		timeSlots: string[];
 		timezone: string;
 		weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -35,6 +50,7 @@
 		open = $bindable(false),
 		selectedDate = $bindable<CalendarDate | undefined>(undefined),
 		selectedTime = $bindable<string | null>(null),
+		workspaceId,
 		timeSlots,
 		timezone,
 		weekStartsOn,
@@ -53,6 +69,78 @@
 
 	let scheduleInput = $state('');
 	let inputError = $state('');
+	let browsedDate = $state<CalendarDate>();
+	let visibleMonth = $state<DateValue>();
+	const isPastDay = $derived(
+		Boolean(browsedDate && browsedDate.compare(workspaceClock(timezone).date) < 0)
+	);
+	const agendaDate = $derived(browsedDate ?? workspaceClock(timezone).date);
+	const agendaDateLabel = $derived(
+		agendaDate.toDate(timezone).toLocaleDateString(getLocaleTag(), {
+			weekday: 'short',
+			month: 'short',
+			day: 'numeric',
+			timeZone: timezone
+		})
+	);
+	const calendarRange = $derived.by(() => {
+		const month = visibleMonth ?? workspaceClock(timezone).date;
+		const start = new CalendarDate(month.year, month.month, 1);
+		return {
+			calendarFrom: workspaceScheduleToISO(start.subtract({ days: 6 }), '00:00', timezone) ?? '',
+			calendarBefore:
+				workspaceScheduleToISO(start.add({ months: 1, days: 7 }), '00:00', timezone) ?? '',
+			limit: 100,
+			allPages: true
+		};
+	});
+	const postsQuery = createQuery(() => ({
+		...schedulingPublicationsQueryOptions(schedulingQueryAPI, workspaceId, calendarRange),
+		enabled:
+			open && Boolean(workspaceId && calendarRange.calendarFrom && calendarRange.calendarBefore)
+	}));
+	const showLoading = createDelayedVisibility(() => open && postsQuery.isPending);
+	const entries = $derived.by(() =>
+		(postsQuery.data ?? [])
+			.flatMap((post) => {
+				const occursAt = publicationCalendarOccurrence(post);
+				if (post.workspace_id !== workspaceId || !occursAt) return [];
+				return [{ post, occursAt, date: workspaceDateKeyFromISO(occursAt, timezone) }];
+			})
+			.sort((a, b) => a.occursAt.localeCompare(b.occursAt))
+	);
+	const dayEntries = $derived(entries.filter((entry) => entry.date === agendaDate.toString()));
+	const postsPerDay = $derived.by(() => {
+		const counts = new Map<string, number>();
+		for (const entry of entries) {
+			if (entry.date) counts.set(entry.date, (counts.get(entry.date) ?? 0) + 1);
+		}
+		return counts;
+	});
+
+	$effect(() => {
+		if (!open) return;
+		const date = selectedDate ?? workspaceClock(timezone).date;
+		browsedDate = date;
+		visibleMonth = date;
+	});
+
+	function browseDate(date: DateValue | undefined) {
+		if (!date) return;
+		browsedDate = new CalendarDate(date.year, date.month, date.day);
+		if (date.compare(workspaceClock(timezone).date) >= 0) selectedDate = browsedDate;
+		scheduleInput = '';
+		inputError = '';
+	}
+
+	function formatPostTime(occursAt: string) {
+		return new Date(occursAt).toLocaleTimeString(getLocaleTag(), {
+			hour: '2-digit',
+			minute: '2-digit',
+			hourCycle: 'h23',
+			timeZone: timezone
+		});
+	}
 	const effectiveRandomDelayMinutes = $derived.by(() => {
 		if (randomDelayOverride === 'default') return defaultRandomDelayMinutes;
 		const value = Number(randomDelayOverride);
@@ -93,10 +181,12 @@
 		selectedTime = null;
 		scheduleInput = '';
 		inputError = '';
+		browsedDate = undefined;
 		onClear?.();
 	}
 
 	function selectTime(time: string) {
+		if (isPastDay) return;
 		if (!selectedDate) {
 			const today = workspaceClock(timezone).date;
 			selectedDate = new CalendarDate(today.year, today.month, today.day);
@@ -130,6 +220,15 @@
 
 	async function schedule() {
 		if (!applyScheduleInput() || !selectedDate || !selectedTime) return;
+		const scheduledAt = workspaceScheduleToISO(selectedDate, selectedTime, timezone);
+		if (!scheduledAt) {
+			inputError = m.compose_invalid_timezone_time();
+			return;
+		}
+		if (new Date(scheduledAt).getTime() <= Date.now()) {
+			inputError = m.compose_schedule_future();
+			return;
+		}
 		open = false;
 		await onSchedule();
 	}
@@ -138,12 +237,12 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		data-testid="schedule-dialog-shell"
-		class="flex max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+		class="flex max-h-[calc(100dvh-1rem)] max-w-[calc(100%-0.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[44rem]"
 	>
 		<Dialog.Header
 			class="shrink-0 border-b px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-4 text-left"
 		>
-			<Dialog.Title class="text-xl font-semibold">{m.compose_schedule()}</Dialog.Title>
+			<Dialog.Title class="text-lg font-semibold">{m.compose_schedule()}</Dialog.Title>
 			<Dialog.Description class="text-sm text-muted-foreground">
 				{m.compose_schedule_timezone({ timezone })}
 			</Dialog.Description>
@@ -151,13 +250,13 @@
 
 		<div
 			data-testid="schedule-dialog-body"
-			class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5"
+			class="min-h-0 flex-1 space-y-4 overflow-y-auto py-3 sm:p-5"
 		>
 			{#if !canSchedule}
 				<InlineNotice tone="warning" message={m.compose_schedule_needs_destination()} />
 			{/if}
 			<form
-				class="space-y-2"
+				class="mx-3 space-y-2 sm:mx-0"
 				onsubmit={(event) => {
 					event.preventDefault();
 					applyScheduleInput();
@@ -166,7 +265,7 @@
 				<Input
 					bind:value={scheduleInput}
 					placeholder={m.compose_schedule_input_placeholder()}
-					class="h-10 bg-muted/40 text-base"
+					class="bg-muted/40 text-base sm:text-sm"
 					aria-label={m.compose_schedule_time()}
 				/>
 				{#if inputError || externalError}
@@ -176,92 +275,160 @@
 				{/if}
 			</form>
 
-			<div class="space-y-2">
-				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-					{m.compose_quick_schedule()}
-				</p>
-				<div class="grid gap-2 sm:grid-cols-3">
-					<Button
-						type="button"
-						variant="secondary"
-						class="h-10 justify-center gap-2"
-						onclick={onSuggest}
-						disabled={suggesting}
-					>
-						{#if suggesting}
-							<ProtectedIcon icon="loading" class="size-4 animate-spin" />
-						{:else}
-							<ThemeIcon role="arrow-right" class="size-4" />
-						{/if}
-						{m.compose_next_free_slot()}
-					</Button>
-					<Button
-						type="button"
-						variant="secondary"
-						class="h-10 justify-center"
-						onclick={selectTomorrow}
-					>
-						{m.compose_tomorrow_time({ time: '09:00' })}
-					</Button>
-					<Button
-						type="button"
-						variant="secondary"
-						class="h-10 justify-center"
-						onclick={selectInThreeHours}
-					>
-						{m.compose_in_three_hours()}
-					</Button>
-				</div>
+			<div aria-label={m.compose_quick_schedule()} class="mx-3 flex flex-wrap gap-2 sm:mx-0">
+				<Button
+					type="button"
+					variant="secondary"
+					size="sm"
+					class="gap-2"
+					onclick={onSuggest}
+					disabled={suggesting}
+				>
+					{#if suggesting}
+						<ProtectedIcon icon="loading" class="size-4 animate-spin" />
+					{:else}
+						<ThemeIcon role="arrow-right" class="size-4" />
+					{/if}
+					{m.compose_next_free_slot()}
+				</Button>
+				<Button type="button" variant="secondary" size="sm" onclick={selectTomorrow}>
+					{m.compose_tomorrow_time({ time: '09:00' })}
+				</Button>
+				<Button type="button" variant="secondary" size="sm" onclick={selectInThreeHours}>
+					{m.compose_in_three_hours()}
+				</Button>
 			</div>
 
-			<div
-				class="overflow-hidden rounded-lg border bg-muted/15 sm:grid sm:h-92 sm:grid-cols-[minmax(0,1fr)_9rem]"
-			>
-				<div class="flex justify-center p-3 sm:p-4">
-					<Calendar
-						type="single"
-						bind:value={selectedDate}
-						minValue={workspaceClock(timezone).date}
-						numberOfMonths={1}
-						pagedNavigation
-						class="bg-transparent p-0 [--cell-size:--spacing(9)]"
-						weekdayFormat="short"
-						{weekStartsOn}
-					/>
-				</div>
-				<div class="border-t sm:flex sm:min-h-0 sm:flex-col sm:border-t-0 sm:border-l">
-					<div class="shrink-0 border-b px-3 py-2 text-center text-sm font-medium">
-						{m.compose_time()}
+			<div class="grid gap-4 sm:grid-cols-[19.25rem_minmax(0,1fr)] sm:gap-5">
+				<div class="min-w-0 space-y-3">
+					<div class="date-picker">
+						<Calendar
+							type="single"
+							value={browsedDate}
+							onValueChange={browseDate}
+							bind:placeholder={visibleMonth}
+							numberOfMonths={1}
+							pagedNavigation
+							preventDeselect
+							locale={getLocaleTag()}
+							class="w-full bg-transparent p-0 [--cell-size:2.75rem]"
+							{weekStartsOn}
+						>
+							{#snippet day({ day })}
+								{@const count = postsPerDay.get(day.toString()) ?? 0}
+								<Day
+									class="relative focus-visible:ring-2 focus-visible:outline-none"
+									title={count ? m.calendar_day_posts_summary({ count }) : undefined}
+								>
+									{#snippet children()}
+										{day.day}
+										{#if count > 0}<span
+												aria-hidden="true"
+												class="absolute bottom-1 size-1 rounded-full bg-current"
+											></span>{/if}
+									{/snippet}
+								</Day>
+							{/snippet}
+						</Calendar>
 					</div>
+				</div>
+				<section
+					data-testid="schedule-dialog-agenda"
+					aria-label={agendaDateLabel}
+					class="mx-3 flex min-w-0 flex-col gap-3 border-t pt-3 sm:mx-0 sm:max-h-[22rem] sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5"
+				>
 					<div
-						data-testid="schedule-dialog-time-list"
-						class="max-h-52 overflow-y-auto p-2 sm:max-h-none sm:min-h-0 sm:flex-1"
+						class="order-last space-y-2 border-t pt-3 sm:order-first sm:border-t-0 sm:border-b sm:pt-0 sm:pb-3"
 					>
-						{#if timeSlots.length === 0}
-							<p class="px-2 py-6 text-center text-xs text-muted-foreground">
-								{m.compose_no_remaining_slots_today()}
-							</p>
+						<div class="flex items-center justify-between gap-3">
+							<Label for="composer-schedule-time">{m.compose_time()}</Label>
+							<Input
+								id="composer-schedule-time"
+								type="time"
+								step="60"
+								value={selectedTime ?? ''}
+								disabled={isPastDay}
+								oninput={(event) => selectTime(event.currentTarget.value)}
+								class="w-32 tabular-nums"
+							/>
+						</div>
+						{#if isPastDay}
+							<p class="text-xs text-muted-foreground">{m.compose_schedule_future()}</p>
 						{:else}
-							<div class="grid grid-cols-3 gap-1.5 sm:grid-cols-1">
-								{#each timeSlots as time (time)}
-									<Button
-										type="button"
-										variant={selectedTime === time ? 'default' : 'ghost'}
-										size="sm"
-										onclick={() => selectTime(time)}
-										class="h-9 justify-center text-sm tabular-nums"
-									>
-										{time}
-									</Button>
-								{/each}
+							<p class="text-xs text-muted-foreground">{m.compose_schedule_saved_slots()}</p>
+							<div data-testid="schedule-dialog-time-list" class="max-h-28 overflow-y-auto">
+								{#if timeSlots.length === 0}
+									<p class="py-2 text-xs text-muted-foreground">
+										{m.compose_no_remaining_slots_today()}
+									</p>
+								{:else}
+									<div class="grid grid-cols-4 gap-1">
+										{#each timeSlots as time (time)}
+											<Button
+												type="button"
+												variant={selectedTime === time ? 'default' : 'ghost'}
+												size="sm"
+												onclick={() => selectTime(time)}
+												aria-pressed={selectedTime === time}
+												class="tabular-nums">{time}</Button
+											>
+										{/each}
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
-				</div>
+					<div class="min-w-0 sm:flex sm:min-h-0 sm:flex-1 sm:flex-col">
+						<div class="mb-3 flex items-baseline justify-between gap-2">
+							<h3 class="text-sm font-medium">{agendaDateLabel}</h3>
+							{#if postsQuery.data}<span class="text-xs text-muted-foreground"
+									>{m.calendar_day_posts_summary({ count: dayEntries.length })}</span
+								>{/if}
+						</div>
+						{#if postsQuery.isError}
+							<InlineNotice tone="error" message={m.calendar_failed_load()} />
+							<Button variant="ghost" size="sm" onclick={() => postsQuery.refetch()}
+								>{m.common_retry()}</Button
+							>
+						{/if}
+						{#if showLoading.current}
+							<PageLoading layout="list" items={2} label={m.common_loading()} defer={false} />
+						{:else if postsQuery.data && dayEntries.length === 0}
+							<EmptyState
+								themeIconRole="calendar"
+								title={m.compose_schedule_empty_day()}
+								size="sm"
+								headingLevel={4}
+							/>
+						{:else}
+							<ul class="max-h-40 divide-y overflow-y-auto sm:min-h-0 sm:flex-1">
+								{#each dayEntries as { post, occursAt } (post.id)}
+									<li class="space-y-1.5 py-3 first:pt-0">
+										<div class="flex items-center justify-between gap-2 text-xs">
+											<time datetime={occursAt} class="font-medium tabular-nums"
+												>{formatPostTime(occursAt)}</time
+											>
+											<span class="text-muted-foreground">{mediaUsageStatusLabel(post.status)}</span
+											>
+										</div>
+										<p class="line-clamp-2 text-sm font-medium wrap-anywhere">
+											{post.title || post.source_text || m.calendar_untitled_post()}
+										</p>
+										{#if post.title && post.source_text && post.source_text !== post.title}<p
+												class="line-clamp-2 text-xs wrap-anywhere text-muted-foreground"
+											>
+												{post.source_text}
+											</p>{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+				</section>
 			</div>
 
 			{#if randomDelayOptions.length > 0}
-				<details class="group rounded-lg border bg-muted/10">
+				<details class="group mx-3 rounded-lg border bg-muted/10 sm:mx-0">
 					<summary
 						class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 					>
@@ -311,7 +478,7 @@
 				</details>
 			{/if}
 
-			<div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+			<div class="mx-3 flex flex-wrap items-center justify-between gap-3 text-sm sm:mx-0">
 				<div class="text-muted-foreground">
 					{selectedDate && selectedTime
 						? m.compose_selected_schedule({ schedule: selectedDisplay })
@@ -332,7 +499,7 @@
 				onclick={schedule}
 				disabled={submitting ||
 					!canSchedule ||
-					(!scheduleInput.trim() && (!selectedDate || !selectedTime))}
+					(!scheduleInput.trim() && (isPastDay || !selectedDate || !selectedTime))}
 			>
 				{#if submitting}<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin" />{/if}
 				{m.compose_schedule()}
@@ -340,3 +507,20 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+
+<style>
+	.date-picker :global([role='gridcell']),
+	.date-picker :global([role='columnheader']) {
+		width: calc(100% / 7);
+	}
+	.date-picker :global([role='gridcell']),
+	.date-picker :global([data-bits-day]) {
+		height: 2.75rem;
+	}
+	.date-picker :global([data-bits-day]) {
+		width: 100%;
+	}
+	.date-picker :global([data-calendar-grid-row]) {
+		margin-top: 0;
+	}
+</style>

@@ -4,6 +4,7 @@ import {
   authenticatePage,
   clickComposerDeliveryAction,
   createWorkspace,
+  createPublication,
   registerUser,
 } from "./helpers";
 
@@ -59,4 +60,167 @@ test("composer advances saved time slots across hour boundaries", async ({
       await page.screenshot({ path: info.outputPath(`slots-${width}-${colorScheme}.png`) });
     }
   }
+});
+
+test.describe("schedule history on touch screens", () => {
+  test.use({ hasTouch: true });
+  test("schedule picker shows published history without selecting a past schedule", async ({
+    page,
+    request,
+  }, info) => {
+    const runtimeErrors: string[] = [];
+    page.on("pageerror", (error) => runtimeErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") runtimeErrors.push(message.text());
+    });
+    const auth = await registerUser(request, `schedule-history-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Schedule history");
+    const draft = await createPublication(request, auth.token, workspace.id, "A shipped update");
+    const response = await request.get(`/api/v1/publications/${draft.id}`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    });
+    expect(response.ok()).toBeTruthy();
+    const publication = await response.json();
+    await page.clock.setFixedTime(new Date("2026-10-15T12:00:00Z"));
+    await page.route("**/api/v1/accounts?**", async (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: "schedule-target",
+            workspace_id: workspace.id,
+            platform: "bluesky",
+            account_id: "did:plc:schedule-target",
+            account_username: "schedule_target",
+            is_active: true,
+          },
+        ],
+      }),
+    );
+    await page.route("**/api/v1/capabilities/resolve", async (route) =>
+      route.fulfill({
+        json: {
+          accounts: [
+            {
+              account_id: "schedule-target",
+              provider: "bluesky",
+              profile: "short_text",
+              output_profile: "bluesky.post",
+              label: "Bluesky post",
+              text_limit: 300,
+              media: {
+                min_count: 0,
+                max_count: 4,
+                allowed_mimes: [],
+                requires_public_url: false,
+                requires_https_fetchable: false,
+              },
+              intents: ["post"],
+              media_shapes: ["text"],
+              settings: [],
+              setting_groups: [],
+              compatible: true,
+              active_constraints: {},
+              issues: [],
+              capability_revision: "test-v1",
+              dynamic_options: {},
+              immediate_readiness: { state: "healthy", publishable: true },
+              scheduled_readiness: { state: "healthy", publishable: true },
+            },
+          ],
+        },
+      }),
+    );
+
+    await page.route("**/api/v1/publications?**", async (route) => {
+      if (!new URL(route.request().url()).searchParams.has("calendar_from"))
+        return route.continue();
+      await route.fulfill({
+        json: [
+          {
+            ...publication,
+            status: "published",
+            scheduled_at: "2026-10-13T09:00:00Z",
+            actual_run_at: "2026-10-14T10:24:00Z",
+          },
+          {
+            ...publication,
+            id: "earlier-lesson",
+            title: "",
+            source_text: "An earlier lesson",
+            status: "published",
+            actual_run_at: "2026-10-14T11:00:00Z",
+          },
+          {
+            ...publication,
+            id: "planned-update",
+            title: "A planned update",
+            status: "scheduled",
+            scheduled_at: "2026-10-16T09:00:00Z",
+            actual_run_at: "2026-10-16T09:15:00Z",
+          },
+        ],
+      });
+    });
+    const savedDraft = {
+      ...publication,
+      id: "schedule-draft",
+      title: "",
+      source_text: "The next update",
+      renditions: [],
+    };
+    await page.route("**/api/v1/publications", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      await route.fulfill({ json: savedDraft });
+    });
+    await page.route("**/api/v1/publications/schedule-draft", async (route) => {
+      await route.fulfill({ json: { ...savedDraft, revision: 2 } });
+    });
+    await authenticatePage(page, auth.token);
+    await page.goto(`/?workspace_id=${workspace.id}`);
+    await expect(page.getByRole("textbox", { name: "Post text", exact: true })).toBeVisible();
+    await page.getByRole("textbox", { name: "Post text", exact: true }).fill("The next update");
+    await clickComposerDeliveryAction(page, "Schedule");
+    const dialog = page.getByTestId("schedule-dialog-shell");
+    await expect(dialog).toBeVisible();
+    const yesterday = dialog.locator('[data-bits-day][data-value="2026-10-14"]');
+    await expect(yesterday).not.toHaveAttribute("aria-disabled", "true");
+    await yesterday.focus();
+    await expect(yesterday).toBeFocused();
+    await page.keyboard.press("Enter");
+    const agenda = dialog.getByTestId("schedule-dialog-agenda");
+    await expect(agenda.getByText("A shipped update", { exact: true })).toBeVisible();
+    await expect(agenda.getByText("10:24", { exact: true })).toBeVisible();
+    await expect(agenda.getByText("Published", { exact: true })).toHaveCount(2);
+    await expect(agenda.getByText("An earlier lesson", { exact: true })).toHaveCount(1);
+    await expect(dialog.getByRole("button", { name: "Schedule", exact: true })).toBeDisabled();
+    await expect(dialog.getByLabel("Time", { exact: true })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Tomorrow 09:00", exact: true }).click();
+    await expect(agenda.getByText("A planned update", { exact: true })).toBeVisible();
+    await expect(agenda.getByRole("time")).toHaveText("09:00");
+    await expect(agenda.getByText("Scheduled", { exact: true })).toBeVisible();
+    const time = dialog.getByLabel("Time", { exact: true });
+    await expect(time).toHaveValue("09:00");
+    await time.fill("14:37");
+    await expect(time).toHaveValue("14:37");
+    await expect(dialog.getByRole("button", { name: "Schedule", exact: true })).toBeEnabled();
+    await dialog.locator('[data-bits-day][data-value="2026-10-14"]').click();
+    for (const width of [1280, 390, 320]) {
+      for (const colorScheme of ["light", "dark"] as const) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+        await expect(agenda.getByText("A shipped update", { exact: true })).toBeVisible();
+        await expect
+          .poll(() => dialog.evaluate((el) => el.scrollWidth <= el.clientWidth))
+          .toBe(true);
+        const dateTarget = dialog.locator('[data-bits-day][data-value="2026-10-14"]');
+        const bounds = await dateTarget.boundingBox();
+        expect(bounds?.width).toBeGreaterThanOrEqual(44);
+        expect(bounds?.height).toBeGreaterThanOrEqual(44);
+        await page.screenshot({
+          path: info.outputPath(`schedule-history-${width}-${colorScheme}.png`),
+        });
+      }
+    }
+    expect(runtimeErrors).toEqual([]);
+  });
 });

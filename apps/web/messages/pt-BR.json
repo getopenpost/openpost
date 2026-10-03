@@ -9722,6 +9722,8 @@
 	"checkout_payment_open": "O pagamento seguro está aberto. Conclua a compra na janela do Paddle.",
 	"video_editor_track_group_merge": "Juntar faixas em um único grupo (substitui os nomes dos grupos)",
 	"video_editor_project_bundle_folder_required": "A importação de pacotes de projeto requer uma pasta local conectada.",
+	"compose_schedule_saved_slots": "Horários salvos",
+	"compose_schedule_empty_day": "Não há publicações agendadas ou publicadas neste dia.",
 	"video_editor_history_inspect": "Inspecionar versão",
 	"video_editor_history_comparison": "Comparação com a última versão salva.",
 	"video_editor_history_track_changes": "Faixas: {added} adicionadas, {removed} removidas, {changed} alteradas",

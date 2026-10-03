@@ -198,11 +198,11 @@ const nativeBoundaries = Object.freeze([
   },
   {
     label: "documentation asset",
-    name: "documentation PNG asset",
-    canonicalURL: "https://openpo.st/docs/assets/screenshots/integrations/google-enable-api.png",
-    contentType: "image/png",
+    name: "documentation WebP asset",
+    canonicalURL: "https://openpo.st/docs/assets/screenshots/image-export-detail-light.webp",
+    contentType: "image/webp",
     deployment: "documentation",
-    localPath: "assets/screenshots/integrations/google-enable-api.png",
+    localPath: "assets/screenshots/image-export-detail-light.webp",
     binary: true,
   },
 ]);
@@ -705,9 +705,9 @@ export async function buildPublicProofChecks({
     {
       kind: "redirect",
       name: "documentation canonical redirect",
-      url: "https://openpo.st/docs/mcp/cursor/?openpost_proof=redirect",
+      url: "https://openpo.st/docs/mcp/coding-assistants/?openpost_proof=redirect",
       status: 308,
-      location: "/docs/mcp/cursor?openpost_proof=redirect",
+      location: "/docs/mcp/coding-assistants?openpost_proof=redirect",
     },
     {
       kind: "redirect",

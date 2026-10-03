@@ -279,8 +279,8 @@ test("the live sample plan covers every required public category and machine bou
     ["documentation social image", "https://openpo.st/docs/og/home.png", "image/png"],
     [
       "documentation asset",
-      "https://openpo.st/docs/assets/screenshots/integrations/google-enable-api.png",
-      "image/png",
+      "https://openpo.st/docs/assets/screenshots/image-export-detail-light.webp",
+      "image/webp",
     ],
   ]);
 });
@@ -408,5 +408,8 @@ test("resolves section Markdown from each surface source", () => {
   assert.equal(markdownOutputForRoute("/self-hosting", "marketing"), "self-hosting.md");
   assert.equal(markdownOutputForRoute("/self-hosting", "documentation"), "self-hosting/index.md");
   assert.equal(markdownOutputForRoute("/api-reference", "documentation"), "api-reference/index.md");
-  assert.equal(markdownOutputForRoute("/mcp/cursor", "documentation"), "mcp/cursor.md");
+  assert.equal(
+    markdownOutputForRoute("/mcp/coding-assistants", "documentation"),
+    "mcp/coding-assistants.md",
+  );
 });

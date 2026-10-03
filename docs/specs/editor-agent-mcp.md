@@ -12,6 +12,8 @@ Assistant has a compact style selector, with Match project as the default, Auto,
 
 The built-in assistant requires a signed-in user with edit access. Hosted also requires the organization's existing active paid-plan entitlement. External MCP does not buy inference from OpenPost and is available through ordinary workspace authorization. Self-hosted Assistant uses the instance's configured AI provider and model, without Hosted billing. `OPENROUTER_API_KEY` and `OPENPOST_EDITOR_AGENT_MODEL` configure inference through the existing AI adapter.
 
+The default model is `google/gemini-3.8-flash`. Its [OpenRouter contract](https://openrouter.ai/google/gemini-3.8-flash) supports images, audio and structured output, verified on 3 October 2026. A custom model must support the evidence it receives. Text or image support alone cannot establish that it listened to an audio preview.
+
 ## Document and history contract
 
 - Stable project, sequence, page, item and layer IDs identify targets. Display aliases never identify edits.

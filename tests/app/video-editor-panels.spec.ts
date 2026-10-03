@@ -2,6 +2,14 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function installLocalWorkspacePicker(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    if (typeof window.showOpenFilePicker !== "function") {
+      Object.defineProperty(window, "showOpenFilePicker", {
+        configurable: true,
+        value: async () => {
+          throw new Error("This local-project fixture does not provide file imports.");
+        },
+      });
+    }
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
       value: async () => {

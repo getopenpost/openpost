@@ -94,14 +94,17 @@ test("appending a workflow step keeps its next action inside the canvas", async 
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();
       await expect(page.getByRole("button", { name: "Add step", exact: true })).toBeVisible();
-      if (width < 640 && scheme === "light") {
-        for (let i = 0; i < 3; i++)
-          await page.getByRole("button", { name: "Zoom in", exact: true }).click();
-      }
       const scale = () =>
         page
           .locator(".svelte-flow__viewport")
           .evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).a);
+      if (width < 640 && scheme === "light") {
+        for (let i = 0; i < 3; i++) {
+          const beforeClick = await scale();
+          await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+          await expect.poll(scale).toBeGreaterThan(beforeClick);
+        }
+      }
       const beforeZoom = await scale();
       const add = page.getByRole("button", { name: "Add step", exact: true });
       await add.focus();

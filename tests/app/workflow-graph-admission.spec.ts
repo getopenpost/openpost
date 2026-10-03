@@ -80,18 +80,9 @@ for (const concern of ["loop", "ports"] as const) {
           )
           .toBe(true);
       }
-      const from = await page
+      await page
         .locator(`.svelte-flow__handle.source[data-nodeid="${source}"]`)
-        .boundingBox();
-      const to = await page
-        .locator(`.svelte-flow__handle.target[data-nodeid="${target}"]`)
-        .boundingBox();
-      expect(from).not.toBeNull();
-      expect(to).not.toBeNull();
-      await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height / 2, { steps: 16 });
-      await page.mouse.up();
+        .dragTo(page.locator(`.svelte-flow__handle.target[data-nodeid="${target}"]`));
     }
     if (concern === "ports") {
       for (const width of [1280, 390, 320]) {

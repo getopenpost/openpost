@@ -50,7 +50,15 @@
     },
     "delivery": {
       "description": "Build, test, image, deployment, release, certification, and repository environment contracts",
-      "prefixes": [".github/", "changes/", "config/", "deploy/", "patches/", "scripts/"],
+      "prefixes": [
+        ".github/",
+        "changes/",
+        "config/",
+        "deploy/",
+        "patches/",
+        "scripts/",
+        "tests/helpers/"
+      ],
       "paths": [
         ".dockerignore",
         ".env.example",

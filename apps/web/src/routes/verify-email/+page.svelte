@@ -56,7 +56,7 @@
 			(!purchaseChoiceRequired || Boolean(purchaseChoice))
 	);
 	const description = $derived(
-		email ? m.auth_verify_email_description({ email }) : m.auth_verify_email_invalid()
+		challengeID && email ? m.auth_verify_email_description({ email }) : undefined
 	);
 
 	onMount(() => {

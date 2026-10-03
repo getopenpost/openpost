@@ -237,7 +237,9 @@
 			{#if !runsQuery.data?.length && !runsQuery.isPending}<EmptyState
 					themeIconRole="history"
 					title={m.workflows_no_runs()}
-					description={m.workflows_no_runs_help()}
+					description={workflowsQuery.data?.some((workflow) => workflow.enabled)
+						? m.workflows_no_runs_active_help()
+						: m.workflows_no_runs_help()}
 				/>{/if}
 		{/if}
 	</div>

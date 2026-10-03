@@ -250,7 +250,7 @@
 							aria-label={m.workflows_search_variables()}
 						/>
 						<Command.List>
-							<Command.Empty>{m.workflows_no_match()}</Command.Empty>
+							<Command.Empty>{m.workflows_no_variable_match()}</Command.Empty>
 							<Command.Group>
 								{#each references as ref (ref.value)}
 									<Command.Item

@@ -11,7 +11,7 @@
 		ResolvedTranscriptionEngine
 	} from '$lib/video-editor/transcript/engine/types';
 	import type { QuickCutSource, QuickCutSegment } from '../types';
-	import { getSelectedAudioStreams } from '../model';
+	import { formatTimecode, getSelectedAudioStreams } from '../model';
 	import { captureSourceTranscriptStorage } from '$lib/video-editor/workspace-fs/source-transcripts';
 	import { saveQuickCutSourceTranscript } from '../transcript-cache';
 	let {
@@ -23,6 +23,7 @@
 		workspaceId = '',
 		onsave,
 		onremove,
+		oneditcuts,
 		onseek
 	}: {
 		source: QuickCutSource;
@@ -34,6 +35,7 @@
 		onsave: (sourceId: string, transcript: NonNullable<QuickCutSource['transcript']>) => void;
 		onremove: (sourceId: string, ranges: Array<{ start: number; end: number }>) => void;
 		onseek: (time: number) => void;
+		oneditcuts?: (event: MouseEvent) => void;
 	} = $props();
 	const audioStreams = $derived(getSelectedAudioStreams(source));
 	const audioTrackIndex = $derived(
@@ -44,6 +46,7 @@
 		source.transcript?.audioTrackIndex === audioTrackIndex ? source.transcript : undefined
 	);
 	const words = $derived(transcript?.words ?? []);
+	const removedWords = $derived(words.filter((word) => !isKept(word)));
 	let selected = $state<Set<number>>(new Set());
 	let anchor = $state<number | null>(null);
 	let busy = $state(false);
@@ -185,9 +188,24 @@
 		<p role="status" class="text-xs text-muted-foreground">{m.quick_cut_transcript_no_speech()}</p>
 	{/if}
 	{#if words.length > 0 && !transcriptionOnly}
+		{#if removedWords.length > 0}
+			<div class="flex shrink-0 flex-col items-start gap-2 text-xs text-muted-foreground">
+				<p role="status">{m.quick_cut_transcript_restore_hint({ cuts: m.quick_cut_cuts() })}</p>
+				<ul class="max-h-24 w-full overflow-y-auto font-mono break-words">
+					{#each removedWords as word}
+						<li>{word.text.trim()} · {formatTimecode(word.start)} → {formatTimecode(word.end)}</li>
+					{/each}
+				</ul>
+				{#if oneditcuts}<Button size="sm" variant="outline" onclick={oneditcuts}
+						>{m.quick_cut_cuts()}</Button
+					>{/if}
+			</div>
+		{/if}
 		<div class="flex items-center gap-2">
 			<Button size="sm" disabled={selected.size === 0 || disabled} onclick={remove}
-				>{m.quick_cut_remove_words({ count: selected.size })}</Button
+				>{selected.size === 1
+					? m.quick_cut_remove_word()
+					: m.quick_cut_remove_words({ count: selected.size })}</Button
 			>
 			<Button
 				size="sm"

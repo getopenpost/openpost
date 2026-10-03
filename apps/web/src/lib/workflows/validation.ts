@@ -83,6 +83,10 @@ export function workflowIssues(definition: Definition, sourceData?: WorkflowData
 	function visit(steps: Step[]) {
 		for (const step of steps) {
 			const references = availableReferences(definition.steps ?? [], step.id, sourceData);
+			if (step.kind === 'build_draft') {
+				const message = builderDestinationIssue(step.inputs ?? {});
+				if (message) issues.push({ node: step.id, field: 'account_ids', message });
+			}
 			for (const field of stepFields(step.kind, step.inputs)) {
 				const message = fieldIssue(field, step.inputs?.[field.key], references);
 				if (message) issues.push({ node: step.id, field: field.key, message });
@@ -163,4 +167,14 @@ export function feedURLIssue(value: string | undefined): string {
 		return m.workflows_invalid_url();
 	}
 	return '';
+}
+
+export function builderDestinationIssue(inputs: Record<string, Value>): string {
+	if (inputs.account_ids?.reference || inputs.social_set_id?.reference) return '';
+	const set = inputs.social_set_id?.literal;
+	if (typeof set === 'string' && set.trim()) return '';
+	const accounts = inputs.account_ids?.literal;
+	if (Array.isArray(accounts) && accounts.some((id) => typeof id === 'string' && id.trim()))
+		return '';
+	return m.compose_ai_destinations_required();
 }

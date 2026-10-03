@@ -15,7 +15,17 @@
 	const editor = useImageEditor();
 
 	let axis = $state<'horizontal' | 'vertical'>('vertical');
-	let position = $state(0);
+	let position = $state<number | undefined>(0);
+	const positionHelpID = $props.id();
+	const positionLimit = $derived(
+		axis === 'horizontal' ? editor.activePageDimensions.height : editor.activePageDimensions.width
+	);
+	const positionValid = $derived(
+		typeof position === 'number' &&
+			Number.isFinite(position) &&
+			position >= 0 &&
+			position <= positionLimit
+	);
 
 	$effect.pre(() => {
 		if (open) {
@@ -25,6 +35,7 @@
 	});
 
 	function addGuide(): void {
+		if (!positionValid || typeof position !== 'number') return;
 		editor.addGuide(axis, position);
 		open = false;
 	}
@@ -51,24 +62,38 @@
 					{m.image_editor_vertical()}
 				</label>
 			</RadioGroup.Root>
-			<label class="grid gap-1.5 text-sm">
-				<span class="font-medium">{m.image_editor_guide_position()}</span>
+			<div class="grid gap-1.5 text-sm">
+				<label for={`${positionHelpID}-input`} class="font-medium"
+					>{m.image_editor_guide_position()}</label
+				>
 				<Input
+					id={`${positionHelpID}-input`}
 					type="number"
 					min="0"
-					max={axis === 'horizontal'
-						? editor.activePageDimensions.height
-						: editor.activePageDimensions.width}
+					max={positionLimit}
+					step="any"
+					aria-invalid={!positionValid}
+					aria-describedby={positionHelpID}
 					bind:value={position}
 					onkeydown={(event) => {
-						if (event.key === 'Enter') addGuide();
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							addGuide();
+						}
 					}}
 				/>
-			</label>
+				<span
+					id={positionHelpID}
+					class="text-xs"
+					class:text-destructive={!positionValid}
+					class:text-muted-foreground={positionValid}
+					>{m.image_editor_guide_position_range({ max: positionLimit })}</span
+				>
+			</div>
 		</div>
 		<Dialog.Footer>
 			<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
-			<Button onclick={addGuide}>{m.image_editor_add_guide()}</Button>
+			<Button disabled={!positionValid} onclick={addGuide}>{m.image_editor_add_guide()}</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

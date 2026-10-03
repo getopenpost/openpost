@@ -141,6 +141,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let panel = $state<'cuts' | 'transcript' | 'cleanup' | 'markers' | 'export' | 'repurpose'>(
 		'cuts'
 	);
+	let panelTabs = $state<HTMLDivElement>();
 	let markers = $state<QuickCutMarker[]>([]);
 	let reviewRanges = $state<AudioSilenceRange[]>([]);
 	let reviewEnd: number | null = null;
@@ -1727,6 +1728,15 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		reviewEnd = range.end + 0.2;
 		void videoEl?.play();
 	}
+	async function editTranscriptCuts(event: MouseEvent): Promise<void> {
+		const ownedFocus = document.activeElement === event.currentTarget;
+		panel = 'cuts';
+		await tick();
+		if (!ownedFocus || panel !== 'cuts' || document.activeElement !== document.body) return;
+		const tab = panelTabs?.querySelector('[aria-pressed="true"]');
+		if (tab instanceof HTMLButtonElement) tab.focus();
+	}
+
 	function saveTranscript(
 		sourceId: string,
 		transcript: NonNullable<QuickCutSource['transcript']>
@@ -2188,7 +2198,12 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						</div>
 					</div>
 					<aside class="cut-panel" aria-label={m.quick_cut_tools()}>
-						<div class="panel-tabs" role="group" aria-label={m.quick_cut_tools()}>
+						<div
+							bind:this={panelTabs}
+							class="panel-tabs"
+							role="group"
+							aria-label={m.quick_cut_tools()}
+						>
 							{#each [{ id: 'cuts', label: m.quick_cut_cuts() }, { id: 'transcript', label: m.video_editor_transcript() }, { id: 'cleanup', label: m.quick_cut_cleanup() }, { id: 'markers', label: m.quick_cut_markers() }] as tab (tab.id)}
 								<Button
 									variant="ghost"
@@ -2290,6 +2305,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 										disabled={exporting}
 										onsave={saveTranscript}
 										onremove={removeRanges}
+										oneditcuts={editTranscriptCuts}
 										onseek={seekTo}
 									/>{/key}
 							{:else if panel === 'cleanup' && activeSource}

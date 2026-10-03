@@ -58,7 +58,7 @@
 	aria-valuemin="0"
 	aria-valuemax="100"
 	aria-valuenow={value}
-	aria-valuetext={`${value}% ${afterLabel.toLowerCase()}`}
+	aria-valuetext={`${value}% ${beforeLabel.toLowerCase()}, ${100 - value}% ${afterLabel.toLowerCase()}`}
 	aria-orientation="horizontal"
 	onkeydown={handleKey}
 	onpointerdown={(event) => {

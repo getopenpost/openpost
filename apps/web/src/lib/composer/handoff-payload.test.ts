@@ -36,6 +36,25 @@ describe('composer handoff payloads', () => {
 		).toBeNull();
 	});
 
+	it('keeps the exact cover destination and rejects corrupted return targets', () => {
+		const cover_target = {
+			account_id: 'account-1',
+			post_key: 'post-1',
+			setting_key: 'thumbnail_media_id',
+			source_media_id: 'video-1'
+		};
+		expect(parseComposerHandoffPayload({ ...payload, cover_target })?.cover_target).toEqual(
+			cover_target
+		);
+		for (const invalid of [
+			{ ...cover_target, setting_key: 'access_token' },
+			{ ...cover_target, source_media_id: '' },
+			{ ...cover_target, account_id: null }
+		]) {
+			expect(parseComposerHandoffPayload({ ...payload, cover_target: invalid })).toBeNull();
+		}
+	});
+
 	it('normalizes unsupported setting values', () => {
 		const parsed = parseComposerHandoffPayload({
 			...payload,

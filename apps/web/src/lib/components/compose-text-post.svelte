@@ -163,6 +163,7 @@
 	import MediaPicker from './media-picker.svelte';
 	import {
 		consumeImageEditorReturnToken,
+		createImageEditorDesign,
 		createImageEditorReturnToken
 	} from '$lib/image-editor/api';
 	import {
@@ -173,6 +174,7 @@
 	} from '$lib/editor-handoff';
 	import {
 		parseComposerHandoffPayload,
+		type ComposerCoverTarget,
 		type ComposerHandoffPayload
 	} from '$lib/composer/handoff-payload';
 	import type { ImageEditorMediaItem } from '$lib/image-editor/types';
@@ -1355,7 +1357,11 @@
 	}
 
 	function mediaForSettingsDialog(): Array<{ id: string; label: string; mimeType: string }> {
-		const mediaIDs = activePost ? getEditorMediaIdsForPost(activePost) : [];
+		const mediaIDs = activePost
+			? settingsAccount
+				? (getVariantMediaIds(settingsAccount.id, activePost.key) ?? activePost.mediaIds)
+				: getEditorMediaIdsForPost(activePost)
+			: [];
 		return mediaIDs.map((id, index) => ({
 			id,
 			label: `${m.compose_uploaded_media()} ${index + 1}`,
@@ -2663,7 +2669,31 @@
 		return openStillEditorFromComposer('template');
 	}
 
-	async function openStillEditorFromComposer(editor: 'image' | 'template') {
+	async function editDestinationCover(
+		setting: SettingDefinition,
+		file: File,
+		metadata: { sourceMediaId: string; timestampMs: number }
+	) {
+		const account = settingsAccount;
+		const post = activePost;
+		if (!account || !post) return;
+		if (setting.key !== 'thumbnail_media_id' && setting.key !== 'cover_media_id') return;
+		mediaPickerPostIndex = activePostIndex;
+		await openStillEditorFromComposer('image', {
+			file,
+			target: {
+				account_id: account.id,
+				post_key: post.key,
+				setting_key: setting.key,
+				source_media_id: metadata.sourceMediaId
+			}
+		});
+	}
+
+	async function openStillEditorFromComposer(
+		editor: 'image' | 'template',
+		cover?: { file: File; target: ComposerCoverTarget }
+	) {
 		if (!selectedWorkspaceId) return;
 		const workspaceId = selectedWorkspaceId;
 		const generation = saveGeneration;
@@ -2672,15 +2702,46 @@
 		await requireSavedComposerBeforeHandoff();
 		if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
 		const returnURL = composerHandoffReturnURL();
-		const purpose = isThread ? 'thread_segment' : 'post_media';
+		let designID = '';
+		if (cover) {
+			const source = posts.find((post) => post.key === cover.target.post_key);
+			if (
+				!source ||
+				!(getVariantMediaIds(cover.target.account_id, source.key) ?? source.mediaIds).includes(
+					cover.target.source_media_id
+				)
+			) {
+				throw new Error(m.compose_cover_target_changed());
+			}
+			const uploaded = await uploadMediaFile({
+				workspaceId,
+				file: cover.file,
+				parentMediaId: cover.target.source_media_id
+			});
+			if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
+			const bitmap = await createImageBitmap(cover.file);
+			const size = { width_px: bitmap.width, height_px: bitmap.height };
+			bitmap.close();
+			const design = await createImageEditorDesign(workspaceId, {
+				title: m.compose_cover_design_title(),
+				preset_key: 'custom',
+				...size,
+				source_media_id: uploaded.id
+			});
+			if (!saveMutationViewIsCurrent(mutationSession, generation, workspaceId)) return;
+			designID = design.id;
+		}
+		const purpose = cover ? 'destination_cover' : isThread ? 'thread_segment' : 'post_media';
 		const token = await createImageEditorReturnToken({
 			workspace_id: workspaceId,
 			return_url: `${returnURL.pathname}${returnURL.search}`,
 			purpose,
-			max_selection: composerMediaLimit,
+			max_selection: cover ? 1 : composerMediaLimit,
 			constraints: {
-				max_count: composerMediaLimit,
-				allowed_mimes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+				max_count: cover ? 1 : composerMediaLimit,
+				allowed_mimes: cover
+					? ['image/png', 'image/jpeg']
+					: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
 				thread_segment: mediaPickerPostIndex
 			}
 		});
@@ -2698,11 +2759,11 @@
 			purpose,
 			created_at: new Date().toISOString(),
 			expires_at: token.expires_at,
-			payload: composerHandoffPayload()
+			payload: { ...composerHandoffPayload(), ...(cover && { cover_target: cover.target }) }
 		});
 		await goto(
 			resolveAppPath(
-				`${editor === 'template' ? '/templates' : '/image-editor/new'}?workspace=${encodeURIComponent(workspaceId)}&return_token=${encodeURIComponent(token.token)}`
+				`${designID ? `/image-editor/${encodeURIComponent(designID)}` : editor === 'template' ? '/templates' : '/image-editor/new'}?workspace=${encodeURIComponent(workspaceId)}&return_token=${encodeURIComponent(token.token)}`
 			)
 		);
 	}
@@ -2716,16 +2777,61 @@
 		try {
 			const snapshot = loadEditorHandoff(token, 'image');
 			if (!snapshot) throw new ComposerSessionError('image_editor_return_inactive');
-			await restoreComposerHandoff(snapshot, token);
+			if (snapshot.purpose === 'destination_cover') {
+				const current = await canonicalPublicationForHandoff();
+				if (!saveMutationViewIsCurrent(mutationSession, generation, snapshot.workspace_id)) return;
+				if (
+					!current ||
+					current.id !== snapshot.publication_id ||
+					current.revision !== snapshot.publication_revision
+				) {
+					throw new Error(m.compose_cover_target_changed());
+				}
+			}
+			const payload = await restoreComposerHandoff(snapshot, token);
 			if (!saveMutationViewIsCurrent(mutationSession, generation, snapshot.workspace_id)) return;
 			if ($page.url.searchParams.get('editor_handoff_cancelled') === '1') {
 				finishEditorHandoff(token);
+				if (payload.cover_target) {
+					settingsAccountId = payload.cover_target.account_id;
+					settingsDialogOpen = true;
+				}
 				return;
 			}
 			const result = await consumeImageEditorReturnToken(token);
 			if (!saveMutationViewIsCurrent(mutationSession, generation, snapshot.workspace_id)) return;
 			if (snapshot.workspace_id !== result.workspace_id) {
 				throw new ComposerSessionError('image_editor_return_workspace_mismatch');
+			}
+			if (snapshot.purpose === 'destination_cover' && !payload.cover_target)
+				throw new Error(m.compose_cover_target_changed());
+			if (payload.cover_target) {
+				const target = payload.cover_target;
+				const account = selectedAccounts.find((account) => account.id === target.account_id);
+				const source = posts.find((post) => post.key === target.post_key);
+				const definition =
+					account && visibleSettings(account).find((field) => field.key === target.setting_key);
+				if (
+					snapshot.purpose !== 'destination_cover' ||
+					result.purpose !== snapshot.purpose ||
+					result.media_ids.length !== 1 ||
+					!account ||
+					!source ||
+					!definition ||
+					definition.control !== 'media_picker' ||
+					definition.unavailable_reason ||
+					!(getVariantMediaIds(account.id, source.key) ?? source.mediaIds).includes(
+						target.source_media_id
+					)
+				) {
+					throw new Error(m.compose_cover_target_changed());
+				}
+				activePostIndex = posts.indexOf(source);
+				updateAccountSetting(account, target.setting_key, result.media_ids[0]);
+				finishEditorHandoff(token);
+				settingsAccountId = account.id;
+				settingsDialogOpen = true;
+				return;
 			}
 			const targetIndex = Math.max(
 				0,
@@ -6731,6 +6837,7 @@
 		if (settingsAccount) void loadDestinationOptions(settingsAccount, true);
 	}}
 	onFileChange={uploadDestinationSettingFile}
+	onEditCover={editDestinationCover}
 />
 
 <Dialog.Root

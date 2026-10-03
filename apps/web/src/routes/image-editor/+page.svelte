@@ -4,7 +4,8 @@
 	import {
 		imageEditorConfigQueryOptions,
 		imageEditorDesignCatalogQueryOptions,
-		imageEditorPublicTemplatesQueryOptions
+		imageEditorPublicTemplatesQueryOptions,
+		imageEditorTemplatesQueryOptions
 	} from '@openpost/query-catalog';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
@@ -14,6 +15,7 @@
 	import {
 		createImageEditorDesign,
 		deleteImageEditorDesign,
+		restoreImageEditorDesign,
 		instantiateImageEditorTemplate
 	} from '$lib/image-editor/api';
 	import { migrateGuestImageEditorDesign } from '$lib/image-editor/guest-migration';
@@ -65,6 +67,34 @@
 	const cloudDesigns = $derived(
 		workspaceID ? (cloudDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
 	);
+	const trashedDesignsQuery = createInfiniteQuery(() =>
+		imageEditorDesignCatalogQueryOptions<WebImageEditorQueryData>(
+			imageEditorQueryAPI,
+			workspaceID,
+			{ limit: 24, trashed: true }
+		)
+	);
+	const trashedDesigns = $derived(
+		workspaceID ? (trashedDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
+	);
+	let restoring = $state('');
+	async function restoreDesign(id: string): Promise<void> {
+		if (restoring || !workspaceID) return;
+		const targetWorkspace = workspaceID;
+		restoring = id;
+		error = '';
+		try {
+			await restoreImageEditorDesign(targetWorkspace, id);
+			if (workspaceID !== targetWorkspace) return;
+			await Promise.all([cloudDesignsQuery.refetch(), trashedDesignsQuery.refetch()]);
+		} catch (cause) {
+			if (workspaceID === targetWorkspace)
+				error = cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
+		} finally {
+			restoring = '';
+		}
+	}
+
 	let localLimit = $state(12);
 
 	let localLoading = $state(true);
@@ -83,6 +113,12 @@
 	const configQuery = createQuery(() => imageEditorConfigQueryOptions(imageEditorQueryAPI));
 	const templatesQuery = createQuery(() =>
 		imageEditorPublicTemplatesQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI)
+	);
+	const workspaceTemplatesQuery = createQuery(() =>
+		imageEditorTemplatesQueryOptions<WebImageEditorQueryData>(imageEditorQueryAPI, workspaceID)
+	);
+	const workspaceTemplates = $derived(
+		workspaceID ? (workspaceTemplatesQuery.data ?? []).filter((template) => !template.built_in) : []
 	);
 	let enabled = $derived(configQuery.data?.enabled ?? true);
 	let presets = $derived<ImageEditorPreset[]>(configQuery.data?.presets ?? []);
@@ -226,12 +262,12 @@
 	}
 
 	async function startTemplate(template: ImageEditorTemplate): Promise<void> {
-		if (creating) return;
+		if (creating || (!template.built_in && !workspaceID)) return;
 		creating = template.id;
 		error = '';
 		try {
 			void requestGuestImageEditorPersistence();
-			const targetWorkspace = storageMode === 'cloud' ? workspaceID : '';
+			const targetWorkspace = !template.built_in || storageMode === 'cloud' ? workspaceID : '';
 			const design = targetWorkspace
 				? await instantiateImageEditorTemplate(template.id, targetWorkspace, templateName(template))
 				: await createGuestImageEditorDesignFromTemplate(template, templateName(template));
@@ -287,6 +323,7 @@
 		const target = pendingDelete;
 		if (target.workspaceID) {
 			await deleteImageEditorDesign(target.workspaceID, target.id);
+			if (workspaceID === target.workspaceID) await trashedDesignsQuery.refetch();
 		} else {
 			await deleteGuestImageEditorDesign(target.id);
 			recentDesigns = recentDesigns.filter((design) => design.id !== target.id);
@@ -357,6 +394,34 @@
 		}
 	}
 </script>
+
+{#snippet templateCard(template: ImageEditorTemplate)}
+	<button
+		type="button"
+		class="min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+		onclick={() => startTemplate(template)}
+		aria-label={template.built_in
+			? templateName(template)
+			: `${templateName(template)}: ${m.media_create_design()}, ${m.video_editor_saved_cloud()}`}
+		disabled={Boolean(creating)}
+	>
+		<div class="aspect-square overflow-hidden border-b">
+			<TemplatePreview document={template.document} label={templateName(template)} compact />
+		</div>
+		<div class="flex min-h-16 items-center gap-2 p-3">
+			<div class="min-w-0 flex-1">
+				<span class="block text-sm leading-snug font-medium">{templateName(template)}</span>
+				{#if !template.built_in}<span class="mt-1 block text-xs text-muted-foreground"
+						>{m.media_create_design()} · {m.video_editor_saved_cloud()}</span
+					>{/if}
+			</div>
+			{#if creating === template.id}<ProtectedIcon
+					icon="loading"
+					class="size-4 animate-spin"
+				/>{/if}
+		</div>
+	</button>
+{/snippet}
 
 <svelte:head>
 	<title>{m.image_editor_public_meta_title()}</title>
@@ -545,6 +610,49 @@
 					>{/if}
 			</section>
 		{/if}
+		{#if workspaceID}
+			<section class="mt-10 mb-10" aria-labelledby="image-trash-heading">
+				<h2 id="image-trash-heading" class="text-lg font-semibold">{m.media_lifecycle_trash()}</h2>
+				<p class="mt-1 text-sm text-muted-foreground">
+					{m.image_editor_trash_restore_independent()}
+				</p>
+				{#if trashedDesignsQuery.isPending}<p
+						role="status"
+						class="mt-3 text-sm text-muted-foreground"
+					>
+						{m.common_loading()}
+					</p>{/if}
+				{#if trashedDesignsQuery.isError}<InlineNotice
+						tone="error"
+						message={m.image_editor_public_load_failed()}
+					>
+						{#snippet actions()}<Button
+								variant="outline"
+								onclick={() => void trashedDesignsQuery.refetch()}>{m.common_retry()}</Button
+							>{/snippet}
+					</InlineNotice>{/if}
+				<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each trashedDesigns as design (design.id)}
+						<div class="flex min-w-0 items-center gap-3 rounded-xl border bg-card p-3">
+							<p class="min-w-0 flex-1 text-sm font-medium break-words">{design.title}</p>
+							{#if workspaceCtx.currentWorkspace?.can_edit}<Button
+									variant="outline"
+									disabled={Boolean(restoring)}
+									onclick={() => void restoreDesign(design.id)}>{m.image_editor_restore()}</Button
+								>{/if}
+						</div>
+					{/each}
+				</div>
+				{#if trashedDesignsQuery.hasNextPage}<Button
+						class="mt-3"
+						variant="outline"
+						disabled={trashedDesignsQuery.isFetchingNextPage}
+						onclick={() => void trashedDesignsQuery.fetchNextPage()}
+						>{m.editors_load_more_designs()}</Button
+					>{/if}
+			</section>
+		{/if}
+
 		{#if loading}
 			<div class="mt-10">
 				<PageLoading layout="gallery" label={m.image_editor_load()} items={8} />
@@ -625,6 +733,37 @@
 				</section>
 			</details>
 
+			{#if workspaceID && (workspaceTemplates.length > 0 || workspaceTemplatesQuery.isPending || workspaceTemplatesQuery.isError)}
+				<section class="mt-12" aria-labelledby="workspace-templates-heading">
+					<div class="mb-4">
+						<h2 id="workspace-templates-heading" class="text-lg font-semibold">
+							{m.image_editor_workspace_templates()}
+						</h2>
+						<p class="mt-1 text-sm text-muted-foreground">
+							{m.image_editor_workspace_templates_body()}
+						</p>
+					</div>
+					{#if workspaceTemplatesQuery.isError}
+						<InlineNotice tone="error" message={m.image_editor_templates_load_failed()}>
+							{#snippet actions()}<Button
+									size="sm"
+									variant="outline"
+									onclick={() => void workspaceTemplatesQuery.refetch()}>{m.common_retry()}</Button
+								>{/snippet}
+						</InlineNotice>
+					{:else if workspaceTemplatesQuery.isPending && !workspaceTemplatesQuery.data}
+						<p role="status" class="text-sm text-muted-foreground">{m.media_loading_templates()}</p>
+					{/if}
+					{#if workspaceTemplates.length > 0}<div
+							class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+						>
+							{#each workspaceTemplates as template (template.id)}{@render templateCard(
+									template
+								)}{/each}
+						</div>{/if}
+				</section>
+			{/if}
+
 			<section class="mt-12" aria-labelledby="templates-heading">
 				<div class="mb-4">
 					<h2 id="templates-heading" class="text-lg font-semibold">
@@ -636,30 +775,7 @@
 				</div>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 					{#each templates as template (template.id)}
-						<button
-							type="button"
-							class="min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
-							onclick={() => startTemplate(template)}
-							aria-label={templateName(template)}
-							disabled={Boolean(creating)}
-						>
-							<div class="aspect-square overflow-hidden border-b">
-								<TemplatePreview
-									document={template.document}
-									label={templateName(template)}
-									compact
-								/>
-							</div>
-							<div class="flex min-h-16 items-center gap-2 p-3">
-								<span class="min-w-0 flex-1 text-sm leading-snug font-medium">
-									{templateName(template)}
-								</span>
-								{#if creating === template.id}<ProtectedIcon
-										icon="loading"
-										class="size-4 animate-spin"
-									/>{/if}
-							</div>
-						</button>
+						{@render templateCard(template)}
 					{/each}
 				</div>
 			</section>

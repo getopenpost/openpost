@@ -144,6 +144,7 @@
 	let spacePressed = $state(false);
 	let lastAutoEditingLayerID = '';
 	let panning = $state(false);
+	let zoomGesture: { pointerID: number; x: number; y: number } | null = null;
 	let selectionGesture = $state<SelectionGesture | null>(null);
 	let polygonalSelection = $state<PolygonalSelection | null>(null);
 	let magicPulse = $state<SelectionPoint | null>(null);
@@ -496,7 +497,8 @@
 			editor.activeTool === 'magic_eraser' ||
 			editor.activeTool === 'bucket' ||
 			editor.activeTool === 'gradient' ||
-			editor.activeTool === 'eyedropper'
+			editor.activeTool === 'eyedropper' ||
+			editor.activeTool === 'zoom'
 		);
 	}
 
@@ -1115,7 +1117,7 @@
 			target instanceof Element &&
 			Boolean(
 				target.closest(
-					'[data-testid="image-editor-selection-options"], button, input, textarea, select, [role="slider"], [contenteditable="true"]'
+					'[data-testid="image-editor-selection-options"], button, [role="button"], input, textarea, select, [role="slider"], [contenteditable="true"]'
 				)
 			)
 		);
@@ -1623,6 +1625,30 @@
 		}
 	}
 
+	function zoomAtPointer(event: PointerEvent): void {
+		if (
+			editor.activeTool !== 'zoom' ||
+			spacePressed ||
+			event.button !== 0 ||
+			targetsPasteboardChrome(event.target)
+		)
+			return;
+		const bounds = viewport?.getBoundingClientRect();
+		if (!bounds) return;
+		const nextZoom = Math.max(0.1, Math.min(4, editor.zoom + (event.altKey ? -0.1 : 0.1)));
+		const nextPan = panForZoomAnchor({
+			panX: editor.panX,
+			panY: editor.panY,
+			zoom: editor.zoom,
+			nextZoom,
+			anchorX: event.clientX - (bounds.left + bounds.width / 2),
+			anchorY: event.clientY - (bounds.top + bounds.height / 2)
+		});
+		editor.panX = nextPan.panX;
+		editor.panY = nextPan.panY;
+		editor.zoom = nextZoom;
+	}
+
 	function handleWheel(event: WheelEvent): void {
 		if (event.ctrlKey || event.metaKey) {
 			event.preventDefault();
@@ -1709,6 +1735,7 @@
 				y: event.clientY
 			});
 			if (touchPointers.size === 2) {
+				zoomGesture = null;
 				selectionGesture = null;
 				const [first, second] = [...touchPointers.values()];
 				pinchStart = {
@@ -1736,6 +1763,12 @@
 			event.preventDefault();
 			return;
 		}
+		if (editor.activeTool === 'zoom' && event.button === 0) {
+			zoomGesture = { pointerID: event.pointerId, x: event.clientX, y: event.clientY };
+			capturePointer(event.currentTarget, event.pointerId);
+			event.preventDefault();
+			return;
+		}
 		if (startAreaSelection(event)) return;
 	}
 
@@ -1747,9 +1780,8 @@
 	}
 
 	function startPasteboardPointer(event: PointerEvent): void {
-		if (targetsToolSurface(event)) return;
-		// A touch that lands on pasteboard chrome still belongs to viewport navigation.
-		// Route it before object hit-testing so the second contact can always start a pinch.
+		if (targetsToolSurface(event) || targetsPasteboardChrome(event.target)) return;
+		// Route viewport touches before object hit-testing so a second contact can start a pinch.
 		if (event.pointerType === 'touch') {
 			startPan(event);
 			return;
@@ -1836,6 +1868,19 @@
 	}
 
 	function stopPan(event: PointerEvent): void {
+		if (zoomGesture?.pointerID === event.pointerId) {
+			const gesture = zoomGesture;
+			zoomGesture = null;
+			if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) <= 4) {
+				zoomAtPointer(event);
+			}
+			if (
+				event.currentTarget instanceof Element &&
+				event.currentTarget.hasPointerCapture(event.pointerId)
+			) {
+				event.currentTarget.releasePointerCapture(event.pointerId);
+			}
+		}
 		if (event.pointerType === 'touch') touchPointers.delete(event.pointerId);
 		if (eyedropperPointerID === event.pointerId) {
 			const point = documentPoint(event, 'clamp');
@@ -1865,6 +1910,7 @@
 	}
 
 	function cancelPointer(event: PointerEvent): void {
+		if (zoomGesture?.pointerID === event.pointerId) zoomGesture = null;
 		if (event.pointerType === 'touch') touchPointers.delete(event.pointerId);
 		if (eyedropperPointerID === event.pointerId) eyedropperPointerID = -1;
 		if (stylusPointerID === event.pointerId) stylusPointerID = -1;
@@ -2028,7 +2074,9 @@
 	class:cursor-grab={(editor.activeTool === 'hand' || spacePressed) && !panning}
 	class:cursor-grabbing={panning}
 	class:cursor-move={Boolean(editor.floatingPixelSelection) && !panning}
-	class:cursor-crosshair={(usesCanvasSurface() || selectionGesture?.tool === 'select') &&
+	class:cursor-zoom-in={editor.activeTool === 'zoom' && !panning}
+	class:cursor-crosshair={((usesCanvasSurface() && editor.activeTool !== 'zoom') ||
+		selectionGesture?.tool === 'select') &&
 		!editor.floatingPixelSelection &&
 		!panning}
 	onwheel={handleWheel}
@@ -2744,7 +2792,8 @@
 					<div
 						class="absolute inset-0 z-10 touch-none"
 						class:cursor-move={Boolean(editor.floatingPixelSelection)}
-						class:cursor-crosshair={!editor.floatingPixelSelection}
+						class:cursor-crosshair={!editor.floatingPixelSelection && editor.activeTool !== 'zoom'}
+						class:cursor-zoom-in={editor.activeTool === 'zoom'}
 						data-testid="image-editor-selection-surface"
 						aria-hidden="true"
 						onpointerdown={startPan}

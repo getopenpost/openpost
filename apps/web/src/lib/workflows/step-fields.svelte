@@ -69,6 +69,7 @@
 			{workspaceID}
 			{accounts}
 			inputs={step.inputs ?? {}}
+			required={step.kind === 'build_draft'}
 			{readonly}
 			onchange={oninputs}
 		/>{/if}

@@ -9,6 +9,7 @@
 	import {
 		defaultLayerEffects,
 		defaultLayerMask,
+		imageEditorMaskRadiusLimit,
 		DEFAULT_SHADOW_EFFECT,
 		DEFAULT_STROKE_EFFECT
 	} from '../effects';
@@ -448,7 +449,7 @@
 							<Slider
 								value={layer.mask.radius}
 								min={0}
-								max={Math.max(1, Math.min(layer.transform.width, layer.transform.height) / 2)}
+								max={Math.floor(imageEditorMaskRadiusLimit(layer.transform))}
 								step={1}
 								disabled={!editor.canEdit || layerLocked}
 								ariaLabel={m.image_editor_mask_radius()}

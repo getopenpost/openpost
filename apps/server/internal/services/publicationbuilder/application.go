@@ -349,8 +349,13 @@ func (application *Application) FindByKey(ctx context.Context, workspaceID, user
 }
 
 func (application *Application) Get(ctx context.Context, userID, buildID string) (Build, error) {
+	return GetStoredBuild(ctx, application.db, userID, buildID)
+}
+
+// GetStoredBuild reads an actor-owned build without requiring generation services.
+func GetStoredBuild(ctx context.Context, db *bun.DB, userID, buildID string) (Build, error) {
 	var record BuildRecord
-	err := application.db.NewSelect().Model(&record).
+	err := db.NewSelect().Model(&record).
 		Where("id = ? AND created_by_id = ?", strings.TrimSpace(buildID), strings.TrimSpace(userID)).
 		Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {

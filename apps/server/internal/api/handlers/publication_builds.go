@@ -491,8 +491,13 @@ func (h *PublicationBuildHandler) loadAuthorizedBuild(
 	buildID string,
 	level workspaceaccess.Level,
 ) (publicationbuilder.Build, error) {
-	if err := h.requireRuntime(); err != nil {
-		return publicationbuilder.Build{}, err
+	if h == nil || h.db == nil {
+		return publicationbuilder.Build{}, huma.Error503ServiceUnavailable("Publication Builder is unavailable")
+	}
+	if level != workspaceaccess.LevelRead {
+		if err := h.requireRuntime(); err != nil {
+			return publicationbuilder.Build{}, err
+		}
 	}
 	userID := strings.TrimSpace(middleware.GetUserID(ctx))
 	if userID == "" {
@@ -502,7 +507,7 @@ func (h *PublicationBuildHandler) loadAuthorizedBuild(
 	if err != nil {
 		return publicationbuilder.Build{}, err
 	}
-	build, err := h.application.Get(ctx, userID, buildID)
+	build, err := publicationbuilder.GetStoredBuild(ctx, h.db, userID, buildID)
 	if err != nil {
 		return publicationbuilder.Build{}, publicationBuildError(err)
 	}

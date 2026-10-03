@@ -203,6 +203,9 @@
 			}}
 			colorMode={mode.current ?? 'light'}
 			ariaLabelConfig={{
+				'node.a11yDescription.keyboardDisabled': readonly
+					? m.workflows_node_keyboard_readonly_help()
+					: m.workflows_node_keyboard_help(),
 				'controls.ariaLabel': m.image_editor_zoom(),
 				'controls.zoomIn.ariaLabel': m.image_editor_zoom_in(),
 				'controls.zoomOut.ariaLabel': m.image_editor_zoom_out(),

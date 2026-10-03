@@ -442,3 +442,172 @@ for (const scheme of ["light", "dark"] as const) {
     }
   });
 }
+
+test("Quick Cut explains saved removed words and restores a phrase through kept ranges", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  const auth = await registerUser(request, `quick-speech-recovery-${Date.now()}@example.com`);
+  const workspace = z
+    .object({ id: z.string() })
+    .parse(await createWorkspace(request, auth.token, "Speech recovery"));
+  await authenticatePage(page, auth.token);
+  await page.addInitScript(() =>
+    Object.defineProperty(window, "showOpenFilePicker", { configurable: true, value: undefined }),
+  );
+  await page.goto("/quick-cut");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Open videos", exact: true }).click();
+  await (await chooser).setFiles(fixture);
+  await expect(page).toHaveURL(/\/quick-cut\?project=[^&]+&storage=cloud$/u);
+  await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  const projectId = new URL(page.url()).searchParams.get("project")!;
+  const headers = { Authorization: `Bearer ${auth.token}` };
+  const projectURL = `/api/v1/video-projects/${projectId}?workspace_id=${workspace.id}`;
+  const schema = z.object({
+    head_revision: z.number(),
+    document: z
+      .object({
+        timeline: z
+          .object({
+            sources: z.array(
+              z
+                .object({
+                  id: z.string(),
+                  duration: z.number(),
+                  audioStreams: z.array(z.object({ index: z.number() }).passthrough()),
+                })
+                .passthrough(),
+            ),
+            segments: z.array(
+              z
+                .object({
+                  id: z.string(),
+                  sourceId: z.string(),
+                  start: z.number(),
+                  end: z.number(),
+                })
+                .passthrough(),
+            ),
+          })
+          .passthrough(),
+      })
+      .passthrough(),
+  });
+  const saved = schema.parse(await (await request.get(projectURL, { headers })).json());
+  const input = saved.document.timeline.sources[0]!;
+  const transcript = {
+    audioTrackIndex: input.audioStreams[0]!.index,
+    words: [
+      { text: "Hello", start: 0, end: 0.5 },
+      { text: "again", start: 1, end: 1.5 },
+      { text: "friends", start: 2, end: 2.5 },
+    ],
+  };
+  const priorCuts = [
+    { id: "before-phrase", sourceId: input.id, start: 0.5, end: 1, cutMode: "exact" },
+    { id: "after-phrase", sourceId: input.id, start: 1.5, end: input.duration, cutMode: "exact" },
+  ];
+  const seed = await request.post(`/api/v1/video-projects/${projectId}/mutations`, {
+    headers,
+    data: {
+      workspace_id: workspace.id,
+      mutation_id: `speech-recovery-${Date.now()}`,
+      base_revision: saved.head_revision,
+      operations: [
+        {
+          kind: "set",
+          target: `source:${input.id}`,
+          path: "/timeline/sources",
+          value: [{ ...input, transcript }],
+        },
+        { kind: "set", target: "timeline:segments", path: "/timeline/segments", value: priorCuts },
+      ],
+    },
+  });
+  expect(seed.ok()).toBe(true);
+  expect(z.object({ outcome: z.string() }).parse(await seed.json()).outcome).toBe("applied");
+  await page.reload();
+  await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  const transcriptTab = page.getByRole("button", { name: "Transcript", exact: true });
+  await transcriptTab.click();
+  await expect(page.getByRole("button", { name: "again", exact: true })).toBeDisabled();
+  const hint = page.getByText(
+    "Removed words stay in the transcript. Open Cuts and adjust or add a kept range to include their source times.",
+    { exact: true },
+  );
+  await expect(hint).toBeVisible();
+  await expect(page.getByText("again · 00:01.00 → 00:01.50", { exact: true })).toBeVisible();
+  const openCuts = hint.locator("..").getByRole("button", { name: "Cuts", exact: true });
+  await openCuts.focus();
+  await expect(openCuts).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page
+      .getByRole("group", { name: "Editing tools", exact: true })
+      .getByRole("button", { name: "Cuts", exact: true }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "Segment 1", exact: true }).click();
+  const end = page.getByRole("textbox", { name: "Mark out 1", exact: true });
+  await end.fill("1.5");
+  await end.press("Tab");
+  await expect(end).toHaveValue("00:01.50");
+  await transcriptTab.click();
+  await expect(page.getByRole("button", { name: "again", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hello", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByRole("button", { name: "again", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(page.getByRole("button", { name: "again", exact: true })).toBeEnabled();
+  await expect
+    .poll(async () => {
+      const current = schema.parse(await (await request.get(projectURL, { headers })).json());
+      return current.document.timeline.segments;
+    })
+    .toEqual([{ ...priorCuts[0], end: 1.5 }, priorCuts[1]]);
+  await page.reload();
+  await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  await transcriptTab.click();
+  await expect(page.getByRole("button", { name: "again", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hello", exact: true })).toBeDisabled();
+  const restored = schema.parse(await (await request.get(projectURL, { headers })).json());
+  expect(restored.document.timeline.sources).toEqual([{ ...input, transcript }]);
+  for (const { width, scheme } of [
+    { width: 1280, scheme: "light" },
+    { width: 1280, scheme: "dark" },
+    { width: 390, scheme: "light" },
+    { width: 320, scheme: "dark" },
+  ] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await page.reload();
+    await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+    await transcriptTab.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
+    await expect(page.getByRole("button", { name: "again", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Hello", exact: true })).toBeDisabled();
+    await expect(hint).toBeVisible();
+    await page.getByRole("button", { name: "again", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Remove word", exact: true })).toBeEnabled();
+    await openCuts.scrollIntoViewIfNeeded();
+    await openCuts.focus();
+    await expect(openCuts).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`qsp-restored-${width}-${scheme}.png`),
+      fullPage: true,
+    });
+    await page.keyboard.press("Enter");
+    await expect(
+      page
+        .getByRole("group", { name: "Editing tools", exact: true })
+        .getByRole("button", { name: "Cuts", exact: true }),
+    ).toBeFocused();
+    await expect(page.getByRole("button", { name: "Segment 1", exact: true })).toBeVisible();
+  }
+});

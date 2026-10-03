@@ -1,4 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
+import { strFromU8, unzipSync } from "fflate";
 
 test("guide dialog retains invalid positions and admits the selected page axis range", async ({
   page,
@@ -61,19 +63,32 @@ test("guide dialog retains invalid positions and admits the selected page axis r
   const vertical = page.getByRole("button", { name: /Vertical guide at/ });
   // Guide labels round pixels for speech; the authored position remains fractional after reload.
   await expect(vertical).toHaveAccessibleName(/Vertical guide at 541 pixels/);
-  const stage = page.getByTestId("image-editor-stage");
-  const bounds = (await stage.boundingBox())!;
-  const guideBounds = (await vertical.boundingBox())!;
-  expect(((guideBounds.x + guideBounds.width / 2 - bounds.x) / bounds.width) * 1080).toBeCloseTo(
-    540.5,
-    0,
-  );
+  const renderedGuideError = () =>
+    vertical.evaluate((guide) => {
+      const stage = guide.closest('[data-testid="image-editor-stage"]')!;
+      const bounds = stage.getBoundingClientRect();
+      const guideBounds = guide.getBoundingClientRect();
+      return Math.abs(
+        guideBounds.x + guideBounds.width / 2 - bounds.x - (bounds.width * 540.5) / 1080,
+      );
+    });
+  // Two 1/64 CSS-pixel layout units cover child-offset and stage-width rounding.
+  expect(await renderedGuideError()).toBeLessThanOrEqual(1 / 32);
   const saveStatus = page.getByRole("banner").locator('[role="status"][data-state]');
   await expect(saveStatus).toHaveAttribute("data-state", "saved");
   await expect(saveStatus).toContainText("Saved on this device");
   await page.reload();
   await expect(vertical).toHaveAccessibleName(/Vertical guide at 541 pixels/);
-  const cold = (await stage.boundingBox())!;
-  const coldGuide = (await vertical.boundingBox())!;
-  expect(((coldGuide.x + coldGuide.width / 2 - cold.x) / cold.width) * 1080).toBeCloseTo(540.5, 1);
+  expect(await renderedGuideError()).toBeLessThanOrEqual(1 / 32);
+  const downloadReady = page.waitForEvent("download");
+  await page.getByRole("menubar").getByRole("menuitem", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Export editable project", exact: true }).click();
+  const download = await downloadReady;
+  const archive = unzipSync(await readFile((await download.path())!));
+  const project = JSON.parse(strFromU8(archive["project.json"]));
+  expect(
+    project.document.pages.flatMap(
+      (page: { guides?: { vertical: number[] } }) => page.guides?.vertical ?? [],
+    ),
+  ).toEqual([540.5]);
 });

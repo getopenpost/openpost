@@ -382,8 +382,8 @@
 							/>
 						</div>
 						<p class="text-xs text-muted-foreground">
-							{formatSeconds(trimStart)} – {formatSeconds(trimEnd)} ·
-							{formatSeconds(currentTime)}
+							{m.video_upload_editor_trim()}: {formatSeconds(trimStart)} – {formatSeconds(trimEnd)} ·
+							{m.video_editor_source_position()}: {formatSeconds(currentTime)}
 						</p>
 					</fieldset>
 

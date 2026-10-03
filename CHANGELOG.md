@@ -4,6 +4,313 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.8.7] - 2026-10-03
+
+### Fixed
+
+- Messaging sync and sending use the saved account feature preference without requiring the obsolete capability-state opt-in flag. Enabled accounts can collect messages again; disabled choices, missing permissions and provider limits remain enforced (#311).
+- Meta reply collection now recognizes Graph permission, expired-token and rate-limit errors, including errors returned inside HTTP 200 responses. Permission failures offer reconnect guidance instead of a generic automatic retry. Collection failures record safe provider codes and diagnostics in worker logs without response text or credentials. A completed collection job means its outcome and next collection time were saved, not that the provider read succeeded. Successful reads still clear only the recovered post's error.
+- Keep Markdown redirects working when the combined public site has more than 100 rules.
+- MCP results include their structured payload as JSON text so text-only clients can read IDs, schemas, and file metadata. Private upload credentials stay in `_meta`.
+- MCP URL uploads use the configured media pipeline, including processing and public URL verification.
+- Failed public media URL checks can recover after one minute during explicit validation, while preserving failure details between checks.
+- Balanced dithered button texture across the app, marketing, documentation, and README. Pale buttons now show the pattern, darker buttons keep a restrained tint, and hover or focus changes density without increasing color contrast. Kept labels readable over both colors and darkened the Discord README button for white text. Custom Dither themes must meet the same texture contrast range on import, save, and publication. Older palettes remain editable.
+- Restored solid gradient endpoints with dithering between them. README buttons fade from a darker top to a lighter bottom; all shared button renderers retain their endpoints during hover and press.
+- Restored local iOS builds on Swift 6.2 by updating the Expo compatibility patches to the installed module versions.
+- Fixed the native gesture root so swipe controls can open without crashing.
+- Video Editor favourite hearts appear on the hovered or keyboard-focused library item. Text and effect cards fill their grid cells so hearts stay inside each card. Touch devices retain visible favourite buttons.
+- Thread post actions stay visible when keyboard focus moves back to an earlier post. Adding media remains reachable by keyboard and after selecting a post with a pointer or touch.
+- The schedule dialog now groups the selected day, publish time, and existing posts in one panel. Past days show history without a stale time or confirmation, and saved time slots stay available from a compact picker.
+- Workspace media opens in Quick Cut and Video Editor with its saved original filename instead of an opaque media ID (F007).
+- The Video project start page shows bundle import and its local-folder prerequisite before a folder is connected (L003).
+- Track grouping explains when merging replaces existing group names, and disables grouping that would recreate the same group (TGE001).
+- Audio clips now choose Volume for the timeline's default Add key and auto-key controls. Changing clips keeps a supported property or selects a valid default, so new audio keys remain visible in the dope sheet and inspector. The timeline toolbar and keyboard Add key commands reject properties absent from the selected clip's catalog. (AKG001)
+- Analytics metric choices wrap when their labels need more space and retain full touch targets on small screens.
+- Keep the audio EQ panel open and keyboard controls reachable after preset and band edits (A001).
+- Beat detection distinguishes clips with no detected beats from beats already marked on the timeline.
+- Label the Video Editor EQ graph as gain in dB and align Flat, band handles and the filter-response curve with zero. Keep the gain and frequency axes readable at narrow widths. Audio processing, presets and authored gain limits are unchanged. (A003)
+- Reset the Video Editor's Add audio effect picker after each choice so the same effect can be added again after Remove or Undo without selecting the placeholder first. (A004)
+- Video Editor keeps animation application mode, duration, intensity, and stagger settings when switching inspector tabs. These choices last for the open project session without changing the project or its Undo history (AC001).
+- API reference property link buttons now announce the property they copy, so keyboard and screen reader users can identify them.
+- Keep the accepted audio effect value when an empty numeric edit is left. Clearing Chorus rate no longer silently saves its factory default; Reset still restores defaults. (ACF001)
+- Setting audio ducking to 0 dB turns it off instead of leaving the previous amount active. Undo restores the prior settings.
+- Match audio inspector fade controls to the selected clips' timeline duration instead of capping them at five seconds (AFR001).
+- Keep video, overlays, and adjustment layers visible when an audio track is soloed, preventing black video exports. Solo continues to isolate audio (AM001).
+- Audio mixer faders announce vertical orientation and decibel values. Arrow keys adjust volume consistently, and Home/End select the minimum/maximum.
+- Long account menus stay inside the screen and scroll to every choice, including All accounts, after an account is selected (ANF001).
+- The audio rack labels removal of the whole rack Clear effects. Individual Reset controls keep the effect and its enabled state while restoring default parameters. Both actions remain undoable (ARR001).
+- Audio effect handles support pointer dragging and keyboard ordering. Moves preview locally until drop, Escape cancels, and a completed move creates one undo step (AGR001).
+- Audio rack keyboard moves keep focus on the same effect. At either end, focus moves to its enabled ordering control. A later focus change or a different selected clip is respected (ARF001).
+- Editing a transcript word preserves the caption's authored line breaks and spacing. Word timing changes leave the caption text unchanged. (CA001)
+- Caption timing edits reject times outside their clip or before their start, restore the accepted field value, and explain the valid range (CTE001, CA002). Valid retiming still preserves word identity, supports one-frame cues, and uses the correct frame range for generated and imported captions.
+- Delete and Backspace on protected color-curve endpoints no longer delete selected video clips or image layers. Interior curve points remain removable with either key.
+- Empty YouTube settings now explain how to attach a video through shared or customized content before entering its title and video options. Resolved account settings and existing editing choices remain authoritative.
+- Disabled engagement collection now offers account settings recovery instead of promising an automatic retry or offering Refresh. Enabled accounts retain retry recovery.
+- Editor shortcuts preserve native disclosure and button activation, including Quick Cut transcript words, instead of starting playback or timeline commands. SVG slider targets retain their local keys. Project undo, redo, save and export remain available from focused controls. Audit QC001.
+- Video project search now explains when no projects match and offers Clear search with keyboard focus recovery. An empty search result no longer claims the workspace has no saved projects. (ELD001)
+- Quick Cut’s compact Export button keeps its accessible name when the visible label is hidden on phones.
+- Image Editor More actions group commands into File, Edit, Layer, Select, Tools, View and Help. Categories open in the same menu, with Back restoring keyboard focus. The project title, version history and panel shortcuts remain directly reachable (ER002).
+- Undo also closes the Image menu when it consumes the last history entry.
+- Escape cancels a shortcut change before closing Editor settings. A second Escape outside capture still closes settings.
+- Open Video Editor export settings from the export shortcut and More menu, preserving format, range, resolution and render controls before starting an export.
+- Opening a saved recording explicitly shows its recorded timeline in Edit, even when Motion was remembered. Ordinary project opens still retain the chosen editor view. (F008)
+- Recorder shows Saving during normal and recovery handoffs. Download, removal and new recording actions appear after the handoff settles, with the storage failure shown when recovery is needed. Scratch recordings remain recoverable until saving succeeds. (F009)
+- Brand font uploads identify unreadable files and explain the supported formats. The file chooser resets after each selection so the same file can be retried after correcting the form (FUP001).
+- Keep custom Gradient Map stop numbers visible in narrow Video Editor property panels.
+- Image Editor canvas typing continues from inspector text changes without restoring old contents. Active text selections stay within the updated text, including Unicode characters.
+- Image Editor text selections now explain that font family and size affect the whole text layer. Both controls expose that guidance to screen readers. Collapsing the inspector text selection clears its range indicator and returns style edits to the whole layer.
+- Compare Image Editor checkpoints using the same document defaults as the editor, so omitted saved defaults do not appear as new layer or page edits (ICD001).
+- Let editors remove a named Image Editor checkpoint from version history, with confirmation and preserved current designs, other versions and their media references (ICM001).
+- Preserve the pending local title with Image Editor conflict recovery copies, alongside their local page content (ICN001).
+- Preserve Arabic joining, bidirectional text, emoji, and grapheme styles in curved Image Editor text. Preview and export use the same shaped text path and asset-specific project font, while text stays editable (ICU001).
+- Flat Image Editor text retains explicit line breaks when changing fonts or other text properties, matching its saved and exported layout.
+- Scale text glyphs with nested Image Editor groups and mixed selections, preserving their proportions through Undo, reload and export (IGS001).
+- Image Editor guide positions show the selected page axis’s valid range. Empty and out-of-range values stay available for correction and cannot add a guide; valid fractional positions are preserved (IGV001).
+- Image Editor ruler drags add guides while Select is active, without starting object selection (IGV002).
+- The Zoom tool enlarges the view around a canvas click. Alt-click reduces it, with the same zoom limits as the existing controls. Zoom remains view state and creates no document history entry (IGV003).
+- Saved workspace Image Editor templates appear on the ordinary start page. Their creation action explicitly saves a new design to OpenPost, while local storage remains available for blank designs and public starters (IHT001).
+- Disable locked Image Editor text and shape properties and reject authored edits on locked layers or children of locked groups, while preserving layer management and Undo (F006, IMG-001).
+- Image Editor rounded-mask keyboard steps stay within the displayed whole-pixel limit. Mask edits respect the geometric radius limit without rounding valid authored fractions, preserving Undo and saved values (IMR001).
+- Invalid or missing 3D LUT data now leaves source pixels unchanged in preview and export, instead of applying a quantized fallback cube. Valid LUTs and zero-intensity grading retain their existing behavior.
+- Magic eraser removes only the selected contiguous paint region, including resized layers. Erase masks now use the saved paint source dimensions and exclude Fabric padding.
+- Image selection toolbars use the available canvas width and wrap controls, keeping Cancel, Delete selected pixels, and Deselect visible without hidden horizontal scrolling. Toolbar buttons have 44px touch targets. Enter and Space activate the focused toolbar action instead of committing the pending selection first or starting canvas pan mode. Delete uses the themed destructive control. (IP002)
+- Keep Image Editor page thumbnail drags in page reordering instead of importing the preview as an image layer (IPP001).
+- Floating pixel-selection resize handles now keep the opposite corner fixed and follow the pointer. The viewport no longer starts a second selection-move gesture when a canvas control receives the drag. (IPR001)
+- Paint pixels now follow the resized selection bounds instead of retaining their original render size, and solid fills stay seamless during fractional resizing.
+- Inbox platform filters announce the selected platform to assistive technology instead of continuing to announce All platforms.
+- Locked Image Editor groups now protect descendant deletion, grouping, ordering, keyboard movement, pixel edits, color gestures and batch property changes. Layer controls reflect inherited locks, and unlocking retains normal Undo and Redo behavior. (IT001)
+- Cloud Image Editor designs can be restored from Trash on the ordinary start page. Recovery preserves the saved design and its history as an independent design, without replacing the active edit opened through Media (ITRASH001).
+- Keyframe segment easing controls accept pointer clicks without starting timeline selection or clearing selected keys.
+- Adding generated voice linked to a text clip now selects both clips when linked selection is enabled, so an immediate keyboard nudge keeps them aligned. Disabled linked selection and unlinked audio retain individual selection (LC001).
+- Keep imported Image Editor fonts distinct when projects share the same family, weight and style, using asset identity for preview, export and reopening (LFI001).
+- Import valid fonts from portable local Image Editor projects through font validation and storage, restore their saved faces on reopen, and preserve font validation when moving the project to OpenPost (LFI001).
+- Logo icon variants with matching display names use their distinct Lucide names in accessible labels and hover hints.
+- Logo Maker keeps keyboard focus on PNG export and copy buttons while encoding, and ignores repeated requests until encoding finishes.
+- Preserve Japanese, Arabic and emoji captions in meme preview and exported images with shaped text and bundled font fallbacks (M001).
+- Meme preview errors now state the existing image limits and explain how to recover by resizing or choosing a smaller image. Invalid images remain rejected separately from oversized images.
+- Render previews for edited meme copies without sending export-only metadata to the preview endpoint (M003, MA001).
+- Meme exports saved to Media use the authored design name, matching browser downloads and filename search. API callers may supply a validated output filename; omitted names retain the existing template-based default.
+- Dissolving a compound clip retains its published instance overrides in the independent layers, including edited title text (MD001).
+- Device uploads selected in the media picker now show the same Add media and Cancel actions as Library, so attaching a file does not require switching sources (MDU001).
+- Media filters keep reversed dimension and date ranges available for correction, explain the conflicting bounds, and prevent applying them. A maximum dimension of 0 still means no maximum.
+- Audio mixer Master labels, lock icons and active controls use the editor theme colors so their state stays readable in both schemes.
+- Media summaries distinguish the matching asset count from total workspace storage, including when one asset matches a filter.
+- Give published Motion text override fields their property names for screen readers and keyboard navigation (MN001).
+- Controller size changes scale parented text visually while preserving its local font, line wrapping, and text styles in preview and export. Audit MSC001.
+- Motion Solid and Gradient create editable vector layers that render without a media source. Audit MOT-001.
+- Existing Motion Solid and Gradient layers recover their authored vector fills when opening older projects. Local projects keep a pre-upgrade backup; Cloud projects save the upgrade through normal sync and retain the edit if offline or conflicted. Missing-source media clips remain unchanged. Audit MOT-001.
+- Motion layers protected by a track or group lock can no longer acquire or remove a transform parent. Unlocked children remain editable when only their controller is locked (MOTL001).
+- Locked layer and controller transform fields, resets, flips, aspect ratio and blend controls now show their disabled state instead of accepting input that cannot be saved. Inspector disclosures remain available (MLC001).
+- Creating a Motion clip preserves a title's transparent canvas over underlying layers. Transparent frame backgrounds clear previous pixels so moving titles leave no trails. Existing saved composition backgrounds remain unchanged. Audit VG-002.
+- Video upload preparation now shows the accepted trim value when a number edit is committed. Out-of-range entries no longer remain beside a different preview range, while typing decimals and valid fractional positions remains supported.
+- Video upload preparation labels the selected trim range and current source position separately, so the playback time no longer looks like the selected duration.
+- Trimming a compound clip preserves its surviving source frames instead of restarting the composition at the new start. Compound trim extensions also respect the source window (MT001).
+- Media deletion confirmations now explain the recoverable move to Trash rather than claiming immediate permanent deletion, including batch selections (MTR001).
+- Media deletion confirmations stay above the inspector and accept pointer actions. Cancel returns to the inspector; a successful move to Trash closes its stale details and returns focus to the library (MTR002).
+- Ordinary Media duplicates now show Copies provenance for images, videos and audio, preserving the original media reference instead of claiming an Image Editor edit (MTR003).
+- Media image uploads now require valid decoded pixels before becoming ready or being reused. Corrupt images show an upload error and cannot become editable library assets; image decoding is bounded to 64 million pixels (MUV001).
+- Supported AVIF, BMP, TIFF and ICO uploads remain accepted after pixel validation. ICO images now retain decoded dimensions and thumbnails.
+- Calendar explains when selected filters leave no matching posts in Month and Week views, with a Clear filters action that keeps the selected dates and view.
+- Image palette selections identify their source instead of retaining the previous pixel label and marker. Sampling an image pixel restores its coordinates; screen colors use their own source label.
+- Image comparison sliders now announce the visible original and result percentages correctly to screen readers.
+- Image Editor, Video Editor and Quick Cut describe browser downloads as started rather than completed. Video frame capture still reports verified project media storage separately, and Quick Cut keeps its confirmed folder-save feedback.
+- Image Converter and Logo Maker announce that a download has started rather than claiming the browser has saved the file.
+- The posting planner explains empty, fractional and out-of-range post counts. Invalid counts disable CSV actions until a whole number from 1 to 14 restores the schedule.
+- Escape closes mobile marketing navigation and the documentation sidebar, returning keyboard focus to the opening control.
+- Public post previews reject damaged local images with recovery guidance and preserve the current media. Later selections and preview-format changes cancel stale image checks.
+- Keep Publications, Inbox, Analytics and Media visible in desktop navigation. Name the editor creation dropdown Editors.
+- Keep the desktop planner scrollable on short windows so Drafts remains reachable while navigation stays visible.
+- The handle checker guide explains automatic format detection instead of asking you to use a nonexistent platform selector.
+- Empty local images now ask for a fresh export or another file. The smaller-file guidance remains for uploads that exceed the size limit.
+- Explicit Light and Dark appearance choices now control social post cards and full-page previews independently of the surrounding theme in production builds.
+- Pixel Sort explains when reversed thresholds match no pixels. ASCII explains when a custom character set has no visible characters. The guidance follows the values at the playhead and describes the relevant controls, while keeping intentional values, keyframes and Undo intact. (PXS001, ASC001)
+- Quick Cut explains when transcription finishes without speech and keeps that result visible when the saved transcript is reopened. Language and source audio can be changed before retrying. (QC003)
+- Quick Cut explains why transcription is disabled when source audio is deselected and points to the audio track controls needed to enable it again. (QC004)
+- Quick Cut keeps the saved transcript’s audio track while it remains enabled, so retaining another audio track no longer hides cached words or redirects transcription (QCM001). Turning off that track still selects another enabled track without deleting the cached transcript.
+- Reordered Quick Cut previews play the final short part instead of stopping at its start. Segment-end checks wait for the next source seek and playback to settle, while cancelled previews remain fenced. (QCR001)
+- Quick Cut says “Remove word” when one transcript word is selected and keeps the counted plural for other selections (QCS001).
+- Quick Cut explains how to restore removed transcript words after reopening a saved project. The Transcript panel shows their source times and opens the kept-range editor, so phrases can be recovered without Undo or resetting earlier cuts (QSP001).
+- Quick Cut Back returns to the project library without reopening the project from its old URL. Failed saves keep the project open and show an error when Back cannot complete. Audit QCB001.
+- Quick Cut estimates export storage from the output and temporary working files instead of requiring an extra 50 MB for every export. Small exports can proceed when they fit, while exports exceeding the remaining browser quota stay blocked. Audit F005.
+- Quick Cut keeps keyboard focus on the moved part when a boundary reorder disables its button. Removing a part focuses a surviving neighbor, or the empty list after the last removal. Audit QKF001.
+- Quick Cut opens Transcript safely for video-only sources and explains why transcription and Cleanup are unavailable without audio. Audit F003 and F004.
+- Quick Cut cleanup now analyzes explicitly selected audio streams instead of failing to clone their reactive selection into a worker. Multiple selected streams still protect audible material in any retained stream. Failed dispatch also releases the worker (QMC001).
+- The speed ramp explains when Add point reaches an existing point and tells you to move the playhead. The rejected action does not create a history entry or dirty the project. (R001)
+- Speed ramp points can be moved by dragging, arrow keys or source-frame fields. Points stay within the source and cannot cross their neighbors. Drag previews stay local until drop, and Escape cancels without changing history. Linked media, timing and keyframes update together through the existing speed action. (R002)
+- Audio-only exports show only relevant settings. Video quality, resolution, subtitles and sequence pixel dimensions return when switching back to a video format. (R003)
+- Active Video Editor exports show their render progress without the conflicting Ready to render summary. Cancelling restores the idle export checks. (R004)
+- Reopening Video Editor export for the same project preserves the chosen resolution alongside quality, so Draft preview stays at 854 × 480. New projects and sequence changes retain their sequence-size default. (R005)
+- Export resolution distinguishes the selected sequence size from fixed dimensions, including when both are currently 1920 × 1080. The choices keep their existing output behavior. (R006)
+- Editor panel resize handles stay below popovers, so pointer clicks on timeline marker Clear reach the visible button. Uncovered handles retain pointer and keyboard resizing (RMQ001).
+- Incomplete invitation and device authorization links explain how to get a new link and offer a return to OpenPost. Invalid previews offer an Open composer action.
+- Incomplete ownership-transfer links keep their explanation and offer a return to OpenPost instead of retrying a missing ID. Transfer links with an ID retain retry recovery.
+- Email verification shows incomplete-link recovery guidance once, without repeating the same paragraph above its alert.
+- Checkout stops showing opening progress when Paddle confirms the payment window has loaded. Payment confirmation and retry states remain separate.
+- Adding a weekly posting time that already exists for every selected day now explains that nothing was added. Adding missing weekdays still reports success.
+- Developer access now shows authorized workspace names beside API tokens and recent MCP activity. Unknown workspace identities remain visible as IDs, and unrestricted tokens remain labeled All workspaces.
+- Instance AI prompts now use the same platform names as social accounts, including Pixelfed, PeerTube, Lemmy, and PieFed, in navigation and selected prompt details.
+- Organizations without SSO domains or identity events load their settings correctly. Empty lists return arrays, and failed initial reads show recovery without claiming the configuration is empty.
+- Composer time choices now follow the saved interval across hour boundaries, including ninety-minute intervals, instead of restarting at each hour.
+- Scheduling settings explain inverted composer time ranges and prevent saving them. The API also rejects ranges whose end precedes their start, including updates to only one bound.
+- Source position and in/out sliders respond to keyboard arrows, Home and End. Source shortcuts no longer block focused controls during event capture (SKM001).
+- Opening Source on a phone reveals its monitor and moves focus into it, so users can inspect media without discovering a separate panel switch (SPN001).
+- Removing a weekly posting time now deletes all its weekdays in one transaction. Reloading during removal can no longer leave a partially deleted row. Retries safely accept already removed slots and preserve other times and workspaces.
+- Cloud Video Projects can generate, reuse and delete source transcripts without picking a local folder. Transcripts persist in browser storage scoped to the signed-in account and Workspace. Cancelled jobs and editor changes cannot redirect their saves. Local projects keep transcripts in their selected folder. (STC001)
+- Stock videos can be previewed before import (SVD001). Preview loads the provider's playable source on demand, stops when closed or the search changes, and keeps a link to the specific provider page.
+- Testing a theme from a lower catalog card now brings its dashboard sample into view on desktop as well as phones. Reduced-motion preferences remain respected.
+- Transcript cuts report the selected word count captured before the edit, instead of zero after those words disappear (CA003).
+- Cutting editable source words explains when locked captions were kept and how to update them. Locked tracks remain unchanged (CLF001).
+- Status screenshot templates show a separator only between filled stage and update fields. Blank titles, timestamps and wholly empty rows stay editable without exporting empty placeholders (TT001).
+- Preserve partial decimal and negative text in audio and other editor numeric fields, and nudge from the current value when a draft is incomplete (VC-001).
+- Preserve partial numeric text while typing in editor fields, so decimal and negative values can be entered without being replaced by a range limit (VC-001).
+- Cloud Video history lets you inspect saved titles, canvas settings, timeline changes and authored track, clip and sequence names before restoring. Comparisons use the latest saved version, leave the open edit untouched and omit device view state.
+- Cloud Video conflict history shows the authored project name, saved revision and whether an edit came from this browser or another browser or device. Full stored device IDs and read-only change details remain available; missing origins are not guessed.
+- Conflict copies retain their source media through independent project references. Shared media status updates reach each project; unfinished source uploads keep the local edit available for retry.
+- Conflict copies open immediately without retrying the old conflicting save.
+- Corner-pin rows leave room for their touch-sized inputs, preventing adjacent controls from overlapping on touch screens.
+- Locked tracks and groups protect text, caption styling and corner-pin edits, including span and text-effect actions. Their inspector edit controls stay disabled while browsing and disclosure controls remain usable. Audit F001 and CLB001.
+- Explain Source and Program shuttle scope in the Playback shortcut list, including why focused sliders, buttons and text fields keep their own keys. (VKP001)
+- Keep the selected Source destination track name visible when the track is locked. Its disabled menu entry and existing unlock guidance identify the track blocking an edit. (VLT001)
+- Paused video previews repaint when a shape mask's inversion, opacity, feather or mask type changes, including Undo and Redo.
+- Path and mask editing controls stay within the preview instead of rotating with the shape or covering the canvas tools. Secondary path actions use More, and touch controls have 44px targets.
+- Mask guidance names the Edit mask control shown in the canvas toolbar.
+- Keep saved feedback clear of editor workspace tabs at narrow widths, with touch controls remaining reachable.
+- Source marks limit playback while paused seeking remains available across the full source, allowing users to find a later out point (VS001).
+- Moving a rotated, scaled or flipped Video Editor anchor keeps the clip in place. The direct preview uses the authored pivot, matching composited frames.
+- Workflow output now marks changes to the current node configuration or captured test data while preserving its completed state, stored result, and workflow revision. Run history retains its immutable snapshot without draft warnings (W001).
+- Selecting a variable in an empty workflow JSON field now replaces its empty list or object default with a typed reference, rather than creating invalid concatenated JSON (W002).
+- Newly added workflow steps and their next-step controls stay in the canvas viewport without requiring Fit canvas.
+- An untested Wait node now points to Run preview for simulated sample output, rather than offering an individual node test that Wait does not support (W004).
+- Active workflows explain empty run history, including the wait for the first scheduled interval and background check. Draft changes do not replace the published timing shown to users.
+- Failed workflow Builder steps retain their native build identity and safe error, with authorized read-only build inspection in the run output even when AI is unavailable.
+- Workflow Builder destinations show required guidance before a live run, while ordinary draft steps keep optional destinations.
+- Cancelled workflow runs explain that child-step states show the last recorded state. Historical Waiting and Completed results remain intact instead of implying that a cancelled run is still active. (WC002)
+- Workflow run reads reconcile the selected run with its history cards. Older in-flight list or detail responses no longer replace a newer run revision, and newer server revisions remain authoritative across approval and completion transitions. (WC003)
+- Empty workflow variable searches describe variables instead of nodes.
+- Workflow Preview, Live, and node tests report malformed sample JSON in Test data before checking node variables. The sample field keeps its text and receives focus; corrected JSON can run without an empty-object fallback. Full runs still require an object, while node tests preserve valid JSON values and literal field names, including nested prototype-named data keys. (WFA-001)
+- Testing a workflow node explains invalid inputs using their visible labels and returns focus to the field that needs correction.
+- Workflow canvas positions now survive reopening in the same browser, scoped to the Workspace and workflow. The canvas distinguishes browser-saved positions from session-only positions when storage is blocked (WFG003).
+- Failed workflow HTTP JSON parsing retains the response status and bounded, redacted Content-Type for inspection, and explains how to correct the response format. Malformed response bodies are not retained in diagnostics, and failed requests are not retried automatically.
+- HTTP workflow nodes explain that Test node sends the configured request, while Preview does not.
+- Workflow node keyboard instructions describe selection, movement, and the owning step actions without advertising deletion from the canvas wrapper. Read-only results have separate inspection guidance.
+- Keyboard workflow node moves now share pointer placement history, Undo, Redo, and device-local retention without changing workflow execution order or saved revisions (WKP001).
+- Saved workflow destinations finish loading when Social Sets and capability responses arrive in either order.
+- Post-created workflow events expose the post’s creation time as `created_at` and omit `published_at` for unscheduled drafts. Source examples and the variable picker use the same fields.
+- Feed workflow sources explain malformed URLs and embedded credentials before activation, with the same warning in the field and canvas.
+- Schedule workflow sources show interval guidance once while retaining range validation.
+- List and Calendar show the same authored time for scheduled posts, including posts with randomized dispatch delays. Published posts retain their actual run time. Existing schedules and queued jobs are unchanged.
+- Empty replies explain that no text or attachments are available. Attachment-only replies and explicit deletion notices keep their existing meaning and actions.
+- Random shows the selected writing idea and example before opening the composer. Choose New post to start a draft; choosing another category or Workspace clears the selection.
+- Today reveals the current date in the Calendar agenda and resets a later empty-date choice to today. Keyboard focus stays on Today, including when the current month finishes loading.
+- Calendar's compact week agenda is labelled as weekly. Its empty-date guidance and picker name use the displayed week range, including weeks spanning two months.
+- Public profile activity keeps the recent dates visible when the page narrows. Older dates remain keyboard reachable, and deliberate scrolling is preserved across resizing.
+- Public profile headers direct signed-in viewers to their own profile settings instead of offering registration. Anonymous visitors retain the registration link.
+- Video Editor cleanup reports the number of reviewed source sections it removed, rather than counting linked clips and ripple pieces separately (CCT001). Locked sources and sections outside the selected source window do not inflate the count.
+- Draft saves keep destination segments and new first comments bound to their canonical source after server IDs are assigned, instead of rejecting the save.
+- Customized thread versions that combine into one post retain each source text and media choice after reopening, without duplicating the continuation.
+- Shared media changes also refresh combined versions while preserving their independent source attachments.
+- Reusing an image across combined source posts keeps one output attachment instead of failing the save.
+- Adding media to a later thread post no longer makes an earlier text post's native poll unavailable. Each preserved post keeps its own poll eligibility; media on the poll's own post and joined destination outputs still respect provider restrictions.
+- Post destinations retain their authored order across saves, reloads and inventory return. Existing destinations receive a stable order on upgrade. Composer tab labels include the platform to distinguish accounts with the same username.
+- Post history reports the authored fields that actually changed. Unchanged full saves no longer claim changes to destinations, media, schedules or automation, and inherited joined output does not appear as a changed custom variant.
+- Video Editor keeps the playhead and playback clock on a valid frame when cleanup, speed changes or other committed edits shorten the timeline. Undo and Redo apply the same boundary while preserving valid navigation and cancelled gestures (CPL001).
+- Preserve the control you focus while a dialog opens, so a quick keyboard confirmation cannot activate Cancel instead.
+- Focus the first control when opening a dialog from an editor menu, while preserving a control already chosen inside the dialog.
+- Documentation Ask AI links keep the `/docs` path when sharing a guide with an assistant.
+- Dropdown opening focus no longer resets a keyboard choice made while the menu is appearing.
+- Use singular wording for one affected post in Inbox collection recovery, with localized recovery guidance in every supported language.
+- Video Editor project summaries use labeled clip, media and issue counts in every language, including zero and one (F002).
+- Reduce the cookie notice footprint and add a small cookie icon, while keeping consent choices and privacy details accessible.
+- Include the shared button texture opacity in the initial light and dark theme tokens.
+- Keep spaces around the separator between a status update's stage and message in the template preview and exported image.
+- Follow the selected icon theme in the cookie preferences disclosure.
+- Font uploads show visible keyboard focus on the file selection control.
+- Image conversion thumbnail labels fit inside their artwork at desktop and phone sizes.
+- Keep marketing heading circles clear of long phrases after responsive resizing.
+- Keep image publication and promotion from failing when digest extraction closes the inspection output early.
+- Fail marketing browser CI when a test passes only after a retry, matching the application suite.
+- Grouping the same Motion layers again keeps their existing group and Undo history, without leaving an empty group.
+- Preserve Media search, filters, sort, layout, and page when returning with browser Back or Forward. Keep unfinished search text separate from submitted results, and discard saved discovery state when the signed-in person or Workspace changes.
+- Explain when Messages filters or Archived have no matches, with a Clear filters action to return to the inbox. The unfiltered setup state now links to account details. Account feature restrictions keep their existing guidance.
+- Motion explains how composition FPS changes affect frame-based duration and new instances. Existing clips keep their inserted frame rate (MT002). Saved timing and preview/export behavior are unchanged.
+- Music generation shows the selected starting point instead of always showing Cinematic pulse (MU001). The brief remains editable.
+- Unread notifications no longer appear read while the counter reports unread items. The API omits an unset read timestamp, so notification labels, filters and counts agree before and after marking read or reloading.
+- Custom writing prompts can be edited without replacing them or starting a post. Corrections retain the prompt’s identity and respect creator, Workspace role and credential permissions.
+- Returning from a published post keeps the Published list selected, including browser Back and reload. Detail-return coverage now verifies the existing tab-history repair instead of adding a second navigation fix.
+- Popovers preserve a control chosen during opening, so a saved schedule time is not replaced by the first slot.
+- Documentation copy buttons report denied clipboard access, offer the original text for manual copying, and let readers retry. Code, heading links and page Markdown show success only after a completed copy. (PostHog 01a0a965-b673-7d82-b332-5da07e8d4a7d)
+- HTTP failures report once when request logging and Echo handle the same error. Interrupted response streams retain their actual HTTP status and a separate failure diagnostic; request cancellation is distinguished from independent storage and server timeouts.
+- Keep the Publications List tab and address in agreement when switching back to Scheduled. Reload and browser history now retain the selected tab, with explicit tab links taking precedence over the remembered view.
+- Rejected Quick Cut overlapping edits and segment imports now explain how to adjust or remove an existing range before retrying. They no longer suggest normalizing a candidate that was never added. QCI001.
+- Quick Cut time fields now show the accepted range after rejected edits and Undo. Escape cancels an unfinished time edit, and invalid timecodes explain the accepted format. QCT001.
+- Keep Quick Cut source transcripts in the captured local folder or account-scoped browser cache. Cloud project saves exclude these derived words, and replacing a source invalidates its cached transcript.
+- Package validation accepts local Turbo caches while retaining the published-file allowlist.
+- Editor assistant readiness and preferences use the shared Query cache and central authenticated transport. Read failures retain their HTTP status for retry and recovery, and cancelled editor panels cannot apply a stale readiness result.
+- Dependency patch verification reports rejected artifacts directly on standard error, even when the runtime suppresses uncaught exception output.
+- Prevent dependency security checks from following linked workspaces while retaining verification of linked package installations.
+- Video Editor closes the actions menu after Undo or Redo, including when the selected command becomes disabled.
+- Keyboard navigation keeps timeline controls and their focus outline visible on narrow screens. Scrolling waits for the toolbar layout and leaves later focus alone.
+- Workflow variable pickers and schema rows distinguish literal dotted keys from nested fields. Either choice resolves its own value without crashing the picker.
+- Workflow field errors distinguish explicit null values from absent fields and explain how to correct null values. Existing null guards and literal null values remain unchanged.
+- Workflow JSON previews preserve quotes, backslashes, newlines, and Unicode in substituted values. Invalid JSON and embedded values that cannot execute no longer show a resolved JSON preview.
+- Workflow run history keeps each saved graph intact while switching runs or returning to the list, without crashing the canvas.
+- Merge data explains list order, second-input precedence and replacement of entire nested values before execution.
+- Rejected workflow loop connections now explain how to correct the connection and never appear as accepted edges (WFG-001).
+- Workflow ports now identify their node, direction and Yes or No branch for assistive technology (WFG-004).
+- Opening a pending approval from Workflows run history loads destination accounts so the review opens and shows account names correctly.
+- Opening a workflow inspector no longer steals focus from a field after typing begins. Keyboard entry and focus return remain available.
+- Adding a workflow step keeps the new step selected and opens its fields instead of returning to the trigger.
+- Workflow input ports remain above their node cards so the visible port center accepts pointer connections.
+- Workflow post reviews show account and platform names instead of internal destination keys. Identical title and body text appears once; distinct fields remain labelled.
+- Post review conflicts now explain that the post changed, instead of asking users to save the workflow. Refresh reloads the post for review without approving it.
+- Returning from workspace run details restores keyboard focus to the run card that opened them.
+- Newly created workspaces remain in the switcher when returning to an earlier workspace. Updating the signed-in user's profile no longer marks an old workspace inventory as fresh.
+- Workflow Sort items rejects mixed text and numeric fields with guidance to use one type throughout the list. Numeric and text sorting keep their own order and preserve equal-item order.
+
+### Changed
+
+- Simplified cookie banners across the app, website, and docs with clearer copy, direct Accept and Decline actions, and cookie-free analytics under More options.
+- Split Workflows documentation into a dedicated section with focused guides and template walkthroughs. Keep external automation separate, redirect old guide URLs, and remove Workflows from the landing page Resources menu.
+- Simplified public documentation around complete tasks, merged duplicate setup pages, removed unhelpful screenshots, and kept retired links working.
+- Shortened Workflow guides and linked repost setup from run management.
+- Refreshed the native mobile app with flatter content sections, shared gradient buttons, and a month calendar with a time-ordered daily agenda. Quick capture now scrolls with drafts.
+- Posts now brings List and Calendar together with a consistent view switch. On phones, Calendar shows a compact month or week picker and the selected day's posts, including history. Filters stay behind one control, and Publication wording has been replaced with post throughout the app.
+- Redesigned social sharing images across the landing page, free tools, platform pages, and documentation with original landing artwork, larger titles, and prominent topic symbols.
+- Image Editor guidance distinguishes formatting selected characters from changing the whole layer's font family and size.
+- The Meme API filename documentation specifies `.jpg` for both `jpg` and `jpeg` output formats. Existing strict extension validation is unchanged.
+- Workflows using Post created with `source.published_at` must change that binding to `source.created_at`. Existing workflow definitions and historical run snapshots are not rewritten. Publication timestamps for feeds, releases and published variants remain unchanged.
+- Free tool thumbnails show format changes and tool-specific previews, using the marketing palette and shared icons.
+- Advance the Android app to 0.2.49 (51) and update the npm CLI wrapper to install the v7.8.7 release.
+- Release the SDK media-copy source type in version 0.3.2.
+
+### Added
+
+- MCP clients can upload local files with `upload_media_base64` when a file picker or public URL is unavailable. Files use the shared media pipeline, with an 8 MiB decoded limit and a 12 MiB request limit.
+- Edit open Image and Video projects through MCP or the built-in Assistant, with live canvas updates, source evidence, composed previews, exports and safe undo.
+- Reuse favorites and templates, save explicit editing rules and versioned styles, and control suggestions from manual library choices.
+- Added durable AI clip suggestions from recording transcripts, with up to three distinct moments, source-word timing, and cancellation and retry. Suggestions remain separate from posts until reviewed.
+- Theme testing now offers a temporary color-scheme control for paired themes. Comparing light and dark previews does not change saved appearance or theme assignments; stopping testing restores the saved appearance.
+- Free browser tools for video container and codec conversion, audio conversion, soundtrack extraction, silent videos, compression, and media file inspection. Each has a guide, searchable directory entry, and social preview.
+- Choose a source video frame, edit it in Image Editor, and return it to the original destination as a cover. Sampled frames help navigation; timestamp-only destinations keep their frame selection. Edited covers never replace the video attachment, and returns reject a post changed during editing.
+- New cover text starts with a readable light title on a dark highlight, editable with the existing text controls.
+- Review pauses, filler words and possible repeated starts through Clean up recording in Video Editor. Add captions from the review, keep individual suggestions, and apply optional noise reduction and compression with the cuts in one undoable step.
+- Find up to three clips from a Quick Cut transcript, preview the selected audio, adjust word-aligned times, and create independent editable clip projects. Reviews and completed links resume on this device; original cuts and source media stay intact.
+
+### Operators
+
+- The built-in editor Assistant uses the configured OpenRouter provider and `OPENPOST_EDITOR_AGENT_MODEL`. Hosted requires a signed-in editor on an active paid plan and records each AI call. External MCP retains ordinary workspace access. Keep the browser project open for editing and rendering.
+
+### Improved
+
+- Scheduling uses a compact calendar with post markers and a daily agenda for scheduled and published posts. Browse past dates, enter an exact time, or pick a saved time slot without scrolling through a full-height time list.
+- Filtered Video Editor Library results explain that no items match and offer Clear filters. Recipe management buttons identify their action separately from insertion.
+- Workflow history cards show Preview, Live or Test node and the recorded workflow revision before opening a run.
+
+### Security
+
+- Apply the upstream Braces nesting-limit fix to web tooling and mobile dependencies. Security audits verify the installed patch before admitting the advisory for its unchanged upstream version.
+- Update DOMPurify, Axios, devalue, and Next.js to patched compatible releases for newly reported sanitization, request handling, serialization, and image-generation vulnerabilities.
+
 ## [7.6.2] - 2026-09-30
 
 ### Fixed

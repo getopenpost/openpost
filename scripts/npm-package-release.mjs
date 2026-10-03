@@ -16,6 +16,11 @@ import { parseNpmPackResult } from "./npm-pack-result.mjs";
 import { parseNpmViewResult } from "./npm-view-result.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// npm may accept publication several minutes before its read replicas serve the version.
+const registryPropagationWaitSeconds = 6 * 60;
+const registryPollIntervalSeconds = 5;
+const registryPropagationAttempts =
+  registryPropagationWaitSeconds / registryPollIntervalSeconds + 1;
 const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
 const versionPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
@@ -194,7 +199,7 @@ function requireMatchingRegistryVersion({ name, version, integrity, attempts = 1
         `${name}@${version} already exists with integrity ${assessment.publishedIntegrity}; local integrity is ${integrity}. Increase the package version.`,
       );
     }
-    if (attempt < attempts) execFileSync("sleep", ["5"]);
+    if (attempt < attempts) execFileSync("sleep", [String(registryPollIntervalSeconds)]);
   }
   return false;
 }
@@ -240,7 +245,7 @@ function publish() {
           name: manifest.name,
           version: manifest.version,
           integrity: pack.integrity,
-          attempts: 24,
+          attempts: registryPropagationAttempts,
         })
       ) {
         throw new Error(
@@ -253,7 +258,7 @@ function publish() {
         name: manifest.name,
         version: manifest.version,
         integrity: pack.integrity,
-        attempts: 24,
+        attempts: registryPropagationAttempts,
       })
     ) {
       throw new Error(`${manifest.name}@${manifest.version} did not become readable from npm.`);

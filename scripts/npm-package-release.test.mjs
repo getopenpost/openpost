@@ -1,4 +1,9 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
@@ -107,3 +112,73 @@ test("registry reconciliation distinguishes absent, matching, and conflict", () 
     { state: "conflict", publishedIntegrity: "sha512-b" },
   );
 });
+
+for (const publishStatus of [0, 1]) {
+  test(`publication reconciles a registry version readable after three minutes (publish exit ${publishStatus})`, () => {
+    const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "openpost-registry-delay-"));
+    const manifest = JSON.parse(
+      readFileSync(new URL("../packages/sdk/package.json", import.meta.url), "utf8"),
+    );
+    const metadata = JSON.stringify({
+      name: manifest.name,
+      version: manifest.version,
+      "dist.integrity": "sha512-matching-package",
+    });
+    try {
+      writeFileSync(path.join(temporaryDirectory, "elapsed"), "0");
+      writeFileSync(
+        path.join(temporaryDirectory, "npm"),
+        `#!/bin/sh
+case "$1" in
+  pack) echo '[{"filename":"sdk.tgz","integrity":"sha512-matching-package"}]' ;;
+  publish) echo publish >> "$REGISTRY_FIXTURE/publishes"; exit ${publishStatus} ;;
+  view)
+    elapsed=$(cat "$REGISTRY_FIXTURE/elapsed")
+    if [ "$elapsed" -ge 180 ]; then
+      echo '${metadata}'
+    else
+      echo 'E404 Not Found' >&2
+      exit 1
+    fi ;;
+  *) exit 99 ;;
+esac
+`,
+        { mode: 0o700 },
+      );
+      writeFileSync(
+        path.join(temporaryDirectory, "sleep"),
+        `#!/bin/sh
+elapsed=$(cat "$REGISTRY_FIXTURE/elapsed")
+echo "$((elapsed + $1))" > "$REGISTRY_FIXTURE/elapsed"
+`,
+        { mode: 0o700 },
+      );
+      const result = spawnSync(
+        "node",
+        [
+          fileURLToPath(new URL("./npm-package-release.mjs", import.meta.url)),
+          "publish",
+          "--package",
+          "packages/sdk",
+        ],
+        {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PATH: `${temporaryDirectory}${path.delimiter}${process.env.PATH}`,
+            REGISTRY_FIXTURE: temporaryDirectory,
+            GITHUB_OUTPUT: path.join(temporaryDirectory, "output"),
+          },
+        },
+      );
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(
+        readFileSync(path.join(temporaryDirectory, "output"), "utf8"),
+        /integrity=sha512-matching-package/u,
+      );
+      assert.equal(readFileSync(path.join(temporaryDirectory, "publishes"), "utf8"), "publish\n");
+    } finally {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+  });
+}

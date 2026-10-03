@@ -598,6 +598,8 @@ jobs:
           path: apps/marketing/dist
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
+      - name: Install media conversion fixture tools
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
       - env:
           OPENPOST_E2E_PREBUILT: "1"
         run: bun run test -- e2e

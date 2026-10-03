@@ -229,6 +229,12 @@ for (const scheme of ["light", "dark"] as const) {
 test("a cached local video project reopens and exports offline", async ({ page, context }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {
+    if (!("showOpenFilePicker" in window)) {
+      Object.defineProperty(window, "showOpenFilePicker", {
+        configurable: true,
+        value: async () => [],
+      });
+    }
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
       value: async () => {
@@ -269,7 +275,10 @@ test("a cached local video project reopens and exports offline", async ({ page, 
   await page.reload();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Export MP4" }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
+  await page.getByRole("option", { name: "MP4", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
   await expect(page.getByText("Saved Offline video proof.mp4.")).toBeVisible({
     timeout: 60_000,
   });

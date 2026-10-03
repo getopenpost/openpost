@@ -6,6 +6,12 @@ import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 async function installLocalWorkspacePicker(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    if (!("showOpenFilePicker" in window)) {
+      Object.defineProperty(window, "showOpenFilePicker", {
+        configurable: true,
+        value: async () => [],
+      });
+    }
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
       value: async () => {
@@ -161,14 +167,17 @@ async function seedDistinctSequences(page: Page): Promise<void> {
   });
 }
 
-test("Video Editor quick export saves an MP4 in the workspace", async ({ page }) => {
+test("Video Editor renders and saves an MP4 in the workspace", async ({ page }) => {
   test.setTimeout(90_000);
   const projectName = "Quick export proof";
   await createProject(page, projectName);
   await addTextItem(page);
 
   await openHeaderMoreMenu(page);
-  await page.getByRole("menuitem", { name: "Export MP4" }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
+  await page.getByRole("option", { name: "MP4", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
   await expect(page.getByText(`Saved ${projectName}.mp4.`)).toBeVisible({
     timeout: 60_000,
   });

@@ -38,6 +38,12 @@ async function createShaderProject(
   resolution?: { width: number; height: number },
 ) {
   await page.addInitScript(() => {
+    if (!("showOpenFilePicker" in window)) {
+      Object.defineProperty(window, "showOpenFilePicker", {
+        configurable: true,
+        value: async () => [],
+      });
+    }
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
       value: async () => {
@@ -139,7 +145,10 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await expect(canvas).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Export MP4", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
+  await page.getByRole("option", { name: "MP4", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
   await expect(page.getByText("Saved Shader proof.mp4.", { exact: true })).toBeVisible({
     timeout: 60_000,
   });
@@ -306,7 +315,10 @@ test("Paper backgrounds and chained shader effects survive reopening and export"
     "Dark areas",
   );
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Export MP4", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
+  await page.getByRole("option", { name: "MP4", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
   await expect(page.getByText("Saved Shader proof.mp4.", { exact: true })).toBeVisible({
     timeout: 60_000,
   });

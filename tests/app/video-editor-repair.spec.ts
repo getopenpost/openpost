@@ -136,7 +136,10 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   await expect(page.getByRole("img", { name: "A launch with spaces", exact: true })).toBeVisible();
   await expect(page.getByText("Save failed", { exact: false })).toHaveCount(0);
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Export MP4", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
+  await page.getByRole("option", { name: "MP4", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
   await expect(
     page.getByText("Saved Text proof.mp4.", {
       exact: true,

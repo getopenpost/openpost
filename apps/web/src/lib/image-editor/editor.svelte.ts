@@ -12,7 +12,7 @@ import {
 	isEmptyImageEditorPaintLayer,
 	imageEditorID
 } from './document';
-import { defaultLayerEffects, defaultTextCurve } from './effects';
+import { defaultLayerEffects, defaultTextCurve, imageEditorMaskRadiusLimit } from './effects';
 import { imageEditorPageDimensions } from './page-dimensions';
 import { IMAGE_EDITOR_SCHEMA_VERSION } from './types';
 import {
@@ -1776,6 +1776,7 @@ export class ImageEditorController {
 	}
 
 	updateLayer(id: string, updates: Partial<ImageEditorLayer>, coalesceKey?: string): void {
+		if (updates.mask && !Number.isFinite(updates.mask.radius)) return;
 		if (
 			this.isLayerLocked(id) &&
 			Object.keys(updates).some((key) => key !== 'locked' && key !== 'visible' && key !== 'name')
@@ -1789,6 +1790,15 @@ export class ImageEditorController {
 					?.layers.find((item) => item.id === id);
 				if (!layer) return;
 				Object.assign(layer, updates);
+				if (updates.mask) {
+					layer.mask = {
+						...updates.mask,
+						radius: Math.max(
+							0,
+							Math.min(updates.mask.radius, imageEditorMaskRadiusLimit(layer.transform))
+						)
+					};
+				}
 			},
 			coalesceKey
 		);

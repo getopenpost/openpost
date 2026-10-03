@@ -3,7 +3,8 @@ import type {
 	ImageEditorLayerStrokeEffect,
 	ImageEditorLayerMask,
 	ImageEditorShadowEffect,
-	ImageEditorTextCurve
+	ImageEditorTextCurve,
+	ImageEditorTransform
 } from './types';
 
 export const DEFAULT_SHADOW_EFFECT: ImageEditorShadowEffect = {
@@ -31,6 +32,12 @@ export function defaultTextCurve(): ImageEditorTextCurve {
 
 export function defaultLayerMask(): ImageEditorLayerMask {
 	return { shape: 'rectangle', inset: 0, radius: 32 };
+}
+
+export function imageEditorMaskRadiusLimit(
+	transform: Pick<ImageEditorTransform, 'width' | 'height'>
+): number {
+	return Math.max(1, Math.min(transform.width, transform.height) / 2);
 }
 
 export interface ImageEditorShadowOffset {

@@ -1672,3 +1672,24 @@ it('protects locked descendant colors and adjustment gestures without blocking u
 	editor.commitImageAdjustmentGesture();
 	expect(JSON.stringify(editor.document)).toBe(imageBaseline);
 });
+
+it('bounds authored mask radius without rounding valid fractions', () => {
+	const editor = new ImageEditorController();
+	const initial = response();
+	const target = initial.document.pages[0].layers[0];
+	target.transform.width = 381.75;
+	target.transform.height = 214.875;
+	target.mask = { shape: 'rounded_rectangle', inset: 0, radius: 32.25 };
+	editor.load(initial);
+	editor.updateLayer(target.id, { mask: { ...target.mask, radius: 108 } });
+	expect(editor.activePage!.layers[0].mask!.radius).toBe(107.4375);
+	editor.undo();
+	expect(editor.activePage!.layers[0].mask!.radius).toBe(32.25);
+	editor.redo();
+	expect(editor.activePage!.layers[0].mask!.radius).toBe(107.4375);
+	editor.updateLayer(target.id, { mask: { ...target.mask, radius: 101.75 } });
+	expect(editor.activePage!.layers[0].mask!.radius).toBe(101.75);
+	editor.updateLayer(target.id, { mask: { ...target.mask, radius: -1 } });
+	expect(editor.activePage!.layers[0].mask!.radius).toBe(0);
+	expect(editor.activePage!.layers[0].transform).toEqual(target.transform);
+});

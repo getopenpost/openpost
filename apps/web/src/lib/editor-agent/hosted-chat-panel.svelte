@@ -53,7 +53,8 @@
 			: (assistantStatus.data?.available ?? (assistantStatus.isError ? false : null))
 	);
 	let unavailableReason = $derived(
-		assistantStatus.data?.reason ?? assistantStatus.error?.message ?? ''
+		assistantStatus.data?.reason ??
+			(assistantStatus.error instanceof Error ? assistantStatus.error.message : '')
 	);
 	let messages = $state<ChatMessage[]>([]);
 	let input = $state('');

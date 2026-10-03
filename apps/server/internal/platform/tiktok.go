@@ -292,6 +292,9 @@ func (t *TikTokAdapter) publish(ctx context.Context, accessToken string, req *Pu
 }
 
 func (t *TikTokAdapter) publishDirectVideoFromURL(ctx context.Context, accessToken string, req *PublishRequest) (string, error) {
+	if settingInt(req.Settings, "cover_timestamp_ms") < 0 {
+		return "", fmt.Errorf("tiktok cover timestamp must be non-negative")
+	}
 	privacyLevel, err := t.privacyLevel(ctx, accessToken, req.Settings)
 	if err != nil {
 		return "", err
@@ -314,7 +317,8 @@ func (t *TikTokAdapter) publishDirectVideoFromURL(ctx context.Context, accessTok
 		},
 		"post_mode": "DIRECT_POST",
 	}
-	if coverTimestamp := settingInt(req.Settings, "cover_timestamp_ms"); coverTimestamp > 0 {
+	if settingString(req.Settings, "cover_timestamp_ms") != "" {
+		coverTimestamp := settingInt(req.Settings, "cover_timestamp_ms")
 		payload["post_info"].(map[string]any)["video_cover_timestamp_ms"] = coverTimestamp
 	}
 
@@ -714,12 +718,44 @@ func (t *TikTokAdapter) waitForPublishID(ctx context.Context, accessToken, publi
 	return publishID, nil
 }
 
+// TikTok documents numeric int64 IDs but also returns string IDs. Decode each
+// directly, without a floating-point conversion that could change the post ID.
+type tiktokPostIDs []string
+
+func (ids *tiktokPostIDs) UnmarshalJSON(data []byte) error {
+	var values []json.RawMessage
+	if err := json.Unmarshal(data, &values); err != nil {
+		return err
+	}
+	decoded := make(tiktokPostIDs, 0, len(values))
+	for _, value := range values {
+		var id string
+		if len(value) > 0 && value[0] == '"' {
+			if err := json.Unmarshal(value, &id); err != nil {
+				return err
+			}
+		} else {
+			if string(value) == "null" {
+				return fmt.Errorf("tiktok public post ID cannot be null")
+			}
+			var number int64
+			if err := json.Unmarshal(value, &number); err != nil {
+				return err
+			}
+			id = strconv.FormatInt(number, 10)
+		}
+		decoded = append(decoded, id)
+	}
+	*ids = decoded
+	return nil
+}
+
 type tiktokPublishStatusResponse struct {
 	Data struct {
-		Status                   string   `json:"status"`
-		PubliclyAvailablePostID  []string `json:"publicly_available_post_id"`
-		PublicalyAvailablePostID []string `json:"publicaly_available_post_id"` //nolint:misspell
-		FailReason               string   `json:"fail_reason"`
+		Status                   string        `json:"status"`
+		PubliclyAvailablePostID  tiktokPostIDs `json:"publicly_available_post_id"`
+		PublicalyAvailablePostID tiktokPostIDs `json:"publicaly_available_post_id"` //nolint:misspell
+		FailReason               string        `json:"fail_reason"`
 	} `json:"data"`
 	Error tiktokAPIError `json:"error"`
 }

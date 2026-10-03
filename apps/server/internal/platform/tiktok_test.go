@@ -590,3 +590,97 @@ func jsonResponseWithStatus(req *http.Request, statusCode int, body string) *htt
 		Request:    req,
 	}
 }
+
+func TestTikTokReconcilePreservesPublicPostIDs(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	const publishID = "v_pub_file~123456789"
+	for _, fixture := range []struct{ name, data, want string }{
+		{"documented numeric", `"publicaly_available_post_id":[7529123456789012345]`, "7529123456789012345"}, //nolint:misspell
+		{"alternate numeric", `"publicly_available_post_id":[7529123456789012345]`, "7529123456789012345"},
+		{"documented string", `"publicaly_available_post_id":["7529123456789012345"]`, "7529123456789012345"}, //nolint:misspell
+		{"alternate string", `"publicly_available_post_id":["7529123456789012345"]`, "7529123456789012345"},
+		{"no public ID", `"publicaly_available_post_id":[]`, publishID}, //nolint:misspell
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.String() != tiktokPublishStatusURL {
+					t.Fatalf("reconciliation must only check status: %s", req.URL)
+				}
+				var payload map[string]string
+				if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+					t.Fatal(err)
+				}
+				if payload["publish_id"] != publishID {
+					t.Fatalf("wrong receipt: %#v", payload)
+				}
+				return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE",`+fixture.data+`},"error":{"code":"ok"}}`), nil
+			})}
+			result, err := NewTikTokAdapter("", "", "").ReconcilePublish(t.Context(), "access", "account", publishID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.ExternalID != fixture.want || result.ProviderReference != publishID || result.SubmissionState != PublishSubmissionAccepted {
+				t.Fatalf("wrong reconciled result: %#v", result)
+			}
+		})
+	}
+}
+
+func TestTikTokCoverTimestampPresence(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	for _, fixture := range []struct {
+		name                    string
+		value                   any
+		present, invalid, unset bool
+	}{
+		{name: "absent"}, {name: "untouched composer field", value: "", present: true, unset: true}, {name: "cleared field", value: nil, present: true, unset: true}, {name: "first frame", value: 0, present: true}, {name: "later frame", value: 1200, present: true}, {name: "negative", value: -1, present: true, invalid: true},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			calls := 0
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				if fixture.invalid {
+					t.Fatalf("invalid timestamp reached provider: %s", req.URL)
+				}
+				switch req.URL.String() {
+				case tiktokCreatorInfoURL:
+					return jsonResponse(req, `{"data":{"privacy_level_options":["SELF_ONLY"]},"error":{"code":"ok"}}`), nil
+				case tiktokVideoInitURL:
+					var payload struct {
+						PostInfo map[string]any `json:"post_info"`
+					}
+					if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+						t.Fatal(err)
+					}
+					value, present := payload.PostInfo["video_cover_timestamp_ms"]
+					if present != (fixture.present && !fixture.unset) || (present && value != float64(fixture.value.(int))) {
+						t.Fatalf("wrong timestamp: %#v", payload.PostInfo)
+					}
+					return jsonResponse(req, `{"data":{"publish_id":"receipt"},"error":{"code":"ok"}}`), nil
+				case tiktokPublishStatusURL:
+					return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE"},"error":{"code":"ok"}}`), nil
+				default:
+					t.Fatalf("unexpected request: %s", req.URL)
+					return nil, nil
+				}
+			})}
+			req := &PublishRequest{Content: "Video", PlatformMediaIDs: []string{"https://media.example/video.mp4"}, Media: []MediaItem{{MimeType: "video/mp4"}}, Settings: map[string]interface{}{"content_posting_method": "DIRECT_POST", "privacy_level": "SELF_ONLY"}}
+			if fixture.present {
+				req.Settings["cover_timestamp_ms"] = fixture.value
+			}
+			req.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error { return nil })
+			_, err := NewTikTokAdapter("", "", "").Publish(t.Context(), "access", "account", req)
+			if fixture.invalid {
+				if err == nil || !strings.Contains(err.Error(), "cover") || calls != 0 {
+					t.Fatalf("expected preflight cover rejection, got %v (%d calls)", err, calls)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

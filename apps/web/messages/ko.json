@@ -7897,6 +7897,7 @@
 	"video_editor_composition_timeline_filter": "레이어 필터",
 	"video_editor_composition_timeline_filter_placeholder": "필터",
 	"video_editor_composition_timeline_fit": "맞춤",
+	"video_editor_composition_timeline_fps_hint": "FPS를 변경하면 프레임 수는 유지되고 초 단위 길이가 바뀝니다. 기존 컴포지션 클립은 삽입 당시의 프레임 속도를 유지하고 새 클립은 이 FPS를 사용합니다.",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "그룹화",

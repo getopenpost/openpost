@@ -7897,6 +7897,7 @@
 	"video_editor_composition_timeline_filter": "Katmanları filtrele",
 	"video_editor_composition_timeline_filter_placeholder": "Filtrele",
 	"video_editor_composition_timeline_fit": "Sığdır",
+	"video_editor_composition_timeline_fps_hint": "FPS değiştirildiğinde kare sayıları korunur ve saniye cinsinden süre değişir. Mevcut kompozisyon klipleri eklendikleri kare hızını korur; yeni klipler bu FPS değerini kullanır.",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "Grupla",

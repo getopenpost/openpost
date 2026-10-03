@@ -48,7 +48,7 @@ Dependencies in `apps/web/package.json`: `mediabunny@^1.51.0`, `@mediabunny/pror
 - The project model includes all ten FreeCut timeline item kinds: video, audio, image, Lottie, text, subtitle, shape, adjustment, controller, and composition. Reusable compositions support nested timelines and controller-based Motion parenting.
 - Local music generation, upscale, and frame interpolation are implemented. The packaged ACE-Step path passed a fixed-seed real-model WebGPU run with a valid, non-silent 10-second stereo WAV. Local scene captions, semantic and visual search, embeddings, and three-engine local voice generation are present.
 - Keyframes include the value graph, dope sheet, spatial curves, transition guards, and shared multi-key editing.
-- Projects support reusable top-level sequences and nested compound clips.
+- Projects support reusable top-level sequences and nested compound clips. Composition FPS edits preserve authored frame counts, so their duration in seconds changes. Existing instances retain the `sourceFps` captured at insertion; new instances use the current source FPS. Preview and export resolve nested frames through that instance rate.
 - Local transcription uses Parakeet by default and offers Whisper Tiny, Base, Small, and Large v3 Turbo, with language and WebGPU fallback.
 - No bundled models/audio: transcription downloads on first use (HF CDN) and caches in-browser; self-hosted offline installs get everything except transcription. Supersedes nothing in ADR 0006 (that ADR concerns distribution of assets we no longer bundle). Editor interaction sounds use `cuelume`, not bundled clips.
 

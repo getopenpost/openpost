@@ -7942,6 +7942,7 @@
 	"video_editor_composition_timeline_filter": "Filter layers",
 	"video_editor_composition_timeline_filter_placeholder": "Filter",
 	"video_editor_composition_timeline_fit": "Fit",
+	"video_editor_composition_timeline_fps_hint": "Changing FPS keeps frame counts and changes duration in seconds. Existing composition clips keep their inserted frame rate; new clips use this FPS.",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "Group",

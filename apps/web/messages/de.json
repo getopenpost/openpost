@@ -7892,6 +7892,7 @@
 	"video_editor_composition_timeline_filter": "Ebenen filtern",
 	"video_editor_composition_timeline_filter_placeholder": "Filtern",
 	"video_editor_composition_timeline_fit": "Anpassen",
+	"video_editor_composition_timeline_fps_hint": "Beim Ändern der FPS bleiben die Bildanzahlen gleich und die Dauer in Sekunden ändert sich. Bestehende Kompositionsclips behalten ihre Bildrate beim Einfügen; neue Clips verwenden diese FPS.",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "Gruppieren",

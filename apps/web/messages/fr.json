@@ -7897,6 +7897,7 @@
 	"video_editor_composition_timeline_filter": "Filtrer les calques",
 	"video_editor_composition_timeline_filter_placeholder": "Filtrer",
 	"video_editor_composition_timeline_fit": "Ajuster",
+	"video_editor_composition_timeline_fps_hint": "Modifier les ips conserve le nombre d’images et change la durée en secondes. Les plans de composition existants gardent leur fréquence d’images à l’insertion ; les nouveaux plans utilisent ces ips.",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "Grouper",

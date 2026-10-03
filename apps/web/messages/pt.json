@@ -7897,6 +7897,7 @@
 	"video_editor_composition_timeline_filter": "Filtrar camadas",
 	"video_editor_composition_timeline_filter_placeholder": "Filtrar",
 	"video_editor_composition_timeline_fit": "Ajustar",
+	"video_editor_composition_timeline_fps_hint": "Alterar os FPS mantém o número de fotogramas e altera a duração em segundos. Os clips de composição existentes mantêm a taxa de fotogramas da inserção; os novos clips usam estes FPS.",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "Agrupar",

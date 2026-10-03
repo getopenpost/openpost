@@ -7897,6 +7897,7 @@
 	"video_editor_composition_timeline_filter": "筛选图层",
 	"video_editor_composition_timeline_filter_placeholder": "筛选",
 	"video_editor_composition_timeline_fit": "适应",
+	"video_editor_composition_timeline_fps_hint": "更改 FPS 会保留帧数，并改变以秒为单位的时长。现有合成片段保留插入时的帧率，新片段使用此 FPS。",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "编组",

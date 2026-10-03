@@ -7897,6 +7897,7 @@
 	"video_editor_composition_timeline_filter": "レイヤーを絞り込む",
 	"video_editor_composition_timeline_filter_placeholder": "絞り込み",
 	"video_editor_composition_timeline_fit": "全体表示",
+	"video_editor_composition_timeline_fps_hint": "FPSを変更してもフレーム数は維持され、秒単位の長さが変わります。既存のコンポジションクリップは挿入時のフレームレートを維持し、新しいクリップはこのFPSを使用します。",
 	"video_editor_composition_timeline_fps": "FPS",
 	"video_editor_composition_timeline_fps_suffix": "fps",
 	"video_editor_composition_timeline_group": "グループ化",

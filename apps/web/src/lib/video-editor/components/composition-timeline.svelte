@@ -288,6 +288,8 @@
 		onedit();
 	}
 
+	const componentId = $props.id();
+	const fpsHintId = `${componentId}-fps-hint`;
 	let {
 		onedit,
 		onselectitem,
@@ -2314,6 +2316,7 @@
 					{composition.width}×{composition.height} ·
 					<Input
 						aria-label={m.video_editor_composition_timeline_fps()}
+						aria-describedby={fpsHintId}
 						class="meta-input"
 						type="number"
 						min="1"
@@ -2380,6 +2383,12 @@
 				</div>
 			</div>
 		</div>
+		<p
+			id={fpsHintId}
+			class="border-b border-[var(--video-editor-border)] px-2 py-1 text-[11px] leading-4 text-[var(--video-editor-muted)]"
+		>
+			{m.video_editor_composition_timeline_fps_hint()}
+		</p>
 		<!-- Generated layers + media add -->
 		<div
 			class="composition-toolbar"

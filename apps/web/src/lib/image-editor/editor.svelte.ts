@@ -1789,15 +1789,22 @@ export class ImageEditorController {
 					.find((page) => page.id === this.activePageID)
 					?.layers.find((item) => item.id === id);
 				if (!layer) return;
-				Object.assign(layer, updates);
-				if (updates.mask) {
-					layer.mask = {
-						...updates.mask,
-						radius: Math.max(
-							0,
-							Math.min(updates.mask.radius, imageEditorMaskRadiusLimit(layer.transform))
-						)
+				const { mask, ...otherUpdates } = updates;
+				Object.assign(layer, otherUpdates);
+				if (mask) {
+					const normalizedMask = {
+						...mask,
+						radius: Math.max(0, Math.min(mask.radius, imageEditorMaskRadiusLimit(layer.transform)))
 					};
+					if (
+						layer.mask?.shape !== normalizedMask.shape ||
+						layer.mask?.inset !== normalizedMask.inset ||
+						layer.mask?.radius !== normalizedMask.radius
+					) {
+						layer.mask = normalizedMask;
+					}
+				} else if ('mask' in updates) {
+					layer.mask = mask;
 				}
 			},
 			coalesceKey

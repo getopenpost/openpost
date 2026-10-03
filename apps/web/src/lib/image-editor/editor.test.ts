@@ -1683,6 +1683,7 @@ it('bounds authored mask radius without rounding valid fractions', () => {
 	editor.load(initial);
 	editor.updateLayer(target.id, { mask: { ...target.mask, radius: 108 } });
 	expect(editor.activePage!.layers[0].mask!.radius).toBe(107.4375);
+	editor.updateLayer(target.id, { mask: { ...target.mask, radius: 108 } });
 	editor.undo();
 	expect(editor.activePage!.layers[0].mask!.radius).toBe(32.25);
 	editor.redo();

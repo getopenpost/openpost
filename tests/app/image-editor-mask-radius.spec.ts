@@ -78,6 +78,8 @@ test("rounded mask keyboard radius stays bounded with fractional authored histor
   });
   expect(Number(await radius.getAttribute("aria-valuenow"))).toBeLessThanOrEqual(accessibleMaximum);
   await expect(radius).toHaveAttribute("aria-valuenow", "107");
+  // A later key at the limit must not add an empty Undo step.
+  await page.clock.setFixedTime(new Date(Date.now() + 2000));
   await radius.press("ArrowRight");
   await expect(radius).toHaveAttribute("aria-valuenow", "107");
   await page.getByRole("button", { name: "Undo", exact: true }).click();

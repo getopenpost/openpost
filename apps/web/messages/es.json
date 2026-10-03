@@ -9647,5 +9647,7 @@
 	"editor_agent_announcement": "Anuncio de producto",
 	"editor_agent_style": "Estilo",
 	"editor_agent_talking_head": "Presentador",
-	"video_editor_caption_timing_invalid": "Mantén los tiempos de los subtítulos entre los fotogramas {start} y {end}, con el final después del inicio."
+	"video_editor_caption_timing_invalid": "Mantén los tiempos de los subtítulos entre los fotogramas {start} y {end}, con el final después del inicio.",
+	"workflows_inspect_build": "Revisar generación",
+	"workflows_build_details": "Detalles de la generación"
 }

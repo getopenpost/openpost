@@ -40,6 +40,7 @@
 	import RunInspector from './run-inspector.svelte';
 	import NodePicker from './node-picker.svelte';
 	import DataView from './data-view.svelte';
+	import BuildInspection from './build-inspection.svelte';
 	import GraphPreview from './graph-preview.svelte';
 	import { workflowIssues } from './validation';
 	import { stepFields } from './fields';
@@ -129,6 +130,11 @@
 	const inspectedStep = $derived(findStep(inspectedDefinition.steps ?? [], selectedID));
 	const selectedResult = $derived(
 		inspectedRun?.steps?.find((result) => result.step_id === selectedID)
+	);
+	const selectedBuildID = $derived(
+		inspectedStep?.kind === 'build_draft'
+			? z.string().catch('').parse(selectedResult?.output?.build_id)
+			: ''
 	);
 	const parsedSample = $derived.by((): ParsedSample => {
 		try {
@@ -1003,6 +1009,7 @@
 									: selectedResult?.output}
 							status={selectedResult ? runStateLabel(selectedResult.state) : ''}
 							error={selectedResult?.error ?? ''}
+							actions={selectedBuildID ? inspectBuildAction : undefined}
 						/>
 					</div>
 				</div>
@@ -1010,3 +1017,10 @@
 		</Dialog.Root>
 	</main>
 </div>
+
+{#snippet inspectBuildAction()}
+	{#key `${initial.workspace_id}:${selectedBuildID}`}<BuildInspection
+			workspaceID={initial.workspace_id}
+			buildID={selectedBuildID}
+		/>{/key}
+{/snippet}

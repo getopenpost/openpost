@@ -1,5 +1,6 @@
 <script lang="ts">
 	/* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters -- The inspector renders arbitrary source and node-output JSON, preserving each value's actual type instead of imposing a node schema. */
+	import type { Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import Choice from './choice.svelte';
@@ -13,7 +14,8 @@
 		status = '',
 		error = '',
 		caption = '',
-		notice = ''
+		notice = '',
+		actions
 	}: {
 		label: string;
 		value?: unknown;
@@ -23,6 +25,7 @@
 		error?: string;
 		caption?: string;
 		notice?: string;
+		actions?: Snippet;
 	} = $props();
 	let mode = $state<'schema' | 'table' | 'json'>('schema');
 	const fields = $derived.by(() => {
@@ -82,6 +85,7 @@
 		{#if caption}<p class="mb-3 text-xs text-muted-foreground">{caption}</p>{/if}
 		{#if notice}<InlineNotice tone="info" message={notice} class="mb-3" />{/if}
 		{#if error}<InlineNotice tone="error" message={error} class="mb-3" />{/if}
+		{#if actions}<div class="mb-3">{@render actions()}</div>{/if}
 		{#if value === undefined || value === null}<p
 				class="mx-auto max-w-60 py-12 text-center text-sm leading-6 text-muted-foreground"
 			>

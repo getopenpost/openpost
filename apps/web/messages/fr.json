@@ -9647,5 +9647,7 @@
 	"editor_agent_announcement": "Annonce de produit",
 	"editor_agent_style": "Style",
 	"editor_agent_talking_head": "Face caméra",
-	"video_editor_caption_timing_invalid": "Gardez le minutage des sous-titres entre les images {start} et {end}, avec la fin après le début."
+	"video_editor_caption_timing_invalid": "Gardez le minutage des sous-titres entre les images {start} et {end}, avec la fin après le début.",
+	"workflows_inspect_build": "Examiner la génération",
+	"workflows_build_details": "Détails de la génération"
 }

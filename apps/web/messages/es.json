@@ -9672,5 +9672,6 @@
 	"video_editor_caption_timing_invalid": "Mantén los tiempos de los subtítulos entre los fotogramas {start} y {end}, con el final después del inicio.",
 	"workflows_inspect_build": "Revisar generación",
 	"workflows_build_details": "Detalles de la generación",
-	"quick_cut_remove_word": "Eliminar palabra"
+	"quick_cut_remove_word": "Eliminar palabra",
+	"image_editor_trash_restore_independent": "Los diseños restaurados se guardan por separado de las ediciones abiertas desde Medios."
 }

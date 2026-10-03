@@ -322,3 +322,92 @@ test("guide arrow and delete keys leave the selected layer unchanged", async ({ 
   await expect(guide).toHaveCount(0);
   await expect(layers).toHaveCount(count);
 });
+
+test("cloud design trash restores the same saved design", async ({ page, request }, testInfo) => {
+  const auth = await registerUser(request, `image-trash-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Image trash");
+  const headers = { Authorization: `Bearer ${auth.token}` };
+  const created = await request.post("/api/v1/image-editor/designs", {
+    headers,
+    data: {
+      workspace_id: workspace.id,
+      preset_key: "custom",
+      width_px: 1080,
+      height_px: 1080,
+      title: "Restore this design",
+    },
+  });
+  expect(created.ok()).toBe(true);
+  let original = await created.json();
+  const second = {
+    ...structuredClone(original.document.pages[0]),
+    id: randomUUID(),
+    name: "Retained second page",
+  };
+  original.document.pages.push(second);
+  const saved = await request.patch(`/api/v1/image-editor/designs/${original.id}`, {
+    headers,
+    data: { expected_revision: original.revision, document: original.document },
+  });
+  expect(saved.ok()).toBe(true);
+  original = await saved.json();
+  const checkpoint = await request.post(`/api/v1/image-editor/designs/${original.id}/revisions`, {
+    headers,
+    data: { expected_revision: original.revision, name: "Retained checkpoint" },
+  });
+  expect(checkpoint.ok()).toBe(true);
+  await authenticatePage(page, auth.token);
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: "Delete Restore this design", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("link", { name: /Restore this design/ })).toBeVisible();
+  await page.getByRole("button", { name: "Delete Restore this design", exact: true }).click();
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("link", { name: /Restore this design/ })).toHaveCount(0);
+  const trash = page.getByRole("region", { name: "Trash", exact: true });
+  await expect(trash.getByText("Restore this design", { exact: true })).toBeVisible();
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.evaluate(
+      (value) => document.documentElement.classList.toggle("dark", value === "dark"),
+      scheme,
+    );
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      await trash.screenshot({ path: testInfo.outputPath(`trash-${width}-${scheme}.png`) });
+    }
+  }
+  await page.reload();
+  await trash.getByRole("button", { name: "Restore", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(trash.getByText("Restore this design", { exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("link", { name: /Restore this design/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/image-editor/${original.id}$`));
+  await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue(
+    "Restore this design",
+  );
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue(
+    "Restore this design",
+  );
+  const restored = await (
+    await request.get(`/api/v1/image-editor/designs/${original.id}`, { headers })
+  ).json();
+  expect(restored.document).toEqual(original.document);
+  expect(
+    (
+      await request.post(`/api/v1/image-editor/designs/${original.id}/restore`, { headers })
+    ).status(),
+  ).toBe(404);
+  const history = await (
+    await request.get(`/api/v1/image-editor/designs/${original.id}/revisions`, { headers })
+  ).json();
+  expect(
+    history.revisions.some((item: { name: string }) => item.name === "Retained checkpoint"),
+  ).toBe(true);
+});

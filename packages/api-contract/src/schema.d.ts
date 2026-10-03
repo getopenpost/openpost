@@ -2877,6 +2877,23 @@ export interface paths {
         patch: operations["toggle-image-editor-design-favorite"];
         trace?: never;
     };
+    "/image-editor/designs/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a trashed OpenPost Image Editor design */
+        post: operations["restore-image-editor-design"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/image-editor/designs/{id}/revisions": {
         parameters: {
             query?: never;
@@ -26569,6 +26586,8 @@ export interface operations {
             query: {
                 workspace_id: string;
                 search?: string;
+                /** @description List recoverable deleted designs instead of active designs. */
+                trashed?: boolean;
                 limit?: number;
                 offset?: number;
             };
@@ -26966,6 +26985,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ToggleImageEditorDesignFavoriteOutputBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-image-editor-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageEditorDocumentResponse"];
                 };
             };
             /** @description Forbidden */

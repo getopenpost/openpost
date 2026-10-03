@@ -26,7 +26,7 @@ describe('Image Editor query adapter', () => {
 		await expect(
 			api.listDesigns(
 				'workspace-a',
-				{ search: 'launch', limit: 50, offset: 100 },
+				{ search: 'launch', limit: 50, offset: 100, trashed: true },
 				controller.signal
 			)
 		).resolves.toEqual({ designs: [], total: 123, canEdit: true });
@@ -35,6 +35,7 @@ describe('Image Editor query adapter', () => {
 				query: {
 					workspace_id: 'workspace-a',
 					search: 'launch',
+					trashed: true,
 					limit: 50,
 					offset: 100
 				}

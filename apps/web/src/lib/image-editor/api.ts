@@ -318,6 +318,16 @@ export async function deleteImageEditorDesign(workspaceID: string, id: string): 
 	});
 }
 
+export async function restoreImageEditorDesign(workspaceID: string, id: string): Promise<void> {
+	const session = captureQueryMutationSession();
+	const { error, response } = await client.POST('/image-editor/designs/{id}/restore', {
+		params: { path: { id } }
+	});
+	settleImageEditorMutation(session, response);
+	if (error) throw new Error(problemMessage(error, 'Could not restore the design.'));
+	await reconcileImageEditorDesign(session, workspaceID, id);
+}
+
 export async function toggleImageEditorDesignFavorite(
 	workspaceID: string,
 	id: string

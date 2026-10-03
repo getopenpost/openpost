@@ -9672,5 +9672,6 @@
 	"video_editor_caption_timing_invalid": "Mantenha os tempos das legendas entre os fotogramas {start} e {end}, com o fim após o início.",
 	"workflows_inspect_build": "Inspecionar geração",
 	"workflows_build_details": "Detalhes da geração",
-	"quick_cut_remove_word": "Remover palavra"
+	"quick_cut_remove_word": "Remover palavra",
+	"image_editor_trash_restore_independent": "Os designs restaurados são guardados separadamente das edições abertas através de Multimédia."
 }

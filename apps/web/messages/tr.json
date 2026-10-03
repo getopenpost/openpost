@@ -9672,5 +9672,6 @@
 	"video_editor_caption_timing_invalid": "Altyazı zamanlarını {start} ile {end} kareleri arasında tutun; bitiş başlangıçtan sonra olmalıdır.",
 	"workflows_inspect_build": "Oluşturmayı incele",
 	"workflows_build_details": "Oluşturma ayrıntıları",
-	"quick_cut_remove_word": "Sözcüğü kaldır"
+	"quick_cut_remove_word": "Sözcüğü kaldır",
+	"image_editor_trash_restore_independent": "Geri yüklenen tasarımlar, Medya üzerinden açılan düzenlemelerden ayrı kaydedilir."
 }

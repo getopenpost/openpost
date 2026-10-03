@@ -32,12 +32,14 @@ export interface ImageEditorContractQueryData extends ImageEditorQueryData {
 
 export interface ImageEditorDesignFilters {
   readonly search?: string;
+  readonly trashed?: boolean;
   readonly limit?: number;
   readonly offset?: number;
 }
 
 export interface ImageEditorDesignCatalogFilters {
   readonly search?: string;
+  readonly trashed?: boolean;
   readonly limit?: number;
 }
 
@@ -301,6 +303,7 @@ export type NormalizedImageEditorRevisionPage = ReturnType<typeof normalizeImage
 export function normalizeImageEditorDesignFilters(filters: ImageEditorDesignFilters) {
   return {
     search: filters.search?.trim() ?? "",
+    trashed: filters.trashed ?? false,
     limit: filters.limit ?? 100,
     offset: filters.offset ?? 0,
   } as const;
@@ -309,6 +312,7 @@ export function normalizeImageEditorDesignFilters(filters: ImageEditorDesignFilt
 export function normalizeImageEditorDesignCatalogFilters(filters: ImageEditorDesignCatalogFilters) {
   return {
     search: filters.search?.trim() ?? "",
+    trashed: filters.trashed ?? false,
     limit: filters.limit ?? 50,
   } as const;
 }

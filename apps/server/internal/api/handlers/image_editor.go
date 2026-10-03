@@ -405,6 +405,7 @@ type ImageEditorPresetOutput struct {
 type ListImageEditorDesignsInput struct {
 	WorkspaceID string `query:"workspace_id" required:"true"`
 	Search      string `query:"search"`
+	Trashed     bool   `query:"trashed" doc:"List recoverable deleted designs instead of active designs."`
 	Limit       int    `query:"limit" minimum:"1" maximum:"100"`
 	Offset      int    `query:"offset" minimum:"0"`
 }
@@ -694,6 +695,13 @@ func (h *ImageEditorHandler) registerDesigns(api huma.API) {
 	}, h.getDesign)
 
 	huma.Register(api, huma.Operation{
+		OperationID: "restore-image-editor-design", Method: http.MethodPost,
+		Path: "/image-editor/designs/{id}/restore", Summary: "Restore a trashed OpenPost Image Editor design",
+		Tags: []string{tagImageEditor}, Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors: []int{403, 404},
+	}, h.restoreDesign)
+
+	huma.Register(api, huma.Operation{
 		OperationID: "update-image-editor-design",
 		Method:      http.MethodPatch,
 		Path:        "/image-editor/designs/{id}",
@@ -825,8 +833,12 @@ func (h *ImageEditorHandler) listDesigns(ctx context.Context, input *ListImageEd
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
+	deletionPredicate := "deleted_at IS NULL"
+	if input.Trashed {
+		deletionPredicate = "deleted_at IS NOT NULL"
+	}
 	query := h.db.NewSelect().Model((*models.DesignDocument)(nil)).
-		Where("workspace_id = ? AND deleted_at IS NULL", input.WorkspaceID)
+		Where("workspace_id = ?", input.WorkspaceID).Where(deletionPredicate)
 	if search := strings.TrimSpace(input.Search); search != "" {
 		query = query.Where("LOWER(title) LIKE ?", "%"+strings.ToLower(search)+"%")
 	}
@@ -853,7 +865,7 @@ func (h *ImageEditorHandler) listDesigns(ctx context.Context, input *ListImageEd
 			ORDER BY r.created_at ASC
 			LIMIT 1
 		) AS fallback_preview_media_id`).
-		Where("d.workspace_id = ? AND d.deleted_at IS NULL", input.WorkspaceID).
+		Where("d.workspace_id = ?", input.WorkspaceID).Where("d."+deletionPredicate).
 		Apply(func(q *bun.SelectQuery) *bun.SelectQuery {
 			if search := strings.TrimSpace(input.Search); search != "" {
 				return q.Where("LOWER(d.title) LIKE ?", "%"+strings.ToLower(search)+"%")
@@ -1213,6 +1225,42 @@ func (h *ImageEditorHandler) deleteDesign(ctx context.Context, input *DeleteImag
 	return &DeleteImageEditorDesignOutput{Body: struct {
 		Deleted bool `json:"deleted"`
 	}{Deleted: true}}, nil
+}
+
+func (h *ImageEditorHandler) restoreDesign(ctx context.Context, input *DeleteImageEditorDesignInput) (*GetImageEditorDesignOutput, error) {
+	if err := h.ensureEnabled(); err != nil {
+		return nil, err
+	}
+	var document models.DesignDocument
+	err := h.db.NewSelect().Model(&document).Where("id = ? AND deleted_at IS NOT NULL", input.PathID).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, huma.Error404NotFound("trashed OpenPost Image Editor design not found")
+	}
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to load trashed design")
+	}
+	if _, err := h.requireAccess(ctx, document.WorkspaceID, true); err != nil {
+		return nil, err
+	}
+	result, err := h.db.NewUpdate().Model((*models.DesignDocument)(nil)).
+		Set("deleted_at = NULL").Set("source_media_id = NULL").
+		Set("updated_at = ?", time.Now().UTC()).Set("revision = revision + 1").
+		Where("id = ? AND deleted_at IS NOT NULL", document.ID).Exec(ctx)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to restore design")
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to restore design")
+	}
+	if affected == 0 {
+		return nil, huma.Error404NotFound("trashed design not found")
+	}
+	response, err := h.documentResponse(ctx, document.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &GetImageEditorDesignOutput{Body: *response}, nil
 }
 
 func (h *ImageEditorHandler) toggleDesignFavorite(ctx context.Context, input *ToggleImageEditorDesignFavoriteInput) (*ToggleImageEditorDesignFavoriteOutput, error) {

@@ -251,6 +251,7 @@ function designListQuery(workspaceId: string, filters: NormalizedImageEditorDesi
 	return {
 		workspace_id: workspaceId,
 		search: filters.search,
+		trashed: filters.trashed,
 		limit: filters.limit,
 		offset: filters.offset
 	};

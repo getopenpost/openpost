@@ -15,6 +15,7 @@
 	import {
 		createImageEditorDesign,
 		deleteImageEditorDesign,
+		restoreImageEditorDesign,
 		instantiateImageEditorTemplate
 	} from '$lib/image-editor/api';
 	import { migrateGuestImageEditorDesign } from '$lib/image-editor/guest-migration';
@@ -66,6 +67,34 @@
 	const cloudDesigns = $derived(
 		workspaceID ? (cloudDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
 	);
+	const trashedDesignsQuery = createInfiniteQuery(() =>
+		imageEditorDesignCatalogQueryOptions<WebImageEditorQueryData>(
+			imageEditorQueryAPI,
+			workspaceID,
+			{ limit: 24, trashed: true }
+		)
+	);
+	const trashedDesigns = $derived(
+		workspaceID ? (trashedDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
+	);
+	let restoring = $state('');
+	async function restoreDesign(id: string): Promise<void> {
+		if (restoring || !workspaceID) return;
+		const targetWorkspace = workspaceID;
+		restoring = id;
+		error = '';
+		try {
+			await restoreImageEditorDesign(targetWorkspace, id);
+			if (workspaceID !== targetWorkspace) return;
+			await Promise.all([cloudDesignsQuery.refetch(), trashedDesignsQuery.refetch()]);
+		} catch (cause) {
+			if (workspaceID === targetWorkspace)
+				error = cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
+		} finally {
+			restoring = '';
+		}
+	}
+
 	let localLimit = $state(12);
 
 	let localLoading = $state(true);
@@ -294,6 +323,7 @@
 		const target = pendingDelete;
 		if (target.workspaceID) {
 			await deleteImageEditorDesign(target.workspaceID, target.id);
+			if (workspaceID === target.workspaceID) await trashedDesignsQuery.refetch();
 		} else {
 			await deleteGuestImageEditorDesign(target.id);
 			recentDesigns = recentDesigns.filter((design) => design.id !== target.id);
@@ -580,6 +610,49 @@
 					>{/if}
 			</section>
 		{/if}
+		{#if workspaceID}
+			<section class="mt-10 mb-10" aria-labelledby="image-trash-heading">
+				<h2 id="image-trash-heading" class="text-lg font-semibold">{m.media_lifecycle_trash()}</h2>
+				<p class="mt-1 text-sm text-muted-foreground">
+					{m.image_editor_trash_restore_independent()}
+				</p>
+				{#if trashedDesignsQuery.isPending}<p
+						role="status"
+						class="mt-3 text-sm text-muted-foreground"
+					>
+						{m.common_loading()}
+					</p>{/if}
+				{#if trashedDesignsQuery.isError}<InlineNotice
+						tone="error"
+						message={m.image_editor_public_load_failed()}
+					>
+						{#snippet actions()}<Button
+								variant="outline"
+								onclick={() => void trashedDesignsQuery.refetch()}>{m.common_retry()}</Button
+							>{/snippet}
+					</InlineNotice>{/if}
+				<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each trashedDesigns as design (design.id)}
+						<div class="flex min-w-0 items-center gap-3 rounded-xl border bg-card p-3">
+							<p class="min-w-0 flex-1 text-sm font-medium break-words">{design.title}</p>
+							{#if workspaceCtx.currentWorkspace?.can_edit}<Button
+									variant="outline"
+									disabled={Boolean(restoring)}
+									onclick={() => void restoreDesign(design.id)}>{m.image_editor_restore()}</Button
+								>{/if}
+						</div>
+					{/each}
+				</div>
+				{#if trashedDesignsQuery.hasNextPage}<Button
+						class="mt-3"
+						variant="outline"
+						disabled={trashedDesignsQuery.isFetchingNextPage}
+						onclick={() => void trashedDesignsQuery.fetchNextPage()}
+						>{m.editors_load_more_designs()}</Button
+					>{/if}
+			</section>
+		{/if}
+
 		{#if loading}
 			<div class="mt-10">
 				<PageLoading layout="gallery" label={m.image_editor_load()} items={8} />

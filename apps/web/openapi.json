@@ -37869,6 +37869,16 @@
 						}
 					},
 					{
+						"description": "List recoverable deleted designs instead of active designs.",
+						"explode": false,
+						"in": "query",
+						"name": "trashed",
+						"schema": {
+							"description": "List recoverable deleted designs instead of active designs.",
+							"type": "boolean"
+						}
+					},
+					{
 						"explode": false,
 						"in": "query",
 						"name": "limit",
@@ -38391,6 +38401,75 @@
 					}
 				},
 				"summary": "Toggle an OpenPost Image Editor design favorite",
+				"tags": ["OpenPost Image Editor"]
+			}
+		},
+		"/image-editor/designs/{id}/restore": {
+			"post": {
+				"operationId": "restore-image-editor-design",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ImageEditorDocumentResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Restore a trashed OpenPost Image Editor design",
 				"tags": ["OpenPost Image Editor"]
 			}
 		},

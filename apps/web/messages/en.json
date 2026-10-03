@@ -838,6 +838,7 @@
 	"image_editor_add_guide_ellipsis": "Add guide…",
 	"image_editor_guide_axis": "Guide direction",
 	"image_editor_guide_position": "Position in pixels",
+	"image_editor_guide_position_range": "Enter a position from 0 to {max} pixels.",
 	"image_editor_horizontal": "Horizontal",
 	"image_editor_vertical": "Vertical",
 	"image_editor_fill": "Fill",

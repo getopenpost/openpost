@@ -838,6 +838,7 @@
 	"image_editor_add_guide_ellipsis": "Add guide…",
 	"image_editor_guide_axis": "Guide direction",
 	"image_editor_guide_position": "Position in pixels",
+	"image_editor_guide_position_range": "输入 0 到 {max} 像素之间的位置。",
 	"image_editor_horizontal": "Horizontal",
 	"image_editor_vertical": "Vertical",
 	"image_editor_fill": "Fill",

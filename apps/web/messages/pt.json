@@ -838,6 +838,7 @@
 	"image_editor_add_guide_ellipsis": "Adicionar guia…",
 	"image_editor_guide_axis": "Direção da guia",
 	"image_editor_guide_position": "Posição em píxeis",
+	"image_editor_guide_position_range": "Introduza uma posição entre 0 e {max} píxeis.",
 	"image_editor_horizontal": "Horizontal",
 	"image_editor_vertical": "Vertical",
 	"image_editor_fill": "Preenchimento",

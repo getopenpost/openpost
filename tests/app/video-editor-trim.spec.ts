@@ -209,7 +209,7 @@ for (const scheme of ["light", "dark"] as const) {
       await append.click();
       await expect(clips).toHaveCount(3);
       await page.keyboard.press("ControlOrMeta+s");
-      await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute(
+      await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
         "data-state",
         "saved",
       );

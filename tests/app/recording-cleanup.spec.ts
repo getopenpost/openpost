@@ -79,7 +79,10 @@ test("recording cleanup is reachable, touch usable, and persists voice treatment
   await page.getByRole("button", { name: "Place on timeline: recording.mp4", exact: true }).click();
   await page.keyboard.press("Enter");
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
   // Fixture captions enter through the portable project document, then the real editor reopens it.
   await page.evaluate(async (id) => {
@@ -155,7 +158,10 @@ test("recording cleanup is reachable, touch usable, and persists voice treatment
   await dialog.getByRole("button", { name: "Apply changes", exact: true }).tap();
   await expect(dialog).not.toBeVisible();
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   await page.reload();
   await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).tap();
   await page.getByRole("menuitem", { name: "Clean up recording", exact: true }).tap();

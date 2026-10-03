@@ -83,7 +83,10 @@ test("Motion repeated Group keeps one saved group and one undoable edit", async 
   await expect(groups.first()).toHaveAttribute("data-testid", originalId!);
   await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   for (const scheme of ["light", "dark"] as const) {
     await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });

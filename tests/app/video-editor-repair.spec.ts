@@ -44,7 +44,10 @@ test("header history actions close after the selected command becomes disabled",
   await expect(page.getByRole("menuitem", { name: "Redo", exact: true })).toBeDisabled();
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await expect(header.getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(header.locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   await page.reload();
   await expect(summary).toContainText("1 clip");
   expect(errors).toEqual([]);
@@ -57,9 +60,13 @@ async function newProject(page: Page, name: string) {
   await expect(title).toHaveValue("Untitled project");
   await title.fill(name);
   await title.press("Tab");
-  await expect(page.locator("header").getByRole("status")).toHaveAttribute("data-state", "saved", {
-    timeout: CLOUD_SAVE_TIMEOUT_MS,
-  });
+  await expect(page.locator('header [role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+    {
+      timeout: CLOUD_SAVE_TIMEOUT_MS,
+    },
+  );
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
 }
 
@@ -113,9 +120,13 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await expect(page.getByRole("img", { name: "A launch with spaces", exact: true })).toBeVisible();
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.locator("header").getByRole("status")).toHaveAttribute("data-state", "saved", {
-    timeout: CLOUD_SAVE_TIMEOUT_MS,
-  });
+  await expect(page.locator('header [role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+    {
+      timeout: CLOUD_SAVE_TIMEOUT_MS,
+    },
+  );
   await page
     .locator("header")
     .getByRole("link", { name: /Video Editor/u })
@@ -441,9 +452,13 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
   await expect(page.locator("[data-project-summary]")).toContainText("1 clip");
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.locator("header").getByRole("status")).toHaveAttribute("data-state", "saved", {
-    timeout: 15000,
-  });
+  await expect(page.locator('header [role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+    {
+      timeout: 15000,
+    },
+  );
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Record screen" }).click();
   await dialog.getByRole("button", { name: "Start recording" }).click();

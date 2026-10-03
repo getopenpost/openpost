@@ -63,7 +63,10 @@ test("a background moves between visual tracks with undo, cancel and persistence
   await page.mouse.up();
   await expect(destination.locator("[data-timeline-item-id]")).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   await page.reload();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
     timeout: 30_000,

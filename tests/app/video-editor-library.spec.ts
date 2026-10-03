@@ -260,7 +260,7 @@ for (const scheme of ["light", "dark"] as const) {
       .getByRole("button", { name: "More actions", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "Save", exact: true }).click();
-    await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute(
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
       "data-state",
       "saved",
     );

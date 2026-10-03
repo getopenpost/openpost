@@ -28,7 +28,10 @@ test("Cloud Video Projects are the signed-in default with recovery on desktop an
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Cross-device launch");
   await page.getByRole("textbox", { name: "Project name" }).press("Tab");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+\?storage=cloud$/u);
   const projectId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
@@ -138,7 +141,10 @@ test("lists a saved Cloud Video Project after returning from the editor", async 
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Return to project");
   await page.getByRole("textbox", { name: "Project name" }).press("Tab");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+\?storage=cloud$/u);
   await page.goto("/video-editor");
   await expect(page.getByRole("heading", { name: "Return to project" })).toBeVisible();
@@ -186,7 +192,10 @@ test("saving a conflicting local edit as a copy retains its media and opens with
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   const headers = { Authorization: `Bearer ${auth.token}` };
   const projectURL = `/api/v1/video-projects/${projectId}?workspace_id=${workspace.id}`;
   const assetsURL = `/api/v1/video-projects/${projectId}/assets?workspace_id=${workspace.id}`;

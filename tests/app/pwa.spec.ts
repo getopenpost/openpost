@@ -259,7 +259,10 @@ test("a cached local video project reopens and exports offline", async ({ page, 
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   await page.reload();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
   await context.setOffline(true);

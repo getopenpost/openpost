@@ -125,7 +125,10 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   );
   await speed.press("ArrowRight");
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   const projectURL = page.url();
   await page.goto("/video-editor");
   await page.goto(projectURL);
@@ -283,7 +286,10 @@ test("Paper backgrounds and chained shader effects survive reopening and export"
     .toBeGreaterThan(100);
   await page.screenshot({ path: test.info().outputPath("paper-effect-controls.png") });
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   const projectURL = page.url();
   await page.goto("/video-editor");
   await page.goto(projectURL);

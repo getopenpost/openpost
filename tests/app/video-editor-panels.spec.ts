@@ -61,7 +61,10 @@ test("animation application settings survive inspector tab switches without crea
   await page.getByRole("button", { name: "Add layer", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   const inspector = page.locator("#video-editor-tools-panel");
   const animation = inspector.locator('[data-edit-inspector-tab="motion"]');
   const saveIndicator = page.getByRole("banner").locator('[role="status"][data-state]');
@@ -246,7 +249,7 @@ for (const scheme of ["light", "dark"] as const) {
       .getByRole("button", { name: "More actions", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "Save", exact: true }).click();
-    await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute(
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
       "data-state",
       "saved",
     );

@@ -87,7 +87,10 @@ test("an explicit recording handoff reveals persisted main-sequence media from r
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.getByRole("banner").getByRole("status")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   const authored = await savedAuthoredProject(page, ordinaryURL);
   await page.getByRole("tab", { name: "Motion", exact: true }).click();
   await page.reload();

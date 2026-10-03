@@ -1,1 +1,3 @@
-Marketing heading circles keep enough horizontal space around long phrases and recalculate that space after responsive resizing.
+### Fixed
+
+- Keep marketing heading circles clear of long phrases after responsive resizing.

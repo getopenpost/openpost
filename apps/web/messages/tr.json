@@ -1182,7 +1182,7 @@
 	"media_internal_previews": "{size} of preview files do not count toward your storage limit",
 	"media_dimensions_date": "Dimensions and date",
 	"media_manage_organization": "Manage tags",
-	"media_storage_summary": "{count} assets · {size} stored",
+	"media_storage_summary": "Eşleşen dosyalar: {count} · Çalışma alanı depolaması: {size}",
 	"media_select": "Select",
 	"media_selection_actions": "Selected media actions",
 	"media_organize": "Organize",

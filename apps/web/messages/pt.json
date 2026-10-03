@@ -1182,7 +1182,7 @@
 	"media_internal_previews": "{size} de ficheiros de pré-visualização não contam para o limite de armazenamento",
 	"media_dimensions_date": "Dimensões e data",
 	"media_manage_organization": "Gerir etiquetas",
-	"media_storage_summary": "{count} recursos · {size} armazenados",
+	"media_storage_summary": "Ficheiros correspondentes: {count} · Armazenamento do espaço de trabalho: {size}",
 	"media_select": "Selecionar",
 	"media_selection_actions": "Ações para multimédia selecionada",
 	"media_organize": "Organizar",

@@ -572,8 +572,11 @@ test("Quick Cut explains saved removed words and restores a phrase through kept 
   await transcriptTab.click();
   await expect(page.getByRole("button", { name: "again", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Hello", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "friends", exact: true })).toBeEnabled();
+  await expect(page.getByText("Hello · 00:00.00 → 00:00.50", { exact: true })).toBeVisible();
   const restored = schema.parse(await (await request.get(projectURL, { headers })).json());
-  expect(restored.document.timeline.sources).toEqual([{ ...input, transcript }]);
+  expect(restored.document.timeline.sources).toEqual([input]);
+  expect(restored.document.timeline.sources[0]).not.toHaveProperty("transcript");
   for (const { width, scheme } of [
     { width: 1280, scheme: "light" },
     { width: 1280, scheme: "dark" },

@@ -192,6 +192,7 @@
 
 <div
   class="preview-container"
+  data-preview-scheme={scheme}
   style:color-scheme={scheme === "system" ? undefined : scheme}
 >
   <main
@@ -3151,10 +3152,16 @@
     min-width: 0;
     color-scheme: light dark;
   }
-  :global(.dark) .preview-container {
+  .preview-container[data-preview-scheme="light"] {
+    color-scheme: light;
+  }
+  .preview-container[data-preview-scheme="dark"] {
     color-scheme: dark;
   }
-  :global(.light) .preview-container {
+  :global(.dark) .preview-container[data-preview-scheme="system"] {
+    color-scheme: dark;
+  }
+  :global(.light) .preview-container[data-preview-scheme="system"] {
     color-scheme: light;
   }
   .preview-page {

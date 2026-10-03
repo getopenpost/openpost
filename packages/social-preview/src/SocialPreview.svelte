@@ -117,6 +117,12 @@
     place-items: center;
   }
 
+  .social-preview[data-preview-scheme="light"] {
+    color-scheme: light;
+  }
+  .social-preview[data-preview-scheme="dark"] {
+    color-scheme: dark;
+  }
   :global(.dark) .social-preview[data-preview-scheme="system"] {
     color-scheme: dark;
   }

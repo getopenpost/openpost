@@ -12,6 +12,10 @@ import { createProject, getProject } from '../workspace-fs/projects';
 import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
 import '../../../routes/layout.css';
 
+// Downsampling rotated white glyphs can leave only antialiased gray pixels.
+// Against this fixture's black backdrop, half-intensity pixels still mark the glyphs.
+const MIN_LETTER_CHANNEL = 128;
+
 it.each([
 	{ composited: false, scaled: false, width: 1280, dark: false },
 	{ composited: true, scaled: false, width: 1280, dark: true },
@@ -106,9 +110,9 @@ it.each([
 				count = 0;
 			for (let offset = 0; offset < data.length; offset += 4) {
 				if (
-					data[offset]! < 220 ||
-					data[offset + 1]! < 220 ||
-					data[offset + 2]! < 220 ||
+					data[offset]! < MIN_LETTER_CHANNEL ||
+					data[offset + 1]! < MIN_LETTER_CHANNEL ||
+					data[offset + 2]! < MIN_LETTER_CHANNEL ||
 					data[offset + 3]! < 128
 				)
 					continue;
@@ -137,8 +141,7 @@ it.each([
 			return { left, right, top, bottom };
 		}
 		try {
-			// The first composited frame includes asynchronous font and canvas startup.
-			await expect.poll(letterBounds, { timeout: 5000 }).not.toBeNull();
+			await expect.poll(letterBounds).not.toBeNull();
 			const before = letterBounds();
 			await screen.getByRole('button', { name: 'Anchor', exact: true }).click();
 			const handle = screen.getByRole('button', { name: 'Move anchor point', exact: true });
@@ -189,7 +192,7 @@ it.each([
 			await new Promise<void>((resolve) =>
 				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
 			);
-			await expect.poll(letterBounds, { timeout: 5000 }).toEqual(before);
+			await expect.poll(letterBounds).toEqual(before);
 		} finally {
 			await screen.unmount();
 			screen.container.remove();

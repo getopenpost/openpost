@@ -336,6 +336,8 @@
 
 	function startMarquee(event: PointerEvent): void {
 		if (event.button !== 0 || !root) return;
+		if (event.target instanceof Element && event.target.closest('[data-segment-easing-popover]'))
+			return;
 		event.preventDefault();
 		const mode: MarqueeMode = event.shiftKey
 			? 'add'

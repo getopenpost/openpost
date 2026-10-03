@@ -144,19 +144,25 @@ describe('StockMediaBrowser', () => {
 		await video.play();
 		await expect.poll(() => video.currentTime).toBeGreaterThan(0.1);
 		video.pause();
-		video.currentTime = 1.25;
-		await expect.poll(() => video.seeking).toBe(false);
 		const canvas = document.createElement('canvas');
 		canvas.width = 128;
 		canvas.height = 72;
 		const context = canvas.getContext('2d')!;
+		const decodedPixel = () => {
+			context.drawImage(video, 0, 0);
+			return Array.from(context.getImageData(64, 36, 1, 1).data);
+		};
+		// H.264 is lossy, so test the authored frame colors with a small codec tolerance.
+		video.currentTime = 0.25;
+		await expect.poll(() => video.seeking).toBe(false);
 		await expect
-			.poll(() => {
-				context.drawImage(video, 0, 0);
-				const pixel = context.getImageData(64, 36, 1, 1).data;
-				return pixel[0] <= 2 && pixel[2] >= 253 && pixel[3] === 255;
-			})
-			.toBe(true);
+			.poll(decodedPixel)
+			.toEqual([expect.closeTo(255, -1), expect.closeTo(0, -1), expect.closeTo(0, -1), 255]);
+		video.currentTime = 1.25;
+		await expect.poll(() => video.seeking).toBe(false);
+		await expect
+			.poll(decodedPixel)
+			.toEqual([expect.closeTo(0, -1), expect.closeTo(0, -1), expect.closeTo(255, -1), 255]);
 		await expect
 			.element(screen.getByRole('link', { name: 'View source', exact: true }).first())
 			.toHaveAttribute('href', asset.source_url);

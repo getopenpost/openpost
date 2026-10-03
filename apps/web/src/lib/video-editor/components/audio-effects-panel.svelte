@@ -122,6 +122,19 @@
 		);
 	}
 
+	function commitNumberInput(
+		input: HTMLInputElement,
+		acceptedValue: number,
+		onNumber: (value: number) => void
+	): void {
+		const next = input.valueAsNumber;
+		if (!Number.isFinite(next)) {
+			input.value = String(acceptedValue);
+			return;
+		}
+		onNumber(next);
+	}
+
 	const addOptions: AppSelectOption[] = [
 		{ value: 'compressor', label: m.video_editor_audio_effects_compressor() },
 		{ value: 'pan', label: m.video_editor_audio_effects_pan() },
@@ -206,7 +219,7 @@
 						{min}
 						{max}
 						{step}
-						onchange={(event) => onNumber(event.currentTarget.valueAsNumber)}
+						onchange={(event) => commitNumberInput(event.currentTarget, value, onNumber)}
 					/>
 				</label>
 			{/snippet}

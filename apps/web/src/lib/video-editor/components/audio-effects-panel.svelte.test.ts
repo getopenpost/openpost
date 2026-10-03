@@ -1,5 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
+import { WebThemeRuntime } from '$lib/themes/runtime';
+import { resolveBuiltInTheme } from '$lib/themes/builtins';
 import { render } from 'vitest-browser-svelte';
 import { createBlankProject } from '../project/defaults';
 import type { Project } from '../project/types';
@@ -203,3 +205,71 @@ it('adds the same effect after removal and undo without a placeholder round trip
 		enabled: false
 	});
 });
+
+it('keeps the accepted Chorus rate when a blank numeric draft is abandoned, with explicit reset and cold persistence', async () => {
+	const project = fixture();
+	project.timeline!.items[0]!.audioEffects = [createDefaultAudioEffect('chorus', 'chorus')];
+	sequenceStore.load(project.timeline!, project.metadata);
+	commandHistory.clearHistory();
+	let screen = await render(Fixture);
+	const theme = new WebThemeRuntime();
+	try {
+		await screen.getByText('Chorus', { exact: true }).click();
+		const rate = screen.getByRole('spinbutton', { name: 'Rate (Hz)', exact: true });
+		const depth = screen.getByRole('spinbutton', { name: 'Depth (ms)', exact: true });
+		await rate.fill('1.2');
+		await userEvent.keyboard('{Tab}');
+		await expect.element(rate).toHaveValue(1.2);
+		const acceptedHistory = commandHistory.undoStack.length;
+		await rate.fill('');
+		await expect.element(rate).toHaveValue(null);
+		expect(timelineStore.itemById.get('audio')?.audioEffects).toMatchObject([{ rateHz: 1.2 }]);
+		await userEvent.keyboard('{Tab}');
+		await expect.element(rate).toHaveValue(1.2);
+		expect(commandHistory.undoStack).toHaveLength(acceptedHistory);
+		expect(timelineStore.itemById.get('audio')?.audioEffects).toMatchObject([
+			{ id: 'chorus', rateHz: 1.2, depthMs: 4.5 }
+		]);
+		await rate.fill('');
+		await userEvent.keyboard('1.5{Tab}');
+		await depth.fill('5');
+		await userEvent.keyboard('{Tab}');
+		await expect.element(rate).toHaveValue(1.5);
+		commandHistory.undo();
+		await expect.element(depth).toHaveValue(4.5);
+		commandHistory.undo();
+		await expect.element(rate).toHaveValue(1.2);
+		commandHistory.redo();
+		commandHistory.redo();
+		await expect.element(rate).toHaveValue(1.5);
+		await expect.element(depth).toHaveValue(5);
+		await screen.getByRole('button', { name: 'Reset Chorus', exact: true }).click();
+		await expect.element(rate).toHaveValue(0.9);
+		await expect.element(depth).toHaveValue(4.5);
+		commandHistory.undo();
+		await expect.element(rate).toHaveValue(1.5);
+		await screen.unmount();
+		await reopen(project);
+		screen = await render(Fixture);
+		await screen.getByText('Chorus', { exact: true }).click();
+		const reopenedRate = screen.getByRole('spinbutton', { name: 'Rate (Hz)', exact: true });
+		await expect.element(reopenedRate).toHaveValue(1.5);
+		await expect
+			.element(screen.getByRole('spinbutton', { name: 'Depth (ms)', exact: true }))
+			.toHaveValue(5);
+		for (const scheme of ['light', 'dark'] as const) {
+			await theme.apply(resolveBuiltInTheme('dither', scheme), document.documentElement);
+			for (const width of [1280, 390, 320]) {
+				await page.viewport(width, 844);
+				screen.container.style.maxWidth = '500px';
+				reopenedRate.element().focus();
+				await expect.element(reopenedRate).toHaveFocus();
+				await expect.element(reopenedRate).toHaveValue(1.5);
+				await page.screenshot({ path: `acf001-${scheme}-${width}.png` });
+			}
+		}
+	} finally {
+		await screen.unmount();
+		theme.clear(document.documentElement);
+	}
+}, 30_000);

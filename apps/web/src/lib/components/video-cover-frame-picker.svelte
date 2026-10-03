@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import { getAuthenticatedMediaByID } from '$lib/media-url';
@@ -33,6 +33,7 @@
 	let candidateVideo = $state<HTMLVideoElement>();
 	let candidates = $state<Array<{ timestamp: number; url: string }>>([]);
 	let candidateGeneration = 0;
+	let sourceGeneration = 0;
 	let editing = $state(false);
 	let videoElement = $state<HTMLVideoElement>();
 	let durationMs = $state(0);
@@ -71,9 +72,24 @@
 		}
 	}
 
-	onDestroy(() => {
+	function resetSource() {
+		sourceGeneration += 1;
 		candidateGeneration += 1;
 		for (const candidate of candidates) URL.revokeObjectURL(candidate.url);
+		candidates = [];
+		ready = false;
+		applying = false;
+		editing = false;
+		loadFailed = false;
+		applyFailed = false;
+		appliedTimestampMs = null;
+	}
+
+	$effect.pre(() => {
+		void mediaId;
+		void sourceURL;
+		untrack(resetSource);
+		return resetSource;
 	});
 
 	function handleLoadedMetadata() {
@@ -105,44 +121,49 @@
 
 	async function editFrame() {
 		if (!videoElement || !ready || applying || editing || !onEditFrame) return;
+		const generation = sourceGeneration;
+		const metadata = { sourceMediaId: mediaId, timestampMs };
+		const edit = onEditFrame;
 		editing = true;
 		applyFailed = false;
 		try {
-			const blob = await captureVideoFrame(videoElement, timestampMs);
-			await onEditFrame(
-				new File([blob], `cover-frame-${timestampMs}.jpg`, { type: 'image/jpeg' }),
-				{
-					sourceMediaId: mediaId,
-					timestampMs
-				}
+			const blob = await captureVideoFrame(videoElement, metadata.timestampMs);
+			if (generation !== sourceGeneration) return;
+			await edit(
+				new File([blob], `cover-frame-${metadata.timestampMs}.jpg`, { type: 'image/jpeg' }),
+				metadata
 			);
 		} catch {
-			applyFailed = true;
+			if (generation === sourceGeneration) applyFailed = true;
 		} finally {
-			editing = false;
+			if (generation === sourceGeneration) editing = false;
 		}
 	}
 
 	async function applyFrame() {
 		if (!videoElement || !ready || applying || editing) return;
+		const generation = sourceGeneration;
+		const metadata = { sourceMediaId: mediaId, timestampMs };
+		const apply = onFileChange;
 		applying = true;
 		applyFailed = false;
 		try {
 			if (mode === 'timestamp') {
-				onTimestampChange?.(timestampMs);
+				onTimestampChange?.(metadata.timestampMs);
 			} else {
-				const blob = await captureVideoFrame(videoElement, timestampMs);
-				const file = new File([blob], `cover-frame-${timestampMs}.jpg`, {
+				const blob = await captureVideoFrame(videoElement, metadata.timestampMs);
+				if (generation !== sourceGeneration) return;
+				const file = new File([blob], `cover-frame-${metadata.timestampMs}.jpg`, {
 					type: 'image/jpeg',
 					lastModified: Date.now()
 				});
-				await onFileChange?.(file, { sourceMediaId: mediaId, timestampMs });
+				await apply?.(file, metadata);
 			}
-			appliedTimestampMs = timestampMs;
+			if (generation === sourceGeneration) appliedTimestampMs = metadata.timestampMs;
 		} catch {
-			applyFailed = true;
+			if (generation === sourceGeneration) applyFailed = true;
 		} finally {
-			applying = false;
+			if (generation === sourceGeneration) applying = false;
 		}
 	}
 </script>

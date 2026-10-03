@@ -163,7 +163,7 @@ const staticMarketingEntries = [
     path: "/",
     key: "home",
     title: "OpenPost - The all-in-one content team for solo founders",
-    socialTitle: "Turn what you’re building into content. Publish it everywhere.",
+    socialTitle: "Your socials, on steroids.",
     description:
       "Create, edit, and schedule social content in OpenPost. Turn GitHub releases and RSS feeds into drafts with visual workflows, AI, and review steps.",
     label: "The content team for companies of one",
@@ -333,7 +333,7 @@ const platformEntries = platformNames.map(([slug, name]) => ({
   path: `/platforms/${slug}`,
   key: `platform-${slug}`,
   title: `${name} content and scheduling - OpenPost`,
-  socialTitle: `Make your next ${name} post with OpenPost.`,
+  socialTitle: name,
   description: `Explore ideas, editing tools, and posting options for your business on ${name}.`,
   label: "Channel guide",
   kind: "platform",

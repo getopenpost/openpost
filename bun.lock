@@ -6,6 +6,7 @@
       "name": "openpost",
       "devDependencies": {
         "@axe-core/playwright": "4.13.0",
+        "@iconify-json/lucide": "^1.2.126",
         "@napi-rs/canvas": "0.1.80",
         "@playwright/test": "^1.61.1",
         "fallow": "3.25.0",

@@ -333,3 +333,7 @@ Authenticated routes use `PageContainer`, `PageHeader`, `SectionHeader`, and con
 Documentation uses neutral white and charcoal reading surfaces with muted blue links. Orange stays in the product mark.
 
 App page titles use the theme’s typeface, weight, and tracking with `data-app-title`, capped at 1.25rem and a 1.4 line height. List and Calendar share the Posts header and view switch in page navigation. Narrow Calendar layouts keep a compact month or week date picker with the selected day's posts below it; List owns status tabs, search, and recovery. Calendar's secondary workspace, platform, and status filters sit behind Filters. Public profiles use the viewer’s saved Workspace theme after direct navigation or reload, and Dither for anonymous visits. Activity intensity derives from the active primary color.
+
+### Social sharing images
+
+OG cards use 1200 × 630 compositions designed to read at 320px wide. The landing card uses original generated paper artwork from `assets/brand/social/`. Other cards pair a large Geist Semibold title with one 304px topic symbol on a full-height mint, blue, or lilac panel. Keep the Converge mark and Manrope wordmark. Documentation uses the Workshop charcoal canvas, pale text, and a section label. Provider logos retain their colors on light panels. Avoid outer frames, small icon tiles, decorative dots, repeated descriptions, and truncated titles. The renderer and generation workflow belong to `scripts/social-images/render.mjs` and `packages/social-images/README.md`.

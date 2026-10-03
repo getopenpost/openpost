@@ -9676,5 +9676,7 @@
 	"image_editor_trash_restore_independent": "Restored designs are saved separately from edits opened through Media.",
 	"workflows_node_keyboard_help": "Enter or Space selects a node. Arrow keys move it; Escape clears selection. Use the step button to configure or delete the step.",
 	"workflows_node_keyboard_readonly_help": "Enter or Space selects a node. Escape clears selection. Use the step button to inspect it.",
-	"workflows_no_variable_match": "No matching variables. Try another search."
+	"workflows_no_variable_match": "No matching variables. Try another search.",
+	"workflows_no_runs_active_help": "Runs appear here when an active workflow's published trigger fires.",
+	"workflows_no_runs_schedule_help": "This schedule is active. Its first run starts after {minutes} minutes and the next background check."
 }

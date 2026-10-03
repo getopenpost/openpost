@@ -9676,5 +9676,7 @@
 	"image_editor_trash_restore_independent": "Los diseños restaurados se guardan por separado de las ediciones abiertas desde Medios.",
 	"workflows_node_keyboard_help": "Intro o Espacio selecciona un nodo. Las flechas lo mueven; Escape borra la selección. Usa el botón del paso para configurarlo o eliminarlo.",
 	"workflows_node_keyboard_readonly_help": "Intro o Espacio selecciona un nodo. Escape borra la selección. Usa el botón del paso para inspeccionarlo.",
-	"workflows_no_variable_match": "No hay variables coincidentes. Prueba otra búsqueda."
+	"workflows_no_variable_match": "No hay variables coincidentes. Prueba otra búsqueda.",
+	"workflows_no_runs_active_help": "Las ejecuciones aparecen aquí cuando se activa el desencadenante publicado de un flujo activo.",
+	"workflows_no_runs_schedule_help": "Esta programación está activa. Su primera ejecución empieza después de {minutes} minutos y la siguiente comprobación en segundo plano."
 }

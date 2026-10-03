@@ -9676,5 +9676,7 @@
 	"image_editor_trash_restore_independent": "恢复的设计会与通过媒体打开的编辑分开保存。",
 	"workflows_node_keyboard_help": "按 Enter 或空格选择节点。方向键移动节点，Escape 清除选择。使用步骤按钮配置或删除步骤。",
 	"workflows_node_keyboard_readonly_help": "按 Enter 或空格选择节点。Escape 清除选择。使用步骤按钮查看其内容。",
-	"workflows_no_variable_match": "没有匹配的变量。请尝试其他搜索。"
+	"workflows_no_variable_match": "没有匹配的变量。请尝试其他搜索。",
+	"workflows_no_runs_active_help": "活动工作流的已发布触发器触发后，运行记录会显示在这里。",
+	"workflows_no_runs_schedule_help": "此计划已启用。经过 {minutes} 分钟并完成下一次后台检查后，首次运行将开始。"
 }

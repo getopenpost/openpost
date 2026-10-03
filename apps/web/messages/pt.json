@@ -9676,5 +9676,7 @@
 	"image_editor_trash_restore_independent": "Os designs restaurados são guardados separadamente das edições abertas através de Multimédia.",
 	"workflows_node_keyboard_help": "Enter ou Espaço seleciona um nó. As setas movem-no; Escape limpa a seleção. Usa o botão do passo para o configurar ou eliminar.",
 	"workflows_node_keyboard_readonly_help": "Enter ou Espaço seleciona um nó. Escape limpa a seleção. Usa o botão do passo para o inspecionar.",
-	"workflows_no_variable_match": "Não há variáveis correspondentes. Tenta outra pesquisa."
+	"workflows_no_variable_match": "Não há variáveis correspondentes. Tenta outra pesquisa.",
+	"workflows_no_runs_active_help": "As execuções aparecem aqui quando o gatilho publicado de um workflow ativo é acionado.",
+	"workflows_no_runs_schedule_help": "Este agendamento está ativo. A primeira execução começa após {minutes} minutos e a próxima verificação em segundo plano."
 }

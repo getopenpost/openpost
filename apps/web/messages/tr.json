@@ -9676,5 +9676,7 @@
 	"image_editor_trash_restore_independent": "Geri yüklenen tasarımlar, Medya üzerinden açılan düzenlemelerden ayrı kaydedilir.",
 	"workflows_node_keyboard_help": "Enter veya Boşluk bir düğümü seçer. Ok tuşları düğümü taşır; Escape seçimi temizler. Adımı yapılandırmak veya silmek için adım düğmesini kullanın.",
 	"workflows_node_keyboard_readonly_help": "Enter veya Boşluk bir düğümü seçer. Escape seçimi temizler. İncelemek için adım düğmesini kullanın.",
-	"workflows_no_variable_match": "Eşleşen değişken yok. Başka bir arama deneyin."
+	"workflows_no_variable_match": "Eşleşen değişken yok. Başka bir arama deneyin.",
+	"workflows_no_runs_active_help": "Etkin bir iş akışının yayımlanmış tetikleyicisi çalıştığında çalıştırmalar burada görünür.",
+	"workflows_no_runs_schedule_help": "Bu zamanlama etkin. İlk çalıştırma {minutes} dakika ve bir sonraki arka plan kontrolünden sonra başlar."
 }

@@ -112,6 +112,21 @@
 	const canEdit = $derived(workspaceCtx.currentWorkspace?.role !== 'viewer');
 	const canAdmin = $derived(workspaceCtx.currentWorkspace?.role === 'admin');
 	const dirty = $derived(JSON.stringify(doc) !== saved);
+	// Only a matching published revision identifies the live interval; drafts may differ.
+	const scheduledInterval = $derived(
+		record.revision === record.published_revision && record.definition.source.kind === 'interval'
+			? record.definition.source.interval_minutes
+			: undefined
+	);
+	const noRunsHelp = $derived(
+		!record.enabled
+			? m.workflows_no_runs_help()
+			: record.source_error
+				? m.workflows_source_error()
+				: scheduledInterval
+					? m.workflows_no_runs_schedule_help({ minutes: scheduledInterval })
+					: m.workflows_no_runs_active_help()
+	);
 	const step = $derived(findStep(doc.definition.steps ?? [], selectedID));
 	const runQuery = createQuery(() => ({
 		...workflowRunQueryOptions(workflowQueryAPI, initial.workspace_id, selectedRun),
@@ -654,7 +669,7 @@
 							>{/each}{#if !runsQuery.data?.length}<p
 								class="text-sm leading-6 text-muted-foreground"
 							>
-								{m.workflows_no_runs_help()}
+								{noRunsHelp}
 							</p>{/if}
 					</aside>
 					<div class="min-h-0 overflow-auto p-4">

@@ -9726,5 +9726,8 @@
 	"video_editor_history_comparison": "마지막으로 저장한 버전과 비교합니다.",
 	"video_editor_history_track_changes": "트랙: {added}개 추가, {removed}개 삭제, {changed}개 변경",
 	"video_editor_history_sequence_changes": "시퀀스: {added}개 추가, {removed}개 삭제, {changed}개 변경",
-	"video_editor_history_settings_changed": "다른 프로젝트 또는 타임라인 설정이 변경됨"
+	"video_editor_history_settings_changed": "다른 프로젝트 또는 타임라인 설정이 변경됨",
+	"video_editor_conflict_origin_this_browser": "이 브라우저에서",
+	"video_editor_conflict_origin_another_device": "다른 브라우저 또는 기기에서",
+	"video_editor_conflict_saved_revision": "저장된 리비전 {revision}에서 충돌하는 편집"
 }

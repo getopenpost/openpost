@@ -9726,5 +9726,8 @@
 	"video_editor_history_comparison": "Son kaydedilen sürümle karşılaştırılır.",
 	"video_editor_history_track_changes": "Parçalar: {added} eklendi, {removed} kaldırıldı, {changed} değişti",
 	"video_editor_history_sequence_changes": "Sekanslar: {added} eklendi, {removed} kaldırıldı, {changed} değişti",
-	"video_editor_history_settings_changed": "Diğer proje veya zaman çizelgesi ayarları değişti"
+	"video_editor_history_settings_changed": "Diğer proje veya zaman çizelgesi ayarları değişti",
+	"video_editor_conflict_origin_this_browser": "Bu tarayıcıdan",
+	"video_editor_conflict_origin_another_device": "Başka bir tarayıcıdan veya cihazdan",
+	"video_editor_conflict_saved_revision": "Kaydedilen {revision} revizyonunda çakışan düzenleme"
 }

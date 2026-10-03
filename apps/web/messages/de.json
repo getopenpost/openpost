@@ -9726,5 +9726,8 @@
 	"video_editor_history_comparison": "Vergleich mit der zuletzt gespeicherten Version.",
 	"video_editor_history_track_changes": "Spuren: {added} hinzugefügt, {removed} entfernt, {changed} geändert",
 	"video_editor_history_sequence_changes": "Sequenzen: {added} hinzugefügt, {removed} entfernt, {changed} geändert",
-	"video_editor_history_settings_changed": "Andere Projekt- oder Timeline-Einstellungen geändert"
+	"video_editor_history_settings_changed": "Andere Projekt- oder Timeline-Einstellungen geändert",
+	"video_editor_conflict_origin_this_browser": "Aus diesem Browser",
+	"video_editor_conflict_origin_another_device": "Aus einem anderen Browser oder Gerät",
+	"video_editor_conflict_saved_revision": "Konfliktbearbeitung bei gespeicherter Revision {revision}"
 }

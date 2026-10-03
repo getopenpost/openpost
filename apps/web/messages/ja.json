@@ -9726,5 +9726,8 @@
 	"video_editor_history_comparison": "最後に保存したバージョンとの比較。",
 	"video_editor_history_track_changes": "トラック：追加 {added}、削除 {removed}、変更 {changed}",
 	"video_editor_history_sequence_changes": "シーケンス：追加 {added}、削除 {removed}、変更 {changed}",
-	"video_editor_history_settings_changed": "その他のプロジェクトまたはタイムライン設定が変更されています"
+	"video_editor_history_settings_changed": "その他のプロジェクトまたはタイムライン設定が変更されています",
+	"video_editor_conflict_origin_this_browser": "このブラウザーから",
+	"video_editor_conflict_origin_another_device": "別のブラウザーまたはデバイスから",
+	"video_editor_conflict_saved_revision": "保存済みリビジョン {revision} で競合する編集"
 }

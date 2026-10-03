@@ -105,6 +105,10 @@ export interface CloudVideoProjectConflict<TDocument extends object> {
 	document: TDocument;
 	overlapTargets: string[];
 	createdAt: string;
+	deviceId: string;
+	baseRevision: number;
+	headRevision: number;
+	origin: 'this_browser' | 'other_device' | 'unknown';
 }
 
 export class CloudVideoProjectConflictError<TDocument extends object> extends Error {
@@ -339,9 +343,24 @@ export class CloudVideoProjectRepository<TDocument extends object> {
 		const data = await queryClient.query(
 			videoProjectConflictsQueryOptions(videoProjectQueryAPI, this.workspaceId, id)
 		);
+		let storedDeviceId: string | null;
+		try {
+			storedDeviceId = browser ? localStorage.getItem(DEVICE_KEY) : null;
+		} catch {
+			storedDeviceId = null;
+		}
 		return data.map((conflict) => ({
 			id: conflict.id,
 			name: conflict.name,
+			deviceId: conflict.device_id ?? '',
+			baseRevision: conflict.base_revision,
+			headRevision: conflict.head_revision,
+			origin:
+				!conflict.device_id || !storedDeviceId
+					? 'unknown'
+					: conflict.device_id === storedDeviceId
+						? 'this_browser'
+						: 'other_device',
 			document: documentFromAPI<TDocument>(conflict.document),
 			overlapTargets: conflict.overlap_targets ?? [],
 			createdAt: conflict.created_at

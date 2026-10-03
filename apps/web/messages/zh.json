@@ -9726,5 +9726,8 @@
 	"video_editor_history_comparison": "与最近保存的版本比较。",
 	"video_editor_history_track_changes": "轨道：新增 {added}，删除 {removed}，修改 {changed}",
 	"video_editor_history_sequence_changes": "序列：新增 {added}，删除 {removed}，修改 {changed}",
-	"video_editor_history_settings_changed": "其他项目或时间轴设置已更改"
+	"video_editor_history_settings_changed": "其他项目或时间轴设置已更改",
+	"video_editor_conflict_origin_this_browser": "来自此浏览器",
+	"video_editor_conflict_origin_another_device": "来自另一浏览器或设备",
+	"video_editor_conflict_saved_revision": "与已保存修订 {revision} 冲突的编辑"
 }

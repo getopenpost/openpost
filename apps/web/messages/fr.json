@@ -9726,5 +9726,8 @@
 	"video_editor_history_comparison": "Comparaison avec la dernière version enregistrée.",
 	"video_editor_history_track_changes": "Pistes : {added} ajoutées, {removed} supprimées, {changed} modifiées",
 	"video_editor_history_sequence_changes": "Séquences : {added} ajoutées, {removed} supprimées, {changed} modifiées",
-	"video_editor_history_settings_changed": "Autres réglages du projet ou de la chronologie modifiés"
+	"video_editor_history_settings_changed": "Autres réglages du projet ou de la chronologie modifiés",
+	"video_editor_conflict_origin_this_browser": "Depuis ce navigateur",
+	"video_editor_conflict_origin_another_device": "Depuis un autre navigateur ou appareil",
+	"video_editor_conflict_saved_revision": "Modification en conflit à la révision enregistrée {revision}"
 }

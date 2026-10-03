@@ -213,7 +213,33 @@
 					<p class="text-xs text-muted-foreground">{m.video_editor_conflict_preserved()}</p>
 					{#each conflicts as conflict (conflict.id)}
 						<div class="rounded-lg border p-3">
-							<p class="text-sm font-medium">{conflict.name}</p>
+							<p class="text-sm font-medium break-words">{conflict.document.name}</p>
+							<p class="text-xs text-muted-foreground">
+								{m.video_editor_conflict_saved_revision({
+									revision: String(conflict.headRevision)
+								})}
+							</p>
+							{#if conflict.origin !== 'unknown'}
+								<p class="text-xs text-muted-foreground">
+									{conflict.origin === 'this_browser'
+										? m.video_editor_conflict_origin_this_browser()
+										: m.video_editor_conflict_origin_another_device()} ·
+									<code>{conflict.deviceId.slice(0, 8)}</code>
+								</p>
+							{/if}
+							<details class="mt-2 text-sm">
+								<summary
+									class="cursor-pointer rounded-sm py-1 focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
+									>{m.video_editor_details()}</summary
+								>
+								{#if conflict.deviceId}<p class="font-mono text-xs break-all">
+										{conflict.deviceId}
+									</p>{/if}
+								{#if revisions[0]}<CloudRevisionDetails
+										current={revisions[0].document}
+										document={conflict.document}
+									/>{/if}
+							</details>
 							<p class="mt-1 text-xs text-muted-foreground">
 								{new Date(conflict.createdAt).toLocaleString()}
 							</p>

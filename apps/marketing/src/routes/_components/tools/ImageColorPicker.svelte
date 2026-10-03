@@ -53,22 +53,38 @@
 		return `hsl${selected.a < 1 ? 'a' : ''}(${Math.round(value.h)}, ${Math.round(value.s)}%, ${Math.round(value.l)}%${selected.a < 1 ? `, ${selected.a.toFixed(2)}` : ''})`;
 	});
 
-	function choose(color: RGBAColor, nextX = x, nextY = y): void {
+	let selectedSource = $state<'pixel' | 'palette' | 'screen'>('pixel');
+	const selectedOrigin = $derived(
+		selectedSource === 'pixel'
+			? `pixel ${x + 1}, ${y + 1}`
+			: selectedSource === 'palette'
+				? 'Image palette'
+				: 'Screen sample'
+	);
+
+	function choose(
+		color: RGBAColor,
+		origin: { kind: 'pixel'; x: number; y: number } | { kind: 'palette' | 'screen' }
+	): void {
 		selected = color;
-		x = nextX;
-		y = nextY;
+		selectedSource = origin.kind;
+		if (origin.kind === 'pixel') {
+			x = origin.x;
+			y = origin.y;
+		}
+		magnifier = null;
 		error = '';
-		status = `${hex}, pixel ${x + 1} by ${y + 1}.`;
+		status = `${hex}, ${selectedOrigin}.`;
 	}
 
 	function sample(nextX: number, nextY: number): void {
 		const context = canvas?.getContext('2d', { willReadFrequently: true });
 		if (!context) return;
-		choose(
-			sampleCanvasPixel(context, nextX, nextY),
-			Math.max(0, Math.min(width - 1, Math.round(nextX))),
-			Math.max(0, Math.min(height - 1, Math.round(nextY)))
-		);
+		choose(sampleCanvasPixel(context, nextX, nextY), {
+			kind: 'pixel',
+			x: Math.max(0, Math.min(width - 1, Math.round(nextX))),
+			y: Math.max(0, Math.min(height - 1, Math.round(nextY)))
+		});
 	}
 
 	function previewSample(
@@ -176,12 +192,15 @@
 		try {
 			const result = await new Constructor().open();
 			const value = result.sRGBHex;
-			choose({
-				r: Number.parseInt(value.slice(1, 3), 16),
-				g: Number.parseInt(value.slice(3, 5), 16),
-				b: Number.parseInt(value.slice(5, 7), 16),
-				a: 1
-			});
+			choose(
+				{
+					r: Number.parseInt(value.slice(1, 3), 16),
+					g: Number.parseInt(value.slice(3, 5), 16),
+					b: Number.parseInt(value.slice(5, 7), 16),
+					a: 1
+				},
+				{ kind: 'screen' }
+			);
 		} catch {
 			/* The native picker was cancelled. */
 		}
@@ -239,12 +258,12 @@
 					}}
 				>
 					<img bind:this={imageElement} src={preview} alt="" />
-					<span
-						class="marker"
-						aria-hidden="true"
-						style:left={`${((x + 0.5) / width) * 100}%`}
-						style:top={`${((y + 0.5) / height) * 100}%`}
-					></span>
+					{#if selectedSource === 'pixel'}<span
+							class="marker"
+							aria-hidden="true"
+							style:left={`${((x + 0.5) / width) * 100}%`}
+							style:top={`${((y + 0.5) / height) * 100}%`}
+						></span>{/if}
 				</button>
 			</div>
 			<div class="results">
@@ -252,8 +271,7 @@
 					<span style:background={selected.a === 0 ? 'transparent' : hex}></span>
 					<div>
 						<strong>{hex}</strong><small
-							>{selected.a < 1 ? `${Math.round(selected.a * 100)}% opacity` : 'Opaque'} · pixel {x +
-								1}, {y + 1}</small
+							>{selected.a < 1 ? `${Math.round(selected.a * 100)}% opacity` : 'Opaque'} · {selectedOrigin}</small
 						>
 					</div>
 				</div>
@@ -297,7 +315,7 @@
 									title={`Use ${rgbaToHex(color)}`}
 									aria-label={`Use ${rgbaToHex(color)}`}
 									style:background={rgbaToHex(color)}
-									onclick={() => choose(color)}
+									onclick={() => choose(color, { kind: 'palette' })}
 								></button>{/each}
 						</div>
 					</section>{/if}

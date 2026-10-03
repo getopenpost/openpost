@@ -99,6 +99,45 @@ test("color picker previews source pixels and selects with mouse or keyboard", a
   await expect(magnifier).toBeHidden();
 });
 
+test("palette selection identifies its source and keyboard sampling returns to image pixels", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/tools/image-color-picker");
+  await dismissTelemetryConsent(page);
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles({ name: "palette.png", mimeType: "image/png", buffer: await sampleImage() });
+  const choice = page.getByRole("button", { name: /^Use #[0-9A-F]+/ }).first();
+  await choice.focus();
+  await choice.press("Enter");
+  const selected = page.locator(".selected");
+  await expect(selected).toContainText("Image palette", { timeout: 2000 });
+  await expect(selected).not.toContainText("pixel");
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ["light", "dark"]) {
+      const navigation = page.getByRole("button", { name: "Open navigation", exact: true });
+      const phone = await navigation.isVisible();
+      if (phone) await navigation.click();
+      const toggle = page.getByRole("button", { name: `Use ${theme} theme`, exact: true });
+      if (await toggle.isVisible()) await toggle.click();
+      if (phone) await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+      await selected.scrollIntoViewIfNeeded();
+      await expect(selected).toBeInViewport();
+      await expect(selected).toContainText("Image palette");
+      await page.screenshot({
+        path: testInfo.outputPath(`palette-source-${width}-${theme}.png`),
+        animations: "disabled",
+      });
+    }
+  }
+  const sampler = page.getByRole("button", { name: /^Image color sampler/ });
+  await sampler.focus();
+  await sampler.press("ArrowLeft");
+  await expect(selected).toContainText("pixel");
+  await expect(selected).not.toContainText("Image palette");
+});
+
 test("clipboard image becomes a downloadable original-size file", async ({ page }) => {
   await page.goto("/tools/paste-image");
   await dismissTelemetryConsent(page);

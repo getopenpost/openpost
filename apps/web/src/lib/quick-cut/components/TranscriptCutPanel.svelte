@@ -12,8 +12,12 @@
 	} from '$lib/video-editor/transcript/engine/types';
 	import type { QuickCutSource, QuickCutSegment } from '../types';
 	import { formatTimecode, getSelectedAudioStreams } from '../model';
-	import { captureSourceTranscriptStorage } from '$lib/video-editor/workspace-fs/source-transcripts';
+	import {
+		assertSourceTranscriptStorageCurrent,
+		captureSourceTranscriptStorage
+	} from '$lib/video-editor/workspace-fs/source-transcripts';
 	import { saveQuickCutSourceTranscript } from '../transcript-cache';
+	import { showToast } from '$lib/toast';
 	let {
 		source,
 		segments,
@@ -122,9 +126,21 @@
 					)
 					.map((word) => ({ ...word, end: Math.min(duration, word.end) }))
 			};
-			await saveQuickCutSourceTranscript(capturedSource, savedTranscript, storage, request.signal);
-			request.signal.throwIfAborted();
+			let cacheUnavailable = false;
+			try {
+				await saveQuickCutSourceTranscript(
+					capturedSource,
+					savedTranscript,
+					storage,
+					request.signal
+				);
+			} catch (cause) {
+				if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+				cacheUnavailable = true;
+			}
+			assertSourceTranscriptStorageCurrent(storage, request.signal);
 			onsave(sourceId, savedTranscript);
+			if (cacheUnavailable) showToast(m.repurpose_transcript_storage_failed(), 'warning');
 		} catch (cause) {
 			if (!request.signal.aborted) error = cause instanceof Error ? cause.message : String(cause);
 		} finally {

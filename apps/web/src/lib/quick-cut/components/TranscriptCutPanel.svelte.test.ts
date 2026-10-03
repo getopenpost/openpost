@@ -2,6 +2,7 @@ import { beforeEach, afterEach, expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import TranscriptCutPanel from './TranscriptCutPanel.svelte';
+import { Toaster } from '$lib/components/ui/sonner';
 import StreamSelector from './StreamSelector.svelte';
 import CleanupPanel from './CleanupPanel.svelte';
 import type { QuickCutSource } from '../types';
@@ -374,4 +375,44 @@ test('keeps the cached transcript target when another audio stream is retained a
 		.toBeDisabled();
 	await cold.rerender({ source: { ...reopened, selectedAudioTrackIndices: [1] } });
 	await expect.element(cold.getByRole('button', { name: 'Hello', exact: true })).toBeVisible();
+});
+
+test('retains completed words for review when the browser transcript cache is full', async () => {
+	const notices = await render(Toaster);
+	const words = [{ text: 'A useful result', start: 0, end: 1 }];
+	const collect = vi
+		.spyOn(TranscriptionJob.prototype, 'collect')
+		.mockResolvedValueOnce([{ text: 'A useful result', start: 0, end: 1, words }]);
+	const write = vi
+		.spyOn(FileSystemFileHandle.prototype, 'createWritable')
+		.mockRejectedValue(new DOMException('Storage is full', 'QuotaExceededError'));
+	const onsave = vi.fn();
+	try {
+		const screen = await render(TranscriptCutPanel, {
+			source: {
+				...source,
+				file: new File(['owned fixture'], 'tone.wav', { type: 'audio/wav' }),
+				transcript: undefined
+			},
+			segments: [],
+			currentTime: 0,
+			onsave,
+			onseek: vi.fn(),
+			onremove: vi.fn()
+		});
+		await screen.getByRole('button', { name: 'Create transcript', exact: true }).click();
+		await vi.waitFor(() =>
+			expect(onsave).toHaveBeenCalledExactlyOnceWith(source.id, { audioTrackIndex: 0, words })
+		);
+		await expect
+			.element(
+				notices.getByText(
+					'Your project is available, but its transcript could not be kept on this device. You can still edit and export it.'
+				)
+			)
+			.toBeVisible();
+	} finally {
+		collect.mockRestore();
+		write.mockRestore();
+	}
 });

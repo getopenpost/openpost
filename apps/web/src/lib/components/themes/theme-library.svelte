@@ -2,6 +2,7 @@
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { getApplicationThemePreview } from '$lib/themes/application-preview.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import AppSelect from '$lib/components/app-select.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { getCurrentLocale, onLocaleChange } from '$lib/i18n';
@@ -405,6 +406,20 @@
 								>
 							</div>
 						</div>
+						{#if selectedItem.manifest.supportedSchemes.length > 1}
+							<AppSelect
+								value={testingScheme}
+								options={selectedItem.manifest.supportedSchemes.map((value) => ({
+									value,
+									label: themeSchemeLabel(value, activeLocale)
+								}))}
+								ariaLabel={m.theme_editor_preview_scheme()}
+								class="min-h-11 w-full sm:w-44"
+								onValueChange={(value) => {
+									if (value === 'light' || value === 'dark') testingScheme = value;
+								}}
+							/>
+						{/if}
 					</div>
 					<ThemePreview
 						theme={selectedPreview}

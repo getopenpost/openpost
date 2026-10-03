@@ -195,14 +195,20 @@ jobs:
         run: |
           bun run lint -- marketing
           bun run check -- marketing
-      # Structural audit and complexity report. Report-only: warn-tier findings
-      # never fail this step; promotion to enforcing happens per rule with data.
+      # Changed-source dead-code gate plus advisory complexity report.
+      # Health thresholds never fail this step; unused code still does.
       - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
         env:
           OPENPOST_FALLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           # Hotspots need historical numstat blobs, which defeats this checkout's blobless clone.
           OPENPOST_FALLOW_CI: "1"
         run: bun run fallow
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fallow-audit-${{ github.sha }}-${{ github.run_attempt }}
+          path: test-results/fallow/*.json
+          if-no-files-found: ignore
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish frontend-quality
 

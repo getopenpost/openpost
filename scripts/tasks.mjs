@@ -319,16 +319,11 @@ function formatPlan(requestedCommand, requestedScope) {
 }
 
 function fallowPlan() {
-  // Structural analysis is repository-wide, not per surface, so it gets its
-  // own command instead of a lint scope. Report-only day one: every rule is
-  // "warn", so the audit gate reports new findings and passes, and health
-  // never fails with --report-only. CI pins the base through
-  // OPENPOST_FALLOW_BASE; local runs use fallow's default base.
+  // Dead-code findings gate changed sources; complexity remains a separate
+  // report. Fallow's combined audit enforces health thresholds even when
+  // dead-code rules are warn, so it cannot implement the advisory health policy.
   const base = process.env.OPENPOST_FALLOW_BASE;
   const historyArgs = process.env.OPENPOST_FALLOW_CI === "1" ? [] : ["--hotspots", "--targets"];
-  // CRAP is estimated from export references (no coverage data in CI), so the
-  // default cap fails even tested helpers (e.g. slider-row CRAP 63.6 with unit
-  // tests). 400 keeps the signal for genuinely untested complexity.
   const auditArgs = [
     "audit",
     ...(base && !/^0+$/.test(base) ? ["--base", base] : []),
@@ -337,7 +332,7 @@ function fallowPlan() {
   ];
   return plan("fallow", undefined, [
     [
-      stage("changed-code audit", [commandStep("bunx", "fallow", ...auditArgs)]),
+      stage("changed-code audit", [bun("scripts/fallow-dead-code-gate.mjs", ...auditArgs)]),
       stage("complexity and hotspots", [
         commandStep(
           "bunx",
@@ -351,7 +346,7 @@ function fallowPlan() {
         ),
       ]),
       stage("mobile audit and health", [
-        commandStep("bunx", "fallow", "--root", "apps/mobile", ...auditArgs),
+        bun("scripts/fallow-dead-code-gate.mjs", "--root", "apps/mobile", ...auditArgs),
         commandStep(
           "bunx",
           "fallow",

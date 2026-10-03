@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import { publicPlan, resolvePlan } from "./tasks.mjs";
 
@@ -71,7 +76,10 @@ test("fallow audits changed code and reports complexity without scopes", () => {
   const stages = Object.fromEntries(
     JSON.parse(result.stdout).stages.map((stage) => [stage.label, stage]),
   );
-  assert.match(stages["changed-code audit"].commands[0], /bunx fallow audit/u);
+  assert.match(
+    stages["changed-code audit"].commands[0],
+    /bun scripts\/fallow-dead-code-gate.mjs audit/u,
+  );
   assert.match(stages["changed-code audit"].commands[0], /--max-crap 400/u);
   assert.match(stages["complexity and hotspots"].commands[0], /--report-only/u);
   assert.match(stages["complexity and hotspots"].commands[0], /--hotspots/u);
@@ -83,7 +91,10 @@ test("fallow audits changed code and reports complexity without scopes", () => {
   const ciStages = Object.fromEntries(
     JSON.parse(ciResult.stdout).stages.map((stage) => [stage.label, stage]),
   );
-  assert.match(ciStages["changed-code audit"].commands[0], /bunx fallow audit/u);
+  assert.match(
+    ciStages["changed-code audit"].commands[0],
+    /bun scripts\/fallow-dead-code-gate.mjs audit/u,
+  );
   assert.doesNotMatch(ciStages["complexity and hotspots"].commands[0], /--hotspots|--targets/u);
   assert.match(
     ciStages["complexity and hotspots"].commands[0],
@@ -97,4 +108,91 @@ test("fallow audits changed code and reports complexity without scopes", () => {
 
   const scoped = taskPlan("fallow", "frontend");
   assert.notEqual(scoped.status, 0);
+});
+
+test("structural gate rejects unused exports while complexity stays advisory", () => {
+  const fixture = mkdtempSync(path.join(os.tmpdir(), "openpost-fallow-gate-"));
+  const fallow = fileURLToPath(new URL("../node_modules/.bin/fallow", import.meta.url));
+  const adapter = fileURLToPath(new URL("./fallow-dead-code-gate.mjs", import.meta.url));
+  try {
+    writeFileSync(
+      path.join(fixture, "package.json"),
+      JSON.stringify({ private: true, type: "module", dependencies: { "is-number": "7.0.0" } }),
+    );
+    writeFileSync(
+      path.join(fixture, ".fallowrc.json"),
+      JSON.stringify({ entry: ["main.ts"], rules: { "unused-exports": "warn" } }),
+    );
+    writeFileSync(path.join(fixture, "main.ts"), "console.log('ready');");
+    for (const args of [
+      ["init", "--quiet"],
+      ["add", "."],
+      [
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.com",
+        "commit",
+        "--quiet",
+        "-m",
+        "Initial fixture",
+      ],
+    ]) {
+      const result = spawnSync("git", args, { cwd: fixture, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
+    }
+    const decisions = Array.from(
+      { length: 40 },
+      (_, index) => `if (value === ${index}) return ${index};`,
+    ).join("\n");
+    writeFileSync(
+      path.join(fixture, "main.ts"),
+      `import { choose } from './helper'; console.log(choose(2));`,
+    );
+    const helper = `export function choose(value: number) { ${decisions} return -1; }`;
+    writeFileSync(
+      path.join(fixture, "helper.ts"),
+      `${helper}\nexport function unused() { return 1; }`,
+    );
+    const previousBase = process.env.OPENPOST_FALLOW_BASE;
+    let stages;
+    try {
+      process.env.OPENPOST_FALLOW_BASE = "HEAD";
+      stages = resolvePlan("fallow").phases.flat();
+    } finally {
+      if (previousBase === undefined) delete process.env.OPENPOST_FALLOW_BASE;
+      else process.env.OPENPOST_FALLOW_BASE = previousBase;
+    }
+    const execute = (label) => {
+      const step = stages.find((stage) => stage.label === label).steps[0];
+      return step.argv[0] === "bun"
+        ? spawnSync("bun", [adapter, ...step.argv.slice(2)], {
+            cwd: fixture,
+            encoding: "utf8",
+            env: { ...process.env, PATH: `${path.dirname(fallow)}:${process.env.PATH}` },
+          })
+        : spawnSync(fallow, step.argv.slice(2), { cwd: fixture, encoding: "utf8" });
+    };
+    const unused = execute("changed-code audit");
+    assert.equal(unused.status, 1, unused.stdout + unused.stderr);
+    assert.match(
+      readFileSync(path.join(fixture, "test-results/fallow/root.json"), "utf8"),
+      /unused/u,
+    );
+    writeFileSync(path.join(fixture, "helper.ts"), helper);
+    const clean = execute("changed-code audit");
+    assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+    assert.match(clean.stdout, /"dead_code_inherited": 1/u);
+    const invalidConfig = spawnSync("bun", [adapter, "audit", "--config", "missing.json"], {
+      cwd: fixture,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${path.dirname(fallow)}:${process.env.PATH}` },
+    });
+    assert.equal(invalidConfig.status, 2, invalidConfig.stdout + invalidConfig.stderr);
+    const complexity = execute("complexity and hotspots");
+    assert.equal(complexity.status, 0, complexity.stdout + complexity.stderr);
+    assert.match(complexity.stdout, /choose/u);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });

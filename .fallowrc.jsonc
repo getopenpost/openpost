@@ -2,10 +2,9 @@
   // Fallow structural analysis for OpenPost (TS/Svelte/JS side).
   // Go is covered by golangci-lint (gocyclo + gocognit + dupl); see apps/server/.golangci.yml.
   //
-  // Day-one posture is report-only: every finding rule is "warn" and CI runs
-  // `health --report-only` plus `audit` (warn-tier findings never fail the
-  // gate). Promote rules to "error" deliberately after inspecting real
-  // distributions; see `bun run fallow`.
+  // Introduced dead code is gated through Fallow audit attribution.
+  // Complexity stays advisory through `health --report-only`; the combined
+  // `audit` command would independently enforce health thresholds.
   //
   // Knip stays in place for now (config/knip.jsonc). Fallow overlaps it on
   // dead code; compare both before removing either.
@@ -15,8 +14,7 @@
   // entry knowledge in config/knip.jsonc, which per-workspace entries cannot
   // express in fallow's single-root config.
   "entry": [
-    // Repository tooling and browser suites (root project, no framework plugin).
-    "scripts/**/*.{js,mjs,ts}",
+    // Browser suites (root project, no framework plugin).
     "tests/**/*.spec.{js,ts}",
     "tests/**/*.test.{js,ts}",
     // Test runners execute these directly; without this, runner-owned files
@@ -46,6 +44,24 @@
     // the real entries (see the "n8n" field in that package.json).
     "packages/n8n-nodes-openpost/nodes/**/*.ts",
     "packages/n8n-nodes-openpost/credentials/**/*.ts",
+  ],
+
+  // Repository scripts run during development/builds, never in the shipped app.
+  // Keep their import graph live without classifying it as application runtime.
+  "framework": [
+    {
+      "name": "openpost-tooling",
+      "detection": { "type": "fileExists", "pattern": "scripts/tasks.mjs" },
+      "entryPoints": ["scripts/**/*.{js,mjs,ts}"],
+      "entryPointRole": "support",
+      "toolingDependencies": [
+        "@iconify-json/lucide",
+        "@napi-rs/canvas",
+        "js-yaml",
+        "parse5",
+        "tar",
+      ],
+    },
   ],
 
   // Excluded from every detector. Unioned with fallow's built-in defaults.

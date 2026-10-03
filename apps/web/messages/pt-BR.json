@@ -9720,5 +9720,6 @@
 	"media_dimensions_range_invalid": "As dimensões mínimas não podem exceder as máximas. Use 0 para não definir um máximo.",
 	"media_date_range_invalid": "A data final deve ser igual ou posterior à data inicial.",
 	"checkout_payment_open": "O pagamento seguro está aberto. Conclua a compra na janela do Paddle.",
-	"video_editor_track_group_merge": "Juntar faixas em um único grupo (substitui os nomes dos grupos)"
+	"video_editor_track_group_merge": "Juntar faixas em um único grupo (substitui os nomes dos grupos)",
+	"video_editor_project_bundle_folder_required": "A importação de pacotes de projeto requer uma pasta local conectada."
 }

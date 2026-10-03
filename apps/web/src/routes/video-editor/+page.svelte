@@ -823,6 +823,14 @@
 			<h2 class="mb-3 text-base font-semibold">{m.video_editor_local_only()}</h2>
 			{#if gate.state !== 'ready'}
 				<WorkspaceGatePanel {gate} variant="inline" />
+				<div class="mt-3 space-y-2">
+					<Button variant="outline" disabled aria-describedby="bundle-folder-required">
+						{m.video_editor_project_import_bundle()}
+					</Button>
+					<p id="bundle-folder-required" class="text-sm text-muted-foreground">
+						{m.video_editor_project_bundle_folder_required()}
+					</p>
+				</div>
 			{:else if gate.state === 'ready'}
 				<ProjectBrowser
 					projects={projectCatalog.projects}

@@ -9720,5 +9720,6 @@
 	"media_dimensions_range_invalid": "Minimum boyutlar maksimum boyutları aşmamalıdır. Üst sınır olmaması için 0 kullanın.",
 	"media_date_range_invalid": "Bitiş tarihi başlangıç tarihiyle aynı veya daha sonraki bir tarih olmalıdır.",
 	"checkout_payment_open": "Güvenli ödeme açıldı. Paddle penceresinde ödeme işlemini tamamlayın.",
-	"video_editor_track_group_merge": "Parçaları tek grupta birleştir (grup adlarını değiştirir)"
+	"video_editor_track_group_merge": "Parçaları tek grupta birleştir (grup adlarını değiştirir)",
+	"video_editor_project_bundle_folder_required": "Proje paketi içe aktarmak için bağlı bir yerel klasör gerekir."
 }

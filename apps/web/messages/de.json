@@ -9720,5 +9720,6 @@
 	"media_dimensions_range_invalid": "Die Mindestabmessungen dürfen die Höchstabmessungen nicht überschreiten. Verwende 0 für keine Obergrenze.",
 	"media_date_range_invalid": "Das Bis-Datum muss am oder nach dem Von-Datum liegen.",
 	"checkout_payment_open": "Die sichere Zahlung ist geöffnet. Schließe den Kauf im Paddle-Fenster ab.",
-	"video_editor_track_group_merge": "Spuren zu einer Gruppe zusammenführen (ersetzt Gruppennamen)"
+	"video_editor_track_group_merge": "Spuren zu einer Gruppe zusammenführen (ersetzt Gruppennamen)",
+	"video_editor_project_bundle_folder_required": "Der Import von Projektpaketen erfordert einen verbundenen lokalen Ordner."
 }

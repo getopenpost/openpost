@@ -11,7 +11,9 @@ export const LOCAL_IMAGE_MAX_DIMENSION = 16_384;
 export const LOCAL_IMAGE_MAX_PIXELS = 64_000_000;
 
 export class LocalImageError extends Error {
-	constructor(readonly code: 'unsupported' | 'too_large' | 'decode' | 'dimensions' | 'encode') {
+	constructor(
+		readonly code: 'unsupported' | 'empty' | 'too_large' | 'decode' | 'dimensions' | 'encode'
+	) {
 		super(code);
 		this.name = 'LocalImageError';
 	}
@@ -23,7 +25,8 @@ export function validateLocalImage(
 ): void {
 	if (!Object.values(LOCAL_IMAGE_MIME).some((mime) => mime === file.type.toLowerCase()))
 		throw new LocalImageError('unsupported');
-	if (file.size <= 0 || file.size > maxBytes) throw new LocalImageError('too_large');
+	if (file.size <= 0) throw new LocalImageError('empty');
+	if (file.size > maxBytes) throw new LocalImageError('too_large');
 }
 
 export function firstClipboardImage(event: ClipboardEvent): File | null {
@@ -211,6 +214,8 @@ export function localImageMessage(error: unknown): string {
 	if (!(error instanceof LocalImageError))
 		return 'The image could not be processed. Try another file.';
 	if (error.code === 'unsupported') return 'Use a PNG, JPEG, or WebP image.';
+	if (error.code === 'empty')
+		return 'This image is empty. Try exporting it again or choose another file.';
 	if (error.code === 'too_large') return 'Choose an image smaller than 50 MB.';
 	if (error.code === 'dimensions')
 		return 'This image is too large to process safely. Use one under 64 megapixels and 16,384 pixels per side.';

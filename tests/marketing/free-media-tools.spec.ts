@@ -44,6 +44,28 @@ test("WebP conversion downloads real original-size PNG with transparency", async
   await expect(page.getByRole("alert")).toContainText(/damaged|decode|processed/i);
 });
 
+test("empty image recovery requests a fresh export and accepts a valid WebP afterwards", async ({
+  page,
+}) => {
+  await page.goto("/tools/webp-to-jpg");
+  await dismissTelemetryConsent(page);
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /Drop, paste, or choose a WEBP image/ }).click();
+  await (
+    await chooser
+  ).setFiles({ name: "empty.webp", mimeType: "image/webp", buffer: Buffer.alloc(0) });
+  await expect(page.getByRole("alert")).toContainText("empty", { timeout: 2000 });
+  await expect(page.getByRole("alert")).toContainText("exporting it again");
+  await expect(page.getByRole("alert")).not.toContainText("smaller than");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "valid.webp",
+    mimeType: "image/webp",
+    buffer: await sampleImage("webp"),
+  });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Download JPEG", exact: true })).toBeEnabled();
+});
+
 test("color picker previews source pixels and selects with mouse or keyboard", async ({ page }) => {
   await page.goto("/tools/image-color-picker");
   await dismissTelemetryConsent(page);

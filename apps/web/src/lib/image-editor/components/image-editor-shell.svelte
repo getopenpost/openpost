@@ -200,7 +200,11 @@
 		coverHandoff ? m.compose_cover_use_design() : m.image_editor_attach()
 	);
 
-	const editor = provideImageEditor(new ImageEditorController());
+	const editor = provideImageEditor(
+		new ImageEditorController({
+			textAppearance: () => (coverHandoff ? 'over-image' : 'standard')
+		})
+	);
 	let agentConnectionStatus = $state<'connected' | 'disconnected' | 'working'>('disconnected');
 	$effect(() => {
 		const workspaceID = editor.workspaceID;

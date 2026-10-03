@@ -270,15 +270,15 @@
 	async function onCompactDateKeyDown(event: KeyboardEvent, day: CalendarDay) {
 		const index = displayDays.findIndex((entry) => entry.key === day.key);
 		const rowStart = Math.floor(index / 7) * 7;
-		const targetIndexes: Record<string, number> = {
-			ArrowLeft: index - 1,
-			ArrowRight: index + 1,
-			ArrowUp: index - 7,
-			ArrowDown: index + 7,
-			Home: rowStart,
-			End: rowStart + 6
-		};
-		const targetIndex = targetIndexes[event.key];
+		const targetIndexes = new Map([
+			['ArrowLeft', index - 1],
+			['ArrowRight', index + 1],
+			['ArrowUp', index - 7],
+			['ArrowDown', index + 7],
+			['Home', rowStart],
+			['End', rowStart + 6]
+		]);
+		const targetIndex = targetIndexes.get(event.key);
 		if (targetIndex === undefined) return;
 		event.preventDefault();
 		const target = displayDays[targetIndex];

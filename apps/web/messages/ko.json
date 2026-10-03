@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "트리거",
 	"workflows_sample_json": "입력 예시(JSON)",
 	"workflows_invalid_json": "유효한 JSON을 입력하세요.",
-	"workflows_safe_request": "미리 보기에서는 요청을 전송하지 않고 표시만 합니다. 실제 실행에서는 한 번 전송하며, 전달 여부가 불확실하면 확인을 위해 멈춥니다.",
+	"workflows_safe_request": "미리 보기에서는 요청을 전송하지 않습니다. 노드 테스트와 실제 실행에서는 설정된 요청을 한 번 전송하며, 전달 여부가 불확실하면 확인을 위해 멈춥니다.",
 	"workflows_template_digest": "피드 기사를 요약 모음으로",
 	"workflows_template_digest_help": "매주 피드를 읽고 항목 다섯 개를 골라 검토할 요약 모음을 준비합니다.",
 	"workflows_template_decision": "AI로 관련 업데이트 검토",

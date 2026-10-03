@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "Disparador",
 	"workflows_sample_json": "Entrada de ejemplo (JSON)",
 	"workflows_invalid_json": "Introduce JSON válido.",
-	"workflows_safe_request": "La vista previa muestra la solicitud sin enviarla. Las ejecuciones reales la envían una vez y se detienen para su revisión si no se puede confirmar la entrega.",
+	"workflows_safe_request": "La vista previa no envía la solicitud. Probar nodo y las ejecuciones reales envían la solicitud configurada una vez y se detienen para su revisión si no se puede confirmar la entrega.",
 	"workflows_template_digest": "Crear un resumen de artículos del feed",
 	"workflows_template_digest_help": "Lee un feed cada semana, conserva cinco artículos y prepara un resumen para revisar.",
 	"workflows_template_decision": "Revisar novedades relevantes con IA",

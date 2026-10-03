@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "Trigger",
 	"workflows_sample_json": "Sample input (JSON)",
 	"workflows_invalid_json": "Enter valid JSON.",
-	"workflows_safe_request": "Preview shows the request without sending it. Live runs send it once and stop for inspection if delivery is uncertain.",
+	"workflows_safe_request": "Preview does not send the request. Test node and Live runs send the configured request once and stop for inspection if delivery is uncertain.",
 	"workflows_template_digest": "Turn feed articles into a digest",
 	"workflows_template_digest_help": "Read a feed weekly, keep five items, and prepare a digest for review.",
 	"workflows_template_decision": "Review relevant updates with AI",

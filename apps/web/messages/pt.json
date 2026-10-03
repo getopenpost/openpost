@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "Gatilho",
 	"workflows_sample_json": "Exemplo de entrada (JSON)",
 	"workflows_invalid_json": "Introduza JSON válido.",
-	"workflows_safe_request": "A pré-visualização mostra o pedido sem o enviar. A execução real envia-o uma vez e para para inspeção se a entrega for incerta.",
+	"workflows_safe_request": "A pré-visualização não envia o pedido. Testar nó e as execuções reais enviam o pedido configurado uma vez e param para inspeção se a entrega for incerta.",
 	"workflows_template_digest": "Criar um resumo de artigos de um feed",
 	"workflows_template_digest_help": "Leia um feed semanalmente, selecione cinco itens e prepare um resumo para revisão.",
 	"workflows_template_decision": "Rever atualizações relevantes com IA",

@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "Auslöser",
 	"workflows_sample_json": "Beispieleingabe (JSON)",
 	"workflows_invalid_json": "Gib gültiges JSON ein.",
-	"workflows_safe_request": "Die Vorschau zeigt die Anfrage, ohne sie zu senden. Live-Ausführungen senden sie einmal und halten bei unklarer Zustellung zur Prüfung an.",
+	"workflows_safe_request": "Die Vorschau sendet die Anfrage nicht. „Knoten testen“ und Live-Ausführungen senden die konfigurierte Anfrage einmal und halten bei unklarer Zustellung zur Prüfung an.",
 	"workflows_template_digest": "Feed-Artikel zusammenfassen",
 	"workflows_template_digest_help": "Lies jede Woche einen Feed, behalte fünf Einträge und bereite eine Zusammenfassung zur Prüfung vor.",
 	"workflows_template_decision": "Relevante Neuigkeiten mit KI prüfen",

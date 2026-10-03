@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "触发器",
 	"workflows_sample_json": "示例输入（JSON）",
 	"workflows_invalid_json": "请输入有效的 JSON。",
-	"workflows_safe_request": "预览只显示请求，不会发送。实际运行时只发送一次；若无法确定是否送达，则停止并等待检查。",
+	"workflows_safe_request": "预览不会发送请求。测试节点和实际运行会发送一次已配置的请求；若无法确定是否送达，则停止并等待检查。",
 	"workflows_template_digest": "将订阅源文章汇成摘要",
 	"workflows_template_digest_help": "每周读取订阅源，保留五个条目，并准备摘要以供审核。",
 	"workflows_template_decision": "用 AI 筛选相关更新",

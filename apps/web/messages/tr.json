@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "Tetikleyici",
 	"workflows_sample_json": "Örnek girdi (JSON)",
 	"workflows_invalid_json": "Geçerli JSON girin.",
-	"workflows_safe_request": "Önizleme isteği göndermeden gösterir. Gerçek çalıştırmalarda istek bir kez gönderilir; ulaşıp ulaşmadığı belirsizse inceleme için durulur.",
+	"workflows_safe_request": "Önizleme isteği göndermez. Düğümü test et ve gerçek çalıştırmalar yapılandırılan isteği bir kez gönderir; ulaşıp ulaşmadığı belirsizse inceleme için durur.",
 	"workflows_template_digest": "Akıştaki yazılardan özet oluştur",
 	"workflows_template_digest_help": "Her hafta bir akışı okuyun, beş öğeyi seçin ve inceleme için bir özet hazırlayın.",
 	"workflows_template_decision": "İlgili güncellemeleri yapay zekâyla değerlendir",

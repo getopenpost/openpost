@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "Déclencheur",
 	"workflows_sample_json": "Exemple d’entrée (JSON)",
 	"workflows_invalid_json": "Saisissez du JSON valide.",
-	"workflows_safe_request": "L’aperçu affiche la requête sans l’envoyer. Les exécutions réelles l’envoient une fois et s’arrêtent pour vérification si son envoi est incertain.",
+	"workflows_safe_request": "L’aperçu n’envoie pas la requête. Tester le nœud et les exécutions réelles envoient la requête configurée une fois et s’arrêtent pour vérification si son envoi est incertain.",
 	"workflows_template_digest": "Créer un récapitulatif à partir d’un flux",
 	"workflows_template_digest_help": "Lisez un flux chaque semaine, gardez cinq articles et préparez un récapitulatif à valider.",
 	"workflows_template_decision": "Évaluer les nouveautés pertinentes avec l’IA",

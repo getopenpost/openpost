@@ -9538,7 +9538,7 @@
 	"workflows_trigger": "トリガー",
 	"workflows_sample_json": "入力サンプル（JSON）",
 	"workflows_invalid_json": "有効なJSONを入力してください。",
-	"workflows_safe_request": "プレビューではリクエストを送信せずに表示します。実際の実行では1回送信し、送信結果が不明な場合は確認のために停止します。",
+	"workflows_safe_request": "プレビューではリクエストを送信しません。「ノードをテスト」と実際の実行では設定したリクエストを1回送信し、送信結果が不明な場合は確認のために停止します。",
 	"workflows_template_digest": "フィードの記事をダイジェストに",
 	"workflows_template_digest_help": "毎週フィードを読み込み、5件の記事を選んで確認用のダイジェストを作成します。",
 	"workflows_template_decision": "AIで関連する更新を選ぶ",

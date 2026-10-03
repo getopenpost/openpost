@@ -61,6 +61,11 @@
 	}
 	async function load(expectedTransferID = transferID) {
 		resetTransferState();
+		if (!expectedTransferID) {
+			loading = false;
+			error = m.ownership_transfer_missing();
+			return;
+		}
 		const result = await client.GET('/organization-ownership-transfers/resolve', {
 			params: { query: { id: expectedTransferID } }
 		});
@@ -148,10 +153,17 @@
 			layout="list"
 			label={m.common_loading()}
 			items={1}
-		/>{:else if error}<InlineNotice tone="error" message={error}
-			>{#snippet actions()}<Button variant="outline" onclick={() => void load()}
-					>{m.common_retry()}</Button
-				>{/snippet}</InlineNotice
+		/>{:else if error}<InlineNotice
+			tone="error"
+			message={error}
+			class={!transferID ? 'flex-col items-stretch sm:flex-row sm:items-center' : undefined}
+			>{#snippet actions()}
+				{#if transferID}<Button variant="outline" onclick={() => void load()}
+						>{m.common_retry()}</Button
+					>
+				{:else}<Button variant="outline" href={resolve('/')}>{m.auth_account_deleted_home()}</Button
+					>{/if}
+			{/snippet}</InlineNotice
 		>{:else if outcome}<InlineNotice
 			tone="success"
 			message={outcome === 'accepted'

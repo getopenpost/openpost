@@ -347,6 +347,7 @@
 									step="0.1"
 									value={trimStart}
 									oninput={(event) => updateStart(event.currentTarget.valueAsNumber)}
+									onchange={(event) => (event.currentTarget.value = String(trimStart))}
 								/>
 							</label>
 							<label class="space-y-1 text-xs text-muted-foreground">
@@ -358,6 +359,7 @@
 									step="0.1"
 									value={trimEnd}
 									oninput={(event) => updateEnd(event.currentTarget.valueAsNumber)}
+									onchange={(event) => (event.currentTarget.value = String(trimEnd))}
 								/>
 							</label>
 						</div>

@@ -132,7 +132,8 @@ func (s *Service) Enable(ctx context.Context, workspaceID, accountID string) (*m
 	mutated := false
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		result, err := tx.NewInsert().Model(state).
-			On("CONFLICT (social_account_id) DO UPDATE SET enabled = EXCLUDED.enabled, status = EXCLUDED.status, cursor = '', import_watermark = EXCLUDED.import_watermark, cycle_started_at = EXCLUDED.cycle_started_at, initial_finished_at = NULL, initial_items_seen = 0, failure_code = '', failure_message = '', next_eligible_at = NULL, updated_at = EXCLUDED.updated_at WHERE enabled = FALSE").
+			On("CONFLICT (social_account_id) DO UPDATE SET enabled = EXCLUDED.enabled, status = EXCLUDED.status, cursor = '', import_watermark = EXCLUDED.import_watermark, cycle_started_at = EXCLUDED.cycle_started_at, initial_finished_at = NULL, initial_items_seen = 0, failure_code = '', failure_message = '', next_eligible_at = NULL, updated_at = EXCLUDED.updated_at").
+			Where("?TableAlias.enabled = FALSE").
 			Exec(txCtx)
 		if err != nil {
 			return fmt.Errorf("enable post import: %w", err)

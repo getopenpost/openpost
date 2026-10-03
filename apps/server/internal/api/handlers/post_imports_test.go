@@ -2,9 +2,13 @@ package handlers
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -14,14 +18,47 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/postimport"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 )
 
 func TestPostImportsCanBeEnabledReadAndDisabledWithinWorkspace(t *testing.T) {
-	db := createHandlerTestDB(t,
+	modelsToCreate := []any{
 		(*models.User)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
 		(*models.SocialAccount)(nil), (*models.PostImportState)(nil),
 		(*models.ImportedPost)(nil), (*models.Job)(nil),
-	)
+	}
+	t.Run("sqlite", func(t *testing.T) {
+		testPostImportsLifecycle(t, createHandlerTestDB(t, modelsToCreate...))
+	})
+	t.Run("postgres", func(t *testing.T) {
+		dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL")
+		if dsn == "" {
+			t.Skip("OPENPOST_TEST_POSTGRES_URL is not configured")
+		}
+		db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
+		db.SetMaxOpenConns(1)
+		t.Cleanup(func() { require.NoError(t, db.Close()) })
+		schema := fmt.Sprintf("post_imports_%d", time.Now().UnixNano())
+		_, err := db.ExecContext(t.Context(), `CREATE SCHEMA "`+schema+`"`)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			_, err := db.ExecContext(context.Background(), `DROP SCHEMA IF EXISTS "`+schema+`" CASCADE`)
+			require.NoError(t, err)
+		})
+		_, err = db.ExecContext(t.Context(), `SET search_path TO "`+schema+`"`)
+		require.NoError(t, err)
+		for _, model := range modelsToCreate {
+			_, err = db.NewCreateTable().Model(model).Exec(t.Context())
+			require.NoError(t, err)
+		}
+		testPostImportsLifecycle(t, db)
+	})
+}
+
+func testPostImportsLifecycle(t *testing.T, db *bun.DB) {
+	t.Helper()
 	ctx := t.Context()
 	now := time.Now().UTC()
 	for _, row := range []any{
@@ -111,6 +148,15 @@ func TestPostImportsCanBeEnabledReadAndDisabledWithinWorkspace(t *testing.T) {
 	require.Len(t, overview.Posts, 1)
 	require.Equal(t, "import-1", overview.Posts[0].ID)
 	require.Empty(t, overview.NextCursor)
+	// Re-enabling retains the read-only library and starts a new opt-in window.
+	res = request(http.MethodPut, "/api/v1/accounts/account-1/post-imports", map[string]any{"workspace_id": "workspace-1", "enabled": true})
+	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
+	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &overview))
+	require.True(t, overview.Enabled)
+	require.Len(t, overview.Posts, 3)
+	require.NoError(t, db.NewSelect().Model(state).Where("social_account_id = ?", "account-1").Scan(ctx))
+	require.True(t, state.ImportWatermark.After(firstWatermark))
+
 	res = request(http.MethodGet, path+"&cursor=invalid!", nil)
 	require.Equal(t, http.StatusBadRequest, res.Code)
 

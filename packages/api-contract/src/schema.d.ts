@@ -16347,9 +16347,10 @@ export interface components {
         WorkflowSourceItem: {
             account_id?: string;
             body: string;
+            created_at?: string;
             id: string;
             publication_id?: string;
-            published_at: string;
+            published_at?: string;
             rendition_id?: string;
             title: string;
             url: string;

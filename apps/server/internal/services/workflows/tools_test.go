@@ -146,8 +146,9 @@ func TestCreatedPostTriggerExcludesAutomationAndAdmitsOnce(t *testing.T) {
 	require.NoError(t, err)
 	workflow, err = s.Publish(t.Context(), actor, "ws", workflow.ID, workflow.Revision)
 	require.NoError(t, err)
+	createdAt := time.Now().UTC()
 	for _, origin := range []string{"web", "autopost"} {
-		_, err = s.db.NewInsert().Model(&models.Publication{ID: origin, WorkspaceID: "ws", CreatedByID: "user", CreationSource: origin, Title: origin, SourceText: "New post", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(t.Context())
+		_, err = s.db.NewInsert().Model(&models.Publication{ID: origin, WorkspaceID: "ws", CreatedByID: "user", CreationSource: origin, Title: origin, SourceText: "New post", CreatedAt: createdAt, UpdatedAt: createdAt}).Exec(t.Context())
 		require.NoError(t, err)
 	}
 	payload := fmt.Sprintf(`{"workflow_id":%q}`, workflow.ID)
@@ -157,6 +158,8 @@ func TestCreatedPostTriggerExcludesAutomationAndAdmitsOnce(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, runs, 1)
 	require.Equal(t, "web", runs[0].Source["id"])
+	require.Equal(t, createdAt.Format(time.RFC3339), runs[0].Source["created_at"])
+	require.NotContains(t, runs[0].Source, "published_at")
 }
 
 func TestBasicCredentialCannotLeakThroughResponseHeaders(t *testing.T) {

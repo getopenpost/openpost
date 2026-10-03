@@ -317,6 +317,13 @@ func TestGitHubSampleHandlesRepositoriesWithLargeReleaseHistories(t *testing.T) 
 	require.Len(t, items, 5)
 	require.Equal(t, "Release 1", items[0].Title)
 	require.Equal(t, "Release notes", items[0].Body)
+	encoded, err := json.Marshal(items[0])
+	require.NoError(t, err)
+	var source map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &source))
+	require.Contains(t, source, "published_at")
+	require.Equal(t, "", source["published_at"])
+	require.NotContains(t, source, "created_at")
 }
 
 func TestGitHubPollReconcilesPagesWithoutReplayingKnownReleases(t *testing.T) {

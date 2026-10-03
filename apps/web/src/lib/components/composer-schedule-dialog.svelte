@@ -246,7 +246,7 @@
 		<Dialog.Header
 			class="shrink-0 border-b px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-4 text-left"
 		>
-			<Dialog.Title class="text-lg font-semibold">{m.compose_schedule()}</Dialog.Title>
+			<Dialog.Title>{m.compose_schedule()}</Dialog.Title>
 			<Dialog.Description class="text-sm text-muted-foreground">
 				{m.compose_schedule_timezone({ timezone })}
 			</Dialog.Description>
@@ -340,7 +340,7 @@
 					class="mx-3 flex min-w-0 flex-col rounded-lg border bg-card p-3 sm:mx-0 sm:p-4"
 				>
 					<div class="flex items-baseline justify-between gap-3">
-						<h2 class="text-base font-semibold">{agendaDateLabel}</h2>
+						<h2 class="text-sm font-medium">{agendaDateLabel}</h2>
 						{#if postsQuery.data}<span class="shrink-0 text-xs text-muted-foreground"
 								>{dayEntries.length === 1
 									? m.activity_thread_post_one({ count: 1 })
@@ -393,7 +393,7 @@
 									step="60"
 									value={selectedTime ?? ''}
 									oninput={(event) => selectTime(event.currentTarget.value)}
-									class="h-12 text-lg font-medium tabular-nums md:text-lg"
+									class="tabular-nums"
 								/>
 								{#if selectedDate || selectedTime}
 									<Button

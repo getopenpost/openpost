@@ -2106,7 +2106,10 @@ export class OpenPostFabricAdapter {
 		} else if (layer.type === 'text' && layer.text) {
 			if (!isEditableFabricText(object)) return;
 			const textObject = object;
-			const text = layer.text.curve ? curvedTextContent(layer.text.text) : layer.text.text;
+			const text =
+				layer.text.curve && layer.text.curve.type !== 'none'
+					? curvedTextContent(layer.text.text)
+					: layer.text.text;
 			const textChanged = textObject.text !== text;
 			textObject.set({
 				...common,

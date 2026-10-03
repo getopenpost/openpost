@@ -128,6 +128,46 @@ function pixelDigest(canvas: HTMLCanvasElement): number {
 	return hash >>> 0;
 }
 
+it('preserves flat multiline layout across live font changes and fresh renders', async () => {
+	const layer: ImageEditorLayer = {
+		...renderLayer('multiline', 20, 20, 300, 160),
+		type: 'text',
+		shape: undefined,
+		text: {
+			text: 'Font café é 👋\nمرحبا بالعالم',
+			font_family: 'Arial',
+			font_weight: 400,
+			font_style: 'normal',
+			font_size: 28,
+			color: '#000000',
+			align: 'left',
+			line_height: 1.1,
+			letter_spacing: 0,
+			stroke_width: 0,
+			shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 },
+			wrap: 'word',
+			curve: { type: 'none', strength: 0.65, offset: 0, reverse: false }
+		}
+	};
+	const initial = pageFixture([layer]);
+	const changed = pageFixture([{ ...layer, text: { ...layer.text!, font_family: 'Georgia' } }]);
+	const live = await mountAdapter(documentFixture(initial), initial);
+	const fresh = await mountAdapter(documentFixture(changed), changed, { staticCanvas: true });
+	try {
+		await live.adapter.sync(documentFixture(changed), changed);
+		await document.fonts.ready;
+		await settleCanvas();
+		const pixels = (canvas: HTMLCanvasElement) =>
+			canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+		expect(pixels(live.canvas)).toEqual(pixels(fresh.canvas));
+	} finally {
+		live.adapter.dispose();
+		fresh.adapter.dispose();
+		live.canvas.remove();
+		fresh.canvas.remove();
+	}
+});
+
 it('renders saved grapheme emphasis in the live canvas and static export', async () => {
 	const layer: ImageEditorLayer = {
 		id: 'headline',

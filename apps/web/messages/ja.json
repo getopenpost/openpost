@@ -9678,5 +9678,6 @@
 	"workflows_node_keyboard_readonly_help": "Enter または Space でノードを選択します。Escape で選択を解除します。ステップのボタンで内容を確認できます。",
 	"workflows_no_variable_match": "一致する変数がありません。別の検索を試してください。",
 	"workflows_no_runs_active_help": "有効なワークフローの公開済みトリガーが発火すると、実行がここに表示されます。",
-	"workflows_no_runs_schedule_help": "このスケジュールは有効です。{minutes} 分後、次のバックグラウンドチェックを経て最初の実行が開始します。"
+	"workflows_no_runs_schedule_help": "このスケジュールは有効です。{minutes} 分後、次のバックグラウンドチェックを経て最初の実行が開始します。",
+	"quick_cut_transcript_restore_hint": "削除した単語は文字起こしに残ります。{cuts}を開き、元データ内の時間を含む保持範囲を調整または追加してください。"
 }

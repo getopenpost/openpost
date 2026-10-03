@@ -9678,5 +9678,6 @@
 	"workflows_node_keyboard_readonly_help": "Enter ou Espaço seleciona um nó. Escape limpa a seleção. Use o botão da etapa para inspecioná-la.",
 	"workflows_no_variable_match": "Não há variáveis correspondentes. Tente outra pesquisa.",
 	"workflows_no_runs_active_help": "As execuções aparecem aqui quando o gatilho publicado de um workflow ativo é acionado.",
-	"workflows_no_runs_schedule_help": "Este agendamento está ativo. A primeira execução começa após {minutes} minutos e a próxima verificação em segundo plano."
+	"workflows_no_runs_schedule_help": "Este agendamento está ativo. A primeira execução começa após {minutes} minutos e a próxima verificação em segundo plano.",
+	"quick_cut_transcript_restore_hint": "As palavras removidas ficam na transcrição. Abra {cuts} e ajuste ou adicione um intervalo mantido que inclua seus tempos de origem."
 }

@@ -9678,5 +9678,6 @@
 	"workflows_node_keyboard_readonly_help": "Enter or Space selects a node. Escape clears selection. Use the step button to inspect it.",
 	"workflows_no_variable_match": "No matching variables. Try another search.",
 	"workflows_no_runs_active_help": "Runs appear here when an active workflow's published trigger fires.",
-	"workflows_no_runs_schedule_help": "This schedule is active. Its first run starts after {minutes} minutes and the next background check."
+	"workflows_no_runs_schedule_help": "This schedule is active. Its first run starts after {minutes} minutes and the next background check.",
+	"quick_cut_transcript_restore_hint": "Removed words stay in the transcript. Open {cuts} and adjust or add a kept range to include their source times."
 }

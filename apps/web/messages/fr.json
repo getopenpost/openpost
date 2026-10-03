@@ -9678,5 +9678,6 @@
 	"workflows_node_keyboard_readonly_help": "Entrée ou Espace sélectionne un nœud. Échap efface la sélection. Utilisez le bouton de l’étape pour l’examiner.",
 	"workflows_no_variable_match": "Aucune variable correspondante. Essayez une autre recherche.",
 	"workflows_no_runs_active_help": "Les exécutions apparaissent ici lorsque le déclencheur publié d’un workflow actif se déclenche.",
-	"workflows_no_runs_schedule_help": "Cette planification est active. Sa première exécution démarre après {minutes} minutes et la prochaine vérification en arrière-plan."
+	"workflows_no_runs_schedule_help": "Cette planification est active. Sa première exécution démarre après {minutes} minutes et la prochaine vérification en arrière-plan.",
+	"quick_cut_transcript_restore_hint": "Les mots supprimés restent dans la transcription. Ouvrez {cuts} et ajustez ou ajoutez une plage conservée pour inclure leurs positions dans la source."
 }

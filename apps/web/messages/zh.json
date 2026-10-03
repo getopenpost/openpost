@@ -9678,5 +9678,6 @@
 	"workflows_node_keyboard_readonly_help": "按 Enter 或空格选择节点。Escape 清除选择。使用步骤按钮查看其内容。",
 	"workflows_no_variable_match": "没有匹配的变量。请尝试其他搜索。",
 	"workflows_no_runs_active_help": "活动工作流的已发布触发器触发后，运行记录会显示在这里。",
-	"workflows_no_runs_schedule_help": "此计划已启用。经过 {minutes} 分钟并完成下一次后台检查后，首次运行将开始。"
+	"workflows_no_runs_schedule_help": "此计划已启用。经过 {minutes} 分钟并完成下一次后台检查后，首次运行将开始。",
+	"quick_cut_transcript_restore_hint": "删除的词仍保留在转录中。打开{cuts}，调整或添加保留区间，以包含这些词在源文件中的时间。"
 }

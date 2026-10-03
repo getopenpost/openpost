@@ -9678,5 +9678,6 @@
 	"workflows_node_keyboard_readonly_help": "Eingabe oder Leertaste wählt einen Knoten aus. Escape hebt die Auswahl auf. Über die Schrittschaltfläche kannst du ihn prüfen.",
 	"workflows_no_variable_match": "Keine passenden Variablen. Versuche eine andere Suche.",
 	"workflows_no_runs_active_help": "Läufe erscheinen hier, wenn der veröffentlichte Auslöser eines aktiven Workflows ausgelöst wird.",
-	"workflows_no_runs_schedule_help": "Dieser Zeitplan ist aktiv. Der erste Lauf startet nach {minutes} Minuten und der nächsten Hintergrundprüfung."
+	"workflows_no_runs_schedule_help": "Dieser Zeitplan ist aktiv. Der erste Lauf startet nach {minutes} Minuten und der nächsten Hintergrundprüfung.",
+	"quick_cut_transcript_restore_hint": "Entfernte Wörter bleiben im Transkript. Öffne {cuts} und passe einen beibehaltenen Bereich an oder füge einen hinzu, der ihre Zeiten in der Quelle einschließt."
 }

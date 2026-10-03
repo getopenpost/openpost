@@ -490,6 +490,47 @@ func TestMemeRenderImportsMediaPersistsImmutableRecipeAndAllowsRecipeRead(t *tes
 	require.Equal(t, http.StatusForbidden, forbiddenRender.Code)
 }
 
+func TestMemeRenderPreservesRequestedFilenameAndRejectsInvalidNames(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name     string
+		filename string
+		want     string
+		status   int
+	}{
+		{name: "legacy", want: "meme-drake.png", status: http.StatusOK},
+		{name: "authored Unicode", filename: "Audit café named meme.png", want: "Audit café named meme.png", status: http.StatusOK},
+		{name: "extension inferred", filename: "Named meme", want: "Named meme.png", status: http.StatusOK},
+		{name: "path separator", filename: "../other.png", status: http.StatusBadRequest},
+		{name: "control character", filename: "bad\nname.png", status: http.StatusBadRequest},
+		{name: "wrong extension", filename: "named.gif", status: http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			srv := newMemeHandlerTestServer(t, nil)
+			body := map[string]any{"workspace_id": "ws-1", "template_id": "drake", "captions": []string{"A", "B"}}
+			if tc.filename != "" {
+				body["filename"] = tc.filename
+			}
+			response := srv.request(t, http.MethodPost, "/api/v1/memes/render", body)
+			require.Equal(t, tc.status, response.Code, response.Body.String())
+			if tc.status != http.StatusOK {
+				require.Empty(t, srv.provider.renderRequests, "invalid names must fail before rendering")
+				count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
+				require.NoError(t, err)
+				require.Zero(t, count)
+				return
+			}
+			var output RenderMemeOutput
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
+			require.Equal(t, tc.want, output.Body.Media.OriginalFilename)
+			var stored models.MediaAttachment
+			require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", output.Body.Media.ID).Scan(t.Context()))
+			require.Equal(t, tc.want, stored.OriginalFilename)
+		})
+	}
+}
+
 func TestMemeRenderRollsBackImportedMediaWhenRecipeInsertFails(t *testing.T) {
 	t.Parallel()
 

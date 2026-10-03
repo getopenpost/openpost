@@ -297,9 +297,13 @@
 			if (lastExport?.documentJSON !== snapshotJSON) {
 				const media = snapshot.meme
 					? (
-							await memeAPI.render(
-								memeInput(initial.workspace_id, snapshot.meme, exportController.signal)
-							)
+							await memeAPI.render({
+								...memeInput(initial.workspace_id, snapshot.meme, exportController.signal),
+								filename: screenshotFilename(snapshot.title).replace(
+									/\.png$/,
+									`.${snapshot.meme.format}`
+								)
+							})
 						).media
 					: await uploadMediaFile({
 							workspaceId: initial.workspace_id,

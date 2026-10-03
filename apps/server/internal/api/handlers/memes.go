@@ -133,6 +133,7 @@ type memeThumbnailCacheEntry struct {
 
 // MemeMediaImport is the bounded input to the existing media pipeline.
 type MemeMediaImport struct {
+	Filename       string
 	RetentionClass string
 	WorkspaceID    string
 	TemplateID     string
@@ -162,10 +163,18 @@ func (i mediaHandlerMemeImporter) ImportMeme(ctx context.Context, input MemeMedi
 	if input.RetentionClass == "" {
 		input.RetentionClass = medialifecycle.RetentionTemporary
 	}
+	filename := "meme-" + input.TemplateID + "." + extension
+	if input.Filename != "" {
+		var err error
+		filename, err = normalizeMediaFilename(filename, input.Filename)
+		if err != nil {
+			return models.MediaAttachment{}, false, err
+		}
+	}
 	var created models.MediaAttachment
 	result, err := i.handler.processUploadBytes(ctx, mediaUploadBytesInput{
 		WorkspaceID:      input.WorkspaceID,
-		Filename:         "meme-" + input.TemplateID + "." + extension,
+		Filename:         filename,
 		DeclaredMimeType: input.MIMEType,
 		Size:             int64(len(input.Data)),
 		Content:          input.Data,
@@ -349,6 +358,7 @@ type RenderMemeInput struct {
 		Captions        []string `json:"captions" required:"true" minItems:"1" maxItems:"16" maxLength:"200" doc:"Caption values in template order"`
 		OverlayMediaIDs []string `json:"overlay_media_ids,omitempty" maxItems:"8" maxLength:"80" doc:"Workspace media IDs for replaceable image slots"`
 		Format          string   `json:"format,omitempty" default:"png" enum:"png,jpg,jpeg,gif,webp" doc:"Rendered image format"`
+		Filename        string   `json:"filename,omitempty" maxLength:"255" doc:"Output filename; its extension must match the selected format. Defaults to the template-based filename."`
 		AltText         string   `json:"alt_text,omitempty" maxLength:"500" doc:"Alternative text saved with the media"`
 		ParentMediaID   string   `json:"parent_media_id,omitempty" maxLength:"80" doc:"Prior generated media when this is an edited version"`
 	}
@@ -690,6 +700,14 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 	if h.importer == nil || h.db == nil {
 		return nil, huma.Error503ServiceUnavailable("meme media storage is not configured")
 	}
+	filename := input.Body.Filename
+	if filename != "" {
+		var err error
+		filename, err = normalizeMediaFilename("meme."+normalizedMemeExtension(input.Body.Format), filename)
+		if err != nil {
+			return nil, huma.Error400BadRequest(err.Error())
+		}
+	}
 	altText := strings.TrimSpace(input.Body.AltText)
 	if utf8.RuneCountInString(altText) > memegeneration.MaxAltTextCharacters || hasMemeControl(altText, false) {
 		return nil, huma.Error400BadRequest("meme alt text is invalid")
@@ -713,7 +731,7 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 		return nil, huma.Error429TooManyRequests("another generated image is still being saved; try again shortly")
 	}
 	media, deduped, err := h.importer.ImportMeme(ctx, MemeMediaImport{
-		WorkspaceID: input.Body.WorkspaceID, TemplateID: template.ID, RetentionClass: input.Body.RetentionClass,
+		WorkspaceID: input.Body.WorkspaceID, TemplateID: template.ID, RetentionClass: input.Body.RetentionClass, Filename: filename,
 		Extension: rendered.Extension, MIMEType: rendered.MIMEType, Data: rendered.Data,
 		AltText: altText, ParentMediaID: strings.TrimSpace(input.Body.ParentMediaID),
 	})

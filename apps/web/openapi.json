@@ -16736,6 +16736,11 @@
 						"minItems": 1,
 						"type": ["array", "null"]
 					},
+					"filename": {
+						"description": "Output filename; its extension must match the selected format. Defaults to the template-based filename.",
+						"maxLength": 255,
+						"type": "string"
+					},
 					"format": {
 						"default": "png",
 						"description": "Rendered image format",

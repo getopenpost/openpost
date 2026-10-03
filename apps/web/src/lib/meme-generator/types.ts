@@ -65,6 +65,7 @@ export interface MemeSuggestionResult extends Omit<
 }
 
 export interface MemeRecipeInput {
+	filename?: string;
 	retentionClass?: 'library' | 'temporary';
 	workspaceId: string;
 	templateId: string;

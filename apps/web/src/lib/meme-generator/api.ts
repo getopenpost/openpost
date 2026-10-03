@@ -172,6 +172,7 @@ export async function renderMeme(input: MemeRecipeInput): Promise<MemeRenderResu
 		body: {
 			...recipeBody(input),
 			retention_class: input.retentionClass ?? 'temporary',
+			filename: input.filename,
 			alt_text: input.altText,
 			parent_media_id: input.parentMediaId
 		},

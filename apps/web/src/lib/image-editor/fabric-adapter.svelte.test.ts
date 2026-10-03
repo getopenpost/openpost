@@ -1072,8 +1072,10 @@ for (const selection of ['group', 'selection'] as const) {
 		editor.groupSelected();
 		editor.selectLayer('outside', 'toggle');
 		if (selection === 'group') editor.groupSelected();
+		// SAFETY: serialization clones the loaded, JSON-compatible document without changing its schema.
 		const before = JSON.parse(JSON.stringify(editor.document)) as ImageEditorDocument;
 		editor.updateSelectedTransform('width', 150, true);
+		// SAFETY: the transform mutation preserves the loaded document schema across this JSON clone.
 		const scaled = JSON.parse(JSON.stringify(editor.document)) as ImageEditorDocument;
 		const expectedHeadline: ImageEditorLayer = {
 			...headline,

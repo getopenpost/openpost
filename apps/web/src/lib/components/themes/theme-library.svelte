@@ -335,7 +335,7 @@
 			: item.manifest.supportedSchemes[0];
 		testingScheme = testScheme ?? scheme;
 		await tick();
-		if (!previewAnchor || window.matchMedia('(min-width: 640px)').matches) return;
+		if (!previewAnchor) return;
 		previewAnchor.scrollIntoView({
 			behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
 			block: 'start'

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function installLocalWorkspacePicker(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    if (typeof window.showOpenFilePicker !== "function") {
+    if (!("showOpenFilePicker" in window)) {
       Object.defineProperty(window, "showOpenFilePicker", {
         configurable: true,
         value: async () => {

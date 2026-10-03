@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"image"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -258,9 +260,9 @@ func newMemeHandlerTestServer(t *testing.T, suggester memegeneration.Suggester) 
 
 func validMemePNG(t *testing.T) []byte {
 	t.Helper()
-	data, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nWQAAAAASUVORK5CYII=")
-	require.NoError(t, err)
-	return data
+	var data bytes.Buffer
+	require.NoError(t, png.Encode(&data, image.NewNRGBA(image.Rect(0, 0, 1, 1))))
+	return data.Bytes()
 }
 
 func (s *memeHandlerTestServer) request(t *testing.T, method, path string, body any, token ...string) *httptest.ResponseRecorder {

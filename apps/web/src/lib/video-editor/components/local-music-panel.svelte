@@ -87,6 +87,8 @@
 		}
 	];
 
+	let selectedPreset = $state('0');
+	const selectedPresetLabel = $derived(presets[Number(selectedPreset)]?.label ?? presets[0].label);
 	let prompt = $state(presets[0].prompt);
 	let durationSeconds = $state(10);
 	let audioQuality = $state<AudioQuality>('standard');
@@ -110,7 +112,9 @@
 
 	function selectPreset(value: string): void {
 		const preset = presets[Number(value)];
-		if (preset) prompt = preset.prompt;
+		if (!preset) return;
+		selectedPreset = value;
+		prompt = preset.prompt;
 	}
 
 	function changeQuality(value: string): void {
@@ -272,13 +276,18 @@
 			<label for="local-music-preset" class="block text-[10px] text-[var(--video-editor-muted)]">
 				{m.video_editor_local_music_starting_point()}
 			</label>
-			<Select.Root type="single" disabled={generating} onValueChange={selectPreset}>
+			<Select.Root
+				type="single"
+				value={selectedPreset}
+				disabled={generating}
+				onValueChange={selectPreset}
+			>
 				<Select.Trigger
 					id="local-music-preset"
 					aria-label={m.video_editor_local_music_starting_point()}
 					class="mt-0.5 h-8 w-full justify-between rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none hover:translate-y-0 hover:bg-[var(--video-editor-panel)] data-placeholder:text-[var(--video-editor-muted)]"
 				>
-					<span class="truncate">{presets[0].label}</span>
+					<span class="truncate">{selectedPresetLabel}</span>
 				</Select.Trigger>
 				<Select.Content
 					class="video-editor-theme bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"

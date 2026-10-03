@@ -326,6 +326,7 @@
     "@openpost/web",
   ],
   "patchedDependencies": {
+    "@fumadocs/api-docs@0.2.8": "patches/@fumadocs%2Fapi-docs@0.2.8.patch",
     "@asamuzakjp/css-color@3.2.0": "patches/@asamuzakjp%2Fcss-color@3.2.0.patch",
   },
   "overrides": {

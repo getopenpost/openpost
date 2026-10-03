@@ -1,0 +1,12 @@
+diff --git a/dist/components/schema/client.js b/dist/components/schema/client.js
+index 1deaf194b2e3d620df325ee5526051834bbbbb43..6f363cfed05169cac6869aabebf91a4aa268ad27 100644
+--- a/dist/components/schema/client.js
++++ b/dist/components/schema/client.js
+@@ -165,6 +165,7 @@ function ObjectProperty({ name, $type, required, parentPathIndex, ...props }) {
+ 						size: "icon-xs",
+ 						variant: "ghost"
+ 					}), "text-fd-muted-foreground [&_svg]:size-3.5"),
++					"aria-label": `${t("Copy link to")} ${name}`,
+ 					onClick,
+ 					children: isChecked ? /* @__PURE__ */ jsx(CheckIcon, {}) : /* @__PURE__ */ jsx(LinkIcon, {})
+ 				})

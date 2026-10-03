@@ -89,15 +89,15 @@
 									class="h-1.5 w-3/5 rounded-full"
 									style:background={preview?.colors.ink ?? 'var(--foreground)'}
 								></div>
-								<div
-									class="relative h-4 w-1/2 rounded"
-									data-dither-button={preview?.components.button === 'dither'
-										? 'always'
-										: undefined}
-									use:ditherSurface={{ kind: 'button' }}
-									style:color={preview?.colors.actionFocalInk ?? 'var(--primary-foreground)'}
-									style:background={preview?.colors.actionFocal ?? 'var(--primary)'}
-								></div>
+								<div class="h-4 w-1/2" use:ditherSurface={{ kind: 'button' }}>
+									<div
+										class="relative h-full w-full rounded"
+										data-dither-button={preview?.components.button === 'dither'
+											? 'always'
+											: undefined}
+										style={`color: ${preview?.colors.actionFocalInk ?? 'var(--primary-foreground)'}; background: ${preview?.colors.actionFocal ?? 'var(--primary)'}`}
+									></div>
+								</div>
 							</div>
 						</div>
 					</div>

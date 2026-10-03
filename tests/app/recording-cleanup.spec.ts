@@ -124,6 +124,9 @@ test("recording cleanup is reachable, touch usable, and persists voice treatment
     await writable.close();
   }, id);
   await page.reload();
+  await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+    timeout: 30_000,
+  });
   const entry = page
     .getByRole("banner")
     .getByRole("button", { name: "Clean up recording", exact: true });

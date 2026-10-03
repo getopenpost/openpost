@@ -19,7 +19,7 @@ test("header history actions close after the selected command becomes disabled",
   const header = page.getByRole("banner");
   const more = header.getByRole("button", { name: "More actions", exact: true });
   const summary = page.locator("[data-project-summary]");
-  await expect(summary).toContainText("1 clip");
+  await expect(summary).toContainText("Clips: 1");
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
@@ -33,7 +33,7 @@ test("header history actions close after the selected command becomes disabled",
           await action.focus();
           await action.press("Enter");
         }
-        await expect(summary).toContainText(command === "Undo" ? "0 clips" : "1 clip");
+        await expect(summary).toContainText(command === "Undo" ? "Clips: 0" : "Clips: 1");
         await expect(page.getByRole("menu")).toHaveCount(0);
         if (width !== 1280) await expect(more).toBeFocused();
       }
@@ -49,7 +49,7 @@ test("header history actions close after the selected command becomes disabled",
     "saved",
   );
   await page.reload();
-  await expect(summary).toContainText("1 clip");
+  await expect(summary).toContainText("Clips: 1");
   expect(errors).toEqual([]);
 });
 
@@ -156,7 +156,7 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
     .click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await newProject(page, "Text proof");
-  await expect(page.locator("[data-project-summary]")).toContainText("0 clips");
+  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 0");
   expect(errors).toEqual([]);
 });
 
@@ -453,7 +453,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await waitForRecording(dialog);
   await dialog.getByRole("button", { name: "Stop recording" }).click();
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
-  await expect(page.locator("[data-project-summary]")).toContainText("1 clip");
+  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 1");
   await page.keyboard.press("ControlOrMeta+s");
   await expect(page.locator('header [role="status"][data-state]')).toHaveAttribute(
     "data-state",
@@ -468,7 +468,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await waitForRecording(dialog);
   await page.evaluate(() => window.dispatchEvent(new Event("test-stop-sharing")));
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
-  await expect(page.locator("[data-project-summary]")).toContainText("2 clips");
+  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 2");
   const uploadRoute = /\/api\/v1\/media\/upload(?:-session)?(?:\?|$)/;
   await page.route(uploadRoute, (route) =>
     route.fulfill({
@@ -509,7 +509,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
     await expect(dialog.getByRole("status")).toHaveAttribute("aria-busy", "true");
     await expect(dialog.getByRole("status")).toContainText("Saving");
     await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0);
-    await expect(page.locator("[data-project-summary]")).toContainText("2 clips");
+    await expect(page.locator("[data-project-summary]")).toContainText("Clips: 2");
   } finally {
     releaseRecoveryUpload();
   }
@@ -517,7 +517,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0, {
     timeout: 30_000,
   });
-  await expect(page.locator("[data-project-summary]")).toContainText("3 clips");
+  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 3");
 });
 
 test("editing text over a background does not leave the old lettering underneath", async ({

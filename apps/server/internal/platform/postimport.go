@@ -100,56 +100,120 @@ type NativePostReader interface {
 	ListNativePosts(ctx context.Context, accessToken string, input NativePostRequest) (NativePostPage, error)
 }
 
-// NativePostReadEstimator lets a reader declare the exact number of provider
+// NativePostReadEstimator lets a reader declare the maximum number of provider
 // reads needed for a page before the shared durable budget is reserved.
 // Readers that do not implement it cost one read per page.
 type NativePostReadEstimator interface {
 	NativePostReadCost(input NativePostRequest) int
 }
 
-// NativePostSupportFor reports native-read support without touching the
-// provider. X stays disabled by the read-cost policy until a metered x_read
-// budget exists. Remaining providers are explicit TODOs, not silent gaps.
+// AccountNativePostSupportResolver applies account-type and installation gates
+// without making provider calls. Required scopes are checked by the service.
+type NativePostAccountContext struct {
+	AccountID     string
+	GrantedScopes string
+}
+
+type AccountNativePostSupportResolver interface {
+	ResolveAccountNativePostSupport(input NativePostAccountContext) NativePostSupport
+}
+
+func nativePostSupport(scopes ...string) NativePostSupport {
+	return NativePostSupport{Supported: true, RequiredScopes: scopes, MinPageSize: 1, MaxPageSize: NativePostMaxPageSize}
+}
+
+// NativePostSupportFor reports the installed reader contract. X has no reader,
+// irrespective of credentials or operator budget overrides.
 func NativePostSupportFor(provider string) NativePostSupport {
+	if reader, ok := NewNativePostReader(provider, ""); ok {
+		return reader.NativePostSupport()
+	}
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case providerBluesky:
-		return NativePostSupport{Supported: true, MinPageSize: 1, MaxPageSize: NativePostMaxPageSize}
-	case providerMastodon:
-		return NativePostSupport{Supported: true, MinPageSize: 1, MaxPageSize: NativePostMaxPageSize}
 	case providerX:
-		return NativePostSupport{UnavailableReason: "X native reads are disabled by the provider read-cost policy (TODO: metered x_read budget)."}
-	case providerThreads:
-		return NativePostSupport{UnavailableReason: "Threads native reads are not implemented yet (TODO)."}
-	case providerInstagram:
-		return NativePostSupport{UnavailableReason: "Instagram native reads are not implemented yet (TODO: Business account media edge)."}
-	case providerFacebook:
-		return NativePostSupport{UnavailableReason: "Facebook native reads are not implemented yet (TODO: page-authorship filter)."}
-	case providerLinkedIn:
-		return NativePostSupport{UnavailableReason: "LinkedIn personal timeline reads are partner-gated and out of scope (TODO)."}
-	case providerTikTok:
-		return NativePostSupport{UnavailableReason: "TikTok native reads are not implemented yet (TODO)."}
-	case providerYouTube:
-		return NativePostSupport{UnavailableReason: "YouTube native reads are not implemented yet (TODO)."}
-	case providerPinterest:
-		return NativePostSupport{UnavailableReason: "Pinterest native reads are not implemented yet (TODO)."}
+		return NativePostSupport{UnavailableReason: "X imports are disabled by the provider read-cost policy."}
+	case providerTelegram:
+		return NativePostSupport{UnavailableReason: "Telegram's Bot API cannot list posts published directly in a channel."}
+	case providerDiscord:
+		return NativePostSupport{UnavailableReason: "Discord webhook connections cannot read channel history. Bot connections cannot identify posts authored by the connected webhook."}
 	default:
 		return NativePostSupport{UnavailableReason: "This provider does not expose native post reads in OpenPost."}
 	}
 }
 
-// NewNativePostReader builds the reader for providers with native-read
-// support. Instance URL scoping keeps reads on the connected account's host
-// (PDS or instance). It returns false for every provider without an
-// implementation, including X while its read budget is disabled.
 func NewNativePostReader(provider, instanceURL string) (NativePostReader, bool) {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case providerBluesky:
 		return NewBlueskyAdapter(instanceURL), true
 	case providerMastodon:
 		return NewMastodonAdapter("", "", "", instanceURL), true
+	case providerPixelfed:
+		return NewPixelfedAdapter("", "", "", instanceURL), true
+	case providerThreads:
+		return NewThreadsAdapter("", "", ""), true
+	case providerFacebook:
+		return NewFacebookAdapter("", "", ""), true
+	case providerInstagram:
+		return NewInstagramAdapter("", "", ""), true
+	case providerTikTok:
+		return NewTikTokAdapter("", "", ""), true
+	case providerYouTube:
+		return NewYouTubeAdapter("", "", ""), true
+	case providerPinterest:
+		return NewPinterestAdapter("", "", ""), true
+	case providerLinkedIn:
+		return NewLinkedInAdapter("", "", "", false, true), true
+	case providerGoogleBusiness:
+		return NewGoogleBusinessAdapter("", "", ""), true
+	case providerPeerTube:
+		return NewPeerTubeAdapter(instanceURL), true
+	case providerLemmy:
+		return NewLemmyAdapter(instanceURL), true
+	case providerPieFed:
+		return NewPieFedAdapter(instanceURL), true
 	default:
 		return nil, false
 	}
+}
+
+// Providers do not all guarantee publication-time ordering. Filter the window
+// locally and retain pagination unless the reader proves it is exhausted.
+func appendNativePost(page *NativePostPage, input NativePostRequest, item NativePostItem) {
+	if !item.PublishedAt.After(input.PublishedAfter) {
+		return
+	}
+	item.Origin = ImportedPostOriginExternal
+	normalized, err := NormalizeNativePostItem(item)
+	if err != nil {
+		return
+	}
+	for _, prior := range page.Items {
+		if prior.ProviderPostID == normalized.ProviderPostID {
+			return
+		}
+	}
+	page.Items = append(page.Items, normalized)
+}
+
+func nativePostTime(value string) time.Time {
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05-0700", "2006-01-02T15:04:05.999999999"} {
+		if parsed, err := time.Parse(layout, strings.TrimSpace(value)); err == nil {
+			return parsed.UTC()
+		}
+	}
+	return time.Time{}
+}
+
+func nativePostContinuation(cursor, previous string) (NativePostPage, error) {
+	page := NativePostPage{Coverage: NativePostComplete}
+	if cursor == "" {
+		return page, nil
+	}
+	if len(cursor) > 4096 || cursor == previous {
+		return NativePostPage{}, NewNativePostError(NativePostFailed, "invalid_provider_cursor", 0)
+	}
+	page.NextCursor = cursor
+	page.Coverage = NativePostPartial
+	return page, nil
 }
 
 // NormalizeNativePostItem bounds the normalized fields that cross the
@@ -221,4 +285,13 @@ func nativePostEndpoint(base, path string, params url.Values) string {
 		return base + path
 	}
 	return base + path + "?" + encoded
+}
+
+// NativePostPublishedIdentity resolves an authored receipt to the identity
+// returned by native reads. Receipt parsing stays with the provider owner.
+func NativePostPublishedIdentity(provider, externalID string) string {
+	if strings.EqualFold(provider, providerBluesky) {
+		return blueskyExternalURI(externalID)
+	}
+	return strings.TrimSpace(externalID)
 }

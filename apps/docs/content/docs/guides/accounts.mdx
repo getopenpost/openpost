@@ -23,6 +23,32 @@ Instagram and Facebook require the account types and Page links set by Meta. Tik
 
 Select the connected account to open its details. Turn on **Analytics**, **Comments and replies**, or **Direct messages** separately if the provider and your plan support them. Some features need another provider permission. For eligible Bluesky and Mastodon accounts, **More → Find people** is also available.
 
+## Import posts published directly on an account
+
+Open the account's details and select **Imported posts → Turn on**. OpenPost starts checking for posts published after you turn imports on. It does not backfill older posts.
+
+Imported posts appear in a read-only library in those details, with their text, date, and a link to the original when available. They do not become editable posts or trigger publishing or Workflows. Media stays on the provider.
+
+| Provider                    | Import availability                                                                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bluesky, Mastodon, Pixelfed | Original posts from the connected account. Replies and reposts are excluded.                                                                                            |
+| Threads                     | The connected account's original posts, with permission to read its Threads.                                                                                            |
+| Instagram                   | Media captions from the connected professional account.                                                                                                                 |
+| Facebook                    | Posts authored by the connected Page, with permission to read Page content.                                                                                             |
+| Pinterest                   | Original Pins owned by the connected account, with Pins and boards read permission. Saved Pins from other accounts are excluded.                                        |
+| YouTube                     | Public, processed videos from the connected channel.                                                                                                                    |
+| TikTok                      | Public videos, with approved Display API access and video read permission. Publishing access alone is insufficient.                                                     |
+| LinkedIn                    | Public original posts. Page imports require organization read permission and enabled Page support. Member imports require LinkedIn's restricted member read permission. |
+| PeerTube                    | Public videos from the connected channel.                                                                                                                               |
+| Lemmy, PieFed               | Posts authored by the connected person, excluding removed or deleted posts.                                                                                             |
+| Google Business Profile     | Live local posts for the connected location, with Business Profile access.                                                                                              |
+| X                           | Disabled.                                                                                                                                                               |
+| Telegram, Discord           | Unavailable for the connected bot or webhook account type.                                                                                                              |
+
+OpenPost checks accounts about once a day. Large result sets continue from a saved page on later checks. Each account has a daily provider request limit, so the library may take more than one check to catch up. Permission errors and provider rate limits leave the account connected and show a reason in **Imported posts**.
+
+Use **Reconnect** when the reason asks for another permission. Some permissions also require approval from the provider for your server's application, so reconnecting cannot grant unapproved access. Select **Turn off** to stop further imports. The stored library stays available.
+
 ## Reconnect or remove an account
 
 Use **Reconnect** if a token expired or you need to approve another permission. If several destinations share one authorization, disconnecting one leaves the others connected. Removing that authorization disconnects every destination that uses it. To revoke access at the provider too, use the provider's security settings.

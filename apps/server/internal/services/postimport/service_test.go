@@ -13,6 +13,7 @@ import (
 
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -161,7 +162,7 @@ func TestEnableSetsWatermarkWithoutBackfill(t *testing.T) {
 
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/new", "new post", "2026-09-26T11:00:00Z") + `]}`))
+		_, _ = w.Write([]byte(`{"feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/new", "new post", "2026-09-26T13:00:00Z") + `]}`))
 	})
 	require.NoError(t, service.SyncAccount(context.Background(), "workspace-1", account.ID))
 	require.Equal(t, 1, countImported(t, db, account.ID))
@@ -262,23 +263,24 @@ func TestResumedSyncKeepsStartWatermark(t *testing.T) {
 	require.True(t, state.CycleStartedAt.IsZero())
 }
 
-func TestInitialCapTransitionsToIncremental(t *testing.T) {
+func TestInitialSyncRetainsCursorAfter250StoredPosts(t *testing.T) {
 	server := blueskyFeedServer(map[string]string{"": `{"cursor":"older","feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/new", "new", "2026-09-26T11:00:00Z") + `]}`})
 	defer server.Close()
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", server.URL)
 	service := NewService(db, &stubTokenSource{token: "token"})
+	service.maxPages = 1
 	started := time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return started }
 	_, err := service.Enable(t.Context(), "workspace-1", account.ID)
 	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("initial_items_seen = ?", initialItemCap-1).Where("social_account_id = ?", account.ID).Exec(t.Context())
+	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("initial_items_seen = ?", 249).Where("social_account_id = ?", account.ID).Exec(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, service.SyncAccount(t.Context(), "workspace-1", account.ID))
 	state := loadImportState(t, db, account.ID)
-	require.False(t, state.InitialFinishedAt.IsZero())
-	require.True(t, state.LastSuccessAt.Equal(started))
-	require.Empty(t, state.Cursor)
+	require.True(t, state.InitialFinishedAt.IsZero())
+	require.True(t, state.LastSuccessAt.IsZero())
+	require.Equal(t, "older", state.Cursor)
 }
 
 func TestSyncSkipsPostsPublishedThroughOpenPost(t *testing.T) {
@@ -298,7 +300,7 @@ func TestSyncSkipsPostsPublishedThroughOpenPost(t *testing.T) {
 		ID: "rendition-1", PublicationID: "publication-1", SocialAccountID: account.ID,
 		TargetKey: "t", Platform: "bluesky", Profile: "p",
 		Body: "published via openpost", Status: "published",
-		ExternalID: ownURI, CreatedAt: now, UpdatedAt: now,
+		ExternalID: fmt.Sprintf(`{"uri":%q,"cid":"cid"}`, ownURI), CreatedAt: now, UpdatedAt: now,
 	}).Exec(context.Background())
 	require.NoError(t, err)
 
@@ -489,4 +491,72 @@ func TestDueImportIsQueuedOnceAfterItsFirstCycle(t *testing.T) {
 	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ? AND status = ?", JobTypeSync, "pending").Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
+}
+
+func TestSyncPersistsReadBudgetBeforeProviderCall(t *testing.T) {
+	db := newPostImportTestDB(t)
+	var account models.SocialAccount
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		state := loadImportState(t, db, account.ID)
+		require.Equal(t, 1, state.ReadBudgetUsed, "a crash during the request must not restore the spent budget")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"feed":[]}`))
+	}))
+	defer server.Close()
+	account = seedPostImportAccount(t, db, "bluesky", "did:plc:owner", server.URL)
+	service := NewService(db, &stubTokenSource{token: "token"})
+	_, err := service.Enable(t.Context(), "workspace-1", account.ID)
+	require.NoError(t, err)
+	require.NoError(t, service.SyncAccount(t.Context(), "workspace-1", account.ID))
+}
+
+func TestNativeImportsRespectGrantAndConfiguredReaders(t *testing.T) {
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "tiktok", "owner", "")
+	tokens := &stubTokenSource{token: "token"}
+	service := NewService(db, tokens)
+	service.SetProvider("tiktok", platform.NewTikTokAdapter("", "", ""))
+	// A stale account credential mirror must not authorize a canonical grant.
+	_, err := db.NewInsert().Model(&models.OAuthGrant{ID: "grant", WorkspaceID: account.WorkspaceID, Provider: "tiktok", AccessTokenEnc: []byte("encrypted"), GrantedScopes: "video.publish"}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("oauth_grant_id = ?", "grant").Set("granted_scopes = ?", "video.list").Where("id = ?", account.ID).Exec(t.Context())
+	require.NoError(t, err)
+	overview, err := service.ReadOverview(t.Context(), account.WorkspaceID, account.ID, "", 50)
+	require.NoError(t, err)
+	require.False(t, overview.Support.Supported)
+	require.Contains(t, overview.Support.UnavailableReason, "video.list")
+	_, err = service.Enable(t.Context(), account.WorkspaceID, account.ID)
+	require.Error(t, err)
+	require.EqualValues(t, 0, tokens.calls.Load())
+	_, err = db.NewUpdate().Model((*models.OAuthGrant)(nil)).Set("granted_scopes = ?", "video.publish video.list").Where("id = ?", "grant").Exec(t.Context())
+	require.NoError(t, err)
+	overview, err = service.ReadOverview(t.Context(), account.WorkspaceID, account.ID, "", 50)
+	require.NoError(t, err)
+	require.True(t, overview.Support.Supported)
+	service.SetProvider("tiktok", platform.NewTikTokAdapterWithCapabilities("", "", "", platform.TikTokMinimalScopeCapabilities()))
+	overview, err = service.ReadOverview(t.Context(), account.WorkspaceID, account.ID, "", 50)
+	require.NoError(t, err)
+	require.False(t, overview.Support.Supported)
+	require.Contains(t, overview.Support.UnavailableReason, "Display API")
+	require.EqualValues(t, 0, tokens.calls.Load(), "availability reads must stay local")
+}
+
+func TestDisableDuringProviderReadStopsTheInFlightImport(t *testing.T) {
+	db := newPostImportTestDB(t)
+	var service *Service
+	var account models.SocialAccount
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, service.Disable(r.Context(), account.WorkspaceID, account.ID))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"cursor":"next","feed":[` + blueskyFeedItem("at://did:plc:owner/app.bsky.feed.post/new", "new", "2026-10-03T12:00:00Z") + `]}`))
+	}))
+	defer server.Close()
+	account = seedPostImportAccount(t, db, "bluesky", "did:plc:owner", server.URL)
+	service = NewService(db, &stubTokenSource{token: "token"})
+	service.now = func() time.Time { return time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC) }
+	_, err := service.Enable(t.Context(), account.WorkspaceID, account.ID)
+	require.NoError(t, err)
+	require.NoError(t, service.SyncAccount(t.Context(), account.WorkspaceID, account.ID))
+	require.False(t, loadImportState(t, db, account.ID).Enabled)
+	require.Zero(t, countImported(t, db, account.ID))
 }

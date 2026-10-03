@@ -166,13 +166,17 @@ describe('account management modes', () => {
 			error: null
 		});
 		const onAccountsChanged = vi.fn();
-		const screen = await render(AccountManagement, {
-			workspace,
-			workspaces: [workspace],
-			links,
-			onContinue: vi.fn(),
-			onAccountsChanged
-		});
+		const screen = await render(
+			AccountManagement,
+			{
+				workspace,
+				workspaces: [workspace],
+				links,
+				onContinue: vi.fn(),
+				onAccountsChanged
+			},
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
 
 		await screen.getByRole('button', { name: /Actions for/ }).click();
 		await screen.getByRole('menuitem', { name: 'Account details' }).click();
@@ -205,13 +209,17 @@ describe('account management modes', () => {
 				completeRefresh = resolve;
 			})
 		);
-		const screen = await render(AccountManagement, {
-			workspace,
-			workspaces: [workspace],
-			links,
-			onContinue: vi.fn(),
-			onAccountsChanged: vi.fn()
-		});
+		const screen = await render(
+			AccountManagement,
+			{
+				workspace,
+				workspaces: [workspace],
+				links,
+				onContinue: vi.fn(),
+				onAccountsChanged: vi.fn()
+			},
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
 
 		await screen.getByRole('button', { name: /Actions for/ }).click();
 		await screen.getByRole('menuitem', { name: 'Account details' }).click();
@@ -244,13 +252,17 @@ describe('account management modes', () => {
 		}>();
 		postMock.mockReturnValueOnce(refresh.promise);
 		const onAccountsChanged = vi.fn();
-		const screen = await render(AccountManagement, {
-			workspace,
-			workspaces: [workspace],
-			links,
-			onContinue: vi.fn(),
-			onAccountsChanged
-		});
+		const screen = await render(
+			AccountManagement,
+			{
+				workspace,
+				workspaces: [workspace],
+				links,
+				onContinue: vi.fn(),
+				onAccountsChanged
+			},
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
 
 		await screen.getByRole('button', { name: /Actions for/ }).click();
 		await screen.getByRole('menuitem', { name: 'Account details' }).click();
@@ -335,13 +347,17 @@ describe('account management modes', () => {
 			}
 			return Promise.resolve({ data: [], error: null });
 		});
-		const screen = await render(AccountManagement, {
-			workspace,
-			workspaces: [workspace],
-			links,
-			onContinue: vi.fn(),
-			onAccountsChanged: vi.fn()
-		});
+		const screen = await render(
+			AccountManagement,
+			{
+				workspace,
+				workspaces: [workspace],
+				links,
+				onContinue: vi.fn(),
+				onAccountsChanged: vi.fn()
+			},
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
 
 		await screen.getByRole('button', { name: /Actions for/ }).click();
 		await screen.getByRole('menuitem', { name: 'Account details' }).click();
@@ -357,13 +373,17 @@ describe('account management modes', () => {
 			}
 			return Promise.resolve({ data: [], error: null });
 		});
-		const screen = await render(AccountManagement, {
-			workspace,
-			workspaces: [workspace],
-			links,
-			onContinue: vi.fn(),
-			onAccountsChanged: vi.fn()
-		});
+		const screen = await render(
+			AccountManagement,
+			{
+				workspace,
+				workspaces: [workspace],
+				links,
+				onContinue: vi.fn(),
+				onAccountsChanged: vi.fn()
+			},
+			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+		);
 
 		await expect.element(screen.getByRole('button', { name: /Actions for/ })).toBeVisible();
 		// SAFETY: the paused dot is a spacing-sized span that computes to 0px in the

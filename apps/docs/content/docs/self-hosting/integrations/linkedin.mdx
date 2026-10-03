@@ -50,6 +50,12 @@ For approved Organization Page access, set `OPENPOST_LINKEDIN_ORGANIZATIONS_ENAB
 2. Select the member profile and, if enabled and offered, any eligible Organization Pages. Each selection becomes a separate OpenPost account.
 3. Publish a short text test to the intended account. Check its result in OpenPost and on LinkedIn before scheduling real content. Enable optional Comments and replies or Analytics per account only after checking your approved access.
 
+## Enable member post imports
+
+LinkedIn restricts `r_member_social` to approved applications. After LinkedIn grants it to your app, set `OPENPOST_LINKEDIN_MEMBER_READS_ENABLED=true` and restart OpenPost. Reconnect the member account to approve that scope, then turn on **Imported posts** in its account details. Keep this setting off for apps without approval so normal connections do not request an unavailable scope.
+
+Page imports use `r_organization_social` and the existing `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED` setting.
+
 ## Troubleshoot
 
 | Problem                                            | Check                                                                                                                                                                      |

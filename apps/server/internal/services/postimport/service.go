@@ -25,13 +25,14 @@ const (
 	failureBackoff   = time.Hour
 	permissionRetry  = 24 * time.Hour
 	watermarkOverlap = time.Minute
-	initialItemCap   = 250
 	defaultPageSize  = 50
 	dueSweepLimit    = 100
 )
 
 var ErrAccountNotFound = errors.New("post import account not found")
 var ErrInvalidCursor = errors.New("invalid post import cursor")
+
+var errImportChanged = errors.New("post import choice changed during sync")
 
 // Policy is instance-owned rate policy. It is provider-overridable but never
 // workspace-controlled. ReadRequestsPerDay counts every listing request that
@@ -60,6 +61,9 @@ type Service struct {
 	now      func() time.Time
 	maxPages int
 
+	providersMu sync.RWMutex
+	providers   map[string]platform.Adapter
+
 	policiesMu sync.RWMutex
 	policies   map[string]Policy
 }
@@ -72,6 +76,60 @@ func NewService(db *bun.DB, tokens TokenSource) *Service {
 		maxPages: 5,
 		policies: make(map[string]Policy),
 	}
+}
+
+// SetProvider uses the same configured adapters as publishing. Import reads
+// must respect installation flags and dynamically registered instances.
+func (s *Service) SetProvider(name string, adapter platform.Adapter) {
+	s.providersMu.Lock()
+	defer s.providersMu.Unlock()
+	if s.providers == nil {
+		s.providers = make(map[string]platform.Adapter)
+	}
+	s.providers[name] = adapter
+}
+
+func (s *Service) reader(account models.SocialAccount) (platform.NativePostReader, bool) {
+	// X remains disabled even if a caller installs an adapter or overrides policy.
+	if strings.EqualFold(account.Platform, "x") {
+		return nil, false
+	}
+	key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
+	s.providersMu.RLock()
+	adapter, found := s.providers[key]
+	configured := s.providers != nil
+	s.providersMu.RUnlock()
+	if found {
+		reader, ok := adapter.(platform.NativePostReader)
+		return reader, ok
+	}
+	if configured {
+		return nil, false
+	}
+	return platform.NewNativePostReader(account.Platform, account.InstanceURL)
+}
+
+func (s *Service) support(account models.SocialAccount) platform.NativePostSupport {
+	reader, ok := s.reader(account)
+	if !ok {
+		support := platform.NativePostSupportFor(account.Platform)
+		if support.Supported {
+			return platform.NativePostSupport{UnavailableReason: "Post imports are not configured for this provider on this instance."}
+		}
+		return support
+	}
+	support := reader.NativePostSupport()
+	if resolver, ok := reader.(platform.AccountNativePostSupportResolver); ok {
+		support = resolver.ResolveAccountNativePostSupport(platform.NativePostAccountContext{AccountID: account.AccountID, GrantedScopes: account.GrantedScopes})
+	}
+	if !support.Supported {
+		return support
+	}
+	if missing := platform.MissingAnalyticsScopes(account.GrantedScopes, support.RequiredScopes); len(missing) > 0 {
+		support.Supported = false
+		support.UnavailableReason = "Reconnect this account with permission to read posts. Required permissions: " + strings.Join(missing, ", ") + "."
+	}
+	return support
 }
 
 func (s *Service) SetPolicy(provider string, policy Policy) {
@@ -106,7 +164,7 @@ func (s *Service) Enable(ctx context.Context, workspaceID, accountID string) (*m
 	if err != nil {
 		return nil, err
 	}
-	support := platform.NativePostSupportFor(account.Platform)
+	support := s.support(account)
 	if !support.Supported {
 		return nil, fmt.Errorf("native post imports are not supported for %s: %s", account.Platform, support.UnavailableReason)
 	}
@@ -264,7 +322,7 @@ func (s *Service) ReadOverview(ctx context.Context, workspaceID, accountID, curs
 	if err != nil {
 		return Overview{}, err
 	}
-	return Overview{Platform: account.Platform, Support: platform.NativePostSupportFor(account.Platform), State: state, Posts: posts, NextCursor: nextCursor}, nil
+	return Overview{Platform: account.Platform, Support: s.support(account), State: state, Posts: posts, NextCursor: nextCursor}, nil
 }
 
 // EnqueueDue recovers import work from the stored account checkpoints. It is
@@ -309,6 +367,17 @@ func (s *Service) loadAccount(ctx context.Context, workspaceID, accountID string
 	if workspaceID != "" && account.WorkspaceID != strings.TrimSpace(workspaceID) {
 		return account, ErrAccountNotFound
 	}
+	if account.OAuthGrantID != "" {
+		var grant models.OAuthGrant
+		err := s.db.NewSelect().Model(&grant).Column("granted_scopes", "revoked_at").Where("id = ? AND workspace_id = ? AND provider = ?", account.OAuthGrantID, account.WorkspaceID, account.Platform).Scan(ctx)
+		if err != nil {
+			return account, fmt.Errorf("load post import authorization: %w", err)
+		}
+		account.GrantedScopes = grant.GrantedScopes
+		if !grant.RevokedAt.IsZero() {
+			account.GrantedScopes = ""
+		}
+	}
 	return account, nil
 }
 
@@ -329,7 +398,13 @@ func (s *Service) loadState(ctx context.Context, accountID string) (*models.Post
 // SyncAccount runs one bounded import cycle: at most maxPages provider reads,
 // each page committed with its checkpoint so a crash resumes from the stored
 // cursor on retry without duplicating committed pages.
-func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string) error {
+func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string) (err error) {
+	defer func() {
+		if errors.Is(err, errImportChanged) {
+			err = nil
+		}
+	}()
+
 	now := s.now().UTC()
 	prepared, err := s.prepareSync(ctx, workspaceID, accountID, now)
 	if err != nil || prepared == nil {
@@ -340,7 +415,7 @@ func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string
 	for pages := 0; pages < max(1, s.maxPages); pages++ {
 		cost := 1
 		if estimator, ok := prepared.reader.(platform.NativePostReadEstimator); ok {
-			cost = max(1, estimator.NativePostReadCost(platform.NativePostRequest{PageSize: prepared.policy.PageSize}))
+			cost = max(1, estimator.NativePostReadCost(platform.NativePostRequest{PageSize: prepared.policy.PageSize, Cursor: cursor}))
 		}
 		if !s.reserveBudget(prepared.state, prepared.policy.ReadRequestsPerDay, cost, now) {
 			if err := s.persistBudget(ctx, prepared.state, now); err != nil {
@@ -348,6 +423,9 @@ func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string
 			}
 			return s.recordOutcome(ctx, prepared.state, platform.NativePostCostLimited,
 				"provider_read_budget_exhausted", "The provider read budget for today is exhausted.", nextUTCDay(now), now)
+		}
+		if err := s.persistBudget(ctx, prepared.state, now); err != nil {
+			return err
 		}
 		page, err := prepared.reader.ListNativePosts(ctx, prepared.accessToken, platform.NativePostRequest{
 			AccountID:      prepared.account.AccountID,
@@ -373,9 +451,6 @@ func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string
 		cursor = page.NextCursor
 		if strings.TrimSpace(cursor) == "" {
 			return s.finishSync(ctx, prepared.state, coverageStatus(page.Coverage), now)
-		}
-		if prepared.state.InitialFinishedAt.IsZero() && seen >= initialItemCap {
-			return s.finishSync(ctx, prepared.state, platform.NativePostPartial, now)
 		}
 		prepared.state.Cursor = cursor
 		if err := s.saveState(ctx, prepared.state); err != nil {
@@ -420,7 +495,7 @@ func (s *Service) prepareSync(ctx context.Context, workspaceID, accountID string
 	if err != nil || !proceed {
 		return nil, err
 	}
-	reader, ok := platform.NewNativePostReader(account.Platform, account.InstanceURL)
+	reader, ok := s.reader(account)
 	if !ok {
 		return nil, s.recordOutcome(ctx, state, platform.NativePostUnsupported,
 			"native_read_not_supported", "This provider does not expose native post reads in OpenPost.", now.Add(routineCadence), now)
@@ -439,11 +514,14 @@ func (s *Service) prepareSync(ctx context.Context, workspaceID, accountID string
 	publishedAfter := state.ImportWatermark
 	if !state.InitialFinishedAt.IsZero() && !state.LastSuccessAt.IsZero() {
 		publishedAfter = state.LastSuccessAt.Add(-watermarkOverlap)
+		if publishedAfter.Before(state.ImportWatermark) {
+			publishedAfter = state.ImportWatermark
+		}
 	}
 	if state.Cursor == "" {
 		state.CycleStartedAt = now
 	}
-	ownPostIDs, err := s.openPostPublishedIDs(ctx, account.ID)
+	ownPostIDs, err := s.openPostPublishedIDs(ctx, account)
 	if err != nil {
 		return nil, err
 	}
@@ -479,13 +557,17 @@ func (s *Service) loadImportEligibility(ctx context.Context, workspaceID, accoun
 		return account, state, policy, false, s.recordOutcome(ctx, state, platform.NativePostCostLimited,
 			"provider_read_budget_disabled", "Native reads are disabled by the provider read-cost policy.", nextUTCDay(now), now)
 	}
-	support := platform.NativePostSupportFor(account.Platform)
+	support := s.support(account)
 	if !support.Supported {
+		status := platform.NativePostUnsupported
+		if len(platform.MissingAnalyticsScopes(account.GrantedScopes, support.RequiredScopes)) > 0 {
+			status = platform.NativePostPermissionRequired
+		}
 		reason := strings.TrimSpace(support.UnavailableReason)
 		if reason == "" {
 			reason = "This provider does not expose native post reads in OpenPost."
 		}
-		return account, state, policy, false, s.recordOutcome(ctx, state, platform.NativePostUnsupported,
+		return account, state, policy, false, s.recordOutcome(ctx, state, status,
 			"native_read_not_supported", boundedOutcomeMessage(reason), now.Add(routineCadence), now)
 	}
 	if !state.NextEligibleAt.IsZero() && state.NextEligibleAt.After(now) {
@@ -514,30 +596,67 @@ func filterOwnPosts(items []platform.NativePostItem, own map[string]struct{}) []
 	return kept
 }
 
-func (s *Service) openPostPublishedIDs(ctx context.Context, accountID string) (map[string]struct{}, error) {
+func (s *Service) openPostPublishedIDs(ctx context.Context, account models.SocialAccount) (map[string]struct{}, error) {
 	var externalIDs []string
 	err := s.db.NewSelect().
 		Model((*models.Rendition)(nil)).
 		Column("external_id").
-		Where("social_account_id = ?", accountID).
+		Where("social_account_id = ?", account.ID).
 		Where("external_id <> ''").
 		Scan(ctx, &externalIDs)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("load published post IDs: %w", err)
 	}
-	own := make(map[string]struct{}, len(externalIDs))
-	for _, id := range externalIDs {
-		if trimmed := strings.TrimSpace(id); trimmed != "" {
-			own[trimmed] = struct{}{}
+	var segmentIDs []string
+	err = s.db.NewSelect().Model((*models.RenditionSegment)(nil)).ColumnExpr("rendition_segment.external_id").Join("JOIN renditions AS r ON r.id = rendition_segment.rendition_id").Where("r.social_account_id = ? AND rendition_segment.external_id <> ''", account.ID).Scan(ctx, &segmentIDs)
+	if err != nil {
+		return nil, fmt.Errorf("load published segment IDs: %w", err)
+	}
+	var deliveryIDs []string
+	err = s.db.NewSelect().Model((*models.ProviderDelivery)(nil)).Column("external_id").Where("social_account_id = ? AND external_id <> ''", account.ID).Scan(ctx, &deliveryIDs)
+	if err != nil {
+		return nil, fmt.Errorf("load provider delivery IDs: %w", err)
+	}
+	allIDs := make([]string, 0, len(externalIDs)+len(segmentIDs)+len(deliveryIDs))
+	allIDs = append(allIDs, externalIDs...)
+	allIDs = append(allIDs, segmentIDs...)
+	allIDs = append(allIDs, deliveryIDs...)
+	own := make(map[string]struct{}, len(allIDs))
+	for _, id := range allIDs {
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			continue
+		}
+		own[trimmed] = struct{}{}
+		if identity := platform.NativePostPublishedIdentity(account.Platform, trimmed); identity != "" {
+			own[identity] = struct{}{}
 		}
 	}
+
 	return own, nil
 }
 
 func (s *Service) commitPage(ctx context.Context, account models.SocialAccount, state *models.PostImportState, items []platform.NativePostItem, nextCursor string, now time.Time) (int, error) {
 	committed := 0
 	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		state.Cursor = strings.TrimSpace(nextCursor)
+		state.Status = string(platform.NativePostPartial)
+		state.FailureCode = ""
+		state.FailureMessage = ""
+		state.LastAttemptedAt = now
+		state.UpdatedAt = now
+		result, err := tx.NewUpdate().Model(state).WherePK().Where("enabled = ? AND import_watermark = ?", true, state.ImportWatermark).Exec(txCtx)
+		if err := importUpdateResult(result, err); err != nil {
+			return err
+		}
 		for _, item := range items {
+			if !item.PublishedAt.After(state.ImportWatermark) {
+				continue
+			}
+			item, err := platform.NormalizeNativePostItem(item)
+			if err != nil {
+				return err
+			}
 			row := &models.ImportedPost{
 				ID:               uuid.NewString(),
 				WorkspaceID:      account.WorkspaceID,
@@ -561,12 +680,6 @@ func (s *Service) commitPage(ctx context.Context, account models.SocialAccount, 
 				return fmt.Errorf("store imported post: %w", err)
 			}
 			committed++
-		}
-		state.Cursor = strings.TrimSpace(nextCursor)
-		state.LastAttemptedAt = now
-		state.UpdatedAt = now
-		if _, err := tx.NewUpdate().Model(state).WherePK().Exec(txCtx); err != nil {
-			return fmt.Errorf("checkpoint import cursor: %w", err)
 		}
 		return nil
 	})
@@ -595,19 +708,20 @@ func (s *Service) reserveBudget(state *models.PostImportState, dailyLimit, cost 
 
 func (s *Service) persistBudget(ctx context.Context, state *models.PostImportState, now time.Time) error {
 	state.UpdatedAt = now
-	_, err := s.db.NewUpdate().Model(state).
+	result, err := s.db.NewUpdate().Model(state).
 		Set("read_budget_start = ?", state.ReadBudgetStart).
 		Set("read_budget_used = ?", state.ReadBudgetUsed).
 		Set("updated_at = ?", now).
 		WherePK().
+		Where("enabled = ? AND import_watermark = ?", true, state.ImportWatermark).
 		Exec(ctx)
-	return err
+	return importUpdateResult(result, err)
 }
 
 func (s *Service) saveState(ctx context.Context, state *models.PostImportState) error {
 	state.UpdatedAt = s.now().UTC()
-	_, err := s.db.NewUpdate().Model(state).WherePK().Exec(ctx)
-	return err
+	result, err := s.db.NewUpdate().Model(state).WherePK().Where("enabled = ? AND import_watermark = ?", true, state.ImportWatermark).Exec(ctx)
+	return importUpdateResult(result, err)
 }
 
 func (s *Service) recordOutcome(ctx context.Context, state *models.PostImportState, status platform.NativePostStatus, code, message string, eligibleAt, now time.Time) error {
@@ -622,6 +736,20 @@ func (s *Service) recordOutcome(ctx context.Context, state *models.PostImportSta
 		state.FailureMessage = ""
 	}
 	return s.saveState(ctx, state)
+}
+
+func importUpdateResult(result sql.Result, err error) error {
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errImportChanged
+	}
+	return nil
 }
 
 func (s *Service) recordReadFailure(ctx context.Context, state *models.PostImportState, err error, now time.Time) error {

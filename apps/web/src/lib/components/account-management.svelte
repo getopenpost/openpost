@@ -2082,9 +2082,13 @@
 						{/if}
 					{/if}
 
-					{#if selectedWorkspaceId && (editingAccount.platform === 'bluesky' || editingAccount.platform === 'mastodon')}
+					{#if selectedWorkspaceId}
 						{#key `${selectedWorkspaceId}:${editingAccount.id}`}
-							<PostImportSettings workspaceID={selectedWorkspaceId} accountID={editingAccount.id} />
+							<PostImportSettings
+								workspaceID={selectedWorkspaceId}
+								accountID={editingAccount.id}
+								canEdit={canEditWorkspace}
+							/>
 						{/key}
 					{/if}
 

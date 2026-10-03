@@ -39,6 +39,7 @@ type LinkedInAdapter struct {
 	redirectURI          string
 	disableThreadReplies bool
 	enableOrganizations  bool
+	enableMemberReads    bool
 }
 
 func NewLinkedInAdapter(clientID, clientSecret, redirectURI string, disableThreadReplies bool, enableOrganizations ...bool) *LinkedInAdapter {
@@ -64,6 +65,9 @@ func (l *LinkedInAdapter) GenerateAuthURL(state string) (string, map[string]stri
 	scope := "openid profile w_member_social w_member_social_feed"
 	if l.disableThreadReplies {
 		scope = "openid profile w_member_social"
+	}
+	if l.enableMemberReads {
+		scope += " r_member_social"
 	}
 	if l.enableOrganizations {
 		scope += " rw_organization_admin w_organization_social r_organization_social r_member_profileAnalytics r_member_postAnalytics"

@@ -13,7 +13,11 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	let { workspaceID, accountID }: { workspaceID: string; accountID: string } = $props();
+	let {
+		workspaceID,
+		accountID,
+		canEdit = false
+	}: { workspaceID: string; accountID: string; canEdit?: boolean } = $props();
 	const imports = createQuery(() => ({
 		...postImportQueryOptions(postImportQueryAPI, workspaceID, accountID),
 		refetchInterval: 60_000
@@ -83,7 +87,7 @@
 	}
 
 	async function setEnabled(enabled: boolean) {
-		if (saving) return;
+		if (saving || !canEdit) return;
 		saving = true;
 		saveError = '';
 		const requestWorkspaceID = workspaceID;
@@ -93,11 +97,11 @@
 				params: { path: { account_id: requestAccountID } },
 				body: { workspace_id: requestWorkspaceID, enabled }
 			});
-			if (error || !data) throw new Error(m.account_imports_save_failed());
+			if (error || !data) throw new Error(error?.detail || m.account_imports_save_failed());
 			queryClient.setQueryData(postImportQueryKey(requestWorkspaceID, requestAccountID), data);
-		} catch {
+		} catch (cause) {
 			if (workspaceID === requestWorkspaceID && accountID === requestAccountID) {
-				saveError = m.account_imports_save_failed();
+				saveError = readQueryErrorMessage(cause) ?? m.account_imports_save_failed();
 			}
 		} finally {
 			saving = false;
@@ -133,6 +137,7 @@
 				type="button"
 				variant="outline"
 				size="sm"
+				class="min-h-11 sm:min-h-9"
 				disabled={loadingMore}
 				onclick={() => void loadMore()}
 			>
@@ -157,7 +162,7 @@
 				variant={data.enabled ? 'outline' : 'default'}
 				size="sm"
 				class="min-h-11 sm:min-h-9"
-				disabled={saving || !data.supported}
+				disabled={saving || !canEdit || (!data.enabled && !data.supported)}
 				onclick={() => void setEnabled(!data.enabled)}
 			>
 				{data.enabled ? m.account_imports_turn_off() : m.account_imports_turn_on()}

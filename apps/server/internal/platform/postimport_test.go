@@ -25,15 +25,7 @@ func TestNativePostSupportForKeepsXDisabled(t *testing.T) {
 	require.False(t, x.Supported)
 	require.Contains(t, x.UnavailableReason, "read-cost policy")
 
-	for _, provider := range []string{"threads", "instagram", "facebook", "linkedin", "tiktok", "youtube", "pinterest"} {
-		support := NativePostSupportFor(provider)
-		require.False(t, support.Supported, provider)
-		require.NotEmpty(t, support.UnavailableReason, provider)
-	}
-
 	_, ok := NewNativePostReader("x", "")
-	require.False(t, ok)
-	_, ok = NewNativePostReader("threads", "")
 	require.False(t, ok)
 	reader, ok := NewNativePostReader("bluesky", "")
 	require.True(t, ok)

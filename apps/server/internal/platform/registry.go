@@ -25,6 +25,7 @@ type AppConfig struct {
 type RegistryOptions struct {
 	DisableLinkedInThreadReplies bool
 	EnableLinkedInOrganizations  bool
+	EnableLinkedInMemberReads    bool
 	DisableTikTokDisplayAPI      bool
 }
 
@@ -107,7 +108,9 @@ var appBuilders = map[string]appBuilder{
 		if strings.TrimSpace(app.ClientID) == "" {
 			return nil, fmt.Errorf("linkedin provider app requires client_id")
 		}
-		return NewLinkedInAdapter(app.ClientID, app.ClientSecret, app.RedirectURI, opts.DisableLinkedInThreadReplies, opts.EnableLinkedInOrganizations), nil
+		adapter := NewLinkedInAdapter(app.ClientID, app.ClientSecret, app.RedirectURI, opts.DisableLinkedInThreadReplies, opts.EnableLinkedInOrganizations)
+		adapter.enableMemberReads = opts.EnableLinkedInMemberReads
+		return adapter, nil
 	},
 	providerThreads: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
 		if strings.TrimSpace(app.ClientID) == "" {

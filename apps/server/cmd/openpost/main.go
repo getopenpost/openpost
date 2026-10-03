@@ -478,6 +478,7 @@ func main() {
 	providers, providerEntries, err := platform.BuildAdapterRegistry(providerAppConfigs, platform.RegistryOptions{
 		DisableLinkedInThreadReplies: cfg.DisableLinkedInThreadReplies,
 		EnableLinkedInOrganizations:  cfg.EnableLinkedInOrganizations,
+		EnableLinkedInMemberReads:    cfg.EnableLinkedInMemberReads,
 		DisableTikTokDisplayAPI:      cfg.DisableTikTokDisplayAPI,
 	})
 	if err != nil {
@@ -572,6 +573,7 @@ func main() {
 		tokenManager.SetProvider(name, adapter)
 		publishSvc.SetProvider(name, adapter)
 		analyticsService.SetProvider(name, adapter)
+		postImportService.SetProvider(name, adapter)
 		if engagementAdapter, ok := adapter.(platform.EngagementAdapter); ok {
 			engagementService.SetProvider(name, engagementAdapter)
 		}
@@ -913,6 +915,7 @@ func main() {
 			tokenManager.SetProvider,
 			func(name string, adapter platform.Adapter) { publishSvc.SetProvider(name, adapter) },
 			analyticsService.SetProvider,
+			postImportService.SetProvider,
 			func(name string, adapter platform.Adapter) {
 				if engagementAdapter, ok := adapter.(platform.EngagementAdapter); ok {
 					engagementService.SetProvider(name, engagementAdapter)

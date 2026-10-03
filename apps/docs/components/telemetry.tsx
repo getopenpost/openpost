@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Cookie } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -79,7 +79,10 @@ function CookieBanner() {
       data-testid="telemetry-consent"
     >
       <div className="cookie-banner-heading">
-        <h2 id="cookie-banner-title">{copy.title}</h2>
+        <h2 id="cookie-banner-title">
+          <Cookie size={20} aria-hidden="true" />
+          {copy.title}
+        </h2>
         {preference !== "undecided" && (
           <button type="button" onClick={close}>
             {copy.closeLabel}
@@ -87,7 +90,6 @@ function CookieBanner() {
         )}
       </div>
       <p>{copy.description}</p>
-      <a href="https://openpo.st/privacy">{copy.privacyLabel}</a>
       <div className="cookie-banner-actions">
         <button type="button" aria-pressed={preference === "off"} onClick={() => choose("off")}>
           {copy.offLabel}
@@ -101,20 +103,23 @@ function CookieBanner() {
           {copy.allowLabel}
         </button>
       </div>
-      <details>
-        <summary>
-          {copy.optionsLabel}
-          <ChevronDown size={14} aria-hidden="true" />
-        </summary>
-        <p>{copy.cookielessDescription}</p>
-        <button
-          type="button"
-          aria-pressed={preference === "cookieless"}
-          onClick={() => choose("cookieless")}
-        >
-          {copy.cookielessLabel}
-        </button>
-      </details>
+      <div className="cookie-banner-footer">
+        <details>
+          <summary>
+            {copy.optionsLabel}
+            <ChevronDown size={14} aria-hidden="true" />
+          </summary>
+          <p>{copy.cookielessDescription}</p>
+          <button
+            type="button"
+            aria-pressed={preference === "cookieless"}
+            onClick={() => choose("cookieless")}
+          >
+            {copy.cookielessLabel}
+          </button>
+        </details>
+        <a href="https://openpo.st/privacy">{copy.privacyLabel}</a>
+      </div>
     </section>
   );
 }

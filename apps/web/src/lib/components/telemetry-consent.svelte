@@ -7,7 +7,7 @@
 		type TelemetryPreferenceStatus
 	} from '@openpost/telemetry';
 	import { Button } from '$lib/components/ui/button';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	interface Props {
 		title: string;
@@ -70,17 +70,20 @@
 
 {#if visible}
 	<section
-		class="fixed inset-x-3 bottom-3 z-[120] mx-auto max-h-[calc(100dvh-1.5rem)] max-w-md overflow-y-auto rounded-xl border bg-background p-4 text-foreground sm:inset-x-6 sm:bottom-6 sm:p-6"
+		class="fixed inset-x-3 bottom-3 z-[120] mx-auto max-h-[calc(100dvh-1.5rem)] max-w-[26rem] overflow-y-auto rounded-xl border bg-background p-4 text-foreground sm:inset-x-6 sm:bottom-6"
 		aria-labelledby="telemetry-consent-title"
 		aria-live={preference === 'undecided' ? 'polite' : 'off'}
 		data-testid="telemetry-consent"
 	>
 		<div class="flex items-start gap-4">
 			<div class="min-w-0 flex-1">
-				<h2 id="telemetry-consent-title" class="text-base font-semibold tracking-[-0.02em]">
+				<h2
+					id="telemetry-consent-title"
+					class="flex items-center gap-2 text-base font-semibold tracking-[-0.02em]"
+				>
+					<ProtectedIcon icon="cookie" class="size-5 shrink-0 text-foreground" />
 					{title}
 				</h2>
-				<p class="mt-1 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">{description}</p>
 			</div>
 			{#if preference !== 'undecided'}
 				<Button
@@ -93,13 +96,8 @@
 				</Button>
 			{/if}
 		</div>
-		<a
-			href={privacyHref}
-			class="inline-flex min-h-11 items-center rounded-md text-sm underline underline-offset-4 hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-		>
-			{privacyLabel}
-		</a>
-		<div class="mt-2 grid grid-cols-2 gap-2">
+		<p class="mt-2 text-sm leading-5 text-muted-foreground">{description}</p>
+		<div class="mt-3 grid grid-cols-2 gap-2">
 			<Button
 				variant="outline"
 				class="min-h-11 justify-center"
@@ -116,22 +114,29 @@
 				{allowLabel}
 			</Button>
 		</div>
-		<details class="group mt-2 text-sm">
-			<summary
-				class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+		<div class="relative mt-1 text-sm">
+			<details class="group">
+				<summary
+					class="flex min-h-11 w-fit max-w-[calc(100%-5rem)] cursor-pointer items-center gap-2 rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+				>
+					{optionsLabel}
+					<ThemeIcon role="chevron-down" class="size-3.5 group-open:rotate-180" />
+				</summary>
+				<p class="mb-3 leading-relaxed text-muted-foreground">{cookielessDescription}</p>
+				<Button
+					variant="outline"
+					class="min-h-11 w-full whitespace-normal"
+					aria-pressed={preference === 'cookieless'}
+					onclick={() => choose('cookieless')}
+				>
+					{cookielessLabel}
+				</Button>
+			</details>
+			<a
+				href={privacyHref}
+				class="absolute end-0 top-0 inline-flex min-h-11 items-center rounded-md underline underline-offset-4 hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+				>{privacyLabel}</a
 			>
-				{optionsLabel}
-				<ThemeIcon role="chevron-down" class="size-3.5 group-open:rotate-180" />
-			</summary>
-			<p class="mb-3 leading-relaxed text-muted-foreground">{cookielessDescription}</p>
-			<Button
-				variant="outline"
-				class="min-h-11 w-full whitespace-normal"
-				aria-pressed={preference === 'cookieless'}
-				onclick={() => choose('cookieless')}
-			>
-				{cookielessLabel}
-			</Button>
-		</details>
+		</div>
 	</section>
 {/if}

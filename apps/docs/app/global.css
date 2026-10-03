@@ -538,7 +538,7 @@ a {
   inset-inline: 12px;
   bottom: 12px;
   z-index: 120;
-  max-width: 28rem;
+  max-width: 26rem;
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
   margin-inline: auto;
@@ -548,7 +548,7 @@ a {
   background: var(--color-fd-background);
   color: var(--color-fd-foreground);
   font-size: 0.875rem;
-  line-height: 1.625;
+  line-height: 1.4286;
 }
 .cookie-banner-heading {
   display: flex;
@@ -557,12 +557,16 @@ a {
   gap: 16px;
 }
 .cookie-banner h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 24px;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 .cookie-banner p {
-  margin-top: 4px;
+  margin-top: 8px;
   color: var(--color-fd-muted-foreground);
 }
 .cookie-banner a,
@@ -573,10 +577,14 @@ a {
   width: fit-content;
 }
 .cookie-banner a {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 0;
   text-decoration: underline;
   text-underline-offset: 4px;
 }
 .cookie-banner summary {
+  max-width: calc(100% - 5rem);
   gap: 8px;
   cursor: pointer;
   color: var(--color-fd-muted-foreground);
@@ -588,7 +596,7 @@ a {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 .cookie-banner button {
   min-height: 44px;
@@ -610,8 +618,9 @@ a {
   margin-inline-end: -8px;
   border: 0;
 }
-.cookie-banner details {
-  margin-top: 8px;
+.cookie-banner-footer {
+  position: relative;
+  margin-top: 4px;
 }
 .cookie-banner details button {
   width: 100%;
@@ -627,7 +636,6 @@ a {
   .cookie-banner {
     inset-inline: 24px;
     bottom: 24px;
-    padding: 24px;
   }
 }
 

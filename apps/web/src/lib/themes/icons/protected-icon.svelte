@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CookieIcon from '@lucide/svelte/icons/cookie';
 	import CloudIcon from '@lucide/svelte/icons/cloud';
 	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
@@ -166,6 +167,7 @@
 			'editor-solo': RadioIcon,
 			'editor-stop': SquareIcon,
 			'editor-paint': BrushIcon,
+			cookie: CookieIcon,
 			cloud: CloudIcon,
 			pending: CircleDashedIcon,
 			error: ErrorIcon,

@@ -14,6 +14,13 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import { ToolbarGroup } from '$lib/components/editor-density';
 	import { Input } from '$lib/components/ui/input';
 	import TranscriptCutPanel from '$lib/quick-cut/components/TranscriptCutPanel.svelte';
+	import RepurposePanel from '$lib/quick-cut/components/RepurposePanel.svelte';
+	import { auth } from '$lib/stores/auth';
+	import { captureSourceTranscriptStorage } from '$lib/video-editor/workspace-fs/source-transcripts';
+	import {
+		getQuickCutSourceTranscript,
+		saveQuickCutSourceTranscript
+	} from '$lib/quick-cut/transcript-cache';
 	import CleanupPanel from '$lib/quick-cut/components/CleanupPanel.svelte';
 	import { removeSourceRanges } from '$lib/quick-cut/range-edit';
 	import { EditorHistory } from '$lib/editor-history';
@@ -131,7 +138,9 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let selectedId = $state<string | null>(null);
 	let cutMode = $state<CutMode>('nearestKeyframe');
 	let merge = $state(true);
-	let panel = $state<'cuts' | 'transcript' | 'cleanup' | 'markers' | 'export'>('cuts');
+	let panel = $state<'cuts' | 'transcript' | 'cleanup' | 'markers' | 'export' | 'repurpose'>(
+		'cuts'
+	);
 	let markers = $state<QuickCutMarker[]>([]);
 	let reviewRanges = $state<AudioSilenceRange[]>([]);
 	let reviewEnd: number | null = null;
@@ -414,10 +423,24 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		if (!repository || openingProjectId) return;
 		openingProjectId = projectId;
 		try {
+			const transcriptStorage = captureSourceTranscriptStorage(repository.workspaceId);
 			const opened = await loadQuickCutCloudProject(repository, projectId);
+			let transcriptUnavailable = false;
+			for (const source of opened.sources) {
+				try {
+					const cached = await getQuickCutSourceTranscript(source, transcriptStorage);
+					if (cached) source.transcript = cached;
+					else if (source.transcript)
+						await saveQuickCutSourceTranscript(source, source.transcript, transcriptStorage);
+				} catch (error) {
+					if (error instanceof DOMException && error.name === 'AbortError') throw error;
+					transcriptUnavailable = true;
+				}
+			}
 			if (disposed || repository !== cloudRepository) return;
 			stopPreview();
 			clearSourceUrls();
+			panel = 'cuts';
 			project = opened.project;
 			sources = opened.sources;
 			segments = opened.project.segments;
@@ -439,7 +462,14 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				sourceUrls = next;
 			}
 			await writeProjectURL(opened.project.id, 'cloud');
+			if (transcriptUnavailable) showToast(m.repurpose_transcript_storage_failed(), 'warning');
 		} catch (error) {
+			if (
+				disposed ||
+				repository !== cloudRepository ||
+				(error instanceof DOMException && error.name === 'AbortError')
+			)
+				return;
 			showToast(error instanceof Error ? error.message : String(error), 'error');
 		} finally {
 			openingProjectId = null;
@@ -475,6 +505,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					sourceUrls = next;
 				}
 			}
+			panel = 'cuts';
 			project = session.project;
 			sources = session.sources;
 			segments = session.project.segments;
@@ -1558,6 +1589,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	}
 
 	function onKeydown(event: KeyboardEvent): void {
+		if (panel === 'repurpose') return;
 		if (handleGlobalPlayPauseShortcut(event, keyboardShortcuts.bindings.PLAY_PAUSE, togglePlay))
 			return;
 		if (event.repeat) return;
@@ -1966,48 +1998,58 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				</section>
 			{/if}
 
-			<div class="quick-cut-toolbar">
-				<ToolbarGroup
-					ariaLabel={m.quick_cut_tools()}
-					class="h-auto min-w-0 flex-wrap border-0 bg-transparent"
+			{#if panel !== 'repurpose'}
+				<div class="quick-cut-toolbar">
+					<ToolbarGroup
+						ariaLabel={m.quick_cut_tools()}
+						class="h-auto min-w-0 flex-wrap border-0 bg-transparent"
+					>
+						<Button
+							size="sm"
+							disabled={!project || !cloudWorkspaceId || !$auth.user?.id || exporting}
+							onclick={() => {
+								videoEl?.pause();
+								stopPreview();
+								panel = 'repurpose';
+							}}>{m.repurpose_find()}</Button
+						>
+						<Button size="sm" variant="outline" onclick={markIn}>
+							{m.quick_cut_in()}<kbd class="text-muted-foreground"
+								>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</kbd
+							>
+						</Button>
+						<Button size="sm" variant="outline" onclick={markOut}>
+							{m.quick_cut_out()}<kbd class="text-muted-foreground"
+								>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</kbd
+							>
+						</Button>
+						<Button
+							size="sm"
+							variant="secondary"
+							disabled={!selectionReady || exporting}
+							onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
+						>
+						<Button
+							size="sm"
+							variant={selectionReady ? 'default' : 'ghost'}
+							disabled={!selectionReady || exporting}
+							onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
+						>
+					</ToolbarGroup>
+				</div>
+				<div
+					class="flex min-h-7 shrink-0 flex-wrap items-center gap-x-3 border-b px-3 py-1 text-xs text-muted-foreground"
+					role="status"
 				>
-					<Button size="sm" variant="outline" onclick={markIn}>
-						{m.quick_cut_in()}<kbd class="text-muted-foreground"
-							>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</kbd
+					{#if selectionReady && inPoint && outPoint}
+						<span class="font-mono whitespace-nowrap tabular-nums"
+							>{formatTimecode(inPoint.time)} → {formatTimecode(outPoint.time)}</span
 						>
-					</Button>
-					<Button size="sm" variant="outline" onclick={markOut}>
-						{m.quick_cut_out()}<kbd class="text-muted-foreground"
-							>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</kbd
-						>
-					</Button>
-					<Button
-						size="sm"
-						variant="secondary"
-						disabled={!selectionReady || exporting}
-						onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
-					>
-					<Button
-						size="sm"
-						variant={selectionReady ? 'default' : 'ghost'}
-						disabled={!selectionReady || exporting}
-						onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
-					>
-				</ToolbarGroup>
-			</div>
-			<div
-				class="flex min-h-7 shrink-0 flex-wrap items-center gap-x-3 border-b px-3 py-1 text-xs text-muted-foreground"
-				role="status"
-			>
-				{#if selectionReady && inPoint && outPoint}
-					<span class="font-mono whitespace-nowrap tabular-nums"
-						>{formatTimecode(inPoint.time)} → {formatTimecode(outPoint.time)}</span
-					>
-					<span>{m.quick_cut_selection_ready()}</span>
-				{:else if inPoint}<span>{m.quick_cut_selection_end()}</span>
-				{:else}<span>{m.quick_cut_selection_start()}</span>{/if}
-			</div>
-
+						<span>{m.quick_cut_selection_ready()}</span>
+					{:else if inPoint}<span>{m.quick_cut_selection_end()}</span>
+					{:else}<span>{m.quick_cut_selection_start()}</span>{/if}
+				</div>
+			{/if}
 			<div class="source-strip">
 				<SourceBar
 					{sources}
@@ -2019,395 +2061,415 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					onAdd={() => void openFiles()}
 				/>
 			</div>
-			<div class="cut-workstation">
-				<div class="viewer">
-					<ContextMenu.Root>
-						<ContextMenu.Trigger>
-							{#snippet child({ props })}
-								<button
-									{...props}
-									class="preview-button"
-									type="button"
-									aria-label={m.quick_cut_preview()}
+			{#if panel === 'repurpose' && activeSource && project && cloudWorkspaceId && $auth.user?.id}
+				<RepurposePanel
+					context={{
+						actorId: $auth.user.id,
+						workspaceId: cloudWorkspaceId,
+						projectId: project.id,
+						source: activeSource,
+						storage: storageMode
+					}}
+					onsave={saveTranscript}
+					onback={() => (panel = 'cuts')}
+				/>
+			{:else}
+				<div class="cut-workstation">
+					<div class="viewer">
+						<ContextMenu.Root>
+							<ContextMenu.Trigger>
+								{#snippet child({ props })}
+									<button
+										{...props}
+										class="preview-button"
+										type="button"
+										aria-label={m.quick_cut_preview()}
+										onclick={togglePlay}
+									>
+										<!-- svelte-ignore a11y_media_has_caption -- trim preview; captions are not part of lossless cuts -->
+										<video
+											bind:this={videoEl}
+											src={videoSrc}
+											class="preview-video"
+											playsinline
+											controls={false}
+											ontimeupdate={onTimeUpdate}
+											onplay={() => (playing = true)}
+											onpause={() => (playing = false)}
+										></video>
+									</button>
+								{/snippet}
+							</ContextMenu.Trigger>
+							<ContextMenu.Content class="w-56">
+								<ContextMenu.Item onclick={togglePlay}>
+									{playing ? m.video_editor_pause() : m.video_editor_play()}
+									<ContextMenu.Shortcut
+										>{shortcutLabel(keyboardShortcuts.bindings.PLAY_PAUSE)}</ContextMenu.Shortcut
+									>
+								</ContextMenu.Item>
+								<ContextMenu.Separator />
+								<ContextMenu.Item onclick={markIn}>
+									{m.video_editor_mark_in()}
+									<ContextMenu.Shortcut
+										>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</ContextMenu.Shortcut
+									>
+								</ContextMenu.Item>
+								<ContextMenu.Item onclick={markOut}>
+									{m.video_editor_mark_out()}
+									<ContextMenu.Shortcut
+										>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</ContextMenu.Shortcut
+									>
+								</ContextMenu.Item>
+								<ContextMenu.Separator />
+								<ContextMenu.Item
+									disabled={!canCaptureFrame || capturingFrame}
+									onclick={() => void captureCurrentFrame('png')}
+								>
+									{m.quick_cut_save_frame_png()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									disabled={!canCaptureFrame || capturingFrame}
+									onclick={() => void captureCurrentFrame('jpeg')}
+								>
+									{m.quick_cut_save_frame_jpeg()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									disabled={!canCaptureFrame || capturingFrame}
+									onclick={() => void captureCurrentFrame('png', 'clipboard')}
+								>
+									{m.quick_cut_copy_frame()}
+								</ContextMenu.Item>
+							</ContextMenu.Content>
+						</ContextMenu.Root>
+						<div class="transport">
+							<div class="flex items-center gap-1">
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									aria-label={m.quick_cut_frame_back()}
+									onclick={() => frameStep(-1)}
+									><ProtectedIcon icon="editor-skip-back" class="size-4" /></Button
+								>
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									aria-label={playing ? m.video_editor_pause() : m.video_editor_play()}
 									onclick={togglePlay}
+									><ProtectedIcon icon={playing ? 'pause' : 'play'} class="size-4" /></Button
 								>
-									<!-- svelte-ignore a11y_media_has_caption -- trim preview; captions are not part of lossless cuts -->
-									<video
-										bind:this={videoEl}
-										src={videoSrc}
-										class="preview-video"
-										playsinline
-										controls={false}
-										ontimeupdate={onTimeUpdate}
-										onplay={() => (playing = true)}
-										onpause={() => (playing = false)}
-									></video>
-								</button>
-							{/snippet}
-						</ContextMenu.Trigger>
-						<ContextMenu.Content class="w-56">
-							<ContextMenu.Item onclick={togglePlay}>
-								{playing ? m.video_editor_pause() : m.video_editor_play()}
-								<ContextMenu.Shortcut
-									>{shortcutLabel(keyboardShortcuts.bindings.PLAY_PAUSE)}</ContextMenu.Shortcut
-								>
-							</ContextMenu.Item>
-							<ContextMenu.Separator />
-							<ContextMenu.Item onclick={markIn}>
-								{m.video_editor_mark_in()}
-								<ContextMenu.Shortcut
-									>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</ContextMenu.Shortcut
-								>
-							</ContextMenu.Item>
-							<ContextMenu.Item onclick={markOut}>
-								{m.video_editor_mark_out()}
-								<ContextMenu.Shortcut
-									>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</ContextMenu.Shortcut
-								>
-							</ContextMenu.Item>
-							<ContextMenu.Separator />
-							<ContextMenu.Item
-								disabled={!canCaptureFrame || capturingFrame}
-								onclick={() => void captureCurrentFrame('png')}
-							>
-								{m.quick_cut_save_frame_png()}
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								disabled={!canCaptureFrame || capturingFrame}
-								onclick={() => void captureCurrentFrame('jpeg')}
-							>
-								{m.quick_cut_save_frame_jpeg()}
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								disabled={!canCaptureFrame || capturingFrame}
-								onclick={() => void captureCurrentFrame('png', 'clipboard')}
-							>
-								{m.quick_cut_copy_frame()}
-							</ContextMenu.Item>
-						</ContextMenu.Content>
-					</ContextMenu.Root>
-					<div class="transport">
-						<div class="flex items-center gap-1">
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								aria-label={m.quick_cut_frame_back()}
-								onclick={() => frameStep(-1)}
-								><ProtectedIcon icon="editor-skip-back" class="size-4" /></Button
-							>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								aria-label={playing ? m.video_editor_pause() : m.video_editor_play()}
-								onclick={togglePlay}
-								><ProtectedIcon icon={playing ? 'pause' : 'play'} class="size-4" /></Button
-							>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								aria-label={m.quick_cut_frame_forward()}
-								onclick={() => frameStep(1)}
-								><ProtectedIcon icon="editor-skip-forward" class="size-4" /></Button
-							>
-						</div>
-						<span class="font-mono text-xs tabular-nums"
-							>{formatTimecode(currentTime)} / {formatTimecode(activeSource?.duration ?? 0)}</span
-						>
-						<div class="ml-auto flex items-center gap-1">
-							<Button
-								size="sm"
-								variant="ghost"
-								disabled={segmentsForExport.length === 0}
-								onclick={() => startPreview(segmentsForExport, false)}
-								>{m.quick_cut_preview_edit()}</Button
-							>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								aria-label={m.quick_cut_capture_frame()}
-								disabled={!canCaptureFrame || capturingFrame}
-								onclick={() => void captureCurrentFrame('png')}
-								><ThemeIcon role="camera" class="size-4" /></Button
-							>
-						</div>
-					</div>
-				</div>
-				<aside class="cut-panel" aria-label={m.quick_cut_tools()}>
-					<div class="panel-tabs" role="group" aria-label={m.quick_cut_tools()}>
-						{#each [{ id: 'cuts', label: m.quick_cut_cuts() }, { id: 'transcript', label: m.video_editor_transcript() }, { id: 'cleanup', label: m.quick_cut_cleanup() }, { id: 'markers', label: m.quick_cut_markers() }] as tab (tab.id)}
-							<Button
-								variant="ghost"
-								size="sm"
-								class="min-w-0 flex-1 px-2 text-xs"
-								aria-pressed={panel === tab.id}
-								onclick={() => (panel = tab.id as typeof panel)}>{tab.label}</Button
-							>
-						{/each}
-					</div>
-					<div class="panel-content">
-						{#if panel === 'cuts'}
-							<div class="mb-3 flex items-center justify-between gap-2">
-								<h2 class="text-sm font-medium">{m.quick_cut_kept_parts()}</h2>
-								<span class="font-mono text-xs text-muted-foreground"
-									>{formatTimecode(
-										segmentsForExport.reduce((sum, segment) => sum + segment.end - segment.start, 0)
-									)}</span
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									aria-label={m.quick_cut_frame_forward()}
+									onclick={() => frameStep(1)}
+									><ProtectedIcon icon="editor-skip-forward" class="size-4" /></Button
 								>
 							</div>
-							<SegmentList
-								{segments}
-								{sources}
-								{selectedId}
-								defaultCutMode={cutMode}
-								onSelect={onSelectSegment}
-								onRemove={removeSegment}
-								onUpdate={updateSegment}
-								onMove={moveSegment}
-								{exporting}
-								canExportIndividually={!removeMarkedRanges}
-								onPreview={previewSegment}
-								onExport={(segment) => void handleExportOne(segment)}
-							/>
-							<details class="mt-4 border-t pt-3">
-								<summary class="cursor-pointer text-xs text-muted-foreground"
-									>{m.quick_cut_segment_files()}</summary
+							<span class="font-mono text-xs tabular-nums"
+								>{formatTimecode(currentTime)} / {formatTimecode(activeSource?.duration ?? 0)}</span
+							>
+							<div class="ml-auto flex items-center gap-1">
+								<Button
+									size="sm"
+									variant="ghost"
+									disabled={segmentsForExport.length === 0}
+									onclick={() => startPreview(segmentsForExport, false)}
+									>{m.quick_cut_preview_edit()}</Button
 								>
-								<div class="mt-2">
-									<DropdownMenu.Root>
-										<DropdownMenu.Trigger>
-											{#snippet child({ props })}
-												<Button {...props} size="sm" variant="outline" class="min-h-11 w-full">
-													{m.quick_cut_segment_files()}
-												</Button>
-											{/snippet}
-										</DropdownMenu.Trigger>
-										<DropdownMenu.Content class="w-64" align="end">
-											<DropdownMenu.Item onclick={() => void handleImportSegments()}>
-												{m.quick_cut_import_segments()}
-											</DropdownMenu.Item>
-											<DropdownMenu.Sub>
-												<DropdownMenu.SubTrigger
-													>{m.quick_cut_export_segments()}</DropdownMenu.SubTrigger
-												>
-												<DropdownMenu.SubContent class="w-56">
-													<DropdownMenu.Item onclick={() => handleExportSegments('csv-seconds')}>
-														{m.quick_cut_format_csv_seconds()}
-													</DropdownMenu.Item>
-													<DropdownMenu.Item onclick={() => handleExportSegments('csv-timecode')}>
-														{m.quick_cut_format_csv_timecodes()}
-													</DropdownMenu.Item>
-													<DropdownMenu.Item onclick={() => handleExportSegments('tsv-timecode')}>
-														{m.quick_cut_format_tsv_timecodes()}
-													</DropdownMenu.Item>
-													<DropdownMenu.Item onclick={() => handleExportSegments('chapters')}>
-														{m.quick_cut_format_chapters()}
-													</DropdownMenu.Item>
-													<DropdownMenu.Item onclick={() => handleExportSegments('srt')}>
-														{m.quick_cut_format_srt()}
-													</DropdownMenu.Item>
-												</DropdownMenu.SubContent>
-											</DropdownMenu.Sub>
-											<DropdownMenu.Separator />
-											<DropdownMenu.Label class="max-w-60 whitespace-normal text-muted-foreground">
-												{m.quick_cut_segment_files_hint()}
-											</DropdownMenu.Label>
-										</DropdownMenu.Content>
-									</DropdownMenu.Root>
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									aria-label={m.quick_cut_capture_frame()}
+									disabled={!canCaptureFrame || capturingFrame}
+									onclick={() => void captureCurrentFrame('png')}
+									><ThemeIcon role="camera" class="size-4" /></Button
+								>
+							</div>
+						</div>
+					</div>
+					<aside class="cut-panel" aria-label={m.quick_cut_tools()}>
+						<div class="panel-tabs" role="group" aria-label={m.quick_cut_tools()}>
+							{#each [{ id: 'cuts', label: m.quick_cut_cuts() }, { id: 'transcript', label: m.video_editor_transcript() }, { id: 'cleanup', label: m.quick_cut_cleanup() }, { id: 'markers', label: m.quick_cut_markers() }] as tab (tab.id)}
+								<Button
+									variant="ghost"
+									size="sm"
+									class="min-w-0 flex-1 px-2 text-xs"
+									aria-pressed={panel === tab.id}
+									onclick={() => (panel = tab.id as typeof panel)}>{tab.label}</Button
+								>
+							{/each}
+						</div>
+						<div class="panel-content">
+							{#if panel === 'cuts'}
+								<div class="mb-3 flex items-center justify-between gap-2">
+									<h2 class="text-sm font-medium">{m.quick_cut_kept_parts()}</h2>
+									<span class="font-mono text-xs text-muted-foreground"
+										>{formatTimecode(
+											segmentsForExport.reduce(
+												(sum, segment) => sum + segment.end - segment.start,
+												0
+											)
+										)}</span
+									>
 								</div>
-							</details>
-							{#if hasOverlapError}<p role="alert" class="mt-2 text-xs text-destructive">
-									{m.quick_cut_overlap_error()}
-								</p>
-								<Button size="sm" variant="outline" onclick={normalize}
-									>{m.quick_cut_normalize()}</Button
-								>{/if}
-						{:else if panel === 'transcript' && activeSource}
-							{#key `${activeSource.id}:${activeSource.selectedAudioTrackIndices?.join(',')}`}<TranscriptCutPanel
-									source={activeSource}
-									segments={segmentsForExport}
-									{currentTime}
-									disabled={exporting}
-									onsave={saveTranscript}
-									onremove={removeRanges}
-									onseek={seekTo}
-								/>{/key}
-						{:else if panel === 'cleanup' && activeSource}
-							{#key `${activeSource.id}:${activeSource.selectedAudioTrackIndices?.join(',')}`}<CleanupPanel
-									source={activeSource}
-									disabled={exporting}
-									onapply={removeRanges}
-									onpreview={previewRange}
-									onreview={(ranges) => (reviewRanges = ranges)}
-								/>{/key}
-						{:else if panel === 'markers'}
-							<Button size="sm" variant="outline" class="mb-3 w-full" onclick={addMarker}
-								>{m.quick_cut_add_marker()}</Button
-							>
-							<div class="divide-y divide-border">
-								{#each markers.filter((marker) => marker.sourceId === activeSource?.id) as marker (marker.id)}
-									<div class="flex items-center gap-1 py-2">
-										<Button
-											size="sm"
-											variant="ghost"
-											class="px-1 font-mono text-xs"
-											onclick={() => seekTo(marker.time)}>{formatTimecode(marker.time)}</Button
-										>
-										<Input
-											aria-label={m.quick_cut_marker_label()}
-											value={marker.name}
-											maxlength={100}
-											class="min-w-0"
-											onchange={(event) => {
-												markers = markers.map((item) =>
-													item.id === marker.id
-														? { ...item, name: event.currentTarget.value }
-														: item
-												);
-												syncProject();
-											}}
-										/>
-										<Button
-											size="icon-sm"
-											variant="ghost"
-											aria-label={m.common_delete()}
-											onclick={() => {
-												markers = markers.filter((item) => item.id !== marker.id);
-												syncProject();
-											}}><ThemeIcon role="delete" class="size-4" /></Button
-										>
+								<SegmentList
+									{segments}
+									{sources}
+									{selectedId}
+									defaultCutMode={cutMode}
+									onSelect={onSelectSegment}
+									onRemove={removeSegment}
+									onUpdate={updateSegment}
+									onMove={moveSegment}
+									{exporting}
+									canExportIndividually={!removeMarkedRanges}
+									onPreview={previewSegment}
+									onExport={(segment) => void handleExportOne(segment)}
+								/>
+								<details class="mt-4 border-t pt-3">
+									<summary class="cursor-pointer text-xs text-muted-foreground"
+										>{m.quick_cut_segment_files()}</summary
+									>
+									<div class="mt-2">
+										<DropdownMenu.Root>
+											<DropdownMenu.Trigger>
+												{#snippet child({ props })}
+													<Button {...props} size="sm" variant="outline" class="min-h-11 w-full">
+														{m.quick_cut_segment_files()}
+													</Button>
+												{/snippet}
+											</DropdownMenu.Trigger>
+											<DropdownMenu.Content class="w-64" align="end">
+												<DropdownMenu.Item onclick={() => void handleImportSegments()}>
+													{m.quick_cut_import_segments()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Sub>
+													<DropdownMenu.SubTrigger
+														>{m.quick_cut_export_segments()}</DropdownMenu.SubTrigger
+													>
+													<DropdownMenu.SubContent class="w-56">
+														<DropdownMenu.Item onclick={() => handleExportSegments('csv-seconds')}>
+															{m.quick_cut_format_csv_seconds()}
+														</DropdownMenu.Item>
+														<DropdownMenu.Item onclick={() => handleExportSegments('csv-timecode')}>
+															{m.quick_cut_format_csv_timecodes()}
+														</DropdownMenu.Item>
+														<DropdownMenu.Item onclick={() => handleExportSegments('tsv-timecode')}>
+															{m.quick_cut_format_tsv_timecodes()}
+														</DropdownMenu.Item>
+														<DropdownMenu.Item onclick={() => handleExportSegments('chapters')}>
+															{m.quick_cut_format_chapters()}
+														</DropdownMenu.Item>
+														<DropdownMenu.Item onclick={() => handleExportSegments('srt')}>
+															{m.quick_cut_format_srt()}
+														</DropdownMenu.Item>
+													</DropdownMenu.SubContent>
+												</DropdownMenu.Sub>
+												<DropdownMenu.Separator />
+												<DropdownMenu.Label
+													class="max-w-60 whitespace-normal text-muted-foreground"
+												>
+													{m.quick_cut_segment_files_hint()}
+												</DropdownMenu.Label>
+											</DropdownMenu.Content>
+										</DropdownMenu.Root>
 									</div>
-								{/each}
-							</div>
-						{:else if panel === 'export'}
-							<h2 class="mb-3 text-sm font-medium">{m.common_export()}</h2>
-							{#each sentExports as sent (sent.href)}<Button
-									href={sent.href}
-									class="mb-3 w-full"
-									variant="secondary">{m.video_editor_open_composer()}</Button
-								>{/each}
-							<div class="space-y-4">
-								<RadioGroup.Root
-									value={cutMode}
-									onValueChange={(value) => changeDefaultCutMode(value as CutMode)}
-									class="space-y-2"
+								</details>
+								{#if hasOverlapError}<p role="alert" class="mt-2 text-xs text-destructive">
+										{m.quick_cut_overlap_error()}
+									</p>
+									<Button size="sm" variant="outline" onclick={normalize}
+										>{m.quick_cut_normalize()}</Button
+									>{/if}
+							{:else if panel === 'transcript' && activeSource}
+								{#key `${activeSource.id}:${activeSource.selectedAudioTrackIndices?.join(',')}`}<TranscriptCutPanel
+										workspaceId={storageMode === 'cloud' ? cloudWorkspaceId : ''}
+										source={activeSource}
+										segments={segmentsForExport}
+										{currentTime}
+										disabled={exporting}
+										onsave={saveTranscript}
+										onremove={removeRanges}
+										onseek={seekTo}
+									/>{/key}
+							{:else if panel === 'cleanup' && activeSource}
+								{#key `${activeSource.id}:${activeSource.selectedAudioTrackIndices?.join(',')}`}<CleanupPanel
+										source={activeSource}
+										disabled={exporting}
+										onapply={removeRanges}
+										onpreview={previewRange}
+										onreview={(ranges) => (reviewRanges = ranges)}
+									/>{/key}
+							{:else if panel === 'markers'}
+								<Button size="sm" variant="outline" class="mb-3 w-full" onclick={addMarker}
+									>{m.quick_cut_add_marker()}</Button
 								>
-									<Label class="flex items-center gap-2 text-xs"
-										><RadioGroup.Item
-											value="nearestKeyframe"
-											id="cutMode-nearest"
-										/>{m.quick_cut_cut_mode_nearest()}</Label
+								<div class="divide-y divide-border">
+									{#each markers.filter((marker) => marker.sourceId === activeSource?.id) as marker (marker.id)}
+										<div class="flex items-center gap-1 py-2">
+											<Button
+												size="sm"
+												variant="ghost"
+												class="px-1 font-mono text-xs"
+												onclick={() => seekTo(marker.time)}>{formatTimecode(marker.time)}</Button
+											>
+											<Input
+												aria-label={m.quick_cut_marker_label()}
+												value={marker.name}
+												maxlength={100}
+												class="min-w-0"
+												onchange={(event) => {
+													markers = markers.map((item) =>
+														item.id === marker.id
+															? { ...item, name: event.currentTarget.value }
+															: item
+													);
+													syncProject();
+												}}
+											/>
+											<Button
+												size="icon-sm"
+												variant="ghost"
+												aria-label={m.common_delete()}
+												onclick={() => {
+													markers = markers.filter((item) => item.id !== marker.id);
+													syncProject();
+												}}><ThemeIcon role="delete" class="size-4" /></Button
+											>
+										</div>
+									{/each}
+								</div>
+							{:else if panel === 'export'}
+								<h2 class="mb-3 text-sm font-medium">{m.common_export()}</h2>
+								{#each sentExports as sent (sent.href)}<Button
+										href={sent.href}
+										class="mb-3 w-full"
+										variant="secondary">{m.video_editor_open_composer()}</Button
+									>{/each}
+								<div class="space-y-4">
+									<RadioGroup.Root
+										value={cutMode}
+										onValueChange={(value) => changeDefaultCutMode(value as CutMode)}
+										class="space-y-2"
 									>
+										<Label class="flex items-center gap-2 text-xs"
+											><RadioGroup.Item
+												value="nearestKeyframe"
+												id="cutMode-nearest"
+											/>{m.quick_cut_cut_mode_nearest()}</Label
+										>
+										<Label class="flex items-center gap-2 text-xs"
+											><RadioGroup.Item
+												value="exact"
+												id="cutMode-exact"
+											/>{m.quick_cut_cut_mode_exact()}</Label
+										>
+									</RadioGroup.Root>
 									<Label class="flex items-center gap-2 text-xs"
-										><RadioGroup.Item
-											value="exact"
-											id="cutMode-exact"
-										/>{m.quick_cut_cut_mode_exact()}</Label
-									>
-								</RadioGroup.Root>
-								<Label class="flex items-center gap-2 text-xs"
-									><Checkbox
-										checked={merge}
-										onCheckedChange={(checked) => {
-											merge = checked === true;
-											syncProject();
-										}}
-									/>{m.quick_cut_merge_label()}</Label
-								>
-								{#if preflight}<p class="text-xs text-muted-foreground" role="status">
-										{preflight.reason}
-									</p>{/if}
-								<Button
-									class="w-full"
-									disabled={exporting || !preflight?.eligible || segmentsForExport.length === 0}
-									onclick={() => (merge ? handleExportMerged() : handleExportAll())}
-									>{merge ? m.quick_cut_export_merged() : m.quick_cut_export_all()}</Button
-								>
-								<Button
-									class="w-full"
-									variant="outline"
-									disabled={exporting || !preflight?.eligible}
-									onclick={handleSendToOpenPost}>{m.quick_cut_send_to_openpost()}</Button
-								>
-								{#if activeSource}<details>
-										<summary class="cursor-pointer text-xs">{m.quick_cut_tracks()}</summary
-										><StreamSelector
-											source={activeSource}
-											onChange={(patch) => updateSourceStreams(activeSource.id, patch)}
-										/>
-									</details>{/if}
-								<details>
-									<summary class="cursor-pointer text-xs">{m.quick_cut_advanced()}</summary><Label
-										class="mt-3 flex items-start gap-2 text-xs"
 										><Checkbox
-											checked={removeMarkedRanges}
+											checked={merge}
 											onCheckedChange={(checked) => {
-												removeMarkedRanges = checked === true;
+												merge = checked === true;
 												syncProject();
 											}}
-										/>{m.quick_cut_remove_marked_ranges()}</Label
+										/>{m.quick_cut_merge_label()}</Label
 									>
-								</details>
-							</div>
-						{/if}
+									{#if preflight}<p class="text-xs text-muted-foreground" role="status">
+											{preflight.reason}
+										</p>{/if}
+									<Button
+										class="w-full"
+										disabled={exporting || !preflight?.eligible || segmentsForExport.length === 0}
+										onclick={() => (merge ? handleExportMerged() : handleExportAll())}
+										>{merge ? m.quick_cut_export_merged() : m.quick_cut_export_all()}</Button
+									>
+									<Button
+										class="w-full"
+										variant="outline"
+										disabled={exporting || !preflight?.eligible}
+										onclick={handleSendToOpenPost}>{m.quick_cut_send_to_openpost()}</Button
+									>
+									{#if activeSource}<details>
+											<summary class="cursor-pointer text-xs">{m.quick_cut_tracks()}</summary
+											><StreamSelector
+												source={activeSource}
+												onChange={(patch) => updateSourceStreams(activeSource.id, patch)}
+											/>
+										</details>{/if}
+									<details>
+										<summary class="cursor-pointer text-xs">{m.quick_cut_advanced()}</summary><Label
+											class="mt-3 flex items-start gap-2 text-xs"
+											><Checkbox
+												checked={removeMarkedRanges}
+												onCheckedChange={(checked) => {
+													removeMarkedRanges = checked === true;
+													syncProject();
+												}}
+											/>{m.quick_cut_remove_marked_ranges()}</Label
+										>
+									</details>
+								</div>
+							{/if}
+						</div>
+					</aside>
+					<div class="cut-timeline">
+						<TimelineBar
+							{activeSource}
+							segments={segmentsForExport}
+							{currentTime}
+							{selectedId}
+							{inPoint}
+							{outPoint}
+							{markers}
+							{reviewRanges}
+							viewport={timelineViewport}
+							onViewportChange={(viewport) => (timelineViewport = viewport)}
+							onSeek={seekTo}
+							onSelect={onSelectSegment}
+						/>
+						<ToolbarGroup class="ml-auto h-auto shrink-0 border-0 bg-transparent">
+							<Button
+								size="icon-sm"
+								variant="ghost"
+								aria-label={m.quick_cut_add_marker()}
+								onclick={addMarker}><ProtectedIcon icon="editor-marker" class="size-3.5" /></Button
+							>
+							<Button
+								size="sm"
+								variant="ghost"
+								aria-pressed={loopMode !== 'off'}
+								onclick={toggleLoopMode}
+							>
+								{m.quick_cut_loop_label()}: {loopMode === 'off'
+									? m.quick_cut_loop_off()
+									: loopMode === 'all'
+										? m.quick_cut_loop_all()
+										: m.quick_cut_loop_segment()}
+							</Button>
+							<Button
+								size="icon-sm"
+								variant="outline"
+								aria-label={m.quick_cut_zoom_out()}
+								disabled={timelineViewport.zoom <= 1}
+								onclick={() => zoomTimeline(0.5)}>−</Button
+							>
+							<Button
+								size="sm"
+								variant="ghost"
+								aria-label={m.quick_cut_zoom_reset()}
+								onclick={resetTimelineZoom}>{Math.round(timelineViewport.zoom * 100)}%</Button
+							>
+							<Button
+								size="icon-sm"
+								variant="outline"
+								aria-label={m.quick_cut_zoom_in()}
+								disabled={timelineViewport.zoom >= 32}
+								onclick={() => zoomTimeline(2)}>+</Button
+							>
+						</ToolbarGroup>
 					</div>
-				</aside>
-				<div class="cut-timeline">
-					<TimelineBar
-						{activeSource}
-						segments={segmentsForExport}
-						{currentTime}
-						{selectedId}
-						{inPoint}
-						{outPoint}
-						{markers}
-						{reviewRanges}
-						viewport={timelineViewport}
-						onViewportChange={(viewport) => (timelineViewport = viewport)}
-						onSeek={seekTo}
-						onSelect={onSelectSegment}
-					/>
-					<ToolbarGroup class="ml-auto h-auto shrink-0 border-0 bg-transparent">
-						<Button
-							size="icon-sm"
-							variant="ghost"
-							aria-label={m.quick_cut_add_marker()}
-							onclick={addMarker}><ProtectedIcon icon="editor-marker" class="size-3.5" /></Button
-						>
-						<Button
-							size="sm"
-							variant="ghost"
-							aria-pressed={loopMode !== 'off'}
-							onclick={toggleLoopMode}
-						>
-							{m.quick_cut_loop_label()}: {loopMode === 'off'
-								? m.quick_cut_loop_off()
-								: loopMode === 'all'
-									? m.quick_cut_loop_all()
-									: m.quick_cut_loop_segment()}
-						</Button>
-						<Button
-							size="icon-sm"
-							variant="outline"
-							aria-label={m.quick_cut_zoom_out()}
-							disabled={timelineViewport.zoom <= 1}
-							onclick={() => zoomTimeline(0.5)}>−</Button
-						>
-						<Button
-							size="sm"
-							variant="ghost"
-							aria-label={m.quick_cut_zoom_reset()}
-							onclick={resetTimelineZoom}>{Math.round(timelineViewport.zoom * 100)}%</Button
-						>
-						<Button
-							size="icon-sm"
-							variant="outline"
-							aria-label={m.quick_cut_zoom_in()}
-							disabled={timelineViewport.zoom >= 32}
-							onclick={() => zoomTimeline(2)}>+</Button
-						>
-					</ToolbarGroup>
 				</div>
-			</div>
+			{/if}
 			<ExportPanel progress={exportProgress} cancel={cancelExport} isExporting={exporting} />
 		{/if}
 	</main>

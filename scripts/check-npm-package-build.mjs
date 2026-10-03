@@ -19,6 +19,7 @@ const expectedFiles = {
 
 const expectedRootEntries = new Set([
   ".gitignore",
+  ".turbo",
   "LICENSE",
   "README.md",
   "bin",

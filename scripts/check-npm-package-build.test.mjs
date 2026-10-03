@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { existsSync, mkdirSync, rmdirSync } from "node:fs";
 
 import { checkPackageBuild } from "./check-npm-package-build.mjs";
 
 test("the SDK and CLI payloads match their manifests and built output", () => {
-  assert.deepEqual(checkPackageBuild("packages/sdk"), []);
+  const cache = "packages/sdk/.turbo";
+  const existed = existsSync(cache);
+  mkdirSync(cache, { recursive: true });
+  try {
+    assert.deepEqual(checkPackageBuild("packages/sdk"), []);
+  } finally {
+    if (!existed) rmdirSync(cache);
+  }
   assert.deepEqual(checkPackageBuild("packages/cli"), []);
 });
 

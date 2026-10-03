@@ -11,6 +11,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import type { Value } from './api';
+	import { builderDestinationIssue } from './validation';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -18,14 +19,18 @@
 		accounts,
 		inputs,
 		readonly = false,
+		required = false,
 		onchange
 	}: {
 		workspaceID: string;
 		accounts: SocialAccount[];
 		inputs: Record<string, Value>;
 		readonly?: boolean;
+		required?: boolean;
 		onchange: (inputs: Record<string, Value>) => void;
 	} = $props();
+	const uid = $props.id();
+	const issue = $derived(required ? builderDestinationIssue(inputs) : '');
 	const sets = createQuery(() => workspaceSocialSetsQueryOptions(queryAPI, workspaceID));
 	const capabilities = createQuery(() => capabilityCatalogQueryOptions(queryAPI));
 	const setID = $derived(z.string().catch('').parse(inputs.social_set_id?.literal));
@@ -44,8 +49,13 @@
 	}
 </script>
 
-<fieldset class="min-w-0 space-y-3">
-	<legend class="mb-2 text-sm font-medium">{m.workflows_destinations()}</legend>
+<fieldset class="min-w-0 space-y-3" aria-describedby={issue ? `${uid}-error` : undefined}>
+	<legend class="mb-2 text-sm font-medium"
+		>{m.workflows_destinations()}{#if required}<span aria-hidden="true" class="text-destructive">
+				*</span
+			>{/if}</legend
+	>
+	{#if issue}<p id={`${uid}-error`} role="status" class="text-xs text-destructive">{issue}</p>{/if}
 	{#if capabilities.data && sets.data}<SocialSetControl
 			workspaceId={workspaceID}
 			{accounts}

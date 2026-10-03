@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { replaceEqualDeep } from '@tanstack/svelte-query';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
@@ -150,8 +150,8 @@
 	import {
 		imageEditorCommand,
 		imageEditorCommandForKeyboardEvent,
-		imageEditorCommandsForCompactMenu,
 		imageEditorCommandsForCategory,
+		imageEditorCommandsForCompactMenu,
 		imageEditorCommandsForMobileGroup,
 		imageEditorCommandsForRail,
 		imageEditorShortcutLabel,
@@ -263,6 +263,40 @@
 	let firstEditHintVisible = $state(false);
 	let firstEditActionLabel = $state<string | undefined>();
 	let helpDialogOpen = $state(false);
+	type CompactMenuSection = ImageEditorCompactMenuCategory | 'file' | 'view' | 'help';
+	const compactMenuSections: readonly CompactMenuSection[] = [
+		'file',
+		...IMAGE_EDITOR_COMPACT_MENU_CATEGORIES,
+		'view',
+		'help'
+	];
+	let compactMenuSection = $state<CompactMenuSection | null>(null);
+	let compactMenuBack = $state<HTMLDivElement | null>(null);
+	let compactMenuItems = $state<Record<CompactMenuSection, HTMLDivElement | null>>({
+		file: null,
+		edit: null,
+		layer: null,
+		select: null,
+		tools: null,
+		view: null,
+		help: null
+	});
+	let compactMenuContent = $state<HTMLDivElement | null>(null);
+
+	async function openCompactMenuSection(section: CompactMenuSection): Promise<void> {
+		compactMenuSection = section;
+		await tick();
+		compactMenuContent?.scrollTo(0, 0);
+		compactMenuBack?.focus();
+	}
+
+	async function backToCompactMenu(): Promise<void> {
+		const section = compactMenuSection;
+		compactMenuSection = null;
+		await tick();
+		compactMenuContent?.scrollTo(0, 0);
+		if (section) compactMenuItems[section]?.focus();
+	}
 	let conflictDialogOpen = $state(false);
 	let conflictBusy = $state(false);
 	let conflictOperationSequence = 0;
@@ -2553,7 +2587,10 @@
 		return commandLabel(id);
 	}
 
-	function compactCommandCategoryLabel(category: ImageEditorCompactMenuCategory): string {
+	function compactCommandCategoryLabel(category: CompactMenuSection): string {
+		if (category === 'file') return m.image_editor_file();
+		if (category === 'view') return m.image_editor_view();
+		if (category === 'help') return m.image_editor_help();
 		if (category === 'edit') return m.image_editor_edit();
 		if (category === 'layer') return m.image_editor_layer();
 		if (category === 'select') return m.image_editor_select();
@@ -3202,7 +3239,7 @@
 						<ThemeIcon role="feedback" />
 					</Button>
 				{/if}
-				<DropdownMenu.Root>
+				<DropdownMenu.Root onOpenChange={() => (compactMenuSection = null)}>
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
 							<Button
@@ -3218,99 +3255,112 @@
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content
 						align="end"
+						bind:ref={compactMenuContent}
 						class="max-h-[calc(100dvh-1rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto"
 					>
-						<div class="w-64 p-1 md:hidden">
-							<EditorTitleInput
-								value={editor.document?.title ?? ''}
-								class="h-11 w-full"
-								ariaLabel={m.image_editor_design_title()}
-								disabled={!editor.canEdit}
-								onkeydown={(event) => {
-									if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
-								}}
-								onchange={(value) =>
-									editor.mutate(
-										'Rename design',
-										(document) => (document.title = value),
-										'document-title'
-									)}
-							/>
-						</div>
-						<DropdownMenu.Separator class="md:hidden" />
-						{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
-							{#if command.separatorBefore}<DropdownMenu.Separator />{/if}
+						{#if compactMenuSection}
 							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
+								bind:ref={compactMenuBack}
+								closeOnSelect={false}
+								onSelect={backToCompactMenu}
+								class="[@media(pointer:coarse)]:min-h-11"
 							>
-								{commandMenuLabel(command.id)}
+								<ThemeIcon role="chevron-left" />{m.common_back()}
 							</DropdownMenu.Item>
-						{/each}
-						<DropdownMenu.Separator />
-						{#each IMAGE_EDITOR_COMPACT_MENU_CATEGORIES as category (category)}
-							<DropdownMenu.Label>{compactCommandCategoryLabel(category)}</DropdownMenu.Label>
-							{#each imageEditorCommandsForCompactMenu().filter((command) => command.category === category) as command (command.id)}
+							<DropdownMenu.Label
+								>{compactCommandCategoryLabel(compactMenuSection)}</DropdownMenu.Label
+							>
+							{#each (compactMenuSection === 'file' || compactMenuSection === 'view' || compactMenuSection === 'help' ? imageEditorCommandsForCategory(compactMenuSection) : imageEditorCommandsForCompactMenu().filter((command) => command.category === compactMenuSection))
+								.filter(commandVisible)
+								.filter((command) => command.id !== 'version_history') as command (command.id)}
 								{#if command.separatorBefore}<DropdownMenu.Separator />{/if}
-								<DropdownMenu.Item
-									onclick={() => executeEditorCommand(command.id)}
-									disabled={!commandEnabled(command.id)}
-									title={commandDisabledReason(command.id) || undefined}
+								{#if command.menuKind === 'checkbox' || command.id === 'focus_canvas'}
+									<DropdownMenu.CheckboxItem
+										class="[@media(pointer:coarse)]:min-h-11"
+										checked={commandChecked(command.id)}
+										onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
+										>{commandLabel(command.id)}</DropdownMenu.CheckboxItem
+									>
+								{:else}
+									<DropdownMenu.Item
+										class="[@media(pointer:coarse)]:min-h-11"
+										onSelect={() => executeEditorCommand(command.id)}
+										disabled={!commandEnabled(command.id)}
+										title={commandDisabledReason(command.id) || undefined}
+									>
+										{commandMenuLabel(command.id)}
+										{#if commandShortcut(command.id)}<span
+												class="ml-auto text-xs text-muted-foreground"
+												>{commandShortcut(command.id)}</span
+											>{/if}
+									</DropdownMenu.Item>
+								{/if}
+							{/each}
+							{#if compactMenuSection === 'layer'}<p
+									class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground"
 								>
-									{commandMenuLabel(command.id)}
-									{#if commandShortcut(command.id)}
-										<span class="ml-auto text-xs text-muted-foreground"
-											>{commandShortcut(command.id)}</span
-										>
-									{/if}
+									{m.image_editor_raster_help()}
+								</p>{/if}
+						{:else}
+							<div class="w-64 p-1 md:hidden">
+								<EditorTitleInput
+									value={editor.document?.title ?? ''}
+									class="h-11 w-full"
+									ariaLabel={m.image_editor_design_title()}
+									disabled={!editor.canEdit}
+									onkeydown={(event) => {
+										if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
+									}}
+									onchange={(value) =>
+										editor.mutate(
+											'Rename design',
+											(document) => (document.title = value),
+											'document-title'
+										)}
+								/>
+							</div>
+							<DropdownMenu.Separator class="md:hidden" />
+							{#if commandVisible(imageEditorCommand('version_history'))}
+								<DropdownMenu.Item
+									class="[@media(pointer:coarse)]:min-h-11"
+									onSelect={() => executeEditorCommand('version_history')}
+									>{commandLabel('version_history')}</DropdownMenu.Item
+								>
+							{/if}
+							{#each compactMenuSections as category (category)}
+								<DropdownMenu.Item
+									class="[@media(pointer:coarse)]:min-h-11"
+									bind:ref={compactMenuItems[category]}
+									closeOnSelect={false}
+									onSelect={() => openCompactMenuSection(category)}
+								>
+									{compactCommandCategoryLabel(category)}<ThemeIcon
+										role="chevron-right"
+										class="ml-auto"
+									/>
 								</DropdownMenu.Item>
 							{/each}
-							{#if category === 'layer'}
-								<p class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">
-									{m.image_editor_raster_help()}
-								</p>
-							{/if}
-							<DropdownMenu.Separator />
-						{/each}
-						<DropdownMenu.Item onclick={() => (mobileSheet = 'layers')}
-							>{m.image_editor_layers()}</DropdownMenu.Item
-						>
-						<DropdownMenu.Item onclick={() => (mobileSheet = 'properties')}
-							>{m.image_editor_properties()}</DropdownMenu.Item
-						>
-						{#if !guestMode}
-							<DropdownMenu.Item class="sm:hidden" onclick={() => ui.openFeedback()}>
-								<ThemeIcon role="feedback" />
-								{m.feedback_open()}
-							</DropdownMenu.Item>
-						{/if}
-						<DropdownMenu.Separator />
-						{#each imageEditorCommandsForCategory('view') as command (command.id)}
-							{#if command.menuKind === 'checkbox' || command.id === 'focus_canvas'}
-								<DropdownMenu.CheckboxItem
-									checked={commandChecked(command.id)}
-									onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
-								>
-									{commandLabel(command.id)}
-								</DropdownMenu.CheckboxItem>
-							{:else}
+							<DropdownMenu.Item
+								class="[@media(pointer:coarse)]:min-h-11"
+								onSelect={() => (mobileSheet = 'layers')}
+								>{m.image_editor_layers()}</DropdownMenu.Item
+							>
+							<DropdownMenu.Item
+								class="[@media(pointer:coarse)]:min-h-11"
+								onSelect={() => (mobileSheet = 'properties')}
+								>{m.image_editor_properties()}</DropdownMenu.Item
+							>
+							{#if !guestMode}
 								<DropdownMenu.Item
-									onclick={() => executeEditorCommand(command.id)}
-									disabled={!commandEnabled(command.id)}
-									title={commandDisabledReason(command.id) || undefined}
+									class="sm:hidden [@media(pointer:coarse)]:min-h-11"
+									onSelect={() => ui.openFeedback()}
 								>
-									{commandLabel(command.id)}
+									<ThemeIcon role="feedback" />
+									{m.feedback_open()}
 								</DropdownMenu.Item>
 							{/if}
-						{/each}
-						<DropdownMenu.Separator />
-						{#each imageEditorCommandsForCategory('help') as command (command.id)}
-							<DropdownMenu.Item onclick={() => executeEditorCommand(command.id)}>
-								<ThemeIcon role="help" />
-								{commandLabel(command.id)}
-							</DropdownMenu.Item>
-						{/each}
+							<DropdownMenu.Separator />
+						{/if}
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
 				{#if guestMode}
@@ -3355,7 +3405,7 @@
 					{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
 						{#if command.separatorBefore}<Menubar.Separator />{/if}
 						<Menubar.Item
-							onclick={() => executeEditorCommand(command.id)}
+							onSelect={() => executeEditorCommand(command.id)}
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
@@ -3375,7 +3425,7 @@
 					{#each imageEditorCommandsForCategory('edit') as command (command.id)}
 						{#if command.separatorBefore}<Menubar.Separator />{/if}
 						<Menubar.Item
-							onclick={() => executeEditorCommand(command.id)}
+							onSelect={() => executeEditorCommand(command.id)}
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
@@ -3391,7 +3441,7 @@
 					{#each imageEditorCommandsForCategory('layer') as command (command.id)}
 						{#if command.separatorBefore}<Menubar.Separator />{/if}
 						<Menubar.Item
-							onclick={() => executeEditorCommand(command.id)}
+							onSelect={() => executeEditorCommand(command.id)}
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
@@ -3414,7 +3464,7 @@
 					{#each imageEditorCommandsForCategory('select') as command (command.id)}
 						{#if command.separatorBefore}<Menubar.Separator />{/if}
 						<Menubar.Item
-							onclick={() => executeEditorCommand(command.id)}
+							onSelect={() => executeEditorCommand(command.id)}
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
@@ -3429,7 +3479,7 @@
 				<Menubar.Content class="min-w-52">
 					{#each imageEditorCommandsForCategory('tools') as command (command.id)}
 						<Menubar.Item
-							onclick={() => executeEditorCommand(command.id)}
+							onSelect={() => executeEditorCommand(command.id)}
 							disabled={!commandEnabled(command.id)}
 							title={commandDisabledReason(command.id) || undefined}
 						>
@@ -3481,7 +3531,7 @@
 							</Menubar.CheckboxItem>
 						{:else}
 							<Menubar.Item
-								onclick={() => executeEditorCommand(command.id)}
+								onSelect={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
 								title={commandDisabledReason(command.id) || undefined}
 							>
@@ -3498,7 +3548,7 @@
 				<Menubar.Trigger>{m.image_editor_help()}</Menubar.Trigger>
 				<Menubar.Content class="min-w-48">
 					{#each imageEditorCommandsForCategory('help') as command (command.id)}
-						<Menubar.Item onclick={() => executeEditorCommand(command.id)}>
+						<Menubar.Item onSelect={() => executeEditorCommand(command.id)}>
 							<ThemeIcon role="help" />
 							{commandLabel(command.id)}
 						</Menubar.Item>

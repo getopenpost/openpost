@@ -53,11 +53,13 @@ test.describe("touch editor discovery", () => {
     await expect
       .poll(async () => (await page.getByRole("menu").boundingBox())!.width)
       .toBeGreaterThanOrEqual(264);
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
     await page.getByRole("menuitem", { name: /^Duplicate/ }).click();
     await page.setViewportSize({ width: 1024, height: 768 });
     await expect(layers).toHaveCount(7);
     await page.setViewportSize({ width: 320, height: 780 });
     await more.click();
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
     await page.getByRole("menuitem", { name: /^Undo/ }).click();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("menu")).toHaveCount(0);

@@ -49,6 +49,7 @@
 		optionsLoading?: boolean;
 		optionsError?: string;
 		scopeLabel?: string;
+		emptySettingsHint?: string;
 		formatValue?: string;
 		formatOptions?: Array<{ value: string; label: string }>;
 		formatRequired?: boolean;
@@ -83,6 +84,7 @@
 		optionsLoading = false,
 		optionsError = '',
 		scopeLabel = '',
+		emptySettingsHint = '',
 		formatValue = '',
 		formatOptions = [],
 		formatRequired = false,
@@ -420,6 +422,7 @@
 		</Dialog.Header>
 
 		<div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+			{#if emptySettingsHint}<InlineNotice tone="info" message={emptySettingsHint} />{/if}
 			{#if validationMessage}
 				<InlineNotice tone="error" message={validationMessage}>
 					{#snippet actions()}

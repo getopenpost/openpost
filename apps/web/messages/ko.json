@@ -9712,5 +9712,6 @@
 	"repurpose_source_missing": "원본 파일을 사용할 수 없어요. 다시 연결한 뒤 시도하세요.",
 	"repurpose_folder_missing": "클립을 만들기 전에 로컬 폴더를 선택하세요.",
 	"repurpose_transcript_storage_failed": "프로젝트는 사용할 수 있지만 이 기기에 대본을 저장하지 못했습니다. 계속 편집하고 내보낼 수 있습니다.",
-	"image_editor_text_range_scope": "글꼴과 글자 크기는 전체 텍스트 레이어에 적용됩니다."
+	"image_editor_text_range_scope": "글꼴과 글자 크기는 전체 텍스트 레이어에 적용됩니다.",
+	"compose_settings_add_video_hint": "{all}에서 동영상을 추가하거나 이 버전을 맞춤 설정하여 별도의 미디어를 추가하세요. 그런 다음 설정을 다시 열어 제목을 입력하고 동영상 옵션을 선택하세요."
 }

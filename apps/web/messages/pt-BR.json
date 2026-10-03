@@ -9712,5 +9712,6 @@
 	"repurpose_source_missing": "O arquivo de origem está indisponível. Reconecte-o e tente novamente.",
 	"repurpose_folder_missing": "Escolha uma pasta local antes de criar clipes.",
 	"repurpose_transcript_storage_failed": "Seu projeto está disponível, mas não foi possível salvar a transcrição neste dispositivo. Você ainda pode editá-lo e exportá-lo.",
-	"image_editor_text_range_scope": "A família e o tamanho da fonte se aplicam a toda a camada de texto."
+	"image_editor_text_range_scope": "A família e o tamanho da fonte se aplicam a toda a camada de texto.",
+	"compose_settings_add_video_hint": "Adicione um vídeo em {all} ou personalize esta versão para adicionar mídia separada. Depois, abra as configurações novamente para inserir o título e escolher as opções do vídeo."
 }

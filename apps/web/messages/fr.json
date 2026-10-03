@@ -9712,5 +9712,6 @@
 	"repurpose_source_missing": "Le fichier source est indisponible. Reconnectez-le et réessayez.",
 	"repurpose_folder_missing": "Choisissez un dossier local avant de créer des clips.",
 	"repurpose_transcript_storage_failed": "Votre projet est disponible, mais sa transcription n’a pas pu être enregistrée sur cet appareil. Vous pouvez toujours le modifier et l’exporter.",
-	"image_editor_text_range_scope": "La police et sa taille s’appliquent à tout le calque de texte."
+	"image_editor_text_range_scope": "La police et sa taille s’appliquent à tout le calque de texte.",
+	"compose_settings_add_video_hint": "Ajoutez une vidéo dans {all}, ou personnalisez cette version pour ajouter un média distinct. Rouvrez ensuite les paramètres pour saisir son titre et choisir les options de la vidéo."
 }

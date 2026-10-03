@@ -901,6 +901,18 @@
 			lastResolvedCapabilityInputSnapshot === capabilityInputSnapshot &&
 			selectedAccountIds.every((accountID) => Boolean(resolvedCapabilities[accountID]))
 	);
+	const settingsDialogEmptyHint = $derived(
+		capabilityReadinessCurrent &&
+			settingsAccount &&
+			getPlatformKey(settingsAccount.platform) === 'youtube' &&
+			settingsDialogFields.length === 0 &&
+			settingsDialogMedia.length === 0 &&
+			resolvedCapabilities[settingsAccount.id]?.issues?.some(
+				(issue) => issue.code === 'media_required'
+			)
+			? m.compose_settings_add_video_hint({ all: m.compose_all() })
+			: ''
+	);
 	const localBlockers = $derived(globalFormBlockers());
 	const validationDestinations = $derived(
 		selectedAccounts.map((account) => ({
@@ -6793,6 +6805,7 @@
 	bind:open={settingsDialogOpen}
 	account={settingsAccount}
 	settings={settingsDialogFields}
+	emptySettingsHint={settingsDialogEmptyHint}
 	values={settingsDialogValues}
 	mediaItems={settingsDialogMedia}
 	mediaValues={settingsDialogMediaValues}

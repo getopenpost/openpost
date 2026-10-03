@@ -9712,5 +9712,6 @@
 	"repurpose_source_missing": "O ficheiro de origem não está disponível. Volta a ligá-lo e tenta novamente.",
 	"repurpose_folder_missing": "Escolhe uma pasta local antes de criares clips.",
 	"repurpose_transcript_storage_failed": "O teu projeto está disponível, mas não foi possível guardar a transcrição neste dispositivo. Podes continuar a editá-lo e a exportá-lo.",
-	"image_editor_text_range_scope": "A família e o tamanho da letra aplicam-se a toda a camada de texto."
+	"image_editor_text_range_scope": "A família e o tamanho da letra aplicam-se a toda a camada de texto.",
+	"compose_settings_add_video_hint": "Adiciona um vídeo em {all} ou personaliza esta versão para adicionar conteúdos multimédia separados. Depois, volta a abrir as definições para introduzir o título e escolher as opções do vídeo."
 }

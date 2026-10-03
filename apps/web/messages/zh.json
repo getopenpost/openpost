@@ -9712,5 +9712,6 @@
 	"repurpose_source_missing": "源文件不可用。请重新连接后重试。",
 	"repurpose_folder_missing": "创建片段前，请选择本地文件夹。",
 	"repurpose_transcript_storage_failed": "项目仍然可用，但无法在此设备上保存转录文本。你仍可继续编辑和导出项目。",
-	"image_editor_text_range_scope": "字体和字号会应用于整个文字图层。"
+	"image_editor_text_range_scope": "字体和字号会应用于整个文字图层。",
+	"compose_settings_add_video_hint": "在“{all}”中添加视频，或自定义此版本以添加单独的媒体。然后重新打开设置，输入标题并选择视频选项。"
 }

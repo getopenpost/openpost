@@ -43,6 +43,7 @@ it('keeps playback URLs and probe metadata when loading exact media IDs', async 
 	const fixture = {
 		id: 'media',
 		mime_type: 'video/mp4',
+		original_filename: 'Recording with spaces.mp4',
 		url: '/media/media',
 		thumbnail_url: '/media/media/thumbnail',
 		size: 1024,

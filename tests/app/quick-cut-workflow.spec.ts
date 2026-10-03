@@ -333,17 +333,39 @@ test("video creation offers both editors and imports composer media into either 
   });
   expect(upload.ok()).toBe(true);
   const media = z.object({ id: z.string() }).parse(await upload.json());
+  const metadata = await request.get(
+    `/api/v1/media/metadata?workspace_id=${workspace.id}&media_ids=${media.id}`,
+    {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    },
+  );
+  expect(metadata.ok()).toBe(true);
+  expect(
+    z
+      .object({ media: z.array(z.object({ id: z.string(), original_filename: z.string() })) })
+      .parse(await metadata.json()).media,
+  ).toEqual([{ id: media.id, original_filename: "recording.mp4" }]);
   await authenticatePage(page, auth.token);
   const start = `/video-editor/new?source=media:${media.id}`;
   await page.goto(start);
   await page.getByRole("link", { name: "Open Quick Cut", exact: true }).click();
   await expect(page.locator("video")).toBeVisible({ timeout: 90_000 });
+  await expect(
+    page
+      .getByRole("group", { name: "Sources", exact: true })
+      .getByRole("button", { name: /recording\.mp4$/ }),
+  ).toBeVisible();
   await page.goto(start);
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await expect(page).toHaveURL(/\/video-editor\/[^/?]+\?storage=cloud$/, { timeout: 90_000 });
-  await expect(
-    page.getByRole("button", { name: new RegExp(`media-${media.id}`) }).first(),
-  ).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByRole("button", { name: /recording\.mp4/ }).first()).toBeVisible({
+    timeout: 90_000,
+  });
+  await page.screenshot({ path: "test-results/f007-cold-source-name.png" });
+  await page.reload();
+  await expect(page.getByRole("button", { name: /recording\.mp4/ }).first()).toBeVisible({
+    timeout: 90_000,
+  });
 });
 
 test("local Quick Cut library survives a corrupt project and reopens after reload", async ({

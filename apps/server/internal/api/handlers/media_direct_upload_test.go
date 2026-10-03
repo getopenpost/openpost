@@ -72,6 +72,17 @@ func TestAudioProjectAssetUploadsPersistMetadata(t *testing.T) {
 				require.Equal(t, "audio", stored.DominantType)
 				require.Equal(t, tc.codec, stored.AudioCodec)
 				require.Greater(t, stored.DurationMS, int64(100))
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/media/metadata?workspace_id=ws-1&media_ids="+result.ID, nil)
+				req.Header.Set("Authorization", "Bearer web-token")
+				response := httptest.NewRecorder()
+				srv.echo.ServeHTTP(response, req)
+				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+				var metadata struct {
+					Media []MediaMetadataItem `json:"media"`
+				}
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &metadata))
+				require.Len(t, metadata.Media, 1)
+				require.Equal(t, "microphone."+tc.extension, metadata.Media[0].OriginalFilename)
 			}
 			create := srv.postJSON(t, "/api/v1/video-projects", map[string]any{
 				"workspace_id": "ws-1", "name": "Microphone capture", "device_id": "desktop",

@@ -9,7 +9,8 @@ export async function loadWorkspaceMediaFile(
 	signal?: AbortSignal
 ): Promise<File> {
 	const metadata = await queryMediaMetadata(workspaceId, [mediaId], { signal });
-	if (!metadata.media.some((item) => item.id === mediaId)) throw new Error(m.media_load_failed());
+	const media = metadata.media.find((item) => item.id === mediaId);
+	if (!media) throw new Error(m.media_load_failed());
 	const response = await fetch(getAuthenticatedMediaByID(mediaId), {
 		credentials: 'include',
 		signal
@@ -17,7 +18,10 @@ export async function loadWorkspaceMediaFile(
 	if (!response.ok) throw new Error(m.media_load_failed());
 	const blob = await response.blob();
 	signal?.throwIfAborted();
-	return new File([blob], `media-${mediaId}.${blob.type.includes('webm') ? 'webm' : 'mp4'}`, {
+	const filename = media.original_filename?.trim()
+		? media.original_filename
+		: `media-${mediaId}.${blob.type.includes('webm') ? 'webm' : 'mp4'}`;
+	return new File([blob], filename, {
 		type: blob.type
 	});
 }

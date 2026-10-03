@@ -286,6 +286,7 @@ type GetMediaUsageOutput struct {
 }
 
 type MediaMetadataItem struct {
+	OriginalFilename   string  `json:"original_filename,omitempty" doc:"Original uploaded filename"`
 	ID                 string  `json:"id" doc:"Media ID"`
 	MimeType           string  `json:"mime_type" doc:"MIME type"`
 	AltText            string  `json:"alt_text" doc:"Alt text"`
@@ -2968,6 +2969,7 @@ func (h *MediaHandler) mediaMetadata(c echo.Context) error {
 	result := make([]MediaMetadataItem, 0, len(media))
 	for _, m := range media {
 		item := MediaMetadataItem{
+			OriginalFilename:   m.OriginalFilename,
 			ID:                 m.ID,
 			MimeType:           m.MimeType,
 			AltText:            m.AltText,

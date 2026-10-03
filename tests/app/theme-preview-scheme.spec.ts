@@ -2,20 +2,21 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
-test("paired themes offer preview-only color schemes without changing saved appearance", async ({
-  page,
-  request,
-}, info) => {
-  const auth = await registerUser(request, `theme-preview-scheme-${randomUUID()}@example.com`);
-  await createWorkspace(request, auth.token, "Theme scheme preview");
-  await authenticatePage(page, auth.token);
-  const writes: string[] = [];
-  page.on("request", (req) => {
-    if (/\/api\/v1\/(theme|organization)/.test(req.url()) && req.method() !== "GET")
-      writes.push(req.method());
-  });
-  for (const width of [1280, 390, 320])
-    for (const initial of ["light", "dark"] as const) {
+for (const width of [1280, 390, 320]) {
+  for (const initial of ["light", "dark"] as const) {
+    test(`paired themes preserve saved ${initial} appearance at ${width}px`, async ({
+      page,
+      request,
+    }, info) => {
+      const auth = await registerUser(request, `theme-preview-scheme-${randomUUID()}@example.com`);
+      await createWorkspace(request, auth.token, "Theme scheme preview");
+      await authenticatePage(page, auth.token);
+      const writes: string[] = [];
+      page.on("request", (req) => {
+        if (/\/api\/v1\/(theme|organization)/.test(req.url()) && req.method() !== "GET")
+          writes.push(req.method());
+      });
+
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: initial, reducedMotion: "reduce" });
       await page.goto("/settings?tab=appearance");
@@ -49,6 +50,7 @@ test("paired themes offer preview-only color schemes without changing saved appe
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
         false,
       );
-    }
-  expect(writes).toEqual([]);
-});
+      expect(writes).toEqual([]);
+    });
+  }
+}

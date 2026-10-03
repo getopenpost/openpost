@@ -9715,5 +9715,7 @@
 	"image_editor_text_range_scope": "Schriftfamilie und Schriftgröße gelten für die gesamte Textebene.",
 	"compose_settings_add_video_hint": "Füge unter {all} ein Video hinzu oder passe diese Version an, um separate Medien hinzuzufügen. Öffne dann die Einstellungen erneut, um den Titel einzugeben und Videooptionen auszuwählen.",
 	"video_editor_shortcuts_playback_scope": "Der Shuttle steuert Quelle, wenn sie fokussiert ist oder der Zeiger darüber liegt, sonst Programm. Fokussierte Schieberegler, Schaltflächen und Textfelder behalten ihre eigenen Tasten.",
-	"calendar_no_matching_body": "Keine Beiträge entsprechen den ausgewählten Daten und Filtern. Wähle einen anderen Zeitraum oder lösche die Filter."
+	"calendar_no_matching_body": "Keine Beiträge entsprechen den ausgewählten Daten und Filtern. Wähle einen anderen Zeitraum oder lösche die Filter.",
+	"media_dimensions_range_invalid": "Die Mindestabmessungen dürfen die Höchstabmessungen nicht überschreiten. Verwende 0 für keine Obergrenze.",
+	"media_date_range_invalid": "Das Bis-Datum muss am oder nach dem Von-Datum liegen."
 }

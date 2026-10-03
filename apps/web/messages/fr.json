@@ -9715,5 +9715,7 @@
 	"image_editor_text_range_scope": "La police et sa taille s’appliquent à tout le calque de texte.",
 	"compose_settings_add_video_hint": "Ajoutez une vidéo dans {all}, ou personnalisez cette version pour ajouter un média distinct. Rouvrez ensuite les paramètres pour saisir son titre et choisir les options de la vidéo.",
 	"video_editor_shortcuts_playback_scope": "Le shuttle contrôle Source quand elle a le focus ou est survolée, sinon Programme. Les curseurs, boutons et champs de texte ayant le focus gardent leurs propres touches.",
-	"calendar_no_matching_body": "Aucune publication ne correspond aux dates et aux filtres sélectionnés. Essayez une autre période ou effacez les filtres."
+	"calendar_no_matching_body": "Aucune publication ne correspond aux dates et aux filtres sélectionnés. Essayez une autre période ou effacez les filtres.",
+	"media_dimensions_range_invalid": "Les dimensions minimales ne doivent pas dépasser les maximales. Utilisez 0 pour ne pas définir de maximum.",
+	"media_date_range_invalid": "La date de fin doit être égale ou postérieure à la date de début."
 }

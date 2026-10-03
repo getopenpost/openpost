@@ -53,6 +53,11 @@
 		onReset,
 		onApply
 	}: Props = $props();
+	const fieldId = $props.id();
+	const widthInvalid = $derived(maxWidth > 0 && minWidth > maxWidth);
+	const heightInvalid = $derived(maxHeight > 0 && minHeight > maxHeight);
+	const dateInvalid = $derived(Boolean(dateFrom && dateTo && dateFrom > dateTo));
+	const rangesInvalid = $derived(widthInvalid || heightInvalid || dateInvalid);
 </script>
 
 <Dialog.Root bind:open>
@@ -140,35 +145,85 @@
 				<div class="grid grid-cols-2 gap-2">
 					<label class="grid gap-1 text-xs font-medium">
 						<span>{m.media_min_width()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={minWidth} />
+						<Input
+							class="h-11 min-w-0 px-2"
+							type="number"
+							min="0"
+							bind:value={minWidth}
+							aria-invalid={widthInvalid}
+							aria-describedby={widthInvalid ? `${fieldId}-dimensions-error` : undefined}
+						/>
 					</label>
 					<label class="grid gap-1 text-xs font-medium">
 						<span>{m.media_min_height()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={minHeight} />
+						<Input
+							class="h-11 min-w-0 px-2"
+							type="number"
+							min="0"
+							bind:value={minHeight}
+							aria-invalid={heightInvalid}
+							aria-describedby={heightInvalid ? `${fieldId}-dimensions-error` : undefined}
+						/>
 					</label>
 				</div>
 				<div class="grid grid-cols-2 gap-2">
 					<label class="grid gap-1 text-xs font-medium">
 						<span>{m.media_max_width()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={maxWidth} />
+						<Input
+							class="h-11 min-w-0 px-2"
+							type="number"
+							min="0"
+							bind:value={maxWidth}
+							aria-invalid={widthInvalid}
+							aria-describedby={widthInvalid ? `${fieldId}-dimensions-error` : undefined}
+						/>
 					</label>
 					<label class="grid gap-1 text-xs font-medium">
 						<span>{m.media_max_height()}</span>
-						<Input class="h-11 min-w-0 px-2" type="number" min="0" bind:value={maxHeight} />
+						<Input
+							class="h-11 min-w-0 px-2"
+							type="number"
+							min="0"
+							bind:value={maxHeight}
+							aria-invalid={heightInvalid}
+							aria-describedby={heightInvalid ? `${fieldId}-dimensions-error` : undefined}
+						/>
 					</label>
 				</div>
 				<div class="grid grid-cols-2 gap-2 sm:col-span-2">
 					<label class="grid gap-1 text-xs font-medium">
 						<span>{m.media_from()}</span>
-						<Input class="h-11 min-w-0 px-2" type="date" bind:value={dateFrom} />
+						<Input
+							class="h-11 min-w-0 px-2"
+							type="date"
+							bind:value={dateFrom}
+							aria-invalid={dateInvalid}
+							aria-describedby={dateInvalid ? `${fieldId}-date-error` : undefined}
+						/>
 					</label>
 					<label class="grid gap-1 text-xs font-medium">
 						<span>{m.media_to()}</span>
-						<Input class="h-11 min-w-0 px-2" type="date" bind:value={dateTo} />
+						<Input
+							class="h-11 min-w-0 px-2"
+							type="date"
+							bind:value={dateTo}
+							aria-invalid={dateInvalid}
+							aria-describedby={dateInvalid ? `${fieldId}-date-error` : undefined}
+						/>
 					</label>
 				</div>
 			</div>
 		</details>
+		{#if widthInvalid || heightInvalid}
+			<p id={`${fieldId}-dimensions-error`} role="alert" class="text-sm text-destructive">
+				{m.media_dimensions_range_invalid()}
+			</p>
+		{/if}
+		{#if dateInvalid}
+			<p id={`${fieldId}-date-error`} role="alert" class="text-sm text-destructive">
+				{m.media_date_range_invalid()}
+			</p>
+		{/if}
 		{#if canEdit}
 			<Button
 				variant="ghost"
@@ -183,7 +238,12 @@
 		{/if}
 		<Dialog.Footer>
 			<Button variant="ghost" onclick={onReset}>{m.media_clear()}</Button>
-			<Button onclick={onApply}>{m.media_apply_filters()}</Button>
+			<Button
+				disabled={rangesInvalid}
+				onclick={() => {
+					if (!rangesInvalid) onApply();
+				}}>{m.media_apply_filters()}</Button
+			>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

@@ -9715,5 +9715,7 @@
 	"image_editor_text_range_scope": "字体和字号会应用于整个文字图层。",
 	"compose_settings_add_video_hint": "在“{all}”中添加视频，或自定义此版本以添加单独的媒体。然后重新打开设置，输入标题并选择视频选项。",
 	"video_editor_shortcuts_playback_scope": "当源监视器获得焦点或鼠标悬停其上时，穿梭控制源监视器，否则控制节目监视器。获得焦点的滑块、按钮和文本框保留各自的按键操作。",
-	"calendar_no_matching_body": "没有符合所选日期和筛选条件的帖子。请尝试其他日期范围或清除筛选条件。"
+	"calendar_no_matching_body": "没有符合所选日期和筛选条件的帖子。请尝试其他日期范围或清除筛选条件。",
+	"media_dimensions_range_invalid": "最小尺寸不能超过最大尺寸。不设上限时请使用0。",
+	"media_date_range_invalid": "结束日期不能早于开始日期。"
 }

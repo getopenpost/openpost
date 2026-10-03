@@ -884,7 +884,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			} else {
 				const fileName = frameCaptureFileName(activeSource.name, currentTime, format);
 				downloadBlob(blob, fileName);
-				showToast(m.quick_cut_frame_saved({ name: fileName }), 'success');
+				showToast(m.quick_cut_download_started({ name: fileName }), 'success');
 			}
 			soundPreferences.play('success');
 		} catch (error) {
@@ -1232,7 +1232,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						a.download = art.fileName;
 						a.click();
 						setTimeout(() => URL.revokeObjectURL(url), 5000);
-						showToast(m.quick_cut_saved(), 'success');
+						showToast(m.quick_cut_download_started({ name: art.fileName }), 'success');
 					}
 					soundPreferences.play('success');
 				}

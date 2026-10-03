@@ -472,7 +472,7 @@ test("public image editor creates, restores, and exports a local design", async 
   await page.getByRole("button", { name: "Download" }).click();
   await download;
   await expect(
-    page.getByLabel("Notifications alt+T").getByText("Export downloaded."),
+    page.getByLabel("Notifications alt+T").getByText("Export download started."),
   ).toBeVisible();
 
   const home = page
@@ -536,9 +536,12 @@ test("Image Editor previews and downloads the same encoded PNG, JPEG, and WebP b
     );
   }
 
-  await expect(page.getByLabel("Notifications alt+T")).not.toContainText("Export downloaded.", {
-    timeout: 10_000,
-  });
+  await expect(page.getByLabel("Notifications alt+T")).not.toContainText(
+    "Export download started.",
+    {
+      timeout: 10_000,
+    },
+  );
   await page.getByRole("button", { name: "Export", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Export design" });
   for (const format of ["PNG", "JPEG", "WebP"] as const) {

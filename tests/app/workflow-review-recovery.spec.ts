@@ -156,17 +156,14 @@ test("review destinations show resolved account names and each distinct content 
 }, info) => {
   const fixture = await pendingReview(request);
   await authenticatePage(page, fixture.auth.token);
-  await page.goto(`/workflows/${fixture.workflow.id}`);
+  await page.goto("/workflows");
   for (const width of [1280, 390, 320])
     for (const scheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();
-      await page
-        .locator("[data-workflow-editor] > header")
-        .getByRole("button", { name: "Runs", exact: true })
-        .click();
-      await page.locator("aside button").filter({ hasText: "Needs approval" }).click();
+      await page.getByRole("button", { name: "Runs", exact: true }).click();
+      await page.getByRole("button").filter({ hasText: "Audit pending review" }).click();
       const approval = page.locator("section").filter({
         has: page.getByRole("heading", { name: "Review post", exact: true }),
       });

@@ -5,9 +5,11 @@
 	import {
 		repostAutomationQueryOptions,
 		workflowsQueryOptions,
-		workflowRunsQueryOptions
+		workflowRunsQueryOptions,
+		workspaceAccountsQueryOptions
 	} from '@openpost/query-catalog';
 	import { workflowQueryAPI } from '$lib/query/workflows';
+	import { queryAPI } from '$lib/query/api';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { saveWorkflow, deleteWorkflow, type Workflow, type Definition } from '$lib/workflows/api';
 	import { templates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
@@ -25,6 +27,7 @@
 	let deleting = $state<Workflow | null>(null),
 		deleteOpen = $state(false);
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const accountsQuery = createQuery(() => workspaceAccountsQueryOptions(queryAPI, workspaceID));
 	const workflowsQuery = createQuery(() => workflowsQueryOptions(workflowQueryAPI, workspaceID));
 	const repostsQuery = createQuery(() =>
 		repostAutomationQueryOptions(schedulingQueryAPI, workspaceID)
@@ -77,7 +80,8 @@
 	themeIconRole="repeat"
 	loading={[
 		workflowsQuery.isPending && !workflowsQuery.error,
-		repostsQuery.isPending && !repostsQuery.error
+		repostsQuery.isPending && !repostsQuery.error,
+		accountsQuery.isPending && !accountsQuery.error
 	].some(Boolean)}
 >
 	{#snippet actions()}<Button
@@ -99,9 +103,9 @@
 		</div>{/snippet}
 	<div class="space-y-6">
 		{#if repostsQuery.error}<InlineNotice tone="error" message={String(repostsQuery.error)} />{/if}
-		{#if error || workflowsQuery.error}<InlineNotice
+		{#if error || workflowsQuery.error || accountsQuery.error}<InlineNotice
 				tone="error"
-				message={error || String(workflowsQuery.error)}
+				message={error || String(workflowsQuery.error || accountsQuery.error)}
 			/>{/if}
 		{#if tab === 'workflows'}
 			{#if workflowsQuery.data?.length || repostsQuery.data?.policies?.length}<div
@@ -201,7 +205,12 @@
 			</div>
 		{:else if selectedRun}<Button variant="ghost" onclick={returnToRuns}
 				><ThemeIcon role="arrow-left" class="size-4" />{m.workflows_runs()}</Button
-			><RunInspector {workspaceID} runID={selectedRun} />
+			>
+			{#if accountsQuery.data}<RunInspector
+					{workspaceID}
+					runID={selectedRun}
+					accounts={accountsQuery.data}
+				/>{/if}
 		{:else}
 			<details class="rounded-lg border p-4">
 				<summary class="min-h-11 cursor-pointer text-sm font-medium">{m.repost_heading()}</summary

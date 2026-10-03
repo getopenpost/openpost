@@ -169,6 +169,8 @@
 
 	$effect(() => {
 		const workspace = workspaceId;
+		available = workspace ? null : false;
+		unavailableReason = '';
 		if (!workspace) return;
 		const controller = new AbortController();
 		void (async () => {
@@ -265,12 +267,13 @@
 								(style) => `${style.id}@${style.version}` === value
 							) ?? null;
 					}}
-					disabled={busy}
+					disabled={busy || !workspaceId}
 					class="min-w-0 flex-1"
 				/>
 				<Button
 					variant="ghost"
 					size="sm"
+					disabled={!workspaceId}
 					aria-expanded={preferencesOpen}
 					onclick={() => (preferencesOpen = !preferencesOpen)}
 					>{m.editor_agent_preferences()}</Button

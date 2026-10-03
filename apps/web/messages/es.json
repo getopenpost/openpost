@@ -9721,5 +9721,10 @@
 	"media_date_range_invalid": "La fecha Hasta debe ser igual o posterior a la fecha Desde.",
 	"checkout_payment_open": "El pago seguro está abierto. Completa la compra en la ventana de Paddle.",
 	"video_editor_track_group_merge": "Unir pistas en un solo grupo (reemplaza los nombres de los grupos)",
-	"video_editor_project_bundle_folder_required": "La importación de paquetes de proyecto requiere una carpeta local conectada."
+	"video_editor_project_bundle_folder_required": "La importación de paquetes de proyecto requiere una carpeta local conectada.",
+	"video_editor_history_inspect": "Inspeccionar versión",
+	"video_editor_history_comparison": "Comparación con la última versión guardada.",
+	"video_editor_history_track_changes": "Pistas: {added} añadidas, {removed} eliminadas, {changed} modificadas",
+	"video_editor_history_sequence_changes": "Secuencias: {added} añadidas, {removed} eliminadas, {changed} modificadas",
+	"video_editor_history_settings_changed": "Otros ajustes del proyecto o la línea de tiempo modificados"
 }

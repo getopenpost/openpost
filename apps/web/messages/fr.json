@@ -9721,5 +9721,10 @@
 	"media_date_range_invalid": "La date de fin doit être égale ou postérieure à la date de début.",
 	"checkout_payment_open": "Le paiement sécurisé est ouvert. Terminez le paiement dans la fenêtre Paddle.",
 	"video_editor_track_group_merge": "Fusionner les pistes en un groupe (remplace les noms des groupes)",
-	"video_editor_project_bundle_folder_required": "L’importation de paquets de projet nécessite un dossier local connecté."
+	"video_editor_project_bundle_folder_required": "L’importation de paquets de projet nécessite un dossier local connecté.",
+	"video_editor_history_inspect": "Inspecter la version",
+	"video_editor_history_comparison": "Comparaison avec la dernière version enregistrée.",
+	"video_editor_history_track_changes": "Pistes : {added} ajoutées, {removed} supprimées, {changed} modifiées",
+	"video_editor_history_sequence_changes": "Séquences : {added} ajoutées, {removed} supprimées, {changed} modifiées",
+	"video_editor_history_settings_changed": "Autres réglages du projet ou de la chronologie modifiés"
 }

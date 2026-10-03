@@ -10,7 +10,7 @@ Replace the retired Video Editor with two local-first editing surfaces and a reb
 2. **Quick Cut** (`/quick-cut`) — fast lossless trimmer inspired by LosslessCut (**GPL-2.0: behavioral reference only, zero code ported**). No transcoding for eligible cuts; stream copy via mediabunny. Signed-in source projects save to the current Workspace by default, with an explicit Local-only mode.
 3. **Recorder** — screen / webcam / combined / audio capture, one shared module, entry points both standalone (`/record`) and inside the Video Editor. Signed-in recordings become required Project Assets in a Cloud Video Project by default. Local-only capture still downloads ordinary files.
 
-Cloud projects synchronize portable authored state, required original Project Assets, revision history, named checkpoints, and conflicts. Device view state, filesystem handles, derived caches, downloaded models, and unsaved exports remain local. Local-only projects never sync unless the user starts an explicit import. Final exports cross into Workspace Media only through an explicit save or composer handoff.
+Cloud projects synchronize portable authored state, required original Project Assets, revision history, named checkpoints, and conflicts. Device view state, filesystem handles, derived caches, downloaded models, and unsaved exports remain local. History inspection compares immutable revisions with the latest saved version, never the unsaved open timeline. It shows authored names and semantic changes without restoring or loading media. Local-only projects never sync unless the user starts an explicit import. Final exports cross into Workspace Media only through an explicit save or composer handoff.
 
 ## Naming and domain terms
 

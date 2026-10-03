@@ -11,6 +11,7 @@
 		type CloudVideoProjectConflict,
 		type CloudVideoProjectRevision
 	} from '$lib/video-editor/cloud/project-repository';
+	import CloudRevisionDetails from './cloud-revision-details.svelte';
 	import type { Project } from '$lib/video-editor/project/types';
 
 	let {
@@ -31,9 +32,14 @@
 	let loading = $state(false);
 	let working = $state(false);
 	let error = $state('');
+	let inspectedRevision = $state<number | null>(null);
 
 	$effect(() => {
-		if (!open || !projectId || !workspaceId) return;
+		if (!open) {
+			inspectedRevision = null;
+			return;
+		}
+		if (!projectId || !workspaceId) return;
 		void load();
 	});
 
@@ -248,34 +254,49 @@
 				{:else}
 					<ul class="divide-y rounded-lg border">
 						{#each revisions as revision (revision.revision)}
-							<li class="flex items-center justify-between gap-4 p-3">
-								<div class="min-w-0">
-									<p class="truncate text-sm font-medium">{revisionLabel(revision)}</p>
-									<p class="text-xs text-muted-foreground">
-										{new Date(revision.createdAt).toLocaleString()}
-									</p>
-								</div>
-								<div class="flex flex-wrap justify-end gap-1">
-									{#each revision.checkpoints as checkpoint (checkpoint.id)}
+							<li class="space-y-3 p-3">
+								<div class="flex flex-wrap items-center justify-between gap-3">
+									<div class="min-w-0">
+										<p class="truncate text-sm font-medium">{revisionLabel(revision)}</p>
+										<p class="text-xs text-muted-foreground">
+											{new Date(revision.createdAt).toLocaleString()}
+										</p>
+									</div>
+									<div class="flex flex-wrap justify-end gap-1">
+										<Button
+											size="sm"
+											variant="outline"
+											aria-expanded={inspectedRevision === revision.revision}
+											onclick={() =>
+												(inspectedRevision =
+													inspectedRevision === revision.revision ? null : revision.revision)}
+											>{m.video_editor_history_inspect()}</Button
+										>
+										{#each revision.checkpoints as checkpoint (checkpoint.id)}
+											<Button
+												size="sm"
+												variant="ghost"
+												disabled={working}
+												onclick={() => void deleteCheckpoint(checkpoint.id)}
+											>
+												{m.common_delete()}
+												{checkpoint.name}
+											</Button>
+										{/each}
 										<Button
 											size="sm"
 											variant="ghost"
-											disabled={working}
-											onclick={() => void deleteCheckpoint(checkpoint.id)}
+											disabled={working || revision.revision === revisions[0]?.revision}
+											onclick={() => void restoreRevision(revision.revision)}
 										>
-											{m.common_delete()}
-											{checkpoint.name}
+											{m.video_editor_restore()}
 										</Button>
-									{/each}
-									<Button
-										size="sm"
-										variant="ghost"
-										disabled={working || revision.revision === revisions[0]?.revision}
-										onclick={() => void restoreRevision(revision.revision)}
-									>
-										{m.video_editor_restore()}
-									</Button>
+									</div>
 								</div>
+								{#if inspectedRevision === revision.revision && revisions[0]}<CloudRevisionDetails
+										current={revisions[0].document}
+										document={revision.document}
+									/>{/if}
 							</li>
 						{/each}
 					</ul>

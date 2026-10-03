@@ -577,8 +577,13 @@
 							</div>
 						{/if}
 						<div class="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-							<ProtectedIcon icon="loading" class="size-4 animate-spin" />
-							{checkoutState === 'loading' ? m.checkout_loading() : m.checkout_opening_secure()}
+							{#if checkoutState === 'ready'}
+								<ThemeIcon role="lock" class="size-4 shrink-0" />
+								{m.checkout_payment_open()}
+							{:else}
+								<ProtectedIcon icon="loading" class="size-4 animate-spin" />
+								{checkoutState === 'loading' ? m.checkout_loading() : m.checkout_opening_secure()}
+							{/if}
 						</div>
 					{/if}
 				{/if}

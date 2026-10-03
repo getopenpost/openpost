@@ -9717,5 +9717,6 @@
 	"video_editor_shortcuts_playback_scope": "O shuttle controla Fonte quando está em foco ou sob o cursor; caso contrário, Programa. Controles deslizantes, botões e campos de texto em foco mantêm suas próprias teclas.",
 	"calendar_no_matching_body": "Nenhuma publicação corresponde às datas e aos filtros selecionados. Tente outro intervalo de datas ou limpe os filtros.",
 	"media_dimensions_range_invalid": "As dimensões mínimas não podem exceder as máximas. Use 0 para não definir um máximo.",
-	"media_date_range_invalid": "A data final deve ser igual ou posterior à data inicial."
+	"media_date_range_invalid": "A data final deve ser igual ou posterior à data inicial.",
+	"checkout_payment_open": "O pagamento seguro está aberto. Conclua a compra na janela do Paddle."
 }

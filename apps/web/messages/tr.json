@@ -9717,5 +9717,6 @@
 	"video_editor_shortcuts_playback_scope": "Shuttle, odaklanıldığında veya üzerine gelindiğinde Kaynak bölümünü, aksi halde Program bölümünü kontrol eder. Odaklanmış kaydırıcılar, düğmeler ve metin alanları kendi tuşlarını kullanır.",
 	"calendar_no_matching_body": "Seçilen tarihler ve filtrelerle eşleşen gönderi yok. Başka bir tarih aralığı deneyin veya filtreleri temizleyin.",
 	"media_dimensions_range_invalid": "Minimum boyutlar maksimum boyutları aşmamalıdır. Üst sınır olmaması için 0 kullanın.",
-	"media_date_range_invalid": "Bitiş tarihi başlangıç tarihiyle aynı veya daha sonraki bir tarih olmalıdır."
+	"media_date_range_invalid": "Bitiş tarihi başlangıç tarihiyle aynı veya daha sonraki bir tarih olmalıdır.",
+	"checkout_payment_open": "Güvenli ödeme açıldı. Paddle penceresinde ödeme işlemini tamamlayın."
 }

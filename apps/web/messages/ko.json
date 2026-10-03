@@ -9717,5 +9717,6 @@
 	"video_editor_shortcuts_playback_scope": "셔틀은 소스에 포커스가 있거나 마우스가 올라가 있으면 소스를, 그 외에는 프로그램을 제어합니다. 포커스된 슬라이더, 버튼, 텍스트 필드는 자체 키 동작을 유지합니다.",
 	"calendar_no_matching_body": "선택한 날짜와 필터에 일치하는 게시물이 없습니다. 다른 기간을 선택하거나 필터를 지워 보세요.",
 	"media_dimensions_range_invalid": "최소 크기는 최대 크기보다 클 수 없습니다. 최대 제한이 없으면 0을 사용하세요.",
-	"media_date_range_invalid": "종료 날짜는 시작 날짜와 같거나 이후여야 합니다."
+	"media_date_range_invalid": "종료 날짜는 시작 날짜와 같거나 이후여야 합니다.",
+	"checkout_payment_open": "안전 결제 화면이 열렸습니다. Paddle 창에서 결제를 완료하세요."
 }

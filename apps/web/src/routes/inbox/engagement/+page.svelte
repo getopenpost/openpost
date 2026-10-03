@@ -858,7 +858,7 @@
 						}
 					}}
 				>
-					<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_all_platforms()}>
+					<Select.Trigger class="h-11 w-44 sm:h-9">
 						{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
 					</Select.Trigger>
 					<Select.Content>

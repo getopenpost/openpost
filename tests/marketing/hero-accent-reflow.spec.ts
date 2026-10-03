@@ -1,5 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { dismissTelemetryConsent } from "./helpers";
+
+async function readAnnotationGeometry(annotation: Locator) {
+  return annotation.evaluate((node) => {
+    const svg = node as SVGSVGElement;
+    const target = svg.previousElementSibling!;
+    const rect = target.getBoundingClientRect();
+    const bounds = svg.getBBox();
+    const matrix = svg.getScreenCTM()!;
+    const start = new DOMPoint(bounds.x, bounds.y).matrixTransform(matrix);
+    const end = new DOMPoint(bounds.x + bounds.width, bounds.y + bounds.height).matrixTransform(
+      matrix,
+    );
+    return {
+      text: target.textContent,
+      target: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+      circle: { left: start.x, top: start.y, right: end.x, bottom: end.y },
+    };
+  });
+}
 
 test("decorative circles follow settled responsive heading geometry @desktop", async ({
   page,
@@ -21,58 +40,39 @@ test("decorative circles follow settled responsive heading geometry @desktop", a
       for (const width of [1280, 390, 320]) {
         await page.setViewportSize({ width, height: 844 });
         await page.evaluate(() => document.fonts.ready);
-        await page.waitForTimeout(600);
         for (let index = 0; index < (await annotations.count()); index++) {
           const annotation = annotations.nth(index);
           await annotation.evaluate((node) =>
             node.previousElementSibling!.scrollIntoView({ block: "center" }),
           );
           await expect
-            .poll(async () =>
-              annotation.evaluate((node) => {
-                const svg = node as SVGSVGElement;
-                const target = svg.previousElementSibling!.getBoundingClientRect();
-                const bounds = svg.getBBox();
-                const matrix = svg.getScreenCTM()!;
-                const start = new DOMPoint(bounds.x, bounds.y).matrixTransform(matrix);
-                const end = new DOMPoint(
-                  bounds.x + bounds.width,
-                  bounds.y + bounds.height,
-                ).matrixTransform(matrix);
-                return Math.max(
-                  Math.abs((start.x + end.x - target.left - target.right) / 2),
-                  Math.abs((start.y + end.y - target.top - target.bottom) / 2),
-                );
-              }),
-            )
-            .toBeLessThan(10);
-          const geometry = await annotation.evaluate((node) => {
-            const svg = node as SVGSVGElement;
-            const target = svg.previousElementSibling!;
-            const rect = target.getBoundingClientRect();
-            const bounds = svg.getBBox();
-            const matrix = svg.getScreenCTM()!;
-            const start = new DOMPoint(bounds.x, bounds.y).matrixTransform(matrix);
-            const end = new DOMPoint(
-              bounds.x + bounds.width,
-              bounds.y + bounds.height,
-            ).matrixTransform(matrix);
-            return {
-              text: target.textContent,
-              target: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
-              circle: { left: start.x, top: start.y, right: end.x, bottom: end.y },
-            };
-          });
-          expect(geometry.circle.right - geometry.circle.left).toBeLessThanOrEqual(
-            (geometry.target.right - geometry.target.left) * 1.3 + 18,
-          );
-          expect(geometry.circle.bottom - geometry.circle.top).toBeLessThanOrEqual(
-            (geometry.target.bottom - geometry.target.top) * 1.3 + 10,
-          );
-          expect(geometry.circle.left).toBeLessThanOrEqual(geometry.target.left + 10);
-          expect(geometry.circle.right).toBeGreaterThanOrEqual(geometry.target.right - 10);
-          expect(geometry.circle.top).toBeLessThanOrEqual(geometry.target.top + 10);
-          expect(geometry.circle.bottom).toBeGreaterThanOrEqual(geometry.target.bottom - 10);
+            .poll(async () => {
+              const { circle, target } = await readAnnotationGeometry(annotation);
+              return {
+                centered:
+                  Math.max(
+                    Math.abs((circle.left + circle.right - target.left - target.right) / 2),
+                    Math.abs((circle.top + circle.bottom - target.top - target.bottom) / 2),
+                  ) < 10,
+                boundedWidth: circle.right - circle.left <= (target.right - target.left) * 1.3 + 18,
+                boundedHeight:
+                  circle.bottom - circle.top <= (target.bottom - target.top) * 1.3 + 10,
+                left: circle.left <= target.left + 10,
+                right: circle.right >= target.right - 10,
+                top: circle.top <= target.top + 10,
+                bottom: circle.bottom >= target.bottom - 10,
+              };
+            })
+            .toEqual({
+              centered: true,
+              boundedWidth: true,
+              boundedHeight: true,
+              left: true,
+              right: true,
+              top: true,
+              bottom: true,
+            });
+          const geometry = await readAnnotationGeometry(annotation);
           await testInfo.attach(`${route}-${scheme}-${width}-${index}-geometry`, {
             body: JSON.stringify(geometry),
             contentType: "application/json",

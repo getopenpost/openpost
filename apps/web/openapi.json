@@ -24333,6 +24333,9 @@
 					"body": {
 						"type": "string"
 					},
+					"created_at": {
+						"type": "string"
+					},
 					"id": {
 						"type": "string"
 					},
@@ -24352,7 +24355,7 @@
 						"type": "string"
 					}
 				},
-				"required": ["id", "title", "body", "url", "published_at"],
+				"required": ["id", "title", "body", "url"],
 				"type": "object"
 			},
 			"WorkflowStartInputBody": {

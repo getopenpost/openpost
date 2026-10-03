@@ -219,3 +219,30 @@ func TestWorkflowScheduleReportsNativeDestinationValidation(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, count)
 }
+
+func TestPostCreatedSourceHTTPReportsCreationWithoutPublicationTime(t *testing.T) {
+	db := workflowHandlerDB(t)
+	createdAt := time.Date(2026, time.October, 3, 10, 15, 30, 0, time.UTC)
+	_, err := db.NewInsert().Model(&models.Publication{ID: "draft-event", WorkspaceID: "ws", CreatedByID: "user", CreationSource: "web", Title: "Unscheduled draft", SourceText: "Not published", CreatedAt: createdAt, UpdatedAt: createdAt}).Exec(t.Context())
+	require.NoError(t, err)
+	service := workflows.NewService(db, nil, nil)
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	NewWorkflowHandler(service, workflowSession{}).RegisterRoutes(api)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/workflow-sources/sample?workspace_id=ws", bytes.NewBufferString(`{"kind":"publication_created"}`))
+	req.Header.Set("Authorization", "Bearer session")
+	req.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, req)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var items []map[string]any
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &items))
+	require.Len(t, items, 1)
+	require.Equal(t, "draft-event", items[0]["publication_id"])
+	require.Equal(t, "2026-10-03T10:15:30Z", items[0]["created_at"])
+	require.NotContains(t, items[0], "published_at")
+	var lifecycleCount int
+	lifecycleCount, err = db.NewSelect().Table("publication_lifecycle_events").Where("publication_id = ?", "draft-event").Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, lifecycleCount)
+}

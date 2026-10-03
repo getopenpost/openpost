@@ -24,7 +24,8 @@ func intervalItems(source Source, since time.Time) ([]SourceItem, error) {
 		return nil, nil
 	}
 	at := since.Add(elapsed * interval)
-	return []SourceItem{{ID: fmt.Sprint(at.UnixNano()), Title: "Scheduled workflow", Body: "", URL: "", PublishedAt: at.Format(time.RFC3339)}}, nil
+	published := at.Format(time.RFC3339)
+	return []SourceItem{{ID: fmt.Sprint(at.UnixNano()), Title: "Scheduled workflow", Body: "", URL: "", PublishedAt: &published}}, nil
 }
 func (s *Service) publicationItems(ctx context.Context, workspaceID string, since time.Time, record *workflowRecord) ([]SourceItem, error) {
 	var rows []models.Publication
@@ -37,7 +38,7 @@ func (s *Service) publicationItems(ctx context.Context, workspaceID string, sinc
 	}
 	result := make([]SourceItem, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, SourceItem{ID: row.ID, PublicationID: row.ID, Title: row.Title, Body: row.SourceText, URL: row.SourceURL, PublishedAt: row.CreatedAt.UTC().Format(time.RFC3339)})
+		result = append(result, SourceItem{ID: row.ID, PublicationID: row.ID, Title: row.Title, Body: row.SourceText, URL: row.SourceURL, CreatedAt: row.CreatedAt.UTC().Format(time.RFC3339)})
 	}
 	return result, nil
 }
@@ -64,7 +65,8 @@ func (s *Service) failedItems(ctx context.Context, workspaceID string, accounts 
 	}
 	result := make([]SourceItem, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, SourceItem{ID: row.ID, PublicationID: row.PublicationID, RenditionID: row.RenditionID, AccountID: row.SocialAccountID, Title: row.Title, Body: row.SourceText, PublishedAt: row.CreatedAt.UTC().Format(time.RFC3339)})
+		published := row.CreatedAt.UTC().Format(time.RFC3339)
+		result = append(result, SourceItem{ID: row.ID, PublicationID: row.PublicationID, RenditionID: row.RenditionID, AccountID: row.SocialAccountID, Title: row.Title, Body: row.SourceText, PublishedAt: &published})
 	}
 	return result, nil
 }

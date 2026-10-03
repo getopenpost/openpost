@@ -445,6 +445,10 @@ export function exampleSource(kind: Definition['source']['kind']): WorkflowData 
 		url: 'https://example.com/update',
 		published_at: new Date().toISOString()
 	};
+	if (kind === 'publication_created') {
+		data.created_at = data.published_at;
+		delete data.published_at;
+	}
 	if (
 		kind === 'publication_created' ||
 		kind === 'rendition_published' ||
@@ -474,6 +478,7 @@ export function availableReferences(
 					'body',
 					'url',
 					'published_at',
+					'created_at',
 					'publication_id',
 					'rendition_id',
 					'id',

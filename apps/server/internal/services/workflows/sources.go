@@ -35,14 +35,15 @@ const githubReleasesPerPage = 10
 var sourceURLPolicy = netguard.URLPolicy{Label: "workflow source", AllowedSchemes: []string{"https", "http"}}
 
 type WorkflowSourceItem struct {
-	ID            string `json:"id"`
-	Title         string `json:"title"`
-	Body          string `json:"body"`
-	URL           string `json:"url"`
-	PublishedAt   string `json:"published_at"`
-	PublicationID string `json:"publication_id,omitempty"`
-	RenditionID   string `json:"rendition_id,omitempty"`
-	AccountID     string `json:"account_id,omitempty"`
+	ID            string  `json:"id"`
+	Title         string  `json:"title"`
+	Body          string  `json:"body"`
+	URL           string  `json:"url"`
+	PublishedAt   *string `json:"published_at,omitempty"`
+	CreatedAt     string  `json:"created_at,omitempty"`
+	PublicationID string  `json:"publication_id,omitempty"`
+	RenditionID   string  `json:"rendition_id,omitempty"`
+	AccountID     string  `json:"account_id,omitempty"`
 }
 
 func (s *Service) Sample(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID string, source Source) ([]SourceItem, error) {
@@ -71,7 +72,8 @@ func (s *Service) readSource(ctx context.Context, workspaceID string, source Sou
 	case "rendition_failed":
 		return s.failedItems(ctx, workspaceID, source.AccountIDs, since, nil)
 	case "manual":
-		return []SourceItem{{ID: "sample", Title: "A new product update", Body: "We shipped a useful improvement. Here is what changed.", URL: "https://example.com/update", PublishedAt: time.Now().UTC().Format(time.RFC3339)}}, nil
+		published := time.Now().UTC().Format(time.RFC3339)
+		return []SourceItem{{ID: "sample", Title: "A new product update", Body: "We shipped a useful improvement. Here is what changed.", URL: "https://example.com/update", PublishedAt: &published}}, nil
 	case "github_release":
 		return s.githubReleases(ctx, workspaceID, source)
 	case "rss":
@@ -158,7 +160,10 @@ func (s *Service) pollGitHub(ctx context.Context, record workflowRecord, source 
 	}
 	result := make([]SourceItem, 0, len(items))
 	for _, item := range items {
-		published, err := time.Parse(time.RFC3339, item.PublishedAt)
+		if item.PublishedAt == nil {
+			return nil, record.SourcePage, errors.New("GitHub returned an invalid release date")
+		}
+		published, err := time.Parse(time.RFC3339, *item.PublishedAt)
 		if err != nil {
 			return nil, record.SourcePage, errors.New("GitHub returned an invalid release date")
 		}
@@ -203,7 +208,7 @@ func (s *Service) githubReleasePage(ctx context.Context, workspaceID string, sou
 		if title == "" {
 			title = release.Tag
 		}
-		result = append(result, SourceItem{ID: strconv.FormatInt(release.ID, 10), Title: boundedText(title), Body: boundedText(release.Body), URL: release.URL, PublishedAt: release.PublishedAt})
+		result = append(result, SourceItem{ID: strconv.FormatInt(release.ID, 10), Title: boundedText(title), Body: boundedText(release.Body), URL: release.URL, PublishedAt: &release.PublishedAt})
 	}
 	return result, len(releases) == githubReleasesPerPage, nil
 }
@@ -244,7 +249,7 @@ func (s *Service) feedItems(ctx context.Context, address string) ([]SourceItem, 
 		if item.PublishedParsed != nil {
 			published = item.PublishedParsed.UTC().Format(time.RFC3339)
 		}
-		result = append(result, SourceItem{ID: key, Title: boundedText(item.Title), Body: boundedText(body), URL: item.Link, PublishedAt: published})
+		result = append(result, SourceItem{ID: key, Title: boundedText(item.Title), Body: boundedText(body), URL: item.Link, PublishedAt: &published})
 	}
 	return result, nil
 }
@@ -294,7 +299,8 @@ func (s *Service) publishedItems(ctx context.Context, workspaceID string, accoun
 	slices.SortFunc(rows, func(a, b row) int { return b.PublishedAt.Compare(a.PublishedAt) })
 	result := make([]SourceItem, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, SourceItem{ID: row.ID, Title: row.Title, Body: row.SourceText, URL: row.PlatformURL, PublishedAt: row.PublishedAt.UTC().Format(time.RFC3339), PublicationID: row.PublicationID, RenditionID: row.ID, AccountID: row.SocialAccountID})
+		published := row.PublishedAt.UTC().Format(time.RFC3339)
+		result = append(result, SourceItem{ID: row.ID, Title: row.Title, Body: row.SourceText, URL: row.PlatformURL, PublishedAt: &published, PublicationID: row.PublicationID, RenditionID: row.ID, AccountID: row.SocialAccountID})
 	}
 	return result, nil
 }

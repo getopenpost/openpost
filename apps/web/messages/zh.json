@@ -9673,5 +9673,7 @@
 	"workflows_inspect_build": "检查生成",
 	"workflows_build_details": "生成详情",
 	"quick_cut_remove_word": "删除词",
-	"image_editor_trash_restore_independent": "恢复的设计会与通过媒体打开的编辑分开保存。"
+	"image_editor_trash_restore_independent": "恢复的设计会与通过媒体打开的编辑分开保存。",
+	"workflows_node_keyboard_help": "按 Enter 或空格选择节点。方向键移动节点，Escape 清除选择。使用步骤按钮配置或删除步骤。",
+	"workflows_node_keyboard_readonly_help": "按 Enter 或空格选择节点。Escape 清除选择。使用步骤按钮查看其内容。"
 }

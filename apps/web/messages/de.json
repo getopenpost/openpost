@@ -9673,5 +9673,7 @@
 	"workflows_inspect_build": "Build prüfen",
 	"workflows_build_details": "Build-Details",
 	"quick_cut_remove_word": "Wort entfernen",
-	"image_editor_trash_restore_independent": "Wiederhergestellte Designs werden getrennt von über Medien geöffneten Bearbeitungen gespeichert."
+	"image_editor_trash_restore_independent": "Wiederhergestellte Designs werden getrennt von über Medien geöffneten Bearbeitungen gespeichert.",
+	"workflows_node_keyboard_help": "Eingabe oder Leertaste wählt einen Knoten aus. Pfeiltasten verschieben ihn; Escape hebt die Auswahl auf. Über die Schrittschaltfläche kannst du den Schritt konfigurieren oder löschen.",
+	"workflows_node_keyboard_readonly_help": "Eingabe oder Leertaste wählt einen Knoten aus. Escape hebt die Auswahl auf. Über die Schrittschaltfläche kannst du ihn prüfen."
 }

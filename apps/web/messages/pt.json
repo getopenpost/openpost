@@ -9673,5 +9673,7 @@
 	"workflows_inspect_build": "Inspecionar geração",
 	"workflows_build_details": "Detalhes da geração",
 	"quick_cut_remove_word": "Remover palavra",
-	"image_editor_trash_restore_independent": "Os designs restaurados são guardados separadamente das edições abertas através de Multimédia."
+	"image_editor_trash_restore_independent": "Os designs restaurados são guardados separadamente das edições abertas através de Multimédia.",
+	"workflows_node_keyboard_help": "Enter ou Espaço seleciona um nó. As setas movem-no; Escape limpa a seleção. Usa o botão do passo para o configurar ou eliminar.",
+	"workflows_node_keyboard_readonly_help": "Enter ou Espaço seleciona um nó. Escape limpa a seleção. Usa o botão do passo para o inspecionar."
 }

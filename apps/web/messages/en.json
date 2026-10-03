@@ -9673,5 +9673,7 @@
 	"workflows_inspect_build": "Inspect build",
 	"workflows_build_details": "Build details",
 	"quick_cut_remove_word": "Remove word",
-	"image_editor_trash_restore_independent": "Restored designs are saved separately from edits opened through Media."
+	"image_editor_trash_restore_independent": "Restored designs are saved separately from edits opened through Media.",
+	"workflows_node_keyboard_help": "Enter or Space selects a node. Arrow keys move it; Escape clears selection. Use the step button to configure or delete the step.",
+	"workflows_node_keyboard_readonly_help": "Enter or Space selects a node. Escape clears selection. Use the step button to inspect it."
 }

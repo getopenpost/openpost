@@ -9673,5 +9673,7 @@
 	"workflows_inspect_build": "생성 확인",
 	"workflows_build_details": "생성 세부 정보",
 	"quick_cut_remove_word": "단어 삭제",
-	"image_editor_trash_restore_independent": "복원된 디자인은 미디어에서 연 편집과 별도로 저장됩니다."
+	"image_editor_trash_restore_independent": "복원된 디자인은 미디어에서 연 편집과 별도로 저장됩니다.",
+	"workflows_node_keyboard_help": "Enter 또는 Space로 노드를 선택합니다. 방향키로 이동하고 Escape로 선택을 해제합니다. 단계 버튼으로 단계를 설정하거나 삭제할 수 있습니다.",
+	"workflows_node_keyboard_readonly_help": "Enter 또는 Space로 노드를 선택합니다. Escape로 선택을 해제합니다. 단계 버튼으로 내용을 확인할 수 있습니다."
 }

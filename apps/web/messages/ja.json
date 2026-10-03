@@ -9673,5 +9673,7 @@
 	"workflows_inspect_build": "生成を確認",
 	"workflows_build_details": "生成の詳細",
 	"quick_cut_remove_word": "単語を削除",
-	"image_editor_trash_restore_independent": "復元したデザインは、メディアから開いた編集とは別に保存されます。"
+	"image_editor_trash_restore_independent": "復元したデザインは、メディアから開いた編集とは別に保存されます。",
+	"workflows_node_keyboard_help": "Enter または Space でノードを選択します。矢印キーで移動し、Escape で選択を解除します。ステップのボタンで設定または削除できます。",
+	"workflows_node_keyboard_readonly_help": "Enter または Space でノードを選択します。Escape で選択を解除します。ステップのボタンで内容を確認できます。"
 }

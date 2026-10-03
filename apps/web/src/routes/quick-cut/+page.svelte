@@ -132,7 +132,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	let cutMode = $state<CutMode>('nearestKeyframe');
 	let merge = $state(true);
 	let panel = $state<'cuts' | 'transcript' | 'cleanup' | 'markers' | 'export'>('cuts');
-	let panelTabs: HTMLDivElement;
+	let panelTabs = $state<HTMLDivElement>();
 	let markers = $state<QuickCutMarker[]>([]);
 	let reviewRanges = $state<AudioSilenceRange[]>([]);
 	let reviewEnd: number | null = null;

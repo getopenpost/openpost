@@ -991,35 +991,12 @@ test.describe("product screenshot capture", () => {
       await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
       await captureDetail(page.getByRole("dialog"), `workflows-node-${captureScheme}.png`, 0);
 
-      const branch = (id: string, title: string, instructions: string) => [
-        {
-          id: `${id}_write`,
-          kind: "ai_text",
-          name: title,
-          inputs: { text: { reference: "source.body" }, instructions: { literal: instructions } },
-        },
-        {
-          id: `${id}_draft`,
-          kind: "create_draft",
-          name: id === "launch" ? "Draft announcement" : "Draft update",
-          inputs: {
-            text: { reference: `${id}_write.text` },
-            title: { reference: "source.title" },
-            account_ids: { literal: [] },
-          },
-        },
-        {
-          id: `${id}_review`,
-          kind: "approval",
-          name: "Review post",
-          inputs: { publication_id: { reference: `${id}_draft.id` } },
-        },
-      ];
       const created = await page.request.post(`/api/v1/workflows?workspace_id=${workspace.id}`, {
         headers: { Authorization: `Bearer ${auth.token}` },
         data: {
           name: "Release announcements",
-          description: "Shape each release into a draft for review.",
+          description:
+            "Announce breaking changes after approval, or save a short update with a tracking link.",
           expected_revision: 0,
           definition: {
             schema: 1,
@@ -1034,16 +1011,79 @@ test.describe("product screenshot capture", () => {
                   operator: { literal: "contains" },
                   right: { literal: "Breaking" },
                 },
-                then: branch(
-                  "launch",
-                  "Explain changes",
-                  "Explain the breaking changes and migration steps in a short release announcement. Use only the supplied release notes.",
-                ),
-                else: branch(
-                  "update",
-                  "Write a short update",
-                  "Write a concise product update from these release notes. Use only the supplied facts.",
-                ),
+                then: [
+                  {
+                    id: "launch_write",
+                    kind: "ai_text",
+                    name: "Explain migration",
+                    inputs: {
+                      text: { reference: "source.body" },
+                      instructions: {
+                        literal:
+                          "Explain the breaking changes and migration steps. Use only the supplied release notes.",
+                      },
+                    },
+                  },
+                  {
+                    id: "launch_draft",
+                    kind: "create_draft",
+                    name: "Draft announcement",
+                    inputs: {
+                      text: { reference: "launch_write.text" },
+                      title: { reference: "source.title" },
+                      account_ids: { literal: [] },
+                    },
+                  },
+                  {
+                    id: "launch_review",
+                    kind: "approval",
+                    name: "Approve post",
+                    inputs: { publication_id: { reference: "launch_draft.id" } },
+                  },
+                  {
+                    id: "launch_schedule",
+                    kind: "schedule",
+                    name: "Schedule in 1 hour",
+                    inputs: {
+                      publication_id: { reference: "launch_review.publication_id" },
+                      revision: { reference: "launch_review.revision" },
+                      minutes: { literal: 60 },
+                    },
+                  },
+                ],
+                else: [
+                  {
+                    id: "update_text",
+                    kind: "text",
+                    name: "Shorten notes",
+                    inputs: {
+                      text: { reference: "source.body" },
+                      operation: { literal: "truncate" },
+                      limit: { literal: 240 },
+                    },
+                  },
+                  {
+                    id: "update_link",
+                    kind: "tracking_link",
+                    name: "Add tracking link",
+                    inputs: {
+                      url: { reference: "source.url" },
+                      source: { literal: "social" },
+                      medium: { literal: "organic" },
+                      campaign: { reference: "source.title" },
+                    },
+                  },
+                  {
+                    id: "update_draft",
+                    kind: "create_draft",
+                    name: "Save update for later",
+                    inputs: {
+                      text: { literal: "{{update_text.text}}\n\n{{update_link.url}}" },
+                      title: { reference: "source.title" },
+                      account_ids: { literal: [] },
+                    },
+                  },
+                ],
               },
             ],
           },
@@ -1053,15 +1093,15 @@ test.describe("product screenshot capture", () => {
       const workflow = await created.json();
       await page.goto(`/workflows/${workflow.id}`);
       await page.getByRole("button", { name: "Organize", exact: true }).click();
-      await expect(nodes).toHaveCount(8);
+      await expect(nodes).toHaveCount(9);
       await expect(page.getByText("Yes", { exact: true })).toHaveCount(1);
       await expect(page.getByText("No", { exact: true })).toHaveCount(1);
       // Space the two paths using the same drag gesture as the editor.
-      for (const [prefix, offset] of [
-        ["launch", -120],
-        ["update", 120],
+      for (const [prefix, suffixes, offset] of [
+        ["launch", ["write", "draft", "review", "schedule"], -120],
+        ["update", ["text", "link", "draft"], 120],
       ] as const) {
-        for (const suffix of ["write", "draft", "review"]) {
+        for (const suffix of suffixes) {
           const target = page.locator(`.svelte-flow__node[data-id="${prefix}_${suffix}"]`);
           const box = await target.boundingBox();
           if (!box) throw new Error("Workflow node is not visible");
@@ -1074,8 +1114,10 @@ test.describe("product screenshot capture", () => {
       await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
       await capture(page, `workflows-${captureScheme}.png`, [
         page.getByRole("button", { name: "Breaking change? Condition", exact: true }),
-        page.getByRole("button", { name: "Explain changes AI text", exact: true }),
-        page.getByRole("button", { name: "Write a short update AI text", exact: true }),
+        page.getByRole("button", { name: "Explain migration AI text", exact: true }),
+        page.getByRole("button", { name: "Shorten notes Transform text", exact: true }),
+        page.getByRole("button", { name: "Schedule in 1 hour Schedule post", exact: true }),
+        page.getByRole("button", { name: "Save update for later Create draft", exact: true }),
       ]);
     });
 

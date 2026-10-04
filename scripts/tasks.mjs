@@ -393,7 +393,7 @@ function checkPlan(requestedScope, requestedOptions) {
   if (requestedScope && checks[requestedScope] && requestedScope !== "docs") {
     return plan("check", requestedScope, [[checks[requestedScope]]]);
   }
-  const supported = [...surfaceScopes, "policy", ...Object.keys(checks)];
+  const supported = [...surfaceScopes, "frontend-marketing", "policy", ...Object.keys(checks)];
   if (requestedScope && !supported.includes(requestedScope)) {
     throw unsupported("check", requestedScope, supported);
   }
@@ -420,6 +420,9 @@ function checkPlan(requestedScope, requestedOptions) {
 
   if (requestedScope === "frontend") {
     return plan("check", requestedScope, [[contracts], [translations], [frontend]]);
+  }
+  if (requestedScope === "frontend-marketing") {
+    return plan("check", requestedScope, [[contracts], [translations], [frontend, marketing]]);
   }
   if (requestedScope === "backend") return plan("check", requestedScope, [[contracts], [backend]]);
   if (requestedScope === "cli") return plan("check", requestedScope, [[contracts], [cli]]);

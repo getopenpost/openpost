@@ -35,6 +35,7 @@ const (
 	defaultXDailyReadBudget = 12
 	xCommentPageSize        = 100
 	xMaxCommentPagesPerSync = 1
+	metaTimestampLayout     = "2006-01-02T15:04:05-0700"
 )
 
 var (
@@ -1873,7 +1874,12 @@ func syncStateID(renditionID string) string {
 }
 
 func parseProviderTime(raw string) time.Time {
-	value, _ := time.Parse(time.RFC3339, strings.TrimSpace(raw))
+	raw = strings.TrimSpace(raw)
+	value, err := time.Parse(time.RFC3339, raw)
+	if err == nil {
+		return value
+	}
+	value, _ = time.Parse(metaTimestampLayout, raw)
 	return value
 }
 

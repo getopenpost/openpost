@@ -40,9 +40,11 @@ test("post-created variables distinguish creation from publication and explain o
     for (const scheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
       await page.getByRole("button", { name: /^Audit creation time / }).click();
       const field = page.locator('[data-workflow-field="workflow-text"]');
       const input = field.locator('.cm-content[contenteditable="true"]');
+      await expect(input).toBeVisible();
       await input.focus();
       await input.press("ControlOrMeta+A");
       await page.keyboard.type("{{source.published_at}}");
@@ -72,6 +74,7 @@ test("post-created variables distinguish creation from publication and explain o
       await expect(field.locator('.workflow-token[aria-label="source.created_at"]')).toBeVisible();
       await expect(page.locator("#workflow-text-error")).toHaveCount(0);
       await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+      await expect(page.locator("[data-workflow-inspector]")).not.toBeVisible();
     }
   await expect
     .poll(

@@ -93,6 +93,8 @@ export default defineConfig({
           `OPENPOST_DATABASE_PATH="file:${dbPath}?cache=shared&mode=rwc"`,
           'OPENPOST_JWT_SECRET="jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj"',
           'OPENPOST_ENCRYPTION_KEY="eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"',
+          'THREADS_CLIENT_ID="e2e-threads-client"',
+          'THREADS_CLIENT_SECRET="e2e-threads-secret"',
           "OPENPOST_DISABLE_REGISTRATIONS=false",
           "OPENPOST_EMAIL_PROVIDER=smtp",
           'OPENPOST_EMAIL_FROM="OpenPost <hello@openpost.test>"',

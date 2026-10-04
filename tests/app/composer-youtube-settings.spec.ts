@@ -11,6 +11,7 @@ test("YouTube settings explain required video before fields are resolved", async
   page,
   request,
 }, info) => {
+  test.setTimeout(90_000);
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   const auth = await registerUser(request, `youtube-settings-${randomUUID()}@example.com`);

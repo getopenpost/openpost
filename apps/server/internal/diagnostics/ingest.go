@@ -75,6 +75,7 @@ func NewIngester(config IngestConfig) *Ingester {
 	return &Ingester{
 		config: IngestConfig{
 			Enabled:                config.Enabled && strings.TrimSpace(config.DiscordWebhookURL) != "",
+			DiscordWebhookURL:      strings.TrimSpace(config.DiscordWebhookURL),
 			PerMinute:              perMinute,
 			PerInstallationPerHour: perInstall,
 		},

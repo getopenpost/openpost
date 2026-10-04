@@ -38,10 +38,28 @@ func TestIngesterRejectsWhenDisabled(t *testing.T) {
 	require.False(t, webhookless.Accept(ingestTestReport()))
 }
 
-func TestIngesterAcceptsValidReport(t *testing.T) {
-	ingester := NewIngester(IngestConfig{Enabled: true, DiscordWebhookURL: "https://discord.example/hooks"})
+func TestIngesterForwardsAcceptedReportToConfiguredWebhook(t *testing.T) {
+	received := make(chan []byte, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "cannot read report", http.StatusBadRequest)
+			return
+		}
+		received <- body
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	ingester := NewIngester(IngestConfig{Enabled: true, DiscordWebhookURL: server.URL, HTTPClient: server.Client()})
 	require.True(t, ingester.IngestEnabled())
 	require.True(t, ingester.Accept(ingestTestReport()))
+	ingester.ForwardAsync(ingestTestReport())
+	select {
+	case body := <-received:
+		require.Contains(t, string(body), CodeAPI5xx)
+	case <-time.After(time.Second):
+		t.Fatal("accepted diagnostics report did not reach the configured webhook")
+	}
 }
 
 func TestIngesterRejectsInvalidReport(t *testing.T) {

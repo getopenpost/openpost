@@ -16,14 +16,14 @@ Editing a workflow changes future runs only after you [publish it again](/workfl
 
 ## Fix a problem
 
-| Problem                   | Next action                                                                               |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| Needs attention on a node | Fill required fields and replace missing variables.                                       |
+| Problem                   | Next action                                                                                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Needs attention on a node | Fill required fields and replace missing variables.                                                                                |
 | No automatic runs         | Check [activation](/workflows/triggers#activate-or-pause) and source access. GitHub and feeds wait for new items after activation. |
-| Waiting for review        | Inspect the current post revision and approve it.                                         |
-| Stale post revision       | Review the latest post and return to the run.                                             |
-| Interrupted HTTP request  | Check its remote outcome before starting another run.                                     |
-| Failed destination        | Open the post error and reconnect the account if needed.                                  |
+| Waiting for review        | Inspect the current post revision and approve it.                                                                                  |
+| Stale post revision       | Review the latest post and return to the run.                                                                                      |
+| Interrupted HTTP request  | Check its remote outcome before starting another run.                                                                              |
+| Failed destination        | Open the post error and reconnect the account if needed.                                                                           |
 
 Metrics steps require successful, recent Analytics observations. Missing or stale metrics fail the step rather than becoming zero. Replies use the publishing queue and provider rules.
 

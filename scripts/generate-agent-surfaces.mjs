@@ -718,6 +718,10 @@ function corpusLinks(markdown, page, artifactsByCanonical) {
           publicContentOrigins.has(url.origin) &&
           (url.pathname.startsWith("/assets/") ||
             url.pathname.startsWith("/docs/assets/") ||
+            url.pathname.startsWith("/clients/") ||
+            url.pathname.startsWith("/docs/clients/") ||
+            url.pathname.startsWith("/og/") ||
+            url.pathname.startsWith("/docs/og/") ||
             url.pathname === "/openapi.json" ||
             url.pathname === "/docs/openapi.json");
         if (intentionalNative) return `${imageMarker}[${label}](${url.href})`;
@@ -859,7 +863,15 @@ function validateRepresentationLinks(
       throw new Error(`${canonical}: generated representation exposes private link ${url.href}`);
     }
     if (!publicContentOrigins.has(url.origin)) continue;
-    if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/docs/assets/")) continue;
+    if (
+      url.pathname.startsWith("/assets/") ||
+      url.pathname.startsWith("/docs/assets/") ||
+      url.pathname.startsWith("/clients/") ||
+      url.pathname.startsWith("/docs/clients/") ||
+      url.pathname.startsWith("/og/") ||
+      url.pathname.startsWith("/docs/og/")
+    )
+      continue;
     if (knownCanonicalURLs.length === 0) continue;
     if (
       !known.has(normalizedPublicURL(url.href)) &&

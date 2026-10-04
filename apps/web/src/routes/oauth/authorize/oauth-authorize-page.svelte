@@ -88,16 +88,26 @@
 		resource: $pageStore.url.searchParams.get('resource') ?? ''
 	});
 
-	let scopes = $derived(
+	let requestedScopes = $derived(
 		(params.scope || 'mcp:full')
 			.split(/[,\s]+/)
 			.map((scope) => scope.trim())
 			.filter(Boolean)
 	);
+	let isExternalApplication = $derived(
+		params.client_id.startsWith('op_app_') ||
+			!requestedScopes.some((scope) => scope.startsWith('mcp:'))
+	);
+	// MCP clients can request every scope in shared server discovery. Consent and
+	// the token exchange must agree on the subset supported by the MCP resource.
+	let scopes = $derived(
+		isExternalApplication
+			? requestedScopes
+			: requestedScopes.filter((scope) => scope.startsWith('mcp:'))
+	);
 	let requestedReadOnlyAccess = $derived(
 		scopes.includes('mcp:read') && !scopes.includes('mcp:full')
 	);
-	let isExternalApplication = $derived(scopes.some((scope) => !scope.startsWith('mcp:')));
 	let eligibleWorkspaces = $derived(
 		dependencies.workspace.workspaces.filter((workspace) => workspace.role === 'admin')
 	);
@@ -221,6 +231,7 @@
 			}
 			const body: components['schemas']['CreateMCPOAuthAuthorizationInputBody'] = {
 				...params,
+				scope: scopes.join(' '),
 				approved
 			};
 			if (workspaceID) body.workspace_id = workspaceID;

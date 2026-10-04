@@ -3,6 +3,7 @@ import { render } from 'vitest-browser-svelte';
 import { QueryClient } from '@tanstack/svelte-query';
 import AuthorizePage from './oauth-authorize-page.svelte';
 import type { Workspace } from '$lib/api/client';
+import '../../layout.css';
 
 function workspace(id: string, name: string): Workspace {
 	return {
@@ -104,6 +105,48 @@ describe('OAuth authorization request validation', () => {
 			.toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Deny' })).toBeDisabled();
 		expect(mocks.post).not.toHaveBeenCalled();
+	});
+
+	it('reviews Grok metadata clients as MCP when they request the advertised REST scopes too', async () => {
+		const url = new URL('http://localhost/oauth/authorize');
+		url.search = new URLSearchParams({
+			response_type: 'code',
+			client_id: 'https://grok.com/oauth/mcp-client.json',
+			redirect_uri: 'https://grok.com/connectors-oauth-exchange-code/',
+			scope:
+				'mcp:read mcp:full accounts:read drafts:write events:subscribe media:read media:write publications:cancel publications:publish publications:read publications:schedule workspace:read',
+			code_challenge: '3rgf7n37A6IgrmPpqiynur2As3KRmee9Zl1gtrIEXRg',
+			code_challenge_method: 'S256',
+			resource: 'http://localhost/mcp'
+		}).toString();
+		mocks.pageValue.url = url;
+		mocks.get.mockImplementation(async (path) =>
+			path === '/external-applications/oauth/request'
+				? {
+						data: undefined,
+						error: { detail: 'invalid external application client' },
+						response: new Response(null, { status: 400 })
+					}
+				: { data: [], error: undefined, response: new Response(null, { status: 200 }) }
+		);
+		mocks.post.mockResolvedValue({ data: undefined, error: { detail: 'stop redirect' } });
+
+		const screen = await renderAuthorizePage();
+		await expect
+			.element(screen.getByRole('heading', { name: 'Authorize OpenPost MCP' }))
+			.toBeVisible();
+		await expect
+			.element(screen.getByText('accounts:read', { exact: true }))
+			.not.toBeInTheDocument();
+		await screen.getByRole('button', { name: 'Authorize' }).click();
+		expect(mocks.post).toHaveBeenCalledWith('/mcp/oauth/authorize', {
+			body: expect.objectContaining({
+				client_id: 'https://grok.com/oauth/mcp-client.json',
+				redirect_uri: 'https://grok.com/connectors-oauth-exchange-code/',
+				scope: 'mcp:read mcp:full',
+				workspace_id: 'workspace-1'
+			})
+		});
 	});
 
 	it('authorizes every eligible current workspace when selected', async () => {

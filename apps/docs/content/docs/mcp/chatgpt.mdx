@@ -1,0 +1,31 @@
+---
+title: Connect ChatGPT
+description: Connect OpenPost's MCP server to ChatGPT for schedule reviews and drafts.
+icon: chatgpt
+---
+
+<img src="/docs/clients/chatgpt.svg" alt="ChatGPT logo" width={32} height={32} className="docs-client-monochrome" />
+
+You can connect OpenPost's remote MCP server in ChatGPT developer mode. Your account and workspace policy determine whether developer mode and custom connections are available. Start with read access to check the connection, then grant write access if you want ChatGPT to prepare or publish content.
+
+## Add OpenPost
+
+1. In ChatGPT, open **Settings > Security and login** and turn on **Developer mode** if your workspace allows it.
+2. Open [ChatGPT Plugins](https://chatgpt.com/plugins) and select the plus button. Name the connection `OpenPost`.
+3. Enter `https://app.openpo.st/mcp` as the remote MCP URL. Create the connection and review the tools it discovers.
+4. Complete OpenPost sign-in when prompted. Choose a workspace and `mcp:read` for review-only work, or `mcp:full` when ChatGPT needs to create, schedule, or publish.
+5. Start a new chat and add OpenPost from the tools menu.
+
+## Check the connection
+
+Ask, "List my OpenPost workspaces," then name one and ask, "Review this week's scheduled posts without changing anything." For a first write, ask for an unpublished draft and inspect it in OpenPost.
+
+ChatGPT may ask you to confirm write actions. Inspect the draft and its accounts before scheduling or publishing.
+
+## If your server is private
+
+ChatGPT web cannot reach your laptop's `localhost` or a private LAN address directly. Use a public HTTPS OpenPost URL or OpenAI's [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) for a private server. The local `openpost-mcp` bridge is for desktop MCP clients, not a direct ChatGPT web connection.
+
+If the connection loses access, reopen it in ChatGPT Plugins and sign in again. If OpenPost's tool list changed, refresh the connection's metadata and start a new chat. An administrator may control access to connections and write tools in a managed workspace.
+
+See [OpenAI's developer-mode connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt) for current ChatGPT controls.

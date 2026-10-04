@@ -1,0 +1,36 @@
+---
+title: Connect Codex
+description: Add OpenPost to Codex with remote MCP and browser sign-in.
+icon: codex
+---
+
+<img src="/docs/clients/codex.svg" alt="Codex logo" width={32} height={32} />
+
+Codex CLI, its IDE extension, and the Codex desktop app share MCP configuration on the same host.
+
+## Add OpenPost
+
+Open **Settings > MCP servers > Add server** in the desktop app, choose **Streamable HTTP**, enter `https://app.openpo.st/mcp`, and save. Or add this entry to `~/.codex/config.toml` for Codex CLI:
+
+```toml
+[mcp_servers.openpost]
+url = "https://app.openpo.st/mcp"
+```
+
+In the desktop app, restart and choose **Authenticate** beside OpenPost. From Codex CLI, run:
+
+```sh
+codex mcp login openpost
+```
+
+Complete browser sign-in and start a new session. Use `codex mcp list` to inspect the connection.
+
+## Check the connection
+
+In Codex CLI, run `codex mcp list`; in the desktop app, check the MCP server list. Then ask Codex, "List my OpenPost workspaces." Name one and ask for its schedule without making changes.
+
+## If it does not connect
+
+Authenticate again if the login expired. Check that the configured URL ends in `/mcp`. For a private self-hosted server, use the [local bridge](/mcp/mcp-guide#connect-a-self-hosted-instance) with `command = "openpost-mcp"` and `args = ["--profile", "local"]` in the configuration. That bridge runs on the same machine as Codex.
+
+See [Codex MCP configuration](https://developers.openai.com/codex/mcp) for client settings.

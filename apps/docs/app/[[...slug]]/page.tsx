@@ -20,7 +20,6 @@ const featureMarks: Record<string, string> = {
   "guides/publishing.mdx": docsPath("/assets/brand/features/compose.svg"),
   "image-editor/index.mdx": docsPath("/assets/brand/features/image-editor.svg"),
   "video-editor/index.mdx": docsPath("/assets/brand/features/video-editor.svg"),
-  "guides/scheduling.mdx": docsPath("/assets/brand/features/calendar.svg"),
   "guides/analytics.mdx": docsPath("/assets/brand/features/analytics.svg"),
   "guides/media-library.mdx": docsPath("/assets/brand/features/media.svg"),
   "guides/inbox.mdx": docsPath("/assets/brand/features/inbox.svg"),

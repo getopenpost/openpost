@@ -52,7 +52,7 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "automate/api/publications.mdx",
-    "title": "Create and publish posts",
+    "title": "Create and publish posts over HTTP",
     "description": "Create a draft, choose destination variants, and inspect delivery over HTTP.",
     "route": "/automate/api/publications",
     "agentRepresentation": {
@@ -68,7 +68,7 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "automate/api/reliability.mdx",
-    "title": "Revisions, retries, and jobs",
+    "title": "Handle API revisions, retries, and jobs",
     "description": "Prevent duplicate writes and verify background publishing outcomes.",
     "route": "/automate/api/reliability",
     "agentRepresentation": {
@@ -133,7 +133,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "automate/cli/scripts-and-ci.mdx",
     "title": "Scripts and CI",
-    "description": "Use stable JSON output, explicit profiles, and secret-safe authentication in automation.",
+    "description": "Use stable JSON output, explicit profiles, and secret-safe authentication.",
     "route": "/automate/cli/scripts-and-ci",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -197,7 +197,7 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "automate/n8n/reliability.mdx",
-    "title": "Retries and failures",
+    "title": "Handle n8n retries and failures",
     "description": "Make n8n workflows safe to rerun and keep errors tied to their input items.",
     "route": "/automate/n8n/reliability",
     "agentRepresentation": {
@@ -229,7 +229,7 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "automate/sdk/publications.mdx",
-    "title": "Create and publish posts",
+    "title": "Create and publish posts with the SDK",
     "description": "Create a draft, attach media, customize variants, and inspect delivery.",
     "route": "/automate/sdk/publications",
     "agentRepresentation": {
@@ -245,7 +245,7 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "automate/sdk/reliability.mdx",
-    "title": "Jobs, conflicts, and errors",
+    "title": "Handle SDK jobs, conflicts, and errors",
     "description": "Use jobs, revisions, and typed errors to rerun SDK automation safely.",
     "route": "/automate/sdk/reliability",
     "agentRepresentation": {
@@ -367,22 +367,6 @@ export const docsPageCatalog = Object.freeze([
     "agentDiscovery": {
       "membership": "primary",
       "section": "user-guide"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guides/scheduling.mdx",
-    "title": "Schedule and calendar",
-    "description": "Plan post times and recover scheduled delivery.",
-    "route": "/guides/scheduling",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
     },
     "agentCorpus": {
       "membership": "included",
@@ -584,6 +568,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/antigravity.mdx",
+    "title": "Connect Antigravity",
+    "description": "Use the OpenPost local bridge from Antigravity.",
+    "route": "/mcp/antigravity",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/chat-assistants.mdx",
     "title": "Chat assistants",
     "description": "Connect your assistant to OpenPost through MCP.",
@@ -600,10 +600,186 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/chatgpt.mdx",
+    "title": "Connect ChatGPT",
+    "description": "Connect OpenPost's MCP server to ChatGPT for schedule reviews and drafts.",
+    "route": "/mcp/chatgpt",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/claude-code.mdx",
+    "title": "Connect Claude Code",
+    "description": "Use OpenPost from Claude Code in your terminal.",
+    "route": "/mcp/claude-code",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/claude-desktop.mdx",
+    "title": "Connect Claude Desktop",
+    "description": "Connect through Claude account settings or a local OpenPost bridge.",
+    "route": "/mcp/claude-desktop",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/claude.mdx",
+    "title": "Connect Claude web",
+    "description": "Connect OpenPost to Claude through a custom connector.",
+    "route": "/mcp/claude",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/codex.mdx",
+    "title": "Connect Codex",
+    "description": "Add OpenPost to Codex with remote MCP and browser sign-in.",
+    "route": "/mcp/codex",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/coding-assistants.mdx",
     "title": "Coding assistants",
     "description": "Connect your assistant to OpenPost through MCP.",
     "route": "/mcp/coding-assistants",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/cursor.mdx",
+    "title": "Connect Cursor",
+    "description": "Add OpenPost to Cursor using remote MCP and OAuth.",
+    "route": "/mcp/cursor",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/devin.mdx",
+    "title": "Connect Devin",
+    "description": "Give Devin access to your OpenPost workspace through MCP.",
+    "route": "/mcp/devin",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/gemini-cli.mdx",
+    "title": "Connect Gemini CLI",
+    "description": "Review and prepare OpenPost posts from Gemini CLI.",
+    "route": "/mcp/gemini-cli",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/github-copilot.mdx",
+    "title": "Connect GitHub Copilot",
+    "description": "Use OpenPost from Copilot agent chat in VS Code.",
+    "route": "/mcp/github-copilot",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/grok.mdx",
+    "title": "Connect Grok",
+    "description": "Add OpenPost as a custom Grok connector.",
+    "route": "/mcp/grok",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/hermes.mdx",
+    "title": "Connect Hermes Agent",
+    "description": "Add OpenPost to Hermes Agent as an OAuth MCP server.",
+    "route": "/mcp/hermes",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -681,10 +857,74 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/openclaw.mdx",
+    "title": "Connect OpenClaw",
+    "description": "Connect an OpenClaw agent to your OpenPost workspace.",
+    "route": "/mcp/openclaw",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/opencode.mdx",
+    "title": "Connect OpenCode",
+    "description": "Add OpenPost to OpenCode using remote MCP and OAuth.",
+    "route": "/mcp/opencode",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/perplexity.mdx",
+    "title": "Connect Perplexity",
+    "description": "Use OpenPost through a custom remote Perplexity connector.",
+    "route": "/mcp/perplexity",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/skills/index.mdx",
     "title": "Install and use the OpenPost skill",
     "description": "Give a coding assistant instructions for the OpenPost CLI.",
     "route": "/mcp/skills",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
+    "page": "mcp/vs-code.mdx",
+    "title": "Connect VS Code",
+    "description": "Use OpenPost tools in VS Code agent chat.",
+    "route": "/mcp/vs-code",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -765,22 +1005,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "Install on Coolify",
     "description": "Deploy OpenPost on Coolify with the Git-repository Docker Compose build pack.",
     "route": "/self-hosting/coolify",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "self-hosting"
-    }
-  },
-  {
-    "page": "self-hosting/docker-run.mdx",
-    "title": "Try it with Docker run",
-    "description": "Try the published Docker image locally with persistent trial data.",
-    "route": "/self-hosting/docker-run",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -1356,7 +1580,7 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "workflows/ai.mdx",
-    "title": "Use AI",
+    "title": "Generate text and decide branches with AI",
     "description": "Generate text, choose a branch with AI, and inspect recorded usage.",
     "route": "/workflows/ai",
     "agentRepresentation": {
@@ -1372,8 +1596,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "workflows/connections.mdx",
-    "title": "Connections and HTTP requests",
-    "description": "Save credentials, call external APIs, and handle interrupted requests.",
+    "title": "Call APIs with saved connections",
+    "description": "Save credentials in Connections and call external APIs over HTTP.",
     "route": "/workflows/connections",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1388,8 +1612,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "workflows/editor.mdx",
-    "title": "Use the canvas",
-    "description": "Add and configure steps, organize branches, and save workflow changes.",
+    "title": "Build steps on the canvas",
+    "description": "Add steps, branch paths, and save drafts on the workflow canvas.",
     "route": "/workflows/editor",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1501,8 +1725,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "workflows/runs.mdx",
-    "title": "Manage runs",
-    "description": "Inspect results, resolve failures, and pause or cancel workflow work.",
+    "title": "Inspect and stop runs",
+    "description": "Inspect step results, fix failures, and pause or cancel runs.",
     "route": "/workflows/runs",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1517,8 +1741,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "workflows/testing.mdx",
-    "title": "Preview and test",
-    "description": "Understand what previews, node tests, and live runs actually do.",
+    "title": "Test previews, nodes, and live runs",
+    "description": "Run previews, test single nodes, and start live runs safely.",
     "route": "/workflows/testing",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1549,8 +1773,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "workflows/variables.mdx",
-    "title": "Pass data between steps",
-    "description": "Insert variables, inspect inputs and outputs, and transform workflow data.",
+    "title": "Pass step outputs with variables",
+    "description": "Pass trigger and step outputs into later steps with variables.",
     "route": "/workflows/variables",
     "agentRepresentation": {
       "membership": "ordinary"

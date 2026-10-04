@@ -351,7 +351,7 @@ export function validateAICrawlSnapshot(snapshot) {
 }
 
 export function linksFromMarkdown(markdown) {
-  return [...markdown.matchAll(/\[[^\]]+\]\(([^\s)]+)(?:\s+"[^"]*")?\)/gu)].map(
+  return [...markdown.matchAll(/(?<!!)\[[^\]]+\]\(([^\s)]+)(?:\s+"[^"]*")?\)/gu)].map(
     ([, target]) => target,
   );
 }

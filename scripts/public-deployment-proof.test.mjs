@@ -166,6 +166,8 @@ test("reads explicit Markdown and intentional native links from discovery files"
 - [Guide](https://openpo.st/docs/usage/index.md)
 - [OpenAPI](https://openpo.st/docs/openapi.json): authoritative JSON.
 
+![Codex logo](https://openpo.st/docs/clients/codex.svg)
+
 Ignore https://example.com/bare and [local](./local.md).
 `),
     ["https://openpo.st/docs/usage/index.md", "https://openpo.st/docs/openapi.json", "./local.md"],

@@ -1,4 +1,5 @@
 import planCatalog from "@openpost/plan-catalog/catalog.json" with { type: "json" };
+import { creativeComparisons } from "./creative-comparisons.js";
 
 const BYTES_PER_GIGABYTE = 1_000_000_000;
 
@@ -35,6 +36,11 @@ const openPostSources = [
 export const comparisonGuides = [
   {
     slug: "openpost-vs-buffer",
+    comparison: {
+      name: "Buffer",
+      logo: "/assets/logos/comparisons/buffer.svg",
+      category: "Publishing",
+    },
     reviewedAt: "2026-10-04",
     question: "OpenPost vs Buffer: which fits your content workflow?",
     socialDescription:
@@ -103,6 +109,11 @@ export const comparisonGuides = [
   },
   {
     slug: "openpost-vs-postiz",
+    comparison: {
+      name: "Postiz",
+      logo: "/assets/logos/comparisons/postiz.svg",
+      category: "Publishing",
+    },
     reviewedAt: "2026-10-04",
     question: "OpenPost vs Postiz: which fits your content workflow?",
     socialDescription:
@@ -189,4 +200,93 @@ export const comparisonGuides = [
     ],
     next: { label: "Compare OpenPost plans", href: "/pricing" },
   },
+  {
+    slug: "openpost-vs-metricool",
+    comparison: {
+      name: "Metricool",
+      logo: "/assets/logos/comparisons/metricool.webp",
+      category: "Publishing",
+    },
+    reviewedAt: "2026-10-04",
+    question: "OpenPost vs Metricool: creation or reporting first?",
+    socialDescription:
+      "Compare brand limits, reporting, publishing costs, and the work of preparing your content.",
+    answer:
+      "Choose Metricool when reporting across brands and reviewing competitor performance drives your week. Evaluate OpenPost when recording, editing, and adapting your own product updates takes more time. Test both with your actual channels before moving your schedule.",
+    sections: [
+      {
+        title: "When Metricool is the better fit",
+        text: "Metricool combines scheduling with competitor analysis and downloadable reports. Advanced adds client and team management, approvals, and customizable report templates. It can suit someone reporting on several brands more than someone looking for a full browser editing workspace.",
+      },
+      {
+        title: "Metricool costs and limits",
+        text: "USD prices before tax, for the starting brand allowance. Annual figures are monthly equivalents paid yearly. A brand is a group of profiles, not one connected account. X requires an add-on; paid scheduling remains subject to fair use.",
+        table: {
+          caption: "Metricool starting plans",
+          columns: ["Plan", "Monthly billing", "Annual equivalent", "Starting limits"],
+          rows: [
+            ["Free", "$0", "$0", "1 brand; 20 posts/month; no LinkedIn or X"],
+            ["Starter", "$25/month", "$20/month", "5 brands; paid scheduling; PDF/PPT reports"],
+            ["Advanced", "$67/month", "$53/month", "15 brands; teams and approvals"],
+          ],
+        },
+      },
+      openPostPlans,
+      {
+        title: "When OpenPost is the better fit",
+        text: "OpenPost keeps recording, image and timeline video editing, source ideas, and destination versions together. Its free local editors are available separately from Hosted publishing. Compare the time needed to turn one product demonstration into a finished post, alongside the reports your business actually needs.",
+      },
+      {
+        title: "Compare the same working week",
+        text: "Prepare one announcement, make a channel-specific change, and retrieve a report for the same date range. Include brand counts, collaborators, X access, and review steps in the bill. OpenPost Hosted admission is currently on a waitlist.",
+      },
+    ],
+    sources: [
+      {
+        label: "Metricool prices, brand allowances and add-ons",
+        href: "https://metricool.com/pricing/",
+      },
+      ...openPostSources,
+    ],
+    next: { label: "Compare OpenPost plans", href: "/pricing" },
+  },
+  {
+    slug: "openpost-vs-hootsuite",
+    comparison: {
+      name: "Hootsuite",
+      logo: "/assets/logos/comparisons/hootsuite.svg",
+      category: "Publishing",
+    },
+    reviewedAt: "2026-10-04",
+    question: "OpenPost vs Hootsuite: founder workflow or social team?",
+    socialDescription:
+      "Compare content creation with team approvals, inbox routing, reporting, and per-user billing.",
+    answer:
+      "Choose Hootsuite when a social team needs approvals, customer-care routing, and reporting across departments. Evaluate OpenPost when a founder needs to record, edit, adapt, and publish their own work from one workspace. The tools overlap in publishing, but serve different operating needs.",
+    sections: [
+      {
+        title: "When Hootsuite is the better fit",
+        text: "Hootsuite Advanced offers content approvals, message assignment and routing, and team performance reporting. Standard covers ten social accounts and unlimited scheduling subject to its terms. Professional adds unlimited accounts and more automation. These can matter more than editing tools to a dedicated social team.",
+      },
+      {
+        title: "Hootsuite costs and limits",
+        text: "Hootsuite's plans FAQ lists USD rates starting at $99 per user/month for Standard and $199 for Professional, ranging up to $399 for Advanced. Enterprise has custom pricing. Monthly and annual billing differ; confirm the selected plan, term, seats, and total at checkout. These starting rates are not a promise of month-to-month billing.",
+      },
+      openPostPlans,
+      {
+        title: "When OpenPost is the better fit",
+        text: "OpenPost suits a creation-heavy workflow: record a demonstration, edit the video, make a supporting image, and adapt one idea for different accounts. Workflows can prepare content for review. Self-hosting is also available. Test the inbox and analytics your accounts expose, rather than assuming enterprise reporting or customer-care parity.",
+      },
+      {
+        title: "Check the workflow beyond scheduling",
+        text: "Try a real review, a failed delivery, and an inbox conversation. Compare who can approve, who sees the failure, and which outcomes are available. Include every paid seat in Hootsuite's cost. OpenPost Hosted admission is currently on a waitlist.",
+      },
+    ],
+    sources: [
+      { label: "Hootsuite plans and billing terms", href: "https://www.hootsuite.com/plans" },
+      ...openPostSources,
+    ],
+    next: { label: "Compare OpenPost plans", href: "/pricing" },
+  },
+  ...creativeComparisons,
 ];

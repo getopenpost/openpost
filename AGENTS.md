@@ -50,6 +50,8 @@ Public marketing speaks to Cloud customers creating content and running a busine
 
 Public buying comparisons belong to the shared guide catalogue in `packages/social-images/src/`. Reuse the guide renderer and discovery manifest. Derive OpenPost prices and limits from `@openpost/plan-catalog`; keep competitor facts with official source links and an explicit review date. Change that date only after checking those sources, and state where the competitor fits better.
 
+Comparison metadata owns the product name, local official mark, category, and optional free-tool link. The Resources comparison directory and guide hub share one directory component; retain existing guide URLs. Creative-tool comparisons describe free local editing separately from Hosted storage and publishing. Keep third-party mark sources in `assets/logos/comparisons/SOURCES.md` and preserve original colors.
+
 Install marketing module-download recovery in the client `init` hook, before hydration imports run. A layout mount callback cannot recover failures that precede its own mount.
 App module-download recovery clears its persisted retry budget only after a successful SvelteKit navigation. Keep failed routes bounded across reloads.
 

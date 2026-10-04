@@ -2,8 +2,19 @@
 	import { resolve } from '$app/paths';
 	import { marketingGuides } from '@openpost/social-images';
 	import { Button } from '$lib/components/ui/button';
+	import { ArrowRight, ArrowLeft } from '@lucide/svelte';
+	import GuideVisual from '../GuideVisual.svelte';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
+	const relatedGuides = $derived.by(() => {
+		const otherGuides = marketingGuides.filter((guide) => guide.slug !== data.guide.slug);
+		const sameCategory = otherGuides.filter(
+			(guide) => guide.comparison?.category === data.guide.comparison?.category
+		);
+		return (
+			sameCategory.length ? sameCategory : otherGuides.filter((guide) => guide.comparison?.toolHref)
+		).slice(0, 3);
+	});
 	const reviewDateFormat = new Intl.DateTimeFormat('en-GB', {
 		day: 'numeric',
 		month: 'long',
@@ -12,39 +23,47 @@
 	});
 </script>
 
-<article class="section-pad">
+<article class="guide-article">
 	<div class="marketing-shell">
-		<div class="max-w-4xl">
-			<a
-				href={resolve('/guides')}
-				class="focus-ring inline-flex min-h-11 items-center rounded-md text-sm text-primary"
-				>← All publishing guides</a
-			>
-			<h1 class="marketing-title mt-5">{data.guide.question}</h1>
-			<p class="mt-6 text-sm text-muted-foreground">
-				By OpenPost · Reviewed <time datetime={data.guide.reviewedAt}
-					>{reviewDateFormat.format(new Date(data.guide.reviewedAt))}</time
+		<header class="guide-hero">
+			<div class="hero-copy">
+				<a
+					href={data.guide.comparison ? '/comparisons' : resolve('/guides')}
+					class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md text-sm text-primary"
+					><ArrowLeft size={16} aria-hidden="true" />
+					{data.guide.comparison ? 'All comparisons' : 'All guides and comparisons'}</a
 				>
-			</p>
-			<p class="marketing-copy mt-7">{data.guide.answer}</p>
-			<p class="mt-6 max-w-3xl text-sm leading-6 text-muted-foreground">
-				Written by the team behind OpenPost. See the linked sources when comparing tools.
-			</p>
-		</div>
-		<div class="mt-12 grid gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-			<div class="max-w-3xl min-w-0">
-				<aside class="border-y py-6" aria-label="OpenPost Hosted readiness">
-					<h2 class="text-base font-semibold">Check your channels first</h2>
-					<p class="mt-3 leading-7 text-muted-foreground">
-						Posting, inbox, and analytics vary by account and format. Check provider requirements
-						and live-account readiness before planning a launch.
-					</p>
-					<a
-						href="/platforms"
-						class="focus-ring mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-medium text-primary"
-						>Check channel availability →</a
+				<h1 class="guide-title mt-5">{data.guide.question}</h1>
+				<p class="mt-6 text-sm text-muted-foreground">
+					By OpenPost · Reviewed <time datetime={data.guide.reviewedAt}
+						>{reviewDateFormat.format(new Date(data.guide.reviewedAt))}</time
 					>
-				</aside>
+				</p>
+				<p class="marketing-copy mt-6">{data.guide.answer}</p>
+				<p class="mt-6 max-w-3xl text-sm leading-6 text-muted-foreground">
+					Written by the team behind OpenPost. See the linked sources when comparing tools.
+				</p>
+			</div>
+			<div class="hero-visual">
+				<GuideVisual guide={data.guide} />
+			</div>
+		</header>
+		<div class="guide-layout">
+			<div class="max-w-3xl min-w-0">
+				{#if !data.guide.comparison || data.guide.comparison.category === 'Publishing'}
+					<aside class="readiness" aria-label="OpenPost Hosted readiness">
+						<h2 class="text-base font-semibold">Check your channels first</h2>
+						<p class="mt-3 leading-7 text-muted-foreground">
+							Posting, inbox, and analytics vary by account and format. Check provider requirements
+							and live-account readiness before planning a launch.
+						</p>
+						<a
+							href="/platforms"
+							class="focus-ring mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-medium text-primary"
+							>Check channel availability →</a
+						>
+					</aside>
+				{/if}
 				{#each data.guide.sections as section, i (section.title)}
 					<section id={`section-${i}`} class="mt-10 scroll-mt-28">
 						<h2 class="text-2xl font-semibold tracking-tight">
@@ -104,28 +123,149 @@
 					<Button href={data.guide.next.href} size="lg">{data.guide.next.label}</Button>
 				</div>
 			</div>
-			<nav
-				aria-label="More publishing guides"
-				class="self-start border-t pt-6 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8"
-			>
-				<h2 class="text-sm font-semibold">More publishing guides</h2>
-				<ul class="mt-4 space-y-3">
-					{#each marketingGuides.filter((guide) => guide.slug !== data.guide.slug) as guide (guide.slug)}
-						<li>
-							<a
-								href={resolve('/guides/[slug]', { slug: guide.slug })}
-								class="focus-ring flex min-h-11 items-center rounded-md py-2 text-sm leading-6 text-muted-foreground hover:text-primary"
-								>{guide.question}</a
-							>
-						</li>
-					{/each}
-				</ul>
-			</nav>
+			<aside class="guide-sidebar" aria-label="Reading tools">
+				<nav aria-label="On this page" class="sidebar-section">
+					<h2 class="text-sm font-semibold">On this page</h2>
+					<ul class="mt-3">
+						{#each data.guide.sections as section, i (section.title)}
+							<li><a class="sidebar-link focus-ring" href={'#section-' + i}>{section.title}</a></li>
+						{/each}
+						<li><a class="sidebar-link focus-ring" href="#sources-title">Sources</a></li>
+					</ul>
+				</nav>
+				<div class="sidebar-section">
+					<h2 class="text-sm font-semibold">
+						{data.guide.comparison?.toolHref
+							? 'Make something. Try it free.'
+							: 'Start with your next post.'}
+					</h2>
+					<p class="mt-3 text-sm leading-6 text-muted-foreground">
+						{data.guide.comparison?.toolHref
+							? 'Local editing needs no account or subscription. Keep publishing plans separate.'
+							: 'Try our free editors and previews before choosing a publishing plan.'}
+					</p>
+					<a
+						class="sidebar-link focus-ring text-primary"
+						href={data.guide.comparison?.toolHref ?? '/tools'}
+						>{data.guide.comparison?.toolLabel ?? 'Explore free tools'}<ArrowRight
+							size={16}
+							aria-hidden="true"
+						/></a
+					>
+				</div>
+				<nav aria-label="Related resources" class="sidebar-section">
+					<h2 class="text-sm font-semibold">Related resources</h2>
+					<ul class="mt-4 space-y-3">
+						{#each relatedGuides as guide (guide.slug)}
+							<li>
+								<a
+									href={resolve('/guides/[slug]', { slug: guide.slug })}
+									class="sidebar-link focus-ring">{guide.question}</a
+								>
+							</li>
+						{/each}
+					</ul>
+				</nav>
+			</aside>
 		</div>
 	</div>
 </article>
 
 <style>
+	.guide-article {
+		padding-block: 64px 100px;
+	}
+	.guide-hero {
+		display: grid;
+		grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+		align-items: center;
+		gap: 56px;
+		padding-bottom: 48px;
+		border-bottom: 1px solid var(--border);
+	}
+	.guide-title {
+		font-size: clamp(32px, 4vw, 56px);
+		font-weight: 550;
+		line-height: 1.12;
+		letter-spacing: -0.03em;
+		text-wrap: balance;
+	}
+	.hero-visual {
+		overflow: hidden;
+		border-radius: 12px;
+		min-width: 0;
+		height: 280px;
+		background: var(--marketing-blue);
+	}
+	.hero-visual :global(.comparison-visual) {
+		height: 100%;
+	}
+	.guide-layout {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 280px;
+		gap: 72px;
+		margin-top: 48px;
+	}
+	.readiness {
+		border-radius: 12px;
+		padding: 24px;
+		background: var(--marketing-section);
+	}
+	.guide-sidebar {
+		align-self: start;
+		position: sticky;
+		top: 96px;
+	}
+	.sidebar-section {
+		border-top: 1px solid var(--border);
+		padding-block: 20px;
+	}
+	.sidebar-link {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 44px;
+		border-radius: 4px;
+		padding-block: 8px;
+		font-size: 13px;
+		line-height: 1.6;
+		color: var(--muted-foreground);
+	}
+	.sidebar-link:hover {
+		color: var(--primary);
+	}
+	.sidebar-link.text-primary {
+		color: var(--primary);
+	}
+	@media (max-width: 1023px) {
+		.guide-hero {
+			gap: 32px;
+		}
+		.guide-layout {
+			grid-template-columns: minmax(0, 1fr) 230px;
+			gap: 32px;
+		}
+	}
+	@media (max-width: 767px) {
+		.guide-article {
+			padding-block: 32px 64px;
+		}
+		.guide-hero,
+		.guide-layout {
+			grid-template-columns: 1fr;
+			gap: 28px;
+		}
+		.hero-visual {
+			height: 200px;
+		}
+		.guide-sidebar {
+			position: static;
+		}
+		.guide-layout {
+			margin-top: 32px;
+		}
+	}
 	.guide-table {
 		width: 100%;
 		border-collapse: collapse;

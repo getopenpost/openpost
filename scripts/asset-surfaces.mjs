@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { assetSurfaceManifest } from "./asset-surfaces.ts";
+import { marketingGuides } from "../packages/social-images/src/guides.js";
 import { reportProblems } from "./report-problems.mjs";
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -110,6 +111,9 @@ async function dynamicMarketingReferences(root = repositoryRoot) {
       (file) => `postiz-socials/${file}`,
     ),
   );
+  for (const guide of marketingGuides) {
+    if (guide.comparison) references.add(guide.comparison.logo.replace(/^\/assets\//u, ""));
+  }
   return references;
 }
 

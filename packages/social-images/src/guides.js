@@ -4,6 +4,7 @@ import { comparisonGuides } from "./comparisons.js";
 export const marketingGuides = [
   {
     slug: "best-social-media-tools-for-solo-founders",
+    thumbnail: "post-preview-generator",
     reviewedAt: "2026-09-05",
     question: "What are the best social media tools for solo founders?",
     socialDescription:
@@ -43,6 +44,7 @@ export const marketingGuides = [
   },
   {
     slug: "turn-product-updates-into-social-media-posts",
+    thumbnail: "thread-splitter",
     reviewedAt: "2026-09-05",
     question: "How do I turn product updates into social media posts?",
     socialDescription:
@@ -80,6 +82,7 @@ export const marketingGuides = [
   },
   {
     slug: "schedule-social-media-posts-on-multiple-platforms",
+    thumbnail: "best-time-to-post-calculator",
     reviewedAt: "2026-09-05",
     question: "How do I schedule social media posts on multiple platforms?",
     socialDescription:

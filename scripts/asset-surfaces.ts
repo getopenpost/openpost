@@ -74,6 +74,13 @@ export const assetSurfaceManifest = {
     "screenshots/image-export-detail-dark.webp",
   ],
   marketing: [
+    "logos/comparisons/buffer.svg",
+    "logos/comparisons/postiz.svg",
+    "logos/comparisons/metricool.webp",
+    "logos/comparisons/hootsuite.svg",
+    "logos/comparisons/photoshop.svg",
+    "logos/comparisons/davinci-resolve.png",
+    "logos/comparisons/premiere-pro.svg",
     "screenshots/workflows-detail-light.webp",
     "screenshots/workflows-detail-dark.webp",
     "marketing/paper-plane.webp",

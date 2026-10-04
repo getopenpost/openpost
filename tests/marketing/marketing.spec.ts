@@ -43,6 +43,10 @@ test("resources menu uses one column per resource group @desktop", async ({ page
 
   const menuGrid = page.locator(".resource-menu > div");
   await expect(menuGrid).toBeVisible();
+  await expect(menuGrid.getByRole("link", { name: "Comparisons", exact: true })).toHaveAttribute(
+    "href",
+    "/comparisons",
+  );
   await expect(menuGrid.getByRole("link", { name: "Workflows", exact: true })).toHaveCount(0);
   expect(
     await menuGrid.evaluate(

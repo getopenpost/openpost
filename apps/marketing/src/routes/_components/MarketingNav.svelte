@@ -7,6 +7,7 @@
 		BookOpen,
 		CircleHelp,
 		FileText,
+		Scale,
 		History,
 		Mail,
 		Menu,
@@ -32,6 +33,7 @@
 	const resourceIcons = new Map([
 		[docsUrl, BookOpen],
 		['/guides', FileText],
+		['/comparisons', Scale],
 		['/faq', CircleHelp],
 		['/changelog', History],
 		['/contact', Mail],

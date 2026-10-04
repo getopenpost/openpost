@@ -29,10 +29,10 @@
 		</div>
 		<a data-dither-panel use:ditherSurface href="/guides" class="guides focus-ring">
 			<div class="card-heading">
-				<h3>Publishing guides</h3>
+				<h3>Guides & comparisons</h3>
 				<ArrowUpRight size={24} />
 			</div>
-			<p>Practical answers for scheduling, editing, and sharing your work.</p>
+			<p>Compare your tools and find practical ways to make and share your work.</p>
 			<div class="guide-art" aria-hidden="true">
 				<span>Write</span><span>Edit</span><span>Publish</span>
 			</div>

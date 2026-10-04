@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.10.4] - 2026-10-04
+
+### Documentation
+
+- Add sourced OpenPost comparisons with Buffer and Postiz, including costs, limits, self-hosting responsibilities, and reasons to choose either product. Share guide rendering and derive OpenPost pricing from the plan catalogue.
+
+### Fixed
+
+- Fix Grok MCP connection setup when its authorization request includes both MCP and REST scopes. Consent now shows and grants the MCP permissions through the MCP authorization flow.
+- Report unavailable Bluesky posts in the Inbox collection state and back off instead of retrying them as hourly failures or showing a successful empty read.
+- Deliver accepted diagnostics reports to the configured Discord webhook instead of losing its URL during initialization.
+- Point assistant, automation, and self-hosting cross-links at their exact destination titles.
+- Allow public client logos and share images through the agent-readable documentation checks.
+- Fixed turning imported posts on for Bluesky and Mastodon accounts on PostgreSQL deployments, including turning imports back on after disabling them.
+- Back off reply collection when Meta no longer exposes a post, preserving the provider error without treating missing visibility as a generic hourly failure.
+- Retain unfinished import pages, count and persist provider requests before reads, exclude posts published through OpenPost, and stop in-flight imports after disabling or reactivating them.
+- Show the server's reason when an import setting fails, allow turning imports off after read access is lost, and keep workspace viewers from changing the setting.
+- Opened notifications leave the default unread inbox. Read history remains available, and failed read updates keep the notification available to retry.
+- Keep large media downloads streaming beyond the storage operation timeout, while retaining caller cancellation and connection timeouts.
+- Request Threads reply-reading access when connecting an account, and detect older connections that need to reconnect before collecting replies.
+
+### Changed
+
+- Keep composer polls compact, edit shared content in a focused dialog, and customize each account in its own tab. Unsupported accounts require an explicit text version or post without the poll. Text versions preserve the question and answers in their original language and clearly show that voting buttons are absent.
+- Give every Workflows, Automate, and Image Editor guide its own icon and a consistent action-led title and description.
+- Fold the scheduling guide into publishing and the Docker-run page into self-hosting setup, with redirects from the old addresses.
+
+### Added
+
+- Restore one setup page per AI assistant with its logo: ChatGPT, Claude web, Claude Desktop, Grok, Perplexity, Codex, Claude Code, Cursor, VS Code, GitHub Copilot, Gemini CLI, Devin, Antigravity, OpenCode, OpenClaw, and Hermes Agent.
+- Add share images and link previews to the Quick Cut, Video Editor, and Image Editor start pages.
+- Import new posts into a read-only account library for Threads, Instagram, Facebook, Pinterest, YouTube, eligible TikTok and LinkedIn accounts, Pixelfed, PeerTube, Lemmy, PieFed and Google Business Profile. Show missing read permissions and instance restrictions. X imports remain disabled.
+- Open unread notifications from the bell in a compact panel, with a visible unread count on desktop and phones, mark-as-read controls, and access to the full history.
+
 ## [7.8.8] - 2026-10-03
 
 ### Fixed

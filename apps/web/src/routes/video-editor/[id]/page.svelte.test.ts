@@ -9,6 +9,7 @@ import { setWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 import { saveWorkspaceHandleRecord } from '$lib/video-editor/workspace-fs/handles-db';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { editorSession } from '$lib/video-editor/editor.svelte';
+import { mediaRecovery } from '$lib/video-editor/media/media-recovery.svelte';
 import { createFloat32WavBlob } from '$lib/video-editor/local-ai/audio';
 import { kokoroTtsService } from '$lib/video-editor/local-ai/tts/kokoro-service';
 import {
@@ -92,6 +93,14 @@ it.each([
 			duration: 1,
 			sampleRate: 24000
 		});
+		if (!linked) {
+			// Loading exposes the project before media recovery finishes; keep this case in that gap.
+			const originalScan = mediaRecovery.scan.bind(mediaRecovery);
+			vi.spyOn(mediaRecovery, 'scan').mockImplementation(async (...args) => {
+				await new Promise((resolve) => setTimeout(resolve, 500));
+				return originalScan(...args);
+			});
+		}
 		const screen = await render(
 			VideoEditorPage,
 			{},
@@ -101,10 +110,11 @@ it.each([
 			}
 		);
 		await expect.poll(() => editorSession.project?.id).toBe(project.id);
+		const title = screen.getByRole('button', { name: /^Hello\./ });
+		await expect.element(title).toBeVisible();
 		if (timelineStore.linkedSelectionEnabled !== linked)
 			await userEvent.keyboard('{Shift>}l{/Shift}');
 		expect(timelineStore.linkedSelectionEnabled).toBe(linked);
-		const title = screen.getByRole('button', { name: /^Hello\./ });
 		await title.click();
 		await screen.getByRole('button', { name: 'Create voice from text', exact: true }).click();
 		if (!link) await screen.getByRole('button', { name: 'Use playhead', exact: true }).click();

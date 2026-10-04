@@ -6,6 +6,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { auth } from '$lib/stores/auth';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { markHealthyNavigation } from '../hooks.client';
 	import { captureClientException, captureTelemetryPageView } from '@openpost/telemetry';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -55,6 +56,7 @@
 
 	afterNavigate((navigation) => {
 		captureTelemetryPageView(navigation.to?.route.id ?? '/unknown');
+		if ($page.status < 400) markHealthyNavigation();
 	});
 
 	function warnBeforeUnload(event: BeforeUnloadEvent) {

@@ -106,13 +106,13 @@ describe("bounded chunk recovery", () => {
     });
   });
 
-  it("reloads once per failing asset and stays bounded overall", async () => {
+  it("bounds persistent failures across documents and assets", async () => {
     // Each simulated document gets its own controller but shares the
     // persisted budget, mirroring real reloads across documents.
     const shared: { current: ChunkRecoveryBudget | null } = { current: null };
     const statuses = new Map([
-      ["/_app/immutable/chunks/a.js", 404],
-      ["/_app/immutable/chunks/b.js", 404],
+      ["/_app/immutable/chunks/a.js", 200],
+      ["/_app/immutable/chunks/b.js", 200],
     ]);
     const document = () => {
       const { runtime, state } = fakeRuntime({
@@ -142,31 +142,95 @@ describe("bounded chunk recovery", () => {
       ).kind,
     ).toBe("reloaded");
     expect(first.state.reloads).toHaveLength(1);
+    // A failed document cannot claim recovery merely because navigation continues.
+    first.controller.markHealthyNavigation();
 
-    // Next document, same asset: the pair budget is spent, so recovery
-    // becomes an explicit retry. Eligibility never resets with time.
+    // A second transient failure can recover; persistent failures still stop.
     const second = document();
-    const repeat = await second.controller.recover(
-      new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/a.js"),
-    );
-    expect(repeat.kind).toBe("manual");
-    expect(repeat).toMatchObject({ reason: "budget-exhausted" });
+    expect(
+      (
+        await second.controller.recover(
+          new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/a.js"),
+        )
+      ).kind,
+    ).toBe("reloaded");
 
     const third = document();
     expect(
       (
         await third.controller.recover(
-          new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/b.js"),
+          new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/a.js"),
         )
       ).kind,
     ).toBe("reloaded");
+
+    const fourth = document();
+    const repeat = await fourth.controller.recover(
+      new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/a.js"),
+    );
+    expect(repeat.kind).toBe("manual");
+    expect(repeat).toMatchObject({ reason: "budget-exhausted" });
+
+    const otherAsset = document();
+    expect(
+      (
+        await otherAsset.controller.recover(
+          new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/b.js"),
+        )
+      ).kind,
+    ).toBe("manual");
     expect(shared.current).toEqual({
-      total: 2,
-      perAsset: {
-        "/_app/immutable/chunks/a.js": 1,
-        "/_app/immutable/chunks/b.js": 1,
-      },
+      total: 3,
+      perAsset: { "/_app/immutable/chunks/a.js": 3 },
     });
+  });
+
+  it("reloads a missing asset only once until the route succeeds", async () => {
+    const shared: { current: ChunkRecoveryBudget | null } = { current: null };
+    const document = () => {
+      const { runtime } = fakeRuntime({
+        loadBudget: () => shared.current,
+        saveBudget: (next: ChunkRecoveryBudget) => {
+          shared.current = next;
+        },
+      });
+      return createChunkRecovery({ ...runtime, fetchAssetStatus: async () => 404 });
+    };
+    const error = () =>
+      new TypeError("Failed to fetch dynamically imported module: /_app/immutable/chunks/old.js");
+
+    expect((await document().recover(error())).kind).toBe("reloaded");
+    expect(await document().recover(error())).toMatchObject({
+      kind: "manual",
+      reason: "budget-exhausted",
+    });
+  });
+
+  it("allows the same served asset to recover again after a healthy route", async () => {
+    const shared: { current: ChunkRecoveryBudget | null } = { current: null };
+    const document = () => {
+      const { runtime, state } = fakeRuntime({
+        loadBudget: () => shared.current,
+        saveBudget: (next: ChunkRecoveryBudget) => {
+          shared.current = next;
+        },
+      });
+      state.statusByPath.set("/_app/immutable/nodes/detail.js", 200);
+      return { controller: createChunkRecovery(runtime), state };
+    };
+    const error = () =>
+      new TypeError("Failed to fetch dynamically imported module: /_app/immutable/nodes/detail.js");
+
+    const first = document();
+    expect((await first.controller.recover(error())).kind).toBe("reloaded");
+
+    const healthy = document();
+    healthy.controller.markHealthyNavigation();
+    expect(shared.current).toEqual({ total: 0, perAsset: {} });
+
+    const later = document();
+    expect((await later.controller.recover(error())).kind).toBe("reloaded");
+    expect(later.state.reloads).toHaveLength(1);
   });
 
   it("shows manual recovery instead of reloading when storage is unavailable", async () => {

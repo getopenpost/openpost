@@ -57,6 +57,10 @@ export function initializeClientErrors(installErrorCapture: ErrorCaptureInstalle
 	uninstallErrorCapture = installErrorCapture();
 }
 
+export function markHealthyNavigation() {
+	chunkRecovery.markHealthyNavigation();
+}
+
 /**
  * Chunk load failures have two distinct causes that look identical in the
  * browser:

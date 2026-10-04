@@ -4203,7 +4203,7 @@
 			}
 			success = publishNow ? m.compose_publishing_now() : m.compose_scheduled_success();
 			soundPreferences.play('success');
-			if (!publishNow) void celebrateSchedule();
+			void celebrateSchedule();
 			ui.invalidatePublications(
 				{
 					workspaceId: selectedWorkspaceId,

@@ -52,3 +52,31 @@ func TestBlueskyListCommentsSkipsUnavailableReplies(t *testing.T) {
 	require.Equal(t, "did:plc:fan", comments[0].AuthorID)
 	require.Equal(t, "Congrats", comments[0].Text)
 }
+
+func TestBlueskyListCommentsReportsUnavailableRoot(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"missing error", http.StatusBadRequest, `{"error":"NotFound","message":"Post not found"}`},
+		{"missing node", http.StatusOK, `{"thread":{"$type":"app.bsky.feed.defs#notFoundPost","uri":"at://did:plc:founder/app.bsky.feed.post/3root","notFound":true}}`},
+		{"blocked node", http.StatusOK, `{"thread":{"$type":"app.bsky.feed.defs#blockedPost","uri":"at://did:plc:founder/app.bsky.feed.post/3root","blocked":true}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			originalClient := httpClient
+			t.Cleanup(func() { httpClient = originalClient })
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				response := jsonResponse(req, tc.body)
+				response.StatusCode = tc.status
+				return response, nil
+			})}
+			comments, err := NewBlueskyAdapter("https://pds.example").ListComments(t.Context(), "token", "did:plc:founder", `{"uri":"at://did:plc:founder/app.bsky.feed.post/3root","cid":"root-cid"}`)
+			require.Error(t, err)
+			require.Empty(t, comments)
+			var providerErr *HTTPError
+			require.ErrorAs(t, err, &providerErr)
+			require.Equal(t, http.StatusNotFound, providerErr.StatusCode, "unavailable roots must not be retried as hourly generic failures or reported as successful empty reads")
+		})
+	}
+}

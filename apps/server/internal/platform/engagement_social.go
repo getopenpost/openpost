@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const blueskyPostNotFoundCode = "NotFound"
+
 func (m *MastodonAdapter) EngagementSupport() EngagementSupport {
 	return EngagementSupport{Enabled: true, CanReply: true, CanDelete: true, CanLike: true}
 }
@@ -43,7 +45,9 @@ func (m *MastodonAdapter) UnlikeComment(ctx context.Context, accessToken, _ stri
 }
 
 type blueskyThreadNode struct {
-	Post struct {
+	NotFound bool `json:"notFound"`
+	Blocked  bool `json:"blocked"`
+	Post     struct {
 		URI    string `json:"uri"`
 		CID    string `json:"cid"`
 		Author struct {
@@ -82,6 +86,10 @@ func (b *BlueskyAdapter) ListComments(ctx context.Context, accessToken, accountI
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
+		var providerErr *HTTPError
+		if errors.As(err, &providerErr) && providerErr.StatusCode == http.StatusBadRequest && providerErr.Code == blueskyPostNotFoundCode {
+			providerErr.StatusCode = http.StatusNotFound
+		}
 		return nil, fmt.Errorf("fetching Bluesky replies: %w", err)
 	}
 	var response struct {
@@ -89,6 +97,12 @@ func (b *BlueskyAdapter) ListComments(ctx context.Context, accessToken, accountI
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("decoding Bluesky replies: %w", err)
+	}
+	if response.Thread.NotFound {
+		return nil, &HTTPError{StatusCode: http.StatusNotFound, Code: blueskyPostNotFoundCode}
+	}
+	if response.Thread.Blocked {
+		return nil, &HTTPError{StatusCode: http.StatusNotFound, Code: "BlockedPost"}
 	}
 	comments := make([]Comment, 0)
 	var walk func(blueskyThreadNode)

@@ -1278,7 +1278,7 @@ export const faqs = [
 			'OpenPost shows which account failed and what went wrong. Review the error and retry the accounts that can be retried, without publishing the successful ones again.',
 		learnMore: {
 			label: 'Help with scheduled posts',
-			href: 'https://openpo.st/docs/guides/scheduling'
+			href: 'https://openpo.st/docs/guides/publishing#schedule-and-calendar'
 		}
 	},
 	{

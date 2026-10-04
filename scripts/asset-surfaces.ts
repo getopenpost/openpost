@@ -37,7 +37,6 @@ export const assetSurfaceManifest = {
     "brand/features/compose.svg",
     "brand/features/image-editor.svg",
     "brand/features/video-editor.svg",
-    "brand/features/calendar.svg",
     "brand/features/analytics.svg",
     "brand/features/media.svg",
     "brand/features/inbox.svg",

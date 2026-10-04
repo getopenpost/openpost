@@ -74,6 +74,26 @@ docker compose up -d
 
 To close public signup afterward, set `OPENPOST_DISABLE_REGISTRATIONS=true` and recreate the container with `docker compose up -d --force-recreate openpost`. Existing accounts can still sign in.
 
+## Try it with Docker run
+
+Try OpenPost locally with `docker run` before committing to a permanent installation. Use [Docker Compose](#install-with-docker-compose) for a permanent installation.
+
+Create `.env` with the URLs and secrets from the [Compose setup](#install-with-docker-compose), then run the published image. Docker selects `linux/amd64` or `linux/arm64` for the host:
+
+```sh
+docker volume create openpost_data
+docker run -d --name openpost --restart unless-stopped \
+  -p 8080:8080 --mount source=openpost_data,target=/data --env-file .env \
+  -e OPENPOST_DATABASE_PATH=/data/db/openpost.db \
+  -e OPENPOST_MEDIA_PATH=/data/media \
+  -e OPENPOST_MEDIA_URL=http://localhost:8080/media \
+  ghcr.io/getopenpost/openpost:latest
+```
+
+Open `http://localhost:8080`, create the first account, and check `http://localhost:8080/api/v1/ready` for `"status":"ready"` and `"database":"ok"`.
+
+Move to [Docker Compose](#install-with-docker-compose) before connecting social accounts. Keep the same secrets, attach the existing `openpost_data` volume if you need the trial data, and replace the local URLs with the final HTTPS origin. Then configure [provider integrations](/self-hosting/integrations) and [backups](/self-hosting/maintenance).
+
 ## Prepare for production
 
 Use a versioned image from [GitHub Releases](https://github.com/getopenpost/openpost/releases). [Back up and test a restore](/self-hosting/maintenance) of the database, media, deployment files, and secrets before relying on scheduled posts. Configure [email delivery](/self-hosting/email) before requiring email verification.
@@ -92,7 +112,7 @@ Use an existing platform if it already manages your server:
 | [ZimaOS](/self-hosting/zimaos)       | Custom app import                          |
 | [NixOS](/self-hosting/nixos)         | Podman service module with sops secrets    |
 
-For other setups, [run the binary](/self-hosting/binary) or [try the Docker image](/self-hosting/docker-run).
+For other setups, [run the binary](/self-hosting/binary) or [try the Docker image](#try-it-with-docker-run).
 
 ## Configure optional services
 

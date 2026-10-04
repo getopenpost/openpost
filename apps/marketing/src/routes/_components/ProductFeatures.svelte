@@ -73,8 +73,10 @@
 				Pick a time or use your next free posting slot. Plan the week in your calendar, stagger
 				channels, and get a reminder when the queue runs low.
 			</p>
-			<a class="focus-ring" href="https://openpo.st/docs/guides/scheduling" data-sveltekit-reload
-				>Plan your publishing <ArrowUpRight size={17} /></a
+			<a
+				class="focus-ring"
+				href="https://openpo.st/docs/guides/publishing#schedule-and-calendar"
+				data-sveltekit-reload>Plan your publishing <ArrowUpRight size={17} /></a
 			>
 		</div>
 		<div class="visual mint">

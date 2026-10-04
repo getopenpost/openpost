@@ -158,6 +158,7 @@ for (const width of [1280, 390, 320]) {
           .getByRole("textbox", { name: "Question", exact: true })
           .fill("Cancelled question");
         await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        await expect(dialog).not.toBeVisible();
         const poll = page.getByTestId("shared-poll-editor");
         await expect(poll).toHaveCount(0);
         await expect(add).toBeFocused();

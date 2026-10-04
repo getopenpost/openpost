@@ -33,7 +33,7 @@ func (l *LinkedInAdapter) EngagementSupport() EngagementSupport {
 func (t *ThreadsAdapter) EngagementSupport() EngagementSupport {
 	return EngagementSupport{
 		Enabled:        true,
-		RequiredScopes: []string{"threads_manage_replies"},
+		RequiredScopes: []string{threadsReadRepliesScope, "threads_manage_replies"},
 		CanReply:       true,
 		CanHide:        true,
 	}

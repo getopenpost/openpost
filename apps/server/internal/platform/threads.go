@@ -16,6 +16,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const threadsReadRepliesScope = "threads_read_replies"
+
 type ThreadsAdapter struct {
 	config     *oauth2.Config
 	stateStore sync.Map
@@ -34,6 +36,7 @@ func NewThreadsAdapter(clientID, clientSecret, redirectURI string) *ThreadsAdapt
 			Scopes: []string{
 				"threads_basic",
 				"threads_content_publish",
+				threadsReadRepliesScope,
 				"threads_manage_replies",
 				"threads_manage_insights",
 				"threads_location_tagging",

@@ -11,6 +11,17 @@ import (
 	"testing"
 )
 
+func TestThreadsAuthorizationRequestsReplyReadAccess(t *testing.T) {
+	authURL, _ := NewThreadsAdapter("client", "secret", "https://app.example/callback").GenerateAuthURL("state")
+	parsed, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(parsed.Query().Get("scope"), "threads_read_replies") {
+		t.Fatal("Threads authorization must request permission to read incoming replies")
+	}
+}
+
 func TestThreadsExchangeCodeRecordsGrantedOptionalScopes(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

@@ -23,6 +23,7 @@ const docsContentRoot = join(root, "apps/docs/content/docs");
 const defaultOutputDirectories = {
   marketing: join(root, "apps/marketing/static/og"),
   docs: join(root, "apps/docs/public/og"),
+  "app-editors": join(root, "apps/web/static/og"),
 };
 const palettes = {
   mint: { paper: "#e0efcf", ink: "#263e2c", dark: "#2c3c30", light: "#e0efcf" },
@@ -368,4 +369,110 @@ export async function generateSocialImages({ surface, outputDirectory, keys } = 
 
 export function defaultSocialImageOutputDirectory(surface) {
   return defaultOutputDirectories[surface];
+}
+
+// Static OG cards for the public shareable app editor start pages. Copy is generic
+// (no workspace or project names) and screenshots are existing repo demo captures.
+export const appEditorSocialEntries = [
+  {
+    key: "app-quick-cut",
+    socialTitle: "Quick Cut",
+    description:
+      "Trim and join compatible video segments locally with Quick Cut. A separate, focused tool for cuts without re-encoding.",
+    label: "Free video trimmer",
+    screenshot: "video-transcript-light.png",
+    tone: "blue",
+  },
+  {
+    key: "app-video-editor",
+    socialTitle: "Video Editor",
+    description:
+      "Record or import footage, edit for four social formats, and export without a watermark.",
+    label: "Free video editor",
+    screenshot: "video-editor-light.png",
+    tone: "blue",
+  },
+  {
+    key: "app-image-editor",
+    socialTitle: "Image Editor",
+    description: "Create posts, carousel pages, Story slides, and thumbnails in your browser.",
+    label: "Free image editor",
+    screenshot: "image-start-light.png",
+    tone: "mint",
+  },
+];
+
+export function appEditorSocialImageUrl(entry) {
+  return `https://app.openpo.st/og/${entry.key}.png`;
+}
+
+function drawCover(context, image, x, y, width, height) {
+  const scale = Math.max(width / image.width, height / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  context.save();
+  context.beginPath();
+  context.rect(x, y, width, height);
+  context.clip();
+  context.drawImage(
+    image,
+    x + (width - drawWidth) / 2,
+    y + (height - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
+  );
+  context.restore();
+}
+
+export async function renderAppEditorCard(entry) {
+  loadFonts();
+  const found = appEditorSocialEntries.find((candidate) => candidate.key === entry.key);
+  if (!found) throw new Error(`Unknown app editor social image key: ${entry.key}`);
+  const palette = palettes[found.tone];
+  const canvas = createCanvas(SOCIAL_IMAGE_WIDTH, SOCIAL_IMAGE_HEIGHT);
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#fbfaf7";
+  context.fillRect(0, 0, SOCIAL_IMAGE_WIDTH, SOCIAL_IMAGE_HEIGHT);
+  context.fillStyle = palette.paper;
+  context.fillRect(704, 0, 496, SOCIAL_IMAGE_HEIGHT);
+
+  await drawBrand(context, {});
+  context.fillStyle = "#302b28";
+  const { size, lines } = fitTitle(context, found.socialTitle);
+  const lineHeight = size * 1.06;
+  const firstBaseline = 300 - ((lines.length - 1) * lineHeight) / 2 + size * 0.35;
+  lines.forEach((line, index) => context.fillText(line, 64, firstBaseline + index * lineHeight));
+
+  setFont(context, 27, 400);
+  context.fillStyle = "#655b55";
+  const descriptionLines = wrapText(context, found.description, 576).slice(0, 4);
+  descriptionLines.forEach((line, index) =>
+    context.fillText(line, 64, firstBaseline + lines.length * lineHeight + 24 + index * 36),
+  );
+  context.fillText(found.label, 64, 566);
+
+  const screenshot = await cachedImage(join(root, "assets/screenshots", found.screenshot));
+  drawCover(context, screenshot, 736, 48, 400, 534);
+  context.strokeStyle = "#302b28";
+  context.lineWidth = 2;
+  context.strokeRect(736, 48, 400, 534);
+  return canvas.toBuffer("image/png");
+}
+
+export async function generateAppEditorImages({ outputDirectory, keys } = {}) {
+  const destination = outputDirectory
+    ? resolve(outputDirectory)
+    : defaultOutputDirectories["app-editors"];
+  const selectedEntries = keys?.length
+    ? appEditorSocialEntries.filter((entry) => keys.includes(entry.key))
+    : appEditorSocialEntries;
+  const missingKeys =
+    keys?.filter((key) => !selectedEntries.some((entry) => entry.key === key)) ?? [];
+  if (missingKeys.length) throw new Error(`Unknown app editor keys: ${missingKeys.join(", ")}`);
+
+  await mkdir(destination, { recursive: true });
+  for (const entry of selectedEntries) {
+    await writeFile(join(destination, `${entry.key}.png`), await renderAppEditorCard(entry));
+  }
+  return { destination, entries: selectedEntries };
 }

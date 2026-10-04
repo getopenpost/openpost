@@ -1756,6 +1756,33 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 <svelte:head>
 	<title>{m.quick_cut_title()}</title>
+	<meta
+		name="description"
+		content="Trim and join compatible video segments locally with Quick Cut. A separate, focused tool for cuts without re-encoding."
+	/>
+	<link rel="canonical" href="https://app.openpo.st/quick-cut" />
+	<meta property="og:site_name" content="OpenPost" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Free video trimmer and cutter - OpenPost Quick Cut" />
+	<meta
+		property="og:description"
+		content="Trim and join compatible video segments locally with Quick Cut. A separate, focused tool for cuts without re-encoding."
+	/>
+	<meta property="og:url" content="https://app.openpo.st/quick-cut" />
+	<meta property="og:image" content="https://app.openpo.st/og/app-quick-cut.png" />
+	<meta property="og:image:secure_url" content="https://app.openpo.st/og/app-quick-cut.png" />
+	<meta property="og:image:type" content="image/png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="Quick Cut OpenPost editor social preview." />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Free video trimmer and cutter - OpenPost Quick Cut" />
+	<meta
+		name="twitter:description"
+		content="Trim and join compatible video segments locally with Quick Cut. A separate, focused tool for cuts without re-encoding."
+	/>
+	<meta name="twitter:image" content="https://app.openpo.st/og/app-quick-cut.png" />
+	<meta name="twitter:image:alt" content="Quick Cut OpenPost editor social preview." />
 </svelte:head>
 
 <svelte:window onkeydown={onKeydown} />

@@ -384,7 +384,36 @@
 	}
 </script>
 
-<svelte:head><title>{m.image_editor_new_design()} · {m.image_editor_title()}</title></svelte:head>
+<svelte:head>
+	<title>{m.image_editor_new_design()} · {m.image_editor_title()}</title>
+	<meta
+		name="description"
+		content="Create posts, carousel pages, Story slides, and thumbnails in your browser."
+	/>
+	<link rel="canonical" href="https://app.openpo.st/image-editor/new" />
+	<meta property="og:site_name" content="OpenPost" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Free social media image editor - OpenPost Image Editor" />
+	<meta
+		property="og:description"
+		content="Create posts, carousel pages, Story slides, and thumbnails in your browser."
+	/>
+	<meta property="og:url" content="https://app.openpo.st/image-editor/new" />
+	<meta property="og:image" content="https://app.openpo.st/og/app-image-editor.png" />
+	<meta property="og:image:secure_url" content="https://app.openpo.st/og/app-image-editor.png" />
+	<meta property="og:image:type" content="image/png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="Image Editor OpenPost editor social preview." />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Free social media image editor - OpenPost Image Editor" />
+	<meta
+		name="twitter:description"
+		content="Create posts, carousel pages, Story slides, and thumbnails in your browser."
+	/>
+	<meta name="twitter:image" content="https://app.openpo.st/og/app-image-editor.png" />
+	<meta name="twitter:image:alt" content="Image Editor OpenPost editor social preview." />
+</svelte:head>
 
 <div class="image-editor-theme min-h-dvh bg-background">
 	<EditorStart

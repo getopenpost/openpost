@@ -9,8 +9,11 @@ import {
   marketingSocialEntries,
 } from "../../packages/social-images/src/index.js";
 import {
+  appEditorSocialEntries,
+  generateAppEditorImages,
   generateSocialImages,
   readDocsSocialEntries,
+  renderAppEditorCard,
   renderSocialCard,
   SOCIAL_IMAGE_HEIGHT,
   SOCIAL_IMAGE_WIDTH,
@@ -81,4 +84,35 @@ test("selected generation cannot delete a build output", async () => {
     generateSocialImages({ surface: "marketing", keys: ["home"] }),
     /requires an explicit output directory/u,
   );
+});
+
+test("renders distinct 1200 x 630 cards for app editor start pages", async () => {
+  assert.deepEqual(
+    appEditorSocialEntries.map((entry) => entry.key),
+    ["app-quick-cut", "app-video-editor", "app-image-editor"],
+  );
+  const cards = await Promise.all(appEditorSocialEntries.map(renderAppEditorCard));
+  for (const card of cards) {
+    assert.deepEqual(dimensions(card), {
+      width: SOCIAL_IMAGE_WIDTH,
+      height: SOCIAL_IMAGE_HEIGHT,
+    });
+  }
+  assert.equal(new Set(cards.map((card) => card.toString("base64"))).size, cards.length);
+  await assert.rejects(renderAppEditorCard({ key: "app-unknown" }), /Unknown app editor/u);
+
+  const directory = await mkdtemp(join(tmpdir(), "openpost-app-editor-images-"));
+  try {
+    const result = await generateAppEditorImages({
+      outputDirectory: directory,
+      keys: ["app-quick-cut"],
+    });
+    assert.equal(result.entries.length, 1);
+    assert.deepEqual(dimensions(await readFile(join(directory, "app-quick-cut.png"))), {
+      width: SOCIAL_IMAGE_WIDTH,
+      height: SOCIAL_IMAGE_HEIGHT,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

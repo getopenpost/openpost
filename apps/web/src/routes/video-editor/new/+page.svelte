@@ -72,7 +72,36 @@
 	}
 </script>
 
-<svelte:head><title>{m.video_editor_title()}</title></svelte:head>
+<svelte:head>
+	<title>{m.video_editor_title()}</title>
+	<meta
+		name="description"
+		content="Record or import footage, edit for four social formats, and export without a watermark."
+	/>
+	<link rel="canonical" href="https://app.openpo.st/video-editor/new" />
+	<meta property="og:site_name" content="OpenPost" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Free social media video editor - OpenPost Video Editor" />
+	<meta
+		property="og:description"
+		content="Record or import footage, edit for four social formats, and export without a watermark."
+	/>
+	<meta property="og:url" content="https://app.openpo.st/video-editor/new" />
+	<meta property="og:image" content="https://app.openpo.st/og/app-video-editor.png" />
+	<meta property="og:image:secure_url" content="https://app.openpo.st/og/app-video-editor.png" />
+	<meta property="og:image:type" content="image/png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="Video Editor OpenPost editor social preview." />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Free social media video editor - OpenPost Video Editor" />
+	<meta
+		name="twitter:description"
+		content="Record or import footage, edit for four social formats, and export without a watermark."
+	/>
+	<meta name="twitter:image" content="https://app.openpo.st/og/app-video-editor.png" />
+	<meta name="twitter:image:alt" content="Video Editor OpenPost editor social preview." />
+</svelte:head>
 
 <div
 	class="video-editor-theme flex min-h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"

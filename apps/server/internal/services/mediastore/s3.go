@@ -421,7 +421,10 @@ func (s *S3Storage) open(ctx context.Context, id, byteRange string) (io.ReadClos
 	if byteRange != "" {
 		input.Range = aws.String(byteRange)
 	}
-	getCtx, cancel := s.callContext(ctx)
+	// The caller owns the download lifetime. Transport timeouts bound connection
+	// and response headers; the object-operation deadline would truncate a body
+	// that is still streaming successfully after two minutes.
+	getCtx, cancel := context.WithCancel(ctx)
 	out, err := s.client.GetObject(getCtx, input)
 	if err != nil {
 		cancel()

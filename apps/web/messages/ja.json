@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "別のブラウザーまたはデバイスから",
 	"video_editor_conflict_saved_revision": "保存済みリビジョン {revision} で競合する編集",
 	"calendar_no_posts_on_day": "この日の投稿はありません",
-	"compose_schedule_publish_time": "投稿時刻"
+	"compose_schedule_publish_time": "投稿時刻",
+	"compose_poll_edit": "投票を編集",
+	"compose_poll_summary": "{count}件の選択肢 · {duration}",
+	"compose_poll_account_unsupported": "このアカウントでは投票を投稿できません。テキスト版を選ぶか、投票なしで投稿してください。",
+	"compose_poll_account_version": "投票の形式",
+	"compose_poll_customize": "投票をカスタマイズ",
+	"compose_poll_use_shared": "共通の投票を使用",
+	"compose_poll_review_accounts": "これらのアカウントでの投票の投稿方法を選んでください。",
+	"compose_poll_unsupported_accounts": "{accounts}では投票を利用できません。各アカウントのタブで形式を選んでください。",
+	"compose_poll_text_notice": "投票ボタンのないテキストのみの投稿です。"
 }

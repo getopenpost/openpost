@@ -344,7 +344,7 @@
 	let conflictDialogOpen = $state(false);
 	let linkUrl = $state('');
 	let composerSettingsOpen = $state(false);
-	let unavailablePollPostKey = $state<string | null>(null);
+	let pollEditorPostKey = $state<string | null>(null);
 
 	async function openVersionHistory() {
 		composerSettingsOpen = false;
@@ -1401,7 +1401,6 @@
 	}
 
 	function updateSharedPoll(post: PostItem, poll: SharedPoll | undefined) {
-		unavailablePollPostKey = null;
 		if (poll && !post.poll) {
 			poll = {
 				...poll,
@@ -4296,27 +4295,6 @@
 		scheduleAutoSave();
 	}
 
-	function addSharedPoll(post: PostItem) {
-		const nativeAccounts = selectedAccounts.filter((account) =>
-			supportsNativePoll(visibleSettings(account))
-		);
-		if (nativeAccounts.length === 0) {
-			unavailablePollPostKey = post.key;
-			return;
-		}
-		updateSharedPoll(post, {
-			question: '',
-			options: [
-				{ id: crypto.randomUUID(), text: '' },
-				{ id: crypto.randomUUID(), text: '' }
-			],
-			duration_seconds: 86400,
-			destinations: Object.fromEntries(
-				nativeAccounts.map((account) => [account.id, { mode: 'native' as const }])
-			)
-		});
-	}
-
 	function handleReorder(newItems: PostItem[]) {
 		if (newItems.every((post, index) => post.key === posts[index]?.key)) return;
 		undoReorderIDs = posts.map((post) => post.key);
@@ -6328,6 +6306,45 @@
 											onAltText={setMediaAltText}
 										/>
 
+										<SharedPollEditor
+											value={post.poll}
+											body={post.content}
+											destinations={selectedAccounts.map((account) => ({
+												id: account.id,
+												label: accountContextLabel(account),
+												fields: visibleSettings(account),
+												body: getVariantContent(account.id, post.key) ?? post.content,
+												error: sharedPollError(post, account)
+											}))}
+											onChange={(poll) => updateSharedPoll(post, poll)}
+											activeDestinationId={activeVariantAccountId}
+											open={pollEditorPostKey === post.key}
+											onOpenChange={(open) => (pollEditorPostKey = open ? post.key : null)}
+											onOpenDestination={(id) => {
+												activeVariantAccountId = id;
+												activePostIndex = i;
+											}}
+											onLegacySettings={(id) => {
+												activePostIndex = i;
+												const account = selectedAccounts.find((item) => item.id === id);
+												if (account) openDestinationSettings(account);
+											}}
+											onCustomizeText={(id) => {
+												activeVariantAccountId = id;
+												activePostIndex = i;
+												unsyncAccount(id);
+												const account = selectedAccounts.find((item) => item.id === id);
+												if (account && post.poll?.destinations[id]?.mode === 'text') {
+													const text = pollProjection(post, account).body;
+													handleVariantChange(id, i, text);
+													updateSharedPoll(post, {
+														...post.poll,
+														destinations: { ...post.poll.destinations, [id]: { mode: 'omit' } }
+													});
+												}
+											}}
+										/>
+
 										<!-- Bottom bar -->
 										<div
 											class="flex flex-wrap items-center gap-2 pb-2 transition-opacity {activePostIndex ===
@@ -6357,7 +6374,7 @@
 												<button
 													type="button"
 													class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
-													onclick={() => addSharedPoll(post)}
+													onclick={() => (pollEditorPostKey = post.key)}
 													aria-label={m.compose_add_poll()}
 												>
 													<ThemeIcon role="poll" class="h-3.5 w-3.5" />
@@ -6394,44 +6411,6 @@
 												/>
 											{/if}
 										</div>
-
-										<SharedPollEditor
-											value={post.poll}
-											body={post.content}
-											destinations={selectedAccounts.map((account) => ({
-												id: account.id,
-												label: accountContextLabel(account),
-												fields: visibleSettings(account),
-												body: getVariantContent(account.id, post.key) ?? post.content,
-												error: sharedPollError(post, account)
-											}))}
-											onChange={(poll) => updateSharedPoll(post, poll)}
-											onExclude={toggleAccount}
-											onLegacySettings={(id) => {
-												activePostIndex = i;
-												const account = selectedAccounts.find((item) => item.id === id);
-												if (account) openDestinationSettings(account);
-											}}
-											onCustomizeText={(id) => {
-												activeVariantAccountId = id;
-												activePostIndex = i;
-												unsyncAccount(id);
-												const account = selectedAccounts.find((item) => item.id === id);
-												if (account && post.poll?.destinations[id]?.mode === 'text') {
-													const text = pollProjection(post, account).body;
-													handleVariantChange(id, i, text);
-													updateSharedPoll(post, {
-														...post.poll,
-														destinations: { ...post.poll.destinations, [id]: { mode: 'omit' } }
-													});
-												}
-											}}
-										/>
-										{#if unavailablePollPostKey === post.key && !post.poll}
-											<p class="mb-3 text-sm text-muted-foreground" role="status">
-												{m.compose_poll_no_native()}
-											</p>
-										{/if}
 
 										{#if i === 0 && !activeVariantAccountId && !isThread && postBuilderError}
 											<p class="border-t py-3 text-sm text-destructive" role="alert">

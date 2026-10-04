@@ -21,6 +21,12 @@ A poll belongs to one canonical Publication segment, in `settings.poll`. The com
 
 Option IDs stay stable while editing and reordering. An option is one line; commas are part of its text. The question is separate from the introductory body. Duration is expressed in seconds; adapters receive their catalogued minutes, seconds or enum value. A provider without a duration setting keeps its own duration.
 
+## Composer controls
+
+The shared composer shows a compact poll summary. Add and Edit open a focused dialog for the question, options and duration. Dialog edits commit on Add or Save; Cancel and Escape discard them.
+
+Account tabs own poll versions, independent poll content, and supported voting settings. Unsupported accounts appear in the creation notice and remain unresolved until the user chooses a text version or posts without the poll. This includes accounts added after poll creation. The text version adds only the authored question and numbered answers, preserving their language. Its account tab shows a notice that voting buttons are absent and provides a preview.
+
 ## Destination choices
 
 | Mode     | Result                                                                                                                        |

@@ -31,6 +31,29 @@ export interface PollDestination {
 	error?: string;
 }
 
+export const POLL_DURATION_ENUMS: ReadonlyMap<number, string> = new Map([
+	[86400, 'ONE_DAY'],
+	[259200, 'THREE_DAYS'],
+	[604800, 'SEVEN_DAYS'],
+	[1209600, 'FOURTEEN_DAYS']
+]);
+
+export function hasPollContent(content: PollContent | undefined): boolean {
+	return Boolean(
+		content?.question.trim() &&
+		content.options.length >= 2 &&
+		content.options.every((option) => option.text.trim())
+	);
+}
+
+export function pollDurationField(fields: PollDestination['fields']) {
+	return fields.find(
+		(field) =>
+			['poll_duration', 'poll_duration_minutes', 'poll_expires_in_seconds'].includes(field.key) &&
+			!field.unavailable_reason
+	);
+}
+
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Parses persisted API and draft JSON at the composer input boundary.
 export function readSharedPoll(settings: unknown): SharedPoll | undefined {
 	const result = z.object({ poll: sharedPollSchema }).safeParse(settings);
@@ -79,13 +102,7 @@ export function resolvePollPreview(
 	if (has('poll_duration_minutes')) values.poll_duration_minutes = content.duration_seconds / 60;
 	if (has('poll_expires_in_seconds')) values.poll_expires_in_seconds = content.duration_seconds;
 	if (has('poll_duration'))
-		values.poll_duration =
-			new Map([
-				[86400, 'ONE_DAY'],
-				[259200, 'THREE_DAYS'],
-				[604800, 'SEVEN_DAYS'],
-				[1209600, 'FOURTEEN_DAYS']
-			]).get(content.duration_seconds) ?? '';
+		values.poll_duration = POLL_DURATION_ENUMS.get(content.duration_seconds) ?? '';
 	if (has('poll_multiple')) values.poll_multiple = Boolean(content.multiple);
 	if (has('poll_hide_totals')) values.poll_hide_totals = Boolean(content.hide_totals);
 	return { body, settings: values };

@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "From another browser or device",
 	"video_editor_conflict_saved_revision": "Conflicting edit at saved revision {revision}",
 	"calendar_no_posts_on_day": "No posts on this day",
-	"compose_schedule_publish_time": "Publish time"
+	"compose_schedule_publish_time": "Publish time",
+	"compose_poll_edit": "Edit poll",
+	"compose_poll_summary": "{count} options · {duration}",
+	"compose_poll_account_unsupported": "This account cannot publish polls. Choose a text version or post without the poll.",
+	"compose_poll_account_version": "Poll version",
+	"compose_poll_customize": "Customize poll",
+	"compose_poll_use_shared": "Use shared poll",
+	"compose_poll_review_accounts": "Choose how to post the poll on these accounts.",
+	"compose_poll_unsupported_accounts": "Polls are unavailable on {accounts}. Choose a version in each account tab.",
+	"compose_poll_text_notice": "Text only, without voting buttons."
 }

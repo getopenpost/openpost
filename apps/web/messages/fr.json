@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "Depuis un autre navigateur ou appareil",
 	"video_editor_conflict_saved_revision": "Modification en conflit à la révision enregistrée {revision}",
 	"calendar_no_posts_on_day": "Aucun post ce jour",
-	"compose_schedule_publish_time": "Heure d’envoi"
+	"compose_schedule_publish_time": "Heure d’envoi",
+	"compose_poll_edit": "Modifier le sondage",
+	"compose_poll_summary": "{count} choix · {duration}",
+	"compose_poll_account_unsupported": "Ce compte ne permet pas de publier des sondages. Choisissez une version texte ou publiez sans sondage.",
+	"compose_poll_account_version": "Version du sondage",
+	"compose_poll_customize": "Personnaliser le sondage",
+	"compose_poll_use_shared": "Utiliser le sondage partagé",
+	"compose_poll_review_accounts": "Choisissez comment publier le sondage sur ces comptes.",
+	"compose_poll_unsupported_accounts": "Les sondages ne sont pas disponibles sur {accounts}. Choisissez une version dans chaque onglet de compte.",
+	"compose_poll_text_notice": "Texte uniquement, sans boutons de vote."
 }

@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "来自另一浏览器或设备",
 	"video_editor_conflict_saved_revision": "与已保存修订 {revision} 冲突的编辑",
 	"calendar_no_posts_on_day": "当天没有帖子",
-	"compose_schedule_publish_time": "发布时刻"
+	"compose_schedule_publish_time": "发布时刻",
+	"compose_poll_edit": "编辑投票",
+	"compose_poll_summary": "{count} 个选项 · {duration}",
+	"compose_poll_account_unsupported": "此账号无法发布投票。请选择文字版，或不含投票的帖子。",
+	"compose_poll_account_version": "投票版本",
+	"compose_poll_customize": "自定义投票",
+	"compose_poll_use_shared": "使用共享投票",
+	"compose_poll_review_accounts": "请选择在这些账号上发布投票的方式。",
+	"compose_poll_unsupported_accounts": "{accounts} 不支持投票。请在各账号标签页中选择版本。",
+	"compose_poll_text_notice": "仅发布文字，没有投票按钮。"
 }

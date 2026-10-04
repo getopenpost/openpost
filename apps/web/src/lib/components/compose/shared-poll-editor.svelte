@@ -1,180 +1,187 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Select from '$lib/components/ui/select';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import PollContentFields from './poll-content-fields.svelte';
+	import PollDestinationEditor from './poll-destination-editor.svelte';
 	import {
 		supportsNativePoll,
-		resolvePollPreview,
+		hasPollContent,
+		pollDurationField,
+		pollDurationLabel,
 		type SharedPoll,
 		type PollDestination
 	} from './polls';
+
 	let {
 		value,
 		destinations,
 		body,
+		activeDestinationId,
+		open,
+		onOpenChange,
 		onChange,
-		onExclude,
+		onOpenDestination,
 		onCustomizeText,
 		onLegacySettings
 	}: {
 		value?: SharedPoll;
 		destinations: PollDestination[];
 		body: string;
+		activeDestinationId: string | null;
+		open: boolean;
+		onOpenChange: (open: boolean) => void;
 		onChange: (value: SharedPoll | undefined) => void;
-		onExclude: (id: string) => void;
+		onOpenDestination: (id: string) => void;
 		onCustomizeText: (id: string) => void;
 		onLegacySettings: (id: string) => void;
 	} = $props();
-	const uid = $props.id();
-	const nativeCount = $derived(
-		destinations.filter(
-			(destination) =>
-				supportsNativePoll(destination.fields) &&
-				(!value ||
-					['native', 'custom', 'legacy'].includes(value.destinations[destination.id]?.mode))
-		).length
+	let draft = $state<SharedPoll>();
+	const activeDestination = $derived(
+		destinations.find((destination) => destination.id === activeDestinationId)
 	);
 	const unresolved = $derived(
 		destinations.filter((destination) => !value?.destinations[destination.id])
 	);
-	const choices = $derived([
-		{ value: 'native', label: m.compose_poll_native() },
-		{ value: 'text', label: m.compose_poll_text() },
-		{ value: 'omit', label: m.compose_poll_omit() },
-		{ value: 'custom', label: m.compose_poll_custom() }
-	]);
-	function setMode(id: string, mode: string) {
-		if (!value || (mode !== 'native' && mode !== 'text' && mode !== 'omit' && mode !== 'custom'))
-			return;
-		const { destinations: _destinations, ...content } = value;
-		onChange({
-			...value,
-			destinations: {
-				...value.destinations,
-				[id]: { mode, poll: mode === 'custom' ? JSON.parse(JSON.stringify(content)) : undefined }
-			}
+	const unsupported = $derived(
+		destinations.filter((destination) => !supportsNativePoll(destination.fields))
+	);
+	const content = $derived(
+		activeDestination && value?.destinations[activeDestination.id]?.mode === 'custom'
+			? (value.destinations[activeDestination.id].poll ?? value)
+			: value
+	);
+	const mode = $derived(activeDestination && value?.destinations[activeDestination.id]?.mode);
+	const summary = $derived.by(() => {
+		if (!content) return '';
+		if (mode === 'text') return m.compose_poll_text();
+		if (mode === 'omit') return m.compose_poll_omit();
+		if (mode === 'legacy') return m.compose_poll_custom();
+		if (activeDestination && !mode) return m.compose_poll_choose();
+		if (activeDestination && !pollDurationField(activeDestination.fields))
+			return m.compose_poll_native();
+		return m.compose_poll_summary({
+			count: content.options.length,
+			duration: pollDurationLabel(content.duration_seconds)
 		});
-	}
+	});
+	const canSave = $derived(hasPollContent(draft));
+	$effect(() => {
+		if (!open) return;
+		draft = untrack(() =>
+			value
+				? structuredClone($state.snapshot(value))
+				: {
+						question: '',
+						options: [
+							{ id: crypto.randomUUID(), text: '' },
+							{ id: crypto.randomUUID(), text: '' }
+						],
+						duration_seconds: 86400,
+						destinations: Object.fromEntries(
+							destinations
+								.filter((destination) => supportsNativePoll(destination.fields))
+								.map((destination) => [destination.id, { mode: 'native' as const }])
+						)
+					}
+		);
+	});
 </script>
 
-{#if value}
+{#if value && content}
 	<section
-		class="my-3 min-w-0 border-y py-4"
+		class="my-3 min-w-0 rounded-lg border p-3"
 		aria-label={m.compose_poll_title()}
 		data-testid="shared-poll-editor"
 	>
-		<div class="mb-3 flex items-start justify-between gap-3">
-			<div>
-				<h3 class="text-sm font-semibold">{m.compose_poll_title()}</h3>
-				<p class="mt-1 text-xs text-muted-foreground">
-					{m.compose_poll_scope({ count: nativeCount, total: destinations.length })}
-				</p>
-			</div>
-			<Button variant="ghost" size="sm" onclick={() => onChange(undefined)}
-				>{m.compose_remove_poll()}</Button
-			>
-		</div>
-		<PollContentFields {body} {value} onChange={(content) => onChange({ ...value!, ...content })} />
-		<div class="mt-2 grid gap-2 border-t pt-3">
-			<h4 class="text-sm font-medium">{m.compose_poll_destinations()}</h4>
-			{#if !nativeCount}<p class="text-sm text-muted-foreground">
-					{m.compose_poll_no_native_existing()}
-				</p>{/if}
-			{#if unresolved.length}<p class="text-sm text-amber-700 dark:text-amber-300" role="status">
-					{m.compose_poll_decision()}
-				</p>{/if}
-			{#each destinations as destination (destination.id)}
-				{@const choice = value.destinations[destination.id]}
-				<div class="grid min-w-0 gap-2 border-b py-2 last:border-0">
-					<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
-						<label for="{uid}-{destination.id}" class="min-w-0 text-sm break-words"
-							>{destination.label}</label
-						>
-						<Select.Root
-							value={choice?.mode ?? ''}
-							onValueChange={(mode: string) => setMode(destination.id, mode)}
-						>
-							<Select.Trigger
-								id="{uid}-{destination.id}"
-								class="w-full sm:w-48"
-								aria-label={destination.label}
-								>{choice?.mode === 'legacy'
-									? m.compose_poll_custom()
-									: (choices.find((item) => item.value === choice?.mode)?.label ??
-										m.compose_poll_choose())}</Select.Trigger
-							>
-							<Select.Content
-								>{#each choices as item (item.value)}<Select.Item
-										value={item.value}
-										disabled={(item.value === 'native' || item.value === 'custom') &&
-											!supportsNativePoll(destination.fields)}>{item.label}</Select.Item
-									>{/each}</Select.Content
-							>
-						</Select.Root>
-					</div>
-					{#if choice?.mode === 'custom' && choice.poll}<PollContentFields
-							value={choice.poll}
-							onChange={(poll) =>
-								onChange({
-									...value!,
-									destinations: {
-										...value!.destinations,
-										[destination.id]: { mode: 'custom', poll }
-									}
-								})}
-						/>{/if}
-					{#if choice?.mode === 'text'}<details>
-							<summary class="min-h-11 cursor-pointer py-3 text-xs text-muted-foreground"
-								>{m.compose_poll_text_preview()}</summary
-							>
-							<p class="text-sm break-words whitespace-pre-wrap">
-								{resolvePollPreview(value, destination.id, destination.fields, destination.body, {})
-									.body}
-							</p>
-						</details>{/if}
-					{#if choice && destination.error}<p class="text-xs text-destructive" role="status">
-							{destination.error}
-						</p>{/if}
-					<div class="flex flex-wrap gap-2">
-						{#if choice?.mode === 'legacy'}<Button
-								variant="ghost"
-								size="sm"
-								onclick={() => onLegacySettings(destination.id)}>{m.compose_poll_custom()}</Button
-							>{/if}
-						{#if choice?.mode === 'omit' || choice?.mode === 'text'}<Button
-								variant="ghost"
-								size="sm"
-								onclick={() => onCustomizeText(destination.id)}
-								>{m.compose_poll_customize_text()}</Button
-							>{/if}
-						<Button variant="ghost" size="sm" onclick={() => onExclude(destination.id)}
-							>{m.compose_poll_remove_destination()}</Button
-						>
-					</div>
+		<div class="flex min-w-0 items-start gap-3">
+			<ThemeIcon role="poll" class="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+			<div class="min-w-0 flex-1">
+				<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+					<h3 class="text-sm font-semibold">{m.compose_poll_title()}</h3>
+					<span class="text-xs text-muted-foreground">{summary}</span>
 				</div>
-			{/each}
-			{#if unresolved.length > 1}<Button
-					variant="outline"
-					size="sm"
-					class="w-fit"
-					onclick={() =>
-						onChange({
-							...value!,
-							destinations: {
-								...value!.destinations,
-								...Object.fromEntries(
-									unresolved.map((destination) => [destination.id, { mode: 'text' as const }])
-								)
-							}
-						})}>{m.compose_poll_apply_text()}</Button
-				>{/if}
-			{#if destinations.some((destination) => supportsNativePoll(destination.fields) && !destination.fields.some( (field) => ['poll_duration', 'poll_duration_minutes', 'poll_expires_in_seconds'].includes(field.key) ))}<p
-					class="text-xs text-muted-foreground"
-				>
-					{m.compose_poll_fixed()}
-				</p>{/if}
+			</div>
+			{#if !activeDestinationId}
+				<div class="flex shrink-0 items-center gap-1">
+					<Button variant="ghost" size="sm" onclick={() => onOpenChange(true)}
+						>{m.compose_poll_edit()}</Button
+					>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						aria-label={m.compose_remove_poll()}
+						onclick={() => onChange(undefined)}><ThemeIcon role="close" class="size-4" /></Button
+					>
+				</div>
+			{/if}
 		</div>
+		<p class="mt-1 pl-8 text-sm break-words">{content.question}</p>
+		<p class="mt-1 line-clamp-2 pl-8 text-xs break-words text-muted-foreground">
+			{content.options.map((option) => option.text).join(' · ')}
+		</p>
+		{#if activeDestination}
+			<div class="mt-3">
+				<PollDestinationEditor
+					{value}
+					destination={activeDestination}
+					{onChange}
+					onCustomizeText={() => onCustomizeText(activeDestination.id)}
+					onLegacySettings={() => onLegacySettings(activeDestination.id)}
+				/>
+			</div>
+		{:else}
+			{#if unresolved.length}
+				<div class="mt-3">
+					<InlineNotice class="items-start">
+						<p>{m.compose_poll_review_accounts()}</p>
+						<div class="mt-1 flex flex-wrap gap-1">
+							{#each unresolved as destination (destination.id)}<Button
+									variant="ghost"
+									size="sm"
+									class="max-w-full justify-start whitespace-normal text-current hover:text-current"
+									onclick={() => onOpenDestination(destination.id)}
+									>{destination.label}<ThemeIcon
+										role="chevron-right"
+										class="size-3 shrink-0"
+									/></Button
+								>{/each}
+						</div>
+					</InlineNotice>
+				</div>
+			{/if}
+		{/if}
 	</section>
 {/if}
+
+<Dialog.Root {open} {onOpenChange}>
+	<Dialog.Content class="sm:max-w-md" aria-describedby={undefined}>
+		<Dialog.Header
+			><Dialog.Title>{value ? m.compose_poll_edit() : m.compose_add_poll()}</Dialog.Title
+			></Dialog.Header
+		>
+		{#if draft}<PollContentFields
+				{body}
+				value={draft}
+				onChange={(content) => (draft = { ...draft!, ...content })}
+			/>{/if}
+		{#if !value && unsupported.length}<InlineNotice
+				message={m.compose_poll_unsupported_accounts({
+					accounts: unsupported.map((destination) => destination.label).join(', ')
+				})}
+			/>{/if}
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => onOpenChange(false)}>{m.common_cancel()}</Button>
+			<Button
+				disabled={!canSave}
+				onclick={() => {
+					onChange(draft);
+					onOpenChange(false);
+				}}>{value ? m.common_save() : m.compose_add_poll()}</Button
+			>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

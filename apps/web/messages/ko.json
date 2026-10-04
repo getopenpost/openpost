@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "다른 브라우저 또는 기기에서",
 	"video_editor_conflict_saved_revision": "저장된 리비전 {revision}에서 충돌하는 편집",
 	"calendar_no_posts_on_day": "이 날의 게시물이 없습니다",
-	"compose_schedule_publish_time": "게시 시간"
+	"compose_schedule_publish_time": "게시 시간",
+	"compose_poll_edit": "투표 수정",
+	"compose_poll_summary": "선택지 {count}개 · {duration}",
+	"compose_poll_account_unsupported": "이 계정에서는 투표를 게시할 수 없습니다. 텍스트 버전을 선택하거나 투표 없이 게시하세요.",
+	"compose_poll_account_version": "투표 버전",
+	"compose_poll_customize": "투표 맞춤 설정",
+	"compose_poll_use_shared": "공유 투표 사용",
+	"compose_poll_review_accounts": "이 계정들에 투표를 게시할 방식을 선택하세요.",
+	"compose_poll_unsupported_accounts": "{accounts}에서는 투표를 사용할 수 없습니다. 각 계정 탭에서 버전을 선택하세요.",
+	"compose_poll_text_notice": "투표 버튼 없이 텍스트만 게시합니다."
 }

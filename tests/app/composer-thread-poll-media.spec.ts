@@ -59,18 +59,19 @@ test("media on a follow-up preserves the first post's native poll", async ({
     .fill("Audit poll before a photo.");
   await page.getByRole("button", { name: "Add poll", exact: true }).click();
   const poll = page.getByTestId("shared-poll-editor");
-  await poll.getByRole("textbox", { name: "Question", exact: true }).fill("Which option?");
-  await poll.getByRole("textbox", { name: "Option 1", exact: true }).fill("First");
-  await poll.getByRole("textbox", { name: "Option 2", exact: true }).fill("Second");
-  await expect(poll.getByText("Native poll on 1 of 1 destinations", { exact: true })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Add poll", exact: true });
+  await dialog.getByRole("textbox", { name: "Question", exact: true }).fill("Which option?");
+  await dialog.getByRole("textbox", { name: "Option 1", exact: true }).fill("First");
+  await dialog.getByRole("textbox", { name: "Option 2", exact: true }).fill("Second");
+  await dialog.getByRole("button", { name: "Add poll", exact: true }).click();
+  await expect(poll.getByText("Which option?", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add post", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Post text", exact: true })
     .nth(1)
     .fill("Audit photo follow-up.");
   await attachPhoto(1);
-  await expect(poll.getByText("Native poll on 1 of 1 destinations", { exact: true })).toBeVisible();
-  await expect(poll.getByRole("button", { name: /^@auditpoll/ })).toContainText("Native poll");
+  await expect(poll.getByText("Which option?", { exact: true })).toBeVisible();
 
   let saved: any;
   await expect
@@ -105,13 +106,9 @@ test("media on a follow-up preserves the first post's native poll", async ({
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
       await page.goto(`/publications/${saved.id}`);
-      await expect(
-        poll.getByText("Native poll on 1 of 1 destinations", { exact: true }),
-      ).toBeVisible();
-      await expect(poll.getByRole("textbox", { name: "Question", exact: true })).toHaveValue(
-        "Which option?",
-      );
-      const version = poll.getByRole("button", { name: /^@auditpoll/ });
+      await expect(poll.getByText("Which option?", { exact: true })).toBeVisible();
+      await page.getByRole("tab", { name: /@auditpoll,/ }).click();
+      const version = poll.getByRole("button", { name: "Poll version", exact: true });
       await version.focus();
       await page.keyboard.press("Enter");
       await expect(page.getByRole("option", { name: "Native poll", exact: true })).toBeVisible();
@@ -122,6 +119,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
       );
       await poll.scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath(`poll-${width}-${scheme}.png`) });
+      await page.getByRole("tab", { name: "All", exact: true }).click();
     }
   }
   // Moving the same photo onto the poll's own post must still be refused.
@@ -131,6 +129,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
     .getByRole("button", { name: "Remove media", exact: true })
     .click();
   await attachPhoto(0);
+  await page.getByRole("tab", { name: /@auditpoll,/ }).click();
   await expect(
     poll.getByText("Remove media from this destination or choose a text version of the poll.", {
       exact: true,
@@ -150,6 +149,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
     "x_mutually_exclusive_attachment",
   );
   await page.screenshot({ path: testInfo.outputPath("same-post-media-guard.png") });
+  await page.getByRole("tab", { name: "All", exact: true }).click();
   await page
     .getByRole("region", { name: "Drop zone for post 1", exact: true })
     .getByRole("button", { name: "Remove media", exact: true })
@@ -164,6 +164,6 @@ test("media on a follow-up preserves the first post's native poll", async ({
     })
     .toBe(true);
   await page.reload();
-  await expect(poll.getByText("Native poll on 1 of 1 destinations", { exact: true })).toBeVisible();
+  await expect(poll.getByText("Which option?", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

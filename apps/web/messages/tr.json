@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "Başka bir tarayıcıdan veya cihazdan",
 	"video_editor_conflict_saved_revision": "Kaydedilen {revision} revizyonunda çakışan düzenleme",
 	"calendar_no_posts_on_day": "Bu gün gönderi yok",
-	"compose_schedule_publish_time": "Gönderim saati"
+	"compose_schedule_publish_time": "Gönderim saati",
+	"compose_poll_edit": "Anketi düzenle",
+	"compose_poll_summary": "{count} seçenek · {duration}",
+	"compose_poll_account_unsupported": "Bu hesap anket yayınlayamıyor. Metin sürümünü seçin veya anket olmadan paylaşın.",
+	"compose_poll_account_version": "Anket sürümü",
+	"compose_poll_customize": "Anketi özelleştir",
+	"compose_poll_use_shared": "Ortak anketi kullan",
+	"compose_poll_review_accounts": "Anketin bu hesaplarda nasıl paylaşılacağını seçin.",
+	"compose_poll_unsupported_accounts": "{accounts} hesaplarında anket kullanılamıyor. Her hesap sekmesinde bir sürüm seçin.",
+	"compose_poll_text_notice": "Yalnızca metin, oy düğmeleri yok."
 }

@@ -12,6 +12,7 @@ for (const width of [1280, 390, 320]) {
         page,
         request,
       }, testInfo) => {
+        test.setTimeout(60_000);
         const errors: string[] = [];
         page.on("pageerror", (error) => errors.push(error.message));
         await page.setViewportSize({ width, height: 1000 });
@@ -22,6 +23,8 @@ for (const width of [1280, 390, 320]) {
         const targets = [
           { id: randomUUID(), platform: "x", username: "pollx" },
           { id: randomUUID(), platform: "bluesky", username: "pollsky" },
+          { id: randomUUID(), platform: "mastodon", username: "pollmastodon" },
+          { id: randomUUID(), platform: "linkedin", username: "polllinkedin" },
         ];
         for (const account of targets)
           execFileSync("sqlite3", [
@@ -62,12 +65,67 @@ for (const width of [1280, 390, 320]) {
                         },
                         {
                           key: "poll_duration_minutes",
+                          constraints: { minimum: 5, maximum: 10080 },
                           label: "Duration",
                           type: "number",
                           scope: "segment",
                         },
                       ]
-                    : [],
+                    : account.platform === "mastodon"
+                      ? [
+                          {
+                            key: "poll_options",
+                            label: "Poll",
+                            type: "textarea",
+                            control: "poll",
+                            scope: "segment",
+                            constraints: { min_items: 2, max_items: 4 },
+                          },
+                          {
+                            key: "poll_expires_in_seconds",
+                            label: "Duration",
+                            type: "number",
+                            scope: "segment",
+                          },
+                          {
+                            key: "poll_multiple",
+                            label: "Multiple selections",
+                            type: "boolean",
+                            scope: "segment",
+                          },
+                          {
+                            key: "poll_hide_totals",
+                            label: "Hide totals",
+                            type: "boolean",
+                            scope: "segment",
+                          },
+                        ]
+                      : account.platform === "linkedin"
+                        ? [
+                            {
+                              key: "poll_options",
+                              label: "Poll",
+                              type: "textarea",
+                              control: "poll",
+                              scope: "segment",
+                              constraints: { min_items: 2, max_items: 4, max_length: 30 },
+                            },
+                            {
+                              key: "poll_question",
+                              label: "Poll question",
+                              type: "text",
+                              scope: "segment",
+                              constraints: { max_length: 140 },
+                            },
+                            {
+                              key: "poll_duration",
+                              label: "Duration",
+                              type: "select",
+                              scope: "segment",
+                              options: ["ONE_DAY", "THREE_DAYS", "SEVEN_DAYS", "FOURTEEN_DAYS"],
+                            },
+                          ]
+                        : [],
                 setting_groups: [],
                 compatible: true,
                 active_constraints: {},
@@ -92,20 +150,41 @@ for (const width of [1280, 390, 320]) {
         ).toBe("Add poll");
         await add.focus();
         await page.keyboard.press("Enter");
+        let dialog = page.getByRole("dialog", { name: "Add poll", exact: true });
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByText(/Polls are unavailable on @pollsky/)).toBeVisible();
+        await expect(dialog.getByRole("button", { name: "Poll version" })).toHaveCount(0);
+        await dialog
+          .getByRole("textbox", { name: "Question", exact: true })
+          .fill("Cancelled question");
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
         const poll = page.getByTestId("shared-poll-editor");
-        await poll
+        await expect(poll).toHaveCount(0);
+        await expect(add).toBeFocused();
+        await add.click();
+        await expect(dialog.getByRole("textbox", { name: "Question", exact: true })).toHaveValue(
+          "",
+        );
+        await dialog
           .getByRole("textbox", { name: "Question", exact: true })
           .fill("Would you use this?");
-        await poll.getByRole("textbox", { name: "Option 1", exact: true }).fill("Yes, sometimes");
-        await poll.getByRole("textbox", { name: "Option 2", exact: true }).fill("No");
+        await dialog.getByRole("textbox", { name: "Option 1", exact: true }).fill("Yes, sometimes");
+        await dialog.getByRole("textbox", { name: "Option 2", exact: true }).fill("No");
+        expect(
+          (await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations,
+        ).toEqual([]);
+        await page.screenshot({ path: testInfo.outputPath("poll-dialog.png") });
+        await dialog.getByRole("button", { name: "Add poll", exact: true }).click();
+        await expect(dialog).not.toBeVisible();
+        await expect(poll.getByRole("textbox")).toHaveCount(0);
         await expect(
-          poll.getByText("Choose a version for each destination before publishing."),
+          poll.getByText("Choose how to post the poll on these accounts."),
         ).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath("poll-shared.png") });
         await poll.getByRole("button", { name: /^@pollsky/ }).click();
-        await page.getByRole("option", { name: "Text version", exact: true }).click();
-        await expect(
-          poll.getByText("Choose a version for each destination before publishing."),
-        ).toHaveCount(0);
+        await expect(poll.getByText(/This account cannot publish polls/)).toBeVisible();
+        await poll.getByRole("button", { name: "Text version", exact: true }).click();
+        await expect(poll.getByText(/Text only, without voting buttons/)).toBeVisible();
         await poll.getByText("Text version preview", { exact: true }).click();
         await expect(
           poll.getByText("Help us plan.\n\nWould you use this?\n1. Yes, sometimes\n2. No", {
@@ -142,10 +221,7 @@ for (const width of [1280, 390, 320]) {
           .getByRole("heading", { name: "Poll", exact: true })
           .evaluate((element) => element.scrollIntoView({ block: "center" }));
         await page.screenshot({ path: testInfo.outputPath("poll-fields.png") });
-        await poll
-          .getByRole("heading", { name: "Poll versions", exact: true })
-          .evaluate((element) => element.scrollIntoView({ block: "center" }));
-        await page.screenshot({ path: testInfo.outputPath("poll-versions.png") });
+        await page.screenshot({ path: testInfo.outputPath("poll-account.png") });
         const headers = { Authorization: `Bearer ${auth.token}` };
         let saved: any;
         await expect
@@ -169,23 +245,204 @@ for (const width of [1280, 390, 320]) {
           saved.renditions.find((item: any) => item.platform === "x").segments[0].settings
             .poll_options,
         ).toBe("Yes, sometimes\nNo");
+        const linkedin = saved.renditions.find((item: any) => item.platform === "linkedin")
+          .segments[0];
+        expect(linkedin.settings.poll_question).toBe("Would you use this?");
+        expect(linkedin.body).toBe("Help us plan.");
+        expect(saved.renditions.find((item: any) => item.platform === "x").segments[0].body).toBe(
+          "Help us plan.\n\nWould you use this?",
+        );
         await page.goto(`/publications/${saved.id}`);
-        await expect(page.getByRole("textbox", { name: "Question", exact: true })).toHaveValue(
+        await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
+        await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
+        dialog = page.getByRole("dialog", { name: "Edit poll", exact: true });
+        await expect(dialog.getByRole("textbox", { name: "Question", exact: true })).toHaveValue(
           "Would you use this?",
         );
-        await expect(page.getByRole("button", { name: /^@pollsky/ })).toContainText("Text version");
-        await page
-          .getByTestId("shared-poll-editor")
-          .getByRole("button", { name: "Customize post text", exact: true })
+        await dialog
+          .getByRole("textbox", { name: "Question", exact: true })
+          .fill("Discard this edit");
+        await page.keyboard.press("Escape");
+        await expect(poll.getByRole("button", { name: "Edit poll", exact: true })).toBeFocused();
+        await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
+        await page.getByRole("tab", { name: /@pollx,/ }).click();
+        await poll.getByRole("button", { name: "Customize poll", exact: true }).click();
+        const custom = page.getByRole("dialog", { name: "Customize poll", exact: true });
+        await custom.getByRole("button", { name: "Voting closes after", exact: true }).click();
+        await expect(page.getByRole("option", { name: "14 days", exact: true })).toHaveCount(0);
+        await page.keyboard.press("Escape");
+        await custom.getByRole("textbox", { name: "Question", exact: true }).fill("Usarias isto?");
+        await custom.getByRole("button", { name: "Save", exact: true }).click();
+        await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
+        await expect(poll.getByRole("checkbox")).toHaveCount(0);
+        await page.getByRole("tab", { name: /polllinkedin,/ }).click();
+        await poll.getByRole("button", { name: "Customize poll", exact: true }).click();
+        const linkedinDialog = page.getByRole("dialog", { name: "Customize poll", exact: true });
+        await expect(
+          linkedinDialog.getByRole("textbox", { name: "Question", exact: true }),
+        ).toHaveAttribute("maxlength", "140");
+        await expect(
+          linkedinDialog.getByRole("textbox", { name: "Option 1", exact: true }),
+        ).toHaveAttribute("maxlength", "30");
+        await linkedinDialog
+          .getByRole("button", { name: "Voting closes after", exact: true })
           .click();
+        await expect(page.getByRole("option")).toHaveText(["1 day", "3 days", "7 days", "14 days"]);
+        await page.keyboard.press("Escape");
+        await linkedinDialog.getByRole("button", { name: "Add option", exact: true }).click();
+        await linkedinDialog.getByRole("button", { name: "Add option", exact: true }).click();
+        await expect(
+          linkedinDialog.getByRole("button", { name: "Add option", exact: true }),
+        ).toBeDisabled();
+        await linkedinDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        await page.getByRole("tab", { name: /@pollmastodon,/ }).click();
+        await poll
+          .getByRole("checkbox", { name: "Allow multiple selections", exact: true })
+          .check();
+        await expect(
+          poll.getByRole("checkbox", { name: "Allow multiple selections", exact: true }),
+        ).toBeChecked();
+        await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
+          "Custom poll",
+        );
+        await page.getByRole("tab", { name: "All", exact: true }).click();
+        await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
+        await page.getByRole("tab", { name: /@pollsky,/ }).click();
+        await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
+          "Text version",
+        );
+        await poll.getByRole("button", { name: "Customize post text", exact: true }).click();
         const editor = page.getByRole("textbox", { name: "Post text", exact: true });
         await expect(editor).toHaveValue(
           "Help us plan.\n\nWould you use this?\n1. Yes, sometimes\n2. No",
         );
-        await expect(page.getByRole("button", { name: /^@pollsky/ })).toContainText(
+        await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
           "Post without poll",
         );
         await editor.fill("A separate question for this audience.");
+        await expect
+          .poll(async () => {
+            const detail = await (
+              await request.get(`/api/v1/publications/${saved.id}`, { headers })
+            ).json();
+            return detail.segments?.[0]?.settings?.poll?.destinations?.[targets[0].id]?.poll
+              ?.question;
+          })
+          .toBe("Usarias isto?");
+        await page.goto(`/publications/${saved.id}`);
+        await page.getByRole("tab", { name: /@pollx,/ }).click();
+        await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
+        const late = { id: randomUUID(), platform: "bluesky", username: "latepoll" };
+        targets.push(late);
+        execFileSync("sqlite3", [
+          "-cmd",
+          ".timeout 5000",
+          `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
+          `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${late.id}','${workspace.id}','poll-${late.id}','bluesky','${late.id}','${late.username}',X'00',1);`,
+        ]);
+        const current = await (
+          await request.get(`/api/v1/publications/${saved.id}`, { headers })
+        ).json();
+        const added = await request.put(`/api/v1/publications/${saved.id}`, {
+          headers,
+          data: {
+            expected_revision: current.revision,
+            renditions: [
+              ...current.renditions.map((item: any) => ({
+                social_account_id: item.social_account_id,
+              })),
+              { social_account_id: late.id },
+            ],
+          },
+        });
+        expect(added.ok(), await added.text()).toBe(true);
+        await page.goto(`/publications/${saved.id}`);
+        await expect(poll.getByRole("button", { name: /^@latepoll/ })).toBeVisible();
+        const validation = await (
+          await request.post(`/api/v1/publications/${saved.id}/validate`, { headers })
+        ).json();
+        expect(validation.issues.map((issue: { code: string }) => issue.code)).toContain(
+          "poll_resolution_required",
+        );
+        await poll.getByRole("button", { name: /^@latepoll/ }).click();
+        await expect(poll.getByText(/This account cannot publish polls/)).toBeVisible();
+        await poll.getByRole("button", { name: "Post without poll", exact: true }).click();
+        await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
+          "Post without poll",
+        );
+        let settled: any;
+        await expect
+          .poll(async () => {
+            settled = await (
+              await request.get(`/api/v1/publications/${saved.id}`, { headers })
+            ).json();
+            return settled.segments[0].settings.poll.destinations[late.id]?.mode;
+          })
+          .toBe("omit");
+        const importedPoll = settled.segments[0].settings.poll;
+        const imported = await request.put(`/api/v1/publications/${saved.id}`, {
+          headers,
+          data: {
+            expected_revision: settled.revision,
+            segments: settled.segments.map((segment: any, index: number) => ({
+              id: segment.id,
+              body: segment.body,
+              settings:
+                index === 0
+                  ? {
+                      ...segment.settings,
+                      poll: {
+                        ...importedPoll,
+                        multiple: true,
+                        hide_totals: true,
+                        destinations: {
+                          ...importedPoll.destinations,
+                          [targets[0].id]: { mode: "native" },
+                        },
+                      },
+                    }
+                  : segment.settings,
+            })),
+          },
+        });
+        expect(imported.ok(), await imported.text()).toBe(true);
+        await page.goto(`/publications/${saved.id}`);
+        await page.getByRole("tab", { name: /@pollx,/ }).click();
+        await expect(poll.getByText(/does not support the selected voting options/)).toBeVisible();
+        await poll
+          .getByRole("checkbox", { name: "Allow multiple selections", exact: true })
+          .uncheck();
+        await poll
+          .getByRole("checkbox", { name: "Hide totals until voting ends", exact: true })
+          .uncheck();
+        await expect(poll.getByText(/does not support the selected voting options/)).toHaveCount(0);
+        await expect
+          .poll(async () => {
+            const detail = await (
+              await request.get(`/api/v1/publications/${saved.id}`, { headers })
+            ).json();
+            const custom = detail.segments[0].settings.poll.destinations[targets[0].id].poll;
+            return custom?.multiple === false && custom?.hide_totals === false;
+          })
+          .toBe(true);
+        const resolved = await (
+          await request.get(`/api/v1/publications/${saved.id}`, { headers })
+        ).json();
+        const textOnly = await request.put(`/api/v1/publications/${saved.id}`, {
+          headers,
+          data: {
+            expected_revision: resolved.revision,
+            renditions: [{ social_account_id: targets[1].id }],
+          },
+        });
+        expect(textOnly.ok(), await textOnly.text()).toBe(true);
+        await page.goto(`/publications/${saved.id}`);
+        await poll.getByRole("button", { name: "Remove poll", exact: true }).click();
+        await page.getByRole("button", { name: "Add poll", exact: true }).click();
+        dialog = page.getByRole("dialog", { name: "Add poll", exact: true });
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByText(/Polls are unavailable on @pollsky/)).toBeVisible();
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
         expect(errors).toEqual([]);
       });
     }

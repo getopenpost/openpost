@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "De outro navegador ou dispositivo",
 	"video_editor_conflict_saved_revision": "Edição em conflito na revisão salva {revision}",
 	"calendar_no_posts_on_day": "Nenhum post neste dia",
-	"compose_schedule_publish_time": "Horário de envio"
+	"compose_schedule_publish_time": "Horário de envio",
+	"compose_poll_edit": "Editar enquete",
+	"compose_poll_summary": "{count} opções · {duration}",
+	"compose_poll_account_unsupported": "Esta conta não permite publicar enquetes. Escolha uma versão em texto ou publique sem a enquete.",
+	"compose_poll_account_version": "Versão da enquete",
+	"compose_poll_customize": "Personalizar enquete",
+	"compose_poll_use_shared": "Usar enquete compartilhada",
+	"compose_poll_review_accounts": "Escolha como publicar a enquete nestas contas.",
+	"compose_poll_unsupported_accounts": "As enquetes não estão disponíveis em {accounts}. Escolha uma versão na aba de cada conta.",
+	"compose_poll_text_notice": "Apenas texto, sem botões de votação."
 }

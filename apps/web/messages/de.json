@@ -9739,5 +9739,14 @@
 	"video_editor_conflict_origin_another_device": "Aus einem anderen Browser oder Gerät",
 	"video_editor_conflict_saved_revision": "Konfliktbearbeitung bei gespeicherter Revision {revision}",
 	"calendar_no_posts_on_day": "Keine Beiträge an diesem Tag",
-	"compose_schedule_publish_time": "Veröffentlichungszeit"
+	"compose_schedule_publish_time": "Veröffentlichungszeit",
+	"compose_poll_edit": "Umfrage bearbeiten",
+	"compose_poll_summary": "{count} Antworten · {duration}",
+	"compose_poll_account_unsupported": "Dieses Konto kann keine Umfragen veröffentlichen. Wähle eine Textversion oder veröffentliche ohne Umfrage.",
+	"compose_poll_account_version": "Umfrageversion",
+	"compose_poll_customize": "Umfrage anpassen",
+	"compose_poll_use_shared": "Geteilte Umfrage verwenden",
+	"compose_poll_review_accounts": "Wähle, wie die Umfrage auf diesen Konten veröffentlicht wird.",
+	"compose_poll_unsupported_accounts": "Umfragen sind auf {accounts} nicht verfügbar. Wähle eine Version im jeweiligen Konto-Tab.",
+	"compose_poll_text_notice": "Nur Text, ohne Abstimmungsschaltflächen."
 }

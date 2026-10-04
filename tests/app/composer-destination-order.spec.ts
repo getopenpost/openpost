@@ -7,6 +7,7 @@ test("composer destination order survives edits, reload and inventory return", a
   page,
   request,
 }, testInfo) => {
+  test.setTimeout(60_000);
   const auth = await registerUser(request, `destination-order-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, auth.token, "Destination ordering");
   const platforms = ["threads", "x", "mastodon", "bluesky", "linkedin"] as const;

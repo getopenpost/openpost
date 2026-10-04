@@ -14,6 +14,9 @@ describe('platform-limits', () => {
 		expect(platformTextLength('x', '👨‍👩‍👧‍👦')).toBe(2);
 		expect(platformTextLength('x', '日本語')).toBe(6);
 		expect(platformTextLength('x', 'See https://example.com/this/is/a/long/path')).toBe(27);
+		expect(platformTextLength('x', 'See https://en.wikipedia.org/wiki/Foo_(bar)')).toBe(27);
+		expect(platformTextLength('x', 'See https://en.wikipedia.org/wiki/Foo_(bar).')).toBe(28);
+		expect(platformTextLength('x', '(https://example.com/path)')).toBe(25);
 		expect(platformTextLength('x', 'cafe\u0301')).toBe(4);
 		expect(platformTextLength('mastodon', '日本語')).toBe(3);
 	});

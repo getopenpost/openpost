@@ -150,7 +150,7 @@ export function countPlatformText(platformKey: string, text: string): number {
   let cursor = 0;
   for (const match of normalized.matchAll(X_URL_PATTERN)) {
     const start = match.index;
-    const matchedURL = match[0].replace(/[.,!?;:)\]}]+$/u, "");
+    const matchedURL = match[0].slice(0, linkEnd(match[0]));
     if (!matchedURL) continue;
     length += xWeightedTextSegmentLength(normalized.slice(cursor, start));
     length += X_TRANSFORMED_URL_LENGTH;
@@ -164,7 +164,7 @@ export function countPlatformText(platformKey: string, text: string): number {
 function mastodonCountableText(text: string): string {
   return text
     .replace(MASTODON_URL_PATTERN, (match) => {
-      const url = match.slice(0, mastodonURLEnd(match));
+      const url = match.slice(0, linkEnd(match));
       if (!MASTODON_LINK_HOST.test(url)) return match;
       return "x".repeat(MASTODON_URL_LENGTH) + match.slice(url.length);
     })
@@ -173,7 +173,7 @@ function mastodonCountableText(text: string): string {
 
 // Trailing punctuation is not part of a link, except a ")" that closes a "("
 // inside it, as in https://en.wikipedia.org/wiki/Foo_(bar).
-function mastodonURLEnd(url: string): number {
+function linkEnd(url: string): number {
   let end = url.length;
   while (end > 0) {
     const character = url[end - 1];

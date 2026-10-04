@@ -70,6 +70,35 @@ test("checks finish translation readers before policy builds regenerate translat
   assert.ok(stages["repository policy"].phase > stages["marketing types"].phase);
 });
 
+test("combined frontend and marketing checks compile translations once before both readers", () => {
+  const plannedCheck = (scope) =>
+    spawnSync("bun", ["scripts/tasks.mjs", "check", scope, "--plan"], {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      encoding: "utf8",
+    });
+  const combined = plannedCheck("frontend-marketing");
+  assert.equal(combined.status, 0, combined.stderr);
+  const stages = JSON.parse(combined.stdout).stages;
+  assert.equal(stages.filter((stage) => stage.label === "frontend translations").length, 1);
+  const translations = stages.find((stage) => stage.label === "frontend translations");
+  const frontend = stages.find((stage) => stage.label === "frontend types");
+  const marketing = stages.find((stage) => stage.label === "marketing types");
+  assert.ok(translations.phase < frontend.phase);
+  assert.ok(translations.phase < marketing.phase);
+  assert.equal(frontend.phase, marketing.phase);
+
+  for (const scope of ["frontend", "marketing"]) {
+    const standalone = plannedCheck(scope);
+    assert.equal(standalone.status, 0, standalone.stderr);
+    assert.equal(
+      JSON.parse(standalone.stdout).stages.filter(
+        (stage) => stage.label === "frontend translations",
+      ).length,
+      1,
+    );
+  }
+});
+
 test("fallow audits changed code and reports complexity without scopes", () => {
   const result = taskPlan("fallow");
   assert.equal(result.status, 0, result.stderr);

@@ -188,13 +188,15 @@ jobs:
       - run: bash scripts/ci-timing-summary.sh start frontend-quality
       - run: bun install --frozen-lockfile
       - if: needs.plan.outputs.frontend == 'true'
-        run: |
-          bun run lint -- frontend
-          bun run check -- frontend
+        run: bun run lint -- frontend
       - if: needs.plan.outputs.marketing == 'true'
-        run: |
-          bun run lint -- marketing
-          bun run check -- marketing
+        run: bun run lint -- marketing
+      - if: needs.plan.outputs.frontend == 'true' && needs.plan.outputs.marketing == 'true'
+        run: bun run check -- frontend-marketing
+      - if: needs.plan.outputs.frontend == 'true' && needs.plan.outputs.marketing != 'true'
+        run: bun run check -- frontend
+      - if: needs.plan.outputs.marketing == 'true' && needs.plan.outputs.frontend != 'true'
+        run: bun run check -- marketing
       # Changed-source dead-code gate plus advisory complexity report.
       # Health thresholds never fail this step; unused code still does.
       - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'

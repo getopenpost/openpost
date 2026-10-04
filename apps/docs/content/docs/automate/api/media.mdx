@@ -1,6 +1,7 @@
 ---
 title: Media uploads
 description: Upload bytes through OpenPost's storage-safe HTTP flow.
+icon: ImageUp
 ---
 
 Media uploads usually use three requests. Your integration creates an upload session, sends bytes to its storage target, then completes the session. If OpenPost finds identical ready media in the workspace, it returns `deduped: true` and the returned `media_id` is ready to use without the upload and completion requests. The examples use Bash, curl, and jq.

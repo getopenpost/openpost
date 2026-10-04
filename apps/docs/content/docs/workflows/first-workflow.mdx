@@ -1,7 +1,7 @@
 ---
 title: Build your first workflow
 description: Create a release announcement that waits for review before publishing.
-icon: Workflow
+icon: Rocket
 ---
 
 Use **Announce a GitHub release** to create a draft for each new release. You need connected destination accounts and administrator access to activate it. A private repository also needs a [GitHub connection](/workflows/connections#private-github-repositories).
@@ -15,12 +15,12 @@ Use **Announce a GitHub release** to create a draft for each new release. You ne
 5. Open **Test data**, use the sample or **Fetch an example**, then select **Run preview**. Check the resolved post text and accounts.
 6. Fix **Needs attention** warnings and select **Publish workflow**.
 
-Publishing the workflow activates it. This template has no scheduling step, so it creates drafts without publishing them.
+Publishing the workflow [activates it](/workflows/triggers#activate-or-pause). This template has no scheduling step, so it creates drafts without publishing them.
 
 ## Check the first draft
 
-GitHub checks every five minutes. Existing releases become the starting point at activation; only later releases start runs.
+New releases are picked up on the [regular source check](/workflows/triggers#github-and-feeds); only releases after activation start runs.
 
 After a new release appears, open **Runs**. Inspect the draft, use **Open post** to edit it, then return to the run to approve the current revision.
 
-Schedule it from Publications, or [add scheduling after review](/workflows/review-and-schedule#schedule-after-review).
+Schedule it from Publications, or [Schedule after review](/workflows/review-and-schedule#schedule-after-review).

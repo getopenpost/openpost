@@ -1,7 +1,7 @@
 ---
 title: Choose a trigger
 description: Start workflows from releases, feed items, intervals, or OpenPost publishing events.
-icon: Workflow
+icon: Zap
 ---
 
 Choose the event that should start your workflow. Use a manual trigger while you are configuring steps, or select a source for automatic runs.
@@ -14,7 +14,7 @@ Choose a manual trigger, GitHub release, RSS/Atom item, interval, new post, publ
 
 GitHub and RSS/Atom sources check every five minutes. Activation records existing items as the starting point; they do not create runs. Future items start runs once each. A feed can only supply items it still retains. Catching up across many GitHub releases may take several checks.
 
-Use an RSS/Atom trigger for one run per new article. To collect several articles on a timer, combine an interval trigger with **Read RSS feed**, as in the [feed digest example](/workflows/examples/feed-digest).
+Use an RSS/Atom trigger for one run per new article. To collect several articles on a timer, combine an interval trigger with **Read RSS feed**, as in the [Prepare a weekly feed digest](/workflows/examples/feed-digest).
 
 For private GitHub repositories, choose a [saved connection](/workflows/connections) with access to the intended repository.
 
@@ -24,6 +24,6 @@ Choose an interval from 5 minutes to 30 days. It starts counting at activation. 
 
 ## Activate or pause
 
-[Preview your workflow](/workflows/testing), resolve **Needs attention** warnings, then select **Publish workflow**. Publish again after changing its draft to update future automatic runs. Existing runs retain the definition they started with.
+[Test previews, nodes, and live runs](/workflows/testing), resolve **Needs attention** warnings, then select **Publish workflow**. Publish again after changing its draft to update future automatic runs. Existing runs retain the definition they started with.
 
-**Pause new runs** stops automatic admission. Existing runs continue. See [run controls](/workflows/runs) to cancel remaining steps.
+**Pause new runs** stops automatic admission. Existing runs continue. See [Inspect and stop runs](/workflows/runs) to cancel remaining steps.

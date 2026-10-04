@@ -1,7 +1,7 @@
 ---
 title: Turn an API response into a post
 description: Read an API, format its response, and create a draft for review.
-icon: Workflow
+icon: Webhook
 ---
 
 Open **More → Workflows → Start from a template**. Use **Turn an API response into a post** for updates from a service without a dedicated node.
@@ -21,4 +21,4 @@ return `${input.title}\n\n${input.url}`;
 
 HTTP node tests send real requests. Do not test a write method unless you intend its effect. Keep secrets in Connections, and inspect an interrupted request's remote outcome before trying again.
 
-See [review and scheduling](/workflows/review-and-schedule) to send the approved draft.
+See [Review and schedule posts](/workflows/review-and-schedule) to send the approved draft.

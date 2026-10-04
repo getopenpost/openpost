@@ -1,4 +1,5 @@
 {
   "title": "Examples",
+  "icon": "Shapes",
   "pages": ["feed-digest", "relevant-releases", "api-to-post"]
 }

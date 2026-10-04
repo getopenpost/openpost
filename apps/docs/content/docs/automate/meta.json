@@ -5,16 +5,16 @@
   "pages": [
     "index",
     "---TypeScript SDK---",
-    "[Install and connect](/automate/sdk)",
+    "[TypeScript SDK](/automate/sdk)",
     "...sdk",
     "---HTTP API---",
-    "[Install and connect](/automate/api)",
+    "[HTTP API](/automate/api)",
     "...api",
     "---Command-line interface---",
-    "[Install and connect](/automate/cli)",
+    "[Command-line interface](/automate/cli)",
     "...cli",
     "---n8n workflows---",
-    "[Install and connect](/automate/n8n)",
+    "[n8n workflows](/automate/n8n)",
     "...n8n"
   ]
 }

@@ -1,25 +1,25 @@
 ---
-title: Manage runs
-description: Inspect results, resolve failures, and pause or cancel workflow work.
-icon: Workflow
+title: Inspect and stop runs
+description: Inspect step results, fix failures, and pause or cancel runs.
+icon: History
 ---
 
 Open **Runs** and select a run to inspect each step's input, output, result, or error. Open the created post in Publications to check destination delivery.
 
 ## Pause or stop
 
-- **Pause new runs** stops automatic starts. Existing runs continue.
+- **[Pause new runs](/workflows/triggers#activate-or-pause)** stops automatic starts. Existing runs continue.
 - **Cancel remaining steps** stops the rest of one run. An accepted action may still finish. Created drafts and queued posts remain; manage them in Publications.
 - Delete a workflow after pausing it and finishing or cancelling active runs. Deletion removes run history, while created posts remain.
 
-Editing a workflow changes future runs only after you publish it again. Before starting another live run, check whether the previous run created a post or sent a request.
+Editing a workflow changes future runs only after you [publish it again](/workflows/triggers#activate-or-pause). Before starting another live run, check whether the previous run created a post or sent a request.
 
 ## Fix a problem
 
 | Problem                   | Next action                                                                               |
 | ------------------------- | ----------------------------------------------------------------------------------------- |
 | Needs attention on a node | Fill required fields and replace missing variables.                                       |
-| No automatic runs         | Check activation and source access. GitHub and feeds wait for new items after activation. |
+| No automatic runs         | Check [activation](/workflows/triggers#activate-or-pause) and source access. GitHub and feeds wait for new items after activation. |
 | Waiting for review        | Inspect the current post revision and approve it.                                         |
 | Stale post revision       | Review the latest post and return to the run.                                             |
 | Interrupted HTTP request  | Check its remote outcome before starting another run.                                     |

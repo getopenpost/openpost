@@ -1,7 +1,7 @@
 ---
-title: Pass data between steps
-description: Insert variables, inspect inputs and outputs, and transform workflow data.
-icon: Workflow
+title: Pass step outputs with variables
+description: Pass trigger and step outputs into later steps with variables.
+icon: Braces
 ---
 
 Use variables to pass a trigger's data or an earlier step's result into another step.
@@ -24,4 +24,4 @@ Data steps can edit fields, parse JSON, filter/sort/limit lists, merge values, f
 
 **JavaScript** receives `input` and returns a JSON value. It has a two-second deadline and a 32 MiB heap, with no network, file, or environment access. Use **HTTP request** for API calls.
 
-See [the API-to-post example](/workflows/examples/api-to-post) for a short transformation.
+See [Turn an API response into a post](/workflows/examples/api-to-post) for a short transformation.

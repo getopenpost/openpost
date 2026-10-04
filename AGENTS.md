@@ -49,6 +49,7 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 Public marketing speaks to Cloud customers creating content and running a business. Features navigation points to `/#features`; automation and self-hosting setup belong in the documentation, not duplicate marketing pages. Keep removed public routes out of the route manifest and maintain their deliberate redirects in `apps/marketing/static/_redirects`.
 
 Install marketing module-download recovery in the client `init` hook, before hydration imports run. A layout mount callback cannot recover failures that precede its own mount.
+App module-download recovery clears its persisted retry budget only after a successful SvelteKit navigation. Keep failed routes bounded across reloads.
 
 Public OG images use the shared renderer in `scripts/social-images/render.mjs`. Keep generated homepage artwork and its prompt in `assets/brand/social/`, topic icons from Lucide, full titles, stable image URLs, and matching launch-kit PNGs. Verify the full catalogue and inspect cards at 320px preview width.
 

@@ -13,9 +13,9 @@
  *   diagnostic probe of the failed first-party asset (missing means deployment
  *   skew, present means a transient failure worth one retry). Offline,
  *   same-build, and unclassified failures get a manual retry state instead.
- * - Bounded persisted budget: at most one automatic reload per failing asset
- *   (or per client-build/target-build pair when both builds are known), with
- *   an overall bound. Eligibility never resets merely because time elapsed.
+ * - Bounded persisted budget: missing assets and verified build changes reload
+ *   once; a served asset can retry within the overall cap. A healthy route
+ *   clears the budget. Time alone never resets it.
  * - No automatic reload when the budget cannot be persisted. An in-memory flag
  *   cannot prevent a loop across full page reloads, so unpersistable state
  *   falls back to an explicit reload action.
@@ -193,6 +193,7 @@ function defaultRuntime(): Required<ChunkRecoveryRuntime> {
 
 export interface ChunkRecoveryController {
   recover: (error: unknown) => Promise<ChunkRecoveryDecision>;
+  markHealthyNavigation: () => void;
   install: () => () => void;
 }
 
@@ -204,6 +205,17 @@ export function createChunkRecovery(options: ChunkRecoveryOptions = {}): ChunkRe
   const seen = new WeakSet<object>();
   let activeDecision: Promise<ChunkRecoveryDecision> | null = null;
   let scheduledReloadDecision: ChunkRecoveryDecision | null = null;
+
+  function markHealthyNavigation(): void {
+    if (inFlight || reloadScheduled) return;
+    try {
+      const budget = runtime.loadBudget();
+      if (!budget || budget.total === 0) return;
+      runtime.saveBudget({ total: 0, perAsset: {} });
+    } catch {
+      // A healthy route still works when storage is unavailable.
+    }
+  }
 
   async function recover(error: unknown): Promise<ChunkRecoveryDecision> {
     if (isUnsupportedBrowserError(error)) return { kind: "ignored", reason: "unsupported-browser" };
@@ -292,11 +304,11 @@ export function createChunkRecovery(options: ChunkRecoveryOptions = {}): ChunkRe
       return manual(assetPath, "probe-failed", null);
     }
     if (probeStatus === 404 || probeStatus === 410) {
-      return autoReload(assetPath);
+      return autoReload(assetPath, "deployment");
     }
     if (probeStatus >= 200 && probeStatus < 300) {
-      // Asset still served: transient failure, one bounded retry.
-      return autoReload(assetPath);
+      // Asset still served: another bounded retry may recover a transient failure.
+      return autoReload(assetPath, "transient");
     }
     return manual(assetPath, "probe-failed", probeStatus);
   }
@@ -315,14 +327,18 @@ export function createChunkRecovery(options: ChunkRecoveryOptions = {}): ChunkRe
     return { kind: "manual", ...info };
   }
 
-  function autoReload(pairKey: string): ChunkRecoveryDecision {
+  function autoReload(
+    pairKey: string,
+    evidence: "deployment" | "transient" = "deployment",
+  ): ChunkRecoveryDecision {
     let budget: ChunkRecoveryBudget | null;
     try {
       budget = runtime.loadBudget() ?? { total: 0, perAsset: {} };
     } catch {
       return unpersistable(pairKey);
     }
-    if ((budget.perAsset[pairKey] ?? 0) >= 1 || budget.total >= maxAutomatic) {
+    const perAssetLimit = evidence === "transient" ? maxAutomatic : 1;
+    if ((budget.perAsset[pairKey] ?? 0) >= perAssetLimit || budget.total >= maxAutomatic) {
       return manual(pairKey.startsWith("/") ? pairKey : null, "budget-exhausted", null);
     }
     const next: ChunkRecoveryBudget = {
@@ -390,7 +406,7 @@ export function createChunkRecovery(options: ChunkRecoveryOptions = {}): ChunkRe
     };
   }
 
-  return { recover, install };
+  return { recover, markHealthyNavigation, install };
 }
 
 /** Convenience for surfaces that only need the listeners with default behavior. */

@@ -98,10 +98,16 @@ export function resolveDocsSocial(input: {
 
 export interface MarketingGuide {
   slug: string;
+  reviewedAt: string;
   question: string;
   socialDescription: string;
   answer: string;
-  sections: { title: string; text: string; items?: string[] }[];
+  sections: {
+    title: string;
+    text: string;
+    items?: string[];
+    table?: { caption: string; columns: string[]; rows: string[][] };
+  }[];
   sources: { label: string; href: string }[];
   next: { label: string; href: string };
 }

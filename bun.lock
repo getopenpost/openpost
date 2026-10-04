@@ -282,6 +282,9 @@
     },
     "packages/social-images": {
       "name": "@openpost/social-images",
+      "dependencies": {
+        "@openpost/plan-catalog": "workspace:*",
+      },
     },
     "packages/social-preview": {
       "name": "@openpost/social-preview",

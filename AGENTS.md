@@ -48,6 +48,8 @@ Keep third-party deployment packaging under `deploy/<platform>/`. If a platform 
 
 Public marketing speaks to Cloud customers creating content and running a business. Features navigation points to `/#features`; automation and self-hosting setup belong in the documentation, not duplicate marketing pages. Keep removed public routes out of the route manifest and maintain their deliberate redirects in `apps/marketing/static/_redirects`.
 
+Public buying comparisons belong to the shared guide catalogue in `packages/social-images/src/`. Reuse the guide renderer and discovery manifest. Derive OpenPost prices and limits from `@openpost/plan-catalog`; keep competitor facts with official source links and an explicit review date. Change that date only after checking those sources, and state where the competitor fits better.
+
 Install marketing module-download recovery in the client `init` hook, before hydration imports run. A layout mount callback cannot recover failures that precede its own mount.
 App module-download recovery clears its persisted retry budget only after a successful SvelteKit navigation. Keep failed routes bounded across reloads.
 

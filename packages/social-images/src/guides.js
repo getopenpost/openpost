@@ -1,7 +1,10 @@
+import { comparisonGuides } from "./comparisons.js";
+
 // Shared by the route manifest and the rendered guides so titles and answers stay together.
 export const marketingGuides = [
   {
     slug: "best-social-media-tools-for-solo-founders",
+    reviewedAt: "2026-09-05",
     question: "What are the best social media tools for solo founders?",
     socialDescription:
       "Compare Buffer, OpenPost, and Postiz against your publishing workflow, account needs, plan limits, and self-hosting costs.",
@@ -40,6 +43,7 @@ export const marketingGuides = [
   },
   {
     slug: "turn-product-updates-into-social-media-posts",
+    reviewedAt: "2026-09-05",
     question: "How do I turn product updates into social media posts?",
     socialDescription:
       "Turn one verified product update into destination-specific social posts, with separate text, media, and calls to action.",
@@ -76,6 +80,7 @@ export const marketingGuides = [
   },
   {
     slug: "schedule-social-media-posts-on-multiple-platforms",
+    reviewedAt: "2026-09-05",
     question: "How do I schedule social media posts on multiple platforms?",
     socialDescription:
       "Schedule one source idea across several platforms while checking account permissions, media rules, timezones, and partial failures.",
@@ -113,4 +118,5 @@ export const marketingGuides = [
     ],
     next: { label: "Check platform support", href: "/platforms" },
   },
+  ...comparisonGuides,
 ];

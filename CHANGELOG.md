@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.11.0] - 2026-10-04
+
+### Documentation
+
+- Browse visual guides and comparisons for publishing, image and video tools, with sourced product logos, free editor costs, and reasons to choose each alternative.
+
+### Fixed
+
+- Show provider reply dates instead of collection times when Meta returns timestamps with compact UTC offsets. Refreshing replies also restores dates on previously collected items.
+
 ## [7.10.4] - 2026-10-04
 
 ### Documentation

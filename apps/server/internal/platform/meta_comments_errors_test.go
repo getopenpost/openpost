@@ -31,6 +31,8 @@ func TestMetaCommentCollectionPreservesRecoveryClassification(t *testing.T) {
 			{"embedded permission", 200, `{"error":{"message":"private provider detail","code":10}}`, 403, "meta:permission:10"},
 			{"rate limit", 400, `{"error":{"code":4,"message":"private rate detail"}}`, 429, "meta:rate_limit:4"},
 			{"unavailable", 503, `{"error":{"code":2,"message":"private outage detail"}}`, 503, "meta:transient:2"},
+			{"unavailable target", 400, `{"error":{"code":100,"error_subcode":33,"message":"Object does not exist or cannot be loaded due to missing permissions"}}`, 404, "meta:nonexistent:100:33"},
+			{"embedded unavailable target", 200, `{"error":{"code":100,"error_subcode":33}}`, 404, "meta:nonexistent:100:33"},
 		} {
 			t.Run(provider.name+"/"+response.name, func(t *testing.T) {
 				calls := 0

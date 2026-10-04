@@ -13,6 +13,8 @@ import (
 
 var safeProviderCode = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,96}$`)
 
+const metaUnavailableTargetCode = "meta:nonexistent:100:33"
+
 // HTTPError preserves bounded provider diagnostics without retaining response
 // bodies, post text, tokens, or request URLs.
 type HTTPError struct {
@@ -167,7 +169,7 @@ var metaExactMappings = map[metaCodeKey]metaMapping{
 	{code: "190", subcode: "492"}: {status: http.StatusForbidden, code: "meta:missing_page_role:190:492"},
 	// The targeted Page or post no longer exists. Terminal: retrying the
 	// same publish can never succeed.
-	{code: "100", subcode: "33"}: {status: http.StatusBadRequest, code: "meta:nonexistent:100:33"},
+	{code: "100", subcode: "33"}: {status: http.StatusBadRequest, code: metaUnavailableTargetCode},
 }
 
 // metaCodeMappings classifies by code alone. 2207082/2207085 come from
@@ -221,7 +223,7 @@ var metaFailureMessages = map[string]string{
 	"meta:checkpoint:190:459":         "Facebook asked for a security check. Log in at facebook.com, complete it, then reconnect this account and try again.",
 	"meta:checkpoint:instagram":       "Instagram asked for a login check. Log in at instagram.com, follow its instructions, then reconnect this account.",
 	"meta:missing_page_role:190:492":  "Your Facebook user no longer has a role on this Page. Ask a Page admin to grant you a role, then reconnect this account.",
-	"meta:nonexistent:100:33":         "The Facebook Page or post this was targeting no longer exists. Reconnect this account and schedule again.",
+	metaUnavailableTargetCode:         "The Facebook Page or post this was targeting no longer exists. Reconnect this account and schedule again.",
 	"meta:media_silent_audio:2207082": "Instagram could not process this video. If you attached audio to a video that has no sound track, set the original video volume to 0 and try again.",
 	"meta:media_format:2207085":       "Instagram could not process the video. Check the video format, duration, and resolution, then try again.",
 }

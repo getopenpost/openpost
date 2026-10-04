@@ -78,7 +78,7 @@
 		</Tooltip.Trigger>
 		<Tooltip.Content>
 			<div class="space-y-1">
-				<p class="text-xs font-medium text-muted-foreground">
+				<p class="text-xs font-medium text-background/70">
 					{m.compose_character_limits()}
 				</p>
 				{#each limits as pl (pl.key)}
@@ -90,7 +90,7 @@
 						<span
 							class="tabular-nums {platformCount > pl.limit
 								? 'text-red-500'
-								: 'text-muted-foreground'}">{platformCount}/{pl.limit}</span
+								: 'text-background/70'}">{platformCount}/{pl.limit}</span
 						>
 					</div>
 				{/each}

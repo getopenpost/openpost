@@ -20,6 +20,9 @@ func TestTextLengthUsesXWeightedCounting(t *testing.T) {
 		{name: "flag", text: "🇵🇹", want: 2},
 		{name: "CJK", text: "日本語", want: 6},
 		{name: "URL", text: "See https://example.com/this/is/a/long/path", want: 27},
+		{name: "URL with balanced parentheses", text: "See https://en.wikipedia.org/wiki/Foo_(bar)", want: 27},
+		{name: "URL with balanced parentheses before a period", text: "See https://en.wikipedia.org/wiki/Foo_(bar).", want: 28},
+		{name: "URL inside parentheses", text: "(https://example.com/path)", want: 25},
 		{name: "NFC normalization", text: "cafe\u0301", want: 4},
 	}
 

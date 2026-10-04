@@ -3,6 +3,13 @@ import sharp from "sharp";
 import { themeColorContrastRatio } from "../../apps/web/src/lib/themes/validation";
 
 export async function expectBalancedDitherButton(button: Locator) {
+  // Render offscreen thumbnails before reading their inherited pseudo-element colors.
+  const { data, info } = await sharp(
+    await button.screenshot({ scale: "css", animations: "disabled" }),
+  )
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   const { ink, background, tint, opacity } = await button.evaluate((node) => {
     const style = getComputedStyle(node);
     const texture = getComputedStyle(node, "::before");
@@ -21,10 +28,6 @@ export async function expectBalancedDitherButton(button: Locator) {
   expect(ratio).toBeLessThanOrEqual(1.8);
 
   // Sample the padding, away from borders and glyphs, at CSS pixel resolution.
-  const { data, info } = await sharp(await button.screenshot({ scale: "css" }))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
   const pixels = new Set<string>();
   for (let y = Math.floor(info.height / 3); y < Math.ceil((info.height * 2) / 3); y++) {
     const offset = (y * info.width + 2) * 4;

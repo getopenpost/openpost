@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
@@ -137,12 +138,17 @@ test("published records show a confirmed local removal action", async ({
   const auth = await registerUser(request, `published-delete-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, auth.token, "Published cleanup");
   const created = await createPublication(request, auth.token, workspace.id, "A removed test post");
-  await authenticatePage(page, auth.token);
-  await page.route(`**/api/v1/publications/${created.id}`, async (route) => {
-    if (route.request().method() === "GET")
-      return route.fulfill({ json: { ...created, status: "published" } });
-    return route.continue();
+  execFileSync("sqlite3", [
+    "-cmd",
+    ".timeout 5000",
+    `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
+    `UPDATE publications SET status='published', actual_run_at=CURRENT_TIMESTAMP WHERE id='${created.id}';`,
+  ]);
+  const stored = await request.get(`/api/v1/publications/${created.id}`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
   });
+  expect((await stored.json()).status).toBe("published");
+  await authenticatePage(page, auth.token);
   await page.goto(`/publications/${created.id}`);
   await page.screenshot({
     path: testInfo.outputPath("published-before-removal.png"),

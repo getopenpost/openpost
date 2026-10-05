@@ -1,11 +1,17 @@
 import { page } from '$app/state';
 import { client } from '$lib/api/client';
+import type { components } from '$lib/api/types';
 
 export type BrowserFailureKind = 'error' | 'unhandledrejection';
+type BrowserErrorKind = NonNullable<
+	components['schemas']['SubmitDiagnosticsInputBody']['error_kind']
+>;
 
 export interface NormalizedBrowserFailure {
 	code: 'browser_uncaught' | 'browser_unhandled_rejection';
 	location: string;
+	errorKind?: BrowserErrorKind;
+	frames?: components['schemas']['SubmitDiagnosticsInputBody']['frames'];
 }
 
 export interface BrowserDiagnosticsGate {
@@ -19,6 +25,8 @@ export interface MaintainerDiagnosticsTransport {
 		surface: 'browser';
 		operation: string;
 		error_code: NormalizedBrowserFailure['code'];
+		error_kind?: BrowserErrorKind;
+		frames?: NormalizedBrowserFailure['frames'];
 	}): Promise<void>;
 }
 
@@ -35,25 +43,45 @@ const CHUNK_LOAD_SIGNALS = [
 	'Loading CSS chunk'
 ];
 
-// normalizeBrowserFailure reduces an uncaught failure to a code and a
-// location. Free-form messages never leave the browser: authored content,
-// URLs, and tokens can hide inside error text, so only the normalized code
-// and an app-relative location are reported.
+const browserErrorKinds = new Map<string, BrowserErrorKind>([
+	['TypeError', 'type_error'],
+	['ReferenceError', 'reference_error'],
+	['RangeError', 'range_error'],
+	['SyntaxError', 'syntax_error'],
+	['QuotaExceededError', 'quota_exceeded'],
+	['SecurityError', 'security_error'],
+	['NotSupportedError', 'not_supported'],
+	['InvalidStateError', 'invalid_state'],
+	['AbortError', 'abort_error'],
+	['NetworkError', 'network_error']
+]);
+
+const maxBrowserFrames = 24;
+
+// Free-form messages stay local because they can contain authored content,
+// URLs and tokens. Only known types and compiled application callsites leave.
 export function normalizeBrowserFailure(
 	kind: BrowserFailureKind,
 	name: string,
 	message: string,
 	stack: string | undefined,
-	routePath: string
+	routePath: string,
+	appOrigin?: string
 ): NormalizedBrowserFailure | null {
 	const text = `${name} ${message}`;
 	if (CHUNK_LOAD_SIGNALS.some((signal) => text.includes(signal))) return null;
-	const location = firstPartyLocation(stack) ?? safeOperation(routePath);
+	const frames = firstPartyFrames(stack, appOrigin);
+	const first = frames[0];
+	let location = first ? `${first.module}:${first.line}` : safeOperation(routePath);
+	if (first?.column) location += `:${first.column}`;
 	if (!location) return null;
-	return {
+	const failure: NormalizedBrowserFailure = {
 		code: kind === 'unhandledrejection' ? 'browser_unhandled_rejection' : 'browser_uncaught',
-		location
+		location,
+		errorKind: browserErrorKinds.get(name)
 	};
+	if (frames.length) failure.frames = frames;
+	return failure;
 }
 
 // maintainerDiagnosticsAllowed is the browser-side reporting gate. Browser
@@ -72,40 +100,57 @@ export function resetBrowserDiagnosticsForTests() {
 }
 
 // maybeReportBrowserFailure sends one normalized failure per session key
-// (code + location) with a small session cap, so a render loop cannot flood
+// (code + kind + location) with a small session cap, so a render loop cannot flood
 // the instance. A send is attempted at most once per key; transport failures
 // stay silent and never surface in the UI.
 export async function maybeReportBrowserFailure(
 	failure: NormalizedBrowserFailure,
 	transport: MaintainerDiagnosticsTransport
 ): Promise<boolean> {
-	const key = `${failure.code}|${failure.location}`;
+	const key = `${failure.code}|${failure.errorKind ?? ''}|${failure.location}`;
 	if (reportedKeys.has(key) || reportedKeys.size >= MAX_BROWSER_DIAGNOSTICS_PER_SESSION) {
 		return false;
 	}
 	reportedKeys.add(key);
 	try {
-		await transport.postReport({
+		const body: Parameters<MaintainerDiagnosticsTransport['postReport']>[0] = {
 			surface: 'browser',
 			operation: failure.location,
 			error_code: failure.code
-		});
+		};
+		if (failure.errorKind) body.error_kind = failure.errorKind;
+		if (failure.frames?.length) body.frames = failure.frames;
+		await transport.postReport(body);
 		return true;
 	} catch {
 		return false;
 	}
 }
 
-function firstPartyLocation(stack: string | undefined): string | null {
-	if (!stack) return null;
+function firstPartyFrames(
+	stack: string | undefined,
+	appOrigin: string | undefined
+): NonNullable<NormalizedBrowserFailure['frames']> {
+	if (!stack) return [];
+	const frames: NonNullable<NormalizedBrowserFailure['frames']> = [];
 	for (const line of stack.split('\n')) {
-		const location = appRelativeLocation(line);
-		if (location) return location;
+		if (!/^\s*at\s/.test(line) && !/^[A-Za-z0-9_.$<>]*@/.test(line)) continue;
+		const location = appRelativeLocation(line, appOrigin);
+		if (!location) continue;
+		const [module, sourceLine, sourceColumn] = location.split(':');
+		const frame: NonNullable<NormalizedBrowserFailure['frames']>[number] = {
+			module,
+			function: 'browser',
+			line: Number(sourceLine ?? 0)
+		};
+		if (sourceColumn) frame.column = Number(sourceColumn);
+		frames.push(frame);
+		if (frames.length === maxBrowserFrames) break;
 	}
-	return null;
+	return frames;
 }
 
-function appRelativeLocation(line: string): string | null {
+function appRelativeLocation(line: string, appOrigin: string | undefined): string | null {
 	// Capture the script path and an optional :line[:col] suffix. The path
 	// match stops before query strings, fragments, and closing parens; the
 	// suffix is parsed separately because URL parsers keep :line:col as path.
@@ -114,23 +159,25 @@ function appRelativeLocation(line: string): string | null {
 	let path = match[1];
 	if (/^https?:\/\//.test(path)) {
 		try {
-			path = new URL(path).pathname;
+			const url = new URL(path);
+			if (!appOrigin || url.origin !== appOrigin) return null;
+			path = url.pathname;
 		} catch {
 			return null;
 		}
 	}
 	path = path.split('?')[0].split('#')[0];
-	if (!path.startsWith('/')) return null;
-	const lineNumber = /:(\d+)/.exec(match[2] ?? '')?.[1];
-	const candidate = (lineNumber ? `${path}:${lineNumber}` : path).slice(0, 160);
+	if (!path.startsWith('/_app/immutable/')) return null;
+	const candidate = `${path}${match[2] ?? ''}`.slice(0, 160);
 	return /^[A-Za-z0-9_/.:-]{1,160}$/.test(candidate) ? candidate : null;
 }
 
 function safeOperation(routePath: string): string | null {
-	// Route templates can contain SvelteKit parameters ([id]); concrete
-	// paths can contain user content (usernames, slugs). Neither is safe to
-	// send raw, so map everything outside the allowlist to a dash.
+	// Callers supply route templates, never pathname. Remove SvelteKit groups
+	// and parameter names before restricting the remaining static route text.
 	const cleaned = routePath
+		.replace(/\/\([^/]+\)/g, '')
+		.replace(/\[[^/]+\]/g, ':param')
 		.split('?')[0]
 		.split('#')[0]
 		.replace(/[^A-Za-z0-9_/.:-]/g, '-')
@@ -175,7 +222,8 @@ async function sendNormalized(kind: BrowserFailureKind, error: Error): Promise<v
 		error.name,
 		error.message,
 		error.stack,
-		page.url.pathname
+		page.route.id ?? '/unknown',
+		page.url.origin
 	);
 	if (!failure) return;
 	await maybeReportBrowserFailure(failure, {

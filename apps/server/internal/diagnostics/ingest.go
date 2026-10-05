@@ -218,6 +218,12 @@ func FormatDiscordPayload(report Report) ([]byte, error) {
 		{Name: "Operation", Value: clip(report.Operation, discordFieldLimit), Inline: true},
 		{Name: "Occurrences", Value: fmt.Sprintf("%d", max(report.OccurrenceCount, 1)), Inline: true},
 	}
+	if report.ErrorKind != "" {
+		fields = append(fields, discordDiagnosticsEmbedField{Name: "Error kind", Value: clip(report.ErrorKind, discordFieldLimit), Inline: true})
+	}
+	if report.HTTPMethod != "" {
+		fields = append(fields, discordDiagnosticsEmbedField{Name: "HTTP method", Value: clip(report.HTTPMethod, discordFieldLimit), Inline: true})
+	}
 	build := strings.TrimSpace(strings.TrimSpace(report.Version) + " " + strings.TrimSpace(report.Revision))
 	if build == "" {
 		build = "unknown build"
@@ -246,6 +252,9 @@ func FormatDiscordPayload(report Report) ([]byte, error) {
 				frames.WriteString("\n")
 			}
 			fmt.Fprintf(&frames, "%s %s:%d", frame.Function, frame.Module, frame.Line)
+			if frame.Column > 0 {
+				fmt.Fprintf(&frames, ":%d", frame.Column)
+			}
 			if frames.Len() > discordFieldLimit-32 {
 				frames.WriteString("\n…")
 				break

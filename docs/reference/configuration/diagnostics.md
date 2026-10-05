@@ -21,9 +21,18 @@ Reports answer "what broke, in which build, under what technical conditions":
 
 - release and revision, browser/backend/worker surface, operation (route template, job type, or normalized location)
 - normalized error code (`api_5xx`, `http_panic`, `worker_failed`, `publish_failed`, `media_failed`, `export_failed`, `startup_failed`, `browser_uncaught`, `browser_unhandled_rejection`, provider outage codes)
-- provider (allowlisted platforms only), HTTP status, retry/attempt counts, database/storage drivers, sanitized stack frames, occurrence counts
+- provider (allowlisted platforms only), HTTP method and status, retry/attempt counts, database/storage drivers, sanitized stack frames, occurrence counts
+- known error types, such as a deadline, DNS failure, refused connection, missing file, browser TypeError, or exhausted browser storage. Unknown errors omit this field.
 
-Reports never contain user or workspace identities, post text, prompts, media URLs, credentials, raw provider responses, instance domains, request/response bodies, cookies, headers, or client IPs. Payloads are built from an allowlist; unknown fields are rejected. Browser failures arrive as codes and app-relative locations only, never message text.
+Reports never contain user or workspace identities, post text, prompts, media URLs, credentials, raw provider responses, instance domains, request/response bodies, cookies, headers, or client IPs. Payloads are built from an allowlist; unknown fields are rejected. Browser reports include known error types and up to 24 compiled app script locations, without function names or message text. When no script location exists, they use a route template, without project IDs or usernames.
+
+Known error types are recovered from typed errors, without reading their messages. A handler that writes a 5xx response without returning an error supplies only its HTTP method and status. The absence of an error type does not mean the request had no underlying error.
+
+## Investigate a report
+
+Compare the report's build with the current release and inspect changes since that version. Match its operation and UTC observation time against the reporting operator's local logs. Ask for the full local stack or error privately when the report lacks a known error type or points only to a route. An installation ID cannot identify its operator or grant access to their logs.
+
+Counts show reporting installations with failures, not people or total self-hosted use. Quiet installations, opted-out installations, and failed deliveries are absent; one operator may run several installations.
 
 These are privacy-limited reports, not anonymous telemetry: each installation generates a random installation ID, and the receiving infrastructure observes the connecting server's IP.
 

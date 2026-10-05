@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -75,6 +76,9 @@ func TestDiagnosticsObserverCoversHumaStyle500s(t *testing.T) {
 	require.Equal(t, diagnostics.SurfaceBackend, reports[0].Surface)
 	require.Equal(t, http.StatusInternalServerError, reports[0].HTTPStatus)
 	require.Equal(t, "/api/v1/publications", reports[0].Operation)
+	payload, err := json.Marshal(reports[0])
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"http_method":"GET"`)
 }
 
 // TestDiagnosticsObserverDedupesAgainstErrorHandler ensures a handler that
@@ -86,7 +90,7 @@ func TestDiagnosticsObserverDedupesAgainstErrorHandler(t *testing.T) {
 	e.Use(observeDiagnosticFailures(reporter))
 	installTelemetryErrorHandler(e, &telemetry.MemoryRecorder{}, reporter)
 	e.GET("/things/:id", func(echo.Context) error {
-		return errors.New("database unavailable")
+		return errors.Join(errors.New("private content and token=secret"), context.DeadlineExceeded)
 	})
 
 	response := httptest.NewRecorder()
@@ -98,6 +102,11 @@ func TestDiagnosticsObserverDedupesAgainstErrorHandler(t *testing.T) {
 	require.Len(t, reports, 1)
 	require.Equal(t, diagnostics.CodeAPI5xx, reports[0].ErrorCode)
 	require.Equal(t, "/things/:id", reports[0].Operation, "route template, never the concrete path")
+	payload, err := json.Marshal(reports[0])
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"error_kind":"deadline_exceeded"`)
+	require.NotContains(t, string(payload), "private content")
+	require.NotContains(t, string(payload), "token=secret")
 }
 
 // TestDiagnosticsObserverIgnoresClientErrors ensures validation errors,

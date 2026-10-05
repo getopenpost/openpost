@@ -187,6 +187,27 @@ func TestDedupeFirstSendsThenAggregates(t *testing.T) {
 	}
 }
 
+func TestDedupeKeepsDifferentDiagnosticCausesSeparate(t *testing.T) {
+	dedupe := NewDeduplicator()
+	for _, details := range []struct{ kind, method string }{
+		{"deadline_exceeded", http.MethodGet},
+		{"permission_denied", http.MethodGet},
+		{"deadline_exceeded", http.MethodPost},
+	} {
+		report := validReport()
+		report.ErrorKind = details.kind
+		report.HTTPMethod = details.method
+		decision, _ := dedupe.Observe(report)
+		if decision != DedupeSend {
+			t.Fatalf("distinct cause %s / %s was hidden by aggregation", details.kind, details.method)
+		}
+		decision, _ = dedupe.Observe(report)
+		if decision != DedupeAggregate {
+			t.Fatal("the same cause should still aggregate")
+		}
+	}
+}
+
 func TestDedupeWindowSummaryCountsOccurrences(t *testing.T) {
 	dedupe := NewDeduplicator()
 	current := time.Now().UTC()

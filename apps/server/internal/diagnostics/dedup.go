@@ -19,18 +19,22 @@ const (
 // DedupeKey identifies one repeatable failure. Version is part of the key so
 // a fixed bug stops matching the old aggregate after an upgrade.
 type DedupeKey struct {
-	ErrorCode string
-	Operation string
-	Version   string
-	Surface   string
+	ErrorCode  string
+	ErrorKind  string
+	HTTPMethod string
+	Operation  string
+	Version    string
+	Surface    string
 }
 
 func dedupeKeyFor(report Report) DedupeKey {
 	return DedupeKey{
-		ErrorCode: report.ErrorCode,
-		Operation: report.Operation,
-		Version:   report.Version,
-		Surface:   report.Surface,
+		ErrorCode:  report.ErrorCode,
+		ErrorKind:  report.ErrorKind,
+		HTTPMethod: report.HTTPMethod,
+		Operation:  report.Operation,
+		Version:    report.Version,
+		Surface:    report.Surface,
 	}
 }
 

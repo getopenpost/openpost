@@ -8852,6 +8852,11 @@ export interface components {
             viewport: components["schemas"]["Viewport"];
         };
         DiagnosticsFrame: {
+            /**
+             * Format: int64
+             * @description Source column, when available
+             */
+            column?: number;
             /** @description Function name */
             function: string;
             /**
@@ -10533,10 +10538,20 @@ export interface components {
             db_driver?: string;
             /** @description Normalized error code from the diagnostics catalog */
             error_code: string;
+            /**
+             * @description Allowlisted error type, never message text
+             * @enum {string}
+             */
+            error_kind?: "deadline_exceeded" | "canceled" | "not_found" | "permission_denied" | "connection_refused" | "connection_reset" | "unexpected_eof" | "dns_error" | "network_timeout" | "runtime_error" | "type_error" | "reference_error" | "range_error" | "syntax_error" | "quota_exceeded" | "security_error" | "not_supported" | "invalid_state" | "abort_error" | "network_error";
             /** @description RFC3339 first observation, when known */
             first_seen?: string;
             /** @description Sanitized stack frames without domains or local paths */
             frames?: components["schemas"]["DiagnosticsFrame"][] | null;
+            /**
+             * @description HTTP request method, when relevant
+             * @enum {string}
+             */
+            http_method?: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "CONNECT" | "TRACE";
             /**
              * Format: int64
              * @description HTTP status, when relevant
@@ -14809,8 +14824,18 @@ export interface components {
             attempt_count?: number;
             /** @description Normalized error code from the diagnostics catalog */
             error_code: string;
+            /**
+             * @description Allowlisted error type, never message text
+             * @enum {string}
+             */
+            error_kind?: "deadline_exceeded" | "canceled" | "not_found" | "permission_denied" | "connection_refused" | "connection_reset" | "unexpected_eof" | "dns_error" | "network_timeout" | "runtime_error" | "type_error" | "reference_error" | "range_error" | "syntax_error" | "quota_exceeded" | "security_error" | "not_supported" | "invalid_state" | "abort_error" | "network_error";
             /** @description Sanitized stack frames without domains or local paths */
             frames?: components["schemas"]["DiagnosticsFrame"][] | null;
+            /**
+             * @description HTTP request method, when relevant
+             * @enum {string}
+             */
+            http_method?: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "CONNECT" | "TRACE";
             /**
              * Format: int64
              * @description HTTP status, when relevant

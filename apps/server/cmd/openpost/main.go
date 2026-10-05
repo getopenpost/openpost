@@ -136,9 +136,8 @@ func main() {
 	cfg := config.Load()
 	// The diagnostics reporter resolves its decision from environment
 	// configuration only, so startup failures (database initialization,
-	// migrations) can report without the application database. It
-	// defaults to disabled: existing installations keep their previous
-	// no-external-reporting behavior on upgrade.
+	// migrations) can report without the application database. Reporting
+	// defaults to enabled; the operator's environment kill-switch wins.
 	diagnosticsReporter := diagnostics.NewReporter(diagnostics.Config{
 		Enabled:            cfg.DiagnosticsEnabled,
 		EnvDisabled:        cfg.DiagnosticsEnvSet && !cfg.DiagnosticsEnabled,
@@ -1168,6 +1167,7 @@ func observeDiagnosticFailures(reporter *diagnostics.Reporter) echo.MiddlewareFu
 						Operation:  normalizedRequestRoute(c.Path()),
 						ErrorCode:  diagnostics.CodeAPI5xx,
 						HTTPStatus: c.Response().Status,
+						HTTPMethod: c.Request().Method,
 						FirstSeen:  time.Now().UTC(),
 						LastSeen:   time.Now().UTC(),
 					})
@@ -1220,12 +1220,13 @@ func capturePanics(recorder telemetry.Recorder, diagnosticsReporter *diagnostics
 					c.Set(diagnosticsCapturedKey, true)
 					if diagnosticsReporter != nil {
 						diagnosticsReporter.Report(diagnostics.Report{
-							Surface:   diagnostics.SurfaceBackend,
-							Operation: normalizedRequestRoute(c.Path()),
-							ErrorCode: diagnostics.CodeHTTPPanic,
-							Frames:    diagnostics.CaptureFrames(3),
-							FirstSeen: time.Now().UTC(),
-							LastSeen:  time.Now().UTC(),
+							Surface:    diagnostics.SurfaceBackend,
+							Operation:  normalizedRequestRoute(c.Path()),
+							ErrorCode:  diagnostics.CodeHTTPPanic,
+							HTTPMethod: c.Request().Method,
+							Frames:     diagnostics.CaptureFrames(3),
+							FirstSeen:  time.Now().UTC(),
+							LastSeen:   time.Now().UTC(),
 						})
 					}
 					captureErr := recorder.CaptureException(c.Request().Context(), telemetry.Exception{
@@ -1295,6 +1296,8 @@ func installTelemetryErrorHandler(e *echo.Echo, recorder telemetry.Recorder, dia
 				Operation:  normalizedRequestRoute(c.Path()),
 				ErrorCode:  code,
 				HTTPStatus: status,
+				HTTPMethod: c.Request().Method,
+				ErrorKind:  diagnostics.ErrorKind(err),
 				FirstSeen:  time.Now().UTC(),
 				LastSeen:   time.Now().UTC(),
 			})

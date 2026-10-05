@@ -115,6 +115,7 @@ type Frame struct {
 	Module   string `json:"module"`
 	Function string `json:"function"`
 	Line     int    `json:"line"`
+	Column   int    `json:"column,omitempty"`
 }
 
 // Report is the typed diagnostic payload. Every field is allowlisted; the
@@ -126,6 +127,8 @@ type Report struct {
 	Surface         string    `json:"surface"`
 	Operation       string    `json:"operation"`
 	ErrorCode       string    `json:"error_code"`
+	ErrorKind       string    `json:"error_kind,omitempty"`
+	HTTPMethod      string    `json:"http_method,omitempty"`
 	Provider        string    `json:"provider,omitempty"`
 	HTTPStatus      int       `json:"http_status,omitempty"`
 	RetryCount      int       `json:"retry_count,omitempty"`
@@ -175,6 +178,9 @@ const (
 // and immediately before sending, so a disabled-then-enabled queue cannot
 // smuggle unvalidated payloads.
 func ValidateReport(report Report) error {
+	if !validErrorKind(report.ErrorKind) || !validHTTPMethod(report.HTTPMethod) {
+		return fmt.Errorf("diagnostics report has an unknown error_kind or http_method")
+	}
 	if err := validateReportIdentity(report); err != nil {
 		return err
 	}
@@ -269,7 +275,7 @@ func validateFrame(frame Frame) error {
 	if !functionPattern.MatchString(frame.Function) {
 		return fmt.Errorf("diagnostics report has an invalid frame function %q", frame.Function)
 	}
-	if frame.Line < 0 || frame.Line > 1<<30 {
+	if frame.Line < 0 || frame.Line > 1<<30 || frame.Column < 0 || frame.Column > 1<<30 {
 		return fmt.Errorf("diagnostics report has an invalid frame line")
 	}
 	if containsSensitiveString(frame.Module) || containsSensitiveString(frame.Function) {
@@ -305,6 +311,7 @@ func SanitizeReport(report *Report) {
 		report.Frames[i].Module = normalizeModule(report.Frames[i].Module)
 		report.Frames[i].Function = truncateRunes(strings.TrimSpace(report.Frames[i].Function), 160)
 		report.Frames[i].Line = clampInt(report.Frames[i].Line, 1<<30)
+		report.Frames[i].Column = clampInt(report.Frames[i].Column, 1<<30)
 	}
 	if report.FirstSeen.IsZero() {
 		report.FirstSeen = report.LastSeen

@@ -301,6 +301,7 @@ func (w *BackgroundWorker) reportWorkerDiagnostic(job *models.Job, processErr er
 		Surface:      diagnostics.SurfaceWorker,
 		Operation:    normalizeWorkerOperation(job.Type),
 		ErrorCode:    code,
+		ErrorKind:    diagnostics.ErrorKind(processErr),
 		Provider:     provider,
 		AttemptCount: job.Attempts,
 		FirstSeen:    time.Now().UTC(),

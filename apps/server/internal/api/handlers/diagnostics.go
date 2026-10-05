@@ -54,6 +54,7 @@ type DiagnosticsFrame struct {
 	Module   string `json:"module" maxLength:"240" doc:"Normalized module path and file, never a URL or domain"`
 	Function string `json:"function" maxLength:"160" doc:"Function name"`
 	Line     int    `json:"line" minimum:"0" doc:"Source line"`
+	Column   int    `json:"column,omitempty" minimum:"0" maximum:"1073741824" doc:"Source column, when available"`
 }
 
 // SubmitDiagnosticsInputBody is the allowlisted report shape. Only these
@@ -64,6 +65,8 @@ type SubmitDiagnosticsInputBody struct {
 	Surface      string             `json:"surface" enum:"browser,backend,worker" doc:"Surface where the failure was observed"`
 	Operation    string             `json:"operation" maxLength:"160" doc:"Route template, job type, or operation name"`
 	ErrorCode    string             `json:"error_code" maxLength:"64" doc:"Normalized error code from the diagnostics catalog"`
+	ErrorKind    string             `json:"error_kind,omitempty" enum:"deadline_exceeded,canceled,not_found,permission_denied,connection_refused,connection_reset,unexpected_eof,dns_error,network_timeout,runtime_error,type_error,reference_error,range_error,syntax_error,quota_exceeded,security_error,not_supported,invalid_state,abort_error,network_error" doc:"Allowlisted error type, never message text"`
+	HTTPMethod   string             `json:"http_method,omitempty" enum:"GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS,CONNECT,TRACE" doc:"HTTP request method, when relevant"`
 	Provider     string             `json:"provider,omitempty" maxLength:"32" doc:"First-party platform, when relevant"`
 	HTTPStatus   int                `json:"http_status,omitempty" minimum:"0" maximum:"599" doc:"HTTP status, when relevant"`
 	RetryCount   int                `json:"retry_count,omitempty" minimum:"0" doc:"Retry count, when relevant"`
@@ -116,6 +119,7 @@ func (h *DiagnosticsHandler) RegisterRoutes(api huma.API) {
 				Module:   frame.Module,
 				Function: frame.Function,
 				Line:     frame.Line,
+				Column:   frame.Column,
 			})
 		}
 		now := time.Now().UTC()
@@ -123,6 +127,8 @@ func (h *DiagnosticsHandler) RegisterRoutes(api huma.API) {
 			Surface:      input.Body.Surface,
 			Operation:    input.Body.Operation,
 			ErrorCode:    input.Body.ErrorCode,
+			ErrorKind:    input.Body.ErrorKind,
+			HTTPMethod:   input.Body.HTTPMethod,
 			Provider:     input.Body.Provider,
 			HTTPStatus:   input.Body.HTTPStatus,
 			RetryCount:   input.Body.RetryCount,

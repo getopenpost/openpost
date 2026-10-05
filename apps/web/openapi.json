@@ -6248,6 +6248,13 @@
 			"DiagnosticsFrame": {
 				"additionalProperties": false,
 				"properties": {
+					"column": {
+						"description": "Source column, when available",
+						"format": "int64",
+						"maximum": 1073741824,
+						"minimum": 0,
+						"type": "integer"
+					},
 					"function": {
 						"description": "Function name",
 						"maxLength": 160,
@@ -10436,6 +10443,32 @@
 						"maxLength": 64,
 						"type": "string"
 					},
+					"error_kind": {
+						"description": "Allowlisted error type, never message text",
+						"enum": [
+							"deadline_exceeded",
+							"canceled",
+							"not_found",
+							"permission_denied",
+							"connection_refused",
+							"connection_reset",
+							"unexpected_eof",
+							"dns_error",
+							"network_timeout",
+							"runtime_error",
+							"type_error",
+							"reference_error",
+							"range_error",
+							"syntax_error",
+							"quota_exceeded",
+							"security_error",
+							"not_supported",
+							"invalid_state",
+							"abort_error",
+							"network_error"
+						],
+						"type": "string"
+					},
 					"first_seen": {
 						"description": "RFC3339 first observation, when known",
 						"maxLength": 32,
@@ -10448,6 +10481,21 @@
 						},
 						"maxItems": 24,
 						"type": ["array", "null"]
+					},
+					"http_method": {
+						"description": "HTTP request method, when relevant",
+						"enum": [
+							"GET",
+							"HEAD",
+							"POST",
+							"PUT",
+							"PATCH",
+							"DELETE",
+							"OPTIONS",
+							"CONNECT",
+							"TRACE"
+						],
+						"type": "string"
 					},
 					"http_status": {
 						"description": "HTTP status, when relevant",
@@ -20558,6 +20606,32 @@
 						"maxLength": 64,
 						"type": "string"
 					},
+					"error_kind": {
+						"description": "Allowlisted error type, never message text",
+						"enum": [
+							"deadline_exceeded",
+							"canceled",
+							"not_found",
+							"permission_denied",
+							"connection_refused",
+							"connection_reset",
+							"unexpected_eof",
+							"dns_error",
+							"network_timeout",
+							"runtime_error",
+							"type_error",
+							"reference_error",
+							"range_error",
+							"syntax_error",
+							"quota_exceeded",
+							"security_error",
+							"not_supported",
+							"invalid_state",
+							"abort_error",
+							"network_error"
+						],
+						"type": "string"
+					},
 					"frames": {
 						"description": "Sanitized stack frames without domains or local paths",
 						"items": {
@@ -20565,6 +20639,21 @@
 						},
 						"maxItems": 24,
 						"type": ["array", "null"]
+					},
+					"http_method": {
+						"description": "HTTP request method, when relevant",
+						"enum": [
+							"GET",
+							"HEAD",
+							"POST",
+							"PUT",
+							"PATCH",
+							"DELETE",
+							"OPTIONS",
+							"CONNECT",
+							"TRACE"
+						],
+						"type": "string"
 					},
 					"http_status": {
 						"description": "HTTP status, when relevant",

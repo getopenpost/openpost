@@ -11,6 +11,8 @@ Reporting is **on by default**. Instances report to the official receiver at `ht
 OPENPOST_DIAGNOSTICS_ENABLED=false
 ```
 
+Application browser test servers explicitly disable diagnostics and product telemetry. Maintainer diagnostics tests deliver to local HTTP receivers.
+
 The environment disable always wins, stops sending, and clears pending reports. Upgrading OpenPost activates this channel where previous versions sent nothing; the change is called out in the release notes. Browser reports additionally stop when Do Not Track or Global Privacy Control is set, regardless of the instance switch.
 
 ## What is reported

@@ -84,6 +84,11 @@ export default defineConfig({
     },
     {
       cwd: repositoryRoot,
+      env: {
+        OPENPOST_DIAGNOSTICS_ENABLED: "false",
+        OPENPOST_DIAGNOSTICS_INGEST_ENABLED: "false",
+        OPENPOST_TELEMETRY_ENABLED: "false",
+      },
       command: [
         `rm -f ${dbPath}`,
         ...(usePrebuiltArtifact ? [] : ["bun run build -- frontend"]),

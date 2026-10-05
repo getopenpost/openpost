@@ -21,7 +21,7 @@ export function WorkspaceHeader({ children }: { children?: React.ReactNode }) {
         alignItems: "center",
         gap: spacing.small,
         paddingHorizontal: spacing.large,
-        paddingVertical: spacing.small,
+        paddingVertical: spacing.extraSmall,
       }}
     >
       <DitherPressable

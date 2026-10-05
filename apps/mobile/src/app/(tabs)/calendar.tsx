@@ -94,7 +94,8 @@ export default function CalendarScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: spacing.large,
+            paddingHorizontal: spacing.large,
+            paddingTop: spacing.small,
             paddingBottom: spacing.doubleExtraLarge + spacing.large,
           },
         ]}

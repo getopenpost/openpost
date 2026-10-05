@@ -2,6 +2,7 @@ import type { ThemeManifest } from '../contracts.js';
 import { colors, scheme, themeV2 } from './shared.js';
 
 export const workshopLight = scheme({
+	elevation: { focalAction: 'none' },
 	colors: colors({
 		canvas: 'oklch(0.985 0.002 80)',
 		ink: 'oklch(0.2 0.01 50)',
@@ -44,6 +45,7 @@ export const workshopLight = scheme({
 });
 export const workshopDark = scheme(
 	{
+		elevation: { focalAction: 'none' },
 		colors: colors({
 			canvas: 'oklch(0.145 0.008 55)',
 			ink: 'oklch(0.92 0.005 85)',
@@ -90,10 +92,13 @@ export const workshopDark = scheme(
 	'dark'
 );
 
-export const workshopTheme: ThemeManifest = themeV2(
-	'workshop',
-	'Workshop',
-	'Warm technical minimalism with one clear orange signal.',
-	'lucide',
-	{ light: workshopLight, dark: workshopDark }
-);
+export const workshopTheme: ThemeManifest = {
+	...themeV2(
+		'workshop',
+		'Workshop',
+		'Warm technical minimalism with one clear orange signal.',
+		'lucide',
+		{ light: workshopLight, dark: workshopDark }
+	),
+	revision: 'builtin-v3'
+};

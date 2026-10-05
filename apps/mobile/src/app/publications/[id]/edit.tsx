@@ -1398,12 +1398,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   content: {
-    padding: 20,
+    padding: 16,
     gap: 12,
     paddingBottom: 120,
   },
   writingField: {
-    minHeight: 200,
+    minHeight: 168,
     paddingHorizontal: 0,
     paddingTop: 4,
   },

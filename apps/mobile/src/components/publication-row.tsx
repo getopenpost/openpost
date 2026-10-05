@@ -1,8 +1,9 @@
+import { NativeText } from "@/components/native-text";
 import { DitherPressable } from "@/components/dither-pressable";
 import { Image } from "expo-image";
 import { StyleSheet, View } from "react-native";
 
-import { BodyText, ContentTitle, StatusBadge } from "@/components/ui";
+import { BodyText, StatusBadge } from "@/components/ui";
 import { ThemeIcon } from "@/components/theme-icon";
 import type { PublicationListItem } from "@/lib/queries";
 import { useNativeTheme } from "@/theme";
@@ -27,7 +28,7 @@ export function PublicationRow({
   detail: string;
   showStatus?: boolean;
 }) {
-  const { colors, shape, spacing } = useNativeTheme().manifest;
+  const { colors, shape, spacing, typography } = useNativeTheme().manifest;
   const title = publicationTitle(publication);
   const image = publication.media?.find((media) => media.mime_type?.startsWith("image/"));
   return (
@@ -42,8 +43,8 @@ export function PublicationRow({
           flexDirection: "row",
           alignItems: "center",
           gap: spacing.medium,
-          paddingVertical: spacing.large,
-          minHeight: 88,
+          paddingVertical: spacing.medium,
+          minHeight: 80,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.outlineVariant,
           opacity: pressed ? 0.6 : 1,
@@ -54,7 +55,7 @@ export function PublicationRow({
         <Image
           source={{ uri: image.url }}
           contentFit="cover"
-          style={{ width: 64, height: 64, borderRadius: shape.medium }}
+          style={{ width: 64, height: 56, borderRadius: shape.medium }}
         />
       ) : (
         <View
@@ -69,7 +70,9 @@ export function PublicationRow({
         </View>
       )}
       <View style={{ flex: 1, gap: spacing.extraSmall }}>
-        <ContentTitle numberOfLines={2}>{title}</ContentTitle>
+        <NativeText numberOfLines={2} style={[typography.bodyLarge, { color: colors.onSurface }]}>
+          {title}
+        </NativeText>
         <BodyText numberOfLines={2}>{detail}</BodyText>
         {showStatus ? <StatusBadge status={publication.status} /> : null}
       </View>

@@ -2,7 +2,7 @@
   {
     "schemaVersion": 1,
     "id": "workshop",
-    "revision": "builtin-v2",
+    "revision": "builtin-v3",
     "name": "Workshop",
     "description": "Warm technical minimalism with one clear orange signal.",
     "iconPack": "lucide",
@@ -184,7 +184,7 @@
           "card": "none",
           "popover": "0 12px 30px -18px oklch(0.18 0.02 55 / 0.38)",
           "dialog": "0 24px 56px -28px oklch(0.18 0.02 55 / 0.48)",
-          "focalAction": "0 5px 14px -8px color-mix(in oklch, var(--action-focal) 72%, black)"
+          "focalAction": "none"
         },
         "motion": {
           "press": {
@@ -441,7 +441,7 @@
           "card": "none",
           "popover": "0 12px 30px -18px oklch(0.18 0.02 55 / 0.38)",
           "dialog": "0 24px 56px -28px oklch(0.18 0.02 55 / 0.48)",
-          "focalAction": "0 5px 14px -8px color-mix(in oklch, var(--action-focal) 72%, black)"
+          "focalAction": "none"
         },
         "motion": {
           "press": {

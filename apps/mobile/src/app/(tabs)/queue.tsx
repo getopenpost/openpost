@@ -171,8 +171,9 @@ export default function QueueScreen() {
       <WorkspaceHeader />
       <ScrollView
         contentContainerStyle={{
-          gap: spacing.extraLarge,
-          padding: spacing.large,
+          gap: spacing.large,
+          paddingHorizontal: spacing.large,
+          paddingTop: spacing.small,
           paddingBottom: spacing.doubleExtraLarge + spacing.small,
         }}
         refreshControl={

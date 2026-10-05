@@ -257,7 +257,9 @@ export default function DraftsScreen() {
       <ScrollView
         contentContainerStyle={{
           gap: spacing.large,
-          padding: spacing.large,
+          paddingHorizontal: spacing.large,
+          paddingTop: spacing.small,
+          paddingBottom: spacing.large,
         }}
         refreshControl={
           <RefreshControl
@@ -413,21 +415,23 @@ export default function DraftsScreen() {
           <QueryNotice message="You are offline. Current drafts remain visible." offline />
         ) : null}
         {list.length === 0 && hasDraftData ? <EmptyState title="No drafts yet" /> : null}
-        {list.map((draft) => (
-          <PublicationRow
-            key={draft.id}
-            publication={draft}
-            detail={`Edited ${relativeTime(draft.updated_at)}`}
-            onPress={() => {
-              const workspaceId = currentWorkspaceId();
-              void prefetchPublicationEditor(queryClient, workspaceId, draft.id);
-              router.push({
-                pathname: "/publications/[id]/edit",
-                params: { id: draft.id },
-              });
-            }}
-          />
-        ))}
+        <View>
+          {list.map((draft) => (
+            <PublicationRow
+              key={draft.id}
+              publication={draft}
+              detail={`Edited ${relativeTime(draft.updated_at)}`}
+              onPress={() => {
+                const workspaceId = currentWorkspaceId();
+                void prefetchPublicationEditor(queryClient, workspaceId, draft.id);
+                router.push({
+                  pathname: "/publications/[id]/edit",
+                  params: { id: draft.id },
+                });
+              }}
+            />
+          ))}
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -435,7 +439,7 @@ export default function DraftsScreen() {
 
 const styles = StyleSheet.create({
   ideaField: {
-    minHeight: 104,
+    minHeight: 80,
     paddingHorizontal: 0,
     paddingTop: 10,
   },

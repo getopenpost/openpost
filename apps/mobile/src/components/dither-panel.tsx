@@ -44,7 +44,7 @@ export function DitherPanel({ style, children, ...props }: React.ComponentProps<
           borderColor: colors.outlineVariant,
           borderRadius: shape.large,
           borderWidth: StyleSheet.hairlineWidth,
-          padding: spacing.large,
+          padding: spacing.medium,
           gap: spacing.medium,
         },
         style,

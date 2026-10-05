@@ -63,7 +63,7 @@ describe("native theme runtime", () => {
       kind: "fallback",
       reason: "unsupported-scheme",
     });
-    expect(resolved.manifest.id).toBe("workshop-light-builtin-v2");
+    expect(resolved.manifest.id).toBe("workshop-light-builtin-v3");
   });
 
   test("falls back on invalid contract manifests before they reach React Native", () => {

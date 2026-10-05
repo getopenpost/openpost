@@ -34,11 +34,11 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
   workshop: {
     id: "workshop",
     displayName: "Workshop",
-    revision: "builtin-v2",
+    revision: "builtin-v3",
     supportedSchemes: ["light", "dark"],
     manifests: {
       light: {
-        id: "workshop-light-builtin-v2",
+        id: "workshop-light-builtin-v3",
         familyId: "workshop",
         displayName: "Workshop",
         scheme: "light",
@@ -87,7 +87,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
             pressedContainer: "#98430fff",
             pressedContent: "#fbfaf9ff",
             depthColor: "#1a1512ff",
-            depth: 5,
+            depth: 0,
             disabledOpacity: 0.42,
             underline: false,
           },
@@ -313,7 +313,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
         },
       },
       dark: {
-        id: "workshop-dark-builtin-v2",
+        id: "workshop-dark-builtin-v3",
         familyId: "workshop",
         displayName: "Workshop",
         scheme: "dark",
@@ -362,7 +362,7 @@ export const GENERATED_BUILTIN_THEME_FAMILIES = {
             pressedContainer: "#d98b59ff",
             pressedContent: "#080503ff",
             depthColor: "#e6e4e1ff",
-            depth: 5,
+            depth: 0,
             disabledOpacity: 0.42,
             underline: false,
           },

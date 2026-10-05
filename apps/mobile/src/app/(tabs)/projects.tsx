@@ -308,7 +308,8 @@ export default function VideoProjectsScreen() {
       <ScrollView
         contentContainerStyle={{
           gap: spacing.large,
-          padding: spacing.large,
+          paddingHorizontal: spacing.large,
+          paddingTop: spacing.small,
           paddingBottom: spacing.extraLarge,
         }}
         refreshControl={<RefreshControl refreshing={busy} onRefresh={refresh} />}

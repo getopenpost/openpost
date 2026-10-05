@@ -83,8 +83,10 @@ function AnalyticsDashboard() {
       </View>
       <ScrollView
         contentContainerStyle={{
-          padding: spacing.large,
-          gap: spacing.extraLarge,
+          paddingHorizontal: spacing.large,
+          paddingTop: spacing.small,
+          paddingBottom: spacing.large,
+          gap: spacing.large,
         }}
         refreshControl={
           <RefreshControl
@@ -309,7 +311,7 @@ function Metric({
         flexBasis: fontScale >= 1.3 ? "100%" : "45%",
         minWidth: 140,
         gap: spacing.extraSmall,
-        paddingVertical: spacing.medium,
+        paddingVertical: spacing.small,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: colors.outlineVariant,
       }}
@@ -408,6 +410,6 @@ function DailyViews({
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   filter: { flex: 1, minWidth: 90 },
-  metrics: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   accountRow: { flexDirection: "row", alignItems: "center", gap: 12 },
 });

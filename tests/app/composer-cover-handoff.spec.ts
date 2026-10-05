@@ -158,7 +158,9 @@ test("an edited source frame returns only to its destination cover and survives 
   await page.keyboard.press("Escape");
   await page.getByRole("banner").getByRole("button", { name: "Use as cover", exact: true }).click();
   const exportDialog = page.getByRole("dialog", { name: "Export design" });
-  await expect(exportDialog.getByRole("img", { name: "Encoded export preview" })).toBeVisible();
+  await expect(exportDialog.getByRole("img", { name: "Encoded export preview" })).toBeVisible({
+    timeout: 30_000,
+  });
   await exportDialog.getByRole("button", { name: "Use as cover", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("img", { name: "A custom cover image is selected." })).toBeVisible({

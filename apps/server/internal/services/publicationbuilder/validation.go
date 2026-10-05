@@ -52,6 +52,21 @@ func validateBuildInputWithStoredReferences(input BuildInput, hasStoredReference
 	if utf8.RuneCountInString(input.Idea) > maxIdeaCharacters {
 		return fmt.Errorf("idea exceeds %d characters", maxIdeaCharacters)
 	}
+	for _, field := range []struct {
+		name    string
+		value   string
+		maximum int
+	}{
+		{"outcome", input.Direction.Outcome, MaxDirectionOutcomeCharacters},
+		{"audience", input.Direction.Audience, MaxDirectionAudienceCharacters},
+		{"angle", input.Direction.Angle, MaxDirectionAngleCharacters},
+		{"tone adjustment", input.Direction.ToneAdjustment, MaxDirectionToneCharacters},
+		{"media preference", input.Direction.MediaPreference, MaxDirectionMediaPreferenceCharacters},
+	} {
+		if utf8.RuneCountInString(field.value) > field.maximum {
+			return fmt.Errorf("direction %s exceeds %d characters", field.name, field.maximum)
+		}
+	}
 	if len(input.Sources) > maxSourceCount {
 		return fmt.Errorf("sources exceed the limit of %d", maxSourceCount)
 	}

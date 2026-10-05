@@ -127,7 +127,7 @@ func (service *Service) direct(ctx context.Context, input BuildInput, supported 
 	generated, err := service.generator.Generate(ctx, ai.GenerateRequest{
 		Model: service.model, SystemPrompt: directorSystemPrompt, UserPrompt: prompt,
 		Parts: input.Parts, Images: input.Images, Files: input.Files, Audio: input.Audio, Videos: input.Videos,
-		ResponseSchema: directorResponseSchema(len(supported)), MaxOutputTokens: 4_000,
+		ResponseSchema: directorResponseSchema(supported, input), MaxOutputTokens: 4_000,
 		ReasoningEffort: ai.ReasoningEffortMedium,
 	})
 	if err != nil {
@@ -137,6 +137,16 @@ func (service *Service) direct(ctx context.Context, input BuildInput, supported 
 	var plan DirectorPlan
 	if err := decodeStrictJSON(generated.Text, &plan); err != nil {
 		return DirectorPlan{}, &generationFailure{code: failureDirectorOutput, cause: fmt.Errorf("validate publication direction: %w", err)}
+	}
+	// Authored choices are input state. The provider generates only unlocked fields.
+	if outcome := strings.TrimSpace(input.Direction.Outcome); outcome != "" {
+		plan.Outcome = outcome
+	}
+	if audience := strings.TrimSpace(input.Direction.Audience); audience != "" {
+		plan.Audience = audience
+	}
+	if angle := strings.TrimSpace(input.Direction.Angle); angle != "" {
+		plan.Angle = angle
 	}
 	if err := validateDirector(plan, supported, sourceReferenceCatalogFor(input), input.Direction, input.DestinationPolicy); err != nil {
 		return DirectorPlan{}, &generationFailure{code: failureDirectorOutput, cause: fmt.Errorf("validate publication direction: %w", err)}
@@ -185,7 +195,7 @@ func (service *Service) draftDestinations(
 			}
 			generated, err := service.generator.Generate(ctx, ai.GenerateRequest{
 				Model: service.model, SystemPrompt: adapterSystemPrompt(policy), UserPrompt: prompt,
-				ResponseSchema:  adapterResponseSchema(destination, policy),
+				ResponseSchema:  adapterResponseSchema(destination, policy, sourceReferenceCatalogFor(input)),
 				MaxOutputTokens: 3_000, ReasoningEffort: ai.ReasoningEffortLow,
 			})
 			if err != nil {

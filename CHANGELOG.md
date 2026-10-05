@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.13.0] - 2026-10-05
+
+### Changed
+
+- Account previews start directly below the tabs. A linked/unlinked control, Preview, and More share the tab row; text status labels are removed and resetting to shared text lives in More.
+- Unlink account text and media from shared content with one click, show its linked state, and restore shared inheritance without changing poll or link settings.
+- Mobile Drafts, Calendar, Queue, Video, and the composer put content first with compact headers and shared dither styling.
+- Native tabs and draft generation follow the workspace icon pack.
+
+### Fixed
+
+- Keep the selected account tab visible when preview actions appear, and stay on that account when resetting its text.
+- Restore shared text from the account menu for joined video posts, while keeping caption-only resets separate.
+- iOS display text remains readable at enlarged Dynamic Type sizes.
+- Calendar rows show the post body when no title is authored, and composer attachments display their remote previews.
+
+### Added
+
+- Native Analytics with account filters, stored measurements, daily views, and destination results.
+
 ## [7.12.1] - 2026-10-05
 
 ### Fixed

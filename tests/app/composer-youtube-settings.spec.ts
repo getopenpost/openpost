@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  createWorkspace,
+  registerUser,
+  openComposerPlatformSettings,
+} from "./helpers";
 
-const hint =
-  "Add a video in All, or customize this version to add separate media. Then reopen settings to enter its title and choose video options.";
+const hint = "Add a video in All or this account to edit video settings.";
 
 test("YouTube settings explain required video before fields are resolved", async ({
   page,
@@ -60,12 +64,20 @@ test("YouTube settings explain required video before fields are resolved", async
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();
       await page.locator(`#composer-destination-${accountID}`).click();
-      const settings = page.getByRole("button", { name: "Platform settings", exact: true });
+      const settings = page
+        .getByTestId("composer-variant-toolbar")
+        .getByRole("button", { name: "More", exact: true });
       await settings.focus();
       await settings.press("Enter");
-      const dialog = page.getByRole("dialog", { name: "YouTube settings", exact: true });
+      await page.getByRole("menuitem", { name: "Platform settings", exact: true }).click();
+      const dialog = page.getByRole("dialog", {
+        name: "YouTube settings",
+        exact: true,
+      });
       await expect(dialog.getByText(hint, { exact: true })).toBeVisible();
-      await page.screenshot({ path: info.outputPath(`youtube-empty-${width}-${scheme}.png`) });
+      await page.screenshot({
+        path: info.outputPath(`youtube-empty-${width}-${scheme}.png`),
+      });
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
       await expect(settings).toBeFocused();
@@ -81,7 +93,10 @@ test("YouTube settings explain required video before fields are resolved", async
   const picker = page.getByRole("dialog");
   await picker.getByRole("tab", { name: "Library", exact: true }).click();
   await picker
-    .getByRole("button", { name: "Select audit-youtube-settings.mp4", exact: true })
+    .getByRole("button", {
+      name: "Select audit-youtube-settings.mp4",
+      exact: true,
+    })
     .click();
   await picker.getByRole("button", { name: /^Add/ }).click();
   await expect
@@ -91,11 +106,16 @@ test("YouTube settings explain required video before fields are resolved", async
     })
     .toEqual([media.id]);
   await page.locator(`#composer-destination-${accountID}`).click();
-  await page.getByRole("button", { name: "Platform settings", exact: true }).click();
-  const populated = page.getByRole("dialog", { name: "YouTube settings", exact: true });
+  await openComposerPlatformSettings(page);
+  const populated = page.getByRole("dialog", {
+    name: "YouTube settings",
+    exact: true,
+  });
   await expect(populated.getByText(hint, { exact: true })).toHaveCount(0);
   await expect(populated.getByRole("textbox", { name: /^Title/ })).toBeVisible();
-  await page.screenshot({ path: info.outputPath("youtube-video-fields-320-dark.png") });
+  await page.screenshot({
+    path: info.outputPath("youtube-video-fields-320-dark.png"),
+  });
   await page.keyboard.press("Escape");
   for (const width of [1280, 390, 320])
     for (const scheme of ["light", "dark"] as const) {
@@ -103,9 +123,15 @@ test("YouTube settings explain required video before fields are resolved", async
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();
       await page.locator(`#composer-destination-${accountID}`).click();
-      await page.getByRole("button", { name: "Platform settings", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "YouTube settings", exact: true });
-      const description = dialog.getByRole("textbox", { name: "Description", exact: true });
+      await openComposerPlatformSettings(page);
+      const dialog = page.getByRole("dialog", {
+        name: "YouTube settings",
+        exact: true,
+      });
+      const description = dialog.getByRole("textbox", {
+        name: "Description",
+        exact: true,
+      });
       await description.focus();
       await expect(description).toBeFocused();
       await description.fill("😀".repeat(1251));
@@ -129,7 +155,9 @@ test("YouTube settings explain required video before fields are resolved", async
       });
       await description.fill("Launch <now>");
       await expect(
-        dialog.getByText("Descriptions cannot contain < or >.", { exact: true }),
+        dialog.getByText("Descriptions cannot contain < or >.", {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(description).toHaveAccessibleDescription(/Descriptions cannot contain < or >\./);
       await description.fill("é".repeat(2500));

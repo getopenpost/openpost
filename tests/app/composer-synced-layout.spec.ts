@@ -82,54 +82,44 @@ for (const width of [1280, 390, 320]) {
       });
       await expect(editor).toHaveCSS("direction", "rtl");
       await page.locator(`#composer-destination-${accountID}`).click();
-      await expect(editor).toBeDisabled();
+      await expect(editor).toBeEnabled();
       await expect(editor).toHaveValue(text);
-      const customize = page.getByRole("button", {
-        name: "Customize this version",
+      await expect(page.getByText("Using shared text", { exact: true })).toBeVisible();
+      const preview = page.getByRole("region", {
+        name: "Preview",
         exact: true,
       });
-      await expect(customize).toBeVisible();
+      await expect(preview).toBeVisible();
       await page.screenshot({
         path: testInfo.outputPath("synced.png"),
         fullPage: true,
       });
-      const notice = customize.locator("../..");
-      const editorBounds = await editor.boundingBox();
-      const noticeBounds = await notice.boundingBox();
-      expect(noticeBounds!.y).toBeGreaterThanOrEqual(editorBounds!.y + editorBounds!.height);
-      expect(noticeBounds!.x).toBeGreaterThanOrEqual(0);
-      expect(noticeBounds!.x + noticeBounds!.width).toBeLessThanOrEqual(width);
-      await customize.focus();
-      await page.keyboard.press("Enter");
-      await expect(editor).toBeEnabled();
-      await expect(editor).toHaveValue(text);
-      await expect(customize).toHaveCount(0);
-
-      const previewButton = page.getByRole("button", { name: "Preview", exact: true });
-      await previewButton.focus();
-      await page.keyboard.press("Enter");
-      await expect(previewButton).toHaveAttribute("aria-expanded", "true");
-      const preview = page.getByRole("region", { name: "Preview", exact: true });
-      await expect(preview.getByText(text, { exact: true })).toBeVisible();
       const revised = "שלום OpenPost! זהו טקסט מותאם ליעד.";
       await editor.fill(revised);
       await expect(editor).toHaveCSS("direction", "rtl");
-      await expect(preview.getByText(revised, { exact: true })).toBeVisible();
-      await expect(preview.getByText(text, { exact: true })).toHaveCount(0);
-      await preview.screenshot({ path: testInfo.outputPath("compact-preview.png") });
+      await expect(editor).toHaveValue(revised);
+      await expect(page.getByText("Custom text", { exact: true })).toBeVisible();
+      await preview.screenshot({
+        path: testInfo.outputPath("compact-preview.png"),
+      });
 
       const popupPromise = page.waitForEvent("popup");
-      await preview.getByRole("button", { name: "Full page", exact: true }).click();
+      await page.getByRole("button", { name: "Full preview", exact: true }).click();
       const popup = await popupPromise;
       popup.on("pageerror", (error) => pageErrors.push(error.message));
       popup.on("console", (message) => {
         if (message.type() === "error") pageErrors.push(message.text());
       });
       await popup.setViewportSize({ width, height: 1000 });
-      await popup.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await popup.emulateMedia({
+        colorScheme: scheme,
+        reducedMotion: "reduce",
+      });
       await expect(popup.getByText(revised, { exact: true })).toBeVisible();
       await popup.getByRole("button", { name: "320px", exact: true }).click();
-      const fullPreview = popup.getByLabel("LinkedIn page preview", { exact: true });
+      const fullPreview = popup.getByLabel("LinkedIn page preview", {
+        exact: true,
+      });
       await expect(fullPreview).toHaveCSS("width", "320px");
       await popup.getByRole("button", { name: "Dark", exact: true }).click();
       await expect(popup.getByRole("button", { name: "Dark", exact: true })).toHaveAttribute(
@@ -139,9 +129,11 @@ for (const width of [1280, 390, 320]) {
       const finalText = "The open full-page preview also follows my edits.";
       await editor.fill(finalText);
       await expect(editor).toHaveCSS("direction", "ltr");
-      await expect(preview.getByText(finalText, { exact: true })).toBeVisible();
+      await expect(editor).toHaveValue(finalText);
       await expect(fullPreview.getByText(finalText, { exact: true })).toBeVisible();
-      await fullPreview.screenshot({ path: testInfo.outputPath("full-preview.png") });
+      await fullPreview.screenshot({
+        path: testInfo.outputPath("full-preview.png"),
+      });
       expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );

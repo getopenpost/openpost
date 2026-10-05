@@ -13,8 +13,11 @@
   import TelegramPreview from "./TelegramPreview.svelte";
   import YouTubePreview from "./YouTubePreview.svelte";
 
+  import { providePreviewEditing, type PreviewEditing } from "./editing";
+
   interface Props {
     model: PreviewModel;
+    editor?: PreviewEditing;
     class?: string;
     compact?: boolean;
     scheme?: "light" | "dark" | "system";
@@ -22,10 +25,12 @@
 
   let {
     model,
+    editor,
     class: className = "",
     compact = false,
     scheme = "system",
   }: Props = $props();
+  providePreviewEditing(() => editor);
   const platformName = $derived(platformNames[model.platform]);
   const previewLabel = $derived(`${platformName} ${model.format} preview`);
 </script>
@@ -44,10 +49,19 @@
   aria-label={previewLabel}
 >
   {#if model.platform === "unsupported"}
-    <div class="unsupported-preview" role="status">
-      <strong>Preview unavailable</strong>
-      <p>We cannot show a preview for this account yet.</p>
-    </div>
+    {#if editor}
+      <div class="fallback-editor">
+        <p role="status">We cannot show a preview for this account yet.</p>
+        {#each model.segments as segment (segment.id)}
+          {@render editor.text(segment)}
+        {/each}
+      </div>
+    {:else}
+      <div class="unsupported-preview" role="status">
+        <strong>Preview unavailable</strong>
+        <p>We cannot show a preview for this account yet.</p>
+      </div>
+    {/if}
   {:else if model.platform === "pinterest"}
     <PinterestPreview {model} {compact} />
   {:else if model.platform === "googlebusiness"}
@@ -141,6 +155,22 @@
     display: grid;
     gap: 0.75rem;
     width: min(100%, 38rem);
+  }
+
+  .fallback-editor {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 0.75rem;
+  }
+
+  .fallback-editor > p {
+    margin: 0;
+    color: var(--muted-foreground, #6b7280);
+    font-size: 0.85rem;
   }
 
   .unsupported-preview {

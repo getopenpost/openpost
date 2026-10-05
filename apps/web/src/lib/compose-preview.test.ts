@@ -67,7 +67,10 @@ describe('social preview model', () => {
 			segments: [{ id: 'one', text: 'A destination-aware post.' }]
 		});
 
-		expect(model.identity).toMatchObject({ displayName: 'Your name', handle: 'creator' });
+		expect(model.identity).toMatchObject({
+			displayName: 'Your name',
+			handle: 'creator'
+		});
 		expect(model.segments[0]?.text).toBe('A destination-aware post.');
 		expect(supportsPreviewFormat('x', 'thread')).toBe(true);
 		expect(supportsPreviewFormat('instagram', 'thread')).toBe(false);
@@ -80,7 +83,13 @@ describe('composer preview mapping', () => {
 			account: { ...account, platform: 'facebook' },
 			mode: 'post',
 			outputProfile: 'facebook.post',
-			segments: [{ id: 'one', text: 'Feed video', media: [{ id: 'clip', mimeType: 'video/mp4' }] }]
+			segments: [
+				{
+					id: 'one',
+					text: 'Feed video',
+					media: [{ id: 'clip', mimeType: 'video/mp4' }]
+				}
+			]
 		});
 		expect(model.format).toBe('post');
 	});
@@ -183,8 +192,16 @@ describe('composer preview mapping', () => {
 			account,
 			mode: 'thread',
 			segments: [
-				{ id: 'one', text: 'First', settings: { poll_options: 'Yes, sometimes\nNever' } },
-				{ id: 'two', text: 'Second', settings: { poll_options: 'Red, green\nBlue' } }
+				{
+					id: 'one',
+					text: 'First',
+					settings: { poll_options: 'Yes, sometimes\nNever' }
+				},
+				{
+					id: 'two',
+					text: 'Second',
+					settings: { poll_options: 'Red, green\nBlue' }
+				}
 			]
 		});
 		expect(model.segments?.[0].poll?.options).toEqual(['Yes, sometimes', 'Never']);
@@ -258,5 +275,39 @@ describe('composer preview mapping', () => {
 			title: 'The 2026 report'
 		});
 		expect(tiktokModel).toMatchObject({ platform: 'tiktok', format: 'photo' });
+	});
+});
+
+describe('account link previews', () => {
+	it.each(['bluesky', 'linkedin', 'facebook', 'x'])(
+		'uses the URL in %s account text before the shared fallback',
+		(platform) => {
+			const model = buildComposerPreview({
+				account: { ...account, platform },
+				mode: 'post',
+				segments: [{ id: 'one', text: 'A separate update https://account.example/new' }],
+				linkUrl: 'https://shared.example/old'
+			});
+			expect(model.card?.domain).toBe('account.example');
+			expect(model.segments[0].card?.domain).toBe('account.example');
+		}
+	);
+
+	it('renders LinkedIn article overrides inside the card rather than as another post heading', () => {
+		const model = buildComposerPreview({
+			account: { ...account, platform: 'linkedin' },
+			mode: 'post',
+			segments: [{ id: 'one', text: 'The introduction. https://example.com/article' }],
+			destinationSettings: {
+				article_title: 'A separate article headline',
+				article_description: 'The article summary.'
+			}
+		});
+		expect(model.card).toMatchObject({
+			title: 'A separate article headline',
+			description: 'The article summary.'
+		});
+		expect(model.title).toBe('');
+		expect(model.subtitle).toBe('');
 	});
 });

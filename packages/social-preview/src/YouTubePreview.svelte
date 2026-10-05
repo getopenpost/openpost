@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import Play from "@lucide/svelte/icons/play";
   import Settings from "@lucide/svelte/icons/settings";
   import Maximize from "@lucide/svelte/icons/maximize";
@@ -10,6 +11,8 @@
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
   import VerticalPreview from "./VerticalPreview.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -55,7 +58,7 @@
       </div>
     </div>
 
-    <h2 dir="auto">{title}</h2>
+    <h2 dir="auto">{#if editing()?.title}{@render editing()!.title!(title, primary)}{:else}{title}{/if}</h2>
     <div class="video-meta">
       <div class="channel">
         <PreviewAvatar identity={model.identity} size={40} />
@@ -73,7 +76,7 @@
 
     <div class="description">
       <strong>0 views · {model.createdAtLabel}</strong>
-      <p dir="auto">{description}</p>
+      {#if editing()?.text}{@render editing()!.text(primary)}{:else}<p dir="auto">{description}</p>{/if}
     </div>
 
     <div class="comments">

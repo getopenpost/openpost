@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import BarChart3 from "@lucide/svelte/icons/chart-no-axes-column-increasing";
@@ -15,6 +16,8 @@
   import ThumbsUp from "@lucide/svelte/icons/thumbs-up";
   import Upload from "@lucide/svelte/icons/upload";
   import type { PreviewPlatformKey } from "./model";
+
+  const editing = previewEditing();
 
   type ActionName =
     | "reply"
@@ -194,6 +197,7 @@
   {/if}
 {/snippet}
 
+{#if !editing()}
 <div
   class={[
     "preview-actions",
@@ -217,6 +221,8 @@
     </span>
   {/each}
 </div>
+
+{/if}
 
 <style>
   .preview-actions {

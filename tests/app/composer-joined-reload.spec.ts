@@ -62,7 +62,6 @@ test("a customized joined thread preserves each authored source after a cold rel
   await authenticatePage(page, auth.token);
   await page.goto(`/publications/${publication.id}?workspace_id=${workspace.id}`);
   await page.locator(`#composer-destination-${accountID}`).click();
-  await page.getByRole("button", { name: "Customize this version", exact: true }).click();
   const editors = page.getByRole("textbox", { name: "Post text", exact: true });
   await expect(editors).toHaveCount(2);
   await editors.nth(0).fill("Custom first 東京");
@@ -99,7 +98,131 @@ test("a customized joined thread preserves each authored source after a cold rel
       await editors.nth(0).focus();
       await page.keyboard.press("Tab");
       await expect(editors.nth(0)).not.toBeFocused();
-      await page.screenshot({ path: testInfo.outputPath(`joined-${width}-${colorScheme}.png`) });
+      await page.screenshot({
+        path: testInfo.outputPath(`joined-${width}-${colorScheme}.png`),
+      });
     }
   }
+});
+
+test("a joined Facebook caption edits the delivered description without flattening sources", async ({
+  page,
+  request,
+}) => {
+  const auth = await registerUser(request, `joined-caption-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Joined caption");
+  const accountID = randomUUID();
+  execFileSync("sqlite3", [
+    "-cmd",
+    ".timeout 5000",
+    `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
+    `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${accountID}','${workspace.id}','caption-${accountID}','facebook','${accountID}','Caption page',X'00',1);`,
+  ]);
+  const headers = { Authorization: `Bearer ${auth.token}` };
+  const created = await request.post("/api/v1/publications", {
+    headers,
+    data: {
+      workspace_id: workspace.id,
+      title: "Joined caption",
+      content_profile: "thread",
+      source_text: "Shared first",
+      segments: [
+        { id: "first", body: "Shared first" },
+        { id: "second", body: "Continuation once" },
+      ],
+      renditions: [
+        {
+          social_account_id: accountID,
+          output_profile: "facebook.video",
+          segments: [
+            {
+              publication_segment_id: "first",
+              source_overrides: [
+                {
+                  publication_segment_id: "first",
+                  body_override: "Authored first",
+                  media_inherited: true,
+                },
+                { publication_segment_id: "second", media_inherited: true },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const publication = await created.json();
+  await page.route("**/api/v1/capabilities/resolve", (route) =>
+    route.fulfill({
+      json: {
+        accounts: [
+          {
+            account_id: accountID,
+            provider: "facebook",
+            profile: "thread",
+            output_profile: "facebook.video",
+            segment_strategy: "join",
+            label: "Facebook video",
+            text_limit: 5000,
+            compatible: true,
+            media: { min_count: 0, max_count: 1, allowed_mimes: [] },
+            settings: [
+              {
+                key: "video_description",
+                label: "Description",
+                type: "textarea",
+                scope: "destination",
+                group: "content",
+              },
+            ],
+            issues: [],
+            active_constraints: {},
+            immediate_readiness: { state: "healthy", publishable: true },
+            scheduled_readiness: { state: "healthy", publishable: true },
+          },
+        ],
+      },
+    }),
+  );
+  await authenticatePage(page, auth.token);
+  await page.goto(`/publications/${publication.id}?workspace_id=${workspace.id}`);
+  await page.locator(`#composer-destination-${accountID}`).click();
+  const editor = page.getByRole("textbox", { name: "Post text", exact: true });
+  await expect(editor).toHaveCount(1);
+  await expect(editor).toHaveValue("Authored first\n\nContinuation once");
+  await editor.fill("Caption first\n\nContinuation edited");
+  await expect
+    .poll(async () => {
+      const saved = await (
+        await request.get(`/api/v1/publications/${publication.id}`, { headers })
+      ).json();
+      return {
+        description: saved.renditions[0].settings?.video_description,
+        sources: saved.segments.map((source: any) => source.body),
+      };
+    })
+    .toEqual({
+      description: "Caption first\n\nContinuation edited",
+      sources: ["Shared first", "Continuation once"],
+    });
+  await page.reload();
+  await page.locator(`#composer-destination-${accountID}`).click();
+  await expect(editor).toHaveValue("Caption first\n\nContinuation edited");
+  await page
+    .getByTestId("composer-account-editor")
+    .getByRole("button", { name: "Reset", exact: true })
+    .click();
+  await expect(editor).toHaveValue("Authored first\n\nContinuation once");
+  await expect
+    .poll(async () => {
+      const saved = await (
+        await request.get(`/api/v1/publications/${publication.id}`, { headers })
+      ).json();
+      return {
+        description: saved.renditions[0].settings?.video_description,
+        first: saved.renditions[0].segments[0].source_overrides?.[0]?.body_override,
+      };
+    })
+    .toEqual({ description: "", first: "Authored first" });
 });

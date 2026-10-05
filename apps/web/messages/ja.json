@@ -9720,7 +9720,7 @@
 	"repurpose_folder_missing": "クリップを作成する前にローカルフォルダーを選択してください。",
 	"repurpose_transcript_storage_failed": "プロジェクトは利用できますが、この端末に文字起こしを保存できませんでした。編集と書き出しは引き続き行えます。",
 	"image_editor_text_range_scope": "フォントと文字サイズはテキストレイヤー全体に適用されます。",
-	"compose_settings_add_video_hint": "「{all}」で動画を追加するか、このバージョンをカスタマイズして別のメディアを追加してください。その後、設定を開き直してタイトルを入力し、動画のオプションを選択してください。",
+	"compose_settings_add_video_hint": "「{all}」またはこのアカウントに動画を追加して、動画の設定を編集してください。",
 	"video_editor_shortcuts_playback_scope": "シャトルは、フォーカスまたはホバーされているときはソースを、それ以外はプログラムを操作します。フォーカスされたスライダー、ボタン、テキスト欄は、それぞれのキー操作を優先します。",
 	"calendar_no_matching_body": "選択した日付とフィルターに一致する投稿はありません。別の期間を選ぶか、フィルターを解除してください。",
 	"media_dimensions_range_invalid": "最小サイズは最大サイズ以下にしてください。上限を設けない場合は0を指定してください。",
@@ -9748,5 +9748,10 @@
 	"compose_poll_use_shared": "共通の投票を使用",
 	"compose_poll_review_accounts": "これらのアカウントでの投票の投稿方法を選んでください。",
 	"compose_poll_unsupported_accounts": "{accounts}では投票を利用できません。各アカウントのタブで形式を選んでください。",
-	"compose_poll_text_notice": "投票ボタンのないテキストのみの投稿です。"
+	"compose_poll_text_notice": "投票ボタンのないテキストのみの投稿です。",
+	"compose_full_preview": "全体プレビュー",
+	"compose_using_shared_text": "共通テキストを使用中",
+	"compose_using_custom_text": "カスタムテキスト",
+	"compose_link_use_post_url": "投稿のURLを使用",
+	"compose_preview_reset": "リセット"
 }

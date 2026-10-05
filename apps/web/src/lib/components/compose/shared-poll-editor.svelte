@@ -18,6 +18,8 @@
 
 	let {
 		value,
+		presentation = 'summary',
+		creationAccountID,
 		destinations,
 		body,
 		activeDestinationId,
@@ -29,6 +31,8 @@
 		onLegacySettings
 	}: {
 		value?: SharedPoll;
+		presentation?: 'summary' | 'dialog';
+		creationAccountID?: string;
 		destinations: PollDestination[];
 		body: string;
 		activeDestinationId: string | null;
@@ -83,15 +87,25 @@
 						duration_seconds: 86400,
 						destinations: Object.fromEntries(
 							destinations
-								.filter((destination) => supportsNativePoll(destination.fields))
-								.map((destination) => [destination.id, { mode: 'native' as const }])
+								.filter(
+									(destination) => creationAccountID || supportsNativePoll(destination.fields)
+								)
+								.map((destination) => [
+									destination.id,
+									{
+										mode:
+											creationAccountID && destination.id !== creationAccountID
+												? ('omit' as const)
+												: ('native' as const)
+									}
+								])
 						)
 					}
 		);
 	});
 </script>
 
-{#if value && content}
+{#if presentation === 'summary' && value && content}
 	<section
 		class="my-3 min-w-0 rounded-lg border p-3"
 		aria-label={m.compose_poll_title()}
@@ -163,12 +177,15 @@
 			><Dialog.Title>{value ? m.compose_poll_edit() : m.compose_add_poll()}</Dialog.Title
 			></Dialog.Header
 		>
+		{#if !value && creationAccountID}<p class="text-sm text-muted-foreground">
+				{destinations.find((item) => item.id === creationAccountID)?.label}
+			</p>{/if}
 		{#if draft}<PollContentFields
 				{body}
 				value={draft}
 				onChange={(content) => (draft = { ...draft!, ...content })}
 			/>{/if}
-		{#if !value && unsupported.length}<InlineNotice
+		{#if !value && !creationAccountID && unsupported.length}<InlineNotice
 				message={m.compose_poll_unsupported_accounts({
 					accounts: unsupported.map((destination) => destination.label).join(', ')
 				})}

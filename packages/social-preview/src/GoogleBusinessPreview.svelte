@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import type { PreviewModel } from "./model";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
+
+  const editing = previewEditing();
 
   let { model, compact = false }: { model: PreviewModel; compact?: boolean } =
     $props();
@@ -30,7 +33,7 @@
   </header>
   {#if media.length}<PreviewMedia {media} layout="single" />{/if}
   <div class="update-copy">
-    {#if model.title}<h2 dir="auto">{model.title}</h2>{/if}
+    {#if model.title}<h2 dir="auto">{#if editing()?.title && primary}{@render editing()!.title!(model.title, primary)}{:else}{model.title}{/if}</h2>{/if}
     {#if model.business?.topic === "event" || model.business?.topic === "offer"}
       <span class="date-range"
         >{model.business.startDate}{model.business.startTime
@@ -42,7 +45,7 @@
           : ""}</span
       >
     {/if}
-    {#if primary?.text}<p dir="auto">{primary.text}</p>{/if}
+    {#if editing()?.text && primary}{@render editing()!.text(primary)}{:else if primary?.text}<p dir="auto">{primary.text}</p>{/if}
     {#if model.business?.topic === "offer"}
       {#if model.business.couponCode}<span class="coupon"
           >Code: <strong>{model.business.couponCode}</strong></span

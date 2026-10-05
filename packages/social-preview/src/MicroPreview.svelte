@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import Globe2 from "@lucide/svelte/icons/globe-2";
   import LockKeyhole from "@lucide/svelte/icons/lock-keyhole";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
@@ -14,6 +15,8 @@
   import PreviewMediaView from "./PreviewMedia.svelte";
   import PreviewPollView from "./PreviewPoll.svelte";
   import VerifiedBadge from "./VerifiedBadge.svelte";
+
+  const editing = previewEditing();
 
   type MicroPlatform = Extract<
     PreviewPlatform,
@@ -86,9 +89,9 @@
   {@const poll = segment.poll ?? (index === 0 ? model.poll : undefined)}
   {#if warning}{@render contentWarning(warning, segment.id)}{/if}
   {#if !warning || revealedWarnings[segment.id] === warning}
-    {#if segment.text}<p class="post-text" dir="auto">{segment.text}</p>{/if}
-    {#if card}<PreviewAttachment {card} {platform} />{/if}
-    {#if poll}<PreviewPollView {poll} {platform} />{/if}
+    {#if editing()?.text}<div class="post-text">{@render editing()!.text(segment)}</div>{:else if segment.text}<p class="post-text" dir="auto">{segment.text}</p>{/if}
+    {#if card}<PreviewAttachment {card} {platform} {segment} />{/if}
+    {#if poll}<PreviewPollView {poll} {platform} {segment} />{/if}
     {@const segmentMedia = mediaForSegment(segment, index)}
     {#if segmentMedia.length > 0}
       <PreviewMediaView

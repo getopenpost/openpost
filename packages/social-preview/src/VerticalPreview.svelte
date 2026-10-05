@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Heart from "@lucide/svelte/icons/heart";
@@ -11,6 +12,8 @@
   import type { PreviewModel, PreviewPlatform } from "./model";
   import PreviewActions from "./PreviewActions.svelte";
   import PreviewAvatar from "./PreviewAvatar.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -164,7 +167,7 @@
           <span>{platform === "youtube" ? "Subscribe" : "Follow"}</span>
         {/if}
       </div>
-      <p dir="auto">{caption || "Your caption will appear here."}</p>
+      {#if platform === "youtube" && editing()?.title}<div class="editable-caption">{@render editing()!.title!(caption ?? "", segment)}</div>{:else if editing()?.text}<div class="editable-caption">{@render editing()!.text(segment)}</div>{:else}<p dir="auto">{caption || "Your caption will appear here."}</p>{/if}
       <div class="audio-row">
         <Music2 aria-hidden="true" />
         <span

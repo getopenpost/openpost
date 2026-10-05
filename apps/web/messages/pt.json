@@ -9720,7 +9720,7 @@
 	"repurpose_folder_missing": "Escolhe uma pasta local antes de criares clips.",
 	"repurpose_transcript_storage_failed": "O teu projeto está disponível, mas não foi possível guardar a transcrição neste dispositivo. Podes continuar a editá-lo e a exportá-lo.",
 	"image_editor_text_range_scope": "A família e o tamanho da letra aplicam-se a toda a camada de texto.",
-	"compose_settings_add_video_hint": "Adiciona um vídeo em {all} ou personaliza esta versão para adicionar conteúdos multimédia separados. Depois, volta a abrir as definições para introduzir o título e escolher as opções do vídeo.",
+	"compose_settings_add_video_hint": "Adiciona um vídeo em {all} ou nesta conta para editar as definições do vídeo.",
 	"video_editor_shortcuts_playback_scope": "O shuttle controla Fonte quando tem o foco ou o cursor por cima; caso contrário, Programa. Os controlos deslizantes, botões e campos de texto com foco mantêm as suas próprias teclas.",
 	"calendar_no_matching_body": "Nenhum post corresponde às datas e aos filtros selecionados. Experimenta outro intervalo de datas ou limpa os filtros.",
 	"media_dimensions_range_invalid": "As dimensões mínimas não podem exceder as máximas. Use 0 para não definir um máximo.",
@@ -9748,5 +9748,10 @@
 	"compose_poll_use_shared": "Usar sondagem partilhada",
 	"compose_poll_review_accounts": "Escolhe como publicar a sondagem nestas contas.",
 	"compose_poll_unsupported_accounts": "As sondagens não estão disponíveis em {accounts}. Escolhe uma versão no separador de cada conta.",
-	"compose_poll_text_notice": "Apenas texto, sem botões de voto."
+	"compose_poll_text_notice": "Apenas texto, sem botões de voto.",
+	"compose_full_preview": "Pré-visualização completa",
+	"compose_using_shared_text": "A usar o texto partilhado",
+	"compose_using_custom_text": "Texto personalizado",
+	"compose_link_use_post_url": "Usar URL da publicação",
+	"compose_preview_reset": "Repor"
 }

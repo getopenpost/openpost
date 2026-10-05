@@ -9720,7 +9720,7 @@
 	"repurpose_folder_missing": "Klip oluşturmadan önce yerel bir klasör seçin.",
 	"repurpose_transcript_storage_failed": "Projeniz kullanılabilir durumda, ancak transkript bu cihaza kaydedilemedi. Projeyi düzenlemeye ve dışa aktarmaya devam edebilirsiniz.",
 	"image_editor_text_range_scope": "Yazı tipi ve boyutu tüm metin katmanına uygulanır.",
-	"compose_settings_add_video_hint": "{all} bölümüne bir video ekleyin veya ayrı medya eklemek için bu sürümü özelleştirin. Ardından başlığı girmek ve video seçeneklerini belirlemek için ayarları yeniden açın.",
+	"compose_settings_add_video_hint": "Video ayarlarını düzenlemek için {all} bölümüne veya bu hesaba bir video ekleyin.",
 	"video_editor_shortcuts_playback_scope": "Shuttle, odaklanıldığında veya üzerine gelindiğinde Kaynak bölümünü, aksi halde Program bölümünü kontrol eder. Odaklanmış kaydırıcılar, düğmeler ve metin alanları kendi tuşlarını kullanır.",
 	"calendar_no_matching_body": "Seçilen tarihler ve filtrelerle eşleşen gönderi yok. Başka bir tarih aralığı deneyin veya filtreleri temizleyin.",
 	"media_dimensions_range_invalid": "Minimum boyutlar maksimum boyutları aşmamalıdır. Üst sınır olmaması için 0 kullanın.",
@@ -9748,5 +9748,10 @@
 	"compose_poll_use_shared": "Ortak anketi kullan",
 	"compose_poll_review_accounts": "Anketin bu hesaplarda nasıl paylaşılacağını seçin.",
 	"compose_poll_unsupported_accounts": "{accounts} hesaplarında anket kullanılamıyor. Her hesap sekmesinde bir sürüm seçin.",
-	"compose_poll_text_notice": "Yalnızca metin, oy düğmeleri yok."
+	"compose_poll_text_notice": "Yalnızca metin, oy düğmeleri yok.",
+	"compose_full_preview": "Tam önizleme",
+	"compose_using_shared_text": "Ortak metin kullanılıyor",
+	"compose_using_custom_text": "Özel metin",
+	"compose_link_use_post_url": "Gönderi URL’sini kullan",
+	"compose_preview_reset": "Sıfırla"
 }

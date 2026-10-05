@@ -1,3 +1,4 @@
+import { createRawSnippet } from "svelte";
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-svelte";
 import { userEvent } from "vitest/browser";
@@ -116,7 +117,14 @@ describe("SocialPreview destination presentations", () => {
       model: createPreviewModel({
         platform: "telegram",
         segments: [{ id: "primary", text: "Read the guide." }],
-        media: [{ id: "guide", kind: "document", src: "/guide.pdf", alt: "Launch guide.pdf" }],
+        media: [
+          {
+            id: "guide",
+            kind: "document",
+            src: "/guide.pdf",
+            alt: "Launch guide.pdf",
+          },
+        ],
       }),
     });
 
@@ -258,4 +266,50 @@ it("keeps a large carousel position window visible while keyboard navigation rea
   } finally {
     host.remove();
   }
+});
+
+describe("native caption editing slots", () => {
+  it.each([
+    "x",
+    "bluesky",
+    "mastodon",
+    "threads",
+    "linkedin",
+    "facebook",
+    "instagram",
+    "pixelfed",
+    "youtube",
+    "peertube",
+    "tiktok",
+    "discord",
+    "telegram",
+    "pinterest",
+    "googlebusiness",
+    "lemmy",
+    "piefed",
+    "reddit",
+    "unsupported",
+  ] as const)("places the editor inside the %s presentation", async (platform) => {
+    const text = "An editable account caption.";
+    const model = createPreviewModel({
+      platform,
+      identity: { displayName: "Alice", handle: "alice" },
+      segments: [{ id: "source", text }],
+      title: platform === "youtube" ? "Video title" : undefined,
+    });
+    const editor = {
+      text: createRawSnippet<[import("./model").PreviewSegment]>((segment) => ({
+        render: () => `<textarea aria-label="Account caption">${segment().text}</textarea>`,
+      })),
+    };
+    const screen = await render(SocialPreview, { model, editor });
+    const input = screen.getByRole("textbox", {
+      name: "Account caption",
+      exact: true,
+    });
+    await expect.element(input).toBeVisible();
+    await expect.element(input).toHaveValue(text);
+    await input.fill("Changed here.");
+    await expect.element(input).toHaveValue("Changed here.");
+  });
 });

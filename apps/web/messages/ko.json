@@ -9720,7 +9720,7 @@
 	"repurpose_folder_missing": "클립을 만들기 전에 로컬 폴더를 선택하세요.",
 	"repurpose_transcript_storage_failed": "프로젝트는 사용할 수 있지만 이 기기에 대본을 저장하지 못했습니다. 계속 편집하고 내보낼 수 있습니다.",
 	"image_editor_text_range_scope": "글꼴과 글자 크기는 전체 텍스트 레이어에 적용됩니다.",
-	"compose_settings_add_video_hint": "{all}에서 동영상을 추가하거나 이 버전을 맞춤 설정하여 별도의 미디어를 추가하세요. 그런 다음 설정을 다시 열어 제목을 입력하고 동영상 옵션을 선택하세요.",
+	"compose_settings_add_video_hint": "{all} 또는 이 계정에 동영상을 추가하면 동영상 설정을 편집할 수 있습니다.",
 	"video_editor_shortcuts_playback_scope": "셔틀은 소스에 포커스가 있거나 마우스가 올라가 있으면 소스를, 그 외에는 프로그램을 제어합니다. 포커스된 슬라이더, 버튼, 텍스트 필드는 자체 키 동작을 유지합니다.",
 	"calendar_no_matching_body": "선택한 날짜와 필터에 일치하는 게시물이 없습니다. 다른 기간을 선택하거나 필터를 지워 보세요.",
 	"media_dimensions_range_invalid": "최소 크기는 최대 크기보다 클 수 없습니다. 최대 제한이 없으면 0을 사용하세요.",
@@ -9748,5 +9748,10 @@
 	"compose_poll_use_shared": "공유 투표 사용",
 	"compose_poll_review_accounts": "이 계정들에 투표를 게시할 방식을 선택하세요.",
 	"compose_poll_unsupported_accounts": "{accounts}에서는 투표를 사용할 수 없습니다. 각 계정 탭에서 버전을 선택하세요.",
-	"compose_poll_text_notice": "투표 버튼 없이 텍스트만 게시합니다."
+	"compose_poll_text_notice": "투표 버튼 없이 텍스트만 게시합니다.",
+	"compose_full_preview": "전체 미리보기",
+	"compose_using_shared_text": "공유 텍스트 사용 중",
+	"compose_using_custom_text": "맞춤 텍스트",
+	"compose_link_use_post_url": "게시물 URL 사용",
+	"compose_preview_reset": "초기화"
 }

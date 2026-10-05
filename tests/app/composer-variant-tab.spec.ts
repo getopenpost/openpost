@@ -92,7 +92,7 @@ for (const width of [1280, 390]) {
       await expect(secondTab.getByTestId("composer-destination-custom")).toHaveCount(0);
 
       await firstTab.click();
-      await page.getByRole("button", { name: "Customize this version", exact: true }).click();
+      await editor.fill("Only the first account uses this text.");
       await expect(editor).toBeEnabled();
 
       await expect(firstTab.getByTestId("composer-destination-custom")).toBeVisible();

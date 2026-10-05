@@ -1,16 +1,27 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
+  import type { PreviewSegment } from "./model";
   import Link2 from "@lucide/svelte/icons/link-2";
   import type { PreviewCard, PreviewPlatformKey } from "./model";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import VerifiedBadge from "./VerifiedBadge.svelte";
 
+  const editing = previewEditing();
+
   interface Props {
     card: PreviewCard;
     platform: PreviewPlatformKey;
+    segment?: PreviewSegment;
   }
 
-  let { card, platform }: Props = $props();
+  let { card, platform, segment }: Props = $props();
 </script>
+
+{#snippet display()}
+      {#if card.domain}<span>{card.domain}</span>{/if}
+      <strong>{card.title}</strong>
+      {#if card.description}<p>{card.description}</p>{/if}
+{/snippet}
 
 <div
   class={["preview-attachment", `platform-${platform}`, `kind-${card.kind}`]}
@@ -32,9 +43,9 @@
   {:else}
     {#if card.imageUrl}<img src={card.imageUrl} alt="" />{/if}
     <div class="link-copy">
-      {#if card.domain}<span>{card.domain}</span>{/if}
-      <strong>{card.title}</strong>
-      {#if card.description}<p>{card.description}</p>{/if}
+      {#if editing()?.card && segment}{@render editing()!.card!(card, segment, display)}{:else}
+      {@render display()}
+      {/if}
     </div>
   {/if}
 </div>

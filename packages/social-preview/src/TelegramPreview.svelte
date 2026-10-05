@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import FileText from "@lucide/svelte/icons/file-text";
   import type { PreviewModel } from "./model";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -39,7 +42,7 @@
       {:else if model.format === "video"}
         <PreviewMedia media={[]} emptyLabel="Video preview" />
       {/if}
-      {#if segment?.text}<p dir="auto">{segment.text}</p>{/if}
+      {#if editing()?.text && segment}{@render editing()!.text(segment)}{:else if segment?.text}<p dir="auto">{segment.text}</p>{/if}
       <footer>
         <span>{model.createdAtLabel}</span>
       </footer>

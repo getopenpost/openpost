@@ -1,3 +1,4 @@
+import { firstComposerURL } from '$lib/components/compose/composer-links';
 import { pollDurationLabel } from '$lib/components/compose/polls';
 import {
 	createPreviewModel,
@@ -31,6 +32,7 @@ export interface ComposerPreviewMedia {
 export interface ComposerPreviewSegment {
 	id: string;
 	text: string;
+	url?: string;
 	media?: ComposerPreviewMedia[];
 	settings?: ComposerSettings;
 }
@@ -73,18 +75,29 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 			: input.segments;
 	const previewSegments: PreviewSegment[] = sourceSegments.map((segment) => ({
 		id: segment.id,
-		text: segment.text,
+		text: deliveryPreviewText(
+			platform,
+			segment.text,
+			{ ...destinationSettings, ...segment.settings },
+			segment.media?.length ?? 0
+		),
 		media: segment.media?.map(previewMedia),
 		poll: previewPoll({ ...destinationSettings, ...segment.settings }),
-		card: previewCard({ ...destinationSettings, ...segment.settings }),
-		contentWarning: previewWarning({ ...destinationSettings, ...segment.settings })
+		card: previewCard(
+			platform,
+			{ ...destinationSettings, ...segment.settings },
+			segment.url ?? (firstComposerURL(segment.text) || undefined)
+		),
+		contentWarning: previewWarning({
+			...destinationSettings,
+			...segment.settings
+		})
 	}));
 	const media = (sourceSegments[0]?.media ?? input.media ?? []).map(previewMedia);
 	const title =
 		input.title ||
 		parseSettingText(mergedSettings, 'title') ||
 		parseSettingText(mergedSettings, 'video_title') ||
-		parseSettingText(mergedSettings, 'article_title') ||
 		parseSettingText(mergedSettings, 'document_title') ||
 		parseSettingText(mergedSettings, 'pin_title') ||
 		parseSettingText(mergedSettings, 'event_title');
@@ -93,7 +106,6 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 		(platform === 'facebook' && parseSettingText(mergedSettings, 'video_description')) ||
 		parseSettingText(mergedSettings, 'description') ||
 		parseSettingText(mergedSettings, 'video_description') ||
-		parseSettingText(mergedSettings, 'article_description') ||
 		parseSettingText(mergedSettings, 'community');
 
 	return createPreviewModel({
@@ -107,7 +119,11 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 		segments: previewSegments,
 		media,
 		poll: previewPoll(mergedSettings),
-		card: previewCard(mergedSettings, input.linkUrl),
+		card: previewCard(
+			platform,
+			mergedSettings,
+			sourceSegments[0]?.url ?? (firstComposerURL(sourceSegments[0]?.text ?? '') || input.linkUrl)
+		),
 		contentWarning: previewWarning(mergedSettings),
 		visibility: parseSettingText(mergedSettings, 'visibility') || undefined,
 		location:
@@ -182,7 +198,22 @@ function previewPoll(settings: ComposerSettings): PreviewPoll | undefined {
 	};
 }
 
-function previewCard(settings: ComposerSettings, fallbackURL?: string): PreviewCard | undefined {
+function deliveryPreviewText(
+	platform: PreviewModel['platform'],
+	text: string,
+	settings: ComposerSettings,
+	mediaCount: number
+): string {
+	if (mediaCount || !['x', 'threads', 'mastodon', 'pixelfed'].includes(platform)) return text;
+	const uri = parseSettingText(settings, 'url') || parseSettingText(settings, 'link_url');
+	return uri && !text.includes(uri) ? [text.trim(), uri].filter(Boolean).join('\n') : text;
+}
+
+function previewCard(
+	platform: PreviewModel['platform'],
+	settings: ComposerSettings,
+	fallbackURL?: string
+): PreviewCard | undefined {
 	const quoteURL = parseSettingText(settings, 'quote_url');
 	if (quoteURL) {
 		return {
@@ -193,6 +224,7 @@ function previewCard(settings: ComposerSettings, fallbackURL?: string): PreviewC
 		};
 	}
 	const url =
+		(['x', 'mastodon', 'pixelfed'].includes(platform) ? fallbackURL : undefined) ||
 		parseSettingText(settings, 'url') ||
 		parseSettingText(settings, 'link_url') ||
 		parseSettingText(settings, 'destination_link') ||
@@ -201,8 +233,16 @@ function previewCard(settings: ComposerSettings, fallbackURL?: string): PreviewC
 	if (!url) return undefined;
 	return {
 		kind: 'link',
-		title: parseSettingText(settings, 'link_title') || safeDomain(url) || 'Shared link',
-		description: parseSettingText(settings, 'link_description') || undefined,
+		title:
+			(platform === 'linkedin'
+				? parseSettingText(settings, 'article_title')
+				: parseSettingText(settings, 'link_title')) ||
+			safeDomain(url) ||
+			'Shared link',
+		description:
+			(platform === 'linkedin'
+				? parseSettingText(settings, 'article_description')
+				: parseSettingText(settings, 'link_description')) || undefined,
 		domain: safeDomain(url),
 		imageUrl:
 			parseSettingText(settings, 'link_image_url') ||

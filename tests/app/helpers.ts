@@ -152,3 +152,11 @@ export async function routeBrowserRegistration(page: Page, seed: string) {
     });
   });
 }
+
+export async function openComposerPlatformSettings(page: Page): Promise<void> {
+  await page
+    .getByTestId("composer-variant-toolbar")
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Platform settings", exact: true }).click();
+}

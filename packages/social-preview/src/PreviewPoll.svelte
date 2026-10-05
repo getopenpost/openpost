@@ -1,15 +1,20 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
+  import type { PreviewSegment } from "./model";
   import type { PreviewPlatformKey, PreviewPoll } from "./model";
+
+  const editing = previewEditing();
 
   interface Props {
     poll: PreviewPoll;
     platform: PreviewPlatformKey;
+    segment?: PreviewSegment;
   }
 
-  let { poll, platform }: Props = $props();
+  let { poll, platform, segment }: Props = $props();
 </script>
 
-<div class={["preview-poll", `platform-${platform}`]} aria-label="Poll preview">
+{#snippet display()}
   {#if poll.question}<p class="poll-question">{poll.question}</p>{/if}
   {#each poll.options as option, index (`${option}-${index}`)}
     <div class="poll-option">
@@ -21,6 +26,12 @@
     {#if poll.durationLabel}
       · {poll.durationLabel}{/if}
   </small>
+{/snippet}
+
+<div class={["preview-poll", `platform-${platform}`]} aria-label="Poll preview">
+  {#if editing()?.poll && segment}{@render editing()!.poll!(poll, segment, display)}{:else}
+  {@render display()}
+  {/if}
 </div>
 
 <style>

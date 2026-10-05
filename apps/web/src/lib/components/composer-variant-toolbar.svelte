@@ -12,8 +12,6 @@
 		multiAccount: boolean;
 		segmentStrategy?: string;
 		postCount: number;
-		previewOpen?: boolean;
-		previewId: string;
 		onPreview: () => void;
 		onSettings: () => void;
 		onResetField: (field: 'content' | 'media') => void;
@@ -29,8 +27,6 @@
 		multiAccount,
 		segmentStrategy,
 		postCount,
-		previewOpen = false,
-		previewId,
 		onPreview,
 		onSettings,
 		onResetField,
@@ -39,20 +35,9 @@
 	}: Props = $props();
 </script>
 
-<div class="flex flex-wrap items-center gap-2 border-b py-3">
-	<Button
-		type="button"
-		variant="ghost"
-		size="sm"
-		class="h-11 md:h-9"
-		aria-expanded={previewOpen}
-		aria-controls={previewId}
-		onclick={() => onPreview()}
-	>
-		{m.compose_preview()}
-	</Button>
-	<Button type="button" variant="ghost" size="sm" class="h-11 md:h-9" onclick={() => onSettings()}>
-		{m.compose_platform_settings()}
+<div class="flex flex-wrap items-center gap-2 border-b py-3" data-testid="composer-variant-toolbar">
+	<Button type="button" variant="ghost" size="sm" class="h-11 md:h-9" onclick={() => onPreview()}>
+		{m.compose_full_preview()}
 	</Button>
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
@@ -70,6 +55,8 @@
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content class="w-56" align="start">
+			<DropdownMenu.Item onclick={onSettings}>{m.compose_platform_settings()}</DropdownMenu.Item>
+			<DropdownMenu.Separator />
 			{#if hasContentOverride}
 				<DropdownMenu.Item onclick={() => onResetField('content')}>
 					{m.compose_reset_field()}

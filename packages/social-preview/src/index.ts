@@ -23,3 +23,5 @@ export type {
   PreviewSegment,
   PreviewScheme,
 } from "./model";
+
+export type { PreviewEditing } from "./editing";

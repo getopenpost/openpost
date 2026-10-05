@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import type { PreviewModel } from "./model";
   import PreviewActions from "./PreviewActions.svelte";
@@ -9,6 +10,8 @@
   import VerifiedBadge from "./VerifiedBadge.svelte";
   import VerticalPreview from "./VerticalPreview.svelte";
   import PreviewText from "./PreviewText.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -80,6 +83,7 @@
       </div>
       <div class="caption">
         <div class="caption-text">
+          {#if editing()?.text}{@render editing()!.text(primary)}{:else}
           <PreviewText
             text={primary.text}
             author={platform === "pixelfed"
@@ -88,12 +92,13 @@
             lines={2}
             buttonLabel="more"
           />
+          {/if}
         </div>
-        {#if platform === "pixelfed" && model.card}<PreviewAttachment
+        {#if platform === "pixelfed" && model.card}<PreviewAttachment segment={primary}
             card={model.card}
             {platform}
           />{/if}
-        {#if platform === "pixelfed" && model.poll}<PreviewPoll
+        {#if platform === "pixelfed" && model.poll}<PreviewPoll segment={primary}
             poll={model.poll}
             {platform}
           />{/if}

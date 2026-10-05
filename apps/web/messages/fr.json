@@ -9720,7 +9720,7 @@
 	"repurpose_folder_missing": "Choisissez un dossier local avant de créer des clips.",
 	"repurpose_transcript_storage_failed": "Votre projet est disponible, mais sa transcription n’a pas pu être enregistrée sur cet appareil. Vous pouvez toujours le modifier et l’exporter.",
 	"image_editor_text_range_scope": "La police et sa taille s’appliquent à tout le calque de texte.",
-	"compose_settings_add_video_hint": "Ajoutez une vidéo dans {all}, ou personnalisez cette version pour ajouter un média distinct. Rouvrez ensuite les paramètres pour saisir son titre et choisir les options de la vidéo.",
+	"compose_settings_add_video_hint": "Ajoutez une vidéo dans {all} ou sur ce compte pour modifier ses paramètres.",
 	"video_editor_shortcuts_playback_scope": "Le shuttle contrôle Source quand elle a le focus ou est survolée, sinon Programme. Les curseurs, boutons et champs de texte ayant le focus gardent leurs propres touches.",
 	"calendar_no_matching_body": "Aucune publication ne correspond aux dates et aux filtres sélectionnés. Essayez une autre période ou effacez les filtres.",
 	"media_dimensions_range_invalid": "Les dimensions minimales ne doivent pas dépasser les maximales. Utilisez 0 pour ne pas définir de maximum.",
@@ -9748,5 +9748,10 @@
 	"compose_poll_use_shared": "Utiliser le sondage partagé",
 	"compose_poll_review_accounts": "Choisissez comment publier le sondage sur ces comptes.",
 	"compose_poll_unsupported_accounts": "Les sondages ne sont pas disponibles sur {accounts}. Choisissez une version dans chaque onglet de compte.",
-	"compose_poll_text_notice": "Texte uniquement, sans boutons de vote."
+	"compose_poll_text_notice": "Texte uniquement, sans boutons de vote.",
+	"compose_full_preview": "Aperçu complet",
+	"compose_using_shared_text": "Texte partagé utilisé",
+	"compose_using_custom_text": "Texte personnalisé",
+	"compose_link_use_post_url": "Utiliser l’URL du post",
+	"compose_preview_reset": "Réinitialiser"
 }

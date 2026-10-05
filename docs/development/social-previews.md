@@ -18,6 +18,18 @@ The Threads preview limit is 20 mixed images or videos, matching [Meta's publish
 
 PDF pages load PDF.js on demand. Both application Vite configs enable `pdfPreviewAssets()` from `packages/social-preview/pdf-assets.ts`, which ships the installed PDF.js character maps, fonts, decoders, and licenses under `/pdfjs/<version>/`. Keep those files on the same origin and match the renderer version; documents fetch them only when needed.
 
+## Composer editing
+
+The All tab keeps the shared editor. Account tabs render the native post card immediately and supply `PreviewEditing` snippets for text, titles, cards, and polls. The shared package owns placement and read-only fallback; the composer owns mutations through its existing text, media, poll, and provider-setting actions. Full preview opens the read-only page shell. Accounts without a native renderer retain caption editing in a neutral fallback.
+
+Typing inherited text creates only that account's text override. Media and provider settings remain independent. Joined outputs edit canonical source slices through `source_overrides`; generated poll text remains separate from authored captions. Provider-specific captions, such as YouTube descriptions and Facebook Reel descriptions, use the adapter's actual setting owner.
+
+Card and poll editors stage changes until Save. Cancel and Escape discard them and restore focus. Account-resolved fields control which settings are editable. LinkedIn article metadata belongs inside the card, while its poll question remains separate from post text. Unsupported polls require a saved text or omit choice and retain their notice. Text versions retain authored language without adding engagement prompts.
+
+Canonical segment `settings.link.destinations[accountID]` owns the URL choice: `post` detects the first HTTP(S) URL in authored account text, `custom` keeps an explicit URL, and `legacy` preserves earlier native URI settings. Missing link state preserves legacy behavior. Adoption checks both destination and segment settings, retaining other accounts' explicit URLs. Balanced parentheses in URLs survive detection.
+
+`services/publicationlink` resolves provider settings at persistence, validation, and delivery using effective destination and segment settings. It suppresses inherited cards that conflict with media, Bluesky quotes, or polls; explicit conflicting Bluesky cards remain validation errors. Generated native URI values are projections excluded from authorship comparisons. Removing canonical link ownership clears its generated segment values, preserving legacy settings and card metadata.
+
 ## Reference baseline
 
 Reviewed on 26 September 2026. Logged-in Brave observations informed X, Threads, Facebook, Instagram, and LinkedIn web layouts. Account experiments, app versions, locales, native apps, fonts, and federated instance themes can differ. These previews estimate presentation; they do not guarantee published output.

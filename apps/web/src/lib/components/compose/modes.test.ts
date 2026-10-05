@@ -57,6 +57,47 @@ describe('publication composer payloads', () => {
 		expect(payload.renditions[0].settings).toEqual({});
 	});
 
+	it('preserves adopted legacy URLs independently of the shared post URL', () => {
+		const payload = buildPublicationPayload({
+			mode: 'post',
+			workspaceId: 'workspace-1',
+			accounts: [{ id: 'li-1', platform: 'linkedin' }],
+			fields: { postText: 'Shared text' },
+			media: [],
+			segments: [
+				{
+					id: 'source',
+					content: 'Shared text',
+					media: [],
+					link: { destinations: { 'li-1': { mode: 'legacy' } } },
+					settingsByAccount: { 'li-1': { url: 'https://legacy.example/card' } }
+				}
+			]
+		});
+		expect(payload.renditions[0].segments?.[0].settings).toEqual({
+			url: 'https://legacy.example/card'
+		});
+	});
+
+	it.each(['youtube', 'peertube'])(
+		'sends edited %s metadata in the rendition and segment delivery fields',
+		(platform) => {
+			const payload = buildPublicationPayload({
+				mode: 'post',
+				workspaceId: 'ws-1',
+				accounts: [{ id: 'video', platform }],
+				media: [],
+				fields: { postText: 'Shared description' },
+				settingsByAccount: { video: { title: 'Video title', description: 'Edited description' } }
+			});
+			expect(payload.renditions[0]).toMatchObject({
+				title: 'Video title',
+				description: 'Edited description',
+				segments: [{ title: 'Video title', description: 'Edited description' }]
+			});
+		}
+	);
+
 	it('keeps the native link setting for a link-only publication', () => {
 		const payload = buildPublicationPayload({
 			mode: 'post',

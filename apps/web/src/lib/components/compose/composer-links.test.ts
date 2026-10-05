@@ -8,6 +8,13 @@ describe('composer links', () => {
 		);
 	});
 
+	it('keeps balanced URL parentheses but drops enclosing punctuation', () => {
+		expect(firstComposerURL('(see https://en.wikipedia.org/wiki/Go_(programming_language)).')).toBe(
+			'https://en.wikipedia.org/wiki/Go_(programming_language)'
+		);
+		expect(firstComposerURL('(see https://example.com/x)')).toBe('https://example.com/x');
+	});
+
 	it('returns no synthetic link for plain text', () => {
 		expect(firstComposerURL('A post without a URL')).toBe('');
 	});

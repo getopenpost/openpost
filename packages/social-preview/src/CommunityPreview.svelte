@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import type { PreviewModel, PreviewPlatform } from "./model";
   import PreviewActions from "./PreviewActions.svelte";
   import PreviewAttachment from "./PreviewAttachment.svelte";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -33,12 +36,10 @@
     </div>
   </header>
 
-  <h2 dir="auto">{title}</h2>
-  {#if body}
-    <p class="post-body" dir="auto">{body}</p>
-  {/if}
+  <h2 dir="auto">{#if editing()?.title}{@render editing()!.title!(title, primary)}{:else}{title}{/if}</h2>
+  {#if editing()?.text}<div class="post-body">{@render editing()!.text(primary)}</div>{:else if body}<p class="post-body" dir="auto">{body}</p>{/if}
   {#if model.card}
-    <PreviewAttachment card={model.card} {platform} />
+    <PreviewAttachment segment={primary} card={model.card} {platform} />
   {/if}
   {#if media.length > 0}
     <PreviewMedia

@@ -1,4 +1,18 @@
 <script lang="ts">
+	import { firstComposerURL as accountTextURL } from './compose/composer-links';
+	import {
+		readLinkDraft,
+		linkChoice,
+		linkURL,
+		resolveLinkPreview,
+		type LinkDraft,
+		type LinkChoice
+	} from './compose/links';
+	import { settingLabel } from '$lib/setting-label';
+	import PreviewLinkEditor from './compose/preview-link-editor.svelte';
+	import PreviewPollEditor from './compose/preview-poll-editor.svelte';
+	import type { PreviewCard, PreviewPoll, PreviewSegment } from '@openpost/social-preview';
+	import type { Snippet } from 'svelte';
 	import SharedPollEditor from './compose/shared-poll-editor.svelte';
 	import {
 		readSharedPoll,
@@ -511,8 +525,9 @@
 	let lastSavedScheduleAt = '';
 	let appliedInitialContextKey = $state('');
 	const previewSessions = new SvelteMap<string, PreviewWindowSession>();
-	let previewOpen = $state(false);
-	const previewId = $props.id();
+	let previewMediaOpen = $state(false);
+	let pollCreationAccountID = $state<string | undefined>();
+	let previewPollEditingKeys = new SvelteSet<string>();
 	const textareaRefs = new SvelteMap<number, HTMLTextAreaElement>();
 	const randomDelayOptions = [0, 5, 10, 15, 30, 45, 60];
 	const desktopComposerControls = new MediaQuery('min-width: 768px');
@@ -889,7 +904,8 @@
 				key: post.key,
 				content: post.content,
 				mediaIds: post.mediaIds,
-				poll: post.poll
+				poll: post.poll,
+				link: post.link
 			})),
 			settingsByAccount,
 			segmentSettingsByPost,
@@ -1349,7 +1365,7 @@
 		return values;
 	}
 
-	function visibleSettings(account: SocialAccount): SettingDefinition[] {
+	function visibleSettings(account: SocialAccount, post = activePost): SettingDefinition[] {
 		const resolved = resolvedCapabilities[account.id];
 		return composerDestinationSettings(
 			getPlatformKey(account.platform),
@@ -1359,7 +1375,16 @@
 		).filter((field) => {
 			if (
 				['url', 'link_url', 'link_title', 'link_description'].includes(field.key) &&
-				!linkUrl.trim() &&
+				!(
+					(post &&
+						linkURL(
+							post.link,
+							account.id,
+							getVariantContent(account.id, post.key) ?? post.content,
+							{ ...settingsByAccount[account.id], ...segmentSettingsByPost[post.key]?.[account.id] }
+						)) ||
+					linkUrl.trim()
+				) &&
 				!field.required
 			) {
 				return false;
@@ -1488,7 +1513,15 @@
 			return {
 				id: post.key,
 				text: projection.body,
-				settings: projection.settings,
+				settings: resolveLinkPreview(
+					post.link,
+					account.id,
+					getPlatformKey(account.platform),
+					getVariantContent(account.id, post.key) ?? post.content,
+					{ ...settingsForAccount(account), ...projection.settings },
+					mediaIds.length
+				),
+				url: previewLinkURL(post, account),
 				media: mediaIds.map((id) => ({
 					id,
 					mimeType: mediaMimeTypes.get(id),
@@ -1521,8 +1554,16 @@
 			segments.splice(0, segments.length, {
 				...segments[0],
 				text: projection.body,
-				settings: projection.settings,
-				media: segments.flatMap((segment) => segment.media)
+				media: segments.flatMap((segment) => segment.media),
+				url: joinedPreviewLinkURL(account),
+				settings: resolveLinkPreview(
+					posts[0].link,
+					account.id,
+					getPlatformKey(account.platform),
+					authoredJoinedBody(account),
+					{ ...settingsForAccount(account), ...projection.settings },
+					segments.reduce((count, segment) => count + segment.media.length, 0)
+				)
 			});
 		}
 		return buildComposerPreview({
@@ -1532,7 +1573,8 @@
 				requestedOutputProfiles[account.id] ?? resolvedCapabilities[account.id]?.output_profile,
 			segments,
 			destinationSettings: settingsForAccount(account),
-			linkUrl
+			title: nativePreviewTitle(account),
+			linkUrl: segments[0]?.url ?? ''
 		});
 	}
 
@@ -1560,6 +1602,23 @@
 
 	function updateAccountSetting(account: SocialAccount, key: string, value: ProviderSettingValue) {
 		const definition = visibleSettings(account).find((field) => field.key === key);
+		if (key === 'url' || key === 'link_url') {
+			const uri = String(value ?? '').trim();
+			posts = posts.map((post) => {
+				if (definition?.scope === 'segment' && post.key !== activePost?.key) return post;
+				const link = post.link ?? initialLinkDraft(post);
+				return {
+					...post,
+					link: {
+						...link,
+						destinations: {
+							...link.destinations,
+							[account.id]: uri ? { mode: 'custom', url: uri } : { mode: 'post' }
+						}
+					}
+				};
+			});
+		}
 		if (definition?.scope === 'segment') {
 			const post = activePost;
 			if (!post) return;
@@ -1925,6 +1984,7 @@
 				id: `legacy-segment:${targetPublicationID}:${index}`,
 				content: post.content,
 				poll: post.poll,
+				link: post.link,
 				url: index === 0 ? linkUrl : '',
 				media: publicationMedia(post.mediaIds),
 				settingsByAccount: segmentSettingsByPost[post.key] ?? {}
@@ -2031,6 +2091,22 @@
 				rendition.media = first.media.map(({ media_id, role }) => ({ media_id, role }));
 			}
 		}
+		for (const rendition of payload.renditions) {
+			const account = selectedAccounts.find((item) => item.id === rendition.social_account_id);
+			if (!account || nativeDescriptionKey(account) !== 'description') continue;
+			const explicit = parseComposerSettingOptionalString(
+				settingsByAccount[account.id]?.description
+			);
+			const body = joinedDescriptionKey(account)
+				? authoredJoinedBody(account)
+				: posts[0]
+					? (getVariantContent(account.id, posts[0].key) ?? posts[0].content)
+					: '';
+			const description = explicit || body;
+			rendition.description = description;
+			if (rendition.segments[0]) rendition.segments[0].description = description;
+		}
+
 		if (aiAppliedStrategies.length > 0) {
 			payload.metadata[AI_BUILD_METADATA_KEY] = {
 				version: 1,
@@ -2996,6 +3072,7 @@
 			key: segment.id,
 			content: segment.body,
 			poll: readSharedPoll(segment.settings),
+			link: readLinkDraft(segment.settings),
 			mediaIds: (segment.media ?? []).map((media) => media.id)
 		}));
 		if (posts.length === 0) {
@@ -5360,6 +5437,8 @@
 
 	function activateVariantTab(accountId: string | null) {
 		activeVariantAccountId = accountId;
+		previewMediaOpen = false;
+		previewPollEditingKeys.clear();
 	}
 
 	function unsyncAccount(accountId: string) {
@@ -5633,8 +5712,194 @@
 	// --------------------------------------------------------------------------
 	// Snippets
 	// --------------------------------------------------------------------------
+	function nativePreviewTitle(account: SocialAccount): string | undefined {
+		const provider = getPlatformKey(account.platform);
+		if (!['youtube', 'peertube', 'pinterest', 'lemmy', 'piefed', 'reddit'].includes(provider))
+			return undefined;
+		const values = settingsForAccount(account);
+		return String(
+			values.title ||
+				values.video_title ||
+				values.pin_title ||
+				posts[0]?.content.split('\n')[0] ||
+				''
+		);
+	}
+
+	function nativeDescriptionKey(account: SocialAccount): string | undefined {
+		const provider = getPlatformKey(account.platform);
+		if (provider === 'youtube' || provider === 'peertube') return 'description';
+		if (provider === 'facebook' && ['video', 'reel'].includes(previewForAccount(account).format))
+			return 'video_description';
+		return undefined;
+	}
+	function joinedDescriptionKey(account: SocialAccount): string | undefined {
+		return posts.length > 1 && resolvedCapabilities[account.id]?.segment_strategy === 'join'
+			? nativeDescriptionKey(account)
+			: undefined;
+	}
+	function nativeHasCustomText(account: SocialAccount): boolean {
+		const key = nativeDescriptionKey(account);
+		return (
+			variantHasContentOverride(account.id) || Boolean(key && settingsByAccount[account.id]?.[key])
+		);
+	}
+	function nativeEditableText(post: PostItem): string {
+		if (activeVariantAccount && posts.indexOf(post) === 0) {
+			const key = nativeDescriptionKey(activeVariantAccount);
+			const value = key
+				? parseComposerSettingOptionalString(settingsByAccount[activeVariantAccount.id]?.[key])
+				: undefined;
+			if (value) return value;
+		}
+		if (activeVariantAccount && joinedDescriptionKey(activeVariantAccount))
+			return authoredJoinedBody(activeVariantAccount);
+		return getEditorContentForPost(post);
+	}
+	function resetNativeField(account: SocialAccount, field: 'content' | 'media') {
+		if (field === 'content') {
+			const key = nativeDescriptionKey(account);
+			if (key) updateAccountSetting(account, key, '');
+			if (joinedDescriptionKey(account)) return;
+		}
+		resetVariantField(account.id, field);
+	}
+
+	function initialLinkDraft(post: PostItem): LinkDraft {
+		return {
+			destinations: Object.fromEntries(
+				selectedAccounts.map((account) => {
+					const values = {
+						...settingsByAccount[account.id],
+						...segmentSettingsByPost[post.key]?.[account.id]
+					};
+					return [account.id, { mode: values.url || values.link_url ? 'legacy' : 'post' }];
+				})
+			)
+		};
+	}
+	function authoredJoinedBody(account: SocialAccount): string {
+		return posts
+			.map((post) => (getVariantContent(account.id, post.key) ?? post.content).trim())
+			.filter(Boolean)
+			.join('\n\n');
+	}
+	function previewLinkURL(post: PostItem, account: SocialAccount): string {
+		const body = getVariantContent(account.id, post.key) ?? post.content;
+		const mediaCount = (getVariantMediaIds(account.id, post.key) ?? post.mediaIds).length;
+		const values = {
+			...settingsForAccount(account),
+			...segmentSettingsByPost[post.key]?.[account.id]
+		};
+		const provider = getPlatformKey(account.platform);
+		if (mediaCount && (provider !== 'bluesky' || linkChoice(post.link, account.id).mode === 'post'))
+			return '';
+		if (
+			post.poll &&
+			['native', 'custom'].includes(post.poll.destinations[account.id]?.mode ?? '') &&
+			provider !== 'bluesky'
+		)
+			return '';
+		return linkURL(post.link, account.id, body, values);
+	}
+	function joinedPreviewLinkURL(account: SocialAccount): string {
+		return linkURL(
+			posts[0]?.link,
+			account.id,
+			authoredJoinedBody(account),
+			settingsForAccount(account)
+		);
+	}
+	function previewSourcePosts(segment: PreviewSegment): PostItem[] {
+		if (activeVariantAccount && joinedDescriptionKey(activeVariantAccount))
+			return posts.slice(0, 1);
+		if (
+			activeVariantAccount &&
+			posts.length > 1 &&
+			resolvedCapabilities[activeVariantAccount.id]?.segment_strategy === 'join'
+		)
+			return posts;
+		const post = posts.find((item) => item.key === segment.id);
+		return post ? [post] : [];
+	}
+	function handleNativeTextChange(post: PostItem, index: number, value: string) {
+		if (!activeVariantAccountId) return;
+		const id = activeVariantAccountId;
+		if (!post.link && accountTextURL(value))
+			posts = posts.map((item) =>
+				item.key === post.key ? { ...item, link: initialLinkDraft(post) } : item
+			);
+		const account = activeVariantAccount;
+		if (account && joinedDescriptionKey(account)) {
+			updateAccountSetting(account, joinedDescriptionKey(account)!, value);
+			return;
+		}
+		if (account) {
+			const key = nativeDescriptionKey(account);
+			if (key) updateAccountSetting(account, key, value);
+		}
+		unsyncAccount(id);
+		handleVariantChange(id, index, value);
+	}
+	function pollDestinationFor(post: PostItem, account: SocialAccount) {
+		return {
+			id: account.id,
+			label: accountContextLabel(account),
+			fields: visibleSettings(account),
+			body: getVariantContent(account.id, post.key) ?? post.content,
+			error: sharedPollError(post, account)
+		};
+	}
+	function updatePreviewSettings(account: SocialAccount, index: number, changes: ComposerSettings) {
+		activePostIndex = index;
+		for (const [key, value] of Object.entries(changes)) updateAccountSetting(account, key, value);
+	}
+	function savePreviewLink(
+		post: PostItem,
+		account: SocialAccount,
+		choice: LinkChoice,
+		changes: ComposerSettings
+	) {
+		const index = posts.findIndex((item) => item.key === post.key);
+		if (index < 0 || !selectedAccountIds.includes(account.id)) return;
+		updatePreviewSettings(account, index, changes);
+		const link = post.link ?? initialLinkDraft(post);
+		posts = posts.map((item) =>
+			item.key === post.key
+				? {
+						...item,
+						link: { ...link, destinations: { ...link.destinations, [account.id]: choice } }
+					}
+				: item
+		);
+		validationIssues = [];
+		scheduleAutoSave();
+		scheduleCapabilityResolve();
+	}
+	function customizePollText(post: PostItem, account: SocialAccount, index: number) {
+		activeVariantAccountId = account.id;
+		activePostIndex = index;
+		unsyncAccount(account.id);
+		if (post.poll?.destinations[account.id]?.mode === 'text') {
+			const body = pollProjection(post, account).body;
+			handleVariantChange(account.id, index, body);
+			updateSharedPoll(post, {
+				...post.poll,
+				destinations: { ...post.poll.destinations, [account.id]: { mode: 'omit' } }
+			});
+		}
+	}
+
 	function setPostContent(index: number, value: string) {
-		posts = posts.map((p, pi) => (pi === index ? { ...p, content: value } : p));
+		posts = posts.map((p, pi) =>
+			pi === index
+				? {
+						...p,
+						content: value,
+						link: p.link ?? (firstComposerURL(value) ? initialLinkDraft(p) : undefined)
+					}
+				: p
+		);
 		if (index === 0) linkUrl = firstComposerURL(value);
 		postBuilderError = '';
 		scheduleAutoSave();
@@ -5707,6 +5972,162 @@
 		randomDelayOverride = 'default';
 	}
 </script>
+
+{#snippet sharedPollControl(post: PostItem, i: number, presentation: 'summary' | 'dialog')}
+	<SharedPollEditor
+		{presentation}
+		creationAccountID={pollCreationAccountID}
+		value={post.poll}
+		body={post.content}
+		destinations={selectedAccounts.map((account) => ({
+			id: account.id,
+			label: accountContextLabel(account),
+			fields: visibleSettings(account),
+			body: getVariantContent(account.id, post.key) ?? post.content,
+			error: sharedPollError(post, account)
+		}))}
+		onChange={(poll) => updateSharedPoll(post, poll)}
+		activeDestinationId={activeVariantAccountId}
+		open={pollEditorPostKey === post.key}
+		onOpenChange={(open) => (pollEditorPostKey = open ? post.key : null)}
+		onOpenDestination={(id) => {
+			activeVariantAccountId = id;
+			activePostIndex = i;
+		}}
+		onLegacySettings={(id) => {
+			activePostIndex = i;
+			const account = selectedAccounts.find((item) => item.id === id);
+			if (account) openDestinationSettings(account);
+		}}
+		onCustomizeText={(id) => {
+			activeVariantAccountId = id;
+			activePostIndex = i;
+			unsyncAccount(id);
+			const account = selectedAccounts.find((item) => item.id === id);
+			if (account && post.poll?.destinations[id]?.mode === 'text') {
+				const text = pollProjection(post, account).body;
+				handleVariantChange(id, i, text);
+				updateSharedPoll(post, {
+					...post.poll,
+					destinations: { ...post.poll.destinations, [id]: { mode: 'omit' } }
+				});
+			}
+		}}
+	/>
+{/snippet}
+
+{#snippet nativePostText(segment: PreviewSegment)}
+	{@const sourcePosts = previewSourcePosts(segment)}
+	{#each sourcePosts as post (post.key)}
+		{@const index = posts.findIndex((item) => item.key === post.key)}
+		<div
+			class="min-w-0"
+			role="region"
+			aria-label={m.compose_drop_zone({ number: index + 1 })}
+			onfocusin={() => setActivePost(index)}
+			ondragover={handleDragOver}
+			ondragleave={handleDragLeave}
+			ondrop={(event) => handleDrop(event, index)}
+		>
+			<Textarea
+				id="post-textarea-{index}"
+				unstyled
+				dir="auto"
+				aria-label={editorTextIsYouTubeDescription
+					? m.compose_description()
+					: m.compose_post_text()}
+				value={nativeEditableText(post)}
+				{@attach textareaAttachment(index)}
+				oninput={(event) => {
+					handleNativeTextChange(post, index, event.currentTarget.value);
+					autoResize(event.currentTarget);
+				}}
+				onpaste={(event) => handlePaste(event, index)}
+				onfocus={() => setActivePost(index)}
+				placeholder={m.compose_ai_idea_placeholder()}
+				disabled={isSubmitting || buildingPost}
+				class="native-post-input w-full resize-none rounded-sm border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				style="min-height:44px; font:inherit; color:inherit; line-height:inherit;"
+			/>
+			{#if !previewPollEditingKeys.has(post.key)}
+				{@const body = nativeEditableText(post).trim()}
+				{@const output = (
+					sourcePosts.length === 1 ? segment.text : pollProjection(post, activeVariantAccount!).body
+				).trim()}
+				{#if output.startsWith(body) && output.trim() !== body}<p
+						class="mt-2 whitespace-pre-wrap"
+						dir="auto"
+					>
+						{output.slice(body.length).trim()}
+					</p>{/if}
+			{/if}
+		</div>
+	{/each}
+{/snippet}
+
+{#snippet nativePostTitle(title: string, segment: PreviewSegment)}
+	{@const fields = activeVariantAccount ? visibleSettings(activeVariantAccount) : []}
+	{@const definition = fields.find(
+		(field) =>
+			['title', 'video_title', 'pin_title', 'event_title'].includes(field.key) &&
+			!field.unavailable_reason
+	)}
+	{#if definition && activeVariantAccount}
+		<Input
+			aria-label={settingLabel(definition)}
+			value={String(settingsForAccount(activeVariantAccount)[definition.key] ?? '')}
+			placeholder={title}
+			maxlength={definition.constraints?.max_length}
+			disabled={isSubmitting || buildingPost}
+			oninput={(event) =>
+				updateAccountSetting(activeVariantAccount!, definition.key, event.currentTarget.value)}
+			class="w-full border-transparent bg-transparent px-0 shadow-none"
+			style="font:inherit; color:inherit;"
+		/>
+	{:else}{title}{/if}
+{/snippet}
+
+{#snippet nativeLinkCard(card: PreviewCard, segment: PreviewSegment, display: Snippet)}
+	{@const post = posts.find((item) => item.key === segment.id) ?? posts[0]}
+	{#if post && activeVariantAccount}
+		<PreviewLinkEditor
+			disabled={isSubmitting || buildingPost}
+			{card}
+			{display}
+			provider={getPlatformKey(activeVariantAccount.platform)}
+			fields={visibleSettings(activeVariantAccount, post)}
+			values={{
+				...settingsForAccount(activeVariantAccount),
+				...segmentSettingsByPost[post.key]?.[activeVariantAccount.id]
+			}}
+			choice={linkChoice(post.link, activeVariantAccount.id)}
+			postURL={accountTextURL(getVariantContent(activeVariantAccount.id, post.key) ?? post.content)}
+			onSave={(choice, changes) => savePreviewLink(post, activeVariantAccount!, choice, changes)}
+		/>
+	{/if}
+{/snippet}
+
+{#snippet nativePoll(preview: PreviewPoll, segment: PreviewSegment, display: Snippet)}
+	{@const post = posts.find((item) => item.key === segment.id) ?? posts[0]}
+	{@const index = posts.findIndex((item) => item.key === post?.key)}
+	{#if post && activeVariantAccount}
+		<PreviewPollEditor
+			value={post.poll}
+			{preview}
+			{display}
+			destination={pollDestinationFor(post, activeVariantAccount)}
+			settings={pollProjection(post, activeVariantAccount).settings}
+			disabled={isSubmitting || buildingPost}
+			onChange={(poll) => updateSharedPoll(post, poll)}
+			onLegacyChange={(changes) => updatePreviewSettings(activeVariantAccount!, index, changes)}
+			onCustomizeText={() => customizePollText(post, activeVariantAccount!, index)}
+			onEditingChange={(editing) => {
+				if (editing) previewPollEditingKeys.add(post.key);
+				else previewPollEditingKeys.delete(post.key);
+			}}
+		/>
+	{/if}
+{/snippet}
 
 <!-- ====================================================================== -->
 <!-- Top Bar -->
@@ -6085,7 +6506,8 @@
 							onActivate={activateVariantTab}
 							{accountLabel}
 							issueCountFor={(account) => accountIssueMessages(account).length}
-							isCustomFor={(account) => variants.has(account.id)}
+							isCustomFor={(account) =>
+								variantHasContentOverride(account.id) || variantHasMediaOverride(account.id)}
 						/>
 
 						{#if activeVariantAccount}
@@ -6097,22 +6519,16 @@
 								multiAccount={selectedAccounts.length > 1}
 								segmentStrategy={resolvedCapabilities[activeVariantAccount.id]?.segment_strategy}
 								postCount={posts.length}
-								{previewOpen}
-								{previewId}
-								onPreview={() => (previewOpen = !previewOpen)}
+								onPreview={() => openAccountPreview(activeVariantAccount!)}
 								onSettings={() => openDestinationSettings(activeVariantAccount!)}
-								onResetField={(field) => resetVariantField(activeVariantAccount!.id, field)}
-								onResync={() => resyncAccount(activeVariantAccount!.id)}
+								onResetField={(field) => resetNativeField(activeVariantAccount!, field)}
+								onResync={() => {
+									const key = nativeDescriptionKey(activeVariantAccount!);
+									if (key) updateAccountSetting(activeVariantAccount!, key, '');
+									resyncAccount(activeVariantAccount!.id);
+								}}
 								onDestinationAction={openDestinationAction}
 							/>
-							<div id={previewId}>
-								{#if previewOpen}
-									<ComposerPreview
-										model={previewForAccount(activeVariantAccount)}
-										onOpenFull={() => openAccountPreview(activeVariantAccount!)}
-									/>
-								{/if}
-							</div>
 						{/if}
 					</section>
 				{/if}
@@ -6160,334 +6576,380 @@
 					</div>
 				{/if}
 
-				<!-- Posts -->
-				<div class="space-y-0">
-					{#if undoReorderIDs}<Button variant="ghost" size="sm" onclick={undoThreadReorder}
-							>{m.interaction_reorder_undo()}</Button
-						>{/if}
-					<ReorderList
-						items={posts}
-						scope={`${selectedWorkspaceId}:${publicationId}`}
-						label={m.compose_post_text()}
-						onReorder={handleReorder}
-					>
-						{#snippet item(post, i, handle)}
-							{@const editorContent = getEditorContentForPost(post)}
-							{@const editorMediaIds = getEditorMediaIdsForPost(post)}
-							{@const pendingMediaUploads = visiblePasteMediaUploads(post)}
-							{@const pasteFeedback = visiblePasteMediaFeedback(post)}
-							{@const editorMediaCount = editorMediaIds.length + pendingMediaUploads.length}
+				{#if activeVariantAccount}
+					{@const accountPreview = previewForAccount(activeVariantAccount)}
+					{@const post = activePost}
+					{#key activeVariantAccount.id}
+						<div data-testid="composer-account-editor">
 							<div
-								class="group/post relative {isDraggingFile && activePostIndex === i
-									? 'bg-primary/5'
-									: ''}"
-								role="region"
-								aria-label={m.compose_drop_zone({ number: i + 1 })}
-								onfocusin={() => setActivePost(i)}
-								ondragover={handleDragOver}
-								ondragleave={handleDragLeave}
-								ondrop={(e) => handleDrop(e, i)}
+								class="flex items-center justify-between gap-2 py-2 text-xs text-muted-foreground"
 							>
-								{#if isThread && i < posts.length - 1}
-									<div class="absolute top-0 bottom-0 left-3 w-px bg-border"></div>
+								<span
+									>{nativeHasCustomText(activeVariantAccount)
+										? m.compose_using_custom_text()
+										: m.compose_using_shared_text()}</span
+								>
+								{#if nativeHasCustomText(activeVariantAccount) && (!joinedDescriptionKey(activeVariantAccount) || settingsByAccount[activeVariantAccount.id]?.[joinedDescriptionKey(activeVariantAccount)!])}<Button
+										variant="ghost"
+										size="sm"
+										onclick={() => resetNativeField(activeVariantAccount!, 'content')}
+										>{joinedDescriptionKey(activeVariantAccount)
+											? m.compose_preview_reset()
+											: m.compose_reset_field()}</Button
+									>{/if}
+							</div>
+							<ComposerPreview
+								model={previewForAccount(activeVariantAccount)}
+								editor={{
+									text: nativePostText,
+									title: nativePostTitle,
+									card: nativeLinkCard,
+									poll: nativePoll
+								}}
+							/>
+							{#if post}
+								{@const pendingMediaUploads = visiblePasteMediaUploads(post)}
+								<div class="flex flex-wrap items-center gap-2 py-2">
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label={m.media_picker_add_media()}
+										onclick={() => {
+											if (getEditorMediaIdsForPost(post).length)
+												previewMediaOpen = !previewMediaOpen;
+											else {
+												unsyncAccount(activeVariantAccount!.id);
+												openMediaPicker(activePostIndex);
+											}
+										}}><ThemeIcon role="image" class="size-4" /></Button
+									>
+									{#if !post.poll && !accountPreview.poll && supportsNativePoll(visibleSettings(activeVariantAccount))}
+										<Button
+											variant="ghost"
+											size="icon"
+											aria-label={m.compose_add_poll()}
+											onclick={() => {
+												pollCreationAccountID = activeVariantAccount!.id;
+												pollEditorPostKey = post.key;
+											}}><ThemeIcon role="poll" class="size-4" /></Button
+										>
+									{/if}
+									<ComposerCharCounter
+										content={accountPreview.segments[0]?.text ?? ''}
+										limits={editorPlatformLimits}
+									/>
+									{#if previewMediaOpen}<Button
+											variant="outline"
+											size="sm"
+											onclick={() => {
+												unsyncAccount(activeVariantAccount!.id);
+												openMediaPicker(activePostIndex);
+											}}>{m.media_picker_add_media()}</Button
+										>{/if}
+								</div>
+								{#if previewMediaOpen || pendingMediaUploads.length}
+									<ComposerMediaGrid
+										mediaIds={getEditorMediaIdsForPost(post)}
+										mediaCount={getEditorMediaIdsForPost(post).length + pendingMediaUploads.length}
+										altTexts={editorMediaAltTexts}
+										captioningIds={captioningMediaIds}
+										bind:editingAltMediaId
+										pendingUploads={pendingMediaUploads}
+										queue={pasteMediaUploadQueue}
+										{isVideoMedia}
+										onRemoveMedia={(index) => {
+											unsyncAccount(activeVariantAccount!.id);
+											removeMedia(activePostIndex, index);
+										}}
+										onAltText={setMediaAltText}
+									/>
 								{/if}
-
-								<div class="relative flex gap-3 {isThread ? 'pl-7' : ''}">
-									{#if isThread}
-										<div class="relative flex flex-col items-center pt-3">
-											<button
-												type="button"
-												class="drag-handle -ml-6 flex size-11 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing md:-ml-4 md:size-6 md:opacity-0 md:group-hover/post:opacity-60 [@media(pointer:coarse)]:size-11"
-												title={m.compose_drag_to_reorder()}
-												aria-label={m.compose_drag_to_reorder()}
-												{...handle}
-											>
-												<ThemeIcon role="drag" class="h-4 w-4" />
-											</button>
-										</div>
+							{/if}
+							{#each posts as sourcePost, index (sourcePost.key)}
+								{#if sourcePost.poll && !accountPreview.segments.some((segment) => segment.id === sourcePost.key && segment.poll)}
+									<div class="border-t py-3">
+										<PreviewPollEditor
+											value={sourcePost.poll}
+											destination={pollDestinationFor(sourcePost, activeVariantAccount)}
+											settings={pollProjection(sourcePost, activeVariantAccount).settings}
+											onChange={(poll) => updateSharedPoll(sourcePost, poll)}
+											onLegacyChange={(values) =>
+												updatePreviewSettings(activeVariantAccount!, index, values)}
+											onCustomizeText={() =>
+												customizePollText(sourcePost, activeVariantAccount!, index)}
+										/>
+									</div>
+								{/if}
+								{@render sharedPollControl(sourcePost, index, 'dialog')}
+							{/each}
+						</div>
+					{/key}
+				{:else}
+					<!-- Posts -->
+					<div class="space-y-0">
+						{#if undoReorderIDs}<Button variant="ghost" size="sm" onclick={undoThreadReorder}
+								>{m.interaction_reorder_undo()}</Button
+							>{/if}
+						<ReorderList
+							items={posts}
+							scope={`${selectedWorkspaceId}:${publicationId}`}
+							label={m.compose_post_text()}
+							onReorder={handleReorder}
+						>
+							{#snippet item(post, i, handle)}
+								{@const editorContent = getEditorContentForPost(post)}
+								{@const editorMediaIds = getEditorMediaIdsForPost(post)}
+								{@const pendingMediaUploads = visiblePasteMediaUploads(post)}
+								{@const pasteFeedback = visiblePasteMediaFeedback(post)}
+								{@const editorMediaCount = editorMediaIds.length + pendingMediaUploads.length}
+								<div
+									class="group/post relative {isDraggingFile && activePostIndex === i
+										? 'bg-primary/5'
+										: ''}"
+									role="region"
+									aria-label={m.compose_drop_zone({ number: i + 1 })}
+									onfocusin={() => setActivePost(i)}
+									ondragover={handleDragOver}
+									ondragleave={handleDragLeave}
+									ondrop={(e) => handleDrop(e, i)}
+								>
+									{#if isThread && i < posts.length - 1}
+										<div class="absolute top-0 bottom-0 left-3 w-px bg-border"></div>
 									{/if}
 
-									<div class="min-w-0 flex-1">
-										<div class="relative">
-											<Textarea
-												id="post-textarea-{i}"
-												dir="auto"
-												aria-label={editorTextIsYouTubeDescription
-													? m.compose_description()
-													: m.compose_post_text()}
-												unstyled
-												{@attach textareaAttachment(i)}
-												value={editorContent}
-												oninput={(e) => {
-													const target = e.target as HTMLTextAreaElement;
-													setEditorContent(i, target.value);
-													autoResize(target);
-												}}
-												onpaste={(e) => handlePaste(e, i)}
-												onfocus={() => setActivePost(i)}
-												placeholder={activeVariantAccountId
-													? activeVariantIsUnsynced
-														? editorTextIsYouTubeDescription
-															? m.compose_describe_video()
-															: m.compose_write_custom_version({
-																	platform: getPlatformName(activeVariantAccount?.platform ?? '')
-																})
-														: m.compose_unsync_to_edit_placeholder()
-													: i === 0
-														? editorTextIsYouTubeDescription
-															? m.compose_describe_video()
-															: m.compose_ai_idea_placeholder()
-														: m.compose_add_to_thread()}
-												class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 {isThread
-													? 'pr-12'
-													: 'pr-3 md:pr-4'} text-base leading-7 text-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none md:py-3 md:text-lg md:leading-8"
-												style="min-height: {i === 0 ? '120px' : '56px'};"
-												disabled={isSubmitting ||
-													buildingPost ||
-													(!!activeVariantAccountId && !activeVariantIsUnsynced)}
-											/>
-
-											{#if activeVariantAccountId && activePostIndex === i && !activeVariantIsUnsynced}
-												<div class="px-1 pb-2">
-													<div
-														class="rounded-xl border border-dashed border-border/80 bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm"
-													>
-														<div class="flex flex-wrap items-center justify-between gap-2">
-															<span>{m.compose_editor_locked_synced()}</span>
-															<Button
-																variant="outline"
-																size="sm"
-																class="h-7 gap-1 text-xs"
-																onclick={() =>
-																	activeVariantAccountId && unsyncAccount(activeVariantAccountId)}
-															>
-																<ThemeIcon role="unlink" class="h-3.5 w-3.5" />
-																{m.compose_unsync_to_edit()}
-															</Button>
-														</div>
-													</div>
-												</div>
-											{/if}
-										</div>
-
-										{#if pasteFeedback.length > 0}
-											<div
-												class="mb-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
-												role="status"
-												aria-live="polite"
-												data-testid="composer-paste-feedback"
-											>
-												<ul class="min-w-0 flex-1 space-y-1">
-													{#each pasteFeedback as message (message)}
-														<li>{message}</li>
-													{/each}
-												</ul>
+									<div class="relative flex gap-3 {isThread ? 'pl-7' : ''}">
+										{#if isThread}
+											<div class="relative flex flex-col items-center pt-3">
 												<button
 													type="button"
-													class="flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-													onclick={() => (pasteMediaFeedback = null)}
-													aria-label={m.common_dismiss()}
+													class="drag-handle -ml-6 flex size-11 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing md:-ml-4 md:size-6 md:opacity-0 md:group-hover/post:opacity-60 [@media(pointer:coarse)]:size-11"
+													title={m.compose_drag_to_reorder()}
+													aria-label={m.compose_drag_to_reorder()}
+													{...handle}
 												>
-													<ThemeIcon role="close" class="size-3.5" />
+													<ThemeIcon role="drag" class="h-4 w-4" />
 												</button>
 											</div>
 										{/if}
 
-										<ComposerMediaGrid
-											mediaIds={editorMediaIds}
-											mediaCount={editorMediaCount}
-											altTexts={editorMediaAltTexts}
-											captioningIds={captioningMediaIds}
-											bind:editingAltMediaId
-											pendingUploads={pendingMediaUploads}
-											queue={pasteMediaUploadQueue}
-											{isVideoMedia}
-											onRemoveMedia={(mi) => removeMedia(i, mi)}
-											onAltText={setMediaAltText}
-										/>
+										<div class="min-w-0 flex-1">
+											<div class="relative">
+												<Textarea
+													id="post-textarea-{i}"
+													dir="auto"
+													aria-label={editorTextIsYouTubeDescription
+														? m.compose_description()
+														: m.compose_post_text()}
+													unstyled
+													{@attach textareaAttachment(i)}
+													value={editorContent}
+													oninput={(e) => {
+														const target = e.target as HTMLTextAreaElement;
+														setEditorContent(i, target.value);
+														autoResize(target);
+													}}
+													onpaste={(e) => handlePaste(e, i)}
+													onfocus={() => setActivePost(i)}
+													placeholder={i === 0
+														? editorTextIsYouTubeDescription
+															? m.compose_describe_video()
+															: m.compose_ai_idea_placeholder()
+														: m.compose_add_to_thread()}
+													class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 {isThread
+														? 'pr-12'
+														: 'pr-3 md:pr-4'} text-base leading-7 text-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none md:py-3 md:text-lg md:leading-8"
+													style="min-height: {i === 0 ? '120px' : '56px'};"
+													disabled={isSubmitting ||
+														buildingPost ||
+														(!!activeVariantAccountId && !activeVariantIsUnsynced)}
+												/>
+											</div>
 
-										<SharedPollEditor
-											value={post.poll}
-											body={post.content}
-											destinations={selectedAccounts.map((account) => ({
-												id: account.id,
-												label: accountContextLabel(account),
-												fields: visibleSettings(account),
-												body: getVariantContent(account.id, post.key) ?? post.content,
-												error: sharedPollError(post, account)
-											}))}
-											onChange={(poll) => updateSharedPoll(post, poll)}
-											activeDestinationId={activeVariantAccountId}
-											open={pollEditorPostKey === post.key}
-											onOpenChange={(open) => (pollEditorPostKey = open ? post.key : null)}
-											onOpenDestination={(id) => {
-												activeVariantAccountId = id;
-												activePostIndex = i;
-											}}
-											onLegacySettings={(id) => {
-												activePostIndex = i;
-												const account = selectedAccounts.find((item) => item.id === id);
-												if (account) openDestinationSettings(account);
-											}}
-											onCustomizeText={(id) => {
-												activeVariantAccountId = id;
-												activePostIndex = i;
-												unsyncAccount(id);
-												const account = selectedAccounts.find((item) => item.id === id);
-												if (account && post.poll?.destinations[id]?.mode === 'text') {
-													const text = pollProjection(post, account).body;
-													handleVariantChange(id, i, text);
-													updateSharedPoll(post, {
-														...post.poll,
-														destinations: { ...post.poll.destinations, [id]: { mode: 'omit' } }
-													});
-												}
-											}}
-										/>
-
-										<!-- Bottom bar -->
-										<div
-											class="flex flex-wrap items-center gap-2 pb-2 transition-opacity {activePostIndex ===
-											i
-												? 'opacity-100'
-												: 'pointer-events-none opacity-0'}"
-										>
-											{#if isThread}<span
-													class="text-xs font-medium text-muted-foreground tabular-nums"
-													>#{i + 1}</span
-												>{/if}
-
-											<button
-												type="button"
-												class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 md:size-7"
-												disabled={isSubmitting ||
-													pendingMediaUploads.length > 0 ||
-													editorMediaCount >= composerMediaLimit ||
-													(!!activeVariantAccountId && !activeVariantIsUnsynced)}
-												aria-busy={pendingMediaUploads.length > 0}
-												onclick={() => openMediaPicker(i)}
-												aria-label={m.media_picker_add_media()}
-											>
-												<ThemeIcon role="image" class="h-3.5 w-3.5" />
-											</button>
-											{#if !post.poll}
-												<button
-													type="button"
-													class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
-													onclick={() => (pollEditorPostKey = post.key)}
-													aria-label={m.compose_add_poll()}
+											{#if pasteFeedback.length > 0}
+												<div
+													class="mb-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+													role="status"
+													aria-live="polite"
+													data-testid="composer-paste-feedback"
 												>
-													<ThemeIcon role="poll" class="h-3.5 w-3.5" />
-												</button>
+													<ul class="min-w-0 flex-1 space-y-1">
+														{#each pasteFeedback as message (message)}
+															<li>{message}</li>
+														{/each}
+													</ul>
+													<button
+														type="button"
+														class="flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+														onclick={() => (pasteMediaFeedback = null)}
+														aria-label={m.common_dismiss()}
+													>
+														<ThemeIcon role="close" class="size-3.5" />
+													</button>
+												</div>
 											{/if}
 
-											<ComposerCharCounter
-												content={getEditorContentForPost(post)}
-												limits={editorPlatformLimits}
+											<ComposerMediaGrid
+												mediaIds={editorMediaIds}
+												mediaCount={editorMediaCount}
+												altTexts={editorMediaAltTexts}
+												captioningIds={captioningMediaIds}
+												bind:editingAltMediaId
+												pendingUploads={pendingMediaUploads}
+												queue={pasteMediaUploadQueue}
+												{isVideoMedia}
+												onRemoveMedia={(mi) => removeMedia(i, mi)}
+												onAltText={setMediaAltText}
 											/>
 
-											<button
-												type="button"
-												class="-mx-2 flex min-h-11 items-center gap-1.5 px-2 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground md:mx-0 md:min-h-7 md:px-0"
-												onclick={addPost}
+											{@render sharedPollControl(post, i, 'summary')}
+
+											<!-- Bottom bar -->
+											<div
+												class="flex flex-wrap items-center gap-2 pb-2 transition-opacity {activePostIndex ===
+												i
+													? 'opacity-100'
+													: 'pointer-events-none opacity-0'}"
 											>
-												<ThemeIcon role="add" class="h-3 w-3" />{m.compose_add_post()}
-											</button>
+												{#if isThread}<span
+														class="text-xs font-medium text-muted-foreground tabular-nums"
+														>#{i + 1}</span
+													>{/if}
 
-											{#if i === 0 && !activeVariantAccountId && !isThread}
-												<ComposerAIActionButton
-													hasText={Boolean(posts[0]?.content.trim())}
-													building={buildingPost}
-													disabled={!canBuildPost}
-													ideateLabel={m.compose_ai_ideate()}
-													buildLabel={generationUndo
-														? m.compose_ai_build_again()
-														: m.compose_ai_build()}
-													buildingLabel={m.compose_ai_building()}
-													onclick={buildPostWithAI}
-													title={selectedAccountIds.length === 0
-														? m.compose_ai_destinations_required()
-														: undefined}
+												<button
+													type="button"
+													class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 md:size-7"
+													disabled={isSubmitting ||
+														pendingMediaUploads.length > 0 ||
+														editorMediaCount >= composerMediaLimit ||
+														(!!activeVariantAccountId && !activeVariantIsUnsynced)}
+													aria-busy={pendingMediaUploads.length > 0}
+													onclick={() => openMediaPicker(i)}
+													aria-label={m.media_picker_add_media()}
+												>
+													<ThemeIcon role="image" class="h-3.5 w-3.5" />
+												</button>
+												{#if !post.poll}
+													<button
+														type="button"
+														class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
+														onclick={() => {
+															pollCreationAccountID = undefined;
+															pollEditorPostKey = post.key;
+														}}
+														aria-label={m.compose_add_poll()}
+													>
+														<ThemeIcon role="poll" class="h-3.5 w-3.5" />
+													</button>
+												{/if}
+
+												<ComposerCharCounter
+													content={getEditorContentForPost(post)}
+													limits={editorPlatformLimits}
 												/>
-											{/if}
-										</div>
 
-										{#if i === 0 && !activeVariantAccountId && !isThread && postBuilderError}
-											<p class="border-t py-3 text-sm text-destructive" role="alert">
-												{postBuilderError}
-											</p>
-										{:else if i === 0 && !activeVariantAccountId && generationUndo}
-											<div class="space-y-3 border-t py-3">
-												<div class="flex flex-wrap items-center gap-2">
-													<p class="min-w-0 flex-1 text-sm text-muted-foreground">
-														{m.compose_ai_ready({ count: selectedAccounts.length })}
-													</p>
-													{#if isThread}
-														<Button
-															type="button"
-															variant="ghost"
-															size="sm"
-															class="min-h-11 md:min-h-8"
-															onclick={convertGeneratedThreadToPost}
-														>
-															{m.compose_ai_convert_to_post()}
-														</Button>
-													{/if}
-													{#if latestGenerationUndo && latestGenerationUndo !== generationUndo}
+												<button
+													type="button"
+													class="-mx-2 flex min-h-11 items-center gap-1.5 px-2 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground md:mx-0 md:min-h-7 md:px-0"
+													onclick={addPost}
+												>
+													<ThemeIcon role="add" class="h-3 w-3" />{m.compose_add_post()}
+												</button>
+
+												{#if i === 0 && !activeVariantAccountId && !isThread}
+													<ComposerAIActionButton
+														hasText={Boolean(posts[0]?.content.trim())}
+														building={buildingPost}
+														disabled={!canBuildPost}
+														ideateLabel={m.compose_ai_ideate()}
+														buildLabel={generationUndo
+															? m.compose_ai_build_again()
+															: m.compose_ai_build()}
+														buildingLabel={m.compose_ai_building()}
+														onclick={buildPostWithAI}
+														title={selectedAccountIds.length === 0
+															? m.compose_ai_destinations_required()
+															: undefined}
+													/>
+												{/if}
+											</div>
+
+											{#if i === 0 && !activeVariantAccountId && !isThread && postBuilderError}
+												<p class="border-t py-3 text-sm text-destructive" role="alert">
+													{postBuilderError}
+												</p>
+											{:else if i === 0 && !activeVariantAccountId && generationUndo}
+												<div class="space-y-3 border-t py-3">
+													<div class="flex flex-wrap items-center gap-2">
+														<p class="min-w-0 flex-1 text-sm text-muted-foreground">
+															{m.compose_ai_ready({ count: selectedAccounts.length })}
+														</p>
+														{#if isThread}
+															<Button
+																type="button"
+																variant="ghost"
+																size="sm"
+																class="min-h-11 md:min-h-8"
+																onclick={convertGeneratedThreadToPost}
+															>
+																{m.compose_ai_convert_to_post()}
+															</Button>
+														{/if}
+														{#if latestGenerationUndo && latestGenerationUndo !== generationUndo}
+															<Button
+																type="button"
+																variant="ghost"
+																size="sm"
+																class="min-h-11 gap-1.5 md:min-h-8"
+																onclick={undoLatestGenerationApply}
+															>
+																<ThemeIcon role="undo" class="size-3.5" />
+																{m.image_editor_undo()}
+															</Button>
+														{/if}
 														<Button
 															type="button"
 															variant="ghost"
 															size="sm"
 															class="min-h-11 gap-1.5 md:min-h-8"
-															onclick={undoLatestGenerationApply}
+															onclick={restoreIdea}
 														>
 															<ThemeIcon role="undo" class="size-3.5" />
-															{m.image_editor_undo()}
+															{m.compose_ai_restore_idea()}
 														</Button>
-													{/if}
-													<Button
-														type="button"
-														variant="ghost"
-														size="sm"
-														class="min-h-11 gap-1.5 md:min-h-8"
-														onclick={restoreIdea}
-													>
-														<ThemeIcon role="undo" class="size-3.5" />
-														{m.compose_ai_restore_idea()}
-													</Button>
+													</div>
 												</div>
-											</div>
-											{#if aiMemeCandidates.length > 0 || aiMemeError}
-												<div class="border-t py-4">
-													<AIMemeRecommendation
-														candidates={aiMemeCandidates}
-														copy={aiMemeCopy}
-														bind:selectedCandidateId={aiMemeSelectedID}
-														error={aiMemeError}
-														onUse={useAIMeme}
-														onEdit={editAIMeme}
-														onRetry={previewAIMemeCandidate}
-													/>
-												</div>
+												{#if aiMemeCandidates.length > 0 || aiMemeError}
+													<div class="border-t py-4">
+														<AIMemeRecommendation
+															candidates={aiMemeCandidates}
+															copy={aiMemeCopy}
+															bind:selectedCandidateId={aiMemeSelectedID}
+															error={aiMemeError}
+															onUse={useAIMeme}
+															onEdit={editAIMeme}
+															onRetry={previewAIMemeCandidate}
+														/>
+													</div>
+												{/if}
 											{/if}
-										{/if}
-										{#if isThread}
-											<button
-												type="button"
-												class="absolute top-1 right-0 z-20 flex size-11 items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:text-destructive focus-visible:opacity-100 md:top-3 md:size-7 md:opacity-0 md:group-hover/post:opacity-100 [@media(pointer:coarse)]:size-11"
-												onclick={() => removePost(i)}
-												title={m.compose_remove_post()}
-												aria-label={m.compose_remove_post()}
-											>
-												<ThemeIcon role="delete" class="h-3.5 w-3.5" />
-											</button>
-										{/if}
+											{#if isThread}
+												<button
+													type="button"
+													class="absolute top-1 right-0 z-20 flex size-11 items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:text-destructive focus-visible:opacity-100 md:top-3 md:size-7 md:opacity-0 md:group-hover/post:opacity-100 [@media(pointer:coarse)]:size-11"
+													onclick={() => removePost(i)}
+													title={m.compose_remove_post()}
+													aria-label={m.compose_remove_post()}
+												>
+													<ThemeIcon role="delete" class="h-3.5 w-3.5" />
+												</button>
+											{/if}
+										</div>
 									</div>
 								</div>
-							</div>
-						{/snippet}
-					</ReorderList>
-				</div>
+							{/snippet}
+						</ReorderList>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>

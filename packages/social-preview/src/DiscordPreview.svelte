@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Reply from "@lucide/svelte/icons/reply";
@@ -7,6 +8,8 @@
   import PreviewAttachment from "./PreviewAttachment.svelte";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -30,8 +33,8 @@
           <span class="app-badge">APP</span>
           <span>{model.createdAtLabel}</span>
         </header>
-        {#if segment.text}<p dir="auto">{segment.text}</p>{/if}
-        {#if segment.card ?? (index === 0 ? model.card : undefined)}<PreviewAttachment
+        {#if editing()?.text}{@render editing()!.text(segment)}{:else if segment.text}<p dir="auto">{segment.text}</p>{/if}
+        {#if segment.card ?? (index === 0 ? model.card : undefined)}<PreviewAttachment {segment}
             card={(segment.card ?? model.card)!}
             platform="discord"
           />{/if}

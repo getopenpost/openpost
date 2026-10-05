@@ -9720,7 +9720,7 @@
 	"repurpose_folder_missing": "创建片段前，请选择本地文件夹。",
 	"repurpose_transcript_storage_failed": "项目仍然可用，但无法在此设备上保存转录文本。你仍可继续编辑和导出项目。",
 	"image_editor_text_range_scope": "字体和字号会应用于整个文字图层。",
-	"compose_settings_add_video_hint": "在“{all}”中添加视频，或自定义此版本以添加单独的媒体。然后重新打开设置，输入标题并选择视频选项。",
+	"compose_settings_add_video_hint": "在“{all}”或此账号中添加视频，即可编辑视频设置。",
 	"video_editor_shortcuts_playback_scope": "当源监视器获得焦点或鼠标悬停其上时，穿梭控制源监视器，否则控制节目监视器。获得焦点的滑块、按钮和文本框保留各自的按键操作。",
 	"calendar_no_matching_body": "没有符合所选日期和筛选条件的帖子。请尝试其他日期范围或清除筛选条件。",
 	"media_dimensions_range_invalid": "最小尺寸不能超过最大尺寸。不设上限时请使用0。",
@@ -9748,5 +9748,10 @@
 	"compose_poll_use_shared": "使用共享投票",
 	"compose_poll_review_accounts": "请选择在这些账号上发布投票的方式。",
 	"compose_poll_unsupported_accounts": "{accounts} 不支持投票。请在各账号标签页中选择版本。",
-	"compose_poll_text_notice": "仅发布文字，没有投票按钮。"
+	"compose_poll_text_notice": "仅发布文字，没有投票按钮。",
+	"compose_full_preview": "完整预览",
+	"compose_using_shared_text": "使用共享文字",
+	"compose_using_custom_text": "自定义文字",
+	"compose_link_use_post_url": "使用帖子网址",
+	"compose_preview_reset": "重置"
 }

@@ -9720,7 +9720,7 @@
 	"repurpose_folder_missing": "Elige una carpeta local antes de crear clips.",
 	"repurpose_transcript_storage_failed": "Tu proyecto está disponible, pero no se pudo guardar su transcripción en este dispositivo. Puedes seguir editándolo y exportándolo.",
 	"image_editor_text_range_scope": "La familia y el tamaño de fuente afectan a toda la capa de texto.",
-	"compose_settings_add_video_hint": "Añade un vídeo en {all} o personaliza esta versión para añadir contenido multimedia separado. Después, vuelve a abrir los ajustes para introducir su título y elegir las opciones del vídeo.",
+	"compose_settings_add_video_hint": "Añade un vídeo en {all} o en esta cuenta para editar sus ajustes.",
 	"video_editor_shortcuts_playback_scope": "El shuttle controla Fuente cuando tiene el foco o el puntero encima; de lo contrario, Programa. Los controles deslizantes, botones y campos de texto con foco conservan sus propias teclas.",
 	"calendar_no_matching_body": "Ninguna publicación coincide con las fechas y los filtros seleccionados. Prueba otro intervalo de fechas o borra los filtros.",
 	"media_dimensions_range_invalid": "Las dimensiones mínimas no pueden superar las máximas. Usa 0 para no establecer un máximo.",
@@ -9748,5 +9748,10 @@
 	"compose_poll_use_shared": "Usar encuesta compartida",
 	"compose_poll_review_accounts": "Elige cómo publicar la encuesta en estas cuentas.",
 	"compose_poll_unsupported_accounts": "Las encuestas no están disponibles en {accounts}. Elige una versión en la pestaña de cada cuenta.",
-	"compose_poll_text_notice": "Solo texto, sin botones para votar."
+	"compose_poll_text_notice": "Solo texto, sin botones para votar.",
+	"compose_full_preview": "Vista previa completa",
+	"compose_using_shared_text": "Usando texto compartido",
+	"compose_using_custom_text": "Texto personalizado",
+	"compose_link_use_post_url": "Usar URL de la publicación",
+	"compose_preview_reset": "Restablecer"
 }

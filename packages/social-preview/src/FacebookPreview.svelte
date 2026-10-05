@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import Globe2 from "@lucide/svelte/icons/globe-2";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import X from "@lucide/svelte/icons/x";
@@ -9,6 +10,8 @@
   import PreviewMedia from "./PreviewMedia.svelte";
   import VerticalPreview from "./VerticalPreview.svelte";
   import PreviewText from "./PreviewText.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -42,10 +45,8 @@
       </div>
     </header>
 
-    {#if text}
-      <div class="post-text"><PreviewText {text} lines={5} /></div>
-    {/if}
-    {#if model.card}<PreviewAttachment
+    {#if editing()?.text}<div class="post-text">{@render editing()!.text(primary)}</div>{:else if text}<div class="post-text"><PreviewText {text} lines={5} /></div>{/if}
+    {#if model.card}<PreviewAttachment segment={primary}
         card={model.card}
         platform="facebook"
       />{/if}

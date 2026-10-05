@@ -43,7 +43,12 @@ test("media on a follow-up preserves the first post's native poll", async ({
     await addMedia.click();
     const picker = page.getByRole("dialog");
     await picker.getByRole("tab", { name: "Library", exact: true }).click();
-    await picker.getByRole("button", { name: "Select audit-thread-poll.png", exact: true }).click();
+    await picker
+      .getByRole("button", {
+        name: "Select audit-thread-poll.png",
+        exact: true,
+      })
+      .click();
     const resolvedMedia = page.waitForResponse((response) => {
       if (!response.url().endsWith("/api/v1/capabilities/resolve")) return false;
       const input = response.request().postDataJSON();
@@ -58,7 +63,9 @@ test("media on a follow-up preserves the first post's native poll", async ({
     .getByRole("textbox", { name: "Post text", exact: true })
     .fill("Audit poll before a photo.");
   await page.getByRole("button", { name: "Add poll", exact: true }).click();
-  const poll = page.getByTestId("shared-poll-editor");
+  const poll = page.locator(
+    '[data-testid="shared-poll-editor"]:visible, [data-testid="composer-account-preview"]:visible',
+  );
   const dialog = page.getByRole("dialog", { name: "Add poll", exact: true });
   await dialog.getByRole("textbox", { name: "Question", exact: true }).fill("Which option?");
   await dialog.getByRole("textbox", { name: "Option 1", exact: true }).fill("First");
@@ -108,7 +115,10 @@ test("media on a follow-up preserves the first post's native poll", async ({
       await page.goto(`/publications/${saved.id}`);
       await expect(poll.getByText("Which option?", { exact: true })).toBeVisible();
       await page.getByRole("tab", { name: /@auditpoll,/ }).click();
-      const version = poll.getByRole("button", { name: "Poll version", exact: true });
+      const version = poll.getByRole("button", {
+        name: "Poll version",
+        exact: true,
+      });
       await version.focus();
       await page.keyboard.press("Enter");
       await expect(page.getByRole("option", { name: "Native poll", exact: true })).toBeVisible();
@@ -118,7 +128,9 @@ test("media on a follow-up preserves the first post's native poll", async ({
         true,
       );
       await poll.scrollIntoViewIfNeeded();
-      await page.screenshot({ path: testInfo.outputPath(`poll-${width}-${scheme}.png`) });
+      await page.screenshot({
+        path: testInfo.outputPath(`poll-${width}-${scheme}.png`),
+      });
       await page.getByRole("tab", { name: "All", exact: true }).click();
     }
   }
@@ -148,7 +160,9 @@ test("media on a follow-up preserves the first post's native poll", async ({
   expect((await blocked.json()).issues.map((issue: { code: string }) => issue.code)).toContain(
     "x_mutually_exclusive_attachment",
   );
-  await page.screenshot({ path: testInfo.outputPath("same-post-media-guard.png") });
+  await page.screenshot({
+    path: testInfo.outputPath("same-post-media-guard.png"),
+  });
   await page.getByRole("tab", { name: "All", exact: true }).click();
   await page
     .getByRole("region", { name: "Drop zone for post 1", exact: true })

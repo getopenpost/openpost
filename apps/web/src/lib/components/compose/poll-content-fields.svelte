@@ -15,12 +15,14 @@
 		value,
 		onChange,
 		body = '',
-		fields
+		fields,
+		questionSource = 'poll'
 	}: {
 		value: PollContent;
 		onChange: (value: PollContent) => void;
 		body?: string;
 		fields?: PollDestination['fields'];
+		questionSource?: 'poll' | 'caption';
 	} = $props();
 	const uid = $props.id();
 	const optionConstraints = $derived(
@@ -57,21 +59,23 @@
 </script>
 
 <div class="grid min-w-0 gap-3">
-	<div class="grid gap-1.5">
-		<label for="{uid}-question" class="text-sm font-medium">{m.compose_poll_question()}</label>
-		<Input
-			id="{uid}-question"
-			maxlength={questionLimit}
-			value={value.question}
-			oninput={(event) => onChange({ ...value, question: event.currentTarget.value })}
-		/>
-		{#if body.trim() && !value.question}<Button
-				variant="ghost"
-				size="sm"
-				class="w-fit text-xs"
-				onclick={() => onChange({ ...value, question: body })}>{m.compose_poll_use_body()}</Button
-			>{/if}
-	</div>
+	{#if questionSource === 'poll'}
+		<div class="grid gap-1.5">
+			<label for="{uid}-question" class="text-sm font-medium">{m.compose_poll_question()}</label>
+			<Input
+				id="{uid}-question"
+				maxlength={questionLimit}
+				value={value.question}
+				oninput={(event) => onChange({ ...value, question: event.currentTarget.value })}
+			/>
+			{#if body.trim() && !value.question}<Button
+					variant="ghost"
+					size="sm"
+					class="w-fit text-xs"
+					onclick={() => onChange({ ...value, question: body })}>{m.compose_poll_use_body()}</Button
+				>{/if}
+		</div>
+	{/if}
 	<fieldset class="grid gap-2">
 		<legend class="mb-2 text-sm font-medium">{m.compose_poll_options()}</legend>
 		{#each value.options as option, index (option.id)}

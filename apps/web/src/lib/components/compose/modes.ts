@@ -1,8 +1,11 @@
+import { linkDraftSchema, type LinkDraft } from './links';
 import { sharedPollSchema, type SharedPoll } from './polls';
 import { getPlatformKey } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 
 export const COMPOSER_MODE_KEYS = ['post', 'thread'] as const;
+
+const VIDEO_METADATA_PLATFORMS = new Set(['youtube', 'peertube']);
 
 const MEDIA_TEXT_LINK_PLATFORMS = new Set([
 	'x',
@@ -75,6 +78,7 @@ export interface PublicationMediaInput {
 
 export interface PublicationSegmentInput {
 	poll?: SharedPoll;
+	link?: LinkDraft;
 	id: string;
 	content: string;
 	title?: string;
@@ -119,7 +123,7 @@ export interface ComposerPublicationPayload {
 	};
 	media: Array<{ media_id: string; role: string }>;
 	segments: Array<{
-		settings?: { poll: SharedPoll };
+		settings?: { poll?: SharedPoll; link?: LinkDraft };
 		id: string;
 		body: string;
 		title: string;
@@ -201,6 +205,11 @@ export function buildPublicationPayload(
 			media: mediaPayload(segment.media)
 		};
 		if (segment.poll) payloadSegment.settings = { poll: sharedPollSchema.parse(segment.poll) };
+		if (segment.link)
+			payloadSegment.settings = {
+				...payloadSegment.settings,
+				link: linkDraftSchema.parse(segment.link)
+			};
 		const segmentURL = segment.url?.trim();
 		if (segmentURL) payloadSegment.url = segmentURL;
 		return payloadSegment;
@@ -234,10 +243,14 @@ export function buildPublicationPayload(
 			const settings = cloneComposerSettings(input.settingsByAccount?.[account.id]);
 			const destinationTitle = parseComposerSettingString(settings.title).trim();
 			const destinationDescription = parseComposerSettingString(settings.description).trim();
-			if (MEDIA_TEXT_LINK_PLATFORMS.has(platform) && profile !== 'link_share') {
+			if (
+				!firstSegment?.link &&
+				MEDIA_TEXT_LINK_PLATFORMS.has(platform) &&
+				profile !== 'link_share'
+			) {
 				delete settings.url;
 				delete settings.link_url;
-			} else if (input.fields.linkUrl?.trim()) {
+			} else if (!firstSegment?.link && input.fields.linkUrl?.trim()) {
 				if (platform === 'bluesky') {
 					settings.link_url ??= input.fields.linkUrl.trim();
 				} else {
@@ -259,7 +272,7 @@ export function buildPublicationPayload(
 						? (overrides.body ?? '')
 						: firstNonEmpty(segment.content, input.fields.postText, sourceText);
 				const segmentSettings = cloneComposerSettings(segment.settingsByAccount?.[account.id]);
-				if (MEDIA_TEXT_LINK_PLATFORMS.has(platform) && profile !== 'link_share') {
+				if (!segment.link && MEDIA_TEXT_LINK_PLATFORMS.has(platform) && profile !== 'link_share') {
 					delete segmentSettings.url;
 					delete segmentSettings.link_url;
 				}
@@ -279,13 +292,13 @@ export function buildPublicationPayload(
 				const segmentTitle =
 					overrides && Object.hasOwn(overrides, 'title')
 						? (overrides.title ?? '')
-						: platform === 'youtube'
+						: VIDEO_METADATA_PLATFORMS.has(platform)
 							? firstNonEmpty(destinationTitle, segment.title, title)
 							: firstNonEmpty(segment.title, title);
 				const segmentDescription =
 					overrides && Object.hasOwn(overrides, 'description')
 						? (overrides.description ?? '')
-						: platform === 'youtube'
+						: VIDEO_METADATA_PLATFORMS.has(platform)
 							? firstNonEmpty(
 									destinationDescription,
 									segment.description,
@@ -385,6 +398,7 @@ function publicationSegments(input: PublicationComposerInput): PublicationSegmen
 			url: firstNonEmpty(input.fields.linkUrl, source?.url),
 			media: input.media.length > 0 ? input.media : (source?.media ?? []),
 			poll: source?.poll,
+			link: source?.link,
 			settingsByAccount: source?.settingsByAccount
 		}
 	];

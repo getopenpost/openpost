@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  createWorkspace,
+  registerUser,
+  openComposerPlatformSettings,
+} from "./helpers";
 
 // Provider readiness is synthetic; persistence uses the real local API.
 test("a hydrated draft retains format changes, shared media and a new follow-up after reload", async ({
@@ -70,11 +75,27 @@ test("a hydrated draft retains format changes, shared media and a new follow-up 
             compatible: true,
             text_limit: 2200,
             available_formats: [
-              { output_profile: "instagram.feed", label: "Feed", compatible: true },
-              { output_profile: "instagram.story", label: "Story", compatible: true },
-              { output_profile: "instagram.reel", label: "Reel", compatible: true },
+              {
+                output_profile: "instagram.feed",
+                label: "Feed",
+                compatible: true,
+              },
+              {
+                output_profile: "instagram.story",
+                label: "Story",
+                compatible: true,
+              },
+              {
+                output_profile: "instagram.reel",
+                label: "Reel",
+                compatible: true,
+              },
             ],
-            media: { min_count: 1, max_count: 10, allowed_mimes: ["image/png"] },
+            media: {
+              min_count: 1,
+              max_count: 10,
+              allowed_mimes: ["image/png"],
+            },
             settings: [
               {
                 key: "first_comment",
@@ -112,7 +133,7 @@ test("a hydrated draft retains format changes, shared media and a new follow-up 
   await picker.getByRole("button", { name: "Select audit-persistence.png", exact: true }).click();
   await picker.getByRole("button", { name: /^Add/ }).click();
   await page.locator(`#composer-destination-${accountID}`).click();
-  await page.getByRole("button", { name: "Platform settings", exact: true }).click();
+  await openComposerPlatformSettings(page);
   await page
     .getByRole("textbox", { name: "First comment", exact: true })
     .fill("Audit independent follow-up");
@@ -132,7 +153,7 @@ test("a hydrated draft retains format changes, shared media and a new follow-up 
     });
   await page.reload();
   await page.locator(`#composer-destination-${accountID}`).click();
-  await page.getByRole("button", { name: "Platform settings", exact: true }).click();
+  await openComposerPlatformSettings(page);
   await expect(page.getByRole("textbox", { name: "First comment", exact: true })).toHaveValue(
     "Audit independent follow-up",
   );
@@ -155,5 +176,7 @@ test("a hydrated draft retains format changes, shared media and a new follow-up 
   expect(saved.renditions[0].output_profile).toBe("instagram.reel");
   expect(saved.segments[0].media.map((item: { id: string }) => item.id)).toEqual([media.id]);
 
-  await page.screenshot({ path: testInfo.outputPath("media-follow-up-reloaded.png") });
+  await page.screenshot({
+    path: testInfo.outputPath("media-follow-up-reloaded.png"),
+  });
 });

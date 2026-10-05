@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Upload from "@lucide/svelte/icons/upload";
   import type { PreviewModel } from "./model";
   import PreviewAvatar from "./PreviewAvatar.svelte";
   import PreviewMedia from "./PreviewMedia.svelte";
+
+  const editing = previewEditing();
 
   let { model, compact = false }: { model: PreviewModel; compact?: boolean } =
     $props();
@@ -21,8 +24,8 @@
       <span class="save">Save</span>
     </div>
     {#if model.card?.domain}<span class="domain">{model.card.domain}</span>{/if}
-    {#if model.title}<h2 dir="auto">{model.title}</h2>{/if}
-    {#if primary?.text}<p dir="auto">{primary.text}</p>{/if}
+    {#if model.title || editing()?.title}<h2 dir="auto">{#if editing()?.title && primary}{@render editing()!.title!(model.title ?? "", primary)}{:else}{model.title}{/if}</h2>{/if}
+    {#if editing()?.text && primary}{@render editing()!.text(primary)}{:else if primary?.text}<p dir="auto">{primary.text}</p>{/if}
     <div class="author">
       <PreviewAvatar identity={model.identity} size={32} /><strong
         >{model.identity.displayName}</strong

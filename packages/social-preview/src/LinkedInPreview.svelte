@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewEditing } from "./editing";
   import Globe2 from "@lucide/svelte/icons/globe-2";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import type { PreviewModel, PreviewSegment } from "./model";
@@ -9,6 +10,8 @@
   import PreviewPoll from "./PreviewPoll.svelte";
   import VerifiedBadge from "./VerifiedBadge.svelte";
   import PreviewText from "./PreviewText.svelte";
+
+  const editing = previewEditing();
 
   interface Props {
     model: PreviewModel;
@@ -32,11 +35,7 @@
 
 {#snippet postText(segment: PreviewSegment)}
   <div class="post-text">
-    <PreviewText
-      text={segment.text || "Your post will appear here."}
-      lines={2}
-      buttonLabel="… more"
-    />
+    {#if editing()?.text}{@render editing()!.text(segment)}{:else}<PreviewText text={segment.text || "Your post will appear here."} lines={2} buttonLabel="… more" />{/if}
   </div>
 {/snippet}
 
@@ -62,13 +61,13 @@
     {@render postText(primary)}
   </div>
 
-  {#if primary.card ?? model.card}<PreviewAttachment
+  {#if primary.card ?? model.card}<PreviewAttachment segment={primary}
       card={(primary.card ?? model.card)!}
       platform="linkedin"
     />{/if}
   {#if primary.poll ?? model.poll}
     <div class="poll-wrap">
-      <PreviewPoll poll={(primary.poll ?? model.poll)!} platform="linkedin" />
+      <PreviewPoll segment={primary} poll={(primary.poll ?? model.poll)!} platform="linkedin" />
     </div>
   {/if}
 
@@ -110,11 +109,11 @@
               <strong>{model.identity.displayName}</strong>
               <span>Author</span>
               {@render postText(reply)}
-              {#if reply.card}<PreviewAttachment
+              {#if reply.card}<PreviewAttachment segment={reply}
                   card={reply.card}
                   platform="linkedin"
                 />{/if}
-              {#if reply.poll}<PreviewPoll
+              {#if reply.poll}<PreviewPoll segment={reply}
                   poll={reply.poll}
                   platform="linkedin"
                 />{/if}

@@ -183,6 +183,17 @@ for (const width of [1280, 390, 320])
       const frame = page.getByTestId("composer-account-preview");
       await expect(frame).toHaveCount(0);
       await page.screenshot({ path: info.outputPath("shared-editor.png") });
+      const lastAccountTab = page.getByRole("tab", { name: /@previewx, X/ });
+      await lastAccountTab.click();
+      await expect(frame).toBeVisible();
+      const tabsBounds = await page
+        .getByRole("tablist", { name: "Destinations", exact: true })
+        .boundingBox();
+      const lastTabBounds = await lastAccountTab.boundingBox();
+      expect(lastTabBounds!.x).toBeGreaterThanOrEqual(tabsBounds!.x - 1);
+      expect(lastTabBounds!.x + lastTabBounds!.width).toBeLessThanOrEqual(
+        tabsBounds!.x + tabsBounds!.width + 1,
+      );
       await page.getByRole("tab", { name: /@previewsky, Bluesky/ }).click();
       await expect(frame).toBeVisible();
       await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveCount(0);
@@ -191,6 +202,41 @@ for (const width of [1280, 390, 320])
         exact: true,
       });
       await expect(skyText).toBeEnabled();
+      const sharedControl = page.getByRole("button", { name: "Shared content", exact: true });
+      await expect(sharedControl).toHaveAttribute("aria-pressed", "true");
+      await page.screenshot({ path: info.outputPath("account-shared-preview.png") });
+      await sharedControl.focus();
+      await page.keyboard.press("Space");
+      await expect(sharedControl).toHaveAttribute("aria-pressed", "false");
+      await expect
+        .poll(async () => {
+          const detail = await (
+            await request.get(`/api/v1/publications/${publication.id}`, { headers })
+          ).json();
+          const rendition = detail.renditions.find(
+            (item: { social_account_id: string }) => item.social_account_id === accounts[0].id,
+          );
+          return {
+            bodyOverride: rendition.segments[0].body_override,
+            mediaInherited: rendition.segments[0].media_inherited,
+          };
+        })
+        .toEqual({ bodyOverride: shared, mediaInherited: false });
+      await page.reload();
+      await page.getByRole("tab", { name: /@previewsky, Bluesky/ }).click();
+      await expect(sharedControl).toHaveAttribute("aria-pressed", "false");
+      await page.getByRole("tab", { name: "All", exact: true }).click();
+      await page.getByRole("textbox", { name: "Post text", exact: true }).fill(`${shared} updated`);
+      await page.getByRole("tab", { name: /@previewsky, Bluesky/ }).click();
+      await expect(skyText).toHaveValue(shared);
+      await sharedControl.click();
+      await expect(sharedControl).toHaveAttribute("aria-pressed", "true");
+      await expect(skyText).toHaveValue(`${shared} updated`);
+      await page.getByRole("tab", { name: "All", exact: true }).click();
+      await page.getByRole("textbox", { name: "Post text", exact: true }).fill(shared);
+      await page.getByRole("tab", { name: /@previewsky, Bluesky/ }).click();
+      await expect(skyText).toHaveValue(shared);
+
       if (width === 320) await skyText.fill("A Bluesky-only update https://account.example/new");
       await frame.getByRole("button", { name: "Edit", exact: true }).click();
       await frame
@@ -209,7 +255,7 @@ for (const width of [1280, 390, 320])
       await link.getByRole("button", { name: "Save", exact: true }).click();
       await expect(frame.getByText("A Bluesky headline", { exact: true })).toBeVisible();
       if (width !== 320)
-        await expect(page.getByText("Using shared text", { exact: true })).toBeVisible();
+        await expect(page.getByText("Using shared text", { exact: true })).toHaveCount(0);
       await skyText.evaluate((element) => {
         element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
         element.value = "東京";
@@ -227,18 +273,26 @@ for (const width of [1280, 390, 320])
       });
       await expect(skyText).toHaveValue("東京");
       await skyText.fill("A Bluesky-only update https://account.example/new");
-      await expect(page.getByText("Custom text", { exact: true })).toBeVisible();
+      await expect(page.getByText("Custom text", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Use shared", exact: true })).toHaveCount(0);
+      const navigation = page.getByRole("region", { name: "Destinations", exact: true });
       const rowItems = [
-        page.getByText("Custom text", { exact: true }),
-        page.getByRole("button", { name: "Use shared", exact: true }),
+        page.getByRole("tab", { name: /@previewsky, Bluesky/ }),
+        sharedControl,
         page.getByRole("button", { name: "Full preview", exact: true }),
         page
           .getByTestId("composer-variant-toolbar")
           .getByRole("button", { name: "More", exact: true }),
       ];
       const bounds = await Promise.all(rowItems.map((item) => item.boundingBox()));
+      expect(bounds.every((bounds) => bounds!.height >= 44)).toBe(true);
       const centers = bounds.map((bounds) => bounds!.y + bounds!.height / 2);
       expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(4);
+      const navigationBounds = await navigation.boundingBox();
+      const previewBounds = await frame.boundingBox();
+      expect(
+        previewBounds!.y - (navigationBounds!.y + navigationBounds!.height),
+      ).toBeLessThanOrEqual(16);
 
       await expect(frame.getByText("account.example", { exact: true })).toBeVisible();
       await expect
@@ -308,6 +362,47 @@ for (const width of [1280, 390, 320])
       ).toBeVisible();
       await expect(popup.getByRole("textbox", { name: "Post text", exact: true })).toHaveCount(0);
       await popup.close();
+      await page
+        .getByTestId("composer-variant-toolbar")
+        .getByRole("button", { name: "More", exact: true })
+        .focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("menuitem", { name: "Use shared", exact: true }).click();
+      await expect(skyText).toHaveValue(shared);
+      await expect(
+        page
+          .getByTestId("composer-variant-toolbar")
+          .getByRole("button", { name: "More", exact: true }),
+      ).toBeFocused();
+      await expect
+        .poll(async () => {
+          const detail = await (
+            await request.get(`/api/v1/publications/${publication.id}`, { headers })
+          ).json();
+          const rendition = detail.renditions.find(
+            (item: { social_account_id: string }) => item.social_account_id === accounts[0].id,
+          );
+          return {
+            body: rendition.segments[0].body,
+            title: rendition.settings?.link_title ?? rendition.segments[0].settings?.link_title,
+          };
+        })
+        .toEqual({ body: shared, title: "A Bluesky headline" });
+      await expect(sharedControl).toHaveAttribute("aria-pressed", "true");
+      await sharedControl.click();
+      await expect(sharedControl).toHaveAttribute("aria-pressed", "false");
+      await sharedControl.click();
+      await expect(sharedControl).toHaveAttribute("aria-pressed", "true");
+      await expect
+        .poll(async () => {
+          const detail = await (
+            await request.get(`/api/v1/publications/${publication.id}`, { headers })
+          ).json();
+          return detail.renditions.find(
+            (item: { social_account_id: string }) => item.social_account_id === accounts[0].id,
+          ).settings.link_title;
+        })
+        .toBe("A Bluesky headline");
 
       await page.getByRole("tab", { name: /@previewx, X/ }).click();
       await page.getByRole("button", { name: "Add poll", exact: true }).click();
@@ -354,6 +449,7 @@ for (const width of [1280, 390, 320])
       await page.getByRole("tab", { name: /@previewx, X/ }).click();
       const accessibility = await new AxeBuilder({ page })
         .include('[data-testid="composer-account-preview"]')
+        .include('[aria-label="Destinations"]')
         .analyze();
       expect(accessibility.violations).toEqual([]);
       expect(

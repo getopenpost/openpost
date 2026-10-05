@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getPlatformName } from '$lib/utils';
@@ -15,10 +16,34 @@
 
 	let { accounts, activeAccountId, onActivate, accountLabel, issueCountFor, isCustomFor }: Props =
 		$props();
+	let tabsElement: HTMLDivElement | undefined = $state();
+
+	const activeTabIsCustom = $derived.by(() => {
+		const account = accounts.find((account) => account.id === activeAccountId);
+		return account ? isCustomFor(account) : false;
+	});
+
+	$effect(() => {
+		const accountId = activeAccountId;
+		const custom = activeTabIsCustom;
+		if (!tabsElement) return;
+		void tick().then(() => {
+			if (activeAccountId !== accountId || activeTabIsCustom !== custom) return;
+			const tabs = tabsElement;
+			const selected = tabs?.querySelector<HTMLElement>('[aria-selected="true"]');
+			if (!tabs || !selected) return;
+			const tabBounds = selected.getBoundingClientRect();
+			const viewport = tabs.getBoundingClientRect();
+			if (tabBounds.left < viewport.left) tabs.scrollLeft += tabBounds.left - viewport.left;
+			else if (tabBounds.right > viewport.right)
+				tabs.scrollLeft += tabBounds.right - viewport.right;
+		});
+	});
 </script>
 
 <div
-	class="destination-tabs-scrollbar flex gap-1 overflow-x-auto border-b pb-px"
+	bind:this={tabsElement}
+	class="destination-tabs-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto pb-px"
 	role="tablist"
 	aria-label={m.compose_destination_tabs()}
 >
@@ -26,7 +51,7 @@
 		type="button"
 		role="tab"
 		aria-selected={!activeAccountId}
-		class="min-h-11 shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
+		class="min-h-11 max-w-full shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
 		class:border-foreground={!activeAccountId}
 		class:border-transparent={Boolean(activeAccountId)}
 		class:text-muted-foreground={Boolean(activeAccountId)}
@@ -45,7 +70,7 @@
 			aria-label={custom
 				? `${accountLabel(account)}, ${getPlatformName(account.platform)}, ${m.compose_custom_state()}`
 				: `${accountLabel(account)}, ${getPlatformName(account.platform)}`}
-			class="flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
+			class="flex min-h-11 max-w-full shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
 			class:border-foreground={activeAccountId === account.id}
 			class:border-transparent={activeAccountId !== account.id}
 			class:text-muted-foreground={activeAccountId !== account.id}

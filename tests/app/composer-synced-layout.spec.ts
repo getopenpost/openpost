@@ -84,7 +84,7 @@ for (const width of [1280, 390, 320]) {
       await page.locator(`#composer-destination-${accountID}`).click();
       await expect(editor).toBeEnabled();
       await expect(editor).toHaveValue(text);
-      await expect(page.getByText("Using shared text", { exact: true })).toBeVisible();
+      await expect(page.getByText("Using shared text", { exact: true })).toHaveCount(0);
       const preview = page.getByRole("region", {
         name: "Preview",
         exact: true,
@@ -98,7 +98,9 @@ for (const width of [1280, 390, 320]) {
       await editor.fill(revised);
       await expect(editor).toHaveCSS("direction", "rtl");
       await expect(editor).toHaveValue(revised);
-      await expect(page.getByText("Custom text", { exact: true })).toBeVisible();
+      await expect(page.locator(`#composer-destination-${accountID}`)).toHaveAccessibleName(
+        /, custom$/,
+      );
       await preview.screenshot({
         path: testInfo.outputPath("compact-preview.png"),
       });

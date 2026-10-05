@@ -6,7 +6,6 @@
 
 	interface Props {
 		hasContentOverride: boolean;
-		textStatus: string;
 		resetTextLabel?: string;
 		hasMediaOverride: boolean;
 		isUnsynced: boolean;
@@ -15,6 +14,7 @@
 		segmentStrategy?: string;
 		postCount: number;
 		onPreview: () => void;
+		onToggleSync: () => void;
 		onSettings: () => void;
 		onResetField: (field: 'content' | 'media') => void;
 		onResync: () => void;
@@ -23,7 +23,6 @@
 
 	let {
 		hasContentOverride,
-		textStatus,
 		resetTextLabel,
 		hasMediaOverride,
 		isUnsynced,
@@ -32,37 +31,46 @@
 		segmentStrategy,
 		postCount,
 		onPreview,
+		onToggleSync,
 		onSettings,
 		onResetField,
 		onResync,
 		onDestinationAction
 	}: Props = $props();
+	const syncDescriptionId = $props.id();
+	const contentSynced = $derived(!hasContentOverride && !hasMediaOverride);
 </script>
 
-<div class="flex min-w-0 items-center gap-1 py-2" data-testid="composer-variant-toolbar">
-	<span class="mr-auto min-w-0 truncate text-xs text-muted-foreground" title={textStatus}
-		>{textStatus}</span
+<div class="flex shrink-0 items-center gap-1" data-testid="composer-variant-toolbar">
+	<Button
+		type="button"
+		variant="ghost"
+		size="icon"
+		class="size-11 p-0 aria-pressed:bg-action-quiet-hover md:size-9"
+		aria-label={m.compose_shared_content()}
+		aria-pressed={contentSynced}
+		aria-describedby={syncDescriptionId}
+		title={contentSynced
+			? `${m.compose_all_synced()}. ${m.compose_unsync()}`
+			: m.compose_sync_back()}
+		disabled={uploadsPending}
+		onclick={onToggleSync}
 	>
-	{#if resetTextLabel}<Button
-			type="button"
-			variant="ghost"
-			size="sm"
-			class="h-11 max-w-32 min-w-0 shrink px-2 sm:max-w-none md:h-9"
-			title={resetTextLabel}
-			onclick={() => onResetField('content')}><span class="truncate">{resetTextLabel}</span></Button
-		>{/if}
+		<ThemeIcon role={contentSynced ? 'link' : 'unlink'} class="size-4" />
+	</Button>
+	<span id={syncDescriptionId} class="sr-only">
+		{contentSynced ? m.compose_unsync() : m.compose_sync_back()}
+	</span>
 	<Button
 		type="button"
 		variant="ghost"
 		size="sm"
-		class="size-11 shrink-0 p-0 sm:w-auto sm:px-2 md:h-9"
+		class="size-11 shrink-0 p-0 md:size-9"
 		aria-label={m.compose_full_preview()}
 		title={m.compose_full_preview()}
 		onclick={() => onPreview()}
 	>
-		<ThemeIcon role="eye" class="size-4" /><span class="hidden sm:inline"
-			>{m.compose_full_preview()}</span
-		>
+		<ThemeIcon role="eye" class="size-4" />
 	</Button>
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
@@ -88,7 +96,7 @@
 			<DropdownMenu.Separator />
 			{#if hasContentOverride}
 				<DropdownMenu.Item onclick={() => onResetField('content')}>
-					{m.compose_reset_field()}
+					{resetTextLabel ?? m.compose_reset_field()}
 				</DropdownMenu.Item>
 			{/if}
 			{#if hasMediaOverride}

@@ -210,9 +210,10 @@ test("a joined Facebook caption edits the delivered description without flatteni
   await page.locator(`#composer-destination-${accountID}`).click();
   await expect(editor).toHaveValue("Caption first\n\nContinuation edited");
   await page
-    .getByTestId("composer-account-editor")
-    .getByRole("button", { name: "Reset", exact: true })
+    .getByTestId("composer-variant-toolbar")
+    .getByRole("button", { name: "More", exact: true })
     .click();
+  await page.getByRole("menuitem", { name: "Reset", exact: true }).click();
   await expect(editor).toHaveValue("Authored first\n\nContinuation once");
   await expect
     .poll(async () => {
@@ -225,4 +226,22 @@ test("a joined Facebook caption edits the delivered description without flatteni
       };
     })
     .toEqual({ description: "", first: "Authored first" });
+  await page
+    .getByTestId("composer-variant-toolbar")
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Use shared", exact: true }).click();
+  await expect(editor).toHaveValue("Shared first\n\nContinuation once");
+  await expect(page.getByRole("button", { name: "Shared content", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect
+    .poll(async () => {
+      const saved = await (
+        await request.get(`/api/v1/publications/${publication.id}`, { headers })
+      ).json();
+      return saved.renditions[0].segments[0].source_overrides?.[0]?.body_override;
+    })
+    .toBeUndefined();
 });

@@ -15,7 +15,7 @@ const packsDirectory = resolve(root, "apps/web/src/lib/themes/icons/packs");
 const mobilePacksDirectory = resolve(root, "apps/mobile/src/theme/icon-packs");
 const mobileAssetsDirectory = resolve(root, "apps/mobile/assets/theme-icons");
 const packIDs = ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"];
-const nativeTabRoles = ["drafts", "calendar", "queue"];
+const nativeTabRoles = ["drafts", "calendar", "queue", "videoProjects", "analytics"];
 const nativeCollections = {
   lucide: lucideCollection,
   "heroicons-outline": heroiconsCollection,

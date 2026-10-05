@@ -3,6 +3,7 @@ import {
   type OpenPostQueryAPI,
   type QueryPageResult,
   type VideoProjectQueryAPI,
+  type AnalyticsQueryAPI,
 } from "@openpost/query-catalog";
 
 import { api, captureApiRequestIdentity, settleApiUnauthorized, type Api } from "./api/client";
@@ -17,7 +18,8 @@ type MobileQueryAPI = Pick<
   | "listSocialSets"
   | "listWorkspaces"
 > &
-  Pick<VideoProjectQueryAPI, "listVideoProjects">;
+  Pick<VideoProjectQueryAPI, "listVideoProjects"> &
+  AnalyticsQueryAPI;
 
 type QueryTransportResponse<T> = {
   data?: T | null;
@@ -37,6 +39,27 @@ export async function mobileQueryTransportRequest<T>(
 
 export function createMobileQueryAPI(getTransport: () => QueryTransport): MobileQueryAPI {
   return {
+    async getAnalyticsOverview(workspaceId, filters, cursor, signal) {
+      const { data } = await queryGET({
+        signal,
+        fallback: "Could not load analytics",
+        request: (requestSignal) =>
+          getTransport().GET("/analytics", {
+            signal: requestSignal,
+            params: {
+              query: {
+                workspace_id: workspaceId,
+                days: filters.days,
+                account_id: filters.accountId || undefined,
+                sort: filters.sort,
+                cursor: cursor || undefined,
+                limit: filters.limit,
+              },
+            },
+          }),
+      });
+      return data;
+    },
     async listWorkspaces(signal) {
       const { data } = await queryGET({
         signal,
@@ -127,7 +150,9 @@ export function createMobileQueryAPI(getTransport: () => QueryTransport): Mobile
         request: (requestSignal) =>
           getTransport().GET("/video-projects", {
             signal: requestSignal,
-            params: { query: { workspace_id: workspaceId, include_trash: includeTrash } },
+            params: {
+              query: { workspace_id: workspaceId, include_trash: includeTrash },
+            },
           }),
       });
       return data;

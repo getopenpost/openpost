@@ -8,26 +8,36 @@ export const NATIVE_TAB_ICON_SOURCES = {
     drafts: require("../../assets/theme-icons/lucide/drafts.png"),
     calendar: require("../../assets/theme-icons/lucide/calendar.png"),
     queue: require("../../assets/theme-icons/lucide/queue.png"),
+    videoProjects: require("../../assets/theme-icons/lucide/videoProjects.png"),
+    analytics: require("../../assets/theme-icons/lucide/analytics.png"),
   },
   "heroicons-outline": {
     drafts: require("../../assets/theme-icons/heroicons-outline/drafts.png"),
     calendar: require("../../assets/theme-icons/heroicons-outline/calendar.png"),
     queue: require("../../assets/theme-icons/heroicons-outline/queue.png"),
+    videoProjects: require("../../assets/theme-icons/heroicons-outline/videoProjects.png"),
+    analytics: require("../../assets/theme-icons/heroicons-outline/analytics.png"),
   },
   "heroicons-solid": {
     drafts: require("../../assets/theme-icons/heroicons-solid/drafts.png"),
     calendar: require("../../assets/theme-icons/heroicons-solid/calendar.png"),
     queue: require("../../assets/theme-icons/heroicons-solid/queue.png"),
+    videoProjects: require("../../assets/theme-icons/heroicons-solid/videoProjects.png"),
+    analytics: require("../../assets/theme-icons/heroicons-solid/analytics.png"),
   },
   phosphor: {
     drafts: require("../../assets/theme-icons/phosphor/drafts.png"),
     calendar: require("../../assets/theme-icons/phosphor/calendar.png"),
     queue: require("../../assets/theme-icons/phosphor/queue.png"),
+    videoProjects: require("../../assets/theme-icons/phosphor/videoProjects.png"),
+    analytics: require("../../assets/theme-icons/phosphor/analytics.png"),
   },
   tabler: {
     drafts: require("../../assets/theme-icons/tabler/drafts.png"),
     calendar: require("../../assets/theme-icons/tabler/calendar.png"),
     queue: require("../../assets/theme-icons/tabler/queue.png"),
+    videoProjects: require("../../assets/theme-icons/tabler/videoProjects.png"),
+    analytics: require("../../assets/theme-icons/tabler/analytics.png"),
   },
 } satisfies Readonly<
   Record<NativeIconPackId, Readonly<Record<NativeTabIconRole, ImageSourcePropType>>>

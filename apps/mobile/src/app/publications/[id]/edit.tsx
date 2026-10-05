@@ -1,3 +1,4 @@
+import { NativeText as Text } from "@/components/native-text";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -11,7 +12,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
@@ -22,12 +22,12 @@ import {
   ContentSection,
   IconButton,
   Screen,
-  SectionHeader,
   StatusBadge,
   TextField,
 } from "@/components/ui";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { CelebrationBurst } from "@/components/celebration-burst";
+import { DitherPanel } from "@/components/dither-panel";
 import { BottomDrawer } from "@/components/bottom-drawer";
 import { ThemeIcon } from "@/components/theme-icon";
 import { ProtectedIcon } from "@/components/protected-icon";
@@ -70,6 +70,7 @@ function attachmentsFromPublication(pub: PublicationDetail): Attachment[] {
   return (pub.media ?? []).map((media) => ({
     localId: `remote-${media.id}`,
     mediaId: media.id,
+    uri: media.url,
     mimeType: media.mime_type ?? "image/jpeg",
     filename: media.original_filename ?? media.id,
     size: media.size ?? null,
@@ -430,7 +431,10 @@ function Composer({
       if (!rendition.social_account_id) continue;
       const removal = await requestApi.DELETE("/publications/{id}/renditions/{account_id}", {
         params: {
-          path: { id: scope.publicationId, account_id: rendition.social_account_id },
+          path: {
+            id: scope.publicationId,
+            account_id: rendition.social_account_id,
+          },
           query: { confirm: true, expected_revision: nextRevision },
         },
       });
@@ -446,7 +450,10 @@ function Composer({
   function handleError(
     err: Error,
     scope: EditorMutationScope,
-    refresh?: { activities: readonly PublicationActivity[]; calendar?: boolean },
+    refresh?: {
+      activities: readonly PublicationActivity[];
+      calendar?: boolean;
+    },
   ) {
     if (workspaceScopeIsCurrent(scope)) {
       setActionError(err.message);
@@ -499,7 +506,10 @@ function Composer({
           if (workspaceScopeIsCurrent(scope)) router.back();
         }, 700);
       }
-      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
+      invalidate(scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      });
     },
     onError: (err, scope) =>
       handleError(err, scope, {
@@ -525,7 +535,10 @@ function Composer({
         void successHaptic();
         router.back();
       }
-      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
+      invalidate(scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      });
     },
     onError: (err, scope) =>
       handleError(err, scope, {
@@ -608,7 +621,10 @@ function Composer({
         void successHaptic();
         router.back();
       }
-      invalidate(scope, { activities: [scope.originalActivity, "scheduled"], calendar: true });
+      invalidate(scope, {
+        activities: [scope.originalActivity, "scheduled"],
+        calendar: true,
+      });
     },
     onError: (err, scope) =>
       handleError(err, scope, {
@@ -802,9 +818,11 @@ function Composer({
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.modalHeader, { borderBottomColor: colors.outlineVariant }]}>
-        <Button title="Cancel" intent="ordinary" onPress={() => router.back()} />
+        <Button title="Cancel" intent="quiet" onPress={() => router.back()} />
+        <StatusBadge status={pub.status} />
         <Button
           title="Done"
+          intent="quiet"
           loading={saveAndClose.isPending}
           accessibilityHint="Save draft and close the editor"
           onPress={() =>
@@ -816,7 +834,6 @@ function Composer({
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <StatusBadge status={pub.status} />
         {statusMessage ? (
           <ContentSection accessibilityRole="alert">
             <BodyText
@@ -844,57 +861,66 @@ function Composer({
           <QueryNotice message="You are offline. You can keep editing the current draft." offline />
         ) : null}
 
-        <View style={styles.editorHeading}>
-          <View style={styles.editorHeadingCopy}>
-            <Text
-              accessibilityRole="header"
-              style={[typography.titleLarge, { color: colors.onSurface }]}
-            >
-              Post
-            </Text>
-            <BodyText>One idea, adapted for every destination</BodyText>
-          </View>
-          <Button
-            title={generatePost.isPending ? "Generating..." : "Generate draft"}
-            intent="ordinary"
-            onPress={() =>
-              generatePost.mutate(
-                captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
-              )
-            }
-            disabled={generatePost.isPending || activeAccounts.size === 0 || !body.trim()}
-            loading={generatePost.isPending}
-            style={styles.aiButton}
+        <DitherPanel>
+          <TextField
+            ref={bodyInputRef}
+            value={body}
+            onChangeText={(text) => {
+              markEditorDirty();
+              setBody(text);
+            }}
+            accessibilityLabel="Post text"
+            placeholder="What do you want to say?"
+            multiline
+            textAlignVertical="top"
+            imageKeyboard={{
+              onImageReceived: (attachment, context) =>
+                appendAttachments([attachment], context.focus),
+              onError: (message, context) => {
+                setActionError(message);
+                void errorHaptic();
+                context.focus();
+              },
+            }}
+            style={[
+              styles.writingField,
+              {
+                backgroundColor: "transparent",
+                borderColor: "transparent",
+              },
+            ]}
           />
-        </View>
-        <TextField
-          ref={bodyInputRef}
-          value={body}
-          onChangeText={(text) => {
-            markEditorDirty();
-            setBody(text);
-          }}
-          accessibilityLabel="Post text"
-          placeholder="What do you want to say?"
-          multiline
-          textAlignVertical="top"
-          imageKeyboard={{
-            onImageReceived: (attachment, context) =>
-              appendAttachments([attachment], context.focus),
-            onError: (message, context) => {
-              setActionError(message);
-              void errorHaptic();
-              context.focus();
-            },
-          }}
-          style={[
-            styles.writingField,
-            {
-              backgroundColor: colors.background,
-              borderColor: "transparent",
-            },
-          ]}
-        />
+
+          <View style={styles.attachRow}>
+            <Button
+              title="Photos"
+              icon="gallery"
+              display="icon"
+              intent="ordinary"
+              onPress={() => void pickFromLibrary()}
+            />
+            <Button
+              title="Camera"
+              icon="camera"
+              display="icon"
+              intent="ordinary"
+              onPress={() => void takePhoto()}
+            />
+            <Button
+              title="AI assist"
+              icon="sparkles"
+              intent="ordinary"
+              onPress={() =>
+                generatePost.mutate(
+                  captureEditorMutationScope(id, originalActivity, originalCalendarEntry),
+                )
+              }
+              disabled={generatePost.isPending || activeAccounts.size === 0 || !body.trim()}
+              loading={generatePost.isPending}
+              style={{ flex: 1, minWidth: 96 }}
+            />
+          </View>
+        </DitherPanel>
 
         <View style={styles.attachmentList}>
           {attachments.map((attachment, index) => (
@@ -980,19 +1006,22 @@ function Composer({
             </View>
           ))}
         </View>
-        <View style={styles.attachRow}>
-          <Button title="Add photos" intent="ordinary" onPress={() => void pickFromLibrary()} />
-          <Button title="Take photo" intent="ordinary" onPress={() => void takePhoto()} />
-        </View>
-
-        <SectionHeader label="Publishing" />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Choose Social Set and destinations"
           onPress={() => setDestinationDrawerOpen(true)}
         >
           {({ pressed }) => (
-            <ContentSection style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
+            <ContentSection
+              style={[
+                styles.settingCard,
+                {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.outlineVariant,
+                },
+                pressed && { opacity: 0.65 },
+              ]}
+            >
               <View style={styles.settingIcon}>
                 <ThemeIcon role="account" size={22} tintColor={colors.primary} />
               </View>
@@ -1014,7 +1043,16 @@ function Composer({
           onPress={() => setScheduleDrawerOpen(true)}
         >
           {({ pressed }) => (
-            <ContentSection style={[styles.settingCard, pressed && { opacity: 0.65 }]}>
+            <ContentSection
+              style={[
+                styles.settingCard,
+                {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.outlineVariant,
+                },
+                pressed && { opacity: 0.65 },
+              ]}
+            >
               <View style={styles.settingIcon}>
                 <ThemeIcon role="calendar" size={22} tintColor={colors.primary} />
               </View>
@@ -1364,25 +1402,10 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingBottom: 120,
   },
-  editorHeading: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  editorHeadingCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  aiButton: {
-    minHeight: 48,
-    paddingHorizontal: 14,
-  },
   writingField: {
-    minHeight: 260,
+    minHeight: 200,
     paddingHorizontal: 0,
-    paddingTop: 16,
+    paddingTop: 4,
   },
   attachRow: {
     flexDirection: "row",

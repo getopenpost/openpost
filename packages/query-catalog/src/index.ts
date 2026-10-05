@@ -43,3 +43,5 @@ export * from "./editor-agent";
 
 export * from "./repurpose";
 export * from "./publication-builds";
+
+export * from "./analytics-overview";

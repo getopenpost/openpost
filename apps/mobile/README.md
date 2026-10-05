@@ -1,6 +1,6 @@
 # OpenPost Mobile
 
-OpenPost Mobile is a standalone Expo app. It uses native tabs and Android controls instead of a web view, and talks to the same `/api/v1` contract as the web app.
+OpenPost Mobile is a standalone Expo app. It uses native tabs and platform controls instead of a web view, and talks to the same `/api/v1` contract as the web app.
 
 ## What it includes
 
@@ -10,16 +10,18 @@ OpenPost Mobile is a standalone Expo app. It uses native tabs and Android contro
 - Quick draft capture, the full composer, photos, and Android share capture
 - Destination selection, per-platform text, scheduling, and publish now
 - Calendar, queue, retry state, and provider-level post results
-- Light and dark themes with Android safe areas and native symbols
+- Video capture and projects, plus stored account and destination analytics
+- Shared web theme tokens, icon packs, and Bayer textures, with native safe areas
 
-Settings stay in the web app. Use **Open web app** in the Drafts menu.
+Settings stay in the web app. Use **Open web app** in the workspace menu, available from the OpenPost header.
 
 ## Prerequisites
 
 - Bun from the root Devenv shell
-- JDK 21
-- Android SDK platform 36, build tools 36.0.0, NDK 27.1.12297006, and CMake 3.22.1
-- An Android device or emulator for install checks
+- For iOS: macOS, Xcode, and an iOS simulator or device
+- For Android: JDK 21
+- For Android: SDK platform 36, build tools 36.0.0, NDK 27.1.12297006, and CMake 3.22.1
+- For Android: a device or emulator for install checks
 
 Run all mobile commands from this directory.
 
@@ -35,6 +37,16 @@ bun run check
 ```sh
 bun run --filter @openpost/web generate:types
 ```
+
+## Run on iOS
+
+With Xcode configured and a simulator or device selected:
+
+```sh
+bun run ios
+```
+
+Use a native build for camera, media permissions, and native navigation checks. Expo Go does not cover every native dependency.
 
 ## Run on Android
 
@@ -129,4 +141,10 @@ For background on local production builds and APKs, see the [Expo local app deve
 
 Content sections sit on the screen canvas. Use cards only for isolated surfaces. Filled action and icon buttons use the shared `@openpost/dither/paint` Bayer gradient, with fixed endpoints and a density transition on press, hover, and keyboard focus. Reduced motion changes the state immediately. Native palettes keep text contrast at 4.5:1 and the two material colors between 1.18:1 and 1.8:1.
 
-The calendar shows a compact month above the selected day’s agenda. Posts appear in time order, and changing months preserves the selected day, clamped to the destination month.
+The five tabs share a compact brand and workspace header. Keep page titles and introductory copy out of this chrome. Capture, writing, and chart panels use a static shared Bayer texture; content rows stay on the canvas.
+
+On iOS, `NativeText` lets Dynamic Type choose its line box at enlarged sizes. Use it for display text instead of fixed-height React Native text.
+
+The calendar shows a compact month above the selected day’s agenda. Date targets stay at least 44 points, with horizontal scrolling when enlarged text needs more width. Posts appear in time order, and changing months preserves the selected day, clamped to the destination month.
+
+Analytics uses the shared query catalogue and server-owned aggregates. Top destinations use the server ranking; never aggregate a partial content page into purported whole-post totals.

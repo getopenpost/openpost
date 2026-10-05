@@ -1,12 +1,20 @@
 import {
   activityPublicationsQueryOptions,
+  analyticsOverviewQueryOptions,
+  type AnalyticsFilters,
   calendarPublicationsQueryOptions,
   publicationDetailQueryOptions,
   workspaceAccountsQueryOptions,
   workspaceListQueryOptions,
   workspaceSocialSetsQueryOptions,
 } from "@openpost/query-catalog";
-import { queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 
 import { getWorkspaceId, subscribeWorkspaceId } from "./api/token-store";
@@ -19,6 +27,13 @@ import {
 } from "./query-policy";
 
 export type PublicationListItem = Publication;
+
+export function useAnalytics(filters: AnalyticsFilters) {
+  const workspaceId = useWorkspaceId();
+  return useInfiniteQuery(
+    analyticsOverviewQueryOptions(mobileQueryAPI, workspaceId ?? "", filters),
+  );
+}
 
 export function workspacesOptions() {
   return queryOptions({

@@ -1,3 +1,4 @@
+import { NativeText as Text } from "@/components/native-text";
 import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
 import {
@@ -5,21 +6,16 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from "react-native";
 
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
-import {
-  Button,
-  ContentSection,
-  ContentTitle,
-  IconButton,
-  PageTitle,
-  Screen,
-  StatusBadge,
-} from "@/components/ui";
+import { Button, ContentSection, ContentTitle, IconButton, Screen } from "@/components/ui";
+import { WorkspaceHeader } from "@/components/workspace-header";
+import { DitherPanel } from "@/components/dither-panel";
+import { PublicationRow } from "@/components/publication-row";
+import type { PublicationListItem } from "@/lib/queries";
 import { calendarWeeks, shiftCalendarMonth } from "@/lib/calendar";
 import { calendarOccurrence, dayKey, statusColor } from "@/lib/format";
 import { useCalendarPublications } from "@/lib/queries";
@@ -38,7 +34,7 @@ const WEEKDAYS = [
 export default function CalendarScreen() {
   const theme = useNativeTheme();
   const { width, fontScale } = useWindowDimensions();
-  const stackedMonthControls = width < 480 || fontScale >= 1.4;
+  const stackedMonthControls = width < 360 || fontScale >= 1.3;
   const { colors, shape, spacing, typography } = theme.manifest;
   const today = useMemo(() => new Date(), []);
   const [selectedDate, setSelectedDate] = useState(() => today);
@@ -53,7 +49,7 @@ export default function CalendarScreen() {
   const publications = useCalendarPublications(monthStart.toISOString(), monthEnd.toISOString());
 
   const byDay = useMemo(() => {
-    const map = new Map<string, { id: string; title: string; status: string; time: Date }[]>();
+    const map = new Map<string, { publication: PublicationListItem; time: Date }[]>();
     for (const publication of publications.data ?? []) {
       const date = calendarOccurrence(publication);
       if (!date) continue;
@@ -61,9 +57,7 @@ export default function CalendarScreen() {
       const key = dayKey(date);
       const list = map.get(key) ?? [];
       list.push({
-        id: publication.id,
-        title: publication.title ?? excerpt(publication) ?? "Untitled",
-        status: publication.status,
+        publication,
         time: date,
       });
       map.set(key, list);
@@ -92,54 +86,9 @@ export default function CalendarScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View
-        style={[
-          styles.header,
-          {
-            paddingBottom: spacing.medium,
-            paddingHorizontal: spacing.extraLarge,
-            paddingTop: spacing.large,
-          },
-        ]}
-      >
-        <PageTitle style={styles.title}>Calendar</PageTitle>
+      <WorkspaceHeader>
         <IconButton label="Write a post" role="add" onPress={() => router.push("/(tabs)/drafts")} />
-      </View>
-      <View
-        style={[
-          styles.header,
-          { paddingHorizontal: spacing.extraLarge, paddingBottom: spacing.small },
-          stackedMonthControls && {
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: spacing.small,
-          },
-        ]}
-      >
-        <ContentTitle style={[styles.title, stackedMonthControls && { flex: 0 }]}>
-          {month.toLocaleDateString("en", { month: "long", year: "numeric" })}
-        </ContentTitle>
-        <View style={[styles.nav, { gap: spacing.extraSmall }]}>
-          <IconButton
-            label="Previous month"
-            role="back"
-            color={colors.primary}
-            onPress={() => shiftMonth(-1)}
-          />
-          <Button
-            title="Today"
-            intent="ordinary"
-            style={{ paddingHorizontal: spacing.medium }}
-            onPress={() => setSelectedDate(new Date())}
-          />
-          <IconButton
-            label="Next month"
-            role="next"
-            color={colors.primary}
-            onPress={() => shiftMonth(1)}
-          />
-        </View>
-      </View>
+      </WorkspaceHeader>
 
       <ScrollView
         contentContainerStyle={[
@@ -185,93 +134,161 @@ export default function CalendarScreen() {
 
         {hasData ? (
           <>
-            <View style={styles.weekdays}>
-              {WEEKDAYS.map(([shortLabel, label], index) => (
-                <Text
-                  accessibilityLabel={label}
-                  key={`${shortLabel}-${index}`}
-                  style={[
-                    styles.weekday,
-                    typography.labelMedium,
-                    { color: colors.onSurfaceVariant },
-                  ]}
-                >
-                  {shortLabel}
-                </Text>
-              ))}
-            </View>
-
-            <View style={styles.grid}>
-              {weeks.map((week, weekIndex) => (
-                <View key={`week-${weekIndex}`} style={styles.weekRow}>
-                  {week.map((date, dayIndex) => {
-                    if (!date) {
-                      return <View key={`blank-${weekIndex}-${dayIndex}`} style={styles.cell} />;
-                    }
-                    const key = dayKey(date);
-                    const items = byDay.get(key) ?? [];
-                    const isToday = key === dayKey(today);
-                    const isSelected = key === selectedDay;
-                    return (
-                      <Pressable
-                        key={key}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${date.toLocaleDateString("en", {
-                          weekday: "long",
-                          month: "long",
-                          day: "numeric",
-                        })}. ${items.length === 0 ? "Nothing planned" : `${items.length} planned`}`}
-                        accessibilityState={{ selected: isSelected }}
-                        onPress={() => setSelectedDate(date)}
-                        style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]}
-                      >
-                        <View
-                          style={[
-                            styles.dayCircle,
-                            { borderRadius: shape.full },
-                            isSelected && { backgroundColor: colors.primary },
-                            !isSelected &&
-                              isToday && {
-                                borderWidth: 1.5,
-                                borderColor: colors.primary,
-                              },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              typography.bodyMedium,
-                              { color: colors.onSurface },
-                              isSelected && typography.labelLarge,
-                              isSelected && { color: colors.onPrimary },
-                            ]}
-                          >
-                            {date.getDate()}
-                          </Text>
-                        </View>
-                        <View style={styles.dots}>
-                          {items.slice(0, 3).map((item) => (
-                            <View
-                              key={item.id}
-                              style={[
-                                styles.dot,
-                                {
-                                  backgroundColor: statusColor(
-                                    item.status,
-                                    colors.status,
-                                    colors.onSurfaceVariant,
-                                  ),
-                                },
-                              ]}
-                            />
-                          ))}
-                        </View>
-                      </Pressable>
-                    );
+            <DitherPanel style={{ padding: spacing.small }}>
+              <View
+                style={[
+                  styles.header,
+                  { paddingBottom: spacing.small },
+                  stackedMonthControls && {
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: spacing.small,
+                  },
+                ]}
+              >
+                <ContentTitle style={[styles.title, stackedMonthControls && { flex: 0 }]}>
+                  {month.toLocaleDateString("en", {
+                    month: "long",
+                    year: "numeric",
                   })}
+                </ContentTitle>
+                <View style={[styles.nav, { gap: spacing.extraSmall }]}>
+                  <IconButton
+                    label="Previous month"
+                    role="back"
+                    color={colors.primary}
+                    onPress={() => shiftMonth(-1)}
+                  />
+                  <Button
+                    title="Today"
+                    intent="ordinary"
+                    style={{ paddingHorizontal: spacing.medium }}
+                    onPress={() => setSelectedDate(new Date())}
+                  />
+                  <IconButton
+                    label="Next month"
+                    role="next"
+                    color={colors.primary}
+                    onPress={() => shiftMonth(1)}
+                  />
                 </View>
-              ))}
-            </View>
+              </View>
 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={width < 360 || fontScale >= 1.3}
+              >
+                <View
+                  style={{
+                    width: Math.max(
+                      7 * Math.max(44, typography.bodyMedium.lineHeight * fontScale + 16),
+                      width - spacing.large * 2 - spacing.small * 2,
+                    ),
+                  }}
+                >
+                  <View style={styles.weekdays}>
+                    {WEEKDAYS.map(([shortLabel, label], index) => (
+                      <Text
+                        accessibilityLabel={label}
+                        key={`${shortLabel}-${index}`}
+                        style={[
+                          styles.weekday,
+                          typography.labelMedium,
+                          { color: colors.onSurfaceVariant },
+                        ]}
+                      >
+                        {shortLabel}
+                      </Text>
+                    ))}
+                  </View>
+
+                  <View style={styles.grid}>
+                    {weeks.map((week, weekIndex) => (
+                      <View key={`week-${weekIndex}`} style={styles.weekRow}>
+                        {week.map((date, dayIndex) => {
+                          if (!date) {
+                            return (
+                              <View key={`blank-${weekIndex}-${dayIndex}`} style={styles.cell} />
+                            );
+                          }
+                          const key = dayKey(date);
+                          const items = byDay.get(key) ?? [];
+                          const isToday = key === dayKey(today);
+                          const isSelected = key === selectedDay;
+                          return (
+                            <Pressable
+                              key={key}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${date.toLocaleDateString("en", {
+                                weekday: "long",
+                                month: "long",
+                                day: "numeric",
+                              })}. ${items.length === 0 ? "Nothing planned" : `${items.length} planned`}`}
+                              accessibilityState={{ selected: isSelected }}
+                              onPress={() => setSelectedDate(date)}
+                              style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]}
+                            >
+                              <View
+                                style={[
+                                  styles.dayCircle,
+                                  {
+                                    width: Math.max(
+                                      38,
+                                      typography.bodyMedium.lineHeight * fontScale + 8,
+                                    ),
+                                    height: Math.max(
+                                      38,
+                                      typography.bodyMedium.lineHeight * fontScale + 8,
+                                    ),
+                                  },
+                                  { borderRadius: shape.full },
+                                  isSelected && {
+                                    backgroundColor: colors.primary,
+                                  },
+                                  !isSelected &&
+                                    isToday && {
+                                      borderWidth: 1.5,
+                                      borderColor: colors.primary,
+                                    },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    typography.bodyMedium,
+                                    { color: colors.onSurface },
+                                    isSelected && typography.labelLarge,
+                                    isSelected && { color: colors.onPrimary },
+                                  ]}
+                                >
+                                  {date.getDate()}
+                                </Text>
+                              </View>
+                              <View style={styles.dots}>
+                                {items.slice(0, 3).map((item) => (
+                                  <View
+                                    key={item.publication.id}
+                                    style={[
+                                      styles.dot,
+                                      {
+                                        backgroundColor: statusColor(
+                                          item.publication.status,
+                                          colors.status,
+                                          colors.onSurfaceVariant,
+                                        ),
+                                      },
+                                    ]}
+                                  />
+                                ))}
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </ScrollView>
+            </DitherPanel>
             <ContentSection style={[styles.daySheet, { gap: spacing.medium }]}>
               <ContentTitle>{selectedDayTitle}</ContentTitle>
               {selectedItems.length === 0 ? (
@@ -283,41 +300,21 @@ export default function CalendarScreen() {
                 </View>
               ) : (
                 selectedItems.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.time.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}, ${item.title}, ${item.status}`}
+                  <PublicationRow
+                    key={item.publication.id}
+                    publication={item.publication}
+                    showStatus
+                    detail={item.time.toLocaleTimeString("en", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
                     onPress={() =>
-                      router.push({ pathname: "/publications/[id]", params: { id: item.id } })
+                      router.push({
+                        pathname: "/publications/[id]",
+                        params: { id: item.publication.id },
+                      })
                     }
-                    style={({ pressed }) => [
-                      styles.itemRow,
-                      {
-                        borderBottomWidth: StyleSheet.hairlineWidth,
-                        borderBottomColor: colors.outlineVariant,
-                        paddingVertical: spacing.medium,
-                      },
-                      pressed && { opacity: 0.5 },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        typography.labelLarge,
-                        { color: colors.onSurfaceVariant, minWidth: 56 },
-                      ]}
-                    >
-                      {item.time.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}
-                    </Text>
-                    <View style={{ flex: 1, gap: spacing.small }}>
-                      <Text
-                        style={[typography.bodyLarge, { color: colors.onSurface }]}
-                        numberOfLines={2}
-                      >
-                        {item.title}
-                      </Text>
-                      <StatusBadge status={item.status} />
-                    </View>
-                  </Pressable>
+                  />
                 ))
               )}
             </ContentSection>
@@ -326,13 +323,6 @@ export default function CalendarScreen() {
       </ScrollView>
     </Screen>
   );
-}
-
-function excerpt(publication: { renditions?: { body?: string }[] | null }): string | null {
-  for (const rendition of publication.renditions ?? []) {
-    if (rendition.body) return rendition.body.split("\n")[0].slice(0, 80);
-  }
-  return null;
 }
 
 const styles = StyleSheet.create({
@@ -372,11 +362,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: 3,
-    minHeight: 52,
+    minHeight: 54,
   },
   dayCircle: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
   },

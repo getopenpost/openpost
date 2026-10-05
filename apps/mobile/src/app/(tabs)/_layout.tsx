@@ -9,7 +9,8 @@ export default function TabLayout() {
   const drafts = resolveNativeThemeNavigationIcon(theme.manifest, "drafts");
   const calendar = resolveNativeThemeNavigationIcon(theme.manifest, "calendar");
   const queue = resolveNativeThemeNavigationIcon(theme.manifest, "queue");
-  const projects = resolveNativeThemeNavigationIcon(theme.manifest, "drafts");
+  const video = resolveNativeThemeNavigationIcon(theme.manifest, "videoProjects");
+  const analytics = resolveNativeThemeNavigationIcon(theme.manifest, "analytics");
   const navigation = navigationPresentation(theme.manifest);
   const label = theme.manifest.typography.labelMedium;
 
@@ -22,7 +23,10 @@ export default function TabLayout() {
       blurEffect="none"
       disableIndicator={navigation.disableIndicator}
       disableTransparentOnScrollEdge
-      iconColor={{ default: navigation.defaultColor, selected: navigation.selectedColor }}
+      iconColor={{
+        default: navigation.defaultColor,
+        selected: navigation.selectedColor,
+      }}
       indicatorColor={navigation.indicatorColor}
       labelStyle={{
         default: {
@@ -39,7 +43,7 @@ export default function TabLayout() {
         },
       }}
       labelVisibilityMode="labeled"
-      minimizeBehavior="onScrollDown"
+      minimizeBehavior="never"
       rippleColor={colors.primaryContainer}
       shadowColor={navigation.shadowColor}
       tintColor={navigation.selectedColor}
@@ -58,7 +62,11 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="projects">
         <NativeTabs.Trigger.Label>Video</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon renderingMode="template" src={projects} />
+        <NativeTabs.Trigger.Icon renderingMode="template" src={video} />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="analytics">
+        <NativeTabs.Trigger.Label>Analytics</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon renderingMode="template" src={analytics} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

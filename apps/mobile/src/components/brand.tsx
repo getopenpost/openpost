@@ -1,5 +1,6 @@
+import { NativeText as Text } from "@/components/native-text";
 import { Image } from "expo-image";
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { useColors } from "@/components/ui";
 
@@ -11,7 +12,7 @@ export function Brand({
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
-  const size = compact ? 36 : 48;
+  const size = compact ? 28 : 48;
 
   return (
     <View accessible accessibilityLabel="OpenPost" style={[styles.brand, style]}>
@@ -24,6 +25,7 @@ export function Brand({
         importantForAccessibility="no-hide-descendants"
       />
       <Text
+        maxFontSizeMultiplier={compact ? 1.5 : undefined}
         style={[styles.wordmark, compact && styles.wordmarkCompact, { color: colors.onSurface }]}
       >
         OpenPost
@@ -38,14 +40,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  wordmarkCompact: { fontSize: 18, lineHeight: 24 },
   wordmark: {
     fontSize: 24,
     lineHeight: 30,
     fontWeight: "700",
     letterSpacing: -0.5,
-  },
-  wordmarkCompact: {
-    fontSize: 20,
-    lineHeight: 26,
   },
 });

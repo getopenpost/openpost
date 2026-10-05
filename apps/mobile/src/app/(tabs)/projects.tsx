@@ -1,3 +1,4 @@
+import { NativeText as Text } from "@/components/native-text";
 import * as ImagePicker from "expo-image-picker";
 import * as Network from "expo-network";
 import {
@@ -7,9 +8,11 @@ import {
   type CameraType,
   type VideoQuality,
 } from "expo-camera";
+import { WorkspaceHeader } from "@/components/workspace-header";
+import { DitherPanel } from "@/components/dither-panel";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Switch, View } from "react-native";
 
 import {
   BodyText,
@@ -17,7 +20,6 @@ import {
   ContentSection,
   ContentTitle,
   EmptyState,
-  PageTitle,
   Screen,
   TextField,
 } from "@/components/ui";
@@ -302,24 +304,29 @@ export default function VideoProjectsScreen() {
 
   return (
     <Screen>
+      <WorkspaceHeader />
       <ScrollView
-        contentContainerStyle={{ gap: spacing.large, paddingBottom: spacing.extraLarge }}
+        contentContainerStyle={{
+          gap: spacing.large,
+          padding: spacing.large,
+          paddingBottom: spacing.extraLarge,
+        }}
         refreshControl={<RefreshControl refreshing={busy} onRefresh={refresh} />}
       >
-        <View style={{ gap: spacing.extraSmall }}>
-          <PageTitle>Video Projects</PageTitle>
-          <BodyText>Capture or import footage here, then finish the edit on the web.</BodyText>
-        </View>
-        <ContentSection style={{ gap: spacing.medium }}>
-          <ContentTitle>Prepare footage</ContentTitle>
-          <BodyText>
-            Original files stay unchanged. Trim, crop, rotation, audio, and cover choices travel
-            with the project.
-          </BodyText>
+        <DitherPanel>
           <View style={styles.actions}>
-            <Button title="Record video" onPress={() => void openCamera()} disabled={busy} />
             <Button
-              title="Choose from library"
+              title="Record video"
+              icon="video"
+              intent="focal"
+              style={{ flex: 1 }}
+              onPress={() => void openCamera()}
+              disabled={busy}
+            />
+            <Button
+              title="Import video"
+              icon="gallery"
+              style={{ flex: 1 }}
               intent="ordinary"
               onPress={() => void chooseVideo()}
               disabled={busy}
@@ -480,14 +487,14 @@ export default function VideoProjectsScreen() {
             />
           ) : null}
           <View style={styles.switchRow}>
-            <BodyText>Upload large videos over cellular</BodyText>
+            <BodyText style={{ flex: 1 }}>Upload over cellular</BodyText>
             <Switch
               value={allowCellularUploads}
               onValueChange={(value) => void changeCellularUploadPolicy(value)}
               accessibilityLabel="Upload large videos over cellular"
             />
           </View>
-        </ContentSection>
+        </DitherPanel>
         {message ? (
           <Text
             accessibilityLiveRegion="polite"
@@ -496,12 +503,20 @@ export default function VideoProjectsScreen() {
             {message}
           </Text>
         ) : null}
+        <ContentTitle>Recent projects</ContentTitle>
         {projects.length === 0 ? (
           <EmptyState title="No cloud projects yet" body="Record or import a video to start one." />
         ) : (
           <View style={{ gap: spacing.small }}>
             {projects.map((project) => (
-              <ContentSection key={project.id} style={{ gap: spacing.extraSmall }}>
+              <ContentSection
+                key={project.id}
+                style={{
+                  gap: spacing.extraSmall,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.outlineVariant,
+                }}
+              >
                 <ContentTitle>{project.name}</ContentTitle>
                 <BodyText>
                   {project.sync_status === "needs_attention"
@@ -535,10 +550,18 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   cameraFrame: { aspectRatio: 16 / 9, overflow: "hidden", borderRadius: 12 },
   field: { flex: 1, minWidth: 140, gap: 6 },
-  switchRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 12 },
+  switchRow: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
 });
 
-function videoDimensions(quality: VideoQuality): { width: number; height: number } {
+function videoDimensions(quality: VideoQuality): {
+  width: number;
+  height: number;
+} {
   switch (quality) {
     case "2160p":
       return { width: 3840, height: 2160 };

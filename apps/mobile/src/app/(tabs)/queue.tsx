@@ -1,19 +1,12 @@
+import { NativeText as Text } from "@/components/native-text";
 import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useState } from "react";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
-import {
-  BodyText,
-  Button,
-  ContentSection,
-  EmptyState,
-  PageTitle,
-  Screen,
-  StatusBadge,
-} from "@/components/ui";
+import { BodyText, Button, ContentSection, EmptyState, Screen, StatusBadge } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { formatDateTime, platformLabel, relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
@@ -28,6 +21,8 @@ import {
   workspaceQueryScopeIsCurrent,
   type WorkspaceQueryScope,
 } from "@/lib/query-session";
+import { WorkspaceHeader } from "@/components/workspace-header";
+import { PublicationRow } from "@/components/publication-row";
 import { useNativeTheme } from "@/theme";
 
 type PublicationMutationRequest = {
@@ -110,7 +105,10 @@ export default function QueueScreen() {
     },
     onSuccess: (_, request) => {
       if (scopeIsCurrent(request.scope)) {
-        setDismissed({ publication: request.publication, scope: request.scope });
+        setDismissed({
+          publication: request.publication,
+          scope: request.scope,
+        });
         setActionError(null);
         void selectionHaptic();
       }
@@ -150,8 +148,16 @@ export default function QueueScreen() {
   const hasScheduledData = scheduled.data !== undefined;
   const hasFailedData = failed.data !== undefined;
   const coldPending = initialQueryBoundaryPending([
-    { hasData: hasScheduledData, isError: scheduled.isError, isPending: scheduled.isPending },
-    { hasData: hasFailedData, isError: failed.isError, isPending: failed.isPending },
+    {
+      hasData: hasScheduledData,
+      isError: scheduled.isError,
+      isPending: scheduled.isPending,
+    },
+    {
+      hasData: hasFailedData,
+      isError: failed.isError,
+      isPending: failed.isPending,
+    },
   ]);
 
   function refresh() {
@@ -162,20 +168,11 @@ export default function QueueScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View
-        style={{
-          paddingBottom: spacing.small,
-          paddingHorizontal: spacing.extraLarge,
-          paddingTop: spacing.large,
-        }}
-      >
-        <PageTitle>Queue</PageTitle>
-      </View>
-
+      <WorkspaceHeader />
       <ScrollView
         contentContainerStyle={{
           gap: spacing.extraLarge,
-          padding: spacing.extraLarge,
+          padding: spacing.large,
           paddingBottom: spacing.doubleExtraLarge + spacing.small,
         }}
         refreshControl={
@@ -228,7 +225,7 @@ export default function QueueScreen() {
               />
             ))}
             {(failed.data?.length ?? 0) === 0 && hasFailedData ? (
-              <EmptyState title="No failed posts" />
+              <BodyText>No failed posts</BodyText>
             ) : null}
           </Section>
         ) : null}
@@ -346,40 +343,21 @@ function Section({
 }
 
 function QueueRow({ publication }: { publication: PublicationListItem }) {
-  const theme = useNativeTheme();
-  const { colors, spacing, typography } = theme.manifest;
   const platforms = distinctPlatforms(publication);
   return (
-    <Pressable
-      accessibilityRole="button"
+    <PublicationRow
+      publication={publication}
+      showStatus
+      detail={[formatDateTime(publication.scheduled_at), platforms.join(", ")]
+        .filter(Boolean)
+        .join(" · ")}
       onPress={() =>
         router.push({
           pathname: "/publications/[id]",
           params: { id: publication.id },
         })
       }
-    >
-      {({ pressed }) => (
-        <ContentSection
-          style={[
-            styles.row,
-            { gap: spacing.medium, paddingVertical: spacing.large },
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <View style={{ flex: 1, gap: spacing.extraSmall }}>
-            <Text style={[typography.bodyLarge, { color: colors.onSurface }]} numberOfLines={2}>
-              {titleFor(publication)}
-            </Text>
-            <BodyText>
-              {formatDateTime(publication.scheduled_at)}
-              {platforms.length > 0 ? ` · ${platforms.join(", ")}` : ""}
-            </BodyText>
-          </View>
-          <StatusBadge status={publication.status} />
-        </ContentSection>
-      )}
-    </Pressable>
+    />
   );
 }
 

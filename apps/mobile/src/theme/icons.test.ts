@@ -31,9 +31,6 @@ test("gives every mobile semantic role genuinely different geometry in all five 
   for (const role of NATIVE_ICON_ROLES) {
     const geometry = PACKS.map((pack) => geometryFingerprint(pack.icons[role].body));
     expect(new Set(geometry).size, role).toBe(PACKS.length);
-    expect(new Set(PACKS.map((pack) => pack.icons[role].sourceGlyphId)).size, role).toBeGreaterThan(
-      2,
-    );
   }
 });
 

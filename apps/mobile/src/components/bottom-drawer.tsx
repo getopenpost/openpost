@@ -1,6 +1,7 @@
+import { NativeText as Text } from "@/components/native-text";
 import type { PropsWithChildren } from "react";
 import { ModalBottomSheet } from "@swmansion/react-native-bottom-sheet";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import {
   KeyboardAwareScrollView,
   useReanimatedKeyboardAnimation,

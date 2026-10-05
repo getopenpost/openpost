@@ -1,9 +1,9 @@
+import { NativeText as Text } from "@/components/native-text";
 import { forwardRef, useCallback, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   useWindowDimensions,
   View,
@@ -15,6 +15,8 @@ import { Image, type ImageContentFit } from "expo-image";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
 import { DitherPressable } from "./dither-pressable";
+import { ProtectedIcon } from "./protected-icon";
+import type { NativeProtectedIconRole } from "@/theme/protected-icons";
 import { nativeDitherActionMaterial } from "@/theme/validation";
 
 import { STATUS_LABEL } from "@/lib/format";
@@ -36,6 +38,7 @@ import {
   type NativeActionIntent,
   type NativeColorRoles,
   type NativeIconRole,
+  NATIVE_ICON_ROLES,
   type NativeThemeAssetSlot,
   useNativeTheme,
   withAlpha,
@@ -172,6 +175,8 @@ export function ContentTitle({
 
 export function Button({
   title,
+  icon,
+  display = "label",
   onPress,
   intent = "primary",
   disabled,
@@ -182,6 +187,8 @@ export function Button({
   style,
 }: {
   title: string;
+  icon?: NativeProtectedIconRole | NativeIconRole;
+  display?: "label" | "icon";
   onPress: () => void;
   intent?: NativeActionIntent;
   disabled?: boolean;
@@ -204,11 +211,11 @@ export function Button({
       }),
     [presentation, theme.manifest.colors.background, theme.manifest.colors.focus],
   );
-  const hasDepth = presentation.depth > 0;
+  const hasDepth = !inactive && presentation.depth > 0;
   return (
     <DitherPressable
       radius={buttonRadius(theme.manifest)}
-      textureInk={material?.ink}
+      textureInk={inactive ? undefined : material?.ink}
       textureOpacity={material?.opacity}
       focusColor={material?.focus ?? theme.manifest.colors.focus}
       accessibilityRole={accessibilityRole}
@@ -225,7 +232,9 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: presentation.container,
+          backgroundColor: inactive
+            ? theme.manifest.colors.surfaceContainerHigh
+            : presentation.container,
           borderColor: presentation.border,
           borderBottomColor: hasDepth ? presentation.depthColor : presentation.border,
           borderBottomWidth: hasDepth
@@ -233,8 +242,9 @@ export function Button({
             : presentation.borderWidth,
           borderRadius: buttonRadius(theme.manifest),
           borderWidth: presentation.borderWidth,
-          opacity: inactive ? presentation.disabledOpacity : 1,
-          paddingHorizontal: theme.manifest.spacing.large,
+          opacity: 1,
+          paddingHorizontal:
+            display === "icon" ? theme.manifest.spacing.medium : theme.manifest.spacing.large,
           paddingVertical: theme.manifest.spacing.small,
           transform: pressed && hasDepth ? [{ translateY: presentation.depth }] : undefined,
         },
@@ -242,21 +252,48 @@ export function Button({
       ]}
     >
       {() => {
-        const contentColor = material?.content ?? presentation.content;
+        const contentColor = inactive
+          ? theme.manifest.colors.onSurfaceVariant
+          : (material?.content ?? presentation.content);
         return loading ? (
           <ActivityIndicator color={contentColor} />
         ) : (
-          <Text
-            style={[
-              theme.manifest.typography.labelLarge,
-              {
-                color: contentColor,
-                textDecorationLine: presentation.underline ? "underline" : "none",
-              },
-            ]}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: theme.manifest.spacing.small,
+              flexShrink: 1,
+            }}
           >
-            {title}
-          </Text>
+            {icon ? (
+              NATIVE_ICON_ROLES.includes(icon as NativeIconRole) ? (
+                <ThemeIcon role={icon as NativeIconRole} size={20} tintColor={contentColor} />
+              ) : (
+                <ProtectedIcon
+                  role={icon as NativeProtectedIconRole}
+                  size={20}
+                  tintColor={contentColor}
+                />
+              )
+            ) : null}
+            {display === "icon" && icon ? null : (
+              <Text
+                style={[
+                  theme.manifest.typography.labelLarge,
+                  {
+                    color: contentColor,
+                    flexShrink: 1,
+                    textAlign: "center",
+                    textDecorationLine: presentation.underline ? "underline" : "none",
+                  },
+                ]}
+              >
+                {title}
+              </Text>
+            )}
+          </View>
         );
       }}
     </DitherPressable>

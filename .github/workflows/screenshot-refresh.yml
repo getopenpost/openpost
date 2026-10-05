@@ -19,7 +19,43 @@ env:
   GOTOOLCHAIN: local
 
 jobs:
+  mobile:
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Select Xcode with the pinned iOS simulator
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
+        working-directory: apps/mobile
+      - name: Install Maestro for native capture
+        run: |
+          curl --fail --location --silent --show-error https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.5.1/maestro.zip -o "$RUNNER_TEMP/maestro.zip"
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro"
+          echo "$RUNNER_TEMP/maestro/maestro/bin" >> "$GITHUB_PATH"
+      - name: Capture and frame the mobile gallery
+        run: bun run capture:mobile-screenshots
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mobile-readme-gallery
+          path: assets/screenshots/mobile-gallery-*.webp
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: mobile-capture-diagnostics
+          path: apps/mobile/artifacts/screenshots
+
   refresh:
+    needs: mobile
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -38,7 +74,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.sha }}
           token: ${{ steps.app-token.outputs.token || github.token }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -52,6 +88,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install --yes ffmpeg
       - name: Re-capture product screenshots
         run: bun run capture:product-screenshots
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: mobile-readme-gallery
+          path: assets/screenshots
       - name: Open a review PR when screenshots drifted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}

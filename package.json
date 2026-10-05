@@ -29,7 +29,8 @@
     "test": "bun scripts/tasks.mjs test",
     "test:backend:pkg": "go test -tags dev",
     "test:file": "bun test",
-    "verify": "bun scripts/tasks.mjs verify"
+    "verify": "bun scripts/tasks.mjs verify",
+    "capture:mobile-screenshots": "bun scripts/capture-mobile-screenshots.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

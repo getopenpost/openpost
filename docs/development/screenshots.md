@@ -34,3 +34,21 @@ review PR when images drift. It never commits to `main` directly. Merge its PR
 only after reviewing the images. Refresh commits use the openpost-bot GitHub
 App identity, falling back to `github-actions[bot]` until the app credentials
 are configured (same pattern as the README assets workflow).
+
+## Native mobile README gallery
+
+Run on macOS with Xcode 26.2, the iOS 26.2 runtime, Bun, CocoaPods, and Maestro 2.5.1 available:
+
+```sh
+bun install --frozen-lockfile
+(cd apps/mobile && bun install --frozen-lockfile)
+bun run capture:mobile-screenshots
+```
+
+The command creates an isolated iPhone 17 simulator, builds the native app, and uses Maestro to wait for each screen before capturing it. The fixture entry fixes sample content and the clock without contacting a live server. Production keeps `expo-router/entry`. The capture-only Metro config selects an ignored fixture shim without changing the shipping manifest. Stop any existing Metro server on port 8081 first.
+
+Raw captures and diagnostics stay in `apps/mobile/artifacts/screenshots/`. `scripts/render-mobile-gallery.mjs` frames those captures and adds labels above the phones, producing `assets/screenshots/mobile-gallery-{light,dark}.webp`. The README selects the matching scheme without a table.
+
+For local iteration with an already compiled simulator app, set `OPENPOST_SCREENSHOT_APP` to its absolute `.app` path. Native dependency changes require a fresh build.
+
+The weekly refresh workflow captures the mobile gallery on macOS alongside the web captures. It opens the existing screenshot review PR when either set changes. Inspect every phone before merging. A failed native capture blocks the refresh rather than publishing old images.

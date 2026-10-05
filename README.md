@@ -67,6 +67,13 @@
   <a href="https://openpo.st/#features">See all features</a>
 </p>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/screenshots/mobile-gallery-dark.webp">
+    <img src="./assets/screenshots/mobile-gallery-light.webp" alt="OpenPost on iOS: Drafts, Post, Calendar, Queue, Video, and Analytics, each shown in a labelled phone mockup" width="100%">
+  </picture>
+</p>
+
 <table>
   <tr>
     <td width="50%" align="center">

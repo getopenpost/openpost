@@ -6,7 +6,12 @@
   "$schema": "../../node_modules/fallow/schema.json",
 
   // Expo Router file-system routes are the reachability roots.
-  "entry": ["src/app/**/*.{ts,tsx}"],
+  "entry": [
+    "src/app/**/*.{ts,tsx}",
+    "tests/screenshots/entry.js",
+    "tests/screenshots/metro.config.cjs",
+    "tests/screenshots/storage.js",
+  ],
 
   "ignorePatterns": ["**/*.generated.ts"],
 

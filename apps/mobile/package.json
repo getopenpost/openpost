@@ -1,6 +1,6 @@
 {
   "name": "mobile",
-  "version": "0.2.49",
+  "version": "0.2.50",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {

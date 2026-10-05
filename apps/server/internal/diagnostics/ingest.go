@@ -251,7 +251,10 @@ func FormatDiscordPayload(report Report) ([]byte, error) {
 				break
 			}
 		}
-		fields = append(fields, discordDiagnosticsEmbedField{Name: "Frames", Value: "```\n" + frames.String() + "\n```"})
+		const codeFenceCharacters = len("```\n\n```")
+		fields = append(fields, discordDiagnosticsEmbedField{
+			Name: "Frames", Value: "```\n" + clip(frames.String(), discordFieldLimit-codeFenceCharacters) + "\n```",
+		})
 	}
 	fields = append(fields, discordDiagnosticsEmbedField{
 		Name: "Installation", Value: clip(report.InstallationID, discordFieldLimit), Inline: true,

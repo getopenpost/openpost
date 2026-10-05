@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
@@ -126,8 +127,21 @@ func TestPostDiscordReportDeliversBoundedPayload(t *testing.T) {
 
 func TestFormatDiscordPayloadClipsFields(t *testing.T) {
 	report := ingestTestReport()
-	report.Frames = []Frame{{Module: strings.Repeat("m", 500), Function: "Serve", Line: 1}}
+	report.Frames = make([]Frame, 24)
+	for i := range report.Frames {
+		report.Frames[i] = Frame{Module: strings.Repeat("m", 240), Function: strings.Repeat("f", 160), Line: 1}
+	}
+	require.NoError(t, ValidateReport(report))
 	body, err := FormatDiscordPayload(report)
 	require.NoError(t, err)
 	require.Less(t, len(body), 8<<10)
+	var payload discordDiagnosticsPayload
+	require.NoError(t, json.Unmarshal(body, &payload))
+	for _, field := range payload.Embeds[0].Fields {
+		require.LessOrEqual(t, utf8.RuneCountInString(field.Value), 1024, "Discord rejects oversized %s fields", field.Name)
+		if field.Name == "Frames" {
+			require.True(t, strings.HasPrefix(field.Value, "```\n"))
+			require.True(t, strings.HasSuffix(field.Value, "\n```"))
+		}
+	}
 }

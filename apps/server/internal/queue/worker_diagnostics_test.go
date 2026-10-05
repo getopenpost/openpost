@@ -94,6 +94,20 @@ func TestWorkerDiagnosticsReportedWhenPersistenceFails(t *testing.T) {
 	require.NotContains(t, reports[0].Operation, "exploded")
 }
 
+func TestWorkerNotificationFailureDoesNotReportPublishingFailure(t *testing.T) {
+	db := createTestDB(t)
+	sink := newDiagnosticsSink(t)
+	reporter := sink.reporter(t)
+	worker := NewWorker(db, "worker-diag-notification", time.Second, nil, nil, stubStorage{})
+	worker.SetDiagnosticsReporter(reporter)
+	worker.reportWorkerDiagnostic(&models.Job{ID: "notification", Type: jobregistry.TypeNotificationEmail}, errors.New("email delivery refused"))
+	reporter.Flush()
+	reports := sink.all()
+	require.Len(t, reports, 1)
+	require.Equal(t, diagnostics.CodeWorkerFailed, reports[0].ErrorCode)
+	require.Equal(t, jobregistry.TypeNotificationEmail, reports[0].Operation)
+}
+
 func TestWorkerDiagnosticsExpectedFailuresUseStructuredCodes(t *testing.T) {
 	t.Parallel()
 

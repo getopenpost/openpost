@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.12.1] - 2026-10-05
+
+### Fixed
+
+- Generate Publication Builder drafts and review replacements within the selected destination's text and segment limits, repair invalid output once, and allow enough response space for complete reviews.
+- Keep long diagnostic stack traces within Discord's field limit so accepted reports reach the maintainer channel.
+- Report notification email failures as worker failures instead of failed social posts.
+- Disable external diagnostics and product telemetry in application browser test servers, including when the parent environment enables reporting.
+- Link cards follow each account's post URL while preserving custom URLs and older saved overrides. LinkedIn article metadata appears inside its card.
+- Media previews follow the selected feed, carousel, multi-image, Story, Reel and video format, account covers, cover frames and image focal points. Joined previews keep delivery order without duplicate attachments.
+- Video Editor disconnects a revoked local folder immediately and offers reconnect even when browser storage is unavailable.
+
+### Improved
+
+- Include known error types, HTTP methods, and bounded browser app stack locations in maintainer diagnostics without sending error messages, concrete project routes, or private content.
+
+### Changed
+
+- Account tabs now open an editable social preview with inline poll and link controls. All keeps the shared composer, and Full preview opens the platform page.
+- Composer account controls share one compact row, with status, reset, Full preview and More.
+
 ## [7.11.3] - 2026-10-05
 
 ### Fixed

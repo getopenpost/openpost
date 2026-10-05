@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	maxGenerationCalls   = 32
+	maxGenerationCalls   = 1 + maxDestinationCount*maxAdapterGenerationAttempts + 2*maxReviewGenerationAttempts
 	maxGenerationModel   = 200
 	maxGenerationRequest = 256
 	maxGenerationAccount = 200

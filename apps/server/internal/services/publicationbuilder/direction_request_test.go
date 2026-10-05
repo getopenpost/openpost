@@ -24,9 +24,23 @@ func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
 		{"source only", nil},
 		{"multimodal only", nil},
 		{"multiline source ID", nil},
+		{"native grapheme count", nil},
+		{"native URL count", nil},
+		{"repair oversized draft", nil},
+		{"reject repeated oversized draft", nil},
+		{"repair truncated review", nil},
+		{"repair oversized review replacement", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			input := BuildInput{Idea: "Export now keeps source audio.", Destinations: []Destination{{AccountID: "blue", Platform: "bluesky", AllowedOutputProfiles: []OutputProfile{{Key: "post", TextLimit: 300, MaxSegments: 1}}}}}
+			nativeBody := ""
+			if tc.name == "native grapheme count" {
+				nativeBody = strings.Repeat("e\u0301", 200)
+			}
+			if tc.name == "native URL count" {
+				input.Destinations[0].Platform = "mastodon"
+				nativeBody = "https://example.com/" + strings.Repeat("a", 400)
+			}
 			sourceID := "idea"
 			if tc.name == "source only" {
 				input.Sources = []SourceMaterial{{ID: "notes", Kind: "text", Text: input.Idea}}
@@ -58,6 +72,8 @@ func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
 				}
 			}
 			calls := 0
+			adapterCalls := 0
+			reviewCalls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls++
 				var request struct {
@@ -111,9 +127,31 @@ func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
 						output = string(encoded)
 					}
 				case "openpost_destination_rendition":
+					adapterCalls++
+					if nativeBody != "" {
+						segments := request.ResponseFormat.JSONSchema.Schema.Properties["segments"]
+						body := segments["items"].(map[string]any)["properties"].(map[string]any)["body"].(map[string]any)
+						assert.GreaterOrEqual(t, body["maxLength"].(float64), float64(len([]rune(nativeBody))), "schema must admit text within the native limit")
+					}
 					output = `{"account_id":"blue","objective":"conversation","archetype":"technical_note","output_profile":"post","preview":"Export now keeps source audio.","segments":[{"body":"Export now keeps source audio.","title":"","description":""}],"media":{"treatment":"none","role":"none","brief":"No media.","source_ref":""},"claims":[],"warnings":[],"follow_up_notes":[]}`
+					if nativeBody != "" {
+						output = strings.Replace(output, `"body":"Export now keeps source audio."`, `"body":"`+nativeBody+`"`, 1)
+					}
+					if tc.name == "native URL count" {
+						output = strings.ReplaceAll(output, `"technical_note"`, `"technical_update"`)
+					}
+					if tc.name == "reject repeated oversized draft" || (tc.name == "repair oversized draft" && adapterCalls == 1) {
+						output = strings.Replace(output, `"body":"Export now keeps source audio."`, `"body":"`+strings.Repeat("a", 301)+`"`, 1)
+					}
 				case "openpost_publication_review":
+					reviewCalls++
 					output = `{"approved":true,"flags":[],"replacements":[]}`
+					if tc.name == "repair truncated review" && reviewCalls == 1 {
+						output = `{"approved":true,"flags":[`
+					}
+					if tc.name == "repair oversized review replacement" && reviewCalls == 1 {
+						output = `{"approved":false,"flags":[],"replacements":[{"account_id":"blue","preview":"An opening.","segments":[{"body":"` + strings.Repeat("a", 301) + `","title":"","description":""}]}]}`
+					}
 				default:
 					t.Errorf("unexpected generation stage")
 				}
@@ -135,6 +173,11 @@ func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
 			require.NoError(t, err)
 			input.Direction = direction
 			result, err := service.Build(context.Background(), input)
+			if tc.name == "reject repeated oversized draft" {
+				require.ErrorContains(t, err, "exceeds bluesky text limit of 300")
+				require.Equal(t, 2, adapterCalls, "invalid output repair must stay bounded")
+				return
+			}
 			require.NoError(t, err)
 			if locked["outcome"] {
 				require.Equal(t, values["outcome"], result.Direction.Outcome)
@@ -144,7 +187,18 @@ func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
 			require.Equal(t, values["audience"], result.Direction.Audience)
 			require.Equal(t, values["angle"], result.Direction.Angle)
 			require.Len(t, result.Destinations, 1)
-			require.Equal(t, 3, calls)
+			if nativeBody != "" {
+				require.Equal(t, nativeBody, result.Destinations[0].Segments[0].Body)
+			}
+			expectedCalls := 3
+			if tc.name == "repair oversized draft" {
+				expectedCalls++
+				require.Equal(t, "Export now keeps source audio.", result.Destinations[0].Segments[0].Body)
+			}
+			if tc.name == "repair truncated review" || tc.name == "repair oversized review replacement" {
+				expectedCalls++
+			}
+			require.Equal(t, expectedCalls, calls)
 		})
 	}
 }

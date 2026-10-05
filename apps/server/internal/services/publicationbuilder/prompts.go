@@ -25,6 +25,7 @@ Apply the supplied platform policies independently. Do not reject or flag a user
 Reject generic topic-setting openings, fake curiosity, generic calls to engage, forced jokes, decorative media, tidy parallel phrasing that erases the user's rhythm, and any destination that reads like another platform with a new character limit.
 Check that every supported claim cites an exact supplied source ID and that current references come from supplied evidence.
 Do not rewrite approved prose. If a small repair can make the package safe, return bounded replacement segments for the affected account.
+Every replacement must respect that account's supplied output_limits, including its native text count and maximum segments. Preserve the selected output profile.
 Return one JSON object only with exactly: approved, flags, replacements.`
 
 const adapterPlainLanguageAudit = `Remove generic openers, fake curiosity, generic engagement prompts, forced emoji, repeated sentence templates, corporate filler, and stock phrases such as "game changer", "here is the thing", or "in today's fast-paced world". Do not force a numbered list, a question, a CTA, or polished symmetry. Keep useful rough edges from the Voice Profile. Every line must add a fact, opinion, joke, transition, or instruction.`
@@ -94,13 +95,27 @@ func adapterPrompt(input BuildInput, director DirectorPlan, destination Destinat
 
 func reviewerPrompt(input BuildInput, director DirectorPlan, destinations []DestinationPlan) (string, error) {
 	payload := struct {
-		Sources          []SourceMaterial  `json:"source_ledger"`
-		Director         DirectorPlan      `json:"director_plan"`
-		Destinations     []DestinationPlan `json:"destination_plans"`
-		PlatformPolicies []platformPolicy  `json:"platform_policies"`
+		Sources          []SourceMaterial         `json:"source_ledger"`
+		Director         DirectorPlan             `json:"director_plan"`
+		Destinations     []DestinationPlan        `json:"destination_plans"`
+		PlatformPolicies []platformPolicy         `json:"platform_policies"`
+		OutputLimits     map[string]OutputProfile `json:"output_limits"`
 	}{
 		Sources: input.Sources, Director: director, Destinations: destinations,
 		PlatformPolicies: policyContexts(destinationPlanPlatforms(destinations)),
+		OutputLimits:     make(map[string]OutputProfile, len(destinations)),
+	}
+	for _, plan := range destinations {
+		for _, destination := range input.Destinations {
+			if destination.AccountID != plan.AccountID {
+				continue
+			}
+			profile, ok := allowedOutputProfile(destination, plan.OutputProfile)
+			if ok {
+				payload.OutputLimits[plan.AccountID] = profile
+			}
+			break
+		}
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {

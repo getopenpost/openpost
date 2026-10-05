@@ -311,3 +311,100 @@ describe('account link previews', () => {
 		expect(model.subtitle).toBe('');
 	});
 });
+
+describe('selected media presentation', () => {
+	it.each(['instagram.feed', 'instagram.carousel', 'linkedin.multi_image', 'linkedin.article'])(
+		'keeps the selected %s presentation while attachments change',
+		(outputProfile) => {
+			const model = buildComposerPreview({
+				account: { ...account, platform: outputProfile.split('.')[0] },
+				mode: 'post',
+				outputProfile,
+				segments: [
+					{ id: 'source', text: 'Caption', media: [{ id: 'clip', mimeType: 'video/mp4' }] }
+				]
+			});
+			expect(model.format).toBe('post');
+		}
+	);
+	it('uses the authored account cover instead of the default video poster', () => {
+		const model = buildComposerPreview({
+			account: { ...account, platform: 'youtube' },
+			mode: 'post',
+			outputProfile: 'youtube.video',
+			destinationSettings: { thumbnail_media_id: 'authored-cover' },
+			segments: [
+				{
+					id: 'source',
+					text: 'Caption',
+					media: [
+						{ id: 'video', mimeType: 'video/mp4', poster: 'https://default.example/poster.jpg' }
+					]
+				}
+			]
+		});
+		expect(model.media[0].poster).toContain('authored-cover');
+	});
+	it('deduplicates joined media in source order while keeping the first authored item', () => {
+		const model = buildComposerPreview({
+			account: { ...account, platform: 'linkedin' },
+			mode: 'thread',
+			outputProfile: 'linkedin.multi_image',
+			segmentStrategy: 'join',
+			segments: [
+				{
+					id: 'first',
+					text: 'First',
+					media: [{ id: 'same', mimeType: 'image/jpeg', altText: 'First alt' }]
+				},
+				{
+					id: 'second',
+					text: 'Second',
+					media: [
+						{ id: 'same', mimeType: 'image/jpeg', altText: 'Second alt' },
+						{ id: 'other', mimeType: 'image/jpeg' }
+					]
+				}
+			]
+		});
+		expect(model.media.map((item) => [item.id, item.alt])).toEqual([
+			['same', 'First alt'],
+			['other', undefined]
+		]);
+	});
+});
+
+it('projects an account-specific cover frame and Mastodon focal point without changing media order', () => {
+	const reel = buildComposerPreview({
+		account: { ...account, platform: 'instagram' },
+		mode: 'post',
+		outputProfile: 'instagram.reel',
+		destinationSettings: { thumbnail_timestamp_ms: 1250 },
+		segments: [
+			{
+				id: 'one',
+				text: 'Reel',
+				media: [{ id: 'clip', mimeType: 'video/mp4', poster: 'https://default.example/poster' }]
+			}
+		]
+	});
+	expect(reel.media[0]).toMatchObject({ id: 'clip', previewFrameSeconds: 1.25 });
+	expect(reel.media[0].poster).toBeUndefined();
+	const feed = buildComposerPreview({
+		account,
+		mode: 'post',
+		segments: [
+			{
+				id: 'one',
+				text: 'Photos',
+				media: [
+					{ id: 'left', mimeType: 'image/jpeg', settings: { focal_point: '-1,1' } },
+					{ id: 'center', mimeType: 'image/jpeg' }
+				]
+			}
+		]
+	});
+	expect(feed.media.map((item) => item.id)).toEqual(['left', 'center']);
+	expect(feed.media[0].focalPoint).toEqual({ x: -1, y: 1 });
+	expect(feed.media[1].focalPoint).toBeUndefined();
+});

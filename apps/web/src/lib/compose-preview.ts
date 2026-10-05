@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { firstComposerURL } from '$lib/components/compose/composer-links';
 import { pollDurationLabel } from '$lib/components/compose/polls';
 import {
@@ -27,6 +28,7 @@ export interface ComposerPreviewMedia {
 	poster?: string;
 	durationLabel?: string;
 	aspectRatio?: number;
+	settings?: ComposerSettings;
 }
 
 export interface ComposerPreviewSegment {
@@ -51,6 +53,16 @@ export interface ComposerPreviewInput {
 	location?: string;
 }
 
+const coverFrameMilliseconds = z
+	.union([z.number(), z.string().trim().min(1).transform(Number)])
+	.pipe(z.number().finite().nonnegative());
+
+interface MediaPreviewContext {
+	platform: PreviewModel['platform'];
+	outputProfile: string;
+	settings: ComposerSettings;
+}
+
 export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel {
 	const platform = normalizePreviewPlatform(input.account.platform);
 	const destinationSettings = input.destinationSettings ?? {};
@@ -73,7 +85,12 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 					}
 				]
 			: input.segments;
-	const previewSegments: PreviewSegment[] = sourceSegments.map((segment) => ({
+	const normalizedSegments = sourceSegments.map((segment) => ({
+		...segment,
+		media: input.segmentStrategy === 'join' ? uniqueMedia(segment.media ?? []) : segment.media
+	}));
+	const mediaContext = { platform, outputProfile: input.outputProfile ?? '' };
+	const previewSegments: PreviewSegment[] = normalizedSegments.map((segment) => ({
 		id: segment.id,
 		text: deliveryPreviewText(
 			platform,
@@ -81,7 +98,12 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 			{ ...destinationSettings, ...segment.settings },
 			segment.media?.length ?? 0
 		),
-		media: segment.media?.map(previewMedia),
+		media: segment.media?.map((item) =>
+			previewMedia(item, {
+				...mediaContext,
+				settings: { ...destinationSettings, ...segment.settings }
+			})
+		),
 		poll: previewPoll({ ...destinationSettings, ...segment.settings }),
 		card: previewCard(
 			platform,
@@ -93,7 +115,9 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 			...segment.settings
 		})
 	}));
-	const media = (sourceSegments[0]?.media ?? input.media ?? []).map(previewMedia);
+	const media = (normalizedSegments[0]?.media ?? input.media ?? []).map((item) =>
+		previewMedia(item, { ...mediaContext, settings: mergedSettings })
+	);
 	const title =
 		input.title ||
 		parseSettingText(mergedSettings, 'title') ||
@@ -155,6 +179,7 @@ export function previewFormat(
 	) {
 		return profileSuffix;
 	}
+	if (['feed', 'carousel', 'multi_image', 'article'].includes(profileSuffix ?? '')) return 'post';
 	if (mode === 'thread' && !outputProfile) return 'thread';
 	if (platform === 'youtube' || platform === 'peertube') return 'video';
 	if (platform === 'linkedin' && media.some((item) => item.kind === 'document')) return 'document';
@@ -166,8 +191,18 @@ export function previewFormat(
 	return 'post';
 }
 
-function previewMedia(item: ComposerPreviewMedia): PreviewMedia {
+function uniqueMedia(items: ComposerPreviewMedia[]): ComposerPreviewMedia[] {
+	const seen = new Set<string>();
+	return items.filter((item) => {
+		if (seen.has(item.id)) return false;
+		seen.add(item.id);
+		return true;
+	});
+}
+
+function previewMedia(item: ComposerPreviewMedia, context: MediaPreviewContext): PreviewMedia {
 	const mimeType = item.mimeType ?? '';
+	const cover = previewCover({ ...context, settings: { ...context.settings, ...item.settings } });
 	return {
 		id: item.id,
 		kind: mimeType.startsWith('video/')
@@ -177,10 +212,58 @@ function previewMedia(item: ComposerPreviewMedia): PreviewMedia {
 				: 'image',
 		src: getAuthenticatedMediaByID(item.id),
 		alt: item.altText,
-		poster: item.poster,
+		poster: cover.poster || (cover.previewFrameSeconds === undefined ? item.poster : undefined),
+		previewFrameSeconds: cover.previewFrameSeconds,
+		focalPoint:
+			context.platform === 'mastodon'
+				? previewFocalPoint(parseSettingText(item.settings ?? {}, 'focal_point'))
+				: undefined,
 		durationLabel: item.durationLabel,
 		aspectRatio: item.aspectRatio
 	};
+}
+
+function previewCover(
+	context: MediaPreviewContext
+): Pick<PreviewMedia, 'poster' | 'previewFrameSeconds'> {
+	let coverKey = '';
+	let frameKey = '';
+	switch (context.platform) {
+		case 'youtube':
+		case 'peertube':
+			coverKey = 'thumbnail_media_id';
+			break;
+		case 'instagram':
+			if (context.outputProfile.trim().toLowerCase().endsWith('.carousel')) return {};
+			coverKey = 'cover_media_id';
+			frameKey = 'thumbnail_timestamp_ms';
+			break;
+		case 'pinterest':
+			coverKey = 'cover_media_id';
+			break;
+		case 'tiktok':
+			frameKey = 'cover_timestamp_ms';
+			break;
+		default:
+			return {};
+	}
+	const coverID = coverKey ? parseSettingText(context.settings, coverKey) : '';
+	if (coverID)
+		return { poster: /^https?:\/\//u.test(coverID) ? coverID : getAuthenticatedMediaByID(coverID) };
+	const frame = coverFrameMilliseconds.safeParse(context.settings[frameKey]);
+	return frame.success ? { previewFrameSeconds: frame.data / 1000 } : {};
+}
+
+function previewFocalPoint(value: string): PreviewMedia['focalPoint'] {
+	const parts = value.split(',');
+	if (parts.some((part) => !part.trim())) return undefined;
+	const coordinates = parts.map(Number);
+	if (
+		coordinates.length !== 2 ||
+		coordinates.some((value) => !Number.isFinite(value) || Math.abs(value) > 1)
+	)
+		return undefined;
+	return { x: coordinates[0], y: coordinates[1] };
 }
 
 function previewPoll(settings: ComposerSettings): PreviewPoll | undefined {

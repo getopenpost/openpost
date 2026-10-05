@@ -222,3 +222,55 @@ it("lets readers reach every attachment in a mixed 20-item Threads post", async 
   await screen.getByRole("button", { name: "Previous media" }).click();
   await expect.element(screen.getByRole("img", { name: "Item 19 artwork" })).toBeVisible();
 });
+
+it("uses the authored Mastodon focal point inside a cropped attachment grid", async () => {
+  const first = { ...image("Focal"), focalPoint: { x: -1, y: 1 } };
+  const screen = render(SocialPreview, {
+    model: createPreviewModel({ platform: "mastodon", media: [first, image("Other")] }),
+  });
+  const artwork = screen.getByRole("img", { name: "Focal artwork" });
+  await expect.element(artwork).toBeVisible();
+  expect(getComputedStyle(artwork.element()).objectPosition).toBe("0% 0%");
+});
+
+it.each(["instagram", "youtube"] as const)(
+  "shows the chosen video cover frame without playing the %s clip",
+  async (platform) => {
+    const src = new URL(
+      "../../../tests/app/fixtures/product-screenshots/study-sos-demo.mp4",
+      import.meta.url,
+    ).href;
+    const screen = render(SocialPreview, {
+      model: createPreviewModel({
+        platform,
+        format: platform === "instagram" ? "reel" : "short",
+        media: [
+          { id: "video", kind: "video", src, alt: "Chosen frame", previewFrameSeconds: 1.25 },
+        ],
+      }),
+    });
+    const video = screen.getByLabelText("Chosen frame").element() as HTMLVideoElement;
+    await expect.poll(() => video.currentTime).toBeCloseTo(1.25, 2);
+    expect(video.paused).toBe(true);
+  },
+);
+
+it("restores the selected poster when an authored cover replaces a cover frame", async () => {
+  const src = new URL(
+    "../../../tests/app/fixtures/product-screenshots/study-sos-demo.mp4",
+    import.meta.url,
+  ).href;
+  const clip = { id: "video", kind: "video" as const, src, alt: "Cover transition" };
+  const model = (media: import("./model").PreviewMedia) =>
+    createPreviewModel({ platform: "instagram", format: "reel", media: [media] });
+  const screen = render(SocialPreview, { model: model({ ...clip, previewFrameSeconds: 1.25 }) });
+  const video = () => screen.getByLabelText("Cover transition").element() as HTMLVideoElement;
+  await expect.poll(() => video().currentTime).toBeCloseTo(1.25, 2);
+  const poster = image("Authored cover").src;
+  await screen.rerender({ model: model({ ...clip, poster }) });
+  await expect.poll(() => video().currentTime).toBe(0);
+  expect(video().poster).toBe(poster);
+  await screen.rerender({ model: model(clip) });
+  await expect.poll(() => video().currentTime).toBe(0);
+  expect(video().poster).toBe("");
+});

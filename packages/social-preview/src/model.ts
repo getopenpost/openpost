@@ -52,6 +52,8 @@ export interface PreviewMedia {
   poster?: string;
   aspectRatio?: number;
   durationLabel?: string;
+  previewFrameSeconds?: number;
+  focalPoint?: { x: number; y: number };
 }
 
 export interface PreviewSegment {

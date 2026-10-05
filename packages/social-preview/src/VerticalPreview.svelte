@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewVideoFrame } from "./video-frame";
   import { previewEditing } from "./editing";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
@@ -64,14 +65,17 @@
 >
   <div class="vertical-media">
     {#if activeMedia?.kind === "video"}
+      {#key JSON.stringify([activeMedia.src, activeMedia.poster, activeMedia.previewFrameSeconds])}
       <video
         src={activeMedia.src}
         poster={activeMedia.poster}
+        {@attach previewVideoFrame(activeMedia.previewFrameSeconds)}
         aria-label={activeMedia.alt || "Video preview"}
         muted
         playsinline
         preload="metadata"
       ></video>
+      {/key}
       <span class="center-play" aria-hidden="true"
         ><Play fill="currentColor" /></span
       >

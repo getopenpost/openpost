@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { previewVideoFrame } from "./video-frame";
   import PreviewDocument from "./PreviewDocument.svelte";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
@@ -79,9 +80,11 @@
     style:--media-ratio={aspectRatio(item) ?? 16 / 9}
   >
     {#if item.kind === "video"}
+      {#key JSON.stringify([item.src, item.poster, item.previewFrameSeconds])}
       <video
         src={item.src}
         poster={item.poster}
+        {@attach previewVideoFrame(item.previewFrameSeconds)}
         aria-label={item.alt || "Video preview"}
         muted
         playsinline
@@ -93,6 +96,7 @@
             event.currentTarget.videoHeight,
           )}
       ></video>
+      {/key}
       <span class="video-play" aria-hidden="true"
         ><Play fill="currentColor" /></span
       >
@@ -103,6 +107,7 @@
     {:else}
       <img
         src={item.src}
+        style:object-position={item.focalPoint ? `${(item.focalPoint.x + 1) * 50}% ${(1 - item.focalPoint.y) * 50}%` : undefined}
         alt={item.alt || ""}
         onload={(event) => {
           const image = event.currentTarget as HTMLImageElement;

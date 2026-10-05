@@ -463,6 +463,7 @@
 	let isDraggingFile = $state(false);
 
 	let mediaAltTexts = $state<Map<string, string>>(new Map());
+	let mediaPreviewMetadata = new SvelteMap<string, { aspectRatio?: number; poster?: string }>();
 	let mediaMimeTypes = $state<Map<string, string>>(new Map());
 	let mediaSizes = $state<Map<string, number>>(new Map());
 	let pasteMediaUploads = $state.raw<PasteMediaUploadItem[]>([]);
@@ -1525,7 +1526,9 @@
 				media: mediaIds.map((id) => ({
 					id,
 					mimeType: mediaMimeTypes.get(id),
-					altText: mediaAltTextForAccount(id, account.id)
+					altText: mediaAltTextForAccount(id, account.id),
+					...mediaPreviewMetadata.get(id),
+					settings: mediaSettingsByAccount[id]?.[account.id]
 				}))
 			};
 		});
@@ -2720,6 +2723,7 @@
 		mediaSettingsByAccount = structuredClone(payload.media_settings_by_account);
 		mediaAltTexts = new SvelteMap(payload.media_alt_texts ?? []);
 		mediaMimeTypes = new SvelteMap(payload.media_mime_types ?? []);
+		mediaPreviewMetadata.clear();
 		mediaSizes = new SvelteMap(payload.media_sizes ?? []);
 		selectedDate = undefined;
 		if (payload.selected_date) {
@@ -3023,6 +3027,7 @@
 		selectedAccountIds = [];
 		mediaAltTexts = new Map();
 		mediaMimeTypes = new Map();
+		mediaPreviewMetadata.clear();
 		mediaSizes = new Map();
 		linkUrl = '';
 		settingsByAccount = {};
@@ -3098,6 +3103,7 @@
 		];
 		mediaMimeTypes = new Map(publicationMedia.map((media) => [media.id, media.mime_type] as const));
 		mediaSizes = new Map();
+		mediaPreviewMetadata.clear();
 		const mediaIDs = publicationMedia.map((media) => media.id);
 		await ensureComposerWorkspace(publication.workspace_id);
 		if (publication.scheduled_at && publication.scheduled_at !== '0001-01-01T00:00:00Z') {
@@ -3429,7 +3435,9 @@
 		const requestedIds = Array.from(new Set(mediaIds.filter(Boolean)));
 		const missingIds = force
 			? requestedIds
-			: requestedIds.filter((id) => !mediaMimeTypes.has(id) || !mediaSizes.has(id));
+			: requestedIds.filter(
+					(id) => !mediaMimeTypes.has(id) || !mediaSizes.has(id) || !mediaPreviewMetadata.has(id)
+				);
 		if (!workspaceId || missingIds.length === 0) return;
 
 		try {
@@ -3439,6 +3447,14 @@
 			const nextAltTexts = new SvelteMap(mediaAltTexts);
 			const nextSizes = new SvelteMap(mediaSizes);
 			for (const media of mediaData) {
+				const ratio =
+					media.mime_type?.startsWith('image/') && (media.width ?? 0) > 0 && (media.height ?? 0) > 0
+						? media.width! / media.height!
+						: undefined;
+				mediaPreviewMetadata.set(media.id, {
+					aspectRatio: ratio,
+					poster: media.poster_thumbnail_url || undefined
+				});
 				if (media.mime_type) {
 					nextMimeTypes.set(media.id, media.mime_type);
 				}
@@ -3663,6 +3679,7 @@
 		onThreadStateChange?.(false);
 		mediaAltTexts = new Map();
 		mediaMimeTypes = new Map();
+		mediaPreviewMetadata.clear();
 		mediaSizes = new Map();
 		linkUrl = '';
 		settingsByAccount = {};

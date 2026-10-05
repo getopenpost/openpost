@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.11.1] - 2026-10-05
+
+### Fixed
+
+- Collect every available conversation page on Threads and follow Facebook and Instagram comment and reply pages. Busy conversations no longer omit replies after the first page, and later-page failures retain their recovery status.
+
 ## [7.11.0] - 2026-10-04
 
 ### Documentation

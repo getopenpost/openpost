@@ -84,14 +84,11 @@ export function createWorkspaceGate() {
 		})();
 
 		const stopPermissionListener = onPermissionLost(() => {
-			void (async () => {
-				const current = await getWorkspaceHandleRecord();
-				if (cancelled) return;
-				setWorkspaceRoot(null);
-				knownWorkspaces = await listKnownWorkspaces();
-				workspaceName = current?.name ?? workspaceName;
-				state = current ? 'reconnect' : 'pick';
-			})();
+			if (cancelled) return;
+			// Recovery must remain available when browser storage also fails.
+			// The mounted gate already owns the selected folder's identity.
+			setWorkspaceRoot(null);
+			state = workspaceName ? 'reconnect' : 'pick';
 		});
 
 		return () => {

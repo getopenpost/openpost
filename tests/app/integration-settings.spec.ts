@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  createWorkspace,
+  openComposerPlatformSettings,
+  registerUser,
+} from "./helpers";
 
 async function openDiscordPublication(
   page: Page,
@@ -63,7 +68,7 @@ for (const width of [1440, 390, 320]) {
       page.on("pageerror", (error) => errors.push(error.message));
       await openDiscordPublication(page, request, width, scheme);
       await page.getByRole("tab", { name: /^Test server/ }).click();
-      await page.getByRole("button", { name: "Platform settings", exact: true }).click();
+      await openComposerPlatformSettings(page);
       const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
       await expect(dialog).toBeVisible();
       await dialog.getByRole("button", { name: "Done", exact: true }).click();
@@ -92,7 +97,7 @@ for (const width of [1440, 390, 320]) {
       expect(requiredAccessibility.violations).toEqual([]);
       await dialog.getByRole("button", { name: "Close", exact: true }).click();
       await expect(dialog).not.toBeVisible();
-      await page.getByRole("button", { name: "Platform settings", exact: true }).click();
+      await openComposerPlatformSettings(page);
       await expect(dialog).toBeVisible();
       const bounds = await dialog.boundingBox();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -169,7 +174,7 @@ for (const width of [1440, 390, 320]) {
       await page.goto("/");
       await expect(page.getByTestId("composer-account-control")).toContainText("Launch updates");
       await page.getByRole("tab", { name: /^Test server/ }).click();
-      await page.getByRole("button", { name: "Platform settings", exact: true }).click();
+      await openComposerPlatformSettings(page);
       await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toContainText(
         "#updates",
       );

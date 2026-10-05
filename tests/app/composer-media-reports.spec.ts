@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import type { components } from "@openpost/api-contract";
 import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
 
 type MediaInput = { media_id: string; alt_text?: string };
@@ -8,7 +9,9 @@ type CapturedPublication = {
   renditions?: { segments?: { media?: MediaInput[] }[] }[];
 };
 type CapabilityRequest = {
-  account_settings: Record<string, Record<string, unknown>>;
+  account_settings: NonNullable<
+    components["schemas"]["ResolveCapabilitiesInputBody"]["account_settings"]
+  >;
   account_segments?: Record<string, { media?: MediaInput[] }[]>;
 };
 
@@ -82,6 +85,7 @@ for (const destinationOnly of [false, true]) {
     // Sidebar lists seed the detail cache, so every read must describe the same saved post.
     await page.route("**/api/v1/publications?**", async (route) => {
       const response = await route.fetch();
+      // SAFETY: The real publications list endpoint returns objects with schema-required IDs.
       const publications = (await response.json()) as { id: string }[];
       await route.fulfill({
         response,
@@ -142,6 +146,7 @@ for (const destinationOnly of [false, true]) {
         { media_id: media.id, alt_text: media.alt_text },
       ]);
       await page.locator(`#composer-destination-${account.id}`).click();
+      await page.getByRole("button", { name: "Add media", exact: true }).click();
     }
     await page.getByRole("button", { name: /^(Add alt text|Alt text)$/ }).click();
     await expect(page.getByPlaceholder("Alt text...")).toHaveValue(media.alt_text);

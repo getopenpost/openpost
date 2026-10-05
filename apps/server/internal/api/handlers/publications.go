@@ -33,8 +33,10 @@ import (
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
+	"github.com/openpost/backend/internal/services/publicationlink"
 	"github.com/openpost/backend/internal/services/publicationpoll"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
+	"github.com/openpost/backend/internal/services/publicationsource"
 	"github.com/openpost/backend/internal/services/publicurl"
 	renditionservice "github.com/openpost/backend/internal/services/renditions"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
@@ -1967,6 +1969,15 @@ func (h *PublicationHandler) insertRenditionSegments(
 			bodyOverride, baseBody = renditionTextOverride(input.BodyOverride, input.Body, baseBody)
 			effectiveBody, effectiveSettings, _ = publicationpoll.ResolveJoined(publicationPollSources(canonicalSegments), rendition.SocialAccountID, rendition.Platform, rendition.OutputProfile, baseBody, input.Settings)
 		}
+
+		linkBody := publicationsource.AuthoredBody(canonical, canonicalSegments, mustJSON(input.SourceOverrides), bodyOverride, len(canonicalSegments) > 1 && len(inputs) == 1)
+		linkMediaCount := len(input.Media)
+		if input.MediaInherited != nil && *input.MediaInherited && position < len(canonicalInputs) {
+			linkMediaCount = len(canonicalInputs[position].Media)
+		}
+		var linkDestinationSettings map[string]any
+		_ = json.Unmarshal([]byte(rendition.SettingsJSON), &linkDestinationSettings)
+		effectiveSettings, _ = publicationlink.ResolveEffective(sourceSettings, rendition.SocialAccountID, rendition.Platform, linkBody, linkDestinationSettings, effectiveSettings, linkMediaCount)
 
 		if position == 0 && len(input.SourceOverrides) > 0 {
 			rendition.Body = effectiveBody

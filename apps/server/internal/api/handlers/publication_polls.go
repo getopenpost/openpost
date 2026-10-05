@@ -50,7 +50,7 @@ func validatePublicationPoll(rendition models.Rendition, segment RenditionSegmen
 		}
 	}
 	if pollErr == nil {
-		return nil
+		return validatePublicationLink(rendition, segment, canonical, segmentCount)
 	}
 	return []capabilities.ValidationIssue{{Code: code, Message: pollErr.Error(), Severity: "error", Provider: rendition.Platform, Field: "poll", SegmentID: segment.ID, Scope: capabilities.SettingScopeSegment, ScopeID: segment.ID}}
 }
@@ -79,7 +79,7 @@ func refreshPublicationPolls(ctx context.Context, db bun.IDB, publicationID stri
 			return err
 		}
 	}
-	return nil
+	return refreshPublicationLinks(ctx, db, publicationID, previous)
 }
 
 func refreshRenditionPolls(ctx context.Context, db bun.IDB, rendition models.Rendition, canonical []models.PublicationSegment, owned map[string]*publicationpoll.Draft) error {

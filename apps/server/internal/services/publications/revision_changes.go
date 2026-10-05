@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/openpost/backend/internal/services/publicationlink"
 	"github.com/openpost/backend/internal/services/publicationpoll"
 )
 
@@ -131,6 +132,7 @@ func projectRevisionDestination(projection *revisionProjection, publication Publ
 		settings := segment.Settings
 		if source < len(publication.Segments) {
 			settings = publicationpoll.AuthoredDestinationSettings(publication.Segments[source].Settings, rendition.SocialAccountID, settings)
+			settings = publicationlink.AuthoredDestinationSettings(publication.Segments[source].Settings, rendition.SocialAccountID, settings)
 		}
 		item := revisionSegmentOverride{Source: source, Body: segment.BodyOverride, Title: segment.TitleOverride, Description: segment.DescriptionOverride, URL: segment.URLOverride, MediaInherited: segment.MediaInherited, Settings: revisionSettings(settings), Sources: make([]revisionSourceOverride, 0, len(segment.SourceOverrides))}
 		if len(segment.SourceOverrides) > 0 {

@@ -12,6 +12,17 @@ func HasSourceOverrides(value string) bool {
 	return json.Unmarshal([]byte(value), &overrides) == nil && len(overrides) > 0
 }
 
+// AuthoredBody excludes generated poll blocks and retains per-source decisions.
+func AuthoredBody(source models.PublicationSegment, canonical []models.PublicationSegment, overridesJSON string, override *string, joined bool) string {
+	if joined || HasSourceOverrides(overridesJSON) {
+		return JoinedSourceBody(canonical, overridesJSON, override)
+	}
+	if override != nil {
+		return *override
+	}
+	return source.Body
+}
+
 // JoinedSourceBody projects canonical source bodies without turning inherited text into authorship.
 func JoinedSourceBody(canonical []models.PublicationSegment, overridesJSON string, fallback *string) string {
 	var overrides []RenditionSourceOverride

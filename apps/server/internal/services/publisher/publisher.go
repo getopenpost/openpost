@@ -29,6 +29,7 @@ import (
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
+	"github.com/openpost/backend/internal/services/publicationlink"
 	"github.com/openpost/backend/internal/services/publicationpoll"
 	"github.com/openpost/backend/internal/services/publicationsource"
 	"github.com/openpost/backend/internal/services/publicurl"
@@ -703,6 +704,34 @@ func (s *Service) publishRenditionSegments(
 		}
 		segment.Body = body
 		segment.SettingsJSON = mustPublisherJSON(settings)
+	}
+	// URL inheritance resolves from authored text, never from a generated poll block.
+	for i := range segments {
+		segment := &segments[i]
+		for _, source := range canonical {
+			if source.ID != segment.PublicationSegmentID {
+				continue
+			}
+			var sourceSettings, settings map[string]any
+			_ = json.Unmarshal([]byte(source.SettingsJSON), &sourceSettings)
+			if sourceSettings[publicationlink.SettingsKey] == nil {
+				break
+			}
+			_ = json.Unmarshal([]byte(segment.SettingsJSON), &settings)
+			body := publicationsource.AuthoredBody(source, canonical, segment.SourceOverridesJSON, segment.BodyOverride, len(segments) == 1 && len(canonical) > 1)
+			var destinationSettings map[string]any
+			_ = json.Unmarshal([]byte(rendition.SettingsJSON), &destinationSettings)
+			mediaCount, countErr := s.db.NewSelect().Model((*models.RenditionSegmentMedia)(nil)).Where("rendition_segment_id = ?", segment.ID).Count(ctx)
+			if countErr != nil {
+				return countErr
+			}
+			settings, linkErr := publicationlink.ResolveEffective(sourceSettings, account.ID, rendition.Platform, body, destinationSettings, settings, mediaCount)
+			if linkErr != nil {
+				return fmt.Errorf("link validation: %w", linkErr)
+			}
+			segment.SettingsJSON = mustPublisherJSON(settings)
+			break
+		}
 	}
 
 	parentExternalID := ""

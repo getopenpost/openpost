@@ -228,6 +228,18 @@ for (const width of [1280, 390, 320])
       await expect(skyText).toHaveValue("東京");
       await skyText.fill("A Bluesky-only update https://account.example/new");
       await expect(page.getByText("Custom text", { exact: true })).toBeVisible();
+      const rowItems = [
+        page.getByText("Custom text", { exact: true }),
+        page.getByRole("button", { name: "Use shared", exact: true }),
+        page.getByRole("button", { name: "Full preview", exact: true }),
+        page
+          .getByTestId("composer-variant-toolbar")
+          .getByRole("button", { name: "More", exact: true }),
+      ];
+      const bounds = await Promise.all(rowItems.map((item) => item.boundingBox()));
+      const centers = bounds.map((bounds) => bounds!.y + bounds!.height / 2);
+      expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(4);
+
       await expect(frame.getByText("account.example", { exact: true })).toBeVisible();
       await expect
         .poll(async () => {

@@ -6,6 +6,8 @@
 
 	interface Props {
 		hasContentOverride: boolean;
+		textStatus: string;
+		resetTextLabel?: string;
 		hasMediaOverride: boolean;
 		isUnsynced: boolean;
 		uploadsPending: boolean;
@@ -21,6 +23,8 @@
 
 	let {
 		hasContentOverride,
+		textStatus,
+		resetTextLabel,
 		hasMediaOverride,
 		isUnsynced,
 		uploadsPending,
@@ -35,9 +39,30 @@
 	}: Props = $props();
 </script>
 
-<div class="flex flex-wrap items-center gap-2 border-b py-3" data-testid="composer-variant-toolbar">
-	<Button type="button" variant="ghost" size="sm" class="h-11 md:h-9" onclick={() => onPreview()}>
-		{m.compose_full_preview()}
+<div class="flex min-w-0 items-center gap-1 py-2" data-testid="composer-variant-toolbar">
+	<span class="mr-auto min-w-0 truncate text-xs text-muted-foreground" title={textStatus}
+		>{textStatus}</span
+	>
+	{#if resetTextLabel}<Button
+			type="button"
+			variant="ghost"
+			size="sm"
+			class="h-11 max-w-32 min-w-0 shrink px-2 sm:max-w-none md:h-9"
+			title={resetTextLabel}
+			onclick={() => onResetField('content')}><span class="truncate">{resetTextLabel}</span></Button
+		>{/if}
+	<Button
+		type="button"
+		variant="ghost"
+		size="sm"
+		class="size-11 shrink-0 p-0 sm:w-auto sm:px-2 md:h-9"
+		aria-label={m.compose_full_preview()}
+		title={m.compose_full_preview()}
+		onclick={() => onPreview()}
+	>
+		<ThemeIcon role="eye" class="size-4" /><span class="hidden sm:inline"
+			>{m.compose_full_preview()}</span
+		>
 	</Button>
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
@@ -54,7 +79,11 @@
 				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>
-		<DropdownMenu.Content class="w-56" align="start">
+		<DropdownMenu.Content class="w-56" align="end">
+			{#if segmentStrategy === 'join' && postCount > 1}<DropdownMenu.Label
+					class="font-normal text-muted-foreground"
+					>{m.compose_segments_joined({ count: postCount })}</DropdownMenu.Label
+				><DropdownMenu.Separator />{/if}
 			<DropdownMenu.Item onclick={onSettings}>{m.compose_platform_settings()}</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 			{#if hasContentOverride}
@@ -84,8 +113,3 @@
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
 </div>
-{#if segmentStrategy === 'join' && postCount > 1}
-	<p class="pt-2 text-xs text-muted-foreground">
-		{m.compose_segments_joined({ count: postCount })}
-	</p>
-{/if}

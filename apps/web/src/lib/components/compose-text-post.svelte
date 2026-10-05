@@ -6509,27 +6509,6 @@
 							isCustomFor={(account) =>
 								variantHasContentOverride(account.id) || variantHasMediaOverride(account.id)}
 						/>
-
-						{#if activeVariantAccount}
-							<ComposerVariantToolbar
-								hasContentOverride={variantHasContentOverride(activeVariantAccount.id)}
-								hasMediaOverride={variantHasMediaOverride(activeVariantAccount.id)}
-								isUnsynced={activeVariantIsUnsynced}
-								uploadsPending={hasPendingPasteMediaUploads}
-								multiAccount={selectedAccounts.length > 1}
-								segmentStrategy={resolvedCapabilities[activeVariantAccount.id]?.segment_strategy}
-								postCount={posts.length}
-								onPreview={() => openAccountPreview(activeVariantAccount!)}
-								onSettings={() => openDestinationSettings(activeVariantAccount!)}
-								onResetField={(field) => resetNativeField(activeVariantAccount!, field)}
-								onResync={() => {
-									const key = nativeDescriptionKey(activeVariantAccount!);
-									if (key) updateAccountSetting(activeVariantAccount!, key, '');
-									resyncAccount(activeVariantAccount!.id);
-								}}
-								onDestinationAction={openDestinationAction}
-							/>
-						{/if}
 					</section>
 				{/if}
 
@@ -6581,23 +6560,36 @@
 					{@const post = activePost}
 					{#key activeVariantAccount.id}
 						<div data-testid="composer-account-editor">
-							<div
-								class="flex items-center justify-between gap-2 py-2 text-xs text-muted-foreground"
-							>
-								<span
-									>{nativeHasCustomText(activeVariantAccount)
-										? m.compose_using_custom_text()
-										: m.compose_using_shared_text()}</span
-								>
-								{#if nativeHasCustomText(activeVariantAccount) && (!joinedDescriptionKey(activeVariantAccount) || settingsByAccount[activeVariantAccount.id]?.[joinedDescriptionKey(activeVariantAccount)!])}<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => resetNativeField(activeVariantAccount!, 'content')}
-										>{joinedDescriptionKey(activeVariantAccount)
-											? m.compose_preview_reset()
-											: m.compose_reset_field()}</Button
-									>{/if}
-							</div>
+							<ComposerVariantToolbar
+								hasContentOverride={variantHasContentOverride(activeVariantAccount.id)}
+								textStatus={nativeHasCustomText(activeVariantAccount)
+									? m.compose_using_custom_text()
+									: m.compose_using_shared_text()}
+								resetTextLabel={nativeHasCustomText(activeVariantAccount) &&
+								(!joinedDescriptionKey(activeVariantAccount) ||
+									settingsByAccount[activeVariantAccount.id]?.[
+										joinedDescriptionKey(activeVariantAccount)!
+									])
+									? joinedDescriptionKey(activeVariantAccount)
+										? m.compose_preview_reset()
+										: m.compose_reset_field()
+									: undefined}
+								hasMediaOverride={variantHasMediaOverride(activeVariantAccount.id)}
+								isUnsynced={activeVariantIsUnsynced}
+								uploadsPending={hasPendingPasteMediaUploads}
+								multiAccount={selectedAccounts.length > 1}
+								segmentStrategy={resolvedCapabilities[activeVariantAccount.id]?.segment_strategy}
+								postCount={posts.length}
+								onPreview={() => openAccountPreview(activeVariantAccount!)}
+								onSettings={() => openDestinationSettings(activeVariantAccount!)}
+								onResetField={(field) => resetNativeField(activeVariantAccount!, field)}
+								onResync={() => {
+									const key = nativeDescriptionKey(activeVariantAccount!);
+									if (key) updateAccountSetting(activeVariantAccount!, key, '');
+									resyncAccount(activeVariantAccount!.id);
+								}}
+								onDestinationAction={openDestinationAction}
+							/>
 							<ComposerPreview
 								model={previewForAccount(activeVariantAccount)}
 								editor={{

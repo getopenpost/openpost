@@ -44,6 +44,43 @@ type metaGraphBudget struct {
 	requests int
 }
 
+type metaGraphCollection[T any] struct {
+	Data   []T `json:"data"`
+	Paging struct {
+		Next string `json:"next"`
+	} `json:"paging"`
+	Error json.RawMessage `json:"error"`
+}
+
+func metaGraphEmbeddedError(raw json.RawMessage) error {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	return NewHTTPError(http.StatusBadRequest, nil, []byte(`{"error":`+string(raw)+`}`))
+}
+
+func fetchMetaGraphRemaining[T any](ctx context.Context, origin string, page metaGraphCollection[T], label string, budget *metaGraphBudget) ([]T, error) {
+	if err := metaGraphEmbeddedError(page.Error); err != nil {
+		return nil, fmt.Errorf("%s: %w", label, err)
+	}
+	initial, err := url.Parse(origin)
+	if err != nil {
+		return nil, fmt.Errorf("%s URL is invalid", label)
+	}
+	next, err := validatedMetaNextURL(initial, page.Paging.Next)
+	if err != nil {
+		return nil, fmt.Errorf("%s pagination: %w", label, err)
+	}
+	if next == "" {
+		return page.Data, nil
+	}
+	remaining, err := fetchMetaGraphEdge[T](ctx, next, label, budget)
+	if err != nil {
+		return nil, err
+	}
+	return append(page.Data, remaining...), nil
+}
+
 func listMetaManagedPages(
 	ctx context.Context,
 	graphURL func(string) string,
@@ -122,24 +159,16 @@ func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budg
 		seen[nextURL] = struct{}{}
 		budget.requests++
 
-		body, requestErr := DoRequest(ctx, http.MethodGet, nextURL, nil, nil)
+		body, requestErr := DoRequestNoRedirect(ctx, http.MethodGet, nextURL, nil, nil)
 		if requestErr != nil {
 			return nil, fmt.Errorf("%s: %w", label, requestErr)
 		}
-		var response struct {
-			Data   []T `json:"data"`
-			Paging struct {
-				Next string `json:"next"`
-			} `json:"paging"`
-			Error struct {
-				Message string `json:"message"`
-			} `json:"error"`
-		}
+		var response metaGraphCollection[T]
 		if decodeErr := json.Unmarshal(body, &response); decodeErr != nil {
 			return nil, fmt.Errorf("decoding %s: %w", label, decodeErr)
 		}
-		if response.Error.Message != "" {
-			return nil, fmt.Errorf("%s returned an error", label)
+		if responseErr := metaGraphEmbeddedError(response.Error); responseErr != nil {
+			return nil, fmt.Errorf("%s returned an error: %w", label, responseErr)
 		}
 		items = append(items, response.Data...)
 		nextURL, err = validatedMetaNextURL(initial, response.Paging.Next)

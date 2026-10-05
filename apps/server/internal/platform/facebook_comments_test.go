@@ -53,22 +53,25 @@ func TestFacebookListCommentsReadsNewestCommentsFirst(t *testing.T) {
 		if req.URL.Query().Get("order") == "reverse_chronological" {
 			slices.Reverse(ids)
 		}
-		data := make([]string, 0, pageSize)
-		for _, id := range ids[:pageSize] {
+		pageIDs := ids[:pageSize]
+		paging := `,"paging":{"next":"?after=next-page&order=reverse_chronological"}`
+		if req.URL.Query().Get("after") == "next-page" {
+			pageIDs = ids[pageSize:]
+			paging = ""
+		}
+		data := make([]string, 0, len(pageIDs))
+		for _, id := range pageIDs {
 			data = append(data, fmt.Sprintf(`{"id":"post-1_c%d","message":"Comment %d","created_time":"2026-09-14T10:%02d:00+0000","from":{"id":"fan-%d","name":"Fan"}}`, id, id, id, id))
 		}
-		return jsonResponse(req, `{"data":[`+strings.Join(data, ",")+`],"paging":{"cursors":{"after":"next-page"},"next":"https://graph.facebook.com/next-page"}}`), nil
+		return jsonResponse(req, `{"data":[`+strings.Join(data, ",")+`]`+paging+`}`), nil
 	})}
 
 	comments, err := NewFacebookAdapter("", "", "").ListComments(context.Background(), "page-token", "page-1", "page-1_post-1")
 
 	require.NoError(t, err)
-	require.Len(t, comments, pageSize)
-	ids := make([]string, 0, len(comments))
-	for _, comment := range comments {
-		ids = append(ids, comment.ID)
-	}
-	require.Contains(t, ids, "post-1_c30", "the newest comment must be collected")
+	require.Len(t, comments, commentCount)
+	require.Equal(t, "post-1_c30", comments[0].ID, "the newest comment must be collected first")
+	require.Equal(t, "post-1_c1", comments[len(comments)-1].ID, "the last page must retain the oldest comment")
 }
 
 // GET /{object-id}/comments defaults to filter=toplevel, so replies to a

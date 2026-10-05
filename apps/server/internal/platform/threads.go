@@ -306,34 +306,28 @@ func (t *ThreadsAdapter) createCarouselContainer(ctx context.Context, accessToke
 	return containerID, nil
 }
 
+type threadsGraphComment struct {
+	ID               string `json:"id"`
+	Text             string `json:"text"`
+	Username         string `json:"username"`
+	Timestamp        string `json:"timestamp"`
+	HideStatus       string `json:"hide_status"`
+	IsReplyOwnedByMe bool   `json:"is_reply_owned_by_me"`
+	RepliedTo        struct {
+		ID string `json:"id"`
+	} `json:"replied_to"`
+}
+
 func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string, externalID string) ([]Comment, error) {
 	fields := "id,text,username,timestamp,hide_status,is_reply_owned_by_me,replied_to"
-	// The replies edge holds only top-level replies. The conversation edge
-	// holds replies at every depth, each naming the post or reply it answers.
+	// The conversation edge holds replies at every depth, each naming its parent.
 	endpoint := "https://graph.threads.net/v1.0/" + externalID + "/conversation?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
-	respBody, err := DoRequest(ctx, "GET", endpoint, nil, nil)
-	if err = metaCommentReadError(respBody, err); err != nil {
-		return nil, fmt.Errorf("threads replies: %w", err)
+	items, err := fetchMetaGraphEdge[threadsGraphComment](ctx, endpoint, "threads replies", &metaGraphBudget{})
+	if err = metaCommentReadError(err); err != nil {
+		return nil, err
 	}
-	var result struct {
-		Data []struct {
-			ID               string `json:"id"`
-			Text             string `json:"text"`
-			Username         string `json:"username"`
-			Timestamp        string `json:"timestamp"`
-			HideStatus       string `json:"hide_status"`
-			IsReplyOwnedByMe bool   `json:"is_reply_owned_by_me"`
-			RepliedTo        struct {
-				ID string `json:"id"`
-			} `json:"replied_to"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("decoding threads replies: %w", err)
-	}
-
-	comments := make([]Comment, 0, len(result.Data))
-	for _, item := range result.Data {
+	comments := make([]Comment, 0, len(items))
+	for _, item := range items {
 		comments = append(comments, Comment{
 			ID:         item.ID,
 			ParentID:   item.RepliedTo.ID,

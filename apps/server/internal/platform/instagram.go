@@ -588,9 +588,7 @@ type instagramGraphComment struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
 	} `json:"from"`
-	Replies struct {
-		Data []instagramGraphComment `json:"data"`
-	} `json:"replies"`
+	Replies metaGraphCollection[instagramGraphComment] `json:"replies"`
 }
 
 func instagramCommentFromGraph(item instagramGraphComment, accountID, parentID string) Comment {
@@ -622,23 +620,21 @@ func (i *InstagramAdapter) ListComments(ctx context.Context, accessToken, accoun
 	// professional account's own comments are marked ours, not incoming.
 	fields := instagramCommentFields + ",replies{" + instagramCommentFields + ",parent_id}"
 	endpoint := i.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
-	if err = metaCommentReadError(respBody, err); err != nil {
-		return nil, fmt.Errorf("instagram comments: %w", err)
-	}
-
-	var result struct {
-		Data []instagramGraphComment `json:"data"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("decoding instagram comments: %w", err)
+	budget := &metaGraphBudget{}
+	items, err := fetchMetaGraphEdge[instagramGraphComment](ctx, endpoint, "instagram comments", budget)
+	if err = metaCommentReadError(err); err != nil {
+		return nil, err
 	}
 
 	accountID = strings.TrimSpace(accountID)
-	comments := make([]Comment, 0, len(result.Data))
-	for _, item := range result.Data {
+	comments := make([]Comment, 0, len(items))
+	for _, item := range items {
 		comments = append(comments, instagramCommentFromGraph(item, accountID, ""))
-		for _, reply := range item.Replies.Data {
+		replies, err := fetchMetaGraphRemaining(ctx, endpoint, item.Replies, "instagram replies", budget)
+		if err = metaCommentReadError(err); err != nil {
+			return nil, err
+		}
+		for _, reply := range replies {
 			parentID := reply.ParentID
 			if parentID == "" {
 				parentID = item.ID

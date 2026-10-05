@@ -661,9 +661,7 @@ type facebookGraphComment struct {
 	Parent struct {
 		ID string `json:"id"`
 	} `json:"parent"`
-	Comments struct {
-		Data []facebookGraphComment `json:"data"`
-	} `json:"comments"`
+	Comments metaGraphCollection[facebookGraphComment] `json:"comments"`
 }
 
 func facebookCommentFromGraph(item facebookGraphComment, pageID, parentID string) Comment {
@@ -685,7 +683,7 @@ func facebookCommentFromGraph(item facebookGraphComment, pageID, parentID string
 	}
 }
 
-func collectFacebookComments(items []facebookGraphComment, pageID, fallbackParent string) []Comment {
+func collectFacebookComments(ctx context.Context, origin string, items []facebookGraphComment, pageID, fallbackParent string, budget *metaGraphBudget) ([]Comment, error) {
 	comments := make([]Comment, 0, len(items))
 	for _, item := range items {
 		parentID := item.Parent.ID
@@ -693,11 +691,17 @@ func collectFacebookComments(items []facebookGraphComment, pageID, fallbackParen
 			parentID = fallbackParent
 		}
 		comments = append(comments, facebookCommentFromGraph(item, pageID, parentID))
-		if len(item.Comments.Data) > 0 {
-			comments = append(comments, collectFacebookComments(item.Comments.Data, pageID, item.ID)...)
+		replies, err := fetchMetaGraphRemaining(ctx, origin, item.Comments, "facebook replies", budget)
+		if err != nil {
+			return nil, err
 		}
+		nested, err := collectFacebookComments(ctx, origin, replies, pageID, item.ID, budget)
+		if err != nil {
+			return nil, err
+		}
+		comments = append(comments, nested...)
 	}
-	return comments
+	return comments, nil
 }
 
 func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID string, externalID string) ([]Comment, error) {
@@ -709,18 +713,16 @@ func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID 
 	replyFields := facebookCommentFields + ",parent"
 	fields := facebookCommentFields + ",comments.order(reverse_chronological){" + replyFields + ",comments.order(reverse_chronological){" + replyFields + "}}"
 	endpoint := f.graphURL(externalID+"/comments") + "?fields=" + url.QueryEscape(fields) + "&order=reverse_chronological&access_token=" + url.QueryEscape(accessToken)
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
-	if err = metaCommentReadError(respBody, err); err != nil {
-		return nil, fmt.Errorf("facebook comments: %w", err)
+	budget := &metaGraphBudget{}
+	items, err := fetchMetaGraphEdge[facebookGraphComment](ctx, endpoint, "facebook comments", budget)
+	if err = metaCommentReadError(err); err != nil {
+		return nil, err
 	}
-
-	var result struct {
-		Data []facebookGraphComment `json:"data"`
+	comments, err := collectFacebookComments(ctx, endpoint, items, pageID, "", budget)
+	if err = metaCommentReadError(err); err != nil {
+		return nil, err
 	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("decoding facebook comments: %w", err)
-	}
-	return collectFacebookComments(result.Data, pageID, ""), nil
+	return comments, nil
 }
 
 func resolveMetaContentURL(

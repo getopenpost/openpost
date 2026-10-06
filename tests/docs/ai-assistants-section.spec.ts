@@ -26,8 +26,8 @@ test("every AI assistant overview, MCP, and skill guide renders", async ({ page 
 test("the AI assistant overview reaches every focused guide", async ({ page, request }) => {
   await page.goto("/docs/mcp");
   const sectionLinks = [
-    "/mcp/chat-assistants#chatgpt",
-    "/mcp/coding-assistants#codex",
+    "/mcp/chatgpt",
+    "/mcp/codex",
     "/mcp/mcp-guide",
     "/mcp/skills",
     "/automate/cli",

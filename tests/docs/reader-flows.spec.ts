@@ -187,22 +187,28 @@ test("moved Markdown guides keep their agent-readable routes", async ({ request 
   }
 });
 
-test("AI client links open the matching setup heading", async ({ page }) => {
+test("AI client links open the matching setup guide", async ({ page }) => {
   await page.goto("/docs/mcp");
   const clients = await page
-    .locator(
-      '#nd-page a[href^="/docs/mcp/chat-assistants#"], #nd-page a[href^="/docs/mcp/coding-assistants#"]',
-    )
+    .locator('#nd-page a[href^="/docs/mcp/"]')
     .evaluateAll((links) =>
-      links.map((link) => ({ href: link.getAttribute("href")!, name: link.textContent!.trim() })),
+      links
+        .map((link) => ({ href: link.getAttribute("href")!, name: link.textContent!.trim() }))
+        .filter(
+          (link) =>
+            !["mcp-guide", "skills", "chat-assistants", "coding-assistants"].includes(
+              link.href.split("/").at(-1)!,
+            ),
+        ),
     );
   expect(clients.length).toBeGreaterThan(0);
   for (const client of clients) {
     await page.goto("/docs/mcp");
     await page.locator(`#nd-page a[href="${client.href}"]`).click();
     await expect(page).toHaveURL(new RegExp(`${client.href}$`));
-    const anchor = new URL(client.href, "https://openpo.st").hash;
-    await expect(page.locator(anchor)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: `Connect ${client.name}`, exact: true }),
+    ).toBeVisible();
     await expect(page.locator("#nd-page")).toContainText("OpenPost");
   }
 });

@@ -7,6 +7,7 @@
   "shortDescription": "Create, adapt, schedule, and track social posts in one workspace. OpenPost is built for solo founders, with Hosted and self-hosted options.",
   "longDescription": "OpenPost helps solo founders turn launches, product updates, lessons, and ideas into social content. Write a post once, adapt its text and media for each connected account, review the variants, and schedule or publish from one workspace.\n\nThe workspace includes an image editor, video editor, media library, and visual workflows. Publishing results remain inspectable, including drafts, schedules, completed deliveries, and failures. Inbox and analytics features depend on each platform's capabilities and permissions. The image and video editors are also available as free browser tools without an account or watermark.\n\nUse OpenPost Hosted or self-host the open-source service. Developers and AI assistants can work through the HTTP API, CLI, SDK, and authenticated MCP server. OpenPost is built and operated by Rodrigo Dias in Porto, Portugal.",
   "sameAs": [
+    "https://github.com/getopenpost",
     "https://github.com/getopenpost/openpost",
     "https://glama.ai/mcp/connectors/io.github.rodrgds/openpost"
   ]

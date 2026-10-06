@@ -1,14 +1,52 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 const pages = [
   ["/mcp", "AI assistants"],
   ["/mcp/chat-assistants", "Chat assistants"],
   ["/mcp/coding-assistants", "Coding assistants"],
   ["/mcp/mcp-guide", "Connect with MCP"],
+  ["/mcp/grok-bot", "Create a Grok Bot for OpenPost"],
   ["/mcp/mcp-guide/media", "Upload media"],
   ["/mcp/mcp-guide/use-cases", "Tasks and troubleshooting"],
   ["/mcp/skills", "Install and use the OpenPost skill"],
 ] as const;
+
+test("Grok Bot instructions stay readable on phones and copy without visual wrapping", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          document.documentElement.dataset.copiedText = text;
+        },
+      },
+    });
+  });
+  await page.goto("/docs/mcp/grok-bot");
+  const instructions = page.locator("pre").filter({ hasText: "Purpose" });
+  expect(
+    await instructions.evaluate((element) => element.scrollWidth - element.clientWidth),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    await instructions.evaluate((element) => element.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(320);
+  const source = readFileSync(
+    new URL("../../apps/docs/content/docs/mcp/grok-bot.mdx", import.meta.url),
+    "utf8",
+  );
+  const expected = source.split("```text\nPurpose\n")[1].split("\n```")[0];
+  await instructions
+    .locator("xpath=ancestor::figure")
+    .getByRole("button", { name: "Copy Text", exact: true })
+    .click();
+  await expect
+    .poll(() => page.locator("html").getAttribute("data-copied-text"))
+    .toBe(`Purpose\n${expected}`);
+});
 
 test("every AI assistant overview, MCP, and skill guide renders", async ({ page }) => {
   const errors: string[] = [];

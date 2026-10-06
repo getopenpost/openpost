@@ -25,18 +25,9 @@ Grok can connect to OpenPost through a custom remote connector. Use a Grok accou
 
 Enable OpenPost in your conversation and ask, "List my OpenPost workspaces." Name a workspace, then request a schedule review without making changes.
 
-## Create a Grok Bot template
+## Grok Bot
 
-Use the [OpenPost Grok Bot kit](/grok-bot-kit.html) to prepare a reusable Bot profile, API skill, and optional weekly review routine. The kit opens in a browser and can be saved for offline use. It uses the HTTP API because each installer must configure their own credentials.
-
-1. Create a Bot in the Grok Bot app and copy the kit's profile and skill.
-2. Create a developer token in **Settings > Personal > Developer**. Start with `api:read`; add `api:write` only when you need to create drafts. Use a secure secret request or credential field. If neither is available, stop setup. Never paste a token into chat or a saved skill.
-3. Run the kit's read-only workspace check. Choose a workspace and timezone before enabling its weekly review.
-4. Open **Share > Create template**. Check the profile, skills, and routines for complete credentials or private data before choosing **Public link**.
-
-The routine only reads stored state. Scheduling, publishing, and retries need explicit approval of the final post, accounts, media, and time. A shared template does not share your account session or credentials. Each installer must authenticate separately.
-
-Grok Bot is separate from Grok web and Grok Build. Check xAI's [current setup requirements](https://docs.x.ai/grok-bot/get-started) and [template sharing steps](https://docs.x.ai/grok-bot/bots).
+Follow [Create a Grok Bot for OpenPost](/mcp/grok-bot) for a copyable profile, API skill, and optional weekly review routine. Grok Bot uses its own app and each installer configures their own credentials.
 
 ## Grok Build CLI
 

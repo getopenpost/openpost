@@ -1,3 +1,5 @@
+/grok-bot-kit.html /mcp/grok-bot 301
+/grok-bot-kit /mcp/grok-bot 301
 /assets/brand/og-docs.png /og/home.png 302
 /cli /automate/cli 301
 /cli/* /automate/cli 301

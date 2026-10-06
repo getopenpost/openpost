@@ -114,6 +114,15 @@ a {
 #nd-page .prose :where(table, pre) {
   font-size: 0.85rem;
 }
+#nd-page pre:has(> code.language-text) {
+  width: 100%;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#nd-page code.language-text .line {
+  min-height: 1lh;
+}
 @media (max-width: 767px) {
   #nd-page {
     padding-top: 1.5rem;

@@ -760,6 +760,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "mcp/grok-bot.mdx",
+    "title": "Create a Grok Bot for OpenPost",
+    "description": "Save an OpenPost Bot profile, API skill, and read-only review routine in Grok Bot.",
+    "route": "/mcp/grok-bot",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "mcp"
+    }
+  },
+  {
     "page": "mcp/grok.mdx",
     "title": "Connect Grok",
     "description": "Add OpenPost as a custom Grok connector.",

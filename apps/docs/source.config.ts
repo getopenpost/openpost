@@ -4,6 +4,7 @@ export default defineConfig({
   mdxOptions: {
     rehypeCodeOptions: {
       tokenizeTimeLimit: 0,
+      addLanguageClass: true,
     },
   },
 });

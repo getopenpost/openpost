@@ -8,9 +8,10 @@ devenv shell -- bun run capture:product-demos
 ```
 
 This builds the frontend, starts an isolated test server, creates disposable users,
-and records the scenarios in `tests/app/product-demos.spec.ts`. The scenes declare
-their caption, browser actions, and reading time. Edit those scenes to change the
-story. The fixture data is shared with product stills through
+and records the scenarios in `tests/app/product-demos.spec.ts`, `product-demo-image.ts`, and
+`product-demo-video.ts`. Each scene declares its caption, browser actions, total
+`seconds`, and final `hold` in milliseconds. Edit those scenes to change the story.
+The fixture data is shared with product stills through
 `tests/app/product-capture-fixtures.ts`.
 
 The accounts, provider capabilities, schedule response, analytics and inbox are
@@ -30,13 +31,19 @@ when a clip exceeds that budget. Check the entire loop before keeping its output
 devenv shell -- bun scripts/encode-product-demos.mjs
 ```
 
-The GIFs use 800px width, 8 frames per second, normal playback speed and a shared
-128-color palette per clip. The browser also captures PNG frames with timestamps,
-preserving unchanged pixels for GIF compression. Gifsicle removes redundant pixels
-without further quality loss. Keep
-readable holds around the result of each action. Cut idle time and unnecessary
-steps before reducing resolution. Keep captions large enough to follow when the
-README scales down on a phone.
+The GIFs use 800px width and one palette per clip. Publishing and video editing
+use 8 frames per second; the longer thumbnail edit uses 6. Palettes use 96 to 128
+colors, with per-clip settings in `scripts/encode-product-demos.mjs`.
+The browser captures PNG frames with timestamps, preserving unchanged pixels for
+GIF compression. The recorder fits each scene's actions into its allotted time
+and preserves a separate reading pause. GIF and MP4 exports use the same timeline,
+so browser or machine speed does not set the playback pace. The raw WebM keeps the
+original capture timing.
+
+Captions use the repository's Geist font in a band below the app. Keep them short
+and readable when the README scales down on a phone. They must not cover editor
+controls or the timeline. Gifsicle removes redundant pixels without further
+quality loss. Cut idle time and unnecessary steps before reducing resolution.
 
 The README retains still-image sources for reduced motion. It also links each demo
 to the relevant product. Keep useful alt text and verify the README on desktop and
@@ -51,7 +58,15 @@ Playwright 1.61, so no recorder dependency or separate application is needed.
 and GIF encoding. [Gifsicle](https://www.lcdf.org/gifsicle/) optimizes the result.
 Both tools come from the project Devenv environment.
 
-The video scenario reuses the existing
+The image scenario rebuilds Rodrigo's RISC-V thumbnail reference using Bangers,
+a cropped logo, and separate text layers. Import, sizing, and placement use the
+editor's drag controls; font style and colors use the inspector. Font attribution
+and the supplied reference are in `tests/app/fixtures/product-demos/`.
+
+The video scenario adds an animated opening and title, original instrumental
+music, a cut with a dissolve, two effects, and color wheel and curve adjustments.
+GIFs and screen-capture MP4s are silent. The project includes the music track.
+It reuses the existing
 [Study SOS demo footage](https://www.youtube.com/watch?v=-m-ea3jfRpo) from the product
 screenshot fixtures.
 

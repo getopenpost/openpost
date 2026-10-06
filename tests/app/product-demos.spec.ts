@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { createWorkspace, registerUser, clickComposerDeliveryAction } from "./helpers";
@@ -7,13 +7,12 @@ import {
   fixtureDirectory,
   uploadImageFixture,
   prepareProductPage,
-  installLocalVideoWorkspace,
-  createVideoEditorProject,
 } from "./product-capture-fixtures";
 
-const outputDirectory = "tmp/product-demos";
+import { record } from "./product-demo-recording";
+import { imageEditorDemo } from "./product-demo-image";
+import { videoEditorDemo } from "./product-demo-video";
 const viewport = { width: 1280, height: 800 };
-type Scene = { title: string; run: () => Promise<void>; hold?: number };
 
 // This is an opt-in asset capture, not a provider integration test. Fixtures are
 // shared with the stills; actions, editor rendering and confetti use the real UI.
@@ -25,59 +24,7 @@ test.use({
   serviceWorkers: "block",
   trace: "off",
 });
-test.setTimeout(180_000);
-
-async function record(page: Page, name: string, scenes: Scene[]) {
-  await mkdir(outputDirectory, { recursive: true });
-  await page.evaluate(() => document.fonts.ready);
-  await page.screencast.showActions({ cursor: "pointer", fontSize: 1, duration: 450 });
-  await page.screencast.start({ path: join(outputDirectory, `${name}.webm`), size: viewport });
-  const frameDirectory = join(outputDirectory, `${name}-frames`);
-  await mkdir(frameDirectory, { recursive: true });
-  const frames: { file: string; at: number }[] = [];
-  let capturing = true;
-  let captureError: unknown;
-  // PNGs preserve unchanged UI pixels, which GIF delta compression can reuse.
-  // The simultaneous WebM remains useful as a full-frame-rate video source.
-  const captureFrames = (async () => {
-    while (capturing) {
-      const file = `${name}-frames/${String(frames.length).padStart(5, "0")}.png`;
-      await page.screenshot({ path: join(outputDirectory, file) });
-      frames.push({ file, at: performance.now() });
-      await page.waitForTimeout(100);
-    }
-  })().catch((error: unknown) => {
-    captureError = error;
-  });
-  try {
-    for (const scene of scenes) {
-      await test.step(scene.title, async () => {
-        const caption = await page.screencast.showOverlay(
-          `<div style="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#171512;color:#fff;border:1px solid #645348;border-radius:10px;padding:12px 24px;font:600 48px system-ui;white-space:nowrap">${scene.title}</div>`,
-        );
-        await scene.run();
-        await page.waitForTimeout(scene.hold ?? 1100);
-        await caption[Symbol.asyncDispose]();
-      });
-    }
-    await page.screenshot({ path: join(outputDirectory, `${name}-last.png`) });
-  } finally {
-    capturing = false;
-    await captureFrames;
-    await page.screencast.stop();
-  }
-  if (captureError) throw captureError;
-  const manifest = frames
-    .map((frame, index) => {
-      const next = frames[index + 1];
-      return `file '${frame.file}'\nduration ${next ? (next.at - frame.at) / 1000 : 0.2}`;
-    })
-    .join("\n");
-  await writeFile(
-    join(outputDirectory, `${name}.ffconcat`),
-    `ffconcat version 1.0\n${manifest}\nfile '${frames.at(-1)!.file}'\n`,
-  );
-}
+test.setTimeout(300_000);
 
 for (const name of ["publishing", "image-editor", "video-editor"] as const) {
   test(`records ${name}`, async ({ page, request }) => {
@@ -101,7 +48,7 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
         await readFile(join(fixtureDirectory, "openpost-logo.png")),
       ),
     ]);
-    const fixtures = await prepareProductPage({
+    await prepareProductPage({
       page,
       request,
       auth,
@@ -210,6 +157,7 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
         },
         {
           title: "Make a meme",
+          seconds: 9,
           run: async () => {
             await page
               .getByTestId("text-thread-composer-content")
@@ -219,6 +167,8 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
             await dialog.getByRole("tab", { name: "Meme", exact: true }).click();
             await dialog.getByRole("tab", { name: "Templates", exact: true }).click();
             await dialog.getByRole("textbox", { name: "Search templates" }).fill("Drake");
+            await dialog.getByRole("textbox", { name: "Search templates" }).press("Enter");
+            await page.waitForTimeout(500);
             await dialog
               .getByRole("button", { name: "Use the Drakeposting template", exact: true })
               .click();
@@ -241,6 +191,7 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
         },
         {
           title: "Add it to your post",
+          seconds: 4,
           run: async () => {
             await page
               .getByRole("dialog")
@@ -255,17 +206,27 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
         },
         {
           title: "Pick a time",
+          seconds: 4,
           run: async () => {
             await clickComposerDeliveryAction(page, "Schedule");
             const dialog = page.getByTestId("schedule-dialog-shell");
             await dialog.getByLabel("Schedule time").fill("2026-08-21T10:00");
+          },
+          hold: 1800,
+        },
+        {
+          title: "Scheduled!",
+          seconds: 4,
+          run: async () => {
+            const dialog = page.getByTestId("schedule-dialog-shell");
             await dialog.getByRole("button", { name: "Schedule", exact: true }).click();
             await expect(page.getByText("Scheduled!", { exact: true })).toBeVisible();
           },
-          hold: 2100,
+          hold: 2600,
         },
         {
           title: "Check your results",
+          seconds: 5,
           run: async () => {
             await page.getByRole("button", { name: "Analytics", exact: true }).click();
             await expect(
@@ -273,159 +234,28 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
             ).toBeVisible();
             await expect(page.getByRole("img", { name: "Daily views" })).toBeVisible();
           },
-          hold: 1800,
+          hold: 3000,
         },
         {
           title: "Reply in one inbox",
+          seconds: 5,
           run: async () => {
             await page.getByRole("button", { name: "Inbox", exact: true }).click();
             await expect(
               page.getByRole("heading", { name: "Engagement", exact: true }),
             ).toBeVisible();
           },
-          hold: 1800,
+          hold: 3000,
         },
       ]);
     }
 
     if (name === "image-editor") {
-      fixtures.enableEditorMedia();
-      await page.goto(`/image-editor/new?workspace=${workspace.id}`);
-      await expect(page.getByRole("heading", { name: "Choose a format" })).toBeVisible();
-      const properties = page.locator(".image-editor-inspector");
-      await record(page, name, [
-        {
-          title: "Make a thumbnail",
-          run: async () => {
-            await page.getByRole("button", { name: /YouTube thumbnail/ }).click();
-            await expect(page.getByTestId("image-editor-stage")).toBeVisible();
-            await page.getByRole("textbox", { name: "Design title" }).fill("A day in Lisbon");
-          },
-        },
-        {
-          title: "Choose a photo",
-          run: async () => {
-            await properties.getByRole("button", { name: "Image", exact: true }).click();
-            await page.getByRole("button", { name: /lisbon-tram\.png/ }).click();
-            await properties.getByRole("button", { name: "Fit", exact: true }).click();
-            await page.getByRole("option", { name: "Cover", exact: true }).click();
-            await page.getByRole("button", { name: "Done", exact: true }).first().click();
-          },
-        },
-        {
-          title: "Add your title",
-          run: async () => {
-            await page.getByRole("menuitem", { name: "Tools", exact: true }).click();
-            await page.getByRole("menuitem", { name: /^Text\b/ }).click();
-            await page.getByRole("textbox", { name: "Text", exact: true }).fill("A DAY\nIN LISBON");
-            await page.getByRole("textbox", { name: "Text", exact: true }).press("Tab");
-            await properties.getByRole("spinbutton", { name: "Size", exact: true }).fill("120");
-            await properties.getByRole("spinbutton", { name: "Size", exact: true }).press("Tab");
-            await properties.getByRole("button", { name: "Color", exact: true }).click();
-            await page.getByRole("textbox", { name: "Hex color", exact: true }).fill("#FFFFFF");
-            await page.getByRole("textbox", { name: "Hex color", exact: true }).press("Enter");
-            await page.keyboard.press("Escape");
-            await properties.getByRole("button", { name: /^Transform\b/ }).click();
-            const lock = properties.getByRole("button", { name: "Lock aspect ratio", exact: true });
-            if ((await lock.getAttribute("aria-pressed")) === "true") await lock.click();
-            for (const [axis, value] of [
-              ["W", "1100"],
-              ["H", "340"],
-              ["X", "90"],
-              ["Y", "180"],
-            ]) {
-              await properties.getByRole("spinbutton", { name: axis, exact: true }).fill(value);
-              await properties.getByRole("spinbutton", { name: axis, exact: true }).press("Tab");
-            }
-            await properties.getByRole("button", { name: /^Transform\b/ }).click();
-            await page.keyboard.press("Escape");
-          },
-          hold: 1500,
-        },
-        {
-          title: "Download the thumbnail",
-          run: async () => {
-            await page.getByRole("button", { name: "Export", exact: true }).click();
-            const dialog = page.getByRole("dialog", { name: "Export design" });
-            await expect(dialog).toBeVisible();
-            await expect(
-              dialog.getByRole("button", { name: "Download", exact: true }),
-            ).toBeEnabled();
-            const download = page.waitForEvent("download");
-            await dialog.getByRole("button", { name: "Download", exact: true }).click();
-            await (await download).saveAs(join(outputDirectory, "thumbnail.png"));
-          },
-          hold: 1700,
-        },
-      ]);
+      await imageEditorDemo({ page, request, workspaceID: workspace.id, token: auth.token });
     }
 
-    if (name === "video-editor") {
-      await installLocalVideoWorkspace(
-        page,
-        (await readFile(join(fixtureDirectory, "study-sos-demo.mp4"))).toString("base64"),
-      );
-      await createVideoEditorProject(page, "Study SOS · YouTube");
-      const clips = page.locator("[data-timeline-item-id]");
-      await record(page, name, [
-        {
-          title: "Import your footage",
-          run: async () => {
-            await page.getByRole("button", { name: "Import media" }).click();
-            await page
-              .getByRole("button", { name: /Place on timeline: study-sos-demo\.mp4/ })
-              .click();
-            await expect(page.locator("[data-media-placement-status]")).toBeVisible();
-            await page.keyboard.press("ArrowDown");
-            await page.keyboard.press("Enter");
-            await expect(clips).toHaveCount(1);
-            await expect(clips.first().locator("[data-filmstrip-tile]").first()).toBeVisible({
-              timeout: 30000,
-            });
-          },
-        },
-        {
-          title: "Trim the opening",
-          run: async () => {
-            await clips.first().click();
-            await page.getByRole("slider", { name: "Timeline playhead", exact: true }).focus();
-            await page.keyboard.press("Home");
-            for (let step = 0; step < 3; step++) await page.keyboard.press("Shift+ArrowRight");
-            await page.getByRole("button", { name: "Trim start to playhead", exact: true }).click();
-          },
-        },
-        {
-          title: "Add a title",
-          run: async () => {
-            await page.getByRole("button", { name: "Add layer", exact: true }).click();
-            await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
-            const inspector = page.locator("#video-editor-tools-panel");
-            await inspector.locator("textarea").fill("STUDY SOS");
-            await inspector.locator("textarea").press("Tab");
-            await expect(clips.filter({ hasText: "STUDY SOS" })).toHaveCount(1);
-          },
-        },
-        {
-          title: "Preview your edit",
-          run: async () => {
-            await page.getByRole("button", { name: "Play", exact: true }).click();
-            await page.waitForTimeout(1800);
-            await page.getByRole("button", { name: "Pause", exact: true }).click();
-          },
-        },
-        {
-          title: "Choose your export",
-          run: async () => {
-            await page
-              .getByRole("banner")
-              .getByRole("button", { name: "Export", exact: true })
-              .click();
-            await expect(page.getByRole("dialog", { name: "Export video" })).toBeVisible();
-          },
-          hold: 1800,
-        },
-      ]);
-    }
+    if (name === "video-editor") await videoEditorDemo(page);
+
     expect(errors).toEqual([]);
   });
 }

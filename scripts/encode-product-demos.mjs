@@ -1,11 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { copyFile, mkdir, stat } from "node:fs/promises";
+import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const sourceDirectory = "tmp/product-demos";
 const outputDirectory = "assets/demos";
 const maxBytes = 2_000_000;
-const demos = ["publishing", "image-editor", "video-editor"];
+const demos = [
+  { name: "publishing", fps: 8, colors: 128 },
+  { name: "image-editor", fps: 6, colors: 96 },
+  { name: "video-editor", fps: 8, colors: 112 },
+];
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -16,19 +20,36 @@ function run(command, args) {
 }
 
 await mkdir(outputDirectory, { recursive: true });
-for (const name of demos) {
-  const source = join(sourceDirectory, `${name}.webm`);
+for (const { name, fps, colors } of demos) {
+  const source = join(sourceDirectory, `${name}.ffconcat`);
   const gif = join(sourceDirectory, `${name}.gif`);
   const optimized = join(sourceDirectory, `${name}-optimized.gif`);
+  const scenes = JSON.parse(await readFile(join(sourceDirectory, `${name}-scenes.json`), "utf8"));
+  let start = 0;
+  const captions = await Promise.all(
+    scenes.map(async (scene, index) => {
+      const path = join(sourceDirectory, `${name}-caption-${index}.txt`);
+      const from = start;
+      start += scene.seconds;
+      const end = start;
+      await writeFile(path, scene.title);
+      return `drawtext=fontfile=assets/brand/fonts/Geist-SemiBold.ttf:textfile=${path}:expansion=none:fontcolor=white:fontsize=48:x=(w-tw)/2:y=h-76:enable='gte(t,${from})*lt(t,${end})'`;
+    }),
+  );
+  const captionFilter = `pad=iw:ih+104:color=0x171512,${captions.join(",")}`;
   run("ffmpeg", [
     "-hide_banner",
     "-loglevel",
     "error",
     "-y",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
     "-i",
     source,
     "-vf",
-    "scale=960:-2:flags=lanczos",
+    `fps=12,${captionFilter},scale=960:-2:flags=lanczos`,
     "-c:v",
     "libx264",
     "-crf",
@@ -40,6 +61,8 @@ for (const name of demos) {
     "-an",
     join(sourceDirectory, `${name}.mp4`),
   ]);
+  const palette = join(sourceDirectory, `${name}-palette.png`);
+  const gifFilter = `fps=${fps},${captionFilter},scale=800:-2:flags=lanczos`;
   run("ffmpeg", [
     "-hide_banner",
     "-loglevel",
@@ -50,9 +73,30 @@ for (const name of demos) {
     "-safe",
     "0",
     "-i",
-    join(sourceDirectory, `${name}.ffconcat`),
+    source,
+    "-vf",
+    `${gifFilter},palettegen=max_colors=${colors}`,
+    "-frames:v",
+    "1",
+    "-update",
+    "1",
+    palette,
+  ]);
+  run("ffmpeg", [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-y",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    source,
+    "-i",
+    palette,
     "-filter_complex",
-    "fps=8,scale=800:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle",
+    `[0:v]${gifFilter}[frames];[frames][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`,
     "-loop",
     "0",
     gif,

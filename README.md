@@ -83,7 +83,7 @@
   <picture>
     <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="./assets/screenshots/image-editor-dark.webp">
     <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/image-editor-light.webp">
-    <img src="./assets/demos/image-editor.gif" alt="Create a YouTube thumbnail, add a photo and a title, then download the finished image" width="100%">
+    <img src="./assets/demos/image-editor.gif" alt="Recreate a RISC-V YouTube thumbnail by dragging, resizing, and styling its logo and text" width="100%">
   </picture>
 </a>
 
@@ -93,7 +93,7 @@
   <picture>
     <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="./assets/screenshots/video-editor-dark.webp">
     <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/video-editor-light.webp">
-    <img src="./assets/demos/video-editor.gif" alt="Import footage, trim the opening, add a title, preview the edit, and choose export settings" width="100%">
+    <img src="./assets/demos/video-editor.gif" alt="Build a video opening, add music, cut footage, apply a transition and effects, and adjust its color" width="100%">
   </picture>
 </a>
 

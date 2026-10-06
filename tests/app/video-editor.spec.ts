@@ -529,6 +529,53 @@ test("timeline hover preview stays outside track headers and uses one navigator"
   expect(await timeline.evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe("none");
 });
 
+test("horizontal timeline scrolling keeps the playhead behind track headers", async ({
+  page,
+}, info) => {
+  await createProject(page, "Playhead boundary");
+  await addTextItem(page);
+  const timeline = page.locator("#video-editor-timeline-scroll");
+  const header = page.locator("[data-track-header]").first();
+  await page.getByRole("slider", { name: "Timeline playhead", exact: true }).press("Home");
+  await page.mouse.move(0, 0);
+  const bounds = (await header.boundingBox())!;
+  const playheadSlice = () =>
+    page.screenshot({
+      clip: {
+        x: bounds.x + bounds.width + 8,
+        y: bounds.y + 8,
+        width: 100,
+        height: bounds.height - 16,
+      },
+    });
+  const withoutPlayhead = await playheadSlice();
+  const ruler = page.getByRole("slider", { name: "Timeline playhead", exact: true });
+  await ruler.press("Shift+ArrowRight");
+  const visiblePlayhead = await playheadSlice();
+  expect(visiblePlayhead.equals(withoutPlayhead), "The playhead must paint a visible line").toBe(
+    false,
+  );
+  const before = await header.screenshot();
+  await timeline.evaluate((element) => {
+    element.scrollLeft = 90;
+  });
+  await expect.poll(() => timeline.evaluate((element) => element.scrollLeft)).toBe(90);
+  await page.screenshot({ path: info.outputPath("scrolled-playhead.png") });
+  const after = await header.screenshot();
+  expect(
+    after.equals(before),
+    "Panning the timeline must not draw its playhead over track labels",
+  ).toBe(true);
+  await timeline.evaluate((element) => {
+    element.scrollLeft = 0;
+  });
+  await expect.poll(() => timeline.evaluate((element) => element.scrollLeft)).toBe(0);
+  expect(
+    (await playheadSlice()).equals(visiblePlayhead),
+    "Scrolling back must restore the visible playhead",
+  ).toBe(true);
+});
+
 test("imports video and a photo, places both, and reopens the timeline", async ({ page }) => {
   test.setTimeout(90000);
   const errors: string[] = [];

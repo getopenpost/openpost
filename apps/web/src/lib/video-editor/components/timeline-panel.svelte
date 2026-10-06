@@ -5979,10 +5979,12 @@
 							{/if}
 
 							<!-- Playhead -->
-							<div
-								class="pointer-events-none absolute top-0 bottom-0 z-30 w-px bg-[oklch(0.66_0.14_45)]"
-								style="left:{timelineX(timelineStore.currentFrame)}px"
-							></div>
+							{#if timelineX(timelineStore.currentFrame) >= timelineViewport.scrollLeft + TRACK_HEADER_WIDTH}
+								<div
+									class="pointer-events-none absolute top-0 bottom-0 z-30 w-px bg-[oklch(0.66_0.14_45)]"
+									style="left:{timelineX(timelineStore.currentFrame)}px"
+								></div>
+							{/if}
 							<!-- In/out range shade -->
 							{#if timelineStore.inPoint !== null && timelineStore.outPoint !== null}
 								<div

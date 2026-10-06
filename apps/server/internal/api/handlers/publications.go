@@ -642,6 +642,9 @@ func (h *PublicationHandler) updatePublication(api huma.API) {
 		Tags:        []string{tagPublications},
 		Middlewares: huma.Middlewares{middleware.RequestMetadataMiddleware(), middleware.AuthMiddleware(api, h.auth)},
 	}, func(ctx context.Context, input *UpdatePublicationInput) (*PublicationOutput, error) {
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		if err := drafts.RequireExpectedRevision(input.Body.ExpectedRevision); err != nil {
 			return nil, err
 		}
@@ -869,6 +872,9 @@ func (h *PublicationHandler) upsertRenditions(api huma.API) {
 		Tags:        []string{tagPublications},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 	}, func(ctx context.Context, input *UpsertRenditionsInput) (*PublicationOutput, error) {
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		if err := drafts.RequireExpectedRevision(input.Body.ExpectedRevision); err != nil {
 			return nil, err
 		}

@@ -57,7 +57,10 @@
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=_mZf3HzQaN8">
-    <img src="./assets/screenshots/readme-hero-dark.webp" alt="OpenPost composer with platform-specific drafts, previews, and scheduling controls" width="100%">
+    <picture>
+      <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/readme-hero-dark.webp">
+      <img src="./assets/demos/publishing.gif" alt="Write a post, create a meme, schedule it with confetti, then open analytics and the inbox" width="100%">
+    </picture>
   </a>
 </p>
 
@@ -74,28 +77,27 @@
   </picture>
 </p>
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <a href="https://app.openpo.st/image-editor">
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="./assets/screenshots/image-editor-dark.webp">
-          <img src="./assets/screenshots/image-editor-light.webp" alt="OpenPost image editor with a design canvas, layers, and editing controls" width="100%">
-        </picture>
-      </a>
-      <br><strong>Design images and carousels</strong>
-    </td>
-    <td width="50%" align="center">
-      <a href="https://app.openpo.st/video-editor">
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="./assets/screenshots/video-editor-dark.webp">
-          <img src="./assets/screenshots/video-editor-light.webp" alt="OpenPost video editor with a video preview and multitrack timeline" width="100%">
-        </picture>
-      </a>
-      <br><strong>Edit and caption videos</strong>
-    </td>
-  </tr>
-</table>
+### Design a thumbnail
+
+<a href="https://app.openpo.st/image-editor">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="./assets/screenshots/image-editor-dark.webp">
+    <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/image-editor-light.webp">
+    <img src="./assets/demos/image-editor.gif" alt="Create a YouTube thumbnail, add a photo and a title, then download the finished image" width="100%">
+  </picture>
+</a>
+
+### Edit a video
+
+<a href="https://app.openpo.st/video-editor">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="./assets/screenshots/video-editor-dark.webp">
+    <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/video-editor-light.webp">
+    <img src="./assets/demos/video-editor.gif" alt="Import footage, trim the opening, add a title, preview the edit, and choose export settings" width="100%">
+  </picture>
+</a>
+
+Demos use sample accounts and data. [How to refresh them](./docs/development/readme-demos.md).
 
 ## What you can do
 

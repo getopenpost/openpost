@@ -15,6 +15,7 @@
     pkgs.ripgrep
     pkgs.sqlite
     pkgs.ffmpeg
+    pkgs.gifsicle
     pkgs.wget
     pkgs.docker
     pkgs.actionlint

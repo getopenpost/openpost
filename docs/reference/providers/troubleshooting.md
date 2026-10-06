@@ -110,7 +110,7 @@ OpenPost saves the error type, status, safe error code, next retry time, and the
 ## YouTube
 
 - Enable YouTube Data API v3 in the Google Cloud project.
-- The OAuth app needs profile/email scopes plus `youtube.readonly` and `youtube.upload`.
+- The OAuth app needs profile/email scopes plus `youtube.readonly`, `youtube.upload`, `youtube`, and `yt-analytics.readonly`. Comments, replies, and moderation also need `youtube.force-ssl`. Add it in Google Auth Platform, then reconnect the channel to update its grant.
 - `google account has no YouTube channels` means the authenticated Google account has no eligible channel available to the OAuth app.
 - `invalidTitle` usually means the first non-empty line of the post or YouTube variant is invalid for a video title.
 - Uploads are private by default and support one video attachment in the current adapter.

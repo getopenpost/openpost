@@ -110,6 +110,39 @@ func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, grantedScopes string
 	require.NoError(t, err)
 }
 
+func TestYouTubeEngagementRequiresCommentPermission(t *testing.T) {
+	t.Parallel()
+	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{
+		"youtube": platform.NewYouTubeAdapter("client", "secret", "https://example.com/callback"),
+	})
+	oldScopes := "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload"
+	seedAccount(t, srv.db, "youtube-account", "ws-1", oldScopes)
+	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", "youtube").Where("id = ?", "youtube-account").Exec(t.Context())
+	require.NoError(t, err)
+	readEngagement := func() FeatureStateResponse {
+		response := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=youtube-account", nil)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		var features []FeatureStateResponse
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &features))
+		for _, feature := range features {
+			if feature.Feature == accountfeatures.FeatureEngagement {
+				return feature
+			}
+		}
+		t.Fatal("missing engagement feature")
+		return FeatureStateResponse{}
+	}
+	feature := readEngagement()
+	require.Equal(t, accountfeatures.AvailabilityMissingScope, feature.Availability)
+	require.Equal(t, []string{"https://www.googleapis.com/auth/youtube.force-ssl"}, feature.MissingScopes)
+	require.False(t, feature.EffectiveEnabled)
+	_, err = srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("granted_scopes = ?", oldScopes+" https://www.googleapis.com/auth/youtube.force-ssl").Where("id = ?", "youtube-account").Exec(t.Context())
+	require.NoError(t, err)
+	feature = readEngagement()
+	require.Equal(t, accountfeatures.AvailabilityAvailable, feature.Availability)
+	require.Empty(t, feature.MissingScopes)
+}
+
 func TestAccountFeaturesReadRequiresAuth(t *testing.T) {
 	t.Parallel()
 	srv := newAccountFeaturesTestServer(t, nil)

@@ -41,6 +41,9 @@ func TestYouTubeGenerateAuthURL(t *testing.T) {
 	if !strings.Contains(query.Get("scope"), youtubeAnalyticsReadScope) {
 		t.Fatalf("expected youtube analytics scope, got %q", query.Get("scope"))
 	}
+	if !strings.Contains(query.Get("scope"), "https://www.googleapis.com/auth/youtube.force-ssl") {
+		t.Fatalf("expected YouTube comment permission, got %q", query.Get("scope"))
+	}
 }
 
 func TestYouTubeAnalyticsSupportRequiresReconnectForOldGrants(t *testing.T) {

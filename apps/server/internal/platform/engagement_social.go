@@ -316,10 +316,12 @@ func (x *XAdapter) UnlikeComment(ctx context.Context, accessToken, accountID, co
 	return err
 }
 
+const youtubeCommentScope = "https://www.googleapis.com/auth/youtube.force-ssl"
+
 func (y *YouTubeAdapter) EngagementSupport() EngagementSupport {
 	return EngagementSupport{
 		Enabled: true, CanReply: true, CanHide: true, CanDelete: true,
-		RequiredScopes: []string{"https://www.googleapis.com/auth/youtube"},
+		RequiredScopes: []string{youtubeCommentScope},
 	}
 }
 

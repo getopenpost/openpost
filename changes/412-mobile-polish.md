@@ -1,4 +1,4 @@
-## Changed
+### Changed
 
 - Mobile post lists and capture panels use tighter spacing and lighter post titles.
 - Workshop recovery buttons use flat focal actions, matching the default Dither theme.

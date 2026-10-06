@@ -38,14 +38,26 @@ const PLATFORM_LABEL: Record<string, string> = {
 };
 
 export function platformLabel(platform: string): string {
+  platform = platform.split(":")[0];
   return (
     PLATFORM_LABEL[platform.toLowerCase()] ?? platform.charAt(0).toUpperCase() + platform.slice(1)
   );
 }
 
-export function accountHandle(username: string | null | undefined, fallback: string): string {
+export function accountHandle(
+  username: string | null | undefined,
+  fallback: string,
+  platform = "",
+): string {
   const value = username?.trim();
   if (!value) return fallback;
+  if (
+    /\s/.test(value) ||
+    ["facebook", "linkedin", "gmb", "discord", "telegram", "youtube"].includes(
+      platform.split(":")[0],
+    )
+  )
+    return value;
   return value.startsWith("@") ? value : `@${value}`;
 }
 

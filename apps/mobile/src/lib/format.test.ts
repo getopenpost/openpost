@@ -39,3 +39,12 @@ test("labels fediverse platforms by name", () => {
   expect(platformLabel("lemmy")).toBe("Lemmy");
   expect(platformLabel("piefed")).toBe("PieFed");
 });
+
+test("connection labels preserve display names and instance-qualified platform names", () => {
+  expect(accountHandle("Rodrigo Dias", "facebook", "facebook")).toBe("Rodrigo Dias");
+  expect(accountHandle("Rodrigo", "linkedin", "linkedin")).toBe("Rodrigo");
+  expect(accountHandle("rodrgds", "threads", "threads")).toBe("@rodrgds");
+  expect(accountHandle("Studio", "YouTube", "youtube")).toBe("Studio");
+  expect(accountHandle("@studio", "YouTube", "youtube")).toBe("@studio");
+  expect(platformLabel("mastodon:https://masto.pt")).toBe("Mastodon");
+});

@@ -1,11 +1,13 @@
 import { NativeText } from "@/components/native-text";
 import { DitherPressable } from "@/components/dither-pressable";
-import { Image } from "expo-image";
+import { MediaImage } from "@/components/media-image";
+import { PlatformIcon } from "@/components/platform-icon";
 import { StyleSheet, View } from "react-native";
 
 import { BodyText, StatusBadge } from "@/components/ui";
 import { ThemeIcon } from "@/components/theme-icon";
 import type { PublicationListItem } from "@/lib/queries";
+import { platformLabel } from "@/lib/format";
 import { useNativeTheme } from "@/theme";
 
 function publicationTitle(publication: PublicationListItem) {
@@ -30,13 +32,16 @@ export function PublicationRow({
 }) {
   const { colors, shape, spacing, typography } = useNativeTheme().manifest;
   const title = publicationTitle(publication);
+  const platforms = [
+    ...new Set(publication.renditions?.map((rendition) => rendition.platform).filter(Boolean)),
+  ];
   const image = publication.media?.find((media) => media.mime_type?.startsWith("image/"));
   return (
     <DitherPressable
       radius={shape.medium}
       focusColor={colors.focus}
       accessibilityRole="button"
-      accessibilityLabel={`${title}. ${detail}${showStatus ? `. ${publication.status}` : ""}`}
+      accessibilityLabel={`${title}. ${detail}. ${platforms.map(platformLabel).join(", ")}${showStatus ? `. ${publication.status}` : ""}`}
       onPress={onPress}
       style={({ pressed }) => [
         {
@@ -52,28 +57,22 @@ export function PublicationRow({
       ]}
     >
       {image?.url ? (
-        <Image
-          source={{ uri: image.url }}
+        <MediaImage
+          uri={image.url}
           contentFit="cover"
           style={{ width: 64, height: 56, borderRadius: shape.medium }}
         />
-      ) : (
-        <View
-          style={{
-            width: 48,
-            height: 56,
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <ThemeIcon role="drafts" size={26} tintColor={colors.onSurfaceVariant} />
-        </View>
-      )}
+      ) : null}
       <View style={{ flex: 1, gap: spacing.extraSmall }}>
         <NativeText numberOfLines={2} style={[typography.bodyLarge, { color: colors.onSurface }]}>
           {title}
         </NativeText>
         <BodyText numberOfLines={2}>{detail}</BodyText>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {platforms.map((platform) => (
+            <PlatformIcon key={platform} platform={platform!} size={18} />
+          ))}
+        </View>
         {showStatus ? <StatusBadge status={publication.status} /> : null}
       </View>
       <ThemeIcon role="disclosure" size={16} tintColor={colors.onSurfaceVariant} />

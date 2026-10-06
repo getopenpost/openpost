@@ -344,14 +344,11 @@ function Section({
 }
 
 function QueueRow({ publication }: { publication: PublicationListItem }) {
-  const platforms = distinctPlatforms(publication);
   return (
     <PublicationRow
       publication={publication}
       showStatus
-      detail={[formatDateTime(publication.scheduled_at), platforms.join(", ")]
-        .filter(Boolean)
-        .join(" · ")}
+      detail={formatDateTime(publication.scheduled_at)}
       onPress={() =>
         router.push({
           pathname: "/publications/[id]",
@@ -449,14 +446,6 @@ function titleFor(publication: PublicationListItem): string {
     if (rendition.body) return rendition.body.split("\n")[0];
   }
   return "Untitled";
-}
-
-function distinctPlatforms(publication: PublicationListItem): string[] {
-  const platforms = new Set<string>();
-  for (const rendition of publication.renditions ?? []) {
-    if (rendition.platform) platforms.add(platformLabel(rendition.platform));
-  }
-  return [...platforms].slice(0, 4);
 }
 
 const styles = StyleSheet.create({

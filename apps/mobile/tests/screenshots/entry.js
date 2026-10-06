@@ -17,7 +17,12 @@ const workspace = { id: "mobile-review", name: "Studio", organization_id: "revie
 const now = new Date();
 const at = (day, hour) => new Date(now.getFullYear(), now.getMonth(), day, hour).toISOString();
 const media = [
-  { id: "image-one", url: photo, mime_type: "image/png", original_filename: "lisbon-tram.png" },
+  {
+    id: "image-one",
+    url: photo,
+    mime_type: "image/png",
+    original_filename: "lisbon-tram.png",
+  },
 ];
 const account = {
   id: "demo-account",
@@ -26,6 +31,20 @@ const account = {
   account_username: "studio.bsky.social",
   is_active: true,
 };
+const accounts = [
+  account,
+  { ...account, id: "threads-account", platform: "threads", account_username: "studio" },
+  { ...account, id: "x-account", platform: "x", account_username: "studio" },
+  {
+    ...account,
+    id: "mastodon-account",
+    platform: "mastodon",
+    instance_url: "https://masto.pt",
+    account_username: "studio",
+  },
+  { ...account, id: "linkedin-account", platform: "linkedin", account_username: "Studio team" },
+  { ...account, id: "facebook-account", platform: "facebook", account_username: "Studio" },
+];
 const post = (id, text, status, day, hour, image = true) => ({
   id,
   title: "",
@@ -39,15 +58,13 @@ const post = (id, text, status, day, hour, image = true) => ({
   scheduled_at: at(day, hour),
   actual_run_at: status === "published" ? at(day, hour) : undefined,
   media: image ? media : [],
-  renditions: [
-    {
-      id: "rendition-" + id,
-      social_account_id: account.id,
-      body: text,
-      platform: account.platform,
-      status,
-    },
-  ],
+  renditions: accounts.map((destination) => ({
+    id: "rendition-" + id + "-" + destination.id,
+    social_account_id: destination.id,
+    body: text,
+    platform: destination.platform,
+    status,
+  })),
 });
 const posts = [
   post("draft-one", "A few thoughts on building in public in 2026", "draft", 5, 9),
@@ -150,7 +167,14 @@ const overview = {
     reach: metric(0, 0),
     published: 15,
   },
-  trends: { views: series, followers: [], engagement: [] },
+  trends: {
+    views: series,
+    followers: series.map((point) => ({
+      ...point,
+      value: point.value > 20 ? Math.round(point.value / 4) : -5,
+    })),
+    engagement: series.map((point) => ({ ...point, value: Math.round(point.value / 4) })),
+  },
   insights: [],
 };
 const routes = new Map([
@@ -165,10 +189,17 @@ const routes = new Map([
     },
   ],
   ["/workspaces", [workspace]],
-  ["/accounts", [account]],
+  ["/accounts", accounts],
   [
     "/social-sets",
-    [{ id: "studio-set", name: "Shortform writing", is_default: true, accounts: [account] }],
+    [
+      {
+        id: "studio-set",
+        name: "Shortform writing",
+        is_default: true,
+        accounts: accounts.map((account) => ({ social_account_id: account.id })),
+      },
+    ],
   ],
   ["/posting-schedules/next-slot", { slot_time: at(now.getDate() + 1, 9) }],
   [

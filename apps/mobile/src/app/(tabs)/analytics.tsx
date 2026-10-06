@@ -12,7 +12,9 @@ import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } fro
 import { SvgXml } from "react-native-svg";
 
 import { BottomDrawer } from "@/components/bottom-drawer";
+import { trendBars } from "@/lib/analytics-chart";
 import { DitherPanel } from "@/components/dither-panel";
+import { PlatformIcon } from "@/components/platform-icon";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import {
   BodyText,
@@ -41,6 +43,7 @@ export default function AnalyticsScreen() {
 function AnalyticsDashboard() {
   const { colors, spacing, typography, shape } = useNativeTheme().manifest;
   const [days, setDays] = useState<AnalyticsRangeDays>(30);
+  const [trend, setTrend] = useState<"views" | "engagement" | "followers">("views");
   const [accountId, setAccountId] = useState("");
   const [accountPickerOpen, setAccountPickerOpen] = useState(false);
   const accounts = useAccounts();
@@ -73,7 +76,7 @@ function AnalyticsDashboard() {
         <Button
           title={
             selectedAccount
-              ? `${platformLabel(selectedAccount.platform)} · ${selectedAccount.account_username}`
+              ? `${platformLabel(selectedAccount.platform)} · ${accountHandle(selectedAccount.account_username, platformLabel(selectedAccount.platform), selectedAccount.platform)}`
               : "All accounts"
           }
           intent="quiet"
@@ -149,67 +152,111 @@ function AnalyticsDashboard() {
                 }
                 detail={`${overview.summary.views.measured} of ${overview.content_total} destinations`}
               />
+              {(["impressions", "reach"] as const).map((metric) => (
+                <Metric
+                  key={metric}
+                  label={metric[0].toUpperCase() + metric.slice(1)}
+                  value={
+                    overview.summary[metric].measured
+                      ? number.format(overview.summary[metric].value)
+                      : "No data"
+                  }
+                  detail={`${overview.summary[metric].measured} of ${overview.content_total} destinations`}
+                />
+              ))}
               <Metric
                 label="Published"
                 value={number.format(overview.summary.published)}
                 detail={`${days} days`}
               />
             </View>
-            <DailyViews
-              points={overview.trends.views ?? []}
-              measured={overview.summary.views.measured > 0}
-            />
             <View style={{ gap: spacing.small }}>
-              <ContentTitle>Top destinations</ContentTitle>
+              <ContentTitle>Trends</ContentTitle>
+              <View style={styles.actions}>
+                {(["views", "engagement", "followers"] as const).map((metric) => (
+                  <Button
+                    key={metric}
+                    title={metric[0].toUpperCase() + metric.slice(1)}
+                    intent={trend === metric ? "primary" : "ordinary"}
+                    accessibilityState={{ selected: trend === metric }}
+                    onPress={() => setTrend(metric)}
+                    style={styles.filter}
+                  />
+                ))}
+              </View>
+              <TrendChart
+                points={overview.trends[trend] ?? []}
+                metric={trend}
+                measured={overview.summary[trend].measured > 0}
+              />
+            </View>
+            <View style={{ gap: spacing.small }}>
+              <ContentTitle>Post performance</ContentTitle>
               {(overview.content?.length ?? 0) === 0 ? (
                 <EmptyState title="No published posts in this period" />
               ) : (
-                overview.content?.slice(0, 5).map((post) => {
-                  const publicationId = post.publication_id || post.reference.publication_id;
-                  return (
-                    <DitherPressable
-                      radius={shape.medium}
-                      focusColor={colors.focus}
-                      key={post.reference.rendition_id}
-                      accessibilityRole="button"
-                      disabled={!publicationId}
-                      onPress={() =>
-                        publicationId &&
-                        router.push({
-                          pathname: "/publications/[id]",
-                          params: { id: publicationId },
-                        })
-                      }
-                      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-                    >
-                      <ContentSection
-                        style={{
-                          borderBottomColor: colors.outlineVariant,
-                          borderBottomWidth: StyleSheet.hairlineWidth,
-                        }}
+                query.data?.pages
+                  .flatMap((page) => page.content ?? [])
+                  .map((post) => {
+                    const publicationId = post.publication_id || post.reference.publication_id;
+                    return (
+                      <DitherPressable
+                        radius={shape.medium}
+                        focusColor={colors.focus}
+                        key={post.reference.rendition_id}
+                        accessibilityRole="button"
+                        disabled={!publicationId}
+                        onPress={() =>
+                          publicationId &&
+                          router.push({
+                            pathname: "/publications/[id]",
+                            params: { id: publicationId },
+                          })
+                        }
+                        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
                       >
-                        <ContentTitle numberOfLines={2}>
-                          {post.title || post.excerpt || "Untitled post"}
-                        </ContentTitle>
-                        <BodyText>
-                          {platformLabel(post.platform)} ·{" "}
-                          {accountHandle(post.username, post.account_id)}
-                        </BodyText>
-                        <BodyText>
-                          {"views" in post.metrics
-                            ? `${number.format(post.metrics.views ?? 0)} views`
-                            : "Views unavailable"}{" "}
-                          ·{" "}
-                          {hasEngagementMeasurement(post)
-                            ? `${number.format(post.engagement)} engagements`
-                            : "Engagement unavailable"}
-                        </BodyText>
-                      </ContentSection>
-                    </DitherPressable>
-                  );
-                })
+                        <ContentSection
+                          style={{
+                            borderBottomColor: colors.outlineVariant,
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                          }}
+                        >
+                          <ContentTitle numberOfLines={2}>
+                            {post.title || post.excerpt || "Untitled post"}
+                          </ContentTitle>
+                          <View style={styles.accountRow}>
+                            <PlatformIcon platform={post.platform} size={18} />
+                            <BodyText>
+                              {platformLabel(post.platform)} ·{" "}
+                              {accountHandle(
+                                post.username,
+                                platformLabel(post.platform),
+                                post.platform,
+                              )}
+                            </BodyText>
+                          </View>
+                          <BodyText>
+                            {"views" in post.metrics
+                              ? `${number.format(post.metrics.views ?? 0)} views`
+                              : "Views unavailable"}{" "}
+                            ·{" "}
+                            {hasEngagementMeasurement(post)
+                              ? `${number.format(post.engagement)} engagements`
+                              : "Engagement unavailable"}
+                          </BodyText>
+                        </ContentSection>
+                      </DitherPressable>
+                    );
+                  })
               )}
             </View>
+            {query.hasNextPage ? (
+              <Button
+                title={query.isFetchingNextPage ? "Loading posts…" : "More posts"}
+                disabled={query.isFetchingNextPage}
+                onPress={() => void query.fetchNextPage()}
+              />
+            ) : null}
             <View style={{ gap: spacing.small }}>
               <ContentTitle>Audience by account</ContentTitle>
               {(overview.accounts?.length ?? 0) === 0 ? (
@@ -224,9 +271,14 @@ function AnalyticsDashboard() {
                     }}
                   >
                     <View style={styles.accountRow}>
+                      <PlatformIcon platform={account.platform} />
                       <View style={{ flex: 1 }}>
                         <ContentTitle>
-                          {accountHandle(account.username, platformLabel(account.platform))}
+                          {accountHandle(
+                            account.username,
+                            platformLabel(account.platform),
+                            account.platform,
+                          )}
                         </ContentTitle>
                         <BodyText>
                           {platformLabel(account.platform)}
@@ -276,7 +328,7 @@ function AnalyticsDashboard() {
           {accounts.data?.map((account) => (
             <Button
               key={account.id}
-              title={`${platformLabel(account.platform)} · ${account.account_username || account.slug}`}
+              title={`${platformLabel(account.platform)} · ${accountHandle(account.account_username, platformLabel(account.platform), account.platform)}`}
               intent={accountId === account.id ? "primary" : "ordinary"}
               accessibilityState={{ selected: accountId === account.id }}
               onPress={() => {
@@ -329,20 +381,26 @@ function Metric({
   );
 }
 
-function DailyViews({
+function TrendChart({
   points,
   measured,
+  metric,
 }: {
+  metric: "views" | "engagement" | "followers";
   points: NonNullable<AnalyticsOverview["trends"]["views"]>;
   measured: boolean;
 }) {
   const { colors, typography, spacing, decoration } = useNativeTheme().manifest;
   const { width } = useWindowDimensions();
-  const [showValues, setShowValues] = useState(false);
   const chartWidth = Math.max(1, width - spacing.large * 4);
   const chartHeight = 144;
-  const maximum = Math.max(1, ...points.map((point) => point.value));
-  const stride = chartWidth / Math.max(1, points.length);
+  const maximum = Math.max(0, ...points.map((point) => point.value));
+  const minimum = Math.min(0, ...points.map((point) => point.value));
+  const chart = trendBars(
+    points.map((point) => point.value),
+    chartWidth,
+    chartHeight,
+  );
   const strip = gradientSvg({
     length: chartHeight,
     kind: "button",
@@ -350,27 +408,32 @@ function DailyViews({
   });
   // The native theme adapter projects the web chart1 through chart5 palette here.
   const chartColor = decoration.celebration[0];
-  const bars = points
-    .map((point, index) => {
-      const height = (point.value / maximum) * chartHeight;
-      return `<rect x="${index * stride}" y="${chartHeight - height}" width="${Math.max(1, stride - 2)}" height="${height}" fill="${chartColor}"/><rect x="${index * stride}" y="${chartHeight - height}" width="${Math.max(1, stride - 2)}" height="${height}" fill="url(#bars)" opacity="0.16"/>`;
-    })
+  const bars = chart.bars
+    .map(
+      (bar) =>
+        `<rect x="${bar.x}" y="${bar.y}" width="${bar.width}" height="${bar.height}" fill="${chartColor}"/><rect x="${bar.x}" y="${bar.y}" width="${bar.width}" height="${bar.height}" fill="url(#bars)" opacity="0.16"/>`,
+    )
     .join("");
-  const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${chartWidth}" height="${chartHeight}"><defs><pattern id="bars" width="8" height="${chartHeight}" patternUnits="userSpaceOnUse">${strip}</pattern></defs>${bars}</svg>`;
+  const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${chartWidth}" height="${chartHeight}"><defs><pattern id="bars" width="8" height="${chartHeight}" patternUnits="userSpaceOnUse">${strip}</pattern></defs>${bars}<line x1="0" y1="${chart.baseline}" x2="${chartWidth}" y2="${chart.baseline}" stroke="${colors.outlineVariant}"/></svg>`;
   return (
     <DitherPanel>
-      <ContentTitle>Daily views</ContentTitle>
+      <BodyText>
+        {metric === "followers"
+          ? "Daily follower change"
+          : `${metric === "views" ? "Views" : "Engagement"} per day`}
+      </BodyText>
       {!measured || !points.length ? (
-        <BodyText>No view measurements in this period.</BodyText>
+        <BodyText>No {metric} measurements in this period.</BodyText>
       ) : (
         <>
           <View
             accessible
             accessibilityRole="image"
-            accessibilityLabel={`Daily views. Highest daily value ${maximum}. Use Daily values for the full list.`}
+            accessibilityLabel={`${metric} by day. ${points.map((point) => `${point.date}: ${point.value}`).join(". ")}`}
           >
             <BodyText>{number.format(maximum)}</BodyText>
             <SvgXml xml={xml} width="100%" height={chartHeight} />
+            {minimum < 0 ? <BodyText>{number.format(minimum)}</BodyText> : null}
             <View
               style={{
                 flexDirection: "row",
@@ -388,19 +451,6 @@ function DailyViews({
               </Text>
             </View>
           </View>
-          <Button
-            title={showValues ? "Hide daily values" : "Daily values"}
-            intent="quiet"
-            accessibilityState={{ expanded: showValues }}
-            onPress={() => setShowValues(!showValues)}
-          />
-          {showValues
-            ? points.map((point) => (
-                <BodyText key={point.date}>
-                  {point.date} · {point.value.toLocaleString("en")} views
-                </BodyText>
-              ))
-            : null}
         </>
       )}
     </DitherPanel>

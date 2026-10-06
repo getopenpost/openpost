@@ -1,6 +1,7 @@
 import { NativeText as Text } from "@/components/native-text";
 import * as ImagePicker from "expo-image-picker";
-import { Image } from "expo-image";
+import { MediaImage } from "@/components/media-image";
+import { PlatformIcon } from "@/components/platform-icon";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -861,7 +862,7 @@ function Composer({
           <QueryNotice message="You are offline. You can keep editing the current draft." offline />
         ) : null}
 
-        <DitherPanel>
+        <DitherPanel style={{ backgroundColor: "transparent", borderWidth: 0, padding: 0 }}>
           <TextField
             ref={bodyInputRef}
             value={body}
@@ -936,7 +937,7 @@ function Composer({
             >
               <View style={styles.thumbWrap}>
                 {attachment.uri && attachment.mimeType.startsWith("image/") ? (
-                  <Image source={{ uri: attachment.uri }} style={styles.thumb} contentFit="cover" />
+                  <MediaImage uri={attachment.uri} style={styles.thumb} contentFit="cover" />
                 ) : (
                   <View
                     style={[
@@ -1217,15 +1218,23 @@ function Composer({
                           <ThemeIcon role="check" size={15} tintColor={colors.onPrimary} />
                         ) : null}
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[typography.labelLarge, { color: colors.onSurface }]}>
-                          {accountHandle(account.account_username, account.slug)}
+                      <PlatformIcon platform={account.platform} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          numberOfLines={2}
+                          style={[typography.labelLarge, { color: colors.onSurface }]}
+                        >
+                          {accountHandle(
+                            account.account_username,
+                            platformLabel(account.platform),
+                            account.platform,
+                          )}
                         </Text>
                         <BodyText>{platformLabel(account.platform)}</BodyText>
                       </View>
                       {selected ? (
                         <Button
-                          title={expandedAccount === account.id ? "Hide" : "Customize"}
+                          title={expandedAccount === account.id ? "Hide" : "Edit"}
                           intent="quiet"
                           onPress={() =>
                             setExpandedAccount(expandedAccount === account.id ? null : account.id)

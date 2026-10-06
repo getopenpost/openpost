@@ -1,3 +1,6 @@
+import { NativeText as Text } from "@/components/native-text";
+import { PlatformIcon } from "@/components/platform-icon";
+import { MediaImage } from "@/components/media-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -10,7 +13,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 
@@ -25,10 +27,15 @@ import {
 } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { applyPickerValue, firstPickerStep, type PickerStep } from "@/lib/date-time-picker";
-import { formatDateTime, platformLabel, statusColor } from "@/lib/format";
+import { accountHandle, formatDateTime, platformLabel } from "@/lib/format";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
 import { invalidatePublicationData } from "@/lib/query-cache";
-import { currentWorkspaceId, prefetchPublicationEditor, usePublication } from "@/lib/queries";
+import {
+  currentWorkspaceId,
+  prefetchPublicationEditor,
+  useAccounts,
+  usePublication,
+} from "@/lib/queries";
 import type { PublicationActivity } from "@/lib/query-policy";
 import { getWorkspaceId } from "@/lib/api/token-store";
 import {
@@ -54,6 +61,8 @@ export default function PostScreen() {
   const theme = useNativeTheme();
   const { colors, spacing, typography } = theme.manifest;
   const queryClient = useQueryClient();
+  const accounts = useAccounts();
+  const [expandedDestination, setExpandedDestination] = useState<string | null>(null);
   const { id } = useLocalSearchParams<{ id: string }>();
   const [pickerStep, setPickerStep] = useState<PickerStep | null>(null);
   const [newDate, setNewDate] = useState<Date | null>(null);
@@ -241,57 +250,85 @@ export default function PostScreen() {
           ) : null}
         </ContentSection>
 
-        <SectionHeader label={`Destinations · ${pub.renditions?.length ?? 0}`} />
-        <View style={{ gap: spacing.small }}>
-          {(pub.renditions ?? []).map((rendition) => (
-            <ContentSection key={rendition.id}>
-              <View style={styles.renditionRow}>
-                <View
-                  style={[
-                    styles.platformDot,
-                    {
-                      backgroundColor: statusColor(
-                        rendition.status ?? "draft",
-                        colors.status,
-                        colors.onSurfaceVariant,
-                      ),
-                    },
-                  ]}
-                />
-                <View style={{ flex: 1, gap: spacing.extraSmall }}>
-                  <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>
-                    {platformLabel(rendition.platform ?? "")}
-                    {rendition.target_key ? ` · ${rendition.target_key}` : ""}
-                  </Text>
-                  <StatusBadge status={rendition.status ?? "draft"} />
-                </View>
-              </View>
-              {rendition.body && rendition.body !== body ? (
-                <BodyText selectable style={{ marginTop: 8 }}>
-                  {rendition.body}
-                </BodyText>
-              ) : null}
-              {rendition.error_message ? (
-                <BodyText style={{ color: colors.error, marginTop: 8 }} selectable>
-                  {rendition.error_message}
-                  {rendition.error_retry_at
-                    ? `\nRetrying ${formatDateTime(rendition.error_retry_at)}`
-                    : ""}
-                </BodyText>
-              ) : null}
-              {rendition.external_url ? (
-                <Pressable
-                  accessibilityRole="link"
-                  onPress={() => void Linking.openURL(rendition.external_url!)}
-                  style={styles.externalLink}
-                >
-                  <Text style={[typography.labelLarge, { color: colors.primary }]}>
-                    View published post
-                  </Text>
-                </Pressable>
-              ) : null}
-            </ContentSection>
+        {(pub.media ?? [])
+          .filter((media) => media.mime_type?.startsWith("image/"))
+          .map((media) => (
+            <MediaImage
+              key={media.id}
+              uri={media.url}
+              contentFit="contain"
+              style={{ width: "100%", height: 200 }}
+              accessibilityLabel={media.original_filename || "Post image"}
+            />
           ))}
+        <View style={{ gap: spacing.small }}>
+          <SectionHeader label={`Destinations · ${pub.renditions?.length ?? 0}`} />
+          {(pub.renditions ?? []).map((rendition) => {
+            const account = accounts.data?.find(
+              (account) => account.id === rendition.social_account_id,
+            );
+            const platform = platformLabel(rendition.platform);
+            const label = accountHandle(account?.account_username, platform, rendition.platform);
+            const expanded = expandedDestination === rendition.id;
+            return (
+              <View
+                key={rendition.id}
+                style={{
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.outlineVariant,
+                }}
+              >
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${platform}, ${label}, ${rendition.status}`}
+                  accessibilityState={{ expanded }}
+                  onPress={() => setExpandedDestination(expanded ? null : rendition.id)}
+                  style={[styles.renditionRow, { minHeight: 52 }]}
+                >
+                  <PlatformIcon platform={rendition.platform} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      numberOfLines={2}
+                      style={[typography.labelLarge, { color: colors.onSurface }]}
+                    >
+                      {label}
+                    </Text>
+                    {label !== platform ? <BodyText>{platform}</BodyText> : null}
+                  </View>
+                  <StatusBadge status={rendition.status} />
+                </Pressable>
+                {rendition.error_message ? (
+                  <BodyText
+                    selectable
+                    style={{ color: colors.error, paddingBottom: spacing.small }}
+                  >
+                    {rendition.error_message}
+                    {rendition.error_retry_at
+                      ? `\nRetrying ${formatDateTime(rendition.error_retry_at)}`
+                      : ""}
+                  </BodyText>
+                ) : null}
+                {expanded ? (
+                  <View style={{ gap: spacing.small, paddingBottom: spacing.small }}>
+                    <BodyText selectable>{rendition.body || "No text"}</BodyText>
+                    {rendition.target_key && rendition.target_key !== rendition.platform ? (
+                      <BodyText>{rendition.target_key}</BodyText>
+                    ) : null}
+                    {rendition.schedule_override ? (
+                      <BodyText>{formatDateTime(rendition.schedule_override)}</BodyText>
+                    ) : null}
+                    {rendition.external_url ? (
+                      <Button
+                        title="View published post"
+                        intent="quiet"
+                        onPress={() => void Linking.openURL(rendition.external_url!)}
+                      />
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
         </View>
 
         <SectionHeader label="Actions" />
@@ -517,15 +554,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-  },
-  platformDot: {
-    width: 8,
-    height: 32,
-    borderRadius: 4,
-  },
-  externalLink: {
-    minHeight: 48,
-    justifyContent: "center",
-    marginTop: 4,
   },
 });

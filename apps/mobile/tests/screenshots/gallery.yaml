@@ -10,26 +10,21 @@ appId: com.openpost.app
 - extendedWaitUntil:
     visible: Recent drafts
     timeout: 120000
-- tapOn: ".*Draft idea.*"
-- inputText: Today we launched a simpler way to turn our work into content.
-- hideKeyboard
 - takeScreenshot: ${OUTPUT}/drafts-${SCHEME}
 - tapOn: Calendar
 - assertVisible: October 2026
 - takeScreenshot: ${OUTPUT}/calendar-${SCHEME}
-- tapOn: Queue
-- assertVisible: "Upcoming.*"
-- takeScreenshot: ${OUTPUT}/queue-${SCHEME}
-- tapOn: Video
-- assertVisible: Record video
-- assertVisible: Recent projects
-- takeScreenshot: ${OUTPUT}/video-${SCHEME}
 - tapOn: Analytics
 - assertVisible: Followers
-- assertVisible: Daily views
+- assertVisible: Trends
 - takeScreenshot: ${OUTPUT}/analytics-${SCHEME}
 - tapOn: Drafts
 - tapOn: ".*A few thoughts on building in public.*"
 - assertVisible: ".*Social Set.*"
 - assertVisible: Queue next slot
 - takeScreenshot: ${OUTPUT}/composer-${SCHEME}
+- tapOn: ".*Choose Social Set and destinations.*"
+- assertVisible: Shortform writing
+- assertVisible: Studio team
+- assertVisible: Close
+- tapOn: Close

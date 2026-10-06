@@ -9,12 +9,13 @@
     "ios": "env -u CC -u CXX -u LD -u AR -u NM -u STRIP -u RANLIB expo run:ios",
     "lint": "expo lint",
     "test": "bun test src plugins",
-    "check": "bunx tsc --noEmit && expo lint && bunx expo-doctor && bun test src plugins && bun run check:themes",
+    "check": "bunx tsc --noEmit && expo lint && bunx expo-doctor && bun test src plugins && bun run check:themes && bun run check:platform-marks",
     "prebuild:android": "CI=1 NODE_ENV=production expo prebuild --platform android --clean --no-install",
     "build:android:apk": "bun run prebuild:android && NODE_ENV=production ./android/gradlew -p android --no-daemon --max-workers=2 :app:assembleRelease -PreactNativeArchitectures=arm64-v8a -PopenpostDebugSigning=true",
     "build:android:candidate": "bun run prebuild:android && NODE_ENV=production ./android/gradlew -p android --no-daemon --max-workers=2 --build-cache :app:assembleRelease",
     "generate:themes": "bun ../../scripts/generate-native-theme-builtins.ts",
-    "check:themes": "bun ../../scripts/generate-native-theme-builtins.ts --check"
+    "check:themes": "bun ../../scripts/generate-native-theme-builtins.ts --check",
+    "check:platform-marks": "bun ../../scripts/generate-native-platform-marks.mjs --check"
   },
   "dependencies": {
     "@asamuzakjp/css-color": "3.2.0",

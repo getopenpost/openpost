@@ -35,8 +35,9 @@ export function BottomDrawer({
 
   return (
     <ModalBottomSheet
+      nativeOverlay
       animateContentHeight={false}
-      detents={[0, "content"]}
+      detents={[0, height * 0.9]}
       index={open ? 1 : 0}
       onIndexChange={(index) => {
         if (index === 0) onDismiss();
@@ -55,7 +56,7 @@ export function BottomDrawer({
         />
       }
     >
-      <Animated.View style={[styles.drawer, { maxHeight: height * 0.9 }, keyboardPaddingStyle]}>
+      <Animated.View style={[styles.drawer, { height: height * 0.9 }, keyboardPaddingStyle]}>
         <View
           style={[
             styles.handle,
@@ -94,7 +95,7 @@ export function BottomDrawer({
 
 const styles = StyleSheet.create({
   drawer: {
-    flexShrink: 1,
+    flex: 1,
     overflow: "hidden",
   },
   handle: {
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   scroll: {
-    flexShrink: 1,
+    flex: 1,
   },
   title: {
     flex: 1,

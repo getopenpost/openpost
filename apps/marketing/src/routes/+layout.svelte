@@ -80,7 +80,19 @@
 	<meta name="twitter:image:alt" content={social.imageAlt} />
 	{#if agentMarkdown}
 		<link rel="alternate" type="text/markdown" href={agentMarkdown} />
+		<link
+			rel="alternate"
+			type="text/markdown"
+			href="https://openpo.st/sitemap.md"
+			title="Markdown sitemap"
+		/>
 		<link rel="alternate" type="text/plain" href="https://openpo.st/llms.txt" title="llms.txt" />
+		<link
+			rel="alternate"
+			type="text/plain"
+			href="https://openpo.st/llms-full.txt"
+			title="Product overview"
+		/>
 	{/if}
 	<!-- SAFETY: JSON is built only from maintained route and product constants; '<' is escaped above. -->
 	{@html `<script type="application/ld+json">${structuredDataJSON}<\/script>`}

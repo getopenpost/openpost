@@ -129,7 +129,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           { url: "/llms-full.txt", title: "OpenPost documentation" },
         ],
         ...(!page.data._openapi
-          ? { "text/markdown": `/${page.path.replace(/\.mdx?$/, ".md")}` }
+          ? {
+              "text/markdown": [
+                { url: `/${page.path.replace(/\.mdx?$/, ".md")}`, title: page.data.title },
+                { url: "/sitemap.md", title: "Documentation Markdown sitemap" },
+              ],
+            }
           : {}),
       },
     },

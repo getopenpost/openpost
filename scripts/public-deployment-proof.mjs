@@ -606,11 +606,20 @@ export async function buildPublicProofChecks({
   knownMarkdownURLs.add("https://openpo.st/docs/llms-full.txt");
   validateMachineLinks("marketing llms.txt", marketingIndex, knownMarkdownURLs);
   validateMachineLinks("documentation llms.txt", documentationIndex, knownMarkdownURLs);
+  const marketingCorpus = await localArtifact(publicSiteDirectory, "llms-full.txt");
+  const marketingSitemap = await localArtifact(publicSiteDirectory, "sitemap.md");
+  const documentationSitemap = await localArtifact(publicSiteDirectory, "docs/sitemap.md");
   const documentationCorpus = await localArtifact(publicSiteDirectory, "docs/llms-full.txt");
+  validateMachineLinks("marketing llms-full.txt", marketingCorpus, knownMarkdownURLs);
+  validateMachineLinks("marketing sitemap.md", marketingSitemap, knownMarkdownURLs);
+  validateMachineLinks("documentation sitemap.md", documentationSitemap, knownMarkdownURLs);
   validateMachineLinks("documentation llms-full.txt", documentationCorpus, knownMarkdownURLs);
 
   for (const [surface, relativePath, contentType, expectedBody] of [
     [surfaces[0], "llms.txt", "text/plain; charset=utf-8", marketingIndex],
+    [surfaces[0], "llms-full.txt", "text/plain; charset=utf-8", marketingCorpus],
+    [surfaces[0], "sitemap.md", "text/markdown; charset=utf-8", marketingSitemap],
+    [surfaces[1], "sitemap.md", "text/markdown; charset=utf-8", documentationSitemap],
     [surfaces[1], "llms.txt", "text/plain; charset=utf-8", documentationIndex],
     [surfaces[1], "llms-full.txt", "text/plain; charset=utf-8", documentationCorpus],
   ]) {

@@ -11,6 +11,7 @@
 				"$TURBO_ROOT$/apps/web/project.inlang/settings.json",
 				"$TURBO_ROOT$/apps/web/src/lib/**",
 				"!$TURBO_ROOT$/apps/web/src/lib/paraglide/**",
+				"$TURBO_ROOT$/config/public-brand.json",
 				"$TURBO_ROOT$/config/provider-certification/public-claims.json"
 			]
 		},
@@ -25,6 +26,7 @@
 				"$TURBO_ROOT$/apps/web/project.inlang/settings.json",
 				"$TURBO_ROOT$/apps/web/src/lib/**",
 				"!$TURBO_ROOT$/apps/web/src/lib/paraglide/**",
+				"$TURBO_ROOT$/config/public-brand.json",
 				"$TURBO_ROOT$/config/provider-certification/public-claims.json",
 				"$TURBO_ROOT$/packages/social-images/src/**",
 				"$TURBO_ROOT$/scripts/asset-surfaces.mjs",

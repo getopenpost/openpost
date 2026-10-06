@@ -1,3 +1,4 @@
+import brand from '../../../../config/public-brand.json';
 import type { MarketingRouteEntry } from '@openpost/social-images';
 import {
 	agentPublishingDocsUrl,
@@ -12,6 +13,7 @@ import {
 
 const websiteId = `${siteUrl}/#website`;
 const softwareId = `${siteUrl}/#software`;
+const organizationId = `${siteUrl}/#organization`;
 const operatorId = `${siteUrl}/#operator`;
 
 function pageType(path: string) {
@@ -31,7 +33,7 @@ function pageData(entry: MarketingRouteEntry) {
 		inLanguage: 'en',
 		isPartOf: { '@id': websiteId },
 		about: { '@id': softwareId },
-		publisher: { '@id': operatorId }
+		publisher: { '@id': organizationId }
 	};
 	if (entry.path === '/faq') {
 		return {
@@ -65,7 +67,7 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 							operatingSystem: 'Web',
 							isAccessibleForFree: true,
 							offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-							publisher: { '@id': operatorId }
+							publisher: { '@id': organizationId }
 						}
 					]
 				: []),
@@ -77,7 +79,7 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 				description:
 					'OpenPost helps solo founders create, adapt, schedule, publish, and track social content from one workspace.',
 				inLanguage: 'en',
-				publisher: { '@id': operatorId },
+				publisher: { '@id': organizationId },
 				about: { '@id': softwareId }
 			},
 			{
@@ -104,7 +106,9 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 					'HTTP API, CLI, and MCP automation',
 					'Self-hosted deployment'
 				],
-				sameAs: [githubUrl],
+				sameAs: brand.sameAs,
+				publisher: { '@id': organizationId },
+				image: brand.logo,
 				subjectOf: [developerDocsUrl, agentPublishingDocsUrl, discordCommunityUrl].map((url) => ({
 					'@type': 'WebPage',
 					url
@@ -119,6 +123,24 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 				license: `${githubUrl}/blob/main/LICENSE`,
 				runtimePlatform: ['Web', 'Linux', 'Android'],
 				about: { '@id': softwareId }
+			},
+			{
+				'@id': organizationId,
+				'@type': 'Organization',
+				name: brand.name,
+				url: brand.url,
+				description: brand.shortDescription,
+				logo: { '@type': 'ImageObject', url: brand.logo, width: 512, height: 512 },
+				email: brand.email,
+				sameAs: brand.sameAs,
+				founder: { '@id': operatorId },
+				contactPoint: {
+					'@type': 'ContactPoint',
+					contactType: 'customer support',
+					email: brand.email,
+					url: `${siteUrl}/contact`,
+					availableLanguage: ['English', 'Portuguese']
+				}
 			},
 			{
 				'@id': operatorId,

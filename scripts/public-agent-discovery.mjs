@@ -8,6 +8,9 @@ import { load as parseYaml } from "js-yaml";
 import { create as createTar } from "tar";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const publicBrand = JSON.parse(
+  readFileSync(path.join(repositoryRoot, "config/public-brand.json"), "utf8"),
+);
 const skillDirectory = path.join(repositoryRoot, ".agents/skills/openpost-cli");
 const mcpServerCardBase = JSON.parse(
   readFileSync(
@@ -145,6 +148,7 @@ export async function generateMarketingDiscoveryArtifacts({ outputDirectory, ver
       path.join(repositoryRoot, "apps/web/openapi.json"),
       path.join(outputDirectory, "openapi.json"),
     ),
+    writeFile(path.join(wellKnownDirectory, "brand-facts.json"), jsonDocument(publicBrand), "utf8"),
     writeFile(path.join(wellKnownDirectory, "ard.json"), jsonDocument(renderARDManifest()), "utf8"),
     writeFile(
       path.join(mcpDirectory, "server-card.json"),

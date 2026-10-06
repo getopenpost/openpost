@@ -59,7 +59,15 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.deepEqual(page.about, { "@id": "https://openpo.st/#software" });
   assert.equal(software.name, "OpenPost");
   assert.equal(software.operatingSystem, "Web, Android");
-  assert.deepEqual(software.sameAs, ["https://github.com/getopenpost/openpost"]);
+  assert.ok(software.sameAs.includes("https://github.com/getopenpost/openpost"));
+  assert.ok(software.sameAs.includes("https://glama.ai/mcp/connectors/io.github.rodrgds/openpost"));
+  const organization = graph.find((entry) => entry["@id"] === "https://openpo.st/#organization");
+  assert.equal(organization["@type"], "Organization");
+  assert.equal(organization.name, "OpenPost");
+  assert.equal(organization.logo.url, "https://openpo.st/icon.svg");
+  assert.ok(organization.logo.width >= 112 && organization.logo.height >= 112);
+  assert.deepEqual(organization.founder, { "@id": "https://openpo.st/#operator" });
+  assert.deepEqual(software.publisher, { "@id": "https://openpo.st/#organization" });
   assert.deepEqual(software.softwareHelp, {
     "@type": "WebPage",
     url: "https://openpo.st/docs/guides/quickstart",

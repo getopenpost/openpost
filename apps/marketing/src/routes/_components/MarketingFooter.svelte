@@ -98,6 +98,15 @@
 						Discord
 					</a>
 				</div>
+				<Button
+					{...externalHref('https://www.google.com/preferences/source?q=openpo.st')}
+					variant="outline"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="mt-5 min-h-11"
+				>
+					Prefer OpenPost on Google <ArrowUpRight data-icon="inline-end" />
+				</Button>
 				<div
 					class="platform-guides mt-6 text-muted-foreground"
 					aria-label="Platform publishing guides"

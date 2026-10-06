@@ -16,6 +16,14 @@ set -euo pipefail
 # GHSA-vfj7-8cjw-p6xm has no patched npm release. Permit only the exact
 # upstream depth-bound patch, verified across every installed Braces copy.
 # Remove this admission when a fixed upstream release replaces the patch.
+# GHSA-hp3w-g68c-fv3c has no patched sprintf-js release. It enters only through
+# Roarr -> global-agent in onnxruntime-node's native installer. Transformers'
+# browser export excludes that installer, and the Go image contains no Node.
+# GHSA-hqr4-qq8f-hg3x and GHSA-mjw6-4jj6-33hc affect stream-json 1.9.1 in the
+# n8n node CLI's development-only backend. The patched 3.6 major replaces its
+# CommonJS Assembler API with an incompatible ESM export. The published node
+# carries no runtime dependencies, so that parser never ships to customers.
+# Remove these exceptions when compatible upstream tools adopt patched releases.
 bun "$(dirname "${BASH_SOURCE[0]}")/check-braces-security-patch.mjs"
 attempt=1
 while [ "$attempt" -le 3 ]; do
@@ -33,7 +41,10 @@ while [ "$attempt" -le 3 ]; do
   --ignore GHSA-w5hq-g745-h8pq \
   --ignore GHSA-528h-pc64-c93x \
   --ignore GHSA-vwc7-r8mq-g2x9 \
-  --ignore GHSA-vfj7-8cjw-p6xm
+  --ignore GHSA-vfj7-8cjw-p6xm \
+  --ignore GHSA-hp3w-g68c-fv3c \
+  --ignore GHSA-hqr4-qq8f-hg3x \
+  --ignore GHSA-mjw6-4jj6-33hc
   then
     break
   fi

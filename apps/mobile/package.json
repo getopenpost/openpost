@@ -70,7 +70,8 @@
   },
   "overrides": {
     "expo-constants": "$expo-constants",
-    "expo-linking": "$expo-linking"
+    "expo-linking": "$expo-linking",
+    "source-map-js": "1.2.2"
   },
   "packageManager": "bun@1.3.11",
   "patchedDependencies": {

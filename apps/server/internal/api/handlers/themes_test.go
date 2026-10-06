@@ -229,8 +229,16 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.NotEqual(t, "Published update", rollbackState.Draft.Manifest.Description)
 	deleteInUse := themeRequest(t, e, http.MethodDelete, "/api/v1/themes/"+url.PathEscape(themeID)+"?organization_id=org-1&confirm=true", nil)
 	require.Equal(t, http.StatusConflict, deleteInUse.Code, deleteInUse.Body.String())
+	var workshopReference themes.ThemeReference
+	for _, summary := range catalog.Items {
+		if summary.Reference.ID == "workshop" {
+			workshopReference = summary.Reference
+			break
+		}
+	}
+	require.Equal(t, "workshop", workshopReference.ID)
 	lockedResponse := themeRequest(t, e, http.MethodPut, "/api/v1/theme-settings/organization", map[string]any{
-		"organization_id": "org-1", "default_reference": map[string]any{"kind": "built_in", "id": "workshop", "version": 2}, "assignments_locked": true,
+		"organization_id": "org-1", "default_reference": workshopReference, "assignments_locked": true,
 	})
 	require.Equal(t, http.StatusOK, lockedResponse.Code, lockedResponse.Body.String())
 	lockedSettingsResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)

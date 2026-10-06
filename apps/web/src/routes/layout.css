@@ -235,7 +235,7 @@
 	--theme-shadow-card: none;
 	--theme-shadow-popover: 0 12px 30px -18px oklch(0.18 0.02 55 / 0.38);
 	--theme-shadow-dialog: 0 24px 56px -28px oklch(0.18 0.02 55 / 0.48);
-	--theme-shadow-focal-action: 0 5px 14px -8px color-mix(in oklch, var(--action-focal) 72%, black);
+	--theme-shadow-focal-action: none;
 	--theme-motion-press-duration: 100ms;
 	--theme-motion-press-easing: cubic-bezier(0.16, 1, 0.3, 1);
 	--theme-motion-press-distance: 1px;
@@ -544,7 +544,7 @@
 	--theme-shadow-card: none;
 	--theme-shadow-popover: 0 12px 30px -18px oklch(0.18 0.02 55 / 0.38);
 	--theme-shadow-dialog: 0 24px 56px -28px oklch(0.18 0.02 55 / 0.48);
-	--theme-shadow-focal-action: 0 5px 14px -8px color-mix(in oklch, var(--action-focal) 72%, black);
+	--theme-shadow-focal-action: none;
 	--theme-motion-press-duration: 100ms;
 	--theme-motion-press-easing: cubic-bezier(0.16, 1, 0.3, 1);
 	--theme-motion-press-distance: 1px;

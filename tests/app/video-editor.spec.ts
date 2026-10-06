@@ -48,7 +48,7 @@ async function createProject(
   await page.getByRole("button", { name: "Choose folder" }).click();
   const projects = page.getByRole("heading", { name: "Projects" });
   const openEditor = page.getByRole("button", { name: "Open Video Editor", exact: true });
-  await expect(projects.or(openEditor)).toBeVisible();
+  await expect(projects.or(openEditor).first()).toBeVisible();
   if (await projects.isVisible()) {
     await page.getByRole("button", { name: "Custom project" }).click();
     await page.getByRole("textbox", { name: "Project name" }).fill(name);

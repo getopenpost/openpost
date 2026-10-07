@@ -58,10 +58,26 @@ test("media on a follow-up preserves the first post's native poll", async ({
     expect((await resolvedMedia).ok()).toBeTruthy();
   };
   await authenticatePage(page, auth.token);
+  let releaseCapabilities!: () => void;
+  const capabilitiesReady = new Promise<void>((resolve) => {
+    releaseCapabilities = resolve;
+  });
+  await page.route("**/api/v1/capabilities", async (route) => {
+    await capabilitiesReady;
+    await route.continue();
+  });
+  const capabilityRequest = page.waitForRequest("**/api/v1/capabilities");
   await page.goto("/");
+  await capabilityRequest;
   await page
     .getByRole("textbox", { name: "Post text", exact: true })
     .fill("Audit poll before a photo.");
+  try {
+    await expect(page.getByRole("button", { name: "Add poll", exact: true })).toBeDisabled();
+    await page.screenshot({ path: testInfo.outputPath("poll-capabilities-loading.png") });
+  } finally {
+    releaseCapabilities();
+  }
   await page.getByRole("button", { name: "Add poll", exact: true }).click();
   const poll = page.locator(
     '[data-testid="shared-poll-editor"]:visible, [data-testid="composer-account-preview"]:visible',

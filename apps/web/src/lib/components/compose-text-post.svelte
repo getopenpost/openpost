@@ -6661,6 +6661,8 @@
 											variant="ghost"
 											size="icon"
 											aria-label={m.compose_add_poll()}
+											disabled={accountControlLoading}
+											aria-busy={accountControlLoading}
 											onclick={() => {
 												pollCreationAccountID = activeVariantAccount!.id;
 												pollEditorPostKey = post.key;
@@ -6864,7 +6866,9 @@
 												{#if !post.poll}
 													<button
 														type="button"
-														class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
+														class="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 md:size-7"
+														disabled={accountControlLoading}
+														aria-busy={accountControlLoading}
 														onclick={() => {
 															pollCreationAccountID = undefined;
 															pollEditorPostKey = post.key;

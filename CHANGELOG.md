@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.14.4] - 2026-10-07
+
+### Documentation
+
+- Give README demos shorter drag sequences, readable pauses and unobstructed captions. Move the smaller editor demos beside their feature descriptions, recreate the RISC-V thumbnail with drag controls, and show a fuller video edit with title entrance and exit animations, music, a transition, effects, and color adjustments.
+- Show publishing, thumbnail design, and video editing in three small, reproducible README demos, with stills for reduced motion.
+
+### Fixed
+
+- Keep the Video Editor playhead out of the fixed track labels when scrolling the timeline horizontally.
+- Keep Video Editor track labels beneath the pinned time ruler when scrolling vertically, including its keyboard focus outline.
+- Native mobile previews authenticate protected images against the selected OpenPost server.
+- Mobile post destinations use compact rows, platform logos, and correct account labels. Android destination drawers keep their header and choices visible.
+- The README mobile gallery shows Drafts, Post, Calendar, and Analytics in one transparent row.
+- Wait for accounts and publishing capabilities before creating a poll, so opening the composer on a slow connection preserves each account's native poll choice.
+
+### Added
+
+- Native mobile analytics now includes impressions, reach, follower and engagement trends, and more post performance results.
+
+### Security
+
+- Update shell-quote to 1.11.0 and Sharp to 0.35.5 to include their upstream security fixes.
+
 ## [7.13.3] - 2026-10-06
 
 ### Fixed

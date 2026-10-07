@@ -135,7 +135,7 @@
 		"openapi-fetch": "^0.17.0",
 		"phonemizer": "1.2.1",
 		"safe-stable-stringify": "2.5.0",
-		"shell-quote": "^1.10.0",
+		"shell-quote": "^1.11.0",
 		"svelte-sonner": "^1.1.1",
 		"tabbable": "^6.5.0",
 		"tailwind-merge": "^3.5.0",

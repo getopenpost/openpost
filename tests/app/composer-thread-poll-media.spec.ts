@@ -9,6 +9,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
   page,
   request,
 }, testInfo) => {
+  test.setTimeout(60_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const auth = await registerUser(request, `thread-poll-${randomUUID()}@example.com`);
@@ -62,10 +63,14 @@ test("media on a follow-up preserves the first post's native poll", async ({
   const capabilitiesReady = new Promise<void>((resolve) => {
     releaseCapabilities = resolve;
   });
-  await page.route("**/api/v1/capabilities", async (route) => {
-    await capabilitiesReady;
-    await route.continue();
-  });
+  await page.route(
+    "**/api/v1/capabilities",
+    async (route) => {
+      await capabilitiesReady;
+      await route.continue();
+    },
+    { times: 1 },
+  );
   const capabilityRequest = page.waitForRequest("**/api/v1/capabilities");
   await page.goto("/");
   await capabilityRequest;

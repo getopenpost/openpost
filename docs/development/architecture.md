@@ -40,7 +40,42 @@ Deterministic timeline operations, project migrations, atomic filesystem writes 
 
 ## Deployment
 
-The built frontend is embedded into the Go binary for single-binary deployment.
+### Static SvelteKit in one Go binary
+
+OpenPost ships its web app and HTTP API in one Go binary. SvelteKit builds the
+browser interface; Go serves the resulting files and owns authentication,
+persistence, provider calls and jobs. The deployed app does not need a Node.js
+server.
+
+The [root layout](../../apps/web/src/routes/+layout.ts) disables server rendering
+and enables prerendering. The [static adapter](../../apps/web/svelte.config.js)
+writes pages and assets to `apps/web/build`, with `index.html` as its fallback.
+The frontend build also generates `app-routes.json` from the app's route tree.
+
+The [packaging step](../../scripts/package-frontend.mjs) validates the HTML and
+route manifest, then installs the built app in
+`apps/server/cmd/openpost/public`. The
+[production entry](../../apps/server/cmd/openpost/web_embedded.go) includes that
+directory with `//go:embed all:public` and passes it to the HTTP routes as an
+`fs.FS`. Go compiles the files into the binary, so installing a release does not
+require a separate frontend build or web directory.
+
+Client navigation still needs correct HTTP responses when someone opens or
+reloads a URL. The [SPA route handler](../../apps/server/cmd/openpost/web.go)
+uses the generated manifest to distinguish app routes from unknown paths. A
+known route such as `/calendar` can receive the fallback HTML. An unknown path
+keeps its HTTP 404 status, and API paths stay outside the SPA fallback.
+Application HTML uses `no-cache, no-store, must-revalidate`. Startup rejects
+missing HTML and a missing or invalid route manifest.
+
+Development builds use the `dev` Go build tag. Their
+[frontend entry](../../apps/server/cmd/openpost/web_dev.go) reads files from
+`OPENPOST_WEB_PATH`, defaulting to `cmd/openpost/public`, through `os.DirFS`.
+Both build modes use the same route handler; the filesystem source changes.
+
+The [routing tests](../../apps/server/cmd/openpost/web_test.go) cover direct
+entry, unknown routes, API isolation, HEAD responses and invalid manifests.
+Keep these HTTP behaviors in Go when changing frontend packaging or navigation.
 
 ## Client surfaces
 

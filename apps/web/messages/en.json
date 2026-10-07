@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "Using shared text",
 	"compose_using_custom_text": "Custom text",
 	"compose_link_use_post_url": "Use post URL",
-	"compose_preview_reset": "Reset"
+	"compose_preview_reset": "Reset",
+	"tool_draft_opening": "Opening your draft…",
+	"tool_draft_transfer_failed": "The draft could not open. Return to the tool and try again. Your original draft is still there.",
+	"tool_draft_back_to_tools": "Back to free tools",
+	"tool_draft_missing": "This draft is no longer available in this browser. Return to the tool and send it again.",
+	"tool_draft_workspace_changed": "This draft belongs to the account and workspace that started importing it. Switch back to continue, or send a new copy from the tool.",
+	"tool_draft_prepare_failed": "The draft could not be prepared. Retry to continue with the files already uploaded.",
+	"tool_draft_preparing": "Preparing your draft and uploading selected files…"
 }

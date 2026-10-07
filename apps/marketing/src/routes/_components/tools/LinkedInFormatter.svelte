@@ -4,6 +4,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import DraftNextAction from './DraftNextAction.svelte';
 	import {
 		copyToClipboard,
 		formatLinkedInText,
@@ -47,7 +48,7 @@ That short brief makes editing faster and gives each post a job.`;
 	}
 </script>
 
-<div class="mt-8 grid gap-5 xl:grid-cols-2">
+<div class="mt-8 grid gap-5 lg:grid-cols-2">
 	<section class="rounded-lg border bg-card p-4 sm:p-6" aria-labelledby="formatter-input-title">
 		<div class="flex flex-wrap items-start justify-between gap-4">
 			<div>
@@ -174,5 +175,9 @@ That short brief makes editing faster and gives each post a job.`;
 				This draft is {characterCount - 3000} characters over LinkedIn's 3,000-character post limit.
 			</p>
 		{/if}
+		<DraftNextAction
+			draft={{ version: 1, parts: [formatted], files: [], link: '' }}
+			disabled={!formatted.trim() || characterCount > 3000}
+		/>
 	</section>
 </div>

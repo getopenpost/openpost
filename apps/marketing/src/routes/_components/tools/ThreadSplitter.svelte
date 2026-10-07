@@ -5,6 +5,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import DraftNextAction from './DraftNextAction.svelte';
 	import {
 		THREAD_PLATFORMS,
 		copyToClipboard,
@@ -43,7 +44,7 @@ Then turn that idea into a short series: explain the problem, share the method, 
 	}
 </script>
 
-<div class="mt-8 grid min-w-0 gap-5 xl:grid-cols-[minmax(20rem,0.84fr)_minmax(0,1.16fr)]">
+<div class="mt-8 grid min-w-0 gap-5 lg:grid-cols-[minmax(20rem,0.84fr)_minmax(0,1.16fr)]">
 	<section
 		class="min-w-0 rounded-lg border bg-card p-4 sm:p-6"
 		aria-labelledby="splitter-input-title"
@@ -203,5 +204,10 @@ Then turn that idea into a short series: explain the problem, share the method, 
 				{/each}
 			</ol>
 		{/if}
+		<DraftNextAction
+			label="Schedule this thread"
+			draft={{ version: 1, parts: parts.map((part) => part.text), files: [], link: '' }}
+			disabled={parts.length === 0 || parts.some((part) => part.count > selectedPlatform.limit)}
+		/>
 	</section>
 </div>

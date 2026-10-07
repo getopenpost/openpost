@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "A usar o texto partilhado",
 	"compose_using_custom_text": "Texto personalizado",
 	"compose_link_use_post_url": "Usar URL da publicação",
-	"compose_preview_reset": "Repor"
+	"compose_preview_reset": "Repor",
+	"tool_draft_opening": "A abrir o rascunho…",
+	"tool_draft_transfer_failed": "Não foi possível abrir o rascunho. Volte à ferramenta e tente novamente. O rascunho original continua lá.",
+	"tool_draft_back_to_tools": "Voltar às ferramentas gratuitas",
+	"tool_draft_missing": "Este rascunho já não está disponível neste navegador. Volte à ferramenta e envie-o novamente.",
+	"tool_draft_workspace_changed": "Este rascunho pertence à conta e ao espaço de trabalho que iniciaram a importação. Volte a esse espaço para continuar ou envie uma nova cópia da ferramenta.",
+	"tool_draft_prepare_failed": "Não foi possível preparar o rascunho. Tente novamente para continuar com os ficheiros já carregados.",
+	"tool_draft_preparing": "A preparar o rascunho e a carregar os ficheiros selecionados…"
 }

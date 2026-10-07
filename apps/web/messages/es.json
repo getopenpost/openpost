@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "Usando texto compartido",
 	"compose_using_custom_text": "Texto personalizado",
 	"compose_link_use_post_url": "Usar URL de la publicación",
-	"compose_preview_reset": "Restablecer"
+	"compose_preview_reset": "Restablecer",
+	"tool_draft_opening": "Abriendo tu borrador…",
+	"tool_draft_transfer_failed": "No se pudo abrir el borrador. Vuelve a la herramienta e inténtalo de nuevo. Tu borrador original sigue allí.",
+	"tool_draft_back_to_tools": "Volver a las herramientas gratuitas",
+	"tool_draft_missing": "Este borrador ya no está disponible en este navegador. Vuelve a la herramienta y envíalo de nuevo.",
+	"tool_draft_workspace_changed": "Este borrador pertenece a la cuenta y al espacio de trabajo que iniciaron la importación. Vuelve para continuar o envía una copia nueva desde la herramienta.",
+	"tool_draft_prepare_failed": "No se pudo preparar el borrador. Reintenta para continuar con los archivos ya subidos.",
+	"tool_draft_preparing": "Preparando tu borrador y subiendo los archivos seleccionados…"
 }

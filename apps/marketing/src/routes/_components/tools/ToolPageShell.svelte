@@ -17,6 +17,12 @@
 	const isPreview = $derived(
 		slug === 'post-preview-generator' || previewTools.some((tool) => tool.slug === slug)
 	);
+	const hasDraftAction = $derived(
+		['multi-platform-character-counter', 'thread-splitter', 'linkedin-text-formatter'].includes(
+			slug
+		)
+	);
+	const fullWidth = $derived(isPreview || hasDraftAction);
 	const article = $derived(toolArticles[slug]);
 	const related = $derived(
 		tools
@@ -32,7 +38,7 @@
 
 <section class="tool-page marketing-shell">
 	<a href="/tools" class="back-link focus-ring"><ArrowLeft size={16} /> All free tools</a>
-	<div class="tool-layout" class:preview-layout={isPreview}>
+	<div class="tool-layout" class:preview-layout={fullWidth}>
 		<div class="tool-main">
 			<header>
 				<h1>{article.title}</h1>
@@ -77,7 +83,7 @@
 				</section>
 			</article>
 		</div>
-		{#if !isPreview}
+		{#if !fullWidth}
 			<aside
 				class="tool-promo"
 				aria-label="Create and schedule with OpenPost"

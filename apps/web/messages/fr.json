@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "Texte partagé utilisé",
 	"compose_using_custom_text": "Texte personnalisé",
 	"compose_link_use_post_url": "Utiliser l’URL du post",
-	"compose_preview_reset": "Réinitialiser"
+	"compose_preview_reset": "Réinitialiser",
+	"tool_draft_opening": "Ouverture de votre brouillon…",
+	"tool_draft_transfer_failed": "Impossible d’ouvrir le brouillon. Revenez à l’outil et réessayez. Votre brouillon d’origine est toujours là.",
+	"tool_draft_back_to_tools": "Retour aux outils gratuits",
+	"tool_draft_missing": "Ce brouillon n’est plus disponible dans ce navigateur. Revenez à l’outil et renvoyez-le.",
+	"tool_draft_workspace_changed": "Ce brouillon appartient au compte et à l’espace de travail qui ont lancé l’importation. Revenez-y pour continuer ou envoyez une nouvelle copie depuis l’outil.",
+	"tool_draft_prepare_failed": "Impossible de préparer le brouillon. Réessayez pour continuer avec les fichiers déjà envoyés.",
+	"tool_draft_preparing": "Préparation de votre brouillon et envoi des fichiers sélectionnés…"
 }

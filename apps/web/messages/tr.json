@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "Ortak metin kullanılıyor",
 	"compose_using_custom_text": "Özel metin",
 	"compose_link_use_post_url": "Gönderi URL’sini kullan",
-	"compose_preview_reset": "Sıfırla"
+	"compose_preview_reset": "Sıfırla",
+	"tool_draft_opening": "Taslağınız açılıyor…",
+	"tool_draft_transfer_failed": "Taslak açılamadı. Araca dönüp tekrar deneyin. Asıl taslağınız hâlâ orada.",
+	"tool_draft_back_to_tools": "Ücretsiz araçlara dön",
+	"tool_draft_missing": "Bu taslak artık bu tarayıcıda mevcut değil. Araca dönüp yeniden gönderin.",
+	"tool_draft_workspace_changed": "Bu taslak, içe aktarmayı başlatan hesaba ve çalışma alanına aittir. Devam etmek için geri dönün veya araçtan yeni bir kopya gönderin.",
+	"tool_draft_prepare_failed": "Taslak hazırlanamadı. Yüklenmiş dosyalarla devam etmek için tekrar deneyin.",
+	"tool_draft_preparing": "Taslağınız hazırlanıyor ve seçilen dosyalar yükleniyor…"
 }

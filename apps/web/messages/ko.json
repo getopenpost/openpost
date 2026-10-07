@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "공유 텍스트 사용 중",
 	"compose_using_custom_text": "맞춤 텍스트",
 	"compose_link_use_post_url": "게시물 URL 사용",
-	"compose_preview_reset": "초기화"
+	"compose_preview_reset": "초기화",
+	"tool_draft_opening": "초안을 여는 중…",
+	"tool_draft_transfer_failed": "초안을 열 수 없습니다. 도구로 돌아가 다시 시도하세요. 원본 초안은 그대로 있습니다.",
+	"tool_draft_back_to_tools": "무료 도구로 돌아가기",
+	"tool_draft_missing": "이 브라우저에서 더 이상 이 초안을 사용할 수 없습니다. 도구로 돌아가 다시 보내세요.",
+	"tool_draft_workspace_changed": "이 초안은 가져오기를 시작한 계정과 워크스페이스에 속합니다. 돌아가서 계속하거나 도구에서 새 사본을 보내세요.",
+	"tool_draft_prepare_failed": "초안을 준비할 수 없습니다. 다시 시도하면 이미 업로드된 파일부터 계속할 수 있습니다.",
+	"tool_draft_preparing": "초안을 준비하고 선택한 파일을 업로드하는 중…"
 }

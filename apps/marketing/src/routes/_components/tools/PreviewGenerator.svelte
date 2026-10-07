@@ -27,8 +27,11 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { validatePreviewImage } from './local-image';
+	import DraftNextAction from './DraftNextAction.svelte';
+	import { draftTransferLimits } from '@openpost/draft-transfer';
 
 	interface LocalMedia extends PreviewMedia {
+		file: File;
 		name: string;
 		local: true;
 	}
@@ -90,6 +93,21 @@
 		supportsMultipleAttachments ? (capability.maxImages ?? TOOL_IMAGE_LIMIT) : imageLimit
 	);
 	const pollLimit = $derived(capability.maxPollOptions ?? 4);
+	const pollDurationSeconds = $derived.by(() => {
+		const match = pollDuration.trim().match(/^(\d+)\s*(minutes?|hours?|days?|weeks?)$/iu);
+		if (!match) return 0;
+		const unit = match[2].toLowerCase();
+		return (
+			Number(match[1]) *
+			(unit.startsWith('minute')
+				? 60
+				: unit.startsWith('hour')
+					? 3600
+					: unit.startsWith('week')
+						? 604800
+						: 86400)
+		);
+	});
 	const isFacebookVideo = $derived(
 		selectedPlatform === 'facebook' && ['video', 'reel'].includes(selectedFormat)
 	);
@@ -99,6 +117,14 @@
 		) || selectedFormat === 'document'
 	);
 	const pollSupported = $derived(capability.polls && ['post', 'thread'].includes(selectedFormat));
+	const pollTransferInvalid = $derived(
+		pollEnabled &&
+			pollSupported &&
+			(parsedPollOptions.length < 2 ||
+				parsedPollOptions.length > pollLimit ||
+				pollDurationSeconds < draftTransferLimits.pollMinimumSeconds ||
+				pollDurationSeconds > draftTransferLimits.pollMaximumSeconds)
+	);
 	const formatOptions = $derived(capability.formats);
 	const allowedMediaKinds = $derived(mediaKindsFor(selectedPlatform, selectedFormat));
 	const selectionWarning = $derived.by(() => {
@@ -283,6 +309,7 @@
 			return;
 		}
 		const candidateMedia: LocalMedia[] = files.map((file, index) => ({
+			file,
 			id: `local-${index}-${file.name}`,
 			name: file.name,
 			local: true,
@@ -893,6 +920,46 @@
 				</Button>
 			</div>
 		</div>
+		<DraftNextAction
+			draft={{
+				version: 1,
+				parts:
+					pollEnabled && pollSupported
+						? previewSegments.map((part, index) => (index === 0 ? '' : part.text))
+						: previewSegments.map((part) => part.text),
+				link: linkUrl.trim(),
+				files:
+					pollEnabled && pollSupported
+						? []
+						: localMedia.map((item) => ({ file: item.file, alt: item.alt || altText })),
+				poll:
+					pollEnabled && pollSupported
+						? {
+								question: previewSegments[0]?.text ?? '',
+								options: parsedPollOptions,
+								durationSeconds: pollDurationSeconds
+							}
+						: undefined
+			}}
+			disabled={(!draft.trim() && localMedia.length === 0) ||
+				mediaLoading ||
+				Boolean(selectionWarning) ||
+				pollTransferInvalid ||
+				Boolean(publicMediaUrl.trim())}
+		/>
+		<p class="mt-2 text-xs leading-5 text-muted-foreground">
+			Text, selected files, links and polls continue into your draft. Set the destination format and
+			other preview details in OpenPost.
+		</p>
+		{#if publicMediaUrl.trim()}<p class="mt-2 text-sm text-muted-foreground">
+				Replace the public media URL with a local file to continue this draft.
+			</p>{/if}
+		{#if pollTransferInvalid && parsedPollOptions.length <= pollLimit}<p
+				role="alert"
+				class="mt-2 text-sm text-destructive"
+			>
+				Check the poll options and use a duration such as "1 day", between 5 minutes and 14 days.
+			</p>{/if}
 	</section>
 
 	<section

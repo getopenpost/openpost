@@ -73,6 +73,8 @@ Verify docs reader interactions against the static export with `bunx playwright 
 
 Each social network has one self-hosting integration guide. Keep shared credential setup in the integration index and link provider-specific steps to it. Use `SetupScreenshot` for expandable setup screenshots, preserve source attribution and licenses for reused portal images, and label edited example values. Capture OpenPost connection dialogs through `tests/app/product-screenshots.spec.ts` in both schemes. Generated screenshots illustrate setup, never provider approval.
 
+Free-tool draft transfer uses `@openpost/draft-transfer`. Keep content and files out of URLs and telemetry. The browser receiver verifies origin, opener and token; uploads resume through the media adapter with an actor and Workspace receipt. Import into a fresh composer, retain the transfer until the draft saves, and keep publishing explicit.
+
 ## Engineering invariants
 
 - SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.

@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "共通テキストを使用中",
 	"compose_using_custom_text": "カスタムテキスト",
 	"compose_link_use_post_url": "投稿のURLを使用",
-	"compose_preview_reset": "リセット"
+	"compose_preview_reset": "リセット",
+	"tool_draft_opening": "下書きを開いています…",
+	"tool_draft_transfer_failed": "下書きを開けませんでした。ツールに戻ってもう一度お試しください。元の下書きは残っています。",
+	"tool_draft_back_to_tools": "無料ツールに戻る",
+	"tool_draft_missing": "この下書きはこのブラウザーでは利用できなくなりました。ツールに戻ってもう一度送信してください。",
+	"tool_draft_workspace_changed": "この下書きは、インポートを開始したアカウントとワークスペースに属しています。元に戻って続行するか、ツールから新しいコピーを送信してください。",
+	"tool_draft_prepare_failed": "下書きを準備できませんでした。再試行すると、アップロード済みのファイルから続行できます。",
+	"tool_draft_preparing": "下書きを準備し、選択したファイルをアップロードしています…"
 }

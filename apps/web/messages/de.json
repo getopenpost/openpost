@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "Geteilter Text wird verwendet",
 	"compose_using_custom_text": "Eigener Text",
 	"compose_link_use_post_url": "Beitrags-URL verwenden",
-	"compose_preview_reset": "Zurücksetzen"
+	"compose_preview_reset": "Zurücksetzen",
+	"tool_draft_opening": "Entwurf wird geöffnet…",
+	"tool_draft_transfer_failed": "Der Entwurf konnte nicht geöffnet werden. Gehe zum Werkzeug zurück und versuche es erneut. Dein ursprünglicher Entwurf ist noch da.",
+	"tool_draft_back_to_tools": "Zurück zu den kostenlosen Werkzeugen",
+	"tool_draft_missing": "Dieser Entwurf ist in diesem Browser nicht mehr verfügbar. Gehe zum Werkzeug zurück und sende ihn erneut.",
+	"tool_draft_workspace_changed": "Dieser Entwurf gehört zum Konto und Arbeitsbereich, die den Import gestartet haben. Wechsle zurück oder sende eine neue Kopie vom Werkzeug.",
+	"tool_draft_prepare_failed": "Der Entwurf konnte nicht vorbereitet werden. Versuche es erneut, um mit den bereits hochgeladenen Dateien fortzufahren.",
+	"tool_draft_preparing": "Entwurf wird vorbereitet und ausgewählte Dateien werden hochgeladen…"
 }

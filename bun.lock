@@ -56,6 +56,7 @@
         "@mediabunny/mp3-encoder": "1.54.0",
         "@openpost/changelog": "workspace:*",
         "@openpost/dither": "workspace:*",
+        "@openpost/draft-transfer": "workspace:*",
         "@openpost/legal-policy": "workspace:*",
         "@openpost/plan-catalog": "workspace:*",
         "@openpost/platform-text": "workspace:*",
@@ -117,6 +118,7 @@
         "@number-flow/svelte": "^0.4.2",
         "@openpost/api-contract": "workspace:*",
         "@openpost/dither": "workspace:*",
+        "@openpost/draft-transfer": "workspace:*",
         "@openpost/plan-catalog": "workspace:*",
         "@openpost/platform-text": "workspace:*",
         "@openpost/query-catalog": "workspace:*",
@@ -139,6 +141,7 @@
         "fabric": "7.4.0",
         "fflate": "0.8.3",
         "html-to-image": "^1.11.13",
+        "idb-keyval": "^6.2.2",
         "immer": "^11.1.18",
         "kokoro-js": "1.2.1",
         "layerchart": "2.0.0-next.48",
@@ -230,6 +233,12 @@
       "name": "@openpost/dither",
       "devDependencies": {
         "typescript": "^5.9.3",
+      },
+    },
+    "packages/draft-transfer": {
+      "name": "@openpost/draft-transfer",
+      "dependencies": {
+        "zod": "^4.4.3",
       },
     },
     "packages/legal-policy": {
@@ -1033,6 +1042,8 @@
     "@openpost/dither": ["@openpost/dither@workspace:packages/dither"],
 
     "@openpost/docs": ["@openpost/docs@workspace:apps/docs"],
+
+    "@openpost/draft-transfer": ["@openpost/draft-transfer@workspace:packages/draft-transfer"],
 
     "@openpost/legal-policy": ["@openpost/legal-policy@workspace:packages/legal-policy"],
 
@@ -2423,6 +2434,8 @@
     "iconv-lite": ["iconv-lite@0.6.3", "", { "dependencies": { "safer-buffer": "2.1.2" } }, "sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw=="],
 
     "idb": ["idb@7.1.1", "", {}, "sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ=="],
+
+    "idb-keyval": ["idb-keyval@6.3.0", "", {}, "sha512-um+2dgAWmYsu615EXpWVwSmapJhON0G43t3Ka/EVaohzPQXSMqKEqeDK/oIW3Ow+BXaF2PvSc+oBTFp793A5Ow=="],
 
     "ieee754": ["ieee754@1.2.1", "", {}, "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="],
 

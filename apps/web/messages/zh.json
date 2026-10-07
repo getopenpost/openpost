@@ -9753,5 +9753,12 @@
 	"compose_using_shared_text": "使用共享文字",
 	"compose_using_custom_text": "自定义文字",
 	"compose_link_use_post_url": "使用帖子网址",
-	"compose_preview_reset": "重置"
+	"compose_preview_reset": "重置",
+	"tool_draft_opening": "正在打开草稿…",
+	"tool_draft_transfer_failed": "无法打开草稿。请返回工具重试。原始草稿仍在那里。",
+	"tool_draft_back_to_tools": "返回免费工具",
+	"tool_draft_missing": "此浏览器中已无法使用此草稿。请返回工具重新发送。",
+	"tool_draft_workspace_changed": "此草稿属于开始导入的账户和工作区。请切换回去继续，或从工具发送新副本。",
+	"tool_draft_prepare_failed": "无法准备草稿。请重试以继续使用已上传的文件。",
+	"tool_draft_preparing": "正在准备草稿并上传所选文件…"
 }

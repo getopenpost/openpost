@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -1714,26 +1714,36 @@ test(
     }
     const docsHomePath = path.join(docsDirectory, "index.html");
     const docsHomeHTML = await readFile(docsHomePath, "utf8");
-    for (const robots of [
-      '<meta name="robots" content="noindex" />',
-      '<meta name="robots" content="NOINDEX" />',
-      '<meta content="noindex" name="robots" />',
-    ]) {
-      try {
-        await writeFile(docsHomePath, docsHomeHTML.replace("</head>", `${robots}</head>`));
-        assert.throws(
-          () =>
-            execFileSync("bun", ["apps/docs/scripts/check-social-metadata-output.mjs"], {
-              cwd: root,
-              stdio: "pipe",
-            }),
-          (error) =>
-            error.stderr?.toString().includes("index.html: a catalogue page must remain indexable"),
-          "a downloadable kit must not make the metadata gate ignore noindex on a real page",
-        );
-      } finally {
-        await writeFile(docsHomePath, docsHomeHTML);
+    // The pinned Bun test runner can lose piped child diagnostics.
+    const metadataDirectory = await fixtureDirectory();
+    const metadataDiagnosticPath = path.join(metadataDirectory, "stderr.txt");
+    try {
+      for (const robots of [
+        '<meta name="robots" content="noindex" />',
+        '<meta name="robots" content="NOINDEX" />',
+        '<meta content="noindex" name="robots" />',
+      ]) {
+        try {
+          await writeFile(docsHomePath, docsHomeHTML.replace("</head>", `${robots}</head>`));
+          const check = Bun.spawn(["bun", "apps/docs/scripts/check-social-metadata-output.mjs"], {
+            cwd: root,
+            stdout: "ignore",
+            stderr: Bun.file(metadataDiagnosticPath),
+          });
+          const exitCode = await check.exited;
+          const stderr = await readFile(metadataDiagnosticPath, "utf8");
+          assert.equal(exitCode, 1, "a catalogue page must reject noindex");
+          assert.match(
+            stderr,
+            /index\.html: a catalogue page must remain indexable/u,
+            "a downloadable kit must not make the metadata gate ignore noindex on a real page",
+          );
+        } finally {
+          await writeFile(docsHomePath, docsHomeHTML);
+        }
       }
+    } finally {
+      await rm(metadataDirectory, { recursive: true, force: true });
     }
     for (const file of expectedDocsHTML) assert.ok(docsHTML.includes(file), `Missing ${file}`);
     const schema = JSON.parse(await readFile(path.join(docsDirectory, "openapi.json"), "utf8"));
@@ -1835,7 +1845,7 @@ test(
     assert.match(docsCorpus, /not part of the llms\.txt v2 proposal/u);
     assert.doesNotMatch(
       docsCorpus,
-      /Generated from the canonical|^Title:|^Description:|^Canonical:/m,
+      /Generated from the canonical|^Title:[^\n]*\nDescription:[^\n]*\nCanonical:/m,
     );
     assert.doesNotMatch(docsCorpus, /"openapi"\s*:\s*"3\./u);
     assert.doesNotMatch(

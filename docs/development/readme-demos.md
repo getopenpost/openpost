@@ -32,7 +32,7 @@ devenv shell -- bun scripts/encode-product-demos.mjs
 ```
 
 The GIFs use 800px width and one palette per clip. Publishing and video editing
-use 8 frames per second; the longer thumbnail edit uses 6. Palettes use 96 to 128
+use 8 frames per second; the thumbnail edit uses 6. Palettes use 96 to 128
 colors, with per-clip settings in `scripts/encode-product-demos.mjs`.
 The browser captures PNG frames with timestamps, preserving unchanged pixels for
 GIF compression. The recorder fits each scene's actions into its allotted time

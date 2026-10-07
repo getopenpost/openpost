@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dismissTelemetryConsent } from "./helpers";
 
+const PALETTE_MIDPOINT = 128;
+
 async function choose(page: Page, name: string, option: string) {
   await page.getByRole("button", { name, exact: true }).click();
   await page.getByRole("option", { name: option, exact: true }).click();
@@ -55,22 +57,28 @@ for (const host of ["dark", "light"] as const)
           await choose(page, "Preview appearance", appearance);
           await expect(card).toHaveAttribute("data-preview-scheme", appearance.toLowerCase());
           await expect(card).toHaveCSS("color-scheme", appearance.toLowerCase());
-          await page.evaluate(
-            () =>
-              new Promise<void>((resolve) => {
-                requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-              }),
-          );
-          samples[appearance] = await native.evaluate((element) => {
-            function brightness(node: Element) {
-              const value = getComputedStyle(node).backgroundColor;
-              const rgb = value.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-              if (!rgb) throw new Error(`Expected an opaque native surface, received ${value}`);
-              return (Number(rgb[1]) + Number(rgb[2]) + Number(rgb[3])) / 3;
+          await expect(async () => {
+            const sample = await native.evaluate((element) => {
+              function brightness(node: Element) {
+                const value = getComputedStyle(node).backgroundColor;
+                const rgb = value.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+                if (!rgb) throw new Error(`Expected an opaque native surface, received ${value}`);
+                return (Number(rgb[1]) + Number(rgb[2]) + Number(rgb[3])) / 3;
+              }
+              const shell = element.closest(".preview-page");
+              return { card: brightness(element), shell: shell ? brightness(shell) : null };
+            });
+            const surfaces = network === "TikTok" ? [] : [sample.card];
+            if (view === "Full page") {
+              expect(sample.shell).not.toBeNull();
+              surfaces.push(sample.shell!);
             }
-            const shell = element.closest(".preview-page");
-            return { card: brightness(element), shell: shell ? brightness(shell) : null };
-          });
+            for (const surface of surfaces) {
+              if (appearance === "Light") expect(surface).toBeGreaterThan(PALETTE_MIDPOINT);
+              else expect(surface).toBeLessThan(PALETTE_MIDPOINT);
+            }
+            samples[appearance] = sample;
+          }).toPass({ timeout: 5000 });
         }
         await testInfo.attach(`${network}-${view}-palettes`, {
           body: JSON.stringify(samples),

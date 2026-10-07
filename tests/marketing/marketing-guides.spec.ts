@@ -60,11 +60,11 @@ test.describe("buying guides without JavaScript", () => {
       const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
       expect(canonical).toBe(`https://openpo.st${new URL(page.url()).pathname}`);
       expect(sitemapText).toContain(canonical);
-      const markdownPath = await page
-        .locator('link[rel="alternate"][type="text/markdown"]')
-        .getAttribute("href");
-      expect(markdownPath).toBeTruthy();
-      const markdown = await request.get(new URL(markdownPath!).pathname);
+      const markdownURL = `${canonical}.md`;
+      await expect(
+        page.locator(`link[rel="alternate"][type="text/markdown"][href="${markdownURL}"]`),
+      ).toHaveCount(1);
+      const markdown = await request.get(new URL(markdownURL).pathname);
       expect(markdown.ok()).toBe(true);
       expect(await markdown.text()).toContain(question);
     }

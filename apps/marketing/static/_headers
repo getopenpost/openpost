@@ -25,9 +25,11 @@
   Access-Control-Allow-Origin: *
 /*.md
   Content-Type: text/markdown; charset=utf-8
+  X-Robots-Tag: noindex
   Vary: Accept
 /llms*.txt
   Content-Type: text/plain; charset=utf-8
+  X-Robots-Tag: noindex
 /robots.txt
   Content-Type: text/plain; charset=utf-8
   Content-Signal: search=yes, ai-input=yes, ai-train=yes

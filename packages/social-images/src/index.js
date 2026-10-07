@@ -102,9 +102,9 @@ const toolPages = [
   {
     slug: "thread-splitter",
     name: "Thread splitter",
-    title: "Free social media thread splitter - OpenPost",
+    title: "Free thread splitter for X, Bluesky & Threads - OpenPost",
     description:
-      "Split long drafts into clean parts for X, Bluesky, Mastodon, Threads, or LinkedIn.",
+      "Split a long post into numbered parts within each network's character limit. Review, copy, or continue your thread in OpenPost.",
   },
   {
     slug: "fediverse-handle-checker",
@@ -214,10 +214,10 @@ const staticMarketingEntries = [
   {
     path: "/tools",
     key: "tools",
-    title: "Free image, video and social media tools - OpenPost",
+    title: "OpenPost free tools: post previews, threads, image & video editors",
     socialTitle: "Useful social tools. No account required.",
     description:
-      "Remove backgrounds, convert images, video and audio, inspect codecs, make a logo, or cut a video. Free browser tools, no account required.",
+      "Preview social posts, split threads, format LinkedIn text, edit images and videos, or convert files. Use OpenPost's free browser tools without an account.",
     label: "OpenPost free tools",
     kind: "tools-index",
     agentRepresentation: "static",

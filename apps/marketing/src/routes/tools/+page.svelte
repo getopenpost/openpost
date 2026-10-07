@@ -66,10 +66,10 @@
 
 <section class="tools-directory marketing-shell" aria-labelledby="tools-title">
 	<header>
-		<h1 id="tools-title">Free tools.<br /><HeroAccent>Ready when you are.</HeroAccent></h1>
+		<h1 id="tools-title">Free tools.<br /><HeroAccent>For your next post.</HeroAccent></h1>
 		<p class="intro">
-			Remove a background, pick a color, convert a file, or make your next post. Open a tool and get
-			straight to work.
+			Preview a post, split a thread, format LinkedIn text, or edit your media. Start with a tool,
+			then continue your draft in OpenPost when you are ready to publish.
 		</p>
 		<p class="privacy">
 			<ShieldCheck size={18} aria-hidden="true" /> No account required. Media tools run on your device,

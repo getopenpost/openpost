@@ -19,7 +19,7 @@ const previewArticles = Object.fromEntries<ToolArticle>(
 			title: tool.name,
 			description: tool.description,
 			privacy:
-				'Text and local files stay in your browser. Public image and video URLs load from their hosts.',
+				'Text and local files stay in your browser until you continue in OpenPost. Public image and video URLs load from their hosts.',
 			steps: [
 				'Write your post and choose a format.',
 				'Add your account details and media through Post details.',
@@ -50,7 +50,7 @@ const previewArticles = Object.fromEntries<ToolArticle>(
 				{
 					question: 'Will my files upload?',
 					answer:
-						'Local files use temporary browser URLs and are not uploaded. Closing or refreshing the page clears your draft.'
+						'Previewing does not upload local files. Schedule this post sends your draft to OpenPost, where selected files upload after sign-in. Closing or refreshing this tool clears its draft.'
 				}
 			]
 		}
@@ -61,7 +61,7 @@ const authoredArticles = {
 	'multi-platform-character-counter': {
 		title: 'Social media character counter',
 		description: 'Paste your post. See how it fits on each channel.',
-		privacy: 'Your text stays in your browser.',
+		privacy: 'Your text stays in your browser until you choose to continue in OpenPost.',
 		steps: [
 			'Paste or type your draft in the box.',
 			'Check the count for the channels you use.',
@@ -109,16 +109,17 @@ const authoredArticles = {
 	},
 	'thread-splitter': {
 		title: 'Thread splitter',
-		description: 'Turn a long draft into a thread. Copy it when it reads right.',
-		privacy: 'Your draft stays in your browser.',
+		description:
+			'Split your draft to fit each network. Review the parts, then copy or schedule the thread.',
+		privacy: 'Your draft stays in your browser until you choose to continue in OpenPost.',
 		steps: [
 			'Paste the full story.',
 			'Choose your channel and whether to number the posts.',
-			'Read the parts in order, then copy the thread.'
+			'Read the parts in order, then copy them or choose Schedule this thread.'
 		],
 		sections: [
 			{
-				title: 'Give a longer idea room to breathe',
+				title: 'Split a draft for each network',
 				paragraphs: [
 					'A launch story, a useful lesson, or a step-by-step explanation can need more than one post. The thread splitter divides a draft into smaller parts for X, Bluesky, Mastodon, Threads, or LinkedIn. It looks for paragraph, sentence, and word breaks so each part remains readable.',
 					'Start with the complete thought. You do not need to count characters while you are writing the first draft. Once the story is there, choose a channel and review how the parts fit together.'
@@ -152,14 +153,14 @@ const authoredArticles = {
 			{
 				question: 'Can I schedule the result?',
 				answer:
-					'Copy the parts into OpenPost’s thread composer, review the supported channels, and choose when to share it.'
+					'Choose Schedule this thread to open these exact parts in OpenPost. Sign in, review the supported channels, and choose when to publish.'
 			}
 		]
 	},
 	'linkedin-text-formatter': {
 		title: 'LinkedIn text formatter',
 		description: 'Tidy your LinkedIn post before you share it.',
-		privacy: 'Your text stays in your browser.',
+		privacy: 'Your text stays in your browser until you choose to continue in OpenPost.',
 		steps: [
 			'Paste your LinkedIn draft.',
 			'Choose a paragraph length and tidy the bullet points.',
@@ -357,7 +358,8 @@ const authoredArticles = {
 	'post-preview-generator': {
 		title: 'Social post preview',
 		description: 'See your post before you share it.',
-		privacy: 'Text and local files stay in your browser. Linked media loads from its source.',
+		privacy:
+			'Text and local files stay in your browser until you continue in OpenPost. Linked media loads from its source.',
 		steps: [
 			'Choose a channel and write your post.',
 			'Add an image, video, or other supported format.',

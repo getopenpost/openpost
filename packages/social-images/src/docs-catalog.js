@@ -553,7 +553,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "index.mdx",
     "title": "OpenPost documentation",
-    "description": "Learn how to connect your accounts, create content, and check every post's delivery.",
+    "description": "Connect social accounts, write and schedule posts, and check delivery in OpenPost.",
     "route": "/",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1451,8 +1451,8 @@ export const docsPageCatalog = Object.freeze([
   },
   {
     "page": "self-hosting/zimaos.mdx",
-    "title": "Install on ZimaOS",
-    "description": "Import OpenPost as a ZimaOS custom app from a ready-to-use Compose file.",
+    "title": "Install OpenPost on ZimaOS with Docker Compose",
+    "description": "Import OpenPost as a ZimaOS custom app, set your device IP and secrets, then check readiness before connecting social accounts.",
     "route": "/self-hosting/zimaos",
     "agentRepresentation": {
       "membership": "ordinary"

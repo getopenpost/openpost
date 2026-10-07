@@ -21,3 +21,12 @@
 /guides/scheduling https://openpo.st/docs/guides/publishing#schedule-and-calendar 301
 /guides/scheduling/ https://openpo.st/docs/guides/publishing#schedule-and-calendar 301
 /guides/scheduling.md https://openpo.st/docs/guides/publishing.md#schedule-and-calendar 301
+/workflows /docs/workflows 301
+/workflows/ /docs/workflows 301
+/api-reference /docs/api-reference 301
+/mcp /docs/mcp 301
+/guides/quickstart /docs/guides/quickstart 301
+/guides/screenshot-templates /docs/guides/screenshot-templates 301
+/workflows/* /docs/workflows/:splat 301
+/api-reference/* /docs/api-reference/:splat 301
+/mcp/* /docs/mcp/:splat 301

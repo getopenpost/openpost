@@ -67,7 +67,7 @@ export async function videoEditorDemo(page: Page) {
     await page.mouse.move(
       handle.x + handle.width / 2 + start + frame * 4 - box.x - box.width,
       handle.y + handle.height / 2,
-      { steps: 20 },
+      { steps: 10 },
     );
     await page.mouse.up();
     await expect.poll(async () => (await selected.boundingBox())!.width).toBeLessThan(box.width);
@@ -75,7 +75,8 @@ export async function videoEditorDemo(page: Page) {
   await record(page, "video-editor", [
     {
       title: "Start with an opening",
-      seconds: 6,
+      seconds: 4,
+      hold: 1200,
       run: async () => {
         await assets.getByRole("button", { name: "More", exact: true }).click();
         await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
@@ -87,7 +88,8 @@ export async function videoEditorDemo(page: Page) {
     },
     {
       title: "Give it a title",
-      seconds: 6,
+      seconds: 4,
+      hold: 1200,
       run: async () => {
         await page.getByRole("button", { name: "Add layer", exact: true }).click();
         await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
@@ -101,8 +103,28 @@ export async function videoEditorDemo(page: Page) {
       },
     },
     {
+      title: "Animate the title in and out",
+      seconds: 5,
+      hold: 1200,
+      run: async () => {
+        await clip("STUDY SOS")
+          .getByRole("button", { name: /Drag to move/ })
+          .click();
+        const inspector = page.locator("#video-editor-tools-panel");
+        await inspector.getByRole("tab", { name: "Animation", exact: true }).click();
+        const search = inspector.getByRole("searchbox", { name: "Search animation", exact: true });
+        await search.fill("Pop in");
+        await inspector.getByRole("button", { name: "Replace Pop in", exact: true }).click();
+        await inspector.getByRole("button", { name: "Add", exact: true }).click();
+        await search.fill("Fade out");
+        await inspector.getByRole("button", { name: "Add Fade out", exact: true }).click();
+        await seek(30);
+      },
+    },
+    {
       title: "Bring in footage and music",
-      seconds: 7,
+      seconds: 5,
+      hold: 1200,
       run: async () => {
         await seek(60);
         await assets.getByRole("tab", { name: "Media pool", exact: true }).click();
@@ -131,7 +153,8 @@ export async function videoEditorDemo(page: Page) {
     },
     {
       title: "Cut and blend the footage",
-      seconds: 10,
+      seconds: 6,
+      hold: 1200,
       run: async () => {
         await seek(180);
         await footage.getByRole("button", { name: /Drag to move/ }).click({ button: "right" });
@@ -148,7 +171,7 @@ export async function videoEditorDemo(page: Page) {
         const right = (await second.boundingBox())!;
         await page.mouse.move(right.x + 48, right.y + right.height / 2);
         await page.mouse.down();
-        await page.mouse.move(left.x + left.width + 48, right.y + right.height / 2, { steps: 20 });
+        await page.mouse.move(left.x + left.width + 48, right.y + right.height / 2, { steps: 10 });
         await page.mouse.up();
         await expect
           .poll(async () => {
@@ -165,7 +188,8 @@ export async function videoEditorDemo(page: Page) {
     },
     {
       title: "Add a little texture",
-      seconds: 7,
+      seconds: 5,
+      hold: 1200,
       run: async () => {
         await footage.getByRole("button", { name: /Drag to move/ }).click();
         await page
@@ -175,7 +199,7 @@ export async function videoEditorDemo(page: Page) {
         const search = page.getByRole("searchbox", { name: "Search effects", exact: true });
         await search.fill("Vignette");
         await page.locator('[data-effect-catalog-id="gpu-vignette"]').click();
-        await page.waitForTimeout(700);
+        await page.waitForTimeout(300);
         await search.fill("Glow");
         await page.locator('[data-effect-catalog-id="gpu-glow"]').click();
         await seek(115);
@@ -183,7 +207,8 @@ export async function videoEditorDemo(page: Page) {
     },
     {
       title: "Warm up the color",
-      seconds: 7,
+      seconds: 5,
+      hold: 1200,
       run: async () => {
         await page.getByRole("tab", { name: "Color", exact: true }).click();
         const wheel = page.getByRole("slider", { name: "Gain color wheel", exact: true });
@@ -191,9 +216,9 @@ export async function videoEditorDemo(page: Page) {
         const box = (await wheel.boundingBox())!;
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
-        await page.mouse.move(box.x + box.width * 0.56, box.y + box.height * 0.46, { steps: 15 });
+        await page.mouse.move(box.x + box.width * 0.56, box.y + box.height * 0.46, { steps: 8 });
         await page.mouse.up();
-        await page.waitForTimeout(700);
+        await page.waitForTimeout(300);
         await page.getByRole("tab", { name: "Curves", exact: true }).click();
         const curve = page.getByRole("group", { name: "Master curve editor", exact: true });
         await expect(curve).toBeVisible();
@@ -203,8 +228,8 @@ export async function videoEditorDemo(page: Page) {
     },
     {
       title: "Preview the finished edit",
-      seconds: 7,
-      hold: 1000,
+      seconds: 6,
+      hold: 500,
       run: async () => {
         await page.getByRole("tab", { name: "Edit", exact: true }).click();
         await seek(0);
@@ -215,8 +240,8 @@ export async function videoEditorDemo(page: Page) {
     },
     {
       title: "Ready for YouTube",
-      seconds: 4,
-      hold: 2200,
+      seconds: 3,
+      hold: 1800,
       run: async () => {
         await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
         await expect(page.getByRole("dialog", { name: "Export video" })).toBeVisible();

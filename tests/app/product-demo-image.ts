@@ -116,17 +116,17 @@ export async function imageEditorDemo({
     const box = (await stage.boundingBox())!;
     const scale = box.width / 1280;
     await page.mouse.move(box.x + from.x * scale, box.y + from.y * scale);
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(120);
     await page.mouse.down();
-    for (let step = 1; step <= 18; step++) {
+    for (let step = 1; step <= 12; step++) {
       await page.mouse.move(
-        box.x + (from.x + ((to.x - from.x) * step) / 18) * scale,
-        box.y + (from.y + ((to.y - from.y) * step) / 18) * scale,
+        box.x + (from.x + ((to.x - from.x) * step) / 12) * scale,
+        box.y + (from.y + ((to.y - from.y) * step) / 12) * scale,
       );
-      await page.waitForTimeout(25);
+      await page.waitForTimeout(12);
     }
     await page.mouse.up();
-    await page.waitForTimeout(450);
+    await page.waitForTimeout(180);
   };
   const color = async (name: string, hex: string) => {
     await properties.getByRole("button", { name, exact: true }).click();
@@ -172,7 +172,8 @@ export async function imageEditorDemo({
   await record(page, "image-editor", [
     {
       title: "Start with a blank thumbnail",
-      seconds: 5,
+      seconds: 4,
+      hold: 1200,
       run: async () => {
         await page.getByRole("button", { name: /YouTube thumbnail/ }).click();
         await expect(stage).toBeVisible();
@@ -184,7 +185,8 @@ export async function imageEditorDemo({
     },
     {
       title: "Drag in your logo",
-      seconds: 8,
+      seconds: 5,
+      hold: 1200,
       run: async () => {
         await page.getByRole("button", { name: "Add", exact: true }).first().click();
         const logo = page.getByRole("button", { name: /risc-v-logo\.png/ });
@@ -209,20 +211,32 @@ export async function imageEditorDemo({
     },
     {
       title: "Size and place the heading",
-      seconds: 8,
+      seconds: 5,
+      hold: 1200,
       run: () => title("PROGRAMA EM", 171, 218, 49),
     },
-    { title: "Build the second line", seconds: 6, run: () => title("EM", 159, 223, 509) },
+    {
+      title: "Build the second line",
+      seconds: 4,
+      hold: 1200,
+      run: () => title("EM", 159, 223, 509),
+    },
     {
       title: "Make the number stand out",
-      seconds: 7,
+      seconds: 5,
+      hold: 1200,
       run: () => title("30", 209, 405, 462, "#FF8500"),
     },
-    { title: "Finish the layout", seconds: 7, run: () => title("MINUTOS", 160, 640, 509) },
+    {
+      title: "Finish the layout",
+      seconds: 5,
+      hold: 1200,
+      run: () => title("MINUTOS", 160, 640, 509),
+    },
     {
       title: "Download your thumbnail",
-      seconds: 5,
-      hold: 2500,
+      seconds: 4,
+      hold: 2000,
       run: async () => {
         await page.getByRole("button", { name: "Export", exact: true }).click();
         const dialog = page.getByRole("dialog");

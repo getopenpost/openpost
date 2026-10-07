@@ -45,7 +45,9 @@ and readable when the README scales down on a phone. They must not cover editor
 controls or the timeline. Gifsicle removes redundant pixels without further
 quality loss. Cut idle time and unnecessary steps before reducing resolution.
 
-The README retains still-image sources for reduced motion. It also links each demo
+Keep the publishing demo near the introduction and the smaller editor demos beside
+their feature descriptions below the feature list. The README retains still-image
+sources for reduced motion. It also links each demo
 to the relevant product. Keep useful alt text and verify the README on desktop and
 at 390px and 320px widths in both schemes.
 
@@ -64,7 +66,8 @@ editor's drag controls; font style and colors use the inspector. Font attributio
 and the supplied reference are in `tests/app/fixtures/product-demos/`.
 
 The video scenario adds an animated opening and title, original instrumental
-music, a cut with a dissolve, two effects, and color wheel and curve adjustments.
+music, title entrance and exit animations, a cut with a dissolve, two effects, and
+color wheel and curve adjustments.
 GIFs and screen-capture MP4s are silent. The project includes the music track.
 It reuses the existing
 [Study SOS demo footage](https://www.youtube.com/watch?v=-m-ea3jfRpo) from the product

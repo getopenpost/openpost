@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { error } from '@sveltejs/kit';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import CharacterCounter from '../../_components/tools/CharacterCounter.svelte';
 	import HandleChecker from '../../_components/tools/HandleChecker.svelte';
 	import LinkedInFormatter from '../../_components/tools/LinkedInFormatter.svelte';

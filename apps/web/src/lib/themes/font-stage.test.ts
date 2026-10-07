@@ -1,17 +1,17 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { resolveBuiltInTheme } from './builtins.js';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
 import type {
 	ResolvedTheme,
 	ThemeFontFace,
 	ThemeRuntimeFontFace,
 	WebResolvedTheme
-} from './contracts.js';
+} from '@openpost/ui/themes/contracts.js';
 import {
 	createThemeFontPlan,
 	stageThemeFontPlan,
 	type ThemeFontEnvironment,
 	type ThemeFontFaceHandle
-} from './font-stage.js';
+} from '@openpost/ui/themes/font-stage.js';
 
 function storedFace(family: string, weight: number, revision = '1'): ThemeFontFace {
 	return {

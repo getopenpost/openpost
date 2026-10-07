@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveBuiltInTheme } from './builtins.js';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
 import {
 	WebThemeRuntime,
 	browserThemeRuntimeLoaders,
 	type ThemeRuntimeLoaders
-} from './runtime.js';
+} from '@openpost/ui/themes/runtime.js';
 
 const scopes: HTMLElement[] = [];
 

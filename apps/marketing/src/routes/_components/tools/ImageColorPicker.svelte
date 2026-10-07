@@ -2,9 +2,9 @@
 	import { Clipboard, Pipette, RotateCcw } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
 	import EditorColorMagnifier from '$lib/components/editor-color-magnifier.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
+	import { Button } from '@openpost/ui/components/button';
+	import { Input } from '@openpost/ui/components/input';
+	import { Label } from '@openpost/ui/components/label';
 	import type { OpenPostEyeDropperConstructor } from '$lib/browser-capabilities';
 	import { rgbToHSL } from '$lib/color';
 	import LocalImageDropZone from './LocalImageDropZone.svelte';

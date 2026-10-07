@@ -1,14 +1,35 @@
 {
   "name": "@openpost/dither",
-  "private": true,
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "files": [
+    "dist",
+    "NOTICE.md",
+    "src"
+  ],
   "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
-    ".": "./src/index.ts",
-    "./style.css": "./src/style.css",
-    "./paint": "./src/paint.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "react-native": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./paint": {
+      "types": "./src/paint.ts",
+      "bun": "./src/paint.ts",
+      "react-native": "./src/paint.ts",
+      "default": "./dist/paint.js"
+    }
   },
   "scripts": {
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "build": "tsc --outDir dist --declaration && cp src/style.css dist/style.css",
+    "prepack": "bun run build"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

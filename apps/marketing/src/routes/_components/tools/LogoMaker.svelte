@@ -3,11 +3,11 @@
 	import { Check, Clipboard, Download, Rocket, Search } from '@lucide/svelte';
 	import { logoIcons, searchLogoIcons, LOGO_ICON_BATCH_SIZE } from './logo-icons';
 	import { browser } from '$app/environment';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
-	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { Button } from '@openpost/ui/components/button';
+	import { Checkbox } from '@openpost/ui/components/checkbox';
+	import { Input } from '@openpost/ui/components/input';
+	import { Slider } from '@openpost/ui/components/slider';
+	import { Skeleton } from '@openpost/ui/components/skeleton';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import {

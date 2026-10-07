@@ -4,7 +4,7 @@ import {
 	BUNDLED_THEME_FONT_IDS,
 	bundledThemeFont,
 	isAvailableThemeFontFamily
-} from './bundled-fonts.js';
+} from '@openpost/ui/themes/bundled-fonts.js';
 
 describe('bundled theme fonts', () => {
 	it('provides one complete editor option for every approved bundled family', () => {

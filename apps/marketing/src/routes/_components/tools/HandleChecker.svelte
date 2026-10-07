@@ -8,8 +8,8 @@
 		LoaderCircle,
 		SearchCheck
 	} from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { Button } from '@openpost/ui/components/button';
+	import { Input } from '@openpost/ui/components/input';
 	import { copyToClipboard, parseSocialHandle } from '../../tools/_lib/tool-utils';
 
 	type LiveResult =

@@ -1,45 +1,28 @@
 @import "tailwindcss";
 @import "@openpost/dither/style.css";
+@import "@openpost/ui/tokens.css";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @import "fumadocs-openapi/css/preset.css";
 
-@theme {
+@theme inline {
   --font-sans: "Geist Variable", Geist, system-ui, sans-serif;
-  --color-fd-background: #faf9f6;
-  --color-fd-foreground: #302b28;
-  --color-fd-muted: #f0efeb;
-  --color-fd-muted-foreground: #6b655f;
-  --color-fd-popover: #ffffff;
-  --color-fd-popover-foreground: #302b28;
-  --color-fd-card: #ffffff;
-  --color-fd-card-foreground: #302b28;
-  --color-fd-border: #e5e1dc;
-  --color-fd-primary: #b74c05;
-  --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: #f0efeb;
-  --color-fd-secondary-foreground: #302b28;
-  --color-fd-accent: #eeeae4;
-  --color-fd-accent-foreground: #302b28;
-  --color-fd-ring: #b74c05;
-}
-.dark {
-  --color-fd-background: #171513;
-  --color-fd-foreground: #edeae6;
-  --color-fd-muted: #211e1b;
-  --color-fd-muted-foreground: #b0a79e;
-  --color-fd-popover: #211e1b;
-  --color-fd-popover-foreground: #edeae6;
-  --color-fd-card: #1c1916;
-  --color-fd-card-foreground: #edeae6;
-  --color-fd-border: #37312b;
-  --color-fd-primary: #fd975d;
-  --color-fd-primary-foreground: #21150b;
-  --color-fd-secondary: #211e1b;
-  --color-fd-secondary-foreground: #edeae6;
-  --color-fd-accent: #302820;
-  --color-fd-accent-foreground: #edeae6;
-  --color-fd-ring: #fd975d;
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--action-focal);
+  --color-fd-primary-foreground: var(--action-focal-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-accent: var(--selection);
+  --color-fd-accent-foreground: var(--selection-foreground);
+  --color-fd-ring: var(--ring);
 }
 body {
   font-family: var(--font-sans);

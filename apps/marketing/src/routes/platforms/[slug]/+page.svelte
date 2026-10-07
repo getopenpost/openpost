@@ -3,7 +3,7 @@
 	import { error } from '@sveltejs/kit';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import HeroAccent from '../../_components/HeroAccent.svelte';
 	import ProductScreenshot from '../../_components/ProductScreenshot.svelte';

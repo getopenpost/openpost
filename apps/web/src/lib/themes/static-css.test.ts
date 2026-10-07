@@ -1,11 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { resolveBuiltInTheme } from './builtins.js';
-import { THEME_CANVAS_TREATMENTS, THEME_COMPONENT_RECIPE_OPTIONS } from './contracts.js';
-import { themeSchemeToCssVariables } from './runtime.js';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
+import {
+	THEME_CANVAS_TREATMENTS,
+	THEME_COMPONENT_RECIPE_OPTIONS
+} from '@openpost/ui/themes/contracts.js';
+import { themeSchemeToCssVariables } from '@openpost/ui/themes/runtime.js';
 
 function declarations(selector: string): Map<string, string> {
-	const css = readFileSync(new URL('../../routes/layout.css', import.meta.url), 'utf8');
+	const css = readFileSync(
+		new URL('../../../../../packages/ui/src/lib/tokens.css', import.meta.url),
+		'utf8'
+	);
 	const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const block = new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? '';
 	return new Map(
@@ -14,7 +20,10 @@ function declarations(selector: string): Map<string, string> {
 }
 
 function layoutCss(): string {
-	return readFileSync(new URL('../../routes/layout.css', import.meta.url), 'utf8');
+	return readFileSync(
+		new URL('../../../../../packages/ui/src/lib/style.css', import.meta.url),
+		'utf8'
+	);
 }
 
 function normalized(value: string): string {

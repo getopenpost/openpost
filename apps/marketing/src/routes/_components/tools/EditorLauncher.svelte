@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import { appUrl } from '../../_marketing';
 	let { editor }: { editor: 'image' | 'video' } = $props();
 	const isVideo = $derived(editor === 'video');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import ProtectedIcon from './protected-icon.svelte';
+import ProtectedIcon from '@openpost/ui/themes/icons/protected-icon.svelte';
 
 describe('ProtectedIcon', () => {
 	it('keeps status and media glyphs outside the selected theme pack', async () => {

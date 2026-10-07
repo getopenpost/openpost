@@ -1,7 +1,1 @@
-import Root from './skeleton.svelte';
-
-export {
-	Root,
-	//
-	Root as Skeleton
-};
+export * from '@openpost/ui/components/skeleton/index';

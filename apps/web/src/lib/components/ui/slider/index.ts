@@ -1,3 +1,1 @@
-import Root from './slider.svelte';
-
-export { Root, Root as Slider };
+export * from '@openpost/ui/components/slider/index';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { LockKeyhole, UserRoundCheck, ShieldCheck, ArrowUpRight } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import { formatLegalDate, securityAssurance } from '@openpost/legal-policy';
 	import { githubUrl } from '../_marketing';
 	import HeroAccent from '../_components/HeroAccent.svelte';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ArrowLeft, ArrowRight, Check } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import HeroAccent from '../HeroAccent.svelte';
 	import ThemeImage from '../ThemeImage.svelte';
 	import {

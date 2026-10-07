@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import Slider from './slider.svelte';
+import Slider from '@openpost/ui/components/slider/slider.svelte';
 
 describe('Slider', () => {
 	it('does not report step normalization as a user edit', async () => {

@@ -1,6 +1,1 @@
-import Root from './checkbox.svelte';
-export {
-	Root,
-	//
-	Root as Checkbox
-};
+export * from '@openpost/ui/components/checkbox/index';

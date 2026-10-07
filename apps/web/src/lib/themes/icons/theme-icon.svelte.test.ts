@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import ThemeIcon from './theme-icon.svelte';
+import ThemeIcon from '@openpost/ui/themes/icons/theme-icon.svelte';
 
 const originalPack = document.documentElement.getAttribute('data-theme-icon-pack');
 

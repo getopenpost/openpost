@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ArrowRight, Search, ShieldCheck } from '@lucide/svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
+	import { Input } from '@openpost/ui/components/input';
+	import { Button } from '@openpost/ui/components/button';
 	import HeroAccent from '../_components/HeroAccent.svelte';
 	import ToolThumbnail from './ToolThumbnail.svelte';
 	import { tools, getToolCategory } from '../_marketing';

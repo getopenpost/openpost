@@ -3,12 +3,12 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { BUILT_IN_THEMES, resolveBuiltInTheme } from './builtins.js';
+import { BUILT_IN_THEMES, resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
 import {
 	isSafeThemeColor,
 	isSafeThemeSchemeManifestValues,
 	themeColorContrastRatio
-} from './validation.js';
+} from '@openpost/ui/themes/validation.js';
 
 describe('theme manifest value validation', () => {
 	it('ships lookbehind-free color detectors for pre-16.4 Safari engines', () => {

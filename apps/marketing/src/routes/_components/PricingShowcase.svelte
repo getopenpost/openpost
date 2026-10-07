@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import Check from '@lucide/svelte/icons/check';
 	import { planCatalog, purchaseTerms } from '@openpost/plan-catalog';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import {
 		appUrl,
 		billingSettingsUrl,

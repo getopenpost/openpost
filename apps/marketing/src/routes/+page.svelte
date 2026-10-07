@@ -2,7 +2,7 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import Play from '@lucide/svelte/icons/play';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import PostizSocialLogo from './_components/PostizSocialLogo.svelte';
 	import {
 		demoVideoUrl,

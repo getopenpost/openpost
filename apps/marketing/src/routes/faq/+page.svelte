@@ -2,7 +2,7 @@
 	import HeroAccent from '../_components/HeroAccent.svelte';
 	import { resolve } from '$app/paths';
 	import { ArrowRight, ExternalLink, Mail, MessageCircle } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import {
 		discordCommunityUrl,
 		faqCategories,

@@ -1,7 +1,1 @@
-import Root from './badge.svelte';
-
-export {
-	Root,
-	//
-	Root as Badge
-};
+export * from '@openpost/ui/components/badge/index';

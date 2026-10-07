@@ -11,7 +11,7 @@ import { format } from "oxfmt";
 import sharp from "sharp";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const packsDirectory = resolve(root, "apps/web/src/lib/themes/icons/packs");
+const packsDirectory = resolve(root, "packages/ui/src/lib/themes/icons/packs");
 const mobilePacksDirectory = resolve(root, "apps/mobile/src/theme/icon-packs");
 const mobileAssetsDirectory = resolve(root, "apps/mobile/assets/theme-icons");
 const packIDs = ["lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"];

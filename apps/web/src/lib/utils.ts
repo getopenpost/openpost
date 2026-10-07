@@ -1,16 +1,10 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-export function cn(...inputs: ClassValue[]) {
-	return twMerge(clsx(inputs));
-}
-
-export type WithoutChild<T> = T extends { child?: any } ? Omit<T, 'child'> : T;
-export type WithoutChildren<T> = T extends { children?: any } ? Omit<T, 'children'> : T;
-export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>;
-export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & {
-	ref?: U | null;
-};
+export {
+	cn,
+	type WithoutChild,
+	type WithoutChildren,
+	type WithoutChildrenOrChild,
+	type WithElementRef
+} from '@openpost/ui/utils';
 
 export function getPlatformKey(platform: string): string {
 	const key = platform.toLowerCase().split(':')[0];

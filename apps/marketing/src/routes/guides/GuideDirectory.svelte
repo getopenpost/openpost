@@ -2,8 +2,8 @@
 	import { ArrowRight, Search, BookOpen, Scale, ShieldCheck } from '@lucide/svelte';
 	import { marketingGuides } from '@openpost/social-images';
 	import { onMount } from 'svelte';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
+	import { Input } from '@openpost/ui/components/input';
+	import { Button } from '@openpost/ui/components/button';
 	import HeroAccent from '../_components/HeroAccent.svelte';
 	import GuideVisual from './GuideVisual.svelte';
 	let { collection = 'all' }: { collection?: 'all' | 'comparisons' } = $props();

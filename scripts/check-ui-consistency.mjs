@@ -7,12 +7,12 @@ import { sourceFiles } from "./check-query-shared.mjs";
 const sourceRoots = ["apps/web", "apps/marketing"];
 const nativeControlPattern = /<(input|select|textarea)\b/gu;
 const primitiveImplementations = new Set([
-  "apps/web/src/lib/components/ui/input/input.svelte",
-  "apps/web/src/lib/components/ui/textarea/textarea.svelte",
+  "packages/ui/src/lib/components/input/input.svelte",
+  "packages/ui/src/lib/components/textarea/textarea.svelte",
   // The shadcn-svelte calendar keeps a transparent native select behind its
   // styled month and year captions for mobile-picker and form semantics.
-  "apps/web/src/lib/components/ui/calendar/calendar-month-select.svelte",
-  "apps/web/src/lib/components/ui/calendar/calendar-year-select.svelte",
+  "packages/ui/src/lib/components/calendar/calendar-month-select.svelte",
+  "packages/ui/src/lib/components/calendar/calendar-year-select.svelte",
 ]);
 
 const svelteExtensions = new Set([".svelte"]);

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ArrowRight, Scissors } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import { appUrl } from '../../_marketing';
 </script>
 

@@ -26,7 +26,8 @@
 		"medium-zoom": "^1.1.0",
 		"mode-watcher": "^1.1.0",
 		"rough-notation": "^0.5.1",
-		"@openpost/draft-transfer": "workspace:*"
+		"@openpost/draft-transfer": "workspace:*",
+		"@openpost/ui": "workspace:*"
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "^2.10.0",

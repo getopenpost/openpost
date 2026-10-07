@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { marketingGuides } from '@openpost/social-images';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import { ArrowRight, ArrowLeft } from '@lucide/svelte';
 	import GuideVisual from '../GuideVisual.svelte';
 	import type { PageData } from './$types';

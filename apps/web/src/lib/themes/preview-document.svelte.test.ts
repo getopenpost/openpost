@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveBuiltInTheme } from './builtins.js';
-import { mountThemePreviewDocument } from './preview-document.js';
-import { WebThemeRuntime, type ThemeRuntimeLoaders } from './runtime.js';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
+import { mountThemePreviewDocument } from '@openpost/ui/themes/preview-document.js';
+import { WebThemeRuntime, type ThemeRuntimeLoaders } from '@openpost/ui/themes/runtime.js';
 
 const frames: HTMLIFrameElement[] = [];
 

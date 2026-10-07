@@ -1,7 +1,1 @@
-import Root from './textarea.svelte';
-
-export {
-	Root,
-	//
-	Root as Textarea
-};
+export * from '@openpost/ui/components/textarea/index';

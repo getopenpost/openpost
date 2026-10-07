@@ -12,7 +12,7 @@ import {
 	isCompleteThemeSchemeManifest,
 	resolveBuiltInTheme,
 	themeColorContrastRatio
-} from './index.js';
+} from '@openpost/ui/themes/index.js';
 import canonicalBuiltIns from '../../../../server/internal/services/themes/builtins.v1.json';
 
 const typographyTokenKeys = ['family', 'fallbacks', 'weight', 'size', 'lineHeight', 'tracking'];

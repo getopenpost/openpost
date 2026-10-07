@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolveBuiltInTheme } from './builtins.js';
-import type { ThemeAsset, ThemeFontFace, WebResolvedTheme } from './contracts.js';
-import type { ThemeFontPlanEntry } from './font-stage.js';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
+import type { ThemeAsset, ThemeFontFace, WebResolvedTheme } from '@openpost/ui/themes/contracts.js';
+import type { ThemeFontPlanEntry } from '@openpost/ui/themes/font-stage.js';
 import {
 	WebThemeRuntime,
 	isOpaqueThemeResourceUrl,
@@ -9,7 +9,7 @@ import {
 	themeSchemeToCssVariables,
 	type ThemeRuntimeLoaders,
 	type ThemeScope
-} from './runtime.js';
+} from '@openpost/ui/themes/runtime.js';
 
 function deferred() {
 	let resolve!: () => void;

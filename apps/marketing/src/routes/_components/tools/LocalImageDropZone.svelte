@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ImageUp } from '@lucide/svelte';
-	import { Input } from '$lib/components/ui/input';
+	import { Input } from '@openpost/ui/components/input';
 	import {
 		firstClipboardImage,
 		LOCAL_IMAGE_MAX_BYTES,

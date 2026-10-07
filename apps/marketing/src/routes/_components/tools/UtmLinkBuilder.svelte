@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Check, ClipboardCopy, Link2 } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { Button } from '@openpost/ui/components/button';
+	import { Input } from '@openpost/ui/components/input';
 	import { copyToClipboard } from '../../tools/_lib/tool-utils';
 
 	type CopyState = 'idle' | 'copied' | 'failed';

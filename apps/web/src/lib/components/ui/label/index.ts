@@ -1,7 +1,1 @@
-import Root from './label.svelte';
-
-export {
-	Root,
-	//
-	Root as Label
-};
+export * from '@openpost/ui/components/label/index';

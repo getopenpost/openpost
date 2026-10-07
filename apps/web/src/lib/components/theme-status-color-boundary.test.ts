@@ -27,7 +27,10 @@ describe('semantic status color boundary', () => {
 	});
 
 	it('exposes foreground roles for every semantic status background', async () => {
-		const layout = await readFile(new URL('../../routes/layout.css', import.meta.url), 'utf8');
+		const layout = await readFile(
+			new URL('../../../../../packages/ui/src/lib/style.css', import.meta.url),
+			'utf8'
+		);
 
 		for (const role of ['success', 'warning', 'info']) {
 			expect(layout).toContain(`--color-${role}: var(--${role});`);

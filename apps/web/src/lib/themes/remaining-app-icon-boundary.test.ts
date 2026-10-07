@@ -17,7 +17,7 @@ const approvedPublicExceptions = [
 	// The protection mechanism itself: ProtectedIcon renders protected glyphs
 	// (status, media, editor) from the pinned library so theme packs can never
 	// replace them. This is the one allowed direct import inside theme scope.
-	'./icons/protected-icon.svelte'
+	'../../../../../packages/ui/src/lib/themes/icons/protected-icon.svelte'
 ];
 
 function sourceFiles(directory: string): string[] {

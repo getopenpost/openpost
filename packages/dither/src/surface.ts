@@ -1,4 +1,4 @@
-import { DITHER_CELL_SIZE, gradientMask, type GradientOptions } from "./paint";
+import { DITHER_CELL_SIZE, gradientMask, type GradientOptions } from "./paint.js";
 
 export interface SurfaceOptions extends Pick<GradientOptions, "direction" | "kind"> {
   interactive?: boolean;

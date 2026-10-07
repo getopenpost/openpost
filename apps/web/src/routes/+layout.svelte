@@ -17,6 +17,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
+	import { provideUiMessages } from '@openpost/ui/messages';
 	import { onboardingPathForPlan, paddleTransactionIDFromSearchParams } from '$lib/billing';
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
@@ -38,6 +39,7 @@
 	import { ui } from '$lib/stores/ui.svelte';
 
 	let { children } = $props();
+	provideUiMessages(m);
 	provideApplicationThemePreview();
 	const unsavedChanges = setUnsavedChanges(new UnsavedChangesContext());
 	const publicationQueryInvalidationBridge = createPublicationQueryInvalidationBridge(queryClient);

@@ -37,6 +37,17 @@
     "test:server": {
       "dependsOn": ["^check"],
       "outputs": []
+    },
+    "@openpost/dither#build": {
+      "outputs": ["dist/**"]
+    },
+    "@openpost/ui#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@openpost/ui#check": {
+      "dependsOn": ["build", "^check"],
+      "outputs": []
     }
   }
 }

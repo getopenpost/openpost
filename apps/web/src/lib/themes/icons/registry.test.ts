@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { THEME_ICON_PACK_IDS, THEME_ICON_ROLES } from '../contracts.js';
-import lucidePack from './packs/lucide.generated.js';
-import { createThemeIconRegistry, getThemeIcon, loadThemeIconPack } from './registry.js';
-import type { ThemeIconPack } from './types.js';
+import { THEME_ICON_PACK_IDS, THEME_ICON_ROLES } from '@openpost/ui/themes/contracts.js';
+import lucidePack from '@openpost/ui/themes/icons/packs/lucide.generated.js';
+import {
+	createThemeIconRegistry,
+	getThemeIcon,
+	loadThemeIconPack
+} from '@openpost/ui/themes/icons/registry.js';
+import type { ThemeIconPack } from '@openpost/ui/themes/icons/types.js';
 
 function packFor(id: ThemeIconPack['id']): ThemeIconPack {
 	return { id, icons: structuredClone(lucidePack.icons) };

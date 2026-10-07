@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { Check, Clipboard, Download, LoaderCircle, RotateCcw, X } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import {
 		BACKGROUND_REMOVAL_MAX_INPUT_BYTES,
 		BACKGROUND_REMOVAL_MAX_OUTPUT_DIMENSION,

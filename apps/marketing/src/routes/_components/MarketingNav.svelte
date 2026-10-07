@@ -21,8 +21,8 @@
 	import Images from '@lucide/svelte/icons/images';
 	import { mode, toggleMode } from 'mode-watcher';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as NavigationMenu from '$lib/components/ui/navigation-menu';
+	import { Button } from '@openpost/ui/components/button';
+	import * as NavigationMenu from '@openpost/ui/components/navigation-menu';
 	import ThemeImage from './ThemeImage.svelte';
 	import GitHubStarPill from './GitHubStarPill.svelte';
 	import { appUrl, docsUrl, managedSignupUrl, marketingNavigation, platforms } from '../_marketing';

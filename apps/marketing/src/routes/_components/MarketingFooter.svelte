@@ -4,7 +4,7 @@
 	import HeroAccent from './HeroAccent.svelte';
 	import ThemeImage from './ThemeImage.svelte';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import Github from '@lucide/svelte/icons/github';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Volume2 from '@lucide/svelte/icons/volume-2';

@@ -2,9 +2,9 @@
 	import { Clipboard, Download, RotateCcw } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Label } from '$lib/components/ui/label';
-	import { Slider } from '$lib/components/ui/slider';
+	import { Button } from '@openpost/ui/components/button';
+	import { Label } from '@openpost/ui/components/label';
+	import { Slider } from '@openpost/ui/components/slider';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import LocalImageDropZone from './LocalImageDropZone.svelte';
 	import {

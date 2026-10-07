@@ -1,1 +1,1 @@
-export { default as Toaster } from './sonner.svelte';
+export * from '@openpost/ui/components/sonner/index';

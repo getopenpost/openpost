@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ArrowRight, CheckCircle2, ExternalLink } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@openpost/ui/components/button';
 	import { githubUrl } from '../_marketing';
 
 	type ChangelogPageData = {

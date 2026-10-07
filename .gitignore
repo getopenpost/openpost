@@ -134,3 +134,7 @@ apps/marketing/static/og/
 /apps/docs/public/assets.previous/
 /apps/marketing/static/.assets.staged-*/
 /apps/marketing/static/assets.previous/
+
+# Shared package output
+packages/ui/dist/
+packages/dither/dist/

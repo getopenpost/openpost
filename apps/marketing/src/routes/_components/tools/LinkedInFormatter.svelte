@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Check, ClipboardCopy, RotateCcw, Sparkles } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button } from '@openpost/ui/components/button';
+	import { Checkbox } from '@openpost/ui/components/checkbox';
+	import { Textarea } from '@openpost/ui/components/textarea';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import DraftNextAction from './DraftNextAction.svelte';
 	import {

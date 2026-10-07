@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createRawSnippet } from 'svelte';
-import Button from './button.svelte';
+import Button from '@openpost/ui/components/button/button.svelte';
 
 function textSnippet(text: string) {
 	return createRawSnippet(() => ({ render: () => `<span>${text}</span>` }));

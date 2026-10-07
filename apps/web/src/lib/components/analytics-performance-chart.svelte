@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
-	import ChartBar from '$lib/components/ui/chart/chart-bar.svelte';
+	import ChartBar from '@openpost/ui/components/chart/chart-bar.svelte';
 	import { formatSocialAccountName } from '$lib/utils';
 
 	type DailyPoint = components['schemas']['DailyBreakdownPoint'];

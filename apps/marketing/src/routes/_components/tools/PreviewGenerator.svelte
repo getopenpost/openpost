@@ -20,11 +20,11 @@
 	import ImagePlus from '@lucide/svelte/icons/image-plus';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
-	import * as Sheet from '$lib/components/ui/sheet';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button } from '@openpost/ui/components/button';
+	import { Checkbox } from '@openpost/ui/components/checkbox';
+	import { Input } from '@openpost/ui/components/input';
+	import * as Sheet from '@openpost/ui/components/sheet';
+	import { Textarea } from '@openpost/ui/components/textarea';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { validatePreviewImage } from './local-image';
 	import DraftNextAction from './DraftNextAction.svelte';

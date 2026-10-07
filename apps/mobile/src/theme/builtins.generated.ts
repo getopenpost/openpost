@@ -1,4 +1,4 @@
-// Generated from apps/server/internal/services/themes/builtins.v1.json. Do not edit by hand.
+// Generated from packages/ui/src/lib/themes/builtins.ts. Do not edit by hand.
 import type { NativeThemeFamily } from "./contract";
 
 export const GENERATED_BUILTIN_THEME_IDS = [

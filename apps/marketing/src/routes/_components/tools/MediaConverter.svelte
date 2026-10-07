@@ -7,9 +7,9 @@
 		type MediaConversionTool,
 		type MediaOutputFormat
 	} from '@openpost/social-images';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
+	import { Button } from '@openpost/ui/components/button';
+	import { Input } from '@openpost/ui/components/input';
+	import { Label } from '@openpost/ui/components/label';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import ProgressMeter from '$lib/components/progress-meter.svelte';
 	import { ObjectURLSlot } from './local-image';

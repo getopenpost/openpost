@@ -337,3 +337,7 @@ App page titles use the theme’s typeface, weight, and tracking with `data-app-
 ### Social sharing images
 
 OG cards use 1200 × 630 compositions designed to read at 320px wide. The landing card uses original generated paper artwork from `assets/brand/social/`. Other cards pair a large Geist Semibold title with one 304px topic symbol on a full-height mint, blue, or lilac panel. Keep the Converge mark and Manrope wordmark. Documentation uses the Workshop charcoal canvas, pale text, and a section label. Provider logos retain their colors on light panels. Avoid outer frames, small icon tiles, decorative dots, repeated descriptions, and truncated titles. The renderer and generation workflow belong to `scripts/social-images/render.mjs` and `packages/social-images/README.md`.
+
+## Shared UI ownership
+
+`packages/ui` owns the reusable Svelte primitives, theme catalogue, icons and CSS recipes. OpenPost web and marketing consume its workspace exports. Standalone Svelte apps consume versioned packages or compiled package archives. UI labels use per-tree message context, with English defaults. Docs map Fumadocs roles to the package’s framework-neutral `tokens.css`; mobile generates native manifests from the same built-in theme catalogue and retains its native controls.

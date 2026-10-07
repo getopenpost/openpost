@@ -143,6 +143,7 @@
 		"torph": "^0.1.1",
 		"zod": "^4.4.3",
 		"@openpost/draft-transfer": "workspace:*",
-		"idb-keyval": "^6.2.2"
+		"idb-keyval": "^6.2.2",
+		"@openpost/ui": "workspace:*"
 	}
 }

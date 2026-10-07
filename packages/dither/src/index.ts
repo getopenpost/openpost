@@ -7,5 +7,5 @@ export {
   ditherThreshold,
   DITHER_GRADIENT_MASK,
   type DitherDirection,
-} from "./paint";
-export { ditherSurface } from "./surface";
+} from "./paint.js";
+export { ditherSurface } from "./surface.js";

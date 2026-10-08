@@ -37,16 +37,12 @@
 		<img
 			src={extension.screenshot}
 			alt={extension.screenshotAlt}
-			width={1280}
-			height={800}
+			width={extension.screenshotWidth}
+			height={extension.screenshotHeight}
 			fetchpriority="high"
 		/>
 	</figure>
-	<p class="screenshot-caption">
-		{extension.slug === 'youtube-localizer'
-			? 'Thumbnail generation, shown with sample data.'
-			: 'The extension popup, ready to browse.'}
-	</p>
+	<p class="screenshot-caption">{extension.screenshotCaption}</p>
 	<div class="extension-details" data-agent-include="tool-explanation">
 		<section class="benefits" aria-label="What the extension does">
 			{#each extension.benefits as benefit (benefit.title)}

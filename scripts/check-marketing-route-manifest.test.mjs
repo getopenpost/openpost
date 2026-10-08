@@ -33,12 +33,14 @@ test("catalog parsing stays inside the named ownership boundaries", () => {
   const source = `
 const platformImplementations = [{ slug: "x" }, { slug: "mastodon" }];
 export const platforms = platformImplementations.map(Boolean);
-export const tools = [...previewTools, { slug: "counter" }];
+export const tools = [...previewTools, ...browserExtensions, { slug: "counter" }];
 export const faqs = [];
 `;
   assert.deepEqual(catalogSlugs(source, "platforms"), ["x", "mastodon"]);
   assert.deepEqual(catalogSlugs(source, "tools"), [
     ...previewTools.map((tool) => tool.slug),
+    "youtube-localizer",
+    "x-timeline-blocker",
     "counter",
   ]);
 });

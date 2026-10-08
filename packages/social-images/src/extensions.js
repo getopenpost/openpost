@@ -9,7 +9,10 @@ export const browserExtensions = [
     repository: "https://github.com/getopenpost/youtube-localizer",
     screenshot: "/assets/marketing/extensions/youtube-localizer.webp",
     screenshotAlt:
-      "YouTube Localizer thumbnail generator and reference controls, shown with sample data",
+      "YouTube Localizer’s Generate button beside a real video thumbnail in YouTube Studio",
+    screenshotWidth: 950,
+    screenshotHeight: 510,
+    screenshotCaption: "Generate a thumbnail directly from YouTube Studio.",
     tone: "lilac",
     benefits: [
       {
@@ -43,7 +46,11 @@ export const browserExtensions = [
     headline: "Five minutes of feed. Keep the rest of X.",
     repository: "https://github.com/getopenpost/x-timeline-blocker",
     screenshot: "/assets/marketing/extensions/x-timeline-blocker.webp",
-    screenshotAlt: "X Timeline Blocker popup with a five-minute browsing window ready",
+    screenshotAlt:
+      "X Timeline Blocker pauses the home feed while the composer and navigation remain available",
+    screenshotWidth: 1280,
+    screenshotHeight: 800,
+    screenshotCaption: "X Timeline Blocker on OpenPost’s X preview.",
     tone: "blue",
     benefits: [
       {

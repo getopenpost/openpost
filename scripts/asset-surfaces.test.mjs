@@ -59,12 +59,16 @@ test("finds deployed asset URLs without treating source imports as copies", () =
   ]);
 });
 
-test("a package build validates only its selected asset surface", async () => {
-  assert.deepEqual(
-    await validateAssetSurfaceManifest(assetSurfaceManifest, repositoryRoot, ["frontend"]),
-    [],
-  );
-});
+test(
+  "frontend asset references match their declared deployment surface",
+  { timeout: 30_000 },
+  async () => {
+    assert.deepEqual(
+      await validateAssetSurfaceManifest(assetSurfaceManifest, repositoryRoot, ["frontend"]),
+      [],
+    );
+  },
+);
 
 test("staged outputs reject missing and undeclared files", async () => {
   const target = await mkdtemp(path.join(tmpdir(), "openpost-assets-"));

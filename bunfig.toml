@@ -5,6 +5,7 @@ minimumReleaseAgeExcludes = [
   "@vitest/browser",
   "@vitest/browser-playwright",
   "brace-expansion",
+  "handlebars",
   "js-yaml",
   "minimatch",
   "postcss",

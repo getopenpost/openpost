@@ -7,7 +7,7 @@ export const browserExtensions = [
       "Translate video titles, descriptions and thumbnails in YouTube Studio. Generate new thumbnails with your own reference images.",
     headline: "Make your videos work in more languages.",
     repository: "https://github.com/getopenpost/youtube-localizer",
-    screenshot: "/assets/marketing/extensions/youtube-localizer.webp",
+    screenshot: "/assets/marketing/extensions/youtube-localizer-745a10444f66.webp",
     screenshotAlt:
       "YouTube Localizer’s Generate button beside a real video thumbnail in YouTube Studio",
     screenshotWidth: 950,
@@ -45,7 +45,7 @@ export const browserExtensions = [
       "Give the X home timeline five minutes, then get back to your work. Posting, messages and notifications stay available.",
     headline: "Five minutes of feed. Keep the rest of X.",
     repository: "https://github.com/getopenpost/x-timeline-blocker",
-    screenshot: "/assets/marketing/extensions/x-timeline-blocker.webp",
+    screenshot: "/assets/marketing/extensions/x-timeline-blocker-08db3f799836.webp",
     screenshotAlt:
       "X Timeline Blocker pauses the home feed while the composer and navigation remain available",
     screenshotWidth: 1280,

@@ -12,13 +12,14 @@
 		Type,
 		WandSparkles
 	} from '@lucide/svelte';
-	import { previewTools, mediaToolThumbnailTone } from '@openpost/social-images';
+	import { browserExtensions, previewTools, mediaToolThumbnailTone } from '@openpost/social-images';
 	import { PlatformGlyph } from '@openpost/social-preview';
 	import ThemeImage from '../_components/ThemeImage.svelte';
 	import MediaToolThumbnail from './MediaToolThumbnail.svelte';
 	import type { MarketingToolSlug } from '../_marketing';
 
 	let { slug }: { slug: MarketingToolSlug } = $props();
+	const extension = $derived(browserExtensions.find((item) => item.slug === slug));
 	const platform = $derived(previewTools.find((tool) => tool.slug === slug)?.platform);
 	const tone = $derived(mediaToolThumbnailTone(slug));
 	const editor = $derived(
@@ -43,14 +44,24 @@
 
 <div
 	class="thumbnail"
-	class:screenshot={editor}
+	class:screenshot={editor || extension}
 	class:checkerboard={slug === 'background-remover'}
 	class:mint={slug === 'image-color-picker' || slug === 'logo-maker' || tone === 'mint'}
-	class:blue={slug === 'quick-cut' || tone === 'blue'}
-	class:lilac={tone === 'lilac'}
+	class:extension
+	class:blue={extension?.tone === 'blue' || slug === 'quick-cut' || tone === 'blue'}
+	class:lilac={extension?.tone === 'lilac' || tone === 'lilac'}
 	aria-hidden="true"
 >
-	{#if editor}
+	{#if extension}
+		<img
+			src={extension.screenshot}
+			alt=""
+			width={1280}
+			height={800}
+			loading="lazy"
+			decoding="async"
+		/>
+	{:else if editor}
 		<ThemeImage
 			lightSrc={`/assets/screenshots/${editor}-light.webp`}
 			darkSrc={`/assets/screenshots/${editor}-dark.webp`}
@@ -121,6 +132,14 @@
 		object-fit: cover;
 		object-position: top left;
 		border-radius: 6px 6px 0 0;
+	}
+	.extension {
+		padding: 0;
+	}
+	.extension :global(img) {
+		object-fit: contain;
+		object-position: center;
+		border-radius: 0;
 	}
 	.checkerboard {
 		background-color: var(--background);

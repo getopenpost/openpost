@@ -1,5 +1,5 @@
 import { planCatalog, purchaseTerms, selfHostedDeployment } from '@openpost/plan-catalog';
-import { mediaTools, previewTools } from '@openpost/social-images';
+import { browserExtensions, mediaTools, previewTools } from '@openpost/social-images';
 import { PLATFORM_LIMITS } from '@openpost/platform-text';
 import publicClaimManifest from '../../../../config/provider-certification/public-claims.json';
 
@@ -1161,6 +1161,7 @@ export const landingPlatforms = landingPlatformSlugs.map((slug) => {
 });
 
 export const tools = [
+	...browserExtensions,
 	...previewTools,
 	...mediaTools,
 	{
@@ -1214,6 +1215,7 @@ export const tools = [
 export type MarketingToolSlug = (typeof tools)[number]['slug'];
 
 export function getToolCategory(slug: MarketingToolSlug) {
+	if (browserExtensions.some((extension) => extension.slug === slug)) return 'Extensions';
 	if (slug === 'post-preview-generator' || previewTools.some((tool) => tool.slug === slug))
 		return 'Previews';
 	if (slug === 'social-media-video-editor') return 'Video';

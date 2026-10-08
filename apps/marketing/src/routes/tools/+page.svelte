@@ -13,7 +13,8 @@
 		'Audio',
 		'Previews',
 		'Convert',
-		'Writing & planning'
+		'Writing & planning',
+		'Extensions'
 	] as const;
 	type Category = (typeof categories)[number];
 	let category = $state<Category>('All tools');
@@ -88,6 +89,7 @@
 		<div class="categories" role="group" aria-label="Filter tools by category">
 			{#each categories as item (item)}
 				<Button
+					class="focus-ring"
 					variant={category === item ? 'secondary' : 'ghost'}
 					aria-pressed={category === item}
 					onclick={() => (category = item)}>{item}</Button
@@ -102,11 +104,16 @@
 	{#each categories.slice(1) as group (group)}
 		{@const entries = filtered.filter((tool) => getToolCategory(tool.slug) === group)}
 		{#if entries.length}
-			<section class="tool-group" aria-label={group}>
+			<section
+				class="tool-group"
+				id={group === 'Extensions' ? 'extensions' : undefined}
+				aria-label={group}
+			>
 				<h2>{group === 'Convert' ? 'Image converters' : group}</h2>
 				<div
 					class="tool-grid"
-					class:illustrated={['Images', 'Video', 'Audio', 'Convert'].includes(group)}
+					class:extension-grid={group === 'Extensions'}
+					class:illustrated={['Images', 'Video', 'Audio', 'Convert', 'Extensions'].includes(group)}
 				>
 					{#each entries as tool (tool.slug)}
 						<a class="tool-card focus-ring" href={`/tools/${tool.slug}`}>
@@ -196,6 +203,10 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 4px;
+	}
+	.categories :global(button:focus-visible) {
+		outline: 2px solid var(--ring);
+		outline-offset: 4px;
 	}
 	.result-count {
 		margin-block: 16px 28px;
@@ -306,6 +317,33 @@
 		}
 		.tool-card h3 {
 			font-size: 16px;
+		}
+	}
+	.extension-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.extension-grid :global(.tool-arrow) {
+		top: 302px;
+	}
+	.extension-grid .tool-visual {
+		height: 280px;
+	}
+	@media (max-width: 599px) {
+		.extension-grid {
+			grid-template-columns: 1fr;
+		}
+		.extension-grid .tool-card {
+			display: flex;
+			padding: 0;
+			gap: 0;
+		}
+		.extension-grid .tool-visual {
+			width: 100%;
+			height: 200px;
+			border-radius: 11px 11px 0 0;
+		}
+		.extension-grid .tool-copy {
+			padding: 20px;
 		}
 	}
 	.empty {

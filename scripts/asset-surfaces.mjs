@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { assetSurfaceManifest } from "./asset-surfaces.ts";
+import { browserExtensions } from "../packages/social-images/src/extensions.js";
 import { marketingGuides } from "../packages/social-images/src/guides.js";
 import { reportProblems } from "./report-problems.mjs";
 
@@ -111,6 +112,9 @@ async function dynamicMarketingReferences(root = repositoryRoot) {
       (file) => `postiz-socials/${file}`,
     ),
   );
+  for (const extension of browserExtensions) {
+    references.add(extension.screenshot.replace(/^\/assets\//u, ""));
+  }
   for (const guide of marketingGuides) {
     if (guide.comparison) references.add(guide.comparison.logo.replace(/^\/assets\//u, ""));
   }

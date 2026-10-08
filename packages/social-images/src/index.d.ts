@@ -219,3 +219,22 @@ export const mediaConversionTools: readonly MediaConversionTool[];
 export function mediaToolThumbnailTone(slug: string): "mint" | "lilac" | "blue" | undefined;
 export const videoFormats: readonly { id: VideoToolFormat; name: string }[];
 export const audioFormats: readonly { id: AudioToolFormat; name: string }[];
+
+export interface BrowserExtension {
+  slug: "youtube-localizer" | "x-timeline-blocker";
+  name: string;
+  title: string;
+  description: string;
+  headline: string;
+  repository: string;
+  screenshot: string;
+  screenshotAlt: string;
+  tone: "lilac" | "blue";
+  benefits: { title: string; text: string }[];
+  setup: string[];
+  cost: string;
+  privacy: string;
+  chromeStoreUrl?: string;
+  firefoxStoreUrl?: string;
+}
+export const browserExtensions: BrowserExtension[];

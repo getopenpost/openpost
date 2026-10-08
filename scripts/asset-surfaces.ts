@@ -85,6 +85,8 @@ export const assetSurfaceManifest = {
     "screenshots/workflows-detail-dark.webp",
     "marketing/paper-plane.webp",
     "marketing/studio-cup.webp",
+    "marketing/extensions/youtube-localizer.webp",
+    "marketing/extensions/x-timeline-blocker.webp",
     "brand/logo.svg",
     "brand/logo-dark.svg",
     "brand/features/compose.svg",

@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { error } from '@sveltejs/kit';
 	import { Button } from '@openpost/ui/components/button';
+	import ExtensionPage from '../../_components/tools/ExtensionPage.svelte';
 	import CharacterCounter from '../../_components/tools/CharacterCounter.svelte';
 	import HandleChecker from '../../_components/tools/HandleChecker.svelte';
 	import LinkedInFormatter from '../../_components/tools/LinkedInFormatter.svelte';
@@ -13,7 +14,12 @@
 	import UtmLinkBuilder from '../../_components/tools/UtmLinkBuilder.svelte';
 	import VideoEditorLauncher from '../../_components/tools/VideoEditorLauncher.svelte';
 	import QuickCutLauncher from '../../_components/tools/QuickCutLauncher.svelte';
-	import { imageConversions, previewTools, mediaConversionTools } from '@openpost/social-images';
+	import {
+		browserExtensions,
+		imageConversions,
+		previewTools,
+		mediaConversionTools
+	} from '@openpost/social-images';
 	import { getTool } from '../../_marketing';
 
 	const slug = $derived.by(() => {
@@ -21,6 +27,7 @@
 		if (!tool) error(404, 'Tool not found');
 		return tool.slug;
 	});
+	const extension = $derived(browserExtensions.find((item) => item.slug === slug));
 	const previewTool = $derived(previewTools.find((item) => item.slug === slug));
 	const mediaTool = $derived(mediaConversionTools.find((item) => item.slug === slug));
 	const conversion = $derived(imageConversions.find((item) => item.slug === slug));
@@ -34,49 +41,53 @@
 	</div>
 {/snippet}
 
-<ToolPageShell {slug}>
-	{#if slug === 'social-media-video-editor'}
-		<VideoEditorLauncher />
-	{:else if slug === 'social-media-image-editor'}
-		<ImageEditorLauncher />
-	{:else if slug === 'multi-platform-character-counter'}
-		<CharacterCounter />
-	{:else if slug === 'post-preview-generator' || previewTool}
-		{#key slug}<PreviewGenerator initialPlatform={previewTool?.platform} />{/key}
-	{:else if slug === 'thread-splitter'}
-		<ThreadSplitter />
-	{:else if slug === 'fediverse-handle-checker'}
-		<HandleChecker />
-	{:else if slug === 'linkedin-text-formatter'}
-		<LinkedInFormatter />
-	{:else if slug === 'best-time-to-post-calculator'}
-		<PostingPlanner />
-	{:else if slug === 'utm-link-builder'}
-		<UtmLinkBuilder />
-	{:else if slug === 'quick-cut'}
-		<QuickCutLauncher />
-	{:else if mediaTool}
-		{#await import('../../_components/tools/MediaConverter.svelte')}{@render loadingTool()}{:then module}{#key slug}<module.default
-					tool={mediaTool}
-				/>{/key}{:catch}{@render failedTool()}{/await}
-	{:else if slug === 'logo-maker'}
-		{#await import('../../_components/tools/LogoMaker.svelte')}{@render loadingTool()}{:then module}<module.default
-			/>{:catch}{@render failedTool()}{/await}
-	{:else if slug === 'background-remover'}
-		{#await import('../../_components/tools/BackgroundRemover.svelte')}{@render loadingTool()}{:then module}<module.default
-			/>{:catch}{@render failedTool()}{/await}
-	{:else if slug === 'image-color-picker'}
-		{#await import('../../_components/tools/ImageColorPicker.svelte')}{@render loadingTool()}{:then module}<module.default
-			/>{:catch}{@render failedTool()}{/await}
-	{:else if slug === 'image-converter' || slug === 'paste-image' || conversion}
-		{#await import('../../_components/tools/ImageConverter.svelte')}
-			{@render loadingTool()}
-		{:then module}
-			{#key slug}<module.default
-					inputFormat={conversion?.input}
-					outputFormat={conversion?.output}
-					autoDownload={slug === 'paste-image'}
-				/>{/key}
-		{:catch}{@render failedTool()}{/await}
-	{/if}
-</ToolPageShell>
+{#if extension}
+	<ExtensionPage {extension} />
+{:else}
+	<ToolPageShell {slug}>
+		{#if slug === 'social-media-video-editor'}
+			<VideoEditorLauncher />
+		{:else if slug === 'social-media-image-editor'}
+			<ImageEditorLauncher />
+		{:else if slug === 'multi-platform-character-counter'}
+			<CharacterCounter />
+		{:else if slug === 'post-preview-generator' || previewTool}
+			{#key slug}<PreviewGenerator initialPlatform={previewTool?.platform} />{/key}
+		{:else if slug === 'thread-splitter'}
+			<ThreadSplitter />
+		{:else if slug === 'fediverse-handle-checker'}
+			<HandleChecker />
+		{:else if slug === 'linkedin-text-formatter'}
+			<LinkedInFormatter />
+		{:else if slug === 'best-time-to-post-calculator'}
+			<PostingPlanner />
+		{:else if slug === 'utm-link-builder'}
+			<UtmLinkBuilder />
+		{:else if slug === 'quick-cut'}
+			<QuickCutLauncher />
+		{:else if mediaTool}
+			{#await import('../../_components/tools/MediaConverter.svelte')}{@render loadingTool()}{:then module}{#key slug}<module.default
+						tool={mediaTool}
+					/>{/key}{:catch}{@render failedTool()}{/await}
+		{:else if slug === 'logo-maker'}
+			{#await import('../../_components/tools/LogoMaker.svelte')}{@render loadingTool()}{:then module}<module.default
+				/>{:catch}{@render failedTool()}{/await}
+		{:else if slug === 'background-remover'}
+			{#await import('../../_components/tools/BackgroundRemover.svelte')}{@render loadingTool()}{:then module}<module.default
+				/>{:catch}{@render failedTool()}{/await}
+		{:else if slug === 'image-color-picker'}
+			{#await import('../../_components/tools/ImageColorPicker.svelte')}{@render loadingTool()}{:then module}<module.default
+				/>{:catch}{@render failedTool()}{/await}
+		{:else if slug === 'image-converter' || slug === 'paste-image' || conversion}
+			{#await import('../../_components/tools/ImageConverter.svelte')}
+				{@render loadingTool()}
+			{:then module}
+				{#key slug}<module.default
+						inputFormat={conversion?.input}
+						outputFormat={conversion?.output}
+						autoDownload={slug === 'paste-image'}
+					/>{/key}
+			{:catch}{@render failedTool()}{/await}
+		{/if}
+	</ToolPageShell>
+{/if}

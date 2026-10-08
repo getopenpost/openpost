@@ -1,3 +1,5 @@
+import { browserExtensions } from "./extensions.js";
+export { browserExtensions } from "./extensions.js";
 import { previewTools } from "./preview-tools.js";
 export { previewTools } from "./preview-tools.js";
 import { marketingGuides } from "./guides.js";
@@ -72,6 +74,7 @@ const platformNames = [
 ];
 
 const toolPages = [
+  ...browserExtensions,
   ...previewTools,
   ...mediaTools,
   {

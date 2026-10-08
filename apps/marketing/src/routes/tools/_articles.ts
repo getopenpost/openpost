@@ -1,4 +1,4 @@
-import { previewTools, type PreviewTool } from '@openpost/social-images';
+import { browserExtensions, previewTools, type PreviewTool } from '@openpost/social-images';
 import type { MarketingToolSlug } from '../_marketing';
 import { mediaArticles } from './_media-articles';
 
@@ -505,7 +505,26 @@ const authoredArticles = {
 	}
 } satisfies Partial<Record<MarketingToolSlug, ToolArticle>>;
 
+// SAFETY: The extension catalogue includes exactly one entry for each supported extension slug.
+const extensionArticles = Object.fromEntries<ToolArticle>(
+	browserExtensions.map((extension) => [
+		extension.slug,
+		{
+			title: extension.name,
+			description: extension.description,
+			privacy: extension.privacy,
+			steps: extension.setup,
+			sections: extension.benefits.map((benefit) => ({
+				title: benefit.title,
+				paragraphs: [benefit.text]
+			})),
+			questions: []
+		}
+	])
+) as Record<'youtube-localizer' | 'x-timeline-blocker', ToolArticle>;
+
 export const toolArticles = Object.assign(
+	extensionArticles,
 	{},
 	previewArticles,
 	mediaArticles,

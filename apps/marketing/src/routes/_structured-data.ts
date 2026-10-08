@@ -1,5 +1,5 @@
 import brand from '../../../../config/public-brand.json';
-import type { MarketingRouteEntry } from '@openpost/social-images';
+import { browserExtensions, type MarketingRouteEntry } from '@openpost/social-images';
 import {
 	agentPublishingDocsUrl,
 	developerDocsUrl,
@@ -52,6 +52,7 @@ function pageData(entry: MarketingRouteEntry) {
 }
 
 export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
+	const extension = browserExtensions.find((item) => `/tools/${item.slug}` === entry.path);
 	return {
 		'@context': 'https://schema.org',
 		'@graph': [
@@ -59,12 +60,12 @@ export function structuredDataForMarketingPage(entry: MarketingRouteEntry) {
 				? [
 						{
 							'@id': `${entry.canonical}#tool`,
-							'@type': 'WebApplication',
+							'@type': extension ? 'SoftwareApplication' : 'WebApplication',
 							name: entry.socialTitle,
 							url: entry.canonical,
 							description: entry.description,
 							applicationCategory: 'MultimediaApplication',
-							operatingSystem: 'Web',
+							operatingSystem: extension ? 'Chrome, Brave, Edge, Firefox' : 'Web',
 							isAccessibleForFree: true,
 							offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 							publisher: { '@id': organizationId }

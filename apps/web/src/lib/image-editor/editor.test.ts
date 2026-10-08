@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { themeColorContrastRatio } from '$lib/themes/validation';
+import { themeColorContrastRatio } from '@openpost/ui/themes/validation';
 import { defaultEditorColorWheels } from '$lib/editor-color-grade/model';
 import { defaultImageAdjustments } from './document';
 import { ImageEditorController } from './editor.svelte';

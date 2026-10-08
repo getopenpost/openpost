@@ -10,7 +10,7 @@ import { TimelineFrameRenderer } from '../media/render-export';
 import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { WebThemeRuntime } from '$lib/themes/runtime';
-import { resolveBuiltInTheme } from '$lib/themes/builtins';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins';
 import '../../../routes/layout.css';
 import CompositionTimeline from './composition-timeline.svelte';
 

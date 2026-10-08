@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 import { WebThemeRuntime } from '$lib/themes/runtime';
-import { resolveBuiltInTheme } from '$lib/themes/builtins';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins';
 import '../../../routes/layout.css';
 import LocalMusicPanel from './local-music-panel.svelte';
 

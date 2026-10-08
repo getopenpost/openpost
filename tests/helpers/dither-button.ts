@@ -1,6 +1,6 @@
 import { expect, type Locator } from "@playwright/test";
 import sharp from "sharp";
-import { themeColorContrastRatio } from "../../apps/web/src/lib/themes/validation";
+import { themeColorContrastRatio } from "@openpost/ui/themes/validation";
 
 export async function expectBalancedDitherButton(button: Locator) {
   // Render offscreen thumbnails before reading their inherited pseudo-element colors.

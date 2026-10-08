@@ -229,6 +229,9 @@ export interface BrowserExtension {
   repository: string;
   screenshot: string;
   screenshotAlt: string;
+  screenshotWidth: number;
+  screenshotHeight: number;
+  screenshotCaption: string;
   tone: "lilac" | "blue";
   benefits: { title: string; text: string }[];
   setup: string[];

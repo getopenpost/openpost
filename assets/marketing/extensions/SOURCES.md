@@ -1,8 +1,11 @@
 # Extension screenshots
 
-These images are cropped screenshots of the extensions, captured with isolated test data. They do not show a live YouTube account or a paid generation result.
+`youtube-localizer.webp` is a cropped screenshot of YouTube Studio in Brave, showing YouTube Localizer’s injected Generate button beside the thumbnail of the public video [Programação Web, em ~4 horas](https://www.youtube.com/watch?v=blA8L2Fzq9E). Captured on 2026-10-08.
 
-- `youtube-localizer.webp` combines two crops of YouTube Localizer's `composer-mobile-dark.png` capture. The example thumbnail is labelled synthetic in the source capture.
-- `x-timeline-blocker.webp` shows X Timeline Blocker's `popup-dark.png` capture, with its five-minute window ready.
+The screenshot shows the real video and Studio interface. No account avatar, API keys or private videos are visible. No generation or Studio changes were made for this capture. The crop was encoded as WebP without changing its contents.
 
-Both use the extensions' shared OpenPost UI. Replace these files with sanitized live screenshots when available. Keep the sample-data caption until the YouTube screenshot uses a real generation result.
+`x-timeline-blocker.webp` shows the packaged X Timeline Blocker 0.1.1 running over OpenPost’s maintained `SocialPreviewPage` X preview, captured on 2026-10-08 in an isolated Chromium profile.
+
+The extension’s unmodified content script hides the preview feed and inserts its real gate UI. The composer, navigation and sidebars remain visible. The capture harness supplies X’s timeline DOM identifiers so the extension can discover the preview feed. The timer and Browse timeline button are rendered by the extension.
+
+This is OpenPost’s X preview with sample posts, not a live X account. No real profile, account data, API keys or paid requests were used. The screenshot was encoded as WebP without changing its contents.

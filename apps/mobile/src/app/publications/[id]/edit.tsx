@@ -39,6 +39,7 @@ import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import {
   MAX_ATTACHMENT_BYTES,
   MAX_MOBILE_ATTACHMENT_COUNT,
+  ORIGINAL_IMAGE_QUALITY,
   uploadAttachment,
   type PendingAttachment,
 } from "@/lib/media";
@@ -785,7 +786,7 @@ function Composer({
       mediaTypes: ["images", "videos"],
       allowsMultipleSelection: true,
       selectionLimit: 10,
-      quality: 0.9,
+      quality: ORIGINAL_IMAGE_QUALITY,
     });
     if (!result.canceled) {
       appendAttachments(result.assets.map((asset, index) => attachmentFromAsset(asset, index)));
@@ -799,7 +800,7 @@ function Composer({
       void errorHaptic();
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.9 });
+    const result = await ImagePicker.launchCameraAsync({ quality: ORIGINAL_IMAGE_QUALITY });
     if (!result.canceled && result.assets[0]) {
       addAttachment(result.assets[0]);
     }

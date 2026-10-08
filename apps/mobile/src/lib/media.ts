@@ -4,6 +4,7 @@ import { api, errorMessage, type Api } from "./api/client";
 
 export const MAX_MOBILE_ATTACHMENT_COUNT = 10;
 export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+export const ORIGINAL_IMAGE_QUALITY = 1;
 
 export type PendingAttachment = {
   localId: string;
@@ -22,6 +23,18 @@ export async function uploadAttachment(
   file: PendingAttachment,
   { client = api(), workspaceId }: { client?: Api; workspaceId: string },
 ): Promise<string> {
+  const localFile = await FileSystem.getInfoAsync(file.uri);
+  if (!localFile.exists || localFile.isDirectory) {
+    throw new Error("This attachment is no longer available. Choose it again.");
+  }
+  // Android picker metadata can describe the original instead of its compressed copy.
+  const size = localFile.size;
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    throw new Error("This attachment is empty or its size could not be read.");
+  }
+  if (size > MAX_ATTACHMENT_BYTES) {
+    throw new Error("Attachments must be 50 MB or smaller.");
+  }
   const {
     data: session,
     error,
@@ -30,13 +43,14 @@ export async function uploadAttachment(
     body: {
       workspace_id: workspaceId,
       filename: file.filename,
-      size: file.size ?? 0,
+      size,
       mime_type: file.mimeType,
       asset_kind: "library",
       source: file.localId.startsWith("camera:") ? "camera" : "upload",
     },
   });
-  if (error || !session) throw new Error(await errorMessage(response, "Upload failed to start"));
+  if (error || !session)
+    throw new Error(await errorMessage(response, "Upload failed to start", error));
 
   if (!session.deduped) {
     const uploadResult = await FileSystem.uploadAsync(session.upload.url, file.uri, {
@@ -57,7 +71,9 @@ export async function uploadAttachment(
     },
   );
   if (completeError) {
-    throw new Error(await errorMessage(completeResponse, "Upload could not be finalized"));
+    throw new Error(
+      await errorMessage(completeResponse, "Upload could not be finalized", completeError),
+    );
   }
 
   return session.media_id;

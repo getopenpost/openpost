@@ -30,7 +30,7 @@ import {
 import { api, errorMessage } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
 import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
-import { MAX_ATTACHMENT_BYTES, type PendingAttachment } from "@/lib/media";
+import { MAX_ATTACHMENT_BYTES, ORIGINAL_IMAGE_QUALITY, type PendingAttachment } from "@/lib/media";
 import { stashPendingAttachments, stashSharedFiles } from "@/lib/share";
 import { cacheCreatedPublication, invalidatePublicationData } from "@/lib/query-cache";
 import { queryKeys } from "@/lib/query-policy";
@@ -152,12 +152,12 @@ export default function DraftsScreen() {
         source === "camera"
           ? await ImagePicker.launchCameraAsync({
               mediaTypes: ["images"],
-              quality: 0.9,
+              quality: ORIGINAL_IMAGE_QUALITY,
             })
           : await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ["images"],
               allowsMultipleSelection: false,
-              quality: 0.9,
+              quality: ORIGINAL_IMAGE_QUALITY,
             });
       const asset = result.canceled ? null : result.assets[0];
       if (!asset) return;

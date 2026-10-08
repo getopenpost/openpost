@@ -6,9 +6,9 @@ const sourceDirectory = "tmp/product-demos";
 const outputDirectory = "assets/demos";
 const maxBytes = 2_000_000;
 const demos = [
-  { name: "publishing", fps: 8, colors: 128 },
-  { name: "image-editor", fps: 6, colors: 96 },
-  { name: "video-editor", fps: 8, colors: 112 },
+  { name: "publishing", width: 1280, fps: 8, colors: 128 },
+  { name: "image-editor", width: 800, fps: 6, colors: 96 },
+  { name: "video-editor", width: 800, fps: 8, colors: 112 },
 ];
 
 function run(command, args) {
@@ -20,7 +20,7 @@ function run(command, args) {
 }
 
 await mkdir(outputDirectory, { recursive: true });
-for (const { name, fps, colors } of demos) {
+for (const { name, width, fps, colors } of demos) {
   const source = join(sourceDirectory, `${name}.ffconcat`);
   const gif = join(sourceDirectory, `${name}.gif`);
   const optimized = join(sourceDirectory, `${name}-optimized.gif`);
@@ -62,7 +62,7 @@ for (const { name, fps, colors } of demos) {
     join(sourceDirectory, `${name}.mp4`),
   ]);
   const palette = join(sourceDirectory, `${name}-palette.png`);
-  const gifFilter = `fps=${fps},${captionFilter},scale=800:-2:flags=lanczos`;
+  const gifFilter = `fps=${fps},${captionFilter},scale=${width}:-2:flags=lanczos`;
   run("ffmpeg", [
     "-hide_banner",
     "-loglevel",

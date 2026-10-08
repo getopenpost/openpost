@@ -31,7 +31,8 @@ when a clip exceeds that budget. Check the entire loop before keeping its output
 devenv shell -- bun scripts/encode-product-demos.mjs
 ```
 
-The GIFs use 800px width and one palette per clip. Publishing and video editing
+The publishing GIF uses the original 1280px width so it stays sharp across the
+desktop README. The smaller editor demos use 800px width. Each clip has one palette. Publishing and video editing
 use 8 frames per second; the thumbnail edit uses 6. Palettes use 96 to 128
 colors, with per-clip settings in `scripts/encode-product-demos.mjs`.
 The browser captures PNG frames with timestamps, preserving unchanged pixels for
@@ -46,8 +47,12 @@ controls or the timeline. Gifsicle removes redundant pixels without further
 quality loss. Cut idle time and unnecessary steps before reducing resolution.
 
 Keep the publishing demo near the introduction and the smaller editor demos beside
-their feature descriptions below the feature list. The README retains still-image
-sources for reduced motion. It also links each demo
+their feature descriptions below the feature list. Each demo uses one still-image
+source with only `(prefers-reduced-motion: reduce)`. GitHub rewrites color-scheme
+queries to match its selected theme and drops other conditions in the same query,
+which can replace an animated demo with a still even when motion is enabled.
+Verify playback while signed in with an explicit GitHub theme, as well as signed out.
+The README also links each demo
 to the relevant product. Keep useful alt text and verify the README on desktop and
 at 390px and 320px widths in both schemes.
 

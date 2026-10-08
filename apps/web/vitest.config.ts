@@ -5,6 +5,7 @@ import { defineConfig } from 'vitest/config';
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const runRealMusicModel = process.env.VITE_OPENPOST_REAL_MUSIC_TEST === '1';
 const browserArgs = ['--enable-unsafe-webgpu'];
+const browserTestFiles = ['src/**/*.svelte.{test,spec}.{js,ts}'];
 if (runRealMusicModel) browserArgs.push('--unlimited-storage');
 
 export default defineConfig({
@@ -14,6 +15,8 @@ export default defineConfig({
 			{
 				extends: './vite.config.ts',
 				optimizeDeps: {
+					// Scan the linked UI output before mounting tests, avoiding optimizer reloads.
+					entries: [...browserTestFiles, '../../packages/ui/dist/**/*.{js,svelte}'],
 					// Keep wrapper components and their mount helpers on the same Svelte runtime.
 					exclude: ['@testing-library/svelte-core', 'vitest-browser-svelte'],
 					include: ['html-to-image']
@@ -75,7 +78,7 @@ export default defineConfig({
 						}),
 						instances: [{ browser: 'chromium', headless: !runRealMusicModel }]
 					},
-					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+					include: browserTestFiles,
 					exclude: ['src/lib/server/**']
 				}
 			},

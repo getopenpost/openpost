@@ -26,6 +26,7 @@
     "fallow": "bun scripts/tasks.mjs fallow",
     "generate:social-assets": "bun assets/social/openpost/source/generate.mjs",
     "lint": "bun scripts/tasks.mjs lint",
+    "postinstall": "bunx turbo run build --filter @openpost/ui",
     "release": "devenv shell -- bun scripts/release.mjs",
     "test": "bun scripts/tasks.mjs test",
     "test:backend:pkg": "go test -tags dev",

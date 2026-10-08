@@ -7,7 +7,7 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { toggleTrackLock } from '../timeline/actions/tracks';
 import { WebThemeRuntime } from '$lib/themes/runtime';
-import { resolveBuiltInTheme } from '$lib/themes/builtins';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins';
 import { toast } from 'svelte-sonner';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';

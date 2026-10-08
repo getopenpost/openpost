@@ -2,7 +2,7 @@ import { expectBalancedDitherButton } from "../helpers/dither-button";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
-import { themeColorContrastRatio } from "../../apps/web/src/lib/themes/validation";
+import { themeColorContrastRatio } from "@openpost/ui/themes/validation";
 
 // Keep the visual sweep on network assets. PWA lifecycle has its own browser suite.
 test.use({ serviceWorkers: "block" });

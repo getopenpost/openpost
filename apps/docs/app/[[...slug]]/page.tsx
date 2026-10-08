@@ -1,6 +1,11 @@
 import { OpenAPIPage } from "@/components/api-page";
 import type { OpenAPIPageProps } from "fumadocs-openapi/ui";
-import { docsPath, docsSiteUrl, docsSocialImageUrlForRoute } from "@openpost/social-images";
+import {
+  docsPath,
+  docsSiteUrl,
+  docsSocialEntries,
+  docsSocialImageUrlForRoute,
+} from "@openpost/social-images";
 import { source, documentationIcon } from "@/lib/source";
 import { openapi } from "@/lib/openapi";
 import { operationDocument } from "@/lib/api-document";
@@ -115,7 +120,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = source.getPage((await params).slug);
   if (!page) notFound();
   const title = page.data.title;
-  const description = page.data.description;
+  const description =
+    docsSocialEntries.find((entry) => entry.route === page.url)?.description ??
+    page.data.description;
   const canonical = page.url === "/" ? docsSiteUrl : `${docsSiteUrl}${page.url}`;
   const image = docsSocialImageUrlForRoute(page.url);
   return {

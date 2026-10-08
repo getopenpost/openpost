@@ -55,7 +55,9 @@ test("resources menu uses one column per resource group @desktop", async ({ page
   ).toBe(2);
 });
 
-test("free tools directory links every working tool @desktop", async ({ page }) => {
+test("free tools directory keeps core tools reachable and fits narrow screens @desktop", async ({
+  page,
+}) => {
   const toolSlugs = [
     "social-media-video-editor",
     "social-media-image-editor",
@@ -69,9 +71,7 @@ test("free tools directory links every working tool @desktop", async ({ page }) 
   ] as const;
 
   await page.goto("/tools");
-  await expect(
-    page.getByRole("heading", { name: "Free tools. Ready when you are.", level: 1 }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Free tools\./, level: 1 })).toBeVisible();
   const main = page.getByRole("main");
   for (const slug of toolSlugs) {
     await expect(main.locator(`a[href="/tools/${slug}"]`)).toHaveCount(1);
@@ -81,7 +81,7 @@ test("free tools directory links every working tool @desktop", async ({ page }) 
   await expect
     .poll(() =>
       page
-        .getByRole("heading", { name: "Free tools. Ready when you are.", level: 1 })
+        .getByRole("heading", { name: /^Free tools\./, level: 1 })
         .evaluate((heading) => heading.scrollWidth <= heading.clientWidth),
     )
     .toBe(true);

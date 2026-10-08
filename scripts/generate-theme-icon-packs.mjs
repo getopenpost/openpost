@@ -31,8 +31,8 @@ const { BUILTIN_ICON_ROLE_MAPS } = await import(
 
 for (const id of packIDs) {
   const source = await import(`${packsDirectory}/${id}.ts`);
-  const output = renderPack(source.default);
   const destination = resolve(packsDirectory, `${id}.generated.ts`);
+  const output = await formatGeneratedTypescript(destination, renderPack(source.default));
   if (check) {
     const current = await readFile(destination, "utf8").catch(() => "");
     if (current !== output) {
@@ -185,7 +185,7 @@ async function assertOrWrite(destination, output) {
 async function formatGeneratedTypescript(destination, source) {
   const result = await format(destination, source, { printWidth: 100 });
   if (result.errors.length > 0) {
-    throw new Error(`Could not format generated native icon data for ${destination}`);
+    throw new Error(`Could not format generated icon data for ${destination}`);
   }
   return result.code;
 }

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   marketingRouteManifest,
+  browserExtensions,
   mediaTools,
   previewTools,
 } from "../packages/social-images/src/index.js";
@@ -66,6 +67,7 @@ export function catalogSlugs(source, catalog) {
   return [
     ...(section.includes("...previewTools") ? previewTools.map((tool) => tool.slug) : []),
     ...(section.includes("...mediaTools") ? mediaTools.map((tool) => tool.slug) : []),
+    ...(section.includes("...browserExtensions") ? browserExtensions.map((tool) => tool.slug) : []),
     ...literals,
   ];
 }

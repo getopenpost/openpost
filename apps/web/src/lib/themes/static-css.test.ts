@@ -50,29 +50,29 @@ describe('embedded Workshop CSS', () => {
 	);
 
 	it('activates theme reduced-motion recipes only for an operating-system preference', () => {
-		const css = layoutCss();
+		const css = normalized(layoutCss());
 		const mediaStart = css.indexOf('@media (prefers-reduced-motion: reduce)');
 		expect(mediaStart).toBeGreaterThanOrEqual(0);
 		const beforeMedia = css.slice(0, mediaStart);
 		const reducedMotionRules = css.slice(mediaStart, css.indexOf('@media (pointer: coarse)'));
 
-		expect(beforeMedia).not.toContain("[data-theme-reduced-motion='instant']");
-		expect(beforeMedia).not.toContain("[data-theme-reduced-motion='crossfade']");
-		expect(reducedMotionRules).toContain("[data-theme-reduced-motion='instant']");
-		expect(reducedMotionRules).toContain("[data-theme-reduced-motion='crossfade']");
+		expect(beforeMedia).not.toContain('[data-theme-reduced-motion=instant]');
+		expect(beforeMedia).not.toContain('[data-theme-reduced-motion=crossfade]');
+		expect(reducedMotionRules).toContain('[data-theme-reduced-motion=instant]');
+		expect(reducedMotionRules).toContain('[data-theme-reduced-motion=crossfade]');
 		expect(reducedMotionRules).toContain('--theme-motion-entry-distance: 0px');
 		expect(reducedMotionRules).toContain('transition-duration: 120ms !important');
 	});
 
 	it('implements every declared canvas and component recipe as a CSS hook', () => {
-		const css = layoutCss();
+		const css = normalized(layoutCss());
 		for (const treatment of THEME_CANVAS_TREATMENTS) {
-			expect(css, `canvas ${treatment}`).toContain(`[data-theme-canvas='${treatment}']`);
+			expect(css, `canvas ${treatment}`).toContain(`[data-theme-canvas=${treatment}]`);
 		}
 		for (const [recipe, options] of Object.entries(THEME_COMPONENT_RECIPE_OPTIONS)) {
 			for (const option of options) {
 				expect(css, `${recipe} ${option}`).toContain(
-					`[data-theme-${recipe.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}='${option}']`
+					`[data-theme-${recipe.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}=${option}]`
 				);
 			}
 		}

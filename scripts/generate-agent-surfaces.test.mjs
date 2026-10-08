@@ -72,6 +72,7 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
     "  Vary: Accept",
     "/*.md",
     "  Content-Type: text/markdown; charset=utf-8",
+    "  X-Robots-Tag: noindex",
     "  Vary: Accept",
     "/llms.txt",
     "  Content-Type: text/plain; charset=utf-8",
@@ -80,10 +81,9 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
   const pages = [{ canonical: "https://openpo.st/" }, { canonical: "https://openpo.st/features" }];
   const rendered = renderOriginVaryHeaders(base, pages);
 
-  assert.match(
-    rendered,
-    /\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8\n  Vary: Accept/u,
-  );
+  assert.ok(headerRuleHas(rendered, "/index.md", "Content-Type: text/markdown; charset=utf-8"));
+  assert.ok(headerRuleHas(rendered, "/index.md", "Vary: Accept"));
+  assert.ok(headerRuleHas(rendered, "/index.md", "X-Robots-Tag: noindex"));
   assert.match(rendered, /(?:^|\n)\/\n  Link: [^\n]+\n  Vary: Accept\n/u);
   assert.match(rendered, /<\/\.well-known\/api-catalog>; rel="api-catalog"/u);
   assert.equal((rendered.match(/^\/$/gmu) ?? []).length, 1);
@@ -1461,9 +1461,12 @@ test(
       ],
     ]) {
       const headers = await readFile(headersPath, "utf8");
-      assert.match(
-        headers,
-        /\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8\n  Vary: Accept/u,
+      assert.ok(
+        headerRuleHas(headers, "/index.md", "Content-Type: text/markdown; charset=utf-8"),
+        `${surface} Markdown artifacts must keep their media type`,
+      );
+      assert.ok(
+        headerRuleHas(headers, "/index.md", "Vary: Accept"),
         `${surface} Markdown artifacts must vary at the origin`,
       );
       for (const pathname of plainTextPaths) {

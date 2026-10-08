@@ -60,7 +60,7 @@ const checks = {
     bun("scripts/check-build-graph.mjs"),
   ]),
   assets: stage("asset surfaces", [
-    bunTest("scripts/asset-surfaces.test.mjs"),
+    bunTest("scripts/asset-surfaces.test.mjs", "scripts/readme-demos.test.mjs"),
     bun("scripts/asset-surfaces.mjs"),
   ]),
   workflows: stage("GitHub Actions workflows", [

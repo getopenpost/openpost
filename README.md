@@ -103,8 +103,7 @@ Remove backgrounds in your browser, then export your design or attach it to a po
 
 <a href="https://app.openpo.st/image-editor">
   <picture>
-    <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="./assets/screenshots/image-editor-dark.webp">
-    <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/image-editor-light.webp">
+    <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/image-editor-dark.webp">
     <img src="./assets/demos/image-editor.gif" alt="Recreate a RISC-V YouTube thumbnail by dragging, resizing, and styling its logo and text" width="640">
   </picture>
 </a>
@@ -119,8 +118,7 @@ screen, camera, and microphone for the same timeline.
 
 <a href="https://app.openpo.st/video-editor">
   <picture>
-    <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="./assets/screenshots/video-editor-dark.webp">
-    <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/video-editor-light.webp">
+    <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/video-editor-dark.webp">
     <img src="./assets/demos/video-editor.gif" alt="Animate a title in and out, add music, cut footage, apply a transition and effects, and adjust its color" width="640">
   </picture>
 </a>

@@ -38,7 +38,6 @@
 	let toolDraftError = $state('');
 	let toolDraftAttempt = $state(0);
 	let loadedToolDraftToken = '';
-	let importedComposerResetCounter = -1;
 	const initialComposerResetCounter = ui.composerResetCounter;
 
 	$effect(() => {
@@ -61,7 +60,6 @@
 				toolDraft = draft;
 				if (draft) {
 					loadedToolDraftToken = token;
-					importedComposerResetCounter = initialComposerResetCounter;
 				} else toolDraftError = m.tool_draft_missing();
 			})
 			.catch((cause) => {
@@ -108,9 +106,7 @@
 		{#key composerResetCounter}
 			<div data-testid="text-thread-composer-shell" class="flex min-h-0 flex-1 flex-col">
 				<ComposeTextPost
-					initialToolDraft={composerResetCounter === importedComposerResetCounter
-						? toolDraft
-						: null}
+					initialToolDraft={composerResetCounter === initialComposerResetCounter ? toolDraft : null}
 					{initialScheduleDate}
 					{initialScheduleTime}
 					{initialWorkspaceId}

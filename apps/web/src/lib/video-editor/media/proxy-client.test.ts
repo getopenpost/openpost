@@ -27,7 +27,7 @@ class ControlledWorker {
 const ids = new Set<string>();
 const finishReads: Array<() => void> = [];
 function media(
-	id = crypto.randomUUID(),
+	id: string = crypto.randomUUID(),
 	name = 'source.mp4',
 	getFile: () => Promise<File> = async () => new File([name], name)
 ): MediaMetadata {

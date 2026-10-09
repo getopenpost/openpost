@@ -40,7 +40,6 @@ describe('render disposal', () => {
 
 		gate.leave();
 		expect(cleanup).toHaveBeenCalledOnce();
-		expect(gate.isDisposed).toBe(true);
 		expect(() => gate.enter()).toThrow('disposed renderer');
 	});
 });

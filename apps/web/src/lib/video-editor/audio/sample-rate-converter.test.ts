@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	AbsolutePhaseResampler,
 	downmixToOutputChannels,
-	expectedOutputFrames,
-	resampleAudioChannels,
-	resampleChannelLinear
+	expectedOutputFrames
 } from './sample-rate-converter';
 
 function sine(freq: number, frames: number, rate: number): Float32Array {
@@ -22,8 +20,8 @@ function peakFreq(signal: Float32Array, rate: number): number {
 describe('sample-rate-converter', () => {
 	it('keeps 44.1k to 48k tone at correct pitch', () => {
 		const input = sine(440, 44_100, 44_100);
-		const out = resampleChannelLinear(input, 44_100, 48_000);
-		expect(out.length).toBe(expectedOutputFrames(input.length, 44_100, 48_000));
+		const out = new AbsolutePhaseResampler(44_100, 48_000).processChunk(input, true);
+		expect(out.length).toBe(48_000);
 		const freq = peakFreq(out, 48_000);
 		expect(Math.abs(freq - 440)).toBeLessThan(5);
 	});
@@ -47,14 +45,21 @@ describe('sample-rate-converter', () => {
 			total += out.length;
 		}
 		expect(total).toBe(expected);
-		// naive per-chunk floor would drift
-		let naive = 0;
-		for (let seen = 0; seen < inputFrames; seen += chunkFrames) {
-			const size = Math.min(chunkFrames, inputFrames - seen);
-			naive += Math.floor((size * rateOut) / rateIn);
-		}
-		expect(naive).not.toBe(expected);
-		expect(Math.abs(naive - expected)).toBeGreaterThan(10);
+	});
+
+	it('preserves an impulse across a chunk boundary', () => {
+		const input = new Float32Array(10_000);
+		input[4095] = 1;
+		const resampler = new AbsolutePhaseResampler(44_100, 48_000);
+		const first = resampler.processChunk(input.subarray(0, 4096), false);
+		const second = resampler.processChunk(input.subarray(4096), true);
+		const output = new Float32Array(first.length + second.length);
+		output.set(first);
+		output.set(second, first.length);
+		expect(output.length).toBe(Math.round((10_000 * 48_000) / 44_100));
+		const peak = Math.max(...output);
+		expect(peak).toBeGreaterThan(0.5);
+		expect(output.indexOf(peak)).toBe(Math.round((4095 * 48_000) / 44_100));
 	});
 
 	it('maps mono to stereo by duplication and 5.1 via ITU', () => {

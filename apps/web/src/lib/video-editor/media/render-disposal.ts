@@ -22,10 +22,6 @@ export class RenderDisposalGate {
 		if (this.active === 0) this.finish();
 	}
 
-	get isDisposed(): boolean {
-		return this.disposed;
-	}
-
 	private finish(): void {
 		if (this.disposed) return;
 		this.disposed = true;

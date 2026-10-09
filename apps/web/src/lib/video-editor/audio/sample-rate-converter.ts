@@ -19,35 +19,6 @@ export function expectedOutputFrames(
 	return Math.round((inputFrames * targetRate) / sourceRate);
 }
 
-export function resampleChannelLinear(
-	channel: Float32Array,
-	sourceRate: number,
-	targetRate: number
-): Float32Array {
-	if (sourceRate === targetRate) return channel.slice();
-	const outputFrames = expectedOutputFrames(channel.length, sourceRate, targetRate);
-	const output = new Float32Array(outputFrames);
-	const ratio = sourceRate / targetRate;
-	for (let out = 0; out < outputFrames; out++) {
-		const pos = out * ratio;
-		const left = Math.floor(pos);
-		const frac = pos - left;
-		const leftSample = channel[left] ?? 0;
-		const rightSample = channel[left + 1] ?? 0;
-		output[out] = leftSample * (1 - frac) + rightSample * frac;
-	}
-	return output;
-}
-
-export function resampleAudioChannels(
-	channels: Float32Array[],
-	sourceRate: number,
-	targetRate: number
-): Float32Array[] {
-	if (sourceRate === targetRate) return channels.map((c) => c.slice());
-	return channels.map((channel) => resampleChannelLinear(channel, sourceRate, targetRate));
-}
-
 export class AbsolutePhaseResampler {
 	private totalInputFed = 0;
 	private totalOutputEmitted = 0;

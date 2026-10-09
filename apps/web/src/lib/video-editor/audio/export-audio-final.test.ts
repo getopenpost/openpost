@@ -1,9 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
-import {
-	AbsolutePhaseResampler,
-	downmixToOutputChannels,
-	resampleChannelLinear
-} from './sample-rate-converter';
+import { describe, expect, it } from 'vitest';
 import { frameToSourceSeconds, planMixdown, sliceMixEntries } from '../media/render-plan';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 
@@ -79,78 +74,5 @@ describe('export audio final - trim, gain, speed', () => {
 		);
 		expect(fast[0]?.playbackRate).toBe(2);
 		expect(fast[0]?.durationSeconds).toBeCloseTo(2);
-	});
-
-	it('cancels mid-decode and does not leak', async () => {
-		const controller = new AbortController();
-		// Simulate a long decode that checks abort
-		const work = new Promise<void>((resolve, reject) => {
-			const timer = setTimeout(() => resolve(), 100);
-			controller.signal.addEventListener('abort', () => {
-				clearTimeout(timer);
-				reject(new DOMException('Aborted', 'AbortError'));
-			});
-		});
-		controller.abort();
-		await expect(work).rejects.toMatchObject({ name: 'AbortError' });
-	});
-
-	it('keeps bounded memory across chunked resample', () => {
-		const rateIn = 44_100;
-		const rateOut = 48_000;
-		const frames = 48_000 * 10; // 10 sec
-		const input = new Float32Array(frames);
-		for (let i = 0; i < frames; i++) input[i] = Math.sin((2 * Math.PI * 440 * i) / rateIn);
-		const single = resampleChannelLinear(input, rateIn, rateOut);
-		const resampler = new AbsolutePhaseResampler(rateIn, rateOut);
-		const chunkSize = 4096;
-		let total = 0;
-		let maxBuffered = 0;
-		for (let off = 0; off < input.length; off += chunkSize) {
-			const chunk = input.subarray(off, off + chunkSize);
-			const out = resampler.processChunk(chunk, off + chunkSize >= input.length);
-			total += out.length;
-			maxBuffered = Math.max(maxBuffered, chunk.length);
-		}
-		expect(total).toBe(single.length);
-		expect(maxBuffered).toBeLessThanOrEqual(chunkSize);
-		expect(total).toBeGreaterThan(0);
-	});
-
-	it('preserves impulse across chunk boundary', () => {
-		const rateIn = 44_100;
-		const rateOut = 48_000;
-		const frames = 10_000;
-		const impulseAt = 4095; // right at chunk edge
-		const input = new Float32Array(frames);
-		input[impulseAt] = 1;
-		const single = resampleChannelLinear(input, rateIn, rateOut);
-		const resampler = new AbsolutePhaseResampler(rateIn, rateOut);
-		const c1 = input.subarray(0, 4096);
-		const c2 = input.subarray(4096);
-		const o1 = resampler.processChunk(c1, false);
-		const o2 = resampler.processChunk(c2, true);
-		const chunked = new Float32Array(o1.length + o2.length);
-		chunked.set(o1, 0);
-		chunked.set(o2, o1.length);
-		expect(chunked.length).toBe(single.length);
-		const idxSingle = single.indexOf(Math.max(...single));
-		const idxChunked = chunked.indexOf(Math.max(...chunked));
-		expect(Math.abs(idxSingle - idxChunked)).toBeLessThanOrEqual(1);
-	});
-
-	it('downmix keeps 5.1 center in stereo and duplicates mono', () => {
-		const L = new Float32Array([1]);
-		const R = new Float32Array([0]);
-		const C = new Float32Array([1]);
-		const stereo = downmixToOutputChannels(
-			[L, R, C, new Float32Array([0]), new Float32Array([0]), new Float32Array([0])],
-			2
-		);
-		expect(stereo[0]![0]).toBeCloseTo(1 + 0.7071, 2);
-		const mono = new Float32Array([0.7]);
-		const dup = downmixToOutputChannels([mono], 2);
-		expect(dup[0]![0]).toBeCloseTo(0.7, 4);
-		expect(dup[1]![0]).toBeCloseTo(0.7, 4);
 	});
 });

@@ -16,6 +16,8 @@ export interface TransitionGainSpan {
 	durationSeconds: number;
 	isIncoming: boolean;
 	dipToSilence: boolean;
+	/** Child transition progress after a nested composition retimes its clock. */
+	progressPoints?: Array<{ whenSeconds: number; progress: number }>;
 }
 
 export interface TransitionAudioExtent {
@@ -137,6 +139,29 @@ export function transitionGainAtProgress(
 	return progress < 0.5 ? equalPowerGain(progress * 2, false) : 0;
 }
 
+/** Resolve retimed progress without changing the equal-power fade shape. */
+export function transitionProgressAtTime(span: TransitionGainSpan, seconds: number): number {
+	const points = span.progressPoints;
+	if (!points?.length)
+		return span.durationSeconds > 0 ? (seconds - span.startSeconds) / span.durationSeconds : 1;
+	if (seconds <= points[0]!.whenSeconds) return points[0]!.progress;
+	let low = 1;
+	let high = points.length;
+	while (low < high) {
+		const middle = Math.floor((low + high) / 2);
+		if (points[middle]!.whenSeconds < seconds) low = middle + 1;
+		else high = middle;
+	}
+	const right = points[low];
+	const left = points[low - 1]!;
+	if (!right) return left.progress;
+	const duration = right.whenSeconds - left.whenSeconds;
+	if (duration <= 0) return right.progress;
+	return (
+		left.progress + ((seconds - left.whenSeconds) / duration) * (right.progress - left.progress)
+	);
+}
+
 export function buildTransitionGainCurve(
 	span: TransitionGainSpan,
 	startSeconds: number,
@@ -148,8 +173,7 @@ export function buildTransitionGainCurve(
 	const curve = new Float32Array(sampleCount);
 	for (let index = 0; index < sampleCount; index++) {
 		const time = startSeconds + (durationSeconds * index) / (sampleCount - 1);
-		const progress =
-			span.durationSeconds > 0 ? (time - span.startSeconds) / span.durationSeconds : 1;
+		const progress = transitionProgressAtTime(span, time);
 		curve[index] = transitionGainAtProgress(progress, span.isIncoming, span.dipToSilence);
 	}
 	return curve;

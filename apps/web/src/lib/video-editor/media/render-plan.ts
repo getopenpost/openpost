@@ -40,6 +40,7 @@ import {
 	hasLinkedAudioCompanion,
 	transitionAudioExtentForItem,
 	transitionGainSpansForItem,
+	transitionProgressAtTime,
 	type TransitionGainSpan
 } from '../audio/transition-crossfade';
 import { audioClipFadeGainAtFrame } from './clip-fades';
@@ -570,10 +571,39 @@ export function planNestedMixdown(
 					...entry.transitionGainSpans.map((span) => {
 						const start = mapChildTime(span.startSeconds);
 						const end = mapChildTime(span.startSeconds + span.durationSeconds);
+						const startSeconds = Math.min(start, end);
+						const durationSeconds = Math.abs(end - start);
+						const retimed = hasVariableSpeed(wrapper) || Boolean(span.progressPoints);
+						const progressTimes = retimed
+							? [
+									startSeconds,
+									startSeconds + durationSeconds,
+									...Array.from(
+										{ length: Math.ceil(durationSeconds * fps) },
+										(_, index) => startSeconds + index / fps
+									),
+									...wrapperRatePoints.map((point) => wrapperStart + point.offsetFrames / fps),
+									...(span.progressPoints ?? []).map((point) => mapChildTime(point.whenSeconds))
+								].filter(
+									(seconds) => seconds >= startSeconds && seconds <= startSeconds + durationSeconds
+								)
+							: [];
+						const progressPoints = retimed
+							? [...new Set(progressTimes)]
+									.sort((left, right) => left - right)
+									.map((seconds) => {
+										const progress = transitionProgressAtTime(span, childTimeAt(seconds));
+										return {
+											whenSeconds: seconds,
+											progress: wrapper.isReversed ? 1 - progress : progress
+										};
+									})
+							: undefined;
 						return {
 							...span,
-							startSeconds: Math.min(start, end),
-							durationSeconds: Math.abs(end - start),
+							startSeconds,
+							durationSeconds,
+							progressPoints,
 							isIncoming: span.isIncoming !== (wrapper.isReversed === true)
 						};
 					}),
@@ -764,7 +794,11 @@ export function sliceMixEntries(
 				previewGainPoints,
 				transitionGainSpans: entry.transitionGainSpans.map((span) => ({
 					...span,
-					startSeconds: span.startSeconds - startSeconds
+					startSeconds: span.startSeconds - startSeconds,
+					progressPoints: span.progressPoints?.map((point) => ({
+						...point,
+						whenSeconds: point.whenSeconds - startSeconds
+					}))
 				}))
 			}
 		];

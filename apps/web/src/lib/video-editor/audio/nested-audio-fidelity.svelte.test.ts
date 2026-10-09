@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { mixAudioWindows } from './bounded-audio-mixer';
-import { planNestedMixdown } from '../media/render-plan';
+import { planNestedMixdown, sliceMixEntries } from '../media/render-plan';
 import { mediaPool } from '../media/pool.svelte';
 import { createDefaultTracks } from '../project/defaults';
 import type { SubComposition, TimelineItem } from '../project/types';
@@ -31,6 +31,15 @@ function twoPartWav(): Blob {
 		view.setInt16(44 + i * 2, i < sampleRate / 2 ? 8192 : -8192, true);
 	return new Blob([buffer], { type: 'audio/wav' });
 }
+
+const crossfadeRamp: Partial<TimelineItem> = {
+	durationInFrames: 38,
+	speedRamp: [
+		{ id: 'slow', sourceFrame: 0, speed: 0.5, easing: 'hold' },
+		{ id: 'fast', sourceFrame: 15, speed: 2, easing: 'hold' },
+		{ id: 'end', sourceFrame: 30, speed: 2, easing: 'hold' }
+	]
+};
 
 it.each([
 	{ name: 'reverse', patch: { isReversed: true }, expected: -0.25 },
@@ -89,6 +98,33 @@ it.each([
 		at: 0.4,
 		expected: -0.25
 	},
+	{
+		name: 'speed-ramped child crossfade',
+		patch: crossfadeRamp,
+		childTransition: true,
+		nestedOnly: true,
+		at: 0.9,
+		// 0.9 output seconds is 0.45 child seconds, one quarter through
+		// the crossfade from child time 0.4 to 0.6 seconds.
+		expected: 0.25 * Math.cos(Math.PI / 8)
+	},
+	{
+		name: 'reversed speed-ramped child crossfade',
+		patch: { ...crossfadeRamp, isReversed: true },
+		childTransition: true,
+		nestedOnly: true,
+		at: 0.35,
+		expected: 0.25 * Math.cos(Math.PI / 8)
+	},
+	{
+		name: 'range-trimmed speed-ramped child crossfade',
+		patch: crossfadeRamp,
+		childTransition: true,
+		nestedOnly: true,
+		sliceStart: 0.8,
+		at: 0.1,
+		expected: 0.25 * Math.cos(Math.PI / 8)
+	},
 	{ name: 'fade-in', patch: { audioFadeIn: 1 }, expected: 0.025 },
 	{
 		name: 'volume automation',
@@ -104,6 +140,8 @@ it.each([
 	at?: number;
 	compositionFps?: number;
 	nestedOnly?: boolean;
+	childTransition?: boolean;
+	sliceStart?: number;
 }>)(
 	'preserves $name in nested audio mixdown',
 	async ({
@@ -113,6 +151,8 @@ it.each([
 		nestedExpected,
 		at = 0.1,
 		compositionFps = 30,
+		childTransition = false,
+		sliceStart = 0,
 		nestedOnly = false
 	}) => {
 		const blob = twoPartWav();
@@ -156,9 +196,24 @@ it.each([
 			height: 64,
 			fps: compositionFps,
 			durationInFrames: compositionFps,
-			items: [{ ...clip, ...childPatch }],
+			items: childTransition
+				? [
+						{ ...clip, durationInFrames: 15, sourceEnd: 15, sourceDuration: 30 },
+						{ ...clip, id: 'incoming', from: 15, durationInFrames: 15, sourceStart: 15, volume: 0 }
+					]
+				: [{ ...clip, ...childPatch }],
 			tracks,
-			transitions: []
+			transitions: childTransition
+				? [
+						{
+							id: 'fade',
+							type: 'crossfade',
+							durationInFrames: 6,
+							fromItemId: clip.id,
+							toItemId: 'incoming'
+						}
+					]
+				: []
 		};
 		try {
 			for (const nested of nestedOnly ? [true] : [false, true]) {
@@ -168,7 +223,11 @@ it.each([
 					mediaId: nested ? undefined : clip.mediaId,
 					compositionId: nested ? composition.id : undefined
 				};
-				const entries = planNestedMixdown([item], tracks, 30, [], [composition]);
+				const planned = planNestedMixdown([item], tracks, 30, [], [composition]);
+				const entries =
+					sliceStart > 0
+						? sliceMixEntries(planned, sliceStart, item.durationInFrames / 30)
+						: planned;
 				const samples: number[] = [];
 				const duration = Math.max(1, item.durationInFrames / 30);
 				for await (const window of mixAudioWindows(entries, duration))

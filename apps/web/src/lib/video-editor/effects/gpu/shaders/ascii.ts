@@ -126,12 +126,8 @@ uniform float uBgR;
 uniform float uBgG;
 uniform float uBgB;
 
-ivec2 asciiClampCoord(ivec2 coord, ivec2 size) {
-  return clamp(coord, ivec2(0), max(size - ivec2(1), ivec2(0)));
-}
-
 vec4 asciiLoad(ivec2 coord, ivec2 size) {
-  return texelFetch(uInputTex, asciiClampCoord(coord, size), 0);
+  return sampleReferencePixel(coord, size);
 }
 
 vec3 asciiAdjust(vec3 color) {

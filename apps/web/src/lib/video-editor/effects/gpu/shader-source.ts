@@ -53,6 +53,13 @@ void main() {
 
 /** Port of COMMON_WGSL — every helper verbatim. */
 export const EFFECT_COMMON_GLSL = /* glsl */ `
+vec4 sampleReferencePixel(ivec2 coordinate, ivec2 referenceSize) {
+  ivec2 reference = max(referenceSize, ivec2(1));
+  vec2 uv = (vec2(clamp(coordinate, ivec2(0), reference - 1)) + 0.5) / vec2(reference);
+  ivec2 rasterSize = textureSize(uInputTex, 0);
+  return texelFetch(uInputTex, clamp(ivec2(uv * vec2(rasterSize)), ivec2(0), rasterSize - 1), 0);
+}
+
 vec3 rgb2hsv(vec3 c) {
   vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
   vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));

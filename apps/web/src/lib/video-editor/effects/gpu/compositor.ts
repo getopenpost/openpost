@@ -30,6 +30,8 @@ export interface GpuRenderEffect extends EditorColorRenderEffect {
 }
 
 export interface GpuRenderOptions {
+	/** Source/authored pixel dimensions, independent of the current raster quality. */
+	referenceSize?: { width: number; height: number };
 	/** Seconds on the session clock; drives time-based effects (grain, glitch…). */
 	time?: number;
 	/** Final composite mode against the backdrop (default 'normal'). */
@@ -545,6 +547,63 @@ export class GpuCompositor implements EditorColorCompositor {
 			const needsColorBatch = passes.some((pass) => pass.kind === 'color-batch');
 			const colorBatchProgram = needsColorBatch ? this.getColorBatchProgram() : null;
 			if (needsColorBatch && !colorBatchProgram) passes = planEffectPasses(effects, false);
+			const firstPass = passes[0];
+			const firstDefinition =
+				firstPass?.kind === 'single' ? getGpuEffect(firstPass.effect.effectId) : undefined;
+			if (firstDefinition?.paperShader === undefined && firstDefinition?.scatterVertexSource) {
+				const sourceWidth =
+					'videoWidth' in source
+						? source.videoWidth
+						: 'naturalWidth' in source
+							? source.naturalWidth
+							: 'displayWidth' in source
+								? source.displayWidth
+								: source.width;
+				const sourceHeight =
+					'videoHeight' in source
+						? source.videoHeight
+						: 'naturalHeight' in source
+							? source.naturalHeight
+							: 'displayHeight' in source
+								? source.displayHeight
+								: source.height;
+				if (sourceWidth !== width || sourceHeight !== height) {
+					// Exact scatter addresses texels rather than normalized UVs. Normalize
+					// its first input to the output raster, reusing the existing ping targets.
+					gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.framebuffers[0]);
+					gl.framebufferTexture2D(
+						gl.READ_FRAMEBUFFER,
+						gl.COLOR_ATTACHMENT0,
+						gl.TEXTURE_2D,
+						this.sourceTexture,
+						0
+					);
+					gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.framebuffers[1]);
+					try {
+						gl.blitFramebuffer(
+							0,
+							0,
+							sourceWidth,
+							sourceHeight,
+							0,
+							0,
+							width,
+							height,
+							gl.COLOR_BUFFER_BIT,
+							gl.LINEAR
+						);
+					} finally {
+						gl.framebufferTexture2D(
+							gl.READ_FRAMEBUFFER,
+							gl.COLOR_ATTACHMENT0,
+							gl.TEXTURE_2D,
+							this.pingTextures[0],
+							0
+						);
+					}
+					currentTexture = this.pingTextures[1];
+				}
+			}
 
 			for (const pass of passes) {
 				const target = this.framebuffers[passIndex % 2];
@@ -608,7 +667,15 @@ export class GpuCompositor implements EditorColorCompositor {
 				}
 				this.ensureDataTexture(definition, entry.params);
 
-				const values = definition.uniformValues(entry.params, width, height, options.time ?? 0);
+				// Scatter passes address actual texels. Fragment effects use the authored
+				// pixel grid so preview quality and export size do not change their look.
+				const referenceSize = definition.scatterVertexSource ? undefined : options.referenceSize;
+				const values = definition.uniformValues(
+					entry.params,
+					referenceSize?.width ?? width,
+					referenceSize?.height ?? height,
+					options.time ?? 0
+				);
 				for (const [name, value] of Object.entries(values)) {
 					const loc = this.location(bundle, name);
 					if (loc) gl.uniform1f(loc, value);

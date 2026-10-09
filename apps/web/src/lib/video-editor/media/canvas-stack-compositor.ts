@@ -38,6 +38,8 @@ export interface StackLayerSource {
 	source: CanvasImageSource & TexImageSource;
 	width: number;
 	height: number;
+	/** Native source or authored raster dimensions before rendering at another quality. */
+	referenceSize?: { width: number; height: number };
 }
 
 export interface StackTransitionParticipant {
@@ -60,6 +62,7 @@ export interface BackgroundDiagnostics {
 
 export interface CanvasStackCompositorOptions {
 	backgroundAdapter?: BackgroundGpuAdapter | null;
+	referenceSize?: { width: number; height: number };
 }
 
 function createRawCanvas(width: number, height: number): StackCanvas {
@@ -279,7 +282,7 @@ export class CanvasStackCompositor {
 	constructor(
 		private readonly canvas: StackCanvas,
 		withTransitionBranches = true,
-		options?: CanvasStackCompositorOptions
+		private readonly options?: CanvasStackCompositorOptions
 	) {
 		const context = canvas.getContext('2d');
 		if (!context) throw new Error('Failed to create the composition canvas context.');
@@ -316,19 +319,15 @@ export class CanvasStackCompositor {
 			this.transitionRightCanvas = acquireCanvas(1, 1);
 			this.transitionOutputCanvas = acquireCanvas(1, 1);
 			this.transitionOutputContext = this.transitionOutputCanvas.getContext('2d');
-			const leftStackOptions: CanvasStackCompositorOptions | undefined =
-				options && 'backgroundAdapter' in options
-					? { backgroundAdapter: options.backgroundAdapter }
-					: undefined;
 			this.transitionLeftStack = new CanvasStackCompositor(
 				this.transitionLeftCanvas,
 				false,
-				leftStackOptions
+				options
 			);
 			this.transitionRightStack = new CanvasStackCompositor(
 				this.transitionRightCanvas,
 				false,
-				leftStackOptions
+				options
 			);
 			void this.initializeTransitionPipeline();
 		} else {
@@ -510,7 +509,17 @@ export class CanvasStackCompositor {
 			source.width,
 			source.height,
 			effects,
-			{ time }
+			{
+				time,
+				referenceSize:
+					source.referenceSize ??
+					(item.type === 'background' && this.options?.referenceSize
+						? {
+								width: (source.width * this.options.referenceSize.width) / this.width,
+								height: (source.height * this.options.referenceSize.height) / this.height
+							}
+						: undefined)
+			}
 		);
 		if (!rendered) {
 			this.recordExactRenderFailure(
@@ -538,7 +547,7 @@ export class CanvasStackCompositor {
 			this.width,
 			this.height,
 			gpuEffects,
-			{ time }
+			{ time, referenceSize: this.options?.referenceSize }
 		);
 		if (!rendered) {
 			this.recordExactRenderFailure(

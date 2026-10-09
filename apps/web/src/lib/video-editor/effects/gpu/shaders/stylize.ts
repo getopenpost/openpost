@@ -839,15 +839,8 @@ vec3 paletteColor(int paletteKind, int colorIndex) {
   return vec3(0.9608, 0.9020, 0.7843);
 }
 
-ivec2 clampTexelCoord(ivec2 coord, ivec2 texSize) {
-  return ivec2(
-    clamp(coord.x, 0, max(texSize.x - 1, 0)),
-    clamp(coord.y, 0, max(texSize.y - 1, 0))
-  );
-}
-
 vec4 loadInputTexel(ivec2 coord, ivec2 texSize) {
-  return texelFetch(uInputTex, clampTexelCoord(coord, texSize), 0);
+  return sampleReferencePixel(coord, texSize);
 }
 
 float sampleCellBrightness(vec2 cell, float cellSize, ivec2 texSizeI) {
@@ -1135,7 +1128,7 @@ vec4 vhsFragment(vec2 vUv) {
   vec3 rgb = vec3(r, g, b);
 
   // scanlines
-  float sl = 0.82 + 0.18 * sin(gl_FragCoord.y * PI);
+  float sl = 0.82 + 0.18 * sin(vUv.y * uHeight * PI);
   rgb = mix(rgb, rgb * sl, vec3(clamp(uScanline, 0.0, 1.0)));
 
   // tape noise — wrap the (unbounded) time addends so the per-pixel seed stays

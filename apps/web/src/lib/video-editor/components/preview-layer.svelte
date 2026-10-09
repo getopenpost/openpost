@@ -1127,6 +1127,15 @@
 		};
 	});
 
+	function sourceReferenceSize(width: number, height: number) {
+		if (item.type !== 'video') return { width, height };
+		const media = item.mediaId ? mediaPool.get(item.mediaId) : undefined;
+		return {
+			width: media?.width ?? item.sourceWidth ?? width,
+			height: media?.height ?? item.sourceHeight ?? height
+		};
+	}
+
 	function rawSource() {
 		if (resolved.type === 'image' && animatedCanvas && animatedFrames && animatedRevision > 0) {
 			return {
@@ -1144,14 +1153,16 @@
 			return {
 				source: proxyFallbackCanvas,
 				width: proxyFallbackCanvas.width,
-				height: proxyFallbackCanvas.height
+				height: proxyFallbackCanvas.height,
+				referenceSize: sourceReferenceSize(proxyFallbackCanvas.width, proxyFallbackCanvas.height)
 			};
 		}
 		if (resolved.type === 'video' && mediaElement?.videoWidth && mediaElement.videoHeight) {
 			return {
 				source: mediaElement,
 				width: mediaElement.videoWidth,
-				height: mediaElement.videoHeight
+				height: mediaElement.videoHeight,
+				referenceSize: sourceReferenceSize(mediaElement.videoWidth, mediaElement.videoHeight)
 			};
 		}
 		if (resolved.type === 'image' && decodedImageElement) {
@@ -1261,7 +1272,8 @@
 			const renderHeight = Math.max(1, Math.round(height * previewScale));
 			const rendered = instance.render(source, renderWidth, renderHeight, effects, {
 				time: untrack(() => visualFrame) / editorSession.fps,
-				blendMode
+				blendMode,
+				referenceSize: sourceReferenceSize(width, height)
 			});
 			canvas.hidden = !rendered;
 			if (itemType === 'image' && image) image.style.visibility = rendered ? 'hidden' : '';

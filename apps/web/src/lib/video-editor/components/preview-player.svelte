@@ -867,7 +867,9 @@
 	$effect(() => {
 		const canvas = compareCanvas;
 		if (!canvas || colorPreviewStore.comparisonMode !== 'split') return;
-		const stack = new CanvasStackCompositor(canvas);
+		const stack = new CanvasStackCompositor(canvas, true, {
+			referenceSize: { width: canvasWidth, height: canvasHeight }
+		});
 		compareCompositor = stack;
 		scheduleStackFrame();
 		return () => {
@@ -879,7 +881,9 @@
 	$effect(() => {
 		const canvas = stackCanvas;
 		if (!canvas || !needsStackedComposition) return;
-		const stack = new CanvasStackCompositor(canvas);
+		const stack = new CanvasStackCompositor(canvas, true, {
+			referenceSize: { width: canvasWidth, height: canvasHeight }
+		});
 		stackCompositor = stack;
 		scheduleStackFrame();
 		return () => {

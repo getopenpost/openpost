@@ -221,6 +221,7 @@ uniform float uChroma;
 uniform float uScanlineMix;
 uniform float uTime;
 uniform float uAspect;
+uniform float uHeight;
 uniform float uGlowR;
 uniform float uGlowG;
 uniform float uGlowB;
@@ -259,7 +260,7 @@ vec4 triggerWaveFragment(vec2 vUv) {
   }
 
   if (scanlineMix > 0.0) {
-    float line = 0.78 + 0.22 * sin(gl_FragCoord.y * 2.4 + phase * TAU * 8.0);
+    float line = 0.78 + 0.22 * sin(vUv.y * uHeight * 2.4 + phase * TAU * 8.0);
     color = vec4(mix(color.rgb, color.rgb * line, vec3(scanlineMix)), color.a);
   }
 
@@ -364,6 +365,7 @@ vec4 triggerWaveFragment(vec2 vUv) {
 			uScanlineMix: readNumber(p, 'scanlineMix', 0.18),
 			uTime: time,
 			uAspect: w / Math.max(h, 1),
+			uHeight: h,
 			uGlowR: glow[0] * glow[3],
 			uGlowG: glow[1] * glow[3],
 			uGlowB: glow[2] * glow[3]
@@ -682,7 +684,7 @@ vec4 flutedGlassFragment(vec2 vUv) {
   float patternSize = mix(200.0, 5.0, size);
 
   vec2 uv = vUv;
-  vec2 uvMask = gl_FragCoord.xy / vec2(width, height);
+  vec2 uvMask = vUv;
   vec2 sw = vec2(0.005);
   float mask =
     smoothstep(marginLeft, marginLeft + sw.x, uvMask.x + sw.x) *

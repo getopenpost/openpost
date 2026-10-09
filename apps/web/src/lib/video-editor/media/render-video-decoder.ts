@@ -8,6 +8,7 @@ interface RenderedVideoFrame {
 	source: VideoFrame;
 	width: number;
 	height: number;
+	referenceSize: { width: number; height: number };
 	timestamp: number;
 }
 
@@ -176,6 +177,7 @@ export class ResilientVideoFrameDecoder {
 				source: transformed.toVideoFrame(),
 				width,
 				height,
+				referenceSize: { width: sample.displayWidth, height: sample.displayHeight },
 				timestamp: sample.timestamp
 			};
 		} finally {

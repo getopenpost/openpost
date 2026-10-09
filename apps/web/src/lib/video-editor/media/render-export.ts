@@ -308,7 +308,9 @@ export class TimelineFrameRenderer {
 			this.width === outputWidth && this.height === outputHeight
 				? this.canvas
 				: new OffscreenCanvas(this.width, this.height);
-		this.stackCompositor = new CanvasStackCompositor(this.compositionCanvas);
+		this.stackCompositor = new CanvasStackCompositor(this.compositionCanvas, true, {
+			referenceSize: { width: project.metadata.width, height: project.metadata.height }
+		});
 		this.backgroundColor =
 			options.backgroundColor !== undefined
 				? options.backgroundColor
@@ -464,7 +466,16 @@ export class TimelineFrameRenderer {
 			resolvedItem.type === 'text' ||
 			resolvedItem.type === 'shape'
 		) {
-			return this.itemRasterizer.render(resolvedItem, frame);
+			const source = this.itemRasterizer.render(resolvedItem, frame);
+			return source
+				? {
+						...source,
+						referenceSize: {
+							width: (source.width * this.project.metadata.width) / this.width,
+							height: (source.height * this.project.metadata.height) / this.height
+						}
+					}
+				: null;
 		}
 		if (resolvedItem.type === 'composition' && resolvedItem.compositionId) {
 			if (this.ancestry.has(resolvedItem.compositionId)) return null;
@@ -550,7 +561,17 @@ export class TimelineFrameRenderer {
 				lottieFrame,
 				spec
 			);
-			return source ? { source, width, height } : null;
+			return source
+				? {
+						source,
+						width,
+						height,
+						referenceSize: {
+							width: (width * this.project.metadata.width) / this.width,
+							height: (height * this.project.metadata.height) / this.height
+						}
+					}
+				: null;
 		}
 		if (resolvedItem.type === 'video') {
 			const decoder = await this.getDecoder(originalItem);
@@ -563,7 +584,8 @@ export class TimelineFrameRenderer {
 				? {
 						source: wrapped.source,
 						width: wrapped.width,
-						height: wrapped.height
+						height: wrapped.height,
+						referenceSize: wrapped.referenceSize
 					}
 				: null;
 		}

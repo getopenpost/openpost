@@ -64,6 +64,7 @@ export async function renderImageEditorPage(
 	signal?.throwIfAborted();
 	const canvas = globalThis.document.createElement('canvas');
 	const adapter = new OpenPostFabricAdapter({
+		signal,
 		canvas,
 		document: imageEditorDocument,
 		page,
@@ -139,6 +140,7 @@ export async function renderImageEditorPreview(
 	const pageSize = imageEditorPageDimensions(imageEditorDocument, page);
 	const renderScale = Math.min(1, 512 / Math.max(pageSize.width, pageSize.height));
 	const adapter = new OpenPostFabricAdapter({
+		signal,
 		canvas,
 		document: imageEditorDocument,
 		page,

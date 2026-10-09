@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
+import { ImageEditorController } from './editor.svelte';
 import { blankImageEditorDocument, defaultTransform } from './document';
 import {
 	createRenderedPagesArchive,
@@ -12,6 +13,64 @@ afterEach(() => {
 });
 
 describe('Image Editor full-resolution rendering', () => {
+	it.each(['background', 'font'] as const)(
+		'cancels export while its %s download is stalled',
+		async (target) => {
+			const document = blankImageEditorDocument({
+				key: 'cancel',
+				name: 'Cancel',
+				default_format: 'png',
+				profiles: [],
+				width_px: 64,
+				height_px: 64
+			});
+			const page = document.pages[0];
+			page.background = { type: 'image', opacity: 1, image: { media_id: 'slow', fit: 'cover' } };
+			if (target === 'font') {
+				page.background = { type: 'solid', color: '#ffffff', opacity: 1 };
+				const editor = new ImageEditorController();
+				editor.load({
+					id: 'design',
+					workspace_id: 'local',
+					created_by_id: 'test',
+					revision: 1,
+					can_edit: true,
+					created_at: '2026-10-09',
+					updated_at: '2026-10-09',
+					document
+				});
+				editor.addText('Brand headline');
+				page.layers = editor.activePage!.layers;
+				page.layers[0].text!.font_asset_id = 'slow-font-export';
+			}
+
+			const pending = Promise.withResolvers<Response>();
+			const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((_url, options) => {
+				options?.signal?.addEventListener('abort', () => pending.reject(options.signal!.reason), {
+					once: true
+				});
+				return pending.promise;
+			});
+			const controller = new AbortController();
+			const result = renderImageEditorPage(document, page, 0, controller.signal).then(
+				() => 'exported',
+				(error: Error) => error.name
+			);
+			try {
+				await expect.poll(() => fetchMock.mock.calls.length).toBe(1);
+				controller.abort();
+				let outcome = 'pending';
+				void result.then((value) => {
+					outcome = value;
+				});
+				await expect.poll(() => outcome).toBe('AbortError');
+			} finally {
+				pending.resolve(new Response(null, { status: 404 }));
+				await result;
+			}
+		}
+	);
+
 	it('exports each page at its own dimensions', async () => {
 		const document = blankImageEditorDocument({
 			key: 'mixed-export',

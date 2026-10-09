@@ -1,3 +1,4 @@
+import { abortable } from '$lib/abortable';
 import { renderCurvedText } from './curved-text';
 import { imageEditorTextFontFamily, loadImageEditorTextFont } from './fonts';
 import { hasEditorColorGrade } from '$lib/editor-color-grade/model';
@@ -50,17 +51,18 @@ type FabricObject = InstanceType<FabricModule['FabricObject']> & {
 	snapThreshold?: number;
 	__corner?: string;
 };
-type FabricImageObject = InstanceType<FabricModule['FabricImage']> & {
-	__imageEditorGradeApplied?: boolean;
-	__imageEditorGradeSource?: ReturnType<FabricImageObject['getElement']>;
-	__imageEditorGradeKey?: string;
-	__imageEditorFilterKey?: string;
-	__imageEditorGradeGeometry?: ImageEditorImageGeometry;
-	__imageEditorGradeCanvas?: HTMLCanvasElement;
-	__imageEditorGradeBackend?: ImageGradeBackend;
-	__imageEditorRenderWidth?: number;
-	__imageEditorRenderHeight?: number;
-};
+type FabricImageObject = InstanceType<FabricModule['FabricImage']> &
+	FabricObject & {
+		__imageEditorGradeApplied?: boolean;
+		__imageEditorGradeSource?: ReturnType<FabricImageObject['getElement']>;
+		__imageEditorGradeKey?: string;
+		__imageEditorFilterKey?: string;
+		__imageEditorGradeGeometry?: ImageEditorImageGeometry;
+		__imageEditorGradeCanvas?: HTMLCanvasElement;
+		__imageEditorGradeBackend?: ImageGradeBackend;
+		__imageEditorRenderWidth?: number;
+		__imageEditorRenderHeight?: number;
+	};
 
 interface FabricObjectCollection extends FabricObject {
 	getObjects(): InstanceType<FabricModule['FabricObject']>[];
@@ -143,6 +145,7 @@ export interface ImageEditorPixelGrid {
 }
 
 interface FabricAdapterOptions {
+	signal?: AbortSignal;
 	canvas: HTMLCanvasElement;
 	document: ImageEditorDocument;
 	page: ImageEditorPage;
@@ -423,6 +426,9 @@ export class OpenPostFabricAdapter {
 	private backgroundSnapshot = '';
 	private syncing = false;
 	private renderSequence = 0;
+	private disposed = false;
+	private renderAbort = new AbortController();
+	private signal?: AbortSignal;
 	private colorGradeComparisonPage = false;
 	private colorGradeComparisonLayerIDs = new Set<string>();
 	private gradeRenderer: ImageGradeRenderer | null = null;
@@ -469,6 +475,7 @@ export class OpenPostFabricAdapter {
 
 	constructor(options: FabricAdapterOptions) {
 		this.element = options.canvas;
+		this.signal = options.signal;
 		this.onRender = options.onRender;
 		this.document = options.document;
 		this.page = options.page;
@@ -494,7 +501,9 @@ export class OpenPostFabricAdapter {
 	}
 
 	async mount(): Promise<void> {
-		this.fabric = await import('fabric');
+		const fabric = await import('fabric');
+		if (this.disposed || this.signal?.aborted) return;
+		this.fabric = fabric;
 		this.gradeRenderer = new ImageGradeRenderer(createGpuCompositor);
 		this.canvas = this.staticMode
 			? new this.fabric.StaticCanvas(this.element, {
@@ -525,6 +534,8 @@ export class OpenPostFabricAdapter {
 		this.document = document;
 		this.page = page;
 		const sequence = ++this.renderSequence;
+		this.renderAbort.abort();
+		this.renderAbort = new AbortController();
 		this.syncing = true;
 		this.interactiveCanvas()?.discardActiveObject();
 		for (const object of this.objectByLayerID.values()) this.releaseObjectURL(object);
@@ -591,6 +602,8 @@ export class OpenPostFabricAdapter {
 		}
 
 		const sequence = ++this.renderSequence;
+		this.renderAbort.abort();
+		this.renderAbort = new AbortController();
 		const previousLayers = [...this.layerSnapshots.values()];
 		const nextLayerByID = new Map(page.layers.map((layer) => [layer.id, layer] as const));
 		const hierarchyChanged =
@@ -1202,6 +1215,8 @@ export class OpenPostFabricAdapter {
 	}
 
 	dispose(): void {
+		this.disposed = true;
+		this.renderAbort.abort();
 		this.renderSequence++;
 		this.releaseTextInput();
 		for (const object of this.objectByLayerID.values()) this.releaseObjectURL(object);
@@ -1664,6 +1679,42 @@ export class OpenPostFabricAdapter {
 		this.guideObjects = [];
 	}
 
+	private get renderSignal(): AbortSignal {
+		return this.signal
+			? AbortSignal.any([this.signal, this.renderAbort.signal])
+			: this.renderAbort.signal;
+	}
+
+	private async loadMediaImage(
+		mediaID: string,
+		layerID?: string
+	): Promise<FabricImageObject | null> {
+		const fabric = this.fabric;
+		if (!fabric || this.disposed) return null;
+		const signal = this.renderSignal;
+		let objectURL: string | undefined;
+		try {
+			signal.throwIfAborted();
+			const response = await fetch(getAuthenticatedMediaURL(`/media/${mediaID}`), {
+				credentials: 'include',
+				signal
+			});
+			if (!response.ok) throw new Error(`Missing media ${mediaID}`);
+			const blob = await response.blob();
+			signal.throwIfAborted();
+			objectURL = URL.createObjectURL(blob);
+			this.objectURLs.add(objectURL);
+			const image: FabricImageObject = await fabric.FabricImage.fromURL(objectURL, { signal });
+			signal.throwIfAborted();
+			image.__imageEditorObjectURL = objectURL;
+			return image;
+		} catch {
+			if (objectURL) this.revokeObjectURL(objectURL);
+			if (!signal.aborted) this.onMissingMedia(mediaID, layerID);
+			return null;
+		}
+	}
+
 	private async createPageBackgroundObject(page: ImageEditorPage): Promise<FabricObject | null> {
 		if (!this.fabric || !this.canvas) return null;
 		const background = imageEditorPageBackground(page);
@@ -1704,27 +1755,8 @@ export class OpenPostFabricAdapter {
 		}
 		if (background.type !== 'image' || !background.image?.media_id) return null;
 		const backgroundMediaID = background.image.media_id;
-		let backgroundBlob: Blob;
-		try {
-			const response = await fetch(getAuthenticatedMediaURL(`/media/${backgroundMediaID}`), {
-				credentials: 'include'
-			});
-			if (!response.ok) throw new Error(`Missing media ${backgroundMediaID}`);
-			backgroundBlob = await response.blob();
-		} catch {
-			this.onMissingMedia(backgroundMediaID);
-			return null;
-		}
-		const objectURL = URL.createObjectURL(backgroundBlob);
-		this.objectURLs.add(objectURL);
-		let image: InstanceType<FabricModule['FabricImage']>;
-		try {
-			image = await this.fabric.FabricImage.fromURL(objectURL);
-		} catch {
-			this.revokeObjectURL(objectURL);
-			this.onMissingMedia(backgroundMediaID);
-			return null;
-		}
+		const image = await this.loadMediaImage(backgroundMediaID);
+		if (!image) return null;
 		const sourceWidth = Math.max(1, image.width);
 		const sourceHeight = Math.max(1, image.height);
 		const fit = background.image.fit;
@@ -1747,7 +1779,6 @@ export class OpenPostFabricAdapter {
 			evented: false
 		});
 		const object: FabricObject = image;
-		object.__imageEditorObjectURL = objectURL;
 		return object;
 	}
 
@@ -1802,12 +1833,15 @@ export class OpenPostFabricAdapter {
 			});
 		}
 		if (layer.type === 'text' && layer.text) {
+			const signal = this.renderSignal;
 			try {
-				await loadImageEditorTextFont(layer.text);
+				await loadImageEditorTextFont(layer.text, undefined, signal);
 			} catch {
+				if (signal.aborted) return null;
 				if (layer.text.font_asset_id && (!layer.text.curve || layer.text.curve.type === 'none'))
 					this.onMissingMedia(layer.text.font_asset_id, layer.id);
 			}
+			if (signal.aborted) return null;
 			const curve = layer.text.curve;
 			const pathData = curve
 				? createTextCurvePath(layer.transform.width, layer.transform.height, curve)
@@ -1848,6 +1882,7 @@ export class OpenPostFabricAdapter {
 			}
 			if (isEditableFabricText(object)) this.applyTextRuns(object, layer.text);
 			await this.refreshCurvedText(object, layer);
+			if (signal.aborted) return null;
 		}
 		if (layer.type === 'shape' && layer.shape) {
 			const shapeOptions = {
@@ -1931,27 +1966,9 @@ export class OpenPostFabricAdapter {
 		}
 		if (layer.type === 'image' && layer.image) {
 			const layerMediaID = layer.image.media_id;
-			let layerBlob: Blob;
-			try {
-				const response = await fetch(getAuthenticatedMediaURL(`/media/${layerMediaID}`), {
-					credentials: 'include'
-				});
-				if (!response.ok) throw new Error(`Missing media ${layerMediaID}`);
-				layerBlob = await response.blob();
-			} catch {
-				this.onMissingMedia(layerMediaID, layer.id);
-				return null;
-			}
-			const objectURL = URL.createObjectURL(layerBlob);
-			this.objectURLs.add(objectURL);
-			let image: FabricImageObject;
-			try {
-				image = await this.fabric.FabricImage.fromURL(objectURL);
-			} catch {
-				this.revokeObjectURL(objectURL);
-				this.onMissingMedia(layerMediaID, layer.id);
-				return null;
-			}
+			const sequence = this.renderSequence;
+			const image = await this.loadMediaImage(layerMediaID, layer.id);
+			if (!image) return null;
 			const sourceWidth = Math.max(1, image.width);
 			const sourceHeight = Math.max(1, image.height);
 			if (layer.image.color_grade_version === IMAGE_COLOR_GRADE_VERSION) {
@@ -1960,7 +1977,10 @@ export class OpenPostFabricAdapter {
 				this.applyImageGrade(image, layer, this.gradeRenderPlan(layer, sourceWidth, sourceHeight));
 			}
 			if (layer.image.intrinsic_pending) {
-				queueMicrotask(() => this.onImageDimensions(layer.id, sourceWidth, sourceHeight));
+				queueMicrotask(() => {
+					if (sequence === this.renderSequence && !this.signal?.aborted)
+						this.onImageDimensions(layer.id, sourceWidth, sourceHeight);
+				});
 			}
 			const geometry =
 				image.__imageEditorGradeGeometry ??
@@ -1975,7 +1995,6 @@ export class OpenPostFabricAdapter {
 			});
 			this.applyImageFilters(image, layer);
 			object = image;
-			object.__imageEditorObjectURL = objectURL;
 			object.__imageEditorSourceWidth = sourceWidth;
 			object.__imageEditorSourceHeight = sourceHeight;
 		}
@@ -2007,10 +2026,24 @@ export class OpenPostFabricAdapter {
 		const textObject = object as InstanceType<FabricModule['IText']>;
 		const version = (this.curvedTextVersions.get(object) ?? 0) + 1;
 		this.curvedTextVersions.set(object, version);
-		const rendered = await renderCurvedText(layer.text, textObject, {
-			onMissingFont: (assetID) => this.onMissingMedia(assetID, layer.id)
-		});
-		if (this.curvedTextVersions.get(object) !== version) return;
+		const signal = this.renderSignal;
+		if (signal.aborted) return;
+		let rendered: Awaited<ReturnType<typeof renderCurvedText>>;
+		try {
+			rendered = await abortable(
+				renderCurvedText(layer.text, textObject, {
+					onMissingFont: (assetID) => {
+						if (!signal.aborted) this.onMissingMedia(assetID, layer.id);
+					}
+				}),
+				signal,
+				() => new DOMException('Rendering cancelled.', 'AbortError')
+			);
+		} catch (error) {
+			if (signal.aborted) return;
+			throw error;
+		}
+		if (signal.aborted || this.curvedTextVersions.get(object) !== version) return;
 		Object.assign(textObject, {
 			_renderText: (context: CanvasRenderingContext2D) => {
 				context.drawImage(

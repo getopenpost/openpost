@@ -39,17 +39,20 @@ export function hasRegisteredImageEditorTextFont(text: ImageEditorTextValue): bo
 
 export async function loadImageEditorTextFont(
 	text: ImageEditorTextValue,
-	blob?: Blob
+	blob?: Blob,
+	signal?: AbortSignal
 ): Promise<void> {
+	signal?.throwIfAborted();
 	if (!text.font_asset_id || hasRegisteredImageEditorTextFont(text)) return;
 	if (!blob) {
 		const response = await fetch(
 			getAuthenticatedMediaURL(`/media/${encodeURIComponent(text.font_asset_id)}`),
-			{ credentials: 'include' }
+			{ credentials: 'include', signal }
 		);
 		if (!response.ok) throw new Error(m.image_editor_project_media_failed());
 		blob = await response.blob();
 	}
+	signal?.throwIfAborted();
 	await loadEditorFontAsset({
 		assetID: text.font_asset_id,
 		family: text.font_family,
@@ -57,6 +60,7 @@ export async function loadImageEditorTextFont(
 		style: text.font_style ?? 'normal',
 		blob
 	});
+	signal?.throwIfAborted();
 	const family = imageEditorTextFontFamily(text);
 	registrations.set(family, (registrations.get(family) ?? 0) + 1);
 }

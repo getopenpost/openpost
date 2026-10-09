@@ -6,7 +6,7 @@ import { resolveMediaBlob } from '../../resolve-media-blob';
 import type { MediaMetadata, ProjectAssetImporter } from '../../types';
 import { mediaPool } from '../../pool.svelte';
 import { gpuMediaJobScheduler } from '../gpu-media-job-scheduler';
-import { abortable } from '../abortable';
+import { abortable } from '$lib/abortable';
 import type { UpscaleWorkerRequest, UpscaleWorkerResponse } from '../workers/upscale-worker';
 import {
 	UPSCALED_MEDIA_TAG,

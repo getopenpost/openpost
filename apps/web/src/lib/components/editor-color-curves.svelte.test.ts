@@ -9,6 +9,34 @@ import {
 	DEFAULT_EDITOR_SHORTCUTS
 } from '$lib/video-editor/settings/keyboard-shortcuts';
 
+it('lets assistive technology select a compact color channel by its full name', async () => {
+	const oncommit = vi.fn();
+	const screen = await render(EditorColorCurves, {
+		gpuEffect: { id: 'curves', enabled: true, params: {} },
+		ondraft: vi.fn(),
+		oncommit,
+		compact: true
+	});
+	await screen.getByRole('button', { name: 'Red', exact: true }).click();
+	const point = screen.getByRole('slider', {
+		name: 'Red curve point 2',
+		exact: true
+	});
+	// SAFETY: the curve slider is an SVG element with a focus method.
+	(point.element() as SVGElement).focus();
+	await userEvent.keyboard('{ArrowUp}');
+	await vi.waitFor(() => {
+		expect(oncommit).toHaveBeenCalledWith({
+			redPoints: JSON.stringify([
+				[0, 0],
+				[0.25, 0.26],
+				[0.75, 0.75],
+				[1, 1]
+			])
+		});
+	});
+});
+
 it('keeps compact curve markers, hit targets, and strokes in screen space', async () => {
 	await render(EditorColorCurves, {
 		gpuEffect: { id: 'curves', enabled: true, params: {} },

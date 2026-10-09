@@ -1227,8 +1227,10 @@
 </div>
 
 <style>
-	.image-editor-properties-scroll :global(.grid > *),
-	.image-editor-properties-scroll :global(.flex > *) {
-		min-width: 0;
+	@layer base {
+		.image-editor-properties-scroll :global(.grid > *),
+		.image-editor-properties-scroll :global(.flex > *) {
+			min-width: 0;
+		}
 	}
 </style>

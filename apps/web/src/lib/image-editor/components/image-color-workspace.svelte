@@ -462,7 +462,6 @@
 								previewTools('curves', params);
 								finishTools();
 							}}
-							compact
 						/>
 					</fieldset>
 				</section>

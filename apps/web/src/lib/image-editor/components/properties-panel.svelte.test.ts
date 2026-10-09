@@ -120,6 +120,14 @@ it('targets selected images first and keeps advanced color tools behind a disclo
 		.toHaveAttribute('aria-expanded', 'false');
 	await expect.element(screen.getByText('Tone')).toBeVisible();
 	await expect.element(screen.getByLabelText('Scopes', { exact: true })).not.toBeVisible();
+	await screen.getByRole('button', { name: 'Advanced' }).click();
+	for (const channel of ['Master', 'Red', 'Green', 'Blue']) {
+		const button = screen.getByRole('button', { name: channel, exact: true });
+		await expect.element(button).toBeVisible();
+		const bounds = button.element().getBoundingClientRect();
+		expect(bounds.width).toBeGreaterThanOrEqual(44);
+		expect(bounds.height).toBeGreaterThanOrEqual(44);
+	}
 });
 
 it.each(['layer', 'group'])(

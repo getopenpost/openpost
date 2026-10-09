@@ -383,21 +383,18 @@
 		? 'flex h-full min-h-0 flex-col p-1'
 		: 'mt-2 rounded-lg border border-[var(--video-editor-border)] p-2'}"
 >
-	<div class="flex items-center gap-1 {compact ? 'mb-1 shrink-0' : 'mb-2 flex-wrap'}">
-		<span
-			class="mr-auto text-[10px] font-medium text-[var(--video-editor-muted)] uppercase {compact
-				? 'sr-only'
-				: ''}"
-		>
+	<div class="items-center gap-1 {compact ? 'mb-1 flex shrink-0' : 'mb-2 grid grid-cols-4'}">
+		<span class="sr-only">
 			{m.video_editor_curves_channel()}
 		</span>
 		{#each CURVE_CHANNELS as channel (channel)}
 			<button
 				type="button"
-				class={`${compact ? 'h-6 min-w-0 flex-1 overflow-hidden px-1 text-[8px]' : 'min-h-11 min-w-11 px-2 text-xs'} rounded font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] ${activeChannel === channel ? 'bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]' : 'text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)]'}`}
+				class={`${compact ? 'h-6 min-w-0 flex-1 overflow-hidden px-1 text-xs' : 'min-h-11 min-w-11 px-2 text-xs'} rounded font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] ${activeChannel === channel ? 'bg-[var(--video-editor-selection)] text-[var(--video-editor-selection-text)]' : 'text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)]'}`}
 				disabled={!gpuEffect.enabled || drag !== null}
+				aria-label={channelLabels[channel]}
+				title={channelLabels[channel]}
 				aria-pressed={activeChannel === channel}
-				style:color={activeChannel === channel ? channelColors[channel] : undefined}
 				onclick={() => selectChannel(channel)}
 			>
 				{compact ? channelLabels[channel].slice(0, 1) : channelLabels[channel]}
@@ -407,7 +404,7 @@
 			type="button"
 			class="flex {compact
 				? 'size-6'
-				: 'size-11'} items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35"
+				: 'col-start-3 size-11 justify-self-end'} items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35"
 			disabled={!gpuEffect.enabled ||
 				drag !== null ||
 				selectedPointIndex === null ||
@@ -423,7 +420,7 @@
 			type="button"
 			class="flex {compact
 				? 'size-6'
-				: 'size-11'} items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35"
+				: 'size-11 justify-self-end'} items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35"
 			disabled={!gpuEffect.enabled || drag !== null || isIdentityCurve(activePoints)}
 			aria-label={m.video_editor_curves_reset_channel({ channel: channelLabels[activeChannel] })}
 			title={m.video_editor_curves_reset_channel({ channel: channelLabels[activeChannel] })}

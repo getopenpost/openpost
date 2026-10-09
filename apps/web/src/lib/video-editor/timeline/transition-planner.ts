@@ -82,6 +82,39 @@ export function resolveTransitionWindow(
 	};
 }
 
+/** A clip cannot take part in two scene transitions at the same time. */
+export function hasTransitionOverlap(
+	candidate: TimelineTransition,
+	transitions: readonly TimelineTransition[],
+	itemsById: ReadonlyMap<string, TimelineItem>
+): boolean {
+	const left = itemsById.get(candidate.fromItemId);
+	const right = itemsById.get(candidate.toItemId);
+	if (!left || !right) return false;
+	const window = resolveTransitionWindow(candidate, left, right);
+	if (!window) return false;
+	return transitions.some((transition) => {
+		if (transition.id === candidate.id) return false;
+		const otherLeft = itemsById.get(transition.fromItemId);
+		const otherRight = itemsById.get(transition.toItemId);
+		if (!otherLeft || !otherRight || otherLeft.trackId !== left.trackId) return false;
+		const other = resolveTransitionWindow(transition, otherLeft, otherRight);
+		return !!other && window.startFrame < other.endFrame && other.startFrame < window.endFrame;
+	});
+}
+
+/** Legacy conflicting windows retain stored-order priority, consistently for the entire cut. */
+export function nonOverlappingTransitions(
+	transitions: readonly TimelineTransition[],
+	itemsById: ReadonlyMap<string, TimelineItem>
+): TimelineTransition[] {
+	const accepted: TimelineTransition[] = [];
+	for (const transition of transitions) {
+		if (!hasTransitionOverlap(transition, accepted, itemsById)) accepted.push(transition);
+	}
+	return accepted;
+}
+
 export function getAvailableTransitionHandle(
 	item: TimelineItem,
 	side: 'start' | 'end',

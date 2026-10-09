@@ -1,6 +1,6 @@
 module github.com/openpost/backend
 
-go 1.26.6
+go 1.26.9
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.2
@@ -39,12 +39,12 @@ require (
 	github.com/uptrace/bun/driver/pgdriver v1.2.18
 	github.com/uptrace/bun/driver/sqliteshim v1.2.18
 	github.com/venusliang/go-font v0.0.16
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.57.0
 	golang.org/x/image v0.45.0
-	golang.org/x/net v0.57.0
+	golang.org/x/net v0.60.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sys v0.47.0
-	golang.org/x/text v0.41.0
+	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.42.0
 	mvdan.cc/xurls/v2 v2.6.0
 )
 

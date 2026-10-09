@@ -166,10 +166,12 @@
 	onDestroy(() => requestAbort?.abort());
 	let conversationProject = '';
 	$effect(() => {
-		const key = `${workspaceId}:${projectId}`;
+		const key = `${workspaceId}:${projectId}:${kind}`;
 		if (conversationProject === key) return;
 		conversationProject = key;
 		requestAbort?.abort();
+		requestAbort = null;
+		busy = false;
 		messages = [];
 		input = '';
 		status = '';
@@ -189,14 +191,16 @@
 		busy = true;
 		status = m.video_editor_agent_running();
 		const controller = new AbortController();
-		const projectKey = conversationProject;
+		const workspace = workspaceId;
+		const project = projectId;
+		const editorKind = kind;
 		requestAbort = controller;
 		try {
 			const selectedStyle = pinnedStyle;
 			const { data: result, error } = await client.POST('/editor-agent/assistant', {
 				body: {
-					workspace_id: workspaceId,
-					project_id: projectId,
+					workspace_id: workspace,
+					project_id: project,
 					session_id: sessionId,
 					prompt,
 					history,
@@ -205,22 +209,26 @@
 				},
 				signal: controller.signal
 			});
-			if (projectKey !== conversationProject) return;
+			if (requestAbort !== controller) return;
 			if (error || !result) throw new Error(error?.detail || m.editor_agent_unavailable());
 			messages = [
 				...messages,
 				{ role: 'assistant', content: result.reply, preferences: savedRules(result.steps ?? []) }
 			];
-			await queryClient.invalidateQueries({
-				queryKey: editorPreferencesQueryKeys.workspace(workspaceId)
-			});
-			preferences = await queryEditorPreferences(workspaceId, projectId, kind, '*');
-			preferencesRevision++;
+			busy = false;
 			status = (result.steps ?? []).length
 				? m.editor_agent_steps_completed({ count: (result.steps ?? []).length })
 				: '';
+			await queryClient.invalidateQueries({
+				queryKey: editorPreferencesQueryKeys.workspace(workspace)
+			});
+			if (requestAbort !== controller) return;
+			const refreshed = await queryEditorPreferences(workspace, project, editorKind, '*');
+			if (requestAbort !== controller) return;
+			preferences = refreshed;
+			preferencesRevision++;
 		} catch (error) {
-			if (projectKey !== conversationProject) return;
+			if (requestAbort !== controller) return;
 			status = controller.signal.aborted
 				? m.editor_agent_stopped()
 				: error instanceof Error
@@ -235,7 +243,7 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
-		if (event.key !== 'Enter' || event.shiftKey) return;
+		if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
 		event.preventDefault();
 		void send();
 	}

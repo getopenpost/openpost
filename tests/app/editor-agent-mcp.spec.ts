@@ -881,6 +881,15 @@ test("MCP edits a layered image through the open design controller", async ({
   });
   expect(revealed.request.result.view_state_only).toBe(true);
 
+  // Chat controls must not dispatch canvas shortcuts against the selected layer.
+  await page.getByRole("button", { name: "Assistant", exact: true }).click();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Delete");
+  const afterChatKeys = await mcpTool(request, token, "image_inspect", scope);
+  expect(afterChatKeys.request.result.revision).toBe(edit.request.result.after_revision);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Assistant", exact: true })).toBeFocused();
+
   const styled = await mcpTool(request, token, "image_edit", {
     ...scope,
     project_id: projectId,

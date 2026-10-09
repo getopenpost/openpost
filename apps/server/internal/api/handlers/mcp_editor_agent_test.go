@@ -73,6 +73,40 @@ func TestEditorAssistantRequiresConfiguredModelEditAccessAndHostedPlan(t *testin
 	}
 }
 
+func TestFreeEditorAssistantHTTPRejectsRequestsBeforeCallingModel(t *testing.T) {
+	for _, kind := range []string{"image", "video"} {
+		t.Run(kind, func(t *testing.T) {
+			db := workflowHandlerDB(t)
+			relay := editoragent.NewRelay(db)
+			session, err := relay.Register(t.Context(), "ws", "user", "project", kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+			generator := &editorAssistantSequenceGenerator{responses: []editorAssistantDecision{{Kind: "final", Message: "Should not run"}}}
+			e := echo.New()
+			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+			NewEditorAgentAssistantHandler(db, workflowSession{}, entitlements.NewCloudBootstrapService(), generator, "test-model", "cloud").RegisterRoutes(api)
+			body, _ := json.Marshal(map[string]string{
+				"workspace_id": "ws", "session_id": session.ID, "project_id": "project", "prompt": "Make the title blue",
+			})
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/editor-agent/assistant", bytes.NewReader(body))
+			request.Header.Set("Authorization", "Bearer session")
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			e.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden || generator.calls != 0 {
+				t.Fatalf("free %s assistant status=%d calls=%d: %s", kind, response.Code, generator.calls, response.Body.String())
+			}
+			var failure struct {
+				Detail string `json:"detail"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &failure); err != nil || failure.Detail != "Hosted editor assistant unavailable: paid_plan_required" {
+				t.Fatalf("request failed for the wrong reason: %s (%v)", response.Body.String(), err)
+			}
+		})
+	}
+}
+
 func TestHostedEditorAssistantStopCancelsQueuedEdit(t *testing.T) {
 	db := workflowHandlerDB(t)
 	relay := editoragent.NewRelay(db)

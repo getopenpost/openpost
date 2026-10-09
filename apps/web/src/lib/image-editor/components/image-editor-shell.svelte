@@ -5222,6 +5222,18 @@
 		}
 	}
 
+	@media (min-width: 40rem) and (max-width: 63.999rem) and (max-height: 32rem) {
+		.image-editor-workspace[data-workspace='color'] {
+			grid-template-columns: minmax(0, 1fr) minmax(280px, 45%);
+			grid-template-rows: minmax(0, 1fr);
+		}
+
+		.image-editor-mobile-color {
+			border-top: 0;
+			border-left-width: 1px;
+		}
+	}
+
 	@media (min-width: 64rem) {
 		.image-editor-workspace {
 			grid-template-columns:

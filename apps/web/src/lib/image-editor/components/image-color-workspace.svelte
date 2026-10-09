@@ -11,7 +11,7 @@
 	} from '$lib/editor-color-grade/model';
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Disclosure } from '$lib/components/editor-density';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import EditorColorSlider from '$lib/components/editor-color-slider.svelte';
 	import EditorColorComparison from '$lib/components/editor-color-comparison.svelte';
 	import {
@@ -25,7 +25,7 @@
 	} from '$lib/editor-color-grade/model';
 	import { defaultImageAdjustments } from '../document';
 	import { imageEditorMixedValue, useImageEditor } from '../editor.svelte';
-	import type { ImageEditorImageAdjustments, ImageEditorLayer } from '../types';
+	import type { ImageEditorImageAdjustments } from '../types';
 	import {
 		EDITOR_COLOR_ADJUSTMENT_GROUPS,
 		EDITOR_COLOR_ADJUSTMENT_KEYS,
@@ -42,10 +42,25 @@
 	];
 
 	const editor = useImageEditor();
-	let scope = $state<ColorScope>(
-		editor.selectedLayers.some((layer) => layer.type === 'image' && layer.image) ? 'layer' : 'page'
-	);
-	let advancedOpen = $state(false);
+	if (editor.colorWorkspaceScope === null) {
+		editor.colorWorkspaceScope = editor.selectedLayers.some(
+			(layer) => layer.type === 'image' && layer.image
+		)
+			? 'layer'
+			: 'page';
+	}
+	const scope = $derived(editor.colorWorkspaceScope);
+	let toolScroller = $state<HTMLDivElement>();
+	$effect(() => {
+		// Start each chosen tool at its first control in both responsive panels.
+		if (editor.colorWorkspaceTool && toolScroller) toolScroller.scrollTop = 0;
+	});
+	const tools = $derived([
+		{ id: 'adjustments', label: m.image_editor_adjustments() },
+		{ id: 'curves', label: m['video_editor_gpu_effect_gpu-curves']() },
+		{ id: 'wheels', label: m['video_editor_gpu_effect_gpu-color-wheels']() },
+		{ id: 'scopes', label: m.video_editor_scopes() }
+	]);
 	const imageAdjustmentKeys = [...EDITOR_COLOR_ADJUSTMENT_KEYS, 'blur'] satisfies Array<
 		Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>
 	>;
@@ -126,6 +141,7 @@
 		key: 'wheels' | 'curves',
 		updates: Partial<EditorColorWheels> | ColorCurveValues
 	) {
+		setComparison('after');
 		const value =
 			key === 'curves'
 				? Object.fromEntries(
@@ -192,6 +208,7 @@
 		key: Exclude<keyof ImageEditorImageAdjustments, 'wheels' | 'curves'>,
 		value: number
 	): void {
+		setComparison('after');
 		if (scope === 'page') {
 			if (key !== 'blur' && activePage) editor.previewPageColorGrade(activePage.id, key, value);
 			return;
@@ -209,6 +226,7 @@
 	}
 
 	function applyPreset(adjustments: Partial<ImageEditorImageAdjustments>): void {
+		setComparison('after');
 		if (scope === 'page') {
 			if (!activePage) return;
 			editor.mutate(m.image_editor_adjustments(), (document) => {
@@ -261,7 +279,7 @@
 		editor.commitImageAdjustmentGesture();
 		editor.commitPageColorGradeGesture();
 		setComparison('after');
-		scope = next;
+		editor.colorWorkspaceScope = next;
 	}
 
 	function setComparison(mode: EditorColorComparisonMode): void {
@@ -273,199 +291,230 @@
 	}
 </script>
 
-<div class="space-y-5" data-image-color-workspace>
-	<div class="space-y-2">
-		<div
-			class="grid grid-cols-2 overflow-hidden rounded-md border"
-			role="group"
-			aria-label={m.image_editor_color()}
-		>
-			<Button
-				type="button"
-				variant={scope === 'layer' ? 'secondary' : 'ghost'}
-				class="rounded-none"
-				aria-pressed={scope === 'layer'}
-				onclick={() => setScope('layer')}
-			>
-				{m.image_editor_layers()}
-			</Button>
-			<Button
-				type="button"
-				variant={scope === 'page' ? 'secondary' : 'ghost'}
-				class="rounded-none border-l"
-				aria-pressed={scope === 'page'}
-				onclick={() => setScope('page')}
-			>
-				{m.image_editor_page()}
-			</Button>
-		</div>
-		<p class="text-xs text-muted-foreground" aria-live="polite">
-			{scope === 'page'
-				? (activePage?.name ?? m.image_editor_page())
-				: m.image_editor_selected_count({ count: targetCount })}
-		</p>
+<Tabs.Root
+	bind:value={editor.colorWorkspaceTool}
+	class="h-full min-h-0 gap-0"
+	data-image-color-workspace
+>
+	<div class="shrink-0 border-b p-2">
+		<Tabs.List class="grid h-auto w-full grid-cols-4 md:h-auto" aria-label={m.image_editor_color()}>
+			{#each tools as tool (tool.id)}
+				<Tabs.Trigger
+					value={tool.id}
+					class="min-h-11 min-w-0 px-1 text-xs whitespace-normal md:min-h-11"
+					>{tool.label}</Tabs.Trigger
+				>
+			{/each}
+		</Tabs.List>
 	</div>
-
-	<EditorColorComparison
-		mode={editor.colorComparisonBefore ? 'before' : 'after'}
-		disabled={!hasGrade}
-		ariaLabel={m.video_editor_color_compare_mode()}
-		afterLabel={m.video_editor_color_after()}
-		beforeLabel={m.video_editor_color_before()}
-		onmodechange={setComparison}
-	/>
-
-	{#if targetCount === 0}
-		<p class="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-			{m.image_editor_command_requires_selection()}
-		</p>
-	{:else}
-		<section class="space-y-2">
-			<h3 class="text-xs font-medium">{m.image_editor_quick_looks()}</h3>
-			<div class="grid grid-cols-3 gap-1">
-				{#each EDITOR_COLOR_GRADE_PRESETS as preset (preset.id)}
-					<Button
-						type="button"
-						variant={presetIsActive(preset.adjustments) ? 'secondary' : 'outline'}
-						size="xs"
-						disabled={!editor.canEdit}
-						aria-pressed={presetIsActive(preset.adjustments)}
-						onclick={() => applyPreset(preset.adjustments)}
-					>
-						{editorColorGradePresetLabel(preset.id)}
-					</Button>
-				{/each}
+	<div
+		class="image-editor-properties-scroll min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-3"
+		bind:this={toolScroller}
+	>
+		<div class="space-y-2">
+			<div
+				class="grid grid-cols-2 overflow-hidden rounded-md border"
+				role="group"
+				aria-label={m.image_editor_color()}
+			>
+				<Button
+					type="button"
+					variant={scope === 'layer' ? 'secondary' : 'ghost'}
+					class="rounded-none"
+					aria-pressed={scope === 'layer'}
+					onclick={() => setScope('layer')}
+				>
+					{m.image_editor_layers()}
+				</Button>
+				<Button
+					type="button"
+					variant={scope === 'page' ? 'secondary' : 'ghost'}
+					class="rounded-none border-l"
+					aria-pressed={scope === 'page'}
+					onclick={() => setScope('page')}
+				>
+					{m.image_editor_page()}
+				</Button>
 			</div>
-		</section>
+			<p class="text-xs text-muted-foreground" aria-live="polite">
+				{scope === 'page'
+					? (activePage?.name ?? m.image_editor_page())
+					: m.image_editor_selected_count({ count: targetCount })}
+			</p>
+		</div>
 
-		{#each adjustmentGroups.filter((group) => scope === 'layer' || group.pageSupported) as group (group.label)}
-			<section class="space-y-3 border-t pt-4">
-				<h3 class="text-xs font-medium">{group.label}</h3>
-				{#each group.controls as [label, key, min, max] (key)}
-					<EditorColorSlider
-						{label}
-						value={adjustmentValue(key)}
-						{min}
-						{max}
-						step={0.01}
-						displayScale={100}
-						decimals={0}
-						mixedLabel={m.image_editor_mixed_value()}
-						resetLabel={m.image_editor_reset()}
-						disabled={!editor.canEdit}
-						onbegin={() => {
-							if (scope === 'page') {
-								if (key !== 'blur' && activePage)
-									editor.beginPageColorGradeGesture(activePage.id, key);
-							} else editor.beginImageAdjustmentGesture(targetLayerIDs, key);
-						}}
-						onpreview={(value) => previewAdjustment(key, value)}
-						oncommit={(value) => commitAdjustment(key, value)}
-						oncancel={() => {
-							if (scope === 'page') editor.cancelPageColorGradeGesture();
-							else editor.cancelImageAdjustmentGesture();
-						}}
-					/>
-				{/each}
-			</section>
-		{/each}
-
-		<Disclosure label={m.video_editor_advanced()} bind:open={advancedOpen} class="border-t">
-			<div class="space-y-5 pt-3">
-				<section class="grid grid-cols-2 gap-x-4 gap-y-3">
-					{#each EDITOR_COLOR_WHEELS as descriptor (descriptor.hue)}
-						<div class="min-w-0 space-y-2">
-							<div class="flex items-center justify-between text-xs">
-								<span>{wheelLabels[descriptor.level]}</span>
+		{#if targetCount === 0}
+			<p class="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+				{m.image_editor_command_requires_selection()}
+			</p>
+		{:else}
+			<Tabs.Content value="adjustments" class="space-y-5">
+				{#if editor.colorWorkspaceTool === 'adjustments'}
+					<section class="space-y-2">
+						<h3 class="text-xs font-medium">{m.image_editor_quick_looks()}</h3>
+						<div class="grid grid-cols-3 gap-1">
+							{#each EDITOR_COLOR_GRADE_PRESETS as preset (preset.id)}
 								<Button
+									type="button"
+									variant={presetIsActive(preset.adjustments) ? 'secondary' : 'outline'}
 									size="xs"
-									variant="ghost"
 									disabled={!editor.canEdit}
-									aria-label={`${m.image_editor_reset()} ${wheelLabels[descriptor.level]}`}
-									onclick={() => {
-										const defaults = defaultEditorColorWheels();
-										previewTools('wheels', {
-											[descriptor.hue]: defaults[descriptor.hue],
-											[descriptor.amount]: defaults[descriptor.amount],
-											[descriptor.level]: defaults[descriptor.level]
-										});
-										finishTools();
-									}}>{m.image_editor_reset()}</Button
+									aria-pressed={presetIsActive(preset.adjustments)}
+									onclick={() => applyPreset(preset.adjustments)}
 								>
-							</div>
-							<div class="relative mx-auto aspect-square w-full max-w-32">
-								<EditorColorWheel
-									label={wheelLabels[descriptor.level]}
-									value={{ hue: wheels[descriptor.hue], amount: wheels[descriptor.amount] }}
+									{editorColorGradePresetLabel(preset.id)}
+								</Button>
+							{/each}
+						</div>
+					</section>
+
+					{#each adjustmentGroups.filter((group) => scope === 'layer' || group.pageSupported) as group (group.label)}
+						<section class="space-y-3 border-t pt-4">
+							<h3 class="text-xs font-medium">{group.label}</h3>
+							{#each group.controls as [label, key, min, max] (key)}
+								<EditorColorSlider
+									{label}
+									value={adjustmentValue(key)}
+									{min}
+									{max}
+									step={0.01}
+									displayScale={100}
+									decimals={0}
+									mixedLabel={m.image_editor_mixed_value()}
+									resetLabel={m.image_editor_reset()}
 									disabled={!editor.canEdit}
-									mixed={wheelMixed(descriptor.hue, descriptor.amount)}
-									onpreview={(value) =>
-										previewTools('wheels', {
-											[descriptor.hue]: value.hue,
-											[descriptor.amount]: value.amount
-										})}
+									onbegin={() => {
+										if (scope === 'page') {
+											if (key !== 'blur' && activePage)
+												editor.beginPageColorGradeGesture(activePage.id, key);
+										} else editor.beginImageAdjustmentGesture(targetLayerIDs, key);
+									}}
+									onpreview={(value) => previewAdjustment(key, value)}
+									oncommit={(value) => commitAdjustment(key, value)}
+									oncancel={() => {
+										if (scope === 'page') editor.cancelPageColorGradeGesture();
+										else editor.cancelImageAdjustmentGesture();
+									}}
+								/>
+							{/each}
+						</section>
+					{/each}
+				{/if}
+			</Tabs.Content>
+			<Tabs.Content value="curves">
+				{#if editor.colorWorkspaceTool === 'curves'}
+					<section class="video-editor-theme min-w-0">
+						<fieldset disabled={!editor.canEdit}>
+							<EditorColorCurves
+								gpuEffect={curves}
+								bind:activeChannel={editor.colorCurveChannel}
+								ondraft={(params) => {
+									if (params) previewTools('curves', params);
+									else cancelTools();
+								}}
+								oncommit={(params) => {
+									previewTools('curves', params);
+									finishTools();
+								}}
+							/>
+						</fieldset>
+					</section>
+				{/if}
+			</Tabs.Content>
+			<Tabs.Content value="wheels">
+				{#if editor.colorWorkspaceTool === 'wheels'}
+					<section class="grid grid-cols-2 gap-x-4 gap-y-3">
+						{#each EDITOR_COLOR_WHEELS as descriptor (descriptor.hue)}
+							<div class="min-w-0 space-y-2">
+								<div class="flex items-center justify-between text-xs">
+									<span>{wheelLabels[descriptor.level]}</span>
+									<Button
+										size="xs"
+										variant="ghost"
+										disabled={!editor.canEdit}
+										aria-label={`${m.image_editor_reset()} ${wheelLabels[descriptor.level]}`}
+										onclick={() => {
+											const defaults = defaultEditorColorWheels();
+											previewTools('wheels', {
+												[descriptor.hue]: defaults[descriptor.hue],
+												[descriptor.amount]: defaults[descriptor.amount],
+												[descriptor.level]: defaults[descriptor.level]
+											});
+											finishTools();
+										}}>{m.image_editor_reset()}</Button
+									>
+								</div>
+								<div class="relative mx-auto aspect-square w-full max-w-32">
+									<EditorColorWheel
+										label={wheelLabels[descriptor.level]}
+										value={{ hue: wheels[descriptor.hue], amount: wheels[descriptor.amount] }}
+										disabled={!editor.canEdit}
+										mixed={wheelMixed(descriptor.hue, descriptor.amount)}
+										onpreview={(value) =>
+											previewTools('wheels', {
+												[descriptor.hue]: value.hue,
+												[descriptor.amount]: value.amount
+											})}
+										oncommit={(value) => {
+											previewTools('wheels', {
+												[descriptor.hue]: value.hue,
+												[descriptor.amount]: value.amount
+											});
+											finishTools();
+										}}
+										oncancel={cancelTools}
+									/>
+								</div>
+								<EditorColorSlider
+									hideLabel
+									label={wheelLabels[descriptor.level]}
+									value={wheelMixed(descriptor.level, descriptor.level)
+										? null
+										: wheels[descriptor.level]}
+									min={descriptor.ring.min}
+									max={descriptor.ring.max}
+									step={0.01}
+									defaultValue={defaultEditorColorWheels()[descriptor.level]}
+									decimals={2}
+									disabled={!editor.canEdit}
+									resetLabel={m.image_editor_reset()}
+									mixedLabel={m.image_editor_mixed_value()}
+									onpreview={(value) => previewTools('wheels', { [descriptor.level]: value })}
 									oncommit={(value) => {
-										previewTools('wheels', {
-											[descriptor.hue]: value.hue,
-											[descriptor.amount]: value.amount
-										});
+										previewTools('wheels', { [descriptor.level]: value });
 										finishTools();
 									}}
 									oncancel={cancelTools}
 								/>
 							</div>
-							<EditorColorSlider
-								hideLabel
-								label={wheelLabels[descriptor.level]}
-								value={wheelMixed(descriptor.level, descriptor.level)
-									? null
-									: wheels[descriptor.level]}
-								min={descriptor.ring.min}
-								max={descriptor.ring.max}
-								step={0.01}
-								defaultValue={defaultEditorColorWheels()[descriptor.level]}
-								decimals={2}
-								disabled={!editor.canEdit}
-								resetLabel={m.image_editor_reset()}
-								mixedLabel={m.image_editor_mixed_value()}
-								onpreview={(value) => previewTools('wheels', { [descriptor.level]: value })}
-								oncommit={(value) => {
-									previewTools('wheels', { [descriptor.level]: value });
-									finishTools();
-								}}
-								oncancel={cancelTools}
-							/>
-						</div>
-					{/each}
-				</section>
-
-				<section
-					class="video-editor-theme h-60 min-w-0 overflow-hidden rounded-md border"
-					aria-label={m.video_editor_scopes()}
-				>
-					<EditorColorScopes
-						itemId={activePage?.id ?? null}
-						sample={editor.colorScopeSample}
-						embedded
-					/>
-				</section>
-
-				<section class="video-editor-theme min-w-0 border-t pt-4">
-					<fieldset disabled={!editor.canEdit}>
-						<EditorColorCurves
-							gpuEffect={curves}
-							ondraft={(params) => {
-								if (params) previewTools('curves', params);
-								else cancelTools();
-							}}
-							oncommit={(params) => {
-								previewTools('curves', params);
-								finishTools();
-							}}
+						{/each}
+					</section>
+				{/if}
+			</Tabs.Content>
+			<Tabs.Content value="scopes">
+				{#if editor.colorWorkspaceTool === 'scopes'}
+					<section
+						class="video-editor-theme h-60 min-w-0 overflow-hidden rounded-md border"
+						aria-label={m.video_editor_scopes()}
+					>
+						<EditorColorScopes
+							itemId={activePage?.id ?? null}
+							sample={editor.colorScopeSample}
+							embedded
 						/>
-					</fieldset>
-				</section>
-			</div>
-		</Disclosure>
-	{/if}
-</div>
+					</section>
+				{/if}
+			</Tabs.Content>
+		{/if}
+	</div>
+	<div class="shrink-0 border-t bg-card p-2">
+		<EditorColorComparison
+			mode={editor.colorComparisonBefore ? 'before' : 'after'}
+			disabled={!hasGrade}
+			ariaLabel={m.video_editor_color_compare_mode()}
+			afterLabel={m.video_editor_color_after()}
+			beforeLabel={m.video_editor_color_before()}
+			onmodechange={setComparison}
+		/>
+	</div>
+</Tabs.Root>

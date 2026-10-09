@@ -2,6 +2,7 @@ import { getContext, setContext } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { current, enablePatches, Immer, isDraft } from 'immer';
 import { m } from '$lib/paraglide/messages';
+import type { CurveChannel } from '$lib/editor-color-grade/curves';
 import {
 	blankImageEditorPage,
 	cloneImageEditorLayer,
@@ -294,6 +295,9 @@ export class ImageEditorController {
 		source: HTMLCanvasElement | OffscreenCanvas;
 		image: ImageData | null;
 	} | null>(null);
+	colorWorkspaceTool = $state('adjustments');
+	colorWorkspaceScope = $state<'layer' | 'page' | null>(null);
+	colorCurveChannel = $state<CurveChannel>('master');
 	colorComparisonBefore = $state(false);
 	colorComparisonPage = $state(false);
 	colorComparisonLayerIDs = $state.raw<string[]>([]);

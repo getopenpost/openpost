@@ -23,12 +23,14 @@
 		gpuEffect,
 		ondraft,
 		oncommit,
-		compact = false
+		compact = false,
+		activeChannel = $bindable<CurveChannel>('master')
 	}: {
 		gpuEffect: GpuEffect;
 		ondraft: (params: GpuParamValues | null) => void;
 		oncommit: (params: GpuParamValues) => void;
 		compact?: boolean;
+		activeChannel?: CurveChannel;
 	} = $props();
 
 	type ChannelDraft = Record<CurveChannel, CurvePoint[]>;
@@ -53,7 +55,6 @@
 	let svg = $state<SVGSVGElement>();
 	let plotWidth = $state(SIZE);
 	let plotHeight = $state(SIZE);
-	let activeChannel = $state<CurveChannel>('master');
 	let selectedPointIndex = $state<number | null>(null);
 	let draft = $state<ChannelDraft>(readAllChannels({}));
 	let drag = $state<DragState | null>(null);

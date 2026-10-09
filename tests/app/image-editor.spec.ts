@@ -858,11 +858,7 @@ for (const scheme of ["light", "dark"] as const) {
       const controlsBox = (await color.boundingBox())!;
       expect(canvasBox.height).toBeGreaterThanOrEqual(220);
       expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
-      const advanced = color.getByRole("button", {
-        name: "Advanced",
-        exact: true,
-      });
-      if ((await advanced.getAttribute("aria-expanded")) !== "true") await advanced.click();
+      await color.getByRole("tab", { name: "Color Wheels", exact: true }).click();
       const lift = page.getByRole("slider", {
         name: "Lift color wheel",
         exact: true,
@@ -879,6 +875,25 @@ for (const scheme of ["light", "dark"] as const) {
       await page.screenshot({
         path: testInfo.outputPath(`photo-color-${width}.png`),
       });
+      await expect(color.getByRole("button", { name: "Before", exact: true })).toBeInViewport({
+        ratio: 1,
+      });
+      await color.getByRole("tab", { name: "Curves", exact: true }).click();
+      await color.getByRole("button", { name: "Red", exact: true }).click();
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await expect(color.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await page.setViewportSize({ width, height: 844 });
+      await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
       await page.getByRole("button", { name: "Collapse pages", exact: true }).click();
       await page.locator("#image-editor-workspace-tab-edit").click();
     }
@@ -890,6 +905,10 @@ for (const scheme of ["light", "dark"] as const) {
       exact: true,
     });
     expect((await shortCanvas.boundingBox())!.height).toBeGreaterThanOrEqual(100);
+    await page
+      .locator("[data-image-color-workspace]:visible")
+      .getByRole("tab", { name: "Adjustments", exact: true })
+      .click();
     const warm = page
       .locator("[data-image-color-workspace]:visible")
       .getByRole("button", { name: "Warm", exact: true });

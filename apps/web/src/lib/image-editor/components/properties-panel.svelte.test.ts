@@ -107,7 +107,7 @@ it('opens Transform and exposes alignment for a multi-layer selection', async ()
 	});
 });
 
-it('targets selected images first and keeps advanced color tools behind a disclosure', async () => {
+it('opens color tools directly and keeps comparison reachable while adjusting a photo', async () => {
 	const editor = setup([imageLayer()]);
 	editor.selectLayer('image');
 	const screen = await render(Fixture, { editor, colorWorkspace: true });
@@ -115,12 +115,11 @@ it('targets selected images first and keeps advanced color tools behind a disclo
 	await expect
 		.element(screen.getByRole('button', { name: 'Layers' }))
 		.toHaveAttribute('aria-pressed', 'true');
-	await expect
-		.element(screen.getByRole('button', { name: 'Advanced' }))
-		.toHaveAttribute('aria-expanded', 'false');
 	await expect.element(screen.getByText('Tone')).toBeVisible();
-	await expect.element(screen.getByLabelText('Scopes', { exact: true })).not.toBeVisible();
-	await screen.getByRole('button', { name: 'Advanced' }).click();
+	await expect
+		.element(screen.getByRole('tab', { name: 'Scopes', exact: true }))
+		.toHaveAttribute('aria-selected', 'false');
+	await screen.getByRole('tab', { name: 'Curves', exact: true }).click();
 	for (const channel of ['Master', 'Red', 'Green', 'Blue']) {
 		const button = screen.getByRole('button', { name: channel, exact: true });
 		await expect.element(button).toBeVisible();
@@ -128,6 +127,38 @@ it('targets selected images first and keeps advanced color tools behind a disclo
 		expect(bounds.width).toBeGreaterThanOrEqual(44);
 		expect(bounds.height).toBeGreaterThanOrEqual(44);
 	}
+	await screen.getByRole('button', { name: 'Red', exact: true }).click();
+	await screen.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+	await screen.getByRole('button', { name: 'Mono', exact: true }).click();
+	const before = screen.getByRole('button', { name: 'Before', exact: true });
+	const comparisonTop = before.element().getBoundingClientRect().top;
+	screen
+		.getByRole('slider', { name: 'Hue', exact: true })
+		.element()
+		.scrollIntoView({ block: 'nearest' });
+	expect(before.element().getBoundingClientRect().top).toBe(comparisonTop);
+	await before.click();
+	expect(editor.colorComparisonBefore).toBe(true);
+	await screen.getByRole('tab', { name: 'Curves', exact: true }).click();
+	await expect
+		.element(screen.getByRole('button', { name: 'Red', exact: true }))
+		.toHaveAttribute('aria-pressed', 'true');
+});
+
+it('shows the edited result when adjusting color from Before comparison', async () => {
+	const editor = setup([imageLayer()]);
+	editor.selectLayer('image');
+	const screen = await render(Fixture, { editor, colorWorkspace: true });
+	await screen.getByRole('button', { name: 'Mono', exact: true }).click();
+	await screen.getByRole('button', { name: 'Before', exact: true }).click();
+	expect(editor.colorComparisonBefore).toBe(true);
+	await screen.getByRole('textbox', { name: 'Exposure', exact: true }).fill('25');
+	await userEvent.tab();
+	expect(editor.selectedLayers[0].image?.adjustments.exposure).toBe(0.25);
+	expect(editor.colorComparisonBefore).toBe(false);
+	editor.undo();
+	expect(editor.selectedLayers[0].image?.adjustments.exposure).toBe(0);
+	expect(editor.selectedLayers[0].image?.adjustments.saturation).toBe(-1);
 });
 
 it.each(['layer', 'group'])(
